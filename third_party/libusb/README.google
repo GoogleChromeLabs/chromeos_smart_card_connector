@@ -1,0 +1,11 @@
+URL: https://sourceforge.net/projects/libusb/files/libusb-1.0/libusb-1.0.20/libusb-1.0.20.tar.bz2
+Version: 1.0.20
+License: LGPL v2.1
+License File: LICENSE
+Description:
+libusb is a C library that provides generic access to USB devices.
+Local Modifications:
+LICENSE file has been created for compliance purposes. Not included in original
+distribution.
+The library interface was reimplemented under Google Native Client, basing on
+the chrome.usb JavaScript Extensions API.
