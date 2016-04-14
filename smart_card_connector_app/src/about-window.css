@@ -1,0 +1,100 @@
+/* Copyright 2016 Google Inc. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+* {
+  -webkit-user-select: text;
+}
+
+html {
+  height: 100%;
+}
+
+html,
+body {
+  color: rgba(0, 0, 0, 0.87);
+  font-family: Roboto;
+  font-weight: 400;
+  overflow: auto;
+}
+
+#title::after {
+  content: '__MSG_aboutWindowTitle__';
+}
+
+body {
+  font-size: 14px;
+  margin: 0;
+  padding: 0 0 0 16px;
+}
+
+#header {
+  color: rgba(0, 0, 0, 0.87);
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0;
+  padding: 18px 0 0;
+}
+
+#header::after {
+  content: '__MSG_aboutWindowHeader__';
+}
+
+#app-and-sources-links-block,
+#privacy-policy-block {
+  margin: 10px 0;
+}
+
+#app-link-text-prefix::after {
+  content: '__MSG_appLinkTextPrefix__';
+}
+
+#app-link::after {
+  content: '__MSG_appLinkTitle__';
+}
+
+#sources-link-text-prefix::after {
+  content: '__MSG_sourcesLinkTextPrefix__';
+}
+
+#sources-link::after {
+  content: '__MSG_sourcesLinkTitle__';
+}
+
+#privacy-policy-text-prefix::after {
+  content: '__MSG_privacyPolicyTextPrefix__';
+}
+
+#third-party-licenses-header {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+#third-party-licenses-header::after {
+  content: '__MSG_thirdPartyLicensesHeader__';
+}
+
+#third-party-licenses-introduction::after {
+  content: '__MSG_thirdPartyLicensesIntroduction__';
+}
+
+.third-party-library-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 20px 0 0;
+}
+
+.third-party-license {
+  white-space: pre-line;
+}

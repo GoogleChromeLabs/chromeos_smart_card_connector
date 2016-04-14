@@ -1,0 +1,158 @@
+{
+  "appName": {
+    "message": "Smart Card Connector for Chrome OS",
+    "description": "The title of the application, displayed in the web store."
+  },
+  "appShortName": {
+    "message": "Smart Card Connector",
+    "description": "The short version of the application title."
+  },
+  "appDesc": {
+    "message": "Provides access to Smart Card readers by exposing the PC/SC-Lite API to other Apps",
+    "description": "The description of the application, displayed in the web store."
+  },
+  "mainWindowTitle": {
+    "message": "Smart Card Connector",
+    "description": "The title of the main window"
+  },
+  "mainWindowHeader": {
+    "message": "Smart Card Connector",
+    "description": "The header displayed in the main window"
+  },
+  "readersListHeader": {
+    "message": "Smart Card readers",
+    "description": "The header displayed in front of the readers list"
+  },
+  "addDevice": {
+    "message": "ADD READER",
+    "description": "Title of the button that can be used to open a dialog for adding a new Smart Card reader"
+  },
+  "readerDescriptionProductNamePart": {
+    "message": "$productName$",
+    "description": "Part of the device description string that displays the product name field",
+    "placeholders": {
+      "productName": {
+        "content": "$1",
+        "example": "Noname Smart Card Reader"
+      }
+    }
+  },
+  "readerDescriptionManufacturerNamePart": {
+    "message": "from $manufacturerName$",
+    "description": "Part of the device description string that displays the manufacturer name field",
+    "placeholders": {
+      "manufacturerName": {
+        "content": "$1",
+        "example": "Noname Vendor"
+      }
+    }
+  },
+  "unknownReaderDescription": {
+    "message": "Unknown reader",
+    "description": "Device description string, in case no meaningful device information is available"
+  },
+  "openAbout": {
+    "message": "About",
+    "description": "Title of the link that can be used to open the App's About page"
+  },
+  "exportLogs": {
+    "message": "Export logs",
+    "description": "Title of the link that can be used to copy the logs into the clipboard"
+  },
+  "exportLogsExporting": {
+    "message": "Preparing logs...",
+    "description": "Title of the link that can be used to copy the logs into the clipboard, during the copying process"
+  },
+  "exportLogsExported": {
+    "message": "Logs were copied to clipboard",
+    "description": "Title of the link that can be used to copy the logs into the clipboard, shortly after the copying process has finished"
+  },
+  "pcscClientHandlingUserPromptDialogTitle": {
+    "message": "Smart Card Connector",
+    "description": "Window title of the PC/SC-Lite client handling user prompt dialog"
+  },
+  "pcscClientHandlingUserPromptDialogHeader": {
+    "message": "Smart Card Connector",
+    "description": "Caption displayed in the PC/SC-Lite client handling user prompt dialog"
+  },
+  "pcscClientHandlingUserPromptDialogAllow": {
+    "message": "ALLOW",
+    "description": "\"Allow\" button title in the PC/SC-Lite client handling user prompt dialog"
+  },
+  "pcscClientHandlingUserPromptDialogDeny": {
+    "message": "BLOCK",
+    "description": "\"Block\" button title in the PC/SC-Lite client handling user prompt dialog"
+  },
+  "pcscClientHandlingUserPromptDialogMessagePrefix": {
+    "message": "The app",
+    "description": "The prefix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is in the bundled list of the known Apps"
+  },
+  "pcscClientHandlingUserPromptDialogMessageAppNamePart": {
+    "message": "$appName$",
+    "description": "The App name part of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is in the bundled list of the known Apps",
+    "placeholders": {
+      "appName": {
+        "content": "$1",
+        "example": "Some App"
+      }
+    }
+  },
+  "pcscClientHandlingUserPromptDialogMessageSuffix": {
+    "message": "is trying to access the Smart Card Connector. Would like to grant this App permission to access Smart card readers?",
+    "description": "The suffix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is in the bundled list of the known Apps"
+  },
+  "pcscClientHandlingUserPromptDialogMessagePrefixForUnknownApp": {
+    "message": "[DEBUG ONLY] The app from unknown vendor",
+    "description": "The prefix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is not in the bundled list of the known Apps. This message will never be used in the production version"
+  },
+  "pcscClientHandlingUserPromptDialogMessageAppIdPartForUnknownApp": {
+    "message": "(app id: \"$appId$\")",
+    "description": "The App id part of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is not in the bundled list of the known Apps. This message will never be used in the production version",
+    "placeholders": {
+      "appId": {
+        "content": "$1",
+        "example": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      }
+    }
+  },
+  "pcscClientHandlingUserPromptDialogMessageSuffixForUnknownApp": {
+    "message": "is trying to access the Smart Card Connector. Would like to grant this App permission to access Smart card readers?",
+    "description": "The suffix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is not in the bundled list of the known Apps. This message will never be used in the production version"
+  },
+  "aboutWindowTitle": {
+    "message": "About",
+    "description": "The title of the About window"
+  },
+  "aboutWindowHeader": {
+    "message": "About",
+    "description": "The header displayed in the About window"
+  },
+  "appLinkTextPrefix": {
+    "message": "This App can be found on the Chrome Web Store",
+    "description": "The beginning of the sources block, that will be followed with the link tag pointing to the App page"
+  },
+  "appLinkTitle": {
+    "message": "here",
+    "description": "Title displayed on the link pointing to the App page"
+  },
+  "sourcesLinkTextPrefix": {
+    "message": "The sources of the App are available",
+    "description": "The beginning of the sources block, that will be followed with the link tag pointing to the App sources page"
+  },
+  "sourcesLinkTitle": {
+    "message": "here",
+    "description": "Title displayed on the link pointing to the App sources page"
+  },
+  "privacyPolicyTextPrefix": {
+    "message": "By installing this item, you agree to the Google Terms of Service and Privacy Policy at",
+    "description": "The beginning of the privacy policy block, that will be followed with the link tag pointing to the Google privacy policy page"
+  },
+  "thirdPartyLicensesHeader": {
+    "message": "Notice of Open Source Code and Licenses",
+    "description": "The header displayed in front of the third-party library licenses list"
+  },
+  "thirdPartyLicensesIntroduction": {
+    "message": "Additionally, this App utilizes open source libraries from third parties that come with their own licenses. Please see below for each library and associated license:",
+    "description": "The text displayed in front of the third-party library licenses"
+  }
+}

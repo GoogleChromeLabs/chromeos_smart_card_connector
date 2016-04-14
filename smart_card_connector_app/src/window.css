@@ -1,0 +1,157 @@
+/* Copyright 2016 Google Inc. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+* {
+  -webkit-user-select: text;
+}
+
+html,
+body,
+button {
+  color: rgba(0, 0, 0, 0.87);
+  font-family: Roboto;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+#title::after {
+  content: '__MSG_mainWindowTitle__';
+}
+
+body {
+  margin: 0;
+  padding: 0 0 0 16px;
+}
+
+#header {
+  -webkit-app-region: drag;
+  color: rgba(0, 0, 0, 0.87);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  padding: 18px 0 0;
+}
+
+#header::after {
+  content: '__MSG_mainWindowHeader__';
+}
+
+#close-window {
+  -webkit-app-region: no-drag;
+  background: none;
+  border: none;
+  color: rgba(0, 0, 0, 0.54);
+  cursor: pointer;
+  font-size: 17pt;
+  padding: 0;
+  position: absolute;
+  right: 9px;
+  top: 3px;
+  -webkit-user-select: none;
+}
+
+.list-header {
+  color: #4285f4;
+  font-size: 12px;
+  font-weight: 100;
+  margin: 0;
+  padding: 2px 0 12px;
+}
+
+.list {
+  list-style-type: none;
+  margin: 0;
+  max-height: 80px;
+  overflow-y: auto;
+  padding: 0;
+}
+
+.list li {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  margin: 0;
+  padding: 8px 0 16px;
+}
+
+#readers-list-header {
+  margin: 20px 0 0;
+}
+
+#readers-list-header::after {
+  content: '__MSG_readersListHeader__';
+}
+
+.button {
+  background: none;
+  border: none;
+  color: #4285f4;
+  cursor: pointer;
+  font-weight: 500;
+  height: 32px;
+  margin: 0 12px;
+  padding: 0 16px;
+}
+
+.button:hover,
+.button:focus {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.button:active {
+  background-color: rgba(0, 0, 0, 0.14);
+}
+
+#add-device-wrapper {
+  text-align: right;
+}
+
+#add-device {
+  margin: 12px;
+}
+
+#add-device::after {
+  content: '__MSG_addDevice__';
+}
+
+#footer {
+  bottom: 0;
+  left: 0;
+  padding: 24px 0 20px 16px;
+  position: absolute;
+  right: 0;
+}
+
+.footer-link {
+  color: rgba(0, 0, 0, 0.54);
+  display: inline-block;
+  font-size: 12px;
+  margin-right: 15px;
+  text-decoration: none;
+}
+
+#open-about::after {
+  content: '__MSG_openAbout__';
+}
+
+#export-logs::after {
+  content: '__MSG_exportLogs__';
+}
+
+#export-logs.exporting::after {
+  content: '__MSG_exportLogsExporting__';
+}
+
+#export-logs.exported::after {
+  content: '__MSG_exportLogsExported__';
+}

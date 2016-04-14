@@ -1,0 +1,15 @@
+{
+  "type": "object",
+  "properties": {
+    "force_allowed_client_app_ids": {
+      "title": "Force allowed client App identifiers.",
+      "description": "List of client App identifiers that are force allowed to talk to the Smart Card Connector App. No user prompts or notifications are shown for these Apps by the Smart Card Connector App.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 32,
+        "maxLength": 32
+      }
+    }
+  }
+}
