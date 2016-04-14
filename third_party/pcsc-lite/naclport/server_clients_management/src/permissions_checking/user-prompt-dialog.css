@@ -1,0 +1,145 @@
+/* Copyright 2016 Google Inc.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ * 3. The name of the author may not be used to endorse or promote products
+ *    derived from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+ * IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+ * OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+ * NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+ * DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+ * THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+* {
+  -webkit-user-select: text;
+}
+
+html,
+body,
+button {
+  color: rgba(0, 0, 0, 0.87);
+  font-family: Roboto;
+  font-size: 13px;
+  font-weight: 400;
+}
+
+title::after {
+  content: "__MSG_pcscClientHandlingUserPromptDialogTitle__";
+}
+
+body {
+  margin: 0;
+  padding: 16px 0 0 16px;
+}
+
+#header {
+  -webkit-app-region: drag;
+  color: rgba(0, 0, 0, 0.87);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0;
+  padding: 2px 0 0;
+}
+
+#header::after {
+  content: "__MSG_pcscClientHandlingUserPromptDialogHeader__";
+}
+
+#close-window {
+  -webkit-app-region: no-drag;
+  background: none;
+  border: none;
+  color: rgba(0, 0, 0, 0.54);
+  cursor: pointer;
+  font-size: 17pt;
+  padding: 0;
+  position: absolute;
+  right: 9px;
+  top: 3px;
+  -webkit-user-select: none;
+}
+
+#message {
+  color: rgba(0, 0, 0, 0.54);
+  line-height: 1.4;
+  padding: 20px 16px 0 0;
+}
+
+#message-prefix::after {
+  content: "__MSG_pcscClientHandlingUserPromptDialogMessagePrefix__";
+}
+
+#message-prefix.untrusted::after {
+  content: "__MSG_pcscClientHandlingUserPromptDialogMessagePrefixForUnknownApp__";
+}
+
+#message-app-link,
+#message-app-link:link,
+#message-app-link:visited,
+#message-app-link:hover,
+#message-app-link:active {
+  color: rgba(0, 0, 0, 0.54);
+}
+
+#message-suffix::after {
+  content: "__MSG_pcscClientHandlingUserPromptDialogMessageSuffix__";
+}
+
+#message-suffix.untrusted::after {
+  content: "__MSG_pcscClientHandlingUserPromptDialogMessageSuffixForUnknownApp__";
+}
+
+#buttons-container {
+  text-align: right;
+  margin: 12px 0 0;
+}
+
+.button {
+  background: none;
+  border: none;
+  color: #4285f4;
+  cursor: pointer;
+  font-weight: 500;
+  height: 32px;
+  margin: 0 12px;
+  padding: 0 16px;
+}
+
+.button:hover,
+.button:focus {
+  background-color: rgba(0, 0, 0, 0.08);
+}
+
+.button:active {
+  background-color: rgba(0, 0, 0, 0.14);
+}
+
+#allow {
+  margin: 0 8px 12px 12px;
+}
+
+#allow::after {
+  content: "__MSG_pcscClientHandlingUserPromptDialogAllow__";
+}
+
+#deny {
+  margin: 0 12px 12px 0;
+}
+
+#deny::after {
+  content: "__MSG_pcscClientHandlingUserPromptDialogDeny__";
+}
