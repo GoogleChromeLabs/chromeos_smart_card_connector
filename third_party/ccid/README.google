@@ -1,0 +1,13 @@
+URL: https://alioth.debian.org/frs/download.php/file/4162/ccid-1.4.22.tar.bz2
+Version: 1.4.22
+License: LGPL v2.1
+License File: LICENSE
+Description:
+A generic USB CCID (Chip/Smart Card Interface Devices) driver and ICCD
+(Integrated Circuit(s) Card Devices).
+Local Modifications:
+LICENSE file has been created for compliance purposes. Not included in original
+distribution.
+Added building scripts for building the library under the Google Native Client.
+The config template was modified to have the DRIVER_OPTION_USE_BOGUS_FIRMWARE
+flag enabled in the ifdDriverOptions config option.

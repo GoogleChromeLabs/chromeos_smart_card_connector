@@ -1,0 +1,31 @@
+From fe3dae69bccb2eca4f09e7ee14583728e6c13827 Mon Sep 17 00:00:00 2001
+From: Maksim Ivanov <emaxx@google.com>
+Date: Wed, 2 Mar 2016 21:50:17 +0100
+Subject: [PATCH] Patch ccid: tweak ifdDriverOptions option
+
+The ifdDriverOptions config option default is changed to 0x0004
+(DRIVER_OPTION_USE_BOGUS_FIRMWARE). This is a workaround for ccid
+NaCl port refusing to work with some readers because their device
+release number ("bcdDevice") seems to be too low - while actually it's
+always zero in the NaCl port, because chrome.usb API does not provide
+this field.
+---
+ third_party/ccid/src-1.4.22/src/Info.plist.src | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/third_party/ccid/src-1.4.22/src/Info.plist.src b/third_party/ccid/src-1.4.22/src/Info.plist.src
+index 80dbeeb..e7fdffc 100644
+--- a/third_party/ccid/src-1.4.22/src/Info.plist.src
++++ b/third_party/ccid/src-1.4.22/src/Info.plist.src
+@@ -51,7 +51,7 @@
+ 	-->
+ 
+ 	<key>ifdDriverOptions</key>
+-	<string>0x0000</string>
++	<string>0x0004</string>
+ 
+ 	<!-- Possible values for ifdDriverOptions
+ 	0x01: DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED
+-- 
+2.7.0.rc3.207.g0ac5344
+
