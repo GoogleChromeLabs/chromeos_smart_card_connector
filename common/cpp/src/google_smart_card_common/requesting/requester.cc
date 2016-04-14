@@ -1,0 +1,94 @@
+// Copyright 2016 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include <google_smart_card_common/requesting/requester.h>
+
+#include <condition_variable>
+#include <mutex>
+#include <utility>
+
+#include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/optional.h>
+
+const char kRequesterDestroyedErrorMessage[] = "The requester was destroyed";
+
+namespace google_smart_card {
+
+Requester::Requester(const std::string& name)
+    : name_(name) {}
+
+Requester::~Requester() {
+  const std::vector<std::shared_ptr<AsyncRequestState>> request_states =
+      async_requests_storage_.PopAll();
+  for (const auto& request_state : request_states) {
+    request_state->SetResult(GenericRequestResult::CreateFailed(
+        kRequesterDestroyedErrorMessage));
+  }
+}
+
+AsyncRequest Requester::StartAsyncRequest(
+    const pp::Var& payload, AsyncRequestCallback callback) {
+  AsyncRequest async_result;
+  StartAsyncRequest(payload, callback, &async_result);
+  return async_result;
+}
+
+GenericRequestResult Requester::PerformSyncRequest(const pp::Var& data) {
+  std::mutex mutex;
+  std::condition_variable condition;
+  optional<GenericRequestResult> result;
+
+  StartAsyncRequest(
+    data,
+    [&mutex, &condition, &result](GenericRequestResult async_result) {
+      GOOGLE_SMART_CARD_CHECK(!result);
+      std::unique_lock<std::mutex> lock(mutex);
+      result = std::move(async_result);
+      condition.notify_one();
+    });
+
+  std::unique_lock<std::mutex> lock(mutex);
+  condition.wait(lock, [&result] {
+    return !!result;
+  });
+
+  GOOGLE_SMART_CARD_CHECK(result->status() != RequestResultStatus::kCanceled);
+  return std::move(*result);
+}
+
+AsyncRequest Requester::CreateAsyncRequest(
+    const pp::Var& /*payload*/,
+    AsyncRequestCallback callback,
+    RequestId* request_id) {
+  // FIXME(emaxx): The payload argument is ignored for now, but it can be
+  // utilized for creating some more informative logging at the place where the
+  // requests results are handled.
+
+  const auto async_request_state = std::make_shared<AsyncRequestState>(
+      callback);
+  *request_id = async_requests_storage_.Push(async_request_state);
+  return AsyncRequest(async_request_state);
+}
+
+bool Requester::SetAsyncRequestResult(
+    RequestId request_id, GenericRequestResult request_result) {
+  const std::shared_ptr<AsyncRequestState> async_request_state =
+      async_requests_storage_.Pop(request_id);
+  if (!async_request_state)
+    return false;
+  async_request_state->SetResult(std::move(request_result));
+  return true;
+}
+
+}  // namespace google_smart_card
