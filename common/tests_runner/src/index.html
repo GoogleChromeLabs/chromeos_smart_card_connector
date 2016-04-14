@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<!--
+Copyright 2016 Google Inc. All Rights Reserved.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<head>
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="-1">
+  <title>libusb ppapi Tests</title>
+  <style>
+    #tests { list-style: none; }
+    #tests > li { padding: 5px 0; }
+    .ok { background-color: #3c3; }
+    .failed { background-color: #f44; }
+  </style>
+  <script type="text/javascript" src="common.js"></script>
+  <script type="text/javascript">
+    function handleMessage(message) {
+      var data = message.data;
+      if (data.type == "testing_started") {
+        testingStartedCommand();
+      } else if (data.type == "test_started") {
+        testStartedCommand(data.test_case_name, data.test_name);
+      } else if (data.type == "test_part_failed") {
+        testPartFailedCommand(
+            data.test_case_name,
+            data.test_name,
+            data.file_name,
+            data.line_number,
+            data.summary);
+      } else if (data.type == "test_finished") {
+        testFinishedCommand(data.test_case_name, data.test_name, data.ok);
+      } else if (data.type == "testing_finished") {
+        testingFinishedCommand(data.test_count, data.failed_test_count);
+      }
+    }
+
+    function testingStartedCommand() {
+      document.getElementById("testsStatusField").textContent = "Testing...";
+    }
+
+    function testingFinishedCommand(status) {
+      document.getElementById("testsStatusField").textContent = status;
+    }
+
+    function makeTestElementId(testCaseName, testName) {
+      return "test." + testCaseName + "." + testName;
+    }
+
+    function testStartedCommand(testCaseName, testName) {
+      var testListEl = document.getElementById("tests");
+      var testEl = document.createElement("li");
+      var testRowEl = document.createElement("div");
+      var testNameEl = document.createElement("span");
+      var testResultEl = document.createElement("span");
+      testRowEl.classList.add("row");
+      testNameEl.classList.add("name");
+      testNameEl.textContent = testCaseName + "." + testName;
+      testResultEl.classList.add("result");
+      testRowEl.appendChild(testNameEl);
+      testRowEl.appendChild(testResultEl);
+      testEl.appendChild(testRowEl);
+      testEl.id = makeTestElementId(testCaseName, testName);
+      testListEl.appendChild(testEl);
+      updateScroll();
+    }
+
+    function testPartFailedCommand(
+        testCaseName, testName, fileName, lineNumber, summary) {
+      var testEl = document.getElementById(
+          makeTestElementId(testCaseName, testName));
+      var testMessageEl = document.createElement("pre");
+      testMessageEl.textContent +=
+          fileName + ":" + lineNumber + ": " + summary;
+      testEl.appendChild(testMessageEl);
+      updateScroll();
+    }
+
+    function testFinishedCommand(testCaseName, testName, ok) {
+      var testEl = document.getElementById(
+          makeTestElementId(testCaseName, testName));
+      testEl.querySelector(".row").classList.add(ok ? "ok" : "failed");
+      testEl.querySelector(".result").textContent =
+          ": " + (ok ? "OK" : "FAILED");
+      updateScroll();
+    }
+
+    function testingFinishedCommand(testCount, failedTestCount) {
+      var statusEl = document.getElementById("testsStatusField");
+      if (!failedTestCount) {
+        statusEl.textContent =
+            "Finished successfully (" + testCount + " tests were performed).";
+        statusEl.classList.add("ok");
+      } else {
+        statusEl.textContent =
+            "Finished with errors (" + failedTestCount + " out of "
+            + testCount + " tests failed).";
+        statusEl.classList.add("failed");
+      }
+    }
+
+    function updateScroll() {
+      document.getElementById("testsStatusField").scrollIntoView(false);
+    }
+  </script>
+</head>
+<body data-attrs="PS_EXIT_MESSAGE=testend" data-name="tests_runner" data-tools="pnacl" data-configs="Debug Release" data-path="." data-width="0" data-height="0">
+  <h1>libusb ppapi Tests</h1>
+  <div id="listener"></div>
+  <h2>NaCl module: <code id="statusField">Initializing</code>.</h2>
+  <ul id="tests"></ul>
+  <h2>Testing: <code id="testsStatusField">Initializing...</code></h2>
+</body>
+</html>
