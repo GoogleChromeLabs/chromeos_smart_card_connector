@@ -25,6 +25,10 @@
 // Also there are function overloads defined that perform the conversion between
 // values of these types and Pepper values (which correspond to the JavaScript
 // values used with chrome.usb API).
+//
+// FIXME(emaxx): Think about adding the space for all unrecognized structure
+// fields, as currently any change in chrome.usb API that adds a new required
+// field to any input type will break communication with this library.
 
 #ifndef GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_CHROME_USB_TYPES_H_
 #define GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_CHROME_USB_TYPES_H_
@@ -54,6 +58,7 @@ struct Device {
   int64_t device;
   int64_t vendor_id;
   int64_t product_id;
+  optional<int64_t> version;
   std::string product_name;
   std::string manufacturer_name;
   std::string serial_number;

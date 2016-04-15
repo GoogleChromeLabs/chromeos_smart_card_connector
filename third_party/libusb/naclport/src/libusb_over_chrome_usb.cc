@@ -444,8 +444,12 @@ void FillLibusbDeviceDescriptor(
 
   result->idProduct = chrome_usb_device.product_id;
 
-  // FIXME(emaxx): Add "bcdDevice" field extraction when this information is
-  // provided by the chrome.usb API - see <http://crbug.com/598825>.
+  if (chrome_usb_device.version) {
+    // The "bcdDevice" field is filled only when the chrome.usb API returns the
+    // corresponding information (which happens only in Chrome >= 51; refer to
+    // <http://crbug.com/598825>).
+    result->bcdDevice = *chrome_usb_device.version;
+  }
 
   //
   // chrome.usb API also provides information about the product name,

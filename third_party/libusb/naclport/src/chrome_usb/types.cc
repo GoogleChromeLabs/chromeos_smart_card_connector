@@ -102,6 +102,7 @@ void DeviceConverter::VisitFields(const Device& value, Callback callback) {
   callback(&value.device, "device");
   callback(&value.vendor_id, "vendorId");
   callback(&value.product_id, "productId");
+  callback(&value.version, "version");
   callback(&value.product_name, "productName");
   callback(&value.manufacturer_name, "manufacturerName");
   callback(&value.serial_number, "serialNumber");
