@@ -200,7 +200,7 @@ Pinger.prototype.postPingMessage_ = function() {
 Pinger.prototype.scheduleTimeoutTimer_ = function() {
   GSC.Logging.checkWithLogger(this.logger, goog.isNull(this.timeoutTimerId_));
   this.timeoutTimerId_ = goog.Timer.callOnce(
-      this.timeoutCallback_, PINGER_TIMEOUT_MILLISECONDS, this);
+      this.timeoutCallback_.bind(this), PINGER_TIMEOUT_MILLISECONDS, this);
 };
 
 /** @private */
