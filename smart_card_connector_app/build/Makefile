@@ -28,6 +28,7 @@ include $(COMMON_DIR_PATH)/make/nacl_module_dependency_in_app_common.mk
 include $(THIRD_PARTY_DIR_PATH)/libusb/naclport/include.mk
 
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/js_client/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/include.mk
 
 
@@ -46,6 +47,8 @@ $(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_BACKGROUND_INPUT_PATHS
 
 JS_COMPILER_WINDOW_INPUT_PATHS := \
 	$(SOURCES_PATH) \
+	$(PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
+	$(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 
 $(eval $(call BUILD_JS_SCRIPT,window.js,$(JS_COMPILER_WINDOW_INPUT_PATHS),GoogleSmartCard.ConnectorApp.Window.Main))

@@ -71,6 +71,7 @@ naclModule.load();
 
 chrome.app.runtime.onLaunched.addListener(launchedListener);
 
+chrome.runtime.onConnect.addListener(connectionListener);
 chrome.runtime.onConnectExternal.addListener(externalConnectionListener);
 
 chrome.runtime.onInstalled.addListener(installedListener);
@@ -87,16 +88,42 @@ function openWindow() {
 /**
  * @param {!Port} port
  */
-function externalConnectionListener(port) {
-  logger.fine('Received onConnectExternal event, creating the PC/SC-Lite ' +
-              'client handler...');
+function connectionListener(port) {
+  logger.fine('Received onConnect event');
   var portMessageChannel = new GSC.PortMessageChannel(port);
+  createClientHandler(portMessageChannel, undefined);
+}
+
+/**
+ * @param {!Port} port
+ */
+function externalConnectionListener(port) {
+  logger.fine('Received onConnectExternal event');
+  var portMessageChannel = new GSC.PortMessageChannel(port);
+  if (goog.isNull(portMessageChannel.extensionId)) {
+    logger.warning('Ignoring the external connection as there is no sender ' +
+                   'extension id specified');
+    return;
+  }
+  createClientHandler(portMessageChannel, portMessageChannel.extensionId);
+}
+
+/**
+ * @param {!goog.messaging.AbstractChannel} clientMessageChannel
+ * @param {string|undefined} clientExtensionId
+ */
+function createClientHandler(clientMessageChannel, clientExtensionId) {
+  logger.fine(
+      'Creating a new PC/SC-Lite client handler ' +
+      (goog.isDef(clientExtensionId) ?
+           '(client extension id is "' + clientExtensionId + '")' :
+           '(client is the own App)') +
+      '...');
   var clientHandler = new GSC.PcscLiteServerClientsManagement.ClientHandler(
       naclModule.messageChannel,
       pcscLiteReadinessTracker,
-      portMessageChannel,
-      goog.isNull(portMessageChannel.extensionId) ?
-          undefined : portMessageChannel.extensionId);
+      clientMessageChannel,
+      clientExtensionId);
 }
 
 /**

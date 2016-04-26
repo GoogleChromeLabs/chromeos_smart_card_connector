@@ -77,7 +77,12 @@ function usbDeviceRemovedListener(device) {
   loadDeviceList();
 }
 
-function addDeviceClickListener() {
+/**
+ * @param {!Event} e
+ */
+function addDeviceClickListener(e) {
+  e.preventDefault();
+
   logger.fine('Running USB devices selection dialog...');
   chrome.usb.getUserSelectedDevices(
       {'multiple': true, 'filters': USB_DEVICE_FILTERS},
