@@ -1,6 +1,6 @@
 {
   "appName": {
-    "message": "Smart Card Connector for Chrome OS",
+    "message": "Smart Card Connector",
     "description": "The title of the application, displayed in the web store."
   },
   "appShortName": {
