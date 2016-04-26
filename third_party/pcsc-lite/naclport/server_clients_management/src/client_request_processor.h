@@ -58,7 +58,7 @@ namespace google_smart_card {
 // handles opened by the client and checks that client accesses only these
 // handles.
 //
-// This class is a important piece for providing privacy and security of the
+// This class is an important piece for providing privacy and security of the
 // PC/SC-Lite NaCl port: it ensures that the client is isolated from all other
 // clients. Every handle specified in client's request is examined and checked
 // to be belonging to this client. Without these checks, the low-level

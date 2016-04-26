@@ -52,6 +52,12 @@ namespace google_smart_card {
 //
 // Please note that file descriptors which are provided by this class are not
 // real ones: they can only be used with methods of this class.
+//
+// Also note that the generated file descriptors are not re-used by this class,
+// so the emulated sockets may be created only about 2^^31 times (which should
+// be enough for most purposes, given that the generation of a new emulated
+// socket pair is requested only when a client opens a new connection to the
+// server).
 class SocketpairEmulationManager final {
  public:
   // Creates a singleton instance of this class.

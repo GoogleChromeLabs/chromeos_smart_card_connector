@@ -285,10 +285,6 @@ SocketpairEmulationManager::SocketpairEmulationManager()
 int SocketpairEmulationManager::GenerateNewFileDescriptor() {
   const std::unique_lock<std::mutex> lock(mutex_);
   const int file_descriptor = next_free_file_descriptor_;
-  // FIXME(emaxx): Implement keeping a set of unused file descriptors instead
-  // of using the simple counter (which will exhaust at some point - though not
-  // very realistically, because a new emulated file descriptor is generated
-  // only when a client opens a new connection to the server).
   GOOGLE_SMART_CARD_CHECK(file_descriptor < std::numeric_limits<int>::max());
   ++next_free_file_descriptor_;
   return file_descriptor;

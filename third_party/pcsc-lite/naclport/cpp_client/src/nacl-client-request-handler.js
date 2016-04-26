@@ -58,7 +58,7 @@ var GSC = GoogleSmartCard;
 
 /**
  * This class handles the PC/SC-Lite client API requests (which are normally
- * received from the NaCl module) and implements them through an instance of
+ * received from the NaCl module) and implements them through the instances of
  * GoogleSmartCard.PcscLiteClient.Context and GoogleSmartCard.PcscLiteClient.API
  * classes.
  * @param {string} clientTitle Client title for the connection. Currently this

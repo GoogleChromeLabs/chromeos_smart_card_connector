@@ -69,8 +69,8 @@ Implementation discussion
 
     The library will accept requests only from the client Apps that are
     present in the bundled whitelist; moreover, the user confirmation
-    dialog will be shown when a first request from the given client is
-    receiver. Additionally, there is a way to override these permissions
+    dialog will be shown when the first request from the given client is
+    received. Additionally, there is a way to override these permissions
     through an admin policy.
 
     For the detailed description, see the ``Smart Card Connector App API

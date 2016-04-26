@@ -134,37 +134,46 @@ std::string DebugDumpSCardHandle(SCARDHANDLE s_card_handle) {
 }
 
 std::string DebugDumpSCardScope(DWORD scope) {
-  if (scope == SCARD_SCOPE_USER)
-    return "SCARD_SCOPE_USER";
-  if (scope == SCARD_SCOPE_TERMINAL)
-    return "SCARD_SCOPE_TERMINAL";
-  if (scope == SCARD_SCOPE_SYSTEM)
-    return "SCARD_SCOPE_SYSTEM";
-  return HexDumpInteger(scope);
+  switch (scope) {
+    case SCARD_SCOPE_USER:
+      return "SCARD_SCOPE_USER";
+    case SCARD_SCOPE_TERMINAL:
+      return "SCARD_SCOPE_TERMINAL";
+    case SCARD_SCOPE_SYSTEM:
+      return "SCARD_SCOPE_SYSTEM";
+    default:
+      return HexDumpInteger(scope);
+  }
 }
 
 std::string DebugDumpSCardShareMode(DWORD share_mode) {
-  if (share_mode == SCARD_SHARE_SHARED)
-    return "SCARD_SHARE_SHARED";
-  if (share_mode == SCARD_SHARE_EXCLUSIVE)
-    return "SCARD_SHARE_EXCLUSIVE";
-  return HexDumpInteger(share_mode);
+  switch (share_mode) {
+    case SCARD_SHARE_SHARED:
+      return "SCARD_SHARE_SHARED";
+    case SCARD_SHARE_EXCLUSIVE:
+      return "SCARD_SHARE_EXCLUSIVE";
+    default:
+      return HexDumpInteger(share_mode);
+  }
 }
 
 std::string DebugDumpSCardProtocol(DWORD protocol) {
-  if (protocol == SCARD_PROTOCOL_UNDEFINED)
-    return "SCARD_PROTOCOL_UNDEFINED";
-  if (protocol == SCARD_PROTOCOL_T0)
-    return "SCARD_PROTOCOL_T0";
-  if (protocol == SCARD_PROTOCOL_T1)
-    return "SCARD_PROTOCOL_T1";
-  if (protocol == SCARD_PROTOCOL_RAW)
-    return "SCARD_PROTOCOL_RAW";
-  if (protocol == SCARD_PROTOCOL_T15)
-    return "SCARD_PROTOCOL_T15";
-  if (protocol == SCARD_PROTOCOL_ANY)
-    return "SCARD_PROTOCOL_ANY";
-  return HexDumpInteger(protocol);
+  switch (protocol) {
+    case SCARD_PROTOCOL_UNDEFINED:
+      return "SCARD_PROTOCOL_UNDEFINED";
+    case SCARD_PROTOCOL_T0:
+      return "SCARD_PROTOCOL_T0";
+    case SCARD_PROTOCOL_T1:
+      return "SCARD_PROTOCOL_T1";
+    case SCARD_PROTOCOL_RAW:
+      return "SCARD_PROTOCOL_RAW";
+    case SCARD_PROTOCOL_T15:
+      return "SCARD_PROTOCOL_T15";
+    case SCARD_PROTOCOL_ANY:
+      return "SCARD_PROTOCOL_ANY";
+    default:
+      return HexDumpInteger(protocol);
+  }
 }
 
 std::string DebugDumpSCardProtocols(DWORD protocols) {
@@ -176,15 +185,18 @@ std::string DebugDumpSCardProtocols(DWORD protocols) {
 }
 
 std::string DebugDumpSCardDisposition(DWORD disposition) {
-  if (disposition == SCARD_LEAVE_CARD)
-    return "SCARD_LEAVE_CARD";
-  if (disposition == SCARD_RESET_CARD)
-    return "SCARD_RESET_CARD";
-  if (disposition == SCARD_UNPOWER_CARD)
-    return "SCARD_UNPOWER_CARD";
-  if (disposition == SCARD_EJECT_CARD)
-    return "SCARD_EJECT_CARD";
-  return HexDumpInteger(disposition);
+  switch (disposition) {
+    case SCARD_LEAVE_CARD:
+      return "SCARD_LEAVE_CARD";
+    case SCARD_RESET_CARD:
+      return "SCARD_RESET_CARD";
+    case SCARD_UNPOWER_CARD:
+      return "SCARD_UNPOWER_CARD";
+    case SCARD_EJECT_CARD:
+      return "SCARD_EJECT_CARD";
+    default:
+      return HexDumpInteger(disposition);
+  }
 }
 
 std::string DebugDumpSCardState(DWORD state) {

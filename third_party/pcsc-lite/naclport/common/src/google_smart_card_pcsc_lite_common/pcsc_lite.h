@@ -35,7 +35,8 @@ namespace google_smart_card {
 //
 // All functions presented here have the same signatures as the original
 // PC/SC-Lite API functions (see the winscard.h header in the PC/SC-Lite
-// sources).
+// sources and the documentation at
+// <https://pcsclite.alioth.debian.org/api/group__API.html>).
 //
 // Note that the pcsc_stringify_error function (that in the original
 // PC/SC-Lite sources is defined in the pcsclite.h header) is not present here:

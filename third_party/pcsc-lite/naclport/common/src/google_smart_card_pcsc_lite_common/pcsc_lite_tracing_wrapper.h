@@ -37,7 +37,7 @@
 
 namespace google_smart_card {
 
-// Wrapper that adds debug tracing of the called PC/SC functions.
+// Wrapper that adds debug tracing of the called PC/SC-Lite functions.
 class PcscLiteTracingWrapper final : public PcscLite {
  public:
   explicit PcscLiteTracingWrapper(PcscLite* pcsc_lite);

@@ -42,7 +42,7 @@ namespace google_smart_card {
 // message handlers into the passed typed message router.
 //
 // Note: clients of the class should ensure that no corresponding incoming
-// messages are arrived simultaneously with the class destruction.
+// messages arrive simultaneously with the class destruction.
 class PcscLiteServerClientsManagementBackend final {
  public:
   PcscLiteServerClientsManagementBackend(
