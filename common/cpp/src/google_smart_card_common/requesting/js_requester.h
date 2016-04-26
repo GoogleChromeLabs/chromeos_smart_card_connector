@@ -88,8 +88,8 @@ class JsRequester final : public Requester, public TypedMessageListener {
   void Detach() override;
   void StartAsyncRequest(
       const pp::Var& payload,
-      AsyncRequestCallback callback,
-      AsyncRequest* async_request) override;
+      GenericAsyncRequestCallback callback,
+      GenericAsyncRequest* async_request) override;
   // Requester implementation override
   //
   // Note that it is asserted that this method is called not from the main

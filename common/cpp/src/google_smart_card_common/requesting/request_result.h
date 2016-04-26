@@ -53,8 +53,14 @@ extern const char kRequestCanceledErrorMessage[];
 template <typename PayloadType>
 class RequestResult final {
  public:
-  RequestResult()
-      : status_(RequestResultStatus::kFailed) {}
+  RequestResult() = default;
+
+  RequestResult& operator=(const RequestResult& other) {
+    status_ = other.status_;
+    error_message_ = other.error_message_;
+    payload_ = other.payload_;
+    return *this;
+  }
 
   static RequestResult CreateSuccessful(PayloadType payload) {
     return RequestResult(PayloadType(std::move(payload)));
@@ -75,22 +81,26 @@ class RequestResult final {
   }
 
   RequestResultStatus status() const {
-    return status_;
+    CheckInitialized();
+    return *status_;
   }
 
   bool is_successful() const {
-    return status_ == RequestResultStatus::kSucceeded;
+    CheckInitialized();
+    return *status_ == RequestResultStatus::kSucceeded;
   }
 
   std::string error_message() const {
-    GOOGLE_SMART_CARD_CHECK(status_ == RequestResultStatus::kFailed ||
-                            status_ == RequestResultStatus::kCanceled);
+    CheckInitialized();
+    GOOGLE_SMART_CARD_CHECK(*status_ == RequestResultStatus::kFailed ||
+                            *status_ == RequestResultStatus::kCanceled);
     GOOGLE_SMART_CARD_CHECK(error_message_);
     return *error_message_;
   }
 
   const PayloadType& payload() const {
-    GOOGLE_SMART_CARD_CHECK(status_ == RequestResultStatus::kSucceeded);
+    CheckInitialized();
+    GOOGLE_SMART_CARD_CHECK(*status_ == RequestResultStatus::kSucceeded);
     GOOGLE_SMART_CARD_CHECK(payload_);
     return *payload_;
   }
@@ -106,7 +116,14 @@ class RequestResult final {
     GOOGLE_SMART_CARD_CHECK(status != RequestResultStatus::kSucceeded);
   }
 
-  RequestResultStatus status_;
+  void CheckInitialized() const {
+    if (!status_) {
+      GOOGLE_SMART_CARD_LOG_FATAL << "Trying to access an unitialized " <<
+          "request result";
+    }
+  }
+
+  optional<RequestResultStatus> status_;
   optional<std::string> error_message_;
   optional<PayloadType> payload_;
 };

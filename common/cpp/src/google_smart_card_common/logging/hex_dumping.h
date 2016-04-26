@@ -33,6 +33,41 @@ std::string HexDumpByte(int8_t value);
 
 std::string HexDumpByte(uint8_t value);
 
+//
+// Returns the given 2-byte value in the "0xNNNN" hexadecimal format.
+//
+
+std::string HexDumpDoublet(int16_t value);
+
+std::string HexDumpDoublet(uint16_t value);
+
+//
+// Returns the given 4-byte value in the "0xNNNNNNNN" hexadecimal format.
+//
+
+std::string HexDumpQuadlet(int32_t value);
+
+std::string HexDumpQuadlet(uint32_t value);
+
+//
+// Returns the given 8-byte value in the "0xNNNNNNNNNNNNNNNN" hexadecimal
+// format.
+//
+
+std::string HexDumpOctlet(int64_t value);
+
+std::string HexDumpOctlet(uint64_t value);
+
+// Returns the pointer address value in the hexadecimal format.
+//
+// The actual number of digits depends on the platform size of the pointers.
+std::string HexDumpPointer(const void* value);
+
+//
+// Returns the given value in the "0x..." format (the result string length is
+// determined by the number bit length).
+//
+
 template <typename T>
 inline typename std::enable_if<
     sizeof(T) == sizeof(int8_t) && std::is_signed<T>::value, std::string>::type
@@ -48,13 +83,21 @@ HexDumpInteger(T value) {
   return HexDumpByte(static_cast<uint8_t>(value));
 }
 
-//
-// Returns the given 4-byte value in the "0xNNNNNNNN" hexadecimal format.
-//
+template <typename T>
+inline typename std::enable_if<
+    sizeof(T) == sizeof(int16_t) && std::is_signed<T>::value,
+    std::string>::type
+HexDumpInteger(T value) {
+  return HexDumpDoublet(static_cast<int16_t>(value));
+}
 
-std::string HexDumpQuadlet(int32_t value);
-
-std::string HexDumpQuadlet(uint32_t value);
+template <typename T>
+inline typename std::enable_if<
+    sizeof(T) == sizeof(uint16_t) && std::is_unsigned<T>::value,
+    std::string>::type
+HexDumpInteger(T value) {
+  return HexDumpDoublet(static_cast<uint16_t>(value));
+}
 
 template <typename T>
 inline typename std::enable_if<
@@ -72,15 +115,6 @@ HexDumpInteger(T value) {
   return HexDumpQuadlet(static_cast<uint32_t>(value));
 }
 
-//
-// Returns the given 8-byte value in the "0xNNNNNNNNNNNNNNNN" hexadecimal
-// format.
-//
-
-std::string HexDumpOctlet(int64_t value);
-
-std::string HexDumpOctlet(uint64_t value);
-
 template <typename T>
 inline typename std::enable_if<
     sizeof(T) == sizeof(int64_t) && std::is_signed<T>::value,
@@ -96,11 +130,6 @@ inline typename std::enable_if<
 HexDumpInteger(T value) {
   return HexDumpOctlet(static_cast<uint64_t>(value));
 }
-
-// Returns the pointer address value in the hexadecimal format.
-//
-// The actual number of digits depends on the platform size of the pointers.
-std::string HexDumpPointer(const void* value);
 
 //
 // Returns the given integer value in the "0x..." hexadecimal format.

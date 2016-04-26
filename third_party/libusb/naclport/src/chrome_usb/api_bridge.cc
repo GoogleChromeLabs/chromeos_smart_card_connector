@@ -18,6 +18,7 @@
 
 #include <utility>
 
+#include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
 
 namespace google_smart_card {
@@ -126,42 +127,9 @@ RequestResult<ReleaseInterfaceResult> ApiBridge::ReleaseInterface(
       generic_request_result, &result);
 }
 
-RequestResult<TransferResult> ApiBridge::ControlTransfer(
-    const ConnectionHandle& connection_handle,
-    const ControlTransferInfo& transfer_info) {
-  const GenericRequestResult generic_request_result =
-      remote_call_adaptor_.SyncCall(
-          "controlTransfer", connection_handle, transfer_info);
-  TransferResult result;
-  return RemoteCallAdaptor::ConvertResultPayload(
-      generic_request_result, &result, &result.result_info);
-}
-
-RequestResult<TransferResult> ApiBridge::BulkTransfer(
-    const ConnectionHandle& connection_handle,
-    const GenericTransferInfo& transfer_info) {
-  const GenericRequestResult generic_request_result =
-      remote_call_adaptor_.SyncCall(
-          "bulkTransfer", connection_handle, transfer_info);
-  TransferResult result;
-  return RemoteCallAdaptor::ConvertResultPayload(
-      generic_request_result, &result, &result.result_info);
-}
-
-RequestResult<TransferResult> ApiBridge::InterruptTransfer(
-    const ConnectionHandle& connection_handle,
-    const GenericTransferInfo& transfer_info) {
-  const GenericRequestResult generic_request_result =
-      remote_call_adaptor_.SyncCall(
-          "interruptTransfer", connection_handle, transfer_info);
-  TransferResult result;
-  return RemoteCallAdaptor::ConvertResultPayload(
-      generic_request_result, &result, &result.result_info);
-}
-
 namespace {
 
-AsyncRequestCallback WrapAsyncTransferCallback(AsyncTransferCallback callback) {
+GenericAsyncRequestCallback WrapAsyncTransferCallback(AsyncTransferCallback callback) {
   return [callback](GenericRequestResult generic_request_result) {
     TransferResult result;
     return callback(RemoteCallAdaptor::ConvertResultPayload(
@@ -174,10 +142,8 @@ AsyncRequestCallback WrapAsyncTransferCallback(AsyncTransferCallback callback) {
 void ApiBridge::AsyncControlTransfer(
     const ConnectionHandle& connection_handle,
     const ControlTransferInfo& transfer_info,
-    AsyncTransferCallback callback,
-    AsyncRequest* async_request) {
+    AsyncTransferCallback callback) {
   remote_call_adaptor_.AsyncCall(
-      async_request,
       WrapAsyncTransferCallback(callback),
       "controlTransfer",
       connection_handle,
@@ -187,10 +153,8 @@ void ApiBridge::AsyncControlTransfer(
 void ApiBridge::AsyncBulkTransfer(
     const ConnectionHandle& connection_handle,
     const GenericTransferInfo& transfer_info,
-    AsyncTransferCallback callback,
-    AsyncRequest* async_request) {
+    AsyncTransferCallback callback) {
   remote_call_adaptor_.AsyncCall(
-      async_request,
       WrapAsyncTransferCallback(callback),
       "bulkTransfer",
       connection_handle,
@@ -200,10 +164,8 @@ void ApiBridge::AsyncBulkTransfer(
 void ApiBridge::AsyncInterruptTransfer(
     const ConnectionHandle& connection_handle,
     const GenericTransferInfo& transfer_info,
-    AsyncTransferCallback callback,
-    AsyncRequest* async_request) {
+    AsyncTransferCallback callback) {
   remote_call_adaptor_.AsyncCall(
-      async_request,
       WrapAsyncTransferCallback(callback),
       "interruptTransfer",
       connection_handle,

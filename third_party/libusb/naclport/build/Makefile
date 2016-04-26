@@ -40,8 +40,12 @@ CXX_SOURCES := \
 	$(LIBUSB_NACL_SOURCES_PATH)/chrome_usb/api_bridge.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/chrome_usb/types.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/google_smart_card_libusb/global.cc \
+	$(LIBUSB_NACL_SOURCES_PATH)/libusb_contexts_storage.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_opaque_types.cc \
 	$(LIBUSB_NACL_SOURCES_PATH)/libusb_over_chrome_usb.cc \
+	$(LIBUSB_NACL_SOURCES_PATH)/libusb_tracing_wrapper.cc \
+	$(LIBUSB_NACL_SOURCES_PATH)/usb_transfer_destination.cc \
+	$(LIBUSB_NACL_SOURCES_PATH)/usb_transfers_parameters_storage.cc \
 
 SOURCES := \
 	$(C_SOURCES) \
@@ -71,3 +75,12 @@ INSTALLING_HEADERS := \
 	google_smart_card_libusb:$(LIBUSB_NACL_SOURCES_PATH)/google_smart_card_libusb:global.h \
 
 $(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
+
+
+test::
+	+$(MAKE) --directory tests run
+
+tests_clean::
+	+$(MAKE) --directory tests clean
+
+clean: tests_clean

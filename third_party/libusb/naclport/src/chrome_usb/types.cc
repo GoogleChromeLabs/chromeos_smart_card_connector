@@ -79,6 +79,46 @@ using GetDevicesOptionsConverter = StructConverter<GetDevicesOptions>;
 using GetUserSelectedDevicesOptionsConverter =
     StructConverter<GetUserSelectedDevicesOptions>;
 
+namespace {
+
+bool IsSameOptionalArrayBuffer(
+    const optional<pp::VarArrayBuffer>& lhs,
+    const optional<pp::VarArrayBuffer>& rhs) {
+  if (!lhs || !rhs)
+    return lhs == rhs;
+  return VarAs<std::vector<uint8_t>>(*lhs) == VarAs<std::vector<uint8_t>>(*rhs);
+}
+
+}  // namespace
+
+bool Device::operator==(const Device& other) const {
+  return device == other.device &&
+         vendor_id == other.vendor_id &&
+         product_id == other.product_id &&
+         version == other.version &&
+         product_name == other.product_name &&
+         manufacturer_name == other.manufacturer_name &&
+         serial_number == other.serial_number;
+}
+
+bool ConnectionHandle::operator==(const ConnectionHandle& other) const {
+  return handle == other.handle &&
+         vendor_id == other.vendor_id &&
+         product_id == other.product_id;
+}
+
+bool ControlTransferInfo::operator==(const ControlTransferInfo& other) const {
+  return direction == other.direction &&
+         recipient == other.recipient &&
+         request_type == other.request_type &&
+         request == other.request &&
+         value == other.value &&
+         index == other.index &&
+         length == other.length &&
+         IsSameOptionalArrayBuffer(data, other.data) &&
+         timeout == other.timeout;
+}
+
 template <>
 constexpr const char* DirectionConverter::GetEnumTypeName() {
   return "chrome_usb::Direction";

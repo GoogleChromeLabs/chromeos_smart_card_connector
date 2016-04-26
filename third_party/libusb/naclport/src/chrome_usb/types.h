@@ -26,7 +26,7 @@
 // values of these types and Pepper values (which correspond to the JavaScript
 // values used with chrome.usb API).
 //
-// FIXME(emaxx): Think about adding the space for all unrecognized structure
+// FIXME(emaxx): Think about adding a space for all unrecognized structure
 // fields, as currently any change in chrome.usb API that adds a new required
 // field to any input type will break communication with this library.
 
@@ -35,6 +35,7 @@
 
 #include <stdint.h>
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -44,10 +45,17 @@
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
+#include <google_smart_card_common/requesting/request_result.h>
 
 namespace google_smart_card {
 
 namespace chrome_usb {
+
+//
+// Following are the definitions of the analogs of the types defined in
+// chrome.usb API and the types that represent arguments of the chrome.usb API
+// methods.
+//
 
 enum class Direction {
   kIn,
@@ -55,6 +63,8 @@ enum class Direction {
 };
 
 struct Device {
+  bool operator==(const Device& other) const;
+
   int64_t device;
   int64_t vendor_id;
   int64_t product_id;
@@ -65,6 +75,8 @@ struct Device {
 };
 
 struct ConnectionHandle {
+  bool operator==(const ConnectionHandle& other) const;
+
   int64_t handle;
   int64_t vendor_id;
   int64_t product_id;
@@ -145,6 +157,8 @@ enum class ControlTransferInfoRequestType {
 };
 
 struct ControlTransferInfo {
+  bool operator==(const ControlTransferInfo& other) const;
+
   Direction direction;
   ControlTransferInfoRecipient recipient;
   ControlTransferInfoRequestType request_type;
@@ -179,6 +193,12 @@ struct GetUserSelectedDevicesOptions {
   optional<bool> multiple;
   optional<std::vector<DeviceFilter>> filters;
 };
+
+//
+// Following are the function overloads that can be used to perform the
+// conversion between values of these types and Pepper values (which correspond
+// to the JavaScript values used with chrome.usb API).
+//
 
 bool VarAs(
     const pp::Var& var,
@@ -253,6 +273,56 @@ pp::Var MakeVar(const DeviceFilter& value);
 pp::Var MakeVar(const GetDevicesOptions& value);
 
 pp::Var MakeVar(const GetUserSelectedDevicesOptions& value);
+
+//
+// Following the are definitions of structures representing the results returned
+// from the chrome.usb API methods.
+//
+
+struct GetDevicesResult {
+  std::vector<Device> devices;
+};
+
+struct GetUserSelectedDevicesResult {
+  std::vector<Device> devices;
+};
+
+struct GetConfigurationsResult {
+  std::vector<ConfigDescriptor> configurations;
+};
+
+struct OpenDeviceResult {
+  ConnectionHandle connection_handle;
+};
+
+struct CloseDeviceResult {};
+
+struct SetConfigurationResult {};
+
+struct GetConfigurationResult {
+  ConfigDescriptor configuration;
+};
+
+struct ListInterfacesResult {
+  std::vector<InterfaceDescriptor> descriptors;
+};
+
+struct ClaimInterfaceResult {};
+
+struct ReleaseInterfaceResult {};
+
+struct TransferResult {
+  TransferResultInfo result_info;
+};
+
+struct ResetDeviceResult {
+  bool reset_success;
+};
+
+// This type represents a callback that is used for receiving the asynchronous
+// transfer results.
+using AsyncTransferCallback = std::function<
+    void(RequestResult<TransferResult>)>;
 
 }  // namespace chrome_usb
 

@@ -19,7 +19,7 @@
 
 #include <sys/time.h>
 
-#include "libusb.h"
+#include <libusb.h>
 
 /**
  * This function was borrowed from libusb sources (file libusb/descriptor.c).

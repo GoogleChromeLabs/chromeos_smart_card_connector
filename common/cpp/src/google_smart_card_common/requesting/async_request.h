@@ -22,34 +22,60 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <utility>
 
+#include <ppapi/cpp/var.h>
+
+#include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
 namespace google_smart_card {
 
+//
 // Consumer-provided callback that will be called once the asynchronous request
 // finishes (either successfully or not).
-using AsyncRequestCallback = std::function<
-    void(GenericRequestResult request_result)>;
+//
 
-// Internal state of an asynchronous request.
+template <typename PayloadType>
+using AsyncRequestCallback = std::function<
+    void(RequestResult<PayloadType> request_result)>;
+
+using GenericAsyncRequestCallback = AsyncRequestCallback<pp::Var>;
+
+// This class contains the internal state of an asynchronous request.
 //
 // Usually exists as a ref-counted object hidden from the consumer under the
-// AsyncRequest class.
+// AsyncRequest class instance.
+template <typename PayloadType>
 class AsyncRequestState final {
  public:
-  explicit AsyncRequestState(AsyncRequestCallback callback);
+  explicit AsyncRequestState(AsyncRequestCallback<PayloadType> callback)
+      : callback_(callback) {
+    GOOGLE_SMART_CARD_CHECK(callback_);
+  }
 
   // Sets the result of the request, unless it was already set before.
   //
   // If the result was successfully set, then the callback passed to the class
   // constructor is executed.
-  bool SetResult(GenericRequestResult request_result);
+  bool SetResult(RequestResult<PayloadType> request_result) {
+    if (!is_callback_call_started_.test_and_set()) {
+      callback_(std::move(request_result));
+      return true;
+    }
+    return false;
+  }
+
+  bool SetCanceledResult() {
+    return SetResult(RequestResult<PayloadType>::CreateCanceled());
+  }
 
  private:
-  const AsyncRequestCallback callback_;
-  std::atomic_flag is_callback_called_ = ATOMIC_FLAG_INIT;
+  const AsyncRequestCallback<PayloadType> callback_;
+  std::atomic_flag is_callback_call_started_ = ATOMIC_FLAG_INIT;
 };
+
+using GenericAsyncRequestState = AsyncRequestState<pp::Var>;
 
 // This class contains the interface of an asynchronous request that is exposed
 // to consumers.
@@ -57,24 +83,39 @@ class AsyncRequestState final {
 // Note that this class has no methods for obtaining the request result: the
 // results are delivered through the AsyncRequestCallback callback supplied when
 // the request was sent.
+template <typename PayloadType>
 class AsyncRequest final {
  public:
-  AsyncRequest();
-  explicit AsyncRequest(std::shared_ptr<AsyncRequestState> state);
+  AsyncRequest() = default;
+
+  explicit AsyncRequest(std::shared_ptr<AsyncRequestState<PayloadType>> state)
+      : state_(state) {
+    GOOGLE_SMART_CARD_CHECK(state_);
+  }
 
   // Thread-safe assignment operator.
-  AsyncRequest& operator=(const AsyncRequest& other);
+  AsyncRequest& operator=(const AsyncRequest& other) {
+    std::atomic_store(&state_, other.state_);
+    return *this;
+  }
 
   // Cancels the request in a thread-safe manner.
   //
   // Returns whether the cancellation was successful. The cancellation fails if
   // the request has already finished with some result (including, but not
   // limiting to, another cancellation).
-  bool Cancel();
+  bool Cancel() {
+    const std::shared_ptr<AsyncRequestState<PayloadType>> state =
+        std::atomic_load(&state_);
+    GOOGLE_SMART_CARD_CHECK(state);
+    return state->SetCanceledResult();
+  }
 
  private:
-  std::shared_ptr<AsyncRequestState> state_;
+  std::shared_ptr<AsyncRequestState<PayloadType>> state_;
 };
+
+using GenericAsyncRequest = AsyncRequest<pp::Var>;
 
 }  // namespace google_smart_card
 

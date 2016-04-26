@@ -14,43 +14,25 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-#ifndef GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_OVER_CHROME_USB_H_
-#define GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_OVER_CHROME_USB_H_
+#ifndef GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_TRACING_WRAPPER_H_
+#define GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_TRACING_WRAPPER_H_
 
-#include <stdint.h>
-
-#include <memory>
+#include <mutex>
+#include <unordered_map>
 
 #include <libusb.h>
 
-#include <google_smart_card_common/requesting/request_result.h>
-
-#include "chrome_usb/api_bridge_interface.h"
-#include "chrome_usb/types.h"
-#include "libusb_contexts_storage.h"
 #include "libusb_interface.h"
-#include "libusb_opaque_types.h"
 
 namespace google_smart_card {
 
-// This class provides an implementation for the libusb library interface that
-// forwards all requests to the chrome.usb JavaScript API (see
-// <https://developer.chrome.com/apps/usb>).
+// Wrapper that adds debug tracing of the called libusb functions.
 //
-// For the details of the integration with the chrome.usb JavaScript API, see
-// the chrome_usb/api_bridge.h file.
-class LibusbOverChromeUsb : public LibusbInterface {
+// Note that the class lifetime should enclose the lifetime of all asynchronous
+// libusb requests that were started through it.
+class LibusbTracingWrapper : public LibusbInterface {
  public:
-  using TransferRequestResult = RequestResult<chrome_usb::TransferResult>;
-  using TransferAsyncRequestState =
-      AsyncRequestState<chrome_usb::TransferResult>;
-  using TransferAsyncRequestStatePtr =
-      std::shared_ptr<TransferAsyncRequestState>;
-  using TransferAsyncRequestCallback =
-      AsyncRequestCallback<chrome_usb::TransferResult>;
-
-  explicit LibusbOverChromeUsb(
-      chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge);
+  LibusbTracingWrapper(LibusbInterface* wrapped_libusb);
 
   int LibusbInit(libusb_context** ctx) override;
   void LibusbExit(libusb_context* ctx) override;
@@ -115,42 +97,18 @@ class LibusbOverChromeUsb : public LibusbInterface {
   int LibusbHandleEventsCompleted(libusb_context* ctx, int* completed) override;
 
  private:
-  const int kHandleEventsTimeoutSeconds = 60;
+  void AddOriginalToWrappedTransferMapItem(
+      libusb_transfer* original_transfer, libusb_transfer* wrapped_transfer);
+  libusb_transfer* GetWrappedTransfer(libusb_transfer* original_transfer) const;
+  void RemoveOriginalToWrappedTransferMapItem(
+      libusb_transfer* original_transfer);
 
-  class SyncTransferHelper final {
-   public:
-    SyncTransferHelper(
-        std::shared_ptr<libusb_context> context,
-        const UsbTransferDestination& transfer_destination);
-
-    chrome_usb::AsyncTransferCallback chrome_usb_transfer_callback() const;
-
-    TransferRequestResult WaitForCompletion();
-
-   private:
-    std::shared_ptr<libusb_context> context_;
-    UsbTransferDestination transfer_destination_;
-    TransferRequestResult result_;
-    TransferAsyncRequestStatePtr async_request_state_;
-    chrome_usb::AsyncTransferCallback chrome_usb_transfer_callback_;
-  };
-
-  libusb_context* SubstituteDefaultContextIfNull(
-      libusb_context* context_or_nullptr) const;
-  libusb_context* GetLibusbTransferContext(
-      const libusb_transfer* transfer) const;
-  libusb_context* GetLibusbTransferContextChecked(
-      const libusb_transfer* transfer) const;
-  TransferAsyncRequestCallback WrapLibusbTransferCallback(
-      libusb_transfer* transfer);
-  int LibusbHandleEventsWithTimeout(
-      libusb_context* context, int timeout_seconds);
-
-  chrome_usb::ApiBridgeInterface* const chrome_usb_api_bridge_;
-  LibusbContextsStorage contexts_storage_;
-  const std::shared_ptr<libusb_context> default_context_;
+  LibusbInterface* const wrapped_libusb_;
+  mutable std::mutex mutex_;
+  std::unordered_map<libusb_transfer*, libusb_transfer*>
+  original_to_wrapped_transfer_map_;
 };
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_OVER_CHROME_USB_H_
+#endif  // GOOGLE_SMART_CARD_THIRD_PARTY_LIBUSB_LIBUSB_TRACING_WRAPPER_H_

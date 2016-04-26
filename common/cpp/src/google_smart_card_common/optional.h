@@ -53,7 +53,7 @@ class optional final {
       : storage_(new T(std::move(value))) {}
 
   optional& operator=(const optional& other) {
-    storage_.reset(other ? new T(*other) : nullptr);
+    return *this = optional(other);
   }
 
   optional& operator=(optional&& other) = default;
@@ -94,6 +94,22 @@ class optional final {
 
   T&& value() && {
     return operator*();
+  }
+
+  bool operator<(const optional& other) const {
+    if (!*this || !other)
+      return !*this && other;
+    return value() < other.value();
+  }
+
+  bool operator>(const optional& other) const {
+    return other < *this;
+  }
+
+  bool operator==(const optional& other) const {
+    if (!*this || !other)
+      return !*this == !other;
+    return value() == other.value();
   }
 
  private:

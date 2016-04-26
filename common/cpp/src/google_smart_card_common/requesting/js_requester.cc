@@ -71,8 +71,8 @@ void JsRequester::Detach() {
 
 void JsRequester::StartAsyncRequest(
     const pp::Var& payload,
-    AsyncRequestCallback callback,
-    AsyncRequest* async_request) {
+    GenericAsyncRequestCallback callback,
+    GenericAsyncRequest* async_request) {
   RequestId request_id;
   *async_request = CreateAsyncRequest(payload, callback, &request_id);
 
@@ -88,8 +88,7 @@ void JsRequester::StartAsyncRequest(
   }
 }
 
-GenericRequestResult JsRequester::PerformSyncRequest(
-    const pp::Var& payload) {
+GenericRequestResult JsRequester::PerformSyncRequest(const pp::Var& payload) {
   GOOGLE_SMART_CARD_CHECK(!IsMainPpThread());
   return Requester::PerformSyncRequest(payload);
 }

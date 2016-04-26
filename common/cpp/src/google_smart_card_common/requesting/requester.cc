@@ -29,7 +29,7 @@ Requester::Requester(const std::string& name)
     : name_(name) {}
 
 Requester::~Requester() {
-  const std::vector<std::shared_ptr<AsyncRequestState>> request_states =
+  const std::vector<std::shared_ptr<GenericAsyncRequestState>> request_states =
       async_requests_storage_.PopAll();
   for (const auto& request_state : request_states) {
     request_state->SetResult(GenericRequestResult::CreateFailed(
@@ -37,9 +37,9 @@ Requester::~Requester() {
   }
 }
 
-AsyncRequest Requester::StartAsyncRequest(
-    const pp::Var& payload, AsyncRequestCallback callback) {
-  AsyncRequest async_result;
+GenericAsyncRequest Requester::StartAsyncRequest(
+    const pp::Var& payload, GenericAsyncRequestCallback callback) {
+  GenericAsyncRequest async_result;
   StartAsyncRequest(payload, callback, &async_result);
   return async_result;
 }
@@ -67,23 +67,23 @@ GenericRequestResult Requester::PerformSyncRequest(const pp::Var& data) {
   return std::move(*result);
 }
 
-AsyncRequest Requester::CreateAsyncRequest(
+GenericAsyncRequest Requester::CreateAsyncRequest(
     const pp::Var& /*payload*/,
-    AsyncRequestCallback callback,
+    GenericAsyncRequestCallback callback,
     RequestId* request_id) {
   // FIXME(emaxx): The payload argument is ignored for now, but it can be
   // utilized for creating some more informative logging at the place where the
   // requests results are handled.
 
-  const auto async_request_state = std::make_shared<AsyncRequestState>(
+  const auto async_request_state = std::make_shared<GenericAsyncRequestState>(
       callback);
   *request_id = async_requests_storage_.Push(async_request_state);
-  return AsyncRequest(async_request_state);
+  return GenericAsyncRequest(async_request_state);
 }
 
 bool Requester::SetAsyncRequestResult(
     RequestId request_id, GenericRequestResult request_result) {
-  const std::shared_ptr<AsyncRequestState> async_request_state =
+  const std::shared_ptr<GenericAsyncRequestState> async_request_state =
       async_requests_storage_.Pop(request_id);
   if (!async_request_state)
     return false;

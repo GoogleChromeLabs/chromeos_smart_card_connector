@@ -20,7 +20,7 @@
 
 #include <sys/time.h>
 
-#include "libusb.h"
+#include <libusb.h>
 
 #include "config.h"
 

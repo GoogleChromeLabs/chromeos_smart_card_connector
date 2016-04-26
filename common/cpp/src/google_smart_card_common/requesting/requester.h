@@ -71,17 +71,17 @@ class Requester {
   // Note: It's also possible that the callback is executed synchronously during
   // this method call (e.g. when a fatal error occured that prevents the
   // implementation from starting the asynchronous request).
-  AsyncRequest StartAsyncRequest(
-      const pp::Var& payload, AsyncRequestCallback callback);
+  GenericAsyncRequest StartAsyncRequest(
+      const pp::Var& payload, GenericAsyncRequestCallback callback);
 
   // Starts an asynchronous request with the given payload and the given
   // callback, which will be executed once the request finishes (either
   // successfully or not).
   //
-  // The resulting AsyncRequest object will be assigned into the async_request
-  // argument. This allows to provide the consumer with the AsyncRequest object
-  // before the callback is executed (that can simplify the consumer's logic in
-  // some cases).
+  // The resulting GenericAsyncRequest object will be assigned into the
+  // async_request argument. This allows to provide the consumer with the
+  // GenericAsyncRequest object before the callback is executed (that can
+  // simplify the consumer's logic in some cases).
   //
   // Note: the callback may be executed on a different thread than the thread
   // used for sending the request.
@@ -91,8 +91,8 @@ class Requester {
   // implementation from starting the asynchronous request).
   virtual void StartAsyncRequest(
       const pp::Var& payload,
-      AsyncRequestCallback callback,
-      AsyncRequest* async_request) = 0;
+      GenericAsyncRequestCallback callback,
+      GenericAsyncRequest* async_request) = 0;
 
   // Performs a synchronous request, blocking current thread until the result is
   // received.
@@ -103,11 +103,11 @@ class Requester {
 
  protected:
   // Creates and stores internally a new asynchronous request state, returning
-  // its public proxy object (AsyncRequest object) and its generated request
-  // identifier.
-  AsyncRequest CreateAsyncRequest(
+  // its public proxy object (GenericAsyncRequest object) and its generated
+  // request identifier.
+  GenericAsyncRequest CreateAsyncRequest(
       const pp::Var& payload,
-      AsyncRequestCallback callback,
+      GenericAsyncRequestCallback callback,
       RequestId* request_id);
 
   // Finds the request state by the specified request identifier and sets its
@@ -122,7 +122,7 @@ class Requester {
 
  private:
   const std::string name_;
-  AsyncRequestsStorage async_requests_storage_;
+  GenericAsyncRequestsStorage async_requests_storage_;
 };
 
 }  // namespace google_smart_card

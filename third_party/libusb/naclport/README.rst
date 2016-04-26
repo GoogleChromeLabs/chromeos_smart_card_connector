@@ -90,7 +90,6 @@ and the original libusb library features:
     * libusb_get_ss_usb_device_capability_descriptor
     * libusb_get_usb_2_0_extension_descriptor
     * libusb_get_version
-    * libusb_handle_events_completed
     * libusb_handle_events_locked
     * libusb_handle_events_timeout
     * libusb_handle_events_timeout_completed
@@ -116,15 +115,22 @@ and the original libusb library features:
     * libusb_unlock_events
     * libusb_wait_for_event
 
-*   Cancellation of an asynchronous transfer may fail even before the
-    consumer's callback is executed and any other cancellations happen:
-    if the result was received from chrome.usb API call, then the
-    transfer cannot be canceled anymore.
+*   Cancellation of asynchronous transfers is supported only partially:
+
+    * Cancellation of output transfers is not supported;
+    * Cancellation of input transfers is emulated: the actual chrome.usb
+      transfer still continues to work, but its results will be received
+      by the further input transfers from the same device with the same
+      parameters.
 
 *   The libusb_get_device_address function will crash if the device
     identifiers returned by chrome.usb API exceed 255 (this may happen,
     for example, after unplugging and plugging a device back that
     number of times).
+
+*   Trying to resubmit an asynchronous transfer while its previous
+    submission is still in flight will produce undefined behaviour,
+    instead of returning LIBUSB_ERROR_BUSY.
 
 Additionally, the **performance** of the libusb_* functions
 implementation can be very low: each non-trivial libusb request results

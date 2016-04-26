@@ -33,12 +33,21 @@ GenericRequestResult RemoteCallAdaptor::PerformSyncRequest(
       function_name, converted_arguments));
 }
 
+GenericAsyncRequest RemoteCallAdaptor::StartAsyncRequest(
+    const std::string& function_name,
+    const pp::VarArray& converted_arguments,
+    GenericAsyncRequestCallback callback) {
+  return requester_->StartAsyncRequest(
+      MakeRemoteCallRequestPayload(function_name, converted_arguments),
+      callback);
+}
+
 void RemoteCallAdaptor::StartAsyncRequest(
     const std::string& function_name,
     const pp::VarArray& converted_arguments,
-    AsyncRequestCallback callback,
-    AsyncRequest* async_request) {
-  return requester_->StartAsyncRequest(
+    GenericAsyncRequestCallback callback,
+    GenericAsyncRequest* async_request) {
+  requester_->StartAsyncRequest(
       MakeRemoteCallRequestPayload(function_name, converted_arguments),
       callback,
       async_request);

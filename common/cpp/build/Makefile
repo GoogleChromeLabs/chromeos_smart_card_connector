@@ -43,8 +43,6 @@ SOURCES := \
 	$(SOURCES_PATH)/pp_var_utils/debug_dump.cc \
 	$(SOURCES_PATH)/pp_var_utils/extraction.cc \
 	$(SOURCES_PATH)/pp_var_utils/operations.cc \
-	$(SOURCES_PATH)/requesting/async_request.cc \
-	$(SOURCES_PATH)/requesting/async_requests_storage.cc \
 	$(SOURCES_PATH)/requesting/js_requester.cc \
 	$(SOURCES_PATH)/requesting/js_request_receiver.cc \
 	$(SOURCES_PATH)/requesting/remote_call_adaptor.cc \

@@ -14,10 +14,6 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-// FIXME(emaxx): Replace functions call tracing through manual logging in this
-// file with the features provided by the
-// google_smart_card_common/logging/function_call_tracer.h library.
-
 #include <google_smart_card_libusb/global.h>
 
 #include <utility>
@@ -28,17 +24,19 @@
 #include <google_smart_card_common/unique_ptr_utils.h>
 
 #include "chrome_usb/api_bridge.h"
+#include "libusb_interface.h"
 #include "libusb_over_chrome_usb.h"
+#include "libusb_tracing_wrapper.h"
 
 namespace {
 
-// A unique global instance of LibusbOverChromeUsb class that is used by the
-// implementation of libusb_* functions in this library.
-google_smart_card::LibusbOverChromeUsb* g_libusb_over_chrome_usb = nullptr;
+// A unique global pointer to an implementation of LibusbInterface interface
+// that is used by the implementation of libusb_* functions in this library.
+google_smart_card::LibusbInterface* g_libusb = nullptr;
 
-google_smart_card::LibusbOverChromeUsb* GetGlobalLibusbOverChromeUsb() {
-  GOOGLE_SMART_CARD_CHECK(g_libusb_over_chrome_usb);
-  return g_libusb_over_chrome_usb;
+google_smart_card::LibusbInterface* GetGlobalLibusb() {
+  GOOGLE_SMART_CARD_CHECK(g_libusb);
+  return g_libusb;
 }
 
 }  // namespace
@@ -53,13 +51,20 @@ class LibusbOverChromeUsbGlobal::Impl final {
       pp::Core* pp_core)
       : chrome_usb_api_bridge_(MakeRequester(
             typed_message_router, pp_instance, pp_core)),
-        libusb_over_chrome_usb_(&chrome_usb_api_bridge_) {}
+        libusb_over_chrome_usb_(&chrome_usb_api_bridge_) {
+#ifndef NDEBUG
+    libusb_tracing_wrapper_.reset(new LibusbTracingWrapper(
+        &libusb_over_chrome_usb_));
+#endif  // NDEBUG
+  }
 
   void Detach() {
     chrome_usb_api_bridge_.Detach();
   }
 
-  LibusbOverChromeUsb* libusb_over_chrome_usb() {
+  LibusbInterface* libusb() {
+    if (libusb_tracing_wrapper_)
+      return libusb_tracing_wrapper_.get();
     return &libusb_over_chrome_usb_;
   }
 
@@ -76,6 +81,7 @@ class LibusbOverChromeUsbGlobal::Impl final {
 
   chrome_usb::ApiBridge chrome_usb_api_bridge_;
   LibusbOverChromeUsb libusb_over_chrome_usb_;
+  std::unique_ptr<LibusbTracingWrapper> libusb_tracing_wrapper_;
 };
 
 LibusbOverChromeUsbGlobal::LibusbOverChromeUsbGlobal(
@@ -83,14 +89,13 @@ LibusbOverChromeUsbGlobal::LibusbOverChromeUsbGlobal(
     pp::Instance* pp_instance,
     pp::Core* pp_core)
     : impl_(new Impl(typed_message_router, pp_instance, pp_core)) {
-  GOOGLE_SMART_CARD_CHECK(!g_libusb_over_chrome_usb);
-  g_libusb_over_chrome_usb = impl_->libusb_over_chrome_usb();
+  GOOGLE_SMART_CARD_CHECK(!g_libusb);
+  g_libusb = impl_->libusb();
 }
 
 LibusbOverChromeUsbGlobal::~LibusbOverChromeUsbGlobal() {
-  GOOGLE_SMART_CARD_CHECK(
-      g_libusb_over_chrome_usb == impl_->libusb_over_chrome_usb());
-  g_libusb_over_chrome_usb = nullptr;
+  GOOGLE_SMART_CARD_CHECK(g_libusb == impl_->libusb());
+  g_libusb = nullptr;
 }
 
 void LibusbOverChromeUsbGlobal::Detach() {
@@ -100,156 +105,90 @@ void LibusbOverChromeUsbGlobal::Detach() {
 }  // namespace google_smart_card
 
 int LIBUSB_CALL libusb_init(libusb_context** ctx) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_init(ctx=" << ctx << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbInit(ctx);
+  return GetGlobalLibusb()->LibusbInit(ctx);
 }
 
 void LIBUSB_CALL libusb_exit(libusb_context* ctx) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_exit(ctx=" << ctx << ")";
-
-  GetGlobalLibusbOverChromeUsb()->LibusbExit(ctx);
+  GetGlobalLibusb()->LibusbExit(ctx);
 }
 
 ssize_t LIBUSB_CALL libusb_get_device_list(
     libusb_context* ctx, libusb_device*** list) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_get_device_list(ctx=" << ctx << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbGetDeviceList(ctx, list);
+  return GetGlobalLibusb()->LibusbGetDeviceList(ctx, list);
 }
 
 void LIBUSB_CALL libusb_free_device_list(
     libusb_device** list, int unref_devices) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_free_device_list(list=" << list << ", unref_devices=" <<
-      unref_devices << ")";
-
-  GetGlobalLibusbOverChromeUsb()->LibusbFreeDeviceList(list, unref_devices);
+  GetGlobalLibusb()->LibusbFreeDeviceList(list, unref_devices);
 }
 
 libusb_device* LIBUSB_CALL libusb_ref_device(libusb_device* dev) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_ref_device(dev=" << dev << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbRefDevice(dev);
+  return GetGlobalLibusb()->LibusbRefDevice(dev);
 }
 
 void LIBUSB_CALL libusb_unref_device(libusb_device* dev) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_unref_device(dev=" << dev << ")";
-
-  GetGlobalLibusbOverChromeUsb()->LibusbUnrefDevice(dev);
+  GetGlobalLibusb()->LibusbUnrefDevice(dev);
 }
 
 int LIBUSB_CALL libusb_get_active_config_descriptor(
     libusb_device* dev, libusb_config_descriptor** config) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_get_active_config_descriptor(dev=" << dev << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbGetActiveConfigDescriptor(
-      dev, config);
+  return GetGlobalLibusb()->LibusbGetActiveConfigDescriptor(dev, config);
 }
 
 void LIBUSB_CALL libusb_free_config_descriptor(
     libusb_config_descriptor* config) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_free_config_descriptor(config=" << config << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbFreeConfigDescriptor(config);
+  return GetGlobalLibusb()->LibusbFreeConfigDescriptor(config);
 }
 
 int LIBUSB_CALL libusb_get_device_descriptor(
     libusb_device* dev, libusb_device_descriptor* desc) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_get_device_descriptor(dev=" << dev << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbGetDeviceDescriptor(dev, desc);
+  return GetGlobalLibusb()->LibusbGetDeviceDescriptor(dev, desc);
 }
 
 uint8_t LIBUSB_CALL libusb_get_bus_number(libusb_device* dev) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_get_bus_number(dev=" << dev << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbGetBusNumber(dev);
+  return GetGlobalLibusb()->LibusbGetBusNumber(dev);
 }
 
 uint8_t LIBUSB_CALL libusb_get_device_address(libusb_device* dev) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_get_device_address(dev=" << dev << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbGetDeviceAddress(dev);
+  return GetGlobalLibusb()->LibusbGetDeviceAddress(dev);
 }
 
 int LIBUSB_CALL libusb_open(libusb_device* dev, libusb_device_handle** handle) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_open(dev=" << dev << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbOpen(dev, handle);
+  return GetGlobalLibusb()->LibusbOpen(dev, handle);
 }
 
 void LIBUSB_CALL libusb_close(libusb_device_handle* dev_handle) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_close(dev_handle=" << dev_handle << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbClose(dev_handle);
+  return GetGlobalLibusb()->LibusbClose(dev_handle);
 }
 
 int LIBUSB_CALL libusb_claim_interface(
     libusb_device_handle* dev, int interface_number) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_claim_interface(dev=" << dev << ", interface_number=" <<
-      interface_number << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbClaimInterface(
-      dev, interface_number);
+  return GetGlobalLibusb()->LibusbClaimInterface(dev, interface_number);
 }
 
 int LIBUSB_CALL libusb_release_interface(
     libusb_device_handle* dev, int interface_number) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_release_interface(dev=" << dev << ", interface_number=" <<
-      interface_number << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbReleaseInterface(
-      dev, interface_number);
+  return GetGlobalLibusb()->LibusbReleaseInterface(dev, interface_number);
 }
 
 libusb_transfer* LIBUSB_CALL libusb_alloc_transfer(int iso_packets) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_alloc_transfer(iso_packets=" << iso_packets << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbAllocTransfer(iso_packets);
+  return GetGlobalLibusb()->LibusbAllocTransfer(iso_packets);
 }
 
 int LIBUSB_CALL libusb_submit_transfer(libusb_transfer* transfer) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_submit_transfer(transfer=" << transfer << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbSubmitTransfer(transfer);
+  return GetGlobalLibusb()->LibusbSubmitTransfer(transfer);
 }
 
 int LIBUSB_CALL libusb_cancel_transfer(libusb_transfer* transfer) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_cancel_transfer(transfer=" << transfer << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbCancelTransfer(transfer);
+  return GetGlobalLibusb()->LibusbCancelTransfer(transfer);
 }
 
 void LIBUSB_CALL libusb_free_transfer(libusb_transfer* transfer) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_free_transfer(transfer=" << transfer << ")";
-
-  GetGlobalLibusbOverChromeUsb()->LibusbFreeTransfer(transfer);
+  GetGlobalLibusb()->LibusbFreeTransfer(transfer);
 }
 
 int LIBUSB_CALL libusb_reset_device(libusb_device_handle* dev) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_reset_device(dev=" << dev << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbResetDevice(dev);
+  return GetGlobalLibusb()->LibusbResetDevice(dev);
 }
 
 int LIBUSB_CALL libusb_control_transfer(
@@ -261,14 +200,7 @@ int LIBUSB_CALL libusb_control_transfer(
     unsigned char* data,
     uint16_t wLength,
     unsigned int timeout) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_control_transfer(dev_handle=" << dev_handle <<
-      ", request_type=" << static_cast<int>(request_type) << ", bRequest=" <<
-      static_cast<int>(bRequest) << ", wValue=" << wValue << ", wIndex=" <<
-      wIndex << ", data=" << static_cast<void*>(data) << ", wLength=" <<
-      wLength << ", timeout=" << timeout << ") called";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbControlTransfer(
+  return GetGlobalLibusb()->LibusbControlTransfer(
       dev_handle,
       request_type,
       bRequest,
@@ -286,12 +218,7 @@ int LIBUSB_CALL libusb_bulk_transfer(
     int length,
     int* actual_length,
     unsigned int timeout) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_bulk_transfer(dev_handle=" << dev_handle << ", endpoint=" <<
-      static_cast<int>(endpoint) << ", data=" << static_cast<void*>(data) <<
-      ", length=" << length << ", timeout=" << timeout << ") called";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbBulkTransfer(
+  return GetGlobalLibusb()->LibusbBulkTransfer(
       dev_handle, endpoint, data, length, actual_length, timeout);
 }
 
@@ -302,18 +229,15 @@ int LIBUSB_CALL libusb_interrupt_transfer(
     int length,
     int* actual_length,
     unsigned int timeout) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_interrupt_transfer(dev_handle=" << dev_handle << ", endpoint=" <<
-      static_cast<int>(endpoint) << ", data=" << static_cast<void*>(data) <<
-      ", length=" << length << ", timeout=" << timeout << ")";
-
-  return GetGlobalLibusbOverChromeUsb()->LibusbInterruptTransfer(
+  return GetGlobalLibusb()->LibusbInterruptTransfer(
       dev_handle, endpoint, data, length, actual_length, timeout);
 }
 
 int LIBUSB_CALL libusb_handle_events(libusb_context* ctx) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << "[libusb NaCl port] " <<
-      "libusb_handle_events(ctx=" << ctx << ")";
+  return GetGlobalLibusb()->LibusbHandleEvents(ctx);
+}
 
-  return GetGlobalLibusbOverChromeUsb()->LibusbHandleEvents(ctx);
+int LIBUSB_CALL libusb_handle_events_completed(
+    libusb_context* ctx, int* completed) {
+  return GetGlobalLibusb()->LibusbHandleEventsCompleted(ctx, completed);
 }

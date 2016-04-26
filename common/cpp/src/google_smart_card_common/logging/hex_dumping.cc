@@ -71,6 +71,14 @@ std::string HexDumpByte(uint8_t value) {
   return HexDumpIntegerWithExactBitLength(value, 8);
 }
 
+std::string HexDumpDoublet(int16_t value) {
+  return HexDumpIntegerWithExactBitLength(value, 16);
+}
+
+std::string HexDumpDoublet(uint16_t value) {
+  return HexDumpIntegerWithExactBitLength(value, 16);
+}
+
 std::string HexDumpQuadlet(int32_t value) {
   return HexDumpIntegerWithExactBitLength(value, 32);
 }

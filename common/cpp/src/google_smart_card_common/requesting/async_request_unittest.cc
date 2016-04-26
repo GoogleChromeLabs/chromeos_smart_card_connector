@@ -55,7 +55,7 @@ TEST(RequestingAsyncRequestTest, AsyncRequestStateBasic) {
 
   // Initially the request state is constructed with no request result, and the
   // callback is not executed
-  AsyncRequestState request_state(std::ref(callback));
+  GenericAsyncRequestState request_state(std::ref(callback));
   ASSERT_EQ(0, callback.call_count());
 
   // The first set of the request result is successful and triggers the callback
@@ -80,9 +80,11 @@ TEST(RequestingAsyncRequestTest, AsyncRequestStateMultiThreading) {
 
   for (int iteration = 0; iteration < kIterationCount; ++iteration) {
     std::vector<TestAsyncRequestCallback> callbacks(kStateCount);
-    std::vector<std::unique_ptr<AsyncRequestState>> states;
-    for (int index = 0; index < kStateCount; ++index)
-      states.emplace_back(new AsyncRequestState(std::ref(callbacks[index])));
+    std::vector<std::unique_ptr<GenericAsyncRequestState>> states;
+    for (int index = 0; index < kStateCount; ++index) {
+      states.emplace_back(new GenericAsyncRequestState(std::ref(
+          callbacks[index])));
+    }
 
     std::vector<std::thread> threads;
     const auto threads_start_time =
@@ -106,9 +108,9 @@ TEST(RequestingAsyncRequestTest, AsyncRequestBasic) {
   TestAsyncRequestCallback callback;
 
   // Initially the request is constructed with an empty request state
-  std::shared_ptr<AsyncRequestState> request_state(new AsyncRequestState(
-      std::ref(callback)));
-  AsyncRequest request(request_state);
+  const auto request_state = std::make_shared<GenericAsyncRequestState>(
+      std::ref(callback));
+  GenericAsyncRequest request(request_state);
   ASSERT_EQ(0, callback.call_count());
 
   // The request state receives the result, which triggers the callback
@@ -124,9 +126,9 @@ TEST(RequestingAsyncRequestTest, AsyncRequestCancellation) {
   TestAsyncRequestCallback callback;
 
   // Initially the request is constructed with an empty request state
-  std::shared_ptr<AsyncRequestState> request_state(new AsyncRequestState(
-      std::ref(callback)));
-  AsyncRequest request(request_state);
+  const auto request_state = std::make_shared<GenericAsyncRequestState>(
+      std::ref(callback));
+  GenericAsyncRequest request(request_state);
   ASSERT_EQ(0, callback.call_count());
 
   // The request is canceled, which sets the result to "canceled"

@@ -46,9 +46,18 @@ class RemoteCallAdaptor final {
   }
 
   template <typename ... Args>
+  GenericAsyncRequest AsyncCall(
+      GenericAsyncRequestCallback callback,
+      const std::string& function_name,
+      const Args& ... args) {
+    return StartAsyncRequest(
+        function_name, ConvertRequestArguments(args...), callback);
+  }
+
+  template <typename ... Args>
   void AsyncCall(
-      AsyncRequest* async_request,
-      AsyncRequestCallback callback,
+      GenericAsyncRequest* async_request,
+      GenericAsyncRequestCallback callback,
       const std::string& function_name,
       const Args& ... args) {
     StartAsyncRequest(
@@ -105,11 +114,16 @@ class RemoteCallAdaptor final {
       const std::string& function_name,
       const pp::VarArray& converted_arguments);
 
+  GenericAsyncRequest StartAsyncRequest(
+      const std::string& function_name,
+      const pp::VarArray& converted_arguments,
+      GenericAsyncRequestCallback callback);
+
   void StartAsyncRequest(
       const std::string& function_name,
       const pp::VarArray& converted_arguments,
-      AsyncRequestCallback callback,
-      AsyncRequest* async_request);
+      GenericAsyncRequestCallback callback,
+      GenericAsyncRequest* async_request);
 
   Requester* const requester_;
 };
