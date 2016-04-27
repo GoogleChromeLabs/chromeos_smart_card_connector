@@ -88,7 +88,7 @@
     "description": "The prefix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is in the bundled list of the known Apps"
   },
   "pcscClientHandlingUserPromptDialogMessageAppNamePart": {
-    "message": "$appName$",
+    "message": "\"$appName$\"",
     "description": "The App name part of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is in the bundled list of the known Apps",
     "placeholders": {
       "appName": {

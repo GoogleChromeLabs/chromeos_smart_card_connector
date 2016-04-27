@@ -92,7 +92,7 @@ body {
 #message-app-link:visited,
 #message-app-link:hover,
 #message-app-link:active {
-  color: rgba(0, 0, 0, 0.54);
+  color: #4285f4;
 }
 
 #message-suffix::after {
@@ -113,7 +113,7 @@ body {
   border: none;
   color: #4285f4;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   height: 32px;
   margin: 0 12px;
   padding: 0 16px;
