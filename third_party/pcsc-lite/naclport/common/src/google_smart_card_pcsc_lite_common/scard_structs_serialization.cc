@@ -31,6 +31,20 @@
 
 namespace google_smart_card {
 
+namespace {
+
+std::vector<uint8_t> GetSCardReaderStateAtr(
+    const SCARD_READERSTATE& s_card_reader_state) {
+  if (!s_card_reader_state.cbAtr)
+    return {};
+  GOOGLE_SMART_CARD_CHECK(s_card_reader_state.cbAtr <= MAX_ATR_SIZE);
+  return std::vector<uint8_t>(
+      s_card_reader_state.rgbAtr,
+      s_card_reader_state.rgbAtr + s_card_reader_state.cbAtr);
+}
+
+}  // namespace
+
 template <>
 constexpr const char*
 StructConverter<InboundSCardReaderState>::GetStructTypeName() {
@@ -78,6 +92,7 @@ void StructConverter<SCardIoRequest>::VisitFields(
 
 InboundSCardReaderState InboundSCardReaderState::FromSCardReaderState(
     const SCARD_READERSTATE& value) {
+  GOOGLE_SMART_CARD_CHECK(value.szReader);
   return InboundSCardReaderState(
       value.szReader,
       value.pvUserData ?
@@ -87,13 +102,14 @@ InboundSCardReaderState InboundSCardReaderState::FromSCardReaderState(
 
 OutboundSCardReaderState OutboundSCardReaderState::FromSCardReaderState(
     const SCARD_READERSTATE& value) {
+  GOOGLE_SMART_CARD_CHECK(value.szReader);
   return OutboundSCardReaderState(
       value.szReader,
       value.pvUserData ?
           reinterpret_cast<uintptr_t>(value.pvUserData) : optional<uintptr_t>(),
       value.dwCurrentState,
       value.dwEventState,
-      std::vector<uint8_t>(value.rgbAtr, value.rgbAtr + value.cbAtr));
+      GetSCardReaderStateAtr(value));
 }
 
 SCARD_IO_REQUEST SCardIoRequest::AsSCardIoRequest() const {
@@ -111,6 +127,7 @@ SCardIoRequest SCardIoRequest::FromSCardIoRequest(
 template <>
 pp::Var MakeVar(const SCARD_READERSTATE& value) {
   VarDictBuilder result_builder;
+  GOOGLE_SMART_CARD_CHECK(value.szReader);
   result_builder.Add("reader_name", value.szReader);
   if (value.pvUserData) {
     result_builder.Add(
@@ -121,8 +138,7 @@ pp::Var MakeVar(const SCARD_READERSTATE& value) {
   // Chrome Extensions API does not allow sending ArrayBuffers in message
   // fields, so instead of pp::VarArrayBuffer a pp::VarArray with the bytes as
   // its element is constructed.
-  result_builder.Add("atr", MakeVar(std::vector<uint8_t>(
-      value.rgbAtr, value.rgbAtr + value.cbAtr)));
+  result_builder.Add("atr", MakeVar(GetSCardReaderStateAtr(value)));
   return result_builder.Result();
 }
 
