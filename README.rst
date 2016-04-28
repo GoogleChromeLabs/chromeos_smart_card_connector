@@ -47,7 +47,7 @@ The high-level overview of the architecture is:
     mentioned free USB CCID driver are supplied. Support of pluggable
     drivers is also not implemented yet, though it's possible
     technically (each driver can be created as a separate App talking to
-    the Connector App through some defined interface).
+    the Connector App through some defined interface). A list of readers supported by CCID can be found on their website <https://pcsclite.alioth.debian.org/ccid/section.html>.
 
 2.  A number of **third-party middleware Apps** containing the smart
     card drivers.
