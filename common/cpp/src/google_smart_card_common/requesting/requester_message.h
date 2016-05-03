@@ -15,8 +15,8 @@
 // This file contains various types and functions for creating and parsing
 // messages for requests and for request responses.
 //
-// See common/messaging/typed_message.h file for the description of notion of
-// "message type" and "message data".
+// See google_smart_card_common/messaging/typed_message.h file for the
+// description of notion of "message type" and "message data".
 //
 // Generally, the requester message data consists of request identifier and
 // payload data. The response message data consists of request identifier and

@@ -72,7 +72,7 @@ class RemoteCallAdaptor final {
       const GenericRequestResult& generic_request_result,
       std::string* error_message,
       PayloadFields* ... payload_fields) {
-    // FIXME(emaxx): Probably add details about the function call into the error
+    // TODO(emaxx): Probably add details about the function call into the error
     // messages?
     if (!generic_request_result.is_successful()) {
       *error_message = generic_request_result.error_message();

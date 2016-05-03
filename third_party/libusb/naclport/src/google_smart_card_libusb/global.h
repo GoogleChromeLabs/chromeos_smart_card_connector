@@ -26,8 +26,8 @@
 
 namespace google_smart_card {
 
-// This class owns a LibusbOverChromeUsb instance and enables it to be used
-// by the implementation of the global libusb_* functions.
+// This class owns a LibusbOverChromeUsb instance and enables it to be used by
+// the implementation of the global libusb_* functions.
 //
 // All global libusb_* functions are allowed to be called only while the
 // LibusbOverChromeUsbGlobal object exists.
@@ -44,6 +44,11 @@ class LibusbOverChromeUsbGlobal final {
       pp::Instance* pp_instance,
       pp::Core* pp_core);
 
+  // Destroys the self instance and the owned LibusbOverChromeUsb instance.
+  //
+  // After the destructor is called, any global libusb_* function calls are not
+  // allowed (and the still running calls, if any, will introduce undefined
+  // behavior).
   ~LibusbOverChromeUsbGlobal();
 
   // Detaches from the Pepper module and the typed message router, which
@@ -56,9 +61,9 @@ class LibusbOverChromeUsbGlobal final {
   //
   // This function is primarily intended to be used during the Pepper module
   // shutdown process, for preventing the situations when some other threads
-  // currently issuing PIN requests or waiting for the finish of the already
-  // started requests try to access the destroyed pp::Instance object or some
-  // other associated objects.
+  // currently calling global libusb_* functions or waiting for the finish of
+  // the already called functions try to access the destroyed pp::Instance
+  // object or some other associated objects.
   //
   // This function is safe to be called from any thread.
   void Detach();

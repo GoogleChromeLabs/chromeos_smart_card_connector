@@ -35,10 +35,17 @@
 
 namespace google_smart_card {
 
-// FIXME(emaxx): Write docs.
+// This class owns a PcscLiteOverRequester instance and enables it to be used by
+// the implementation of the global PC/SC-Lite client API functions.
+//
+// All global PC/SC-Lite client API functions are allowed to be called only
+// while the PcscLiteOverRequester object exists.
+//
+// It is allowed to have at most one PcscLiteOverRequester constructed at any
+// given moment of time.
 //
 // Note: Class constructor and destructor are not thread-safe against any
-// concurrent PC/SC-Lite API function calls.
+// concurrent PC/SC-Lite client API function calls.
 class PcscLiteOverRequesterGlobal final {
  public:
   PcscLiteOverRequesterGlobal(
@@ -46,8 +53,28 @@ class PcscLiteOverRequesterGlobal final {
       pp::Instance* pp_instance,
       pp::Core* pp_core);
 
+  // Destroys the self instance and the owned PcscLiteOverRequester instance.
+  //
+  // After the destructor is called, any global PC/SC-Lite client API function
+  // calls are not allowed (and the still running calls, if any, will introduce
+  // undefined behavior).
   ~PcscLiteOverRequesterGlobal();
 
+  // Detaches from the Pepper module and the typed message router, which
+  // prevents making any further requests through them and prevents waiting for
+  // the responses of the already started requests.
+  //
+  // After this function call, the global PC/SC-Lite client API functions are
+  // still allowed to be called, but they will return errors instead of
+  // performing the real requests.
+  //
+  // This function is primarily intended to be used during the Pepper module
+  // shutdown process, for preventing the situations when some other threads
+  // currently calling global PC/SC-Lite client API functions or waiting for the
+  // finish of the already called functions try to access the destroyed
+  // pp::Instance object or some other associated objects.
+  //
+  // This function is safe to be called from any thread.
   void Detach();
 
  private:

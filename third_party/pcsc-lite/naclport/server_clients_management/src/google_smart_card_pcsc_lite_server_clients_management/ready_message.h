@@ -26,8 +26,8 @@
 // This file contains functions for creating "ready" messages intended for
 // notifying the remote side when the initialization is complete.
 //
-// See common/messaging/typed_message.h file for the description of notion of
-// "message type" and "message data".
+// See google_smart_card_common/messaging/typed_message.h file for the
+// description of notion of "message type" and "message data".
 
 #ifndef GOOGLE_SMART_CARD_PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_READY_MESSAGE_H_
 #define GOOGLE_SMART_CARD_PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_READY_MESSAGE_H_

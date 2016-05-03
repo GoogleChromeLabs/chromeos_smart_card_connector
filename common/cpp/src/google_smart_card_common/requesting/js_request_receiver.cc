@@ -79,7 +79,7 @@ void JsRequestReceiver::PostResultMessage(const pp::Var& message) {
   const ThreadSafeUniquePtr<PpDelegate>::Locked pp_delegate =
       pp_delegate_.Lock();
   if (!pp_delegate) {
-    // FIXME(emaxx): Add some logging?..
+    // TODO(emaxx): Add some logging?..
     return;
   }
   pp_delegate->PostMessage(message);

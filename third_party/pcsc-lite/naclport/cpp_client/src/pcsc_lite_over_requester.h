@@ -23,15 +23,12 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// FIXME(emaxx): Write docs.
-
 #ifndef GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_CPP_CLIENT_PCSC_LITE_OVER_REQUESTER_H_
 #define GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_CPP_CLIENT_PCSC_LITE_OVER_REQUESTER_H_
 
 #include <memory>
 
 #include <pcsclite.h>
-#include <reader.h>
 #include <winscard.h>
 #include <wintypes.h>
 
@@ -42,12 +39,43 @@
 
 namespace google_smart_card {
 
+// The name of the requester that should be used for the requests made by the
+// PcscLiteOverRequester class (see also the
+// google_smart_card_common/requesting/requester.h header).
 constexpr char kPcscLiteRequesterName[] = "pcsc_lite";
 
+// This class provides an implementation for the PC/SC-Lite client API that
+// forwards all calls through the passed requester to its counterpart library
+// (which is normally a JavaScript PC/SC-Lite client library that, it turn,
+// forwards all requests to the server App - for the details, see the
+// /third_party/pcsc-lite/naclport/js_client/ directory).
+//
+// The function arguments and the returned values are (de)serialized with the
+// help of functions from the
+// google_smart_card_pcsc_lite_common/scard_structs_serialization.h header.
 class PcscLiteOverRequester final : public PcscLite {
  public:
+  // Creates the instance with the specified requester.
+  //
+  // The passed requester should normally be created with the
+  // kPcscLiteRequesterName name.
   explicit PcscLiteOverRequester(std::unique_ptr<Requester> requester);
 
+  // Detaches the linked requester, which prevents making any further requests
+  // through it and prevents waiting for the responses of the already started
+  // requests.
+  //
+  // After this function call, the PC/SC-Lite client API functions are still
+  // allowed to be called, but they will return errors instead of performing
+  // the real requests.
+  //
+  // This function is primarily intended to be used during the Pepper module
+  // shutdown process, for preventing the situations when some other threads
+  // currently calling PC/SC-Lite client API functions or waiting for the finish
+  // of the already called functions try to access the destroyed pp::Instance
+  // object or some other associated objects.
+  //
+  // This function is safe to be called from any thread.
   void Detach();
 
   LONG SCardEstablishContext(
@@ -141,10 +169,6 @@ class PcscLiteOverRequester final : public PcscLite {
   LONG SCardIsValidContext(SCARDCONTEXT s_card_context) override;
 
  private:
-  template <typename ... Results>
-  static LONG ExtractRequestResultsAndCode(
-      const GenericRequestResult& generic_request_result, Results* ... results);
-
   std::unique_ptr<Requester> requester_;
   RemoteCallAdaptor remote_call_adaptor_;
 };

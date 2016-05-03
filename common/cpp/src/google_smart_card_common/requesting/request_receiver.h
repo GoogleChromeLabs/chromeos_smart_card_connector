@@ -56,9 +56,10 @@ class RequestReceiver : public std::enable_shared_from_this<RequestReceiver> {
   // Creates the request receiver with the specified name and request handler.
   //
   // The name allows to handle only those requests that were sent from the
-  // appropriate requester (see e.g. the common/requesting/requester.h file),
-  // and also to send the request result back to the requester. So, generally,
-  // the request receiver names have to be unique.
+  // appropriate requester (see e.g. the
+  // google_smart_card_common/requesting/requester.h file), and also to send the
+  // request result back to the requester. So, generally, the request receiver
+  // names have to be unique.
   RequestReceiver(const std::string& name, RequestHandler* handler);
 
   virtual ~RequestReceiver() = default;

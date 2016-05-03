@@ -47,6 +47,14 @@ namespace google_smart_card {
 
 namespace {
 
+// This type is used to hold temporarily the allocated memory for the PC/SC-Lite
+// client API functions.
+//
+// The reason for using this specialization based on std::free function is that
+// different PC/SC-Lite client API functions may allocate memory for structures
+// of different types, but all of them should be allowed to be deallocated with
+// the same single function SCardFreeMemory - that's why C++ new/delete
+// operators cannot be used.
 template <typename T>
 using SCardUniquePtr = std::unique_ptr<T, decltype(&std::free)>;
 
@@ -55,6 +63,19 @@ SCardUniquePtr<T> CreateSCardUniquePtr() {
   return SCardUniquePtr<T>(nullptr, &std::free);
 }
 
+// Tries to copy the data from the input range [input_begin; input_end) into the
+// specified output location, which is specified in the PC/SC-Lite client API
+// style: the optional output buffer, the output_size argument which points
+// either to the supplied output buffer size or to the special
+// SCARD_AUTOALLOCATE value.
+//
+// In case the output buffer size points to the SCARD_AUTOALLOCATE value, the
+// output buffer is allocated by the function itself and is set to be owned by
+// the SCardUniquePtr instance supplied by the allocated_buffer_holder argument.
+//
+// For the documentation of the corresponding behavior of the original
+// PC/SC-Lite client API, refer, for instance, to
+// <https://pcsclite.alioth.debian.org/api/group__API.html#gaacfec51917255b7a25b94c5104961602>.
 template <typename IterT, typename T>
 LONG FillOutputBufferArguments(
     IterT input_begin,
@@ -106,6 +127,56 @@ LONG FillOutputBufferArguments(
   if (target_buffer_begin && input_size)
     std::memcpy(target_buffer_begin, &*input_begin, input_size);
   return SCARD_S_SUCCESS;
+}
+
+// Extracts the request result received as a response to the PC/SC-Lite client
+// API request.
+//
+// It is assumed (and CHECKed) that the result is an array, that contains the
+// PC/SC-Lite return code as the first argument (for the documentation, see
+// <https://pcsclite.alioth.debian.org/api/group__ErrorCodes.html>) and the
+// function output arguments as the following array items.
+template <typename ... Results>
+LONG ExtractRequestResultsAndCode(
+    const GenericRequestResult& generic_request_result, Results* ... results) {
+  if (!generic_request_result.is_successful()) {
+    GOOGLE_SMART_CARD_LOG_WARNING << "Request failed: " <<
+        generic_request_result.error_message();
+    return SCARD_F_INTERNAL_ERROR;
+  }
+
+  std::string error_message;
+  pp::VarArray var_array;
+  if (!VarAs(generic_request_result.payload(), &var_array, &error_message)) {
+    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
+        "payload items: " << error_message;
+  }
+
+  if (!GetVarArraySize(var_array)) {
+    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
+        "payload items: the response is an empty array";
+  }
+
+  LONG result_code;
+  if (!VarAs(var_array.Get(0), &result_code, &error_message)) {
+    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
+        "payload items: Error while extracting result code: " << error_message;
+  }
+  if (result_code != SCARD_S_SUCCESS) {
+    if (GetVarArraySize(var_array) != 1) {
+      GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
+          "payload items: Extra data is supplied along with an erroneous " <<
+          "result code";
+    }
+    return result_code;
+  }
+
+  if (!TryGetVarArrayItems(
+           var_array, &error_message, &result_code, results...)) {
+    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
+        "payload items: " << error_message;
+  }
+  return result_code;
 }
 
 }  // namespace
@@ -534,49 +605,6 @@ LONG PcscLiteOverRequester::SCardCancel(SCARDCONTEXT s_card_context) {
 LONG PcscLiteOverRequester::SCardIsValidContext(SCARDCONTEXT s_card_context) {
   return ExtractRequestResultsAndCode(
       remote_call_adaptor_.SyncCall("SCardIsValidContext", s_card_context));
-}
-
-template <typename ... Results>
-LONG PcscLiteOverRequester::ExtractRequestResultsAndCode(
-    const GenericRequestResult& generic_request_result, Results* ... results) {
-  if (!generic_request_result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING << "Request failed: " <<
-        generic_request_result.error_message();
-    return SCARD_F_INTERNAL_ERROR;
-  }
-
-  std::string error_message;
-  pp::VarArray var_array;
-  if (!VarAs(generic_request_result.payload(), &var_array, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-        "payload items: " << error_message;
-  }
-
-  if (!GetVarArraySize(var_array)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-        "payload items: the response is an empty array";
-  }
-
-  LONG result_code;
-  if (!VarAs(var_array.Get(0), &result_code, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-        "payload items: Error while extracting error code: " << error_message;
-  }
-  if (result_code != SCARD_S_SUCCESS) {
-    if (GetVarArraySize(var_array) != 1) {
-      GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-          "payload items: Extra data is supplied along with an erroneous " <<
-          "result code";
-    }
-    return result_code;
-  }
-
-  if (!TryGetVarArrayItems(
-           var_array, &error_message, &result_code, results...)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-        "payload items: " << error_message;
-  }
-  return result_code;
 }
 
 }  // namespace google_smart_card

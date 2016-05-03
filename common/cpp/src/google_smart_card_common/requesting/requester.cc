@@ -71,7 +71,7 @@ GenericAsyncRequest Requester::CreateAsyncRequest(
     const pp::Var& /*payload*/,
     GenericAsyncRequestCallback callback,
     RequestId* request_id) {
-  // FIXME(emaxx): The payload argument is ignored for now, but it can be
+  // TODO(emaxx): The payload argument is ignored for now, but it can be
   // utilized for creating some more informative logging at the place where the
   // requests results are handled.
 

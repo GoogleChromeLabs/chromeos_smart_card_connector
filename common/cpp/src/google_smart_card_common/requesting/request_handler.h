@@ -26,8 +26,8 @@ namespace google_smart_card {
 // The handler is the component that is actually executing the requests.
 //
 // In order to receive the requests, the handler has to be associated with one
-// or multiple request receivers (see the common/requesting/request_receiver.h
-// file).
+// or multiple request receivers (see the
+// google_smart_card_common/requesting/request_receiver.h file).
 class RequestHandler {
  public:
   virtual ~RequestHandler() = default;

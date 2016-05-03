@@ -506,7 +506,9 @@ uint8_t LibusbOverChromeUsb::LibusbGetDeviceAddress(libusb_device* dev) {
   GOOGLE_SMART_CARD_CHECK(dev);
 
   const int64_t device_id = dev->chrome_usb_device().device;
-  // FIXME(emaxx): Test this on a real device; re-think about this place.
+  // FIXME(emaxx): Fix the implementation to re-use the free device identifiers.
+  // The current implementation will break, for instance, after a device is
+  // unplugged and plugged back 256 times.
   GOOGLE_SMART_CARD_CHECK(device_id < std::numeric_limits<uint8_t>::max());
   return static_cast<uint8_t>(device_id);
 }
