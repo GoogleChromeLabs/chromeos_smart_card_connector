@@ -64,15 +64,23 @@ GSC.PopupWindow.Server.createWindow = function(
     createdWindowExtends['passedData'] = opt_data;
 
   logger.fine(
-      'Creating an App window with url="' + url + '", options=' +
+      'Creating a popup window with url="' + url + '", options=' +
       GSC.DebugDump.debugDump(createWindowOptions) +
       ', data=' + GSC.DebugDump.debugDump(opt_data));
 
   // FIXME(emaxx): Handle possible errors here?
-  chrome.app.window.create(
-      url,
-      createWindowOptions,
-      createWindowCallback.bind(undefined, createdWindowExtends));
+  /** @preserveTry */
+  try {
+    chrome.app.window.create(
+        url,
+        createWindowOptions,
+        createWindowCallback.bind(undefined, createdWindowExtends));
+  } catch (exc) {
+    GSC.Logging.failWithLogger(
+        logger,
+        'Failed to create the popup window with URL "' + url + '" and ' +
+        'options ' + GSC.DebugDump.debugDump(createWindowOptions) + ': ' + exc);
+  }
 };
 
 /**
@@ -117,10 +125,16 @@ GSC.PopupWindow.Server.runModalDialog = function(
  * @param {!chrome.app.window.AppWindow} createdWindow
  */
 function createWindowCallback(createdWindowExtends, createdWindow) {
-  var createdWindowScope = createdWindow.contentWindow;
+  GSC.Logging.checkWithLogger(
+      logger,
+      createdWindow,
+      'Failed to create the popup window: the returned App window object is ' +
+      'false');
+
+  var createdWindowScope = createdWindow['contentWindow'];
 
   logger.finer(
-      'The App window callback is executed, injecting the following data ' +
+      'The popup window callback is executed, injecting the following data ' +
       'into the created window: ' +
       GSC.DebugDump.debugDump(createdWindowExtends));
   goog.object.extend(createdWindowScope, createdWindowExtends);
