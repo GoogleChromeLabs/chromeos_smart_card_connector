@@ -38,6 +38,7 @@
 goog.provide('GoogleSmartCard.Logging');
 
 goog.require('GoogleSmartCard.LogBuffer');
+goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.debug');
 goog.require('goog.debug.Console');
@@ -184,11 +185,25 @@ GSC.Logging.checkWithLogger = function(
 
 /**
  * Fails with the specified message.
+ *
+ * In the debug mode, this function effectively throws an instance of
+ * goog.asserts.AssertionError.
+ *
+ * In the release mode, this function emits severe log message and initiates the
+ * App reload.
  * @param {string=} opt_message Error message in case of failure.
  * @param {...*} var_args The items to substitute into the failure message.
  */
 GSC.Logging.fail = function(opt_message, var_args) {
-  goog.asserts.fail(opt_message, Array.prototype.slice.call(arguments, 1));
+  var messageAndArgs = Array.prototype.slice.call(arguments);
+  if (goog.DEBUG) {
+    goog.asserts.fail.apply(goog.asserts, messageAndArgs);
+  } else {
+    rootLogger.severe.apply(rootLogger, messageAndArgs);
+    rootLogger.info('Reloading the App due to the fatal error...');
+    chrome.runtime.restart();
+    chrome.runtime.reload();
+  }
 };
 
 /**
@@ -199,12 +214,15 @@ GSC.Logging.fail = function(opt_message, var_args) {
  * @param {...*} var_args The items to substitute into the failure message.
  */
 GSC.Logging.failWithLogger = function(logger, opt_message, var_args) {
-  var transformedMessage = 'Failure in ' + logger.getName();
+  var messagePrefix = 'Failure in ' + logger.getName();
   if (goog.isDef(opt_message)) {
-    transformedMessage += ': ' + goog.string.subs(
-        opt_message, Array.prototype.slice.call(arguments, 2));
+    var transformedMessage = messagePrefix + ': ' + opt_message;
+    var args = Array.prototype.slice.call(arguments, 2);
+    GSC.Logging.fail.apply(
+        GSC.Logging, goog.array.concat(transformedMessage, args));
+  } else {
+    GSC.Logging.fail(messagePrefix);
   }
-  goog.asserts.fail(transformedMessage);
 };
 
 /**
