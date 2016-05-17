@@ -22,6 +22,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <mutex>
 #include <vector>
 
 #include <ppapi/cpp/instance.h>
@@ -71,9 +72,19 @@ class SignDigestRequestHandler {
 // bridge-backend.js files).
 class ApiBridge final : public google_smart_card::RequestHandler {
  public:
+  // Creates the bridge instance.
+  //
+  // On construction, registers self for receiving the corresponding request
+  // messages through the supplied TypedMessageRouter typed_message_router
+  // instance.
+  //
+  // The execute_requests_sequentially parameter, when set to true, effectively
+  // disables simultaneous execution of the multiple requests: each next request
+  // will be executed only once the previous one finishes.
   ApiBridge(
       google_smart_card::TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance);
+      pp::Instance* pp_instance,
+      bool execute_requests_sequentially);
 
   void Detach();
 
@@ -99,6 +110,7 @@ class ApiBridge final : public google_smart_card::RequestHandler {
       google_smart_card::RequestReceiver::ResultCallback result_callback);
 
   std::shared_ptr<google_smart_card::JsRequestReceiver> request_receiver_;
+  std::shared_ptr<std::mutex> request_handling_mutex_;
   std::weak_ptr<CertificatesRequestHandler> certificates_request_handler_;
   std::weak_ptr<SignDigestRequestHandler> sign_digest_request_handler_;
 };

@@ -42,7 +42,12 @@ namespace {
 
 void ProcessCertificatesRequest(
     std::weak_ptr<CertificatesRequestHandler> certificates_request_handler,
+    std::shared_ptr<std::mutex> request_handling_mutex,
     gsc::RequestReceiver::ResultCallback result_callback) {
+  std::unique_lock<std::mutex> lock;
+  if (request_handling_mutex)
+    lock = std::unique_lock<std::mutex>(*request_handling_mutex);
+
   GOOGLE_SMART_CARD_LOG_DEBUG << "Processing certificates request...";
   std::vector<CertificateInfo> certificates;
   const std::shared_ptr<CertificatesRequestHandler>
@@ -59,7 +64,12 @@ void ProcessCertificatesRequest(
 void ProcessSignDigestRequest(
     std::weak_ptr<SignDigestRequestHandler> sign_digest_request_handler,
     const SignRequest& sign_request,
+    std::shared_ptr<std::mutex> request_handling_mutex,
     gsc::RequestReceiver::ResultCallback result_callback) {
+  std::unique_lock<std::mutex> lock;
+  if (request_handling_mutex)
+    lock = std::unique_lock<std::mutex>(*request_handling_mutex);
+
   GOOGLE_SMART_CARD_LOG_DEBUG << "Processing sign digest request...";
   std::vector<uint8_t> signature;
   const std::shared_ptr<SignDigestRequestHandler>
@@ -77,13 +87,18 @@ void ProcessSignDigestRequest(
 }  // namespace
 
 ApiBridge::ApiBridge(
-    gsc::TypedMessageRouter* typed_message_router, pp::Instance* pp_instance)
+    gsc::TypedMessageRouter* typed_message_router,
+    pp::Instance* pp_instance,
+    bool execute_requests_sequentially)
     : request_receiver_(new gsc::JsRequestReceiver(
           kRequestReceiverName,
           this,
           typed_message_router,
           gsc::MakeUnique<gsc::JsRequestReceiver::PpDelegateImpl>(
-              pp_instance))) {}
+              pp_instance))) {
+  if (execute_requests_sequentially)
+    request_handling_mutex_.reset(new std::mutex);
+}
 
 void ApiBridge::Detach() {
   request_receiver_->Detach();
@@ -131,6 +146,7 @@ void ApiBridge::HandleCertificatesRequest(
   std::thread(
       &ProcessCertificatesRequest,
       certificates_request_handler_,
+      request_handling_mutex_,
       result_callback).detach();
 }
 
@@ -143,6 +159,7 @@ void ApiBridge::HandleSignDigestRequest(
       &ProcessSignDigestRequest,
       sign_digest_request_handler_,
       sign_request,
+      request_handling_mutex_,
       result_callback).detach();
 }
 

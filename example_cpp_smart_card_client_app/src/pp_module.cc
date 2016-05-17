@@ -94,7 +94,9 @@ class PpInstance final : public pp::Instance {
         pin_dialog_server_(new PinDialogServer(
             &typed_message_router_, this, pp::Module::Get()->core())),
         chrome_certificate_provider_api_bridge_(
-            &typed_message_router_, this),
+            &typed_message_router_,
+            this,
+            /* execute_requests_sequentially */ false),
         certificates_request_handler_(new ClientCertificatesRequestHandler),
         sign_digest_request_handler_(new ClientSignDigestRequestHandler(
             pin_dialog_server_)) {
