@@ -174,6 +174,9 @@ static void close_libusb_if_needed(void)
 {
 	int i, to_exit = TRUE;
 
+	if (NULL == ctx)
+		return;
+
 	/* if at least 1 reader is still in use we do not exit libusb */
 	for (i=0; i<CCID_DRIVER_MAX_READERS; i++)
 	{
@@ -724,6 +727,9 @@ end:
 			goto again_libusb;
 		}
 #endif
+		/* failed */
+		close_libusb_if_needed();
+
 		if (claim_failed)
 			return STATUS_COMM_ERROR;
 		DEBUG_INFO1("Device not found?");
@@ -741,6 +747,9 @@ end2:
 end1:
 	/* free bundle list */
 	bundleRelease(&plist);
+
+	if (return_value != STATUS_SUCCESS)
+		close_libusb_if_needed();
 
 	return return_value;
 } /* OpenUSBByName */
@@ -894,10 +903,6 @@ status_t CloseUSB(unsigned int reader_index)
 
 		if (usbDevice[reader_index].ccid.sIFD_iManufacturer)
 			free(usbDevice[reader_index].ccid.sIFD_iManufacturer);
-
-		/* reset so that bSeq starts at 0 again */
-		if (DriverOptions & DRIVER_OPTION_RESET_ON_CLOSE)
-			(void)libusb_reset_device(usbDevice[reader_index].dev_handle);
 
 		if (usbDevice[reader_index].ccid.arrayOfSupportedDataRates)
 			free(usbDevice[reader_index].ccid.arrayOfSupportedDataRates);
@@ -1237,7 +1242,8 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 	ret = libusb_submit_transfer(transfer);
 	if (ret < 0) {
 		libusb_free_transfer(transfer);
-		DEBUG_CRITICAL2("libusb_submit_transfer failed: %d", ret);
+		DEBUG_CRITICAL2("libusb_submit_transfer failed: %s",
+			libusb_error_name(ret));
 		return ret;
 	}
 
@@ -1245,17 +1251,18 @@ int InterruptRead(int reader_index, int timeout /* in ms */)
 
 	while (!completed)
 	{
-		ret = libusb_handle_events(ctx);
+		ret = libusb_handle_events_completed(ctx, &completed);
 		if (ret < 0)
 		{
 			if (ret == LIBUSB_ERROR_INTERRUPTED)
 				continue;
 			libusb_cancel_transfer(transfer);
 			while (!completed)
-				if (libusb_handle_events(ctx) < 0)
+				if (libusb_handle_events_completed(ctx, &completed) < 0)
 					break;
 			libusb_free_transfer(transfer);
-			DEBUG_CRITICAL2("libusb_handle_events failed: %d", ret);
+			DEBUG_CRITICAL2("libusb_handle_events failed: %s",
+				libusb_error_name(ret));
 			return ret;
 		}
 	}
@@ -1371,7 +1378,7 @@ static void *Multi_PollingProc(void *p_ext)
 		completed = 0;
 		while (!completed && !msExt->terminated)
 		{
-			rv = libusb_handle_events(ctx);
+			rv = libusb_handle_events_completed(ctx, &completed);
 			if (rv < 0)
 			{
 				DEBUG_COMM2("libusb_handle_events err %d", rv);
@@ -1383,7 +1390,7 @@ static void *Multi_PollingProc(void *p_ext)
 
 				while (!completed && !msExt->terminated)
 				{
-					if (libusb_handle_events(ctx) < 0)
+					if (libusb_handle_events_completed(ctx, &completed) < 0)
 						break;
 				}
 

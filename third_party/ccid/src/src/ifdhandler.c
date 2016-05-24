@@ -177,7 +177,10 @@ static RESPONSECODE CreateChannelByNameOrChannel(DWORD Lun,
 		oldReadTimeout = ccid_descriptor->readTimeout;
 
 		/* 100 ms just to resync the USB toggle bits */
-		ccid_descriptor->readTimeout = 100;
+		/* Do not use a fixed 100 ms value but compute it from the
+		 * default timeout. It is now possible to use a different value
+		 * by changing readTimeout in ccid_open_hack_pre() */
+		ccid_descriptor->readTimeout = ccid_descriptor->readTimeout * 100.0 / DEFAULT_COM_READ_TIMEOUT;
 
 		if ((IFD_COMMUNICATION_ERROR == CmdGetSlotStatus(reader_index, pcbuffer))
 			&& (IFD_COMMUNICATION_ERROR == CmdGetSlotStatus(reader_index, pcbuffer)))
@@ -593,7 +596,7 @@ EXTERNAL RESPONSECODE IFDHGetCapabilities(DWORD Lun, DWORD Tag,
 				if (ccid_desc->sIFD_serial_number)
 				{
 					strlcpy((char *)Value, ccid_desc->sIFD_serial_number, *Length);
-					*Length = strlen((char *)Value);
+					*Length = strlen((char *)Value)+1;
 				}
 				else
 				{
