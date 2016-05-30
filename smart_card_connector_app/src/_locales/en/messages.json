@@ -8,7 +8,7 @@
     "description": "The short version of the application title."
   },
   "appDesc": {
-    "message": "Provides access to Smart Card readers by exposing the PC/SC-Lite API to other Apps",
+    "message": "Enable Smart Card access on your Chromebook",
     "description": "The description of the application, displayed in the web store."
   },
   "mainWindowTitle": {
