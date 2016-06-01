@@ -217,8 +217,8 @@ Pinger.prototype.timeoutCallback_ = function() {
     return;
   this.logger.warning('No pong response received in time, the remote end is ' +
                       'dead. Disposing the messaging channel...');
-  this.dispose();
   this.messageChannel_.dispose();
+  this.dispose();
 };
 
 /**
