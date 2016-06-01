@@ -132,6 +132,8 @@ Pinger.prototype.disposeInternal = function() {
 
   this.messageChannel_ = null;
 
+  this.logger.fine('Disposed');
+
   Pinger.base(this, 'disposeInternal');
 };
 
@@ -150,14 +152,14 @@ Pinger.prototype.serviceCallback_ = function(messageData) {
     this.logger.warning(
         'Received pong message has wrong format: no "' +
         CHANNEL_ID_MESSAGE_KEY + '" field is present. Disposing...');
-    this.dispose();
+    this.disposeChannelAndSelf_();
     return;
   }
   var channelId = messageData[CHANNEL_ID_MESSAGE_KEY];
   if (!goog.isNumber(channelId)) {
     this.logger.warning('Received pong message has wrong format: channel id ' +
                         'is not a number. Disposing...');
-    this.dispose();
+    this.disposeChannelAndSelf_();
     return;
   }
 
@@ -180,8 +182,15 @@ Pinger.prototype.serviceCallback_ = function(messageData) {
         'Received a pong response with a channel id different from the ' +
         'expected one (expected ' + this.previousRemoteEndChannelId_ +
         ', received ' + channelId + '). Disposing...');
-    this.dispose();
+    this.disposeChannelAndSelf_();
   }
+};
+
+/** @private */
+Pinger.prototype.disposeChannelAndSelf_ = function() {
+  this.logger.fine('Disposing the message channel and self');
+  this.messageChannel_.dispose();
+  this.dispose();
 };
 
 /** @private */
@@ -216,9 +225,8 @@ Pinger.prototype.timeoutCallback_ = function() {
   if (this.isDisposed())
     return;
   this.logger.warning('No pong response received in time, the remote end is ' +
-                      'dead. Disposing the messaging channel...');
-  this.messageChannel_.dispose();
-  this.dispose();
+                      'dead. Disposing...');
+  this.disposeChannelAndSelf_();
 };
 
 /**
