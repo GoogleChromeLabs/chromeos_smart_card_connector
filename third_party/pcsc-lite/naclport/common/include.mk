@@ -31,9 +31,6 @@
 #
 
 
-PCSC_LITE_VERSION := 1.8.15
-
-
 PCSC_LITE_DIR_PATH := $(THIRD_PARTY_DIR_PATH)/pcsc-lite
 
 

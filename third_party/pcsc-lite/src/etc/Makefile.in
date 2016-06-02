@@ -155,6 +155,7 @@ am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/pcscd.service.in \
 	$(srcdir)/pcscd.socket.in
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
+ALLOCA = @ALLOCA@
 AMTAR = @AMTAR@
 AM_DEFAULT_VERBOSITY = @AM_DEFAULT_VERBOSITY@
 AR = @AR@

@@ -1,4 +1,385 @@
-commit 55fa57fc691b732535fc3384a214b1daa133a127 (HEAD -> master, tag: pcsc-1.8.16, origin/master, origin/HEAD, github/master)
+commit f74dc1feea4c7a2345abb3e1861b350d46946c86 (HEAD -> master, tag: pcsc-1.8.17, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun May 29 14:11:21 2016 +0200
+
+    Release 1.8.17
+
+ ChangeLog    | 11 +++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 12 insertions(+), 1 deletion(-)
+
+commit 0ba8145d814b846f2f2c2c59ad82e34f1253159a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 27 18:57:19 2016 +0200
+
+    Doxygen: improve SCardGetStatusChange example
+    
+    Show how to wait for a card insertion.
+
+ src/winscard_clnt.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+commit 687128ad9a377a27bd93e542fc096530534dc101
+Author: Richard PALO <richard@NetBSD.org>
+Date:   Sat Apr 23 18:13:37 2016 +0200
+
+    Fix SunOS compilation error
+    
+    Avoid visibility issues on SunOS on either gcc or studio
+    by using a guard stipulating minimum versions for each compiler
+    needed to support __attribute__((visibility("hidden")) or equivalent
+
+ src/misc.h | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+commit 9be0451909b73a4f52e42c01915683954d7d0a84
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 7 11:54:14 2016 +0200
+
+    Fix end of function comment
+
+ src/debuglog.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit f3a6ccac63abd4d7d0e4eeced059128919286bab
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 20 17:07:03 2016 +0200
+
+    Unit Test for 74656f24
+    
+    SCardEndTransaction(): no card action in a transaction
+
+ UnitaryTests/SCardBeginTransaction_Reset.py | 85 +++++++++++++++++++++++++++++
+ 1 file changed, 85 insertions(+)
+
+commit 74656f24db3da1532040a1775ceffa225fbc3d00
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 20 17:02:40 2016 +0200
+
+    SCardEndTransaction(): no card action in a transaction
+    
+    If a transaction is ongoing then another SCardEndTransaction() should
+    not reset or unpower the card.
+    In that case SCARD_E_SHARING_VIOLATION is returned and the transaction
+    is not ended.
+
+ src/winscard.c | 12 ++++++++++++
+ 1 file changed, 12 insertions(+)
+
+commit b7a4f8f47c1c57b56dfe6cd1088f68b845016d9b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 20 16:19:56 2016 +0200
+
+    RFUnlockSharing: handle SCARD_SHARE_EXCLUSIVE
+    
+    When a card is connected using SCARD_SHARE_EXCLUSIVE then
+    RFUnlockSharing() called by SCardEndTransaction() should not be able to
+    remove the exclusive access.
+    
+    The bug was detected because the following sequence worked but should
+    not:
+    SCardConnect(..., SCARD_SHARE_EXCLUSIVE, ...);
+    SCardEndTransaction();
+    
+    An error was reported only on the second SCardEndTransaction() call.
+    
+    Now the first call to SCardEndTransaction() will fail and the card
+    connection will stay exclusive.
+    
+    Thanks to Christophe Ferrando for the bug report in "[Pcsclite-muscle]
+    SCARD_E_NOT_TRANSACTED"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20160516/000598.html
+
+ src/readerfactory.c | 22 ++++++++++++++++------
+ 1 file changed, 16 insertions(+), 6 deletions(-)
+
+commit 88b2085b9c60c7a99aa1306187ad77ce1670a8eb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 20 15:39:20 2016 +0200
+
+    SCardGetAttrib.py: display the values in ASCII
+    
+    Display the attributes values also in ASCII.
+    
+    The output is now something like:
+    PC/SC Readers: ['Gemalto PC Twin Reader (70D7E2EE) 00 00']
+    reader: Gemalto PC Twin Reader (70D7E2EE) 00 00
+    0x10103 [55, 48, 68, 55, 69, 50, 69, 69, 0] 37 30 44 37 45 32 45 45 00
+    70D7E2EE
+    0x90303 [59, 167, 0, 64, 24, 128, 101, 162, 8, 1, 1, 82] 3B A7 00 40 18
+    80 65 A2 08 01 01 52 ;�@�eR
+
+ UnitaryTests/SCardGetAttrib.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit b1effd21528d27dfa016c2752cf3e4cb973240f4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Apr 22 15:45:01 2016 +0200
+
+    pcscd.h.in: remove extra spaces
+
+ src/pcscd.h.in | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 77740786d5450273fad1400322918f5a276b3131
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Apr 25 11:31:44 2016 +0200
+
+    SCardGetAttrib.py: also use SCARD_ATTR_ATR_STRING
+    
+    Try to use both attributes SCARD_ATTR_VENDOR_IFD_SERIAL_NO and
+    SCARD_ATTR_ATR_STRING
+    
+    Not all devices have a serial number so SCARD_ATTR_VENDOR_IFD_SERIAL_NO
+    may just return an empty buffer.
+    
+    SCARD_ATTR_ATR_STRING should always work when a card is inserted (and
+    the CCID driver is used).
+
+ UnitaryTests/SCardGetAttrib.py | 18 ++++++++++++------
+ 1 file changed, 12 insertions(+), 6 deletions(-)
+
+commit fa52ae4e1f1ae3c35596e9aedaa3ce30fc5ceef9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 24 19:04:04 2016 +0200
+
+    Fix use of d_type field on SunOS
+    
+    SunOS does not provide the d_type field in a directory entry.
+    
+    The code now checks that d_type is available using
+    AC_STRUCT_DIRENT_D_TYPE and use it conditionnaly.
+    
+    Fix compilation error on SunOS:
+    configfile.l: In function 'DBGetReaderListDir':
+    configfile.l:293:16: error: 'struct dirent' has no member named 'd_type'
+        if (direntry->d_type == DT_UNKNOWN)
+                    ^
+    configfile.l:293:28: error: 'DT_UNKNOWN' undeclared (first use in this function)
+        if (direntry->d_type == DT_UNKNOWN)
+                                ^
+    configfile.l:293:28: note: each undeclared identifier is reported only once for each function it appears in
+    configfile.l:312:17: error: 'struct dirent' has no member named 'd_type'
+         if (direntry->d_type != DT_REG)
+                     ^
+    configfile.l:312:29: error: 'DT_REG' undeclared (first use in this function)
+         if (direntry->d_type != DT_REG)
+                                 ^
+    
+    Thanks to risto3 for the bug report
+    https://github.com/LudovicRousseau/PCSC/issues/6
+
+ configure.ac     | 1 +
+ src/configfile.l | 4 ++++
+ 2 files changed, 5 insertions(+)
+
+commit 88acbfa03b98f28567c2438ea7aca6447488c0af
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 24 18:55:45 2016 +0200
+
+    Fix compiler warnings on SunOS
+    
+    utils.c: In function 'SendHotplugSignal':
+    utils.c:97:3: warning: format '%d' expects argument of type 'int', but argument 6 has type 'pid_t' [-Wformat=]
+       Log2(PCSC_LOG_INFO, "Send hotplug signal to pcscd (pid=%d)", pid);
+       ^
+    utils.c:100:4: warning: format '%d' expects argument of type 'int', but argument 6 has type 'pid_t' [-Wformat=]
+        Log3(PCSC_LOG_CRITICAL, "Can't signal pcscd (pid=%d): %s",
+        ^
+
+ src/utils.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+commit 2360debebf1c35c8599cd2e0fc484e5f5029ab87
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 24 18:52:45 2016 +0200
+
+    Fix compiler warning on SunOS
+    
+    pcscdaemon.c: In function 'main':
+    pcscdaemon.c:402:5: warning: format '%d' expects argument of type 'int', but argument 6 has type 'pid_t' [-Wformat=]
+         Log2(PCSC_LOG_CRITICAL,
+         ^
+
+ src/pcscdaemon.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit abe436e38aa58cb1140eff0d497ba721474c7703
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 24 18:46:53 2016 +0200
+
+    Fix signal handler by using only allowed functions
+    
+    The signals are now treated in a special thread created just for that purpose.
+    
+    Thanks to Andre Florath for the bug report
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20160404/000561.html
+    
+    [Pcsclite-muscle] pcscd jams when using '--auto-exit'
+    
+    Andre Florath andre at florath.net
+    Sat Apr 9 06:06:44 UTC 2016
+    
+    Hello!
+    
+    Since some time I have problems with pcscd. I'm using pcscd in
+    conjunction with online banking and after a short period of working it
+    stops and jams the banking application.
+    
+    A 'strace' to the pcscd showed that it is still running somewhere
+    deep in the USB stack.
+    
+    The problem is, when manually running the the pcscd, there is no
+    problem at all - only when running from systemd.
+    Therefore I searched for the differences and found one: the
+    '--auto-exit'. Downloaded the source and had a closer look.
+    
+    What I understand from the source code is, that when '--auto-exit' is
+    given, a SIGALRM is generated which (should) terminate the process.
+    
+    I have noticed that the signal handler 'signal_trap()' uses some
+    function calls that are not allowed in signal handlers; like:
+    * syslog()
+    * gettimeofday()
+    * remove()
+    
+    Using this creates undefined behavior.
+    (Please see 'man 7 signal' for a complete list of system calls that
+    are not allowed in signal handlers.)
+    
+    I found a workaround for the issue.
+    Changed the service file to:
+    
+    ===
+    [Unit]
+    Description=PC/SC Smart Card Daemon
+    
+    [Service]
+    ExecStart=/usr/sbin/pcscd --foreground --debug -a
+    ExecReload=/usr/sbin/pcscd --hotplug
+    
+    [Install]
+    Also=pcscd.socket
+    ===
+    
+    and disabling the pcscd.socket gives me a stable system.
+    (Yes - pcscd is now started at boot time and runs the whole time
+     - which is fine for me.)
+    
+    If you need more information, please drop me a note.
+    
+    Kind regards
+    
+    Andre
+
+ src/pcscdaemon.c | 170 ++++++++++++++++++++++++++++++++++++-------------------
+ 1 file changed, 111 insertions(+), 59 deletions(-)
+
+commit b48ff146f979cd3323845e1c19d1c1629d2ae037
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Apr 24 18:25:03 2016 +0200
+
+    Check alloca(3) is available
+    
+    The code uses alloca(3) so we check in ./configure that this function is
+    available.
+
+ configure.ac | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 890f7edbd931467fd381739257ac1e1f335eb64a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Apr 23 15:57:46 2016 +0200
+
+    readerfactory: fix compilation warning on SunOS
+    
+    The code uses alloca() so we #include "alloca.h"
+    
+    readerfactory.c: In function 'RFAddReader':
+    readerfactory.c:211:2: warning: implicit declaration of function 'alloca' [-Wimplicit-function-declaration]
+      readerName = alloca(strlen(readerNameLong)+1);
+      ^
+    readerfactory.c:211:15: warning: incompatible implicit declaration of built-in function 'alloca'
+      readerName = alloca(strlen(readerNameLong)+1);
+                   ^
+
+ src/readerfactory.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 2269f10c2d2c5be1308d59469722024650a19b6d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 13 18:29:53 2016 +0200
+
+    SCardConnect(): fix a Valgrind warning
+    
+    ==19635== Memcheck, a memory error detector
+    ==19635== Copyright (C) 2002-2012, and GNU GPL'd, by Julian Seward et al.
+    ==19635== Using Valgrind-3.8.1 and LibVEX; rerun with -h for copyright info
+    ==19635== Command: /usr/rtests/bin/Pkcs11UnitTest.X64 pkcs11_common
+    ==19635==
+    Running pkcs11_common
+    pkcs11_common::testGetInfo==19635== Syscall param socketcall.sendto(msg) points to uninitialised byte(s)
+    ==19635== at 0x605A1F7: send (send.c:32)
+    ==19635== by 0xBC47CE6: ??? (in /lib/x86_64-linux-gnu/libpcsclite.so.1.0.0)
+    ==19635== by 0xBC47E22: ??? (in /lib/x86_64-linux-gnu/libpcsclite.so.1.0.0)
+    ==19635== by 0xBC43BBE: SCardConnect (in /lib/x86_64-linux-gnu/libpcsclite.so.1.0.0)
+    ...
+    
+    The field scConnectStruct.szReader (containing the reader name) was not
+    completely initialized.
+    
+    Thanks to Andrey Roussev for the patch
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20160404/000560.html
+
+ src/winscard_clnt.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit d6c7215335fe04abfd91206349c7d674de7bfcaa
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Mar 31 16:43:16 2016 +0200
+
+    Doxygen: SCardGetAttrib() *pcbAttrLen contains the buffer size
+    
+    On return *pcbAttrLen contains the actual length of the received
+    attribute.
+    
+    If the buffer was not big enough the error SCARD_E_INSUFFICIENT_BUFFER
+    is returned and *pcbAttrLen contains the expected size.
+
+ src/winscard_clnt.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit e64629f80a4639836399493ef5c3c717571ffc96
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Mar 31 16:11:44 2016 +0200
+
+    SCardGetAttrib(): set pcbAttrLen when buffer is too small
+    
+    When the user provides a pbAttr[] buffer too small then the error code
+    SCARD_E_INSUFFICIENT_BUFFER is returned and the correct buffer size
+    value is set in pcbAttrLen.
+    
+    Before the change the value of pcbAttrLen was not changed so the user
+    had no idea what the correct value should be.
+
+ src/winscard_clnt.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+commit 84a9441d52e72e1fbec6aa2b0dd6db27d3f5ce38
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Mar 31 11:42:39 2016 +0200
+
+    Doxygen: SCardGetAttrib() pbAttr can be NULL
+    
+    If pbAttr is NULL then the correct buffer size is indicated in
+    pcbAttrLen.
+    
+    Also modify the example to use the double call.
+
+ src/winscard_clnt.c | 17 +++++++++++++----
+ 1 file changed, 13 insertions(+), 4 deletions(-)
+
+commit 55fa57fc691b732535fc3384a214b1daa133a127 (tag: pcsc-1.8.16, github/master)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Mar 20 16:57:30 2016 +0100
 

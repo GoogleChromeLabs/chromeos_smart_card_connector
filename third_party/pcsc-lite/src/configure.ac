@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 
-AC_INIT([pcsc-lite],[1.8.16])
+AC_INIT([pcsc-lite],[1.8.17])
 AC_CONFIG_SRCDIR(src/pcscdaemon.c)
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip)
 AC_CONFIG_HEADERS([config.h])
@@ -101,12 +101,14 @@ AC_C_CONST
 AC_TYPE_UID_T
 AC_TYPE_SIZE_T
 AC_HEADER_TIME
+AC_STRUCT_DIRENT_D_TYPE
 
 # Checks for library functions
 AC_FUNC_ERROR_AT_LINE
 AC_FUNC_STAT
 AC_FUNC_VPRINTF
 AC_CHECK_FUNCS(daemon flock getopt_long nanosleep strerror vsnprintf)
+AC_FUNC_ALLOCA
 
 # C Compiler features
 AC_C_INLINE
