@@ -43,6 +43,8 @@
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_pcsc_lite_common/scard_structs_serialization.h>
 
+const char kLoggingPrefix[] = "[PC/SC-Lite over requester] ";
+
 namespace google_smart_card {
 
 namespace {
@@ -138,9 +140,14 @@ LONG FillOutputBufferArguments(
 // function output arguments as the following array items.
 template <typename ... Results>
 LONG ExtractRequestResultsAndCode(
-    const GenericRequestResult& generic_request_result, Results* ... results) {
+    const std::string& function_name,
+    const GenericRequestResult& generic_request_result,
+    Results* ... results) {
+  const std::string logging_prefix =
+      kLoggingPrefix + function_name + " function call: ";
+
   if (!generic_request_result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_WARNING << "Request failed: " <<
+    GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Failed: " <<
         generic_request_result.error_message();
     return SCARD_F_INTERNAL_ERROR;
   }
@@ -148,33 +155,34 @@ LONG ExtractRequestResultsAndCode(
   std::string error_message;
   pp::VarArray var_array;
   if (!VarAs(generic_request_result.payload(), &var_array, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-        "payload items: " << error_message;
+    GOOGLE_SMART_CARD_LOG_FATAL << logging_prefix << "Failed to extract the " <<
+        "response payload items: " << error_message;
   }
 
   if (!GetVarArraySize(var_array)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-        "payload items: the response is an empty array";
+    GOOGLE_SMART_CARD_LOG_FATAL << logging_prefix << "Failed to extract the " <<
+        "response payload items: the response is an empty array";
   }
 
   LONG result_code;
   if (!VarAs(var_array.Get(0), &result_code, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-        "payload items: Error while extracting result code: " << error_message;
+    GOOGLE_SMART_CARD_LOG_FATAL << logging_prefix << "Failed to extract the " <<
+        "response payload items: Error while extracting result code: " <<
+        error_message;
   }
   if (result_code != SCARD_S_SUCCESS) {
     if (GetVarArraySize(var_array) != 1) {
-      GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-          "payload items: Extra data is supplied along with an erroneous " <<
-          "result code";
+      GOOGLE_SMART_CARD_LOG_FATAL << logging_prefix << "Failed to extract " <<
+          "the response payload items: Extra data is supplied along with an " <<
+          "erroneous result code";
     }
     return result_code;
   }
 
   if (!TryGetVarArrayItems(
            var_array, &error_message, &result_code, results...)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-        "payload items: " << error_message;
+    GOOGLE_SMART_CARD_LOG_FATAL << logging_prefix << "Failed to extract the " <<
+        "response payload items: " << error_message;
   }
   return result_code;
 }
@@ -205,6 +213,7 @@ LONG PcscLiteOverRequester::SCardEstablishContext(
   }
 
   return ExtractRequestResultsAndCode(
+      "SCardEstablishContext",
       remote_call_adaptor_.SyncCall(
           "SCardEstablishContext", scope, pp::Var::Null(), pp::Var::Null()),
       s_card_context);
@@ -212,6 +221,7 @@ LONG PcscLiteOverRequester::SCardEstablishContext(
 
 LONG PcscLiteOverRequester::SCardReleaseContext(SCARDCONTEXT s_card_context) {
   return ExtractRequestResultsAndCode(
+      "SCardReleaseContext",
       remote_call_adaptor_.SyncCall("SCardReleaseContext", s_card_context));
 }
 
@@ -228,6 +238,7 @@ LONG PcscLiteOverRequester::SCardConnect(
     return SCARD_E_UNKNOWN_READER;
 
   return ExtractRequestResultsAndCode(
+      "SCardConnect",
       remote_call_adaptor_.SyncCall(
           "SCardConnect",
           s_card_context,
@@ -248,6 +259,7 @@ LONG PcscLiteOverRequester::SCardReconnect(
     return SCARD_E_INVALID_PARAMETER;
 
   return ExtractRequestResultsAndCode(
+      "SCardReconnect",
       remote_call_adaptor_.SyncCall(
           "SCardReconnect",
           s_card_handle,
@@ -260,18 +272,21 @@ LONG PcscLiteOverRequester::SCardReconnect(
 LONG PcscLiteOverRequester::SCardDisconnect(
     SCARDHANDLE s_card_handle, DWORD disposition) {
   return ExtractRequestResultsAndCode(
+      "SCardDisconnect",
       remote_call_adaptor_.SyncCall(
           "SCardDisconnect", s_card_handle, disposition));
 }
 
 LONG PcscLiteOverRequester::SCardBeginTransaction(SCARDHANDLE s_card_handle) {
   return ExtractRequestResultsAndCode(
+      "SCardBeginTransaction",
       remote_call_adaptor_.SyncCall("SCardBeginTransaction", s_card_handle));
 }
 
 LONG PcscLiteOverRequester::SCardEndTransaction(
     SCARDHANDLE s_card_handle, DWORD disposition_action) {
   return ExtractRequestResultsAndCode(
+      "SCardEndTransaction",
       remote_call_adaptor_.SyncCall(
           "SCardEndTransaction", s_card_handle, disposition_action));
 }
@@ -289,6 +304,7 @@ LONG PcscLiteOverRequester::SCardStatus(
   DWORD protocol_copy;
   std::vector<uint8_t> atr_vector;
   const LONG result_code = ExtractRequestResultsAndCode(
+      "SCardStatus",
       remote_call_adaptor_.SyncCall("SCardStatus", s_card_handle),
       &reader_name_string,
       &state_copy,
@@ -345,6 +361,7 @@ LONG PcscLiteOverRequester::SCardGetStatusChange(
 
   std::vector<OutboundSCardReaderState> returned_reader_states_vector;
   const LONG result_code = ExtractRequestResultsAndCode(
+      "SCardGetStatusChange",
       remote_call_adaptor_.SyncCall(
           "SCardGetStatusChange",
           s_card_context,
@@ -402,6 +419,7 @@ LONG PcscLiteOverRequester::SCardControl(
 
   std::vector<uint8_t> received_buffer_vector;
   const LONG result_code = ExtractRequestResultsAndCode(
+      "SCardControl",
       remote_call_adaptor_.SyncCall(
           "SCardControl", s_card_handle, control_code, send_buffer_vector),
       &received_buffer_vector);
@@ -433,6 +451,7 @@ LONG PcscLiteOverRequester::SCardGetAttrib(
     LPDWORD attribute_length) {
   std::vector<uint8_t> attribute_vector;
   const LONG result_code = ExtractRequestResultsAndCode(
+      "SCardGetAttrib",
       remote_call_adaptor_.SyncCall(
           "SCardGetAttrib", s_card_handle, attribute_id),
       &attribute_vector);
@@ -466,6 +485,7 @@ LONG PcscLiteOverRequester::SCardSetAttrib(
       static_cast<const uint8_t*>(attribute_buffer) + attribute_buffer_length);
 
   return ExtractRequestResultsAndCode(
+      "SCardSetAttrib",
       remote_call_adaptor_.SyncCall(
           "SCardSetAttrib",
           s_card_handle,
@@ -500,6 +520,7 @@ LONG PcscLiteOverRequester::SCardTransmit(
   SCardIoRequest receive_protocol_information_copy;
   std::vector<uint8_t> received_buffer_vector;
   const LONG result_code = ExtractRequestResultsAndCode(
+      "SCardTransmit",
       remote_call_adaptor_.SyncCall(
           "SCardTransmit",
           s_card_handle,
@@ -544,6 +565,7 @@ LONG PcscLiteOverRequester::SCardListReaders(
 
   std::vector<std::string> readers_vector;
   const LONG result_code = ExtractRequestResultsAndCode(
+      "SCardListReaders",
       remote_call_adaptor_.SyncCall(
           "SCardListReaders", s_card_context, pp::Var::Null()),
       &readers_vector);
@@ -576,6 +598,7 @@ LONG PcscLiteOverRequester::SCardListReaderGroups(
     SCARDCONTEXT s_card_context, LPSTR groups, LPDWORD groups_size) {
   std::vector<std::string> groups_vector;
   const LONG result_code = ExtractRequestResultsAndCode(
+      "SCardListReaderGroups",
       remote_call_adaptor_.SyncCall("SCardListReaderGroups", s_card_context),
       &groups_vector);
   GOOGLE_SMART_CARD_CHECK(result_code != SCARD_E_INSUFFICIENT_BUFFER);
@@ -599,11 +622,13 @@ LONG PcscLiteOverRequester::SCardListReaderGroups(
 
 LONG PcscLiteOverRequester::SCardCancel(SCARDCONTEXT s_card_context) {
   return ExtractRequestResultsAndCode(
+      "SCardCancel",
       remote_call_adaptor_.SyncCall("SCardCancel", s_card_context));
 }
 
 LONG PcscLiteOverRequester::SCardIsValidContext(SCARDCONTEXT s_card_context) {
   return ExtractRequestResultsAndCode(
+      "SCardIsValidContext",
       remote_call_adaptor_.SyncCall("SCardIsValidContext", s_card_context));
 }
 
