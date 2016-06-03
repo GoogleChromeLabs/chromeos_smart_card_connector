@@ -102,7 +102,7 @@ OneTimeMessageChannel.prototype.disposeInternal = function() {
   OneTimeMessageChannel.base(this, 'disposeInternal');
 };
 
-OneTimeMessageChannel.prototype.handleMessage = function(message) {
+OneTimeMessageChannel.prototype.deliverMessage = function(message) {
   this.logger.finest('Received a message: ' +
                      GSC.DebugDump.debugDump(message));
 
