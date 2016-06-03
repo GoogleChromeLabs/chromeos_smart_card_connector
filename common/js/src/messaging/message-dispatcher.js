@@ -18,16 +18,8 @@
 
 goog.provide('GoogleSmartCard.MessageDispatcher');
 
-goog.require('GoogleSmartCard.DebugDump');
-goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.MessageChannelPinging.PingResponder');
-goog.require('GoogleSmartCard.MessageChannelPinging.Pinger');
 goog.require('GoogleSmartCard.OneTimeMessageChannel');
-goog.require('GoogleSmartCard.TypedMessage');
-goog.require('goog.asserts');
-goog.require('goog.events');
 goog.require('goog.log.Logger');
-goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.structs.Map');
 
 goog.scope(function() {
