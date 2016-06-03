@@ -64,7 +64,7 @@ var MessageDispatcher = GSC.MessageDispatcher;
 /** @type {function(string):GSC.OneTimeMessageChannel} */
 MessageDispatcher.prototype.getChannel = function(extensionId) {
   return this.channels_.get(extensionId, null);
-}
+};
 
 /** @type {function(string,function()=):!GSC.OneTimeMessageChannel} */
 MessageDispatcher.prototype.createChannel = function(extensionId, opt_onEstablished) {
@@ -77,17 +77,17 @@ MessageDispatcher.prototype.createChannel = function(extensionId, opt_onEstablis
         this.handleChannelDisposed_.bind(this, extensionId));
   }
   return channel;
-}
+};
 
 /** @private @type {function()} */
 MessageDispatcher.prototype.handleChannelDisposed_ = function(extensionId) {
   this.logger.fine('Disposed of channel id = ' + extensionId);
   this.channels_.remove(extensionId);
-}
+};
 
 /** @type {function(string,string,string)} */
 MessageDispatcher.prototype.send = function(extensionId, serviceName, payload) {
   this.createChannel(extensionId).send(serviceName, payload);
-}
+};
 
 });  // goog.scope

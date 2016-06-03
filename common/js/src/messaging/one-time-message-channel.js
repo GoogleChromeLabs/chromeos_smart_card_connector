@@ -89,7 +89,7 @@ OneTimeMessageChannel.prototype.send = function(serviceName, payload) {
   }
 
   chrome.runtime.sendMessage(this.extensionId_, message);
-}
+};
 
 /** @override */
 OneTimeMessageChannel.prototype.disposeInternal = function() {
@@ -101,7 +101,7 @@ OneTimeMessageChannel.prototype.disposeInternal = function() {
   this.logger.fine('Disposed');
 
   OneTimeMessageChannel.base(this, 'disposeInternal');
-}
+};
 
 OneTimeMessageChannel.prototype.handleMessage = function(message) {
   this.logger.finest('Received a message: ' +
