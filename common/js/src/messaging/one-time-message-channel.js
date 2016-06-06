@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-/** TODO @fileoverview */
+/**
+ * @fileoverview This file contains the Closure-style message channel (see
+ * <http://google.github.io/closure-library/api/interface_goog_messaging_MessageChannel.html>)
+ * wrapper around the Chrome simple one-time requests (see
+ * <https://developer.chrome.com/extensions/messaging#simple>).
+ */
 
 goog.provide('GoogleSmartCard.OneTimeMessageChannel');
 
@@ -37,8 +42,15 @@ var Pinger = GSC.MessageChannelPinging.Pinger;
 /** @const */
 var PingResponder = GSC.MessageChannelPinging.PingResponder;
 
-/** TODO class description
+/**
+ * This class is a wrapper around the Chrome simple one-time requests (see
+ * <https://developer.chrome.com/extensions/messaging#simple>) that transforms
+ * them into Closure-style message channels (see
+ * <http://google.github.io/closure-library/api/interface_goog_messaging_MessageChannel.html>).
  *
+ * Apart from adapting the one-time communication mechanisms into the methods of
+ * the goog.messaging.AbstractChannel class, this class enables pinging over
+ * this message channel (see the message-channel-pinging.js file for details).
  * @param {string} extensionId
  * @param {function()=} opt_onEstablished
  * @constructor
@@ -47,7 +59,7 @@ var PingResponder = GSC.MessageChannelPinging.PingResponder;
 GSC.OneTimeMessageChannel = function(extensionId, opt_onEstablished) {
   OneTimeMessageChannel.base(this, 'constructor');
 
-  /** @type {string} */
+  /** @private @type {string} */
   this.extensionId_ = extensionId;
 
   /**
