@@ -21,7 +21,7 @@
  * <https://developer.chrome.com/extensions/messaging#simple>).
  */
 
-goog.provide('GoogleSmartCard.OneTimeMessageChannel');
+goog.provide('GoogleSmartCard.SingleMessageBasedChannel');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
@@ -56,8 +56,8 @@ var PingResponder = GSC.MessageChannelPinging.PingResponder;
  * @constructor
  * @extends goog.messaging.AbstractChannel
  */
-GSC.OneTimeMessageChannel = function(extensionId, opt_onEstablished) {
-  OneTimeMessageChannel.base(this, 'constructor');
+GSC.SingleMessageBasedChannel = function(extensionId, opt_onEstablished) {
+  SingleMessageBasedChannel.base(this, 'constructor');
 
   /** @private @type {string} */
   this.extensionId_ = extensionId;
@@ -67,7 +67,7 @@ GSC.OneTimeMessageChannel = function(extensionId, opt_onEstablished) {
    * @const
    */
   this.logger = GSC.Logging.getScopedLogger(
-      'OneTimeMessageChannel<' + extensionId + '>');
+      'SingleMessageBasedChannel<' + extensionId + '>');
 
   this.registerDefaultService(this.defaultServiceCallback_.bind(this));
 
@@ -81,12 +81,12 @@ GSC.OneTimeMessageChannel = function(extensionId, opt_onEstablished) {
 };
 
 /** @const */
-var OneTimeMessageChannel = GSC.OneTimeMessageChannel;
+var SingleMessageBasedChannel = GSC.SingleMessageBasedChannel;
 
-goog.inherits(OneTimeMessageChannel, goog.messaging.AbstractChannel);
+goog.inherits(SingleMessageBasedChannel, goog.messaging.AbstractChannel);
 
 /** @override */
-OneTimeMessageChannel.prototype.send = function(serviceName, payload) {
+SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(payload));
   goog.asserts.assertObject(payload);
 
@@ -103,7 +103,7 @@ OneTimeMessageChannel.prototype.send = function(serviceName, payload) {
 };
 
 /** @override */
-OneTimeMessageChannel.prototype.disposeInternal = function() {
+SingleMessageBasedChannel.prototype.disposeInternal = function() {
   this.pinger_.dispose();
   this.pinger_ = null;
 
@@ -111,10 +111,10 @@ OneTimeMessageChannel.prototype.disposeInternal = function() {
 
   this.logger.fine('Disposed');
 
-  OneTimeMessageChannel.base(this, 'disposeInternal');
+  SingleMessageBasedChannel.base(this, 'disposeInternal');
 };
 
-OneTimeMessageChannel.prototype.deliverMessage = function(message) {
+SingleMessageBasedChannel.prototype.deliverMessage = function(message) {
   this.logger.finest('Received a message: ' +
                      GSC.DebugDump.debugDump(message));
 
@@ -130,7 +130,7 @@ OneTimeMessageChannel.prototype.deliverMessage = function(message) {
 };
 
 /** @private */
-OneTimeMessageChannel.prototype.defaultServiceCallback_ = function(
+SingleMessageBasedChannel.prototype.defaultServiceCallback_ = function(
     serviceName, payload) {
   GSC.Logging.failWithLogger(
       this.logger,

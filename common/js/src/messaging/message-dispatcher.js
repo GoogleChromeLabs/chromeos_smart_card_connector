@@ -18,7 +18,7 @@
 
 goog.provide('GoogleSmartCard.MessageDispatcher');
 
-goog.require('GoogleSmartCard.OneTimeMessageChannel');
+goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 goog.require('goog.log.Logger');
 goog.require('goog.structs.Map');
 
@@ -42,7 +42,7 @@ GSC.MessageDispatcher = function() {
   this.logger = GSC.Logging.getScopedLogger('OneTimeMessageDispatcher');
 
   /**
-   * @type {goog.structs.Map.<string, !GSC.OneTimeMessageChannel>}
+   * @type {goog.structs.Map.<string, !GSC.SingleMessageBasedChannel>}
    * @private
    */
   this.channels_ = new goog.structs.Map;
@@ -53,17 +53,18 @@ GSC.MessageDispatcher = function() {
 /** @const */
 var MessageDispatcher = GSC.MessageDispatcher;
 
-/** @type {function(string):GSC.OneTimeMessageChannel} */
+/** @type {function(string):GSC.SingleMessageBasedChannel} */
 MessageDispatcher.prototype.getChannel = function(extensionId) {
   return this.channels_.get(extensionId, null);
 };
 
-/** @type {function(string,function()=):!GSC.OneTimeMessageChannel} */
-MessageDispatcher.prototype.createChannel = function(extensionId, opt_onEstablished) {
+/** @type {function(string,function()=):!GSC.SingleMessageBasedChannel} */
+MessageDispatcher.prototype.createChannel = function(
+    extensionId, opt_onEstablished) {
   var channel = this.getChannel(extensionId);
   if (!channel) {
     this.logger.fine('Created a new channel, id = ' + extensionId);
-    channel = new GSC.OneTimeMessageChannel(extensionId, opt_onEstablished);
+    channel = new GSC.SingleMessageBasedChannel(extensionId, opt_onEstablished);
     this.channels_.set(extensionId, channel);
     channel.addOnDisposeCallback(
         this.handleChannelDisposed_.bind(this, extensionId));
