@@ -201,7 +201,8 @@ Additionally, Apps on both sides of the communication channel can send
 **ping** messages to each other::
 
     {
-      "type": "ping"
+      "type": "ping",
+      "data": {}
     }
 
 The other end should response with a **pong** message having the
@@ -209,7 +210,9 @@ following format::
 
     {
       "type": "pong",
-      "channel_id": <channelId>
+      "data": {
+        "channel_id": <channelId>
+      }
     }
 
 where ``<channelId>`` should be the number generated randomly in the
