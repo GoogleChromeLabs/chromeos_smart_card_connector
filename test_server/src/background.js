@@ -16,7 +16,8 @@ var messageDispatcher = new GSC.MessageDispatcher();
 chrome.runtime.onMessageExternal.addListener(function(request, sender) {
   var channel = messageDispatcher.getChannel(sender.id);
   if (!channel) {
-    channel = messageDispatcher.createChannel(sender.id);
+    channel = new GSC.SingleMessageBasedChannel(extensionId/*,opt_onEstablished*/);
+    messageDispatcher.addChannel(channel);
     // call something on the newly created channel
   }
   channel.deliverMessage(request);

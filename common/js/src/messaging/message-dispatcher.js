@@ -33,9 +33,7 @@ var GSC = GoogleSmartCard;
  * @constructor
  */
 GSC.MessageDispatcher = function() {
-  //MessageDispatcher.base(this, 'constructor');
-
-  /** TODO
+  /**
    * @type {!goog.log.Logger}
    * @const
    */
@@ -58,29 +56,19 @@ MessageDispatcher.prototype.getChannel = function(extensionId) {
   return this.channels_.get(extensionId, null);
 };
 
-/** @type {function(string,function()=):!GSC.SingleMessageBasedChannel} */
-MessageDispatcher.prototype.createChannel = function(
-    extensionId, opt_onEstablished) {
-  var channel = this.getChannel(extensionId);
-  if (!channel) {
-    this.logger.fine('Created a new channel, id = ' + extensionId);
-    channel = new GSC.SingleMessageBasedChannel(extensionId, opt_onEstablished);
-    this.channels_.set(extensionId, channel);
-    channel.addOnDisposeCallback(
-        this.handleChannelDisposed_.bind(this, extensionId));
-  }
-  return channel;
+/** @type {function(!GSC.SingleMessageBasedChannel)} */
+MessageDispatcher.prototype.addChannel = function(messageChannel) {
+  var extensionId = messageChannel.extensionId;
+  this.logger.fine('Added a new channel, id = ' + extensionId);
+  this.channels_.set(extensionId, channel);
+  channel.addOnDisposeCallback(
+      this.handleChannelDisposed_.bind(this, extensionId));
 };
 
-/** @private @type {function()} */
+/** @private @type {function(string)} */
 MessageDispatcher.prototype.handleChannelDisposed_ = function(extensionId) {
   this.logger.fine('Disposed of channel id = ' + extensionId);
   this.channels_.remove(extensionId);
-};
-
-/** @type {function(string,string,string)} */
-MessageDispatcher.prototype.send = function(extensionId, serviceName, payload) {
-  this.createChannel(extensionId).send(serviceName, payload);
 };
 
 });  // goog.scope

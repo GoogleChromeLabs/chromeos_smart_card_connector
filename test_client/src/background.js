@@ -15,7 +15,8 @@ chrome.runtime.onMessageExternal.addListener(function(message, sender) {
   console.log(message, sender);
   var channel = messageDispatcher.getChannel(sender.id);
   if (!channel) {
-    channel = messageDispatcher.createChannel(sender.id);
+    channel = new GSC.SingleMessageBasedChannel(sender.id/*,opt_onEstablished*/);
+    messageDispatcher.addChannel(channel);
     // call something on the newly created channel
   }
   channel.deliverMessage(message);
@@ -29,8 +30,8 @@ chrome.runtime.onMessage.addListener(function(message, b, c) {
 // channel.send('sname', {request_id: 'test1'});
 // channel.send('sname', {sender_id: 'client2', request_id: 'test1'});
 
-var clientChannel = messageDispatcher.createChannel(CLIENT_APP_ID);
-clientChannel.addOnDisposeCallback( function() {console.log('client channel disposed');} );
+//var clientChannel = messageDispatcher.createChannel(CLIENT_APP_ID);
+//clientChannel.addOnDisposeCallback( function() {console.log('client channel disposed');} );
 // clientChannel.send('test_service', 'test message');
 
 chrome.runtime.sendMessage(undefined, 'test message client -> client');
