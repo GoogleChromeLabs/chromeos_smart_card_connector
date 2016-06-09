@@ -99,7 +99,7 @@ SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
         this.logger, 'Failed to post message: the channel is already disposed');
   }
 
-  chrome.runtime.sendMessage(this.extensionId_, message);
+  chrome.runtime.sendMessage(this.extensionId, message);
 };
 
 /** @override */

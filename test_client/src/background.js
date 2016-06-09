@@ -1,5 +1,6 @@
-goog.require('GoogleSmartCard.MessageDispatcher');
+goog.require('GoogleSmartCard.MessageChannelsPool');
 goog.require('goog.log');
+goog.require('goog.asserts');
 
 console.log('HELLO THERE! test_client');
 
@@ -10,13 +11,14 @@ var CLIENT_APP_ID = 'pncffcfdfencgchlihahochlpdjcoblm';
 
 function logTime() { console.log(new Date().toLocaleString()); }
 
-var messageDispatcher = new GSC.MessageDispatcher();
+var channelsPool = new GSC.MessageChannelsPool();
 chrome.runtime.onMessageExternal.addListener(function(message, sender) {
   console.log(message, sender);
-  var channel = messageDispatcher.getChannel(sender.id);
+  goog.asserts.assertString(sender.id);
+  var channel = channelsPool.getChannel(sender.id);
   if (!channel) {
     channel = new GSC.SingleMessageBasedChannel(sender.id/*,opt_onEstablished*/);
-    messageDispatcher.addChannel(channel);
+    channelsPool.addChannel(channel);
     // call something on the newly created channel
   }
   channel.deliverMessage(message);
@@ -25,12 +27,12 @@ chrome.runtime.onMessage.addListener(function(message, b, c) {
   console.log(message, b, c);
 });
 
-// messageDispatcher.createChannel(SERVER_APP_ID)
+// channelsPool.createChannel(SERVER_APP_ID)
 //     .addOnDisposeCallback( function() {console.log('server channel disposed');} );
 // channel.send('sname', {request_id: 'test1'});
 // channel.send('sname', {sender_id: 'client2', request_id: 'test1'});
 
-//var clientChannel = messageDispatcher.createChannel(CLIENT_APP_ID);
+//var clientChannel = channelsPool.createChannel(CLIENT_APP_ID);
 //clientChannel.addOnDisposeCallback( function() {console.log('client channel disposed');} );
 // clientChannel.send('test_service', 'test message');
 

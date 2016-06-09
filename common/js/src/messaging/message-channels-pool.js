@@ -16,7 +16,7 @@
 
 /** TODO @fileoverview */
 
-goog.provide('GoogleSmartCard.MessageDispatcher');
+goog.provide('GoogleSmartCard.MessageChannelsPool');
 
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 goog.require('goog.log.Logger');
@@ -32,12 +32,12 @@ var GSC = GoogleSmartCard;
  *
  * @constructor
  */
-GSC.MessageDispatcher = function() {
+GSC.MessageChannelsPool = function() {
   /**
    * @type {!goog.log.Logger}
    * @const
    */
-  this.logger = GSC.Logging.getScopedLogger('OneTimeMessageDispatcher');
+  this.logger = GSC.Logging.getScopedLogger('MessageChannelsPool');
 
   /**
    * @type {goog.structs.Map.<string, !GSC.SingleMessageBasedChannel>}
@@ -49,24 +49,24 @@ GSC.MessageDispatcher = function() {
 };
 
 /** @const */
-var MessageDispatcher = GSC.MessageDispatcher;
+var MessageChannelsPool = GSC.MessageChannelsPool;
 
 /** @type {function(string):GSC.SingleMessageBasedChannel} */
-MessageDispatcher.prototype.getChannel = function(extensionId) {
+MessageChannelsPool.prototype.getChannel = function(extensionId) {
   return this.channels_.get(extensionId, null);
 };
 
 /** @type {function(!GSC.SingleMessageBasedChannel)} */
-MessageDispatcher.prototype.addChannel = function(messageChannel) {
+MessageChannelsPool.prototype.addChannel = function(messageChannel) {
   var extensionId = messageChannel.extensionId;
   this.logger.fine('Added a new channel, id = ' + extensionId);
-  this.channels_.set(extensionId, channel);
-  channel.addOnDisposeCallback(
+  this.channels_.set(extensionId, messageChannel);
+  messageChannel.addOnDisposeCallback(
       this.handleChannelDisposed_.bind(this, extensionId));
 };
 
 /** @private @type {function(string)} */
-MessageDispatcher.prototype.handleChannelDisposed_ = function(extensionId) {
+MessageChannelsPool.prototype.handleChannelDisposed_ = function(extensionId) {
   this.logger.fine('Disposed of channel id = ' + extensionId);
   this.channels_.remove(extensionId);
 };
