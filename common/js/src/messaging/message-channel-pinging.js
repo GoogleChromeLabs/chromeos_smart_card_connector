@@ -47,6 +47,8 @@ goog.scope(function() {
 
 /** @const */
 var PINGER_TIMEOUT_MILLISECONDS = goog.DEBUG ? 20 * 1000 : 600 * 1000;
+// Because of how pinging is implemented here, the following needs to be true:
+// PINGER_INTERVAL_MILLISECONDS < PINGER_TIMEOUT_MILLISECONDS.
 /** @const */
 var PINGER_INTERVAL_MILLISECONDS = goog.DEBUG ? 1 * 1000 : 10 * 1000;
 /** @const */
