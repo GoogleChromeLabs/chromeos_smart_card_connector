@@ -1,1 +1,7 @@
 /built_app_packages/
+common/cpp/build/tests/out
+common/cpp/build/tests/pnacl
+test_client/build/js_build/
+test_client/build/out/
+test_server/build/js_build/
+test_server/build/out/
