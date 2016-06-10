@@ -14,7 +14,11 @@
  * limitations under the License.
  */
 
-/** TODO @fileoverview */
+/**
+ * @fileoverview This file containts the pool that keeps track of all the
+ * Closure-style AbstractChannel's used for messenging
+ * (PortMessageChannel & SingleMesageBasedChannel).
+ */
 
 goog.provide('GoogleSmartCard.MessageChannelsPool');
 
@@ -28,8 +32,7 @@ goog.scope(function() {
 var GSC = GoogleSmartCard;
 
 /**
- * TODO: class description, @param?, @extends?
- *
+ * This class is a pool which keeps track of Closure-style AbstractChannel's.
  * @constructor
  */
 GSC.MessageChannelsPool = function() {
