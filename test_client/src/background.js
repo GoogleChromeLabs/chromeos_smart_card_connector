@@ -1,6 +1,7 @@
 goog.require('GoogleSmartCard.MessageChannelsPool');
-goog.require('goog.log');
+goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 goog.require('goog.asserts');
+goog.require('goog.log');
 
 console.log('HELLO THERE! test_client');
 
@@ -18,7 +19,7 @@ chrome.runtime.onMessageExternal.addListener(function(message, sender) {
   var channel = channelsPool.getChannel(sender.id);
   if (!channel) {
     channel = new GSC.SingleMessageBasedChannel(sender.id/*,opt_onEstablished*/);
-    channelsPool.addChannel(channel);
+    channelsPool.addChannel(channel, sender.id);
     // call something on the newly created channel
   }
   channel.deliverMessage(message);
