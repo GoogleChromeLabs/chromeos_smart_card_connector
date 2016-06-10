@@ -59,7 +59,7 @@ var PingResponder = GSC.MessageChannelPinging.PingResponder;
 GSC.SingleMessageBasedChannel = function(extensionId, opt_onEstablished) {
   SingleMessageBasedChannel.base(this, 'constructor');
 
-  /** @type {string} */
+  /** @const @type {string} */
   this.extensionId = extensionId;
 
   /**
