@@ -60,7 +60,7 @@ MessageChannelsPool.prototype.getChannel = function(extensionId) {
   return this.channels_.get(extensionId, null);
 };
 
-/** @type {function(!goog.messaging.AbstractChannel)} */
+/** @type {function(!goog.messaging.AbstractChannel,string)} */
 MessageChannelsPool.prototype.addChannel = function(
     messageChannel, extensionId) {
   this.logger.fine('Added a new channel, id = ' + extensionId);
