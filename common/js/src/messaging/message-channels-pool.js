@@ -16,7 +16,7 @@
 
 /**
  * @fileoverview This file containts the pool that keeps track of all the
- * Closure-style AbstractChannel's used for messenging
+ * Closure-style AbstractChannel's used for messaging
  * (PortMessageChannel & SingleMesageBasedChannel).
  */
 
