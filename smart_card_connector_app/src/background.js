@@ -18,12 +18,13 @@ goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 
 goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.MessageDispatcher');
+goog.require('GoogleSmartCard.MessageChannelsPool');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
+goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 
 goog.scope(function() {
 
@@ -67,7 +68,7 @@ var libusbChromeUsbBackend = new GSC.Libusb.ChromeUsbBackend(
 var pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
         naclModule.messageChannel);
-var messageDispatcher = new GSC.MessageDispatcher();
+var messageChannelsPool = new GSC.MessageChannelsPool();
 
 naclModule.load();
 
@@ -122,9 +123,10 @@ function externalMessageListener(message, sender) {
                    'extension id specified');
     return;
   }
-  var channel = messageDispatcher.getChannel(sender.id);
+  var channel = messageChannelsPool.getChannel(sender.id);
   if (!channel) {
-    channel = messageDispatcher.createChannel(sender.id);
+    channel = new GSC.SingleMessageBasedChannel(sender.id);
+    messageChannelsPool.addChannel(channel, sender.id);
     createClientHandler(channel, sender.id);
   }
   channel.deliverMessage(message);
