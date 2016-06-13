@@ -20,7 +20,7 @@
  * (PortMessageChannel & SingleMesageBasedChannel).
  */
 
-goog.provide('GoogleSmartCard.MessageChannelsPool');
+goog.provide('GoogleSmartCard.MessageChannelPool');
 
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.log.Logger');
@@ -36,12 +36,12 @@ var GSC = GoogleSmartCard;
  * This class is a pool which keeps track of Closure-style AbstractChannel's.
  * @constructor
  */
-GSC.MessageChannelsPool = function() {
+GSC.MessageChannelPool = function() {
   /**
    * @type {!goog.log.Logger}
    * @const
    */
-  this.logger = GSC.Logging.getScopedLogger('MessageChannelsPool');
+  this.logger = GSC.Logging.getScopedLogger('MessageChannelPool');
 
   /**
    * @type {goog.structs.Map.<string, !goog.messaging.AbstractChannel>}
@@ -53,15 +53,15 @@ GSC.MessageChannelsPool = function() {
 };
 
 /** @const */
-var MessageChannelsPool = GSC.MessageChannelsPool;
+var MessageChannelPool = GSC.MessageChannelPool;
 
 /** @type {function(string):goog.messaging.AbstractChannel} */
-MessageChannelsPool.prototype.getChannel = function(extensionId) {
+MessageChannelPool.prototype.getChannel = function(extensionId) {
   return this.channels_.get(extensionId, null);
 };
 
 /** @type {function(!goog.messaging.AbstractChannel,string)} */
-MessageChannelsPool.prototype.addChannel = function(
+MessageChannelPool.prototype.addChannel = function(
     messageChannel, extensionId) {
   this.logger.fine('Added a new channel, id = ' + extensionId);
   this.channels_.set(extensionId, messageChannel);
@@ -70,7 +70,7 @@ MessageChannelsPool.prototype.addChannel = function(
 };
 
 /** @private @type {function(string)} */
-MessageChannelsPool.prototype.handleChannelDisposed_ = function(extensionId) {
+MessageChannelPool.prototype.handleChannelDisposed_ = function(extensionId) {
   this.logger.fine('Disposed of channel id = ' + extensionId);
   this.channels_.remove(extensionId);
 };
