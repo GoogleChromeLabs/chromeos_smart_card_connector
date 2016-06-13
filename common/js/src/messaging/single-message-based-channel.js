@@ -88,7 +88,7 @@ goog.inherits(SingleMessageBasedChannel, goog.messaging.AbstractChannel);
 /**
  * @override
  * @param {string} serviceName
- * @param {!Object} payLoad
+ * @param {!Object|string} payload
  */
 SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(payload));
@@ -107,20 +107,7 @@ SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
 };
 
 /**
- * @override
- */
-SingleMessageBasedChannel.prototype.disposeInternal = function() {
-  this.pinger_.dispose();
-  this.pinger_ = null;
-
-  this.pingResponder_ = null;
-
-  this.logger.fine('Disposed');
-
-  SingleMessageBasedChannel.base(this, 'disposeInternal');
-};
-
-/**
+ * This method passes the message to the corresponding registered service.
  * @param {!Object} message
  */
 SingleMessageBasedChannel.prototype.deliverMessage = function(message) {
@@ -139,9 +126,23 @@ SingleMessageBasedChannel.prototype.deliverMessage = function(message) {
 };
 
 /**
+ * @override
+ */
+SingleMessageBasedChannel.prototype.disposeInternal = function() {
+  this.pinger_.dispose();
+  this.pinger_ = null;
+
+  this.pingResponder_ = null;
+
+  this.logger.fine('Disposed');
+
+  SingleMessageBasedChannel.base(this, 'disposeInternal');
+};
+
+/**
  * @private
  * @param {string} serviceName
- * @param {!Object} payload
+ * @param {!Object|string} payload
  */
 SingleMessageBasedChannel.prototype.defaultServiceCallback_ = function(
     serviceName, payload) {

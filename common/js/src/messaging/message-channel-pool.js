@@ -47,7 +47,7 @@ GSC.MessageChannelPool = function() {
    * TODO(isandrk): extensionId may be null (extension talks to itself)
    * TODO(isandrk): support storing both SingleMesageBasedChannel and
    *                PortMessageChannel in the map ("multimap")
-   * @type {goog.structs.Map.<string, !goog.messaging.AbstractChannel>}
+   * @type {!goog.structs.Map.<string, !goog.messaging.AbstractChannel>}
    * @private
    */
   this.channels_ = new goog.structs.Map;
