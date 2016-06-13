@@ -58,12 +58,18 @@ GSC.MessageChannelPool = function() {
 /** @const */
 var MessageChannelPool = GSC.MessageChannelPool;
 
-/** @type {function(string):goog.messaging.AbstractChannel} */
+/**
+ * @param {string} extensionId
+ * @return {goog.messaging.AbstractChannel}
+ */
 MessageChannelPool.prototype.getChannel = function(extensionId) {
   return this.channels_.get(extensionId, null);
 };
 
-/** @type {function(!goog.messaging.AbstractChannel,string)} */
+/**
+ * @param {!goog.messaging.AbstractChannel} messageChannel
+ * @param {string} extensionId
+ */
 MessageChannelPool.prototype.addChannel = function(
     messageChannel, extensionId) {
   if (this.getChannel(extensionId)) {
@@ -76,7 +82,10 @@ MessageChannelPool.prototype.addChannel = function(
       this.handleChannelDisposed_.bind(this, extensionId));
 };
 
-/** @private @type {function(string)} */
+/**
+ * @private
+ * @param {string} extensionId
+ */
 MessageChannelPool.prototype.handleChannelDisposed_ = function(extensionId) {
   this.logger.fine('Disposed of channel, extension id = ' + extensionId);
   if (!this.channels_.remove(extensionId)) {

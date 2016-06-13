@@ -85,7 +85,11 @@ var SingleMessageBasedChannel = GSC.SingleMessageBasedChannel;
 
 goog.inherits(SingleMessageBasedChannel, goog.messaging.AbstractChannel);
 
-/** @override */
+/**
+ * @override
+ * @param {string} serviceName
+ * @param {!Object} payLoad
+ */
 SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(payload));
   goog.asserts.assertObject(payload);
@@ -102,7 +106,9 @@ SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
   chrome.runtime.sendMessage(this.extensionId, message);
 };
 
-/** @override */
+/**
+ * @override
+ */
 SingleMessageBasedChannel.prototype.disposeInternal = function() {
   this.pinger_.dispose();
   this.pinger_ = null;
@@ -114,6 +120,9 @@ SingleMessageBasedChannel.prototype.disposeInternal = function() {
   SingleMessageBasedChannel.base(this, 'disposeInternal');
 };
 
+/**
+ * @param {!Object} message
+ */
 SingleMessageBasedChannel.prototype.deliverMessage = function(message) {
   this.logger.finest('Received a message: ' +
                      GSC.DebugDump.debugDump(message));
@@ -129,7 +138,11 @@ SingleMessageBasedChannel.prototype.deliverMessage = function(message) {
   this.deliver(typedMessage.type, typedMessage.data);
 };
 
-/** @private */
+/**
+ * @private
+ * @param {string} serviceName
+ * @param {!Object} payload
+ */
 SingleMessageBasedChannel.prototype.defaultServiceCallback_ = function(
     serviceName, payload) {
   GSC.Logging.failWithLogger(
