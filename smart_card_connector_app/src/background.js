@@ -114,7 +114,7 @@ function externalConnectionListener(port) {
 
 /**
  * @param {*} message
- * @param {MessageSender} sender
+ * @param {!MessageSender} sender
  */
 function externalMessageListener(message, sender) {
   logger.fine('Received onMessageExternal event');

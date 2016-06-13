@@ -44,6 +44,9 @@ GSC.MessageChannelPool = function() {
   this.logger = GSC.Logging.getScopedLogger('MessageChannelPool');
 
   /**
+   * TODO(isandrk): extensionId may be null (extension talks to itself)
+   * TODO(isandrk): support storing both SingleMesageBasedChannel and
+   *                PortMessageChannel in the map ("multimap")
    * @type {goog.structs.Map.<string, !goog.messaging.AbstractChannel>}
    * @private
    */
@@ -63,7 +66,11 @@ MessageChannelPool.prototype.getChannel = function(extensionId) {
 /** @type {function(!goog.messaging.AbstractChannel,string)} */
 MessageChannelPool.prototype.addChannel = function(
     messageChannel, extensionId) {
-  this.logger.fine('Added a new channel, id = ' + extensionId);
+  if (this.getChannel(extensionId)) {
+    GSC.Logging.failWithLogger(
+        this.logger, 'Tried to add a channel that was already present');
+  }
+  this.logger.fine('Added a new channel, extension id = ' + extensionId);
   this.channels_.set(extensionId, messageChannel);
   messageChannel.addOnDisposeCallback(
       this.handleChannelDisposed_.bind(this, extensionId));
@@ -71,8 +78,11 @@ MessageChannelPool.prototype.addChannel = function(
 
 /** @private @type {function(string)} */
 MessageChannelPool.prototype.handleChannelDisposed_ = function(extensionId) {
-  this.logger.fine('Disposed of channel id = ' + extensionId);
-  this.channels_.remove(extensionId);
+  this.logger.fine('Disposed of channel, extension id = ' + extensionId);
+  if (!this.channels_.remove(extensionId)) {
+    GSC.Logging.failWithLogger(
+        this.logger, 'Tried to dispose of non-existing channel');
+  }
 };
 
 });  // goog.scope
