@@ -1,6 +1,8 @@
-goog.require('goog.log');
+goog.require('GoogleSmartCard.MessageChannelPool');
 goog.require('GoogleSmartCard.PortMessageChannel');
-goog.require('GoogleSmartCard.MessageDispatcher');
+goog.require('GoogleSmartCard.SingleMessageBasedChannel');
+goog.require('goog.asserts');
+goog.require('goog.log');
 
 console.log('HELLO THERE! test_server');
 
@@ -11,14 +13,15 @@ function logTime() {
 }
 
 //chrome.runtime.onMessageExternal.addListener(externalMessageListener);
-//messageDispatcher.onCreateChannel(this.createClientHandler_.bind(this)); ???
-var messageDispatcher = new GSC.MessageDispatcher();
+//pool.onCreateChannel(this.createClientHandler_.bind(this)); ???
+var pool = new GSC.MessageChannelPool();
 chrome.runtime.onMessageExternal.addListener(function(request, sender) {
-  var channel = messageDispatcher.getChannel(sender.id);
+  goog.asserts.assertString(sender.id);
+  var channel = pool.getChannel(sender.id);
   if (!channel) {
-    channel = messageDispatcher.createChannel(sender.id);
+    channel = new GSC.SingleMessageBasedChannel(sender.id);
+    pool.addChannel(channel, sender.id);
     // call something on the newly created channel
   }
   channel.deliverMessage(request);
 });
-
