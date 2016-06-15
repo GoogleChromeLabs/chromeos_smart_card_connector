@@ -68,7 +68,6 @@ GSC.PopupWindow.Server.createWindow = function(
       GSC.DebugDump.debugDump(createWindowOptions) +
       ', data=' + GSC.DebugDump.debugDump(opt_data));
 
-  // FIXME(emaxx): Handle possible errors here?
   /** @preserveTry */
   try {
     chrome.app.window.create(
