@@ -71,12 +71,56 @@ var PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
- * FIXME(emaxx): Write docs.
- * @param {!goog.messaging.AbstractChannel} serverMessageChannel
+ * This class implements handling of requests received from the PC/SC client.
+ *
+ * The main tasks solved by this class are:
+ *
+ * 1. Verifying the client permissions.
+ *
+ *    Each client has to have a special permission in order to be able to
+ *    execute requests.
+ *
+ *    The permissions checking is performed using the
+ *    GSC.PcscLiteServerClientsManagement.PermissionsChecking.Checker class.
+ *
+ *    During the permissions check (which may be a long lasting operation - e.g.
+ *    showing a user prompt), all incoming requests are held in an internal
+ *    buffer.
+ *
+ *    If the permissions check finishes successfully, then all buffered requests
+ *    (and all requests that may come later) are being executed (see item #2).
+ *
+ *    If the permissions check fails, then all buffered requests (and all
+ *    requests that may come later) immediately get the error response.
+ *
+ * 2. Performing of the PC/SC requests received from the client.
+ *
+ *    After ensuring that the client has the required permission (see item #1),
+ *    the PC/SC requests from the client are being actually executed.
+ *
+ *    This is performed by forwarding the requests to the PC/SC server (channel
+ *    to it is accepted as one of the constructor arguments).
+ *
+ *    The responses from the PC/SC server, once they are received, are forwarded
+ *    then back to the client.
+ *
+ *    In other words, this instance behaves as a "pipe connector" between the
+ *    client message channel and the server message channel.
+ *
+ * Additionally, this class deals with the lifetimes of the client and the
+ * server message channels, delays the execution of the requests until the PC/SC
+ * server gets ready, notifies the server about the new client (at the very
+ * beginning) and about the client disposal (at the very end).
+ * @param {!goog.messaging.AbstractChannel} serverMessageChannel Message channel
+ * to the PC/SC server into which the PC/SC requests will be forwarded.
  * @param {!GSC.PcscLiteServerClientsManagement.ReadinessTracker}
- * serverReadinessTracker
- * @param {!goog.messaging.AbstractChannel} clientMessageChannel
- * @param {string=} clientAppId
+ * serverReadinessTracker Tracker of the PC/SC server that allows to delay
+ * forwarding of the PC/SC requests to the PC/SC server until it is ready to
+ * receive them.
+ * @param {!goog.messaging.AbstractChannel} clientMessageChannel Message channel
+ * to the client.
+ * @param {string=} clientAppId Identifier of the client App (the undefined
+ * value means that the own App is talking to itself).
  * @constructor
  * @extends goog.Disposable
  * @implements {GSC.RequestHandler}
@@ -251,8 +295,8 @@ ClientHandler.prototype.clientPermissionDeniedListener_ = function() {
   if (this.isDisposed())
     return;
 
-  // FIXME(emaxx): Add timeout before rejecting, so that inaccurately written
-  // client won't DDOS the server App?
+  // TODO(emaxx): Add timeout before rejecting, so that inaccurately written
+  // client won't DOS the server App?
 
   while (!this.bufferedRequestsQueue_.isEmpty()) {
     var request = this.bufferedRequestsQueue_.dequeue();
