@@ -59,7 +59,7 @@ var MessageChannelPool = GSC.MessageChannelPool;
 
 /**
  * @param {string} extensionId
- * @return {Array<string>}
+ * @return {Array<!goog.messaging.AbstractChannel>}
  */
 MessageChannelPool.prototype.getChannels = function(extensionId) {
   return this.channels_.get(extensionId);
