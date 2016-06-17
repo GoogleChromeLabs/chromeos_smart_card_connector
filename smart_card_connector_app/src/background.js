@@ -109,6 +109,8 @@ function externalConnectionListener(port) {
                    'extension id specified');
     return;
   }
+  messageChannelPool.addChannel(
+      portMessageChannel.extensionId, portMessageChannel);
   createClientHandler(portMessageChannel, portMessageChannel.extensionId);
 }
 
@@ -123,10 +125,13 @@ function externalMessageListener(message, sender) {
                    'extension id specified');
     return;
   }
-  var channel = messageChannelPool.getChannel(sender.id);
+  var channel = messageChannelPool.getChannels(sender.id).find(
+      function(channel) {
+        return channel instanceof GSC.SingleMessageBasedChannel;
+      });
   if (!channel) {
     channel = new GSC.SingleMessageBasedChannel(sender.id);
-    messageChannelPool.addChannel(channel, sender.id);
+    messageChannelPool.addChannel(sender.id, channel);
     createClientHandler(channel, sender.id);
   }
   channel.deliverMessage(message);
