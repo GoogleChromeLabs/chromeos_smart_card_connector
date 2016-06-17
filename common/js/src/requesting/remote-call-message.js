@@ -93,6 +93,9 @@ RemoteCallMessage.prototype.makeRequestPayload = function() {
 /**
  * Generates a debug textual representation of the remote call message
  * structure.
+ *
+ * This function is safe to be used in Release builds, because all potentially
+ * privacy-sensitive data is stripped away from the resulting text.
  * @return {string}
  */
 RemoteCallMessage.prototype.getDebugRepresentation = function() {

@@ -148,6 +148,9 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
       pcscLiteReadinessTracker,
       clientMessageChannel,
       clientExtensionId);
+  // FIXME(emaxx): Bug: when the client handler is disposed, the client message
+  // channel would be left ownerless forever. The client handler is currently
+  // not managing the lifetime of the client message channel.
 }
 
 /**

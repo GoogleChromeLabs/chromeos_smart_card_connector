@@ -48,16 +48,47 @@ goog.require('goog.structs.Queue');
 
 goog.scope(function() {
 
-/** @const */
+/**
+ * Service name that is used when sending a notification message to the PC/SC
+ * server that a new PC/SC client is connected and that the requests from this
+ * client may follow.
+ *
+ * The notification message will contain the unique client identifier (see also
+ * the CLIENT_ID_MESSAGE_KEY constant).
+ *
+ * FIXME(emaxx): Rename this constant and the related variables and methods to
+ * use the word "notification" instead.
+ * @const
+ */
 var SERVER_ADD_CLIENT_SERVICE_NAME = 'pcsc_lite_add_client';
-/** @const */
+/**
+ * Service name that is used when sending a notification message to the PC/SC
+ * server that the previously added PC/SC client should be removed (no requests
+ * from this client are allowed to be sent after this notification).
+ *
+ * The notification message will contain the unique client identifier (see also
+ * the CLIENT_ID_MESSAGE_KEY constant).
+ * @const
+ */
 var SERVER_REMOVE_CLIENT_SERVICE_NAME = 'pcsc_lite_remove_client';
 
-/** @const */
+/**
+ * Template of the service name that is used when sending a message to the PC/SC
+ * server containing the PC/SC request from the client.
+ *
+ * The template pattern is substituted with the client identifier.
+ * @const
+ */
 var SERVER_CALL_FUNCTION_REQUESTER_TITLE_FORMAT =
     'pcsc_lite_client_%s_call_function';
 
-/** @const */
+/**
+ * Key under which the unique client identifier is stored in the notifications
+ * sent to the PC/SC server regarding adding of a new client or removal of the
+ * previously added client (see also the SERVER_ADD_CLIENT_SERVICE_NAME and the
+ * SERVER_REMOVE_CLIENT_SERVICE_NAME constants).
+ * @const
+ */
 var CLIENT_ID_MESSAGE_KEY = 'client_id';
 
 /** @const */
@@ -107,10 +138,18 @@ var PermissionsChecking =
  *    In other words, this instance behaves as a "pipe connector" between the
  *    client message channel and the server message channel.
  *
- * Additionally, this class deals with the lifetimes of the client and the
- * server message channels, delays the execution of the requests until the PC/SC
- * server gets ready, notifies the server about the new client (at the very
- * beginning) and about the client disposal (at the very end).
+ * Additionally, this class:
+ *
+ * *  Generates unique client identifiers which are used when talking to the
+ *    server (for isolating the clients from each other inside the server
+ *    correctly).
+ *
+ * *  Notifies the server about the new client (at the very beginning) and about
+ *    the client disposal (at the very end).
+ *
+ * *  Tracks the lifetimes of the client and the server message channels.
+ *
+ * *  Delays the execution of the client requests until the server gets ready.
  * @param {!goog.messaging.AbstractChannel} serverMessageChannel Message channel
  * to the PC/SC server into which the PC/SC requests will be forwarded.
  * @param {!GSC.PcscLiteServerClientsManagement.ReadinessTracker}
@@ -181,18 +220,33 @@ var ClientHandler = GSC.PcscLiteServerClientsManagement.ClientHandler;
 goog.inherits(ClientHandler, goog.Disposable);
 
 /**
+ * Generator that is used by the
+ * GSC.PcscLiteServerClientsManagement.ClientHandler class to generate unique
+ * client identifiers.
+ *
+ * This is a singleton object, because each client handler should obtain a
+ * unique client identifier.
  * @type {!goog.iter.Iterator.<number>}
  */
 var clientIdGenerator = goog.iter.count();
 
 /**
+ * Client permission checker that is used by the
+ * GSC.PcscLiteServerClientsManagement.ClientHandler class for verifying that
+ * the client is allowed to issue PC/SC requests.
+ *
+ * This is a lazily initialized singleton object for the optimization purposes
+ * (construction of the checker is a relatively expensive operation).
  * @type {PermissionsChecking.Checker}
  */
 var permissionsChecker = null;
 
 /**
- * @param {!RemoteCallMessage} remoteCallMessage
- * @param {!goog.promise.Resolver} promiseResolver
+ * This structure is used to store the received client requests in a buffer.
+ * @param {!RemoteCallMessage} remoteCallMessage The remote call message
+ * containing the request contents.
+ * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
+ * resolve it) which should be used for sending the request response.
  * @constructor
  */
 function BufferedRequest(remoteCallMessage, promiseResolver) {
@@ -208,12 +262,21 @@ ClientHandler.prototype.disposeInternal = function() {
   this.bufferedRequestsQueue_ = null;
 
   if (this.serverRequester_) {
+    // FIXME(emaxx): The requester should be disposed too, instead of just
+    // removing the reference to it.
     this.serverRequester_ = null;
+    // Having the this.serverRequester_ member initialized means that the
+    // notification about the new client has been sent to the server. This is
+    // the right place to send to the server the notification that the client
+    // should be removed.
     this.postRemoveClientServerCommand_();
   }
 
   this.serverReadinessTracker_ = null;
 
+  // Note that this statement has to be executed after the
+  // postRemoveClientServerCommand_ method is called, because the latter
+  // accesses this member.
   this.serverMessageChannel_ = null;
 
   this.requestReceiver_ = null;
@@ -246,11 +309,27 @@ ClientHandler.prototype.handleRequest = function(payload) {
 
   var promiseResolver = goog.Promise.withResolver();
 
+  // For the sake of simplicity, all requests are emplaced in the internal
+  // buffer, regardless whether the permissions check have already been
+  // performed (see also the comment below).
+  //
+  // In particular, this guarantees that the order of the requests is preserved
+  // when forwarding them to the server for being executed.
   this.bufferedRequestsQueue_.enqueue(new BufferedRequest(
       remoteCallMessage, promiseResolver));
 
   if (!permissionsChecker)
     permissionsChecker = new PermissionsChecking.Checker;
+  // For the sake of simplicity, the result of the permissions check is not
+  // cached anywhere in this instance. It's the job of the permissions checker
+  // to do the appropriate caching internally.
+  //
+  // So it may happen that the permissions check even finishes synchronously
+  // during the following call, but this is not a problem.
+  //
+  // Also the implementation here deals with the potential situations when
+  // multiple permission check requests are resolved in the order different from
+  // the how they were started.
   permissionsChecker.check(this.clientAppId_).then(
       this.clientPermissionGrantedListener_.bind(this),
       this.clientPermissionDeniedListener_.bind(this));
@@ -258,7 +337,11 @@ ClientHandler.prototype.handleRequest = function(payload) {
   return promiseResolver.promise;
 };
 
-/** @private */
+/**
+ * Sets up listeners tracking the lifetime of the server and client message
+ * channels.
+ * @private
+ */
 ClientHandler.prototype.addChannelDisposedListeners_ = function(
     serverMessageChannel, clientMessageChannel) {
   serverMessageChannel.addOnDisposeCallback(
@@ -267,15 +350,32 @@ ClientHandler.prototype.addChannelDisposedListeners_ = function(
       this.clientMessageChannelDisposedListener_.bind(this));
 };
 
-/** @private */
+/**
+ * This listener is called when the server message channel is disposed.
+ *
+ * Disposes self, as it's not possible to process any client requests after this
+ * point.
+ * @private
+ */
 ClientHandler.prototype.serverMessageChannelDisposedListener_ = function() {
   if (this.isDisposed())
     return;
   this.logger.info('Server message channel was disposed, disposing...');
+  // FIXME(emaxx): It'd be a cleaner code to clear the
+  // this.serverMessageChannel_ member here, because the disposal process may
+  // result in calling the postRemoveClientServerCommand_ method, which will
+  // attempt to send a message through a disposed channel (which may result in
+  // assertion failures).
   this.dispose();
 };
 
-/** @private */
+/**
+ * This listener is called when the client message channel is disposed.
+ *
+ * Disposes self, as no communication to the client is possible after this
+ * point.
+ * @private
+ */
 ClientHandler.prototype.clientMessageChannelDisposedListener_ = function() {
   if (this.isDisposed())
     return;
@@ -283,14 +383,27 @@ ClientHandler.prototype.clientMessageChannelDisposedListener_ = function() {
   this.dispose();
 };
 
-/** @private */
+/**
+ * This callback is called when the client permissions checker finished
+ * returning that the client has the necessary permission.
+ *
+ * Schedules the execution of all previously buffered client requests after the
+ * server readiness tracker resolves successfully.
+ * @private
+ */
 ClientHandler.prototype.clientPermissionGrantedListener_ = function() {
   if (this.isDisposed())
     return;
   this.flushRequestsQueueWhenServerReady_();
 };
 
-/** @private */
+/**
+ * This callback is called when the client permissions checker finished
+ * returning that the client doesn't have the necessary permission.
+ *
+ * Resolves all previously buffered client requests with an error.
+ * @private
+ */
 ClientHandler.prototype.clientPermissionDeniedListener_ = function() {
   if (this.isDisposed())
     return;
@@ -310,7 +423,13 @@ ClientHandler.prototype.clientPermissionDeniedListener_ = function() {
   }
 };
 
-/** @private */
+/**
+ * Schedules the execution of all previously buffered client requests after the
+ * server readiness tracker resolves successfully.
+ *
+ * If the readiness tracker resolves with an error, then disposes self.
+ * @private
+ */
 ClientHandler.prototype.flushRequestsQueueWhenServerReady_ = function() {
   this.logger.finer('Waiting until the server is ready...');
   this.serverReadinessTracker_.promise.then(
@@ -318,13 +437,25 @@ ClientHandler.prototype.flushRequestsQueueWhenServerReady_ = function() {
       this.serverReadinessFailedListener_.bind(this));
 };
 
-/** @private */
+/**
+ * This callback is called when the server readiness tracker reports that the
+ * server got ready.
+ *
+ * Starts execution of all previously buffered client requests.
+ * @private
+ */
 ClientHandler.prototype.serverReadyListener_ = function() {
+  // FIXME(emaxx): Check for being disposed too?
   this.logger.finer('The server is ready, processing the buffered requests...');
-  this.flushbufferedRequestsQueue_();
+  this.flushBufferedRequestsQueue_();
 };
 
-/** @private */
+/**
+ * This callback is called when the server readiness tracker reports a failure.
+ *
+ * Disposes self, as the server is unavailable starting from this point.
+ * @private
+ */
 ClientHandler.prototype.serverReadinessFailedListener_ = function() {
   if (this.isDisposed())
     return;
@@ -332,8 +463,11 @@ ClientHandler.prototype.serverReadinessFailedListener_ = function() {
   this.dispose();
 };
 
-/** @private */
-ClientHandler.prototype.flushbufferedRequestsQueue_ = function() {
+/**
+ * Executes all previously buffered client requests.
+ * @private
+ */
+ClientHandler.prototype.flushBufferedRequestsQueue_ = function() {
   if (this.bufferedRequestsQueue_.isEmpty())
     return;
   this.logger.finer('Starting processing the buffered requests...');
@@ -344,8 +478,14 @@ ClientHandler.prototype.flushbufferedRequestsQueue_ = function() {
 };
 
 /**
- * @param {!GSC.RemoteCallMessage} remoteCallMessage
- * @param {!goog.promise.Resolver} promiseResolver
+ * Starts the specified client request by forwarding it to the server.
+ *
+ * The request result, once received, will be used to resolve the specified
+ * promise.
+ * @param {!RemoteCallMessage} remoteCallMessage The remote call message
+ * containing the request contents.
+ * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
+ * resolve it) which should be used for sending the request response.
  * @private
  */
 ClientHandler.prototype.startRequest_ = function(
@@ -360,7 +500,14 @@ ClientHandler.prototype.startRequest_ = function(
   requestPromise.then(promiseResolver.resolve, promiseResolver.reject);
 };
 
-/** @private */
+/**
+ * Creates, if not created before, the requester that will be used to send
+ * client requests to the server.
+ *
+ * Together with creating the requester, also sends the notification to the
+ * server that the new client should be added.
+ * @private
+ */
 ClientHandler.prototype.createServerRequesterIfNeed_ = function() {
   if (this.serverRequester_)
     return;
@@ -376,15 +523,35 @@ ClientHandler.prototype.createServerRequesterIfNeed_ = function() {
       requesterTitle, this.serverMessageChannel_);
 };
 
-/** @private */
+/**
+ * Sends the notification to the server that the new client should be added.
+ *
+ * Should be called not more than once.
+ *
+ * No client requests should be sent to the server before sending this
+ * notification.
+ * @private
+ */
 ClientHandler.prototype.postAddClientServerCommand_ = function() {
   this.serverMessageChannel_.send(
       SERVER_ADD_CLIENT_SERVICE_NAME,
       goog.object.create(CLIENT_ID_MESSAGE_KEY, this.clientId_));
 };
 
-/** @private */
+/**
+ * Sends the notification to the server that the client should be removed.
+ *
+ * Should be called exactly once, and only if the notification that the client
+ * has to be added was sent previously.
+ *
+ * No client requests should be sent to the server after sending this
+ * notification.
+ * @private
+ */
 ClientHandler.prototype.postRemoveClientServerCommand_ = function() {
+  // Note that there is intentionally no check whether the self instance is
+  // disposed: this method itself is called inside the disposeInternal method.
+
   this.serverMessageChannel_.send(
       SERVER_REMOVE_CLIENT_SERVICE_NAME,
       goog.object.create(CLIENT_ID_MESSAGE_KEY, this.clientId_));
