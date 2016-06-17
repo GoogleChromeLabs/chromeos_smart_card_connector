@@ -154,19 +154,21 @@ Backend.prototype.naclModuleDisposedListener_ = function() {
 
 /** @private */
 Backend.prototype.setupApiListeners_ = function() {
-  if (goog.DEBUG && !chrome.certificateProvider) {
-    this.logger.warning(
-        'chrome.certificateProvider API is not available. Providing ' +
-        'certificates to the Chrome browser will be impossible. This is just ' +
-        'a warning in the Debug build (in order to make some testing on ' +
-        'non-Chrome OS systems possible), but this will be a fatal error in ' +
-        'the Release build');
+  if (!chrome.certificateProvider) {
+    if (goog.DEBUG) {
+      this.logger.warning(
+          'chrome.certificateProvider API is not available. Providing ' +
+          'certificates to the Chrome browser will be impossible. This is ' +
+          'just a warning in the Debug build (in order to make some testing ' +
+          'on non-Chrome OS systems possible), but this will be a fatal ' +
+          'error in the Release build');
+    } else {
+      this.logger.severe(
+          'chrome.certificateProvider API is not available. Providing ' +
+          'certificates to the Chrome browser will be impossible');
+    }
     return;
   }
-  GSC.Logging.checkWithLogger(
-      this.logger,
-      chrome.certificateProvider,
-      'chrome.certificateProvider API is not available');
 
   this.boundCertificatesRequestListener_ =
       this.certificatesRequestListener_.bind(this);
