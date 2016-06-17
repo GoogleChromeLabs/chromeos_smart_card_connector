@@ -33,6 +33,7 @@
 #include <winscard.h>
 #include <wintypes.h>
 
+#include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_pcsc_lite_common/pcsc_lite.h>
 
 namespace google_smart_card {
@@ -40,9 +41,10 @@ namespace google_smart_card {
 // Wrapper that adds debug tracing of the called PC/SC-Lite functions.
 class PcscLiteTracingWrapper final : public PcscLite {
  public:
-  explicit PcscLiteTracingWrapper(PcscLite* pcsc_lite);
-  PcscLiteTracingWrapper(
-      PcscLite* pcsc_lite, const std::string& logging_prefix);
+  explicit PcscLiteTracingWrapper(
+      PcscLite* pcsc_lite,
+      const std::string& logging_prefix = "",
+      LogSeverity log_severity = LogSeverity::kDebug);
 
   LONG SCardEstablishContext(
       DWORD dwScope,
@@ -136,6 +138,7 @@ class PcscLiteTracingWrapper final : public PcscLite {
  private:
   PcscLite* const pcsc_lite_;
   const std::string logging_prefix_;
+  const LogSeverity log_severity_;
 };
 
 }  // namespace google_smart_card

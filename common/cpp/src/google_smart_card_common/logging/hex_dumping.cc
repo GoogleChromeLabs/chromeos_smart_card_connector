@@ -17,6 +17,7 @@
 #include <limits>
 #include <sstream>
 
+#include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/numeric_conversions.h>
 
 const int kBitsPerHexDigit = 4;
@@ -112,6 +113,8 @@ std::string HexDumpUnknownSizeInteger(uint64_t value) {
 }
 
 std::string HexDumpBytes(const void* begin, int64_t size) {
+  if (size)
+    GOOGLE_SMART_CARD_CHECK(begin);
   const uint8_t* const begin_casted = static_cast<const uint8_t*>(begin);
   std::string result;
   for (int64_t index = 0; index < size; ++index) {

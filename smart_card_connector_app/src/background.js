@@ -137,7 +137,7 @@ function externalMessageListener(message, sender) {
  * @param {string|undefined} clientExtensionId
  */
 function createClientHandler(clientMessageChannel, clientExtensionId) {
-  logger.fine(
+  logger.info(
       'Creating a new PC/SC-Lite client handler ' +
       (goog.isDef(clientExtensionId) ?
            '(client extension id is "' + clientExtensionId + '")' :

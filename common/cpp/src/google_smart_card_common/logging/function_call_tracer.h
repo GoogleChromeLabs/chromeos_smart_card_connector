@@ -18,6 +18,7 @@
 #include <string>
 #include <vector>
 
+#include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
 
 namespace google_smart_card {
@@ -25,9 +26,15 @@ namespace google_smart_card {
 // Helper class for implementing function call tracing - i.e. emitting debug log
 // messages for function calls: first with the function input arguments, then -
 // with the function return value and the values of its output arguments.
+//
+// TODO(emaxx): Add assertions that the class is used correctly (i.e. the
+// methods are called in a valid order and valid number of times).
 class FunctionCallTracer final {
  public:
-  explicit FunctionCallTracer(const std::string& function_name);
+  explicit FunctionCallTracer(
+      const std::string& function_name,
+      const std::string& logging_prefix = "",
+      LogSeverity log_severity = LogSeverity::kDebug);
 
   void AddPassedArg(
       const std::string& name, const std::string& dumped_value);
@@ -54,6 +61,8 @@ class FunctionCallTracer final {
   static std::string DumpArgs(const std::vector<ArgNameWithValue>& args);
 
   const std::string function_name_;
+  const std::string logging_prefix_;
+  const LogSeverity log_severity_;
   std::vector<ArgNameWithValue> passed_args_;
   optional<std::string> dumped_return_value_;
   std::vector<ArgNameWithValue> returned_args_;

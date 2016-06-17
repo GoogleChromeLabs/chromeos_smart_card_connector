@@ -27,6 +27,7 @@
 
 goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.Checker');
@@ -304,8 +305,8 @@ ClientHandler.prototype.handleRequest = function(payload) {
         'Failed to parse the received request payload'));
   }
 
-  this.logger.finer('Received a remote call request: ' +
-                    remoteCallMessage.getDebugRepresentation());
+  this.logger.info('Received a remote call request: ' +
+                   remoteCallMessage.getDebugRepresentation());
 
   var promiseResolver = goog.Promise.withResolver();
 
@@ -497,7 +498,56 @@ ClientHandler.prototype.startRequest_ = function(
 
   var requestPromise = this.serverRequester_.postRequest(
       remoteCallMessage.makeRequestPayload());
-  requestPromise.then(promiseResolver.resolve, promiseResolver.reject);
+  requestPromise.then(
+      this.requestSucceededListener_.bind(
+          this, remoteCallMessage, promiseResolver),
+      this.requestFailedListener_.bind(
+          this, remoteCallMessage, promiseResolver));
+};
+
+/**
+ * This callback is called when the request to the server succeeds.
+ *
+ * Resolves the passed promise with the passed result, which essentially results
+ * in sending the result back to the client.
+ * @param {!RemoteCallMessage} remoteCallMessage The remote call message
+ * containing the request contents.
+ * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
+ * resolve it) which should be used for sending the request response.
+ * @param {*} result The request result.
+ * @private
+ */
+ClientHandler.prototype.requestSucceededListener_ = function(
+    remoteCallMessage, promiseResolver, result) {
+  this.logger.info(
+      'The remote call request ' + remoteCallMessage.getDebugRepresentation() +
+      ' finished successfully' +
+      (goog.DEBUG ?
+           ' with the following result: ' + GSC.DebugDump.debugDump(result) :
+           ''));
+
+  promiseResolver.resolve(result);
+};
+
+/**
+ * This callback is called when the request to the server succeeds.
+ *
+ * Resolves the passed promise with the passed error, which essentially results
+ * in sending the error back to the client.
+ * @param {!RemoteCallMessage} remoteCallMessage The remote call message
+ * containing the request contents.
+ * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
+ * resolve it) which should be used for sending the request response.
+ * @param {*} error The error with which the request finished.
+ * @private
+ */
+ClientHandler.prototype.requestFailedListener_ = function(
+    remoteCallMessage, promiseResolver, error) {
+  this.logger.warning(
+      'The remote call request ' + remoteCallMessage.getDebugRepresentation() +
+      ' failed with the following error: ' + error);
+
+  promiseResolver.reject(error);
 };
 
 /**

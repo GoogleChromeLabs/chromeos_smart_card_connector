@@ -14,12 +14,17 @@
 
 #include <google_smart_card_common/logging/function_call_tracer.h>
 
-#include <google_smart_card_common/logging/logging.h>
-
 namespace google_smart_card {
 
-FunctionCallTracer::FunctionCallTracer(const std::string& function_name)
-    : function_name_(function_name) {}
+const LogSeverity kDefaultLogSeverity = LogSeverity::kDebug;
+
+FunctionCallTracer::FunctionCallTracer(
+    const std::string& function_name,
+    const std::string& logging_prefix,
+    LogSeverity log_severity)
+    : function_name_(function_name),
+      logging_prefix_(logging_prefix),
+      log_severity_(log_severity) {}
 
 void FunctionCallTracer::AddPassedArg(
     const std::string& name, const std::string& dumped_value) {
@@ -38,20 +43,11 @@ void FunctionCallTracer::AddReturnedArg(
 }
 
 void FunctionCallTracer::LogEntrance() const {
-  LogEntrance("");
-}
-
-void FunctionCallTracer::LogEntrance(
-    const std::string& logging_prefix) const {
-  GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << function_name_ <<
+  GOOGLE_SMART_CARD_LOG(log_severity_) << logging_prefix_ << function_name_ <<
       "(" << DumpArgs(passed_args_) << "): called...";
 }
 
 void FunctionCallTracer::LogExit() const {
-  LogExit("");
-}
-
-void FunctionCallTracer::LogExit(const std::string& logging_prefix) const {
   std::string results_part;
   if (dumped_return_value_)
     results_part = *dumped_return_value_;
@@ -61,7 +57,7 @@ void FunctionCallTracer::LogExit(const std::string& logging_prefix) const {
     results_part += DumpArgs(returned_args_);
   }
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << function_name_ <<
+  GOOGLE_SMART_CARD_LOG(log_severity_) << logging_prefix_ << function_name_ <<
       ": returning" << (results_part.empty() ? "" : " ") << results_part;
 }
 

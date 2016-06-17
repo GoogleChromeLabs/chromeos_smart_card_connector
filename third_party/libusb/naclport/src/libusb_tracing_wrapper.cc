@@ -532,14 +532,14 @@ class LibusbTransferTracingWrapper final {
     libusb_transfer* const original_transfer = wrapper->transfer_;
     delete wrapper;
 
-    FunctionCallTracer tracer("libusb_transfer->callback");
+    FunctionCallTracer tracer("libusb_transfer->callback", kLoggingPrefix);
     tracer.AddPassedArg(
         "libusb_transfer", DebugDumpLibusbTransfer(original_transfer, false));
-    tracer.LogEntrance(kLoggingPrefix);
+    tracer.LogEntrance();
 
     original_transfer->callback(original_transfer);
 
-    tracer.LogExit(kLoggingPrefix);
+    tracer.LogExit();
   }
 
   void FillOriginalTransferOutputFields() {
@@ -560,9 +560,9 @@ LibusbTracingWrapper::LibusbTracingWrapper(LibusbInterface* wrapped_libusb)
 }
 
 int LibusbTracingWrapper::LibusbInit(libusb_context** ctx) {
-  FunctionCallTracer tracer("libusb_init");
+  FunctionCallTracer tracer("libusb_init", kLoggingPrefix);
   tracer.AddPassedArg("ctx", HexDumpPointer(ctx));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbInit(ctx);
 
@@ -571,26 +571,26 @@ int LibusbTracingWrapper::LibusbInit(libusb_context** ctx) {
     if (ctx)
       tracer.AddReturnedArg("*ctx", DebugDumpLibusbContext(*ctx));
   }
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 void LibusbTracingWrapper::LibusbExit(libusb_context* ctx) {
-  FunctionCallTracer tracer("libusb_exit");
+  FunctionCallTracer tracer("libusb_exit", kLoggingPrefix);
   tracer.AddPassedArg("ctx", DebugDumpLibusbContext(ctx));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   wrapped_libusb_->LibusbExit(ctx);
 
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
 }
 
 ssize_t LibusbTracingWrapper::LibusbGetDeviceList(
     libusb_context* ctx, libusb_device*** list) {
-  FunctionCallTracer tracer("libusb_get_device_list");
+  FunctionCallTracer tracer("libusb_get_device_list", kLoggingPrefix);
   tracer.AddPassedArg("ctx", DebugDumpLibusbContext(ctx));
   tracer.AddPassedArg("list", HexDumpPointer(list));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbGetDeviceList(ctx, list);
 
@@ -600,50 +600,51 @@ ssize_t LibusbTracingWrapper::LibusbGetDeviceList(
     if (list)
       tracer.AddReturnedArg("*list", DebugDumpLibusbDeviceList(*list));
   }
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 void LibusbTracingWrapper::LibusbFreeDeviceList(
     libusb_device** list, int unref_devices) {
-  FunctionCallTracer tracer("libusb_free_device_list");
+  FunctionCallTracer tracer("libusb_free_device_list", kLoggingPrefix);
   tracer.AddPassedArg("list", DebugDumpLibusbDeviceList(list));
   tracer.AddPassedArg("unref_devices", std::to_string(unref_devices));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   wrapped_libusb_->LibusbFreeDeviceList(list, unref_devices);
 
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
 }
 
 libusb_device* LibusbTracingWrapper::LibusbRefDevice(libusb_device* dev) {
-  FunctionCallTracer tracer("libusb_ref_device");
+  FunctionCallTracer tracer("libusb_ref_device", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDevice(dev));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   libusb_device* const result = wrapped_libusb_->LibusbRefDevice(dev);
 
   tracer.AddReturnValue(HexDumpPointer(result));
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return result;
 }
 
 void LibusbTracingWrapper::LibusbUnrefDevice(libusb_device* dev) {
-  FunctionCallTracer tracer("libusb_unref_device");
+  FunctionCallTracer tracer("libusb_unref_device", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDevice(dev));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   wrapped_libusb_->LibusbUnrefDevice(dev);
 
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
 }
 
 int LibusbTracingWrapper::LibusbGetActiveConfigDescriptor(
     libusb_device* dev, libusb_config_descriptor** config) {
-  FunctionCallTracer tracer("libusb_get_active_config_descriptor");
+  FunctionCallTracer tracer(
+      "libusb_get_active_config_descriptor", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDevice(dev));
   tracer.AddPassedArg("config", HexDumpPointer(config));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbGetActiveConfigDescriptor(
       dev, config);
@@ -655,27 +656,27 @@ int LibusbTracingWrapper::LibusbGetActiveConfigDescriptor(
           "*config", DebugDumpLibusbConfigDescriptorPointer(*config));
     }
   }
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 void LibusbTracingWrapper::LibusbFreeConfigDescriptor(
     libusb_config_descriptor* config) {
-  FunctionCallTracer tracer("libusb_free_config_descriptor");
+  FunctionCallTracer tracer("libusb_free_config_descriptor", kLoggingPrefix);
   tracer.AddPassedArg("config", HexDumpPointer(config));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   wrapped_libusb_->LibusbFreeConfigDescriptor(config);
 
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
 }
 
 int LibusbTracingWrapper::LibusbGetDeviceDescriptor(
     libusb_device* dev, libusb_device_descriptor* desc) {
-  FunctionCallTracer tracer("libusb_get_device_descriptor");
+  FunctionCallTracer tracer("libusb_get_device_descriptor", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDevice(dev));
   tracer.AddPassedArg("desc", HexDumpPointer(desc));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbGetDeviceDescriptor(dev, desc);
 
@@ -684,40 +685,40 @@ int LibusbTracingWrapper::LibusbGetDeviceDescriptor(
     if (desc)
       tracer.AddReturnedArg("*desc", DebugDumpLibusbDeviceDescriptor(*desc));
   }
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 uint8_t LibusbTracingWrapper::LibusbGetBusNumber(libusb_device* dev) {
-  FunctionCallTracer tracer("libusb_get_bus_number");
+  FunctionCallTracer tracer("libusb_get_bus_number", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDevice(dev));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const uint8_t result = wrapped_libusb_->LibusbGetBusNumber(dev);
 
   tracer.AddReturnValue(std::to_string(result));
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return result;
 }
 
 uint8_t LibusbTracingWrapper::LibusbGetDeviceAddress(libusb_device* dev) {
-  FunctionCallTracer tracer("libusb_get_device_address");
+  FunctionCallTracer tracer("libusb_get_device_address", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDevice(dev));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const uint8_t result = wrapped_libusb_->LibusbGetDeviceAddress(dev);
 
   tracer.AddReturnValue(std::to_string(result));
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return result;
 }
 
 int LibusbTracingWrapper::LibusbOpen(
     libusb_device* dev, libusb_device_handle** handle) {
-  FunctionCallTracer tracer("libusb_open");
+  FunctionCallTracer tracer("libusb_open", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDevice(dev));
   tracer.AddPassedArg("handle", HexDumpPointer(handle));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbOpen(dev, handle);
 
@@ -726,79 +727,79 @@ int LibusbTracingWrapper::LibusbOpen(
     if (handle)
       tracer.AddReturnedArg("*handle", DebugDumpLibusbDeviceHandle(*handle));
   }
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 void LibusbTracingWrapper::LibusbClose(libusb_device_handle* handle) {
-  FunctionCallTracer tracer("libusb_close");
+  FunctionCallTracer tracer("libusb_close", kLoggingPrefix);
   tracer.AddPassedArg("handle", DebugDumpLibusbDeviceHandle(handle));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   wrapped_libusb_->LibusbClose(handle);
 
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
 }
 
 int LibusbTracingWrapper::LibusbClaimInterface(
     libusb_device_handle* dev, int interface_number) {
-  FunctionCallTracer tracer("libusb_claim_interface");
+  FunctionCallTracer tracer("libusb_claim_interface", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDeviceHandle(dev));
   tracer.AddPassedArg("interface_number", std::to_string(interface_number));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbClaimInterface(
       dev, interface_number);
 
   tracer.AddReturnValue(DebugDumpLibusbReturnCode(return_code));
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 int LibusbTracingWrapper::LibusbReleaseInterface(
     libusb_device_handle* dev, int interface_number) {
-  FunctionCallTracer tracer("libusb_release_interface");
+  FunctionCallTracer tracer("libusb_release_interface", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDeviceHandle(dev));
   tracer.AddPassedArg("interface_number", std::to_string(interface_number));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbReleaseInterface(
       dev, interface_number);
 
   tracer.AddReturnValue(DebugDumpLibusbReturnCode(return_code));
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 int LibusbTracingWrapper::LibusbResetDevice(libusb_device_handle* dev) {
-  FunctionCallTracer tracer("libusb_reset_device");
+  FunctionCallTracer tracer("libusb_reset_device", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDeviceHandle(dev));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbResetDevice(dev);
 
   tracer.AddReturnValue(DebugDumpLibusbReturnCode(return_code));
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 libusb_transfer* LibusbTracingWrapper::LibusbAllocTransfer(int iso_packets) {
-  FunctionCallTracer tracer("libusb_alloc_transfer");
+  FunctionCallTracer tracer("libusb_alloc_transfer", kLoggingPrefix);
   tracer.AddPassedArg("iso_packets", std::to_string(iso_packets));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   libusb_transfer* const result = wrapped_libusb_->LibusbAllocTransfer(
       iso_packets);
 
   tracer.AddReturnValue(HexDumpPointer(result));
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return result;
 }
 
 int LibusbTracingWrapper::LibusbSubmitTransfer(libusb_transfer* transfer) {
-  FunctionCallTracer tracer("libusb_submit_transfer");
+  FunctionCallTracer tracer("libusb_submit_transfer", kLoggingPrefix);
   tracer.AddPassedArg("transfer", DebugDumpLibusbTransfer(transfer, true));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   // In order to add the debug logging into the moment when the transfer
   // callback is executed, a copy of transfer is created with a wrapper
@@ -812,14 +813,14 @@ int LibusbTracingWrapper::LibusbSubmitTransfer(libusb_transfer* transfer) {
       wrapped_transfer);
 
   tracer.AddReturnValue(DebugDumpLibusbReturnCode(return_code));
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 int LibusbTracingWrapper::LibusbCancelTransfer(libusb_transfer* transfer) {
-  FunctionCallTracer tracer("libusb_cancel_transfer");
+  FunctionCallTracer tracer("libusb_cancel_transfer", kLoggingPrefix);
   tracer.AddPassedArg("transfer", HexDumpPointer(transfer));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   // When the transfer was submitted, the original transfer was replaced with a
   // wrapped transfer (see the LibusbSubmitTransfer method implementation). So
@@ -831,14 +832,14 @@ int LibusbTracingWrapper::LibusbCancelTransfer(libusb_transfer* transfer) {
       wrapped_transfer);
 
   tracer.AddReturnValue(DebugDumpLibusbReturnCode(return_code));
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 void LibusbTracingWrapper::LibusbFreeTransfer(libusb_transfer* transfer) {
-  FunctionCallTracer tracer("libusb_free_transfer");
+  FunctionCallTracer tracer("libusb_free_transfer", kLoggingPrefix);
   tracer.AddPassedArg("transfer", HexDumpPointer(transfer));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   wrapped_libusb_->LibusbFreeTransfer(transfer);
 
@@ -847,7 +848,7 @@ void LibusbTracingWrapper::LibusbFreeTransfer(libusb_transfer* transfer) {
   // here the mapping between these two transfers has to be deleted.
   RemoveOriginalToWrappedTransferMapItem(transfer);
 
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
 }
 
 int LibusbTracingWrapper::LibusbControlTransfer(
@@ -859,7 +860,7 @@ int LibusbTracingWrapper::LibusbControlTransfer(
     unsigned char* data,
     uint16_t wLength,
     unsigned timeout) {
-  FunctionCallTracer tracer("libusb_control_transfer");
+  FunctionCallTracer tracer("libusb_control_transfer", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDeviceHandle(dev));
   tracer.AddPassedArg(
       "bmRequestType", DebugDumpLibusbControlSetupRequestType(bmRequestType));
@@ -872,7 +873,7 @@ int LibusbTracingWrapper::LibusbControlTransfer(
       "data", DebugDumpInboundDataBuffer(data, wLength, is_input_transfer));
   tracer.AddPassedArg("wLength", std::to_string(wLength));
   tracer.AddPassedArg("timeout", std::to_string(timeout));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbControlTransfer(
       dev, bmRequestType, bRequest, wValue, wIndex, data, wLength, timeout);
@@ -885,7 +886,7 @@ int LibusbTracingWrapper::LibusbControlTransfer(
           "data", DebugDumpOutboundDataBuffer(data, return_code));
     }
   }
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
@@ -896,7 +897,7 @@ int LibusbTracingWrapper::LibusbBulkTransfer(
     int length,
     int* actual_length,
     unsigned timeout) {
-  FunctionCallTracer tracer("libusb_bulk_transfer");
+  FunctionCallTracer tracer("libusb_bulk_transfer", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDeviceHandle(dev));
   tracer.AddPassedArg("endpoint", DebugDumpLibusbEndpointAddress(endpoint));
   const bool is_input_transfer =
@@ -906,7 +907,7 @@ int LibusbTracingWrapper::LibusbBulkTransfer(
   tracer.AddPassedArg("length", std::to_string(length));
   tracer.AddPassedArg("actual_length", HexDumpPointer(actual_length));
   tracer.AddPassedArg("timeout", std::to_string(timeout));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbBulkTransfer(
       dev, endpoint, data, length, actual_length, timeout);
@@ -920,7 +921,7 @@ int LibusbTracingWrapper::LibusbBulkTransfer(
     if (actual_length)
       tracer.AddReturnedArg("*actual_length", std::to_string(*actual_length));
   }
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
@@ -931,7 +932,7 @@ int LibusbTracingWrapper::LibusbInterruptTransfer(
     int length,
     int* actual_length,
     unsigned timeout) {
-  FunctionCallTracer tracer("libusb_interrupt_transfer");
+  FunctionCallTracer tracer("libusb_interrupt_transfer", kLoggingPrefix);
   tracer.AddPassedArg("dev", DebugDumpLibusbDeviceHandle(dev));
   tracer.AddPassedArg("endpoint", DebugDumpLibusbEndpointAddress(endpoint));
   const bool is_input_transfer =
@@ -941,7 +942,7 @@ int LibusbTracingWrapper::LibusbInterruptTransfer(
   tracer.AddPassedArg("length", std::to_string(length));
   tracer.AddPassedArg("actual_length", HexDumpPointer(actual_length));
   tracer.AddPassedArg("timeout", std::to_string(timeout));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbInterruptTransfer(
       dev, endpoint, data, length, actual_length, timeout);
@@ -955,34 +956,34 @@ int LibusbTracingWrapper::LibusbInterruptTransfer(
     if (actual_length)
       tracer.AddReturnedArg("*actual_length", std::to_string(*actual_length));
   }
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 int LibusbTracingWrapper::LibusbHandleEvents(libusb_context* ctx) {
-  FunctionCallTracer tracer("libusb_handle_events");
+  FunctionCallTracer tracer("libusb_handle_events", kLoggingPrefix);
   tracer.AddPassedArg("ctx", DebugDumpLibusbContext(ctx));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbHandleEvents(ctx);
 
   tracer.AddReturnValue(DebugDumpLibusbReturnCode(return_code));
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 
 int LibusbTracingWrapper::LibusbHandleEventsCompleted(
     libusb_context* ctx, int* completed) {
-  FunctionCallTracer tracer("libusb_handle_events_completed");
+  FunctionCallTracer tracer("libusb_handle_events_completed", kLoggingPrefix);
   tracer.AddPassedArg("ctx", DebugDumpLibusbContext(ctx));
   tracer.AddPassedArg("completed", HexDumpPointer(completed));
-  tracer.LogEntrance(kLoggingPrefix);
+  tracer.LogEntrance();
 
   const int return_code = wrapped_libusb_->LibusbHandleEventsCompleted(
       ctx, completed);
 
   tracer.AddReturnValue(DebugDumpLibusbReturnCode(return_code));
-  tracer.LogExit(kLoggingPrefix);
+  tracer.LogExit();
   return return_code;
 }
 

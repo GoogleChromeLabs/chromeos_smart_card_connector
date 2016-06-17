@@ -31,6 +31,7 @@
 #include <tuple>
 
 #include <google_smart_card_common/formatting.h>
+#include <google_smart_card_common/logging/function_call_tracer.h>
 #include <google_smart_card_common/logging/hex_dumping.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/multi_string.h>
@@ -41,6 +42,9 @@
 #include <google_smart_card_pcsc_lite_common/scard_debug_dump.h>
 
 namespace google_smart_card {
+
+// Log severity used for the function call tracers.
+const LogSeverity kTracerLogSeverity = LogSeverity::kInfo;
 
 namespace {
 
@@ -308,19 +312,48 @@ GenericRequestResult PcscLiteClientRequestProcessor::FindHandlerAndCall(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::PcscLiteVersionNumber() {
+  FunctionCallTracer tracer(
+      "PCSCLITE_VERSION_NUMBER", logging_prefix_, kTracerLogSeverity);
+  tracer.LogEntrance();
+
+  tracer.AddReturnValue(DebugDumpSCardCString(PCSCLITE_VERSION_NUMBER));
+  tracer.LogExit();
+
   return ReturnValues(PCSCLITE_VERSION_NUMBER);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::PcscStringifyError(
     LONG error) {
-  return ReturnValues(::pcsc_stringify_error(error));
+  FunctionCallTracer tracer(
+      "pcsc_stringify_error", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("pcscError", DebugDumpSCardReturnCode(error));
+  tracer.LogEntrance();
+
+  const char* const result = ::pcsc_stringify_error(error);
+
+  tracer.AddReturnValue(DebugDumpSCardCString(result));
+  tracer.LogExit();
+
+  return ReturnValues(result);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardEstablishContext(
     DWORD scope, pp::Var::Null reserved_1, pp::Var::Null reserved_2) {
+  FunctionCallTracer tracer(
+      "SCardEstablishContext", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("dwScope", DebugDumpSCardScope(scope));
+  tracer.AddPassedArg("pvReserved1", kNullJsTypeTitle);
+  tracer.AddPassedArg("pvReserved2", kNullJsTypeTitle);
+  tracer.LogEntrance();
+
   SCARDCONTEXT s_card_context;
   const LONG return_code = ::SCardEstablishContext(
       scope, nullptr, nullptr, &s_card_context);
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  if (return_code == SCARD_S_SUCCESS)
+    tracer.AddReturnedArg("hContext", DebugDumpSCardContext(s_card_context));
+  tracer.LogExit();
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
@@ -330,10 +363,20 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardEstablishContext(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardReleaseContext(
     SCARDCONTEXT s_card_context) {
-  if (!s_card_contexts_registry_.Contains(s_card_context))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+  FunctionCallTracer tracer(
+      "SCardReleaseContext", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
+  tracer.LogEntrance();
 
-  const LONG return_code = ::SCardReleaseContext(s_card_context);
+  LONG return_code = SCARD_S_SUCCESS;
+  if (!s_card_contexts_registry_.Contains(s_card_context))
+    return_code = SCARD_E_INVALID_HANDLE;
+
+  if (return_code == SCARD_S_SUCCESS)
+    return_code = ::SCardReleaseContext(s_card_context);
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  tracer.LogExit();
 
   if (return_code == SCARD_S_SUCCESS)
     s_card_contexts_registry_.Remove(s_card_context);
@@ -345,18 +388,38 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
     const std::string& reader_name,
     DWORD share_mode,
     DWORD preferred_protocols) {
+  FunctionCallTracer tracer(
+      "SCardConnect", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
+  tracer.AddPassedArg("szReader", reader_name);
+  tracer.AddPassedArg("dwShareMode", DebugDumpSCardShareMode(share_mode));
+  tracer.AddPassedArg(
+      "dwPreferredProtocols", DebugDumpSCardProtocols(preferred_protocols));
+  tracer.LogEntrance();
+
+  LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_contexts_registry_.Contains(s_card_context))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+    return_code = SCARD_E_INVALID_HANDLE;
 
   SCARDHANDLE s_card_handle;
   DWORD active_protocol;
-  const LONG return_code = ::SCardConnect(
-      s_card_context,
-      reader_name.c_str(),
-      share_mode,
-      preferred_protocols,
-      &s_card_handle,
-      &active_protocol);
+  if (return_code == SCARD_S_SUCCESS) {
+    return_code = ::SCardConnect(
+        s_card_context,
+        reader_name.c_str(),
+        share_mode,
+        preferred_protocols,
+        &s_card_handle,
+        &active_protocol);
+  }
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  if (return_code == SCARD_S_SUCCESS) {
+    tracer.AddReturnedArg("hCard", DebugDumpSCardHandle(s_card_handle));
+    tracer.AddReturnedArg(
+        "dwActiveProtocol", DebugDumpSCardProtocol(active_protocol));
+  }
+  tracer.LogExit();
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
@@ -369,16 +432,36 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReconnect(
     DWORD share_mode,
     DWORD preferred_protocols,
     DWORD initialization_action) {
+  FunctionCallTracer tracer(
+      "SCardReconnect", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
+  tracer.AddPassedArg("dwShareMode", DebugDumpSCardShareMode(share_mode));
+  tracer.AddPassedArg(
+      "dwPreferredProtocols", DebugDumpSCardProtocols(preferred_protocols));
+  tracer.AddPassedArg(
+      "dwInitialization", DebugDumpSCardDisposition(initialization_action));
+  tracer.LogEntrance();
+
+  LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.Contains(s_card_handle))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+    return_code = SCARD_E_INVALID_HANDLE;
 
   DWORD active_protocol;
-  const LONG return_code = ::SCardReconnect(
-      s_card_handle,
-      share_mode,
-      preferred_protocols,
-      initialization_action,
-      &active_protocol);
+  if (return_code == SCARD_S_SUCCESS) {
+    return_code = ::SCardReconnect(
+        s_card_handle,
+        share_mode,
+        preferred_protocols,
+        initialization_action,
+        &active_protocol);
+  }
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  if (return_code == SCARD_S_SUCCESS) {
+    tracer.AddReturnedArg(
+        "dwActiveProtocol", DebugDumpSCardProtocol(active_protocol));
+  }
+  tracer.LogExit();
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
@@ -387,10 +470,22 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReconnect(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
     SCARDHANDLE s_card_handle, DWORD disposition_action) {
-  if (!s_card_handles_registry_.Contains(s_card_handle))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+  FunctionCallTracer tracer(
+      "SCardDisconnect", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
+  tracer.AddPassedArg(
+      "dwDisposition", DebugDumpSCardDisposition(disposition_action));
+  tracer.LogEntrance();
 
-  const LONG return_code = ::SCardDisconnect(s_card_handle, disposition_action);
+  LONG return_code = SCARD_S_SUCCESS;
+  if (!s_card_handles_registry_.Contains(s_card_handle))
+    return_code = SCARD_E_INVALID_HANDLE;
+
+  if (return_code == SCARD_S_SUCCESS)
+    return_code = ::SCardDisconnect(s_card_handle, disposition_action);
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  tracer.LogExit();
 
   if (return_code == SCARD_S_SUCCESS)
     s_card_handles_registry_.Remove(s_card_handle);
@@ -399,29 +494,55 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardBeginTransaction(
     SCARDHANDLE s_card_handle) {
-  if (!s_card_handles_registry_.Contains(s_card_handle))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+  FunctionCallTracer tracer(
+      "SCardBeginTransaction", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
+  tracer.LogEntrance();
 
-  const LONG return_code = ::SCardBeginTransaction(s_card_handle);
+  LONG return_code = SCARD_S_SUCCESS;
+  if (!s_card_handles_registry_.Contains(s_card_handle))
+    return_code = SCARD_E_INVALID_HANDLE;
+
+  if (return_code == SCARD_S_SUCCESS)
+    return_code = ::SCardBeginTransaction(s_card_handle);
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  tracer.LogExit();
 
   return ReturnValues(return_code);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardEndTransaction(
     SCARDHANDLE s_card_handle, DWORD disposition_action) {
-  if (!s_card_handles_registry_.Contains(s_card_handle))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+  FunctionCallTracer tracer(
+      "SCardEndTransaction", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
+  tracer.AddPassedArg(
+      "dwDisposition", DebugDumpSCardDisposition(disposition_action));
+  tracer.LogEntrance();
 
-  const LONG return_code = ::SCardEndTransaction(
-      s_card_handle, disposition_action);
+  LONG return_code = SCARD_S_SUCCESS;
+  if (!s_card_handles_registry_.Contains(s_card_handle))
+    return_code = SCARD_E_INVALID_HANDLE;
+
+  if (return_code == SCARD_S_SUCCESS)
+    return_code = ::SCardEndTransaction(s_card_handle, disposition_action);
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  tracer.LogExit();
 
   return ReturnValues(return_code);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
     SCARDHANDLE s_card_handle) {
+  FunctionCallTracer tracer("SCardStatus", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
+  tracer.LogEntrance();
+
+  LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.Contains(s_card_handle))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+    return_code = SCARD_E_INVALID_HANDLE;
 
   LPSTR reader_name;
   DWORD reader_name_length = SCARD_AUTOALLOCATE;
@@ -429,14 +550,25 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
   DWORD protocol;
   LPBYTE atr;
   DWORD atr_length = SCARD_AUTOALLOCATE;
-  const LONG return_code = ::SCardStatus(
-      s_card_handle,
-      reinterpret_cast<LPSTR>(&reader_name),
-      &reader_name_length,
-      &state,
-      &protocol,
-      reinterpret_cast<LPBYTE>(&atr),
-      &atr_length);
+  if (return_code == SCARD_S_SUCCESS) {
+    return_code = ::SCardStatus(
+        s_card_handle,
+        reinterpret_cast<LPSTR>(&reader_name),
+        &reader_name_length,
+        &state,
+        &protocol,
+        reinterpret_cast<LPBYTE>(&atr),
+        &atr_length);
+  }
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  if (return_code == SCARD_S_SUCCESS) {
+    tracer.AddReturnedArg("szReaderName", reader_name);
+    tracer.AddReturnedArg("dwState", DebugDumpSCardState(state));
+    tracer.AddReturnedArg("dwProtocol", DebugDumpSCardProtocol(protocol));
+    tracer.AddReturnedArg("bAtr", "<" + HexDumpBytes(atr, atr_length) + ">");
+  }
+  tracer.LogExit();
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
@@ -451,9 +583,6 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
     SCARDCONTEXT s_card_context,
     DWORD timeout,
     const std::vector<InboundSCardReaderState>& reader_states) {
-  if (!s_card_contexts_registry_.Contains(s_card_context))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
-
   std::vector<SCARD_READERSTATE> pcsc_lite_reader_states;
   for (const InboundSCardReaderState& reader_state : reader_states) {
     SCARD_READERSTATE current_item;
@@ -461,7 +590,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
 
     // Note: a pointer to the std::string contents is stored in the structure
     // here. This is OK as the scope of the created SCARD_READERSTATE structures
-    // is enclosed into this function.
+    // is enclosed into this function body.
     current_item.szReader = reader_state.reader_name.c_str();
 
     if (reader_state.user_data) {
@@ -475,11 +604,40 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
     pcsc_lite_reader_states.push_back(current_item);
   }
 
-  const LONG return_code = ::SCardGetStatusChange(
-      s_card_context,
-      timeout,
-      pcsc_lite_reader_states.empty() ? nullptr : &pcsc_lite_reader_states[0],
-      pcsc_lite_reader_states.size());
+  FunctionCallTracer tracer(
+      "SCardGetStatusChange", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
+  tracer.AddPassedArg("dwTimeout", std::to_string(timeout));
+  tracer.AddPassedArg(
+      "rgReaderStates",
+      DebugDumpSCardInputReaderStates(
+          pcsc_lite_reader_states.empty() ?
+              nullptr : &pcsc_lite_reader_states[0],
+          pcsc_lite_reader_states.size()));
+  tracer.LogEntrance();
+
+  LONG return_code = SCARD_S_SUCCESS;
+  if (!s_card_contexts_registry_.Contains(s_card_context))
+    return_code = SCARD_E_INVALID_HANDLE;
+
+  if (return_code == SCARD_S_SUCCESS) {
+    return_code = ::SCardGetStatusChange(
+        s_card_context,
+        timeout,
+        pcsc_lite_reader_states.empty() ? nullptr : &pcsc_lite_reader_states[0],
+        pcsc_lite_reader_states.size());
+  }
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  if (return_code == SCARD_S_SUCCESS) {
+    tracer.AddReturnedArg(
+        "rgReaderStates",
+        DebugDumpSCardOutputReaderStates(
+            pcsc_lite_reader_states.empty() ?
+                nullptr : &pcsc_lite_reader_states[0],
+            pcsc_lite_reader_states.size()));
+  }
+  tracer.LogExit();
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
@@ -496,19 +654,39 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardControl(
     SCARDHANDLE s_card_handle,
     DWORD control_code,
     const std::vector<uint8_t>& data_to_send) {
+  FunctionCallTracer tracer(
+      "SCardControl", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
+  tracer.AddPassedArg(
+      "dwControlCode", DebugDumpSCardControlCode(control_code));
+  tracer.AddPassedArg(
+      "bSendBuffer", "<" + DebugDumpSCardBufferContents(data_to_send) + ">");
+  tracer.LogEntrance();
+
+  LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.Contains(s_card_handle))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+    return_code = SCARD_E_INVALID_HANDLE;
 
   DWORD bytes_received;
   std::vector<uint8_t> buffer(MAX_BUFFER_SIZE_EXTENDED);
-  const LONG return_code = ::SCardControl(
-      s_card_handle,
-      control_code,
-      &data_to_send[0],
-      data_to_send.size(),
-      &buffer[0],
-      buffer.size(),
-      &bytes_received);
+  if (return_code == SCARD_S_SUCCESS) {
+    return_code = ::SCardControl(
+        s_card_handle,
+        control_code,
+        &data_to_send[0],
+        data_to_send.size(),
+        &buffer[0],
+        buffer.size(),
+        &bytes_received);
+  }
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  if (return_code == SCARD_S_SUCCESS) {
+    tracer.AddReturnedArg(
+        "bRecvBuffer",
+        "<" + DebugDumpSCardBufferContents(&buffer[0], bytes_received) + ">");
+  }
+  tracer.LogExit();
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
@@ -518,16 +696,32 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardControl(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
     SCARDHANDLE s_card_handle, DWORD attribute_id) {
+  FunctionCallTracer tracer(
+      "SCardGetAttrib", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
+  tracer.AddPassedArg("dwAttrId", DebugDumpSCardAttributeId(attribute_id));
+  tracer.LogEntrance();
+
+  LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_handles_registry_.Contains(s_card_handle))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+    return_code = SCARD_E_INVALID_HANDLE;
 
   LPBYTE attribute;
   DWORD attribute_length = SCARD_AUTOALLOCATE;
-  const LONG return_code = ::SCardGetAttrib(
-      s_card_handle,
-      attribute_id,
-      reinterpret_cast<LPBYTE>(&attribute),
-      &attribute_length);
+  if (return_code == SCARD_S_SUCCESS) {
+    return_code = ::SCardGetAttrib(
+        s_card_handle,
+        attribute_id,
+        reinterpret_cast<LPBYTE>(&attribute),
+        &attribute_length);
+  }
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  if (return_code == SCARD_S_SUCCESS) {
+    tracer.AddReturnedArg(
+        "bAttr", "<" + HexDumpBytes(attribute, attribute_length) + ">");
+  }
+  tracer.LogExit();
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
@@ -541,14 +735,27 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardSetAttrib(
     SCARDHANDLE s_card_handle,
     DWORD attribute_id,
     const std::vector<uint8_t>& attribute) {
-  if (!s_card_handles_registry_.Contains(s_card_handle))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+  FunctionCallTracer tracer(
+      "SCardSetAttrib", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
+  tracer.AddPassedArg("dwAttrId", DebugDumpSCardAttributeId(attribute_id));
+  tracer.AddPassedArg("pbAttr", "<" + HexDumpBytes(attribute) + ">");
+  tracer.LogEntrance();
 
-  const LONG return_code = ::SCardSetAttrib(
-      s_card_handle,
-      attribute_id,
-      attribute.empty() ? nullptr : &attribute[0],
-      attribute.size());
+  LONG return_code = SCARD_S_SUCCESS;
+  if (!s_card_handles_registry_.Contains(s_card_handle))
+    return_code = SCARD_E_INVALID_HANDLE;
+
+  if (return_code == SCARD_S_SUCCESS) {
+    return_code = ::SCardSetAttrib(
+        s_card_handle,
+        attribute_id,
+        attribute.empty() ? nullptr : &attribute[0],
+        attribute.size());
+  }
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  tracer.LogExit();
 
   return ReturnValues(return_code);
 }
@@ -558,9 +765,6 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
     const SCardIoRequest& send_protocol_information,
     const std::vector<uint8_t>& data_to_send,
     const optional<SCardIoRequest>& response_protocol_information) {
-  if (!s_card_handles_registry_.Contains(s_card_handle))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
-
   const SCARD_IO_REQUEST scard_send_protocol_information =
       send_protocol_information.AsSCardIoRequest();
   SCARD_IO_REQUEST scard_response_protocol_information;
@@ -571,16 +775,48 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
     scard_response_protocol_information.dwProtocol = SCARD_PROTOCOL_ANY;
     scard_response_protocol_information.cbPciLength = sizeof(SCARD_IO_REQUEST);
   }
+
+  FunctionCallTracer tracer(
+      "SCardTransmit", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
+  tracer.AddPassedArg(
+      "ioSendPci", DebugDumpSCardIoRequest(scard_send_protocol_information));
+  tracer.AddPassedArg(
+      "pbSendBuffer", "<" + DebugDumpSCardBufferContents(data_to_send) + ">");
+  if (response_protocol_information) {
+    tracer.AddPassedArg(
+        "ioRecvPci",
+        DebugDumpSCardIoRequest(scard_response_protocol_information));
+  }
+  tracer.LogEntrance();
+
+  LONG return_code = SCARD_S_SUCCESS;
+  if (!s_card_handles_registry_.Contains(s_card_handle))
+    return_code = SCARD_E_INVALID_HANDLE;
+
   std::vector<uint8_t> buffer(MAX_BUFFER_SIZE_EXTENDED);
   DWORD response_length = buffer.size();
-  const LONG return_code = ::SCardTransmit(
-      s_card_handle,
-      &scard_send_protocol_information,
-      data_to_send.empty() ? nullptr : &data_to_send[0],
-      data_to_send.size(),
-      &scard_response_protocol_information,
-      &buffer[0],
-      &response_length);
+  if (return_code == SCARD_S_SUCCESS) {
+    return_code = ::SCardTransmit(
+        s_card_handle,
+        &scard_send_protocol_information,
+        data_to_send.empty() ? nullptr : &data_to_send[0],
+        data_to_send.size(),
+        &scard_response_protocol_information,
+        &buffer[0],
+        &response_length);
+  }
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  if (return_code == SCARD_S_SUCCESS) {
+    tracer.AddReturnedArg(
+        "ioRecvPci",
+        DebugDumpSCardIoRequest(scard_response_protocol_information));
+    tracer.AddReturnedArg(
+        "bRecvBuffer",
+        "<" + DebugDumpSCardBufferContents(&buffer[0], response_length) + ">");
+  }
+  tracer.LogExit();
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
@@ -592,16 +828,30 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
     SCARDCONTEXT s_card_context, pp::Var::Null groups) {
+  FunctionCallTracer tracer(
+      "SCardListReaders", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
+  tracer.AddPassedArg("mszGroups", kNullJsTypeTitle);
+  tracer.LogEntrance();
+
+  LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_contexts_registry_.Contains(s_card_context))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+    return_code = SCARD_E_INVALID_HANDLE;
 
   LPSTR readers;
   DWORD readers_length = SCARD_AUTOALLOCATE;
-  const LONG return_code = ::SCardListReaders(
-      s_card_context,
-      nullptr,
-      reinterpret_cast<LPSTR>(&readers),
-      &readers_length);
+  if (return_code == SCARD_S_SUCCESS) {
+    return_code = ::SCardListReaders(
+        s_card_context,
+        nullptr,
+        reinterpret_cast<LPSTR>(&readers),
+        &readers_length);
+  }
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  if (return_code == SCARD_S_SUCCESS)
+    tracer.AddReturnedArg("mszReaders", DebugDumpSCardMultiString(readers));
+  tracer.LogExit();
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
@@ -613,15 +863,30 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaderGroups(
     SCARDCONTEXT s_card_context) {
+  FunctionCallTracer tracer(
+      "SCardListReaderGroups", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
+  tracer.LogEntrance();
+
+  LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_contexts_registry_.Contains(s_card_context))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+    return_code = SCARD_E_INVALID_HANDLE;
 
   LPSTR reader_groups;
   DWORD reader_groups_length = SCARD_AUTOALLOCATE;
-  const LONG return_code = ::SCardListReaderGroups(
-      s_card_context,
-      reinterpret_cast<LPSTR>(&reader_groups),
-      &reader_groups_length);
+  if (return_code == SCARD_S_SUCCESS) {
+    return_code = ::SCardListReaderGroups(
+        s_card_context,
+        reinterpret_cast<LPSTR>(&reader_groups),
+        &reader_groups_length);
+  }
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  if (return_code == SCARD_S_SUCCESS) {
+    tracer.AddReturnedArg(
+        "*mszGroups", DebugDumpSCardMultiString(reader_groups));
+  }
+  tracer.LogExit();
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
@@ -633,21 +898,40 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaderGroups(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardCancel(
     SCARDCONTEXT s_card_context) {
-  if (!s_card_contexts_registry_.Contains(s_card_context))
-    return ReturnValues(SCARD_E_INVALID_HANDLE);
+  FunctionCallTracer tracer("SCardCancel", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
+  tracer.LogEntrance();
 
-  const LONG return_code = ::SCardCancel(s_card_context);
+  LONG return_code = SCARD_S_SUCCESS;
+  if (!s_card_contexts_registry_.Contains(s_card_context))
+    return_code = SCARD_E_INVALID_HANDLE;
+
+  if (return_code == SCARD_S_SUCCESS)
+    return_code = ::SCardCancel(s_card_context);
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  tracer.LogExit();
 
   return ReturnValues(return_code);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardIsValidContext(
     SCARDCONTEXT s_card_context) {
-  LONG return_code;
+  FunctionCallTracer tracer(
+      "SCardIsValidContext", logging_prefix_, kTracerLogSeverity);
+  tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
+  tracer.LogEntrance();
+
+  LONG return_code = SCARD_S_SUCCESS;
   if (!s_card_contexts_registry_.Contains(s_card_context))
     return_code = SCARD_E_INVALID_HANDLE;
-  else
+
+  if (return_code == SCARD_S_SUCCESS)
     return_code = ::SCardIsValidContext(s_card_context);
+
+  tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
+  tracer.LogExit();
+
   return ReturnValues(return_code);
 }
 

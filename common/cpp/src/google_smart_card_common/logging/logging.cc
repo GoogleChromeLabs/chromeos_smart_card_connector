@@ -34,17 +34,26 @@ namespace google_smart_card {
 
 namespace {
 
-std::string StringifyLogSeverity(internal::LogSeverity severity) {
+bool ShouldLogWithSeverity(LogSeverity severity) {
+#ifdef NDEBUG
+  return severity > LogSeverity::kDebug;
+#else
+  (void)severity;  // this suppresses the "unused parameter" error
+  return true;
+#endif
+}
+
+std::string StringifyLogSeverity(LogSeverity severity) {
   switch (severity) {
-    case internal::LogSeverity::kDebug:
+    case LogSeverity::kDebug:
       return "DEBUG";
-    case internal::LogSeverity::kInfo:
+    case LogSeverity::kInfo:
       return "INFO";
-    case internal::LogSeverity::kWarning:
+    case LogSeverity::kWarning:
       return "WARNING";
-    case internal::LogSeverity::kError:
+    case LogSeverity::kError:
       return "ERROR";
-    case internal::LogSeverity::kFatal:
+    case LogSeverity::kFatal:
       return "FATAL";
     default:
       // This should be never reached, but it's easier to provide a safe
@@ -54,7 +63,7 @@ std::string StringifyLogSeverity(internal::LogSeverity severity) {
 }
 
 void EmitLogMessageToStderr(
-    internal::LogSeverity severity, const std::string& message_text) {
+    LogSeverity severity, const std::string& message_text) {
   // Prepare the whole message in advance, so that we don't mess with other
   // threads writing to std::cerr too.
   std::ostringstream stream;
@@ -67,17 +76,17 @@ void EmitLogMessageToStderr(
 
 #ifdef __native_client__
 
-std::string GetGoogLogLevelByLogSeverity(internal::LogSeverity severity) {
+std::string GetGoogLogLevelByLogSeverity(LogSeverity severity) {
   switch (severity) {
-    case internal::LogSeverity::kDebug:
+    case LogSeverity::kDebug:
       return "FINE";
-    case internal::LogSeverity::kInfo:
+    case LogSeverity::kInfo:
       return "INFO";
-    case internal::LogSeverity::kWarning:
+    case LogSeverity::kWarning:
       return "WARNING";
-    case internal::LogSeverity::kError:
+    case LogSeverity::kError:
       return "WARNING";
-    case internal::LogSeverity::kFatal:
+    case LogSeverity::kFatal:
       return "SEVERE";
     default:
       // This should be never reached, but it's easier to provide a safe
@@ -87,7 +96,7 @@ std::string GetGoogLogLevelByLogSeverity(internal::LogSeverity severity) {
 }
 
 void EmitLogMessageToJavaScript(
-    internal::LogSeverity severity, const std::string& message_text) {
+    LogSeverity severity, const std::string& message_text) {
   pp::VarDictionary message_data;
   message_data.Set(
       kDataLogLevelMessageKey, GetGoogLogLevelByLogSeverity(severity));
@@ -111,8 +120,7 @@ void EmitLogMessageToJavaScript(
 
 #endif  // __native_client__
 
-void EmitLogMessage(
-    internal::LogSeverity severity, const std::string& message_text) {
+void EmitLogMessage(LogSeverity severity, const std::string& message_text) {
   EmitLogMessageToStderr(severity, message_text);
 #ifdef __native_client__
   EmitLogMessageToJavaScript(severity, message_text);
@@ -127,9 +135,11 @@ LogMessage::LogMessage(LogSeverity severity)
     : severity_(severity) {}
 
 LogMessage::~LogMessage() {
-  EmitLogMessage(severity_, stream_.str());
-  if (severity_ == internal::LogSeverity::kFatal)
-    std::abort();
+  if (ShouldLogWithSeverity(severity_)) {
+    EmitLogMessage(severity_, stream_.str());
+    if (severity_ == LogSeverity::kFatal)
+      std::abort();
+  }
 }
 
 std::ostringstream& LogMessage::stream() {

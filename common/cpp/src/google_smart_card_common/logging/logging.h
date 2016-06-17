@@ -31,8 +31,9 @@
 
 namespace google_smart_card {
 
-namespace internal {
-
+// This enumerate contains all supported logging severity levels.
+//
+// The levels are listed in the increasing order of severity.
 enum class LogSeverity {
   kDebug,
   kInfo,
@@ -40,6 +41,8 @@ enum class LogSeverity {
   kError,
   kFatal
 };
+
+namespace internal {
 
 class LogMessage final {
  public:
@@ -70,18 +73,26 @@ std::string MakeNotreachedHitMessage(
 
 }  // namespace internal
 
+// This macro definition emits a log message at the specified severity level.
+//
+// In Release builds, logging at the LogSeverity::kDebug level is disabled
+// (note that, however, the arguments _are_ still calculated during the run
+// time).
+//
+// Logging a message at the FATAL severity level causes the program termination.
+#define GOOGLE_SMART_CARD_LOG(severity) \
+    GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY(severity)
+
 //
 // Series of the definitions for printing log messages with different severity
-// levels.
+// levels. The definitions are named as GOOGLE_SMART_CARD_LOG_[level], where
+// level can be any of the following: DEBUG, INFO, WARNING, ERROR, FATAL.
 //
-// The logging levels are (in increasing order of severity): DEBUG, INFO,
-// WARNING, ERROR, FATAL. Emitting a message at any of these levels is done by
-// a corresponding GOOGLE_SMART_CARD_LOG_[level] macro, which acts as a stream-
-// like object: it can be populated using operator<<, and the built message is
-// emitted at the end of expression.
+// Each macro acts as a stream-like object: it can be populated using
+// operator<<, and the built message is emitted at the end of expression.
 //
 // In Release builds, logging on DEBUG level is disabled (and the arguments are
-// not even calculated during run time in that case).
+// _not_ even calculated during run time in that case).
 //
 // Logging a message at the FATAL severity level causes the program termination.
 //
@@ -96,28 +107,28 @@ std::string MakeNotreachedHitMessage(
 #define GOOGLE_SMART_CARD_LOG_DEBUG \
     GOOGLE_SMART_CARD_INTERNAL_LOG_DISABLING \
     GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::internal::LogSeverity::kDebug)
+        ::google_smart_card::LogSeverity::kDebug)
 #else
 #define GOOGLE_SMART_CARD_LOG_DEBUG \
     GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::internal::LogSeverity::kDebug)
+        ::google_smart_card::LogSeverity::kDebug)
 #endif
 
 #define GOOGLE_SMART_CARD_LOG_INFO \
     GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::internal::LogSeverity::kInfo)
+        ::google_smart_card::LogSeverity::kInfo)
 
 #define GOOGLE_SMART_CARD_LOG_WARNING \
     GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::internal::LogSeverity::kWarning)
+        ::google_smart_card::LogSeverity::kWarning)
 
 #define GOOGLE_SMART_CARD_LOG_ERROR \
     GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::internal::LogSeverity::kError)
+        ::google_smart_card::LogSeverity::kError)
 
 #define GOOGLE_SMART_CARD_LOG_FATAL \
     GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::internal::LogSeverity::kFatal)
+        ::google_smart_card::LogSeverity::kFatal)
 
 // Evaluates the specified condition and, if it has a falsy value, then emits a
 // FATAL message (containing the stringified condition).

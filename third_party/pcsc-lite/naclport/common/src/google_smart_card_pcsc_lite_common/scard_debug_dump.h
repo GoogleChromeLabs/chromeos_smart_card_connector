@@ -32,10 +32,9 @@
 #include <stdint.h>
 
 #include <string>
+#include <vector>
 
 #include <pcsclite.h>
-#include <reader.h>
-#include <winscard.h>
 #include <wintypes.h>
 
 namespace google_smart_card {
@@ -77,6 +76,9 @@ std::string DebugDumpSCardInputReaderStates(
 std::string DebugDumpSCardOutputReaderState(const SCARD_READERSTATE& value);
 std::string DebugDumpSCardOutputReaderStates(
     const SCARD_READERSTATE* begin, DWORD count);
+
+std::string DebugDumpSCardBufferContents(const void* buffer, DWORD buffer_size);
+std::string DebugDumpSCardBufferContents(const std::vector<uint8_t>& buffer);
 
 std::string DebugDumpSCardInputBuffer(const void* buffer, DWORD buffer_size);
 

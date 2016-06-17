@@ -28,6 +28,7 @@
 #include <reader.h>
 
 #include <google_smart_card_common/logging/hex_dumping.h>
+#include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/logging/mask_dumping.h>
 #include <google_smart_card_common/multi_string.h>
 
@@ -103,8 +104,8 @@ std::string GetDwordValueName(
 }  // namespace
 
 std::string DebugDumpSCardReturnCode(LONG return_code) {
-  return std::string("\"") + pcsc_stringify_error(return_code) + "\" [" +
-      HexDumpInteger(return_code) + "]";
+  return HexDumpInteger(return_code) + " [\"" +
+         pcsc_stringify_error(return_code) + "\"]";
 }
 
 std::string DebugDumpSCardCString(const char* value) {
@@ -309,11 +310,27 @@ std::string DebugDumpSCardOutputReaderStates(
   return HexDumpPointer(begin) + "([" + result + "])";
 }
 
+std::string DebugDumpSCardBufferContents(
+    const void* buffer, DWORD buffer_size) {
+  if (buffer_size)
+    GOOGLE_SMART_CARD_CHECK(buffer);
+#ifdef NDEBUG
+  return "stripped data of length " + std::to_string(buffer_size);
+#else
+  return HexDumpBytes(buffer, buffer_size);
+#endif
+}
+
+std::string DebugDumpSCardBufferContents(const std::vector<uint8_t>& buffer) {
+  return DebugDumpSCardBufferContents(
+      buffer.empty() ? nullptr : &buffer[0], buffer.size());
+}
+
 std::string DebugDumpSCardInputBuffer(const void* buffer, DWORD buffer_size) {
   if (!buffer)
     return "NULL";
-  return HexDumpPointer(buffer) + "(<" + HexDumpBytes(buffer, buffer_size) +
-         ">)";
+  return HexDumpPointer(buffer) + "(<" +
+         DebugDumpSCardBufferContents(buffer, buffer_size) + ">)";
 }
 
 std::string DebugDumpSCardBufferSizeInputPointer(const DWORD* buffer_size) {
@@ -329,14 +346,14 @@ std::string DebugDumpSCardOutputBuffer(
   const void* const contents = is_autoallocated ?
       *reinterpret_cast<const void* const*>(buffer) : buffer;
   const std::string dumped_value = "<" +
-      (buffer_size ? HexDumpBytes(buffer, *buffer_size) :
+      (buffer_size ? DebugDumpSCardBufferContents(buffer, *buffer_size) :
            "DATA OF UNKNOWN LENGTH") + ">";
   return is_autoallocated ? HexDumpPointer(buffer) + "(" + dumped_value + ")" :
       dumped_value;
 }
 
 std::string DebugDumpSCardOutputBuffer(const void* buffer, DWORD buffer_size) {
-  return "<" + HexDumpBytes(buffer, buffer_size) + ">";
+  return "<" + DebugDumpSCardBufferContents(buffer, buffer_size) + ">";
 }
 
 std::string DebugDumpSCardOutputCStringBuffer(
