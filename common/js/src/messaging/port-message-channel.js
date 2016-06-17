@@ -168,7 +168,10 @@ PortMessageChannel.prototype.disconnectEventHandler_ = function() {
   this.dispose();
 };
 
-/** @private */
+/**
+ * @param {*} message
+ * @private
+ */
 PortMessageChannel.prototype.messageEventHandler_ = function(message) {
   this.logger.finest('Received a message: ' +
                      GSC.DebugDump.debugDump(message));
