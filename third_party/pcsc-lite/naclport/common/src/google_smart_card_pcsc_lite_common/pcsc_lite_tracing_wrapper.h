@@ -75,7 +75,7 @@ class PcscLiteTracingWrapper final : public PcscLite {
 
   LONG SCardStatus(
       SCARDHANDLE hCard,
-      LPSTR szReaderNames,
+      LPSTR szReaderName,
       LPDWORD pcchReaderLen,
       LPDWORD pdwState,
       LPDWORD pdwProtocol,

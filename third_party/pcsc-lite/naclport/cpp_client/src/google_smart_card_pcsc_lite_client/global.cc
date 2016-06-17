@@ -185,7 +185,7 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition) {
 
 LONG SCardStatus(
     SCARDHANDLE hCard,
-    LPSTR szReaderNames,
+    LPSTR szReaderName,
     LPDWORD pcchReaderLen,
     LPDWORD pdwState,
     LPDWORD pdwProtocol,
@@ -193,7 +193,7 @@ LONG SCardStatus(
     LPDWORD pcbAtrLen) {
   return GetGlobalPcscLite()->SCardStatus(
       hCard,
-      szReaderNames,
+      szReaderName,
       pcchReaderLen,
       pdwState,
       pdwProtocol,

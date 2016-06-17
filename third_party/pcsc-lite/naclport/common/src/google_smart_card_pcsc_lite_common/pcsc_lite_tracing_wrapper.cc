@@ -206,7 +206,7 @@ LONG PcscLiteTracingWrapper::SCardEndTransaction(
 
 LONG PcscLiteTracingWrapper::SCardStatus(
     SCARDHANDLE hCard,
-    LPSTR szReaderNames,
+    LPSTR szReaderName,
     LPDWORD pcchReaderLen,
     LPDWORD pdwState,
     LPDWORD pdwProtocol,
@@ -214,7 +214,7 @@ LONG PcscLiteTracingWrapper::SCardStatus(
     LPDWORD pcbAtrLen) {
   FunctionCallTracer tracer("SCardStatus");
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(hCard));
-  tracer.AddPassedArg("szReaderNames", HexDumpPointer(szReaderNames));
+  tracer.AddPassedArg("szReaderName", HexDumpPointer(szReaderName));
   tracer.AddPassedArg(
       "pcchReaderLen", DebugDumpSCardBufferSizeInputPointer(pcchReaderLen));
   tracer.AddPassedArg("pdwState", HexDumpPointer(pdwState));
@@ -230,7 +230,7 @@ LONG PcscLiteTracingWrapper::SCardStatus(
 
   const LONG return_code = pcsc_lite_->SCardStatus(
       hCard,
-      szReaderNames,
+      szReaderName,
       pcchReaderLen,
       pdwState,
       pdwProtocol,
@@ -240,11 +240,11 @@ LONG PcscLiteTracingWrapper::SCardStatus(
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   if (return_code == SCARD_S_SUCCESS ||
       return_code == SCARD_E_INSUFFICIENT_BUFFER) {
-    if (szReaderNames && return_code == SCARD_S_SUCCESS) {
+    if (szReaderName && return_code == SCARD_S_SUCCESS) {
       tracer.AddReturnedArg(
-          "*szReaderNames",
+          "*szReaderName",
           DebugDumpSCardOutputCStringBuffer(
-              szReaderNames, is_reader_name_auto_allocation));
+              szReaderName, is_reader_name_auto_allocation));
     }
     if (pcchReaderLen)
       tracer.AddReturnedArg("*pcchReaderLen", std::to_string(*pcchReaderLen));

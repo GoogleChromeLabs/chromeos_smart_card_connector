@@ -77,7 +77,7 @@ class PcscLite {
 
   virtual LONG SCardStatus(
       SCARDHANDLE hCard,
-      LPSTR szReaderNames,
+      LPSTR szReaderName,
       LPDWORD pcchReaderLen,
       LPDWORD pdwState,
       LPDWORD pdwProtocol,
