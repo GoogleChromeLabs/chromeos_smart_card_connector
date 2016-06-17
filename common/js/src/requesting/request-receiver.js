@@ -29,7 +29,7 @@ goog.require('GoogleSmartCard.RequesterMessage.ResponseMessageData');
 goog.require('GoogleSmartCard.RequestHandler');
 goog.require('goog.asserts');
 goog.require('goog.log.Logger');
-goog.require('goog.messaging.MessageChannel');
+goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
@@ -52,7 +52,7 @@ var ResponseMessageData = RequesterMessage.ResponseMessageData;
  * class into response messages and sent back through the message channel.
  * @param {string} name Name of the requester whose requests will be handled by
  * this instance.
- * @param {!goog.messaging.MessageChannel} messageChannel
+ * @param {!goog.messaging.AbstractChannel} messageChannel
  * @param {!GSC.RequestHandler} requestHandler
  * @constructor
  */
@@ -113,11 +113,19 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
 };
 
 /**
- * @param {RequestMessageData} requestMessageData
+ * @param {!RequestMessageData} requestMessageData
  * @param {*} payload
  */
 RequestReceiver.prototype.responseResolvedListener_ = function(
     requestMessageData, payload) {
+  if (this.messageChannel_.isDisposed()) {
+    this.logger.warning(
+        'Ignoring the successful response for the request with identifier ' +
+        requestMessageData.requestId + ' due to the disposal of the message ' +
+        'channel');
+    return;
+  }
+
   this.logger.fine(
       'Sending the successful response for the request with identifier ' +
       requestMessageData.requestId + ', the response is: ' +
@@ -127,11 +135,19 @@ RequestReceiver.prototype.responseResolvedListener_ = function(
 };
 
 /**
- * @param {RequestMessageData} requestMessageData
+ * @param {!RequestMessageData} requestMessageData
  * @param {*} error
  */
 RequestReceiver.prototype.responseRejectedListener_ = function(
     requestMessageData, error) {
+  if (this.messageChannel_.isDisposed()) {
+    this.logger.warning(
+        'Ignoring the failure response for the request with identifier ' +
+        requestMessageData.requestId + ' due to the disposal of the message ' +
+        'channel');
+    return;
+  }
+
   var stringifiedError = error.toString();
   this.logger.fine(
       'Sending the failure response for the request with identifier ' +
@@ -141,10 +157,12 @@ RequestReceiver.prototype.responseRejectedListener_ = function(
 };
 
 /**
- * @param {ResponseMessageData} responseMessageData
+ * @param {!ResponseMessageData} responseMessageData
  * @private
  */
 RequestReceiver.prototype.sendResponse_ = function(responseMessageData) {
+  GSC.Logging.checkWithLogger(this.logger, !this.messageChannel_.isDisposed());
+
   var messageData = responseMessageData.makeMessageData();
   var serviceName = RequesterMessage.getResponseMessageType(this.name_);
   this.messageChannel_.send(serviceName, messageData);
