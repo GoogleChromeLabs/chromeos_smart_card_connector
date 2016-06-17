@@ -40,7 +40,7 @@ const char kErrorWhileArrayItemExtraction[] =
 const char kErrorDictHasUnexpectedKeys[] =
     "The dictionary contains unexpected keys: %1%";
 const char kErrorArrayOrArrayBufferExpected[] =
-    "Expected VarArray or VarArrayBuffer, instead got: %1%";
+    "Expected an array of unsigned bytes or ArrayBuffer, instead got: %1%";
 
 }  // namespace internal
 
