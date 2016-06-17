@@ -20,7 +20,7 @@ goog.provide('GoogleSmartCard.Libusb.ChromeUsbBackend');
 
 goog.require('GoogleSmartCard.Libusb.ChromeUsbRequestHandler');
 goog.require('GoogleSmartCard.RequestReceiver');
-goog.require('goog.messaging.MessageChannel');
+goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
@@ -31,7 +31,8 @@ var REQUESTER_NAME = 'libusb_chrome_usb';
 var GSC = GoogleSmartCard;
 
 /**
- * @param {!goog.messaging.MessageChannel} naclModuleMessageChannel
+ * FIXME(emaxx): Write docs.
+ * @param {!goog.messaging.AbstractChannel} naclModuleMessageChannel
  * @constructor
  */
 GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {

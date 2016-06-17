@@ -56,12 +56,9 @@ goog.scope(function() {
  *
  * The notification message will contain the unique client identifier (see also
  * the CLIENT_ID_MESSAGE_KEY constant).
- *
- * FIXME(emaxx): Rename this constant and the related variables and methods to
- * use the word "notification" instead.
  * @const
  */
-var SERVER_ADD_CLIENT_SERVICE_NAME = 'pcsc_lite_add_client';
+var ADD_CLIENT_SERVER_NOTIFICATION_SERVICE_NAME = 'pcsc_lite_add_client';
 /**
  * Service name that is used when sending a notification message to the PC/SC
  * server that the previously added PC/SC client should be removed (no requests
@@ -71,7 +68,7 @@ var SERVER_ADD_CLIENT_SERVICE_NAME = 'pcsc_lite_add_client';
  * the CLIENT_ID_MESSAGE_KEY constant).
  * @const
  */
-var SERVER_REMOVE_CLIENT_SERVICE_NAME = 'pcsc_lite_remove_client';
+var REMOVE_CLIENT_SERVER_NOTIFICATION_SERVICE_NAME = 'pcsc_lite_remove_client';
 
 /**
  * Template of the service name that is used when sending a message to the PC/SC
@@ -80,7 +77,7 @@ var SERVER_REMOVE_CLIENT_SERVICE_NAME = 'pcsc_lite_remove_client';
  * The template pattern is substituted with the client identifier.
  * @const
  */
-var SERVER_CALL_FUNCTION_REQUESTER_TITLE_FORMAT =
+var CALL_FUNCTION_SERVER_REQUESTER_TITLE_FORMAT =
     'pcsc_lite_client_%s_call_function';
 
 /**
@@ -151,6 +148,10 @@ var PermissionsChecking =
  * *  Tracks the lifetimes of the client and the server message channels.
  *
  * *  Delays the execution of the client requests until the server gets ready.
+ *
+ * *  Destroys the client message channel when the client handler is destroyed
+ *    (which may happen due to various reasons, including the reasons making
+ *    handling of the client requests impossible).
  * @param {!goog.messaging.AbstractChannel} serverMessageChannel Message channel
  * to the PC/SC server into which the PC/SC requests will be forwarded.
  * @param {!GSC.PcscLiteServerClientsManagement.ReadinessTracker}
@@ -194,6 +195,9 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
 
   /** @private */
   this.serverMessageChannel_ = serverMessageChannel;
+
+  /** @private */
+  this.clientMessageChannel_ = clientMessageChannel;
 
   /** @private */
   this.serverReadinessTracker_ = serverReadinessTracker;
@@ -257,28 +261,43 @@ function BufferedRequest(remoteCallMessage, promiseResolver) {
 
 /** @override */
 ClientHandler.prototype.disposeInternal = function() {
-  // FIXME(emaxx): Shouldn't we reject all queued requests instead of just
-  // dropping them?
-  this.bufferedRequestsQueue_.clear();
+  while (!this.bufferedRequestsQueue_.isEmpty()) {
+    var request = this.bufferedRequestsQueue_.dequeue();
+    // TODO(emaxx): It may be helpful to provide the additional information
+    // regarding the disposal reason.
+    request.promiseResolver.reject(new Error(
+        'The client handler was disposed'));
+  }
   this.bufferedRequestsQueue_ = null;
 
   if (this.serverRequester_) {
-    // FIXME(emaxx): The requester should be disposed too, instead of just
-    // removing the reference to it.
+    this.serverRequester_.dispose();
     this.serverRequester_ = null;
+
     // Having the this.serverRequester_ member initialized means that the
     // notification about the new client has been sent to the server. This is
     // the right place to send to the server the notification that the client
     // should be removed.
-    this.postRemoveClientServerCommand_();
+    //
+    // However, there is an additional condition checked here, which skips
+    // sending the message to the server if this.serverMessageChannel_ is null.
+    // That's because the reason of client handler disposal may be the disposal
+    // of the server message channel, in which case this.serverMessageChannel_
+    // will be cleared before reaching this point (see the
+    // serverMessageChannelDisposedListener_ method).
+    if (this.serverMessageChannel_)
+      this.sendRemoveClientServerNotification_();
   }
 
   this.serverReadinessTracker_ = null;
 
   // Note that this statement has to be executed after the
-  // postRemoveClientServerCommand_ method is called, because the latter
+  // sendRemoveClientServerNotification_ method is called, because the latter
   // accesses this member.
   this.serverMessageChannel_ = null;
+
+  this.clientMessageChannel_.dispose();
+  this.clientMessageChannel_ = null;
 
   this.requestReceiver_ = null;
 
@@ -362,11 +381,12 @@ ClientHandler.prototype.serverMessageChannelDisposedListener_ = function() {
   if (this.isDisposed())
     return;
   this.logger.info('Server message channel was disposed, disposing...');
-  // FIXME(emaxx): It'd be a cleaner code to clear the
-  // this.serverMessageChannel_ member here, because the disposal process may
-  // result in calling the postRemoveClientServerCommand_ method, which will
-  // attempt to send a message through a disposed channel (which may result in
-  // assertion failures).
+
+  // Note: this assignment is important because it prevents from sending of any
+  // messages through the server message channel, which is normally happening
+  // during the disposal process.
+  this.serverMessageChannel_ = null;
+
   this.dispose();
 };
 
@@ -446,7 +466,8 @@ ClientHandler.prototype.flushRequestsQueueWhenServerReady_ = function() {
  * @private
  */
 ClientHandler.prototype.serverReadyListener_ = function() {
-  // FIXME(emaxx): Check for being disposed too?
+  if (this.isDisposed())
+    return;
   this.logger.finer('The server is ready, processing the buffered requests...');
   this.flushBufferedRequestsQueue_();
 };
@@ -530,7 +551,7 @@ ClientHandler.prototype.requestSucceededListener_ = function(
 };
 
 /**
- * This callback is called when the request to the server succeeds.
+ * This callback is called when the request to the server fails.
  *
  * Resolves the passed promise with the passed error, which essentially results
  * in sending the error back to the client.
@@ -562,13 +583,13 @@ ClientHandler.prototype.createServerRequesterIfNeed_ = function() {
   if (this.serverRequester_)
     return;
 
-  this.postAddClientServerCommand_();
+  this.sendAddClientServerNotification_();
   GSC.Logging.checkWithLogger(
       this.logger, !goog.isNull(this.serverMessageChannel_));
   goog.asserts.assert(this.serverMessageChannel_);
 
   var requesterTitle = goog.string.subs(
-      SERVER_CALL_FUNCTION_REQUESTER_TITLE_FORMAT, this.clientId_);
+      CALL_FUNCTION_SERVER_REQUESTER_TITLE_FORMAT, this.clientId_);
   this.serverRequester_ = new GSC.Requester(
       requesterTitle, this.serverMessageChannel_);
 };
@@ -582,9 +603,12 @@ ClientHandler.prototype.createServerRequesterIfNeed_ = function() {
  * notification.
  * @private
  */
-ClientHandler.prototype.postAddClientServerCommand_ = function() {
+ClientHandler.prototype.sendAddClientServerNotification_ = function() {
+  GSC.Logging.checkWithLogger(this.logger, this.serverMessageChannel_);
+  GSC.Logging.checkWithLogger(
+      this.logger, !this.serverMessageChannel_.isDisposed());
   this.serverMessageChannel_.send(
-      SERVER_ADD_CLIENT_SERVICE_NAME,
+      ADD_CLIENT_SERVER_NOTIFICATION_SERVICE_NAME,
       goog.object.create(CLIENT_ID_MESSAGE_KEY, this.clientId_));
 };
 
@@ -598,12 +622,15 @@ ClientHandler.prototype.postAddClientServerCommand_ = function() {
  * notification.
  * @private
  */
-ClientHandler.prototype.postRemoveClientServerCommand_ = function() {
+ClientHandler.prototype.sendRemoveClientServerNotification_ = function() {
   // Note that there is intentionally no check whether the self instance is
   // disposed: this method itself is called inside the disposeInternal method.
 
+  GSC.Logging.checkWithLogger(this.logger, this.serverMessageChannel_);
+  GSC.Logging.checkWithLogger(
+      this.logger, !this.serverMessageChannel_.isDisposed());
   this.serverMessageChannel_.send(
-      SERVER_REMOVE_CLIENT_SERVICE_NAME,
+      REMOVE_CLIENT_SERVER_NOTIFICATION_SERVICE_NAME,
       goog.object.create(CLIENT_ID_MESSAGE_KEY, this.clientId_));
 };
 

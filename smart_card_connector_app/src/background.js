@@ -143,14 +143,14 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
            '(client extension id is "' + clientExtensionId + '")' :
            '(client is the own App)') +
       '...');
-  var clientHandler = new GSC.PcscLiteServerClientsManagement.ClientHandler(
+  // Note: the reference to the created client handler is not stored anywhere,
+  // because it manages its lifetime itself, based on the lifetimes of the
+  // passed message channels.
+  new GSC.PcscLiteServerClientsManagement.ClientHandler(
       naclModule.messageChannel,
       pcscLiteReadinessTracker,
       clientMessageChannel,
       clientExtensionId);
-  // FIXME(emaxx): Bug: when the client handler is disposed, the client message
-  // channel would be left ownerless forever. The client handler is currently
-  // not managing the lifetime of the client message channel.
 }
 
 /**
