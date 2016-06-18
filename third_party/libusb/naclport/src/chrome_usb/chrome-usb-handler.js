@@ -40,6 +40,9 @@ var debugDump = GSC.DebugDump.debugDump;
 var RemoteCallMessage = GSC.RemoteCallMessage;
 
 /**
+ * This class implements handling of requests received from libusb NaCl port,
+ * which is performed by executing the corresponding chrome.usb API methods and
+ * forwarding their results back to the caller.
  * @constructor
  * @implements {GSC.RequestHandler}
  */
@@ -90,7 +93,10 @@ ChromeUsbRequestHandler.prototype.handleRequest = function(payload) {
   return promiseResolver.promise;
 };
 
-/** @private */
+/**
+ * @param {string} functionName
+ * @private
+ */
 ChromeUsbRequestHandler.prototype.getChromeUsbFunction_ = function(
     functionName) {
   if (!goog.object.containsKey(chrome.usb, functionName) ||
@@ -102,7 +108,12 @@ ChromeUsbRequestHandler.prototype.getChromeUsbFunction_ = function(
   return chrome.usb[functionName];
 };
 
-/** @private */
+/**
+ * @param {string} debugRepresentation
+ * @param {!goog.promise.Resolver} promiseResolver
+ * @param {...*} var_args Values passed to the callback by chrome.usb API.
+ * @private
+ */
 ChromeUsbRequestHandler.prototype.chromeUsbApiGenericCallback_ = function(
     debugRepresentation, promiseResolver, var_args) {
   if (goog.isDef(chrome.runtime.lastError)) {
@@ -112,7 +123,8 @@ ChromeUsbRequestHandler.prototype.chromeUsbApiGenericCallback_ = function(
     this.reportRequestError_(
         debugRepresentation,
         promiseResolver,
-        chrome.runtime.lastError.message);
+        goog.isDef(chrome.runtime.lastError.message) ?
+            chrome.runtime.lastError.message : 'Unknown error');
   } else {
     this.reportRequestSuccess_(
         debugRepresentation,
@@ -121,7 +133,12 @@ ChromeUsbRequestHandler.prototype.chromeUsbApiGenericCallback_ = function(
   }
 };
 
-/** @private */
+/**
+ * @param {string} debugRepresentation
+ * @param {!goog.promise.Resolver} promiseResolver
+ * @param {*} exc
+ * @private
+ */
 ChromeUsbRequestHandler.prototype.reportRequestException_ = function(
     debugRepresentation, promiseResolver, exc) {
   this.logger.warning(
@@ -130,7 +147,12 @@ ChromeUsbRequestHandler.prototype.reportRequestException_ = function(
   promiseResolver.reject(exc);
 };
 
-/** @private */
+/**
+ * @param {string} debugRepresentation
+ * @param {!goog.promise.Resolver} promiseResolver
+ * @param {string} errorMessage
+ * @private
+ */
 ChromeUsbRequestHandler.prototype.reportRequestError_ = function(
     debugRepresentation, promiseResolver, errorMessage) {
   this.logger.warning('API error occured while calling ' + debugRepresentation +
@@ -138,7 +160,12 @@ ChromeUsbRequestHandler.prototype.reportRequestError_ = function(
   promiseResolver.reject(new Error(errorMessage));
 };
 
-/** @private */
+/**
+ * @param {string} debugRepresentation
+ * @param {!goog.promise.Resolver} promiseResolver
+ * @param {!Array} resultArgs
+ * @private
+ */
 ChromeUsbRequestHandler.prototype.reportRequestSuccess_ = function(
     debugRepresentation, promiseResolver, resultArgs) {
   this.logger.fine(

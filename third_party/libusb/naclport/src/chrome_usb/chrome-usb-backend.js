@@ -18,8 +18,12 @@
 
 goog.provide('GoogleSmartCard.Libusb.ChromeUsbBackend');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Libusb.ChromeUsbRequestHandler');
+goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RequestReceiver');
+goog.require('goog.array');
+goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
@@ -42,6 +46,65 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
   /** @private */
   this.chromeUsbRequestReceiver_ = new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, this.chromeUsbRequestHandler_);
+
+  this.startObservingDevices_();
+};
+
+/** @const */
+var ChromeUsbBackend = GSC.Libusb.ChromeUsbBackend;
+
+/**
+ * @type {!goog.log.Logger}
+ * @const
+ */
+ChromeUsbBackend.prototype.logger = GSC.Logging.getScopedLogger(
+    'Libusb.ChromeUsbBackend');
+
+/** @private */
+ChromeUsbBackend.prototype.startObservingDevices_ = function() {
+  chrome.usb.onDeviceAdded.addListener(this.deviceAddedListener_.bind(this));
+  chrome.usb.onDeviceRemoved.addListener(
+      this.deviceRemovedListener_.bind(this));
+
+  this.logCurrentDevices_();
+};
+
+/**
+ * @param {!chrome.usb.Device} device
+ * @private
+ */
+ChromeUsbBackend.prototype.deviceAddedListener_ = function(device) {
+  this.logger.info('Received onDeviceAdded event with device ' +
+                   GSC.DebugDump.dump(device));
+
+  this.logCurrentDevices_();
+};
+
+/**
+ * @param {!chrome.usb.Device} device
+ * @private
+ */
+ChromeUsbBackend.prototype.deviceRemovedListener_ = function(device) {
+  this.logger.info('Received onDeviceRemoved event with device ' +
+                   GSC.DebugDump.dump(device));
+
+  this.logCurrentDevices_();
+};
+
+/** @private */
+ChromeUsbBackend.prototype.logCurrentDevices_ = function() {
+  chrome.usb.getDevices({}, this.logDevices_.bind(this));
+};
+
+/**
+ * @param {!Array.<!chrome.usb.Device>} devices
+ * @private
+ */
+ChromeUsbBackend.prototype.logDevices_ = function(devices) {
+  goog.array.sortByKey(devices, function(device) { return device.device; });
+
+  this.logger.info(devices.length + ' USB device(s) available: ' +
+                   GSC.DebugDump.dump(devices));
 };
 
 });  // goog.scope
