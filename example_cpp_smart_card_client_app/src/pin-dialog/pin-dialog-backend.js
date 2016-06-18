@@ -25,7 +25,7 @@ goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('GoogleSmartCard.RequestHandler');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
-goog.require('goog.messaging.MessageChannel');
+goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
 goog.require('goog.promise.Resolver');
 
@@ -64,7 +64,7 @@ var logger = GSC.Logging.getLogger('SmartCardClientApp.PinDialog');
  *
  * Once the message with the PIN request is received, opens the PIN dialog and,
  * once it finishes, sends its result as a message through the message channel.
- * @param {!goog.messaging.MessageChannel} naclModuleMessageChannel
+ * @param {!goog.messaging.AbstractChannel} naclModuleMessageChannel
  * @constructor
  */
 SmartCardClientApp.PinDialog.Backend = function(naclModuleMessageChannel) {

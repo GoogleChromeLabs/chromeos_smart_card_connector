@@ -29,6 +29,7 @@ goog.provide('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
 
 goog.require('GoogleSmartCard.PcscLiteClient.NaclClientRequestHandler');
 goog.require('GoogleSmartCard.RequestReceiver');
+goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
@@ -44,7 +45,7 @@ var GSC = GoogleSmartCard;
  *
  * The requests are handled by an owned
  * GoogleSmartCard.PcscLiteClient.NaclClientRequestHandler instance.
- * @param {!goog.messaging.MessageChannel} naclModuleMessageChannel
+ * @param {!goog.messaging.AbstractChannel} naclModuleMessageChannel
  * @param {string} clientTitle Client title for the connection. Currently this
  * is only used for the debug logs produced by the server app.
  * @param {string=} opt_serverAppId ID of the server App. By default, the ID of
