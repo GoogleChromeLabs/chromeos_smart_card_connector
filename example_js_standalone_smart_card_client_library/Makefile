@@ -38,6 +38,7 @@ JS_COMPILER_TARGET_NAMESPACES := \
 JS_COMPILER_OUTPUT_FILE_NAME := google-smart-card-client-library.js
 
 JS_COMPILER_ADDITIONAL_FLAGS := \
+	--assume_function_wrapper \
 	--output_wrapper="(function(){%output%})();" \
 
 $(eval $(call BUILD_JS_SCRIPT,$(JS_COMPILER_OUTPUT_FILE_NAME),$(JS_COMPILER_INPUT_PATHS),$(JS_COMPILER_TARGET_NAMESPACES),$(JS_COMPILER_ADDITIONAL_FLAGS)))
