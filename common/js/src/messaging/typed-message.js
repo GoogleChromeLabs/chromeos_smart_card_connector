@@ -60,8 +60,7 @@ var TypedMessage = GSC.TypedMessage;
  * @return {TypedMessage}
  */
 TypedMessage.parseTypedMessage = function(message) {
-  if (!message ||
-      !goog.isObject(message) ||
+  if (!goog.isObject(message) ||
       goog.object.getCount(message) != 2 ||
       !goog.object.containsKey(message, TYPE_MESSAGE_KEY) ||
       !goog.isString(message[TYPE_MESSAGE_KEY]) ||
