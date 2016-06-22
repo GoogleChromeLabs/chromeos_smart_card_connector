@@ -16,9 +16,8 @@
 
 /**
  * @fileoverview This file containts the pool that keeps track of all the
- * Closure-style AbstractChannel's used for messaging (PortMessageChannel &
- * SingleMesageBasedChannel). A single extension can have multiple channels
- * associated with it.
+ * Closure-style AbstractChannel's used for messaging. A single extension can
+ * have multiple channels associated with it.
  */
 
 goog.provide('GoogleSmartCard.MessageChannelPool');
