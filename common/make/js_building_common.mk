@@ -115,7 +115,6 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_error=undefinedNames \
 	--jscomp_error=undefinedVars \
 	--jscomp_error=unknownDefines \
-	--jscomp_error=unnecessaryCasts \
 	--jscomp_error=unusedLocalVariables \
 	--jscomp_error=unusedPrivateMembers \
 	--jscomp_error=uselessCode \
@@ -123,7 +122,6 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_error=visibility \
 	--jscomp_off lintChecks \
 	--jscomp_off reportUnknownTypes \
-	--jscomp_off unnecessaryCasts \
 	--manage_closure_dependencies \
 	--only_closure_dependencies \
 	--warning_level=VERBOSE \
