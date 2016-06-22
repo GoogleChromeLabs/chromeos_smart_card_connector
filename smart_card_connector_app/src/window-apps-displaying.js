@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-/** TODO
- * @fileoverview This script implements displaying of the devices list and
- * requesting USB permissions in the Smart Card Connector App window.
+/**
+ * @fileoverview This script implements displaying a list of connected
+ * applications in the Smart Card Connector App window.
  */
 
 goog.provide('GoogleSmartCard.ConnectorApp.Window.AppsDisplaying');
@@ -47,27 +47,29 @@ var logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 var appListElement = goog.dom.getElement('app-list');
 
 /**
- * @param {!Array.<string>} app_list
+ * @param {!Array.<string>} appList
  */
-function onUpdateListener(app_list) {
-  logger.fine('Application list updated, refreshing the view');
+function onUpdateListener(appList) {
+  logger.fine('Application list updated, refreshing the view. ' +
+              'New list of id\'s: ' + appList);
 
   GSC.Logging.checkWithLogger(logger, !goog.isNull(appListElement));
   goog.asserts.assert(appListElement);
 
   goog.dom.removeChildren(appListElement);
 
-  for (let app_id of app_list) {
-    var new_element = goog.dom.createDom('li', undefined, app_id);
-    goog.dom.append(appListElement, new_element);
+  for (let appId of appList) {
+    var newElement = goog.dom.createDom('li', undefined, appId);
+    goog.dom.append(appListElement, newElement);
   }
 }
 
 GSC.ConnectorApp.Window.AppsDisplaying.initialize = function() {
   logger.fine('Registering listener on connected apps update');
-  var addOnUpdateListener = /**@type {function(function(!Array.<string>))} */
-                            (GSC.PopupWindow.Client.getData());
-  addOnUpdateListener(onUpdateListener);
+  var data = GSC.PopupWindow.Client.getData()['clientAppListUpdateSubscriber'];
+  var clientAppListUpdateSubscriber =
+      /**@type {function(function(!Array.<string>))} */ (data);
+  clientAppListUpdateSubscriber(onUpdateListener);
 };
 
 });  // goog.scope

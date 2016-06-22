@@ -86,8 +86,9 @@ function launchedListener() {
 }
 
 function openWindow() {
-  GSC.PopupWindow.Server.createWindow(WINDOW_URL, WINDOW_OPTIONS,
-      messageChannelPool.addOnUpdateListener.bind(messageChannelPool));
+  var data = {'clientAppListUpdateSubscriber':
+      messageChannelPool.addOnUpdateListener.bind(messageChannelPool)};
+  GSC.PopupWindow.Server.createWindow(WINDOW_URL, WINDOW_OPTIONS, data);
 }
 
 /**

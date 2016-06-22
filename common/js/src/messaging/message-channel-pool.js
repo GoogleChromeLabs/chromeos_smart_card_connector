@@ -51,7 +51,7 @@ GSC.MessageChannelPool = function() {
   this.channels_ = new goog.labs.structs.Multimap;
 
   /**
-   * @type {!Array.<!function(!Array.<!string>)>}
+   * @type {!Array.<!function(!Array.<string>)>}
    * @private
    */
   this.onUpdateListeners_ = [];
@@ -71,14 +71,12 @@ MessageChannelPool.prototype.getChannels = function(extensionId) {
 };
 
 /**
- * Returns all the keys in the channels_ multimap, and since a key actually
- * represents the extensionId of the associated channel, it returns all the
- * associated extensionId's.
+ * Returns the extensionId's of all the connected channels.
  * @return {!Array.<string>}
  */
 MessageChannelPool.prototype.getExtensionIds = function() {
   return this.channels_.getKeys();
-}
+};
 
 /**
  * @param {string} extensionId
@@ -108,7 +106,7 @@ MessageChannelPool.prototype.addOnUpdateListener = function(
       goog.isDef(opt_scope) ? goog.bind(listener, opt_scope) : listener);
   // Fire it once immediately to update.
   this.fireOnUpdateListeners_();
-}
+};
 
 /**
  * @private
@@ -118,7 +116,7 @@ MessageChannelPool.prototype.fireOnUpdateListeners_ = function() {
   for (let listener of this.onUpdateListeners_) {
     listener(this.getExtensionIds());
   }
-}
+};
 
 /**
  * @private
