@@ -50,6 +50,12 @@ GSC.MessageChannelPool = function() {
    */
   this.channels_ = new goog.labs.structs.Multimap;
 
+  /**
+   * @type {!Array.<!function(!Array.<!string>)>}
+   * @private
+   */
+  this.onUpdateListeners_ = [];
+
   this.logger.fine('Initialized successfully');
 };
 
@@ -65,6 +71,16 @@ MessageChannelPool.prototype.getChannels = function(extensionId) {
 };
 
 /**
+ * Returns all the keys in the channels_ multimap, and since a key actually
+ * represents the extensionId of the associated channel, it returns all the
+ * associated extensionId's.
+ * @return {!Array.<string>}
+ */
+MessageChannelPool.prototype.getExtensionIds = function() {
+  return this.channels_.getKeys();
+}
+
+/**
  * @param {string} extensionId
  * @param {!goog.messaging.AbstractChannel} messageChannel
  */
@@ -78,7 +94,31 @@ MessageChannelPool.prototype.addChannel = function(
   this.channels_.add(extensionId, messageChannel);
   messageChannel.addOnDisposeCallback(
       this.handleChannelDisposed_.bind(this, extensionId, messageChannel));
+  this.fireOnUpdateListeners_();
 };
+
+/**
+ * @param {function(!Array.<string>)} listener
+ * @param {!Object=} opt_scope
+ */
+MessageChannelPool.prototype.addOnUpdateListener = function(
+    listener, opt_scope) {
+  this.logger.fine('Added an OnUpdateListener');
+  this.onUpdateListeners_.push(
+      goog.isDef(opt_scope) ? goog.bind(listener, opt_scope) : listener);
+  // Fire it once immediately to update.
+  this.fireOnUpdateListeners_();
+}
+
+/**
+ * @private
+ */
+MessageChannelPool.prototype.fireOnUpdateListeners_ = function() {
+  this.logger.fine('Firing onUpdateListeners_');
+  for (let listener of this.onUpdateListeners_) {
+    listener(this.getExtensionIds());
+  }
+}
 
 /**
  * @private
@@ -92,6 +132,7 @@ MessageChannelPool.prototype.handleChannelDisposed_ = function(
     GSC.Logging.failWithLogger(
         this.logger, 'Tried to dispose of non-existing channel');
   }
+  this.fireOnUpdateListeners_();
 };
 
 });  // goog.scope

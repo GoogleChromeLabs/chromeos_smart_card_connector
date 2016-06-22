@@ -123,6 +123,7 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_error=visibility \
 	--jscomp_off lintChecks \
 	--jscomp_off reportUnknownTypes \
+	--jscomp_off unnecessaryCasts \
 	--manage_closure_dependencies \
 	--only_closure_dependencies \
 	--warning_level=VERBOSE \

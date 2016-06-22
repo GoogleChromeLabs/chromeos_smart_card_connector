@@ -86,7 +86,8 @@ function launchedListener() {
 }
 
 function openWindow() {
-  GSC.PopupWindow.Server.createWindow(WINDOW_URL, WINDOW_OPTIONS);
+  GSC.PopupWindow.Server.createWindow(WINDOW_URL, WINDOW_OPTIONS,
+      messageChannelPool.addOnUpdateListener.bind(messageChannelPool));
 }
 
 /**
