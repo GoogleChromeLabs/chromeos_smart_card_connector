@@ -112,7 +112,7 @@ MessageChannelPool.prototype.addOnUpdateListener = function(
  * @private
  */
 MessageChannelPool.prototype.fireOnUpdateListeners_ = function() {
-  this.logger.fine('Firing onUpdateListeners_');
+  this.logger.fine('Firing channel update listeners');
   for (let listener of this.onUpdateListeners_) {
     listener(this.getExtensionIds());
   }
