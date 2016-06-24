@@ -111,9 +111,8 @@ KnownAppsRegistry.prototype.getById = function(id) {
               'The specified App id is not in the known Apps registry'));
         }
       },
-      function () {
-        promiseResolver.reject(new Error(
-            'Failed to load the known Apps registry'));
+      function (error) {
+        promiseResolver.reject(error);
       });
 
   return promiseResolver.promise;
