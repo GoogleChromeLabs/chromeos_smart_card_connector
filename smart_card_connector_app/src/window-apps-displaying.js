@@ -23,6 +23,8 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.AppsDisplaying');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownApp');
+goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.dom');
@@ -33,6 +35,9 @@ goog.scope(function() {
 
 /** @const */
 var GSC = GoogleSmartCard;
+
+/** @const */
+var PermissionsChecking = GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
  * @type {!goog.log.Logger}
@@ -47,21 +52,45 @@ var logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 var appListElement = goog.dom.getElement('app-list');
 
 /**
+ * @const
+ */
+var knownAppsRegistry = new PermissionsChecking.KnownAppsRegistry();
+
+/**
+ * @type {goog.Promise.<!Array.<PermissionsChecking.KnownApp>>}
+ */
+var lastKnownAppsPromise = null;
+
+/**
  * @param {!Array.<string>} appList
  */
 function onUpdateListener(appList) {
   logger.fine('Application list updated, refreshing the view. ' +
               'New list of id\'s: ' + appList);
 
-  GSC.Logging.checkWithLogger(logger, !goog.isNull(appListElement));
-  goog.asserts.assert(appListElement);
+  var knownAppsPromise = knownAppsRegistry.tryGetByIds(appList);
 
-  goog.dom.removeChildren(appListElement);
+  knownAppsPromise.then(
+    function(knownApps) {
+      if (knownAppsPromise !== lastKnownAppsPromise) return;
 
-  for (let appId of appList) {
-    var newElement = goog.dom.createDom('li', undefined, appId);
-    goog.dom.append(appListElement, newElement);
-  }
+      GSC.Logging.checkWithLogger(logger, !goog.isNull(appListElement));
+      goog.asserts.assert(appListElement);
+
+      goog.dom.removeChildren(appListElement);
+
+      for (var i = 0; i < knownApps.length; i++) {
+        var text = knownApps[i] ? knownApps[i].name : appList[i];
+        var newElement = goog.dom.createDom('li', undefined, text);
+        goog.dom.append(appListElement, newElement);
+      }
+    },
+    function(error) {
+      logger.warning('Couldn\'t resolve appList: ' + error);
+    }
+  );
+
+  lastKnownAppsPromise = knownAppsPromise;
 }
 
 GSC.ConnectorApp.Window.AppsDisplaying.initialize = function() {

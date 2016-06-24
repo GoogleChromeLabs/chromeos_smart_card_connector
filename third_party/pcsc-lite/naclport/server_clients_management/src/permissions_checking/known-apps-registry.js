@@ -101,15 +101,39 @@ KnownAppsRegistry.prototype.logger = GSC.Logging.getScopedLogger(
 KnownAppsRegistry.prototype.getById = function(id) {
   var promiseResolver = goog.Promise.withResolver();
 
-  this.promiseResolver_.promise.then(
-      function(knownAppsMap) {
-        var knownApp = knownAppsMap.get(id);
-        if (goog.isDef(knownApp)) {
+  this.tryGetByIds([id]).then(
+      function(knownApps) {
+        var knownApp = knownApps[0];
+        if (knownApp) {
           promiseResolver.resolve(knownApp);
         } else {
           promiseResolver.reject(new Error(
               'The specified App id is not in the known Apps registry'));
         }
+      },
+      function () {
+        promiseResolver.reject(new Error(
+            'Failed to load the known Apps registry'));
+      });
+
+  return promiseResolver.promise;
+};
+
+/**
+ * @param {!Array.<string>} idList
+ * @return {!goog.Promise.<!Array.<KnownApp>>}
+ */
+KnownAppsRegistry.prototype.tryGetByIds = function(idList) {
+  var promiseResolver = goog.Promise.withResolver();
+
+  this.promiseResolver_.promise.then(
+      function(knownAppsMap) {
+        var knownApps = [];
+        for (let id of idList) {
+          var knownApp = knownAppsMap.get(id, null);
+          knownApps.push(knownApp);
+        }
+        promiseResolver.resolve(knownApps);
       },
       function() {
         promiseResolver.reject(new Error(
