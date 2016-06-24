@@ -358,12 +358,8 @@ shell command before building the Apps::
 This triggers a number of things, basically (for some additional details
 regarding concrete Apps refer to their own ``README`` files):
 
-*   For the compiled JavaScript code - enables the lower level of the
-    Closure Compiler optimizations (see SIMPLE_OPTIMIZATIONS as opposed
-    to ADVANCED_OPTIMIZATIONS at
-    <https://developers.google.com/closure/compiler/docs/compilation_levels>).
-
-    This makes the debugging of the JavaScript code easier.
+*   For the compiled JavaScript code - enables the creation of the
+    source map allowing to view the uncompiled code when debugging.
 
 *   For the JavaScript code built using the Closure library logging
     subsystem - selects more verbose logging level by
