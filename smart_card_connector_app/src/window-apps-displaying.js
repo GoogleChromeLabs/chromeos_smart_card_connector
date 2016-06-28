@@ -25,6 +25,7 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownApp');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
+goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.log.Logger');
@@ -91,6 +92,7 @@ var updateAppView = function(knownAppsPromise, appIds, knownApps) {
  * @param {!Array.<string>} appList
  */
 var onUpdateListener = function(appList) {
+  goog.array.sort(appList);
   logger.fine('Application list updated, refreshing the view. ' +
               'New list of id\'s: ' + GSC.DebugDump.dump(appList));
 
