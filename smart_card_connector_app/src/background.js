@@ -18,6 +18,7 @@ goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 
 goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.MessageChannelCommon');
 goog.require('GoogleSmartCard.MessageChannelPool');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.PopupWindow.Server');
@@ -113,6 +114,8 @@ function externalConnectionListener(port) {
   }
   messageChannelPool.addChannel(
       portMessageChannel.extensionId, portMessageChannel);
+  GSC.MessageChannelCommon.setNonFatalDefaultServiceCallback(
+      portMessageChannel);
   createClientHandler(portMessageChannel, portMessageChannel.extensionId);
 }
 
@@ -134,6 +137,8 @@ function externalMessageListener(message, sender) {
   if (!channel) {
     channel = new GSC.SingleMessageBasedChannel(sender.id);
     messageChannelPool.addChannel(sender.id, channel);
+    GSC.MessageChannelCommon.setNonFatalDefaultServiceCallback(
+        channel);
     createClientHandler(channel, sender.id);
   }
   channel.deliverMessage(message);
