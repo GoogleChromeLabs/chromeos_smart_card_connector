@@ -69,7 +69,7 @@ var lastKnownAppsPromise = null;
  * @param {Array.<KnownApp>} knownApps
  * @return {boolean}
  */
-var updateAppView = function(knownAppsPromise, appIds, knownApps) {
+function updateAppView(knownAppsPromise, appIds, knownApps) {
     if (knownAppsPromise !== lastKnownAppsPromise) return false;
 
     GSC.Logging.checkWithLogger(logger, !goog.isNull(appListElement));
@@ -89,9 +89,10 @@ var updateAppView = function(knownAppsPromise, appIds, knownApps) {
 }
 
 /**
- * @param {!Array.<string>} appList
+ * @param {!Array.<string>} appListArg
  */
-var onUpdateListener = function(appList) {
+function onUpdateListener(appListArg) {
+  var appList = goog.array.clone(appListArg);
   goog.array.sort(appList);
   logger.fine('Application list updated, refreshing the view. ' +
               'New list of id\'s: ' + GSC.DebugDump.dump(appList));
