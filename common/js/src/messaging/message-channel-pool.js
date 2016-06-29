@@ -16,8 +16,8 @@
 
 /**
  * @fileoverview This file containts the pool that keeps track of all the
- * Closure-style AbstractChannel's used for messaging
- * (PortMessageChannel & SingleMesageBasedChannel).
+ * Closure-style AbstractChannel's used for messaging. A single extension can
+ * have multiple channels associated with it.
  */
 
 goog.provide('GoogleSmartCard.MessageChannelPool');
@@ -25,7 +25,7 @@ goog.provide('GoogleSmartCard.MessageChannelPool');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
-goog.require('goog.structs.Map');
+goog.require('goog.labs.structs.Multimap');
 
 goog.scope(function() {
 
@@ -45,12 +45,16 @@ GSC.MessageChannelPool = function() {
 
   /**
    * TODO(isandrk): extensionId may be null (extension talks to itself)
-   * TODO(isandrk): support storing both SingleMesageBasedChannel and
-   *                PortMessageChannel in the map ("multimap")
-   * @type {!goog.structs.Map.<string, !goog.messaging.AbstractChannel>}
+   * @type {!goog.labs.structs.Multimap.<string, !goog.messaging.AbstractChannel>}
    * @private
    */
-  this.channels_ = new goog.structs.Map;
+  this.channels_ = new goog.labs.structs.Multimap;
+
+  /**
+   * @type {!Array.<!function(!Array.<string>)>}
+   * @private
+   */
+  this.onUpdateListeners_ = [];
 
   this.logger.fine('Initialized successfully');
 };
@@ -60,38 +64,73 @@ var MessageChannelPool = GSC.MessageChannelPool;
 
 /**
  * @param {string} extensionId
- * @return {goog.messaging.AbstractChannel}
+ * @return {!Array.<!goog.messaging.AbstractChannel>}
  */
-MessageChannelPool.prototype.getChannel = function(extensionId) {
-  return this.channels_.get(extensionId, null);
+MessageChannelPool.prototype.getChannels = function(extensionId) {
+  return this.channels_.get(extensionId);
 };
 
 /**
- * @param {!goog.messaging.AbstractChannel} messageChannel
+ * Returns the extensionId's of all the connected channels.
+ * @return {!Array.<string>}
+ */
+MessageChannelPool.prototype.getExtensionIds = function() {
+  return this.channels_.getKeys();
+};
+
+/**
  * @param {string} extensionId
+ * @param {!goog.messaging.AbstractChannel} messageChannel
  */
 MessageChannelPool.prototype.addChannel = function(
-    messageChannel, extensionId) {
-  if (this.getChannel(extensionId)) {
+    extensionId, messageChannel) {
+  if (this.channels_.containsEntry(extensionId, messageChannel)) {
     GSC.Logging.failWithLogger(
         this.logger, 'Tried to add a channel that was already present');
   }
   this.logger.fine('Added a new channel, extension id = ' + extensionId);
-  this.channels_.set(extensionId, messageChannel);
+  this.channels_.add(extensionId, messageChannel);
   messageChannel.addOnDisposeCallback(
-      this.handleChannelDisposed_.bind(this, extensionId));
+      this.handleChannelDisposed_.bind(this, extensionId, messageChannel));
+  this.fireOnUpdateListeners_();
+};
+
+/**
+ * @param {function(!Array.<string>)} listener
+ * @param {!Object=} opt_scope
+ */
+MessageChannelPool.prototype.addOnUpdateListener = function(
+    listener, opt_scope) {
+  this.logger.fine('Added an OnUpdateListener');
+  this.onUpdateListeners_.push(
+      goog.isDef(opt_scope) ? goog.bind(listener, opt_scope) : listener);
+  // Fire it once immediately to update.
+  this.fireOnUpdateListeners_();
+};
+
+/**
+ * @private
+ */
+MessageChannelPool.prototype.fireOnUpdateListeners_ = function() {
+  this.logger.fine('Firing channel update listeners');
+  for (let listener of this.onUpdateListeners_) {
+    listener(this.getExtensionIds());
+  }
 };
 
 /**
  * @private
  * @param {string} extensionId
+ * @param {!goog.messaging.AbstractChannel} messageChannel
  */
-MessageChannelPool.prototype.handleChannelDisposed_ = function(extensionId) {
+MessageChannelPool.prototype.handleChannelDisposed_ = function(
+    extensionId, messageChannel) {
   this.logger.fine('Disposed of channel, extension id = ' + extensionId);
-  if (!this.channels_.remove(extensionId)) {
+  if (!this.channels_.remove(extensionId, messageChannel)) {
     GSC.Logging.failWithLogger(
         this.logger, 'Tried to dispose of non-existing channel');
   }
+  this.fireOnUpdateListeners_();
 };
 
 });  // goog.scope

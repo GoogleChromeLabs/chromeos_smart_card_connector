@@ -115,7 +115,6 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_error=undefinedNames \
 	--jscomp_error=undefinedVars \
 	--jscomp_error=unknownDefines \
-	--jscomp_error=unnecessaryCasts \
 	--jscomp_error=unusedLocalVariables \
 	--jscomp_error=unusedPrivateMembers \
 	--jscomp_error=uselessCode \

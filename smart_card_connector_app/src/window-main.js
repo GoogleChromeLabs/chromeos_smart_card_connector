@@ -21,6 +21,7 @@
 goog.provide('GoogleSmartCard.ConnectorApp.Window.Main');
 
 goog.require('GoogleSmartCard.ConnectorApp.Window.AboutShowing');
+goog.require('GoogleSmartCard.ConnectorApp.Window.AppsDisplaying');
 goog.require('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 goog.require('GoogleSmartCard.ConnectorApp.Window.LogsExporting');
 goog.require('GoogleSmartCard.Logging');
@@ -53,6 +54,7 @@ goog.events.listen(
     closeWindowClickListener);
 
 GSC.ConnectorApp.Window.AboutShowing.initialize();
+GSC.ConnectorApp.Window.AppsDisplaying.initialize();
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize();
 GSC.ConnectorApp.Window.LogsExporting.initialize();
 

@@ -56,11 +56,12 @@ var TypedMessage = GSC.TypedMessage;
  * Parses the specified message into the typed message fields (type and data).
  *
  * Returns null if the parsing failed.
- * @param {!Object} message
+ * @param {*} message
  * @return {TypedMessage}
  */
 TypedMessage.parseTypedMessage = function(message) {
-  if (goog.object.getCount(message) != 2 ||
+  if (!goog.isObject(message) ||
+      goog.object.getCount(message) != 2 ||
       !goog.object.containsKey(message, TYPE_MESSAGE_KEY) ||
       !goog.isString(message[TYPE_MESSAGE_KEY]) ||
       !goog.object.containsKey(message, DATA_MESSAGE_KEY) ||
