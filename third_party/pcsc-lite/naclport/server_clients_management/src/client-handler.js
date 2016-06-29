@@ -192,6 +192,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
       GSC.PcscLiteCommon.Constants.REQUESTER_TITLE,
       clientMessageChannel,
       this);
+  this.requestReceiver_.setShouldDisposeOnInvalidMessage(true);
 
   /** @private */
   this.serverMessageChannel_ = serverMessageChannel;
