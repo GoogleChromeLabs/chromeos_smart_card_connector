@@ -79,7 +79,7 @@ Additionally, the example App contains the following pieces:
     performs a sequence of commands **demonstrating the use of
     PC/SC-Lite API** (see the file ``src/pp_module.cc``).
 
-    Note that this piece is here just for the demostration purposes, so
+    Note that this piece is here just for the demonstration purposes, so
     it can be removed safely.
 
 *   A **PIN entry dialog** together with a corresponding C++ binding for

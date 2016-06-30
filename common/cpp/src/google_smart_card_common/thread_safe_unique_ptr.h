@@ -50,7 +50,7 @@ namespace google_smart_card {
 // lifetime of the stored object.
 //
 // Note: the implementation is a bit sub-optimal as it doesn't allow
-// simultaneos read-only locking from different thread. So the locking scope
+// simultaneous read-only locking from different thread. So the locking scope
 // should be limited to be as narrow as possible. The better implementation of
 // this class is possible (based on some form of readers-writers lock), but with
 // the current use-cases in the codebase that is not necessary.

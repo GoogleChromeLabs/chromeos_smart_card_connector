@@ -17,7 +17,7 @@
 /**
  * @fileoverview Main script of the PIN dialog window.
  *
- * Once the dialog is finished with some result (either sucessfully returning
+ * Once the dialog is finished with some result (either successfully returning
  * data entered by user, or being canceled), it uses the methods of the
  * GoogleSmartCard.PopupWindow library for returning the result to the caller
  * window (i.e. to the App's background page).

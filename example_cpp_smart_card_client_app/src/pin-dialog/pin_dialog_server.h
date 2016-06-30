@@ -59,7 +59,7 @@ class PinDialogServer final {
   // Sends a PIN request and waits for the response being received.
   //
   // Returns whether the PIN dialog finished successfully, and, if yes, returns
-  // the PIN eneter by user through the pin output argument.
+  // the PIN entered by user through the pin output argument.
   //
   // Note that this function must not be called from the main thread, because
   // otherwise it would block receiving of the incoming messages and,

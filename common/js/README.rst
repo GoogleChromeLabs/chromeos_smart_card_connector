@@ -39,7 +39,7 @@ The main pieces are:
 Using
 -----
 
-The library is entended to be used in compiled JavaScript code through
+The library is intended to be used in compiled JavaScript code through
 the Google Closure Compiler (see
 <https://developers.google.com/closure/compiler/>).
 

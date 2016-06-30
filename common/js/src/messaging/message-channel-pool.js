@@ -15,7 +15,7 @@
  */
 
 /**
- * @fileoverview This file containts the pool that keeps track of all the
+ * @fileoverview This file contains the pool that keeps track of all the
  * Closure-style AbstractChannel's used for messaging. A single extension can
  * have multiple channels associated with it.
  */

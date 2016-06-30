@@ -294,7 +294,7 @@ void VarDictValuesExtractor::AddRequestedKey(const std::string& key) {
 void VarDictValuesExtractor::ProcessFailedExtraction(
     const std::string& key, const std::string& extraction_error_message) {
   if (failed_) {
-    // We could concatenate all occured errors, but storing of the first error
+    // We could concatenate all occurred errors, but storing of the first error
     // only should be enough.
     return;
   }

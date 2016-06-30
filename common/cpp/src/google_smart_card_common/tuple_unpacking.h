@@ -38,7 +38,7 @@ struct ArgIndexesGenerator<0, Sequence...> {
 // Generate compile-time sequence of argument indexes that can be used for the
 // extraction of std::tuple elements.
 //
-// In essense, MakeArgIndexes<X> is an ArgIndexes<0, 1, 2, ..., X - 1>.
+// In essence, MakeArgIndexes<X> is ArgIndexes<0, 1, 2, ..., X - 1>.
 template <size_t ArgCount>
 using MakeArgIndexes = typename internal::ArgIndexesGenerator<ArgCount>::result;
 

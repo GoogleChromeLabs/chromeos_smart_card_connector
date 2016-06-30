@@ -118,7 +118,7 @@ class RequestResult final {
 
   void CheckInitialized() const {
     if (!status_) {
-      GOOGLE_SMART_CARD_LOG_FATAL << "Trying to access an unitialized " <<
+      GOOGLE_SMART_CARD_LOG_FATAL << "Trying to access an uninitialized " <<
           "request result";
     }
   }

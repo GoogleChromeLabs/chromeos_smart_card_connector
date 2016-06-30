@@ -68,7 +68,7 @@ template <typename T1, typename T2>
 inline int CompareIntegers(T1 value_1, T2 value_2) {
   // We have to perform the comparisons carefully due to the C++ promotion
   // rules: if comparing a signed and an unsigned value, the signed value will
-  // be converted into an unsigned, leading to unexpected behaviour for negative
+  // be converted into an unsigned, leading to unexpected behavior for negative
   // numbers.
   const int sign_1 = internal::GetIntegerSign(value_1);
   const int sign_2 = internal::GetIntegerSign(value_2);

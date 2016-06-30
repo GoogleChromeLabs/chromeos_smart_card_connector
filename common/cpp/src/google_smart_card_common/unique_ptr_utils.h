@@ -20,7 +20,7 @@
 
 namespace google_smart_card {
 
-// Replacement of std::make_unique, which will be introducted only in C++14.
+// Replacement of std::make_unique, which will be introduced only in C++14.
 template <typename T, typename ... Args>
 inline std::unique_ptr<T> MakeUnique(Args&& ... args) {
   return std::unique_ptr<T>(new T(std::forward<Args>(args)...));

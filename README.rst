@@ -47,7 +47,9 @@ The high-level overview of the architecture is:
     mentioned free USB CCID driver are supplied. Support of pluggable
     drivers is also not implemented yet, though it's possible
     technically (each driver can be created as a separate App talking to
-    the Connector App through some defined interface). A list of readers supported by CCID can be found on their website <https://pcsclite.alioth.debian.org/ccid/section.html>.
+    the Connector App through some defined interface). A list of readers
+    supported by CCID can be found on their website
+    <https://pcsclite.alioth.debian.org/ccid/section.html>.
 
 2.  A number of **third-party middleware Apps** containing the smart
     card drivers.
@@ -167,7 +169,7 @@ represented by a message sent back from the Connector App to the
 middleware App.
 
 If the request was processed **successfully** (i.e. the PC/SC-Lite
-function was recognised and called), then the message will have the
+function was recognized and called), then the message will have the
 following format::
 
     {
@@ -269,7 +271,7 @@ In order to **run** the built Apps, you will need *either* of these:
 
     This will provide the closest environment to the real world's one.
 
-    However, the disadvantage of this options is the inconvenient way of
+    However, the disadvantage of this option is the inconvenient way of
     doing short development iterations: each time the built Apps will
     have to be somehow transferred to the Chromebook and installed onto
     it.

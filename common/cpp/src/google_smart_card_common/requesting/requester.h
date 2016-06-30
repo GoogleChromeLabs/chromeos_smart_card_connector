@@ -69,7 +69,7 @@ class Requester {
   // used for sending the request.
   //
   // Note: It's also possible that the callback is executed synchronously during
-  // this method call (e.g. when a fatal error occured that prevents the
+  // this method call (e.g. when a fatal error occurred that prevents the
   // implementation from starting the asynchronous request).
   GenericAsyncRequest StartAsyncRequest(
       const pp::Var& payload, GenericAsyncRequestCallback callback);
@@ -87,7 +87,7 @@ class Requester {
   // used for sending the request.
   //
   // Note: It's also possible that the callback is executed synchronously during
-  // this method call (e.g. when a fatal error occured that prevents the
+  // this method call (e.g. when a fatal error occurred that prevents the
   // implementation from starting the asynchronous request).
   virtual void StartAsyncRequest(
       const pp::Var& payload,

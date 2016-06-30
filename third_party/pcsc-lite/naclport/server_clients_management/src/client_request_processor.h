@@ -67,7 +67,7 @@ namespace google_smart_card {
 //
 // Apart from providing security/privacy checks, instance of this class performs
 // the actual execution of PC/SC-Lite API requests received from the client. The
-// class provides a method of asynchronous request executing, which happends in
+// class provides a method of asynchronous request execution, which happens in
 // background threads. There may be multiple requests being executed
 // simultaneously. (And even the same SCARDCONTEXT may be used legally in two
 // or more simultaneous requests: for example, an "SCardGetStatusChange" request

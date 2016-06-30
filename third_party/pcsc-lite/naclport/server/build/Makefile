@@ -106,7 +106,7 @@ PCSC_LITE_SERVER_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/utils.c \
 	$(PCSC_LITE_SOURCES_PATH)/winscard.c \
 
-# * PCSCD defition is required to enable compilation of the code that is
+# * PCSCD definition is required to enable compilation of the code that is
 #   required for compiling the original PC/SC-Lite daemon source files.
 # * SCard* functions are redefined in order to not collide with the symbols
 #   from the PC/SC-Lite server-side libraries

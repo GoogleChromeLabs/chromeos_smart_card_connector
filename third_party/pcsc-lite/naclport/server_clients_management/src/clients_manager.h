@@ -49,7 +49,7 @@ namespace google_smart_card {
 // This class manages the external PC/SC-Lite clients and runs PC/SC-Lite API
 // requests received from them.
 //
-// This class is a important piece for providing privacy and security of the
+// This class is an important piece for providing privacy and security of the
 // PC/SC-Lite NaCl port: it keeps all clients isolated from each other. This
 // class is preventing one client from using, accessing or interfering with
 // handles or requests of any other client.

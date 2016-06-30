@@ -116,7 +116,7 @@ class StructConverter final {
   };
 
   // The functor that is passed to the VisitFields method when the conversion
-  // fromthe Pepper value into the C/C++ structure value is performed.
+  // from the Pepper value into the C/C++ structure value is performed.
   class FromVarConversionCallback final {
    public:
     explicit FromVarConversionCallback(const pp::VarDictionary& var)

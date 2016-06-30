@@ -28,11 +28,11 @@ endif
 
 
 #
-# Macro rule that adds some auxillary rules for depending on the specified
+# Macro rule that adds some auxiliary rules for depending on the specified
 # Native Client module.
 #
 # These rules provide automatic re-building of the Native Client module when
-# neccessary, copying its built binaries into the out directory.
+# necessary, copying its built binaries into the out directory.
 #
 
 define ADD-NACL-MODULE-DEPENDENCY

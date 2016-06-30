@@ -674,7 +674,7 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncControlTransfer) {
   libusb_over_chrome_usb->LibusbHandleEvents(nullptr);
 }
 
-// Test cancellation of an asynchronous control tranfers.
+// Test cancellation of an asynchronous control transfers.
 //
 // Note that output control transfers cancellation never succeeds.
 TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncTransferCancellation) {

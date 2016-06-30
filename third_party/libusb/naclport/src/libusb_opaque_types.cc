@@ -220,7 +220,7 @@ void libusb_context::RemoveTransferInFlight(
     // Note that this assertion relies on the fact that transfer cancellation
     // has precedence over receiving of results for the transfer (this is
     // guaranteed by the implementation of the GetAsyncTransferStateUpdate
-    // methid).
+    // method).
     GOOGLE_SMART_CARD_CHECK(!transfers_to_cancel_.count(transfer));
   }
 }

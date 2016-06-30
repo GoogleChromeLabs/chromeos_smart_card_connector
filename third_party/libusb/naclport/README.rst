@@ -129,7 +129,7 @@ and the original libusb library features:
     number of times).
 
 *   Trying to resubmit an asynchronous transfer while its previous
-    submission is still in flight will produce undefined behaviour,
+    submission is still in flight will produce undefined behavior,
     instead of returning LIBUSB_ERROR_BUSY.
 
 Additionally, the **performance** of the libusb_* functions

@@ -196,7 +196,7 @@ endef
 
 
 #
-# Auxillary macro rule that adds rules for linking the resulting NaCl binaries.
+# Auxiliary macro rule that adds rules for linking the resulting NaCl binaries.
 #
 # The PNaCl workflow uses both an unstripped and finalized/stripped binary; on
 # NaCl, only produce a stripped binary in Release builds.
@@ -219,7 +219,7 @@ endif
 
 
 #
-# Auxillary macro rule that adds rules for copying the resulting NaCl binaries
+# Auxiliary macro rule that adds rules for copying the resulting NaCl binaries
 # into the out directory.
 #
 # The unstripped binaries are copied only in Debug builds, and finalized/

@@ -155,8 +155,8 @@ ChromeUsbRequestHandler.prototype.reportRequestException_ = function(
  */
 ChromeUsbRequestHandler.prototype.reportRequestError_ = function(
     debugRepresentation, promiseResolver, errorMessage) {
-  this.logger.warning('API error occured while calling ' + debugRepresentation +
-                      ': ' + errorMessage);
+  this.logger.warning('API error occurred while calling ' +
+                      debugRepresentation + ': ' + errorMessage);
   promiseResolver.reject(new Error(errorMessage));
 };
 
