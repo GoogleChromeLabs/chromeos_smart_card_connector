@@ -21,12 +21,20 @@
 
 goog.provide('GoogleSmartCard.MessagingCommon');
 
+goog.require('GoogleSmartCard.Logging');
+goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
 /** @const */
 var GSC = GoogleSmartCard;
+
+/**
+ * @type {!goog.log.Logger}
+ * @const
+ */
+var LOGGER = GSC.Logging.getScopedLogger('MessagingCommon');
 
 /**
  * @param {!goog.messaging.AbstractChannel} channel
@@ -36,8 +44,13 @@ GSC.MessagingCommon.setNonFatalDefaultServiceCallback = function(channel) {
   channel.registerDefaultService(boundCallback);
 };
 
+/**
+ * @param {!goog.messaging.AbstractChannel} channel
+ * @param {string} serviceName
+ * @param {!Object|string} payload
+ */
 function nonFatalDefaultServiceCallback(channel, serviceName, payload) {
-  channel.logger.warning(
+  LOGGER.warning(
       'Unhandled message received: serviceName="' + serviceName +
       '", payload=' + GSC.DebugDump.debugDump(payload));
   channel.dispose();
