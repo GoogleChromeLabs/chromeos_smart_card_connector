@@ -15,11 +15,11 @@
  */
 
 /**
- * @fileoverview This file containts common functionality for the provided
+ * @fileoverview This file contains common functionality for the provided
  * message channels.
  */
 
-goog.provide('GoogleSmartCard.MessageChannelCommon');
+goog.provide('GoogleSmartCard.MessagingCommon');
 
 goog.require('goog.messaging.AbstractChannel');
 
@@ -31,7 +31,7 @@ var GSC = GoogleSmartCard;
 /**
  * @param {!goog.messaging.AbstractChannel} channel
  */
-GSC.MessageChannelCommon.setNonFatalDefaultServiceCallback = function(channel) {
+GSC.MessagingCommon.setNonFatalDefaultServiceCallback = function(channel) {
   var boundCallback = nonFatalDefaultServiceCallback.bind(undefined, channel);
   channel.registerDefaultService(boundCallback);
 };
@@ -43,4 +43,4 @@ function nonFatalDefaultServiceCallback(channel, serviceName, payload) {
   channel.dispose();
 }
 
-})  // goog.scope
+});  // goog.scope
