@@ -72,11 +72,30 @@ GSC.RequestReceiver = function(name, messageChannel, requestHandler) {
   /** @private */
   this.requestHandler_ = requestHandler;
 
+  /**
+   * @type {boolean}
+   * @private
+   */
+  this.shouldDisposeOnInvalidMessage_ = false;
+
   this.registerRequestMessagesService_();
 };
 
 /** @const */
 var RequestReceiver = GSC.RequestReceiver;
+
+/**
+ * Sets whether the message channel should be disposed when an invalid message
+ * is received.
+ *
+ * By default, the message channel is not disposed in case of an invalid
+ * message, and a fatal error is raised instead.
+ * @param {boolean} shouldDisposeOnInvalidMessage
+ */
+RequestReceiver.prototype.setShouldDisposeOnInvalidMessage = function(
+    shouldDisposeOnInvalidMessage) {
+  this.shouldDisposeOnInvalidMessage_ = shouldDisposeOnInvalidMessage;
+};
 
 /** @private */
 RequestReceiver.prototype.registerRequestMessagesService_ = function() {
@@ -96,10 +115,19 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
 
   var requestMessageData = RequestMessageData.parseMessageData(messageData);
   if (goog.isNull(requestMessageData)) {
-    GSC.Logging.failWithLogger(
-        this.logger,
-        'Failed to parse the received request message: ' +
-        GSC.DebugDump.debugDump(messageData));
+    if (this.shouldDisposeOnInvalidMessage_) {
+      this.logger.warning(
+          'Failed to parse the received request message: ' +
+          GSC.DebugDump.debugDump(messageData) + ', disposing of the message ' +
+          'channel...');
+      this.messageChannel_.dispose();
+      return;
+    } else {
+      GSC.Logging.failWithLogger(
+          this.logger,
+          'Failed to parse the received request message: ' +
+          GSC.DebugDump.debugDump(messageData));
+    }
   }
 
   this.logger.fine(
@@ -115,6 +143,7 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
 /**
  * @param {!RequestMessageData} requestMessageData
  * @param {*} payload
+ * @private
  */
 RequestReceiver.prototype.responseResolvedListener_ = function(
     requestMessageData, payload) {
@@ -137,6 +166,7 @@ RequestReceiver.prototype.responseResolvedListener_ = function(
 /**
  * @param {!RequestMessageData} requestMessageData
  * @param {*} error
+ * @private
  */
 RequestReceiver.prototype.responseRejectedListener_ = function(
     requestMessageData, error) {
