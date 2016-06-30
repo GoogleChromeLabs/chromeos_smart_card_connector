@@ -23,9 +23,6 @@
 #
 
 
-LIBUSB_VERSION := 1.0.20
-
-
 LIBUSB_LIB := google_smart_card_libusb
 
 
