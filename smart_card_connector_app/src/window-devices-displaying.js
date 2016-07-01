@@ -121,16 +121,20 @@ function displayReaders(readers) {
  */
 function makeReaderDescriptionString(reader) {
   var parts = [];
+
   if (reader.productName) {
     parts.push(chrome.i18n.getMessage(
         'readerDescriptionProductNamePart', reader.productName));
+  } else {
+    parts.push(chrome.i18n.getMessage(
+        'readerDescriptionProductNamePartUnknown'));
   }
+
   if (reader.manufacturerName) {
     parts.push(chrome.i18n.getMessage(
         'readerDescriptionManufacturerNamePart', reader.manufacturerName));
   }
-  if (!parts.length)
-    return chrome.i18n.getMessage('unknownReaderDescription');
+
   return parts.join(' ');
 }
 

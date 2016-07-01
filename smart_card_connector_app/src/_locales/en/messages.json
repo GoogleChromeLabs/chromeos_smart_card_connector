@@ -37,6 +37,10 @@
       }
     }
   },
+  "readerDescriptionProductNamePartUnknown": {
+    "message": "Unknown reader",
+    "description": "Part of the device description string that displays the product name field, in case no product name is provided by the system"
+  },
   "readerDescriptionManufacturerNamePart": {
     "message": "from $manufacturerName$",
     "description": "Part of the device description string that displays the manufacturer name field",
@@ -46,10 +50,6 @@
         "example": "Noname Vendor"
       }
     }
-  },
-  "unknownReaderDescription": {
-    "message": "Unknown reader",
-    "description": "Device description string, in case no meaningful device information is available"
   },
   "openAbout": {
     "message": "About",
