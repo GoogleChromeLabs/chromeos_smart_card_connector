@@ -187,6 +187,52 @@ RACE_FREE_MKDIR = $(COMMON_DIR_PATH)/shell/race_free_mkdir.sh $(1) $(2)
 
 
 #
+# Path to the Chrome browser.
+#
+# By default, the value is based on guessing (according to the client OS).
+#
+# If the guess is wrong, or in order to use a different Chrome browser than the
+# system default, the user may define the CHROME_PATH variable externally.
+#
+
+ifeq ($(shell uname -s | cut -c 1-5),Linux)
+DEFAULT_CHROME_PATH := /usr/bin/google-chrome
+endif
+ifeq ($(shell uname),Darwin)
+DEFAULT_CHROME_PATH := \
+	/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome
+endif
+ifeq ($(shell uname -s | cut -c 1-10),MINGW32_NT)
+DEFAULT_CHROME_PATH := \
+	"c:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
+endif
+DEFAULT_CHROME_PATH ?= failed_to_detect_DEFAULT_CHROME_PATH
+
+CHROME_PATH ?= $(DEFAULT_CHROME_PATH)
+
+
+#
+# Additional environment definitions that need to be passed to Chrome.
+#
+# This is intended to be customized by the user in case of some special needs.
+#
+# For example, the browser locale may be specified by setting the "LANGUAGE"
+# environment variable to the needed value.
+#
+
+CHROME_ENV ?=
+
+
+#
+# Additional command line flags that need to be passed to Chrome.
+#
+# This is intended to be customized by the user in case of some special needs.
+#
+
+CHROME_ARGS ?=
+
+
+#
 # Macro rule that defines helper variables and rules that allow to depend on
 # building of the out directory by some other library (see also the
 # COLLECT_DEPENDENCY_OUT macro rule).

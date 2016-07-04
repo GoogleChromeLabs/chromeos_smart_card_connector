@@ -24,49 +24,25 @@
 # Special "run" target that starts a Chrome instance with a temporary profile
 # and an App loaded from the out directory and running.
 #
-# In order to use a different Chrome browser than the system default, the
-# CHROME_PATH variable may be defined externally.
-#
-# Additional environment variables that need to be passed to Chrome (e.g.
-# "LANGUAGE" variable for changing browser's locale) can be passed through the
-# CHROME_ENV variable.
-#
-# Additional command line flags that need to be passed to Chrome can be
-# specified through the CHROME_ARGS variable.
+# For possible customization, refer to the documentation in the common.mk file,
+# especially the following variables: CHROME_PATH, CHROME_ENV, CHROME_ARGS.
 #
 
-ifeq ($(shell uname -s | cut -c 1-5),Linux)
-DEFAULT_CHROME_PATH := /usr/bin/google-chrome
-endif
-ifeq ($(shell uname),Darwin)
-DEFAULT_CHROME_PATH := \
-	/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome
-endif
-ifeq ($(shell uname -s | cut -c 1-10),MINGW32_NT)
-DEFAULT_CHROME_PATH := \
-	"c:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe"
-endif
-DEFAULT_CHROME_PATH ?= failed_to_detect_DEFAULT_CHROME_PATH
+APP_RUN_USER_DATA_DIR_PATH := ./user-data-dir
 
-USER_DATA_DIR_PATH := ./user-data-dir
-
-CHROME_PATH ?= $(DEFAULT_CHROME_PATH)
-
-CHROME_ENV ?=
-
-CHROME_ARGS += \
+APP_RUN_CHROME_ARGS := \
 	--enable-nacl \
 	--enable-pnacl \
 	--no-first-run \
-	--user-data-dir=$(USER_DATA_DIR_PATH) \
+	--user-data-dir=$(APP_RUN_USER_DATA_DIR_PATH) \
 	--load-and-launch-app=$(OUT_DIR_PATH) \
 
 .PHONY: run
 
 run: all
-	$(CHROME_ENV) $(CHROME_PATH) $(CHROME_ARGS)
+	$(CHROME_ENV) $(CHROME_PATH) $(APP_RUN_CHROME_ARGS) $(CHROME_ARGS)
 
-$(eval $(call CLEAN_RULE,$(USER_DATA_DIR_PATH)))
+$(eval $(call CLEAN_RULE,$(APP_RUN_USER_DATA_DIR_PATH)))
 
 
 #
