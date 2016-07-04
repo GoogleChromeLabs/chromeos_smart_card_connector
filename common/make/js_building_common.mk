@@ -73,6 +73,7 @@ JS_BUILD_COMPILATION_FLAGS := \
 else
 
 JS_BUILD_COMPILATION_FLAGS := \
+	--debug \
 	--formatting=PRETTY_PRINT \
 	--formatting=PRINT_INPUT_DELIMITER \
 
