@@ -40,13 +40,16 @@ goog.require('goog.dom.NodeType');
 goog.require('goog.dom.TagName');
 goog.require('goog.dom.safe');
 goog.require('goog.html.SafeHtml');
-goog.require('goog.html.legacyconversions');
+goog.require('goog.html.uncheckedconversions');
 goog.require('goog.math.Coordinate');
 goog.require('goog.math.Size');
 goog.require('goog.object');
 goog.require('goog.string');
 goog.require('goog.string.Unicode');
 goog.require('goog.userAgent');
+
+
+goog.forwardDeclare('goog.dom.TypedTagName');
 
 
 /**
@@ -678,6 +681,8 @@ goog.dom.getWindow_ = function(doc) {
 };
 
 
+// TODO(jakubvrana): Disallow {string} in tagName and change the return type to
+// {T}.
 /**
  * Returns a dom node with a set of attributes.  This function accepts varargs
  * for subsequent nodes to be added.  Subsequent nodes will be added to the
@@ -687,7 +692,7 @@ goog.dom.getWindow_ = function(doc) {
  * <code>createDom('div', null, createDom('p'), createDom('p'));</code>
  * would return a div with two child paragraphs
  *
- * @param {string} tagName Tag to create.
+ * @param {string|!goog.dom.TypedTagName<T>} tagName Tag to create.
  * @param {(Object|Array<string>|string)=} opt_attributes If object, then a map
  *     of name-value pairs for attributes. If a string, then this is the
  *     className of the new element. If an array, the elements will be joined
@@ -696,6 +701,7 @@ goog.dom.getWindow_ = function(doc) {
  *     strings for text nodes. If one of the var_args is an array or NodeList,
  *     its elements will be added as childNodes instead.
  * @return {!Element} Reference to a DOM node.
+ * @template T
  */
 goog.dom.createDom = function(tagName, opt_attributes, var_args) {
   return goog.dom.createDom_(document, arguments);
@@ -711,7 +717,7 @@ goog.dom.createDom = function(tagName, opt_attributes, var_args) {
  * @private
  */
 goog.dom.createDom_ = function(doc, args) {
-  var tagName = args[0];
+  var tagName = String(args[0]);
   var attributes = args[1];
 
   // Internet Explorer is dumb:
@@ -812,11 +818,12 @@ goog.dom.$dom = goog.dom.createDom;
 
 /**
  * Creates a new element.
- * @param {string} name Tag name.
+ * @param {string|!goog.dom.TypedTagName<T>} name Tag name.
  * @return {!Element} The new element.
+ * @template T
  */
 goog.dom.createElement = function(name) {
-  return document.createElement(name);
+  return document.createElement(String(name));
 };
 
 
@@ -877,8 +884,29 @@ goog.dom.createTable_ = function(doc, rows, columns, fillWithNbsp) {
 };
 
 
+
 /**
- * Converts HTML markup into a node.
+ * Creates a new Node from constant strings of HTML markup.
+ * @param {...!goog.string.Const} var_args The HTML strings to concatenate then
+ *     convert into a node.
+ * @return {!Node}
+ */
+goog.dom.constHtmlToNode = function(var_args) {
+  var stringArray = goog.array.map(arguments, goog.string.Const.unwrap);
+  var safeHtml =
+      goog.html.uncheckedconversions
+          .safeHtmlFromStringKnownToSatisfyTypeContract(
+              goog.string.Const.from(
+                  'Constant HTML string, that gets turned into a ' +
+                  'Node later, so it will be automatically balanced.'),
+              stringArray.join(''));
+  return goog.dom.safeHtmlToNode(safeHtml);
+};
+
+
+/**
+ * Converts HTML markup into a node. This is a safe version of
+ * {@code goog.dom.htmlToDocumentFragment} which is now deleted.
  * @param {!goog.html.SafeHtml} html The HTML markup to convert.
  * @return {!Node} The resulting node.
  */
@@ -904,27 +932,6 @@ goog.dom.safeHtmlToNode_ = function(doc, html) {
     goog.dom.safe.setInnerHtml(tempDiv, html);
   }
   return goog.dom.childrenToNode_(doc, tempDiv);
-};
-
-
-/**
- * Converts an HTML string into a document fragment. The string must be
- * sanitized in order to avoid cross-site scripting. For example
- * {@code goog.dom.htmlToDocumentFragment('&lt;img src=x onerror=alert(0)&gt;')}
- * triggers an alert in all browsers, even if the returned document fragment
- * is thrown away immediately.
- *
- * NOTE: This method doesn't work if your htmlString contains elements that
- * can't be contained in a <div>. For example, <tr>.
- *
- * @param {string} htmlString The HTML string to convert.
- * @return {!Node} The resulting document fragment.
- * @deprecated Use {@link goog.dom.safeHtmlToNode} instead.
- */
-goog.dom.htmlToDocumentFragment = function(htmlString) {
-  return goog.dom.safeHtmlToNode_(document,
-      // For now, we are blindly trusting that the HTML is safe.
-      goog.html.legacyconversions.safeHtmlFromString(htmlString));
 };
 
 
@@ -2435,7 +2442,7 @@ goog.dom.Appendable;
  * which will remove all child nodes from the old element and add them as
  * child nodes of the new DIV.
  *
- * @param {string} tagName Tag to create.
+ * @param {string|!goog.dom.TypedTagName<T>} tagName Tag to create.
  * @param {Object|string=} opt_attributes If object, then a map of name-value
  *     pairs for attributes. If a string, then this is the className of the new
  *     element.
@@ -2443,6 +2450,7 @@ goog.dom.Appendable;
  *     strings for text nodes. If one of the var_args is an array or
  *     NodeList, its elements will be added as childNodes instead.
  * @return {!Element} Reference to a DOM node.
+ * @template T
  */
 goog.dom.DomHelper.prototype.createDom = function(
     tagName, opt_attributes, var_args) {
@@ -2467,11 +2475,12 @@ goog.dom.DomHelper.prototype.$dom = goog.dom.DomHelper.prototype.createDom;
 
 /**
  * Creates a new element.
- * @param {string} name Tag name.
+ * @param {string|!goog.dom.TypedTagName<T>} name Tag name.
  * @return {!Element} The new element.
+ * @template T
  */
 goog.dom.DomHelper.prototype.createElement = function(name) {
-  return this.document_.createElement(name);
+  return this.document_.createElement(String(name));
 };
 
 
@@ -2503,28 +2512,14 @@ goog.dom.DomHelper.prototype.createTable = function(
 /**
  * Converts an HTML into a node or a document fragment. A single Node is used if
  * {@code html} only generates a single node. If {@code html} generates multiple
- * nodes then these are put inside a {@code DocumentFragment}.
+ * nodes then these are put inside a {@code DocumentFragment}. This is a safe
+ * version of {@code goog.dom.DomHelper#htmlToDocumentFragment} which is now
+ * deleted.
  * @param {!goog.html.SafeHtml} html The HTML markup to convert.
  * @return {!Node} The resulting node.
  */
 goog.dom.DomHelper.prototype.safeHtmlToNode = function(html) {
   return goog.dom.safeHtmlToNode_(this.document_, html);
-};
-
-
-/**
- * Converts an HTML string into a node or a document fragment.  A single Node
- * is used if the {@code htmlString} only generates a single node.  If the
- * {@code htmlString} generates multiple nodes then these are put inside a
- * {@code DocumentFragment}.
- *
- * @param {string} htmlString The HTML string to convert.
- * @return {!Node} The resulting node.
- * @deprecated Use {@link goog.dom.DomHelper.prototype.safeHtmlToNode} instead.
- */
-goog.dom.DomHelper.prototype.htmlToDocumentFragment = function(htmlString) {
-  return goog.dom.safeHtmlToNode_(this.document_,
-      goog.html.legacyconversions.safeHtmlFromString(htmlString));
 };
 
 
