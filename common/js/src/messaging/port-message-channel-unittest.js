@@ -217,4 +217,32 @@ goog.exportSymbol('testPortMessageChannelMessageReceiving', function() {
   return testCasePromiseResolver.promise;
 });
 
+// Test that the port message channel is disposed of when the port gets
+// disconnected.
+goog.exportSymbol('testPortMessageChannelDisconnection', function() {
+  var testCasePromiseResolver = goog.Promise.withResolver();
+
+  var mockPort = new GSC.MockPort('mock port');
+  setUpPingRespondingForMockPort(mockPort);
+  mockPort.postMessage.$replay();
+
+  function onPortMessageChannelEstablished() {
+    mockPort.disconnect();
+    assert(portMessageChannel.isDisposed());
+
+    assertThrows(function() {
+      portMessageChannel.send('foo', {});
+    });
+
+    mockPort.postMessage.$verify();
+    testCasePromiseResolver.resolve();
+    mockPort.dispose();
+  }
+
+  var portMessageChannel = new GSC.PortMessageChannel(
+      mockPort.getPort(), onPortMessageChannelEstablished);
+
+  return testCasePromiseResolver.promise;
+});
+
 });  // goog.scope
