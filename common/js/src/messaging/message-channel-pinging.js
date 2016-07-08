@@ -272,7 +272,7 @@ GSC.MessageChannelPinging.PingResponder = function(
 
   /** @private */
   this.messageChannel_ = messageChannel;
-  // Register itself for receivnig the "ping" messages.
+  // Register itself for receiving the "ping" messages.
   this.messageChannel_.registerService(
       Pinger.SERVICE_NAME, this.serviceCallback_.bind(this), true);
 
