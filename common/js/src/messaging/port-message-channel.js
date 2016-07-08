@@ -147,7 +147,8 @@ PortMessageChannel.prototype.disposeInternal = function() {
 };
 
 /**
- * @returns {string|null}
+ * @param {!Port} port
+ * @return {string|null}
  * @private
  */
 PortMessageChannel.prototype.getPortExtensionId_ = function(port) {
@@ -187,7 +188,11 @@ PortMessageChannel.prototype.messageEventHandler_ = function(message) {
   this.deliver(typedMessage.type, typedMessage.data);
 };
 
-/** @private */
+/**
+ * @param {string} serviceName
+ * @param {!Object|string} payload
+ * @private
+ */
 PortMessageChannel.prototype.defaultServiceCallback_ = function(
     serviceName, payload) {
   GSC.Logging.failWithLogger(
