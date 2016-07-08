@@ -35,6 +35,7 @@ goog.exportSymbol('testCastToInt32', function() {
   assertEquals(-1, castToInt32(0xFFFFFFFF));
   assertEquals(0x7FFFFFFF, castToInt32(0x7FFFFFFF));
   assertEquals(-0x80000000, castToInt32(0x80000000));
+  assertEquals(-0x80000000, castToInt32(-0x80000000));
   assertEquals(-0x7FFFFFFF, castToInt32(0x80000001));
 });
 
