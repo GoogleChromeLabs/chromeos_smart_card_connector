@@ -157,7 +157,7 @@ JS_BUILD_TESTING_ADDITIONAL_COMPILATION_FLAGS := \
 #    $3: Closure namespaces, from which the JavaScript code needs to be picked.
 #    $4: Optional additional compiler flags.
 #
-# FIXME(emaxx): Hide the executed commands from echoing, unless the V=1 variable
+# TODO(emaxx): Hide the executed commands from echoing, unless the V=1 variable
 # is specified (like the NaCl SDK compilation rules do).
 #
 
@@ -178,7 +178,7 @@ $(JS_BUILD_DIR_PATH)/$(1): $(CURDIR)/$(CLOSURE_COMPILER_JAR_PATH) $(CLOSURE_LIBR
 			$(CLOSURE_LIBRARY_COMPILER_INPUTS) \
 			$(foreach input_dir_path, \
 				$(2), \
-				$(call RELATIVE_PATH,$(CURDIR)/$(input_dir_path),$(ROOT_PATH))) \
+				$(call MAKE_RELATIVE_JS_COMPILER_INPUT,$(input_dir_path))) \
 			> $(CURDIR)/$(JS_BUILD_DIR_PATH)/$(1).build
 	@mv $(JS_BUILD_DIR_PATH)/$(1).build $(JS_BUILD_DIR_PATH)/$(1)
 	@if [ "$(CONFIG)" != "Release" ]; then \
@@ -223,10 +223,48 @@ endef
 
 
 #
+# Macro rule that compiles the resulting JavaScript file with unit tests (see
+# also the BUILD_TESTING_JS_SCRIPT macro rule), creates HTML file with unit
+# tests runner, and adds run target that executes the unit tests.
+#
+# Arguments:
+#    $1: Paths to the directories with the source JavaScript files (it should
+#        not include path to the Google Closure library itself).
+#    $2: Optional additional compiler flags.
+#
+
+define BUILD_JS_UNITTESTS
+
+$(eval $(call BUILD_TESTING_JS_SCRIPT,unittests.js,$(1),$(2)))
+
+$(OUT_DIR_PATH)/index.html: $(OUT_DIR_PATH)
+	@echo "<script src='unittests.js'></script>" > $(OUT_DIR_PATH)/index.html
+
+generate_out: $(OUT_DIR_PATH)/index.html
+
+run: all
+	$(CHROME_ENV) $(CHROME_PATH) $(OUT_DIR_PATH)/index.html $(CHROME_ARGS)
+
+endef
+
+
+#
 # Function that returns list of all JavaScript files under the specified
 # locations, and, additionally, their parent directories.
 #
 # This function is intended to be used as make rules prerequisites.
 #
 FIND_JS_SOURCES_AND_PARENT_DIRS = \
-	$(shell find $(1) -type d -o -type f -name "*.js" -exec dirname {} \; -exec echo {} \;)
+	$(shell find $(filter-out !%,$(1)) -type d -o -type f -name "*.js" -exec dirname {} \; -exec echo {} \;)
+
+
+#
+# Function that transforms the specified compiler input from a relative path
+# (relative to the repository root) into a path relative to the current working
+# directory.
+#
+# This function also takes care to handle the negation masks (like '!foo/**bar')
+# correctly.
+#
+MAKE_RELATIVE_JS_COMPILER_INPUT = \
+	$(findstring !,$(1))$(call RELATIVE_PATH,$(CURDIR)/$(subst !,,$(1)),$(ROOT_PATH))

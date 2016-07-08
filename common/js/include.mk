@@ -28,7 +28,10 @@ JS_COMMON_SOURCES_PATH := $(JS_COMMON_DIR_PATH)/src
 
 # This constant contains the list of input paths for the Closure Compiler for
 # compiling the code using this library.
-JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS := $(JS_COMMON_SOURCES_PATH)
+JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS := \
+	$(JS_COMMON_SOURCES_PATH) \
+	!$(JS_COMMON_SOURCES_PATH)/**-unittest.js \
+
 
 
 # This macro adds rules for preparing and copying to the out directory the files
