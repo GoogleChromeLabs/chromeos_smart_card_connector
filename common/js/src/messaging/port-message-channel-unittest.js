@@ -109,8 +109,8 @@ goog.exportSymbol('testPortMessageChannelFailureToEstablish', function() {
   mockPort.postMessage.$replay();
 
   var propertyReplacer = new goog.testing.PropertyReplacer;
-  propertyReplacer.set(Pinger, 'PINGER_TIMEOUT_MILLISECONDS', 400);
-  propertyReplacer.set(Pinger, 'PINGER_INTERVAL_MILLISECONDS', 200);
+  propertyReplacer.set(Pinger, 'TIMEOUT_MILLISECONDS', 400);
+  propertyReplacer.set(Pinger, 'INTERVAL_MILLISECONDS', 200);
   testCasePromiseResolver.promise.thenAlways(
       propertyReplacer.reset, propertyReplacer);
 

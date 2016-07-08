@@ -122,17 +122,17 @@ goog.inherits(Pinger, goog.Disposable);
  * is considered dead.
  * @const
  */
-Pinger.PINGER_TIMEOUT_MILLISECONDS = goog.DEBUG ? 20 * 1000 : 600 * 1000;
+Pinger.TIMEOUT_MILLISECONDS = goog.DEBUG ? 20 * 1000 : 600 * 1000;
 
 /**
  * This constant represents the time in milliseconds between consecutive ping
  * requests.
  *
- * Note that PINGER_INTERVAL_MILLISECONDS < PINGER_TIMEOUT_MILLISECONDS needs to
+ * Note that Pinger.INTERVAL_MILLISECONDS < Pinger.TIMEOUT_MILLISECONDS needs to
  * hold because of how pinging is implemented here.
  * @const
  */
-Pinger.PINGER_INTERVAL_MILLISECONDS = goog.DEBUG ? 1 * 1000 : 10 * 1000;
+Pinger.INTERVAL_MILLISECONDS = goog.DEBUG ? 1 * 1000 : 10 * 1000;
 
 /** @const */
 Pinger.SERVICE_NAME = 'ping';
@@ -222,7 +222,7 @@ Pinger.prototype.postPingMessage_ = function() {
   this.messageChannel_.send(Pinger.SERVICE_NAME, Pinger.createMessageData());
 
   goog.Timer.callOnce(
-      this.postPingMessage_, Pinger.PINGER_INTERVAL_MILLISECONDS, this);
+      this.postPingMessage_, Pinger.INTERVAL_MILLISECONDS, this);
 };
 
 /** @private */
@@ -230,7 +230,7 @@ Pinger.prototype.scheduleTimeoutTimer_ = function() {
   GSC.Logging.checkWithLogger(this.logger, goog.isNull(this.timeoutTimerId_));
   this.timeoutTimerId_ = goog.Timer.callOnce(
       this.timeoutCallback_.bind(this),
-      Pinger.PINGER_TIMEOUT_MILLISECONDS,
+      Pinger.TIMEOUT_MILLISECONDS,
       this);
 };
 
