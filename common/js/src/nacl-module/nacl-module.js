@@ -59,7 +59,8 @@ GSC.NaclModule = function(naclModulePath, type) {
    * @type {!goog.log.Logger}
    * @const
    */
-  this.logger = GSC.Logging.getScopedLogger('NaclModule<"' + naclModulePath + '">');
+  this.logger = GSC.Logging.getScopedLogger(
+      'NaclModule<"' + naclModulePath + '">');
 
   /**
    * @type {string}
