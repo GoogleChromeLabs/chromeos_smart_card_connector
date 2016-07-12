@@ -33,6 +33,7 @@ APP_RUN_USER_DATA_DIR_PATH := ./user-data-dir
 APP_RUN_CHROME_ARGS := \
 	--enable-nacl \
 	--enable-pnacl \
+	--no-default-browser-check \
 	--no-first-run \
 	--user-data-dir=$(APP_RUN_USER_DATA_DIR_PATH) \
 	--load-and-launch-app=$(OUT_DIR_PATH) \
