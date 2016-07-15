@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 goog.require('GoogleSmartCard.MessageChannelPinging.Pinger');
 goog.require('GoogleSmartCard.MessageChannelPinging.PingResponder');
+goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Promise');
 goog.require('goog.async.Delay');
