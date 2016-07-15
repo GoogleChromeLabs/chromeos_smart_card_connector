@@ -64,16 +64,16 @@ var pingResponseMessage = new TypedMessage(
  * Mock matcher that matches strings.
  * @const
  */
-var isStringMockMatcher = new goog.testing.mockmatchers.ArgumentMatcher(
+var verifyChannelIdMatcher = new goog.testing.mockmatchers.ArgumentMatcher(
     function(value) {
-      return typeof value === 'string';
-    }, 'isStringMessage');
+      return typeof value === 'string' && value === EXTENSION_ID;
+    }, 'verifyChannelId');
 
 /**
  * Mock matcher that matches only the ping messages.
  * @const
  */
-var isPingMessageMockMatcher = new goog.testing.mockmatchers.ArgumentMatcher(
+var isPingMessageMatcher = new goog.testing.mockmatchers.ArgumentMatcher(
     function(value) {
       var typedMessage = TypedMessage.parseTypedMessage(value);
       return typedMessage && typedMessage.type == Pinger.SERVICE_NAME;
@@ -102,7 +102,7 @@ function setupSendMessagePingResponding() {
   // Type cast to prevent Closure compiler from complaining.
   /** @type {?} */ chrome.runtime.sendMessage;
 
-  chrome.runtime.sendMessage(isStringMockMatcher, isPingMessageMockMatcher)
+  chrome.runtime.sendMessage(verifyChannelIdMatcher, isPingMessageMatcher)
       .$atLeastOnce().$does(
           function(message) {
             globalChannel.deliverMessage(pingResponseMessage);
@@ -152,7 +152,7 @@ goog.exportSymbol('testSingleMessageBasedChannelFailureToEstablish',
 
   /** @type {?} */ chrome.runtime.sendMessage;
 
-  chrome.runtime.sendMessage(isStringMockMatcher,
+  chrome.runtime.sendMessage(verifyChannelIdMatcher,
                              goog.testing.mockmatchers.isObject).$anyTimes();
   chrome.runtime.sendMessage.$replay();
 
@@ -186,7 +186,7 @@ goog.exportSymbol('testSingleMessageBasedChannelSending', function() {
 
   for (let testMessage of TEST_MESSAGES) {
     chrome.runtime.sendMessage(
-        isStringMockMatcher, new goog.testing.mockmatchers.ObjectEquals(
+        verifyChannelIdMatcher, new goog.testing.mockmatchers.ObjectEquals(
             testMessage.makeMessage())).$once();
   }
 
@@ -271,7 +271,7 @@ goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
   /** @type {?} */ chrome.runtime.sendMessage;
 
   var firstCallSeen = false;
-  chrome.runtime.sendMessage(isStringMockMatcher, isPingMessageMockMatcher)
+  chrome.runtime.sendMessage(verifyChannelIdMatcher, isPingMessageMatcher)
       .$atLeastOnce().$does(
           function(message) {
             if (!firstCallSeen) {
