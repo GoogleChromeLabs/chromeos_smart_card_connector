@@ -66,7 +66,7 @@ var pingResponseMessage = new TypedMessage(
  */
 var verifyChannelIdMatcher = new goog.testing.mockmatchers.ArgumentMatcher(
     function(value) {
-      return typeof value === 'string' && value === EXTENSION_ID;
+      return value === EXTENSION_ID;
     }, 'verifyChannelId');
 
 /**
