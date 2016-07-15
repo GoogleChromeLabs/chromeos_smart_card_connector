@@ -84,17 +84,14 @@ var globalChannel;
 /**
  * Setup the mock for chrome.runtime.sendMessage.
  * @param {!goog.promise.Resolver} testCasePromiseResolver
- * @return {goog.testing.PropertyReplacer}
+ * @param {!goog.testing.PropertyReplacer} propertyReplacer
  */
-function setupSendMessageMock(testCasePromiseResolver) {
-  var propertyReplacer = new goog.testing.PropertyReplacer;
+function setupSendMessageMock(testCasePromiseResolver, propertyReplacer) {
   propertyReplacer.setPath(
       'chrome.runtime.sendMessage',
       goog.testing.createFunctionMock('sendMessage'));
   testCasePromiseResolver.promise.thenAlways(
       propertyReplacer.reset, propertyReplacer);
-
-  return propertyReplacer;
 }
 
 /**
@@ -116,8 +113,9 @@ function setupSendMessagePingResponding() {
 // request is received.
 goog.exportSymbol('testSingleMessageBasedChannelEstablishing', function() {
   var testCasePromiseResolver = goog.Promise.withResolver();
+  var propertyReplacer = new goog.testing.PropertyReplacer;
 
-  setupSendMessageMock(testCasePromiseResolver);
+  setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
   setupSendMessagePingResponding();
 
   /** @type {?} */ chrome.runtime.sendMessage;
@@ -146,8 +144,9 @@ goog.exportSymbol('testSingleMessageBasedChannelEstablishing', function() {
 goog.exportSymbol('testSingleMessageBasedChannelFailureToEstablish',
                   function() {
   var testCasePromiseResolver = goog.Promise.withResolver();
+  var propertyReplacer = new goog.testing.PropertyReplacer;
 
-  var propertyReplacer = setupSendMessageMock(testCasePromiseResolver);
+  setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
   propertyReplacer.set(Pinger, 'TIMEOUT_MILLISECONDS', 400);
   propertyReplacer.set(Pinger, 'INTERVAL_MILLISECONDS', 200);
 
@@ -178,8 +177,9 @@ goog.exportSymbol('testSingleMessageBasedChannelFailureToEstablish',
 // with preserving the relative order.
 goog.exportSymbol('testSingleMessageBasedChannelSending', function() {
   var testCasePromiseResolver = goog.Promise.withResolver();
+  var propertyReplacer = new goog.testing.PropertyReplacer;
 
-  setupSendMessageMock(testCasePromiseResolver);
+  setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
   setupSendMessagePingResponding();
 
   /** @type {?} */ chrome.runtime.sendMessage;
@@ -217,8 +217,9 @@ goog.exportSymbol('testSingleMessageBasedChannelSending', function() {
 // side to the correct service while also preserving the relative order.
 goog.exportSymbol('testSingleMessageBasedChannelReceiving', function() {
   var testCasePromiseResolver = goog.Promise.withResolver();
+  var propertyReplacer = new goog.testing.PropertyReplacer;
 
-  setupSendMessageMock(testCasePromiseResolver);
+  setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
   setupSendMessagePingResponding();
 
   /** @type {?} */ chrome.runtime.sendMessage;
@@ -262,8 +263,9 @@ goog.exportSymbol('testSingleMessageBasedChannelReceiving', function() {
 // stops receiving responses (but first the channel needs to be established).
 goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
   var testCasePromiseResolver = goog.Promise.withResolver();
+  var propertyReplacer = new goog.testing.PropertyReplacer;
 
-  var propertyReplacer = setupSendMessageMock(testCasePromiseResolver);
+  setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
   propertyReplacer.set(Pinger, 'TIMEOUT_MILLISECONDS', 400);
   propertyReplacer.set(Pinger, 'INTERVAL_MILLISECONDS', 200);
   /** @type {?} */ chrome.runtime.sendMessage;
