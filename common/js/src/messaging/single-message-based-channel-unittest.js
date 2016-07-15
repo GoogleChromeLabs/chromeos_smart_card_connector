@@ -104,7 +104,7 @@ function setupSendMessagePingResponding() {
 
   chrome.runtime.sendMessage(verifyChannelIdMatcher, isPingMessageMatcher)
       .$atLeastOnce().$does(
-          function(message) {
+          function(channelId, message) {
             globalChannel.deliverMessage(pingResponseMessage);
           });
 }
