@@ -287,7 +287,7 @@ goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
     channelEstablished = true;
   }
 
-  function delayFunction() {
+  function onChannelDisposed() {
     assert('Channel wasn\'t successfully established prior to failure',
            channelEstablished);
     assert(globalChannel.isDisposed());
@@ -301,10 +301,9 @@ goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
     globalChannel.dispose();
   }
 
-  new goog.async.Delay(delayFunction, 800).start();
-
   globalChannel = new GSC.SingleMessageBasedChannel(
       EXTENSION_ID, onChannelEstablished);
+  globalChannel.addOnDisposeCallback(onChannelDisposed);
 
   return testCasePromiseResolver.promise;
 });
