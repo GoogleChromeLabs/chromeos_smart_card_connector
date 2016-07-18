@@ -742,7 +742,7 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest,
       &first_transfer_callback);
 
   MockFunction<void(libusb_transfer_status)> second_transfer_callback;
-  libusb_transfer* const second_transfer = StartAsyncControlTransfer(
+  StartAsyncControlTransfer(
       GetParam().transfer_index,
       GetParam().is_transfer_output,
       &second_transfer_callback);

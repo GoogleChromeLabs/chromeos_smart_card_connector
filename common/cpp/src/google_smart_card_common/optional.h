@@ -41,15 +41,15 @@ class optional final {
  public:
   optional() = default;
 
-  optional(const optional& other)
+  optional(const optional& other)  // NOLINT
       : storage_(other ? new T(*other) : nullptr) {}
 
-  optional(optional&& other) = default;
+  optional(optional&& other) = default;  // NOLINT
 
-  optional(const T& value)
+  optional(const T& value)  // NOLINT
       : storage_(new T(value)) {}
 
-  optional(T&& value)
+  optional(T&& value)  // NOLINT
       : storage_(new T(std::move(value))) {}
 
   optional& operator=(const optional& other) {

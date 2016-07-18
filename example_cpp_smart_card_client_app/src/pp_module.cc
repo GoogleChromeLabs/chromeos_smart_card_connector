@@ -120,7 +120,7 @@ class PpInstance final : public pp::Instance {
   // deleting it (which may lead to undefined behavior), the Detach method of
   // this class is called - which prevents it from using pointer to this
   // instance of PpInstance class.
-  ~PpInstance() {
+  ~PpInstance() override {
     pcsc_lite_over_requester_global_->Detach();
     pcsc_lite_over_requester_global_.release();
 

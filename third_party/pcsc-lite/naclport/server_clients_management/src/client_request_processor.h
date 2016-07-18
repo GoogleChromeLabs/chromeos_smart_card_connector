@@ -111,7 +111,7 @@ class PcscLiteClientRequestProcessor final :
           Args ... args));
 
   template <typename ArgsTuple, typename F, size_t ... arg_indexes>
-  Handler WrapHandler(F handler, ArgIndexes<arg_indexes...>);
+  Handler WrapHandler(F handler, ArgIndexes<arg_indexes...> /*unused*/);
 
   GenericRequestResult FindHandlerAndCall(
       const std::string& function_name, const pp::VarArray& arguments);

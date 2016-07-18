@@ -58,7 +58,7 @@ TEST(EnumConverterTest, EnumToStringConversion) {
 }
 
 TEST(EnumConverterTest, EnumFromStringConversion) {
-  TestEnum enum_value;
+  TestEnum enum_value = TestEnum::kTestValue1;
   std::string error_message;
 
   ASSERT_TRUE(TestEnumStringConverter::ConvertFromVar(

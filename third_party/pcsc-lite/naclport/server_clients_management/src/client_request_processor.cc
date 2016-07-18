@@ -27,6 +27,7 @@
 
 #include <stdlib.h>
 
+#include <cstring>
 #include <thread>
 #include <tuple>
 
@@ -188,7 +189,7 @@ void PcscLiteClientRequestProcessor::AddHandlerToHandlerMap(
 template <typename ArgsTuple, typename F, size_t ... arg_indexes>
 PcscLiteClientRequestProcessor::Handler
 PcscLiteClientRequestProcessor::WrapHandler(
-    F handler, ArgIndexes<arg_indexes...>) {
+    F handler, ArgIndexes<arg_indexes...> /*unused*/) {
   return [this, handler](
       const pp::VarArray& arguments) -> GenericRequestResult {
     ArgsTuple args_tuple;

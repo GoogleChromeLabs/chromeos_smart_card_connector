@@ -45,7 +45,7 @@ class PpInstance final : public pp::Instance {
     StartServicesInitialization();
   }
 
-  ~PpInstance() {
+  ~PpInstance() override {
     // Detach the LibusbNaclGlobal and leak it intentionally, so that any
     // concurrent libusb_* function calls still don't result in UB.
     libusb_over_chrome_usb_global_->Detach();

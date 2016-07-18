@@ -202,8 +202,6 @@ void libusb_context::RemoveTransferInFlight(
 
   const UsbTransfersParametersStorage::Item parameters =
       transfers_in_flight_.GetByAsyncRequestState(async_request_state);
-  const UsbTransferDestination& transfer_destination =
-      parameters.transfer_destination;
   libusb_transfer* const transfer = parameters.transfer;
   const TransferAsyncRequestStatePtr async_request_state_ptr =
       parameters.async_request_state;

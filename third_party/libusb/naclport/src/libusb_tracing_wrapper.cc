@@ -178,8 +178,8 @@ std::string DebugDumpLibusbTransferType(uint8_t transfer_type) {
 std::string DebugDumpLibusbEndpointAttributes(uint8_t endpoint_attributes) {
   const int kIsoSyncTypeShift = 2;
   const int kIsoUsageTypeShift = 4;
-  // TODO: Print the debug dump of the iso_sync_type and the iso_usage_type
-  // submasks, once the isochronous transfers are supported.
+  // TODO(emaxx): Print the debug dump of the iso_sync_type and the
+  // iso_usage_type submasks, once the isochronous transfers are supported.
   return HexDumpInteger(endpoint_attributes) + "(transfer_type=" +
       DebugDumpLibusbTransferType(
           endpoint_attributes & LIBUSB_TRANSFER_TYPE_MASK) +
@@ -477,8 +477,8 @@ std::string DebugDumpLibusbTransfer(
       result += DebugDumpOutboundDataBuffer(data, transfer->actual_length);
     }
   }
-  // TODO: Print the debug dump of the iso_packet_desc field value, once the
-  // isochronous transfers are supported.
+  // TODO(emaxx): Print the debug dump of the iso_packet_desc field value, once
+  // the isochronous transfers are supported.
   result += ", num_iso_packets=" + std::to_string(transfer->num_iso_packets) +
             "))";
   return result;
@@ -499,9 +499,9 @@ class LibusbTransferTracingWrapper final {
     //
     // The created LibusbTransferTracingWrapper instance is destroyed in the
     // LibusbTransferCallback method.
-    LibusbTransferTracingWrapper* const wrapper =
-        new LibusbTransferTracingWrapper(transfer, wrapped_libusb);
-    return wrapper->wrapper_transfer_;
+    LibusbTransferTracingWrapper* const wrapper =  // NOLINT
+        new LibusbTransferTracingWrapper(transfer, wrapped_libusb);  // NOLINT
+    return wrapper->wrapper_transfer_;  // NOLINT
   }
 
  private:

@@ -33,13 +33,13 @@ class NumericConversionsDoubleCastingTest : public ::testing::Test {
   void TestValueInDoubleExactRange(NumericType value) const {
     std::string error_message;
 
-    double double_value;
+    double double_value = 0;
     ASSERT_TRUE(CastIntegerToDouble(value, &double_value, &error_message)) <<
         "Failed to convert integer value " << value << " into double: " <<
         error_message;
     ASSERT_EQ(value, static_cast<NumericType>(double_value));
 
-    int64_t int64_value;
+    int64_t int64_value = 0;
     ASSERT_TRUE(CastDoubleToInt64(
         double_value, &int64_value, &error_message)) << "Failed to convert " <<
         "double value " << double_value << " into 64-bit integer: " <<
@@ -51,13 +51,13 @@ class NumericConversionsDoubleCastingTest : public ::testing::Test {
   void TestValueOutsideDoubleExactRange(NumericType value) const {
     std::string error_message;
 
-    double double_value;
+    double double_value = 0;
     EXPECT_FALSE(CastIntegerToDouble(value, &double_value, &error_message)) <<
         "Unexpectedly successful conversion from integer " << value <<
         " into double";
 
     double_value = static_cast<double>(value);
-    int64_t int64_value;
+    int64_t int64_value = 0;
     EXPECT_FALSE(CastDoubleToInt64(
         double_value, &int64_value, &error_message)) << "Unexpectedly " <<
         "successful conversion from double value " << double_value << " into" <<

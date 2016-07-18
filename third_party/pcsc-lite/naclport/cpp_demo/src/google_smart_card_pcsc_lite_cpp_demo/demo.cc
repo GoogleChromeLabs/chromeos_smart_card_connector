@@ -165,10 +165,12 @@ bool DoPcscLiteInvalidContextValidation(SCARDCONTEXT s_card_context) {
 }
 
 bool DoPcscLiteReadersChangeWaiting(SCARDCONTEXT s_card_context) {
+  const LPVOID kUserData = reinterpret_cast<LPVOID>(0xDEADBEEF);  // NOLINT
+
   SCARD_READERSTATE reader_states[1];
   std::memset(&reader_states, 0, sizeof reader_states);
   reader_states[0].szReader = kSpecialReaderName;
-  reader_states[0].pvUserData = reinterpret_cast<LPVOID>(0xDEADBEEF);
+  reader_states[0].pvUserData = kUserData;  // NOLINT
   GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
       "SCardGetStatusChange() for waiting for readers change for " <<
       kWaitingTimeoutSeconds << " seconds...";
@@ -190,7 +192,7 @@ bool DoPcscLiteReadersChangeWaiting(SCARDCONTEXT s_card_context) {
         "wrong reader name.";
     return false;
   }
-  if (reader_states[0].pvUserData != reinterpret_cast<LPVOID>(0xDEADBEEF)) {
+  if (reader_states[0].pvUserData != kUserData) {
     GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
         "wrong user data.";
     return false;

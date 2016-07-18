@@ -82,7 +82,7 @@ class JsRequester final : public Requester, public TypedMessageListener {
       TypedMessageRouter* typed_message_router,
       std::unique_ptr<PpDelegate> pp_delegate);
 
-  ~JsRequester();
+  ~JsRequester() override;
 
   // Requester implementation
   void Detach() override;

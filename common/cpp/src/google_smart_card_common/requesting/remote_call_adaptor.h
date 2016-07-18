@@ -24,8 +24,8 @@
 #include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/async_request.h>
-#include <google_smart_card_common/requesting/requester.h>
 #include <google_smart_card_common/requesting/request_result.h>
+#include <google_smart_card_common/requesting/requester.h>
 
 namespace google_smart_card {
 

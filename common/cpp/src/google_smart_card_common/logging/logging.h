@@ -141,6 +141,7 @@ std::string MakeNotreachedHitMessage(
         GOOGLE_SMART_CARD_LOG_FATAL << \
             ::google_smart_card::internal::MakeCheckFailedMessage( \
                 #condition, __FILE__, __LINE__, __func__); \
+        std::abort(); \
       } \
     } while (false)
 

@@ -117,7 +117,7 @@ class PcscLiteServerClientsManager final {
         pp::Instance* pp_instance,
         TypedMessageRouter* typed_message_router);
 
-    ~Client();
+    ~Client() override;
 
     void HandleRequest(
         const pp::Var& payload,
