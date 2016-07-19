@@ -58,7 +58,34 @@ GSC.ConnectorApp.Window.AppsDisplaying.initialize();
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize();
 GSC.ConnectorApp.Window.LogsExporting.initialize();
 
-GSC.PopupWindow.Client.setExplicitWindowTitle();
 GSC.PopupWindow.Client.showWindow();
+
+/** @const */
+var DATA_I18N_STR = 'data-i18n';
+
+/** @const */
+var DATA_I18N_ARIA_LABEL_STR = 'data-i18n-aria-label';
+
+function setElementI18n(element) {
+  var i18nId = element.getAttribute(DATA_I18N_STR);
+  var translatedText = chrome.i18n.getMessage(i18nId);
+  element.innerText = translatedText;
+}
+
+function setElementI18nAriaLabel(element) {
+  var i18nId = element.getAttribute(DATA_I18N_ARIA_LABEL_STR);
+  var translatedText = chrome.i18n.getMessage(i18nId);
+  element.setAttribute('aria-label', translatedText);
+}
+
+for (let element of /** @type {?} */ (goog.dom.getElementsByTagNameAndClass(
+    '[' + DATA_I18N_STR + ']'))) {
+  setElementI18n(element);
+}
+
+for (let element of /** @type {?} */ (goog.dom.getElementsByTagNameAndClass(
+    '[' + DATA_I18N_ARIA_LABEL_STR + ']'))) {
+  setElementI18nAriaLabel(element);
+}
 
 });  // goog.scope
