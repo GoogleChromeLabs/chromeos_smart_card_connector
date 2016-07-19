@@ -66,7 +66,7 @@ var DATA_I18N_STR = 'data-i18n';
 /** @const */
 var DATA_I18N_ARIA_LABEL_STR = 'data-i18n-aria-label';
 
-function setElementI18n(element) {
+function setElementI18nText(element) {
   var i18nId = element.getAttribute(DATA_I18N_STR);
   var translatedText = chrome.i18n.getMessage(i18nId);
   element.innerText = translatedText;
@@ -80,7 +80,7 @@ function setElementI18nAriaLabel(element) {
 
 for (let element of /** @type {?} */ (goog.dom.getElementsByTagNameAndClass(
     '[' + DATA_I18N_STR + ']'))) {
-  setElementI18n(element);
+  setElementI18nText(element);
 }
 
 for (let element of /** @type {?} */ (goog.dom.getElementsByTagNameAndClass(
