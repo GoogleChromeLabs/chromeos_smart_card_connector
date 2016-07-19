@@ -346,7 +346,7 @@ std::string DebugDumpSCardOutputBuffer(
   const void* const contents = is_autoallocated ?
       *reinterpret_cast<const void* const*>(buffer) : buffer;
   const std::string dumped_value = "<" +
-      (buffer_size ? DebugDumpSCardBufferContents(buffer, *buffer_size) :
+      (buffer_size ? DebugDumpSCardBufferContents(contents, *buffer_size) :
            "DATA OF UNKNOWN LENGTH") + ">";
   return is_autoallocated ? HexDumpPointer(buffer) + "(" + dumped_value + ")" :
       dumped_value;
