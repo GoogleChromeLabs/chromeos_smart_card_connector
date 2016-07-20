@@ -78,13 +78,13 @@ function setElementI18nAriaLabel(element) {
   element.setAttribute('aria-label', translatedText);
 }
 
-for (let element of /** @type {?} */ (goog.dom.getElementsByTagNameAndClass(
-    '[' + I18N_DATA_ATTRIBUTE + ']'))) {
+for (let element of document.querySelectorAll(
+    '[' + I18N_DATA_ATTRIBUTE + ']')) {
   setElementI18nText(element);
 }
 
-for (let element of /** @type {?} */ (goog.dom.getElementsByTagNameAndClass(
-    '[' + I18N_DATA_ARIA_LABEL_ATTRIBUTE + ']'))) {
+for (let element of document.querySelectorAll(
+    '[' + I18N_DATA_ARIA_LABEL_ATTRIBUTE + ']')) {
   setElementI18nAriaLabel(element);
 }
 
