@@ -19,7 +19,7 @@
     "message": "Smart Card Connector",
     "description": "The header displayed in the main window"
   },
-  "mainWindowClosebutton": {
+  "windowClose": {
     "message": "Close",
     "description": "Accessibility text for close button"
   },
