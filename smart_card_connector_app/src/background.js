@@ -63,6 +63,7 @@ logger.fine('The background script has started...');
 
 var naclModule = new GSC.NaclModule(
     'nacl_module.nmf', GSC.NaclModule.Type.PNACL);
+naclModule.addOnDisposeCallback(naclModuleDisposedListener);
 
 var libusbChromeUsbBackend = new GSC.Libusb.ChromeUsbBackend(
     naclModule.messageChannel);
@@ -80,6 +81,10 @@ chrome.runtime.onConnectExternal.addListener(externalConnectionListener);
 chrome.runtime.onMessageExternal.addListener(externalMessageListener);
 
 chrome.runtime.onInstalled.addListener(installedListener);
+
+function naclModuleDisposedListener() {
+  GSC.Logging.failWithLogger(logger, 'Server NaCl module was disposed of');
+}
 
 function launchedListener() {
   logger.fine('Received onLaunched event, opening window...');
