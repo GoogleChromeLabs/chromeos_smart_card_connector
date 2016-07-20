@@ -35,10 +35,8 @@ var GSC = GoogleSmartCard;
  * @extends goog.Disposable
  */
 GSC.MockPort = function(opt_name) {
-  this.name = opt_name;
-
-  this.onDisconnect = new MockPort.OnDisconnectEvent(this);
-  this.onMessage = new MockPort.OnMessageEvent(this);
+  /** @const */
+  this.name_ = opt_name;
 
   /** @type {?} */
   this.postMessage = goog.testing.createFunctionMock('postMessage');
@@ -48,6 +46,9 @@ GSC.MockPort = function(opt_name) {
 
   /** @private */
   this.listenerMap_ = new goog.events.ListenerMap(null);
+
+  /** @private */
+  this.fakePort_ = this.createFakePort_();
 };
 
 /** @const */
@@ -59,20 +60,12 @@ MockPort.prototype.logger = GSC.Logging.getScopedLogger('MockPort');
 
 /** @override */
 MockPort.prototype.disposeInternal = function() {
-  this.disconnect();
+  this.disconnect_();
+  delete this.postMessage;
   this.listenerMap_.removeAll();
-  this.listenerMap_ = null;
-  this.onDisconnect = null;
-  this.onMessage = null;
+  delete this.listenerMap_;
+  delete this.fakePort_;
   MockPort.base(this, 'disposeInternal');
-};
-
-MockPort.prototype.disconnect = function() {
-  if (!this.isConnected_)
-    return;
-  this.isConnected_ = false;
-  for (let listener of this.getListeners_('onDisconnect'))
-    listener();
 };
 
 /**
@@ -89,58 +82,54 @@ MockPort.prototype.fireOnMessage = function(message) {
 
 /**
  * @return {!Port}
+ */
+MockPort.prototype.getFakePort = function() {
+  return this.fakePort_;
+};
+
+/**
+ * @return {!Port}
  * @suppress {invalidCasts}
+ * @private
  */
-MockPort.prototype.getPort = function() {
-  // Suppress the type checking in order to make MockPort interchangeable with
-  // Port.
-  return /** @type {!Port} */ (this);
+MockPort.prototype.createFakePort_ = function() {
+  /** @const */
+  var self = this;
+
+  // Return the value that pretends to be a Port (the type checking was
+  // suppressed to allow such, technically invalid, cast).
+  return /** @type {!Port} */ ({
+    'name': this.name_,
+    'onDisconnect': {
+      'addListener': function(callback) {
+        self.addListener_('onDisconnect', callback);
+      },
+      'removeListener': function(callback) {
+        self.removeListener_('onDisconnect', callback);
+      }
+    },
+    'onMessage': {
+      'addListener': function(callback) {
+        self.addListener_('onMessage', callback);
+      },
+      'removeListener': function(callback) {
+        self.removeListener_('onMessage', callback);
+      }
+    },
+    'postMessage': this.postMessage,
+    'disconnect': this.disconnect_.bind(this)
+  });
 };
 
 /**
- * @param {!MockPort} mockPort
- * @constructor
+ * @private
  */
-MockPort.OnDisconnectEvent = function(mockPort) {
-  /** @private */
-  this.mockPort_ = mockPort;
-};
-
-/**
- * @param {function()} callback
- */
-MockPort.OnDisconnectEvent.prototype.addListener = function(callback) {
-  this.mockPort_.addListener_('onDisconnect', callback);
-};
-
-/**
- * @param {function()} callback
- */
-MockPort.OnDisconnectEvent.prototype.removeListener = function(callback) {
-  this.mockPort_.removeListener_('onDisconnect', callback);
-};
-
-/**
- * @param {!MockPort} mockPort
- * @constructor
- */
-MockPort.OnMessageEvent = function(mockPort) {
-  /** @private */
-  this.mockPort_ = mockPort;
-};
-
-/**
- * @param {function(*)} callback
- */
-MockPort.OnMessageEvent.prototype.addListener = function(callback) {
-  this.mockPort_.addListener_('onMessage', callback);
-};
-
-/**
- * @param {function(*)} callback
- */
-MockPort.OnMessageEvent.prototype.removeListener = function(callback) {
-  this.mockPort_.removeListener_('onMessage', callback);
+MockPort.prototype.disconnect_ = function() {
+  if (!this.isConnected_)
+    return;
+  this.isConnected_ = false;
+  for (let listener of this.getListeners_('onDisconnect'))
+    listener();
 };
 
 /**

@@ -93,7 +93,7 @@ goog.exportSymbol('testPortMessageChannelEstablishing', function() {
   }
 
   var portMessageChannel = new GSC.PortMessageChannel(
-      mockPort.getPort(), onPortMessageChannelEstablished);
+      mockPort.getFakePort(), onPortMessageChannelEstablished);
   portMessageChannel.addOnDisposeCallback(onPortMessageChannelDisposed);
 
   return testCasePromiseResolver.promise;
@@ -125,7 +125,7 @@ goog.exportSymbol('testPortMessageChannelFailureToEstablish', function() {
   }
 
   var portMessageChannel = new GSC.PortMessageChannel(
-      mockPort.getPort(), onPortMessageChannelEstablished);
+      mockPort.getFakePort(), onPortMessageChannelEstablished);
   portMessageChannel.addOnDisposeCallback(onPortMessageChannelDisposed);
 
   return testCasePromiseResolver.promise;
@@ -163,7 +163,7 @@ goog.exportSymbol('testPortMessageChannelMessageSending', function() {
   }
 
   var portMessageChannel = new GSC.PortMessageChannel(
-      mockPort.getPort(), onPortMessageChannelEstablished);
+      mockPort.getFakePort(), onPortMessageChannelEstablished);
   portMessageChannel.addOnDisposeCallback(onPortMessageChannelDisposed);
 
   return testCasePromiseResolver.promise;
@@ -211,7 +211,7 @@ goog.exportSymbol('testPortMessageChannelMessageReceiving', function() {
   }
 
   var portMessageChannel = new GSC.PortMessageChannel(
-      mockPort.getPort(), onPortMessageChannelEstablished);
+      mockPort.getFakePort(), onPortMessageChannelEstablished);
   portMessageChannel.addOnDisposeCallback(onPortMessageChannelDisposed);
 
   return testCasePromiseResolver.promise;
@@ -227,7 +227,7 @@ goog.exportSymbol('testPortMessageChannelDisconnection', function() {
   mockPort.postMessage.$replay();
 
   function onPortMessageChannelEstablished() {
-    mockPort.disconnect();
+    mockPort.getFakePort().disconnect();
     assert(portMessageChannel.isDisposed());
 
     assertThrows(function() {
@@ -240,7 +240,7 @@ goog.exportSymbol('testPortMessageChannelDisconnection', function() {
   }
 
   var portMessageChannel = new GSC.PortMessageChannel(
-      mockPort.getPort(), onPortMessageChannelEstablished);
+      mockPort.getFakePort(), onPortMessageChannelEstablished);
 
   return testCasePromiseResolver.promise;
 });
