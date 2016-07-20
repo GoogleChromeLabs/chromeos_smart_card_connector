@@ -84,11 +84,12 @@ function exportLogs() {
       ' log messages from the log buffer');
   var copyingSuccess = GSC.Clipboard.copyToClipboard(dumpedLogs);
 
-  exportLogsElement.textContent =
-      chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_TEXT_ID);
   if (copyingSuccess) {
     exportLogsElement.textContent =
         chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_EXPORTED_TEXT_ID);
+  } else {
+    exportLogsElement.textContent =
+        chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_TEXT_ID);
   }
   goog.Timer.callOnce(
       exportLogsExportedTimeoutPassed,
