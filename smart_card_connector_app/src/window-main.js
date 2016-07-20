@@ -68,13 +68,33 @@ var I18N_DATA_ARIA_LABEL_ATTRIBUTE = 'data-i18n-aria-label';
 
 function setElementI18nText(element) {
   var i18nId = element.getAttribute(I18N_DATA_ATTRIBUTE);
+  if (!i18nId) {
+    GSC.Logging.failWithLogger(
+        logger,
+        'Failed to get element attribute: ' + element.outerHTML);
+  }
   var translatedText = chrome.i18n.getMessage(i18nId);
+  if (!translatedText) {
+    GSC.Logging.failWithLogger(
+        logger,
+        'Failed to get translation for text with id: ' + i18nId);
+  }
   element.textContent = translatedText;
 }
 
 function setElementI18nAriaLabel(element) {
   var i18nId = element.getAttribute(I18N_DATA_ARIA_LABEL_ATTRIBUTE);
+  if (!i18nId) {
+    GSC.Logging.failWithLogger(
+        logger,
+        'Failed to get element attribute: ' + element.outerHTML);
+  }
   var translatedText = chrome.i18n.getMessage(i18nId);
+  if (!translatedText) {
+    GSC.Logging.failWithLogger(
+        logger,
+        'Failed to get translation for text with id: ' + i18nId);
+  }
   element.setAttribute('aria-label', translatedText);
 }
 
