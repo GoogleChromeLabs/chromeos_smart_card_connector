@@ -125,6 +125,7 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_off reportUnknownTypes \
 	--manage_closure_dependencies \
 	--only_closure_dependencies \
+	--use_types_for_optimization=false \
 	--warning_level=VERBOSE \
 
 
