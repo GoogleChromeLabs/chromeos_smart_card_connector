@@ -69,7 +69,7 @@ function exportLogsClickListener(e) {
   if (!isExportLogsAvailable)
     return;
 
-  exportLogsElement.innerText =
+  exportLogsElement.textContent =
       chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_EXPORTING_TEXT_ID);
   isExportLogsAvailable = false;
 
@@ -84,10 +84,10 @@ function exportLogs() {
       ' log messages from the log buffer');
   var copyingSuccess = GSC.Clipboard.copyToClipboard(dumpedLogs);
 
-  exportLogsElement.innerText =
+  exportLogsElement.textContent =
       chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_TEXT_ID);
   if (copyingSuccess) {
-    exportLogsElement.innerText =
+    exportLogsElement.textContent =
         chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_EXPORTED_TEXT_ID);
   }
   goog.Timer.callOnce(
@@ -96,7 +96,7 @@ function exportLogs() {
 }
 
 function exportLogsExportedTimeoutPassed() {
-  exportLogsElement.innerText =
+  exportLogsElement.textContent =
       chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_TEXT_ID);
   isExportLogsAvailable = true;
 }

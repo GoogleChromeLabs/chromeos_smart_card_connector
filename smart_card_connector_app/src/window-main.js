@@ -69,7 +69,7 @@ var DATA_I18N_ARIA_LABEL_STR = 'data-i18n-aria-label';
 function setElementI18nText(element) {
   var i18nId = element.getAttribute(DATA_I18N_STR);
   var translatedText = chrome.i18n.getMessage(i18nId);
-  element.innerText = translatedText;
+  element.textContent = translatedText;
 }
 
 function setElementI18nAriaLabel(element) {
