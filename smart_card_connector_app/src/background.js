@@ -153,6 +153,16 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
            '(client extension id is "' + clientExtensionId + '")' :
            '(client is the own App)') +
       '...');
+  GSC.Logging.checkWithLogger(logger, !clientMessageChannel.isDisposed());
+
+  if (naclModule.isDisposed() || naclModule.messageChannel.isDisposed()) {
+    logger.warning(
+        'Could not create PC/SC-Lite client handler as the server is ' +
+        'disposed. Disposing of the client message channel...');
+    clientMessageChannel.dispose();
+    return;
+  }
+
   // Note: the reference to the created client handler is not stored anywhere,
   // because it manages its lifetime itself, based on the lifetimes of the
   // passed message channels.

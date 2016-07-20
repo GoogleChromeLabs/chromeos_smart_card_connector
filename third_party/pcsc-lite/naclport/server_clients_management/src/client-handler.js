@@ -215,7 +215,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
    */
   this.bufferedRequestsQueue_ = new goog.structs.Queue;
 
-  this.addChannelDisposedListeners_(serverMessageChannel, clientMessageChannel);
+  this.addChannelDisposedListeners_();
 
   this.logger.fine('Initialized');
 };
@@ -363,11 +363,10 @@ ClientHandler.prototype.handleRequest = function(payload) {
  * channels.
  * @private
  */
-ClientHandler.prototype.addChannelDisposedListeners_ = function(
-    serverMessageChannel, clientMessageChannel) {
-  serverMessageChannel.addOnDisposeCallback(
+ClientHandler.prototype.addChannelDisposedListeners_ = function() {
+  this.serverMessageChannel_.addOnDisposeCallback(
       this.serverMessageChannelDisposedListener_.bind(this));
-  clientMessageChannel.addOnDisposeCallback(
+  this.clientMessageChannel_.addOnDisposeCallback(
       this.clientMessageChannelDisposedListener_.bind(this));
 };
 
@@ -381,7 +380,7 @@ ClientHandler.prototype.addChannelDisposedListeners_ = function(
 ClientHandler.prototype.serverMessageChannelDisposedListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.info('Server message channel was disposed, disposing...');
+  this.logger.warning('Server message channel was disposed, disposing...');
 
   // Note: this assignment is important because it prevents from sending of any
   // messages through the server message channel, which is normally happening
@@ -482,7 +481,7 @@ ClientHandler.prototype.serverReadyListener_ = function() {
 ClientHandler.prototype.serverReadinessFailedListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.finer('The server failed to become ready, disposing...');
+  this.logger.warning('The server failed to become ready, disposing...');
   this.dispose();
 };
 
