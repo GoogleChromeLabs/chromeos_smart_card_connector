@@ -19,7 +19,6 @@
  * internationalization.
  */
 
-
 goog.provide('GoogleSmartCard.I18n');
 
 goog.require('GoogleSmartCard.Logging');
@@ -34,7 +33,7 @@ var GSC = GoogleSmartCard;
  * @type {!goog.log.Logger}
  * @const
  */
-var logger = GSC.Logging.getScopedLogger('GoogleSmartCard.I18n');
+var logger = GSC.Logging.getScopedLogger('I18n');
 
 /** @const */
 var I18N_DATA_ATTRIBUTE = 'data-i18n';
@@ -46,22 +45,20 @@ var I18N_DATA_ARIA_LABEL_ATTRIBUTE = 'data-i18n-aria-label';
  * @param {!Element} element
  * @param {string} attribute
  * @param {function(!Element,string)} transformFunction
- * @private
  */
 function transformElement(element, attribute, transformFunction) {
   var i18nId = element.getAttribute(attribute);
-  if (!i18nId) {
-    GSC.Logging.failWithLogger(
-        logger,
-        'Failed to get element attribute: ' + element.outerHTML);
-  }
+  GSC.Logging.checkWithLogger(
+      logger,
+      i18nId,
+      'Failed to get attribute [' + attribute +
+      '] for element: ' + element.outerHTML);
 
   var translatedText = chrome.i18n.getMessage(i18nId);
-  if (!translatedText) {
-    GSC.Logging.failWithLogger(
-        logger,
-        'Failed to get translation for text with id: ' + i18nId);
-  }
+  GSC.Logging.checkWithLogger(
+      logger,
+      translatedText,
+      'Failed to get translation for text with id: ' + i18nId);
 
   transformFunction(element, translatedText);
 }
@@ -69,7 +66,6 @@ function transformElement(element, attribute, transformFunction) {
 /**
  * @param {string} attribute
  * @param {function(!Element,string)} transformFunction
- * @private
  */
 function transformAllElements(attribute, transformFunction) {
   var selector = '[' + attribute + ']';
@@ -88,13 +84,17 @@ function transformAllElements(attribute, transformFunction) {
 GSC.I18n.adjustElementsTranslation = function() {
   transformAllElements(
       I18N_DATA_ATTRIBUTE, function(element, translatedText) {
+    logger.fine('Translating element.textContent [' + element.outerHTML +
+                '] to "' + translatedText + '"');
     element.textContent = translatedText;
   });
 
   transformAllElements(
       I18N_DATA_ARIA_LABEL_ATTRIBUTE, function(element, translatedText) {
+    logger.fine('Translating element.aria-label [' + element.outerHTML +
+                '] to "' + translatedText + '"');
     element.setAttribute('aria-label', translatedText);
   });
-}
+};
 
 });  // goog.scope

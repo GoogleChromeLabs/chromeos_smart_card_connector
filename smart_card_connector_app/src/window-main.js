@@ -61,7 +61,6 @@ GSC.ConnectorApp.Window.LogsExporting.initialize();
 
 GSC.PopupWindow.Client.showWindow();
 
-// This call does all of the translation work.
 GSC.I18n.adjustElementsTranslation();
 
 });  // goog.scope
