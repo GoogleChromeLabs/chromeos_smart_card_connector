@@ -16,27 +16,28 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 <head>
-  <title id="title"></title>
+  <title id="title" data-i18n="mainWindowTitle"></title>
   <link rel="stylesheet" href="window.css">
   <meta charset="UTF-8">
 </head>
 <body>
-  <h1 id="header"></h1>
+  <div id="navbar"></div>
+  <h1 id="header" data-i18n="mainWindowHeader"></h1>
 
-  <button id="close-window">×</button>
+  <button id="close-window" data-i18n-aria-label="windowClose">×</button>
 
-  <h2 id="readers-list-header" class="list-header"></h2>
+  <h2 id="readers-list-header" class="list-header" data-i18n="readersListHeader"></h2>
   <ul id="readers-list" class="list"></ul>
   <div id="add-device-wrapper">
-    <button id="add-device" type="button" class="button"></button>
+    <button id="add-device" type="button" class="button" data-i18n="addDevice"></button>
   </div>
 
-  <h2 id="app-list-header" class="list-header">Connected Apps</h2>
+  <h2 id="app-list-header" class="list-header" data-i18n="appListHeader"></h2>
   <ul id="app-list" class="list"></ul>
 
   <div id="footer">
-    <a id="open-about" href="#" class="footer-link"></a>
-    <a id="export-logs" href="#" class="footer-link"></a>
+    <a id="open-about" href="#" class="footer-link" data-i18n="openAbout"></a>
+    <a id="export-logs" href="#" class="footer-link" data-i18n="exportLogs"></a>
   </div>
 
   <script src="window.js"></script>

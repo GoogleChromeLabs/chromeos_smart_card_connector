@@ -24,6 +24,7 @@ goog.require('GoogleSmartCard.ConnectorApp.Window.AboutShowing');
 goog.require('GoogleSmartCard.ConnectorApp.Window.AppsDisplaying');
 goog.require('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 goog.require('GoogleSmartCard.ConnectorApp.Window.LogsExporting');
+goog.require('GoogleSmartCard.I18n');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PopupWindow.Client');
 goog.require('goog.dom');
@@ -58,7 +59,8 @@ GSC.ConnectorApp.Window.AppsDisplaying.initialize();
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize();
 GSC.ConnectorApp.Window.LogsExporting.initialize();
 
-GSC.PopupWindow.Client.setExplicitWindowTitle();
 GSC.PopupWindow.Client.showWindow();
+
+GSC.I18n.adjustElementsTranslation();
 
 });  // goog.scope

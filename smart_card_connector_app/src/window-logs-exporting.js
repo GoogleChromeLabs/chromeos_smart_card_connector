@@ -38,10 +38,13 @@ var EXPORT_LOGS_EXPORTED_TIMEOUT_MILLISECONDS = 5000;
 var GSC = GoogleSmartCard;
 
 /** @const */
-var EXPORT_LOGS_ELEMENT_EXPORTING_CLASS = 'exporting';
+var EXPORT_LOGS_ELEMENT_TEXT_ID = 'exportLogs';
 
 /** @const */
-var EXPORT_LOGS_ELEMENT_EXPORTED_CLASS = 'exported';
+var EXPORT_LOGS_ELEMENT_EXPORTING_TEXT_ID = 'exportLogsExporting';
+
+/** @const */
+var EXPORT_LOGS_ELEMENT_EXPORTED_TEXT_ID = 'exportLogsExported';
 
 /**
  * @type {!goog.log.Logger}
@@ -66,8 +69,8 @@ function exportLogsClickListener(e) {
   if (!isExportLogsAvailable)
     return;
 
-  goog.dom.classlist.add(
-      exportLogsElement, EXPORT_LOGS_ELEMENT_EXPORTING_CLASS);
+  exportLogsElement.textContent =
+      chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_EXPORTING_TEXT_ID);
   isExportLogsAvailable = false;
 
   goog.Timer.callOnce(exportLogs);
@@ -81,11 +84,12 @@ function exportLogs() {
       ' log messages from the log buffer');
   var copyingSuccess = GSC.Clipboard.copyToClipboard(dumpedLogs);
 
-  goog.dom.classlist.remove(
-      exportLogsElement, EXPORT_LOGS_ELEMENT_EXPORTING_CLASS);
   if (copyingSuccess) {
-    goog.dom.classlist.add(
-        exportLogsElement, EXPORT_LOGS_ELEMENT_EXPORTED_CLASS);
+    exportLogsElement.textContent =
+        chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_EXPORTED_TEXT_ID);
+  } else {
+    exportLogsElement.textContent =
+        chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_TEXT_ID);
   }
   goog.Timer.callOnce(
       exportLogsExportedTimeoutPassed,
@@ -93,8 +97,8 @@ function exportLogs() {
 }
 
 function exportLogsExportedTimeoutPassed() {
-  goog.dom.classlist.remove(
-      exportLogsElement, EXPORT_LOGS_ELEMENT_EXPORTED_CLASS);
+  exportLogsElement.textContent =
+      chrome.i18n.getMessage(EXPORT_LOGS_ELEMENT_TEXT_ID);
   isExportLogsAvailable = true;
 }
 

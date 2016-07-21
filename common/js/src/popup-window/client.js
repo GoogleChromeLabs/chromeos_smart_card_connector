@@ -137,33 +137,6 @@ GSC.PopupWindow.Client.setupRejectionOnWindowClose = function() {
       windowCloseDialogRejectionListener);
 };
 
-/**
- * Sets the window title explicitly, extracting it from the CSS rules (which
- * workarounds the issue with Chrome not considering the title::after
- * pseudo-element as the source for the panel window title).
- * FIXME(emaxx): Investigate why pseudo-elements styling of the title element
- * does not work with panel App windows.
- */
-GSC.PopupWindow.Client.setExplicitWindowTitle = function() {
-  var element = goog.dom.getElement('title');
-  if (!element) {
-    logger.fine('Title element was not found, skipped adjusting window title');
-    return;
-  }
-  var style = window.getComputedStyle(element, '::after');
-  var contentFromStyle = style.getPropertyValue('content');
-  if (!contentFromStyle) {
-    logger.fine('Title element style has no content specified, skipped ' +
-                'adjusting window title');
-    return;
-  }
-  contentFromStyle = goog.string.stripQuotes(contentFromStyle, '"\'');
-  goog.dom.setTextContent(element, contentFromStyle);
-  element.removeAttribute('id');
-  logger.fine('Title element was adjusted to have the explicit value "' +
-              contentFromStyle + '"');
-};
-
 function closeWindow() {
   logger.fine('Closing the window...');
   chrome.app.window.current().close();
