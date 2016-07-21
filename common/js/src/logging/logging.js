@@ -155,8 +155,7 @@ GSC.Logging.getChildLogger = function(
  * Checks if the condition evaluates to true.
  *
  * In contrast to goog.asserts.assert method, this method works in non-Debug
- * builds too (provided that the goog.asserts.ENABLE_ASSERTS definition is
- * true).
+ * builds too.
  * @template T
  * @param {T} condition The condition to check.
  * @param {string=} opt_message Error message in case of failure.
@@ -195,14 +194,13 @@ GSC.Logging.checkWithLogger = function(
  * @param {...*} var_args The items to substitute into the failure message.
  */
 GSC.Logging.fail = function(opt_message, var_args) {
-  var messageAndArgs = Array.prototype.slice.call(arguments);
   if (goog.DEBUG) {
-    goog.asserts.fail.apply(goog.asserts, messageAndArgs);
+    throwAssertionError(opt_message, var_args);
   } else {
+    var messageAndArgs = Array.prototype.slice.call(arguments);
     rootLogger.severe.apply(rootLogger, messageAndArgs);
     rootLogger.info('Reloading the App due to the fatal error...');
-    chrome.runtime.restart();
-    chrome.runtime.reload();
+    reloadApp();
   }
 };
 
@@ -237,6 +235,30 @@ GSC.Logging.failWithLogger = function(logger, opt_message, var_args) {
 GSC.Logging.getLogBuffer = function() {
   return window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME];
 };
+
+/**
+ * @param {string=} opt_message Error message in case of failure.
+ * @param {...*} var_args The items to substitute into the failure message.
+ */
+function throwAssertionError(opt_message, var_args) {
+  if (goog.asserts.ENABLE_ASSERTS) {
+    var messageAndArgs = Array.prototype.slice.call(arguments);
+    goog.asserts.fail.apply(goog.asserts, messageAndArgs);
+  } else {
+    // This branch is the last resort, and should generally never happen
+    // (unless the goog.asserts.ENABLE_ASSERTS constant was changed from its
+    // default value for some reason).
+    throw new Error('Assertion failure');
+  }
+}
+
+function reloadApp() {
+  // This method works only in kiosk mode, and does nothing otherwise.
+  chrome.runtime.restart();
+
+  // This method works only in non-kiosk mode.
+  chrome.runtime.reload();
+}
 
 function setupConsoleLogging() {
   var console = new goog.debug.Console;
