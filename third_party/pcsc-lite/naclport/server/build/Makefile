@@ -144,6 +144,18 @@ PCSC_LITE_SERVER_SVC_CPPFLAGS := \
 
 $(foreach src,$(PCSC_LITE_SERVER_SVC_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_SVC_CPPFLAGS))))
 
+# Special group just for readerfactory.c
+PCSC_LITE_SERVER_READERFACTORY_SOURCES := \
+	$(PCSC_LITE_SOURCES_PATH)/readerfactory.c \
+
+# The call to readerfactory.c:RFAddReader is hijacked to get better information
+# on reader status.
+PCSC_LITE_SERVER_READERFACTORY_CPPFLAGS := \
+	$(PCSC_LITE_SERVER_CPPFLAGS) \
+	-DRFAddReader=RFAddReaderServer \
+
+$(foreach src,$(PCSC_LITE_SERVER_READERFACTORY_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_READERFACTORY_CPPFLAGS))))
+
 # List of the original PC/SC-Lite client library source files to be compiled
 PCSC_LITE_CLIENT_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/winscard_clnt.c \
@@ -164,6 +176,7 @@ PCSC_LITE_SERVER_NACL_SOURCES := \
 	$(SOURCES_PATH)/dyn_nacl.cc \
 	$(SOURCES_PATH)/google_smart_card_pcsc_lite_server/global.cc \
 	$(SOURCES_PATH)/pcscdaemon_nacl.cc \
+	$(SOURCES_PATH)/readerfactory_nacl.cc \
 	$(SOURCES_PATH)/server_sockets_manager.cc \
 	$(SOURCES_PATH)/socketpair_emulation.cc \
 	$(SOURCES_PATH)/unistd_nacl.cc \
