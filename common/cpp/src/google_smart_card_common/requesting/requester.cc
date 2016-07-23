@@ -44,13 +44,13 @@ GenericAsyncRequest Requester::StartAsyncRequest(
   return async_result;
 }
 
-GenericRequestResult Requester::PerformSyncRequest(const pp::Var& data) {
+GenericRequestResult Requester::PerformSyncRequest(const pp::Var& payload) {
   std::mutex mutex;
   std::condition_variable condition;
   optional<GenericRequestResult> result;
 
   StartAsyncRequest(
-    data,
+    payload,
     [&mutex, &condition, &result](GenericRequestResult async_result) {
       GOOGLE_SMART_CARD_CHECK(!result);
       std::unique_lock<std::mutex> lock(mutex);

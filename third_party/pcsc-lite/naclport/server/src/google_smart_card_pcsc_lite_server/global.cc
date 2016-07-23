@@ -113,7 +113,7 @@ void InitializeAndRunPcscLiteServer() {
   // it's possible to optimize this onto publisher-pattern-style implementation,
   // by handling the chrome.usb API events (see
   // <https://developer.chrome.com/apps/usb#Events>) and using them in a
-  // replacement implementation of the currently used original hotplug_libusb.cc
+  // replacement implementation of the currently used original hotplug_libusb.c
   // source file.
   return_code = HPRegisterForHotplugEvents();
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Registering for hot " <<
