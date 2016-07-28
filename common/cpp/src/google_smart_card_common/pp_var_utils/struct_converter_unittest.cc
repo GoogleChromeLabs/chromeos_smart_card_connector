@@ -52,7 +52,7 @@ void TestStructConverter::VisitFields(
   callback(&value.optional_field_2, "optional_field_2");
 }
 
-TEST(StructConverterTest, SampleStructConversion) {
+TEST(PpVarUtilsStructConverterTest, SampleStructConversion) {
   std::string error_message;
 
   TestStruct value;

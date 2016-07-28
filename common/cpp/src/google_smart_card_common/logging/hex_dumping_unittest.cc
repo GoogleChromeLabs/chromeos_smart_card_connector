@@ -22,7 +22,7 @@
 
 namespace google_smart_card {
 
-TEST(LoggingHexDumpTest, HexDumpByte) {
+TEST(LoggingHexDumpingTest, HexDumpByte) {
   EXPECT_EQ("0x00", HexDumpByte(static_cast<int8_t>(0)));
   EXPECT_EQ("0x00", HexDumpByte(static_cast<uint8_t>(0)));
 
@@ -36,7 +36,7 @@ TEST(LoggingHexDumpTest, HexDumpByte) {
   EXPECT_EQ("0xFF", HexDumpByte(static_cast<uint8_t>(255)));
 }
 
-TEST(LoggingHexDumpTest, HexDumpQuadlet) {
+TEST(LoggingHexDumpingTest, HexDumpQuadlet) {
   EXPECT_EQ("0x00000000", HexDumpQuadlet(static_cast<int32_t>(0)));
   EXPECT_EQ("0x00000000", HexDumpQuadlet(static_cast<uint32_t>(0)));
 
@@ -44,7 +44,7 @@ TEST(LoggingHexDumpTest, HexDumpQuadlet) {
   EXPECT_EQ("0xFFFFFFFF", HexDumpQuadlet(static_cast<uint32_t>(-1)));
 }
 
-TEST(LoggingHexDumpTest, HexDumpOctlet) {
+TEST(LoggingHexDumpingTest, HexDumpOctlet) {
   EXPECT_EQ("0x0000000000000000", HexDumpOctlet(static_cast<int64_t>(0)));
   EXPECT_EQ("0x0000000000000000", HexDumpOctlet(static_cast<uint64_t>(0)));
 
@@ -52,7 +52,7 @@ TEST(LoggingHexDumpTest, HexDumpOctlet) {
   EXPECT_EQ("0xFFFFFFFFFFFFFFFF", HexDumpOctlet(static_cast<uint64_t>(-1)));
 }
 
-TEST(LoggingHexDumpTest, HexDumpInteger) {
+TEST(LoggingHexDumpingTest, HexDumpInteger) {
   EXPECT_EQ("0x00", HexDumpInteger(static_cast<int8_t>(0)));
   EXPECT_EQ("0x00", HexDumpInteger(static_cast<uint8_t>(0)));
 
@@ -63,7 +63,7 @@ TEST(LoggingHexDumpTest, HexDumpInteger) {
   EXPECT_EQ("0x0000000000000000", HexDumpInteger(static_cast<uint64_t>(0)));
 }
 
-TEST(LoggingHexDumpTest, HexDumpUnknownSizeInteger) {
+TEST(LoggingHexDumpingTest, HexDumpUnknownSizeInteger) {
   EXPECT_EQ("0x00", HexDumpUnknownSizeInteger(static_cast<int64_t>(0)));
   EXPECT_EQ("0x00", HexDumpUnknownSizeInteger(static_cast<uint64_t>(0)));
 

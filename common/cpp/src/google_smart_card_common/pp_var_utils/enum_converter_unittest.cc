@@ -46,7 +46,7 @@ void TestEnumStringConverter::VisitCorrespondingPairs(Callback callback) {
   callback(TestEnum::kTestValue2, "test_value_2");
 }
 
-TEST(EnumConverterTest, EnumToStringConversion) {
+TEST(PpVarUtilsEnumConverterTest, EnumToStringConversion) {
   EXPECT_EQ(
       "test_value_1",
       VarAs<std::string>(TestEnumStringConverter::ConvertToVar(
@@ -57,7 +57,7 @@ TEST(EnumConverterTest, EnumToStringConversion) {
           TestEnum::kTestValue2)));
 }
 
-TEST(EnumConverterTest, EnumFromStringConversion) {
+TEST(PpVarUtilsEnumConverterTest, EnumFromStringConversion) {
   TestEnum enum_value = TestEnum::kTestValue1;
   std::string error_message;
 
