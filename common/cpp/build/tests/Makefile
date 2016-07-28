@@ -43,6 +43,7 @@ TEST_SOURCES := \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/messaging/typed_message_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/messaging/typed_message_router_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/numeric_conversions_unittest.cc \
+	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/pp_var_utils/construction_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/pp_var_utils/enum_converter_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/pp_var_utils/struct_converter_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/requesting/async_request_unittest.cc \

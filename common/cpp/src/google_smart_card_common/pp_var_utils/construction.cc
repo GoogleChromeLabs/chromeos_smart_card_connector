@@ -14,7 +14,10 @@
 
 #include <google_smart_card_common/pp_var_utils/construction.h>
 
+#include <algorithm>
+#include <cctype>
 #include <cstring>
+#include <functional>
 #include <limits>
 
 #include <google_smart_card_common/numeric_conversions.h>
@@ -34,6 +37,16 @@ pp::Var MakeVarFromInteger(T value) {
   if (!CastIntegerToDouble(value, &double_value, &error_message))
     GOOGLE_SMART_CARD_LOG_FATAL << error_message;
   return double_value;
+}
+
+bool IsCharValidForVar(char character) {
+  // This is probably a pessimisation, as probably some other characters can be
+  // accepted in Pepper values, but this should be a simple and reliable subset.
+  return std::isprint(static_cast<unsigned char>(character));
+}
+
+bool IsStringValidForVar(const std::string& string) {
+  return std::all_of(string.begin(), string.end(), IsCharValidForVar);
 }
 
 }  // namespace
@@ -56,6 +69,22 @@ pp::Var MakeVar(int64_t value) {
 
 pp::Var MakeVar(uint64_t value) {
   return MakeVarFromInteger(value);
+}
+
+pp::Var MakeVar(const std::string& value) {
+  GOOGLE_SMART_CARD_CHECK(IsStringValidForVar(value));
+  return value;
+}
+
+std::string CleanupStringForVar(const std::string& string) {
+  const char kPlaceholder = ' ';
+  std::string result = string;
+  std::replace_if(
+      result.begin(),
+      result.end(),
+      std::not1(std::ptr_fun(IsCharValidForVar)),
+      kPlaceholder);
+  return result;
 }
 
 pp::VarArrayBuffer MakeVarArrayBuffer(const std::vector<uint8_t>& data) {

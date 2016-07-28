@@ -14,6 +14,8 @@
 
 #include <google_smart_card_common/logging/logging.h>
 
+#include <algorithm>
+#include <cctype>
 #include <iostream>
 #include <utility>
 
@@ -93,6 +95,22 @@ std::string GetGoogLogLevelByLogSeverity(LogSeverity severity) {
       // default here.
       return "FINE";
   }
+}
+
+std::string CleanupLogMessageTextForVar(const std::string& message_text) {
+  // Note that even though this duplicates the CleanupStringForVar
+  // functionality, it's not used here, because the logging implementation
+  // intentionally has no dependencies on any other code in this project.
+  const char kPlaceholder = ' ';
+  std::string result = message_text;
+  std::replace_if(
+      result.begin(),
+      result.end(),
+      [](char c) {
+        return !std::isprint(static_cast<unsigned char>(c));
+      },
+      kPlaceholder);
+  return result;
 }
 
 void EmitLogMessageToJavaScript(

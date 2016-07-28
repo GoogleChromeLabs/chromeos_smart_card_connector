@@ -61,6 +61,11 @@ pp::Var MakeVar(int64_t value);
 
 pp::Var MakeVar(uint64_t value);
 
+// Note that this function throws a fatal error if some characters of the string
+// are not representable inside Pepper values; in order to handle such strings,
+// the CleanupStringForVar function should be used.
+pp::Var MakeVar(const std::string& value);
+
 template <typename T>
 inline pp::Var MakeVar(const optional<T>& value) {
   if (!value)
@@ -76,6 +81,10 @@ inline pp::Var MakeVar(const std::vector<T>& value) {
     GOOGLE_SMART_CARD_CHECK(result.Set(index, MakeVar(value[index])));
   return result;
 }
+
+// Returns a string in which all characters that cannot be represented in a
+// Pepper value are replaced with a placeholder.
+std::string CleanupStringForVar(const std::string& string);
 
 //
 // Constructs a Pepper array buffer from the given data bytes.
