@@ -98,7 +98,7 @@ std::string GetGoogLogLevelByLogSeverity(LogSeverity severity) {
 }
 
 std::string CleanupLogMessageTextForVar(const std::string& message_text) {
-  // Note that even though this duplicates the CleanupStringForVar
+  // Note that even though this duplicates the CleanupStringForVar function
   // functionality, it's not used here, because the logging implementation
   // intentionally has no dependencies on any other code in this project.
   const char kPlaceholder = ' ';
@@ -118,7 +118,8 @@ void EmitLogMessageToJavaScript(
   pp::VarDictionary message_data;
   message_data.Set(
       kDataLogLevelMessageKey, GetGoogLogLevelByLogSeverity(severity));
-  message_data.Set(kDataTextMessageKey, message_text);
+  message_data.Set(
+      kDataTextMessageKey, CleanupLogMessageTextForVar(message_text));
   pp::VarDictionary message;
   message.Set(kTypeMessageKey, kMessageType);
   message.Set(kDataMessageKey, message_data);
