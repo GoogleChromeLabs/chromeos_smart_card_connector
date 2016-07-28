@@ -29,7 +29,7 @@ namespace {
 
 class TestAsyncRequestCallback {
  public:
-  void operator()(GenericRequestResult request_result) {}
+  void operator()(GenericRequestResult /*request_result*/) {}
 };
 
 }  // namespace
