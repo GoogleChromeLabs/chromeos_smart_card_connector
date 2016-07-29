@@ -77,7 +77,7 @@ pp::Var MakeVar(const std::string& value) {
 }
 
 std::string CleanupStringForVar(const std::string& string) {
-  const char kPlaceholder = ' ';
+  const char kPlaceholder = '_';
   std::string result = string;
   std::replace_if(
       result.begin(),

@@ -101,7 +101,7 @@ std::string CleanupLogMessageTextForVar(const std::string& message_text) {
   // Note that even though this duplicates the CleanupStringForVar function
   // functionality, it's not used here, because the logging implementation
   // intentionally has no dependencies on any other code in this project.
-  const char kPlaceholder = ' ';
+  const char kPlaceholder = '_';
   std::string result = message_text;
   std::replace_if(
       result.begin(),

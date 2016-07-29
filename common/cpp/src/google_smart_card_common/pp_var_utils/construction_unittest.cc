@@ -23,15 +23,15 @@
 namespace google_smart_card {
 
 TEST(PpVarUtilsConstructionTest, CleaningUpInvalidCharacters) {
-  EXPECT_EQ(" ", CleanupStringForVar("\x80"));
-  EXPECT_EQ(" ", CleanupStringForVar("\xff"));
-  EXPECT_EQ("       ", CleanupStringForVar("\a\b\f\n\r\t\v"));
-  EXPECT_EQ("  ", CleanupStringForVar("\xd0\xb0"));  // cyrillic small letter a
+  EXPECT_EQ("_", CleanupStringForVar("\x80"));
+  EXPECT_EQ("_", CleanupStringForVar("\xff"));
+  EXPECT_EQ("_______", CleanupStringForVar("\a\b\f\n\r\t\v"));
+  EXPECT_EQ("__", CleanupStringForVar("\xd0\xb0"));  // cyrillic small letter a
 
   EXPECT_EQ("azAZ019", CleanupStringForVar("azAZ019"));
   EXPECT_EQ("'\"?\\_-()[]<>", CleanupStringForVar("'\"?\\_-()[]<>"));
 
-  EXPECT_EQ("a b c d e", CleanupStringForVar("a\1b\2c\3d\4e"));
+  EXPECT_EQ("a_b_c_d_e", CleanupStringForVar("a\1b\2c\3d\4e"));
 }
 
 TEST(PpVarUtilsConstructionTest, StringConversion) {
