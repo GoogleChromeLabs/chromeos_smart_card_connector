@@ -392,7 +392,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
   FunctionCallTracer tracer(
       "SCardConnect", logging_prefix_, kTracerLogSeverity);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
-  tracer.AddPassedArg("szReader", reader_name);
+  tracer.AddPassedArg("szReader", '"' + reader_name + '"');
   tracer.AddPassedArg("dwShareMode", DebugDumpSCardShareMode(share_mode));
   tracer.AddPassedArg(
       "dwPreferredProtocols", DebugDumpSCardProtocols(preferred_protocols));
@@ -564,7 +564,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   if (return_code == SCARD_S_SUCCESS) {
-    tracer.AddReturnedArg("szReaderName", reader_name);
+    tracer.AddReturnedArg("szReaderName", DebugDumpSCardCString(reader_name));
     tracer.AddReturnedArg("dwState", DebugDumpSCardState(state));
     tracer.AddReturnedArg("dwProtocol", DebugDumpSCardProtocol(protocol));
     tracer.AddReturnedArg("bAtr", "<" + HexDumpBytes(atr, atr_length) + ">");
