@@ -119,8 +119,7 @@ class PcscLiteClientRequestProcessor final :
   void ScheduleClosingLeftHandles();
   static void CloseLeftHandles(
       const std::string& logging_prefix,
-      const std::vector<SCARDCONTEXT>& s_card_contexts,
-      const std::vector<SCARDHANDLE>& s_card_handles);
+      const std::vector<SCARDCONTEXT>& s_card_contexts);
 
   GenericRequestResult PcscLiteVersionNumber();
   GenericRequestResult PcscStringifyError(LONG error);
@@ -171,8 +170,7 @@ class PcscLiteClientRequestProcessor final :
   const PcscLiteServerClientId client_id_;
   const std::string logging_prefix_;
   HandlerMap handler_map_;
-  PcscLiteClientSCardContextsRegistry s_card_contexts_registry_;
-  PcscLiteClientSCardHandlesRegistry s_card_handles_registry_;
+  PcscLiteClientHandlesRegistry s_card_handles_registry_;
 };
 
 }  // namespace google_smart_card

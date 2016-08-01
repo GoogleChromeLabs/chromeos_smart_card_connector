@@ -47,6 +47,7 @@ SOURCES_PATH := ../src
 SOURCES := \
 	$(SOURCES_PATH)/client_request_processor.cc \
 	$(SOURCES_PATH)/clients_manager.cc \
+	$(SOURCES_PATH)/client_handles_registry.cc \
 	$(SOURCES_PATH)/google_smart_card_pcsc_lite_server_clients_management/backend.cc \
 	$(SOURCES_PATH)/google_smart_card_pcsc_lite_server_clients_management/ready_message.cc \
 

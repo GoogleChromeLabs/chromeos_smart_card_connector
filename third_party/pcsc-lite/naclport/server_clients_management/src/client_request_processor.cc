@@ -207,9 +207,7 @@ PcscLiteClientRequestProcessor::WrapHandler(
 
 void PcscLiteClientRequestProcessor::ScheduleClosingLeftHandles() {
   const std::vector<SCARDCONTEXT> s_card_contexts =
-      s_card_contexts_registry_.PopAll();
-  const std::vector<SCARDHANDLE> s_card_handles =
-      s_card_handles_registry_.PopAll();
+      s_card_handles_registry_.PopAllContexts();
 
   // The handles are closed in a separate background thread, as the involved
   // SCard* functions may call blocking libusb* functions - which are not
@@ -218,14 +216,12 @@ void PcscLiteClientRequestProcessor::ScheduleClosingLeftHandles() {
   std::thread(
       &PcscLiteClientRequestProcessor::CloseLeftHandles,
       logging_prefix_,
-      s_card_contexts,
-      s_card_handles).detach();
+      s_card_contexts).detach();
 }
 
 void PcscLiteClientRequestProcessor::CloseLeftHandles(
     const std::string& logging_prefix,
-    const std::vector<SCARDCONTEXT>& s_card_contexts,
-    const std::vector<SCARDHANDLE>& s_card_handles) {
+    const std::vector<SCARDCONTEXT>& s_card_contexts) {
   LONG error_code;
 
   for (SCARDCONTEXT s_card_context : s_card_contexts) {
@@ -238,44 +234,6 @@ void PcscLiteClientRequestProcessor::CloseLeftHandles(
       GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced " <<
           "cancellation of the blocking requests was unsuccessful: " <<
           pcsc_stringify_error(error_code);
-    }
-  }
-
-  for (SCARDHANDLE s_card_handle : s_card_handles) {
-    GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << "Performing forced " <<
-        "cleanup: ending possibly begun transactions and disconnecting the " <<
-        "left SCARDHANDLE " << DebugDumpSCardHandle(s_card_handle);
-
-    // Note: In the following code, the SCARD_RESET_CARD option is used as a
-    // preferred option (in contrast to the "fallback" option SCARD_LEAVE_CARD),
-    // as it gives better security guarantees: if one client App, which was
-    // communicating to some reader, dies and then another App tries to
-    // communicate to the same reader, then this second App will only access the
-    // card in its initial state.
-
-    error_code = ::SCardEndTransaction(s_card_handle, SCARD_RESET_CARD);
-    if (error_code != SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced " <<
-          "transaction ending was unsuccessful: " <<
-          pcsc_stringify_error(error_code);
-    }
-
-    error_code = ::SCardDisconnect(s_card_handle, SCARD_RESET_CARD);
-    if (error_code != SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced " <<
-          "disconnection with resetting was unsuccessful: " <<
-          pcsc_stringify_error(error_code);
-
-      // Failed to disconnect with the SCARD_RESET_CARD option (probably
-      // another client has claimed the exclusive access to the reader), fall
-      // back to the SCARD_LEAVE_CARD option.
-
-      error_code = ::SCardDisconnect(s_card_handle, SCARD_LEAVE_CARD);
-      if (error_code != SCARD_S_SUCCESS) {
-        GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced " <<
-            "disconnection was unsuccessful: " <<
-            pcsc_stringify_error(error_code);
-      }
     }
   }
 
@@ -358,7 +316,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardEstablishContext(
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
-  s_card_contexts_registry_.Add(s_card_context);
+  s_card_handles_registry_.AddContext(s_card_context);
   return ReturnValues(return_code, s_card_context);
 }
 
@@ -370,7 +328,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReleaseContext(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_contexts_registry_.Contains(s_card_context))
+  if (!s_card_handles_registry_.ContainsContext(s_card_context))
     return_code = SCARD_E_INVALID_HANDLE;
 
   if (return_code == SCARD_S_SUCCESS)
@@ -380,7 +338,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReleaseContext(
   tracer.LogExit();
 
   if (return_code == SCARD_S_SUCCESS)
-    s_card_contexts_registry_.Remove(s_card_context);
+    s_card_handles_registry_.RemoveContext(s_card_context);
   return ReturnValues(return_code);
 }
 
@@ -399,7 +357,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_contexts_registry_.Contains(s_card_context))
+  if (!s_card_handles_registry_.ContainsContext(s_card_context))
     return_code = SCARD_E_INVALID_HANDLE;
 
   SCARDHANDLE s_card_handle;
@@ -424,7 +382,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
-  s_card_handles_registry_.Add(s_card_handle);
+  s_card_handles_registry_.AddHandle(s_card_context, s_card_handle);
   return ReturnValues(return_code, s_card_handle, active_protocol);
 }
 
@@ -444,7 +402,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReconnect(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_handles_registry_.Contains(s_card_handle))
+  if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
   DWORD active_protocol;
@@ -479,7 +437,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_handles_registry_.Contains(s_card_handle))
+  if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
   if (return_code == SCARD_S_SUCCESS)
@@ -489,7 +447,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
   tracer.LogExit();
 
   if (return_code == SCARD_S_SUCCESS)
-    s_card_handles_registry_.Remove(s_card_handle);
+    s_card_handles_registry_.RemoveHandle(s_card_handle);
   return ReturnValues(return_code);
 }
 
@@ -501,7 +459,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardBeginTransaction(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_handles_registry_.Contains(s_card_handle))
+  if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
   if (return_code == SCARD_S_SUCCESS)
@@ -523,7 +481,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardEndTransaction(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_handles_registry_.Contains(s_card_handle))
+  if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
   if (return_code == SCARD_S_SUCCESS)
@@ -542,7 +500,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_handles_registry_.Contains(s_card_handle))
+  if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
   LPSTR reader_name;
@@ -618,7 +576,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_contexts_registry_.Contains(s_card_context))
+  if (!s_card_handles_registry_.ContainsContext(s_card_context))
     return_code = SCARD_E_INVALID_HANDLE;
 
   if (return_code == SCARD_S_SUCCESS) {
@@ -665,7 +623,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardControl(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_handles_registry_.Contains(s_card_handle))
+  if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
   DWORD bytes_received;
@@ -704,7 +662,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_handles_registry_.Contains(s_card_handle))
+  if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
   LPBYTE attribute;
@@ -744,7 +702,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardSetAttrib(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_handles_registry_.Contains(s_card_handle))
+  if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
   if (return_code == SCARD_S_SUCCESS) {
@@ -792,7 +750,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_handles_registry_.Contains(s_card_handle))
+  if (!s_card_handles_registry_.ContainsHandle(s_card_handle))
     return_code = SCARD_E_INVALID_HANDLE;
 
   std::vector<uint8_t> buffer(MAX_BUFFER_SIZE_EXTENDED);
@@ -836,7 +794,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_contexts_registry_.Contains(s_card_context))
+  if (!s_card_handles_registry_.ContainsContext(s_card_context))
     return_code = SCARD_E_INVALID_HANDLE;
 
   LPSTR readers;
@@ -870,7 +828,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaderGroups(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_contexts_registry_.Contains(s_card_context))
+  if (!s_card_handles_registry_.ContainsContext(s_card_context))
     return_code = SCARD_E_INVALID_HANDLE;
 
   LPSTR reader_groups;
@@ -904,7 +862,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardCancel(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_contexts_registry_.Contains(s_card_context))
+  if (!s_card_handles_registry_.ContainsContext(s_card_context))
     return_code = SCARD_E_INVALID_HANDLE;
 
   if (return_code == SCARD_S_SUCCESS)
@@ -924,7 +882,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardIsValidContext(
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
-  if (!s_card_contexts_registry_.Contains(s_card_context))
+  if (!s_card_handles_registry_.ContainsContext(s_card_context))
     return_code = SCARD_E_INVALID_HANDLE;
 
   if (return_code == SCARD_S_SUCCESS)

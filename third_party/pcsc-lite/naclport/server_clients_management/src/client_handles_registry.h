@@ -27,53 +27,46 @@
 #define GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_CLIENT_HANDLES_REGISTRY_H_
 
 #include <mutex>
+#include <unordered_map>
 #include <unordered_set>
+#include <vector>
 
 #include <pcsclite.h>
-#include <reader.h>
-#include <winscard.h>
-#include <wintypes.h>
-
-#include <google_smart_card_common/logging/logging.h>
 
 namespace google_smart_card {
 
-// FIXME(emaxx): Write docs.
-template <typename T>
+// This class is a thread-safe container for PC/SC-Lite contexts (see the
+// PC/SC-Lite SCARDCONTEXT type) and handles (see the PC/SC-Lite SCARDHANDLE
+// type).
+//
+// The class provides an interface to check whether the specified context or
+// handle exists (i.e. is known to the instance of this class).
+//
+// Additionally, it also allows to query the list of SCARDHANDLE handles that
+// correspond to the specified SCARDCONTEXT handle.
 class PcscLiteClientHandlesRegistry final {
  public:
-  bool Contains(T handle) const {
-    const std::unique_lock<std::mutex> lock(mutex_);
-    return handles_.count(handle) > 0;
-  }
+  PcscLiteClientHandlesRegistry();
+  ~PcscLiteClientHandlesRegistry();
 
-  void Add(T handle) {
-    const std::unique_lock<std::mutex> lock(mutex_);
-    GOOGLE_SMART_CARD_CHECK(handles_.insert(handle).second);
-  }
+  bool ContainsContext(SCARDCONTEXT s_card_context) const;
+  void AddContext(SCARDCONTEXT s_card_context);
+  void RemoveContext(SCARDCONTEXT s_card_context);
+  std::vector<SCARDCONTEXT> PopAllContexts();
 
-  void Remove(T handle) {
-    const std::unique_lock<std::mutex> lock(mutex_);
-    GOOGLE_SMART_CARD_CHECK(handles_.erase(handle));
-  }
-
-  std::vector<T> PopAll() {
-    const std::unique_lock<std::mutex> lock(mutex_);
-    std::vector<T> result(handles_.begin(), handles_.end());
-    handles_.clear();
-    return result;
-  }
+  bool ContainsHandle(SCARDHANDLE s_card_handle) const;
+  void AddHandle(SCARDCONTEXT s_card_context, SCARDHANDLE s_card_handle);
+  void RemoveHandle(SCARDHANDLE s_card_handle);
 
  private:
+  using ContextToHandlesMap =
+      std::unordered_map<SCARDCONTEXT, std::unordered_set<SCARDHANDLE>>;
+  using HandleToContextMap = std::unordered_map<SCARDHANDLE, SCARDCONTEXT>;
+
   mutable std::mutex mutex_;
-  std::unordered_set<T> handles_;
+  ContextToHandlesMap context_to_handles_map_;
+  HandleToContextMap handle_to_context_map_;
 };
-
-using PcscLiteClientSCardContextsRegistry =
-    PcscLiteClientHandlesRegistry<SCARDCONTEXT>;
-
-using PcscLiteClientSCardHandlesRegistry =
-    PcscLiteClientHandlesRegistry<SCARDHANDLE>;
 
 }  // namespace google_smart_card
 
