@@ -63,6 +63,10 @@ void PcscLiteServerDaemonThreadMain() {
     // Note: even though the CreateContextThread function accepts its
     // server_socket_file_descriptor argument by pointer, it doesn't store the
     // pointer itself anywhere - so it's safe to use a local variable here.
+    // FIXME(emaxx): Deal with cases when CreateContextThread returns errors.
+    // Looks like it may happen legitimately when the abusive client(s) request
+    // to establish too many requests. Probably, some limitation should be
+    // applied to all clients.
     GOOGLE_SMART_CARD_CHECK(
         CreateContextThread(&server_socket_file_descriptor) == SCARD_S_SUCCESS);
   }
