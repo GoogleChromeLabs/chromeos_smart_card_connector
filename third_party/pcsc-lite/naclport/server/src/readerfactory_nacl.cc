@@ -26,25 +26,85 @@
 // This file contains a replacement function for the original readerfactory.c
 // PC/SC-Lite internal implementation.
 
+// TODO: These includes need to come before readerfactory.h otherwise compiler
+//       goes nuts. Why is that?
+#include <ppapi/cpp/var.h>
+#include <ppapi/cpp/var_dictionary.h>
+#include <ppapi/cpp/instance.h>
+#include <ppapi/cpp/module.h>
+#include <google_smart_card_common/pp_var_utils/construction.h>
+
 extern "C" {
 #include "readerfactory.h"
 
 LONG RFAddReaderServer(const char *readerNameLong, int port,
     const char *library, const char *device);
+LONG RFRemoveReaderServer(const char *readerName, int port);
 }
 
 #include <google_smart_card_common/logging/syslog/syslog.h>
 
-LONG RFAddReader(const char *readerNameLong, int port, const char *library,
-  const char *device)
-{
-  syslog(LOG_ERR, "Hello from RFAddReader: %s, %d, %s, %s",
-      readerNameLong, port, library, device);
+using namespace google_smart_card;
 
-  // call original
+const char kTypeMessageKey[] = "type";
+const char kDataMessageKey[] = "data";
+const char kAddReaderMessageType[] = "reader_add";
+const char kRemoveReaderMessageType[] = "reader_remove";
+const char kNameMessageKey[] = "readerName";
+const char kPortMessageKey[] = "port";
+const char kDeviceMessageKey[] = "device";
+const char kReturnCodeMessageKey[] = "returnCode";
+
+void post_message(const char* type, const pp::VarDictionary& message_data)
+{
+  pp::VarDictionary message;
+  message.Set(kTypeMessageKey, type);
+  message.Set(kDataMessageKey, message_data);
+
+  const pp::Module* const pp_module = pp::Module::Get();
+  if (pp_module) {
+    const pp::Module::InstanceMap pp_instance_map =
+        pp_module->current_instances();
+    for (const auto& instance_map_item : pp_instance_map) {
+      pp::Instance* const instance = instance_map_item.second;
+
+      if (instance) instance->PostMessage(message);
+    }
+  }
+}
+
+LONG RFAddReader(const char *readerNameLong, int port, const char *library,
+    const char *device)
+{
+  post_message(kAddReaderMessageType, VarDictBuilder()
+      .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
+      .Add(kDeviceMessageKey, device).Result());
+
   LONG ret = RFAddReaderServer(readerNameLong, port, library, device);
 
-  syslog(LOG_ERR, "Bye from RFAddReader, return code: %d", ret);
+  // TODO: Testing code, to be removed at a later time (failing reader).
+  if (std::string("SCM Microsystems Inc. SCR 3310") == readerNameLong) {
+    post_message(kAddReaderMessageType, VarDictBuilder()
+        .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
+        .Add(kDeviceMessageKey, device).Add(kReturnCodeMessageKey, SCARD_E_INVALID_VALUE).Result());
+    return ret;
+  }
+
+  post_message(kAddReaderMessageType, VarDictBuilder()
+      .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
+      .Add(kDeviceMessageKey, device).Add(kReturnCodeMessageKey, ret).Result());
+
+  return ret;
+}
+
+LONG RFRemoveReader(const char *readerName, int port)
+{
+  LONG ret = RFRemoveReaderServer(readerName, port);
+
+  if (ret == SCARD_S_SUCCESS) {
+    post_message(kRemoveReaderMessageType, VarDictBuilder()
+        .Add(kNameMessageKey, readerName).Add(kPortMessageKey, port).Result());
+  }
 
   return ret;
 }

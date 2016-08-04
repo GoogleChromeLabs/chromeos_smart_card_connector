@@ -127,3 +127,28 @@ body {
   margin-right: 15px;
   text-decoration: none;
 }
+
+#readers-list > li {
+  display: flex;
+  align-items: center;
+}
+
+.circle {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: flex;
+  margin-right: 4px;
+}
+
+.yellow {
+  background: yellow;
+}
+
+.red {
+  background: red;
+}
+
+.green {
+  background: green;
+}

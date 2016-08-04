@@ -179,27 +179,28 @@ function dumpObject(value) {
  * @return {string}
  */
 GSC.DebugDump.dump = function(value) {
-  if (!goog.isDef(value))
-    return 'undefined';
-  if (goog.isNull(value))
-    return 'null';
-  if (goog.isNumber(value))
-    return dumpNumber(value);
-  if (goog.isString(value))
-    return dumpString(value);
-  if (goog.isArray(value))
-    return dumpArray(value);
-  if (goog.isFunction(value))
-    return dumpFunction(value);
-  if (value instanceof ArrayBuffer)
-    return dumpArrayBuffer(value);
-  if (value instanceof goog.structs.Map)
-    return dumpMap(value);
-  if (value instanceof goog.structs.Set)
-    return dumpSet(value);
-  if (goog.isObject(value))
-    return dumpObject(value);
-  return encodeJson(value);
+  return '';
+  // if (!goog.isDef(value))
+  //   return 'undefined';
+  // if (goog.isNull(value))
+  //   return 'null';
+  // if (goog.isNumber(value))
+  //   return dumpNumber(value);
+  // if (goog.isString(value))
+  //   return dumpString(value);
+  // if (goog.isArray(value))
+  //   return dumpArray(value);
+  // if (goog.isFunction(value))
+  //   return dumpFunction(value);
+  // if (value instanceof ArrayBuffer)
+  //   return dumpArrayBuffer(value);
+  // if (value instanceof goog.structs.Map)
+  //   return dumpMap(value);
+  // if (value instanceof goog.structs.Set)
+  //   return dumpSet(value);
+  // if (goog.isObject(value))
+  //   return dumpObject(value);
+  // return encodeJson(value);
 };
 
 if (goog.DEBUG) {

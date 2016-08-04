@@ -23,6 +23,7 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.ReaderTracker');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.dom');
@@ -55,9 +56,36 @@ var readersListElement = goog.dom.getElement('readers-list');
  */
 var addDeviceElement = goog.dom.getElement('add-device');
 
+/**
+ * @type {GSC.ReaderTracker}
+ */
+var readerTracker;
+
 function loadDeviceList() {
   logger.fine('Requesting available USB devices list...');
   chrome.usb.getDevices({'filters': USB_DEVICE_FILTERS}, getDevicesCallback);
+}
+
+function loadReaderList() {
+  logger.fine('Requesting available PC/SC card reader list...');
+  var readers = readerTracker.getReaders();
+  logger.info(readers.length + ' card reader(s) available: ' +
+              GSC.DebugDump.dump(readers));
+  goog.dom.removeChildren(readersListElement);
+
+  for (let reader of readers) {
+    GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
+    goog.asserts.assert(readersListElement);
+    var circle = goog.dom.createDom('div', 'circle ' + reader.color);
+    // TODO: Error will be displayed in a hover over the red circle.
+    var text = reader.name + ' [' + reader.error + ']';
+    goog.dom.append(
+        readersListElement, goog.dom.createDom('li', undefined, circle, text));
+  };
+}
+
+function readerUpdatedListener() {
+  loadReaderList();
 }
 
 /**
@@ -148,9 +176,12 @@ function getUserSelectedDevicesCallback(devices) {
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  loadDeviceList();
-  chrome.usb.onDeviceAdded.addListener(usbDeviceAddedListener);
-  chrome.usb.onDeviceRemoved.addListener(usbDeviceRemovedListener);
+  //loadDeviceList();
+  // chrome.usb.onDeviceAdded.addListener(usbDeviceAddedListener);
+  // chrome.usb.onDeviceRemoved.addListener(usbDeviceRemovedListener);
+  readerTracker = GSC.PopupWindow.Client.getData()['readerTracker'];
+  loadReaderList();
+  readerTracker.addOnUpdateListener(readerUpdatedListener);
 
   goog.events.listen(
       addDeviceElement, goog.events.EventType.CLICK, addDeviceClickListener);

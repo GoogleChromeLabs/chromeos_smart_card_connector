@@ -148,11 +148,12 @@ $(foreach src,$(PCSC_LITE_SERVER_SVC_SOURCES),$(eval $(call COMPILE_RULE,$(src),
 PCSC_LITE_SERVER_READERFACTORY_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/readerfactory.c \
 
-# The call to readerfactory.c:RFAddReader is hijacked to get better information
-# on reader status.
+# Calls to RFAddReader and RFRemoveReader (readerfactory.c) are hooked to get
+# better information on reader status.
 PCSC_LITE_SERVER_READERFACTORY_CPPFLAGS := \
 	$(PCSC_LITE_SERVER_CPPFLAGS) \
 	-DRFAddReader=RFAddReaderServer \
+	-DRFRemoveReader=RFRemoveReaderServer \
 
 $(foreach src,$(PCSC_LITE_SERVER_READERFACTORY_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_READERFACTORY_CPPFLAGS))))
 
