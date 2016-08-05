@@ -20,6 +20,7 @@
  * NaCl (check readerfactory_nacl.cc for more information).
  */
 
+goog.provide('GoogleSmartCard.ReaderInfo')
 goog.provide('GoogleSmartCard.ReaderTracker');
 
 goog.require('GoogleSmartCard.DebugDump');
@@ -38,6 +39,23 @@ goog.scope(function() {
 var GSC = GoogleSmartCard;
 
 /**
+ * Structure used to store information about the reader.
+ * @param {string} name
+ * @param {string=} status
+ * @param {string=} error
+ * @constructor
+ * @struct
+ */
+GSC.ReaderInfo = function(name, status, error) {
+  this.name = name;
+  this.status = status;
+  this.error = error;
+};
+
+/** @const */
+var ReaderInfo = GSC.ReaderInfo;
+
+/**
  * This class tracks readers, provides methods to retrieve the list of readers
  * and get updates on change, and listens to messages received from the hook
  * living in the NaCl space.
@@ -49,14 +67,15 @@ GSC.ReaderTracker = function(messageChannel, parentLogger) {
   /** @private */
   this.logger_ = parentLogger;
 
-  // TODO: do we need "unregisterService"?
   messageChannel.registerService(
-      'reader_add', this.readerAddedListener_.bind(this));
+      'reader_init_add', this.readerInitAddListener_.bind(this));
   messageChannel.registerService(
-      'reader_remove', this.readerRemovedListener_.bind(this));
+      'reader_finish_add', this.readerFinishAddListener_.bind(this));
+  messageChannel.registerService(
+      'reader_remove', this.readerRemoveListener_.bind(this));
 
   /**
-   * @type {goog.structs.Map}
+   * @type {!goog.structs.Map.<string, !GSC.ReaderInfo>}
    * @private
    */
   this.readers_ = new goog.structs.Map;
@@ -79,26 +98,39 @@ var ReaderTracker = GSC.ReaderTracker;
  * param {Object|string} message
  * @private
  */
-ReaderTracker.prototype.readerAddedListener_ = function(message) {
-  this.logger_.warning('readerAddedListener_ ' + message);
+ReaderTracker.prototype.readerInitAddListener_ = function(message) {
+  this.logger_.warning('readerInitAddListener_ ' + message);
 
   // TODO: needs a promise? (check json.js)
   var processor = new goog.json.NativeJsonProcessor;
   var json = /** @type{Object} */ (processor.parse(message));
+  var name = json['readerName'];
+  var port = json['port'];
+  //var device = json['device'];
 
+  this.readers_.set(port, new ReaderInfo(name, 'yellow'));
+  this.fireOnUpdateListeners_();
+};
+
+/**
+ * param {Object|string} message
+ * @private
+ */
+ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
+  this.logger_.warning('readerFinishAddListener_ ' + message);
+
+  var processor = new goog.json.NativeJsonProcessor;
+  var json = /** @type{Object} */ (processor.parse(message));
   var name = json['readerName'];
   var port = json['port'];
   var device = json['device'];
   var returnCode = json['returnCode'];
 
-  var value = {'name': name};
+  // TODO: Make sure that this reader had already been seen in readerInitAddListener_
+  var value = new ReaderInfo(name, 'green');
 
-  if (returnCode === undefined) {
-    value.color = 'yellow';
-  } else if (returnCode === 0) {
-    value.color = 'green';
-  } else {
-    value.color = 'red';
+  if (returnCode !== 0) {
+    value.status = 'red';
     // TODO: Send an actual error message, and not just the error id.
     value.error = returnCode;
   }
@@ -111,8 +143,8 @@ ReaderTracker.prototype.readerAddedListener_ = function(message) {
  * param {Object|string} message
  * @private
  */
-ReaderTracker.prototype.readerRemovedListener_ = function(message) {
-  this.logger_.warning('readerRemovedListener_ ' + message);
+ReaderTracker.prototype.readerRemoveListener_ = function(message) {
+  this.logger_.warning('readerRemoveListener_ ' + message);
 
   var processor = new goog.json.NativeJsonProcessor;
   var json = /** @type{Object} */ (processor.parse(message));

@@ -46,14 +46,15 @@ using namespace google_smart_card;
 
 const char kTypeMessageKey[] = "type";
 const char kDataMessageKey[] = "data";
-const char kAddReaderMessageType[] = "reader_add";
-const char kRemoveReaderMessageType[] = "reader_remove";
+const char kReaderInitAddMessageType[] = "reader_init_add";
+const char kReaderFinishAddMessageType[] = "reader_finish_add";
+const char kReaderRemoveMessageType[] = "reader_remove";
 const char kNameMessageKey[] = "readerName";
 const char kPortMessageKey[] = "port";
 const char kDeviceMessageKey[] = "device";
 const char kReturnCodeMessageKey[] = "returnCode";
 
-// TODO: This is dirty solution, do the proper one.
+// TODO: This solution is dirty, do the proper one.
 void post_message(const char* type, const pp::VarDictionary& message_data)
 {
   pp::VarDictionary message;
@@ -75,7 +76,7 @@ void post_message(const char* type, const pp::VarDictionary& message_data)
 LONG RFAddReader(const char *readerNameLong, int port, const char *library,
     const char *device)
 {
-  post_message(kAddReaderMessageType, VarDictBuilder()
+  post_message(kReaderInitAddMessageType, VarDictBuilder()
       .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
       .Add(kDeviceMessageKey, device).Result());
 
@@ -83,13 +84,13 @@ LONG RFAddReader(const char *readerNameLong, int port, const char *library,
 
   // TODO: Testing code, to be removed at a later time (failing reader).
   if (std::string("SCM Microsystems Inc. SCR 3310") == readerNameLong) {
-    post_message(kAddReaderMessageType, VarDictBuilder()
+    post_message(kReaderFinishAddMessageType, VarDictBuilder()
         .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
         .Add(kDeviceMessageKey, device).Add(kReturnCodeMessageKey, SCARD_E_INVALID_VALUE).Result());
     return ret;
   }
 
-  post_message(kAddReaderMessageType, VarDictBuilder()
+  post_message(kReaderFinishAddMessageType, VarDictBuilder()
       .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
       .Add(kDeviceMessageKey, device).Add(kReturnCodeMessageKey, ret).Result());
 
@@ -98,12 +99,8 @@ LONG RFAddReader(const char *readerNameLong, int port, const char *library,
 
 LONG RFRemoveReader(const char *readerName, int port)
 {
-  LONG ret = RFRemoveReaderServer(readerName, port);
+  post_message(kReaderRemoveMessageType, VarDictBuilder()
+      .Add(kNameMessageKey, readerName).Add(kPortMessageKey, port).Result());
 
-  if (ret == SCARD_S_SUCCESS) {
-    post_message(kRemoveReaderMessageType, VarDictBuilder()
-        .Add(kNameMessageKey, readerName).Add(kPortMessageKey, port).Result());
-  }
-
-  return ret;
+  return RFRemoveReaderServer(readerName, port);
 }

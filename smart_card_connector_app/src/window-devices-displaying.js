@@ -76,7 +76,7 @@ function loadReaderList() {
   for (let reader of readers) {
     GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
     goog.asserts.assert(readersListElement);
-    var circle = goog.dom.createDom('div', 'circle ' + reader.color);
+    var circle = goog.dom.createDom('div', 'circle ' + reader.status);
     // TODO: Error will be displayed in a hover over the red circle.
     var text = reader.name + ' [' + reader.error + ']';
     goog.dom.append(
