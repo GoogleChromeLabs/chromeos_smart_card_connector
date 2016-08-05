@@ -26,8 +26,6 @@
 // This file contains a replacement function for the original readerfactory.c
 // PC/SC-Lite internal implementation.
 
-// TODO: These includes need to come before readerfactory.h otherwise compiler
-//       goes nuts. Why is that?
 #include <ppapi/cpp/var.h>
 #include <ppapi/cpp/var_dictionary.h>
 #include <ppapi/cpp/instance.h>
@@ -55,6 +53,7 @@ const char kPortMessageKey[] = "port";
 const char kDeviceMessageKey[] = "device";
 const char kReturnCodeMessageKey[] = "returnCode";
 
+// TODO: This is dirty solution, do the proper one.
 void post_message(const char* type, const pp::VarDictionary& message_data)
 {
   pp::VarDictionary message;
