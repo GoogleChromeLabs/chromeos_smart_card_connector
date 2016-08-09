@@ -27,7 +27,6 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.asserts');
-goog.require('goog.json.NativeJsonProcessor');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
@@ -68,11 +67,11 @@ GSC.ReaderTracker = function(messageChannel, parentLogger) {
   this.logger_ = parentLogger;
 
   messageChannel.registerService(
-      'reader_init_add', this.readerInitAddListener_.bind(this));
+      'reader_init_add', this.readerInitAddListener_.bind(this), true);
   messageChannel.registerService(
-      'reader_finish_add', this.readerFinishAddListener_.bind(this));
+      'reader_finish_add', this.readerFinishAddListener_.bind(this), true);
   messageChannel.registerService(
-      'reader_remove', this.readerRemoveListener_.bind(this));
+      'reader_remove', this.readerRemoveListener_.bind(this), true);
 
   /**
    * @type {!goog.structs.Map.<string, !GSC.ReaderInfo>}
@@ -101,12 +100,9 @@ var ReaderTracker = GSC.ReaderTracker;
 ReaderTracker.prototype.readerInitAddListener_ = function(message) {
   this.logger_.warning('readerInitAddListener_ ' + message);
 
-  // TODO: needs a promise? (check json.js)
-  var processor = new goog.json.NativeJsonProcessor;
-  var json = /** @type{Object} */ (processor.parse(message));
-  var name = json['readerName'];
-  var port = json['port'];
-  //var device = json['device'];
+  var name = message['readerName'];
+  var port = message['port'];
+  //var device = message['device'];
 
   this.readers_.set(port, new ReaderInfo(name, 'yellow'));
   this.fireOnUpdateListeners_();
@@ -119,12 +115,10 @@ ReaderTracker.prototype.readerInitAddListener_ = function(message) {
 ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
   this.logger_.warning('readerFinishAddListener_ ' + message);
 
-  var processor = new goog.json.NativeJsonProcessor;
-  var json = /** @type{Object} */ (processor.parse(message));
-  var name = json['readerName'];
-  var port = json['port'];
-  var device = json['device'];
-  var returnCode = json['returnCode'];
+  var name = message['readerName'];
+  var port = message['port'];
+  var device = message['device'];
+  var returnCode = message['returnCode'];
 
   // TODO: Make sure that this reader had already been seen in readerInitAddListener_
   var value = new ReaderInfo(name, 'green');
@@ -146,11 +140,8 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
 ReaderTracker.prototype.readerRemoveListener_ = function(message) {
   this.logger_.warning('readerRemoveListener_ ' + message);
 
-  var processor = new goog.json.NativeJsonProcessor;
-  var json = /** @type{Object} */ (processor.parse(message));
-
-  var name = json['readerName'];
-  var port = json['port'];
+  var name = message['readerName'];
+  var port = message['port'];
 
   this.readers_.remove(port);
   this.fireOnUpdateListeners_();
