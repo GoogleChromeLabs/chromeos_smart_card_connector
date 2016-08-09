@@ -124,22 +124,6 @@ function getDevicesCallback(devices) {
 
   logger.info(devices.length + ' USB device(s) available: ' +
               GSC.DebugDump.dump(devices));
-  displayReaders(devices);
-}
-
-/**
- * @param {!Array.<!chrome.usb.Device>} readers
- */
-function displayReaders(readers) {
-  goog.dom.removeChildren(readersListElement);
-  goog.array.forEach(readers, function(reader) {
-    GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
-    goog.asserts.assert(readersListElement);
-    goog.dom.append(
-        readersListElement,
-        goog.dom.createDom(
-            'li', undefined, makeReaderDescriptionString(reader)));
-  });
 }
 
 /**
@@ -175,9 +159,12 @@ function getUserSelectedDevicesCallback(devices) {
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  //loadDeviceList();
-  // chrome.usb.onDeviceAdded.addListener(usbDeviceAddedListener);
-  // chrome.usb.onDeviceRemoved.addListener(usbDeviceRemovedListener);
+  // TODO: Move logging into background script because this way it's only
+  //       working while the app window is opened.
+  loadDeviceList();
+  chrome.usb.onDeviceAdded.addListener(usbDeviceAddedListener);
+  chrome.usb.onDeviceRemoved.addListener(usbDeviceRemovedListener);
+
   readerTracker = GSC.PopupWindow.Client.getData()['readerTracker'];
   loadReaderList(readerTracker.getReaders());
   readerTracker.addOnUpdateListener(readerUpdatedListener);
