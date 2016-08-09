@@ -66,9 +66,8 @@ function loadDeviceList() {
   chrome.usb.getDevices({'filters': USB_DEVICE_FILTERS}, getDevicesCallback);
 }
 
-function loadReaderList() {
+function loadReaderList(readers) {
   logger.fine('Requesting available PC/SC card reader list...');
-  var readers = readerTracker.getReaders();
   logger.info(readers.length + ' card reader(s) available: ' +
               GSC.DebugDump.dump(readers));
   goog.dom.removeChildren(readersListElement);
@@ -84,8 +83,8 @@ function loadReaderList() {
   };
 }
 
-function readerUpdatedListener() {
-  loadReaderList();
+function readerUpdatedListener(readers) {
+  loadReaderList(readers);
 }
 
 /**
@@ -180,7 +179,7 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
   // chrome.usb.onDeviceAdded.addListener(usbDeviceAddedListener);
   // chrome.usb.onDeviceRemoved.addListener(usbDeviceRemovedListener);
   readerTracker = GSC.PopupWindow.Client.getData()['readerTracker'];
-  loadReaderList();
+  loadReaderList(readerTracker.getReaders());
   readerTracker.addOnUpdateListener(readerUpdatedListener);
 
   goog.events.listen(

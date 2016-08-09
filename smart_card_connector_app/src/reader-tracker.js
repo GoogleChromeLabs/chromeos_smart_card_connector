@@ -76,7 +76,7 @@ GSC.ReaderTracker = function(messageChannel, parentLogger) {
   this.readers_ = new goog.structs.Map;
 
   /**
-   * @type {!Array.<!function()>}
+   * @type {!Array.<!function(!Array.<!ReaderInfo>)>}
    * @private
    */
   this.onUpdateListeners_ = [];
@@ -156,8 +156,9 @@ ReaderTracker.prototype.addOnUpdateListener = function(listener) {
  */
 ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
   this.logger_.fine('Firing readers updated listeners');
+  var readers = this.getReaders();
   for (let listener of this.onUpdateListeners_) {
-    listener();
+    listener(readers);
   }
 };
 
