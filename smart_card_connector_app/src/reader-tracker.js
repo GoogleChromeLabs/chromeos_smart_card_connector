@@ -20,7 +20,6 @@
  * NaCl (check readerfactory_nacl.cc for more information).
  */
 
-goog.provide('GoogleSmartCard.ReaderInfo')
 goog.provide('GoogleSmartCard.ReaderTracker');
 
 goog.require('GoogleSmartCard.DebugDump');
@@ -40,19 +39,16 @@ var GSC = GoogleSmartCard;
 /**
  * Structure used to store information about the reader.
  * @param {string} name
- * @param {string=} status
+ * @param {string} status
  * @param {string=} error
  * @constructor
  * @struct
  */
-GSC.ReaderInfo = function(name, status, error) {
+var ReaderInfo = function(name, status, error) {
   this.name = name;
   this.status = status;
   this.error = error;
 };
-
-/** @const */
-var ReaderInfo = GSC.ReaderInfo;
 
 /**
  * This class tracks readers, provides methods to retrieve the list of readers
@@ -74,7 +70,7 @@ GSC.ReaderTracker = function(messageChannel, parentLogger) {
       'reader_remove', this.readerRemoveListener_.bind(this), true);
 
   /**
-   * @type {!goog.structs.Map.<string, !GSC.ReaderInfo>}
+   * @type {!goog.structs.Map.<string, !ReaderInfo>}
    * @private
    */
   this.readers_ = new goog.structs.Map;
