@@ -118,10 +118,6 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
       'readerFinishAddListener_ called for ' + name + ' (port ' + port +
       ', device ' + device + ') with return code ' + returnCode);
 
-  this.logger_.info('AddListener readers ' + GSC.DebugDump.dump(this.readers_));
-  this.logger_.info('AddListener 1 ' + port);
-  this.logger_.info('AddListener 2 ' + this.readers_.getKeys());
-
   // TODO(isandrk): Check what's wrong with this code, for some reason
   //     goog.object.containsKey(this.readers_, port) returns false.
   // GSC.Logging.checkWithLogger(
@@ -169,8 +165,9 @@ ReaderTracker.prototype.addOnUpdateListener = function(listener) {
  * @private
  */
 ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
-  this.logger_.fine('Firing readers updated listeners');
   var readers = this.getReaders();
+  this.logger_.fine('Firing readers updated listeners with data ' +
+                    GSC.DebugDump.dump(readers));
   for (let listener of this.onUpdateListeners_) {
     listener(readers);
   }
