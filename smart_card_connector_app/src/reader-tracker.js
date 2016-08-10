@@ -62,7 +62,6 @@ GSC.ReaderTracker = function(messageChannel, parentLogger) {
   /** @private */
   this.logger_ = parentLogger;
 
-  // TODO(isandrk): Add removeListener functionality.
   messageChannel.registerService(
       'reader_init_add', this.readerInitAddListener_.bind(this), true);
   messageChannel.registerService(
@@ -155,6 +154,17 @@ ReaderTracker.prototype.readerRemoveListener_ = function(message) {
 ReaderTracker.prototype.addOnUpdateListener = function(listener) {
   this.logger_.fine('Added an OnUpdateListener');
   this.onUpdateListeners_.push(listener);
+};
+
+/**
+ * @param {function(!Array.<!ReaderInfo>)} listener
+ */
+ReaderTracker.prototype.removeOnUpdateListener = function(listener) {
+  this.logger_.fine('Removed an OnUpdateListener');
+  var index = this.onUpdateListeners_.indexOf(listener);
+  if (index >= 0) {
+    this.onUpdateListeners_.splice(index, 1);
+  }
 };
 
 /**

@@ -167,6 +167,9 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
   readerTracker = GSC.PopupWindow.Client.getData()['readerTracker'];
   loadReaderList(readerTracker.getReaders());
   readerTracker.addOnUpdateListener(readerUpdatedListener);
+  chrome.app.window.current().onClosed.addListener(function() {
+    readerTracker.removeOnUpdateListener(readerUpdatedListener);
+  });
 
   goog.events.listen(
       addDeviceElement, goog.events.EventType.CLICK, addDeviceClickListener);
