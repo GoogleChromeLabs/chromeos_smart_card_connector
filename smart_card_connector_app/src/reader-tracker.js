@@ -88,9 +88,7 @@ GSC.ReaderTracker = function(messageChannel, parentLogger) {
 var ReaderTracker = GSC.ReaderTracker;
 
 /**
- * TODO: I need to figure out the param because the closure compiler complains
- *       about mismatched types, will do it at a later time.
- * param {Object|string} message
+ * @param {!Object|string} message
  * @private
  */
 ReaderTracker.prototype.readerInitAddListener_ = function(message) {
@@ -105,7 +103,7 @@ ReaderTracker.prototype.readerInitAddListener_ = function(message) {
 };
 
 /**
- * param {Object|string} message
+ * @param {!Object|string} message
  * @private
  */
 ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
@@ -130,7 +128,7 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
 };
 
 /**
- * param {Object|string} message
+ * @param {!Object|string} message
  * @private
  */
 ReaderTracker.prototype.readerRemoveListener_ = function(message) {
@@ -144,7 +142,7 @@ ReaderTracker.prototype.readerRemoveListener_ = function(message) {
 };
 
 /**
- * param {function()} listener
+ * @param {function(!Array.<!ReaderInfo>)} listener
  */
 ReaderTracker.prototype.addOnUpdateListener = function(listener) {
   this.logger_.fine('Added an OnUpdateListener');
@@ -162,6 +160,9 @@ ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
   }
 };
 
+/**
+ * @return {!Array.<!ReaderInfo>}
+ */
 ReaderTracker.prototype.getReaders = function() {
   return this.readers_.getValues();
 };

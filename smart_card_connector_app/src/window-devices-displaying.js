@@ -67,7 +67,6 @@ function loadDeviceList() {
 }
 
 function loadReaderList(readers) {
-  logger.fine('Requesting available PC/SC card reader list...');
   logger.info(readers.length + ' card reader(s) available: ' +
               GSC.DebugDump.dump(readers));
   goog.dom.removeChildren(readersListElement);
