@@ -158,8 +158,8 @@ function getUserSelectedDevicesCallback(devices) {
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  // TODO: Move logging into background script because this way it's only
-  //       working while the app window is opened.
+  // TODO(isandrk): Move logging into background script because this way it's
+  //     only working while the app window is opened.
   loadDeviceList();
   chrome.usb.onDeviceAdded.addListener(usbDeviceAddedListener);
   chrome.usb.onDeviceRemoved.addListener(usbDeviceRemovedListener);
