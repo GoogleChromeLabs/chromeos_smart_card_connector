@@ -92,11 +92,13 @@ var ReaderTracker = GSC.ReaderTracker;
  * @private
  */
 ReaderTracker.prototype.readerInitAddListener_ = function(message) {
-  this.logger_.warning('readerInitAddListener_ ' + message);
-
   var name = message['readerName'];
   var port = message['port'];
-  //var device = message['device'];
+  var device = message['device'];
+
+  this.logger_.info(
+      'readerInitAddListener_ called for ' + name + ' (port ' + port +
+      ', device ' + device + ')');
 
   this.readers_.set(port, new ReaderInfo(name, 'yellow'));
   this.fireOnUpdateListeners_();
@@ -107,14 +109,27 @@ ReaderTracker.prototype.readerInitAddListener_ = function(message) {
  * @private
  */
 ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
-  this.logger_.warning('readerFinishAddListener_ ' + message);
-
   var name = message['readerName'];
   var port = message['port'];
   var device = message['device'];
   var returnCode = message['returnCode'];
 
-  // TODO: Make sure that this reader had already been seen in readerInitAddListener_
+  this.logger_.info(
+      'readerFinishAddListener_ called for ' + name + ' (port ' + port +
+      ', device ' + device + ') with return code ' + returnCode);
+
+  this.logger_.info('AddListener readers ' + GSC.DebugDump.dump(this.readers_));
+  this.logger_.info('AddListener 1 ' + port);
+  this.logger_.info('AddListener 2 ' + this.readers_.getKeys());
+
+  // TODO(isandrk): Check what's wrong with this code, for some reason
+  //     goog.object.containsKey(this.readers_, port) returns false.
+  // GSC.Logging.checkWithLogger(
+  //     this.logger_,
+  //     goog.object.containsKey(this.readers_, port),
+  //     'readerFinishAddListener_ called on reader without prior call to ' +
+  //     'readerInitAddListener_');
+
   var value = new ReaderInfo(name, 'green');
 
   if (returnCode !== 0) {
@@ -132,10 +147,11 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
  * @private
  */
 ReaderTracker.prototype.readerRemoveListener_ = function(message) {
-  this.logger_.warning('readerRemoveListener_ ' + message);
-
   var name = message['readerName'];
   var port = message['port'];
+
+  this.logger_.info('readerRemoveListener_ called for ' + name +
+                    ' (port ' + port + ')');
 
   this.readers_.remove(port);
   this.fireOnUpdateListeners_();
