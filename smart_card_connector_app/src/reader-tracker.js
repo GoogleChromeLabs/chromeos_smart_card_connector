@@ -40,14 +40,14 @@ var GSC = GoogleSmartCard;
  * Structure used to store information about the reader.
  * @param {string} name
  * @param {string} status
- * @param {string=} error
+ * @param {string=} opt_error
  * @constructor
  * @struct
  */
-var ReaderInfo = function(name, status, error) {
+var ReaderInfo = function(name, status, opt_error) {
   this.name = name;
   this.status = status;
-  this.error = error;
+  this.error = opt_error;
 };
 
 /**
