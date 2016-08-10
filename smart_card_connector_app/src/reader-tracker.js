@@ -113,25 +113,20 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
   var port = message['port'];
   var device = message['device'];
   var returnCode = message['returnCode'];
-
-  this.logger_.info(
-      'readerFinishAddListener_ called for ' + name + ' (port ' + port +
-      ', device ' + device + ') with return code ' + returnCode);
-
-  // TODO(isandrk): Check what's wrong with this code, for some reason
-  //     goog.object.containsKey(this.readers_, port) returns false.
-  // GSC.Logging.checkWithLogger(
-  //     this.logger_,
-  //     goog.object.containsKey(this.readers_, port),
-  //     'readerFinishAddListener_ called on reader without prior call to ' +
-  //     'readerInitAddListener_');
+  var returnCodeHex = '0x' + (returnCode >>> 0).toString(16);
 
   var value = new ReaderInfo(name, 'green');
 
-  if (returnCode !== 0) {
+  var text =
+      'readerFinishAddListener_ called for ' + name + ' (port ' + port +
+      ', device ' + device + ') with return code ' + returnCodeHex;
+
+  if (returnCode === 0) {
+    this.logger_.info(text);
+  } else {
+    this.logger_.warning(text);
     value.status = 'red';
-    // TODO: Send an actual error message, and not just the error id.
-    value.error = returnCode;
+    value.error = returnCodeHex;
   }
 
   this.readers_.set(port, value);

@@ -75,10 +75,10 @@ function loadReaderList(readers) {
     GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
     goog.asserts.assert(readersListElement);
     var circle = goog.dom.createDom('div', 'circle ' + reader.status);
-    // TODO: Error will be displayed in a hover over the red circle.
-    var text = reader.name + ' [' + reader.error + ']';
-    goog.dom.append(
-        readersListElement, goog.dom.createDom('li', undefined, circle, text));
+    var title = reader.error ? {title: 'Reader error, code = ' + reader.error} :
+                               undefined;
+    goog.dom.append(readersListElement,
+                    goog.dom.createDom('li', title, circle, reader.name));
   };
 }
 
