@@ -26,11 +26,12 @@
 // This file contains a replacement function for the original readerfactory.c
 // PC/SC-Lite internal implementation.
 
+#include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/var.h>
 #include <ppapi/cpp/var_dictionary.h>
-#include <ppapi/cpp/instance.h>
-#include <ppapi/cpp/module.h>
+
 #include <google_smart_card_common/pp_var_utils/construction.h>
+#include <google_smart_card_pcsc_lite_server/global.h>
 
 extern "C" {
 #include "readerfactory.h"
@@ -40,9 +41,7 @@ LONG RFAddReaderServer(const char *readerNameLong, int port,
 LONG RFRemoveReaderServer(const char *readerName, int port);
 }
 
-#include <google_smart_card_common/logging/syslog/syslog.h>
-
-using namespace google_smart_card;
+namespace {
 
 const char kTypeMessageKey[] = "type";
 const char kDataMessageKey[] = "data";
@@ -54,29 +53,24 @@ const char kPortMessageKey[] = "port";
 const char kDeviceMessageKey[] = "device";
 const char kReturnCodeMessageKey[] = "returnCode";
 
-// TODO: This solution is dirty, do the proper one.
 void post_message(const char* type, const pp::VarDictionary& message_data)
 {
   pp::VarDictionary message;
   message.Set(kTypeMessageKey, type);
   message.Set(kDataMessageKey, message_data);
 
-  const pp::Module* const pp_module = pp::Module::Get();
-  if (pp_module) {
-    const pp::Module::InstanceMap pp_instance_map =
-        pp_module->current_instances();
-    for (const auto& instance_map_item : pp_instance_map) {
-      pp::Instance* const instance = instance_map_item.second;
-
-      if (instance) instance->PostMessage(message);
-    }
-  }
+  const google_smart_card::PPInstanceHolder* pp_instance_holder =
+      google_smart_card::GetGlobalPPInstanceHolder();
+  pp::Instance* const instance = pp_instance_holder->GetPPInstance();
+  instance->PostMessage(message);
 }
+
+}  // namespace
 
 LONG RFAddReader(const char *readerNameLong, int port, const char *library,
     const char *device)
 {
-  post_message(kReaderInitAddMessageType, VarDictBuilder()
+  post_message(kReaderInitAddMessageType, google_smart_card::VarDictBuilder()
       .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
       .Add(kDeviceMessageKey, device).Result());
 
@@ -84,13 +78,15 @@ LONG RFAddReader(const char *readerNameLong, int port, const char *library,
 
   // TODO: Testing code, to be removed at a later time (failing reader).
   if (std::string("SCM Microsystems Inc. SCR 3310") == readerNameLong) {
-    post_message(kReaderFinishAddMessageType, VarDictBuilder()
+    post_message(kReaderFinishAddMessageType,
+        google_smart_card::VarDictBuilder()
         .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
-        .Add(kDeviceMessageKey, device).Add(kReturnCodeMessageKey, SCARD_E_INVALID_VALUE).Result());
+        .Add(kDeviceMessageKey, device)
+        .Add(kReturnCodeMessageKey, SCARD_E_INVALID_VALUE).Result());
     return ret;
   }
 
-  post_message(kReaderFinishAddMessageType, VarDictBuilder()
+  post_message(kReaderFinishAddMessageType, google_smart_card::VarDictBuilder()
       .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
       .Add(kDeviceMessageKey, device).Add(kReturnCodeMessageKey, ret).Result());
 
@@ -99,7 +95,7 @@ LONG RFAddReader(const char *readerNameLong, int port, const char *library,
 
 LONG RFRemoveReader(const char *readerName, int port)
 {
-  post_message(kReaderRemoveMessageType, VarDictBuilder()
+  post_message(kReaderRemoveMessageType, google_smart_card::VarDictBuilder()
       .Add(kNameMessageKey, readerName).Add(kPortMessageKey, port).Result());
 
   return RFRemoveReaderServer(readerName, port);

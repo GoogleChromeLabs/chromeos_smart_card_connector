@@ -68,6 +68,8 @@ void PcscLiteServerDaemonThreadMain() {
   }
 }
 
+PPInstanceHolder* g_pp_instance_holder = nullptr;
+
 }  // namespace
 
 void InitializeAndRunPcscLiteServer() {
@@ -151,6 +153,26 @@ void InitializeAndRunPcscLiteServer() {
 
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initialization " <<
       "successfully finished.";
+}
+
+PPInstanceHolder::PPInstanceHolder(pp::Instance* pp_instance)
+      : pp_instance_(pp_instance) {
+  GOOGLE_SMART_CARD_CHECK(!g_pp_instance_holder);
+  g_pp_instance_holder = this;
+}
+
+PPInstanceHolder::~PPInstanceHolder() {
+  GOOGLE_SMART_CARD_CHECK(g_pp_instance_holder == this);
+  g_pp_instance_holder = nullptr;
+}
+
+pp::Instance* PPInstanceHolder::GetPPInstance() const {
+  return pp_instance_.get();
+}
+
+const PPInstanceHolder* GetGlobalPPInstanceHolder() {
+  GOOGLE_SMART_CARD_CHECK(g_pp_instance_holder);
+  return g_pp_instance_holder;
 }
 
 }  // namespace google_smart_card

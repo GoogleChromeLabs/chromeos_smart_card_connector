@@ -26,6 +26,8 @@
 #ifndef GOOGLE_SMART_CARD_PCSC_LITE_SERVER_GLOBAL_H_
 #define GOOGLE_SMART_CARD_PCSC_LITE_SERVER_GLOBAL_H_
 
+#include <ppapi/cpp/instance.h>
+
 namespace google_smart_card {
 
 // Performs all necessary PC/SC-Lite NaCl port initialization steps and starts
@@ -37,6 +39,18 @@ namespace google_smart_card {
 // Note that it is assumed that nacl_io and libusb NaCl port libraries have
 // already been initialized.
 void InitializeAndRunPcscLiteServer();
+
+class PPInstanceHolder final {
+ public:
+  PPInstanceHolder(pp::Instance* pp_instance);
+  ~PPInstanceHolder();
+  pp::Instance* GetPPInstance() const;
+
+ private:
+  std::unique_ptr<pp::Instance> pp_instance_;
+};
+
+const PPInstanceHolder* GetGlobalPPInstanceHolder();
 
 }  // namespace google_smart_card
 
