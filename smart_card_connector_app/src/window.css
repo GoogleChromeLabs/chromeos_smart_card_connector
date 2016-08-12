@@ -133,7 +133,7 @@ body {
   align-items: center;
 }
 
-.circle {
+.error-indicator {
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -141,14 +141,14 @@ body {
   margin-right: 4px;
 }
 
-.yellow {
+.color-init {
   background: yellow;
 }
 
-.red {
+.color-failure {
   background: red;
 }
 
-.green {
+.color-success {
   background: green;
 }

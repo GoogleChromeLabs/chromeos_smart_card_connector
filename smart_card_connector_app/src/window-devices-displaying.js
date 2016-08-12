@@ -74,11 +74,12 @@ function displayReaderList(readers) {
   for (let reader of readers) {
     GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
     goog.asserts.assert(readersListElement);
-    var circle = goog.dom.createDom('div', 'circle ' + reader.status);
+    var errorIndicator = goog.dom.createDom(
+        'div', 'error-indicator color-' + reader.status);
     var title = reader.error ? {title: 'Reader error, code = ' + reader.error} :
                                undefined;
-    goog.dom.append(readersListElement,
-                    goog.dom.createDom('li', title, circle, reader.name));
+    var element = goog.dom.createDom('li', title, errorIndicator, reader.name);
+    goog.dom.append(readersListElement, element);
   };
 }
 

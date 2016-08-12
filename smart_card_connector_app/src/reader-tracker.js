@@ -40,9 +40,19 @@ var READER_TRACKER_LOGGER_TITLE = 'ReaderTracker';
 var GSC = GoogleSmartCard;
 
 /**
+ * Enum for possible values of ReaderInfo status.
+ * @enum {string}
+ */
+var ReaderStatus = {
+  INIT: 'init',
+  SUCCESS: 'success',
+  FAILURE: 'failure'
+};
+
+/**
  * Structure used to store information about the reader.
  * @param {string} name
- * @param {string} status
+ * @param {ReaderStatus} status
  * @param {string=} opt_error
  * @constructor
  * @struct
@@ -104,7 +114,7 @@ ReaderTracker.prototype.readerInitAddListener_ = function(message) {
       'readerInitAddListener_ called for ' + name + ' (port ' + port +
       ', device ' + device + ')');
 
-  this.readers_.set(port, new ReaderInfo(name, 'yellow'));
+  this.readers_.set(port, new ReaderInfo(name, ReaderStatus.INIT));
   this.fireOnUpdateListeners_();
 };
 
@@ -119,7 +129,7 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
   var returnCode = message['returnCode'];
   var returnCodeHex = GSC.DebugDump.dump(returnCode);
 
-  var value = new ReaderInfo(name, 'green');
+  var value = new ReaderInfo(name, ReaderStatus.SUCCESS);
 
   var text =
       'readerFinishAddListener_ called for ' + name + ' (port ' + port +
@@ -129,7 +139,7 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
     this.logger_.info(text);
   } else {
     this.logger_.warning(text);
-    value.status = 'red';
+    value.status = ReaderStatus.FAILURE;
     value.error = returnCodeHex;
   }
 
