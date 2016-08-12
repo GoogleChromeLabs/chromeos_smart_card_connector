@@ -117,7 +117,7 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
   var port = message['port'];
   var device = message['device'];
   var returnCode = message['returnCode'];
-  var returnCodeHex = '0x' + (returnCode >>> 0).toString(16);
+  var returnCodeHex = GSC.DebugDump.dump(returnCode);
 
   var value = new ReaderInfo(name, 'green');
 
