@@ -34,6 +34,9 @@ goog.require('goog.structs.Map');
 goog.scope(function() {
 
 /** @const */
+var READER_TRACKER_LOGGER_TITLE = 'ReaderTracker';
+
+/** @const */
 var GSC = GoogleSmartCard;
 
 /**
@@ -60,7 +63,8 @@ var ReaderInfo = function(name, status, opt_error) {
  */
 GSC.ReaderTracker = function(messageChannel, parentLogger) {
   /** @private */
-  this.logger_ = parentLogger;
+  this.logger_ = GSC.Logging.getChildLogger(
+      parentLogger, READER_TRACKER_LOGGER_TITLE);
 
   messageChannel.registerService(
       'reader_init_add', this.readerInitAddListener_.bind(this), true);
