@@ -107,6 +107,7 @@ var ReaderTracker = GSC.ReaderTracker;
  */
 ReaderTracker.prototype.readerInitAddListener_ = function(message) {
   var name = message['readerName'];
+  // TODO(isandrk): Discuss @type annotation with emaxx live.
   var port = message['port'];
   var device = message['device'];
 
