@@ -47,6 +47,8 @@ class PPInstanceHolder final {
   pp::Instance* GetPPInstance() const;
 
  private:
+  // TODO(isandrk): Maybe unique_ptr is a bad choice since it free()'s the
+  //     memory afterwards (double free() problem). Discuss this with emaxx.
   std::unique_ptr<pp::Instance> pp_instance_;
 };
 
