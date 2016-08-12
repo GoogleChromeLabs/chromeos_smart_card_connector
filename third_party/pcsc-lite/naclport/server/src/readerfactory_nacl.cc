@@ -36,9 +36,9 @@
 extern "C" {
 #include "readerfactory.h"
 
-LONG RFAddReaderServer(const char *readerNameLong, int port,
+LONG RFAddReaderOriginal(const char *readerNameLong, int port,
     const char *library, const char *device);
-LONG RFRemoveReaderServer(const char *readerName, int port);
+LONG RFRemoveReaderOriginal(const char *readerName, int port);
 }
 
 namespace {
@@ -74,7 +74,7 @@ LONG RFAddReader(const char *readerNameLong, int port, const char *library,
       .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
       .Add(kDeviceMessageKey, device).Result());
 
-  LONG ret = RFAddReaderServer(readerNameLong, port, library, device);
+  LONG ret = RFAddReaderOriginal(readerNameLong, port, library, device);
 
   // TODO: Testing code, to be removed at a later time (failing reader).
   if (std::string("SCM Microsystems Inc. SCR 3310") == readerNameLong) {
@@ -98,5 +98,5 @@ LONG RFRemoveReader(const char *readerName, int port)
   post_message(kReaderRemoveMessageType, google_smart_card::VarDictBuilder()
       .Add(kNameMessageKey, readerName).Add(kPortMessageKey, port).Result());
 
-  return RFRemoveReaderServer(readerName, port);
+  return RFRemoveReaderOriginal(readerName, port);
 }
