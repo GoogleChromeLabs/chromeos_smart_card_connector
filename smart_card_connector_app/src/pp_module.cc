@@ -42,7 +42,7 @@ class PpInstance final : public pp::Instance {
       : pp::Instance(instance),
         libusb_over_chrome_usb_global_(new LibusbOverChromeUsbGlobal(
             &typed_message_router_, this, pp::Module::Get()->core())),
-        pp_instance_holder_(new PPInstanceHolder(this)) {
+        pp_instance_holder_(this) {
     StartServicesInitialization();
   }
 
@@ -86,7 +86,7 @@ class PpInstance final : public pp::Instance {
   std::unique_ptr<LibusbOverChromeUsbGlobal> libusb_over_chrome_usb_global_;
   std::unique_ptr<PcscLiteServerClientsManagementBackend>
   pcsc_lite_server_clients_management_backend_;
-  std::unique_ptr<PPInstanceHolder> pp_instance_holder_;
+  PPInstanceHolder pp_instance_holder_;
 };
 
 class PpModule final : public pp::Module {
