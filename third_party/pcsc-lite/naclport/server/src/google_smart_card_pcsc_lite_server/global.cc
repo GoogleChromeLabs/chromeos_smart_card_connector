@@ -39,6 +39,7 @@ extern "C" {
 #include "hotplug.h"
 #include "powermgt_generic.h"
 #include "readerfactory.h"
+#include "sys_generic.h"
 #include "winscard_svc.h"
 }
 
@@ -68,7 +69,8 @@ void PcscLiteServerDaemonThreadMain() {
     // to establish too many requests. Probably, some limitation should be
     // applied to all clients.
     GOOGLE_SMART_CARD_CHECK(
-        CreateContextThread(&server_socket_file_descriptor) == SCARD_S_SUCCESS);
+        ::CreateContextThread(&server_socket_file_descriptor) ==
+            SCARD_S_SUCCESS);
   }
 }
 
@@ -80,14 +82,16 @@ void InitializeAndRunPcscLiteServer() {
   SocketpairEmulationManager::CreateGlobalInstance();
   PcscLiteServerSocketsManager::CreateGlobalInstance();
 
+  ::SYS_InitRandom();
+
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Setting up PC/SC-Lite " <<
       "logging...";
-  DebugLogSetLogType(DEBUGLOG_SYSLOG_DEBUG);
+  ::DebugLogSetLogType(DEBUGLOG_SYSLOG_DEBUG);
 #ifdef NDEBUG
-  DebugLogSetLevel(PCSC_LOG_ERROR);
+  ::DebugLogSetLevel(PCSC_LOG_ERROR);
 #else
-  DebugLogSetLevel(PCSC_LOG_DEBUG);
-  DebugLogSetCategory(DEBUG_CATEGORY_APDU | DEBUG_CATEGORY_SW);
+  ::DebugLogSetLevel(PCSC_LOG_DEBUG);
+  ::DebugLogSetCategory(DEBUG_CATEGORY_APDU | DEBUG_CATEGORY_SW);
 #endif
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "PC/SC-Lite logging was " <<
       "set up.";
@@ -96,15 +100,15 @@ void InitializeAndRunPcscLiteServer() {
 
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Allocating reader " <<
       "structures...";
-  return_code = RFAllocateReaderSpace(0);
+  return_code = ::RFAllocateReaderSpace(0);
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Reader structures " <<
       "allocation finished with the following result: \"" <<
-      pcsc_stringify_error(return_code) << "\".";
+      ::pcsc_stringify_error(return_code) << "\".";
   GOOGLE_SMART_CARD_CHECK(return_code == SCARD_S_SUCCESS);
 
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Performing initial hot " <<
       "plug drivers search...";
-  return_code = HPSearchHotPluggables();
+  return_code = ::HPSearchHotPluggables();
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initial hot plug " <<
       "drivers search finished with the following result code: " <<
       return_code << ".";
@@ -119,7 +123,7 @@ void InitializeAndRunPcscLiteServer() {
   // <https://developer.chrome.com/apps/usb#Events>) and using them in a
   // replacement implementation of the currently used original hotplug_libusb.c
   // source file.
-  return_code = HPRegisterForHotplugEvents();
+  return_code = ::HPRegisterForHotplugEvents();
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Registering for hot " <<
       "plug events finished with the following result code: " << return_code <<
       ".";
@@ -127,7 +131,7 @@ void InitializeAndRunPcscLiteServer() {
 
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Allocating client " <<
       "structures...";
-  return_code = ContextsInitialize(0, 0);
+  return_code = ::ContextsInitialize(0, 0);
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Client structures " <<
       "allocation finished with the following result code: " << return_code <<
       "...";
@@ -135,13 +139,13 @@ void InitializeAndRunPcscLiteServer() {
 
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Waiting for the readers " <<
       "initialization...";
-  RFWaitForReaderInit();
+  ::RFWaitForReaderInit();
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Waiting for the readers " <<
       "initialization finished.";
 
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Registering for power " <<
       "events...";
-  return_code = PMRegisterForPowerEvents();
+  return_code = ::PMRegisterForPowerEvents();
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Registering for power " <<
       "events finished with the following result code: " << return_code << ".";
   GOOGLE_SMART_CARD_CHECK(return_code == 0);
