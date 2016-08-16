@@ -76,16 +76,6 @@ LONG RFAddReader(const char *readerNameLong, int port, const char *library,
 
   LONG ret = RFAddReaderOriginal(readerNameLong, port, library, device);
 
-  // TODO: Testing code, to be removed at a later time (failing reader).
-  if (std::string("SCM Microsystems Inc. SCR 3310") == readerNameLong) {
-    post_message(kReaderFinishAddMessageType,
-        google_smart_card::VarDictBuilder()
-        .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
-        .Add(kDeviceMessageKey, device)
-        .Add(kReturnCodeMessageKey, SCARD_E_INVALID_VALUE).Result());
-    return ret;
-  }
-
   post_message(kReaderFinishAddMessageType, google_smart_card::VarDictBuilder()
       .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
       .Add(kDeviceMessageKey, device).Add(kReturnCodeMessageKey, ret).Result());
