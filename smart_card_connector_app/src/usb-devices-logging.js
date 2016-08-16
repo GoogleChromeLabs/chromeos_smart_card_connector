@@ -101,7 +101,4 @@ GSC.ConnectorApp.setupUsbDevicesLogging = function() {
   chrome.usb.onDeviceRemoved.addListener(usbDeviceRemovedListener);
 };
 
-// goog.exportSymbol('GoogleSmartCard.ConnectorApp.setupUsbDevicesLogging',
-//                   setupUsbDevicesLogging);
-
 });  // goog.scope
