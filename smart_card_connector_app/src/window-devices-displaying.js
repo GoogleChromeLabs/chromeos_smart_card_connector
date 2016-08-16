@@ -24,7 +24,6 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.ReaderTracker');
-goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.events.EventType');
@@ -61,11 +60,6 @@ var addDeviceElement = goog.dom.getElement('add-device');
  */
 var readerTracker;
 
-function loadDeviceList() {
-  logger.fine('Requesting available USB devices list...');
-  chrome.usb.getDevices({'filters': USB_DEVICE_FILTERS}, getDevicesCallback);
-}
-
 function displayReaderList(readers) {
   logger.info(readers.length + ' card reader(s) available: ' +
               GSC.DebugDump.dump(readers));
@@ -90,23 +84,6 @@ function readerUpdatedListener(readers) {
 }
 
 /**
- * @param {!chrome.usb.Device} device
- */
-function usbDeviceAddedListener(device) {
-  logger.fine('A USB device was added: ' + makeReaderDescriptionString(device));
-  loadDeviceList();
-}
-
-/**
- * @param {!chrome.usb.Device} device
- */
-function usbDeviceRemovedListener(device) {
-  logger.fine(
-      'A USB device was removed: ' + makeReaderDescriptionString(device));
-  loadDeviceList();
-}
-
-/**
  * @param {!Event} e
  */
 function addDeviceClickListener(e) {
@@ -121,52 +98,12 @@ function addDeviceClickListener(e) {
 /**
  * @param {!Array.<!chrome.usb.Device>} devices
  */
-function getDevicesCallback(devices) {
-  goog.array.sortByKey(devices, function(device) { return device.device; });
-
-  logger.info(devices.length + ' USB device(s) available: ' +
-              GSC.DebugDump.dump(devices));
-}
-
-/**
- * @param {!chrome.usb.Device} reader
- * @return {string}
- */
-function makeReaderDescriptionString(reader) {
-  var parts = [];
-
-  if (reader.productName) {
-    parts.push(chrome.i18n.getMessage(
-        'readerDescriptionProductNamePart', reader.productName));
-  } else {
-    parts.push(chrome.i18n.getMessage(
-        'readerDescriptionProductNamePartUnknown'));
-  }
-
-  if (reader.manufacturerName) {
-    parts.push(chrome.i18n.getMessage(
-        'readerDescriptionManufacturerNamePart', reader.manufacturerName));
-  }
-
-  return parts.join(' ');
-}
-
-/**
- * @param {!Array.<!chrome.usb.Device>} devices
- */
 function getUserSelectedDevicesCallback(devices) {
   logger.fine('USB selection dialog finished, ' + devices.length + ' devices ' +
               'were chosen');
-  loadDeviceList();
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  // TODO(isandrk): Move logging into background script because this way it's
-  //     only working while the app window is opened.
-  loadDeviceList();
-  chrome.usb.onDeviceAdded.addListener(usbDeviceAddedListener);
-  chrome.usb.onDeviceRemoved.addListener(usbDeviceRemovedListener);
-
   readerTracker = GSC.PopupWindow.Client.getData()['readerTracker'];
   displayReaderList(readerTracker.getReaders());
   readerTracker.addOnUpdateListener(readerUpdatedListener);

@@ -16,6 +16,7 @@
 
 goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 
+goog.require('GoogleSmartCard.ConnectorApp.setupUsbDevicesLogging');
 goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingCommon');
@@ -84,6 +85,8 @@ chrome.runtime.onConnectExternal.addListener(externalConnectionListener);
 chrome.runtime.onMessageExternal.addListener(externalMessageListener);
 
 chrome.runtime.onInstalled.addListener(installedListener);
+
+GSC.ConnectorApp.setupUsbDevicesLogging();
 
 function naclModuleDisposedListener() {
   GSC.Logging.failWithLogger(logger, 'Server NaCl module was disposed of');
