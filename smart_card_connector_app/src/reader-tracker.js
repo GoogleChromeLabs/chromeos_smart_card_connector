@@ -105,9 +105,11 @@ var ReaderTracker = GSC.ReaderTracker;
  * @private
  */
 ReaderTracker.prototype.readerInitAddListener_ = function(message) {
+  /** @type {string} */
   var name = message['readerName'];
-  // TODO(isandrk): Discuss @type annotation with emaxx live.
+  /** @type {number} */
   var port = message['port'];
+  /** @type {string} */
   var device = message['device'];
 
   this.logger_.info(
@@ -123,10 +125,15 @@ ReaderTracker.prototype.readerInitAddListener_ = function(message) {
  * @private
  */
 ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
+  /** @type {string} */
   var name = message['readerName'];
+  /** @type {number} */
   var port = message['port'];
+  /** @type {string} */
   var device = message['device'];
+  /** @type {number} */
   var returnCode = message['returnCode'];
+  /** @type {string} */
   var returnCodeHex = GSC.DebugDump.dump(returnCode);
 
   var value = new ReaderInfo(name, ReaderStatus.SUCCESS);
@@ -152,7 +159,9 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
  * @private
  */
 ReaderTracker.prototype.readerRemoveListener_ = function(message) {
+  /** @type {string} */
   var name = message['readerName'];
+  /** @type {number} */
   var port = message['port'];
 
   this.logger_.info('readerRemoveListener_ called for ' + name +
