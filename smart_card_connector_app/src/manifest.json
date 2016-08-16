@@ -3,7 +3,7 @@
   "name": "__MSG_appName__",
   "short_name": "__MSG_appShortName__",
   "description": "__MSG_appDesc__",
-  "version": "1.0.7.0",
+  "version": "1.0.8.0",
   "app": {
     "background": {
       "persistent": false,
