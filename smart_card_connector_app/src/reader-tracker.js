@@ -55,12 +55,11 @@ var ReaderStatus = {
  * @param {ReaderStatus} status
  * @param {string=} opt_error
  * @constructor
- * @struct
  */
 var ReaderInfo = function(name, status, opt_error) {
-  this.name = name;
-  this.status = status;
-  this.error = opt_error;
+  this['name'] = this.name = name;
+  this['status'] = this.status = status;
+  this['error'] = this.error = opt_error;
 };
 
 /**
@@ -84,7 +83,7 @@ GSC.ReaderTracker = function(messageChannel, parentLogger) {
       'reader_remove', this.readerRemoveListener_.bind(this), true);
 
   /**
-   * @type {!goog.structs.Map.<string, !ReaderInfo>}
+   * @type {!goog.structs.Map.<number, !ReaderInfo>}
    * @private
    */
   this.readers_ = new goog.structs.Map;
