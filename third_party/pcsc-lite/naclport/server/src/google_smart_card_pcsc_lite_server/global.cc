@@ -166,6 +166,10 @@ PPInstanceHolder::~PPInstanceHolder() {
   g_pp_instance_holder = nullptr;
 }
 
+// TODO(isandrk): This level of access to pp_instance is too wide, reduce it
+//     to only the needed functions (AddReader/RemoveReader). Rename class to
+//     something more fitting. Incorporate other code from above and consider
+//     the problem of thread safety.
 pp::Instance* PPInstanceHolder::GetPPInstance() const {
   return pp_instance_.get();
 }

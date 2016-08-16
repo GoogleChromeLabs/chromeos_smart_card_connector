@@ -83,6 +83,8 @@ LONG RFAddReader(const char *readerNameLong, int port, const char *library,
   return ret;
 }
 
+// TODO(isandrk): This function (hook) is sometimes not called because of how
+//     the hook is set up, but that's fine. Write a better explanation.
 LONG RFRemoveReader(const char *readerName, int port)
 {
   post_message(kReaderRemoveMessageType, google_smart_card::VarDictBuilder()
