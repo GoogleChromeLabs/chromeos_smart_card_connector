@@ -171,7 +171,7 @@ PPInstanceHolder::~PPInstanceHolder() {
 //     something more fitting. Incorporate other code from above and consider
 //     the problem of thread safety.
 pp::Instance* PPInstanceHolder::GetPPInstance() const {
-  return pp_instance_.get();
+  return pp_instance_;
 }
 
 const PPInstanceHolder* GetGlobalPPInstanceHolder() {
