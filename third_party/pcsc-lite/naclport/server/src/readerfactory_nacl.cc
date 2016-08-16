@@ -83,8 +83,11 @@ LONG RFAddReader(const char *readerNameLong, int port, const char *library,
   return ret;
 }
 
-// TODO(isandrk): This function (hook) is sometimes not called because of how
-//     the hook is set up, but that's fine. Write a better explanation.
+// This function is the hook function for the original one. The hook works via
+// the #define trick (passed as an argument to the compiler via command line),
+// so it actually works when the function is called from outside the file where
+// it is defined, but not from inside (readerfactory). Sometimes it may get
+// called from the inside, and that call won't be intercepted, but that is fine.
 LONG RFRemoveReader(const char *readerName, int port)
 {
   post_message(kReaderRemoveMessageType, google_smart_card::VarDictBuilder()
