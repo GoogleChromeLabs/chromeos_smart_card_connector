@@ -38,24 +38,12 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <sys/wait.h>
 #include <sys/time.h>
-#include <sys/file.h>
-#include <fcntl.h>
-#include <errno.h>
-#include <unistd.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <signal.h>
 #include <time.h>
 
 #include "misc.h"
 #include "sys_generic.h"
-#include "debuglog.h"
 
 /**
  * @brief Makes the current process sleep for some seconds.
@@ -96,16 +84,17 @@ INTERNAL int SYS_USleep(int iTimeVal)
 #endif
 }
 
+/**
+ * Generate a pseudo random number
+ *
+ * @param[in] fStart minimal value
+ * @param[in] fEnd maximal value or -1 for a full range
+ *
+ * @return a random number between fStart and fEnd
+ */
 INTERNAL int SYS_RandomInt(int fStart, int fEnd)
 {
-	static int iInitialized = 0;
 	int iRandNum = 0;
-
-	if (0 == iInitialized)
-	{
-		srand(SYS_GetSeed());
-		iInitialized = 1;
-	}
 
 	if (-1 == fEnd)
 		/* full int range */
@@ -116,7 +105,10 @@ INTERNAL int SYS_RandomInt(int fStart, int fEnd)
 	return iRandNum;
 }
 
-INTERNAL int SYS_GetSeed(void)
+/**
+ * Initialize the random generator
+ */
+INTERNAL void SYS_InitRandom(void)
 {
 	struct timeval tv;
 	struct timezone tz;
@@ -131,6 +123,7 @@ INTERNAL int SYS_GetSeed(void)
 	{
 		myseed = (long) time(NULL);
 	}
-	return myseed;
+
+	srand(myseed);
 }
 

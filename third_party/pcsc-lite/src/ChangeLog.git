@@ -1,4 +1,241 @@
-commit f74dc1feea4c7a2345abb3e1861b350d46946c86 (HEAD -> master, tag: pcsc-1.8.17, origin/master, origin/HEAD)
+commit 12ed49c6130da8e0365db02b289feb99b54d1d96 (HEAD -> master, tag: pcsc-1.8.18, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 10 20:33:07 2016 +0200
+
+    Release 1.8.18
+
+ ChangeLog    | 9 +++++++++
+ configure.ac | 2 +-
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+commit daae836ffc4a8ac0199a1aa16a0282806cbd4af4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Aug 5 16:44:51 2016 +0200
+
+    SCardDisconnect(): fix compiler warnings
+    
+    winscard.c: In function ‘SCardDisconnect’:
+    winscard.c:912:5: warning: format ‘%d’ expects argument of type ‘int’, but argument 6 has type ‘LONG’ [-Wformat=]
+         Log3(PCSC_LOG_ERROR, "Error powering down card: %d 0x%04X",
+         ^
+    winscard.c:912:5: warning: format ‘%X’ expects argument of type ‘unsigned int’, but argument 7 has type ‘LONG’ [-Wformat=]
+
+ src/winscard.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit b25f2d5a3822b9eed4f64f3052e54230af292af2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Aug 5 16:23:20 2016 +0200
+
+    SCardDisconnect(): much faster SCARD_UNPOWER_CARD
+    
+    When SCardDisconnect() is used with SCARD_UNPOWER_CARD we just power
+    down the card and do not power it up again.
+    
+    The idea is to be faster and gain some milliseconds.
+    The code to power up the card on demand was already present since 2010
+    with the card auto power on and off mechanism.
+    
+    Before the change: SCardDisconnect(SCARD_UNPOWER_CARD) in 61 ms
+    After the change: SCardDisconnect(SCARD_UNPOWER_CARD) in 1.4 ms
+    
+    Improvement factor (for the card used) = 61/1.4 = x44
+    
+    If you use a card that is slower to power up then the gain is even higher.
+    
+    Thanks to Christophe Ferrando from Sylyca for the patch.
+
+ src/winscard.c | 22 +---------------------
+ 1 file changed, 1 insertion(+), 21 deletions(-)
+
+commit a8358bc84be4c8870cb4955f4e106f4d46740cfd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Aug 5 16:16:13 2016 +0200
+
+    SCardConnect(): do not use a local readerState
+    
+    We do want to change the value of rContext->readerState->readerState after
+    the power up, not just the value of the local copy.
+    
+    I am not sure the code was broken but it will help make the next patch
+    work.
+
+ src/winscard.c | 9 +++------
+ 1 file changed, 3 insertions(+), 6 deletions(-)
+
+commit 7084732383a7d97caf50350b4b0b95d9c22f42ee
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 4 11:46:24 2016 +0200
+
+    cleanup: remove unused function from configure.ac
+    
+    Some system functions presence where tested using AC_CHECK_FUNCS() but
+    the functions were no more used in the code.
+
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 4882c37ab7df63be7090addf936e1b795467ab75
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 4 11:43:59 2016 +0200
+
+    cleanup: remove unused headers from sys_unix.c
+
+ src/sys_unix.c | 12 ------------
+ 1 file changed, 12 deletions(-)
+
+commit 3a4134432613e73baa8cbe2206f4e2a365c356ca
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 4 11:39:51 2016 +0200
+
+    Doxygen: add documentation for SYS_RandomInt()
+
+ src/sys_unix.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+commit d62561e1baaaa2a1138caf243994aef09931bfcd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 4 11:31:15 2016 +0200
+
+    cleanup: remove declaration of SYS_Daemon()
+    
+    SYS_Daemon() code was removed in 12f1f0e4ff330bacc28254519293bf0e3e1fd047
+    (June 2010) but its declaration was still present in sys_generic.h
+
+ src/sys_generic.h | 2 --
+ 1 file changed, 2 deletions(-)
+
+commit 8e820796b338cb1048c51ec462446f61a3979835
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 4 11:29:49 2016 +0200
+
+    main(): Init the PRNG from a safe place
+    
+    The PRNG init is now done before any client can connect to the daemon.
+    
+    Thanks to Maksim Ivanov for the idea
+    "[Pcsclite-muscle] Possible generation of duplicate SCARDHANDLE"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20160801/000686.html
+
+ src/pcscdaemon.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 8b80aa4900cd60ab075802bdcc5a996027d0c74e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 4 11:23:37 2016 +0200
+
+    SYS_InitRandom(): new function to init the PRNG
+    
+    The Pseudo Random Number Generator now has an independent function to
+    initialize its internal state.
+    
+    The PRNG init was done in the first call to SYS_RandomInt().
+    A problem could appear when SYS_RandomInt() is called for the first time
+    at the same time from 2 clients.
+    
+    Thanks to Maksim Ivanov for the idea
+    "[Pcsclite-muscle] Possible generation of duplicate SCARDHANDLE"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20160801/000686.html
+
+ src/sys_generic.h |  2 +-
+ src/sys_unix.c    | 15 ++++++---------
+ 2 files changed, 7 insertions(+), 10 deletions(-)
+
+commit bb07a905c896e7a67e3d7b37a24b3637ada0546d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 4 11:00:04 2016 +0200
+
+    SCardConnect(): Fix a possible duplicated hCard context
+    
+    It was possible for 2 applications to call SCardConnect() at the same
+    time and that the same random hCard handle is generated and used for
+    the 2 applications.
+    
+    The solution is to serialize the 2 generations of hCard handles. The
+    second randomly generated handle will be found as already used and
+    another handle will be generated.
+    
+    Thanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Possible generation of duplicate SCARDHANDLE"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20160801/000673.html
+
+ src/winscard.c | 10 ++++++++++
+ 1 file changed, 10 insertions(+)
+
+commit e34065edb88c14e16248e1c266d2f499a6476935
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 30 16:56:15 2016 +0200
+
+    FEATURE_GET_TLV_PROPERTIES.py: update copyright date
+
+ UnitaryTests/FEATURE_GET_TLV_PROPERTIES.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 8bdfcd57dfcf9c062a3ab99a859acdcb7cd2db5a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 30 16:55:39 2016 +0200
+
+    FEATURE_GET_TLV_PROPERTIES.py: for each reader
+    
+    Display the properties for each connected reader.
+
+ UnitaryTests/FEATURE_GET_TLV_PROPERTIES.py | 30 +++++++++++++++++-------------
+ 1 file changed, 17 insertions(+), 13 deletions(-)
+
+commit b136ffd7e2cf543184504c7e14f90036b0275643
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 30 16:53:15 2016 +0200
+
+    FEATURE_GET_TLV_PROPERTIES.py: remove extra import
+    
+    Do not import symbols not used.
+
+ UnitaryTests/FEATURE_GET_TLV_PROPERTIES.py | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+commit e78449ce37f453516e46d78ad0b99e01db32727b (github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 17 22:21:01 2016 +0200
+
+    ThreadCreate(): fix stack size on Solaris
+    
+    A stack_size of 0 indicates the default size on Solaris.
+    The default size is 2 MB so more than 256 KB. Do not shrink it.
+    
+    Thanks to Ivo Raisr for the bug report.
+
+ src/utils.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+commit d707446143114f579e78e5d652946f142e28847a
+Author: Richard PALO <richard@NetBSD.org>
+Date:   Wed Jun 1 07:15:22 2016 +0200
+
+    configfile.l: Fix issue on SunOS
+    
+    Update HAVE_STRUCT_DIRENT guard.
+    The previous patch fa52ae4e1f1ae3c35596e9aedaa3ce30fc5ceef9 was not
+    correct.
+
+ src/configfile.l | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit ab23479d27d32d0b62c609997e14c38fef6e5928
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue May 31 20:17:10 2016 +0200
+
+    Fix compilation on FreeBSD: alloca.h does not exist
+    
+    On FreeBSD alloca.h does not exist and alloca(3) is declared in
+    stdlib.h (already included by src/readerfactory.c).
+    
+    Thanks to Tilman Keskinoz for the bug report.
+
+ configure.ac        | 2 +-
+ src/readerfactory.c | 4 +++-
+ 2 files changed, 4 insertions(+), 2 deletions(-)
+
+commit f74dc1feea4c7a2345abb3e1861b350d46946c86 (tag: pcsc-1.8.17)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun May 29 14:11:21 2016 +0200
 
@@ -379,7 +616,7 @@ Date:   Thu Mar 31 11:42:39 2016 +0200
  src/winscard_clnt.c | 17 +++++++++++++----
  1 file changed, 13 insertions(+), 4 deletions(-)
 
-commit 55fa57fc691b732535fc3384a214b1daa133a127 (tag: pcsc-1.8.16, github/master)
+commit 55fa57fc691b732535fc3384a214b1daa133a127 (tag: pcsc-1.8.16)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Mar 20 16:57:30 2016 +0100
 

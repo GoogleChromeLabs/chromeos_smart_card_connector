@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 
-AC_INIT([pcsc-lite],[1.8.17])
+AC_INIT([pcsc-lite],[1.8.18])
 AC_CONFIG_SRCDIR(src/pcscdaemon.c)
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip)
 AC_CONFIG_HEADERS([config.h])
@@ -94,7 +94,7 @@ LT_INIT
 # Checks for header files
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS([getopt.h sys/filio.h syslog.h dl.h fcntl.h ])
+AC_CHECK_HEADERS([getopt.h sys/filio.h syslog.h dl.h fcntl.h alloca.h])
 
 # Checks for typedefs, structures, and compiler characteristics
 AC_C_CONST
@@ -107,7 +107,7 @@ AC_STRUCT_DIRENT_D_TYPE
 AC_FUNC_ERROR_AT_LINE
 AC_FUNC_STAT
 AC_FUNC_VPRINTF
-AC_CHECK_FUNCS(daemon flock getopt_long nanosleep strerror vsnprintf)
+AC_CHECK_FUNCS(getopt_long nanosleep strerror vsnprintf)
 AC_FUNC_ALLOCA
 
 # C Compiler features

@@ -24,9 +24,6 @@
    */
 #undef HAVE_ALLOCA_H
 
-/* Define to 1 if you have the `daemon' function. */
-#undef HAVE_DAEMON
-
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
 #undef HAVE_DIRENT_H
@@ -42,9 +39,6 @@
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
-
-/* Define to 1 if you have the `flock' function. */
-#undef HAVE_FLOCK
 
 /* Define to 1 if you have the <getopt.h> header file. */
 #undef HAVE_GETOPT_H

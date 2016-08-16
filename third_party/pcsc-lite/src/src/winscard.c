@@ -234,7 +234,6 @@ LONG SCardConnect(/*@unused@*/ SCARDCONTEXT hContext, LPCSTR szReader,
 {
 	LONG rv;
 	READER_CONTEXT * rContext = NULL;
-	uint32_t readerState;
 
 	(void)hContext;
 	PROFILE_START
@@ -303,11 +302,9 @@ LONG SCardConnect(/*@unused@*/ SCARDCONTEXT hContext, LPCSTR szReader,
 	 * presence of a card or not
 	 *
 	 *******************************************/
-	readerState = rContext->readerState->readerState;
-
 	if (dwShareMode != SCARD_SHARE_DIRECT)
 	{
-		if (!(readerState & SCARD_PRESENT))
+		if (!(rContext->readerState->readerState & SCARD_PRESENT))
 		{
 			Log1(PCSC_LOG_DEBUG, "Card Not Inserted");
 			rv = SCARD_E_NO_SMARTCARD;
@@ -327,7 +324,7 @@ LONG SCardConnect(/*@unused@*/ SCARDCONTEXT hContext, LPCSTR szReader,
 
 			if (rv == IFD_SUCCESS)
 			{
-				readerState = SCARD_PRESENT | SCARD_POWERED | SCARD_NEGOTIABLE;
+				rContext->readerState->readerState = SCARD_PRESENT | SCARD_POWERED | SCARD_NEGOTIABLE;
 
 				Log1(PCSC_LOG_DEBUG, "power up complete.");
 				LogXxd(PCSC_LOG_DEBUG, "Card ATR: ",
@@ -339,7 +336,7 @@ LONG SCardConnect(/*@unused@*/ SCARDCONTEXT hContext, LPCSTR szReader,
 					rv, rv);
 		}
 
-		if (! (readerState & SCARD_POWERED))
+		if (! (rContext->readerState->readerState & SCARD_POWERED))
 		{
 			Log1(PCSC_LOG_ERROR, "Card Not Powered");
 			(void)pthread_mutex_unlock(&rContext->powerState_lock);
@@ -890,39 +887,29 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 		 */
 		(void)RFSetReaderEventState(rContext, SCARD_RESET);
 
-		/*
-		 * Currently pcsc-lite keeps the card powered constantly
-		 * unless DISABLE_AUTO_POWER_ON is defined
-		 */
 		dwAtrLen = sizeof(rContext->readerState->cardAtr);
 		if (SCARD_RESET_CARD == dwDisposition)
 			rv = IFDPowerICC(rContext, IFD_RESET,
 				rContext->readerState->cardAtr, &dwAtrLen);
 		else
 		{
+			/* SCARD_UNPOWER_CARD */
 			IFDPowerICC(rContext, IFD_POWER_DOWN, NULL, NULL);
 
-#ifdef DISABLE_AUTO_POWER_ON
 			rContext->powerState = POWER_STATE_UNPOWERED;
 			Log1(PCSC_LOG_DEBUG, "powerState: POWER_STATE_UNPOWERED");
-#else
-			rv = IFDPowerICC(rContext, IFD_POWER_UP,
-				rContext->readerState->cardAtr, &dwAtrLen);
-#endif
 		}
 
 		/* the protocol is unset after a power on */
 		rContext->readerState->cardProtocol = SCARD_PROTOCOL_UNDEFINED;
 
-#ifdef DISABLE_AUTO_POWER_ON
 		if (SCARD_UNPOWER_CARD == dwDisposition)
 		{
-			rContext->readerState->cardAtrLength = 0;
 			if (rv == SCARD_S_SUCCESS)
 				rContext->readerState->readerState = SCARD_PRESENT;
 			else
 			{
-				Log3(PCSC_LOG_ERROR, "Error powering down card: %d 0x%04X",
+				Log3(PCSC_LOG_ERROR, "Error powering down card: %ld 0x%04lX",
 					rv, rv);
 				if (rv == SCARD_W_REMOVED_CARD)
 					rContext->readerState->readerState = SCARD_ABSENT;
@@ -930,10 +917,8 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 					rContext->readerState->readerState =
 						SCARD_PRESENT | SCARD_SWALLOWED;
 			}
-			Log1(PCSC_LOG_INFO, "Skip card power on");
 		}
 		else
-#endif
 		{
 			/*
 			 * Set up the status bit masks on readerState
@@ -1035,16 +1020,8 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 		 * powered */
 		if (POWER_STATE_POWERED <= rContext->powerState)
 		{
-#ifdef DISABLE_AUTO_POWER_ON
-			if (SCARD_RESET_CARD == dwDisposition)
-			{
-				rContext->powerState = POWER_STATE_GRACE_PERIOD;
-				Log1(PCSC_LOG_DEBUG, "powerState: POWER_STATE_GRACE_PERIOD");
-			}
-#else
 			rContext->powerState = POWER_STATE_GRACE_PERIOD;
 			Log1(PCSC_LOG_DEBUG, "powerState: POWER_STATE_GRACE_PERIOD");
-#endif
 		}
 
 		(void)pthread_mutex_unlock(&rContext->powerState_lock);
