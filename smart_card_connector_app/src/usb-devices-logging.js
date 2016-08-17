@@ -29,9 +29,6 @@ goog.require('goog.log.Logger');
 goog.scope(function() {
 
 /** @const */
-var USB_DEVICE_FILTERS = [{'interfaceClass': 0x0B}];
-
-/** @const */
 var GSC = GoogleSmartCard;
 
 /**
@@ -42,7 +39,7 @@ var logger = GSC.Logging.getScopedLogger('ConnectorApp.UsbDevicesLogging');
 
 function loadDeviceList() {
   logger.fine('Requesting available USB devices list...');
-  chrome.usb.getDevices({'filters': USB_DEVICE_FILTERS}, getDevicesCallback);
+  chrome.usb.getDevices({}, getDevicesCallback);
 }
 
 /**
