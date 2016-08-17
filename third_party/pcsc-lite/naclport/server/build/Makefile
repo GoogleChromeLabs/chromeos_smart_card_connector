@@ -197,6 +197,7 @@ SOURCES := \
 	$(PCSC_LITE_SERVER_SVC_SOURCES) \
 	$(PCSC_LITE_CLIENT_SOURCES) \
 	$(PCSC_LITE_SERVER_NACL_SOURCES) \
+	$(PCSC_LITE_SERVER_READERFACTORY_SOURCES) \
 
 # Rules for adding a dependency on the installation of the separate libraries'
 # headers

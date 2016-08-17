@@ -36,9 +36,9 @@
 extern "C" {
 #include "readerfactory.h"
 
-LONG RFAddReaderOriginal(const char *readerNameLong, int port,
-    const char *library, const char *device);
-LONG RFRemoveReaderOriginal(const char *readerName, int port);
+LONG RFAddReaderOriginal(const char* reader_name, int port,
+    const char* library, const char* device);
+LONG RFRemoveReaderOriginal(const char* reader_name, int port);
 }
 
 namespace {
@@ -53,8 +53,7 @@ const char kPortMessageKey[] = "port";
 const char kDeviceMessageKey[] = "device";
 const char kReturnCodeMessageKey[] = "returnCode";
 
-void post_message(const char* type, const pp::VarDictionary& message_data)
-{
+void post_message(const char* type, const pp::VarDictionary& message_data) {
   pp::VarDictionary message;
   message.Set(kTypeMessageKey, type);
   message.Set(kDataMessageKey, message_data);
@@ -67,17 +66,16 @@ void post_message(const char* type, const pp::VarDictionary& message_data)
 
 }  // namespace
 
-LONG RFAddReader(const char *readerNameLong, int port, const char *library,
-    const char *device)
-{
+LONG RFAddReader(const char* reader_name, int port, const char* library,
+    const char* device) {
   post_message(kReaderInitAddMessageType, google_smart_card::VarDictBuilder()
-      .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
+      .Add(kNameMessageKey, reader_name).Add(kPortMessageKey, port)
       .Add(kDeviceMessageKey, device).Result());
 
-  LONG ret = RFAddReaderOriginal(readerNameLong, port, library, device);
+  LONG ret = RFAddReaderOriginal(reader_name, port, library, device);
 
   post_message(kReaderFinishAddMessageType, google_smart_card::VarDictBuilder()
-      .Add(kNameMessageKey, readerNameLong).Add(kPortMessageKey, port)
+      .Add(kNameMessageKey, reader_name).Add(kPortMessageKey, port)
       .Add(kDeviceMessageKey, device).Add(kReturnCodeMessageKey, ret).Result());
 
   return ret;
@@ -88,10 +86,9 @@ LONG RFAddReader(const char *readerNameLong, int port, const char *library,
 // so it actually works when the function is called from outside the file where
 // it is defined, but not from inside (readerfactory). Sometimes it may get
 // called from the inside, and that call won't be intercepted, but that is fine.
-LONG RFRemoveReader(const char *readerName, int port)
-{
+LONG RFRemoveReader(const char* reader_name, int port) {
   post_message(kReaderRemoveMessageType, google_smart_card::VarDictBuilder()
-      .Add(kNameMessageKey, readerName).Add(kPortMessageKey, port).Result());
+      .Add(kNameMessageKey, reader_name).Add(kPortMessageKey, port).Result());
 
-  return RFRemoveReaderOriginal(readerName, port);
+  return RFRemoveReaderOriginal(reader_name, port);
 }
