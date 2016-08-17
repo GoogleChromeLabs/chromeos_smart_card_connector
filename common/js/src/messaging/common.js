@@ -22,7 +22,9 @@
 goog.provide('GoogleSmartCard.MessagingCommon');
 
 goog.require('GoogleSmartCard.Logging');
+goog.require('goog.asserts');
 goog.require('goog.log.Logger');
+goog.require('goog.object');
 goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
@@ -72,6 +74,6 @@ GSC.MessagingCommon.extractKey = function(message, key) {
       GSC.DebugDump.debugDump(message));
 
   return message[key];
-}
+};
 
 });  // goog.scope
