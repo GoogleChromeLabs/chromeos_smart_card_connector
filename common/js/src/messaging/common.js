@@ -56,4 +56,22 @@ function nonFatalDefaultServiceCallback(channel, serviceName, payload) {
   channel.dispose();
 }
 
+/**
+ * Helper function which extracts key from message (first it makes sure the key
+ * is actually present).
+ * @param {!Object|string} message
+ * @param {string} key
+ */
+GSC.MessagingCommon.extractKey = function(message, key) {
+  GSC.Logging.checkWithLogger(LOGGER, goog.isObject(message));
+  goog.asserts.assert(goog.isObject(message));
+  GSC.Logging.checkWithLogger(
+      LOGGER,
+      goog.object.containsKey(message, key),
+      'Key "' + key + '" not present in message ' +
+      GSC.DebugDump.dump(message));
+
+  return message[key];
+}
+
 });  // goog.scope
