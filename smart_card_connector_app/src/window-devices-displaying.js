@@ -79,10 +79,6 @@ function displayReaderList(readers) {
   };
 }
 
-function readerUpdatedListener(readers) {
-  displayReaderList(readers);
-}
-
 /**
  * @param {!Event} e
  */
@@ -106,9 +102,9 @@ function getUserSelectedDevicesCallback(devices) {
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
   readerTracker = GSC.PopupWindow.Client.getData()['readerTracker'];
   displayReaderList(readerTracker.getReaders());
-  readerTracker.addOnUpdateListener(readerUpdatedListener);
+  readerTracker.addOnUpdateListener(displayReaderList);
   chrome.app.window.current().onClosed.addListener(function() {
-    readerTracker.removeOnUpdateListener(readerUpdatedListener);
+    readerTracker.removeOnUpdateListener(displayReaderList);
   });
 
   goog.events.listen(
