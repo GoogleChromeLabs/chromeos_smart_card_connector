@@ -69,7 +69,7 @@ GSC.MessagingCommon.extractKey = function(message, key) {
       LOGGER,
       goog.object.containsKey(message, key),
       'Key "' + key + '" not present in message ' +
-      GSC.DebugDump.dump(message));
+      GSC.DebugDump.debugDump(message));
 
   return message[key];
 }
