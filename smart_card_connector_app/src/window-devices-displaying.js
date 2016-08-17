@@ -23,7 +23,7 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.MessagingCommon');
+goog.require('GoogleSmartCard.ObjectHelpers');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('goog.asserts');
 goog.require('goog.dom');
@@ -103,7 +103,7 @@ function getUserSelectedDevicesCallback(devices) {
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  readerTracker = GSC.MessagingCommon.extractKey(
+  readerTracker = GSC.ObjectHelpers.extractKey(
       GSC.PopupWindow.Client.getData(), 'readerTracker');
   displayReaderList(readerTracker.getReaders());
   readerTracker.addOnUpdateListener(displayReaderList);

@@ -22,9 +22,9 @@
 goog.provide('GoogleSmartCard.MessagingCommon');
 
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.ObjectHelpers');
 goog.require('goog.asserts');
 goog.require('goog.log.Logger');
-goog.require('goog.object');
 goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
@@ -59,21 +59,16 @@ function nonFatalDefaultServiceCallback(channel, serviceName, payload) {
 }
 
 /**
- * Helper function which extracts key from message (first it makes sure the key
+ * Helper function which extracts key from object (first it makes sure the key
  * is actually present).
- * @param {!Object|string} message
+ * @param {!Object|string} object
  * @param {string} key
  */
-GSC.MessagingCommon.extractKey = function(message, key) {
-  GSC.Logging.checkWithLogger(LOGGER, goog.isObject(message));
-  goog.asserts.assert(goog.isObject(message));
-  GSC.Logging.checkWithLogger(
-      LOGGER,
-      goog.object.containsKey(message, key),
-      'Key "' + key + '" not present in message ' +
-      GSC.DebugDump.debugDump(message));
+GSC.MessagingCommon.extractKey = function(object, key) {
+  GSC.Logging.checkWithLogger(LOGGER, goog.isObject(object));
+  goog.asserts.assert(goog.isObject(object));
 
-  return message[key];
+  return GSC.ObjectHelpers.extractKey(object, key);
 };
 
 });  // goog.scope

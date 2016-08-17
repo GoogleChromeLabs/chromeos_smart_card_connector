@@ -48,7 +48,7 @@ var logger = GSC.Logging.getScopedLogger('PopupWindow.Client');
 
 /**
  * Returns the additional data that was specified during the popup creation.
- * @return {Object}
+ * @return {!Object}
  */
 GSC.PopupWindow.Client.getData = function() {
   return goog.object.get(window, 'passedData', {});
