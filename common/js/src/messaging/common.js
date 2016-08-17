@@ -63,6 +63,7 @@ function nonFatalDefaultServiceCallback(channel, serviceName, payload) {
  * is actually present).
  * @param {!Object|string} object
  * @param {string} key
+ * @return {?}
  */
 GSC.MessagingCommon.extractKey = function(object, key) {
   GSC.Logging.checkWithLogger(LOGGER, goog.isObject(object));

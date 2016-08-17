@@ -41,6 +41,7 @@ var LOGGER = GSC.Logging.getScopedLogger('ObjectHelpers');
  * is actually present).
  * @param {!Object} object
  * @param {string} key
+ * @return {?}
  */
 GSC.ObjectHelpers.extractKey = function(object, key) {
   if (!goog.object.containsKey(object, key)) {
