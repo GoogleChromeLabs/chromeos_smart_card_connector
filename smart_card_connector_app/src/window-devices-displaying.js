@@ -23,12 +23,12 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.MessagingCommon');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.events.EventType');
 goog.require('goog.log.Logger');
-
 goog.scope(function() {
 
 /** @const */
@@ -103,7 +103,8 @@ function getUserSelectedDevicesCallback(devices) {
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  readerTracker = GSC.PopupWindow.Client.getData()['readerTracker'];
+  readerTracker = GSC.MessagingCommon.extractKey(
+      GSC.PopupWindow.Client.getData(), 'readerTracker');
   displayReaderList(readerTracker.getReaders());
   readerTracker.addOnUpdateListener(displayReaderList);
   chrome.app.window.current().onClosed.addListener(function() {
