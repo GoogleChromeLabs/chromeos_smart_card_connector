@@ -170,6 +170,7 @@ PPInstanceHolder::~PPInstanceHolder() {
 //     to only the needed functions (AddReader/RemoveReader). Rename class to
 //     something more fitting. Incorporate other code from above and consider
 //     the problem of thread safety.
+// PcscLiteServerGlobal as class name
 pp::Instance* PPInstanceHolder::GetPPInstance() const {
   return pp_instance_;
 }
