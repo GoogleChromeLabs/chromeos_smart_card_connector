@@ -26,6 +26,7 @@ goog.provide('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.MessagingCommon');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.array');
 goog.require('goog.asserts');
@@ -115,11 +116,11 @@ var ReaderTracker = GSC.PcscLiteServer.ReaderTracker;
  */
 ReaderTracker.prototype.readerInitAddListener_ = function(message) {
   /** @type {string} */
-  var name = message['readerName'];
+  var name = GSC.MessagingCommon.extractKey(message, 'readerName');
   /** @type {number} */
-  var port = message['port'];
+  var port = GSC.MessagingCommon.extractKey(message, 'port');
   /** @type {string} */
-  var device = message['device'];
+  var device = GSC.MessagingCommon.extractKey(message, 'device');
 
   this.logger_.info(
       'Initializing reader ' + name + ' (port ' + port +
@@ -139,13 +140,13 @@ ReaderTracker.prototype.readerInitAddListener_ = function(message) {
  */
 ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
   /** @type {string} */
-  var name = message['readerName'];
+  var name = GSC.MessagingCommon.extractKey(message, 'readerName');
   /** @type {number} */
-  var port = message['port'];
+  var port = GSC.MessagingCommon.extractKey(message, 'port');
   /** @type {string} */
-  var device = message['device'];
+  var device = GSC.MessagingCommon.extractKey(message, 'device');
   /** @type {number} */
-  var returnCode = message['returnCode'];
+  var returnCode = GSC.MessagingCommon.extractKey(message, 'returnCode');
 
   var returnCodeHex = GSC.DebugDump.dump(returnCode);
 
@@ -177,9 +178,9 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
  */
 ReaderTracker.prototype.readerRemoveListener_ = function(message) {
   /** @type {string} */
-  var name = message['readerName'];
+  var name = GSC.MessagingCommon.extractKey(message, 'readerName');
   /** @type {number} */
-  var port = message['port'];
+  var port = GSC.MessagingCommon.extractKey(message, 'port');
 
   this.logger_.info('Removing reader ' + name + ' (port ' + port + ')');
 
