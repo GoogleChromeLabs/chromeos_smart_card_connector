@@ -30,6 +30,7 @@
 #include <ppapi/cpp/var.h>
 #include <ppapi/cpp/var_dictionary.h>
 
+#include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_pcsc_lite_server/global.h>
 
@@ -43,8 +44,6 @@ LONG RFRemoveReaderOriginal(const char* reader_name, int port);
 
 namespace {
 
-const char kTypeMessageKey[] = "type";
-const char kDataMessageKey[] = "data";
 const char kReaderInitAddMessageType[] = "reader_init_add";
 const char kReaderFinishAddMessageType[] = "reader_finish_add";
 const char kReaderRemoveMessageType[] = "reader_remove";
@@ -54,14 +53,11 @@ const char kDeviceMessageKey[] = "device";
 const char kReturnCodeMessageKey[] = "returnCode";
 
 void post_message(const char* type, const pp::VarDictionary& message_data) {
-  pp::VarDictionary message;
-  message.Set(kTypeMessageKey, type);
-  message.Set(kDataMessageKey, message_data);
-
   const google_smart_card::PPInstanceHolder* pp_instance_holder =
       google_smart_card::GetGlobalPPInstanceHolder();
   pp::Instance* const instance = pp_instance_holder->GetPPInstance();
-  instance->PostMessage(message);
+  instance->PostMessage(
+      google_smart_card::MakeTypedMessage(type, message_data));
 }
 
 }  // namespace
