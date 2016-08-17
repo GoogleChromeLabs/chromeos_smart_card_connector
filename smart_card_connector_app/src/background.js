@@ -24,9 +24,9 @@ goog.require('GoogleSmartCard.MessageChannelPool');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('GoogleSmartCard.PortMessageChannel');
+goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
-goog.require('GoogleSmartCard.ReaderTracker');
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 
 goog.scope(function() {
@@ -73,7 +73,7 @@ var pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
         naclModule.messageChannel);
 var messageChannelPool = new GSC.MessageChannelPool();
-var readerTracker = new GSC.ReaderTracker(
+var readerTracker = new GSC.PcscLiteServer.ReaderTracker(
     naclModule.messageChannel, naclModule.logger);
 
 naclModule.load();
@@ -99,8 +99,8 @@ function launchedListener() {
 
 function openWindow() {
   var data = {'clientAppListUpdateSubscriber':
-      messageChannelPool.addOnUpdateListener.bind(messageChannelPool)
-      ,'readerTracker': readerTracker};
+      messageChannelPool.addOnUpdateListener.bind(messageChannelPool),
+      'readerTracker': readerTracker};
   GSC.PopupWindow.Server.createWindow(WINDOW_URL, WINDOW_OPTIONS, data);
 }
 

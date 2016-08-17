@@ -20,11 +20,14 @@
  * NaCl (check readerfactory_nacl.cc for more information).
  */
 
-goog.provide('GoogleSmartCard.ReaderTracker');
+goog.provide('GoogleSmartCard.PcscLiteServer.ReaderInfo');
+goog.provide('GoogleSmartCard.PcscLiteServer.ReaderStatus');
+goog.provide('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.TypedMessage');
+goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
@@ -43,24 +46,30 @@ var GSC = GoogleSmartCard;
  * Enum for possible values of ReaderInfo status.
  * @enum {string}
  */
-var ReaderStatus = {
+GSC.PcscLiteServer.ReaderStatus = {
   INIT: 'init',
   SUCCESS: 'success',
   FAILURE: 'failure'
 };
 
+/** @const */
+var ReaderStatus = GSC.PcscLiteServer.ReaderStatus;
+
 /**
  * Structure used to store information about the reader.
  * @param {string} name
- * @param {ReaderStatus} status
+ * @param {!ReaderStatus} status
  * @param {string=} opt_error
  * @constructor
  */
-var ReaderInfo = function(name, status, opt_error) {
+GSC.PcscLiteServer.ReaderInfo = function(name, status, opt_error) {
   this['name'] = this.name = name;
   this['status'] = this.status = status;
   this['error'] = this.error = opt_error;
 };
+
+/** @const */
+var ReaderInfo = GSC.PcscLiteServer.ReaderInfo;
 
 /**
  * This class tracks readers, provides methods to retrieve the list of readers
@@ -70,7 +79,7 @@ var ReaderInfo = function(name, status, opt_error) {
  * @param {!goog.log.Logger} parentLogger
  * @constructor
  */
-GSC.ReaderTracker = function(messageChannel, parentLogger) {
+GSC.PcscLiteServer.ReaderTracker = function(messageChannel, parentLogger) {
   /** @private */
   this.logger_ = GSC.Logging.getChildLogger(
       parentLogger, READER_TRACKER_LOGGER_TITLE);
@@ -89,7 +98,7 @@ GSC.ReaderTracker = function(messageChannel, parentLogger) {
   this.readers_ = new goog.structs.Map;
 
   /**
-   * @type {!Array.<!function(!Array.<!ReaderInfo>)>}
+   * @type {!Array.<function(!Array.<!ReaderInfo>)>}
    * @private
    */
   this.onUpdateListeners_ = [];
@@ -98,7 +107,7 @@ GSC.ReaderTracker = function(messageChannel, parentLogger) {
 };
 
 /** @const */
-var ReaderTracker = GSC.ReaderTracker;
+var ReaderTracker = GSC.PcscLiteServer.ReaderTracker;
 
 /**
  * @param {!Object|string} message
@@ -113,9 +122,13 @@ ReaderTracker.prototype.readerInitAddListener_ = function(message) {
   var device = message['device'];
 
   this.logger_.info(
-      'readerInitAddListener_ called for ' + name + ' (port ' + port +
-      ', device ' + device + ')');
-
+      'Initializing reader ' + name + ' (port ' + port +
+      ', device ' + device + ') ...');
+ 
+  GSC.Logging.checkWithLogger(
+      this.logger_,
+      !this.readers_.containsKey(port),
+      'Initializing reader which is already present!');
   this.readers_.set(port, new ReaderInfo(name, ReaderStatus.INIT));
   this.fireOnUpdateListeners_();
 };
@@ -133,13 +146,13 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
   var device = message['device'];
   /** @type {number} */
   var returnCode = message['returnCode'];
-  /** @type {string} */
+
   var returnCodeHex = GSC.DebugDump.dump(returnCode);
 
   var value = new ReaderInfo(name, ReaderStatus.SUCCESS);
 
   var text =
-      'readerFinishAddListener_ called for ' + name + ' (port ' + port +
+      'Finished initializing reader ' + name + ' (port ' + port +
       ', device ' + device + ') with return code ' + returnCodeHex;
 
   if (returnCode === 0) {
@@ -150,6 +163,10 @@ ReaderTracker.prototype.readerFinishAddListener_ = function(message) {
     value.error = returnCodeHex;
   }
 
+  GSC.Logging.checkWithLogger(
+      this.logger_,
+      this.readers_.containsKey(port),
+      'Finishing initializing reader without present reader!');
   this.readers_.set(port, value);
   this.fireOnUpdateListeners_();
 };
@@ -164,9 +181,12 @@ ReaderTracker.prototype.readerRemoveListener_ = function(message) {
   /** @type {number} */
   var port = message['port'];
 
-  this.logger_.info('readerRemoveListener_ called for ' + name +
-                    ' (port ' + port + ')');
+  this.logger_.info('Removing reader ' + name + ' (port ' + port + ')');
 
+  GSC.Logging.checkWithLogger(
+      this.logger_,
+      this.readers_.containsKey(port),
+      'Tried removing non-existing reader!');
   this.readers_.remove(port);
   this.fireOnUpdateListeners_();
 };
@@ -184,10 +204,7 @@ ReaderTracker.prototype.addOnUpdateListener = function(listener) {
  */
 ReaderTracker.prototype.removeOnUpdateListener = function(listener) {
   this.logger_.fine('Removed an OnUpdateListener');
-  var index = this.onUpdateListeners_.indexOf(listener);
-  if (index >= 0) {
-    this.onUpdateListeners_.splice(index, 1);
-  }
+  goog.array.remove(this.onUpdateListeners_, listener);
 };
 
 /**

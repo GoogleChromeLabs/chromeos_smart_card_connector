@@ -29,6 +29,7 @@ include $(THIRD_PARTY_DIR_PATH)/libusb/naclport/include.mk
 
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/js_client/include.mk
+include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/include.mk
 
 
@@ -41,6 +42,7 @@ JS_COMPILER_BACKGROUND_INPUT_PATHS := \
 	$(PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
+	$(PCSC_LITE_SERVER_JS_COMPILER_INPUT_DIR_PATHS) \
 
 $(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_BACKGROUND_INPUT_PATHS),GoogleSmartCard.ConnectorApp.BackgroundMain))
 
@@ -51,6 +53,7 @@ JS_COMPILER_WINDOW_INPUT_PATHS := \
 	$(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
 	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
+	$(PCSC_LITE_SERVER_JS_COMPILER_INPUT_DIR_PATHS) \
 
 $(eval $(call BUILD_JS_SCRIPT,window.js,$(JS_COMPILER_WINDOW_INPUT_PATHS),GoogleSmartCard.ConnectorApp.Window.Main))
 

@@ -23,7 +23,7 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.ReaderTracker');
+goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.events.EventType');
@@ -56,7 +56,7 @@ var readersListElement = goog.dom.getElement('readers-list');
 var addDeviceElement = goog.dom.getElement('add-device');
 
 /**
- * @type {GSC.ReaderTracker}
+ * @type {GSC.PcscLiteServer.ReaderTracker}
  */
 var readerTracker;
 

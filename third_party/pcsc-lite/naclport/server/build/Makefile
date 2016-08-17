@@ -100,7 +100,6 @@ PCSC_LITE_SERVER_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/ifdwrapper.c \
 	$(PCSC_LITE_SOURCES_PATH)/powermgt_generic.c \
 	$(PCSC_LITE_SOURCES_PATH)/prothandler.c \
-	$(PCSC_LITE_SOURCES_PATH)/readerfactory.c \
 	$(PCSC_LITE_SOURCES_PATH)/sd-daemon.c \
 	$(PCSC_LITE_SOURCES_PATH)/sys_unix.c \
 	$(PCSC_LITE_SOURCES_PATH)/utils.c \
