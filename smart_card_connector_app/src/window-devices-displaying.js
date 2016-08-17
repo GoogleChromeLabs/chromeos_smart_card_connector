@@ -60,6 +60,9 @@ var addDeviceElement = goog.dom.getElement('add-device');
  */
 var readerTracker;
 
+/**
+ * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers
+ */
 function displayReaderList(readers) {
   logger.info(readers.length + ' card reader(s) available: ' +
               GSC.DebugDump.dump(readers));
