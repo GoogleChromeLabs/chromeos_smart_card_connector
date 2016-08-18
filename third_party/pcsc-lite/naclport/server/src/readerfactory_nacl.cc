@@ -23,7 +23,7 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// This file contains a replacement function for the original readerfactory.c
+// This file contains replacement functions for the original readerfactory.c
 // PC/SC-Lite internal implementation.
 
 #include <google_smart_card_pcsc_lite_server/global.h>
@@ -31,8 +31,8 @@
 extern "C" {
 #include "readerfactory.h"
 
-LONG RFAddReaderOriginal(const char* reader_name, int port,
-    const char* library, const char* device);
+LONG RFAddReaderOriginal(
+    const char* reader_name, int port, const char* library, const char* device);
 LONG RFRemoveReaderOriginal(const char* reader_name, int port);
 }
 

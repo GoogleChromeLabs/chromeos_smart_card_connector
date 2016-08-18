@@ -33,14 +33,6 @@
 
 namespace google_smart_card {
 
-// Performs all necessary PC/SC-Lite NaCl port initialization steps and starts
-// the PC/SC-Lite daemon.
-//
-// The daemon thread never finishes. Therefore, it's not allowed to call this
-// function twice in a single process.
-//
-// Note that it is assumed that nacl_io and libusb NaCl port libraries have
-// already been initialized.
 void InitializeAndRunPcscLiteServer();
 
 class PcscLiteServerGlobal final {
@@ -51,6 +43,14 @@ class PcscLiteServerGlobal final {
 
   static const PcscLiteServerGlobal* GetInstance();
 
+  // Performs all necessary PC/SC-Lite NaCl port initialization steps and starts
+  // the PC/SC-Lite daemon.
+  //
+  // The daemon thread never finishes. Therefore, it's not allowed to call this
+  // function twice in a single process.
+  //
+  // Note that it is assumed that nacl_io and libusb NaCl port libraries have
+  // already been initialized.
   void InitializeAndRunPcscLiteServer();
 
   void PostReaderInitAddMessage(const char* reader_name, int port,
@@ -60,11 +60,10 @@ class PcscLiteServerGlobal final {
   void PostReaderRemoveMessage(const char* reader_name, int port) const;
 
  private:
-  pp::Instance* GetPPInstance() const;
   void PostMessage(const char* type, const pp::VarDictionary& message_data) const;
 
-  pp::Instance* pp_instance_;
   mutable std::mutex mutex_;
+  pp::Instance* pp_instance_;
 };
 
 }  // namespace google_smart_card
