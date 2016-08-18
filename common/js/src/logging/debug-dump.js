@@ -179,7 +179,7 @@ function dumpObject(value) {
  * @return {string}
  */
 GSC.DebugDump.dump = function(value) {
-  // First, exist fast for DOM-related types, which contain cyclic references
+  // First, exit fast for DOM-related types, which contain cyclic references
   // breaking the code below, and for which in any case a meaningful debug dump
   // is difficult to be produced.
   //
