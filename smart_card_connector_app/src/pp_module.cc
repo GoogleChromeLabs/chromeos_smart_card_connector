@@ -73,7 +73,7 @@ class PpInstance final : public pp::Instance {
     GOOGLE_SMART_CARD_LOG_DEBUG << "Performing services initialization...";
 
     InitializeNaclIo(*this);
-    pcsc_lite_server_global_->InitializeAndRunPcscLiteServer();
+    pcsc_lite_server_global_->InitializeAndRunDaemonThread();
 
     pcsc_lite_server_clients_management_backend_.reset(
         new PcscLiteServerClientsManagementBackend(

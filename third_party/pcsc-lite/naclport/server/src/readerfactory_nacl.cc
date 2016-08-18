@@ -28,6 +28,8 @@
 
 #include <google_smart_card_pcsc_lite_server/global.h>
 
+#include <wintypes.h>
+
 extern "C" {
 #include "readerfactory.h"
 

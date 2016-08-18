@@ -33,12 +33,34 @@
 
 namespace google_smart_card {
 
-void InitializeAndRunPcscLiteServer();
-
+// This class contains a pointer to the pp::Instance which enables it to provide
+// some specific Post*Message functionality.
+//
+// At most one instance of this class can exist at any given moment.
+//
+// This class is never destroyed, it's left hanging in the air during program
+// shutdown (for safety reasons).
+//
+// Note: All methods except GetInstance are thread safe. Calls to GetInstance
+//       concurrent to class construction or destruction are not thread safe.
 class PcscLiteServerGlobal final {
  public:
   explicit PcscLiteServerGlobal(pp::Instance* pp_instance);
   ~PcscLiteServerGlobal();
+
+  // Detaches from the Pepper instance which prevents making any further
+  // requests through it.
+  //
+  // After this function call, the PcscLiteServerGlobal::PostReader*Message
+  // functions are still allowed to be called, but they will do nothing instead
+  // of performing the real requests.
+  //
+  // This function is primarily intended to be used during the Pepper instance
+  // shutdown process, for preventing the situations when some other threads
+  // currently calling PcscLiteServerGlobal::PostReader*Message functions try to
+  // access the destroyed pp::Instance object or some other associated objects.
+  //
+  // This function is safe to be called from any thread.
   void Detach();
 
   static const PcscLiteServerGlobal* GetInstance();
@@ -51,7 +73,7 @@ class PcscLiteServerGlobal final {
   //
   // Note that it is assumed that nacl_io and libusb NaCl port libraries have
   // already been initialized.
-  void InitializeAndRunPcscLiteServer();
+  void InitializeAndRunDaemonThread();
 
   void PostReaderInitAddMessage(const char* reader_name, int port,
                                 const char* device) const;
@@ -60,7 +82,8 @@ class PcscLiteServerGlobal final {
   void PostReaderRemoveMessage(const char* reader_name, int port) const;
 
  private:
-  void PostMessage(const char* type, const pp::VarDictionary& message_data) const;
+  void PostMessage(
+      const char* type, const pp::VarDictionary& message_data) const;
 
   mutable std::mutex mutex_;
   pp::Instance* pp_instance_;

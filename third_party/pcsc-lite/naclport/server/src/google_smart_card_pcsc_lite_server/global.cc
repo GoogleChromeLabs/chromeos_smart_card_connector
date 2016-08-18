@@ -47,11 +47,21 @@ extern "C" {
 #include "server_sockets_manager.h"
 #include "socketpair_emulation.h"
 
-const char kLoggingPrefix[] = "[PC/SC-Lite NaCl port] ";
-
 namespace google_smart_card {
 
 namespace {
+
+PcscLiteServerGlobal* g_pcsc_lite_server = nullptr;
+
+const char kLoggingPrefix[] = "[PC/SC-Lite NaCl port] ";
+
+const char kReaderInitAddMessageType[] = "reader_init_add";
+const char kReaderFinishAddMessageType[] = "reader_finish_add";
+const char kReaderRemoveMessageType[] = "reader_remove";
+const char kNameMessageKey[] = "readerName";
+const char kPortMessageKey[] = "port";
+const char kDeviceMessageKey[] = "device";
+const char kReturnCodeMessageKey[] = "returnCode";
 
 void PcscLiteServerDaemonThreadMain() {
   // TODO(emaxx): Stop the event loop during pp::Instance destruction.
@@ -71,16 +81,6 @@ void PcscLiteServerDaemonThreadMain() {
   }
 }
 
-PcscLiteServerGlobal* g_pcsc_lite_server = nullptr;
-
-const char kReaderInitAddMessageType[] = "reader_init_add";
-const char kReaderFinishAddMessageType[] = "reader_finish_add";
-const char kReaderRemoveMessageType[] = "reader_remove";
-const char kNameMessageKey[] = "readerName";
-const char kPortMessageKey[] = "port";
-const char kDeviceMessageKey[] = "device";
-const char kReturnCodeMessageKey[] = "returnCode";
-
 }  // namespace
 
 PcscLiteServerGlobal::PcscLiteServerGlobal(pp::Instance* pp_instance)
@@ -94,12 +94,17 @@ PcscLiteServerGlobal::~PcscLiteServerGlobal() {
   g_pcsc_lite_server = nullptr;
 }
 
-void PcscLiteServerGlobal::Detach () {
+void PcscLiteServerGlobal::Detach() {
   const std::unique_lock<std::mutex> lock(mutex_);
   pp_instance_ = nullptr;
 }
 
-void PcscLiteServerGlobal::InitializeAndRunPcscLiteServer() {
+const PcscLiteServerGlobal* PcscLiteServerGlobal::GetInstance() {
+  GOOGLE_SMART_CARD_CHECK(g_pcsc_lite_server);
+  return g_pcsc_lite_server;
+}
+
+void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initialization...";
 
   SocketpairEmulationManager::CreateGlobalInstance();
@@ -182,18 +187,6 @@ void PcscLiteServerGlobal::InitializeAndRunPcscLiteServer() {
       "successfully finished.";
 }
 
-const PcscLiteServerGlobal* PcscLiteServerGlobal::GetInstance() {
-  GOOGLE_SMART_CARD_CHECK(g_pcsc_lite_server);
-  return g_pcsc_lite_server;
-}
-
-void PcscLiteServerGlobal::PostMessage(
-    const char* type, const pp::VarDictionary& message_data) const {
-  const std::unique_lock<std::mutex> lock(mutex_);
-  if (pp_instance_)
-    pp_instance_->PostMessage(MakeTypedMessage(type, message_data));
-}
-
 void PcscLiteServerGlobal::PostReaderInitAddMessage(const char* reader_name,
     int port, const char* device) const {
   PostMessage(kReaderInitAddMessageType, VarDictBuilder()
@@ -213,6 +206,13 @@ void PcscLiteServerGlobal::PostReaderRemoveMessage(const char* reader_name,
     int port) const {
   PostMessage(kReaderRemoveMessageType, VarDictBuilder()
       .Add(kNameMessageKey, reader_name).Add(kPortMessageKey, port).Result());
+}
+
+void PcscLiteServerGlobal::PostMessage(
+    const char* type, const pp::VarDictionary& message_data) const {
+  const std::unique_lock<std::mutex> lock(mutex_);
+  if (pp_instance_)
+    pp_instance_->PostMessage(MakeTypedMessage(type, message_data));
 }
 
 }  // namespace google_smart_card
