@@ -185,6 +185,8 @@ GSC.DebugDump.dump = function(value) {
   //
   // Note that goog.dom.is* methods are not used because many of them may
   // produce thorny false positives.
+  //
+  // TODO(emaxx): Think about a proper solution that deals with cyclic references.
   if (value instanceof Document)
     return '<Document>';
   if (value instanceof Window)
