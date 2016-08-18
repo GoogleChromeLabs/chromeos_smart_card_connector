@@ -187,13 +187,13 @@ GSC.DebugDump.dump = function(value) {
   // produce thorny false positives.
   //
   // TODO(emaxx): Think about a proper solution that deals with cyclic references.
-  if (value instanceof Document)
+  if (Document && value instanceof Document)
     return '<Document>';
-  if (value instanceof Window)
+  if (Window && value instanceof Window)
     return '<Window>';
-  if (value instanceof NodeList)
+  if (NodeList && value instanceof NodeList)
     return '<NodeList>';
-  if (value instanceof Node) {
+  if (Node && value instanceof Node) {
     // Note that this branch should go after other branches checking for
     // DOM-related types.
     return '<Node>';
