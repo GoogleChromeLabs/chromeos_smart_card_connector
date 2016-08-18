@@ -37,7 +37,7 @@ goog.scope(function() {
 var GSC = GoogleSmartCard;
 
 /**
- * @param {*} value
+ * @param {?} value
  * @return {string}
  */
 function encodeJson(value) {
@@ -175,10 +175,28 @@ function dumpObject(value) {
  *
  * Note that in the cases when the passed value may contain privacy-sensitive
  * data, the GoogleSmartCard.DebugDump.debugDump method should be used instead.
- * @param {*} value
+ * @param {?} value
  * @return {string}
  */
 GSC.DebugDump.dump = function(value) {
+  // First, exist fast for DOM-related types, which contain cyclic references
+  // breaking the code below, and for which in any case a meaningful debug dump
+  // is difficult to be produced.
+  //
+  // Note that goog.dom.is* methods are not used because many of them may
+  // produce thorny false positives.
+  if (value instanceof Document)
+    return '<Document>';
+  if (value instanceof Window)
+    return '<Window>';
+  if (value instanceof NodeList)
+    return '<NodeList>';
+  if (value instanceof Node) {
+    // Note that this branch should go after other branches checking for
+    // DOM-related types.
+    return '<Node>';
+  }
+
   if (!goog.isDef(value))
     return 'undefined';
   if (goog.isNull(value))
