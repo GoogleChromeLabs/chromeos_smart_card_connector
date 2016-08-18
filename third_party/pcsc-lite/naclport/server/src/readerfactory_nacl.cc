@@ -26,12 +26,6 @@
 // This file contains a replacement function for the original readerfactory.c
 // PC/SC-Lite internal implementation.
 
-#include <ppapi/cpp/instance.h>
-#include <ppapi/cpp/var.h>
-#include <ppapi/cpp/var_dictionary.h>
-
-#include <google_smart_card_common/messaging/typed_message.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_pcsc_lite_server/global.h>
 
 extern "C" {
@@ -42,39 +36,17 @@ LONG RFAddReaderOriginal(const char* reader_name, int port,
 LONG RFRemoveReaderOriginal(const char* reader_name, int port);
 }
 
-namespace {
-
-const char kReaderInitAddMessageType[] = "reader_init_add";
-const char kReaderFinishAddMessageType[] = "reader_finish_add";
-const char kReaderRemoveMessageType[] = "reader_remove";
-const char kNameMessageKey[] = "readerName";
-const char kPortMessageKey[] = "port";
-const char kDeviceMessageKey[] = "device";
-const char kReturnCodeMessageKey[] = "returnCode";
-
-void post_message(const char* type, const pp::VarDictionary& message_data) {
-  const google_smart_card::PPInstanceHolder* pp_instance_holder =
-      google_smart_card::GetGlobalPPInstanceHolder();
-  pp::Instance* const instance = pp_instance_holder->GetPPInstance();
-  instance->PostMessage(
-      google_smart_card::MakeTypedMessage(type, message_data));
-}
-
-}  // namespace
-
 LONG RFAddReader(const char* reader_name, int port, const char* library,
     const char* device) {
-  post_message(kReaderInitAddMessageType, google_smart_card::VarDictBuilder()
-      .Add(kNameMessageKey, reader_name).Add(kPortMessageKey, port)
-      .Add(kDeviceMessageKey, device).Result());
+  google_smart_card::PcscLiteServerGlobal::GetInstance()
+      ->PostReaderInitAddMessage(reader_name, port, device);
 
-  LONG ret = RFAddReaderOriginal(reader_name, port, library, device);
+  LONG return_code = RFAddReaderOriginal(reader_name, port, library, device);
 
-  post_message(kReaderFinishAddMessageType, google_smart_card::VarDictBuilder()
-      .Add(kNameMessageKey, reader_name).Add(kPortMessageKey, port)
-      .Add(kDeviceMessageKey, device).Add(kReturnCodeMessageKey, ret).Result());
+  google_smart_card::PcscLiteServerGlobal::GetInstance()
+      ->PostReaderFinishAddMessage(reader_name, port, device, return_code);
 
-  return ret;
+  return return_code;
 }
 
 // This function is the hook function for the original one. The hook works via
@@ -83,8 +55,8 @@ LONG RFAddReader(const char* reader_name, int port, const char* library,
 // it is defined, but not from inside (readerfactory). Sometimes it may get
 // called from the inside, and that call won't be intercepted, but that is fine.
 LONG RFRemoveReader(const char* reader_name, int port) {
-  post_message(kReaderRemoveMessageType, google_smart_card::VarDictBuilder()
-      .Add(kNameMessageKey, reader_name).Add(kPortMessageKey, port).Result());
+  google_smart_card::PcscLiteServerGlobal::GetInstance()
+      ->PostReaderRemoveMessage(reader_name, port);
 
   return RFRemoveReaderOriginal(reader_name, port);
 }

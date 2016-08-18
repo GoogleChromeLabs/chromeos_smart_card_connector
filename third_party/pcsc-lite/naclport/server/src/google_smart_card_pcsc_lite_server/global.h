@@ -26,7 +26,10 @@
 #ifndef GOOGLE_SMART_CARD_PCSC_LITE_SERVER_GLOBAL_H_
 #define GOOGLE_SMART_CARD_PCSC_LITE_SERVER_GLOBAL_H_
 
+#include <mutex>
+
 #include <ppapi/cpp/instance.h>
+#include <ppapi/cpp/var_dictionary.h>
 
 namespace google_smart_card {
 
@@ -40,17 +43,29 @@ namespace google_smart_card {
 // already been initialized.
 void InitializeAndRunPcscLiteServer();
 
-class PPInstanceHolder final {
+class PcscLiteServerGlobal final {
  public:
-  PPInstanceHolder(pp::Instance* pp_instance);
-  ~PPInstanceHolder();
-  pp::Instance* GetPPInstance() const;
+  explicit PcscLiteServerGlobal(pp::Instance* pp_instance);
+  ~PcscLiteServerGlobal();
+  void Detach();
+
+  static const PcscLiteServerGlobal* GetInstance();
+
+  void InitializeAndRunPcscLiteServer();
+
+  void PostReaderInitAddMessage(const char* reader_name, int port,
+                                const char* device) const;
+  void PostReaderFinishAddMessage(const char* reader_name, int port,
+                                  const char* device, long return_code) const;
+  void PostReaderRemoveMessage(const char* reader_name, int port) const;
 
  private:
-  pp::Instance* pp_instance_;
-};
+  pp::Instance* GetPPInstance() const;
+  void PostMessage(const char* type, const pp::VarDictionary& message_data) const;
 
-const PPInstanceHolder* GetGlobalPPInstanceHolder();
+  pp::Instance* pp_instance_;
+  mutable std::mutex mutex_;
+};
 
 }  // namespace google_smart_card
 
