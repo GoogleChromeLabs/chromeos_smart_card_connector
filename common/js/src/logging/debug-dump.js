@@ -30,6 +30,7 @@ goog.require('goog.object');
 goog.require('goog.string');
 goog.require('goog.structs');
 goog.require('goog.structs.Map');
+goog.require('goog.structs.Set');
 
 goog.scope(function() {
 
@@ -171,14 +172,10 @@ function dumpObject(value) {
 }
 
 /**
- * Generates a debug textual representation of the passed value.
- *
- * Note that in the cases when the passed value may contain privacy-sensitive
- * data, the GoogleSmartCard.DebugDump.debugDump method should be used instead.
  * @param {?} value
  * @return {string}
  */
-GSC.DebugDump.dump = function(value) {
+function dump(value) {
   // First, exit fast for DOM-related types, which contain cyclic references
   // breaking the code below, and for which in any case a meaningful debug dump
   // is difficult to be produced.
@@ -220,7 +217,32 @@ GSC.DebugDump.dump = function(value) {
   if (goog.isObject(value))
     return dumpObject(value);
   return encodeJson(value);
-};
+}
+
+if (goog.DEBUG) {
+  /**
+   * Generates a debug textual representation of the passed value.
+   *
+   * Note that in the cases when the passed value may contain privacy-sensitive
+   * data, the GoogleSmartCard.DebugDump.debugDump method should be used instead.
+   * @param {?} value
+   * @return {string}
+   */
+  GSC.DebugDump.dump = function(value) {
+    return dump(value);
+  };
+} else {
+  GSC.DebugDump.dump = function(value) {
+    // In Release builds, ensure that the debug dump generation cannot result in
+    // a thrown exception.
+    /** @preserveTry */
+    try {
+      return dump(value);
+    } catch (exc) {
+      return '<failed to dump the value>';
+    }
+  };
+}
 
 if (goog.DEBUG) {
   /**
