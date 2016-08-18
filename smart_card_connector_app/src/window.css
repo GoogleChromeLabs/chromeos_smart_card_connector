@@ -127,3 +127,28 @@ body {
   margin-right: 15px;
   text-decoration: none;
 }
+
+#readers-list > li {
+  display: flex;
+  align-items: center;
+}
+
+.error-indicator {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: flex;
+  margin-right: 4px;
+}
+
+.color-init {
+  background: yellow;
+}
+
+.color-failure {
+  background: red;
+}
+
+.color-success {
+  background: green;
+}

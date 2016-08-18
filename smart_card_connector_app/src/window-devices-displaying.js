@@ -23,12 +23,12 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
-goog.require('goog.array');
+goog.require('GoogleSmartCard.ObjectHelpers');
+goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.events.EventType');
 goog.require('goog.log.Logger');
-
 goog.scope(function() {
 
 /** @const */
@@ -55,26 +55,31 @@ var readersListElement = goog.dom.getElement('readers-list');
  */
 var addDeviceElement = goog.dom.getElement('add-device');
 
-function loadDeviceList() {
-  logger.fine('Requesting available USB devices list...');
-  chrome.usb.getDevices({'filters': USB_DEVICE_FILTERS}, getDevicesCallback);
-}
+/**
+ * @type {GSC.PcscLiteServer.ReaderTracker}
+ */
+var readerTracker;
 
 /**
- * @param {!chrome.usb.Device} device
+ * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers
  */
-function usbDeviceAddedListener(device) {
-  logger.fine('A USB device was added: ' + makeReaderDescriptionString(device));
-  loadDeviceList();
-}
+function displayReaderList(readers) {
+  logger.info(readers.length + ' card reader(s) available: ' +
+              GSC.DebugDump.dump(readers));
+  goog.dom.removeChildren(readersListElement);
 
-/**
- * @param {!chrome.usb.Device} device
- */
-function usbDeviceRemovedListener(device) {
-  logger.fine(
-      'A USB device was removed: ' + makeReaderDescriptionString(device));
-  loadDeviceList();
+  for (let reader of readers) {
+    GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
+    goog.asserts.assert(readersListElement);
+
+    var errorIndicator = goog.dom.createDom(
+        'div', 'error-indicator color-' + reader['status']);
+    var text = reader['name'] +
+        (reader['error'] ? ' (Error id = ' + reader['error'] + ')' : '');
+
+    var element = goog.dom.createDom('li', undefined, errorIndicator, text);
+    goog.dom.append(readersListElement, element);
+  };
 }
 
 /**
@@ -92,65 +97,19 @@ function addDeviceClickListener(e) {
 /**
  * @param {!Array.<!chrome.usb.Device>} devices
  */
-function getDevicesCallback(devices) {
-  goog.array.sortByKey(devices, function(device) { return device.device; });
-
-  logger.info(devices.length + ' USB device(s) available: ' +
-              GSC.DebugDump.dump(devices));
-  displayReaders(devices);
-}
-
-/**
- * @param {!Array.<!chrome.usb.Device>} readers
- */
-function displayReaders(readers) {
-  goog.dom.removeChildren(readersListElement);
-  goog.array.forEach(readers, function(reader) {
-    GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
-    goog.asserts.assert(readersListElement);
-    goog.dom.append(
-        readersListElement,
-        goog.dom.createDom(
-            'li', undefined, makeReaderDescriptionString(reader)));
-  });
-}
-
-/**
- * @param {!chrome.usb.Device} reader
- * @return {string}
- */
-function makeReaderDescriptionString(reader) {
-  var parts = [];
-
-  if (reader.productName) {
-    parts.push(chrome.i18n.getMessage(
-        'readerDescriptionProductNamePart', reader.productName));
-  } else {
-    parts.push(chrome.i18n.getMessage(
-        'readerDescriptionProductNamePartUnknown'));
-  }
-
-  if (reader.manufacturerName) {
-    parts.push(chrome.i18n.getMessage(
-        'readerDescriptionManufacturerNamePart', reader.manufacturerName));
-  }
-
-  return parts.join(' ');
-}
-
-/**
- * @param {!Array.<!chrome.usb.Device>} devices
- */
 function getUserSelectedDevicesCallback(devices) {
   logger.fine('USB selection dialog finished, ' + devices.length + ' devices ' +
               'were chosen');
-  loadDeviceList();
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  loadDeviceList();
-  chrome.usb.onDeviceAdded.addListener(usbDeviceAddedListener);
-  chrome.usb.onDeviceRemoved.addListener(usbDeviceRemovedListener);
+  readerTracker = GSC.ObjectHelpers.extractKey(
+      GSC.PopupWindow.Client.getData(), 'readerTracker');
+  displayReaderList(readerTracker.getReaders());
+  readerTracker.addOnUpdateListener(displayReaderList);
+  chrome.app.window.current().onClosed.addListener(function() {
+    readerTracker.removeOnUpdateListener(displayReaderList);
+  });
 
   goog.events.listen(
       addDeviceElement, goog.events.EventType.CLICK, addDeviceClickListener);

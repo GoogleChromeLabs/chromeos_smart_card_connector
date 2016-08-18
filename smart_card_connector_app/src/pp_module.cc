@@ -41,7 +41,8 @@ class PpInstance final : public pp::Instance {
   explicit PpInstance(PP_Instance instance)
       : pp::Instance(instance),
         libusb_over_chrome_usb_global_(new LibusbOverChromeUsbGlobal(
-            &typed_message_router_, this, pp::Module::Get()->core())) {
+            &typed_message_router_, this, pp::Module::Get()->core())),
+        pcsc_lite_server_global_(new PcscLiteServerGlobal(this)) {
     StartServicesInitialization();
   }
 
@@ -50,6 +51,10 @@ class PpInstance final : public pp::Instance {
     // concurrent libusb_* function calls still don't result in UB.
     libusb_over_chrome_usb_global_->Detach();
     libusb_over_chrome_usb_global_.release();
+    // Detach the PcscLiteServerGlobal and leak it intentionally to allow
+    // graceful shutdown (because of possible concurrent calls).
+    pcsc_lite_server_global_->Detach();
+    pcsc_lite_server_global_.release();
   }
 
   void HandleMessage(const pp::Var& message) override {
@@ -68,7 +73,7 @@ class PpInstance final : public pp::Instance {
     GOOGLE_SMART_CARD_LOG_DEBUG << "Performing services initialization...";
 
     InitializeNaclIo(*this);
-    InitializeAndRunPcscLiteServer();
+    pcsc_lite_server_global_->InitializeAndRunDaemonThread();
 
     pcsc_lite_server_clients_management_backend_.reset(
         new PcscLiteServerClientsManagementBackend(
@@ -84,7 +89,8 @@ class PpInstance final : public pp::Instance {
   TypedMessageRouter typed_message_router_;
   std::unique_ptr<LibusbOverChromeUsbGlobal> libusb_over_chrome_usb_global_;
   std::unique_ptr<PcscLiteServerClientsManagementBackend>
-  pcsc_lite_server_clients_management_backend_;
+      pcsc_lite_server_clients_management_backend_;
+  std::unique_ptr<PcscLiteServerGlobal> pcsc_lite_server_global_;
 };
 
 class PpModule final : public pp::Module {

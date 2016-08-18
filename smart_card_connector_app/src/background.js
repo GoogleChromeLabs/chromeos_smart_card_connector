@@ -16,6 +16,7 @@
 
 goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 
+goog.require('GoogleSmartCard.ConnectorApp.setupUsbDevicesLogging');
 goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingCommon');
@@ -23,6 +24,7 @@ goog.require('GoogleSmartCard.MessageChannelPool');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('GoogleSmartCard.PortMessageChannel');
+goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
@@ -71,6 +73,8 @@ var pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
         naclModule.messageChannel);
 var messageChannelPool = new GSC.MessageChannelPool();
+var readerTracker = new GSC.PcscLiteServer.ReaderTracker(
+    naclModule.messageChannel, naclModule.logger);
 
 naclModule.load();
 
@@ -81,6 +85,8 @@ chrome.runtime.onConnectExternal.addListener(externalConnectionListener);
 chrome.runtime.onMessageExternal.addListener(externalMessageListener);
 
 chrome.runtime.onInstalled.addListener(installedListener);
+
+GSC.ConnectorApp.setupUsbDevicesLogging();
 
 function naclModuleDisposedListener() {
   GSC.Logging.failWithLogger(logger, 'Server NaCl module was disposed of');
@@ -93,7 +99,8 @@ function launchedListener() {
 
 function openWindow() {
   var data = {'clientAppListUpdateSubscriber':
-      messageChannelPool.addOnUpdateListener.bind(messageChannelPool)};
+      messageChannelPool.addOnUpdateListener.bind(messageChannelPool),
+      'readerTracker': readerTracker};
   GSC.PopupWindow.Server.createWindow(WINDOW_URL, WINDOW_OPTIONS, data);
 }
 

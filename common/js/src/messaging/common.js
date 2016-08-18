@@ -22,6 +22,8 @@
 goog.provide('GoogleSmartCard.MessagingCommon');
 
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.ObjectHelpers');
+goog.require('goog.asserts');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
@@ -55,5 +57,19 @@ function nonFatalDefaultServiceCallback(channel, serviceName, payload) {
       '", payload=' + GSC.DebugDump.debugDump(payload));
   channel.dispose();
 }
+
+/**
+ * Helper function which extracts key from object (first it makes sure the key
+ * is actually present).
+ * @param {!Object|string} object
+ * @param {string} key
+ * @return {?}
+ */
+GSC.MessagingCommon.extractKey = function(object, key) {
+  GSC.Logging.checkWithLogger(LOGGER, goog.isObject(object));
+  goog.asserts.assert(goog.isObject(object));
+
+  return GSC.ObjectHelpers.extractKey(object, key);
+};
 
 });  // goog.scope
