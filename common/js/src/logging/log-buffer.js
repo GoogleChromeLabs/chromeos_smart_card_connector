@@ -47,7 +47,7 @@ var GSC = GoogleSmartCard;
  * difference is that the latter one, when its capacity its exceeded, keeps only
  * last of the log messages, meanwhile the very first messages may also contain
  * the crucial information.
- * @param {number} capacity The maximum
+ * @param {number} capacity The maximum number of stored log messages.
  * @param {string=} opt_loggerPrefix
  * @constructor
  */
@@ -61,7 +61,7 @@ GSC.LogBuffer = function(capacity, opt_loggerPrefix) {
   this.size_ = 0;
 
   /** @private */
-  this.logsPrefixCapacity_ = capacity / 2;
+  this.logsPrefixCapacity_ = Math.trunc(capacity / 2);
   /** @private */
   this.logsPrefix_ = [];
 
