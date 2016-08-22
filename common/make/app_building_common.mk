@@ -27,6 +27,10 @@
 # For possible customization, refer to the documentation in the common.mk file,
 # especially the following variables: CHROME_PATH, CHROME_ENV, CHROME_ARGS.
 #
+# The "run-nobuild" target is similar to the "run" target, but with the
+# exception that it doesnt't perform the rebuilding and doesn't check for the
+# changed files (and therefore it works much faster).
+#
 
 APP_RUN_USER_DATA_DIR_PATH := ./user-data-dir
 
@@ -38,9 +42,12 @@ APP_RUN_CHROME_ARGS := \
 	--user-data-dir=$(APP_RUN_USER_DATA_DIR_PATH) \
 	--load-and-launch-app=$(OUT_DIR_PATH) \
 
-.PHONY: run
+.PHONY: run run-nobuild
 
 run: all
+	$(CHROME_ENV) $(CHROME_PATH) $(APP_RUN_CHROME_ARGS) $(CHROME_ARGS)
+
+run-nobuild:
 	$(CHROME_ENV) $(CHROME_PATH) $(APP_RUN_CHROME_ARGS) $(CHROME_ARGS)
 
 $(eval $(call CLEAN_RULE,$(APP_RUN_USER_DATA_DIR_PATH)))
