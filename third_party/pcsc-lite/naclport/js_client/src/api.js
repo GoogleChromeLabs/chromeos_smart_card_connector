@@ -2156,19 +2156,20 @@ API.ResultOrErrorCode.prototype.logger = GSC.Logging.getScopedLogger(
 
 /**
  * @param {number} successfulResultItemCount
- * @param {function(...)|undefined} opt_onSucceeded
- * @param {function(API.ERROR_CODE)|undefined} opt_onFailed
+ * @param {function(...)|undefined=} opt_onSucceeded
+ * @param {function(API.ERROR_CODE)|undefined=} opt_onFailed
+ * @param {*=} opt_context
  */
 API.ResultOrErrorCode.prototype.getBase = function(
-    successfulResultItemCount, opt_onSucceeded, opt_onFailed) {
+    successfulResultItemCount, opt_onSucceeded, opt_onFailed, opt_context) {
   if (this.isSuccessful()) {
     GSC.Logging.checkWithLogger(
         this.logger, this.resultItems.length == successfulResultItemCount);
     if (opt_onSucceeded)
-      opt_onSucceeded.apply(undefined, this.resultItems);
+      opt_onSucceeded.apply(opt_context, this.resultItems);
   } else {
     if (opt_onFailed)
-      opt_onFailed.apply(undefined, [this.errorCode]);
+      opt_onFailed.apply(opt_context, [this.errorCode]);
   }
 };
 
@@ -2293,13 +2294,14 @@ goog.exportProperty(
     API, 'SCardEstablishContextResult', API.SCardEstablishContextResult);
 
 /**
- * @param {function(API.SCARDCONTEXT)} opt_onSucceeded callback:
+ * @param {function(API.SCARDCONTEXT)=} opt_onSucceeded callback:
  * function(sCardContext)
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardEstablishContextResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2351,12 +2353,13 @@ goog.exportProperty(
     API, 'SCardReleaseContextResult', API.SCardReleaseContextResult);
 
 /**
- * @param {function()} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function()=} opt_onSucceeded callback: function()
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardReleaseContextResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2441,12 +2444,14 @@ goog.exportProperty(API, 'SCardConnectResult', API.SCardConnectResult);
 goog.inherits(API.SCardConnectResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(API.SCARDHANDLE, number)} opt_onSucceeded callback:
+ * @param {function(API.SCARDHANDLE, number)=} opt_onSucceeded callback:
  * function(sCardHandle, activeProtocol)
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
-API.SCardConnectResult.prototype.get = function(opt_onSucceeded, opt_onFailed) {
-  return this.getBase(2, opt_onSucceeded, opt_onFailed);
+API.SCardConnectResult.prototype.get = function(
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(2, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2535,13 +2540,14 @@ goog.exportProperty(API, 'SCardReconnectResult', API.SCardReconnectResult);
 goog.inherits(API.SCardReconnectResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(number)} opt_onSucceeded callback:
+ * @param {function(number)=} opt_onSucceeded callback:
  * function(activeProtocol)
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardReconnectResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2594,12 +2600,13 @@ goog.exportProperty(API, 'SCardDisconnectResult', API.SCardDisconnectResult);
 goog.inherits(API.SCardDisconnectResult, API.ResultOrErrorCode);
 
 /**
- * @param {function()} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function()=} opt_onSucceeded callback: function()
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardDisconnectResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2657,12 +2664,13 @@ goog.exportProperty(
 goog.inherits(API.SCardBeginTransactionResult, API.ResultOrErrorCode);
 
 /**
- * @param {function()} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function()=} opt_onSucceeded callback: function()
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardBeginTransactionResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2722,12 +2730,13 @@ goog.exportProperty(
 goog.inherits(API.SCardEndTransactionResult, API.ResultOrErrorCode);
 
 /**
- * @param {function()} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function()=} opt_onSucceeded callback: function()
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardEndTransactionResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2753,7 +2762,7 @@ goog.exportProperty(
  *   communication protocols have been established.
  *
  * The current state also contains the number of events in the upper 16 bits
- * (state & castToInt32(0xFFFF0000)). This number of events is incremented for each card
+ * (state & 0xFFFF0000). This number of events is incremented for each card
  * insertion or removal in the specified reader. This can be used to detect a
  * card removal/insertion between two calls to SCardStatus().
  *
@@ -2807,13 +2816,14 @@ goog.exportProperty(
 goog.inherits(API.SCardStatusResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(string, number, number, !Array.<number>)} opt_onSucceeded
+ * @param {function(string, number, number, !Array.<number>)=} opt_onSucceeded
  * callback: function(readerName, state, protocol, atr)
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardStatusResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(4, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(4, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2833,7 +2843,7 @@ goog.exportProperty(
  * might be a card insertion or removal event, a change in ATR, etc.
  *
  * The returned event state also contains a number of events in the upper 16
- * bits (eventState & castToInt32(0xFFFF0000)). This number of events is incremented
+ * bits (eventState & 0xFFFF0000). This number of events is incremented
  * for each card insertion or removal in the specified reader. This can
  * be used to detect a card removal/insertion between two calls to
  * SCardGetStatusChange().
@@ -2920,13 +2930,14 @@ goog.exportProperty(
 goog.inherits(API.SCardGetStatusChangeResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(!Array.<!API.SCARD_READERSTATE_OUT>)} opt_onSucceeded
+ * @param {function(!Array.<!API.SCARD_READERSTATE_OUT>)=} opt_onSucceeded
  * callback: function(readerStates)
- * @param {function(!API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardGetStatusChangeResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2994,12 +3005,14 @@ goog.exportProperty(API, 'SCardControlResult', API.SCardControlResult);
 goog.inherits(API.SCardControlResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(!Array.<number>)} opt_onSucceeded callback:
+ * @param {function(!Array.<number>)=} opt_onSucceeded callback:
  * function(responseData)
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
-API.SCardControlResult.prototype.get = function(opt_onSucceeded, opt_onFailed) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed);
+API.SCardControlResult.prototype.get = function(
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3109,12 +3122,13 @@ goog.exportProperty(API, 'SCardGetAttribResult', API.SCardGetAttribResult);
 goog.inherits(API.SCardGetAttribResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(!Array.<number>)} opt_onSucceeded callback: function(attr)
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function(!Array.<number>)=} opt_onSucceeded callback: function(attr)
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardGetAttribResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3171,12 +3185,13 @@ goog.exportProperty(API, 'SCardSetAttribResult', API.SCardSetAttribResult);
 goog.inherits(API.SCardSetAttribResult, API.ResultOrErrorCode);
 
 /**
- * @param {function()} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function()=} opt_onSucceeded callback: function()
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardSetAttribResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3257,13 +3272,14 @@ goog.exportProperty(API, 'SCardTransmitResult', API.SCardTransmitResult);
 goog.inherits(API.SCardTransmitResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(!API.SCARD_IO_REQUEST, !Array.<number>)} opt_onSucceeded
+ * @param {function(!API.SCARD_IO_REQUEST, !Array.<number>)=} opt_onSucceeded
  * callback: function(responseProtocolInformation, responseData)
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardTransmitResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(2, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(2, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3320,13 +3336,14 @@ goog.exportProperty(API, 'SCardListReadersResult', API.SCardListReadersResult);
 goog.inherits(API.SCardListReadersResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(!Array.<string>)} opt_onSucceeded callback:
+ * @param {function(!Array.<string>)=} opt_onSucceeded callback:
  * function(readers)
- * @param {function(API.ERROR_CODE)} opt_onFailed
+ * @param {function(API.ERROR_CODE)=} opt_onFailed
+ * @param {*=} opt_context
  */
 API.SCardListReadersResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3382,12 +3399,14 @@ goog.exportProperty(
 goog.inherits(API.SCardListReaderGroupsResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(!Array.<string>)} opt_onSucceeded callback: function(groups)
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function(!Array.<string>)=} opt_onSucceeded callback:
+ * function(groups)
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardListReaderGroupsResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3434,11 +3453,13 @@ goog.exportProperty(
 goog.inherits(API.SCardCancelResult, API.ResultOrErrorCode);
 
 /**
- * @param {function()} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function()=} opt_onSucceeded callback: function()
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
-API.SCardCancelResult.prototype.get = function(opt_onSucceeded, opt_onFailed) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed);
+API.SCardCancelResult.prototype.get = function(
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3489,12 +3510,13 @@ goog.exportProperty(
 goog.inherits(API.SCardIsValidContextResult, API.ResultOrErrorCode);
 
 /**
- * @param {function()} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)} opt_onFailed callback: function(errorCode)
+ * @param {function()=} opt_onSucceeded callback: function()
+ * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {*=} opt_context
  */
 API.SCardIsValidContextResult.prototype.get = function(
-    opt_onSucceeded, opt_onFailed) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed);
+    opt_onSucceeded, opt_onFailed, opt_context) {
+  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(

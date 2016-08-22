@@ -72,8 +72,13 @@ function displayReaderList(readers) {
     GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
     goog.asserts.assert(readersListElement);
 
+    var statusIndicatorType = reader['status'];
+    if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.SUCCESS &&
+        reader['isCardPresent']) {
+      statusIndicatorType = 'success-with-reader';
+    }
     var errorIndicator = goog.dom.createDom(
-        'div', 'error-indicator color-' + reader['status']);
+        'div', 'status-indicator status-indicator-' + statusIndicatorType);
     var text = reader['name'] +
         (reader['error'] ? ' (Error id = ' + reader['error'] + ')' : '');
 

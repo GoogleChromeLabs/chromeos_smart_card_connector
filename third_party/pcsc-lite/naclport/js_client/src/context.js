@@ -31,10 +31,11 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
+goog.require('goog.Disposable');
 goog.require('goog.array');
 goog.require('goog.asserts');
-goog.require('goog.Disposable');
 goog.require('goog.log.Logger');
+goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
@@ -82,7 +83,7 @@ GSC.PcscLiteClient.Context = function(clientTitle, opt_serverAppId) {
     this.serverAppId_ = opt_serverAppId;
 
   /**
-   * @type {GSC.PortMessageChannel}
+   * @type {goog.messaging.AbstractChannel}
    * @private
    */
   this.channel_ = null;
@@ -115,23 +116,33 @@ goog.exportProperty(Context.prototype, 'logger', Context.prototype.logger);
 /**
  * Starts the initialization process by initiating a connection to the server
  * App.
+ *
+ * If the optional message channel is passed, then it is used instead of opening
+ * a new port to the server App.
+ * @param {!goog.messaging.AbstractChannel=} opt_messageChannel Message channel
+ * to be used instead of opening a new port.
  */
-Context.prototype.initialize = function() {
-  this.logger.fine(
-      'Opening a connection to the server app ' +
-      (goog.isDef(this.serverAppId_) ?
-           '(extension id is "' + this.serverAppId_ + '")' :
-           '(which is the own app)') +
-      '...');
-  var connectInfo = {'name': this.clientTitle};
-  if (goog.isDef(this.serverAppId_)) {
-    var port = chrome.runtime.connect(this.serverAppId_, connectInfo);
+Context.prototype.initialize = function(opt_messageChannel) {
+  if (goog.isDef(opt_messageChannel)) {
+    this.channel_ = opt_messageChannel;
+    goog.async.nextTick(this.messageChannelEstablishedListener_, this);
   } else {
-    var port = chrome.runtime.connect(connectInfo);
+    this.logger.fine(
+        'Opening a connection to the server app ' +
+        (goog.isDef(this.serverAppId_) ?
+             '(extension id is "' + this.serverAppId_ + '")' :
+             '(which is the own app)') +
+        '...');
+    var connectInfo = {'name': this.clientTitle};
+    if (goog.isDef(this.serverAppId_)) {
+      var port = chrome.runtime.connect(this.serverAppId_, connectInfo);
+    } else {
+      var port = chrome.runtime.connect(connectInfo);
+    }
+    this.channel_ = new GSC.PortMessageChannel(
+        port, this.messageChannelEstablishedListener_.bind(this));
   }
 
-  this.channel_ = new GSC.PortMessageChannel(
-      port, this.messageChannelEstablishedListener_.bind(this));
   this.channel_.addOnDisposeCallback(
       this.messageChannelDisposedListener_.bind(this));
 };
@@ -199,6 +210,9 @@ Context.prototype.disposeInternal = function() {
 
 /** @private */
 Context.prototype.messageChannelEstablishedListener_ = function() {
+  if (this.isDisposed() || this.channel_.isDisposed())
+    return;
+
   this.logger.fine('Message channel was established successfully');
 
   GSC.Logging.checkWithLogger(this.logger, goog.isNull(this.api));

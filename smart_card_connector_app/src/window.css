@@ -133,7 +133,7 @@ body {
   align-items: center;
 }
 
-.error-indicator {
+.status-indicator {
   width: 9px;
   height: 9px;
   border-radius: 50%;
@@ -141,14 +141,18 @@ body {
   margin-right: 4px;
 }
 
-.color-init {
+.status-indicator-init {
   background: yellow;
 }
 
-.color-failure {
+.status-indicator-failure {
   background: red;
 }
 
-.color-success {
+.status-indicator-success {
   background: green;
+}
+
+.status-indicator-success-with-reader {
+  background: navy;
 }
