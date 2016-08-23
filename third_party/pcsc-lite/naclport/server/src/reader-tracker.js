@@ -50,8 +50,8 @@ var READER_TRACKER_LOGGER_TITLE = 'ReaderTracker';
  * The timeout for waiting for reader states change event (i.e. it's passed to
  * the SCardGetStatusChange PC/SC function).
  *
- * Note that this timeout shouldn't be set to a very big value (and not the
- * infitite value definitely), because sometimes the implementation in this file
+ * Note that this timeout shouldn't be set to a very big value (and definitely
+ * not to the infitite value), because sometimes the implementation in this file
  * may miss some changes - in which case the correct information would be
  * received only after this timeout passes (see the TrackerThroughPcscApi
  * class for the details).
@@ -60,7 +60,7 @@ var READER_TRACKER_LOGGER_TITLE = 'ReaderTracker';
 var READER_STATUS_QUERY_TIMEOUT_MILLISECONDS = 60 * 1000;
 
 /**
- * The delay that is used when updating the reader states failed with an
+ * The delay that is used when updating of the reader states failed with an
  * intermittent error.
  * @const
  */
@@ -287,13 +287,15 @@ TrackerThroughPcscServerHook.prototype.readerFinishAddListener_ = function(
 
   var returnCodeHex = GSC.DebugDump.dump(returnCode);
 
-  var logMessage =
-      'The reader "' + name + '" (port ' + port + ', device "' + device +
-      '") was initialized with return code ' + returnCodeHex;
-  if (returnCode === 0)
-    this.logger_.info(logMessage);
-  else
-    this.logger_.warning(logMessage);
+  var readerTitleForLog = '"' + name + '" (port ' + port + ', device "' +
+                          device + '")';
+  if (returnCode === 0) {
+    this.logger_.info('The reader ' + readerTitleForLog + ' was successfully ' +
+                      'initialized');
+  } else {
+    this.logger_.warning('Failure while initializing the reader ' +
+                         readerTitleForLog + ': error code ' + returnCodeHex);
+  }
 
   if (returnCode === 0) {
     var value = new ReaderInfo(name, ReaderStatus.SUCCESS);
@@ -320,7 +322,8 @@ TrackerThroughPcscServerHook.prototype.readerRemoveListener_ = function(
   /** @type {number} */
   var port = GSC.MessagingCommon.extractKey(message, 'port');
 
-  this.logger_.info('Removing the reader "' + name + '" (port ' + port + ')');
+  this.logger_.info(
+      'The reader "' + name + '" (port ' + port + ') was removed');
 
   GSC.Logging.checkWithLogger(
       this.logger_,
@@ -364,7 +367,11 @@ function TrackerThroughPcscApi(
    */
   this.result_ = [];
 
-  this.startStatusTracking_(pcscContextMessageChannel);
+  // Start the status tracking asynchronously, so that the actual operations
+  // begin after the ReaderTracker constructor ends - which makes the log
+  // messages clearer.
+  goog.async.nextTick(this.startStatusTracking_.bind(
+      this, pcscContextMessageChannel));
 }
 
 /**
@@ -417,6 +424,10 @@ TrackerThroughPcscApi.prototype.addPromiseErrorHandler_ = function(promise) {
 
 /**
  * Performs the infinite loop of the tracking.
+ *
+ * The loop "body" consists of obtaining the list of reader names, then
+ * obtaining their statuses, updating the result with the obtained data, and
+ * finally waiting for the state change.
  * @param {!API} api
  * @param {!API.SCARDCONTEXT} sCardContext
  * @private
@@ -552,8 +563,9 @@ TrackerThroughPcscApi.prototype.makeReaderStatesPromise_ = function(
             function(errorCode) {
               if (errorCode == API.SCARD_E_UNKNOWN_READER) {
                 this.logger_.warning(
-                    'Failed to get the statuses of the readers from PC/SC ' +
-                    'with error code ' + GSC.DebugDump.dump(errorCode));
+                    'Getting the statuses of the readers from PC/SC finished ' +
+                    'unsuccessfully due to removal of the tracked reader. A ' +
+                    'retry will be attempted after some delay');
                 promiseResolver.resolve(null);
               } else {
                 promiseResolver.reject(new Error(
@@ -609,29 +621,34 @@ TrackerThroughPcscApi.prototype.makeReaderStatesChangePromise_ = function(
   readerStatesIn.push(new API.SCARD_READERSTATE_IN(
       '\\\\?PnP?\\Notification', API.SCARD_STATE_UNAWARE));
 
+  this.logger_.fine(
+      'Waiting for the reader statuses change from PC/SC with the following ' +
+      'data: ' + GSC.DebugDump.dump(readerStatesIn) + '...');
+
   api.SCardGetStatusChange(
       sCardContext,
       READER_STATUS_QUERY_TIMEOUT_MILLISECONDS,
       readerStatesIn).then(function(result) {
-    result.get(
-        promiseResolver.resolve.bind(promiseResolver),
-        function(errorCode) {
-          if (errorCode == API.SCARD_E_TIMEOUT) {
-            this.logger_.fine(
-                'Timeout while waiting for reader statuses change from PC/SC');
-            promiseResolver.resolve();
-          } else if (errorCode == API.SCARD_E_UNKNOWN_READER) {
-            this.logger_.warning(
-                'Failed to wait for the reader statuses change from PC/SC ' +
-                'with error code ' + GSC.DebugDump.dump(errorCode));
-            promiseResolver.resolve();
-          } else {
-            promiseResolver.reject(new Error(
-                'Failed to wait for the reader statuses change from PC/SC ' +
-                'with error code ' + GSC.DebugDump.dump(errorCode)));
-          }
-        },
-        this);
+    result.get(function(readerStatesOut) {
+      this.logger_.fine('Received a reader statuses change event from PC/SC: ' +
+                        GSC.DebugDump.dump(readerStatesOut));
+      promiseResolver.resolve();
+    }, function(errorCode) {
+      if (errorCode == API.SCARD_E_TIMEOUT) {
+        this.logger_.fine('No reader statuses changes were reported by PC/SC ' +
+                          'within the timeout');
+        promiseResolver.resolve();
+      } else if (errorCode == API.SCARD_E_UNKNOWN_READER) {
+        this.logger_.warning(
+            'Waiting for the reader statuses changes from PC/SC finished ' +
+            'unsuccessfully due to removal of the tracked reader');
+        promiseResolver.resolve();
+      } else {
+        promiseResolver.reject(new Error(
+            'Failed to wait for the reader statuses change from PC/SC with ' +
+            'error code ' + GSC.DebugDump.dump(errorCode)));
+      }
+    }, this);
   }, function(error) {
     promiseResolver.reject(new Error(
         'Failed to get the reader statuses from PC/SC: ' + error));
@@ -669,12 +686,14 @@ TrackerThroughPcscApi.prototype.updateResult_ = function(result) {
   var isSame = goog.array.equals(
       result, this.result_, goog.object.equals.bind(goog.object));
   if (!isSame) {
+    var dumpedResults = goog.array.map(result, function(readerInfo) {
+      return '"' + readerInfo.name + '"' +
+             (readerInfo.isCardPresent ? ' (with inserted card)' : '');
+    });
     this.logger_.info(
         'Information about readers returned by PC/SC: ' +
-        goog.iter.join(goog.array.map(result, function(readerInfo) {
-          return '"' + readerInfo.name + '"' +
-                 (readerInfo.isCardPresent ? ' (with inserted card)' : '');
-        }), ', '));
+        (dumpedResults.length ?
+             goog.iter.join(dumpedResults, ', ') : 'no readers'));
 
     this.result_ = result;
     this.updateListener_();

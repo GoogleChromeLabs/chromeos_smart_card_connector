@@ -128,31 +128,39 @@ body {
   text-decoration: none;
 }
 
-#readers-list > li {
-  display: flex;
-  align-items: center;
-}
-
-.status-indicator {
-  width: 9px;
+.reader-indicator-container {
+  display: inline-block;
   height: 9px;
-  border-radius: 50%;
-  display: flex;
-  margin-right: 4px;
+  margin-right: 6px;
+  position: relative;
+  width: 9px;
 }
 
-.status-indicator-init {
+.reader-state-indicator {
+  border-radius: 50%;
+  display: inline-block;
+  height: 9px;
+  margin-left: 1px;
+  width: 9px;
+}
+
+.reader-state-indicator-init {
   background: yellow;
 }
 
-.status-indicator-failure {
+.reader-state-indicator-failure {
   background: red;
 }
 
-.status-indicator-success {
+.reader-state-indicator-success {
   background: green;
 }
 
-.status-indicator-success-with-reader {
-  background: navy;
+.reader-card-present-indicator {
+  background: no-repeat url("card-present.png");
+  display: inline-block;
+  height: 20px;
+  position: absolute;
+  top: -2px;
+  width: 20px;
 }

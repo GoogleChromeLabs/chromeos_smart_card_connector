@@ -38,6 +38,17 @@ goog.scope(function() {
  */
 var USB_DEVICE_FILTERS = [{'interfaceClass': 0x0B}];
 
+/**
+ * PC/SC usually appends some numbers to the reader names. This constant
+ * specifies which suffixes should be removed before displaying, as it doesn't
+ * make much sense to expose them to the user.
+ *
+ * Only the first matched suffix from this list would be removed from the
+ * resulting reader name.
+ * @const
+ */
+var READER_NAME_SUFFIXES_TO_REMOVE = [" 00 00", " 00"];
+
 /** @const */
 var GSC = GoogleSmartCard;
 
@@ -71,20 +82,36 @@ function displayReaderList(readers) {
     GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
     goog.asserts.assert(readersListElement);
 
-    // FIXME(emaxx): Rewrite this in a cleaner way.
-    var statusIndicatorType = reader['status'];
+    var indicatorClasses = 'reader-state-indicator reader-state-indicator-' +
+                           reader['status'];
     if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.SUCCESS &&
         reader['isCardPresent']) {
-      statusIndicatorType = 'success-with-reader';
+      indicatorClasses = 'reader-card-present-indicator';
     }
-    var errorIndicator = goog.dom.createDom(
-        'div', 'status-indicator status-indicator-' + statusIndicatorType);
-    var text = reader['name'] +
-        (reader['error'] ? ' (Error id = ' + reader['error'] + ')' : '');
+    var indicator = goog.dom.createDom('span', indicatorClasses);
 
-    var element = goog.dom.createDom('li', undefined, errorIndicator, text);
+    var indicatorContainer = goog.dom.createDom(
+        'span', 'reader-indicator-container', indicator);
+
+    var text = makeReaderNameForDisplaying(reader['name']) +
+        (reader['error'] ? ' (Error ' + reader['error'] + ')' : '');
+
+    var element = goog.dom.createDom('li', undefined, indicatorContainer, text);
     goog.dom.append(readersListElement, element);
   };
+}
+
+function makeReaderNameForDisplaying(readerName) {
+  for (let suffixToRemove of READER_NAME_SUFFIXES_TO_REMOVE) {
+    if (goog.string.endsWith(readerName, suffixToRemove)) {
+      var newReaderName = readerName.substr(
+          0, readerName.length - suffixToRemove.length);
+      logger.fine('Transformed reader name "' + readerName + '" into "' +
+                  newReaderName + '"');
+      return newReaderName;
+    }
+  }
+  return readerName;
 }
 
 /**
