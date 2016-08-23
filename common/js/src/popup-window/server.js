@@ -65,7 +65,8 @@ GSC.PopupWindow.Server.createWindow = function(
 
   logger.fine(
       'Creating a popup window with url="' + url + '", options=' +
-      GSC.DebugDump.debugDump(createWindowOptions));
+      GSC.DebugDump.debugDump(createWindowOptions) + ', data=' +
+      GSC.DebugDump.debugDump(opt_data));
 
   /** @preserveTry */
   try {
@@ -131,8 +132,10 @@ function createWindowCallback(createdWindowExtends, createdWindow) {
 
   var createdWindowScope = createdWindow['contentWindow'];
 
-  logger.finer('The popup window callback is executed, injecting additional ' +
-               'data into the created window');
+  logger.finer(
+      'The popup window callback is executed, injecting the following data ' +
+      'into the created window: ' +
+      GSC.DebugDump.debugDump(createdWindowExtends));
   goog.object.extend(createdWindowScope, createdWindowExtends);
 }
 

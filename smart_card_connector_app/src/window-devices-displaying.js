@@ -31,8 +31,23 @@ goog.require('goog.events.EventType');
 goog.require('goog.log.Logger');
 goog.scope(function() {
 
-/** @const */
+/**
+ * USB device filter that is used when displaying the USB selection dialog to
+ * the used.
+ * @const
+ */
 var USB_DEVICE_FILTERS = [{'interfaceClass': 0x0B}];
+
+/**
+ * PC/SC usually appends some numbers to the reader names. This constant
+ * specifies which suffixes should be removed before displaying, as it doesn't
+ * make much sense to expose them to the user.
+ *
+ * Only the first matched suffix from this list would be removed from the
+ * resulting reader name.
+ * @const
+ */
+var READER_NAME_SUFFIXES_TO_REMOVE = [" 00 00", " 00"];
 
 /** @const */
 var GSC = GoogleSmartCard;
@@ -56,11 +71,6 @@ var readersListElement = goog.dom.getElement('readers-list');
 var addDeviceElement = goog.dom.getElement('add-device');
 
 /**
- * @type {GSC.PcscLiteServer.ReaderTracker}
- */
-var readerTracker;
-
-/**
  * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers
  */
 function displayReaderList(readers) {
@@ -72,14 +82,36 @@ function displayReaderList(readers) {
     GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
     goog.asserts.assert(readersListElement);
 
-    var errorIndicator = goog.dom.createDom(
-        'div', 'error-indicator color-' + reader['status']);
-    var text = reader['name'] +
-        (reader['error'] ? ' (Error id = ' + reader['error'] + ')' : '');
+    var indicatorClasses = 'reader-state-indicator reader-state-indicator-' +
+                           reader['status'];
+    if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.SUCCESS &&
+        reader['isCardPresent']) {
+      indicatorClasses = 'reader-card-present-indicator';
+    }
+    var indicator = goog.dom.createDom('span', indicatorClasses);
 
-    var element = goog.dom.createDom('li', undefined, errorIndicator, text);
+    var indicatorContainer = goog.dom.createDom(
+        'span', 'reader-indicator-container', indicator);
+
+    var text = makeReaderNameForDisplaying(reader['name']) +
+        (reader['error'] ? ' (Error ' + reader['error'] + ')' : '');
+
+    var element = goog.dom.createDom('li', undefined, indicatorContainer, text);
     goog.dom.append(readersListElement, element);
   };
+}
+
+function makeReaderNameForDisplaying(readerName) {
+  for (let suffixToRemove of READER_NAME_SUFFIXES_TO_REMOVE) {
+    if (goog.string.endsWith(readerName, suffixToRemove)) {
+      var newReaderName = readerName.substr(
+          0, readerName.length - suffixToRemove.length);
+      logger.fine('Transformed reader name "' + readerName + '" into "' +
+                  newReaderName + '"');
+      return newReaderName;
+    }
+  }
+  return readerName;
 }
 
 /**
@@ -103,12 +135,18 @@ function getUserSelectedDevicesCallback(devices) {
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  readerTracker = GSC.ObjectHelpers.extractKey(
-      GSC.PopupWindow.Client.getData(), 'readerTracker');
-  displayReaderList(readerTracker.getReaders());
-  readerTracker.addOnUpdateListener(displayReaderList);
+  var readerTrackerSubscriber =
+      /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
+      (GSC.ObjectHelpers.extractKey(
+           GSC.PopupWindow.Client.getData(), 'readerTrackerSubscriber'));
+  readerTrackerSubscriber(displayReaderList);
+
+  var readerTrackerUnsubscriber =
+      /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
+      (GSC.ObjectHelpers.extractKey(
+           GSC.PopupWindow.Client.getData(), 'readerTrackerUnsubscriber'));
   chrome.app.window.current().onClosed.addListener(function() {
-    readerTracker.removeOnUpdateListener(displayReaderList);
+    readerTrackerUnsubscriber(displayReaderList);
   });
 
   goog.events.listen(
