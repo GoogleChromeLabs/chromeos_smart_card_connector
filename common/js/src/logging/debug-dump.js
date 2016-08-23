@@ -183,7 +183,8 @@ function dump(value) {
   // Note that goog.dom.is* methods are not used because many of them may
   // produce thorny false positives.
   //
-  // TODO(emaxx): Think about a proper solution that deals with cyclic references.
+  // TODO(emaxx): Think about a proper solution that deals with cyclic
+  // references.
   if (Document && value instanceof Document)
     return '<Document>';
   if (Window && value instanceof Window)

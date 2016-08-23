@@ -31,7 +31,11 @@ goog.require('goog.events.EventType');
 goog.require('goog.log.Logger');
 goog.scope(function() {
 
-/** @const */
+/**
+ * USB device filter that is used when displaying the USB selection dialog to
+ * the used.
+ * @const
+ */
 var USB_DEVICE_FILTERS = [{'interfaceClass': 0x0B}];
 
 /** @const */
@@ -54,11 +58,6 @@ var readersListElement = goog.dom.getElement('readers-list');
  * @const
  */
 var addDeviceElement = goog.dom.getElement('add-device');
-
-/**
- * @type {GSC.PcscLiteServer.ReaderTracker}
- */
-var readerTracker;
 
 /**
  * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers
@@ -109,12 +108,18 @@ function getUserSelectedDevicesCallback(devices) {
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  readerTracker = GSC.ObjectHelpers.extractKey(
-      GSC.PopupWindow.Client.getData(), 'readerTracker');
-  displayReaderList(readerTracker.getReaders());
-  readerTracker.addOnUpdateListener(displayReaderList);
+  var readerTrackerSubscriber =
+      /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
+      (GSC.ObjectHelpers.extractKey(
+           GSC.PopupWindow.Client.getData(), 'readerTrackerSubscriber'));
+  readerTrackerSubscriber(displayReaderList);
+
+  var readerTrackerUnsubscriber =
+      /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
+      (GSC.ObjectHelpers.extractKey(
+           GSC.PopupWindow.Client.getData(), 'readerTrackerUnsubscriber'));
   chrome.app.window.current().onClosed.addListener(function() {
-    readerTracker.removeOnUpdateListener(displayReaderList);
+    readerTrackerUnsubscriber(displayReaderList);
   });
 
   goog.events.listen(

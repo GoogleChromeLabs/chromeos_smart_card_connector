@@ -65,7 +65,8 @@ GSC.PopupWindow.Server.createWindow = function(
 
   logger.fine(
       'Creating a popup window with url="' + url + '", options=' +
-      GSC.DebugDump.debugDump(createWindowOptions));
+      GSC.DebugDump.debugDump(createWindowOptions) + ', data=' +
+      GSC.DebugDump.debugDump(opt_data));
 
   /** @preserveTry */
   try {

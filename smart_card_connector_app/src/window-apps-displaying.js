@@ -113,6 +113,9 @@ function onUpdateListener(appListArg) {
 
 GSC.ConnectorApp.Window.AppsDisplaying.initialize = function() {
   logger.fine('Registering listener on connected apps update');
+  // FIXME(emaxx): Do unsubscription too.
+  // FIXME(emaxx): Use GSC.ObjectHelpers.extractKey to ensure that the expected
+  // object is passed to the window.
   var data = GSC.PopupWindow.Client.getData()['clientAppListUpdateSubscriber'];
   var clientAppListUpdateSubscriber =
       /**@type {function(function(!Array.<string>))} */ (data);

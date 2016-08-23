@@ -104,9 +104,13 @@ function launchedListener() {
 }
 
 function openWindow() {
-  var data = {'clientAppListUpdateSubscriber':
-      messageChannelPool.addOnUpdateListener.bind(messageChannelPool),
-      'readerTracker': readerTracker};
+  var data = {
+      'clientAppListUpdateSubscriber':
+          messageChannelPool.addOnUpdateListener.bind(messageChannelPool),
+      'readerTrackerSubscriber':
+          readerTracker.addOnUpdateListener.bind(readerTracker),
+      'readerTrackerUnsubscriber':
+          readerTracker.removeOnUpdateListener.bind(readerTracker)};
   GSC.PopupWindow.Server.createWindow(WINDOW_URL, WINDOW_OPTIONS, data);
 }
 

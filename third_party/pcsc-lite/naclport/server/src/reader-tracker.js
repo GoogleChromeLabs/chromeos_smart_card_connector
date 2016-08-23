@@ -34,6 +34,7 @@ goog.require('goog.Promise');
 goog.require('goog.Timer');
 goog.require('goog.array');
 goog.require('goog.asserts');
+goog.require('goog.iter');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
@@ -56,8 +57,7 @@ var READER_TRACKER_LOGGER_TITLE = 'ReaderTracker';
  * class for the details).
  * @const
  */
-//var READER_STATUS_QUERY_TIMEOUT_MILLISECONDS = 60 * 1000;
-var READER_STATUS_QUERY_TIMEOUT_MILLISECONDS = 1000;
+var READER_STATUS_QUERY_TIMEOUT_MILLISECONDS = 60 * 1000;
 
 /**
  * The delay that is used when updating the reader states failed with an
@@ -153,16 +153,22 @@ var ReaderTracker = GSC.PcscLiteServer.ReaderTracker;
  * @param {function(!Array.<!ReaderInfo>)} listener
  */
 ReaderTracker.prototype.addOnUpdateListener = function(listener) {
-  this.logger_.fine('Added an OnUpdateListener');
   this.updateListeners_.push(listener);
+  this.logger_.fine('Added an update listener');
+
+  listener(this.getReaders());
 };
 
 /**
  * @param {function(!Array.<!ReaderInfo>)} listener
  */
 ReaderTracker.prototype.removeOnUpdateListener = function(listener) {
-  this.logger_.fine('Removed an OnUpdateListener');
-  goog.array.remove(this.updateListeners_, listener);
+  if (goog.array.remove(this.updateListeners_, listener)) {
+    this.logger_.fine('Removed an update listener');
+  } else {
+    this.logger_.warning('Failed to remove an update listener: the passed ' +
+                         'function was not found');
+  }
 };
 
 /**
@@ -546,7 +552,7 @@ TrackerThroughPcscApi.prototype.makeReaderStatesPromise_ = function(
             function(errorCode) {
               if (errorCode == API.SCARD_E_UNKNOWN_READER) {
                 this.logger_.warning(
-                    'Failed to get the statuses of the readers  from PC/SC ' +
+                    'Failed to get the statuses of the readers from PC/SC ' +
                     'with error code ' + GSC.DebugDump.dump(errorCode));
                 promiseResolver.resolve(null);
               } else {
@@ -663,6 +669,13 @@ TrackerThroughPcscApi.prototype.updateResult_ = function(result) {
   var isSame = goog.array.equals(
       result, this.result_, goog.object.equals.bind(goog.object));
   if (!isSame) {
+    this.logger_.info(
+        'Information about readers returned by PC/SC: ' +
+        goog.iter.join(goog.array.map(result, function(readerInfo) {
+          return '"' + readerInfo.name + '"' +
+                 (readerInfo.isCardPresent ? ' (with inserted card)' : '');
+        }), ', '));
+
     this.result_ = result;
     this.updateListener_();
   }

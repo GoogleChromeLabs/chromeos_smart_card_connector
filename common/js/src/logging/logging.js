@@ -275,7 +275,7 @@ function setupLogBuffer() {
   if (goog.object.containsKey(
           window, GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME)) {
     logBuffer = window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME];
-    logger.fine('Detected an existing LogBuffer instance, attaching it to ' +
+    logger.fine('Detected an existing log buffer instance, attaching it to ' +
                 'the root logger');
   } else {
     var logBufferLoggerPrefix = goog.string.subs(
@@ -283,7 +283,7 @@ function setupLogBuffer() {
     logBuffer = new GSC.LogBuffer(LOG_BUFFER_CAPACITY, logBufferLoggerPrefix);
     window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME] = logBuffer;
     logger.fine(
-        'Created a new LogBuffer instance, attaching it to the root logger');
+        'Created a new log buffer instance, attaching it to the root logger');
   }
 
   logBuffer.attachToLogger(rootLogger);
