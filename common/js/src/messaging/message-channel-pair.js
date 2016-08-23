@@ -15,11 +15,17 @@
  */
 
 /**
- * @fileoverview TODO(emaxx): Write docs.
+ * @fileoverview This file contains a class that provides a way to create a pair
+ * of message channels linked to each other. This class is useful in the cases
+ * when it's necessary to connect two pieces of code that are both implemented
+ * to communicate through the message channel abstraction, but for some reason
+ * live in the same JavaScript context.
  */
 
 goog.provide('GoogleSmartCard.MessageChannelPair');
 
+goog.require('GoogleSmartCard.Logging');
+goog.require('goog.Disposable');
 goog.require('goog.async.nextTick');
 goog.require('goog.messaging.AbstractChannel');
 
@@ -29,21 +35,67 @@ goog.scope(function() {
 var GSC = GoogleSmartCard;
 
 /**
- * TODO(emaxx): Write docs.
- * TODO(emaxx): Implement disposal semantics.
+ * @type {!goog.log.Logger}
+ * @const
+ */
+var logger = GSC.Logging.getScopedLogger('MessageChannelPair');
+
+/**
+ * This class provides a way to create a pair of message channels linked to each
+ * other.
+ *
+ * When a message is sent through one message channel from the pair, it gets
+ * received by the other message channel from the pair, and vice versa.
  * @constructor
+ * @extends goog.Disposable
  */
 GSC.MessageChannelPair = function() {
-  /** @private */
+  MessageChannelPair.base(this, 'constructor');
+
+  /**
+   * @type {!Array.<!MessageChannelPairItem>}
+   * @private
+   */
   this.items_ = [
       new MessageChannelPairItem(this, 0), new MessageChannelPairItem(this, 1)];
-
-  this.first = this.items_[0];
-  this.second = this.items_[1];
 };
 
 /** @const */
 var MessageChannelPair = GSC.MessageChannelPair;
+
+goog.inherits(MessageChannelPair, goog.Disposable);
+
+/**
+ * @param {number} itemIndex
+ * @return {!goog.messaging.AbstractChannel}
+ */
+MessageChannelPair.prototype.getItem = function(itemIndex) {
+  GSC.Logging.checkWithLogger(logger, 0 <= itemIndex && itemIndex <= 1);
+  GSC.Logging.checkWithLogger(logger, !this.isDisposed());
+  return this.items_[itemIndex];
+};
+
+/**
+ * @return {!goog.messaging.AbstractChannel}
+ */
+MessageChannelPair.prototype.getFirst = function() {
+  return this.getItem(0);
+};
+
+/**
+ * @return {!goog.messaging.AbstractChannel}
+ */
+MessageChannelPair.prototype.getSecond = function() {
+  return this.getItem(1);
+};
+
+/** @override */
+MessageChannelPair.prototype.disposeInternal = function() {
+  for (let item of this.items_)
+    item.dispose();
+  this.items_ = [];
+  MessageChannelPair.base(this, 'disposeInternal');
+};
 
 /**
  * @param {number} fromItemIndex
@@ -54,11 +106,14 @@ var MessageChannelPair = GSC.MessageChannelPair;
 MessageChannelPair.prototype.sendFrom_ = function(
     fromItemIndex, serviceName, payload) {
   var targetItem = this.items_[1 - fromItemIndex];
-  goog.async.nextTick(targetItem.deliver.bind(
+  // Deliver the message to the target message channel asynchronously, because
+  // that's how the real message channels usually work.
+  goog.async.nextTick(targetItem.deliver_.bind(
       targetItem, serviceName, payload));
 };
 
 /**
+ * A message channel which is an element of the message channel pair.
  * @param {!MessageChannelPair} messageChannelPair
  * @param {number} indexInPair
  * @constructor
@@ -77,7 +132,23 @@ goog.inherits(MessageChannelPairItem, goog.messaging.AbstractChannel);
 
 /** @override */
 MessageChannelPairItem.prototype.send = function(serviceName, payload) {
+  GSC.Logging.checkWithLogger(logger, !this.isDisposed());
   this.messageChannelPair_.sendFrom_(this.indexInPair_, serviceName, payload);
+};
+
+/** @override */
+MessageChannelPairItem.prototype.disposeInternal = function() {
+  this.messageChannelPair_ = undefined;
+  MessageChannelPairItem.base(this, 'disposeInternal');
+};
+
+/**
+ * @param {string} serviceName
+ * @param {!Object|string} payload
+ * @private
+ */
+MessageChannelPairItem.prototype.deliver_ = function(serviceName, payload) {
+  this.deliver(serviceName, payload);
 };
 
 });  // goog.scope

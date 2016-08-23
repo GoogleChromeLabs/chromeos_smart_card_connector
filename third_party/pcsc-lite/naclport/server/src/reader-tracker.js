@@ -46,13 +46,22 @@ goog.scope(function() {
 var READER_TRACKER_LOGGER_TITLE = 'ReaderTracker';
 
 /**
- * TODO(emaxx): Write docs.
+ * The timeout for waiting for reader states change event (i.e. it's passed to
+ * the SCardGetStatusChange PC/SC function).
+ *
+ * Note that this timeout shouldn't be set to a very big value (and not the
+ * infitite value definitely), because sometimes the implementation in this file
+ * may miss some changes - in which case the correct information would be
+ * received only after this timeout passes (see the TrackerThroughPcscApi
+ * class for the details).
  * @const
  */
-var READER_STATUS_QUERY_TIMEOUT_MILLISECONDS = 60 * 1000;
+//var READER_STATUS_QUERY_TIMEOUT_MILLISECONDS = 60 * 1000;
+var READER_STATUS_QUERY_TIMEOUT_MILLISECONDS = 1000;
 
 /**
- * TODO(emaxx): Write docs.
+ * The delay that is used when updating the reader states failed with an
+ * intermittent error.
  * @const
  */
 var READER_STATUS_FAILED_QUERY_DELAY_MILLISECONDS = 500;
@@ -189,7 +198,8 @@ ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
 };
 
 /**
- * TODO(emaxx): Write docs.
+ * This class tracks the readers, basing on the information from the hook in the
+ * PC/SC-Lite server (see readerfactory_nacl.cc for more information).
  * @param {!goog.log.Logger} logger
  * @param {!goog.messaging.AbstractChannel} serverMessageChannel
  * @param {function()} updateListener
@@ -324,6 +334,11 @@ TrackerThroughPcscServerHook.prototype.readerRemoveListener_ = function(
  *
  * Second, this makes it possible to reuse the existing PC/SC code, without the
  * need to modify it for obtaining the information about readers.
+ *
+ * Note that, however, this implementation is imperfect, as it can sometimes
+ * miss some changes (that's because PC/SC API provides no race-free way to
+ * wait for reader adding/removing). When this happens, the missed change will
+ * be updated when the READER_STATUS_QUERY_TIMEOUT_MILLISECONDS timeout exceeds.
  * @param {!goog.log.Logger} logger
  * @param {!goog.messaging.AbstractChannel} pcscContextMessageChannel
  * @param {function()} updateListener
@@ -362,9 +377,32 @@ TrackerThroughPcscApi.prototype.startStatusTracking_ = function(
     pcscContextMessageChannel) {
   this.logger_.fine('Started tracking through PC/SC API');
 
-  this.makeApiPromise_(pcscContextMessageChannel).then(function(api) {
-    return this.makeStatusTrackingPromise_(api);
-  }, null, this).thenCatch(function(error) {
+  var promise = this.makeApiPromise_(
+      pcscContextMessageChannel).then(function(api) {
+    this.startStatusTrackingWithApi_(api);
+  }, null, this);
+  this.addPromiseErrorHandler_(promise);
+};
+
+/**
+ * Starts the tracking, given the PC/SC client API instance.
+ * @param {!API} api
+ * @private
+ */
+TrackerThroughPcscApi.prototype.startStatusTrackingWithApi_ = function(api) {
+  var promise = this.makeSCardContextPromise_(api).then(function(sCardContext) {
+    this.runStatusTrackingLoop_(api, sCardContext);
+  }, null, this);
+  this.addPromiseErrorHandler_(promise);
+};
+
+/**
+ * Attaches a rejection handler to the passed promise.
+ * @param {!goog.Promise} promise
+ * @private
+ */
+TrackerThroughPcscApi.prototype.addPromiseErrorHandler_ = function(promise) {
+  promise.thenCatch(function(error) {
     this.logger_.warning(
         'Stopped tracking through PC/SC API: ' + error.message);
     this.updateResult_([]);
@@ -372,33 +410,14 @@ TrackerThroughPcscApi.prototype.startStatusTracking_ = function(
 };
 
 /**
- * Starts the tracking, given the PC/SC client API instance, and returns the
- * promise that corresponds to the tracking.
- *
- * The returned promise will be never fulfilled, and may only become rejected -
- * if the tracking fails due to some error.
- * @param {!API} api
- * @private
- */
-TrackerThroughPcscApi.prototype.makeStatusTrackingPromise_ = function(api) {
-  return this.makeSCardContextPromise_(api).then(function(sCardContext) {
-    return this.makeStatusTrackingLoopPromise_(api, sCardContext);
-  }, null, this);
-};
-
-/**
- * Performs the infinite loop of the tracking, and returns the promise that
- * corresponds to this infinite loop.
- *
- * The returned promise will be never fulfilled, and may only become rejected -
- * if the tracking fails due to some error.
+ * Performs the infinite loop of the tracking.
  * @param {!API} api
  * @param {!API.SCARDCONTEXT} sCardContext
  * @private
  */
-TrackerThroughPcscApi.prototype.makeStatusTrackingLoopPromise_ = function(
+TrackerThroughPcscApi.prototype.runStatusTrackingLoop_ = function(
     api, sCardContext) {
-  return this.makeReaderNamesPromise_(
+  var promise = this.makeReaderNamesPromise_(
       api, sCardContext).then(function(readerNames) {
     return this.makeReaderStatesPromise_(api, sCardContext, readerNames);
   }, null, this).then(function(readerStates) {
@@ -413,12 +432,13 @@ TrackerThroughPcscApi.prototype.makeStatusTrackingLoopPromise_ = function(
           api, sCardContext, readerStates);
     }
   }, null, this).then(function() {
-    return this.makeStatusTrackingLoopPromise_(api, sCardContext);
+    this.runStatusTrackingLoop_(api, sCardContext);
   }, null, this);
+  this.addPromiseErrorHandler_(promise);
 };
 
 /**
- * TODO(emaxx): Write docs.
+ * Makes a promise of PC/SC client API instance.
  * @param {!goog.messaging.AbstractChannel} pcscContextMessageChannel
  * @return {!goog.Promise.<!API>}
  * @private
@@ -442,7 +462,7 @@ TrackerThroughPcscApi.prototype.makeApiPromise_ = function(
 };
 
 /**
- * TODO(emaxx): Write docs.
+ * Makes a promise of the established PC/SC context.
  * @param {!API} api
  * @return {!goog.Promise.<!API.SCARDCONTEXT>}
  * @private
@@ -470,7 +490,7 @@ TrackerThroughPcscApi.prototype.makeSCardContextPromise_ = function(api) {
 };
 
 /**
- * TODO(emaxx): Write docs.
+ * Makes a promise of reader names that are reported currently by PC/SC.
  * @param {!API} api
  * @param {!API.SCARDCONTEXT} sCardContext
  * @return {!goog.Promise.<!Array.<string>>}
@@ -502,7 +522,7 @@ TrackerThroughPcscApi.prototype.makeReaderNamesPromise_ = function(
 };
 
 /**
- * TODO(emaxx): Write docs.
+ * Makes a promise of reader states that are reported currently by PC/SC.
  * @param {!API} api
  * @param {!API.SCARDCONTEXT} sCardContext
  * @param {!Array.<string>} readerNames
@@ -545,7 +565,18 @@ TrackerThroughPcscApi.prototype.makeReaderStatesPromise_ = function(
 };
 
 /**
- * TODO(emaxx): Write docs.
+ * Makes a promise that will be resolved once some change with the specified
+ * state is detected, or when the timeout passes.
+ *
+ * This also watches for the reader adding/removing events, but this,
+ * unfortunately, cannot be done in a race-free manner: the PC/SC
+ * SCardGetStatusChange function would notify only about those reader
+ * adding/removing events that occurred during its call. So the reader
+ * adding/removing may happen.
+ *
+ * FIXME(emaxx): Think whether it makes sense to make the implementation more
+ * robust (even though it's completely unclear how to make it completely
+ * race-free).
  * @param {!API} api
  * @param {!API.SCARDCONTEXT} sCardContext
  * @param {!Array.<!API.SCARD_READERSTATE_OUT>} previousReaderStatesOut
@@ -604,7 +635,8 @@ TrackerThroughPcscApi.prototype.makeReaderStatesChangePromise_ = function(
 };
 
 /**
- * TODO(emaxx): Write docs.
+ * Updates the result reported by this instance, given the reader states
+ * obtained from a call to the SCardGetStatusChange function.
  * @param {!Array.<!API.SCARD_READERSTATE_OUT>} readerStates
  * @private
  */
@@ -622,7 +654,8 @@ TrackerThroughPcscApi.prototype.updateResultFromReaderStates_ = function(
 };
 
 /**
- * TODO(emaxx): Write docs.
+ * Updates the result reported by this instance, and fires the update listener
+ * when necessary.
  * @param {!Array.<!ReaderInfo>} result
  * @private
  */

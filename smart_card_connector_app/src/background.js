@@ -76,10 +76,10 @@ var pcscLiteReadinessTracker =
 var messageChannelPool = new GSC.MessageChannelPool();
 
 var readerTrackerMessageChannelPair = new GSC.MessageChannelPair;
-createClientHandler(readerTrackerMessageChannelPair.first, undefined);
+createClientHandler(readerTrackerMessageChannelPair.getFirst(), undefined);
 var readerTracker = new GSC.PcscLiteServer.ReaderTracker(
     naclModule.messageChannel,
-    readerTrackerMessageChannelPair.second,
+    readerTrackerMessageChannelPair.getSecond(),
     naclModule.logger);
 
 naclModule.load();

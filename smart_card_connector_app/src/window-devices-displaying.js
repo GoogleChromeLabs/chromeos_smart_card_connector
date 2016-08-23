@@ -72,6 +72,7 @@ function displayReaderList(readers) {
     GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
     goog.asserts.assert(readersListElement);
 
+    // FIXME(emaxx): Rewrite this in a cleaner way.
     var statusIndicatorType = reader['status'];
     if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.SUCCESS &&
         reader['isCardPresent']) {
