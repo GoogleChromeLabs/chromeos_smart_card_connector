@@ -74,8 +74,7 @@ ChromeUsbBackend.prototype.startObservingDevices_ = function() {
  * @private
  */
 ChromeUsbBackend.prototype.deviceAddedListener_ = function(device) {
-  this.logger.info('Received onDeviceAdded event with device ' +
-                   GSC.DebugDump.dump(device));
+  this.logger.fine('A USB device was added: ' + GSC.DebugDump.dump(device));
 
   this.logCurrentDevices_();
 };
@@ -85,8 +84,7 @@ ChromeUsbBackend.prototype.deviceAddedListener_ = function(device) {
  * @private
  */
 ChromeUsbBackend.prototype.deviceRemovedListener_ = function(device) {
-  this.logger.info('Received onDeviceRemoved event with device ' +
-                   GSC.DebugDump.dump(device));
+  this.logger.fine('A USB device was removed: ' + GSC.DebugDump.dump(device));
 
   this.logCurrentDevices_();
 };
