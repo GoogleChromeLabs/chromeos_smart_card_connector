@@ -174,7 +174,8 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
     clientAppId) {
   ClientHandler.base(this, 'constructor');
 
-  this.clientId_ = clientIdGenerator.next();
+  /** @type {number} */
+  this.clientId = clientIdGenerator.next();
 
   /** @private */
   this.clientAppId_ = goog.isDef(clientAppId) ? clientAppId : null;
@@ -184,7 +185,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
    * @const
    */
   this.logger = GSC.Logging.getScopedLogger(
-      'PcscLiteServerClientsManagement.ClientHandler<id=' + this.clientId_ +
+      'PcscLiteServerClientsManagement.ClientHandler<id=' + this.clientId +
       ', client=' +
       (goog.isNull(this.clientAppId_) ?
            'own app' : '"' + this.clientAppId_ + '"') + '>');
@@ -610,7 +611,7 @@ ClientHandler.prototype.createServerRequesterIfNeed_ = function() {
   goog.asserts.assert(this.serverMessageChannel_);
 
   var requesterTitle = goog.string.subs(
-      CALL_FUNCTION_SERVER_REQUESTER_TITLE_FORMAT, this.clientId_);
+      CALL_FUNCTION_SERVER_REQUESTER_TITLE_FORMAT, this.clientId);
   this.serverRequester_ = new GSC.Requester(
       requesterTitle, this.serverMessageChannel_);
 };
@@ -630,7 +631,7 @@ ClientHandler.prototype.sendAddClientServerNotification_ = function() {
       this.logger, !this.serverMessageChannel_.isDisposed());
   this.serverMessageChannel_.send(
       ADD_CLIENT_SERVER_NOTIFICATION_SERVICE_NAME,
-      goog.object.create(CLIENT_ID_MESSAGE_KEY, this.clientId_));
+      goog.object.create(CLIENT_ID_MESSAGE_KEY, this.clientId));
 };
 
 /**
@@ -652,7 +653,7 @@ ClientHandler.prototype.sendRemoveClientServerNotification_ = function() {
       this.logger, !this.serverMessageChannel_.isDisposed());
   this.serverMessageChannel_.send(
       REMOVE_CLIENT_SERVER_NOTIFICATION_SERVICE_NAME,
-      goog.object.create(CLIENT_ID_MESSAGE_KEY, this.clientId_));
+      goog.object.create(CLIENT_ID_MESSAGE_KEY, this.clientId));
 };
 
 });  // goog.scope

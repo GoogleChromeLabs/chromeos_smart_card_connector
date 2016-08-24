@@ -52,10 +52,10 @@ GSC.Clipboard.copyToClipboard = function(text) {
 
   if (!success) {
     logger.severe(
-        'Failed to copy the text of ' + text.length + ' bytes to clipboard');
+        'Failed to copy the text of length ' + text.length + ' to clipboard');
     return false;
   }
-  logger.fine('Copied text of ' + text.length + ' bytes to clipboard');
+  logger.fine('Copied text of length ' + text.length + ' to clipboard');
   return true;
 };
 

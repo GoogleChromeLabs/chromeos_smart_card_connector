@@ -61,7 +61,9 @@ var GSC = GoogleSmartCard;
  */
 var logger = GSC.Logging.getScopedLogger('ConnectorApp.BackgroundMain');
 
-logger.fine('The background script has started...');
+logger.info(
+    'The Smart Card Connector app (id "' + chrome.runtime.id + '", version ' +
+    chrome.runtime.getManifest()['version'] + ') background script started');
 
 var naclModule = new GSC.NaclModule(
     'nacl_module.nmf', GSC.NaclModule.Type.PNACL);
@@ -166,18 +168,16 @@ function externalMessageListener(message, sender) {
  * @param {string|undefined} clientExtensionId
  */
 function createClientHandler(clientMessageChannel, clientExtensionId) {
-  logger.info(
-      'Creating a new PC/SC-Lite client handler ' +
-      (goog.isDef(clientExtensionId) ?
-           '(client extension id is "' + clientExtensionId + '")' :
-           '(client is the own App)') +
-      '...');
   GSC.Logging.checkWithLogger(logger, !clientMessageChannel.isDisposed());
+
+  var clientTitleForLog = goog.isDef(clientExtensionId) ?
+      'extension "' + clientExtensionId + '"' : 'own app';
 
   if (naclModule.isDisposed() || naclModule.messageChannel.isDisposed()) {
     logger.warning(
-        'Could not create PC/SC-Lite client handler as the server is ' +
-        'disposed. Disposing of the client message channel...');
+        'Could not create PC/SC-Lite client handler for ' + clientTitleForLog +
+        ' as the server is disposed. Disposing of the client message ' +
+        'channel...');
     clientMessageChannel.dispose();
     return;
   }
@@ -185,11 +185,14 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
   // Note: the reference to the created client handler is not stored anywhere,
   // because it manages its lifetime itself, based on the lifetimes of the
   // passed message channels.
-  new GSC.PcscLiteServerClientsManagement.ClientHandler(
+  var clientHandler = new GSC.PcscLiteServerClientsManagement.ClientHandler(
       naclModule.messageChannel,
       pcscLiteReadinessTracker,
       clientMessageChannel,
       clientExtensionId);
+  logger.info(
+      'Created a new PC/SC-Lite client handler (id ' + clientHandler.clientId +
+      ') for handling requests from ' + clientTitleForLog);
 }
 
 /**

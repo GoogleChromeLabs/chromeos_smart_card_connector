@@ -54,12 +54,22 @@ goog.scope(function() {
 var LOGGER_SCOPE = 'GoogleSmartCard';
 
 /**
+ * The logging level that will be applied to the root logger (and therefore
+ * would be effective for all loggers unless the ones that have an explicitly
+ * set level).
  * @type {!goog.log.Level}
  * @const
  */
 var ROOT_LOGGER_LEVEL = goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO;
 
-/** @const */
+/**
+ * The capacity of the buffer that stores the emitted log messages.
+ *
+ * When the number of log messages exceeds this capacity, the messages from the
+ * middle will be removed (so only some first and some last messages will be
+ * kept at any given moment of time).
+ * @const
+ */
 var LOG_BUFFER_CAPACITY = goog.DEBUG ? 10 * 1000 : 1000;
 
 /** @const */

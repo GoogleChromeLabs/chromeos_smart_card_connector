@@ -43,7 +43,7 @@ var GSC = GoogleSmartCard;
  */
 var logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
-logger.fine('The window script has started...');
+logger.info('The main window is created');
 
 function closeWindowClickListener() {
   chrome.app.window.current().close();
