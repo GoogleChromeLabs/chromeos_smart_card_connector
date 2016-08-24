@@ -23,6 +23,7 @@ goog.provide('GoogleSmartCard.LogBuffer');
 
 goog.require('goog.array');
 goog.require('goog.debug.TextFormatter');
+goog.require('goog.iter');
 goog.require('goog.log.LogRecord');
 goog.require('goog.log.Logger');
 goog.require('goog.structs.CircularBuffer');
@@ -48,26 +49,34 @@ var GSC = GoogleSmartCard;
  * last of the log messages, meanwhile the very first messages may also contain
  * the crucial information.
  * @param {number} capacity The maximum number of stored log messages.
- * @param {string=} opt_loggerPrefix
  * @constructor
  */
-GSC.LogBuffer = function(capacity, opt_loggerPrefix) {
+GSC.LogBuffer = function(capacity) {
   /** @private */
   this.capacity_ = capacity;
-  /** @private */
-  this.loggerPrefix_ = opt_loggerPrefix;
 
   /** @private */
   this.size_ = 0;
 
   /** @private */
   this.logsPrefixCapacity_ = Math.trunc(capacity / 2);
-  /** @private */
-  this.logsPrefix_ = [];
+  /**
+   * @type {!Array.<string>}
+   * @private
+   */
+  this.formattedLogsPrefix_ = [];
+
+  /**
+   * @type {!goog.structs.CircularBuffer.<string>}
+   * @private
+   */
+  this.formattedLogsSuffix_ = new goog.structs.CircularBuffer(
+      capacity - this.logsPrefixCapacity_);
 
   /** @private */
-  this.logsSuffix_ = new goog.structs.CircularBuffer(
-      capacity - this.logsPrefixCapacity_);
+  this.textFormatter_ = new goog.debug.TextFormatter;
+  this.textFormatter_.showAbsoluteTime = false;
+  this.textFormatter_.showSeverityLevel = true;
 };
 
 /** @const */
@@ -77,9 +86,11 @@ goog.exportSymbol('GoogleSmartCard.LogBuffer', LogBuffer);
 
 /**
  * @param {!goog.log.Logger} logger
+ * @param {string} documentLocationPathname
  */
-LogBuffer.prototype.attachToLogger = function(logger) {
-  logger.addHandler(this.onLogMessage_.bind(this));
+LogBuffer.prototype.attachToLogger = function(
+    logger, documentLocationPathname) {
+  logger.addHandler(this.addLogRecord_.bind(this, documentLocationPathname));
 };
 
 goog.exportProperty(
@@ -89,16 +100,17 @@ goog.exportProperty(
  * The structure that is used for returning the immutable snapshot of the log
  * buffer state (see the LogBuffer.prototype.getState method).
  * @param {number} logCount
- * @param {!Array.<!goog.log.LogRecord>} logsPrefix
+ * @param {!Array.<string>} formattedLogsPrefix
  * @param {number} skippedLogCount
- * @param {!Array.<!goog.log.LogRecord>} logsSuffix
+ * @param {!Array.<string>} formattedLogsSuffix
  * @constructor
  */
-LogBuffer.State = function(logCount, logsPrefix, skippedLogCount, logsSuffix) {
-  this.logCount = logCount;
-  this.logsPrefix = logsPrefix;
-  this.skippedLogCount = skippedLogCount;
-  this.logsSuffix = logsSuffix;
+LogBuffer.State = function(
+    logCount, formattedLogsPrefix, skippedLogCount, formattedLogsSuffix) {
+  this['logCount'] = logCount;
+  this['formattedLogsPrefix'] = formattedLogsPrefix;
+  this['skippedLogCount'] = skippedLogCount;
+  this['formattedLogsSuffix'] = formattedLogsSuffix;
 };
 
 goog.exportProperty(LogBuffer, 'State', LogBuffer.State);
@@ -110,34 +122,27 @@ goog.exportProperty(LogBuffer, 'State', LogBuffer.State);
  * about the dropped log messages (if there are any).
  * @return {string}
  */
-LogBuffer.State.prototype.dumpToText = function() {
-  var textFormatter = new goog.debug.TextFormatter;
-  var result = '';
+LogBuffer.State.prototype.getAsText = function() {
+  var prefix = goog.iter.join(this['formattedLogsPrefix'], '');
+  var suffix = goog.iter.join(this['formattedLogsSuffix'], '');
 
-  goog.array.forEach(this.logsPrefix, function(logRecord) {
-    result += textFormatter.formatRecord(logRecord);
-  });
-
-  if (this.skippedLogCount)
-    result += '\n... skipped ' + this.skippedLogCount + ' messages ...\n\n';
-
-  goog.array.forEach(this.logsSuffix, function(logRecord) {
-    result += textFormatter.formatRecord(logRecord);
-  });
-
+  var result = prefix;
+  if (this['skippedLogCount'])
+    result += '\n... skipped ' + this['skippedLogCount'] + ' messages ...\n\n';
+  result += suffix;
   return result;
 };
 
 goog.exportProperty(
     LogBuffer.State.prototype,
-    'dumpToText',
-    LogBuffer.State.prototype.dumpToText);
+    'getAsText',
+    LogBuffer.State.prototype.getAsText);
 
 /**
  * Returns the immutable snapshot of the log buffer state.
  *
  * The reason for this way of returning the internal state against the usual
- * accessor methods is that it's quite possible that new log messages may be
+ * accessor methods is that it's quite possible that new log messages will be
  * emitted while the client is still iterating over the kept state, which would
  * make writing a robust client code difficult.
  * @return {!LogBuffer.State}
@@ -145,45 +150,73 @@ goog.exportProperty(
 LogBuffer.prototype.getState = function() {
   return new LogBuffer.State(
       this.size_,
-      goog.array.clone(this.logsPrefix_),
-      this.size_ - this.logsPrefix_.length - this.logsSuffix_.getCount(),
-      this.logsSuffix_.getValues());
+      goog.array.clone(this.formattedLogsPrefix_),
+      this.size_ - this.formattedLogsPrefix_.length -
+          this.formattedLogsSuffix_.getCount(),
+      this.formattedLogsSuffix_.getValues());
 };
 
 goog.exportProperty(
     LogBuffer.prototype, 'getState', LogBuffer.prototype.getState);
 
 /**
+ * @param {string} documentLocationPathname
  * @param {!goog.log.LogRecord} logRecord
  * @private
  */
-LogBuffer.prototype.onLogMessage_ = function(logRecord) {
-  this.addLogRecord_(logRecord);
+LogBuffer.prototype.addLogRecord_ = function(
+    documentLocationPathname, logRecord) {
+  var formattedLogRecord = this.formatLogRecord_(this.prefixLogRecord_(
+      logRecord, documentLocationPathname));
+
+  if (this.formattedLogsPrefix_.length < this.logsPrefixCapacity_)
+    this.formattedLogsPrefix_.push(formattedLogRecord);
+  else
+    this.formattedLogsSuffix_.add(formattedLogRecord);
+  ++this.size_;
 };
 
 /**
  * @param {!goog.log.LogRecord} logRecord
+ * @param {string} documentLocationPathname
+ * @return {!goog.log.LogRecord}
  * @private
  */
-LogBuffer.prototype.addLogRecord_ = function(logRecord) {
+LogBuffer.prototype.prefixLogRecord_ = function(
+    logRecord, documentLocationPathname) {
   var loggerNameParts = [];
-  if (this.loggerPrefix_)
-    loggerNameParts.push(this.loggerPrefix_);
+  loggerNameParts.push(this.getLogMessagePrefix_(documentLocationPathname));
   if (logRecord.getLoggerName())
     loggerNameParts.push(logRecord.getLoggerName());
   var prefixedLoggerName = loggerNameParts.join('.');
-  var prefixedLogRecord = new goog.log.LogRecord(
+
+  return new goog.log.LogRecord(
       logRecord.getLevel(),
       logRecord.getMessage(),
       prefixedLoggerName,
       logRecord.getMillis(),
       logRecord.getSequenceNumber());
+};
 
-  if (this.logsPrefix_.length < this.logsPrefixCapacity_)
-    this.logsPrefix_.push(prefixedLogRecord);
-  else
-    this.logsSuffix_.add(prefixedLogRecord);
-  ++this.size_;
+/**
+ * @param {!goog.log.LogRecord} logRecord
+ * @return {string}
+ * @private
+ */
+LogBuffer.prototype.formatLogRecord_ = function(logRecord) {
+  return this.textFormatter_.formatRecord(logRecord);
+};
+
+/**
+ * @param {string} documentLocationPathname
+ * @return {string}
+ * @private
+ */
+LogBuffer.prototype.getLogMessagePrefix_ = function(documentLocationPathname) {
+  var documentTitle = documentLocationPathname;
+  if (documentTitle == '/_generated_background_page.html')
+    documentTitle = 'background page';
+  return '<' + documentTitle + '>';
 };
 
 });  // goog.scope

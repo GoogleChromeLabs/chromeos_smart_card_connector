@@ -78,10 +78,11 @@ function exportLogsClickListener(e) {
 
 function exportLogs() {
   var logBufferState = GSC.Logging.getLogBuffer().getState();
-  var dumpedLogs = logBufferState.dumpToText();
+  var dumpedLogs = logBufferState.getAsText();
   logger.fine(
-      'Prepared a (possibly truncated) dump of ' + logBufferState.logCount +
-      ' log messages from the log buffer');
+      'Prepared a (possibly truncated) dump of ' + logBufferState['logCount'] +
+      ' log messages from the log buffer, the dump size is ' +
+      dumpedLogs.length + ' characters');
   var copyingSuccess = GSC.Clipboard.copyToClipboard(dumpedLogs);
 
   if (copyingSuccess) {

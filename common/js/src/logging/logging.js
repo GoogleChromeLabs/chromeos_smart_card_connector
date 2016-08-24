@@ -278,15 +278,13 @@ function setupLogBuffer() {
     logger.fine('Detected an existing log buffer instance, attaching it to ' +
                 'the root logger');
   } else {
-    var logBufferLoggerPrefix = goog.string.subs(
-        '<%s:%s>', chrome.runtime.id, document.location.pathname);
-    logBuffer = new GSC.LogBuffer(LOG_BUFFER_CAPACITY, logBufferLoggerPrefix);
+    logBuffer = new GSC.LogBuffer(LOG_BUFFER_CAPACITY);
     window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME] = logBuffer;
     logger.fine(
         'Created a new log buffer instance, attaching it to the root logger');
   }
 
-  logBuffer.attachToLogger(rootLogger);
+  logBuffer.attachToLogger(rootLogger, document.location.pathname);
 }
 
 GSC.Logging.setupLogging();
