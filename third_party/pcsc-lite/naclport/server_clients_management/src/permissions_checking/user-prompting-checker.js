@@ -223,7 +223,7 @@ UserPromptingChecker.prototype.promptUserIfAllowed_ = function(
  */
 UserPromptingChecker.prototype.promptUserForKnownApp_ = function(
     clientAppId, knownApp, promiseResolver) {
-  this.logger.fine(
+  this.logger.info(
       'Showing the user prompt for the known client App with id "' +
       clientAppId + '" and name "' + knownApp.name + '"...');
   this.promptUser_(clientAppId, {
@@ -241,7 +241,7 @@ if (goog.DEBUG) {
    */
   UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
       clientAppId, promiseResolver) {
-    this.logger.fine(
+    this.logger.info(
         'Showing the debug-only user prompt for the unknown client App with ' +
         'id "' + clientAppId + '"...');
     this.promptUser_(

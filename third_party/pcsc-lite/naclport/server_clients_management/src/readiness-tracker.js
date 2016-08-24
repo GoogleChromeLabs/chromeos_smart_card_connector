@@ -28,8 +28,10 @@
 goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.functions');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.promise.Resolver');
@@ -71,13 +73,18 @@ GSC.PcscLiteServerClientsManagement.ReadinessTracker = function(
   this.promiseResolver_ = goog.Promise.withResolver();
 
   /**
+   * Promise that is fulfilled once the PC/SC-Lite server gets ready, or is
+   * rejected if it failed to initialize.
    * @type {!goog.Promise.<null>}
    */
   this.promise = this.promiseResolver_.promise;
+  GSC.PromiseHelpers.suppressUnhandledRejectionError(this.promise);
 
-  this.promise.then(
-      this.promiseResolvedListener_.bind(this),
-      this.promiseRejectedListener_.bind(this));
+  /**
+   * Whether the promise is resolved (either fulfilled or rejected).
+   * @type {boolean}
+   */
+  this.isPromiseResolved = false;
 
   naclModuleMessageChannel.registerService(
       SERVICE_NAME, this.serviceCallback_.bind(this));
@@ -95,29 +102,41 @@ goog.inherits(ReadinessTracker, goog.Disposable);
 
 /** @override */
 ReadinessTracker.prototype.disposeInternal = function() {
-  this.promiseResolver_.reject(new Error('The readiness tracker is disposed'));
+  this.reject_(new Error('The readiness tracker is disposed'));
 
   ReadinessTracker.base(this, 'disposeInternal');
 };
 
 /** @private */
 ReadinessTracker.prototype.serviceCallback_ = function() {
-  this.promiseResolver_.resolve(null);
+  this.resolve_();
 };
 
 /** @private */
 ReadinessTracker.prototype.messageChannelDisposedListener_ = function() {
+  this.reject_(new Error('The NaCl module message channel was disposed'));
   this.dispose();
 };
 
 /** @private */
-ReadinessTracker.prototype.promiseResolvedListener_ = function() {
-  this.logger_.fine('Setting readiness state to "ready"');
+ReadinessTracker.prototype.resolve_ = function() {
+  if (!this.isPromiseResolved) {
+    this.logger_.fine('Setting readiness state to "ready"');
+    this.isPromiseResolved = true;
+    this.promiseResolver_.resolve(null);
+  }
 };
 
-/** @private */
-ReadinessTracker.prototype.promiseRejectedListener_ = function() {
-  this.logger_.fine('Setting readiness state to "failed"');
+/**
+ * @param {*} error
+ * @private
+ */
+ReadinessTracker.prototype.reject_ = function(error) {
+  if (!this.isPromiseResolved) {
+    this.logger_.fine('Setting readiness state to "failed"');
+    this.isPromiseResolved = true;
+    this.promiseResolver_.reject(error);
+  }
 };
 
 });  // goog.scope

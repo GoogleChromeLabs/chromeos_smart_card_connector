@@ -38,6 +38,7 @@ goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.iter');
 goog.require('goog.iter.Iterator');
@@ -184,8 +185,9 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
    */
   this.logger = GSC.Logging.getScopedLogger(
       'PcscLiteServerClientsManagement.ClientHandler<id=' + this.clientId_ +
+      ', client=' +
       (goog.isNull(this.clientAppId_) ?
-           '' : ', app_id="' + this.clientAppId_ + '"') + '>');
+           'own app' : '"' + this.clientAppId_ + '"') + '>');
 
   /** @private */
   this.requestReceiver_ = new GSC.RequestReceiver(
@@ -254,6 +256,7 @@ var permissionsChecker = null;
  * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
  * resolve it) which should be used for sending the request response.
  * @constructor
+ * @struct
  */
 function BufferedRequest(remoteCallMessage, promiseResolver) {
   this.remoteCallMessage = remoteCallMessage;
@@ -325,7 +328,7 @@ ClientHandler.prototype.handleRequest = function(payload) {
         'Failed to parse the received request payload'));
   }
 
-  this.logger.info('Received a remote call request: ' +
+  this.logger.fine('Received a remote call request: ' +
                    remoteCallMessage.getDebugRepresentation());
 
   var promiseResolver = goog.Promise.withResolver();
@@ -452,9 +455,23 @@ ClientHandler.prototype.clientPermissionDeniedListener_ = function() {
  * @private
  */
 ClientHandler.prototype.flushRequestsQueueWhenServerReady_ = function() {
-  this.logger.finer('Waiting until the server is ready...');
+  if (this.bufferedRequestsQueue_.isEmpty())
+    return;
+
+  var isDelaying = !this.serverReadinessTracker_.isPromiseResolved;
+  if (isDelaying) {
+    var requestsForLog = goog.array.map(
+        this.bufferedRequestsQueue_.getValues(), function(bufferedRequest) {
+          return bufferedRequest.remoteCallMessage.getDebugRepresentation();
+        });
+    this.logger.info(
+        'Delaying the received requests until the PC/SC-Lite server gets ' +
+        'ready. Currently delayed requests: ' +
+        goog.iter.join(requestsForLog, ', '));
+  }
+
   this.serverReadinessTracker_.promise.then(
-      this.serverReadyListener_.bind(this),
+      this.serverReadyListener_.bind(this, isDelaying),
       this.serverReadinessFailedListener_.bind(this));
 };
 
@@ -463,12 +480,16 @@ ClientHandler.prototype.flushRequestsQueueWhenServerReady_ = function() {
  * server got ready.
  *
  * Starts execution of all previously buffered client requests.
+ * @param {boolean} shouldLog
  * @private
  */
-ClientHandler.prototype.serverReadyListener_ = function() {
+ClientHandler.prototype.serverReadyListener_ = function(shouldLog) {
   if (this.isDisposed())
     return;
-  this.logger.finer('The server is ready, processing the buffered requests...');
+  if (this.bufferedRequestsQueue_.isEmpty())
+    return;
+  if (shouldLog)
+    this.logger.info('The server is ready, processing the delayed requests...');
   this.flushBufferedRequestsQueue_();
 };
 
@@ -540,7 +561,7 @@ ClientHandler.prototype.startRequest_ = function(
  */
 ClientHandler.prototype.requestSucceededListener_ = function(
     remoteCallMessage, promiseResolver, result) {
-  this.logger.info(
+  this.logger.fine(
       'The remote call request ' + remoteCallMessage.getDebugRepresentation() +
       ' finished successfully' +
       (goog.DEBUG ?
