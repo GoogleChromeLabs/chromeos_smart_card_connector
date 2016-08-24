@@ -32,7 +32,11 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
 goog.require('goog.Promise');
+goog.require('goog.array');
 goog.require('goog.functions');
+goog.require('goog.iter');
+goog.require('goog.log.Logger');
+goog.require('goog.object');
 goog.require('goog.promise.Resolver');
 goog.require('goog.structs');
 goog.require('goog.structs.Map');
@@ -177,8 +181,14 @@ UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
     }, this);
   }
 
-  this.logger.fine('Loaded local storage data with the stored user ' +
-                   'selections: ' + GSC.DebugDump.dump(storedUserSelections));
+  var itemsForLog = [];
+  storedUserSelections.forEach(function(userSelection, extensionId) {
+    itemsForLog.push((userSelection ? 'allow' : 'deny') + ' for extension "' +
+                     extensionId + '"');
+  });
+  this.logger.info(
+      'Loaded local storage data with the stored user selections: ' +
+      (itemsForLog.length ? goog.iter.join(itemsForLog, ', ') : 'no data'));
 
   this.localStoragePromiseResolver_.resolve(storedUserSelections);
 };
