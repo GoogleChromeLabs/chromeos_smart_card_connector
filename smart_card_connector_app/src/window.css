@@ -17,6 +17,10 @@
   -webkit-user-select: text;
 }
 
+.hidden {
+  display: none;
+}
+
 html,
 body,
 button {
@@ -56,6 +60,13 @@ body {
   right: 9px;
   top: 3px;
   -webkit-user-select: none;
+}
+
+#non-chrome-os-warning {
+  color: red;
+  font-size: 15px;
+  font-weight: 600;
+  margin-top: 15px;
 }
 
 .list-header {
