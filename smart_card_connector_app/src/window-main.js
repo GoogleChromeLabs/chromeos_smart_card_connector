@@ -28,6 +28,7 @@ goog.require('GoogleSmartCard.I18n');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PopupWindow.Client');
 goog.require('goog.dom');
+goog.require('goog.dom.classlist');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
 goog.require('goog.log.Logger');
@@ -45,10 +46,6 @@ var logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
 logger.info('The main window is created');
 
-function closeWindowClickListener() {
-  chrome.app.window.current().close();
-}
-
 goog.events.listen(
     goog.dom.getElement('close-window'),
     goog.events.EventType.CLICK,
@@ -59,8 +56,27 @@ GSC.ConnectorApp.Window.AppsDisplaying.initialize();
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize();
 GSC.ConnectorApp.Window.LogsExporting.initialize();
 
+GSC.I18n.adjustElementsTranslation();
+
 GSC.PopupWindow.Client.showWindow();
 
-GSC.I18n.adjustElementsTranslation();
+displayNonChromeOsWarningIfNeeded();
+
+function closeWindowClickListener() {
+  chrome.app.window.current().close();
+}
+
+function displayNonChromeOsWarningIfNeeded() {
+  chrome.runtime.getPlatformInfo(function(platformInfo) {
+    /** @type {string} */
+    var os = platformInfo['os'];
+    if (os != 'cros') {
+      logger.info('Displaying the warning regarding non-Chrome OS system ' +
+                  '(the current OS is "' + os + '")');
+      goog.dom.classlist.remove(
+          goog.dom.getElement('non-chrome-os-warning'), 'hidden');
+    }
+  });
+}
 
 });  // goog.scope

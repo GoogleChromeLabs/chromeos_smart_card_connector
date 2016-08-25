@@ -19,6 +19,10 @@
     "message": "Smart Card Connector",
     "description": "The header displayed in the main window"
   },
+  "nonChromeOsWarning": {
+    "message": "Warning: The app is intended to be run on Chrome OS only!",
+    "description": "The text that is displayed as a warning when the app is executed on non-Chrome OS systems"
+  },
   "windowClose": {
     "message": "Close",
     "description": "Accessibility text for close button"
