@@ -2,10 +2,14 @@
 #
 # Compiles pertinent Closure library files.
 
-java -Xmx1G -jar ../closure-compiler/build/compiler.jar \
+# TODO(joeltine): Make strictMissingRequire an error when 
+# @suppress {missingRequire} works for it.
+
+java -Xmx1G -jar ../closure-compiler/target/closure-compiler-1.0-SNAPSHOT.jar \
   -O ADVANCED \
   --warning_level VERBOSE \
   --jscomp_error='*' \
+  --jscomp_off=strictMissingRequire \
   --jscomp_off=inferredConstCheck \
   --jscomp_off=extraRequire \
   --jscomp_off=unnecessaryCasts \
@@ -24,4 +28,5 @@ java -Xmx1G -jar ../closure-compiler/build/compiler.jar \
   --js='!**protractor_spec.js' \
   --js='!**protractor.conf.js' \
   --js='!**browser_capabilities.js' \
+  --js='!./doc/**.js' \
   --js_output_file=$(mktemp);

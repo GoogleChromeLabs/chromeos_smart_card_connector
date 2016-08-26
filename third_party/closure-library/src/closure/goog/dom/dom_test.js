@@ -20,14 +20,12 @@
 goog.provide('goog.dom.dom_test');
 
 goog.require('goog.array');
-goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.BrowserFeature');
 goog.require('goog.dom.DomHelper');
 goog.require('goog.dom.InputType');
 goog.require('goog.dom.NodeType');
 goog.require('goog.dom.TagName');
-goog.require('goog.dom.TypedTagName');
 goog.require('goog.functions');
 goog.require('goog.html.testing');
 goog.require('goog.object');
@@ -50,7 +48,7 @@ var stubs;
 
 function setUpPage() {
   stubs = new goog.testing.PropertyReplacer();
-  divForTestingScrolling = document.createElement(goog.dom.TagName.DIV);
+  divForTestingScrolling = goog.dom.createElement(goog.dom.TagName.DIV);
   divForTestingScrolling.style.width = '5000px';
   divForTestingScrolling.style.height = '5000px';
   document.body.appendChild(divForTestingScrolling);
@@ -129,6 +127,23 @@ function testGetRequiredElementByClassDomHelper() {
   assertThrows(function() {
     domHelper.getRequiredElementByClass('does_not_exist', container);
   });
+}
+
+function testGetElementsByTagName() {
+  var divs = goog.dom.getElementsByTagName(goog.dom.TagName.DIV);
+  assertTrue(divs.length > 0);
+  var el = goog.dom.getRequiredElement('testEl');
+  var spans = goog.dom.getElementsByTagName(goog.dom.TagName.SPAN, el);
+  assertTrue(spans.length > 0);
+}
+
+function testGetElementsByTagNameDomHelper() {
+  var domHelper = new goog.dom.DomHelper();
+  var divs = domHelper.getElementsByTagName(goog.dom.TagName.DIV);
+  assertTrue(divs.length > 0);
+  var el = domHelper.getRequiredElement('testEl');
+  var spans = domHelper.getElementsByTagName(goog.dom.TagName.SPAN, el);
+  assertTrue(spans.length > 0);
 }
 
 function testGetElementsByTagNameAndClass() {
@@ -327,10 +342,12 @@ function testCreateDom() {
               'has a link'),
           ', how cool is this?'));
 
-  assertEquals('Tagname should be a DIV', goog.dom.TagName.DIV, el.tagName);
+  assertEquals(
+      'Tagname should be a DIV', String(goog.dom.TagName.DIV), el.tagName);
   assertEquals('Style width should be 50%', '50%', el.style.width);
   assertEquals(
-      'first child is a P tag', goog.dom.TagName.P, el.childNodes[0].tagName);
+      'first child is a P tag', String(goog.dom.TagName.P),
+      el.childNodes[0].tagName);
   assertEquals('second child .innerHTML', 'Para 2', el.childNodes[1].innerHTML);
 
   assertEquals(goog.dom.createDom, goog.dom.createDom);
@@ -360,7 +377,7 @@ function testCreateDomAcceptsArray() {
   var ul = goog.dom.createDom(goog.dom.TagName.UL, {}, items);
   assertEquals('List should have two children', 2, ul.childNodes.length);
   assertEquals(
-      'First child should be an LI tag', goog.dom.TagName.LI,
+      'First child should be an LI tag', String(goog.dom.TagName.LI),
       ul.firstChild.tagName);
   assertEquals('Item 1', ul.childNodes[0].innerHTML);
   assertEquals('Item 2', ul.childNodes[1].innerHTML);
@@ -420,7 +437,7 @@ function testCreateDomNodeListArg() {
       el.childNodes[0].nodeValue);
   assertEquals(
       'childNodes[1] should be an element node with tagName "B"',
-      goog.dom.TagName.B, el.childNodes[1].tagName);
+      String(goog.dom.TagName.B), el.childNodes[1].tagName);
   assertEquals(
       'childNodes[2] should be a text node with value "!"', '!',
       el.childNodes[2].nodeValue);
@@ -464,28 +481,12 @@ function testContains() {
 function testCreateDomWithClassName() {
   var el = goog.dom.createDom(goog.dom.TagName.DIV, 'cls');
   assertNull('firstChild should be null', el.firstChild);
-  assertEquals('Tagname should be a DIV', goog.dom.TagName.DIV, el.tagName);
+  assertEquals(
+      'Tagname should be a DIV', String(goog.dom.TagName.DIV), el.tagName);
   assertEquals('ClassName should be cls', 'cls', el.className);
 
   el = goog.dom.createDom(goog.dom.TagName.DIV, '');
   assertEquals('ClassName should be empty', '', el.className);
-}
-
-function testCreateTypedDom() {
-  var a = goog.dom.createDom(goog.dom.TypedTagName.A);
-  goog.asserts.assertInstanceof(a, HTMLAnchorElement);
-
-  a = goog.dom.getDomHelper().createDom(goog.dom.TypedTagName.A);
-  goog.asserts.assertInstanceof(a, HTMLAnchorElement);
-}
-
-function testCreateUntypedDom() {
-  var level = 1;
-  var heading = goog.dom.createUntypedDom('H' + level);
-  assertEquals('H1', heading.tagName);
-
-  heading = goog.dom.getDomHelper().createUntypedDom('H' + level);
-  assertEquals('H1', heading.tagName);
 }
 
 function testCompareNodeOrder() {
@@ -621,14 +622,14 @@ function testFindCommonAncestor() {
       'findCommonAncestor(testEl2, b1, b2, p1, p2) = body', document.body,
       goog.dom.findCommonAncestor(testEl2, b1, b2, p1, p2));
 
-  var outOfDoc = document.createElement(goog.dom.TagName.DIV);
+  var outOfDoc = goog.dom.createElement(goog.dom.TagName.DIV);
   assertNull(
       'findCommonAncestor(outOfDoc, b1) = null',
       goog.dom.findCommonAncestor(outOfDoc, b1));
 }
 
 function testRemoveNode() {
-  var b = document.createElement(goog.dom.TagName.B);
+  var b = goog.dom.createElement(goog.dom.TagName.B);
   var el = $('p1');
   el.appendChild(b);
   goog.dom.removeNode(b);
@@ -656,19 +657,19 @@ function testAppendChildAt() {
   var parent = $('p2');
   var origNumChildren = parent.childNodes.length;
 
-  var child1 = document.createElement(goog.dom.TagName.DIV);
+  var child1 = goog.dom.createElement(goog.dom.TagName.DIV);
   goog.dom.insertChildAt(parent, child1, origNumChildren);
   assertEquals(origNumChildren + 1, parent.childNodes.length);
 
-  var child2 = document.createElement(goog.dom.TagName.DIV);
+  var child2 = goog.dom.createElement(goog.dom.TagName.DIV);
   goog.dom.insertChildAt(parent, child2, origNumChildren + 42);
   assertEquals(origNumChildren + 2, parent.childNodes.length);
 
-  var child3 = document.createElement(goog.dom.TagName.DIV);
+  var child3 = goog.dom.createElement(goog.dom.TagName.DIV);
   goog.dom.insertChildAt(parent, child3, 0);
   assertEquals(origNumChildren + 3, parent.childNodes.length);
 
-  var child4 = document.createElement(goog.dom.TagName.DIV);
+  var child4 = goog.dom.createElement(goog.dom.TagName.DIV);
   goog.dom.insertChildAt(parent, child3, 2);
   assertEquals(origNumChildren + 3, parent.childNodes.length);
 
@@ -676,14 +677,14 @@ function testAppendChildAt() {
   parent.removeChild(child2);
   parent.removeChild(child3);
 
-  var emptyParentNotInDocument = document.createElement(goog.dom.TagName.DIV);
+  var emptyParentNotInDocument = goog.dom.createElement(goog.dom.TagName.DIV);
   goog.dom.insertChildAt(emptyParentNotInDocument, child1, 0);
   assertEquals(1, emptyParentNotInDocument.childNodes.length);
 }
 
 function testFlattenElement() {
   var text = document.createTextNode('Text');
-  var br = document.createElement(goog.dom.TagName.BR);
+  var br = goog.dom.createElement(goog.dom.TagName.BR);
   var span = goog.dom.createDom(goog.dom.TagName.SPAN, null, text, br);
   assertEquals('span should have 2 children', 2, span.childNodes.length);
 
@@ -731,7 +732,7 @@ function testIsElement() {
       goog.dom.isElement(document.createTextNode('')));
   assertTrue(
       'an element created with createElement() is an element',
-      goog.dom.isElement(document.createElement(goog.dom.TagName.A)));
+      goog.dom.isElement(goog.dom.createElement(goog.dom.TagName.A)));
 
   assertFalse('null is not an element', goog.dom.isElement(null));
   assertFalse('a string is not an element', goog.dom.isElement('abcd'));
@@ -911,16 +912,16 @@ function testGetNextNode() {
   var node = tree;
   var next = function() { return node = goog.dom.getNextNode(node); };
 
-  assertEquals(goog.dom.TagName.P, next().tagName);
+  assertEquals(String(goog.dom.TagName.P), next().tagName);
   assertEquals('Some text', next().nodeValue);
-  assertEquals(goog.dom.TagName.BLOCKQUOTE, next().tagName);
+  assertEquals(String(goog.dom.TagName.BLOCKQUOTE), next().tagName);
   assertEquals('Some ', next().nodeValue);
-  assertEquals(goog.dom.TagName.I, next().tagName);
+  assertEquals(String(goog.dom.TagName.I), next().tagName);
   assertEquals('special', next().nodeValue);
   assertEquals(' ', next().nodeValue);
-  assertEquals(goog.dom.TagName.B, next().tagName);
+  assertEquals(String(goog.dom.TagName.B), next().tagName);
   assertEquals('text', next().nodeValue);
-  assertEquals(goog.dom.TagName.ADDRESS, next().tagName);
+  assertEquals(String(goog.dom.TagName.ADDRESS), next().tagName);
   assertEquals(goog.dom.NodeType.COMMENT, next().nodeType);
   assertEquals('Foo', next().nodeValue);
 
@@ -941,17 +942,17 @@ function testGetPreviousNode() {
   var previous = function() { return node = goog.dom.getPreviousNode(node); };
 
   assertEquals(goog.dom.NodeType.COMMENT, previous().nodeType);
-  assertEquals(goog.dom.TagName.ADDRESS, previous().tagName);
+  assertEquals(String(goog.dom.TagName.ADDRESS), previous().tagName);
   assertEquals('text', previous().nodeValue);
-  assertEquals(goog.dom.TagName.B, previous().tagName);
+  assertEquals(String(goog.dom.TagName.B), previous().tagName);
   assertEquals(' ', previous().nodeValue);
   assertEquals('special', previous().nodeValue);
-  assertEquals(goog.dom.TagName.I, previous().tagName);
+  assertEquals(String(goog.dom.TagName.I), previous().tagName);
   assertEquals('Some ', previous().nodeValue);
-  assertEquals(goog.dom.TagName.BLOCKQUOTE, previous().tagName);
+  assertEquals(String(goog.dom.TagName.BLOCKQUOTE), previous().tagName);
   assertEquals('Some text', previous().nodeValue);
-  assertEquals(goog.dom.TagName.P, previous().tagName);
-  assertEquals(goog.dom.TagName.DIV, previous().tagName);
+  assertEquals(String(goog.dom.TagName.P), previous().tagName);
+  assertEquals(String(goog.dom.TagName.DIV), previous().tagName);
 
   if (!goog.userAgent.IE) {
     // Internet Explorer maintains a parentNode for Elements after they are
@@ -1027,7 +1028,7 @@ function testFindNode() {
   });
   assertEquals(expected, result);
 
-  expected = document.getElementsByTagName(goog.dom.TagName.P)[0];
+  expected = goog.dom.getElementsByTagName(goog.dom.TagName.P)[0];
   result = goog.dom.findNode(document, function(n) {
     return n.nodeType == goog.dom.NodeType.ELEMENT &&
         n.tagName == goog.dom.TagName.P;
@@ -1039,7 +1040,7 @@ function testFindNode() {
 }
 
 function testFindNodes() {
-  var expected = document.getElementsByTagName(goog.dom.TagName.P);
+  var expected = goog.dom.getElementsByTagName(goog.dom.TagName.P);
   var result = goog.dom.findNodes(document, function(n) {
     return n.nodeType == goog.dom.NodeType.ELEMENT &&
         n.tagName == goog.dom.TagName.P;
@@ -1200,7 +1201,7 @@ function testIsFocusable() {
 
   // Make sure IE doesn't throw for detached elements. IE can't measure detached
   // elements, and calling getBoundingClientRect() will throw Unspecified Error.
-  goog.dom.isFocusable(goog.dom.createDom('button'));
+  goog.dom.isFocusable(goog.dom.createDom(goog.dom.TagName.BUTTON));
 }
 
 function testGetTextContent() {
@@ -1278,7 +1279,7 @@ function testGetNodeAtOffset() {
   var html = '<div id=a>123<b id=b>45</b><span id=c>67<b id=d>89<i id=e>01' +
       '</i>23<i id=f>45</i>67</b>890<i id=g>123</i><b id=h>456</b>' +
       '</span></div><div id=i>7890<i id=j>123</i></div>';
-  var node = document.createElement(goog.dom.TagName.DIV);
+  var node = goog.dom.createElement(goog.dom.TagName.DIV);
   node.innerHTML = html;
   var rv = {};
 
@@ -1322,13 +1323,13 @@ function assertEqualsCaseAndLeadingWhitespaceInsensitive(value1, value2) {
 
 function testGetOuterHtml() {
   var contents = '<b>foo</b>';
-  var node = document.createElement(goog.dom.TagName.DIV);
+  var node = goog.dom.createElement(goog.dom.TagName.DIV);
   node.setAttribute('foo', 'bar');
   node.innerHTML = contents;
   assertEqualsCaseAndLeadingWhitespaceInsensitive(
       goog.dom.getOuterHtml(node), '<div foo="bar">' + contents + '</div>');
 
-  var imgNode = document.createElement(goog.dom.TagName.IMG);
+  var imgNode = goog.dom.createElement(goog.dom.TagName.IMG);
   imgNode.setAttribute('foo', 'bar');
   assertEqualsCaseAndLeadingWhitespaceInsensitive(
       goog.dom.getOuterHtml(imgNode), '<img foo="bar">');
@@ -1368,14 +1369,14 @@ function testIsNodeList() {
 }
 
 function testGetFrameContentDocument() {
-  var iframe = document.getElementsByTagName(goog.dom.TagName.IFRAME)[0];
+  var iframe = goog.dom.getElementsByTagName(goog.dom.TagName.IFRAME)[0];
   var name = iframe.name;
   var iframeDoc = goog.dom.getFrameContentDocument(iframe);
   assertEquals(window.frames[name].document, iframeDoc);
 }
 
 function testGetFrameContentWindow() {
-  var iframe = document.getElementsByTagName(goog.dom.TagName.IFRAME)[0];
+  var iframe = goog.dom.getElementsByTagName(goog.dom.TagName.IFRAME)[0];
   var name = iframe.name;
   var iframeWin = goog.dom.getFrameContentWindow(iframe);
   assertEquals(window.frames[name], iframeWin);
@@ -1513,21 +1514,29 @@ function testGetAncestorByTagNameAndClass() {
 
 function testCreateTable() {
   var table = goog.dom.createTable(2, 3, true);
-  assertEquals(2, table.getElementsByTagName(goog.dom.TagName.TR).length);
   assertEquals(
-      3, table.getElementsByTagName(goog.dom.TagName.TR)[0].childNodes.length);
-  assertEquals(6, table.getElementsByTagName(goog.dom.TagName.TD).length);
+      2, goog.dom.getElementsByTagName(goog.dom.TagName.TR, table).length);
+  assertEquals(
+      3, goog.dom.getElementsByTagName(goog.dom.TagName.TR, table)[0]
+             .childNodes.length);
+  assertEquals(
+      6, goog.dom.getElementsByTagName(goog.dom.TagName.TD, table).length);
   assertEquals(
       goog.string.Unicode.NBSP,
-      table.getElementsByTagName(goog.dom.TagName.TD)[0].firstChild.nodeValue);
+      goog.dom.getElementsByTagName(goog.dom.TagName.TD, table)[0]
+          .firstChild.nodeValue);
 
   table = goog.dom.createTable(2, 3, false);
-  assertEquals(2, table.getElementsByTagName(goog.dom.TagName.TR).length);
   assertEquals(
-      3, table.getElementsByTagName(goog.dom.TagName.TR)[0].childNodes.length);
-  assertEquals(6, table.getElementsByTagName(goog.dom.TagName.TD).length);
+      2, goog.dom.getElementsByTagName(goog.dom.TagName.TR, table).length);
   assertEquals(
-      0, table.getElementsByTagName(goog.dom.TagName.TD)[0].childNodes.length);
+      3, goog.dom.getElementsByTagName(goog.dom.TagName.TR, table)[0]
+             .childNodes.length);
+  assertEquals(
+      6, goog.dom.getElementsByTagName(goog.dom.TagName.TD, table).length);
+  assertEquals(
+      0, goog.dom.getElementsByTagName(goog.dom.TagName.TD, table)[0]
+             .childNodes.length);
 }
 
 function testSafeHtmlToNode() {
@@ -1538,11 +1547,11 @@ function testSafeHtmlToNode() {
 
   var div = goog.dom.safeHtmlToNode(
       goog.html.testing.newSafeHtmlForTest('<div>3</div>'));
-  assertEquals(goog.dom.TagName.DIV, div.tagName);
+  assertEquals(String(goog.dom.TagName.DIV), div.tagName);
 
   var script = goog.dom.safeHtmlToNode(
       goog.html.testing.newSafeHtmlForTest('<script></script>'));
-  assertEquals(goog.dom.TagName.SCRIPT, script.tagName);
+  assertEquals(String(goog.dom.TagName.SCRIPT), script.tagName);
 
   if (goog.userAgent.IE && !goog.userAgent.isDocumentModeOrHigher(9)) {
     // Removing an Element from a DOM tree in IE sets its parentNode to a new
@@ -1637,32 +1646,33 @@ function testSpecialConstHtmlToNodeStringifications() {
 }
 
 function testAppend() {
-  var div = document.createElement(goog.dom.TagName.DIV);
-  var b = document.createElement(goog.dom.TagName.B);
+  var div = goog.dom.createElement(goog.dom.TagName.DIV);
+  var b = goog.dom.createElement(goog.dom.TagName.B);
   var c = document.createTextNode('c');
   goog.dom.append(div, 'a', b, c);
   assertEqualsCaseAndLeadingWhitespaceInsensitive('a<b></b>c', div.innerHTML);
 }
 
 function testAppend2() {
-  var div = myIframeDoc.createElement(goog.dom.TagName.DIV);
-  var b = myIframeDoc.createElement(goog.dom.TagName.B);
+  var dom = new goog.dom.DomHelper(myIframeDoc);
+  var div = dom.createElement(goog.dom.TagName.DIV);
+  var b = dom.createElement(goog.dom.TagName.B);
   var c = myIframeDoc.createTextNode('c');
   goog.dom.append(div, 'a', b, c);
   assertEqualsCaseAndLeadingWhitespaceInsensitive('a<b></b>c', div.innerHTML);
 }
 
 function testAppend3() {
-  var div = document.createElement(goog.dom.TagName.DIV);
-  var b = document.createElement(goog.dom.TagName.B);
+  var div = goog.dom.createElement(goog.dom.TagName.DIV);
+  var b = goog.dom.createElement(goog.dom.TagName.B);
   var c = document.createTextNode('c');
   goog.dom.append(div, ['a', b, c]);
   assertEqualsCaseAndLeadingWhitespaceInsensitive('a<b></b>c', div.innerHTML);
 }
 
 function testAppend4() {
-  var div = document.createElement(goog.dom.TagName.DIV);
-  var div2 = document.createElement(goog.dom.TagName.DIV);
+  var div = goog.dom.createElement(goog.dom.TagName.DIV);
+  var div2 = goog.dom.createElement(goog.dom.TagName.DIV);
   div2.innerHTML = 'a<b></b>c';
   goog.dom.append(div, div2.childNodes);
   assertEqualsCaseAndLeadingWhitespaceInsensitive('a<b></b>c', div.innerHTML);

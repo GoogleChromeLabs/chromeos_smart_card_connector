@@ -83,6 +83,17 @@ goog.html.sanitizer.HtmlSanitizerPolicy;
 
 
 /**
+ * Type for attribute policy configuration.
+ * @typedef {{
+ *     tagName: string,
+ *     attributeName: string,
+ *     policy: ?goog.html.sanitizer.HtmlSanitizerPolicy
+ * }}
+ */
+goog.html.sanitizer.HtmlSanitizerAttributePolicy;
+
+
+/**
  * Boolean for whether the HTML sanitizer is supported. For now mainly exclude
  * IE9 or below where we know the sanitizer is insecure.
  * @private {boolean}
@@ -100,7 +111,6 @@ goog.html.sanitizer.HTML_SANITIZER_SUPPORTED_ =
 goog.html.sanitizer.HTML_SANITIZER_BOOKKEEPING_PREFIX_ = 'data-sanitizer-';
 
 
-
 /**
  * String defining the temporary attribute name in which html sanitizer uses for
  * bookkeeping.
@@ -112,7 +122,18 @@ goog.html.sanitizer.HTML_SANITIZER_BOOKKEEPING_ATTR_NAME_ =
 
 
 /**
- * List of property descriptors we use to avoid looking up the prototypes
+ * String defining the name of the attribute added to span tags that replace
+ * unknown tags. The value of this attribute is the name of the tag before the
+ * sanitization occurred.
+ * @private
+ * @const
+ */
+goog.html.sanitizer.HTML_SANITIZER_SANITIZED_ATTR_NAME_ =
+    goog.html.sanitizer.HTML_SANITIZER_BOOKKEEPING_PREFIX_ + 'original-tag';
+
+
+/**
+ * Map of property descriptors we use to avoid looking up the prototypes
  * multiple times.
  * @private {!Object<string, !ObjectPropertyDescriptor>}
  * @const
@@ -154,6 +175,11 @@ goog.html.sanitizer.HtmlSanitizer = function(opt_builder) {
    * @private {!Object<string, boolean>}
    */
   this.tagWhitelist_ = goog.object.clone(opt_builder.tagWhitelist_);
+
+  /**
+   * @private {boolean}
+   */
+  this.shouldAddOriginalTagNames_ = opt_builder.shouldAddOriginalTagNames_;
 
   // Add whitelist data-* attributes from the builder to the attributeHandlers
   // with a default cleanUpAttribute function. data-* attributes are inert as
@@ -198,6 +224,7 @@ goog.html.sanitizer.HtmlSanitizer.sanitizeUrl_ = function(customUrlPolicy) {
 
 /**
  * A builder class for the Html Sanitizer. All methods except build return this.
+ * @final
  * @constructor @struct
  */
 goog.html.sanitizer.HtmlSanitizer.Builder = function() {
@@ -237,7 +264,14 @@ goog.html.sanitizer.HtmlSanitizer.Builder = function() {
    * dom.
    * @private {!Object<string, boolean>}
    */
-  this.tagWhitelist_ = goog.html.sanitizer.TagWhitelist;
+  this.tagWhitelist_ = goog.object.clone(goog.html.sanitizer.TagWhitelist);
+
+  /**
+   * If true, non-whitelisted, non-blacklisted tags that have been converted
+   * to <span> tags will contain the original tag in a data attribute.
+   * @private {boolean}
+   */
+  this.shouldAddOriginalTagNames_ = false;
 
   /**
    * A function to be applied to urls found on the parsing process which do not
@@ -302,10 +336,50 @@ goog.html.sanitizer.HtmlSanitizer.Builder.prototype.allowFormTag = function() {
 
 
 /**
+ * Package-internal utility method to extend the tag whitelist.
+ *
+ * @param {!Array<string>} tags The list of tags to be added to the whitelist.
+ * @return {!goog.html.sanitizer.HtmlSanitizer.Builder}
+ * @package
+ */
+goog.html.sanitizer.HtmlSanitizer.Builder.prototype
+    .alsoAllowTagsPrivateDoNotAccessOrElse = function(tags) {
+  goog.array.forEach(tags, function(tag) {
+    this.tagWhitelist_[tag.toUpperCase()] = true;
+  }, this);
+  return this;
+};
+
+
+/**
+ * Package-internal utility method to extend the attribute whitelist.
+ *
+ * @param {!Array<(string|!goog.html.sanitizer.HtmlSanitizerAttributePolicy)>}
+ *     attrs The list of attributes to be added to the whitelist.
+ * @return {!goog.html.sanitizer.HtmlSanitizer.Builder}
+ * @package
+ */
+goog.html.sanitizer.HtmlSanitizer.Builder.prototype
+    .alsoAllowAttributesPrivateDoNotAccessOrElse = function(attrs) {
+  goog.array.forEach(attrs, function(attr) {
+    if (goog.isString(attr)) {
+      attr = {tagName: '*', attributeName: attr, policy: null};
+    }
+    this.attributeWhitelist_[goog.html.sanitizer.HtmlSanitizer.attrIdentifier_(
+        attr.tagName, attr.attributeName)] = attr.policy ?
+        attr.policy :
+        /** @type {!goog.html.sanitizer.HtmlSanitizerPolicy} */ (
+            goog.html.sanitizer.HtmlSanitizer.cleanUpAttribute_);
+  }, this);
+  return this;
+};
+
+
+/**
  * Allows only the provided whitelist of tags. Tags still need to be in the
  * TagWhitelist to be allowed.
  * <p>
- * DIV tags are ALWAYS ALLOWED as part of the mechanism required to preserve
+ * SPAN tags are ALWAYS ALLOWED as part of the mechanism required to preserve
  * the HTML tree structure (when removing non-blacklisted tags and
  * non-whitelisted tags).
  * @param {!Array<string>} tagWhitelist
@@ -314,7 +388,7 @@ goog.html.sanitizer.HtmlSanitizer.Builder.prototype.allowFormTag = function() {
  */
 goog.html.sanitizer.HtmlSanitizer.Builder.prototype.onlyAllowTags = function(
     tagWhitelist) {
-  this.tagWhitelist_ = {'DIV': true};
+  this.tagWhitelist_ = {'SPAN': true};
   goog.array.forEach(tagWhitelist, function(tag) {
     tag = tag.toUpperCase();
     if (goog.html.sanitizer.TagWhitelist[tag]) {
@@ -325,6 +399,19 @@ goog.html.sanitizer.HtmlSanitizer.Builder.prototype.onlyAllowTags = function(
           'goog.html.sanitizer.TagWhitelist');
     }
   }, this);
+  return this;
+};
+
+
+/**
+ * When unknown tags are sanitized to <span>, pass the original tag name in
+ * the data attribute 'original-tag', so that caller can distinguish them from
+ * actual <span> tags.
+ * @return {!goog.html.sanitizer.HtmlSanitizer.Builder}
+ */
+goog.html.sanitizer.HtmlSanitizer.Builder.prototype.addOriginalTagNames =
+    function() {
+  this.shouldAddOriginalTagNames_ = true;
   return this;
 };
 
@@ -528,9 +615,10 @@ goog.html.sanitizer.HtmlSanitizer.sanitizeCssBlock_ = function(
         policyHints.cssProperty = prop;
         return policySanitizeUrl(uri, policyHints);
       });
-  return goog.html.SafeStyle.unwrap(
+  var sanitizedStyle = goog.html.SafeStyle.unwrap(
       goog.html.sanitizer.CssSanitizer.sanitizeInlineStyle(
           policyContext.cssStyle, naiveUriRewriter));
+  return sanitizedStyle == '' ? null : sanitizedStyle;
 };
 
 
@@ -680,6 +768,8 @@ goog.html.sanitizer.HtmlSanitizer.getDomTreeWalker_ = function(
       false);
 };
 
+// TODO(user): both getAttribute* functions accept a Node but are defined on
+// Element. Investigate.
 
 /**
  * Provides a way to get an element's attributes without falling prey to things
@@ -700,6 +790,24 @@ goog.html.sanitizer.HtmlSanitizer.getAttributes_ = function(node) {
   }
 };
 
+/**
+ * Provides a way to get a specific attribute from an element without falling
+ * prey to clobbering.
+ * Usage: goog.html.sanitizer.HtmlSanitizer.getAttribute(elem, attr_name)
+ * @param {!Node} node
+ * @param {string} name
+ * @return {string}
+ * @private
+ */
+goog.html.sanitizer.HtmlSanitizer.getAttribute_ = function(node, name) {
+  var protoFn = Element.prototype.getAttribute;
+  if (protoFn) {
+    var ret = protoFn.call(/** @type {!Element} */ (node), name);
+    return ret ? ret : '';  // FF returns null
+  } else {
+    return '';
+  }
+};
 
 /**
  * Provides a way to set an element's attributes without falling prey to things
@@ -806,12 +914,13 @@ goog.html.sanitizer.HtmlSanitizer.prototype.sanitize = function(
   var sanitizedParent = this.sanitizeToDomNode(unsanitizedHtml);
   var sanitizedString = new XMLSerializer().serializeToString(sanitizedParent);
 
-  // Remove the outer div added by XMLSerializer. We could create an element
-  // from it and then pull out the innerHtml, but this is more performant.
-  if (goog.string.startsWith(sanitizedString, '<div')) {
-    if (goog.string.endsWith(sanitizedString, '</div>')) {
+  // Remove the outer span added in sanitizeToDomNode. We could create an
+  // element from it and then pull out the innerHtml, but this is more
+  // performant.
+  if (goog.string.startsWith(sanitizedString, '<span')) {
+    if (goog.string.endsWith(sanitizedString, '</span>')) {
       sanitizedString = sanitizedString.slice(
-          sanitizedString.indexOf('>') + 1, -1 * ('</div>'.length));
+          sanitizedString.indexOf('>') + 1, -1 * ('</span>'.length));
     } else if (goog.string.endsWith(sanitizedString, '/>')) {
       sanitizedString = '';
     }
@@ -826,17 +935,20 @@ goog.html.sanitizer.HtmlSanitizer.prototype.sanitize = function(
 /**
  * Causes the browser to parse the DOM tree of a given HTML string, then walks
  * the tree. For each element, it creates a new sanitized version, applies
- * sanitized attributes, and returns a sanitized NodeList.
+ * sanitized attributes, and returns a span element containing the sanitized
+ * content.
  * @param {?string} unsanitizedHtml
- * @return {!Element} Sanitized HTML
+ * @return {!HTMLSpanElement} Sanitized HTML
  * @final
  */
 goog.html.sanitizer.HtmlSanitizer.prototype.sanitizeToDomNode = function(
     unsanitizedHtml) {
-  var sanitizedParent = document.createElement('div');
+  var sanitizedParent =
+      /** @type {!HTMLSpanElement} */ (document.createElement('span'));
+
   if (!goog.html.sanitizer.HTML_SANITIZER_SUPPORTED_ || !unsanitizedHtml) {
     // TODO(danesh): IE9 or earlier versions don't provide an easy way to
-    // parse HTML inertly. Handle in a way other than an empty div perhaps.
+    // parse HTML inertly. Handle in a way other than an empty span perhaps.
     return sanitizedParent;
   }
 
@@ -901,11 +1013,9 @@ goog.html.sanitizer.HtmlSanitizer.prototype.sanitizeToDomNode = function(
     if (isSanitizedParent || goog.isNull(dirtyParent)) {
       target = sanitizedParent;
     } else {
-      target = elementMap
-          [goog.html.sanitizer.HtmlSanitizer
-               .getAttributes_(dirtyParent)
-                   [goog.html.sanitizer.HTML_SANITIZER_BOOKKEEPING_ATTR_NAME_]
-               .value];
+      target = elementMap[goog.html.sanitizer.HtmlSanitizer.getAttribute_(
+          dirtyParent,
+          goog.html.sanitizer.HTML_SANITIZER_BOOKKEEPING_ATTR_NAME_)];
     }
     if (target.content) {
       target = target.content;
@@ -935,19 +1045,35 @@ goog.html.sanitizer.HtmlSanitizer.prototype.sanitizeElement_ = function(
   // Non text nodes get an empty node based on black/white lists.
   var elemName =
       goog.html.sanitizer.HtmlSanitizer.getNodeName_(dirtyNode).toUpperCase();
+  var sanitized = false;
   var cleanElemName;
   if (elemName in goog.html.sanitizer.TagBlacklist ||
       elemName in this.tagBlacklist_) {
     // If it's in the inert blacklist, replace with template.
+    // Note that this node will not be added to the final output, i.e. the
+    // template tag is only an internal representation, and eventually will be
+    // deleted.
     cleanElemName = 'template';
+    // TODO(user): use the same attribute used for span tags to distinguish
+    // between input template tags and template tags used for bookkeeping,
+    // and finally add support for input template tags.
   } else if (this.tagWhitelist_[elemName]) {
     // If it's in the whitelist, keep as is.
     cleanElemName = elemName;
   } else {
-    // If it's not in any list, replace with div.
-    cleanElemName = 'div';
+    // If it's not in any list, replace with span. If the relevant builder
+    // option is enabled, they will bear the original tag name in a data
+    // attribute.
+    cleanElemName = 'span';
+    sanitized = true;
   }
-  return document.createElement(cleanElemName);
+  var cleanElem = document.createElement(cleanElemName);
+  if (this.shouldAddOriginalTagNames_ && sanitized) {
+    goog.html.sanitizer.HtmlSanitizer.setAttribute_(
+        cleanElem, goog.html.sanitizer.HTML_SANITIZER_SANITIZED_ATTR_NAME_,
+        elemName.toLowerCase());
+  }
+  return cleanElem;
 };
 
 

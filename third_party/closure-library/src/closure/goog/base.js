@@ -1425,7 +1425,8 @@ goog.loadModule = function(moduleDef) {
     // another namespace
     if (goog.moduleLoaderState_.declareLegacyNamespace) {
       goog.constructNamespace_(moduleName, exports);
-    } else if (goog.SEAL_MODULE_EXPORTS && Object.seal) {
+    } else if (
+        goog.SEAL_MODULE_EXPORTS && Object.seal && goog.isObject(exports)) {
       Object.seal(exports);
     }
 
@@ -2190,6 +2191,15 @@ goog.cssNameMappingStyle_;
  *     the modifier.
  */
 goog.getCssName = function(className, opt_modifier) {
+  // String() is used for compatibility with compiled soy where the passed
+  // className can be non-string objects like here
+  // http://google3/java/com/google/privacy/accountcentral/common/ui/client/cards/popupcard.soy?l=74&rcl=94079467
+  if (String(className).charAt(0) == '.') {
+    throw new Error(
+        'className passed in goog.getCssName must not start with ".".' +
+        ' You passed: ' + className);
+  }
+
   var getMapping = function(cssName) {
     return goog.cssNameMapping_[cssName] || cssName;
   };
@@ -2212,11 +2222,16 @@ goog.getCssName = function(className, opt_modifier) {
     rename = function(a) { return a; };
   }
 
-  if (opt_modifier) {
-    return className + '-' + rename(opt_modifier);
-  } else {
-    return rename(className);
+  var result =
+      opt_modifier ? className + '-' + rename(opt_modifier) : rename(className);
+
+  // The special CLOSURE_CSS_NAME_MAP_FN allows users to specify further
+  // processing of the class name.
+  if (goog.global.CLOSURE_CSS_NAME_MAP_FN) {
+    return goog.global.CLOSURE_CSS_NAME_MAP_FN(result);
   }
+
+  return result;
 };
 
 
@@ -2593,7 +2608,6 @@ goog.defineClass = function(superClass, def) {
  *   constructor: (!Function|undefined),
  *   statics: (Object|undefined|function(Function):void)
  * }}
- * @suppress {missingProvide}
  */
 goog.defineClass.ClassDescriptor;
 
@@ -2652,7 +2666,7 @@ goog.defineClass.createSealingConstructor_ = function(ctr, superClass) {
 
 /**
  * @param {Function} ctr The constructor to test.
- * @returns {boolean} Whether the constructor has been tagged as unsealable
+ * @return {boolean} Whether the constructor has been tagged as unsealable
  *     using goog.tagUnsealableClass.
  * @private
  */

@@ -49,9 +49,6 @@ goog.require('goog.string.Unicode');
 goog.require('goog.userAgent');
 
 
-goog.forwardDeclare('goog.dom.TypedTagName');
-
-
 /**
  * @define {boolean} Whether we know at compile time that the browser is in
  * quirks mode.
@@ -174,6 +171,19 @@ goog.dom.$ = goog.dom.getElement;
 
 
 /**
+ * Gets elements by tag name.
+ * @param {goog.dom.TagName} tagName
+ * @param {(!Document|!Element)=} opt_parent Parent element or document where to
+ *     look for elements. Defaults to document.
+ * @return {!NodeList<!Element>}
+ */
+goog.dom.getElementsByTagName = function(tagName, opt_parent) {
+  var parent = opt_parent || document;
+  return parent.getElementsByTagName(tagName);
+};
+
+
+/**
  * Looks up elements by both tag and class name, using browser native functions
  * ({@code querySelectorAll}, {@code getElementsByTagName} or
  * {@code getElementsByClassName}) where possible. This function
@@ -192,12 +202,11 @@ goog.dom.$ = goog.dom.getElement;
  *
  * @see {goog.dom.query}
  *
- * @param {(?string|!goog.dom.TypedTagName<T>)=} opt_tag Element tag name.
+ * @param {?string=} opt_tag Element tag name.
  * @param {?string=} opt_class Optional class name.
  * @param {(Document|Element)=} opt_el Optional element to look in.
  * @return {!IArrayLike<!Element>} Array-like list of elements (only a length
  *     property and numerical indices are guaranteed to exist).
- * @template T
  */
 goog.dom.getElementsByTagNameAndClass = function(opt_tag, opt_class, opt_el) {
   return goog.dom.getElementsByTagNameAndClass_(
@@ -277,12 +286,11 @@ goog.dom.canUseQuerySelector_ = function(parent) {
 /**
  * Helper for {@code getElementsByTagNameAndClass}.
  * @param {!Document} doc The document to get the elements in.
- * @param {(?string|!goog.dom.TypedTagName<T>)=} opt_tag Element tag name.
+ * @param {?string=} opt_tag Element tag name.
  * @param {?string=} opt_class Optional class name.
  * @param {(Document|Element)=} opt_el Optional element to look in.
  * @return {!IArrayLike<!Element>} Array-like list of elements (only a length
  *     property and numerical indices are guaranteed to exist).
- * @template T
  * @private
  */
 goog.dom.getElementsByTagNameAndClass_ = function(
@@ -342,13 +350,12 @@ goog.dom.getElementsByTagNameAndClass_ = function(
 
 /**
  * Alias for {@code getElementsByTagNameAndClass}.
- * @param {(string|?goog.dom.TypedTagName<T>)=} opt_tag Element tag name.
+ * @param {?string=} opt_tag Element tag name.
  * @param {?string=} opt_class Optional class name.
  * @param {Element=} opt_el Optional element to look in.
  * @return {!IArrayLike<!Element>} Array-like list of elements (only a length
  *     property and numerical indices are guaranteed to exist).
  * @deprecated Use {@link goog.dom.getElementsByTagNameAndClass} instead.
- * @template T
  */
 goog.dom.$$ = goog.dom.getElementsByTagNameAndClass;
 
@@ -702,21 +709,20 @@ goog.dom.getWindow_ = function(doc) {
 };
 
 
-// TODO(jakubvrana): Disallow {string} in tagName and change the return type to
-// {T}.
+// TODO(jakubvrana): Allow only members of goog.dom.TagName in tagName.
 /**
  * Returns a dom node with a set of attributes.  This function accepts varargs
  * for subsequent nodes to be added.  Subsequent nodes will be added to the
  * first node as childNodes.
  *
  * So:
- * <code>createDom('div', null, createDom('p'), createDom('p'));</code>
+ * <code>createDom(goog.dom.TagName.DIV, null, createDom(goog.dom.TagName.P), createDom(goog.dom.TagName.P));</code>
  * would return a div with two child paragraphs
  *
  * For passing properties, please see {@link goog.dom.setProperties} for more
  * information.
  *
- * @param {string|!goog.dom.TypedTagName<T>} tagName Tag to create.
+ * @param {string} tagName Tag to create.
  * @param {(Object|Array<string>|string)=} opt_properties If object, then a map
  *     of name-value pairs for properties. If a string, then this is the
  *     className of the new element. If an array, the elements will be joined
@@ -725,30 +731,8 @@ goog.dom.getWindow_ = function(doc) {
  *     strings for text nodes. If one of the var_args is an array or NodeList,
  *     its elements will be added as childNodes instead.
  * @return {!Element} Reference to a DOM node.
- * @template T
  */
 goog.dom.createDom = function(tagName, opt_properties, var_args) {
-  return goog.dom.createDom_(document, arguments);
-};
-
-
-/**
- * A version of createDom where the tag name is a plain string and not a member
- * of goog.dom.TagName. Currently, this function is the same as createDom but in
- * the future, createDom will return a more specific type (e.g. HTMLImageElement
- * for goog.TagName.IMG) while createUntypedDom will still return Element.
- *
- * @param {string} tagName Tag to create.
- * @param {(Object|Array<string>|string)=} opt_attributes If object, then a map
- *     of name-value pairs for attributes. If a string, then this is the
- *     className of the new element. If an array, the elements will be joined
- *     together as the className of the new element.
- * @param {...(Object|string|Array|NodeList)} var_args Further DOM nodes or
- *     strings for text nodes. If one of the var_args is an array or NodeList,
- *     its elements will be added as childNodes instead.
- * @return {!Element} Reference to a DOM node.
- */
-goog.dom.createUntypedDom = function(tagName, opt_attributes, var_args) {
   return goog.dom.createDom_(document, arguments);
 };
 
@@ -848,7 +832,7 @@ goog.dom.append_ = function(doc, parent, args, startIndex) {
 
 /**
  * Alias for {@code createDom}.
- * @param {string|!goog.dom.TypedTagName<T>} tagName Tag to create.
+ * @param {string} tagName Tag to create.
  * @param {(string|Object)=} opt_properties If object, then a map of name-value
  *     pairs for properties. If a string, then this is the className of the new
  *     element.
@@ -856,7 +840,6 @@ goog.dom.append_ = function(doc, parent, args, startIndex) {
  *     strings for text nodes. If one of the var_args is an array, its
  *     children will be added as childNodes instead.
  * @return {!Element} Reference to a DOM node.
- * @template T
  * @deprecated Use {@link goog.dom.createDom} instead.
  */
 goog.dom.$dom = goog.dom.createDom;
@@ -864,9 +847,8 @@ goog.dom.$dom = goog.dom.createDom;
 
 /**
  * Creates a new element.
- * @param {string|!goog.dom.TypedTagName<T>} name Tag name.
+ * @param {string} name Tag name.
  * @return {!Element} The new element.
- * @template T
  */
 goog.dom.createElement = function(name) {
   return document.createElement(String(name));
@@ -892,7 +874,7 @@ goog.dom.createTextNode = function(content) {
  * @return {!Element} The created table.
  */
 goog.dom.createTable = function(rows, columns, opt_fillWithNbsp) {
-  // TODO(user): Return HTMLTableElement, also in prototype function.
+  // TODO(mlourenco): Return HTMLTableElement, also in prototype function.
   // Callers need to be updated to e.g. not assign numbers to table.cellSpacing.
   return goog.dom.createTable_(document, rows, columns, !!opt_fillWithNbsp);
 };
@@ -1039,7 +1021,7 @@ goog.dom.isCss1CompatMode_ = function(doc) {
  * the behavior is inconsistent:
  *
  * <pre>
- *   var a = document.createElement(goog.dom.TagName.BR);
+ *   var a = goog.dom.createElement(goog.dom.TagName.BR);
  *   a.appendChild(document.createTextNode('foo'));
  *   a.appendChild(document.createTextNode('bar'));
  *   console.log(a.childNodes.length);  // 2
@@ -1059,31 +1041,31 @@ goog.dom.canHaveChildren = function(node) {
     return false;
   }
   switch (/** @type {!Element} */ (node).tagName) {
-    case goog.dom.TagName.APPLET:
-    case goog.dom.TagName.AREA:
-    case goog.dom.TagName.BASE:
-    case goog.dom.TagName.BR:
-    case goog.dom.TagName.COL:
-    case goog.dom.TagName.COMMAND:
-    case goog.dom.TagName.EMBED:
-    case goog.dom.TagName.FRAME:
-    case goog.dom.TagName.HR:
-    case goog.dom.TagName.IMG:
-    case goog.dom.TagName.INPUT:
-    case goog.dom.TagName.IFRAME:
-    case goog.dom.TagName.ISINDEX:
-    case goog.dom.TagName.KEYGEN:
-    case goog.dom.TagName.LINK:
-    case goog.dom.TagName.NOFRAMES:
-    case goog.dom.TagName.NOSCRIPT:
-    case goog.dom.TagName.META:
-    case goog.dom.TagName.OBJECT:
-    case goog.dom.TagName.PARAM:
-    case goog.dom.TagName.SCRIPT:
-    case goog.dom.TagName.SOURCE:
-    case goog.dom.TagName.STYLE:
-    case goog.dom.TagName.TRACK:
-    case goog.dom.TagName.WBR:
+    case String(goog.dom.TagName.APPLET):
+    case String(goog.dom.TagName.AREA):
+    case String(goog.dom.TagName.BASE):
+    case String(goog.dom.TagName.BR):
+    case String(goog.dom.TagName.COL):
+    case String(goog.dom.TagName.COMMAND):
+    case String(goog.dom.TagName.EMBED):
+    case String(goog.dom.TagName.FRAME):
+    case String(goog.dom.TagName.HR):
+    case String(goog.dom.TagName.IMG):
+    case String(goog.dom.TagName.INPUT):
+    case String(goog.dom.TagName.IFRAME):
+    case String(goog.dom.TagName.ISINDEX):
+    case String(goog.dom.TagName.KEYGEN):
+    case String(goog.dom.TagName.LINK):
+    case String(goog.dom.TagName.NOFRAMES):
+    case String(goog.dom.TagName.NOSCRIPT):
+    case String(goog.dom.TagName.META):
+    case String(goog.dom.TagName.OBJECT):
+    case String(goog.dom.TagName.PARAM):
+    case String(goog.dom.TagName.SCRIPT):
+    case String(goog.dom.TagName.SOURCE):
+    case String(goog.dom.TagName.STYLE):
+    case String(goog.dom.TagName.TRACK):
+    case String(goog.dom.TagName.WBR):
       return false;
   }
   return true;
@@ -2279,6 +2261,17 @@ goog.dom.matchesPixelRatio_ = function(pixelRatio) {
 };
 
 
+/**
+ * Gets '2d' context of a canvas. Shortcut for canvas.getContext('2d') with a
+ * type information.
+ * @param {!HTMLCanvasElement} canvas
+ * @return {!CanvasRenderingContext2D}
+ */
+goog.dom.getCanvasContext2D = function(canvas) {
+  return /** @type {!CanvasRenderingContext2D} */ (canvas.getContext('2d'));
+};
+
+
 
 /**
  * Create an instance of a DOM helper with a new document object.
@@ -2357,6 +2350,20 @@ goog.dom.DomHelper.prototype.$ = goog.dom.DomHelper.prototype.getElement;
 
 
 /**
+ * Gets elements by tag name.
+ * @param {goog.dom.TagName} tagName
+ * @param {(!Document|!Element)=} opt_parent Parent element or document where to
+ *     look for elements. Defaults to document of this DomHelper.
+ * @return {!NodeList<!Element>}
+ */
+goog.dom.DomHelper.prototype.getElementsByTagName =
+    function(tagName, opt_parent) {
+  var parent = opt_parent || this.document_;
+  return parent.getElementsByTagName(tagName);
+};
+
+
+/**
  * Looks up elements by both tag and class name, using browser native functions
  * ({@code querySelectorAll}, {@code getElementsByTagName} or
  * {@code getElementsByClassName}) where possible. The returned array is a live
@@ -2364,13 +2371,11 @@ goog.dom.DomHelper.prototype.$ = goog.dom.DomHelper.prototype.getElement;
  *
  * @see goog.dom.query
  *
- * @param {(?string|!goog.dom.TypedTagName<T>)=} opt_tag Element tag name or *
- *     for all tags.
+ * @param {?string=} opt_tag Element tag name or * for all tags.
  * @param {?string=} opt_class Optional class name.
  * @param {(Document|Element)=} opt_el Optional element to look in.
  * @return {!IArrayLike<!Element>} Array-like list of elements (only a length
  *     property and numerical indices are guaranteed to exist).
- * @template T
  */
 goog.dom.DomHelper.prototype.getElementsByTagNameAndClass = function(
     opt_tag, opt_class, opt_el) {
@@ -2427,12 +2432,11 @@ goog.dom.DomHelper.prototype.getRequiredElementByClass = function(
  * @deprecated Use DomHelper getElementsByTagNameAndClass.
  * @see goog.dom.query
  *
- * @param {(string|?goog.dom.TypedTagName<T>)=} opt_tag Element tag name.
+ * @param {?string=} opt_tag Element tag name.
  * @param {?string=} opt_class Optional class name.
  * @param {Element=} opt_el Optional element to look in.
  * @return {!IArrayLike<!Element>} Array-like list of elements (only a length
  *     property and numerical indices are guaranteed to exist).
- * @template T
  */
 goog.dom.DomHelper.prototype.$$ =
     goog.dom.DomHelper.prototype.getElementsByTagNameAndClass;
@@ -2482,16 +2486,16 @@ goog.dom.Appendable;
  * first node as childNodes.
  *
  * So:
- * <code>createDom('div', null, createDom('p'), createDom('p'));</code>
+ * <code>createDom(goog.dom.TagName.DIV, null, createDom(goog.dom.TagName.P), createDom(goog.dom.TagName.P));</code>
  * would return a div with two child paragraphs
  *
  * An easy way to move all child nodes of an existing element to a new parent
  * element is:
- * <code>createDom('div', null, oldElement.childNodes);</code>
+ * <code>createDom(goog.dom.TagName.DIV, null, oldElement.childNodes);</code>
  * which will remove all child nodes from the old element and add them as
  * child nodes of the new DIV.
  *
- * @param {string|!goog.dom.TypedTagName<T>} tagName Tag to create.
+ * @param {string} tagName Tag to create.
  * @param {Object|string=} opt_attributes If object, then a map of name-value
  *     pairs for attributes. If a string, then this is the className of the new
  *     element.
@@ -2499,7 +2503,6 @@ goog.dom.Appendable;
  *     strings for text nodes. If one of the var_args is an array or
  *     NodeList, its elements will be added as childNodes instead.
  * @return {!Element} Reference to a DOM node.
- * @template T
  */
 goog.dom.DomHelper.prototype.createDom = function(
     tagName, opt_attributes, var_args) {
@@ -2508,30 +2511,8 @@ goog.dom.DomHelper.prototype.createDom = function(
 
 
 /**
- * A version of createDom where the tag name is a plain string and not a member
- * of goog.dom.TagName. Currently, this function is the same as createDom but in
- * the future, createDom will return a more specific type (e.g. HTMLImageElement
- * for goog.TagName.IMG) while createUntypedDom will still return Element.
- *
- * @param {string} tagName Tag to create.
- * @param {(Object|Array<string>|string)=} opt_attributes If object, then a map
- *     of name-value pairs for attributes. If a string, then this is the
- *     className of the new element. If an array, the elements will be joined
- *     together as the className of the new element.
- * @param {...(Object|string|Array|NodeList)} var_args Further DOM nodes or
- *     strings for text nodes. If one of the var_args is an array or NodeList,
- *     its elements will be added as childNodes instead.
- * @return {!Element} Reference to a DOM node.
- */
-goog.dom.DomHelper.prototype.createUntypedDom = function(
-    tagName, opt_attributes, var_args) {
-  return goog.dom.createDom_(this.document_, arguments);
-};
-
-
-/**
  * Alias for {@code createDom}.
- * @param {string|!goog.dom.TypedTagName<T>} tagName Tag to create.
+ * @param {string} tagName Tag to create.
  * @param {(Object|string)=} opt_attributes If object, then a map of name-value
  *     pairs for attributes. If a string, then this is the className of the new
  *     element.
@@ -2539,7 +2520,6 @@ goog.dom.DomHelper.prototype.createUntypedDom = function(
  *     text nodes.  If one of the var_args is an array, its children will be
  *     added as childNodes instead.
  * @return {!Element} Reference to a DOM node.
- * @template T
  * @deprecated Use {@link goog.dom.DomHelper.prototype.createDom} instead.
  */
 goog.dom.DomHelper.prototype.$dom = goog.dom.DomHelper.prototype.createDom;
@@ -2547,9 +2527,8 @@ goog.dom.DomHelper.prototype.$dom = goog.dom.DomHelper.prototype.createDom;
 
 /**
  * Creates a new element.
- * @param {string|!goog.dom.TypedTagName<T>} name Tag name.
+ * @param {string} name Tag name.
  * @return {!Element} The new element.
- * @template T
  */
 goog.dom.DomHelper.prototype.createElement = function(name) {
   return this.document_.createElement(String(name));
@@ -3071,3 +3050,12 @@ goog.dom.DomHelper.prototype.getAncestorByClass = goog.dom.getAncestorByClass;
  *     no match.
  */
 goog.dom.DomHelper.prototype.getAncestor = goog.dom.getAncestor;
+
+
+/**
+ * Gets '2d' context of a canvas. Shortcut for canvas.getContext('2d') with a
+ * type information.
+ * @param {!HTMLCanvasElement} canvas
+ * @return {!CanvasRenderingContext2D}
+ */
+goog.dom.DomHelper.prototype.getCanvasContext2D = goog.dom.getCanvasContext2D;
