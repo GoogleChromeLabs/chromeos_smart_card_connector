@@ -22,7 +22,6 @@
   },
   "permissions": [
     "alwaysOnTopWindows",
-    "storage",
     "usb",
     {
       "usbDevices": [
