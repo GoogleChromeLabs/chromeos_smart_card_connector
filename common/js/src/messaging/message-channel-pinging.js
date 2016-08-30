@@ -109,7 +109,7 @@ GSC.MessageChannelPinging.Pinger = function(
   this.timeoutTimerId_ = null;
   this.scheduleTimeoutTimer_();
 
-  goog.async.nextTick(this.postPingMessage_, this);
+  goog.async.nextTick(this.postPingMessageAndScheduleNext_, this);
 };
 
 /** @const */
@@ -142,6 +142,17 @@ Pinger.SERVICE_NAME = 'ping';
  */
 Pinger.createMessageData = function() {
   return {};
+};
+
+/**
+ * Posts a ping message through the message channel.
+ */
+Pinger.prototype.postPingMessage = function() {
+  if (this.isDisposed())
+    return;
+  this.logger.finest('Sending a ping request...');
+
+  this.messageChannel_.send(Pinger.SERVICE_NAME, Pinger.createMessageData());
 };
 
 /** @override */
@@ -214,15 +225,17 @@ Pinger.prototype.disposeChannelAndSelf_ = function() {
 };
 
 /** @private */
-Pinger.prototype.postPingMessage_ = function() {
+Pinger.prototype.postPingMessageAndScheduleNext_ = function() {
+  this.postPingMessage();
+  this.schedulePostingPingMessage_();
+};
+
+/** @private */
+Pinger.prototype.schedulePostingPingMessage_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.finest('Sending a ping request...');
-
-  this.messageChannel_.send(Pinger.SERVICE_NAME, Pinger.createMessageData());
-
   goog.Timer.callOnce(
-      this.postPingMessage_, Pinger.INTERVAL_MILLISECONDS, this);
+      this.postPingMessageAndScheduleNext_, Pinger.INTERVAL_MILLISECONDS, this);
 };
 
 /** @private */
@@ -259,10 +272,14 @@ Pinger.prototype.timeoutCallback_ = function() {
  * identifier will be specified along with the all sent "pong" messages.
  * @param {!goog.messaging.AbstractChannel} messageChannel
  * @param {!goog.log.Logger} parentLogger
+ * @param {function()=} opt_onPingReceived
  * @constructor
+ * @extends goog.Disposable
  */
 GSC.MessageChannelPinging.PingResponder = function(
-    messageChannel, parentLogger) {
+    messageChannel, parentLogger, opt_onPingReceived) {
+  PingResponder.base(this, 'constructor');
+
   /**
    * @type {!goog.log.Logger}
    * @const
@@ -278,12 +295,17 @@ GSC.MessageChannelPinging.PingResponder = function(
 
   this.channelId_ = PingResponder.generateChannelId();
 
+  /** @private */
+  this.onPingReceivedListener_ = opt_onPingReceived;
+
   this.logger.fine(
       'Initialized (generated channel id is ' + this.channelId_ + ')');
 };
 
 /** @const */
 var PingResponder = GSC.MessageChannelPinging.PingResponder;
+
+goog.inherits(PingResponder, goog.Disposable);
 
 /** @const */
 PingResponder.SERVICE_NAME = 'pong';
@@ -305,10 +327,28 @@ PingResponder.createMessageData = function(channelId) {
 
 /** @private */
 PingResponder.prototype.serviceCallback_ = function() {
+  if (this.isDisposed())
+    return;
+
   this.logger.finest('Received a ping request, sending pong response...');
+
   this.messageChannel_.send(
       PingResponder.SERVICE_NAME,
       PingResponder.createMessageData(this.channelId_));
+
+  if (this.onPingReceivedListener_)
+    this.onPingReceivedListener_();
+};
+
+/** @override */
+PingResponder.prototype.disposeInternal = function() {
+  this.messageChannel_ = null;
+
+  this.onPingReceivedListener_ = null;
+
+  this.logger.fine('Disposed');
+
+  PingResponder.base(this, 'disposeInternal');
 };
 
 });  // goog.scope

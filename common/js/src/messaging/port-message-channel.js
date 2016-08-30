@@ -130,6 +130,7 @@ PortMessageChannel.prototype.disposeInternal = function() {
   this.pinger_.dispose();
   this.pinger_ = null;
 
+  this.pingResponder_.dispose();
   this.pingResponder_ = null;
 
   this.port_.onMessage.removeListener(this.boundMessageEventHandler_);

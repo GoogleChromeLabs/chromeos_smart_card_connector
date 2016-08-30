@@ -53,10 +53,13 @@ var PingResponder = GSC.MessageChannelPinging.PingResponder;
  * this message channel (see the message-channel-pinging.js file for details).
  * @param {string} extensionId
  * @param {function()=} opt_onEstablished
+ * @param {boolean=} opt_shouldPingOnPing Whether an additional ping message
+ * should be sent each time a ping message is received.
  * @constructor
  * @extends goog.messaging.AbstractChannel
  */
-GSC.SingleMessageBasedChannel = function(extensionId, opt_onEstablished) {
+GSC.SingleMessageBasedChannel = function(
+    extensionId, opt_onEstablished, opt_shouldPingOnPing) {
   SingleMessageBasedChannel.base(this, 'constructor');
 
   /** @const @type {string} */
@@ -69,13 +72,17 @@ GSC.SingleMessageBasedChannel = function(extensionId, opt_onEstablished) {
   this.logger = GSC.Logging.getScopedLogger(
       'SingleMessageBasedChannel<' + extensionId + '>');
 
+  /** @private */
+  this.shouldPingOnPing_ = !!opt_shouldPingOnPing;
+
   this.registerDefaultService(this.defaultServiceCallback_.bind(this));
 
   /** @private */
-  this.pingResponder_ = new PingResponder(this, this.logger);
+  this.pinger_ = new Pinger(this, this.logger, opt_onEstablished);
 
   /** @private */
-  this.pinger_ = new Pinger(this, this.logger, opt_onEstablished);
+  this.pingResponder_ = new PingResponder(
+      this, this.logger, this.pingMessageReceivedListener_.bind(this));
 
   this.logger.fine('Initialized successfully');
 };
@@ -132,6 +139,7 @@ SingleMessageBasedChannel.prototype.disposeInternal = function() {
   this.pinger_.dispose();
   this.pinger_ = null;
 
+  this.pingResponder_.dispose();
   this.pingResponder_ = null;
 
   this.logger.fine('Disposed');
@@ -140,9 +148,9 @@ SingleMessageBasedChannel.prototype.disposeInternal = function() {
 };
 
 /**
- * @private
  * @param {string} serviceName
  * @param {!Object|string} payload
+ * @private
  */
 SingleMessageBasedChannel.prototype.defaultServiceCallback_ = function(
     serviceName, payload) {
@@ -150,6 +158,14 @@ SingleMessageBasedChannel.prototype.defaultServiceCallback_ = function(
       this.logger,
       'Unhandled message received: serviceName="' + serviceName +
       '", payload=' + GSC.DebugDump.debugDump(payload));
+};
+
+/** @private */
+SingleMessageBasedChannel.prototype.pingMessageReceivedListener_ = function() {
+  if (!this.isDisposed())
+    return;
+  if (this.shouldPingOnPing_)
+    this.pinger_.postPingMessage();
 };
 
 });  // goog.scope

@@ -155,7 +155,7 @@ function externalMessageListener(message, sender) {
         return channel instanceof GSC.SingleMessageBasedChannel;
       });
   if (!channel) {
-    channel = new GSC.SingleMessageBasedChannel(sender.id);
+    channel = new GSC.SingleMessageBasedChannel(sender.id, undefined, true);
     messageChannelPool.addChannel(sender.id, channel);
     GSC.MessagingCommon.setNonFatalDefaultServiceCallback(channel);
     createClientHandler(channel, sender.id);
