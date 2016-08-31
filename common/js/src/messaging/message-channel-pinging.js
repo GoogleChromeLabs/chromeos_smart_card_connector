@@ -293,13 +293,11 @@ GSC.MessageChannelPinging.PingResponder = function(
   this.messageChannel_.registerService(
       Pinger.SERVICE_NAME, this.serviceCallback_.bind(this), true);
 
-  this.channelId_ = PingResponder.generateChannelId();
-
   /** @private */
   this.onPingReceivedListener_ = opt_onPingReceived;
 
   this.logger.fine(
-      'Initialized (generated channel id is ' + this.channelId_ + ')');
+      'Initialized (generated channel id is ' + PingResponder.CHANNEL_ID + ')');
 };
 
 /** @const */
@@ -316,6 +314,9 @@ PingResponder.SERVICE_NAME = 'pong';
 PingResponder.generateChannelId = function() {
   return GSC.Random.randomIntegerNumber();
 };
+
+/** @const */
+PingResponder.CHANNEL_ID = PingResponder.generateChannelId();
 
 /**
  * @param {number} channelId
@@ -334,7 +335,7 @@ PingResponder.prototype.serviceCallback_ = function() {
 
   this.messageChannel_.send(
       PingResponder.SERVICE_NAME,
-      PingResponder.createMessageData(this.channelId_));
+      PingResponder.createMessageData(PingResponder.CHANNEL_ID));
 
   if (this.onPingReceivedListener_)
     this.onPingReceivedListener_();
