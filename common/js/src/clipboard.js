@@ -46,7 +46,7 @@ var logger = GSC.Logging.getScopedLogger('Clipboard');
 GSC.Clipboard.copyToClipboard = function(text) {
   var element = goog.dom.createDom('textarea', {'textContent': text});
   document.body.appendChild(element);
-  element.select();
+  element['select']();
   var success = document.execCommand('copy');
   document.body.removeChild(element);
 

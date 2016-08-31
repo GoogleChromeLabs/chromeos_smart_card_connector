@@ -156,10 +156,14 @@ PortMessageChannel.prototype.getPortExtensionId_ = function(port) {
   if (!goog.object.containsKey(port, 'sender'))
     return null;
   var sender = port['sender'];
+  if (!goog.isDef(sender))
+    return null;
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(sender));
   if (!goog.object.containsKey(sender, 'id'))
     return null;
   var senderId = sender['id'];
+  if (!goog.isDef(senderId))
+    return null;
   GSC.Logging.checkWithLogger(this.logger, goog.isString(senderId));
   return senderId;
 };

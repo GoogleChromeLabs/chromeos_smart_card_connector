@@ -178,7 +178,7 @@ RequestReceiver.prototype.responseRejectedListener_ = function(
     return;
   }
 
-  var stringifiedError = error.toString();
+  var stringifiedError = String(error);
   this.logger.fine(
       'Sending the failure response for the request with identifier ' +
       requestMessageData.requestId + ', the error is: ' + stringifiedError);

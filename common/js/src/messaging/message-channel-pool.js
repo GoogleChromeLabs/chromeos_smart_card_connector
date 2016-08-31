@@ -44,8 +44,10 @@ GSC.MessageChannelPool = function() {
   this.logger = GSC.Logging.getScopedLogger('MessageChannelPool');
 
   /**
+   * Multimap from string extension id to !goog.messaging.AbstractChannel.
+   *
    * TODO(isandrk): extensionId may be null (extension talks to itself)
-   * @type {!goog.labs.structs.Multimap.<string, !goog.messaging.AbstractChannel>}
+   * @type {!goog.labs.structs.Multimap}
    * @private
    */
   this.channels_ = new goog.labs.structs.Multimap;
@@ -67,7 +69,8 @@ var MessageChannelPool = GSC.MessageChannelPool;
  * @return {!Array.<!goog.messaging.AbstractChannel>}
  */
 MessageChannelPool.prototype.getChannels = function(extensionId) {
-  return this.channels_.get(extensionId);
+  return /** @type {!Array.<!goog.messaging.AbstractChannel>} */ (
+      this.channels_.get(extensionId));
 };
 
 /**

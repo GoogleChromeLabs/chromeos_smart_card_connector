@@ -109,7 +109,10 @@ GSC.PopupWindow.Client.prepareAndShowAsModalDialog = function() {
  * are specified for the window).
  */
 GSC.PopupWindow.Client.setWindowHeightToFitContent = function() {
-  var wholeContentHeight = document.documentElement.offsetHeight;
+  var wholeContentHeight = document.documentElement['offsetHeight'];
+  GSC.Logging.checkWithLogger(
+      logger,
+      goog.isDef(wholeContentHeight) && goog.isNumber(wholeContentHeight));
   logger.fine('Resizing the window size to ' + wholeContentHeight + 'px');
   chrome.app.window.current().innerBounds.height = wholeContentHeight;
 };

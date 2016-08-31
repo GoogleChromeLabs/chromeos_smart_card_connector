@@ -84,7 +84,7 @@ NaclModuleMessageChannel.prototype.send = function(serviceName, payload) {
     return;
   this.logger_.finest(
       'Sending message to NaCl module: ' + GSC.DebugDump.debugDump(message));
-  this.naclModuleElement_.postMessage(message);
+  this.naclModuleElement_['postMessage'](message);
 };
 
 /** @override */
