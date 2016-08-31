@@ -180,9 +180,24 @@
  * bottom of this file.
  *
  * G. Enums
- * The Chrome extension APIs define many enums that define a set of acceptable
- * strings, however, they do not reify those enum types, therefore, enum
- * parameters should be defined as {@code string}.
+ * An enum's type name and the name of its members must be included in an
+ * externs file, but the values of its members are ignored by the compiler.
+ * To make it clear enums are not being *defined* in this file, we set
+ * string enum values to the empty string (at this time, there are no
+ * known enums of other types).
+ *
+ * As of Mar 2016, the chrome extension docs are incomplete wrt to enums
+ * as they don't list the member names, only their string values. This means
+ * extension authors will tend to use string literals. Therefore, whereever
+ * an enum type should be used, we support either the enum or a string. Once
+ * the docs are complete, new uses of enums will no longer need the "or string"
+ * portion of the type.
+ *
+ * Finally, most places in this file where enums should be used are using only
+ * string. This is historical and is no longer the recommended practice.
+ *
+ * See enum chrome.wallpaper.WallpaperLayout and chrome.wallpaper.setWallpaper's
+ * param for examples.
  *
  * @externs
  *
@@ -746,10 +761,9 @@ chrome.audioModem.onTransmitFail;
 
 
 /**
- * @const
  * @see https://developer.chrome.com/apps/bluetooth
  */
-chrome.bluetooth = function() {};
+chrome.bluetooth = {};
 
 
 
@@ -1930,6 +1944,31 @@ chrome.enterprise.Token.prototype.subtleCrypto;
 
 
 /**
+ * @param {!ArrayBuffer} challenge A challenge as emitted by the Verified Access
+ *     Web API.
+ * @param {function(!ArrayBuffer): void=} callback Called back with the
+ *     challenge response.
+ */
+chrome.enterprise.platformKeys.challengeMachineKey =
+    function(challenge, callback) {};
+
+
+/**
+ * @param {!ArrayBuffer} challenge A challenge as emitted by the Verified Access
+ *     Web API.
+ * @param {boolean} registerKey If set, the current Enterprise User Key is
+ *     registered with the "user"> token and relinquishes the Enterprise User
+ *     Key role. The key can then be associated with a certificate and used like
+ *     any other signing key. This key is 2048-bit RSA. Subsequent calls to this
+ *     function will then generate a new Enterprise User Key.
+ * @param {function(!ArrayBuffer): void=} callback Called back with the
+ *     challenge response.
+ */
+chrome.enterprise.platformKeys.challengeUserKey =
+    function(challenge, registerKey, callback) {};
+
+
+/**
  * @param {function(!Array<!chrome.enterprise.Token>): void} callback Called
  * with an array of Tokens.
  */
@@ -2538,7 +2577,7 @@ chrome.tabs.move = function(tabId, moveProperties, opt_callback) {};
  *   lastFocusedWindow: (boolean|undefined),
  *   status: (string|undefined),
  *   title: (string|undefined),
- *   url: (string|undefined),
+ *   url: (!Array<string>|string|undefined),
  *   windowId: (number|undefined),
  *   windowType: (string|undefined),
  *   index: (number|undefined)
@@ -7760,6 +7799,32 @@ chrome.usb.Device.prototype.vendorId;
 chrome.usb.Device.prototype.productId;
 
 
+/** @type {number} */
+chrome.usb.Device.prototype.version;
+
+
+/**
+ * The product name read from the device, if available.
+ * Since Chrome 46.
+ * @type {string}
+ */
+chrome.usb.Device.prototype.productName;
+
+/**
+ * The manufacturer name read from the device, if available.
+ * Since Chrome 46.
+ * @type {string}
+ */
+chrome.usb.Device.prototype.manufacturerName;
+
+/**
+ * The serial number read from the device, if available.
+ * Since Chrome 46.
+ * @type {string}
+ */
+chrome.usb.Device.prototype.serialNumber;
+
+
 
 /** @constructor */
 chrome.usb.ConnectionHandle = function ConnectionHandle() {};
@@ -7782,7 +7847,8 @@ chrome.usb.ConnectionHandle.prototype.productId;
  *   direction: string,
  *   endpoint: number,
  *   length: (number|undefined),
- *   data: (!ArrayBuffer|undefined)
+ *   data: (!ArrayBuffer|undefined),
+ *   timeout: (number|undefined)
  * }}
  */
 chrome.usb.GenericTransferInfo;
@@ -7797,7 +7863,8 @@ chrome.usb.GenericTransferInfo;
  *   value: number,
  *   index: number,
  *   length: (number|undefined),
- *   data: (!ArrayBuffer|undefined)
+ *   data: (!ArrayBuffer|undefined),
+ *   timeout: (number|undefined)
  * }}
  */
 chrome.usb.ControlTransferInfo;
@@ -7827,12 +7894,183 @@ chrome.usb.FindDevicesOptions;
 
 
 /**
+ * @typedef {?{
+ *   vendorId: (number|undefined),
+ *   producId: (number|undefined),
+ *   interfaceClass: (number|undefined),
+ *   interfaceSubclass: (number|undefined),
+ *   interfaceProtocol: (number|undefined)
+ * }}
+ */
+chrome.usb.DeviceFilter;
+
+
+/**
+ * @typedef {?{
+ *   vendorId: (number|undefined),
+ *   productId: (number|undefined),
+ *   filters: (!Array<!chrome.usb.DeviceFilter>|undefined)
+ * }}
+ */
+chrome.usb.GetDevicesOptions;
+
+
+/**
+ * @typedef {?{
+ *   multiple: (boolean|undefined),
+ *   filters: (!Array<!chrome.usb.DeviceFilter>|undefined)
+ * }}
+ */
+chrome.usb.GetUserSelectedDevicesOptions;
+
+
+/**
+ * @typedef {?{
+ *   transferInfo: !chrome.usb.GenericTransferInfo,
+ *   packets: number,
+ *   packetLength: number
+ * }}
+ */
+chrome.usb.IsochronousTransferInfo;
+
+
+
+/** @constructor */
+chrome.usb.EndpointDescriptor = function() {};
+
+
+/** @type {number} */
+chrome.usb.EndpointDescriptor.prototype.address;
+
+/** @type {string} */
+chrome.usb.EndpointDescriptor.prototype.type;
+
+
+/** @type {string} */
+chrome.usb.EndpointDescriptor.prototype.direction;
+
+
+/** @type {number} */
+chrome.usb.EndpointDescriptor.prototype.maximumPacketSize;
+
+
+/** @type {(string|undefined)} */
+chrome.usb.EndpointDescriptor.prototype.synchronization;
+
+
+/** @type {(string|undefined)} */
+chrome.usb.EndpointDescriptor.prototype.usage;
+
+
+/** @type {(number|undefined)} */
+chrome.usb.EndpointDescriptor.prototype.pollingInterval;
+
+
+/** @type {!ArrayBuffer} */
+chrome.usb.EndpointDescriptor.prototype.extra_data;
+
+
+
+/** @constructor */
+chrome.usb.InterfaceDescriptor = function() {};
+
+
+/** @type {number} */
+chrome.usb.InterfaceDescriptor.prototype.interfaceNumber;
+
+
+/** @type {number} */
+chrome.usb.InterfaceDescriptor.prototype.alternateSetting;
+
+
+/** @type {number} */
+chrome.usb.InterfaceDescriptor.prototype.interfaceClass;
+
+
+/** @type {number} */
+chrome.usb.InterfaceDescriptor.prototype.interfaceSubclass;
+
+
+/** @type {number} */
+chrome.usb.InterfaceDescriptor.prototype.interfaceProtocol;
+
+
+/** @type {(string|undefined)} */
+chrome.usb.InterfaceDescriptor.prototype.description;
+
+
+/** @type {!Array.<!chrome.usb.EndpointDescriptor>} */
+chrome.usb.InterfaceDescriptor.prototype.endpoints;
+
+
+/** @type {!ArrayBuffer} */
+chrome.usb.InterfaceDescriptor.prototype.extra_data;
+
+
+
+/** @constructor */
+chrome.usb.ConfigDescriptor = function() {};
+
+
+/** @type {boolean} */
+chrome.usb.ConfigDescriptor.prototype.active;
+
+
+/** @type {number} */
+chrome.usb.ConfigDescriptor.prototype.configurationValue;
+
+
+/** @type {string|undefined} */
+chrome.usb.ConfigDescriptor.prototype.description;
+
+
+/** @type {boolean} */
+chrome.usb.ConfigDescriptor.prototype.selfPowered;
+
+
+/** @type {boolean} */
+chrome.usb.ConfigDescriptor.prototype.remoteWakeup;
+
+
+/** @type {number} */
+chrome.usb.ConfigDescriptor.prototype.maxPower;
+
+
+/** @type {!Array<!chrome.usb.InterfaceDescriptor>} */
+chrome.usb.ConfigDescriptor.prototype.interfaces;
+
+
+/** @type {!ArrayBuffer} */
+chrome.usb.ConfigDescriptor.prototype.extra_data;
+
+
+/**
  * @see http://developer.chrome.com/apps/usb.html#method-getDevices
- * @param {!Object} options The properties to search for on target devices.
+ * @param {!chrome.usb.GetDevicesOptions} options The properties to
+ *     search for on target devices.
  * @param {function(!Array<!chrome.usb.Device>)} callback Invoked with a list
  *     of |Device|s on complete.
  */
 chrome.usb.getDevices = function(options, callback) {};
+
+
+/**
+ * @see http://developer.chrome.com/apps/usb.html#method-getUserSelectedDevices
+ * @param {!chrome.usb.GetUserSelectedDevicesOptions} options Configuration of
+ *     the device picker dialog box.
+ * @param {function(!Array<!chrome.usb.Device>)} callback Invoked with a list
+ *     of |Device|s on complete.
+ */
+chrome.usb.getUserSelectedDevices = function(options, callback) {};
+
+
+/**
+ * @see http://developer.chrome.com/apps/usb.html#method-getConfigurations
+ * @param {!chrome.usb.Device} device The device to fetch descriptors from.
+ * @param {function(!Array<!chrome.usb.ConfigDescriptor>)} callback Invoked with
+ *     the full set of device configuration descriptors.
+ */
+chrome.usb.getConfigurations = function(device, callback) {};
 
 
 /**
@@ -7847,7 +8085,7 @@ chrome.usb.requestAccess = function(device, interfaceId, callback) {};
 /**
  * @see http://developer.chrome.com/apps/usb.html#method-openDevice
  * @param {!chrome.usb.Device} device The device to open.
- * @param {function(!chrome.usb.ConnectionHandle=)} callback Invoked with the
+ * @param {function(!chrome.usb.ConnectionHandle)} callback Invoked with the
  *     created ConnectionHandle on complete.
  */
 chrome.usb.openDevice = function(device, callback) {};
@@ -7873,11 +8111,31 @@ chrome.usb.closeDevice = function(handle, opt_callback) {};
 
 
 /**
+ * @see http://developer.chrome.com/apps/usb.html#method-setConfiguration
+ * @param {!chrome.usb.ConnectionHandle} handle The connection handle for which
+ *     to select a device configuration.
+ * @param {number} configurationValue The configuration to select.
+ * @param {function()} callback The callback to invoke on complete.
+ */
+chrome.usb.setConfiguration = function(handle, configurationValue, callback) {};
+
+
+/**
+ * @see http://developer.chrome.com/apps/usb.html#method-getConfiguration
+ * @param {!chrome.usb.ConnectionHandle} handle The connection handle for which
+ *     to get the current device configuration descriptor.
+ * @param {function(!chrome.usb.ConfigDescriptor)} callback The callback to
+ *     invoke on complete.
+ */
+chrome.usb.getConfiguration = function(handle, callback) {};
+
+
+/**
  * @see http://developer.chrome.com/apps/usb.html#method-listInterfaces
  * @param {!chrome.usb.ConnectionHandle} handle The device from which the
  *     interfaces should be listed.
- * @param {function(!Array<!Object>)} callback
- *     The callback to invoke when the interfaces are enumerated.
+ * @param {function(!Array<!chrome.usb.InterfaceDescriptor>)} callback The
+ *     callback to invoke when the interfaces are enumerated.
  */
 chrome.usb.listInterfaces = function(handle, callback) {};
 
@@ -7957,8 +8215,8 @@ chrome.usb.interruptTransfer = function(handle, transferInfo, callback) {};
  * @see http://developer.chrome.com/apps/usb.html#method-isochronousTransfer
  * @param {!chrome.usb.ConnectionHandle} handle A connection handle to make the
  *     transfer on.
- * @param {!Object} transferInfo The parameters to the transfer. See
- *     IsochronousTransferInfo.
+ * @param {!chrome.usb.IsochronousTransferInfo} transferInfo The parameters to
+ *     the transfer.
  * @param {function(!chrome.usb.TransferResultInfo)} callback Invoked once the
  *     transfer has been completed.
  */
@@ -7972,6 +8230,47 @@ chrome.usb.isochronousTransfer = function(handle, transferInfo, callback) {};
  *     boolean indicating whether the reset completed successfully.
  */
 chrome.usb.resetDevice = function(handle, callback) {};
+
+
+
+/**
+ * Event whose listeners take an chrome.usb.Device parameter.
+ * @constructor
+ */
+chrome.usb.DeviceEvent = function() {};
+
+
+/** @param {function(!chrome.usb.Device): void} callback */
+chrome.usb.DeviceEvent.prototype.addListener = function(callback) {};
+
+
+/** @param {function(!chrome.usb.Device): void} callback */
+chrome.usb.DeviceEvent.prototype.removeListener = function(callback) {};
+
+
+/**
+ * @param {function(!chrome.usb.Device): void} callback
+ * @return {boolean}
+ */
+chrome.usb.DeviceEvent.prototype.hasListener = function(callback) {};
+
+
+/** @return {boolean} */
+chrome.usb.DeviceEvent.prototype.hasListeners = function() {};
+
+
+/**
+ * @type {!chrome.usb.DeviceEvent}
+ * @see https://developer.chrome.com/apps/usb#event-onDeviceAdded
+ */
+chrome.usb.onDeviceAdded;
+
+
+/**
+ * @type {!chrome.usb.DeviceEvent}
+ * @see https://developer.chrome.com/apps/usb#event-onDeviceRemoved
+ */
+chrome.usb.onDeviceRemoved;
 
 
 /**
@@ -9042,7 +9341,7 @@ chrome.gcdPrivate.onDeviceRemoved;
 
 /**
  * @const
- * @see http://goo.gl/bKHibo
+ * @see https://cs.chromium.org/chromium/src/extensions/common/api/bluetooth_private.idl
  */
 chrome.bluetoothPrivate = {};
 
@@ -9143,6 +9442,75 @@ chrome.bluetoothPrivate.PairingEventEvent.prototype.hasListeners =
 chrome.bluetoothPrivate.onPairing;
 
 
+/**
+ * @param {string} deviceAddress
+ * @param {function(number, string): void=} opt_callback
+ */
+chrome.bluetoothPrivate.pair = function(deviceAddress, opt_callback) {};
+
+
+/**
+ * @enum {string}
+ * @see https://developer.chrome.com/extensions/bluetoothPrivate#type-PairingResponse
+ */
+chrome.bluetoothPrivate.PairingResponse = {
+  CONFIRM: '',
+  REJECT: '',
+  CANCEL: '',
+};
+
+
+/**
+ * @enum {string}
+ * @see https://developer.chrome.com/extensions/bluetoothPrivate#type-PairingEventType
+ */
+chrome.bluetoothPrivate.PairingEventType = {
+  REQUEST_PINCODE: '',
+  DISPLAY_PINCODE: '',
+  REQUEST_PASSKEY: '',
+  DISPLAY_PASSKEY: '',
+  KEYS_ENTERED: '',
+  CONFIRM_PASSKEY: '',
+  REQUEST_AUTHORIZATION: '',
+  COMPLETE: '',
+};
+
+
+/**
+ * @enum {string}
+ * @see https://developer.chrome.com/extensions/bluetoothPrivate#type-ConnectResultType
+ */
+chrome.bluetoothPrivate.ConnectResultType = {
+  ALREADY_CONNECTED: '',
+  ATTRIBUTE_LENGTH_INVALID: '',
+  AUTH_CANCELED: '',
+  AUTH_FAILED: '',
+  AUTH_REJECTED: '',
+  AUTH_TIMEOUT: '',
+  CONNECTION_CONGESTED: '',
+  FAILED: '',
+  IN_PROGRESS: '',
+  INSUFFICIENT_ENCRYPTION: '',
+  OFFSET_INVALID: '',
+  READ_NOT_PERMITTED: '',
+  REQUEST_NOT_SUPPORTED: '',
+  SUCCESS: '',
+  UNKNOWN_ERROR: '',
+  UNSUPPORTED_DEVICE: '',
+  WRITE_NOT_PERMITTED: '',
+};
+
+
+/**
+ * @enum {string}
+ * @see https://developer.chrome.com/extensions/bluetoothPrivate#type-TransportType
+ */
+chrome.bluetoothPrivate.TransportType = {
+  LE: '',
+  BREDR: '',
+  DUAL: '',
+};
+
 
 /**
  * @const
@@ -9159,3 +9527,37 @@ chrome.inlineInstallPrivate = {};
  *     (2) an error code in case of error
  */
 chrome.inlineInstallPrivate.install = function(id, opt_callback) {};
+
+
+/**
+ * @const
+ * @see https://goo.gl/7dvJFW
+ */
+chrome.wallpaper = {};
+
+
+/**
+ * @enum {string}
+ * @see https://goo.gl/7dvJFW#type-WallpaperLayout
+ */
+chrome.wallpaper.WallpaperLayout = {
+  STRETCH: '',
+  CENTER: '',
+  CENTER_CROPPED: '',
+};
+
+
+/**
+ * Sets wallpaper to the image at url or wallpaperData with the specified
+ * layout.
+ * @param {{
+ *    data: (ArrayBuffer|undefined),
+ *    url: (string|undefined),
+ *    layout: (chrome.wallpaper.WallpaperLayout|string),
+ *    filename: string,
+ *    thumbnail: (boolean|undefined)
+ *  }} details
+ * @param {function(ArrayBuffer=)} callback
+ * @see https://goo.gl/7dvJFW#method-setWallpaper
+ */
+ chrome.wallpaper.setWallpaper = function(details, callback) {};
