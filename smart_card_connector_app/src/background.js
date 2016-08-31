@@ -150,17 +150,41 @@ function externalMessageListener(message, sender) {
                    'extension id specified');
     return;
   }
-  var channel = messageChannelPool.getChannels(sender.id).find(
+  var channel = getOrCreateSingleMessageBasedChannel(sender.id);
+  if (!channel)
+    return;
+  channel.deliverMessage(message);
+  if (channel.isDisposed()) {
+    // The channel could get disposed of due to the detected client reload. So
+    // here an attempt is made to deliver the same message again to a freshly
+    // created message channel, so that the message from the reloaded client has
+    // a chance to be handled.
+    channel = getOrCreateSingleMessageBasedChannel(sender.id);
+    if (!channel)
+      return;
+    channel.deliverMessage(message);
+  }
+}
+
+/**
+ * @param {string} clientExtensionId
+ * @return {GSC.SingleMessageBasedChannel}
+ */
+function getOrCreateSingleMessageBasedChannel(clientExtensionId) {
+  var existingChannel = messageChannelPool.getChannels(clientExtensionId).find(
       function(channel) {
         return channel instanceof GSC.SingleMessageBasedChannel;
       });
-  if (!channel) {
-    channel = new GSC.SingleMessageBasedChannel(sender.id, undefined, true);
-    messageChannelPool.addChannel(sender.id, channel);
-    GSC.MessagingCommon.setNonFatalDefaultServiceCallback(channel);
-    createClientHandler(channel, sender.id);
-  }
-  channel.deliverMessage(message);
+  if (existingChannel)
+    return /** @type !GSC.SingleMessageBasedChannel */ (existingChannel);
+  var newChannel = new GSC.SingleMessageBasedChannel(
+      clientExtensionId, undefined, true);
+  messageChannelPool.addChannel(clientExtensionId, newChannel);
+  GSC.MessagingCommon.setNonFatalDefaultServiceCallback(newChannel);
+  createClientHandler(newChannel, clientExtensionId);
+  if (newChannel.isDisposed())
+    return null;
+  return newChannel;
 }
 
 /**

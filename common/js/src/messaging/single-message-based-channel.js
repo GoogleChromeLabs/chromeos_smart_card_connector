@@ -115,7 +115,7 @@ SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
 
 /**
  * This method passes the message to the corresponding registered service.
- * @param {!Object} message
+ * @param {*} message
  */
 SingleMessageBasedChannel.prototype.deliverMessage = function(message) {
   this.logger.finest('Received a message: ' +
