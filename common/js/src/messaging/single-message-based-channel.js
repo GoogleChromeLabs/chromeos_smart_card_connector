@@ -162,7 +162,7 @@ SingleMessageBasedChannel.prototype.defaultServiceCallback_ = function(
 
 /** @private */
 SingleMessageBasedChannel.prototype.pingMessageReceivedListener_ = function() {
-  if (!this.isDisposed())
+  if (this.isDisposed())
     return;
   if (this.shouldPingOnPing_)
     this.pinger_.postPingMessage();
