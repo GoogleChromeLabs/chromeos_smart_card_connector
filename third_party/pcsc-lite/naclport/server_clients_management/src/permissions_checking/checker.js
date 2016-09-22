@@ -87,6 +87,15 @@ Checker.prototype.check = function(clientAppId) {
 };
 
 /**
+ * Removed stored permission for App with given id. Pass-thru function, real
+ * functionality implemented inside UserPromptingChecker.
+ * @param {string} clientAppId
+ */
+Checker.prototype.removeAppPermission = function(clientAppId) {
+  return this.userPromptingChecker_.removeAppPermission(clientAppId);
+};
+
+/**
  * @param {string} clientAppId
  * @param {!goog.promise.Resolver} checkPromiseResolver
  * @private

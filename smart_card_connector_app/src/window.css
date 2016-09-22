@@ -175,3 +175,16 @@ body {
   top: -2px;
   width: 20px;
 }
+
+.remove-permission-button {
+  background: none;
+  border: none;
+  color: rgba(0, 0, 0, 0.54);
+  cursor: pointer;
+  font-size: 13pt;
+  padding: 0;
+  position: relative;
+  left: 5px;
+  top: 2px;
+  -webkit-user-select: none;
+}

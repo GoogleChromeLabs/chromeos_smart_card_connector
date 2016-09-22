@@ -63,6 +63,10 @@
       }
     }
   },
+  "removePermission": {
+    "message": "Remove app permission",
+    "description": "Accessibility text for remove app permission button"
+  },
   "openAbout": {
     "message": "About",
     "description": "Title of the link that can be used to open the App's About page"

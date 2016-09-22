@@ -251,6 +251,14 @@ var clientIdGenerator = goog.iter.count();
 var permissionsChecker = null;
 
 /**
+ * @static
+ * @return {PermissionsChecking.Checker}
+ */
+ClientHandler.getPermissionsChecker = function() {
+  return permissionsChecker;
+}
+
+/**
  * This structure is used to store the received client requests in a buffer.
  * @param {!RemoteCallMessage} remoteCallMessage The remote call message
  * containing the request contents.

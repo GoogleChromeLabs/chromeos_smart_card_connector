@@ -23,11 +23,15 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.AppsDisplaying');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.ObjectHelpers');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownApp');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
+goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.Checker');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.dom');
+goog.require('goog.events');
+goog.require('goog.events.EventType');
 goog.require('goog.log.Logger');
 
 goog.scope(function() {
@@ -40,6 +44,12 @@ var PermissionsChecking = GSC.PcscLiteServerClientsManagement.PermissionsCheckin
 
 /** @const */
 var KnownApp = PermissionsChecking.KnownApp;
+
+/** @const */
+var Checker = PermissionsChecking.Checker;
+
+/** @const */
+var extractKey = GSC.ObjectHelpers.extractKey;
 
 /**
  * @type {!goog.log.Logger}
@@ -64,6 +74,11 @@ var knownAppsRegistry = new PermissionsChecking.KnownAppsRegistry();
 var lastKnownAppsPromise = null;
 
 /**
+ * @type {function(string)}
+ */
+var removeApp;
+
+/**
  * @param {!goog.Promise.<!Array.<KnownApp>>} knownAppsPromise
  * @param {!Array.<string>} appIds
  * @param {Array.<KnownApp>} knownApps
@@ -81,7 +96,24 @@ function updateAppView(knownAppsPromise, appIds, knownApps) {
       var text = knownApps && knownApps[i] ?
                  knownApps[i].name :
                  '<' + appIds[i] + '>';
-      var newElement = goog.dom.createDom('li', undefined, text);
+
+      var removePermission = goog.dom.createDom(
+          'button',
+          {'class': 'remove-permission-button',
+           'data-i18n-aria-label': 'removePermission',
+           'title': GSC.I18n.translateText('removePermission')},
+          '×');
+
+      // TODO(isandrk): What happens to the listeners of the 'dead' nodes?
+      goog.events.listen(
+          removePermission,
+          goog.events.EventType.CLICK,
+          removeApp.bind(undefined, appIds[i]));
+          // TODO(isandrk): ^ Is there some problem with this (renaming)? Possibly
+          // do the binding inside getPermissionsChecker (and rename it obviously).
+
+      var newElement = goog.dom.createDom(
+          'li', undefined, text, removePermission);
       goog.dom.append(appListElement, newElement);
     }
 
@@ -112,14 +144,17 @@ function onUpdateListener(appListArg) {
 }
 
 GSC.ConnectorApp.Window.AppsDisplaying.initialize = function() {
+  var passedData = GSC.PopupWindow.Client.getData();
+
   logger.fine('Registering listener on connected apps update');
   // FIXME(emaxx): Do unsubscription too.
-  // FIXME(emaxx): Use GSC.ObjectHelpers.extractKey to ensure that the expected
-  // object is passed to the window.
-  var data = GSC.PopupWindow.Client.getData()['clientAppListUpdateSubscriber'];
+  var data = extractKey(passedData, 'clientAppListUpdateSubscriber');
   var clientAppListUpdateSubscriber =
       /**@type {function(function(!Array.<string>))} */ (data);
   clientAppListUpdateSubscriber(onUpdateListener);
+
+  removeApp =
+      /** @type {function(string)} */ (extractKey(passedData, 'removeApp'));
 };
 
 });  // goog.scope

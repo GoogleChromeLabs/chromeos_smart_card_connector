@@ -320,6 +320,35 @@ UserPromptingChecker.prototype.storeUserSelection_ =
 };
 
 /**
+ * Removed stored permission for App with given id.
+ * @param {string} clientAppId
+ */
+UserPromptingChecker.prototype.removeAppPermission = function(clientAppId) {
+  this.logger.info(
+      'Revoking user permission from client App with id "' + clientAppId + '"');
+
+  this.localStoragePromiseResolver_.promise.then(
+      function(storedUserSelections) {
+        //if (!goog.object.containsKey(storedUserSelections, clientAppId))
+        if (!storedUserSelections.containsKey(clientAppId))
+          return;
+
+        storedUserSelections.remove(clientAppId);
+        var dumpedValue = goog.structs.map(
+            storedUserSelections, goog.functions.identity, {});
+        this.logger.finer('Storing the following data in the local storage: ' +
+                          GSC.DebugDump.dump(dumpedValue));
+        chrome.storage.local.set(goog.object.create(
+            LOCAL_STORAGE_KEY, dumpedValue));
+      },
+      function() {
+        this.logger.warning(
+            'Failed to remove app permission from the local storage');
+      },
+      this);
+};
+
+/**
  * @param {string} clientAppId
  */
 UserPromptingChecker.prototype.notifyAboutRejectionByStoredSelection_ =

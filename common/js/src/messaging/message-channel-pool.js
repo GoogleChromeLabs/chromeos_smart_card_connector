@@ -99,6 +99,20 @@ MessageChannelPool.prototype.addChannel = function(
 };
 
 /**
+ * @param {string} extensionId
+ */
+MessageChannelPool.prototype.disposeChannel = function(extensionId) {
+  if (!this.channels_.containsKey(extensionId)) {
+    GSC.Logging.failWithLogger(
+        this.logger, 'Tried to force dispose of a non-existing channel');
+  }
+  this.logger.fine('Force disposal of channel, extension id = ' + extensionId);
+  for (let channel of this.channels_.get(extensionId)) {
+    channel.dispose();
+  }
+};
+
+/**
  * @param {function(!Array.<string>)} listener
  * @param {!Object=} opt_scope
  */
@@ -131,7 +145,7 @@ MessageChannelPool.prototype.handleChannelDisposed_ = function(
   this.logger.fine('Disposed of channel, extension id = ' + extensionId);
   if (!this.channels_.remove(extensionId, messageChannel)) {
     GSC.Logging.failWithLogger(
-        this.logger, 'Tried to dispose of non-existing channel');
+        this.logger, 'Tried to dispose of a non-existing channel');
   }
   this.fireOnUpdateListeners_();
 };

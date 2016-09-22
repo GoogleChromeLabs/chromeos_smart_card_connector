@@ -109,8 +109,26 @@ function openWindow() {
       'readerTrackerSubscriber':
           readerTracker.addOnUpdateListener.bind(readerTracker),
       'readerTrackerUnsubscriber':
-          readerTracker.removeOnUpdateListener.bind(readerTracker)};
+          readerTracker.removeOnUpdateListener.bind(readerTracker),
+      'removeApp':
+          removeApp};
   GSC.PopupWindow.Server.createWindow(WINDOW_URL, WINDOW_OPTIONS, data);
+}
+
+/**
+ * Remove connected app (disconnect it and remove stored permission).
+ * @param {string} clientExtensionId
+ */
+function removeApp(clientExtensionId) {
+  // TODO(isandrk): Make the deeper code do the bulk of work and handling of
+  // dialog stuff, then return the result as promise and remove channel if
+  // neccessary.
+  var checkerInstance =
+      GSC.PcscLiteServerClientsManagement.ClientHandler.getPermissionsChecker();
+  checkerInstance.removeAppPermission(clientExtensionId);
+  // TODO(isandrk): Argument referring to the extensionId isn't consistent
+  // across source files (its name).
+  messageChannelPool.disposeChannel(clientExtensionId);
 }
 
 /**
