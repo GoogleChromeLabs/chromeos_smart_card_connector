@@ -85,6 +85,16 @@ var LogBuffer = GSC.LogBuffer;
 goog.exportSymbol('GoogleSmartCard.LogBuffer', LogBuffer);
 
 /**
+ * @return {number}
+ */
+LogBuffer.prototype.getCapacity = function() {
+  return this.capacity_;
+};
+
+goog.exportProperty(
+    LogBuffer.prototype, 'getCapacity', LogBuffer.prototype.getCapacity);
+
+/**
  * @param {!goog.log.Logger} logger
  * @param {string} documentLocationPathname
  */
