@@ -30,6 +30,9 @@ var GSC = GoogleSmartCard;
 
 /**
  * This interface represents an abstract request handler.
+ *
+ * FIXME(emaxx): Delete this interface. It may be safely replaced with passing a
+ * simple function.
  * @interface
  */
 GSC.RequestHandler = function() {};
