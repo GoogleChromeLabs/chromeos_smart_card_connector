@@ -58,10 +58,7 @@ var ChromeUsbRequestHandler = GSC.Libusb.ChromeUsbRequestHandler;
 ChromeUsbRequestHandler.prototype.logger = GSC.Logging.getScopedLogger(
     'Libusb.ChromeUsbRequestHandler');
 
-/**
- * @override
- * @private
- */
+/** @override */
 ChromeUsbRequestHandler.prototype.handleRequest = function(payload) {
   var remoteCallMessage = RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {

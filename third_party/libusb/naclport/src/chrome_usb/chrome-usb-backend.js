@@ -43,8 +43,9 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
   /** @private */
   this.chromeUsbRequestHandler_ = new GSC.Libusb.ChromeUsbRequestHandler;
 
-  /** @private */
-  this.chromeUsbRequestReceiver_ = new GSC.RequestReceiver(
+  // Note: the request receiver instance is not stored anywhere, as it makes
+  // itself being owned by the message channel.
+  new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, this.chromeUsbRequestHandler_);
 
   this.startObservingDevices_();

@@ -311,10 +311,7 @@ ClientHandler.prototype.disposeInternal = function() {
   ClientHandler.base(this, 'disposeInternal');
 };
 
-/**
- * @override
- * @private
- */
+/** @override */
 ClientHandler.prototype.handleRequest = function(payload) {
   if (this.isDisposed()) {
     return goog.Promise.reject(new Error(
