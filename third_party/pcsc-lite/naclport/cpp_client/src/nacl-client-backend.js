@@ -59,8 +59,9 @@ GSC.PcscLiteClient.NaclClientBackend = function(
       new GSC.PcscLiteClient.NaclClientRequestHandler(
           clientTitle, opt_serverAppId);
 
-  /** @private */
-  this.naclClientRequestReceiver_ = new GSC.RequestReceiver(
+  // Note: the request receiver instance is not stored anywhere, as it makes
+  // itself being owned by the message channel.
+  new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, this.naclClientRequestHandler_);
 };
 

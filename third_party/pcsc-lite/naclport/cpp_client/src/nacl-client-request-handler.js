@@ -113,10 +113,7 @@ var NaclClientRequestHandler = GSC.PcscLiteClient.NaclClientRequestHandler;
 NaclClientRequestHandler.prototype.logger = GSC.Logging.getScopedLogger(
     'PcscLiteClient.NaclClientRequestHandler');
 
-/**
- * @override
- * @private
- */
+/** @override */
 NaclClientRequestHandler.prototype.handleRequest = function(payload) {
   var remoteCallMessage = GSC.RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {

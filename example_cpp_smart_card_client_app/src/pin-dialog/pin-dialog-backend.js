@@ -68,8 +68,9 @@ var logger = GSC.Logging.getLogger('SmartCardClientApp.PinDialog');
  * @constructor
  */
 SmartCardClientApp.PinDialog.Backend = function(naclModuleMessageChannel) {
-  /** @private */
-  this.chromeUsbRequestReceiver_ = new GSC.RequestReceiver(
+  // Note: the request receiver instance is not stored anywhere, as it makes
+  // itself being owned by the message channel.
+  new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, new PinDialogRequestHandler);
 };
 
