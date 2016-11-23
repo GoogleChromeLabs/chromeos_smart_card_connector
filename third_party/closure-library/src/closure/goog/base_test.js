@@ -1150,7 +1150,10 @@ function testAddDependencyModule() {
 
 function testAddDependencyEs6() {
   var script = null;
-  goog.transpiledLanguages_ = {'es5': false, 'es6-impl': false, 'es6': true};
+  var requireTranspilation = false;
+  stubs.set(goog, 'needsTranspile_', function() {
+    return requireTranspilation;
+  });
   stubs.set(goog, 'writeScriptTag_', function(src, scriptText) {
     if (script != null) {
       throw new Error('Multiple scripts written');
@@ -1166,11 +1169,13 @@ function testAddDependencyEs6() {
   // To differentiate this call from the real one.
   var require = goog.require;
 
+  requireTranspilation = false;
   require('testDep.fancy');
   assertRegExp(
       /^goog\.retrieveAndExec_\(".*\/fancy\.js", true, false\);$/, script);
   script = null;
 
+  requireTranspilation = true;
   require('testDep.superFancy');
   assertRegExp(
       /^goog\.retrieveAndExec_\(".*\/super\.js", false, true\);$/, script);
@@ -1320,14 +1325,14 @@ function testClassBaseOnMethodAndBaseCtor() {
 }
 
 function testGoogRequireCheck() {
-  stubs.set(goog, 'ENABLE_DEBUG_LOADER', false);
+  stubs.set(goog, 'ENABLE_DEBUG_LOADER', true);
   stubs.set(goog, 'useStrictRequires', true);
   stubs.set(goog, 'implicitNamespaces_', {});
 
   // Aliased so that build tools do not mistake this for an actual call.
   var require = goog.require;
   assertThrows('Requiring non-required namespace should fail', function() {
-    require('far.out');
+    require('far.outnotprovided');
   });
 
   assertUndefined(goog.global.far);

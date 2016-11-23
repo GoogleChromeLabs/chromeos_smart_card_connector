@@ -148,9 +148,6 @@ goog.string.Const.unwrap = function(stringConst) {
  *   var t = goog.string.Const.from('hello' + world);
  * </pre>
  *
- * TODO(xtof): Compile-time checks that this function is only called
- * with compile-time constant expressions.
- *
  * @param {string} s A constant string from which to create a Const.
  * @return {!goog.string.Const} A Const object initialized to stringConst.
  */
@@ -180,3 +177,10 @@ goog.string.Const.create__googStringSecurityPrivate_ = function(s) {
       s;
   return stringConst;
 };
+
+
+/**
+ * A Const instance wrapping the empty string.
+ * @const {!goog.string.Const}
+ */
+goog.string.Const.EMPTY = goog.string.Const.from('');

@@ -257,6 +257,13 @@ goog.net.XhrIo.CONTENT_TYPE_HEADER = 'Content-Type';
 
 
 /**
+ * The Content-Transfer-Encoding HTTP header name
+ * @type {string}
+ */
+goog.net.XhrIo.CONTENT_TRANSFER_ENCODING = 'Content-Transfer-Encoding';
+
+
+/**
  * The pattern matching the 'http' and 'https' URI schemes
  * @type {!RegExp}
  */
@@ -1237,8 +1244,12 @@ goog.net.XhrIo.prototype.getResponse = function() {
  * @return {string|undefined} The value of the response-header named key.
  */
 goog.net.XhrIo.prototype.getResponseHeader = function(key) {
-  return this.xhr_ && this.isComplete() ? this.xhr_.getResponseHeader(key) :
-                                          undefined;
+  if (!this.xhr_ || !this.isComplete()) {
+    return undefined;
+  }
+
+  var value = this.xhr_.getResponseHeader(key);
+  return goog.isNull(value) ? undefined : value;
 };
 
 

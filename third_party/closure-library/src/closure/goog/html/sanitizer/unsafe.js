@@ -63,9 +63,11 @@ goog.html.sanitizer.unsafe.alsoAllowTags = function(
   return builder.alsoAllowTagsPrivateDoNotAccessOrElse(tags);
 };
 
-
 /**
- * Extends the attribute whitelist with the list of attributes provided.
+ * Installs custom attribute policies for the attributes provided in the list.
+ * This can be used either on non-whitelisted attributes, effectively extending
+ * the attribute whitelist, or on attributes that are whitelisted and already
+ * have a policy, to override their policies.
  *
  * IMPORTANT: Uses of this method must be carefully security-reviewed to ensure
  * that the new tags do not introduce untrusted code execution or unsanctioned
@@ -77,18 +79,17 @@ goog.html.sanitizer.unsafe.alsoAllowTags = function(
  * @param {!goog.html.sanitizer.HtmlSanitizer.Builder} builder The builder
  *     whose attribute whitelist should be extended.
  * @param {!Array<(string|!goog.html.sanitizer.HtmlSanitizerAttributePolicy)>}
- *     attrs A list of additional attributes to allow through the
- *     sanitizer. Attributes can come in of two forms:
- *     - string: allow all values for this attribute on all tags.
+ *     attrs A list of attributes whose policy should be overridden. Attributes
+ *     can come in of two forms:
+ *     - string: allow all values and just trim whitespaces for this attribute
+ *         on all tags.
  *     - HtmlSanitizerAttributePolicy: allows specifying a policy for a
- *         particular tag. The tagName can be "*", which means all tags. If no
+ *         particular tag. The tagName can be '*', which means all tags. If no
  *         policy is passed, the default is allow all values and just trim
  *         whitespaces.
  *     The tag and attribute names are case-insensitive.
  * @return {!goog.html.sanitizer.HtmlSanitizer.Builder}
  */
-// TODO(user): use the new changes in onlyAllowAttributes to support relaxing
-// existing attributes
 goog.html.sanitizer.unsafe.alsoAllowAttributes = function(
     justification, builder, attrs) {
   goog.asserts.assertString(
@@ -97,4 +98,37 @@ goog.html.sanitizer.unsafe.alsoAllowAttributes = function(
       !goog.string.isEmptyOrWhitespace(goog.string.Const.unwrap(justification)),
       'must provide non-empty justification');
   return builder.alsoAllowAttributesPrivateDoNotAccessOrElse(attrs);
+};
+
+
+/**
+ * Turns off sanitization of TEMPLATE tag descendants. The output is still
+ * safe to consume as a whole, but clients need to handle the contents of
+ * TEMPLATE nodes carefully, hence its definition in the unsafe package.
+ *
+ * Note that this only applies to descendants of unsanitized template tags, not
+ * to the tag itself, which must be manually added to the whitelist and removed
+ * from the blacklist.
+ *
+ * IMPORTANT: Uses of this method must be carefully security-reviewed to ensure
+ * that the new tags do not introduce untrusted code execution or unsanctioned
+ * network activity.
+ *
+ * @param {!goog.string.Const} justification A constant string explaining why
+ *     the templates should not be sanitized, and why this is safe. May include
+ *     a security review ticket number.
+ * @param {!goog.html.sanitizer.HtmlSanitizer.Builder} builder The builder
+ *     whose template tag descendants should not be sanitized.
+ * @return {!goog.html.sanitizer.HtmlSanitizer.Builder}
+ * @throws {Error} Thrown if the browser does not support TEMPLATE tags.
+ *     In this case, careful post-sanitization handling wouldn't matter.
+ */
+goog.html.sanitizer.unsafe.keepUnsanitizedTemplateContents = function(
+    justification, builder) {
+  goog.asserts.assertString(
+      goog.string.Const.unwrap(justification), 'must provide justification');
+  goog.asserts.assert(
+      !goog.string.isEmptyOrWhitespace(goog.string.Const.unwrap(justification)),
+      'must provide non-empty justification');
+  return builder.keepUnsanitizedTemplateContentsPrivateDoNotAccessOrElse();
 };

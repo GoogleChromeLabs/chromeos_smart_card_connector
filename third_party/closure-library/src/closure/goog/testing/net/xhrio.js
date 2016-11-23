@@ -409,6 +409,7 @@ goog.testing.net.XhrIo.prototype.abort = function(opt_failureCode) {
   if (this.active_) {
     try {
       this.active_ = false;
+      this.readyState_ = goog.net.XmlHttp.ReadyState.UNINITIALIZED;
       this.statusCode_ = -1;
       this.lastErrorCode_ = opt_failureCode || goog.net.ErrorCode.ABORT;
       this.dispatchEvent(goog.net.EventType.COMPLETE);
@@ -554,9 +555,9 @@ goog.testing.net.XhrIo.prototype.simulateReady = function() {
 
 /**
  * Simulates the Xhr progress event.
- * @param {!boolean} lengthComputable Whether progress is measurable.
- * @param {!number} loaded Amount of work already performed.
- * @param {!number} total Total amount of work to perform.
+ * @param {boolean} lengthComputable Whether progress is measurable.
+ * @param {number} loaded Amount of work already performed.
+ * @param {number} total Total amount of work to perform.
  * @param {boolean=} opt_isDownload Whether the progress is from a download or
  *     upload.
  */

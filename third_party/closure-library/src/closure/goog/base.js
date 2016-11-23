@@ -352,7 +352,13 @@ goog.module = function(name) {
     throw Error('Invalid module identifier');
   }
   if (!goog.isInModuleLoader_()) {
-    throw Error('Module ' + name + ' has been loaded incorrectly.');
+    throw Error(
+        'Module ' + name + ' has been loaded incorrectly. Note, ' +
+        'modules cannot be loaded as normal scripts. They require some kind of ' +
+        'pre-processing step. You\'re likely trying to load a module via a ' +
+        'script tag or as a part of a concatenated bundle without rewriting the ' +
+        'module. For more info see: ' +
+        'https://github.com/google/closure-library/wiki/goog.module:-an-ES6-module-like-alternative-to-goog.provide.');
   }
   if (goog.moduleLoaderState_.moduleName) {
     throw Error('goog.module may only be called once per module.');
@@ -662,23 +668,20 @@ goog.require = function(name) {
     if (goog.isProvided_(name)) {
       if (goog.isInModuleLoader_()) {
         return goog.module.getInternal_(name);
-      } else {
-        return null;
       }
-    }
-
-    if (goog.ENABLE_DEBUG_LOADER) {
+    } else if (goog.ENABLE_DEBUG_LOADER) {
       var path = goog.getPathFromDeps_(name);
       if (path) {
         goog.writeScripts_(path);
-        return null;
+      } else {
+        var errorMessage = 'goog.require could not find: ' + name;
+        goog.logToConsole_(errorMessage);
+
+        throw Error(errorMessage);
       }
     }
 
-    var errorMessage = 'goog.require could not find: ' + name;
-    goog.logToConsole_(errorMessage);
-
-    throw Error(errorMessage);
+    return null;
   }
 };
 
@@ -1028,8 +1031,9 @@ if (goog.DEPENDENCIES_ENABLED) {
   goog.isDeferredModule_ = function(name) {
     var path = goog.getPathFromDeps_(name);
     var loadFlags = path && goog.dependencies_.loadFlags[path] || {};
+    var languageLevel = loadFlags['lang'] || 'es3';
     if (path && (loadFlags['module'] == 'goog' ||
-                 goog.needsTranspile_(loadFlags['lang']))) {
+                 goog.needsTranspile_(languageLevel))) {
       var abspath = goog.basePath + path;
       return (abspath) in goog.dependencies_.deferred;
     }
@@ -1214,53 +1218,101 @@ if (goog.DEPENDENCIES_ENABLED) {
       return true;
     } else if (goog.TRANSPILE == 'never') {
       return false;
-    } else if (!goog.transpiledLanguages_) {
-      goog.transpiledLanguages_ = {'es5': true, 'es6': true, 'es6-impl': true};
-      /** @preserveTry */
-      try {
-        // Perform some quick conformance checks, to distinguish
-        // between browsers that support es5, es6-impl, or es6.
-
-        // Identify ES3-only browsers by their incorrect treatment of commas.
-        goog.transpiledLanguages_['es5'] = eval('[1,].length!=1');
-
-        // As browsers mature, features will be moved from the full test
-        // into the impl test.  This must happen before the corresponding
-        // features are changed in the Closure Compiler's FeatureSet object.
-
-        // Test 1: es6-impl [FF49, Edge 13, Chrome 49]
-        //   (a) let/const keyword, (b) class expressions, (c) Map object,
-        //   (d) iterable arguments, (e) spread operator
-        var es6implTest =
-            'let a={};const X=class{constructor(){}x(z){return new Map([' +
-            '...arguments]).get(z[0])==3}};return new X().x([a,3])';
-
-        // Test 2: es6 [FF50 (?), Edge 14 (?), Chrome 50]
-        //   (a) default params (specifically shadowing locals),
-        //   (b) destructuring, (c) block-scoped functions,
-        //   (d) for-of (const), (e) new.target/Reflect.construct
-        var es6fullTest =
-            'class X{constructor(){if(new.target!=String)throw 1;this.x=42}}' +
-            'let q=Reflect.construct(X,[],String);if(q.x!=42||!(q instanceof ' +
-            'String))throw 1;for(const a of[2,3]){if(a==2)continue;function ' +
-            'f(z={a}){let a=0;return z.a}{function f(){return 0;}}return f()' +
-            '==3}';
-
-        if (eval('(()=>{"use strict";' + es6implTest + '})()')) {
-          goog.transpiledLanguages_['es6-impl'] = false;
-        }
-        if (eval('(()=>{"use strict";' + es6fullTest + '})()')) {
-          goog.transpiledLanguages_['es6'] = false;
-        }
-      } catch (err) {
-      }
+    } else if (!goog.requiresTranspilation_) {
+      goog.requiresTranspilation_ = goog.createRequiresTranspilation_();
     }
-    return !!goog.transpiledLanguages_[lang];
+    if (lang in goog.requiresTranspilation_) {
+      return goog.requiresTranspilation_[lang];
+    } else {
+      throw new Error('Unknown language mode: ' + lang);
+    }
   };
 
 
+  /**
+   * Returns a newly created map from language mode string to a boolean
+   * indicating whether transpilation should be done for that mode.
+   *
+   * Guaranteed invariant:
+   * For any two modes, l1 and l2 where l2 is a newer mode than l1,
+   * `map[l1] == true` implies that `map[l2] == true`.
+   * @private
+   * @return {!Object<string, boolean>}
+   */
+  goog.createRequiresTranspilation_ = function() {
+    var /** !Object<string, boolean> */ requiresTranspilation = {'es3': false};
+    var transpilationRequiredForAllLaterModes = false;
+
+    /**
+     * Adds an entry to requiresTranspliation for the given language mode.
+     *
+     * IMPORTANT: Calls must be made in order from oldest to newest language
+     * mode.
+     * @param {string} modeName
+     * @param {function(): boolean} isSupported Returns true if the JS engine
+     *     supports the given mode.
+     */
+    function addNewerLanguageTranspilationCheck(modeName, isSupported) {
+      if (transpilationRequiredForAllLaterModes) {
+        requiresTranspilation[modeName] = true;
+      } else if (isSupported()) {
+        requiresTranspilation[modeName] = false;
+      } else {
+        requiresTranspilation[modeName] = true;
+        transpilationRequiredForAllLaterModes = true;
+      }
+    }
+
+    /**
+     * Does the given code evaluate without syntax errors and return a truthy
+     * result?
+     */
+    function /** boolean */ evalCheck(/** string */ code) {
+      try {
+        return !!eval(code);
+      } catch (ignored) {
+        return false;
+      }
+    }
+
+    // Identify ES3-only browsers by their incorrect treatment of commas.
+    addNewerLanguageTranspilationCheck('es5', function() {
+      return evalCheck('[1,].length==1');
+    });
+    addNewerLanguageTranspilationCheck('es6', function() {
+      // Test es6: [FF50 (?), Edge 14 (?), Chrome 50]
+      //   (a) default params (specifically shadowing locals),
+      //   (b) destructuring, (c) block-scoped functions,
+      //   (d) for-of (const), (e) new.target/Reflect.construct
+      var es6fullTest =
+          'class X{constructor(){if(new.target!=String)throw 1;this.x=42}}' +
+          'let q=Reflect.construct(X,[],String);if(q.x!=42||!(q instanceof ' +
+          'String))throw 1;for(const a of[2,3]){if(a==2)continue;function ' +
+          'f(z={a}){let a=0;return z.a}{function f(){return 0;}}return f()' +
+          '==3}';
+
+      return evalCheck('(()=>{"use strict";' + es6fullTest + '})()');
+    });
+    // TODO(joeltine): Remove es6-impl references for b/31340605.
+    // Consider es6-impl (widely-implemented es6 features) to be supported
+    // whenever es6 is supported. Technically es6-impl is a lower level of
+    // support than es6, but we don't have tests specifically for it.
+    addNewerLanguageTranspilationCheck('es6-impl', function() {
+      return true;
+    });
+    // ** and **= are the only new features in 'es7'
+    addNewerLanguageTranspilationCheck('es7', function() {
+      return evalCheck('2 ** 2 == 4');
+    });
+    // async functions are the only new features in 'es8'
+    addNewerLanguageTranspilationCheck('es8', function() {
+      return evalCheck('async () => 1, true');
+    });
+    return requiresTranspilation;
+  };
+
   /** @private {?Object<string, boolean>} */
-  goog.transpiledLanguages_ = null;
+  goog.requiresTranspilation_ = null;
 
 
   /** @private {number} */
@@ -1349,7 +1401,8 @@ if (goog.DEPENDENCIES_ENABLED) {
       var path = scripts[i];
       if (path) {
         var loadFlags = deps.loadFlags[path] || {};
-        var needsTranspile = goog.needsTranspile_(loadFlags['lang']);
+        var languageLevel = loadFlags['lang'] || 'es3';
+        var needsTranspile = goog.needsTranspile_(languageLevel);
         if (loadFlags['module'] == 'goog' || needsTranspile) {
           goog.importProcessedScript_(
               goog.basePath + path, loadFlags['module'] == 'goog',
@@ -1572,7 +1625,20 @@ goog.transpile_ = function(code, path) {
       // need it, we're about to load and write the ES6 code synchronously,
       // so a normal script-tag load will be too slow.
       eval(transpilerCode + '\n//# sourceURL=' + transpilerPath);
-      // Note: transpile.js reassigns goog.global['$jscomp'] so pull it again.
+      // Even though the transpiler is optional, if $gwtExport is found, it's
+      // a sign the transpiler was loaded and the $jscomp.transpile *should*
+      // be there.
+      if (goog.global['$gwtExport'] && goog.global['$gwtExport']['$jscomp'] &&
+          !goog.global['$gwtExport']['$jscomp']['transpile']) {
+        throw new Error(
+            'The transpiler did not properly export the "transpile" ' +
+            'method. $gwtExport: ' + JSON.stringify(goog.global['$gwtExport']));
+      }
+      // transpile.js only exports a single $jscomp function, transpile. We
+      // grab just that and add it to the existing definition of $jscomp which
+      // contains the polyfills.
+      goog.global['$jscomp'].transpile =
+          goog.global['$gwtExport']['$jscomp']['transpile'];
       jscomp = goog.global['$jscomp'];
       transpile = jscomp.transpile;
     }
