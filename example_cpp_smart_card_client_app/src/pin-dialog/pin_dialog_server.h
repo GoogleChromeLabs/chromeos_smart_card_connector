@@ -44,6 +44,8 @@ class PinDialogServer final {
       pp::Instance* pp_instance,
       pp::Core* pp_core);
 
+  PinDialogServer(const PinDialogServer&) = delete;
+
   // Detaches from the Pepper module and the typed message router, which
   // prevents any further requests and waiting for the request responses.
   //

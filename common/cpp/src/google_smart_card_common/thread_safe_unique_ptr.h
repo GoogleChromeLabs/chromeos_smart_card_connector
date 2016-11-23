@@ -95,6 +95,7 @@ class ThreadSafeUniquePtr final {
   };
 
   ThreadSafeUniquePtr() = default;
+  ThreadSafeUniquePtr(const ThreadSafeUniquePtr&) = delete;
 
   explicit ThreadSafeUniquePtr(std::unique_ptr<T> value)
       : object_(std::move(value)) {}

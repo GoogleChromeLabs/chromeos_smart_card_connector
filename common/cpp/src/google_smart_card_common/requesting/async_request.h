@@ -53,6 +53,7 @@ class AsyncRequestState final {
       : callback_(callback) {
     GOOGLE_SMART_CARD_CHECK(callback_);
   }
+  AsyncRequestState(const AsyncRequestState&) = delete;
 
   // Sets the result of the request, unless it was already set before.
   //
@@ -87,6 +88,7 @@ template <typename PayloadType>
 class AsyncRequest final {
  public:
   AsyncRequest() = default;
+  AsyncRequest(const AsyncRequest&) = default;
 
   explicit AsyncRequest(std::shared_ptr<AsyncRequestState<PayloadType>> state)
       : state_(state) {

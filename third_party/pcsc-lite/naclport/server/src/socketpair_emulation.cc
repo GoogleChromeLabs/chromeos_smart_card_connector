@@ -52,6 +52,8 @@ class SocketpairEmulationManager::Socket final {
         file_descriptor << " is created";
   }
 
+  Socket(const Socket&) = delete;
+
   ~Socket() {
     GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "The socket " <<
         file_descriptor() << " is destroyed";

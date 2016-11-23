@@ -33,6 +33,7 @@ namespace google_smart_card {
 class LibusbTracingWrapper : public LibusbInterface {
  public:
   LibusbTracingWrapper(LibusbInterface* wrapped_libusb);
+  LibusbTracingWrapper(const LibusbTracingWrapper&) = delete;
 
   int LibusbInit(libusb_context** ctx) override;
   void LibusbExit(libusb_context* ctx) override;

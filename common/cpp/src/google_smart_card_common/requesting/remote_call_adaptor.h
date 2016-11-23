@@ -38,6 +38,7 @@ namespace google_smart_card {
 class RemoteCallAdaptor final {
  public:
   explicit RemoteCallAdaptor(Requester* requester);
+  RemoteCallAdaptor(const RemoteCallAdaptor&) = delete;
 
   template <typename ... Args>
   GenericRequestResult SyncCall(

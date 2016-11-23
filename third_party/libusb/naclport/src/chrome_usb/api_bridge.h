@@ -44,6 +44,7 @@ constexpr char kApiBridgeRequesterName[] = "libusb_chrome_usb";
 class ApiBridge final : public ApiBridgeInterface {
  public:
   explicit ApiBridge(std::unique_ptr<Requester> requester);
+  ApiBridge(const ApiBridge&) = delete;
 
   void Detach();
 

@@ -58,6 +58,8 @@ class LibusbOverChromeUsbGlobal::Impl final {
 #endif  // NDEBUG
   }
 
+  Impl(const Impl&) = delete;
+
   void Detach() {
     chrome_usb_api_bridge_.Detach();
   }

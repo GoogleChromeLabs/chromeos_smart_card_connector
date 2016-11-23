@@ -338,6 +338,7 @@ inline void GetVarArrayItems(const pp::VarArray& var, Args* ... args) {
 class VarDictValuesExtractor final {
  public:
   explicit VarDictValuesExtractor(const pp::VarDictionary& var);
+  VarDictValuesExtractor(const VarDictValuesExtractor&) = delete;
 
   // Extracts a dictionary value by the specified key. The key must exist in the
   // dictionary.

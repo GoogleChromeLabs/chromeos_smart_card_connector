@@ -49,6 +49,9 @@ class PcscLiteServerSocketsManager final {
   int WaitAndPop();
 
  private:
+  PcscLiteServerSocketsManager() = default;
+  PcscLiteServerSocketsManager(const PcscLiteServerSocketsManager&) = delete;
+
   std::mutex mutex_;
   std::condition_variable condition_;
   std::queue<int> server_socket_file_descriptors_queue_;

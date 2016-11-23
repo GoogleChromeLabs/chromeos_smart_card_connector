@@ -47,6 +47,7 @@ namespace google_smart_card {
 class PcscLiteClientHandlesRegistry final {
  public:
   PcscLiteClientHandlesRegistry();
+  PcscLiteClientHandlesRegistry(const PcscLiteClientHandlesRegistry&) = delete;
   ~PcscLiteClientHandlesRegistry();
 
   bool ContainsContext(SCARDCONTEXT s_card_context) const;

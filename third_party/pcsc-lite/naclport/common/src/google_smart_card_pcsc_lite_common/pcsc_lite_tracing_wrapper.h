@@ -45,6 +45,7 @@ class PcscLiteTracingWrapper final : public PcscLite {
       PcscLite* pcsc_lite,
       const std::string& logging_prefix = "",
       LogSeverity log_severity = LogSeverity::kDebug);
+  PcscLiteTracingWrapper(const PcscLiteTracingWrapper&) = delete;
 
   LONG SCardEstablishContext(
       DWORD dwScope,

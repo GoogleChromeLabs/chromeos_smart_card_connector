@@ -86,6 +86,8 @@ class ApiBridge final : public google_smart_card::RequestHandler {
       pp::Instance* pp_instance,
       bool execute_requests_sequentially);
 
+  ApiBridge(const ApiBridge&) = delete;
+
   void Detach();
 
   void SetCertificatesRequestHandler(

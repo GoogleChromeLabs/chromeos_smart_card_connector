@@ -54,9 +54,8 @@
 namespace google_smart_card {
 
 // This class corresponds to a single external PC/SC-Lite client. It executes
-// PC/SC-Lite API requests received from the client, keeps tracking of the
-// handles opened by the client and checks that client accesses only these
-// handles.
+// PC/SC-Lite API requests received from the client, keeps tracking the handles
+// opened by the client and checks that client accesses only these handles.
 //
 // This class is an important piece for providing privacy and security of the
 // PC/SC-Lite NaCl port: it ensures that the client is isolated from all other
@@ -83,6 +82,8 @@ class PcscLiteClientRequestProcessor final :
     public std::enable_shared_from_this<PcscLiteClientRequestProcessor> {
  public:
   explicit PcscLiteClientRequestProcessor(PcscLiteServerClientId client_id);
+  PcscLiteClientRequestProcessor(const PcscLiteClientRequestProcessor&) =
+      delete;
 
   ~PcscLiteClientRequestProcessor();
 

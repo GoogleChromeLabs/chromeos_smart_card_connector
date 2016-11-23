@@ -82,6 +82,8 @@ class JsRequester final : public Requester, public TypedMessageListener {
       TypedMessageRouter* typed_message_router,
       std::unique_ptr<PpDelegate> pp_delegate);
 
+  JsRequester(const JsRequester&) = delete;
+
   ~JsRequester() override;
 
   // Requester implementation

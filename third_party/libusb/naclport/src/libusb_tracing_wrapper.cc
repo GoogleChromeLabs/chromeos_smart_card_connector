@@ -491,6 +491,8 @@ std::string DebugDumpLibusbTransfer(
 // wrapper transfer that somehow holds the pointer to the original transfer.
 class LibusbTransferTracingWrapper final {
  public:
+  LibusbTransferTracingWrapper(const LibusbTransferTracingWrapper&) = delete;
+
   static libusb_transfer* CreateWrappedTransfer(
       libusb_transfer* transfer, LibusbInterface* wrapped_libusb) {
     // Note: Here a manual memory management is used, as the only entity that

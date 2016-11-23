@@ -78,6 +78,8 @@ class JsRequestReceiver final : public RequestReceiver,
       TypedMessageRouter* typed_message_router,
       std::unique_ptr<PpDelegate> pp_delegate);
 
+  JsRequestReceiver(const JsRequestReceiver&) = delete;
+
   ~JsRequestReceiver() override;
 
   // Detaches the request receiver, which prevents it from sending request

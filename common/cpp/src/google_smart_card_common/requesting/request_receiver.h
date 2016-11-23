@@ -62,6 +62,8 @@ class RequestReceiver : public std::enable_shared_from_this<RequestReceiver> {
   // names have to be unique.
   RequestReceiver(const std::string& name, RequestHandler* handler);
 
+  RequestReceiver(const RequestReceiver&) = delete;
+
   virtual ~RequestReceiver() = default;
 
   std::string name() const;

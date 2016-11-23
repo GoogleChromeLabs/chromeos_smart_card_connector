@@ -35,6 +35,7 @@ class FunctionCallTracer final {
       const std::string& function_name,
       const std::string& logging_prefix = "",
       LogSeverity log_severity = LogSeverity::kDebug);
+  FunctionCallTracer(const FunctionCallTracer&) = delete;
 
   void AddPassedArg(
       const std::string& name, const std::string& dumped_value);

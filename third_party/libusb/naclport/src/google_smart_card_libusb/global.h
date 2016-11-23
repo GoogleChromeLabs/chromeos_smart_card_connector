@@ -44,6 +44,8 @@ class LibusbOverChromeUsbGlobal final {
       pp::Instance* pp_instance,
       pp::Core* pp_core);
 
+  LibusbOverChromeUsbGlobal(const LibusbOverChromeUsbGlobal&) = delete;
+
   // Destroys the self instance and the owned LibusbOverChromeUsb instance.
   //
   // After the destructor is called, any global libusb_* function calls are not

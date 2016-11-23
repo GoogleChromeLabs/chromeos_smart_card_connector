@@ -47,6 +47,7 @@ namespace internal {
 class LogMessage final {
  public:
   explicit LogMessage(LogSeverity severity);
+  LogMessage(const LogMessage&) = delete;
   ~LogMessage();
 
   std::ostringstream& stream();

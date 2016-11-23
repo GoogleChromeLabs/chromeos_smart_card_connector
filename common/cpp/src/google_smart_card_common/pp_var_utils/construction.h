@@ -128,6 +128,9 @@ inline pp::VarArray MakeVarArray(const Args& ... args) {
 //        .Result();
 class VarDictBuilder final {
  public:
+  VarDictBuilder() = default;
+  VarDictBuilder(const VarDictBuilder&) = delete;
+
   template <typename T>
   VarDictBuilder& Add(const std::string& key, const T& value) {
     GOOGLE_SMART_CARD_CHECK(!dict_.HasKey(key));

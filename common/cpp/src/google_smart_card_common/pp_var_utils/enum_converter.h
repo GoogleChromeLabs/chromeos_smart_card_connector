@@ -45,6 +45,9 @@ namespace google_smart_card {
 template <typename EnumType, typename VarValueType>
 class EnumConverter final {
  public:
+  EnumConverter() = default;
+  EnumConverter(const EnumConverter&) = delete;
+
   // Converts C/C++ enum value into Pepper value.
   //
   // Crashes if the enum value is unknown.

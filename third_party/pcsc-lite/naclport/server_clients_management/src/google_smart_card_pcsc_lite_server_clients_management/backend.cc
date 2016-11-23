@@ -35,6 +35,8 @@ class PcscLiteServerClientsManagementBackend::Impl final {
       : typed_message_router_(typed_message_router),
         clients_manager_(pp_instance, typed_message_router_) {}
 
+  Impl(const Impl&) = delete;
+
   ~Impl() {
     clients_manager_.Detach();
   }

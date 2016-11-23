@@ -29,7 +29,7 @@ namespace google_smart_card {
 //
 // This structure is used for finding matches between transfers and transfer
 // results (see the comments in the libusb_over_chrome_usb.h header).
-class UsbTransferDestination {
+class UsbTransferDestination final {
  public:
   UsbTransferDestination() = default;
 

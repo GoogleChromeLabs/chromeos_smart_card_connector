@@ -44,6 +44,9 @@ namespace google_smart_card {
 template <typename StructType>
 class StructConverter final {
  public:
+  StructConverter() = delete;
+  ~StructConverter() = delete;
+
   // Converts C/C++ structure value into Pepper value.
   static pp::Var ConvertToVar(const StructType& value) {
     pp::VarDictionary result;
@@ -63,9 +66,9 @@ class StructConverter final {
     pp::VarDictionary var_dict;
     if (!VarAs(var, &var_dict, error_message))
       return false;
-    FromVarConversionCallback callback(var_dict);
-    VisitFields(*result, callback);
-    return callback.GetSuccess(error_message);
+    VarDictValuesExtractor extractor(var_dict);
+    VisitFields(*result, FromVarConversionCallback(&extractor));
+    return extractor.GetSuccessWithNoExtraKeysAllowed(error_message);
   }
 
   // Returns the textual name of the StructType (used for displaying it in error
@@ -119,13 +122,11 @@ class StructConverter final {
   // from the Pepper value into the C/C++ structure value is performed.
   class FromVarConversionCallback final {
    public:
-    explicit FromVarConversionCallback(const pp::VarDictionary& var)
-        : extractor_(var) {}
+    explicit FromVarConversionCallback(VarDictValuesExtractor* extractor)
+        : extractor_(extractor) {}
 
     template <typename FieldType>
-    void operator()(
-        const FieldType* field,
-        const std::string& field_name) {
+    void operator()(const FieldType* field, const std::string& field_name) {
       GOOGLE_SMART_CARD_CHECK(field);
       // Note: this const_cast is correct as this class is only used by
       // ConvertFromVar method, that operates with a mutable struct object.
@@ -133,24 +134,19 @@ class StructConverter final {
       ProcessField(field_mutable, field_name);
     }
 
-    bool GetSuccess(std::string* error_message) const {
-      GOOGLE_SMART_CARD_CHECK(error_message);
-      return extractor_.GetSuccess(error_message);
-    }
-
    private:
     template <typename FieldType>
     void ProcessField(FieldType* field, const std::string& field_name) {
-      extractor_.Extract(field_name, field);
+      extractor_->Extract(field_name, field);
     }
 
     template <typename FieldType>
     void ProcessField(
         optional<FieldType>* field, const std::string& field_name) {
-      extractor_.TryExtractOptional(field_name, field);
+      extractor_->TryExtractOptional(field_name, field);
     }
 
-    VarDictValuesExtractor extractor_;
+    VarDictValuesExtractor* extractor_;
   };
 };
 

@@ -35,6 +35,9 @@ namespace google_smart_card {
 // to the libusb_opaque_types.h header).
 class LibusbContextsStorage final {
  public:
+  LibusbContextsStorage() = default;
+  LibusbContextsStorage(const LibusbContextsStorage&) = delete;
+
   std::shared_ptr<libusb_context> CreateContext();
 
   void DestroyContext(const libusb_context* context);

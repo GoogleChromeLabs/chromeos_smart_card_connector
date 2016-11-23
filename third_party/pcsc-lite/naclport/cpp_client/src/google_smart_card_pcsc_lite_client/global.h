@@ -53,6 +53,8 @@ class PcscLiteOverRequesterGlobal final {
       pp::Instance* pp_instance,
       pp::Core* pp_core);
 
+  PcscLiteOverRequesterGlobal(const PcscLiteOverRequesterGlobal&) = delete;
+
   // Destroys the self instance and the owned PcscLiteOverRequester instance.
   //
   // After the destructor is called, any global PC/SC-Lite client API function

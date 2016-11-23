@@ -38,6 +38,8 @@ class AsyncRequestsStorage final {
   AsyncRequestsStorage()
       : next_free_request_id_(0) {}
 
+  AsyncRequestsStorage(const AsyncRequestsStorage&) = delete;
+
   // Adds a new asynchronous request state under a unique identifier and returns
   // this identifier.
   RequestId Push(

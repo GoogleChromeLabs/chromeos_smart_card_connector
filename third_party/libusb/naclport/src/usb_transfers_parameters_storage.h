@@ -50,6 +50,9 @@ class UsbTransfersParametersStorage final {
   using TransferAsyncRequestStatePtr =
       std::shared_ptr<TransferAsyncRequestState>;
 
+  UsbTransfersParametersStorage() = default;
+  UsbTransfersParametersStorage(const UsbTransfersParametersStorage&) = delete;
+
   struct Item {
     Item();
 

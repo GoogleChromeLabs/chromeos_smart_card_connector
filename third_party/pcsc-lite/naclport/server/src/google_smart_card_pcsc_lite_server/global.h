@@ -46,6 +46,7 @@ namespace google_smart_card {
 class PcscLiteServerGlobal final {
  public:
   explicit PcscLiteServerGlobal(pp::Instance* pp_instance);
+  PcscLiteServerGlobal(const PcscLiteServerGlobal&) = delete;
   ~PcscLiteServerGlobal();
 
   // Detaches from the Pepper instance which prevents making any further

@@ -123,6 +123,7 @@ class SocketpairEmulationManager final {
   class Socket;
 
   SocketpairEmulationManager();
+  SocketpairEmulationManager(const SocketpairEmulationManager&) = delete;
 
   int GenerateNewFileDescriptor();
 

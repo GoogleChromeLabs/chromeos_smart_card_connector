@@ -74,6 +74,8 @@ class PcscLiteOverRequesterGlobal::Impl final {
 #endif  // NDEBUG
   }
 
+  Impl(const Impl&) = delete;
+
   void Detach() {
     pcsc_lite_over_requester_.Detach();
   }

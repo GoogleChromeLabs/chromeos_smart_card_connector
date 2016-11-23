@@ -83,6 +83,8 @@ class PcscLiteServerClientsManager final {
   PcscLiteServerClientsManager(
       pp::Instance* pp_instance, TypedMessageRouter* typed_message_router);
 
+  PcscLiteServerClientsManager(const PcscLiteServerClientsManager&) = delete;
+
   ~PcscLiteServerClientsManager();
 
   void Detach();
@@ -92,6 +94,7 @@ class PcscLiteServerClientsManager final {
    public:
     explicit AddClientMessageListener(
         PcscLiteServerClientsManager* clients_manager);
+    AddClientMessageListener(const AddClientMessageListener&) = delete;
     std::string GetListenedMessageType() const override;
     bool OnTypedMessageReceived(const pp::Var& data) override;
 
@@ -103,6 +106,7 @@ class PcscLiteServerClientsManager final {
    public:
     explicit RemoveClientMessageListener(
         PcscLiteServerClientsManager* clients_manager);
+    RemoveClientMessageListener(const RemoveClientMessageListener&) = delete;
     std::string GetListenedMessageType() const override;
     bool OnTypedMessageReceived(const pp::Var& data) override;
 
@@ -116,6 +120,7 @@ class PcscLiteServerClientsManager final {
         PcscLiteServerClientId client_id,
         pp::Instance* pp_instance,
         TypedMessageRouter* typed_message_router);
+    Client(const Client&) = delete;
 
     ~Client() override;
 

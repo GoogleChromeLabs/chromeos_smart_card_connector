@@ -39,7 +39,7 @@ namespace google_smart_card {
 //
 // For the details of the integration with the chrome.usb JavaScript API, see
 // the chrome_usb/api_bridge.h file.
-class LibusbOverChromeUsb : public LibusbInterface {
+class LibusbOverChromeUsb final : public LibusbInterface {
  public:
   using TransferRequestResult = RequestResult<chrome_usb::TransferResult>;
   using TransferAsyncRequestState =
@@ -51,6 +51,7 @@ class LibusbOverChromeUsb : public LibusbInterface {
 
   explicit LibusbOverChromeUsb(
       chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge);
+  LibusbOverChromeUsb(const LibusbOverChromeUsb&) = delete;
 
   int LibusbInit(libusb_context** ctx) override;
   void LibusbExit(libusb_context* ctx) override;
@@ -122,6 +123,8 @@ class LibusbOverChromeUsb : public LibusbInterface {
     SyncTransferHelper(
         std::shared_ptr<libusb_context> context,
         const UsbTransferDestination& transfer_destination);
+
+    SyncTransferHelper(const SyncTransferHelper&) = delete;
 
     chrome_usb::AsyncTransferCallback chrome_usb_transfer_callback() const;
 

@@ -61,6 +61,8 @@ class PcscLiteOverRequester final : public PcscLite {
   // kPcscLiteRequesterName name.
   explicit PcscLiteOverRequester(std::unique_ptr<Requester> requester);
 
+  PcscLiteOverRequester(const PcscLiteOverRequester&) = delete;
+
   // Detaches the linked requester, which prevents making any further requests
   // through it and prevents waiting for the responses of the already started
   // requests.
