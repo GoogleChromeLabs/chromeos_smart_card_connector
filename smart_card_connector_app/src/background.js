@@ -196,7 +196,7 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
   GSC.Logging.checkWithLogger(logger, !clientMessageChannel.isDisposed());
 
   var clientTitleForLog = goog.isDef(clientExtensionId) ?
-      'extension "' + clientExtensionId + '"' : 'own app';
+      'app "' + clientExtensionId + '"' : 'own app';
 
   if (naclModule.isDisposed() || naclModule.messageChannel.isDisposed()) {
     logger.warning(
@@ -215,9 +215,14 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
       pcscLiteReadinessTracker,
       clientMessageChannel,
       clientExtensionId);
-  logger.info(
-      'Created a new PC/SC-Lite client handler (id ' + clientHandler.clientId +
-      ') for handling requests from ' + clientTitleForLog);
+
+  var logMessage =
+      'Created a new PC/SC-Lite client handler for ' + clientTitleForLog +
+      ' (handler id ' + clientHandler.id + ')';
+  if (goog.isDef(clientExtensionId))
+    logger.info(logMessage);
+  else
+    logger.fine(logMessage);
 }
 
 /**

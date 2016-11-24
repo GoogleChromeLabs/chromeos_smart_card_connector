@@ -41,7 +41,6 @@
 #include <google_smart_card_common/requesting/request_handler.h>
 #include <google_smart_card_common/requesting/request_receiver.h>
 
-#include "client_id.h"
 #include "client_request_processor.h"
 
 namespace google_smart_card {
@@ -55,10 +54,10 @@ namespace google_smart_card {
 // handles or requests of any other client.
 //
 // The workflow of the client manager object is the following:
-// 1. The manager receives a special "add client" message with the supplied
-//    unique client id.
+// 1. The manager receives a special "create client handler" message with the
+//    supplied unique client handler id.
 //    As a result, the manager creates an internal class
-//    PcscLiteServerClientsManager::Client that holds an instance of
+//    PcscFunctionCallRequestHandler that holds an instance of
 //    PcscLiteClientRequestProcessor (that is actually an object that performs
 //    client requests and keeps the set of its handles and checks it) and an
 //    instance of JsRequestReceiver (that subscribes for receiving client
@@ -76,6 +75,11 @@ namespace google_smart_card {
 //    refcounting-based storage of the PcscLiteClientRequestProcessor class,
 //    its instance gets destroyed after the last request is finished.)
 //
+// Note that this class does _not_ perform permissions checking regarding
+// whether a client is allowed to issue PC/SC function calls. This should have
+// already been done on the JavaScript side before sending client handler
+// creation messages.
+//
 // FIXME(emaxx): Add assertions that the class methods are always executed on
 // the same thread.
 class PcscLiteServerClientsManager final {
@@ -90,11 +94,17 @@ class PcscLiteServerClientsManager final {
   void Detach();
 
  private:
-  class AddClientMessageListener final : public TypedMessageListener {
+  // Message listener for the client handler creation messages received from the
+  // JavaScript side. This class acts like a proxy, delegating the actual
+  // handling of the message to the associated PcscLiteServerClientsManager
+  // instance.
+  class CreateHandlerMessageListener final : public TypedMessageListener {
    public:
-    explicit AddClientMessageListener(
+    explicit CreateHandlerMessageListener(
         PcscLiteServerClientsManager* clients_manager);
-    AddClientMessageListener(const AddClientMessageListener&) = delete;
+    CreateHandlerMessageListener(const CreateHandlerMessageListener&) = delete;
+
+    // TypedMessageListener:
     std::string GetListenedMessageType() const override;
     bool OnTypedMessageReceived(const pp::Var& data) override;
 
@@ -102,11 +112,17 @@ class PcscLiteServerClientsManager final {
     PcscLiteServerClientsManager* clients_manager_;
   };
 
-  class RemoveClientMessageListener final : public TypedMessageListener {
+  // Message listener for the client handler deletion messages received from the
+  // JavaScript side. This class acts like a proxy, delegating the actual
+  // handling of the message to the associated PcscLiteServerClientsManager
+  // instance.
+  class DeleteHandlerMessageListener final : public TypedMessageListener {
    public:
-    explicit RemoveClientMessageListener(
+    explicit DeleteHandlerMessageListener(
         PcscLiteServerClientsManager* clients_manager);
-    RemoveClientMessageListener(const RemoveClientMessageListener&) = delete;
+    DeleteHandlerMessageListener(const DeleteHandlerMessageListener&) = delete;
+
+    // TypedMessageListener:
     std::string GetListenedMessageType() const override;
     bool OnTypedMessageReceived(const pp::Var& data) override;
 
@@ -114,36 +130,44 @@ class PcscLiteServerClientsManager final {
     PcscLiteServerClientsManager* clients_manager_;
   };
 
-  class Client final : public RequestHandler {
+  // Request handler that handles the PC/SC function call requests received from
+  // a client (and delivered here by the JavaScript side).
+  class Handler final : public RequestHandler {
    public:
-    Client(
-        PcscLiteServerClientId client_id,
+    Handler(
+        int64_t handler_id,
+        const optional<std::string>& client_app_id,
         pp::Instance* pp_instance,
         TypedMessageRouter* typed_message_router);
-    Client(const Client&) = delete;
+    Handler(const Handler&) = delete;
 
-    ~Client() override;
+    ~Handler() override;
 
+    int64_t handler_id() const { return handler_id_; }
+    optional<std::string> client_app_id() const { return client_app_id_; }
+
+    // RequestHandler:
     void HandleRequest(
         const pp::Var& payload,
         RequestReceiver::ResultCallback result_callback) override;
 
    private:
-    const PcscLiteServerClientId client_id_;
+    const int64_t handler_id_;
+    const optional<std::string> client_app_id_;
     std::shared_ptr<PcscLiteClientRequestProcessor> request_processor_;
     std::shared_ptr<JsRequestReceiver> request_receiver_;
   };
 
-  void AddNewClient(PcscLiteServerClientId client_id);
-  void RemoveClient(PcscLiteServerClientId client_id);
-  void RemoveAllClients();
+  void CreateHandler(
+      int64_t handler_id, const optional<std::string>& client_app_id);
+  void DeleteHandler(int64_t client_handler_id);
+  void DeleteAllHandlers();
 
   pp::Instance* pp_instance_;
   TypedMessageRouter* typed_message_router_;
-  AddClientMessageListener add_client_message_listener_;
-  RemoveClientMessageListener remove_client_message_listener_;
-  std::unordered_map<PcscLiteServerClientId, std::unique_ptr<Client>>
-  client_map_;
+  CreateHandlerMessageListener create_handler_message_listener_;
+  DeleteHandlerMessageListener delete_handler_message_listener_;
+  std::unordered_map<int64_t, std::unique_ptr<Handler>> handler_map_;
 };
 
 }  // namespace google_smart_card

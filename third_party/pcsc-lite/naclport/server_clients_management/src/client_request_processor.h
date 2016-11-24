@@ -42,6 +42,7 @@
 #include <winscard.h>
 #include <wintypes.h>
 
+#include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/requesting/request_receiver.h>
 #include <google_smart_card_common/requesting/request_result.h>
@@ -49,7 +50,6 @@
 #include <google_smart_card_pcsc_lite_common/scard_structs_serialization.h>
 
 #include "client_handles_registry.h"
-#include "client_id.h"
 
 namespace google_smart_card {
 
@@ -77,11 +77,14 @@ namespace google_smart_card {
 // when the external client crashes).
 //
 // The class has a refcounting-based storage, which allows to postpone the class
-// instance destruction until the last running request finishes.
+// instance destruction until the last running request finishes. FIXME(emaxx):
+// Drop this requirement using the WeakPtrFactory concept (inspired by the
+// Chromium source code).
 class PcscLiteClientRequestProcessor final :
     public std::enable_shared_from_this<PcscLiteClientRequestProcessor> {
  public:
-  explicit PcscLiteClientRequestProcessor(PcscLiteServerClientId client_id);
+  PcscLiteClientRequestProcessor(
+      int64_t client_handler_id, const optional<std::string>& client_app_id);
   PcscLiteClientRequestProcessor(const PcscLiteClientRequestProcessor&) =
       delete;
 
@@ -168,7 +171,9 @@ class PcscLiteClientRequestProcessor final :
   GenericRequestResult SCardCancel(SCARDCONTEXT s_card_context);
   GenericRequestResult SCardIsValidContext(SCARDCONTEXT s_card_context);
 
-  const PcscLiteServerClientId client_id_;
+  const int64_t client_handler_id_;
+  const optional<std::string> client_app_id_;
+  const LogSeverity status_log_severity_;
   const std::string logging_prefix_;
   HandlerMap handler_map_;
   PcscLiteClientHandlesRegistry s_card_handles_registry_;
