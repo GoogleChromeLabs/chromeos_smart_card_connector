@@ -48,53 +48,41 @@ class ApiBridge final : public ApiBridgeInterface {
 
   void Detach();
 
+  // ApiBridgeInterface:
   RequestResult<GetDevicesResult> GetDevices(
       const GetDevicesOptions& options) override;
-
   RequestResult<GetUserSelectedDevicesResult> GetUserSelectedDevices(
       const GetUserSelectedDevicesOptions& options) override;
-
   RequestResult<GetConfigurationsResult> GetConfigurations(
       const Device& device) override;
-
   RequestResult<OpenDeviceResult> OpenDevice(const Device& device) override;
-
   RequestResult<CloseDeviceResult> CloseDevice(
       const ConnectionHandle& connection_handle) override;
-
   RequestResult<SetConfigurationResult> SetConfiguration(
       const ConnectionHandle& connection_handle,
       int64_t configuration_value) override;
-
   RequestResult<GetConfigurationResult> GetConfiguration(
       const ConnectionHandle& connection_handle) override;
-
   RequestResult<ListInterfacesResult> ListInterfaces(
       const ConnectionHandle& connection_handle) override;
-
   RequestResult<ClaimInterfaceResult> ClaimInterface(
       const ConnectionHandle& connection_handle,
       int64_t interface_number) override;
-
   RequestResult<ReleaseInterfaceResult> ReleaseInterface(
       const ConnectionHandle& connection_handle,
       int64_t interface_number) override;
-
   void AsyncControlTransfer(
       const ConnectionHandle& connection_handle,
       const ControlTransferInfo& transfer_info,
       AsyncTransferCallback callback) override;
-
   void AsyncBulkTransfer(
       const ConnectionHandle& connection_handle,
       const GenericTransferInfo& transfer_info,
       AsyncTransferCallback callback) override;
-
   void AsyncInterruptTransfer(
       const ConnectionHandle& connection_handle,
       const GenericTransferInfo& transfer_info,
       AsyncTransferCallback callback) override;
-
   RequestResult<ResetDeviceResult> ResetDevice(
       const ConnectionHandle& connection_handle) override;
 

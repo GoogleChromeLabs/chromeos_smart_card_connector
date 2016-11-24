@@ -182,11 +182,13 @@ class SocketpairEmulationManager::Socket final {
   std::deque<uint8_t> read_buffer_;
 };
 
+// static
 void SocketpairEmulationManager::CreateGlobalInstance() {
   GOOGLE_SMART_CARD_CHECK(!g_socketpair_emulation_manager);
   g_socketpair_emulation_manager = new SocketpairEmulationManager;
 }
 
+// static
 SocketpairEmulationManager* SocketpairEmulationManager::GetInstance() {
   GOOGLE_SMART_CARD_CHECK(g_socketpair_emulation_manager);
   return g_socketpair_emulation_manager;

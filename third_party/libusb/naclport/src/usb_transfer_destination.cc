@@ -28,6 +28,7 @@
 
 namespace google_smart_card {
 
+// static
 UsbTransferDestination
 UsbTransferDestination::CreateFromChromeUsbControlTransfer(
     const chrome_usb::ConnectionHandle& connection_handle,
@@ -43,6 +44,7 @@ UsbTransferDestination::CreateFromChromeUsbControlTransfer(
       transfer_info.index);
 }
 
+// static
 UsbTransferDestination
 UsbTransferDestination::CreateFromChromeUsbGenericTransfer(
     const chrome_usb::ConnectionHandle& connection_handle,

@@ -43,7 +43,8 @@ class RequestHandler;
 // This class has a shared_ptr-managed lifetime. That allows to implement the
 // callbacks passed to request handler in such way that they can be safely
 // called after the request receiver is destroyed (in which case the request
-// result is just thrown away).
+// result is just thrown away). FIXME(emaxx): Drop this requirement using the
+// WeakPtrFactory concept (inspired by the Chromium source code).
 class RequestReceiver : public std::enable_shared_from_this<RequestReceiver> {
  public:
   // Callback that sends the request result.

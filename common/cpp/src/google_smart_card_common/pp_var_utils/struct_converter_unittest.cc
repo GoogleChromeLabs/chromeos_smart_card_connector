@@ -37,11 +37,13 @@ using TestStructConverter = StructConverter<TestStruct>;
 
 }  // namespace
 
+// static
 template <>
 constexpr const char* TestStructConverter::GetStructTypeName() {
   return "TestStruct";
 }
 
+// static
 template <>
 template <typename Callback>
 void TestStructConverter::VisitFields(

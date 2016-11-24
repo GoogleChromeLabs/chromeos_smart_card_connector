@@ -119,11 +119,13 @@ bool ControlTransferInfo::operator==(const ControlTransferInfo& other) const {
          timeout == other.timeout;
 }
 
+// static
 template <>
 constexpr const char* DirectionConverter::GetEnumTypeName() {
   return "chrome_usb::Direction";
 }
 
+// static
 template <>
 template <typename Callback>
 void DirectionConverter::VisitCorrespondingPairs(Callback callback) {
@@ -131,11 +133,13 @@ void DirectionConverter::VisitCorrespondingPairs(Callback callback) {
   callback(Direction::kOut, "out");
 }
 
+// static
 template <>
 constexpr const char* DeviceConverter::GetStructTypeName() {
   return "chrome_usb::Device";
 }
 
+// static
 template <>
 template <typename Callback>
 void DeviceConverter::VisitFields(const Device& value, Callback callback) {
@@ -148,11 +152,13 @@ void DeviceConverter::VisitFields(const Device& value, Callback callback) {
   callback(&value.serial_number, "serialNumber");
 }
 
+// static
 template <>
 constexpr const char* ConnectionHandleConverter::GetStructTypeName() {
   return "chrome_usb::ConnectionHandle";
 }
 
+// static
 template <>
 template <typename Callback>
 void ConnectionHandleConverter::VisitFields(
@@ -162,11 +168,13 @@ void ConnectionHandleConverter::VisitFields(
   callback(&value.product_id, "productId");
 }
 
+// static
 template <>
 constexpr const char* EndpointDescriptorTypeConverter::GetEnumTypeName() {
   return "chrome_usb::EndpointDescriptorType";
 }
 
+// static
 template <>
 template <typename Callback>
 void EndpointDescriptorTypeConverter::VisitCorrespondingPairs(
@@ -177,12 +185,14 @@ void EndpointDescriptorTypeConverter::VisitCorrespondingPairs(
   callback(EndpointDescriptorType::kBulk, "bulk");
 }
 
+// static
 template <>
 constexpr const char*
 EndpointDescriptorSynchronizationConverter::GetEnumTypeName() {
   return "chrome_usb::EndpointDescriptorSynchronization";
 }
 
+// static
 template <>
 template <typename Callback>
 void EndpointDescriptorSynchronizationConverter::VisitCorrespondingPairs(
@@ -192,11 +202,13 @@ void EndpointDescriptorSynchronizationConverter::VisitCorrespondingPairs(
   callback(EndpointDescriptorSynchronization::kSynchronous, "synchronous");
 }
 
+// static
 template <>
 constexpr const char* EndpointDescriptorUsageConverter::GetEnumTypeName() {
   return "chrome_usb::EndpointDescriptorUsage";
 }
 
+// static
 template <>
 template <typename Callback>
 void EndpointDescriptorUsageConverter::VisitCorrespondingPairs(
@@ -206,11 +218,13 @@ void EndpointDescriptorUsageConverter::VisitCorrespondingPairs(
   callback(EndpointDescriptorUsage::kExplicitFeedback, "explicitFeedback");
 }
 
+// static
 template <>
 constexpr const char* EndpointDescriptorConverter::GetStructTypeName() {
   return "chrome_usb::EndpointDescriptor";
 }
 
+// static
 template <>
 template <typename Callback>
 void EndpointDescriptorConverter::VisitFields(
@@ -225,11 +239,13 @@ void EndpointDescriptorConverter::VisitFields(
   callback(&value.extra_data, "extra_data");
 }
 
+// static
 template <>
 constexpr const char* InterfaceDescriptorConverter::GetStructTypeName() {
   return "chrome_usb::InterfaceDescriptor";
 }
 
+// static
 template <>
 template <typename Callback>
 void InterfaceDescriptorConverter::VisitFields(
@@ -244,11 +260,13 @@ void InterfaceDescriptorConverter::VisitFields(
   callback(&value.extra_data, "extra_data");
 }
 
+// static
 template <>
 constexpr const char* ConfigDescriptorConverter::GetStructTypeName() {
   return "chrome_usb::ConfigDescriptor";
 }
 
+// static
 template <>
 template <typename Callback>
 void ConfigDescriptorConverter::VisitFields(
@@ -263,11 +281,13 @@ void ConfigDescriptorConverter::VisitFields(
   callback(&value.extra_data, "extra_data");
 }
 
+// static
 template <>
 constexpr const char* GenericTransferInfoConverter::GetStructTypeName() {
   return "chrome_usb::GenericTransferInfo";
 }
 
+// static
 template <>
 template <typename Callback>
 void GenericTransferInfoConverter::VisitFields(
@@ -279,11 +299,13 @@ void GenericTransferInfoConverter::VisitFields(
   callback(&value.timeout, "timeout");
 }
 
+// static
 template <>
 constexpr const char* ControlTransferInfoRecipientConverter::GetEnumTypeName() {
   return "chrome_usb::ControlTransferInfoRecipient";
 }
 
+// static
 template <>
 template <typename Callback>
 void ControlTransferInfoRecipientConverter::VisitCorrespondingPairs(
@@ -294,12 +316,14 @@ void ControlTransferInfoRecipientConverter::VisitCorrespondingPairs(
   callback(ControlTransferInfoRecipient::kOther, "other");
 }
 
+// static
 template <>
 constexpr const char*
 ControlTransferInfoRequestTypeConverter::GetEnumTypeName() {
   return "chrome_usb::ControlTransferInfoRequestType";
 }
 
+// static
 template <>
 template <typename Callback>
 void ControlTransferInfoRequestTypeConverter::VisitCorrespondingPairs(
@@ -310,11 +334,13 @@ void ControlTransferInfoRequestTypeConverter::VisitCorrespondingPairs(
   callback(ControlTransferInfoRequestType::kReserved, "reserved");
 }
 
+// static
 template <>
 constexpr const char* ControlTransferInfoConverter::GetStructTypeName() {
   return "chrome_usb::ControlTransferInfo";
 }
 
+// static
 template <>
 template <typename Callback>
 void ControlTransferInfoConverter::VisitFields(
@@ -330,11 +356,13 @@ void ControlTransferInfoConverter::VisitFields(
   callback(&value.timeout, "timeout");
 }
 
+// static
 template <>
 constexpr const char* TransferResultInfoConverter::GetStructTypeName() {
   return "chrome_usb::TransferResultInfo";
 }
 
+// static
 template <>
 template <typename Callback>
 void TransferResultInfoConverter::VisitFields(
@@ -343,11 +371,13 @@ void TransferResultInfoConverter::VisitFields(
   callback(&value.data, "data");
 }
 
+// static
 template <>
 constexpr const char* DeviceFilterConverter::GetStructTypeName() {
   return "chrome_usb::DeviceFilter";
 }
 
+// static
 template <>
 template <typename Callback>
 void DeviceFilterConverter::VisitFields(
@@ -359,11 +389,13 @@ void DeviceFilterConverter::VisitFields(
   callback(&value.interface_protocol, "interfaceProtocol");
 }
 
+// static
 template <>
 constexpr const char* GetDevicesOptionsConverter::GetStructTypeName() {
   return "chrome_usb::GetDevicesOptions";
 }
 
+// static
 template <>
 template <typename Callback>
 void GetDevicesOptionsConverter::VisitFields(
@@ -371,12 +403,14 @@ void GetDevicesOptionsConverter::VisitFields(
   callback(&value.filters, "filters");
 }
 
+// static
 template <>
 constexpr const char*
 GetUserSelectedDevicesOptionsConverter::GetStructTypeName() {
   return "chrome_usb::GetUserSelectedDevicesOptions";
 }
 
+// static
 template <>
 template <typename Callback>
 void GetUserSelectedDevicesOptionsConverter::VisitFields(

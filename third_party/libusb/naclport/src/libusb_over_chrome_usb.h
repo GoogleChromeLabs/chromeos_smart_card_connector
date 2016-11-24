@@ -53,41 +53,32 @@ class LibusbOverChromeUsb final : public LibusbInterface {
       chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge);
   LibusbOverChromeUsb(const LibusbOverChromeUsb&) = delete;
 
+  // LibusbInterface:
   int LibusbInit(libusb_context** ctx) override;
   void LibusbExit(libusb_context* ctx) override;
-
   ssize_t LibusbGetDeviceList(
       libusb_context* ctx, libusb_device*** list) override;
   void LibusbFreeDeviceList(libusb_device** list, int unref_devices) override;
-
   libusb_device* LibusbRefDevice(libusb_device* dev) override;
   void LibusbUnrefDevice(libusb_device* dev) override;
-
   int LibusbGetActiveConfigDescriptor(
       libusb_device* dev, libusb_config_descriptor** config) override;
   void LibusbFreeConfigDescriptor(libusb_config_descriptor* config) override;
-
   int LibusbGetDeviceDescriptor(
       libusb_device* dev, libusb_device_descriptor* desc) override;
-
   uint8_t LibusbGetBusNumber(libusb_device* dev) override;
   uint8_t LibusbGetDeviceAddress(libusb_device* dev) override;
-
   int LibusbOpen(libusb_device* dev, libusb_device_handle** handle) override;
   void LibusbClose(libusb_device_handle* handle) override;
-
   int LibusbClaimInterface(
       libusb_device_handle* dev, int interface_number) override;
   int LibusbReleaseInterface(
       libusb_device_handle* dev, int interface_number) override;
-
   int LibusbResetDevice(libusb_device_handle* dev) override;
-
   libusb_transfer* LibusbAllocTransfer(int iso_packets) override;
   int LibusbSubmitTransfer(libusb_transfer* transfer) override;
   int LibusbCancelTransfer(libusb_transfer* transfer) override;
   void LibusbFreeTransfer(libusb_transfer* transfer) override;
-
   int LibusbControlTransfer(
       libusb_device_handle* dev,
       uint8_t bmRequestType,
@@ -111,7 +102,6 @@ class LibusbOverChromeUsb final : public LibusbInterface {
       int length,
       int* actual_length,
       unsigned timeout) override;
-
   int LibusbHandleEvents(libusb_context* ctx) override;
   int LibusbHandleEventsCompleted(libusb_context* ctx, int* completed) override;
 

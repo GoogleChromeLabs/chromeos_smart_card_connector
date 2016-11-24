@@ -57,7 +57,7 @@ class TypedMessageRouter final : public MessageListener {
   // Asserts that the listener was actually added.
   void RemoveRoute(TypedMessageListener* listener);
 
-  // MessageListener implementation
+  // MessageListener:
   bool OnMessageReceived(const pp::Var& message) override;
 
  private:

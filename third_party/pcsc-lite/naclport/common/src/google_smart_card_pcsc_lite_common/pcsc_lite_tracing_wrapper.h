@@ -47,14 +47,13 @@ class PcscLiteTracingWrapper final : public PcscLite {
       LogSeverity log_severity = LogSeverity::kDebug);
   PcscLiteTracingWrapper(const PcscLiteTracingWrapper&) = delete;
 
+  // PcscLite:
   LONG SCardEstablishContext(
       DWORD dwScope,
       LPCVOID pvReserved1,
       LPCVOID pvReserved2,
       LPSCARDCONTEXT phContext) override;
-
   LONG SCardReleaseContext(SCARDCONTEXT hContext) override;
-
   LONG SCardConnect(
       SCARDCONTEXT hContext,
       LPCSTR szReader,
@@ -62,20 +61,15 @@ class PcscLiteTracingWrapper final : public PcscLite {
       DWORD dwPreferredProtocols,
       LPSCARDHANDLE phCard,
       LPDWORD pdwActiveProtocol) override;
-
   LONG SCardReconnect(
       SCARDHANDLE hCard,
       DWORD dwShareMode,
       DWORD dwPreferredProtocols,
       DWORD dwInitialization,
       LPDWORD pdwActiveProtocol) override;
-
   LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition) override;
-
   LONG SCardBeginTransaction(SCARDHANDLE hCard) override;
-
   LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition) override;
-
   LONG SCardStatus(
       SCARDHANDLE hCard,
       LPSTR szReaderName,
@@ -84,13 +78,11 @@ class PcscLiteTracingWrapper final : public PcscLite {
       LPDWORD pdwProtocol,
       LPBYTE pbAtr,
       LPDWORD pcbAtrLen) override;
-
   LONG SCardGetStatusChange(
       SCARDCONTEXT hContext,
       DWORD dwTimeout,
       SCARD_READERSTATE* rgReaderStates,
       DWORD cReaders) override;
-
   LONG SCardControl(
       SCARDHANDLE hCard,
       DWORD dwControlCode,
@@ -99,19 +91,16 @@ class PcscLiteTracingWrapper final : public PcscLite {
       LPVOID pbRecvBuffer,
       DWORD cbRecvLength,
       LPDWORD lpBytesReturned) override;
-
   LONG SCardGetAttrib(
       SCARDHANDLE hCard,
       DWORD dwAttrId,
       LPBYTE pbAttr,
       LPDWORD pcbAttrLen) override;
-
   LONG SCardSetAttrib(
       SCARDHANDLE hCard,
       DWORD dwAttrId,
       LPCBYTE pbAttr,
       DWORD cbAttrLen) override;
-
   LONG SCardTransmit(
       SCARDHANDLE hCard,
       const SCARD_IO_REQUEST* pioSendPci,
@@ -120,20 +109,15 @@ class PcscLiteTracingWrapper final : public PcscLite {
       SCARD_IO_REQUEST* pioRecvPci,
       LPBYTE pbRecvBuffer,
       LPDWORD pcbRecvLength) override;
-
   LONG SCardListReaders(
       SCARDCONTEXT hContext,
       LPCSTR mszGroups,
       LPSTR mszReaders,
       LPDWORD pcchReaders) override;
-
   LONG SCardFreeMemory(SCARDCONTEXT hContext, LPCVOID pvMem) override;
-
   LONG SCardListReaderGroups(
       SCARDCONTEXT hContext, LPSTR mszGroups, LPDWORD pcchGroups) override;
-
   LONG SCardCancel(SCARDCONTEXT hContext) override;
-
   LONG SCardIsValidContext(SCARDCONTEXT hContext) override;
 
  private:

@@ -45,12 +45,14 @@ std::vector<uint8_t> GetSCardReaderStateAtr(
 
 }  // namespace
 
+// static
 template <>
 constexpr const char*
 StructConverter<InboundSCardReaderState>::GetStructTypeName() {
   return "SCARD_READERSTATE_inbound";
 }
 
+// static
 template <>
 template <typename Callback>
 void StructConverter<InboundSCardReaderState>::VisitFields(
@@ -60,12 +62,14 @@ void StructConverter<InboundSCardReaderState>::VisitFields(
   callback(&value.current_state, "current_state");
 }
 
+// static
 template <>
 constexpr const char*
 StructConverter<OutboundSCardReaderState>::GetStructTypeName() {
   return "SCARD_READERSTATE_outbound";
 }
 
+// static
 template <>
 template <typename Callback>
 void StructConverter<OutboundSCardReaderState>::VisitFields(
@@ -77,12 +81,14 @@ void StructConverter<OutboundSCardReaderState>::VisitFields(
   callback(&value.atr, "atr");
 }
 
+// static
 template <>
 constexpr const char*
 StructConverter<SCardIoRequest>::GetStructTypeName() {
   return "SCARD_IO_REQUEST";
 }
 
+// static
 template <>
 template <typename Callback>
 void StructConverter<SCardIoRequest>::VisitFields(
@@ -90,6 +96,7 @@ void StructConverter<SCardIoRequest>::VisitFields(
   callback(&value.protocol, "protocol");
 }
 
+// static
 InboundSCardReaderState InboundSCardReaderState::FromSCardReaderState(
     const SCARD_READERSTATE& value) {
   GOOGLE_SMART_CARD_CHECK(value.szReader);
@@ -100,6 +107,7 @@ InboundSCardReaderState InboundSCardReaderState::FromSCardReaderState(
       value.dwCurrentState);
 }
 
+// static
 OutboundSCardReaderState OutboundSCardReaderState::FromSCardReaderState(
     const SCARD_READERSTATE& value) {
   GOOGLE_SMART_CARD_CHECK(value.szReader);
@@ -119,6 +127,7 @@ SCARD_IO_REQUEST SCardIoRequest::AsSCardIoRequest() const {
   return result;
 }
 
+// static
 SCardIoRequest SCardIoRequest::FromSCardIoRequest(
     const SCARD_IO_REQUEST& value) {
   return SCardIoRequest(value.dwProtocol);

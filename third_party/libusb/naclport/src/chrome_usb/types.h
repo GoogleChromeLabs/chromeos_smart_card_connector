@@ -275,7 +275,7 @@ pp::Var MakeVar(const GetDevicesOptions& value);
 pp::Var MakeVar(const GetUserSelectedDevicesOptions& value);
 
 //
-// Following the are definitions of structures representing the results returned
+// Following are the definitions of structures representing the results returned
 // from the chrome.usb API methods.
 //
 

@@ -51,7 +51,8 @@
 // to allow passing it as a weak_ptr to the submitted chrome.usb transfers,
 // because the actual transfer result may return from chrome.usb API after the
 // libusb_context was already destroyed by the client (for the reasoning see the
-// next paragraph).
+// next paragraph). FIXME(emaxx): Drop this requirement using the WeakPtrFactory
+// concept (inspired by the Chromium source code).
 //
 // The structure also tracks all libusb transfers that were created through it,
 // and implements routing of the chrome.usb transfer results to the correct

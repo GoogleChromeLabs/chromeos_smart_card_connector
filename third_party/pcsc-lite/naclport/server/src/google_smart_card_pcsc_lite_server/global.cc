@@ -105,6 +105,7 @@ void PcscLiteServerGlobal::Detach() {
   pp_instance_ = nullptr;
 }
 
+// static
 const PcscLiteServerGlobal* PcscLiteServerGlobal::GetInstance() {
   GOOGLE_SMART_CARD_CHECK(g_pcsc_lite_server);
   return g_pcsc_lite_server;

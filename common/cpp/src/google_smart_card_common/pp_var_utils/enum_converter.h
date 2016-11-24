@@ -45,7 +45,7 @@ namespace google_smart_card {
 template <typename EnumType, typename VarValueType>
 class EnumConverter final {
  public:
-  EnumConverter() = default;
+  EnumConverter() = delete;
   EnumConverter(const EnumConverter&) = delete;
 
   // Converts C/C++ enum value into Pepper value.
@@ -108,16 +108,16 @@ class EnumConverter final {
   // Returns the textual name of the EnumType (used for displaying it in error
   // messages).
   //
-  // The class consumer has to implement this method for the class
-  // specialization that corresponds to this EnumType.
+  // The class user has to implement this method for the class specialization
+  // that corresponds to this EnumType.
   static constexpr const char* GetEnumTypeName();
 
  private:
   // Generates a number of pairs: (C/C++ enum value, var value) and calls the
   // specified callback with each of them.
   //
-  // The class consumer has to implement this method for the class
-  // specialization that corresponds to this EnumType.
+  // The class user has to implement this method for the class specialization
+  // that corresponds to this EnumType.
   //
   // The Callback will be the functor with the following signature:
   // void(EnumType, const VarValueType&).

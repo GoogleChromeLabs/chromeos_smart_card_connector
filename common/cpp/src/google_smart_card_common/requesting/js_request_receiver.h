@@ -62,6 +62,7 @@ class JsRequestReceiver final : public RequestReceiver,
    public:
     explicit PpDelegateImpl(pp::Instance* pp_instance);
 
+    // PpDelegate:
     void PostMessage(const pp::Var& message) override;
 
    private:
@@ -90,11 +91,11 @@ class JsRequestReceiver final : public RequestReceiver,
   void Detach();
 
  private:
-  // RequestReceiver implementation
+  // RequestReceiver:
   void PostResult(
       RequestId request_id, GenericRequestResult request_result) override;
 
-  // TypedMessageListener implementation
+  // TypedMessageListener:
   std::string GetListenedMessageType() const override;
   bool OnTypedMessageReceived(const pp::Var& data) override;
 

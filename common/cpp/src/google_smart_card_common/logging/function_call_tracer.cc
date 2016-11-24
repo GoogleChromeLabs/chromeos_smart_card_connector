@@ -66,6 +66,7 @@ FunctionCallTracer::ArgNameWithValue::ArgNameWithValue(
     : name(name),
       dumped_value(dumped_value) {}
 
+// static
 std::string FunctionCallTracer::DumpArgs(
     const std::vector<ArgNameWithValue>& args) {
   std::string result;

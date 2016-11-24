@@ -35,11 +35,13 @@ PcscLiteServerSocketsManager* g_pcsc_lite_server_sockets_manager = nullptr;
 
 }  // namespace
 
+// static
 void PcscLiteServerSocketsManager::CreateGlobalInstance() {
   GOOGLE_SMART_CARD_CHECK(!g_pcsc_lite_server_sockets_manager);
   g_pcsc_lite_server_sockets_manager = new PcscLiteServerSocketsManager;
 }
 
+// static
 PcscLiteServerSocketsManager* PcscLiteServerSocketsManager::GetInstance() {
   GOOGLE_SMART_CARD_CHECK(g_pcsc_lite_server_sockets_manager);
   return g_pcsc_lite_server_sockets_manager;

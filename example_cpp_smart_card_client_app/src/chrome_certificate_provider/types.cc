@@ -29,11 +29,13 @@ using CertificateInfoConverter = StructConverter<ccp::CertificateInfo>;
 
 using SignRequestConverter = StructConverter<ccp::SignRequest>;
 
+// static
 template <>
 constexpr const char* HashConverter::GetEnumTypeName() {
   return "chrome_certificate_provider::Hash";
 }
 
+// static
 template <>
 template <typename Callback>
 void HashConverter::VisitCorrespondingPairs(Callback callback) {
@@ -44,11 +46,13 @@ void HashConverter::VisitCorrespondingPairs(Callback callback) {
   callback(ccp::Hash::kSha512, "SHA512");
 }
 
+// static
 template <>
 constexpr const char* CertificateInfoConverter::GetStructTypeName() {
   return "chrome_certificate_provider::CertificateInfo";
 }
 
+// static
 template <>
 template <typename Callback>
 void CertificateInfoConverter::VisitFields(
@@ -57,11 +61,13 @@ void CertificateInfoConverter::VisitFields(
   callback(&value.supported_hashes, "supportedHashes");
 }
 
+// static
 template <>
 constexpr const char* SignRequestConverter::GetStructTypeName() {
   return "chrome_certificate_provider::SignRequest";
 }
 
+// static
 template <>
 template <typename Callback>
 void SignRequestConverter::VisitFields(

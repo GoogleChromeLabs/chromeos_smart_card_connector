@@ -34,11 +34,13 @@ using TestEnumStringConverter = EnumConverter<TestEnum, std::string>;
 
 }  // namespace
 
+// static
 template <>
 constexpr const char* TestEnumStringConverter::GetEnumTypeName() {
   return "TestEnum";
 }
 
+// static
 template <>
 template <typename Callback>
 void TestEnumStringConverter::VisitCorrespondingPairs(Callback callback) {
