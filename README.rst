@@ -323,7 +323,7 @@ Follow these steps for performing the *initial build*:
 
 2.  Execute::
 
-        . env/activate
+        source env/activate
 
     This command sets the environment variables required for enabling
     the use of the tools downloaded at step 1.
