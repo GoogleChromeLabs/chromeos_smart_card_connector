@@ -145,7 +145,7 @@ GSC.Logging.getScopedLogger = function(name, opt_level) {
   var fullName = LOGGER_SCOPE;
   if (name)
     fullName += '.' + name;
-  return GSC.Logging.getLogger(fullName);
+  return GSC.Logging.getLogger(fullName, opt_level);
 };
 
 /**
@@ -159,6 +159,18 @@ GSC.Logging.getScopedLogger = function(name, opt_level) {
 GSC.Logging.getChildLogger = function(
     parentLogger, relativeName, opt_level) {
   return GSC.Logging.getLogger(parentLogger.getName() + '.' + relativeName);
+};
+
+/**
+ * Changes the logger level so that the logger is not more verbose than the
+ * specified level.
+ * @param {!goog.log.Logger} logger
+ * @param {!goog.log.Level} boundaryLevel
+ */
+GSC.Logging.setLoggerVerbosityAtMost = function(logger, boundaryLevel) {
+  var effectiveLevel = logger.getEffectiveLevel();
+  if (!effectiveLevel || effectiveLevel.value < boundaryLevel.value)
+    logger.setLevel(boundaryLevel);
 };
 
 /**

@@ -140,7 +140,7 @@ NaclModule.prototype.disposeInternal = function() {
   goog.events.removeAll(this.element_);
   delete this.element_;
 
-  this.logger.fine('NaCl module was disposed');
+  this.logger.fine('Disposed');
 
   NaclModule.base(this, 'disposeInternal');
 };
