@@ -99,6 +99,8 @@ enum class EndpointDescriptorUsage {
   kData,
   kFeedback,
   kExplicitFeedback,
+  kPeriodic,
+  kNotification,
 };
 
 struct EndpointDescriptor {

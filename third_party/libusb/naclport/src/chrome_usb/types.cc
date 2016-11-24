@@ -216,6 +216,8 @@ void EndpointDescriptorUsageConverter::VisitCorrespondingPairs(
   callback(EndpointDescriptorUsage::kData, "data");
   callback(EndpointDescriptorUsage::kFeedback, "feedback");
   callback(EndpointDescriptorUsage::kExplicitFeedback, "explicitFeedback");
+  callback(EndpointDescriptorUsage::kPeriodic, "periodic");
+  callback(EndpointDescriptorUsage::kNotification, "notification");
 }
 
 // static
