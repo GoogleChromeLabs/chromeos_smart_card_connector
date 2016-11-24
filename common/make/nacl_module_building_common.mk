@@ -78,7 +78,7 @@ $(eval $(call NACL_MODULE_LINK_INTERNAL_RULE,$(1),$(2),$(3),$(4)))
 
 $(eval $(call NACL_MODULE_COPY_BINARIES_INTERNAL_RULE))
 
-$(eval $(call NMF_RULE,$(TARGET),))
+$(eval $(call NMF_RULE,$(TARGET),--pnacl-optlevel=0 --pnacl-debug-optlevel=0))
 
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(OUTDIR)/$(TARGET).nmf))
 
