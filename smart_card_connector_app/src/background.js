@@ -95,7 +95,11 @@ chrome.runtime.onMessageExternal.addListener(externalMessageListener);
 chrome.runtime.onInstalled.addListener(installedListener);
 
 function naclModuleDisposedListener() {
-  GSC.Logging.failWithLogger(logger, 'Server NaCl module was disposed of');
+  if (!goog.DEBUG) {
+    // Trigger the fatal error in the Release mode, that will emit an error
+    // message and trigger the app reload.
+    GSC.Logging.failWithLogger(logger, 'Server NaCl module was disposed of');
+  }
 }
 
 function launchedListener() {
