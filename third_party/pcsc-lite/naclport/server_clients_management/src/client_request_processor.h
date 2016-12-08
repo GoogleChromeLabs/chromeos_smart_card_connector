@@ -104,11 +104,28 @@ class PcscLiteClientRequestProcessor final :
 
   ~PcscLiteClientRequestProcessor();
 
+  // Schedules a cancellation of long-running PC/SC-Lite requests to be
+  // performed in a background thread.
+  //
+  // Note that only the SCardGetStatusChange requests support cancellation, all
+  // other requests will continue working till their normal finish.
+  //
+  // This method is safe to be called from any thread.
+  void ScheduleRunningRequestsCancellation();
+
+  // Process the given PC/SC-Lite request.
+  //
+  // The result is returned through the passed callback immediately (before this
+  // method returns).
+  //
+  // This method is safe to be called from any thread, except the main Pepper
+  // thread (which could lead to a deadlock).
   void ProcessRequest(
       const std::string& function_name,
       const pp::VarArray& arguments,
       RequestReceiver::ResultCallback result_callback);
 
+  // Start processing the given PC/SC-Lite request in a background thread.
   static void AsyncProcessRequest(
       std::shared_ptr<PcscLiteClientRequestProcessor> request_processor,
       const std::string& function_name,
@@ -134,10 +151,7 @@ class PcscLiteClientRequestProcessor final :
   GenericRequestResult FindHandlerAndCall(
       const std::string& function_name, const pp::VarArray& arguments);
 
-  void ScheduleClosingLeftHandles();
-  static void CloseLeftHandles(
-      const std::string& logging_prefix,
-      const std::vector<SCARDCONTEXT>& s_card_contexts);
+  void ScheduleHandlesCleanup();
 
   GenericRequestResult PcscLiteVersionNumber();
   GenericRequestResult PcscStringifyError(LONG error);

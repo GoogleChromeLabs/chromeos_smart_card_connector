@@ -68,12 +68,24 @@ void PcscLiteClientHandlesRegistry::RemoveContext(SCARDCONTEXT s_card_context) {
   context_to_handles_map_.erase(context_to_handles_iter);
 }
 
+std::vector<SCARDCONTEXT>
+PcscLiteClientHandlesRegistry::GetSnapshotOfAllContexts() {
+  const std::unique_lock<std::mutex> lock(mutex_);
+
+  std::vector<SCARDCONTEXT> result;
+  result.reserve(context_to_handles_map_.size());
+  for (const auto& context_to_handles : context_to_handles_map_)
+    result.push_back(context_to_handles.first);
+
+  return result;
+}
+
 std::vector<SCARDCONTEXT> PcscLiteClientHandlesRegistry::PopAllContexts() {
   const std::unique_lock<std::mutex> lock(mutex_);
 
   std::vector<SCARDCONTEXT> result;
   result.reserve(context_to_handles_map_.size());
-  for (auto context_to_handles : context_to_handles_map_)
+  for (const auto& context_to_handles : context_to_handles_map_)
     result.push_back(context_to_handles.first);
 
   context_to_handles_map_.clear();

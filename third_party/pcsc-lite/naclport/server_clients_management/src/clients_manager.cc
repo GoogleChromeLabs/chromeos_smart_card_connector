@@ -180,6 +180,16 @@ PcscLiteServerClientsManager::Handler::Handler(
           MakeUnique<JsRequestReceiver::PpDelegateImpl>(pp_instance))) {}
 
 PcscLiteServerClientsManager::Handler::~Handler() {
+  // Cancel long-running PC/SC-Lite requests that are currently processed by
+  // this handler, to make it possible for a new handler to use the currently
+  // occupied PC/SC-Lite resources. This is useful, for instance, when a client
+  // is restarted and attempts to reestablish its state. Also this is absolutely
+  // crucial in the cases when a potentially infinite-running request is
+  // currently processed - otherwise there's a possibility that the PC/SC-Lite
+  // resources would be blocked by the old, detached, handler forever.
+  request_processor_->ScheduleRunningRequestsCancellation();
+  // Stop receiving the new PC/SC-Lite requests from the JavaScript side, and
+  // also disable sending of the request responses back to the JavaScript side.
   request_receiver_->Detach();
 }
 

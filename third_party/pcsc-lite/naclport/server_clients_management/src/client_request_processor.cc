@@ -69,6 +69,46 @@ pp::Var MakeDumpedArrayBuffer(const void* data, size_t size) {
   return MakeVar(std::vector<uint8_t>(casted_data, casted_data + size));
 }
 
+void CancelRunningRequests(
+    const std::string& logging_prefix,
+    const std::vector<SCARDCONTEXT>& s_card_contexts) {
+  for (SCARDCONTEXT s_card_context : s_card_contexts) {
+    GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << "Performing forced " <<
+        "cleanup: canceling all pending blocking requests for left " <<
+        "SCARDCONTEXT " << DebugDumpSCardContext(s_card_context);
+
+    const LONG error_code = ::SCardCancel(s_card_context);
+    if (error_code != SCARD_S_SUCCESS) {
+      GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced " <<
+          "cancellation of the blocking requests was unsuccessful: " <<
+          pcsc_stringify_error(error_code);
+    }
+  }
+}
+
+void CloseLeftHandles(
+    const std::string& logging_prefix,
+    const std::vector<SCARDCONTEXT>& s_card_contexts) {
+  for (SCARDCONTEXT s_card_context : s_card_contexts) {
+    GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << "Performing forced " <<
+        "cleanup: releasing the left SCARDCONTEXT " <<
+        DebugDumpSCardContext(s_card_context);
+
+    const LONG error_code = ::SCardReleaseContext(s_card_context);
+    if (error_code != SCARD_S_SUCCESS) {
+      GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced context " <<
+          "releasing was unsuccessful: " << pcsc_stringify_error(error_code);
+    }
+  }
+}
+
+void CleanupHandles(
+    const std::string& logging_prefix,
+    const std::vector<SCARDCONTEXT>& s_card_contexts) {
+  CancelRunningRequests(logging_prefix, s_card_contexts);
+  CloseLeftHandles(logging_prefix, s_card_contexts);
+}
+
 }  // namespace
 
 PcscLiteClientRequestProcessor::PcscLiteClientRequestProcessor(
@@ -78,7 +118,7 @@ PcscLiteClientRequestProcessor::PcscLiteClientRequestProcessor(
       status_log_severity_(
           client_app_id ? LogSeverity::kInfo : LogSeverity::kDebug),
       logging_prefix_(FormatBoostFormatTemplate(
-          "[PC/SC-Lite handler client for %1% (id %2%)] ",
+          "[PC/SC-Lite client handler for %1% (id %2%)] ",
           client_app_id ? "\"" + *client_app_id + "\"" : "own app",
           client_handler_id)) {
   BuildHandlerMap();
@@ -86,7 +126,24 @@ PcscLiteClientRequestProcessor::PcscLiteClientRequestProcessor(
 }
 
 PcscLiteClientRequestProcessor::~PcscLiteClientRequestProcessor() {
-  ScheduleClosingLeftHandles();
+  ScheduleHandlesCleanup();
+}
+
+void PcscLiteClientRequestProcessor::ScheduleRunningRequestsCancellation() {
+  // Obtain the current list of handles associated with this request processor.
+  // FIXME(emaxx): There is a small chance of getting data race here, if after
+  // this call some background PC/SC-Lite request releases the context, and
+  // another background request (in a bad scenario, from a completely different
+  // request processor) receives the same context.
+  const std::vector<SCARDCONTEXT> s_card_contexts =
+      s_card_handles_registry_.GetSnapshotOfAllContexts();
+
+  // The actual cancellation happens in a separate background thread, as the
+  // involved SCard* functions may call blocking libusb* functions - which are
+  // not allowed to be called from the main thread (attempting to do this will
+  // result in a deadlock).
+  std::thread(
+      &CancelRunningRequests, logging_prefix_, s_card_contexts).detach();
 }
 
 void PcscLiteClientRequestProcessor::ProcessRequest(
@@ -207,50 +264,15 @@ PcscLiteClientRequestProcessor::WrapHandler(
   };
 }
 
-void PcscLiteClientRequestProcessor::ScheduleClosingLeftHandles() {
+void PcscLiteClientRequestProcessor::ScheduleHandlesCleanup() {
   const std::vector<SCARDCONTEXT> s_card_contexts =
       s_card_handles_registry_.PopAllContexts();
 
-  // The handles are closed in a separate background thread, as the involved
+  // The actual cleanup happens in a separate background thread, as the involved
   // SCard* functions may call blocking libusb* functions - which are not
   // allowed to be called from the main thread (attempting to do this will
   // result in deadlock).
-  std::thread(
-      &PcscLiteClientRequestProcessor::CloseLeftHandles,
-      logging_prefix_,
-      s_card_contexts).detach();
-}
-
-// static
-void PcscLiteClientRequestProcessor::CloseLeftHandles(
-    const std::string& logging_prefix,
-    const std::vector<SCARDCONTEXT>& s_card_contexts) {
-  LONG error_code;
-
-  for (SCARDCONTEXT s_card_context : s_card_contexts) {
-    GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << "Performing forced " <<
-        "cleanup: canceling all pending blocking requests for left " <<
-        "SCARDCONTEXT " << DebugDumpSCardContext(s_card_context);
-
-    error_code = ::SCardCancel(s_card_context);
-    if (error_code != SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced " <<
-          "cancellation of the blocking requests was unsuccessful: " <<
-          pcsc_stringify_error(error_code);
-    }
-  }
-
-  for (SCARDCONTEXT s_card_context : s_card_contexts) {
-    GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << "Performing forced " <<
-        "cleanup: releasing the left SCARDCONTEXT " <<
-        DebugDumpSCardContext(s_card_context);
-
-    error_code = ::SCardReleaseContext(s_card_context);
-    if (error_code != SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced context " <<
-          "releasing was unsuccessful: " << pcsc_stringify_error(error_code);
-    }
-  }
+  std::thread(&CleanupHandles, logging_prefix_, s_card_contexts).detach();
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::FindHandlerAndCall(

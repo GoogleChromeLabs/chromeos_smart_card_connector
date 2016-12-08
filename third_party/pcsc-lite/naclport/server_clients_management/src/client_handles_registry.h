@@ -39,11 +39,9 @@ namespace google_smart_card {
 // PC/SC-Lite SCARDCONTEXT type) and handles (see the PC/SC-Lite SCARDHANDLE
 // type).
 //
-// The class provides an interface to check whether the specified context or
-// handle exists (i.e. is known to the instance of this class).
-//
-// Additionally, it also allows to query the list of SCARDHANDLE handles that
-// correspond to the specified SCARDCONTEXT handle.
+// The class provides an interface for storing and querying a number of contexts
+// and handles. The interface also allows to store and check association between
+// a handle and a context.
 class PcscLiteClientHandlesRegistry final {
  public:
   PcscLiteClientHandlesRegistry();
@@ -53,6 +51,7 @@ class PcscLiteClientHandlesRegistry final {
   bool ContainsContext(SCARDCONTEXT s_card_context) const;
   void AddContext(SCARDCONTEXT s_card_context);
   void RemoveContext(SCARDCONTEXT s_card_context);
+  std::vector<SCARDCONTEXT> GetSnapshotOfAllContexts();
   std::vector<SCARDCONTEXT> PopAllContexts();
 
   bool ContainsHandle(SCARDHANDLE s_card_handle) const;
