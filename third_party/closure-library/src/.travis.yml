@@ -3,9 +3,8 @@
 # Use of this source code is governed by the Apache License, Version 2.0.
 # See the LICENSE file for details.
 
-# Use new container-based infrastructure.
 language: node_js
-sudo: false
+sudo: required
 
 cache:
   directories:
@@ -28,8 +27,10 @@ script:
   - ./scripts/ci/lint_pull_request.sh
   - ./scripts/ci/check_code_format.sh
   - travis_wait 30 ./scripts/ci/run_all_tests.sh
+  - ./scripts/ci/generate_latest_docs.sh
 
 env:
   global:
     - SAUCE_USERNAME=closure-sauce
     - SAUCE_ACCESS_KEY=dfd98f70a612-e69a-ad34-6149-3ca056f8
+    - secure: "aEv7CF6ZvD2Fa67yv6yYtgFGjafCkpSP2Y+Dk2AyJCFLF3+L5ZFXpFoCtgYgCWezVDbeGpoojFeCzLu0ycWwnIwJpUQ/C8NBDR/x2Lqz2I6M2PfkEy91UhSE5nXe1RJMnna1715zeBmustiFKjdETWFZrpvxkHixBHbLfY3cJZw="
