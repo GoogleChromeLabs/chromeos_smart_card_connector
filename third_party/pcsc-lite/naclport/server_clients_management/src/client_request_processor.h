@@ -80,6 +80,20 @@ namespace google_smart_card {
 // instance destruction until the last running request finishes. FIXME(emaxx):
 // Drop this requirement using the WeakPtrFactory concept (inspired by the
 // Chromium source code).
+//
+// FIXME(emaxx): The class should be re-designed to provide a more secure and
+// robust implementation that would be based a stricter threading model: all
+// requests for a given PC/SC-Lite context should be executed sequentially on
+// the same worker thread. Apart from following the PC/SC-Lite API contract
+// (which requests this threading model: no more than one thread per context,
+// with the exception of SCardCancel requests), this would also handle the
+// theoretically possible race between releasing contexts in one request
+// processor and gaining them in the other one. The safety of the current
+// implementation relies on the PC/SC-Lite not generating the identical contexts
+// too soon.
+//
+// FIXME(emaxx): Add assertions that the methods are called on the right
+// threads.
 class PcscLiteClientRequestProcessor final :
     public std::enable_shared_from_this<PcscLiteClientRequestProcessor> {
  public:
