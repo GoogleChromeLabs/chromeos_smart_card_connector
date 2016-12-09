@@ -23,6 +23,7 @@
 
 goog.provide('SmartCardClientApp.CertificateProviderBridge.Backend');
 
+goog.require('GoogleSmartCard.DeferredProcessor');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.RemoteCallMessage');
@@ -52,11 +53,16 @@ var GSC = GoogleSmartCard;
  * <https://developer.chrome.com/extensions/certificateProvider>) and the NaCl
  * module handlers.
  *
- * Once the NaCl module is loaded, this object subscribes itself for listening
- * the chrome.certificateProvider API events and translates them into requests
- * sent to the NaCl module as messages. The response messages from the NaCl
- * module, once they are received, trigger the corresponding callbacks provided
- * by the chrome.certificateProvider API.
+ * This object subscribes itself for listening the chrome.certificateProvider
+ * API events and translates them into requests sent to the NaCl module as
+ * messages. The response messages from the NaCl module, once they are received,
+ * trigger the corresponding callbacks provided by the
+ * chrome.certificateProvider API.
+ *
+ * Note that the requests to the NaCl module are delayed until it loads, but the
+ * API listeners are set up straight away. This allows to handle the
+ * chrome.certificateProvider API events correctly even if they were received
+ * too early.
  * @param {!GSC.NaclModule} naclModule
  * @extends goog.Disposable
  * @constructor
@@ -75,12 +81,18 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(naclModule) {
       REQUESTER_NAME, naclModule.messageChannel);
 
   /** @private */
-  this.boundCertificatesRequestListener_ = null;
+  this.boundCertificatesRequestListener_ =
+      this.certificatesRequestListener_.bind(this);
+  /** @private */
+  this.boundSignDigestRequestListener_ =
+      this.signDigestRequestListener_.bind(this);
+  // Start listening for the chrome.certificateProvider API events straight
+  // away.
+  this.setupApiListeners_();
 
   /** @private */
-  this.boundSignDigestRequestListener_ = null;
-
-  naclModule.addLoadEventListener(this.naclModuleLoadedListener_.bind(this));
+  this.deferredProcessor_ = new GSC.DeferredProcessor(
+      naclModule.getLoadPromise());
   naclModule.addOnDisposeCallback(this.naclModuleDisposedListener_.bind(this));
 
   this.logger.fine('Constructed');
@@ -119,17 +131,11 @@ if (goog.DEBUG) {
 
 /** @override */
 Backend.prototype.disposeInternal = function() {
-  if (this.boundSignDigestRequestListener_) {
-    chrome.certificateProvider.onSignDigestRequested.removeListener(
-        this.boundSignDigestRequestListener_);
-    this.boundSignDigestRequestListener_ = null;
-  }
+  chrome.certificateProvider.onSignDigestRequested.removeListener(
+      this.boundSignDigestRequestListener_);
 
-  if (this.boundCertificatesRequestListener_) {
-    chrome.certificateProvider.onCertificatesRequested.removeListener(
-        this.boundCertificatesRequestListener_);
-    this.boundCertificatesRequestListener_ = null;
-  }
+  chrome.certificateProvider.onCertificatesRequested.removeListener(
+      this.boundCertificatesRequestListener_);
 
   this.requester_.dispose();
   this.requester_ = null;
@@ -140,13 +146,6 @@ Backend.prototype.disposeInternal = function() {
 };
 
 /** @private */
-Backend.prototype.naclModuleLoadedListener_ = function() {
-  this.logger.fine('NaCl module has loaded, setting up ' +
-                   'chrome.certificateProvider API listeners...');
-  this.setupApiListeners_();
-};
-
-/** @private */
 Backend.prototype.naclModuleDisposedListener_ = function() {
   this.logger.fine('NaCl module was disposed, disposing...');
   this.dispose();
@@ -154,6 +153,8 @@ Backend.prototype.naclModuleDisposedListener_ = function() {
 
 /** @private */
 Backend.prototype.setupApiListeners_ = function() {
+  GSC.Logging.checkWithLogger(this.logger, !this.isDisposed());
+
   if (!chrome.certificateProvider) {
     if (goog.DEBUG) {
       this.logger.warning(
@@ -170,23 +171,39 @@ Backend.prototype.setupApiListeners_ = function() {
     return;
   }
 
-  this.boundCertificatesRequestListener_ =
-      this.certificatesRequestListener_.bind(this);
   chrome.certificateProvider.onCertificatesRequested.addListener(
       this.boundCertificatesRequestListener_);
-
-  this.boundSignDigestRequestListener_ =
-      this.signDigestRequestListener_.bind(this);
   chrome.certificateProvider.onSignDigestRequested.addListener(
       this.boundSignDigestRequestListener_);
+  this.logger.fine(
+      'Started listening for chrome.certificateProvider API events');
 };
 
 /**
- * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>),function(!Array.<!chrome.certificateProvider.CertificateInfo>))}
- * reportCallback
+ * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>),function(!Array.<!chrome.certificateProvider.CertificateInfo>))} reportCallback
  * @private
  */
 Backend.prototype.certificatesRequestListener_ = function(reportCallback) {
+  this.deferredProcessor_.addJob(this.startCertificatesRequest_.bind(
+      this, reportCallback));
+};
+
+/**
+ * @param {!chrome.certificateProvider.SignRequest} request
+ * @param {function(!ArrayBuffer=)} reportCallback
+ * @private
+ */
+Backend.prototype.signDigestRequestListener_ = function(
+    request, reportCallback) {
+  this.deferredProcessor_.addJob(this.startSignDigestRequest_.bind(
+      this, request, reportCallback));
+};
+
+/**
+ * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>),function(!Array.<!chrome.certificateProvider.CertificateInfo>))} reportCallback
+ * @private
+ */
+Backend.prototype.startCertificatesRequest_ = function(reportCallback) {
   this.logger.info('Started handling certificates request');
   var remoteCallMessage = new GSC.RemoteCallMessage(
       HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
@@ -210,8 +227,7 @@ Backend.prototype.certificatesRequestListener_ = function(reportCallback) {
  * @param {function(!ArrayBuffer=)} reportCallback
  * @private
  */
-Backend.prototype.signDigestRequestListener_ = function(
-    request, reportCallback) {
+Backend.prototype.startSignDigestRequest_ = function(request, reportCallback) {
   this.logger.info(
       'Started handling digest signing request. The request contents are: ' +
       'hash is "' + request.hash + '", digest is ' +

@@ -120,7 +120,7 @@ var pinDialogBackend = new SmartCardClientApp.PinDialog.Backend(
 // Starts the NaCl module loading. Up to this point, the module was not actually
 // loading yet, which allowed to add all the necessary event listeners in
 // advance.
-naclModule.load();
+naclModule.startLoading();
 
 GSC.AppUtils.enableSelfAutoLoading();
 

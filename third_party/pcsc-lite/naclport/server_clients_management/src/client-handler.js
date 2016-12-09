@@ -45,8 +45,6 @@ goog.require('goog.iter.Iterator');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
-goog.require('goog.promise.Resolver');
-goog.require('goog.structs.Queue');
 
 goog.scope(function() {
 

@@ -84,7 +84,7 @@ var readerTracker = new GSC.PcscLiteServer.ReaderTracker(
     readerTrackerMessageChannelPair.getSecond(),
     naclModule.logger);
 
-naclModule.load();
+naclModule.startLoading();
 
 chrome.app.runtime.onLaunched.addListener(launchedListener);
 

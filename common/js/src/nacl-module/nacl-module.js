@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.NaclModuleLogMessagesReceiver');
 goog.require('GoogleSmartCard.NaclModuleMessageChannel');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Disposable');
+goog.require('goog.Promise');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.events');
@@ -74,6 +75,9 @@ GSC.NaclModule = function(naclModulePath, type) {
    */
   this.type = type;
 
+  /** @private */
+  this.loadPromiseResolver_ = goog.Promise.withResolver();
+
   /**
    * @type {!Element}
    * @private
@@ -112,7 +116,7 @@ NaclModule.Type = {
  * Adds the NaCl DOM element into the page DOM tree, which triggers NaCl module
  * loading and execution.
  */
-NaclModule.prototype.load = function() {
+NaclModule.prototype.startLoading = function() {
   this.logger.info('Loading NaCl module...');
   GSC.Logging.checkWithLogger(this.logger, !this.element_.parentNode);
   GSC.Logging.checkWithLogger(this.logger, document.body);
@@ -129,6 +133,15 @@ NaclModule.prototype.addLoadEventListener = function(listener) {
   this.addEventListener_('load', listener);
 };
 
+/**
+ * Returns a promise which will be fulfilled once the NaCl module is loaded, or
+ * rejected if the module failed to load.
+ * @return {!goog.Promise.<undefined>}
+ */
+NaclModule.prototype.getLoadPromise = function() {
+  return this.loadPromiseResolver_.promise;
+};
+
 /** @override */
 NaclModule.prototype.disposeInternal = function() {
   delete this.logMessagesReceiver;
@@ -139,6 +152,8 @@ NaclModule.prototype.disposeInternal = function() {
   goog.dom.removeNode(this.element_);
   goog.events.removeAll(this.element_);
   delete this.element_;
+
+  this.loadPromiseResolver_.reject(new Error('Disposed'));
 
   this.logger.fine('Disposed');
 
@@ -199,6 +214,7 @@ NaclModule.prototype.loadEventListener_ = function() {
   if (this.isDisposed())
     return;
   this.logger.info('Successfully loaded NaCl module');
+  this.loadPromiseResolver_.resolve();
 };
 
 /** @private */
