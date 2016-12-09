@@ -26,7 +26,6 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RequesterMessage');
 goog.require('GoogleSmartCard.RequesterMessage.RequestMessageData');
 goog.require('GoogleSmartCard.RequesterMessage.ResponseMessageData');
-goog.require('GoogleSmartCard.RequestHandler');
 goog.require('goog.asserts');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
@@ -53,7 +52,7 @@ var ResponseMessageData = RequesterMessage.ResponseMessageData;
  * @param {string} name Name of the requester whose requests will be handled by
  * this instance.
  * @param {!goog.messaging.AbstractChannel} messageChannel
- * @param {!GSC.RequestHandler} requestHandler
+ * @param {function(!Object):!goog.Promise} requestHandler
  * @constructor
  */
 GSC.RequestReceiver = function(name, messageChannel, requestHandler) {
@@ -135,7 +134,7 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
       ', the payload is: ' +
       GSC.DebugDump.debugDump(requestMessageData.payload));
 
-  var promise = this.requestHandler_.handleRequest(requestMessageData.payload);
+  var promise = this.requestHandler_(requestMessageData.payload);
   promise.then(this.responseResolvedListener_.bind(this, requestMessageData),
                this.responseRejectedListener_.bind(this, requestMessageData));
 };

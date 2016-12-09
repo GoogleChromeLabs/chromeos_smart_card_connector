@@ -22,7 +22,6 @@
 goog.provide('SmartCardClientApp.PinDialog.Backend');
 
 goog.require('GoogleSmartCard.PopupWindow.Server');
-goog.require('GoogleSmartCard.RequestHandler');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
 goog.require('goog.messaging.AbstractChannel');
@@ -71,20 +70,17 @@ SmartCardClientApp.PinDialog.Backend = function(naclModuleMessageChannel) {
   // Note: the request receiver instance is not stored anywhere, as it makes
   // itself being owned by the message channel.
   new GSC.RequestReceiver(
-      REQUESTER_NAME, naclModuleMessageChannel, new PinDialogRequestHandler);
+      REQUESTER_NAME, naclModuleMessageChannel, handleRequest);
 };
 
-/**
- * @implements {GSC.RequestHandler}
- * @constructor
- */
-function PinDialogRequestHandler() {}
+/** @const */
+var Backend = SmartCardClientApp.PinDialog.Backend;
 
 /**
  * @param {!Object} payload
  * @return {!goog.Promise}
  */
-PinDialogRequestHandler.prototype.handleRequest = function(payload) {
+function handleRequest(payload) {
   logger.info('Starting PIN dialog...');
 
   var pinPromise = GSC.PopupWindow.Server.runModalDialog(
