@@ -28,12 +28,12 @@
 goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.DeferredProcessor');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.Checker');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('GoogleSmartCard.RemoteCallMessage');
-goog.require('GoogleSmartCard.RequestHandler');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
@@ -100,6 +100,8 @@ var CLIENT_APP_ID_MESSAGE_KEY = 'client_app_id';
 
 /** @const */
 var GSC = GoogleSmartCard;
+/** @const */
+var DeferredProcessor = GSC.DeferredProcessor;
 /** @const */
 var PcscLiteServerClientsManagement = GSC.PcscLiteServerClientsManagement;
 /** @const */
@@ -174,7 +176,6 @@ var PermissionsChecking =
  * value means that the own App is talking to itself).
  * @constructor
  * @extends goog.Disposable
- * @implements {GSC.RequestHandler}
  */
 GSC.PcscLiteServerClientsManagement.ClientHandler = function(
     serverMessageChannel,
@@ -203,7 +204,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
   this.requestReceiver_ = new GSC.RequestReceiver(
       GSC.PcscLiteCommon.Constants.REQUESTER_TITLE,
       clientMessageChannel,
-      this);
+      this.handleRequest_.bind(this));
   this.requestReceiver_.setShouldDisposeOnInvalidMessage(true);
 
   /** @private */
@@ -221,11 +222,15 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
    */
   this.serverRequester_ = null;
 
-  /**
-   * @type {goog.structs.Queue.<!BufferedRequest>}
-   * @private
-   */
-  this.bufferedRequestsQueue_ = new goog.structs.Queue;
+  if (!permissionsChecker)
+    permissionsChecker = new PermissionsChecking.Checker;
+
+  // The requests processing is deferred until both the server readiness is
+  // established and the permissions check is resolved.
+  /** @private */
+  this.deferredProcessor_ = new DeferredProcessor(goog.Promise.all([
+      this.serverReadinessTracker_.promise,
+      this.getPermissionsCheckPromise_()]));
 
   this.addChannelDisposedListeners_();
 
@@ -238,9 +243,8 @@ var ClientHandler = GSC.PcscLiteServerClientsManagement.ClientHandler;
 goog.inherits(ClientHandler, goog.Disposable);
 
 /**
- * Generator that is used by the
- * GSC.PcscLiteServerClientsManagement.ClientHandler class to generate unique
- * client handler identifiers.
+ * Generator that is used by the ClientHandler class to generate unique client
+ * handler identifiers.
  *
  * This is a singleton object, because the identifiers have to be unique among
  * all client handler instances.
@@ -259,30 +263,12 @@ var idGenerator = goog.iter.count();
  */
 var permissionsChecker = null;
 
-/**
- * This structure is used to store the received client requests in a buffer.
- * @param {!RemoteCallMessage} remoteCallMessage The remote call message
- * containing the request contents.
- * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
- * resolve it) which should be used for sending the request response.
- * @constructor
- * @struct
- */
-function BufferedRequest(remoteCallMessage, promiseResolver) {
-  this.remoteCallMessage = remoteCallMessage;
-  this.promiseResolver = promiseResolver;
-}
-
 /** @override */
 ClientHandler.prototype.disposeInternal = function() {
-  while (!this.bufferedRequestsQueue_.isEmpty()) {
-    var request = this.bufferedRequestsQueue_.dequeue();
-    // TODO(emaxx): It may be helpful to provide the additional information
-    // regarding the disposal reason.
-    request.promiseResolver.reject(new Error(
-        'The client handler was disposed'));
-  }
-  this.bufferedRequestsQueue_ = null;
+  // TODO(emaxx): It may be helpful to provide the additional information
+  // regarding the disposal reason.
+  this.deferredProcessor_.dispose();
+  this.deferredProcessor_ = null;
 
   if (this.serverRequester_) {
     this.serverRequester_.dispose();
@@ -320,8 +306,13 @@ ClientHandler.prototype.disposeInternal = function() {
   ClientHandler.base(this, 'disposeInternal');
 };
 
-/** @override */
-ClientHandler.prototype.handleRequest = function(payload) {
+/**
+ * Handles a request received from PC/SC client.
+ * @param {!Object} payload
+ * @return {!goog.Promise}
+ * @private
+ */
+ClientHandler.prototype.handleRequest_ = function(payload) {
   if (this.isDisposed()) {
     return goog.Promise.reject(new Error(
         'The client handler is already disposed'));
@@ -338,47 +329,26 @@ ClientHandler.prototype.handleRequest = function(payload) {
   this.logger.fine('Received a remote call request: ' +
                    remoteCallMessage.getDebugRepresentation());
 
-  var promiseResolver = goog.Promise.withResolver();
-
-  // For the sake of simplicity, all requests are emplaced in the internal
-  // buffer, regardless whether the permissions check have already been
-  // performed (see also the comment below).
-  //
-  // In particular, this guarantees that the order of the requests is preserved
-  // when forwarding them to the server for being executed.
-  this.bufferedRequestsQueue_.enqueue(new BufferedRequest(
-      remoteCallMessage, promiseResolver));
-
-  if (!permissionsChecker)
-    permissionsChecker = new PermissionsChecking.Checker;
-  // For the sake of simplicity, the result of the permissions check is not
-  // cached anywhere in this instance. It's the job of the permissions checker
-  // to do the appropriate caching internally.
-  //
-  // So it may happen that the permissions check even finishes synchronously
-  // during the following call, but this is not a problem.
-  //
-  // Also the implementation here deals with the potential situations when
-  // multiple permission check requests are resolved in the order different from
-  // the how they were started.
-  permissionsChecker.check(this.clientAppId_).then(
-      this.clientPermissionGrantedListener_.bind(this),
-      this.clientPermissionDeniedListener_.bind(this));
-
-  return promiseResolver.promise;
+  return this.deferredProcessor_.addJob(
+      this.postRequestToServer_.bind(this, remoteCallMessage));
 };
 
 /**
- * Emits the log message at an appropriate level depending on whether the client
- * is the own or an external app.
- * @param {string} message
+ * Returns a promise that will eventually contain the result of the permissions
+ * check for the client.
  * @private
  */
-ClientHandler.prototype.logStatusMessage_ = function(message) {
-  if (goog.isNull(this.clientAppId_))
-    this.logger.fine(message);
-  else
-    this.logger.info(message);
+ClientHandler.prototype.getPermissionsCheckPromise_ = function() {
+  return permissionsChecker.check(this.clientAppId_).then(function() {
+    if (!goog.isNull(this.clientAppId_)) {
+      this.logger.info(
+          'Client was granted permissions to issue PC/SC requests');
+    }
+  }, function(error) {
+    this.logger.warning(
+        'Client permission denied. All PC/SC requests will be rejected');
+    return error;
+  }, this);
 };
 
 /**
@@ -423,195 +393,44 @@ ClientHandler.prototype.serverMessageChannelDisposedListener_ = function() {
 ClientHandler.prototype.clientMessageChannelDisposedListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logStatusMessage_('Client message channel was disposed, disposing...');
+  var logMessage = 'Client message channel was disposed, disposing...';
+  if (goog.isNull(this.clientAppId_))
+    this.logger.fine(logMessage);
+  else
+    this.logger.info(logMessage);
   this.dispose();
 };
 
 /**
- * This callback is called when the client permissions checker finished
- * returning that the client has the necessary permission.
+ * Posts the specified client request to the server.
  *
- * Schedules the execution of all previously buffered client requests after the
- * server readiness tracker resolves successfully.
- * @private
- */
-ClientHandler.prototype.clientPermissionGrantedListener_ = function() {
-  if (this.isDisposed())
-    return;
-  this.flushRequestsQueueWhenServerReady_();
-};
-
-/**
- * This callback is called when the client permissions checker finished
- * returning that the client doesn't have the necessary permission.
- *
- * Resolves all previously buffered client requests with an error.
- * @private
- */
-ClientHandler.prototype.clientPermissionDeniedListener_ = function() {
-  if (this.isDisposed())
-    return;
-
-  // TODO(emaxx): Add timeout before rejecting, so that inaccurately written
-  // client won't DOS the server App?
-
-  while (!this.bufferedRequestsQueue_.isEmpty()) {
-    var request = this.bufferedRequestsQueue_.dequeue();
-
-    this.logger.warning(
-        'Client permission was denied, failing the request: ' +
-        request.remoteCallMessage.getDebugRepresentation());
-
-    request.promiseResolver.reject(new Error(
-        'The client permission was denied'));
-  }
-};
-
-/**
- * Schedules the execution of all previously buffered client requests after the
- * server readiness tracker resolves successfully.
- *
- * If the readiness tracker resolves with an error, then disposes self.
- * @private
- */
-ClientHandler.prototype.flushRequestsQueueWhenServerReady_ = function() {
-  if (this.bufferedRequestsQueue_.isEmpty())
-    return;
-
-  var isDelaying = !this.serverReadinessTracker_.isPromiseResolved;
-  if (isDelaying) {
-    var requestsForLog = goog.array.map(
-        this.bufferedRequestsQueue_.getValues(), function(bufferedRequest) {
-          return bufferedRequest.remoteCallMessage.getDebugRepresentation();
-        });
-    this.logStatusMessage_(
-        'Delaying the received requests until the PC/SC-Lite server gets ' +
-        'ready. Currently delayed requests: ' +
-        goog.iter.join(requestsForLog, ', '));
-  }
-
-  this.serverReadinessTracker_.promise.then(
-      this.serverReadyListener_.bind(this, isDelaying),
-      this.serverReadinessFailedListener_.bind(this));
-};
-
-/**
- * This callback is called when the server readiness tracker reports that the
- * server got ready.
- *
- * Starts execution of all previously buffered client requests.
- * @param {boolean} shouldLog
- * @private
- */
-ClientHandler.prototype.serverReadyListener_ = function(shouldLog) {
-  if (this.isDisposed())
-    return;
-  if (this.bufferedRequestsQueue_.isEmpty())
-    return;
-  if (shouldLog) {
-    this.logStatusMessage_(
-        'The server is ready, processing the delayed requests...');
-  }
-  this.flushBufferedRequestsQueue_();
-};
-
-/**
- * This callback is called when the server readiness tracker reports a failure.
- *
- * Disposes self, as the server is unavailable starting from this point.
- * @private
- */
-ClientHandler.prototype.serverReadinessFailedListener_ = function() {
-  if (this.isDisposed())
-    return;
-  this.logger.warning('The server failed to become ready, disposing...');
-  this.dispose();
-};
-
-/**
- * Executes all previously buffered client requests.
- * @private
- */
-ClientHandler.prototype.flushBufferedRequestsQueue_ = function() {
-  if (this.bufferedRequestsQueue_.isEmpty())
-    return;
-  this.logger.finer('Starting processing the buffered requests...');
-  while (!this.bufferedRequestsQueue_.isEmpty()) {
-    var request = this.bufferedRequestsQueue_.dequeue();
-    this.startRequest_(request.remoteCallMessage, request.promiseResolver);
-  }
-};
-
-/**
- * Starts the specified client request by forwarding it to the server.
- *
- * The request result, once received, will be used to resolve the specified
- * promise.
+ * The request result will be passed through the returned promise.
  * @param {!RemoteCallMessage} remoteCallMessage The remote call message
  * containing the request contents.
- * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
- * resolve it) which should be used for sending the request response.
+ * @return {!goog.Promise}
  * @private
  */
-ClientHandler.prototype.startRequest_ = function(
-    remoteCallMessage, promiseResolver) {
+ClientHandler.prototype.postRequestToServer_ = function(remoteCallMessage) {
   this.logger.fine('Started processing the remote call request: ' +
                    remoteCallMessage.getDebugRepresentation());
 
   this.createServerRequesterIfNeed_();
 
-  var requestPromise = this.serverRequester_.postRequest(
-      remoteCallMessage.makeRequestPayload());
-  requestPromise.then(
-      this.requestSucceededListener_.bind(
-          this, remoteCallMessage, promiseResolver),
-      this.requestFailedListener_.bind(
-          this, remoteCallMessage, promiseResolver));
-};
-
-/**
- * This callback is called when the request to the server succeeds.
- *
- * Resolves the passed promise with the passed result, which essentially results
- * in sending the result back to the client.
- * @param {!RemoteCallMessage} remoteCallMessage The remote call message
- * containing the request contents.
- * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
- * resolve it) which should be used for sending the request response.
- * @param {*} result The request result.
- * @private
- */
-ClientHandler.prototype.requestSucceededListener_ = function(
-    remoteCallMessage, promiseResolver, result) {
-  this.logger.fine(
-      'The remote call request ' + remoteCallMessage.getDebugRepresentation() +
-      ' finished successfully' +
-      (goog.DEBUG ?
-           ' with the following result: ' + GSC.DebugDump.debugDump(result) :
-           ''));
-
-  promiseResolver.resolve(result);
-};
-
-/**
- * This callback is called when the request to the server fails.
- *
- * Resolves the passed promise with the passed error, which essentially results
- * in sending the error back to the client.
- * @param {!RemoteCallMessage} remoteCallMessage The remote call message
- * containing the request contents.
- * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
- * resolve it) which should be used for sending the request response.
- * @param {*} error The error with which the request finished.
- * @private
- */
-ClientHandler.prototype.requestFailedListener_ = function(
-    remoteCallMessage, promiseResolver, error) {
-  this.logger.warning(
-      'The remote call request ' + remoteCallMessage.getDebugRepresentation() +
-      ' failed with the following error: ' + error);
-
-  promiseResolver.reject(error);
+  return this.serverRequester_.postRequest(
+      remoteCallMessage.makeRequestPayload()).then(function(result) {
+    this.logger.fine(
+        'The remote call request ' +
+        remoteCallMessage.getDebugRepresentation() + ' finished successfully' +
+        (goog.DEBUG ?
+             ' with the following result: ' + GSC.DebugDump.debugDump(result) :
+             ''));
+    return result;
+  }, function(error) {
+    this.logger.warning(
+        'The remote call request ' + remoteCallMessage.getDebugRepresentation() +
+        ' failed with the following error: ' + error);
+    return error;
+  }, this);
 };
 
 /**
