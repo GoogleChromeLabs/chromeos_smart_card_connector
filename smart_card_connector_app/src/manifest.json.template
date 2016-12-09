@@ -1,0 +1,32 @@
+{
+  "manifest_version": 2,
+  "name": "__MSG_appName__",
+  "short_name": "__MSG_appShortName__",
+  "description": "__MSG_appDesc__",
+  "version": "1.2.5.0",
+  "app": {
+    "background": {
+      "persistent": false,
+      "scripts": [
+        "background.js"
+      ]
+    }
+  },
+  "minimum_chrome_version": "48",
+  "default_locale": "en",
+  "icons": {
+    "128": "icon.png"
+  },
+  "storage": {
+    "managed_schema": "managed_storage_schema.json"
+  },
+  "permissions": [
+    "alwaysOnTopWindows",
+    "usb",
+    {
+      "usbDevices": [
+${usb_devices}
+      ]
+    }
+  ]
+}

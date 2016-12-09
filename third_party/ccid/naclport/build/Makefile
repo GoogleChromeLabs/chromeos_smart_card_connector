@@ -151,10 +151,10 @@ $(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(
 # Rules for building the driver config file and putting it into the resulting
 # out directory under the PC/SC-Lite server driver configs directory
 
-Info.plist: $(CCID_SOURCES_PATH)/create_Info_plist.pl $(CCID_SOURCES_PATH)/../readers/supported_readers.txt $(CCID_SOURCES_PATH)/Info.plist.src
+Info.plist: $(CCID_SOURCES_PATH)/create_Info_plist.pl $(CCID_SUPPORTED_READERS_CONFIG_PATH) $(CCID_SOURCES_PATH)/Info.plist.src
 	@rm -f Info.plist
 	$(CCID_SOURCES_PATH)/create_Info_plist.pl \
-		$(CCID_SOURCES_PATH)/../readers/supported_readers.txt \
+		$(CCID_SUPPORTED_READERS_CONFIG_PATH) \
 		$(CCID_SOURCES_PATH)/Info.plist.src \
 		--target=libccid.so \
 		--version=$(CCID_VERSION) > Info.plist.build
@@ -164,22 +164,6 @@ $(eval $(call CLEAN_RULE,Info.plist.build))
 $(eval $(call CLEAN_RULE,Info.plist))
 
 $(eval $(call COPY_TO_OUT_DIR_RULE,Info.plist,pcsc/drivers/ifd-ccid.bundle/Contents))
-
-
-# Rules for building the JSON file containing the list of the supported USB
-# readers in the format ready for being pasted into App's manifest file
-# (see <https://developer.chrome.com/apps/app_usb#manifest>)
-
-app_manifest_usb_devices.json: create_app_manifest_usb_devices.py $(CCID_SOURCES_PATH)/../readers/supported_readers.txt
-	@rm -f app_manifest_usb_devices.json
-	./create_app_manifest_usb_devices.py \
-		< $(CCID_SOURCES_PATH)/../readers/supported_readers.txt \
-		> app_manifest_usb_devices.json.build
-	@mv app_manifest_usb_devices.json.build app_manifest_usb_devices.json
-
-all: app_manifest_usb_devices.json
-
-$(eval $(call CLEAN_RULE,app_manifest_usb_devices.json))
 
 
 # Rules for linking of the compiled object files and installing the resulting

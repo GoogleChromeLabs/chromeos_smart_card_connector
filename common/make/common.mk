@@ -124,7 +124,7 @@ endef
 # This directory is re-created each build.
 #
 # In order to populate this directory with custom files, the
-# COPY_TO_OUT_DIR_RULE  macro rule can be used.
+# COPY_TO_OUT_DIR_RULE macro rule can be used.
 #
 # Alternatively, one can add custom prerequisites to the "generate_out" target.
 # But, in that case, each of these new prerequisites must ensure that it depends

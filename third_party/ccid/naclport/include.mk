@@ -33,6 +33,14 @@ CCID_DIR_PATH := $(THIRD_PARTY_DIR_PATH)/ccid
 
 
 #
+# Location of the config file containing the list of readers supported by CCID.
+#
+
+CCID_SUPPORTED_READERS_CONFIG_PATH := \
+	$(CCID_DIR_PATH)/src/readers/supported_readers.txt
+
+
+#
 # Helper target that generates the library's out directory.
 #
 
