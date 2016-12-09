@@ -44,8 +44,9 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Here is exposed the API for client applications.
  *
+ * \anchor differences
  * @attention
- * Known differences with Microsoft Windows WinSCard implementation:
+ * Known \ref differences with Microsoft Windows WinSCard implementation:
  *
  * -# SCardStatus()
  *    @par
@@ -737,7 +738,6 @@ error:
  * @retval SCARD_E_INVALID_VALUE Invalid sharing mode, requested protocol, or reader name (\ref SCARD_E_INVALID_VALUE)
  * @retval SCARD_E_NO_SERVICE The server is not running (\ref SCARD_E_NO_SERVICE)
  * @retval SCARD_E_NO_SMARTCARD No smart card present (\ref SCARD_E_NO_SMARTCARD)
- * @retval SCARD_E_NOT_READY Could not allocate the desired port (\ref SCARD_E_NOT_READY)
  * @retval SCARD_E_PROTO_MISMATCH Requested protocol is unknown (\ref SCARD_E_PROTO_MISMATCH)
  * @retval SCARD_E_READER_UNAVAILABLE Could not power up the reader or card (\ref SCARD_E_READER_UNAVAILABLE)
  * @retval SCARD_E_SHARING_VIOLATION Someone else has exclusive rights (\ref SCARD_E_SHARING_VIOLATION)
@@ -881,7 +881,6 @@ end:
  * @retval SCARD_E_INVALID_VALUE Invalid sharing mode, requested protocol, or reader name (\ref SCARD_E_INVALID_VALUE)
  * @retval SCARD_E_NO_SERVICE The server is not running (\ref SCARD_E_NO_SERVICE)
  * @retval SCARD_E_NO_SMARTCARD No smart card present (\ref SCARD_E_NO_SMARTCARD)
- * @retval SCARD_E_NOT_READY Could not allocate the desired port (\ref SCARD_E_NOT_READY)
  * @retval SCARD_E_PROTO_MISMATCH Requested protocol is unknown (\ref SCARD_E_PROTO_MISMATCH)
  * @retval SCARD_E_READER_UNAVAILABLE The reader has been removed (\ref SCARD_E_READER_UNAVAILABLE)
  * @retval SCARD_E_SHARING_VIOLATION Someone else has exclusive rights (\ref SCARD_E_SHARING_VIOLATION)
@@ -1607,6 +1606,7 @@ end:
  * @retval SCARD_E_INVALID_VALUE Invalid States, reader name, etc (\ref SCARD_E_INVALID_VALUE)
  * @retval SCARD_E_INVALID_HANDLE Invalid hContext handle (\ref SCARD_E_INVALID_HANDLE)
  * @retval SCARD_E_READER_UNAVAILABLE The reader is unavailable (\ref SCARD_E_READER_UNAVAILABLE)
+ * @retval SCARD_E_UNKNOWN_READER The reader name is unknown (\ref SCARD_E_UNKNOWN_READER)
  * @retval SCARD_E_TIMEOUT The user-specified timeout value has expired (\ref SCARD_E_TIMEOUT)
  * @retval SCARD_E_CANCELLED The call has been cancelled by a call to
  * SCardCancel() (\ref SCARD_E_CANCELLED)

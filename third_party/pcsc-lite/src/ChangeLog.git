@@ -1,4 +1,297 @@
-commit 12ed49c6130da8e0365db02b289feb99b54d1d96 (HEAD -> master, tag: pcsc-1.8.18, origin/master, origin/HEAD)
+commit c10dac9ce97ed3fda204fd73ef1f19ac4446426d (HEAD -> master, tag: pcsc-1.8.19, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 9 10:07:52 2016 +0100
+
+    Release 1.8.19
+
+ ChangeLog    | 12 ++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 13 insertions(+), 1 deletion(-)
+
+commit 152a53e5151f4f81c572dfeae02d5e0ea8eebccf
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Dec 8 14:48:21 2016 +0100
+
+    SCardGetStatusChange(): Fix the fix for a race condition
+    
+    The change in 4e2a563c8ed4353ad013de85b71aac12ec599f82 is not correct.
+    
+    WRITE_BODY() is a macro composed of 2 lines of C so we can't use:
+    "if (test)
+        WRITE_BODY()"
+    
+    As is is interpreted as:
+    "if (test)
+        instruction1;
+    instruction2;"
+    
+    For that to work we need to:
+    - use { } around WRITE_BODY()
+    or
+    - define WRITE_BODY() as a C instruction
+    
+    Defining WRITE_BODY() as a C instruction (a "do {} while(0)") is the
+    best option as it will prevent the same bug to appear again.
+    
+    Thanks to Florian Kaiser (again) for the patch
+    "[Pcsclite-muscle] [PATCH] fix racecondition between winscard server and
+    clients"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20161205/000775.html
+
+ src/winscard_svc.c | 82 ++++++++++++++++++++++++++++++------------------------
+ 1 file changed, 45 insertions(+), 37 deletions(-)
+
+commit 4e2a563c8ed4353ad013de85b71aac12ec599f82
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Dec 6 16:47:43 2016 +0100
+
+    SCardGetStatusChange(): Fix a (rare) race condition
+    
+    " After the client timed out it sends a CMD_STOP_WAITING_READER_STATE_CHANGE.
+    Sometimes an event occurs which triggers MSGSignalClient, which unregisters the
+    client from events and sends a wait_reader_state_change message to the client.
+    The client interprets this message as an answer to its
+    CMD_STOP_WAITING_READER_STATE_CHANGE.
+    
+    If we send another wait_reader_state_change message to the client it stays in
+    its buffer until another Command is issued and this message appears as leading
+    garbage in the commands answer.
+    
+    Therefore we should not send the wait_reader_state_change message here, if the
+    client has already been unregisterd from events. "
+    
+    Thanks to Florian Kaiser for the patch
+    "[Pcsclite-muscle] [PATCH] fix racecondition between winscard server and clients"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20161128/000772.html
+
+ src/winscard_svc.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+commit 93fee94dcd6acc77b1f962aa20be244e3c39a75f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Dec 3 19:51:55 2016 +0100
+
+    ContextThread(): Fix comment
+    
+    Thanks to Florian Kaiser for the patch
+    "[Pcsclite-muscle] [PATCH] fix racecondition between winscard server and
+    clients"
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20161128/000772.html
+
+ src/winscard_svc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit b703805510b814b78967c7e84ad3a477cb8fc10e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 24 16:43:25 2016 +0100
+
+    pcsc-spy: log the thread number in the results
+    
+    The "Results sorted by total execution time" are displayed for each
+    thread found. Now the thread index is also displayed to make it more
+    explicit why different results are displayed.
+    
+    We now have something like:
+    Thread 1/3
+    Results sorted by total execution time
+    total time: 0.002176 sec
+    0.000554 sec (  2 calls) 25.46% SCardListReaders
+    0.000529 sec (  3 calls) 24.31% SCardConnect
+    0.000251 sec (  1 calls) 11.53% SCardEstablishContext
+    0.000196 sec (  3 calls)  9.01% SCardDisconnect
+    0.000081 sec (  1 calls)  3.72% SCardReleaseContext
+    
+    Thread 2/3
+    Results sorted by total execution time
+    total time: 0.002176 sec
+    0.000720 sec (  3 calls) 33.09% SCardConnect
+    0.000390 sec (  2 calls) 17.92% SCardListReaders
+    0.000250 sec (  3 calls) 11.49% SCardDisconnect
+    0.000177 sec (  1 calls)  8.13% SCardEstablishContext
+    0.000065 sec (  1 calls)  2.99% SCardReleaseContext
+    
+    Thread 3/3
+    Results sorted by total execution time
+    total time: 0.002176 sec
+    0.000499 sec (  3 calls) 22.93% SCardConnect
+    0.000456 sec (  1 calls) 20.96% SCardEstablishContext
+    0.000347 sec (  2 calls) 15.95% SCardListReaders
+    0.000275 sec (  3 calls) 12.64% SCardDisconnect
+    0.000050 sec (  1 calls)  2.30% SCardReleaseContext
+    
+    Thanks to Oliver Graute for the "bug" request
+    "[Pcsclite-muscle] High CPU load with pcscd and Kerkey security Module"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20161121/000766.html
+
+ src/spy/pcsc-spy | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+commit 5c7f9665358b55d320cfefb2276348a53a59da33
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Nov 16 14:34:39 2016 +0100
+
+    Doxygen: Revert SCardConnect() within a transaction
+    
+    It looks like this difference is NOT confirmed.
+    
+    Thanks to Michael Traut for the update.
+    "[Pcsclite-muscle] Difference from Windows' implementation with regard
+    to PC/SC shared mode"
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20161024/000743.html
+
+ src/winscard_clnt.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+commit dd69aff59f46a81b3ec2b971e30889056aee7ee0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 15 09:43:31 2016 +0100
+
+    Doxygen: improve IFDHGetCapabilities() documentation
+    
+    Document the expected returned values.
+
+ src/PCSC/ifdhandler.h | 17 ++++++++++++-----
+ 1 file changed, 12 insertions(+), 5 deletions(-)
+
+commit aa9db5f12b892c94585452fc106d48f064bc0f60 (github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 26 12:06:15 2016 +0200
+
+    Doxygen: document SCardConnect() within a transaction
+    
+    SCardConnect() does not behave as on Windows when a transaction is
+    running.
+    
+    Thanks to Maksim Ivanov for the "bug" report
+    "[Pcsclite-muscle] Difference from Windows' implementation with regard
+    to PC/SC shared mode"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20161017/000738.html
+
+ src/winscard_clnt.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+commit 45dd695d05742b039384951e130570aed289d7ca
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 19 18:38:18 2016 +0200
+
+    pcsc-spy: fix display of execution time
+    
+    The execution time is displayed in seconds and micro-seconds.
+    1 micro-second is 10E-6 second, not 10E-9.
+
+ src/spy/pcsc-spy | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit f42ec9361bde72e738885856b2f534022c013671
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 28 09:54:49 2016 +0200
+
+    Doxygen: add a link to the "differences" chapter
+    
+    It is now possible to easily reference the "Known differences with
+    Microsoft Windows WinSCard implementation" chapter.
+    
+    The URL is
+    http://pcsclite.alioth.debian.org/api/group__API.html#differences
+
+ src/winscard_clnt.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit db9d22e3a38e713d8150b5fddc124cc57c4e89e9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 28 09:28:12 2016 +0200
+
+    Doxygen: SCARD_E_NOT_READY is never returned
+    
+    SCardConnect() and SCardReconnect() will never return SCARD_E_NOT_READY.
+    So remove this return value from the Doxygen documentation.
+    
+    In fact SCARD_E_NOT_READY is not used by any pcsc-lite function.
+
+ src/winscard_clnt.c | 2 --
+ 1 file changed, 2 deletions(-)
+
+commit 00c5acb113b5b96226f6d791da6ee6e31c948137
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 23 19:13:50 2016 +0200
+
+    pcscd: do not check the process is setuid to limit rights
+    
+    pcscd is no more installed as setuid or setgid to allow auto start.
+    "Configuring your system for pcscd auto-start"
+    https://ludovicrousseau.blogspot.fr/2010/12/configuring-your-system-for-pcscd-auto.html
+    
+    pcscd is now started on demand as root by systemd
+    "pcscd auto start using systemd"
+    https://ludovicrousseau.blogspot.fr/2011/11/pcscd-auto-start-using-systemd.html
+    
+    It is no more needed to check pcscd is setuid/setgid to limit its
+    possibilities.
+    
+    The change was made in cac146d23b899c46e9db7f6409a905e115ef921f (Aug 16
+    2010) and is not reverted.
+
+ src/pcscdaemon.c | 20 --------------------
+ 1 file changed, 20 deletions(-)
+
+commit da8448b4effeb607f173233e725214275795a7a4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 23 19:08:23 2016 +0200
+
+    ChangeLog: convert to UTF-8
+    
+    The file was using Latin-1 or ISO-8859 encoding.
+
+ ChangeLog | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 29ead37d5b4e41178a30fb390f64a51de98ff547
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 25 14:51:41 2016 +0200
+
+    winscard.h: fix SCardGetStatusChange() prototype
+    
+    Use "SCARD_READERSTATE *" instead of "LPSCARD_READERSTATE" for the
+    rgReaderStates parameter to match the definition of
+    SCardGetStatusChange() in winscard_clnt.c.
+    
+    The Doxygen page for winscard.h now does point to the documentation of
+    SCardGetStatusChange().
+    
+    Even if the 2 types are, in fact, the same Doxygen was confused.
+
+ src/PCSC/winscard.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 0cd6b659868fd7eccc0c1c20e67623cf6e32edba
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 25 14:48:01 2016 +0200
+
+    Doxygen: SCardGetStatusChange() may return SCARD_E_UNKNOWN_READER
+    
+    Document that SCARD_E_UNKNOWN_READER is a possible return value.
+    
+    Thanks to Maksim Ivanov for the bug report
+    "[Pcsclite-muscle] Small doc improvement for SCardGetStatusChange"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20160822/000697.html
+
+ src/winscard_clnt.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit f9971f6577997929be74f2feb708e09121db6aaa
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 25 10:11:25 2016 +0200
+
+    Fix capitalisation issues in license text
+    
+    All the licence text was in lower case.
+    I guess that was because of a wrong manupilation of vim.
+
+ UnitaryTests/stress_apdu.py         | 16 ++++++++--------
+ UnitaryTests/stress_get_firmware.py | 16 ++++++++--------
+ 2 files changed, 16 insertions(+), 16 deletions(-)
+
+commit 12ed49c6130da8e0365db02b289feb99b54d1d96 (tag: pcsc-1.8.18)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Aug 10 20:33:07 2016 +0200
 
@@ -193,7 +486,7 @@ Date:   Thu Jun 30 16:53:15 2016 +0200
  UnitaryTests/FEATURE_GET_TLV_PROPERTIES.py | 3 +--
  1 file changed, 1 insertion(+), 2 deletions(-)
 
-commit e78449ce37f453516e46d78ad0b99e01db32727b (github/master)
+commit e78449ce37f453516e46d78ad0b99e01db32727b
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jun 17 22:21:01 2016 +0200
 
@@ -2607,15 +2900,15 @@ Date:   Thu Aug 7 12:54:03 2014 +0000
     Changlog:
     
     V1 4-Aug-2014
-    	first release
+            first release
     V2 5-Aug-2014
-    	Fix coding style. Optimize HPRemoveDevice()
-    	Cleanup HPStopHotPluggables()
-    	Fix a resource leak not calling udev_device_unref() in case of "add" or "remove" event.
+            Fix coding style. Optimize HPRemoveDevice()
+            Cleanup HPStopHotPluggables()
+            Fix a resource leak not calling udev_device_unref() in case of "add" or "remove" event.
     V3 5-Aug-2014
-    	Fix resource leak in HPStopHotPluggables(), release udev
-    	Fix error handling in HPRegisterForHotplugEvents() and HPStopHotPluggables()
-    	Revert unneeded RFRemoveReader() in HPRegisterForHotplugEvents()
+            Fix resource leak in HPStopHotPluggables(), release udev
+            Fix error handling in HPRegisterForHotplugEvents() and HPStopHotPluggables()
+            Revert unneeded RFRemoveReader() in HPRegisterForHotplugEvents()
     
     - Stefani
     
@@ -2752,9 +3045,8 @@ Date:   Fri Apr 18 19:12:51 2014 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@6888 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- GPL-3.0.txt             | 674 ++++++++++++++++++++++++++++++++++++++++++++++++
- doc/example/GPL-3.0.txt | 674 ------------------------------------------------
- 2 files changed, 674 insertions(+), 674 deletions(-)
+ doc/example/GPL-3.0.txt => GPL-3.0.txt | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit 2f3599a3e69b71ab5fd37be3c9719e48807ae395
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -4550,9 +4842,8 @@ Date:   Thu Oct 4 16:04:23 2012 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@6468 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- configure.ac | 421 +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- configure.in | 421 -----------------------------------------------------------
- 2 files changed, 421 insertions(+), 421 deletions(-)
+ configure.in => configure.ac | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit 9ed7b00036c41189e93594b2286118977974dafb
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -4675,11 +4966,10 @@ Date:   Thu Aug 30 16:55:11 2012 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@6451 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- Makefile.am       |   2 +-
- configure.in      |   5 +-
- m4/acx_pthread.m4 | 275 ------------------------------------------------
- m4/ax_pthread.m4  | 309 ++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 4 files changed, 312 insertions(+), 279 deletions(-)
+ Makefile.am                          |   2 +-
+ configure.in                         |   5 +-
+ m4/{acx_pthread.m4 => ax_pthread.m4} | 142 ++++++++++++++++++++++-------------
+ 3 files changed, 91 insertions(+), 58 deletions(-)
 
 commit c7c140d327adf07ab477eedd2fee38781bce35e5 (tag: pcsc-1.8.6)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -5869,9 +6159,8 @@ Date:   Sat Mar 24 13:21:37 2012 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@6246 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- UnitaryTests/FEATURE_CCID_ESC_COMMAND2.py          | 82 ----------------------
- .../FEATURE_CCID_ESC_COMMAND_Gemalto_features.py   | 82 ++++++++++++++++++++++
- 2 files changed, 82 insertions(+), 82 deletions(-)
+ ..._CCID_ESC_COMMAND2.py => FEATURE_CCID_ESC_COMMAND_Gemalto_features.py} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit de3ca4854319a4713a05b9a1846efe18f0574b8e
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -6222,10 +6511,9 @@ Date:   Sun Jan 15 17:20:00 2012 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@6177 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- src/spy/Makefile.am  |   2 +-
- src/spy/libpcscspy.c | 690 +++++++++++++++++++++++++++++++++++++++++++++++++++
- src/spy/pcsc-spy.c   | 690 ---------------------------------------------------
- 3 files changed, 691 insertions(+), 691 deletions(-)
+ src/spy/Makefile.am                  | 2 +-
+ src/spy/{pcsc-spy.c => libpcscspy.c} | 0
+ 2 files changed, 1 insertion(+), 1 deletion(-)
 
 commit e6d5b74bb41d80eedb84438e3f0795cbd12ee2ee
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -6311,9 +6599,8 @@ Date:   Sun Jan 15 15:30:35 2012 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@6171 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- src/spy/pcsc-spy    | 913 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- src/spy/pcsc-spy.py | 913 ----------------------------------------------------
- 2 files changed, 913 insertions(+), 913 deletions(-)
+ src/spy/{pcsc-spy.py => pcsc-spy} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit 029db4959d5b03b0a368917471639fb41a5806bd
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -7886,13 +8173,11 @@ Date:   Tue Sep 13 14:14:40 2011 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@5954 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- src/Makefile.am     |   8 +-
- src/pcsc-spy.c      | 621 ----------------------------------------------------
- src/pcsc-spy.py     | 343 -----------------------------
- src/spy/Makefile.am |   8 +
- src/spy/pcsc-spy.c  | 621 ++++++++++++++++++++++++++++++++++++++++++++++++++++
- src/spy/pcsc-spy.py | 343 +++++++++++++++++++++++++++++
- 6 files changed, 974 insertions(+), 970 deletions(-)
+ src/Makefile.am           | 8 ++------
+ src/spy/Makefile.am       | 8 ++++++++
+ src/{ => spy}/pcsc-spy.c  | 0
+ src/{ => spy}/pcsc-spy.py | 0
+ 4 files changed, 10 insertions(+), 6 deletions(-)
 
 commit c7f104b439bd24aafc3e25e3ed54f4a4a3571c7c
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -9036,7 +9321,7 @@ commit 9c86ff803f653ebbb167bd4dadda3b30b14d7750
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Jul 5 20:51:37 2011 +0000
 
-    Fix	a REVERSE_INULL coverity error
+    Fix     a REVERSE_INULL coverity error
     
     sContext->pFeeds is checked for NULL _after_ being dereferenced in
     RFUnloadReader() called by RFUnInitializeReader().
@@ -9944,14 +10229,13 @@ Date:   Fri Feb 25 13:36:57 2011 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@5638 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- configure.in          |  52 ++--
- src/Makefile.am       |   6 +-
- src/PCSC/ifdhandler.h |  18 +-
- src/hotplug_generic.c |   2 +-
- src/hotplug_libhal.c  | 610 -----------------------------------------------
- src/hotplug_libudev.c | 644 ++++++++++++++++++++++++++++++++++++++++++++++++++
- src/hotplug_linux.c   |   2 +-
- 7 files changed, 686 insertions(+), 648 deletions(-)
+ configure.in                                |  52 +--
+ src/Makefile.am                             |   6 +-
+ src/PCSC/ifdhandler.h                       |  18 +-
+ src/hotplug_generic.c                       |   2 +-
+ src/{hotplug_libhal.c => hotplug_libudev.c} | 502 +++++++++++++++-------------
+ src/hotplug_linux.c                         |   2 +-
+ 6 files changed, 310 insertions(+), 272 deletions(-)
 
 commit 8e9c826019eca22ca0a0e76ede8a1d001baad1dd
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -12409,9 +12693,8 @@ Date:   Tue Sep 14 09:35:25 2010 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@5254 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- src/PCSC/reader.h    | 235 +++++++++++++++++++++++++++++++++++++++++++++++++++
- src/PCSC/reader.h.in | 235 ---------------------------------------------------
- 2 files changed, 235 insertions(+), 235 deletions(-)
+ src/PCSC/{reader.h.in => reader.h} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit ee62e3572cacf2261e52e5a34208c5b06d7fa3ec
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -13530,9 +13813,9 @@ Date:   Thu Jul 8 20:35:03 2010 +0000
        {
        -readerconfSerialReader *reader_list;
        +reader_listSerialReader *reader_list = NULL;
-    		int i, rv;
-    			/* remember the configuration filename for
-    			 * RFReCheckReaderConf() */
+                    int i, rv;
+                            /* remember the configuration filename for
+                             * RFReCheckReaderConf() */
     
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@5066 0ce88b0d-b2fd-0310-8134-9614164e65ea
@@ -23811,9 +24094,8 @@ Date:   Sat Jun 23 19:54:14 2007 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@2576 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- doc/update-reader.conf.8    | 32 --------------------------------
- doc/update-reader.conf.8.in | 32 ++++++++++++++++++++++++++++++++
- 2 files changed, 32 insertions(+), 32 deletions(-)
+ doc/{update-reader.conf.8 => update-reader.conf.8.in} | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit a3c1c05f52303a175d70b749ad549d8b2864d2ec
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -29306,16 +29588,12 @@ Date:   Thu Sep 15 11:35:34 2005 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@1651 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- src/Makefile.am           |   9 ++---
- src/PCSC/dyn_generic.h    |  31 --------------
- src/PCSC/parser.h         |  37 -----------------
- src/PCSC/sys_generic.h    | 101 ----------------------------------------------
- src/PCSC/thread_generic.h |  65 -----------------------------
- src/dyn_generic.h         |  31 ++++++++++++++
- src/parser.h              |  37 +++++++++++++++++
- src/sys_generic.h         | 101 ++++++++++++++++++++++++++++++++++++++++++++++
- src/thread_generic.h      |  65 +++++++++++++++++++++++++++++
- 9 files changed, 238 insertions(+), 239 deletions(-)
+ src/Makefile.am                 | 9 ++++-----
+ src/{PCSC => }/dyn_generic.h    | 0
+ src/{PCSC => }/parser.h         | 0
+ src/{PCSC => }/sys_generic.h    | 0
+ src/{PCSC => }/thread_generic.h | 0
+ 5 files changed, 4 insertions(+), 5 deletions(-)
 
 commit 19d7b37d1c42050b0014226c088497c103be8a00
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -32430,11 +32708,10 @@ Date:   Tue Aug 10 19:47:23 2004 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@1167 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- etc/.cvsignore    |  1 +
- etc/Makefile.am   |  2 +-
- etc/pcscd.init.in | 69 ++++++++++++++++++++++++++++++++++++++++++++++++++
- etc/pcscd.startup | 76 -------------------------------------------------------
- 4 files changed, 71 insertions(+), 77 deletions(-)
+ etc/.cvsignore                       |  1 +
+ etc/Makefile.am                      |  2 +-
+ etc/{pcscd.startup => pcscd.init.in} | 21 +++++++--------------
+ 3 files changed, 9 insertions(+), 15 deletions(-)
 
 commit 826f0e92e84da464d5f46beb5ab5537e9b29d045
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -37741,10 +38018,9 @@ Date:   Thu Sep 11 09:47:41 2003 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@426 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- win32/PCSC.dsp       |  2 +-
- win32/config.h       | 41 +++++++++++++++++++++++++++++++++++++++++
- win32/win32_config.h | 41 -----------------------------------------
- 3 files changed, 42 insertions(+), 42 deletions(-)
+ win32/PCSC.dsp                     | 2 +-
+ win32/{win32_config.h => config.h} | 0
+ 2 files changed, 1 insertion(+), 1 deletion(-)
 
 commit 714558dc0b2622637efe753f30bdc2b1e17b38ff
 Author: Damien Sauveron <invalid@example.com>
@@ -40524,11 +40800,10 @@ Date:   Thu Aug 15 15:11:55 2002 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@127 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- doc/Makefile.am                                |  2 +-
- doc/Makefile.in                                |  4 +-
- doc/bundleTool.1                               | 51 --------------------------
- libmusclecard/utils/bundleTool/bundleTool.8.in | 37 +++++++++++++++++++
- 4 files changed, 40 insertions(+), 54 deletions(-)
+ doc/Makefile.am                                    |  2 +-
+ doc/Makefile.in                                    |  4 +--
+ .../utils/bundleTool/bundleTool.8.in               | 42 ++++++++--------------
+ 3 files changed, 17 insertions(+), 31 deletions(-)
 
 commit c5817191cd69873ea71e950245f6d600b8d8d463
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -40713,9 +40988,8 @@ Date:   Mon Jul 1 20:08:53 2002 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@112 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
- doc/pcscd.startup | 67 -------------------------------------------------------
- etc/pcscd.startup | 67 +++++++++++++++++++++++++++++++++++++++++++++++++++++++
- 2 files changed, 67 insertions(+), 67 deletions(-)
+ {doc => etc}/pcscd.startup | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
 
 commit 670abc29b12a2a4dfbbea3674fc2f265bb0d6c43
 Author: David Corcoran <invalid@example.com>
