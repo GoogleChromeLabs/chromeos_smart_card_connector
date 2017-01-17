@@ -425,8 +425,9 @@ ClientHandler.prototype.postRequestToServer_ = function(remoteCallMessage) {
     return result;
   }, function(error) {
     this.logger.warning(
-        'The remote call request ' + remoteCallMessage.getDebugRepresentation() +
-        ' failed with the following error: ' + error);
+        'The remote call request ' +
+        remoteCallMessage.getDebugRepresentation() + ' failed with the ' +
+        'following error: ' + error);
     return error;
   }, this);
 };
