@@ -249,7 +249,7 @@ Apps:
     possible too, though most probably will require more efforts.
 
 *   The following tools should be present in the system: **bash**,
-    **make**, **curl**, **sed**, **mktemp**, **realpath**.
+    **make**, **curl**, **sed**, **mktemp**, **realpath**, **xxd**.
 
 *   **Python 2.7**, including the dev package.
 
