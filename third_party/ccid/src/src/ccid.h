@@ -141,6 +141,7 @@ typedef struct
 
 /* Features from dwFeatures */
 #define CCID_CLASS_AUTO_CONF_ATR	0x00000002
+#define CCID_CLASS_AUTO_ACTIVATION	0x00000004
 #define CCID_CLASS_AUTO_VOLTAGE		0x00000008
 #define CCID_CLASS_AUTO_BAUD		0x00000020
 #define CCID_CLASS_AUTO_PPS_PROP	0x00000040
@@ -230,12 +231,12 @@ typedef struct
 /*
  * Possible values :
  * 3 -> 1.8V, 3V, 5V
- * 2 -> 3V, 5V
- * 1 -> 5V only
+ * 2 -> 3V, 5V, 1.8V
+ * 1 -> 5V, 1.8V, 3V
  * 0 -> automatic (selection made by the reader)
  */
 /*
- * To be safe we default to 5V
+ * The default is to start at 5V
  * otherwise we would have to parse the ATR and get the value of TAi (i>2) when
  * in T=15
  */

@@ -1,6 +1,6 @@
 #
 # List of readers supported by the CCID driver
-# Generated: 2016-09-29
+# Generated: 2017-01-06
 #
 # DO NOT EDIT BY HAND
 
@@ -71,6 +71,9 @@
 
 # id3 Semiconductors
 0x0B81:0x0200:id3 Semiconductors CL1356T
+
+# INGENICO
+0x0F14:0x003B:INGENICO Leo
 
 # Ingenico
 0x0F14:0x003D:Ingenico WITEO USB Smart Card Reader
@@ -163,7 +166,8 @@
 
 # appidkey GmbH
 0x2406:0x5003:appidkey GmbH ID50 -USB
-0x2406:0x5004:appidkey GmbH ID100-USB  SC Reader
+0x2406:0x5004:appidkey GmbH ID100L-USB-SC-Reader
+0x2406:0x5006:appidkey GmbH ID60-USB
 
 # ASK-RFID
 0x1FD3:0xCC1D:ASK-RFID CPL108
@@ -199,6 +203,8 @@
 0x25DD:0x1201:Bit4id cryptokey
 0x25DD:0x2221:Bit4id iAM
 0x25DD:0x2321:Bit4id CKey4
+0x25DD:0x2341:Bit4id tokenME FIPS v3
+0x25DD:0x2351:Bit4id Digital DNA Key
 0x25DD:0x3111:Bit4id miniLector
 
 # BLUTRONICS
@@ -699,6 +705,9 @@
 
 # DUALi
 #0x1DB2:0x0600:DUALi DE-ABCM6
+
+# HID OMNIKEY
+#0x076B:0x5340:HID OMNIKEY 5021 CL
 
 # jNet Technology inc.
 #0x0483:0x2010:jNet Technology inc. jToken s1
