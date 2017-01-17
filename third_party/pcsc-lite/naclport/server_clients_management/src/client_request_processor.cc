@@ -71,6 +71,7 @@ pp::Var MakeDumpedArrayBuffer(const void* data, size_t size) {
 
 void CancelRunningRequests(
     const std::string& logging_prefix,
+    LogSeverity error_log_severity,
     const std::vector<SCARDCONTEXT>& s_card_contexts) {
   for (SCARDCONTEXT s_card_context : s_card_contexts) {
     GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << "Performing forced " <<
@@ -79,8 +80,8 @@ void CancelRunningRequests(
 
     const LONG error_code = ::SCardCancel(s_card_context);
     if (error_code != SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced " <<
-          "cancellation of the blocking requests was unsuccessful: " <<
+      GOOGLE_SMART_CARD_LOG(error_log_severity) << logging_prefix <<
+          "Forced cancellation of the blocking requests was unsuccessful: " <<
           pcsc_stringify_error(error_code);
     }
   }
@@ -105,7 +106,7 @@ void CloseLeftHandles(
 void CleanupHandles(
     const std::string& logging_prefix,
     const std::vector<SCARDCONTEXT>& s_card_contexts) {
-  CancelRunningRequests(logging_prefix, s_card_contexts);
+  CancelRunningRequests(logging_prefix, LogSeverity::kWarning, s_card_contexts);
   CloseLeftHandles(logging_prefix, s_card_contexts);
 }
 
@@ -142,8 +143,16 @@ void PcscLiteClientRequestProcessor::ScheduleRunningRequestsCancellation() {
   // involved SCard* functions may call blocking libusb* functions - which are
   // not allowed to be called from the main thread (attempting to do this will
   // result in a deadlock).
+  //
+  // Note: the errors inside this function will be logged only at the info
+  // level, because this asynchronous call may happen after the context is
+  // already released due to the asynchronous job scheduled by the class
+  // destructor.
   std::thread(
-      &CancelRunningRequests, logging_prefix_, s_card_contexts).detach();
+      &CancelRunningRequests,
+      logging_prefix_,
+      LogSeverity::kInfo,
+      s_card_contexts).detach();
 }
 
 void PcscLiteClientRequestProcessor::ProcessRequest(
