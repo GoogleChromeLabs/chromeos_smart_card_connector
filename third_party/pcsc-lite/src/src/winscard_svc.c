@@ -815,6 +815,12 @@ static LONG MSGRemoveContext(SCARDCONTEXT hContext, SCONTEXT * threadContext)
 	LONG rv;
 	int lrv;
 
+	if (0 == threadContext->hContext)
+	{
+		Log1(PCSC_LOG_ERROR, "Invalidated handle");
+		return SCARD_E_INVALID_HANDLE;
+	}
+
 	if (threadContext->hContext != hContext)
 		return SCARD_E_INVALID_VALUE;
 
@@ -881,7 +887,6 @@ static LONG MSGRemoveContext(SCARDCONTEXT hContext, SCONTEXT * threadContext)
 		UNREF_READER(rContext)
 	}
 	(void)pthread_mutex_unlock(&threadContext->cardsList_lock);
-	list_destroy(&threadContext->cardsList);
 
 	/* We only mark the context as no longer in use.
 	 * The memory is freed in MSGCleanupCLient() */
@@ -894,6 +899,12 @@ static LONG MSGAddHandle(SCARDCONTEXT hContext, SCARDHANDLE hCard,
 	SCONTEXT * threadContext)
 {
 	LONG retval = SCARD_E_INVALID_VALUE;
+
+	if (0 == threadContext->hContext)
+	{
+		Log1(PCSC_LOG_ERROR, "Invalidated handle");
+		return SCARD_E_INVALID_HANDLE;
+	}
 
 	if (threadContext->hContext == hContext)
 	{
@@ -934,6 +945,7 @@ static LONG MSGAddHandle(SCARDCONTEXT hContext, SCARDHANDLE hCard,
 	return retval;
 }
 
+/* Pre-condition: MSGCheckHandleAssociation must succeed. */
 static LONG MSGRemoveHandle(SCARDHANDLE hCard, SCONTEXT * threadContext)
 {
 	int lrv;
@@ -991,6 +1003,10 @@ static LONG MSGCleanupClient(SCONTEXT * threadContext)
 		(void)SCardReleaseContext(threadContext->hContext);
 		(void)MSGRemoveContext(threadContext->hContext, threadContext);
 	}
+
+	(void)pthread_mutex_lock(&threadContext->cardsList_lock);
+	list_destroy(&threadContext->cardsList);
+	(void)pthread_mutex_unlock(&threadContext->cardsList_lock);
 
 	Log3(PCSC_LOG_DEBUG,
 		"Thread is stopping: dwClientID=%d, threadContext @%p",

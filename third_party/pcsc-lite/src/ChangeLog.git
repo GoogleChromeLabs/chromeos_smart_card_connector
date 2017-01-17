@@ -1,4 +1,46 @@
-commit c10dac9ce97ed3fda204fd73ef1f19ac4446426d (HEAD -> master, tag: pcsc-1.8.19, origin/master, origin/HEAD)
+commit 980fdc357bc36e3f608462a1d7bcb182b1bacdae (HEAD -> master, tag: pcsc-1.8.20, origin/master, origin/HEAD, github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 30 18:10:07 2016 +0100
+
+    Release 1.8.20
+
+ ChangeLog    | 5 +++++
+ configure.ac | 2 +-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+commit 3aaab9d998b5deb16a246cc7517e44144d281d3b
+Author: Peter Wu <peter@lekensteyn.nl>
+Date:   Sun Dec 25 23:37:51 2016 +0100
+
+    SCard: check for a valid hContext handles
+    
+    Reject invalid (zero) hContext handles and log the event.
+
+ src/winscard_svc.c | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+
+commit 697fe05967af7ea215bcd5d5774be587780c9e22
+Author: Peter Wu <peter@lekensteyn.nl>
+Date:   Sun Dec 25 23:31:24 2016 +0100
+
+    SCardReleaseContext: prevent use-after-free of cardsList
+    
+    Once MSGRemoveContext is invoked (via SCARD_RELEASE_CONTEXT),
+    cardsList is freed. A repeated invocation of SCARD_RELEASE_CONTEXT (with
+    an empty context handle) results in a use-after-free followed by a
+    double-free.
+    
+    After MSGRemoveContext, invocation of SCardEstablishContext enable
+    further use-after-free of cardsList in MSGCheckHandleAssociation,
+    MSGRemoveContext, MSGAddHandle, MSGRemoveHandle.
+    
+    To avoid this problem, destroy the list only when the client connection
+    is terminated.
+
+ src/winscard_svc.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+commit c10dac9ce97ed3fda204fd73ef1f19ac4446426d (tag: pcsc-1.8.19)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Dec 9 10:07:52 2016 +0100
 
@@ -153,7 +195,7 @@ Date:   Tue Nov 15 09:43:31 2016 +0100
  src/PCSC/ifdhandler.h | 17 ++++++++++++-----
  1 file changed, 12 insertions(+), 5 deletions(-)
 
-commit aa9db5f12b892c94585452fc106d48f064bc0f60 (github/master)
+commit aa9db5f12b892c94585452fc106d48f064bc0f60
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Oct 26 12:06:15 2016 +0200
 
