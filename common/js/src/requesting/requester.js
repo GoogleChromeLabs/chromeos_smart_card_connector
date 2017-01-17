@@ -184,6 +184,11 @@ Requester.prototype.responseMessageReceivedListener_ = function(messageData) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
   goog.asserts.assertObject(messageData);
 
+  if (this.isDisposed()) {
+    // All running requests have already been rejected while disposing.
+    return;
+  }
+
   var responseMessageData = ResponseMessageData.parseMessageData(messageData);
   if (goog.isNull(responseMessageData)) {
     GSC.Logging.failWithLogger(
