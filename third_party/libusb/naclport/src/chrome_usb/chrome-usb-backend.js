@@ -207,8 +207,15 @@ ChromeUsbBackend.prototype.reportRequestException_ = function(
  */
 ChromeUsbBackend.prototype.reportRequestError_ = function(
     debugRepresentation, promiseResolver, errorMessage) {
-  this.logger.warning('API error occurred while calling ' +
-                      debugRepresentation + ': ' + errorMessage);
+  if (errorMessage == 'Transfer timed out.') {
+    // FIXME(emaxx): Remove this special branch here once the USB transfer
+    // timeouts support is implemented. This branch is useful before this is
+    // done, as it suppresses the useless warning messages.
+    this.logger.info('Transfer timed out: ' + debugRepresentation);
+  } else {
+    this.logger.warning('API error occurred while calling ' +
+                        debugRepresentation + ': ' + errorMessage);
+  }
   promiseResolver.reject(new Error(errorMessage));
 };
 
