@@ -104,14 +104,12 @@ were made:
 
 2.  The Connector App is **bundled with a whitelist of known middleware
     App identifiers** (and a mapping to their display names). For all
-    middleware Apps not from this whitelist, **no user prompt is
-    shown** - they are just **blocked** silently.
+    middleware Apps not from this list, the user prompt will contain a
+    big scary warning message.
 
-    (In order to simplify the development of third-party middleware
-    Apps, the Connector App, when built manually in Debug mode, actually
-    allows unknown middleware Apps to connect. **But please never
-    deploy the Debug versions of the Apps to real users**: the debug log
-    messages may leak privacy-sensitive data.)
+    (Note: This behavior was introduced in the Smart Card Connector app
+    version 1.2.7.0. Before this version, all requests from unknown apps
+    were silently ignored.)
 
 3.  For the **enterprise** cases, it's possible to configure the
     Connector App through an **admin policy** (see

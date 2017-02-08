@@ -28,6 +28,10 @@
   -webkit-user-select: text;
 }
 
+.hidden {
+  display: none;
+}
+
 html,
 body,
 button {
@@ -71,6 +75,17 @@ body {
   right: 9px;
   top: 3px;
   -webkit-user-select: none;
+}
+
+#warning-message {
+  color: red;
+  font-size: 15px;
+  font-weight: 600;
+  padding: 20px 16px 0 0;
+}
+
+#warning-message::after {
+  content: "__MSG_pcscClientHandlingUserPromptDialogWarningMessageForUnknownApp__";
 }
 
 #message {

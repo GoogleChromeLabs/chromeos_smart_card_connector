@@ -345,7 +345,7 @@ ClientHandler.prototype.getPermissionsCheckPromise_ = function() {
   }, function(error) {
     this.logger.warning(
         'Client permission denied. All PC/SC requests will be rejected');
-    return error;
+    throw error;
   }, this);
 };
 
@@ -428,7 +428,7 @@ ClientHandler.prototype.postRequestToServer_ = function(remoteCallMessage) {
         'The remote call request ' +
         remoteCallMessage.getDebugRepresentation() + ' failed with the ' +
         'following error: ' + error);
-    return error;
+    throw error;
   }, this);
 };
 

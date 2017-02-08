@@ -140,9 +140,8 @@ UserPromptingChecker.prototype.check = function(clientAppId) {
         } else {
           this.logger.fine(
               'No stored user selection was found for the client App with id ' +
-              '"' + clientAppId + '", checking whether to show the user ' +
-              'prompt...');
-          this.promptUserIfAllowed_(clientAppId, promiseResolver);
+              '"' + clientAppId + '", going to show the user prompt...');
+          this.promptUser_(clientAppId, promiseResolver);
         }
       },
       function() {
@@ -198,20 +197,12 @@ UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
  * @param {!goog.promise.Resolver} promiseResolver
  * @private
  */
-UserPromptingChecker.prototype.promptUserIfAllowed_ = function(
+UserPromptingChecker.prototype.promptUser_ = function(
     clientAppId, promiseResolver) {
   this.knownAppsRegistry_.getById(clientAppId).then(function(knownApp) {
     this.promptUserForKnownApp_(clientAppId, knownApp, promiseResolver);
   }, function() {
-    if (goog.DEBUG) {
-      this.promptUserForUnknownApp_(clientAppId, promiseResolver);
-    } else {
-      this.logger.info('Rejected permission to client App with id "' +
-                       clientAppId + '" because this App is not in known list');
-      this.notifyAboutRejectionOfUnknownApp_(clientAppId);
-      promiseResolver.reject(new Error(
-          'Reject permission because this App is not in known list'));
-    }
+    this.promptUserForUnknownApp_(clientAppId, promiseResolver);
   }, this);
 };
 
@@ -226,30 +217,28 @@ UserPromptingChecker.prototype.promptUserForKnownApp_ = function(
   this.logger.info(
       'Showing the user prompt for the known client App with id "' +
       clientAppId + '" and name "' + knownApp.name + '"...');
-  this.promptUser_(clientAppId, {
+  this.runPromptDialog_(clientAppId, {
     'is_client_known': true,
     'client_app_id': clientAppId,
     'client_app_name': knownApp.name
   }, promiseResolver);
 };
 
-if (goog.DEBUG) {
-  /**
-   * @param {string} clientAppId
-   * @param {!goog.promise.Resolver} promiseResolver
-   * @private
-   */
-  UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
-      clientAppId, promiseResolver) {
-    this.logger.info(
-        'Showing the debug-only user prompt for the unknown client App with ' +
-        'id "' + clientAppId + '"...');
-    this.promptUser_(
-        clientAppId,
-        {'is_client_known': false, 'client_app_id': clientAppId},
-        promiseResolver);
-  };
-}
+/**
+ * @param {string} clientAppId
+ * @param {!goog.promise.Resolver} promiseResolver
+ * @private
+ */
+UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
+    clientAppId, promiseResolver) {
+  this.logger.info(
+      'Showing the warning user prompt for the unknown client App with id "' +
+      clientAppId + '"...');
+  this.runPromptDialog_(
+      clientAppId,
+      {'is_client_known': false, 'client_app_id': clientAppId},
+      promiseResolver);
+};
 
 /**
  * @param {string} clientAppId
@@ -257,7 +246,7 @@ if (goog.DEBUG) {
  * @param {!goog.promise.Resolver} promiseResolver
  * @private
  */
-UserPromptingChecker.prototype.promptUser_ = function(
+UserPromptingChecker.prototype.runPromptDialog_ = function(
     clientAppId, userPromptDialogData, promiseResolver) {
   var dialogPromise = GSC.PopupWindow.Server.runModalDialog(
       USER_PROMPT_DIALOG_URL,

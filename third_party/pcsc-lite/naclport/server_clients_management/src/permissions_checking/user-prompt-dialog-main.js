@@ -106,6 +106,7 @@ function prepareMessage() {
         goog.dom.getElement('message-prefix'), UNTRUSTED_CLASS);
     goog.dom.classlist.add(
         goog.dom.getElement('message-suffix'), UNTRUSTED_CLASS);
+    goog.dom.classlist.remove(goog.dom.getElement('warning-message'), 'hidden');
   }
 }
 
