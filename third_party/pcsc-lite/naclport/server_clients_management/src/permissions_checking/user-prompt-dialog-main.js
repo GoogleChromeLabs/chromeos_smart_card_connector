@@ -33,6 +33,9 @@
  * button or the deny button, or the dialog was canceled), it uses the methods
  * of the GoogleSmartCard.PopupWindow library for returning the result to the
  * caller window (i.e. to the App's background page).
+ *
+ * TODO(emaxx): Implement internationalization using the GoogleSmartCard.I18n
+ * library instead of the CSS rules (which is ugly and non a11y friendly).
  */
 
 goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.Main');
