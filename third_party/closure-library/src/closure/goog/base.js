@@ -345,6 +345,7 @@ goog.VALID_MODULE_RE_ = /^[a-zA-Z_$][a-zA-Z0-9._$]*$/;
  *
  * @param {string} name Namespace provided by this file in the form
  *     "goog.package.part", is expected but not required.
+ * @return {void}
  */
 goog.module = function(name) {
   if (!goog.isString(name) || !name ||
@@ -399,14 +400,14 @@ goog.module.get = function(name) {
  */
 goog.module.getInternal_ = function(name) {
   if (!COMPILED) {
-    if (goog.isProvided_(name)) {
-      // goog.require only return a value with-in goog.module files.
-      return name in goog.loadedModules_ ? goog.loadedModules_[name] :
-                                           goog.getObjectByName(name);
-    } else {
-      return null;
+    if (name in goog.loadedModules_) {
+      return goog.loadedModules_[name];
+    } else if (!goog.implicitNamespaces_[name]) {
+      var ns = goog.getObjectByName(name);
+      return ns != null ? ns : null;
     }
   }
+  return null;
 };
 
 
@@ -479,6 +480,9 @@ goog.setTestOnly = function(opt_message) {
  * into the JavaScript binary. If it is required elsewhere, it will be type
  * checked as normal.
  *
+ * Before using goog.forwardDeclare, please read the documentation at
+ * https://github.com/google/closure-compiler/wiki/Bad-Type-Annotation to
+ * understand the options and tradeoffs when working with forward declarations.
  *
  * @param {string} name The namespace to forward declare in the form of
  *     "goog.package.part".
@@ -752,6 +756,10 @@ goog.abstractMethod = function() {
  *     method to.
  */
 goog.addSingletonGetter = function(ctor) {
+  // instance_ is immediately set to prevent issues with sealed constructors
+  // such as are encountered when a constructor is returned as the export object
+  // of a goog.module in unoptimized code.
+  ctor.instance_ = undefined;
   ctor.getInstance = function() {
     if (ctor.instance_) {
       return ctor.instance_;

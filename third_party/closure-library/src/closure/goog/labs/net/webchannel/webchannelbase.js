@@ -64,7 +64,7 @@ var requestStats = goog.labs.net.webChannel.requestStats;
  *
  * @param {!goog.net.WebChannel.Options=} opt_options Configuration for the
  *        WebChannel instance.
- * @param {string=} opt_clientVersion An application-specific version number
+ * @param {number=} opt_clientVersion An application-specific version number
  *        that is sent to the server when connected.
  * @param {!ConnectionState=} opt_conn Previously determined connection
  *        conditions.
@@ -75,10 +75,17 @@ var requestStats = goog.labs.net.webChannel.requestStats;
 goog.labs.net.webChannel.WebChannelBase = function(
     opt_options, opt_clientVersion, opt_conn) {
   /**
-   * The application specific version that is passed to the server.
-   * @private {?string}
+   * The client library version (capabilities).
+   * @private {number}
    */
-  this.clientVersion_ = opt_clientVersion || null;
+  this.clientVersion_ = opt_clientVersion || 0;
+
+  /**
+   * The server library version (capabilities).
+   * @private {number}
+   */
+  this.serverVersion_ = 0;
+
 
   /**
    * An array of queued maps that need to be sent to the server.
@@ -1082,9 +1089,12 @@ WebChannelBase.prototype.open_ = function() {
   var requestText = this.dequeueOutgoingMaps_();
   var uri = this.forwardChannelUri_.clone();
   uri.setParameterValue('RID', rid);
-  if (this.clientVersion_) {
-    uri.setParameterValue('CVER', this.clientVersion_);
-  }
+
+  // TODO(user): use CVER parameter after server compatibility is fixed
+
+  // if (this.clientVersion_ > 0) {
+  //   uri.setParameterValue('CVER', this.clientVersion_);
+  // }
 
   // Add the reconnect parameters.
   this.addAdditionalParams_(uri);
@@ -1643,10 +1653,19 @@ WebChannelBase.prototype.onInput_ = function(respArray) {
       if (nextArray[0] == 'c') {
         this.sid_ = nextArray[1];
         this.hostPrefix_ = this.correctHostPrefix(nextArray[2]);
+
         var negotiatedVersion = nextArray[3];
         if (goog.isDefAndNotNull(negotiatedVersion)) {
           this.channelVersion_ = negotiatedVersion;
+          this.channelDebug_.info('VER=' + this.channelVersion_);
         }
+
+        var negotiatedServerVersion = nextArray[4];
+        if (goog.isDefAndNotNull(negotiatedServerVersion)) {
+          this.serverVersion_ = negotiatedServerVersion;
+          this.channelDebug_.info('SVER=' + this.serverVersion_);
+        }
+
         this.state_ = WebChannelBase.State.OPENED;
         if (this.handler_) {
           this.handler_.channelOpened(this);
