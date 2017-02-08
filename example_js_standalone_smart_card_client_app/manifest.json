@@ -1,0 +1,15 @@
+{
+  "manifest_version": 2,
+  "name": "JS Smart Card Client Example",
+  "description": "An example of App that works with Smart Card readers through a PC/SC-Lite API provided by Smart Card Connector App",
+  "version": "0.0.0.0",
+  "app": {
+    "background": {
+      "persistent": false,
+      "scripts": [
+        "google-smart-card-client-library.js",
+        "background.js"
+      ]
+    }
+  }
+}
