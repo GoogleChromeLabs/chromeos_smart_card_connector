@@ -415,6 +415,12 @@ under desktop OSes:
 
         sudo service pcscd stop
 
+    On macOS systems (since at least El Capitan, 10.11) the pcscd daemon
+    has been replaced by a daemon called com.apple.ifdreader. You can
+    stop it using::
+
+        sudo pkill -HUP com.apple.ifdreader
+
 *   **On \*nix systems, the USB device file permissions may prevent
     Chrome from accessing the device**.
 
