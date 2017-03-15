@@ -801,6 +801,26 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
         &response_length);
   }
 
+  if (!response_protocol_information &&
+      scard_response_protocol_information.dwProtocol == SCARD_PROTOCOL_ANY) {
+    // When SCARD_PROTOCOL_ANY placeholder value was passed to SCardTransmit as
+    // the value of pioRecvPci->dwProtocol, it may be returned (and IS actually
+    // returned with the current implementation of PC/SC-Lite and CCID)
+    // unmodified - and that's technically correct, as such usage is not
+    // officially documented for PC/SC-Lite. (They actually do the similar
+    // placeholder substitution internally, but only when no input parameter was
+    // passed - therefore without any effect on the output arguments.)
+    //
+    // But as this NaCl port always returns the value of this output argument to
+    // the callers, even when the caller didn't supply the input parameter with
+    // the protocol, then this SCARD_PROTOCOL_ANY placeholder value has to be
+    // replaced with some actual protocol value. There is no absolutely reliable
+    // way to obtain it here, but assuming that it's the same as the input
+    // protocol seems to be rather safe.
+    scard_response_protocol_information.dwProtocol =
+        scard_send_protocol_information.dwProtocol;
+  }
+
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   if (return_code == SCARD_S_SUCCESS) {
     tracer.AddReturnedArg(
