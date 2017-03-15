@@ -19,6 +19,9 @@
  * global <code>CLOSURE_NO_DEPS</code> is set to true.  This allows projects to
  * include their own deps file(s) from different locations.
  *
+ * Avoid including base.js more than once. This is strictly discouraged and not
+ * supported. goog.require(...) won't work properly in that case.
+ *
  * @author arv@google.com (Erik Arvidsson)
  *
  * @provideGoog
@@ -135,7 +138,7 @@ goog.exportPath_ = function(name, opt_object, opt_objectToExportTo) {
     if (!parts.length && goog.isDef(opt_object)) {
       // last part and we have an object; use it
       cur[part] = opt_object;
-    } else if (cur[part]) {
+    } else if (cur[part] && Object.prototype.hasOwnProperty.call(cur, part)) {
       cur = cur[part];
     } else {
       cur = cur[part] = {};
@@ -1383,6 +1386,48 @@ if (goog.DEPENDENCIES_ENABLED) {
 
 
 /**
+ * @package {?boolean}
+ * Visible for testing.
+ */
+goog.hasBadLetScoping = null;
+
+
+/**
+ * @return {boolean}
+ * @package Visible for testing.
+ */
+goog.useSafari10Workaround = function() {
+  if (goog.hasBadLetScoping == null) {
+    var hasBadLetScoping;
+    try {
+      hasBadLetScoping = !eval(
+          '"use strict";' +
+          'let x = 1; function f() { return typeof x; };' +
+          'f() == "number";');
+    } catch (e) {
+      // Assume that ES6 syntax isn't supported.
+      hasBadLetScoping = false;
+    }
+    goog.hasBadLetScoping = hasBadLetScoping;
+  }
+  return goog.hasBadLetScoping;
+};
+
+
+/**
+ * @param {string} moduleDef
+ * @return {string}
+ * @package Visible for testing.
+ */
+goog.workaroundSafari10EvalBug = function(moduleDef) {
+  return '(function(){' + moduleDef +
+      '\n' +  // Terminate any trailing single line comment.
+      ';' +   // Terminate any trailing expression.
+      '})();\n';
+};
+
+
+/**
  * @param {function(?):?|string} moduleDef The module definition.
  */
 goog.loadModule = function(moduleDef) {
@@ -1401,6 +1446,10 @@ goog.loadModule = function(moduleDef) {
     if (goog.isFunction(moduleDef)) {
       exports = moduleDef.call(undefined, {});
     } else if (goog.isString(moduleDef)) {
+      if (goog.useSafari10Workaround()) {
+        moduleDef = goog.workaroundSafari10EvalBug(moduleDef);
+      }
+
       exports = goog.loadModuleFromSource_.call(undefined, moduleDef);
     } else {
       throw Error('Invalid module definition');
@@ -1416,7 +1465,8 @@ goog.loadModule = function(moduleDef) {
     if (goog.moduleLoaderState_.declareLegacyNamespace) {
       goog.constructNamespace_(moduleName, exports);
     } else if (
-        goog.SEAL_MODULE_EXPORTS && Object.seal && goog.isObject(exports)) {
+        goog.SEAL_MODULE_EXPORTS && Object.seal && typeof exports == 'object' &&
+        exports != null) {
       Object.seal(exports);
     }
 
@@ -2197,8 +2247,7 @@ goog.cssNameMappingStyle_;
  */
 goog.getCssName = function(className, opt_modifier) {
   // String() is used for compatibility with compiled soy where the passed
-  // className can be non-string objects like here
-  // http://google3/java/com/google/privacy/accountcentral/common/ui/client/cards/popupcard.soy?l=74&rcl=94079467
+  // className can be non-string objects.
   if (String(className).charAt(0) == '.') {
     throw new Error(
         'className passed in goog.getCssName must not start with ".".' +

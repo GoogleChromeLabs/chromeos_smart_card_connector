@@ -78,6 +78,11 @@ goog.net.WebChannel = function() {};
  * server. This object is mutable, and custom headers may be changed, removed,
  * or added during the runtime after a channel has been opened.
  *
+ * initMessageHeaders: similar to messageHeaders, but any custom headers will
+ * be sent only once when the channel is opened. Typical usage is to send
+ * an auth header to the server, which only checks the auth header at the time
+ * when the channel is opened.
+ *
  * messageUrlParams: custom url query parameters to be added to every message
  * sent to the server. This object is mutable, and custom parameters may be
  * changed, removed or added during the runtime after a channel has been opened.
@@ -110,15 +115,21 @@ goog.net.WebChannel = function() {};
  * take precedence over any duplicated parameter specified with
  * messageUrlParams, whose value will be ignored.
  *
+ * httpHeadersOverwriteParam: the URL parameter name to allow custom HTTP
+ * headers to be overwritten as a URL param to bypass CORS preflight.
+ * goog.net.rpc.HttpCors is used to encode the HTTP headers.
+ *
  * @typedef {{
  *   messageHeaders: (!Object<string, string>|undefined),
+ *   initMessageHeaders: (!Object<string, string>|undefined),
  *   messageUrlParams: (!Object<string, string>|undefined),
  *   clientProtocolHeaderRequired: (boolean|undefined),
  *   concurrentRequestLimit: (number|undefined),
  *   supportsCrossDomainXhr: (boolean|undefined),
  *   testUrl: (string|undefined),
  *   sendRawJson: (boolean|undefined),
- *   httpSessionIdParam: (string|undefined)
+ *   httpSessionIdParam: (string|undefined),
+ *   httpHeadersOverwriteParam: (string|undefined)
  * }}
  */
 goog.net.WebChannel.Options;
@@ -202,6 +213,41 @@ goog.net.WebChannel.MessageEvent.prototype.data;
 
 /**
  * WebChannel level error conditions.
+ *
+ * Summary of error debugging and reporting in WebChannel:
+ *
+ * Network Error
+ * 1. By default the webchannel library will set the error status to
+ *    NETWORK_ERROR when a channel has to be aborted or closed. NETWORK_ERROR
+ *    may be recovered by the application by retrying and opening a new channel.
+ * 2. There may be lost messages (not acked by the server) when a channel is
+ *    aborted. Currently we don't have a public API to retrieve messages that
+ *    are waiting to be acked on the client side. File a bug if you think it
+ *    is useful to expose such an API.
+ * 3. Details of why a channel fails are available via closure debug logs,
+ *    and stats events (see webchannel/requeststats.js). Those are internal
+ *    stats and are subject to change. File a bug if you think it's useful to
+ *    version and expose such stats as part of the WebChannel API.
+ *
+ * Server Error
+ * 1. SERVER_ERROR is intended to indicate a non-recoverable condition, e.g.
+ *    when auth fails.
+ * 2. We don't currently generate any such errors, because most of the time
+ *    it's the responsibility of upper-layer frameworks or the application
+ *    itself to indicate to the client why a webchannel has been failed
+ *    by the server.
+ * 3. When a channel is failed by the server explicitly, we still signal
+ *    NETWORK_ERROR to the client. Explicit server failure may happen when the
+ *    server does a fail-over, or becomes overloaded, or conducts a forced
+ *    shutdown etc.
+ * 4. We use some heuristic to decide if the network (aka cloud) is down
+ *    v.s. the actual server is down.
+ *
+ *  RuntimeProperties.getLastStatusCode is a useful state that we expose to
+ *  the client to indicate the HTTP response status code of the last HTTP
+ *  request initiated by the WebChannel client library, for debugging
+ *  purposes only.
+ *
  * @enum {number}
  */
 goog.net.WebChannel.ErrorStatus = {
@@ -211,7 +257,7 @@ goog.net.WebChannel.ErrorStatus = {
   /** Communication to the server has failed. */
   NETWORK_ERROR: 1,
 
-  /** The server fails to accept the WebChannel. */
+  /** The server fails to accept or process the WebChannel. */
   SERVER_ERROR: 2
 };
 

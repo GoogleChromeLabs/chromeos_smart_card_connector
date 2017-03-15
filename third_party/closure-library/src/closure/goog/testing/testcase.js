@@ -37,6 +37,7 @@ goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.TagName');
+goog.require('goog.json');
 goog.require('goog.object');
 goog.require('goog.testing.JsUnitException');
 goog.require('goog.testing.asserts');
@@ -708,9 +709,24 @@ goog.testing.TestCase.prototype.getNumFilesLoaded = function() {
  * Returns the test results object: a map from test names to a list of test
  * failures (if any exist).
  * @return {!Object<string, !Array<string>>} Tests results object.
+ * @deprecated
  */
+// TODO(dankurka): Delete this once testing infrastructure has been updated
+// and released
 goog.testing.TestCase.prototype.getTestResults = function() {
-  return this.result_.resultsByName;
+  var map = {};
+  goog.object.forEach(this.result_.resultsByName, function(resultArray, key) {
+    // Make sure we only use properties on the actual map
+    if (!Object.prototype.hasOwnProperty.call(
+            this.result_.resultsByName, key)) {
+      return;
+    }
+    map[key] = [];
+    for (var j = 0; j < resultArray.length; j++) {
+      map[key].push(resultArray[j].toString());
+    }
+  }, this);
+  return map;
 };
 
 
@@ -726,12 +742,7 @@ goog.testing.TestCase.prototype.getTestResults = function() {
  * by the test to indicate it has finished.
  */
 goog.testing.TestCase.prototype.runTests = function() {
-  try {
-    this.setUpPage();
-  } catch (e) {
-    this.exceptionBeforeTest = e;
-  }
-  this.execute();
+  this.runSetUpPage_(this.execute);
 };
 
 
@@ -743,21 +754,33 @@ goog.testing.TestCase.prototype.runTests = function() {
  * @package
  */
 goog.testing.TestCase.prototype.runTestsReturningPromise = function() {
-  try {
-    this.setUpPage();
-  } catch (e) {
-    this.exceptionBeforeTest = e;
-  }
-  if (!this.prepareForRun_()) {
-    return goog.Promise.resolve(this.result_);
-  }
-  this.log('Starting tests: ' + this.name_);
-  this.saveMessage('Start');
-  this.batchTime_ = this.now();
   return new goog.Promise(function(resolve) {
-    this.runNextTestCallback_ = resolve;
-    this.runNextTest_();
+    this.runSetUpPage_(function() {
+      if (!this.prepareForRun_()) {
+        resolve(this.result_);
+        return;
+      }
+      this.log('Starting tests: ' + this.name_);
+      this.saveMessage('Start');
+      this.batchTime_ = this.now();
+      this.runNextTestCallback_ = resolve;
+      this.runNextTest_();
+    });
   }, this);
+};
+
+
+/**
+ * Runs the setUpPage methods.
+ * @param {!function(this:goog.testing.TestCase)} runTestsFn Callback to invoke
+ *     after setUpPage has completed.
+ * @private
+ */
+goog.testing.TestCase.prototype.runSetUpPage_ = function(runTestsFn) {
+  this.invokeTestFunction_(this.setUpPage, runTestsFn, function(e) {
+    this.exceptionBeforeTest = e;
+    runTestsFn.call(this);
+  }, 'setUpPage');
 };
 
 
@@ -1075,6 +1098,7 @@ goog.testing.TestCase.invalidateAssertionException = function(e) {
 /**
  * Gets called before any tests are executed.  Can be overridden to set up the
  * environment for the whole test case.
+ * @return {!Thenable|undefined}
  */
 goog.testing.TestCase.prototype.setUpPage = function() {};
 
@@ -1420,9 +1444,9 @@ goog.testing.TestCase.prototype.recordError_ = function(testName, opt_e) {
   var err = this.logError(testName, opt_e);
   this.result_.errors.push(err);
   if (testName in this.result_.resultsByName) {
-    this.result_.resultsByName[testName].push(err.toString());
+    this.result_.resultsByName[testName].push(err);
   } else {
-    this.result_.resultsByName[testName] = [err.toString()];
+    this.result_.resultsByName[testName] = [err];
   }
 };
 
@@ -1600,7 +1624,7 @@ goog.testing.TestCase.Result = function(testCase) {
    * as the key in the map, and the array of strings is an optional list
    * of failure messages. If the array is empty, the test passed. Otherwise,
    * the test failed.
-   * @type {!Object<string, !Array<string>>}
+   * @type {!Object<string, !Array<goog.testing.TestCase.Error>>}
    */
   this.resultsByName = {};
 
@@ -1806,4 +1830,18 @@ goog.testing.TestCase.Error = function(source, message, opt_stack) {
 goog.testing.TestCase.Error.prototype.toString = function() {
   return 'ERROR in ' + this.source + '\n' + this.message +
       (this.stack ? '\n' + this.stack : '');
+};
+
+/**
+ * Returns an object representing the error suitable for JSON serialization.
+ * @return {{source: string, message: string, stacktrace: string}} An object
+ *     representation of the error.
+ * @private
+ */
+goog.testing.TestCase.Error.prototype.toObject_ = function() {
+  return {
+    'source': this.source,
+    'message': this.message,
+    'stacktrace': this.stack || ''
+  };
 };
