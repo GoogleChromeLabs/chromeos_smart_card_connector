@@ -48,10 +48,10 @@ def main():
   client_library = urllib2.urlopen(client_library_download_url).read()
 
   if os.path.dirname(__file__):
-      output_file_path = os.path.join(
-          os.path.relpath(os.path.dirname(__file__)), OUTPUT_FILE_NAME)
+    output_file_path = os.path.join(
+        os.path.relpath(os.path.dirname(__file__)), OUTPUT_FILE_NAME)
   else:
-      output_file_path = OUTPUT_FILE_NAME
+    output_file_path = OUTPUT_FILE_NAME
   with open(output_file_path, "wt") as f:
     f.write(client_library)
 
