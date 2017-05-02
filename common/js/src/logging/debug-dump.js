@@ -88,7 +88,7 @@ function dumpMapping(value) {
  */
 function dumpNumber(value) {
   // Format things like "NaN" and "Infinity" textually
-  if (!goog.math.isFiniteNumber(value))
+  if (!isFinite(value))
     return value.toString();
 
   // Format real numbers by the default JSON formatter
