@@ -147,6 +147,17 @@ goog.events.EventType = {
   VOLUMECHANGE: 'volumechange',
   WAITING: 'waiting',
 
+  // Media Source Extensions events
+  // https://www.w3.org/TR/media-source/#mediasource-events
+  SOURCEOPEN: 'sourceopen',
+  SOURCEENDED: 'sourceended',
+  SOURCECLOSED: 'sourceclosed',
+  // https://www.w3.org/TR/media-source/#sourcebuffer-events
+  ABORT: 'abort',
+  UPDATE: 'update',
+  UPDATESTART: 'updatestart',
+  UPDATEEND: 'updateend',
+
   // HTML 5 History events
   // See http://www.w3.org/TR/html5/browsers.html#event-definitions-0
   HASHCHANGE: 'hashchange',
@@ -229,6 +240,11 @@ goog.events.EventType = {
   COMPOSITIONSTART: 'compositionstart',
   COMPOSITIONUPDATE: 'compositionupdate',
   COMPOSITIONEND: 'compositionend',
+
+  // The beforeinput event is initially only supported in Safari. See
+  // https://bugs.chromium.org/p/chromium/issues/detail?id=342670 for Chrome
+  // implementation tracking.
+  BEFOREINPUT: 'beforeinput',
 
   // Webview tag events
   // See http://developer.chrome.com/dev/apps/webview_tag.html

@@ -132,6 +132,27 @@ function testProvideWatch() {
   delete goog.yoddle;
 }
 
+// Namespaces should not conflict with elements added to the window based on
+// their id
+function testConflictingSymbolAndId() {
+  // Create a div with a given id
+  var divElement = document.createElement('div');
+  divElement.id = 'clashingname';
+  document.body.appendChild(divElement);
+
+  // The object at window.clashingname is the element with that id
+  assertEquals(window.clashingname, divElement);
+
+  // Export a symbol to a sub-namespace of that id
+  var symbolObject = {};
+  goog.exportSymbol('clashingname.symbolname', symbolObject);
+
+  // The symbol has been added...
+  assertEquals(window.clashingname.symbolname, symbolObject);
+
+  // ...and has not affected the original div
+  assertEquals(window.clashingname, divElement);
+}
 
 function testProvideStrictness() {
   // alias to avoid the being picked up by the deps scanner.
@@ -1641,6 +1662,10 @@ function testGoogModuleGet() {
   // Validate the module exports
   var testModuleExports = goog.module.get('goog.test_module');
   assertTrue(goog.isFunction(testModuleExports));
+
+  // Test that any escaping of </script> in test files is correct. Escape the
+  // / in </script> here so that any such code does not affect it here.
+  assertEquals('<\/script>', testModuleExports.CLOSING_SCRIPT_TAG);
 
   // Validate that the module exports object has not changed
   assertEquals(earlyTestModuleGet, testModuleExports);

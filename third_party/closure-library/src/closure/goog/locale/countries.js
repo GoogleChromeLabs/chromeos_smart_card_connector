@@ -72,9 +72,9 @@ goog.locale.countries = [
   'BZ', // Belize
   'CA', // Canada
   'CC', // Cocos (Keeling) Islands
-  'CD', // Congo (DRC)
+  'CD', // Congo - Kinshasa
   'CF', // Central African Republic
-  'CG', // Congo (Republic)
+  'CG', // Congo - Brazzaville
   'CH', // Switzerland
   'CI', // Côte d’Ivoire
   'CK', // Cook Islands

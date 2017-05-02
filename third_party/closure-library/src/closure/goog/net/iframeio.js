@@ -139,7 +139,7 @@ goog.require('goog.Timer');
 goog.require('goog.Uri');
 goog.require('goog.array');
 goog.require('goog.asserts');
-goog.require('goog.debug');
+goog.require('goog.debug.HtmlFormatter');
 goog.require('goog.dom');
 goog.require('goog.dom.InputType');
 goog.require('goog.dom.TagName');
@@ -846,7 +846,7 @@ goog.net.IframeIo.prototype.sendFormInternal_ = function() {
           this.onIeReadyStateChange_, false, this);
     }
 
-    /** @preserveTry */
+
     try {
       this.errorHandled_ = false;
       this.form_.submit();
@@ -960,7 +960,7 @@ goog.net.IframeIo.prototype.sendFormInternal_ = function() {
 
     goog.log.fine(this.logger_, 'Submitting form');
 
-    /** @preserveTry */
+
     try {
       this.errorHandled_ = false;
       clone.submit();
@@ -981,7 +981,8 @@ goog.net.IframeIo.prototype.sendFormInternal_ = function() {
 
       goog.log.error(
           this.logger_,
-          'Error when submitting form: ' + goog.debug.exposeException(e));
+          'Error when submitting form: ' +
+              goog.debug.HtmlFormatter.exposeException(e));
 
       if (!this.ignoreResponse_) {
         goog.events.unlisten(
@@ -1044,7 +1045,7 @@ goog.net.IframeIo.prototype.onIeReadyStateChange_ = function(e) {
         this.iframe_, goog.events.EventType.READYSTATECHANGE,
         this.onIeReadyStateChange_, false, this);
     var doc;
-    /** @preserveTry */
+
     try {
       doc = goog.dom.getFrameContentDocument(this.iframe_);
 
@@ -1102,7 +1103,7 @@ goog.net.IframeIo.prototype.handleLoad_ = function(contentDocument) {
   // Try to get the innerHTML.  If this fails then it can be an access denied
   // error or the document may just not have a body, typical case is if there
   // is an IE's default 404.
-  /** @preserveTry */
+
   try {
     var body = contentDocument.body;
     this.lastContent_ = body.textContent || body.innerText;

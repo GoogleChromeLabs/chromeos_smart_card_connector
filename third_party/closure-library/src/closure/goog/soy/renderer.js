@@ -150,7 +150,7 @@ goog.soy.Renderer.prototype.renderElement = function(
  * Renders a Soy template and returns the output string.
  * If the template is strict, it must be of kind HTML. To render strict
  * templates of other kinds, use {@code renderText} (for {@code kind="text"}) or
- * {@code renderStrict}.
+ * {@code renderStrictOfKind}.
  *
  * @param {?function(ARG_TYPES, null=, Object<string, *>=):*} template
  *     The Soy template to render.
@@ -199,9 +199,41 @@ goog.soy.Renderer.prototype.renderText = function(template, opt_templateData) {
 
 
 /**
+ * Renders a strict Soy HTML template and returns the output SanitizedHtml
+ * object.
+ * @param {?function(ARG_TYPES, null=, Object<string, *>=):
+ *     !goog.soy.data.SanitizedHtml} template The Soy template to render.
+ * @param {ARG_TYPES=} opt_templateData The data for the template.
+ * @return {!goog.soy.data.SanitizedHtml}
+ * @template ARG_TYPES
+ */
+goog.soy.Renderer.prototype.renderStrict = function(
+    template, opt_templateData) {
+  return this.renderStrictOfKind(
+      template, opt_templateData, goog.soy.data.SanitizedContentKind.HTML);
+};
+
+
+/**
+ * Renders a strict Soy template and returns the output SanitizedUri object.
+ *
+ * @param {!function(ARG_TYPES, null=, ?Object<string, *>=):
+ *     !goog.soy.data.SanitizedUri} template The Soy template to render.
+ * @param {ARG_TYPES=} opt_templateData The data for the template.
+ * @return {!goog.soy.data.SanitizedUri}
+ * @template ARG_TYPES
+ */
+goog.soy.Renderer.prototype.renderStrictUri = function(
+    template, opt_templateData) {
+  return this.renderStrictOfKind(
+      template, opt_templateData, goog.soy.data.SanitizedContentKind.URI);
+};
+
+
+/**
  * Renders a strict Soy template and returns the output SanitizedContent object.
  *
- * @param {?function(ARG_TYPES, null=, Object<string, *>=):RETURN_TYPE}
+ * @param {?function(ARG_TYPES, null=, ?Object<string, *>=): RETURN_TYPE}
  *     template The Soy template to render.
  * @param {ARG_TYPES=} opt_templateData The data for the template.
  * @param {goog.soy.data.SanitizedContentKind=} opt_kind The output kind to
@@ -212,7 +244,7 @@ goog.soy.Renderer.prototype.renderText = function(template, opt_templateData) {
  *     goog.soy.data.SanitizedHtml.
  * @template ARG_TYPES, RETURN_TYPE
  */
-goog.soy.Renderer.prototype.renderStrict = function(
+goog.soy.Renderer.prototype.renderStrictOfKind = function(
     template, opt_templateData, opt_kind) {
   var result =
       template(opt_templateData || {}, undefined, this.getInjectedData_());
@@ -237,7 +269,7 @@ goog.soy.Renderer.prototype.renderStrict = function(
  * a runtime error.
  *
  * @param {?function(ARG_TYPES, null=, Object<string, *>=):
- *     goog.soy.data.SanitizedContent} template The Soy template to render.
+ *     !goog.soy.data.SanitizedHtml} template The Soy template to render.
  * @param {ARG_TYPES=} opt_templateData The data for the template.
  * @return {!goog.html.SafeHtml}
  * @template ARG_TYPES
@@ -245,6 +277,7 @@ goog.soy.Renderer.prototype.renderStrict = function(
 goog.soy.Renderer.prototype.renderSafeHtml = function(
     template, opt_templateData) {
   var result = this.renderStrict(template, opt_templateData);
+  // Convert from SanitizedHtml to SafeHtml.
   return result.toSafeHtml();
 };
 
@@ -264,7 +297,7 @@ goog.soy.Renderer.prototype.renderSafeHtml = function(
  */
 goog.soy.Renderer.prototype.renderSafeStyleSheet = function(
     template, opt_templateData) {
-  var result = this.renderStrict(
+  var result = this.renderStrictOfKind(
       template, opt_templateData, goog.soy.data.SanitizedContentKind.CSS);
   // TODO(mlourenco): Call result.toSafeStyleSheet() once that exists.
   return goog.html.uncheckedconversions

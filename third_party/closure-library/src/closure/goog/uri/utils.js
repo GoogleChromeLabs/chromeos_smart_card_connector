@@ -225,7 +225,7 @@ goog.uri.utils.ComponentIndex = {
  *
  * Each component can be accessed via the component indices; for example:
  * <pre>
- * goog.uri.utils.split(someStr)[goog.uri.utils.CompontentIndex.QUERY_DATA];
+ * goog.uri.utils.split(someStr)[goog.uri.utils.ComponentIndex.QUERY_DATA];
  * </pre>
  *
  * @param {string} uri The URI string to examine.
@@ -635,13 +635,14 @@ goog.uri.utils.appendQueryData_ = function(buffer) {
 
 /**
  * Appends key=value pairs to an array, supporting multi-valued objects.
- * @param {string} key The key prefix.
+ * @param {*} key The key prefix.
  * @param {goog.uri.utils.QueryValue} value The value to serialize.
  * @param {!Array<string>} pairs The array to which the 'key=value' strings
  *     should be appended.
  * @private
  */
 goog.uri.utils.appendKeyValuePairs_ = function(key, value, pairs) {
+  goog.asserts.assertString(key);
   if (goog.isArray(value)) {
     // Convince the compiler it's an array.
     goog.asserts.assertArray(value);

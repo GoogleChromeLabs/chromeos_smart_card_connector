@@ -41,7 +41,6 @@ goog.require('goog.json');
 goog.require('goog.object');
 goog.require('goog.testing.JsUnitException');
 goog.require('goog.testing.asserts');
-goog.require('goog.testing.stacktrace');
 
 
 
@@ -654,6 +653,8 @@ goog.testing.TestCase.prototype.getReport = function(opt_verbose) {
 
   if (this.running) {
     rv.push(this.name_ + ' [RUNNING]');
+  } else if (this.result_.runCount == 0) {
+    rv.push(this.name_ + ' [NO TESTS RUN]');
   } else {
     var label = this.result_.isSuccess() ? 'PASSED' : 'FAILED';
     rv.push(this.name_ + ' [' + label + ']');
@@ -729,6 +730,26 @@ goog.testing.TestCase.prototype.getTestResults = function() {
   return map;
 };
 
+/**
+ * Returns the test results as json.
+ * This is called by the testing infrastructure through G_testrunner.
+ * @return {string} Tests results object.
+ */
+goog.testing.TestCase.prototype.getTestResultsAsJson = function() {
+  var map = {};
+  goog.object.forEach(this.result_.resultsByName, function(resultArray, key) {
+    // Make sure we only use properties on the actual map
+    if (!Object.prototype.hasOwnProperty.call(
+            this.result_.resultsByName, key)) {
+      return;
+    }
+    map[key] = [];
+    for (var j = 0; j < resultArray.length; j++) {
+      map[key].push(resultArray[j].toObject_());
+    }
+  }, this);
+  return goog.json.serialize(map);
+};
 
 /**
  * Executes each of the tests, yielding asynchronously if execution time
@@ -1508,8 +1529,7 @@ goog.testing.TestCase.prototype.logError = function(name, opt_e) {
       errMsg = opt_e;
     } else {
       errMsg = opt_e.message || opt_e.description || opt_e.toString();
-      stack = opt_e.stack ? goog.testing.stacktrace.canonicalize(opt_e.stack) :
-                            opt_e['stackTrace'];
+      stack = opt_e.stack ? opt_e.stack : opt_e['stackTrace'];
     }
   } else {
     errMsg = 'An unknown error occurred';
