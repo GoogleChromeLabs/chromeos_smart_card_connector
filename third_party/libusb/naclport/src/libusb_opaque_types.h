@@ -250,7 +250,7 @@ struct libusb_device_handle final {
       const google_smart_card::chrome_usb::ConnectionHandle&
           chrome_usb_connection_handle);
 
-  // Constructs the structure and decrements the reference counter of the
+  // Destructs the structure and decrements the reference counter of the
   // specified libusb_device instance.
   ~libusb_device_handle();
 
