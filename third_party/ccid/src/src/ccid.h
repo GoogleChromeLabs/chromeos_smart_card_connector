@@ -137,6 +137,13 @@ typedef struct
 	 * Gemalto extra features, if any
 	 */
 	struct GEMALTO_FIRMWARE_FEATURES *gemalto_firmware_features;
+
+#ifdef ENABLE_ZLP
+	/*
+	 * Zero Length Packet fixup (boolean)
+	 */
+	char zlp;
+#endif
 } _ccid_descriptor;
 
 /* Features from dwFeatures */
@@ -187,6 +194,7 @@ typedef struct
 #define SCR331DI	0x04E65111
 #define SCR331DINTTCOM	0x04E65120
 #define SDI010		0x04E65121
+#define SEC1210	0x04241202
 #define CHERRYXX33	0x046A0005
 #define CHERRYST2000	0x046A003E
 #define OZ776		0x0B977762
@@ -213,6 +221,7 @@ typedef struct
 #define ElatecTWN4	0x09D80427
 #define SCM_SCL011 0x04E65293
 #define HID_AVIATOR	0x076B3A21
+#define HID_OMNIKEY_5422 0x076B5422
 
 #define VENDOR_GEMALTO 0x08E6
 #define GET_VENDOR(readerID) ((readerID >> 16) & 0xFFFF)
