@@ -42,7 +42,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /**
  * This function was borrowed from PC/SC-Lite sources (file error.c).
  */
-PCSC_API char* pcsc_stringify_error(const LONG pcscError)
+PCSC_API const char* pcsc_stringify_error(const LONG pcscError)
 {
   static char strError[75];
   const char *msg = NULL;
