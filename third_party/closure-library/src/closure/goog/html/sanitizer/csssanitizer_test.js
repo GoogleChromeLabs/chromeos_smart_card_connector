@@ -20,6 +20,7 @@ goog.require('goog.array');
 goog.require('goog.html.SafeStyle');
 goog.require('goog.html.SafeUrl');
 goog.require('goog.html.sanitizer.CssSanitizer');
+goog.require('goog.html.testing');
 goog.require('goog.string');
 goog.require('goog.testing.jsunit');
 goog.require('goog.userAgent');
@@ -83,8 +84,8 @@ function assertCSSTextEquals(expectedCssText, actualCssText) {
 /**
  * Gets sanitized inline style.
  * @param {string} sourceCss CSS to be sanitized.
- * @param {function (string, string):?string=} opt_urlRewrite URL rewriter that
- *     only returns an unwrapped goog.html.SafeUrl.
+ * @param {function (string, string):?goog.html.SafeUrl=} opt_urlRewrite URL
+ *     rewriter that only returns a goog.html.SafeUrl.
  * @return {string} Sanitized inline style.
  * @private
  */
@@ -105,21 +106,6 @@ function getSanitizedInlineStyle(sourceCss, opt_urlRewrite) {
 }
 
 
-/**
- * Mimics sanitization done by the Html sanitizer.
- * @param {string} url Original url
- * @return {?string} Sanitized url
- * @private
- */
-function originalUrl(url) {
-  var sanitizedUrl = goog.html.SafeUrl.unwrap(goog.html.SafeUrl.sanitize(url));
-  if (sanitizedUrl == goog.html.SafeUrl.INNOCUOUS_STRING) {
-    return null;
-  }
-  return sanitizedUrl;
-}
-
-
 function testValidCss() {
   var actualCSS = 'font-family: inherit';
   var expectedCSS = 'font-family: inherit';
@@ -136,6 +122,7 @@ function testValidCss() {
   if (isIE8()) {
     // IE8 doesn't like sub-pixels
     // https://blogs.msdn.microsoft.com/ie/2010/11/03/sub-pixel-fonts-in-ie9/
+    expectedCSS = expectedCSS.replace('-0.5px', '0px');
     expectedCSS = expectedCSS.replace('-1.25px', '-1px');
   }
   assertCSSTextEquals(expectedCSS, getSanitizedInlineStyle(actualCSS));
@@ -180,7 +167,8 @@ function testInvalidCssRemoved() {
 
   actualCSS = 'background: bogus url("foo.png") transparent';
   assertCSSTextEquals(
-      expectedCSS, getSanitizedInlineStyle(actualCSS, originalUrl));
+      expectedCSS,
+      getSanitizedInlineStyle(actualCSS, goog.html.SafeUrl.sanitize));
 
   // expression(...) is not allowed for font so is rejected wholesale -- the
   // internal string "pwned" is not passed through.
@@ -193,13 +181,17 @@ function testInvalidCssRemoved() {
 function testCssBackground() {
   var actualCSS, expectedCSS;
 
-  function proxyUrl(url) { return 'https://goo.gl/proxy?url=' + url; }
+  function proxyUrl(url) {
+    return goog.html.testing.newSafeUrlForTest(
+        'https://goo.gl/proxy?url=' + url);
+  }
 
   // Don't require the URL sanitizer to protect string boundaries.
   actualCSS = 'background-image: url("javascript:evil(1337)")';
   expectedCSS = '';
   assertCSSTextEquals(
-      expectedCSS, getSanitizedInlineStyle(actualCSS, originalUrl));
+      expectedCSS,
+      getSanitizedInlineStyle(actualCSS, goog.html.SafeUrl.sanitize));
 
   actualCSS = 'background-image: url("http://goo.gl/foo.png")';
   expectedCSS =
@@ -215,7 +207,13 @@ function testCssBackground() {
 }
 
 function testVendorPrefixed() {
-  var actualCSS = '-webkit-text-stroke: calc(3px - 2px) red';
+  var actualCSS = '-webkit-text-stroke: 1px red';
+  var expectedCSS = '';
+  assertCSSTextEquals(expectedCSS, getSanitizedInlineStyle(actualCSS));
+}
+
+function testDisallowedFunction() {
+  var actualCSS = 'border-width: calc(10px + 20px)';
   var expectedCSS = '';
   assertCSSTextEquals(expectedCSS, getSanitizedInlineStyle(actualCSS));
 }
@@ -236,10 +234,7 @@ function testColor() {
   for (var i = 0; i < colors.length; ++i) {
     var validColorValue = 'color: ' + colors[i];
     assertCSSTextEquals(
-        // Firefox doesn't "normalize" the CSS text unless a property is
-        // modified, so need to lower case it prior to comparison.
-        validColorValue.toLowerCase(),
-        getSanitizedInlineStyle(validColorValue));
+        validColorValue, getSanitizedInlineStyle(validColorValue));
   }
 
   for (var i = 0; i < notcolors.length; ++i) {
@@ -307,13 +302,20 @@ function testSanitizeInlineStyleString() {
       // disallowed URL
       inputCss: 'background-image: url("http://example.com")',
       sanitizedCss: '',
-      uriRewriter: function(uri) { return null; }
+      uriRewriter: function(uri) {
+        return null;
+      }
     },
     {
       // allowed URL
       inputCss: 'background-image: url("http://example.com")',
       sanitizedCss: 'background-image: url("http://example.com");',
-      uriRewriter: function(uri) { return uri; }
+      uriRewriter: goog.html.SafeUrl.sanitize
+    },
+    {
+      // preserves case
+      inputCss: 'font-family: Roboto, sans-serif',
+      sanitizedCss: 'font-family: Roboto, sans-serif'
     }
   ];
 

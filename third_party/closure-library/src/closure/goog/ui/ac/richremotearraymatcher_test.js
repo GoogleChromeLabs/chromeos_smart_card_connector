@@ -12,21 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('goog.ui.ac.RemoteArrayMatcherTest');
-goog.setTestOnly('goog.ui.ac.RemoteArrayMatcherTest');
+goog.provide('goog.ui.ac.RichRemoteArrayMatcherTest');
+goog.setTestOnly('goog.ui.ac.RichRemoteArrayMatcherTest');
 
 goog.require('goog.net.XhrIo');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.net.XhrIo');
-goog.require('goog.ui.ac.RemoteArrayMatcher');
+goog.require('goog.ui.ac.RichRemoteArrayMatcher');
+
 var url = 'http://www.google.com';
 var token = 'goog';
 var maxMatches = 5;
-var fullToken = 'google';
 
-var responseJsonText = '["eric", "larry", "sergey", "marissa", "pupius"]';
-var responseJson = JSON.parse(responseJsonText);
+var responseJsonText = '[["type1", "eric", "larry", "sergey"]]';
+var responseJsonType1 = ["eric", "larry", "sergey"];
 
 var mockControl;
 var mockMatchHandler;
@@ -38,27 +38,34 @@ function setUp() {
   mockMatchHandler = mockControl.createFunctionMock();
 }
 
-function testRequestMatchingRows_noSimilarTrue() {
-  var matcher = new goog.ui.ac.RemoteArrayMatcher(url);
-  mockMatchHandler(token, responseJson);
+/**
+ * Callback for type1 responses.
+ * @param {string} response
+ * @return {string}
+ */
+function type1(response) {
+  return response;
+}
+
+function testRequestMatchingRows() {
+  var matcher = new goog.ui.ac.RichRemoteArrayMatcher(url);
+  mockMatchHandler(token, responseJsonType1);
   mockControl.$replayAll();
-  matcher.requestMatchingRows(token, maxMatches, mockMatchHandler, fullToken);
+  matcher.requestMatchingRows(token, maxMatches, mockMatchHandler);
   matcher.xhr_.simulateResponse(200, responseJsonText);
   mockControl.$verifyAll();
   mockControl.$resetAll();
 }
 
-function testRequestMatchingRows_twoCalls() {
-  var matcher = new goog.ui.ac.RemoteArrayMatcher(url);
-
-  var dummyMatchHandler = mockControl.createFunctionMock();
-
-  mockMatchHandler(token, responseJson);
+function testSetRowBuilder() {
+  var matcher = new goog.ui.ac.RichRemoteArrayMatcher(url);
+  matcher.setRowBuilder(function(type, response) {
+    assertEquals("type1", type);
+    return response;
+  });
+  mockMatchHandler(token, responseJsonType1);
   mockControl.$replayAll();
-
-  matcher.requestMatchingRows(token, maxMatches, dummyMatchHandler, fullToken);
-
-  matcher.requestMatchingRows(token, maxMatches, mockMatchHandler, fullToken);
+  matcher.requestMatchingRows(token, maxMatches, mockMatchHandler);
   matcher.xhr_.simulateResponse(200, responseJsonText);
   mockControl.$verifyAll();
   mockControl.$resetAll();

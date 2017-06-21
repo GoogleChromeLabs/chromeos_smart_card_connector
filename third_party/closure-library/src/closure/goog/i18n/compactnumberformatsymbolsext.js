@@ -15,7 +15,7 @@
 /**
  * @fileoverview Compact number formatting symbols.
  *
- * File generated from CLDR ver. 30.0.2
+ * File generated from CLDR ver. 31.0.1
  *
  * This file covers those locales that are not covered in
  * "compactnumberformatsymbols.js".
@@ -39,7 +39,6 @@ goog.provide('goog.i18n.CompactNumberFormatSymbols_ar_001');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_ar_AE');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_ar_BH');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_ar_DJ');
-goog.provide('goog.i18n.CompactNumberFormatSymbols_ar_DZ');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_ar_EG');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_ar_EH');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_ar_ER');
@@ -238,6 +237,7 @@ goog.provide('goog.i18n.CompactNumberFormatSymbols_eo');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_es_AR');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_es_BO');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_es_BR');
+goog.provide('goog.i18n.CompactNumberFormatSymbols_es_BZ');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_es_CL');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_es_CO');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_es_CR');
@@ -357,6 +357,7 @@ goog.provide('goog.i18n.CompactNumberFormatSymbols_is_IS');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_it_CH');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_it_IT');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_it_SM');
+goog.provide('goog.i18n.CompactNumberFormatSymbols_it_VA');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_ja_JP');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_jgo');
 goog.provide('goog.i18n.CompactNumberFormatSymbols_jgo_CM');
@@ -784,12 +785,6 @@ goog.i18n.CompactNumberFormatSymbols_ar_BH = goog.i18n.CompactNumberFormatSymbol
  * Compact number formatting symbols for locale ar_DJ.
  */
 goog.i18n.CompactNumberFormatSymbols_ar_DJ = goog.i18n.CompactNumberFormatSymbols_ar;
-
-
-/**
- * Compact number formatting symbols for locale ar_DZ.
- */
-goog.i18n.CompactNumberFormatSymbols_ar_DZ = goog.i18n.CompactNumberFormatSymbols_ar;
 
 
 /**
@@ -3361,6 +3356,71 @@ goog.i18n.CompactNumberFormatSymbols_es_BR = {
 
 
 /**
+ * Compact number formatting symbols for locale es_BZ.
+ */
+goog.i18n.CompactNumberFormatSymbols_es_BZ = {
+  COMPACT_DECIMAL_SHORT_PATTERN: {
+    '1000': {
+      'other': '0k'
+    },
+    '10000': {
+      'other': '00k'
+    },
+    '100000': {
+      'other': '000k'
+    },
+    '1000000000': {
+      'other': '0k M'
+    },
+    '10000000000': {
+      'other': '00k M'
+    },
+    '100000000000': {
+      'other': '000k M'
+    }
+  },
+  COMPACT_DECIMAL_LONG_PATTERN: {
+    '1000': {
+      'other': '0 mil'
+    },
+    '10000': {
+      'other': '00 mil'
+    },
+    '100000': {
+      'other': '000 mil'
+    },
+    '1000000': {
+      'other': '0 millones'
+    },
+    '10000000': {
+      'other': '00 millones'
+    },
+    '100000000': {
+      'other': '000 millones'
+    },
+    '1000000000': {
+      'other': '0 mil millones'
+    },
+    '10000000000': {
+      'other': '00 mil millones'
+    },
+    '100000000000': {
+      'other': '000 mil millones'
+    },
+    '1000000000000': {
+      'other': '0 billones'
+    },
+    '10000000000000': {
+      'other': '00 billones'
+    },
+    '100000000000000': {
+      'other': '000 billones'
+    }
+  }
+};
+
+
+/**
  * Compact number formatting symbols for locale es_CL.
  */
 goog.i18n.CompactNumberFormatSymbols_es_CL = {
@@ -5674,6 +5734,12 @@ goog.i18n.CompactNumberFormatSymbols_it_IT = goog.i18n.CompactNumberFormatSymbol
  * Compact number formatting symbols for locale it_SM.
  */
 goog.i18n.CompactNumberFormatSymbols_it_SM = goog.i18n.CompactNumberFormatSymbols_it;
+
+
+/**
+ * Compact number formatting symbols for locale it_VA.
+ */
+goog.i18n.CompactNumberFormatSymbols_it_VA = goog.i18n.CompactNumberFormatSymbols_it;
 
 
 /**
@@ -11892,7 +11958,7 @@ goog.i18n.CompactNumberFormatSymbols_zh_Hans_SG = goog.i18n.CompactNumberFormatS
 goog.i18n.CompactNumberFormatSymbols_zh_Hant = {
   COMPACT_DECIMAL_SHORT_PATTERN: {
     '1000': {
-      'other': '0千'
+      'other': '0'
     },
     '10000': {
       'other': '0萬'
@@ -11930,7 +11996,7 @@ goog.i18n.CompactNumberFormatSymbols_zh_Hant = {
   },
   COMPACT_DECIMAL_LONG_PATTERN: {
     '1000': {
-      'other': '0千'
+      'other': '0'
     },
     '10000': {
       'other': '0萬'
@@ -12013,7 +12079,7 @@ goog.i18n.CompactNumberFormatSymbols_zh_Hant_HK = {
   },
   COMPACT_DECIMAL_LONG_PATTERN: {
     '1000': {
-      'other': '0千'
+      'other': '0'
     },
     '10000': {
       'other': '0萬'
@@ -12096,7 +12162,7 @@ goog.i18n.CompactNumberFormatSymbols_zh_Hant_MO = {
   },
   COMPACT_DECIMAL_LONG_PATTERN: {
     '1000': {
-      'other': '0千'
+      'other': '0'
     },
     '10000': {
       'other': '0萬'
@@ -12141,7 +12207,7 @@ goog.i18n.CompactNumberFormatSymbols_zh_Hant_MO = {
 goog.i18n.CompactNumberFormatSymbols_zh_Hant_TW = {
   COMPACT_DECIMAL_SHORT_PATTERN: {
     '1000': {
-      'other': '0千'
+      'other': '0'
     },
     '10000': {
       'other': '0萬'
@@ -12179,7 +12245,7 @@ goog.i18n.CompactNumberFormatSymbols_zh_Hant_TW = {
   },
   COMPACT_DECIMAL_LONG_PATTERN: {
     '1000': {
-      'other': '0千'
+      'other': '0'
     },
     '10000': {
       'other': '0萬'
@@ -12269,10 +12335,6 @@ if (goog.LOCALE == 'ar_BH' || goog.LOCALE == 'ar-BH') {
 
 if (goog.LOCALE == 'ar_DJ' || goog.LOCALE == 'ar-DJ') {
   goog.i18n.CompactNumberFormatSymbols = goog.i18n.CompactNumberFormatSymbols_ar_DJ;
-}
-
-if (goog.LOCALE == 'ar_DZ' || goog.LOCALE == 'ar-DZ') {
-  goog.i18n.CompactNumberFormatSymbols = goog.i18n.CompactNumberFormatSymbols_ar_DZ;
 }
 
 if (goog.LOCALE == 'ar_EG' || goog.LOCALE == 'ar-EG') {
@@ -13067,6 +13129,10 @@ if (goog.LOCALE == 'es_BR' || goog.LOCALE == 'es-BR') {
   goog.i18n.CompactNumberFormatSymbols = goog.i18n.CompactNumberFormatSymbols_es_BR;
 }
 
+if (goog.LOCALE == 'es_BZ' || goog.LOCALE == 'es-BZ') {
+  goog.i18n.CompactNumberFormatSymbols = goog.i18n.CompactNumberFormatSymbols_es_BZ;
+}
+
 if (goog.LOCALE == 'es_CL' || goog.LOCALE == 'es-CL') {
   goog.i18n.CompactNumberFormatSymbols = goog.i18n.CompactNumberFormatSymbols_es_CL;
 }
@@ -13541,6 +13607,10 @@ if (goog.LOCALE == 'it_IT' || goog.LOCALE == 'it-IT') {
 
 if (goog.LOCALE == 'it_SM' || goog.LOCALE == 'it-SM') {
   goog.i18n.CompactNumberFormatSymbols = goog.i18n.CompactNumberFormatSymbols_it_SM;
+}
+
+if (goog.LOCALE == 'it_VA' || goog.LOCALE == 'it-VA') {
+  goog.i18n.CompactNumberFormatSymbols = goog.i18n.CompactNumberFormatSymbols_it_VA;
 }
 
 if (goog.LOCALE == 'ja_JP' || goog.LOCALE == 'ja-JP') {

@@ -15,7 +15,7 @@
 /**
  * @fileoverview Date interval formatting symbols for all locales.
  *
- * File generated from CLDR ver. 30.0.2
+ * File generated from CLDR ver. 31.0.1
  *
  * To reduce the file size (which may cause issues in some JS
  * developing environments), this file will only contain locales
@@ -197,6 +197,59 @@ exports.DateIntervalSymbols_am = {
 
 /** @const {!DateIntervalSymbols} */
 exports.DateIntervalSymbols_ar = {
+  FULL_DATE: {
+    'M': 'EEEE، d MMMM – EEEE، d MMMM، y',
+    'd': 'EEEE، d – EEEE، d MMMM، y',
+    '_': 'EEEE، d MMMM، y'
+  },
+  LONG_DATE: {
+    'M': 'd MMMM – d MMMM، y',
+    'd': 'd–d MMMM، y',
+    '_': 'd MMMM، y'
+  },
+  MEDIUM_DATE: {
+    'Mdy': 'd‏/M‏/y – d‏/M‏/y',
+    '_': 'dd‏/MM‏/y'
+  },
+  SHORT_DATE: {
+    '_': 'd‏/M‏/y'
+  },
+  FULL_TIME: {
+    'Mdy': 'd‏/M‏/y h:mm:ss a zzzz',
+    '_': 'h:mm:ss a zzzz'
+  },
+  LONG_TIME: {
+    'Mdy': 'd‏/M‏/y h:mm:ss a z',
+    '_': 'h:mm:ss a z'
+  },
+  MEDIUM_TIME: {
+    'Mdy': 'd‏/M‏/y h:mm:ss a',
+    '_': 'h:mm:ss a'
+  },
+  SHORT_TIME: {
+    'Mdy': 'd‏/M‏/y h:mm a',
+    'hm': 'h:mm–h:mm a',
+    '_': 'h:mm a'
+  },
+  FULL_DATETIME: {
+    '_': 'EEEE، d MMMM، y h:mm:ss a zzzz'
+  },
+  LONG_DATETIME: {
+    '_': 'd MMMM، y h:mm:ss a z'
+  },
+  MEDIUM_DATETIME: {
+    '_': 'dd‏/MM‏/y h:mm:ss a'
+  },
+  SHORT_DATETIME: {
+    'a': 'd‏/M‏/y h:mm a – h:mm a',
+    'hm': 'd‏/M‏/y h:mm–h:mm a',
+    '_': 'd‏/M‏/y h:mm a'
+  },
+  FALLBACK: '{0} – {1}'
+};
+
+/** @const {!DateIntervalSymbols} */
+exports.DateIntervalSymbols_ar_DZ = {
   FULL_DATE: {
     'M': 'EEEE، d MMMM – EEEE، d MMMM، y',
     'd': 'EEEE، d – EEEE، d MMMM، y',
@@ -4773,7 +4826,7 @@ exports.DateIntervalSymbols_sh = {
   },
   SHORT_TIME: {
     'Mdy': 'd.M.y. HH:mm',
-    'ahm': 'HH.mm–HH.mm',
+    'ahm': 'HH:mm–HH:mm',
     '_': 'HH:mm'
   },
   FULL_DATETIME: {
@@ -4786,7 +4839,7 @@ exports.DateIntervalSymbols_sh = {
     '_': 'dd.MM.y. HH:mm:ss'
   },
   SHORT_DATETIME: {
-    'ahm': 'd.M.yy. HH.mm–HH.mm',
+    'ahm': 'd.M.yy. HH:mm–HH:mm',
     '_': 'd.M.yy. HH:mm'
   },
   FALLBACK: '{0} – {1}'
@@ -5043,7 +5096,7 @@ exports.DateIntervalSymbols_sr = {
   },
   SHORT_TIME: {
     'Mdy': 'd.M.y. HH:mm',
-    'ahm': 'HH.mm–HH.mm',
+    'ahm': 'HH:mm–HH:mm',
     '_': 'HH:mm'
   },
   FULL_DATETIME: {
@@ -5056,7 +5109,7 @@ exports.DateIntervalSymbols_sr = {
     '_': 'dd.MM.y. HH:mm:ss'
   },
   SHORT_DATETIME: {
-    'ahm': 'd.M.yy. HH.mm–HH.mm',
+    'ahm': 'd.M.yy. HH:mm–HH:mm',
     '_': 'd.M.yy. HH:mm'
   },
   FALLBACK: '{0} – {1}'
@@ -5095,7 +5148,7 @@ exports.DateIntervalSymbols_sr_Latn = {
   },
   SHORT_TIME: {
     'Mdy': 'd.M.y. HH:mm',
-    'ahm': 'HH.mm–HH.mm',
+    'ahm': 'HH:mm–HH:mm',
     '_': 'HH:mm'
   },
   FULL_DATETIME: {
@@ -5108,7 +5161,7 @@ exports.DateIntervalSymbols_sr_Latn = {
     '_': 'dd.MM.y. HH:mm:ss'
   },
   SHORT_DATETIME: {
-    'ahm': 'd.M.yy. HH.mm–HH.mm',
+    'ahm': 'd.M.yy. HH:mm–HH:mm',
     '_': 'd.M.yy. HH:mm'
   },
   FALLBACK: '{0} – {1}'
@@ -5973,6 +6026,8 @@ if (goog.LOCALE == 'af') {
   defaultSymbols = exports.DateIntervalSymbols_am;
 } else if (goog.LOCALE == 'ar') {
   defaultSymbols = exports.DateIntervalSymbols_ar;
+} else if (goog.LOCALE == 'ar_DZ' || goog.LOCALE == 'ar-DZ') {
+  defaultSymbols = exports.DateIntervalSymbols_ar_DZ;
 } else if (goog.LOCALE == 'az') {
   defaultSymbols = exports.DateIntervalSymbols_az;
 } else if (goog.LOCALE == 'be') {
