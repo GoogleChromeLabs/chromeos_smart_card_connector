@@ -101,7 +101,7 @@ INTERNAL int ClientSetupSession(uint32_t* pdwClientID) {
 
 // This function is called by the client library in order to close the
 // communication channel to the daemon.
-INTERNAL int ClientCloseSession(uint32_t dwClientID) {
+INTERNAL void ClientCloseSession(uint32_t dwClientID) {
   bool is_failure = false;
   // Close the client end of the emulated socket pair.
   //
@@ -109,7 +109,8 @@ INTERNAL int ClientCloseSession(uint32_t dwClientID) {
   // switched into the "closed" internal state.
   google_smart_card::socketpair_emulation::Close(
       static_cast<int>(dwClientID), &is_failure);
-  return is_failure ? -1 : 0;
+  // Discard the possible error - there is no way to return it from this
+  // function, and the error is not a fatal.
 }
 
 // This is a replacement of the close() standard function, that has to be used

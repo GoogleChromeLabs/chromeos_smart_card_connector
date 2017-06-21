@@ -39,7 +39,6 @@ extern "C" {
 #include "winscard.h"
 #include "debuglog.h"
 #include "hotplug.h"
-#include "powermgt_generic.h"
 #include "readerfactory.h"
 #include "sys_generic.h"
 #include "winscard_svc.h"
@@ -177,13 +176,6 @@ void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
   ::RFWaitForReaderInit();
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Waiting for the readers " <<
       "initialization finished.";
-
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Registering for power " <<
-      "events...";
-  return_code = ::PMRegisterForPowerEvents();
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Registering for power " <<
-      "events finished with the following result code: " << return_code << ".";
-  GOOGLE_SMART_CARD_CHECK(return_code == 0);
 
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Starting PC/SC-Lite " <<
       "daemon thread...";
