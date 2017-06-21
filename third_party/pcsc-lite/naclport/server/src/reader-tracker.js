@@ -231,7 +231,12 @@ function TrackerThroughPcscServerHook(
   this.updateListener_ = updateListener;
 
   /**
-   * @type {!goog.structs.Map.<number, !ReaderInfo>}
+   * Map from the port number, as reported by the PC/SC-Lite server, to the
+   * reader information.
+   *
+   * The values can be null, which corresponds to readers that should be hidden
+   * from the result.
+   * @type {!goog.structs.Map.<number, ReaderInfo>}
    * @private
    */
   this.portToReaderInfoMap_ = new goog.structs.Map;
@@ -253,8 +258,11 @@ TrackerThroughPcscServerHook.prototype.getReaders = function() {
   // order across multiple calls).
   var ports = this.portToReaderInfoMap_.getKeys();
   goog.array.sort(ports);
-  return goog.array.map(
+  var result = goog.array.map(
       ports, this.portToReaderInfoMap_.get, this.portToReaderInfoMap_);
+  // Remove null entries, which correspond to readers that should be hidden.
+  result = result.filter(function(item) { return !goog.isNull(item); });
+  return result;
 };
 
 /**
@@ -298,27 +306,33 @@ TrackerThroughPcscServerHook.prototype.readerFinishAddListener_ = function(
 
   var returnCodeHex = GSC.DebugDump.dump(returnCode);
 
+  /** @type {ReaderInfo} */
+  var readerInfo = null;
   var readerTitleForLog = '"' + name + '" (port ' + port + ', device "' +
                           device + '")';
   if (returnCode === 0) {
     this.logger_.info('The reader ' + readerTitleForLog + ' was successfully ' +
                       'initialized');
+    readerInfo = new ReaderInfo(name, ReaderStatus.SUCCESS);
+  } else if (this.shouldHideFailedReader_(device)) {
+    this.logger_.info('Silent error while initializing the reader ' +
+                      readerTitleForLog + ': error code ' + returnCodeHex +
+                      '. This reader will be hidden from UI.');
   } else {
     this.logger_.warning('Failure while initializing the reader ' +
                          readerTitleForLog + ': error code ' + returnCodeHex);
-  }
-
-  if (returnCode === 0) {
-    var value = new ReaderInfo(name, ReaderStatus.SUCCESS);
-  } else {
-    var value = new ReaderInfo(name, ReaderStatus.FAILURE, returnCodeHex);
+    readerInfo = new ReaderInfo(name, ReaderStatus.FAILURE, returnCodeHex);
   }
 
   GSC.Logging.checkWithLogger(
       this.logger_,
       this.portToReaderInfoMap_.containsKey(port),
       'Finishing initializing reader without present reader!');
-  this.portToReaderInfoMap_.set(port, value);
+
+  // Note that the inserted value may be null, which means that this reader
+  // should be hidden from the result.
+  this.portToReaderInfoMap_.set(port, readerInfo);
+
   this.updateListener_();
 };
 
@@ -342,6 +356,24 @@ TrackerThroughPcscServerHook.prototype.readerRemoveListener_ = function(
       'Tried removing non-existing reader!');
   this.portToReaderInfoMap_.remove(port);
   this.updateListener_();
+};
+
+/**
+ * Checks whether the specified failed reader should be hidden from the reported
+ * list of readers.
+ * @param {string} device The device name, as reported from the PC/SC-Lite
+ * server.
+ * @private
+ */
+TrackerThroughPcscServerHook.prototype.shouldHideFailedReader_ = function(
+    device) {
+  // Hide failed readers which are named with non-zero interface number. They
+  // usually correspond to non smart card reader interfaces of composite USB
+  // devices - while, typically, the CCID driver guesses the right interface to
+  // talk to from the reader whose name contains interface equal to zero.
+  // Therefore it makes sense to just hide from UI these items as they don't
+  // actually signal about any error.
+  return /:libhal:.*serialnotneeded_if[1-9][0-9]*$/.test(device);
 };
 
 /**
