@@ -150,6 +150,11 @@ GSC.PcscLiteServer.ReaderTracker = function(
 var ReaderTracker = GSC.PcscLiteServer.ReaderTracker;
 
 /**
+ * Adds a listener that will be called with the list of reader information
+ * objects each time it changes.
+ *
+ * The listener is also called immediately (synchronously from this method) with
+ * the list of currently available readers.
  * @param {function(!Array.<!ReaderInfo>)} listener
  */
 ReaderTracker.prototype.addOnUpdateListener = function(listener) {
@@ -160,6 +165,7 @@ ReaderTracker.prototype.addOnUpdateListener = function(listener) {
 };
 
 /**
+ * Removes a previously added listener function.
  * @param {function(!Array.<!ReaderInfo>)} listener
  */
 ReaderTracker.prototype.removeOnUpdateListener = function(listener) {
@@ -172,6 +178,11 @@ ReaderTracker.prototype.removeOnUpdateListener = function(listener) {
 };
 
 /**
+ * Returns the current list of reader information objects.
+ *
+ * It is guaranteed that the successfully initialized readers will always
+ * precede the failed readers. Besides that, the order of items is unspecified,
+ * but expected to be relatively stable across multiple calls.
  * @return {!Array.<!ReaderInfo>}
  */
 ReaderTracker.prototype.getReaders = function() {
@@ -188,7 +199,7 @@ ReaderTracker.prototype.getReaders = function() {
         return readerInfo.status != ReaderStatus.SUCCESS;
       });
 
-  return goog.array.concat(nonSuccessReaders, successReaders);
+  return goog.array.concat(successReaders, nonSuccessReaders);
 };
 
 /**
