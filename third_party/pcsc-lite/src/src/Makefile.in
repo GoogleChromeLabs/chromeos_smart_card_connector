@@ -170,13 +170,12 @@ am__pcscd_SOURCES_DIST = auth.c auth.h atrhandler.c atrhandler.h \
 	hotplug_generic.c hotplug.h ifdwrapper.c ifdwrapper.h misc.h \
 	parser.h pcscdaemon.c pcscd.h PCSC/debuglog.h \
 	PCSC/ifdhandler.h PCSC/pcsclite.h PCSC/winscard.h \
-	PCSC/wintypes.h powermgt_generic.c powermgt_generic.h \
-	prothandler.c prothandler.h readerfactory.c readerfactory.h \
-	sd-daemon.c sd-daemon.h simclist.c simclist.h sys_generic.h \
-	sys_unix.c tokenparser.l hotplug_libudev.c hotplug_libusb.c \
-	hotplug_linux.c hotplug_macosx.c utils.c utils.h winscard.c \
-	winscard_msg.c winscard_msg.h winscard_msg_srv.c \
-	winscard_svc.c winscard_svc.h
+	PCSC/wintypes.h prothandler.c prothandler.h readerfactory.c \
+	readerfactory.h sd-daemon.c sd-daemon.h simclist.c simclist.h \
+	sys_generic.h sys_unix.c tokenparser.l hotplug_libudev.c \
+	hotplug_libusb.c hotplug_linux.c hotplug_macosx.c utils.c \
+	utils.h winscard.c winscard_msg.c winscard_msg.h \
+	winscard_msg_srv.c winscard_svc.c winscard_svc.h
 @ENABLE_SERIAL_TRUE@am__objects_1 = pcscd-configfile.$(OBJEXT)
 @ENABLE_USB_TRUE@am__objects_2 = pcscd-tokenparser.$(OBJEXT) \
 @ENABLE_USB_TRUE@	pcscd-hotplug_libudev.$(OBJEXT) \
@@ -188,13 +187,12 @@ am_pcscd_OBJECTS = pcscd-auth.$(OBJEXT) pcscd-atrhandler.$(OBJEXT) \
 	pcscd-dyn_hpux.$(OBJEXT) pcscd-dyn_macosx.$(OBJEXT) \
 	pcscd-dyn_unix.$(OBJEXT) pcscd-eventhandler.$(OBJEXT) \
 	pcscd-hotplug_generic.$(OBJEXT) pcscd-ifdwrapper.$(OBJEXT) \
-	pcscd-pcscdaemon.$(OBJEXT) pcscd-powermgt_generic.$(OBJEXT) \
-	pcscd-prothandler.$(OBJEXT) pcscd-readerfactory.$(OBJEXT) \
-	pcscd-sd-daemon.$(OBJEXT) pcscd-simclist.$(OBJEXT) \
-	pcscd-sys_unix.$(OBJEXT) $(am__objects_2) \
-	pcscd-utils.$(OBJEXT) pcscd-winscard.$(OBJEXT) \
-	pcscd-winscard_msg.$(OBJEXT) pcscd-winscard_msg_srv.$(OBJEXT) \
-	pcscd-winscard_svc.$(OBJEXT)
+	pcscd-pcscdaemon.$(OBJEXT) pcscd-prothandler.$(OBJEXT) \
+	pcscd-readerfactory.$(OBJEXT) pcscd-sd-daemon.$(OBJEXT) \
+	pcscd-simclist.$(OBJEXT) pcscd-sys_unix.$(OBJEXT) \
+	$(am__objects_2) pcscd-utils.$(OBJEXT) \
+	pcscd-winscard.$(OBJEXT) pcscd-winscard_msg.$(OBJEXT) \
+	pcscd-winscard_msg_srv.$(OBJEXT) pcscd-winscard_svc.$(OBJEXT)
 pcscd_OBJECTS = $(am_pcscd_OBJECTS)
 pcscd_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
@@ -528,8 +526,6 @@ pcscd_SOURCES = \
 	PCSC/pcsclite.h \
 	PCSC/winscard.h \
 	PCSC/wintypes.h \
-	powermgt_generic.c \
-	powermgt_generic.h \
 	prothandler.c \
 	prothandler.h \
 	readerfactory.c \
@@ -766,7 +762,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcscd-hotplug_macosx.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcscd-ifdwrapper.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcscd-pcscdaemon.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcscd-powermgt_generic.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcscd-prothandler.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcscd-readerfactory.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pcscd-sd-daemon.Po@am__quote@
@@ -1003,20 +998,6 @@ pcscd-pcscdaemon.obj: pcscdaemon.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='pcscdaemon.c' object='pcscd-pcscdaemon.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pcscd_CFLAGS) $(CFLAGS) -c -o pcscd-pcscdaemon.obj `if test -f 'pcscdaemon.c'; then $(CYGPATH_W) 'pcscdaemon.c'; else $(CYGPATH_W) '$(srcdir)/pcscdaemon.c'; fi`
-
-pcscd-powermgt_generic.o: powermgt_generic.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pcscd_CFLAGS) $(CFLAGS) -MT pcscd-powermgt_generic.o -MD -MP -MF $(DEPDIR)/pcscd-powermgt_generic.Tpo -c -o pcscd-powermgt_generic.o `test -f 'powermgt_generic.c' || echo '$(srcdir)/'`powermgt_generic.c
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pcscd-powermgt_generic.Tpo $(DEPDIR)/pcscd-powermgt_generic.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='powermgt_generic.c' object='pcscd-powermgt_generic.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pcscd_CFLAGS) $(CFLAGS) -c -o pcscd-powermgt_generic.o `test -f 'powermgt_generic.c' || echo '$(srcdir)/'`powermgt_generic.c
-
-pcscd-powermgt_generic.obj: powermgt_generic.c
-@am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pcscd_CFLAGS) $(CFLAGS) -MT pcscd-powermgt_generic.obj -MD -MP -MF $(DEPDIR)/pcscd-powermgt_generic.Tpo -c -o pcscd-powermgt_generic.obj `if test -f 'powermgt_generic.c'; then $(CYGPATH_W) 'powermgt_generic.c'; else $(CYGPATH_W) '$(srcdir)/powermgt_generic.c'; fi`
-@am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/pcscd-powermgt_generic.Tpo $(DEPDIR)/pcscd-powermgt_generic.Po
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	$(AM_V_CC)source='powermgt_generic.c' object='pcscd-powermgt_generic.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(AM_V_CC@am__nodep@)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pcscd_CFLAGS) $(CFLAGS) -c -o pcscd-powermgt_generic.obj `if test -f 'powermgt_generic.c'; then $(CYGPATH_W) 'powermgt_generic.c'; else $(CYGPATH_W) '$(srcdir)/powermgt_generic.c'; fi`
 
 pcscd-prothandler.o: prothandler.c
 @am__fastdepCC_TRUE@	$(AM_V_CC)$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(pcscd_CFLAGS) $(CFLAGS) -MT pcscd-prothandler.o -MD -MP -MF $(DEPDIR)/pcscd-prothandler.Tpo -c -o pcscd-prothandler.o `test -f 'prothandler.c' || echo '$(srcdir)/'`prothandler.c

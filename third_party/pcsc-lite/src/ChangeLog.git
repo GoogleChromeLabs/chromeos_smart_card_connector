@@ -1,4 +1,1027 @@
-commit 980fdc357bc36e3f608462a1d7bcb182b1bacdae (HEAD -> master, tag: pcsc-1.8.20, origin/master, origin/HEAD, github/master)
+commit 696023944649e0c52802e20994fb78d6b24d4efd (HEAD -> master, tag: pcsc-1.8.22, zotac/master, origin/master, origin/HEAD, github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Jun 17 08:56:54 2017 +0200
+
+    Release 1.8.22
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ ChangeLog    | 6 ++++++
+ configure.ac | 2 +-
+ 2 files changed, 7 insertions(+), 1 deletion(-)
+
+commit 7307cc4a80f887ef59487d7b8edf104fb56f13ca
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 15 14:50:28 2017 +0200
+
+    UnitaryTests/SCardCancel.c: test for SCardCancel
+    
+    Check that the fix in 81d52b98d84be900c6a6532d10d1fe88eac092cf works as
+    expected.
+
+ UnitaryTests/Makefile      |  1 +
+ UnitaryTests/SCardCancel.c | 88 ++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 89 insertions(+)
+
+commit 7a3738d2f8e48c669b0e3f485cb9dcabeffc941a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 15 14:45:48 2017 +0200
+
+    fix SCardCancel() that was broken in version 1.8.21
+    
+    Changes in 9a21c82330fc4b73ac00faf2c5cf948da5f8ab07 broke
+    SCardCancel().
+    The problem was that SCardCancel() was blocked until
+    SCardGetStatusChange() had finished. This is stupid because
+    SCardCancel() is supposed to cancel SCardGetStatusChange().
+    
+    Thanks to Ran Benita for the bug report
+    "[Pcsclite-muscle] A recent change causes SCardCancel() to block?"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/2017-June/000921.html
+
+ src/winscard_clnt.c | 8 +++++---
+ 1 file changed, 5 insertions(+), 3 deletions(-)
+
+commit 88a53f3ed21aa645e7c65661162f832a053fb9de
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 9 09:58:52 2017 +0200
+
+    RFAddReader: more correctly detect duplicate readers
+    
+    To detect a duplicate reader, checking the reader name and port is,
+    sometimes, not enough.
+    
+    The problem was when two readers are removed and re-inserted immediately.
+    One of the 2 readers may not yet be completely removed (from pcscd point
+    of view) when it is asked to insert it again.
+    
+    Fixes #20
+    "Reader not detected when disconnecting / connecting usb hub"
+    https://github.com/LudovicRousseau/PCSC/issues/20
+
+ src/readerfactory.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+commit 251771ad2c6278f460a995fb07ee02281930f987
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Jun 6 17:53:52 2017 +0200
+
+    DebugLogSetLevel: PCSC_LOG_INFO is "info"
+    
+    Level name "notice" was used for PCSC_LOG_INFO. We now use the label
+    "info".
+
+ src/debuglog.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit fa313f5442e78d312e18e025906a0ab43aa27a5e
+Author: Maximilian Stein <Maximilian.Stein@secunet.com>
+Date:   Wed May 3 15:29:45 2017 +0200
+
+    Enable info level logging
+
+ src/pcscdaemon.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+commit f47cccffcb534a7bd3528790d55d7ce5a71d70de (tag: pcsc-1.8.21)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 20 17:11:50 2017 +0200
+
+    Release 1.8.21
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ ChangeLog    | 18 ++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+
+commit a801c6e613fde89c09c755a20003ab82fd6a5c47
+Author: Frank Morgner <frankmorgner@gmail.com>
+Date:   Wed Apr 12 16:08:53 2017 +0200
+
+    simclist: handle faults during memory allocation
+    
+    fixes several situations that cause segmentation faults
+
+ src/simclist.c | 111 +++++++++++++++++++++++++++++++++++++++++----------------
+ 1 file changed, 81 insertions(+), 30 deletions(-)
+
+commit 8edd183ec82c826b228fd599d5529a0f111cd97b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 18 13:14:58 2017 +0200
+
+    Doxygen: add a sample code of multi-string use
+    
+    Add a sample code of how to parse the multi-string returned by
+    SCardListReaders().
+
+ src/winscard_clnt.c | 13 +++++++++++--
+ 1 file changed, 11 insertions(+), 2 deletions(-)
+
+commit fd1e32d0b524325a88e7e5b25a8cc2bd897ae668
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 13 21:38:40 2017 +0200
+
+    SCardDisconnect(): refactoring code
+    
+    Handle the error cases for SCARD_UNPOWER_CARD and SCARD_RESET_CARD in
+    the same code block. This avoids code duplication.
+
+ src/winscard.c | 38 ++++++++++++++------------------------
+ 1 file changed, 14 insertions(+), 24 deletions(-)
+
+commit 8edae1590448eb0519924434f7ba897ceef8d890
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 13 21:24:40 2017 +0200
+
+    SCardDisconnect(): fix status update for SCARD_UNPOWER_CARD
+    
+    Store the value returned by IFDPowerICC(, IFD_POWER_DOWN, ).
+    This value is then used later to decide if the powering down was a
+    success or not and set the card status accordingly.
+    
+    The problem was detected by pcsc_scan stress code. If a SCardTransmit()
+    fails because the card is removed then SCardDisconnect() is called to
+    unpower the card.
+    Because the card is removed the powering down fails but the card status
+    was not correctly updated.
+
+ src/winscard.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 6cba8a28c66b836244d920ebe0b9010b2302fc93
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 13 21:20:05 2017 +0200
+
+    Revert "SCardDisconnect(): fix ATR update for SCARD_UNPOWER_CARD"
+    
+    This reverts commit 70468bfaa08eae5715312de43aecb873a2df115f.
+
+ src/winscard.c | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+commit 70468bfaa08eae5715312de43aecb873a2df115f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 12 15:16:34 2017 +0200
+
+    SCardDisconnect(): fix ATR update for SCARD_UNPOWER_CARD
+    
+    When the card is disconnected with SCARD_RESET_CARD or
+    SCARD_UNPOWER_CARD then disable the current ATR early in the code and in
+    all cases.
+    
+    The problem was that the ATR was disabled only in the case
+    SCARD_RESET_CARD and only in case of failure.
+    So if SCARD_UNPOWER_CARD was used the ATR was still considered as valid,
+    even if the card was no more powered.
+
+ src/winscard.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+commit 582408c38397b7f36a30ec05cdbda06008d834ff
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 15:22:00 2017 +0200
+
+    Remove dead code
+    
+    If rv indicates an error then the program has already exited using
+    test_rv(rv, hContext, PANIC);
+
+ src/testpcsc.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+commit 091d501225eb1eef5535f4f7e0e07a0ae8cf909e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 15:16:19 2017 +0200
+
+    DebugLogSetCategory() returns void now
+    
+    The value returned by DebugLogSetCategory() was ignored.
+    Now the DebugLogSetCategory() function returns void.
+
+ src/PCSC/debuglog.h | 2 +-
+ src/debuglog.c      | 6 ++----
+ src/pcscdaemon.c    | 2 +-
+ 3 files changed, 4 insertions(+), 6 deletions(-)
+
+commit 6afb6cbfa029a3b52ef0b0e9b7f76b9c9d88dd18
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 15:07:28 2017 +0200
+
+    Remove useless PMRegisterForPowerEvents()
+    
+    Remove the complete powermgt_generic.[c,h] files.
+    
+    powermgt_macosx.c has been removed in April 2009
+    in c199045d62e2255ec07d49becff4f94d67943676.
+    
+    Since then no power management was used in pcsc-lite.
+
+ src/Makefile.am        |  2 --
+ src/pcscdaemon.c       |  6 ------
+ src/powermgt_generic.c | 54 --------------------------------------------------
+ src/powermgt_generic.h | 44 ----------------------------------------
+ 4 files changed, 106 deletions(-)
+
+commit f65dcd88221e07a9d18b4d8856bf266b1bb2459e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 15:00:31 2017 +0200
+
+    Remove useless RFDestroyReaderHandle()
+    
+    The function RFDestroyReaderHandle() does nothing. So just remove it.
+
+ src/readerfactory.c | 6 ------
+ src/readerfactory.h | 1 -
+ src/winscard.c      | 3 ---
+ 3 files changed, 10 deletions(-)
+
+commit bf89546ea67334a708cc9c904d53a4068733474a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 14:57:49 2017 +0200
+
+    SCardCleanContext() returns void now
+    
+    The value returned by SCardCleanContext() was ignored.
+    Now the SCardCleanContext() function returns void.
+
+ src/winscard_clnt.c | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit a7e8bd92ebea20c7b284aa7b9e600cd1ceb958c0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 14:56:48 2017 +0200
+
+    SCardRemoveContext() returns void now
+    
+    The value returned by SCardRemoveContext() was ignored.
+    Now the SCardRemoveContext() function returns void.
+
+ src/winscard_clnt.c | 12 +++++-------
+ 1 file changed, 5 insertions(+), 7 deletions(-)
+
+commit fa41a2adf64ad0ca8f9daa8b1db3f46c172cc5bc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 14:54:34 2017 +0200
+
+    ClientCloseSession() returns void now
+    
+    The value returned by ClientCloseSession() was ignored.
+    Now the ClientCloseSession() function returns void.
+
+ src/winscard_clnt.c | 2 +-
+ src/winscard_msg.c  | 4 ++--
+ src/winscard_msg.h  | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+commit 784f217350d8657c69e62aea2a1a483b288df09e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 14:52:43 2017 +0200
+
+    RFSetReaderEventState() returns void now
+    
+    The value returned by RFSetReaderEventState() was ignored.
+    Now the RFSetReaderEventState() function returns void.
+
+ src/readerfactory.c | 4 ++--
+ src/readerfactory.h | 2 +-
+ src/winscard.c      | 6 +++---
+ 3 files changed, 6 insertions(+), 6 deletions(-)
+
+commit d3b1b7217325f67db27a6d5519294c5b65003266
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 14:50:05 2017 +0200
+
+    SCardRemoveHandle() returns void now
+    
+    The value returned by SCardRemoveHandle() was ignored.
+    Now the SCardRemoveHandle() function returns void.
+
+ src/winscard_clnt.c | 10 +++++-----
+ 1 file changed, 5 insertions(+), 5 deletions(-)
+
+commit a1a7ca2803f0f87dc2371eaf2572abc7795fd98a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 14:47:44 2017 +0200
+
+    SCardLockThread() and SCardUnlockThread() returns void now
+    
+    The value returned by SCardLockThread() and SCardUnlockThread() was
+    ignored.
+    Now the SCardLockThread() and SCardUnlockThread() functions returns
+    void.
+
+ src/winscard_clnt.c | 28 ++++++++++++++--------------
+ 1 file changed, 14 insertions(+), 14 deletions(-)
+
+commit 440f15e433123b7e99d37ba772a16662e4b838c0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 14:45:26 2017 +0200
+
+    MSGCleanupClient() returns void now
+    
+    The value returned by MSGCleanupClient() was ignored.
+    Now the MSGCleanupClient() function returns void.
+
+ src/winscard_svc.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit c5881b330443d5ed64307b580310d93a13e66aab
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 14:38:12 2017 +0200
+
+    EHSignalEventToClients() returns void now
+    
+    The value returned by EHSignalEventToClients() was ignored.
+    Now the EHSignalEventToClients() function returns void.
+
+ src/eventhandler.c  | 17 +++++++----------
+ src/eventhandler.h  |  2 +-
+ src/readerfactory.c |  2 +-
+ 3 files changed, 9 insertions(+), 12 deletions(-)
+
+commit 2e5a0c53d92328099bf39441121754e41116da4c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 14:34:08 2017 +0200
+
+    Minor code reformat
+
+ src/pcscdaemon.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit 2d64467399d286e79328d0f5caba7f67692dd0da
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 14:31:18 2017 +0200
+
+    EHDestroyEventHandler() returns void now
+    
+    The value returned by EHDestroyEventHandler() was ignored.
+    Now the EHDestroyEventHandler() function returns void.
+
+ src/eventhandler.c  | 6 +++---
+ src/eventhandler.h  | 2 +-
+ src/readerfactory.c | 2 +-
+ 3 files changed, 5 insertions(+), 5 deletions(-)
+
+commit b024b2ac275eaefecb2553710242d29f607a376f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 11:01:49 2017 +0200
+
+    IFDPowerICC(): Fix internal use of IFDStatusICC()
+    
+    IFDStatusICC() is not a IFDHandler function but a ifdwrapper function.
+    It returns SCARD_* values and not IFD_* values.
+    
+    By luck, the code was not broken because we have
+    IFD_SUCCESS = SCARD_S_SUCCESS = 0
+
+ src/ifdwrapper.c | 9 ++-------
+ 1 file changed, 2 insertions(+), 7 deletions(-)
+
+commit cbe677fc8fe94663fa70c5179385b17bdb7debec
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 11 10:30:03 2017 +0200
+
+    Fix SCardGetStatusChange() when a reader is removed
+    
+    Because of a race condition, a smart card reader removal may, in some
+    conditions, not be detected on the client side.
+    
+    The problem is that when a reader is removed the clients are notified
+    (using EHSignalEventToClients() function) two times:
+    - the first time in EHStatusHandlerThread() from eventhandler.c just
+      before the event thread exists,
+    - the second time in removeReader() from readerfactory.c after the
+      reader has been removed
+    
+    The problem is that the first time the clients are notified the reader
+    state has not yet changed. The reader is still visible by the clients.
+    If a client is slow to register to new events it may miss the second
+    notification and then wait "forever" in SCardGetStatusChange()
+    ("forever" is defined as 60 seconds here as it is the event loop timeout).
+    
+    The solution is to removed the first (in fact useless) notification.
+    
+    Thanks to Maximilian Stein for the bug report and patch
+    "[Pcsclite-muscle] Race condition with SCardGetStatusChange() when USB
+    Reader is removed"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170508/000855.html
+
+ src/eventhandler.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit 36bf013a76ba953992ef1413878ac4866852fcc8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 4 10:00:02 2017 +0200
+
+    Doxygen: fix typo
+
+ src/winscard_clnt.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 1928b55be239fdd853c67bcc355c59d908978d71
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 4 09:51:16 2017 +0200
+
+    removeReader(): reformat code
+    
+    The complete function code was inside a { } block.
+    I removed the { } block and one level of indentation.
+
+ src/readerfactory.c | 110 ++++++++++++++++++++++++++--------------------------
+ 1 file changed, 54 insertions(+), 56 deletions(-)
+
+commit 789dae8a8acf8d1693597159d7d590a96bdd6424
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu May 4 09:47:16 2017 +0200
+
+    Do not check RFUnInitializeReader() return value
+    
+    RFUnInitializeReader() always returns SCARD_S_SUCCESS so it is useless
+    to check the returned value.
+    
+    RFUnInitializeReader() now returns void instead.
+
+ src/readerfactory.c | 10 +++-------
+ src/readerfactory.h |  2 +-
+ 2 files changed, 4 insertions(+), 8 deletions(-)
+
+commit 59489545659447d297e51f3c3c281f377d350851
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Apr 20 10:33:22 2017 +0200
+
+    pcsc-spy: port to Python3
+    
+    On Python3 the Queue module is called queue.
+    
+    The program now works with Python 2.7 and Python 3.4.
+    
+    Thanks to Johannes Meixner for the bug report
+    "Make pcsc-spy python3-ready"
+    https://github.com/LudovicRousseau/PCSC/issues/19
+
+ src/spy/pcsc-spy | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+commit dc30c32973f91b61916db1fd17528b99cb7190ce
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Apr 20 10:29:43 2017 +0200
+
+    pcsc-spy: use print as a function
+    
+    Migrate from print "foobar" to print("foobar") to make the code more
+    Python3.
+
+ src/spy/pcsc-spy | 120 +++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 63 insertions(+), 57 deletions(-)
+
+commit aee7bd1666f39088c968107c19d945da59287bfd
+Author: Ludovic Rousseau <ludovic.rousseau+github@gmail.com>
+Date:   Thu Apr 6 20:18:33 2017 +0200
+
+    README.md: add Code Climate badge
+
+ README.md | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 1ac4b7da5f17883968950a6f88b19320ca21f846
+Author: Ludovic Rousseau <ludovic.rousseau+github@gmail.com>
+Date:   Thu Apr 6 20:17:33 2017 +0200
+
+    Create README.md
+    
+    New file so that github displays a nice project presentation.
+
+ README.md | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+commit a58854e085be7054213a128bdc227916bd84ccc6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 29 10:11:10 2017 +0200
+
+    Doxygen: Improve documentation about SCardCancel()
+    
+    SCardCancel() cancels only one specific SCardGetStatusChange() call, not
+    *all* the currently running SCardGetStatusChange() calls.
+
+ src/winscard_clnt.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit 9311af0419da38e2c10842456694d0c15b78150e
+Author: Martin Paljak <martin@martinpaljak.net>
+Date:   Wed Mar 29 10:39:58 2017 +0300
+
+    Doxygen: Improve documentation about SCardCancel()
+    
+    SCardCancel() MUST be called with the same SCARDCONTEXT as
+    SCardGetStatusChange().
+
+ src/winscard_clnt.c | 11 ++++++++---
+ 1 file changed, 8 insertions(+), 3 deletions(-)
+
+commit 62ecbe87bfbecc0706f110738e0f609d848d0bd3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 1 16:01:44 2017 +0100
+
+    --enable-embedded: fix compiler warning
+    
+    winscard_svc.c: In function ‘ContextsDeinitialize’:
+    winscard_svc.c:150:6: warning: variable ‘listSize’ set but not used [-Wunused-but-set-variable]
+      int listSize;
+          ^~~~~~~~
+
+ src/winscard_svc.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit ad7f77fa498f8901983ed0406cea1bf6602a5bd7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 1 16:00:13 2017 +0100
+
+    --enable-embedded: fix compiler warning
+    
+    winscard.c: In function ‘SCardReleaseContext’:
+    winscard.c:220:39: warning: unused parameter ‘hContext’ [-Wunused-parameter]
+     LONG SCardReleaseContext(SCARDCONTEXT hContext)
+                                           ^~~~~~~~
+
+ src/winscard.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 8b41f649b65079ec232bf584ed0ca5cc066fcb94
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 1 15:59:03 2017 +0100
+
+    --enable-embedded: fix compiler warning
+    
+    hotplug_libudev.c: In function ‘get_driver’:
+    hotplug_libudev.c:269:14: warning: unused parameter ‘devpath’ [-Wunused-parameter]
+      const char *devpath, struct _driverTracker **classdriver)
+                  ^~~~~~~
+
+ src/hotplug_libudev.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit d64a505d24cd11bc3d8e879fff4ba3675be9bcfc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 1 15:57:12 2017 +0100
+
+    --enable-embedded: fix compiler warning
+    
+    eventhandler.c: In function ‘EHStatusHandlerThread’:
+    eventhandler.c:248:14: warning: variable ‘readerName’ set but not used [-Wunused-but-set-variable]
+      const char *readerName;
+                  ^~~~~~~~~~
+
+ src/eventhandler.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+commit 37cee3b3c45520c06e9c39d034771e6cba58a1e2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 1 15:55:30 2017 +0100
+
+    --enable-embedded: fix compiler warning
+    
+    dyn_unix.c: In function ‘DYN_GetAddress’:
+    dyn_unix.c:85:30: warning: unused parameter ‘mayfail’ [-Wunused-parameter]
+      const char *pcFunction, int mayfail)
+                                  ^~~~~~~
+
+ src/dyn_unix.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 24cf3ad628028376cc9645bacfaec8a58cfc15a5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 1 15:52:49 2017 +0100
+
+    --enable-embedded: fix compiler warning
+    
+    configfile.l: In function ‘tok_error’:
+    configfile.l:259:22: warning: unused parameter ‘token_error’ [-Wunused-parameter]
+     {
+                          ^
+
+ src/configfile.l | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit aa4907aaecc73680a4ac557cd0a9a00a563302d9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Mar 1 15:50:18 2017 +0100
+
+    --enable-embedded: fix compiler warning
+    
+    winscard_msg.c: In function ‘MessageReceiveTimeout’:
+    winscard_msg.c:193:46: warning: unused parameter ‘command’ [-Wunused-parameter]
+     INTERNAL LONG MessageReceiveTimeout(uint32_t command, void *buffer_void,
+                                                  ^~~~~~~
+
+ src/winscard_msg.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 35d660edb22ccae8a2e1d3e86316d15c7d33205b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Feb 28 16:34:57 2017 +0100
+
+    Rename BufferOverflow2.c -> BufferOverflow_SCardTransmit.c
+
+ UnitaryTests/{BufferOverflow2.c => BufferOverflow_SCardTransmit.c} | 0
+ UnitaryTests/Makefile                                              | 2 +-
+ 2 files changed, 1 insertion(+), 1 deletion(-)
+
+commit 30ece5141a55aa57976b5c50e32159c6de0de108
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Feb 28 16:33:52 2017 +0100
+
+    Rename BufferOverflow.c -> BufferOverflow_SCardGetAttrib.c
+
+ UnitaryTests/{BufferOverflow.c => BufferOverflow_SCardGetAttrib.c} | 0
+ UnitaryTests/Makefile                                              | 2 +-
+ 2 files changed, 1 insertion(+), 1 deletion(-)
+
+commit 4c57679826bf1fbfda995a7869f8a19c572a2784
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Feb 28 16:31:47 2017 +0100
+
+    Add BufferOverflow_SCardControl.c test code
+    
+    Test for the patch implemented in 09cf6c7de55f1b4ab1d8a3f86c7a56d7a8621538
+
+ UnitaryTests/BufferOverflow_SCardControl.c | 81 ++++++++++++++++++++++++++++++
+ UnitaryTests/Makefile                      |  1 +
+ 2 files changed, 82 insertions(+)
+
+commit 09cf6c7de55f1b4ab1d8a3f86c7a56d7a8621538
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Feb 28 16:24:53 2017 +0100
+
+    SCardControl() may return SCARD_E_INSUFFICIENT_BUFFER
+    
+    SCardControl() now correctly returns SCARD_E_INSUFFICIENT_BUFFER when
+    pbRecvBuffer is not big enough to receive the card response.
+    
+    The CCID driver does the check and correctly and returned
+    CM_IOCTL_GET_FEATURE_REQUEST in such a case but not all IFD Handler may
+    be smart enough.
+    
+    This change is similar to the same change for SCardTransmit() done in
+    8eb9ea1b354b050f997d003cf3b0c5b56f29f9f7 (29 mai 2015)
+    
+    Thanks to Maximilian Stein for the patch
+    "[Pcsclite-muscle] SCardControl() should return SCARD_E_INSUFFICIENT_BUFFER similar to SCardTransmit()"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170213/000815.html
+
+ src/winscard_clnt.c | 2 +-
+ src/winscard_svc.c  | 8 +++++++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+commit 7c232a11e2e5515fd886733b3e382fc91ea0a8ab
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 16 11:56:32 2017 +0100
+
+    Python 3: port FEATURE_CCID_ESC_COMMAND_Gemalto_features.py
+
+ UnitaryTests/FEATURE_CCID_ESC_COMMAND_Gemalto_features.py | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+commit 1c5426260c8e74e4bdfe2bbd27eb4336f49cc7ed
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 16 00:17:42 2017 +0100
+
+    Python 3: fix SCardGetStatusChange()
+    
+    The SCardGetStatusChange() readerstatelist argument must be a list.
+    With Python 3 a dict.values() if of type dict_values instead of list in
+    Python 2. So we force a conversion into a list using list().
+
+ UnitaryTests/SCardCancel.py           | 6 ++++--
+ UnitaryTests/SCardCancel3.py          | 6 ++++--
+ UnitaryTests/SCardGetStatusChange.py  | 6 ++++--
+ UnitaryTests/SCardGetStatusChange2.py | 3 ++-
+ 4 files changed, 14 insertions(+), 7 deletions(-)
+
+commit 5a8bacfed5ea046559efac090824630b219474e2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Feb 16 00:06:54 2017 +0100
+
+    Python 3: use PEP 3110 exception format
+    
+    Use the "new" syntax "except Exception as message:" supported since
+    Python 2.6
+    
+      File "SCardCancel2.py", line 47
+        except Exception, message:
+                        ^
+    SyntaxError: invalid syntax
+
+ UnitaryTests/SCardCancel2.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 317b673868a0bf6bdc798414bdc5d8e32cfaa663
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 15 23:51:14 2017 +0100
+
+    pep8: fix warning
+    
+    MCT_ReaderDirect.py:70:5: E265 block comment should start with '# '
+
+ UnitaryTests/MCT_ReaderDirect.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit a15f6012bcedb871fad486a68bada20fb08e1ca3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 15 23:50:05 2017 +0100
+
+    pep8: fix warnings
+    
+    SCardBlockingBehaviourTest.py:132:1: E265 block comment should start with '# '
+    SCardBlockingBehaviourTest.py:214:5: E265 block comment should start with '# '
+    SCardBlockingBehaviourTest.py:241:9: E265 block comment should start with '# '
+
+ UnitaryTests/SCardBlockingBehaviourTest.py | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit cc912f8c051f57208756a44780aabea28438d884
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 15 23:48:57 2017 +0100
+
+    pep8: fix warning
+    
+    ThreadSafe.py:44:9: E265 block comment should start with '# '
+
+ UnitaryTests/ThreadSafe.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 44d400f0072c3a8ab1eb2aa6b225fa82a34d0808
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 15 23:48:03 2017 +0100
+
+    pep8: fix warning
+    
+    ThreadSafeConnect.py:72:1: E302 expected 2 blank lines, found 1
+
+ UnitaryTests/ThreadSafeConnect.py | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 876403e6a48070f26fb7eb1211b7bb2df5e52ed1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Feb 15 23:45:00 2017 +0100
+
+    UnitaryTests: Python3: use print() function
+    
+    Use:
+    from __future__ import print_function
+    to make the same Python code to work with both Python 2 and Python 3.
+
+ .../FEATURE_CCID_ESC_COMMAND_Gemalto_features.py   | 77 +++++++++++-----------
+ UnitaryTests/FEATURE_CCID_ESC_COMMAND_Xiring.py    | 11 ++--
+ UnitaryTests/FEATURE_GET_TLV_PROPERTIES.py         |  9 +--
+ UnitaryTests/MCT_ReaderDirect.py                   | 28 ++++----
+ UnitaryTests/SCardBeginTransaction_Disconnect.py   |  5 +-
+ .../SCardBeginTransaction_ExclusiceMode.py         |  5 +-
+ UnitaryTests/SCardBeginTransaction_Reset.py        | 11 ++--
+ UnitaryTests/SCardBeginTransaction_deadlock.py     | 35 +++++-----
+ UnitaryTests/SCardBlockingBehaviourTest.py         | 49 +++++++-------
+ UnitaryTests/SCardCancel.py                        | 13 ++--
+ UnitaryTests/SCardCancel2.py                       |  9 +--
+ UnitaryTests/SCardCancel3.py                       | 21 +++---
+ UnitaryTests/SCardConnect_DIRECT.py                | 13 ++--
+ UnitaryTests/SCardConnect_DIRECT2.py               | 11 ++--
+ UnitaryTests/SCardEndTransaction_extra_call.py     | 15 +++--
+ UnitaryTests/SCardExclusiveBehaviour.py            | 21 ++++--
+ UnitaryTests/SCardGetAttrib.py                     | 11 ++--
+ UnitaryTests/SCardGetStatusChange.py               | 15 +++--
+ UnitaryTests/SCardGetStatusChange2.py              | 15 +++--
+ UnitaryTests/SCardReconnect.py                     |  7 +-
+ UnitaryTests/SCardStatus.py                        | 29 ++++----
+ UnitaryTests/SCard_fork.py                         | 25 +++----
+ UnitaryTests/ThreadSafe.py                         |  7 +-
+ UnitaryTests/ThreadSafeConnect.py                  | 15 +++--
+ UnitaryTests/control_get_firmware.py               | 13 ++--
+ UnitaryTests/control_switch_interface.py           | 15 +++--
+ UnitaryTests/getAttrib.py                          | 12 ++--
+ UnitaryTests/reset_card.py                         |  9 +--
+ UnitaryTests/stress_apdu.py                        | 15 +++--
+ UnitaryTests/stress_get_firmware.py                | 11 ++--
+ UnitaryTests/transmit_loop.py                      |  7 +-
+ 31 files changed, 290 insertions(+), 249 deletions(-)
+
+commit 25f9089e5c9c082b3c88f3687bdb27db048cc9a9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 27 11:01:41 2017 +0100
+
+    Doxygen: fix SCardGetAndLockContext() documentation
+
+ src/winscard_clnt.c | 19 ++++++++++++++-----
+ 1 file changed, 14 insertions(+), 5 deletions(-)
+
+commit 8193d6fad84539af03a329e0f6911125f96497d0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 27 10:43:35 2017 +0100
+
+    Client side: SCardGetAndLockContext() always locks
+    
+    SCardGetAndLockContext() has the lock parameter removed and now always
+    lock.
+    
+    From Maksim Ivanov:
+       Also it may be advisable to change the SCardGetAndLockContext
+       function interface so that it's more difficult to use it in thread-unsafe
+       manner: remove the second parameter "int lock" and make the
+       locking behavior the default one, and introduce another function
+       that does no locks and returns a boolean instead of an
+       SCONTEXTMAP* pointer.
+    
+    Thanks to Maksim Ivanov for the proposal
+    "[Pcsclite-muscle] Data races related to SCardCancel"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170116/000789.html
+
+ src/winscard_clnt.c | 19 +++++++++----------
+ 1 file changed, 9 insertions(+), 10 deletions(-)
+
+commit ccfcd6e75ba9ccb5da02e18e5af909d8ec5f146a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 27 10:36:02 2017 +0100
+
+    Client side: add and use SCardGetContextValidity()
+    
+    SCardGetContextValidity(hContext) returns a boolean and does not take
+    any lock.
+    It is similar to SCardGetAndLockContext(hContext, FALSE)
+    
+    Thanks to Maksim Ivanov for the idea
+    "[Pcsclite-muscle] Data races related to SCardCancel"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170116/000789.html
+
+ src/winscard_clnt.c | 28 ++++++++++++++++++++++------
+ 1 file changed, 22 insertions(+), 6 deletions(-)
+
+commit 9a21c82330fc4b73ac00faf2c5cf948da5f8ab07
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 27 10:26:11 2017 +0100
+
+    SCardCancel(): fix a possible use after free
+    
+    From Maksim Ivanov:
+    " It seems that there are still some issues with regard to the blocking
+    requests cancellation functionality in PC/SC-Lite:
+    
+    2. Use-after-free possible in SCardCancel.
+    
+       This is probably a low-severity issue, as the deallocated memory will
+       be accessed only for reading an int, which would be then used for
+       deciding whether to fail fast or to send a request to the daemon
+       (the latter is expected to fail anyway).
+    
+    For #2, the suggestion is to move the reading of the
+       currentContextMap->cancellable flag under the clientMutex lock.
+    
+       Also it may be advisable to change the SCardGetAndLockContext
+       function interface so that it's more difficult to use it in thread-unsafe
+       manner: remove the second parameter "int lock" and make the
+       locking behavior the default one, and introduce another function
+       that does no locks and returns a boolean instead of an
+       SCONTEXTMAP* pointer. "
+    
+    Thanks to Maksim Ivanov for the bug report and solution
+    "[Pcsclite-muscle] Data races related to SCardCancel"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170116/000789.html
+
+ src/winscard_clnt.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+commit b662aa1ae24267150d816a08f757b1c1539411ca
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 27 09:39:40 2017 +0100
+
+    ContextThread(): fix a SCARD_CANCEL race bug
+    
+    From Maksim Ivanov:
+    " It seems that there are still some issues with regard to the blocking
+    requests cancellation functionality in PC/SC-Lite:
+    
+    1. Extra SCARD_E_CANCELLED events may be sent by the daemon to the
+       client that was previously performing an SCardGetStatusChange call.
+    
+       One scenario is that two concurrent SCardCancel calls succeeding
+       simultaneously, and another scenario is an SCardCancel call
+       succeeding simultaneously with an event sending from the status
+       handler thread.
+    
+       As a result, the app<->daemon communication will break.
+    
+    Suggested solutions:
+    
+    For #1, suggesting to change the SCARD_CANCEL handler to firstly do
+       EHUnregisterClientForEvent, and, only if it returns success, then
+       send the SCARD_E_CANCELLED event to the client. "
+    
+    Now MSGSignalClient() is called only if EHUnregisterClientForEvent()
+    succeeds i.e. the client was still blocked in a SCardGetStatusChange().
+    
+    If SCardGetStatusChange() was already canceled or finished then we do not
+    signal the client.
+    
+    Thanks to Maksim Ivanov for the bug report and solution
+    "[Pcsclite-muscle] Data races related to SCardCancel"
+    http://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170116/000789.html
+
+ src/winscard_svc.c | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+commit ed741436fd6ce048b73b0d3e1b343c7aea7691cc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 27 09:34:44 2017 +0100
+
+    ContextThread(): minor code reformat
+    
+    Set SCARD_E_INVALID_HANDLE as a default return value for SCARD_CANCEL.
+    
+    This change will be needed later in the next commits.
+
+ src/winscard_svc.c | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+commit 651cf79f4b80a7c72f097e6a598b6199a753c063
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jan 22 16:47:13 2017 +0100
+
+    Doxygen: better pcsc_stringify_error() documentation
+    
+    pcsc_stringify_error() uses Thread-Local Storage (TLS) for the returned
+    buffer.
+    
+    Thanks to Maksim Ivanov
+    "[Pcsclite-muscle] pcsc_stringify_error thread safety"
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170116/000788.html
+
+ src/error.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+commit 9726152f2c6767f0fa3103ad307dc28ef7923852
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 18 17:16:16 2017 +0100
+
+    Fix compilation error with GCC 4.9
+    
+    GCC 4.9 does not like when "__thread" is before "static"
+    
+    error.c: In function 'pcsc_stringify_error':
+    error.c:81:2: error: '__thread' before 'static'
+      __thread static char strError[75];
+      ^
+    
+    clang 8.0 accept both constructions.
+
+ src/error.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit b27f0e54194dcfb4db8179dceede8a649141fea4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 18 17:10:51 2017 +0100
+
+    pcsc_stringify_error() now returns a const char *
+    
+    The pcsc_stringify_error() function returns a C-string stored in a
+    static buffer. The buffer should NOT be modified outside of
+    pcsc_stringify_error().
+    
+    Thanks to Nikos Mavrogiannopoulos for the idea
+    "[Pcsclite-muscle] pcsc_stringify_error thread safety"
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170116/000785.html
+
+ src/PCSC/pcsclite.h.in | 2 +-
+ src/error.c            | 4 ++--
+ src/spy/libpcscspy.c   | 2 +-
+ 3 files changed, 4 insertions(+), 4 deletions(-)
+
+commit eab1d67295e4e1d5c12bbca77bc57c50fd384a4e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 18 16:58:29 2017 +0100
+
+    pcsc_stringify_error(): use Thread-local storage
+    
+    " The pcsc_stringify_error() function in the PC/SC-Lite implementation
+    uses a statically allocated buffer. This means that the buffer may be
+    used simultaneously when the function is called from multiple threads
+    concurrently.
+    Therefore, the returned message may be spoiled, e.g.:
+    "Internal error.ul"
+    or
+    "Command cancell"
+    In the worst-case scenario, the application may read an unbounded
+    string (with the terminating null character missing). "
+    
+    Thanks to Maksim Ivanov fro the bug report
+    "[Pcsclite-muscle] pcsc_stringify_error thread safety"
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170116/000781.html
+    
+    and Ivo Raisr (and Nikos Mavrogiannopoulos) for the solution
+    "[Pcsclite-muscle] pcsc_stringify_error thread safety"
+    https://lists.alioth.debian.org/pipermail/pcsclite-muscle/Week-of-Mon-20170116/000782.html
+
+ src/error.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+commit 980fdc357bc36e3f608462a1d7bcb182b1bacdae (tag: pcsc-1.8.20)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Dec 30 18:10:07 2016 +0100
 

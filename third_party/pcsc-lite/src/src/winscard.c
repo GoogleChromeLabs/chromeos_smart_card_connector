@@ -222,6 +222,9 @@ LONG SCardReleaseContext(SCARDCONTEXT hContext)
 	/*
 	 * Nothing to do here RPC layer will handle this
 	 */
+#ifdef NO_LOG
+	(void)hContext;
+#endif
 
 	Log2(PCSC_LOG_DEBUG, "Releasing Context: 0x%lX", hContext);
 
@@ -468,7 +471,6 @@ LONG SCardConnect(/*@unused@*/ SCARDCONTEXT hContext, LPCSTR szReader,
 		}
 		else
 		{
-			(void)RFDestroyReaderHandle(*phCard);
 			*phCard = 0;
 			rv = SCARD_E_SHARING_VIOLATION;
 			(void)pthread_mutex_unlock(&LockMutex);
@@ -495,7 +497,6 @@ LONG SCardConnect(/*@unused@*/ SCARDCONTEXT hContext, LPCSTR szReader,
 		/*
 		 * Clean up - there is no more room
 		 */
-		(void)RFDestroyReaderHandle(*phCard);
 		if (rContext->contexts == PCSCLITE_SHARING_EXCLUSIVE_CONTEXT)
 			rContext->contexts = PCSCLITE_SHARING_NO_CONTEXT;
 		else
@@ -580,7 +581,7 @@ LONG SCardReconnect(SCARDHANDLE hCard, DWORD dwShareMode,
 		/*
 		 * Notify the card has been reset
 		 */
-		(void)RFSetReaderEventState(rContext, SCARD_RESET);
+		RFSetReaderEventState(rContext, SCARD_RESET);
 
 		/*
 		 * Currently pcsc-lite keeps the card powered constantly
@@ -885,7 +886,7 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 		/*
 		 * Notify the card has been reset
 		 */
-		(void)RFSetReaderEventState(rContext, SCARD_RESET);
+		RFSetReaderEventState(rContext, SCARD_RESET);
 
 		dwAtrLen = sizeof(rContext->readerState->cardAtr);
 		if (SCARD_RESET_CARD == dwDisposition)
@@ -894,7 +895,7 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 		else
 		{
 			/* SCARD_UNPOWER_CARD */
-			IFDPowerICC(rContext, IFD_POWER_DOWN, NULL, NULL);
+			rv = IFDPowerICC(rContext, IFD_POWER_DOWN, NULL, NULL);
 
 			rContext->powerState = POWER_STATE_UNPOWERED;
 			Log1(PCSC_LOG_DEBUG, "powerState: POWER_STATE_UNPOWERED");
@@ -903,27 +904,11 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 		/* the protocol is unset after a power on */
 		rContext->readerState->cardProtocol = SCARD_PROTOCOL_UNDEFINED;
 
-		if (SCARD_UNPOWER_CARD == dwDisposition)
+		if (rv == SCARD_S_SUCCESS)
 		{
-			if (rv == SCARD_S_SUCCESS)
+			if (SCARD_UNPOWER_CARD == dwDisposition)
 				rContext->readerState->readerState = SCARD_PRESENT;
 			else
-			{
-				Log3(PCSC_LOG_ERROR, "Error powering down card: %ld 0x%04lX",
-					rv, rv);
-				if (rv == SCARD_W_REMOVED_CARD)
-					rContext->readerState->readerState = SCARD_ABSENT;
-				else
-					rContext->readerState->readerState =
-						SCARD_PRESENT | SCARD_SWALLOWED;
-			}
-		}
-		else
-		{
-			/*
-			 * Set up the status bit masks on readerState
-			 */
-			if (rv == SCARD_S_SUCCESS)
 			{
 				rContext->readerState->cardAtrLength = dwAtrLen;
 				rContext->readerState->readerState =
@@ -934,17 +919,23 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 					rContext->readerState->cardAtr,
 					rContext->readerState->cardAtrLength);
 			}
+		}
+		else
+		{
+			if (SCARD_UNPOWER_CARD == dwDisposition)
+				Log3(PCSC_LOG_ERROR, "Error powering down card: %ld 0x%04lX",
+					rv, rv);
 			else
 			{
 				rContext->readerState->cardAtrLength = 0;
 				Log1(PCSC_LOG_ERROR, "Error resetting card.");
-
-				if (rv == SCARD_W_REMOVED_CARD)
-					rContext->readerState->readerState = SCARD_ABSENT;
-				else
-					rContext->readerState->readerState =
-						SCARD_PRESENT | SCARD_SWALLOWED;
 			}
+
+			if (rv == SCARD_W_REMOVED_CARD)
+				rContext->readerState->readerState = SCARD_ABSENT;
+			else
+				rContext->readerState->readerState =
+					SCARD_PRESENT | SCARD_SWALLOWED;
 		}
 	}
 	else if (dwDisposition == SCARD_EJECT_CARD)
@@ -992,7 +983,6 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 	 * Remove and destroy this handle
 	 */
 	(void)RFRemoveReaderHandle(rContext, hCard);
-	(void)RFDestroyReaderHandle(hCard);
 
 	/*
 	 * For exclusive connection reset it to no connections
@@ -1161,7 +1151,7 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
 		/*
 		 * Notify the card has been reset
 		 */
-		(void)RFSetReaderEventState(rContext, SCARD_RESET);
+		RFSetReaderEventState(rContext, SCARD_RESET);
 
 		/*
 		 * Set up the status bit masks on readerState

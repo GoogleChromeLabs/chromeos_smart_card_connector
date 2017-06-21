@@ -279,7 +279,7 @@ extern const SCARD_IO_REQUEST g_rgSCardT0Pci, g_rgSCardT1Pci, g_rgSCardRawPci;
 #define INFINITE			0xFFFFFFFF	/**< Infinite timeout */
 #endif
 
-#define PCSCLITE_VERSION_NUMBER		"1.8.20"	/**< Current version */
+#define PCSCLITE_VERSION_NUMBER		"1.8.22"	/**< Current version */
 /** Maximum readers context (a slot is count as a reader) */
 #define PCSCLITE_MAX_READERS_CONTEXTS			16
 
@@ -300,7 +300,7 @@ extern const SCARD_IO_REQUEST g_rgSCardT0Pci, g_rgSCardT1Pci, g_rgSCardRawPci;
 /*
  * Gets a stringified error response
  */
-char *pcsc_stringify_error(const LONG);
+const char *pcsc_stringify_error(const LONG);
 
 #ifdef __cplusplus
 }

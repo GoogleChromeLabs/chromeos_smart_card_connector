@@ -93,7 +93,7 @@ static LONG MSGAddContext(SCARDCONTEXT, SCONTEXT *);
 static LONG MSGRemoveContext(SCARDCONTEXT, SCONTEXT *);
 static LONG MSGAddHandle(SCARDCONTEXT, SCARDHANDLE, SCONTEXT *);
 static LONG MSGRemoveHandle(SCARDHANDLE, SCONTEXT *);
-static LONG MSGCleanupClient(SCONTEXT *);
+static void MSGCleanupClient(SCONTEXT *);
 
 static void ContextThread(LPVOID pdwIndex);
 
@@ -149,6 +149,9 @@ void ContextsDeinitialize(void)
 {
 	int listSize;
 	listSize = list_size(&contextsList);
+#ifdef NO_LOG
+	(void)listSize;
+#endif
 	Log2(PCSC_LOG_DEBUG, "remaining threads: %d", listSize);
 	/* This is currently a no-op. It should terminate the threads properly. */
 
@@ -580,6 +583,7 @@ static void ContextThread(LPVOID newContext)
 			{
 				struct cancel_struct caStr;
 				SCONTEXT * psTargetContext = NULL;
+
 				READ_BODY(caStr);
 
 				/* find the client */
@@ -587,17 +591,23 @@ static void ContextThread(LPVOID newContext)
 				psTargetContext = (SCONTEXT *) list_seek(&contextsList,
 					&caStr.hContext);
 				(void)pthread_mutex_unlock(&contextsList_lock);
+
+				/* default value = error */
+				caStr.rv = SCARD_E_INVALID_HANDLE;
+
 				if (psTargetContext != NULL)
 				{
 					uint32_t fd = psTargetContext->dwClientID;
-					caStr.rv = MSGSignalClient(fd, SCARD_E_CANCELLED);
+					LONG rv;
 
 					/* the client should not receive the event
 					 * notification now the waiting has been cancelled */
-					EHUnregisterClientForEvent(fd);
+					rv = EHUnregisterClientForEvent(fd);
+
+					/* signal the client only if it was still waiting */
+					if (SCARD_S_SUCCESS == rv)
+						caStr.rv = MSGSignalClient(fd, SCARD_E_CANCELLED);
 				}
-				else
-					caStr.rv = SCARD_E_INVALID_HANDLE;
 
 				WRITE_BODY(caStr);
 			}
@@ -708,8 +718,14 @@ static void ContextThread(LPVOID newContext)
 
 				ctStr.rv = SCardControl(ctStr.hCard, ctStr.dwControlCode,
 					pbSendBuffer, ctStr.cbSendLength,
-					pbRecvBuffer, ctStr.cbRecvLength,
+					pbRecvBuffer, sizeof pbRecvBuffer,
 					&dwBytesReturned);
+
+				if (dwBytesReturned > ctStr.cbRecvLength)
+					/* The client buffer is not large enough.
+					 * The pbRecvBuffer buffer will NOT be sent a few
+					 * lines bellow. So no buffer overflow is expected. */
+					ctStr.rv = SCARD_E_INSUFFICIENT_BUFFER;
 
 				ctStr.dwBytesReturned = dwBytesReturned;
 
@@ -787,7 +803,7 @@ wrong_length:
 	Log2(PCSC_LOG_DEBUG, "Wrong length: %d", filedes);
 exit:
 	(void)close(filedes);
-	(void)MSGCleanupClient(threadContext);
+	MSGCleanupClient(threadContext);
 	(void)pthread_exit((LPVOID) NULL);
 }
 
@@ -993,7 +1009,7 @@ static LONG MSGCheckHandleAssociation(SCARDHANDLE hCard,
 /* Should be called just prior to exiting the thread as it de-allocates
  * the thread memory strucutres
  */
-static LONG MSGCleanupClient(SCONTEXT * threadContext)
+static void MSGCleanupClient(SCONTEXT * threadContext)
 {
 	int lrv;
 	int listSize;
@@ -1035,5 +1051,5 @@ static LONG MSGCleanupClient(SCONTEXT * threadContext)
 		alarm(TIME_BEFORE_SUICIDE);
 	}
 
-	return 0;
+	return;
 }

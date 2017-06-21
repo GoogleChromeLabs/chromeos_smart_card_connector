@@ -48,7 +48,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "string.h"
 
 #ifdef NO_LOG
-PCSC_API char* pcsc_stringify_error(const LONG pcscError)
+PCSC_API const char* pcsc_stringify_error(const LONG pcscError)
 {
 	static char strError[] = "0x12345678";
 
@@ -59,6 +59,11 @@ PCSC_API char* pcsc_stringify_error(const LONG pcscError)
 #else
 /**
  * @brief Returns a human readable text for the given PC/SC error code.
+ *
+ * @warning
+ * The returned string uses a Thread-Local Storage (TLS) buffer and is valid:
+ * -# only while the thread on which it was obtained is alive.
+ * -# until the next call to this function on the same thread.
  *
  * @ingroup API
  * @param[in] pcscError Error code to be translated to text.
@@ -74,9 +79,11 @@ PCSC_API char* pcsc_stringify_error(const LONG pcscError)
  *         pcsc_stringify_error(rv), rv);
  * @endcode
  */
-PCSC_API char* pcsc_stringify_error(const LONG pcscError)
+PCSC_API const char* pcsc_stringify_error(const LONG pcscError)
 {
-	static char strError[75];
+	/* Use a Thread-local storage so that the returned buffer
+	 * is thread safe */
+	static __thread char strError[75];
 	const char *msg = NULL;
 
 	switch (pcscError)

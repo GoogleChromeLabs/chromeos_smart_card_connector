@@ -307,7 +307,7 @@ static int CHANNEL_MAP_seeker(const void *el, const void *key)
 }
 
 /**
- * @brief Represents the an Application Context on the Client side.
+ * @brief Represents an Application Context on the Client side.
  *
  * An Application Context contains Channels (\c _psChannelMap).
  */
@@ -319,6 +319,11 @@ struct _psContextMap
 	list_t channelMapList;
 	char cancellable;				/**< We are in a cancellable call */
 };
+/**
+ * @brief Represents an Application Context on the Client side.
+ *
+ * typedef of _psContextMap
+ */
 typedef struct _psContextMap SCONTEXTMAP;
 
 static list_t contextMapList;
@@ -367,17 +372,17 @@ PCSC_API const SCARD_IO_REQUEST g_rgSCardRawPci = { SCARD_PROTOCOL_RAW, sizeof(S
 
 
 static LONG SCardAddContext(SCARDCONTEXT, DWORD);
-static SCONTEXTMAP * SCardGetAndLockContext(SCARDCONTEXT, int);
+static SCONTEXTMAP * SCardGetAndLockContext(SCARDCONTEXT);
 static SCONTEXTMAP * SCardGetContextTH(SCARDCONTEXT);
-static LONG SCardRemoveContext(SCARDCONTEXT);
-static LONG SCardCleanContext(SCONTEXTMAP *);
+static void SCardRemoveContext(SCARDCONTEXT);
+static void SCardCleanContext(SCONTEXTMAP *);
 
 static LONG SCardAddHandle(SCARDHANDLE, SCONTEXTMAP *, LPCSTR);
 static LONG SCardGetContextChannelAndLockFromHandle(SCARDHANDLE,
 	/*@out@*/ SCONTEXTMAP * *, /*@out@*/ CHANNEL_MAP * *);
 static LONG SCardGetContextAndChannelFromHandleTH(SCARDHANDLE,
 	/*@out@*/ SCONTEXTMAP * *, /*@out@*/ CHANNEL_MAP * *);
-static LONG SCardRemoveHandle(SCARDHANDLE);
+static void SCardRemoveHandle(SCARDHANDLE);
 
 static LONG SCardGetSetAttrib(SCARDHANDLE hCard, int command, DWORD dwAttrId,
 	LPBYTE pbAttr, LPDWORD pcbAttrLen);
@@ -393,9 +398,9 @@ static LONG getReaderStates(SCONTEXTMAP * currentContextMap);
  *
  * Wrapper to the function pthread_mutex_lock().
  */
-inline static LONG SCardLockThread(void)
+inline static void SCardLockThread(void)
 {
-	return pthread_mutex_lock(&clientMutex);
+	pthread_mutex_lock(&clientMutex);
 }
 
 /**
@@ -403,9 +408,29 @@ inline static LONG SCardLockThread(void)
  *
  * Wrapper to the function pthread_mutex_unlock().
  */
-inline static LONG SCardUnlockThread(void)
+inline static void SCardUnlockThread(void)
 {
-	return pthread_mutex_unlock(&clientMutex);
+	pthread_mutex_unlock(&clientMutex);
+}
+
+/**
+ * @brief Tell if a context index from the Application Context vector \c
+ * _psContextMap is valid or not.
+ *
+ * @param[in] hContext Application Context whose index will be find.
+ *
+ * @return \c TRUE if the context exists
+ * @return \c FALSE if the context does not exist
+ */
+static int SCardGetContextValidity(SCARDCONTEXT hContext)
+{
+	SCONTEXTMAP * currentContextMap;
+
+	SCardLockThread();
+	currentContextMap = SCardGetContextTH(hContext);
+	SCardUnlockThread();
+
+	return currentContextMap != NULL;
 }
 
 static LONG SCardEstablishContextTH(DWORD, LPCVOID, LPCVOID,
@@ -415,7 +440,9 @@ static LONG SCardEstablishContextTH(DWORD, LPCVOID, LPCVOID,
  * @brief Creates an Application Context to the PC/SC Resource Manager.
  *
  * This must be the first WinSCard function called in a PC/SC application.
- * Each thread of an application shall use its own \ref SCARDCONTEXT.
+ * Each thread of an application shall use its own \ref SCARDCONTEXT, unless
+ * calling \ref SCardCancel(), which MUST be called with the same context as the
+ * context used to call \ref SCardGetStatusChange().
  *
  * @ingroup API
  * @param[in] dwScope Scope of the establishment.
@@ -457,10 +484,10 @@ LONG SCardEstablishContext(DWORD dwScope, LPCVOID pvReserved1,
 	if (rv != SCARD_S_SUCCESS)
 		goto end;
 
-	(void)SCardLockThread();
+	SCardLockThread();
 	rv = SCardEstablishContextTH(dwScope, pvReserved1,
 		pvReserved2, phContext);
-	(void)SCardUnlockThread();
+	SCardUnlockThread();
 
 end:
 	PROFILE_END(rv)
@@ -660,7 +687,7 @@ LONG SCardReleaseContext(SCARDCONTEXT hContext)
 	 * Make sure this context has been opened
 	 * and get currentContextMap
 	 */
-	currentContextMap = SCardGetAndLockContext(hContext, TRUE);
+	currentContextMap = SCardGetAndLockContext(hContext);
 	if (NULL == currentContextMap)
 	{
 		rv = SCARD_E_INVALID_HANDLE;
@@ -693,9 +720,9 @@ end:
 	/*
 	 * Remove the local context from the stack
 	 */
-	(void)SCardLockThread();
-	(void)SCardRemoveContext(hContext);
-	(void)SCardUnlockThread();
+	SCardLockThread();
+	SCardRemoveContext(hContext);
+	SCardUnlockThread();
 
 error:
 	PROFILE_END(rv)
@@ -790,7 +817,7 @@ LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader,
 	/*
 	 * Make sure this context has been opened
 	 */
-	currentContextMap = SCardGetAndLockContext(hContext, TRUE);
+	currentContextMap = SCardGetAndLockContext(hContext);
 	if (NULL == currentContextMap)
 		return SCARD_E_INVALID_HANDLE;
 
@@ -1054,7 +1081,7 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 		goto end;
 
 	if (SCARD_S_SUCCESS == scDisconnectStruct.rv)
-		(void)SCardRemoveHandle(hCard);
+		SCardRemoveHandle(hCard);
 	rv = scDisconnectStruct.rv;
 
 end:
@@ -1555,6 +1582,9 @@ end:
  * reader name \c "\\?PnP?\Notification". If a reader event occurs the state of
  * this reader will change and the bit \ref SCARD_STATE_CHANGED will be set.
  *
+ * To cancel the ongoing call, use \ref SCardCancel() with the same
+ * \ref SCARDCONTEXT.
+ *
  * @code
  * typedef struct {
  *   LPCSTR szReader;           // Reader name
@@ -1698,7 +1728,7 @@ LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
 	/*
 	 * Make sure this context has been opened
 	 */
-	currentContextMap = SCardGetAndLockContext(hContext, TRUE);
+	currentContextMap = SCardGetAndLockContext(hContext);
 	if (NULL == currentContextMap)
 	{
 		rv = SCARD_E_INVALID_HANDLE;
@@ -2153,7 +2183,7 @@ error:
  *
  * @return Error code.
  * @retval SCARD_S_SUCCESS Successful (\ref SCARD_S_SUCCESS)
- * @retval SCARD_E_INSUFFICIENT_BUFFER \p cbSendLength or \p cbRecvLength are too big (\ref SCARD_E_INSUFFICIENT_BUFFER)
+ * @retval SCARD_E_INSUFFICIENT_BUFFER \p cbRecvLength was not large enough for the reader response. The expected size is now in \p lpBytesReturned (\ref SCARD_E_INSUFFICIENT_BUFFER)
  * @retval SCARD_E_INVALID_HANDLE Invalid \p hCard handle (\ref SCARD_E_INVALID_HANDLE)
  * @retval SCARD_E_INVALID_PARAMETER \p pbSendBuffer is NULL or \p cbSendLength is null and the IFDHandler is version 2.0 (without \p dwControlCode) (\ref SCARD_E_INVALID_PARAMETER)
  * @retval SCARD_E_INVALID_VALUE Invalid value was presented (\ref SCARD_E_INVALID_VALUE)
@@ -2770,19 +2800,28 @@ end:
  * LPSTR mszReaders;
  * DWORD dwReaders;
  * LONG rv;
- * ...
+ *
  * rv = SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &hContext);
  * rv = SCardListReaders(hContext, NULL, NULL, &dwReaders);
  * mszReaders = malloc(sizeof(char)*dwReaders);
  * rv = SCardListReaders(hContext, NULL, mszReaders, &dwReaders);
+ *
+ * char *p = mszReaders;
+ * while (*p)
+ * {
+ *	 printf("Reader: %s\n", p);
+ *	 p += strlen(p) +1;
+ * }
  * @endcode
+ *
+ * or, with auto allocation:
  *
  * @code
  * SCARDCONTEXT hContext;
  * LPSTR mszReaders;
  * DWORD dwReaders;
  * LONG rv;
- * ...
+ *
  * rv = SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &hContext);
  * dwReaders = SCARD_AUTOALLOCATE;
  * rv = SCardListReaders(hContext, NULL, (LPSTR)&mszReaders, &dwReaders);
@@ -2811,7 +2850,7 @@ LONG SCardListReaders(SCARDCONTEXT hContext, /*@unused@*/ LPCSTR mszGroups,
 	/*
 	 * Make sure this context has been opened
 	 */
-	currentContextMap = SCardGetAndLockContext(hContext, TRUE);
+	currentContextMap = SCardGetAndLockContext(hContext);
 	if (NULL == currentContextMap)
 	{
 		PROFILE_END(SCARD_E_INVALID_HANDLE)
@@ -2908,15 +2947,13 @@ end:
 LONG SCardFreeMemory(SCARDCONTEXT hContext, LPCVOID pvMem)
 {
 	LONG rv = SCARD_S_SUCCESS;
-	SCONTEXTMAP * currentContextMap;
 
 	PROFILE_START
 
 	/*
 	 * Make sure this context has been opened
 	 */
-	currentContextMap = SCardGetAndLockContext(hContext, FALSE);
-	if (NULL == currentContextMap)
+	if (! SCardGetContextValidity(hContext))
 		return SCARD_E_INVALID_HANDLE;
 
 	free((void *)pvMem);
@@ -2993,7 +3030,7 @@ LONG SCardListReaderGroups(SCARDCONTEXT hContext, LPSTR mszGroups,
 	/*
 	 * Make sure this context has been opened
 	 */
-	currentContextMap = SCardGetAndLockContext(hContext, TRUE);
+	currentContextMap = SCardGetAndLockContext(hContext);
 	if (NULL == currentContextMap)
 		return SCARD_E_INVALID_HANDLE;
 
@@ -3037,8 +3074,9 @@ end:
 }
 
 /**
- * Cancels all pending blocking requests on the SCardGetStatusChange()
- * function.
+ * Cancels a specific blocking \ref SCardGetStatusChange() function.
+ * MUST be called with the same \ref SCARDCONTEXT as \ref
+ * SCardGetStatusChange().
  *
  * @ingroup API
  * @param[in] hContext Connection context to the PC/SC Resource Manager.
@@ -3072,6 +3110,7 @@ LONG SCardCancel(SCARDCONTEXT hContext)
 	LONG rv = SCARD_S_SUCCESS;
 	uint32_t dwClientID = 0;
 	struct cancel_struct scCancelStruct;
+	char cancellable;
 
 	PROFILE_START
 	API_TRACE_IN("%ld", hContext)
@@ -3079,14 +3118,19 @@ LONG SCardCancel(SCARDCONTEXT hContext)
 	/*
 	 * Make sure this context has been opened
 	 */
-	currentContextMap = SCardGetAndLockContext(hContext, FALSE);
+	(void)SCardLockThread();
+	currentContextMap = SCardGetContextTH(hContext);
+
 	if (NULL == currentContextMap)
 	{
+		(void)SCardUnlockThread();
 		rv = SCARD_E_INVALID_HANDLE;
 		goto error;
 	}
+	cancellable = currentContextMap->cancellable;
+	(void)SCardUnlockThread();
 
-	if (! currentContextMap->cancellable)
+	if (! cancellable)
 	{
 		rv = SCARD_S_SUCCESS;
 		goto error;
@@ -3153,7 +3197,6 @@ error:
 LONG SCardIsValidContext(SCARDCONTEXT hContext)
 {
 	LONG rv;
-	SCONTEXTMAP * currentContextMap;
 
 	PROFILE_START
 	API_TRACE_IN("%ld", hContext)
@@ -3163,8 +3206,7 @@ LONG SCardIsValidContext(SCARDCONTEXT hContext)
 	/*
 	 * Make sure this context has been opened
 	 */
-	currentContextMap = SCardGetAndLockContext(hContext, FALSE);
-	if (currentContextMap == NULL)
+	if (! SCardGetContextValidity(hContext))
 		rv = SCARD_E_INVALID_HANDLE;
 
 	PROFILE_END(rv)
@@ -3242,30 +3284,33 @@ error:
 }
 
 /**
- * @brief Get the index from the Application Context vector \c _psContextMap
- * for the passed context.
+ * @brief Get the \ref SCONTEXTMAP * from the Application Context
+ * vector \c _psContextMap for the passed context.
  *
  * This function is a thread-safe wrapper to the function
  * SCardGetContextTH().
  *
- * @param[in] hContext Application Context whose index will be find.
- * @param[in] lock if TRUE then the context (if available)
+ * If the context is valid then \c &currentContextMap->mMutex lock is
+ * acquired. The mutex lock needs to be released when the structure is
+ * no more used.
  *
- * @return Index corresponding to the Application Context or -1 if it is
- * not found.
+ * @param[in] hContext Application Context whose SCONTEXTMAP will be find.
+ *
+ * @return context map corresponding to the Application Context or NULL
+ * if it is not found.
  */
-static SCONTEXTMAP * SCardGetAndLockContext(SCARDCONTEXT hContext, int lock)
+static SCONTEXTMAP * SCardGetAndLockContext(SCARDCONTEXT hContext)
 {
 	SCONTEXTMAP * currentContextMap;
 
-	(void)SCardLockThread();
+	SCardLockThread();
 	currentContextMap = SCardGetContextTH(hContext);
 
 	/* lock the context (if available) */
-	if (lock && NULL != currentContextMap)
+	if (NULL != currentContextMap)
 		(void)pthread_mutex_lock(&currentContextMap->mMutex);
 
-	(void)SCardUnlockThread();
+	SCardUnlockThread();
 
 	return currentContextMap;
 }
@@ -3296,25 +3341,23 @@ static SCONTEXTMAP * SCardGetContextTH(SCARDCONTEXT hContext)
  * @retval SCARD_S_SUCCESS Success (\ref SCARD_S_SUCCESS)
  * @retval SCARD_E_INVALID_HANDLE The context \p hContext was not found (\ref SCARD_E_INVALID_HANDLE)
  */
-static LONG SCardRemoveContext(SCARDCONTEXT hContext)
+static void SCardRemoveContext(SCARDCONTEXT hContext)
 {
 	SCONTEXTMAP * currentContextMap;
 	currentContextMap = SCardGetContextTH(hContext);
 
-	if (NULL == currentContextMap)
-		return SCARD_E_INVALID_HANDLE;
-	else
-		return SCardCleanContext(currentContextMap);
+	if (NULL != currentContextMap)
+		SCardCleanContext(currentContextMap);
 }
 
-static LONG SCardCleanContext(SCONTEXTMAP * targetContextMap)
+static void SCardCleanContext(SCONTEXTMAP * targetContextMap)
 {
 	int list_index, lrv;
 	int listSize;
 	CHANNEL_MAP * currentChannelMap;
 
 	targetContextMap->hContext = 0;
-	(void)ClientCloseSession(targetContextMap->dwClientID);
+	ClientCloseSession(targetContextMap->dwClientID);
 	targetContextMap->dwClientID = 0;
 	(void)pthread_mutex_destroy(&targetContextMap->mMutex);
 
@@ -3347,7 +3390,7 @@ static LONG SCardCleanContext(SCONTEXTMAP * targetContextMap)
 
 	free(targetContextMap);
 
-	return SCARD_S_SUCCESS;
+	return;
 }
 
 /*
@@ -3380,7 +3423,7 @@ static LONG SCardAddHandle(SCARDHANDLE hCard, SCONTEXTMAP * currentContextMap,
 	return SCARD_S_SUCCESS;
 }
 
-static LONG SCardRemoveHandle(SCARDHANDLE hCard)
+static void SCardRemoveHandle(SCARDHANDLE hCard)
 {
 	SCONTEXTMAP * currentContextMap;
 	CHANNEL_MAP * currentChannelMap;
@@ -3390,7 +3433,7 @@ static LONG SCardRemoveHandle(SCARDHANDLE hCard)
 	rv = SCardGetContextAndChannelFromHandleTH(hCard, &currentContextMap,
 		&currentChannelMap);
 	if (rv == -1)
-		return SCARD_E_INVALID_HANDLE;
+		return;
 
 	free(currentChannelMap->readerName);
 
@@ -3403,7 +3446,7 @@ static LONG SCardRemoveHandle(SCARDHANDLE hCard)
 
 	free(currentChannelMap);
 
-	return SCARD_S_SUCCESS;
+	return;
 }
 
 static LONG SCardGetContextChannelAndLockFromHandle(SCARDHANDLE hCard,
@@ -3414,14 +3457,14 @@ static LONG SCardGetContextChannelAndLockFromHandle(SCARDHANDLE hCard,
 	if (0 == hCard)
 		return -1;
 
-	(void)SCardLockThread();
+	SCardLockThread();
 	rv = SCardGetContextAndChannelFromHandleTH(hCard, targetContextMap,
 		targetChannelMap);
 
 	if (SCARD_S_SUCCESS == rv)
 		(void)pthread_mutex_lock(&(*targetContextMap)->mMutex);
 
-	(void)SCardUnlockThread();
+	SCardUnlockThread();
 
 	return rv;
 }

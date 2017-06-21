@@ -65,7 +65,6 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "hotplug.h"
 #include "readerfactory.h"
 #include "configfile.h"
-#include "powermgt_generic.h"
 #include "utils.h"
 #include "eventhandler.h"
 
@@ -91,8 +90,8 @@ char Add_Interface_In_Name = TRUE;
 static void at_exit(void);
 static void clean_temp_files(void);
 static void signal_trap(int);
-static void print_version (void);
-static void print_usage (char const * const);
+static void print_version(void);
+static void print_usage(char const * const);
 
 /**
  * @brief The Server's Message Queue Listener function.
@@ -275,7 +274,7 @@ int main(int argc, char **argv)
 		{"version", 0, NULL, 'v'},
 		{"apdu", 0, NULL, 'a'},
 		{"debug", 0, NULL, 'd'},
-		{"info", 0, NULL, 0},
+		{"info", 0, NULL, 'i'},
 		{"error", 0, NULL, 'e'},
 		{"critical", 0, NULL, 'C'},
 		{"hotplug", 0, NULL, 'H'},
@@ -289,7 +288,7 @@ int main(int argc, char **argv)
 		{NULL, 0, NULL, 0}
 	};
 #endif
-#define OPT_STRING "c:fTdhvaeCHt:r:s:xSI"
+#define OPT_STRING "c:fTdhvaieCHt:r:s:xSI"
 
 	newReaderConfig = NULL;
 	setToForeground = FALSE;
@@ -355,6 +354,10 @@ int main(int argc, char **argv)
 				DebugLogSetLevel(PCSC_LOG_DEBUG);
 				break;
 
+			case 'i':
+				DebugLogSetLevel(PCSC_LOG_INFO);
+				break;
+
 			case 'e':
 				DebugLogSetLevel(PCSC_LOG_ERROR);
 				break;
@@ -372,7 +375,7 @@ int main(int argc, char **argv)
 				return EXIT_SUCCESS;
 
 			case 'a':
-				(void)DebugLogSetCategory(DEBUG_CATEGORY_APDU);
+				DebugLogSetCategory(DEBUG_CATEGORY_APDU);
 				break;
 
 			case 'H':
@@ -749,11 +752,6 @@ int main(int argc, char **argv)
 	RFWaitForReaderInit();
 #endif
 
-	/*
-	 * Set up the power management callback routine
-	 */
-	(void)PMRegisterForPowerEvents();
-
 	/* initialisation succeeded */
 	if (pipefd[1] >= 0)
 	{
@@ -827,7 +825,7 @@ static void signal_trap(int sig)
 		Log2(PCSC_LOG_ERROR, "write failed: %s", strerror(errno));
 }
 
-static void print_version (void)
+static void print_version(void)
 {
 	printf("%s version %s.\n",  PACKAGE, VERSION);
 	printf("Copyright (C) 1999-2002 by David Corcoran <corcoran@musclecard.com>.\n");
@@ -838,7 +836,7 @@ static void print_version (void)
 	printf ("Enabled features:%s\n", PCSCLITE_FEATURES);
 }
 
-static void print_usage (char const * const progname)
+static void print_usage(char const * const progname)
 {
 	printf("Usage: %s options\n", progname);
 	printf("Options:\n");
@@ -852,7 +850,7 @@ static void print_usage (char const * const progname)
 	printf("  -H, --hotplug		ask the daemon to rescan the available readers\n");
 	printf("  -v, --version		display the program version number\n");
 	printf("  -d, --debug		display lower level debug messages\n");
-	printf("      --info		display info level debug messages\n");
+	printf("  -i, --info		display info level debug messages\n");
 	printf("  -e  --error		display error level debug messages (default level)\n");
 	printf("  -C  --critical	display critical only level debug messages\n");
 	printf("  --force-reader-polling ignore the IFD_GENERATE_HOTPLUG reader capability\n");
@@ -868,6 +866,7 @@ static void print_usage (char const * const progname)
 	printf("  -f	run in foreground (no daemon), send logs to stdout instead of syslog\n");
 	printf("  -T    force use of colored logs\n");
 	printf("  -d	display debug messages.\n");
+	printf("  -i	display info messages.\n");
 	printf("  -e	display error messages (default level).\n");
 	printf("  -C	display critical messages.\n");
 	printf("  -h	display usage information\n");

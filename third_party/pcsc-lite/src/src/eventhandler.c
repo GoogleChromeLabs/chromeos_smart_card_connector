@@ -111,9 +111,8 @@ LONG EHUnregisterClientForEvent(int32_t filedes)
 /**
  * Sends an asynchronous event to any waiting client
  */
-LONG EHSignalEventToClients(void)
+void EHSignalEventToClients(void)
 {
-	LONG rv = SCARD_S_SUCCESS;
 	int32_t filedes;
 
 	(void)pthread_mutex_lock(&ClientsWaitingForEvent_lock);
@@ -122,15 +121,13 @@ LONG EHSignalEventToClients(void)
 	while (list_iterator_hasnext(&ClientsWaitingForEvent))
 	{
         filedes = *(int32_t *)list_iterator_next(&ClientsWaitingForEvent);
-		rv = MSGSignalClient(filedes, SCARD_S_SUCCESS);
+		MSGSignalClient(filedes, SCARD_S_SUCCESS);
 	}
 	(void)list_iterator_stop(&ClientsWaitingForEvent);
 
 	(void)list_clear(&ClientsWaitingForEvent);
 
 	(void)pthread_mutex_unlock(&ClientsWaitingForEvent_lock);
-
-	return rv;
 } /* EHSignalEventToClients */
 
 LONG EHInitializeEventStructures(void)
@@ -156,7 +153,7 @@ LONG EHDeinitializeEventStructures(void)
 	return SCARD_S_SUCCESS;
 }
 
-LONG EHDestroyEventHandler(READER_CONTEXT * rContext)
+void EHDestroyEventHandler(READER_CONTEXT * rContext)
 {
 	int rv;
 	DWORD dwGetSize;
@@ -165,7 +162,7 @@ LONG EHDestroyEventHandler(READER_CONTEXT * rContext)
 	if ('\0' == rContext->readerState->readerName[0])
 	{
 		Log1(PCSC_LOG_INFO, "Thread already stomped.");
-		return SCARD_S_SUCCESS;
+		return;
 	}
 
 	/*
@@ -215,7 +212,7 @@ LONG EHDestroyEventHandler(READER_CONTEXT * rContext)
 
 	Log1(PCSC_LOG_INFO, "Thread stomped.");
 
-	return SCARD_S_SUCCESS;
+	return;
 }
 
 LONG EHSpawnEventHandler(READER_CONTEXT * rContext)
@@ -245,7 +242,9 @@ LONG EHSpawnEventHandler(READER_CONTEXT * rContext)
 static void EHStatusHandlerThread(READER_CONTEXT * rContext)
 {
 	LONG rv;
+#ifndef NO_LOG
 	const char *readerName;
+#endif
 	DWORD dwStatus;
 	uint32_t readerState;
 	int32_t readerSharing;
@@ -259,7 +258,9 @@ static void EHStatusHandlerThread(READER_CONTEXT * rContext)
 	 */
 	dwStatus = 0;
 
+#ifndef NO_LOG
 	readerName = rContext->readerState->readerName;
+#endif
 
 	rv = IFDStatusICC(rContext, &dwStatus);
 
@@ -320,7 +321,7 @@ static void EHStatusHandlerThread(READER_CONTEXT * rContext)
 	rContext->readerState->readerState = readerState;
 	rContext->readerState->readerSharing = readerSharing = rContext->contexts;
 
-	(void)EHSignalEventToClients();
+	EHSignalEventToClients();
 
 	while (1)
 	{
@@ -341,7 +342,7 @@ static void EHStatusHandlerThread(READER_CONTEXT * rContext)
 
 			dwCurrentState = SCARD_UNKNOWN;
 
-			(void)EHSignalEventToClients();
+			EHSignalEventToClients();
 		}
 
 		if (dwStatus & SCARD_ABSENT)
@@ -367,7 +368,7 @@ static void EHStatusHandlerThread(READER_CONTEXT * rContext)
 				if (rContext->readerState->eventCounter > 0xFFFF)
 					rContext->readerState->eventCounter = 0;
 
-				(void)EHSignalEventToClients();
+				EHSignalEventToClients();
 			}
 
 		}
@@ -419,7 +420,7 @@ static void EHStatusHandlerThread(READER_CONTEXT * rContext)
 
 				Log2(PCSC_LOG_INFO, "Card inserted into %s", readerName);
 
-				(void)EHSignalEventToClients();
+				EHSignalEventToClients();
 
 				if (rv == IFD_SUCCESS)
 				{
@@ -444,7 +445,7 @@ static void EHStatusHandlerThread(READER_CONTEXT * rContext)
 		{
 			readerSharing = rContext->contexts;
 			rContext->readerState->readerSharing = readerSharing;
-			(void)EHSignalEventToClients();
+			EHSignalEventToClients();
 		}
 
 		if (rContext->pthCardEvent)
@@ -498,7 +499,6 @@ static void EHStatusHandlerThread(READER_CONTEXT * rContext)
 			/*
 			 * Exit and notify the caller
 			 */
-			(void)EHSignalEventToClients();
 			Log1(PCSC_LOG_INFO, "Die");
 			rContext->hLockId = 0;
 			(void)pthread_exit(NULL);
