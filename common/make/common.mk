@@ -272,7 +272,9 @@ define COLLECT_DEPENDENCY_OUT
 .PHONY: collect_dependency_out_$(1)
 
 collect_dependency_out_$(1): $(OUT_DIR_PATH) generate_out_$(1)
-	@cd $(1) && find . -type f -exec $(CURDIR)/$(call RACE_FREE_CP,{},$(CURDIR)/$(OUT_DIR_PATH)/{},true) \;
+	@cd $(1) && \
+		find . -type f \
+			-exec $(CURDIR)/$(call RACE_FREE_CP,{},$(CURDIR)/$(OUT_DIR_PATH)/{},true) \;
 
 generate_out: collect_dependency_out_$(1)
 

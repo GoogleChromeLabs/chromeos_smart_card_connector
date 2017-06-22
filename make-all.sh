@@ -82,7 +82,9 @@ build_library() {
 
 prepare_built_app_packages_dir() {
 	rm -rf ${BUILT_APP_PACKAGES_DIR}
-	mkdir -p ${BUILT_APP_PACKAGES_DIR} ${BUILT_APP_PACKAGES_DIR}/Release ${BUILT_APP_PACKAGES_DIR}/Debug
+	mkdir -p ${BUILT_APP_PACKAGES_DIR} \
+		${BUILT_APP_PACKAGES_DIR}/Release \
+		${BUILT_APP_PACKAGES_DIR}/Debug
 }
 
 copy_app_packages() {
