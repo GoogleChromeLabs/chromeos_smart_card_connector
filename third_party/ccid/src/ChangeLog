@@ -1,4 +1,307 @@
-commit a7dcbf296492f5056e1ba7abb8388531bb0a6708 (HEAD -> master, tag: ccid-1.4.27, origin/master, origin/HEAD, github/master)
+commit 70379da0cf79444d7035e0f42bea6f759f0a0886 (HEAD -> master, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 11 14:00:57 2017 +0200
+
+    Release 1.4.28
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ README       | 26 ++++++++++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 27 insertions(+), 1 deletion(-)
+
+commit 7fd10bfab0c9c9fd4903d7b8e4d33a9dc3347273
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Oct 4 14:02:48 2017 +0200
+
+    Add Unicept GmbH AirID USB Dongle
+
+ readers/Unicept_AirID_USB_Dongle.txt | 51 ++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt        |  3 ++-
+ 2 files changed, 53 insertions(+), 1 deletion(-)
+
+commit ebe042a757dc85e2ecc9609edc3b4ced588c6eba
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 2 15:35:02 2017 +0200
+
+    Makefile: add support of spaces in DESTDIR
+    
+    It is now possible to use space characters in the destination directory
+    name (DESTDIR).
+    
+    This is inspired by Apple patch destDirFix.patch
+    https://opensource.apple.com/source/SmartcardCCID/SmartcardCCID-55017/ccid/files/destDirFix.patch.auto.html
+
+ src/Makefile.am | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+commit 94f90761bbedd0325fe321303b1871825927267d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 27 17:54:45 2017 +0200
+
+    Add HID Global OMNIKEY 5122 Dual
+
+ readers/HID_Global_OMNIKEY_5122_Dual.txt | 329 +++++++++++++++++++++++++++++++
+ readers/supported_readers.txt            |   1 +
+ 2 files changed, 330 insertions(+)
+
+commit 9a1b284329f88ef8eda2b7361096c05eda84f57a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 27 17:53:32 2017 +0200
+
+    Add HID Global OMNIKEY 5122 Smartcard Reader
+
+ .../HID_Global_OMNIKEY_5122_Smartcard_Reader.txt   | 329 +++++++++++++++++++++
+ readers/supported_readers.txt                      |   3 +-
+ 2 files changed, 331 insertions(+), 1 deletion(-)
+
+commit 7077b050b699e72471348877ca221a8641e858dc
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Sep 25 18:40:48 2017 +0200
+
+    Add KRONEGGER Micro Core Platform
+
+ readers/KRONEGGER_Micro_Core_Platform.txt | 310 ++++++++++++++++++++++++++++++
+ readers/supported_readers.txt             |   1 +
+ 2 files changed, 311 insertions(+)
+
+commit e95a7204b24346297ca64c11b63078bb25e8556d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Sep 25 18:36:17 2017 +0200
+
+    Add KRONEGGER NFC blue Reader Platform
+
+ readers/KRONEGGER_NFC_blue_Reader_Platform.txt | 310 +++++++++++++++++++++++++
+ readers/supported_readers.txt                  |   5 +-
+ 2 files changed, 314 insertions(+), 1 deletion(-)
+
+commit 502dd6c9bb285d92e6aee2578eb36c19eba87a40
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 20 10:45:46 2017 +0200
+
+    Move Athena IDProtect Flash in Unsupported list
+    
+    The reader does not work with a GnuPG card V2 card. All APDUs are
+    rejected with "Card absent or mute".
+
+ readers/supported_readers.txt | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+commit a06440b70d2b7898ac813d5e87d5349f18fcd166
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Sep 18 21:33:25 2017 +0200
+
+    Add Athena IDProtect Flash
+
+ readers/Athena_IDProtect_Flash.txt | 53 ++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt      |  3 ++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit 7f3a5207e30e83af3d95dcd9ba3576e603cf6fb8
+Author: Rodrigo <rodarima@gmail.com>
+Date:   Sat Sep 9 01:13:06 2017 +0200
+
+    udev rules: Disable USB autosuspend on C3PO LTC31 v1 reader
+    
+    The device doesn't seem to work fine when resuming from suspension mode.
+    By preventing autosuspension the device doesn't fail anymore.
+    
+    See Github issue #36
+    "USB autosuspend problem: libusb_open returns LIBUSB_ERROR_IO"
+    https://github.com/LudovicRousseau/CCID/issues/36
+
+ src/92_pcscd_ccid.rules | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 12cd7a1a0a7761ee4c98c9647473b1e754ea8d75
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Sep 8 23:23:31 2017 +0200
+
+    Add REINER SCT cyberJack RFID standard
+
+ readers/ReinerSCT_cyberJack_RFID_standard.txt | 59 +++++++++++++++++++++++++++
+ readers/supported_readers.txt                 |  3 +-
+ 2 files changed, 61 insertions(+), 1 deletion(-)
+
+commit abed9dff59d7d049e3323a66b0ab710f31fb546e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Aug 31 10:07:33 2017 +0200
+
+    udev rule: allow rule overwrite
+    
+    Use:
+    ATTR{power/control}="auto"
+    instead of:
+    RUN+="/bin/sh -c 'echo auto > /sys/$devpath/power/control'"
+    
+    It looks like this allows to add udev rules after that to change again
+    the power/control behavior.
+    
+    Closes github issue #36
+    "USB autosuspend problem: libusb_open returns LIBUSB_ERROR_IO"
+    https://github.com/LudovicRousseau/CCID/issues/36
+
+ src/92_pcscd_ccid.rules | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 00aed9f2a147e24df2050617f6560c2b76e1f051
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 30 13:26:02 2017 +0200
+
+    Add Watchdata USB Key
+    
+    ProductID: 0x0417
+
+ readers/Watchdata_USB_Key2.txt | 47 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  3 ++-
+ 2 files changed, 49 insertions(+), 1 deletion(-)
+
+commit 3b29cc5afbbe27bb5421d334623bbd07c574bbf8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 19 23:20:09 2017 +0200
+
+    Fix non-pinpad HID global devices
+    
+    The HID Aviator is not the only reader that declares pinpad support in
+    the USB descriptor but that has no physical keyboard to enter a PIN.
+    The USB descriptor is bogus.
+    
+    The readers also support Extended APDU even if they declare Short APDU.
+    
+    Bogus readers are:
+    - OMNIKEY Generic
+    - OMNIKEY 3121 or 3021 or 1021
+    - OMNIKEY 6121
+    - Cherry Smart Terminal xx44
+    - Fujitsu Smartcard Reader D323
+    
+    Thanks to hidglobal.com for the patch.
+
+ src/ccid.c | 7 ++++++-
+ src/ccid.h | 4 ++++
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+commit 10fd29a365f1f664063bee320c06e37253a86b60
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 19 23:39:15 2017 +0200
+
+    Add Ledger Nano S
+
+ readers/Ledger_Nano_S.txt     | 51 +++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt |  5 ++++-
+ 2 files changed, 55 insertions(+), 1 deletion(-)
+
+commit 44aab2ddbc6dea6125e9d8f407296957511039c1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Aug 5 16:02:31 2017 +0200
+
+    Add SAFETRUST SABRE SCR
+
+ readers/SAFETRUST_SABRE_SCR.txt | 81 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt   |  5 ++-
+ 2 files changed, 85 insertions(+), 1 deletion(-)
+
+commit dd1ea045cacafe1d5d2b063be66a23ee858ffc14
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Jul 29 12:01:40 2017 +0200
+
+    Add IIT E.Key Crystal-1
+
+ readers/IIT_E.Key_Crystal-1.txt | 50 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt   |  3 ++-
+ 2 files changed, 52 insertions(+), 1 deletion(-)
+
+commit 32deeb888d324c7d4056c23f60749efa17c1856c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 28 18:54:32 2017 +0200
+
+    Firmware upgrade for 0x0BDA:0x0169
+    
+    "Generic" device.
+
+ readers/iMONO.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit 8d2bcc81fdd38abceb9a3b4a2c4b5b054a70c14c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 28 18:49:55 2017 +0200
+
+    Add REINER SCT cyberJack one
+
+ readers/ReinerSCT_cyberJack_one.txt | 56 +++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt       |  3 +-
+ 2 files changed, 58 insertions(+), 1 deletion(-)
+
+commit 643869e86d770222c0d48140e0fabef5ef4e4785
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jul 5 10:40:07 2017 +0200
+
+    Enable Elatec TWN4/B1.06/CPF3.05/S1SC1.32/P (Beta 3)
+    
+    The reader has moved from the "disabled" to the "should work" list after
+    patch in d5f2f893a0f513cdda0821c6dca7cdc337d54ba8
+
+ readers/supported_readers.txt | 6 ++----
+ 1 file changed, 2 insertions(+), 4 deletions(-)
+
+commit d5f2f893a0f513cdda0821c6dca7cdc337d54ba8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jul 5 10:34:47 2017 +0200
+
+    Improve support of ElatecTWN4_CCID reader
+    
+    The reader answers after up to 1 second when no card is present in the
+    field. So a 100ms timeoutx was too short.
+    
+    Thanks to Elatec for the patch.
+
+ src/ccid.c | 15 ++++++++++-----
+ src/ccid.h |  3 ++-
+ 2 files changed, 12 insertions(+), 6 deletions(-)
+
+commit 3c0cacc5935282c35fe206b5ac91fd628605c3e5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jul 3 18:38:33 2017 +0200
+
+    Add mCore SCard-Reader
+
+ readers/mCore_SCard-Reader.txt | 64 ++++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt  |  5 +++-
+ 2 files changed, 68 insertions(+), 1 deletion(-)
+
+commit 44f79e83bb26fe7b7fc38a36c2c02609b01b1581
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jun 28 20:09:53 2017 +0200
+
+    Add Elatec TWN4/B1.06/CPF3.05/S1SC1.32/P (Beta 3)
+    
+    in the disabled list
+
+ readers/Elatec_TWN4_MULTITECH.txt | 56 +++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt     |  5 +++-
+ 2 files changed, 60 insertions(+), 1 deletion(-)
+
+commit 5763d30af330767f266b4897fe1b55152b4d3fa6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 22 18:23:24 2017 +0200
+
+    Add SafeNet eToken 5300
+
+ readers/SafeNet_eToken_5300.txt | 97 +++++++++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt   |  3 +-
+ 2 files changed, 99 insertions(+), 1 deletion(-)
+
+commit e3cc4f94624db4d7b197ce1106280baedb6b3cf3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Jun 12 18:40:37 2017 +0200
+
+    Disable Jinmuyu Electronics Co., Ltd. MR800
+
+ readers/Jinmuyu_Electronics_MR800.txt | 53 +++++++++++++++++++++++++++++++++++
+ readers/supported_readers.txt         |  5 +++-
+ 2 files changed, 57 insertions(+), 1 deletion(-)
+
+commit a7dcbf296492f5056e1ba7abb8388531bb0a6708 (tag: ccid-1.4.27, github/master)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun May 21 14:41:20 2017 +0200
 

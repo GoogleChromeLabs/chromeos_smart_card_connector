@@ -1,6 +1,6 @@
 #
 # List of readers supported by the CCID driver
-# Generated: 2017-05-05
+# Generated: 2017-10-02
 #
 # DO NOT EDIT BY HAND
 
@@ -270,6 +270,7 @@
 
 # Elatec
 0x09D8:0x0427:Elatec TWN4 SmartCard NFC
+0x09D8:0x0428:Elatec TWN4/B1.06/CPF3.05/S1SC1.32/P (Beta 3)
 
 # ESMART
 0x2CE4:0x7479:ESMART Token GOST
@@ -366,7 +367,9 @@
 0x076B:0x3031:HID Global OMNIKEY 3x21 Smart Card Reader
 0x076B:0x5022:HID Global OMNIKEY 5022 Smart Card Reader
 0x076B:0x5400:HID Global veriCLASS Reader
+0x076B:0x5412:HID Global OMNIKEY 5122 Smartcard Reader
 0x076B:0x5422:HID Global OMNIKEY 5422 Smartcard Reader
+0x076B:0x5432:HID Global OMNIKEY 5122 Dual
 0x076B:0x6632:HID Global OMNIKEY 6121 Smart Card Reader
 
 # HID OMNIKEY
@@ -413,6 +416,7 @@
 0x2406:0x6200:IID AT90S064 CCID READER
 
 # IIT
+0x03EB:0x9308:IIT E.Key Crystal-1
 0x03EB:0x9324:IIT E.Key Almaz-1C
 
 # InfoThink
@@ -453,6 +457,13 @@
 0x0D46:0x4389:KOBIL Systems mIDentity fullsize
 0x0D46:0x43A9:KOBIL Systems mIDentity fullsize AES
 
+# KRONEGGER
+0x2D25:0x0000:KRONEGGER NFC blue Reader Platform
+0x2D25:0x0001:KRONEGGER Micro Core Platform
+
+# Ledger
+0x2C97:0x0001:Ledger Nano S
+
 # Lenovo
 0x17EF:0x6007:Lenovo Lenovo USB Smartcard Keyboard
 0x17EF:0x6055:Lenovo Lenovo USB Smartcard Keyboard
@@ -464,6 +475,9 @@
 
 # Macally
 0x08AE:0x0BDF:Macally NFC CCID eNetPad
+
+# mCore
+0x1403:0x7502:mCore SCard-Reader
 
 # Microchip
 0x0424:0x1104:Microchip SEC1110
@@ -544,8 +558,10 @@
 0x1C6A:0x7050:Regula RFID Reader
 
 # REINER SCT
+0x0C4B:0x0500:REINER SCT cyberJack RFID standard
 0x0C4B:0x0504:REINER SCT cyberJack go
 0x0C4B:0x0520:REINER SCT tanJack Bluetooth
+0x0C4B:0x0580:REINER SCT cyberJack one
 0x0C4B:0x9102:REINER SCT cyberJack RFID basis
 
 # Rocketek
@@ -554,9 +570,13 @@
 # SafeNet
 0x0529:0x0602:SafeNet eToken 7300
 0x0529:0x0620:SafeNet eToken 5100
+0x08E6:0x34CC:SafeNet eToken 5300
 
 # SafeTech
 0x24A2:0x0102:SafeTech SafeTouch
+
+# SAFETRUST
+0x2EE1:0x0001:SAFETRUST SABRE SCR
 
 # SchlumbergerSema
 0x0973:0x0003:SchlumbergerSema SchlumbergerSema Cyberflex Access
@@ -627,6 +647,7 @@
 
 # Unicept GmbH
 0x2DFF:0x1540:Unicept GmbH AirID USB
+0x2DFF:0x1543:Unicept GmbH AirID USB Dongle
 
 # Validy
 0x1CF0:0x0001:Validy TokenA sl vt
@@ -654,6 +675,7 @@
 
 # Watchdata
 0x163C:0x0407:Watchdata USB Key
+0x163C:0x0417:Watchdata USB Key
 
 # Watchdata W5181
 0x163C:0x0A03:Watchdata W5181 
@@ -686,6 +708,9 @@
 # Aladdin
 
 # Alcor Micro
+
+# Athena
+0x0DC3:0x100F:Athena IDProtect Flash
 
 # ATMEL
 0x03EB:0x6016:ATMEL VaultIC460
@@ -740,6 +765,9 @@
 
 # HID OMNIKEY
 #0x076B:0x5340:HID OMNIKEY 5021 CL
+
+# Jinmuyu Electronics Co., Ltd.
+#0x03EB:0x6120:Jinmuyu Electronics Co., Ltd. MR800
 
 # jNet Technology inc.
 #0x0483:0x2010:jNet Technology inc. jToken s1

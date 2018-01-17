@@ -23,7 +23,7 @@
 #
 
 
-CCID_VERSION := 1.4.27
+CCID_VERSION := 1.4.28
 
 
 CCID_LIB := google_smart_card_ccid
