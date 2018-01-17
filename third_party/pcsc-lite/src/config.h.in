@@ -200,6 +200,9 @@
 /* directory containing IPC files */
 #undef USE_IPCDIR
 
+/* Use libsystemd */
+#undef USE_LIBSYSTEMD
+
 /* Use serial conf file mechanism */
 #undef USE_SERIAL
 

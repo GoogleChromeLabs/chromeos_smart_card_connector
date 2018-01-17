@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 
-AC_INIT([pcsc-lite],[1.8.22])
+AC_INIT([pcsc-lite],[1.8.23])
 AC_CONFIG_SRCDIR(src/pcscdaemon.c)
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip)
 AC_CONFIG_HEADERS([config.h])
@@ -149,6 +149,17 @@ AC_CHECK_LIB(socket, socket, [LIBS="$LIBS -lsocket"])
 
 # check for mq_getattr()
 AC_CHECK_LIB(rt, mq_getattr, [LIBS="$LIBS -lrt"])
+
+# check for libsystemd
+AC_ARG_ENABLE(libsystemd,
+	AS_HELP_STRING([--disable-libsystemd],[do not use libsystemd]),
+	[ use_libsystemd="${enableval}" ], [ use_libsystemd="yes" ] )
+if test "$use_libsystemd" != "no"; then
+	PKG_CHECK_MODULES(LIBSYSTEMD, libsystemd,,
+		[ AC_MSG_ERROR([install libsystemd-dev or use --disable-libsystemd]) ])
+	AC_DEFINE(USE_LIBSYSTEMD, 1, [Use libsystemd])
+	PCSCLITE_FEATURES="${PCSCLITE_FEATURES} libsystemd"
+fi
 
 # --disable-serial
 AC_ARG_ENABLE(serial,
@@ -431,6 +442,7 @@ ATR parsing messages:   ${debugatr}
 ipcdir:                 ${ipcdir}
 use serial:             ${use_serial}
 use usb:                ${use_usb}
+use libsystemd:         ${use_libsystemd}
 systemd unit directory: ${with_systemdsystemunitdir}
 serial config dir.:     ${confdir_exp}
 filter:                 ${use_filter}

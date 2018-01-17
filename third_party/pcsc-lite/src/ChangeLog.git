@@ -1,4 +1,236 @@
-commit 696023944649e0c52802e20994fb78d6b24d4efd (HEAD -> master, tag: pcsc-1.8.22, zotac/master, origin/master, origin/HEAD, github/master)
+commit 09f0f85b86e7488cf26642dd17150f76bed5300c (HEAD -> master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Dec 18 19:56:49 2017 +0100
+
+    Release 1.8.23
+
+ ChangeLog    | 8 ++++++++
+ configure.ac | 2 +-
+ 2 files changed, 9 insertions(+), 1 deletion(-)
+
+commit 1dde8427236fa988e9f488baa46d7316691a5555 (origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 14 15:09:25 2017 +0100
+
+    spy: add support SCardStatus() with NULL pcbAtrLen
+    
+    If an application calls SCardStatus() with pcbAtrLen = NULL then the trace
+    interpretation was wrong.
+    
+    The problematic trace was:
+    7F9414EF6700@>|1510667088|620972|SCardStatus
+    7F9414EF6700@0x7B0DDEA3
+    7F9414EF6700@NULL
+    7F9414EF6700@NULL
+    7F9414EF6700@NULL
+    7F9414EF6700@""
+    7F9414EF6700@NULL
+    7F9414EF6700@NULL
+    7F9414EF6700@NULL
+    7F9414EF6700@<|1510667088|621107|SCardStatus|Command successful.|0x00000000
+    
+    SCardStatus
+     i hCard: 0x7B0DDEA3
+     i pcchReaderLen NULL
+     i pcbAtrLen NULL
+     o cchReaderLen NULL
+     o mszReaderName ""
+     o dwState NULL
+     o dwProtocol NULL
+     o bAtrLen NULL
+     o bAtr
+     => Command successful. (SCARD_S_SUCCESS [0x00000000])  [0.000135]
+    
+    In the trace above the value bAtr is not known (bAtrLen has no value) so
+    nothing is displayed.
+    
+    A more classic trace is:
+    7FF91179D700@>|1510668989|105007|SCardStatus
+    7FF91179D700@0x2E753ED9
+    7FF91179D700@0x00000000
+    7FF91179D700@0x00000000
+    7FF91179D700@0x0000001D
+    7FF91179D700@NULL
+    7FF91179D700@0x00050034
+    7FF91179D700@0x00000001
+    7FF91179D700@0x00000014
+    7FF91179D700@NULL
+    7FF91179D700@<|1510668989|105301|SCardStatus|Command successful.|0x00000000
+    7FF91179D700@>|1510668989|105306|SCardStatus
+    7FF91179D700@0x2E753ED9
+    7FF91179D700@0x0000001D
+    7FF91179D700@0x00000021
+    7FF91179D700@0x0000001D
+    7FF91179D700@Gemalto PC Twin Reader 00 00
+    7FF91179D700@0x00050034
+    7FF91179D700@0x00000001
+    7FF91179D700@0x00000014
+    7FF91179D700@3B 7F 96 00 00 80 31 80 65 B0 85 03 00 EF 12 0F FE 82 90 00
+    7FF91179D700@<|1510668989|105365|SCardStatus|Command successful.|0x00000000
+    
+    giving:
+    SCardStatus
+     i hCard: 0x2E753ED9
+     i pcchReaderLen 0x00000000 (0)
+     i pcbAtrLen 0x00000000 (0)
+     o cchReaderLen 0x0000001D (29)
+     o mszReaderName NULL
+     o dwState 0x00050034 (327732)
+     o dwProtocol 0x00000001 (1)
+     o bAtrLen 0x00000014 (20)
+     o bAtr NULL
+     => Command successful. (SCARD_S_SUCCESS [0x00000000])  [0.000294]
+    SCardStatus
+     i hCard: 0x2E753ED9
+     i pcchReaderLen 0x0000001D (29)
+     i pcbAtrLen 0x00000021 (33)
+     o cchReaderLen 0x0000001D (29)
+     o mszReaderName Gemalto PC Twin Reader 00 00
+     o dwState 0x00050034 (327732)
+     o dwProtocol 0x00000001 (1)
+     o bAtrLen 0x00000014 (20)
+     o bAtr 3B 7F 96 00 00 80 31 80 65 B0 85 03 00 EF 12 0F FE 82 90 00
+     => Command successful. (SCARD_S_SUCCESS [0x00000000])  [0.000059]
+
+ src/spy/pcsc-spy | 7 +++++--
+ 1 file changed, 5 insertions(+), 2 deletions(-)
+
+commit 661c56584f3806ca47944a2c989eb79b9b89b74d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Nov 14 13:32:17 2017 +0100
+
+    spy: add support of Ubuntu
+    
+    On Ubuntu libpcsclite.so.1 is in /lib/... but libpcscspy.so is in
+    /usr/lib/...
+    The 2 libraries are not in the same directory.
+
+ src/spy/install_spy.sh | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+commit c19857227058b38a37f19e4e6bf83bb4a93ecb7f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Sep 26 15:13:54 2017 +0200
+
+    SCardGetStatusChange(): fix comment
+    
+    After cancellable is set to FALSE then SCardCancel() will just return
+    immediatly with success.
+
+ src/winscard_clnt.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit 7424c7a32006c332383e9d17827b700dc369913f
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Sep 19 22:18:16 2017 +0200
+
+    .gitignore: remove no more present files
+
+ .gitignore | 2 --
+ 1 file changed, 2 deletions(-)
+
+commit 180e5c678365b7d1b078f49b0ae881d3ce6f10a5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Sep 19 22:09:37 2017 +0200
+
+    .gitignore: sort lines
+
+ .gitignore | 56 ++++++++++++++++++++++++++++----------------------------
+ 1 file changed, 28 insertions(+), 28 deletions(-)
+
+commit 0e5ef3e2cb399c472ca91fb1270ac3e294bbd9d6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Sep 19 22:07:31 2017 +0200
+
+    .gitignore: ignore generated files
+
+ .gitignore | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+commit 1324532eee4342aa17ad16617c8d6ae03b3e4b96
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Aug 21 13:13:08 2017 +0200
+
+    RFAddReader(): simplify code
+    
+    The cases rv != IFD_SUCCESS and dwGetSize != 1 are already managed by
+    the previous if(). So no need to test again these values.
+
+ src/readerfactory.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 5905bbe11414c131a32a7d84829eaa5d060bd55d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Aug 21 13:10:52 2017 +0200
+
+    Fix compiler warning (gcc 7)
+    
+    Use an intermediate variable nbSlots.
+    
+    readerfactory.c: In function ‘RFAddReader’:
+    readerfactory.c:457:51: warning: ‘%02X’ directive output may be truncated writing between 2 and 8 bytes into a region of size 3 [-Wformat-truncation=]
+       snprintf(tmpReader + strlen(tmpReader) - 2, 3, "%02X", j);
+                                                       ^~~~
+    readerfactory.c:457:50: note: directive argument in the range [1, 2147483646]
+       snprintf(tmpReader + strlen(tmpReader) - 2, 3, "%02X", j);
+                                                      ^~~~~~
+    In file included from /usr/include/stdio.h:938:0,
+                     from readerfactory.c:43:
+    /usr/include/x86_64-linux-gnu/bits/stdio2.h:64:10: note: ‘__builtin___snprintf_chk’ output between 3 and 9 bytes into a destination of size 3
+       return __builtin___snprintf_chk (__s, __n, __USE_FORTIFY_LEVEL - 1,
+              ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+            __bos (__s), __fmt, __va_arg_pack ());
+            ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+ src/readerfactory.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+commit f1fa9106513ac6990719c677f053bdee558c661d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 1 10:11:29 2017 +0200
+
+    configure.ac: fix typo in help message
+
+ configure.ac | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 8946edadaca353d65112664a5fcd7bbe1be54ed5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jul 12 17:59:48 2017 +0200
+
+    simclist: fix a potential memory leak
+    
+    Changes in a801c6e613fde89c09c755a20003ab82fd6a5c47 added tests and
+    returns in case of errors.
+    
+    If something fails in list_insert_at() we must free the memory allocated
+    for the new element (that was not inserted).
+
+ src/simclist.c | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+commit 30e10951f81b9480e788965f89d0d4d0aee909c0 (zotac/master, github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jul 13 17:52:13 2017 +0200
+
+    Use libsystemd instead sd-daemon.{c,h}
+    
+    Remove files src/sd-daemon.{c,h} and use libsystemd to get
+    sd_listen_fds() and sd_is_socket() implementations.
+    So we do not have to maintain systemd specific code.
+    
+    Use --disable-systemd if you do not have libsystemd available. In that
+    case I think you do not use systemd either.
+
+ configure.ac           |  12 ++
+ src/Makefile.am        |  10 +-
+ src/pcscdaemon.c       |   8 +-
+ src/sd-daemon.c        | 526 -------------------------------------------------
+ src/sd-daemon.h        | 277 --------------------------
+ src/winscard_msg_srv.c |   6 +-
+ 6 files changed, 26 insertions(+), 813 deletions(-)
+
+commit 696023944649e0c52802e20994fb78d6b24d4efd (tag: pcsc-1.8.22)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Jun 17 08:56:54 2017 +0200
 
