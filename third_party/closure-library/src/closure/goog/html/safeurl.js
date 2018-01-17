@@ -243,21 +243,28 @@ goog.html.SafeUrl.fromConstant = function(url) {
 
 /**
  * A pattern that matches Blob or data types that can have SafeUrls created
- * from URL.createObjectURL(blob) or via a data: URI.  Only matches image and
- * video types, currently.
+ * from URL.createObjectURL(blob) or via a data: URI.
  * @const
  * @private
  */
-goog.html.SAFE_MIME_TYPE_PATTERN_ =
-    /^(?:image\/(?:bmp|gif|jpeg|jpg|png|tiff|webp)|video\/(?:mpeg|mp4|ogg|webm))$/i;
+goog.html.SAFE_MIME_TYPE_PATTERN_ = new RegExp(
+    // Note: Due to content-sniffing concerns, only add MIME types for
+    // media formats.
+    '^(?:audio/(?:3gpp|3gpp2|aac|midi|mp4|mpeg|ogg|x-m4a|x-wav|webm)|' +
+        'image/(?:bmp|gif|jpeg|jpg|png|tiff|webp)|' +
+        // TODO(b/68188949): Due to content-sniffing concerns, text/csv should
+        // be removed from the whitelist.
+        'text/csv|' +
+        'video/(?:mpeg|mp4|ogg|webm))$',
+    'i');
 
 
 /**
  * Creates a SafeUrl wrapping a blob URL for the given {@code blob}.
  *
  * The blob URL is created with {@code URL.createObjectURL}. If the MIME type
- * for {@code blob} is not of a known safe image or video MIME type, then the
- * SafeUrl will wrap {@link #INNOCUOUS_STRING}.
+ * for {@code blob} is not of a known safe audio, image or video MIME type,
+ * then the SafeUrl will wrap {@link #INNOCUOUS_STRING}.
  *
  * @see http://www.w3.org/TR/FileAPI/#url
  * @param {!Blob} blob
@@ -282,10 +289,10 @@ goog.html.DATA_URL_PATTERN_ = /^data:([^;,]*);base64,[a-z0-9+\/]+=*$/i;
 
 /**
  * Creates a SafeUrl wrapping a data: URL, after validating it matches a
- * known-safe image or video MIME type.
+ * known-safe audio, image or video MIME type.
  *
  * @param {string} dataUrl A valid base64 data URL with one of the whitelisted
- *     image or video MIME types.
+ *     audio, image or video MIME types.
  * @return {!goog.html.SafeUrl} A matching safe URL, or {@link INNOCUOUS_STRING}
  *     wrapped as a SafeUrl if it does not pass.
  */
@@ -384,6 +391,38 @@ goog.html.SafeUrl.sanitize = function(url) {
   }
   return goog.html.SafeUrl.createSafeUrlSecurityPrivateDoNotAccessOrElse(url);
 };
+
+/**
+ * Creates a SafeUrl object from {@code url}. If {@code url} is a
+ * goog.html.SafeUrl then it is simply returned. Otherwise the input string is
+ * validated to match a pattern of commonly used safe URLs.
+ *
+ * {@code url} may be a URL with the http, https, mailto or ftp scheme,
+ * or a relative URL (i.e., a URL without a scheme; specifically, a
+ * scheme-relative, absolute-path-relative, or path-relative URL).
+ *
+ * This function asserts (using goog.asserts) that the URL matches this pattern.
+ * If it does not, in addition to failing the assert, an innocous URL will be
+ * returned.
+ *
+ * @see http://url.spec.whatwg.org/#concept-relative-url
+ * @param {string|!goog.string.TypedString} url The URL to validate.
+ * @return {!goog.html.SafeUrl} The validated URL, wrapped as a SafeUrl.
+ */
+goog.html.SafeUrl.sanitizeAssertUnchanged = function(url) {
+  if (url instanceof goog.html.SafeUrl) {
+    return url;
+  } else if (url.implementsGoogStringTypedString) {
+    url = url.getTypedStringValue();
+  } else {
+    url = String(url);
+  }
+  if (!goog.asserts.assert(goog.html.SAFE_URL_PATTERN_.test(url))) {
+    url = goog.html.SafeUrl.INNOCUOUS_STRING;
+  }
+  return goog.html.SafeUrl.createSafeUrlSecurityPrivateDoNotAccessOrElse(url);
+};
+
 
 
 /**

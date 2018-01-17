@@ -176,15 +176,9 @@ goog.testing.TestCase = function(opt_name) {
   this.runNextTestCallback_ = goog.nullFunction;
 
   /**
-   * The number of {@link runNextTest_} frames currently on the stack.
-   * When this exceeds {@link MAX_STACK_DEPTH_}, test execution is rescheduled
-   * for a later tick of the event loop.
-   * @see {finishTestInvocation_}
-   * @private {number}
+   * The currently executing test case or null.
+   * @private {?goog.testing.TestCase.Test}
    */
-  this.depth_ = 0;
-
-  /** @private {goog.testing.TestCase.Test} */
   this.curTest_ = null;
 
   /**
@@ -243,6 +237,14 @@ goog.testing.TestCase.prototype.getName = function() {
   return this.name_;
 };
 
+/**
+ * Returns the current test or null.
+ * @return {?goog.testing.TestCase.Test}
+ * @protected
+ */
+goog.testing.TestCase.prototype.getCurrentTest = function() {
+  return this.curTest_;
+};
 
 /**
  * The maximum amount of time in milliseconds that the test case can take
@@ -251,17 +253,6 @@ goog.testing.TestCase.prototype.getName = function() {
  * @type {number}
  */
 goog.testing.TestCase.maxRunTime = 200;
-
-
-/**
- * The maximum number of {@link runNextTest_} frames that can be on the stack
- * before the test case is forced to yield and reschedule. Although modern
- * browsers can handle thousands of stack frames, this is set conservatively
- * because maximum stack depth has never been standardized, and engine-specific
- * techniques like tail cail optimization can affect the exact depth.
- * @private @const
- */
-goog.testing.TestCase.MAX_STACK_DEPTH_ = 50;
 
 
 /**
@@ -290,19 +281,17 @@ goog.testing.TestCase.protectedClearTimeout_ = goog.global.clearTimeout;
  */
 goog.testing.TestCase.protectedDate_ = Date;
 
-
 /**
- * Saved string referencing goog.global.setTimeout's string serialization.  IE
- * sometimes fails to uphold equality for setTimeout, but the string version
- * stays the same.
- * @type {string}
+ * Save a reference to {@code window.performance}, so any code that overrides
+ * the default behavior doesn't affect our runner.
+ * @type {?Performance}
  * @private
  */
-goog.testing.TestCase.setTimeoutAsString_ = String(goog.global.setTimeout);
+goog.testing.TestCase.protectedPerformance_ =
+    window.performance && window.performance.now ? performance : null;
 
 
 /**
- * TODO(user) replace this with prototype.currentTest.
  * Name of the current test that is running, or null if none is running.
  * @type {?string}
  */
@@ -382,7 +371,7 @@ goog.testing.TestCase.prototype.onCompleteCallback_ = null;
 goog.testing.TestCase.prototype.add = function(test) {
   goog.asserts.assert(test);
   if (this.started) {
-    throw Error(
+    throw new Error(
         'Tests cannot be added after execute() has been called. ' +
         'Test: ' + test.name);
   }
@@ -398,13 +387,15 @@ goog.testing.TestCase.prototype.add = function(test) {
  * test discovery.
  *
  * @param {string} name The test name.
- * @param {!Function} ref Reference to the test function.
- * @param {!Object=} opt_scope Optional scope that the test function should be
+ * @param {function()} ref Reference to the test function.
+ * @param {!Object=} scope Optional scope that the test function should be
  *     called in.
+ * @param {!Array<!Object>=} objChain An array of Objects that may have
+ *     additional set up/tear down logic for a particular test.
  */
-goog.testing.TestCase.prototype.addNewTest = function(name, ref, opt_scope) {
-  var test = new goog.testing.TestCase.Test(name, ref, opt_scope || this);
-  this.add(test);
+goog.testing.TestCase.prototype.addNewTest = function(
+    name, ref, scope, objChain) {
+  this.add(this.createTest(name, ref, scope || this, objChain));
 };
 
 
@@ -557,25 +548,6 @@ goog.testing.TestCase.prototype.finalize = function() {
 
   this.tearDownPage();
 
-  var restoredSetTimeout =
-      goog.testing.TestCase.protectedSetTimeout_ == goog.global.setTimeout &&
-      goog.testing.TestCase.protectedClearTimeout_ == goog.global.clearTimeout;
-  if (!restoredSetTimeout && goog.testing.TestCase.IS_IE &&
-      String(goog.global.setTimeout) ==
-          goog.testing.TestCase.setTimeoutAsString_) {
-    // In strange cases, IE's value of setTimeout *appears* to change, but
-    // the string representation stays stable.
-    restoredSetTimeout = true;
-  }
-
-  if (!restoredSetTimeout) {
-    var message = 'ERROR: Test did not restore setTimeout and clearTimeout';
-    this.saveMessage(message);
-    var err = new goog.testing.TestCase.Error(this.name_, message);
-    this.result_.errors.push(err);
-  }
-  goog.global.clearTimeout = goog.testing.TestCase.protectedClearTimeout_;
-  goog.global.setTimeout = goog.testing.TestCase.protectedSetTimeout_;
   this.endTime_ = this.now();
   this.running = false;
   this.result_.runTime = this.endTime_ - this.startTime_;
@@ -761,11 +733,11 @@ goog.testing.TestCase.prototype.getTestResultsAsJson = function() {
  * {@link #setCompletedCallback} or {@link #runTestsReturningPromise}.
  *
  * Overridable by the individual test case.  This allows test cases to defer
- * when the test is actually started.  If overridden, finalize must be called
- * by the test to indicate it has finished.
+ * when the test is actually started.  If overridden, finalize must be
+ * called by the test to indicate it has finished.
  */
 goog.testing.TestCase.prototype.runTests = function() {
-  this.runSetUpPage_(this.execute);
+  goog.testing.Continuation_.run(this.runSetUpPage_(this.execute));
 };
 
 
@@ -778,7 +750,7 @@ goog.testing.TestCase.prototype.runTests = function() {
  */
 goog.testing.TestCase.prototype.runTestsReturningPromise = function() {
   return new goog.Promise(function(resolve) {
-    this.runSetUpPage_(function() {
+    goog.testing.Continuation_.run(this.runSetUpPage_(function() {
       if (!this.prepareForRun_()) {
         resolve(this.result_);
         return;
@@ -787,20 +759,21 @@ goog.testing.TestCase.prototype.runTestsReturningPromise = function() {
       this.saveMessage('Start');
       this.batchTime_ = this.now();
       this.runNextTestCallback_ = resolve;
-      this.runNextTest_();
-    });
+      goog.testing.Continuation_.run(this.runNextTest_());
+    }));
   }, this);
 };
 
 
 /**
  * Runs the setUpPage methods.
- * @param {!function(this:goog.testing.TestCase)} runTestsFn Callback to invoke
+ * @param {function(this:goog.testing.TestCase)} runTestsFn Callback to invoke
  *     after setUpPage has completed.
+ * @return {?goog.testing.Continuation_}
  * @private
  */
 goog.testing.TestCase.prototype.runSetUpPage_ = function(runTestsFn) {
-  this.invokeTestFunction_(this.setUpPage, runTestsFn, function(e) {
+  return this.invokeFunction_(this.setUpPage, runTestsFn, function(e) {
     this.exceptionBeforeTest = e;
     runTestsFn.call(this);
   }, 'setUpPage');
@@ -820,33 +793,60 @@ goog.testing.TestCase.prototype.runSetUpPage_ = function(runTestsFn) {
  * executes synchronously until the first promise is returned from a
  * test method (or until a resource limit is reached; see
  * {@link finishTestInvocation_}).
+ * @return {?goog.testing.Continuation_}
  * @private
  */
 goog.testing.TestCase.prototype.runNextTest_ = function() {
   this.curTest_ = this.next();
   if (!this.curTest_ || !this.running) {
     this.finalize();
-    this.runNextTestCallback_(this.result_);
-    return;
+    return new goog.testing.Continuation_(
+        goog.bind(this.runNextTestCallback_, this, this.result_));
   }
+  this.curTest_.started();
   this.result_.runCount++;
   this.log('Running test: ' + this.curTest_.name);
   if (this.maybeFailTestEarly(this.curTest_)) {
-    this.finishTestInvocation_();
-    return;
+    return new goog.testing.Continuation_(
+        goog.bind(this.finishTestInvocation_, this));
   }
   goog.testing.TestCase.currentTestName = this.curTest_.name;
-  this.invokeTestFunction_(
-      this.setUp, this.safeRunTest_, this.safeTearDown_, 'setUp');
+  return this.safeSetUp_();
 };
 
+/**
+ * Runs all the setups associated with a test.
+ * @return {?goog.testing.Continuation_}
+ * @private
+ */
+goog.testing.TestCase.prototype.safeSetUp_ = function() {
+  var setUps =
+      this.curTest_.setUps.length ? this.curTest_.setUps.slice() : [this.setUp];
+  return this.safeSetUpHelper_(setUps).call(this);
+};
+
+/**
+ * Recursively invokes setUp functions.
+ * @param {!Array<function()>} setUps
+ * @return {function(): ?goog.testing.Continuation_}
+ * @private
+ */
+goog.testing.TestCase.prototype.safeSetUpHelper_ = function(setUps) {
+  if (!setUps.length) {
+    return this.safeRunTest_;
+  }
+  return goog.bind(
+      this.invokeFunction_, this, setUps.shift(), this.safeSetUpHelper_(setUps),
+      this.safeTearDown_, 'setUp');
+};
 
 /**
  * Calls the given test function, handling errors appropriately.
+ * @return {?goog.testing.Continuation_}
  * @private
  */
 goog.testing.TestCase.prototype.safeRunTest_ = function() {
-  this.invokeTestFunction_(
+  return this.invokeFunction_(
       goog.bind(this.curTest_.ref, this.curTest_.scope), this.safeTearDown_,
       this.safeTearDown_, this.curTest_.name);
 };
@@ -855,14 +855,32 @@ goog.testing.TestCase.prototype.safeRunTest_ = function() {
 /**
  * Calls {@link tearDown}, handling errors appropriately.
  * @param {*=} opt_error Error associated with the test, if any.
+ * @return {?goog.testing.Continuation_}
  * @private
  */
 goog.testing.TestCase.prototype.safeTearDown_ = function(opt_error) {
   if (arguments.length == 1) {
     this.doError(this.curTest_, opt_error);
   }
-  this.invokeTestFunction_(
-      this.tearDown, this.finishTestInvocation_, this.finishTestInvocation_,
+  var tearDowns = this.curTest_.tearDowns.length ?
+      this.curTest_.tearDowns.slice() :
+      [this.tearDown];
+  return this.safeTearDownHelper_(tearDowns).call(this);
+};
+
+/**
+ * Recursively invokes tearDown functions.
+ * @param {!Array<function()>} tearDowns
+ * @return {function(): ?goog.testing.Continuation_}
+ * @private
+ */
+goog.testing.TestCase.prototype.safeTearDownHelper_ = function(tearDowns) {
+  if (!tearDowns.length) {
+    return this.finishTestInvocation_;
+  }
+  return goog.bind(
+      this.invokeFunction_, this, tearDowns.shift(),
+      this.safeTearDownHelper_(tearDowns), this.finishTestInvocation_,
       'tearDown');
 };
 
@@ -886,12 +904,13 @@ goog.testing.TestCase.prototype.safeTearDown_ = function(opt_error) {
  * the TestCase instance as the method receiver.
  *
  * @param {function()} fn The function to call.
- * @param {function()} onSuccess Success callback.
- * @param {function(*)} onFailure Failure callback.
+ * @param {function(): (?goog.testing.Continuation_|undefined)} onSuccess
+ * @param {function(*): (?goog.testing.Continuation_|undefined)} onFailure
  * @param {string} fnName Name of the function being invoked e.g. 'setUp'.
+ * @return {?goog.testing.Continuation_}
  * @private
  */
-goog.testing.TestCase.prototype.invokeTestFunction_ = function(
+goog.testing.TestCase.prototype.invokeFunction_ = function(
     fn, onSuccess, onFailure, fnName) {
   var testCase = this;
   this.thrownAssertionExceptions_ = [];
@@ -899,7 +918,8 @@ goog.testing.TestCase.prototype.invokeTestFunction_ = function(
     var retval = fn.call(this);
     if (goog.Thenable.isImplementedBy(retval) ||
         goog.isFunction(retval && retval['then'])) {
-      // Resolve Thenable into a proper Promise to avoid hard to debug problems.
+      // Resolve Thenable into a proper Promise to avoid hard to debug
+      // problems.
       var promise = goog.Promise.resolve(retval);
       var self = this;
       promise = this.rejectIfPromiseTimesOut_(
@@ -911,27 +931,29 @@ goog.testing.TestCase.prototype.invokeTestFunction_ = function(
           function() {
             self.resetBatchTimeAfterPromise_();
             if (testCase.thrownAssertionExceptions_.length == 0) {
-              onSuccess.call(self);
+              goog.testing.Continuation_.run(onSuccess.call(self));
             } else {
-              onFailure.call(
+              goog.testing.Continuation_.run(onFailure.call(
                   self,
-                  testCase.reportUnpropagatedAssertionExceptions_(fnName));
+                  testCase.reportUnpropagatedAssertionExceptions_(fnName)));
             }
           },
           function(e) {
             self.resetBatchTimeAfterPromise_();
-            onFailure.call(self, e);
+            goog.testing.Continuation_.run(onFailure.call(self, e));
           });
+      return null;
     } else {
       if (this.thrownAssertionExceptions_.length == 0) {
-        onSuccess.call(this);
+        return new goog.testing.Continuation_(goog.bind(onSuccess, this));
       } else {
-        onFailure.call(
-            this, this.reportUnpropagatedAssertionExceptions_(fnName));
+        return new goog.testing.Continuation_(goog.bind(
+            onFailure, this,
+            this.reportUnpropagatedAssertionExceptions_(fnName)));
       }
     }
   } catch (e) {
-    onFailure.call(this, e);
+    return new goog.testing.Continuation_(goog.bind(onFailure, this, e));
   }
 };
 
@@ -973,6 +995,7 @@ goog.testing.TestCase.prototype.resetBatchTimeAfterPromise_ = function() {
  * Finishes up bookkeeping for the current test function, and schedules
  * the next test function to run, either immediately or asychronously.
  * @param {*=} opt_error Optional error resulting from the test invocation.
+ * @return {?goog.testing.Continuation_}
  * @private
  */
 goog.testing.TestCase.prototype.finishTestInvocation_ = function(opt_error) {
@@ -990,13 +1013,12 @@ goog.testing.TestCase.prototype.finishTestInvocation_ = function(opt_error) {
 
   // If the test case has consumed too much time or stack space,
   // yield to avoid blocking the browser. Otherwise, proceed to the next test.
-  if (this.depth_ > goog.testing.TestCase.MAX_STACK_DEPTH_ ||
-      this.now() - this.batchTime_ > goog.testing.TestCase.maxRunTime) {
+  if (this.now() - this.batchTime_ > goog.testing.TestCase.maxRunTime) {
     this.saveMessage('Breaking async');
     this.timeout(goog.bind(this.startNextBatch_, this), 0);
+    return null;
   } else {
-    ++this.depth_;
-    this.runNextTest_();
+    return new goog.testing.Continuation_(goog.bind(this.runNextTest_, this));
   }
 };
 
@@ -1007,8 +1029,7 @@ goog.testing.TestCase.prototype.finishTestInvocation_ = function(opt_error) {
  */
 goog.testing.TestCase.prototype.startNextBatch_ = function() {
   this.batchTime_ = this.now();
-  this.depth_ = 0;
-  this.runNextTest_();
+  goog.testing.Continuation_.run(this.runNextTest_());
 };
 
 
@@ -1046,10 +1067,10 @@ goog.testing.TestCase.prototype.orderTests_ = function() {
 
 
 /**
- * Gets list of objects that potentially contain test cases. For IE 8 and below,
- * this is the global "this" (for properties set directly on the global this or
- * window) and the RuntimeObject (for global variables and functions). For all
- * other browsers, the array simply contains the global this.
+ * Gets list of objects that potentially contain test cases. For IE 8 and
+ * below, this is the global "this" (for properties set directly on the global
+ * this or window) and the RuntimeObject (for global variables and functions).
+ * For all other browsers, the array simply contains the global this.
  *
  * @param {string=} opt_prefix An optional prefix. If specified, only get things
  *     under this prefix. Note that the prefix is only honored in IE, since it
@@ -1064,10 +1085,10 @@ goog.testing.TestCase.prototype.getGlobals = function(opt_prefix) {
 
 
 /**
- * Gets list of objects that potentially contain test cases. For IE 8 and below,
- * this is the global "this" (for properties set directly on the global this or
- * window) and the RuntimeObject (for global variables and functions). For all
- * other browsers, the array simply contains the global this.
+ * Gets list of objects that potentially contain test cases. For IE 8 and
+ * below, this is the global "this" (for properties set directly on the global
+ * this or window) and the RuntimeObject (for global variables and functions).
+ * For all other browsers, the array simply contains the global this.
  *
  * @param {string=} opt_prefix An optional prefix. If specified, only get things
  *     under this prefix. Note that the prefix is only honored in IE, since it
@@ -1109,8 +1130,8 @@ goog.testing.TestCase.getActiveTestCase = function() {
 
 
 /**
- * Calls {@link goog.testing.TestCase.prototype.invalidateAssertionException} on
- * the active test case if it is installed, and logs an error otherwise.
+ * Calls {@link goog.testing.TestCase.prototype.invalidateAssertionException}
+ * on the active test case if it is installed, and logs an error otherwise.
  * @param {!goog.testing.JsUnitException} e The exception object to invalidate.
  * @package
  */
@@ -1141,16 +1162,16 @@ goog.testing.TestCase.prototype.tearDownPage = function() {};
 
 
 /**
- * Gets called before every goog.testing.TestCase.Test is been executed. Can be
- * overridden to add set up functionality to each test.
+ * Gets called before every goog.testing.TestCase.Test is been executed. Can
+ * be overridden to add set up functionality to each test.
  * @return {!Thenable|undefined}
  */
 goog.testing.TestCase.prototype.setUp = function() {};
 
 
 /**
- * Gets called after every goog.testing.TestCase.Test has been executed. Can be
- * overriden to add tear down functionality to each test.
+ * Gets called after every goog.testing.TestCase.Test has been executed. Can
+ * be overridden to add tear down functionality to each test.
  * @return {!Thenable|undefined}
  */
 goog.testing.TestCase.prototype.tearDown = function() {};
@@ -1186,13 +1207,15 @@ goog.testing.TestCase.prototype.setBatchTime = function(batchTime) {
  * Creates a {@code goog.testing.TestCase.Test} from an auto-discovered
  *     function.
  * @param {string} name The name of the function.
- * @param {function() : void} ref The auto-discovered function.
+ * @param {function()} ref The auto-discovered function.
+ * @param {!Object=} scope The scope to attach to the test.
+ * @param {!Array<!Object>=} objChain
  * @return {!goog.testing.TestCase.Test} The newly created test.
  * @protected
  */
-goog.testing.TestCase.prototype.createTestFromAutoDiscoveredFunction = function(
-    name, ref) {
-  return new goog.testing.TestCase.Test(name, ref, goog.global);
+goog.testing.TestCase.prototype.createTest = function(
+    name, ref, scope, objChain) {
+  return new goog.testing.TestCase.Test(name, ref, scope, objChain);
 };
 
 
@@ -1236,78 +1259,81 @@ goog.testing.TestCase.prototype.setTestObj = function(obj) {
   // of discovered test and life-cycle methods is allowed.
   goog.asserts.assert(
       this.tests_.length == 0, 'Test methods have already been configured.');
-
-  var regex = new RegExp('^' + this.getAutoDiscoveryPrefix());
-  var properties = goog.object.getAllPropertyNames(obj);
-  for (var i = 0; i < properties.length; i++) {
-    var name = properties[i];
-    if (regex.test(name)) {
-      var testMethod = obj[name];
-      if (goog.isFunction(testMethod)) {
-        this.addNewTest(name, testMethod, obj);
-      }
-    }
-  }
-
   if (obj['getTestName']) {
     this.name_ = obj['getTestName']();
   }
 
   this.autoDiscoverLifecycle(obj);
+  this.addTestObj_(obj, '', [this]);
 };
 
-
 /**
- * Adds any functions defined in the global scope that are prefixed with "test"
- * to the test case.
+ * @param {!Object} obj  An object from which to extract test and lifecycle
+ *     methods.
+ * @param {string} name
+ * @param {!Array<!Object>} objChain List of objects that have methods used
+ *     to create tests such as setUp, tearDown.
+ * @private
  */
-goog.testing.TestCase.prototype.autoDiscoverTests = function() {
-  var prefix = this.getAutoDiscoveryPrefix();
-  var testSources = this.getGlobals(prefix);
-
-  var foundTests = [];
-
-  for (var i = 0; i < testSources.length; i++) {
-    var testSource = testSources[i];
-    for (var name in testSource) {
-      if ((new RegExp('^' + prefix)).test(name)) {
-        var ref;
-        try {
-          ref = testSource[name];
-        } catch (ex) {
-          // NOTE(brenneman): When running tests from a file:// URL on Firefox
-          // 3.5 for Windows, any reference to goog.global.sessionStorage raises
-          // an "Operation is not supported" exception. Ignore any exceptions
-          // raised by simply accessing global properties.
-          ref = undefined;
-        }
-
-        if (goog.isFunction(ref)) {
-          foundTests.push(this.createTestFromAutoDiscoveredFunction(name, ref));
+goog.testing.TestCase.prototype.addTestObj_ = function(obj, name, objChain) {
+  var regex = new RegExp('^' + this.getAutoDiscoveryPrefix());
+  var properties = goog.object.getAllPropertyNames(obj);
+  for (var i = 0; i < properties.length; i++) {
+    var testName = properties[i];
+    if (regex.test(testName)) {
+      var testProperty;
+      try {
+        testProperty = obj[testName];
+      } catch (ex) {
+        // NOTE(brenneman): When running tests from a file:// URL on Firefox
+        // 3.5 for Windows, any reference to goog.global.sessionStorage raises
+        // an "Operation is not supported" exception. Ignore any exceptions
+        // raised by simply accessing global properties.
+        testProperty = null;
+      }
+      if (name) {
+        testName = testName.slice(this.getAutoDiscoveryPrefix().length);
+      }
+      var fullTestName = name + (testName && name ? '_' : '') + testName;
+      if (goog.isFunction(testProperty)) {
+        this.addNewTest(fullTestName, testProperty, obj, objChain);
+      } else if (goog.isObject(testProperty)) {
+        // To prevent infinite loops.
+        if (!goog.array.contains(objChain, testProperty)) {
+          var newObjChain = objChain.slice();
+          newObjChain.push(testProperty);
+          this.addTestObj_(testProperty, fullTestName, newObjChain);
         }
       }
     }
   }
+};
 
-  for (var i = 0; i < foundTests.length; i++) {
-    this.add(foundTests[i]);
-  }
-  this.orderTests_();
 
-  this.log(this.getCount() + ' tests auto-discovered');
-
-  // TODO(user): Do this as a separate call. Unfortunately, a lot of projects
-  // currently override autoDiscoverTests and expect lifecycle events to be
-  // registered as a part of this call.
+/**
+ * Adds any functions defined in the global scope that are prefixed with
+ * "test" to the test case.
+ */
+goog.testing.TestCase.prototype.autoDiscoverTests = function() {
   this.autoDiscoverLifecycle();
+  var prefix = this.getAutoDiscoveryPrefix();
+  var testSources = this.getGlobals(prefix);
+
+  for (var i = 0; i < testSources.length; i++) {
+    var testSource = testSources[i];
+    this.addTestObj_(testSource, '', [this]);
+  }
+
+  this.orderTests_();
+  this.log(this.getCount() + ' tests auto-discovered');
 };
 
 
 /**
  * Checks to see if the test should be marked as failed before it is run.
  *
- * If there was an error in setUpPage, we treat that as a failure for all tests
- * and mark them all as having failed.
+ * If there was an error in setUpPage, we treat that as a failure for all
+ * tests and mark them all as having failed.
  *
  * @param {goog.testing.TestCase.Test} testCase The current test case.
  * @return {boolean} Whether the test was marked as failed.
@@ -1338,7 +1364,7 @@ goog.testing.TestCase.prototype.cycleTests = function() {
     this.runNextTestCallback_ = goog.nullFunction;
     // Kick off the tests. runNextTest_ will schedule all of the tests,
     // using a mixture of synchronous and asynchronous strategies.
-    this.runNextTest_();
+    goog.testing.Continuation_.run(this.runNextTest_());
   }
 };
 
@@ -1390,11 +1416,24 @@ goog.testing.TestCase.prototype.clearTimeout = function(id) {
 
 
 /**
- * @return {number} The current time in milliseconds, don't use goog.now as some
- *     tests override it.
+ * @return {number} The current time in milliseconds.
  * @protected
  */
 goog.testing.TestCase.prototype.now = function() {
+  return goog.testing.TestCase.now();
+};
+
+
+/**
+ * @return {number} The current time in milliseconds.
+ * @protected
+ */
+goog.testing.TestCase.now = function() {
+  // don't use goog.now as some tests override it.
+  if (goog.testing.TestCase.protectedPerformance_) {
+    return goog.testing.TestCase.protectedPerformance_.now();
+  }
+  // Fallback for IE8
   // Cannot use "new goog.testing.TestCase.protectedDate_()" due to b/8323223.
   var protectedDate = goog.testing.TestCase.protectedDate_;
   return new protectedDate().getTime();
@@ -1458,7 +1497,7 @@ goog.testing.TestCase.prototype.doSuccess = function(test) {
   this.saveMessage(message);
   this.log(message);
   if (this.testDone_) {
-    this.testDone_(test, []);
+    this.doTestDone_(test, []);
   }
 };
 
@@ -1502,15 +1541,15 @@ goog.testing.TestCase.prototype.doError = function(test, opt_e) {
     for (var i = 0; i < results.length; i++) {
       errMsgs.push(results[i].toString());
     }
-    this.testDone_(test, errMsgs);
+    this.doTestDone_(test, errMsgs);
   }
 };
 
 
 /**
- * Makes note of an exception arising from an assertion, and then throws it. If
- * the test otherwise passes (i.e., because something else caught the exception
- * on its way to the test framework), it will be forced to fail.
+ * Makes note of an exception arising from an assertion, and then throws it.
+ * If the test otherwise passes (i.e., because something else caught the
+ * exception on its way to the test framework), it will be forced to fail.
  * @param {!goog.testing.JsUnitException} e The exception object being thrown.
  * @throws {goog.testing.JsUnitException}
  * @package
@@ -1525,7 +1564,8 @@ goog.testing.TestCase.prototype.raiseAssertionException = function(e) {
 
 /**
  * Removes the specified exception from being tracked. This only needs to be
- * called for internal functions that intentionally catch an exception, such as
+ * called for internal functions that intentionally catch an exception, such
+ * as
  * {@code #assertThrowsJsUnitException}.
  * @param {!goog.testing.JsUnitException} e The exception object to invalidate.
  * @package
@@ -1557,6 +1597,12 @@ goog.testing.TestCase.prototype.logError = function(name, opt_e) {
   } else {
     errMsg = 'An unknown error occurred';
   }
+  if (stack) {
+    // Remove extra goog.testing.TestCase frames from the end.
+    stack = stack.replace(
+        /\n.*goog\.testing\.TestCase\.(prototype\.)?invokeTestFunction[^\0]*/m,
+        '');
+  }
   var err = new goog.testing.TestCase.Error(name, errMsg, stack);
 
   // Avoid double logging.
@@ -1571,17 +1617,17 @@ goog.testing.TestCase.prototype.logError = function(name, opt_e) {
   return err;
 };
 
-
-
 /**
  * A class representing a single test function.
  * @param {string} name The test name.
- * @param {Function} ref Reference to the test function.
- * @param {Object=} opt_scope Optional scope that the test function should be
+ * @param {?function()} ref Reference to the test function or test object.
+ * @param {?Object=} scope Optional scope that the test function should be
  *     called in.
+ * @param {!Array<!Object>=} objChain A chain of objects used to populate setUps
+ *     and tearDowns.
  * @constructor
  */
-goog.testing.TestCase.Test = function(name, ref, opt_scope) {
+goog.testing.TestCase.Test = function(name, ref, scope, objChain) {
   /**
    * The name of the test.
    * @type {string}
@@ -1589,18 +1635,54 @@ goog.testing.TestCase.Test = function(name, ref, opt_scope) {
   this.name = name;
 
   /**
+   * TODO(user): Rename this to something more clear.
    * Reference to the test function.
-   * @type {Function}
+   * @type {function()}
    */
-  this.ref = ref;
+  this.ref = ref || function() {};
 
   /**
    * Scope that the test function should be called in.
-   * @type {Object}
+   * @type {?Object}
    */
-  this.scope = opt_scope || null;
-};
+  this.scope = scope || null;
 
+  /**
+   * @type {!Array<function()>}
+   */
+  this.setUps = [];
+
+  /**
+   * @type {!Array<function()>}
+   */
+  this.tearDowns = [];
+
+  if (objChain) {
+    for (var i = 0; i < objChain.length; i++) {
+      if (goog.isFunction(objChain[i].setUp)) {
+        this.setUps.push(goog.bind(objChain[i].setUp, objChain[i]));
+      }
+      if (goog.isFunction(objChain[i].tearDown)) {
+        this.tearDowns.push(goog.bind(objChain[i].tearDown, objChain[i]));
+      }
+    }
+    this.tearDowns.reverse();
+  }
+
+  /**
+   * Timestamp just before the test begins execution.
+   * @type {number}
+   * @private
+   */
+  this.startTime_;
+
+  /**
+   * Timestamp just after the test ends execution.
+   * @type {number}
+   * @private
+   */
+  this.stoppedTime_;
+};
 
 /**
  * Executes the test function.
@@ -1610,7 +1692,27 @@ goog.testing.TestCase.Test.prototype.execute = function() {
   this.ref.call(this.scope);
 };
 
+/**
+ * Sets the start time
+ */
+goog.testing.TestCase.Test.prototype.started = function() {
+  this.startTime_ = goog.testing.TestCase.now();
+};
 
+/**
+ * Sets the stop time
+ */
+goog.testing.TestCase.Test.prototype.stopped = function() {
+  this.stoppedTime_ = goog.testing.TestCase.now();
+};
+
+/**
+ * Returns the runtime for this test function
+ * @return {number} milliseconds takenn by the test.
+ */
+goog.testing.TestCase.Test.prototype.getElapsedTime = function() {
+  return this.stoppedTime_ - this.startTime_;
+};
 
 /**
  * A class for representing test results.  A bag of public properties.
@@ -1657,7 +1759,8 @@ goog.testing.TestCase.Result = function(testCase) {
   this.numFilesLoaded = 0;
 
   /**
-   * Whether this test case was suppressed by shouldRunTests() returning false.
+   * Whether this test case was suppressed by shouldRunTests() returning
+   * false.
    * @type {boolean}
    */
   this.testSuppressed = false;
@@ -1734,7 +1837,20 @@ goog.testing.TestCase.prototype.setTestDoneCallback = function(testDone) {
   this.testDone_ = testDone;
 };
 
-/** Initializes the TestCase.
+
+/**
+ * @param {goog.testing.TestCase.Test} test
+ * @param {!Array<string>} errMsgs
+ * @private
+ */
+goog.testing.TestCase.prototype.doTestDone_ = function(test, errMsgs) {
+  test.stopped();
+  this.testDone_(test, errMsgs);
+};
+
+
+/**
+ * Initializes the TestCase.
  * @param {goog.testing.TestCase} testCase The test case to install.
  * @param {function(goog.testing.TestCase.Test, Array<string>)=} opt_testDone
  *     Called when each test completes.
@@ -1770,7 +1886,7 @@ goog.testing.TestCase.initializeTestRunner = function(testCase, opt_testDone) {
   if (gTestRunner) {
     gTestRunner['initialize'](testCase);
   } else {
-    throw Error(
+    throw new Error(
         'G_testRunner is undefined. Please ensure goog.testing.jsunit' +
         ' is included.');
   }
@@ -1911,4 +2027,26 @@ goog.testing.TestCase.Error.prototype.toObject_ = function() {
     'message': this.message,
     'stacktrace': this.stack || ''
   };
+};
+
+
+
+/**
+ * @constructor
+ * @param {!function(): (?goog.testing.Continuation_|undefined)} fn
+ * @private
+ */
+goog.testing.Continuation_ = function(fn) {
+  /** @private @const */
+  this.fn_ = fn;
+};
+
+
+/** @param {?goog.testing.Continuation_|undefined} continuation */
+goog.testing.Continuation_.run = function(continuation) {
+  var fn = continuation && continuation.fn_;
+  while (fn) {
+    continuation = fn();
+    fn = continuation && continuation.fn_;
+  }
 };

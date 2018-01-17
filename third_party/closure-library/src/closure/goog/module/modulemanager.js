@@ -51,7 +51,7 @@ goog.module.ModuleManager = function() {
 
   /**
    * A mapping from module id to ModuleInfo object.
-   * @private {Object<string, !goog.module.ModuleInfo>}
+   * @private {?Object<string, !goog.module.ModuleInfo>}
    */
   this.moduleInfoMap_ = {};
 
@@ -363,12 +363,13 @@ goog.module.ModuleManager.prototype.getModuleInfo = function(id) {
 
 /**
  * Sets the module uris.
- *
- * @param {Object} moduleUriMap The map of id/uris pairs for each module.
+ * @param {!Object<string, !Array<!goog.html.TrustedResourceUrl>>} moduleUriMap
+ *     The map of id/uris pairs for each module.
  */
-goog.module.ModuleManager.prototype.setModuleUris = function(moduleUriMap) {
+goog.module.ModuleManager.prototype.setModuleTrustedUris = function(
+    moduleUriMap) {
   for (var id in moduleUriMap) {
-    this.moduleInfoMap_[id].setUris(moduleUriMap[id]);
+    this.moduleInfoMap_[id].setTrustedUris(moduleUriMap[id]);
   }
 };
 
@@ -491,9 +492,9 @@ goog.module.ModuleManager.prototype.preloadModule = function(id, opt_timeout) {
 goog.module.ModuleManager.prototype.prefetchModule = function(id) {
   var moduleInfo = this.getModuleInfo(id);
   if (moduleInfo.isLoaded() || this.isModuleLoading(id)) {
-    throw Error('Module load already requested: ' + id);
+    throw new Error('Module load already requested: ' + id);
   } else if (this.batchModeEnabled_) {
-    throw Error('Modules prefetching is not supported in batch mode');
+    throw new Error('Modules prefetching is not supported in batch mode');
   } else {
     var idWithDeps = this.getNotYetLoadedTransitiveDepIds_(id);
     for (var i = 0; i < idWithDeps.length; i++) {
@@ -698,7 +699,8 @@ goog.module.ModuleManager.prototype.loadModules_ = function(
 
   var loadFn = goog.bind(
       this.loader_.loadModules, this.loader_,
-      goog.array.clone(idsToLoadImmediately), this.moduleInfoMap_, null,
+      goog.array.clone(idsToLoadImmediately),
+      goog.asserts.assert(this.moduleInfoMap_), null,
       goog.bind(
           this.handleLoadError_, this, this.requestedLoadingModuleIds_,
           idsToLoadImmediately),
@@ -727,7 +729,7 @@ goog.module.ModuleManager.prototype.processModulesForLoad_ = function(ids) {
   for (var i = 0; i < ids.length; i++) {
     var moduleInfo = this.moduleInfoMap_[ids[i]];
     if (moduleInfo.isLoaded()) {
-      throw Error('Module already loaded: ' + ids[i]);
+      throw new Error('Module already loaded: ' + ids[i]);
     }
   }
 

@@ -39,7 +39,7 @@ goog.require('goog.userAgent');
  *
  *     function setUp() {
  *       // Mock functions used in all test cases.
- *       stubs.set(Math, 'random', function() {
+ *       stubs.replace(Math, 'random', function() {
  *         return 4;  // Chosen by fair dice roll. Guaranteed to be random.
  *       });
  *     }
@@ -60,6 +60,10 @@ goog.require('goog.userAgent');
  *   <li>The value of the objects' constructor property must either be equal to
  *       the real constructor or kept untouched.
  * </ul>
+ *
+ * Code compiled with property renaming may need to use {@code
+ * goog.reflect.objectProperty} instead of simply naming the property to
+ * replace.
  *
  * @constructor
  * @final
@@ -154,7 +158,7 @@ goog.testing.PropertyReplacer.deleteKey_ = function(obj, key) {
   }
 
   if (obj[key]) {
-    throw Error(
+    throw new Error(
         'Cannot delete non configurable property "' + key + '" in ' + obj);
   }
 };
@@ -195,7 +199,8 @@ goog.testing.PropertyReplacer.prototype.set = function(obj, key, value) {
   // document.body.style.margin = 0;
   // document.body.style.margin; // returns "0px"
   if (obj[key] != value && (value + 'px') != obj[key]) {
-    throw Error('Cannot overwrite read-only property "' + key + '" in ' + obj);
+    throw new Error(
+        'Cannot overwrite read-only property "' + key + '" in ' + obj);
   }
 };
 
@@ -209,18 +214,32 @@ goog.testing.PropertyReplacer.prototype.set = function(obj, key, value) {
  *     alter. See the constraints in the class description.
  * @param {string} key The key to change the value for. It has to be present
  *     either in {@code obj} or in its prototype chain.
- * @param {*} value The new value to set. It has to have the same type as the
- *     original value. The types are compared with {@link goog.typeOf}.
+ * @param {*} value The new value to set.
+ * @param {boolean=} opt_allowNullOrUndefined By default, this method requires
+ *     {@code value} to match the type of the existing value, as determined by
+ *     {@link goog.typeOf}. Setting opt_allowNullOrUndefined to {@code true}
+ *     allows an existing value to be replaced by {@code null} or
+       {@code undefined}, or vice versa.
  * @throws {Error} In case of missing key or type mismatch.
  */
-goog.testing.PropertyReplacer.prototype.replace = function(obj, key, value) {
+goog.testing.PropertyReplacer.prototype.replace = function(
+    obj, key, value, opt_allowNullOrUndefined) {
   if (!(key in obj)) {
-    throw Error('Cannot replace missing property "' + key + '" in ' + obj);
+    throw new Error('Cannot replace missing property "' + key + '" in ' + obj);
   }
-  if (goog.typeOf(obj[key]) != goog.typeOf(value)) {
-    throw Error(
-        'Cannot replace property "' + key + '" in ' + obj +
-        ' with a value of different type');
+  // If opt_allowNullOrUndefined is true, then we do not check the types if
+  // either the original or new value is null or undefined.
+  var shouldCheckTypes = !opt_allowNullOrUndefined ||
+      (goog.isDefAndNotNull(obj[key]) && goog.isDefAndNotNull(value));
+  if (shouldCheckTypes) {
+    var originalType = goog.typeOf(obj[key]);
+    var newType = goog.typeOf(value);
+    if (originalType != newType) {
+      throw new Error(
+          'Cannot replace property "' + key + '" in ' + obj +
+          ' with a value of different type (expected ' + originalType +
+          ', found ' + newType + ')');
+    }
   }
   this.set(obj, key, value);
 };
@@ -238,7 +257,8 @@ goog.testing.PropertyReplacer.prototype.setPath = function(path, value) {
   for (var i = 0; i < parts.length - 1; i++) {
     var part = parts[i];
     if (part == 'prototype' && !obj[part]) {
-      throw Error('Cannot set the prototype of ' + parts.slice(0, i).join('.'));
+      throw new Error(
+          'Cannot set the prototype of ' + parts.slice(0, i).join('.'));
     }
     if (!goog.isObject(obj[part]) && !goog.isFunction(obj[part])) {
       this.set(obj, part, {});
@@ -279,7 +299,7 @@ goog.testing.PropertyReplacer.prototype.restore = function(obj, key) {
       return;
     }
   }
-  throw Error('Cannot restore unmodified property "' + key + '" of ' + obj);
+  throw new Error('Cannot restore unmodified property "' + key + '" of ' + obj);
 };
 
 

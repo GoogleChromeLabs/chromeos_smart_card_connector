@@ -16,6 +16,7 @@
  * @fileoverview Unit Test for the unsafe API of the HTML Sanitizer.
  */
 
+goog.provide('goog.html.UnsafeTest');
 goog.setTestOnly();
 
 goog.require('goog.html.SafeHtml');
@@ -164,6 +165,14 @@ function testAllowOverwriteAttrPolicy() {
         attributeName: 'href',
         policy: function(value) { return value === 'yes' ? value : null; }
       }]);
+}
+
+
+function testAllowDAttribute() {
+  var input = '<path d="1.5 1.5 1.5 14.5 14.5 14.5 14.5 1.5"/>';
+  var expected = '<path d="1.5 1.5 1.5 14.5 14.5 14.5 14.5 1.5"/>';
+  assertSanitizedHtml(
+      input, expected, ['path'], [{tagName: 'path', attributeName: 'd'}]);
 }
 
 

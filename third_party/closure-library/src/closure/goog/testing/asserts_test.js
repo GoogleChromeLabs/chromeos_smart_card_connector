@@ -1158,6 +1158,37 @@ function testStringSameSuffix() {
           'Difference was at position 0. Expected [xbc...] vs. actual [abc...]');
 }
 
+function testStringLongComparedValues() {
+  assertThrowsJsUnitException(
+      function() {
+        assertEquals(
+            'abcdefghijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkklmnopqrstuvwxyz',
+            'abcdefghijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkklmnopqrstuvwxyz');
+      },
+      'Expected\n' +
+          '<abcdefghijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkklmnopqrstuvwxyz> (String)\n' +
+          'but was\n' +
+          '<abcdefghijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkklmnopqrstuvwxyz> (String)\n' +
+          'Difference was at position 40. Expected [...kkklmnopqrstuvwxyz] vs. actual [...kklmnopqrstuvwxyz]');
+}
+
+function testStringLongDiff() {
+  assertThrowsJsUnitException(
+      function() {
+        assertEquals(
+            'abcdefghijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkklmnopqrstuvwxyz',
+            'abc...xyz');
+      },
+      'Expected\n' +
+          '<abcdefghijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkklmnopqrstuvwxyz> (String)\n' +
+          'but was\n' +
+          '<abc...xyz> (String)\n' +
+          'Difference was at position 3. Expected\n' +
+          '[...bcdefghijkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkklmnopqrstuvwxy...]\n' +
+          'vs. actual\n' +
+          '[...bc...xy...]');
+}
+
 function testStringDissimilarShort() {
   assertThrowsJsUnitException(function() {
     assertEquals('x', 'y');
@@ -1228,9 +1259,11 @@ function testDisplayStringForValue() {
 
 function testDisplayStringForValue_exception() {
   assertEquals(
-      '<toString failed: foo message> (Object)',
-      _displayStringForValue(
-          {toString: function() { throw Error('foo message'); }}));
+      '<toString failed: foo message> (Object)', _displayStringForValue({
+        toString: function() {
+          throw new Error('foo message');
+        }
+      }));
 }
 
 function testDisplayStringForValue_cycle() {

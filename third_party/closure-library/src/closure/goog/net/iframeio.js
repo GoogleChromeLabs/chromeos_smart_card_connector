@@ -538,7 +538,7 @@ goog.net.IframeIo.prototype.send = function(
     uri, opt_method, opt_noCache, opt_data) {
 
   if (this.active_) {
-    throw Error('[goog.net.IframeIo] Unable to send, already active.');
+    throw new Error('[goog.net.IframeIo] Unable to send, already active.');
   }
 
   var uriObj = new goog.Uri(uri);
@@ -601,7 +601,7 @@ goog.net.IframeIo.prototype.send = function(
 goog.net.IframeIo.prototype.sendFromForm = function(
     form, opt_uri, opt_noCache) {
   if (this.active_) {
-    throw Error('[goog.net.IframeIo] Unable to send, already active.');
+    throw new Error('[goog.net.IframeIo] Unable to send, already active.');
   }
 
   var uri = new goog.Uri(opt_uri || form.action);
@@ -1205,15 +1205,16 @@ goog.net.IframeIo.prototype.createIframe_ = function() {
 
   this.iframeName_ = this.name_ + '_' + (this.nextIframeId_++).toString(36);
 
-  var iframeAttributes = {'name': this.iframeName_, 'id': this.iframeName_};
+  var dom = goog.dom.getDomHelper(this.form_);
+  this.iframe_ = dom.createDom(
+      goog.dom.TagName.IFRAME,
+      {'name': this.iframeName_, 'id': this.iframeName_});
+
   // Setting the source to javascript:"" is a fix to remove IE6 mixed content
   // warnings when being used in an https page.
   if (goog.userAgent.IE && Number(goog.userAgent.VERSION) < 7) {
-    iframeAttributes.src = 'javascript:""';
+    this.iframe_.src = 'javascript:""';
   }
-
-  this.iframe_ = goog.dom.getDomHelper(this.form_).createDom(
-      goog.dom.TagName.IFRAME, iframeAttributes);
 
   var s = this.iframe_.style;
   s.visibility = 'hidden';

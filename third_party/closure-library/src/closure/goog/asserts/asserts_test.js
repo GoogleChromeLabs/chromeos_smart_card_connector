@@ -19,19 +19,19 @@ goog.require('goog.asserts');
 goog.require('goog.asserts.AssertionError');
 goog.require('goog.dom');
 goog.require('goog.dom.TagName');
-goog.require('goog.labs.userAgent.browser');
 goog.require('goog.string');
 goog.require('goog.testing.jsunit');
 goog.require('goog.userAgent');
 
+/**
+ * Test that the function throws an error with the given message.
+ * @param {function()} failFunc
+ * @param {string} expectedMsg
+ */
 function doTestMessage(failFunc, expectedMsg) {
   var error = assertThrows('failFunc should throw.', failFunc);
   // Test error message.
-  // Opera 10 adds cruft to the end of the message, so do a startsWith check.
-  assertTrue(
-      'Message check failed. Expected: ' + expectedMsg + ' Actual: ' +
-          error.message,
-      goog.string.startsWith(error.message, expectedMsg));
+  assertEquals(expectedMsg, error.message);
 }
 
 function testAssert() {
@@ -95,6 +95,7 @@ function testString() {
       'Assertion failed: ouch 1');
 }
 
+// jslint:ignore start
 function testFunction() {
   function f(){};
   assertEquals(f, goog.asserts.assertFunction(f));
@@ -111,6 +112,7 @@ function testFunction() {
       goog.partial(goog.asserts.assertFunction, null, 'ouch %s', 1),
       'Assertion failed: ouch 1');
 }
+// jslint:ignore end
 
 function testObject() {
   var o = {};
@@ -176,12 +178,12 @@ function testInstanceof() {
   /** @constructor */
   var F = function() {};
   goog.asserts.assertInstanceof(new F(), F);
-  assertThrows(
+  var error = assertThrows(
       'assertInstanceof({}, F)',
       goog.partial(goog.asserts.assertInstanceof, {}, F));
   // IE lacks support for function.name and will fallback to toString().
-  var object = goog.userAgent.IE ? '[object Object]' : 'Object';
-  var name = goog.labs.userAgent.browser.isChrome() ? 'F' : 'unknown type name';
+  var object = /object/.test(error.message) ? '[object Object]' : 'Object';
+  var name = /F/.test(error.message) ? 'F' : 'unknown type name';
 
   // Test error messages.
   doTestMessage(
@@ -269,4 +271,22 @@ function testAssertWithCustomErrorHandler() {
   } finally {
     goog.asserts.setErrorHandler(goog.asserts.DEFAULT_ERROR_HANDLER);
   }
+}
+
+function testAssertFinite() {
+  assertEquals(9, goog.asserts.assertFinite(9));
+  assertEquals(0, goog.asserts.assertFinite(0));
+  assertThrows(goog.partial(goog.asserts.assertFinite, NaN));
+  assertThrows(goog.partial(goog.asserts.assertFinite, Infinity));
+  assertThrows(goog.partial(goog.asserts.assertFinite, -Infinity));
+  assertThrows(goog.partial(goog.asserts.assertFinite, 'foo'));
+  assertThrows(goog.partial(goog.asserts.assertFinite, true));
+
+  // Test error messages.
+  doTestMessage(
+      goog.partial(goog.asserts.assertFinite, NaN),
+      'Assertion failed: Expected NaN to be a finite number but it is not.');
+  doTestMessage(
+      goog.partial(goog.asserts.assertFinite, NaN, 'ouch %s', 1),
+      'Assertion failed: ouch 1');
 }

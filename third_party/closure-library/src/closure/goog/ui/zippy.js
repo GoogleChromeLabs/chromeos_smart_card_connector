@@ -56,10 +56,12 @@ goog.require('goog.style');
  * @param {Element|string=} opt_expandedHeader Element to use as the header when
  *     the zippy is expanded.
  * @param {goog.dom.DomHelper=} opt_domHelper An optional DOM helper.
+ * @param {goog.a11y.aria.Role<string>=} opt_role ARIA role, default TAB.
  * @constructor
  */
 goog.ui.Zippy = function(
-    header, opt_content, opt_expanded, opt_expandedHeader, opt_domHelper) {
+    header, opt_content, opt_expanded, opt_expandedHeader, opt_domHelper,
+    opt_role) {
   goog.ui.Zippy.base(this, 'constructor');
 
   /**
@@ -91,6 +93,13 @@ goog.ui.Zippy = function(
    * @private
    */
   this.lazyCreateFunc_ = goog.isFunction(opt_content) ? opt_content : null;
+
+  /**
+   * ARIA role.
+   * @type {goog.a11y.aria.Role<string>}
+   * @private
+   */
+  this.role_ = opt_role || goog.a11y.aria.Role.TAB;
 
   /**
    * Content element.
@@ -206,7 +215,7 @@ goog.ui.Zippy.prototype.disposeInternal = function() {
  * @return {goog.a11y.aria.Role} The ARIA role to be applied to Zippy element.
  */
 goog.ui.Zippy.prototype.getAriaRole = function() {
-  return goog.a11y.aria.Role.TAB;
+  return this.role_;
 };
 
 
@@ -410,14 +419,14 @@ goog.ui.Zippy.prototype.enableMouseEventsHandling_ = function(header) {
  * KeyDown event handler for header element. Enter and space toggles expanded
  * state.
  *
- * @param {goog.events.BrowserEvent} event KeyDown event.
+ * @param {!goog.events.BrowserEvent} event KeyDown event.
  * @private
  */
 goog.ui.Zippy.prototype.onHeaderKeyDown_ = function(event) {
   if (event.keyCode == goog.events.KeyCodes.ENTER ||
       event.keyCode == goog.events.KeyCodes.SPACE) {
     this.toggle();
-    this.dispatchActionEvent_();
+    this.dispatchActionEvent_(event);
 
     // Prevent enter key from submitting form.
     event.preventDefault();
@@ -430,12 +439,12 @@ goog.ui.Zippy.prototype.onHeaderKeyDown_ = function(event) {
 /**
  * Click event handler for header element.
  *
- * @param {goog.events.BrowserEvent} event Click event.
+ * @param {!goog.events.BrowserEvent} event Click event.
  * @private
  */
 goog.ui.Zippy.prototype.onHeaderClick_ = function(event) {
   this.toggle();
-  this.dispatchActionEvent_();
+  this.dispatchActionEvent_(event);
 };
 
 
@@ -444,10 +453,12 @@ goog.ui.Zippy.prototype.onHeaderClick_ = function(event) {
  * Please note that after the zippy state change is completed a TOGGLE event
  * will be dispatched. However, the TOGGLE event is dispatch on every toggle,
  * including programmatic call to {@code #toggle}.
+ * @param {!goog.events.BrowserEvent} triggeringEvent
  * @private
  */
-goog.ui.Zippy.prototype.dispatchActionEvent_ = function() {
-  this.dispatchEvent(new goog.events.Event(goog.ui.Zippy.Events.ACTION, this));
+goog.ui.Zippy.prototype.dispatchActionEvent_ = function(triggeringEvent) {
+  this.dispatchEvent(new goog.ui.ZippyEvent(
+      goog.ui.Zippy.Events.ACTION, this, this.expanded_, triggeringEvent));
 };
 
 
@@ -458,11 +469,12 @@ goog.ui.Zippy.prototype.dispatchActionEvent_ = function() {
  * @param {string} type Event type.
  * @param {goog.ui.Zippy} target Zippy widget initiating event.
  * @param {boolean} expanded Expanded state.
+ * @param {!goog.events.BrowserEvent=} opt_triggeringEvent
  * @extends {goog.events.Event}
  * @constructor
  * @final
  */
-goog.ui.ZippyEvent = function(type, target, expanded) {
+goog.ui.ZippyEvent = function(type, target, expanded, opt_triggeringEvent) {
   goog.ui.ZippyEvent.base(this, 'constructor', type, target);
 
   /**
@@ -470,5 +482,12 @@ goog.ui.ZippyEvent = function(type, target, expanded) {
    * @type {boolean}
    */
   this.expanded = expanded;
+
+  /**
+   * For ACTION events, the key or mouse event that triggered this event, if
+   * there was one.
+   * @type {?goog.events.BrowserEvent}
+   */
+  this.triggeringEvent = opt_triggeringEvent || null;
 };
 goog.inherits(goog.ui.ZippyEvent, goog.events.Event);

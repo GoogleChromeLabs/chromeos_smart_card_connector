@@ -21,11 +21,15 @@ goog.require('goog.i18n.CompactNumberFormatSymbols_en');
 goog.require('goog.i18n.CompactNumberFormatSymbols_fr');
 goog.require('goog.i18n.NumberFormat');
 goog.require('goog.i18n.NumberFormatSymbols');
+goog.require('goog.i18n.NumberFormatSymbols_ar');
+goog.require('goog.i18n.NumberFormatSymbols_ar_u_nu_latn');
 goog.require('goog.i18n.NumberFormatSymbols_de');
 goog.require('goog.i18n.NumberFormatSymbols_en');
+goog.require('goog.i18n.NumberFormatSymbols_fi');
 goog.require('goog.i18n.NumberFormatSymbols_fr');
 goog.require('goog.i18n.NumberFormatSymbols_pl');
 goog.require('goog.i18n.NumberFormatSymbols_ro');
+goog.require('goog.i18n.NumberFormatSymbols_u_nu_latn');
 goog.require('goog.string');
 goog.require('goog.testing.ExpectedFailures');
 goog.require('goog.testing.PropertyReplacer');
@@ -45,8 +49,10 @@ function setUpPage() {
 function setUp() {
   // Always switch back to English on startup.
   goog.i18n.NumberFormatSymbols = goog.i18n.NumberFormatSymbols_en;
+  goog.i18n.NumberFormatSymbols_u_nu_latn = goog.i18n.NumberFormatSymbols_en;
   goog.i18n.CompactNumberFormatSymbols =
       goog.i18n.CompactNumberFormatSymbols_en;
+  goog.i18n.NumberFormat.setEnforceAsciiDigits(false);
 }
 
 function tearDown() {
@@ -283,6 +289,38 @@ function testGroupingParse() {
   fmt = new goog.i18n.NumberFormat('#');
   value = fmt.parse('1234567890');
   assertEquals(1234567890, value);
+}
+
+function testParsingStop() {
+  var pos = [0];
+  var fmt = new goog.i18n.NumberFormat('###0.###E0');
+
+  assertEquals(123.457, fmt.parse('123.457', pos));
+  assertEquals(7, pos[0]);
+
+  pos[0] = 0;
+  assertEquals(123.457, fmt.parse('+123.457', pos));
+  assertEquals(8, pos[0]);
+
+  pos[0] = 0;
+  assertEquals(123, fmt.parse('123 cars in the parking lot.', pos));
+  assertEquals(3, pos[0]);
+
+  pos[0] = 0;
+  assertEquals(12, fmt.parse('12 + 12', pos));
+  assertEquals(2, pos[0]);
+
+  pos[0] = 0;
+  assertEquals(12, fmt.parse('12+12', pos));
+  assertEquals(2, pos[0]);
+
+  pos[0] = 0;
+  assertEquals(120, fmt.parse('1.2E+2', pos));
+  assertEquals(6, pos[0]);
+
+  pos[0] = 0;
+  assertEquals(120, fmt.parse('1.2E+2-12', pos));
+  assertEquals(6, pos[0]);
 }
 
 function testBasicFormat() {
@@ -899,20 +937,18 @@ function isFirefox363Linux() {
 
 
 function testEnforceAscii() {
-  try {
-    goog.i18n.NumberFormatSymbols.ZERO_DIGIT = 'A';
-    var fmt = new goog.i18n.NumberFormat('0.0000');
-    var str = fmt.format(123.45789179565757);
-    assertEquals('BCD.EFHJ', str);
-    goog.i18n.NumberFormat.setEnforceAsciiDigits(true);
-    str = fmt.format(123.45789179565757);
-    assertEquals('123.4579', str);
-    goog.i18n.NumberFormat.setEnforceAsciiDigits(false);
-    str = fmt.format(123.45789179565757);
-    assertEquals('BCD.EFHJ', str);
-  } finally {
-    goog.i18n.NumberFormatSymbols.ZERO_DIGIT = '0';
-  }
+  goog.i18n.NumberFormatSymbols = goog.i18n.NumberFormatSymbols_ar;
+  goog.i18n.NumberFormatSymbols_u_nu_latn =
+      goog.i18n.NumberFormatSymbols_ar_u_nu_latn;
+
+  var fmt = new goog.i18n.NumberFormat('0.0000%');
+  var str = fmt.format(123.45789179565757);
+  assertEquals('١٢٣٤٥٫٧٨٩٢٪؜', str);
+
+  goog.i18n.NumberFormat.setEnforceAsciiDigits(true);
+  fmt = new goog.i18n.NumberFormat('0.0000%');
+  str = fmt.format(123.45789179565757);
+  assertEquals('12345.7892‎%‎', str);
 }
 
 function testFractionDigits() {
@@ -995,6 +1031,16 @@ function testSignificantDigitsMoreThanMax() {
   assertEquals('1.23', fmt.format(1.234));
   assertEquals('0.12', fmt.format(0.1234));
   assertEquals('0.13', fmt.format(0.1284));
+}
+
+function testNegativeDecimalFinnish() {
+  // Finnish uses a full-width dash for negative.
+  goog.i18n.NumberFormatSymbols = goog.i18n.NumberFormatSymbols_fi;
+
+  var fmt = new goog.i18n.NumberFormat(goog.i18n.NumberFormat.Format.DECIMAL);
+
+  var str = fmt.format(-123);
+  assertEquals('−123', str);
 }
 
 function testSimpleCompactFrench() {
@@ -1257,12 +1303,13 @@ function testGetBaseFormattingNumber() {
 function testPolish() {
   goog.i18n.NumberFormatSymbols = goog.i18n.NumberFormatSymbols_pl;
   var fmPl = new goog.i18n.NumberFormat(goog.i18n.NumberFormat.Format.CURRENCY);
+  assertEquals('100,00\u00A0z\u0142', fmPl.format(100));  // 100.00 zł
+
   goog.i18n.NumberFormatSymbols = goog.i18n.NumberFormatSymbols_ro;
   var fmRo = new goog.i18n.NumberFormat(goog.i18n.NumberFormat.Format.CURRENCY);
-  goog.i18n.NumberFormatSymbols = goog.i18n.NumberFormatSymbols_en;
+  assertEquals('100,00\u00A0RON', fmRo.format(100));
 
-  assertEquals('100.00\u00A0z\u0142', fmPl.format(100));  // 100.00 zł
-  assertEquals('100.00\u00A0RON', fmRo.format(100));
+  goog.i18n.NumberFormatSymbols = goog.i18n.NumberFormatSymbols_en;
 }
 
 function testVerySmallNumberScientific() {  // See b/30990076.

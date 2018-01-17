@@ -612,6 +612,43 @@ function testIsoStringToDate() {
 }
 
 
+function testDate_fromIsoString() {
+  // YYYY-MM-DD
+  var iso = '2005-02-22';
+  var date = goog.date.Date.fromIsoString(iso);
+  assertEquals('Got 2005 from ' + iso, 2005, date.getFullYear());
+  assertEquals('Got February from ' + iso, 1, date.getMonth());
+  assertEquals('Got 22nd from ' + iso, 22, date.getDate());
+
+  // YYYY-MM-DDTHH:MM:SS
+  iso = '2005-02-22T11:22:33';
+  date = goog.date.Date.fromIsoString(iso);
+  assertNull('Got null from ' + iso, date);
+}
+
+function testDateTime_fromIsoString() {
+  // YYYY-MM-DD
+  var iso = '2005-02-22';
+  var date = goog.date.DateTime.fromIsoString(iso);
+  assertEquals('Got 2005 from ' + iso, 2005, date.getFullYear());
+  assertEquals('Got February from ' + iso, 1, date.getMonth());
+  assertEquals('Got 22nd from ' + iso, 22, date.getDate());
+  assertEquals('Got 0 hours from ' + iso, 0, date.getHours());
+  assertEquals('Got 0 minutes from ' + iso, 0, date.getMinutes());
+  assertEquals('Got 0 seconds from ' + iso, 0, date.getSeconds());
+
+  // YYYY-MM-DDTHH:MM:SS
+  iso = '2005-02-22T11:22:33';
+  date = goog.date.DateTime.fromIsoString(iso);
+  assertEquals('Got 2005 from ' + iso, 2005, date.getFullYear());
+  assertEquals('Got February from ' + iso, 1, date.getMonth());
+  assertEquals('Got 22nd from ' + iso, 22, date.getDate());
+  assertEquals('Got 11 hours from ' + iso, 11, date.getHours());
+  assertEquals('Got 22 minutes from ' + iso, 22, date.getMinutes());
+  assertEquals('Got 33 seconds from ' + iso, 33, date.getSeconds());
+}
+
+
 // test private function used by goog.date.Date.toIsoString()
 function test_setIso8601TimeOnly_() {
   if (goog.userAgent.product.SAFARI) {
@@ -1177,7 +1214,7 @@ function testIsDateLikeWithGoogDateTime() {
 function testToUTCRfc3339String() {
   var date = goog.date.fromIsoString('19850412T232050Z');
   date.setUTCMilliseconds(52);
-  assertEquals(date.toUTCRfc3339String(), '1985-04-12T23:20:50.52Z');
+  assertEquals(date.toUTCRfc3339String(), '1985-04-12T23:20:50.052Z');
   assertNotEquals(
       'Diverges from ISO 8601', date.toUTCRfc3339String(),
       date.toUTCIsoString(true, true));
@@ -1190,7 +1227,7 @@ function testToUTCRfc3339String() {
 
   var date = goog.date.fromIsoString('19370101T120027Z');
   date.setUTCMilliseconds(87);
-  assertEquals(date.toUTCRfc3339String(), '1937-01-01T12:00:27.87Z');
+  assertEquals(date.toUTCRfc3339String(), '1937-01-01T12:00:27.087Z');
   assertNotEquals(
       'Diverges from ISO 8601', date.toUTCRfc3339String(),
       date.toUTCIsoString(true, true));

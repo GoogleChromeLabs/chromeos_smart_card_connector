@@ -40,10 +40,11 @@ goog.require('goog.string.TypedString');
  * this type.
  *
  * Instances of this type must be created via the factory method,
- * ({@code goog.html.TrustedResourceUrl.fromConstant}), and not by invoking its
- * constructor. The constructor intentionally takes no parameters and the type
- * is immutable; hence only a default instance corresponding to the empty
- * string can be obtained via constructor invocation.
+ * ({@code fromConstant}, {@code fromConstants}, {@code format} or {@code
+ * formatWithParams}), and not by invoking its constructor. The constructor
+ * intentionally takes no parameters and the type is immutable; hence only a
+ * default instance corresponding to the empty string can be obtained via
+ * constructor invocation.
  *
  * @see goog.html.TrustedResourceUrl#fromConstant
  * @constructor
@@ -120,6 +121,35 @@ goog.html.TrustedResourceUrl.prototype.implementsGoogI18nBidiDirectionalString =
  */
 goog.html.TrustedResourceUrl.prototype.getDirection = function() {
   return goog.i18n.bidi.Dir.LTR;
+};
+
+
+/**
+ * Creates a new TrustedResourceUrl with params added to URL.
+ * @param {!Object<string, *>} params Parameters to add to URL. Parameters with
+ *     value {@code null} or {@code undefined} are skipped. Both keys and values
+ *     are encoded. If the value is an array then the same parameter is added
+ *     for every element in the array. Note that JavaScript doesn't guarantee
+ *     the order of values in an object which might result in non-deterministic
+ *     order of the parameters. However, browsers currently preserve the order.
+ * @return {!goog.html.TrustedResourceUrl} New TrustedResourceUrl with params.
+ */
+goog.html.TrustedResourceUrl.prototype.cloneWithParams = function(params) {
+  var url = goog.html.TrustedResourceUrl.unwrap(this);
+  var separator = /\?/.test(url) ? '&' : '?';
+  for (var key in params) {
+    var values = goog.isArray(params[key]) ? params[key] : [params[key]];
+    for (var i = 0; i < values.length; i++) {
+      if (values[i] == null) {
+        continue;
+      }
+      url += separator + encodeURIComponent(key) + '=' +
+          encodeURIComponent(String(values[i]));
+      separator = '&';
+    }
+  }
+  return goog.html.TrustedResourceUrl
+      .createTrustedResourceUrlSecurityPrivateDoNotAccessOrElse(url);
 };
 
 
@@ -202,13 +232,13 @@ goog.html.TrustedResourceUrl.unwrap = function(trustedResourceUrl) {
  * Example usage:
  *
  *    var url = goog.html.TrustedResourceUrl.format(goog.string.Const.from(
- *        'https://www.google.com/search?q=%{query}), {'query': searchTerm});
+ *        'https://www.google.com/search?q=%{query}'), {'query': searchTerm});
  *
  *    var url = goog.html.TrustedResourceUrl.format(goog.string.Const.from(
  *        '//www.youtube.com/v/%{videoId}?hl=en&fs=1%{autoplay}'), {
  *        'videoId': videoId,
  *        'autoplay': opt_autoplay ?
- *            goog.string.Const.EMPTY : goog.string.Const.from('autoplay=1')
+ *            goog.string.Const.from('&autoplay=1') : goog.string.Const.EMPTY
  *    });
  *
  * While this function can be used to create a TrustedResourceUrl from only
@@ -222,7 +252,6 @@ goog.html.TrustedResourceUrl.unwrap = function(trustedResourceUrl) {
  * @return {!goog.html.TrustedResourceUrl}
  * @throws {!Error} On an invalid format string or if a label used in the
  *     the format string is not present in args.
- *
  */
 goog.html.TrustedResourceUrl.format = function(format, args) {
   var formatStr = goog.string.Const.unwrap(format);
@@ -284,6 +313,40 @@ goog.html.TrustedResourceUrl.FORMAT_MARKER_ = /%{(\w+)}/g;
  */
 goog.html.TrustedResourceUrl.BASE_URL_ =
     /^(?:https:)?\/\/[0-9a-z.:[\]-]+\/|^\/[^\/\\]|^about:blank(#|$)/i;
+
+
+/**
+ * Formats the URL same as TrustedResourceUrl.format and then adds extra URL
+ * parameters.
+ *
+ * Example usage:
+ *
+ *     // Creates '//www.youtube.com/v/abc?autoplay=1' for videoId='abc' and
+ *     // opt_autoplay=1. Creates '//www.youtube.com/v/abc' for videoId='abc'
+ *     // and opt_autoplay=undefined.
+ *     var url = goog.html.TrustedResourceUrl.formatWithParams(
+ *         goog.string.Const.from('//www.youtube.com/v/%{videoId}'),
+ *         {'videoId': videoId},
+ *         {'autoplay': opt_autoplay});
+ *
+ * @param {!goog.string.Const} format The format string.
+ * @param {!Object<string, (string|number|!goog.string.Const)>} args Mapping
+ *     of labels to values to be interpolated into the format string.
+ *     goog.string.Const values are interpolated without encoding.
+ * @param {!Object<string, *>} params Parameters to add to URL. Parameters with
+ *     value {@code null} or {@code undefined} are skipped. Both keys and values
+ *     are encoded. If the value is an array then the same parameter is added
+ *     for every element in the array. Note that JavaScript doesn't guarantee
+ *     the order of values in an object which might result in non-deterministic
+ *     order of the parameters. However, browsers currently preserve the order.
+ * @return {!goog.html.TrustedResourceUrl}
+ * @throws {!Error} On an invalid format string or if a label used in the
+ *     the format string is not present in args.
+ */
+goog.html.TrustedResourceUrl.formatWithParams = function(format, args, params) {
+  var url = goog.html.TrustedResourceUrl.format(format, args);
+  return url.cloneWithParams(params);
+};
 
 
 /**

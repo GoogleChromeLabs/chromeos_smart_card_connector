@@ -132,10 +132,10 @@ goog.net.Cookies.prototype.isValidValue = function(value) {
 goog.net.Cookies.prototype.set = function(
     name, value, opt_maxAge, opt_path, opt_domain, opt_secure) {
   if (!this.isValidName(name)) {
-    throw Error('Invalid cookie name "' + name + '"');
+    throw new Error('Invalid cookie name "' + name + '"');
   }
   if (!this.isValidValue(value)) {
-    throw Error('Invalid cookie value "' + value + '"');
+    throw new Error('Invalid cookie value "' + value + '"');
   }
 
   if (!goog.isDef(opt_maxAge)) {
@@ -360,6 +360,15 @@ goog.net.Cookies.prototype.getKeyValues_ = function() {
  */
 goog.net.cookies =
     new goog.net.Cookies(typeof document == 'undefined' ? null : document);
+
+
+/**
+ * Getter for the static instance of goog.net.Cookies.
+ * @return {!goog.net.Cookies}
+ */
+goog.net.Cookies.getInstance = function() {
+  return goog.net.cookies;
+};
 
 
 /**

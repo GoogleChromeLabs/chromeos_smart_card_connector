@@ -96,8 +96,19 @@ function testSelfRemove() {
     // Test that goog.events.getListener ignores events marked as 'removed'.
     assertNull(goog.events.getListener(et1, 'click', callback));
   };
-  var key = goog.events.listen(et1, 'click', callback);
+  goog.events.listen(et1, 'click', callback);
   goog.events.dispatchEvent(et1, 'click');
+}
+
+function testMediaQueryList() {
+  if (!window.matchMedia) return;
+
+  var mql = window.matchMedia('(max-width: 640px)');
+  var key = goog.events.listen(mql, 'change', goog.nullFunction);
+
+  // I don't know of any way to make it raise an event in a test.
+
+  goog.events.unlistenByKey(key);
 }
 
 function testHasListener() {
@@ -122,7 +133,7 @@ function testHasListener() {
 function testHasListenerWithEventTarget() {
   assertFalse(goog.events.hasListener(et1));
 
-  function callback(){};
+  function callback() {}
   goog.events.listen(et1, 'test', callback, true);
   assertTrue(goog.events.hasListener(et1));
   assertTrue(goog.events.hasListener(et1, 'test'));
@@ -137,7 +148,7 @@ function testHasListenerWithEventTarget() {
 }
 
 function testHasListenerWithMultipleTargets() {
-  function callback(){};
+  function callback() {}
 
   goog.events.listen(et1, 'test1', callback, true);
   goog.events.listen(et2, 'test2', callback, true);
@@ -228,6 +239,46 @@ function testCaptureAndBubble() {
   goog.events.listen(et2, 'test', callbackBubble2, false);
   goog.events.listen(et3, 'test', callbackCapture3, true);
   goog.events.listen(et3, 'test', callbackBubble3, false);
+
+  et1.dispatchEvent('test');
+
+  assertEquals(6, count);
+
+  goog.events.removeAll(et1);
+  goog.events.removeAll(et2);
+  goog.events.removeAll(et3);
+
+  // Try again with the new API:
+  count = 0;
+
+  goog.events.listen(et1, 'test', callbackCapture1, {capture: true});
+  goog.events.listen(et1, 'test', callbackBubble1, {capture: false});
+  goog.events.listen(et2, 'test', callbackCapture2, {capture: true});
+  goog.events.listen(et2, 'test', callbackBubble2, {capture: false});
+  goog.events.listen(et3, 'test', callbackCapture3, {capture: true});
+  goog.events.listen(et3, 'test', callbackBubble3, {capture: false});
+
+  et1.dispatchEvent('test');
+
+  assertEquals(6, count);
+
+  goog.events.removeAll(et1);
+  goog.events.removeAll(et2);
+  goog.events.removeAll(et3);
+
+
+  // Try again with the new API and without capture simulation:
+  if (!goog.events.BrowserFeature.HAS_W3C_EVENT_SUPPORT) return;
+  goog.events.CAPTURE_SIMULATION_MODE =
+      goog.events.CaptureSimulationMode.OFF_AND_FAIL;
+  count = 0;
+
+  goog.events.listen(et1, 'test', callbackCapture1, {capture: true});
+  goog.events.listen(et1, 'test', callbackBubble1, {capture: false});
+  goog.events.listen(et2, 'test', callbackCapture2, {capture: true});
+  goog.events.listen(et2, 'test', callbackBubble2, {capture: false});
+  goog.events.listen(et3, 'test', callbackCapture3, {capture: true});
+  goog.events.listen(et3, 'test', callbackBubble3, {capture: false});
 
   et1.dispatchEvent('test');
 

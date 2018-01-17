@@ -33,6 +33,7 @@ goog.require('goog.events.Event');
 goog.require('goog.events.EventTarget');
 goog.require('goog.events.EventType');
 goog.require('goog.events.KeyCodes');
+goog.require('goog.html.SafeStyleSheet');
 goog.require('goog.style');
 
 
@@ -193,7 +194,7 @@ goog.ui.TabPane.prototype.create_ = function() {
       goog.dom.classlist.add(element, goog.getCssName('goog-tabpane-right'));
       break;
     default:
-      throw Error('Invalid tab location');
+      throw new Error('Invalid tab location');
   }
 
   // Listen for click and keydown events on header
@@ -218,9 +219,10 @@ goog.ui.TabPane.prototype.create_ = function() {
  * @private
  */
 goog.ui.TabPane.prototype.createClear_ = function() {
-  var clearFloatStyle = '.' + goog.getCssName('goog-tabpane-clear') +
-      ' { clear: both; height: 0px; overflow: hidden }';
-  goog.style.installStyles(clearFloatStyle);
+  var clearFloatStyle = goog.html.SafeStyleSheet.createRule(
+      '.' + goog.getCssName('goog-tabpane-clear'),
+      {'clear': 'both', 'height': '0', 'overflow': 'hidden'});
+  goog.style.installSafeStyleSheet(clearFloatStyle);
   return this.dom_.createDom(
       goog.dom.TagName.DIV, goog.getCssName('goog-tabpane-clear'));
 };
