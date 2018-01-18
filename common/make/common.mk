@@ -229,7 +229,7 @@ CHROME_ENV ?=
 # This is intended to be customized by the user in case of some special needs.
 #
 
-CHROME_ARGS ?=
+CHROME_ARGS ?= --password-store=basic
 
 
 #
