@@ -334,7 +334,11 @@ NaclClientBackend.prototype.apiMethodRejectedCallback_ = function(
   promiseResolver.reject(apiMethodError);
 };
 
-/** @private */
+/**
+ * @param {string} methodName
+ * @return {!Function}
+ * @private
+ */
 NaclClientBackend.prototype.getApiMethod_ = function(methodName) {
   GSC.Logging.checkWithLogger(this.logger, this.api_);
   if (!goog.object.containsKey(this.api_, methodName) ||

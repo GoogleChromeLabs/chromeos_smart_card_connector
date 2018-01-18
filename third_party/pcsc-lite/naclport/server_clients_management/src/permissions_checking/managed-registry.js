@@ -31,7 +31,6 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('goog.Promise');
 goog.require('goog.log.Logger');
 goog.require('goog.promise.Resolver');
-goog.require('goog.structs.Set');
 
 goog.scope(function() {
 
@@ -56,10 +55,10 @@ PermissionsChecking.ManagedRegistry = function() {
    */
   this.managedStoragePromiseResolver_ = goog.Promise.withResolver();
   /**
-   * @type {!goog.structs.Set.<string>}
+   * @type {!Set.<string>}
    * @private
    */
-  this.allowedClientAppIds_ = new goog.structs.Set;
+  this.allowedClientAppIds_ = new Set;
 
   this.loadManagedStorage_();
   this.listenForStorageChanging_();
@@ -85,7 +84,7 @@ ManagedRegistry.prototype.getById = function(clientAppId) {
 
   this.managedStoragePromiseResolver_.promise.then(
       function() {
-        if (this.allowedClientAppIds_.contains(clientAppId)) {
+        if (this.allowedClientAppIds_.has(clientAppId)) {
           promiseResolver.resolve();
         } else {
           promiseResolver.reject(new Error(
@@ -145,7 +144,7 @@ ManagedRegistry.prototype.listenForStorageChanging_ = function() {
  */
 ManagedRegistry.prototype.storageChangedListener_ = function(
     changes, areaName) {
-  if (areaName != "managed")
+  if (areaName != 'managed')
     return;
   this.logger.fine('Received the managed storage update event: ' +
                    GSC.DebugDump.dump(changes));
@@ -175,7 +174,7 @@ ManagedRegistry.prototype.setAllowedClientAppIdsFromStorageData_ = function(
     return false;
   }
 
-  var newAllowedClientAppIds = new goog.structs.Set;
+  var newAllowedClientAppIds = new Set;
   var success = true;
   goog.array.forEach(storageData, function(item) {
     if (!goog.isString(item)) {

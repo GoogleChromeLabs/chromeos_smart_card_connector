@@ -265,7 +265,7 @@ GSC.Logging.getLogBuffer = function() {
 function throwAssertionError(opt_message, var_args) {
   if (goog.asserts.ENABLE_ASSERTS) {
     var messageAndArgs = Array.prototype.slice.call(arguments);
-    goog.asserts.fail.apply(goog.asserts, messageAndArgs);
+    goog.asserts.fail.apply(null, messageAndArgs);
   } else {
     // This branch is the last resort, and should generally never happen
     // (unless the goog.asserts.ENABLE_ASSERTS constant was changed from its

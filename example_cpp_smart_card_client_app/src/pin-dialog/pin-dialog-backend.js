@@ -97,7 +97,7 @@ function handleRequest(payload) {
   });
 
   return promiseResolver.promise;
-};
+}
 
 function createResponseMessagePayload(pin) {
   return goog.object.create(PIN_MESSAGE_KEY, pin);

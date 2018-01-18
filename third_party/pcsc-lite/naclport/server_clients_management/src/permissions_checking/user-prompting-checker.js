@@ -29,8 +29,8 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
+goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('goog.Promise');
 goog.require('goog.array');
 goog.require('goog.functions');
@@ -39,7 +39,6 @@ goog.require('goog.log.Logger');
 goog.require('goog.object');
 goog.require('goog.promise.Resolver');
 goog.require('goog.structs');
-goog.require('goog.structs.Map');
 
 goog.scope(function() {
 
@@ -73,17 +72,17 @@ PermissionsChecking.UserPromptingChecker = function() {
   this.knownAppsRegistry_ = new PermissionsChecking.KnownAppsRegistry;
 
   /**
-   * @type {!goog.promise.Resolver.<!goog.structs.Map.<string,boolean>>}
+   * @type {!goog.promise.Resolver.<!Map.<string,boolean>>}
    * @private
    */
   this.localStoragePromiseResolver_ = goog.Promise.withResolver();
   this.loadLocalStorage_();
 
   /**
-   * @type {!goog.structs.Map.<string, !goog.Promise>}
+   * @type {!Map.<string, !goog.Promise>}
    * @private
    */
-  this.checkPromiseMap_ = new goog.structs.Map;
+  this.checkPromiseMap_ = new Map;
 };
 
 /** @const */
@@ -122,7 +121,7 @@ UserPromptingChecker.prototype.check = function(clientAppId) {
 
   this.localStoragePromiseResolver_.promise.then(
       function(storedUserSelections) {
-        if (storedUserSelections.containsKey(clientAppId)) {
+        if (storedUserSelections.has(clientAppId)) {
           var userSelection = storedUserSelections.get(clientAppId);
           if (userSelection) {
             this.logger.info(
@@ -169,8 +168,8 @@ UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
   this.logger.finer('Loaded the following data from the local storage: ' +
                     GSC.DebugDump.dump(items));
 
-  /** @type {goog.structs.Map.<string,boolean>} */
-  var storedUserSelections = new goog.structs.Map;
+  /** @type {!Map.<string, boolean>} */
+  var storedUserSelections = new Map;
   if (items[LOCAL_STORAGE_KEY]) {
     var contents = items[LOCAL_STORAGE_KEY];
     GSC.Logging.checkWithLogger(this.logger, goog.isObject(contents));

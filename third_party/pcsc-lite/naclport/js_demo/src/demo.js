@@ -82,9 +82,9 @@ function establishContext(api, onDemoSucceeded, onDemoFailed) {
       function(result) {
         result.get(
             onContextEstablished.bind(
-                undefined, api, onDemoSucceeded, onDemoFailed),
-            onPcscLiteError.bind(undefined, api, onDemoFailed));
-      }, onFailure.bind(undefined, onDemoFailed));
+                null, api, onDemoSucceeded, onDemoFailed),
+            onPcscLiteError.bind(null, api, onDemoFailed));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onContextEstablished(
@@ -98,9 +98,9 @@ function validateContext(api, onDemoSucceeded, onDemoFailed, sCardContext) {
   api.SCardIsValidContext(sCardContext).then(function(result) {
     result.get(
         onContextValidated.bind(
-            undefined, api, onDemoSucceeded, onDemoFailed, sCardContext),
-        onPcscLiteError.bind(undefined, api, onDemoFailed));
-  }, onFailure.bind(undefined, onDemoFailed));
+            null, api, onDemoSucceeded, onDemoFailed, sCardContext),
+        onPcscLiteError.bind(null, api, onDemoFailed));
+  }, onFailure.bind(null, onDemoFailed));
 }
 
 function onContextValidated(api, onDemoSucceeded, onDemoFailed, sCardContext) {
@@ -114,10 +114,10 @@ function validateInvalidContext(
   api.SCardIsValidContext(sCardContext + 1).then(function(result) {
     result.get(
         onInvalidContextAccepted.bind(
-            undefined, api, onDemoSucceeded, onDemoFailed, sCardContext),
+            null, api, onDemoSucceeded, onDemoFailed, sCardContext),
         onInvalidContextRejected.bind(
-            undefined, api, onDemoSucceeded, onDemoFailed, sCardContext));
-  }, onFailure.bind(undefined, onDemoFailed));
+            null, api, onDemoSucceeded, onDemoFailed, sCardContext));
+  }, onFailure.bind(null, onDemoFailed));
 }
 
 function onInvalidContextAccepted(
@@ -143,18 +143,18 @@ function waitForReadersChange(
           function(result) {
             result.get(
                 onReadersChanged.bind(
-                    undefined,
+                    null,
                     api,
                     onDemoSucceeded,
                     onDemoFailed,
                     sCardContext),
                 onReadersChangeWaitingFailed.bind(
-                    undefined,
+                    null,
                     api,
                     onDemoSucceeded,
                     onDemoFailed,
                     sCardContext));
-          }, onFailure.bind(undefined, onDemoFailed));
+          }, onFailure.bind(null, onDemoFailed));
 }
 
 function onReadersChanged(
@@ -199,9 +199,9 @@ function listReaderGroups(api, onDemoSucceeded, onDemoFailed, sCardContext) {
   api.SCardListReaderGroups(sCardContext).then(function(result) {
     result.get(
         onReaderGroupsListed.bind(
-            undefined, api, onDemoSucceeded, onDemoFailed, sCardContext),
-        onPcscLiteError.bind(undefined, api, onDemoFailed));
-  }, onFailure.bind(undefined, onDemoFailed));
+            null, api, onDemoSucceeded, onDemoFailed, sCardContext),
+        onPcscLiteError.bind(null, api, onDemoFailed));
+  }, onFailure.bind(null, onDemoFailed));
 }
 
 function onReaderGroupsListed(
@@ -221,9 +221,9 @@ function listReaders(api, onDemoSucceeded, onDemoFailed, sCardContext) {
   api.SCardListReaders(sCardContext, null).then(function(result) {
     result.get(
         onReadersListed.bind(
-            undefined, api, onDemoSucceeded, onDemoFailed, sCardContext),
-        onPcscLiteError.bind(undefined, api, onDemoFailed));
-  }, onFailure.bind(undefined, onDemoFailed));
+            null, api, onDemoSucceeded, onDemoFailed, sCardContext),
+        onPcscLiteError.bind(null, api, onDemoFailed));
+  }, onFailure.bind(null, onDemoFailed));
 }
 
 function onReadersListed(
@@ -250,20 +250,20 @@ function waitForCardRemoval(
           function(result) {
             result.get(
                 onCardRemoved.bind(
-                    undefined,
+                    null,
                     api,
                     onDemoSucceeded,
                     onDemoFailed,
                     sCardContext,
                     readerName),
                 onCardRemovalWaitingFailed.bind(
-                    undefined,
+                    null,
                     api,
                     onDemoSucceeded,
                     onDemoFailed,
                     sCardContext,
                     readerName));
-          }, onFailure.bind(undefined, onDemoFailed));
+          }, onFailure.bind(null, onDemoFailed));
 }
 
 function onCardRemoved(
@@ -300,14 +300,14 @@ function waitForCardInsertion(
           function(result) {
             result.get(
                 onCardInserted.bind(
-                    undefined,
+                    null,
                     api,
                     onDemoSucceeded,
                     onDemoFailed,
                     sCardContext,
                     readerName),
-                onPcscLiteError.bind(undefined, api, onDemoFailed));
-          }, onFailure.bind(undefined, onDemoFailed));
+                onPcscLiteError.bind(null, api, onDemoFailed));
+          }, onFailure.bind(null, onDemoFailed));
 }
 
 function onCardInserted(
@@ -336,23 +336,23 @@ function waitAndCancel(
           function(result) {
             result.get(
                 onCancelingWaitingFinished.bind(
-                    undefined,
+                    null,
                     api,
                     onDemoSucceeded,
                     onDemoFailed),
                 onCancelingWaitingFailed.bind(
-                    undefined,
+                    null,
                     api,
                     onDemoSucceeded,
                     onDemoFailed,
                     sCardContext,
                     readerName));
-          }, onFailure.bind(undefined, onDemoFailed));
+          }, onFailure.bind(null, onDemoFailed));
   logger.info('Cancelling the waiting...');
   api.SCardCancel(sCardContext).then(function(result) {
     result.get(
-        onCancelSucceeded, onPcscLiteError.bind(undefined, api, onDemoFailed))
-  }, onFailure.bind(undefined, onDemoFailed));
+        onCancelSucceeded, onPcscLiteError.bind(null, api, onDemoFailed));
+  }, onFailure.bind(null, onDemoFailed));
 }
 
 function onCancelingWaitingFailed(
@@ -388,9 +388,9 @@ function connect(api, onDemoSucceeded, onDemoFailed, sCardContext, readerName) {
       API.SCARD_PROTOCOL_ANY).then(function(result) {
         result.get(
             onConnected.bind(
-                undefined, api, onDemoSucceeded, onDemoFailed, sCardContext),
-            onPcscLiteError.bind(undefined, api, onDemoFailed));
-      }, onFailure.bind(undefined, onDemoFailed));
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext),
+            onPcscLiteError.bind(null, api, onDemoFailed));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onConnected(
@@ -416,14 +416,14 @@ function reconnect(
       API.SCARD_LEAVE_CARD).then(function(result) {
         result.get(
             onReconnected.bind(
-                undefined,
+                null,
                 api,
                 onDemoSucceeded,
                 onDemoFailed,
                 sCardContext,
                 sCardHandle),
-            onPcscLiteError.bind(undefined, api, onDemoFailed));
-      }, onFailure.bind(undefined, onDemoFailed));
+            onPcscLiteError.bind(null, api, onDemoFailed));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onReconnected(
@@ -438,14 +438,14 @@ function getStatus(
   api.SCardStatus(sCardHandle).then(function(result) {
     result.get(
         onStatusGot.bind(
-            undefined,
+            null,
             api,
             onDemoSucceeded,
             onDemoFailed,
             sCardContext,
             sCardHandle),
-        onPcscLiteError.bind(undefined, api, onDemoFailed));
-  }, onFailure.bind(undefined, onDemoFailed));
+        onPcscLiteError.bind(null, api, onDemoFailed));
+  }, onFailure.bind(null, onDemoFailed));
 }
 
 function onStatusGot(
@@ -516,7 +516,7 @@ function getAttrs(
               protocol,
               attrIndex + 1);
         });
-      }, onFailure.bind(undefined, onDemoFailed));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onAttrsGot(
@@ -535,7 +535,7 @@ function setAttr(
       sCardHandle, API[ATTR_NAME], ATTR_VALUE).then(function(result) {
         result.get(
             onAttrSet.bind(
-                undefined,
+                null,
                 api,
                 onDemoSucceeded,
                 onDemoFailed,
@@ -543,14 +543,14 @@ function setAttr(
                 sCardHandle,
                 protocol),
             onAttrSetFailed.bind(
-                undefined,
+                null,
                 api,
                 onDemoSucceeded,
                 onDemoFailed,
                 sCardContext,
                 sCardHandle,
                 protocol));
-      }, onFailure.bind(undefined, onDemoFailed));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onAttrSet(
@@ -580,15 +580,15 @@ function beginTransaction(
   api.SCardBeginTransaction(sCardHandle).then(function(result) {
     result.get(
         onTransactionBegun.bind(
-            undefined,
+            null,
             api,
             onDemoSucceeded,
             onDemoFailed,
             sCardContext,
             sCardHandle,
             protocol),
-        onPcscLiteError.bind(undefined, api, onDemoFailed));
-  }, onFailure.bind(undefined, onDemoFailed));
+        onPcscLiteError.bind(null, api, onDemoFailed));
+  }, onFailure.bind(null, onDemoFailed));
 }
 
 function onTransactionBegun(
@@ -607,15 +607,15 @@ function sendControlCommand(
       []).then(function(result) {
         result.get(
             onControlCommandSent.bind(
-                undefined,
+                null,
                 api,
                 onDemoSucceeded,
                 onDemoFailed,
                 sCardContext,
                 sCardHandle,
                 protocol),
-            onPcscLiteError.bind(undefined, api, onDemoFailed));
-      }, onFailure.bind(undefined, onDemoFailed));
+            onPcscLiteError.bind(null, api, onDemoFailed));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onControlCommandSent(
@@ -645,15 +645,15 @@ function sendTransmitCommand(
       LIST_DIR_APDU).then(function(result) {
         result.get(
             onTransmitCommandSent.bind(
-                undefined,
+                null,
                 api,
                 onDemoSucceeded,
                 onDemoFailed,
                 sCardContext,
                 sCardHandle,
                 protocol),
-            onPcscLiteError.bind(undefined, api, onDemoFailed));
-      }, onFailure.bind(undefined, onDemoFailed));
+            onPcscLiteError.bind(null, api, onDemoFailed));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onTransmitCommandSent(
@@ -679,14 +679,14 @@ function endTransaction(
       API.SCARD_LEAVE_CARD).then(function(result) {
         result.get(
             onTransactionEnded.bind(
-                undefined,
+                null,
                 api,
                 onDemoSucceeded,
                 onDemoFailed,
                 sCardContext,
                 sCardHandle),
-            onPcscLiteError.bind(undefined, api, onDemoFailed));
-      }, onFailure.bind(undefined, onDemoFailed));
+            onPcscLiteError.bind(null, api, onDemoFailed));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onTransactionEnded(
@@ -703,9 +703,9 @@ function disconnect(
       API.SCARD_LEAVE_CARD).then(function(result) {
         result.get(
             onDisconnected.bind(
-                undefined, api, onDemoSucceeded, onDemoFailed, sCardContext),
-            onPcscLiteError.bind(undefined, api, onDemoFailed));
-      }, onFailure.bind(undefined, onDemoFailed));
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext),
+            onPcscLiteError.bind(null, api, onDemoFailed));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onDisconnected(api, onDemoSucceeded, onDemoFailed, sCardContext) {
@@ -717,9 +717,9 @@ function releaseContext(api, onDemoSucceeded, onDemoFailed, sCardContext) {
   logger.info('Releasing the context...');
   api.SCardReleaseContext(sCardContext).then(function(result) {
     result.get(
-        onContextReleased.bind(undefined, api, onDemoSucceeded, onDemoFailed),
-        onPcscLiteError.bind(undefined, api, onDemoFailed));
-  }, onFailure.bind(undefined, onDemoFailed));
+        onContextReleased.bind(null, api, onDemoSucceeded, onDemoFailed),
+        onPcscLiteError.bind(null, api, onDemoFailed));
+  }, onFailure.bind(null, onDemoFailed));
 }
 
 function onContextReleased(api, onDemoSucceeded, onDemoFailed) {

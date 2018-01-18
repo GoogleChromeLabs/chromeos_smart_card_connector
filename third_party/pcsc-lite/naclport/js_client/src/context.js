@@ -28,9 +28,9 @@
 goog.provide('GoogleSmartCard.PcscLiteClient.Context');
 
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
+goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('goog.Disposable');
 goog.require('goog.array');
 goog.require('goog.asserts');
@@ -218,11 +218,12 @@ Context.prototype.messageChannelEstablishedListener_ = function() {
   GSC.Logging.checkWithLogger(this.logger, goog.isNull(this.api));
   GSC.Logging.checkWithLogger(this.logger, !goog.isNull(this.channel_));
   goog.asserts.assert(this.channel_);
-  this.api = new GSC.PcscLiteClient.API(this.channel_);
+  var api = new GSC.PcscLiteClient.API(this.channel_);
+  this.api = api;
 
   goog.array.forEach(this.onInitializedCallbacks_, function(callback) {
-    callback(this.api);
-  }, this);
+    callback(api);
+  });
   this.onInitializedCallbacks_ = [];
 };
 

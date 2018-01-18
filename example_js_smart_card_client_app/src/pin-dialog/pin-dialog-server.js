@@ -40,6 +40,6 @@ var GSC = GoogleSmartCard;
 SmartCardClientApp.PinDialog.Server.requestPin = function() {
   return GSC.PopupWindow.Server.runModalDialog(
       PIN_DIALOG_URL, PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES);
-}
+};
 
 });  // goog.scope

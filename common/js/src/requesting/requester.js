@@ -36,7 +36,6 @@ goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.promise.Resolver');
 goog.require('goog.string');
-goog.require('goog.structs.Map');
 
 goog.scope(function() {
 
@@ -81,10 +80,10 @@ GSC.Requester = function(name, messageChannel) {
   this.requestIdGenerator_ = goog.iter.count();
 
   /**
-   * @type {goog.structs.Map.<number, !goog.promise.Resolver>}
+   * @type {Map.<number, !goog.promise.Resolver>}
    * @private
    */
-  this.requestIdToPromiseResolverMap_ = new goog.structs.Map;
+  this.requestIdToPromiseResolverMap_ = new Map;
 
   this.registerResponseMessagesService_();
   this.addChannelDisposedListener_();
@@ -118,7 +117,7 @@ Requester.prototype.postRequest = function(payload) {
   var promiseResolver = goog.Promise.withResolver();
 
   GSC.Logging.checkWithLogger(
-      this.logger, !this.requestIdToPromiseResolverMap_.containsKey(requestId));
+      this.logger, !this.requestIdToPromiseResolverMap_.has(requestId));
   this.requestIdToPromiseResolverMap_.set(requestId, promiseResolver);
 
   if (this.isDisposed()) {
@@ -138,7 +137,8 @@ Requester.prototype.postRequest = function(payload) {
 
 /** @override */
 Requester.prototype.disposeInternal = function() {
-  var runningRequestIds = this.requestIdToPromiseResolverMap_.getKeys();
+  var runningRequestIds = Array.from(
+      this.requestIdToPromiseResolverMap_.keys());
   goog.array.sort(runningRequestIds);
   goog.array.forEach(runningRequestIds, function(requestId) {
     // FIXME(emaxx): Probably add the disposal reason information into the
@@ -198,7 +198,7 @@ Requester.prototype.responseMessageReceivedListener_ = function(messageData) {
   }
   var requestId = responseMessageData.requestId;
 
-  if (!this.requestIdToPromiseResolverMap_.containsKey(requestId)) {
+  if (!this.requestIdToPromiseResolverMap_.has(requestId)) {
     GSC.Logging.failWithLogger(
         this.logger,
         'Received a response for unknown request with identifier ' + requestId);
@@ -241,7 +241,7 @@ Requester.prototype.rejectRequest_ = function(requestId, errorMessage) {
 Requester.prototype.popRequestPromiseResolver_ = function(requestId) {
   var result = this.requestIdToPromiseResolverMap_.get(requestId);
   GSC.Logging.checkWithLogger(this.logger, goog.isDef(result));
-  this.requestIdToPromiseResolverMap_.remove(requestId);
+  this.requestIdToPromiseResolverMap_.delete(requestId);
   return result;
 };
 

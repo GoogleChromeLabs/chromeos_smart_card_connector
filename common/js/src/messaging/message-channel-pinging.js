@@ -30,8 +30,8 @@
  */
 
 goog.provide('GoogleSmartCard.MessageChannelPinging');
-goog.provide('GoogleSmartCard.MessageChannelPinging.Pinger');
 goog.provide('GoogleSmartCard.MessageChannelPinging.PingResponder');
+goog.provide('GoogleSmartCard.MessageChannelPinging.Pinger');
 
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.Random');

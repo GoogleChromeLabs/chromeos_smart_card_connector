@@ -188,7 +188,7 @@ NaclModule.prototype.getMimeType_ = function() {
     default:
       GSC.Logging.failWithLogger(
           this.logger, 'Unexpected NaclModule type: ' + this.type);
-      goog.asserts.fail();
+      return '';
   }
 };
 

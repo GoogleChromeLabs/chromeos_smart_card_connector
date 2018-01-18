@@ -73,7 +73,7 @@ GSC.PopupWindow.Server.createWindow = function(
     chrome.app.window.create(
         url,
         createWindowOptions,
-        createWindowCallback.bind(undefined, createdWindowExtends));
+        createWindowCallback.bind(null, createdWindowExtends));
   } catch (exc) {
     GSC.Logging.failWithLogger(
         logger,

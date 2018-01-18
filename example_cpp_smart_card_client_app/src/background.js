@@ -43,14 +43,14 @@
 
 goog.provide('SmartCardClientApp.BackgroundMain');
 
-goog.require('SmartCardClientApp.CertificateProviderBridge.Backend');
-goog.require('SmartCardClientApp.PinDialog.Backend');
 goog.require('GoogleSmartCard.AppUtils');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
+goog.require('SmartCardClientApp.CertificateProviderBridge.Backend');
+goog.require('SmartCardClientApp.PinDialog.Backend');
 goog.require('goog.log.Level');
 goog.require('goog.log.Logger');
 

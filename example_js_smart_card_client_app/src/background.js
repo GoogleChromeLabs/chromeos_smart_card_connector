@@ -30,7 +30,6 @@
 
 goog.provide('SmartCardClientApp.BackgroundMain');
 
-goog.require('SmartCardClientApp.PinDialog.Server');
 goog.require('GoogleSmartCard.AppUtils');
 goog.require('GoogleSmartCard.BackgroundPageUnloadPreventing');
 goog.require('GoogleSmartCard.Logging');
@@ -38,6 +37,7 @@ goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteClient.Context');
 goog.require('GoogleSmartCard.PcscLiteClient.Demo');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
+goog.require('SmartCardClientApp.PinDialog.Server');
 goog.require('goog.log');
 goog.require('goog.log.Level');
 goog.require('goog.log.Logger');

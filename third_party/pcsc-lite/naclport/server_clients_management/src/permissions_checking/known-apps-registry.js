@@ -37,7 +37,6 @@ goog.require('goog.log.Logger');
 goog.require('goog.net.XhrIo');
 goog.require('goog.object');
 goog.require('goog.promise.Resolver');
-goog.require('goog.structs.Map');
 
 goog.scope(function() {
 
@@ -75,7 +74,7 @@ var KnownApp = PermissionsChecking.KnownApp;
  */
 PermissionsChecking.KnownAppsRegistry = function() {
   /**
-   * @type {!goog.promise.Resolver.<!goog.structs.Map.<string,!KnownApp>>}
+   * @type {!goog.promise.Resolver.<!Map.<string,!KnownApp>>}
    * @private
    */
   this.promiseResolver_ = goog.Promise.withResolver();
@@ -129,8 +128,8 @@ KnownAppsRegistry.prototype.tryGetByIds = function(idList) {
       function(knownAppsMap) {
         var knownApps = [];
         for (let id of idList) {
-          var knownApp = knownAppsMap.get(id, null);
-          knownApps.push(knownApp);
+          var knownApp = knownAppsMap.get(id);
+          knownApps.push(goog.isDef(knownApp) ? knownApp : null);
         }
         promiseResolver.resolve(knownApps);
       },
@@ -190,8 +189,8 @@ KnownAppsRegistry.prototype.jsonLoadedCallback_ = function(e) {
  * @private
  */
 KnownAppsRegistry.prototype.parseJsonAndApply_ = function(json) {
-  /** @type {!goog.structs.Map.<string, !KnownApp>} */
-  var knownClientApps = new goog.structs.Map;
+  /** @type {!Map.<string, !KnownApp>} */
+  var knownClientApps = new Map;
   var success = true;
   goog.object.forEach(json, function(value, key) {
     var knownApp = this.tryParseKnownAppJson_(key, value);

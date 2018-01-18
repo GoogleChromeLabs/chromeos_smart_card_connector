@@ -148,6 +148,7 @@ ChromeUsbBackend.prototype.handleRequest_ = function(payload) {
 
 /**
  * @param {string} functionName
+ * @return {!Function}
  * @private
  */
 ChromeUsbBackend.prototype.getChromeUsbFunction_ = function(functionName) {
@@ -175,8 +176,8 @@ ChromeUsbBackend.prototype.chromeUsbApiGenericCallback_ = function(
     this.reportRequestError_(
         debugRepresentation,
         promiseResolver,
-        goog.isDef(chrome.runtime.lastError.message) ?
-            chrome.runtime.lastError.message : 'Unknown error');
+        goog.isDef(chrome.runtime.lastError['message']) ?
+            chrome.runtime.lastError['message'] : 'Unknown error');
   } else {
     this.reportRequestSuccess_(
         debugRepresentation,
@@ -195,7 +196,7 @@ ChromeUsbBackend.prototype.reportRequestException_ = function(
     debugRepresentation, promiseResolver, exc) {
   this.logger.warning(
       'JavaScript exception was thrown while calling ' + debugRepresentation +
-      ': ' + exc.toString());
+      ': ' + exc);
   promiseResolver.reject(exc);
 };
 

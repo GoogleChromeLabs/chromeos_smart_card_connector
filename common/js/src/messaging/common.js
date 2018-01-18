@@ -42,7 +42,7 @@ var LOGGER = GSC.Logging.getScopedLogger('MessagingCommon');
  * @param {!goog.messaging.AbstractChannel} channel
  */
 GSC.MessagingCommon.setNonFatalDefaultServiceCallback = function(channel) {
-  var boundCallback = nonFatalDefaultServiceCallback.bind(undefined, channel);
+  var boundCallback = nonFatalDefaultServiceCallback.bind(null, channel);
   channel.registerDefaultService(boundCallback);
 };
 

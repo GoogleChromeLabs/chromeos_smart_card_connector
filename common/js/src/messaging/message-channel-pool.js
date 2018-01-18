@@ -23,9 +23,9 @@
 goog.provide('GoogleSmartCard.MessageChannelPool');
 
 goog.require('GoogleSmartCard.Logging');
+goog.require('goog.labs.structs.Multimap');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
-goog.require('goog.labs.structs.Multimap');
 
 goog.scope(function() {
 

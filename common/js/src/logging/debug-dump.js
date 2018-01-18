@@ -29,8 +29,6 @@ goog.require('goog.math');
 goog.require('goog.object');
 goog.require('goog.string');
 goog.require('goog.structs');
-goog.require('goog.structs.Map');
-goog.require('goog.structs.Set');
 
 goog.scope(function() {
 
@@ -63,21 +61,21 @@ function guessIntegerBitLength(value) {
 }
 
 /**
- * @param {!Array|!Uint8Array|!goog.structs.Map|!goog.structs.Set} value
+ * @param {!Array|!Uint8Array} value
  * @return {string}
  */
-function dumpSequence(value) {
+function dumpSequenceItems(value) {
   var dumpedItems = goog.iter.map(value, GSC.DebugDump.dump);
   return goog.iter.join(dumpedItems, ', ');
 }
 
 /**
- * @param {!Object} value
+ * @param {!Array} items Array of two-element arrays - pairs of key and value.
  * @return {string}
  */
-function dumpMapping(value) {
-  var dumpedItems = goog.array.map(goog.object.getKeys(value), function(key) {
-    return key + ': ' + GSC.DebugDump.dump(value[key]);
+function dumpMappingItems(items) {
+  var dumpedItems = goog.array.map(items, function(item) {
+    return GSC.DebugDump.dump(item[0]) + ': ' + GSC.DebugDump.dump(item[1]);
   });
   return goog.iter.join(dumpedItems, ', ');
 }
@@ -127,7 +125,7 @@ function dumpString(value) {
  * @return {string}
  */
 function dumpArray(value) {
-  return '[' + dumpSequence(value) + ']';
+  return '[' + dumpSequenceItems(value) + ']';
 }
 
 /**
@@ -143,24 +141,23 @@ function dumpFunction(value) {
  * @return {string}
  */
 function dumpArrayBuffer(value) {
-  return 'ArrayBuffer[' + dumpSequence(new Uint8Array(value)) + ']';
+  return 'ArrayBuffer[' + dumpSequenceItems(new Uint8Array(value)) + ']';
 }
 
 /**
- * @param {!goog.structs.Map} value
+ * @param {!Map} value
  * @return {string}
  */
 function dumpMap(value) {
-  var object = goog.structs.map(value, goog.functions.identity, {});
-  return 'Map{' + dumpMapping(object) + '}';
+  return 'Map{' + dumpMappingItems(Array.from(value.entries())) + '}';
 }
 
 /**
- * @param {!goog.structs.Set} value
+ * @param {!Set} value
  * @return {string}
  */
 function dumpSet(value) {
-  return 'Set{' + dumpSequence(value) + '}';
+  return 'Set{' + dumpSequenceItems(Array.from(value)) + '}';
 }
 
 /**
@@ -168,7 +165,11 @@ function dumpSet(value) {
  * @return {string}
  */
 function dumpObject(value) {
-  return '{' + dumpMapping(value) + '}';
+  var items = [];
+  goog.object.forEach(value, function(itemValue, itemKey) {
+    items.push([itemKey, itemValue]);
+  });
+  return '{' + dumpMappingItems(items) + '}';
 }
 
 /**
@@ -191,6 +192,8 @@ function dump(value) {
     return '<Window>';
   if (NodeList && value instanceof NodeList)
     return '<NodeList>';
+  if (HTMLCollection && value instanceof HTMLCollection)
+    return '<HTMLCollection>';
   if (Node && value instanceof Node) {
     // Note that this branch should go after other branches checking for
     // DOM-related types.
@@ -211,9 +214,9 @@ function dump(value) {
     return dumpFunction(value);
   if (value instanceof ArrayBuffer)
     return dumpArrayBuffer(value);
-  if (value instanceof goog.structs.Map)
+  if (value instanceof Map)
     return dumpMap(value);
-  if (value instanceof goog.structs.Set)
+  if (value instanceof Set)
     return dumpSet(value);
   if (goog.isObject(value))
     return dumpObject(value);

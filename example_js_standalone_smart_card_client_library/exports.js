@@ -21,6 +21,11 @@
  * compilation level is set to advanced.
  */
 
+goog.require('goog.Disposable');
+goog.require('goog.Promise');
+goog.require('goog.log');
+goog.require('goog.messaging.AbstractChannel');
+
 goog.exportSymbol('goog.log.getLogger', goog.log.getLogger);
 goog.exportSymbol('goog.log.addHandler', goog.log.addHandler);
 goog.exportSymbol('goog.log.removeHandler', goog.log.removeHandler);

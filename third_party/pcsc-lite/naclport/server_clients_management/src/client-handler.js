@@ -334,6 +334,7 @@ ClientHandler.prototype.handleRequest_ = function(payload) {
 /**
  * Returns a promise that will eventually contain the result of the permissions
  * check for the client.
+ * @return {!goog.Promise}
  * @private
  */
 ClientHandler.prototype.getPermissionsCheckPromise_ = function() {

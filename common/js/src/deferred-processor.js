@@ -23,10 +23,10 @@ goog.provide('GoogleSmartCard.DeferredProcessor');
 
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PromiseHelpers');
-goog.require('goog.log.Logger');
-goog.require('goog.structs.Queue');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.log.Logger');
+goog.require('goog.structs.Queue');
 
 goog.scope(function() {
 

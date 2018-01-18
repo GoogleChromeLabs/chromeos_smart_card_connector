@@ -39,7 +39,6 @@ goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
 goog.require('goog.promise.Resolver');
-goog.require('goog.structs.Map');
 
 goog.scope(function() {
 
@@ -89,8 +88,8 @@ var ReaderStatus = GSC.PcscLiteServer.ReaderStatus;
  * Structure used to store information about the reader.
  * @param {string} name
  * @param {!ReaderStatus} status
- * @param {boolean=} opt_isCardPresent
  * @param {string=} opt_error
+ * @param {boolean=} opt_isCardPresent
  * @constructor
  */
 GSC.PcscLiteServer.ReaderInfo = function(
@@ -236,10 +235,10 @@ function TrackerThroughPcscServerHook(
    *
    * The values can be null, which corresponds to readers that should be hidden
    * from the result.
-   * @type {!goog.structs.Map.<number, ReaderInfo>}
+   * @type {!Map.<number, ReaderInfo>}
    * @private
    */
-  this.portToReaderInfoMap_ = new goog.structs.Map;
+  this.portToReaderInfoMap_ = new Map;
 
   serverMessageChannel.registerService(
       'reader_init_add', this.readerInitAddListener_.bind(this), true);
@@ -256,13 +255,13 @@ TrackerThroughPcscServerHook.prototype.getReaders = function() {
   // Return the readers sorted by their port (the exact key used for the
   // ordering doesn't matter, it's just a simplest way to guarantee the stable
   // order across multiple calls).
-  var ports = this.portToReaderInfoMap_.getKeys();
+  var ports = Array.from(this.portToReaderInfoMap_.keys());
   goog.array.sort(ports);
-  var result = goog.array.map(
+  var mappedReaderInfos = goog.array.map(
       ports, this.portToReaderInfoMap_.get, this.portToReaderInfoMap_);
-  // Remove null entries, which correspond to readers that should be hidden.
-  result = result.filter(function(item) { return !goog.isNull(item); });
-  return result;
+  // Remove null entries, as they correspond to readers that should be hidden.
+  return /** @type {!Array.<!ReaderInfo>} */ (mappedReaderInfos.filter(
+      function(item) { return !goog.isNull(item); }));
 };
 
 /**
@@ -283,7 +282,7 @@ TrackerThroughPcscServerHook.prototype.readerInitAddListener_ = function(
 
   GSC.Logging.checkWithLogger(
       this.logger_,
-      !this.portToReaderInfoMap_.containsKey(port),
+      !this.portToReaderInfoMap_.has(port),
       'Initializing reader which is already present!');
   this.portToReaderInfoMap_.set(port, new ReaderInfo(name, ReaderStatus.INIT));
   this.updateListener_();
@@ -326,7 +325,7 @@ TrackerThroughPcscServerHook.prototype.readerFinishAddListener_ = function(
 
   GSC.Logging.checkWithLogger(
       this.logger_,
-      this.portToReaderInfoMap_.containsKey(port),
+      this.portToReaderInfoMap_.has(port),
       'Finishing initializing reader without present reader!');
 
   // Note that the inserted value may be null, which means that this reader
@@ -352,9 +351,9 @@ TrackerThroughPcscServerHook.prototype.readerRemoveListener_ = function(
 
   GSC.Logging.checkWithLogger(
       this.logger_,
-      this.portToReaderInfoMap_.containsKey(port),
+      this.portToReaderInfoMap_.has(port),
       'Tried removing non-existing reader!');
-  this.portToReaderInfoMap_.remove(port);
+  this.portToReaderInfoMap_.delete(port);
   this.updateListener_();
 };
 
@@ -363,6 +362,7 @@ TrackerThroughPcscServerHook.prototype.readerRemoveListener_ = function(
  * list of readers.
  * @param {string} device The device name, as reported from the PC/SC-Lite
  * server.
+ * @return {boolean}
  * @private
  */
 TrackerThroughPcscServerHook.prototype.shouldHideFailedReader_ = function(
@@ -460,7 +460,8 @@ TrackerThroughPcscApi.prototype.startStatusTrackingWithApi_ = function(api) {
 TrackerThroughPcscApi.prototype.addPromiseErrorHandler_ = function(promise) {
   promise.thenCatch(function(error) {
     this.logger_.warning(
-        'Stopped tracking through PC/SC API: ' + error.message);
+        'Stopped tracking through PC/SC API: ' +
+        (/** @type {{message:string}} */ (error)).message);
     this.updateResult_([]);
   }, this);
 };

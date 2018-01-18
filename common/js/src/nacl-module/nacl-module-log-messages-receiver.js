@@ -23,11 +23,11 @@
 goog.provide('GoogleSmartCard.NaclModuleLogMessagesReceiver');
 
 goog.require('GoogleSmartCard.Logging');
-goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.asserts');
 goog.require('goog.log');
 goog.require('goog.log.Level');
 goog.require('goog.log.Logger');
+goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
 
 goog.scope(function() {
@@ -108,7 +108,7 @@ NaclModuleLogMessagesReceiver.prototype.extractLogMessageLevel_ = function(
   goog.asserts.assert(result);
 
   return result;
-}
+};
 
 /**
  * @param {!Object} messageData
@@ -125,6 +125,6 @@ NaclModuleLogMessagesReceiver.prototype.extractLogMessageText_ = function(
   goog.asserts.assertString(value);
 
   return value;
-}
+};
 
 });  // goog.scope

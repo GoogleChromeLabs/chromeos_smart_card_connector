@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.MessageChannelPinging.Pinger');
 goog.require('GoogleSmartCard.MessageChannelPinging.PingResponder');
+goog.require('GoogleSmartCard.MessageChannelPinging.Pinger');
 goog.require('GoogleSmartCard.MockPort');
+goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Promise');
 goog.require('goog.testing.PropertyReplacer');

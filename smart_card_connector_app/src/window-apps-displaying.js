@@ -48,10 +48,10 @@ var KnownApp = PermissionsChecking.KnownApp;
 var logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
 /**
- * @type {Element}
+ * @type {!Element}
  * @const
  */
-var appListElement = goog.dom.getElement('app-list');
+var appListElement = /** @type {!Element} */ (goog.dom.getElement('app-list'));
 
 /**
  * @const

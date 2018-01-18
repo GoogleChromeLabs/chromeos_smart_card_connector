@@ -51,8 +51,8 @@ goog.provide('GoogleSmartCard.PcscLiteClient.API.SCardTransmitResult');
 goog.require('GoogleSmartCard.FixedSizeInteger');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
-goog.require('GoogleSmartCard.Requester');
 goog.require('GoogleSmartCard.RemoteCallMessage');
+goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
 goog.require('goog.asserts');
@@ -2301,7 +2301,7 @@ goog.exportProperty(
  */
 API.SCardEstablishContextResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2359,7 +2359,7 @@ goog.exportProperty(
  */
 API.SCardReleaseContextResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2451,7 +2451,7 @@ goog.inherits(API.SCardConnectResult, API.ResultOrErrorCode);
  */
 API.SCardConnectResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(2, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(2, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2547,7 +2547,7 @@ goog.inherits(API.SCardReconnectResult, API.ResultOrErrorCode);
  */
 API.SCardReconnectResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2606,7 +2606,7 @@ goog.inherits(API.SCardDisconnectResult, API.ResultOrErrorCode);
  */
 API.SCardDisconnectResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2670,7 +2670,7 @@ goog.inherits(API.SCardBeginTransactionResult, API.ResultOrErrorCode);
  */
 API.SCardBeginTransactionResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2736,7 +2736,7 @@ goog.inherits(API.SCardEndTransactionResult, API.ResultOrErrorCode);
  */
 API.SCardEndTransactionResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2823,7 +2823,7 @@ goog.inherits(API.SCardStatusResult, API.ResultOrErrorCode);
  */
 API.SCardStatusResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(4, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(4, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -2937,7 +2937,7 @@ goog.inherits(API.SCardGetStatusChangeResult, API.ResultOrErrorCode);
  */
 API.SCardGetStatusChangeResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3012,7 +3012,7 @@ goog.inherits(API.SCardControlResult, API.ResultOrErrorCode);
  */
 API.SCardControlResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3128,7 +3128,7 @@ goog.inherits(API.SCardGetAttribResult, API.ResultOrErrorCode);
  */
 API.SCardGetAttribResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3191,7 +3191,7 @@ goog.inherits(API.SCardSetAttribResult, API.ResultOrErrorCode);
  */
 API.SCardSetAttribResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3279,7 +3279,7 @@ goog.inherits(API.SCardTransmitResult, API.ResultOrErrorCode);
  */
 API.SCardTransmitResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(2, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(2, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3343,7 +3343,7 @@ goog.inherits(API.SCardListReadersResult, API.ResultOrErrorCode);
  */
 API.SCardListReadersResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3406,7 +3406,7 @@ goog.inherits(API.SCardListReaderGroupsResult, API.ResultOrErrorCode);
  */
 API.SCardListReaderGroupsResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(1, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3459,7 +3459,7 @@ goog.inherits(API.SCardCancelResult, API.ResultOrErrorCode);
  */
 API.SCardCancelResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(
@@ -3516,7 +3516,7 @@ goog.inherits(API.SCardIsValidContextResult, API.ResultOrErrorCode);
  */
 API.SCardIsValidContextResult.prototype.get = function(
     opt_onSucceeded, opt_onFailed, opt_context) {
-  return this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
+  this.getBase(0, opt_onSucceeded, opt_onFailed, opt_context);
 };
 
 goog.exportProperty(

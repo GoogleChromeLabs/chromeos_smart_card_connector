@@ -98,7 +98,7 @@ function displayReaderList(readers) {
 
     var element = goog.dom.createDom('li', undefined, indicatorContainer, text);
     goog.dom.append(readersListElement, element);
-  };
+  }
 }
 
 function makeReaderNameForDisplaying(readerName) {
