@@ -16,41 +16,20 @@
 
 goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 
+goog.require('GoogleSmartCard.ConnectorApp.Background.MainWindowManaging');
 goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.MessagingCommon');
 goog.require('GoogleSmartCard.MessageChannelPair');
 goog.require('GoogleSmartCard.MessageChannelPool');
+goog.require('GoogleSmartCard.MessagingCommon');
 goog.require('GoogleSmartCard.NaclModule');
-goog.require('GoogleSmartCard.PopupWindow.Server');
-goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
+goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 
 goog.scope(function() {
-
-/** @const */
-var WINDOW_URL = 'window.html';
-
-/**
- * Note: the bounds of the window were carefully adjusted in order to fit the
- * USB device selector dialog (as shown by the chrome.usb.getUserSelectedDevices
- * method: refer to
- * <https://developer.chrome.com/apps/usb#method-getUserSelectedDevices>).
- * @const
- */
-var WINDOW_OPTIONS = {
-  'frame': 'none',
-  'hidden': true,
-  'id': 'window',
-  'innerBounds': {
-    'width': 530,
-    'height': 430
-  },
-  'resizable': false
-};
 
 /** @const */
 var GSC = GoogleSmartCard;
@@ -75,7 +54,7 @@ var libusbChromeUsbBackend = new GSC.Libusb.ChromeUsbBackend(
 var pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
         naclModule.messageChannel);
-var messageChannelPool = new GSC.MessageChannelPool();
+var messageChannelPool = new GSC.MessageChannelPool;
 
 var readerTrackerMessageChannelPair = new GSC.MessageChannelPair;
 createClientHandler(readerTrackerMessageChannelPair.getFirst(), undefined);
@@ -92,8 +71,9 @@ chrome.runtime.onConnect.addListener(connectionListener);
 chrome.runtime.onConnectExternal.addListener(externalConnectionListener);
 chrome.runtime.onMessageExternal.addListener(externalMessageListener);
 
-chrome.runtime.onInstalled.addListener(installedListener);
-
+/**
+ * Called when the NaCl module is disposed of.
+ */
 function naclModuleDisposedListener() {
   if (!goog.DEBUG) {
     // Trigger the fatal error in the Release mode, that will emit an error
@@ -102,23 +82,18 @@ function naclModuleDisposedListener() {
   }
 }
 
+/**
+ * Called when the onLaunched event is received (that is, when the user clicks
+ * on the app in the Chrome OS app launcher).
+ */
 function launchedListener() {
   logger.fine('Received onLaunched event, opening window...');
-  openWindow();
-}
-
-function openWindow() {
-  var data = {
-      'clientAppListUpdateSubscriber':
-          messageChannelPool.addOnUpdateListener.bind(messageChannelPool),
-      'readerTrackerSubscriber':
-          readerTracker.addOnUpdateListener.bind(readerTracker),
-      'readerTrackerUnsubscriber':
-          readerTracker.removeOnUpdateListener.bind(readerTracker)};
-  GSC.PopupWindow.Server.createWindow(WINDOW_URL, WINDOW_OPTIONS, data);
+  GSC.ConnectorApp.Background.MainWindowManaging.openWindowDueToUserRequest(
+      makeDataForMainWindow());
 }
 
 /**
+ * Called when the onConnect event is received.
  * @param {!Port} port
  */
 function connectionListener(port) {
@@ -128,6 +103,7 @@ function connectionListener(port) {
 }
 
 /**
+ * Called when the onConnectExternal event is received.
  * @param {!Port} port
  */
 function externalConnectionListener(port) {
@@ -145,6 +121,7 @@ function externalConnectionListener(port) {
 }
 
 /**
+ * Called when the onMessageExternal event is received.
  * @param {*} message
  * @param {!MessageSender} sender
  */
@@ -172,6 +149,10 @@ function externalMessageListener(message, sender) {
 }
 
 /**
+ * Returns an single message based channel instance that talks to the specified
+ * extension - either returns an existing instance if there's one, or creates a
+ * new one otherwise. May return null if the channel becomes immediately
+ * disposed of due to some error.
  * @param {string} clientExtensionId
  * @return {GSC.SingleMessageBasedChannel}
  */
@@ -181,7 +162,7 @@ function getOrCreateSingleMessageBasedChannel(clientExtensionId) {
         return channel instanceof GSC.SingleMessageBasedChannel;
       });
   if (existingChannel)
-    return /** @type !GSC.SingleMessageBasedChannel */ (existingChannel);
+    return /** @type {!GSC.SingleMessageBasedChannel} */ (existingChannel);
   var newChannel = new GSC.SingleMessageBasedChannel(
       clientExtensionId, undefined, true);
   messageChannelPool.addChannel(clientExtensionId, newChannel);
@@ -193,6 +174,8 @@ function getOrCreateSingleMessageBasedChannel(clientExtensionId) {
 }
 
 /**
+ * Creates a PC/SC-Lite client handler for the specified message channel and the
+ * client extension.
  * @param {!goog.messaging.AbstractChannel} clientMessageChannel
  * @param {string|undefined} clientExtensionId
  */
@@ -230,18 +213,17 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
 }
 
 /**
- * @param {!Object} details
+ * Creates data for passing into the opened main window.
+ * @return {!Object}
  */
-function installedListener(details) {
-  GSC.Logging.checkWithLogger(
-      logger, goog.object.containsKey(details, 'reason'));
-  var reason = details['reason'];
-  GSC.Logging.checkWithLogger(logger, goog.isString(reason));
-  if (reason == 'install') {
-    logger.fine('Received onInstalled event due to the App installation, ' +
-                'opening window...');
-    openWindow();
-  }
+function makeDataForMainWindow() {
+  return {
+    'clientAppListUpdateSubscriber':
+        messageChannelPool.addOnUpdateListener.bind(messageChannelPool),
+    'readerTrackerSubscriber':
+        readerTracker.addOnUpdateListener.bind(readerTracker),
+    'readerTrackerUnsubscriber':
+        readerTracker.removeOnUpdateListener.bind(readerTracker)};
 }
 
 });  // goog.scope
