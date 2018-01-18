@@ -291,10 +291,10 @@ UserPromptingChecker.prototype.storeUserSelection_ =
       'with id "' + clientAppId + '"');
 
   this.localStoragePromiseResolver_.promise.then(
-      function(storedUserSelections) {
+      function(/** !Map */ storedUserSelections) {
         storedUserSelections.set(clientAppId, userSelection);
-        var dumpedValue = goog.structs.map(
-            storedUserSelections, goog.functions.identity, {});
+        var dumpedValue = goog.object.create(Array.from(
+            storedUserSelections.entries()));
         this.logger.finer('Storing the following data in the local storage: ' +
                           GSC.DebugDump.dump(dumpedValue));
         chrome.storage.local.set(goog.object.create(
