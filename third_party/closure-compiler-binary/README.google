@@ -1,0 +1,11 @@
+URL: http://dl.google.com/closure-compiler/compiler-20180101.tar.gz
+Version: 20180101
+License: Apache 2.0
+License File: LICENSE
+Description:
+A JavaScript checker and optimizer.
+Local Modifications:
+LICENSE file has been created for compliance purposes. Not included in original
+distribution.
+Added Makefile with helper definitions for invoking the Compiler in build
+scripts of this project.

@@ -29,15 +29,8 @@
 # Including Google Closure Library and Compiler definitions.
 #
 
-include $(THIRD_PARTY_DIR_PATH)/closure-compiler/include.mk
+include $(THIRD_PARTY_DIR_PATH)/closure-compiler-binary/include.mk
 include $(THIRD_PARTY_DIR_PATH)/closure-library/include.mk
-
-
-#
-# Including Google Chrome Extensions API definitions.
-#
-
-include $(THIRD_PARTY_DIR_PATH)/chrome/include.mk
 
 
 #
@@ -138,6 +131,18 @@ JS_BUILD_TESTING_ADDITIONAL_COMPILATION_FLAGS := \
 	$(CLOSURE_LIBRARY_TESTING_ADDITIONAL_COMPILER_FLAGS) \
 	--compilation_level=SIMPLE \
 	--only_closure_dependencies=false \
+	--jscomp_off newCheckTypes \
+
+
+#
+# List of Closure Compiler input files that contain extern definitions for
+# JavaScript APIs available in Chrome.
+#
+
+CHROME_EXTERNS_COMPILER_INPUTS := \
+	$(THIRD_PARTY_DIR_PATH)/closure-compiler/src/contrib/externs/chrome.js \
+	$(THIRD_PARTY_DIR_PATH)/closure-compiler/src/contrib/externs/chrome_extensions.js \
+	$(THIRD_PARTY_DIR_PATH)/closure-compiler/src_additional/chrome_extensions.js \
 
 
 #
@@ -164,7 +169,7 @@ JS_BUILD_TESTING_ADDITIONAL_COMPILATION_FLAGS := \
 
 define BUILD_JS_SCRIPT
 
-$(JS_BUILD_DIR_PATH)/$(1): $(CURDIR)/$(CLOSURE_COMPILER_JAR_PATH) $(CLOSURE_LIBRARY_SOURCES_AND_DIRS) $(call FIND_JS_SOURCES_AND_PARENT_DIRS,$(2)) $(CHROME_API_EXTERNS_COMPILER_INPUTS) | $(JS_BUILD_DIR_PATH)
+$(JS_BUILD_DIR_PATH)/$(1): $(CURDIR)/$(CLOSURE_COMPILER_JAR_PATH) $(CLOSURE_LIBRARY_SOURCES_AND_DIRS) $(call FIND_JS_SOURCES_AND_PARENT_DIRS,$(2)) $(CHROME_EXTERNS_COMPILER_INPUTS) | $(JS_BUILD_DIR_PATH)
 	@rm -f $(JS_BUILD_DIR_PATH)/$(1)
 	@$(call RACE_FREE_MKDIR,$(dir $(JS_BUILD_DIR_PATH)/$(1)))
 	cd $(ROOT_PATH) && \
@@ -173,7 +178,7 @@ $(JS_BUILD_DIR_PATH)/$(1): $(CURDIR)/$(CLOSURE_COMPILER_JAR_PATH) $(CLOSURE_LIBR
 			$(addprefix --closure_entry_point , $(3)) \
 			--create_source_map $(CURDIR)/$(JS_BUILD_DIR_PATH)/$(1).map \
 			--output_manifest $(CURDIR)/$(JS_BUILD_DIR_PATH)/$(1).manifest \
-			$(addprefix --externs $(CURDIR)/,$(CHROME_API_EXTERNS_COMPILER_INPUTS)) \
+			$(addprefix --externs $(CURDIR)/,$(CHROME_EXTERNS_COMPILER_INPUTS)) \
 			$(CLOSURE_LIBRARY_COMPILER_FLAGS) \
 			$(4) \
 			$(CLOSURE_LIBRARY_COMPILER_INPUTS) \
@@ -256,6 +261,7 @@ endef
 #
 # This function is intended to be used as make rules prerequisites.
 #
+
 FIND_JS_SOURCES_AND_PARENT_DIRS = \
 	$(shell find $(filter-out !%,$(1)) -type d -o -type f -name "*.js" -exec dirname {} \; -exec echo {} \;)
 
@@ -268,5 +274,6 @@ FIND_JS_SOURCES_AND_PARENT_DIRS = \
 # This function also takes care to handle the negation masks (like '!foo/**bar')
 # correctly.
 #
+
 MAKE_RELATIVE_JS_COMPILER_INPUT = \
 	$(findstring !,$(1))$(call RELATIVE_PATH,$(CURDIR)/$(subst !,,$(1)),$(ROOT_PATH))
