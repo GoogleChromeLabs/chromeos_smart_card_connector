@@ -91,30 +91,34 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_error=es5Strict \
 	--jscomp_error=externsValidation \
 	--jscomp_error=fileoverviewTags \
+	--jscomp_error=functionParams \
 	--jscomp_error=globalThis \
-	--jscomp_error=inferredConstCheck \
 	--jscomp_error=invalidCasts \
+	--jscomp_error=lintChecks \
 	--jscomp_error=misplacedTypeAnnotation \
 	--jscomp_error=missingGetCssName \
+	--jscomp_error=missingOverride \
+	--jscomp_error=missingPolyfill \
 	--jscomp_error=missingProperties \
 	--jscomp_error=missingProvide \
 	--jscomp_error=missingRequire \
 	--jscomp_error=missingReturn \
+	--jscomp_error=missingSourcesWarnings \
 	--jscomp_error=msgDescriptions \
+	--jscomp_error=newCheckTypes \
 	--jscomp_error=nonStandardJsDocs \
 	--jscomp_error=suspiciousCode \
 	--jscomp_error=strictModuleDepCheck \
 	--jscomp_error=typeInvalidation \
 	--jscomp_error=undefinedNames \
 	--jscomp_error=undefinedVars \
+	--jscomp_error=underscore \
 	--jscomp_error=unknownDefines \
 	--jscomp_error=unusedLocalVariables \
 	--jscomp_error=unusedPrivateMembers \
 	--jscomp_error=uselessCode \
 	--jscomp_error=useOfGoogBase \
 	--jscomp_error=visibility \
-	--jscomp_off lintChecks \
-	--jscomp_off newCheckTypes \
 	--jscomp_off reportUnknownTypes \
 	--manage_closure_dependencies \
 	--only_closure_dependencies \
@@ -129,7 +133,6 @@ JS_BUILD_COMPILATION_FLAGS += \
 
 JS_BUILD_TESTING_ADDITIONAL_COMPILATION_FLAGS := \
 	$(CLOSURE_LIBRARY_TESTING_ADDITIONAL_COMPILER_FLAGS) \
-	--compilation_level=SIMPLE \
 	--only_closure_dependencies=false \
 	--jscomp_off newCheckTypes \
 
