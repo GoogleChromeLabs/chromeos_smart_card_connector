@@ -15,9 +15,6 @@
 /**
  * @fileoverview Static utilities for collecting stats associated with
  * ChannelRequest.
- *
- * @visibility {:internal}
- * @visibility {:legacy_users}
  */
 
 
@@ -68,7 +65,7 @@ requestStats.ServerReachability = {
   REQUEST_MADE: 1,
   REQUEST_SUCCEEDED: 2,
   REQUEST_FAILED: 3,
-  BACK_CHANNEL_ACTIVITY: 4
+  BACK_CHANNEL_ACTIVITY: 4  // any response data received
 };
 
 

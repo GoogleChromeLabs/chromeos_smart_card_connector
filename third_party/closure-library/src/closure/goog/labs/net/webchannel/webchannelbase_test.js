@@ -100,15 +100,18 @@ function stubNetUtils() {
 
 
 /**
- * Stubs goog.labs.net.webChannel.ForwardChannelRequestPool.isSpdyEnabled_
- * to manage the max pool size for the forward channel.
+ * Stubs
+ * goog.labs.net.webChannel.ForwardChannelRequestPool.isSpdyOrHttp2Enabled_ to
+ * manage the max pool size for the forward channel.
  *
  * @param {boolean} spdyEnabled Whether SPDY is enabled for the test.
  */
 function stubSpdyCheck(spdyEnabled) {
   stubs.set(
-      goog.labs.net.webChannel.ForwardChannelRequestPool, 'isSpdyEnabled_',
-      function() { return spdyEnabled; });
+      goog.labs.net.webChannel.ForwardChannelRequestPool,
+      'isSpdyOrHttp2Enabled_', function() {
+        return spdyEnabled;
+      });
 }
 
 
@@ -272,6 +275,17 @@ MockChannelRequest.prototype.getPendingMessages = function() {
   return this.pendingMessages_;
 };
 
+/**
+ * @return {boolean} true if X_HTTP_INITIAL_RESPONSE has been handled.
+ */
+MockChannelRequest.prototype.isInitialResponseDecoded = function() {
+  return false;
+};
+
+/**
+ * Decodes X_HTTP_INITIAL_RESPONSE if present.
+ */
+MockChannelRequest.prototype.setDecodeInitialResponse = function() {};
 
 function shouldRunTests() {
   return goog.labs.net.webChannel.ChannelRequest.supportsXhrStreaming();

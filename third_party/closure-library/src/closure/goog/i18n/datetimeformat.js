@@ -100,6 +100,18 @@ goog.require('goog.string');
  * @param {string|number} pattern pattern specification or pattern type.
  * @param {!Object=} opt_dateTimeSymbols Optional symbols to use for this
  *     instance rather than the global symbols.
+ *     You can use some of the predefined SHORT / MEDIUM / LONG / FULL patterns,
+ *     or the common patterns defined in goog.i18n.DateTimePatterns.
+ *     Examples:
+ *     <code><pre>
+ *       var fmt = new goog.i18n.DateTimeFormat(
+ *           goog.i18n.DateTimeFormat.Format.FULL_DATE);
+ *       var fmt = new goog.i18n.DateTimeFormat(
+ *           goog.i18n.DateTimePatterns.MONTH_DAY_YEAR_MEDIUM);
+ *     </pre></code>
+ *
+ * {@see goog.i18n.DateTimeFormat.Format}
+ * {@see goog.i18n.DateTimePatterns}
  * @final
  */
 goog.i18n.DateTimeFormat = function(pattern, opt_dateTimeSymbols) {
@@ -342,7 +354,7 @@ goog.i18n.DateTimeFormat.enforceAsciiDigits_ = false;
 
 /**
  * If RLM unicode characters should be removed from date/time patterns (useful
- * when enforcing ASCII digits for Arabic). See {@code #setEnforceAsciiDigits}.
+ * when enforcing ASCII digits for Arabic). See `#setEnforceAsciiDigits`.
  * @type {boolean}
  * @private
  */
@@ -354,12 +366,12 @@ goog.i18n.DateTimeFormat.removeRlmInPatterns_ = false;
  * formatted date/time even for locales where native digits are indicated.
  * Also sets whether to remove RLM unicode control characters when using
  * standard enumerated patterns (they exist e.g. in standard d/M/y for Arabic).
- * Production code should call this once before any {@code DateTimeFormat}
+ * Production code should call this once before any `DateTimeFormat`
  * object is instantiated.
  * Caveats:
  *    * Enforcing ASCII digits affects all future formatting by new or existing
- * {@code DateTimeFormat} objects.
- *    * Removal of RLM characters only applies to {@code DateTimeFormat} objects
+ * `DateTimeFormat` objects.
+ *    * Removal of RLM characters only applies to `DateTimeFormat` objects
  * instantiated after this call.
  * @param {boolean} enforceAsciiDigits Whether Ascii digits should be enforced.
  */
@@ -368,7 +380,7 @@ goog.i18n.DateTimeFormat.setEnforceAsciiDigits = function(enforceAsciiDigits) {
 
   // Also setting removal of RLM chracters when forcing ASCII digits since it's
   // the right thing to do for Arabic standard patterns. One could add an
-  // optional argument here or to the {@code DateTimeFormat} constructor to
+  // optional argument here or to the `DateTimeFormat` constructor to
   // enable an alternative behavior.
   goog.i18n.DateTimeFormat.removeRlmInPatterns_ = enforceAsciiDigits;
 };
@@ -376,7 +388,7 @@ goog.i18n.DateTimeFormat.setEnforceAsciiDigits = function(enforceAsciiDigits) {
 
 /**
  * @return {boolean} Whether enforcing ASCII digits for all locales. See
- *     {@code #setEnforceAsciiDigits} for more details.
+ *     `#setEnforceAsciiDigits` for more details.
  */
 goog.i18n.DateTimeFormat.isEnforceAsciiDigits = function() {
   return goog.i18n.DateTimeFormat.enforceAsciiDigits_;

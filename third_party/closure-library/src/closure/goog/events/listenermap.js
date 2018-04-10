@@ -15,14 +15,9 @@
 /**
  * @fileoverview A map of listeners that provides utility functions to
  * deal with listeners on an event target. Used by
- * {@code goog.events.EventTarget}.
+ * `goog.events.EventTarget`.
  *
  * WARNING: Do not use this class from outside goog.events package.
- *
- * @visibility {//closure/goog/bin/sizetests:__pkg__}
- * @visibility {//closure/goog:__pkg__}
- * @visibility {//closure/goog/events:__pkg__}
- * @visibility {//closure/goog/labs/events:__pkg__}
  */
 
 goog.provide('goog.events.ListenerMap');

@@ -160,7 +160,7 @@ goog.tagUnsealableClass(goog.ui.KeyboardShortcutHandler);
  * 1. A terminal node with a non-nullable shortcut string which is the
  *    identifier for the shortcut triggered by traversing the tree to that node.
  * 2. An internal node with a null shortcut string and a
- *    {@code goog.ui.KeyboardShortcutHandler.SequenceTree_} representing the
+ *    `goog.ui.KeyboardShortcutHandler.SequenceTree_` representing the
  *    continued stroke sequences from this node.
  * For clarity, the static factory methods for creating internal and terminal
  * nodes below should be used rather than using this constructor directly.
@@ -641,7 +641,7 @@ goog.ui.KeyboardShortcutHandler.prototype.getEventType = function(identifier) {
 /**
  * Builds stroke array from string representation of shortcut.
  * @param {string} s String representation of shortcut.
- * @return {!Array<!{key: ?string, keyCode: ?number, modifiers: number}>} The
+ * @return {!Array<{key: ?string, keyCode: ?number, modifiers: number}>} The
  *     stroke array.  A null keyCode means no non-modifier key was part of the
  *     stroke.
  */

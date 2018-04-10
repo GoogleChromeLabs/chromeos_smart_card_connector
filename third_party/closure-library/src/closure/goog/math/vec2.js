@@ -116,6 +116,8 @@ goog.math.Vec2.prototype.squaredMagnitude = function() {
 
 
 /**
+ * @param {number} sx The scale factor to use for the x dimension.
+ * @param {number=} opt_sy The scale factor to use for the y dimension.
  * @return {!goog.math.Vec2} This vector after scaling.
  * @override
  */
@@ -149,7 +151,7 @@ goog.math.Vec2.prototype.normalize = function() {
 /**
  * Adds another vector to this vector in-place.
  * @param {!goog.math.Coordinate} b The vector to add.
- * @return {!goog.math.Vec2}  This vector with {@code b} added.
+ * @return {!goog.math.Vec2}  This vector with `b` added.
  */
 goog.math.Vec2.prototype.add = function(b) {
   this.x += b.x;
@@ -161,7 +163,7 @@ goog.math.Vec2.prototype.add = function(b) {
 /**
  * Subtracts another vector from this vector in-place.
  * @param {!goog.math.Coordinate} b The vector to subtract.
- * @return {!goog.math.Vec2} This vector with {@code b} subtracted.
+ * @return {!goog.math.Vec2} This vector with `b` subtracted.
  */
 goog.math.Vec2.prototype.subtract = function(b) {
   this.x -= b.x;
@@ -173,7 +175,7 @@ goog.math.Vec2.prototype.subtract = function(b) {
 /**
  * Rotates this vector in-place by a given angle, specified in radians.
  * @param {number} angle The angle, in radians.
- * @return {!goog.math.Vec2} This vector rotated {@code angle} radians.
+ * @return {!goog.math.Vec2} This vector rotated `angle` radians.
  */
 goog.math.Vec2.prototype.rotate = function(angle) {
   var cos = Math.cos(angle);

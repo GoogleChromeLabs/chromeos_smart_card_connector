@@ -19,8 +19,6 @@
  * the logic for the two types of transports we use:
  * XMLHTTP and Image request. It provides timeout detection. More transports
  * to be added in future, such as Fetch, WebSocket.
- *
- * @visibility {:internal}
  */
 
 
@@ -31,12 +29,18 @@ goog.require('goog.async.Throttle');
 goog.require('goog.events.EventHandler');
 goog.require('goog.labs.net.webChannel.Channel');
 goog.require('goog.labs.net.webChannel.WebChannelDebug');
+goog.require('goog.labs.net.webChannel.environment');
 goog.require('goog.labs.net.webChannel.requestStats');
 goog.require('goog.net.ErrorCode');
 goog.require('goog.net.EventType');
+goog.require('goog.net.WebChannel');
 goog.require('goog.net.XmlHttp');
 goog.require('goog.object');
+goog.require('goog.string');
 goog.require('goog.userAgent');
+
+goog.forwardDeclare('goog.Uri');
+goog.forwardDeclare('goog.net.XhrIo');
 
 
 
@@ -104,10 +108,8 @@ goog.labs.net.webChannel.ChannelRequest = function(
    * onreadystatechange during incremental loading of responseText.
    * @private {goog.Timer}
    */
-  this.pollingTimer_ = new goog.Timer();
-
-  this.pollingTimer_.setInterval(
-      goog.labs.net.webChannel.ChannelRequest.POLLING_INTERVAL_MS_);
+  this.pollingTimer_ =
+      new goog.Timer(goog.labs.net.webChannel.environment.getPollingInterval());
 
   /**
    * Extra HTTP headers to add to all the requests sent to the server.
@@ -231,21 +233,34 @@ goog.labs.net.webChannel.ChannelRequest = function(
    */
   this.readyStateChangeThrottle_ = null;
 
-
   /**
    * Whether to the result is expected to be encoded for chunking and thus
    * requires decoding.
    * @private {boolean}
    */
   this.decodeChunks_ = false;
+
+  /**
+   * Whether to decode x-http-initial-response.
+   * @private {boolean}
+   */
+  this.decodeInitialResponse_ = false;
+
+  /**
+   * Whether x-http-initial-response has been decoded (dispatched).
+   * @private {boolean}
+   */
+  this.initialResponseDecoded_ = false;
 };
 
 
 goog.scope(function() {
+var WebChannel = goog.net.WebChannel;
 var Channel = goog.labs.net.webChannel.Channel;
 var ChannelRequest = goog.labs.net.webChannel.ChannelRequest;
 var requestStats = goog.labs.net.webChannel.requestStats;
 var WebChannelDebug = goog.labs.net.webChannel.WebChannelDebug;
+var environment = goog.labs.net.webChannel.environment;
 
 
 /**
@@ -254,14 +269,6 @@ var WebChannelDebug = goog.labs.net.webChannel.WebChannelDebug;
  * @private {number}
  */
 ChannelRequest.TIMEOUT_MS_ = 45 * 1000;
-
-
-/**
- * How often to poll (in MS) for changes to responseText in browsers that don't
- * fire onreadystatechange during incremental loading of responseText.
- * @private {number}
- */
-ChannelRequest.POLLING_INTERVAL_MS_ = 250;
 
 
 /**
@@ -587,13 +594,12 @@ ChannelRequest.prototype.onXmlHttpReadyStateChanged_ = function() {
 
   // we get partial results in browsers that support ready state interactive.
   // We also make sure that getResponseText is not null in interactive mode
-  // before we continue.  However, we don't do it in Opera because it only
-  // fire readyState == INTERACTIVE once.  We need the following code to poll
+  // before we continue.
   if (readyState < goog.net.XmlHttp.ReadyState.INTERACTIVE ||
-      readyState == goog.net.XmlHttp.ReadyState.INTERACTIVE &&
-          !goog.userAgent.OPERA && !this.xmlHttp_.getResponseText()) {
-    // not yet ready
-    return;
+      (readyState == goog.net.XmlHttp.ReadyState.INTERACTIVE &&
+       !environment.isPollingRequired() &&  // otherwise, go on to startPolling
+       !this.xmlHttp_.getResponseText())) {
+    return;  // not yet ready
   }
 
   // Dispatch any appropriate network events.
@@ -650,9 +656,18 @@ ChannelRequest.prototype.onXmlHttpReadyStateChanged_ = function() {
     return;
   }
 
+  var initialResponse = this.checkInitialResponse_();
+  if (initialResponse) {
+    this.channelDebug_.xmlHttpChannelResponseText(
+        this.rid_, initialResponse,
+        'Initial handshake response via ' + WebChannel.X_HTTP_INITIAL_RESPONSE);
+    this.initialResponseDecoded_ = true;
+    this.safeOnRequestData_(initialResponse);
+  }
+
   if (this.decodeChunks_) {
     this.decodeNextChunks_(readyState, responseText);
-    if (goog.userAgent.OPERA && this.successful_ &&
+    if (environment.isPollingRequired() && this.successful_ &&
         readyState == goog.net.XmlHttp.ReadyState.INTERACTIVE) {
       this.startPolling_();
     }
@@ -681,6 +696,47 @@ ChannelRequest.prototype.onXmlHttpReadyStateChanged_ = function() {
       this.ensureWatchDogTimer_();
     }
   }
+};
+
+
+/**
+ * Checks the initial response header that is sent during the handshake.
+ *
+ * @return {?string} The non-empty header value or null.
+ * @private
+ */
+ChannelRequest.prototype.checkInitialResponse_ = function() {
+  if (!this.decodeInitialResponse_ || this.initialResponseDecoded_) {
+    return null;
+  }
+
+  if (this.xmlHttp_) {
+    var value = this.xmlHttp_.getStreamingResponseHeader(
+        WebChannel.X_HTTP_INITIAL_RESPONSE);
+    if (value && !goog.string.isEmptyOrWhitespace(value)) {
+      return value;
+    }
+  }
+
+  return null;
+};
+
+
+/**
+ * Check if the initial response header has been handled.
+ *
+ * @return {boolean} true if X_HTTP_INITIAL_RESPONSE has been handled.
+ */
+ChannelRequest.prototype.isInitialResponseDecoded = function() {
+  return this.initialResponseDecoded_;
+};
+
+
+/**
+ * Decodes X_HTTP_INITIAL_RESPONSE if present.
+ */
+ChannelRequest.prototype.setDecodeInitialResponse = function() {
+  this.decodeInitialResponse_ = true;
 };
 
 
@@ -741,6 +797,9 @@ ChannelRequest.prototype.decodeNextChunks_ = function(
  * @private
  */
 ChannelRequest.prototype.pollResponse_ = function() {
+  if (!this.xmlHttp_) {
+    return;  // already closed
+  }
   var readyState = this.xmlHttp_.getReadyState();
   var responseText = this.xmlHttp_.getResponseText();
   if (this.xmlHttpChunkStart_ < responseText.length) {
@@ -861,6 +920,23 @@ ChannelRequest.prototype.sendCloseRequest = function(uri) {
 ChannelRequest.prototype.cancel = function() {
   this.cancelled_ = true;
   this.cleanup_();
+};
+
+
+/**
+ * Resets the timeout.
+ *
+ * @param {number=} opt_timeout The new timeout
+ */
+ChannelRequest.prototype.resetTimeout = function(opt_timeout) {
+  if (opt_timeout) {
+    this.setTimeout(opt_timeout);
+  }
+  // restart only if a timer is currently set
+  if (this.watchDogTimerId_) {
+    this.cancelWatchDogTimer_();
+    this.ensureWatchDogTimer_();
+  }
 };
 
 
@@ -1082,12 +1158,11 @@ ChannelRequest.prototype.getRequestStartTime = function() {
 
 /**
  * Helper to call the callback's onRequestData, which catches any
- * exception and cleans up the request.
+ * exception.
  * @param {string} data The request data.
  * @private
  */
 ChannelRequest.prototype.safeOnRequestData_ = function(data) {
-
   try {
     this.channel_.onRequestData(this, data);
     var stats = requestStats.ServerReachability;

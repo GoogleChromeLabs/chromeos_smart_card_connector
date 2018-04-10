@@ -40,6 +40,8 @@ goog.define('goog.debug.FORCE_SLOPPY_STACKS', false);
  * @param {boolean=} opt_cancel Whether to stop the error from reaching the
  *    browser.
  * @param {Object=} opt_target Object that fires onerror events.
+ * @suppress {strictMissingProperties} onerror is not defined as a property
+ *    on Object.
  */
 goog.debug.catchErrors = function(logFunc, opt_cancel, opt_target) {
   var target = opt_target || goog.global;
@@ -104,7 +106,7 @@ goog.debug.catchErrors = function(logFunc, opt_cancel, opt_target) {
  * @param {Object|null|undefined} obj Object to expose.
  * @param {boolean=} opt_showFn Show the functions as well as the properties,
  *     default is false.
- * @return {string} The string representation of {@code obj}.
+ * @return {string} The string representation of `obj`.
  */
 goog.debug.expose = function(obj, opt_showFn) {
   if (typeof obj == 'undefined') {
@@ -140,7 +142,7 @@ goog.debug.expose = function(obj, opt_showFn) {
  * @param {*} obj Object to expose.
  * @param {boolean=} opt_showFn Also show properties that are functions (by
  *     default, functions are omitted).
- * @return {string} A string representation of {@code obj}.
+ * @return {string} A string representation of `obj`.
  */
 goog.debug.deepExpose = function(obj, opt_showFn) {
   var str = [];
@@ -231,13 +233,14 @@ goog.debug.exposeArray = function(arr) {
 /**
  * Normalizes the error/exception object between browsers.
  * @param {*} err Raw error object.
- * @return {!{
+ * @return {{
  *    message: (?|undefined),
  *    name: (?|undefined),
  *    lineNumber: (?|undefined),
  *    fileName: (?|undefined),
  *    stack: (?|undefined)
  * }} Normalized error object.
+ * @suppress {strictMissingProperties} properties not defined on err
  */
 goog.debug.normalizeErrorObject = function(err) {
   var href = goog.getObjectByName('window.location.href');
@@ -609,8 +612,8 @@ goog.debug.runtimeType = function(value) {
   if (value instanceof Function) {
     return value.displayName || value.name || 'unknown type name';
   } else if (value instanceof Object) {
-    return value.constructor.displayName || value.constructor.name ||
-        Object.prototype.toString.call(value);
+    return /** @type {string} */ (value.constructor.displayName) ||
+        value.constructor.name || Object.prototype.toString.call(value);
   } else {
     return value === null ? 'null' : typeof value;
   }

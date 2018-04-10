@@ -68,7 +68,7 @@ goog.define('goog.memoize.ENABLE_MEMOIZE', true);
 
 /**
  * Clears the memoization cache on the given object.
- * @param {Object} cacheOwner The owner of the cache. This is the {@code this}
+ * @param {Object} cacheOwner The owner of the cache. This is the `this`
  *     context of the memoized function.
  */
 goog.memoize.clearCache = function(cacheOwner) {
@@ -91,8 +91,8 @@ goog.memoize.CACHE_PROPERTY_ = 'closure_memoize_cache_';
  * @param {number} functionUid Unique identifier of the function whose result
  *     is cached.
  * @param {?{length:number}} args The arguments that the function to memoize is
- *     called with. Note: it is an array-like object, because supports indexing
- *     and has the length property.
+ *     called with. Note: it is an array-like object, because it supports
+ *     indexing and has the length property.
  * @return {string} The list of arguments with type information concatenated
  *     with the functionUid argument, serialized as \x0B-separated string.
  */

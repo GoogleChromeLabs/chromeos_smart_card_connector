@@ -757,7 +757,7 @@ goog.i18n.bidi.rtlDetectionThreshold_ = 0.40;
  * @param {string} str The string to be checked.
  * @param {boolean=} opt_isHtml Whether str is HTML / HTML-escaped.
  *     Default: false.
- * @return {goog.i18n.bidi.Dir} Estimated overall directionality of {@code str}.
+ * @return {goog.i18n.bidi.Dir} Estimated overall directionality of `str`.
  */
 goog.i18n.bidi.estimateDirection = function(str, opt_isHtml) {
   var rtlCount = 0;
@@ -815,12 +815,13 @@ goog.i18n.bidi.detectRtlDirectionality = function(str, opt_isHtml) {
  */
 goog.i18n.bidi.setElementDirAndAlign = function(element, dir) {
   if (element) {
+    var htmlElement = /** @type {!HTMLElement} */ (element);
     dir = goog.i18n.bidi.toDir(dir);
     if (dir) {
-      element.style.textAlign = dir == goog.i18n.bidi.Dir.RTL ?
+      htmlElement.style.textAlign = dir == goog.i18n.bidi.Dir.RTL ?
           goog.i18n.bidi.RIGHT :
           goog.i18n.bidi.LEFT;
-      element.dir = dir == goog.i18n.bidi.Dir.RTL ? 'rtl' : 'ltr';
+      htmlElement.dir = dir == goog.i18n.bidi.Dir.RTL ? 'rtl' : 'ltr';
     }
   }
 };
@@ -832,16 +833,17 @@ goog.i18n.bidi.setElementDirAndAlign = function(element, dir) {
  * @param {string} text
  */
 goog.i18n.bidi.setElementDirByTextDirectionality = function(element, text) {
+  var htmlElement = /** @type {!HTMLElement} */ (element);
   switch (goog.i18n.bidi.estimateDirection(text)) {
     case (goog.i18n.bidi.Dir.LTR):
-      element.dir = 'ltr';
+      htmlElement.dir = 'ltr';
       break;
     case (goog.i18n.bidi.Dir.RTL):
-      element.dir = 'rtl';
+      htmlElement.dir = 'rtl';
       break;
     default:
       // Default for no direction, inherit from document.
-      element.removeAttribute('dir');
+      htmlElement.removeAttribute('dir');
   }
 };
 
@@ -862,7 +864,7 @@ goog.i18n.bidi.DirectionalString = function() {};
  *
  * This property can be used to determine at runtime whether or not an object
  * implements this interface.  All implementations of this interface set this
- * property to {@code true}.
+ * property to `true`.
  * @type {boolean}
  */
 goog.i18n.bidi.DirectionalString.prototype

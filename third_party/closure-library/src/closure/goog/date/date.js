@@ -74,6 +74,9 @@ goog.date.month = {
  * @param {string} monthName The month name to use in the result.
  * @param {number} yearNum The numeric year to use in the result.
  * @return {string} A formatted month/year string.
+ * @deprecated Use goog.i18n.DateTimeFormat with
+ *     goog.i18n.DateTimeFormat.Format.YEAR_MONTH_ABBR or
+ *     goog.i18n.DateTimeFormat.Format.YEAR_MONTH_FULL.
  */
 goog.date.formatMonthAndYear = function(monthName, yearNum) {
   /** @desc Month/year format given the month name and the numeric year. */
@@ -290,19 +293,6 @@ goog.date.min = function(date1, date2) {
  */
 goog.date.max = function(date1, date2) {
   return date1 > date2 ? date1 : date2;
-};
-
-
-/**
- * Creates a DateTime from a datetime string expressed in ISO 8601 format.
- *
- * @param {string} formatted A date or datetime expressed in ISO 8601 format.
- * @return {goog.date.DateTime} Parsed date or null if parse fails.
- * @deprecated Use goog.date.Date.fromIsoString() or
- * goog.date.DateTime.fromIsoString()
- */
-goog.date.fromIsoString = function(formatted) {
-  return goog.date.DateTime.fromIsoString(formatted);
 };
 
 
@@ -1308,7 +1298,7 @@ goog.date.Date.compare = function(date1, date2) {
 
 
 /**
- * Parses an ISO 8601 string as a {@code goog.date.Date}.
+ * Parses an ISO 8601 string as a `goog.date.Date`.
  * @param {string} formatted ISO 8601 string to parse.
  * @return {?goog.date.Date} Parsed date or null if parse fails.
  */
@@ -1326,9 +1316,9 @@ goog.date.Date.fromIsoString = function(formatted) {
  * Implements most methods of the native js Date object and can be used
  * interchangeably with it just as if goog.date.DateTime was a subclass of Date.
  *
- * @param {number|Object=} opt_year Four digit year or a date-like object. If
- *     not set, the created object will contain the date determined by
- *     goog.now().
+ * @param {(number|{getTime:?}|null)=} opt_year Four digit year or a date-like
+ *     object. If not set, the created object will contain the date determined
+ *     by goog.now().
  * @param {number=} opt_month Month, 0 = Jan, 11 = Dec.
  * @param {number=} opt_date Date of month, 1 - 31.
  * @param {number=} opt_hours Hours, 0 - 23.
@@ -1697,6 +1687,11 @@ goog.date.DateTime.prototype.toString = function() {
  * @param {boolean=} opt_omitZeroMinutes E.g., '5:00pm' becomes '5pm',
  *                                      but '5:01pm' remains '5:01pm'.
  * @return {string} The time label.
+ * @deprecated Use goog.i18n.DateTimeFormat with
+ *     goog.i18n.DateTimeFormat.Format.FULL_TIME or
+ *     goog.i18n.DateTimeFormat.Format.LONG_TIME or
+ *     goog.i18n.DateTimeFormat.Format.MEDIUM_TIME or
+ *     goog.i18n.DateTimeFormat.Format.SHORT_TIME.
  */
 goog.date.DateTime.prototype.toUsTimeString = function(
     opt_padHours, opt_showAmPm, opt_omitZeroMinutes) {
@@ -1765,7 +1760,7 @@ goog.date.DateTime.prototype.clone = function() {
 
 
 /**
- * Parses an ISO 8601 string as a {@code goog.date.DateTime}.
+ * Parses an ISO 8601 string as a `goog.date.DateTime`.
  * @param {string} formatted ISO 8601 string to parse.
  * @return {?goog.date.DateTime} Parsed date or null if parse fails.
  * @override

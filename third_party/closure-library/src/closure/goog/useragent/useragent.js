@@ -70,7 +70,7 @@ goog.define('goog.userAgent.ASSUME_OPERA', false);
 
 /**
  * @define {boolean} Whether the
- *     {@code goog.userAgent.isVersionOrHigher}
+ *     `goog.userAgent.isVersionOrHigher`
  *     function will return true for any version.
  */
 goog.define('goog.userAgent.ASSUME_ANY_VERSION', false);
@@ -98,14 +98,22 @@ goog.userAgent.getUserAgentString = function() {
 
 
 /**
- * TODO(nnaze): Change type to "Navigator" and update compilation targets.
- * @return {?Object} The native navigator object.
+ * @return {?Navigator} The native navigator object.
  */
-goog.userAgent.getNavigator = function() {
+goog.userAgent.getNavigatorTyped = function() {
   // Need a local navigator reference instead of using the global one,
   // to avoid the rare case where they reference different objects.
   // (in a WorkerPool, for example).
   return goog.global['navigator'] || null;
+};
+
+
+/**
+ * TODO(nnaze): Change type to "Navigator" and update compilation targets.
+ * @return {?Object} The native navigator object.
+ */
+goog.userAgent.getNavigator = function() {
+  return goog.userAgent.getNavigatorTyped();
 };
 
 
@@ -207,7 +215,7 @@ goog.userAgent.SAFARI = goog.userAgent.WEBKIT;
  * @private
  */
 goog.userAgent.determinePlatform_ = function() {
-  var navigator = goog.userAgent.getNavigator();
+  var navigator = goog.userAgent.getNavigatorTyped();
   return navigator && navigator.platform || '';
 };
 
@@ -334,7 +342,7 @@ goog.userAgent.LINUX = goog.userAgent.PLATFORM_KNOWN_ ?
  * @private
  */
 goog.userAgent.isX11_ = function() {
-  var navigator = goog.userAgent.getNavigator();
+  var navigator = goog.userAgent.getNavigatorTyped();
   return !!navigator &&
       goog.string.contains(navigator['appVersion'] || '', 'X11');
 };
@@ -527,7 +535,7 @@ goog.userAgent.isVersionOrHigher = function(version) {
 
 
 /**
- * Deprecated alias to {@code goog.userAgent.isVersionOrHigher}.
+ * Deprecated alias to `goog.userAgent.isVersionOrHigher`.
  * @param {string|number} version The version to check.
  * @return {boolean} Whether the user agent version is higher or the same as
  *     the given version.
@@ -551,7 +559,7 @@ goog.userAgent.isDocumentModeOrHigher = function(documentMode) {
 
 
 /**
- * Deprecated alias to {@code goog.userAgent.isDocumentModeOrHigher}.
+ * Deprecated alias to `goog.userAgent.isDocumentModeOrHigher`.
  * @param {number} version The version to check.
  * @return {boolean} Whether the IE effective document mode is higher or the
  *      same as the given version.

@@ -45,7 +45,12 @@ goog.labs.testing.Environment = goog.defineClass(null, {
     // but while testing this case it is reset.
     goog.labs.testing.Environment.activeTestCase_ = testcase;
 
-    /** @type {goog.testing.MockControl} */
+    /**
+     * Mocks are not type-checkable. To reduce burden on tests that are type
+     * checked, this is typed as "?" to turn off JSCompiler checking.
+     * TODO(b/69851971): Enable a type-checked mocking library.
+     * @type {?}
+     */
     this.mockControl = null;
 
     /** @type {goog.testing.MockClock} */
@@ -135,7 +140,7 @@ goog.labs.testing.Environment = goog.defineClass(null, {
 
   /**
    * Create a new {@see goog.testing.MockControl} accessible via
-   * {@code env.mockControl} for each test. If your test has more than one
+   * `env.mockControl` for each test. If your test has more than one
    * testing environment, don't call this on more than one of them.
    * @return {!goog.labs.testing.Environment} For chaining.
    */
@@ -151,7 +156,7 @@ goog.labs.testing.Environment = goog.defineClass(null, {
   /**
    * Create a {@see goog.testing.MockClock} for each test. The clock will be
    * installed (override i.e. setTimeout) by default. It can be accessed
-   * using {@code env.mockClock}. If your test has more than one testing
+   * using `env.mockClock`. If your test has more than one testing
    * environment, don't call this on more than one of them.
    * @return {!goog.labs.testing.Environment} For chaining.
    */
@@ -165,7 +170,7 @@ goog.labs.testing.Environment = goog.defineClass(null, {
 
 
   /**
-   * Creates a basic strict mock of a {@code toMock}. For more advanced mocking,
+   * Creates a basic strict mock of a `toMock`. For more advanced mocking,
    * please use the MockControl directly.
    * @param {Function} toMock
    * @return {!goog.testing.StrictMock}
@@ -229,26 +234,21 @@ goog.addSingletonGetter(goog.labs.testing.EnvironmentTestCase_);
 
 
 /**
- * @param {!Object} obj An object providing the test and life cycle methods.
+ * Override setLifecycleObj to allow incoming test object to provide only
+ * runTests and shouldRunTests. The other lifecycle methods are controlled by
+ * this environment.
  * @override
  */
-goog.labs.testing.EnvironmentTestCase_.prototype.setTestObj = function(obj) {
+goog.labs.testing.EnvironmentTestCase_.prototype.setLifecycleObj = function(
+    obj) {
   goog.asserts.assert(
       this.testobj_ == goog.global,
       'A test method object has already been provided ' +
           'and only one is supported.');
+
+  // Store the test object so we can call lifecyle methods when needed.
   this.testobj_ = obj;
-  goog.labs.testing.EnvironmentTestCase_.base(this, 'setTestObj', obj);
-};
 
-
-/**
- * Override the default global scope discovery of lifecycle functions to prevent
- * overriding the custom environment setUp(Page)/tearDown(Page) logic.
- * @override
- */
-goog.labs.testing.EnvironmentTestCase_.prototype.autoDiscoverLifecycle =
-    function() {
   if (this.testobj_['runTests']) {
     this.runTests = goog.bind(this.testobj_['runTests'], this.testobj_);
   }

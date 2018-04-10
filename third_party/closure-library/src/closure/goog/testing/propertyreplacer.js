@@ -20,6 +20,7 @@
 goog.setTestOnly('goog.testing.PropertyReplacer');
 goog.provide('goog.testing.PropertyReplacer');
 
+goog.require('goog.asserts');
 /** @suppress {extraRequire} Needed for some tests to compile. */
 goog.require('goog.testing.ObjectPropertyString');
 goog.require('goog.userAgent');
@@ -61,8 +62,8 @@ goog.require('goog.userAgent');
  *       the real constructor or kept untouched.
  * </ul>
  *
- * Code compiled with property renaming may need to use {@code
- * goog.reflect.objectProperty} instead of simply naming the property to
+ * Code compiled with property renaming may need to use
+ * `goog.reflect.objectProperty` instead of simply naming the property to
  * replace.
  *
  * @constructor
@@ -90,7 +91,7 @@ goog.testing.PropertyReplacer.NO_SUCH_KEY_ = {};
 
 /**
  * Tells if the given key exists in the object. Ignores inherited fields.
- * @param {Object|Function} obj The JavaScript or native object or function
+ * @param {!Object|!Function} obj The JavaScript or native object or function
  *     whose key is to be checked.
  * @param {string} key The key to check.
  * @return {boolean} Whether the object has the key as own key.
@@ -133,7 +134,7 @@ goog.testing.PropertyReplacer.hasKey_ = function(obj, key) {
 /**
  * Deletes a key from an object. Sets it to undefined or empty string if the
  * delete failed.
- * @param {Object|Function} obj The object or function to delete a key from.
+ * @param {!Object|!Function} obj The object or function to delete a key from.
  * @param {string} key The key to delete.
  * @throws {Error} In case of trying to set a read-only property
  * @private
@@ -187,6 +188,7 @@ goog.testing.PropertyReplacer.restoreOriginal_ = function(original) {
  * @throws {Error} In case of trying to set a read-only property.
  */
 goog.testing.PropertyReplacer.prototype.set = function(obj, key, value) {
+  goog.asserts.assert(obj);
   var origValue = goog.testing.PropertyReplacer.hasKey_(obj, key) ?
       obj[key] :
       goog.testing.PropertyReplacer.NO_SUCH_KEY_;
@@ -207,19 +209,19 @@ goog.testing.PropertyReplacer.prototype.set = function(obj, key, value) {
 
 /**
  * Changes an existing value in an object to another one of the same type while
- * saving its original state. The advantage of {@code replace} over {@link #set}
- * is that {@code replace} protects against typos and erroneously passing tests
+ * saving its original state. The advantage of `replace` over {@link #set}
+ * is that `replace` protects against typos and erroneously passing tests
  * after some members have been renamed during a refactoring.
  * @param {Object|Function} obj The JavaScript or native object or function to
  *     alter. See the constraints in the class description.
  * @param {string} key The key to change the value for. It has to be present
- *     either in {@code obj} or in its prototype chain.
+ *     either in `obj` or in its prototype chain.
  * @param {*} value The new value to set.
  * @param {boolean=} opt_allowNullOrUndefined By default, this method requires
- *     {@code value} to match the type of the existing value, as determined by
- *     {@link goog.typeOf}. Setting opt_allowNullOrUndefined to {@code true}
- *     allows an existing value to be replaced by {@code null} or
-       {@code undefined}, or vice versa.
+ *     `value` to match the type of the existing value, as determined by
+ *     {@link goog.typeOf}. Setting opt_allowNullOrUndefined to `true`
+ *     allows an existing value to be replaced by `null` or
+       `undefined`, or vice versa.
  * @throws {Error} In case of missing key or type mismatch.
  */
 goog.testing.PropertyReplacer.prototype.replace = function(
@@ -276,7 +278,7 @@ goog.testing.PropertyReplacer.prototype.setPath = function(path, value) {
  * @param {string} key The key to delete.
  */
 goog.testing.PropertyReplacer.prototype.remove = function(obj, key) {
-  if (goog.testing.PropertyReplacer.hasKey_(obj, key)) {
+  if (obj && goog.testing.PropertyReplacer.hasKey_(obj, key)) {
     this.original_.push({object: obj, key: key, value: obj[key]});
     goog.testing.PropertyReplacer.deleteKey_(obj, key);
   }

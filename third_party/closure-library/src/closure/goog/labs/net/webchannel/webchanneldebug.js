@@ -15,8 +15,6 @@
 /**
  * @fileoverview Provides a utility for tracing and debugging WebChannel
  *     requests.
- *
- * @visibility {:internal}
  */
 
 
@@ -24,6 +22,9 @@ goog.provide('goog.labs.net.webChannel.WebChannelDebug');
 
 goog.require('goog.json');
 goog.require('goog.log');
+
+goog.forwardDeclare('goog.Uri');
+goog.forwardDeclare('goog.net.XmlHttp.ReadyState');
 
 
 

@@ -40,8 +40,8 @@ goog.require('goog.string.TypedString');
  * this type.
  *
  * Instances of this type must be created via the factory method,
- * ({@code fromConstant}, {@code fromConstants}, {@code format} or {@code
- * formatWithParams}), and not by invoking its constructor. The constructor
+ * (`fromConstant`, `fromConstants`, `format` or
+ * `formatWithParams`), and not by invoking its constructor. The constructor
  * intentionally takes no parameters and the type is immutable; hence only a
  * default instance corresponding to the empty string can be obtained via
  * constructor invocation.
@@ -84,8 +84,8 @@ goog.html.TrustedResourceUrl.prototype.implementsGoogStringTypedString = true;
  * Returns this TrustedResourceUrl's value as a string.
  *
  * IMPORTANT: In code where it is security relevant that an object's type is
- * indeed {@code TrustedResourceUrl}, use
- * {@code goog.html.TrustedResourceUrl.unwrap} instead of this method. If in
+ * indeed `TrustedResourceUrl`, use
+ * `goog.html.TrustedResourceUrl.unwrap` instead of this method. If in
  * doubt, assume that it's security relevant. In particular, note that
  * goog.html functions which return a goog.html type do not guarantee that
  * the returned instance is of the right type. For example:
@@ -116,7 +116,7 @@ goog.html.TrustedResourceUrl.prototype.implementsGoogI18nBidiDirectionalString =
 
 
 /**
- * Returns this URLs directionality, which is always {@code LTR}.
+ * Returns this URLs directionality, which is always `LTR`.
  * @override
  */
 goog.html.TrustedResourceUrl.prototype.getDirection = function() {
@@ -127,7 +127,7 @@ goog.html.TrustedResourceUrl.prototype.getDirection = function() {
 /**
  * Creates a new TrustedResourceUrl with params added to URL.
  * @param {!Object<string, *>} params Parameters to add to URL. Parameters with
- *     value {@code null} or {@code undefined} are skipped. Both keys and values
+ *     value `null` or `undefined` are skipped. Both keys and values
  *     are encoded. If the value is an array then the same parameter is added
  *     for every element in the array. Note that JavaScript doesn't guarantee
  *     the order of values in an object which might result in non-deterministic
@@ -138,7 +138,9 @@ goog.html.TrustedResourceUrl.prototype.cloneWithParams = function(params) {
   var url = goog.html.TrustedResourceUrl.unwrap(this);
   var separator = /\?/.test(url) ? '&' : '?';
   for (var key in params) {
-    var values = goog.isArray(params[key]) ? params[key] : [params[key]];
+    var values = goog.isArray(params[key]) ?
+        /** @type {!Array<*>} */ (params[key]) :
+        [params[key]];
     for (var i = 0; i < values.length; i++) {
       if (values[i] == null) {
         continue;
@@ -158,7 +160,7 @@ if (goog.DEBUG) {
    * Returns a debug string-representation of this value.
    *
    * To obtain the actual string value wrapped in a TrustedResourceUrl, use
-   * {@code goog.html.TrustedResourceUrl.unwrap}.
+   * `goog.html.TrustedResourceUrl.unwrap`.
    *
    * @see goog.html.TrustedResourceUrl#unwrap
    * @override
@@ -177,9 +179,9 @@ if (goog.DEBUG) {
  * @param {!goog.html.TrustedResourceUrl} trustedResourceUrl The object to
  *     extract from.
  * @return {string} The trustedResourceUrl object's contained string, unless
- *     the run-time type check fails. In that case, {@code unwrap} returns an
+ *     the run-time type check fails. In that case, `unwrap` returns an
  *     innocuous string, or, if assertions are enabled, throws
- *     {@code goog.asserts.AssertionError}.
+ *     `goog.asserts.AssertionError`.
  */
 goog.html.TrustedResourceUrl.unwrap = function(trustedResourceUrl) {
   // Perform additional Run-time type-checking to ensure that
@@ -224,7 +226,7 @@ goog.html.TrustedResourceUrl.unwrap = function(trustedResourceUrl) {
  * - `https://<origin>/`
  * - `//<origin>/`
  * - `/<pathStart>`
- * - `about:blank`
+ * - `about:blank#`
  *
  * `<origin>` must contain only alphanumeric or any of the following: `-.:[]`.
  * `<pathStart>` is any character except `/` and `\`.
@@ -312,7 +314,7 @@ goog.html.TrustedResourceUrl.FORMAT_MARKER_ = /%{(\w+)}/g;
  * @private @const {!RegExp}
  */
 goog.html.TrustedResourceUrl.BASE_URL_ =
-    /^(?:https:)?\/\/[0-9a-z.:[\]-]+\/|^\/[^\/\\]|^about:blank(#|$)/i;
+    /^(?:https:)?\/\/[0-9a-z.:[\]-]+\/|^\/[^\/\\]|^about:blank#/i;
 
 
 /**
@@ -334,7 +336,7 @@ goog.html.TrustedResourceUrl.BASE_URL_ =
  *     of labels to values to be interpolated into the format string.
  *     goog.string.Const values are interpolated without encoding.
  * @param {!Object<string, *>} params Parameters to add to URL. Parameters with
- *     value {@code null} or {@code undefined} are skipped. Both keys and values
+ *     value `null` or `undefined` are skipped. Both keys and values
  *     are encoded. If the value is an array then the same parameter is added
  *     for every element in the array. Note that JavaScript doesn't guarantee
  *     the order of values in an object which might result in non-deterministic
@@ -358,7 +360,7 @@ goog.html.TrustedResourceUrl.formatWithParams = function(format, args, params) {
  * @param {!goog.string.Const} url A compile-time-constant string from which to
  *     create a TrustedResourceUrl.
  * @return {!goog.html.TrustedResourceUrl} A TrustedResourceUrl object
- *     initialized to {@code url}.
+ *     initialized to `url`.
  */
 goog.html.TrustedResourceUrl.fromConstant = function(url) {
   return goog.html.TrustedResourceUrl
@@ -376,7 +378,7 @@ goog.html.TrustedResourceUrl.fromConstant = function(url) {
  * @param {!Array<!goog.string.Const>} parts Compile-time-constant strings from
  *     which to create a TrustedResourceUrl.
  * @return {!goog.html.TrustedResourceUrl} A TrustedResourceUrl object
- *     initialized to concatenation of {@code parts}.
+ *     initialized to concatenation of `parts`.
  */
 goog.html.TrustedResourceUrl.fromConstants = function(parts) {
   var unwrapped = '';

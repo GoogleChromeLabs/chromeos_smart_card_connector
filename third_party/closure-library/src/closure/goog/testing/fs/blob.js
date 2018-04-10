@@ -130,7 +130,7 @@ goog.testing.fs.Blob.prototype.toDataUrl = function() {
 
 /**
  * Sets the internal contents of the blob to an Array of bytes. This should
- *     only be called by other functions inside the {@code goog.testing.fs}
+ *     only be called by other functions inside the `goog.testing.fs`
  *     namespace.
  * @param {string|Array<string|number|!Uint8Array>} data The data to write
  *     into the blob.
@@ -142,12 +142,13 @@ goog.testing.fs.Blob.prototype.setDataInternal = function(data) {
     this.appendString_(data);
   } else if (data instanceof Array) {
     for (var i = 0; i < data.length; i++) {
-      if (typeof data[i] === 'string') {
-        this.appendString_(data[i]);
-      } else if (typeof data[i] === 'number') {  // Assume Bytes array.
-        this.appendByte_(data[i]);
-      } else if (data[i] instanceof Uint8Array) {
-        this.appendUint8_(data[i]);
+      var value = data[i];
+      if (typeof value === 'string') {
+        this.appendString_(value);
+      } else if (typeof value === 'number') {  // Assume Bytes array.
+        this.appendByte_(value);
+      } else if (value instanceof Uint8Array) {
+        this.appendUint8_(value);
       }
     }
   }

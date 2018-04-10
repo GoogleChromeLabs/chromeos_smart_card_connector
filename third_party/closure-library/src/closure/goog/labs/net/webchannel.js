@@ -50,6 +50,7 @@ goog.provide('goog.net.WebChannel');
 
 goog.require('goog.events');
 goog.require('goog.events.Event');
+goog.require('goog.net.XmlHttpFactory');
 
 
 
@@ -65,6 +66,28 @@ goog.require('goog.events.Event');
  * @extends {EventTarget}
  */
 goog.net.WebChannel = function() {};
+
+
+
+/**
+ * This interface defines a pluggable API to allow WebChannel runtime to support
+ * customized algorithms in order to recover from transient failures such as
+ * those failures caused by network or proxies (intermediaries).
+ *
+ * The algorithm may also choose to fail-fast, e.g. switch the client to some
+ * offline mode.
+ *
+ * Extra measurements and logging could also be implemented in the custom
+ * module, which has the full knowledge of all the state transitions
+ * (due to failures).
+ *
+ * A default algorithm will be provided by the webchannel library itself. Custom
+ * algorithms are expected to be tailored to specific client platforms or
+ * networking environments, e.g. mobile, cellular network.
+ *
+ * @interface
+ */
+goog.net.WebChannel.FailureRecovery = function() {};
 
 
 /**
@@ -126,13 +149,14 @@ goog.net.WebChannel = function() {};
  * conditions) as a background process so the OPEN event will be fired sooner
  * to reduce the initial handshake delay. This option defaults to true.
  *
- * fastHandshake: experimental feature to speed up the initial handshake, e.g.
- * leveraging QUIC 0-RTT, in-band version negotiation. This option defaults
- * to false. To set this option to true, backgroundChannelTest needs be set
- * to true too. Note it is allowed to send messages before the Open event is
- * received after a channel has been connected. In order to enable 0-RTT,
- * messages may be encoded as part of URL and therefore there will be a size
- * limit for those immediate messages (e.g. 4KB).
+ * fastHandshake: experimental feature to enable true 0-RTT message delivery,
+ * e.g. by leveraging QUIC 0-RTT (which requires GET to be used). This option
+ * defaults to false. When this option is enabled, backgroundChannelTest will
+ * be forced to true. Note it is allowed to send messages before Open event is
+ * received, after a channel has been connected. In order to enable 0-RTT,
+ * messages need be encoded as part of URL and therefore there needs be a size
+ * limit (e.g. 16KB) for messages that need be sent immediately
+ * as part of the handshake.
  *
  * disableRedact: whether to disable logging redact. By default, redact is
  * enabled to remove any message payload or user-provided info
@@ -141,6 +165,23 @@ goog.net.WebChannel = function() {};
  * clientProfile: inform the server about the client profile to enable
  * customized configs that are optimized for certain clients or environments.
  * Currently this information is sent via X-WebChannel-Client-Profile header.
+ *
+ * internalChannelParams: the internal channel parameter name to allow
+ * experimental channel configurations. Supported options include fastfail,
+ * baseRetryDelayMs, retryDelaySeedMs, forwardChannelMaxRetries and
+ * forwardChannelRequestTimeoutMs. Note that these options are subject to
+ * change.
+ *
+ * xmlHttpFactory: allows the caller to override the factory used to create
+ * XMLHttpRequest objects. This is introduced to disable CORS on firefox OS.
+ *
+ * requestRefreshThresholds: client-side thresholds that decide when to refresh
+ * an underlying HTTP request, to limit memory consumption due to XHR buffering
+ * or compression context. The client-side thresholds should be signficantly
+ * smaller than the server-side thresholds. This allows the client to eliminate
+ * any latency introduced by request refreshing, i.e. an RTT window during which
+ * messages may be buffered on the server-side. Supported params include
+ * totalBytesReceived, totalDurationMs.
  *
  * @typedef {{
  *   messageHeaders: (!Object<string, string>|undefined),
@@ -157,7 +198,10 @@ goog.net.WebChannel = function() {};
  *   backgroundChannelTest: (boolean|undefined),
  *   fastHandshake: (boolean|undefined),
  *   disableRedact: (boolean|undefined),
- *   clientProfile: (string|undefined)
+ *   clientProfile: (string|undefined),
+ *   internalChannelParams: (!Object<string, boolean|number>|undefined),
+ *   xmlHttpFactory: (!goog.net.XmlHttpFactory|undefined),
+ *   requestRefreshThresholds: (!Object<string, number>|undefined),
  * }}
  */
 goog.net.WebChannel.Options;
@@ -324,6 +368,9 @@ goog.net.WebChannel.MessageEvent.prototype.metadataKey;
  *  the client to indicate the HTTP response status code of the last HTTP
  *  request initiated by the WebChannel client library, for debugging
  *  purposes only.
+ *
+ *  See WebChannel.Options.backChannelFailureRecovery and
+ *  WebChannel.FailureRecovery to install a custom failure-recovery algorithm.
  *
  * @enum {number}
  */
@@ -509,6 +556,108 @@ goog.net.WebChannel.RuntimeProperties.prototype.getLastStatusCode =
 
 
 /**
+ * Enum to indicate the current recovery state.
+ *
+ * @enum {string}
+ */
+goog.net.WebChannel.FailureRecovery.State = {
+  /** Initial state. */
+  INIT: 'init',
+
+  /** Once a failure has been detected. */
+  FAILED: 'failed',
+
+  /**
+   * Once a recovery operation has been issued, e.g. a new request to resume
+   * communication.
+   */
+  RECOVERING: 'recovering',
+
+  /** The channel has been closed.  */
+  CLOSED: 'closed'
+};
+
+
+/**
+ * Enum to indicate different failure conditions as detected by the webchannel
+ * runtime.
+ *
+ * This enum is to be used only between the runtime and FailureRecovery module,
+ * and new states are expected to be introduced in future.
+ *
+ * @enum {string}
+ */
+goog.net.WebChannel.FailureRecovery.FailureCondition = {
+  /**
+   * The HTTP response returned a non-successful http status code.
+   */
+  HTTP_ERROR: 'http_error',
+
+  /**
+   * The request was aborted.
+   */
+  ABORT: 'abort',
+
+  /**
+   * The request timed out.
+   */
+  TIMEOUT: 'timeout',
+
+  /**
+   * Exception was thrown while processing the request/response.
+   */
+  EXCEPTION: 'exception'
+};
+
+
+/**
+ * @return {!goog.net.WebChannel.FailureRecovery.State} the current state,
+ * mainly for debugging use.
+ */
+goog.net.WebChannel.FailureRecovery.prototype.getState = goog.abstractMethod;
+
+
+/**
+ * This method is for WebChannel runtime to set the current failure condition
+ * and to provide a callback for the algorithm to signal to the runtime
+ * when it is time to issue a recovery operation, e.g. a new request to the
+ * server.
+ *
+ * Supported transitions include:
+ *   INIT->FAILED
+ *   FAILED->FAILED (re-entry ok)
+ *   RECOVERY->FAILED.
+ *
+ * Ignored if state == CLOSED.
+ *
+ * Advanced implementations are expected to track all the state transitions
+ * and their timestamps for monitoring purposes.
+ *
+ * @param {!goog.net.WebChannel.FailureRecovery.FailureCondition} failure The
+ * new failure condition generated by the WebChannel runtime.
+ * @param {!Function} operation The callback function to the WebChannel
+ * runtime to issue a recovery operation, e.g. a new request. E.g. the default
+ * recovery algorithm will issue timeout-based recovery operations.
+ * Post-condition for the callback: state transition to RECOVERING.
+ *
+ * @return {!goog.net.WebChannel.FailureRecovery.State} The updated state
+ * as decided by the failure recovery module. Upon a recoverable failure event,
+ * the state is transitioned to RECOVERING; or the state is transitioned to
+ * FAILED which indicates a fail-fast decision for the runtime to execute.
+ */
+goog.net.WebChannel.FailureRecovery.prototype.setFailure = goog.abstractMethod;
+
+
+/**
+ * The Webchannel runtime needs call this method when webchannel is closed or
+ * aborted.
+ *
+ * Once the instance is closed, any access to the instance will be a no-op.
+ */
+goog.net.WebChannel.FailureRecovery.prototype.close = goog.abstractMethod;
+
+
+/**
  * A request header to indicate to the server the messaging protocol
  * each HTTP message is speaking.
  *
@@ -544,6 +693,16 @@ goog.net.WebChannel.X_CLIENT_WIRE_PROTOCOL = 'X-Client-Wire-Protocol';
  * @type {string}
  */
 goog.net.WebChannel.X_HTTP_SESSION_ID = 'X-HTTP-Session-Id';
+
+
+/**
+ * A response header for the server to send back any initial response data as a
+ * header to avoid any possible buffering by an intermediary, which may
+ * be undesired during the handshake.
+ *
+ * @type {string}
+ */
+goog.net.WebChannel.X_HTTP_INITIAL_RESPONSE = 'X-HTTP-Initial-Response';
 
 
 /**

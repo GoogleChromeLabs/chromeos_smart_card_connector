@@ -17,8 +17,6 @@
  * to support pluggable wire-format to improve wire efficiency and to enable
  * binary encoding. Such support will require an interface class, which
  * will be added later.
- *
- * @visibility {:internal}
  */
 
 
@@ -29,6 +27,8 @@ goog.require('goog.json');
 goog.require('goog.json.NativeJsonProcessor');
 goog.require('goog.labs.net.webChannel.Wire');
 goog.require('goog.structs');
+
+goog.forwardDeclare('goog.structs.Map');
 
 
 

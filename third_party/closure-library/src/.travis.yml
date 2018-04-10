@@ -21,7 +21,8 @@ install:
 
 before_script:
   - ./scripts/http/simple_http_server.py 2> /dev/null & sleep 5
-  - ./scripts/ci/sauce_connect.sh
+  # Unit tests are disabled (below)
+  #- 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then bash ./scripts/ci/sauce_connect.sh; fi'
   # Ensure we point to the version of clang-format that we installed in
   # install_closure_deps.sh. Travis has an older version on the $PATH and
   # clang-format-diff.py invokes "clang-format" with no option of specifying
@@ -37,7 +38,7 @@ script:
   - ./scripts/ci/lint_pull_request.sh
   - ./scripts/ci/check_code_format.sh
   # Disable unit tests
-  # - travis_wait 30 ./scripts/ci/run_all_tests.sh
+  # - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then travis_wait 30 ./scripts/ci/run_all_tests.sh; fi'
 
 after_success:
   - ./scripts/ci/push_latest_docs.sh
@@ -45,7 +46,7 @@ after_success:
 env:
   global:
     - SAUCE_USERNAME=closure-sauce
-    - SAUCE_ACCESS_KEY=dfd98f70a612-e69a-ad34-6149-3ca056f8
+    - secure: "LhIlKzzLU9prwCg+p4Ay3bpyeb2drLqrzHHg+xPzNiTA2UUYPW0fYyBtHIjDUgaNRftnlRXhu678iL2U7PEB2ONk4m70TI8Ch0/yBImAklwszxOYgNTljeKV2poYrSBcUandA9kVavzLqdLg8HUlVurURI/dQy4WwwrKUftHudc="
     - secure: "aEv7CF6ZvD2Fa67yv6yYtgFGjafCkpSP2Y+Dk2AyJCFLF3+L5ZFXpFoCtgYgCWezVDbeGpoojFeCzLu0ycWwnIwJpUQ/C8NBDR/x2Lqz2I6M2PfkEy91UhSE5nXe1RJMnna1715zeBmustiFKjdETWFZrpvxkHixBHbLfY3cJZw="
 
 addons:

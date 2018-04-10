@@ -69,7 +69,9 @@ goog.testing.MockClock = function(opt_autoInstall) {
    * right.  For example, the expiration times for each element of the queue
    * might be in the order 300, 200, 200.
    *
-   * @type {Array<Object>}
+   * @type {Array<{
+   *    timeoutKey: number, millis: number,
+   *    runAtMillis: number, funcToCall: Function, recurring: boolean}>}
    * @private
    */
   this.queue_ = [];
@@ -516,7 +518,7 @@ goog.testing.MockClock.MAX_INT_ = 2147483647;
 
 
 /**
- * Schedules a function to be called after {@code millis} milliseconds.
+ * Schedules a function to be called after `millis` milliseconds.
  * Mock implementation for setTimeout.
  * @param {Function} funcToCall The function to call.
  * @param {number=} opt_millis The number of milliseconds to call it after.
@@ -540,7 +542,7 @@ goog.testing.MockClock.prototype.setTimeout_ = function(
 
 
 /**
- * Schedules a function to be called every {@code millis} milliseconds.
+ * Schedules a function to be called every `millis` milliseconds.
  * Mock implementation for setInterval.
  * @param {Function} funcToCall The function to call.
  * @param {number=} opt_millis The number of milliseconds between calls.

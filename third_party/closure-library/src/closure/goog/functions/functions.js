@@ -294,7 +294,7 @@ goog.functions.not = function(f) {
  *
  * @param {function(new:T, ...)} constructor The constructor for the Object.
  * @param {...*} var_args The arguments to be passed to the constructor.
- * @return {T} A new instance of the class given in {@code constructor}.
+ * @return {T} A new instance of the class given in `constructor`.
  * @template T
  */
 goog.functions.create = function(constructor, var_args) {
@@ -392,8 +392,8 @@ goog.functions.once = function(f) {
  * autocomplete pop-up every so often rather than updating with every keystroke,
  * since the final text typed by the user is the one that should produce the
  * final autocomplete results. For more stateful debouncing with support for
- * pausing, resuming, and canceling debounced actions, use {@code
- * goog.async.Debouncer}.
+ * pausing, resuming, and canceling debounced actions, use
+ * `goog.async.Debouncer`.
  *
  * @param {function(this:SCOPE, ...?)} f Function to call.
  * @param {number} interval Interval over which to debounce. The function will

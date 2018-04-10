@@ -108,6 +108,7 @@ goog.events.EventType = {
   BEFOREUNLOAD: 'beforeunload',
   CONSOLEMESSAGE: 'consolemessage',
   CONTEXTMENU: 'contextmenu',
+  DEVICECHANGE: 'devicechange',
   DEVICEMOTION: 'devicemotion',
   DEVICEORIENTATION: 'deviceorientation',
   DOMCONTENTLOADED: 'DOMContentLoaded',
@@ -256,7 +257,7 @@ goog.events.EventType = {
   BEFOREINPUT: 'beforeinput',
 
   // Webview tag events
-  // See http://developer.chrome.com/dev/apps/webview_tag.html
+  // See https://developer.chrome.com/apps/tags/webview
   EXIT: 'exit',
   LOADABORT: 'loadabort',
   LOADCOMMIT: 'loadcommit',
@@ -268,7 +269,7 @@ goog.events.EventType = {
   UNRESPONSIVE: 'unresponsive',
 
   // HTML5 Page Visibility API.  See details at
-  // {@code goog.labs.dom.PageVisibilityMonitor}.
+  // `goog.labs.dom.PageVisibilityMonitor`.
   VISIBILITYCHANGE: 'visibilitychange',
 
   // LocalStorage event.
@@ -319,7 +320,7 @@ goog.events.getPointerFallbackEventName_ = function(
 /**
  * Constants for pointer event names that fall back to corresponding mouse event
  * names on unsupported platforms. These are intended to be drop-in replacements
- * for corresponding values in {@code goog.events.EventType}.
+ * for corresponding values in `goog.events.EventType`.
  * @enum {string}
  */
 goog.events.PointerFallbackEventType = {

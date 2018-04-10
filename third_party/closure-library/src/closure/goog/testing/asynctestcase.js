@@ -224,7 +224,7 @@ goog.testing.AsyncTestCase.prototype.origFail_;
 
 /**
  * A reference to the original window.onerror function.
- * @type {Function|undefined}
+ * @type {?Function|undefined}
  * @private
  */
 goog.testing.AsyncTestCase.prototype.origOnError_;
@@ -232,7 +232,7 @@ goog.testing.AsyncTestCase.prototype.origOnError_;
 
 /**
  * The stage of the test we are currently on.
- * @type {Function|undefined}}
+ * @type {?Function|undefined}}
  * @private
  */
 goog.testing.AsyncTestCase.prototype.curStepFunc_;
@@ -248,7 +248,7 @@ goog.testing.AsyncTestCase.prototype.curStepName_ = '';
 
 /**
  * The stage of the test we should run next.
- * @type {Function|undefined}
+ * @type {?Function|undefined}
  * @private
  */
 goog.testing.AsyncTestCase.prototype.nextStepFunc_;
@@ -463,9 +463,9 @@ goog.testing.AsyncTestCase.prototype.doAsyncError = function(opt_e) {
   }
 
   if (this.activeTest) {
-    // Note: if the test has an error, and then tearDown has an error, they will
-    // both be reported.
-    this.doError(fakeTestObj, opt_e);
+    // Log the error, then fail the test.
+    this.recordError(fakeTestObj.name, opt_e);
+    this.doError(fakeTestObj);
   } else {
     this.exceptionBeforeTest = opt_e;
   }
@@ -719,7 +719,7 @@ goog.testing.AsyncTestCase.prototype.startTimeoutTimer_ = function() {
       this.doTopOfStackAsyncError_(
           'Timed out while waiting for ' +
           'continueTesting() to be called.');
-    }, this, null), this.stepTimeout);
+    }, this), this.stepTimeout);
     this.dbgLog_('Started timeout timer with id ' + this.timeoutHandle_);
   }
 };

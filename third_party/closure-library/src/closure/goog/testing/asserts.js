@@ -70,7 +70,7 @@ goog.testing.asserts.numberRoughEqualityPredicate_ = function(
 
 
 /**
- * @type {Object<string, function(*, *, number): boolean>}
+ * @type {!Object<string, function(?, ?, number): boolean>}
  * @private
  */
 goog.testing.asserts.primitiveRoughEqualityPredicates_ = {
@@ -295,7 +295,7 @@ var assert = goog.testing.asserts.assert = function(a, opt_b) {
  *
  * @param {!(string|Function)} a The assertion comment or the function to call.
  * @param {!Function=} opt_b The function to call (if the first argument of
- *     {@code assertThrows} was the comment).
+ *     `assertThrows` was the comment).
  * @return {*} The error thrown by the function.
  * @throws {goog.testing.JsUnitException} If the assertion failed.
  */
@@ -340,7 +340,7 @@ var assertThrows = goog.testing.asserts.assertThrows = function(a, opt_b) {
  *
  * @param {!(string|Function)} a The assertion comment or the function to call.
  * @param {!Function=} opt_b The function to call (if the first argument of
- *     {@code assertNotThrows} was the comment).
+ *     `assertNotThrows` was the comment).
  * @return {*} The return value of the function.
  * @throws {goog.testing.JsUnitException} If the assertion failed.
  */
@@ -383,7 +383,7 @@ var assertThrowsJsUnitException = goog.testing.asserts
                                       .assertThrowsJsUnitException = function(
     callback, opt_expectedMessage) {
   try {
-    goog.testing.asserts.callWithoutLogging(callback);
+    callback();
   } catch (e) {
     var testCase = _getCurrentTestCase();
     if (testCase) {
@@ -582,25 +582,6 @@ var assertNotNaN = goog.testing.asserts.assertNotNaN = function(a, opt_b) {
 
 
 /**
- * Runs a function in an environment where test failures are not logged. This is
- * useful for testing test code, where failures can be a normal part of a test.
- * @param {function() : void} fn Function to run without logging failures.
- */
-var callWithoutLogging =
-    goog.testing.asserts.callWithoutLogging = function(fn) {
-      var testRunner = goog.global['G_testRunner'];
-      var oldLogTestFailure = testRunner['logTestFailure'];
-      try {
-        // Any failures in the callback shouldn't be recorded.
-        testRunner['logTestFailure'] = undefined;
-        fn();
-      } finally {
-        testRunner['logTestFailure'] = oldLogTestFailure;
-      }
-    };
-
-
-/**
  * The return value of the equality predicate passed to findDifferences below,
  * in cases where the predicate can't test the input variables for equality.
  * @type {?string}
@@ -635,6 +616,10 @@ goog.testing.asserts.EQUALITY_PREDICATE_VARS_ARE_EQUAL = '';
 goog.testing.asserts.findDifferences = function(
     expected, actual, opt_equalityPredicate) {
   var failures = [];
+  // True if there a generic error at the root (with no path).  If so, we should
+  // fail, but not add to the failures array (because it will be included at the
+  // top anyway).
+  var rootFailed = false;
   var seen1 = [];
   var seen2 = [];
 
@@ -703,17 +688,27 @@ goog.testing.asserts.findDifferences = function(
           goog.testing.asserts.EQUALITY_PREDICATE_CANT_PROCESS) {
         if (errorMessage !=
             goog.testing.asserts.EQUALITY_PREDICATE_VARS_ARE_EQUAL) {
-          failures.push(path + ': ' + errorMessage);
+          if (path) {
+            failures.push(path + ': ' + errorMessage);
+          } else {
+            rootFailed = true;
+          }
         }
       } else if (isArray && var1.length != var2.length) {
         failures.push(
-            path + ': Expected ' + var1.length + '-element array ' +
+            (path ? path + ': ' : '') + 'Expected ' + var1.length +
+            '-element array ' +
             'but got a ' + var2.length + '-element array');
       } else if (typeOfVar1 == 'String') {
+        // If the comparer cannot process strings (eg, roughlyEquals).
         if (var1 != var2) {
-          failures.push(
-              path + ': Expected String "' + var1 + '" ' +
-              'but got "' + var2 + '"');
+          if (path) {
+            failures.push(
+                path + ': ' +
+                goog.testing.asserts.getDefaultErrorMsg_(var1, var2));
+          } else {
+            rootFailed = true;
+          }
         }
       } else {
         var childPath = path + (isArray ? '[%s]' : (path ? '.%s' : '%s'));
@@ -821,13 +816,19 @@ goog.testing.asserts.findDifferences = function(
           }
         }
       }
-    } else {
+    } else if (path) {
       failures.push(
-          path + ' ' + goog.testing.asserts.getDefaultErrorMsg_(var1, var2));
+          path + ': ' + goog.testing.asserts.getDefaultErrorMsg_(var1, var2));
+    } else {
+      rootFailed = true;
     }
   }
 
   innerAssertWithCycleCheck(expected, actual, '');
+
+  if (rootFailed) {
+    return goog.testing.asserts.getDefaultErrorMsg_(expected, actual);
+  }
   return failures.length == 0 ? null : goog.testing.asserts.getDefaultErrorMsg_(
                                            expected, actual) +
           '\n   ' + failures.join('\n   ');
@@ -1018,7 +1019,8 @@ var assertElementsRoughlyEqual =
 
 
 /**
- * Compares two array-like objects without taking their order into account.
+ * Compares elements of two array-like objects using strict equality without
+ * taking their order into account.
  * @param {string|IArrayLike} a Assertion message or the
  *     expected elements.
  * @param {IArrayLike} b Expected elements or the actual
@@ -1091,7 +1093,7 @@ var assertEvaluatesToFalse =
 /**
  * Compares two HTML snippets.
  *
- * Take extra care if attributes are involved. {@code assertHTMLEquals}'s
+ * Take extra care if attributes are involved. `assertHTMLEquals`'s
  * implementation isn't prepared for complex cases. For example, the following
  * comparisons erroneously fail:
  * <pre>
@@ -1100,7 +1102,7 @@ var assertEvaluatesToFalse =
  * assertHTMLEquals('<input disabled>', '<input disabled="disabled">');
  * </pre>
  *
- * When in doubt, use {@code goog.testing.dom.assertHtmlMatches}.
+ * When in doubt, use `goog.testing.dom.assertHtmlMatches`.
  *
  * @param {*} a The expected value (2 args) or the debug message (3 args).
  * @param {*} b The actual value (2 args) or the expected value (3 args).

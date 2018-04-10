@@ -17,6 +17,11 @@ goog.provide('goog.testing.testSuite');
 goog.require('goog.labs.testing.Environment');
 goog.require('goog.testing.TestCase');
 
+// TODO(goktug): Remove suppressEnsureNoAutoDiscovery after google3 migration
+/**
+ * @typedef {{order: (!goog.testing.TestCase.Order|undefined), suppressEnsureNoAutoDiscovery: (!boolean|undefined)}}
+ */
+var TestSuiteOptions;
 
 /**
  * Runs the lifecycle methods (setUp, tearDown, etc.) and test* methods from
@@ -30,15 +35,35 @@ goog.require('goog.testing.TestCase');
  *     additional tearDown will run before parent tearDowns. The this object
  *     refers to the object that the functions were defined on, not the full
  *     testSuite object.
+ * @param {!TestSuiteOptions=} opt_options Optional options object which can
+ *     be used to set the sort order for running tests.
  */
-goog.testing.testSuite = function(obj) {
+goog.testing.testSuite = function(obj, opt_options) {
   if (goog.isFunction(obj)) {
     throw new Error(
         'testSuite should be called with an object. ' +
         'Did you forget to initialize a class?');
   }
+
+  if (goog.testing.testSuite.initialized_) {
+    throw new Error('Only one TestSuite can be active');
+  }
+  goog.testing.testSuite.initialized_ = true;
+
   var testCase = goog.labs.testing.Environment.getTestCaseIfActive() ||
       new goog.testing.TestCase(document.title);
   testCase.setTestObj(obj);
-  goog.testing.TestCase.initializeTestRunner(testCase);
+
+  var options = opt_options || {};
+  if (options.order) {
+    testCase.setOrder(options.order);
+  }
+  goog.testing.TestCase.initializeTestRunner(
+      testCase, undefined, options.suppressEnsureNoAutoDiscovery);
 };
+
+/**
+ * True iff the testSuite has been created.
+ * @private {boolean}
+ */
+goog.testing.testSuite.initialized_ = false;
