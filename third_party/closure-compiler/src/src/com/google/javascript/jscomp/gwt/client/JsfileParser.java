@@ -18,7 +18,6 @@ package com.google.javascript.jscomp.gwt.client;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
@@ -76,6 +75,7 @@ public class JsfileParser implements EntryPoint {
    *   "requires": {?Array<string>},  note: look for goog.* for 'goog'
    *   "requires_css": {?Array<string>},  @fileoverview @requirecss {.*}
    *   "testonly": {?bool},  goog.setTestOnly
+   *   "type_requires": {?Array<string>},
    *   "visibility: {?Array<string>},  @fileoverview @visibility {.*}
    * }}</pre>
    * Any trivial values are omitted.
@@ -99,6 +99,7 @@ public class JsfileParser implements EntryPoint {
     // each copy so that calling code can choose how to handle it
     final Multiset<String> provides = TreeMultiset.create();
     final Multiset<String> requires = TreeMultiset.create();
+    final Multiset<String> typeRequires = TreeMultiset.create();
     final Multiset<String> requiresCss = TreeMultiset.create();
     final Multiset<String> visibility = TreeMultiset.create();
 
@@ -136,6 +137,7 @@ public class JsfileParser implements EntryPoint {
           .set("requires", requires)
           .set("requiresCss", requiresCss)
           .set("testonly", testonly)
+          .set("type_requires", typeRequires)
           .set("visibility", visibility)
           .object;
     }
@@ -314,13 +316,24 @@ public class JsfileParser implements EntryPoint {
       this.info = info;
     }
 
+    private boolean isFromGoogImport(Var goog) {
+      Node nameNode = goog.getNameNode();
+
+      // Because other tools are regex based we force importing this file as "import * as goog".
+      return nameNode != null
+          && nameNode.isImportStar()
+          && nameNode.getString().equals("goog")
+          && nameNode.getParent().getFirstChild().isEmpty()
+          && nameNode.getParent().getLastChild().getString().endsWith("/goog.js");
+    }
+
     @Override
     public void visit(NodeTraversal traversal, Node node, Node parent) {
       // Look for goog.* calls
       if (node.isGetProp() && node.getFirstChild().isName()
           && node.getFirstChild().getString().equals("goog")) {
         Var root = traversal.getScope().getVar("goog");
-        if (root == null) {
+        if (root == null || isFromGoogImport(root)) {
           info.goog = true;
           if (parent.isCall() && parent.getChildCount() < 3) {
             Node arg;
@@ -339,6 +352,12 @@ public class JsfileParser implements EntryPoint {
                 if (arg.isString()) {
                   info.requires.add(arg.getString());
                 } // TODO(sdh): else warning?
+                break;
+              case "requireType":
+                arg = parent.getSecondChild();
+                if (arg.isString()) {
+                  info.typeRequires.add(arg.getString());
+                } // TODO(blickly): else warning?
                 break;
               case "setTestOnly":
                 info.testonly = true;
@@ -359,6 +378,10 @@ public class JsfileParser implements EntryPoint {
         info.importedModules.add(moduleSpecifier.getString());
       } else if (node.isExport()) {
         info.loadFlags.add(JsArray.of("module", "es6"));
+        // export from
+        if (node.hasTwoChildren() && node.getLastChild().isString()) {
+          info.importedModules.add(node.getLastChild().getString());
+        }
       }
     }
   }
@@ -398,15 +421,7 @@ public class JsfileParser implements EntryPoint {
 
   /** Returns an associative multimap. */
   private static Set<JsArray<String>> assoc() {
-    return new TreeSet<>(
-        Ordering.<String>natural()
-            .lexicographical()
-            .onResultOf(
-                new Function<JsArray<String>, List<String>>() {
-                  @Override public List<String> apply(JsArray<String> arg) {
-                    return arg.asList();
-                  }
-                }));
+    return new TreeSet<>(Ordering.<String>natural().lexicographical().onResultOf(JsArray::asList));
   }
 
   /** Sparse object helper class: only adds non-trivial values. */

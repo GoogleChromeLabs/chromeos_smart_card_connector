@@ -1172,6 +1172,46 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
             + "for (var key in Foo) {}");
   }
 
+  public void testHasOwnProperty() {
+    testSame("var a = {b: 3}; if (a.hasOwnProperty(foo)) { alert('ok'); }");
+    testSame("var a = {b: 3}; if (a.hasOwnProperty(foo)) { alert('ok'); } a.b;");
+  }
+
+  public void testHasOwnPropertyOnNonGlobalName() {
+    testSame(lines(
+        "/** @constructor */",
+        "function A() {",
+        "  this.foo = {a: 1, b: 1};",
+        "}",
+        "A.prototype.bar = function(prop) {",
+        "  return this.foo.hasOwnProperty(prop);",
+        "}"));
+    testSame("var a = {'b': {'c': 1}}; a['b'].hasOwnProperty('c');");
+    testSame("var a = {b: 3}; if (Object.prototype.hasOwnProperty.call(a, 'b')) { alert('ok'); }");
+  }
+
+  public void testHasOwnPropertyNested() {
+    test(
+        "var a = {b: {c: 3}}; if (a.b.hasOwnProperty('c')) { alert('ok'); }",
+        "var a$b =   {c: 3};  if (a$b.hasOwnProperty('c')) { alert('ok'); }");
+    test(
+        "var a = {b: {c: 3}}; if (a.b.hasOwnProperty('c')) { alert('ok'); } a.b.c;",
+        "var a$b =   {c: 3};  if (a$b.hasOwnProperty('c')) { alert('ok'); } a$b.c;");
+    test("var a = {}; a.b = function(p) { log(a.b.c.hasOwnProperty(p)); }; a.b.c = {};",
+        "var a$b = function(p) { log(a$b$c.hasOwnProperty(p)); }; var a$b$c = {};");
+}
+
+  public void testHasOwnPropertyMultiple() {
+    testSame("var a = {b: 3, c: 4, d: 5}; if (a.hasOwnProperty(prop)) { alert('ok'); }");
+  }
+
+  public void testObjectStaticMethodsPreventCollapsing() {
+    testSame("var a = {b: 3}; alert(Object.getOwnPropertyDescriptor(a, 'b'));");
+    testSame("var a = {b: 3}; alert(Object.getOwnPropertyDescriptors(a));");
+    testSame("var a = {b: 3}; alert(Object.getOwnPropertyNames(a));");
+    testSame("var a = {b: 3, [Symbol('c')]: 4}; alert(Object.getOwnPropertySymbols(a));");
+  }
+
   private static final String COMMON_ENUM =
         "/** @enum {Object} */ var Foo = {A: {c: 2}, B: {c: 3}};";
 
@@ -2149,13 +2189,44 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
         SourceFile.fromCode(
             "mod1.js",
             LINE_JOINER.join(
-                "/** @const */ var module$mod1={};",
                 "var $jscompDefaultExport$$module$mod1=123;",
                 "var bar$$module$mod1 = 'bar';",
+                "/** @const */ var module$mod1={};",
                 "var module$mod1$default = $jscompDefaultExport$$module$mod1;",
                 "var module$mod1$bar = bar$$module$mod1")));
     expected.add(
         SourceFile.fromCode("entry.js", "alert(module$mod1$default); alert(module$mod1$bar);"));
+
+    test(inputs, expected);
+  }
+
+  public void testMutableModuleExportsBasicEsm() {
+    this.setupModuleExportsOnly();
+
+    ArrayList<SourceFile> inputs = new ArrayList<>();
+    inputs.add(
+        SourceFile.fromCode(
+            "mod1.js",
+            lines(
+                "export default 123;", "export var bar = 'ba';", "function f() { bar += 'r'; }")));
+    inputs.add(
+        SourceFile.fromCode(
+            "entry.js", "import mod, {bar} from './mod1.js'; alert(mod); alert(bar)"));
+
+    ArrayList<SourceFile> expected = new ArrayList<>();
+    expected.add(
+        SourceFile.fromCode(
+            "mod1.js",
+            LINE_JOINER.join(
+                "var $jscompDefaultExport$$module$mod1=123;",
+                "var bar$$module$mod1 = 'ba';",
+                "function f$$module$mod1() { bar$$module$mod1 += 'r'; }",
+                "/** @const */ var module$mod1= {",
+                "  /** @return {?} */ get bar() { return bar$$module$mod1; },",
+                "};",
+                "var module$mod1$default = $jscompDefaultExport$$module$mod1;")));
+    expected.add(
+        SourceFile.fromCode("entry.js", "alert(module$mod1$default); alert(module$mod1.bar);"));
 
     test(inputs, expected);
   }
@@ -2204,11 +2275,11 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
         SourceFile.fromCode(
             "mod1.js",
             LINE_JOINER.join(
-                "/** @const */ var module$mod1={};",
                 "var foo$$module$mod1 = {};",
                 "foo$$module$mod1.bar = {};",
                 "foo$$module$mod1.bar.baz = 123;",
                 "var $jscompDefaultExport$$module$mod1 = foo$$module$mod1;",
+                "/** @const */ var module$mod1={};",
                 "var module$mod1$default = $jscompDefaultExport$$module$mod1;")));
     expected.add(SourceFile.fromCode("entry.js", "alert(module$mod1$default.bar.baz);"));
 

@@ -804,11 +804,12 @@ public final class InlineVariablesTest extends CompilerTestCase {
   public void testSideEffectOrder() {
     // z can not be changed by the call to y, so x can be inlined.
     String EXTERNS = "var z; function f(){}";
-    test(EXTERNS,
-         "var x = f(y.a, y); z = x;",
-         "z = f(y.a, y);");
+    test(
+        externs(EXTERNS),
+        srcs("var x = f(y.a, y); z = x;"),
+        expected("z = f(y.a, y);"));
     // z.b can be changed by the call to y, so x can not be inlined.
-    testSame(EXTERNS, "var x = f(y.a, y); z.b = x;");
+    testSame(externs(EXTERNS), srcs("var x = f(y.a, y); z.b = x;"));
   }
 
   public void testInlineParameterAlias1() {
@@ -1253,7 +1254,7 @@ public final class InlineVariablesTest extends CompilerTestCase {
   public void testNoInlineRedeclaredExterns() {
     String externs = "var test = 1;";
     String code = "/** @suppress {duplicate} */ var test = 2;alert(test);";
-    testSame(externs, code);
+    testSame(externs(externs), srcs(code));
   }
 
   public void testBug6598844() {
@@ -1534,6 +1535,8 @@ public final class InlineVariablesTest extends CompilerTestCase {
         lines(
             "var [a, b, c] = [1, 2, 3]",
             "a; a;"));
+
+    testSame("var x = 1; ({[0]: x} = {});");
   }
 
   public void testFunctionInlinedAcrossScript() {

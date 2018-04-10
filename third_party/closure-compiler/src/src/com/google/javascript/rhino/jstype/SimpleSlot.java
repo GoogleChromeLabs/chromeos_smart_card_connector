@@ -40,7 +40,6 @@
 package com.google.javascript.rhino.jstype;
 
 import com.google.javascript.rhino.JSDocInfo;
-import com.google.javascript.rhino.TypeI;
 import java.io.Serializable;
 
 /**
@@ -72,11 +71,6 @@ public class SimpleSlot implements StaticTypedSlot<JSType>, Serializable {
   }
 
   @Override
-  public final TypeI getTypeI() {
-    return type;
-  }
-
-  @Override
   public boolean isTypeInferred() {
     return inferred;
   }
@@ -89,5 +83,10 @@ public class SimpleSlot implements StaticTypedSlot<JSType>, Serializable {
   @Override
   public JSDocInfo getJSDocInfo() {
     return null;
+  }
+
+  @Override
+  public StaticTypedScope<JSType> getScope() {
+    throw new UnsupportedOperationException();
   }
 }

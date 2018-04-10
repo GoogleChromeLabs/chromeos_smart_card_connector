@@ -25,10 +25,12 @@ import com.google.javascript.rhino.Node;
 
 public final class FlowSensitiveInlineVariablesTest extends CompilerTestCase  {
 
-  public static final String EXTERN_FUNCTIONS = lines(
-      "var print;",
-      "/** @nosideeffects */ function noSFX() {}",
-      "                      function hasSFX() {}");
+  public static final String EXTERN_FUNCTIONS =
+      lines(
+          "var print;",
+          "var alert;",
+          "/** @nosideeffects */ function noSFX() {}",
+          "                      function hasSFX() {}");
 
   @Override
   protected void setUp() throws Exception {
@@ -66,6 +68,19 @@ public final class FlowSensitiveInlineVariablesTest extends CompilerTestCase  {
     inline("var x = 1; x", "var x; 1");
     inline("var x = 1; var a = x", "var x; var a = 1");
     inline("var x = 1; x = x + 1", "var x; x = 1 + 1");
+  }
+
+  public void testSimpleLet() {
+    inline("let x = 1; print(x)", "let x; print(1)");
+    inline("let x = 1; x", "let x; 1");
+    inline("let x = 1; let a = x", "let x; let a = 1");
+    inline("let x = 1; x = x + 1", "let x; x = 1 + 1");
+  }
+
+  public void testSimpleConst() {
+    inline("const x = 1; print(x)", "const x = undefined; print(1)");
+    inline("const x = 1; x", "const x = undefined; 1");
+    inline("const x = 1; const a = x", "const x = undefined; const a = 1");
   }
 
   public void testSimpleForIn() {
@@ -304,6 +319,10 @@ public final class FlowSensitiveInlineVariablesTest extends CompilerTestCase  {
            "var k = z;");
   }
 
+  public void testInlineExpressions14() {
+    inline("var a = function() {}; var b = a;", "var a; var b = function() {}");
+  }
+
   public void testNoInlineIfDefinitionMayNotReach() {
     noInline("var x; if (x=1) {} x;");
   }
@@ -330,8 +349,8 @@ public final class FlowSensitiveInlineVariablesTest extends CompilerTestCase  {
     noInline("try { } catch (x) { print(x) }");
   }
 
-  public void testNoInlineGetProp() {
-    // We don't know if j alias a.b
+  public void testNoInlineGetProp1() {
+    // We don't know if j aliases a.b
     noInline("var x = a.b.c; j.c = 1; print(x);");
   }
 
@@ -341,11 +360,12 @@ public final class FlowSensitiveInlineVariablesTest extends CompilerTestCase  {
 
   public void testNoInlineGetProp3() {
     // Anything inside a function is fine.
-    inline("var x = function(){1 * a.b.c}; print(x);",
-           "var x; print(function(){1 * a.b.c});");
+    inline(
+        "var a = {b: {}}; var x = function(){1 * a.b.c}; print(x);",
+        "var a = {b: {}}; var x; print(function(){1 * a.b.c});");
   }
 
-  public void testNoInlineGetEle() {
+  public void testNoInlineGetElem() {
     // Again we don't know if i = j
     noInline("var x = a[i]; a[j] = 2; print(x); ");
   }
@@ -477,7 +497,17 @@ public final class FlowSensitiveInlineVariablesTest extends CompilerTestCase  {
     noInline("var x; var y = {}; for(x in y){}");
     noInline("var x; var y = {}; var z; for(x in z = y){print(z)}");
     noInline("var x; var y = {}; var z; for(x in y){print(z)}");
+  }
 
+  public void testForInDestructuring() {
+    noInline("var x = 1, y = [], z; for ({z = x} in y) {}");
+    noInline("var x = 1, y = [], z; for ([z = x] in y) {}");
+    noInline("var x = 1, y = [], z; print(x); for ({z = x} in y) {}");
+    noInline("var x = 1, y = [], z; print(x); for ([z = x] in y) {}");
+    noInline("var x = 1, y = [], z; print(x); for (let {z = x} in y) {}");
+    noInline("var x = 1, y = [], z; print(x); for (const {z = x} in y) {}");
+
+    noInline("var x = 1; if (true) { x = 3; } var y = [[0]], z = x; for ([x] in y) {}; alert(z);");
   }
 
   public void testNotOkToSkipCheckPathBetweenNodes() {
@@ -568,7 +598,7 @@ public final class FlowSensitiveInlineVariablesTest extends CompilerTestCase  {
         "return x;");
   }
 
-  public void testVarAssinInsideHookIssue965() {
+  public void testVarAssignInsideHookIssue965() {
     noInline("var i = 0; return 1 ? (i = 5) : 0, i;");
     noInline("var i = 0; return (1 ? (i = 5) : 0) ? i : 0;");
     noInline("var i = 0; return (1 ? (i = 5) : 0) || i;");
@@ -706,6 +736,36 @@ public final class FlowSensitiveInlineVariablesTest extends CompilerTestCase  {
             "return(a)"));
   }
 
+  public void testBlockScoping_shouldntInline() {
+    noInline(
+        lines(
+            "var JSCompiler_inline_result;",
+            "{",
+            "  let a = 1;",
+            "  if (3 < 4) {",
+            "    a = 2;",
+            "  }",
+            "  JSCompiler_inline_result = a;",
+            "}",
+            "alert(JSCompiler_inline_result);"));
+
+    // test let/const shadowing of a var
+    noInline(
+        lines(
+        "var JSCompiler_inline_result;",
+        "var a = 0;",
+        "{",
+        "  let a = 1;",
+        "  if (3 < 4) {",
+        "    a = 2;",
+        "  }",
+        "  JSCompiler_inline_result = a;",
+        "}",
+        "alert(JSCompiler_inline_result);"));
+
+    noInline("{ let value = 1; var g = () => value; } return g;");
+  }
+
   public void testInlineInGenerators() {
     test(
         lines(
@@ -729,6 +789,19 @@ public final class FlowSensitiveInlineVariablesTest extends CompilerTestCase  {
     noInline("var x = 1; var n = {}; for(x of n) {}");
   }
 
+  public void testForOfDestructuring() {
+    noInline("var x = 1, y = [], z; for ({z = x} of y) {}");
+    noInline("var x = 1, y = [], z; for ([z = x] of y) {}");
+
+    noInline("var x = 1, y = [], z; print(x); for ({z = x} of y) {}");
+    noInline("var x = 1, y = [], z; print(x); for ([z = x] of y) {}");
+
+    noInline("var x = 1, y = [], z; print(x); for (let [z = x] of y) {}");
+    noInline("var x = 1, y = [], z; print(x); for (const [z = x] of y) {}");
+
+    noInline("var x = 1; if (true) { x = 3; } var y = [[0]], z = x; for ([x] of y) {}; alert(z);");
+  }
+
   public void testTemplateStrings() {
     inline("var name = 'Foo'; `Hello ${name}`",
         "var name; `Hello ${'Foo'}`");
@@ -740,8 +813,129 @@ public final class FlowSensitiveInlineVariablesTest extends CompilerTestCase  {
         "var age; `Age: ${3}`");
   }
 
-  public void testDestructuring() {
+  public void testArrayDestructuring() {
     noInline("var [a, b, c] = [1, 2, 3]; print(a + b + c);");
+    noInline("var arr = [1, 2, 3, 4]; var [a, b, ,d] = arr;");
+    noInline("var x = 3; [x] = 4; print(x);");
+    inline("var [x] = []; x = 3; print(x);", "var [x] = []; print(3);");
+  }
+
+  public void testObjectDestructuring() {
+    noInline("var {a, b} = {a: 3, b: 4}; print(a + b);");
+    noInline("var obj = {a: 3, b: 4}; var {a, b} = obj;");
+  }
+
+  public void testDontInlineOverChangingRvalue_destructuring() {
+    noInline("var x = 1; if (true) { x = 2; } var y = x; var [z = (x = 3, 4)] = []; print(y);");
+
+    noInline("var x = 1; if (true) { x = 2; } var y = x; [x] = []; print(y);");
+
+    noInline("var x = 1; if (true) { x = 2; } var y = x; ({x} = {}); print(y);");
+
+    noInline("var x = 1; if (true) { x = 2; } var y = x; var [z] = [x = 3]; print(y);");
+  }
+
+  public void testDestructuringDefaultValue() {
+    inline("var x = 1; var [y = x] = [];", "var x; var [y = 1] = [];");
+    inline("var x = 1; var {y = x} = {};", "var x; var {y = 1} = {};");
+    inline("var x = 1; var {[3]: y = x} = {};", "var x; var {[3]: y = 1} = {};");
+    noInline("var x = 1; var {[x]: y = x} = {};");
+    noInline("var x = 1; var [y = x] = []; print(x);");
+
+    // don't inline because x is only conditionally reassigned to 2.
+    noInline("var x = 1; var [y = (x = 2, 4)] = []; print(x);");
+    noInline("var x = 1; print(x); var [y = (x = 2, 4)] = [0]; print(x);");
+
+    // x = 2 is executed before reading x in the default value.
+    inline(
+        "var x = 1; print(x); var obj = {}; [obj[x = 2] = x] = [];",
+        "var x    ; print(1); var obj = {}; [obj[x = 2] = x] = [];");
+    // [x] is evaluated before obj[x = 2] is executed
+    noInline("var x = 1; print(x); var obj = {}; [[obj[x = 2]] = [x]] = [];");
+
+    noInline("var x = 1; alert(x); ({x = x * 2} = {});");
+    noInline("var x = 1; alert(x); [x = x * 2] = [];");
+  }
+
+  public void testDestructuringComputedProperty() {
+    inline("var x = 1; var {[x]: y} = {};", "var x; var {[1]: y} = {};");
+    noInline("var x = 1; var {[x]: y} = {}; print(x);");
+
+    noInline("var x = 1; alert(x); ({[x]: x} = {}); alert(x);");
+    inline("var x = 1; var y = x; ({[y]: x} = {});", "var x; var y; ({[1]: x} = {});");
+  }
+
+  public void testDeadAssignments() {
+    inline(
+        "let a = 3; if (3 < 4) { a = 8; } else { print(a); }",
+        "let a; if (3 < 4) { a = 8 } else { print(3); }");
+
+    inline(
+        "let a = 3; if (3 < 4) { [a] = 8; } else { print(a); }",
+        "let a; if (3 < 4) { [a] = 8 } else { print(3); }");
+  }
+
+  public void testDestructuringEvaluationOrder() {
+    // Should not inline "x = 2" in these cases because x is changed beforehand
+    noInline("var x = 2; var {x, y = x} = {x: 3};");
+    noInline("var x = 2; var {y = (x = 3), z = x} = {};");
+
+    // These examples are safe to inline, but FlowSensitiveInlineVariables never inlines variables
+    // used twice in the same CFG node even when safe to do so.
+    noInline("var x = 2; var {a: y = (x = 3)} = {a: x};");
+    noInline("var x = 1; var {a = x} = {a: (x = 2, 3)};");
+    noInline("var x = 2; var {a: x = 3} = {a: x};");
+
+    noInline("var x = 1; print(x); var {a: x} = {a: x};");
+    noInline("var x = 1; print(x); ({a: x} = {a: x});");
+
+    noInline("var x = 1; print(x); var y; [y = x, x] = [];");
+    inline(
+        "var x = 1; print(x); var y; [x, y = x] = [2];",
+        "var x    ; print(1); var y; [x, y = x] = [2];");
+  }
+
+  public void testDestructuringWithSideEffects() {
+    noInline("function f() { x++; }  var x = 2; var {y = x} = {key: f()}");
+
+    noInline("function f() { x++; } var x = 2; var y = x; var {z = y} = {a: f()}");
+    noInline("function f() { x++; } var x = 2; var y = x; var {a = f(), b = y} = {}");
+    noInline("function f() { x++; } var x = 2; var y = x; var {[f()]: z = y} = {}");
+    noInline("function f() { x++; } var x = 2; var y = x; var {a: {b: z = y} = f()} = {};");
+    noInline("function f() { x++; } var x = 2; var y; var {z = (y = x, 3)} = {a: f()}; print(y);");
+
+    inline(
+        "function f() { x++; }  var x = 2; var y = x; var {z = f()} = {a: y}",
+        "function f() { x++; }  var x = 2; var y    ; var {z = f()} = {a: x}");
+    inline(
+        "function f() { x++; }  var x = 2; var y = x; var {a = y, b = f()} = {}",
+        "function f() { x++; }  var x = 2; var y    ; var {a = x, b = f()} = {}");
+    inline(
+        "function f() { x++; }  var x = 2; var y = x; var {[y]: z = f()} = {}",
+        "function f() { x++; }  var x = 2; var y    ; var {[x]: z = f()} = {}");
+    inline(
+        "function f() { x++; } var x = 2; var y = x; var {a: {b: z = f()} = y} = {};",
+        "function f() { x++; } var x = 2; var y    ; var {a: {b: z = f()} = x} = {};");
+  }
+
+  public void testGithubIssue2818() {
+    noInline("var x = 1; var y = x; print(x++, y);");
+    noInline("var x = 1; var y = x; print(x = x + 3, y);");
+    noInline("var x = 1; var y = x; print(({x} = {x: x * 2}), y); print(x);");
+  }
+
+  public void testOkayToInlineWithSideEffects() {
+    inline(
+        "var x = 1; var y = x; var z = 1; print(z++, y);",
+        "var x    ; var y    ; var z = 1; print(z++, 1);");
+    inline(
+        "var x = 1; var y = x; var z = 1; print([z] = [], y);",
+        "var x    ; var y    ; var z = 1; print([z] = [], 1);");
+    inline("var x = 1; var y = x; print(x = 3, y);", "var x; var y; print(x = 3, 1);");
+
+    inline(
+        "var x = 1; if (true) { x = 2; } var y = x; var z; z = x = y + 1;",
+        "var x = 1; if (true) { x = 2; } var y    ; var z; z = x = x + 1;");
   }
 
   private void noInline(String input) {
@@ -749,7 +943,9 @@ public final class FlowSensitiveInlineVariablesTest extends CompilerTestCase  {
   }
 
   private void inline(String input, String expected) {
-    test(EXTERN_FUNCTIONS, "function _func() {" + input + "}",
-        "function _func() {" + expected + "}");
+    test(
+        externs(EXTERN_FUNCTIONS),
+        srcs("function _func() {" + input + "}"),
+        expected("function _func() {" + expected + "}"));
   }
 }

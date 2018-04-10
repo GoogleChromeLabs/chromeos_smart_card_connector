@@ -16,6 +16,8 @@
 
 package com.google.javascript.jscomp.debugger.common;
 
+import static java.util.Comparator.comparing;
+
 import com.google.javascript.jscomp.AnonymousFunctionNamingPolicy;
 import com.google.javascript.jscomp.CheckLevel;
 import com.google.javascript.jscomp.CompilerOptions;
@@ -168,7 +170,6 @@ public enum CompilationParam {
     @Override
     public void apply(CompilerOptions options, boolean value) {
       options.setNewTypeInference(value);
-      options.setRunOTIafterNTI(false);
     }
 
     @Override
@@ -442,19 +443,6 @@ public enum CompilationParam {
     }
   },
 
-  /** Flowsenstive Inlines variables */
-  FLOW_SENSITIVE_INLINE_VARIABLES(ParamGroup.TYPE_CHECKING_OPTIMIZATION) {
-    @Override
-    public void apply(CompilerOptions options, boolean value) {
-      options.setFlowSensitiveInlineVariables(value);
-    }
-
-    @Override
-    public boolean isApplied(CompilerOptions options) {
-      return options.flowSensitiveInlineVariables;
-    }
-  },
-
   INLINE_PROPERTIES(ParamGroup.TYPE_CHECKING_OPTIMIZATION) {
     @Override
     public void apply(CompilerOptions options, boolean value) {
@@ -567,6 +555,18 @@ public enum CompilationParam {
     @Override
     public boolean isApplied(CompilerOptions options) {
       return options.removeUnusedVars;
+    }
+  },
+
+  REMOVE_SUPER_METHODS(ParamGroup.TYPE_CHECKING_OPTIMIZATION) {
+    @Override
+    public void apply(CompilerOptions options, boolean value) {
+      options.setRemoveSuperMethods(value);
+    }
+
+    @Override
+    public boolean isApplied(CompilerOptions options) {
+      return options.getRemoveSuperMethods();
     }
   },
 
@@ -1042,14 +1042,7 @@ public enum CompilationParam {
   static CompilationParam[] getSortedValues() {
     ArrayList<CompilationParam> values = new ArrayList<>(Arrays.asList(CompilationParam.values()));
 
-    Collections.sort(
-        values,
-        new java.util.Comparator<CompilationParam>() {
-          @Override
-          public int compare(CompilationParam o1, CompilationParam o2) {
-            return o1.toString().compareTo(o2.toString());
-          }
-        });
+    Collections.sort(values, comparing(CompilationParam::toString));
 
     return values.toArray(new CompilationParam[0]);
   }

@@ -36,6 +36,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /**
  * Maps a {@code JSError} to a list of {@code SuggestedFix}es, if possible.
@@ -110,6 +111,8 @@ public final class ErrorToFixMapper {
       case "JSC_REFERENCE_TO_FULLY_QUALIFIED_IMPORT_NAME":
         // TODO(tbreisacher): Apply this fix for JSC_JSDOC_REFERENCE_TO_FULLY_QUALIFIED_IMPORT_NAME.
         return getFixForReferenceToShortImportByLongName(error, compiler);
+      case "JSC_REDUNDANT_NULLABILITY_MODIFIER_JSDOC":
+        return getFixForRedundantNullabilityModifierJsDoc(error, compiler);
       default:
         return null;
     }
@@ -323,20 +326,37 @@ public final class ErrorToFixMapper {
     return fix.build();
   }
 
+  @Nullable
   private static SuggestedFix getFixForDuplicateRequire(JSError error, AbstractCompiler compiler) {
-    if (!error.node.isExprResult()) {
-      return null;
-    }
     Matcher regexMatcher = DUPLICATE_REQUIRE.matcher(error.description);
     checkState(
         regexMatcher.matches(), "Unexpected error description: %s", error.description);
     String namespace = regexMatcher.group(1);
     NodeMetadata metadata = new NodeMetadata(compiler);
     Match match = new Match(error.node, metadata);
-    return new SuggestedFix.Builder()
-        .attachMatchedNodeInfo(error.node, compiler)
-        .removeGoogRequire(match, namespace)
-        .build();
+    if (error.node.isExprResult()) {
+      return new SuggestedFix.Builder()
+          .attachMatchedNodeInfo(error.node, compiler)
+          .removeGoogRequire(match, namespace)
+          .build();
+    } else {
+      checkState(NodeUtil.isNameDeclaration(error.node), error.node);
+      if (error.node.getFirstChild().isName()) {
+        return null;
+      }
+
+      checkState(error.node.getFirstChild().isDestructuringLhs(), error.node);
+
+      SuggestedFix fix =
+          new SuggestedFix.Builder()
+              .attachMatchedNodeInfo(error.node, compiler)
+              .mergeGoogRequire(error.node, match.getMetadata(), namespace, compiler)
+              .build();
+      if (!fix.isNoOp()) {
+        return fix;
+      }
+      return null;
+    }
   }
 
   private static SuggestedFix getFixForExtraRequire(JSError error, AbstractCompiler compiler) {
@@ -379,6 +399,14 @@ public final class ErrorToFixMapper {
     // Trim to remove the newline after the last goog.require/provide.
     String newContent = sb.toString().trim();
     return fix.replaceRange(first, last, newContent).build();
+  }
+
+  private static SuggestedFix getFixForRedundantNullabilityModifierJsDoc(
+      JSError error, AbstractCompiler compiler) {
+    return new SuggestedFix.Builder()
+        .attachMatchedNodeInfo(error.node, compiler)
+        .replaceText(error.node, 1, "")
+        .build();
   }
 
   private static class RequireProvideSorter implements NodeTraversal.Callback, Comparator<Node> {
@@ -428,8 +456,8 @@ public final class ErrorToFixMapper {
 
     @Override
     public int compare(Node n1, Node n2) {
-      String namespace1 = CheckRequiresAndProvidesSorted.getSortKey.apply(n1);
-      String namespace2 = CheckRequiresAndProvidesSorted.getSortKey.apply(n2);
+      String namespace1 = CheckRequiresAndProvidesSorted.getSortKey(n1);
+      String namespace2 = CheckRequiresAndProvidesSorted.getSortKey(n2);
       return namespace1.compareTo(namespace2);
     }
   }

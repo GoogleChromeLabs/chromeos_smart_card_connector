@@ -17,10 +17,10 @@
 package com.google.javascript.jscomp;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Map.Entry.comparingByKey;
 
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
@@ -32,9 +32,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.text.ParseException;
-import java.util.Comparator;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /**
  * Stores the mapping from original variable name to new variable names.
@@ -43,14 +41,6 @@ import java.util.Map.Entry;
 public final class VariableMap {
 
   private static final char SEPARATOR = ':';
-
-  private static final Comparator<Map.Entry<String, String>> ENTRY_COMPARATOR =
-      new Comparator<Map.Entry<String, String>>() {
-    @Override
-    public int compare(Entry<String, String> e1, Entry<String, String> e2) {
-      return e1.getKey().compareTo(e2.getKey());
-    }
-  };
 
   /** Maps between original source name to new name */
   private final ImmutableBiMap<String, String> map;
@@ -116,7 +106,7 @@ public final class VariableMap {
     try {
       // The output order should be stable.
       for (Map.Entry<String, String> entry :
-          ImmutableSortedSet.copyOf(ENTRY_COMPARATOR, map.entrySet())) {
+          ImmutableSortedSet.copyOf(comparingByKey(), map.entrySet())) {
         writer.write(escape(entry.getKey()));
         writer.write(SEPARATOR);
         writer.write(escape(entry.getValue()));
@@ -131,23 +121,30 @@ public final class VariableMap {
     return baos.toByteArray();
   }
 
-  @GwtIncompatible("com.google.common.base.Splitter.onPattern()")
-  private static final Splitter LINE_SPLITTER
-      = Splitter.onPattern("\\r?\\n").omitEmptyStrings();
-
   /**
    * Deserializes the variable map from a byte array returned by
    * {@link #toBytes()}.
    */
   @GwtIncompatible("com.google.common.base.Splitter.onPattern()")
   public static VariableMap fromBytes(byte[] bytes) throws ParseException {
-    Iterable<String> lines = LINE_SPLITTER.split(
-        new String(bytes, UTF_8));
-
+    String string = new String(bytes, UTF_8);
     ImmutableMap.Builder<String, String> map = ImmutableMap.builder();
-
-    for (String line : lines) {
-      int pos = findIndexOfChar(line, SEPARATOR);
+    int startOfLine = 0;
+    while (startOfLine < string.length()) {
+      int newLine = string.indexOf('\n', startOfLine);
+      if (newLine == -1) {
+        newLine = string.length();
+      }
+      int endOfLine = newLine;
+      if (string.charAt(newLine - 1) == '\r') {
+        newLine--;
+      }
+      String line = string.substring(startOfLine, newLine);
+      startOfLine = endOfLine + 1; // update index for next iteration
+      if (line.isEmpty()) {
+        continue;
+      }
+      int pos = findIndexOfUnescapedChar(line, SEPARATOR);
       if (pos <= 0) {
         throw new ParseException("Bad line: " + line, 0);
       }
@@ -164,23 +161,31 @@ public final class VariableMap {
         .replace("\n", "\\n");
   }
 
-  private static int findIndexOfChar(String value, char stopChar) {
+  private static int findIndexOfUnescapedChar(String value, char stopChar) {
     int len = value.length();
-    for (int i = 0; i < len; i++) {
-      char c = value.charAt(i);
-      if (c == '\\' && ++i < len) {
-        c = value.charAt(i);
-      } else if (c == stopChar){
-        return i;
+    for (int i = 0; i < len; ) {
+      int stopCharIndex = value.indexOf(stopChar, i);
+      if (stopCharIndex == -1) {
+        return -1;
       }
+      if (value.charAt(stopCharIndex - 1) != '\\') {
+        // it isn't escaped, return
+        return stopCharIndex;
+      }
+      i = stopCharIndex + 1;
     }
     return -1;
   }
 
-  private static String unescape(CharSequence value) {
-    StringBuilder sb = new StringBuilder();
+  private static String unescape(String value) {
+    int slashIndex = value.indexOf('\\');
+    if (slashIndex == -1) {
+      return value;
+    }
+    StringBuilder sb = new StringBuilder(value.length() - 1);
+    sb.append(value, 0, slashIndex);
     int len = value.length();
-    for (int i = 0; i < len; i++) {
+    for (int i = slashIndex; i < len; i++) {
       char c = value.charAt(i);
       if (c == '\\' && ++i < len) {
         c = value.charAt(i);

@@ -18,6 +18,7 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.PolymerBehaviorExtractor.BehaviorDefinition;
 import com.google.javascript.jscomp.PolymerPass.MemberDefinition;
@@ -39,11 +40,13 @@ import java.util.Map;
  * understood by the compiler.
  */
 final class PolymerClassRewriter {
-
+  private static final String VIRTUAL_FILE = "<PolymerClassRewriter.java>";
   private final AbstractCompiler compiler;
   private final int polymerVersion;
   private final boolean propertyRenamingEnabled;
-  static final String POLYMER_ELEMENT_PROP_CONFIG = "Polymer.ElementProperties";
+
+  @VisibleForTesting
+  static final String POLYMER_ELEMENT_PROP_CONFIG = "PolymerElementProperties";
 
   private final Node polymerElementExterns;
 
@@ -126,17 +129,14 @@ final class PolymerClassRewriter {
     Node statements = block.removeChildren();
     Node parent = exprRoot.getParent();
 
-    // For Polymer 1, If the call to Polymer() is not in the global scope and the assignment target
+    // If the call to Polymer() is not in the global scope and the assignment target
     // is not namespaced (which likely means it's exported to the global scope), put the type
     // declaration into the global scope at the start of the current script.
     //
     // This avoids unknown type warnings which are a result of the compiler's poor understanding of
     // types declared inside IIFEs or any non-global scope. We should revisit this decision after
     // moving to the new type inference system which should be able to infer these types better.
-    //
-    // Since Polymer 2 class mixins only function with NTI, we do not force Polymer 2 types to be
-    // global.
-    if (this.polymerVersion == 1 && !isInGlobalScope && !cls.target.isGetProp()) {
+    if (!isInGlobalScope && !cls.target.isGetProp()) {
       Node scriptNode = NodeUtil.getEnclosingScript(parent);
       scriptNode.addChildrenToFront(statements);
       compiler.reportChangeToChangeScope(scriptNode);
@@ -216,8 +216,8 @@ final class PolymerClassRewriter {
     if (!readOnlyProps.isEmpty() || !attributeReflectedProps.isEmpty()) {
       JSDocInfoBuilder classInfo = JSDocInfoBuilder.maybeCopyFrom(clazz.getJSDocInfo());
       String interfaceName = getInterfaceName(cls);
-      JSTypeExpression interfaceType = new JSTypeExpression(
-          new Node(Token.BANG, IR.string(interfaceName)), PolymerPass.VIRTUAL_FILE);
+      JSTypeExpression interfaceType =
+          new JSTypeExpression(new Node(Token.BANG, IR.string(interfaceName)), VIRTUAL_FILE);
       classInfo.recordImplementedInterface(interfaceType);
       clazz.setJSDocInfo(classInfo.build());
     }
@@ -229,18 +229,18 @@ final class PolymerClassRewriter {
       compiler.reportChangeToEnclosingScope(stmt);
     }
 
-    addReturnTypeIfMissing(cls, "is", new JSTypeExpression(IR.string("string"), ""));
+    addReturnTypeIfMissing(cls, "is", new JSTypeExpression(IR.string("string"), VIRTUAL_FILE));
 
     Node type = new Node(Token.BANG);
     Node array = IR.string("Array");
     type.addChildToBack(array);
     Node arrayTemplateType = new Node(Token.BLOCK, IR.string("string"));
     array.addChildToBack(arrayTemplateType);
-    addReturnTypeIfMissing(cls, "observers", new JSTypeExpression(type, ""));
+    addReturnTypeIfMissing(cls, "observers", new JSTypeExpression(type, VIRTUAL_FILE));
     addReturnTypeIfMissing(
         cls,
         "properties",
-        new JSTypeExpression(IR.string(POLYMER_ELEMENT_PROP_CONFIG), ""));
+        new JSTypeExpression(IR.string(POLYMER_ELEMENT_PROP_CONFIG), VIRTUAL_FILE));
 
     // If property renaming is enabled, wrap the properties object literal
     // in a reflection call so that the properties are renamed consistently
@@ -290,8 +290,8 @@ final class PolymerClassRewriter {
       Node value = keyNode.getLastChild();
       if (value != null && value.isFunction()) {
         JSDocInfoBuilder fnDoc = JSDocInfoBuilder.maybeCopyFrom(keyNode.getJSDocInfo());
-        fnDoc.recordThisType(new JSTypeExpression(
-            new Node(Token.BANG, IR.string(thisType)), PolymerPass.VIRTUAL_FILE));
+        fnDoc.recordThisType(
+            new JSTypeExpression(new Node(Token.BANG, IR.string(thisType)), VIRTUAL_FILE));
         keyNode.setJSDocInfo(fnDoc.build());
       }
     }
@@ -309,8 +309,8 @@ final class PolymerClassRewriter {
       }
       Node defaultValueKey = defaultValue.getParent();
       JSDocInfoBuilder fnDoc = JSDocInfoBuilder.maybeCopyFrom(defaultValueKey.getJSDocInfo());
-      fnDoc.recordThisType(new JSTypeExpression(
-          new Node(Token.BANG, IR.string(thisType)), PolymerPass.VIRTUAL_FILE));
+      fnDoc.recordThisType(
+          new JSTypeExpression(new Node(Token.BANG, IR.string(thisType)), VIRTUAL_FILE));
       fnDoc.recordReturnType(PolymerPassStaticUtils.getTypeFromProperty(property, compiler));
       defaultValueKey.setJSDocInfo(fnDoc.build());
     }
@@ -368,14 +368,15 @@ final class PolymerClassRewriter {
     JSDocInfoBuilder constructorDoc = JSDocInfoBuilder.maybeCopyFrom(cls.constructor.info);
     constructorDoc.recordConstructor();
 
-    JSTypeExpression baseType = new JSTypeExpression(
-        new Node(Token.BANG, IR.string(PolymerPassStaticUtils.getPolymerElementType(cls))),
-        PolymerPass.VIRTUAL_FILE);
+    JSTypeExpression baseType =
+        new JSTypeExpression(
+            new Node(Token.BANG, IR.string(PolymerPassStaticUtils.getPolymerElementType(cls))),
+            VIRTUAL_FILE);
     constructorDoc.recordBaseType(baseType);
 
     String interfaceName = getInterfaceName(cls);
-    JSTypeExpression interfaceType = new JSTypeExpression(
-        new Node(Token.BANG, IR.string(interfaceName)), PolymerPass.VIRTUAL_FILE);
+    JSTypeExpression interfaceType =
+        new JSTypeExpression(new Node(Token.BANG, IR.string(interfaceName)), VIRTUAL_FILE);
     constructorDoc.recordImplementedInterface(interfaceType);
 
     return constructorDoc;

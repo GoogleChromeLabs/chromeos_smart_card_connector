@@ -210,13 +210,10 @@ public final class JSTypeCreatorFromJSDoc implements Serializable {
   private final Set<JSError> warnings = new LinkedHashSet<>();
   // Unknown type names indexed by JSDoc AST node at which they were found.
   private final Map<Node, String> unknownTypeNames = new LinkedHashMap<>();
-  // If true, unresolved forward declares become UNRESOLVED, otherwise UNKNOWN.
-  private final boolean createUnresolvedTypes;
 
   public JSTypeCreatorFromJSDoc(JSTypes commonTypes,
       CodingConvention convention, UniqueNameGenerator nameGen,
-      Function<Node, Void> recordPropertyName,
-      boolean createUnresolvedTypes) {
+      Function<Node, Void> recordPropertyName) {
     checkNotNull(commonTypes);
     this.commonTypes = commonTypes;
     this.qmarkFunctionDeclared = new FunctionAndSlotType(
@@ -224,7 +221,6 @@ public final class JSTypeCreatorFromJSDoc implements Serializable {
     this.convention = convention;
     this.nameGen = nameGen;
     this.recordPropertyName = recordPropertyName;
-    this.createUnresolvedTypes = createUnresolvedTypes;
   }
 
   private final FunctionAndSlotType qmarkFunctionDeclared;
@@ -243,21 +239,20 @@ public final class JSTypeCreatorFromJSDoc implements Serializable {
         ? ImmutableList.<String>of() : ownerType.getTypeParameters());
   }
 
+  private JSType getDeclaredTypeOfNode(
+      JSDocInfo jsdoc, DeclaredTypeRegistry registry, ImmutableList<String> typeParameters) {
+    if (jsdoc == null) {
+      return null;
+    }
+    return getTypeFromJSTypeExpression(jsdoc.getType(), registry, typeParameters);
+  }
+
   public JSType getTypeOfCommentNode(
       Node n, RawNominalType ownerType, DeclaredTypeRegistry registry) {
     return getTypeFromComment(
         n,
         registry,
         ownerType == null ? ImmutableList.<String>of() : ownerType.getTypeParameters());
-  }
-
-  private JSType getDeclaredTypeOfNode(JSDocInfo jsdoc,
-      DeclaredTypeRegistry registry, ImmutableList<String> typeParameters) {
-    if (jsdoc == null) {
-      return null;
-    }
-    return getTypeFromJSTypeExpression(
-        jsdoc.getType(), registry, typeParameters);
   }
 
   public Set<JSError> getWarnings() {
@@ -472,7 +467,7 @@ public final class JSTypeCreatorFromJSDoc implements Serializable {
       return getNominalTypeHelper(decl.getNominal(), n, registry, outerTypeParameters);
     }
     // Forward-declared type
-    return this.createUnresolvedTypes ? this.commonTypes.UNRESOLVED : this.commonTypes.UNKNOWN;
+    return this.commonTypes.UNKNOWN;
   }
 
   private JSType getTypedefType(Typedef td, DeclaredTypeRegistry registry) {

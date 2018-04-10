@@ -1697,9 +1697,12 @@ public class GlobalTypeInfoCollector implements CompilerPass {
           }
           break;
         }
-        case CAST:
-          n.setTypeI(getDeclaredTypeOfNode(n.getJSDocInfo(), this.currentScope));
+        case CAST: {
+          JSType castType = getDeclaredTypeOfNode(n.getJSDocInfo(), this.currentScope);
+          checkNotNull(castType, n);
+          n.setTypeI(castType);
           break;
+        }
         case OBJECTLIT:
           if (!NodeUtil.isObjectLitKey(parent)) {
             Node lval = NodeUtil.getBestLValue(n);
@@ -2669,10 +2672,16 @@ public class GlobalTypeInfoCollector implements CompilerPass {
       // Find the declared type of the property.
       if (jsdoc != null && jsdoc.hasType()) {
         propDeclType = getTypeParser().getDeclaredTypeOfNode(jsdoc, rawType, currentScope);
+        // Happens when a setter (or getter) is incorrectly annotated with @type {NonFunction}.
+        if ((defSite.isGetterDef() || defSite.isSetterDef())
+            && propDeclType != null
+            && !propDeclType.isFunctionType()) {
+          propDeclType = null;
+        }
       } else if (methodType != null) {
         propDeclType = getCommonTypes().fromFunctionType(methodType.toFunctionType());
       }
-      if (defSite.isGetterDef()) {
+      if (defSite.isGetterDef() && propDeclType != null) {
         FunctionType ft = propDeclType.getFunTypeIfSingletonObj();
         if (ft != null) {
           propDeclType = ft.getReturnType();

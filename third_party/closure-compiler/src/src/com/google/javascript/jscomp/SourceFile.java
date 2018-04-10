@@ -88,12 +88,6 @@ public class SourceFile implements StaticSourceFile, Serializable {
 
   private transient String code = null;
 
-  static final DiagnosticType DUPLICATE_ZIP_CONTENTS = DiagnosticType.warning(
-      "JSC_DUPLICATE_ZIP_CONTENTS",
-      "Two zip entries containing the same relative path.\n"
-      + "Entry 1: {0}\n"
-      + "Entry 2: {1}");
-
   /**
    * Construct a new abstract source file.
    *
@@ -281,7 +275,7 @@ public class SourceFile implements StaticSourceFile, Serializable {
       if (pos >= js.length()) {
         return null;
       } else {
-        return js.substring(pos, js.length());
+        return js.substring(pos);
       }
     } else {
       return js.substring(pos, js.indexOf('\n', pos));
@@ -365,8 +359,8 @@ public class SourceFile implements StaticSourceFile, Serializable {
     return sourceFiles;
   }
 
-  static final String BANG_SLASH = "!/";
-  static final String JAR_URL_PREFIX = "jar:file:";
+  private static final String BANG_SLASH = "!/";
+  private static final String JAR_URL_PREFIX = "jar:file:";
 
   private static boolean isZipEntry(String path) {
     return path.contains(".zip!/") && (path.endsWith(".js") || path.endsWith(".js.map"));
@@ -408,11 +402,6 @@ public class SourceFile implements StaticSourceFile, Serializable {
     return fromFile(fileName, UTF_8);
   }
 
-  @GwtIncompatible("java.io.File")
-  public static SourceFile fromPath(Path path, Charset c) {
-    return builder().withCharset(c).buildFromPath(path);
-  }
-
   /** @deprecated Use {@link SourceFile#fromPath(Path, Charset)} */
   @Deprecated
   @GwtIncompatible("java.io.File")
@@ -425,6 +414,11 @@ public class SourceFile implements StaticSourceFile, Serializable {
   @GwtIncompatible("java.io.File")
   public static SourceFile fromFile(File file) {
     return fromFile(file, UTF_8);
+  }
+
+  @GwtIncompatible("java.io.File")
+  public static SourceFile fromPath(Path path, Charset c) {
+    return builder().withCharset(c).buildFromPath(path);
   }
 
   public static SourceFile fromCode(String fileName, String code) {

@@ -17,8 +17,8 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
@@ -176,17 +176,25 @@ class MaybeReachingVariableUse extends
     return false;
   }
 
-  private void computeMayUse(
-      Node n, Node cfgNode, ReachingUses output, boolean conditional) {
+  /**
+   * @param conditional Whether {@code n} is only conditionally evaluated given that {@code cfgNode}
+   *     is evaluated. Do not remove conditionally redefined variables from the reaching uses set.
+   */
+  private void computeMayUse(Node n, Node cfgNode, ReachingUses output, boolean conditional) {
     switch (n.getToken()) {
-
       case BLOCK:
       case ROOT:
       case FUNCTION:
         return;
 
       case NAME:
-        addToUseIfLocal(n.getString(), cfgNode, output);
+        if (NodeUtil.isLhsByDestructuring(n)) {
+          if (!conditional) {
+            removeFromUseIfLocal(n.getString(), output);
+          }
+        } else {
+          addToUseIfLocal(n.getString(), cfgNode, output);
+        }
         return;
 
       case WHILE:
@@ -201,14 +209,20 @@ class MaybeReachingVariableUse extends
         return;
 
       case FOR_IN:
+      case FOR_OF:
         // for(x in y) {...}
         Node lhs = n.getFirstChild();
         Node rhs = lhs.getNext();
-        if (lhs.isVar()) {
+        if (NodeUtil.isNameDeclaration(lhs)) {
           lhs = lhs.getLastChild(); // for(var x in y) {...}
+          if (lhs.isDestructuringLhs()) {
+            lhs = lhs.getFirstChild(); // for (let [x] of obj) {...}
+          }
         }
         if (lhs.isName() && !conditional) {
           removeFromUseIfLocal(lhs.getString(), output);
+        } else if (lhs.isDestructuringPattern()) {
+          computeMayUse(lhs, cfgNode, output, true);
         }
         computeMayUse(rhs, cfgNode, output, conditional);
         return;
@@ -226,16 +240,39 @@ class MaybeReachingVariableUse extends
         return;
 
       case VAR:
+      case LET:
+      case CONST:
         Node varName = n.getFirstChild();
-        Preconditions.checkState(n.hasChildren(), "AST should be normalized", n);
+        checkState(n.hasChildren(), "AST should be normalized", n);
 
-        if (varName.hasChildren()) {
+        if (varName.isDestructuringLhs()) {
+          // Note: since destructuring is evaluated in reverse AST order, we traverse the first
+          // child before the second in order to do our backwards data flow analysis.
+          computeMayUse(varName.getFirstChild(), cfgNode, output, conditional);
+          computeMayUse(varName.getSecondChild(), cfgNode, output, conditional);
+        } else if (varName.hasChildren()) {
           computeMayUse(varName.getFirstChild(), cfgNode, output, conditional);
           if (!conditional) {
             removeFromUseIfLocal(varName.getString(), output);
           }
-        }
+        } // else var name declaration with no initial value
         return;
+
+      case DEFAULT_VALUE:
+        if (n.getFirstChild().isDestructuringPattern()) {
+          computeMayUse(n.getFirstChild(), cfgNode, output, conditional);
+          computeMayUse(n.getSecondChild(), cfgNode, output, true);
+        } else if (n.getFirstChild().isName()) {
+          // assigning to the name occurs after evaluating the default value
+          if (!conditional) {
+            removeFromUseIfLocal(n.getFirstChild().getString(), output);
+          }
+          computeMayUse(n.getSecondChild(), cfgNode, output, true);
+        } else {
+          computeMayUse(n.getSecondChild(), cfgNode, output, true);
+          computeMayUse(n.getFirstChild(), cfgNode, output, conditional);
+        }
+        break;
 
       default:
         if (NodeUtil.isAssignmentOp(n) && n.getFirstChild().isName()) {
@@ -250,6 +287,10 @@ class MaybeReachingVariableUse extends
           }
 
           computeMayUse(name.getNext(), cfgNode, output, conditional);
+        } else if (n.isAssign() && n.getFirstChild().isDestructuringPattern()) {
+          // Note: the rhs of destructuring is evaluated before the lhs
+          computeMayUse(n.getFirstChild(), cfgNode, output, conditional);
+          computeMayUse(n.getSecondChild(), cfgNode, output, conditional);
         } else {
           /*
            * We want to traverse in reverse order because we want the LAST

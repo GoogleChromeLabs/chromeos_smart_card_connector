@@ -273,7 +273,7 @@ class ReplaceStrings extends AbstractPostOrderCallback
     if (!callClassType.isBottom() && !callClassType.isSomeUnknownType()) {
       for (String declarationName : declarationNames) {
         String className = getClassFromDeclarationName(declarationName);
-        TypeI methodClassType = registry.getType(className);
+        TypeI methodClassType = registry.getGlobalType(className);
         if (methodClassType != null
             && callClassType.isSubtypeOf(methodClassType)) {
           return functions.get(declarationName);
@@ -503,7 +503,7 @@ class ReplaceStrings extends AbstractPostOrderCallback
         name,
         replacementParameters,
         colon == -1
-            ? ImmutableSet.<String>of()
+            ? ImmutableSet.of()
             : ImmutableSet.copyOf(
                 function.substring(colon + EXCLUSION_PREFIX.length()).split(",")));
   }

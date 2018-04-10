@@ -17,6 +17,7 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
 import com.google.javascript.jscomp.graph.DiGraph.DiGraphEdge;
 import com.google.javascript.jscomp.graph.LatticeElement;
@@ -263,12 +264,10 @@ class LiveVariablesAnalysis
             lhs = lhs.getLastChild();
           }
 
-          if (lhs.isName()) {
-            addToSetIfLocal(lhs, kill);
-            addToSetIfLocal(lhs, gen);
-          } else {
-            computeGenKill(lhs, gen, kill, conditional);
-          }
+          // Note that the LHS may never be assigned to or evaluated, like in:
+          //   for (x in []) {}
+          // so should not be killed.
+          computeGenKill(lhs, gen, kill, conditional);
 
           // rhs is executed only once so we don't go into it every loop.
           return;
@@ -277,21 +276,26 @@ class LiveVariablesAnalysis
       case LET:
       case CONST:
       case VAR:
-         for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
-           if (c.isName()) {
-             if (c.hasChildren()) {
-               computeGenKill(c.getFirstChild(), gen, kill, conditional);
-               if (!conditional) {
-                 addToSetIfLocal(c, kill);
-               }
-             }
-           } else {
-             Iterable<Node> allVars = NodeUtil.findLhsNodesInNode(n);
-             for (Node child : allVars) {
-               addToSetIfLocal(child, kill);
-             }
-           }
-         }
+        for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
+          if (c.isName()) {
+            if (c.hasChildren()) {
+              computeGenKill(c.getFirstChild(), gen, kill, conditional);
+              if (!conditional) {
+                addToSetIfLocal(c, kill);
+              }
+            }
+          } else {
+            checkState(c.isDestructuringLhs(), c);
+            if (!conditional) {
+              Iterable<Node> allVars = NodeUtil.findLhsNodesInNode(c);
+              for (Node lhsNode : allVars) {
+                addToSetIfLocal(lhsNode, kill);
+              }
+            }
+            computeGenKill(c.getFirstChild(), gen, kill, conditional);
+            computeGenKill(c.getSecondChild(), gen, kill, conditional);
+          }
+        }
         return;
 
       case AND:
@@ -311,7 +315,9 @@ class LiveVariablesAnalysis
       case NAME:
         if (isArgumentsName(n)) {
           markAllParametersEscaped();
-        } else {
+          } else if (!NodeUtil.isLhsByDestructuring(n)) {
+          // Only add names in destructuring patterns if they're not lvalues.
+          // e.g. "x" in "const {foo = x} = obj;"
           addToSetIfLocal(n, gen);
         }
         return;
@@ -327,6 +333,17 @@ class LiveVariablesAnalysis
             addToSetIfLocal(lhs, gen);
           }
           computeGenKill(lhs.getNext(), gen, kill, conditional);
+        } else if (n.isAssign() && n.getFirstChild().isDestructuringPattern()) {
+          if (!conditional) {
+            Iterable<Node> allVars = NodeUtil.findLhsNodesInNode(n);
+            for (Node child : allVars) {
+              if (child.isName()) {
+                addToSetIfLocal(child, kill);
+              }
+            }
+          }
+          computeGenKill(n.getFirstChild(), gen, kill, conditional);
+          computeGenKill(n.getSecondChild(), gen, kill, conditional);
         } else {
           for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
             computeGenKill(c, gen, kill, conditional);
@@ -351,11 +368,11 @@ class LiveVariablesAnalysis
     // ES6 separates the scope but if the variable is declared in the param it should be local
     // to the function body.
     if (localScope.isFunctionBlockScope()) {
-      local = localScope.isDeclaredInFunctionBlockOrParameter(name);
+      local = isDeclaredInFunctionBlockOrParameter(localScope, name);
     } else if (localScope == jsScope && jsScopeChild != null) {
-      local = jsScopeChild.isDeclaredInFunctionBlockOrParameter(name);
+      local = isDeclaredInFunctionBlockOrParameter(jsScopeChild, name);
     } else {
-      local = localScope.isDeclared(name, false);
+      local = localScope.hasOwnSlot(name);
     }
 
     if (!local) {
@@ -365,6 +382,14 @@ class LiveVariablesAnalysis
     if (!escaped.contains(var)) {
       set.set(getVarIndex(var.getName()));
     }
+  }
+
+  private static boolean isDeclaredInFunctionBlockOrParameter(Scope scope, String name) {
+    // In ES6, we create a separate container scope above the function block scope to handle
+    // default parameters. Since nothing in the function block scope is allowed to shadow
+    // the variables in the function scope, we treat the two scopes as one in this method.
+    checkState(scope.isFunctionBlockScope());
+    return scope.hasOwnSlot(name) || scope.getParent().hasOwnSlot(name);
   }
 
   /**
@@ -385,12 +410,12 @@ class LiveVariablesAnalysis
   private boolean isArgumentsName(Node n) {
     boolean childDeclared;
     if (jsScopeChild != null) {
-      childDeclared = jsScopeChild.isDeclared(ARGUMENT_ARRAY_ALIAS, false);
+      childDeclared = jsScopeChild.hasOwnSlot(ARGUMENT_ARRAY_ALIAS);
     } else {
       childDeclared = true;
     }
     return n.isName()
         && n.getString().equals(ARGUMENT_ARRAY_ALIAS)
-        && (!jsScope.isDeclared(ARGUMENT_ARRAY_ALIAS, false) || !childDeclared);
+        && (!jsScope.hasOwnSlot(ARGUMENT_ARRAY_ALIAS) || !childDeclared);
   }
 }

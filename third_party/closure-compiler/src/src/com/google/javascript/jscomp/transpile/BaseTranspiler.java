@@ -18,6 +18,7 @@ package com.google.javascript.jscomp.transpile;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CheckLevel;
 import com.google.javascript.jscomp.Compiler;
@@ -25,11 +26,13 @@ import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.DiagnosticGroup;
 import com.google.javascript.jscomp.DiagnosticType;
+import com.google.javascript.jscomp.Es6RewriteModulesToCommonJsModules;
 import com.google.javascript.jscomp.PropertyRenamingPolicy;
 import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.jscomp.VariableRenamingPolicy;
 import com.google.javascript.jscomp.bundle.TranspilationException;
+import com.google.javascript.rhino.Node;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -57,11 +60,19 @@ public final class BaseTranspiler implements Transpiler {
 
   @Override
   public String runtime() {
-    return compilerSupplier.runtime(runtimeLibraryName);
+    StringBuilder sb = new StringBuilder();
+    if (!Strings.isNullOrEmpty(runtimeLibraryName)) {
+      sb.append(compilerSupplier.runtime(runtimeLibraryName));
+    }
+    sb.append(compilerSupplier.runtime("modules"));
+    return sb.toString();
   }
 
   public static final BaseTranspiler ES5_TRANSPILER = new BaseTranspiler(
       new CompilerSupplier(), "es6_runtime");
+
+  public static final BaseTranspiler ES_MODULE_TO_CJS_TRANSPILER =
+      new BaseTranspiler(new EsmToCjsCompilerSupplier(), "");
 
   /**
    * Wraps the Compiler into a more relevant interface, making it
@@ -114,7 +125,7 @@ public final class BaseTranspiler implements Transpiler {
     }
 
     protected void setOptions(CompilerOptions options) {
-      options.setLanguageIn(LanguageMode.ECMASCRIPT_2017);
+      options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
       // TODO(sdh): It would be nice to allow people to output code in
       // strict mode.  But currently we swallow all the input language
       // strictness checks, and there are various tests that are never
@@ -134,6 +145,7 @@ public final class BaseTranspiler implements Transpiler {
       options.setSourceMapOutputPath("/dev/null");
       options.setSourceMapIncludeSourcesContent(true);
       options.setWarningLevel(ES5_WARNINGS, CheckLevel.OFF);
+      options.setTranspileEs6ModulesToCjsModules(true);
     }
 
     protected static final SourceFile EXTERNS =
@@ -141,6 +153,60 @@ public final class BaseTranspiler implements Transpiler {
     protected static final SourceFile EMPTY = SourceFile.fromCode("empty.js", "");
     protected static final DiagnosticGroup ES5_WARNINGS = new DiagnosticGroup(
         DiagnosticType.error("JSC_CANNOT_CONVERT", ""));
+  }
+
+  /**
+   * CompilerSupplier that only transforms EcmaScript Modules into a form that can be saftely
+   * transformed on a file by file basis and concatenated.
+   */
+  public static class EsmToCjsCompilerSupplier extends CompilerSupplier {
+    @Override
+    public CompileResult compile(Path path, String code) {
+      CompilerOptions options = new CompilerOptions();
+      options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
+      options.setEmitUseStrict(false);
+      options.setSourceMapOutputPath("/dev/null");
+      options.setSourceMapIncludeSourcesContent(true);
+      options.setPrettyPrint(true);
+
+      // Create a compiler and run specifically this one pass on it.
+      Compiler compiler = compiler();
+      compiler.init(
+          ImmutableList.of(),
+          ImmutableList.of(SourceFile.fromCode(path.toString(), code)),
+          options);
+      compiler.parseForCompilation();
+
+      boolean transpiled = false;
+
+      if (!compiler.hasErrors()
+          && compiler.getRoot().getSecondChild().getFirstFirstChild().isModuleBody()
+          && !compiler
+              .getRoot()
+              .getSecondChild()
+              .getFirstChild()
+              .getBooleanProp(Node.GOOG_MODULE)) {
+        new Es6RewriteModulesToCommonJsModules(compiler)
+            .process(null, compiler.getRoot().getSecondChild());
+        compiler.getRoot().getSecondChild().getFirstChild().putBooleanProp(Node.TRANSPILED, true);
+        transpiled = true;
+      }
+
+      Result result = compiler.getResult();
+      String source = compiler.toSource();
+      StringBuilder sourceMap = new StringBuilder();
+      if (result.sourceMap != null) {
+        try {
+          result.sourceMap.appendTo(sourceMap, path.toString());
+        } catch (IOException e) {
+          // impossible, and not a big deal even if it did happen.
+        }
+      }
+      if (result.errors.length > 0) {
+        throw new TranspilationException(compiler, result.errors, result.warnings);
+      }
+      return new CompileResult(source, transpiled, transpiled ? sourceMap.toString() : "");
+    }
   }
 
   /**

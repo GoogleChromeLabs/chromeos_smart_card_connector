@@ -17,15 +17,21 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.CompilerTestCase.lines;
 import static com.google.javascript.jscomp.testing.NodeSubject.assertNode;
 
+import com.google.javascript.jscomp.AbstractCompiler.MostRecentTypechecker;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.ExpressionDecomposer.DecompositionType;
+import com.google.javascript.jscomp.type.SemanticReverseAbstractInterpreter;
+import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
+import com.google.javascript.rhino.TypeI;
+import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Function;
@@ -43,12 +49,16 @@ public final class ExpressionDecomposerTest extends TestCase {
   private final Set<String> knownConstants = new HashSet<>();
   // How many times to run `moveExpression` or `exposeExpression`.
   private int times;
+  // Whether we should run type checking and test the type information in the output expression
+  private boolean shouldTestTypes;
 
   @Override
   public void setUp() {
     allowMethodCallDecomposing = false;
     knownConstants.clear();
     times = 1;
+    // Tests using ES6+ features not in the typechecker should set this option to false
+    shouldTestTypes = true;
   }
 
   public void testCanExposeExpression1() {
@@ -257,6 +267,20 @@ public final class ExpressionDecomposerTest extends TestCase {
         "yield");
   }
 
+  public void testCanExposeExpression11() {
+    // expressions in parameter lists
+    helperCanExposeExpression(DecompositionType.UNDECOMPOSABLE, "function f(x = foo()) {}", "foo");
+
+    helperCanExposeExpression(
+        DecompositionType.UNDECOMPOSABLE, "function f({[foo()]: x}) {}", "foo");
+
+    helperCanExposeExpression(
+        DecompositionType.UNDECOMPOSABLE, "(function (x = foo()) {})()", "foo");
+
+    helperCanExposeExpression(
+        DecompositionType.UNDECOMPOSABLE, "(function ({[foo()]: x}) {})()", "foo");
+  }
+
   public void testMoveExpression1() {
     // There isn't a reason to do this, but it works.
     helperMoveExpression("foo()", "foo", "var result$jscomp$0 = foo(); result$jscomp$0;");
@@ -277,6 +301,7 @@ public final class ExpressionDecomposerTest extends TestCase {
   }
 
   public void testMoveExpression4() {
+    shouldTestTypes = false;
     helperMoveExpression(
         "const x = foo()",
         "foo",
@@ -284,6 +309,7 @@ public final class ExpressionDecomposerTest extends TestCase {
   }
 
     public void testMoveExpression5() {
+    shouldTestTypes = false;
     helperMoveExpression(
         "let x = foo()",
         "foo",
@@ -364,6 +390,7 @@ public final class ExpressionDecomposerTest extends TestCase {
   }
 
   public void testExposeExpression4() {
+    shouldTestTypes = false;
     helperExposeExpression(
         "const x = 1 ? foo() : 0",
         "foo",
@@ -372,6 +399,7 @@ public final class ExpressionDecomposerTest extends TestCase {
   }
 
   public void testExposeExpression5() {
+    shouldTestTypes = false;
     helperExposeExpression(
         "let x = 1 ? foo() : 0",
         "foo",
@@ -402,6 +430,7 @@ public final class ExpressionDecomposerTest extends TestCase {
   }
 
   public void testExposeExpression9() {
+    shouldTestTypes = false;
     helperExposeExpression(
         "const x = 1 + (goo() && foo())",
         "foo",
@@ -410,6 +439,7 @@ public final class ExpressionDecomposerTest extends TestCase {
   }
 
   public void testExposeExpression10() {
+    shouldTestTypes = false;
     helperExposeExpression(
         "let x = 1 + (goo() && foo())",
         "foo",
@@ -487,7 +517,27 @@ public final class ExpressionDecomposerTest extends TestCase {
             "temp_const$jscomp$0.call(temp_const$jscomp$1, y());"));
   }
 
+  public void testExposeExpression18() {
+    allowMethodCallDecomposing = true;
+    shouldTestTypes = false;
+    helperExposeExpression(
+        lines(
+            "const {a, b, c} = condition ?",
+            "  y() :",
+            "  {a: 0, b: 0, c: 1};"),
+        "y",
+        lines(
+            "var temp$jscomp$0;",
+            "if (condition) {",
+            "  temp$jscomp$0 = y();",
+            "} else {",
+            "  temp$jscomp$0 = {a: 0, b: 0, c: 1};",
+            "}",
+            "const {a, b, c} = temp$jscomp$0;"));
+  }
+
   public void testMoveClass1() {
+    shouldTestTypes = false;
     helperMoveExpression(
         "alert(class X {});",
         ExpressionDecomposerTest::findClass,
@@ -495,6 +545,7 @@ public final class ExpressionDecomposerTest extends TestCase {
   }
 
   public void testMoveClass2() {
+    shouldTestTypes = false;
     helperMoveExpression(
         "console.log(1, 2, class X {});",
         ExpressionDecomposerTest::findClass,
@@ -729,7 +780,7 @@ public final class ExpressionDecomposerTest extends TestCase {
   }
 
   public void testFindExpressionRoot5() {
-    assertThat(findExpressionRoot("for (let x = f();;) {}", "f")).isNull();
+    assertNode(findExpressionRoot("for (let x = f();;) {}", "f")).hasType(Token.FOR);
   }
 
   /** Test case helpers. */
@@ -745,7 +796,11 @@ public final class ExpressionDecomposerTest extends TestCase {
     Node call = findCall(tree, name);
     checkNotNull(call);
 
-    return ExpressionDecomposer.findExpressionRoot(call);
+    Node root = ExpressionDecomposer.findExpressionRoot(call);
+    if (root != null) {
+      checkState(NodeUtil.isStatement(root), root);
+    }
+    return root;
   }
 
   private void helperCanExposeFunctionExpression(
@@ -794,7 +849,7 @@ public final class ExpressionDecomposerTest extends TestCase {
       String code,
       String fnName,
       String expectedResult) {
-    helperExposeExpression(code, (tree) -> findCall(tree, fnName), expectedResult);
+    helperExposeExpression(code, tree -> findCall(tree, fnName), expectedResult);
   }
 
   private void helperExposeExpression(
@@ -809,7 +864,12 @@ public final class ExpressionDecomposerTest extends TestCase {
     decomposer.setResultNamePrefix("result");
     Node expectedRoot = parse(compiler, expectedResult);
     Node tree = parse(compiler, code);
+    Node originalTree = tree.cloneTree();
     assertNotNull(tree);
+
+    if (shouldTestTypes) {
+      processForTypecheck(compiler, tree);
+    }
 
     Node expr = nodeFinder.apply(tree);
     assertWithMessage("Expected node was not found.").that(expr).isNotNull();
@@ -826,13 +886,25 @@ public final class ExpressionDecomposerTest extends TestCase {
     assertNull("\nExpected: " + compiler.toSource(expectedRoot)
         + "\nResult:   " + compiler.toSource(tree)
         + "\n" + explanation, explanation);
+
+    if (shouldTestTypes) {
+      Node trueExpr = nodeFinder.apply(originalTree);
+
+      compiler.resetUniqueNameId();
+      for (int i = 0; i < times; i++) {
+        decomposer.exposeExpression(trueExpr);
+      }
+      processForTypecheck(compiler, originalTree);
+
+      checkTypeStringsEqualAsTree(originalTree, tree);
+    }
   }
 
   private void helperMoveExpression(
       String code,
       String fnName,
       String expectedResult) {
-    helperMoveExpression(code, (tree) -> findCall(tree, fnName), expectedResult);
+    helperMoveExpression(code, tree -> findCall(tree, fnName), expectedResult);
   }
 
   private void helperMoveExpression(
@@ -848,7 +920,12 @@ public final class ExpressionDecomposerTest extends TestCase {
     decomposer.setResultNamePrefix("result");
     Node expectedRoot = parse(compiler, expectedResult);
     Node tree = parse(compiler, code);
+    Node originalTree = tree.cloneTree();
     assertNotNull(tree);
+
+    if (shouldTestTypes) {
+      processForTypecheck(compiler, tree);
+    }
 
     Node expr = nodeFinder.apply(tree);
     assertWithMessage("Expected node was not found.").that(expr).isNotNull();
@@ -862,6 +939,45 @@ public final class ExpressionDecomposerTest extends TestCase {
     assertNull("\nExpected: " + compiler.toSource(expectedRoot)
         + "\nResult:   " + compiler.toSource(tree)
         + "\n" + explanation, explanation);
+
+    if (shouldTestTypes) {
+      // find a basis for comparison:
+      Node originalExpr = nodeFinder.apply(originalTree);
+
+      compiler.resetUniqueNameId();
+      for (int i = 0; i < times; i++) {
+        decomposer.moveExpression(originalExpr);
+      }
+      processForTypecheck(compiler, originalTree);
+
+      checkTypeStringsEqualAsTree(originalTree, tree);
+    }
+  }
+
+  private void checkTypeStringsEqualAsTree(Node rootExpected, Node rootActual) {
+    TypeI expectedType = rootExpected.getTypeI();
+    TypeI actualType = rootActual.getTypeI();
+
+    if (expectedType == null || actualType == null) {
+      assertEquals("Expected " + rootExpected + " but got " + rootActual, expectedType, actualType);
+    } else if (expectedType.isUnknownType() && actualType.isUnknownType()) {
+      // continue
+    } else {
+      // we can't compare actual equality because the types are from different runs of the
+      // type inference, so we just compare the strings.
+      assertEquals(
+          "Expected " + rootExpected + " but got " + rootActual,
+          expectedType.toAnnotationString(TypeI.Nullability.EXPLICIT),
+          actualType.toAnnotationString(TypeI.Nullability.EXPLICIT));
+    }
+
+    Node child1 = rootExpected.getFirstChild();
+    Node child2 = rootActual.getFirstChild();
+    while (child1 != null) {
+      checkTypeStringsEqualAsTree(child1, child2);
+      child1 = child1.getNext();
+      child2 = child2.getNext();
+    }
   }
 
   private Compiler getCompiler() {
@@ -872,6 +988,14 @@ public final class ExpressionDecomposerTest extends TestCase {
     options.setAllowMethodCallDecomposing(allowMethodCallDecomposing);
     compiler.initOptions(options);
     return compiler;
+  }
+
+  private void processForTypecheck(AbstractCompiler compiler, Node jsRoot) {
+    Node scriptRoot = IR.root(jsRoot);
+    compiler.setMostRecentTypechecker(MostRecentTypechecker.OTI);
+    JSTypeRegistry registry = compiler.getTypeRegistry();
+    (new TypeCheck(compiler, new SemanticReverseAbstractInterpreter(registry), registry))
+        .processForTesting(null, scriptRoot.getFirstChild());
   }
 
   @Nullable

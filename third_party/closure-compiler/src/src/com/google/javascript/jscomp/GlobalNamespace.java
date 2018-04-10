@@ -125,11 +125,6 @@ class GlobalNamespace
 
   @Override
   public TypeI getTypeOfThis() {
-    return getTypeIOfThis();
-  }
-
-  @Override
-  public final TypeI getTypeIOfThis() {
     return compiler.getTypeIRegistry().getNativeObjectType(GLOBAL_THIS);
   }
 
@@ -429,6 +424,13 @@ class GlobalNamespace
           }
           name = n.getQualifiedName();
           break;
+        case CALL:
+          if (isObjectHasOwnPropertyCall(n)) {
+            String qname = n.getFirstFirstChild().getQualifiedName();
+            Name globalName = getOrCreateName(qname, true);
+            globalName.usedHasOwnProperty = true;
+          }
+          return;
         default:
           return;
       }
@@ -795,6 +797,30 @@ class GlobalNamespace
       handleGet(module, scope, n, parent, name, type, true);
     }
 
+    /**
+     * Updates our representation of the global namespace to reflect a read of a global name.
+     *
+     * @param module The current module
+     * @param scope The current scope
+     * @param n The node currently being visited
+     * @param parent {@code n}'s parent
+     * @param name The global name (e.g. "a" or "a.b.c.d")
+     * @param type The reference type
+     */
+    void handleGet(
+        JSModule module,
+        Scope scope,
+        Node n,
+        Node parent,
+        String name,
+        Ref.Type type,
+        boolean shouldCreateProp) {
+      Name nameObj = getOrCreateName(name, shouldCreateProp);
+
+      // No need to look up additional ancestors, since they won't be used.
+      nameObj.addRef(new Ref(module, scope, n, nameObj, type, currentPreOrderIndex++));
+    }
+
     private boolean isClassDefiningCall(Node callNode) {
       CodingConvention convention = compiler.getCodingConvention();
       // Look for goog.inherits, goog.mixin
@@ -807,6 +833,23 @@ class GlobalNamespace
       // Look for calls to goog.addSingletonGetter calls.
       String className = convention.getSingletonGetterClassName(callNode);
       return className != null;
+    }
+
+    /** Detect calls of the form a.b.hasOwnProperty(c); that prevent property collapsing on a.b */
+    private boolean isObjectHasOwnPropertyCall(Node callNode) {
+      checkArgument(callNode.isCall(), callNode);
+      if (!callNode.hasTwoChildren()) {
+        return false;
+      }
+      Node fn = callNode.getFirstChild();
+      if (!fn.isGetProp()) {
+        return false;
+      }
+      Node callee = fn.getFirstChild();
+      Node method = fn.getSecondChild();
+      return method.isString()
+          && "hasOwnProperty".equals(method.getString())
+          && callee.isQualifiedName();
     }
 
     /**
@@ -871,26 +914,6 @@ class GlobalNamespace
         prev = anc;
       }
       return Ref.Type.ALIASING_GET;
-    }
-
-    /**
-     * Updates our representation of the global namespace to reflect a read
-     * of a global name.
-     *
-     * @param module The current module
-     * @param scope The current scope
-     * @param n The node currently being visited
-     * @param parent {@code n}'s parent
-     * @param name The global name (e.g. "a" or "a.b.c.d")
-     * @param type The reference type
-     */
-    void handleGet(JSModule module, Scope scope, Node n, Node parent,
-        String name, Ref.Type type, boolean shouldCreateProp) {
-      Name nameObj = getOrCreateName(name, shouldCreateProp);
-
-      // No need to look up additional ancestors, since they won't be used.
-      nameObj.addRef(
-          new Ref(module, scope, n, nameObj, type, currentPreOrderIndex++));
     }
 
     /**
@@ -1020,6 +1043,7 @@ class GlobalNamespace
     private boolean declaredType = false;
     private boolean isDeclared = false;
     private boolean isModuleProp = false;
+    private boolean usedHasOwnProperty = false;
     int globalSets = 0;
     int localSets = 0;
     int localSetsWithNoCollapse = 0;
@@ -1087,8 +1111,8 @@ class GlobalNamespace
     }
 
     @Override
-    public final TypeI getTypeI() {
-      return null;
+    public StaticTypedScope<TypeI> getScope() {
+      throw new UnsupportedOperationException();
     }
 
     void addRef(Ref ref) {
@@ -1180,7 +1204,7 @@ class GlobalNamespace
     }
 
     List<Ref> getRefs() {
-      return refs == null ? ImmutableList.<Ref>of() : refs;
+      return refs == null ? ImmutableList.of() : refs;
     }
 
     void addRefInternal(Ref ref) {
@@ -1300,6 +1324,10 @@ class GlobalNamespace
       }
 
       if (isCollapsingExplicitlyDenied()) {
+        return false;
+      }
+
+      if (usedHasOwnProperty) {
         return false;
       }
 

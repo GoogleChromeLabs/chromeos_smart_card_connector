@@ -136,6 +136,34 @@ public final class FunctionArgumentInjectorTest extends TestCase {
             findModifiedParameters(parseFunction("function f(a){ { const a = 1; } }"))).isEmpty();
   }
 
+  public void testFindModifiedParameters14() {
+    assertThat(findModifiedParameters(parseFunction("function f(a){ for (a in []) {} }")))
+        .containsExactly("a");
+  }
+
+  // Note: This is technically incorrect. The parameter a is shadowed, not modified. However, this
+  // will just cause the function inliner to do a little bit of unnecessary work; it will not
+  // result in incorrect output.
+  public void testFindModifiedParameters15() {
+    assertThat(findModifiedParameters(parseFunction("function f(a){ for (const a in []) {} }")))
+        .containsExactly("a");
+  }
+
+  public void testFindModifiedParameters16() {
+    assertThat(findModifiedParameters(parseFunction("function f(a){ for (a of []) {} }")))
+        .containsExactly("a");
+  }
+
+  public void testFindModifiedParameters17() {
+    assertThat(findModifiedParameters(parseFunction("function f(a){ [a] = [2]; }")))
+        .containsExactly("a");
+  }
+
+  public void testFindModifiedParameters18() {
+    assertThat(findModifiedParameters(parseFunction("function f(a){ var [a] = [2]; }")))
+        .containsExactly("a");
+  }
+
   public void testMaybeAddTempsForCallArguments1() {
     // Parameters with side-effects must be executed
     // even if they aren't referenced.

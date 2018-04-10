@@ -18,8 +18,10 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkArgument;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.CompilerInput.ModuleType;
 import com.google.javascript.jscomp.Es6RewriteModules.FindGoogProvideOrGoogModule;
+import com.google.javascript.jscomp.deps.DependencyInfo.Require;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -29,10 +31,11 @@ import com.google.javascript.rhino.Token;
  * support a strict depth-first dependency ordering. Marks an input as providing its module name.
  *
  * <p>Discovers dependencies from:
+ *
  * <ul>
- *   <li> goog.require calls
- *   <li> ES6 import statements
- *   <li> CommonJS require statements
+ *   <li>goog.require calls
+ *   <li>ES6 import statements
+ *   <li>CommonJS require statements
  * </ul>
  *
  * <p>The order of dependency references is preserved so that a deterministic depth-first ordering
@@ -40,17 +43,23 @@ import com.google.javascript.rhino.Token;
  *
  * @author chadkillingsworth@gmail.com (Chad Killingsworth)
  */
-public class FindModuleDependencies extends NodeTraversal.AbstractPostOrderCallback {
+public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
   private final AbstractCompiler compiler;
   private final boolean supportsEs6Modules;
   private final boolean supportsCommonJsModules;
   private ModuleType moduleType = ModuleType.NONE;
+  private Scope dynamicImportScope = null;
+  private final ImmutableMap<String, String> inputPathByWebpackId;
 
   FindModuleDependencies(
-      AbstractCompiler compiler, boolean supportsEs6Modules, boolean supportsCommonJsModules) {
+      AbstractCompiler compiler,
+      boolean supportsEs6Modules,
+      boolean supportsCommonJsModules,
+      ImmutableMap<String, String> inputPathByWebpackId) {
     this.compiler = compiler;
     this.supportsEs6Modules = supportsEs6Modules;
     this.supportsCommonJsModules = supportsCommonJsModules;
+    this.inputPathByWebpackId = inputPathByWebpackId;
   }
 
   public void process(Node root) {
@@ -65,22 +74,42 @@ public class FindModuleDependencies extends NodeTraversal.AbstractPostOrderCallb
     // and add "goog" as a dependency. If "goog" is a dependency of the
     // file we add it here to the ordered requires so that it's always
     // first.
-    if (input.getRequires().contains("goog")) {
-      input.addOrderedRequire("goog");
+    if (input.getRequires().contains(Require.BASE)) {
+      input.addOrderedRequire(Require.BASE);
     }
 
     NodeTraversal.traverseEs6(compiler, root, this);
 
     if (moduleType == ModuleType.ES6) {
       convertToEs6Module(root, true);
+    } else if (moduleType == ModuleType.NONE
+        && inputPathByWebpackId != null
+        && inputPathByWebpackId.containsValue(input.getPath().toString())) {
+      moduleType = ModuleType.IMPORTED_SCRIPT;
     }
+
     input.addProvide(input.getPath().toModuleName());
     input.setJsModuleType(moduleType);
     input.setHasFullParseDependencyInfo(true);
   }
 
   @Override
+  public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+    if (supportsCommonJsModules
+        && n.isFunction()
+        && ProcessCommonJSModules.isCommonJsDynamicImportCallback(
+            n, compiler.getOptions().moduleResolutionMode)) {
+      if (dynamicImportScope == null) {
+        dynamicImportScope = t.getScope();
+      }
+    }
+
+    return true;
+  }
+
+  @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
+    ModuleLoader.ResolutionMode resolutionMode = compiler.getOptions().moduleResolutionMode;
     if (parent == null
         || NodeUtil.isControlStructure(parent)
         || NodeUtil.isStatementBlock(parent)) {
@@ -108,10 +137,11 @@ public class FindModuleDependencies extends NodeTraversal.AbstractPostOrderCallb
       moduleType = ModuleType.ES6;
       addEs6ModuleImportToGraph(t, n);
     } else if (supportsCommonJsModules) {
-      if (moduleType != ModuleType.GOOG && ProcessCommonJSModules.isCommonJsExport(t, n)) {
+      if (moduleType != ModuleType.GOOG
+          && ProcessCommonJSModules.isCommonJsExport(t, n, resolutionMode)) {
         moduleType = ModuleType.COMMONJS;
-      } else if (ProcessCommonJSModules.isCommonJsImport(n)) {
-        String path = ProcessCommonJSModules.getCommonJsImportPath(n);
+      } else if (ProcessCommonJSModules.isCommonJsImport(n, resolutionMode)) {
+        String path = ProcessCommonJSModules.getCommonJsImportPath(n, resolutionMode);
 
         ModuleLoader.ModulePath modulePath =
             t.getInput()
@@ -119,7 +149,19 @@ public class FindModuleDependencies extends NodeTraversal.AbstractPostOrderCallb
                 .resolveJsModule(path, n.getSourceFileName(), n.getLineno(), n.getCharno());
 
         if (modulePath != null) {
-          t.getInput().addOrderedRequire(modulePath.toModuleName());
+          if (dynamicImportScope != null
+              || (n.getParent().isCall()
+                  && n.getPrevious() != null
+                  && n.getPrevious().isGetProp()
+                  && n.getPrevious().getFirstChild().isCall()
+                  && n.getPrevious().getFirstFirstChild().isQualifiedName()
+                  && n.getPrevious()
+                      .getFirstFirstChild()
+                      .matchesQualifiedName("__webpack_require__.e"))) {
+            t.getInput().addDynamicRequire(modulePath.toModuleName());
+          } else {
+            t.getInput().addOrderedRequire(Require.commonJs(modulePath.toModuleName(), path));
+          }
         }
       }
 
@@ -134,21 +176,20 @@ public class FindModuleDependencies extends NodeTraversal.AbstractPostOrderCallb
         && n.getSecondChild().isString()) {
       String namespace = n.getSecondChild().getString();
       if (namespace.startsWith("goog.")) {
-        t.getInput().addOrderedRequire("goog");
+        t.getInput().addOrderedRequire(Require.BASE);
       }
-      t.getInput().addOrderedRequire(namespace);
+      t.getInput().addOrderedRequire(Require.googRequireSymbol(namespace));
     }
   }
 
-  /**
-   * Convert a script into a module by marking it's root node as a module body. This allows a script
-   * which is imported as a module to be scoped as a module even without "import" or "export"
-   * statements. Fails if the file contains a goog.provide or goog.module.
-   *
-   * @return True, if the file is now an ES6 module. False, if the file must remain a script.
-   */
-  public boolean convertToEs6Module(Node root) {
-    return this.convertToEs6Module(root, false);
+  @Override
+  public void enterScope(NodeTraversal t) {}
+
+  @Override
+  public void exitScope(NodeTraversal t) {
+    if (t.getScope() == dynamicImportScope) {
+      dynamicImportScope = null;
+    }
   }
 
   /**
@@ -157,9 +198,9 @@ public class FindModuleDependencies extends NodeTraversal.AbstractPostOrderCallb
   private void addEs6ModuleImportToGraph(NodeTraversal t, Node n) {
     String moduleName = getEs6ModuleNameFromImportNode(t, n);
     if (moduleName.startsWith("goog.")) {
-      t.getInput().addOrderedRequire("goog");
+      t.getInput().addOrderedRequire(Require.BASE);
     }
-    t.getInput().addOrderedRequire(moduleName);
+    t.getInput().addOrderedRequire(Require.es6Import(moduleName, n.getLastChild().getString()));
   }
 
   /**

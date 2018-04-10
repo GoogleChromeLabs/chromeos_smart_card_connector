@@ -184,11 +184,11 @@ public final class TypeCheckFunctionCheckTest extends CompilerTestCase {
     testSame(METHOD_DEFS + "Bar();");
 
     // Extern constructor calls require "new" keyword
-    testSame(METHOD_DEFS, "Foo();", TypeCheck.CONSTRUCTOR_NOT_CALLABLE);
+    test(externs(METHOD_DEFS), srcs("Foo();"), warning(TypeCheck.CONSTRUCTOR_NOT_CALLABLE));
 
     // Extern constructor with explicit return type can be called without
     // the "new" keyword
-    testSame(METHOD_DEFS, "Bar();");
+    testSame(externs(METHOD_DEFS), srcs("Bar();"));
   }
 
   public void assertOk(String params, String arguments) {

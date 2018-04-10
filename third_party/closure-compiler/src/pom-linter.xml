@@ -13,7 +13,10 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd"
+  >
   <modelVersion>4.0.0</modelVersion>
 
   <groupId>com.google.javascript</groupId>
@@ -21,7 +24,7 @@
   <packaging>jar</packaging>
 
   <name>Closure Compiler Linter</name>
-  <version>v20180101</version>
+  <version>1.0-SNAPSHOT</version>
 
   <url>https://developers.google.com/closure/compiler/</url>
   <description>
@@ -41,7 +44,7 @@
   <parent>
     <groupId>com.google.javascript</groupId>
     <artifactId>closure-compiler-main</artifactId>
-    <version>v20180101</version>
+    <version>1.0-SNAPSHOT</version>
     <relativePath>pom-main.xml</relativePath>
   </parent>
 
@@ -74,7 +77,7 @@
             <configuration>
               <transformers>
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                  <mainClass>com.google.javascript.jscomp.Linter</mainClass>
+                  <mainClass>com.google.javascript.jscomp.LinterMain</mainClass>
                 </transformer>
               </transformers>
             </configuration>

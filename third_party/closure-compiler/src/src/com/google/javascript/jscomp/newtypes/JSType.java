@@ -21,7 +21,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.GwtIncompatible;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
@@ -1206,11 +1205,6 @@ public abstract class JSType implements TypeI, FunctionTypeI, ObjectTypeI {
     return isSubtypeOfHelper(false, other, SubtypeCache.create(), null);
   }
 
-  @Override
-  public final boolean isSubtypeOf(TypeI other) {
-    return isSubtypeOf(other, SubtypeCache.create());
-  }
-
   public static MismatchInfo whyNotSubtypeOf(JSType found, JSType expected) {
     if (found.isSingletonObj() && expected.isSingletonObj()) {
       MismatchInfo[] boxedInfo = new MismatchInfo[1];
@@ -1228,6 +1222,11 @@ public abstract class JSType implements TypeI, FunctionTypeI, ObjectTypeI {
       return boxedInfo[0];
     }
     return null;
+  }
+
+  @Override
+  public final boolean isSubtypeOf(TypeI other) {
+    return isSubtypeOf(other, SubtypeCache.create());
   }
 
   final boolean isSubtypeOf(TypeI other, SubtypeCache subSuperMap) {
@@ -1939,14 +1938,7 @@ public abstract class JSType implements TypeI, FunctionTypeI, ObjectTypeI {
   }
 
   private List<TypeI> transformTypeParamsToTypeVars(List<String> names) {
-    return Lists.transform(
-        names,
-        new Function<String, TypeI>() {
-          @Override
-          public TypeI apply(String name) {
-            return JSType.fromTypeVar(commonTypes, name);
-          }
-        });
+    return Lists.transform(names, name -> JSType.fromTypeVar(commonTypes, name));
   }
 
   @Override

@@ -35,6 +35,7 @@ import com.google.javascript.jscomp.CheckConformance.Rule;
 import com.google.javascript.jscomp.CodingConvention.AssertionFunctionSpec;
 import com.google.javascript.jscomp.ConformanceRules.AbstractRule;
 import com.google.javascript.jscomp.ConformanceRules.ConformanceResult;
+import com.google.javascript.jscomp.Requirement.Severity;
 import com.google.javascript.jscomp.Requirement.Type;
 import com.google.javascript.jscomp.parsing.JsDocInfoParser;
 import com.google.javascript.rhino.FunctionTypeI;
@@ -122,11 +123,13 @@ public final class ConformanceRules {
   public abstract static class AbstractRule implements Rule {
     final AbstractCompiler compiler;
     final String message;
+    final Severity severity;
     final ImmutableList<String> whitelist;
     final ImmutableList<String> onlyApplyTo;
     @Nullable final Pattern whitelistRegexp;
     @Nullable final Pattern onlyApplyToRegexp;
     final boolean reportLooseTypeViolations;
+    final TypeMatchingStrategy typeMatchingStrategy;
 
     public AbstractRule(AbstractCompiler compiler, Requirement requirement)
         throws InvalidRequirementSpec {
@@ -135,6 +138,11 @@ public final class ConformanceRules {
       }
       this.compiler = compiler;
       message = requirement.getErrorMessage();
+      if (requirement.getSeverity() == Severity.UNSPECIFIED) {
+        severity = Severity.WARNING;
+      } else {
+        severity = requirement.getSeverity();
+      }
       whitelist = ImmutableList.copyOf(requirement.getWhitelistList());
       whitelistRegexp = buildPattern(
           requirement.getWhitelistRegexpList());
@@ -142,6 +150,22 @@ public final class ConformanceRules {
       onlyApplyToRegexp = buildPattern(
           requirement.getOnlyApplyToRegexpList());
       reportLooseTypeViolations = requirement.getReportLooseTypeViolations();
+      typeMatchingStrategy = getTypeMatchingStrategy(requirement);
+    }
+
+    private static TypeMatchingStrategy getTypeMatchingStrategy(Requirement requirement) {
+      switch (requirement.getTypeMatchingStrategy()) {
+        case LOOSE:
+          return TypeMatchingStrategy.LOOSE;
+        case STRICT_NULLABILITY:
+          return TypeMatchingStrategy.STRICT_NULLABILITY;
+        case SUBTYPES:
+          return TypeMatchingStrategy.SUBTYPES;
+        case EXACT:
+          return TypeMatchingStrategy.EXACT;
+        default:
+          throw new IllegalStateException("Unknown TypeMatchingStrategy");
+      }
     }
 
     @Nullable
@@ -220,9 +244,19 @@ public final class ConformanceRules {
      */
     protected void report(
         NodeTraversal t, Node n, ConformanceResult result) {
-      DiagnosticType msg = (result.level == ConformanceLevel.VIOLATION)
-          ? CheckConformance.CONFORMANCE_VIOLATION
-          : CheckConformance.CONFORMANCE_POSSIBLE_VIOLATION;
+      DiagnosticType msg;
+      if (severity == Severity.ERROR) {
+        // Always report findings that are errors, even if the types are too loose to be certain.
+        // TODO(bangert): If this causes problems, add another severity category that only
+        // errors when certain.
+        msg = CheckConformance.CONFORMANCE_ERROR;
+      } else {
+        if (result.level == ConformanceLevel.VIOLATION) {
+          msg = CheckConformance.CONFORMANCE_VIOLATION;
+        } else {
+          msg = CheckConformance.CONFORMANCE_POSSIBLE_VIOLATION;
+        }
+      }
       String separator = (result.note.isEmpty())
           ? ""
           : "\n";
@@ -304,7 +338,7 @@ public final class ConformanceRules {
       List<TypeI> types = new ArrayList<>();
 
       for (String typeName : typeNames) {
-        TypeI type = registry.getType(typeName);
+        TypeI type = registry.getGlobalType(typeName);
         if (type != null) {
           types.add(type);
         }
@@ -524,7 +558,7 @@ public final class ConformanceRules {
     private ConformanceResult checkConformance(NodeTraversal t, Node propAccess, Property prop) {
       if (isCandidatePropUse(propAccess, prop)) {
         TypeIRegistry registry = t.getCompiler().getTypeIRegistry();
-        TypeI typeWithBannedProp = registry.getType(prop.type);
+        TypeI typeWithBannedProp = registry.getGlobalType(prop.type);
         Node receiver = propAccess.getFirstChild();
         if (typeWithBannedProp != null && receiver.getTypeI() != null) {
           TypeI foundType = receiver.getTypeI().restrictByNotNullOrUndefined();
@@ -866,24 +900,17 @@ public final class ConformanceRules {
       return ConformanceResult.CONFORMANCE;
     }
 
-    private boolean matchesProp(Node n, Restriction r) {
-      return n.isGetProp() && n.getLastChild().getString().equals(r.property);
-    }
-
     private ConformanceResult checkConformance(
         NodeTraversal t, Node n, Restriction r, boolean isCallInvocation) {
       TypeIRegistry registry = t.getCompiler().getTypeIRegistry();
-      TypeI methodClassType = registry.getType(r.type);
-      Node lhs = isCallInvocation
-          ? n.getFirstFirstChild()
-          : n.getFirstChild();
+      TypeI methodClassType = registry.getGlobalType(r.type);
+      Node lhs = isCallInvocation ? n.getFirstFirstChild() : n.getFirstChild();
       if (methodClassType != null && lhs.getTypeI() != null) {
         TypeI targetType = lhs.getTypeI().restrictByNotNullOrUndefined();
         if (targetType.isUnknownType()
-           || targetType.isUnresolved()
-           || targetType.isTop()
-           || targetType.isEquivalentTo(
-               registry.getNativeType(JSTypeNative.OBJECT_TYPE))) {
+            || targetType.isUnresolved()
+            || targetType.isTop()
+            || targetType.isEquivalentTo(registry.getNativeType(JSTypeNative.OBJECT_TYPE))) {
           if (reportLooseTypeViolations
               && !ConformanceUtil.validateCall(
                   compiler, n.getParent(), r.restrictedCallType, isCallInvocation)) {
@@ -897,6 +924,10 @@ public final class ConformanceRules {
         }
       }
       return ConformanceResult.CONFORMANCE;
+    }
+
+    private boolean matchesProp(Node n, Restriction r) {
+      return n.isGetProp() && n.getLastChild().getString().equals(r.property);
     }
 
     /**
@@ -971,8 +1002,7 @@ public final class ConformanceRules {
         }
         Node templateRoot = parseRoot.getFirstChild();
         TemplateAstMatcher astMatcher =
-            new TemplateAstMatcher(
-                compiler.getTypeIRegistry(), templateRoot, TypeMatchingStrategy.LOOSE);
+            new TemplateAstMatcher(compiler.getTypeIRegistry(), templateRoot, typeMatchingStrategy);
         builder.add(astMatcher);
       }
 
@@ -1131,7 +1161,7 @@ public final class ConformanceRules {
     public BanThrowOfNonErrorTypes(AbstractCompiler compiler, Requirement requirement)
         throws InvalidRequirementSpec {
       super(compiler, requirement);
-      errorObjType = compiler.getTypeIRegistry().getType("Error");
+      errorObjType = compiler.getTypeIRegistry().getGlobalType("Error");
     }
 
     @Override
@@ -1359,26 +1389,33 @@ public final class ConformanceRules {
       if (n.isGetProp()) {
         Node target = n.getFirstChild();
         TypeI type = target.getTypeI();
-        if (type != null && !conforms(type) && !isTypeImmediatelyTightened(n)) {
-          return ConformanceResult.VIOLATION;
+        TypeI nonConformingPart = getNonConformingPart(type);
+        if (nonConformingPart != null && !isTypeImmediatelyTightened(n)) {
+          return new ConformanceResult(
+              ConformanceLevel.VIOLATION,
+              "Reference to type '" + nonConformingPart + "' never resolved.");
         }
       }
       return ConformanceResult.CONFORMANCE;
     }
 
-    private static boolean conforms(TypeI type) {
+    private static @Nullable TypeI getNonConformingPart(TypeI type) {
+      if (type == null) {
+        return null;
+      }
       if (type.isUnionType()) {
         // unwrap union types which might contain unresolved type name
         // references for example {Foo|undefined}
         for (TypeI part : type.getUnionMembers()) {
-          if (!conforms(part)) {
-            return false;
+          TypeI nonConformingPart = getNonConformingPart(part);
+          if (nonConformingPart != null) {
+            return nonConformingPart;
           }
         }
-        return true;
-      } else {
-        return !type.isUnresolved();
+      } else if (type.isUnresolved()) {
+        return type;
       }
+      return null;
     }
   }
 
@@ -1391,9 +1428,11 @@ public final class ConformanceRules {
 
     @Override
     protected ConformanceResult checkConformance(NodeTraversal t, Node n) {
-      TypeI type = n.getTypeI();
-      if (type != null && !BanUnresolvedType.conforms(type) && !isTypeImmediatelyTightened(n)) {
-        return ConformanceResult.VIOLATION;
+      TypeI nonConformingPart = BanUnresolvedType.getNonConformingPart(n.getTypeI());
+      if (nonConformingPart != null && !isTypeImmediatelyTightened(n)) {
+        return new ConformanceResult(
+            ConformanceLevel.VIOLATION,
+            "Reference to type '" + nonConformingPart + "' never resolved.");
       }
       return ConformanceResult.CONFORMANCE;
     }
@@ -1485,8 +1524,8 @@ public final class ConformanceRules {
       if (bannedTags.isEmpty()) {
         throw new InvalidRequirementSpec("Specify one or more values.");
       }
-      domHelperType = compiler.getTypeIRegistry().getType("goog.dom.DomHelper");
-      documentType = compiler.getTypeIRegistry().getType("Document");
+      domHelperType = compiler.getTypeIRegistry().getGlobalType("goog.dom.DomHelper");
+      documentType = compiler.getTypeIRegistry().getGlobalType("Document");
     }
 
     @Override
@@ -1557,7 +1596,7 @@ public final class ConformanceRules {
       if (bannedTagAttrs.isEmpty()) {
         throw new InvalidRequirementSpec("Specify one or more values.");
       }
-      domHelperType = compiler.getTypeIRegistry().getType("goog.dom.DomHelper");
+      domHelperType = compiler.getTypeIRegistry().getGlobalType("goog.dom.DomHelper");
       classNameTypes = compiler.getTypeIRegistry().createUnionType(ImmutableList.of(
           compiler.getTypeIRegistry().getNativeType(JSTypeNative.STRING_TYPE),
           compiler.getTypeIRegistry().getNativeType(JSTypeNative.ARRAY_TYPE),
@@ -1578,9 +1617,15 @@ public final class ConformanceRules {
       Collection<String> tagNames = getTagNames(n.getSecondChild());
       Node attrs = n.getChildAtIndex(2);
       TypeI attrsType = attrs.getTypeI();
+
+      // TODO(tbreisacher): Remove this after the typechecker understands ES6.
+      if (attrsType == null) {
+        // Type information is not available; don't run this check.
+        return ConformanceResult.CONFORMANCE;
+      }
+
       // String or array attribute sets the class.
-      boolean isClassName =
-          attrsType != null && !attrsType.isUnknownType() && attrsType.isSubtypeOf(classNameTypes);
+      boolean isClassName = !attrsType.isUnknownType() && attrsType.isSubtypeOf(classNameTypes);
 
       if (attrs.isNull() || (attrsType != null && attrsType.isVoidType())) {
         // goog.dom.createDom('iframe', null) is fine.

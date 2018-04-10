@@ -114,11 +114,35 @@ message Requirement {
     BANNED_NAME_CALL = 12;
   }
 
+  enum TypeMatchingStrategy {
+    UNKNOWN = 0;
+
+    // Matches type or any subtype. Matches types with different
+    // nullability/voidability. Allows loose matches.
+    LOOSE = 1;
+
+    // Matches type or any subtype. Does not match types with different
+    // nullability/voidability. Allows loose matches.
+    STRICT_NULLABILITY = 2;
+
+    // Matches type or any subtype. Does not match types with different
+    // nullability/voidability. Does not allow loose matches.
+    SUBTYPES = 3;
+
+    // Does not match subtypes. Does not match types with different
+    // nullability/voidability. Does not allow loose matches.
+    EXACT = 4;
+  }
+
   // Required: The type of requirement.
   optional Type type = 6;
 
   // The value banned, optional for "custom" requirements.
   repeated string value = 7;
+
+  // Strategy to use for matching types in the value parameter (e.g. for
+  // BANNED_CODE_PATTERN checks).
+  optional TypeMatchingStrategy type_matching_strategy = 13 [default = LOOSE];
 
   // For "custom" requirements, the Java class used to enforce the requirement.
   // Ignored otherwise.
@@ -143,6 +167,21 @@ message Requirement {
   // there can also be false negatives (an actual violation that is not
   // reported).
   optional bool report_loose_type_violations = 11 [default = true];
+
+  // With what severity to report the issue by default.
+  enum Severity {
+    // Currently treated the same as WARNING.
+    UNSPECIFIED = 0;
+    // Allows the build to continue. Can be turned into an error by setting the
+    // jscomp_error=conformanceConfig flag.
+    WARNING = 1;
+    // The build fails if we are confident this is an error.
+    // This causes an error even on possible violations, e.g. when the type
+    // system is ambiguous.
+    ERROR = 2;
+  }
+
+  optional Severity severity = 12 [default = WARNING];
 
   // CUSTOM requirements may use extensions, each extension should use
   // a CL number as a unique identifier.

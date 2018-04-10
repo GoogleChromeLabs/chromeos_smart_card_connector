@@ -19,7 +19,6 @@ import static com.google.javascript.jscomp.lint.CheckJSDocStyle.CLASS_DISALLOWED
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.CONSTRUCTOR_DISALLOWED_JSDOC;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.EXTERNS_FILES_SHOULD_BE_ANNOTATED;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.INCORRECT_PARAM_NAME;
-import static com.google.javascript.jscomp.lint.CheckJSDocStyle.INVALID_SUPPRESS;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MISSING_JSDOC;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MISSING_PARAMETER_JSDOC;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MISSING_RETURN_JSDOC;
@@ -27,6 +26,7 @@ import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MIXED_PARAM_JSDO
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MUST_BE_PRIVATE;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MUST_HAVE_TRAILING_UNDERSCORE;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.OPTIONAL_PARAM_NOT_MARKED_OPTIONAL;
+import static com.google.javascript.jscomp.lint.CheckJSDocStyle.PREFER_BACKTICKS_TO_AT_SIGN_CODE;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.WRONG_NUMBER_OF_PARAMS;
 
 import com.google.javascript.jscomp.CheckLevel;
@@ -38,6 +38,7 @@ import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.CompilerPass;
 import com.google.javascript.jscomp.CompilerTestCase;
 import com.google.javascript.jscomp.GoogleCodingConvention;
+import com.google.javascript.jscomp.parsing.Config;
 
 /**
  * Test case for {@link CheckJSDocStyle}.
@@ -64,6 +65,7 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
   @Override
   protected CompilerOptions getOptions(CompilerOptions options) {
     super.getOptions(options);
+    options.setParseJsDocDocumentation(Config.JsDocParsing.INCLUDE_DESCRIPTIONS_NO_WHITESPACE);
     options.setWarningLevel(CheckJSDocStyle.ALL_DIAGNOSTICS, CheckLevel.WARNING);
     return options;
   }
@@ -73,54 +75,9 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
     return codingConvention;
   }
 
-  public void testInvalidSuppress() {
-    testSame("/** @suppress {missingRequire} */ var x = new y.Z();");
-    testSame("/** @suppress {missingRequire} */ function f() { var x = new y.Z(); }");
-    testSame("/** @suppress {missingRequire} */ var f = function() { var x = new y.Z(); }");
-    testSame(
-        lines(
-            "var obj = {",
-            "  /** @suppress {uselessCode} */",
-            "  f: function() {},",
-            "}"));
-    testSame(
-        lines(
-            "var obj = {",
-            "  /** @suppress {uselessCode} */",
-            "  f() {},",
-            "}"));
-    testSame(
-        lines(
-            "class Example {",
-            "  /** @suppress {uselessCode} */",
-            "  f() {}",
-            "}"));
-    testSame(
-        lines(
-            "class Example {",
-            "  /** @suppress {uselessCode} */",
-            "  static f() {}",
-            "}"));
-    testSame(
-        lines(
-            "class Example {",
-            "  /** @suppress {uselessCode} */",
-            "  get f() {}",
-            "}"));
-    testSame(
-        lines(
-            "class Example {",
-            "  /**",
-            "   * @param {string} val",
-            "   * @suppress {uselessCode}",
-            "   */",
-            "  set f(val) {}",
-            "}"));
-
-    testWarning("/** @suppress {uselessCode} */ goog.require('unused.Class');", INVALID_SUPPRESS);
-    testSame("/** @suppress {extraRequire} */ goog.require('unused.Class');");
-    testSame("/** @const @suppress {duplicate} */ var google = {};");
-    testSame("/** @suppress {const} */ var google = {};");
+  public void testValidSuppress_onDeclaration() {
+    testSame("/** @const @suppress {newCheckTypes} */ var global = this;");
+    testSame("/** @const @suppress {newCheckTypes} */ goog.global = this;");
   }
 
   public void testValidSuppress_withES6Modules01() {
@@ -937,7 +894,7 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
     testSame("/** @constructor */ function f() {}");
     testSame("/** @param {number} x */ function f(x) { function bar() { return x; } }");
     testSame("/** @param {number} x */ function f(x) { return; }");
-    testSame("/** @param {number} x @return {number} */ function f(x) { return x; }");
+    testSame("/** @param {number} x\n * @return {number} */ function f(x) { return x; }");
     testSame("/** @param {number} x */ function /** number */ f(x) { return x; }");
     testSame("/** @inheritDoc */ function f(x) { return x; }");
     testSame("/** @override */ function f(x) { return x; }");
@@ -952,7 +909,7 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
     testSame("/** @constructor */ f = function() {}");
     testSame("/** @param {number} x */ f = function(x) { function bar() { return x; } }");
     testSame("/** @param {number} x */ f = function(x) { return; }");
-    testSame("/** @param {number} x @return {number} */ f = function(x) { return x; }");
+    testSame("/** @param {number} x\n * @return {number} */ f = function(x) { return x; }");
     testSame("/** @inheritDoc */ f = function(x) { return x; }");
     testSame("/** @override */ f = function(x) { return x; }");
   }
@@ -962,7 +919,7 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
     testSame("/** @constructor */ var f = function() {}");
     testSame("/** @param {number} x */ var f = function(x) { function bar() { return x; } }");
     testSame("/** @param {number} x */ var f = function(x) { return; }");
-    testSame("/** @param {number} x @return {number} */ var f = function(x) { return x; }");
+    testSame("/** @param {number} x\n * @return {number} */ var f = function(x) { return x; }");
     testSame("/** @const {function(number): number} */ var f = function(x) { return x; }");
     testSame("/** @inheritDoc */ var f = function(x) { return x; }");
     testSame("/** @override */ var f = function(x) { return x; }");
@@ -1055,21 +1012,23 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
   }
 
   public void testExternsAnnotation() {
-    testSame(
-        "function Example() {}",
-        "",
-        EXTERNS_FILES_SHOULD_BE_ANNOTATED);
+    test(
+        externs("function Example() {}"),
+        srcs(""),
+        warning(EXTERNS_FILES_SHOULD_BE_ANNOTATED));
 
     testSame(
-        "/** @fileoverview Some super cool externs.\n * @externs\n */ function Example() {}",
-        "");
+        externs(
+            "/** @fileoverview Some super cool externs.\n * @externs\n */ function Example() {}"),
+        srcs(""));
 
     testSame(
-        lines(
-            "/** @fileoverview Some super cool externs.\n * @externs\n */",
-            "/** @constructor */ function Example() {}",
-            "/** @param {number} x */ function example2(x) {}"),
-        "");
+        externs(
+            lines(
+                "/** @fileoverview Some super cool externs.\n * @externs\n */",
+                "/** @constructor */ function Example() {}",
+                "/** @param {number} x */ function example2(x) {}")),
+        srcs(""));
 
     test(
         new String[] {
@@ -1080,13 +1039,21 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
   }
 
   public void testInvalidExternsAnnotation_withES6Modules() {
-    testSame("export function Example() {}", "", EXTERNS_FILES_SHOULD_BE_ANNOTATED);
+    test(
+        externs("export function Example() {}"),
+        srcs(""),
+        warning(EXTERNS_FILES_SHOULD_BE_ANNOTATED));
   }
 
   public void testValidExternsAnnotation_withES6Modules() {
     testSame(
-        "export /** @fileoverview Some super cool externs.\n * @externs\n */ function Example() {}",
-        "");
+        externs(
+            lines(
+                "export /** @fileoverview Some super cool externs.",
+                " * @externs",
+                " */",
+                "function Example() {}")),
+        srcs(""));
   }
 
   public void testConstructorsDontHaveVisibility() {
@@ -1094,5 +1061,11 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
 
     testWarning(
         inIIFE("class Foo { /** @private */ constructor() {} }"), CONSTRUCTOR_DISALLOWED_JSDOC);
+  }
+
+  public void testAtSignCodeDetectedWhenPresent() {
+    testWarning(
+        "/** blah blah {@code blah blah} blah blah */ function f() {}",
+        PREFER_BACKTICKS_TO_AT_SIGN_CODE);
   }
 }

@@ -64,9 +64,8 @@ public class AggressiveInlineAliasesTest extends CompilerTestCase {
             "/** @constructor */",
             "function f() {",
             "  for(; true; ) {",
-            "    var b = a.b;",
-            "    alert(b.staticProp); } }"),
-        warning(AggressiveInlineAliases.UNSAFE_CTOR_ALIASING));
+            "    var b = null;",
+            "    alert(a.b.staticProp); } }"));
   }
 
   public void test_b19179602_declareOutsideLoop() {
@@ -118,6 +117,18 @@ public class AggressiveInlineAliasesTest extends CompilerTestCase {
             "}"));
   }
 
+  public void testGlobalCtorAliasedMultipleTimes() {
+    // TODO(lharker): Also warn for unsafe global ctor aliasing
+    testSame(
+        lines(
+            "/** @constructor */",
+            "function a() {}",
+            "a.staticProp = 5;",
+            "var alias = a;",
+            "use(alias.staticProp);", // Unsafe because a.staticProp becomes a$staticProp.
+            "alias = function() {}"));
+  }
+
   public void testCtorAliasedMultipleTimesWarning1() {
     testSame(
         lines(
@@ -159,6 +170,63 @@ public class AggressiveInlineAliasesTest extends CompilerTestCase {
             "  use(alias.staticProp);", // Unsafe because a.staticProp becomes a$staticProp.
             "}"),
         AggressiveInlineAliases.UNSAFE_CTOR_ALIASING);
+  }
+
+  public void testCtorAliasedMultipleTimesWarning4() {
+    testWarning(
+        lines(
+            "/** @constructor */",
+            "function a() {}",
+            "a.staticProp = 5;",
+            "function f() {",
+            "  if (true) {",
+            "    var alias = a;",
+            "    use(alias.staticProp);",
+            "  } else {",
+            "    alias = {staticProp: 34};",
+            "    use(alias.staticProp);",
+            "  }",
+            "}"),
+        AggressiveInlineAliases.UNSAFE_CTOR_ALIASING);
+  }
+
+  public void testAliasingOfReassignedProperty1() {
+    testSame("var obj = {foo: 3}; var foo = obj.foo; obj.foo = 42; alert(foo);");
+  }
+
+  public void testAliasingOfReassignedProperty2() {
+    testSame("var obj = {foo: 3}; var foo = obj.foo; obj = {}; alert(foo);");
+  }
+
+  public void testAliasingOfReassignedProperty3() {
+    testSame("var obj = {foo: {bar: 3}}; var bar = obj.foo.bar; obj.foo = {}; alert(bar);");
+  }
+
+  public void testAliasingOfReassignedProperty4() {
+    // Note: it should be safe to inline aliases for properties of ns below, even though ns
+    // has multiple definitions. Not inlining "foo" to "ns.ctor.foo" actually causes bad code later,
+    // because CollapseProperties unsafely collapses aliased ctor properties.
+    test(
+        lines(
+            "var ns = {};",
+            "/** @constructor */ ns.ctor = function() {};",
+            "ns.ctor.foo = 3;",
+            "var foo = ns.ctor.foo;",
+            "ns = ns || {};", // safe reinitialization of ns.
+            "alert(foo);"),
+        lines(
+            "var ns = {};",
+            "/** @constructor */ ns.ctor = function() {};",
+            "ns.ctor.foo = 3;",
+            "var foo = null;",
+            "ns = ns || {};",
+            "alert(ns.ctor.foo);"));
+  }
+
+  public void testAliasingOfReassignedProperty5() {
+    test(
+        "var obj = {foo: {bar: 3}}; var bar = obj.foo.bar; var obj; alert(bar);",
+        "var obj = {foo: {bar: 3}}; var bar =        null; var obj; alert(obj.foo.bar);");
   }
 
   public void testAddPropertyToChildFuncOfUncollapsibleObjectInLocalScope() {
@@ -319,18 +387,60 @@ public class AggressiveInlineAliasesTest extends CompilerTestCase {
         "var a = { b: 0 };" + "var c = null;" + "a.b = 1;" + "a.b == a.b;" + "use(a);");
   }
 
-  public void testLocalNonCtorAliasCreatedAfterVarDeclaration1() {
-    // We only inline non-constructor local aliases if they are assigned upon declaration.
-    // TODO(lharker): We should be able to inline these. InlineVariables does, and it also
-    // uses ReferenceCollectingCallback to track references.
-    testSame(
-        lines(
-            "var Main = {};",
-            "Main.doSomething = function(i) {}",
+  public void testLocalAliasCreatedAfterVarDeclaration1() {
+test(
+    lines(
+            "var a = { b : 3 };",
             "function f() {",
             "  var tmp;",
-            "  tmp = Main;",
-            "  tmp.doSomething(5);",
+            "  if (true) {",
+            "    tmp = a;",
+            "    use(tmp);",
+            "  }",
+            "}"),
+               lines(
+                   "var a = { b : 3 };",
+            "function f() {",
+            "  var tmp;",
+            "  if (true) {",
+            "    tmp = null;",
+            "    use(a);",
+            "  }",
+            "}"));
+  }
+
+  public void testLocalAliasCreatedAfterVarDeclaration2() {
+    test(
+        lines(
+            "var a = { b : 3 };",
+            "function f() {",
+            "  var tmp;",
+            "  if (true) {",
+            "    tmp = a;",
+            "    use(tmp);",
+            "  }",
+            "}"),
+        lines(
+            "var a = { b : 3 };",
+            "function f() {",
+            "  var tmp;",
+            "  if (true) {",
+            "    tmp = null;",
+            "    use(a);",
+            "  }",
+            "}"));
+  }
+
+  public void testLocalAliasCreatedAfterVarDeclaration3() {
+    testSame(
+        lines(
+            "var a = { b : 3 };",
+            "function f() {",
+            "  var tmp;",
+            "  if (true) {",
+            "    tmp = a;",
+            "  }",
+            "  use(tmp);",
             "}"));
   }
 
@@ -425,7 +535,7 @@ public class AggressiveInlineAliasesTest extends CompilerTestCase {
   }
 
   public void testLocalCtorAliasAssignedInLoop1() {
-    test(
+    testWarning(
         lines(
             "/** @constructor @struct */ var Main = function() {};",
             "Main.doSomething = function(i) {}",
@@ -439,25 +549,13 @@ public class AggressiveInlineAliasesTest extends CompilerTestCase {
             "  use(tmp);",
             "  use(tmp.doSomething);",
             "}"),
-        lines(
-            "/** @constructor @struct */ var Main = function() {};",
-            "Main.doSomething = function(i) {}",
-            "function f() {",
-            "  var tmp;",
-            "  for (let i = 0; i < n(); i++) {",
-            "    tmp = Main;",
-            "    Main.doSomething(5);",
-            "    use(Main);",
-            "  }",
-            "  use(tmp);",
-            "  use(tmp.doSomething);", // This line may break if Main$doSomething is collapsed.
-            "}"));
+        AggressiveInlineAliases.UNSAFE_CTOR_ALIASING);
   }
 
 
   public void testLocalCtorAliasAssignedInLoop2() {
     // Test when the alias is assigned in a loop after being used.
-    testSame(
+    testWarning(
         lines(
             "/** @constructor @struct */ var Main = function() {};",
             "Main.doSomething = function(i) {}",
@@ -469,7 +567,8 @@ public class AggressiveInlineAliasesTest extends CompilerTestCase {
             "  }",
             "  use(tmp);",
             "  use(tmp.doSomething);",
-            "}"));
+            "}"),
+        AggressiveInlineAliases.UNSAFE_CTOR_ALIASING);
   }
 
   public void testLocalCtorAliasAssignedInSwitchCase() {
@@ -844,6 +943,10 @@ public class AggressiveInlineAliasesTest extends CompilerTestCase {
     test(
         "var a = { b: 3 };" + "function f() { a.b = 5;" + "var x = a;" + "f(a.b);" + "}",
         "var a = { b: 3 };" + "function f() { a.b = 5;" + "var x = null;" + "f(a.b);" + "}");
+  }
+
+  public void testLocalAliasInChainedAssignment() {
+    testSame("var a = { b: 3 }; function f() { var c; var d = c = a; a.b; d.b; }");
   }
 
   public void testMisusedConstructorTag() {

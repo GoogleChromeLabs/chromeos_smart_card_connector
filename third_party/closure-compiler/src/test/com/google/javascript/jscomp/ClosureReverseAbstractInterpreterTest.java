@@ -16,6 +16,8 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.javascript.jscomp.type.ClosureReverseAbstractInterpreter;
 import com.google.javascript.jscomp.type.FlowScope;
 import com.google.javascript.rhino.Node;
@@ -43,7 +45,7 @@ public final class ClosureReverseAbstractInterpreterTest extends
   public void testGoogIsDef3() throws Exception {
     testClosureFunction("goog.isDef",
         ALL_TYPE,
-        createUnionType(OBJECT_NUMBER_STRING_BOOLEAN,NULL_TYPE),
+        createUnionType(OBJECT_NUMBER_STRING_BOOLEAN_SYMBOL, NULL_TYPE),
         VOID_TYPE);
   }
 
@@ -72,7 +74,7 @@ public final class ClosureReverseAbstractInterpreterTest extends
     testClosureFunction("goog.isNull",
         ALL_TYPE,
         NULL_TYPE,
-        createUnionType(OBJECT_NUMBER_STRING_BOOLEAN, VOID_TYPE));
+        createUnionType(OBJECT_NUMBER_STRING_BOOLEAN_SYMBOL, VOID_TYPE));
   }
 
   public void testGoogIsNull4() throws Exception {
@@ -106,7 +108,7 @@ public final class ClosureReverseAbstractInterpreterTest extends
   public void testGoogIsDefAndNotNull4() throws Exception {
     testClosureFunction("goog.isDefAndNotNull",
         ALL_TYPE,
-        OBJECT_NUMBER_STRING_BOOLEAN,
+        OBJECT_NUMBER_STRING_BOOLEAN_SYMBOL,
         NULL_VOID);
   }
 
@@ -174,11 +176,18 @@ public final class ClosureReverseAbstractInterpreterTest extends
         NULL_TYPE);
   }
 
-  public void testGoogIsFunction2() throws Exception {
+  public void testGoogIsFunction2a() throws Exception {
     testClosureFunction("goog.isFunction",
         OBJECT_NUMBER_STRING_BOOLEAN,
         U2U_CONSTRUCTOR_TYPE,
         OBJECT_NUMBER_STRING_BOOLEAN);
+  }
+
+  public void testGoogIsFunction2b() throws Exception {
+    testClosureFunction("goog.isFunction",
+        OBJECT_NUMBER_STRING_BOOLEAN_SYMBOL,
+        U2U_CONSTRUCTOR_TYPE,
+        OBJECT_NUMBER_STRING_BOOLEAN_SYMBOL);
   }
 
   public void testGoogIsFunction3() throws Exception {
@@ -241,22 +250,37 @@ public final class ClosureReverseAbstractInterpreterTest extends
     testClosureFunction("goog.isObject",
         ALL_TYPE,
         NO_OBJECT_TYPE,
-        createUnionType(NUMBER_STRING_BOOLEAN, NULL_TYPE, VOID_TYPE));
+        createUnionType(NUMBER_STRING_BOOLEAN_SYMBOL, NULL_TYPE, VOID_TYPE));
   }
 
-  public void testGoogIsObject2() throws Exception {
+  public void testGoogIsObject2a() throws Exception {
     testClosureFunction("goog.isObject",
           createUnionType(OBJECT_TYPE, NUMBER_STRING_BOOLEAN),
           OBJECT_TYPE,
           NUMBER_STRING_BOOLEAN);
   }
 
-  public void testGoogIsObject3() throws Exception {
+  public void testGoogIsObject2b() throws Exception {
+    testClosureFunction("goog.isObject",
+          createUnionType(OBJECT_TYPE, NUMBER_STRING_BOOLEAN_SYMBOL),
+          OBJECT_TYPE,
+          NUMBER_STRING_BOOLEAN_SYMBOL);
+  }
+
+  public void testGoogIsObject3a() throws Exception {
     testClosureFunction("goog.isObject",
           createUnionType(
               OBJECT_TYPE, NUMBER_STRING_BOOLEAN, NULL_TYPE, VOID_TYPE),
           OBJECT_TYPE,
           createUnionType(NUMBER_STRING_BOOLEAN, NULL_TYPE, VOID_TYPE));
+  }
+
+  public void testGoogIsObject3b() throws Exception {
+    testClosureFunction("goog.isObject",
+          createUnionType(
+              OBJECT_TYPE, NUMBER_STRING_BOOLEAN_SYMBOL, NULL_TYPE, VOID_TYPE),
+          OBJECT_TYPE,
+          createUnionType(NUMBER_STRING_BOOLEAN_SYMBOL, NULL_TYPE, VOID_TYPE));
   }
 
   public void testGoogIsObject4() throws Exception {
@@ -273,26 +297,27 @@ public final class ClosureReverseAbstractInterpreterTest extends
     Node call = n.getLastChild().getLastChild();
     Node name = call.getLastChild();
 
-    TypedScope scope = SyntacticScopeCreator.makeTyped(compiler).createScope(n, null);
+    TypedScope scope = (TypedScope) SyntacticScopeCreator.makeTyped(compiler).createScope(n, null);
     FlowScope flowScope = LinkedFlowScope.createEntryLattice(scope);
 
     assertEquals(Token.CALL, call.getToken());
     assertEquals(Token.NAME, name.getToken());
 
     flowScope.inferSlotType("a", type);
-    ClosureReverseAbstractInterpreter rai =
-        new ClosureReverseAbstractInterpreter(registry);
+    ClosureReverseAbstractInterpreter rai = new ClosureReverseAbstractInterpreter(registry);
 
     // trueScope
     Asserts.assertTypeEquals(
         trueType,
-        rai.getPreciserScopeKnowingConditionOutcome(call, flowScope, true)
-        .getSlot("a").getType());
+        rai.getPreciserScopeKnowingConditionOutcome(call, flowScope, true).getSlot("a").getType());
 
     // falseScope
-    Asserts.assertTypeEquals(
-        falseType,
-        rai.getPreciserScopeKnowingConditionOutcome(call, flowScope, false)
-        .getSlot("a").getType());
+    JSType aType = rai.getPreciserScopeKnowingConditionOutcome(call, flowScope, false)
+        .getSlot("a").getType();
+    if (falseType == null) {
+      assertThat(aType).isNull();
+    } else {
+      Asserts.assertTypeEquals(falseType, aType);
+    }
   }
 }

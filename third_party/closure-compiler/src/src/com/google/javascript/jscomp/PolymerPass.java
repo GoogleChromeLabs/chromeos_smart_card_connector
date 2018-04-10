@@ -15,6 +15,7 @@
  */
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.javascript.jscomp.PolymerPassErrors.POLYMER_INVALID_DECLARATION;
@@ -44,8 +45,7 @@ import java.util.Set;
  * @author jlklein@google.com (Jeremy Klein)
  */
 final class PolymerPass extends AbstractPostOrderCallback implements HotSwapCompilerPass {
-
-  static final String VIRTUAL_FILE = "<PolymerPass.java>";
+  private static final String VIRTUAL_FILE = "<PolymerPass.java>";
 
   private final AbstractCompiler compiler;
   private final ImmutableMap<String, String> tagNameMap;
@@ -225,6 +225,11 @@ final class PolymerPass extends AbstractPostOrderCallback implements HotSwapComp
       this.info = info;
       this.name = name;
       this.value = value;
+    }
+
+    @Override
+    public String toString() {
+      return toStringHelper(this).add("name", name).add("value", value).toString();
     }
   }
 }

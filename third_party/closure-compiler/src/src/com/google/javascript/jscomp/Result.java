@@ -27,7 +27,7 @@ public class Result {
   public final boolean success;
   public final JSError[] errors;
   public final JSError[] warnings;
-  public final String debugLog;
+
   public final VariableMap variableMap;
   public final VariableMap propertyMap;
   public final VariableMap namedAnonFunctionMap;
@@ -39,7 +39,7 @@ public class Result {
   public final String idGeneratorMap;
   public final Set<SourceFile> transpiledFiles;
 
-  Result(JSError[] errors, JSError[] warnings, String debugLog,
+  Result(JSError[] errors, JSError[] warnings,
          VariableMap variableMap, VariableMap propertyMap,
          VariableMap namedAnonFunctionMap,
          VariableMap stringMap,
@@ -50,7 +50,6 @@ public class Result {
     this.success = errors.length == 0;
     this.errors  = errors;
     this.warnings = warnings;
-    this.debugLog = debugLog;
     this.variableMap = variableMap;
     this.propertyMap = propertyMap;
     this.namedAnonFunctionMap = namedAnonFunctionMap;
@@ -64,12 +63,12 @@ public class Result {
   }
 
   @VisibleForTesting
-  public Result(JSError[] errors, JSError[] warnings, String debugLog,
+  public Result(JSError[] errors, JSError[] warnings,
                 VariableMap variableMap, VariableMap propertyMap,
                 VariableMap namedAnonFunctionMap,
                 FunctionInformationMap functionInformationMap,
                 SourceMap sourceMap, String externExport) {
-    this(errors, warnings, debugLog, variableMap, propertyMap,
+    this(errors, warnings, variableMap, propertyMap,
          namedAnonFunctionMap, null, functionInformationMap, sourceMap,
          externExport, null, null, null);
   }

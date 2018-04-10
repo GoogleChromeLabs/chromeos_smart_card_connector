@@ -63,6 +63,8 @@ public final class OptimizeParametersTest extends CompilerTestCase {
   public void testNoRemovalSpread() {
     // TODO(johnlenz): make spread removable
     testSame("function f(p1) {} f(...x);");
+    testSame("function f(...p1) {} f(...x);");
+    test("function f(p1, ...p2) {} f(1, ...x);", "function f(...p2) {var p1 = 1;} f(...x);");
   }
 
   public void testRemovalRest1() {
@@ -309,6 +311,56 @@ public final class OptimizeParametersTest extends CompilerTestCase {
          "var foo = function() {var a = 1}; foo()");
     test("var foo = function(a) {}; foo('abc');",
          "var foo = function() {var a = 'abc'}; foo()");
+  }
+
+  public void testOptimizeOnlyImmutableValues3() {
+    // "var a = null;" gets inserted after the declaration of 'goo' so the tree stays normalized.
+    test(
+        lines(
+            "function foo(a) {",
+            "  function goo() {}",
+            "  goo(a);",
+            "};",
+            "foo(null);"),
+        lines(
+            "function foo() {",
+            "  function goo() {}",
+            "  var a = null;",
+            "  goo(a);",
+            "};",
+            "foo();"));
+
+    test(
+        lines(
+            "function foo(a) {",
+            "  function goo() {}",
+            "  function boo() {}",
+            "  goo(a);",
+            "};",
+            "foo(null);"),
+        lines(
+            "function foo() {",
+            "  function goo() {}",
+            "  function boo() {}",
+            "  var a = null;",
+            "  goo(a);",
+            "};",
+            "foo();"));
+  }
+
+  public void testOptimizeOnlyImmutableValues4() {
+    test(
+        lines(
+            "function foo(a) {",
+            "  function goo() { return a; }",
+            "};",
+            "foo(null);"),
+        lines(
+            "function foo() {",
+            "  function goo() { return a; }",
+            "  var a = null;",
+            "};",
+            "foo();"));
   }
 
   public void testRemoveOneOptionalVarAssignment() {
@@ -886,16 +938,16 @@ public final class OptimizeParametersTest extends CompilerTestCase {
 
   public void testNamelessParameter1() {
     test(
-        "var g;",
-        "f(g()); function f(){}",
-        "f(); function f(){g()}");
+        externs("var g;"),
+        srcs("f(g()); function f(){}"),
+        expected("f(); function f(){g()}"));
   }
 
   public void testNamelessParameter2() {
     test(
-        "var g, h;",
-        "f(g(),h()); function f(){}",
-        "f(); function f(){g();h()}");
+        externs("var g, h;"),
+        srcs("f(g(),h()); function f(){}"),
+        expected("f(); function f(){g();h()}"));
   }
 
   public void testNoRewriteUsedClassConstructor1() throws Exception {

@@ -18,19 +18,14 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.Iterables;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.TypeI;
 import com.google.javascript.rhino.TypeIEnv;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.StaticTypedScope;
 import com.google.javascript.rhino.jstype.StaticTypedSlot;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.Map;
 
 /**
  * TypedScope contains information about variables and their types.
@@ -49,28 +44,23 @@ import java.util.Map;
  * The reason for this is that we want to shadow methods from the parent class, to avoid calling
  * them accidentally.
  */
-public class TypedScope extends Scope implements StaticTypedScope<JSType>, TypeIEnv<JSType> {
-  private final Map<String, TypedVar> vars = new LinkedHashMap<>();
+public class TypedScope extends AbstractScope<TypedScope, TypedVar>
+    implements StaticTypedScope<JSType>, TypeIEnv<JSType> {
+
   private final TypedScope parent;
+  private final int depth;
+
   /** Whether this is a bottom scope for the purposes of type inference. */
   private final boolean isBottom;
+
   // Scope.java contains an arguments field.
   // We haven't added it here because it's unused by the passes that need typed scopes.
 
-  private static final Predicate<TypedVar> DECLARATIVELY_UNBOUND_VARS_WITHOUT_TYPES =
-    new Predicate<TypedVar>() {
-      @Override
-      public boolean apply(TypedVar var) {
-        return var.getParentNode() != null
-          && var.getType() == null
-          && var.getParentNode().isVar()
-          && !var.isExtern();
-      }
-    };
-
   TypedScope(TypedScope parent, Node rootNode) {
-    super(parent, rootNode);
+    super(rootNode);
+    checkChildScope(parent);
     this.parent = parent;
+    this.depth = parent.depth + 1;
     this.isBottom = false;
   }
 
@@ -82,7 +72,9 @@ public class TypedScope extends Scope implements StaticTypedScope<JSType>, TypeI
    */
   private TypedScope(Node rootNode, boolean isBottom) {
     super(rootNode);
+    checkRootScope();
     this.parent = null;
+    this.depth = 0;
     this.isBottom = isBottom;
   }
 
@@ -92,6 +84,11 @@ public class TypedScope extends Scope implements StaticTypedScope<JSType>, TypeI
 
   static TypedScope createLatticeBottom(Node rootNode) {
     return new TypedScope(rootNode, true);
+  }
+
+  @Override
+  public TypedScope typed() {
+    return this;
   }
 
   /** Whether this is the bottom of the lattice. */
@@ -105,26 +102,7 @@ public class TypedScope extends Scope implements StaticTypedScope<JSType>, TypeI
   }
 
   @Override
-  public Node getRootNode() {
-    return rootNode;
-  }
-
-  @Override
   public TypedScope getParent() {
-    return parent;
-  }
-
-  @Override
-  TypedScope getGlobalScope() {
-    TypedScope result = this;
-    while (result.getParent() != null) {
-      result = result.getParent();
-    }
-    return result;
-  }
-
-  @Override
-  public StaticTypedScope<JSType> getParentScope() {
     return parent;
   }
 
@@ -134,28 +112,19 @@ public class TypedScope extends Scope implements StaticTypedScope<JSType>, TypeI
   @Override
   public JSType getTypeOfThis() {
     if (isGlobal()) {
-      return ObjectType.cast(rootNode.getJSType());
+      return ObjectType.cast(getRootNode().getJSType());
+    } else if (!getRootNode().isFunction()) {
+      return getClosestContainerScope().getTypeOfThis();
     }
 
-    checkState(rootNode.isFunction());
-    JSType nodeType = rootNode.getJSType();
+    checkState(getRootNode().isFunction());
+    JSType nodeType = getRootNode().getJSType();
     if (nodeType != null && nodeType.isFunctionType()) {
       return nodeType.toMaybeFunctionType().getTypeOfThis();
     } else {
       // Executed when the current scope has not been typechecked.
       return null;
     }
-  }
-
-  @Override
-  public final TypeI getTypeIOfThis() {
-    return getTypeOfThis();
-  }
-
-  @Override
-  Var declare(String name, Node nameNode, CompilerInput input) {
-    throw new IllegalStateException(
-        "Method declare(untyped) cannot be called on typed scopes.");
   }
 
   TypedVar declare(String name, Node nameNode, JSType type, CompilerInput input) {
@@ -165,96 +134,44 @@ public class TypedScope extends Scope implements StaticTypedScope<JSType>, TypeI
   TypedVar declare(String name, Node nameNode,
       JSType type, CompilerInput input, boolean inferred) {
     checkState(name != null && !name.isEmpty());
-    TypedVar var = new TypedVar(inferred, name, nameNode, type, this, vars.size(), input);
-    vars.put(name, var);
+    TypedVar var = new TypedVar(inferred, name, nameNode, type, this, getVarCount(), input);
+    declareInternal(name, var);
     return var;
   }
 
   @Override
-  void undeclare(Var var) {
-    TypedVar tvar = (TypedVar) var;
-    checkState(tvar.scope == this);
-    checkState(vars.get(tvar.name) == tvar);
-    vars.remove(tvar.name);
-  }
-
-  @Override
-  public TypedVar getSlot(String name) {
-    return getVar(name);
-  }
-
-  @Override
-  public TypedVar getOwnSlot(String name) {
-    return vars.get(name);
-  }
-
-  @Override
-  public TypedVar getVar(String name) {
-    TypedScope scope = this;
-    while (scope != null) {
-      TypedVar var = scope.vars.get(name);
-      if (var != null) {
-        return var;
-      }
-      // Recurse up the parent Scope
-      scope = scope.parent;
+  TypedVar makeImplicitVar(ImplicitVar var) {
+    if (this.isGlobal()) {
+      // TODO(sdh): This is incorrect for 'global this', but since that's currently not handled
+      // by this code, it's okay to bail out now until we find the root cause.  See b/74980936.
+      return null;
     }
-    return null;
+    return new TypedVar(false, var.name, null, getImplicitVarType(var), this, -1, null);
   }
 
-  @Override
-  public Var getArgumentsVar() {
-    throw new IllegalStateException("Method getArgumentsVar cannot be called on typed scopes.");
-  }
-
-  @Override
-  public boolean isDeclaredInFunctionBlockOrParameter(String name) {
-    throw new IllegalStateException(
-        "Method isDeclaredInFunctionBlockOrParameter cannot be called on typed scopes.");
-  }
-
-  @Override
-  public boolean isDeclared(String name, boolean recurse) {
-    TypedScope scope = this;
-    while (true) {
-      if (scope.vars.containsKey(name)) {
-        return true;
-      }
-      if (scope.parent != null && recurse) {
-        scope = scope.parent;
-        continue;
-      }
-      return false;
+  private JSType getImplicitVarType(ImplicitVar var) {
+    if (var == ImplicitVar.ARGUMENTS) {
+      // Look for an extern named "arguments" and use its type if available.
+      // TODO(sdh): consider looking for "Arguments" ctor rather than "arguments" var: this could
+      // allow deleting the variable, which doesn't really belong in externs in the first place.
+      TypedVar globalArgs = getGlobalScope().getVar(Var.ARGUMENTS);
+      return globalArgs != null && globalArgs.isExtern()
+          ? globalArgs.getType()
+          : null;
     }
-  }
-
-  @Override
-  public Iterable<TypedVar> getVarIterable() {
-    return vars.values();
-  }
-
-  @Override
-  public Iterable<TypedVar> getAllSymbols() {
-    return Collections.unmodifiableCollection(vars.values());
-  }
-
-  @Override
-  public int getVarCount() {
-    return vars.size();
-  }
-
-  @Override
-  public boolean isGlobal() {
-    return parent == null;
-  }
-
-  @Override
-  public boolean isLocal() {
-    return parent != null;
+    // TODO(sdh): get the superclass for super?
+    return getTypeOfThis();
   }
 
   public Iterable<TypedVar> getDeclarativelyUnboundVarsWithoutTypes() {
-    return Iterables.filter(getVarIterable(), DECLARATIVELY_UNBOUND_VARS_WITHOUT_TYPES);
+    return Iterables.filter(
+        getVarIterable(),
+        var ->
+            // declaratively unbound vars without types
+            var.getParentNode() != null
+                && var.getType() == null
+                && var.getParentNode().isVar()
+                && !var.isExtern());
   }
 
   static interface TypeResolver {
@@ -275,25 +192,6 @@ public class TypedScope extends Scope implements StaticTypedScope<JSType>, TypeI
     this.typeResolver = resolver;
   }
 
-  @Override
-  public boolean isBlockScope() {
-    // TypedScope is not ES6 compatible yet, so always return false for now.
-    return false;
-  }
-
-  @Override
-  public boolean isFunctionBlockScope() {
-    throw new IllegalStateException(
-        "Method isFunctionBlockScope cannot be called on typed scopes.");
-  }
-
-  @Override
-  public Scope getClosestHoistScope() {
-    throw new IllegalStateException(
-        "Method getClosestHoistScope cannot be called on typed scopes.");
-  }
-
-  @SuppressWarnings("unchecked")
   @Override
   public JSType getNamespaceOrTypedefType(String typeName) {
     StaticTypedSlot<JSType> slot = getSlot(typeName);

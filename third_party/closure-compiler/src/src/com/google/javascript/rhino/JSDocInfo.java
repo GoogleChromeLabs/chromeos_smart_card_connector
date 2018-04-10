@@ -60,15 +60,14 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * <p>JSDoc information describing JavaScript code. JSDoc is represented as a
- * unified object with fields for each JSDoc annotation, even though some
- * combinations are incorrect. For instance, if a JSDoc describes an enum,
- * it cannot have information about a return type. This implementation
- * takes advantage of such incompatibilities to reuse fields for multiple
- * purposes, reducing memory consumption.</p>
+ * JSDoc information describing JavaScript code. JSDoc is represented as a unified object with
+ * fields for each JSDoc annotation, even though some combinations are incorrect. For instance, if a
+ * JSDoc describes an enum, it cannot have information about a return type. This implementation
+ * takes advantage of such incompatibilities to reuse fields for multiple purposes, reducing memory
+ * consumption.
  *
- * <p>Constructing {@link JSDocInfo} objects is simplified by
- * {@link JSDocInfoBuilder} which provides early incompatibility detection.</p>
+ * <p>Constructing {@link JSDocInfo} objects is simplified by {@link JSDocInfoBuilder} which
+ * provides early incompatibility detection.
  *
  */
 public class JSDocInfo implements Serializable {
@@ -97,18 +96,12 @@ public class JSDocInfo implements Serializable {
         NG_INJECT = 0,
         WIZ_ACTION = 1,
 
-        // Flags for Jagger dependency injection prototype
-        JAGGER_INJECT = 2,
-        JAGGER_MODULE = 3,
-        JAGGER_PROVIDE_PROMISE = 4,
-        JAGGER_PROVIDE = 5,
-
         // Polymer specific
-        POLYMER_BEHAVIOR = 6,
-        POLYMER = 7,
-        CUSTOM_ELEMENT = 8,
-        MIXIN_CLASS = 9,
-        MIXIN_FUNCTION = 10;
+        POLYMER_BEHAVIOR = 2,
+        POLYMER = 3,
+        CUSTOM_ELEMENT = 4,
+        MIXIN_CLASS = 5,
+        MIXIN_FUNCTION = 6;
   }
 
   private static final class LazilyInitializedInfo implements Serializable {
@@ -139,8 +132,7 @@ public class JSDocInfo implements Serializable {
     @Override
     public String toString() {
       return MoreObjects.toStringHelper(this)
-          .add("bitfield", (propertyBitField == 0)
-                           ? null : Integer.toHexString(propertyBitField))
+          .add("bitfield", (propertyBitField == 0) ? null : Integer.toHexString(propertyBitField))
           .add("baseType", baseType)
           .add("extendedInterfaces", extendedInterfaces)
           .add("implementedInterfaces", implementedInterfaces)
@@ -154,6 +146,7 @@ public class JSDocInfo implements Serializable {
           .add("deprecated", deprecated)
           .add("license", license)
           .add("suppressions", suppressions)
+          .add("modifies", modifies)
           .add("lendsName", lendsName)
           .omitNullValues()
           .toString();
@@ -499,7 +492,10 @@ public class JSDocInfo implements Serializable {
   private static final int MASK_TYPE_SUMMARY  = 0x00000010; // @typeSummary
   private static final int MASK_FINAL         = 0x00000020; // @final
   private static final int MASK_OVERRIDE      = 0x00000040; // @override
-  private static final int MASK_NOALIAS       = 0x00000080; // @noalias
+
+  @SuppressWarnings("unused")
+  private static final int MASK_UNUSED_1      = 0x00000080;
+
   private static final int MASK_DEPRECATED    = 0x00000100; // @deprecated
   private static final int MASK_INTERFACE     = 0x00000200; // @interface
   private static final int MASK_EXPORT        = 0x00000400; // @export
@@ -608,7 +604,7 @@ public class JSDocInfo implements Serializable {
         && Objects.equals(jsDoc1.getMeaning(), jsDoc2.getMeaning())
         && Objects.equals(jsDoc1.getModifies(), jsDoc2.getModifies())
         && Objects.equals(jsDoc1.getOriginalCommentString(), jsDoc2.getOriginalCommentString())
-        && Objects.equals(jsDoc1.getPropertyBitField(), jsDoc2.getPropertyBitField())
+        && (jsDoc1.getPropertyBitField() == jsDoc2.getPropertyBitField())
         && Objects.equals(jsDoc1.getReferences(), jsDoc2.getReferences())
         && Objects.equals(jsDoc1.getReturnDescription(), jsDoc2.getReturnDescription())
         && Objects.equals(jsDoc1.getReturnType(), jsDoc2.getReturnType())
@@ -681,10 +677,6 @@ public class JSDocInfo implements Serializable {
 
   void setOverride(boolean value) {
     setFlag(value, MASK_OVERRIDE);
-  }
-
-  void setNoAlias(boolean value) {
-    setFlag(value, MASK_NOALIAS);
   }
 
   void setDeprecated(boolean value) {
@@ -868,14 +860,6 @@ public class JSDocInfo implements Serializable {
   }
 
   /**
-   * Returns whether the {@code @noalias} annotation is present on this
-   * {@link JSDocInfo}.
-   */
-  public boolean isNoAlias() {
-    return getFlag(MASK_NOALIAS);
-  }
-
-  /**
    * Returns whether the {@code @deprecated} annotation is present on this
    * {@link JSDocInfo}.
    */
@@ -990,7 +974,6 @@ public class JSDocInfo implements Serializable {
             | MASK_CONSTRUCTOR
             | MASK_DEFINE
             | MASK_OVERRIDE
-            | MASK_NOALIAS
             | MASK_EXPORT
             | MASK_EXPOSE
             | MASK_DEPRECATED
@@ -1048,6 +1031,12 @@ public class JSDocInfo implements Serializable {
     }
 
     return true;
+  }
+
+  /** @return whether the {@code @code} is present within this {@link JSDocInfo}. */
+  public boolean isAtSignCodePresent() {
+    final String entireComment = getOriginalCommentString();
+    return (entireComment == null) ? false : entireComment.contains("@code");
   }
 
   /**
@@ -1459,10 +1448,6 @@ public class JSDocInfo implements Serializable {
     return info.parameters.size();
   }
 
-  void setType(JSTypeExpression type) {
-    setType(type, TYPEFIELD_TYPE);
-  }
-
   void setInlineType() {
     this.inlineType = true;
   }
@@ -1481,6 +1466,10 @@ public class JSDocInfo implements Serializable {
       return true;
     }
     return false;
+  }
+
+  void setType(JSTypeExpression type) {
+    setType(type, TYPEFIELD_TYPE);
   }
 
   private void setType(JSTypeExpression type, int mask) {
@@ -1515,14 +1504,6 @@ public class JSDocInfo implements Serializable {
   }
 
   /**
-   * Returns whether a type, specified using the {@code @type} annotation, is
-   * present on this JSDoc.
-   */
-  public boolean hasType() {
-    return hasType(TYPEFIELD_TYPE);
-  }
-
-  /**
    * Returns whether an enum parameter type, specified using the {@code @enum}
    * annotation, is present on this JSDoc.
    */
@@ -1546,19 +1527,20 @@ public class JSDocInfo implements Serializable {
     return hasType(TYPEFIELD_RETURN);
   }
 
+  /**
+   * Returns whether a type, specified using the {@code @type} annotation, is
+   * present on this JSDoc.
+   */
+  public boolean hasType() {
+    return hasType(TYPEFIELD_TYPE);
+  }
+
   private boolean hasType(int mask) {
     return (bitset & MASK_TYPEFIELD) == mask;
   }
 
   public boolean hasTypeInformation() {
     return (bitset & MASK_TYPEFIELD) != 0;
-  }
-
-  /**
-   * Gets the type specified by the {@code @type} annotation.
-   */
-  public JSTypeExpression getType() {
-    return getType(TYPEFIELD_TYPE);
   }
 
   /**
@@ -1587,6 +1569,13 @@ public class JSDocInfo implements Serializable {
    */
   public JSTypeExpression getTypedefType() {
     return getType(TYPEFIELD_TYPEDEF);
+  }
+
+  /**
+   * Gets the type specified by the {@code @type} annotation.
+   */
+  public JSTypeExpression getType() {
+    return getType(TYPEFIELD_TYPE);
   }
 
   private JSTypeExpression getType(int typefield) {
@@ -1690,54 +1679,6 @@ public class JSDocInfo implements Serializable {
   void setNgInject(boolean ngInject) {
     lazyInitInfo();
     info.setBit(Property.NG_INJECT, ngInject);
-  }
-
-  /**
-   * Returns whether JSDoc is annotated with {@code @jaggerInject} annotation.
-   */
-  public boolean isJaggerInject() {
-    return (info != null) && info.isBitSet(Property.JAGGER_INJECT);
-  }
-
-  void setJaggerInject(boolean jaggerInject) {
-    lazyInitInfo();
-    info.setBit(Property.JAGGER_INJECT, jaggerInject);
-  }
-
-  /**
-   * Returns whether JSDoc is annotated with {@code @jaggerProvidePromise} annotation.
-   */
-  public boolean isJaggerProvide() {
-    return (info != null) && info.isBitSet(Property.JAGGER_PROVIDE);
-  }
-
-  void setJaggerProvide(boolean jaggerProvide) {
-    lazyInitInfo();
-    info.setBit(Property.JAGGER_PROVIDE, jaggerProvide);
-  }
-
-  /**
-   * Returns whether JSDoc is annotated with {@code @jaggerProvidePromise} annotation.
-   */
-  public boolean isJaggerProvidePromise() {
-    return (info != null) && info.isBitSet(Property.JAGGER_PROVIDE_PROMISE);
-  }
-
-  void setJaggerProvidePromise(boolean jaggerProvidePromise) {
-    lazyInitInfo();
-    info.setBit(Property.JAGGER_PROVIDE_PROMISE, jaggerProvidePromise);
-  }
-
-  /**
-   * Returns whether JSDoc is annotated with {@code @jaggerModule} annotation.
-   */
-  public boolean isJaggerModule() {
-    return (info != null) && info.isBitSet(Property.JAGGER_MODULE);
-  }
-
-  void setJaggerModule(boolean jaggerModule) {
-    lazyInitInfo();
-    info.setBit(Property.JAGGER_MODULE, jaggerModule);
   }
 
   /**
@@ -1976,8 +1917,8 @@ public class JSDocInfo implements Serializable {
     return modifies == null ? Collections.<String>emptySet() : modifies;
   }
 
-  private Integer getPropertyBitField() {
-    return info == null ? null : info.propertyBitField;
+  private int getPropertyBitField() {
+    return info == null ? 0 : info.propertyBitField;
   }
 
   void mergePropertyBitfieldFrom(JSDocInfo other) {

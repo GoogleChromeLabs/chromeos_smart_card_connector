@@ -16,6 +16,7 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.javascript.jscomp.CompilerTypeTestCase.lines;
 import static com.google.javascript.rhino.jstype.JSTypeNative.ALL_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.ARRAY_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.BOOLEAN_TYPE;
@@ -34,7 +35,6 @@ import static com.google.javascript.rhino.jstype.JSTypeNative.VOID_TYPE;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CodingConvention.AssertionFunctionSpec;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.DataFlowAnalysis.BranchedFlowState;
 import com.google.javascript.jscomp.type.FlowScope;
 import com.google.javascript.jscomp.type.ReverseAbstractInterpreter;
@@ -75,7 +75,6 @@ public final class TypeInferenceTest extends TestCase {
     compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
     options.setClosurePass(true);
-    options.setLanguageIn(LanguageMode.ECMASCRIPT5);
     compiler.initOptions(options);
     registry = compiler.getTypeRegistry();
     assumptions = new HashMap<>();
@@ -99,8 +98,15 @@ public final class TypeInferenceTest extends TestCase {
     String thisBlock = assumedThisType == null
         ? ""
         : "/** @this {" + assumedThisType + "} */";
-    Node root = compiler.parseTestCode(
-        "(" + thisBlock + " function() {" + js + "});");
+    parseAndRunTypeInference("(" + thisBlock + " function() {" + js + "});");
+  }
+
+  private void inGenerator(String js) {
+    parseAndRunTypeInference("(function *() {" + js + "});");
+  }
+
+  private void parseAndRunTypeInference(String js) {
+    Node root = compiler.parseTestCode(js);
     assertEquals("parsing error: " +
         Joiner.on(", ").join(compiler.getErrors()),
         0, compiler.getErrorCount());
@@ -121,7 +127,7 @@ public final class TypeInferenceTest extends TestCase {
     ReverseAbstractInterpreter rai = compiler.getReverseAbstractInterpreter();
     // Do the type inference by data-flow analysis.
     TypeInference dfa = new TypeInference(compiler, cfg, rai, assumedScope,
-        ASSERTION_FUNCTION_MAP);
+        scopeCreator, ASSERTION_FUNCTION_MAP);
     dfa.analyze();
     // Get the scope of the implicit return.
     BranchedFlowState<FlowScope> rtnState =
@@ -147,8 +153,9 @@ public final class TypeInferenceTest extends TestCase {
   private void verifySubtypeOf(String name, JSType type) {
     JSType varType = getType(name);
     assertNotNull("The variable " + name + " is missing a type.", varType);
-    assertTrue("The type " + varType + " of variable " + name +
-        " is not a subtype of " + type +".", varType.isSubtype(type));
+    assertTrue(
+        "The type " + varType + " of variable " + name + " is not a subtype of " + type + ".",
+        varType.isSubtypeOf(type));
   }
 
   private void verifySubtypeOf(String name, JSTypeNative type) {
@@ -1277,10 +1284,10 @@ public final class TypeInferenceTest extends TestCase {
         + " *      x)))))) \n"
         + " * =:\n"
         + " */\n"
-        + "function Object(a) {}\n"
+        + "function fn(a) {}\n"
         + "/** @type {(string|null|undefined)} */\n"
         + "var o;\n"
-        + "var r = Object(o);");
+        + "var r = fn(o);");
     verify("r", OBJECT_TYPE);
   }
 
@@ -1299,10 +1306,10 @@ public final class TypeInferenceTest extends TestCase {
         + " *      x)))))) \n"
         + " * =:\n"
         + " */\n"
-        + "function Object(a) {}\n"
+        + "function fn(a) {}\n"
         + "/** @type {(Array|undefined)} */\n"
         + "var o;\n"
-        + "var r = Object(o);");
+        + "var r = fn(o);");
     verify("r", OBJECT_TYPE);
   }
 
@@ -1373,14 +1380,17 @@ public final class TypeInferenceTest extends TestCase {
   }
 
   public void testTypeTransformationWithTypeFromNamespace() {
-    inFunction("/** @constructor */\n"
-        + "wiz.async.Response = function() {};"
-        + "/**\n"
-        + " * @return {R}\n"
-        + " * @template R := typeOfVar('wiz.async.Response') =:"
-        + " */\n"
-        + "function f(){}\n"
-        + "var r = f();");
+    inFunction(
+        lines(
+            "var wiz",
+            "/** @constructor */",
+            "wiz.async.Response = function() {};",
+            "/**",
+            " * @return {R}",
+            " * @template R := typeOfVar('wiz.async.Response') =:",
+            " */",
+            "function f(){}",
+            "var r = f();"));
     verify("r", getType("wiz.async.Response"));
   }
 
@@ -1529,6 +1539,25 @@ public final class TypeInferenceTest extends TestCase {
     assuming("x", createUnionType(ARRAY_TYPE, NUMBER_TYPE));
     inFunction("goog.asserts.assert(!Array.isArray(x));");
     verify("x", NUMBER_TYPE);
+  }
+
+  public void testYield1() {
+    inGenerator("var x = yield 3;");
+    verify("x", registry.getNativeType(UNKNOWN_TYPE));
+  }
+
+  public void testYield2() {
+    // test that type inference happens inside the yield expression
+    inGenerator(
+        lines(
+            "var obj;",
+            "yield (obj = {a: 3, b: '4'});",
+            "var a = obj.a;",
+            "var b = obj.b;"
+        ));
+
+    verify("a", registry.getNativeType(NUMBER_TYPE));
+    verify("b", registry.getNativeType(STRING_TYPE));
   }
 
   private ObjectType getNativeObjectType(JSTypeNative t) {

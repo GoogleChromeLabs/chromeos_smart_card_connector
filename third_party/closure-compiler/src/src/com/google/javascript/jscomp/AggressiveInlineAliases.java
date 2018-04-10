@@ -166,7 +166,7 @@ class AggressiveInlineAliases implements CompilerPass {
         List<Ref> refs = new ArrayList<>(name.getRefs());
         for (Ref ref : refs) {
           Scope hoistScope = ref.scope.getClosestHoistScope();
-          if (ref.type == Type.ALIASING_GET && !mayBeGlobalAlias(ref)) {
+          if (ref.type == Type.ALIASING_GET && !mayBeGlobalAlias(ref) && ref.getTwin() == null) {
             // {@code name} meets condition (c). Try to inline it.
             // TODO(johnlenz): consider picking up new aliases at the end
             // of the pass instead of immediately like we do for global
@@ -197,10 +197,13 @@ class AggressiveInlineAliases implements CompilerPass {
 
       // Check if {@code name} has any aliases left after the
       // local-alias-inlining above.
+      // TODO(lharker): we should really check that the name only has one global set before inlining
+      // property aliases, but doing so breaks some things relying on inlining (b/73263419).
       if ((name.type == Name.Type.OBJECTLIT
               || name.type == Name.Type.FUNCTION
               || name.type == Name.Type.CLASS)
           && name.aliasingGets == 0
+          && !isUnsafelyReassigned(name)
           && name.props != null) {
         // All of {@code name}'s children meet condition (a), so they can be
         // added to the worklist.
@@ -295,7 +298,7 @@ class AggressiveInlineAliases implements CompilerPass {
     String aliasVarName = aliasLhsNode.getString();
     Var aliasVar = alias.scope.getVar(aliasVarName);
     if (aliasVar != null) {
-      return aliasVar.scope.isGlobal();
+      return aliasVar.isGlobal();
     }
     return true;
   }
@@ -325,33 +328,18 @@ class AggressiveInlineAliases implements CompilerPass {
       ReferenceCollection aliasRefs = collector.getReferences(aliasVar);
       Set<AstChange> newNodes = new LinkedHashSet<>();
 
-      // TODO(lharker): Is "aliasRefs.firstReferenceIsAssigningDeclaration()" necessary
-      // to inline safely?
-      if (aliasRefs.isWellDefined() && aliasRefs.firstReferenceIsAssigningDeclaration()) {
-        if (!aliasRefs.isAssignedOnceInLifetime()) {
-          // Static properties of constructors are always collapsed.
-          // So, if a constructor is aliased and its properties are accessed from
-          // the alias, we would like to inline the alias here to access the
-          // properties correctly.
-          // But if the aliased variable is assigned more than once, we can't
-          // inline, so we warn.
-          if (name.isConstructor() && referencesCollapsibleProperty(aliasRefs, name, namespace)) {
-            compiler.report(JSError.make(aliasParent, UNSAFE_CTOR_ALIASING, aliasVarName));
-          }
-          return false;
-        }
-
+      if (aliasRefs.isWellDefined() && aliasRefs.isAssignedOnceInLifetime()) {
         // The alias is well-formed, so do the inlining now.
         int size = aliasRefs.references.size();
-        for (int i = 1; i < size; i++) {
+        // It's initialized on either the first or second reference.
+        int firstRead = aliasRefs.references.get(0).isInitializingDeclaration() ? 1 : 2;
+        for (int i = firstRead; i < size; i++) {
           Reference aliasRef = aliasRefs.references.get(i);
           newNodes.add(replaceAliasReference(alias, aliasRef));
         }
 
         // just set the original alias to null.
-        aliasParent.replaceChild(alias.node, IR.nullNode());
-        codeChanged = true;
-        compiler.reportChangeToEnclosingScope(aliasParent);
+        replaceAliasAssignment(alias, aliasLhsNode);
 
         // Inlining the variable may have introduced new references
         // to descendants of {@code name}. So those need to be collected now.
@@ -364,7 +352,15 @@ class AggressiveInlineAliases implements CompilerPass {
         // generators introduces some constructor aliases that weren't getting inlined.
         // If we find another (safer) way to avoid aliasing in method decomposition, consider
         // removing this.
-        return partiallyInlineAlias(alias, namespace, aliasRefs, aliasLhsNode);
+        if (partiallyInlineAlias(alias, namespace, aliasRefs, aliasLhsNode)) {
+          return true;
+        } else {
+          // If we can't inline all alias references, make sure there are no unsafe property
+          // accesses.
+          if (referencesCollapsibleProperty(aliasRefs, name, namespace)) {
+            compiler.report(JSError.make(aliasParent, UNSAFE_CTOR_ALIASING, aliasVarName));
+          }
+        }
       }
     }
 
@@ -380,7 +376,7 @@ class AggressiveInlineAliases implements CompilerPass {
    * @param namespace The GlobalNamespace, which will be updated with all new nodes created.
    * @param aliasRefs All references to the alias in its scope.
    * @param aliasLhsNode The lhs name of the alias when it is first initialized.
-   * @return Whether any references to the alias were inlined.
+   * @return Whether all references to the alias were inlined
    */
   private boolean partiallyInlineAlias(
       Ref alias, GlobalNamespace namespace, ReferenceCollection aliasRefs, Node aliasLhsNode) {
@@ -430,32 +426,35 @@ class AggressiveInlineAliases implements CompilerPass {
     }
 
     // We removed all references to the alias, so remove the original aliasing assignment.
-    if (!foundNonReplaceableAlias && canReplaceAliasAssignment(alias, aliasLhsNode)) {
-      // alias.node is the RHS of the assignment or initializing declaration.
-      Node aliasParent = alias.node.getParent();
-      // `aliasName = aliasedVar;` => `aliasName = null;`
-      aliasParent.replaceChild(alias.node, IR.nullNode());
-      compiler.reportChangeToEnclosingScope(aliasParent);
+    if (!foundNonReplaceableAlias) {
+      replaceAliasAssignment(alias, aliasLhsNode);
     }
 
     if (codeChanged) {
       // Inlining the variable may have introduced new references
       // to descendants of {@code name}. So those need to be collected now.
       namespace.scanNewNodes(newNodes);
-      return true;
     }
-    return false;
+    return !foundNonReplaceableAlias;
   }
 
-  private boolean canReplaceAliasAssignment(Ref alias, Node aliasLhsNode) {
-    if (alias.getTwin() != null) {
-      return false;
+  /**
+   * Replaces the rhs of an aliasing assignment with null, unless the assignment result is used in a
+   * complex expression.
+   */
+  private void replaceAliasAssignment(Ref alias, Node aliasLhsNode) {
+    // either VAR/CONST/LET or ASSIGN.
+    Node assignment = aliasLhsNode.getParent();
+    if (!NodeUtil.isNameDeclaration(assignment) && NodeUtil.isExpressionResultUsed(assignment)) {
+      // e.g. don't change "if (alias = someVariable)" to "if (alias = null)"
+      // TODO(lharker): instead replace the entire assignment with the RHS - "alias = x" becomes "x"
+      return;
     }
-    if (NodeUtil.isNameDeclaration(aliasLhsNode)) {
-      return true;
-    }
-    Node assign = aliasLhsNode.getParent();
-    return !NodeUtil.isExpressionResultUsed(assign);
+    Node aliasParent = alias.node.getParent();
+    aliasParent.replaceChild(alias.node, IR.nullNode());
+    alias.name.removeRef(alias);
+    codeChanged = true;
+    compiler.reportChangeToEnclosingScope(aliasParent);
   }
 
   /**
@@ -467,6 +466,9 @@ class AggressiveInlineAliases implements CompilerPass {
   private boolean referencesCollapsibleProperty(
       ReferenceCollection aliasRefs, Name aliasedName, GlobalNamespace namespace) {
     for (Reference ref : aliasRefs.references) {
+      if (ref.getParent() == null) {
+        continue;
+      }
       if (ref.getParent().isGetProp()) {
         Node propertyNode = ref.getNode().getNext();
         // e.g. if the reference is "alias.b.someProp", this will be "b".
@@ -560,6 +562,25 @@ class AggressiveInlineAliases implements CompilerPass {
         // to descendants of {@code name}. So those need to be collected now.
         namespace.scanNewNodes(newNodes);
 
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Check if the name has multiple sets that are not of the form "a = a || {}" */
+  private boolean isUnsafelyReassigned(Name name) {
+    boolean foundOriginalDefinition = false;
+    for (Ref ref : name.getRefs()) {
+      if (!ref.isSet()) {
+        continue;
+      }
+      if (CollapseProperties.isSafeNamespaceReinit(ref)) {
+        continue;
+      }
+      if (!foundOriginalDefinition) {
+        foundOriginalDefinition = true;
+      } else {
         return true;
       }
     }

@@ -110,6 +110,20 @@ public final class MaybeReachingVariableUseTest extends TestCase {
     assertNotMatch("D: var x = [], foo; U: for (x in foo) { }");
     assertNotMatch("D: var x = [], foo; for (x in foo) { U:x }");
     assertMatch("var x = [], foo; D: for (x in foo) { U:x }");
+    assertMatch("var foo; D: for (let x in foo) { U:x }");
+    assertMatch("var foo; D: for (const x in foo) { U:x }");
+    assertMatch("D: var x = 1, foo; U: x; U: for (let [z = x] in foo) {}");
+    assertMatch("D: var x = 1, foo; U: x; for (let [x] in foo) {}");
+  }
+
+  public void testForOf() {
+    assertNotMatch("D: var x = [], foo; U: for (x of foo) { }");
+    assertNotMatch("D: var x = [], foo; for (x of foo) { U:x }");
+    assertMatch("var x = [], foo; D: for (x of foo) { U:x }");
+    assertMatch("var foo; D: for (let x of foo) { U:x }");
+    assertMatch("var foo; D: for (const x of foo) { U:x }");
+    assertMatch("D: var x = 1, foo; U: x; U: for (let [z = x] of foo) {}");
+    assertMatch("D: var x = 1, foo; U: x; for (let [x] of foo) {}");
   }
 
   public void testTryCatch() {
@@ -117,6 +131,13 @@ public final class MaybeReachingVariableUseTest extends TestCase {
         + "D: var x = 1; "
         + "try { U: var y = foo() + x; } catch (e) {} "
         + "U: var z = x;");
+  }
+
+  public void testDestructuring() {
+    assertMatch("D: var x = 1; U: var [y = x] = [];");
+    assertMatch("D: var x = 1; var y; U: [y = x] = [];");
+    assertMatch("D: var [x] = []; U: x;");
+    assertMatch("var x; x = 3; D: [x] = 5; U: x;");
   }
 
   /**

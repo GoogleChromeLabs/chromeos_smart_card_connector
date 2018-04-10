@@ -398,38 +398,6 @@ public final class JsDocInfoParser {
           }
           return eatUntilEOLIfNotAnnotation();
 
-        case JAGGER_INJECT:
-          if (jsdocBuilder.isJaggerInjectRecorded()) {
-            addParserWarning("msg.jsdoc.jaggerInject.extra");
-          } else {
-            jsdocBuilder.recordJaggerInject(true);
-          }
-          return eatUntilEOLIfNotAnnotation();
-
-        case JAGGER_MODULE:
-          if (jsdocBuilder.isJaggerModuleRecorded()) {
-            addParserWarning("msg.jsdoc.jaggerModule.extra");
-          } else {
-            jsdocBuilder.recordJaggerModule(true);
-          }
-          return eatUntilEOLIfNotAnnotation();
-
-        case JAGGER_PROVIDE:
-          if (jsdocBuilder.isJaggerProvideRecorded()) {
-            addParserWarning("msg.jsdoc.jaggerProvide.extra");
-          } else {
-            jsdocBuilder.recordJaggerProvide(true);
-          }
-          return eatUntilEOLIfNotAnnotation();
-
-        case JAGGER_PROVIDE_PROMISE:
-          if (jsdocBuilder.isJaggerProvidePromiseRecorded()) {
-            addParserWarning("msg.jsdoc.jaggerProvidePromise.extra");
-          } else {
-            jsdocBuilder.recordJaggerProvidePromise(true);
-          }
-          return eatUntilEOLIfNotAnnotation();
-
         case ABSTRACT:
           if (!jsdocBuilder.recordAbstract()) {
             addTypeWarning("msg.jsdoc.incompat.type");
@@ -701,12 +669,6 @@ public final class JsDocInfoParser {
             addParserWarning("msg.jsdoc.meaning.extra");
           }
           return token;
-
-        case NO_ALIAS:
-          if (!jsdocBuilder.recordNoAlias()) {
-            addParserWarning("msg.jsdoc.noalias");
-          }
-          return eatUntilEOLIfNotAnnotation();
 
         case NO_COMPILE:
           if (!jsdocBuilder.recordNoCompile()) {
@@ -1498,6 +1460,36 @@ public final class JsDocInfoParser {
   }
 
   /**
+   * Looks for a parameter type expression at the current token and if found, returns it. Note that
+   * this method consumes input.
+   *
+   * @param token The current token.
+   * @param lineno The line of the type expression.
+   * @param startCharno The starting character position of the type expression.
+   * @param matchingLC Whether the type expression starts with a "{".
+   * @param onlyParseSimpleNames If true, only simple type names are parsed (via a call to
+   *     parseTypeNameAnnotation instead of parseTypeExpressionAnnotation).
+   * @return The type expression found or null if none.
+   */
+  private Node parseAndRecordTypeNode(
+      JsDocToken token,
+      int lineno,
+      int startCharno,
+      boolean matchingLC,
+      boolean onlyParseSimpleNames) {
+    Node typeNode;
+
+    if (onlyParseSimpleNames) {
+      typeNode = parseTypeNameAnnotation(token);
+    } else {
+      typeNode = parseTypeExpressionAnnotation(token);
+    }
+
+    recordTypeNode(lineno, startCharno, typeNode, matchingLC);
+    return typeNode;
+  }
+
+  /**
    * Looks for a type expression at the current token and if found,
    * returns it. Note that this method consumes input.
    *
@@ -1532,35 +1524,6 @@ public final class JsDocInfoParser {
 
     Node typeNode = parseParamTypeExpressionAnnotation(token);
     recordTypeNode(lineno, startCharno, typeNode, true);
-    return typeNode;
-  }
-
-  /**
-   * Looks for a parameter type expression at the current token and if found,
-   * returns it. Note that this method consumes input.
-   *
-   * @param token The current token.
-   * @param lineno The line of the type expression.
-   * @param startCharno The starting character position of the type expression.
-   * @param matchingLC Whether the type expression starts with a "{".
-   * @param onlyParseSimpleNames If true, only simple type names are parsed
-   *     (via a call to parseTypeNameAnnotation instead of
-   *     parseTypeExpressionAnnotation).
-   * @return The type expression found or null if none.
-   */
-  private Node parseAndRecordTypeNode(JsDocToken token, int lineno,
-                                      int startCharno,
-                                      boolean matchingLC,
-                                      boolean onlyParseSimpleNames) {
-    Node typeNode;
-
-    if (onlyParseSimpleNames) {
-      typeNode = parseTypeNameAnnotation(token);
-    } else {
-      typeNode = parseTypeExpressionAnnotation(token);
-    }
-
-    recordTypeNode(lineno, startCharno, typeNode, matchingLC);
     return typeNode;
   }
 
@@ -1697,6 +1660,27 @@ public final class JsDocInfoParser {
         token, getWhitespaceOption(WhitespaceOption.SINGLE_LINE), false);
   }
 
+  /**
+   * Extracts the text found on the current line and all subsequent until either an annotation, end
+   * of comment or end of file is reached. Note that if this method detects an end of line as the
+   * first token, it will quit immediately (indicating that there is no text where it was expected).
+   * Note that token = info.token; should be called after this method is used to update the token
+   * properly in the parser.
+   *
+   * @param token The start token.
+   * @param option How to handle whitespace.
+   * @param includeAnnotations Whether the extracted text may include annotations. If set to false,
+   *     text extraction will stop on the first encountered annotation token.
+   * @return The extraction information.
+   */
+  private ExtractionInfo extractMultilineTextualBlock(
+      JsDocToken token, WhitespaceOption option, boolean includeAnnotations) {
+    if (token == JsDocToken.EOC || token == JsDocToken.EOL || token == JsDocToken.EOF) {
+      return new ExtractionInfo("", token);
+    }
+    return extractMultilineComment(token, option, true, includeAnnotations);
+  }
+
   private WhitespaceOption getWhitespaceOption(WhitespaceOption defaultValue) {
     return preserveWhitespace ? WhitespaceOption.PRESERVE : defaultValue;
   }
@@ -1713,32 +1697,6 @@ public final class JsDocInfoParser {
 
     /** Removes newlines and turns the output into a single line string. */
     SINGLE_LINE
-  }
-
-  /**
-   * Extracts the text found on the current line and all subsequent
-   * until either an annotation, end of comment or end of file is reached.
-   * Note that if this method detects an end of line as the first token, it
-   * will quit immediately (indicating that there is no text where it was
-   * expected).  Note that token = info.token; should be called after this
-   * method is used to update the token properly in the parser.
-   *
-   * @param token The start token.
-   * @param option How to handle whitespace.
-   * @param includeAnnotations Whether the extracted text may include
-   *     annotations. If set to false, text extraction will stop on the first
-   *     encountered annotation token.
-   *
-   * @return The extraction information.
-   */
-  private ExtractionInfo extractMultilineTextualBlock(JsDocToken token,
-                                                      WhitespaceOption option,
-                                                      boolean includeAnnotations) {
-    if (token == JsDocToken.EOC || token == JsDocToken.EOL ||
-        token == JsDocToken.EOF) {
-      return new ExtractionInfo("", token);
-    }
-    return extractMultilineComment(token, option, true, includeAnnotations);
   }
 
 
@@ -2094,6 +2052,9 @@ public final class JsDocInfoParser {
    *     | '?'
    */
   private Node parseTypeExpression(JsDocToken token) {
+    // Save the source position before we consume additional tokens.
+    int lineno = stream.getLineno();
+    int charno = stream.getCharno();
     if (token == JsDocToken.QMARK) {
       // A QMARK could mean that a type is nullable, or that it's unknown.
       // We use look-ahead 1 to determine whether it's unknown. Otherwise,
@@ -2123,18 +2084,20 @@ public final class JsDocInfoParser {
         return newNode(Token.QMARK);
       }
 
-      return wrapNode(Token.QMARK, parseBasicTypeExpression(token));
+      return wrapNode(Token.QMARK, parseBasicTypeExpression(token), lineno, charno);
     } else if (token == JsDocToken.BANG) {
-      return wrapNode(Token.BANG, parseBasicTypeExpression(next()));
+      return wrapNode(Token.BANG, parseBasicTypeExpression(next()), lineno, charno);
     } else {
       Node basicTypeExpr = parseBasicTypeExpression(token);
+      lineno = stream.getLineno();
+      charno = stream.getCharno();
       if (basicTypeExpr != null) {
         if (match(JsDocToken.QMARK)) {
           next();
-          return wrapNode(Token.QMARK, basicTypeExpr);
+          return wrapNode(Token.QMARK, basicTypeExpr, lineno, charno);
         } else if (match(JsDocToken.BANG)) {
           next();
-          return wrapNode(Token.BANG, basicTypeExpr);
+          return wrapNode(Token.BANG, basicTypeExpr, lineno, charno);
         }
       }
 
@@ -2580,9 +2543,11 @@ public final class JsDocInfoParser {
   }
 
   private Node wrapNode(Token type, Node n) {
-    return n == null ? null :
-        new Node(type, n, n.getLineno(),
-            n.getCharno()).clonePropsFrom(templateNode);
+    return n == null ? null : wrapNode(type, n, n.getLineno(), n.getCharno());
+  }
+
+  private Node wrapNode(Token type, Node n, int lineno, int charno) {
+    return n == null ? null : new Node(type, n, lineno, charno).clonePropsFrom(templateNode);
   }
 
   private Node newNode(Token type) {

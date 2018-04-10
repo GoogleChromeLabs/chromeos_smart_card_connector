@@ -21,7 +21,6 @@ import static com.google.common.base.Ascii.toUpperCase;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.base.Predicates;
 import com.google.javascript.jscomp.NodeTraversal.AbstractModuleCallback;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
@@ -160,7 +159,8 @@ public final class ClosureCheckModule extends AbstractModuleCallback
   private static class ModuleInfo {
     // Name of the module in question (i.e. the argument to goog.module)
     private final String name;
-    // Mapping from fully qualified goog.required names to the import LHS node
+    // Mapping from fully qualified goog.required names to the import LHS node.
+    // For standalone goog.require()s the value is the EXPR_RESULT node.
     private final Map<String, Node> importsByLongRequiredName = new HashMap<>();
     // Module-local short names for goog.required symbols.
     private final Set<String> shortImportNames = new HashSet<>();
@@ -363,8 +363,7 @@ public final class ClosureCheckModule extends AbstractModuleCallback
               }
             }
           }
-        },
-        Predicates.<Node>alwaysTrue());
+        });
   }
 
   /** Is this the LHS of a goog.module export? i.e. Either "exports" or "exports.name" */
@@ -417,7 +416,10 @@ public final class ClosureCheckModule extends AbstractModuleCallback
     }
     switch (parent.getToken()) {
       case EXPR_RESULT:
-        currentModule.importsByLongRequiredName.put(extractFirstArgumentName(callNode), parent);
+        String key = extractFirstArgumentName(callNode);
+        if (!currentModule.importsByLongRequiredName.containsKey(key)) {
+          currentModule.importsByLongRequiredName.put(key, parent);
+        }
         return;
       case NAME:
       case DESTRUCTURING_LHS:

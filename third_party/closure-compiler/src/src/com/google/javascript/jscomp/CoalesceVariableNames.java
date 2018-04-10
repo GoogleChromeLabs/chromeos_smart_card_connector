@@ -227,7 +227,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
 
       pseudoName = Joiner.on("_").join(allMergedNames);
 
-      while (t.getScope().isDeclared(pseudoName, true)) {
+      while (t.getScope().hasSlot(pseudoName)) {
         pseudoName += "$";
       }
 
@@ -284,7 +284,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
       // Skip lets and consts that have multiple variables declared in them, otherwise this produces
       // incorrect semantics. See test case "testCapture".
       if (v.isLet() || v.isConst()) {
-        Node nameDecl = NodeUtil.getEnclosingNode(v.getNode(), NodeUtil.isNameDeclaration);
+        Node nameDecl = NodeUtil.getEnclosingNode(v.getNode(), NodeUtil::isNameDeclaration);
         if (NodeUtil.findLhsNodesInNode(nameDecl).size() > 1) {
           continue;
         }
@@ -383,9 +383,19 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
     }
 
     void check(Node n) {
+      // For most AST nodes, traverse the subtree in postorder because that's how the expressions
+      // are evaluated.
       if (n == root || !ControlFlowGraph.isEnteringNewCfgNode(n)) {
-        for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
-          check(c);
+        if ((n.isDestructuringLhs() && n.hasTwoChildren())
+            || (n.isAssign() && n.getFirstChild().isDestructuringPattern())
+            || n.isDefaultValue()) {
+          // Evaluate the rhs of a destructuring assignment/declaration before the lhs.
+          check(n.getSecondChild());
+          check(n.getFirstChild());
+        } else {
+          for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
+            check(c);
+          }
         }
         visit(n, n.getParent());
       }
@@ -418,7 +428,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
    * @param name name node of the variable being coalesced
    */
   private static void removeVarDeclaration(Node name) {
-    Node var = NodeUtil.getEnclosingNode(name, NodeUtil.isNameDeclaration);
+    Node var = NodeUtil.getEnclosingNode(name, NodeUtil::isNameDeclaration);
     Node parent = var.getParent();
 
     if (!var.isVar()) {
@@ -463,7 +473,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
   private static void makeDeclarationVar(Var coalescedName) {
     if (coalescedName.isLet() || coalescedName.isConst()) {
       Node declNode =
-          NodeUtil.getEnclosingNode(coalescedName.getParentNode(), NodeUtil.isNameDeclaration);
+          NodeUtil.getEnclosingNode(coalescedName.getParentNode(), NodeUtil::isNameDeclaration);
       declNode.setToken(Token.VAR);
     }
   }
@@ -507,6 +517,8 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
         } else if (NodeUtil.isNameDeclaration(parent) && n.hasChildren()) {
           // If this is a VAR declaration, if the name node has a child, we are
           // assigning to that name.
+          return var.getName().equals(n.getString());
+        } else if (NodeUtil.isLhsByDestructuring(n)) {
           return var.getName().equals(n.getString());
         }
       } else if (NodeUtil.isAssignmentOp(n)) {

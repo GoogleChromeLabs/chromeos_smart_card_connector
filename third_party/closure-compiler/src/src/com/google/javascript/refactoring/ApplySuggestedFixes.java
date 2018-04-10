@@ -19,13 +19,16 @@ package com.google.javascript.refactoring;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Streams;
 import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
@@ -36,29 +39,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.IntStream;
 
 /**
  * Class that applies suggested fixes to code or files.
  */
 public final class ApplySuggestedFixes {
 
-  private static final Ordering<CodeReplacement> ORDER_CODE_REPLACEMENTS = Ordering.natural()
-      .onResultOf(new Function<CodeReplacement, Integer>() {
-        @Override public Integer apply(CodeReplacement replacement) {
-          return replacement.getStartPosition();
-        }
-      })
-      .compound(Ordering.natural().onResultOf(new Function<CodeReplacement, Integer>() {
-        @Override public Integer apply(CodeReplacement replacement) {
-          return replacement.getLength();
-        }
-      }))
-      .compound(Ordering.natural().onResultOf(new Function<CodeReplacement, String>() {
-        @Override public String apply(CodeReplacement replacement) {
-          return replacement.getSortKey();
-        }
-      }));
-
+  private static final Ordering<CodeReplacement> ORDER_CODE_REPLACEMENTS =
+      Ordering.natural()
+          .onResultOf(CodeReplacement::getStartPosition)
+          .compound(Ordering.natural().onResultOf(CodeReplacement::getLength))
+          .compound(Ordering.natural().onResultOf(CodeReplacement::getSortKey));
 
   /**
    * Applies the provided set of suggested fixes to the files listed in the suggested fixes.
@@ -84,10 +77,48 @@ public final class ApplySuggestedFixes {
   }
 
   /**
-   * Applies the provided set of suggested fixes to the provided code and returns the new code. The
-   * {@code filenameToCodeMap} must contain all the files that the provided fixes apply to. The
-   * fixes can be provided in any order, but they may not have any overlapping modifications for the
-   * same file. This function will return new code only for the files that have been modified.
+   * Applies all possible options from each {@code SuggestedFixAlternative} to the provided code and
+   * returns the new code. This only makes sense if all the SuggestedFixAlternatives come from the
+   * same checker, i.e. they offer the same number of choices and the same index corresponds to
+   * similar fixes. The {@code filenameToCodeMap} must contain all the files that the provided fixes
+   * apply to. The fixes can be provided in any order, but they may not have any overlapping
+   * modifications for the same file. This function will return new code only for the files that
+   * have been modified.
+   */
+  public static ImmutableList<ImmutableMap<String, String>> applyAllSuggestedFixChoicesToCode(
+      Iterable<SuggestedFix> fixChoices, Map<String, String> fileNameToCodeMap) {
+    if (Iterables.isEmpty(fixChoices)) {
+      return ImmutableList.of(ImmutableMap.of());
+    }
+    int alternativeCount = Iterables.getFirst(fixChoices, null).getAlternatives().size();
+    Preconditions.checkArgument(
+        Streams.stream(fixChoices)
+            .map(f -> f.getAlternatives().size())
+            .allMatch(Predicate.isEqual(alternativeCount)),
+        "All SuggestedFixAlternatives must offer an equal number of choices for this "
+            + "utility to make sense");
+    return IntStream.range(0, alternativeCount)
+        .mapToObj(i -> applySuggestedFixChoicesToCode(fixChoices, i, fileNameToCodeMap))
+        .collect(ImmutableList.toImmutableList());
+  }
+
+  private static ImmutableMap<String, String> applySuggestedFixChoicesToCode(
+      Iterable<SuggestedFix> fixChoices,
+      final int choiceIndex,
+      Map<String, String> fileNameToCodeMap) {
+    ImmutableList<SuggestedFix> chosenFixes =
+        Streams.stream(fixChoices)
+            .map(choices -> choices.getAlternatives().get(choiceIndex))
+            .collect(ImmutableList.toImmutableList());
+    return applySuggestedFixesToCode(chosenFixes, fileNameToCodeMap);
+  }
+
+  /**
+   * Applies the provided set of suggested fixes to the provided code and returns the new code,
+   * ignoring alternative fixes. The {@code filenameToCodeMap} must contain all the files that the
+   * provided fixes apply to. The fixes can be provided in any order, but they may not have any
+   * overlapping modifications for the same file. This function will return new code only for the
+   * files that have been modified.
    */
   public static ImmutableMap<String, String> applySuggestedFixesToCode(
       Iterable<SuggestedFix> fixes, Map<String, String> filenameToCodeMap) {

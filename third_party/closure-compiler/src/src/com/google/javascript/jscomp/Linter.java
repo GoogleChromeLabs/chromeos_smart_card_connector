@@ -17,7 +17,9 @@ package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.parsing.Config.JsDocParsing.INCLUDE_DESCRIPTIONS_WITH_WHITESPACE;
 
+import com.google.common.annotations.GwtIncompatible;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.refactoring.ApplySuggestedFixes;
 import com.google.javascript.refactoring.FixingErrorManager;
@@ -25,82 +27,26 @@ import com.google.javascript.refactoring.SuggestedFix;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
-import org.kohsuke.args4j.Argument;
-import org.kohsuke.args4j.CmdLineException;
-import org.kohsuke.args4j.CmdLineParser;
-import org.kohsuke.args4j.Option;
 
 /**
- * Minimal binary that just runs the "lint" checks which can be run on a single file at a time.
- * This means some checks in the lintChecks DiagnosticGroup are skipped, since they depend on
- * type information.
+ * Tool for running just the lint checks which can be run on a single file at a time.
+ *
+ * <p>Run from {@link LinterMain}
  */
-public class Linter {
+@GwtIncompatible("Unnecessary")
+public final class Linter {
   // Don't try to apply fixes anymore, after trying this many times.
   // This is to avoid the unlikely event of an infinite loop of fixes.
   static final int MAX_FIXES = 5;
 
-  @Option(name = "--fix", usage = "Fix lint warnings automatically")
-  private boolean fix = false;
-
-  @Argument private List<String> files = new ArrayList<>();
-
-  public static void main(String[] args) throws IOException, CmdLineException {
-    new Linter().run(args);
-  }
-
-  private void run(String[] args) throws IOException, CmdLineException {
-    CmdLineParser parser = new CmdLineParser(this);
-    parser.parseArgument(args);
-
-    for (String filename : files) {
-      if (fix) {
-        fixRepeatedly(filename);
-      } else {
-        lint(filename);
-      }
-    }
-  }
+  private Linter() {}
 
   static void lint(String filename) throws IOException {
     lint(Paths.get(filename), new Compiler(System.out));
   }
 
-  /**
-   * Keep applying fixes to the given file until no more fixes can be found,
-   * or until fixes have been applied {@code MAX_FIXES} times.
-   */
-  static void fixRepeatedly(String filename) throws IOException {
-    for (int i = 0; i < MAX_FIXES; i++) {
-      if (!fix(filename)) {
-        break;
-      }
-    }
-  }
-
-  /**
-   * @return Whether any fixes were applied.
-   */
-  private static boolean fix(String filename) throws IOException {
-    Compiler compiler = new Compiler(System.out);
-    FixingErrorManager errorManager = new FixingErrorManager();
-    compiler.setErrorManager(errorManager);
-    errorManager.setCompiler(compiler);
-
-    lint(Paths.get(filename), compiler);
-
-    Collection<SuggestedFix> fixes = errorManager.getAllFixes();
-    if (!fixes.isEmpty()) {
-      ApplySuggestedFixes.applySuggestedFixesToFiles(fixes);
-      return true;
-    }
-    return false;
-  }
-
- static void lint(Path path, Compiler compiler) throws IOException {
+  static void lint(Path path, Compiler compiler) throws IOException {
     SourceFile file = SourceFile.fromFile(path.toString());
     CompilerOptions options = new CompilerOptions();
     options.setLanguage(LanguageMode.ECMASCRIPT_NEXT);
@@ -127,10 +73,51 @@ public class Linter {
     options.setWarningLevel(DiagnosticGroups.STRICT_MISSING_REQUIRE, CheckLevel.ERROR);
     options.setWarningLevel(DiagnosticGroups.EXTRA_REQUIRE, CheckLevel.ERROR);
     options.setWarningLevel(DiagnosticGroups.USE_OF_GOOG_BASE, CheckLevel.WARNING);
+    options.setWarningLevel(DiagnosticGroups.MISPLACED_SUPPRESS, CheckLevel.WARNING);
     options.setSummaryDetailLevel(0);
     compiler.setPassConfig(new LintPassConfig(options));
     compiler.disableThreads();
     SourceFile externs = SourceFile.fromCode("<Linter externs>", "");
     compiler.compile(ImmutableList.<SourceFile>of(externs), ImmutableList.of(file), options);
+  }
+
+  /**
+   * Keep applying fixes to the given file until no more fixes can be found, or until fixes have
+   * been applied {@code MAX_FIXES} times.
+   */
+  static void fixRepeatedly(String filename) throws IOException {
+    fixRepeatedly(filename, ImmutableSet.of());
+  }
+
+  /**
+   * Keep applying fixes to the given file until no more fixes can be found, or until fixes have
+   * been applied {@code MAX_FIXES} times.
+   */
+  static void fixRepeatedly(String filename, ImmutableSet<DiagnosticType> unfixableErrors)
+      throws IOException {
+    for (int i = 0; i < MAX_FIXES; i++) {
+      if (!fix(filename, unfixableErrors)) {
+        break;
+      }
+    }
+  }
+
+
+  /** @return Whether any fixes were applied. */
+  private static boolean fix(String filename, ImmutableSet<DiagnosticType> unfixableErrors)
+      throws IOException {
+    Compiler compiler = new Compiler(System.out);
+    FixingErrorManager errorManager = new FixingErrorManager(unfixableErrors);
+    compiler.setErrorManager(errorManager);
+    errorManager.setCompiler(compiler);
+
+    lint(Paths.get(filename), compiler);
+
+    Collection<SuggestedFix> fixes = errorManager.getAllFixes();
+    if (!fixes.isEmpty()) {
+      ApplySuggestedFixes.applySuggestedFixesToFiles(fixes);
+      return true;
+    }
+    return false;
   }
 }

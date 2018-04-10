@@ -196,7 +196,7 @@ class IRFactory {
 
   static final String STRING_CONTINUATION_WARNING =
       "String continuations are not recommended. See"
-      + " https://google.github.io/styleguide/javascriptguide.xml?showone=Multiline_string_literals#Multiline_string_literals";
+      + " https://google.github.io/styleguide/jsguide.html#features-strings-no-line-continuations";
 
   static final String OCTAL_STRING_LITERAL_WARNING =
       "Octal literals in strings are not supported in this language mode.";
@@ -420,6 +420,7 @@ class IRFactory {
     validateReturn(n);
     validateNewDotTarget(n);
     validateLabel(n);
+    validateBlockScopedFunctions(n);
   }
 
   private void validateReturn(Node n) {
@@ -572,6 +573,12 @@ class IRFactory {
     }
   }
 
+  private void validateBlockScopedFunctions(Node n) {
+    if (n.isFunction() && n.getParent().isNormalBlock() && !n.getGrandparent().isFunction()) {
+      maybeWarnForFeature(n, Feature.BLOCK_SCOPED_FUNCTION_DECLARATION);
+    }
+  }
+
   JSDocInfo recordJsDoc(SourceRange location, JSDocInfo info) {
     if (info != null && info.hasTypeInformation()) {
       hasJsDocTypeAnnotations = true;
@@ -706,6 +713,10 @@ class IRFactory {
     return handleJsDoc(getJsDoc(node));
   }
 
+  JSDocInfo handleJsDoc(com.google.javascript.jscomp.parsing.parser.Token token) {
+    return handleJsDoc(getJsDoc(token));
+  }
+
   private boolean shouldAttachJSDocHere(ParseTree tree) {
     switch (tree.type) {
       case EXPRESSION_STATEMENT:
@@ -756,10 +767,6 @@ class IRFactory {
           return tree;
       }
     }
-  }
-
-  JSDocInfo handleJsDoc(com.google.javascript.jscomp.parsing.parser.Token token) {
-    return handleJsDoc(getJsDoc(token));
   }
 
   Node transform(ParseTree tree) {
@@ -832,16 +839,8 @@ class IRFactory {
     return lineno(node.location.start);
   }
 
-  static int charno(ParseTree node) {
-    return charno(node.location.start);
-  }
-
   static int lineno(com.google.javascript.jscomp.parsing.parser.Token token) {
     return lineno(token.location.start);
-  }
-
-  static int charno(com.google.javascript.jscomp.parsing.parser.Token token) {
-    return charno(token.location.start);
   }
 
   static int lineno(SourcePosition location) {
@@ -849,18 +848,30 @@ class IRFactory {
     return location.line + 1;
   }
 
+  static int charno(ParseTree node) {
+    return charno(node.location.start);
+  }
+
+  static int charno(com.google.javascript.jscomp.parsing.parser.Token token) {
+    return charno(token.location.start);
+  }
+
   static int charno(SourcePosition location) {
     return location.column;
+  }
+
+  String languageFeatureWarningMessage(Feature feature) {
+    return "This language feature is only supported for "
+              + LanguageMode.minimumRequiredFor(feature)
+              + " mode or better: "
+              + feature;
   }
 
   void maybeWarnForFeature(ParseTree node, Feature feature) {
     features = features.with(feature);
     if (!isSupportedForInputLanguageMode(feature)) {
       errorReporter.warning(
-          "this language feature is only supported for "
-              + LanguageMode.minimumRequiredFor(feature)
-              + " mode or better: "
-              + feature,
+          languageFeatureWarningMessage(feature),
           sourceName,
           lineno(node), charno(node));
     }
@@ -871,12 +882,19 @@ class IRFactory {
     features = features.with(feature);
     if (!isSupportedForInputLanguageMode(feature)) {
       errorReporter.warning(
-          "this language feature is only supported for "
-              + LanguageMode.minimumRequiredFor(feature)
-              + " mode or better: "
-              + feature,
+          languageFeatureWarningMessage(feature),
           sourceName,
           lineno(token), charno(token));
+    }
+  }
+
+  void maybeWarnForFeature(Node node, Feature feature) {
+    features = features.with(feature);
+    if (!isSupportedForInputLanguageMode(feature)) {
+      errorReporter.warning(
+          languageFeatureWarningMessage(feature),
+          sourceName,
+          node.getLineno(), node.getCharno());
     }
   }
 
@@ -1302,12 +1320,6 @@ class IRFactory {
         maybeWarnForFeature(functionTree, Feature.ASYNC_FUNCTIONS);
       }
 
-      // Add a feature so that transpilation process hoists block scoped functions through
-      // var redeclaration in ES3 and ES5
-      if (isDeclaration) {
-        features = features.with(Feature.BLOCK_SCOPED_FUNCTION_DECLARATION);
-      }
-
       IdentifierToken name = functionTree.name;
       Node newName;
       if (name != null) {
@@ -1424,11 +1436,11 @@ class IRFactory {
     }
 
     Node processBinaryExpression(BinaryOperatorTree exprNode) {
-      if (exprNode.operator.type == TokenType.STAR_STAR
-          || exprNode.operator.type == TokenType.STAR_STAR_EQUAL) {
-        maybeWarnForFeature(exprNode, Feature.EXPONENT_OP);
-      }
       if (hasPendingCommentBefore(exprNode.right)) {
+        if (exprNode.operator.type == TokenType.STAR_STAR
+            || exprNode.operator.type == TokenType.STAR_STAR_EQUAL) {
+          maybeWarnForFeature(exprNode, Feature.EXPONENT_OP);
+        }
         return newNode(
             transformBinaryTokenType(exprNode.operator.type),
             transform(exprNode.left),
@@ -1446,6 +1458,10 @@ class IRFactory {
       Node current = null;
       Node previous = null;
       while (exprTree != null) {
+        if (exprTree.operator.type == TokenType.STAR_STAR
+            || exprTree.operator.type == TokenType.STAR_STAR_EQUAL) {
+          maybeWarnForFeature(exprTree, Feature.EXPONENT_OP);
+        }
         previous = current;
         // Skip the first child but recurse normally into the right operand as typically this isn't
         // deep and because we have already checked that there isn't any JSDoc we can traverse
@@ -2308,7 +2324,10 @@ class IRFactory {
       Node importedName = processName(tree.importedName, true);
       importedName.setToken(Token.NAME);
       Node exportSpec = newNode(Token.EXPORT_SPEC, importedName);
-      if (tree.destinationName != null) {
+      if (tree.destinationName == null) {
+        exportSpec.setShorthandProperty(true);
+        exportSpec.addChildToBack(importedName.cloneTree());
+      } else {
         Node destinationName = processName(tree.destinationName, true);
         destinationName.setToken(Token.NAME);
         exportSpec.addChildToBack(destinationName);
@@ -2320,10 +2339,16 @@ class IRFactory {
       maybeWarnForFeature(tree, Feature.MODULES);
 
       Node firstChild = transformOrEmpty(tree.defaultBindingIdentifier, tree);
-      Node secondChild = (tree.nameSpaceImportIdentifier != null)
-          ? newStringNode(Token.IMPORT_STAR, tree.nameSpaceImportIdentifier.value)
-          : transformListOrEmpty(Token.IMPORT_SPECS, tree.importSpecifierList);
-      setSourceInfo(secondChild, tree);
+      Node secondChild;
+      if (tree.nameSpaceImportIdentifier == null) {
+        secondChild = transformListOrEmpty(Token.IMPORT_SPECS, tree.importSpecifierList);
+        // Currently source info is "import {foo} from '...';" expression. If needed this should be
+        // changed to use only "{foo}" part.
+        setSourceInfo(secondChild, tree);
+      } else {
+        secondChild = newStringNode(Token.IMPORT_STAR, tree.nameSpaceImportIdentifier.value);
+        setSourceInfo(secondChild, tree.nameSpaceImportIdentifier);
+      }
       Node thirdChild = processString(tree.moduleSpecifier);
 
       return newNode(Token.IMPORT, firstChild, secondChild, thirdChild);
@@ -2333,7 +2358,10 @@ class IRFactory {
       Node importedName = processName(tree.importedName, true);
       importedName.setToken(Token.NAME);
       Node importSpec = newNode(Token.IMPORT_SPEC, importedName);
-      if (tree.destinationName != null) {
+      if (tree.destinationName == null) {
+        importSpec.setShorthandProperty(true);
+        importSpec.addChildToBack(importedName.cloneTree());
+      } else {
         importSpec.addChildToBack(processName(tree.destinationName));
       }
       return importSpec;
@@ -3125,13 +3153,13 @@ class IRFactory {
     checkState(length > 0);
     checkState(value.charAt(0) != '-' && value.charAt(0) != '+');
     if (value.charAt(0) == '.') {
-      return Double.valueOf('0' + value);
+      return Double.parseDouble('0' + value);
     } else if (value.charAt(0) == '0' && length > 1) {
       switch (value.charAt(1)) {
         case '.':
         case 'e':
         case 'E':
-          return Double.valueOf(value);
+          return Double.parseDouble(value);
         case 'b':
         case 'B': {
           maybeWarnForFeature(token, Feature.BINARY_LITERALS);
@@ -3192,7 +3220,7 @@ class IRFactory {
               "Unexpected character in number literal: " + value.charAt(1));
       }
     } else {
-      return Double.valueOf(value);
+      return Double.parseDouble(value);
     }
   }
 

@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MultimapBuilder;
-import com.google.javascript.jscomp.Scope;
 import com.google.javascript.rhino.Node;
 import java.util.HashSet;
 import java.util.Set;
@@ -33,15 +32,19 @@ final class FileInfo {
   private final ListMultimap<String, PotentialDeclaration> declarations =
       MultimapBuilder.linkedHashKeys().arrayListValues().build();
 
-  void recordNameDeclaration(Node qnameNode, Scope scope) {
-    recordDeclaration(PotentialDeclaration.fromName(qnameNode));
+  void recordNameDeclaration(Node qualifiedNameNode) {
+    recordDeclaration(PotentialDeclaration.fromName(qualifiedNameNode));
   }
 
-  void recordMethod(Node functionNode, Scope scope) {
+  void recordMethod(Node functionNode) {
     recordDeclaration(PotentialDeclaration.fromMethod(functionNode));
   }
 
-  void recordDefine(Node callNode, Scope scope) {
+  void recordStringKeyDeclaration(Node stringKeyNode) {
+    recordDeclaration(PotentialDeclaration.fromStringKey(stringKeyNode));
+  }
+
+  void recordDefine(Node callNode) {
     recordDeclaration(PotentialDeclaration.fromDefine(callNode));
   }
 

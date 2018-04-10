@@ -579,16 +579,16 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
 
     this.mode = TypeInferenceMode.OTI_ONLY;
     testSame(
-        externs,
-        "o.prototype.propWithAnnotatedStubAfter",
-        TypeValidator.DUP_VAR_DECLARATION_TYPE_MISMATCH);
+        externs(externs),
+        srcs("o.prototype.propWithAnnotatedStubAfter"),
+        warning(TypeValidator.DUP_VAR_DECLARATION_TYPE_MISMATCH));
     assertThat(noSideEffectCalls).isEmpty();
 
     this.mode = TypeInferenceMode.NTI_ONLY;
     testSame(
-        TEST_EXTERNS + externs,
-        "o.prototype.propWithAnnotatedStubAfter",
-        GlobalTypeInfoCollector.REDECLARED_PROPERTY);
+        externs(TEST_EXTERNS + externs),
+        srcs("o.prototype.propWithAnnotatedStubAfter"),
+        warning(GlobalTypeInfoCollector.REDECLARED_PROPERTY));
     assertThat(noSideEffectCalls).isEmpty();
   }
 
@@ -612,15 +612,17 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
         "externObj5.prototype.propWithAnnotatedStubAfter;");
 
     this.mode = TypeInferenceMode.OTI_ONLY;
-    testSame(externs,
-        "o.prototype.propWithAnnotatedStubAfter",
-        TypeValidator.DUP_VAR_DECLARATION);
+    testSame(
+        externs(externs),
+        srcs("o.prototype.propWithAnnotatedStubAfter"),
+        warning(TypeValidator.DUP_VAR_DECLARATION));
     assertThat(noSideEffectCalls).isEmpty();
 
     this.mode = TypeInferenceMode.NTI_ONLY;
-    testSame(TEST_EXTERNS + externs,
-        "o.prototype.propWithAnnotatedStubAfter",
-        GlobalTypeInfoCollector.REDECLARED_PROPERTY);
+    testSame(
+        externs(TEST_EXTERNS + externs),
+        srcs("o.prototype.propWithAnnotatedStubAfter"),
+        warning(GlobalTypeInfoCollector.REDECLARED_PROPERTY));
     assertThat(noSideEffectCalls).isEmpty();
   }
 
@@ -924,10 +926,19 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
 
   public void testLocalizedSideEffects4() throws Exception {
     // An array is a local object, assigning a local array is not a global side-effect.
-    String source = lines(
-        "function f() {var x = []; x[0] = 1;}",
-        "f()");
-    assertPureCallsMarked(source, ImmutableList.of("f"));
+    assertPureCallsMarked(
+        lines(
+            "function f() {var x = []; x[0] = 1;}", // preserve newline
+            "f()"),
+        ImmutableList.of("f"));
+
+    // TODO(bradfordcsmith): Remove NEITHER when type checker understands let/const
+    mode = TypeInferenceMode.NEITHER;
+    assertPureCallsMarked(
+        lines(
+            "function f() {const x = []; x[0] = 1;}", // preserve newline
+            "f()"),
+        ImmutableList.of("f"));
   }
 
   public void testLocalizedSideEffects5() throws Exception {
@@ -944,26 +955,47 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
   public void testLocalizedSideEffects6() throws Exception {
     // Returning a local object that has been modified
     // is not a global side-effect.
-    String source = lines(
-        "function f() {",
-        "  var x = {}; x.foo = 1; return x;",
-        "}",
-        "f()"
-    );
-    assertPureCallsMarked(source, ImmutableList.of("f"));
+    assertPureCallsMarked(
+        lines(
+            "function f() {", // preserve newline
+            "  var x = {}; x.foo = 1; return x;",
+            "}",
+            "f()"),
+        ImmutableList.of("f"));
+
+    // TODO(bradfordcsmith): Remove NEITHER when type checker understands let/const
+    mode = TypeInferenceMode.NEITHER;
+    assertPureCallsMarked(
+        lines(
+            "function f() {", // preserve newline
+            "  const x = {}; x.foo = 1; return x;",
+            "}",
+            "f()"),
+        ImmutableList.of("f"));
   }
 
   public void testLocalizedSideEffects7() throws Exception {
     // Returning a local object that has been modified
     // is not a global side-effect.
-    String source = lines(
-        "/** @constructor A */ function A() {};",
-        "function f() {",
-        "  var a = []; a[1] = 1; return a;",
-        "}",
-        "f()"
-    );
-    assertPureCallsMarked(source, ImmutableList.of("f"));
+    assertPureCallsMarked(
+        lines(
+            "/** @constructor A */ function A() {};",
+            "function f() {",
+            "  var a = []; a[1] = 1; return a;",
+            "}",
+            "f()"),
+        ImmutableList.of("f"));
+
+    // TODO(bradfordcsmith): Remove NEITHER when type checker understands let/const
+    mode = TypeInferenceMode.NEITHER;
+    assertPureCallsMarked(
+        lines(
+            "/** @constructor A */ function A() {};",
+            "function f() {",
+            "  const a = []; a[1] = 1; return a;",
+            "}",
+            "f()"),
+        ImmutableList.of("f"));
   }
 
   public void testLocalizedSideEffects8() throws Exception {
@@ -1034,10 +1066,19 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
   public void testLocalizedSideEffects12() throws Exception {
     // An array is a local object, assigning a local array is not a global
     // side-effect. This tests the behavior if the access is in a block scope.
-    String source = lines(
-        "function f() {var x = []; { x[0] = 1; } }",
-        "f()");
-    assertPureCallsMarked(source, ImmutableList.of("f"));
+    assertPureCallsMarked(
+        lines(
+            "function f() {var x = []; { x[0] = 1; } }", // preserve newline
+            "f()"),
+        ImmutableList.of("f"));
+
+    // TODO(bradfordcsmith): Remove NEITHER when type checker understands let/const
+    mode = TypeInferenceMode.NEITHER;
+    assertPureCallsMarked(
+        lines(
+            "function f() {const x = []; { x[0] = 1; } }", // preserve newline
+            "f()"),
+        ImmutableList.of("f"));
   }
 
   public void testLocalizedSideEffects13() {
@@ -1105,10 +1146,10 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
   }
 
   public void testLocalizedSideEffects21() {
+    // TODO(bradfordcsmith): Remove NEITHER when type checkers understand destructuring and
+    // let/const.
     this.mode = TypeInferenceMode.NEITHER;
-    String source = lines(
-        "function f(values) { var x = {}; [x.y, x.z] = values; }",
-        "f()");
+    String source = lines("function f(values) { const x = {}; [x.y, x.z] = values; }", "f()");
     assertPureCallsMarked(source, ImmutableList.of("f"));
   }
 
@@ -1121,10 +1162,13 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
   }
 
   public void testLocalizedSideEffects23() {
+    // TODO(bradfordcsmith): Remove NEITHER when type checkers understand destructuring and
+    // let/const.
     this.mode = TypeInferenceMode.NEITHER;
-    String source = lines(
-        "function f(values) { var x = {}; [x.y, x.z = defaultNoSideEffects] = values; }",
-        "f()");
+    String source =
+        lines(
+            "function f(values) { const x = {}; [x.y, x.z = defaultNoSideEffects] = values; }",
+            "f()");
     assertPureCallsMarked(source, ImmutableList.of("f"));
   }
 
@@ -1152,10 +1196,19 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
   }
 
   public void testUnaryOperators3() throws Exception {
-    String source = lines(
-        "function f() {var x = {foo : 0}; x.foo++}",
-        "f()");
-    assertPureCallsMarked(source, ImmutableList.of("f"));
+    assertPureCallsMarked(
+        lines(
+            "function f() {var x = {foo : 0}; x.foo++}", // preserve newline
+            "f()"),
+        ImmutableList.of("f"));
+
+    // TODO(bradfordcsmith): Remove NEITHER when type checker understands let/const
+    mode = TypeInferenceMode.NEITHER;
+    assertPureCallsMarked(
+        lines(
+            "function f() {const x = {foo : 0}; x.foo++}", // preserve newline
+            "f()"),
+        ImmutableList.of("f"));
   }
 
   public void testUnaryOperators4() throws Exception {
@@ -1167,10 +1220,19 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
   }
 
   public void testUnaryOperators5() throws Exception {
-    String source = lines(
-        "function f(x) {x.foo++}",
-        "f({foo : 0})");
-    assertPureCallsMarked(source, ImmutableList.of("f"));
+    assertPureCallsMarked(
+        lines(
+            "function f(x) {x.foo++}", // preserve newline
+            "f({foo : 0})"),
+        ImmutableList.of("f"));
+
+    // TODO(bradfordcsmith): Remove NEITHER when type checker understands destructured parameters
+    mode = TypeInferenceMode.NEITHER;
+    assertPureCallsMarked(
+        lines(
+            "function f({x}) {x.foo++}", // preserve newline
+            "f({x: {foo : 0}})"),
+        ImmutableList.of("f"));
   }
 
   public void testDeleteOperator1() throws Exception {
@@ -1450,7 +1512,7 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
   }
 
   public void testAmbiguousDefinitionsMutatesLocalArgument() throws Exception {
-    String source =
+    assertPureCallsMarked(
         lines(
             "// Mutates argument",
             "A.a = function(argument) {",
@@ -1461,8 +1523,24 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
             "var b = function() {",
             "  C.a({});",
             "};",
-            "b();");
-    assertPureCallsMarked(source, ImmutableList.of("C.a", "b"));
+            "b();"),
+        ImmutableList.of("C.a", "b"));
+
+    // TODO(bradfordcsmith): Remove NEITHER when type checker understands destructuring parameters
+    mode = TypeInferenceMode.NEITHER;
+    assertPureCallsMarked(
+        lines(
+            "// Mutates argument",
+            "A.a = function([argument]) {",
+            "  argument.x = 2;",
+            "};",
+            "// No side effects",
+            "B.a = function() {};",
+            "var b = function() {",
+            "  C.a([{}]);",
+            "};",
+            "b();"),
+        ImmutableList.of("C.a", "b"));
   }
 
   public void testAmbiguousExternDefinitions() {
@@ -1621,10 +1699,19 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
   }
 
   public void testMutatesArguments1() throws Exception {
-    String source = lines(
-        "function f(x) { x.y = 1; }",
-        "f({});");
-    assertPureCallsMarked(source, ImmutableList.of("f"));
+    assertPureCallsMarked(
+        lines(
+            "function f(x) { x.y = 1; }", // preserve newline
+            "f({});"),
+        ImmutableList.of("f"));
+
+    // TODO(bradfordcsmith): Remove NEITHER when type checker understands destructuring parameters
+    mode = TypeInferenceMode.NEITHER;
+    assertPureCallsMarked(
+        lines(
+            "function f([x]) { x.y = 1; }", // preserve newline
+            "f([{}]);"),
+        ImmutableList.of("f"));
   }
 
   public void testMutatesArguments2() throws Exception {
@@ -1644,11 +1731,21 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
   }
 
   public void testMutatesArguments4() throws Exception {
-    String source = lines(
-        "function f(x) { x.y = 1; }",
-        "function g(x) { f({}); x.y = 1; }",
-        "g({});");
-    assertPureCallsMarked(source, ImmutableList.of("f", "g"));
+    assertPureCallsMarked(
+        lines(
+            "function f(x) { x.y = 1; }", // preserve newline
+            "function g(x) { f({}); x.y = 1; }",
+            "g({});"),
+        ImmutableList.of("f", "g"));
+
+    // TODO(bradfordcsmith): Remove NEITHER when type checker understands destructuring parameters
+    mode = TypeInferenceMode.NEITHER;
+    assertPureCallsMarked(
+        lines(
+            "function f([x]) { x.y = 1; }", // preserve newline
+            "function g([x]) { f([{}]); x.y = 1; }",
+            "g([{}]);"),
+        ImmutableList.of("f", "g"));
   }
 
   public void testMutatesArguments5() throws Exception {
@@ -1847,14 +1944,16 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
         "g.call(x);",
         "x.bar();"
     );
-    assertPureCallsMarked(source, ImmutableList.of("F"), (Compiler compiler) -> {
-      Node lastRoot = compiler.getRoot();
-      Node call = findQualifiedNameNode("g.call", lastRoot).getParent();
-      assertEquals(
-          new Node.SideEffectFlags()
-              .clearAllFlags().setMutatesArguments().valueOf(),
-          call.getSideEffectFlags());
-    });
+    assertPureCallsMarked(
+        source,
+        ImmutableList.of("F"),
+        compiler -> {
+          Node lastRoot = compiler.getRoot();
+          Node call = findQualifiedNameNode("g.call", lastRoot).getParent();
+          assertEquals(
+              new Node.SideEffectFlags().clearAllFlags().setMutatesArguments().valueOf(),
+              call.getSideEffectFlags());
+        });
   }
 
   public void testCallCache() throws Exception {
@@ -1862,12 +1961,15 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
         "var valueFn = function() {};",
         "goog.reflect.cache(externObj, \"foo\", valueFn)"
     );
-    assertPureCallsMarked(source, ImmutableList.of("goog.reflect.cache"), (Compiler compiler) -> {
-      Node lastRoot = compiler.getRoot().getLastChild();
-      Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
-      assertThat(call.isNoSideEffectsCall()).isTrue();
-      assertThat(call.mayMutateGlobalStateOrThrow()).isFalse();
-    });
+    assertPureCallsMarked(
+        source,
+        ImmutableList.of("goog.reflect.cache"),
+        compiler -> {
+          Node lastRoot = compiler.getRoot().getLastChild();
+          Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
+          assertThat(call.isNoSideEffectsCall()).isTrue();
+          assertThat(call.mayMutateGlobalStateOrThrow()).isFalse();
+        });
   }
 
   public void testCallCache_withKeyFn() throws Exception {
@@ -1876,22 +1978,28 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
         "var keyFn = function(v) { return v };",
         "goog.reflect.cache(externObj, \"foo\", valueFn, keyFn)"
     );
-    assertPureCallsMarked(source, ImmutableList.of("goog.reflect.cache"), (Compiler compiler) ->{
-      Node lastRoot = compiler.getRoot().getLastChild();
-      Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
-      assertThat(call.isNoSideEffectsCall()).isTrue();
-      assertThat(call.mayMutateGlobalStateOrThrow()).isFalse();
-    });
+    assertPureCallsMarked(
+        source,
+        ImmutableList.of("goog.reflect.cache"),
+        compiler -> {
+          Node lastRoot = compiler.getRoot().getLastChild();
+          Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
+          assertThat(call.isNoSideEffectsCall()).isTrue();
+          assertThat(call.mayMutateGlobalStateOrThrow()).isFalse();
+        });
   }
 
   public void testCallCache_anonymousFn() throws Exception {
     String source = "goog.reflect.cache(externObj, \"foo\", function(v) { return v })";
-    assertPureCallsMarked(source, ImmutableList.of("goog.reflect.cache"), (Compiler compiler) -> {
-      Node lastRoot = compiler.getRoot().getLastChild();
-      Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
-      assertThat(call.isNoSideEffectsCall()).isTrue();
-      assertThat(call.mayMutateGlobalStateOrThrow()).isFalse();
-    });
+    assertPureCallsMarked(
+        source,
+        ImmutableList.of("goog.reflect.cache"),
+        compiler -> {
+          Node lastRoot = compiler.getRoot().getLastChild();
+          Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
+          assertThat(call.isNoSideEffectsCall()).isTrue();
+          assertThat(call.mayMutateGlobalStateOrThrow()).isFalse();
+        });
   }
 
   public void testCallCache_anonymousFn_hasSideEffects() throws Exception {
@@ -1899,12 +2007,14 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
         "var x = 0;",
         "goog.reflect.cache(externObj, \"foo\", function(v) { return (x+=1) })"
     );
-    assertNoPureCalls(source, (Compiler compiler) -> {
-        Node lastRoot = compiler.getRoot().getLastChild();
-        Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
-        assertThat(call.isNoSideEffectsCall()).isFalse();
-        assertThat(call.mayMutateGlobalStateOrThrow()).isTrue();
-    });
+    assertNoPureCalls(
+        source,
+        compiler -> {
+          Node lastRoot = compiler.getRoot().getLastChild();
+          Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
+          assertThat(call.isNoSideEffectsCall()).isFalse();
+          assertThat(call.mayMutateGlobalStateOrThrow()).isTrue();
+        });
   }
 
   public void testCallCache_hasSideEffects() throws Exception {
@@ -1913,12 +2023,14 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
         "var valueFn = function() { return (x+=1); };",
         "goog.reflect.cache(externObj, \"foo\", valueFn)"
     );
-    assertNoPureCalls(source, (Compiler compiler) -> {
-        Node lastRoot = compiler.getRoot().getLastChild();
-        Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
-        assertThat(call.isNoSideEffectsCall()).isFalse();
-        assertThat(call.mayMutateGlobalStateOrThrow()).isTrue();
-    });
+    assertNoPureCalls(
+        source,
+        compiler -> {
+          Node lastRoot = compiler.getRoot().getLastChild();
+          Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
+          assertThat(call.isNoSideEffectsCall()).isFalse();
+          assertThat(call.mayMutateGlobalStateOrThrow()).isTrue();
+        });
   }
 
   public void testCallCache_withKeyFn_hasSideEffects() throws Exception {
@@ -1928,12 +2040,14 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
         "var valueFn = function(v) { return v };",
         "goog.reflect.cache(externObj, \"foo\", valueFn, keyFn)"
     );
-    assertNoPureCalls(source, (Compiler compiler) -> {
-        Node lastRoot = compiler.getRoot().getLastChild();
-        Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
-        assertThat(call.isNoSideEffectsCall()).isFalse();
-        assertThat(call.mayMutateGlobalStateOrThrow()).isTrue();
-    });
+    assertNoPureCalls(
+        source,
+        compiler -> {
+          Node lastRoot = compiler.getRoot().getLastChild();
+          Node call = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
+          assertThat(call.isNoSideEffectsCall()).isFalse();
+          assertThat(call.mayMutateGlobalStateOrThrow()).isTrue();
+        });
   }
 
   public void testCallCache_propagatesSideEffects() throws Exception {
@@ -1945,7 +2059,7 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
     assertPureCallsMarked(
         source,
         ImmutableList.of("goog.reflect.cache", "helper"),
-        (Compiler compiler) -> {
+        compiler -> {
           Node lastRoot = compiler.getRoot().getLastChild();
           Node cacheCall = findQualifiedNameNode("goog.reflect.cache", lastRoot).getParent();
           assertThat(cacheCall.isNoSideEffectsCall()).isTrue();
@@ -1974,7 +2088,7 @@ public final class PureFunctionIdentifierTest extends TypeICompilerTestCase {
     testSame(
         srcs(source),
         postcondition(
-            (Compiler compiler) -> {
+            compiler -> {
               assertEquals(expected, noSideEffectCalls);
               if (post != null) {
                 post.verify(compiler);

@@ -358,7 +358,6 @@ public class PolymerPassTest extends TypeICompilerTestCase {
    */
   public void testIIFEExtractionNoAssignmentTarget() {
     test(
-        1,
         lines(
             "(function() {",
             "  Polymer({",
@@ -373,29 +372,6 @@ public class PolymerPassTest extends TypeICompilerTestCase {
             " */",
             "var XElement = function() {};",
             "(function() {",
-            "  Polymer(/** @lends {XElement.prototype} */ {",
-            "    is: 'x',",
-            "    /** @this {XElement} */",
-            "    sayHi: function() { alert('hi'); },",
-            "  });",
-            "})()"));
-
-    test(
-        2,
-        lines(
-            "(function() {",
-            "  Polymer({",
-            "    is: 'x',",
-            "    sayHi: function() { alert('hi'); },",
-            "  });",
-            "})()"),
-        lines(
-            "(function() {",
-            "  /**",
-            "   * @constructor @extends {PolymerElement}",
-            "   * @implements {PolymerXElementInterface}",
-            "   */",
-            "  var XElement = function() {};",
             "  Polymer(/** @lends {XElement.prototype} */ {",
             "    is: 'x',",
             "    /** @this {XElement} */",
@@ -1081,7 +1057,7 @@ public class PolymerPassTest extends TypeICompilerTestCase {
             "/** @implements {PolymerAInterface} */",
             "class A extends Polymer.Element {",
             "  /** @return {string} */ static get is() { return 'a-element'; }",
-            "  /** @return {Polymer.ElementProperties} */ static get properties() {",
+            "  /** @return {PolymerElementProperties} */ static get properties() {",
             "    return {",
             "      pets: {",
             "        type: Array,",
@@ -1738,15 +1714,15 @@ public class PolymerPassTest extends TypeICompilerTestCase {
             "  },",
             "  behaviors: [ FunBehavior ],",
             "});")),
-        (Postcondition) (Compiler compiler) -> {
-          // The original doSomethingFun definition in FunBehavior is on line 21, so make sure
-          // that line number is preserved when it's copied into the Polymer() call.
-          Node root = compiler.getRoot();
-          DoSomethingFunFinder visitor = new DoSomethingFunFinder();
-          NodeUtil.visitPreOrder(root, visitor);
-          assertThat(visitor.found).isTrue();
-        });
-
+        (Postcondition)
+            compiler -> {
+              // The original doSomethingFun definition in FunBehavior is on line 21, so make sure
+              // that line number is preserved when it's copied into the Polymer() call.
+              Node root = compiler.getRoot();
+              DoSomethingFunFinder visitor = new DoSomethingFunFinder();
+              NodeUtil.visitPreOrder(root, visitor);
+              assertThat(visitor.found).isTrue();
+            });
   }
 
   private static class DoSomethingFunFinder implements Visitor {

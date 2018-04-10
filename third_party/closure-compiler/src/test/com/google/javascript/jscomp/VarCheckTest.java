@@ -17,7 +17,7 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.javascript.jscomp.ScopeSubject.assertScope;
 import static com.google.javascript.jscomp.VarCheck.BLOCK_SCOPED_DECL_MULTIPLY_DECLARED_ERROR;
 import static com.google.javascript.jscomp.VarCheck.VAR_MULTIPLY_DECLARED_ERROR;
 
@@ -104,6 +104,10 @@ public final class VarCheckTest extends CompilerTestCase {
     testError("x = 0;", VarCheck.UNDEFINED_VAR_ERROR);
   }
 
+  public void testReferencedVarNotDefined_arrowFunctionBody() {
+    testError("() => y", VarCheck.UNDEFINED_VAR_ERROR);
+  }
+
   public void testReferencedLetNotDefined() {
     testError("{ let x = 1; } var y = x;", VarCheck.UNDEFINED_VAR_ERROR);
   }
@@ -153,7 +157,7 @@ public final class VarCheckTest extends CompilerTestCase {
   }
 
   public void testMultiplyDeclaredVars4() {
-    testSame("x;", "var x = 1; var x = 2;", error(VAR_MULTIPLY_DECLARED_ERROR));
+    test(externs("x;"), srcs("var x = 1; var x = 2;"), error(VAR_MULTIPLY_DECLARED_ERROR));
   }
 
   public void testMultiplyDeclaredLets() {
@@ -202,25 +206,29 @@ public final class VarCheckTest extends CompilerTestCase {
   }
 
   public void testVarReferenceInExterns() {
-    testSame("asdf;", "var /** @suppress {duplicate} */ asdf;",
-        VarCheck.NAME_REFERENCE_IN_EXTERNS_ERROR);
+    testSame(
+        externs("asdf;"),
+        srcs("var /** @suppress {duplicate} */ asdf;"),
+        warning(VarCheck.NAME_REFERENCE_IN_EXTERNS_ERROR));
   }
 
   public void testNamespaceDeclarationInExterns() {
-    testSame("/** @const */ var $jscomp = $jscomp || {};", "");
+    testSame(externs("/** @const */ var $jscomp = $jscomp || {};"), srcs(""));
   }
 
   public void testCallInExterns() {
-    testSame("yz();", "function /** @suppress {duplicate} */ yz() {}",
-        VarCheck.NAME_REFERENCE_IN_EXTERNS_ERROR);
+    testSame(
+        externs("yz();"),
+        srcs("function /** @suppress {duplicate} */ yz() {}"),
+        warning(VarCheck.NAME_REFERENCE_IN_EXTERNS_ERROR));
   }
 
   public void testDestructuringInExterns() {
-    testSame("function externalFunction({x, y}) {}", "");
-    testSame("function externalFunction({x, y:{z}}) {}", "");
-    testSame("function externalFunction({x:localName}) {}", "");
-    testSame("function externalFunction([a, b, c]) {}", "");
-    testSame("function externalFunction([[...a], b, c = 5, ...d]) {}", "");
+    testSame(externs("function externalFunction({x, y}) {}"), srcs(""));
+    testSame(externs("function externalFunction({x, y:{z}}) {}"), srcs(""));
+    testSame(externs("function externalFunction({x:localName}) {}"), srcs(""));
+    testSame(externs("function externalFunction([a, b, c]) {}"), srcs(""));
+    testSame(externs("function externalFunction([[...a], b, c = 5, ...d]) {}"), srcs(""));
   }
 
   public void testVarReferenceInExterns_withEs6Modules() {
@@ -229,29 +237,41 @@ public final class VarCheckTest extends CompilerTestCase {
   }
 
   public void testVarDeclarationInExterns() {
-    testSame("var asdf;", "asdf;");
+    testSame(externs("var asdf;"), srcs("asdf;"));
+  }
+
+  public void testVarReferenceInTypeSummary() {
+    testSame(
+        externs(
+            lines(
+                "/** @typeSummary */",
+                "var goog;",
+                "goog.addSingletonGetter;",
+                "class Foo {}",
+                "goog.addSingletonGetter(Foo);")),
+        srcs("Foo.getInstance();"));
   }
 
   public void testFunctionDeclarationInExterns() {
-    testSame("function foo(x = 7) {}", "foo();");
-    testSame("function foo(...rest) {}", "foo(1,2,3);");
+    testSame(externs("function foo(x = 7) {}"), srcs("foo();"));
+    testSame(externs("function foo(...rest) {}"), srcs("foo(1,2,3);"));
   }
 
   public void testVarAssignmentInExterns() {
-    testSame("/** @type{{foo:string}} */ var foo; var asdf = foo;", "asdf.foo;");
+    testSame(externs("/** @type{{foo:string}} */ var foo; var asdf = foo;"), srcs("asdf.foo;"));
   }
 
   public void testAliasesInExterns() {
     externValidationErrorLevel = CheckLevel.ERROR;
 
-    testSame("var foo; /** @const */ var asdf = foo;", "");
+    testSame(externs("var foo; /** @const */ var asdf = foo;"), srcs(""));
+    testSame(externs("var Foo; var ns = {}; /** @const */ ns.FooAlias = Foo;"), srcs(""));
     testSame(
-        "var Foo; var ns = {}; /** @const */ ns.FooAlias = Foo;", "");
-    testSame(
-        lines(
-            "var ns = {}; /** @constructor */ ns.Foo = function() {};",
-            "var ns2 = {}; /** @const */ ns2.Bar = ns.Foo;"),
-        "");
+        externs(
+            lines(
+                "var ns = {}; /** @constructor */ ns.Foo = function() {};",
+                "var ns2 = {}; /** @const */ ns2.Bar = ns.Foo;")),
+        srcs(""));
   }
 
   public void testDuplicateNamespaceInExterns() {
@@ -262,46 +282,53 @@ public final class VarCheckTest extends CompilerTestCase {
   }
 
   public void testLetDeclarationInExterns() {
-    testSame("let asdf;", "asdf;");
+    testSame(externs("let asdf;"), srcs("asdf;"));
   }
 
   public void testConstDeclarationInExterns() {
-    testSame("const asdf = 1;", "asdf;");
+    testSame(externs("const asdf = 1;"), srcs("asdf;"));
   }
 
   public void testNewInExterns() {
     // Class is not hoisted.
-    testSame("x = new Klass();", "class Klass{}", error(VarCheck.UNDEFINED_VAR_ERROR));
+    test(
+        externs("x = new Klass();"), srcs("class Klass{}"), error(VarCheck.UNDEFINED_VAR_ERROR));
   }
 
   public void testPropReferenceInExterns1() {
-    testSame("asdf.foo;", "var /** @suppress {duplicate} */ asdf;",
-        VarCheck.UNDEFINED_EXTERN_VAR_ERROR);
+    testSame(
+        externs("asdf.foo;"),
+        srcs("var /** @suppress {duplicate} */ asdf;"),
+        warning(VarCheck.UNDEFINED_EXTERN_VAR_ERROR));
   }
 
   public void testPropReferenceInExterns2() {
-    testSame("asdf.foo;", "", error(VarCheck.UNDEFINED_VAR_ERROR));
+    test(externs("asdf.foo;"), srcs(""), error(VarCheck.UNDEFINED_VAR_ERROR));
   }
 
   public void testPropReferenceInExterns3() {
-    testSame("asdf.foo;", "var /** @suppress {duplicate} */ asdf;",
-        VarCheck.UNDEFINED_EXTERN_VAR_ERROR);
+    testSame(
+        externs("asdf.foo;"),
+        srcs("var /** @suppress {duplicate} */ asdf;"),
+        warning(VarCheck.UNDEFINED_EXTERN_VAR_ERROR));
 
     externValidationErrorLevel = CheckLevel.ERROR;
-    testSame("asdf.foo;", "var asdf;", error(VarCheck.UNDEFINED_EXTERN_VAR_ERROR));
+    test(externs("asdf.foo;"), srcs("var asdf;"), error(VarCheck.UNDEFINED_EXTERN_VAR_ERROR));
 
     externValidationErrorLevel = CheckLevel.OFF;
-    test("asdf.foo;", "var asdf;", "var /** @suppress {duplicate} */ asdf;");
+    test(
+        externs("asdf.foo;"),
+        srcs("var asdf;"),
+        expected("var /** @suppress {duplicate} */ asdf;"));
   }
 
   public void testPropReferenceInExterns4() {
-    testSame("asdf.foo;", "let asdf;",
-        VarCheck.UNDEFINED_EXTERN_VAR_ERROR);
+    testSame(externs("asdf.foo;"), srcs("let asdf;"), warning(VarCheck.UNDEFINED_EXTERN_VAR_ERROR));
   }
 
   public void testPropReferenceInExterns5() {
-    testSame("asdf.foo;", "class asdf {}",
-        VarCheck.UNDEFINED_EXTERN_VAR_ERROR);
+    testSame(
+        externs("asdf.foo;"), srcs("class asdf {}"), warning(VarCheck.UNDEFINED_EXTERN_VAR_ERROR));
   }
 
   public void testVarInWithBlock() {
@@ -564,6 +591,14 @@ public final class VarCheckTest extends CompilerTestCase {
     testSame(js);
   }
 
+  public void testRedeclaration4() {
+    String js =
+        " /** @fileoverview @suppress {duplicate} */\n"
+            + " /** @type {string} */ var a;\n"
+            + " var a; ";
+    testSame(js);
+  }
+
   public void testSuppressionWithInlineJsDoc() {
     testSame("/** @suppress {duplicate} */ var /** number */ a; var a;");
   }
@@ -743,9 +778,7 @@ public final class VarCheckTest extends CompilerTestCase {
             @Override
             public void visit(NodeTraversal t, Node n, Node parent) {
               if (n.isName() && !parent.isFunction() && !parent.isLabel()) {
-                assertWithMessage("Variable %s should have been declared", n)
-                    .that(t.getScope().isDeclared(n.getString(), true))
-                    .isTrue();
+                assertScope(t.getScope()).declares(n.getString());
               }
             }
           },

@@ -41,6 +41,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -323,7 +324,7 @@ class DisambiguateProperties implements CompilerPass {
     }
   }
 
-  private final Map<String, Property> properties = new HashMap<>();
+  private final Map<String, Property> properties = new LinkedHashMap<>();
 
   DisambiguateProperties(
       AbstractCompiler compiler, Map<String, CheckLevel> propertiesToErrorFor) {
@@ -333,10 +334,7 @@ class DisambiguateProperties implements CompilerPass {
         this.registry.getNativeType(JSTypeNative.NO_OBJECT_TYPE).toMaybeObjectType();
 
     this.propertiesToErrorFor = propertiesToErrorFor;
-    this.invalidationMap =
-        propertiesToErrorFor.isEmpty()
-            ? null
-            : LinkedHashMultimap.<TypeI, Supplier<JSError>>create();
+    this.invalidationMap = propertiesToErrorFor.isEmpty() ? null : LinkedHashMultimap.create();
 
     this.invalidatingTypes = new InvalidatingTypes.Builder(registry)
         .recordInvalidations(this.invalidationMap)
@@ -595,7 +593,7 @@ class DisambiguateProperties implements CompilerPass {
 
       Iterable<JSError> invalidations =
           FluentIterable.from(invalidationMap.get(t))
-              .transform(Suppliers.<JSError>supplierFunction())
+              .transform(Suppliers.supplierFunction())
               .limit(MAX_INVALIDATION_WARNINGS_PER_PROPERTY);
       for (JSError error : invalidations) {
         errors.add(t + " at " + error.sourceName + ":" + error.lineNumber);

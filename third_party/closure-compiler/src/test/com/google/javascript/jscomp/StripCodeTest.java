@@ -77,6 +77,26 @@ public final class StripCodeTest extends CompilerTestCase {
          "a.b.c=function(){}");
   }
 
+  public void testLoggerDefinedInConstructorEs6() {
+    test(
+        lines(
+            "class A {",
+            "  constructor() {",
+            "    this.logger = goog.debug.Logger.getLogger('A');",
+            "    this.otherProperty = 3;",
+            "  }",
+            "}",
+            "let a = new A;",
+            "a.logger.warning('foobar');"),
+        lines(
+            "class A {",
+            "  constructor() {",
+            "    this.otherProperty = 3;",
+            "  }",
+            "}",
+            "let a = new A;"));
+  }
+
   public void testLoggerDefinedInPrototype1() {
     test("a.b.c = function() {};" +
          "a.b.c.prototype.logger = goog.debug.Logger.getLogger('a.b.c');",
@@ -119,6 +139,33 @@ public final class StripCodeTest extends CompilerTestCase {
          "  get f() {return this.x;}," +
          "  set f(a) {this.x = null}" +
          "}");
+  }
+
+  public void testLoggerDefinedInPrototype6() {
+    test(
+        lines(
+            "var a = {};",
+            "a.b = function() {};",
+            "a.b.prototype = { ",
+            "  logger(a) {this.x = goog.debug.Logger.getLogger('a.b.c')}",
+            "}"),
+        "var a = {}; a.b = function() {}; a.b.prototype = {}");
+  }
+
+  public void testLoggerDefinedInPrototype7() {
+    test(
+        lines(
+            "var a = {};",
+            "a.b = function() {};",
+            "a.b.prototype = { ",
+            "  ['logger']: goog.debug.Logger.getLogger('a.b.c')",
+            "}"),
+        lines(
+            "var a = {};",
+            "a.b = function() {};",
+            "a.b.prototype = { ",
+            "  ['logger']: null",
+            "}"));
   }
 
   public void testLoggerDefinedStatically() {
@@ -169,6 +216,35 @@ public final class StripCodeTest extends CompilerTestCase {
          "};");
   }
 
+  public void testLoggerDefinedInObjectLiteral5() {
+    test(
+        lines(
+            "var a = {};",
+            "a.b = {",
+            "  x: 0,",
+            "  logger() { return goog.debug.Logger.getLogger('a.b.c'); }",
+            "};"),
+        "var a = {}; a.b={x:0}");
+  }
+
+  public void testLoggerDefinedInObjectLiteral6() {
+    test(
+        lines(
+            "var a = {};",
+            "a.b = {",
+            "  x: 0,",
+            "  ['logger']: goog.debug.Logger.getLogger('a.b.c')",
+            "};",
+            "a.b['logger']();"),
+        lines(
+            "var a = {};",
+            "a.b = {",
+            "  x: 0,",
+            "  ['logger']: null", // Don't strip computed properties
+            "};",
+            "a.b['logger']()"));
+  }
+
   public void testLoggerDefinedInPrototypeAndUsedInConstructor() {
     test("a.b.c = function(level) {" +
          "  if (!this.logger.isLoggable(level)) {" +
@@ -197,16 +273,66 @@ public final class StripCodeTest extends CompilerTestCase {
     test("var logger = opt_logger || goog.debug.LogManager.getRoot();", "");
   }
 
-  public void testLoggerMethodCallByVariableType() {
+  public void testLoggerLetDeclaration() {
+    test("let logger = opt_logger || goog.debug.LogManager.getRoot();", "");
+  }
+
+  public void testLoggerConstDeclaration() {
+    test("const logger = opt_logger || goog.debug.LogManager.getRoot();", "");
+  }
+
+  public void testLoggerDestructuringDeclaration() {
+    // NOTE: StripCode currently does not optimize code in destructuring patterns, even if
+    // it contains "strip names" or "strip types", since it's unclear what the correct optimization
+    // would be or how much it would help users.
+
+    testSame("const {Logger} = goog.debug; Logger;");
+    testSame("const {Logger: logger} = goog.debug; logger;");
+    testSame("const [logger] = [1]; logger;");
+
+    test(
+        "const {getLogger} = goog.debug.Logger; const logger = opt_logger || getLogger('A');",
+        "const {getLogger} = goog.debug.Logger;");
+  }
+
+  public void testLoggerMethodCallByVariableType_var() {
     test("var x = goog.debug.Logger.getLogger('a.b.c'); y.info(a); x.info(a);",
          "y.info(a)");
   }
 
-  public void testSubPropertyAccessByVariableName() {
+  public void testLoggerMethodCallByVariableType_let() {
+    test("let x = goog.debug.Logger.getLogger('a.b.c'); y.info(a); x.info(a);",
+        "y.info(a)");
+  }
+
+  public void testLoggerMethodCallByVariableType_const() {
+    test("const x = goog.debug.Logger.getLogger('a.b.c'); y.info(a); x.info(a);",
+        "y.info(a)");
+  }
+
+  public void testSubPropertyAccessByVariableName_var() {
     test("var x, y = goog.debug.Logger.getLogger('a.b.c');" +
          "var logger = x;" +
          "var curlevel = logger.level_ ? logger.getLevel().name : 3;",
          "var x;var curlevel=null?null:3");
+  }
+
+  public void testSubPropertyAccessByVariableName_let() {
+    test(
+        lines(
+            "let x, y = goog.debug.Logger.getLogger('a.b.c');",
+            "let logger = x;",
+            "let curlevel = logger.level_ ? logger.getLevel().name : 3;"),
+        "let x; let curlevel=null?null:3");
+  }
+
+  public void testSubPropertyAccessByVariableName_const() {
+    test(
+        lines(
+            "const x = undefined, y = goog.debug.Logger.getLogger('a.b.c');",
+            "const logger = x;",
+            "const curlevel = logger.level_ ? logger.getLevel().name : 3;"),
+        "const x = undefined; const curlevel=null?null:3");
   }
 
   public void testPrefixedVariableName() {
@@ -299,6 +425,10 @@ public final class StripCodeTest extends CompilerTestCase {
     // listed types should be removed.
     test("goog.debug.DebugWindow = function(){}", "");
     test("goog.inherits(goog.debug.DebugWindow,Base)", "");
+    test("goog.debug.DebugWindow = class {}", "");
+    test("class GA_GoogleDebugger {}", "");
+    test("if (class GA_GoogleDebugger {}) {}", "if (null) {}");
+
 
     // types that happen to have strip types as prefix should not be
     // stripped.
@@ -306,12 +436,30 @@ public final class StripCodeTest extends CompilerTestCase {
     testSame("goog.inherits(goog.debug.DebugWindowFoo,Base)");
     testSame("goog.debug.DebugWindowFoo");
     testSame("goog.debug.DebugWindowFoo=1");
+    testSame("goog.debug.DebugWindowFoo = class {}");
 
     // qualified subtypes should be removed.
     test("goog.debug.DebugWindow.Foo=function(){}", "");
     test("goog.inherits(goog.debug.DebugWindow.Foo,Base)", "");
     test("goog.debug.DebugWindow.Foo", "");
     test("goog.debug.DebugWindow.Foo=1", "");
+    test("goog.debug.DebugWindow.Foo = class {}", "");
+  }
+
+  public void testClassInheritanceFromStripType1() {
+    // Formatter is not a strip name or type, so cannot extend a strip type.
+    testError("class Formatter extends goog.debug.Formatter {}",
+        StripCode.STRIP_TYPE_INHERIT_ERROR);
+  }
+
+  public void testClassInheritanceFromStripType2() {
+    testError("let Formatter = class extends goog.debug.Formatter {}",
+        StripCode.STRIP_TYPE_INHERIT_ERROR);
+  }
+
+  public void testClassInheritanceFromStripType3() {
+    // Both subclass and superclass are strip types, so this is okay.
+    test("goog.debug.HtmlFormatter = class extends goog.debug.Formatter {}", "");
   }
 
   public void testPropertyWithEmptyStringKey() {
@@ -400,17 +548,17 @@ public final class StripCodeTest extends CompilerTestCase {
          StripCode.STRIP_ASSIGNMENT_ERROR);
   }
 
-  public void testNewOperatior1() {
+  public void testNewOperator1() {
     test("function foo() {} foo.bar = new goog.debug.Logger();",
          "function foo() {} foo.bar = null;");
   }
 
-  public void testNewOperatior2() {
+  public void testNewOperator2() {
     test("function foo() {} foo.bar = (new goog.debug.Logger()).foo();",
          "function foo() {} foo.bar = null;");
   }
 
-  public void testNewOperatior3() {
+  public void testNewOperator3() {
     test("(new goog.debug.Logger()).foo().bar = 2;",
          "2;");
   }
@@ -458,4 +606,15 @@ public final class StripCodeTest extends CompilerTestCase {
         "");
   }
 
+  public void testAliasOfRemovedVar() {
+    test(
+        "var logger_ = goog.debug.Logger.getLogger(); var alias; alias = logger_;",
+        "                                             var alias; alias = null;");
+  }
+
+  public void testComplexExpression() {
+    test(
+        "var logger_ = goog.debug.Logger.getLogger(); var alias; alias = (logger_ = 3) + 4;",
+        "                                             var alias; alias = 3 + 4;");
+  }
 }

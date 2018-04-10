@@ -29,15 +29,13 @@ import javax.annotation.CheckReturnValue;
  *   import static com.google.javascript.jscomp.parsing.parser.testing.FeatureSetSubject.assertFS;
  *   ...
  *   assertFS(features).contains(otherFeatures);
+ *   assertFS(features).containsNoneOf(otherFeatures);
  * </pre>
  */
 public class FeatureSetSubject extends Subject<FeatureSetSubject, FeatureSet> {
-  private static final Subject.Factory<FeatureSetSubject, FeatureSet> FACTORY =
-    FeatureSetSubject::new;
-
   @CheckReturnValue
   public static FeatureSetSubject assertFS(FeatureSet fs) {
-    return assertAbout(FACTORY).that(fs);
+    return assertAbout(FeatureSetSubject::new).that(fs);
   }
 
   public FeatureSetSubject(FailureMetadata failureMetadata, FeatureSet featureSet) {
@@ -47,6 +45,13 @@ public class FeatureSetSubject extends Subject<FeatureSetSubject, FeatureSet> {
   public void contains(FeatureSet other) {
     if (!actual().contains(other)) {
       failWithRawMessage("Expected a FeatureSet containing: %s\nBut got: %s", other, actual());
+    }
+  }
+
+  public void containsNoneOf(FeatureSet other) {
+    if (!other.without(actual()).equals(other)) {
+      failWithRawMessage("Expected a FeatureSet containing none of: %s\nBut got: %s",
+          other, actual());
     }
   }
 

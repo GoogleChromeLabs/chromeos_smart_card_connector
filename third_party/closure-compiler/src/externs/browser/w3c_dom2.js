@@ -52,6 +52,32 @@ Document.prototype.createAttributeNS =
     function(namespaceURI, qualifiedName) {};
 
 /**
+ * @param {Node} root
+ * @param {number=} whatToShow
+ * @param {NodeFilter=} filter
+ * @param {boolean=} entityReferenceExpansion
+ * @return {!NodeIterator}
+ * @see https://www.w3.org/TR/2000/REC-DOM-Level-2-Traversal-Range-20001113/traversal.html#Traversal-Document
+ * @see https://dom.spec.whatwg.org/#interface-document
+ * @nosideeffects
+ */
+Document.prototype.createNodeIterator = function(
+    root, whatToShow, filter, entityReferenceExpansion) {};
+
+/**
+ * @param {Node} root
+ * @param {number=} whatToShow
+ * @param {NodeFilter=} filter
+ * @param {boolean=} entityReferenceExpansion
+ * @return {!TreeWalker}
+ * @see https://www.w3.org/TR/2000/REC-DOM-Level-2-Traversal-Range-20001113/traversal.html#Traversal-Document
+ * @see https://dom.spec.whatwg.org/#interface-document
+ * @nosideeffects
+ */
+Document.prototype.createTreeWalker = function(
+    root, whatToShow, filter, entityReferenceExpansion) {};
+
+/**
  * @param {string} namespace
  * @param {string} name
  * @return {!NodeList<!Element>}
@@ -236,30 +262,6 @@ HTMLDocument.prototype.writeln = function(text) {};
  * @nosideeffects
  */
 HTMLDocument.prototype.getElementsByName = function(elementName) {};
-
-/**
- * @param {Node} root
- * @param {number=} whatToShow
- * @param {NodeFilter=} filter
- * @param {boolean=} entityReferenceExpansion
- * @return {!NodeIterator}
- * @see http://www.w3.org/TR/DOM-Level-2-Traversal-Range/traversal.html#Traversal-Document
- * @nosideeffects
- */
-HTMLDocument.prototype.createNodeIterator = function(
-    root, whatToShow, filter, entityReferenceExpansion) {};
-
-/**
- * @param {Node} root
- * @param {number=} whatToShow
- * @param {NodeFilter=} filter
- * @param {boolean=} entityReferenceExpansion
- * @return {!TreeWalker}
- * @see http://www.w3.org/TR/DOM-Level-2-Traversal-Range/traversal.html#Traversal-Document
- * @nosideeffects
- */
-HTMLDocument.prototype.createTreeWalker = function(
-    root, whatToShow, filter, entityReferenceExpansion) {};
 
 
 /** @typedef {{
@@ -1748,6 +1750,12 @@ HTMLImageElement.prototype.name;
 
 /**
  * @type {string}
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/referrerPolicy
+ */
+HTMLImageElement.prototype.referrerPolicy;
+
+/**
+ * @type {string}
  * @implicitCast
  * @see http://www.w3.org/TR/2000/CR-DOM-Level-2-20000510/html.html#ID-87762984
  */
@@ -2104,6 +2112,11 @@ HTMLScriptElement.prototype.event;
  * @see http://www.w3.org/TR/2000/CR-DOM-Level-2-20000510/html.html#ID-66979266
  */
 HTMLScriptElement.prototype.htmlFor;
+
+/**
+ * @type {?function(!Event)}
+ */
+HTMLScriptElement.prototype.onreadystatechange;
 
 /**
  * @type {string}

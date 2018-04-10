@@ -87,6 +87,7 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
         .removeUnusedPrototypeProperties(true)
         .removeUnusedThisProperties(true)
         .removeUnusedConstructorProperties(true)
+        .removeUnusedObjectDefinePropertiesDefinitions(true)
         .build();
   }
 
@@ -128,6 +129,8 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
     testSame("({a:2})");
     // and prevent the removal of the definition on 'this'.
     testSame("({a:0}); this.a = 1;");
+    // ... even if it's quoted
+    testSame("({'a':0}); this.a = 1;");
     // Some use of the property "a" prevents the removal.
     testSame("var x = ({a:0}); this.a = 1; alert(x.a)");
   }
@@ -265,13 +268,12 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
         "new A().method()\n");
   }
 
-  // TODO(b/66971163): make this pass
-  public void disabledTestConstructorProperty1() {
+  public void testConstructorProperty1() {
     this.mode = TypeInferenceMode.BOTH;
 
     test(
         "/** @constructor */ function C() {} C.prop = 1;",
-        "/** @constructor */ function C() {} 1");
+        "/** @constructor */ function C() {}            ");
   }
 
   public void testConstructorProperty2() {
@@ -285,6 +287,22 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "foo(C)"));
   }
 
+  public void testES6StaticProperty() {
+    // TODO(bradfordcsmith): Neither type checker understands ES6 classes yet.
+    this.mode = TypeInferenceMode.NEITHER;
+
+    test(
+        "class C { static prop() {} }", // preserve newline
+        "class C {                  }");
+  }
+
+  public void testES6StaticProperty2() {
+    this.mode = TypeInferenceMode.NEITHER;
+
+    // TODO(bradfordcsmith): When NTI understands ES6 classes it will allow removal of `C.prop = 1`.
+    testSame("class C {} C.prop = 1;");
+  }
+
   public void testObjectDefineProperties1() {
     this.mode = TypeInferenceMode.BOTH;
 
@@ -296,8 +314,7 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "foo(C)"));
   }
 
-  // TODO(b/66971163): make this pass
-  public void disabledTestObjectDefineProperties2() {
+  public void testObjectDefineProperties2() {
     this.mode = TypeInferenceMode.BOTH;
 
     test(
@@ -309,8 +326,7 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "Object.defineProperties(C, {});"));
   }
 
-  // TODO(b/66971163): make this pass
-  public void disabledTestObjectDefineProperties3() {
+  public void testObjectDefineProperties3() {
     this.mode = TypeInferenceMode.BOTH;
 
     test(
@@ -326,13 +342,16 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "Object.defineProperties(C, {});"));
   }
 
-  // side-effect in definition retains property
+  // side-effect in definition retains property definition, but doesn't count as a reference
   public void testObjectDefineProperties4() {
     this.mode = TypeInferenceMode.BOTH;
 
-    testSame(
+    test(
         lines(
-            "/** @constructor */ function C() {}",
+            "/** @constructor */ function C() { this.prop = 3; }",
+            "Object.defineProperties(C, {prop:alert('')});"),
+        lines(
+            "/** @constructor */ function C() {                }",
             "Object.defineProperties(C, {prop:alert('')});"));
   }
 
@@ -346,18 +365,16 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "Object.defineProperties(C, {'prop': {value: 1}});"));
   }
 
-  // TODO(b/66971163): make this pass
-  public void disabledTestObjectDefineProperties6() {
+  public void testObjectDefineProperties6() {
     this.mode = TypeInferenceMode.BOTH;
 
     // an unknown destination object doesn't prevent removal.
     test(
         "Object.defineProperties(externVar(), {prop:{value:1}});",
-        "Object.defineProperties(externVar(), {});");
+        "Object.defineProperties(externVar(), {              });");
   }
 
-  // TODO(b/66971163): make this pass
-  public void disabledTestObjectDefineProperties7() {
+  public void testObjectDefineProperties7() {
     this.mode = TypeInferenceMode.BOTH;
 
     test(
@@ -369,8 +386,7 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "Object.defineProperties(C, {});"));
   }
 
-  // TODO(b/66971163): make this pass
-  public void disabledTestObjectDefineProperties8() {
+  public void testObjectDefineProperties8() {
     this.mode = TypeInferenceMode.BOTH;
 
     test(
@@ -382,9 +398,18 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "Object.defineProperties(C, {});"));
   }
 
-  // TODO(b/66971163): make this pass
-  public void disabledTestObjectDefineProperties_used_setter_removed() {
-    // TODO: Either remove, fix this, or document it as a limitation of advanced mode optimizations.
+  public void testObjectDefinePropertiesQuotesPreventRemoval() {
+    this.mode = TypeInferenceMode.BOTH;
+
+    testSame(
+        lines(
+            "/** @constructor */ function C() { this.prop = 1; }",
+            "Object.defineProperties(C, {'prop':{set:function (a) {return alert(a.prop)}}});"));
+  }
+
+  public void testObjectDefineProperties_used_setter_removed() {
+    // TODO(bradfordcsmith): Either remove, fix this, or document it as a limitation of advanced
+    // mode optimizations.
     this.mode = TypeInferenceMode.BOTH;
 
     test(
@@ -394,10 +419,9 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "C.prop = 2;"),
         lines(
             "/** @constructor */ function C() {}",
-            "Object.defineProperties(C, {});2"));
+            "Object.defineProperties(C, {                                  });"));
   }
 
-  // TODO(b/66971163): make this pass
   public void testEs6GettersWithoutTranspilation() {
     test(
         "class C { get value() { return 0; } }", // preserve newline
@@ -460,8 +484,7 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
     testSame("function getCar(make, model, value) { return {model}; }");
   }
 
-  // TODO(b/66971163): make this pass
-  public void disabledTestEs6GettersRemoval() {
+  public void testTranspiledEs6GettersRemoval() {
     this.mode = TypeInferenceMode.BOTH;
     test(
         // This is the output of ES6->ES5 class getter converter.
@@ -483,12 +506,10 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "});"),
         lines(
             "/** @constructor @struct */var C=function(){};",
-            "0;",
             "$jscomp.global.Object.defineProperties(C.prototype, {});"));
   }
 
-  // TODO(b/66971163): make this pass
-  public void disabledTestEs6SettersRemoval() {
+  public void testTranspiledEs6SettersRemoval() {
     this.mode = TypeInferenceMode.BOTH;
     test(
         // This is the output of ES6->ES5 class setter converter.
@@ -512,8 +533,6 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "});"),
         lines(
             "/** @constructor @struct */var C=function(){};",
-            "0;",
-            "0;",
             "$jscomp.global.Object.defineProperties(C.prototype, {});"));
   }
 
@@ -551,50 +570,58 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
     testSame("function* gen() { yield this.a = 1; yield this.a; }");
   }
 
-  // TODO(b/66971163): make this pass
-  public void disabledTestEs6Destructuring() {
+  public void testEs6Destructuring() {
     // Test normal destructuring removal
-    test("[this.x, this.y] = [1, 2]", "[, , ] = [1, 2]");
+    test(
+        "[this.x, this.y] = [1, 2]", // preserve newline
+        "[              ] = [1, 2]");
 
     // Test normal destructuring, assignment prevent removal
     test(
         lines(
-            "[this.x, this.y] = [1, 2]",
+            "[this.x, this.y] = [1, 2]", // preserve newline
             "var p = this.x;"),
         lines(
-            "[this.x, , ] = [1, 2]",
+            "[this.x        ] = [1, 2]", // preserve newline
             "var p = this.x;"));
 
     // Test rest destructuring removal
-    test("[this.x, ...this.z] = [1, 2, 3]", "[, , ] = [1, 2, 3]");
+    test(
+        "[this.x, ...this.z] = [1, 2, 3]", // preserve newline
+        "[                 ] = [1, 2, 3]");
 
     // Test rest destructuring with normal variable
-    test("[this.x, ...z] = [1, 2]", "[, ...z] = [1, 2]");
+    test(
+        "let z; [this.x, ...z] = [1, 2]", // preserve newline
+        "let z; [      , ...z] = [1, 2]");
 
     // Test rest destructuring, assignment prevent removal
     test(
         lines(
-            "[this.x, ...this.y] = [1, 2];",
+            "[this.x, ...this.y] = [1, 2];", // preserve newline
             "var p = this.y;"),
         lines(
-            "[, ...this.y] = [1, 2];",
+            "[      , ...this.y] = [1, 2];", // preserve newline
             "var p = this.y;"));
 
     // Test destructuring rhs prevent removal
     testSame(
         lines(
-            "this.x = 1;",
+            "let a;",
+            "this.x = 1;", // preserve newline
             "this.y = 2;",
             "[...a] = [this.x, this.y];"));
 
     // Test nested destructuring
-    test("[this.x, [this.y, ...z]] = [1, [2]]", "[, [, ...z]] = [1, [2]]");
+    test(
+        "let z; [this.x, [this.y, ...z]] = [1, [2]]", // preserve newline
+        "let z; [      , [      , ...z]] = [1, [2]]");
 
     // Test normal object destructuring full removal
     test("({a: this.x, b: this.y} = {a: 1, b: 2})", "({} = {a: 1, b: 2})");
 
     // Test normal object destructuring partial removal
-    test("({a: this.x, b: y} = {a: 1, b: 2})", "({b: y} = {a: 1, b: 2})");
+    test("let y; ({a: this.x, b: y} = {a: 1, b: 2})", "let y; ({           b: y} = {a: 1, b: 2})");
 
     // Test obj destructuring prevent removal
     test(
@@ -611,6 +638,7 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "/** @constructor */ function C () {",
             "  this.a = 1;",
             "}",
+            "let x;",
             "({a: x} = new C());"));
 
     // Test obj destructuring with new style class
@@ -621,6 +649,7 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "     this.a = 1;",
             "  }",
             "}",
+            "let x;",
             "({a: x} = new C());"));
 
     // Test let destructuring
@@ -642,6 +671,7 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "  }",
             "}",
             "var obj = new C()",
+            "let x;",
             "({a: x} = obj);"));
 
     // Test obj destructuring with default value
@@ -652,6 +682,7 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "     this.a = 1;",
             "  }",
             "}",
+            "let a;",
             "({a = 2} = new C());"));
 
     // Test obj nested destructuring
@@ -663,10 +694,13 @@ public final class RemoveUnusedCodeClassPropertiesTest extends TypeICompilerTest
             "  }",
             "}",
             "var obj = new C()",
+            "let a;",
             "({x: {a}} = {x: obj});"));
 
-    // No support for Computed Properties yet
-    test("({['a']:0}); this.a = 1;", "({['a']:0}); 1;");
+    // Computed Property string expression doesn't prevent removal.
+    test(
+        "({['a']:0}); this.a = 1;", // preserve newline
+        "({['a']:0});            ");
   }
 
   public void testEs6DefaultParameter() {

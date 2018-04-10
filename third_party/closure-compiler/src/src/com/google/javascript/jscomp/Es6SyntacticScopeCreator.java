@@ -81,13 +81,13 @@ public class Es6SyntacticScopeCreator implements ScopeCreator {
     public Scope create(Scope parent, Node n) {
       return (parent == null)
         ? Scope.createGlobalScope(n)
-        : new Scope(parent, n);
+        : Scope.createChildScope(parent, n);
     }
   }
 
   @Override
-  public Scope createScope(Node n, Scope parent) {
-    Scope scope = scopeFactory.create(parent, n);
+  public Scope createScope(Node n, AbstractScope<?, ?> parent) {
+    Scope scope = scopeFactory.create((Scope) parent, n);
     new ScopeScanner(compiler, redeclarationHandler, scope, null).populate();
     return scope;
   }

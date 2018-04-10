@@ -1068,8 +1068,8 @@ public final class NodeUtil {
   }
 
   /** Determine if the given SCRIPT is a @typeSummary file, like an i.js file */
-  static boolean isFromTypeSummary(Node n) {
-    checkArgument(n.isScript());
+  public static boolean isFromTypeSummary(Node n) {
+    checkArgument(n.isScript(), n);
     JSDocInfo info = n.getJSDocInfo();
     return info != null && info.isTypeSummary();
   }
@@ -1235,6 +1235,7 @@ public final class NodeUtil {
       case TRY:
       case EMPTY:
       case TEMPLATELIT:
+      case COMPUTED_PROP:
         break;
 
       default:
@@ -1728,15 +1729,8 @@ public final class NodeUtil {
     return n.isNull() || isUndefined(n);
   }
 
-  static final Predicate<Node> IMMUTABLE_PREDICATE = new Predicate<Node>() {
-    @Override
-    public boolean apply(Node n) {
-      return isImmutableValue(n);
-    }
-  };
-
   static boolean isImmutableResult(Node n) {
-    return allResultsMatch(n, IMMUTABLE_PREDICATE);
+    return allResultsMatch(n, NodeUtil::isImmutableValue);
   }
 
   /**
@@ -1762,6 +1756,7 @@ public final class NodeUtil {
     }
   }
 
+  /** @see #getKnownValueType(Node) */
   public enum ValueType {
     UNDETERMINED,
     NULL,
@@ -2228,12 +2223,12 @@ public final class NodeUtil {
 
   @CheckReturnValue
   public static Node getEnclosingBlockScopeRoot(Node n) {
-    return getEnclosingNode(n, createsBlockScope);
+    return getEnclosingNode(n, NodeUtil::createsBlockScope);
   }
 
   @CheckReturnValue
   public static Node getEnclosingScopeRoot(Node n) {
-    return getEnclosingNode(n, createsScope);
+    return getEnclosingNode(n, NodeUtil::createsScope);
   }
 
   public static boolean isInFunction(Node n) {
@@ -2242,7 +2237,7 @@ public final class NodeUtil {
 
   @CheckReturnValue
   public static Node getEnclosingStatement(Node n) {
-    return getEnclosingNode(n, isStatement);
+    return getEnclosingNode(n, NodeUtil::isStatement);
   }
 
   @CheckReturnValue
@@ -2321,7 +2316,7 @@ public final class NodeUtil {
   static boolean referencesSuper(Node n) {
     Node curr = n.getFirstChild();
     while (curr != null) {
-      if (containsType(curr, Token.SUPER, MATCH_NOT_CLASS)) {
+      if (containsType(curr, Token.SUPER, node -> !node.isClass())) {
         return true;
       }
       curr = curr.getNext();
@@ -2371,13 +2366,6 @@ public final class NodeUtil {
   public static boolean isNameDeclaration(Node n) {
     return n != null && (n.isVar() || n.isLet() || n.isConst());
   }
-
-  static final Predicate<Node> isNameDeclaration = new Predicate<Node>() {
-    @Override
-    public boolean apply(Node n) {
-      return isNameDeclaration(n);
-    }
-  };
 
   /**
    * @param n The node
@@ -2611,13 +2599,6 @@ public final class NodeUtil {
     }
   }
 
-  static final Predicate<Node> createsBlockScope = new Predicate<Node>() {
-    @Override
-    public boolean apply(Node n) {
-      return createsBlockScope(n);
-    }
-  };
-
   static boolean createsScope(Node n) {
     return createsBlockScope(n) || n.isFunction() || n.isModuleBody()
         // The ROOT nodes that are the root of the externs tree or main JS tree do not
@@ -2625,13 +2606,6 @@ public final class NodeUtil {
         // therefore has no parent, is the only ROOT node that creates a scope.
         || (n.isRoot() && n.getParent() == null);
   }
-
-  static final Predicate<Node> createsScope = new Predicate<Node>() {
-    @Override
-    public boolean apply(Node n) {
-      return createsScope(n);
-    }
-  };
 
   private static final Set<Token> DEFINITE_CFG_ROOTS =
       EnumSet.of(Token.FUNCTION, Token.SCRIPT, Token.MODULE_BODY, Token.ROOT);
@@ -2646,13 +2620,6 @@ public final class NodeUtil {
   public static boolean isStatement(Node n) {
     return !n.isModuleBody() && isStatementParent(n.getParent());
   }
-
-  private static final Predicate<Node> isStatement = new Predicate<Node>() {
-    @Override
-    public boolean apply(Node n) {
-      return isStatement(n);
-    }
-  };
 
   private static final Set<Token> IS_STATEMENT_PARENT =
       EnumSet.of(
@@ -3329,7 +3296,6 @@ public final class NodeUtil {
       case NAME:
       case GETPROP:
       case GETELEM:
-      case STRING_KEY:
         break;
       default:
         return false;
@@ -3360,9 +3326,9 @@ public final class NodeUtil {
       case FOR_IN:
       case FOR_OF:
         return parent.getFirstChild() == n;
-      case OBJECT_PATTERN:
       case ARRAY_PATTERN:
       case STRING_KEY:
+      case COMPUTED_PROP:
         return isLhsByDestructuring(n);
       default:
         return NodeUtil.isAssignmentOp(parent) && parent.getFirstChild() == n;
@@ -3420,10 +3386,15 @@ public final class NodeUtil {
    * ([a.b] = [1]);} or {@code ({key: a.b} = {key: 1});}
    */
   public static boolean isLhsByDestructuring(Node n) {
-    if (!(n.isName() || n.isGetProp() || n.isStringKey() || n.isGetElem())) {
-      return false;
+    switch (n.getToken()) {
+      case NAME:
+      case GETPROP:
+      case STRING_KEY:
+      case GETELEM:
+        return isLhsByDestructuringHelper(n);
+      default:
+        return false;
     }
-    return isLhsByDestructuringHelper(n);
   }
 
   /**
@@ -3435,40 +3406,42 @@ public final class NodeUtil {
     Node parent = n.getParent();
     Node grandparent = n.getGrandparent();
 
-    if (parent.isArrayPattern()) {
-      // e.g. var [b] = ...
-      return true;
-    }
+    switch (parent.getToken()) {
+      case ARRAY_PATTERN:
+        return true; // "b" in var [b] = ...
 
-    if (parent.isStringKey() && grandparent.isObjectPattern()) {
-      // e.g. the "b" in "var {a: b} = ..."
-      return true;
-    }
+      case STRING_KEY:
+        return grandparent.isObjectPattern(); // the "b" in "var {a: b} = ..."
 
-    if (parent.isObjectPattern()) {
-      // STRING_KEY children of object patterns are not LHS nodes, since shorthand (e.g.
-      // "var {a} = ...") is normalized at parse-time. If n is not a STRING_KEY, it is
-      // an OBJECT_PATTERN or a COMPUTED_PROP and contains a LHS node.
-      return !n.isStringKey();
-    }
+      case OBJECT_PATTERN:
+        // STRING_KEY children of object patterns are not LHS nodes, since shorthand (e.g.
+        // "var {a} = ...") is normalized at parse-time. If n is not a STRING_KEY, it is
+        // an OBJECT_PATTERN or a COMPUTED_PROP and contains a LHS node.
+        return !n.isStringKey();
 
-    if (parent.isComputedProp() && n == parent.getSecondChild()) {
-      // The first child of a COMPUTED_PROP is the property expression, not a LHS.
-      // The second is the value, which in an object pattern will contain the LHS.
-      return isLhsByDestructuringHelper(parent);
-    }
+      case COMPUTED_PROP:
+        if (n == parent.getSecondChild()) {
+          // The first child of a COMPUTED_PROP is the property expression, not a LHS.
+          // The second is the value, which in an object pattern will contain the LHS.
+          return isLhsByDestructuringHelper(parent);
+        }
+        return false;
 
-    if (parent.isRest()) {
-      // The only child of a REST node is the LHS.
-      return isLhsByDestructuringHelper(parent);
-    }
+      case REST:
+        // The only child of a REST node is the LHS.
+        return isLhsByDestructuringHelper(parent);
 
-    if (parent.isDefaultValue() && n == parent.getFirstChild()) {
-      // The first child of a DEFAULT_VALUE is a NAME node and a potential LHS.
-      // The second child is the value, so never a LHS node.
-      return isLhsByDestructuringHelper(parent);
+      case DEFAULT_VALUE:
+        if (n == parent.getFirstChild()) {
+          // The first child of a DEFAULT_VALUE is a NAME node and a potential LHS.
+          // The second child is the value, so never a LHS node.
+          return isLhsByDestructuringHelper(parent);
+        }
+        return false;
+
+      default:
+        return false;
     }
-    return false;
   }
 
   /**
@@ -3696,7 +3669,7 @@ public final class NodeUtil {
    * @return true if n or any of its descendants are of the specified type.
    */
   public static boolean containsType(Node node, Token type) {
-    return containsType(node, type, Predicates.<Node>alwaysTrue());
+    return containsType(node, type, Predicates.alwaysTrue());
   }
 
 
@@ -3756,8 +3729,15 @@ public final class NodeUtil {
 
     // make sure that the adding root looks ok
     checkState(addingRoot.isNormalBlock() || addingRoot.isModuleBody() || addingRoot.isScript());
-    checkState(addingRoot.getFirstChild() == null || !addingRoot.getFirstChild().isScript());
+    checkState(!addingRoot.hasChildren() || !addingRoot.getFirstChild().isScript());
     return addingRoot;
+  }
+
+  public static Node newDeclaration(Node lhs, @Nullable Node rhs, Token declarationType) {
+    if (rhs == null) {
+      return IR.declaration(lhs, declarationType);
+    }
+    return IR.declaration(lhs, rhs, declarationType);
   }
 
   /**
@@ -3766,7 +3746,8 @@ public final class NodeUtil {
    * @param name A qualified name (e.g. "foo" or "foo.bar.baz")
    * @return A NAME or GETPROP node
    */
-  public static Node newQName(AbstractCompiler compiler, String name) {
+  public static Node newQName(
+      AbstractCompiler compiler, String name) {
     int endPos = name.indexOf('.');
     if (endPos == -1) {
       return newName(compiler, name);
@@ -3795,6 +3776,33 @@ public final class NodeUtil {
       node.setLength(length);
     } while (endPos != -1);
 
+    return node;
+  }
+
+  /**
+   * Creates a node representing a qualified name, copying over the source
+   * location information from the basis node and assigning the given original
+   * name to the node.
+   *
+   * @param name A qualified name (e.g. "foo" or "foo.bar.baz")
+   * @param basisNode The node that represents the name as currently found in
+   *     the AST.
+   * @param originalName The original name of the item being represented by the
+   *     NAME node. Used for debugging information.
+   *
+   * @return A NAME or GETPROP node
+   */
+  static Node newQName(
+      AbstractCompiler compiler, String name, Node basisNode,
+      String originalName) {
+    Node node = newQName(compiler, name);
+    useSourceInfoForNewQName(node, basisNode);
+    if (!originalName.equals(node.getOriginalName())) {
+      // If basisNode already had the correct original name, then it will already be set correctly.
+      // Setting it again will force the QName node to have a different property list from all of
+      // its children, causing greater memory consumption.
+      node.setOriginalName(originalName);
+    }
     return node;
   }
 
@@ -3833,33 +3841,6 @@ public final class NodeUtil {
   }
 
   /**
-   * Creates a node representing a qualified name, copying over the source
-   * location information from the basis node and assigning the given original
-   * name to the node.
-   *
-   * @param name A qualified name (e.g. "foo" or "foo.bar.baz")
-   * @param basisNode The node that represents the name as currently found in
-   *     the AST.
-   * @param originalName The original name of the item being represented by the
-   *     NAME node. Used for debugging information.
-   *
-   * @return A NAME or GETPROP node
-   */
-  static Node newQName(
-      AbstractCompiler compiler, String name, Node basisNode,
-      String originalName) {
-    Node node = newQName(compiler, name);
-    useSourceInfoForNewQName(node, basisNode);
-    if (!originalName.equals(node.getOriginalName())) {
-      // If basisNode already had the correct original name, then it will already be set correctly.
-      // Setting it again will force the QName node to have a different property list from all of
-      // its children, causing greater memory consumption.
-      node.setOriginalName(originalName);
-    }
-    return node;
-  }
-
-  /**
    * Custom update new QName node with source info from another node.
    *
    * <p>This is very similar to {@link Node#useSourceInfoIfMissingFromForTree(Node)}, but it avoids
@@ -3872,8 +3853,8 @@ public final class NodeUtil {
       newQName.setSourceEncodedPosition(basisNode.getSourcePosition());
     }
 
-    if (newQName.getProp(Node.ORIGINALNAME_PROP) == null) {
-      newQName.putProp(Node.ORIGINALNAME_PROP, basisNode.getProp(Node.ORIGINALNAME_PROP));
+    if (newQName.getOriginalName() == null) {
+      newQName.putProp(Node.ORIGINALNAME_PROP, basisNode.getOriginalName());
     }
 
     for (Node child = newQName.getFirstChild(); child != null; child = child.getNext()) {
@@ -4027,9 +4008,7 @@ public final class NodeUtil {
         Node parent = n.getParent();
         if (parent != null && parent.isVar()) {
           String name = n.getString();
-          if (!vars.containsKey(name)) {
-            vars.put(name, n);
-          }
+          vars.putIfAbsent(name, n);
         }
       }
     }
@@ -4384,36 +4363,9 @@ public final class NodeUtil {
     }
   }
 
-  /**
-   * A predicate for matching anything except function nodes.
-   */
-  private static class MatchNotFunction implements Predicate<Node>{
-    @Override
-    public boolean apply(Node n) {
-      return !n.isFunction();
-    }
-  }
+  static final Predicate<Node> MATCH_NOT_FUNCTION = n -> !n.isFunction();
 
-  /**
-   * A predicate for matching anything except class nodes.
-   */
-  private static class MatchNotClass implements Predicate<Node> {
-    @Override
-    public boolean apply(Node n) {
-      return !n.isClass();
-    }
-  }
-
-  static final Predicate<Node> MATCH_NOT_FUNCTION = new MatchNotFunction();
-
-  static final Predicate<Node> MATCH_NOT_CLASS = new MatchNotClass();
-
-  static final Predicate<Node> MATCH_NOT_THIS_BINDING = new Predicate<Node>() {
-    @Override
-    public boolean apply(Node n) {
-      return !NodeUtil.isVanillaFunction(n);
-    }
-  };
+  static final Predicate<Node> MATCH_NOT_THIS_BINDING = n -> !NodeUtil.isVanillaFunction(n);
 
   /**
    * A predicate for matching statements without exiting the current scope.
@@ -4446,15 +4398,14 @@ public final class NodeUtil {
    * Whether a simple name is referenced within the node tree.
    */
   static boolean isNameReferenced(Node node, String name) {
-    return isNameReferenced(node, name, Predicates.<Node>alwaysTrue());
+    return isNameReferenced(node, name, Predicates.alwaysTrue());
   }
 
   /**
    * Finds the number of times a simple name is referenced within the node tree.
    */
   static int getNameReferenceCount(Node node, String name) {
-    return getCount(
-        node, new MatchNameNode(name), Predicates.<Node>alwaysTrue());
+    return getCount(node, new MatchNameNode(name), Predicates.alwaysTrue());
   }
 
   /** @return Whether the predicate is true for the node or any of its descendants. */
@@ -4507,7 +4458,7 @@ public final class NodeUtil {
 
   /** A pre-order traversal, calling Visitor.visit for each decendent. */
   public static void visitPreOrder(Node node, Visitor visitor) {
-    visitPreOrder(node, visitor, Predicates.<Node>alwaysTrue());
+    visitPreOrder(node, visitor, Predicates.alwaysTrue());
   }
 
   /** A pre-order traversal, calling Visitor.visit for each child matching the predicate. */
@@ -4520,6 +4471,11 @@ public final class NodeUtil {
         visitPreOrder(c, visitor, traverseChildrenPred);
       }
     }
+  }
+
+  /** A post-order traversal, calling Visitor.visit for each decendent. */
+  public static void visitPostOrder(Node node, Visitor visitor) {
+    visitPostOrder(node, visitor, Predicates.alwaysTrue());
   }
 
   /** A post-order traversal, calling Visitor.visit for each descendant matching the predicate. */
@@ -4801,7 +4757,7 @@ public final class NodeUtil {
    * or an object that has not yet escaped.
    */
   static boolean evaluatesToLocalValue(Node value) {
-    return evaluatesToLocalValue(value, Predicates.<Node>alwaysFalse());
+    return evaluatesToLocalValue(value, Predicates.alwaysFalse());
   }
 
   /**
@@ -5574,8 +5530,7 @@ public final class NodeUtil {
       return new TemplateArgsIterable(invocation.getLastChild());
     } else {
       checkState(isCallOrNew(invocation), invocation);
-      return invocation.hasOneChild()
-          ? ImmutableList.<Node>of() : invocation.getSecondChild().siblings();
+      return invocation.hasOneChild() ? ImmutableList.of() : invocation.getSecondChild().siblings();
     }
   }
 

@@ -161,6 +161,7 @@ class FunctionArgumentInjector {
           Node array = IR.arraylit();
           argMap.put(fnParam.getOnlyChild().getString(), array);
         } else {
+          checkState(fnParam.isName(), fnParam);
           Node srcLocation = callNode;
           argMap.put(fnParam.getString(), NodeUtil.newUndefinedNode(srcLocation));
         }
@@ -198,8 +199,7 @@ class FunctionArgumentInjector {
   static Set<String> findModifiedParameters(Node fnNode) {
     ImmutableSet<String> names = getFunctionParameterSet(fnNode);
     Set<String> unsafeNames = new HashSet<>();
-    return findModifiedParameters(
-        fnNode.getLastChild(), null, names, unsafeNames, false);
+    return findModifiedParameters(fnNode.getLastChild(), names, unsafeNames, false);
   }
 
   /**
@@ -221,11 +221,10 @@ class FunctionArgumentInjector {
    * @param inInnerFunction Whether the inspection is occurring on a inner function.
    */
   private static Set<String> findModifiedParameters(
-      Node n, Node parent, ImmutableSet<String> names, Set<String> unsafe,
-      boolean inInnerFunction) {
+      Node n, ImmutableSet<String> names, Set<String> unsafe, boolean inInnerFunction) {
     checkArgument(unsafe != null);
     if (n.isName()) {
-      if (names.contains(n.getString()) && (inInnerFunction || canNameValueChange(n, parent))) {
+      if (names.contains(n.getString()) && (inInnerFunction || canNameValueChange(n))) {
         unsafe.add(n.getString());
       }
     } else if (n.isFunction()) {
@@ -238,7 +237,7 @@ class FunctionArgumentInjector {
     }
 
     for (Node c : n.children()) {
-      findModifiedParameters(c, n, names, unsafe, inInnerFunction);
+      findModifiedParameters(c, names, unsafe, inInnerFunction);
     }
 
     return unsafe;
@@ -255,13 +254,10 @@ class FunctionArgumentInjector {
    * @param n The NAME node in question.
    * @param parent The parent of the node.
    */
-  private static boolean canNameValueChange(Node n, Node parent) {
-    Token type = parent.getToken();
-    return (type == Token.VAR
-        || type == Token.INC
-        || type == Token.DEC
-        || (NodeUtil.isAssignmentOp(parent) && parent.getFirstChild() == n)
-        || (parent.isForIn()));
+  private static boolean canNameValueChange(Node n) {
+    return NodeUtil.isLValue(n)
+        && !NodeUtil.getEnclosingStatement(n).isConst()
+        && !NodeUtil.getEnclosingStatement(n).isLet();
   }
 
   /**

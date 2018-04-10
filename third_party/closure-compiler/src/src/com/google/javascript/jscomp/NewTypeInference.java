@@ -462,8 +462,6 @@ final class NewTypeInference implements CompilerPass {
   private final boolean joinTypesWhenInstantiatingGenerics;
   private final boolean allowPropertyOnSubtypes;
   private final boolean areTypeVariablesUnknown;
-  // Used in per-library type checking
-  private final boolean warnForUnresolvedTypes;
 
   // Used only for development
   private static final boolean showDebuggingPrints = false;
@@ -523,7 +521,6 @@ final class NewTypeInference implements CompilerPass {
     this.joinTypesWhenInstantiatingGenerics = inCompatibilityMode;
     this.allowPropertyOnSubtypes = inCompatibilityMode;
     this.areTypeVariablesUnknown = inCompatibilityMode;
-    this.warnForUnresolvedTypes = compiler.getOptions().inIncrementalCheckMode();
   }
 
   @VisibleForTesting // Only used from tests
@@ -1688,9 +1685,6 @@ final class NewTypeInference implements CompilerPass {
     JSType resultType = resultPair.type;
     mayWarnAboutUnknownType(expr, resultType);
     if (resultType.isUnresolved()) {
-      if (this.warnForUnresolvedTypes) {
-        warnings.add(JSError.make(expr, CANNOT_USE_UNRESOLVED_TYPE, resultType.toString()));
-      }
       resultPair.type = UNKNOWN;
     }
     maybeSetTypeI(expr, resultType);
@@ -4786,7 +4780,7 @@ final class NewTypeInference implements CompilerPass {
         new QualifiedName(commonTypes.createSetterPropName(pname.getLeftmostName()));
     if (recvType.hasProp(setterPname)) {
       FunctionType funType = recvType.getProp(setterPname).getFunType();
-      checkNotNull(funType);
+      checkNotNull(funType, "recvType=%s, setterPname=%s", recvType, setterPname);
       JSType formalType = funType.getFormalType(0);
       checkState(!formalType.isBottom());
       return new LValueResultFwd(inEnv, formalType, formalType, null);
@@ -4836,17 +4830,17 @@ final class NewTypeInference implements CompilerPass {
     }
   }
 
-  private LValueResultBwd analyzeLValueBwd(
-      Node expr, TypeEnv outEnv, JSType type, boolean doSlicing) {
-    return analyzeLValueBwd(expr, outEnv, type, doSlicing, false);
-  }
-
   /**
    * We use this to avoid putting global variables in type environments, because that
    * can cause crashes in TypeEnv#join.
    */
   private boolean isGlobalVariable(Node maybeName, TypeEnv env) {
     return maybeName.isName() && envGetType(env, maybeName.getString()) == null;
+  }
+
+  private LValueResultBwd
+      analyzeLValueBwd(Node expr, TypeEnv outEnv, JSType type, boolean doSlicing) {
+    return analyzeLValueBwd(expr, outEnv, type, doSlicing, false);
   }
 
   /** When {@code doSlicing} is set, remove the lvalue from the returned env */

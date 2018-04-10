@@ -107,7 +107,7 @@ Iterable.prototype[Symbol.iterator] = function() {};
 function Iterator() {}
 
 /**
- * @param {VALUE=} value
+ * @param {?=} opt_value
  * @return {!IIterableResult<VALUE>}
  */
 Iterator.prototype.next;
@@ -171,10 +171,12 @@ Arguments.prototype.caller;
 Arguments.prototype.length;
 
 /**
- * Not actually a global variable, but we need it in order for the current type
- * checker to typecheck the "arguments" variable in a function correctly.
- * TODO(tbreisacher): When the old type checker is gone, delete this and add
- * an 'arguments' variable of type Array<string> in the d8 externs.
+ * Not actually a global variable, when running in a browser environment. But
+ * we need it in order for the type checker to typecheck the "arguments"
+ * variable in a function correctly.
+ *
+ * TODO(tbreisacher): There should be a separate 'arguments' variable of type
+ * `Array<string>`, in the d8 externs.
  *
  * @type {!Arguments}
  * @see http://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Functions_and_function_scope/arguments
@@ -281,9 +283,9 @@ function isNaN(num) {}
 function parseFloat(num) {}
 
 /**
- * Parse an integer. Use of {@code parseInt} without {@code base} is strictly
+ * Parse an integer. Use of `parseInt` without `base` is strictly
  * banned in Google. If you really want to parse octal or hex based on the
- * leader, then pass {@code undefined} as the base.
+ * leader, then pass `undefined` as the base.
  *
  * @param {*} num
  * @param {number|undefined} base
@@ -467,7 +469,7 @@ Object.prototype.toString = function() {};
 Object.prototype.unwatch = function(prop) {};
 
 /**
- * Returns the object's {@code this} value.
+ * Returns the object's `this` value.
  * @return {*}
  * @nosideeffects
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/valueOf

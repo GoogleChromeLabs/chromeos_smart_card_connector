@@ -192,13 +192,12 @@ public abstract class ObjectType
    * @return True iff a cycle was detected.
    */
   final boolean detectInheritanceCycle() {
-    // TODO(dimvar): This should get moved to preventing cycles in FunctionTypeBuilder
-    // rather than removing them here after they have been created.
-    // Also, this doesn't do the right thing for extended interfaces, though that is
-    // masked by another bug.
-    return detectImplicitPrototypeCycle()
-        || Iterables.contains(this.getCtorImplementedInterfaces(), this)
-        || Iterables.contains(this.getCtorExtendedInterfaces(), this);
+    if (detectImplicitPrototypeCycle()
+        || Iterables.contains(this.getCtorImplementedInterfaces(), this)) {
+        return true;
+    }
+    FunctionType fnType = this.getConstructor();
+    return fnType != null && fnType.checkExtendsLoop() != null;
   }
 
   /**
@@ -279,13 +278,16 @@ public abstract class ObjectType
     if (result != null) {
       return result;
     }
-    // objects are comparable to everything but null/undefined
-    if (that.isSubtype(
-            getNativeType(JSTypeNative.OBJECT_NUMBER_STRING_BOOLEAN))) {
+
+    // TODO: consider tighten "testForEquality" for subtypes of Object: if Foo and Bar
+    // are not related we don't want to allow "==" on them (similiarly we should disallow
+    // number == for non-number context values, etc).
+
+    if (that.isSubtypeOf(getNativeType(JSTypeNative.OBJECT_NUMBER_STRING_BOOLEAN_SYMBOL))) {
       return UNKNOWN;
-    } else {
-      return FALSE;
     }
+
+    return FALSE;
   }
 
   /**
@@ -511,9 +513,19 @@ public abstract class ObjectType
   }
 
   @Override
-  public boolean hasProperty(String propertyName) {
+  public HasPropertyKind getPropertyKind(String propertyName, boolean autobox) {
     // Unknown types have all properties.
-    return isEmptyType() || isUnknownType() || getSlot(propertyName) != null;
+    return HasPropertyKind.of(isEmptyType() || isUnknownType() || getSlot(propertyName) != null);
+  }
+
+  /**
+   * Checks whether the property whose name is given is present directly on
+   * the object.  Returns false even if it is declared on a supertype.
+   */
+  public HasPropertyKind getOwnPropertyKind(String propertyName) {
+    return getOwnSlot(propertyName) != null
+        ? HasPropertyKind.KNOWN_PRESENT
+        : HasPropertyKind.ABSENT;
   }
 
   /**
@@ -522,7 +534,7 @@ public abstract class ObjectType
    */
   @Override
   public boolean hasOwnProperty(String propertyName) {
-    return getOwnSlot(propertyName) != null;
+    return !getOwnPropertyKind(propertyName).equals(HasPropertyKind.ABSENT);
   }
 
   /**

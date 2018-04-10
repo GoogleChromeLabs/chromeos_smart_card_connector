@@ -18,7 +18,6 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -32,17 +31,6 @@ import javax.annotation.Nullable;
  * @author johnlenz@google.com (John Lenz)
  */
 class MinimizeExitPoints extends AbstractPeepholeOptimization {
-  AbstractCompiler compiler;
-
-  MinimizeExitPoints(AbstractCompiler compiler) {
-    this.compiler = compiler;
-  }
-
-  @VisibleForTesting
-  final CompilerPass asCompilerPass() {
-    return new PeepholeOptimizationsPass(compiler, this.getClass().getSimpleName(), this);
-  }
-
   @Override
   Node optimizeSubtree(Node n) {
     switch (n.getToken()) {
@@ -177,11 +165,10 @@ class MinimizeExitPoints extends AbstractPeepholeOptimization {
       // An 'if' block to process below.
       if (c.isIf()) {
         Node ifTree = c;
-        Node trueBlock, falseBlock;
 
         // First, the true condition block.
-        trueBlock = ifTree.getSecondChild();
-        falseBlock = trueBlock.getNext();
+        Node trueBlock = ifTree.getSecondChild();
+        Node falseBlock = trueBlock.getNext();
         tryMinimizeIfBlockExits(trueBlock, falseBlock,
             ifTree, exitType, labelName);
 
@@ -288,6 +275,11 @@ class MinimizeExitPoints extends AbstractPeepholeOptimization {
       return;
     }
 
+    // Ensure no block-scoped declarations are moved into an inner block.
+    if (!tryConvertAllBlockScopedFollowing(ifNode)) {
+      return;
+    }
+
     // Take case of the if nodes siblings, if any.
     if (ifNode.getNext() != null) {
       // Move siblings of the if block into the opposite
@@ -360,5 +352,41 @@ class MinimizeExitPoints extends AbstractPeepholeOptimization {
         destParent.addChildToBack(n);
       }
     }
+  }
+
+  /**
+   * Convert all let/const declarations following the start node to var declarations if possible.
+   *
+   * <p>See the unit tests for examples of why this is necessary before moving code into an inner
+   * block, and why this is unsafe to do to declarations inside a loop.
+   *
+   * @param start The start point
+   * @return Whether all block-scoped declarations have been converted.
+   */
+  private static boolean tryConvertAllBlockScopedFollowing(Node start) {
+    if (NodeUtil.isWithinLoop(start)) {
+      // If in a loop, don't convert anything to a var. Return true only if there are no let/consts.
+      return !hasBlockScopedVarsFollowing(start);
+    }
+    for (Node n = start.getNext(); n != null; n = n.getNext()) {
+      if (n.isLet() || n.isConst()) {
+        n.setToken(Token.VAR);
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Detect any block-scoped declarations that are younger siblings of the given starting point.
+   *
+   * @param start The start point
+   */
+  private static boolean hasBlockScopedVarsFollowing(Node start) {
+    for (Node n = start.getNext(); n != null; n = n.getNext()) {
+      if (n.isLet() || n.isConst()) {
+        return true;
+      }
+    }
+    return false;
   }
 }

@@ -50,7 +50,7 @@ abstract class ValueType extends JSType {
   }
 
   @Override
-  final JSType resolveInternal(ErrorReporter t, StaticTypedScope<JSType> scope) {
+  final JSType resolveInternal(ErrorReporter reporter, StaticTypedScope<JSType> scope) {
     return this;
   }
 
@@ -61,5 +61,14 @@ abstract class ValueType extends JSType {
 
   @Override <T> T visit(RelationshipVisitor<T> visitor, JSType that) {
     return visitor.caseValueType(this, that);
+  }
+
+  @Override
+  public HasPropertyKind getPropertyKind(String propertyName, boolean autobox) {
+    if (autobox && isBoxableScalar()) {
+      return autoboxesTo().getPropertyKind(propertyName, autobox);
+    } else {
+      return super.getPropertyKind(propertyName, autobox);
+    }
   }
 }

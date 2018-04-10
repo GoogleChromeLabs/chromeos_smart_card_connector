@@ -325,7 +325,6 @@ public class JSDocInfoTest extends TestCase {
     info.setOverride(true);
 
     assertFalse(info.isDeprecated());
-    assertFalse(info.isNoAlias());
     assertTrue(info.isOverride());
   }
 
@@ -378,18 +377,15 @@ public class JSDocInfoTest extends TestCase {
 
   public void testSetNoAlias() {
     JSDocInfo info = new JSDocInfo();
-    info.setNoAlias(true);
 
     assertFalse(info.isDeprecated());
     assertFalse(info.isOverride());
-    assertTrue(info.isNoAlias());
   }
 
   public void testSetDeprecated() {
     JSDocInfo info = new JSDocInfo();
     info.setDeprecated(true);
 
-    assertFalse(info.isNoAlias());
     assertFalse(info.isOverride());
     assertTrue(info.isDeprecated());
   }
@@ -427,6 +423,20 @@ public class JSDocInfoTest extends TestCase {
     assertTrue(info.isConstructor());
     assertFalse(info.isDefine());
     assertFalse(info.isHidden());
+  }
+
+  public void testDescriptionContainsAtSignCode() {
+    JSDocInfo info = new JSDocInfo(true);
+    info.setOriginalCommentString("Blah blah {@code blah blah} blah blah.");
+
+    assertTrue(info.isAtSignCodePresent());
+  }
+
+  public void testDescriptionDoesNotContainAtSignCode() {
+    JSDocInfo info = new JSDocInfo(true);
+    info.setOriginalCommentString("Blah blah `blah blah` blah blah.");
+
+    assertFalse(info.isAtSignCodePresent());
   }
 
   public void testClone() {

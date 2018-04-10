@@ -77,7 +77,7 @@ import java.util.Set;
 public class FunctionType extends PrototypeObjectType implements FunctionTypeI {
   private static final long serialVersionUID = 1L;
 
-  private enum Kind {
+  enum Kind {
     ORDINARY,
     CONSTRUCTOR,
     INTERFACE
@@ -161,7 +161,7 @@ public class FunctionType extends PrototypeObjectType implements FunctionTypeI {
       ArrowType arrowType,
       JSType typeOfThis,
       TemplateTypeMap templateTypeMap,
-      boolean isConstructor,
+      Kind kind,
       boolean nativeType,
       boolean isAbstract) {
     super(registry, name,
@@ -172,16 +172,23 @@ public class FunctionType extends PrototypeObjectType implements FunctionTypeI {
     checkArgument(source == null || Token.FUNCTION == source.getToken());
     checkNotNull(arrowType);
     this.source = source;
-    if (isConstructor) {
-      this.kind = Kind.CONSTRUCTOR;
-      this.propAccess = PropAccess.ANY;
-      this.typeOfThis = typeOfThis != null ?
-          typeOfThis : new InstanceObjectType(registry, this, nativeType);
-    } else {
-      this.kind = Kind.ORDINARY;
-      this.typeOfThis = typeOfThis != null ?
-          typeOfThis :
-          registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE);
+    this.kind = kind;
+    switch (kind) {
+      case CONSTRUCTOR:
+        this.propAccess = PropAccess.ANY;
+        this.typeOfThis =
+            typeOfThis != null ? typeOfThis : new InstanceObjectType(registry, this, nativeType);
+        break;
+      case ORDINARY:
+        this.typeOfThis =
+            typeOfThis != null
+                ? typeOfThis
+                : registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE);
+        break;
+      case INTERFACE:
+        this.typeOfThis =
+            typeOfThis != null ? typeOfThis : new InstanceObjectType(registry, this, nativeType);
+        break;
     }
     this.call = arrowType;
     this.isStructuralInterface = false;
@@ -189,28 +196,11 @@ public class FunctionType extends PrototypeObjectType implements FunctionTypeI {
   }
 
   /** Creates an instance for a function that is an interface. */
-  private FunctionType(JSTypeRegistry registry, String name, Node source,
-      TemplateTypeMap typeParameters) {
-    super(registry, name,
-        registry.getNativeObjectType(JSTypeNative.FUNCTION_INSTANCE_TYPE),
-        false, typeParameters);
-    setPrettyPrint(true);
-
-    checkArgument(source == null || Token.FUNCTION == source.getToken());
-    checkArgument(name != null);
-    this.source = source;
-    this.call = new ArrowType(registry, new Node(Token.PARAM_LIST), null);
-    this.kind = Kind.INTERFACE;
-    this.typeOfThis = new InstanceObjectType(registry, this);
-    this.isStructuralInterface = false;
-    this.isAbstract = false;
-  }
-
-  /** Creates an instance for a function that is an interface. */
   static FunctionType forInterface(
-      JSTypeRegistry registry, String name, Node source,
-      TemplateTypeMap typeParameters) {
-    return new FunctionType(registry, name, source, typeParameters);
+      JSTypeRegistry registry, String name, Node source, TemplateTypeMap typeParameters) {
+    ArrowType arrowType = new ArrowType(registry, new Node(Token.PARAM_LIST), null);
+    return new FunctionType(
+        registry, name, source, arrowType, null, typeParameters, Kind.INTERFACE, false, false);
   }
 
   @Override
@@ -926,7 +916,7 @@ public class FunctionType extends PrototypeObjectType implements FunctionTypeI {
         new ArrowType(registry, newParamsNode, newReturnType, newReturnTypeInferred),
         newTypeOfThis,
         null,
-        false,
+        Kind.ORDINARY,
         false,
         false);
   }
@@ -1276,20 +1266,20 @@ public class FunctionType extends PrototypeObjectType implements FunctionTypeI {
   }
 
   @Override
-  JSType resolveInternal(ErrorReporter t, StaticTypedScope<JSType> scope) {
+  JSType resolveInternal(ErrorReporter reporter, StaticTypedScope<JSType> scope) {
     setResolvedTypeInternal(this);
 
-    call = (ArrowType) safeResolve(call, t, scope);
+    call = (ArrowType) safeResolve(call, reporter, scope);
     if (prototypeSlot != null) {
       prototypeSlot.setType(
-          safeResolve(prototypeSlot.getType(), t, scope));
+          safeResolve(prototypeSlot.getType(), reporter, scope));
     }
 
     // Warning about typeOfThis if it doesn't resolve to an ObjectType
     // is handled further upstream.
     //
     // TODO(nicksantos): Handle this correctly if we have a UnionType.
-    JSType maybeTypeOfThis = safeResolve(typeOfThis, t, scope);
+    JSType maybeTypeOfThis = safeResolve(typeOfThis, reporter, scope);
     if (maybeTypeOfThis != null) {
       if (maybeTypeOfThis.isNullType() || maybeTypeOfThis.isVoidType()) {
         typeOfThis = maybeTypeOfThis;
@@ -1303,13 +1293,13 @@ public class FunctionType extends PrototypeObjectType implements FunctionTypeI {
     }
 
     ImmutableList<ObjectType> resolvedImplemented =
-        resolveTypeListHelper(implementedInterfaces, t, scope);
+        resolveTypeListHelper(implementedInterfaces, reporter, scope);
     if (resolvedImplemented != null) {
       implementedInterfaces = resolvedImplemented;
     }
 
     ImmutableList<ObjectType> resolvedExtended =
-        resolveTypeListHelper(extendedInterfaces, t, scope);
+        resolveTypeListHelper(extendedInterfaces, reporter, scope);
     if (resolvedExtended != null) {
       extendedInterfaces = resolvedExtended;
     }
@@ -1318,11 +1308,11 @@ public class FunctionType extends PrototypeObjectType implements FunctionTypeI {
       for (int i = 0; i < subTypes.size(); i++) {
         FunctionType subType = (FunctionType) subTypes.get(i);
         subTypes.set(
-            i, JSType.toMaybeFunctionType(subType.resolve(t, scope)));
+            i, JSType.toMaybeFunctionType(subType.resolve(reporter, scope)));
       }
     }
 
-    return super.resolveInternal(t, scope);
+    return super.resolveInternal(reporter, scope);
   }
 
   /**
@@ -1331,13 +1321,13 @@ public class FunctionType extends PrototypeObjectType implements FunctionTypeI {
    */
   private ImmutableList<ObjectType> resolveTypeListHelper(
       ImmutableList<ObjectType> list,
-      ErrorReporter t,
+      ErrorReporter reporter,
       StaticTypedScope<JSType> scope) {
     boolean changed = false;
     ImmutableList.Builder<ObjectType> resolvedList =
         ImmutableList.builder();
     for (ObjectType type : list) {
-      ObjectType resolved = (ObjectType) type.resolve(t, scope);
+      ObjectType resolved = (ObjectType) type.resolve(reporter, scope);
       resolvedList.add(resolved);
       changed |= (resolved != type);
     }
@@ -1580,7 +1570,7 @@ public class FunctionType extends PrototypeObjectType implements FunctionTypeI {
               arrow,
               typeOfThis,
               templateTypeMap,
-              isConstructor(),
+              isConstructor() ? Kind.CONSTRUCTOR : Kind.ORDINARY,
               isNativeObjectType(),
               isAbstract);
       if (isConstructor()) {

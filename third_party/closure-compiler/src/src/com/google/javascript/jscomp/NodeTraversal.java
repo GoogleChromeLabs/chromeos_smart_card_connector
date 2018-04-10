@@ -16,6 +16,7 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
@@ -50,13 +51,12 @@ public class NodeTraversal {
    * are lazily created; so the {@code scopeRoots} stack contains the
    * Nodes for all Scopes that have not been created yet.
    */
-  private final Deque<Scope> scopes = new ArrayDeque<>();
+  private final Deque<AbstractScope<?, ?>> scopes = new ArrayDeque<>();
 
   /**
-   * A stack of scope roots. All scopes that have not been created
-   * are represented in this Deque.
+   * A stack of scope roots. See #scopes.
    */
-  private final ArrayList<Node> scopeRoots = new ArrayList<>();
+  private final List<Node> scopeRoots = new ArrayList<>();
 
   /**
    * Stack containing the control flow graphs (CFG) that have been created. There are fewer CFGs
@@ -64,7 +64,7 @@ public class NodeTraversal {
    * populated: elements are simply the CFG root node until requested by {@link
    * #getControlFlowGraph()}.
    */
-  private final ArrayDeque<Object> cfgs = new ArrayDeque<>();
+  private final Deque<Object> cfgs = new ArrayDeque<>();
 
   /** The current source file name */
   private String sourceName;
@@ -351,7 +351,7 @@ public class NodeTraversal {
    * root. This should only be used in the global scope or module scopes. Otherwise, use
    * {@link #traverseAtScope}.
    */
-  void traverseWithScope(Node root, Scope s) {
+  void traverseWithScope(Node root, AbstractScope<?, ?> s) {
     checkState(s.isGlobal() || s.isModuleScope(), s);
     try {
       initTraversal(root);
@@ -368,12 +368,12 @@ public class NodeTraversal {
    * Traverses a parse tree recursively with a scope, starting at that scope's
    * root.
    */
-  void traverseAtScope(Scope s) {
+  void traverseAtScope(AbstractScope<?, ?> s) {
     Node n = s.getRootNode();
     initTraversal(n);
     curNode = n;
-    Deque<Scope> parentScopes = new ArrayDeque<>();
-    Scope temp = s.getParent();
+    Deque<AbstractScope<?, ?>> parentScopes = new ArrayDeque<>();
+    AbstractScope<?, ?> temp = s.getParent();
     while (temp != null) {
       parentScopes.push(temp);
       temp = temp.getParent();
@@ -538,7 +538,7 @@ public class NodeTraversal {
    * @param scope The scope the function is contained in. Does not fire enter/exit
    *     callback events for this scope.
    */
-  public void traverseFunctionOutOfBand(Node node, Scope scope) {
+  public void traverseFunctionOutOfBand(Node node, AbstractScope<?, ?> scope) {
     checkNotNull(scope);
     checkState(node.isFunction(), node);
     checkNotNull(scope.getRootNode());
@@ -559,10 +559,10 @@ public class NodeTraversal {
    * @param refinedScope the refined scope of the scope currently at the top of
    *     the scope stack or in trivial cases that very scope or {@code null}
    */
-  void traverseInnerNode(Node node, Node parent, Scope refinedScope) {
+  void traverseInnerNode(Node node, Node parent, AbstractScope<?, ?> refinedScope) {
     checkNotNull(parent);
     initTraversal(node);
-    if (refinedScope != null && getScope() != refinedScope) {
+    if (refinedScope != null && getAbstractScope() != refinedScope) {
       curNode = node;
       pushScope(refinedScope);
       traverseBranch(node, parent);
@@ -713,6 +713,9 @@ public class NodeTraversal {
   }
 
   private void handleScript(Node n, Node parent) {
+    if (Thread.interrupted()) {
+      throw new RuntimeException(new InterruptedException());
+    }
     setChangeScope(n);
     setInputId(n.getInputId(), getSourceName(n));
 
@@ -883,7 +886,7 @@ public class NodeTraversal {
   }
 
   /** Creates a new scope (e.g. when entering a function). */
-  private void pushScope(Scope s) {
+  private void pushScope(AbstractScope<?, ?> s) {
     pushScope(s, false);
   }
 
@@ -891,7 +894,7 @@ public class NodeTraversal {
    * Creates a new scope (e.g. when entering a function).
    * @param quietly Don't fire an enterScope callback.
    */
-  private void pushScope(Scope s, boolean quietly) {
+  private void pushScope(AbstractScope<?, ?> s, boolean quietly) {
     checkNotNull(curNode);
     scopes.push(s);
     recordScopeRoot(s.getRootNode());
@@ -925,28 +928,38 @@ public class NodeTraversal {
   }
 
   /** Gets the current scope. */
-  public Scope getScope() {
-    Scope scope = scopes.peek();
+  public AbstractScope<?, ?> getAbstractScope() {
+    AbstractScope<?, ?> scope = scopes.peek();
 
     for (int i = 0; i < scopeRoots.size(); i++) {
       scope = scopeCreator.createScope(scopeRoots.get(i), scope);
       scopes.push(scope);
     }
     scopeRoots.clear();
+    return scope;
+  }
 
-    // No need to call compiler.setScope; the top scopeRoot is now the top scope
+  private AbstractScope<?, ?> instantiateScopes(int count) {
+    checkArgument(count <= scopeRoots.size());
+    AbstractScope<?, ?> scope = scopes.peek();
+
+    for (int i = 0; i < count; i++) {
+      scope = scopeCreator.createScope(scopeRoots.get(i), scope);
+      scopes.push(scope);
+    }
+    scopeRoots.subList(0, count).clear();
     return scope;
   }
 
   public boolean isHoistScope() {
-    return Scope.isHoistScopeRootNode(getScopeRoot());
+    return isHoistScopeRootNode(getScopeRoot());
   }
 
   public Node getClosestHoistScopeRoot() {
     int roots = scopeRoots.size();
     for (int i = roots; i > 0; i--) {
       Node rootNode = scopeRoots.get(i - 1);
-      if (Scope.isHoistScopeRootNode(rootNode)) {
+      if (isHoistScopeRootNode(rootNode)) {
         return rootNode;
       }
     }
@@ -954,17 +967,45 @@ public class NodeTraversal {
     return scopes.peek().getClosestHoistScope().getRootNode();
   }
 
-  public Scope getClosestHoistScope() {
-    // TODO(moz): This should not call getScope(). We should find the root of the closest hoist
-    // scope and effectively getScope() from there, which avoids scanning inner scopes that might
-    // not be needed.
-    return getScope().getClosestHoistScope();
+  public Node getClosestContainerScopeRoot() {
+    int roots = scopeRoots.size();
+    for (int i = roots; i > 0; i--) {
+      Node rootNode = scopeRoots.get(i - 1);
+      if (!NodeUtil.createsBlockScope(rootNode)) {
+        return rootNode;
+      }
+    }
+
+    return scopes.peek().getClosestContainerScope().getRootNode();
+  }
+
+  public AbstractScope<?, ?> getClosestHoistScope() {
+    for (int i = scopeRoots.size(); i > 0; i--) {
+      if (isHoistScopeRootNode(scopeRoots.get(i - 1))) {
+        return instantiateScopes(i);
+      }
+    }
+    return scopes.peek().getClosestHoistScope();
+  }
+
+  private static boolean isHoistScopeRootNode(Node n) {
+    switch (n.getToken()) {
+      case FUNCTION:
+      case MODULE_BODY:
+      case ROOT:
+      case SCRIPT:
+        return true;
+      default:
+        return NodeUtil.isFunctionBlock(n);
+    }
+  }
+
+  public Scope getScope() {
+    return getAbstractScope().untyped();
   }
 
   public TypedScope getTypedScope() {
-    Scope s = getScope();
-    checkState(s instanceof TypedScope, "getTypedScope called for untyped traversal");
-    return (TypedScope) s;
+    return getAbstractScope().typed();
   }
 
   /** Gets the control flow graph for the current JS scope. */
@@ -990,7 +1031,7 @@ public class NodeTraversal {
     if (roots > 0) {
       return scopeRoots.get(roots - 1);
     } else {
-      Scope s = scopes.peek();
+      AbstractScope<?, ?> s = scopes.peek();
       return s != null ? s.getRootNode() : null;
     }
   }
@@ -1020,8 +1061,7 @@ public class NodeTraversal {
 
   /** Determines whether the traversal is currently in the scope of the block of a function. */
   public boolean inFunctionBlockScope() {
-    Node scopeRoot = getScopeRoot();
-    return scopeRoot.isNormalBlock() && scopeRoot.getParent().isFunction();
+    return NodeUtil.isFunctionBlock(getScopeRoot());
   }
 
   /**
@@ -1103,6 +1143,9 @@ public class NodeTraversal {
   }
 
   private void initTraversal(Node traversalRoot) {
+    if (Thread.interrupted()) {
+      throw new RuntimeException(new InterruptedException());
+    }
     Node changeScope = NodeUtil.getEnclosingChangeScopeRoot(traversalRoot);
     setChangeScope(changeScope);
     Node script = getEnclosingScript(changeScope);

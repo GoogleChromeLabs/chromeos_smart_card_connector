@@ -20,7 +20,7 @@ import static com.google.javascript.rhino.jstype.JSTypeNative.ARRAY_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NO_OBJECT_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NULL_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NULL_VOID;
-import static com.google.javascript.rhino.jstype.JSTypeNative.NUMBER_STRING_BOOLEAN;
+import static com.google.javascript.rhino.jstype.JSTypeNative.NUMBER_STRING_BOOLEAN_SYMBOL;
 import static com.google.javascript.rhino.jstype.JSTypeNative.OBJECT_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.VOID_TYPE;
 
@@ -73,7 +73,7 @@ public final class ClosureReverseAbstractInterpreter
         @Override
         public JSType caseAllType() {
           return typeRegistry.createUnionType(
-              getNativeType(NUMBER_STRING_BOOLEAN), getNativeType(NULL_VOID));
+              getNativeType(NUMBER_STRING_BOOLEAN_SYMBOL), getNativeType(NULL_VOID));
         }
 
         @Override
@@ -93,90 +93,67 @@ public final class ClosureReverseAbstractInterpreter
   public ClosureReverseAbstractInterpreter(final JSTypeRegistry typeRegistry) {
     super(typeRegistry);
     this.restricters =
-      new ImmutableMap.Builder<String, Function<TypeRestriction, JSType>>()
-      .put("isDef", new Function<TypeRestriction, JSType>() {
-        @Override
-        public JSType apply(TypeRestriction p) {
-          if (p.outcome) {
-            return getRestrictedWithoutUndefined(p.type);
-          } else {
-            return  p.type != null ?
-                getNativeType(VOID_TYPE).getGreatestSubtype(p.type) : null;
-          }
-         }
-      })
-      .put("isNull", new Function<TypeRestriction, JSType>() {
-        @Override
-        public JSType apply(TypeRestriction p) {
-          if (p.outcome) {
-            return p.type != null ?
-                getNativeType(NULL_TYPE).getGreatestSubtype(p.type) : null;
-          } else {
-            return getRestrictedWithoutNull(p.type);
-          }
-        }
-      })
-      .put("isDefAndNotNull", new Function<TypeRestriction, JSType>() {
-        @Override
-        public JSType apply(TypeRestriction p) {
-          if (p.outcome) {
-            return getRestrictedWithoutUndefined(
-                getRestrictedWithoutNull(p.type));
-          } else {
-            return p.type != null ?
-                getNativeType(NULL_VOID).getGreatestSubtype(p.type) : null;
-          }
-        }
-      })
-      .put("isString", new Function<TypeRestriction, JSType>() {
-        @Override
-        public JSType apply(TypeRestriction p) {
-          return getRestrictedByTypeOfResult(p.type, "string", p.outcome);
-        }
-      })
-      .put("isBoolean", new Function<TypeRestriction, JSType>() {
-        @Override
-        public JSType apply(TypeRestriction p) {
-          return getRestrictedByTypeOfResult(p.type, "boolean", p.outcome);
-        }
-      })
-      .put("isNumber", new Function<TypeRestriction, JSType>() {
-        @Override
-        public JSType apply(TypeRestriction p) {
-          return getRestrictedByTypeOfResult(p.type, "number", p.outcome);
-        }
-      })
-      .put("isFunction", new Function<TypeRestriction, JSType>() {
-        @Override
-        public JSType apply(TypeRestriction p) {
-          return getRestrictedByTypeOfResult(p.type, "function", p.outcome);
-        }
-      })
-      .put("isArray", new Function<TypeRestriction, JSType>() {
-        @Override
-        public JSType apply(TypeRestriction p) {
-          if (p.type == null) {
-            return p.outcome ? getNativeType(ARRAY_TYPE) : null;
-          }
+        new ImmutableMap.Builder<String, Function<TypeRestriction, JSType>>()
+            .put(
+                "isDef",
+                p -> {
+                  if (p.outcome) {
+                    return getRestrictedWithoutUndefined(p.type);
+                  } else {
+                    return p.type != null
+                        ? getNativeType(VOID_TYPE).getGreatestSubtype(p.type)
+                        : null;
+                  }
+                })
+            .put(
+                "isNull",
+                p -> {
+                  if (p.outcome) {
+                    return p.type != null
+                        ? getNativeType(NULL_TYPE).getGreatestSubtype(p.type)
+                        : null;
+                  } else {
+                    return getRestrictedWithoutNull(p.type);
+                  }
+                })
+            .put(
+                "isDefAndNotNull",
+                p -> {
+                  if (p.outcome) {
+                    return getRestrictedWithoutUndefined(getRestrictedWithoutNull(p.type));
+                  } else {
+                    return p.type != null
+                        ? getNativeType(NULL_VOID).getGreatestSubtype(p.type)
+                        : null;
+                  }
+                })
+            .put("isString", p -> getRestrictedByTypeOfResult(p.type, "string", p.outcome))
+            .put("isBoolean", p -> getRestrictedByTypeOfResult(p.type, "boolean", p.outcome))
+            .put("isNumber", p -> getRestrictedByTypeOfResult(p.type, "number", p.outcome))
+            .put("isFunction", p -> getRestrictedByTypeOfResult(p.type, "function", p.outcome))
+            .put(
+                "isArray",
+                p -> {
+                  if (p.type == null) {
+                    return p.outcome ? getNativeType(ARRAY_TYPE) : null;
+                  }
 
-          Visitor<JSType> visitor = p.outcome ? restrictToArrayVisitor :
-              restrictToNotArrayVisitor;
-          return p.type.visit(visitor);
-        }
-      })
-      .put("isObject", new Function<TypeRestriction, JSType>() {
-        @Override
-        public JSType apply(TypeRestriction p) {
-          if (p.type == null) {
-            return p.outcome ? getNativeType(OBJECT_TYPE) : null;
-          }
+                  Visitor<JSType> visitor =
+                      p.outcome ? restrictToArrayVisitor : restrictToNotArrayVisitor;
+                  return p.type.visit(visitor);
+                })
+            .put(
+                "isObject",
+                p -> {
+                  if (p.type == null) {
+                    return p.outcome ? getNativeType(OBJECT_TYPE) : null;
+                  }
 
-          Visitor<JSType> visitor = p.outcome ? restrictToObjectVisitor :
-              restrictToNotObjectVisitor;
-          return p.type.visit(visitor);
-        }
-      })
-      .build();
+                  Visitor<JSType> visitor =
+                      p.outcome ? restrictToObjectVisitor : restrictToNotObjectVisitor;
+                  return p.type.visit(visitor);
+                })
+            .build();
   }
 
   @Override

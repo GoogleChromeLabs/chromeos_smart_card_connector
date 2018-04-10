@@ -21,16 +21,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.javascript.jscomp.TypeCheck.BAD_IMPLEMENTED_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.FUNCTION_FUNCTION_TYPE;
+import static com.google.javascript.rhino.jstype.JSTypeNative.GENERATOR_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.UNKNOWN_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.VOID_TYPE;
 
 import com.google.common.base.Predicate;
-import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multiset;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
@@ -175,19 +172,20 @@ final class FunctionTypeBuilder {
       if (objectType == null) {
         reportWarning(EXTENDS_NON_OBJECT, formatFnName(), type.toString());
         return false;
-      } else if (objectType.isEmptyType()) {
+      }
+      if (objectType.isEmptyType()) {
         reportWarning(RESOLVED_TAG_EMPTY, "@extends", formatFnName());
         return false;
-      } else if (objectType.isUnknownType()) {
-        if (hasMoreTagsToResolve(objectType)) {
+      }
+      if (objectType.isUnknownType()) {
+        if (hasMoreTagsToResolve(objectType) || type.isTemplateType()) {
           return true;
         } else {
           reportWarning(RESOLVED_TAG_EMPTY, "@extends", fnName);
           return false;
         }
-      } else {
-        return true;
       }
+      return true;
     }
   }
 
@@ -357,12 +355,16 @@ final class FunctionTypeBuilder {
         reportWarning(CONSTRUCTOR_REQUIRED, "@dict", formatFnName());
       }
 
-      if (typeRegistry.isTemplatedBuiltin(fnName, info)) {
-        // This case is only for setting template types
-        // for IObject<KEY1, VALUE1>.
-        // In the (old) type system, there should be only one unique template
-        // type for <KEY1> and <VALUE1> respectively
-        classTemplateTypeNames = typeRegistry.getTemplateTypesOfBuiltin(fnName);
+      // TODO(b/74253232): maybeGetNativeTypesOfBuiltin should also handle cases where a local type
+      // declaration shadows a templatized native type.
+      ImmutableList<TemplateType> nativeClassTemplateTypeNames =
+          typeRegistry.maybeGetTemplateTypesOfBuiltin(fnName);
+      ImmutableList<String> infoTemplateTypeNames = info.getTemplateTypeNames();
+      // TODO(b/73386087): Make infoTemplateTypeNames.size() == nativeClassTemplateTypeName.size() a
+      // Preconditions check. It currently fails for "var symbol" in the externs.
+      if (nativeClassTemplateTypeNames != null
+          && infoTemplateTypeNames.size() == nativeClassTemplateTypeNames.size()) {
+        classTemplateTypeNames = nativeClassTemplateTypeNames;
         typeRegistry.setTemplateTypeNames(classTemplateTypeNames);
       } else {
         // Otherwise, create new template type for
@@ -516,9 +518,8 @@ final class FunctionTypeBuilder {
 
     FunctionParamBuilder builder = new FunctionParamBuilder(typeRegistry);
     boolean warnedAboutArgList = false;
-    Set<String> allJsDocParams = (info == null) ?
-         new HashSet<String>() :
-         new HashSet<>(info.getParameterNames());
+    Set<String> allJsDocParams =
+        (info == null) ? new HashSet<>() : new HashSet<>(info.getParameterNames());
     boolean isVarArgs = false;
     for (Node arg : argsParent.children()) {
       String argumentName = arg.getString();
@@ -694,26 +695,31 @@ final class FunctionTypeBuilder {
    */
   FunctionType buildAndRegister() {
     if (returnType == null) {
-      // Infer return types.
-      // We need to be extremely conservative about this, because of two
-      // competing needs.
-      // 1) If we infer the return type of f too widely, then we won't be able
-      //    to assign f to other functions.
-      // 2) If we infer the return type of f too narrowly, then we won't be
-      //    able to override f in subclasses.
-      // So we only infer in cases where the user doesn't expect to write
-      // @return annotations--when it's very obvious that the function returns
-      // nothing.
-      if (!contents.mayHaveNonEmptyReturns() &&
-          !contents.mayHaveSingleThrow() &&
-          !contents.mayBeFromExterns()) {
+      if (contents.getSourceNode() != null && contents.getSourceNode().isGeneratorFunction()) {
+        // Set the return type of a generator function to:
+        //   @return {!Generator<?>}
+        ObjectType generatorType = typeRegistry.getNativeObjectType(GENERATOR_TYPE);
+        returnType =
+            typeRegistry.createTemplatizedType(
+                generatorType, typeRegistry.getNativeType(UNKNOWN_TYPE));
+      } else if (!contents.mayHaveNonEmptyReturns()
+          && !contents.mayHaveSingleThrow()
+          && !contents.mayBeFromExterns()) {
+        // Infer return types for non-generator functions.
+        // We need to be extremely conservative about this, because of two
+        // competing needs.
+        // 1) If we infer the return type of f too widely, then we won't be able
+        //    to assign f to other functions.
+        // 2) If we infer the return type of f too narrowly, then we won't be
+        //    able to override f in subclasses.
+        // So we only infer in cases where the user doesn't expect to write
+        // @return annotations--when it's very obvious that the function returns
+        // nothing.
         returnType = typeRegistry.getNativeType(VOID_TYPE);
         returnTypeInferred = true;
+      } else {
+        returnType = typeRegistry.getNativeType(UNKNOWN_TYPE);
       }
-    }
-
-    if (returnType == null) {
-      returnType = typeRegistry.getNativeType(UNKNOWN_TYPE);
     }
 
     if (parametersNode == null) {
@@ -725,12 +731,7 @@ final class FunctionTypeBuilder {
     if (isConstructor) {
       fnType = getOrCreateConstructor();
     } else if (isInterface) {
-      fnType = typeRegistry.createInterfaceType(
-          fnName, contents.getSourceNode(), classTemplateTypeNames, makesStructs);
-      if (getScopeDeclaredIn().isGlobal() && !fnName.isEmpty()) {
-        typeRegistry.declareType(fnName, fnType.getInstanceType());
-      }
-      maybeSetBaseType(fnType);
+      fnType = getOrCreateInterface();
     } else {
       fnType =
           new FunctionBuilder(typeRegistry)
@@ -827,6 +828,28 @@ final class FunctionTypeBuilder {
     return fnType;
   }
 
+  private FunctionType getOrCreateInterface() {
+    FunctionType fnType = null;
+
+    JSType type = typeRegistry.getType(fnName);
+    if (type != null && type.isInstanceType()) {
+      FunctionType ctor = type.toMaybeObjectType().getConstructor();
+      if (ctor.isInterface()) {
+        fnType = ctor;
+        fnType.setSource(contents.getSourceNode());
+      }
+    }
+
+    if (fnType == null) {
+      fnType = typeRegistry.createInterfaceType(
+          fnName, contents.getSourceNode(), classTemplateTypeNames, makesStructs);
+      if (getScopeDeclaredIn().isGlobal() && !fnName.isEmpty()) {
+        typeRegistry.declareType(fnName, fnType.getInstanceType());
+      }
+      maybeSetBaseType(fnType);
+    }
+    return fnType;
+  }
   private void reportWarning(DiagnosticType warning, String ... args) {
     compiler.report(JSError.make(errorRoot, warning, args));
   }
@@ -902,15 +925,6 @@ final class FunctionTypeBuilder {
 
     /** Returns if this consists of a single throw. */
     boolean mayHaveSingleThrow();
-
-    /** Gets a list of variables in this scope that are escaped. */
-    Iterable<String> getEscapedVarNames();
-
-    /** Gets a list of variables whose properties are escaped. */
-    Set<String> getEscapedQualifiedNames();
-
-    /** Gets the number of times each variable has been assigned. */
-    Multiset<String> getAssignedNameCounts();
   }
 
   static class UnknownFunctionContents implements FunctionContents {
@@ -939,29 +953,11 @@ final class FunctionTypeBuilder {
     public boolean mayHaveSingleThrow() {
       return true;
     }
-
-    @Override
-    public Iterable<String> getEscapedVarNames() {
-      return ImmutableList.of();
-    }
-
-    @Override
-    public Set<String> getEscapedQualifiedNames() {
-      return ImmutableSet.of();
-    }
-
-    @Override
-    public Multiset<String> getAssignedNameCounts() {
-      return ImmutableMultiset.of();
-    }
   }
 
   static class AstFunctionContents implements FunctionContents {
     private final Node n;
     private boolean hasNonEmptyReturns = false;
-    private Set<String> escapedVarNames;
-    private Set<String> escapedQualifiedNames;
-    private final Multiset<String> assignedVarNames = HashMultiset.create();
 
     AstFunctionContents(Node n) {
       this.n = n;
@@ -990,41 +986,6 @@ final class FunctionTypeBuilder {
     public boolean mayHaveSingleThrow() {
       Node block = n.getLastChild();
       return block.hasOneChild() && block.getFirstChild().isThrow();
-    }
-
-    @Override
-    public Iterable<String> getEscapedVarNames() {
-      return escapedVarNames == null
-          ? ImmutableList.<String>of() : escapedVarNames;
-    }
-
-    void recordEscapedVarName(String name) {
-      if (escapedVarNames == null) {
-        escapedVarNames = new HashSet<>();
-      }
-      escapedVarNames.add(name);
-    }
-
-    @Override
-    public Set<String> getEscapedQualifiedNames() {
-      return escapedQualifiedNames == null
-          ? ImmutableSet.<String>of() : escapedQualifiedNames;
-    }
-
-    void recordEscapedQualifiedName(String name) {
-      if (escapedQualifiedNames == null) {
-        escapedQualifiedNames = new HashSet<>();
-      }
-      escapedQualifiedNames.add(name);
-    }
-
-    @Override
-    public Multiset<String> getAssignedNameCounts() {
-      return assignedVarNames;
-    }
-
-    void recordAssignedName(String name) {
-      assignedVarNames.add(name);
     }
   }
 }

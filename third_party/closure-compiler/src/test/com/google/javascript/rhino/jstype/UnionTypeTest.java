@@ -38,24 +38,27 @@
 
 package com.google.javascript.rhino.jstype;
 
-import com.google.javascript.rhino.testing.BaseJSTypeTestCase;
 import com.google.javascript.rhino.testing.Asserts;
+import com.google.javascript.rhino.testing.BaseJSTypeTestCase;
+import com.google.javascript.rhino.testing.MapBasedScope;
 
 public class UnionTypeTest extends BaseJSTypeTestCase {
+  private static final MapBasedScope EMPTY_SCOPE = MapBasedScope.emptyScope();
+
   private NamedType unresolvedNamedType;
 
   @Override
   public void setUp() throws Exception {
     super.setUp();
     unresolvedNamedType =
-        new NamedType(registry, "not.resolved.named.type", null, -1, -1);
+        new NamedType(EMPTY_SCOPE, registry, "not.resolved.named.type", null, -1, -1);
   }
 
   /**
    * Assert that a type can assign to itself.
    */
   private void assertTypeCanAssignToItself(JSType type) {
-    assertTrue(type.isSubtype(type));
+    assertTrue(type.isSubtypeOf(type));
   }
 
   /**
@@ -91,7 +94,7 @@ public class UnionTypeTest extends BaseJSTypeTestCase {
     assertTrue(nullOrUnknown.differsFrom(NULL_TYPE));
     assertFalse(nullOrUnknown.differsFrom(unresolvedNamedType));
 
-    assertTrue(NULL_TYPE.isSubtype(nullOrUnknown));
+    assertTrue(NULL_TYPE.isSubtypeOf(nullOrUnknown));
     assertTrue(unresolvedNamedType.isSubtype(nullOrUnknown));
     assertTrue(nullOrUnknown.isSubtype(NULL_TYPE));
 
@@ -166,46 +169,46 @@ public class UnionTypeTest extends BaseJSTypeTestCase {
   public void testSubtypingUnionTypes() throws Exception {
     // subtypes
     assertTrue(BOOLEAN_TYPE.
-        isSubtype(createUnionType(BOOLEAN_TYPE, STRING_TYPE)));
+        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE)));
     assertTrue(createUnionType(BOOLEAN_TYPE, STRING_TYPE).
-        isSubtype(createUnionType(BOOLEAN_TYPE, STRING_TYPE)));
+        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE)));
     assertTrue(createUnionType(BOOLEAN_TYPE, STRING_TYPE).
-        isSubtype(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
+        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
     assertTrue(createUnionType(BOOLEAN_TYPE, STRING_TYPE).
-        isSubtype(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
+        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
     assertTrue(createUnionType(BOOLEAN_TYPE).
-        isSubtype(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
+        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
     assertTrue(createUnionType(STRING_TYPE).
-        isSubtype(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
-    assertTrue(createUnionType(STRING_TYPE, NULL_TYPE).isSubtype(ALL_TYPE));
-    assertTrue(createUnionType(DATE_TYPE, REGEXP_TYPE).isSubtype(OBJECT_TYPE));
+        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
+    assertTrue(createUnionType(STRING_TYPE, NULL_TYPE).isSubtypeOf(ALL_TYPE));
+    assertTrue(createUnionType(DATE_TYPE, REGEXP_TYPE).isSubtypeOf(OBJECT_TYPE));
     assertTrue(createUnionType(URI_ERROR_TYPE, EVAL_ERROR_TYPE).
-        isSubtype(ERROR_TYPE));
+        isSubtypeOf(ERROR_TYPE));
     assertTrue(createUnionType(URI_ERROR_TYPE, EVAL_ERROR_TYPE).
-        isSubtype(OBJECT_TYPE));
+        isSubtypeOf(OBJECT_TYPE));
 
     // not subtypes
-    assertFalse(createUnionType(STRING_TYPE, NULL_TYPE).isSubtype(NO_TYPE));
+    assertFalse(createUnionType(STRING_TYPE, NULL_TYPE).isSubtypeOf(NO_TYPE));
     assertFalse(createUnionType(STRING_TYPE, NULL_TYPE).
-        isSubtype(NO_OBJECT_TYPE));
+        isSubtypeOf(NO_OBJECT_TYPE));
     assertFalse(createUnionType(NO_OBJECT_TYPE, NULL_TYPE).
-        isSubtype(OBJECT_TYPE));
+        isSubtypeOf(OBJECT_TYPE));
 
     // defined unions
-    assertTrue(NUMBER_TYPE.isSubtype(OBJECT_NUMBER_STRING));
-    assertTrue(OBJECT_TYPE.isSubtype(OBJECT_NUMBER_STRING));
-    assertTrue(STRING_TYPE.isSubtype(OBJECT_NUMBER_STRING));
-    assertTrue(NO_OBJECT_TYPE.isSubtype(OBJECT_NUMBER_STRING));
+    assertTrue(NUMBER_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING));
+    assertTrue(OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING));
+    assertTrue(STRING_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING));
+    assertTrue(NO_OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING));
 
-    assertTrue(NUMBER_TYPE.isSubtype(NUMBER_STRING_BOOLEAN));
-    assertTrue(BOOLEAN_TYPE.isSubtype(NUMBER_STRING_BOOLEAN));
-    assertTrue(STRING_TYPE.isSubtype(NUMBER_STRING_BOOLEAN));
+    assertTrue(NUMBER_TYPE.isSubtypeOf(NUMBER_STRING_BOOLEAN));
+    assertTrue(BOOLEAN_TYPE.isSubtypeOf(NUMBER_STRING_BOOLEAN));
+    assertTrue(STRING_TYPE.isSubtypeOf(NUMBER_STRING_BOOLEAN));
 
-    assertTrue(NUMBER_TYPE.isSubtype(OBJECT_NUMBER_STRING_BOOLEAN));
-    assertTrue(OBJECT_TYPE.isSubtype(OBJECT_NUMBER_STRING_BOOLEAN));
-    assertTrue(STRING_TYPE.isSubtype(OBJECT_NUMBER_STRING_BOOLEAN));
-    assertTrue(BOOLEAN_TYPE.isSubtype(OBJECT_NUMBER_STRING_BOOLEAN));
-    assertTrue(NO_OBJECT_TYPE.isSubtype(OBJECT_NUMBER_STRING_BOOLEAN));
+    assertTrue(NUMBER_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN));
+    assertTrue(OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN));
+    assertTrue(STRING_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN));
+    assertTrue(BOOLEAN_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN));
+    assertTrue(NO_OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN));
   }
 
   /**
@@ -236,7 +239,7 @@ public class UnionTypeTest extends BaseJSTypeTestCase {
 
     // unknown quirks
     JSType unknown = createUnionType(UNKNOWN_TYPE, DATE_TYPE);
-    assertTrue(unknown.isSubtype(STRING_TYPE));
+    assertTrue(unknown.isSubtypeOf(STRING_TYPE));
 
     // all members need to be assignable to
     UnionType stringDate =

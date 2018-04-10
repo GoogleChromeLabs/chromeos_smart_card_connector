@@ -49,6 +49,12 @@ Node.prototype.contains = function(n) {};
 Node.prototype.isConnected;
 
 /**
+ * @type {boolean}
+ * @see https://html.spec.whatwg.org/multipage/scripting.html#the-script-element
+ */
+HTMLScriptElement.prototype.async;
+
+/**
  * @constructor
  * @see http://www.whatwg.org/specs/web-apps/current-work/multipage/the-canvas-element.html#the-canvas-element
  * @extends {HTMLElement}
@@ -1015,6 +1021,25 @@ HTMLImageElement.prototype.naturalHeight;
 HTMLImageElement.prototype.crossOrigin;
 
 /**
+ * @type {string}
+ * @see https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-currentsrc
+ */
+HTMLImageElement.prototype.currentSrc;
+
+/**
+ * @type {string}
+ * @see https://html.spec.whatwg.org/multipage/images.html#image-decoding-hint
+ */
+HTMLImageElement.prototype.decoding;
+
+/**
+ * @return {!Promise<undefined>}
+ * @see https://html.spec.whatwg.org/multipage/embedded-content.html#dom-img-decode
+ */
+HTMLImageElement.prototype.decode;
+
+
+/**
  * This is a superposition of the Window and Worker postMessage methods.
  * @param {*} message
  * @param {(string|!Array<!Transferable>)=} opt_targetOriginOrTransfer
@@ -1728,7 +1753,7 @@ HTMLMediaElement.prototype.autobuffer;
 /** @type {!TimeRanges} */
 HTMLMediaElement.prototype.buffered;
 
-/** @type {!MediaStream} */
+/** @type {?MediaStream} */
 HTMLMediaElement.prototype.srcObject;
 
 /**
@@ -1817,6 +1842,9 @@ HTMLImageElement.prototype.onload;
 
 /** @type {?function(Event)} */
 HTMLImageElement.prototype.onerror;
+
+/** @type {string} */
+HTMLMediaElement.prototype.preload;
 
 /** @type {number} */
 HTMLMediaElement.prototype.readyState;
@@ -2155,7 +2183,7 @@ function HTMLAudioElement() {}
  * @constructor
  * @extends {HTMLMediaElement}
  * The webkit-prefixed attributes are defined in
- * https://code.google.com/p/chromium/codesearch#chromium/src/third_party/WebKit/Source/core/html/HTMLVideoElement.idl
+ * https://cs.chromium.org/chromium/src/third_party/WebKit/Source/core/html/media/HTMLMediaElement.idl
  */
 function HTMLVideoElement() {}
 
@@ -3196,6 +3224,14 @@ DOMTokenList.prototype.add = function(var_args) {};
 DOMTokenList.prototype.remove = function(var_args) {};
 
 /**
+ * Replaces token with newToken.
+ * @param {string} token The CSS class to replace.
+ * @param {string} newToken The new CSS class to use.
+ * @return {undefined}
+ */
+DOMTokenList.prototype.replace = function(token, newToken) {};
+
+/**
  * @param {string} token The CSS class to toggle from this element.
  * @param {boolean=} opt_force True to add the class whether it exists
  *     or not. False to remove the class whether it exists or not.
@@ -3593,7 +3629,7 @@ Document.prototype.webkitFullScreenKeyboardInputAllowed;
 Element.prototype.msRequestFullscreen = function() {};
 
 /** @return {void} */
-Element.prototype.msExitFullscreen = function() {};
+Document.prototype.msExitFullscreen = function() {};
 
 /** @type {boolean} */
 Document.prototype.msFullscreenEnabled;
@@ -4511,6 +4547,18 @@ Navigator.prototype.plugins;
  */
 Navigator.prototype.javaEnabled = function() {};
 
+/**
+ * @type {number}
+ * @see https://developers.google.com/web/updates/2017/12/device-memory
+ * https://github.com/w3c/device-memory
+ */
+Navigator.prototype.deviceMemory;
+
+/**
+ * @type {!StorageManager}
+ * @see https://storage.spec.whatwg.org
+ */
+Navigator.prototype.storage;
 
 /**
  * @constructor
@@ -4669,3 +4717,72 @@ InputDeviceCapabilities.prototype.pointerMovementScrolls;
 
 /** @type {?InputDeviceCapabilities} */
 MouseEvent.prototype.sourceCapabilities;
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport
+ * @constructor
+ * @implements {EventTarget}
+ */
+function VisualViewport() {}
+
+/** @type {number} */
+VisualViewport.prototype.offsetLeft;
+
+/** @type {number} */
+VisualViewport.prototype.offsetTop;
+
+/** @type {number} */
+VisualViewport.prototype.pageLeft;
+
+/** @type {number} */
+VisualViewport.prototype.pageTop;
+
+/** @type {number} */
+VisualViewport.prototype.width;
+
+/** @type {number} */
+VisualViewport.prototype.height;
+
+/** @type {number} */
+VisualViewport.prototype.scale;
+
+/** @override */
+VisualViewport.prototype.addEventListener = function(type, listener,
+    opt_options) {};
+
+/** @override */
+VisualViewport.prototype.removeEventListener = function(type, listener,
+    opt_options) {};
+
+/** @override */
+VisualViewport.prototype.dispatchEvent = function(evt) {};
+
+/** @type {?function(!Event)} */
+VisualViewport.prototype.onresize;
+
+/** @type {?function(!Event)} */
+VisualViewport.prototype.onscroll;
+
+/**
+ * @see https://storage.spec.whatwg.org/
+ * @constructor
+ */
+function StorageManager() {}
+
+/** @return {!Promise<boolean>} */
+StorageManager.prototype.persisted = function() {};
+
+/** @return {!Promise<boolean>} */
+StorageManager.prototype.persist = function() {};
+
+/** @return {!Promise<StorageEstimate>} */
+StorageManager.prototype.estimate = function() {};
+
+/**
+ * @see https://storage.spec.whatwg.org/
+ * @typedef {{
+ *   usage: number,
+ *   quota: number
+ * }}
+ */
+var StorageEstimate;

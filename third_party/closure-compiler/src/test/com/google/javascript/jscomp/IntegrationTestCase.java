@@ -98,6 +98,8 @@ abstract class IntegrationTestCase extends TestCase {
                   "/** @constructor */",
                   "function ObjectPropertyDescriptor() {};",
                   "",
+                  "ObjectPropertyDescriptor.prototype.value;",
+                  "",
                   "/** @constructor */ function Window() {}",
                   "/** @type {string} */ Window.prototype.name;",
                   "/** @type {string} */ Window.prototype.offsetWidth;",
@@ -131,6 +133,11 @@ abstract class IntegrationTestCase extends TestCase {
                   "/** @return {IteratorIterable<T>} */",
                   "Array.prototype.values;",
                   "",
+                  "Array.prototype.splice;",
+                  "Array.prototype.push;",
+                  "Array.prototype.reverse;",
+                  "Array.prototype.pop;",
+                  "",
                   "/**",
                   " * @constructor",
                   " * @return {number}",
@@ -145,6 +152,8 @@ abstract class IntegrationTestCase extends TestCase {
                   " * @return {string}",
                   " */",
                   "function String(opt_str) {}",
+                  "",
+                  "String.prototype.split = function(delimiter) {};",
                   "",
                   "/**",
                   " * @constructor",
@@ -178,6 +187,8 @@ abstract class IntegrationTestCase extends TestCase {
                   "function Object(opt_value) {}",
                   "Object.seal;",
                   "Object.defineProperties;",
+                  "Object.defineProperty;",
+                  "Object.getOwnPropertyDescriptor;",
                   "",
                   "Object.prototype;",
                   "",
@@ -201,14 +212,23 @@ abstract class IntegrationTestCase extends TestCase {
                   " * @constructor",
                   " */",
                   "function Function(var_args) {}",
+                  "/**",
+                  " * @param {*} context",
+                  " * @param {!IArrayLike} args",
+                  " */",
+                  "Function.prototype.apply = function (context, args) {};",
                   "/** @param {...*} var_args */",
                   "Function.prototype.call = function (var_args) {};",
                   "",
-                  "/** @constructor */",
-                  "function Arguments() {}",
                   "/**",
                   " * @constructor",
-                  " * @implements {IteratorIterable<VALUE>}",
+                  " * @template T",
+                  " */",
+                  "function Arguments() {}",
+                  "",
+                  "/**",
+                  " * @interface",
+                  " * @extends {IteratorIterable<VALUE>}",
                   " * @template VALUE",
                   " */",
                   "function Generator() {}",
@@ -227,7 +247,35 @@ abstract class IntegrationTestCase extends TestCase {
                   " * @param {?} exception",
                   " * @return {!IIterableResult<VALUE>}",
                   " */",
-                  "Generator.prototype.throw = function(exception) {};")));
+                  "Generator.prototype.throw = function(exception) {};",
+                  "",
+                  "/**",
+                  " * @constructor",
+                  " * @template T",
+                  " */",
+                  "function Promise(resolver) {}",
+                  "",
+                  "Promise.resolve = function(value) {};",
+                  "",
+                  "/**",
+                  " * @param {function(T)=} opt_successCallback",
+                  " * @param {function(!Error)=} opt_errorCallback",
+                  " */",
+                  "Promise.prototype.then = function(opt_successCallback, opt_errorCallback) {};",
+                  "",
+                  "/**",
+                  " * @typedef {{then: ?}}",
+                  " */",
+                  "var Thenable;",
+                  "",
+                  "/** @interface */",
+                  "function IThenable() {}",
+                  "",
+                  "IThenable.prototype.then = function(callback) {};",
+                  "",
+                  "/** @constructor */",
+                  "var HTMLElement = function() {};",
+                  "")));
 
   protected List<SourceFile> externs = DEFAULT_EXTERNS;
 
@@ -335,6 +383,27 @@ abstract class IntegrationTestCase extends TestCase {
     }
   }
 
+  /** Asserts that when compiling with the given compiler options, there is an error or warning. */
+  protected void test(
+      CompilerOptions options, String[] original, String[] compiled, DiagnosticType[] warnings) {
+    Compiler compiler = compile(options, original);
+    checkUnexpectedErrorsOrWarnings(compiler, warnings.length);
+
+    if (compiled != null) {
+      Node root = compiler.getRoot().getLastChild();
+      Node expectedRoot = parseExpectedCode(compiled, options, normalizeResults);
+      String explanation = expectedRoot.checkTreeEquals(root);
+      assertNull(
+          "\nExpected: "
+              + compiler.toSource(expectedRoot)
+              + "\nResult:   "
+              + compiler.toSource(root)
+              + "\n"
+              + explanation,
+          explanation);
+    }
+  }
+
   /**
    * Asserts that there is at least one parse error.
    */
@@ -361,25 +430,6 @@ abstract class IntegrationTestCase extends TestCase {
       Node root = compiler.getRoot().getLastChild();
       Node expectedRoot = parseExpectedCode(
           new String[] {compiled}, options, normalizeResults);
-      String explanation = expectedRoot.checkTreeEquals(root);
-      assertNull("\nExpected: " + compiler.toSource(expectedRoot) +
-          "\nResult: " + compiler.toSource(root) +
-          "\n" + explanation, explanation);
-    }
-  }
-
-  /**
-   * Asserts that when compiling with the given compiler options,
-   * there is an error or warning.
-   */
-  protected void test(CompilerOptions options,
-      String[] original, String[] compiled, DiagnosticType[] warnings) {
-    Compiler compiler = compile(options, original);
-    checkUnexpectedErrorsOrWarnings(compiler, warnings.length);
-
-    if (compiled != null) {
-      Node root = compiler.getRoot().getLastChild();
-      Node expectedRoot = parseExpectedCode(compiled, options, normalizeResults);
       String explanation = expectedRoot.checkTreeEquals(root);
       assertNull("\nExpected: " + compiler.toSource(expectedRoot) +
           "\nResult: " + compiler.toSource(root) +

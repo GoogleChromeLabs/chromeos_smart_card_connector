@@ -29,8 +29,10 @@ import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.ErrorHandler;
 import com.google.javascript.jscomp.JSError;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -42,8 +44,10 @@ import javax.annotation.Nullable;
  */
 public final class ModuleLoader {
 
-  public static final DiagnosticType MODULE_CONFLICT = DiagnosticType.warning(
-      "JSC_MODULE_CONFLICT", "File has both goog.module and ES6 modules: {0}");
+  public static final DiagnosticType MODULE_CONFLICT =
+      DiagnosticType.warning(
+          "JSC_MODULE_CONFLICT",
+          "File cannot be a combination of goog.provide, goog.module, and/or ES6 module: {0}");
 
   /** According to the spec, the forward slash should be the delimiter on all platforms. */
   public static final String MODULE_SLASH = ModuleNames.MODULE_SLASH;
@@ -83,7 +87,7 @@ public final class ModuleLoader {
       Iterable<? extends DependencyInfo> inputs,
       PathResolver pathResolver,
       ResolutionMode resolutionMode,
-      Map<String, String> packageJsonMainEntries) {
+      Map<String, String> lookupMap) {
     checkNotNull(moduleRoots);
     checkNotNull(inputs);
     checkNotNull(pathResolver);
@@ -92,7 +96,7 @@ public final class ModuleLoader {
     this.moduleRootPaths = createRootPaths(moduleRoots, pathResolver);
     this.modulePaths =
         resolvePaths(
-            Iterables.transform(Iterables.transform(inputs, UNWRAP_DEPENDENCY_INFO), pathResolver),
+            Iterables.transform(Iterables.transform(inputs, DependencyInfo::getName), pathResolver),
             moduleRootPaths);
 
     switch (resolutionMode) {
@@ -103,7 +107,21 @@ public final class ModuleLoader {
       case NODE:
         this.moduleResolver =
             new NodeModuleResolver(
-                this.modulePaths, this.moduleRootPaths, packageJsonMainEntries, this.errorHandler);
+                this.modulePaths, this.moduleRootPaths, lookupMap, this.errorHandler);
+        break;
+      case WEBPACK:
+        Map<String, String> normalizedPathsById = new HashMap<>();
+        for (Entry<String, String> moduleEntry : lookupMap.entrySet()) {
+          String canonicalizedPath =
+              normalize(ModuleNames.escapePath(moduleEntry.getValue()), moduleRootPaths);
+          if (isAmbiguousIdentifier(canonicalizedPath)) {
+            canonicalizedPath = MODULE_SLASH + canonicalizedPath;
+          }
+          normalizedPathsById.put(moduleEntry.getKey(), canonicalizedPath);
+        }
+        this.moduleResolver =
+            new WebpackModuleResolver(
+                this.modulePaths, this.moduleRootPaths, normalizedPathsById, this.errorHandler);
         break;
       default:
         throw new RuntimeException("Unexpected resolution mode " + resolutionMode);
@@ -149,8 +167,16 @@ public final class ModuleLoader {
     }
 
     /**
+     * Determines if this path is the same as another path, ignoring any potential leading slashes
+     * on both.
+     */
+    public boolean equalsIgnoreLeadingSlash(ModulePath other) {
+      return other != null && toModuleName().equals(other.toModuleName());
+    }
+
+    /**
      * Turns a filename into a JS identifier that can be used in rewritten code.
-     * Removes leading ./, replaces / with $, removes trailing .js
+     * Removes leading /, replaces / with $, removes trailing .js
      * and replaces - with _.
      */
     public String toJSIdentifier() {
@@ -159,7 +185,7 @@ public final class ModuleLoader {
 
     /**
      * Turns a filename into a JS identifier that is used for moduleNames in
-     * rewritten code. Removes leading ./, replaces / with $, removes trailing .js
+     * rewritten code. Removes leading /, replaces / with $, removes trailing .js
      * and replaces - with _. All moduleNames get a "module$" prefix.
      */
     public String toModuleName() {
@@ -338,21 +364,12 @@ public final class ModuleLoader {
       }
     };
   }
-
-  private static final Function<DependencyInfo, String> UNWRAP_DEPENDENCY_INFO =
-      new Function<DependencyInfo, String>() {
-        @Override
-        public String apply(DependencyInfo info) {
-          return info.getName();
-        }
-      };
-
   /** A trivial module loader with no roots. */
   public static final ModuleLoader EMPTY =
       new ModuleLoader(
           null,
-          ImmutableList.<String>of(),
-          ImmutableList.<DependencyInfo>of(),
+          ImmutableList.of(),
+          ImmutableList.of(),
           ResolutionMode.BROWSER);
 
   /** An enum used to specify what algorithm to use to locate non path-based modules */
@@ -370,12 +387,16 @@ public final class ModuleLoader {
     /**
      * Uses the node module resolution algorithm.
      *
-     * Modules which do not begin with a "." or "/" character are looked up from the appropriate
-     * node_modules folder.
-     * Includes the ability to require directories and JSON files.
-     * Exact match, then ".js", then ".json" file extensions are searched.
+     * <p>Modules which do not begin with a "." or "/" character are looked up from the appropriate
+     * node_modules folder. Includes the ability to require directories and JSON files. Exact match,
+     * then ".js", then ".json" file extensions are searched.
      */
-    NODE
+    NODE,
+
+    /**
+     * Uses a lookup map provided by webpack to locate modules from a numeric id used during import
+     */
+    WEBPACK
   }
 
   private static final class NoopErrorHandler implements ErrorHandler {

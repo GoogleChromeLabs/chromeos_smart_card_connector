@@ -136,7 +136,7 @@ public class UnionTypeBuilder implements Serializable {
     boolean thatUnresolved = leftType.isTemplatizedType()
         && !leftType.toMaybeTemplatizedType().isResolved();
     if (isStructural && !thisUnresolved && !thatUnresolved) {
-      return rightType.isSubtype(leftType);
+      return rightType.isSubtypeOf(leftType);
     } else {
       return rightType.isSubtypeWithoutStructuralTyping(leftType);
     }
@@ -315,19 +315,16 @@ public class UnionTypeBuilder implements Serializable {
     return this;
   }
 
+  /** Adds an alternate to the union type under construction. Returns this for easy chaining. */
+  public UnionTypeBuilder addAlternate(JSType alternate) {
+    return addAlternate(alternate, false);
+  }
+
   private void mayRegisterDroppedProperties(JSType subtype, JSType supertype) {
     if (subtype.toMaybeRecordType() != null && supertype.toMaybeRecordType() != null) {
       this.registry.registerDroppedPropertiesInUnion(
           subtype.toMaybeRecordType(), supertype.toMaybeRecordType());
     }
-  }
-
-  /**
-   * Adds an alternate to the union type under construction. Returns this
-   * for easy chaining.
-   */
-  public UnionTypeBuilder addAlternate(JSType alternate) {
-    return addAlternate(alternate, false);
   }
 
   /**

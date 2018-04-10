@@ -19,7 +19,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.CaseFormat;
-import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.PolymerPass.MemberDefinition;
 import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
@@ -33,6 +32,7 @@ import com.google.javascript.rhino.Token;
  * Simple static utility functions shared between the {@link PolymerPass} and its helper classes.
  */
 final class PolymerPassStaticUtils {
+  private static final String VIRTUAL_FILE = "<PolymerPassStaticUtils.java>";
 
   /** @return Whether the call represents a call to the Polymer function. */
   @VisibleForTesting
@@ -71,8 +71,7 @@ final class PolymerPassStaticUtils {
                   compiler.reportChangeToEnclosingScope(dollarChildProp);
                 }
               }
-            },
-            Predicates.<Node>alwaysTrue());
+            });
       }
     }
   }
@@ -163,7 +162,7 @@ final class PolymerPassStaticUtils {
         return null;
     }
 
-    return new JSTypeExpression(typeNode, PolymerPass.VIRTUAL_FILE);
+    return new JSTypeExpression(typeNode, VIRTUAL_FILE);
   }
 
   /**

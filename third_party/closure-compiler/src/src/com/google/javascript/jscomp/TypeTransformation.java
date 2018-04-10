@@ -31,10 +31,11 @@ import com.google.javascript.rhino.ObjectTypeI;
 import com.google.javascript.rhino.TypeI;
 import com.google.javascript.rhino.TypeIEnv;
 import com.google.javascript.rhino.TypeIRegistry;
+import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
+import com.google.javascript.rhino.jstype.StaticTypedScope;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -44,6 +45,8 @@ import java.util.Map;
  * @author lpino@google.com (Luis Fernando Pino Duque)
  */
 class TypeTransformation {
+  private static final String VIRTUAL_FILE = "<TypeTransformation.java>";
+
   static final DiagnosticType UNKNOWN_TYPEVAR =
       DiagnosticType.warning("TYPEVAR_UNDEFINED",
           "Reference to an unknown type variable {0}");
@@ -131,8 +134,15 @@ class TypeTransformation {
     return TypeTransformationParser.Keywords.valueOf(s.toUpperCase());
   }
 
+  @SuppressWarnings("unchecked")
   private TypeI getType(String typeName) {
-    TypeI type = registry.getType(typeName);
+    TypeI type;
+    if (typeEnv instanceof StaticTypedScope) {
+      type = registry.getType((StaticTypedScope<JSType>) typeEnv, typeName);
+    } else {
+      // TODO(johnlenz): remove this branch once NTI is deleted.
+      type = registry.getType(null, typeName);
+    }
     if (type != null) {
       return type;
     }
@@ -244,7 +254,7 @@ class TypeTransformation {
    * @return TypeI The resulting type after the transformation
    */
   TypeI eval(Node ttlAst, ImmutableMap<String, TypeI> typeVars) {
-    return eval(ttlAst, typeVars, ImmutableMap.<String, String>of());
+    return eval(ttlAst, typeVars, ImmutableMap.of());
   }
 
   /** Evaluates the type transformation expression and returns the resulting type.
@@ -587,7 +597,7 @@ class TypeTransformation {
   }
 
   private TypeI evalRecord(Node record, NameResolver nameResolver) {
-    Map<String, TypeI> props = new HashMap<>();
+    Map<String, TypeI> props = new LinkedHashMap<>();
     for (Node propNode : record.children()) {
       // If it is a computed property then find the property name using the resolver
       if (propNode.isComputedProp()) {
@@ -777,7 +787,7 @@ class TypeTransformation {
   }
 
   private TypeI evalNativeTypeExpr(Node ttlAst) {
-    JSTypeExpression expr = new JSTypeExpression(getCallArgument(ttlAst, 0), "");
+    JSTypeExpression expr = new JSTypeExpression(getCallArgument(ttlAst, 0), VIRTUAL_FILE);
     return this.registry.evaluateTypeExpression(expr, this.typeEnv);
   }
 

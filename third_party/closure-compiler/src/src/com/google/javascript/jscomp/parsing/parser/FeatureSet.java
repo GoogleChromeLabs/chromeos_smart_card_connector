@@ -16,11 +16,11 @@
 
 package com.google.javascript.jscomp.parsing.parser;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.errorprone.annotations.Immutable;
 import java.io.Serializable;
-import java.util.HashSet;
+import java.util.EnumSet;
 import java.util.Set;
 
 /**
@@ -44,7 +44,7 @@ public final class FeatureSet implements Serializable {
   private final ImmutableSet<Feature> features;
 
   /** The bare minimum set of features. */
-  public static final FeatureSet BARE_MINIMUM = new FeatureSet(ImmutableSet.<Feature>of());
+  public static final FeatureSet BARE_MINIMUM = new FeatureSet(emptyEnumSet());
 
   /** Features from ES3. */
   public static final FeatureSet ES3 = BARE_MINIMUM.with(LangVersion.ES3.features());
@@ -66,7 +66,11 @@ public final class FeatureSet implements Serializable {
 
   public static final FeatureSet ES8 = ES8_MODULES.without(Feature.MODULES);
 
-  public static final FeatureSet ES_NEXT = ES8_MODULES.with(LangVersion.ES_NEXT.features());
+  public static final FeatureSet ES2018_MODULES = ES8_MODULES.with(LangVersion.ES2018.features());
+
+  public static final FeatureSet ES2018 = ES2018_MODULES.without(Feature.MODULES);
+
+  public static final FeatureSet ES_NEXT = ES2018_MODULES.with(LangVersion.ES_NEXT.features());
 
   public static final FeatureSet TYPESCRIPT =  ES_NEXT.with(LangVersion.TYPESCRIPT.features());
 
@@ -82,17 +86,20 @@ public final class FeatureSet implements Serializable {
               Feature.MEMBER_DECLARATIONS,
               Feature.TEMPLATE_LITERALS));
 
+  public static final FeatureSet OTI_SUPPORTED = ES5.with(Feature.GENERATORS);
+
   private enum LangVersion {
     ES3,
     ES5,
     ES6,
     ES7,
     ES8,
+    ES2018,
     ES_NEXT,
     TYPESCRIPT;
 
-    private Set<Feature> features() {
-      Set<Feature> set = new HashSet<>();
+    private EnumSet<Feature> features() {
+      EnumSet<Feature> set = EnumSet.noneOf(Feature.class);
       for (Feature feature : Feature.values()) {
         if (feature.version == this) {
           set.add(feature);
@@ -104,15 +111,6 @@ public final class FeatureSet implements Serializable {
 
   /** Specific features that can be included in a FeatureSet. */
   public enum Feature {
-    // ES3 features
-    // Functions can be declared in the block scope for all ES versions. However, for ES3 and ES5,
-    // we want to hoist the functions from the block scope by redeclaring them as vars (i.e.
-    // { function f() {} } becomes { var f = function {} }. To prevent this feature from causing
-    // code to run additional transpilation passes beyond rewriting block scoped functions, we mark
-    // block scoped functions as an ES3 feature and then manually determine whether to rewrite
-    // functions inside the processTranspile method of TranspilationPasses.java
-    BLOCK_SCOPED_FUNCTION_DECLARATION("block function", LangVersion.ES3),
-
     // ES5 features
     ES3_KEYWORDS_AS_IDENTIFIERS("ES3 keywords as identifiers", LangVersion.ES5),
     GETTER("getters", LangVersion.ES5),
@@ -125,6 +123,7 @@ public final class FeatureSet implements Serializable {
     ARRAY_PATTERN_REST("array pattern rest", LangVersion.ES6),
     ARROW_FUNCTIONS("arrow function", LangVersion.ES6),
     BINARY_LITERALS("binary literal", LangVersion.ES6),
+    BLOCK_SCOPED_FUNCTION_DECLARATION("block-scoped function declaration", LangVersion.ES6),
     CLASSES("class", LangVersion.ES6),
     COMPUTED_PROPERTIES("computed property", LangVersion.ES6),
     CONST_DECLARATIONS("const declaration", LangVersion.ES6),
@@ -154,9 +153,9 @@ public final class FeatureSet implements Serializable {
     ASYNC_FUNCTIONS("async function", LangVersion.ES8),
     TRAILING_COMMA_IN_PARAM_LIST("trailing comma in param list", LangVersion.ES8),
 
-    // features from tc39 https://github.com/tc39/proposal-object-rest-spread
-    OBJECT_LITERALS_WITH_SPREAD("object literals with spread", LangVersion.ES_NEXT),
-    OBJECT_PATTERN_REST("object pattern rest", LangVersion.ES_NEXT),
+    // ES 2018 adds https://github.com/tc39/proposal-object-rest-spread
+    OBJECT_LITERALS_WITH_SPREAD("object literals with spread", LangVersion.ES2018),
+    OBJECT_PATTERN_REST("object pattern rest", LangVersion.ES2018),
 
     // ES6 typed features that are not at all implemented in browsers
     ACCESSIBILITY_MODIFIER("accessibility modifier", LangVersion.TYPESCRIPT),
@@ -188,7 +187,8 @@ public final class FeatureSet implements Serializable {
     }
   }
 
-  private FeatureSet(Set<Feature> features) {
+  private FeatureSet(EnumSet<Feature> features) {
+    // ImmutableSet will only use an EnumSet if the set starts as an EnumSet.
     this.features = ImmutableSet.copyOf(features);
   }
 
@@ -199,6 +199,9 @@ public final class FeatureSet implements Serializable {
     }
     if (ES5.contains(this)) {
       return "es5";
+    }
+    if (OTI_SUPPORTED.contains(this)) {
+      return "otiSupported";
     }
     if (ES6_MODULES.contains(this)) {
       return "es6";
@@ -221,23 +224,23 @@ public final class FeatureSet implements Serializable {
     throw new IllegalStateException(this.toString());
   }
 
-  public FeatureSet without(Feature feature) {
-    return new FeatureSet(Sets.difference(features, ImmutableSet.of(feature)));
+  public FeatureSet without(Feature featureToRemove, Feature... moreFeaturesToRemove) {
+    return new FeatureSet(difference(features, EnumSet.of(featureToRemove, moreFeaturesToRemove)));
   }
 
   public FeatureSet without(FeatureSet other) {
-    return new FeatureSet(Sets.difference(features, other.features));
+    return new FeatureSet(difference(features, other.features));
   }
 
   public FeatureSet withoutTypes() {
-    return new FeatureSet(Sets.difference(features, LangVersion.TYPESCRIPT.features()));
+    return new FeatureSet(difference(features, LangVersion.TYPESCRIPT.features()));
   }
 
   /**
    * Returns a new {@link FeatureSet} including all features of both {@code this} and {@code other}.
    */
   public FeatureSet union(FeatureSet other) {
-    return new FeatureSet(Sets.union(features, other.features));
+    return new FeatureSet(union(features, other.features));
   }
 
   /**
@@ -247,14 +250,50 @@ public final class FeatureSet implements Serializable {
     return this.features.containsAll(other.features);
   }
 
-  /** Returns a feature set combining all the features from {@code this} and {@code newFeatures}. */
-  public FeatureSet with(Feature... newFeatures) {
-    return new FeatureSet(Sets.union(features, ImmutableSet.copyOf(newFeatures)));
+  private static EnumSet<Feature> emptyEnumSet() {
+    return EnumSet.noneOf(Feature.class);
+  }
+
+  private static EnumSet<Feature> enumSetOf(Set<Feature> set) {
+    return set.isEmpty() ? emptyEnumSet() : EnumSet.copyOf(set);
+  }
+
+  private static EnumSet<Feature> add(Set<Feature> features, Feature feature) {
+    EnumSet<Feature> result = enumSetOf(features);
+    result.add(feature);
+    return result;
+  }
+
+  private static EnumSet<Feature> union(Set<Feature> features, Set<Feature> newFeatures) {
+    EnumSet<Feature> result = enumSetOf(features);
+    result.addAll(newFeatures);
+    return result;
+  }
+
+  private static EnumSet<Feature> difference(Set<Feature> features, Set<Feature> removedFeatures) {
+    EnumSet<Feature> result = enumSetOf(features);
+    result.removeAll(removedFeatures);
+    return result;
+  }
+
+  /** Returns a feature set combining all the features from {@code this} and {@code feature}. */
+  public FeatureSet with(Feature feature) {
+    if (features.contains(feature)) {
+      return this;
+    }
+    return new FeatureSet(add(features, feature));
   }
 
   /** Returns a feature set combining all the features from {@code this} and {@code newFeatures}. */
+  @VisibleForTesting
+  public FeatureSet with(Feature... newFeatures) {
+    return new FeatureSet(union(features, ImmutableSet.copyOf(newFeatures)));
+  }
+
+  /** Returns a feature set combining all the features from {@code this} and {@code newFeatures}. */
+  @VisibleForTesting
   public FeatureSet with(Set<Feature> newFeatures) {
-    return new FeatureSet(Sets.union(features, newFeatures));
+    return new FeatureSet(union(features, newFeatures));
   }
 
   /**
@@ -289,10 +328,17 @@ public final class FeatureSet implements Serializable {
       case "es6-impl":
       case "es6":
         return ES6;
+      case "ntiSupported":
+        return NTI_SUPPORTED;
+      case "otiSupported":
+        return OTI_SUPPORTED;
       case "es7":
         return ES7;
       case "es8":
         return ES8;
+      case "es2018":
+      case "es9":
+        return ES2018;
       case "es_next":
         return ES_NEXT;
       case "ts":

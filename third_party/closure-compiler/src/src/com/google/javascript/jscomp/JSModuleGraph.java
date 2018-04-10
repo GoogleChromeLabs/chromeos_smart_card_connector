@@ -390,11 +390,7 @@ public final class JSModuleGraph implements Serializable {
 
   /** Returns the transitive dependencies of the module. */
   private Set<JSModule> getTransitiveDeps(JSModule m) {
-    Set<JSModule> deps = dependencyMap.get(m);
-    if (deps == null) {
-      deps = m.getAllDependencies();
-      dependencyMap.put(m, deps);
-    }
+    Set<JSModule> deps = dependencyMap.computeIfAbsent(m, JSModule::getAllDependencies);
     return deps;
   }
 
@@ -412,8 +408,7 @@ public final class JSModuleGraph implements Serializable {
 
     SortedDependencies<CompilerInput> sorter = new Es6SortedDependencies<>(inputs);
 
-    Iterable<CompilerInput> entryPointInputs = createEntryPointInputs(
-        depOptions, inputs, sorter);
+    Set<CompilerInput> entryPointInputs = createEntryPointInputs(depOptions, inputs, sorter);
 
     HashMap<String, CompilerInput> inputsByProvide = new HashMap<>();
     for (CompilerInput input : inputs) {
@@ -421,8 +416,17 @@ public final class JSModuleGraph implements Serializable {
         inputsByProvide.put(provide, input);
       }
       String moduleName = input.getPath().toModuleName();
-      if (!inputsByProvide.containsKey(moduleName)) {
-        inputsByProvide.put(moduleName, input);
+      inputsByProvide.putIfAbsent(moduleName, input);
+    }
+
+    // Dynamically imported files must be added to the module graph, but
+    // they should not be ordered ahead of the files that import them.
+    // We add them as entry points to ensure they get included.
+    for (CompilerInput input : inputs) {
+      for (String require : input.getDynamicRequires()) {
+        if (inputsByProvide.containsKey(require)) {
+          entryPointInputs.add(inputsByProvide.get(require));
+        }
       }
     }
 
@@ -522,7 +526,7 @@ public final class JSModuleGraph implements Serializable {
       return orderedInputs;
     }
 
-    for (String importedNamespace : rootInput.getRequires()) {
+    for (String importedNamespace : rootInput.getRequiredSymbols()) {
       CompilerInput dependency = null;
       if (inputsByProvide.containsKey(importedNamespace)
           && unreachedInputs.contains(inputsByProvide.get(importedNamespace))) {
@@ -539,7 +543,7 @@ public final class JSModuleGraph implements Serializable {
     return orderedInputs;
   }
 
-  private Collection<CompilerInput> createEntryPointInputs(
+  private Set<CompilerInput> createEntryPointInputs(
       DependencyOptions depOptions,
       List<CompilerInput> inputs,
       SortedDependencies<CompilerInput> sorter)

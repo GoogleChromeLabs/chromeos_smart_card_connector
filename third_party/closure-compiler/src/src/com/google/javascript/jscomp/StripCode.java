@@ -108,6 +108,8 @@ class StripCode implements CompilerPass {
     public void visit(NodeTraversal t, Node n, Node parent) {
       switch (n.getToken()) {
         case VAR:
+        case CONST:
+        case LET:
           removeVarDeclarationsByNameOrRvalue(t, n, parent);
           break;
 
@@ -142,26 +144,32 @@ class StripCode implements CompilerPass {
         case EXPR_RESULT:
           maybeEliminateExpressionByName(t, n, parent);
           break;
+
+        case CLASS:
+          maybeEliminateClassByNameOrExtends(t, n, parent);
+          break;
+
         default:
           break;
       }
     }
 
     /**
-     * Removes declarations of any variables whose names are strip names or
-     * whose whose r-values are static method calls on strip types. Builds a set
-     * of removed variables so that all references to them can be removed.
+     * Removes declarations of any variables whose names are strip names or whose whose r-values are
+     * static method calls on strip types. Builds a set of removed variables so that all references
+     * to them can be removed.
      *
      * @param t The traversal
-     * @param n A VAR node
+     * @param n A VAR, CONST, or LET node
      * @param parent {@code n}'s parent
      */
-    void removeVarDeclarationsByNameOrRvalue(NodeTraversal t, Node n,
-        Node parent) {
+    void removeVarDeclarationsByNameOrRvalue(NodeTraversal t, Node n, Node parent) {
       Node next = null;
-      for (Node nameNode = n.getFirstChild(); nameNode != null;
-          nameNode = next) {
+      for (Node nameNode = n.getFirstChild(); nameNode != null; nameNode = next) {
         next = nameNode.getNext();
+        if (nameNode.isDestructuringLhs()) {
+          continue;
+        }
         String name = nameNode.getString();
         if (isStripName(name)
             || isCallWhoseReturnValueShouldBeStripped(nameNode.getFirstChild())) {
@@ -190,6 +198,8 @@ class StripCode implements CompilerPass {
                                                Node parent) {
       switch (parent.getToken()) {
         case VAR:
+        case CONST:
+        case LET:
           // This is a variable declaration, not a reference.
           break;
 
@@ -382,14 +392,53 @@ class StripCode implements CompilerPass {
       //   ...
       Node key = n.getFirstChild();
       while (key != null) {
-        if (isStripName(key.getString())) {
-          Node next = key.getNext();
-          n.removeChild(key);
-          NodeUtil.markFunctionsDeleted(key, compiler);
-          key = next;
-          compiler.reportChangeToEnclosingScope(n);
-        } else {
-          key = key.getNext();
+        switch (key.getToken()) {
+          case GETTER_DEF:
+          case SETTER_DEF:
+          case STRING_KEY:
+          case MEMBER_FUNCTION_DEF:
+            if (isStripName(key.getString())) {
+              Node next = key.getNext();
+              n.removeChild(key);
+              NodeUtil.markFunctionsDeleted(key, compiler);
+              key = next;
+              compiler.reportChangeToEnclosingScope(n);
+              break;
+            }
+            // fall through
+          default:
+            key = key.getNext();
+        }
+      }
+    }
+
+    /**
+     * Removes a class definition if the name is a strip type. Warns if a non-strippable class
+     * is extending a strippable type.
+     */
+    void maybeEliminateClassByNameOrExtends(NodeTraversal t, Node classNode, Node parent) {
+      Node nameNode = NodeUtil.getNameNode(classNode);
+      String className = "<anonymous>";
+      // Replace class with null if it is a strip type
+      if (nameNode != null && nameNode.isQualifiedName()) {
+        className = nameNode.getQualifiedName();
+        if (qualifiedNameBeginsWithStripType(className)) {
+          if (NodeUtil.isStatementParent(parent)) {
+            replaceWithEmpty(classNode, parent);
+          } else {
+            replaceWithNull(classNode, parent);
+          }
+          t.reportCodeChange();
+          return;
+        }
+      }
+
+      // If the class is not a strip type, the superclass also cannot be a strip type
+      Node superclassNode = classNode.getSecondChild();
+      if (superclassNode != null && superclassNode.isQualifiedName()) {
+        String superclassName = superclassNode.getQualifiedName();
+        if (qualifiedNameBeginsWithStripType(superclassName)) {
+          t.report(classNode, STRIP_TYPE_INHERIT_ERROR, className, superclassName);
         }
       }
     }
@@ -502,7 +551,7 @@ class StripCode implements CompilerPass {
 
       if (parent != null && parent.isName()) {
         Node grandparent = parent.getParent();
-        if (grandparent != null && grandparent.isVar()) {
+        if (grandparent != null && NodeUtil.isNameDeclaration(grandparent)) {
           // The call's return value is being used to initialize a newly
           // declared variable. We should leave the call intact for now.
           // That way, when the traversal reaches the variable declaration,

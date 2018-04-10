@@ -194,7 +194,8 @@ public class Parser {
       boolean initialGeneratorContext) {
     this.config = config;
     this.errorReporter = errorReporter;
-    this.scanner = new Scanner(errorReporter, commentRecorder, source, offset);
+    this.scanner =
+        new Scanner(config.parseTypeSyntax, errorReporter, commentRecorder, source, offset);
     this.functionContextStack.addLast(
         initialGeneratorContext ? FunctionFlavor.GENERATOR : FunctionFlavor.NORMAL);
     lastSourcePosition = scanner.getPosition();
@@ -212,8 +213,7 @@ public class Parser {
     public static enum Mode {
       ES3,
       ES5,
-      ES6,
-      ES7,
+      ES6_OR_ES7,
       ES8_OR_GREATER,
       ES_NEXT,
       TYPESCRIPT,
@@ -277,6 +277,12 @@ public class Parser {
   @Nullable
   public String getSourceMapURL() {
     return sourceMapURL;
+  }
+
+  /** Returns true if the string value should be treated as a keyword in the current context. */
+  private boolean isKeyword(String value) {
+    return Keywords.isKeyword(value)
+        && (!Keywords.isTypeScriptSpecificKeyword(value) || config.parseTypeSyntax);
   }
 
   // 14 Program
@@ -460,7 +466,7 @@ public class Parser {
     if (peekPredefinedString(PredefinedName.AS)) {
       eatPredefinedString(PredefinedName.AS);
       destinationName = eatId();
-    } else if (Keywords.isKeyword(importedName.value)) {
+    } else if (isKeyword(importedName.value)) {
       reportExpectedError(null, PredefinedName.AS);
     }
     return new ImportSpecifierTree(
@@ -566,7 +572,7 @@ public class Parser {
     } else if (isExportSpecifier) {
       for (ParseTree tree : exportSpecifierList) {
         IdentifierToken importedName = tree.asExportSpecifier().importedName;
-        if (Keywords.isKeyword(importedName.value)) {
+        if (isKeyword(importedName.value)) {
           reportError(importedName, "cannot use keyword '%s' here.", importedName.value);
         }
       }
@@ -3269,7 +3275,7 @@ public class Parser {
     ParseTree left = parseExponentiationExpression();
     while (peekMultiplicativeOperator()) {
       Token operator = nextToken();
-      ParseTree right = parseUnaryExpression();
+      ParseTree right = parseExponentiationExpression();
       left = new BinaryOperatorTree(getTreeLocation(start), left, operator, right);
     }
     return left;

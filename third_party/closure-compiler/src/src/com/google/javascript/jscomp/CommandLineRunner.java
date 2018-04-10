@@ -779,7 +779,7 @@ public class CommandLineRunner extends
       usage =
           "Specifies how the compiler locates modules. BROWSER requires all module imports "
               + "to begin with a '.' or '/' and have a file extension. NODE uses the node module "
-              + "rules."
+              + "rules. WEBPACK looks up modules from a special lookup map."
     )
     private ModuleLoader.ResolutionMode moduleResolutionMode = ModuleLoader.ResolutionMode.BROWSER;
 
@@ -857,7 +857,9 @@ public class CommandLineRunner extends
                     "generate_exports",
                     "isolation_mode",
                     "output_wrapper",
-                    "output_wrapper_file"))
+                    "output_wrapper_file",
+                    "rename_prefix_namespace",
+                    "rename_variable_prefix"))
             .putAll("Dependency Management", ImmutableList.of("dependency_mode", "entry_point"))
             .putAll(
                 "JS Modules",
@@ -1572,7 +1574,7 @@ public class CommandLineRunner extends
 
       if (!flags.renaming
           && flags.compilationLevelParsed == CompilationLevel.ADVANCED_OPTIMIZATIONS) {
-        reportError("ERROR - renaming cannot be disabled when ADVANCED_OPTMIZATIONS is used.");
+        reportError("ERROR - renaming cannot be disabled when ADVANCED_OPTIMIZATIONS is used.");
         runCompiler = false;
       }
 
@@ -1834,7 +1836,13 @@ public class CommandLineRunner extends
   @Override
   protected void prepForBundleAndAppendTo(Appendable out, CompilerInput input, String content)
       throws IOException {
-    ClosureBundler.appendInput(out, input, content);
+    new ClosureBundler().withPath(input.getName()).appendInput(out, input, content);
+  }
+
+  @Override
+  protected void appendRuntimeTo(Appendable out)
+      throws IOException {
+    new ClosureBundler().appendRuntimeTo(out);
   }
 
   @Override

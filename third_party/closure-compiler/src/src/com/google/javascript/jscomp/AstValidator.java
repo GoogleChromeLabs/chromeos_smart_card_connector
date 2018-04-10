@@ -16,12 +16,18 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
+import com.google.javascript.rhino.FunctionTypeI;
 import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
+import com.google.javascript.rhino.TypeI;
+import com.google.javascript.rhino.TypeI.Nullability;
+import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * This class walks the AST and validates that the structure is correct.
@@ -34,8 +40,6 @@ public final class AstValidator implements CompilerPass {
   // * verify NAME, LABEL_NAME, GETPROP property name and unquoted
   // object-literal keys are valid JavaScript identifiers.
   // * optionally verify every node has source location information.
-  // * optionally verify every node has an assigned JSType
-  //
 
   /** Violation handler */
   public interface ViolationHandler {
@@ -44,6 +48,9 @@ public final class AstValidator implements CompilerPass {
 
   private final AbstractCompiler compiler;
   private final ViolationHandler violationHandler;
+
+  /** Perform type validation if this is enabled. */
+  private boolean isTypeValidationEnabled = false;
 
   public AstValidator(AbstractCompiler compiler, ViolationHandler handler) {
     this.compiler = compiler;
@@ -60,6 +67,17 @@ public final class AstValidator implements CompilerPass {
             + ((n.getParent() != null) ? n.getParent().toStringTree() : " no parent "));
       }
     });
+  }
+
+  /**
+   * Enable or disable validation of type information.
+   *
+   * TODO(b/74537281): Currently only expressions are checked for type information.
+   *     Do we need to do more?
+   */
+  public AstValidator setTypeValidationEnabled(boolean isEnabled) {
+    isTypeValidationEnabled = isEnabled;
+    return this;
   }
 
   @Override
@@ -221,6 +239,9 @@ public final class AstValidator implements CompilerPass {
   }
 
   public void validateExpression(Node n) {
+    if (isTypeValidationEnabled) {
+      validateExpressionType(n);
+    }
     switch (n.getToken()) {
       // Childless expressions
       case FALSE:
@@ -372,6 +393,73 @@ public final class AstValidator implements CompilerPass {
     }
   }
 
+  private void validateExpressionType(Node n) {
+    switch (n.getToken()) {
+      case NAME:
+        validateNameType(n);
+        break;
+
+      case CALL:
+        validateCallType(n);
+        break;
+
+      default:
+        expectSomeTypeInformation(n);
+    }
+  }
+
+  private void validateNameType(Node nameNode) {
+    // TODO(b/74537281): Determine when NAME nodes should and shouldn't have type information.
+    // Shouldn't they always? They don't now.
+  }
+
+  private void validateCallType(Node callNode) {
+    // TODO(b/74537281): Shouldn't CALL nodes always have a type, even if it is unknown?
+    Node callee = callNode.getFirstChild();
+    TypeI calleeTypeI = checkNotNull(callee.getTypeI(), callNode);
+
+    if (calleeTypeI.isFunctionType()) {
+      FunctionTypeI calleeFunctionTypeI = calleeTypeI.toMaybeFunctionType();
+      TypeI returnTypeI = calleeFunctionTypeI.getReturnType();
+      // TODO(b/74537281): This will fail after CAST nodes have been removed from the AST.
+      // Must be fixed before this check can be done after optimizations.
+      expectMatchingTypeInformation(callNode, returnTypeI);
+    } // TODO(b/74537281): What other cases should be covered?
+  }
+
+  private void expectNoTypeInformation(Node n) {
+    TypeI typeI = n.getTypeI();
+    if (typeI != null) {
+      violation("Unexpected type information: " + getTypeAnnotationString(typeI), n);
+    }
+  }
+
+  private void expectSomeTypeInformation(Node n) {
+    if (n.getTypeI() == null) {
+      violation("Type information missing", n);
+    }
+  }
+
+  private void expectMatchingTypeInformation(Node n, TypeI expectedTypeI) {
+    TypeI typeI = n.getTypeI();
+    if (!Objects.equals(expectedTypeI, typeI)) {
+      violation(
+          "Expected type: "
+              + getTypeAnnotationString(expectedTypeI)
+              + " Actual type: "
+              + getTypeAnnotationString(typeI),
+          n);
+    }
+  }
+
+  private String getTypeAnnotationString(@Nullable TypeI typeI) {
+    if (typeI == null) {
+      return "NO TYPE INFORMATION";
+    } else {
+      return "{" + typeI.toAnnotationString(Nullability.EXPLICIT) + "}";
+    }
+  }
+
   private void validateYield(Node n) {
     validateFeature(Feature.GENERATORS, n);
     validateNodeType(Token.YIELD, n);
@@ -429,7 +517,7 @@ public final class AstValidator implements CompilerPass {
 
   private void validateImportSpecifier(Node n) {
     validateNodeType(Token.IMPORT_SPEC, n);
-    validateChildCountIn(n, 1, 2);
+    validateChildCount(n, 2);
     for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
       validateName(c);
     }
@@ -466,7 +554,7 @@ public final class AstValidator implements CompilerPass {
 
   private void validateExportSpecifier(Node n) {
     validateNodeType(Token.EXPORT_SPEC, n);
-    validateChildCountIn(n, 1, 2);
+    validateChildCount(n, 2);
     for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
       validateName(c);
     }

@@ -67,6 +67,7 @@ public final class JSDocInfoPrinter {
     //   override
     //   type|define|typedef|enum
     //   implicitCast
+    //   nocollapse
     //   suppress
     //   deprecated
     //   polymer
@@ -210,11 +211,15 @@ public final class JSDocInfoPrinter {
       parts.add("@implicitCast");
     }
 
+    if (info.isNoCollapse()) {
+      parts.add("@nocollapse");
+    }
+
     Set<String> suppressions = info.getSuppressions();
     if (!suppressions.isEmpty()) {
       // Print suppressions in sorted order to avoid non-deterministic output.
       String[] arr = suppressions.toArray(new String[0]);
-      Arrays.sort(arr, Ordering.<String>natural());
+      Arrays.sort(arr, Ordering.natural());
       parts.add("@suppress {" + Joiner.on(',').join(arr) + "}");
       multiline = true;
     }

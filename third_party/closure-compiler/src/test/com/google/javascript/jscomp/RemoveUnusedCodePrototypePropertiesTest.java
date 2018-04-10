@@ -77,6 +77,14 @@ public final class RemoveUnusedCodePrototypePropertiesTest extends CompilerTestC
     allowRemovalOfExternProperties = false;
   }
 
+  public void testClassPropertiesNotRemoved() {
+    keepGlobals = true;
+    // This whole test class runs with removeUnusedClassProperties disabled.
+    testSame("/** @constructor */ function C() {} C.unused = 3;");
+    testSame(
+        "/** @constructor */ function C() {} Object.defineProperties(C, {unused: {value: 3}});");
+  }
+
   public void testUnusedPrototypeFieldReference() {
     test(
         "function C() {} C.prototype.x; new C();", // x is not actually read
@@ -179,12 +187,15 @@ public final class RemoveUnusedCodePrototypePropertiesTest extends CompilerTestC
   }
 
   public void testObjectLiteralPrototype() {
-    test("function e(){}" +
-            "e.prototype = {a: function(){}, b: function(){}};" +
-            "var x=new e; x.a()",
-        "function e(){}" +
-            "e.prototype = {a: function(){}};" +
-            "var x = new e; x.a()");
+    test(
+        "function e(){} e.prototype = {a: function(){}, b: function(){}}; var x = new e; x.a()",
+        "function e(){} e.prototype = {a: function(){}                 }; var x = new e; x.a()");
+  }
+
+  public void testObjectLiteralPrototypeUnusedPropDefinitionWithSideEffects() {
+    test(
+        "function e(){} e.prototype = {a: alert('a'), b: function(){}}; new e;",
+        "function e(){} e.prototype = {a: alert('a')                 }; new e;");
   }
 
   public void testPropertiesDefinedInExterns() {
@@ -466,9 +477,8 @@ public final class RemoveUnusedCodePrototypePropertiesTest extends CompilerTestC
     test("function Foo() {} Foo.prototype.baz = 3; new Foo;", "function Foo() {} new Foo;");
     testSame("function Foo() {} Foo.prototype.baz = 3; new Foo; var x = {}; x.baz;");
     testSame("function Foo() {} Foo.prototype.baz = 3; new Foo; var x = {baz: 5}; x;");
-    test(
-        "function Foo() {} Foo.prototype.baz = 3; new Foo; var x = {'baz': 5}; x;",
-        "function Foo() {} new Foo; var x = {'baz': 5}; x;");
+    // quoted properties still prevent removal
+    testSame("function Foo() {} Foo.prototype.baz = 3; new Foo; var x = {'baz': 5}; x;");
   }
 
   public void testGlobalFunctionsInGraph() {
@@ -789,6 +799,7 @@ public final class RemoveUnusedCodePrototypePropertiesTest extends CompilerTestC
             "  constructor() {",  // constructor is not removable
             "    this.x = 1;",
             "  }",
+            "  static foo() {}",  // static method removal is disabled
             "}",
             "new C();"));
 

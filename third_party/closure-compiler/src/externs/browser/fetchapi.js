@@ -37,7 +37,7 @@ var ReferrerPolicy;
 
 
 /**
- * @typedef {!Headers|!Array<!Array<string>>|!IObject<string,string>}
+ * @typedef {!Headers|!Array<!Array<string>>|!Object<string,string>}
  * @see https://fetch.spec.whatwg.org/#headersinit
  */
 var HeadersInit;
@@ -247,6 +247,9 @@ RequestInit.prototype.redirect;
 
 /** @type {(undefined|string)} */
 RequestInit.prototype.integrity;
+
+/** @type {(undefined|!AbortSignal)} */
+RequestInit.prototype.signal;
 
 /** @type {(undefined|null)} */
 RequestInit.prototype.window;

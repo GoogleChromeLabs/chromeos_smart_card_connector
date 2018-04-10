@@ -15,6 +15,9 @@
  */
 package com.google.javascript.jscomp;
 
+import static com.google.javascript.jscomp.DisambiguateProperties.Warnings.INVALIDATION;
+import static com.google.javascript.jscomp.DisambiguateProperties.Warnings.INVALIDATION_ON_TYPE;
+
 import com.google.common.collect.Multimap;
 import com.google.javascript.rhino.Node;
 import java.util.Collection;
@@ -591,16 +594,6 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
 
     testSets(js, output, "{a=[[function(new:Bar): undefined]," +
     " [function(new:Foo): undefined]]}");
-
-    this.mode = TypeInferenceMode.NTI_ONLY;
-    output = ""
-        + "/** @constructor */ function Foo(){}"
-        + "/** @constructor */ function Bar(){}"
-        + "Foo.class_Foo$a = 0;"
-        + "Bar.class_Bar$a = 0;";
-
-    testSets(js, output,
-        "{a=[[class:Bar], [class:Foo]]}");
   }
 
   public void testSupertypeWithSameField() {
@@ -1784,7 +1777,7 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
             "/** @param {I} arg */ function f(arg) {}",
             "/** @constructor */ function C() { this.foobar = 42; }",
             "f(new C());")),
-        error(DisambiguateProperties.Warnings.INVALIDATION).withMessageContaining("foobar"));
+        error(INVALIDATION).withMessageContaining("foobar"));
   }
 
   public void testDisambiguatePropertiesClassCastedToUnrelatedInterface() {
@@ -1901,9 +1894,9 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
         "/** @type {number} */",
         "I.prototype.x;",
         "",
-        "/** @constructor @implements {I} */\n" +
-        "function Foo(){}\n" +
-        "/** @type {number} */\n" +
+        "/** @constructor @implements {I} */",
+        "function Foo(){}",
+        "/** @type {number} */",
         "Foo.prototype.x;",
         "",
         "/** @constructor */",
@@ -2169,6 +2162,7 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
         "/**",
         " * @interface",
         " * @extends {MyIterable}",
+        " * @template T",
         " */",
         "function MyCollection() {}",
         "/**",
@@ -2340,9 +2334,6 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
         "  this.Bar$a = 3;",
         "  this.Bar$b = 2;",
         "}");
-
-    this.mode = TypeInferenceMode.NTI_ONLY;
-    testSets("", js, output, "{a=[[Bar], [Foo]], b=[[Bar], [Foo]], f=[[Foo.prototype]]}");
   }
 
   public void testIgnoreSpecializedProperties2() {
@@ -2393,9 +2384,6 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
         "function Foo() {",
         "  this.Foo$num = 123;",
         "}");
-
-    this.mode = TypeInferenceMode.NTI_ONLY;
-    testSets("", js, ntiOutput, "{num=[[Foo], [ns]]}");
   }
 
   public void testIgnoreSpecializedProperties3() {
@@ -2428,15 +2416,12 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
         "function Bar() {",
         "  this.Bar$num = 123;",
         "}");
-
-    this.mode = TypeInferenceMode.NTI_ONLY;
-    testSets("", js, output, "{num=[[Bar], [Foo.prototype]]}");
   }
 
   public void testErrorOnProtectedProperty() {
     test(
         srcs("function addSingletonGetter(foo) { foo.foobar = 'a'; };"),
-        error(DisambiguateProperties.Warnings.INVALIDATION).withMessageContaining("foobar"));
+        error(INVALIDATION).withMessageContaining("foobar"));
   }
 
   public void testMismatchForbiddenInvalidation() {
@@ -2445,8 +2430,7 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
             "/** @constructor */ function F() {}",
             "/** @type {number} */ F.prototype.foobar = 3;",
             "/** @return {number} */ function g() { return new F(); }")),
-        error(DisambiguateProperties.Warnings.INVALIDATION)
-            .withMessageContaining("Consider fixing errors"));
+        error(INVALIDATION).withMessageContaining("Consider fixing errors"));
   }
 
   public void testUnionTypeInvalidationError() {
@@ -2470,8 +2454,7 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
     test(
         externs(DEFAULT_EXTERNS + externs),
         srcs(js),
-        error(DisambiguateProperties.Warnings.INVALIDATION_ON_TYPE)
-            .withMessageContaining("foobar"));
+        error(INVALIDATION_ON_TYPE).withMessageContaining("foobar"));
   }
 
   public void testDontCrashOnNonConstructorsWithPrototype() {
@@ -2479,7 +2462,10 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
         "function f(x) { return x; }",
         "f.prototype.method = function() {};");
 
-    test(DEFAULT_EXTERNS + externs, "" , "");
+    test(
+        externs(DEFAULT_EXTERNS + externs),
+        srcs(""),
+        expected(""));
   }
 
   public void testDontRenameStaticPropertiesOnBuiltins() {
@@ -2494,7 +2480,7 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
     test(
         externs(DEFAULT_EXTERNS + externs),
         srcs(js),
-        error(DisambiguateProperties.Warnings.INVALIDATION_ON_TYPE)
+        error(INVALIDATION_ON_TYPE)
             .withMessageContaining("foobar"));
   }
 
@@ -2607,7 +2593,10 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
         "function Baz() {}",
         "Baz.prototype.Baz_prototype$firstElementChild;");
 
-    test(DEFAULT_EXTERNS + externs, js, output);
+    test(
+        externs(DEFAULT_EXTERNS + externs),
+        srcs(js),
+        expected(output));
   }
 
   public void testAccessOnSupertypeWithManySubtypes() {
@@ -2637,7 +2626,7 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
         "function Baz() {}",
         "Baz.prototype.firstElementChild;");
 
-    testSame(DEFAULT_EXTERNS + externs, js);
+    testSame(externs(DEFAULT_EXTERNS + externs), srcs(js));
   }
 
   public void testAccessOnObjectWithManySubtypes() {
@@ -2659,7 +2648,22 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
         "function Baz() {}",
         "Baz.prototype.firstElementChild;");
 
-    testSame(DEFAULT_EXTERNS + externs, js);
+    testSame(externs(DEFAULT_EXTERNS + externs), srcs(js));
+  }
+
+  public void testInvalidationOnNamespaceType() {
+    enableTranspile();
+
+    String js = lines(
+        "var goog = {};",
+        "goog.array = {};",
+        "goog.array.foobar = function(var_args) {}",
+        "",
+        "var args = [1, 2];",
+        "goog.array.foobar(...args);");
+
+    // TODO(b/37673673): This should compile with no errors.
+    test(srcs(js), error(INVALIDATION).withMessageContaining("foobar"));
   }
 
   private void testSets(String js, String expected, final String fieldTypes) {
@@ -2678,7 +2682,7 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
         externs(DEFAULT_EXTERNS + externs),
         srcs(js),
         expected(expected),
-        warning(warning, description));
+        warning(warning).withMessage(description));
     assertEquals(fieldTypes, mapToString(lastPass.getRenamedTypesForTesting()));
   }
 
@@ -2702,9 +2706,11 @@ public final class DisambiguatePropertiesTest extends TypeICompilerTestCase {
    * {field=[[Type1, Type2]]}
    */
   private void testSets(String js, final String fieldTypes, DiagnosticType warning) {
-    test(srcs(js), warning(warning), (Postcondition) (Compiler unused) -> {
-      assertEquals(fieldTypes, mapToString(lastPass.getRenamedTypesForTesting()));
-    });
+    test(
+        srcs(js),
+        warning(warning),
+        (Postcondition)
+            unused -> assertEquals(fieldTypes, mapToString(lastPass.getRenamedTypesForTesting())));
   }
 
   /** Sorts the map and converts to a string for comparison purposes. */

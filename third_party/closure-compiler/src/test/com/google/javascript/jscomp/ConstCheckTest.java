@@ -156,6 +156,10 @@ public final class ConstCheckTest extends CompilerTestCase {
     testError("var a$b$XYZ = 1; a$b$XYZ %= 2;");
   }
 
+  public void testAbbreviatedArithmeticAssignment3() {
+    testError("var a$b$XYZ = 1; a$b$XYZ **= 2;");
+  }
+
   public void testAbbreviatedBitAssignment1() {
     testError("var XYZ = 1; XYZ |= 2;");
   }
@@ -211,7 +215,7 @@ public final class ConstCheckTest extends CompilerTestCase {
   public void testConstSuppressionOnVarFromExterns() {
     String externs = "/** @const */ var xyz;";
     String js = "/** @suppress {const} */ var xyz = 3;";
-    testSame(externs, js);
+    testSame(externs(externs), srcs(js));
   }
 
   public void testConstSuppressionOnInc() {

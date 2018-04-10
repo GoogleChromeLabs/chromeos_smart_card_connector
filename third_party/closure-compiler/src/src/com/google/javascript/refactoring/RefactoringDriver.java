@@ -116,11 +116,7 @@ public final class RefactoringDriver {
 
   public static class Builder {
     private static final Function<String, SourceFile> TO_SOURCE_FILE_FN =
-        new Function<String, SourceFile>() {
-          @Override public SourceFile apply(String file) {
-            return new SourceFile.Builder().buildFromFile(file);
-          }
-        };
+        file -> new SourceFile.Builder().buildFromFile(file);
 
     private final ImmutableList.Builder<SourceFile> inputs = ImmutableList.builder();
     private final ImmutableList.Builder<SourceFile> externs = ImmutableList.builder();
@@ -130,6 +126,11 @@ public final class RefactoringDriver {
 
     public Builder addExternsFromFile(String filename) {
       externs.add(SourceFile.fromFile(filename));
+      return this;
+    }
+
+    public Builder addExternsFromFile(Iterable<String> externs) {
+      this.externs.addAll(Lists.transform(ImmutableList.copyOf(externs), TO_SOURCE_FILE_FN));
       return this;
     }
 
@@ -143,13 +144,13 @@ public final class RefactoringDriver {
       return this;
     }
 
-    public Builder addExternsFromFile(Iterable<String> externs) {
-      this.externs.addAll(Lists.transform(ImmutableList.copyOf(externs), TO_SOURCE_FILE_FN));
+    public Builder addInputsFromFile(String filename) {
+      inputs.add(SourceFile.fromFile(filename));
       return this;
     }
 
-    public Builder addInputsFromFile(String filename) {
-      inputs.add(SourceFile.fromFile(filename));
+    public Builder addInputsFromFile(Iterable<String> inputs) {
+      this.inputs.addAll(Lists.transform(ImmutableList.copyOf(inputs), TO_SOURCE_FILE_FN));
       return this;
     }
 
@@ -164,11 +165,6 @@ public final class RefactoringDriver {
 
     public Builder addInputs(Iterable<SourceFile> inputs) {
       this.inputs.addAll(inputs);
-      return this;
-    }
-
-    public Builder addInputsFromFile(Iterable<String> inputs) {
-      this.inputs.addAll(Lists.transform(ImmutableList.copyOf(inputs), TO_SOURCE_FILE_FN));
       return this;
     }
 

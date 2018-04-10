@@ -285,7 +285,7 @@ ServiceWorkerContainer.prototype.oncontrollerchange;
 ServiceWorkerContainer.prototype.onerror;
 
 /**
- * @typedef {{scope: (string|undefined), useCache: (boolean|undefined)}}
+ * @typedef {{scope: (string|undefined), useCache: (boolean|undefined), updateViaCache: (string|undefined)}}
  */
 var RegistrationOptions;
 
@@ -346,6 +346,20 @@ ServiceWorkerGlobalScope.prototype.onmessage;
 
 /** @type {!IDBFactory|undefined} */
 ServiceWorkerGlobalScope.prototype.indexedDB;
+
+/**
+ * While not strictly correct, this should be effectively correct. Notification
+ * is the Notification constructor but calling it from the Service Worker throws
+ * (https://notifications.spec.whatwg.org/#constructors) so its only use is as
+ * an object holding some static properties (note that requestPermission is only
+ * exposed to window context - https://notifications.spec.whatwg.org/#api).
+ *
+ * @type {{
+ *   permission: string,
+ *   maxActions: number,
+ * }}
+ */
+ServiceWorkerGlobalScope.prototype.Notification;
 
 /**
  * @see http://www.w3.org/TR/service-workers/#service-worker-client-interface

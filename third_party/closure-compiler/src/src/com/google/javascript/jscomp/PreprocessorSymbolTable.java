@@ -22,7 +22,6 @@ import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSymbolTable;
-import com.google.javascript.rhino.TypeI;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.SimpleReference;
 import com.google.javascript.rhino.jstype.SimpleSlot;
@@ -30,6 +29,7 @@ import com.google.javascript.rhino.jstype.StaticTypedScope;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * A symbol table for references that are removed by preprocessor passes
@@ -63,11 +63,6 @@ final class PreprocessorSymbolTable
 
   @Override
   public JSType getTypeOfThis() {
-    return null;
-  }
-
-  @Override
-  public TypeI getTypeIOfThis() {
     return null;
   }
 
@@ -135,6 +130,32 @@ final class PreprocessorSymbolTable
   static final class Reference extends SimpleReference<SimpleSlot> {
     Reference(SimpleSlot symbol, Node node) {
       super(symbol, node);
+    }
+  }
+
+  /**
+   * Object that maybe contains instance of the table. This object is needed because
+   * PreprocessorSymbolTable is used by multiple passes in different parts of code which initialized
+   * at different times (some even before compiler object is created). Instead instance of factory
+   * is passed around. Each pass that uses PreprocessorSymbolTable has to call maybeInitialize()
+   * before getting instance.
+   */
+  public static class CachedInstanceFactory {
+
+    @Nullable private PreprocessorSymbolTable instance;
+
+    public void maybeInitialize(AbstractCompiler compiler) {
+      if (compiler.getOptions().preservesDetailedSourceInfo()) {
+        Node root = compiler.getRoot();
+        if (instance == null || instance.getRootNode() != root) {
+          instance = new PreprocessorSymbolTable(root);
+        }
+      }
+    }
+
+    @Nullable
+    public PreprocessorSymbolTable getInstanceOrNull() {
+      return instance;
     }
   }
 }

@@ -52,9 +52,11 @@ import java.io.IOException;
 import java.io.ObjectInput;
 import java.io.ObjectOutput;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
 import javax.annotation.CheckReturnValue;
@@ -155,8 +157,8 @@ public class Node implements Serializable {
       IS_ES6_CLASS = 92, // Indicates that a FUNCTION node is converted from an ES6 class
       TRANSPILED = 93, // Indicates that a SCRIPT represents a transpiled file
       DELETED = 94, // For passes that work only on deleted funs.
-      GOOG_MODULE_ALIAS = 95, // Indicates that the node is an alias of goog.require'd module.
-      // Aliases are desugared and inlined by compiler passes but we
+      MODULE_ALIAS = 95, // Indicates that the node is an alias or a name from goog.require'd module
+      // or ES6 module. Aliases are desugared and inlined by compiler passes but we
       // need to preserve them for building index.
       IS_UNUSED_PARAMETER = 96, // Mark a parameter as unused. Used to defer work from
       // RemovedUnusedVars to OptimizeParameters.
@@ -223,7 +225,7 @@ public class Node implements Serializable {
         case IS_ES6_CLASS:       return "is_es6_class";
         case TRANSPILED:         return "transpiled";
         case DELETED:            return "DELETED";
-        case GOOG_MODULE_ALIAS:  return "goog_module_alias";
+        case MODULE_ALIAS:       return "module_alias";
         case IS_UNUSED_PARAMETER: return "is_unused_parameter";
         case MODULE_EXPORT:
           return "module_export";
@@ -745,10 +747,21 @@ public class Node implements Serializable {
     child.parent = this;
   }
 
-  public final void addChildrenToFront(Node children) {
+  /**
+   * Add all children to the front of this node.
+   *
+   * @param children first of a list of sibling nodes who have no parent.
+   *    NOTE: Usually you would get this argument from a removeChildren() call.
+   *    A single detached node will not work because its sibling pointers will not be
+   *    correctly initialized.
+   */
+  public final void addChildrenToFront(@Nullable Node children) {
     if (children == null) {
       return; // removeChildren() returns null when there are none
     }
+    // NOTE: If there is only one sibling, its previous pointer must point to itself.
+    // Null indicates a fully detached node.
+    checkNotNull(children.previous, children);
     for (Node child = children; child != null; child = child.next) {
       checkArgument(child.parent == null);
       child.parent = this;
@@ -791,9 +804,9 @@ public class Node implements Serializable {
   }
 
   /**
-   * Add 'child' after 'node'.
+   * Add 'newChild' after 'node'.  If 'node' is null, add it to the front of this node.
    */
-  public final void addChildAfter(Node newChild, Node node) {
+  public final void addChildAfter(Node newChild, @Nullable Node node) {
     checkArgument(newChild.next == null, "The new child node has next siblings.");
     checkArgument(newChild.previous == null, "The new child node has previous siblings.");
     // NOTE: newChild.next remains null
@@ -801,13 +814,22 @@ public class Node implements Serializable {
     addChildrenAfter(newChild, node);
   }
 
-  /** Add all children after 'node'. */
+  /**
+   * Add all children after 'node'. If 'node' is null, add them to the front of this node.
+   *
+   * @param children first of a list of sibling nodes who have no parent.
+   *    NOTE: Usually you would get this argument from a removeChildren() call.
+   *    A single detached node will not work because its sibling pointers will not be
+   *    correctly initialized.
+   */
   public final void addChildrenAfter(@Nullable Node children, @Nullable Node node) {
     if (children == null) {
       return; // removeChildren() returns null when there are none
     }
     checkArgument(node == null || node.parent == this);
-    checkNotNull(children.previous);
+    // NOTE: If there is only one sibling, its previous pointer must point to itself.
+    // Null indicates a fully detached node.
+    checkNotNull(children.previous, children);
     if (node == null) {
       addChildrenToFront(children);
       return;
@@ -941,15 +963,15 @@ public class Node implements Serializable {
     return this;
   }
 
+  public final boolean hasProps() {
+    return propListHead != null;
+  }
+
   public final void removeProp(byte propType) {
     PropListItem result = removeProp(propListHead, propType);
     if (result != propListHead) {
       propListHead = result;
     }
-  }
-
-  public final boolean hasProps() {
-    return propListHead != null;
   }
 
   /**
@@ -1808,11 +1830,6 @@ public class Node implements Serializable {
     return null;
   }
 
-  /** Returns true if this node is equivalent semantically to another */
-  public final boolean isEquivalentTo(Node node) {
-    return isEquivalentTo(node, false, true, false, false);
-  }
-
   /** Checks equivalence without going into child nodes */
   public final boolean isEquivalentToShallow(Node node) {
     return isEquivalentTo(node, false, false, false, false);
@@ -1833,6 +1850,11 @@ public class Node implements Serializable {
    */
   public final boolean isEquivalentToTyped(Node node) {
     return isEquivalentTo(node, true, true, true, false);
+  }
+
+  /** Returns true if this node is equivalent semantically to another */
+  public final boolean isEquivalentTo(Node node) {
+    return isEquivalentTo(node, false, true, false, false);
   }
 
   /**
@@ -2562,14 +2584,18 @@ public class Node implements Serializable {
   }
 
   /**
-   * Sets whether this node is a marker used in the translation of generators.
+   * Sets whether this node subtree contains YIELD nodes.
+   *
+   * <p> It's used in the translation of generators.
    */
   public final void setGeneratorMarker(boolean isGeneratorMarker) {
     putBooleanProp(GENERATOR_MARKER, isGeneratorMarker);
   }
 
   /**
-   * Returns whether this node is a marker used in the translation of generators.
+   * Returns whether this node was marked as containing YIELD nodes.
+   *
+   * <p> It's used in the translation of generators.
    */
   public final boolean isGeneratorMarker() {
     return getBooleanProp(GENERATOR_MARKER);
@@ -3013,6 +3039,10 @@ public class Node implements Serializable {
     return this.token == Token.EXPORT_SPEC;
   }
 
+  public final boolean isExportSpecs() {
+    return this.token == Token.EXPORT_SPECS;
+  }
+
   public final boolean isExprResult() {
     return this.token == Token.EXPR_RESULT;
   }
@@ -3257,6 +3287,11 @@ public class Node implements Serializable {
     return this.token == Token.YIELD;
   }
 
+  // see writeObject() and readObject() for how this field is used in (de)serialization.
+  // TODO(bradfordcsmith): We are assuming that we will never have multiple (de)serializations
+  // happening at the same time.
+  private static List<Node> incompleteNodes = null;
+
   @GwtIncompatible("ObjectOutputStream")
   private void writeObject(java.io.ObjectOutputStream out) throws Exception {
     // Do not call out.defaultWriteObject() as all the fields and transient and this class does not
@@ -3268,6 +3303,17 @@ public class Node implements Serializable {
     writeEncodedInt(out, sourcePosition);
     writeEncodedInt(out, length);
 
+    boolean isStartingNode = false;
+    if (incompleteNodes == null) {
+      // The first node to get serialized is responsible for completing serialization
+      // of all the other nodes whose serialization it triggers.
+      // This allows us to avoid deep recursion that would happen otherwise due to
+      // node -> type obj -> another node -> type obj...
+      isStartingNode = true;
+      incompleteNodes = new ArrayList<>();
+    }
+    incompleteNodes.add(this);
+
     // Serialize the embedded children linked list here to limit the depth of recursion (and avoid
     // serializing redundant information like the previous reference)
     Node currentChild = first;
@@ -3277,8 +3323,15 @@ public class Node implements Serializable {
     }
     // Null marks the end of the children.
     out.writeObject(null);
-    out.writeObject(typei);
     out.writeObject(propListHead);
+
+    if (isStartingNode) {
+      List<Node> nodeList = Node.incompleteNodes;
+      Node.incompleteNodes = null;
+      for (Node n : nodeList) {
+        out.writeObject(n.typei);
+      }
+    }
   }
 
   @GwtIncompatible("ObjectInputStream")
@@ -3289,6 +3342,17 @@ public class Node implements Serializable {
     token = Token.values()[in.readUnsignedByte()];
     sourcePosition = readEncodedInt(in);
     length = readEncodedInt(in);
+
+    boolean isStartingNode = false;
+    if (incompleteNodes == null) {
+      // The first node to get deserialized is responsible for completing deserialization
+      // of all the other nodes whose deserialization it triggers.
+      // This allows us to avoid deep recursion that would happen otherwise due to
+      // node -> type obj -> another node -> type obj...
+      isStartingNode = true;
+      incompleteNodes = new ArrayList<>();
+    }
+    incompleteNodes.add(this);
 
     // Deserialize the children list restoring the value of the previous reference.
     first = (Node) in.readObject();
@@ -3313,8 +3377,15 @@ public class Node implements Serializable {
       checkState(first.previous == null);
       first.previous = lastChild;
     }
-    typei = (TypeI) in.readObject();
     propListHead = (PropListItem) in.readObject();
+
+    if (isStartingNode) {
+      List<Node> nodeList = Node.incompleteNodes;
+      Node.incompleteNodes = null;
+      for (Node n : nodeList) {
+        n.typei = (TypeI) in.readObject();
+      }
+    }
   }
 
   /**

@@ -32,12 +32,8 @@ import com.google.javascript.rhino.Node;
  */
 public class SyntacticScopeCreator implements ScopeCreator {
   private final AbstractCompiler compiler;
-  private Scope scope;
+  private AbstractScope<?, ?> scope;
   private InputId inputId;
-
-  // The arguments variable is special, in that it's declared in every local
-  // scope, but not explicitly declared.
-  private static final String ARGUMENTS = "arguments";
 
   private final boolean isTyped;
 
@@ -61,20 +57,23 @@ public class SyntacticScopeCreator implements ScopeCreator {
   @Override
   @SuppressWarnings("unchecked")
   // The cast to T is OK because we cannot mix typed and untyped scopes in the same chain.
-  public <T extends Scope> T createScope(Node n, T parent) {
+  public AbstractScope<?, ?> createScope(Node n, AbstractScope<?, ?> parent) {
     inputId = null;
     if (parent == null) {
       scope = isTyped ? TypedScope.createGlobalScope(n) : Scope.createGlobalScope(n);
     } else {
-      scope = isTyped ? new TypedScope((TypedScope) parent, n) : new Scope(parent, n);
+      scope =
+          isTyped
+              ? new TypedScope((TypedScope) parent, n)
+              : Scope.createChildScope((Scope) parent, n);
     }
 
     scanRoot(n);
 
     inputId = null;
-    Scope returnedScope = scope;
+    AbstractScope<?, ?> returnedScope = scope;
     scope = null;
-    return (T) returnedScope;
+    return returnedScope;
   }
 
   private void scanRoot(Node n) {
@@ -187,12 +186,11 @@ public class SyntacticScopeCreator implements ScopeCreator {
 
     CompilerInput input = compiler.getInput(inputId);
     String name = n.getString();
-    if (!scope.isDeclared(name, false)
-        && !(scope.isLocal() && name.equals(ARGUMENTS))) {
+    if (!scope.hasOwnSlot(name) && (!scope.isLocal() || !name.equals(Var.ARGUMENTS))) {
       if (isTyped) {
         ((TypedScope) scope).declare(name, n, null, input);
       } else {
-        scope.declare(name, n, input);
+        ((Scope) scope).declare(name, n, input);
       }
     }
   }

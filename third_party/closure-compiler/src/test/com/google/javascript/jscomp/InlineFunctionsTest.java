@@ -500,6 +500,56 @@ public class InlineFunctionsTest extends CompilerTestCase {
         "5;");
   }
 
+  public void testInlineFunctions34() {
+    test(
+        lines(
+            "class X {}",
+            "(function(e) {",
+            "  for (var el = f(e.target); el != null; el = el.parent) {}",
+            "  function f(x) { return x instanceof X ? x : null; }",
+            "})({target:{}});",
+            ""),
+        lines(
+            "class X {}",
+            "{",
+            "  var e$jscomp$inline_0 = {target:{}};",
+            "  var el$jscomp$inline_1;",
+            "  {",
+            "    var x$jscomp$inline_2 = e$jscomp$inline_0.target;",
+            "    el$jscomp$inline_1 = x$jscomp$inline_2 instanceof X ? x$jscomp$inline_2 : null;",
+            "  }",
+            "  for(;el$jscomp$inline_1 != null; el$jscomp$inline_1 = el$jscomp$inline_1.parent);",
+            "}",
+            ""));
+  }
+
+  // Same as above, except the for loop uses a let instead of a var. See b/73373371.
+  public void testInlineFunctions35() {
+    test(
+        lines(
+            "class X {}",
+            "(function(e) {",
+            "  for (let el = f(e.target); el != null; el = el.parent) {}",
+            "  function f(x) { return x instanceof X ? x : null; }",
+            "})({target:{}});",
+            ""),
+        lines(
+            "class X {}",
+            "{",
+            "  var e$jscomp$inline_0 = {target: {}};",
+            "  var JSCompiler_inline_result$jscomp$inline_1;",
+            "  {",
+            "    var x$jscomp$inline_2 = e$jscomp$inline_0.target;",
+            "    JSCompiler_inline_result$jscomp$inline_1 =",
+            "        x$jscomp$inline_2 instanceof X ? x$jscomp$inline_2 : null",
+            "  }",
+            "  for (let el$jscomp$inline_3 = JSCompiler_inline_result$jscomp$inline_1;",
+            "       el$jscomp$inline_3 != null;",
+            "       el$jscomp$inline_3 = el$jscomp$inline_3.parent) {}",
+            "}",
+            ""));
+  }
+
   public void testMixedModeInlining1() {
     // Base line tests, direct inlining
     test("function foo(){return 1}" +
@@ -576,6 +626,21 @@ public class InlineFunctionsTest extends CompilerTestCase {
         "function foo(a,b){return a+b+a+b+4+5+6+7+8+9+1+2+3+4+101}" +
         "foo(1,2);" +
         "foo(2,3,x())");
+  }
+
+  /** See b/72513540 */
+  public void testDestructuringAssignInFunction() {
+    test(
+        lines(
+            "function foo(a) {",
+            "  [a] = [1];",
+            "}",
+            "foo(2);"),
+        lines(
+            "{",
+            "  var a$jscomp$inline_0 = 2;",
+            "  [a$jscomp$inline_0] = [1];",
+            "}"));
   }
 
   public void testNoInlineIfParametersModified1() {
@@ -951,13 +1016,14 @@ public class InlineFunctionsTest extends CompilerTestCase {
             "function _goo() { let a = 2; let x = foo(); }"),
         lines(
             "let a = 0;",
-            "function _goo(){",
+            "function _goo() {",
             "  let a$jscomp$2 = 2;",
-            "  let x;",
+            "  var JSCompiler_inline_result$jscomp$0;",
             "  {",
-            "    let a$jscomp$inline_0 = 3;",
-            "    x = a + a;",
+            "     let a$jscomp$inline_1 = 3;",
+            "     JSCompiler_inline_result$jscomp$0 = a + a;",
             "  }",
+            "  let x = JSCompiler_inline_result$jscomp$0;",
             "}"));
   }
 
@@ -1199,10 +1265,15 @@ public class InlineFunctionsTest extends CompilerTestCase {
   }
 
   public void testNoInlineOfNonGlobalFunction2() {
-    test("var g;function _f(){var g=function(){return 0}}" +
-         "function _h(){return g()}",
-         "var g;function _f(){}" +
-         "function _h(){return g()}");
+    test(
+        lines(
+            "var g;",
+            "function _f() { var g = function() { return 0; }; }",
+            "function _h() { return g(); }"),
+        lines(
+             "var g;",
+             "function _f(){}",
+             "function _h(){ return g(); }"));
   }
 
   public void testNoInlineOfNonGlobalFunction3() {
@@ -1664,27 +1735,56 @@ public class InlineFunctionsTest extends CompilerTestCase {
     assumeMinimumCapture = false;
 
     // Don't inline if local names might be captured.
-    testSame("function f(a){call(function(){return})}f()");
+    testSame(
+        lines(
+            "function f(a) {",
+            "  call(function(){return});",
+            "}",
+            "f();"));
 
     assumeMinimumCapture = true;
 
-    test("(function(){" +
-         "var f = function(a){call(function(){return a})};f()})()",
-         "{{var a$jscomp$inline_0=void 0;call(function(){return a$jscomp$inline_0})}}");
+    test(
+        lines(
+            "(function() {",
+            "  var f = function(a) { call(function(){return a}); };",
+            "  f();",
+            "})();"),
+        lines(
+            "{",
+            "  {",
+            "    var a$jscomp$inline_0 = void 0;",
+            "    call(function() { return a$jscomp$inline_0; });",
+            "  }",
+            "}"));
   }
 
   public void testComplexFunctionWithFunctionDefinition2a() {
     assumeMinimumCapture = false;
 
     // Don't inline if local names might be captured.
-    testSame("(function(){" +
-        "var f = function(a){call(function(){return a})};f()})()");
+    testSame(
+        lines(
+            "(function() {",
+            "  var f = function(a) { call(function(){return a}); };",
+            "  f();",
+            "})()"));
 
     assumeMinimumCapture = true;
 
-    test("(function(){" +
-         "var f = function(a){call(function(){return a})};f()})()",
-         "{{var a$jscomp$inline_0=void 0;call(function(){return a$jscomp$inline_0})}}");
+    test(
+        lines(
+            "(function() {",
+            "  var f = function(a) { call(function(){return a}); };",
+            "  f();",
+            "})()"),
+        lines(
+            "{",
+            "  {",
+            "    var a$jscomp$inline_0 = void 0;",
+            "    call(function() { return a$jscomp$inline_0; });",
+            "  }",
+            "}"));
   }
 
   public void testComplexFunctionWithFunctionDefinition3() {
@@ -1916,9 +2016,19 @@ public class InlineFunctionsTest extends CompilerTestCase {
 
   public void testFunctionExpressionOmega() {
     // ... with unused recursive name.
-    test("(function (f){f(f)})(function(f){f(f)})",
-         "{var f$jscomp$inline_0=function(f$jscomp$1){f$jscomp$1(f$jscomp$1)};" +
-          "{{f$jscomp$inline_0(f$jscomp$inline_0)}}}");
+    test(
+        "(function (f){f(f)})(function(f){f(f)})",
+        lines(
+            "{",
+            "  var f$jscomp$inline_0 = function(f$jscomp$1) {",
+            "    f$jscomp$1(f$jscomp$1);",
+            "  };",
+            "  {",
+            "    {",
+            "       f$jscomp$inline_0(f$jscomp$inline_0);",
+            "    }",
+            "  }",
+            "}"));
   }
 
   public void testLocalFunctionInlining1() {
@@ -3197,6 +3307,17 @@ public class InlineFunctionsTest extends CompilerTestCase {
             "  return args.length;",
             "}",
             "foo(...[0,1]);"));
+
+    testSame("var args = [0, 1]; (function foo(x, y) { return x + y; })(...args);");
+
+    testSame(
+        lines(
+            "var args = [0, 1];",
+            "(function foo(x, y, z) {",
+            "  return x + y + z;",
+            "})(2, ...args);"));
+
+    testSame("(function (x, y) {  return x + y; })(...[0, 1]);");
   }
 
   public void testGeneratorFunction() {
@@ -3251,21 +3372,14 @@ public class InlineFunctionsTest extends CompilerTestCase {
   }
 
   public void testFunctionReferencingLetInNonGlobalBlock() {
-    // TODO(b/69850796): This produces the wrong output! It will cause an error when VarCheck runs
-    // or when this code is actually evaluated.
-    test(
+    testSame(
         lines(
             "if (true) {",
             "  let value = 1;",
-            "  var g = function(x) {",
-            "    return value + x;",
+            "  var g = function() {",
+            "    return value + 1;",
             "  }",
             "}",
-            "alert(g(10));"),
-        lines(
-            "if (true) {",
-            "  let value = 1;",
-            "}",
-            "alert(value + 10);")); // value is not defined in the global scope.
+            "alert(g(10));"));
   }
 }

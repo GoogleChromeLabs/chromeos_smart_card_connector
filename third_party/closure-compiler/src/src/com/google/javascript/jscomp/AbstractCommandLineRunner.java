@@ -265,6 +265,11 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
       Appendable out, CompilerInput input, String content) throws IOException;
 
   /**
+   * Writes whatever runtime libraries are needed to bundle.
+   */
+  protected abstract void appendRuntimeTo(Appendable out) throws IOException;
+
+  /**
    * Returns the instance of the Options to use when {@link #run()} is called. createCompiler() is
    * called before createOptions(), so getCompiler() will not return null when createOptions() is
    * called.
@@ -591,62 +596,14 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
   }
 
   /**
-   * Check that relative paths inside zip files are unique, since multiple files with the same path
-   * inside different zips are considered duplicate inputs. Parameter {@code sourceFiles} may be
-   * modified if duplicates are removed.
-   */
-  public static ImmutableList<JSError> removeDuplicateZipEntries(
-      List<SourceFile> sourceFiles, List<JsModuleSpec> jsModuleSpecs) throws IOException {
-    ImmutableList.Builder<JSError> errors = ImmutableList.builder();
-    Map<String, SourceFile> sourceFilesByName = new HashMap<>();
-    Iterator<SourceFile> fileIterator = sourceFiles.iterator();
-    int currentFileIndex = 0;
-    Iterator<JsModuleSpec> moduleIterator = jsModuleSpecs.iterator();
-    // Tracks the total number of js files for current module and all the previous modules.
-    int cumulatedJsFileNum = 0;
-    JsModuleSpec currentModule  = null;
-    while (fileIterator.hasNext()) {
-      SourceFile sourceFile = fileIterator.next();
-      currentFileIndex++;
-      // Check whether we reached the next module.
-      if (moduleIterator.hasNext() && currentFileIndex > cumulatedJsFileNum) {
-        currentModule = moduleIterator.next();
-        cumulatedJsFileNum += currentModule.numJsFiles;
-      }
-      String fullPath = sourceFile.getName();
-      if (!fullPath.contains("!/")) {
-        // Not a zip file
-        continue;
-      }
-      String relativePath = fullPath.split("!")[1];
-      if (!sourceFilesByName.containsKey(relativePath)) {
-        sourceFilesByName.put(relativePath, sourceFile);
-      } else {
-        SourceFile firstSourceFile = sourceFilesByName.get(relativePath);
-        if (firstSourceFile.getCode().equals(sourceFile.getCode())) {
-          fileIterator.remove();
-          if (currentModule != null) {
-            currentModule.numJsFiles--;
-          }
-        } else {
-          errors.add(JSError.make(
-              CONFLICTING_DUPLICATE_ZIP_CONTENTS, firstSourceFile.getName(), sourceFile.getName()));
-        }
-      }
-    }
-    return errors.build();
-  }
-
-  /**
    * Creates inputs from a list of source files, zips and json files.
    *
-   * Can be overridden by subclasses who want to pull files from different
-   * places.
+   * <p>Can be overridden by subclasses who want to pull files from different places.
    *
    * @param files A list of flag entries indicates js and zip file names
    * @param jsonFiles A list of json encoded files.
-   * @param allowStdIn Whether '-' is allowed appear as a filename to represent
-   *        stdin. If true, '-' is only allowed to appear once.
+   * @param allowStdIn Whether '-' is allowed appear as a filename to represent stdin. If true, '-'
+   *     is only allowed to appear once.
    * @param jsModuleSpecs A list js module specs.
    * @return An array of inputs
    */
@@ -696,12 +653,12 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
         }
 
         if (!config.outputManifests.isEmpty()) {
-          throw new FlagUsageException("Manifest files cannot be generated " +
-              "when the input is from stdin.");
+          throw new FlagUsageException(
+              "Manifest files cannot be generated when the input is from stdin.");
         }
         if (!config.outputBundles.isEmpty()) {
-          throw new FlagUsageException("Bundle files cannot be generated " +
-              "when the input is from stdin.");
+          throw new FlagUsageException(
+              "Bundle files cannot be generated when the input is from stdin.");
         }
 
         this.err.println(WAITING_FOR_INPUT_WARNING);
@@ -725,6 +682,56 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
       compiler.report(error);
     }
     return inputs;
+  }
+
+  /**
+   * Check that relative paths inside zip files are unique, since multiple files with the same path
+   * inside different zips are considered duplicate inputs. Parameter {@code sourceFiles} may be
+   * modified if duplicates are removed.
+   */
+  public static ImmutableList<JSError> removeDuplicateZipEntries(
+      List<SourceFile> sourceFiles, List<JsModuleSpec> jsModuleSpecs) throws IOException {
+    ImmutableList.Builder<JSError> errors = ImmutableList.builder();
+    Map<String, SourceFile> sourceFilesByName = new HashMap<>();
+    Iterator<SourceFile> fileIterator = sourceFiles.iterator();
+    int currentFileIndex = 0;
+    Iterator<JsModuleSpec> moduleIterator = jsModuleSpecs.iterator();
+    // Tracks the total number of js files for current module and all the previous modules.
+    int cumulatedJsFileNum = 0;
+    JsModuleSpec currentModule = null;
+    while (fileIterator.hasNext()) {
+      SourceFile sourceFile = fileIterator.next();
+      currentFileIndex++;
+      // Check whether we reached the next module.
+      if (moduleIterator.hasNext() && currentFileIndex > cumulatedJsFileNum) {
+        currentModule = moduleIterator.next();
+        cumulatedJsFileNum += currentModule.numJsFiles;
+      }
+      String fullPath = sourceFile.getName();
+      if (!fullPath.contains("!/")) {
+        // Not a zip file
+        continue;
+      }
+      String relativePath = fullPath.split("!")[1];
+      if (!sourceFilesByName.containsKey(relativePath)) {
+        sourceFilesByName.put(relativePath, sourceFile);
+      } else {
+        SourceFile firstSourceFile = sourceFilesByName.get(relativePath);
+        if (firstSourceFile.getCode().equals(sourceFile.getCode())) {
+          fileIterator.remove();
+          if (currentModule != null) {
+            currentModule.numJsFiles--;
+          }
+        } else {
+          errors.add(
+              JSError.make(
+                  CONFLICTING_DUPLICATE_ZIP_CONTENTS,
+                  firstSourceFile.getName(),
+                  sourceFile.getName()));
+        }
+      }
+    }
+    return errors.build();
   }
 
   /**
@@ -1085,6 +1092,7 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
 
       ImmutableMap.Builder<String, SourceMapInput> inputSourceMaps
           = new ImmutableMap.Builder<>();
+      ImmutableMap.Builder<String, String> inputPathByWebpackId = new ImmutableMap.Builder<>();
 
       boolean foundJsonInputSourceMap = false;
       for (JsonFileSpec jsonFile : jsonFiles) {
@@ -1095,12 +1103,20 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
           inputSourceMaps.put(jsonFile.getPath(), new SourceMapInput(sourceMap));
           foundJsonInputSourceMap = true;
         }
+        if (jsonFile.getWebpackId() != null) {
+          inputPathByWebpackId.put(jsonFile.getWebpackId(), jsonFile.getPath());
+        }
       }
 
       if (foundJsonInputSourceMap) {
         inputSourceMaps.putAll(options.inputSourceMaps);
         options.inputSourceMaps = inputSourceMaps.build();
       }
+
+      compiler.initWebpackMap(inputPathByWebpackId.build());
+    } else {
+      ImmutableMap<String, String> emptyMap = ImmutableMap.of();
+      compiler.initWebpackMap(emptyMap);
     }
 
     compiler.initWarningsGuard(options.getWarningsGuard());
@@ -1171,9 +1187,11 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
       compiler.parseForCompilation();
       if (!compiler.hasErrors()) {
         compiler.stage1Passes();
-        compiler.saveState(serializedOutputStream);
-        compiler.performPostCompilationTasks();
       }
+      if (!compiler.hasErrors()) {
+        compiler.saveState(serializedOutputStream);
+      }
+      compiler.performPostCompilationTasks();
     } catch (IOException e) {
       compiler.report(JSError.make(COULD_NOT_SERIALIZE_AST, filename));
     } finally {
@@ -2021,6 +2039,16 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
   @VisibleForTesting
   void printBundleTo(Iterable<CompilerInput> inputs, Appendable out)
       throws IOException {
+    if (!compiler.getOptions().preventLibraryInjection) {
+      // ES6 modules will need a runtime in a bundle. Skip appending this runtime if there are no
+      // ES6 modules to cut down on size.
+      for (CompilerInput input : inputs) {
+        if ("es6".equals(input.getLoadFlags().get("module"))) {
+          appendRuntimeTo(out);
+          break;
+        }
+      }
+    }
 
     for (CompilerInput input : inputs) {
       // Every module has an empty file in it. This makes it easier to implement
@@ -2708,15 +2736,22 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
     private final String src;
     private final String path;
     private String sourceMap;
+    @Nullable
+    private final String webpackId;
 
     public JsonFileSpec(String src, String path) {
-      this(src, path, null);
+      this(src, path, null, null);
     }
 
     public JsonFileSpec(String src, String path, String sourceMap) {
+      this(src, path, sourceMap, null);
+    }
+
+    public JsonFileSpec(String src, String path, String sourceMap, @Nullable String webpackId) {
       this.src = src;
       this.path = path;
       this.sourceMap = sourceMap;
+      this.webpackId = webpackId;
     }
 
     public String getSrc() {
@@ -2729,6 +2764,10 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
 
     public String getSourceMap() {
       return this.sourceMap;
+    }
+
+    public String getWebpackId() {
+      return this.webpackId;
     }
 
     public void setSourceMap(String map) {

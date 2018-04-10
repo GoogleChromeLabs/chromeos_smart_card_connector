@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.IncrementalCheckMode;
 import com.google.javascript.jscomp.newtypes.JSTypeCreatorFromJSDoc;
 
 /**
@@ -10701,6 +10700,20 @@ public final class NewTypeInferenceTest extends NewTypeInferenceTestBase {
         "var x = { set 'a'(b) { b - 5; } };",
         "x['a'] = 'str';"),
         NewTypeInference.MISTYPED_ASSIGN_RHS);
+
+    // Test that we don't crash with the incorrect jsdoc
+    typeCheck(LINE_JOINER.join(
+        "/** @constructor */",
+        "function Foo() {}",
+        "Foo.prototype = {",
+        "  /** @type {number} */",
+        "  set visibleRows(visibleRows) {},",
+        "  /** @this {Foo} */",
+        "  fitToParent:function() {",
+        "    this.visibleRows = 1;",
+        "  }",
+        "};"),
+        JSTypeCreatorFromJSDoc.FUNCTION_WITH_NONFUNC_JSDOC);
   }
 
   public void testConstMissingInitializer() {
@@ -13189,18 +13202,17 @@ public final class NewTypeInferenceTest extends NewTypeInferenceTestBase {
         "ns.Foo = { a: 123 };"),
         GlobalTypeInfoCollector.REDECLARED_PROPERTY);
 
-    typeCheck(LINE_JOINER.join(
-        "/** @const */",
-        "var ns = {};",
-        "/** @const */",
-        "ns.Foo = {};",
-        "/**",
-        " * @const",
-        // @suppress is ignored here b/c there is no @type in the jsdoc.
-        " * @suppress {duplicate}",
-        " */",
-        "ns.Foo = { a: 123 };"),
-        GlobalTypeInfoCollector.REDECLARED_PROPERTY);
+    typeCheck(
+        LINE_JOINER.join(
+            "/** @const */",
+            "var ns = {};",
+            "/** @const */",
+            "ns.Foo = {};",
+            "/**",
+            " * @const",
+            " * @suppress {duplicate}",
+            " */",
+            "ns.Foo = { a: 123 };"));
 
     typeCheck(LINE_JOINER.join(
         "/** @const */",
@@ -17011,6 +17023,19 @@ public final class NewTypeInferenceTest extends NewTypeInferenceTestBase {
         "var x = (new jasmine.Spy).length;",
         "var /** null */ n = (new jasmine.Spy)();"),
         NewTypeInference.NOT_CALLABLE);
+
+    typeCheck(LINE_JOINER.join(
+        "/**",
+        " * @constructor",
+        " * @extends {Function}",
+        " */",
+        "function Spy() {}",
+        "function f(/** !Spy */ x) {",
+        "  var y = x;",
+        "  g(y);",
+        "}",
+        "function g(/** function():number */ x) {}"),
+        NewTypeInference.INVALID_ARGUMENT_TYPE);
   }
 
   public void testDontCrashOnInheritedMethodsWithIncompatibleReturns() {
@@ -20346,42 +20371,45 @@ public final class NewTypeInferenceTest extends NewTypeInferenceTestBase {
         "   * @implements {Toggle}",
         "   */",
         "  function Clazz() {",
-        "    Superclass.apply(this, arguments);;",
+        "    superclass.apply(this, arguments);",
         "  }",
-        "  Clazz.prototype = Object.create(Superclass.prototype);",
+        "  Clazz.prototype = Object.create(superclass.prototype);",
         "  /** @override */",
         "  Clazz.prototype.foobar = function(x) { return 'foobar ' + x; };",
         "  return Clazz;",
         "}");
 
-    typeCheck(LINE_JOINER.join(
-        defs,
-        "/**",
-        " * @constructor",
-        " * @extends {MyElement}",
-        " * @implements {Toggle}",
-        " */",
-        "var MyElementWithToogle = addToggle(MyElement);",
-        "(new MyElementWithToogle).foobar(123);"),
+    typeCheck(
+        LINE_JOINER.join(
+            defs,
+            "/**",
+            " * @constructor",
+            " * @extends {MyElement}",
+            " * @implements {Toggle}",
+            " */",
+            "var MyElementWithToggle = addToggle(MyElement);",
+            "(new MyElementWithToggle).foobar(123);"),
         NewTypeInference.INVALID_ARGUMENT_TYPE);
 
-    typeCheck(LINE_JOINER.join(
-        defs,
-        "/**",
-        " * @constructor",
-        " * @extends {MyElement}",
-        " * @implements {Toggle}",
-        " */",
-        "var MyElementWithToogle = addToggle(MyElement);",
-        "(new MyElementWithToogle).elemprop = 123;"),
+    typeCheck(
+        LINE_JOINER.join(
+            defs,
+            "/**",
+            " * @constructor",
+            " * @extends {MyElement}",
+            " * @implements {Toggle}",
+            " */",
+            "var MyElementWithToggle = addToggle(MyElement);",
+            "(new MyElementWithToggle).elemprop = 123;"),
         NewTypeInference.MISTYPED_ASSIGN_RHS);
 
-    typeCheck(LINE_JOINER.join(
-        defs,
-        "var MyElementWithToogle = addToggle(MyElement);",
-        "(new MyElementWithToogle).foobar(123);",
-        // The MyElementWithToogle type is unknown
-        "/** @type {MyElementWithToogle} */ var x = 123;"),
+    typeCheck(
+        LINE_JOINER.join(
+            defs,
+            "var MyElementWithToggle = addToggle(MyElement);",
+            "(new MyElementWithToggle).foobar(123);",
+            // The MyElementWithToggle type is unknown
+            "/** @type {MyElementWithToggle} */ var x = 123;"),
         NewTypeInference.INVALID_ARGUMENT_TYPE);
   }
 
@@ -22388,82 +22416,6 @@ public final class NewTypeInferenceTest extends NewTypeInferenceTestBase {
         "    (function() {}).apply({}, var_args);",
         "  }",
         "}"));
-  }
-
-  public void testUnresolvedTypes() {
-    compilerOptions.setIncrementalChecks(IncrementalCheckMode.CHECK_IJS);
-
-    typeCheck(LINE_JOINER.join(
-        CLOSURE_BASE,
-        "goog.forwardDeclare('Foo');",
-        "function f(/** !Foo */ x) {}"));
-
-    typeCheck(LINE_JOINER.join(
-        "goog.forwardDeclare('Foo');",
-        "function f(/** !Foo */ x) {}",
-        "f(123);"),
-        NewTypeInference.INVALID_ARGUMENT_TYPE);
-
-    typeCheckCustomExterns(
-        LINE_JOINER.join(
-            DEFAULT_EXTERNS,
-            CLOSURE_BASE,
-            "goog.forwardDeclare('Foo');",
-            "/** @return {!Foo} */",
-            "function f(x) {}"),
-        "var x = f(123);",
-        NewTypeInference.CANNOT_USE_UNRESOLVED_TYPE);
-
-    typeCheckCustomExterns(
-        LINE_JOINER.join(
-            DEFAULT_EXTERNS,
-            CLOSURE_BASE,
-            "goog.forwardDeclare('Foo');",
-            "/** @return {!Foo} */",
-            "function f(x) {}"),
-        "var /** ? */ x = f(123);",
-        NewTypeInference.CANNOT_USE_UNRESOLVED_TYPE);
-
-    typeCheckCustomExterns(
-        LINE_JOINER.join(
-            DEFAULT_EXTERNS,
-            CLOSURE_BASE,
-            "goog.forwardDeclare('Foo');",
-            "goog.forwardDeclare('Bar');",
-            "/** @return {!Foo} */",
-            "function f(x) {}"),
-        "var /** !Bar */ x = f(123);",
-        NewTypeInference.CANNOT_USE_UNRESOLVED_TYPE);
-
-    typeCheckCustomExterns(
-        LINE_JOINER.join(
-            DEFAULT_EXTERNS,
-            CLOSURE_BASE,
-            "goog.forwardDeclare('Foo');",
-            "var /** !Foo */ x;"),
-        "var y = x;",
-        NewTypeInference.CANNOT_USE_UNRESOLVED_TYPE);
-
-    typeCheck(LINE_JOINER.join(
-        CLOSURE_BASE,
-        "goog.forwardDeclare('Foo');",
-        "/** @return {!Foo} */",
-        "function f(x) {",
-        "  return x;",
-        "}"),
-        NewTypeInference.CANNOT_USE_UNRESOLVED_TYPE);
-
-    typeCheck(LINE_JOINER.join(
-        "goog.forwardDeclare('Foo');",
-        "function f(/** (!Foo|number) */ x) {}",
-        "f(123);"),
-        NewTypeInference.INVALID_ARGUMENT_TYPE);
-
-    typeCheck(LINE_JOINER.join(
-        "goog.forwardDeclare('Foo');",
-        "function f(/** (number|!Foo) */ x) {}",
-        "f(123);"),
-        NewTypeInference.INVALID_ARGUMENT_TYPE);
   }
 
   public void testHandleAliasedTypedefs() {

@@ -46,6 +46,10 @@ public final class CodePrinterTest extends CodePrinterTestBase {
     // parens are not needed for a unary operator on the right operand
     assertPrint("x**(-y)", "x**-y");
     // NOTE: "-x**y" is a syntax error tested in ParserTest
+
+    // ** has a higher precedence than /
+    assertPrint("x/(y**z)", "x/y**z");
+    assertPrintSame("(x/y)**z");
   }
 
   public void testExponentiationAssignmentOperator() {
@@ -401,6 +405,8 @@ public final class CodePrinterTest extends CodePrinterTestBase {
     assertPrintSame("[x=1]=[]");
     assertPrintSame("[a,,c=2,,e]=[1,2,3,4,5]");
     assertPrintSame("[a=1,b=2,c=3]=foo()");
+    assertPrintSame("[a=(1,2),b]=foo()");
+    assertPrintSame("[a=[b=(1,2)]=bar(),c]=foo()");
   }
 
   public void testPrintNestedArrayPattern() {
@@ -458,6 +464,8 @@ public final class CodePrinterTest extends CodePrinterTestBase {
     assertPrintSame("({a:b=2}=foo())");
     assertPrintSame("({a,b:{c=2}}=foo())");
     assertPrintSame("({a:{b=2},c}=foo())");
+    assertPrintSame("({a=(1,2),b}=foo())");
+    assertPrintSame("({a:b=(1,2),c}=foo())");
   }
 
   public void testPrintObjectPatternWithRest() {
@@ -486,6 +494,7 @@ public final class CodePrinterTest extends CodePrinterTestBase {
     assertPrintSame("function f([a]){}");
     assertPrintSame("function f([a,b]){}");
     assertPrintSame("function f([a,b]=c()){}");
+    assertPrintSame("function f([a=(1,2),b=(3,4)]=c()){}");
     assertPrintSame("function f({a}){}");
     assertPrintSame("function f({a,b}){}");
     assertPrintSame("function f({a,b}=c()){}");
@@ -1052,6 +1061,7 @@ public final class CodePrinterTest extends CodePrinterTestBase {
   public void testPrettyPrinter_defaultValue() throws Exception {
     languageMode = LanguageMode.ECMASCRIPT_2015;
     assertPrettyPrint("(a=1)=>123;", "(a = 1) => 123;\n");
+    assertPrettyPrint("[a=(1,2)]=[];", "[a = (1, 2)] = [];\n");
   }
 
   // For https://github.com/google/closure-compiler/issues/782
@@ -2380,6 +2390,8 @@ public final class CodePrinterTest extends CodePrinterTestBase {
     languageMode = LanguageMode.ECMASCRIPT_2015;
     assertPrintSame("function f(a=0){}");
     assertPrintSame("function f(a,b=0){}");
+    assertPrintSame("function f(a=(1,2),b){}");
+    assertPrintSame("function f(a,b=(1,2)){}");
   }
 
   public void testRestParameters() {

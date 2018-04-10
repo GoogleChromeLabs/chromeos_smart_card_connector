@@ -100,7 +100,8 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
       DiagnosticType.disabled("JSC_MISSING_REQUIRE_STRICT_WARNING", "missing require: ''{0}''");
 
   public static final DiagnosticType EXTRA_REQUIRE_WARNING =
-      DiagnosticType.disabled("JSC_EXTRA_REQUIRE_WARNING", "extra require: ''{0}''");
+      DiagnosticType.disabled(
+          "JSC_EXTRA_REQUIRE_WARNING", "extra require: ''{0}'' is never referenced in this file");
 
   private static final ImmutableSet<String> DEFAULT_EXTRA_NAMESPACES =
       ImmutableSet.of(
@@ -208,7 +209,7 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
         }
         break;
       case NAME:
-        if (!NodeUtil.isLValue(n) && !parent.isGetProp()) {
+        if (!NodeUtil.isLValue(n) && !parent.isGetProp() && !parent.isImportSpec()) {
           visitQualifiedName(t, n, parent);
         }
         break;
@@ -527,7 +528,7 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
     checkState(n.isName() || n.isGetProp() || n.isStringKey(), n);
     String qualifiedName = n.isStringKey() ? n.getString() : n.getQualifiedName();
     addWeakUsagesOfAllPrefixes(qualifiedName);
-    if (mode != Mode.SINGLE_FILE) { // TODO(tbreisacher): Fix violations and remove this check.
+    if (mode != Mode.SINGLE_FILE) { // TODO(b/71638622): Fix violations and remove this check.
       return;
     }
     if (!n.isStringKey() && !NodeUtil.isLhsOfAssign(n) && !parent.isExprResult()) {
@@ -700,7 +701,7 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
    * require is there or not.
    */
   private void maybeAddWeakUsage(NodeTraversal t, Node n, Node typeNode) {
-    maybeAddUsage(t, n, typeNode, false, Predicates.<Node>alwaysTrue());
+    maybeAddUsage(t, n, typeNode, false, Predicates.alwaysTrue());
   }
 
   /**

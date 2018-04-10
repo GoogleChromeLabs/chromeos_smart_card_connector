@@ -206,6 +206,21 @@ public class UnionType extends JSType {
   }
 
   /**
+   * This predicate is used to test whether a given type can appear in a {@code Symbol} context
+   *
+   * @return {@code true} if not it maybe a symbol or Symbol object
+   */
+  @Override
+  public boolean matchesSymbolContext() {
+    for (JSType t : alternatesWithoutStucturalTyping) {
+      if (t.matchesSymbolContext()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
    * This predicate is used to test whether a given type can appear in an
    * {@code Object} context, such as the expression in a {@code with}
    * statement.<p>
@@ -390,20 +405,20 @@ public class UnionType extends JSType {
     if (!that.isUnknownType() && !that.isUnionType()) {
       for (int i = 0; i < alternatesWithoutStucturalTyping.size(); i++) {
         JSType alternate = alternatesWithoutStucturalTyping.get(i);
-        if (!alternate.isUnknownType() && that.isSubtype(alternate)) {
+        if (!alternate.isUnknownType() && that.isSubtypeOf(alternate)) {
           return this;
         }
       }
     }
 
-    return getLeastSupertype(this, that);
+    return JSType.getLeastSupertype(this, that);
   }
 
   JSType meet(JSType that) {
     UnionTypeBuilder builder = new UnionTypeBuilder(registry);
     for (int i = 0; i < alternatesWithoutStucturalTyping.size(); i++) {
       JSType alternate = alternatesWithoutStucturalTyping.get(i);
-      if (alternate.isSubtype(that)) {
+      if (alternate.isSubtypeOf(that)) {
         builder.addAlternate(alternate);
       }
     }
@@ -413,11 +428,11 @@ public class UnionType extends JSType {
           that.toMaybeUnionType().alternatesWithoutStucturalTyping;
       for (int i = 0; i < thoseAlternatesWithoutStucturalTyping.size(); i++) {
         JSType otherAlternate = thoseAlternatesWithoutStucturalTyping.get(i);
-        if (otherAlternate.isSubtype(this)) {
+        if (otherAlternate.isSubtypeOf(this)) {
           builder.addAlternate(otherAlternate);
         }
       }
-    } else if (that.isSubtype(this)) {
+    } else if (that.isSubtypeOf(this)) {
       builder.addAlternate(that);
     }
     JSType result = builder.build();
@@ -463,14 +478,33 @@ public class UnionType extends JSType {
   }
 
   @Override
-  public boolean hasProperty(String pname) {
+  public HasPropertyKind getPropertyKind(String pname, boolean autobox) {
+    boolean found = false;
+    boolean always = true;
     for (int i = 0; i < alternatesWithoutStucturalTyping.size(); i++) {
       JSType alternate = alternatesWithoutStucturalTyping.get(i);
-      if (alternate.hasProperty(pname)) {
-        return true;
+      if (alternate.isNullType() || alternate.isVoidType()) {
+        continue;
+      }
+      switch (alternate.getPropertyKind(pname, autobox)) {
+        case KNOWN_PRESENT:
+          found = true;
+          break;
+        case ABSENT:
+          always = false;
+          break;
+        case MAYBE_PRESENT:
+          found = true;
+          always = false;
+          break;
+      }
+      if (found && !always) {
+        break;
       }
     }
-    return false;
+    return found
+        ? (always ? HasPropertyKind.KNOWN_PRESENT : HasPropertyKind.MAYBE_PRESENT)
+        : HasPropertyKind.ABSENT;
   }
 
   @Override
@@ -531,7 +565,7 @@ public class UnionType extends JSType {
     for (int i = 0; i < alternatesWithoutStucturalTyping.size(); i++) {
       JSType t = alternatesWithoutStucturalTyping.get(i);
       // Keep all unknown/unresolved types.
-      if (t.isUnknownType() || t.isNoResolvedType() || !t.isSubtype(type)) {
+      if (t.isUnknownType() || t.isNoResolvedType() || !t.isSubtypeOf(type)) {
         restricted.addAlternate(t);
       }
     }
@@ -675,12 +709,12 @@ public class UnionType extends JSType {
   }
 
   @Override
-  JSType resolveInternal(ErrorReporter t, StaticTypedScope<JSType> scope) {
+  JSType resolveInternal(ErrorReporter reporter, StaticTypedScope<JSType> scope) {
     setResolvedTypeInternal(this); // for circularly defined types.
 
     for (int i = 0; i < alternatesWithoutStucturalTyping.size(); i++) {
       JSType alternate = alternatesWithoutStucturalTyping.get(i);
-      alternate.resolve(t, scope);
+      alternate.resolve(reporter, scope);
     }
     // Ensure the union is in a normalized state.
     rebuildAlternates();

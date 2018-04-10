@@ -20,8 +20,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.javascript.jscomp.Es6SyntacticScopeCreator.RedeclarationHandler;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.rhino.IR;
-import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
@@ -120,7 +120,7 @@ class VarCheck extends AbstractPostOrderCallback implements
    * Creates the scope creator used by this pass. If not in validity check mode, use a {@link
    * RedeclarationCheckHandler} to check var redeclarations.
    */
-  private ScopeCreator createScopeCreator() {
+  private Es6SyntacticScopeCreator createScopeCreator() {
     if (validityCheck) {
       return new Es6SyntacticScopeCreator(compiler);
     } else {
@@ -155,7 +155,7 @@ class VarCheck extends AbstractPostOrderCallback implements
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     checkState(scriptRoot.isScript());
-    ScopeCreator scopeCreator = createScopeCreator();
+    Es6SyntacticScopeCreator scopeCreator = createScopeCreator();
     NodeTraversal t = new NodeTraversal(compiler, this, scopeCreator);
     // Note we use the global scope to prevent wrong "undefined-var errors" on
     // variables that are defined in other JS files.
@@ -166,7 +166,7 @@ class VarCheck extends AbstractPostOrderCallback implements
 
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
-    if (n.isName() || (n.isStringKey() && !n.hasChildren())) {
+    if (n.isName()) {
       String varName = n.getString();
 
       // Only a function can have an empty name.
@@ -200,8 +200,8 @@ class VarCheck extends AbstractPostOrderCallback implements
       Scope scope = t.getScope();
       Var var = scope.getVar(varName);
       if (var == null) {
-        if (NodeUtil.isFunctionExpression(parent)
-            || (NodeUtil.isClassExpression(parent) && n == parent.getFirstChild())) {
+        if ((NodeUtil.isFunctionExpression(parent) || NodeUtil.isClassExpression(parent))
+            && n == parent.getFirstChild()) {
           // e.g. [ function foo() {} ], it's okay if "foo" isn't defined in the
           // current scope.
         } else if (NodeUtil.isNonlocalModuleExportName(n)) {
@@ -299,7 +299,15 @@ class VarCheck extends AbstractPostOrderCallback implements
    * A check for name references in the externs inputs. These used to prevent
    * a variable from getting renamed, but no longer have any effect.
    */
-  private class NameRefInExternsCheck extends AbstractPostOrderCallback {
+  private class NameRefInExternsCheck implements Callback {
+
+    @Override
+    public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+      // Type summaries are generated from code rather than hand-written,
+      // so warning about name references there would usually not be helpful.
+      return !n.isScript() || !NodeUtil.isFromTypeSummary(n);
+    }
+
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
       if (n.isName()) {
@@ -365,32 +373,19 @@ class VarCheck extends AbstractPostOrderCallback implements
     }
   }
 
-
-  /**
-   * @param n The name node to check.
-   * @param origVar The associated Var.
-   * @return Whether duplicated declarations warnings should be suppressed
-   *     for the given node.
-   */
-  static boolean hasDuplicateDeclarationSuppression(Node n, Var origVar) {
-    checkState(n.isName() || n.isRest() || n.isStringKey() || n.isImportStar(), n);
-    Node parent = n.getParent();
-    Node origParent = origVar.getParentNode();
-
+  /** Returns true if duplication warnings are suppressed on either n or origVar. */
+  static boolean hasDuplicateDeclarationSuppression(
+      AbstractCompiler compiler, Node n, Node origVar) {
+    // For VarCheck and VariableReferenceCheck, variables in externs do not generate duplicate
+    // warnings.
     if (isExternNamespace(n)) {
       return true;
     }
-
-    JSDocInfo info = parent.getJSDocInfo();
-    if (info != null && info.getSuppressions().contains("duplicate")) {
-      return true;
-    }
-
-    info = origParent.getJSDocInfo();
-    return (info != null && info.getSuppressions().contains("duplicate"));
+    return TypeValidator.hasDuplicateDeclarationSuppression(compiler, origVar);
   }
 
-  private static boolean isExternNamespace(Node n) {
+  /** Returns true if n is the name of a variable that declares a namespace in an externs file. */
+  static boolean isExternNamespace(Node n) {
     return n.getParent().isVar() && n.isFromExterns() && NodeUtil.isNamespaceDecl(n);
   }
 
@@ -434,8 +429,8 @@ class VarCheck extends AbstractPostOrderCallback implements
           return;
         }
 
-        boolean allowDupe = hasDuplicateDeclarationSuppression(n, origVar);
-        if (isExternNamespace(n)) {
+        boolean allowDupe = hasDuplicateDeclarationSuppression(compiler, n, origVar.getNameNode());
+        if (VarCheck.isExternNamespace(n)) {
           this.dupDeclNodes.add(parent);
           return;
         }

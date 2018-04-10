@@ -49,11 +49,13 @@ public final class Es7ToEs6Converter implements NodeTraversal.Callback, HotSwapC
   public void process(Node externs, Node root) {
     TranspilationPasses.processTranspile(compiler, externs, transpiledFeatures, this);
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
+    TranspilationPasses.markFeaturesAsTranspiledAway(compiler, transpiledFeatures);
   }
 
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     TranspilationPasses.hotSwapTranspile(compiler, scriptRoot, transpiledFeatures, this);
+    TranspilationPasses.markFeaturesAsTranspiledAway(compiler, transpiledFeatures);
   }
 
   @Override
@@ -101,7 +103,7 @@ public final class Es7ToEs6Converter implements NodeTraversal.Callback, HotSwapC
     @Override public Node get() {
       Node n = NodeUtil.newQName(compiler, "Math.pow");
       if (addTypes) {
-        TypeI mathType = compiler.getTypeIRegistry().getType("Math");
+        TypeI mathType = compiler.getTypeIRegistry().getGlobalType("Math");
         TypeI mathPowType = mathType.toMaybeObjectType().getPropertyType("pow");
         TypeI stringType =
             createType(addTypes, compiler.getTypeIRegistry(), JSTypeNative.STRING_TYPE);

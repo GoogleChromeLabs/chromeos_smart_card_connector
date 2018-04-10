@@ -355,24 +355,35 @@ public final class VariableReferenceCheckTest extends CompilerTestCase {
     testWarning("a++; var {x: a} = {x: 1};", EARLY_REFERENCE);
   }
 
-  public void testNoWarnInExterns1() {
-    // Verify duplicate suppressions are properly recognized.
-    String externs = "var google; /** @suppress {duplicate} */ var google";
-    String code = "";
-    testSame(externs, code);
+  public void testSuppressDuplicate_first() {
+    String code = "/** @suppress {duplicate} */ var google; var google";
+    testSame(code);
   }
 
-  public void testNoWarnInExterns2() {
+  public void testSuppressDuplicate_second() {
+    String code = "var google; /** @suppress {duplicate} */ var google";
+    testSame(code);
+  }
+
+  public void testSuppressDuplicate_fileoverview() {
+    String code =
+        "/** @fileoverview @suppress {duplicate} */\n"
+            + "/** @type {?} */ var google;\n"
+            + " var google";
+    testSame(code);
+  }
+
+  public void testNoWarnDuplicateInExterns2() {
     // Verify we don't complain about early references in externs
     String externs = "window; var window;";
     String code = "";
-    testSame(externs, code);
+    testSame(externs(externs), srcs(code));
   }
 
-  public void testNoWarnInExterns_withES6Modules() {
+  public void testNoWarnDuplicateInExterns_withES6Modules() {
     String externs = "export var google; /** @suppress {duplicate} */ var google";
     String code = "";
-    testSame(externs, code);
+    testSame(externs(externs), srcs(code));
   }
 
   public void testUnusedLocalVar() {
@@ -655,6 +666,8 @@ public final class VariableReferenceCheckTest extends CompilerTestCase {
   public void testES6Module_destructuring() {
     enableUnusedLocalAssignmentCheck = true;
     assertNoWarning("import 'example'; import {x} from 'y'; use(x);");
+    assertNoWarning("import 'example'; import {x as x} from 'y'; use(x);");
+    assertNoWarning("import 'example'; import {y as x} from 'y'; use(x);");
   }
 
   public void testGoogModule_require() {
@@ -910,7 +923,7 @@ public final class VariableReferenceCheckTest extends CompilerTestCase {
       "function x() {}",
     };
     String message = "Variable x declared more than once. First occurrence: input0";
-    testError(srcs(js), error(VarCheck.VAR_MULTIPLY_DECLARED_ERROR, message));
+    testError(srcs(js), error(VarCheck.VAR_MULTIPLY_DECLARED_ERROR).withMessage(message));
   }
 
   public void testFunctionHoistingRedeclaration2() {
@@ -919,7 +932,7 @@ public final class VariableReferenceCheckTest extends CompilerTestCase {
       "var x;",
     };
     String message = "Variable x declared more than once. First occurrence: input0";
-    testError(srcs(js), error(VarCheck.VAR_MULTIPLY_DECLARED_ERROR, message));
+    testError(srcs(js), error(VarCheck.VAR_MULTIPLY_DECLARED_ERROR).withMessage(message));
   }
 
   public void testArrowFunction() {
@@ -1193,6 +1206,9 @@ public final class VariableReferenceCheckTest extends CompilerTestCase {
     assertRedeclareError("import {x} from 'whatever'; let [x] = [];");
 
     testSame("import {x} from 'whatever'; function f() { let x = 0; }");
+
+    testSame("import {x as x} from 'whatever'; function f() { let x = 0; }");
+    testSame("import {y as x} from 'whatever'; function f() { let x = 0; }");
   }
 
   /**

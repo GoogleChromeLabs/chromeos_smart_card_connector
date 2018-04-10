@@ -16,11 +16,13 @@
 package com.google.javascript.jscomp.ijs;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
+import javax.annotation.Nullable;
 
 /**
  * Static utility methods for dealing with classes.  The primary benefit is for papering over
@@ -30,22 +32,39 @@ final class ClassUtil {
   private ClassUtil() {}
 
   static boolean isThisProp(Node getprop) {
-    return getprop.isGetProp() && getprop.getFirstChild().isThis();
+    return getClassNameOfThisProp(getprop) != null;
   }
 
   static String getPrototypeNameOfThisProp(Node getprop) {
-    checkArgument(isThisProp(getprop));
-    Node function = NodeUtil.getEnclosingFunction(getprop);
-    String className = getClassName(function);
-    checkState(className != null && !className.isEmpty());
+    String className = checkNotNull(getClassNameOfThisProp(getprop));
     return className + ".prototype." + getprop.getLastChild().getString();
   }
 
-  static String getPrototypeNameOfMethod(Node function) {
+  @Nullable
+  private static String getClassNameOfThisProp(Node getprop) {
+    if (!getprop.isGetProp() || !getprop.getFirstChild().isThis()) {
+      return null;
+    }
+    Node function = NodeUtil.getEnclosingFunction(getprop);
+    if (function == null) {
+      return null;
+    }
+    String className = getClassName(function);
+    if (className == null || className.isEmpty()) {
+      return null;
+    }
+    return className;
+  }
+
+  static String getFullyQualifiedNameOfMethod(Node function) {
     checkArgument(isClassMethod(function));
     String className = getClassName(function);
     checkState(className != null && !className.isEmpty());
-    return className + ".prototype." + function.getParent().getString();
+    Node memberFunctionDef = function.getParent();
+    String methodName = memberFunctionDef.getString();
+    return memberFunctionDef.isStaticMember()
+        ? className + "." + methodName
+        : className + ".prototype." + methodName;
   }
 
   static boolean isClassMethod(Node functionNode) {
@@ -63,7 +82,17 @@ final class ClassUtil {
         && parent.getGrandparent().getFirstChild().matchesQualifiedName("goog.defineClass");
   }
 
-  static String getClassName(Node functionNode) {
+  /**
+   * Checks whether the given constructor/member function belongs to a named class, as
+   * opposed to an anonymous class.
+   */
+  static boolean hasNamedClass(Node functionNode) {
+    checkArgument(functionNode.isFunction());
+    return getClassName(functionNode) != null;
+  }
+
+  private static String getClassName(Node functionNode) {
+    checkArgument(functionNode.isFunction());
     if (isClassMethod(functionNode)) {
       Node parent = functionNode.getParent();
       if (parent.isMemberFunctionDef()) {

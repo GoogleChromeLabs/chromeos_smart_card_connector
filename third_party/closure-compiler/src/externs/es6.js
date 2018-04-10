@@ -24,9 +24,9 @@
 
 
 /**
- * @constructor
+ * @interface
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Generator
- * @implements {IteratorIterable<VALUE>}
+ * @extends {IteratorIterable<VALUE>}
  * @template VALUE
  */
 function Generator() {}
@@ -1234,6 +1234,13 @@ Promise.prototype.catch = function(onRejected) {};
 
 
 /**
+ * @param {function()} callback
+ * @return {!Promise<TYPE>}
+ */
+Promise.prototype.finally = function(callback) {};
+
+
+/**
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/of
  * @param {...T} var_args
  * @return {!Array<T>}
@@ -1358,9 +1365,9 @@ Number.MAX_SAFE_INTEGER;
 
 
 /**
- * Parse an integer. Use of {@code parseInt} without {@code base} is strictly
+ * Parse an integer. Use of `parseInt` without `base` is strictly
  * banned in Google. If you really want to parse octal or hex based on the
- * leader, then pass {@code undefined} as the base.
+ * leader, then pass `undefined` as the base.
  *
  * @param {string} string
  * @param {number|undefined} radix

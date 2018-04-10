@@ -65,7 +65,15 @@ public class NoObjectType extends FunctionType {
 
   NoObjectType(JSTypeRegistry registry) {
     super(
-        registry, null, null, registry.createArrowType(null, null), null, null, true, true, false);
+        registry,
+        null,
+        null,
+        registry.createArrowType(null, null),
+        null,
+        null,
+        FunctionType.Kind.CONSTRUCTOR,
+        true,
+        false);
     getInternalArrowType().returnType = this;
     this.setInstanceType(this);
   }
@@ -131,6 +139,11 @@ public class NoObjectType extends FunctionType {
   }
 
   @Override
+  public boolean matchesSymbolContext() {
+    return true;
+  }
+
+  @Override
   public int hashCode() {
     return System.identityHashCode(this);
   }
@@ -172,7 +185,7 @@ public class NoObjectType extends FunctionType {
   }
 
   @Override
-  JSType resolveInternal(ErrorReporter t, StaticTypedScope<JSType> scope) {
+  JSType resolveInternal(ErrorReporter reporter, StaticTypedScope<JSType> scope) {
     return this;
   }
 }

@@ -31,6 +31,7 @@ import com.google.javascript.jscomp.newtypes.UniqueNameGenerator;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.ObjectTypeI;
+import com.google.javascript.rhino.StaticScope;
 import com.google.javascript.rhino.TypeI;
 import com.google.javascript.rhino.TypeIEnv;
 import com.google.javascript.rhino.TypeIRegistry;
@@ -101,8 +102,7 @@ public class GlobalTypeInfo implements TypeIRegistry {
         this.getCommonTypes(),
         compiler.getCodingConvention(),
         this.varNameGen,
-        new RecordPropertyCallBack(),
-        compiler.getOptions().inIncrementalCheckMode());
+        new RecordPropertyCallBack());
   }
 
   class RecordPropertyCallBack implements Function<Node, Void>, Serializable {
@@ -224,7 +224,18 @@ public class GlobalTypeInfo implements TypeIRegistry {
   }
 
   @Override
+  public JSType getGlobalType(String typeName) {
+    return getType(null, typeName);
+  }
+
+  @Override
   public JSType getType(String typeName) {
+    return getType(null, typeName);
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public JSType getType(StaticScope scope, String typeName) {
     // Primitives are not present in the global scope, so hardcode them
     switch (typeName) {
       case "boolean":
@@ -277,14 +288,13 @@ public class GlobalTypeInfo implements TypeIRegistry {
     return createTypeFromCommentNode(expr.getRoot());
   }
 
-  @SuppressWarnings("unchecked")
   @Override
-  public TypeI createRecordType(Map<String, ? extends TypeI> props) {
+  public JSType createRecordType(Map<String, ? extends TypeI> props) {
     return JSType.fromProperties(this.commonTypes, (Map<String, JSType>) props);
   }
 
   @Override
-  public TypeI instantiateGenericType(
+  public JSType instantiateGenericType(
       ObjectTypeI genericType, ImmutableList<? extends TypeI> typeArgs) {
     JSType t = (JSType) genericType;
     int numTypeParams = t.getTypeParameters().size();
@@ -300,7 +310,7 @@ public class GlobalTypeInfo implements TypeIRegistry {
   }
 
   @Override
-  public TypeI buildRecordTypeFromObject(ObjectTypeI obj) {
+  public JSType buildRecordTypeFromObject(ObjectTypeI obj) {
     return JSType.buildRecordTypeFromObject(this.commonTypes, (JSType) obj);
   }
 

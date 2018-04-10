@@ -250,6 +250,25 @@ public interface RequirementOrBuilder extends
 
   /**
    * <pre>
+   * Strategy to use for matching types in the value parameter (e.g. for
+   * BANNED_CODE_PATTERN checks).
+   * </pre>
+   *
+   * <code>optional .jscomp.Requirement.TypeMatchingStrategy type_matching_strategy = 13 [default = LOOSE];</code>
+   */
+  boolean hasTypeMatchingStrategy();
+  /**
+   * <pre>
+   * Strategy to use for matching types in the value parameter (e.g. for
+   * BANNED_CODE_PATTERN checks).
+   * </pre>
+   *
+   * <code>optional .jscomp.Requirement.TypeMatchingStrategy type_matching_strategy = 13 [default = LOOSE];</code>
+   */
+  com.google.javascript.jscomp.Requirement.TypeMatchingStrategy getTypeMatchingStrategy();
+
+  /**
+   * <pre>
    * For "custom" requirements, the Java class used to enforce the requirement.
    * Ignored otherwise.
    * </pre>
@@ -370,4 +389,13 @@ public interface RequirementOrBuilder extends
    * <code>optional bool report_loose_type_violations = 11 [default = true];</code>
    */
   boolean getReportLooseTypeViolations();
+
+  /**
+   * <code>optional .jscomp.Requirement.Severity severity = 12 [default = WARNING];</code>
+   */
+  boolean hasSeverity();
+  /**
+   * <code>optional .jscomp.Requirement.Severity severity = 12 [default = WARNING];</code>
+   */
+  com.google.javascript.jscomp.Requirement.Severity getSeverity();
 }
