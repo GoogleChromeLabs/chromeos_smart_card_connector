@@ -169,15 +169,15 @@ ChromeUsbBackend.prototype.getChromeUsbFunction_ = function(functionName) {
  */
 ChromeUsbBackend.prototype.chromeUsbApiGenericCallback_ = function(
     debugRepresentation, promiseResolver, var_args) {
-  if (goog.isDef(chrome.runtime.lastError)) {
+  var lastError = chrome.runtime.lastError;
+  if (goog.isDef(lastError)) {
     // FIXME(emaxx): Looks like the USB transfer timeouts also raise this
     // lastError flag, that is not suitable for us as we want to distinguish
     // the timeouts from the fatal errors.
     this.reportRequestError_(
         debugRepresentation,
         promiseResolver,
-        goog.isDef(chrome.runtime.lastError['message']) ?
-            chrome.runtime.lastError['message'] : 'Unknown error');
+        goog.object.get(lastError, 'message', 'Unknown error'));
   } else {
     this.reportRequestSuccess_(
         debugRepresentation,

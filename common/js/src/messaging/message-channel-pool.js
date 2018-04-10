@@ -53,7 +53,7 @@ GSC.MessageChannelPool = function() {
   this.channels_ = new goog.labs.structs.Multimap;
 
   /**
-   * @type {!Array.<!function(!Array.<string>)>}
+   * @type {!Array.<function(!Array.<string>)>}
    * @private
    */
   this.onUpdateListeners_ = [];
