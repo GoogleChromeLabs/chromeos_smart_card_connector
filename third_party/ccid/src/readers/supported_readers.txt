@@ -1,6 +1,6 @@
 #
 # List of readers supported by the CCID driver
-# Generated: 2017-10-02
+# Generated: 2018-02-20
 #
 # DO NOT EDIT BY HAND
 
@@ -124,6 +124,7 @@
 # Access IS
 0x0DB5:0x0138:Access IS ePassport Reader
 0x0DB5:0x0160:Access IS NFC Smart Module
+0x0DB5:0x0164:Access IS NFC Smart Module
 
 # ACS
 0x072F:0x1204:ACS ACR101 ICC Reader
@@ -210,7 +211,12 @@
 0x25DD:0x2321:Bit4id CKey4
 0x25DD:0x2341:Bit4id tokenME FIPS v3
 0x25DD:0x2351:Bit4id Digital DNA Key
+0x25DD:0x2361:Bit4id Digital-DNA Key BT
+0x25DD:0x2362:Bit4id Digital-DNA Key
 0x25DD:0x3111:Bit4id miniLector
+
+# Bluink Ltd.
+0x2ABE:0x1003:Bluink Ltd. Bluink CCID
 
 # BLUTRONICS
 0x1B0E:0x1079:BLUTRONICS BLUDRIVE II CCID
@@ -256,6 +262,7 @@
 0x04F2:0x0967:Chicony USB Smart Card Keyboard
 0x03F0:0x114A:Chicony HP USB Smartcard CCID Keyboard KR
 0x03F0:0x124A:Chicony HP USB Smartcard CCID Keyboard JP
+0x04F2:0x1469:Chicony HP Skylab USB Smartcard Keyboard
 
 # COVADIS
 0x0982:0x0008:COVADIS VEGA-ALPHA
@@ -366,10 +373,12 @@
 # HID Global
 0x076B:0x3031:HID Global OMNIKEY 3x21 Smart Card Reader
 0x076B:0x5022:HID Global OMNIKEY 5022 Smart Card Reader
+0x076B:0x5023:HID Global OMNIKEY 5023 Smart Card Reader
 0x076B:0x5400:HID Global veriCLASS Reader
 0x076B:0x5412:HID Global OMNIKEY 5122 Smartcard Reader
 0x076B:0x5422:HID Global OMNIKEY 5422 Smartcard Reader
 0x076B:0x5432:HID Global OMNIKEY 5122 Dual
+0x076B:0x5A27:HID Global OMNIKEY 5027CK CCID CONFIG IF
 0x076B:0x6632:HID Global OMNIKEY 6121 Smart Card Reader
 
 # HID OMNIKEY
@@ -444,6 +453,9 @@
 
 # Kapsch TrafficCom
 0x28B9:0x0002:Kapsch TrafficCom USB SAM reader
+
+# KeyXentic Inc.
+0x2F76:0x0906:KeyXentic Inc. KX906 Smart Card Reader
 
 # Kingtrust
 0x0483:0x0007:Kingtrust Multi-Reader
@@ -619,6 +631,8 @@
 0x1C34:0xA1A1:SpringCard H512 Series
 
 # Spyrus Inc
+0x08DF:0x0004:Spyrus Inc Rosetta USB
+0x08DF:0x3115:Spyrus Inc WorkSafe Pro
 0x08DF:0x3201:Spyrus Inc PocketVault P-3X
 
 # SYNNIX
@@ -676,6 +690,7 @@
 # Watchdata
 0x163C:0x0407:Watchdata USB Key
 0x163C:0x0417:Watchdata USB Key
+0x163C:0x0418:Watchdata USB Key
 
 # Watchdata W5181
 0x163C:0x0A03:Watchdata W5181 
