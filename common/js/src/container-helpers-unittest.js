@@ -34,6 +34,17 @@ goog.exportSymbol('testBuildObjectFromMap', function() {
   assertObjectEquals(
       buildObjectFromMap(new Map([['key1', 'value1'], ['key2', 'value2']])),
       {key1: 'value1', key2: 'value2'});
+  // Test cases where keys and/or values are not strings.
+  assertObjectEquals(
+      buildObjectFromMap(new Map([['key', 123]])), {key: 123});
+  assertObjectEquals(
+      buildObjectFromMap(new Map([[123, 'value']])), {123: 'value'});
+  assertObjectEquals(
+      buildObjectFromMap(new Map([['key 1', {'key 2': 'value'}]])),
+      {'key 1': {'key 2': 'value'}});
+  assertThrows(function() {
+    buildObjectFromMap(new Map([[{}, 'value']]));
+  });
 });
 
 });  // goog.scope

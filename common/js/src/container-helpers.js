@@ -17,8 +17,6 @@
 goog.provide('GoogleSmartCard.ContainerHelpers');
 
 goog.require('GoogleSmartCard.Logging');
-goog.require('goog.array');
-goog.require('goog.object');
 
 goog.scope(function() {
 
@@ -27,17 +25,19 @@ var GSC = GoogleSmartCard;
 
 /**
  * Converts the given Map to an Object.
+ *
+ * The Map must have only string or numeric keys.
  * @param {!Map} map
  * @return {!Object}
  */
 GSC.ContainerHelpers.buildObjectFromMap = function(map) {
-  var keyValuePairArray = Array.from(map.entries());
-  GSC.Logging.check(keyValuePairArray.length == map.size);
-  var flatKeysAndValuesArray = goog.array.flatten(keyValuePairArray);
-  GSC.Logging.check(flatKeysAndValuesArray.length == map.size * 2);
-  var object = goog.object.create(flatKeysAndValuesArray);
-  GSC.Logging.check(goog.object.getCount(object) == map.size);
-  return object;
+  let obj = {};
+  for (let [key, value] of map) {
+    GSC.Logging.check(goog.isString(key) || goog.isNumber(key),
+                      'Invalid type for object key');
+    obj[key] = value;
+  }
+  return obj;
 };
 
 });  // goog.scope

@@ -103,13 +103,16 @@ function setUpChromeStorageMock(
          get: mockControl.createFunctionMock('chrome.storage.local.get'),
          set: mockControl.createFunctionMock('chrome.storage.local.set')}});
 
+  // Suppress compiler's signature verifications locally, to be able to use
+  // mock-specific functionality.
   /** @type {?} */ chrome.storage.local.get;
+  /** @type {?} */ chrome.storage.local.set;
+
   chrome.storage.local.get(STORAGE_KEY, ignoreArgument).$does(
       function(key, callback) {
         callback(fakeInitialData);
       });
 
-  /** @type {?} */ chrome.storage.local.set;
   if (!goog.isNull(expectedDataToBeWritten))
     chrome.storage.local.set(expectedDataToBeWritten);
 }
@@ -160,7 +163,7 @@ function negatePromise(promise) {
   return promise.then(function() {
     fail('Unexpected successful response');
   }, function() {
-    // Do not pass on the rejection.
+    // Resolve the resulting promise - by simply returning from this callback.
   });
 }
 
