@@ -86,3 +86,12 @@ INSTALLING_HEADERS := \
 	$(INSTALLED_HEADERS_DIR_NAME):$(SOURCES_PATH)/google_smart_card_pcsc_lite_server_clients_management:ready_message.h \
 
 $(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
+
+
+test::
+	+$(MAKE) --directory js_unittests run
+
+tests_clean::
+	+$(MAKE) --directory js_unittests clean
+
+clean: tests_clean

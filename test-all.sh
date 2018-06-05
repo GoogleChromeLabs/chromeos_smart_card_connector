@@ -29,7 +29,8 @@ set -eu
 TEST_DIRS="
   common/cpp/build
   common/js/build
-  third_party/libusb/naclport/build"
+  third_party/libusb/naclport/build
+  third_party/pcsc-lite/naclport/server_clients_management/build"
 
 CONFIGS="Release Debug"
 

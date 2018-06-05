@@ -27,6 +27,7 @@
 
 goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
 
+goog.require('GoogleSmartCard.ContainerHelpers');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
@@ -293,8 +294,8 @@ UserPromptingChecker.prototype.storeUserSelection_ =
   this.localStoragePromiseResolver_.promise.then(
       function(/** !Map */ storedUserSelections) {
         storedUserSelections.set(clientAppId, userSelection);
-        var dumpedValue = goog.object.create(Array.from(
-            storedUserSelections.entries()));
+        var dumpedValue = GSC.ContainerHelpers.buildObjectFromMap(
+            storedUserSelections);
         this.logger.finer('Storing the following data in the local storage: ' +
                           GSC.DebugDump.dump(dumpedValue));
         chrome.storage.local.set(goog.object.create(
