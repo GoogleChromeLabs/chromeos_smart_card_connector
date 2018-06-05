@@ -288,4 +288,37 @@ goog.exportSymbol(
         return userPromptingChecker.check(FAKE_APP_2_ID);
       }));
 
+// Regression test for issue #57.
+goog.exportSymbol(
+    'test_UserPromptingChecker_CorruptedStorage_NonObject', makeTest(
+      {[STORAGE_KEY]: 'foo'}  /* fakeInitialStorageData */,
+      {[STORAGE_KEY]: {[FAKE_APP_1_ID]: true}}
+          /* expectedStorageDataToBeWritten */,
+      MockedDialogBehavior.USER_APPROVES  /* mockedDialogBehavior */,
+      function(userPromptingChecker) {
+        return userPromptingChecker.check(FAKE_APP_1_ID);
+      }));
+
+// Regression test for issue #57.
+goog.exportSymbol(
+    'test_UserPromptingChecker_CorruptedStorage_BadItem', makeTest(
+      {[STORAGE_KEY]: {[FAKE_APP_1_ID]: 'foo'}}  /* fakeInitialStorageData */,
+      {[STORAGE_KEY]: {[FAKE_APP_1_ID]: true}}
+          /* expectedStorageDataToBeWritten */,
+      MockedDialogBehavior.USER_APPROVES  /* mockedDialogBehavior */,
+      function(userPromptingChecker) {
+        return userPromptingChecker.check(FAKE_APP_1_ID);
+      }));
+
+// Regression test for issue #57.
+goog.exportSymbol(
+    'test_UserPromptingChecker_CorruptedStorage_BadOtherItem', makeTest(
+      {[STORAGE_KEY]: {[FAKE_APP_1_ID]: true, [FAKE_APP_2_ID]: 'foo'}}
+          /* fakeInitialStorageData */,
+      null  /* expectedStorageDataToBeWritten */,
+      MockedDialogBehavior.NOT_RUN  /* mockedDialogBehavior */,
+      function(userPromptingChecker) {
+        return userPromptingChecker.check(FAKE_APP_1_ID);
+      }));
+
 });  // goog.scope
