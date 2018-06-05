@@ -31,12 +31,11 @@ include ../../include.mk
 
 # Compile all JavaScript files rooting in the tested component's directory
 # (including test files), and also compile the common library files (excluding
-# this library's test files).
+# that library's test files).
 #
 # The path constants used below come from the include.mk files.
 JS_COMPILER_INPUT_PATHS := \
-	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
-	$(JS_COMMON_SOURCES_PATH) \
-	!$(JS_COMMON_SOURCES_PATH)/**-unittest.js \
+	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_SOURCES_PATH) \
+	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 
 $(eval $(call BUILD_JS_UNITTESTS,$(JS_COMPILER_INPUT_PATHS)))

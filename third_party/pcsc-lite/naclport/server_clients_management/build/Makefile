@@ -73,7 +73,7 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/permissions_checking/user-pro
 
 JS_COMPILER_INPUT_PATHS := \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
-	$(SOURCES_PATH) \
+	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
 
 $(eval $(call BUILD_JS_SCRIPT,pcsc_lite_server_clients_management/user-prompt-dialog.js,$(JS_COMPILER_INPUT_PATHS),GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.Main))
 
