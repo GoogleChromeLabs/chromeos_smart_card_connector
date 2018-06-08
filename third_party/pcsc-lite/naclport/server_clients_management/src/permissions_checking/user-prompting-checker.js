@@ -168,18 +168,7 @@ UserPromptingChecker.prototype.loadLocalStorage_ = function() {
 UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
   this.logger.finer('Loaded the following data from the local storage: ' +
                     GSC.DebugDump.dump(items));
-
-  /** @type {!Map.<string, boolean>} */
-  var storedUserSelections = new Map;
-  if (items[LOCAL_STORAGE_KEY]) {
-    var contents = items[LOCAL_STORAGE_KEY];
-    GSC.Logging.checkWithLogger(this.logger, goog.isObject(contents));
-    goog.object.forEach(contents, function(userSelection, appId) {
-      GSC.Logging.checkWithLogger(this.logger, goog.isBoolean(userSelection));
-      storedUserSelections.set(appId, userSelection);
-    }, this);
-  }
-
+  var storedUserSelections = this.parseLocalStorageUserSelections_(items);
   var itemsForLog = [];
   storedUserSelections.forEach(function(userSelection, extensionId) {
     itemsForLog.push((userSelection ? 'allow' : 'deny') + ' for extension "' +
@@ -190,6 +179,36 @@ UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
       (itemsForLog.length ? goog.iter.join(itemsForLog, ', ') : 'no data'));
 
   this.localStoragePromiseResolver_.resolve(storedUserSelections);
+};
+
+/**
+ * @param {!Object} localStorageItems
+ * @return {!Map.<string, boolean>}
+ * @private
+ */
+UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
+    localStorageItems) {
+  /** @type {!Map.<string, boolean>} */
+  var storedUserSelections = new Map;
+  if (!localStorageItems[LOCAL_STORAGE_KEY])
+    return storedUserSelections;
+  var contents = localStorageItems[LOCAL_STORAGE_KEY];
+  if (!goog.isObject(contents)) {
+    this.logger.warning(
+        'Corrupted local storage data - expected an object, received: ' +
+        GSC.DebugDump.dump(contents));
+    return storedUserSelections;
+  }
+  goog.object.forEach(contents, function(userSelection, appId) {
+    if (!goog.isBoolean(userSelection)) {
+      this.logger.warning(
+          'Corrupted local storage entry - expected the object value to ' +
+          'be a boolean, received: ' + GSC.DebugDump.dump(userSelection));
+      return;
+    }
+    storedUserSelections.set(appId, userSelection);
+  }, this);
+  return storedUserSelections;
 };
 
 /**
