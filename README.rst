@@ -39,7 +39,7 @@ The high-level overview of the architecture is:
     section below.
 
     The App is bundled with the **free USB CCID driver** (see
-    <https://pcsclite.alioth.debian.org/ccid.html>). This driver is
+    <https://ccid.apdu.fr/>). This driver is
     patched appropriately in order to be able to work through the
     **chrome.usb** Chrome API.
 
@@ -49,7 +49,7 @@ The high-level overview of the architecture is:
     technically (each driver can be created as a separate App talking to
     the Connector App through some defined interface). A list of readers
     supported by CCID can be found on their website
-    <https://pcsclite.alioth.debian.org/ccid/section.html>.
+    <https://ccid.apdu.fr/#readers>.
 
 2.  A number of **third-party middleware Apps** containing the smart
     card drivers.
@@ -73,7 +73,7 @@ As was mentioned before, the Connector App acts as the provider of the
 The App plays basically the same role as the **PC/SC-Lite Daemon** does
 on Linux (see <http://linux.die.net/man/8/pcscd>). And, actually, the
 App sources are heavily based on the **PC/SC-Lite middleware** sources
-(see <https://pcsclite.alioth.debian.org/pcsclite.html>).
+(see <https://salsa.debian.org/rousseau/PCSC>).
 
 For the details of the internal structure and the implementation of the
 Smart Card Connector App, please refer to its own ``README`` file (see
@@ -138,7 +138,7 @@ Smart Card Connector App API
 ----------------------------
 
 The API exposed by the Connector App is basically a PC/SC-Lite API (see
-<https://pcsclite.alioth.debian.org/api/group__API.html>) adopted for
+<https://pcsclite.apdu.fr/api/group__API.html>) adopted for
 the message-exchanging nature of the communication between Chrome Apps
 (see <https://developer.chrome.com/apps/messaging>).
 
