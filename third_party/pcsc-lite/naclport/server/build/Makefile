@@ -90,7 +90,8 @@ PCSC_LITE_COMMON_CPPFLAGS := \
 	-I$(LIBUSB_INCLUDE_PATH) \
 
 # Part of the list of the original PC/SC-Lite daemon source files to be
-# compiled (see also the PCSC_LITE_SERVER_SVC_SOURCES variable)
+# compiled (see also PCSC_LITE_SERVER_SVC_SOURCES,
+# PCSC_LITE_SERVER_READERFACTORY_SOURCES variables)
 PCSC_LITE_SERVER_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/atrhandler.c \
 	$(PCSC_LITE_SOURCES_PATH)/debuglog.c \
@@ -99,7 +100,6 @@ PCSC_LITE_SERVER_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/hotplug_libusb.c \
 	$(PCSC_LITE_SOURCES_PATH)/ifdwrapper.c \
 	$(PCSC_LITE_SOURCES_PATH)/prothandler.c \
-	$(PCSC_LITE_SOURCES_PATH)/sys_unix.c \
 	$(PCSC_LITE_SOURCES_PATH)/utils.c \
 	$(PCSC_LITE_SOURCES_PATH)/winscard.c \
 
@@ -133,7 +133,7 @@ PCSC_LITE_SERVER_SVC_SOURCES := \
 
 # * close redefinition makes the original PC/SC-Lite code use the function from
 #   the emulated socketpair library (because the emulated socketpair library
-#   generates fake file descriptor, and calling the real close function with
+#   generates fake file descriptors, and calling the real close function with
 #   them may cause bad effects)
 PCSC_LITE_SERVER_SVC_CPPFLAGS := \
 	$(PCSC_LITE_SERVER_CPPFLAGS) \
@@ -177,6 +177,7 @@ PCSC_LITE_SERVER_NACL_SOURCES := \
 	$(SOURCES_PATH)/readerfactory_nacl.cc \
 	$(SOURCES_PATH)/server_sockets_manager.cc \
 	$(SOURCES_PATH)/socketpair_emulation.cc \
+	$(SOURCES_PATH)/sys_nacl.cc \
 	$(SOURCES_PATH)/unistd_nacl.cc \
 	$(SOURCES_PATH)/winscard_msg_nacl.cc \
 
