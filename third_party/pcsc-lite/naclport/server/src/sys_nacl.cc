@@ -19,6 +19,8 @@
 // implementation file.
 
 #include <chrono>
+#include <limits>
+#include <mutex>
 #include <random>
 #include <thread>
 
@@ -34,12 +36,14 @@ extern "C" int SYS_USleep(int iTimeVal) {
 
 extern "C" int SYS_RandomInt(int fStart, int fEnd) {
   // Use C++11 pseudo-random number generator instead of C's rand(), since the
-  // latter is broken in our PNaCl application (it gives).
-  std::random_device random_device;
-  unsigned random_value = random_device();
-  if (fEnd == -1)
-    return random_value;
-  return fStart + (random_value % (fEnd - fStart + 1));
+  // latter is broken in our PNaCl application (it produces duplicate values
+  // very often).
+  static std::random_device random_device;
+  static std::mt19937 mt(random_device());
+  static std::mutex mutex;
+  const int upper_bound = fEnd == -1 ? std::numeric_limits<int>::max() : fEnd;
+  std::lock_guard<std::mutex> lock(mutex);
+  return std::uniform_int_distribution<int>(fStart, upper_bound)(mt);
 }
 
 extern "C" void SYS_InitRandom() {}
