@@ -1,5 +1,5 @@
 /*
- * MUSCLE SmartCard Development ( http://pcsclite.alioth.debian.org/pcsclite.html )
+ * MUSCLE SmartCard Development ( https://pcsclite.apdu.fr/ )
  *
  * Copyright (C) 2011
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -593,7 +593,7 @@ static void HPScanUSB(struct udev *udev)
 }
 
 
-static void HPEstablishUSBNotifications(void *arg)
+static void * HPEstablishUSBNotifications(void *arg)
 {
 	struct udev_monitor *udev_monitor = arg;
 	int r;

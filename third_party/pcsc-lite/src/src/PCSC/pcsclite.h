@@ -1,5 +1,5 @@
 /*
- * MUSCLE SmartCard Development ( http://pcsclite.alioth.debian.org/pcsclite.html )
+ * MUSCLE SmartCard Development ( https://pcsclite.apdu.fr/ )
  *
  * Copyright (C) 1999-2004
  *  David Corcoran <corcoran@musclecard.com>
@@ -279,7 +279,7 @@ extern const SCARD_IO_REQUEST g_rgSCardT0Pci, g_rgSCardT1Pci, g_rgSCardRawPci;
 #define INFINITE			0xFFFFFFFF	/**< Infinite timeout */
 #endif
 
-#define PCSCLITE_VERSION_NUMBER		"1.8.23"	/**< Current version */
+#define PCSCLITE_VERSION_NUMBER		"1.8.24"	/**< Current version */
 /** Maximum readers context (a slot is count as a reader) */
 #define PCSCLITE_MAX_READERS_CONTEXTS			16
 

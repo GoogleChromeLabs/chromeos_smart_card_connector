@@ -1,4 +1,639 @@
-commit 09f0f85b86e7488cf26642dd17150f76bed5300c (HEAD -> master)
+commit 73d95ada3221c060cbd7b6aa2375453f9d0e359b (HEAD -> master, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Oct 12 10:43:51 2018 +0200
+
+    Release 1.8.23
+
+ ChangeLog    | 13 +++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 14 insertions(+), 1 deletion(-)
+
+commit eaaf8edac2a960feb884bcf4cd90720757fca0bb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Oct 12 11:00:56 2018 +0200
+
+    Fix compiler warning: output may be truncated
+    
+    winscard_msg.c: In function ‘ClientSetupSession’:
+    winscard_msg.c:134:2: warning: ‘strncpy’ output may be truncated copying 108 bytes from a string of length 109 [-Wstringop-truncation]
+      strncpy(svc_addr.sun_path, socketName, sizeof(svc_addr.sun_path));
+      ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    
+    The source was sizeof(struct sockaddr_un) bytes long.
+    But the destination was sizeof(svc_addr.sun_path) bytes long only.
+    
+    svc_addr is a struct sockaddr_un but the sun_path field is shorter (1
+    byte shorter according to the compiler) than the complete struct
+    sockaddr_un.
+
+ src/winscard_msg.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+commit 2bef09483a51c9835ae70f4647791c9c00b98861
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Oct 12 10:53:41 2018 +0200
+
+    Fix compiler warning: cast between incompatible function
+    
+    hotplug_libudev.c: In function ‘HPRegisterForHotplugEvents’:
+    hotplug_libudev.c:769:3: warning: cast between incompatible function types from ‘void (*)(void *)’ to ‘void * (*)(void *)’ [-Wcast-function-type]
+       (PCSCLITE_THREAD_FUNCTION( )) HPEstablishUSBNotifications, udev_monitor))
+       ^
+
+ src/hotplug_libudev.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 3c80087b60fa30b45ee240f3c58a8562275c08f4
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Oct 12 10:52:47 2018 +0200
+
+    Fix compiler warning: cast between incompatible function
+    
+    eventhandler.c: In function ‘EHSpawnEventHandler’:
+    eventhandler.c:234:3: warning: cast between incompatible function types from ‘void (*)(READER_CONTEXT *)’ {aka ‘void (*)(struct ReaderContext *)’} to ‘void * (*)(void *)’ [-Wcast-function-type]
+       (PCSCLITE_THREAD_FUNCTION( ))EHStatusHandlerThread, (LPVOID) rContext);
+       ^
+
+ src/eventhandler.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit d6ba979b448901a063af537ef8ad68ca0b76727a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Oct 12 10:51:48 2018 +0200
+
+    Fix compiler warning: cast between incompatible function
+    
+    winscard_svc.c: In function ‘CreateContextThread’:
+    winscard_svc.c:237:3: warning: cast between incompatible function types from ‘void (*)(void *)’ to ‘void * (*)(void *)’ [-Wcast-function-type]
+       (PCSCLITE_THREAD_FUNCTION( )) ContextThread, (LPVOID) newContext);
+       ^
+
+ src/winscard_svc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 0984e0f4a03e5e29bb5725b6f149f56c9e9c73c2
+Author: Mateusz Piotrowski <0mp@FreeBSD.org>
+Date:   Tue Oct 9 12:10:13 2018 +0200
+
+    Remove license information for src/sd-daemon.{c,h}
+    
+    Those files were removed in 30e10951.
+
+ COPYING | 24 ------------------------
+ 1 file changed, 24 deletions(-)
+
+commit db6b67acf7027ecbc275cdb8242cddf3e6508b26 (zotac/master, zmaster)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 8 14:41:53 2018 +0200
+
+    Rename POWER_STATE_INUSE -> POWER_STATE_IN_USE
+
+ src/pcscd.h.in | 2 +-
+ src/winscard.c | 8 ++++----
+ 2 files changed, 5 insertions(+), 5 deletions(-)
+
+commit 5467a3896755f05e406fda15be090b9376909d6e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 8 14:29:20 2018 +0200
+
+    UT for SCardReconnect(): suspend card auto power off
+    
+    Check the card is not auto powered off after 5 seconds when
+    SCardReconnect() is used.
+
+ UnitaryTests/CheckAutoPowerOff.py | 91 +++++++++++++++++++++++++++++++++++++++
+ 1 file changed, 91 insertions(+)
+
+commit 02dd27bfd19a88c051b91885472e5f6144f7a0a5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Oct 8 14:24:18 2018 +0200
+
+    SCardReconnect(): suspend card auto power off
+    
+    When the card is reconnected the power state must be changed to
+    POWER_STATE_INUSE so that card auto power off is not triggered.
+    
+    See associated Unitary Test CheckAutoPowerOff.py
+    
+    Thanks to Christophe Ferrando for the bug report
+
+ src/winscard.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+commit c3bcdeb702658cd6233133b5f092292c9360a7d9
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 4 15:12:19 2018 +0200
+
+    MSGRemoveContext(): always disconnect the card
+    
+    We need to call SCardDisconnect() in all cases so that the card use
+    counter is always decremented when a client disappear.
+    
+    - when no lock is in use
+    - when a lock is in use
+      - but the lock is held by another context
+      - the lock is held by the current context
+    
+    The bug effect was that smart card auto power off was not working
+    correctly.
+
+ src/winscard_svc.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 46d174c492791bdb8205f29b3d5bfd903f4a798d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 4 14:45:12 2018 +0200
+
+    MSGRemoveContext(): Do not reset the card if no lock
+    
+    If the card was not locked (PC/SC transaction) then no need to reset it
+    when the context is released.
+
+ src/winscard_svc.c | 46 +++++++++++++++++++++++++++-------------------
+ 1 file changed, 27 insertions(+), 19 deletions(-)
+
+commit c2d79706d8074cc19c6d1e0a1b7a08137936911c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Oct 4 14:36:27 2018 +0200
+
+    MSGRemoveContext(): disconnect also if no lock is ongoing
+    
+    If SCardDisconnect() is not called by the application it should be
+    called by pcscd to enable card auto power off.
+    
+    This fixes a regression added by 57092b3.
+
+ src/winscard_svc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit dde4deb7f709c2a54d791249a3e08f94a3763ca5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 2 14:30:11 2018 +0200
+
+    Unit Test for bug fixed in 57092b3
+
+ UnitaryTests/SCardBeginTransaction_SharedMode.py | 132 +++++++++++++++++++++++
+ 1 file changed, 132 insertions(+)
+
+commit 57092b35cab35a9d939cd9094c49d8ecac85f1d2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 2 14:22:48 2018 +0200
+
+    MSGRemoveContext(): only release a owned transaction
+    
+    SCardReleaseContext() shall NOT release a lock (PC/SC transaction)
+    owned by another context.
+    
+    Thanks to Frederic Hoerni for the bug report
+    "[Pcsclite-muscle] closing client cancels ongoing transaction"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2018-September/001126.html
+
+ src/winscard_svc.c | 20 ++++++++++----------
+ 1 file changed, 10 insertions(+), 10 deletions(-)
+
+commit ea1ecdeb0fcfb77863ac03615f2c82b48d9a9c9a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Sep 15 18:20:46 2018 +0200
+
+    Add the thread id in the log lines
+
+ src/debuglog.c | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+commit ded26af34a07d4bde9e86334519dc1799fbe6633
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 27 16:29:37 2018 +0200
+
+    Fix compiler warning: missing field 'rv' initializer
+    
+    winscard_svc.c:814:44: warning: missing field 'rv' initializer
+          [-Wmissing-field-initializers]
+            struct wait_reader_state_change waStr = {0};
+                                                      ^
+
+ src/winscard_svc.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+commit e632d595fc7f1a7be73353ba2c9d89b509389917
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 27 16:28:35 2018 +0200
+
+    Fix compiler warning missing field 'rv' initializer
+    
+    winscard_svc.c:428:47: warning: missing field 'rv' initializer
+          [-Wmissing-field-initializers]
+                                    struct wait_reader_state_change waStr = {0};
+
+ src/winscard_svc.c | 6 +++++-
+ 1 file changed, 5 insertions(+), 1 deletion(-)
+
+commit 54224a4cbf60f95f2da5f0978c62656f3369b700
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jul 27 16:00:49 2018 +0200
+
+    Fix SCardGetStatusChange() broken in a previous patch 984f84df
+    
+    The patch in 984f84df10e2d0f432039e3b31f94c74e95092eb broke the
+    execution of SCardGetStatusChange() when SCardCancel() is used.
+    
+    The client was waiting for a message that was never sent by the server.
+    
+    Fortunately the broken code was never released in a stable version of
+    pcsc-lite.
+    
+    Thanks to Sam Van Den Berge for the bug report
+    "[Pcsclite-muscle] SCardCancel broken"
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2018-July/001096.html
+    
+    Hello,
+    
+    It seems like SCardGetStatusChange is currently broken.
+    This can be tested with UnitaryTests/SCardCancel.
+    
+    Before commit 984f84df10e2d0f432039e3b31f94c74e95092eb:
+    
+    $ LD_LIBRARY_PATH=../src/.libs/ ./SCardCancel
+    SCardEstablishContext:[0x00000000] Command successful.
+    Press Enter to cancel within 3 seconds
+    Entering blocking call
+    
+    Calling SCardCancel...
+    SCardGetStatusChange:[0x80100002] Command cancelled.
+    Blocking call canceled
+    Good
+    SCardCancel:[0x00000000] Command successful.
+    SCardReleaseContext:[0x00000000] Command successful.
+    Waiting thread...
+    
+    After commit 984f84df10e2d0f432039e3b31f94c74e95092eb:
+    
+    $ LD_LIBRARY_PATH=../src/.libs/ ./SCardCancel
+    SCardEstablishContext:[0x00000000] Command successful.
+    Press Enter to cancel within 3 seconds
+    Entering blocking call
+    
+    Calling SCardCancel...
+    SCardCancel:[0x00000000] Command successful.
+    
+    <<<<<<<<< SCardGetStatusChange hangs here >>>>>>>>>
+    
+    I don't have a fix but I just wanted to report this. Besides this big
+    thank you for all your great work!
+    
+    Kr,
+    Sam.
+
+ src/winscard_clnt.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+commit ddf725874447a339f4ed69c70e1ad70b3d6c4d1c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 29 17:16:03 2018 +0200
+
+    Doxygen: documentation moved to pcsclite.apdu.fr
+    
+    Update the update.sh script to update the Doxygen documentation pages.
+
+ doc/update.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 01677078a426d82f913ca43583390f6cb9e5b29c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 29 16:31:30 2018 +0200
+
+    Allow "=" in serial driver filenames
+    
+    For example the configuration:
+    LIBPATH       /tmp/lib/pcsc/drivers/lib=ccid.dylib
+    failed with:
+    00000057 configfile.l:165:evaluatetoken() Error with library /tmp/lib/pcsc/drivers/lib: No such file or directory
+    
+    The problem was detected on Android 8.0 with file names such as:
+    /data/app/com.baimobile.android.enterprise.credential.service-4wM9GBtoaS74ZiA0Y25YuQ==/lib/arm64/lib_some_reader_driver.so
+    
+    Thanks to Alan Kozlay for the bug report and patch.
+
+ src/configfile.l | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 08664ae6e9b442ce6e6d54385dcba4d9cb70b2ca
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 29 16:28:13 2018 +0200
+
+    Doxygen: fix warning
+    
+    PCSC/src/PCSC/ifdhandler.h:84: warning: Unsupported xml/html tag
+    <string> found
+
+ src/PCSC/ifdhandler.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit d412c4bb65cc26f124fd5adb5f81299b08789d8e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 29 16:23:39 2018 +0200
+
+    Doxygen: do not document disabled functions
+    
+    If USE_LIBSYSTEMD is not defined then ListenExistingSocket() is not
+    implemented and the associated Doxygen documentation should not be
+    present.
+    
+    Fix Doxygen warning:
+    PCSC/src/winscard_msg_srv.c:193: warning: argument 'fd' of command @param is not found in the argument list of ProcessEventsServer(uint32_t *pdwClientID)
+
+ src/winscard_msg_srv.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit e4f50dc1cf264e0159524043a6f5fc1263942c32
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jun 29 16:19:55 2018 +0200
+
+    Doxygen: Use " " for FRIENDLYNAME
+    
+    The FRIENDLYNAME declaration for reader.conf files must use " " if space
+    characters are present in the name.
+
+ src/PCSC/ifdhandler.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit f14658076f12dde739a0e94a71036f62f83b1259
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 28 11:32:21 2018 +0200
+
+    Makefile.am: do not distribute DRIVERS
+    
+    The DRIVERS files has been removed because it was obsolete. Do not
+    include it in the generated tarball.
+
+ Makefile.am | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 5616594ce51a9b1e1fa6d913b3f8001289924a15
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 21 23:06:44 2018 +0200
+
+    ifdhandler.h: fix PC/SC Driver Developers Kit URL
+    
+    It is now at https://muscle.apdu.fr/musclecard.com/sourcedrivers.html
+
+ src/PCSC/ifdhandler.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit e93d7199fe69f35267421b51e673eca3b0e18b49
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 21 23:05:52 2018 +0200
+
+    HELP: fix Musle mailing list information
+    
+    Move from muscle@lists.musclecard.com to pcsclite-muscle@lists.infradead.org
+
+ HELP | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit dd40b62179791d108de37dc164da672a12b39064
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 21 23:01:51 2018 +0200
+
+    DRIVERS: remove outdated file
+    
+    Fixes issue #37
+    "drivers aren't available at given location"
+    https://github.com/LudovicRousseau/PCSC/issues/37
+
+ DRIVERS | 28 ----------------------------
+ 1 file changed, 28 deletions(-)
+
+commit 378ed84c4cfa0b373b793e62540549bf0eeb9b79
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 18 17:54:07 2018 +0200
+
+    Fix project URL
+    
+    Move from pcsclite.alioth.debian.org to pcsclite.apdu.fr
+
+ UnitaryTests/BufferOverflow_SCardControl.c   | 2 +-
+ UnitaryTests/BufferOverflow_SCardGetAttrib.c | 2 +-
+ UnitaryTests/BufferOverflow_SCardTransmit.c  | 2 +-
+ doc/example/pcsc_demo.c                      | 2 +-
+ doc/org.debian.pcsc-lite.policy              | 2 +-
+ doc/pcscd.8.in                               | 2 +-
+ src/PCSC/debuglog.h                          | 2 +-
+ src/PCSC/ifdhandler.h                        | 7 +++----
+ src/PCSC/pcsclite.h.in                       | 2 +-
+ src/PCSC/reader.h                            | 2 +-
+ src/PCSC/winscard.h                          | 2 +-
+ src/PCSC/wintypes.h                          | 2 +-
+ src/atrhandler.c                             | 2 +-
+ src/atrhandler.h                             | 2 +-
+ src/auth.c                                   | 2 +-
+ src/auth.h                                   | 2 +-
+ src/configfile.h                             | 2 +-
+ src/configfile.l                             | 2 +-
+ src/debug.c                                  | 2 +-
+ src/debuglog.c                               | 2 +-
+ src/dyn_generic.h                            | 2 +-
+ src/dyn_hpux.c                               | 2 +-
+ src/dyn_macosx.c                             | 2 +-
+ src/dyn_unix.c                               | 2 +-
+ src/error.c                                  | 2 +-
+ src/eventhandler.c                           | 2 +-
+ src/eventhandler.h                           | 2 +-
+ src/hotplug.h                                | 2 +-
+ src/hotplug_generic.c                        | 2 +-
+ src/hotplug_libudev.c                        | 2 +-
+ src/hotplug_libusb.c                         | 2 +-
+ src/hotplug_linux.c                          | 2 +-
+ src/hotplug_macosx.c                         | 2 +-
+ src/ifdwrapper.c                             | 2 +-
+ src/ifdwrapper.h                             | 2 +-
+ src/misc.h                                   | 2 +-
+ src/parser.h                                 | 2 +-
+ src/pcscd.h.in                               | 2 +-
+ src/pcscdaemon.c                             | 2 +-
+ src/prothandler.c                            | 2 +-
+ src/prothandler.h                            | 2 +-
+ src/readerfactory.c                          | 2 +-
+ src/readerfactory.h                          | 2 +-
+ src/strlcpycat.h                             | 2 +-
+ src/sys_generic.h                            | 2 +-
+ src/sys_unix.c                               | 2 +-
+ src/testpcsc.c                               | 2 +-
+ src/tokenparser.l                            | 2 +-
+ src/utils.c                                  | 2 +-
+ src/utils.h                                  | 2 +-
+ src/utils/formaticc.c                        | 2 +-
+ src/utils/installifd.c                       | 2 +-
+ src/winscard.c                               | 2 +-
+ src/winscard_clnt.c                          | 2 +-
+ src/winscard_msg.c                           | 2 +-
+ src/winscard_msg.h                           | 2 +-
+ src/winscard_msg_srv.c                       | 2 +-
+ src/winscard_svc.c                           | 2 +-
+ src/winscard_svc.h                           | 2 +-
+ 59 files changed, 61 insertions(+), 62 deletions(-)
+
+commit 78505c8b025454de296331652b767e7bd198e593
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 18 17:26:13 2018 +0200
+
+    README.md: Fix project URL
+    
+    Move from pcsclite.alioth.debian.org to pcsclite.apdu.fr
+
+ README.md | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 984f84df10e2d0f432039e3b31f94c74e95092eb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Apr 23 10:03:21 2018 +0200
+
+    Fix a rare race condition in SCardGetStatusChange()
+    
+    Thanks to Maximilian Stein for the patch
+    
+    [Pcsclite-muscle] Rare race condition in SCardGetStatusChange()
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2018-April/001068.html
+    
+    " Hello all,
+    
+    recently we stumbled upon another (rare) race condition in the
+    SCardGetStatusChange() function. I especially ask Maksim Ivanov and
+    Florian Kaiser kindly to share their opinion about the problem and the
+    proposed fix, since they did a good job in improving
+    SCardGetStatusChange/SCardCancel in the recent past.
+    
+    The problem:
+    The problem is basically the small gap between fetching the reader
+    states from pcscd [winscard_clnt.c:1741 and 2119] and registering for
+    event notifications [winscard_clnt.c:2070]. If a notification is sent in
+    this time period, SCardGetStatusChange() will sleep until another event
+    or the internal time-out is reached. Consider the following flow of
+    execution and events:
+    
+    Precondition: [client] knows the current state of all readers from a
+    previous call to SCardGetStatusChange() and no changes happened since
+    then. Basically consider a thread that monitors the reader states which
+    calls SCardGetStatusChange() in a loop.
+    1. [client] calls SCardGetStatusChange() and fetches the reader states
+    from pcscd (line 1741). The fetched states are equal to the already
+    known states.
+    2. [pcscd] notices a change in any terminal state (smartcard movement or
+    number of connected clients to the smartcard changes) and sends a signal
+    to all *registered* clients via EHSignalEventToClients(). [client] is
+    not yet registered for event notifications, so EHSignalEventToClients()
+    won't send anything.
+    3. [client] continues execution and compares the given reader states to
+    the states fetched before [pcscd] noticed the change. The states are
+    equal so it registers for event notifications (line 2070). No
+    notification was sent, so [client] sleeps until the internal time-out
+    (60 seconds) is reached.
+    4. [client] reaches the internal time-out and fetches the current reader
+    states from [pcscd]. Now the states are different and
+    SCardGetStatusChange returns.
+    
+    In the end the state change is noticed thanks to the internal polling
+    mechanism, but in automated environments, 60 seconds is a very long time
+    until a state change is detected. The error is most likely to occur if
+    multiple readers are used and state changes are frequent. Even more
+    likely it occurs if reader state polling is used by pcscd, i.e. when the
+    IFD handler does not support asynchronous card event notification (no
+    capability TAG_IFD_POLLING_THREAD_WITH_TIMEOUT). Then multiple readers
+    can accumulate their events to be processed in a very small time frame.
+    
+    Suggestion for a fix:
+    The proposed fix makes fetching the reader states and registering for
+    event notifications an atomic action. The command
+    CMD_WAIT_READER_STATE_CHANGE expected no return value anyway, so I made
+    it return the reader states equal to CMD_GET_READERS_STATE. The action
+    is protected by the ClientsWaitingForEvent_lock in eventhandler.c, which
+    prevents parallel calls of MSGSignalClient() via
+    EHSignalEventToClients(). This is necessary to prevent a signal before
+    the reader states are sent, which would appear as garbage in the client
+    socket.
+    
+    With the proposed fix, the client is registered for events after the
+    reader states were fetched. So if any difference is found in the local
+    and remote state (so that SCardGetStatusChange() returns) we have to
+    unregister from events. This was not necessary before, but works just
+    like unregistering after a timeout. This could be refined by checking
+    why the loop was exited and only unregister if necessary.
+    
+    Unfortunately the proposed fix will slightly alter the internal protocol
+    between libpcsclite and pcscd, breaking statically linked client
+    applications with newer pcscd versions.
+    
+    Further related thoughts:
+    I'm a bit uncertain if my proposed fix works nicely with SCardCancel(),
+    because I can think of one very rare situation when
+    SCardGetStatusChange() times out and unregisters from event
+    notifications, then gets cancelled but is not informed about that. Then
+    it re-registers for notifications, because no changes happened. Thus it
+    will not returned despite it was cancelled. But this should have been an
+    issue even before my fix.
+    
+    I think the notification mechanism could be improved by using "response
+    headers" analogous to the server side, or just an additional field
+    "command" in the data structs. This way every message related to reader
+    state events could be identified by the client and handled respectively.
+    As I understand it, some of the past issues were because of signal,
+    cancel or stop-reader-state-change messages messing up the client socket
+    data. With a command field it can be decided what data the client
+    received, and what data is still expected to be received.
+    
+    Best regards
+    Maximilian Stein "
+
+ src/eventhandler.c  |  2 ++
+ src/winscard_clnt.c | 79 ++++++++++++++++++++++++++++++++++++-----------------
+ src/winscard_msg.h  |  2 +-
+ src/winscard_svc.c  | 31 +++++++++++++--------
+ src/winscard_svc.h  |  1 +
+ 5 files changed, 78 insertions(+), 37 deletions(-)
+
+commit 0127d3c73d0ad2072407d880b92baf454992b27d
+Author: Nicolas Dusart <dusartnicolas@gmail.com>
+Date:   Wed Mar 21 18:00:26 2018 +0100
+
+    Simclist: avoid to divide by zero in list_findpos()
+    
+    A division by zero with float is undefined in C.
+    For example gcc 6.3.0 reports (when detected):
+    dividebyzero.c:5:20: warning: division by zero [-Wdiv-by-zero]
+      float a = (float)1/0;
+    
+    But the code does NOT crash. The value of a is just infinity.
+    
+    The problem is when Free Pascal runtime is used. In this case the code crashed.
+
+ src/simclist.c | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+commit 2f99e761e000c2c0ef1eb3bd6954b770ac294f22
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Feb 2 15:21:25 2018 +0100
+
+    pcsc-spy: correctly handle incomplete log file
+    
+    If the application is interrupted in the middle of a PC/SC call then we
+    do not get the returned values of the PC/SC call.
+    The total execution time is then not known and -1 seconds is displayed
+    instead.
+
+ src/spy/pcsc-spy | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+commit cc70541a47058fc0c6f16a964c75dfcd5b7c88e2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Dec 19 16:13:42 2017 +0100
+
+    systemd pcscd.service: add Documentation key
+    
+    For now the documentation refers to pcscd(8) manpage.
+
+ etc/pcscd.service.in | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 09f0f85b86e7488cf26642dd17150f76bed5300c (tag: pcsc-1.8.23)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Dec 18 19:56:49 2017 +0100
 
@@ -8,7 +643,7 @@ Date:   Mon Dec 18 19:56:49 2017 +0100
  configure.ac | 2 +-
  2 files changed, 9 insertions(+), 1 deletion(-)
 
-commit 1dde8427236fa988e9f488baa46d7316691a5555 (origin/master, origin/HEAD)
+commit 1dde8427236fa988e9f488baa46d7316691a5555
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Nov 14 15:09:25 2017 +0100
 
@@ -194,7 +829,7 @@ Date:   Tue Aug 1 10:11:29 2017 +0200
  configure.ac | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 8946edadaca353d65112664a5fcd7bbe1be54ed5
+commit 8946edadaca353d65112664a5fcd7bbe1be54ed5 (zotac/fix)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jul 12 17:59:48 2017 +0200
 
@@ -209,7 +844,7 @@ Date:   Wed Jul 12 17:59:48 2017 +0200
  src/simclist.c | 7 +++++++
  1 file changed, 7 insertions(+)
 
-commit 30e10951f81b9480e788965f89d0d4d0aee909c0 (zotac/master, github/master)
+commit 30e10951f81b9480e788965f89d0d4d0aee909c0
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Thu Jul 13 17:52:13 2017 +0200
 

@@ -1,5 +1,5 @@
 /*
- * MUSCLE SmartCard Development ( http://pcsclite.alioth.debian.org/pcsclite.html )
+ * MUSCLE SmartCard Development ( https://pcsclite.apdu.fr/ )
  *
  * Copyright (C) 1999-2004
  *  David Corcoran <corcoran@musclecard.com>
@@ -40,7 +40,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 The routines specified hereafter will allow you to write an IFD handler
 for the PC/SC Lite resource manager. Please use the complement
 developer's kit complete with headers and Makefile at:
-http://www.musclecard.com/drivers.html
+https://muscle.apdu.fr/musclecard.com/sourcedrivers.html
 
 This gives a common API for communication to most readers in a
 homogeneous fashion. This document assumes that the driver developer is
@@ -82,7 +82,7 @@ Example:
     <string>0x04E6</string>
 @endverbatim
 
-You may have an OEM of this reader in which an additional @c <string>
+You may have an OEM of this reader in which an additional @c \<string>
 can be used like in the below example:
 
 @verbatim
@@ -98,9 +98,8 @@ also. You may chose not to support this feature but it is useful when
 reader vendors OEM products so you only distribute one driver.
 
 
-The CCID driver from Ludovic Rousseau
-http://pcsclite.alioth.debian.org/ccid.html uses this feature since the
-same driver supports many different readers.
+The CCID driver from Ludovic Rousseau https://ccid.apdu.fr/ uses this
+feature since the same driver supports many different readers.
 
 @subsection ifdProductID
 
@@ -203,7 +202,7 @@ It has the following syntax:
 # Configuration file for pcsc-lite
 # David Corcoran <corcoran@musclecard.com>
 
-FRIENDLYNAME  Generic Reader
+FRIENDLYNAME  "Generic Reader"
 DEVICENAME    /dev/ttyS0
 LIBPATH       /usr/lib/pcsc/drivers/libgen_ifd.so
 CHANNELID     1

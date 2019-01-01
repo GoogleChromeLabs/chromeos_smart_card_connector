@@ -1,5 +1,5 @@
 /*
- * MUSCLE SmartCard Development ( http://pcsclite.alioth.debian.org/pcsclite.html )
+ * MUSCLE SmartCard Development ( https://pcsclite.apdu.fr/ )
  *
  * Copyright (C) 2006-2011
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
@@ -49,7 +49,7 @@
 
 #define PCSCLITE_CSOCK_NAME		PCSCLITE_IPC_DIR "/pcscd.comm"
 
-#define PCSCLITE_VERSION_NUMBER		"1.8.23"	/**< Current version */
+#define PCSCLITE_VERSION_NUMBER		"1.8.24"	/**< Current version */
 #define PCSCLITE_STATUS_POLL_RATE	400000		/**< Status polling rate */
 #define PCSCLITE_LOCK_POLL_RATE		100000		/**< Lock polling rate */
 
@@ -66,7 +66,7 @@ enum
 	POWER_STATE_UNPOWERED,	/**< auto power off */
 	POWER_STATE_POWERED,	/**< powered */
 	POWER_STATE_GRACE_PERIOD,	/**< card was in use */
-	POWER_STATE_INUSE		/**< card is used */
+	POWER_STATE_IN_USE		/**< card is used */
 };
 
 /** time to wait before powering down an unused card */

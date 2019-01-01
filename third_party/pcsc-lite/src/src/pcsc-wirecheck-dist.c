@@ -18,7 +18,7 @@ int pcsc_assert_wire_constants(void)
 
         LASSERTF(PROTOCOL_VERSION_MAJOR == 4," found %lld\n",
                  (long long)PROTOCOL_VERSION_MAJOR);
-        LASSERTF(PROTOCOL_VERSION_MINOR == 3," found %lld\n",
+        LASSERTF(PROTOCOL_VERSION_MINOR == 4," found %lld\n",
                  (long long)PROTOCOL_VERSION_MINOR);
 
         LASSERTF(MAX_READERNAME == 128," found %lld\n",

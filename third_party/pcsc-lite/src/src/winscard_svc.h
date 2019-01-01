@@ -1,5 +1,5 @@
 /*
- * MUSCLE SmartCard Development ( http://pcsclite.alioth.debian.org/pcsclite.html )
+ * MUSCLE SmartCard Development ( https://pcsclite.apdu.fr/ )
  *
  * Copyright (C) 2001-2004
  *  David Corcoran <corcoran@musclecard.com>
@@ -45,5 +45,6 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 	void ContextsDeinitialize(void);
 	LONG CreateContextThread(uint32_t *);
 	LONG MSGSignalClient(uint32_t filedes, LONG rv);
+	LONG MSGSendReaderStates(uint32_t filedes);
 
 #endif

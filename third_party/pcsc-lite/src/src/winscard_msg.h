@@ -1,5 +1,5 @@
 /*
- * MUSCLE SmartCard Development ( http://pcsclite.alioth.debian.org/pcsclite.html )
+ * MUSCLE SmartCard Development ( https://pcsclite.apdu.fr/ )
  *
  * Copyright (C) 2001-2004
  *  David Corcoran <corcoran@musclecard.com>
@@ -46,7 +46,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 /** Major version of the current message protocol */
 #define PROTOCOL_VERSION_MAJOR 4
 /** Minor version of the current message protocol */
-#define PROTOCOL_VERSION_MINOR 3
+#define PROTOCOL_VERSION_MINOR 4
 
 	/**
 	 * @brief Information transmitted in \ref CMD_VERSION Messages.

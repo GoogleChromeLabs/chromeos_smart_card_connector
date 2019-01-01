@@ -1,5 +1,5 @@
 /*
- * MUSCLE SmartCard Development ( http://pcsclite.alioth.debian.org/pcsclite.html )
+ * MUSCLE SmartCard Development ( https://pcsclite.apdu.fr/ )
  *
  * Copyright (C) 2001-2004
  *  David Corcoran <corcoran@musclecard.com>
@@ -95,7 +95,7 @@ static LONG MSGAddHandle(SCARDCONTEXT, SCARDHANDLE, SCONTEXT *);
 static LONG MSGRemoveHandle(SCARDHANDLE, SCONTEXT *);
 static void MSGCleanupClient(SCONTEXT *);
 
-static void ContextThread(LPVOID pdwIndex);
+static void * ContextThread(LPVOID pdwIndex);
 
 extern READER_STATE readerStates[PCSCLITE_MAX_READERS_CONTEXTS];
 
@@ -325,7 +325,7 @@ static const char *CommandsText[] = {
 		ret = MessageSend(&v, sizeof(v), filedes); \
 	} while (0)
 
-static void ContextThread(LPVOID newContext)
+static void * ContextThread(LPVOID newContext)
 {
 	SCONTEXT * threadContext = (SCONTEXT *) newContext;
 	int32_t filedes = threadContext->dwClientID;
@@ -411,24 +411,25 @@ static void ContextThread(LPVOID newContext)
 
 			case CMD_WAIT_READER_STATE_CHANGE:
 			{
-				struct wait_reader_state_change waStr;
+				/* nothing to read */
 
-				READ_BODY(waStr);
+#ifdef USE_USB
+				/* wait until all readers are ready */
+				RFWaitForReaderInit();
+#endif
 
-				/* add the client fd to the list */
+				/* add the client fd to the list and dump the readers state */
 				EHRegisterClientForEvent(filedes);
-
-				/* We do not send anything here.
-				 * Either the client will timeout or the server will
-				 * answer if an event occurs */
 			}
 			break;
 
 			case CMD_STOP_WAITING_READER_STATE_CHANGE:
 			{
-				struct wait_reader_state_change waStr;
-
-				READ_BODY(waStr);
+				struct wait_reader_state_change waStr =
+				{
+					.timeOut = 0,
+					.rv = 0
+				};
 
 				/* remove the client fd from the list */
 				waStr.rv = EHUnregisterClientForEvent(filedes);
@@ -810,7 +811,11 @@ exit:
 LONG MSGSignalClient(uint32_t filedes, LONG rv)
 {
 	uint32_t ret;
-	struct wait_reader_state_change waStr;
+	struct wait_reader_state_change waStr =
+	{
+		.timeOut = 0,
+		.rv = 0
+	};
 
 	Log2(PCSC_LOG_DEBUG, "Signal client: %d", filedes);
 
@@ -819,6 +824,18 @@ LONG MSGSignalClient(uint32_t filedes, LONG rv)
 
 	return ret;
 } /* MSGSignalClient */
+
+LONG MSGSendReaderStates(uint32_t filedes)
+{
+	uint32_t ret;
+
+	Log2(PCSC_LOG_DEBUG, "Send reader states: %d", filedes);
+
+	/* dump the readers state */
+	ret = MessageSend(readerStates, sizeof(readerStates), filedes);
+
+	return ret;
+}
 
 static LONG MSGAddContext(SCARDCONTEXT hContext, SCONTEXT * threadContext)
 {
@@ -844,7 +861,7 @@ static LONG MSGRemoveContext(SCARDCONTEXT hContext, SCONTEXT * threadContext)
 	while (list_size(&threadContext->cardsList) != 0)
 	{
 		READER_CONTEXT * rContext = NULL;
-		SCARDHANDLE hCard, hLockId;
+		SCARDHANDLE hCard;
 		void *ptr;
 
 		/*
@@ -868,31 +885,42 @@ static LONG MSGRemoveContext(SCARDCONTEXT hContext, SCONTEXT * threadContext)
 			return rv;
 		}
 
-		hLockId = rContext->hLockId;
-		rContext->hLockId = 0;
-
-		if (hCard != hLockId)
+		if (0 == rContext->hLockId)
 		{
-			/*
-			 * if the card is locked by someone else we do not reset it
-			 * and simulate a card removal
-			 */
-			rv = SCARD_W_REMOVED_CARD;
-		}
-		else
-		{
-			/*
-			 * We will use SCardStatus to see if the card has been
-			 * reset there is no need to reset each time
-			 * Disconnect is called
-			 */
-			rv = SCardStatus(hCard, NULL, NULL, NULL, NULL, NULL, NULL);
-		}
-
-		if (rv == SCARD_W_RESET_CARD || rv == SCARD_W_REMOVED_CARD)
+			/* no lock. Just leave the card */
 			(void)SCardDisconnect(hCard, SCARD_LEAVE_CARD);
+		}
 		else
-			(void)SCardDisconnect(hCard, SCARD_RESET_CARD);
+		{
+			if (hCard != rContext->hLockId)
+			{
+				/*
+				 * if the card is locked by someone else we do not reset it
+				 * and simulate a card removal
+				 */
+				rv = SCARD_W_REMOVED_CARD;
+
+				/* decrement card use */
+				(void)SCardDisconnect(hCard, SCARD_LEAVE_CARD);
+			}
+			else
+			{
+				/* release the lock */
+				rContext->hLockId = 0;
+
+				/*
+				 * We will use SCardStatus to see if the card has been
+				 * reset there is no need to reset each time
+				 * Disconnect is called
+				 */
+				rv = SCardStatus(hCard, NULL, NULL, NULL, NULL, NULL, NULL);
+
+				if (rv == SCARD_W_RESET_CARD || rv == SCARD_W_REMOVED_CARD)
+					(void)SCardDisconnect(hCard, SCARD_LEAVE_CARD);
+				else
+					(void)SCardDisconnect(hCard, SCARD_RESET_CARD);
+			}
+		}
 
 		/* Remove entry from the list */
 		lrv = list_delete_at(&threadContext->cardsList, 0);
