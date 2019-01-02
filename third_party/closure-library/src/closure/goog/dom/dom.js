@@ -453,7 +453,7 @@ goog.dom.$$ = goog.dom.getElementsByTagNameAndClass;
  */
 goog.dom.setProperties = function(element, properties) {
   goog.object.forEach(properties, function(val, key) {
-    if (val && val.implementsGoogStringTypedString) {
+    if (val && typeof val == 'object' && val.implementsGoogStringTypedString) {
       val = val.getTypedStringValue();
     }
     if (key == 'style') {
@@ -798,9 +798,9 @@ goog.dom.getWindow_ = function(doc) {
  *     of name-value pairs for attributes. If a string, then this is the
  *     className of the new element. If an array, the elements will be joined
  *     together as the className of the new element.
- * @param {...(Object|string|Array|NodeList)} var_args Further DOM nodes or
- *     strings for text nodes. If one of the var_args is an array or NodeList,
- *     its elements will be added as childNodes instead.
+ * @param {...(Object|string|Array|NodeList|null|undefined)} var_args Further
+ *     DOM nodes or strings for text nodes. If one of the var_args is an array
+ *     or NodeList, its elements will be added as childNodes instead.
  * @return {R} Reference to a DOM node. The return type is {!Element} if tagName
  *     is a string or a more specific type if it is a member of
  *     goog.dom.TagName (e.g. {!HTMLAnchorElement} for goog.dom.TagName.A).
@@ -912,9 +912,9 @@ goog.dom.append_ = function(doc, parent, args, startIndex) {
  *     of name-value pairs for attributes. If a string, then this is the
  *     className of the new element. If an array, the elements will be joined
  *     together as the className of the new element.
- * @param {...(Object|string|Array|NodeList)} var_args Further DOM nodes or
- *     strings for text nodes. If one of the var_args is an array, its
- *     children will be added as childNodes instead.
+ * @param {...(Object|string|Array|NodeList|null|undefined)} var_args Further
+ *     DOM nodes or strings for text nodes. If one of the var_args is an array,
+ *     its children will be added as childNodes instead.
  * @return {R} Reference to a DOM node. The return type is {!Element} if tagName
  *     is a string or a more specific type if it is a member of
  *     goog.dom.TagName (e.g. {!HTMLAnchorElement} for goog.dom.TagName.A).
@@ -1500,7 +1500,7 @@ goog.dom.getParentElement = function(element) {
  * Whether a node contains another node.
  * @param {?Node|undefined} parent The node that should contain the other node.
  * @param {?Node|undefined} descendant The node to test presence of.
- * @return {boolean} Whether the parent node contains the descendent node.
+ * @return {boolean} Whether the parent node contains the descendant node.
  */
 goog.dom.contains = function(parent, descendant) {
   if (!parent || !descendant) {
@@ -2652,7 +2652,7 @@ goog.dom.Appendable;
  *     of name-value pairs for attributes. If a string, then this is the
  *     className of the new element. If an array, the elements will be joined
  *     together as the className of the new element.
- * @param {...goog.dom.Appendable} var_args Further DOM nodes or
+ * @param {...(goog.dom.Appendable|undefined)} var_args Further DOM nodes or
  *     strings for text nodes. If one of the var_args is an array or
  *     NodeList, its elements will be added as childNodes instead.
  * @return {R} Reference to a DOM node. The return type is {!Element} if tagName
@@ -2674,9 +2674,9 @@ goog.dom.DomHelper.prototype.createDom = function(
  *     of name-value pairs for attributes. If a string, then this is the
  *     className of the new element. If an array, the elements will be joined
  *     together as the className of the new element.
- * @param {...goog.dom.Appendable} var_args Further DOM nodes or strings for
- *     text nodes.  If one of the var_args is an array, its children will be
- *     added as childNodes instead.
+ * @param {...(goog.dom.Appendable|undefined)} var_args Further DOM nodes or
+ *     strings for text nodes.  If one of the var_args is an array, its children
+ *     will be added as childNodes instead.
  * @return {R} Reference to a DOM node. The return type is {!Element} if tagName
  *     is a string or a more specific type if it is a member of
  *     goog.dom.TagName (e.g. {!HTMLAnchorElement} for goog.dom.TagName.A).
@@ -2980,7 +2980,7 @@ goog.dom.DomHelper.prototype.getParentElement = goog.dom.getParentElement;
  * Whether a node contains another node.
  * @param {Node} parent The node that should contain the other node.
  * @param {Node} descendant The node to test presence of.
- * @return {boolean} Whether the parent node contains the descendent node.
+ * @return {boolean} Whether the parent node contains the descendant node.
  */
 goog.dom.DomHelper.prototype.contains = goog.dom.contains;
 

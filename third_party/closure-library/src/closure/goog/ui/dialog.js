@@ -290,9 +290,9 @@ goog.ui.Dialog.prototype.setSafeHtmlContent = function(html) {
  * Gets the content HTML of the content element as a plain string.
  *
  * Note that this method returns the HTML markup that was previously set via
- * setContent(). In particular, the HTML returned by this method does not
- * reflect any changes to the content element's DOM that were made my means
- * other than setContent().
+ * setSafeHtmlContent() or setTextContent(). In particular, the HTML returned by
+ * this method does not reflect any changes to the content element's DOM that
+ * were made by other means.
  *
  * @return {string} Content HTML.
  */
@@ -1108,8 +1108,11 @@ goog.ui.Dialog.prototype.onKey_ = function(e) {
  * @extends {goog.events.Event}
  */
 goog.ui.Dialog.Event = function(key, caption) {
+  /** @const {!goog.ui.Dialog.EventType} */
   this.type = goog.ui.Dialog.EventType.SELECT;
+  /** @const */
   this.key = key;
+  /** @const */
   this.caption = caption;
 };
 goog.inherits(goog.ui.Dialog.Event, goog.events.Event);
@@ -1158,6 +1161,8 @@ goog.ui.Dialog.EventType = {
  *    goog.ui.Component} for semantics.
  * @constructor
  * @extends {goog.structs.Map}
+ * @suppress {deprecated} Underlying extended goog.structs.Map is deprecated but
+ *    this class is not. Suppress warnings until refactored.
  */
 goog.ui.Dialog.ButtonSet = function(opt_domHelper) {
   // TODO(attila):  Refactor ButtonSet to extend goog.ui.Component?

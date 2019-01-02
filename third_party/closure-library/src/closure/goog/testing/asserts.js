@@ -310,13 +310,7 @@ var assertThrows = goog.testing.asserts.assertThrows = function(a, opt_b) {
   try {
     func();
   } catch (e) {
-    if (e && goog.isString(e['stacktrace']) && goog.isString(e['message'])) {
-      // Remove the stack trace appended to the error message by Opera 10.0
-      var startIndex = e['message'].length - e['stacktrace'].length;
-      if (e['message'].indexOf(e['stacktrace'], startIndex) == startIndex) {
-        e['message'] = e['message'].substr(0, startIndex - 14);
-      }
-    }
+    goog.testing.asserts.removeOperaStacktrace_(e);
 
     var testCase = _getCurrentTestCase();
     if (e && e['isJsUnitException'] && testCase &&
@@ -332,6 +326,22 @@ var assertThrows = goog.testing.asserts.assertThrows = function(a, opt_b) {
   }
   goog.testing.asserts.raiseException(
       comment, 'No exception thrown from function passed to assertThrows');
+};
+
+
+/**
+ * Removes a stacktrace from an Error object for Opera 10.0.
+ * @param {*} e
+ * @private
+ */
+goog.testing.asserts.removeOperaStacktrace_ = function(e) {
+  if (goog.isObject(e) && goog.isString(e['stacktrace']) &&
+      goog.isString(e['message'])) {
+    var startIndex = e['message'].length - e['stacktrace'].length;
+    if (e['message'].indexOf(e['stacktrace'], startIndex) == startIndex) {
+      e['message'] = e['message'].substr(0, startIndex - 14);
+    }
+  }
 };
 
 
@@ -412,6 +422,47 @@ var assertThrowsJsUnitException = goog.testing.asserts
     msg += ': ' + opt_expectedMessage;
   }
   throw new goog.testing.JsUnitException(msg);
+};
+
+
+/**
+ * Asserts that the IThenable rejects.
+ *
+ * This is useful for asserting that async functions throw, like an asynchronous
+ * assertThrows. Example:
+ *
+ * ```
+ *   async function shouldThrow() { throw new Error('error!'); }
+ *   async function testShouldThrow() {
+ *     const error = await assertRejects(shouldThrow());
+ *     assertEquals('error!', error.message);
+ *   }
+ * ```
+ *
+ * @param {!(string|IThenable)} a The assertion comment or the IThenable.
+ * @param {!IThenable=} opt_b The IThenable (if the first argument of
+ *     `assertRejects` was the comment).
+ * @return {!IThenable<*>} A child IThenable which resolves with the error that
+ *     the passed in IThenable rejects with. This IThenable will reject if the
+ *     passed in IThenable does not reject.
+ */
+var assertRejects = goog.testing.asserts.assertRejects = function(a, opt_b) {
+  _validateArguments(1, arguments);
+  var thenable = nonCommentArg(1, 1, arguments);
+  var comment = commentArg(1, arguments);
+  _assert(
+      comment, goog.isObject(thenable) && goog.isFunction(thenable.then),
+      'Argument passed to assertRejects is not an IThenable');
+
+  return thenable.then(
+      function() {
+        goog.testing.asserts.raiseException(
+            comment, 'IThenable passed into assertRejects did not reject');
+      },
+      function(e) {
+        goog.testing.asserts.removeOperaStacktrace_(e);
+        return e;
+      });
 };
 
 
@@ -531,6 +582,20 @@ var assertNotUndefined = goog.testing.asserts.assertNotUndefined = function(
       'Expected not to be ' + _displayStringForValue(JSUNIT_UNDEFINED_VALUE));
 };
 
+/**
+ * @param {*} a The value to assert (1 arg) or debug message (2 args).
+ * @param {*=} opt_b The value to assert (2 args only).
+ */
+var assertNullOrUndefined =
+    goog.testing.asserts.assertNullOrUndefined = function(a, opt_b) {
+      _validateArguments(1, arguments);
+      var aVar = nonCommentArg(1, 1, arguments);
+      _assert(
+          commentArg(1, arguments), aVar == null,
+          'Expected ' + _displayStringForValue(null) + ' or ' +
+              _displayStringForValue(JSUNIT_UNDEFINED_VALUE) + ' but was ' +
+              _displayStringForValue(aVar));
+    };
 
 /**
  * @param {*} a The value to assert (1 arg) or debug message (2 args).
@@ -1213,8 +1278,7 @@ var assertRoughlyEquals = goog.testing.asserts.assertRoughlyEquals = function(
  *     (2 arguments).
  * @param {*=} opt_c The container.
  */
-var assertContains = goog.testing.asserts.assertContains = function(
-    a, b, opt_c) {
+goog.testing.asserts.assertContains = function(a, b, opt_c) {
   _validateArguments(2, arguments);
   var contained = nonCommentArg(1, 2, arguments);
   var container = nonCommentArg(2, 2, arguments);
@@ -1223,7 +1287,8 @@ var assertContains = goog.testing.asserts.assertContains = function(
       goog.testing.asserts.contains_(container, contained),
       'Expected \'' + container + '\' to contain \'' + contained + '\'');
 };
-
+/** @const */
+var assertContains = goog.testing.asserts.assertContains;
 
 /**
  * Checks if the given element is not the member of the given container.
@@ -1283,14 +1348,14 @@ goog.testing.asserts.toArray_ = function(arrayLike) {
 
 /**
  * Finds the position of the first occurrence of an element in a container.
- * @param {IArrayLike} container
+ * @param {IArrayLike<?>} container
  *     The array to find the element in.
  * @param {*} contained Element to find.
  * @return {number} Index of the first occurrence or -1 if not found.
  * @private
  */
 goog.testing.asserts.indexOf_ = function(container, contained) {
-  if (container.indexOf) {
+  if (typeof container.indexOf == 'function') {
     return container.indexOf(contained);
   } else {
     // IE6/7 do not have indexOf so do a search.
@@ -1371,7 +1436,7 @@ goog.testing.asserts.raiseException = function(comment, opt_message) {
  * @private
  */
 goog.testing.asserts.isArrayIndexProp_ = function(prop) {
-  return (prop | 0) == prop;
+  return (Number(prop) | 0) == prop;
 };
 
 /** @define {boolean} */
@@ -1388,6 +1453,7 @@ if (goog.EXPORT_ASSERTIONS) {
   goog.exportSymbol('assertThrows', assertThrows);
   goog.exportSymbol('assertNotThrows', assertNotThrows);
   goog.exportSymbol('assertThrowsJsUnitException', assertThrowsJsUnitException);
+  goog.exportSymbol('assertRejects', assertRejects);
   goog.exportSymbol('assertTrue', assertTrue);
   goog.exportSymbol('assertFalse', assertFalse);
   goog.exportSymbol('assertEquals', assertEquals);
@@ -1396,6 +1462,7 @@ if (goog.EXPORT_ASSERTIONS) {
   goog.exportSymbol('assertNotNull', assertNotNull);
   goog.exportSymbol('assertUndefined', assertUndefined);
   goog.exportSymbol('assertNotUndefined', assertNotUndefined);
+  goog.exportSymbol('assertNullOrUndefined', assertNullOrUndefined);
   goog.exportSymbol('assertNotNullNorUndefined', assertNotNullNorUndefined);
   goog.exportSymbol('assertNonEmptyString', assertNonEmptyString);
   goog.exportSymbol('assertNaN', assertNaN);

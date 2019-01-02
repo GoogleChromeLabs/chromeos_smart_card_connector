@@ -75,8 +75,8 @@ goog.labs.mock.mockFunction = function(func) {
 /**
  * Mocks a given constructor.
  *
- * @param {!function(new:T, ...?)} ctor A constructor function to be mocked.
- * @return {!function(new:T, ...?)} The mocked constructor.
+ * @param {function(new:T, ...?)} ctor A constructor function to be mocked.
+ * @return {function(new:T, ...?)} The mocked constructor.
  * @template T
  */
 goog.labs.mock.mockConstructor = function(ctor) {
@@ -682,7 +682,7 @@ goog.labs.mock.MockSpyManager_.prototype.getNextBinding = function(
       this, 'getNextBinding', methodName, args);
 
   if (!stub) {
-    stub = goog.bind(this.mockee[methodName], this.mockee);
+    stub = goog.bind(this.mockee[methodName], this.mockedItem);
   }
 
   return stub;

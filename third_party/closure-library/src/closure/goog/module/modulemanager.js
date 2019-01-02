@@ -13,7 +13,8 @@
 // limitations under the License.
 
 /**
- * @fileoverview A default implementation for managing Javascript code modules.
+ * @fileoverview A default implementation for managing JavaScript code modules.
+ * @enhanceable
  *
  */
 
@@ -25,6 +26,7 @@ goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.async.Deferred');
 goog.require('goog.debug.Trace');
+goog.require('goog.disposable.IDisposable');
 goog.require('goog.disposeAll');
 goog.require('goog.loader.AbstractModuleManager');
 goog.require('goog.loader.activeModuleManager');
@@ -41,6 +43,7 @@ goog.require('goog.object');
  * Since modules may not have their code loaded, we must keep track of them.
  * @constructor
  * @extends {goog.loader.AbstractModuleManager}
+ * @implements {goog.disposable.IDisposable}
  * @struct
  */
 goog.module.ModuleManager = function() {
@@ -48,9 +51,9 @@ goog.module.ModuleManager = function() {
 
   /**
    * A mapping from module id to ModuleInfo object.
-   * @private {!Object<string, !goog.module.ModuleInfo>}
+   * @protected {!Object<string, !goog.module.ModuleInfo>}
    */
-  this.moduleInfoMap_ = {};
+  this.moduleInfoMap = {};
 
   // TODO (malteubl): Switch this to a reentrant design.
   /**
@@ -190,6 +193,11 @@ goog.module.ModuleManager = function() {
    * @private {boolean}
    */
   this.userLastActive_ = false;
+
+  /**
+   * @private {boolean}
+   */
+  this.isDisposed_ = false;
 };
 goog.inherits(goog.module.ModuleManager, goog.loader.AbstractModuleManager);
 
@@ -225,9 +233,7 @@ goog.module.ModuleManager.CORRUPT_RESPONSE_STATUS_CODE =
 
 /** @return {!goog.loader.AbstractModuleManager} */
 goog.module.ModuleManager.getInstance = function() {
-  return goog.loader.activeModuleManager.get(function() {
-    return new goog.module.ModuleManager();
-  });
+  return goog.loader.activeModuleManager.get();
 };
 
 
@@ -247,7 +253,7 @@ goog.module.ModuleManager.prototype.setConcurrentLoadingEnabled = function(
 /** @override */
 goog.module.ModuleManager.prototype.setAllModuleInfo = function(infoMap) {
   for (var id in infoMap) {
-    this.moduleInfoMap_[id] = new goog.module.ModuleInfo(infoMap[id], id);
+    this.moduleInfoMap[id] = new goog.module.ModuleInfo(infoMap[id], id);
   }
   if (!this.initialModulesLoaded_.hasFired()) {
     this.initialModulesLoaded_.callback();
@@ -292,7 +298,7 @@ goog.module.ModuleManager.prototype.setAllModuleInfoString = function(
       deps = [];
     }
     moduleIds.push(id);
-    this.moduleInfoMap_[id] = new goog.module.ModuleInfo(deps, id);
+    this.moduleInfoMap[id] = new goog.module.ModuleInfo(deps, id);
   }
   if (opt_loadingModuleIds && opt_loadingModuleIds.length) {
     goog.array.extend(this.loadingModuleIds_, opt_loadingModuleIds);
@@ -311,7 +317,7 @@ goog.module.ModuleManager.prototype.setAllModuleInfoString = function(
 
 /** @override */
 goog.module.ModuleManager.prototype.getModuleInfo = function(id) {
-  return this.moduleInfoMap_[id];
+  return this.moduleInfoMap[id];
 };
 
 
@@ -319,7 +325,7 @@ goog.module.ModuleManager.prototype.getModuleInfo = function(id) {
 goog.module.ModuleManager.prototype.setModuleTrustedUris = function(
     moduleUriMap) {
   for (var id in moduleUriMap) {
-    this.moduleInfoMap_[id].setTrustedUris(moduleUriMap[id]);
+    this.moduleInfoMap[id].setTrustedUris(moduleUriMap[id]);
   }
 };
 
@@ -396,7 +402,7 @@ goog.module.ModuleManager.prototype.prefetchModule = function(id) {
     var idWithDeps = this.getNotYetLoadedTransitiveDepIds_(id);
     for (var i = 0; i < idWithDeps.length; i++) {
       this.getLoader().prefetchModule(
-          idWithDeps[i], this.moduleInfoMap_[idWithDeps[i]]);
+          idWithDeps[i], this.moduleInfoMap[idWithDeps[i]]);
     }
   }
 };
@@ -574,7 +580,12 @@ goog.module.ModuleManager.prototype.loadModules_ = function(
   var idsToLoadImmediately = this.processModulesForLoad_(ids);
 
   goog.log.info(this.logger_, 'Loading module(s): ' + idsToLoadImmediately);
-  this.loadingModuleIds_ = idsToLoadImmediately;
+
+  if (this.concurrentLoadingEnabled_) {
+    goog.array.extend(this.loadingModuleIds_, idsToLoadImmediately);
+  } else {
+    this.loadingModuleIds_ = idsToLoadImmediately;
+  }
 
   if (this.batchModeEnabled_) {
     this.requestedLoadingModuleIds_ = ids;
@@ -599,7 +610,7 @@ goog.module.ModuleManager.prototype.loadModules_ = function(
   var loadFn = goog.bind(
       this.getLoader().loadModules, goog.asserts.assert(this.getLoader()),
       goog.array.clone(idsToLoadImmediately),
-      goog.asserts.assert(this.moduleInfoMap_), null,
+      goog.asserts.assert(this.moduleInfoMap), null,
       goog.bind(
           this.handleLoadError_, this, this.requestedLoadingModuleIds_,
           idsToLoadImmediately),
@@ -625,12 +636,15 @@ goog.module.ModuleManager.prototype.loadModules_ = function(
  * @private
  */
 goog.module.ModuleManager.prototype.processModulesForLoad_ = function(ids) {
-  for (var i = 0; i < ids.length; i++) {
-    var moduleInfo = this.moduleInfoMap_[ids[i]];
+  ids = goog.array.filter(ids, (id) => {
+    let moduleInfo = this.moduleInfoMap[id];
     if (moduleInfo.isLoaded()) {
-      throw new Error('Module already loaded: ' + ids[i]);
+      goog.global.setTimeout(
+          () => new Error('Module already loaded: ' + id), 0);
+      return false;
     }
-  }
+    return true;
+  });
 
   // Build a list of the ids of this module and any of its not-yet-loaded
   // prerequisite modules in dependency order.
@@ -671,24 +685,31 @@ goog.module.ModuleManager.prototype.processModulesForLoad_ = function(ids) {
  */
 goog.module.ModuleManager.prototype.getNotYetLoadedTransitiveDepIds_ = function(
     id) {
+  var requestedModuleSet = goog.object.createSet(this.requestedModuleIds_);
   // NOTE(user): We want the earliest occurrence of a module, not the first
   // dependency we find. Therefore we strip duplicates at the end rather than
   // during.  See the tests for concrete examples.
   var ids = [];
-  if (!goog.array.contains(this.requestedModuleIds_, id)) {
+  if (!requestedModuleSet[id]) {
     ids.push(id);
   }
-  var depIds = goog.array.clone(this.getModuleInfo(id).getDependencies());
-  while (depIds.length) {
-    var depId = depIds.pop();
-    if (!this.getModuleInfo(depId).isLoaded() &&
-        !goog.array.contains(this.requestedModuleIds_, depId)) {
-      ids.unshift(depId);
-      // We need to process direct dependencies first.
-      Array.prototype.unshift.apply(
-          depIds, this.getModuleInfo(depId).getDependencies());
+  var depIdLookupList = [id];
+  // BFS by iterating through dependencies and enqueuing their respective
+  // dependencies into the lookup list.
+  for (var i = 0; i < depIdLookupList.length; i++) {
+    var depIds = this.getModuleInfo(depIdLookupList[i]).getDependencies();
+    for (var j = depIds.length - 1; j >= 0; j--) {
+      var depId = depIds[j];
+      if (!this.getModuleInfo(depId).isLoaded() && !requestedModuleSet[depId]) {
+        ids.push(depId);
+        depIdLookupList.push(depId);
+      }
     }
   }
+
+  // Leaf dependencies should come before others. Please refer to test cases for
+  // exact order.
+  ids.reverse();
   goog.array.removeDuplicates(ids);
   return ids;
 };
@@ -724,7 +745,7 @@ goog.module.ModuleManager.prototype.setLoaded = function(id) {
   goog.log.info(this.logger_, 'Module loaded: ' + id);
 
   var error =
-      this.moduleInfoMap_[id].onLoad(goog.bind(this.getModuleContext, this));
+      this.moduleInfoMap[id].onLoad(goog.bind(this.getModuleContext, this));
   if (error) {
     this.dispatchModuleLoadFailed_(
         goog.loader.AbstractModuleManager.FailureType.INIT_ERROR);
@@ -750,6 +771,9 @@ goog.module.ModuleManager.prototype.setLoaded = function(id) {
 
   // Dispatch an active/idle change if needed.
   this.dispatchActiveIdleChangeIfNeeded_();
+
+  this.currentlyLoadingModule_ = null;
+  goog.debug.Trace.stopTracer(this.loadTracer_);
 };
 
 
@@ -771,7 +795,7 @@ goog.module.ModuleManager.prototype.isModuleLoading = function(id) {
 goog.module.ModuleManager.prototype.execOnLoad = function(
     moduleId, fn, opt_handler, opt_noLoad, opt_userInitiated,
     opt_preferSynchronous) {
-  var moduleInfo = this.moduleInfoMap_[moduleId];
+  var moduleInfo = this.moduleInfoMap[moduleId];
   var callbackWrapper;
 
   if (moduleInfo.isLoaded()) {
@@ -855,20 +879,7 @@ goog.module.ModuleManager.prototype.beforeLoadModuleCode = function(id) {
 
 
 /** @override */
-goog.module.ModuleManager.prototype.afterLoadModuleCode = function(id) {
-  if (!this.currentlyLoadingModule_ ||
-      id != this.currentlyLoadingModule_.getId()) {
-    goog.log.error(
-        this.logger_,
-        'afterLoadModuleCode called with module "' + id +
-            '" while loading module "' +
-            (this.currentlyLoadingModule_ &&
-             this.currentlyLoadingModule_.getId()) +
-            '"');
-  }
-  this.currentlyLoadingModule_ = null;
-  goog.debug.Trace.stopTracer(this.loadTracer_);
-};
+goog.module.ModuleManager.prototype.afterLoadModuleCode = function(id) {};
 
 
 /** @override */
@@ -1058,8 +1069,8 @@ goog.module.ModuleManager.prototype.dispatchModuleLoadFailed_ = function(
 
   // Call the errbacks on the module info.
   for (var i = 0; i < failedIds.length; i++) {
-    if (this.moduleInfoMap_[failedIds[i]]) {
-      this.moduleInfoMap_[failedIds[i]].onError(cause);
+    if (this.moduleInfoMap[failedIds[i]]) {
+      this.moduleInfoMap[failedIds[i]].onError(cause);
     }
   }
 
@@ -1135,16 +1146,24 @@ goog.module.ModuleManager.prototype.executeCallbacks_ = function(type) {
 
 
 /** @override */
-goog.module.ModuleManager.prototype.disposeInternal = function() {
-  goog.module.ModuleManager.base(this, 'disposeInternal');
-
+goog.module.ModuleManager.prototype.dispose = function() {
   // Dispose of each ModuleInfo object.
   goog.disposeAll(
-      goog.object.getValues(this.moduleInfoMap_), this.baseModuleInfo_);
-  this.moduleInfoMap_ = {};
+      goog.object.getValues(this.moduleInfoMap), this.baseModuleInfo_);
+  this.moduleInfoMap = {};
   this.loadingModuleIds_ = [];
   this.requestedLoadingModuleIds_ = [];
   this.userInitiatedLoadingModuleIds_ = [];
   this.requestedModuleIdsQueue_ = [];
   this.callbackMap_ = {};
+  this.isDisposed_ = true;
 };
+
+/** @override */
+goog.module.ModuleManager.prototype.isDisposed = function() {
+  return this.isDisposed_;
+};
+
+goog.loader.activeModuleManager.setDefault(function() {
+  return new goog.module.ModuleManager();
+});

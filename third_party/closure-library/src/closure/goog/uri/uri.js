@@ -163,22 +163,6 @@ goog.Uri = function(opt_uri, opt_ignoreCase) {
 
 
 /**
- * If true, we preserve the type of query parameters set programmatically.
- *
- * This means that if you set a parameter to a boolean, and then call
- * getParameterValue, you will get a boolean back.
- *
- * If false, we will coerce parameters to strings, just as they would
- * appear in real URIs.
- *
- * TODO(nicksantos): Remove this once people have time to fix all tests.
- *
- * @type {boolean}
- */
-goog.Uri.preserveParameterTypesCompatibilityFlag = false;
-
-
-/**
  * Parameter name added to stop caching.
  * @type {string}
  */
@@ -659,9 +643,6 @@ goog.Uri.prototype.getParameterValues = function(name) {
  *     string.
  */
 goog.Uri.prototype.getParameterValue = function(paramName) {
-  // NOTE(nicksantos): This type-cast is a lie when
-  // preserveParameterTypesCompatibilityFlag is set to true.
-  // But this should only be set to true in tests.
   return /** @type {string|undefined} */ (this.queryData_.get(paramName));
 };
 
@@ -1376,12 +1357,11 @@ goog.Uri.QueryData.prototype.set = function(key, value) {
  *     if there's no value.
  */
 goog.Uri.QueryData.prototype.get = function(key, opt_default) {
-  var values = key ? this.getValues(key) : [];
-  if (goog.Uri.preserveParameterTypesCompatibilityFlag) {
-    return values.length > 0 ? values[0] : opt_default;
-  } else {
-    return values.length > 0 ? String(values[0]) : opt_default;
+  if (!key) {
+    return opt_default;
   }
+  var values = this.getValues(key);
+  return values.length > 0 ? String(values[0]) : opt_default;
 };
 
 
@@ -1534,7 +1514,8 @@ goog.Uri.QueryData.prototype.setIgnoreCase = function(ignoreCase) {
  * operates 'in-place', it does not create a new QueryData object.
  *
  * @param {...(?goog.Uri.QueryData|?goog.structs.Map<?, ?>|?Object)} var_args
- *     The object from which key value pairs will be copied.
+ *     The object from which key value pairs will be copied. Note: does not
+ *     accept null.
  * @suppress {deprecated} Use deprecated goog.structs.forEach to allow different
  * types of parameters.
  */

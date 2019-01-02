@@ -250,7 +250,7 @@ goog.html.SafeUrl.fromConstant = function(url) {
 goog.html.SAFE_MIME_TYPE_PATTERN_ = new RegExp(
     // Note: Due to content-sniffing concerns, only add MIME types for
     // media formats.
-    '^(?:audio/(?:3gpp|3gpp2|aac|midi|mp4|mpeg|ogg|x-m4a|x-wav|webm)|' +
+    '^(?:audio/(?:3gpp2|3gpp|aac|midi|mp3|mp4|mpeg|oga|ogg|opus|x-m4a|x-wav|wav|webm)|' +
         'image/(?:bmp|gif|jpeg|jpg|png|tiff|webp)|' +
         // TODO(b/68188949): Due to content-sniffing concerns, text/csv should
         // be removed from the whitelist.
@@ -297,15 +297,19 @@ goog.html.DATA_URL_PATTERN_ = /^data:([^;,]*);base64,[a-z0-9+\/]+=*$/i;
  *     wrapped as a SafeUrl if it does not pass.
  */
 goog.html.SafeUrl.fromDataUrl = function(dataUrl) {
+  // RFC4648 suggest to ignore CRLF in base64 encoding.
+  // See https://tools.ietf.org/html/rfc4648.
+  // Remove the CR (%0D) and LF (%0A) from the dataUrl.
+  var filteredDataUrl = dataUrl.replace(/(%0A|%0D)/g, '');
   // There's a slight risk here that a browser sniffs the content type if it
   // doesn't know the MIME type and executes HTML within the data: URL. For this
   // to cause XSS it would also have to execute the HTML in the same origin
   // of the page with the link. It seems unlikely that both of these will
   // happen, particularly in not really old IEs.
-  var match = dataUrl.match(goog.html.DATA_URL_PATTERN_);
+  var match = filteredDataUrl.match(goog.html.DATA_URL_PATTERN_);
   var valid = match && goog.html.SAFE_MIME_TYPE_PATTERN_.test(match[1]);
   return goog.html.SafeUrl.createSafeUrlSecurityPrivateDoNotAccessOrElse(
-      valid ? dataUrl : goog.html.SafeUrl.INNOCUOUS_STRING);
+      valid ? filteredDataUrl : goog.html.SafeUrl.INNOCUOUS_STRING);
 };
 
 
@@ -325,6 +329,91 @@ goog.html.SafeUrl.fromTelUrl = function(telUrl) {
   }
   return goog.html.SafeUrl.createSafeUrlSecurityPrivateDoNotAccessOrElse(
       telUrl);
+};
+
+
+/**
+ * Matches a sip/sips URL. We only allow urls that consist of an email address.
+ * The characters '?' and '#' are not allowed in the local part of the email
+ * address.
+ * @const
+ * @private
+ */
+goog.html.SIP_URL_PATTERN_ = new RegExp(
+    '^sip[s]?:[+a-z0-9_.!$%&\'*\\/=^`{|}~-]+@([a-z0-9-]+\\.)+[a-z0-9]{2,63}$',
+    'i');
+
+
+/**
+ * Creates a SafeUrl wrapping a sip: URL. We only allow urls that consist of an
+ * email address. The characters '?' and '#' are not allowed in the local part
+ * of the email address.
+ *
+ * @param {string} sipUrl A sip URL.
+ * @return {!goog.html.SafeUrl} A matching safe URL, or {@link INNOCUOUS_STRING}
+ *     wrapped as a SafeUrl if it does not pass.
+ */
+goog.html.SafeUrl.fromSipUrl = function(sipUrl) {
+  if (!goog.html.SIP_URL_PATTERN_.test(decodeURIComponent(sipUrl))) {
+    sipUrl = goog.html.SafeUrl.INNOCUOUS_STRING;
+  }
+  return goog.html.SafeUrl.createSafeUrlSecurityPrivateDoNotAccessOrElse(
+      sipUrl);
+};
+
+
+/**
+ * Creates a SafeUrl wrapping a sms: URL.
+ *
+ * @param {string} smsUrl A sms URL.
+ * @return {!goog.html.SafeUrl} A matching safe URL, or {@link INNOCUOUS_STRING}
+ *     wrapped as a SafeUrl if it does not pass.
+ */
+goog.html.SafeUrl.fromSmsUrl = function(smsUrl) {
+  if (!goog.string.caseInsensitiveStartsWith(smsUrl, 'sms:') ||
+      !goog.html.SafeUrl.isSmsUrlBodyValid_(smsUrl)) {
+    smsUrl = goog.html.SafeUrl.INNOCUOUS_STRING;
+  }
+  return goog.html.SafeUrl.createSafeUrlSecurityPrivateDoNotAccessOrElse(
+      smsUrl);
+};
+
+
+/**
+ * Validates SMS URL `body` parameter, which is optional and should appear at
+ * most once and should be percent-encoded if present. Rejects many malformed
+ * bodies, but may spuriously reject some URLs and does not reject all malformed
+ * sms: URLs.
+ *
+ * @param {string} smsUrl A sms URL.
+ * @return {boolean} Whether SMS URL has a valid `body` parameter if it exists.
+ * @private
+ */
+goog.html.SafeUrl.isSmsUrlBodyValid_ = function(smsUrl) {
+  var hash = smsUrl.indexOf('#');
+  if (hash > 0) {
+    smsUrl = smsUrl.substring(0, hash);
+  }
+  var bodyParams = smsUrl.match(/[?&]body=/gi);
+  // "body" param is optional
+  if (!bodyParams) {
+    return true;
+  }
+  // "body" MUST only appear once
+  if (bodyParams.length > 1) {
+    return false;
+  }
+  // Get the encoded `body` parameter value.
+  var bodyValue = smsUrl.match(/[?&]body=([^&]*)/)[1];
+  if (!bodyValue) {
+    return true;
+  }
+  try {
+    decodeURIComponent(bodyValue);
+  } catch (error) {
+    return false;
+  }
+  return /^(?:[a-z0-9\-_.~]|%[0-9a-f]{2})+$/i.test(bodyValue);
 };
 
 
@@ -364,6 +453,17 @@ goog.html.SafeUrl.fromTrustedResourceUrl = function(trustedResourceUrl) {
 goog.html.SAFE_URL_PATTERN_ =
     /^(?:(?:https?|mailto|ftp):|[^:/?#]*(?:[/?#]|$))/i;
 
+/**
+ * Public version of goog.html.SAFE_URL_PATTERN_. Updating
+ * goog.html.SAFE_URL_PATTERN_ doesn't seem to be backward compatible.
+ * Namespace is also changed to goog.html.SafeUrl so it can be imported using
+ * goog.require('goog.dom.SafeUrl').
+ *
+ * TODO(bangert): Remove SAFE_URL_PATTERN_
+ * @const {!RegExp}
+ */
+goog.html.SafeUrl.SAFE_URL_PATTERN = goog.html.SAFE_URL_PATTERN_;
+
 
 /**
  * Creates a SafeUrl object from `url`. If `url` is a
@@ -381,7 +481,7 @@ goog.html.SAFE_URL_PATTERN_ =
 goog.html.SafeUrl.sanitize = function(url) {
   if (url instanceof goog.html.SafeUrl) {
     return url;
-  } else if (url.implementsGoogStringTypedString) {
+  } else if (typeof url == 'object' && url.implementsGoogStringTypedString) {
     url = /** @type {!goog.string.TypedString} */ (url).getTypedStringValue();
   } else {
     url = String(url);
@@ -412,7 +512,7 @@ goog.html.SafeUrl.sanitize = function(url) {
 goog.html.SafeUrl.sanitizeAssertUnchanged = function(url) {
   if (url instanceof goog.html.SafeUrl) {
     return url;
-  } else if (url.implementsGoogStringTypedString) {
+  } else if (typeof url == 'object' && url.implementsGoogStringTypedString) {
     url = /** @type {!goog.string.TypedString} */ (url).getTypedStringValue();
   } else {
     url = String(url);

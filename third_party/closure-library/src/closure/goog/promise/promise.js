@@ -663,15 +663,16 @@ goog.Promise.prototype.thenAlways = function(onSettled, opt_context) {
 
 /**
  * Adds a callback that will be invoked only if the Promise is rejected. This
- * is equivalent to {@code then(null, onRejected)}.
+ * is equivalent to `then(null, onRejected)`.
  *
  * @param {function(this:THIS, *): *} onRejected A function that will be
- *     invoked with the rejection reason if the Promise is rejected.
+ *     invoked with the rejection reason if this Promise is rejected.
  * @param {THIS=} opt_context An optional context object that will be the
  *     execution context for the callbacks. By default, functions are executed
  *     in the global scope.
- * @return {!goog.Promise} A new Promise that will receive the result of the
- *     callback.
+ * @return {!goog.Promise} A new Promise that will resolve either to the
+ *     value of this promise, or if this promise is rejected, the result of
+ *     `onRejected`. The returned Promise will reject if `onRejected` throws.
  * @template THIS
  */
 goog.Promise.prototype.thenCatch = function(onRejected, opt_context) {
@@ -1199,7 +1200,7 @@ goog.Promise.prototype.addStackTrace_ = function(err) {
  * trace information is recorded in {@see #addStackTrace_}, and appended to
  * rethrown errors when `LONG_STACK_TRACES` is enabled.
  *
- * @param {*} err An unhandled exception captured during callback execution.
+ * @param {?} err An unhandled exception captured during callback execution.
  * @private
  */
 goog.Promise.prototype.appendLongStack_ = function(err) {

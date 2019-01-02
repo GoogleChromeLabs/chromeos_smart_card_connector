@@ -110,6 +110,74 @@ function testSafeUrlSanitize_sanitizeTelUrl() {
 }
 
 
+function testSafeUrlSanitize_sipUrlEmail() {
+  var expected = 'sip:username@example.com';
+  var observed = goog.html.SafeUrl.fromSipUrl('sip:username@example.com');
+  assertEquals(expected, goog.html.SafeUrl.unwrap(observed));
+}
+
+
+function testSafeUrlSanitize_sipsUrlEmail() {
+  var expected = 'sips:username@example.com';
+  var observed = goog.html.SafeUrl.fromSipUrl('sips:username@example.com');
+  assertEquals(expected, goog.html.SafeUrl.unwrap(observed));
+}
+
+
+function testSafeUrlSanitize_sipProtocolCase() {
+  var expected = 'Sip:username@example.com';
+  var observed = goog.html.SafeUrl.fromSipUrl('Sip:username@example.com');
+  assertEquals(expected, goog.html.SafeUrl.unwrap(observed));
+}
+
+
+function testSafeUrlSanitize_sipUrlWithPort() {
+  var observed = goog.html.SafeUrl.fromSipUrl('sip:username@example.com:5000');
+  assertEquals('about:invalid#zClosurez', goog.html.SafeUrl.unwrap(observed));
+}
+
+
+function testSafeUrlSanitize_sipUrlFragment() {
+  var observed = goog.html.SafeUrl.fromSipUrl('sip:user#name@example.com');
+  assertEquals('about:invalid#zClosurez', goog.html.SafeUrl.unwrap(observed));
+}
+
+
+function testSafeUrlSanitize_sipUrlWithPassword() {
+  var observed =
+      goog.html.SafeUrl.fromSipUrl('sips:username:password@example.com');
+  assertEquals('about:invalid#zClosurez', goog.html.SafeUrl.unwrap(observed));
+}
+
+
+function testSafeUrlSanitize_sipUrlWithOptions() {
+  var observed = goog.html.SafeUrl.fromSipUrl('sips:user;na=me@example.com');
+  assertEquals('about:invalid#zClosurez', goog.html.SafeUrl.unwrap(observed));
+}
+
+
+function testSafeUrlSanitize_sipUrlWithPercent() {
+  var observed = goog.html.SafeUrl.fromSipUrl('sip:user%40name@example.com');
+  assertEquals('about:invalid#zClosurez', goog.html.SafeUrl.unwrap(observed));
+}
+
+
+function testSafeUrlSanitize_sipUrlWithAmbiguousQuery() {
+  var observed = goog.html.SafeUrl.fromSipUrl('sip:user?name@example.com');
+  assertEquals('about:invalid#zClosurez', goog.html.SafeUrl.unwrap(observed));
+}
+
+
+function testSafeUrlSanitize_sanitizeSmsUrl() {
+  var vectors = goog.html.safeUrlTestVectors.SMS_VECTORS;
+  for (var i = 0; i < vectors.length; ++i) {
+    var v = vectors[i];
+    var observed = goog.html.SafeUrl.fromSmsUrl(v.input);
+    assertEquals(v.expected, goog.html.SafeUrl.unwrap(observed));
+  }
+}
+
+
 function testFromTrustedResourceUrl() {
   var url = goog.string.Const.from('test');
   var trustedResourceUrl = goog.html.TrustedResourceUrl.fromConstant(url);
@@ -175,6 +243,18 @@ function testSafeUrlSanitize_sanitizeProgramConstants() {
   });
 }
 
+function testSafeUrlSanitize_sanitizePlainStringWithTypedStringProperty() {
+  // .sanitize() works on plain strings with property that wrongly indicates
+  // that the text is of a type that implements `goog.string.TypedString`. This
+  // simulates a property renaming collision with a String property set
+  // externally (b/80124112).
+  var plainString = 'http://example.com/';
+  plainString.implementsGoogStringTypedString = true;
+  var output = goog.html.SafeUrl.sanitize(plainString);
+  assertEquals('http://example.com/', goog.html.SafeUrl.unwrap(output));
+  var asserted = goog.html.SafeUrl.sanitizeAssertUnchanged(plainString);
+  assertEquals('http://example.com/', goog.html.SafeUrl.unwrap(asserted));
+}
 
 function testSafeUrlSanitize_idempotentForSafeUrlArgument() {
   // This matches the safe prefix.
@@ -189,4 +269,18 @@ function testSafeUrlSanitize_idempotentForSafeUrlArgument() {
   safeUrl2 = goog.html.SafeUrl.sanitize(safeUrl);
   assertEquals(
       goog.html.SafeUrl.unwrap(safeUrl), goog.html.SafeUrl.unwrap(safeUrl2));
+}
+
+function testSafeUrlSanitize_base64ImageSrc() {
+  var dataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAT4AAA';
+  var safeUrl = goog.html.SafeUrl.fromDataUrl(dataUrl);
+  assertEquals(goog.html.SafeUrl.unwrap(safeUrl), dataUrl);
+}
+
+function testSafeUrlSanitize_base64ImageSrcWithCRLF() {
+  var dataUrl = 'data:image/png;base64,iVBORw0KGgoA%0AAAANSUhEUgA%0DAAT4AAA%0A';
+  var safeUrl = goog.html.SafeUrl.fromDataUrl(dataUrl);
+  assertEquals(
+      goog.html.SafeUrl.unwrap(safeUrl),
+      'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAT4AAA');
 }

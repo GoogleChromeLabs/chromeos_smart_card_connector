@@ -1356,15 +1356,15 @@ function testFromDecimalCachedValues() {
     var handledException;
     goog.asserts.setErrorHandler(function(e) { handledException = e; });
 
-    assertEquals(goog.math.Long.getZero(), goog.math.Long.fromInt(0.1));
+    assertEquals(goog.math.Long.fromInt(0), goog.math.Long.fromInt(0.1));
     assertTrue(handledException != null);
 
     handledException = null;
-    assertEquals(goog.math.Long.getZero(), goog.math.Long.fromInt(0.2));
+    assertEquals(goog.math.Long.fromInt(0), goog.math.Long.fromInt(0.2));
     assertTrue(handledException != null);
 
     handledException = null;
-    assertEquals(goog.math.Long.getOne(), goog.math.Long.fromInt(1.1));
+    assertEquals(goog.math.Long.fromInt(1), goog.math.Long.fromInt(1.1));
     assertTrue(handledException != null);
   } finally {
     goog.asserts.setErrorHandler(goog.asserts.DEFAULT_ERROR_HANDLER);
@@ -1558,7 +1558,7 @@ function createTestDivMod(i, count) {
         assertTrue(vi.equals(combinedResult));
       }
     }
-  }
+  };
 }
 
 var countPerDivModCall = 0;
@@ -1593,7 +1593,7 @@ function createTestToFromString(i) {
           TEST_BITS[i + 1],
           goog.math.Long.fromString(result, radix).getLowBits());
     }
-  }
+  };
 }
 
 for (var i = 0; i < TEST_BITS.length; i += 2) {
@@ -1620,4 +1620,23 @@ testIsStringInRange();
 // https://github.com/google/closure-library/pull/498
 function testBase36ToString() {
   assertEquals('zzzzzz', goog.math.Long.fromString('zzzzzz', 36).toString(36));
+}
+
+function testBaseDefaultFromString() {
+  assertEquals('0', goog.math.Long.fromString('0xfoobar').toString());
+  assertEquals(
+      '100000000000000000000000000000000000000000000000000000000000001',
+      goog.math.Long.fromBits(1, 0x40000000).toString(2));
+}
+
+function testSafeInteger() {
+  assertTrue(goog.math.Long.fromNumber(1).isSafeInteger());
+  assertTrue(goog.math.Long.fromNumber(0).isSafeInteger());
+  assertTrue(goog.math.Long.fromNumber(-1).isSafeInteger());
+  assertTrue(goog.math.Long.fromNumber(Math.pow(2, 32)).isSafeInteger());
+  assertTrue(goog.math.Long.fromNumber(-Math.pow(2, 32)).isSafeInteger());
+  assertTrue(goog.math.Long.fromNumber(Math.pow(2, 53) - 1).isSafeInteger());
+  assertTrue(goog.math.Long.fromNumber(-Math.pow(2, 53) + 1).isSafeInteger());
+  assertFalse(goog.math.Long.fromNumber(Math.pow(2, 53)).isSafeInteger());
+  assertFalse(goog.math.Long.fromNumber(-Math.pow(2, 53)).isSafeInteger());
 }

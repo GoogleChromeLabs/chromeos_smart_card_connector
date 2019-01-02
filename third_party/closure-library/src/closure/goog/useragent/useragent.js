@@ -282,6 +282,12 @@ goog.define('goog.userAgent.ASSUME_IPOD', false);
 
 
 /**
+ * @define {boolean} Whether the user agent is running on KaiOS.
+ */
+goog.define('goog.userAgent.ASSUME_KAIOS', false);
+
+
+/**
  * @type {boolean}
  * @private
  */
@@ -403,6 +409,14 @@ goog.userAgent.IOS = goog.userAgent.PLATFORM_KNOWN_ ?
     goog.labs.userAgent.platform.isIos();
 
 /**
+ * Whether the user agent is running on KaiOS.
+ */
+goog.userAgent.KAIOS = goog.userAgent.PLATFORM_KNOWN_ ?
+    goog.userAgent.ASSUME_KAIOS :
+    goog.labs.userAgent.platform.isKaiOS();
+
+
+/**
  * @return {string} The string that describes the version number of the user
  *     agent.
  * @private
@@ -435,7 +449,8 @@ goog.userAgent.determineVersion_ = function() {
 
 
 /**
- * @return {?Array|undefined} The version regex matches from parsing the user
+ * @return {?IArrayLike<string>|undefined} The version regex matches from
+ *     parsing the user
  *     agent string. These regex statements must be executed inline so they can
  *     be compiled out by the closure compiler with the rest of the useragent
  *     detection logic when ASSUME_* is specified.
