@@ -36,7 +36,8 @@ goog.scope(function() {
 var GSC = GoogleSmartCard;
 
 /** @const */
-var PermissionsChecking = GSC.PcscLiteServerClientsManagement.PermissionsChecking;
+var PermissionsChecking =
+    GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /** @const */
 var KnownApp = PermissionsChecking.KnownApp;
@@ -59,33 +60,33 @@ var appListElement = /** @type {!Element} */ (goog.dom.getElement('app-list'));
 var knownAppsRegistry = new PermissionsChecking.KnownAppsRegistry();
 
 /**
- * @type {goog.Promise.<!Array.<KnownApp>>}
+ * @type {goog.Promise.<!Array.<!KnownApp>>?}
  */
 var lastKnownAppsPromise = null;
 
 /**
- * @param {!goog.Promise.<!Array.<KnownApp>>} knownAppsPromise
+ * @param {!goog.Promise.<!Array.<!KnownApp>>} knownAppsPromise
  * @param {!Array.<string>} appIds
- * @param {Array.<KnownApp>} knownApps
+ * @param {Array.<!KnownApp>?} knownApps
  * @return {boolean}
  */
 function updateAppView(knownAppsPromise, appIds, knownApps) {
-    if (knownAppsPromise !== lastKnownAppsPromise) return false;
+  if (knownAppsPromise !== lastKnownAppsPromise) return false;
 
-    GSC.Logging.checkWithLogger(logger, !goog.isNull(appListElement));
-    goog.asserts.assert(appListElement);
+  GSC.Logging.checkWithLogger(logger, !goog.isNull(appListElement));
+  goog.asserts.assert(appListElement);
 
-    goog.dom.removeChildren(appListElement);
+  goog.dom.removeChildren(appListElement);
 
-    for (var i = 0; i < appIds.length; i++) {
-      var text = knownApps && knownApps[i] ?
-                 knownApps[i].name :
-                 '<' + appIds[i] + '>';
-      var newElement = goog.dom.createDom('li', undefined, text);
-      goog.dom.append(appListElement, newElement);
-    }
+  for (var i = 0; i < appIds.length; i++) {
+    var text = knownApps && knownApps[i] ?
+               knownApps[i].name :
+               '<' + appIds[i] + '>';
+    var newElement = goog.dom.createDom('li', undefined, text);
+    goog.dom.append(appListElement, newElement);
+  }
 
-    return true;
+  return true;
 }
 
 /**

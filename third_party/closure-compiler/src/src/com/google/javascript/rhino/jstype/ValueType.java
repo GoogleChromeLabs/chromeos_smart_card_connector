@@ -50,9 +50,13 @@ abstract class ValueType extends JSType {
   }
 
   @Override
-  final JSType resolveInternal(ErrorReporter reporter, StaticTypedScope<JSType> scope) {
+  final JSType resolveInternal(ErrorReporter reporter) {
     return this;
   }
+
+  // Subclasses must override and return non-null.
+  @Override
+  public abstract String getDisplayName();
 
   @Override
   public boolean hasDisplayName() {
@@ -70,5 +74,11 @@ abstract class ValueType extends JSType {
     } else {
       return super.getPropertyKind(propertyName, autobox);
     }
+  }
+
+  @Override
+  final int recursionUnsafeHashCode() {
+    // Subclasses of this type are unique within a JSTypeRegisty.
+    return System.identityHashCode(this);
   }
 }

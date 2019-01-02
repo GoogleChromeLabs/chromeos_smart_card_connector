@@ -42,10 +42,11 @@ var ABOUT_WINDOW_OPTIONS = {
 var GSC = GoogleSmartCard;
 
 /**
- * @type {Element}
+ * @type {!Element}
  * @const
  */
-var openAboutElement = goog.dom.getElement('open-about');
+var openAboutElement = /** @type {!Element} */ (goog.dom.getElement(
+    'open-about'));
 
 /**
  * @param {!Event} e

@@ -18,16 +18,23 @@ package com.google.javascript.jscomp;
 import static com.google.javascript.jscomp.J2clChecksPass.J2CL_REFERENCE_EQUALITY;
 import static com.google.javascript.jscomp.J2clChecksPass.REFERENCE_EQUALITY_TYPE_PATTERNS;
 
-public class J2clCheckPassTest extends TypeICompilerTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+@RunWith(JUnit4.class)
+public class J2clCheckPassTest extends CompilerTestCase {
 
   public J2clCheckPassTest() {
     super(DEFAULT_EXTERNS);
   }
 
   @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     super.setUp();
-    this.mode = TypeInferenceMode.BOTH;
+    enableTypeCheck();
   }
 
   @Override
@@ -42,6 +49,7 @@ public class J2clCheckPassTest extends TypeICompilerTestCase {
     return compiler;
   }
 
+  @Test
   public void testReferenceEquality_noWarning_other() {
     test(
         srcs(SourceFile.fromCode("java/lang/SomeClass.impl.java.js", lines(
@@ -52,6 +60,7 @@ public class J2clCheckPassTest extends TypeICompilerTestCase {
             "var a = x == y;"))));
   }
 
+  @Test
   public void testReferenceEquality_noWarning_null() {
     for (String value : REFERENCE_EQUALITY_TYPE_PATTERNS.values()) {
       test(
@@ -63,6 +72,7 @@ public class J2clCheckPassTest extends TypeICompilerTestCase {
     }
   }
 
+  @Test
   public void testReferenceEquality_noWarning_undefined() {
     for (String value : REFERENCE_EQUALITY_TYPE_PATTERNS.values()) {
       test(
@@ -74,6 +84,7 @@ public class J2clCheckPassTest extends TypeICompilerTestCase {
     }
   }
 
+  @Test
   public void testReferenceEquality_warning() {
     for (String value : REFERENCE_EQUALITY_TYPE_PATTERNS.values()) {
       test(

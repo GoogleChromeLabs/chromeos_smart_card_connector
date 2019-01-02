@@ -215,7 +215,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
   this.serverReadinessTracker_ = serverReadinessTracker;
 
   /**
-   * @type {GSC.Requester}
+   * @type {GSC.Requester?}
    * @private
    */
   this.serverRequester_ = null;
@@ -257,7 +257,7 @@ var idGenerator = goog.iter.count();
  *
  * This is a lazily initialized singleton object for the optimization purposes
  * (construction of the checker is a relatively expensive operation).
- * @type {PermissionsChecking.Checker}
+ * @type {PermissionsChecking.Checker?}
  */
 var permissionsChecker = null;
 

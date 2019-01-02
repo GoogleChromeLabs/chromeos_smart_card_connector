@@ -18,10 +18,10 @@ package com.google.javascript.jscomp;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.ObjectTypeI;
-import com.google.javascript.rhino.TypeI;
-import com.google.javascript.rhino.TypeIRegistry;
+import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
+import com.google.javascript.rhino.jstype.JSTypeRegistry;
+import com.google.javascript.rhino.jstype.ObjectType;
 import java.util.Locale;
 
 /**
@@ -72,15 +72,17 @@ public final class Es6ToEs3Util {
    * Returns a call to $jscomp.arrayFromIterable with {@code iterable} as its argument.
    */
   static Node arrayFromIterable(AbstractCompiler compiler, Node iterable) {
-    return callEs6RuntimeFunction(compiler, iterable, "arrayFromIterable");
+    JSTypeRegistry registry = compiler.getTypeRegistry();
+    JSType arrayType = registry.getNativeType(JSTypeNative.ARRAY_TYPE);
+
+    Node call =
+        callEs6RuntimeFunction(compiler, iterable, "arrayFromIterable").setJSType(arrayType);
+    call.getFirstChild().setJSType(registry.createFunctionTypeWithVarArgs(arrayType));
+    return call;
   }
 
   static void preloadEs6RuntimeFunction(AbstractCompiler compiler, String function) {
     compiler.ensureLibraryInjected("es6/util/" + function.toLowerCase(Locale.US), false);
-  }
-
-  static void preloadEs6Symbol(AbstractCompiler compiler) {
-    compiler.ensureLibraryInjected("es6/symbol", false);
   }
 
   static Node callEs6RuntimeFunction(
@@ -92,18 +94,18 @@ public final class Es6ToEs3Util {
   }
 
   /** Adds the type t to Node n, and returns n. Does nothing if t is null. */
-  static Node withType(Node n, TypeI t) {
+  static Node withType(Node n, JSType t) {
     if (t != null) {
-      n.setTypeI(t);
+      n.setJSType(t);
     }
     return n;
   }
 
   /**
-   * Returns the TypeI as specified by the typeName.
+   * Returns the JSType as specified by the typeName.
    * Returns null if shouldCreate is false.
    */
-  static TypeI createType(boolean shouldCreate, TypeIRegistry registry, JSTypeNative typeName) {
+  static JSType createType(boolean shouldCreate, JSTypeRegistry registry, JSTypeNative typeName) {
     if (!shouldCreate) {
       return null;
     }
@@ -111,16 +113,16 @@ public final class Es6ToEs3Util {
   }
 
   /**
-   * Returns the TypeI as specified by the typeName and instantiated by the typeArg.
+   * Returns the JSType as specified by the typeName and instantiated by the typeArg.
    * Returns null if shouldCreate is false.
    */
-  static TypeI createGenericType(
-      boolean shouldCreate, TypeIRegistry registry, JSTypeNative typeName, TypeI typeArg) {
+  static JSType createGenericType(
+      boolean shouldCreate, JSTypeRegistry registry, JSTypeNative typeName, JSType typeArg) {
     if (!shouldCreate) {
       return null;
     }
-    ObjectTypeI genericType = (ObjectTypeI) (registry.getNativeType(typeName));
-    ObjectTypeI uninstantiated = genericType.getRawType();
+    ObjectType genericType = (ObjectType) (registry.getNativeType(typeName));
+    ObjectType uninstantiated = genericType.getRawType();
     return registry.instantiateGenericType(uninstantiated, ImmutableList.of(typeArg));
   }
 }

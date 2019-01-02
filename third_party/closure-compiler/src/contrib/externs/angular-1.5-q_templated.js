@@ -28,13 +28,14 @@
  *****************************************************************************/
 
 /**
- * @constructor
+ * @interface
  */
 angular.$q = function() {};
 
 /**
- * @constructor
+ * @interface
  * @template T
+ * @extends {IThenable<T>}
  */
 angular.$q.Promise = function() {};
 
@@ -48,6 +49,7 @@ angular.$q.Promise = function() {};
  * @param {?(function(?): ?)=} opt_onRejected
  * @param {?(function(?): ?)=} opt_notifyCallback
  * @return {RESULT}
+ * @override
  * @template THIS
  * @template VALUE
  * @template RESULT := type('angular.$q.Promise',
@@ -78,7 +80,7 @@ angular.$q.Promise.prototype.finally =
     function(callback, opt_notifyCallback) {};
 
 /**
- * @constructor
+ * @interface
  * @template T
  */
 angular.$q.Deferred = function() {};

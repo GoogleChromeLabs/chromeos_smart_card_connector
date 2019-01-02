@@ -19,8 +19,13 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.rhino.Node;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-public final class PolymerPassFindExternsTest extends TypeICompilerTestCase {
+@RunWith(JUnit4.class)
+public final class PolymerPassFindExternsTest extends CompilerTestCase {
 
   private static final String EXTERNS =
       lines(
@@ -67,16 +72,17 @@ public final class PolymerPassFindExternsTest extends TypeICompilerTestCase {
     return new CompilerPass() {
       @Override
       public void process(Node externs, Node root) {
-        NodeTraversal.traverseEs6(compiler, externs, findExternsCallback);
+        NodeTraversal.traverse(compiler, externs, findExternsCallback);
       }
     };
   }
 
   @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     super.setUp();
+    enableTypeCheck();
     allowExternsChanges();
-    this.mode = TypeInferenceMode.BOTH;
     enableRunTypeCheckAfterProcessing();
     enableParseTypeInfo();
   }
@@ -86,22 +92,24 @@ public final class PolymerPassFindExternsTest extends TypeICompilerTestCase {
     return 1;
   }
 
+  @Test
   public void testFindsPolymerElementRoot() {
     testSame("");
     Node polymerElementNode = findExternsCallback.getPolymerElementExterns();
 
-    assertNotNull(polymerElementNode);
-    assertTrue(polymerElementNode.isVar());
-    assertTrue(polymerElementNode.getFirstChild().matchesQualifiedName("PolymerElement"));
+    assertThat(polymerElementNode).isNotNull();
+    assertThat(polymerElementNode.isVar()).isTrue();
+    assertThat(polymerElementNode.getFirstChild().matchesQualifiedName("PolymerElement")).isTrue();
   }
 
+  @Test
   public void testFindsPolymerElementProps() {
     testSame("");
     final ImmutableList<String> expectedProps = ImmutableList.of(
         "$", "created", "ready", "attached", "domReady", "detached", "job");
     ImmutableList<Node> polymerElementProps = findExternsCallback.getPolymerElementProps();
 
-    assertNotNull(polymerElementProps);
+    assertThat(polymerElementProps).isNotNull();
     assertThat(polymerElementProps).hasSize(expectedProps.size());
     for (int i = 0; i < polymerElementProps.size(); ++i) {
       assertThat(getPropertyName(polymerElementProps.get(i))).isEqualTo(expectedProps.get(i));

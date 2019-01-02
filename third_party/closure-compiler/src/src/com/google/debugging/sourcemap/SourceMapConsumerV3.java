@@ -43,6 +43,7 @@ public final class SourceMapConsumerV3 implements SourceMapConsumer,
   static final int UNMAPPED = -1;
 
   private String[] sources;
+  private String[] sourcesContent;
   private String[] names;
   private int lineCount;
   // Slots in the lines list will be null if the line does not have any entries.
@@ -69,10 +70,8 @@ public final class SourceMapConsumerV3 implements SourceMapConsumer,
     parse(sourceMapObject, null);
   }
 
-  /**
-   * Parses the given contents containing a source map.
-   */
-  void parse(SourceMapObject sourceMapObject, SourceMapSupplier sectionSupplier)
+  /** Parses the given contents containing a source map. */
+  public void parse(SourceMapObject sourceMapObject, SourceMapSupplier sectionSupplier)
       throws SourceMapParseException {
     if (sourceMapObject.getVersion() != 3) {
       throw new SourceMapParseException("Unknown version: " + sourceMapObject.getVersion());
@@ -92,6 +91,7 @@ public final class SourceMapConsumerV3 implements SourceMapConsumer,
     lineCount = sourceMapObject.getLineCount();
     sourceRoot = sourceMapObject.getSourceRoot();
     sources = sourceMapObject.getSources();
+    sourcesContent = sourceMapObject.getSourcesContent();
     names = sourceMapObject.getNames();
 
     if (lineCount >= 0) {
@@ -184,6 +184,10 @@ public final class SourceMapConsumerV3 implements SourceMapConsumer,
   @Override
   public Collection<String> getOriginalSources() {
     return Arrays.asList(sources);
+  }
+
+  public Collection<String> getOriginalSourcesContent() {
+    return sourcesContent == null ? null : Arrays.asList(sourcesContent);
   }
 
   @Override

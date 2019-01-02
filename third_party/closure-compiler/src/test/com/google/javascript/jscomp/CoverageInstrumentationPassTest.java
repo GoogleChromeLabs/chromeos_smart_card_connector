@@ -16,13 +16,14 @@
 package com.google.javascript.jscomp;
 
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
-import junit.framework.TestCase;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Tests for function transformation in {@link CoverageInstrumentationPass}.
- */
+/** Tests for function transformation in {@link CoverageInstrumentationPass}. */
 
-public final class CoverageInstrumentationPassTest extends TestCase {
+@RunWith(JUnit4.class)
+public final class CoverageInstrumentationPassTest {
 
   private CompilerOptions options(LanguageMode inMode) {
     CompilerOptions options = GoldenFileComparer.options();
@@ -48,6 +49,7 @@ public final class CoverageInstrumentationPassTest extends TestCase {
         "CoverageInstrumentationPassTest/Function.jsdata");
   }
 
+  @Test
   public void testFunction() throws Exception {
     compareFunctionOneMode(LanguageMode.ECMASCRIPT5);
     compareFunctionOneMode(LanguageMode.ECMASCRIPT_2015);
@@ -59,12 +61,14 @@ public final class CoverageInstrumentationPassTest extends TestCase {
   }
 
   // If the body of the arrow function is a block, it is instrumented.
+  @Test
   public void testArrowFunction_block() throws Exception {
     compareArrowOneMode(LanguageMode.ECMASCRIPT_2015, "CoverageInstrumentationPassTest/ArrowBlock");
   }
 
   // If the body of the arrow function is an expression, it is converted to a block,
   // then instrumented.
+  @Test
   public void testArrowFunction_expression() throws Exception {
     compareArrowOneMode(
         LanguageMode.ECMASCRIPT_2015, "CoverageInstrumentationPassTest/ArrowExpression");
@@ -77,6 +81,7 @@ public final class CoverageInstrumentationPassTest extends TestCase {
         "CoverageInstrumentationPassTest/IfBranch.jsdata");
   }
 
+  @Test
   public void testIfBranch() throws Exception {
     compareIfBranch(LanguageMode.ECMASCRIPT5);
     compareIfBranch(LanguageMode.ECMASCRIPT_2015);
@@ -89,6 +94,7 @@ public final class CoverageInstrumentationPassTest extends TestCase {
         "CoverageInstrumentationPassTest/IfElseBranch.jsdata");
   }
 
+  @Test
   public void testIfElseBranch() throws Exception {
     compareIfElseBranch(LanguageMode.ECMASCRIPT5);
     compareIfElseBranch(LanguageMode.ECMASCRIPT_2015);
@@ -101,6 +107,7 @@ public final class CoverageInstrumentationPassTest extends TestCase {
         "CoverageInstrumentationPassTest/ForLoopBranch.jsdata");
   }
 
+  @Test
   public void testForLoopBranch() throws Exception {
     compareForLoopBranch(LanguageMode.ECMASCRIPT5);
     compareForLoopBranch(LanguageMode.ECMASCRIPT_2015);
@@ -113,6 +120,7 @@ public final class CoverageInstrumentationPassTest extends TestCase {
         "CoverageInstrumentationPassTest/DoWhileLoopBranch.jsdata");
   }
 
+  @Test
   public void testDoWhileLoopBranch() throws Exception {
     compareDoWhileLoopBranch(LanguageMode.ECMASCRIPT5);
     compareDoWhileLoopBranch(LanguageMode.ECMASCRIPT_2015);
@@ -125,6 +133,7 @@ public final class CoverageInstrumentationPassTest extends TestCase {
         "CoverageInstrumentationPassTest/DoWhileLoopMultiLineBranch.jsdata");
   }
 
+  @Test
   public void testDoWhileLoopMultiLineBranch() throws Exception {
     compareDoWhileLoopMultiLineBranch(LanguageMode.ECMASCRIPT5);
     compareDoWhileLoopMultiLineBranch(LanguageMode.ECMASCRIPT_2015);
@@ -137,6 +146,7 @@ public final class CoverageInstrumentationPassTest extends TestCase {
         "CoverageInstrumentationPassTest/WhileLoopBranch.jsdata");
   }
 
+  @Test
   public void testWhileLoopBranch() throws Exception {
     compareWhileLoopBranch(LanguageMode.ECMASCRIPT5);
     compareWhileLoopBranch(LanguageMode.ECMASCRIPT_2015);

@@ -20,21 +20,29 @@ import static com.google.common.base.Preconditions.checkNotNull;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.CheckLevel;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
+import com.google.javascript.jscomp.CompilerOptions.Es6ModuleTranspilation;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.DiagnosticGroup;
+import com.google.javascript.jscomp.DiagnosticGroups;
 import com.google.javascript.jscomp.DiagnosticType;
-import com.google.javascript.jscomp.Es6RewriteModulesToCommonJsModules;
 import com.google.javascript.jscomp.PropertyRenamingPolicy;
 import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.SourceFile;
+import com.google.javascript.jscomp.SourceMap;
 import com.google.javascript.jscomp.VariableRenamingPolicy;
 import com.google.javascript.jscomp.bundle.TranspilationException;
-import com.google.javascript.rhino.Node;
+import com.google.javascript.jscomp.deps.ModuleLoader;
+import com.google.javascript.jscomp.deps.ModuleLoader.PathEscaper;
+import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
+import com.google.javascript.jscomp.parsing.parser.FeatureSet;
+import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import java.io.IOException;
-import java.nio.file.Path;
+import java.net.URI;
+import java.net.URISyntaxException;
 
 /**
  * Basic Transpiler implementation for outputting ES5 code.
@@ -44,13 +52,13 @@ public final class BaseTranspiler implements Transpiler {
   private final CompilerSupplier compilerSupplier;
   private final String runtimeLibraryName;
 
-  BaseTranspiler(CompilerSupplier compilerSupplier, String runtimeLibraryName) {
+  public BaseTranspiler(CompilerSupplier compilerSupplier, String runtimeLibraryName) {
     this.compilerSupplier = checkNotNull(compilerSupplier);
     this.runtimeLibraryName = checkNotNull(runtimeLibraryName);
   }
 
   @Override
-  public TranspileResult transpile(Path path, String code) {
+  public TranspileResult transpile(URI path, String code) {
     CompileResult result = compilerSupplier.compile(path, code);
     if (!result.transpiled) {
       return new TranspileResult(path, code, code, "");
@@ -68,11 +76,17 @@ public final class BaseTranspiler implements Transpiler {
     return sb.toString();
   }
 
-  public static final BaseTranspiler ES5_TRANSPILER = new BaseTranspiler(
-      new CompilerSupplier(), "es6_runtime");
+  public static final BaseTranspiler LATEST_TRANSPILER = to(FeatureSet.latest(), "");
 
-  public static final BaseTranspiler ES_MODULE_TO_CJS_TRANSPILER =
-      new BaseTranspiler(new EsmToCjsCompilerSupplier(), "");
+  public static final BaseTranspiler ES5_TRANSPILER = to(LanguageMode.ECMASCRIPT5.toFeatureSet());
+
+  public static final BaseTranspiler to(FeatureSet featureSet, String runtime) {
+    return new BaseTranspiler(new CompilerSupplier(featureSet), runtime);
+  }
+
+  public static final BaseTranspiler to(FeatureSet featureSet) {
+    return to(featureSet, "es6_runtime");
+  }
 
   /**
    * Wraps the Compiler into a more relevant interface, making it
@@ -83,7 +97,43 @@ public final class BaseTranspiler implements Transpiler {
    * time when we're in single-file mode.
    */
   public static class CompilerSupplier {
-    public CompileResult compile(Path path, String code) {
+    protected final ResolutionMode moduleResolution;
+    protected final ImmutableList<String> moduleRoots;
+    protected final ImmutableMap<String, String> prefixReplacements;
+    protected final FeatureSet outputFeatureSet;
+
+    public CompilerSupplier() {
+      this(LanguageMode.ECMASCRIPT5.toFeatureSet());
+    }
+
+    public CompilerSupplier(FeatureSet outputFeatureSet) {
+      // Use the default resolution mode
+      this(
+          outputFeatureSet,
+          new CompilerOptions().getModuleResolutionMode(),
+          ImmutableList.of(),
+          ImmutableMap.of());
+    }
+
+    /**
+     * Accepts commonly overridden options for ES6 modules to avoid needed to subclass.
+     *
+     * @param moduleResolution module resolution for resolving import paths
+     * @param prefixReplacements prefix replacements for when moduleResolution is {@link
+     *     ModuleLoader.ResolutionMode#BROWSER_WITH_TRANSFORMED_PREFIXES}
+     */
+    public CompilerSupplier(
+        FeatureSet outputFeatureSet,
+        ModuleLoader.ResolutionMode moduleResolution,
+        ImmutableList<String> moduleRoots,
+        ImmutableMap<String, String> prefixReplacements) {
+      this.outputFeatureSet = outputFeatureSet;
+      this.moduleResolution = moduleResolution;
+      this.moduleRoots = moduleRoots;
+      this.prefixReplacements = prefixReplacements;
+    }
+
+    public CompileResult compile(URI path, String code) {
       Compiler compiler = compiler();
       Result result =
           compiler.compile(EXTERNS, SourceFile.fromCode(path.toString(), code), options());
@@ -126,26 +176,39 @@ public final class BaseTranspiler implements Transpiler {
 
     protected void setOptions(CompilerOptions options) {
       options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
-      // TODO(sdh): It would be nice to allow people to output code in
-      // strict mode.  But currently we swallow all the input language
-      // strictness checks, and there are various tests that are never
-      // compiled and so are broken when we output 'use strict'.  We
-      // could consider adding some sort of logging/warning/error in
-      // cases where the input was not strict, though there could still
-      // be semantic differences even if syntax is strict.  Possibly
-      // the first step would be to allow the option of outputting strict
-      // and then change the default and see what breaks.  b/33005948
-      options.setLanguageOut(LanguageMode.ECMASCRIPT5);
+      options.setOutputFeatureSet(outputFeatureSet.without(Feature.MODULES));
+      options.setEmitUseStrict(false);
       options.setQuoteKeywordProperties(true);
       options.setSkipNonTranspilationPasses(true);
       options.setVariableRenaming(VariableRenamingPolicy.OFF);
       options.setPropertyRenaming(PropertyRenamingPolicy.OFF);
       options.setWrapGoogModulesForWhitespaceOnly(false);
       options.setPrettyPrint(true);
+      options.setWarningLevel(ES5_WARNINGS, CheckLevel.OFF);
+      options.setWarningLevel(DiagnosticGroups.NON_STANDARD_JSDOC, CheckLevel.OFF);
+      options.setEs6ModuleTranspilation(Es6ModuleTranspilation.TO_COMMON_JS_LIKE_MODULES);
+      options.setModuleResolutionMode(moduleResolution);
+      options.setModuleRoots(moduleRoots);
+      options.setBrowserResolverPrefixReplacements(prefixReplacements);
+      // Don't escape module paths when bundling in the event paths are URLs.
+      options.setPathEscaper(PathEscaper.CANONICALIZE_ONLY);
+
       options.setSourceMapOutputPath("/dev/null");
       options.setSourceMapIncludeSourcesContent(true);
-      options.setWarningLevel(ES5_WARNINGS, CheckLevel.OFF);
-      options.setTranspileEs6ModulesToCjsModules(true);
+      // Make sourcemaps use absolute paths, so that the path is not duplicated if a build tool adds
+      // a sourceurl. Exception: if the location has a scheme (like http:) then leave the path
+      // intact. This makes this usable from web servers.
+      options.setSourceMapLocationMappings(
+          ImmutableList.of((location) -> {
+            try {
+              if (new URI(location).getScheme() != null) {
+                return location;
+              }
+            } catch (URISyntaxException e) {
+              // Swallow, return the absolute version below.
+            }
+            return new SourceMap.PrefixLocationMapping("", "/").map(location);
+          }));
     }
 
     protected static final SourceFile EXTERNS =
@@ -153,60 +216,6 @@ public final class BaseTranspiler implements Transpiler {
     protected static final SourceFile EMPTY = SourceFile.fromCode("empty.js", "");
     protected static final DiagnosticGroup ES5_WARNINGS = new DiagnosticGroup(
         DiagnosticType.error("JSC_CANNOT_CONVERT", ""));
-  }
-
-  /**
-   * CompilerSupplier that only transforms EcmaScript Modules into a form that can be saftely
-   * transformed on a file by file basis and concatenated.
-   */
-  public static class EsmToCjsCompilerSupplier extends CompilerSupplier {
-    @Override
-    public CompileResult compile(Path path, String code) {
-      CompilerOptions options = new CompilerOptions();
-      options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
-      options.setEmitUseStrict(false);
-      options.setSourceMapOutputPath("/dev/null");
-      options.setSourceMapIncludeSourcesContent(true);
-      options.setPrettyPrint(true);
-
-      // Create a compiler and run specifically this one pass on it.
-      Compiler compiler = compiler();
-      compiler.init(
-          ImmutableList.of(),
-          ImmutableList.of(SourceFile.fromCode(path.toString(), code)),
-          options);
-      compiler.parseForCompilation();
-
-      boolean transpiled = false;
-
-      if (!compiler.hasErrors()
-          && compiler.getRoot().getSecondChild().getFirstFirstChild().isModuleBody()
-          && !compiler
-              .getRoot()
-              .getSecondChild()
-              .getFirstChild()
-              .getBooleanProp(Node.GOOG_MODULE)) {
-        new Es6RewriteModulesToCommonJsModules(compiler)
-            .process(null, compiler.getRoot().getSecondChild());
-        compiler.getRoot().getSecondChild().getFirstChild().putBooleanProp(Node.TRANSPILED, true);
-        transpiled = true;
-      }
-
-      Result result = compiler.getResult();
-      String source = compiler.toSource();
-      StringBuilder sourceMap = new StringBuilder();
-      if (result.sourceMap != null) {
-        try {
-          result.sourceMap.appendTo(sourceMap, path.toString());
-        } catch (IOException e) {
-          // impossible, and not a big deal even if it did happen.
-        }
-      }
-      if (result.errors.length > 0) {
-        throw new TranspilationException(compiler, result.errors, result.warnings);
-      }
-      return new CompileResult(source, transpiled, transpiled ? sourceMap.toString() : "");
-    }
   }
 
   /**

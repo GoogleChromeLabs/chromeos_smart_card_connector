@@ -45,13 +45,13 @@ public final class Es6RenameVariablesInParamLists extends AbstractPostOrderCallb
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
     // Arrow functions without blocked body cannot have declarations in the body
-    if (!n.isFunction() || !n.getLastChild().isNormalBlock()) {
+    if (!n.isFunction() || !n.getLastChild().isBlock()) {
       return;
     }
 
     Node paramList = n.getSecondChild();
     final CollectReferences collector = new CollectReferences();
-    NodeTraversal.traverseEs6(compiler, paramList, new NodeTraversal.AbstractPreOrderCallback() {
+    NodeTraversal.traverse(compiler, paramList, new NodeTraversal.AbstractPreOrderCallback() {
       @Override
       public final boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
         if (parent == null) {
@@ -60,7 +60,7 @@ public final class Es6RenameVariablesInParamLists extends AbstractPostOrderCallb
 
         if ((parent.isDefaultValue() && n == parent.getLastChild())
             || (parent.isComputedProp() && n == parent.getFirstChild())) {
-          NodeTraversal.traverseEs6(compiler, n, collector);
+          NodeTraversal.traverse(compiler, n, collector);
           return false;
         }
         return true;

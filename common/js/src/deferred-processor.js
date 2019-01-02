@@ -80,7 +80,7 @@ GSC.DeferredProcessor = function(awaitedPromise) {
   this.isCurrentlyFlushingJobs_ = false;
 
   /**
-   * @type {goog.structs.Queue.<Job>}
+   * @type {!goog.structs.Queue.<!Job>}
    * @private
    */
   this.jobsQueue_ = new goog.structs.Queue;

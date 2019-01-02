@@ -18,14 +18,18 @@ package com.google.javascript.jscomp.gwt.client;
 
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Strings.nullToEmpty;
+import static com.google.javascript.jscomp.AbstractCommandLineRunner.createDefineOrTweakReplacements;
+import static com.google.javascript.jscomp.AbstractCommandLineRunner.createJsModules;
+import static com.google.javascript.jscomp.AbstractCommandLineRunner.parseModuleWrappers;
 
 import com.google.common.base.Ascii;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.gwt.core.client.EntryPoint;
 import com.google.gwt.core.client.JavaScriptObject;
+import com.google.javascript.jscomp.AbstractCommandLineRunner.JsModuleSpec;
 import com.google.javascript.jscomp.BasicErrorManager;
 import com.google.javascript.jscomp.CheckLevel;
+import com.google.javascript.jscomp.ClosureCodingConvention;
 import com.google.javascript.jscomp.CompilationLevel;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
@@ -34,10 +38,14 @@ import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.CompilerOptions.TracerMode;
 import com.google.javascript.jscomp.DefaultExterns;
 import com.google.javascript.jscomp.DependencyOptions;
+import com.google.javascript.jscomp.DependencyOptions.DependencyMode;
+import com.google.javascript.jscomp.DiagnosticGroups;
 import com.google.javascript.jscomp.DiagnosticType;
 import com.google.javascript.jscomp.JSError;
+import com.google.javascript.jscomp.JSModule;
 import com.google.javascript.jscomp.ModuleIdentifier;
 import com.google.javascript.jscomp.PropertyRenamingPolicy;
+import com.google.javascript.jscomp.ShowByPathWarningsGuard;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.jscomp.SourceMap;
 import com.google.javascript.jscomp.SourceMapInput;
@@ -45,24 +53,31 @@ import com.google.javascript.jscomp.VariableRenamingPolicy;
 import com.google.javascript.jscomp.WarningLevel;
 import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import com.google.javascript.jscomp.deps.SourceCodeEscapers;
+import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.resources.ResourceLoader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import jsinterop.annotations.JsMethod;
 import jsinterop.annotations.JsPackage;
 import jsinterop.annotations.JsProperty;
 import jsinterop.annotations.JsType;
 
 /**
- * Runner for the GWT-compiled JSCompiler as a single exported method.
+ * Runner for the GWT-compiled JSCompiler.
  */
-public final class GwtRunner implements EntryPoint {
+public final class GwtRunner {
+  private static final Logger phaseLogger =
+      Logger.getLogger("com.google.javascript.jscomp.PhaseOptimizer");
+
   private static final CompilationLevel DEFAULT_COMPILATION_LEVEL =
       CompilationLevel.SIMPLE_OPTIMIZATIONS;
 
@@ -71,28 +86,45 @@ public final class GwtRunner implements EntryPoint {
 
   private static final String EXTERNS_PREFIX = "externs/";
 
-  private GwtRunner() {}
-
   @JsType(namespace = JsPackage.GLOBAL, name = "Object", isNative = true)
   private static class Flags {
     boolean angularPass;
     boolean applyInputSourceMaps;
     boolean assumeFunctionWrapper;
+    boolean checksOnly;
+    String[] chunk;
+    String[] chunkWrapper;
+    String chunkOutputPathPrefix;
     String compilationLevel;
+    Object createSourceMap;
     boolean dartPass;
-    JsMap defines;
+    boolean debug;
+    String[] define;
     String dependencyMode;
     String[] entryPoint;
     String env;
     boolean exportLocalPropertyDefinitions;
-    String[] extraAnnotationNames;
+    Object[] externs;
+    String[] extraAnnotationName;
+    String[] forceInjectLibraries;
+    String[] formatting;
     boolean generateExports;
+    String[] hideWarningsFor;
+    boolean injectLibraries;
+    String isolationMode;
+    String[] js;
+    String[] jscompError;
+    String[] jscompOff;
+    String[] jscompWarning;
+    String[] jsModuleRoot;
+    String jsOutputFile;
     String languageIn;
     String languageOut;
-    boolean checksOnly;
-    boolean newTypeInf;
-    String isolationMode;
+    String moduleResolution;
+    @Deprecated boolean newTypeInf;
     String outputWrapper;
+    String packageJsonEntryNames;
+    boolean parseInlineSourceMaps;
     @Deprecated
     boolean polymerPass;
     Double polymerVersion;  // nb. nullable JS number represented by java.lang.Double in GWT.
@@ -100,17 +132,19 @@ public final class GwtRunner implements EntryPoint {
     boolean processClosurePrimitives;
     boolean processCommonJsModules;
     boolean renaming;
-    public String renamePrefixNamespace;
+    String renamePrefixNamespace;
+    String renameVariablePrefix;
     boolean rewritePolyfills;
-    String warningLevel;
-    boolean useTypesForOptimization;
+    boolean sourceMapIncludeContent;
+    boolean strictModeInput;
     String tracerMode;
-    String moduleResolutionMode;
+    boolean useTypesForOptimization;
+    String warningLevel;
 
     // These flags do not match the Java compiler JAR.
+    @Deprecated
     File[] jsCode;
-    File[] externs;
-    boolean createSourceMap;
+    JsMap defines;
   }
 
   /**
@@ -118,54 +152,88 @@ public final class GwtRunner implements EntryPoint {
    * fields inside Flags (as it's native). If Flags is not-native, GWT eats its field names
    * anyway.
    */
-  private static final Flags defaultFlags = new Flags();
-  static {
+  private static Flags defaultFlags;
+
+  /**
+   * Lazy initialize due to GWT. If things are exported then Object is not available when the static
+   * initialization runs.
+   */
+  private static Flags getDefaultFlags() {
+    if (defaultFlags != null) {
+      return defaultFlags;
+    }
+    defaultFlags = new Flags();
     defaultFlags.angularPass = false;
     defaultFlags.applyInputSourceMaps = true;
     defaultFlags.assumeFunctionWrapper = false;
     defaultFlags.checksOnly = false;
+    defaultFlags.chunk = null;
+    defaultFlags.chunkWrapper = null;
+    defaultFlags.chunkOutputPathPrefix = "./";
     defaultFlags.compilationLevel = "SIMPLE";
+    defaultFlags.createSourceMap = true;
     defaultFlags.dartPass = false;
+    defaultFlags.debug = false;
+    defaultFlags.define = null;
     defaultFlags.defines = null;
     defaultFlags.dependencyMode = null;
     defaultFlags.entryPoint = null;
     defaultFlags.env = "BROWSER";
     defaultFlags.exportLocalPropertyDefinitions = false;
-    defaultFlags.extraAnnotationNames = null;
+    defaultFlags.extraAnnotationName = null;
+    defaultFlags.externs = null;
+    defaultFlags.forceInjectLibraries = null;
+    defaultFlags.formatting = null;
     defaultFlags.generateExports = false;
+    defaultFlags.hideWarningsFor = null;
+    defaultFlags.injectLibraries = true;
+    defaultFlags.js = null;
+    defaultFlags.jsCode = null;
+    defaultFlags.jscompError = null;
+    defaultFlags.jscompOff = null;
+    defaultFlags.jscompWarning = null;
+    defaultFlags.jsModuleRoot = null;
+    defaultFlags.jsOutputFile = "compiled.js";
     defaultFlags.languageIn = "ECMASCRIPT_2017";
     defaultFlags.languageOut = "ECMASCRIPT5";
+    defaultFlags.moduleResolution = "BROWSER";
     defaultFlags.newTypeInf = false;
     defaultFlags.isolationMode = "NONE";
     defaultFlags.outputWrapper = null;
+    defaultFlags.packageJsonEntryNames = null;
+    defaultFlags.parseInlineSourceMaps = true;
     defaultFlags.polymerPass = false;
     defaultFlags.polymerVersion = null;
     defaultFlags.preserveTypeAnnotations = false;
     defaultFlags.processClosurePrimitives = true;
     defaultFlags.processCommonJsModules = false;
     defaultFlags.renamePrefixNamespace = null;
+    defaultFlags.renameVariablePrefix = null;
     defaultFlags.renaming = true;
     defaultFlags.rewritePolyfills = true;
+    defaultFlags.sourceMapIncludeContent = false;
+    defaultFlags.strictModeInput = true;
+    defaultFlags.tracerMode = "OFF";
     defaultFlags.warningLevel = "DEFAULT";
     defaultFlags.useTypesForOptimization = true;
-    defaultFlags.jsCode = null;
-    defaultFlags.externs = null;
-    defaultFlags.createSourceMap = false;
-    defaultFlags.tracerMode = "OFF";
-    defaultFlags.moduleResolutionMode = "BROWSER";
+
+    return defaultFlags;
   }
 
+  /** Properties here should match the AbstractCommandLineRunner.JsonFileSpec */
   @JsType(namespace = JsPackage.GLOBAL, name = "Object", isNative = true)
   private static class File {
     @JsProperty String path;
     @JsProperty String src;
     @JsProperty String sourceMap;
+    @JsProperty String webpackId;
   }
 
   @JsType(namespace = JsPackage.GLOBAL, name = "Object", isNative = true)
-  private static class ModuleOutput {
-    @JsProperty String compiledCode;
-    @JsProperty String sourceMap;
+  private static class ChunkOutput {
+    @JsProperty @Deprecated String compiledCode;
+    @JsProperty @Deprecated String sourceMap;
+    @JsProperty File[] compiledFiles;
     @JsProperty JavaScriptObject[] errors;
     @JsProperty JavaScriptObject[] warnings;
   }
@@ -217,6 +285,28 @@ public final class GwtRunner implements EntryPoint {
     }-*/;
   }
 
+  /**
+   * @param jsFilePaths Array of file paths. If running under NodeJS, they will be loaded via the
+   *     native node fs module.
+   * @return Array of File objects. If called without running under node, return null to indicate
+   *     failure.
+   */
+  private static native File[] getJsFiles(String[] jsFilePaths) /*-{
+    if (!(typeof process === 'object' && process.version)) {
+      return null;
+    }
+    var jsFiles = [];
+    for (var i = 0; i < jsFilePaths.length; i++) {
+      if (typeof process === 'object' && process.version) {
+        jsFiles.push({
+          path: jsFilePaths[i],
+          src: require('fs').readFileSync(jsFilePaths[i], 'utf8')
+        });
+      }
+    }
+    return jsFiles;
+  }-*/;
+
   @JsMethod(name = "keys", namespace = "Object")
   private static native String[] keys(Object o);
 
@@ -239,35 +329,130 @@ public final class GwtRunner implements EntryPoint {
     return out;
   }
 
-  /**
-   * Generates the output code, taking into account the passed {@code outputWrapper}.
-   */
-  private static String writeOutput(Compiler compiler, String outputWrapper) {
-    String code = compiler.toSource();
-    if (outputWrapper == null) {
-      return code;
-    }
+  /** Generates the output code, taking into account the passed {@code flags}. */
+  private static ChunkOutput writeChunkOutput(
+      Compiler compiler, Flags flags, List<JSModule> chunks) {
+    ArrayList<File> outputFiles = new ArrayList<>();
+    ChunkOutput output = new ChunkOutput();
 
-    String marker;
-    int pos = outputWrapper.indexOf(OUTPUT_MARKER_JS_STRING);
-    if (pos != -1) {
-      // With jsstring, run SourceCodeEscapers (as per AbstractCommandLineRunner).
-      code = SourceCodeEscapers.javascriptEscaper().escape(code);
-      marker = OUTPUT_MARKER_JS_STRING;
-    } else {
-      pos = outputWrapper.indexOf(OUTPUT_MARKER);
-      if (pos == -1) {
-        return code;  // neither marker could be found, just return code
+    Map<String, String> parsedModuleWrappers =
+        parseModuleWrappers(Arrays.asList(getStringArray(flags, "chunkWrapper")), chunks);
+
+    for (JSModule c : chunks) {
+      if (flags.createSourceMap != null && !flags.createSourceMap.equals(false)) {
+        compiler.getSourceMap().reset();
       }
-      marker = OUTPUT_MARKER;
+
+      File file = new File();
+      file.path = flags.chunkOutputPathPrefix + c.getName() + ".js";
+
+      String code = compiler.toSource(c);
+
+      int lastSeparatorIndex = file.path.lastIndexOf('/');
+      if (lastSeparatorIndex < 0) {
+        lastSeparatorIndex = file.path.lastIndexOf('\\');
+      }
+      String baseName = file.path.substring(Math.max(0, lastSeparatorIndex));
+      String wrapper = parsedModuleWrappers.get(c.getName()).replace("%basename%", baseName);
+      StringBuilder out = new StringBuilder();
+      int pos = wrapper.indexOf("%s");
+      if (pos != -1) {
+        String prefix = "";
+
+        if (pos > 0) {
+          prefix = wrapper.substring(0, pos);
+          out.append(prefix);
+        }
+
+        out.append(code);
+
+        int suffixStart = pos + "%s".length();
+        if (suffixStart != wrapper.length()) {
+          // Something after placeholder?
+          out.append(wrapper, suffixStart, wrapper.length());
+        }
+        // Make sure we always end output with a line feed.
+        out.append('\n');
+
+        // If we have a source map, adjust its offsets to match
+        // the code WITHIN the wrapper.
+        if (compiler != null && compiler.getSourceMap() != null) {
+          compiler.getSourceMap().setWrapperPrefix(prefix);
+        }
+
+      } else {
+        out.append(code);
+        out.append('\n');
+      }
+
+      file.src = out.toString();
+
+      if (flags.createSourceMap != null && !flags.createSourceMap.equals(false)) {
+        StringBuilder b = new StringBuilder();
+        try {
+          compiler.getSourceMap().appendTo(b, file.path);
+        } catch (IOException e) {
+          // ignore
+        }
+        file.sourceMap = b.toString();
+      }
+      outputFiles.add(file);
     }
 
-    String prefix = outputWrapper.substring(0, pos);
-    SourceMap sourceMap = compiler.getSourceMap();
-    if (sourceMap != null) {
-      sourceMap.setWrapperPrefix(prefix);
+    output.compiledFiles = outputFiles.toArray(new File[0]);
+    return output;
+  }
+
+  /** Generates the output code, taking into account the passed {@code flags}. */
+  private static ChunkOutput writeOutput(Compiler compiler, Flags flags) {
+    ArrayList<File> outputFiles = new ArrayList<>();
+    ChunkOutput output = new ChunkOutput();
+
+    File file = new File();
+    file.path = flags.jsOutputFile;
+
+    String code = compiler.toSource();
+    String prefix = "";
+    String postfix = "";
+    if (flags.outputWrapper != null) {
+      String marker = null;
+      int pos = flags.outputWrapper.indexOf(OUTPUT_MARKER_JS_STRING);
+      if (pos != -1) {
+        // With jsstring, run SourceCodeEscapers (as per AbstractCommandLineRunner).
+        code = SourceCodeEscapers.javascriptEscaper().escape(code);
+        marker = OUTPUT_MARKER_JS_STRING;
+      } else {
+        pos = flags.outputWrapper.indexOf(OUTPUT_MARKER);
+        if (pos != -1) {
+          marker = OUTPUT_MARKER;
+        }
+      }
+
+      if (marker != null) {
+        prefix = flags.outputWrapper.substring(0, pos);
+        SourceMap sourceMap = compiler.getSourceMap();
+        if (sourceMap != null) {
+          sourceMap.setWrapperPrefix(prefix);
+        }
+      }
+      postfix = flags.outputWrapper.substring(pos + marker.length());
     }
-    return prefix + code + outputWrapper.substring(pos + marker.length());
+    if (flags.createSourceMap != null && !flags.createSourceMap.equals(false)) {
+      StringBuilder b = new StringBuilder();
+      try {
+        compiler.getSourceMap().appendTo(b, flags.jsOutputFile);
+      } catch (IOException e) {
+        // ignore
+      }
+      file.sourceMap = b.toString();
+    }
+
+    file.src = prefix + code + postfix;
+    outputFiles.add(file);
+    output.compiledFiles = outputFiles.toArray(new File[0]);
+    output.compiledCode = file.src;
+    output.sourceMap = file.sourceMap;
+    return output;
   }
 
   private static List<SourceFile> createExterns(CompilerOptions.Environment environment) {
@@ -295,38 +480,48 @@ public final class GwtRunner implements EntryPoint {
     return builder.build();
   }
 
-  private static DependencyOptions createDependencyOptions(
-      CompilerOptions.DependencyMode dependencyMode,
-      List<ModuleIdentifier> entryPoints) {
-    // Copied from from AbstractCommandLineRunner.java.
-    if (dependencyMode == CompilerOptions.DependencyMode.STRICT) {
-      if (entryPoints.isEmpty()) {
-        throw new RuntimeException(
-            "When dependencyMode=STRICT, you must specify at least one entry point");
+  private static void applyWarnings(
+      String[] warningGuards,
+      CompilerOptions options,
+      DiagnosticGroups diagnosticGroups,
+      CheckLevel checkLevel) {
+    for (String warningGuardName : warningGuards) {
+      if ("*".equals(warningGuardName)) {
+        for (String groupName : diagnosticGroups.getRegisteredGroups().keySet()) {
+          if (!DiagnosticGroups.wildcardExcludedGroups.contains(groupName)) {
+            diagnosticGroups.setWarningLevel(options, groupName, checkLevel);
+          }
+        }
+      } else {
+        diagnosticGroups.setWarningLevel(options, warningGuardName, checkLevel);
       }
-      return new DependencyOptions()
-          .setDependencyPruning(true)
-          .setDependencySorting(true)
-          .setMoocherDropping(true)
-          .setEntryPoints(entryPoints);
-    } else if (dependencyMode == CompilerOptions.DependencyMode.LOOSE || !entryPoints.isEmpty()) {
-      return new DependencyOptions()
-          .setDependencyPruning(true)
-          .setDependencySorting(true)
-          .setMoocherDropping(false)
-          .setEntryPoints(entryPoints);
     }
-    return null;
   }
 
-  private static void applyDefaultOptions(CompilerOptions options) {
-    CompilationLevel.SIMPLE_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
-    WarningLevel.DEFAULT.setOptionsForWarningLevel(options);
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_2017);
-    options.setLanguageOut(LanguageMode.ECMASCRIPT5);
-  }
+  private static void applyOptionsFromFlags(
+      CompilerOptions options, Flags flags, DiagnosticGroups diagnosticGroups) {
 
-  private static void applyOptionsFromFlags(CompilerOptions options, Flags flags) {
+    // order matches createOptions in CommandLineRunner.java
+
+    LanguageMode languageIn = LanguageMode.fromString(flags.languageIn);
+    if (languageIn != null) {
+      options.setLanguageIn(languageIn);
+    } else {
+      throw new RuntimeException("Bad value for languageIn: " + flags.languageIn);
+    }
+    LanguageMode languageOut = LanguageMode.fromString(flags.languageOut);
+    if (languageOut != null) {
+      options.setLanguageOut(languageOut);
+    } else {
+      throw new RuntimeException("Bad value for languageOut: " + flags.languageOut);
+    }
+
+    options.setCodingConvention(new ClosureCodingConvention());
+
+    if (flags.extraAnnotationName != null) {
+      options.setExtraAnnotationNames(Arrays.asList(flags.extraAnnotationName));
+    }
+
     CompilationLevel level = DEFAULT_COMPILATION_LEVEL;
     if (flags.compilationLevel != null) {
       level = CompilationLevel.fromString(Ascii.toUpperCase(flags.compilationLevel));
@@ -340,18 +535,9 @@ public final class GwtRunner implements EntryPoint {
           "renaming cannot be disabled when ADVANCED_OPTIMIZATIONS is used");
     }
     level.setOptionsForCompilationLevel(options);
-    if (flags.assumeFunctionWrapper) {
-      level.setWrappedOutputOptimizations(options);
+    if (flags.debug) {
+      level.setDebugOptionsForCompilationLevel(options);
     }
-    if (flags.useTypesForOptimization) {
-      level.setTypeBasedOptimizationOptions(options);
-    }
-
-    WarningLevel warningLevel = WarningLevel.DEFAULT;
-    if (flags.warningLevel != null) {
-      warningLevel = WarningLevel.valueOf(flags.warningLevel);
-    }
-    warningLevel.setOptionsForWarningLevel(options);
 
     CompilerOptions.Environment environment = CompilerOptions.Environment.BROWSER;
     if (flags.env != null) {
@@ -359,28 +545,118 @@ public final class GwtRunner implements EntryPoint {
     }
     options.setEnvironment(environment);
 
-    CompilerOptions.DependencyMode dependencyMode = CompilerOptions.DependencyMode.NONE;
-    if (flags.dependencyMode != null) {
-      dependencyMode =
-          CompilerOptions.DependencyMode.valueOf(Ascii.toUpperCase(flags.dependencyMode));
-    }
-    List<ModuleIdentifier> entryPoints = createEntryPoints(getStringArray(flags, "entryPoint"));
-    DependencyOptions dependencyOptions = createDependencyOptions(dependencyMode, entryPoints);
-    if (dependencyOptions != null) {
-      options.setDependencyOptions(dependencyOptions);
+    options.setChecksOnly(flags.checksOnly);
+    if (flags.checksOnly) {
+      options.setOutputJs(CompilerOptions.OutputJs.NONE);
     }
 
-    LanguageMode languageIn = LanguageMode.fromString(flags.languageIn);
-    if (languageIn != null) {
-      options.setLanguageIn(languageIn);
-    }
-    LanguageMode languageOut = LanguageMode.fromString(flags.languageOut);
-    if (languageOut != null) {
-      options.setLanguageOut(languageOut);
+    if (flags.useTypesForOptimization) {
+      level.setTypeBasedOptimizationOptions(options);
     }
 
-    if (flags.createSourceMap) {
-      options.setSourceMapOutputPath("%output%");
+    if (flags.isolationMode != null
+        && IsolationMode.valueOf(flags.isolationMode) == IsolationMode.IIFE) {
+      flags.outputWrapper = "(function(){%output%}).call(this);";
+      flags.assumeFunctionWrapper = true;
+    }
+    if (flags.assumeFunctionWrapper) {
+      level.setWrappedOutputOptimizations(options);
+    }
+
+    options.setGenerateExports(flags.generateExports);
+    options.setExportLocalPropertyDefinitions(flags.exportLocalPropertyDefinitions);
+
+    WarningLevel warningLevel = WarningLevel.DEFAULT;
+    if (flags.warningLevel != null) {
+      warningLevel = WarningLevel.valueOf(flags.warningLevel);
+    }
+    warningLevel.setOptionsForWarningLevel(options);
+
+    if (flags.formatting != null) {
+      List<String> formattingOptions = Arrays.asList(getStringArray(flags, "formatting"));
+      for (String formattingOption : formattingOptions) {
+        switch (formattingOption) {
+          case "PRETTY_PRINT":
+            options.setPrettyPrint(true);
+            break;
+          case "PRINT_INPUT_DELIMITER":
+            options.printInputDelimiter = true;
+            break;
+          case "SINGLE_QUOTES":
+            options.setPreferSingleQuotes(true);
+            break;
+          default:
+            throw new RuntimeException("Unknown formatting option: " + formattingOption);
+        }
+      }
+    }
+
+    options.setClosurePass(flags.processClosurePrimitives);
+
+    options.setAngularPass(flags.angularPass);
+
+    if (flags.polymerPass) {
+      options.setPolymerVersion(1);
+    } else if (flags.polymerVersion != null) {
+      options.setPolymerVersion(flags.polymerVersion.intValue());
+    }
+
+    options.setDartPass(flags.dartPass);
+
+    options.setRenamePrefix(flags.renameVariablePrefix);
+    options.setRenamePrefixNamespace(flags.renamePrefixNamespace);
+
+    options.setPreventLibraryInjection(!flags.injectLibraries);
+
+    if (flags.forceInjectLibraries != null) {
+      options.setForceLibraryInjection(Arrays.asList(flags.forceInjectLibraries));
+    }
+
+    options.setPreserveTypeAnnotations(flags.preserveTypeAnnotations);
+
+    options.setRewritePolyfills(
+        flags.rewritePolyfills && options.getLanguageIn().toFeatureSet().contains(FeatureSet.ES6));
+
+    // We don't support conformance configs
+    options.clearConformanceConfigs();
+
+    if (flags.tracerMode != null) {
+      options.setTracerMode(TracerMode.valueOf(flags.tracerMode));
+    }
+    options.setStrictModeInput(flags.strictModeInput);
+
+    options.setSourceMapIncludeSourcesContent(flags.sourceMapIncludeContent);
+
+    if (flags.moduleResolution != null) {
+      options.setModuleResolutionMode(ResolutionMode.valueOf(flags.moduleResolution));
+    }
+
+    if (flags.packageJsonEntryNames != null) {
+      options.setPackageJsonEntryNames(Arrays.asList(flags.packageJsonEntryNames.split(",\\s*")));
+    }
+
+    if (!flags.renaming) {
+      options.setVariableRenaming(VariableRenamingPolicy.OFF);
+      options.setPropertyRenaming(PropertyRenamingPolicy.OFF);
+    }
+
+    // order matches setRunOptions in AbstractCommandLineRunner.java
+
+    applyWarnings(getStringArray(flags, "jscompOff"), options, diagnosticGroups, CheckLevel.OFF);
+    applyWarnings(
+        getStringArray(flags, "jscompWarning"), options, diagnosticGroups, CheckLevel.WARNING);
+    applyWarnings(
+        getStringArray(flags, "jscompError"), options, diagnosticGroups, CheckLevel.ERROR);
+
+    if (flags.hideWarningsFor != null) {
+      options.addWarningsGuard(
+          new ShowByPathWarningsGuard(
+              getStringArray(flags, "hideWarningsFor"), ShowByPathWarningsGuard.ShowType.EXCLUDE));
+    }
+
+    if (flags.define != null) {
+      createDefineOrTweakReplacements(
+          Arrays.asList(getStringArray(flags, "define")), options, false);
     }
 
     if (flags.defines != null) {
@@ -390,49 +666,63 @@ public final class GwtRunner implements EntryPoint {
       options.setDefineReplacements(flags.defines.asMap());
     }
 
-    if (flags.extraAnnotationNames != null) {
-      options.setExtraAnnotationNames(Arrays.asList(flags.extraAnnotationNames));
+    DependencyMode dependencyMode = null;
+    if (flags.dependencyMode != null) {
+      dependencyMode = DependencyMode.valueOf(Ascii.toUpperCase(flags.dependencyMode));
+    }
+    List<String> entryPoints = Arrays.asList(getStringArray(flags, "entryPoint"));
+    DependencyOptions dependencyOptions =
+        DependencyOptions.fromFlags(
+            dependencyMode,
+            entryPoints,
+            /* closureEntryPointFlag= */ ImmutableList.of(),
+            /* commonJsEntryModuleFlag= */ null,
+            /* manageClosureDependenciesFlag= */ false,
+            /* onlyClosureDependenciesFlag= */ false);
+    if (dependencyOptions != null) {
+      options.setDependencyOptions(dependencyOptions);
     }
 
-    if (flags.tracerMode != null) {
-      options.setTracerMode(TracerMode.valueOf(flags.tracerMode));
-    }
+    options.setTrustedStrings(true);
 
-    if (flags.moduleResolutionMode != null) {
-      options.setModuleResolutionMode(ResolutionMode.valueOf(flags.moduleResolutionMode));
+    if (flags.createSourceMap != null) {
+      if (flags.createSourceMap instanceof String) {
+        options.setSourceMapOutputPath((String) flags.createSourceMap);
+      } else if (!flags.createSourceMap.equals(false)) {
+        options.setSourceMapOutputPath("%output%.map");
+      }
     }
-
-    if (flags.isolationMode != null
-        && IsolationMode.valueOf(flags.isolationMode) == IsolationMode.IIFE) {
-      flags.outputWrapper = "(function(){%output%}).call(this);";
-    }
-
-    options.setAngularPass(flags.angularPass);
+    options.setSourceMapIncludeSourcesContent(flags.sourceMapIncludeContent);
+    options.setParseInlineSourceMaps(flags.parseInlineSourceMaps);
     options.setApplyInputSourceMaps(flags.applyInputSourceMaps);
-    options.setChecksOnly(flags.checksOnly);
-    options.setDartPass(flags.dartPass);
-    options.setExportLocalPropertyDefinitions(flags.exportLocalPropertyDefinitions);
-    options.setGenerateExports(flags.generateExports);
-    options.setNewTypeInference(flags.newTypeInf);
-    if (flags.polymerPass) {
-      options.setPolymerVersion(1);
-    } else if (flags.polymerVersion != null) {
-      options.setPolymerVersion(flags.polymerVersion.intValue());
-    }
-    options.setPreserveTypeAnnotations(flags.preserveTypeAnnotations);
-    options.setClosurePass(flags.processClosurePrimitives);
+
     options.setProcessCommonJSModules(flags.processCommonJsModules);
-    options.setRenamePrefixNamespace(flags.renamePrefixNamespace);
-    if (!flags.renaming) {
-      options.setVariableRenaming(VariableRenamingPolicy.OFF);
-      options.setPropertyRenaming(PropertyRenamingPolicy.OFF);
-    }
-    options.setRewritePolyfills(flags.rewritePolyfills);
+
+    options.setModuleRoots(Arrays.asList(getStringArray(flags, "jsModuleRoot")));
   }
 
-  private static void disableUnsupportedOptions(CompilerOptions options) {
-    options.getDependencyOptions().setDependencySorting(false);
-  }
+  /**
+   * @param externs Array of strings or File[]. If running under NodeJS, an array of strings will be
+   *     treated as file paths and loaded via the native node fs module.
+   * @return Array of extern File objects. If an array of strings is passed without running under
+   *     node, return null to indicate failure.
+   */
+  private static native File[] fromExternsFlag(Object[] externs) /*-{
+    var externFiles = [];
+    for (var i = 0; i < externs.length; i++) {
+      if (externs[i].path || externs[i].src) {
+        externFiles.push(externs[i]);
+      } else if (typeof process === 'object' && process.version) {
+        externFiles.push({
+          path: externs[i],
+          src: require('fs').readFileSync(externs[i], 'utf8')
+        });
+      } else {
+        return null;
+      }
+    }
+    return externFiles;
+  }-*/;
 
   private static List<SourceFile> fromFileArray(File[] src, String unknownPrefix) {
     List<SourceFile> out = new ArrayList<>();
@@ -462,8 +752,7 @@ public final class GwtRunner implements EntryPoint {
         if (path == null) {
           path = unknownPrefix + i;
         }
-        path += ".map";
-        SourceFile sf = SourceFile.fromCode(path, file.sourceMap);
+        SourceFile sf = SourceFile.fromCode(path + ".map", file.sourceMap);
         inputSourceMaps.put(path, new SourceMapInput(sf));
       }
     }
@@ -489,46 +778,101 @@ public final class GwtRunner implements EntryPoint {
     return unhandled;
   }-*/;
 
-  /**
-   * Public compiler call. Exposed in {@link #exportCompile}.
-   */
-  public static ModuleOutput compile(Flags flags) {
-    String[] unhandled = updateFlags(flags, defaultFlags);
+  /** Public compiler call. Exposed in {@link #exportCompile}. */
+  @JsMethod(namespace = "jscomp")
+  public static ChunkOutput compile(Flags flags, File[] inputs) throws IOException {
+    // The PhaseOptimizer logs skipped pass warnings that interfere with capturing
+    // output and errors in the open source runners.
+    phaseLogger.setLevel(Level.OFF);
+
+    String[] unhandled = updateFlags(flags, getDefaultFlags());
     if (unhandled.length > 0) {
       throw new RuntimeException("Unhandled flag: " + unhandled[0]);
     }
 
-    List<SourceFile> jsCode = fromFileArray(flags.jsCode, "Input_");
-    ImmutableMap<String, SourceMapInput> sourceMaps = buildSourceMaps(flags.jsCode, "Input_");
+    List<SourceFile> jsCode = null;
+    ImmutableMap<String, SourceMapInput> sourceMaps = null;
+    if (flags.jsCode != null) {
+      jsCode = fromFileArray(flags.jsCode, "Input_");
+      sourceMaps = buildSourceMaps(flags.jsCode, "Input_");
+    }
 
+    ImmutableMap.Builder<String, String> inputPathByWebpackId = new ImmutableMap.Builder<>();
+    if (inputs != null) {
+      List<SourceFile> sourceFiles = fromFileArray(inputs, "Input_");
+      ImmutableMap<String, SourceMapInput> inputSourceMaps = buildSourceMaps(inputs, "Input_");
+      if (jsCode == null) {
+        jsCode = sourceFiles;
+      } else {
+        jsCode.addAll(sourceFiles);
+      }
+
+      if (sourceMaps == null) {
+        sourceMaps = inputSourceMaps;
+      } else {
+        HashMap<String, SourceMapInput> tempMaps = new HashMap<>(sourceMaps);
+        tempMaps.putAll(inputSourceMaps);
+        sourceMaps = ImmutableMap.copyOf(tempMaps);
+      }
+
+      for (GwtRunner.File element : inputs) {
+        if (element.webpackId != null && element.path != null) {
+          inputPathByWebpackId.put(element.webpackId, element.path);
+        }
+      }
+    }
+
+    if (flags.js != null) {
+      File[] jsFiles = getJsFiles(getStringArray(flags, "js"));
+      if (jsFiles == null) {
+        throw new RuntimeException(
+            "Can only load files from the filesystem when running in NodeJS.");
+      } else {
+        jsCode.addAll(fromFileArray(jsFiles, "Input_"));
+      }
+    }
+
+    Compiler compiler = new Compiler(new NodePrintStream());
     CompilerOptions options = new CompilerOptions();
-    applyDefaultOptions(options);
-    applyOptionsFromFlags(options, flags);
+    applyOptionsFromFlags(options, flags, compiler.getDiagnosticGroups());
     options.setInputSourceMaps(sourceMaps);
-    disableUnsupportedOptions(options);
 
-    List<SourceFile> externs = fromFileArray(flags.externs, "Extern_");
+    List<SourceFile> externs = new ArrayList<>();
+    if (flags.externs != null) {
+      File[] externFiles = fromExternsFlag(getStringArray(flags, "externs"));
+      if (externFiles == null) {
+        throw new RuntimeException(
+            "Can only load files from the filesystem when running in NodeJS.");
+      }
+      externs = fromFileArray(externFiles, "Extern_");
+    }
     externs.addAll(createExterns(options.getEnvironment()));
 
     NodeErrorManager errorManager = new NodeErrorManager();
-    Compiler compiler = new Compiler(new NodePrintStream());
+    compiler.initWebpackMap(inputPathByWebpackId.build());
     compiler.setErrorManager(errorManager);
-    compiler.compile(externs, jsCode, options);
 
-    ModuleOutput output = new ModuleOutput();
-    output.compiledCode = writeOutput(compiler, flags.outputWrapper);
+    List<String> chunkSpecs = new ArrayList<>();
+    if (flags.chunk != null) {
+      Collections.addAll(chunkSpecs, flags.chunk);
+    }
+    List<JsModuleSpec> jsChunkSpecs = new ArrayList<>();
+    for (int i = 0; i < chunkSpecs.size(); i++) {
+      jsChunkSpecs.add(JsModuleSpec.create(chunkSpecs.get(i), i == 0));
+    }
+    ChunkOutput output;
+    if (!jsChunkSpecs.isEmpty()) {
+      List<JSModule> chunks = createJsModules(jsChunkSpecs, jsCode);
+
+      compiler.compileModules(externs, chunks, options);
+      output = writeChunkOutput(compiler, flags, chunks);
+    } else {
+      compiler.compile(externs, jsCode, options);
+      output = writeOutput(compiler, flags);
+    }
+
     output.errors = toNativeErrorArray(errorManager.errors);
     output.warnings = toNativeErrorArray(errorManager.warnings);
-
-    if (flags.createSourceMap) {
-      StringBuilder b = new StringBuilder();
-      try {
-        compiler.getSourceMap().appendTo(b, "");
-      } catch (IOException e) {
-        // ignore
-      }
-      output.sourceMap = b.toString();
-    }
 
     return output;
   }
@@ -536,7 +880,8 @@ public final class GwtRunner implements EntryPoint {
   /**
    * Exports the {@link #compile} method via JSNI.
    *
-   * This will be placed on {@code module.exports}, {@code self.compile} or {@code window.compile}.
+   * <p>This will be placed on {@code module.exports}, {@code self.compile} or {@code
+   * window.compile}.
    */
   public native void exportCompile() /*-{
     var fn = $entry(@com.google.javascript.jscomp.gwt.client.GwtRunner::compile(*));
@@ -548,11 +893,6 @@ public final class GwtRunner implements EntryPoint {
       window.compile = fn;
     }
   }-*/;
-
-  @Override
-  public void onModuleLoad() {
-    exportCompile();
-  }
 
   /**
    * Custom {@link BasicErrorManager} to record {@link JSError} instances.

@@ -61,7 +61,7 @@ GSC.PortMessageChannel = function(port, opt_onEstablished) {
   PortMessageChannel.base(this, 'constructor');
 
   /**
-   * @type {Port}
+   * @type {Port?}
    * @private
    */
   this.port_ = port;

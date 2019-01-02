@@ -83,11 +83,6 @@ public class CodeGenerator {
     add("/** @fileoverview @typeSummary */\n");
   }
 
-  /** Insert a top-level @externs comment. */
-  public void tagAsExterns() {
-    add("/** @externs */\n");
-  }
-
   /**
    * Insert a ECMASCRIPT 5 strict annotation.
    */
@@ -136,7 +131,9 @@ public class CodeGenerator {
       // the IN_FOR_INIT_CLAUSE one.
       Context rhsContext = getContextForNoInOperator(context);
 
-      boolean needsParens = (context == Context.START_OF_EXPR) && first.isObjectPattern();
+      boolean needsParens =
+          (context == Context.START_OF_EXPR || context.atArrowFunctionBody())
+              && first.isObjectPattern();
       if (n.isAssign() && needsParens) {
         add("(");
       }
@@ -161,7 +158,7 @@ public class CodeGenerator {
     switch (type) {
       case TRY:
         {
-          checkState(first.getNext().isNormalBlock() && !first.getNext().hasMoreThanOneChild());
+          checkState(first.getNext().isBlock() && !first.getNext().hasMoreThanOneChild());
           checkState(childCount >= 2 && childCount <= 3);
 
           add("try");
@@ -550,13 +547,13 @@ public class CodeGenerator {
             add("static ");
           }
 
+          if (n.isMemberFunctionDef() && n.getFirstChild().isAsyncFunction()) {
+            add("async ");
+          }
+
           if (!n.isMemberVariableDef() && n.getFirstChild().isGeneratorFunction()) {
             checkState(type == Token.MEMBER_FUNCTION_DEF, n);
             add("*");
-          }
-
-          if (n.isMemberFunctionDef() && n.getFirstChild().isAsyncFunction()) {
-            add("async ");
           }
 
           switch (type) {
@@ -629,7 +626,7 @@ public class CodeGenerator {
           if (n.getClass() != Node.class) {
             throw new Error("Unexpected Node subclass.");
           }
-          boolean preserveBlock = n.isNormalBlock() && !n.isSyntheticBlock();
+          boolean preserveBlock = n.isBlock() && !n.isSyntheticBlock();
           if (preserveBlock) {
             cc.beginBlock();
           }
@@ -695,6 +692,20 @@ public class CodeGenerator {
       case FOR_OF:
         Preconditions.checkState(childCount == 3, n);
         add("for");
+        cc.maybeInsertSpace();
+        add("(");
+        add(first);
+        cc.maybeInsertSpace();
+        add("of");
+        cc.maybeInsertSpace();
+        add(first.getNext());
+        add(")");
+        addNonEmptyStatement(last, getContextForNonEmptyExpression(context), false);
+        break;
+
+      case FOR_AWAIT_OF:
+        Preconditions.checkState(childCount == 3, n);
+        add("for await");
         cc.maybeInsertSpace();
         add("(");
         add(first);
@@ -987,7 +998,7 @@ public class CodeGenerator {
 
       case OBJECTLIT:
         {
-          boolean needsParens = (context == Context.START_OF_EXPR);
+          boolean needsParens = context == Context.START_OF_EXPR || context.atArrowFunctionBody();
           if (needsParens) {
             add("(");
           }
@@ -1017,10 +1028,13 @@ public class CodeGenerator {
           add("get ");
         } else if (n.getBooleanProp(Node.COMPUTED_PROP_SETTER)) {
           add("set ");
-        } else if (last.getBooleanProp(Node.GENERATOR_FN)) {
-          add("*");
-        } else if (last.isAsyncFunction()) {
-          add("async");
+        } else {
+          if (last.isAsyncFunction()) {
+            add("async");
+          }
+          if (last.getBooleanProp(Node.GENERATOR_FN)) {
+            add("*");
+          }
         }
         add("[");
         add(first);
@@ -1090,7 +1104,7 @@ public class CodeGenerator {
         }
         add(first);
         add(":");
-        if (!last.isNormalBlock()) {
+        if (!last.isBlock()) {
           cc.maybeInsertSpace();
         }
         addNonEmptyStatement(last, getContextForNonEmptyExpression(context), true);
@@ -1099,10 +1113,10 @@ public class CodeGenerator {
       case CAST:
         if (preserveTypeAnnotations) {
           add("(");
-        }
-        add(first);
-        if (preserveTypeAnnotations) {
+          add(first); // drop context because of added parentheses
           add(")");
+        } else {
+          add(first, context); // preserve context
         }
         break;
 
@@ -1114,8 +1128,8 @@ public class CodeGenerator {
       case TEMPLATELIT:
         add("`");
         for (Node c = first; c != null; c = c.getNext()) {
-          if (c.isString()) {
-            add(strEscape(c.getString(), "\"", "'", "\\`", "\\\\", false, false));
+          if (c.isTemplateLitString()) {
+            add(escapeUnrecognizedCharacters(c.getRawString()));
           } else {
             // Can't use add() since isWordChar('$') == true and cc would add
             // an extra space.
@@ -1344,12 +1358,12 @@ public class CodeGenerator {
 
     cc.addOp("=>", true);
 
-    if (last.isNormalBlock()) {
+    if (last.isBlock()) {
       add(last);
     } else {
       // This is a hack. Arrow functions have no token type, but
       // blockless arrow function bodies have lower precedence than anything other than commas.
-      addExpr(last, NodeUtil.precedence(Token.COMMA) + 1, context);
+      addExpr(last, NodeUtil.precedence(Token.COMMA) + 1, getContextForArrowFunctionBody(context));
     }
     cc.endFunction(context == Context.STATEMENT);
 
@@ -1485,13 +1499,13 @@ public class CodeGenerator {
       Node n, Context context, boolean allowNonBlockChild) {
     Node nodeToProcess = n;
 
-    if (!allowNonBlockChild && !n.isNormalBlock()) {
+    if (!allowNonBlockChild && !n.isBlock()) {
       throw new Error("Missing BLOCK child.");
     }
 
     // Strip unneeded blocks, that is blocks with <2 children unless
     // the CodePrinter specifically wants to keep them.
-    if (n.isNormalBlock()) {
+    if (n.isBlock()) {
       int count = getNonEmptyChildCount(n, 2);
       if (count == 0) {
         if (cc.shouldPreserveExtraBlocks()) {
@@ -1536,7 +1550,7 @@ public class CodeGenerator {
   private static boolean isBlockDeclOrDo(Node n) {
     if (n.isLabel()) {
       Node labeledStatement = n.getLastChild();
-      if (!labeledStatement.isNormalBlock()) {
+      if (!labeledStatement.isBlock()) {
         return isBlockDeclOrDo(labeledStatement);
       } else {
         // For labels with block children, we need to ensure that a
@@ -1575,7 +1589,7 @@ public class CodeGenerator {
   }
 
   private boolean opRequiresParentheses(Node n, int minPrecedence, Context context) {
-    if (context == Context.IN_FOR_INIT_CLAUSE && n.isIn()) {
+    if (context.inForInInitClause() && n.isIn()) {
       // make sure this operator 'in' isn't confused with the for-loop 'in'
       return true;
     } else if (NodeUtil.isUnaryOperator(n) && isFirstOperandOfExponentiationExpression(n)) {
@@ -1583,17 +1597,9 @@ public class CodeGenerator {
       // ExponentiationExpression cannot expand to
       //     UnaryExpression ** ExponentiationExpression
       return true;
-    } else if (isObjectLitOrCastOfObjectLit(n) && n.getParent().isArrowFunction()) {
-      // If the body of an arrow function is an object literal, the braces are treated as a
-      // statement block with higher precedence, which we avoid with parentheses.
-      return true;
     } else {
       return precedence(n) < minPrecedence;
     }
-  }
-
-  private boolean isObjectLitOrCastOfObjectLit(Node n) {
-    return n.isObjectLit() || (n.isCast() && n.getFirstChild().isObjectLit());
   }
 
   private boolean isFirstOperandOfExponentiationExpression(Node n) {
@@ -1697,7 +1703,7 @@ public class CodeGenerator {
   }
 
   void addCaseBody(Node caseBody) {
-    checkState(caseBody.isNormalBlock(), caseBody);
+    checkState(caseBody.isBlock(), caseBody);
     cc.beginCaseBody();
     addAllSiblings(caseBody.getFirstChild());
     cc.endCaseBody();
@@ -1753,12 +1759,14 @@ public class CodeGenerator {
       singlequote = "\'";
     }
 
-    return quote + strEscape(s, doublequote, singlequote, "`", "\\\\", useSlashV, false) + quote;
+    return quote
+        + strEscape(s, doublequote, singlequote, "`", "\\\\", "$", useSlashV, false)
+        + quote;
   }
 
   /** Escapes regular expression */
   String regexpEscape(String s) {
-    return '/' + strEscape(s, "\"", "'", "`", "\\", false, true) + '/';
+    return '/' + strEscape(s, "\"", "'", "`", "\\", "$", false, true) + '/';
   }
 
   /** Helper to escape JavaScript string as well as regular expression */
@@ -1768,6 +1776,7 @@ public class CodeGenerator {
       String singlequoteEscape,
       String backtickEscape,
       String backslashEscape,
+      String dollarEscape,
       boolean useSlashV,
       boolean isRegexp) {
     StringBuilder sb = new StringBuilder(s.length() + 2);
@@ -1791,6 +1800,7 @@ public class CodeGenerator {
         case '\\': sb.append(backslashEscape); break;
         case '\"': sb.append(doublequoteEscape); break;
         case '\'': sb.append(singlequoteEscape); break;
+        case '$': sb.append(dollarEscape); break;
         case '`': sb.append(backtickEscape); break;
 
         // From LineTerminators (ES5 Section 7.3, Table 3)
@@ -1874,6 +1884,52 @@ public class CodeGenerator {
     return sb.toString();
   }
 
+  /**
+   * Helper to escape the characters that might be misinterpreted
+   *
+   * @param s the string to modify
+   * @return the string with unrecognizable characters escaped.
+   */
+  private String escapeUnrecognizedCharacters(String s) {
+    // TODO(yitingwang) Move this method to a suitable place
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i < s.length(); i++) {
+      char c = s.charAt(i);
+      switch (c) {
+          // From the SingleEscapeCharacter grammar production.
+        case '\b':
+        case '\f':
+        case '\n':
+        case '\r':
+        case '\t':
+        case '\\':
+        case '\"':
+        case '\'':
+        case '$':
+        case '`':
+        case '\u2028':
+        case '\u2029':
+          sb.append(c);
+          break;
+        default:
+          if ((outputCharsetEncoder != null && outputCharsetEncoder.canEncode(c))
+              || (c > 0x1f && c < 0x7f)) {
+            // If we're given an outputCharsetEncoder, then check if the character can be
+            // represented in this character set. If no charsetEncoder provided - pass straight
+            // Latin characters through, and escape the rest. Doing the explicit character check is
+            // measurably faster than using the CharsetEncoder.
+            sb.append(c);
+          } else {
+            // Other characters can be misinterpreted by some JS parsers,
+            // or perhaps mangled by proxies along the way,
+            // so we play it safe and Unicode escape them.
+            Util.appendHexJavaScriptRepresentation(sb, c);
+          }
+      }
+    }
+    return sb.toString();
+  }
+
   static String identifierEscape(String s) {
     // First check if escaping is needed at all -- in most cases it isn't.
     if (NodeUtil.isLatin(s)) {
@@ -1904,7 +1960,7 @@ public class CodeGenerator {
     int i = 0;
     Node c = n.getFirstChild();
     for (; c != null && i < maxCount; c = c.getNext()) {
-      if (c.isNormalBlock()) {
+      if (c.isBlock()) {
         i += getNonEmptyChildCount(c, maxCount - i);
       } else if (!c.isEmpty()) {
         i++;
@@ -1916,7 +1972,7 @@ public class CodeGenerator {
   /** Gets the first non-empty child of the given node. */
   private static Node getFirstNonEmptyChild(Node n) {
     for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
-      if (c.isNormalBlock()) {
+      if (c.isBlock()) {
         Node result = getFirstNonEmptyChild(c);
         if (result != null) {
           return result;
@@ -1940,8 +1996,46 @@ public class CodeGenerator {
     // Are we inside the init clause of a for loop?  If so, the containing
     // expression can't contain an in operator.  Pass this context flag down
     // until we reach expressions which no longer have the limitation.
-    IN_FOR_INIT_CLAUSE,
-    OTHER
+    IN_FOR_INIT_CLAUSE(
+        /** inForInitClause */
+        true,
+        /** at start of arrow fn */
+        false),
+    // Handle object literals at the start of a non-block arrow function body.
+    // This is only important when the first token after the "=>" is "{".
+    START_OF_ARROW_FN_BODY(
+        /** inForInitClause */
+        false,
+        /** at start of arrow fn */
+        true),
+    START_OF_ARROW_FN_IN_FOR_INIT(
+        /** inForInitClause */
+        true,
+        /** atArrowFunctionBody */
+        true),
+    OTHER; // nothing special to watch out for.
+
+    // The following two cases are independent, unlike the other enum states, so we have separate
+    // booleans for them.
+    private final boolean inForInitClause;
+    private final boolean atArrowFnBody;
+
+    Context() {
+      this(false, false);
+    }
+
+    Context(boolean inForInitClause, boolean atStartOfArrowFnBody) {
+      this.inForInitClause = inForInitClause;
+      this.atArrowFnBody = atStartOfArrowFnBody;
+    }
+
+    public boolean inForInInitClause() {
+      return inForInitClause;
+    }
+
+    public boolean atArrowFunctionBody() {
+      return atArrowFnBody;
+    }
   }
 
   private static Context getContextForNonEmptyExpression(Context currentContext) {
@@ -1955,8 +2049,17 @@ public class CodeGenerator {
    * expression.  Pass on the IN_FOR_INIT_CLAUSE flag through subexpressions.
    */
   private static Context getContextForNoInOperator(Context context) {
-    return (context == Context.IN_FOR_INIT_CLAUSE
-        ? Context.IN_FOR_INIT_CLAUSE : Context.OTHER);
+    return (context.inForInInitClause() ? context : Context.OTHER);
+  }
+
+  /**
+   * If we're at the start of an arrow function body, we need parentheses around object literals and
+   * object patterns. We also must also pass the IN_FOR_INIT_CLAUSE flag into subexpressions.
+   */
+  private static Context getContextForArrowFunctionBody(Context context) {
+    return context.inForInInitClause()
+        ? Context.START_OF_ARROW_FN_IN_FOR_INIT
+        : Context.START_OF_ARROW_FN_BODY;
   }
 
   private void processEnd(Node n, Context context) {

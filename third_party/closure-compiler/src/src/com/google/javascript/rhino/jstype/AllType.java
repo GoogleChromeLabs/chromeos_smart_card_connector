@@ -71,11 +71,6 @@ public final class AllType extends JSType {
   }
 
   @Override
-  public boolean canBeCalled() {
-    return false;
-  }
-
-  @Override
   public TernaryValue testForEquality(JSType that) {
     return UNKNOWN;
   }
@@ -110,12 +105,12 @@ public final class AllType extends JSType {
   }
 
   @Override
-  JSType resolveInternal(ErrorReporter reporter, StaticTypedScope<JSType> scope) {
+  JSType resolveInternal(ErrorReporter reporter) {
     return this;
   }
 
   @Override
-  public int hashCode() {
+  int recursionUnsafeHashCode() {
     return System.identityHashCode(this);
   }
 

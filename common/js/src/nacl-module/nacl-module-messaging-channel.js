@@ -53,7 +53,7 @@ GSC.NaclModuleMessageChannel = function(naclModuleElement, parentLogger) {
   this.logger_ = parentLogger;
 
   /**
-   * @type {Element}
+   * @type {Element?}
    * @private
    */
   this.naclModuleElement_ = naclModuleElement;

@@ -190,6 +190,8 @@ goog.exportSymbol('testPortMessageChannelMessageReceiving', function() {
       portMessageChannel.registerService(
           testMessage.type,
           function(messageData) {
+            GSC.Logging.check(goog.isObject(messageData));
+            goog.asserts.assert(goog.isObject(messageData));
             receivedMessages.push(new TypedMessage(
                 testMessage.type, messageData));
           },

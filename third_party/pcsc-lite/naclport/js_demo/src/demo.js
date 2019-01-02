@@ -64,7 +64,7 @@ Demo.logger = GSC.Logging.getScopedLogger('PcscLiteClient.Demo');
 var logger = Demo.logger;
 
 /**
- * @param {API} pcscLiteClientApi
+ * @param {!API} pcscLiteClientApi
  * @param {function()} onSucceeded
  * @param {function()} onFailed
  */

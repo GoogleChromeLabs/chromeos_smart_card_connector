@@ -92,7 +92,7 @@ function setUpKnownAppsRegistryMock(mockControl) {
  * @param {!goog.testing.MockControl} mockControl
  * @param {!goog.testing.PropertyReplacer} propertyReplacer
  * @param {!Object} fakeInitialData Fake data to be returned from get().
- * @param {Object} expectedDataToBeWritten If non-null, then the expected data
+ * @param {Object?} expectedDataToBeWritten If non-null, then the expected data
  * to be passed into set(); if null, then set() isn't expected to be called.
  */
 function setUpChromeStorageMock(
@@ -171,9 +171,9 @@ function negatePromise(promise) {
  * Wraps the given test function, providing the necessary setup and teardown.
  * @param {!Object} fakeInitialStorageData Fake data to be returned from
  * chrome.storage.local.get().
- * @param {Object} expectedStorageDataToBeWritten If non-null, then the expected
- * data to be passed into chrome.storage.local.set(); if null, then set() isn't
- * expected to be called.
+ * @param {Object?} expectedStorageDataToBeWritten If non-null, then the
+ * expected data to be passed into chrome.storage.local.set(); if null, then
+ * set() isn't expected to be called.
  * @param {!MockedDialogBehavior} mockedDialogBehavior If |NOT_RUN|, then the
  * GSC.PopupWindow.Server.runModalDialog method is not expected to be called;
  * otherwise, the called method will return the corresponding result.

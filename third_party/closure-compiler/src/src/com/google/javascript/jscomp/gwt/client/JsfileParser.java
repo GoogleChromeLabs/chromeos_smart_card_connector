@@ -16,22 +16,24 @@
 
 package com.google.javascript.jscomp.gwt.client;
 
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
 import com.google.common.collect.Ordering;
 import com.google.common.collect.TreeMultiset;
-import com.google.gwt.core.client.EntryPoint;
+import com.google.javascript.jscomp.BasicErrorManager;
+import com.google.javascript.jscomp.CheckLevel;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
-import com.google.javascript.jscomp.NodeTraversal;
-import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.GatherModuleMetadata;
+import com.google.javascript.jscomp.JSError;
+import com.google.javascript.jscomp.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.jscomp.SourceFile;
-import com.google.javascript.jscomp.Var;
+import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import com.google.javascript.jscomp.gwt.client.Util.JsArray;
 import com.google.javascript.jscomp.gwt.client.Util.JsObject;
 import com.google.javascript.jscomp.gwt.client.Util.JsRegExp;
@@ -41,7 +43,9 @@ import com.google.javascript.jscomp.parsing.parser.trees.Comment;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.Token;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
@@ -54,7 +58,7 @@ import jsinterop.annotations.JsMethod;
  * {@literal @}{@code fileoverview} annotation
  * information.
  */
-public class JsfileParser implements EntryPoint {
+public class JsfileParser {
 
   /**
    * All the information parsed out of a single file.
@@ -91,7 +95,8 @@ public class JsfileParser implements EntryPoint {
 
     final Set<String> hasSoyDelcalls = new TreeSet<>();
     final Set<String> hasSoyDeltemplates = new TreeSet<>();
-    final Set<String> importedModules = new TreeSet<>();
+    // Use a LinkedHashSet as import order matters!
+    final Set<String> importedModules = new LinkedHashSet<>();
     final List<String> modName = new ArrayList<>();
     final List<String> mods = new ArrayList<>();
 
@@ -142,6 +147,18 @@ public class JsfileParser implements EntryPoint {
           .object;
     }
   }
+
+  /**
+   * Exports the {@link #compile} method via JSNI.
+   *
+   * <p>This will be placed on {@code module.exports.gjd} or the global {@code jscomp.gjd}.
+   */
+  public native void exportGjd() /*-{
+    var fn = $entry(@com.google.javascript.jscomp.gwt.client.JsfileParser::gjd(*));
+    if (typeof module !== 'undefined' && module.exports) {
+      module.exports.gjd = fn;
+    }
+  }-*/;
 
   /** Represents a single JSDoc annotation, with an optional argument. */
   private static class CommentAnnotation {
@@ -199,7 +216,7 @@ public class JsfileParser implements EntryPoint {
   }
 
   /** Method exported to JS to parse a file for dependencies and annotations. */
-  @JsMethod(name = "gjd", namespace = "jscomp")
+  @JsMethod(namespace = "jscomp")
   public static JsObject<Object> gjd(String code, String filename, @Nullable Reporter reporter) {
     return parse(code, filename, reporter).full();
   }
@@ -207,9 +224,34 @@ public class JsfileParser implements EntryPoint {
   /** Internal implementation to produce the {@link FileInfo} object. */
   private static FileInfo parse(String code, String filename, @Nullable Reporter reporter) {
     ErrorReporter errorReporter = new DelegatingReporter(reporter);
-    Compiler compiler = new Compiler();
+    Compiler compiler =
+        new Compiler(
+            new BasicErrorManager() {
+              @Override
+              public void println(CheckLevel level, JSError error) {
+                if (level == CheckLevel.ERROR) {
+                  errorReporter.error(
+                      error.description,
+                      error.sourceName,
+                      error.getLineNumber(),
+                      error.getCharno());
+                } else if (level == CheckLevel.WARNING) {
+                  errorReporter.warning(
+                      error.description,
+                      error.sourceName,
+                      error.getLineNumber(),
+                      error.getCharno());
+                }
+              }
+
+              @Override
+              protected void printSummary() {}
+            });
+    SourceFile source = SourceFile.fromCode(filename, code);
     compiler.init(
-        ImmutableList.<SourceFile>of(), ImmutableList.<SourceFile>of(), new CompilerOptions());
+        ImmutableList.<SourceFile>of(),
+        ImmutableList.<SourceFile>of(source),
+        new CompilerOptions());
 
     Config config =
         ParserRunner.createConfig(
@@ -220,8 +262,6 @@ public class JsfileParser implements EntryPoint {
             /* extraAnnotationNames */ ImmutableSet.<String>of(),
             /* parseInlineSourceMaps */ true,
             Config.StrictMode.SLOPPY);
-
-    SourceFile source = SourceFile.fromCode(filename, code);
     FileInfo info = new FileInfo(errorReporter);
     ParserRunner.ParseResult parsed = ParserRunner.parse(source, code, config, errorReporter);
     parsed.ast.setInputId(new InputId(filename));
@@ -235,7 +275,25 @@ public class JsfileParser implements EntryPoint {
         parseComment(comment, info);
       }
     }
-    NodeTraversal.traverseEs6(compiler, parsed.ast, new Traverser(info));
+    GatherModuleMetadata gatherModuleMetadata =
+        new GatherModuleMetadata(
+            compiler, /* processCommonJsModules= */ false, ResolutionMode.BROWSER);
+    gatherModuleMetadata.process(new Node(Token.ROOT), parsed.ast);
+    compiler.generateReport();
+    ModuleMetadata module =
+        Iterables.getOnlyElement(
+            compiler.getModuleMetadataMap().getModulesByPath().values());
+    if (module.isEs6Module()) {
+      info.loadFlags.add(JsArray.of("module", "es6"));
+    } else if (module.isGoogModule()) {
+      info.loadFlags.add(JsArray.of("module", "goog"));
+    }
+    info.provides.addAll(module.googNamespaces());
+    info.requires.addAll(module.requiredGoogNamespaces());
+    info.typeRequires.addAll(module.requiredTypes());
+    info.testonly = module.isTestOnly();
+    info.importedModules.addAll(module.es6ImportSpecifiers().elementSet());
+    info.goog = module.usesClosure();
     return info;
   }
 
@@ -308,84 +366,6 @@ public class JsfileParser implements EntryPoint {
     }
   }
 
-  /** Traverser that mutates {@code #info} with information from the AST. */
-  private static class Traverser extends AbstractPostOrderCallback {
-    final FileInfo info;
-
-    Traverser(FileInfo info) {
-      this.info = info;
-    }
-
-    private boolean isFromGoogImport(Var goog) {
-      Node nameNode = goog.getNameNode();
-
-      // Because other tools are regex based we force importing this file as "import * as goog".
-      return nameNode != null
-          && nameNode.isImportStar()
-          && nameNode.getString().equals("goog")
-          && nameNode.getParent().getFirstChild().isEmpty()
-          && nameNode.getParent().getLastChild().getString().endsWith("/goog.js");
-    }
-
-    @Override
-    public void visit(NodeTraversal traversal, Node node, Node parent) {
-      // Look for goog.* calls
-      if (node.isGetProp() && node.getFirstChild().isName()
-          && node.getFirstChild().getString().equals("goog")) {
-        Var root = traversal.getScope().getVar("goog");
-        if (root == null || isFromGoogImport(root)) {
-          info.goog = true;
-          if (parent.isCall() && parent.getChildCount() < 3) {
-            Node arg;
-            switch (node.getLastChild().getString()) {
-              case "module":
-                info.loadFlags.add(JsArray.of("module", "goog"));
-                // fall through
-              case "provide":
-                arg = parent.getSecondChild();
-                if (arg.isString()) {
-                  info.provides.add(arg.getString());
-                } // TODO(sdh): else warning?
-                break;
-              case "require":
-                arg = parent.getSecondChild();
-                if (arg.isString()) {
-                  info.requires.add(arg.getString());
-                } // TODO(sdh): else warning?
-                break;
-              case "requireType":
-                arg = parent.getSecondChild();
-                if (arg.isString()) {
-                  info.typeRequires.add(arg.getString());
-                } // TODO(blickly): else warning?
-                break;
-              case "setTestOnly":
-                info.testonly = true;
-                break;
-              default:
-                // Do nothing
-            }
-          }
-        }
-      }
-
-      // Look for ES6 import statements
-      if (node.isImport()) {
-        Node moduleSpecifier = node.getChildAtIndex(2);
-        // NOTE: previous tool was more forgiving here.
-        checkState(moduleSpecifier.isString());
-        info.loadFlags.add(JsArray.of("module", "es6"));
-        info.importedModules.add(moduleSpecifier.getString());
-      } else if (node.isExport()) {
-        info.loadFlags.add(JsArray.of("module", "es6"));
-        // export from
-        if (node.hasTwoChildren() && node.getLastChild().isString()) {
-          info.importedModules.add(node.getLastChild().getString());
-        }
-      }
-    }
-  }
-
   /** JS function interface for reporting errors. */
   @JsFunction
   public interface Reporter {
@@ -415,9 +395,6 @@ public class JsfileParser implements EntryPoint {
     public void report(
         boolean fatal, String message, String sourceName, int line, int lineOffset) {}
   };
-
-  @Override
-  public void onModuleLoad() {}
 
   /** Returns an associative multimap. */
   private static Set<JsArray<String>> assoc() {

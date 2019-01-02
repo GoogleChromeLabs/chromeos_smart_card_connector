@@ -42,7 +42,7 @@ public final class Es6SplitVariableDeclarations extends
     NodeTraversal.AbstractPostOrderCallback implements HotSwapCompilerPass {
   private final AbstractCompiler compiler;
   private static final FeatureSet transpiledFeatures =
-      FeatureSet.BARE_MINIMUM.with(Feature.DESTRUCTURING);
+      FeatureSet.BARE_MINIMUM.with(Feature.ARRAY_DESTRUCTURING, Feature.OBJECT_DESTRUCTURING);
 
   public Es6SplitVariableDeclarations(AbstractCompiler compiler) {
     this.compiler = compiler;
@@ -66,6 +66,16 @@ public final class Es6SplitVariableDeclarations extends
   }
 
   public void splitDeclaration(NodeTraversal t, Node n, Node parent) {
+    // Cannot split cases like "for (let a = 3, [b] = arr; ..." or "a: let x = 3, [y] = arr;" yet
+    // that are not in a statement block.
+    if (n.hasMoreThanOneChild() && !NodeUtil.isStatementBlock(parent)) {
+      t.report(
+          n,
+          Es6ToEs3Util.CANNOT_CONVERT_YET,
+          "declaration with multiple destructuring children not in statement block");
+      return;
+    }
+
     while (n.getFirstChild() != n.getLastChild()) {
       Node child = n.getLastChild().detach();
       Node newVar = IR.declaration(child, n.getToken()).srcref(n);

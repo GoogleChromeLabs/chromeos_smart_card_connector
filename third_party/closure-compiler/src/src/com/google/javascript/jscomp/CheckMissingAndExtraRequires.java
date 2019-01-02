@@ -66,7 +66,7 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
     SINGLE_FILE,
     // Used during a normal compilation. The entire program + externs are available.
     FULL_COMPILE
-  };
+  }
 
   private Mode mode;
 
@@ -116,7 +116,7 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
   @Override
   public void process(Node externs, Node root) {
     reset();
-    NodeTraversal.traverseRootsEs6(compiler, this, externs, root);
+    NodeTraversal.traverseRoots(compiler, this, externs, root);
   }
 
   @Override
@@ -125,7 +125,7 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
     // b/28869281 for context.
     mode = Mode.SINGLE_FILE;
     reset();
-    NodeTraversal.traverseEs6(compiler, scriptRoot, this);
+    NodeTraversal.traverse(compiler, scriptRoot, this);
   }
 
   // Return true if the name is a class name (starts with an uppercase
@@ -314,10 +314,13 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
   private boolean isMissingRequire(String namespace, Node node) {
     if (namespace.startsWith("goog.global.")
         // Most functions in base.js are goog.someName, but
-        // goog.module.{get,declareLegacyNamespace} are the exceptions, so just check for them
-        // explicitly.
+        // goog.module.{get,declareLegacyNamespace,declareNamespace} are the exceptions, so just
+        // check for them explicitly.
         || namespace.equals("goog.module.get")
-        || namespace.equals("goog.module.declareLegacyNamespace")) {
+        || namespace.equals("goog.module.declareLegacyNamespace")
+        // TODO(johnplaisted): Consolidate on declareModuleId.
+        || namespace.equals("goog.module.declareNamespace")
+        || namespace.equals("goog.declareModuleId")) {
       return false;
     }
 

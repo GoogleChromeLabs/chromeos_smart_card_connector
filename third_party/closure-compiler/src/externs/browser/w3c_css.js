@@ -1822,6 +1822,62 @@ CSSProperties.prototype.opacity;
  */
 CSSProperties.prototype.textOverflow;
 
+// CSS 3 animations
+
+/**
+ * @type {string|number}
+ * @see https://www.w3.org/TR/css-animations-1/#animation
+ */
+CSSProperties.prototype.animation;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-animations-1/#animation-delay
+ */
+CSSProperties.prototype.animationDelay;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-animations-1/#animation-direction
+ */
+CSSProperties.prototype.animationDirection;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-animations-1/#animation-duration
+ */
+CSSProperties.prototype.animationDuration;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-animations-1/#animation-fill-mode
+ */
+CSSProperties.prototype.animationFillMode;
+
+/**
+ * @type {string|number}
+ * @see https://www.w3.org/TR/css-animations-1/#animation-iteration-count
+ */
+CSSProperties.prototype.animationIterationCount;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-animations-1/#animation-name
+ */
+CSSProperties.prototype.animationName;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-animations-1/#animation-play-state
+ */
+CSSProperties.prototype.animationPlayState;
+
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-animations-1/#animation-timing-function
+ */
+CSSProperties.prototype.animationTimingFunction;
+
 // CSS 3 transforms
 
 /**
@@ -1983,6 +2039,11 @@ CSSProperties.prototype.order;
  */
 CSSProperties.prototype.willChange;
 
+/**
+ * @type {string}
+ * @see https://www.w3.org/TR/css-ui-4/#propdef-user-select
+ */
+CSSProperties.prototype.userSelect;
 
 /**
  * TODO(dbeam): Put this in separate file named w3c_cssom.js.
@@ -2189,6 +2250,14 @@ Document.prototype.elementFromPoint = function(x, y) {};
 /**
  * @param {number} x
  * @param {number} y
+ * @return {!IArrayLike<!Element>}
+ * @see http://www.w3.org/TR/cssom-view/#dom-document-elementsfrompoint
+ */
+Document.prototype.elementsFromPoint = function(x, y) {};
+
+/**
+ * @param {number} x
+ * @param {number} y
  * @return {CaretPosition}
  * @see http://www.w3.org/TR/cssom-view/#dom-document-caretpositionfrompoint
  */
@@ -2239,6 +2308,18 @@ Element.prototype.getBoundingClientRect = function() {};
  * @return {undefined}
  */
 Element.prototype.scrollIntoView = function(opt_top) {};
+
+/**
+ * @param {number|{
+ *   left: (number|undefined),
+ *   top: (number|undefined),
+ *   behavior: (string|undefined),
+ * }} scrollToOptionsOrX
+ * @param {number=} opt_y
+ * @see https://www.w3.org/TR/cssom-view/#extension-to-the-element-interface
+ * @return {undefined}
+ */
+Element.prototype.scrollTo = function(scrollToOptionsOrX, opt_y) {};
 
 /**
  * @type {number}
@@ -2668,3 +2749,60 @@ FontFaceSet.prototype.ready;
  * @see http://dev.w3.org/csswg/css-font-loading/#dom-fontfaceset-status
  */
 FontFaceSet.prototype.status;
+
+
+/**
+ * @record
+ * @see http://dev.w3.org/csswg/css-animations/#csskeyframerule
+ */
+function CSSKeyframeRule() {}
+
+/**
+ * @type {string}
+ * @see https://drafts.csswg.org/css-animations/#dom-csskeyframerule-keytext
+ */
+CSSKeyframeRule.prototype.keyText;
+
+/**
+ * @type {!CSSStyleDeclaration}
+ * @see https://drafts.csswg.org/css-animations/#dom-csskeyframerule-style
+ */
+CSSKeyframeRule.prototype.style;
+
+
+/**
+ * @record
+ * @see http://dev.w3.org/csswg/css-animations/#csskeyframesrule
+ */
+function CSSKeyframesRule() {}
+
+/**
+ * @see https://drafts.csswg.org/css-animations/#dom-csskeyframesrule-name
+ * @type {string}
+ */
+CSSKeyframesRule.prototype.name;
+
+/**
+ * @see https://drafts.csswg.org/css-animations/#dom-csskeyframesrule-cssrules
+ * @type {!CSSRuleList}
+ */
+CSSKeyframesRule.prototype.cssRules;
+
+/**
+ * @see https://drafts.csswg.org/css-animations/#dom-csskeyframesrule-findrule
+ * @param {string} key The key text for the rule to find.
+ * @return {?CSSKeyframeRule}
+ */
+CSSKeyframesRule.prototype.findRule = function(key) {};
+
+/**
+ * @see https://drafts.csswg.org/css-animations/#dom-csskeyframesrule-appendrule
+ * @param {string} rule The text for the rule to append.
+ */
+CSSKeyframesRule.prototype.appendRule = function(rule) {};
+
+/**
+ * @see https://drafts.csswg.org/css-animations/#dom-csskeyframesrule-deleterule
+ * @param {string} key The key text for the rule to delete.
+ */
+CSSKeyframesRule.prototype.deleteRule = function(key) {};

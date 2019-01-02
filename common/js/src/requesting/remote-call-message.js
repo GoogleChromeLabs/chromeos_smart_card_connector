@@ -63,7 +63,7 @@ var RemoteCallMessage = GSC.RemoteCallMessage;
  *
  * Returns null if the parsing failed.
  * @param {!Object} requestPayload
- * @return {RemoteCallMessage}
+ * @return {RemoteCallMessage?}
  */
 RemoteCallMessage.parseRequestPayload = function(requestPayload) {
   if (goog.object.getCount(requestPayload) != 2 ||

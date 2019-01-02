@@ -31,7 +31,7 @@ import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.TokenStream;
-import com.google.javascript.rhino.TypeI;
+import com.google.javascript.rhino.jstype.JSType;
 import java.util.List;
 import java.util.Map;
 
@@ -147,15 +147,15 @@ class CollapseProperties implements CompilerPass {
   }
 
   /**
-   * Runs through all namespaces (prefixes of classes and enums), and checks if
-   * any of them have been used in an unsafe way.
+   * Runs through all namespaces (prefixes of classes and enums), and checks if any of them have
+   * been used in an unsafe way.
    */
   private void checkNamespaces() {
     for (Name name : nameMap.values()) {
       if (name.isNamespaceObjectLit()
-          && (name.aliasingGets > 0
-              || name.localSets + name.globalSets > 1
-              || name.deleteProps > 0)) {
+          && (name.getAliasingGets() > 0
+              || name.getLocalSets() + name.getGlobalSets() > 1
+              || name.getDeleteProps() > 0)) {
         boolean initialized = name.getDeclaration() != null;
         for (Ref ref : name.getRefs()) {
           if (ref == name.getDeclaration()) {
@@ -411,9 +411,9 @@ class CollapseProperties implements CompilerPass {
       parent.putBooleanProp(Node.FREE_CALL, true);
     }
 
-    TypeI type = n.getTypeI();
+    JSType type = n.getJSType();
     if (type != null) {
-      ref.setTypeI(type);
+      ref.setJSType(type);
     }
 
     parent.replaceChild(n, ref);
@@ -483,7 +483,7 @@ class CollapseProperties implements CompilerPass {
     Node current = grandparent;
     Node currentParent = grandparent.getParent();
     for (;
-        !currentParent.isScript() && !currentParent.isNormalBlock();
+        !currentParent.isScript() && !currentParent.isBlock();
         current = currentParent, currentParent = currentParent.getParent()) {}
 
     // Create a stub variable declaration right
@@ -638,7 +638,7 @@ class CollapseProperties implements CompilerPass {
         (docInfo != null && (docInfo.isConstructorOrInterface() || docInfo.hasThisType()))
         || function.isArrowFunction();
     if (!isAllowedToReferenceThis) {
-      NodeTraversal.traverseEs6(compiler, function.getLastChild(),
+      NodeTraversal.traverse(compiler, function.getLastChild(),
           new NodeTraversal.AbstractShallowCallback() {
             @Override
             public void visit(NodeTraversal t, Node n, Node parent) {

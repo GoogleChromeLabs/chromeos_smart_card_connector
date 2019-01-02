@@ -18,11 +18,12 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.javascript.jscomp.newtypes.JSTypeCreatorFromJSDoc;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * Test case for {@link GatherExternProperties}.
- */
+/** Test case for {@link GatherExternProperties}. */
+@RunWith(JUnit4.class)
 public final class GatherExternPropertiesTest extends CompilerTestCase {
 
   private static final String EXTERNS = lines(
@@ -60,6 +61,7 @@ public final class GatherExternPropertiesTest extends CompilerTestCase {
     return new GatherExternProperties(compiler);
   }
 
+  @Test
   public void testGatherExternProperties() {
     // Properties.
     assertExternProperties(
@@ -84,6 +86,7 @@ public final class GatherExternPropertiesTest extends CompilerTestCase {
         "foo['bar'] = {};");
   }
 
+  @Test
   public void testGatherExternTypedefProperties() {
     String typedefExtern =
         lines(
@@ -101,6 +104,7 @@ public final class GatherExternPropertiesTest extends CompilerTestCase {
         typedefExtern, "typedefPropA", "subTypedefProp", "paramProp1", "paramProp2");
   }
 
+  @Test
   public void testGatherExternPropertiesIncludingRecordTypes() {
     // Properties.
     assertExternProperties(
@@ -209,7 +213,6 @@ public final class GatherExternPropertiesTest extends CompilerTestCase {
         "a", "b");
 
     // Recursive types
-    ignoreWarnings(JSTypeCreatorFromJSDoc.CIRCULAR_TYPEDEF_ENUM);
     assertExternProperties(lines(
         "/** @typedef {{a: D2}} */",
         "var D1;",
@@ -234,6 +237,7 @@ public final class GatherExternPropertiesTest extends CompilerTestCase {
         expectExterns());
   }
 
+  @Test
   public void testExternClass() {
     assertExternProperties(
         lines(
@@ -247,6 +251,7 @@ public final class GatherExternPropertiesTest extends CompilerTestCase {
         "bar");
   }
 
+  @Test
   public void testExternWithMethod() {
     assertExternProperties(
         lines(

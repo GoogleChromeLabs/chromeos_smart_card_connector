@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Comparator.comparing;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.CompilerPass;
 import com.google.javascript.jscomp.DiagnosticType;
@@ -32,7 +31,7 @@ import com.google.javascript.jscomp.Var;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.TypeI.Nullability;
+import com.google.javascript.rhino.jstype.JSType.Nullability;
 import java.util.Comparator;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -76,8 +75,12 @@ public class ConvertToTypedInterface implements CompilerPass {
           "goog.forwardDeclare",
           "goog.module",
           "goog.module.declareLegacyNamespace",
+          // TODO(johnplaisted): Consolidate on declareModuleId / delete declareNamespace.
+          "goog.declareModuleId",
+          "goog.module.declareNamespace",
           "goog.provide",
-          "goog.require");
+          "goog.require",
+          "goog.requireType");
 
   private final AbstractCompiler compiler;
 
@@ -103,18 +106,8 @@ public class ConvertToTypedInterface implements CompilerPass {
     }
   }
 
-  private void removeUselessFiles(Node externs, Node root) {
-    for (Node script : Iterables.concat(externs.children(), root.children())) {
-      if (!script.hasChildren()) {
-        script.detach();
-        compiler.reportChangeToChangeScope(script);
-      }
-    }
-  }
-
   @Override
   public void process(Node externs, Node root) {
-    removeUselessFiles(externs, root);
     for (Node script = root.getFirstChild(); script != null; script = script.getNext()) {
       processFile(script);
     }
@@ -123,8 +116,8 @@ public class ConvertToTypedInterface implements CompilerPass {
   private void processFile(Node scriptNode) {
     checkArgument(scriptNode.isScript());
     FileInfo currentFile = new FileInfo();
-    NodeTraversal.traverseEs6(compiler, scriptNode, new RemoveNonDeclarations());
-    NodeTraversal.traverseEs6(compiler, scriptNode, new PropagateConstJsdoc(currentFile));
+    NodeTraversal.traverse(compiler, scriptNode, new RemoveNonDeclarations());
+    NodeTraversal.traverse(compiler, scriptNode, new PropagateConstJsdoc(currentFile));
     new SimplifyDeclarations(compiler, currentFile).simplifyAll();
   }
 
@@ -144,7 +137,7 @@ public class ConvertToTypedInterface implements CompilerPass {
         case FUNCTION:
           if (!ClassUtil.isConstructor(n) || !ClassUtil.hasNamedClass(n)) {
             Node body = n.getLastChild();
-            if (!body.isNormalBlock() || body.hasChildren()) {
+            if (!body.isBlock() || body.hasChildren()) {
               t.reportCodeChange(body);
               body.replaceWith(IR.block().srcref(body));
               NodeUtil.markFunctionsDeleted(body, t.getCompiler());
@@ -420,7 +413,7 @@ public class ConvertToTypedInterface implements CompilerPass {
         decl.remove(compiler);
         return;
       }
-      if (isAliasDefinition(decl)) {
+      if (decl.isAliasDefinition()) {
         return;
       }
       if (decl.getRhs() != null && decl.getRhs().isFunction()) {
@@ -452,10 +445,9 @@ public class ConvertToTypedInterface implements CompilerPass {
       checkArgument(paramList.isParamList());
       for (Node arg = paramList.getFirstChild(); arg != null; arg = arg.getNext()) {
         if (arg.isDefaultValue()) {
-          Node replacement = arg.getFirstChild().detach();
-          arg.replaceWith(replacement);
-          arg = replacement;
-          compiler.reportChangeToEnclosingScope(replacement);
+          Node rhs = arg.getLastChild();
+          rhs.replaceWith(NodeUtil.newUndefinedNode(rhs));
+          compiler.reportChangeToEnclosingScope(arg);
         }
       }
     }
@@ -474,6 +466,9 @@ public class ConvertToTypedInterface implements CompilerPass {
 
     private boolean shouldRemove(String name, PotentialDeclaration decl) {
       if ("$jscomp".equals(rootName(name))) {
+        if (decl.isDetached()) {
+          return true;
+        }
         // These are created by goog.scope processing, but clash with each other
         // and should not be depended on.
         if (decl.getRhs() != null && decl.getRhs().isClass()
@@ -503,16 +498,6 @@ public class ConvertToTypedInterface implements CompilerPass {
       jsdocNode.setJSDocInfo(JsdocUtil.getUnusableTypeJSDoc(jsdoc));
     }
 
-    private boolean isAliasDefinition(PotentialDeclaration decl) {
-      Node rhs = decl.getRhs();
-      if (decl.isConstToBeInferred() && rhs != null && rhs.isQualifiedName()) {
-        String aliasedName = rhs.getQualifiedName();
-        return rhs.isThis()
-            || currentFile.isPrefixRequired(aliasedName)
-            || currentFile.isNameDeclared(aliasedName);
-      }
-      return false;
-    }
   }
 
 }

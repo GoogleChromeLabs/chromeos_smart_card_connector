@@ -180,9 +180,7 @@ final class ReplaceMessages extends JsMessageVisitor {
     checkNode(oldBlockNode, Token.BLOCK);
 
     Iterator<CharSequence> iterator = message.parts().iterator();
-    Node valueNode = iterator.hasNext()
-        ? constructAddOrStringNode(iterator, argListNode)
-        : IR.string("");
+    Node valueNode = constructAddOrStringNode(iterator, argListNode);
     Node newBlockNode = IR.block(IR.returnNode(valueNode));
 
     // TODO(user): checkTreeEqual is overkill. I am in process of rewriting
@@ -211,6 +209,10 @@ final class ReplaceMessages extends JsMessageVisitor {
   private static Node constructAddOrStringNode(Iterator<CharSequence> partsIterator,
                                                Node argListNode)
       throws MalformedException {
+    if (!partsIterator.hasNext()) {
+      return IR.string("");
+    }
+
     CharSequence part = partsIterator.next();
     Node partNode = null;
     if (part instanceof JsMessage.PlaceholderReference) {
@@ -298,8 +300,10 @@ final class ReplaceMessages extends JsMessageVisitor {
     Node objLitNode = stringExprNode.getNext();
 
     // Build the replacement tree.
-    return constructStringExprNode(
-        message.parts().iterator(), objLitNode, callNode);
+    Iterator<CharSequence> iterator = message.parts().iterator();
+    return iterator.hasNext()
+        ? constructStringExprNode(iterator, objLitNode, callNode)
+        : IR.string("");
   }
 
   /**

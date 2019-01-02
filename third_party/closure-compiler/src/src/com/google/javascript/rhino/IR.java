@@ -76,14 +76,14 @@ public class IR {
   public static Node function(Node name, Node params, Node body) {
     checkState(name.isName());
     checkState(params.isParamList());
-    checkState(body.isNormalBlock());
+    checkState(body.isBlock());
     return new Node(Token.FUNCTION, name, params, body);
   }
 
   public static Node arrowFunction(Node name, Node params, Node body) {
     checkState(name.isName());
     checkState(params.isParamList());
-    checkState(body.isNormalBlock() || mayBeExpression(body));
+    checkState(body.isBlock() || mayBeExpression(body));
     Node func = new Node(Token.FUNCTION, name, params, body);
     func.setIsArrowFunction(true);
     return func;
@@ -246,25 +246,25 @@ public class IR {
 
   public static Node ifNode(Node cond, Node then) {
     checkState(mayBeExpression(cond));
-    checkState(then.isNormalBlock());
+    checkState(then.isBlock());
     return new Node(Token.IF, cond, then);
   }
 
   public static Node ifNode(Node cond, Node then, Node elseNode) {
     checkState(mayBeExpression(cond));
-    checkState(then.isNormalBlock());
-    checkState(elseNode.isNormalBlock());
+    checkState(then.isBlock());
+    checkState(elseNode.isBlock());
     return new Node(Token.IF, cond, then, elseNode);
   }
 
   public static Node doNode(Node body, Node cond) {
-    checkState(body.isNormalBlock());
+    checkState(body.isBlock());
     checkState(mayBeExpression(cond));
     return new Node(Token.DO, body, cond);
   }
 
   public static Node whileNode(Node cond, Node body) {
-    checkState(body.isNormalBlock());
+    checkState(body.isBlock());
     checkState(mayBeExpression(cond));
     return new Node(Token.WHILE, cond, body);
   }
@@ -272,15 +272,15 @@ public class IR {
   public static Node forIn(Node target, Node cond, Node body) {
     checkState(target.isVar() || mayBeExpression(target));
     checkState(mayBeExpression(cond));
-    checkState(body.isNormalBlock());
+    checkState(body.isBlock());
     return new Node(Token.FOR_IN, target, cond, body);
   }
 
   public static Node forNode(Node init, Node cond, Node incr, Node body) {
-    checkState(init.isVar() || mayBeExpressionOrEmpty(init));
+    checkState(init.isVar() || init.isLet() || init.isConst() || mayBeExpressionOrEmpty(init));
     checkState(mayBeExpressionOrEmpty(cond));
     checkState(mayBeExpressionOrEmpty(incr));
-    checkState(body.isNormalBlock());
+    checkState(body.isBlock());
     return new Node(Token.FOR, init, cond, incr, body);
   }
 
@@ -296,13 +296,13 @@ public class IR {
 
   public static Node caseNode(Node expr, Node body) {
     checkState(mayBeExpression(expr));
-    checkState(body.isNormalBlock());
+    checkState(body.isBlock());
     body.setIsAddedBlock(true);
     return new Node(Token.CASE, expr, body);
   }
 
   public static Node defaultCase(Node body) {
-    checkState(body.isNormalBlock());
+    checkState(body.isBlock());
     body.setIsAddedBlock(true);
     return new Node(Token.DEFAULT_CASE, body);
   }
@@ -321,14 +321,14 @@ public class IR {
   }
 
   public static Node tryFinally(Node tryBody, Node finallyBody) {
-    checkState(tryBody.isNormalBlock());
-    checkState(finallyBody.isNormalBlock());
+    checkState(tryBody.isBlock());
+    checkState(finallyBody.isBlock());
     Node catchBody = block().useSourceInfoIfMissingFrom(tryBody);
     return new Node(Token.TRY, tryBody, catchBody, finallyBody);
   }
 
   public static Node tryCatch(Node tryBody, Node catchNode) {
-    checkState(tryBody.isNormalBlock());
+    checkState(tryBody.isBlock());
     checkState(catchNode.isCatch());
     Node catchBody = blockUnchecked(catchNode).useSourceInfoIfMissingFrom(catchNode);
     return new Node(Token.TRY, tryBody, catchBody);
@@ -336,7 +336,7 @@ public class IR {
 
   public static Node tryCatchFinally(
       Node tryBody, Node catchNode, Node finallyBody) {
-    checkState(finallyBody.isNormalBlock());
+    checkState(finallyBody.isBlock());
     Node tryNode = tryCatch(tryBody, catchNode);
     tryNode.addChildToBack(finallyBody);
     return tryNode;
@@ -344,7 +344,7 @@ public class IR {
 
   public static Node catchNode(Node expr, Node body) {
     checkState(expr.isName());
-    checkState(body.isNormalBlock());
+    checkState(body.isBlock());
     return new Node(Token.CATCH, expr, body);
   }
 
@@ -422,6 +422,11 @@ public class IR {
     checkState(mayBeExpression(target));
     checkState(mayBeExpression(elem));
     return new Node(Token.GETELEM, target, elem);
+  }
+
+  public static Node delprop(Node target) {
+    checkState(mayBeExpression(target));
+    return new Node(Token.DELPROP, target);
   }
 
   public static Node assign(Node target, Node expr) {
@@ -549,13 +554,29 @@ public class IR {
     return objectlit;
   }
 
+  public static Node objectPattern(Node... keys) {
+    Node objectPattern = new Node(Token.OBJECT_PATTERN);
+    for (Node key : keys) {
+      checkState(key.isStringKey() || key.isComputedProp() || key.isRest());
+      objectPattern.addChildToBack(key);
+    }
+    return objectPattern;
+  }
+
+  public static Node arrayPattern(Node... keys) {
+    Node arrayPattern = new Node(Token.ARRAY_PATTERN);
+    for (Node key : keys) {
+      checkState(key.isRest() || key.isValidAssignmentTarget());
+      arrayPattern.addChildToBack(key);
+    }
+    return arrayPattern;
+  }
+
   public static Node computedProp(Node key, Node value) {
     checkState(mayBeExpression(key), key);
     checkState(mayBeExpression(value), value);
     return new Node(Token.COMPUTED_PROP, key, value);
   }
-
-  // TODO(johnlenz): quoted props
 
   public static Node propdef(Node string, Node value) {
     checkState(string.isStringKey());
@@ -598,6 +619,12 @@ public class IR {
     Node stringKey = stringKey(s);
     stringKey.addChildToFront(value);
     return stringKey;
+  }
+
+  public static Node quotedStringKey(String s, Node value) {
+    Node k = stringKey(s, value);
+    k.putBooleanProp(Node.QUOTED_PROP, true);
+    return k;
   }
 
   public static Node rest(Node target) {
@@ -689,6 +716,7 @@ public class IR {
       case FOR:
       case FOR_IN:
       case FOR_OF:
+      case FOR_AWAIT_OF:
       case IF:
       case LABEL:
       case LET:
@@ -775,6 +803,7 @@ public class IR {
       case NE:
       case NEG:
       case NEW:
+      case NEW_TARGET:
       case NOT:
       case NUMBER:
       case NULL:

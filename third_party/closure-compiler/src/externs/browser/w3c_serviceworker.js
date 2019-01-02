@@ -72,6 +72,25 @@ NavigationPreloadManager.prototype.getState = function() {};
  */
 var NavigationPreloadState;
 
+/** @record */
+function PushSubscriptionOptions() {}
+
+/** @type {ArrayBuffer|undefined} */
+PushSubscriptionOptions.prototype.applicationServerKey;
+
+/** @type {boolean|undefined} */
+PushSubscriptionOptions.prototype.userVisibleOnly;
+
+/** @record */
+function PushSubscriptionOptionsInit() {}
+
+/** @type {BufferSource|string|undefined} */
+PushSubscriptionOptionsInit.prototype.applicationServerKey;
+
+/** @type {boolean|undefined} */
+PushSubscriptionOptionsInit.prototype.userVisibleOnly;
+
+
 /**
  * @see https://w3c.github.io/push-api/
  * @constructor
@@ -87,6 +106,9 @@ PushSubscription.prototype.endpoint;
  * @type {string}
  */
 PushSubscription.prototype.subscriptionId;
+
+/** @type {!PushSubscriptionOptions} */
+PushSubscription.prototype.options;
 
 /** @return {!Promise<boolean>} */
 PushSubscription.prototype.unsubscribe = function() {};
@@ -107,7 +129,7 @@ PushSubscription.prototype.unsubscribe = function() {};
 function PushManager() {}
 
 /**
- * @param {PushSubscriptionOptions=} opt_options
+ * @param {PushSubscriptionOptionsInit=} opt_options
  * @return {!Promise<!PushSubscription>}
  */
 PushManager.prototype.subscribe = function(opt_options) {};
@@ -149,12 +171,6 @@ SyncEvent.prototype.tag;
 
 /** @type {boolean} */
 SyncEvent.prototype.lastChance;
-
-/**
- * @typedef {{userVisibleOnly: (boolean|undefined)}}
- * @see https://w3c.github.io/push-api/#idl-def-PushSubscriptionOptions
- */
-var PushSubscriptionOptions;
 
 /**
  * @see http://www.w3.org/TR/push-api/#idl-def-PushMessageData
@@ -628,10 +644,7 @@ FetchEvent.prototype.clientId;
 FetchEvent.prototype.isReload;
 
 /** @type {?string} */
-FetchEvent.prototype.targetClientId;
-
-/** @type {?string} */
-FetchEvent.prototype.reservedClientId;
+FetchEvent.prototype.resultingClientId;
 
 /**
  * @param {(Response|IThenable<Response>)} r
@@ -661,3 +674,53 @@ FetchEvent.prototype.default = function() {};
  * }}
  */
 var FetchEventInit;
+
+
+/**
+ * @see https://www.w3.org/TR/service-workers/#extendablemessage-event-interface
+ * @param {string} type
+ * @param {!ExtendableMessageEventInit<T>=} opt_eventInitDict
+ * @constructor
+ * @extends {ExtendableEvent}
+ * @template T
+ */
+function ExtendableMessageEvent(type, opt_eventInitDict) {};
+
+/** @type {T} */
+ExtendableMessageEvent.prototype.data;
+
+/** @type {string} */
+ExtendableMessageEvent.prototype.origin;
+
+/** @type {string} */
+ExtendableMessageEvent.prototype.lastEventId;
+
+/** @type {?ServiceWorkerClient|?ServiceWorker|?MessagePort} */
+ExtendableMessageEvent.prototype.source;
+
+/** @type {?Array<!MessagePort>} */
+ExtendableMessageEvent.prototype.ports;
+
+
+/**
+ * @see https://www.w3.org/TR/service-workers/#extendablemessage-event-init-dictionary
+ * @record
+ * @extends {ExtendableEventInit}
+ * @template T
+ */
+function ExtendableMessageEventInit() {};
+
+/** @type {T} */
+ExtendableMessageEventInit.prototype.data;
+
+/** @type {string|undefined} */
+ExtendableMessageEventInit.prototype.origin;
+
+/** @type {string|undefined} */
+ExtendableMessageEventInit.prototype.lastEventId;
+
+/** @type {!ServiceWorkerClient|!ServiceWorker|!MessagePort|undefined} */
+ExtendableMessageEventInit.prototype.source;
+
+/** @type {!Array<!MessagePort>|undefined} */
+ExtendableMessageEventInit.prototype.ports;

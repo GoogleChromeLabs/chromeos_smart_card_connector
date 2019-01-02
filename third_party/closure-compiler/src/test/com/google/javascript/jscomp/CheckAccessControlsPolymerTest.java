@@ -18,11 +18,17 @@ package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.CheckAccessControls.BAD_PRIVATE_PROPERTY_ACCESS;
 
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
 /**
  * Integration test to check that {@link PolymerPass} and {@link CheckAccessControls} work together
  * as expected.
  */
-public final class CheckAccessControlsPolymerTest extends TypeICompilerTestCase {
+@RunWith(JUnit4.class)
+public final class CheckAccessControlsPolymerTest extends CompilerTestCase {
   private static final String EXTERNS = lines(
       CompilerTypeTestCase.DEFAULT_EXTERNS,
       "var Polymer = function(descriptor) {};",
@@ -34,8 +40,10 @@ public final class CheckAccessControlsPolymerTest extends TypeICompilerTestCase 
   }
 
   @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     super.setUp();
+    enableTypeCheck();
     enableParseTypeInfo();
     enablePolymerPass();
     allowExternsChanges();
@@ -59,6 +67,7 @@ public final class CheckAccessControlsPolymerTest extends TypeICompilerTestCase 
     return options;
   }
 
+  @Test
   public void testPrivateMethodInElement() {
     testNoWarning(lines(
         "var AnElement = Polymer({",
@@ -70,6 +79,7 @@ public final class CheckAccessControlsPolymerTest extends TypeICompilerTestCase 
         "});"));
   }
 
+  @Test
   public void testPrivateMethodInBehavior() {
     testNoWarning(new String[] {
       lines(
@@ -87,6 +97,7 @@ public final class CheckAccessControlsPolymerTest extends TypeICompilerTestCase 
     });
   }
 
+  @Test
   public void testPrivateMethodFromBehaviorUsedInElement() {
     testError(new String[] {
       lines(
@@ -104,6 +115,7 @@ public final class CheckAccessControlsPolymerTest extends TypeICompilerTestCase 
     }, BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
+  @Test
   public void testPrivatePropertyInBehavior() {
     testNoWarning(new String[] {
       lines(
@@ -121,6 +133,7 @@ public final class CheckAccessControlsPolymerTest extends TypeICompilerTestCase 
     });
   }
 
+  @Test
   public void testPrivatePropertyFromBehaviorUsedInElement() {
     testError(new String[] {
       lines(

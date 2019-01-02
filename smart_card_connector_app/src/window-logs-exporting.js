@@ -53,10 +53,11 @@ var EXPORT_LOGS_ELEMENT_EXPORTED_TEXT_ID = 'exportLogsExported';
 var logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
 /**
- * @type {Element}
+ * @type {!Element}
  * @const
  */
-var exportLogsElement = goog.dom.getElement('export-logs');
+var exportLogsElement = /** @type {!Element} */ (goog.dom.getElement(
+    'export-logs'));
 
 var isExportLogsAvailable = true;
 

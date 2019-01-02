@@ -17,15 +17,16 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.javascript.jscomp.CheckJSDoc.MISPLACED_SUPPRESS;
 
 import com.google.common.collect.Iterables;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.parsing.parser.trees.Comment;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -36,9 +37,10 @@ import javax.annotation.Nullable;
 final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompilerPass {
 
   public static final DiagnosticType MISPLACED_MSG_ANNOTATION =
-      DiagnosticType.disabled("JSC_MISPLACED_MSG_ANNOTATION",
+      DiagnosticType.disabled(
+          "JSC_MISPLACED_MSG_ANNOTATION",
           "Misplaced message annotation. @desc, @hidden, and @meaning annotations should only "
-                  + "be on message nodes.");
+              + "be on message nodes.\nMessage constants must be prefixed with 'MSG_'.");
 
   public static final DiagnosticType MISPLACED_ANNOTATION =
       DiagnosticType.warning("JSC_MISPLACED_ANNOTATION",
@@ -80,7 +82,16 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
           "@suppress annotation not allowed here. See"
               + " https://github.com/google/closure-compiler/wiki/@suppress-annotations");
 
+  public static final DiagnosticType JSDOC_IN_BLOCK_COMMENT =
+      DiagnosticType.warning(
+          "JSC_JSDOC_IN_BLOCK_COMMENT",
+          "Non-JSDoc comment has annotations. Did you mean to start it with '/**'?");
+
+  private static final Pattern COMMENT_PATTERN =
+      Pattern.compile("(/|(\n[ \t]*))\\*[ \t]*@[a-zA-Z]+[ \t\n{]");
+
   private final AbstractCompiler compiler;
+  private boolean inExterns;
 
   CheckJSDoc(AbstractCompiler compiler) {
     this.compiler = compiler;
@@ -88,17 +99,46 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
 
   @Override
   public void process(Node externs, Node root) {
-    NodeTraversal.traverseEs6(compiler, externs, this);
-    NodeTraversal.traverseEs6(compiler, root, this);
+    inExterns = true;
+    NodeTraversal.traverse(compiler, externs, this);
+    inExterns = false;
+    NodeTraversal.traverse(compiler, root, this);
   }
 
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    NodeTraversal.traverseEs6(compiler, scriptRoot, this);
+    NodeTraversal.traverse(compiler, scriptRoot, this);
+  }
+
+  /**
+   * Checks for block comments (e.g. starting with /*) that look like they are JsDoc, and thus
+   * should start with /**.
+   */
+  private void checkJsDocInBlockComments(String fileName) {
+    if (!compiler.getOptions().preservesDetailedSourceInfo()) {
+      // Comments only available if preservesDetailedSourceInfo is true.
+      return;
+    }
+
+    for (Comment comment : compiler.getComments(fileName)) {
+      if (comment.type == Comment.Type.BLOCK) {
+        if (COMMENT_PATTERN.matcher(comment.value).find()) {
+          compiler.report(
+              JSError.make(
+                  fileName,
+                  comment.location.start.line + 1,
+                  comment.location.start.column,
+                  JSDOC_IN_BLOCK_COMMENT));
+        }
+      }
+    }
   }
 
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
+    if (n.isScript()) {
+      checkJsDocInBlockComments(n.getSourceFileName());
+    }
     JSDocInfo info = n.getJSDocInfo();
     validateTypeAnnotations(n, info);
     validateFunctionJsDoc(n, info);
@@ -107,13 +147,14 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
     validateNoCollapse(n, info);
     validateClassLevelJsDoc(n, info);
     validateArrowFunction(n);
-    validateDefaultValue(n, info);
+    validateDefaultValue(n);
     validateTemplates(n, info);
     validateTypedefs(n, info);
     validateNoSideEffects(n, info);
     validateAbstractJsDoc(n, info);
     validateDefinesDeclaration(n, info);
     validateSuppress(n, info);
+    validateImplicitCast(n, info);
   }
 
   private void validateSuppress(Node n, JSDocInfo info) {
@@ -132,6 +173,12 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
       case SETTER_DEF:
         // Suppressions are always valid here.
         return;
+
+      case COMPUTED_PROP:
+        if (n.getLastChild().isFunction()) {
+          return; // Suppressions are valid on computed properties that declare functions.
+        }
+        break;
 
       case STRING_KEY:
         if (n.getParent().isObjectLit()) {
@@ -177,7 +224,7 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
   }
 
   private void validateTypedefs(Node n, JSDocInfo info) {
-    if (info != null && info.getTypedefType() != null && isClassDecl(n)) {
+    if (info != null && info.hasTypedefType() && isClassDecl(n)) {
       reportMisplaced(n, "typedef", "@typedef does not make sense on a class declaration.");
     }
   }
@@ -448,9 +495,10 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
   private boolean isValidMsgName(Node nameNode) {
     if (nameNode.isName() || nameNode.isStringKey()) {
       return nameNode.getString().startsWith("MSG_");
-    } else {
-      checkState(nameNode.isQualifiedName());
+    } else if (nameNode.isQualifiedName()) {
       return nameNode.getLastChild().getString().startsWith("MSG_");
+    } else {
+      return false;
     }
   }
 
@@ -468,35 +516,30 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
         // Object literal properties, catch declarations and variable
         // initializers are valid.
         case NAME:
-        case DEFAULT_VALUE:
+          valid = isTypeAnnotationAllowedForName(n);
+          break;
         case ARRAY_PATTERN:
         case OBJECT_PATTERN:
-          Node parent = n.getParent();
-          switch (parent.getToken()) {
-            case GETTER_DEF:
-            case SETTER_DEF:
-            case CATCH:
-            case FUNCTION:
-            case VAR:
-            case LET:
-            case CONST:
-            case PARAM_LIST:
-              valid = true;
-              break;
-            default:
-              break;
-          }
+          // allow JSDoc like
+          //   function f(/** !Object */ {x}) {}
+          //   function f(/** !Array */ [x]) {}
+          valid = n.getParent().isParamList();
           break;
-        // Casts, variable declarations, exports, and Object literal properties are valid.
+        // Casts, exports, and Object literal properties are valid.
         case CAST:
-        case VAR:
-        case LET:
-        case CONST:
         case EXPORT:
         case STRING_KEY:
         case GETTER_DEF:
         case SETTER_DEF:
           valid = true;
+          break;
+        // Declarations are valid iff they only contain simple names
+        //   /** @type {number} */ var x = 3; // ok
+        //   /** @type {number} */ var {x} = obj; // forbidden
+        case VAR:
+        case LET:
+        case CONST:
+          valid = !NodeUtil.isDestructuringDeclaration(n);
           break;
         // Property assignments are valid, if at the root of an expression.
         case ASSIGN: {
@@ -524,6 +567,21 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
     }
   }
 
+  /**
+   * Is it valid to have a type annotation on the given NAME node?
+   */
+  private boolean isTypeAnnotationAllowedForName(Node n) {
+    checkState(n.isName(), n);
+    // Only allow type annotations on nodes used as an lvalue.
+    if (!NodeUtil.isLValue(n)) {
+      return false;
+    }
+    // Don't allow JSDoc on a name in an assignment. Simple names should only have JSDoc on them
+    // when originally declared.
+    Node rootTarget = NodeUtil.getRootTarget(n);
+    return !NodeUtil.isLhsOfAssign(rootTarget);
+  }
+
   private void reportMisplaced(Node n, String annotationName, String note) {
     compiler.report(JSError.make(n, MISPLACED_ANNOTATION,
         annotationName, note));
@@ -546,14 +604,22 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
   }
 
   /**
-   * Check that an arrow function is not annotated with {@constructor}.
+   * Check that a parameter with a default value is marked as optional.
+   * TODO(bradfordcsmith): This is redundant. We shouldn't require it.
    */
-  private void validateDefaultValue(Node n, JSDocInfo info) {
-    if (n.isDefaultValue() && n.getParent().isParamList() && info != null) {
+  private void validateDefaultValue(Node n) {
+    if (n.isDefaultValue() && n.getParent().isParamList()) {
+      Node targetNode = n.getFirstChild();
+      JSDocInfo info = targetNode.getJSDocInfo();
+      if (info == null) {
+        return;
+      }
+
       JSTypeExpression typeExpr = info.getType();
       if (typeExpr == null) {
         return;
       }
+
       Node typeNode = typeExpr.getRoot();
       if (typeNode.getToken() != Token.EQUALS) {
         report(typeNode, DEFAULT_PARAM_MUST_BE_MARKED_OPTIONAL);
@@ -588,6 +654,13 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
   private void validateDefinesDeclaration(Node n, JSDocInfo info) {
     if (info != null && info.isDefine() && n.isLet()) {
       report(n, INVALID_DEFINE_ON_LET);
+    }
+  }
+
+  /** Checks that an @implicitCast annotation is in the externs */
+  private void validateImplicitCast(Node n, JSDocInfo info) {
+    if (!inExterns && info != null && info.isImplicitCast()) {
+      report(n, TypeCheck.ILLEGAL_IMPLICIT_CAST);
     }
   }
 }

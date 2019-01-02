@@ -156,11 +156,13 @@ public class ExportTestFunctions implements CompilerPass {
       }
     }
 
+    /** Converts a member function into a quoted string key to avoid property renaming */
     private void rewriteMemberDefInObjLit(Node memberDef, Node objLit) {
       String name = memberDef.getString();
       Node stringKey = IR.stringKey(name, memberDef.getFirstChild().detach());
       objLit.replaceChild(memberDef, stringKey);
       stringKey.setQuotedString();
+      stringKey.setJSDocInfo(memberDef.getJSDocInfo());
       compiler.reportChangeToEnclosingScope(objLit);
     }
 
@@ -217,7 +219,7 @@ public class ExportTestFunctions implements CompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
-    NodeTraversal.traverseEs6(compiler, root, new ExportTestFunctionsNodes());
+    NodeTraversal.traverse(compiler, root, new ExportTestFunctionsNodes());
   }
 
   // Adds exportSymbol(testFunctionName, testFunction);

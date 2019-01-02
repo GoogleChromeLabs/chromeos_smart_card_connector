@@ -30,7 +30,6 @@ import com.google.javascript.jscomp.type.ReverseAbstractInterpreter;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.TypeIRegistry;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import java.io.Serializable;
 import java.util.HashMap;
@@ -80,17 +79,15 @@ public abstract class AbstractCompiler implements SourceExcerptProvider {
   @Nullable
   abstract Node getScriptNode(String filename);
 
-  /**
-   * Gets the module graph. May return null if there aren't at least two
-   * modules.
-   */
+  /** Gets the module graph. */
+  @Nullable
   abstract JSModuleGraph getModuleGraph();
 
   /**
-   * Gets the inputs in the order in which they are being processed.
-   * Only for use by {@code AbstractCompilerRunner}.
+   * Gets the inputs in the order in which they are being processed. Only for use by {@code
+   * AbstractCompilerRunner}.
    */
-  abstract List<CompilerInput> getInputsInOrder();
+  abstract Iterable<CompilerInput> getInputsInOrder();
 
   /**
    * Gets the total number of inputs.
@@ -139,28 +136,20 @@ public abstract class AbstractCompiler implements SourceExcerptProvider {
   // End of intermediate state needed by passes.
   //
 
-  static enum MostRecentTypechecker {
-    NONE,
-    OTI,
-    NTI
-  }
-
   /**
    * Sets the type-checking pass that ran most recently.
    */
-  abstract void setMostRecentTypechecker(MostRecentTypechecker mostRecent);
+  abstract void setTypeCheckingHasRun(boolean hasRun);
 
   /** Gets the type-checking pass that ran most recently. */
-  abstract MostRecentTypechecker getMostRecentTypechecker();
+  abstract boolean hasTypeCheckingRun();
 
   /**
    * Gets a central registry of type information from the compiled JS.
    */
   public abstract JSTypeRegistry getTypeRegistry();
 
-  public abstract TypeIRegistry getTypeIRegistry();
-
-  public abstract void clearTypeIRegistry();
+  public abstract void clearJSTypeRegistry();
 
   abstract void forwardDeclareType(String typeName);
 
@@ -258,11 +247,6 @@ public abstract class AbstractCompiler implements SourceExcerptProvider {
    * recorded as TypeMismatchs only for convenience
    */
   abstract Iterable<TypeMismatch> getImplicitInterfaceUses();
-
-  /**
-   * Global type registry used by NTI.
-   */
-  abstract <T extends TypeIRegistry> T getGlobalTypeInfo();
 
   abstract void setExternExports(String externExports);
 
@@ -634,6 +618,20 @@ public abstract class AbstractCompiler implements SourceExcerptProvider {
       ImmutableMap<String, PropertyAccessKind> externGetterAndSetterProperties);
 
   /**
+   * Returns any property seen in the externs or source with the given name was a getter, setter, or
+   * both.
+   *
+   * <p>This defaults to {@link PropertyAccessKind#NORMAL} for any property not known to have a
+   * getter or setter, even for property names that do not exist in the given program.
+   */
+  final PropertyAccessKind getPropertyAccessKind(String property) {
+    return getExternGetterAndSetterProperties()
+        .getOrDefault(property, PropertyAccessKind.NORMAL)
+        .unionWith(
+            getSourceGetterAndSetterProperties().getOrDefault(property, PropertyAccessKind.NORMAL));
+  }
+
+  /**
    * Returns all the comments from the given file.
    */
   abstract List<Comment> getComments(String filename);
@@ -682,14 +680,17 @@ public abstract class AbstractCompiler implements SourceExcerptProvider {
     return annotationMap.get(key);
   }
 
-  private @Nullable PersistentInputStore persistentInputStore;
-
-  void setPersistentInputStore(PersistentInputStore persistentInputStore) {
-    this.persistentInputStore = persistentInputStore;
+  /**
+   * Returns a new AstFactory that will add type information to the nodes it creates if and only if
+   * type type checking has already happened.
+   */
+  public AstFactory createAstFactory() {
+    return hasTypeCheckingRun()
+        ? AstFactory.createFactoryWithTypes(getTypeRegistry())
+        : AstFactory.createFactoryWithoutTypes();
   }
 
-  @Nullable
-  PersistentInputStore getPersistentInputStore() {
-    return persistentInputStore;
-  }
+  public abstract ModuleMetadataMap getModuleMetadataMap();
+
+  public abstract void setModuleMetadataMap(ModuleMetadataMap moduleMetadataMap);
 }

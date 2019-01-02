@@ -42,36 +42,41 @@ public final class Es6RewriteBlockScopedFunctionDeclaration extends AbstractPost
   public void process(Node externs, Node root) {
     TranspilationPasses.processTranspile(compiler, externs, transpiledFeatures, this);
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
-    TranspilationPasses.markFeaturesAsTranspiledAway(compiler, transpiledFeatures);
+    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
   }
 
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     TranspilationPasses.hotSwapTranspile(compiler, scriptRoot, transpiledFeatures, this);
-    TranspilationPasses.markFeaturesAsTranspiledAway(compiler, transpiledFeatures);
+    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
   }
 
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
     if (n.isFunction()
         && parent != null
-        && parent.isNormalBlock()
+        && parent.isBlock()
         && !parent.getParent().isFunction()) {
       // Only consider declarations (all expressions have non-block parents) that are not directly
       // within a function or top-level.
-      visitBlockScopedFunctionDeclaration(n, parent);
+      visitBlockScopedFunctionDeclaration(t, n, parent);
     }
   }
 
   /**
    * Rewrite the function declaration from:
+   *
    * <pre>
    *   function f() {}
    *   FUNCTION
    *     NAME x
    *     PARAM_LIST
    *     BLOCK
-   * </pre> to <pre>
+   * </pre>
+   *
+   * to
+   *
+   * <pre>
    *   let f = function() {};
    *   LET
    *     NAME f
@@ -80,14 +85,16 @@ public final class Es6RewriteBlockScopedFunctionDeclaration extends AbstractPost
    *         PARAM_LIST
    *         BLOCK
    * </pre>
+   *
    * This is similar to {@link Normalize.NormalizeStatements#rewriteFunctionDeclaration} but
    * rewrites to "let" instead of "var".
    */
-  private void visitBlockScopedFunctionDeclaration(Node n, Node parent) {
+  private void visitBlockScopedFunctionDeclaration(NodeTraversal t, Node n, Node parent) {
     // Prepare a spot for the function.
     Node oldNameNode = n.getFirstChild();
     Node fnNameNode = oldNameNode.cloneNode();
     Node let = IR.declaration(fnNameNode, Token.LET).srcref(n);
+    NodeUtil.addFeatureToScript(t.getCurrentFile(), Feature.LET_DECLARATIONS);
 
     // Prepare the function.
     oldNameNode.setString("");

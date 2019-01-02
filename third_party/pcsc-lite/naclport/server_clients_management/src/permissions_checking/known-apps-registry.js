@@ -119,7 +119,7 @@ KnownAppsRegistry.prototype.getById = function(id) {
 
 /**
  * @param {!Array.<string>} idList
- * @return {!goog.Promise.<!Array.<KnownApp>>}
+ * @return {!goog.Promise.<!Array.<!KnownApp>>}
  */
 KnownAppsRegistry.prototype.tryGetByIds = function(idList) {
   var promiseResolver = goog.Promise.withResolver();
@@ -222,7 +222,7 @@ KnownAppsRegistry.prototype.parseJsonAndApply_ = function(json) {
 /**
  * @param {string} key
  * @param {*} value
- * @return {KnownApp}
+ * @return {KnownApp?}
  * @private
  */
 KnownAppsRegistry.prototype.tryParseKnownAppJson_ = function(key, value) {

@@ -59,16 +59,18 @@ var GSC = GoogleSmartCard;
 var logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
 /**
- * @type {Element}
+ * @type {!Element}
  * @const
  */
-var readersListElement = goog.dom.getElement('readers-list');
+var readersListElement = /** @type {!Element} */ (goog.dom.getElement(
+    'readers-list'));
 
 /**
- * @type {Element}
+ * @type {!Element}
  * @const
  */
-var addDeviceElement = goog.dom.getElement('add-device');
+var addDeviceElement = /** @type {!Element} */ (goog.dom.getElement(
+    'add-device'));
 
 /**
  * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers

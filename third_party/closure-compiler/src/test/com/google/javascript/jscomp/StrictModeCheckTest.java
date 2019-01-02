@@ -17,8 +17,13 @@
 package com.google.javascript.jscomp;
 
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-public final class StrictModeCheckTest extends TypeICompilerTestCase {
+@RunWith(JUnit4.class)
+public final class StrictModeCheckTest extends CompilerTestCase {
   private static final String EXTERNS = DEFAULT_EXTERNS + "var arguments; function eval(str) {}";
 
   public StrictModeCheckTest() {
@@ -26,10 +31,11 @@ public final class StrictModeCheckTest extends TypeICompilerTestCase {
   }
 
   @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     super.setUp();
+    enableTypeCheck();
     setAcceptedLanguage(LanguageMode.ECMASCRIPT_2017);
-    this.mode = TypeInferenceMode.NTI_ONLY;
   }
 
   @Override
@@ -47,16 +53,19 @@ public final class StrictModeCheckTest extends TypeICompilerTestCase {
     testSame(js);
   }
 
+  @Test
   public void testUseOfWith1() {
     testWarning("var a; with(a){}", StrictModeCheck.USE_OF_WITH);
   }
 
+  @Test
   public void testUseOfWith2() {
     testSame("var a;\n" +
              "/** @suppress {with} */" +
              "with(a){}");
   }
 
+  @Test
   public void testUseOfWith3() {
     testSame(
         "function f(expr, context) {\n" +
@@ -70,128 +79,155 @@ public final class StrictModeCheckTest extends TypeICompilerTestCase {
         "};\n");
   }
 
+  @Test
   public void testEval2() {
     testWarning("function foo(eval) {}", StrictModeCheck.EVAL_DECLARATION);
   }
 
+  @Test
   public void testEval3() {
     testSame("function foo() {} foo.eval = 3;");
   }
 
+  @Test
   public void testEval4() {
     testWarning("function foo() { var eval = 3; }", StrictModeCheck.EVAL_DECLARATION);
   }
 
+  @Test
   public void testEval5() {
     testWarning(
         "/** @suppress {duplicate} */ function eval() {}", StrictModeCheck.EVAL_DECLARATION);
   }
 
+  @Test
   public void testEval6() {
     testWarning("try {} catch (eval) {}", StrictModeCheck.EVAL_DECLARATION);
   }
 
+  @Test
   public void testEval7() {
     testSame("var o = {eval: 3};");
   }
 
+  @Test
   public void testEval8() {
     testSame("var a; eval: while (true) { a = 3; }");
   }
 
+  @Test
   public void testUnknownVariable3() {
     testSame("try {} catch (ex) { ex = 3; }");
   }
 
+  @Test
   public void testUnknownVariable4() {
-    this.mode = TypeInferenceMode.NEITHER;
+    disableTypeCheck();
     testSameEs6Strict("function foo(a) { let b; a = b; }");
     testSameEs6Strict("function foo(a) { const b = 42; a = b; }");
   }
 
+  @Test
   public void testArguments() {
     testWarning("function foo(arguments) {}", StrictModeCheck.ARGUMENTS_DECLARATION);
   }
 
+  @Test
   public void testArguments2() {
     testWarning("function foo() { var arguments = 3; }", StrictModeCheck.ARGUMENTS_DECLARATION);
   }
 
+  @Test
   public void testArguments3() {
     testWarning(
         "/** @suppress {duplicate,checkTypes} */ function arguments() {}",
         StrictModeCheck.ARGUMENTS_DECLARATION);
   }
 
+  @Test
   public void testArguments4() {
     testWarning("try {} catch (arguments) {}", StrictModeCheck.ARGUMENTS_DECLARATION);
   }
 
+  @Test
   public void testArguments5() {
     testSame("var o = {arguments: 3};");
   }
 
+  @Test
   public void testArguments6() {
-    this.mode = TypeInferenceMode.NEITHER;
+    disableTypeCheck();
     testSame("(() => arguments)();");
   }
 
+  @Test
   public void testArgumentsCallee() {
     testWarning("function foo() {arguments.callee}", StrictModeCheck.ARGUMENTS_CALLEE_FORBIDDEN);
   }
 
+  @Test
   public void testArgumentsCaller() {
     testWarning("function foo() {arguments.caller}", StrictModeCheck.ARGUMENTS_CALLER_FORBIDDEN);
   }
 
+  @Test
   public void testFunctionCallerProp() {
     testWarning("function foo() {foo.caller}", StrictModeCheck.FUNCTION_CALLER_FORBIDDEN);
   }
 
+  @Test
   public void testFunctionArgumentsProp() {
     testWarning(
         "function foo() {foo.arguments}", StrictModeCheck.FUNCTION_ARGUMENTS_PROP_FORBIDDEN);
   }
 
-
+  @Test
   public void testEvalAssignment() {
     testWarning(
         "/** @suppress {checkTypes} */ function foo() { eval = []; }",
         StrictModeCheck.EVAL_ASSIGNMENT);
   }
 
+  @Test
   public void testAssignToArguments() {
     testWarning("function foo() { arguments = []; }", StrictModeCheck.ARGUMENTS_ASSIGNMENT);
   }
 
+  @Test
   public void testDeleteVar() {
     testWarning("var a; delete a", StrictModeCheck.DELETE_VARIABLE);
   }
 
+  @Test
   public void testDeleteFunction() {
     testWarning("function a() {} delete a", StrictModeCheck.DELETE_VARIABLE);
   }
 
+  @Test
   public void testDeleteArgument() {
     testWarning("function b(a) { delete a; }", StrictModeCheck.DELETE_VARIABLE);
   }
 
+  @Test
   public void testValidDelete() {
     testSame("var obj = { a: 0 }; delete obj.a;");
     testSame("var obj = { a: function() {} }; delete obj.a;");
-    this.mode = TypeInferenceMode.NEITHER;
+    disableTypeCheck();
     testSameEs6Strict("var obj = { a(){} }; delete obj.a;");
     testSameEs6Strict("var obj = { a }; delete obj.a;");
   }
 
+  @Test
   public void testDeleteProperty() {
     testSame("/** @suppress {checkTypes} */ function f(obj) { delete obj.a; }");
   }
 
+  @Test
   public void testAllowNumbersAsObjlitKeys() {
     testSame("var o = {1: 3, 2: 4};");
   }
 
+  @Test
   public void testDuplicateObjectLiteralKey() {
     testSame("var o = {a: 1, b: 2, c: 3};");
     testSame("var x = { get a() {}, set a(p) {} };");
@@ -214,12 +250,14 @@ public final class StrictModeCheckTest extends TypeICompilerTestCase {
             "  set appData(data) { this.appData_ = data; }",
             "};"));
 
-    this.mode = TypeInferenceMode.NEITHER;
+    disableTypeCheck();
+
     testError("var x = {a: 2, a(){}}", StrictModeCheck.DUPLICATE_OBJECT_KEY);
     testError("var x = {a, a(){}}", StrictModeCheck.DUPLICATE_OBJECT_KEY);
     testError("var x = {a(){}, a(){}}", StrictModeCheck.DUPLICATE_OBJECT_KEY);
   }
 
+  @Test
   public void testFunctionDecl() {
     testSame("function g() {}");
     testSame("var g = function() {};");
@@ -237,8 +275,10 @@ public final class StrictModeCheckTest extends TypeICompilerTestCase {
     testSame("var x;if (x) {(function g() {})()}");
   }
 
+  @Test
   public void testClass() {
-    this.mode = TypeInferenceMode.NEITHER;
+    disableTypeCheck();
+
     testSame(
         lines(
             "class A {",
@@ -333,8 +373,10 @@ public final class StrictModeCheckTest extends TypeICompilerTestCase {
         "}"), StrictModeCheck.ARGUMENTS_CALLER_FORBIDDEN);
   }
 
+  @Test
   public void testComputedPropInClass() {
-    this.mode = TypeInferenceMode.NEITHER;
+    disableTypeCheck();
+
     testSame(
         lines(
             "class Example {",
@@ -343,8 +385,10 @@ public final class StrictModeCheckTest extends TypeICompilerTestCase {
             "}"));
   }
 
+  @Test
   public void testStaticAndNonstaticMethodWithSameName() {
-    this.mode = TypeInferenceMode.NEITHER;
+    disableTypeCheck();
+
     testSame(
         lines(
             "class Example {",
@@ -353,8 +397,10 @@ public final class StrictModeCheckTest extends TypeICompilerTestCase {
             "}"));
   }
 
+  @Test
   public void testStaticAndNonstaticGetterWithSameName() {
-    this.mode = TypeInferenceMode.NEITHER;
+    disableTypeCheck();
+
     testSame(
         lines(
             "class Example {",
@@ -363,8 +409,10 @@ public final class StrictModeCheckTest extends TypeICompilerTestCase {
             "}"));
   }
 
+  @Test
   public void testStaticAndNonstaticSetterWithSameName() {
-    this.mode = TypeInferenceMode.NEITHER;
+    disableTypeCheck();
+
     testSame(
         lines(
             "class Example {",
@@ -373,8 +421,10 @@ public final class StrictModeCheckTest extends TypeICompilerTestCase {
             "}"));
   }
 
+  @Test
   public void testClassWithEmptyMembers() {
-    this.mode = TypeInferenceMode.NEITHER;
+    disableTypeCheck();
+
     testError("class Foo { dup() {}; dup() {}; }", StrictModeCheck.DUPLICATE_CLASS_METHODS);
   }
 

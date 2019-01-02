@@ -19,7 +19,7 @@ package com.google.javascript.jscomp;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfo.Visibility;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.TypeI;
+import com.google.javascript.rhino.jstype.JSType;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -47,12 +47,12 @@ class CheckConstPrivateProperties extends NodeTraversal.AbstractPostOrderCallbac
 
   @Override
   public void process(Node externs, Node root) {
-    NodeTraversal.traverseEs6(compiler, root, this);
+    NodeTraversal.traverse(compiler, root, this);
   }
 
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    NodeTraversal.traverseEs6(compiler, scriptRoot, this);
+    NodeTraversal.traverse(compiler, scriptRoot, this);
   }
 
   /** Reports the property definitions that should use the @const annotation. */
@@ -86,7 +86,7 @@ class CheckConstPrivateProperties extends NodeTraversal.AbstractPostOrderCallbac
         String propName = lastChild.getString();
 
         // Only consider non-const @private class properties as candidates
-        if (isCandidatePropertyDefinition(n) && isNonConstCheckablePrivatePropDecl(n)) {
+        if (isCandidatePropertyDefinition(n)) {
           candidates.add(n);
         } else if (isModificationOp(n)) {
           // Mark any other modification operation as a modified property, to deal with lambdas, etc
@@ -102,7 +102,17 @@ class CheckConstPrivateProperties extends NodeTraversal.AbstractPostOrderCallbac
   /**
    * @return Whether the given node is a @private property declaration that is not marked constant.
    */
-  private boolean isNonConstCheckablePrivatePropDecl(Node n) {
+  private boolean isCandidatePropertyDefinition(Node n) {
+    if (!NodeUtil.isLhsOfAssign(n)) {
+      return false;
+    }
+
+    Node target = n.getFirstChild();
+    // Check whether the given property access is on 'this' or a static property on a class.
+    if (!(target.isThis() || isConstructor(target))) {
+      return false;
+    }
+
     JSDocInfo info = NodeUtil.getBestJSDocInfo(n);
     return info != null
         && info.getVisibility() == Visibility.PRIVATE
@@ -121,12 +131,6 @@ class CheckConstPrivateProperties extends NodeTraversal.AbstractPostOrderCallbac
     }
     Node assignedValue = NodeUtil.getAssignedValue(n);
     return assignedValue != null && assignedValue.isFunction();
-  }
-
-  /** @return Whether the given property access is on 'this' or a static property on a class. */
-  private boolean isCandidatePropertyDefinition(Node n) {
-    Node target = n.getFirstChild();
-    return target.isThis() || isConstructor(target);
   }
 
   /**
@@ -149,7 +153,7 @@ class CheckConstPrivateProperties extends NodeTraversal.AbstractPostOrderCallbac
   private boolean isConstructor(Node n) {
     // If type checking is enabled (not just a per-file lint check),
     // we can check constructor properties too. But it isn't required.
-    TypeI type = n.getTypeI();
+    JSType type = n.getJSType();
     return type != null && (type.isConstructor() || type.isInterface());
   }
 }

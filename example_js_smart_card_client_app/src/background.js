@@ -80,7 +80,7 @@ var logger = GSC.Logging.getLogger(
  * successful connection, a GoogleSmartCard.PcscLiteClient.API object is
  * returned through the callback, that allows to perform PC/SC-Lite client API
  * requests.
- * @type {GSC.PcscLiteClient.Context}
+ * @type {GSC.PcscLiteClient.Context?}
  */
 var context = null;
 

@@ -235,7 +235,7 @@ function TrackerThroughPcscServerHook(
    *
    * The values can be null, which corresponds to readers that should be hidden
    * from the result.
-   * @type {!Map.<number, ReaderInfo>}
+   * @type {!Map.<number, ReaderInfo?>}
    * @private
    */
   this.portToReaderInfoMap_ = new Map;
@@ -305,7 +305,7 @@ TrackerThroughPcscServerHook.prototype.readerFinishAddListener_ = function(
 
   var returnCodeHex = GSC.DebugDump.dump(returnCode);
 
-  /** @type {ReaderInfo} */
+  /** @type {ReaderInfo?} */
   var readerInfo = null;
   var readerTitleForLog = '"' + name + '" (port ' + port + ', device "' +
                           device + '")';

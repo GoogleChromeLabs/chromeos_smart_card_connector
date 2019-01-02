@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.Es6RewriteClass.ClassDeclarationMetadata;
+import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfo.Visibility;
@@ -108,10 +109,10 @@ public final class Es6TypedToEs6Converter implements NodeTraversal.Callback, Hot
   @Override
   public void process(Node externs, Node scriptRoot) {
     ScanNamespaces scanner = new ScanNamespaces();
-    NodeTraversal.traverseEs6(compiler, externs, scanner);
-    NodeTraversal.traverseEs6(compiler, scriptRoot, scanner);
-    NodeTraversal.traverseEs6(compiler, externs, this);
-    NodeTraversal.traverseEs6(compiler, scriptRoot, this);
+    NodeTraversal.traverse(compiler, externs, scanner);
+    NodeTraversal.traverse(compiler, scriptRoot, scanner);
+    NodeTraversal.traverse(compiler, externs, this);
+    NodeTraversal.traverse(compiler, scriptRoot, this);
     if (!compiler.hasHaltingErrors()) {
       compiler.setFeatureSet(compiler.getFeatureSet().withoutTypes());
     }
@@ -120,8 +121,8 @@ public final class Es6TypedToEs6Converter implements NodeTraversal.Callback, Hot
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     ScanNamespaces scanner = new ScanNamespaces();
-    NodeTraversal.traverseEs6(compiler, scriptRoot, scanner);
-    NodeTraversal.traverseEs6(compiler, scriptRoot, this);
+    NodeTraversal.traverse(compiler, scriptRoot, scanner);
+    NodeTraversal.traverse(compiler, scriptRoot, this);
   }
 
   @Override
@@ -268,7 +269,8 @@ public final class Es6TypedToEs6Converter implements NodeTraversal.Callback, Hot
         return;
       }
 
-      metadata.insertNodeAndAdvance(createPropertyDefinition(t, member, metadata.fullClassName));
+      metadata.insertNodeAndAdvance(
+          createPropertyDefinition(t, member, metadata.getFullClassNameNode().getQualifiedName()));
       t.reportCodeChange();
     }
 
@@ -323,6 +325,7 @@ public final class Es6TypedToEs6Converter implements NodeTraversal.Callback, Hot
     Node empty = new Node(Token.EMPTY).useSourceInfoIfMissingFrom(n);
     n.replaceChild(superTypes, empty);
     members.setToken(Token.CLASS_MEMBERS);
+    NodeUtil.addFeatureToScript(t.getCurrentFile(), Feature.CLASSES);
 
     maybeCreateQualifiedDeclaration(t, n, parent);
     t.reportCodeChange();

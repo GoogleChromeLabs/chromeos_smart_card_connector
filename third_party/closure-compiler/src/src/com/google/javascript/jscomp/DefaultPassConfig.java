@@ -23,18 +23,16 @@ import static com.google.javascript.jscomp.PassFactory.createEmptyPass;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES2018;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES5;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES6;
-import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES7;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES8;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES8_MODULES;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES_NEXT;
-import static com.google.javascript.jscomp.parsing.parser.FeatureSet.OTI_SUPPORTED;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.TYPESCRIPT;
+import static com.google.javascript.jscomp.parsing.parser.FeatureSet.TYPE_CHECK_SUPPORTED;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
-import com.google.javascript.jscomp.AbstractCompiler.MostRecentTypechecker;
 import com.google.javascript.jscomp.CompilerOptions.ExtractPrototypeMemberDeclarationsMode;
 import com.google.javascript.jscomp.CompilerOptions.Reach;
 import com.google.javascript.jscomp.CoverageInstrumentationPass.CoverageReach;
@@ -47,19 +45,21 @@ import com.google.javascript.jscomp.lint.CheckArrayWithGoogObject;
 import com.google.javascript.jscomp.lint.CheckDuplicateCase;
 import com.google.javascript.jscomp.lint.CheckEmptyStatements;
 import com.google.javascript.jscomp.lint.CheckEnums;
+import com.google.javascript.jscomp.lint.CheckEs6ModuleFileStructure;
+import com.google.javascript.jscomp.lint.CheckEs6Modules;
 import com.google.javascript.jscomp.lint.CheckInterfaces;
 import com.google.javascript.jscomp.lint.CheckJSDocStyle;
 import com.google.javascript.jscomp.lint.CheckMissingSemicolon;
+import com.google.javascript.jscomp.lint.CheckNoMutatedEs6Exports;
+import com.google.javascript.jscomp.lint.CheckNullabilityModifiers;
 import com.google.javascript.jscomp.lint.CheckNullableReturn;
 import com.google.javascript.jscomp.lint.CheckPrimitiveAsObject;
 import com.google.javascript.jscomp.lint.CheckPrototypeProperties;
-import com.google.javascript.jscomp.lint.CheckRedundantNullabilityModifier;
 import com.google.javascript.jscomp.lint.CheckRequiresAndProvidesSorted;
 import com.google.javascript.jscomp.lint.CheckUnusedLabels;
 import com.google.javascript.jscomp.lint.CheckUselessBlocks;
 import com.google.javascript.jscomp.parsing.ParserRunner;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
-import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
@@ -153,17 +153,28 @@ public final class DefaultPassConfig extends PassConfig {
       passes.add(convertEs6TypedToEs6);
     }
 
+    passes.add(checkVariableReferencesForTranspileOnly);
+    passes.add(gatherModuleMetadataPass);
+
     if (options.getLanguageIn().toFeatureSet().has(FeatureSet.Feature.MODULES)) {
       passes.add(rewriteGoogJsImports);
-      if (options.getTranspileEs6ModulesToCjsModules()) {
-        TranspilationPasses.addEs6ModuleToCjsPass(passes);
-      } else {
-        TranspilationPasses.addEs6ModulePass(passes, preprocessorSymbolTableFactory);
+      switch (options.getEs6ModuleTranspilation()) {
+        case COMPILE:
+          TranspilationPasses.addEs6ModulePass(passes, preprocessorSymbolTableFactory);
+          break;
+        case TO_COMMON_JS_LIKE_MODULES:
+          TranspilationPasses.addEs6ModuleToCjsPass(passes);
+          break;
+        case RELATIVIZE_IMPORT_PATHS:
+          TranspilationPasses.addEs6RewriteImportPathPass(passes);
+          break;
+        case NONE:
+          // nothing
+          break;
       }
     }
 
     passes.add(checkSuper);
-    passes.add(checkVariableReferencesForTranspileOnly);
 
     // It's important that the Dart super accessors pass run *before* es6ConvertSuper,
     // which is a "late" ES6 pass. This is enforced in the assertValidOrder method.
@@ -171,34 +182,17 @@ public final class DefaultPassConfig extends PassConfig {
       passes.add(dartSuperAccessorsPass);
     }
 
-    if (options.needsTranspilationFrom(ES2018)) {
-      TranspilationPasses.addEs2018Passes(passes);
-    }
+    TranspilationPasses.addPreTypecheckTranspilationPasses(passes, options);
 
-    if (options.needsTranspilationFrom(ES8)) {
-      TranspilationPasses.addEs2017Passes(passes);
-    }
+    TranspilationPasses.addPostCheckTranspilationPasses(passes, options);
 
-    if (options.needsTranspilationFrom(ES7)) {
-      TranspilationPasses.addEs2016Passes(passes);
-    }
-
-    // If the user has specified an input language of ES7 and an output language of ES6 or lower,
-    // we still need to run these "ES6" passes, because they do the transpilation of the ES7 **
-    // operator. If we split that into its own pass then the needsTranspilationFrom(ES7) call here
-    // can be removed.
-    if (options.needsTranspilationFrom(ES6) || options.needsTranspilationFrom(ES7)) {
-      TranspilationPasses.addEs6PreTypecheckPasses(passes);
-      TranspilationPasses.addEs6PostTypecheckPasses(passes);
-      TranspilationPasses.addEs6PostCheckPasses(passes);
+    if (options.needsTranspilationFrom(ES6)) {
       if (options.rewritePolyfills) {
         TranspilationPasses.addRewritePolyfillPass(passes);
       }
     }
 
-    if (!options.forceLibraryInjection.isEmpty()) {
-      passes.add(injectRuntimeLibraries);
-    }
+    passes.add(injectRuntimeLibraries);
 
     assertAllOneTimePasses(passes);
     assertValidOrderForChecks(passes);
@@ -221,7 +215,7 @@ public final class DefaultPassConfig extends PassConfig {
     return passes;
   }
 
-  private void addOldTypeCheckerPasses(List<PassFactory> checks, CompilerOptions options) {
+  private void addTypeCheckerPasses(List<PassFactory> checks, CompilerOptions options) {
     if (!options.allowsHotswapReplaceScript()) {
       checks.add(inlineTypeAliases);
     }
@@ -245,6 +239,8 @@ public final class DefaultPassConfig extends PassConfig {
   @Override
   protected List<PassFactory> getChecks() {
     List<PassFactory> checks = new ArrayList<>();
+
+    checks.add(gatherGettersAndSetters);
 
     if (options.shouldGenerateTypedExterns()) {
       checks.add(closureGoogScopeAliases);
@@ -275,9 +271,7 @@ public final class DefaultPassConfig extends PassConfig {
       checks.add(convertEs6TypedToEs6);
     }
 
-    if (options.needsTranspilationFrom(ES2018)) {
-      TranspilationPasses.addEs2018Passes(checks);
-    }
+    checks.add(gatherModuleMetadataPass);
 
     if (options.enables(DiagnosticGroups.LINT_CHECKS)) {
       checks.add(lintChecks);
@@ -293,12 +287,13 @@ public final class DefaultPassConfig extends PassConfig {
       checks.add(checkRequires);
     }
 
+    checks.add(checkVariableReferences);
+
     if (options.getLanguageIn().toFeatureSet().has(FeatureSet.Feature.MODULES)) {
       checks.add(rewriteGoogJsImports);
       TranspilationPasses.addEs6ModulePass(checks, preprocessorSymbolTableFactory);
     }
 
-    checks.add(checkVariableReferences);
     checks.add(checkStrictMode);
 
     if (options.closurePass) {
@@ -377,145 +372,84 @@ public final class DefaultPassConfig extends PassConfig {
 
     // It's important that the Dart super accessors pass run *before* es6ConvertSuper,
     // which is a "late" ES6 pass. This is enforced in the assertValidOrder method.
-    if (options.dartPass && !options.getLanguageOut().toFeatureSet().contains(ES6)) {
+    if (options.dartPass && !options.getOutputFeatureSet().contains(ES6)) {
       checks.add(dartSuperAccessorsPass);
     }
 
     // Passes running before this point should expect to see language features up to ES_2017.
     checks.add(createEmptyPass(PassNames.BEFORE_ES_2017_TRANSPILATION));
 
-    if (options.needsTranspilationFrom(ES8)) {
-      TranspilationPasses.addEs2017Passes(checks);
-    }
-
-    if (options.needsTranspilationFrom(ES7)) {
-      TranspilationPasses.addEs2016Passes(checks);
-    }
-
-    if (options.needsTranspilationFrom(ES6)) {
-      checks.add(es6ExternsCheck);
-      TranspilationPasses.addEs6PreTypecheckPasses(checks);
-    }
+    TranspilationPasses.addPreTypecheckTranspilationPasses(checks, options);
 
     if (options.rewritePolyfills && !options.checksOnly) {
       TranspilationPasses.addRewritePolyfillPass(checks);
     }
 
-    if (!options.forceLibraryInjection.isEmpty()) {
-      checks.add(injectRuntimeLibraries);
+    checks.add(injectRuntimeLibraries);
+    checks.add(createEmptyPass(PassNames.BEFORE_TYPE_CHECKING));
+
+    addTypeCheckerPasses(checks, options);
+
+    if (options.j2clPassMode.shouldAddJ2clPasses()) {
+      checks.add(j2clSourceFileChecker);
     }
 
-    if (options.needsTranspilationFrom(ES6)) {
-      checks.add(convertStaticInheritance);
+    if (!options.disables(DiagnosticGroups.CHECK_USELESS_CODE)
+        || !options.disables(DiagnosticGroups.MISSING_RETURN)) {
+      checks.add(checkControlFlow);
     }
 
-    if (options.skipNonTranspilationPasses) {
-      if (options.needsTranspilationFrom(ES6)) {
-        TranspilationPasses.addEs6PostTypecheckPasses(checks);
-      }
-    } else {
-      checks.add(createEmptyPass(PassNames.BEFORE_TYPE_CHECKING));
-
-      if (options.getNewTypeInference()) {
-        // We will not be updating NTI to understand any more new features,
-        // so transpile those features before running it.
-        if (options.needsTranspilationFrom(ES6)) {
-          TranspilationPasses.addEs6PostTypecheckPasses(checks);
-        }
-        checks.add(symbolTableForNewTypeInference);
-        checks.add(newTypeInference);
-      } else {
-        addOldTypeCheckerPasses(checks, options);
-        if (options.needsTranspilationFrom(ES6)) {
-          TranspilationPasses.addEs6PostTypecheckPasses(checks);
-        }
-      }
-
-      if (options.j2clPassMode.shouldAddJ2clPasses()) {
-        checks.add(j2clSourceFileChecker);
-      }
-
-      if (!options.disables(DiagnosticGroups.CHECK_USELESS_CODE)
-          || (!options.getNewTypeInference()
-              && !options.disables(DiagnosticGroups.MISSING_RETURN))) {
-        checks.add(checkControlFlow);
-      }
-
-      // CheckAccessControls only works if check types is on.
-      if (options.isTypecheckingEnabled()
-          && (!options.disables(DiagnosticGroups.ACCESS_CONTROLS)
-              || options.enables(DiagnosticGroups.CONSTANT_PROPERTY))) {
-        checks.add(checkAccessControls);
-      }
-
-      if (!options.getNewTypeInference()) {
-        // NTI performs this check already
-        checks.add(checkConsts);
-      }
-
-      // Analyzer checks must be run after typechecking.
-      if (options.enables(DiagnosticGroups.ANALYZER_CHECKS) && options.isTypecheckingEnabled()) {
-        checks.add(analyzerChecks);
-      }
-
-      if (options.checkGlobalNamesLevel.isOn()) {
-        checks.add(checkGlobalNames);
-      }
-
-      if (!options.getConformanceConfigs().isEmpty()) {
-        checks.add(checkConformance);
-      }
-
-      // Replace 'goog.getCssName' before processing defines but after the
-      // other checks have been done.
-      if (options.closurePass && !options.shouldPreserveGoogLibraryPrimitives()) {
-        checks.add(closureReplaceGetCssName);
-      }
-
-      if (options.getTweakProcessing().isOn()) {
-        checks.add(processTweaks);
-      }
-
-      if (options.instrumentationTemplate != null || options.recordFunctionInformation) {
-        checks.add(computeFunctionNames);
-      }
-
-      if (options.checksOnly) {
-        // Run process defines here so that warnings/errors from that pass are emitted as part of
-        // checks.
-        // TODO(rluble): Split process defines into two stages, one that performs only checks to be
-        // run here, and the one that actually changes the AST that would run in the optimization
-        // phase.
-        checks.add(processDefines);
-      }
-
-      if (options.j2clPassMode.shouldAddJ2clPasses()) {
-        checks.add(j2clChecksPass);
-      }
-
-      if (options.shouldRunTypeSummaryChecksLate()) {
-        checks.add(generateIjs);
-      }
+    // CheckAccessControls only works if check types is on.
+    if (options.isTypecheckingEnabled()
+        && (!options.disables(DiagnosticGroups.ACCESS_CONTROLS)
+            || options.enables(DiagnosticGroups.CONSTANT_PROPERTY))) {
+      checks.add(checkAccessControls);
     }
 
-    if (options.needsTranspilationFrom(ES6) && !options.checksOnly) {
-      // At this point all checks have been done.
-      // There's no need to complete transpilation if we're only running checks.
-      TranspilationPasses.addEs6PostCheckPasses(checks);
+    checks.add(checkConsts);
+
+    // Analyzer checks must be run after typechecking.
+    if (options.enables(DiagnosticGroups.ANALYZER_CHECKS) && options.isTypecheckingEnabled()) {
+      checks.add(analyzerChecks);
     }
 
+    if (options.checkGlobalNamesLevel.isOn()) {
+      checks.add(checkGlobalNames);
+    }
 
-    // NOTE(dimvar): Tried to move this into the optimizations, but had to back off
-    // because the very first pass, normalization, rewrites the code in a way that
-    // causes loss of type information.
-    // So, I will convert the remaining optimizations to use TypeI and test that only
-    // in unit tests, not full builds. Once all passes are converted, then
-    // drop the OTI-after-NTI altogether.
-    // In addition, I will probably have a local edit of the repo that retains both
-    // types on Nodes, so I can test full builds on my machine. We can't check in such
-    // a change because it would greatly increase memory usage.
-    if (options.getNewTypeInference()) {
-      addOldTypeCheckerPasses(checks, options);
+    if (!options.getConformanceConfigs().isEmpty()) {
+      checks.add(checkConformance);
+    }
+
+    // Replace 'goog.getCssName' before processing defines but after the
+    // other checks have been done.
+    if (options.closurePass && !options.shouldPreserveGoogLibraryPrimitives()) {
+      checks.add(closureReplaceGetCssName);
+    }
+
+    if (options.getTweakProcessing().isOn()) {
+      checks.add(processTweaks);
+    }
+
+    if (options.instrumentationTemplate != null || options.recordFunctionInformation) {
+      checks.add(computeFunctionNames);
+    }
+
+    if (options.checksOnly) {
+      // Run process defines here so that warnings/errors from that pass are emitted as part of
+      // checks.
+      // TODO(rluble): Split process defines into two stages, one that performs only checks to be
+      // run here, and the one that actually changes the AST that would run in the optimization
+      // phase.
+      checks.add(processDefines);
+    }
+
+    if (options.j2clPassMode.shouldAddJ2clPasses()) {
+      checks.add(j2clChecksPass);
+    }
+
+    if (options.shouldRunTypeSummaryChecksLate()) {
+      checks.add(generateIjs);
     }
 
     // When options.generateExportsAfterTypeChecking is true, run GenerateExports after
@@ -525,6 +459,21 @@ public final class DefaultPassConfig extends PassConfig {
     }
 
     checks.add(createEmptyPass(PassNames.AFTER_STANDARD_CHECKS));
+
+    if (!options.checksOnly) {
+      // At this point all checks have been done.
+      // There's no need to complete transpilation if we're only running checks.
+      TranspilationPasses.addPostCheckTranspilationPasses(checks, options);
+
+      if (options.needsTranspilationFrom(ES6)) {
+        // This pass used to be necessary to make the typechecker happy with class-side inheritance.
+        // It's not necessary for typechecking now that class transpilation is post-typechecking,
+        // but it turned out to be necessary to avoid CollapseProperties breaking static inheritance
+        // TODO(b/116054203): try to only run this pass when property collapsing is enabled during
+        // the optimizations. Even better, find a way to get rid of this pass completely.
+        checks.add(convertStaticInheritance);
+      }
+    }
 
     assertAllOneTimePasses(checks);
     assertValidOrderForChecks(checks);
@@ -539,6 +488,9 @@ public final class DefaultPassConfig extends PassConfig {
     if (options.skipNonTranspilationPasses) {
       return passes;
     }
+
+    passes.add(removeWeakSources);
+
     passes.add(garbageCollectChecks);
 
     // i18n
@@ -573,19 +525,19 @@ public final class DefaultPassConfig extends PassConfig {
     // optimizing passes.
     passes.add(gatherExternProperties);
 
+    // Should be run before runtimeTypeCheck and instrumentForCoverage as they rewrite code that
+    // this pass expects to see.
+    if (options.j2clPassMode.shouldAddJ2clPasses()) {
+      passes.add(j2clPass);
+      passes.add(j2clUtilGetDefineRewriterPass);
+    }
+
     if (options.instrumentForCoverage) {
       passes.add(instrumentForCodeCoverage);
     }
 
-    // TODO(dimvar): convert this pass to use NTI. Low priority since it's
-    // mostly unused. Converting it shouldn't block switching to NTI.
-    if (options.runtimeTypeCheck && !options.getNewTypeInference()) {
+    if (options.runtimeTypeCheck) {
       passes.add(runtimeTypeCheck);
-    }
-
-    if (options.j2clPassMode.shouldAddJ2clPasses()) {
-      passes.add(j2clPass);
-      passes.add(j2clUtilGetDefineRewriterPass);
     }
 
     passes.add(createEmptyPass(PassNames.BEFORE_STANDARD_OPTIMIZATIONS));
@@ -720,22 +672,16 @@ public final class DefaultPassConfig extends PassConfig {
       passes.add(replaceStrings);
     }
 
-    // TODO(user): This forces a first crack at crossModuleCodeMotion
+    // TODO(user): This forces a first crack at crossChunkCodeMotion
     // before devirtualization. Once certain functions are devirtualized,
-    // it confuses crossModuleCodeMotion ability to recognized that
+    // it confuses crossChunkCodeMotion ability to recognized that
     // it is recursive.
 
     // TODO(user): This is meant for a temporary quick win.
     // In the future, we might want to improve our analysis in
-    // CrossModuleCodeMotion so we don't need to do this.
-    if (options.crossModuleCodeMotion) {
+    // CrossChunkCodeMotion so we don't need to do this.
+    if (options.shouldRunCrossChunkCodeMotion()) {
       passes.add(crossModuleCodeMotion);
-    }
-
-    // Must run after ProcessClosurePrimitives, Es6ConvertSuper, and assertion removals, but
-    // before OptimizeCalls (specifically, OptimizeParameters) and DevirtualizePrototypeMethods.
-    if (options.removeSuperMethods) {
-      passes.add(removeSuperMethodsPass);
     }
 
     // Method devirtualization benefits from property disambiguation so
@@ -766,11 +712,11 @@ public final class DefaultPassConfig extends PassConfig {
 
     passes.add(createEmptyPass("beforeModuleMotion"));
 
-    if (options.crossModuleCodeMotion) {
+    if (options.shouldRunCrossChunkCodeMotion()) {
       passes.add(crossModuleCodeMotion);
     }
 
-    if (options.crossModuleMethodMotion) {
+    if (options.shouldRunCrossChunkMethodMotion()) {
       passes.add(crossModuleMethodMotion);
     }
 
@@ -926,7 +872,7 @@ public final class DefaultPassConfig extends PassConfig {
     passes.add(varCheckValidity);
 
     // Raise to ES6, if allowed
-    if (options.getLanguageOut().toFeatureSet().contains(ES6)) {
+    if (options.getOutputFeatureSet().contains(ES6)) {
       passes.add(optimizeToEs6);
     }
 
@@ -1025,7 +971,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1067,7 +1013,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1148,24 +1094,9 @@ public final class DefaultPassConfig extends PassConfig {
 
     assertPassOrder(
         checks,
-        TranspilationPasses.es6ConvertSuper,
-        removeSuperMethodsPass,
-        "Super-call method removal must run after Es6 super rewriting, "
-            + "because Es6 super calls are matched on their post-processed form.");
-
-    assertPassOrder(
-        checks,
-        closurePrimitives,
-        removeSuperMethodsPass,
-        "Super-call method removal must run after Es6 super rewriting, "
-            + "because Closure base calls are expected to be in post-processed form.");
-
-    assertPassOrder(
-        checks,
-        closureCodeRemoval,
-        removeSuperMethodsPass,
-        "Super-call method removal must run after closure code removal, because "
-            + "removing assertions may make more super calls eligible to be stripped.");
+        gatherModuleMetadataPass,
+        closureCheckModule,
+        "Need to gather module metadata before checking closure modules.");
   }
 
   /**
@@ -1175,11 +1106,12 @@ public final class DefaultPassConfig extends PassConfig {
    * @param optimizations The list of optimization passes
    */
   private void assertValidOrderForOptimizations(List<PassFactory> optimizations) {
-    assertPassOrder(optimizations, removeSuperMethodsPass, optimizeCalls,
-        "RemoveSuperMethodsPass must run before OptimizeCalls.");
-
-    assertPassOrder(optimizations, removeSuperMethodsPass, devirtualizePrototypeMethods,
-        "RemoveSuperMethodsPass must run before DevirtualizePrototypeMethods.");
+    assertPassOrder(
+        optimizations,
+        processDefines,
+        j2clUtilGetDefineRewriterPass,
+        "J2CL define re-writing should be done after processDefines since it relies on "
+            + "collectDefines which has side effects.");
   }
 
   /** Checks that all constructed classes are goog.require()d. */
@@ -1193,7 +1125,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1207,7 +1139,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1262,7 +1194,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8;
+          return ES2018;
         }
       };
 
@@ -1297,7 +1229,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1354,7 +1286,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1368,7 +1300,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         public FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1430,7 +1362,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1443,20 +1375,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
-        }
-      };
-
-  private final PassFactory es6ExternsCheck =
-      new PassFactory("es6ExternsCheck", true) {
-        @Override
-        protected CompilerPass create(final AbstractCompiler compiler) {
-          return new Es6ExternsCheck(compiler);
-        }
-
-        @Override
-        protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES2018;
         }
       };
 
@@ -1483,7 +1402,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES5.with(Feature.GENERATORS);
+          return TYPE_CHECK_SUPPORTED;
         }
       };
 
@@ -1496,7 +1415,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES2018;
         }
       };
 
@@ -1514,6 +1433,19 @@ public final class DefaultPassConfig extends PassConfig {
         }
       };
 
+  private final PassFactory removeWeakSources =
+      new PassFactory("removeWeakSources", true) {
+        @Override
+        protected CompilerPass create(AbstractCompiler compiler) {
+          return new RemoveWeakSources(compiler);
+        }
+
+        @Override
+        protected FeatureSet featureSet() {
+          return FeatureSet.latest();
+        }
+      };
+
   private final PassFactory declaredGlobalExternsOnWindow =
       new PassFactory(PassNames.DECLARED_GLOBAL_EXTERNS_ON_WINDOW, true) {
         @Override
@@ -1523,7 +1455,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1537,7 +1469,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1546,12 +1478,12 @@ public final class DefaultPassConfig extends PassConfig {
       new HotSwapPassFactory("closureCheckModule") {
         @Override
         protected HotSwapCompilerPass create(AbstractCompiler compiler) {
-          return new ClosureCheckModule(compiler);
+          return new ClosureCheckModule(compiler, compiler.getModuleMetadataMap());
         }
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1568,7 +1500,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1582,7 +1514,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1599,41 +1531,38 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
   /**
-   * Processes goog.getCssName.  The cssRenamingMap is used to lookup
-   * replacement values for the classnames.  If null, the raw class names are
-   * inlined.
+   * Processes goog.getCssName. The cssRenamingMap is used to lookup replacement values for the
+   * classnames. If null, the raw class names are inlined.
    */
   private final PassFactory closureReplaceGetCssName =
       new PassFactory("closureReplaceGetCssName", true) {
-    @Override
-    protected CompilerPass create(final AbstractCompiler compiler) {
-      return new CompilerPass() {
         @Override
-        public void process(Node externs, Node jsRoot) {
-          Map<String, Integer> newCssNames = null;
-          if (options.gatherCssNames) {
-            newCssNames = new HashMap<>();
-          }
-          ReplaceCssNames pass = new ReplaceCssNames(
-              compiler,
-              newCssNames,
-              options.cssRenamingWhitelist);
-          pass.process(externs, jsRoot);
-          compiler.setCssNames(newCssNames);
+        protected CompilerPass create(final AbstractCompiler compiler) {
+          return new CompilerPass() {
+            @Override
+            public void process(Node externs, Node jsRoot) {
+              Map<String, Integer> newCssNames = null;
+              if (options.gatherCssNames) {
+                newCssNames = new HashMap<>();
+              }
+              ReplaceCssNames pass =
+                  new ReplaceCssNames(compiler, newCssNames, options.cssRenamingWhitelist);
+              pass.process(externs, jsRoot);
+              compiler.setCssNames(newCssNames);
+            }
+          };
+        }
+
+        @Override
+        protected FeatureSet featureSet() {
+          return ES2018;
         }
       };
-    }
-
-    @Override
-    protected FeatureSet featureSet() {
-      return ES8_MODULES;
-    }
-  };
 
   /**
    * Creates synthetic blocks to prevent FoldConstants from moving code past markers in the source.
@@ -1648,7 +1577,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1774,7 +1703,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1788,7 +1717,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1810,7 +1739,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1838,7 +1767,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1852,7 +1781,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1866,7 +1795,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -1880,7 +1809,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return OTI_SUPPORTED;
+          return TYPE_CHECK_SUPPORTED;
         }
       };
 
@@ -1921,33 +1850,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return OTI_SUPPORTED;
-        }
-      };
-
-  private final PassFactory symbolTableForNewTypeInference =
-      new PassFactory("GlobalTypeInfo", true) {
-        @Override
-        protected CompilerPass create(final AbstractCompiler compiler) {
-          return new GlobalTypeInfoCollector(compiler);
-        }
-
-        @Override
-        protected FeatureSet featureSet() {
-          return FeatureSet.NTI_SUPPORTED;
-        }
-      };
-
-  private final PassFactory newTypeInference =
-      new PassFactory("NewTypeInference", true) {
-        @Override
-        protected CompilerPass create(final AbstractCompiler compiler) {
-          return new NewTypeInference(compiler);
-        }
-
-        @Override
-        protected FeatureSet featureSet() {
-          return FeatureSet.NTI_SUPPORTED;
+          return TYPE_CHECK_SUPPORTED;
         }
       };
 
@@ -1973,7 +1876,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return OTI_SUPPORTED;
+          return TYPE_CHECK_SUPPORTED;
         }
       };
 
@@ -2002,33 +1905,33 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return OTI_SUPPORTED;
+          return TYPE_CHECK_SUPPORTED;
         }
       };
 
   /**
-   * Checks possible execution paths of the program for problems: missing return
-   * statements and dead code.
+   * Checks possible execution paths of the program for problems: missing return statements and dead
+   * code.
    */
   private final HotSwapPassFactory checkControlFlow =
       new HotSwapPassFactory("checkControlFlow") {
-    @Override
-    protected HotSwapCompilerPass create(AbstractCompiler compiler) {
-      List<Callback> callbacks = new ArrayList<>();
-      if (!options.disables(DiagnosticGroups.CHECK_USELESS_CODE)) {
-        callbacks.add(new CheckUnreachableCode(compiler));
-      }
-      if (!options.getNewTypeInference() && !options.disables(DiagnosticGroups.MISSING_RETURN)) {
-        callbacks.add(new CheckMissingReturn(compiler));
-      }
-      return combineChecks(compiler, callbacks);
-    }
+        @Override
+        protected HotSwapCompilerPass create(AbstractCompiler compiler) {
+          List<Callback> callbacks = new ArrayList<>();
+          if (!options.disables(DiagnosticGroups.CHECK_USELESS_CODE)) {
+            callbacks.add(new CheckUnreachableCode(compiler));
+          }
+          if (!options.disables(DiagnosticGroups.MISSING_RETURN)) {
+            callbacks.add(new CheckMissingReturn(compiler));
+          }
+          return combineChecks(compiler, callbacks);
+        }
 
-    @Override
-    public FeatureSet featureSet() {
-      return ES8_MODULES;
-    }
-  };
+        @Override
+        public FeatureSet featureSet() {
+          return ES2018;
+        }
+      };
 
   /** Checks access controls. Depends on type-inference. */
   private final HotSwapPassFactory checkAccessControls =
@@ -2041,7 +1944,7 @@ public final class DefaultPassConfig extends PassConfig {
 
     @Override
     protected FeatureSet featureSet() {
-      return ES5;
+      return TYPE_CHECK_SUPPORTED;
     }
   };
 
@@ -2053,12 +1956,15 @@ public final class DefaultPassConfig extends PassConfig {
               ImmutableList.<Callback>builder()
                   .add(new CheckEmptyStatements(compiler))
                   .add(new CheckEnums(compiler))
+                  .add(new CheckEs6ModuleFileStructure(compiler))
+                  .add(new CheckEs6Modules(compiler))
+                  .add(new CheckNoMutatedEs6Exports(compiler))
                   .add(new CheckInterfaces(compiler))
                   .add(new CheckJSDocStyle(compiler))
                   .add(new CheckMissingSemicolon(compiler))
+                  .add(new CheckNullabilityModifiers(compiler))
                   .add(new CheckPrimitiveAsObject(compiler))
                   .add(new CheckPrototypeProperties(compiler))
-                  .add(new CheckRedundantNullabilityModifier(compiler))
                   .add(new CheckUnusedLabels(compiler))
                   .add(new CheckUselessBlocks(compiler));
           return combineChecks(compiler, callbacks.build());
@@ -2066,7 +1972,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -2093,7 +1999,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES5;
+          return TYPE_CHECK_SUPPORTED;
         }
       };
 
@@ -2106,7 +2012,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -2127,24 +2033,11 @@ public final class DefaultPassConfig extends PassConfig {
 
     @Override
     public void process(Node externs, Node root) {
-      // If NTI is enabled, erase the NTI types from the AST before adding the old types.
-      if (this.compiler.getOptions().getNewTypeInference()) {
-        NodeTraversal.traverseEs6(
-            this.compiler, root,
-            new NodeTraversal.AbstractPostOrderCallback(){
-              @Override
-              public void visit(NodeTraversal t, Node n, Node parent) {
-                n.setTypeI(null);
-              }
-            });
-        this.compiler.clearTypeIRegistry();
-      }
-
-      this.compiler.setMostRecentTypechecker(MostRecentTypechecker.OTI);
+      this.compiler.setTypeCheckingHasRun(true);
       if (topScope == null) {
         regenerateGlobalTypedScope(compiler, root.getParent());
       } else {
-        compiler.getTypeRegistry().resolveTypesInScope(topScope);
+        compiler.getTypeRegistry().resolveTypes();
       }
     }
     @Override
@@ -2181,7 +2074,7 @@ public final class DefaultPassConfig extends PassConfig {
 
     @Override
     protected FeatureSet featureSet() {
-      return ES5;
+      return TYPE_CHECK_SUPPORTED;
     }
   };
 
@@ -2195,7 +2088,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -2215,32 +2108,34 @@ public final class DefaultPassConfig extends PassConfig {
 
     @Override
     protected FeatureSet featureSet() {
-      return ES5;
+      return TYPE_CHECK_SUPPORTED;
     }
   };
 
   /** Override @define-annotated constants. */
-  private final PassFactory processDefines = new PassFactory("processDefines", true) {
-    @Override
-    protected CompilerPass create(final AbstractCompiler compiler) {
-      return new CompilerPass() {
+  private final PassFactory processDefines =
+      new PassFactory("processDefines", true) {
         @Override
-        public void process(Node externs, Node jsRoot) {
-          HashMap<String, Node> replacements = new HashMap<>();
-          replacements.putAll(compiler.getDefaultDefineValues());
-          replacements.putAll(getAdditionalReplacements(options));
-          replacements.putAll(options.getDefineReplacements());
-          new ProcessDefines(compiler, ImmutableMap.copyOf(replacements), !options.checksOnly)
-              .injectNamespace(namespaceForChecks).process(externs, jsRoot);
+        protected CompilerPass create(final AbstractCompiler compiler) {
+          return new CompilerPass() {
+            @Override
+            public void process(Node externs, Node jsRoot) {
+              HashMap<String, Node> replacements = new HashMap<>();
+              replacements.putAll(compiler.getDefaultDefineValues());
+              replacements.putAll(getAdditionalReplacements(options));
+              replacements.putAll(options.getDefineReplacements());
+              new ProcessDefines(compiler, ImmutableMap.copyOf(replacements), !options.checksOnly)
+                  .injectNamespace(namespaceForChecks)
+                  .process(externs, jsRoot);
+            }
+          };
+        }
+
+        @Override
+        public FeatureSet featureSet() {
+          return TYPE_CHECK_SUPPORTED;
         }
       };
-    }
-
-    @Override
-    public FeatureSet featureSet() {
-      return ES8_MODULES;
-    }
-  };
 
   /**
    * Strips code for smaller compiled code. This is useful for removing debug
@@ -2296,17 +2191,18 @@ public final class DefaultPassConfig extends PassConfig {
   };
 
   /** Checks that all constants are not modified */
-  private final PassFactory checkConsts = new PassFactory("checkConsts", true) {
-    @Override
-    protected CompilerPass create(AbstractCompiler compiler) {
-      return new ConstCheck(compiler);
-    }
+  private final PassFactory checkConsts =
+      new PassFactory("checkConsts", true) {
+        @Override
+        protected CompilerPass create(AbstractCompiler compiler) {
+          return new ConstCheck(compiler);
+        }
 
-    @Override
-    public FeatureSet featureSet() {
-      return ES8_MODULES;
-    }
-  };
+        @Override
+        public FeatureSet featureSet() {
+          return ES2018;
+        }
+      };
 
   /** Checks that the arguments are constants */
   private final PassFactory checkConstParams =
@@ -2339,7 +2235,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         public FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES2018;
         }
       };
 
@@ -2385,28 +2281,31 @@ public final class DefaultPassConfig extends PassConfig {
       };
 
   /** Replace strings. */
-  private final PassFactory replaceStrings = new PassFactory("replaceStrings", true) {
-    @Override
-    protected CompilerPass create(final AbstractCompiler compiler) {
-      return new CompilerPass() {
-        @Override public void process(Node externs, Node root) {
-          ReplaceStrings pass = new ReplaceStrings(
-              compiler,
-              options.replaceStringsPlaceholderToken,
-              options.replaceStringsFunctionDescriptions,
-              options.replaceStringsReservedStrings,
-              options.replaceStringsInputMap);
-          pass.process(externs, root);
-          compiler.setStringMap(pass.getStringMap());
+  private final PassFactory replaceStrings =
+      new PassFactory("replaceStrings", true) {
+        @Override
+        protected CompilerPass create(final AbstractCompiler compiler) {
+          return new CompilerPass() {
+            @Override
+            public void process(Node externs, Node root) {
+              ReplaceStrings pass =
+                  new ReplaceStrings(
+                      compiler,
+                      options.replaceStringsPlaceholderToken,
+                      options.replaceStringsFunctionDescriptions,
+                      options.replaceStringsReservedStrings,
+                      options.replaceStringsInputMap);
+              pass.process(externs, root);
+              compiler.setStringMap(pass.getStringMap());
+            }
+          };
+        }
+
+        @Override
+        protected FeatureSet featureSet() {
+          return ES8_MODULES;
         }
       };
-    }
-
-    @Override
-    protected FeatureSet featureSet() {
-      return ES5;
-    }
-  };
 
   /** Optimizes the "arguments" array. */
   private final PassFactory optimizeArgumentsArray =
@@ -2445,7 +2344,7 @@ public final class DefaultPassConfig extends PassConfig {
           return new ClosureOptimizePrimitives(
               compiler,
               compiler.getOptions().propertyRenaming == PropertyRenamingPolicy.ALL_UNQUOTED,
-              compiler.getOptions().getLanguageOut().toFeatureSet().contains(ES6));
+              compiler.getOptions().getOutputFeatureSet().contains(ES6));
         }
 
         @Override
@@ -2462,7 +2361,7 @@ public final class DefaultPassConfig extends PassConfig {
       return new RescopeGlobalSymbols(
           compiler,
           options.renamePrefixNamespace,
-          options.renamePrefixNamespaceAssumeCrossModuleNames);
+          options.renamePrefixNamespaceAssumeCrossChunkNames);
     }
 
     @Override
@@ -2523,7 +2422,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES5;
+          return ES8_MODULES;
         }
       };
 
@@ -2532,7 +2431,9 @@ public final class DefaultPassConfig extends PassConfig {
       new PassFactory(PassNames.DEVIRTUALIZE_PROTOTYPE_METHODS, true) {
         @Override
         protected CompilerPass create(AbstractCompiler compiler) {
-          return new DevirtualizePrototypeMethods(compiler);
+          OptimizeCalls passes = new OptimizeCalls(compiler);
+          passes.addPass(new DevirtualizePrototypeMethods(compiler));
+          return passes;
         }
 
         @Override
@@ -2769,13 +2670,13 @@ public final class DefaultPassConfig extends PassConfig {
 
   /** Move global symbols to a deeper common module */
   private final PassFactory crossModuleCodeMotion =
-      new PassFactory(PassNames.CROSS_MODULE_CODE_MOTION, false) {
+      new PassFactory(PassNames.CROSS_CHUNK_CODE_MOTION, false) {
         @Override
         protected CompilerPass create(AbstractCompiler compiler) {
-          return new CrossModuleCodeMotion(
+          return new CrossChunkCodeMotion(
               compiler,
               compiler.getModuleGraph(),
-              options.parentModuleCanSeeSymbolsDeclaredInChildren);
+              options.parentChunkCanSeeSymbolsDeclaredInChildren);
         }
 
         @Override
@@ -2786,16 +2687,16 @@ public final class DefaultPassConfig extends PassConfig {
 
   /** Move methods to a deeper common module */
   private final PassFactory crossModuleMethodMotion =
-      new PassFactory(PassNames.CROSS_MODULE_METHOD_MOTION, false) {
+      new PassFactory(PassNames.CROSS_CHUNK_METHOD_MOTION, false) {
         @Override
         protected CompilerPass create(AbstractCompiler compiler) {
-          return new CrossModuleMethodMotion(
+          return new CrossChunkMethodMotion(
               compiler,
               compiler.getCrossModuleIdGenerator(),
               // Only move properties in externs if we're not treating
               // them as exports.
               options.removeUnusedPrototypePropertiesInExterns,
-              options.crossModuleCodeMotionNoStubMethods);
+              options.crossChunkCodeMotionNoStubMethods);
         }
 
         @Override
@@ -3014,7 +2915,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES5;
+          return ES8_MODULES;
         }
       };
 
@@ -3327,12 +3228,13 @@ public final class DefaultPassConfig extends PassConfig {
           return new PolymerPass(
               compiler,
               compiler.getOptions().polymerVersion,
+              compiler.getOptions().polymerExportPolicy,
               compiler.getOptions().propertyRenaming == PropertyRenamingPolicy.ALL_UNQUOTED);
         }
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -3358,7 +3260,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES_NEXT;
         }
       };
 
@@ -3468,7 +3370,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES8_MODULES;
+          return ES2018;
         }
       };
 
@@ -3482,7 +3384,7 @@ public final class DefaultPassConfig extends PassConfig {
 
         @Override
         protected FeatureSet featureSet() {
-          return ES5;
+          return TYPE_CHECK_SUPPORTED;
         }
       };
 
@@ -3514,19 +3416,6 @@ public final class DefaultPassConfig extends PassConfig {
         }
       };
 
-  private final PassFactory removeSuperMethodsPass =
-      new PassFactory(PassNames.REMOVE_SUPER_METHODS, true) {
-        @Override
-        protected CompilerPass create(AbstractCompiler compiler) {
-          return new RemoveSuperMethodsPass(compiler);
-        }
-
-        @Override
-        protected FeatureSet featureSet() {
-          return ES5;
-        }
-      };
-
   private final PassFactory rewriteCommonJsModules =
       new PassFactory(PassNames.REWRITE_COMMON_JS_MODULES, true) {
         @Override
@@ -3545,6 +3434,33 @@ public final class DefaultPassConfig extends PassConfig {
         @Override
         protected CompilerPass create(AbstractCompiler compiler) {
           return new Es6RewriteScriptsToModules(compiler);
+        }
+
+        @Override
+        protected FeatureSet featureSet() {
+          return ES_NEXT;
+        }
+      };
+
+  private final HotSwapPassFactory gatherModuleMetadataPass =
+      new HotSwapPassFactory(PassNames.GATHER_MODULE_METADATA) {
+        @Override
+        protected HotSwapCompilerPass create(AbstractCompiler compiler) {
+          return new GatherModuleMetadata(
+              compiler, options.processCommonJSModules, options.moduleResolutionMode);
+        }
+
+        @Override
+        protected FeatureSet featureSet() {
+          return ES_NEXT;
+        }
+      };
+
+  private final PassFactory gatherGettersAndSetters =
+      new PassFactory(PassNames.GATHER_GETTERS_AND_SETTERS, /* isOneTimePass= */ true) {
+        @Override
+        protected CompilerPass create(AbstractCompiler compiler) {
+          return new GatherGettersAndSetterProperties(compiler);
         }
 
         @Override

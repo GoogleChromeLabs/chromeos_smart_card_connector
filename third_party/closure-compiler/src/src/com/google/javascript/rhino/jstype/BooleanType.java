@@ -54,11 +54,6 @@ public class BooleanType extends ValueType {
   }
 
   @Override
-  public boolean isNullable() {
-    return false;
-  }
-
-  @Override
   public TernaryValue testForEquality(JSType that) {
     TernaryValue result = super.testForEquality(that);
     if (result != null) {
@@ -116,10 +111,5 @@ public class BooleanType extends ValueType {
   @Override
   public <T> T visit(Visitor<T> visitor) {
     return visitor.caseBooleanType();
-  }
-
-  @Override
-  public int hashCode() {
-    return System.identityHashCode(this);
   }
 }

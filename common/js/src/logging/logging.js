@@ -292,7 +292,7 @@ function setupRootLoggerLevel() {
 }
 
 function setupLogBuffer() {
-  /** @type {GSC.LogBuffer} */
+  /** @type {!GSC.LogBuffer} */
   var logBuffer;
   if (goog.object.containsKey(
           window, GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME)) {

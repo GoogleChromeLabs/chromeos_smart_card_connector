@@ -60,11 +60,11 @@ class PrepareAst implements CompilerPass {
       // they currently aren't valid during validity checks.  In particular,
       // they DIRECT_EVAL shouldn't be applied after inlining has been performed.
       if (externs != null) {
-        NodeTraversal.traverseEs6(
+        NodeTraversal.traverse(
             compiler, externs, new PrepareAnnotations());
       }
       if (root != null) {
-        NodeTraversal.traverseEs6(
+        NodeTraversal.traverse(
             compiler, root, new PrepareAnnotations());
       }
     }
@@ -94,7 +94,7 @@ class PrepareAst implements CompilerPass {
         && !n.isLabel()
         && !n.isSwitch()) {
       for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
-        if (NodeUtil.isControlStructureCodeBlock(n, c) && !c.isNormalBlock()) {
+        if (NodeUtil.isControlStructureCodeBlock(n, c) && !c.isBlock()) {
           Node newBlock = IR.block().srcref(n);
           n.replaceChild(c, newBlock);
           newBlock.setIsAddedBlock(true);

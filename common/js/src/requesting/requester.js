@@ -80,7 +80,7 @@ GSC.Requester = function(name, messageChannel) {
   this.requestIdGenerator_ = goog.iter.count();
 
   /**
-   * @type {Map.<number, !goog.promise.Resolver>}
+   * @type {Map.<number, !goog.promise.Resolver>?}
    * @private
    */
   this.requestIdToPromiseResolverMap_ = new Map;
@@ -116,16 +116,16 @@ Requester.prototype.postRequest = function(payload) {
 
   var promiseResolver = goog.Promise.withResolver();
 
-  GSC.Logging.checkWithLogger(
-      this.logger, !this.requestIdToPromiseResolverMap_.has(requestId));
-  this.requestIdToPromiseResolverMap_.set(requestId, promiseResolver);
-
   if (this.isDisposed()) {
     // FIXME(emaxx): Probably add the disposal reason information into the
     // message?
     this.rejectRequest_(requestId, 'The requester is already disposed');
     return promiseResolver.promise;
   }
+
+  GSC.Logging.checkWithLogger(
+      this.logger, !this.requestIdToPromiseResolverMap_.has(requestId));
+  this.requestIdToPromiseResolverMap_.set(requestId, promiseResolver);
 
   var requestMessageData = new RequestMessageData(requestId, payload);
   var messageData = requestMessageData.makeMessageData();

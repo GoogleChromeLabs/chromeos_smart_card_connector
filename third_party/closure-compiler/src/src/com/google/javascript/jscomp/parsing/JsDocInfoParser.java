@@ -53,8 +53,8 @@ import java.util.Set;
 public final class JsDocInfoParser {
   @VisibleForTesting
   public static final String BAD_TYPE_WIKI_LINK =
-      " See https://github.com/google/closure-compiler/wiki/Bad-Type-Annotation for"
-            + " more information.";
+      " See https://github.com/google/closure-compiler/wiki/Annotating-JavaScript-for-the-Closure-Compiler"
+          + " for more information.";
 
   private final JsDocTokenStream stream;
   private final JSDocInfoBuilder jsdocBuilder;
@@ -124,6 +124,8 @@ public final class JsDocInfoParser {
       ImmutableSet.of("this", "arguments");
   private static final Set<String> idGeneratorAnnotationKeywords =
       ImmutableSet.of("unique", "consistent", "stable", "mapped", "xid");
+  private static final Set<String> primitiveTypes =
+      ImmutableSet.of("number", "string", "boolean", "symbol");
 
   private JSDocInfoBuilder fileLevelJsDocBuilder;
 
@@ -235,19 +237,22 @@ public final class JsDocInfoParser {
     return parser.retrieveAndResetParsedJSDocInfo();
   }
 
+  @VisibleForTesting
+  public static JSDocInfo parseFileOverviewJsdoc(String toParse) {
+    JsDocInfoParser parser = getParser(toParse);
+    parser.parse();
+    return parser.getFileOverviewJSDocInfo();
+  }
+
   private static JsDocInfoParser getParser(String toParse) {
     Config config =
         Config.builder()
             .setLanguageMode(LanguageMode.ECMASCRIPT3)
             .setStrictMode(Config.StrictMode.SLOPPY)
             .build();
-    JsDocInfoParser parser = new JsDocInfoParser(
-        new JsDocTokenStream(toParse),
-        toParse,
-        0,
-        null,
-        config,
-        NullErrorReporter.forOldRhino());
+    JsDocInfoParser parser =
+        new JsDocInfoParser(
+            new JsDocTokenStream(toParse), toParse, 0, null, config, ErrorReporter.NULL_INSTANCE);
 
     return parser;
   }
@@ -547,8 +552,7 @@ public final class JsDocInfoParser {
             Node typeNode = parseAndRecordTypeNode(token);
             if (typeNode != null && typeNode.isString()) {
               String typeName = typeNode.getString();
-              if (!typeName.equals("number") && !typeName.equals("string")
-                  && !typeName.equals("boolean")) {
+              if (!primitiveTypes.contains(typeName)) {
                 typeNode = wrapNode(Token.BANG, typeNode);
               }
             }
@@ -626,6 +630,8 @@ public final class JsDocInfoParser {
                 && token != JsDocToken.EOC) {
               addTypeWarning("msg.end.annotation.expected");
             }
+          } else if (token == JsDocToken.BANG || token == JsDocToken.QMARK) {
+            addTypeWarning("msg.jsdoc.implements.extraqualifier", lineno, charno);
           } else {
             addTypeWarning("msg.no.type.name", lineno, charno);
           }
@@ -649,7 +655,7 @@ public final class JsDocInfoParser {
 
           if (match(JsDocToken.STRING)) {
             token = next();
-            if (!jsdocBuilder.recordLends(stream.getString())) {
+            if (!jsdocBuilder.recordLends(createJSTypeExpression(IR.string(stream.getString())))) {
               addTypeWarning("msg.jsdoc.lends.incompatible");
             }
           } else {
@@ -1334,9 +1340,7 @@ public final class JsDocInfoParser {
         addParserWarning("msg.jsdoc.suppress");
       } else {
         token = next();
-        if (!jsdocBuilder.recordSuppressions(suppressions)) {
-          addParserWarning("msg.jsdoc.suppress.duplicate");
-        }
+        jsdocBuilder.recordSuppressions(suppressions);
       }
       return eatUntilEOLIfNotAnnotation();
     }
@@ -1915,6 +1919,9 @@ public final class JsDocInfoParser {
   }
 
   /**
+   * Parse a ParamTypeExpression:
+   *
+   * <pre>
    * ParamTypeExpression :=
    *     OptionalParameterType |
    *     TopLevelTypeExpression |
@@ -1922,7 +1929,7 @@ public final class JsDocInfoParser {
    *
    * OptionalParameterType :=
    *     TopLevelTypeExpression '='
-   *
+   * </pre>
    */
   private Node parseParamTypeExpression(JsDocToken token) {
     boolean restArg = false;
@@ -2118,8 +2125,8 @@ public final class JsDocInfoParser {
   }
 
   /**
-   * BasicTypeExpression := '*' | 'null' | 'undefined' | TypeName
-   *     | FunctionType | UnionType | RecordType
+   * BasicTypeExpression := '*' | 'null' | 'undefined' | TypeName | FunctionType | UnionType |
+   * RecordType | TypeofType
    */
   private Node parseBasicTypeExpression(JsDocToken token) {
     if (token == JsDocToken.STAR) {
@@ -2139,6 +2146,8 @@ public final class JsDocInfoParser {
         case "null":
         case "undefined":
           return newStringNode(string);
+        case "typeof":
+          return parseTypeofType(next());
         default:
           return parseTypeName(token);
       }
@@ -2148,11 +2157,7 @@ public final class JsDocInfoParser {
     return reportGenericTypeSyntaxWarning();
   }
 
-  /**
-   * TypeName := NameExpression | NameExpression TypeApplication
-   * TypeApplication := '.<' TypeExpressionList '>'
-   */
-  private Node parseTypeName(JsDocToken token) {
+  private Node parseNameExpression(JsDocToken token) {
     if (token != JsDocToken.STRING) {
       return reportGenericTypeSyntaxWarning();
     }
@@ -2160,8 +2165,7 @@ public final class JsDocInfoParser {
     String typeName = stream.getString();
     int lineno = stream.getLineno();
     int charno = stream.getCharno();
-    while (match(JsDocToken.EOL) &&
-        typeName.charAt(typeName.length() - 1) == '.') {
+    while (match(JsDocToken.EOL) && typeName.charAt(typeName.length() - 1) == '.') {
       skipEOLs();
       if (match(JsDocToken.STRING)) {
         next();
@@ -2169,12 +2173,24 @@ public final class JsDocInfoParser {
       }
     }
 
-    Node typeNameNode = newStringNode(typeName, lineno, charno);
+    return newStringNode(typeName, lineno, charno);
+  }
+
+  /**
+   * Parse a TypeName:
+   *
+   * <pre>{@code
+   * TypeName := NameExpression | NameExpression TypeApplication
+   * TypeApplication := '.'? '<' TypeExpressionList '>'
+   * }</pre>
+   */
+  private Node parseTypeName(JsDocToken token) {
+    Node typeNameNode = parseNameExpression(token);
 
     if (match(JsDocToken.LEFT_ANGLE)) {
       next();
       skipEOLs();
-      Node memberType = parseTypeExpressionList(typeName, next());
+      Node memberType = parseTypeExpressionList(typeNameNode.getString(), next());
       if (memberType != null) {
         typeNameNode.addChildToFront(memberType);
 
@@ -2189,17 +2205,30 @@ public final class JsDocInfoParser {
     return typeNameNode;
   }
 
+  /** TypeofType := 'typeof' NameExpression | 'typeof' '(' NameExpression ')' */
+  private Node parseTypeofType(JsDocToken token) {
+    Node typeofType = newNode(Token.TYPEOF);
+    skipEOLs();
+    Node name = parseNameExpression(token);
+    skipEOLs();
+    typeofType.addChildToFront(name);
+    return typeofType;
+  }
+
   /**
+   * Parse a FunctionType:
+   *
+   * <pre>
    * FunctionType := 'function' FunctionSignatureType
    * FunctionSignatureType :=
    *    TypeParameters '(' 'this' ':' TypeName, ParametersType ')' ResultType
+   * </pre>
    *
-   * <p>The Node that is produced has type Token.FUNCTION but does not look like a typical
-   * function node. If there is a 'this:' or 'new:' type, that type is added as a child.
-   * Then, if there are parameters, a PARAM_LIST node is added as a child. Finally, if
-   * there is a return type, it is added as a child. This means that the parameters
-   * could be the first or second child, and the return type could be
-   * the first, second, or third child.
+   * <p>The Node that is produced has type Token.FUNCTION but does not look like a typical function
+   * node. If there is a 'this:' or 'new:' type, that type is added as a child. Then, if there are
+   * parameters, a PARAM_LIST node is added as a child. Finally, if there is a return type, it is
+   * added as a child. This means that the parameters could be the first or second child, and the
+   * return type could be the first, second, or third child.
    */
   private Node parseFunctionType(JsDocToken token) {
     // NOTE(nicksantos): We're not implementing generics at the moment, so
@@ -2275,6 +2304,9 @@ public final class JsDocInfoParser {
   }
 
   /**
+   * Parse a ParametersType:
+   *
+   * <pre>
    * ParametersType := RestParameterType | NonRestParametersType
    *     | NonRestParametersType ',' RestParameterType
    * RestParameterType := '...' Identifier
@@ -2285,6 +2317,7 @@ public final class JsDocInfoParser {
    *     | OptionalParameterType, OptionalParametersType
    * OptionalParameterType := ParameterType=
    * ParameterType := TypeExpression | Identifier ':' TypeExpression
+   * </pre>
    */
   // NOTE(nicksantos): The official ES4 grammar forces optional and rest
   // arguments to come after the required arguments. Our parser does not

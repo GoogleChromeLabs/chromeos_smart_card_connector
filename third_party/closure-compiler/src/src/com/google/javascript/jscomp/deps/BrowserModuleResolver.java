@@ -21,6 +21,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.CheckLevel;
 import com.google.javascript.jscomp.ErrorHandler;
 import com.google.javascript.jscomp.JSError;
+import com.google.javascript.jscomp.deps.ModuleLoader.ModuleResolverFactory;
+import com.google.javascript.jscomp.deps.ModuleLoader.PathEscaper;
 import javax.annotation.Nullable;
 
 /**
@@ -30,11 +32,14 @@ import javax.annotation.Nullable;
  */
 public class BrowserModuleResolver extends ModuleResolver {
 
+  public static final ModuleResolverFactory FACTORY = BrowserModuleResolver::new;
+
   public BrowserModuleResolver(
       ImmutableSet<String> modulePaths,
       ImmutableList<String> moduleRootPaths,
-      ErrorHandler errorHandler) {
-    super(modulePaths, moduleRootPaths, errorHandler);
+      ErrorHandler errorHandler,
+      PathEscaper pathEscaper) {
+    super(modulePaths, moduleRootPaths, errorHandler, pathEscaper);
   }
 
   @Override
@@ -51,7 +56,7 @@ public class BrowserModuleResolver extends ModuleResolver {
               colno,
               ModuleLoader.INVALID_MODULE_PATH,
               moduleAddress,
-              "BROWSER"));
+              ModuleLoader.ResolutionMode.BROWSER.toString()));
       return null;
     }
 

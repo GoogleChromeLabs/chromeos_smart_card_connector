@@ -48,7 +48,7 @@ var GSC = GoogleSmartCard;
  * Additionally, the class creates a wrapper around the message channel to the
  * NaCl module (see the nacl-module-messaging-channel.js file).
  * @param {string} naclModulePath URL of the NaCl module manifest (.NMF file).
- * @param {NaclModule.Type} type Type of the NaCl module (@code
+ * @param {!NaclModule.Type} type Type of the NaCl module (@code
  * {NaclModule.Type}).
  * @constructor
  * @extends goog.Disposable
@@ -70,7 +70,7 @@ GSC.NaclModule = function(naclModulePath, type) {
   this.naclModulePath = naclModulePath;
 
   /**
-   * @type {GSC.NaclModule.Type}
+   * @type {!GSC.NaclModule.Type}
    * @const
    */
   this.type = type;

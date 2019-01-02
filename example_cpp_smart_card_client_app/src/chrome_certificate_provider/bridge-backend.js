@@ -109,7 +109,7 @@ if (goog.DEBUG) {
    * otherwise generated as a result of the chrome.certificateProvider event -
    * see
    * <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesRequested>).
-   * @param {function(!Array.<chrome.certificateProvider.CertificateInfo>=)}
+   * @param {function(!Array.<!chrome.certificateProvider.CertificateInfo>=)}
    * reportCallback
    */
   Backend.prototype.dispatchCertificatesRequest = function(reportCallback) {

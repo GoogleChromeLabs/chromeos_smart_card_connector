@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.ExpressionDecomposer.DecompositionType;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
-import com.google.javascript.rhino.TypeI;
+import com.google.javascript.rhino.jstype.JSType;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
@@ -155,26 +155,28 @@ class FunctionInjector {
     final String fnRecursionName = fnNode.getFirstChild().getString();
     checkState(fnRecursionName != null);
 
-    // If the function references "arguments" directly in the function
-    boolean referencesArguments = NodeUtil.isNameReferenced(
-        block, "arguments", NodeUtil.MATCH_NOT_FUNCTION);
+    // If the function references "arguments" directly in the function or in an arrow function
+    boolean referencesArguments =
+        NodeUtil.isNameReferenced(block, "arguments", NodeUtil.MATCH_NOT_VANILLA_FUNCTION);
 
-    // or it references "eval" or one of its names anywhere.
-    Predicate<Node> p = new Predicate<Node>(){
-      @Override
-      public boolean apply(Node n) {
-        if (n.isName()) {
-          return n.getString().equals("eval")
-            || (!fnName.isEmpty()
-                && n.getString().equals(fnName))
-            || (!fnRecursionName.isEmpty()
-                && n.getString().equals(fnRecursionName));
-        }
-        return false;
-      }
-    };
+    Predicate<Node> blocksInjection =
+        new Predicate<Node>() {
+          @Override
+          public boolean apply(Node n) {
+            if (n.isName()) {
+              // References "eval" or one of its names anywhere.
+              return n.getString().equals("eval")
+                  || (!fnName.isEmpty() && n.getString().equals(fnName))
+                  || (!fnRecursionName.isEmpty() && n.getString().equals(fnRecursionName));
+            } else if (n.isSuper()) {
+              // Don't inline if this function or its inner functions contains super
+              return true;
+            }
+            return false;
+          }
+        };
 
-    return !referencesArguments && !NodeUtil.has(block, p, Predicates.alwaysTrue());
+    return !referencesArguments && !NodeUtil.has(block, blocksInjection, Predicates.alwaysTrue());
   }
 
   /**
@@ -305,7 +307,7 @@ class FunctionInjector {
       newExpression = NodeUtil.newUndefinedNode(srcLocation);
     } else {
       Node returnNode = block.getFirstChild();
-      checkArgument(returnNode.isReturn());
+      checkArgument(returnNode.isReturn(), returnNode);
 
       // Clone the return node first.
       Node safeReturnNode = returnNode.cloneTree();
@@ -317,10 +319,10 @@ class FunctionInjector {
     }
 
     // If the call site had a cast ensure it's persisted to the new expression that replaces it.
-    TypeI typeBeforeCast = callNode.getTypeIBeforeCast();
+    JSType typeBeforeCast = callNode.getJSTypeBeforeCast();
     if (typeBeforeCast != null) {
-      newExpression.putProp(Node.TYPE_BEFORE_CAST, typeBeforeCast);
-      newExpression.setTypeI(callNode.getTypeI());
+      newExpression.setJSTypeBeforeCast(typeBeforeCast);
+      newExpression.setJSType(callNode.getJSType());
     }
     callParentNode.replaceChild(callNode, newExpression);
     NodeUtil.markFunctionsDeleted(callNode, compiler);
@@ -372,7 +374,7 @@ class FunctionInjector {
     /**
      * An var declaration and initialization, where the result of the call is
      * assigned to the declared name
-     * name. For example: "a = foo();".
+     * name. For example: "var a = foo();".
      *   VAR
      *     NAME A
      *       CALL
@@ -729,7 +731,7 @@ class FunctionInjector {
         // Limit the inlining
         Set<String> allNamesToAlias = new HashSet<>(namesToAlias);
         FunctionArgumentInjector.maybeAddTempsForCallArguments(
-            fnNode, args, allNamesToAlias, compiler.getCodingConvention());
+            compiler, fnNode, args, allNamesToAlias, compiler.getCodingConvention());
         if (!allNamesToAlias.isEmpty()) {
           return false;
         }
@@ -785,7 +787,7 @@ class FunctionInjector {
       // Limit the inlining
       Set<String> allNamesToAlias = new HashSet<>(namesToAlias);
       FunctionArgumentInjector.maybeAddTempsForCallArguments(
-          fnNode, args, allNamesToAlias, compiler.getCodingConvention());
+          compiler, fnNode, args, allNamesToAlias, compiler.getCodingConvention());
       if (!allNamesToAlias.isEmpty()) {
         return CanInlineResult.NO;
       }

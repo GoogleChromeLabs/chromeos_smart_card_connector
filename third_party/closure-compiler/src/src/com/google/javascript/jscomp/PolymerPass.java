@@ -50,6 +50,7 @@ final class PolymerPass extends AbstractPostOrderCallback implements HotSwapComp
   private final AbstractCompiler compiler;
   private final ImmutableMap<String, String> tagNameMap;
   private final int polymerVersion;
+  private final PolymerExportPolicy polymerExportPolicy;
   private final boolean propertyRenamingEnabled;
 
   private Node polymerElementExterns;
@@ -59,7 +60,11 @@ final class PolymerPass extends AbstractPostOrderCallback implements HotSwapComp
   private GlobalNamespace globalNames;
   private boolean warnedPolymer1ExternsMissing = false;
 
-  PolymerPass(AbstractCompiler compiler, Integer polymerVersion, boolean propertyRenamingEnabled) {
+  PolymerPass(
+      AbstractCompiler compiler,
+      Integer polymerVersion,
+      PolymerExportPolicy polymerExportPolicy,
+      boolean propertyRenamingEnabled) {
     checkArgument(
         polymerVersion == null || polymerVersion == 1 || polymerVersion == 2,
         "Invalid Polymer version:",
@@ -68,19 +73,21 @@ final class PolymerPass extends AbstractPostOrderCallback implements HotSwapComp
     tagNameMap = TagNameToType.getMap();
     nativeExternsAdded = new HashSet<>();
     this.polymerVersion = polymerVersion == null ? 1 : polymerVersion;
+    this.polymerExportPolicy =
+        polymerExportPolicy == null ? PolymerExportPolicy.LEGACY : polymerExportPolicy;
     this.propertyRenamingEnabled = propertyRenamingEnabled;
   }
 
   @Override
   public void process(Node externs, Node root) {
     PolymerPassFindExterns externsCallback = new PolymerPassFindExterns();
-    NodeTraversal.traverseEs6(compiler, externs, externsCallback);
+    NodeTraversal.traverse(compiler, externs, externsCallback);
     polymerElementExterns = externsCallback.getPolymerElementExterns();
     polymerElementProps = externsCallback.getPolymerElementProps();
 
     if (polymerVersion == 1 && polymerElementExterns == null) {
       this.warnedPolymer1ExternsMissing = true;
-      compiler.report(JSError.make(externs, POLYMER_MISSING_EXTERNS));
+      compiler.report(JSError.make(POLYMER_MISSING_EXTERNS));
       return;
     }
 
@@ -95,10 +102,10 @@ final class PolymerPass extends AbstractPostOrderCallback implements HotSwapComp
 
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    NodeTraversal.traverseEs6(compiler, scriptRoot, this);
+    NodeTraversal.traverse(compiler, scriptRoot, this);
     PolymerPassSuppressBehaviors suppressBehaviorsCallback =
         new PolymerPassSuppressBehaviors(compiler);
-    NodeTraversal.traverseEs6(compiler, scriptRoot, suppressBehaviorsCallback);
+    NodeTraversal.traverse(compiler, scriptRoot, suppressBehaviorsCallback);
   }
 
   @Override
@@ -109,7 +116,7 @@ final class PolymerPass extends AbstractPostOrderCallback implements HotSwapComp
       if (polymerElementExterns != null) {
         rewritePolymer1ClassDefinition(node, parent, traversal);
       } else if (!warnedPolymer1ExternsMissing) {
-        compiler.report(JSError.make(polymerElementExterns, POLYMER_MISSING_EXTERNS));
+        compiler.report(JSError.make(POLYMER_MISSING_EXTERNS));
         warnedPolymer1ExternsMissing = true;
       }
     } else if (PolymerPassStaticUtils.isPolymerClass(node)) {
@@ -132,7 +139,11 @@ final class PolymerPass extends AbstractPostOrderCallback implements HotSwapComp
       }
       PolymerClassRewriter rewriter =
           new PolymerClassRewriter(
-              compiler, getExtensInsertionRef(), polymerVersion, this.propertyRenamingEnabled);
+              compiler,
+              getExtensInsertionRef(),
+              polymerVersion,
+              polymerExportPolicy,
+              this.propertyRenamingEnabled);
       if (NodeUtil.isNameDeclaration(grandparent) || parent.isAssign()) {
         rewriter.rewritePolymerCall(grandparent, def, traversal.inGlobalScope());
       } else {
@@ -148,7 +159,11 @@ final class PolymerPass extends AbstractPostOrderCallback implements HotSwapComp
     if (def != null) {
       PolymerClassRewriter rewriter =
           new PolymerClassRewriter(
-              compiler, getExtensInsertionRef(), polymerVersion, this.propertyRenamingEnabled);
+              compiler,
+              getExtensInsertionRef(),
+              polymerVersion,
+              polymerExportPolicy,
+              this.propertyRenamingEnabled);
       rewriter.rewritePolymerClassDeclaration(node, def, traversal.inGlobalScope());
     }
   }

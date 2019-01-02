@@ -48,11 +48,6 @@ public interface DependencyInfo extends Serializable {
     public enum Type {
       /** Standard goog.require call for a symbol from a goog.provide or goog.module. */
       GOOG_REQUIRE_SYMBOL,
-      /**
-       * goog.require call with a path argument. Currently only supported in goog.modules for ES6
-       * modules.
-       */
-      GOOG_REQUIRE_PATH,
       /** ES6 import statement. */
       ES6_IMPORT,
       /** Parsed from an existing Closure dependency file. */
@@ -72,14 +67,6 @@ public interface DependencyInfo extends Serializable {
           .setRawText(symbol)
           .setSymbol(symbol)
           .setType(Type.GOOG_REQUIRE_SYMBOL)
-          .build();
-    }
-
-    public static Require googRequirePath(String symbol, String rawPath) {
-      return builder()
-          .setRawText(rawPath)
-          .setSymbol(symbol)
-          .setType(Type.GOOG_REQUIRE_PATH)
           .build();
     }
 
@@ -149,8 +136,8 @@ public interface DependencyInfo extends Serializable {
 
   ImmutableList<String> getRequiredSymbols();
 
-  /** Gets the symbols weakly required by this file. (i.e. for typechecking only) */
-  ImmutableList<String> getWeakRequires();
+  /** Gets the symbols type-required by this file (i.e. for typechecking only). */
+  ImmutableList<String> getTypeRequires();
 
   /** Gets the loading information for this file. */
   ImmutableMap<String, String> getLoadFlags();

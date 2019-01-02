@@ -65,7 +65,7 @@ public class BranchCoverageInstrumentationCallback extends NodeTraversal.Abstrac
         if (outEdge.getValue() == ControlFlowGraph.Branch.ON_FALSE) {
           Node destination = outEdge.getDestination().getValue();
           if (destination != null
-              && destination.isNormalBlock()
+              && destination.isBlock()
               && destination.getParent() != null
               && destination.getParent().isIf()) {
             hasDefaultBlock = true;
@@ -87,7 +87,7 @@ public class BranchCoverageInstrumentationCallback extends NodeTraversal.Abstrac
       for (DiGraph.DiGraphEdge<Node, ControlFlowGraph.Branch> outEdge : cfg.getOutEdges(node)) {
         if (outEdge.getValue() == ControlFlowGraph.Branch.ON_FALSE) {
           Node destination = outEdge.getDestination().getValue();
-          if (destination.isNormalBlock()) {
+          if (destination.isBlock()) {
             blocks.add(destination);
           } else {
             Node exitBlock = IR.block();
@@ -107,7 +107,7 @@ public class BranchCoverageInstrumentationCallback extends NodeTraversal.Abstrac
   private List<Node> getChildrenBlocks(Node node) {
     List<Node> blocks = new ArrayList<>();
     for (Node child : node.children()) {
-      if (child.isNormalBlock()) {
+      if (child.isBlock()) {
         blocks.add(child);
       }
     }
@@ -182,33 +182,34 @@ public class BranchCoverageInstrumentationCallback extends NodeTraversal.Abstrac
     checkNotNull(data);
 
     // var JSCompiler_lcov_branch_data_xx = [];
-    // __jscov.branchesTaken.push(JSCompiler_lcov_branch_data_xx);
+    // __jscov['branchesTaken'].push(JSCompiler_lcov_branch_data_xx);
     String objName = CoverageInstrumentationPass.JS_INSTRUMENTATION_OBJECT_NAME;
     List<Node> nodes = new ArrayList<>();
     nodes.add(newArrayDeclarationNode(traversal));
     nodes.add(
         IR.exprResult(
             IR.call(
-                NodeUtil.newQName(compiler, objName + ".branchesTaken.push"),
+                IR.getprop(IR.getelem(IR.name(objName), IR.string("branchesTaken")), "push"),
                 IR.name(createArrayName(traversal)))));
-    // __jscov.branchPresent.push(hex-data);
+    // __jscov['branchPresent'].push(hex-data);
     nodes.add(
         IR.exprResult(
             IR.call(
-                NodeUtil.newQName(compiler, objName + ".branchPresent.push"),
+                IR.getprop(IR.getelem(IR.name(objName), IR.string("branchPresent")), "push"),
                 IR.string(data.getBranchPresentAsHexString()))));
     nodes.add(newBranchesInLineNode("JSCompiler_lcov_branchesInLine", data));
-    // __jscov.branchesInLine.push(JSCompiler_lcov_branchesInLine);
+    // __jscov['branchesInLine'].push(JSCompiler_lcov_branchesInLine);
     nodes.add(
         IR.exprResult(
             IR.call(
-                NodeUtil.newQName(compiler, objName + ".branchesInLine.push"),
+                IR.getprop(IR.getelem(IR.name(objName), IR.string("branchesInLine")), "push"),
                 IR.name("JSCompiler_lcov_branchesInLine"))));
-    // __jscov.fileNames.push(filename);
+    // __jscov['fileNames'].push(filename);
     nodes.add(
         IR.exprResult(
             IR.call(
-                NodeUtil.newQName(compiler, objName + ".fileNames.push"), IR.string(fileName))));
+                IR.getprop(IR.getelem(IR.name(objName), IR.string("fileNames")), "push"),
+                IR.string(fileName))));
     return IR.block(nodes).useSourceInfoIfMissingFromForTree(srcref);
   }
 

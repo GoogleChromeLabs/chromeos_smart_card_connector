@@ -32,6 +32,7 @@ import com.google.javascript.jscomp.graph.GraphColoring.GreedyGraphColoring;
 import com.google.javascript.jscomp.graph.GraphNode;
 import com.google.javascript.jscomp.graph.LinkedUndirectedGraph;
 import com.google.javascript.jscomp.graph.UndiGraph;
+import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -99,7 +100,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
   public void process(Node externs, Node root) {
     checkNotNull(externs);
     checkNotNull(root);
-    NodeTraversal.traverseEs6(compiler, root, this);
+    NodeTraversal.traverse(compiler, root, this);
     compiler.setLifeCycleStage(LifeCycleStage.RAW);
   }
 
@@ -137,7 +138,7 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
         new LiveVariablesAnalysis(
             cfg, scope, null, compiler, new Es6SyntacticScopeCreator(compiler));
 
-    if (compiler.getOptions().getLanguageOut() == CompilerOptions.LanguageMode.ECMASCRIPT3) {
+    if (FeatureSet.ES3.contains(compiler.getOptions().getOutputFeatureSet())) {
       // If the function has exactly 2 params, mark them as escaped. This is a work-around for a
       // bug in IE 8 and below, where it throws an exception if you write to the parameters of the
       // callback in a sort(). See http://blickly.github.io/closure-compiler-issues/#58 and
@@ -271,13 +272,22 @@ class CoalesceVariableNames extends AbstractPostOrderCallback implements
         continue;
       }
 
-      // TODO(user): In theory, we CAN coalesce function names just like
-      // any variables. Our Liveness analysis captures this just like it as
-      // described in the specification. However, we saw some zipped and
-      // and unzipped size increase after this. We are not totally sure why
-      // that is but, for now, we will respect the dead functions and not play
-      // around with it.
+      // NOTE(user): In theory, we CAN coalesce function names just like any variables. Our
+      // Liveness analysis captures this just like it as described in the specification. However, we
+      // saw some zipped and unzipped size increase after this. We are not totally sure why
+      // that is but, for now, we will respect the dead functions and not play around with it
       if (v.getParentNode().isFunction()) {
+        continue;
+      }
+
+      // NOTE: we skip class declarations for a combination of two reasons:
+      // 1. they are block-scoped, so we would need to rewrite them as class expressions
+      //      e.g. `class C {}` -> `var C = class {}` to avoid incorrect semantics
+      //      (see testDontCoalesceClassDeclarationsWithDestructuringDeclaration).
+      //    This is possible but increases pre-gzip code size and complexity.
+      // 2. since function declaration coalescing seems to cause a size regression (as discussed
+      //    above) we assume that coalescing class names may cause a similar size regression.
+      if (v.getParentNode().isClass()) {
         continue;
       }
 

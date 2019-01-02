@@ -531,15 +531,12 @@ public final class JSDocInfoBuilder {
   }
 
   /**
-   * Records the list of suppressed warnings.
+   * Records the list of suppressed warnings, possibly adding to the set of already configured
+   * warnings.
    */
-  public boolean recordSuppressions(Set<String> suppressions) {
-    if (currentInfo.setSuppressions(suppressions)) {
-      populated = true;
-      return true;
-    } else {
-      return false;
-    }
+  public void recordSuppressions(Set<String> suppressions) {
+    currentInfo.addSuppressions(suppressions);
+    populated = true;
   }
 
   public void addSuppression(String suppression) {
@@ -740,25 +737,9 @@ public final class JSDocInfoBuilder {
    *     if it was already defined
    */
   public boolean recordConstancy() {
-    if (!currentInfo.isConstant()) {
+    if (!currentInfo.hasConstAnnotation()) {
       currentInfo.setConstant(true);
       populated = true;
-      return true;
-    } else {
-      return false;
-    }
-  }
-
-  /**
-   * Records that the {@link JSDocInfo} being built should have its
-   * {@link JSDocInfo#isConstant()} flag set to {@code false}.
-   *
-   * @return {@code true} if the constancy was cleared and {@code false}
-   *     if it was not defined
-   */
-  public boolean clearConstancy() {
-    if (currentInfo.isConstant()) {
-      currentInfo.setConstant(false);
       return true;
     } else {
       return false;
@@ -1224,10 +1205,8 @@ public final class JSDocInfoBuilder {
     }
   }
 
-  /**
-   * Records that we're lending to another name.
-   */
-  public boolean recordLends(String name) {
+  /** Records that we're lending to another name. */
+  public boolean recordLends(JSTypeExpression name) {
     if (!hasAnyTypeRelatedTags()) {
       currentInfo.setLendsName(name);
       populated = true;
@@ -1395,7 +1374,7 @@ public final class JSDocInfoBuilder {
         || currentInfo.hasReturnType()
         || currentInfo.hasBaseType()
         || currentInfo.getExtendedInterfacesCount() > 0
-        || currentInfo.getLendsName() != null
+        || currentInfo.hasLendsName()
         || currentInfo.hasThisType()
         || hasAnySingletonTypeTags();
   }

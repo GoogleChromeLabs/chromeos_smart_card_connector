@@ -65,7 +65,7 @@ GSC.PcscLiteClient.Context = function(clientTitle, opt_serverAppId) {
   Context.base(this, 'constructor');
 
   /**
-   * @type {GSC.PcscLiteClient.API}
+   * @type {GSC.PcscLiteClient.API?}
    */
   this.api = null;
 
@@ -83,13 +83,13 @@ GSC.PcscLiteClient.Context = function(clientTitle, opt_serverAppId) {
     this.serverAppId_ = opt_serverAppId;
 
   /**
-   * @type {goog.messaging.AbstractChannel}
+   * @type {goog.messaging.AbstractChannel?}
    * @private
    */
   this.channel_ = null;
 
   /**
-   * @type {Array.<function()|function(!GSC.PcscLiteClient.API)>}
+   * @type {!Array.<function()|function(!GSC.PcscLiteClient.API)>}
    * @private
    */
   this.onInitializedCallbacks_ = [];
@@ -172,7 +172,7 @@ goog.exportProperty(
 
 /**
  * Returns the API object, or null if the initialization didn't succeed.
- * @return {GSC.PcscLiteClient.API}
+ * @return {GSC.PcscLiteClient.API?}
  */
 Context.prototype.getApi = function() {
   return this.api;

@@ -45,12 +45,14 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Iterables;
+import com.google.errorprone.annotations.ForOverride;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.JSDocInfo;
-import com.google.javascript.rhino.TypeI;
-import java.util.Comparator;
-import java.util.IdentityHashMap;
+import java.io.Serializable;
+import java.util.HashMap;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
  * Represents JavaScript value types.
@@ -68,31 +70,26 @@ import java.util.Objects;
  * <p>
  *
  */
-public abstract class JSType implements TypeI {
+public abstract class JSType implements Serializable {
   private static final long serialVersionUID = 1L;
+
+  @SuppressWarnings("ReferenceEquality")
+  static final boolean areIdentical(JSType a, JSType b) {
+    return a == b;
+  }
 
   private boolean resolved = false;
   private JSType resolveResult = null;
   protected TemplateTypeMap templateTypeMap;
 
+  private boolean hashCodeInProgress = false;
+
   private boolean inTemplatedCheckVisit = false;
   private static final CanCastToVisitor CAN_CAST_TO_VISITOR =
       new CanCastToVisitor();
 
-  private static final ImmutableSet<String> COVARIANT_TYPES =
+  private static final ImmutableSet<String> BIVARIANT_TYPES =
       ImmutableSet.of("Object", "IArrayLike", "Array");
-
-  /**
-   * Total ordering on types based on their textual representation.
-   * This is used to have a deterministic output of the toString
-   * method of the union type since this output is used in tests.
-   */
-  static final Comparator<JSType> ALPHA = new Comparator<JSType>() {
-    @Override
-    public int compare(JSType t1, JSType t2) {
-      return t1.toString().compareTo(t2.toString());
-    }
-  };
 
   final JSTypeRegistry registry;
 
@@ -119,7 +116,6 @@ public abstract class JSType implements TypeI {
    * attached to arbitrary types. This must be overridden for
    * programmer-defined types.
    */
-  @Override
   public JSDocInfo getJSDocInfo() {
     return null;
   }
@@ -133,7 +129,6 @@ public abstract class JSType implements TypeI {
    *
    * @return the display name of the type, or null if one is not available
    */
-  @Override
   public String getDisplayName() {
     return null;
   }
@@ -190,14 +185,12 @@ public abstract class JSType implements TypeI {
     return false;
   }
 
-  @Override
   public final boolean isUnresolved() {
     return isNoResolvedType();
   }
 
-  @Override
   public final boolean isUnresolvedOrResolvedUnknown() {
-    return isNoResolvedType() || isNamedType() && isUnknownType();
+    return isNoResolvedType() || (isNamedType() && isUnknownType());
   }
 
   public boolean isNoObjectType() {
@@ -205,28 +198,24 @@ public abstract class JSType implements TypeI {
   }
 
   public final boolean isEmptyType() {
-    return isNoType() || isNoObjectType() || isNoResolvedType() ||
-        (registry.getNativeFunctionType(
-             JSTypeNative.LEAST_FUNCTION_TYPE) == this);
+    return isNoType()
+        || isNoObjectType()
+        || isNoResolvedType()
+        || areIdentical(this, registry.getNativeFunctionType(JSTypeNative.LEAST_FUNCTION_TYPE));
   }
 
   public boolean isNumberObjectType() {
     return false;
   }
 
-  @Override
   public boolean isNumberValueType() {
     return false;
   }
 
   /** Whether this is the prototype of a function. */
+  // TODO(sdh): consider renaming this to isPrototypeObject.
   public boolean isFunctionPrototypeType() {
     return false;
-  }
-
-  @Override
-  public boolean isPrototypeObject() {
-    return isFunctionPrototypeType();
   }
 
   public boolean isStringObjectType() {
@@ -241,7 +230,6 @@ public abstract class JSType implements TypeI {
     return false;
   }
 
-  @Override
   public boolean isStringValueType() {
     return false;
   }
@@ -281,7 +269,6 @@ public abstract class JSType implements TypeI {
     return false;
   }
 
-  @Override
   public boolean isBooleanValueType() {
     return false;
   }
@@ -294,12 +281,10 @@ public abstract class JSType implements TypeI {
     return false;
   }
 
-  @Override
   public boolean isNullType() {
     return false;
   }
 
-  @Override
   public boolean isVoidType() {
     return false;
   }
@@ -308,17 +293,10 @@ public abstract class JSType implements TypeI {
     return false;
   }
 
-  @Override
-  public final boolean isTop() {
-    return isAllType();
-  }
-
-  @Override
   public boolean isUnknownType() {
     return false;
   }
 
-  @Override
   public final boolean isSomeUnknownType() {
     // OTI's notion of isUnknownType already accounts for looseness (see override in ObjectType).
     return isUnknownType();
@@ -328,45 +306,16 @@ public abstract class JSType implements TypeI {
     return false;
   }
 
-  @Override
   public final boolean isUnionType() {
     return toMaybeUnionType() != null;
   }
 
-  @Override
   public boolean isFullyInstantiated() {
     return getTemplateTypeMap().isFull();
   }
 
-  @Override
   public boolean isPartiallyInstantiated() {
     return getTemplateTypeMap().isPartiallyFull();
-  }
-
-  @Override
-  public boolean containsArray() {
-    // Check if this is itself an array
-    if (this.isArrayType()) {
-      return true;
-    }
-    TemplatizedType templatizedType = this.toMaybeTemplatizedType();
-    if (templatizedType != null && templatizedType.getReferencedType().isArrayType()) {
-      return true;
-    }
-
-    // Check if this is a union that contains an array
-    if (this.isUnionType()) {
-      JSType arrayType = registry.getNativeType(JSTypeNative.ARRAY_TYPE);
-      // use an indexed loop to avoid allocations
-      ImmutableList<JSType> alternatesList = this.toMaybeUnionType().getAlternatesList();
-      for (int i = 0; i < alternatesList.size(); i++) {
-        JSType alternate = alternatesList.get(i);
-        if (alternate.isSubtypeOf(arrayType)) {
-          return true;
-        }
-      }
-    }
-    return false;
   }
 
   /**
@@ -419,7 +368,6 @@ public abstract class JSType implements TypeI {
     return false;
   }
 
-  @Override
   public final boolean isLiteralObject() {
     if (this instanceof PrototypeObjectType) {
       return ((PrototypeObjectType) this).isAnonymous();
@@ -427,7 +375,6 @@ public abstract class JSType implements TypeI {
     return false;
   }
 
-  @Override
   public JSType getGreatestSubtypeWithProperty(String propName) {
     return this.registry.getGreatestSubtypeWithProperty(this, propName);
   }
@@ -443,35 +390,43 @@ public abstract class JSType implements TypeI {
 
   /** Returns true if this is a global this type. */
   public final boolean isGlobalThisType() {
-    return this == registry.getNativeType(JSTypeNative.GLOBAL_THIS);
+    return areIdentical(this, registry.getNativeType(JSTypeNative.GLOBAL_THIS));
   }
 
   /** Returns true if toMaybeFunctionType returns a non-null FunctionType. */
-  @Override
   public final boolean isFunctionType() {
     return toMaybeFunctionType() != null;
   }
 
   /**
-   * Downcasts this to a FunctionType, or returns null if this is not
-   * a function.
+   * Downcasts this to a FunctionType, or returns null if this is not a function.
    *
-   * For the purposes of this function, we define a MaybeFunctionType as any
-   * type in the sub-lattice
-   * { x | LEAST_FUNCTION_TYPE &lt;= x &lt;= GREATEST_FUNCTION_TYPE }
-   * This definition excludes bottom types like NoType and NoObjectType.
+   * <p>For the purposes of this function, we define a MaybeFunctionType as any type in the
+   * sub-lattice { x | LEAST_FUNCTION_TYPE &lt;= x &lt;= GREATEST_FUNCTION_TYPE } This definition
+   * excludes bottom types like NoType and NoObjectType.
    *
-   * This definition is somewhat arbitrary and axiomatic, but this is the
-   * definition that makes the most sense for the most callers.
+   * <p>This definition is somewhat arbitrary and axiomatic, but this is the definition that makes
+   * the most sense for the most callers.
    */
-  @Override
+  @SuppressWarnings("AmbiguousMethodReference")
   public FunctionType toMaybeFunctionType() {
     return null;
   }
 
-  /**
-   * Null-safe version of toMaybeFunctionType().
-   */
+  /** Returns this object cast to FunctionType or throws an exception if it isn't a FunctionType. */
+  public FunctionType assertFunctionType() {
+    FunctionType result = checkNotNull(toMaybeFunctionType(), "not a FunctionType: %s", this);
+    return result;
+  }
+
+  /** Returns this object cast to ObjectType or throws an exception if it isn't an ObjectType. */
+  public ObjectType assertObjectType() {
+    ObjectType result = checkNotNull(toMaybeObjectType(), "Not an ObjectType: %s", this);
+    return result;
+  }
+
+  /** Null-safe version of toMaybeFunctionType(). */
+  @SuppressWarnings("AmbiguousMethodReference")
   public static FunctionType toMaybeFunctionType(JSType type) {
     return type == null ? null : type.toMaybeFunctionType();
   }
@@ -480,12 +435,6 @@ public abstract class JSType implements TypeI {
     return toMaybeEnumElementType() != null;
   }
 
-  @Override
-  public final boolean isEnumElement() {
-    return isEnumElementType();
-  }
-
-  @Override
   public final JSType getEnumeratedTypeOfEnumElement() {
     EnumElementType e = toMaybeEnumElementType();
     return e == null ? null : e.getPrimitiveType();
@@ -498,13 +447,10 @@ public abstract class JSType implements TypeI {
     return null;
   }
 
+  // TODO(sdh): Consider changing this to isEnumObjectType(), though this would be inconsistent with
+  // the EnumType class and toMaybeEnumType(), so we would need to consider changing them, too.
   public boolean isEnumType() {
     return toMaybeEnumType() != null;
-  }
-
-  @Override
-  public final boolean isEnumObject() {
-    return isEnumType();
   }
 
   /**
@@ -518,20 +464,14 @@ public abstract class JSType implements TypeI {
     return toMaybeNamedType() != null;
   }
 
-  public boolean isLegacyNamedType() {
-    return isNamedType();
-  }
-
   public NamedType toMaybeNamedType() {
     return null;
   }
 
-  @Override
   public boolean isRecordType() {
     return toMaybeRecordType() != null;
   }
 
-  @Override
   public boolean isStructuralInterface() {
     return false;
   }
@@ -552,7 +492,6 @@ public abstract class JSType implements TypeI {
     return toMaybeTemplatizedType() != null;
   }
 
-  @Override
   public final boolean isGenericObjectType() {
     return isTemplatizedType();
   }
@@ -569,7 +508,6 @@ public abstract class JSType implements TypeI {
     return toMaybeTemplateType() != null;
   }
 
-  @Override
   public final boolean isTypeVariable() {
     return isTemplateType();
   }
@@ -605,9 +543,8 @@ public abstract class JSType implements TypeI {
     return templateTypeMap;
   }
 
-  @Override
-  public final ImmutableSet<TypeI> getTypeParameters() {
-    ImmutableSet.Builder<TypeI> params = ImmutableSet.builder();
+  public final ImmutableSet<JSType> getTypeParameters() {
+    ImmutableSet.Builder<JSType> params = ImmutableSet.builder();
     for (TemplateType type : getTemplateTypeMap().getTemplateKeys()) {
       params.add(type);
     }
@@ -630,26 +567,19 @@ public abstract class JSType implements TypeI {
     return false;
   }
 
-  @Override
+  /**
+   * Tests whether this type is an {@code Object}, or any subtype thereof.
+   *
+   * @return <code>this &lt;: Object</code>
+   */
   public final boolean isObjectType() {
     return isObject();
-  }
-
-  @Override
-  public final boolean isInstanceofObject() {
-    // Some type whose class is Object
-    if (this instanceof InstanceObjectType) {
-      InstanceObjectType iObj = (InstanceObjectType) this;
-      return iObj.isNativeObjectType() && "Object".equals(iObj.getReferenceName());
-    }
-    return isRecordType() || isLiteralObject();
   }
 
   /**
    * Whether this type is a {@link FunctionType} that is a constructor or a
    * named type that points to such a type.
    */
-  @Override
   public boolean isConstructor() {
     return false;
   }
@@ -686,6 +616,10 @@ public abstract class JSType implements TypeI {
     return false;
   }
 
+  public boolean isNativeObjectType() {
+    return false;
+  }
+
   /**
    * Whether this type is an Instance object of some constructor.
    * Does not necessarily mean this is an {@link InstanceObjectType}.
@@ -698,32 +632,36 @@ public abstract class JSType implements TypeI {
    * Whether this type is a {@link FunctionType} that is an interface or a named
    * type that points to such a type.
    */
-  @Override
   public boolean isInterface() {
     return false;
   }
 
   /**
-   * Whether this type is a {@link FunctionType} that is an ordinary function or
-   * a named type that points to such a type.
+   * Whether this type is a {@link FunctionType} that is an ordinary function (i.e. not a
+   * constructor, nominal interface, or record interface), or a named type that points to such a
+   * type.
    */
   public boolean isOrdinaryFunction() {
     return false;
   }
 
-  /**
-   * Checks if two types are equivalent.
-   */
   @Override
-  public final boolean isEquivalentTo(TypeI that) {
+  public boolean equals(@Nullable Object jsType) {
+    return (jsType instanceof JSType) && isEquivalentTo((JSType) jsType);
+  }
+
+  /** Checks if two types are equivalent. */
+  public final boolean isEquivalentTo(@Nullable JSType that) {
     return isEquivalentTo(that, false);
   }
 
-  public final boolean isEquivalentTo(TypeI that, boolean isStructural) {
-    EqCache eqCache = isStructural ? EqCache.create()
-        : EqCache.createWithoutStructuralTyping();
-    return checkEquivalenceHelper((JSType) that,
-        EquivalenceMethod.IDENTITY, eqCache);
+  public final boolean isEquivalentTo(@Nullable JSType that, boolean isStructural) {
+    EqCache eqCache = isStructural ? EqCache.create() : EqCache.createWithoutStructuralTyping();
+    return checkEquivalenceHelper(that, EquivalenceMethod.IDENTITY, eqCache);
+  }
+
+  public static final boolean isEquivalent(@Nullable JSType typeA, @Nullable JSType typeB) {
+    return (typeA == null) ? (typeB == null) : typeA.isEquivalentTo(typeB);
   }
 
   /**
@@ -750,14 +688,19 @@ public abstract class JSType implements TypeI {
         EqCache.create());
   }
 
-  boolean checkEquivalenceHelper(final JSType that, EquivalenceMethod eqMethod, EqCache eqCache) {
-    if (this == that) {
+  boolean checkEquivalenceHelper(
+      final @Nullable JSType that, EquivalenceMethod eqMethod, EqCache eqCache) {
+    if (that == null) {
+      return false;
+    } else if (areIdentical(this, that)) {
       return true;
     }
+
     if (this.isNoResolvedType() && that.isNoResolvedType()) {
       if (this.isNamedType() && that.isNamedType()) {
         return Objects.equals(
-            ((NamedType) this).getReferenceName(), ((NamedType) that).getReferenceName());
+            this.toMaybeNamedType().getReferenceName(), //
+            that.toMaybeNamedType().getReferenceName());
       } else {
         return true;
       }
@@ -798,15 +741,27 @@ public abstract class JSType implements TypeI {
       return false;
     }
 
-    if (eqCache.isStructuralTyping() && this.isStructuralType() && that.isStructuralType()) {
+    // Whether or not we use structural typing to compare object types is based on:
+    // 1. if eqCache.isStructuralTyping() is true, we always use structural typing
+    // 2. if we are comparing to anonymous record types (e.g. `{a: 3}`), always use structural types
+    // Ideally we would also use structural typing to compare anything declared @record, but
+    // that is harder to do with our current representation of types.
+    if ((eqCache.isStructuralTyping() && this.isStructuralType() && that.isStructuralType())
+        || (this.isRecordType() && that.isRecordType())) {
       return toMaybeObjectType()
           .checkStructuralEquivalenceHelper(that.toMaybeObjectType(), eqMethod, eqCache);
     }
 
     if (isNominalType() && that.isNominalType()) {
       // TODO(johnlenz): is this valid across scopes?
-      return getConcreteNominalTypeName(this.toObjectType())
-          .equals(getConcreteNominalTypeName(that.toObjectType()));
+      @Nullable String nameOfThis = deepestResolvedTypeNameOf(this.toObjectType());
+      @Nullable String nameOfThat = deepestResolvedTypeNameOf(that.toObjectType());
+
+      if ((nameOfThis == null) && (nameOfThat == null)) {
+        // These are two anonymous types that were masquerading as nominal, so don't compare names.
+      } else {
+        return Objects.equals(nameOfThis, nameOfThat);
+      }
     }
 
     if (isTemplateType() && that.isTemplateType()) {
@@ -836,33 +791,52 @@ public abstract class JSType implements TypeI {
   }
 
   // Named types may be proxies of concrete types.
-  private String getConcreteNominalTypeName(ObjectType objType) {
-    if (objType instanceof ProxyObjectType) {
-      ObjectType internal = ((ProxyObjectType) objType)
-          .getReferencedObjTypeInternal();
-      if (internal != null && internal.isNominalType()) {
-        return getConcreteNominalTypeName(internal);
-      }
+  @Nullable
+  private String deepestResolvedTypeNameOf(ObjectType objType) {
+    if (!objType.isResolved() || !(objType instanceof ProxyObjectType)) {
+      return objType.getReferenceName();
     }
-    return objType.getReferenceName();
-  }
 
-  public static boolean isEquivalent(JSType typeA, JSType typeB) {
-    return (typeA == null || typeB == null)
-        ? typeA == typeB : typeA.isEquivalentTo(typeB);
+    ObjectType internal = ((ProxyObjectType) objType).getReferencedObjTypeInternal();
+    return (internal != null && internal.isNominalType())
+        ? deepestResolvedTypeNameOf(internal)
+        : null;
   }
-
-  @Override
-  public boolean equals(Object jsType) {
-    return (jsType instanceof JSType) && isEquivalentTo((JSType) jsType);
-  }
-
-  @Override
-  public abstract int hashCode();
 
   /**
-   * This predicate is used to test whether a given type can appear in a
-   * numeric context, such as an operand of a multiply operator.
+   * Calculates a hash of the object as per {@link Object#hashCode()}.
+   *
+   * <p>This method is <em>unsafe</em> for multi-threaded use. The implementation mutates instance
+   * state to prevent recursion and therefore expects sole access.
+   */
+  @Override
+  public final int hashCode() {
+    if (hashCodeInProgress) {
+      return -1; // Recursive base-case.
+    }
+
+    this.hashCodeInProgress = true;
+    int hashCode = recursionUnsafeHashCode();
+    this.hashCodeInProgress = false;
+    return hashCode;
+  }
+
+  /**
+   * Calculates {@code #hashCode()} with the assumption that it will never be called recursively.
+   *
+   * <p>To work correctly this method should only called under the following conditions:
+   *
+   * <ul>
+   *   <li>by a subclass of {@link JSType};
+   *   <li>within the body of an override;
+   *   <li>when delegating to a superclass implementation.
+   * </ul>
+   */
+  abstract int recursionUnsafeHashCode();
+
+  /**
+   * This predicate is used to test whether a given type can appear in a numeric context, such as an
+   * operand of a multiply operator.
    */
   public boolean matchesNumberContext() {
     return false;
@@ -901,21 +875,47 @@ public abstract class JSType implements TypeI {
   }
 
   /**
-   * Coerces this type to an Object type, then gets the type of the property
-   * whose name is given.
+   * Coerces this type to an Object type, then gets the type of the property whose name is given.
    *
-   * Unlike {@link ObjectType#getPropertyType}, returns null if the property
-   * is not found.
+   * <p>Unlike {@link ObjectType#getPropertyType}, returns null if the property is not found.
    *
-   * @return The property's type. {@code null} if the current type cannot
-   *     have properties, or if the type is not found.
+   * @return The property's type. {@code null} if the current type cannot have properties, or if the
+   *     type is not found.
    */
-  public JSType findPropertyType(String propertyName) {
+  @Nullable
+  public final JSType findPropertyType(String propertyName) {
+    @Nullable JSType propertyType = findPropertyTypeWithoutConsideringTemplateTypes(propertyName);
+    if (propertyType == null) {
+      return null;
+    }
+
+    // Do templatized type replacing logic here, and make this method final, to prevent a subclass
+    // from forgetting to replace template types
+    if (getTemplateTypeMap().isEmpty() || !propertyType.hasAnyTemplateTypes()) {
+      return propertyType;
+    }
+
+    TemplateTypeMap typeMap = getTemplateTypeMap();
+    TemplateTypeMapReplacer replacer = new TemplateTypeMapReplacer(registry, typeMap);
+    return propertyType.visit(replacer);
+  }
+
+  /**
+   * Looks up a property on this type, but without properly replacing any templates in the result.
+   *
+   * <p>Subclasses can override this if they need more complicated logic for property lookup than
+   * just autoboxing to an object.
+   *
+   * <p>This is only for use by {@code findPropertyType(JSType)}. Call that method instead if you
+   * need to lookup a property on a random JSType
+   */
+  @ForOverride
+  @Nullable
+  protected JSType findPropertyTypeWithoutConsideringTemplateTypes(String propertyName) {
     ObjectType autoboxObjType = ObjectType.cast(autoboxesTo());
     if (autoboxObjType != null) {
       return autoboxObjType.findPropertyType(propertyName);
     }
-
     return null;
   }
 
@@ -936,7 +936,7 @@ public abstract class JSType implements TypeI {
    * The default implementation verifies that {@code this} is a subtype
    * of {@code that}.<p>
    */
-  public boolean canCastTo(JSType that) {
+  public final boolean canCastTo(JSType that) {
     return this.visit(CAN_CAST_TO_VISITOR, that);
   }
 
@@ -949,7 +949,6 @@ public abstract class JSType implements TypeI {
     return null;
   }
 
-  @Override
   public boolean isBoxableScalar() {
     return autoboxesTo() != null;
   }
@@ -975,12 +974,11 @@ public abstract class JSType implements TypeI {
   }
 
   /**
-   * Dereference a type for property access.
+   * Dereferences a type for property access.
    *
    * Filters null/undefined and autoboxes the resulting type.
    * Never returns null.
    */
-  @Override
   public JSType autobox() {
     JSType restricted = restrictByNotNullOrUndefined();
     JSType autobox = restricted.autoboxesTo();
@@ -988,18 +986,14 @@ public abstract class JSType implements TypeI {
   }
 
   /**
-   * Dereference a type for property access.
+   * Dereferences a type for property access.
    *
    * Filters null/undefined, autoboxes the resulting type, and returns it
-   * iff it's an object.
+   * iff it's an object. If not an object, returns null.
    */
+  @Nullable
   public final ObjectType dereference() {
     return autobox().toObjectType();
-  }
-
-  @Override
-  public final ObjectType autoboxAndGetObject() {
-    return dereference();
   }
 
   /**
@@ -1103,18 +1097,18 @@ public abstract class JSType implements TypeI {
     }
 
     JSType inf = getGreatestSubtype(that);
-    return !inf.isEmptyType() ||
+    return !inf.isEmptyType()
+        ||
         // Our getGreatestSubtype relation on functions is pretty bad.
         // Let's just say it's always ok to compare two functions.
         // Once the TODO in FunctionType is fixed, we should be able to
         // remove this.
-        inf == registry.getNativeType(JSTypeNative.LEAST_FUNCTION_TYPE);
+        areIdentical(inf, registry.getNativeType(JSTypeNative.LEAST_FUNCTION_TYPE));
   }
 
   /**
    * Tests whether this type is nullable.
    */
-  @Override
   public boolean isNullable() {
     return false;
   }
@@ -1122,7 +1116,6 @@ public abstract class JSType implements TypeI {
   /**
    * Tests whether this type is voidable.
    */
-  @Override
   public boolean isVoidable() {
     return false;
   }
@@ -1143,19 +1136,22 @@ public abstract class JSType implements TypeI {
   }
 
   /**
-   * Gets the least supertype of {@code this} and {@code that}.
-   * The least supertype is the join (&#8744;) or supremum of both types in the
-   * type lattice.<p>
-   * Examples:
+   * Gets the least supertype of {@code this} and {@code that}. The least supertype is the join
+   * (&#8744;) or supremum of both types in the type lattice.
+   *
+   * <p>Examples:
+   *
    * <ul>
-   * <li><code>number &#8744; *</code> = {@code *}</li>
-   * <li><code>number &#8744; Object</code> = {@code (number, Object)}</li>
-   * <li><code>Number &#8744; Object</code> = {@code Object}</li>
+   *   <li><code>number &#8744; *</code> = {@code *}
+   *   <li><code>number &#8744; Object</code> = {@code (number, Object)}
+   *   <li><code>Number &#8744; Object</code> = {@code Object}
    * </ul>
+   *
    * @return <code>this &#8744; that</code>
    */
+  @SuppressWarnings("AmbiguousMethodReference")
   public JSType getLeastSupertype(JSType that) {
-    if (this == that) {
+    if (areIdentical(this, that)) {
       return this;
     }
 
@@ -1168,9 +1164,10 @@ public abstract class JSType implements TypeI {
   }
 
   /**
-   * A generic implementation meant to be used as a helper for common
-   * getLeastSupertype implementations.
+   * A generic implementation meant to be used as a helper for common getLeastSupertype
+   * implementations.
    */
+  @SuppressWarnings("AmbiguousMethodReference")
   static JSType getLeastSupertype(JSType thisType, JSType thatType) {
     boolean areEquivalent = thisType.isEquivalentTo(thatType);
     return areEquivalent ? thisType :
@@ -1178,31 +1175,34 @@ public abstract class JSType implements TypeI {
             thisType.registry.createUnionType(thisType, thatType));
   }
 
-  @Override
-  public TypeI meetWith(TypeI that) {
-    return getGreatestSubtype(this, (JSType) that);
+  public JSType meetWith(JSType that) {
+    return getGreatestSubtype(this, that);
   }
 
   /**
-   * Gets the greatest subtype of {@code this} and {@code that}.
-   * The greatest subtype is the meet (&#8743;) or infimum of both types in the
-   * type lattice.<p>
-   * Examples
+   * Gets the greatest subtype of {@code this} and {@code that}. The greatest subtype is the meet
+   * (&#8743;) or infimum of both types in the type lattice.
+   *
+   * <p>Examples
+   *
    * <ul>
-   * <li><code>Number &#8743; Any</code> = {@code Any}</li>
-   * <li><code>number &#8743; Object</code> = {@code Any}</li>
-   * <li><code>Number &#8743; Object</code> = {@code Number}</li>
+   *   <li><code>Number &#8743; Any</code> = {@code Any}
+   *   <li><code>number &#8743; Object</code> = {@code Any}
+   *   <li><code>Number &#8743; Object</code> = {@code Number}
    * </ul>
+   *
    * @return <code>this &#8744; that</code>
    */
+  @SuppressWarnings("AmbiguousMethodReference")
   public JSType getGreatestSubtype(JSType that) {
     return getGreatestSubtype(this, that);
   }
 
   /**
-   * A generic implementation meant to be used as a helper for common
-   * getGreatestSubtype implementations.
+   * A generic implementation meant to be used as a helper for common getGreatestSubtype
+   * implementations.
    */
+  @SuppressWarnings("AmbiguousMethodReference")
   static JSType getGreatestSubtype(JSType thisType, JSType thatType) {
     if (thisType.isFunctionType() && thatType.isFunctionType()) {
       // The FunctionType sub-lattice is not well-defined. i.e., the
@@ -1273,7 +1273,7 @@ public abstract class JSType implements TypeI {
     } else if (type.isUnionType()) {
       UnionType unionType = type.toMaybeUnionType();
       boolean needsFiltering = false;
-      ImmutableList<JSType> alternatesList = unionType.getAlternatesList();
+      ImmutableList<JSType> alternatesList = unionType.getAlternates();
       for (int i = 0; i < alternatesList.size(); i++) {
         JSType alt = alternatesList.get(i);
         if (alt.isNoResolvedType()) {
@@ -1283,7 +1283,7 @@ public abstract class JSType implements TypeI {
       }
 
       if (needsFiltering) {
-        UnionTypeBuilder builder = new UnionTypeBuilder(type.registry);
+        UnionTypeBuilder builder = UnionTypeBuilder.create(type.registry);
         builder.addAlternate(type.getNativeType(JSTypeNative.NO_RESOLVED_TYPE));
         for (int i = 0; i < alternatesList.size(); i++) {
           JSType alt = alternatesList.get(i);
@@ -1312,7 +1312,7 @@ public abstract class JSType implements TypeI {
    * method of types to get the restricted type.
    */
   public JSType getRestrictedTypeGivenToBooleanOutcome(boolean outcome) {
-    if (outcome && this == getNativeType(JSTypeNative.UNKNOWN_TYPE)) {
+    if (outcome && areIdentical(this, getNativeType(JSTypeNative.UNKNOWN_TYPE))) {
       return getNativeType(JSTypeNative.CHECKED_UNKNOWN_TYPE);
     }
 
@@ -1442,15 +1442,13 @@ public abstract class JSType implements TypeI {
     // Other types.
     // There are only two types whose shallow inequality is deterministically
     // true -- null and undefined. We can just enumerate them.
-    if (isNullType() && that.isNullType() ||
-        isVoidType() && that.isVoidType()) {
+    if ((isNullType() && that.isNullType()) || (isVoidType() && that.isVoidType())) {
       return new TypePair(null, null);
     } else {
       return new TypePair(this, that);
     }
   }
 
-  @Override
   public Iterable<JSType> getUnionMembers() {
     return isUnionType()
         ? this.toMaybeUnionType().getAlternatesWithoutStructuralTyping()
@@ -1461,8 +1459,12 @@ public abstract class JSType implements TypeI {
    * If this is a union type, returns a union type that does not include
    * the null or undefined type.
    */
-  @Override
   public JSType restrictByNotNullOrUndefined() {
+    return this;
+  }
+
+  /** If this is a union type, returns a union type that does not include the undefined type. */
+  public JSType restrictByNotUndefined() {
     return this;
   }
 
@@ -1473,10 +1475,9 @@ public abstract class JSType implements TypeI {
    * This function is added for disambiguate properties,
    * and is deprecated for the other use cases.
    */
-  @Override
-  public boolean isSubtypeWithoutStructuralTyping(TypeI that) {
+  public boolean isSubtypeWithoutStructuralTyping(JSType that) {
     return isSubtype(
-        (JSType) that, ImplCache.createWithoutStructuralTyping(), SubtypingMode.NORMAL);
+        that, ImplCache.createWithoutStructuralTyping(), SubtypingMode.NORMAL);
   }
 
   /**
@@ -1560,7 +1561,7 @@ public abstract class JSType implements TypeI {
       UnionType union = thatType.toMaybeUnionType();
       // use an indexed for-loop to avoid allocations
       ImmutableList<JSType> alternatesWithoutStucturalTyping =
-          union.alternatesWithoutStucturalTyping;
+          union.getAlternatesWithoutStructuralTyping();
       for (int i = 0; i < alternatesWithoutStucturalTyping.size(); i++) {
         JSType element = alternatesWithoutStucturalTyping.get(i);
         if (thisType.isSubtype(element, implicitImplCache, subtypingMode)) {
@@ -1579,16 +1580,27 @@ public abstract class JSType implements TypeI {
     TemplateTypeMap thisTypeParams = thisType.getTemplateTypeMap();
     TemplateTypeMap thatTypeParams = thatType.getTemplateTypeMap();
     boolean templateMatch = true;
-    if (isExemptFromTemplateTypeInvariance(thatType)) {
+    if (isBivariantType(thatType)) {
       // Array and Object are exempt from template type invariance; their
-      // template types maps are considered a match only if the ObjectElementKey
-      // values are subtypes/supertypes of one another.
+      // template types maps are bivariant.  That is they are considered
+      // a match if either ObjectElementKey values are subtypes of the
+      // other.
       TemplateType key = thisType.registry.getObjectElementKey();
       JSType thisElement = thisTypeParams.getResolvedTemplateType(key);
       JSType thatElement = thatTypeParams.getResolvedTemplateType(key);
 
       templateMatch = thisElement.isSubtype(thatElement, implicitImplCache, subtypingMode)
           || thatElement.isSubtype(thisElement, implicitImplCache, subtypingMode);
+    } else if (isIThenableSubtype(thatType)) {
+      // NOTE: special case IThenable subclass (Promise, etc).  These classes are expected to be
+      // covariant.
+      // Also note that this ignores any additional template type arguments that might be defined
+      // on subtypes.  If we expand this to other types, a more correct solution will be needed.
+      TemplateType key = thisType.registry.getThenableValueKey();
+      JSType thisElement = thisTypeParams.getResolvedTemplateType(key);
+      JSType thatElement = thatTypeParams.getResolvedTemplateType(key);
+
+      templateMatch = thisElement.isSubtype(thatElement, implicitImplCache, subtypingMode);
     } else {
       templateMatch = thisTypeParams.checkEquivalenceHelper(
           thatTypeParams, EquivalenceMethod.INVARIANT, subtypingMode);
@@ -1622,12 +1634,26 @@ public abstract class JSType implements TypeI {
   }
 
   /**
-   * Determines if the specified type is exempt from standard invariant
-   * templatized typing rules.
+   * Determines if the supplied type should be checked as a bivariant
+   * templatized type rather the standard invariant templatized type
+   * rules.
    */
-  static boolean isExemptFromTemplateTypeInvariance(JSType type) {
+  static boolean isBivariantType(JSType type) {
     ObjectType objType = type.toObjectType();
-    return objType == null || COVARIANT_TYPES.contains(objType.getReferenceName());
+    return objType != null
+        // && objType.isNativeObjectType()
+        && BIVARIANT_TYPES.contains(objType.getReferenceName());
+  }
+
+  /**
+   * Determines if the specified type is exempt from standard invariant templatized typing rules.
+   */
+  static boolean isIThenableSubtype(JSType type) {
+    if (type.isTemplatizedType()) {
+      TemplatizedType ttype = type.toMaybeTemplatizedType();
+      return ttype.getTemplateTypeMap().hasTemplateKey(ttype.registry.getThenableValueKey());
+    }
+    return false;
   }
 
   /**
@@ -1657,17 +1683,17 @@ public abstract class JSType implements TypeI {
    * artifacts from a previous generation, so we will eventually need
    * a generational flag instead of a boolean one.
    */
-  public final JSType resolve(ErrorReporter reporter, StaticTypedScope<JSType> scope) {
+  public final JSType resolve(ErrorReporter reporter) {
     if (resolved) {
-      // TODO(nicksantos): Check to see if resolve() looped back on itself.
-      // Preconditions.checkNotNull(resolveResult);
       if (resolveResult == null) {
-        return registry.getNativeType(JSTypeNative.UNKNOWN_TYPE);
+        // If there is a circular definition, keep the NamedType around. This is not ideal,
+        // but is still a better type than unknown.
+        return this;
       }
       return resolveResult;
     }
     resolved = true;
-    resolveResult = resolveInternal(reporter, scope);
+    resolveResult = resolveInternal(reporter);
     resolveResult.setResolvedTypeInternal(resolveResult);
     return resolveResult;
   }
@@ -1675,16 +1701,31 @@ public abstract class JSType implements TypeI {
   /**
    * @see #resolve
    */
-  abstract JSType resolveInternal(ErrorReporter reporter, StaticTypedScope<JSType> scope);
+  abstract JSType resolveInternal(ErrorReporter reporter);
 
   void setResolvedTypeInternal(JSType type) {
     resolveResult = type;
     resolved = true;
   }
 
-  /** Whether the type has been resolved. */
+  /**
+   * Returns whether the type has undergone resolution.
+   *
+   * <p>A value of {@code true} <em>does not</em> indicate that resolution was successful, only that
+   * it was attempted and has finished.
+   */
   public final boolean isResolved() {
     return resolved;
+  }
+
+  /** Returns whether the type has undergone resolution and resolved to a "useful" type. */
+  public final boolean isSuccessfullyResolved() {
+    return isResolved() && !isNoResolvedType();
+  }
+
+  /** Returns whether the type has undergone resolution and resolved to a "useless" type. */
+  public final boolean isUnsuccessfullyResolved() {
+    return isResolved() && isNoResolvedType();
   }
 
   /**
@@ -1692,8 +1733,8 @@ public abstract class JSType implements TypeI {
    * @see #resolve
    */
   static final JSType safeResolve(
-      JSType type, ErrorReporter reporter, StaticTypedScope<JSType> scope) {
-    return type == null ? null : type.resolve(reporter, scope);
+      JSType type, ErrorReporter reporter) {
+    return type == null ? null : type.resolve(reporter);
   }
 
   /**
@@ -1737,7 +1778,6 @@ public abstract class JSType implements TypeI {
   }
 
   // Don't call from this package; use appendAsNonNull instead.
-  @Override
   public final String toAnnotationString(Nullability nullability) {
     return nullability == Nullability.EXPLICIT
         ? appendAsNonNull(new StringBuilder(), true).toString()
@@ -1770,17 +1810,10 @@ public abstract class JSType implements TypeI {
    */
   public void matchConstraint(JSType constraint) {}
 
-  @Override
-  public boolean isSubtypeOf(TypeI other) {
-    return isSubtype((JSType) other);
+  public boolean isSubtypeOf(JSType other) {
+    return isSubtype(other);
   }
 
-  @Override
-  public final boolean isBottom() {
-    return isEmptyType();
-  }
-
-  @Override
   public ObjectType toMaybeObjectType() {
     return toObjectType();
   }
@@ -1854,7 +1887,7 @@ public abstract class JSType implements TypeI {
    * cache used by equivalence check logic
    */
   static class EqCache extends MatchCache {
-    private IdentityHashMap<JSType, IdentityHashMap<JSType, MatchStatus>> matchCache;
+    private HashMap<Key, MatchStatus> matchCache;
 
     static EqCache create() {
       return new EqCache(true);
@@ -1866,30 +1899,95 @@ public abstract class JSType implements TypeI {
 
     private EqCache(boolean isStructuralTyping) {
       super(isStructuralTyping);
-      this.matchCache = null;
     }
 
-    void updateCache(JSType t1, JSType t2, MatchStatus isMatch) {
-      IdentityHashMap<JSType, MatchStatus> map = this.matchCache.get(t1);
-      if (map == null) {
-        map = new IdentityHashMap<>();
-      }
-      map.put(t2, isMatch);
-      this.matchCache.put(t1, map);
+    void updateCache(JSType left, JSType right, MatchStatus isMatch) {
+      updateCacheAnyType(left, right, isMatch); // Defer Key instantiation.
     }
 
-    MatchStatus checkCache(JSType t1, JSType t2) {
-      if (this.matchCache == null) {
-        this.matchCache = new IdentityHashMap<>();
+    void updateCache(TemplateTypeMap left, TemplateTypeMap right, MatchStatus isMatch) {
+      updateCacheAnyType(left, right, isMatch); // Defer Key instantiation.
+    }
+
+    private void updateCacheAnyType(Object left, Object right, MatchStatus isMatch) {
+      if (left == right) {
+        // Recall that we never bother reading keys with equal elements.
+        return;
       }
-      // check the cache
-      if (this.matchCache.containsKey(t1) && this.matchCache.get(t1).containsKey(t2)) {
-        return this.matchCache.get(t1).get(t2);
-      } else if (this.matchCache.containsKey(t2) && this.matchCache.get(t2).containsKey(t1)) {
-        return this.matchCache.get(t2).get(t1);
-      } else {
-        this.updateCache(t1, t2, MatchStatus.PROCESSING);
-        return null;
+
+      getMatchCache().put(new Key(left, right), isMatch);
+    }
+
+    @Nullable
+    MatchStatus checkCache(JSType left, JSType right) {
+      return checkCacheAnyType(left, right); // Defer Key instantiation.
+    }
+
+    @Nullable
+    MatchStatus checkCache(TemplateTypeMap left, TemplateTypeMap right) {
+      return checkCacheAnyType(left, right); // Defer Key instantiation.
+    }
+
+    private MatchStatus checkCacheAnyType(Object left, Object right) {
+      if (left == right) {
+        return MatchStatus.MATCH;
+      }
+
+      return getMatchCache().putIfAbsent(new Key(left, right), MatchStatus.PROCESSING);
+    }
+
+    private HashMap<Key, MatchStatus> getMatchCache() {
+      if (matchCache == null) {
+        matchCache = new HashMap<>();
+      }
+      return matchCache;
+    }
+
+    private static final class Key {
+      private final Object left;
+      private final Object right;
+      private final int hashCode; // Cache this calculation because it is made often.
+
+      @Override
+      public int hashCode() {
+        return hashCode;
+      }
+
+      @Override
+      @SuppressWarnings({
+        "ShortCircuitBoolean",
+        "ReferenceEquality",
+        "EqualsBrokenForNull",
+        "EqualsUnsafeCast"
+      })
+      public boolean equals(Object other) {
+        // Calling this with `null` or not a `Key` should cause a crash.
+        Key that = (Key) other;
+        if (this == other) {
+          return true;
+        }
+
+        // Recall that `Key` implements identity equality on `left` and `right`.
+        //
+        // Recall that `left` and `right` are not ordered.
+        //
+        // Use non-short circuiting operators to eliminate branches. Equality checks are
+        // side-effect-free and less expensive than branches.
+        return ((this.left == that.left) & (this.right == that.right))
+            | ((this.left == that.right) & (this.right == that.left));
+      }
+
+      @SuppressWarnings("ReferenceEquality")
+      private Key(Object left, Object right) {
+        this.left = left;
+        this.right = right;
+
+        // XOR the component hashcodes because:
+        //   - It's a symmetric operator, so we don't have to worry about order.
+        //   - It's assumed the inputs are already uniformly distributed and unrelated.
+        //     - `left` and `right` should never be identical.
+        // Recall that `Key` implements identity equality on `left` and `right`.
+        this.hashCode = System.identityHashCode(left) ^ System.identityHashCode(right);
       }
     }
   }
@@ -1931,8 +2029,34 @@ public abstract class JSType implements TypeI {
     }
   }
 
-  @Override
-  public TypeInference typeInference() {
-    return TypeInference.OTI;
+  /**
+   * Specifies how to express nullability of reference types in annotation strings and error
+   * messages. Note that this only applies to the outer-most type. Nullability of generic type
+   * arguments is always explicit.
+   */
+  public enum Nullability {
+    /**
+     * Include an explicit '!' for non-nullable reference types. This is suitable for use
+     * in most type contexts (particularly 'type', 'param', and 'return' annotations).
+     */
+    EXPLICIT,
+    /**
+     * Omit the explicit '!' from the outermost non-nullable reference type. This is suitable for
+     * use in cases where a single reference type is expected (e.g. 'extends' and 'implements').
+     */
+    IMPLICIT,
+  }
+
+  /**
+   * Returns the template type argument in this type's map corresponding to the supertype's template
+   * parameter, or the UNKNOWN_TYPE if the supertype template key is not present.
+   *
+   * <p>Note: this only supports arguments that have a singleton list of template keys, and will
+   * throw an exception for arguments with zero or multiple or template keys.
+   */
+  public JSType getInstantiatedTypeArgument(JSType supertype) {
+    TemplateType templateType =
+        Iterables.getOnlyElement(supertype.getTemplateTypeMap().getTemplateKeys());
+    return getTemplateTypeMap().getResolvedTemplateType(templateType);
   }
 }

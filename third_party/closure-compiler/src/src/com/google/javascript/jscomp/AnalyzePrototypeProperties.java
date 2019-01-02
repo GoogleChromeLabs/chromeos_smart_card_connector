@@ -103,8 +103,7 @@ class AnalyzePrototypeProperties implements CompilerPass {
    * Creates a new pass for analyzing prototype properties.
    *
    * @param compiler The compiler.
-   * @param moduleGraph The graph for resolving module dependencies. May be null if we don't care
-   *     about module dependencies.
+   * @param moduleGraph The graph for resolving module dependencies.
    * @param canModifyExterns If true, then we can move prototype properties that are declared in the
    *     externs file.
    * @param anchorUnusedVars If true, then we must mark all vars as referenced, even if they are
@@ -124,7 +123,7 @@ class AnalyzePrototypeProperties implements CompilerPass {
     this.anchorUnusedVars = anchorUnusedVars;
       this.rootScopeUsesAreGlobal = rootScopeUsesAreGlobal;
 
-    if (moduleGraph != null) {
+    if (moduleGraph.getModuleCount() > 1) {
       firstModule = moduleGraph.getRootModule();
     } else {
       firstModule = null;
@@ -151,11 +150,11 @@ class AnalyzePrototypeProperties implements CompilerPass {
   public void process(Node externRoot, Node root) {
     checkState(compiler.getLifeCycleStage().isNormalized());
     if (!canModifyExterns) {
-      NodeTraversal.traverseEs6(compiler, externRoot,
+      NodeTraversal.traverse(compiler, externRoot,
           new ProcessExternProperties());
     }
 
-    NodeTraversal.traverseEs6(compiler, root, new ProcessProperties());
+    NodeTraversal.traverse(compiler, root, new ProcessProperties());
 
     FixedPointGraphTraversal<NameInfo, JSModule> t =
         FixedPointGraphTraversal.newTraversal(new PropagateReferences());
@@ -321,7 +320,10 @@ class AnalyzePrototypeProperties implements CompilerPass {
         case OBJECT_PATTERN:
           for (Node stringKeyNode = n.getFirstChild(); stringKeyNode != null;
               stringKeyNode = stringKeyNode.getNext()) {
-            addSymbolUse(stringKeyNode.getString(), t.getModule(), PROPERTY);
+            if (!stringKeyNode.isComputedProp() && !stringKeyNode.isQuotedString()) {
+              // skip over const {['foobar']: foo} = ...; and const {'foobar': foo} = ...;
+              addSymbolUse(stringKeyNode.getString(), t.getModule(), PROPERTY);
+            }
           }
           break;
 
@@ -870,20 +872,17 @@ class AnalyzePrototypeProperties implements CompilerPass {
         hasChanged = true;
       }
 
-      if (moduleGraph != null) {
-        JSModule originalDeepestCommon = deepestCommonModuleRef;
+      JSModule originalDeepestCommon = deepestCommonModuleRef;
 
-        if (deepestCommonModuleRef == null) {
-          deepestCommonModuleRef = module;
-        } else {
-          deepestCommonModuleRef =
-              moduleGraph.getDeepestCommonDependencyInclusive(
-                  deepestCommonModuleRef, module);
-        }
+      if (deepestCommonModuleRef == null) {
+        deepestCommonModuleRef = module;
+      } else {
+        deepestCommonModuleRef =
+            moduleGraph.getDeepestCommonDependencyInclusive(deepestCommonModuleRef, module);
+      }
 
-        if (originalDeepestCommon != deepestCommonModuleRef) {
-          hasChanged = true;
-        }
+      if (originalDeepestCommon != deepestCommonModuleRef) {
+        hasChanged = true;
       }
 
       return hasChanged;

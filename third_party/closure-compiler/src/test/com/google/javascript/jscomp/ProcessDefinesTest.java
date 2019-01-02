@@ -23,10 +23,13 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import java.util.HashMap;
 import java.util.Map;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
-/**
- * @author nicksantos@google.com (Nick Santos)
- */
+/** @author nicksantos@google.com (Nick Santos) */
+@RunWith(JUnit4.class)
 public final class ProcessDefinesTest extends CompilerTestCase {
 
   public ProcessDefinesTest() {
@@ -38,7 +41,8 @@ public final class ProcessDefinesTest extends CompilerTestCase {
   private boolean doReplacements;
 
   @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     super.setUp();
     overrides.clear();
     doReplacements = true;
@@ -68,53 +72,64 @@ public final class ProcessDefinesTest extends CompilerTestCase {
     test(definitions + js, definitions + expected);
   }
 
+  @Test
   public void testBasicDefine1() {
     test("/** @define {boolean} */ var DEF = true", "/** @define {boolean} */ var DEF=true");
   }
 
+  @Test
   public void testBasicDefine2() {
     test("/** @define {string} */ var DEF = 'a'", "/** @define {string} */ var DEF=\"a\"");
   }
 
+  @Test
   public void testBasicDefine3() {
     test("/** @define {number} */ var DEF = 0", "/** @define {number} */ var DEF=0");
   }
 
+  @Test
   public void testDefineBadType() {
     testError("/** @define {Object} */ var DEF = {}", ProcessDefines.INVALID_DEFINE_TYPE_ERROR);
   }
 
+  @Test
   public void testChecksOnlyProducesErrors() {
     doReplacements = false;
     testError("/** @define {Object} */ var DEF = {}", ProcessDefines.INVALID_DEFINE_TYPE_ERROR);
   }
 
+  @Test
   public void testChecksOnlyProducesUnknownDefineWarning() {
     doReplacements = false;
     overrides.put("a.B", new Node(Token.TRUE));
     test("var a = {};", "var a = {};", warning(ProcessDefines.UNKNOWN_DEFINE_WARNING));
   }
 
+  @Test
   public void testDefineWithBadValue1() {
     testError("/** @define {boolean} */ var DEF = new Boolean(true);",
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testDefineWithBadValue2() {
     testError("/** @define {string} */ var DEF = 'x' + y;",
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testDefineInExterns() {
     testSame(externs(DEFAULT_EXTERNS + "/** @define {boolean} */ var EXTERN_DEF;"), srcs(""));
   }
 
+  @Test
   public void testDefineInExternsPlusUsage() {
     testSame(
         externs(DEFAULT_EXTERNS + "/** @define {boolean} */ var EXTERN_DEF;"),
         srcs("/** @define {boolean} */ var DEF = EXTERN_DEF"));
   }
 
+  @Test
   public void testNonDefineInExternsPlusUsage() {
     testError(
         DEFAULT_EXTERNS + "/** @const {boolean} */ var EXTERN_NON_DEF;",
@@ -122,10 +137,12 @@ public final class ProcessDefinesTest extends CompilerTestCase {
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testDefineCompiledInExterns() {
     testSame(externs(DEFAULT_EXTERNS + "/** @define {boolean} */ var COMPILED;"), srcs(""));
   }
 
+  @Test
   public void testDefineWithDependentValue() {
     test(
         lines(
@@ -145,13 +162,15 @@ public final class ProcessDefinesTest extends CompilerTestCase {
             "/** @define {boolean} */ a.DEF = !a.BASE"));
   }
 
-
+  @Test
   public void testDefineWithInvalidDependentValue() {
-    testError("var BASE = false;\n" +
-        "/** @define {boolean} */ var DEF = !BASE;",
+    testError(
+        "var BASE = false;\n"
+            + "/** @define {boolean} */ var DEF = !BASE;",
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testOverriding1() {
     overrides.put("DEF_OVERRIDE_TO_TRUE", new Node(Token.TRUE));
     overrides.put("DEF_OVERRIDE_TO_FALSE", new Node(Token.FALSE));
@@ -162,6 +181,7 @@ public final class ProcessDefinesTest extends CompilerTestCase {
             + "/** @define {boolean} */var DEF_OVERRIDE_TO_FALSE=false");
   }
 
+  @Test
   public void testOverriding2() {
     overrides.put("DEF_OVERRIDE_TO_TRUE", new Node(Token.TRUE));
     String normalConst = "var DEF_OVERRIDE_TO_FALSE=true;";
@@ -171,6 +191,7 @@ public final class ProcessDefinesTest extends CompilerTestCase {
         "/** @define {boolean} */ var DEF_OVERRIDE_TO_TRUE = true");
   }
 
+  @Test
   public void testOverriding3() {
     overrides.put("DEF_OVERRIDE_TO_TRUE", new Node(Token.TRUE));
     test(
@@ -178,18 +199,21 @@ public final class ProcessDefinesTest extends CompilerTestCase {
         "/** @define {boolean} */ var DEF_OVERRIDE_TO_TRUE = true");
   }
 
+  @Test
   public void testOverridingString0() {
     test(
         "/** @define {string} */ var DEF_OVERRIDE_STRING = 'x';",
         "/** @define {string} */ var DEF_OVERRIDE_STRING=\"x\"");
   }
 
+  @Test
   public void testOverridingString1() {
     test(
         "/** @define {string} */ var DEF_OVERRIDE_STRING = 'x' + 'y';",
         "/** @define {string} */ var DEF_OVERRIDE_STRING=\"x\" + \"y\"");
   }
 
+  @Test
   public void testOverridingString2() {
     overrides.put("DEF_OVERRIDE_STRING", Node.newString("foo"));
     test(
@@ -197,6 +221,7 @@ public final class ProcessDefinesTest extends CompilerTestCase {
         "/** @define {string} */ var DEF_OVERRIDE_STRING=\"foo\"");
   }
 
+  @Test
   public void testOverridingString3() {
     overrides.put("DEF_OVERRIDE_STRING", Node.newString("foo"));
     test(
@@ -204,158 +229,167 @@ public final class ProcessDefinesTest extends CompilerTestCase {
         "/** @define {string} */ var DEF_OVERRIDE_STRING=\"foo\"");
   }
 
+  @Test
   public void testMisspelledOverride() {
-    overrides.put("DEF_BAD_OVERIDE", new Node(Token.TRUE));
+    overrides.put("DEF_BAD_OVERIDE", new Node(Token.TRUE));  // NOTYPO: Intentional misspelling.
     test(
         "/** @define {boolean} */ var DEF_BAD_OVERRIDE = true",
         "/** @define {boolean} */ var DEF_BAD_OVERRIDE = true",
         warning(ProcessDefines.UNKNOWN_DEFINE_WARNING));
   }
 
+  @Test
   public void testCompiledIsKnownDefine() {
     overrides.put("COMPILED", new Node(Token.TRUE));
     testSame("");
   }
 
+  @Test
   public void testSimpleReassign1() {
-    // Here and in other tests where we reassign to @defined values, we @suppress newCheckTypes
-    // to suppress NTI_CONST_REASSIGNED warnings.
     test(
         lines(
-            "/** @fileoverview @suppress {newCheckTypes} */",
             "/** @define {boolean} */ var DEF = false;",
             "DEF = true;"),
         lines(
-            "/** @fileoverview @suppress {newCheckTypes} */",
             "/** @define {boolean} */ var DEF=true;",
             "true"));
   }
 
+  @Test
   public void testSimpleReassign2() {
     test(
         lines(
-            "/** @fileoverview @suppress {newCheckTypes} */",
             "/** @define {number|boolean} */ var DEF=false;",
             "DEF=true;",
             "DEF=3"),
         lines(
-            "/** @fileoverview @suppress {newCheckTypes} */",
             "/** @define {number|boolean} */ var DEF=3;",
             "true;3"));
 
     Name def = namespace.getNameIndex().get("DEF");
     assertThat(def.getRefs()).hasSize(1);
-    assertEquals(1, def.globalSets);
-    assertNotNull(def.getDeclaration());
+    assertThat(def.getGlobalSets()).isEqualTo(1);
+    assertThat(def.getDeclaration()).isNotNull();
   }
 
+  @Test
   public void testSimpleReassign3() {
     test(
         lines(
-            "/** @fileoverview @suppress {newCheckTypes} */",
             "/** @define {boolean} */ var DEF = false;",
             "var x;",
             "x = DEF = true;"),
         lines(
-            "/** @fileoverview @suppress {newCheckTypes} */",
             "/** @define {boolean} */ var DEF = true;",
             "var x;",
             "x = true"));
   }
 
+  @Test
   public void testAssignBeforeDeclaration1() {
     testError("DEF=false;var b=false,/** @define {boolean} */DEF=true,c=false",
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testAssignBeforeDeclaration2() {
     overrides.put("DEF_OVERRIDE_TO_TRUE", new Node(Token.TRUE));
     testError(
-        "DEF_OVERRIDE_TO_TRUE = 3;" +
-        "/** @define {boolean|number} */ var DEF_OVERRIDE_TO_TRUE = false;",
+        "DEF_OVERRIDE_TO_TRUE = 3;"
+            + "/** @define {boolean|number} */ var DEF_OVERRIDE_TO_TRUE = false;",
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testEmptyDeclaration() {
     testError("/** @define {boolean} */ var DEF;", ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testReassignAfterCall() {
     testError("/** @define {boolean} */var DEF=true;externMethod();DEF=false",
         ProcessDefines.DEFINE_NOT_ASSIGNABLE_ERROR);
   }
 
+  @Test
   public void testReassignAfterRef() {
     testError("/** @define {boolean} */var DEF=true;var x = DEF;DEF=false",
         ProcessDefines.DEFINE_NOT_ASSIGNABLE_ERROR);
   }
 
+  @Test
   public void testReassignWithExpr() {
     testError("/** @define {boolean} */var DEF=true;var x;DEF=x=false",
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testReassignAfterNonGlobalRef() {
     test(
         lines(
-            "/** @fileoverview @suppress {newCheckTypes} */",
             "/** @define {boolean} */ var DEF=true;",
             "var x=function(){var y=DEF};",
             "DEF=false"),
         lines(
-            "/** @fileoverview @suppress {newCheckTypes} */",
             "/** @define {boolean} */ var DEF = false;",
             "var x = function(){var y = DEF; };",
             "false"));
 
     Name def = namespace.getNameIndex().get("DEF");
     assertThat(def.getRefs()).hasSize(2);
-    assertEquals(1, def.globalSets);
-    assertNotNull(def.getDeclaration());
+    assertThat(def.getGlobalSets()).isEqualTo(1);
+    assertThat(def.getDeclaration()).isNotNull();
   }
 
+  @Test
   public void testReassignAfterRefInConditional() {
     testError(
-        "/** @define {boolean} */var DEF=true;" +
-        "if (false) {var x=DEF} DEF=false;",
+        "/** @define {boolean} */var DEF=true; if (false) {var x=DEF} DEF=false;",
         ProcessDefines.DEFINE_NOT_ASSIGNABLE_ERROR);
   }
 
+  @Test
   public void testAssignInNonGlobalScope() {
     testError("/** @define {boolean} */var DEF=true;function foo() {DEF=false};",
         ProcessDefines.NON_GLOBAL_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testDeclareInNonGlobalScope() {
     testError("function foo() {/** @define {boolean} */var DEF=true;};",
         ProcessDefines.NON_GLOBAL_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testDefineAssignmentInLoop() {
     testError("/** @define {boolean} */var DEF=true;var x=0;while (x) {DEF=false;}",
         ProcessDefines.NON_GLOBAL_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testWithNoDefines() {
     testSame("var DEF=true;var x={};x.foo={}");
   }
 
+  @Test
   public void testNamespacedDefine1() {
     test("var a = {}; /** @define {boolean} */ a.B = false; a.B = true;",
          "var a = {}; /** @define {boolean} */ a.B = true; true;");
 
     Name aDotB = namespace.getNameIndex().get("a.B");
     assertThat(aDotB.getRefs()).hasSize(1);
-    assertEquals(1, aDotB.globalSets);
-    assertNotNull(aDotB.getDeclaration());
+    assertThat(aDotB.getGlobalSets()).isEqualTo(1);
+    assertThat(aDotB.getDeclaration()).isNotNull();
   }
 
+  @Test
   public void testNamespacedDefine2a() {
     overrides.put("a.B", new Node(Token.TRUE));
     test("var a = {}; /** @define {boolean} */ a.B = false;",
          "var a = {}; /** @define {boolean} */ a.B = true;");
   }
 
+  @Test
   public void testNamespacedDefine2b() {
     overrides.put("a.B", new Node(Token.TRUE));
     testError(
@@ -363,6 +397,7 @@ public final class ProcessDefinesTest extends CompilerTestCase {
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testNamespacedDefine2c() {
     overrides.put("a.B", new Node(Token.TRUE));
     testError(
@@ -370,29 +405,33 @@ public final class ProcessDefinesTest extends CompilerTestCase {
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testNamespacedDefine3() {
     overrides.put("a.B", new Node(Token.TRUE));
     test("var a = {};", "var a = {};", warning(ProcessDefines.UNKNOWN_DEFINE_WARNING));
   }
 
+  @Test
   public void testNamespacedDefine4() {
     overrides.put("a.B", new Node(Token.TRUE));
     test("var a = {}; /** @define {boolean} */ a.B = false;",
          "var a = {}; /** @define {boolean} */ a.B = true;");
   }
 
-
+  @Test
   public void testOverrideAfterAlias() {
     testError("var x; /** @define {boolean} */var DEF=true; x=DEF; DEF=false;",
         ProcessDefines.DEFINE_NOT_ASSIGNABLE_ERROR);
   }
 
+  @Test
   public void testBasicConstDeclaration() {
     test("/** @define {boolean} */ const DEF = true", "/** @define {boolean} */ const DEF=true");
     test("/** @define {string} */ const DEF = 'a'", "/** @define {string} */ const DEF=\"a\"");
     test("/** @define {number} */ const DEF = 0", "/** @define {number} */ const DEF=0");
   }
 
+  @Test
   public void testConstOverriding1() {
     overrides.put("DEF_OVERRIDE_TO_TRUE", new Node(Token.TRUE));
     test(
@@ -400,31 +439,33 @@ public final class ProcessDefinesTest extends CompilerTestCase {
         "/** @define {boolean} */ const DEF_OVERRIDE_TO_TRUE = true;");
   }
 
+  @Test
   public void testConstOverriding2() {
     test(
         "/** @define {string} */ const DEF_OVERRIDE_STRING = 'x';",
         "/** @define {string} */ const DEF_OVERRIDE_STRING=\"x\"");
   }
 
+  @Test
   public void testConstProducesUnknownDefineWarning() {
     doReplacements = false;
     overrides.put("a.B", new Node(Token.TRUE));
     test("const a = {};", "const a = {};", warning(ProcessDefines.UNKNOWN_DEFINE_WARNING));
   }
 
+  @Test
   public void testAssignBeforeConstDeclaration() {
     testError("DEF=false;const b=false,/** @define {boolean} */DEF=true,c=false",
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
+  @Test
   public void testSimpleConstReassign() {
     test(
         lines(
-            "/** @fileoverview @suppress {newCheckTypes} */",
             "/** @define {boolean} */ const DEF = false;",
             "DEF = true;"),
         lines(
-            "/** @fileoverview @suppress {newCheckTypes} */",
             "/** @define {boolean} */ const DEF=true;",
             "true"));
   }

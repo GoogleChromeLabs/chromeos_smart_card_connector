@@ -48,7 +48,7 @@ class CollapseAnonymousFunctions extends AbstractPostOrderCallback implements Co
 
   @Override
   public void process(Node externs, Node root) {
-    NodeTraversal.traverseEs6(compiler, root, this);
+    NodeTraversal.traverse(compiler, root, this);
   }
 
   @Override
@@ -65,7 +65,7 @@ class CollapseAnonymousFunctions extends AbstractPostOrderCallback implements Co
 
     Node grandparent = parent.getParent();
     if (!(parent.isScript()
-        || (grandparent != null && grandparent.isFunction() && parent.isNormalBlock()))) {
+        || (grandparent != null && grandparent.isFunction() && parent.isBlock()))) {
       return;
     }
 

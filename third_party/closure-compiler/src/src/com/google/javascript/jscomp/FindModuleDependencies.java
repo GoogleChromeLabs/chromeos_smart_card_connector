@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.CompilerInput.ModuleType;
-import com.google.javascript.jscomp.Es6RewriteModules.FindGoogProvideOrGoogModule;
 import com.google.javascript.jscomp.deps.DependencyInfo.Require;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.rhino.Node;
@@ -62,6 +61,38 @@ public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
     this.inputPathByWebpackId = inputPathByWebpackId;
   }
 
+  private static class FindGoogProvideOrGoogModule extends NodeTraversal.AbstractPreOrderCallback {
+
+    private boolean found;
+
+    boolean isFound() {
+      return found;
+    }
+
+    @Override
+    public boolean shouldTraverse(NodeTraversal nodeTraversal, Node n, Node parent) {
+      if (found) {
+        return false;
+      }
+      // Shallow traversal, since we don't need to inspect within functions or expressions.
+      if (parent == null
+          || NodeUtil.isControlStructure(parent)
+          || NodeUtil.isStatementBlock(parent)) {
+        if (n.isExprResult()) {
+          Node maybeGetProp = n.getFirstFirstChild();
+          if (maybeGetProp != null
+              && (maybeGetProp.matchesQualifiedName("goog.provide")
+                  || maybeGetProp.matchesQualifiedName("goog.module"))) {
+            found = true;
+            return false;
+          }
+        }
+        return true;
+      }
+      return false;
+    }
+  }
+
   public void process(Node root) {
     checkArgument(root.isScript());
     if (Es6RewriteModules.isEs6ModuleRoot(root)) {
@@ -78,7 +109,7 @@ public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
       input.addOrderedRequire(Require.BASE);
     }
 
-    NodeTraversal.traverseEs6(compiler, root, this);
+    NodeTraversal.traverse(compiler, root, this);
 
     if (moduleType == ModuleType.ES6) {
       convertToEs6Module(root, true);
@@ -234,7 +265,7 @@ public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
     }
     if (!skipGoogProvideModuleCheck) {
       FindGoogProvideOrGoogModule finder = new FindGoogProvideOrGoogModule();
-      NodeTraversal.traverseEs6(compiler, root, finder);
+      NodeTraversal.traverse(compiler, root, finder);
       if (finder.isFound()) {
         return false;
       }

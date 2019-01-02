@@ -16,16 +16,24 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.truth.Truth.assertThat;
+
+import com.google.javascript.jscomp.DisambiguateProperties.Warnings;
 import com.google.javascript.rhino.Node;
 import java.util.HashMap;
 import java.util.Map;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Unit test for AmbiguateProperties Compiler pass.
  *
  */
 
-public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
+@RunWith(JUnit4.class)
+public final class AmbiguatePropertiesTest extends CompilerTestCase {
   private AmbiguateProperties lastPass;
 
   private static final String EXTERNS = lines(
@@ -44,15 +52,13 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
   }
 
   @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     super.setUp();
+    enableTypeCheck();
     enableNormalize();
     enableClosurePass();
     enableGatherExternProperties();
-    this.mode = TypeInferenceMode.BOTH;
-    ignoreWarnings(
-        NewTypeInference.GLOBAL_THIS,
-        NewTypeInference.PROPERTY_ACCESS_ON_NONOBJECT);
   }
 
   @Override
@@ -72,11 +78,13 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     return 1;
   }
 
+  @Test
   public void testOneVar1() {
     test("/** @constructor */ var Foo = function(){};Foo.prototype.b = 0;",
          "/** @constructor */ var Foo = function(){};Foo.prototype.a = 0;");
   }
 
+  @Test
   public void testOneVar2() {
     test(lines(
             "/** @constructor */ var Foo = function(){};",
@@ -86,6 +94,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
             "Foo.prototype = {a: 0};"));
   }
 
+  @Test
   public void testOneVar3() {
     test(
         lines(
@@ -96,6 +105,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
             "Foo.prototype = {get a() {return 0}};"));
   }
 
+  @Test
   public void testOneVar4() {
     test(
         lines(
@@ -106,6 +116,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
             "Foo.prototype = {set a(a) {}};"));
   }
 
+  @Test
   public void testTwoVar1() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -120,6 +131,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testTwoVar2() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -130,6 +142,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testTwoIndependentVar() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -144,6 +157,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testTwoTypesTwoVar() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -162,28 +176,61 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
-  public void testUnion() {
-    String js = lines(
-        "/** @constructor */ var Foo = function(){};",
-        "/** @constructor */ var Bar = function(){};",
-        "Foo.prototype.foodoo=0;",
-        "Bar.prototype.bardoo=0;",
-        "/** @type {Foo|Bar} */",
-        "var U = any();",
-        "U.joint;",
-        "U.joint");
-    String output = lines(
-        "/** @constructor */ var Foo = function(){};",
-        "/** @constructor */ var Bar = function(){};",
-        "Foo.prototype.b=0;",
-        "Bar.prototype.b=0;",
-        "/** @type {Foo|Bar} */",
-        "var U = any();",
-        "U.a;",
-        "U.a");
+  @Test
+  public void testUnion_withUnrelatedPropertyAccess() {
+    String js =
+        lines(
+            "/** @constructor */ var Foo = function(){};",
+            "/** @constructor */ var Bar = function(){};",
+            "Foo.prototype.foodoo=0;",
+            "Bar.prototype.bardoo=0;",
+            // variable exists that could be a Foo or a Bar
+            "/** @type {Foo|Bar} */",
+            "var U = any();",
+            // We don't actually access either foodoo or bardoo on it,
+            // though, so it's OK if they end up having the same name
+            "U.joint");
+    String output =
+        lines(
+            "/** @constructor */ var Foo = function(){};",
+            "/** @constructor */ var Bar = function(){};",
+            "Foo.prototype.a=0;",
+            "Bar.prototype.a=0;",
+            "/** @type {Foo|Bar} */",
+            "var U = any();",
+            "U.b");
     test(js, output);
   }
 
+  @Test
+  public void testUnion_withRelatedPropertyAccess() {
+    String js =
+        lines(
+            "/** @constructor */ var Foo = function(){};",
+            "/** @constructor */ var Bar = function(){};",
+            "Foo.prototype.foodoo=0;",
+            "Bar.prototype.bardoo=0;",
+            // variable exists that could be a Foo or a Bar
+            "/** @type {Foo|Bar} */",
+            "var U = any();",
+            // both foodoo and bardoo are accessed through that variable,
+            // so they must have different names.
+            "U.foodoo;",
+            "U.bardoo");
+    String output =
+        lines(
+            "/** @constructor */ var Foo = function(){};",
+            "/** @constructor */ var Bar = function(){};",
+            "Foo.prototype.b=0;",
+            "Bar.prototype.a=0;",
+            "/** @type {Foo|Bar} */",
+            "var U = any();",
+            "U.b;",
+            "U.a");
+    test(js, output);
+  }
+
+  @Test
   public void testUnions() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -230,6 +277,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testExtends() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -258,6 +306,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testLotsOfVars() {
     StringBuilder js = new StringBuilder();
     StringBuilder output = new StringBuilder();
@@ -275,6 +324,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js.toString(), output.toString());
   }
 
+  @Test
   public void testLotsOfClasses() {
     StringBuilder b = new StringBuilder();
     int classes = 10;
@@ -287,6 +337,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, js.replaceAll("varness\\d+", "a"));
   }
 
+  @Test
   public void testFunctionType() {
     String js = lines(
         "/** @constructor */ function Foo(){};",
@@ -305,6 +356,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testPrototypePropertiesAsObjLitKeys1() {
     test("/** @constructor */ function Bar() {};" +
              "Bar.prototype = {2: function(){}, getA: function(){}};",
@@ -312,11 +364,13 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
              "Bar.prototype = {2: function(){}, a: function(){}};");
   }
 
+  @Test
   public void testPrototypePropertiesAsObjLitKeys2() {
     testSame("/** @constructor */ function Bar() {};" +
              "Bar.prototype = {2: function(){}, 'getA': function(){}};");
   }
 
+  @Test
   public void testQuotedPrototypeProperty() {
     testSame("/** @constructor */ function Bar() {};" +
              "Bar.prototype['getA'] = function(){};" +
@@ -324,6 +378,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
              "bar['getA']();");
   }
 
+  @Test
   public void testObjectDefineProperties() {
     String js =
         lines(
@@ -362,6 +417,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, result);
   }
 
+  @Test
   public void testObjectDefinePropertiesQuoted() {
     String js =
         lines(
@@ -400,6 +456,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, result);
   }
 
+  @Test
   public void testOverlappingOriginalAndGeneratedNames() {
     test(
         lines(
@@ -416,15 +473,18 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
             "bar.a();"));
   }
 
+  @Test
   public void testPropertyAddedToObject() {
     testSame("var foo = {}; foo.prop = '';");
   }
 
+  @Test
   public void testPropertyAddedToFunction() {
     test("var foo = function(){}; foo.prop = '';",
          "var foo = function(){}; foo.a = '';");
   }
 
+  @Test
   public void testPropertyAddedToFunctionIndirectly() {
     test(
         lines(
@@ -435,10 +495,12 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
             "function f(/** function(): void */ fun) { fun.bar = ''; fun.baz = ''; }"));
   }
 
+  @Test
   public void testPropertyOfObjectOfUnknownType() {
     testSame("var foo = x(); foo.prop = '';");
   }
 
+  @Test
   public void testPropertyOnParamOfUnknownType() {
     testSame(
         lines(
@@ -449,18 +511,22 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
              "}"));
   }
 
+  @Test
   public void testSetPropertyOfGlobalThis() {
     test("this.prop = 'bar'", "this.a = 'bar'");
   }
 
+  @Test
   public void testReadPropertyOfGlobalThis() {
     testSame(externs(EXTERNS + "Object.prototype.prop;"), srcs("f(this.prop);"));
   }
 
+  @Test
   public void testSetQuotedPropertyOfThis() {
     testSame("this['prop'] = 'bar';");
   }
 
+  @Test
   public void testExternedPropertyName() {
     test(
         lines(
@@ -477,10 +543,12 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
             "bar.toString();"));
   }
 
+  @Test
   public void testExternedPropertyNameDefinedByObjectLiteral() {
     testSame("/**@constructor*/function Bar(){};Bar.prototype.factory");
   }
 
+  @Test
   public void testStaticAndInstanceMethodWithSameName() {
     test("/** @constructor */function Bar(){}; Bar.getA = function(){}; " +
          "Bar.prototype.getA = function(){}; Bar.getA();" +
@@ -490,6 +558,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
          "var bar = new Bar(); bar.a();");
   }
 
+  @Test
   public void testStaticAndInstanceProperties() {
     test("/** @constructor */function Bar(){};" +
          "Bar.getA = function(){}; " +
@@ -498,6 +567,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
          "Bar.prototype.a = function(){};");
   }
 
+  @Test
   public void testStaticAndSubInstanceProperties() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -516,6 +586,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testStatic() {
     String js = lines(
       "/** @constructor */ var Foo = function() {};",
@@ -531,6 +602,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testClassWithStaticsPassedToUnrelatedFunction() {
     String js = lines(
       "/** @constructor */ var Foo = function() {};",
@@ -545,6 +617,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testClassWithStaticsPassedToRelatedFunction() {
     String js = lines(
       "/** @constructor */ var Foo = function() {};",
@@ -554,9 +627,9 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     testSame(js);
   }
 
+  @Test
   public void testTypeMismatch() {
     ignoreWarnings(
-        NewTypeInference.MISTYPED_ASSIGN_RHS,
         TypeValidator.TYPE_MISMATCH_WARNING);
     testSame(lines(
         "/** @constructor */var Foo = function(){};",
@@ -566,6 +639,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
         "var F = new Bar();"));
   }
 
+  @Test
   public void testRenamingMap() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -585,9 +659,10 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     answerMap.put("x", "b");
     answerMap.put("y", "c");
     answerMap.put("z", "a");
-    assertEquals(answerMap, lastPass.getRenamingMap());
+    assertThat(lastPass.getRenamingMap()).isEqualTo(answerMap);
   }
 
+  @Test
   public void testInline() {
     String js = lines(
         "/** @interface */ function Foo(){}",
@@ -620,6 +695,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testImplementsAndExtends() {
     String js = lines(
         "/** @interface */ function Foo() {}",
@@ -648,6 +724,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testImplementsAndExtends2() {
     String js = lines(
         "/** @interface */ function A() {}",
@@ -680,6 +757,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testExtendsInterface() {
     String js = lines(
         "/** @interface */ function A() {}",
@@ -694,9 +772,9 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testInterfaceWithSubInterfaceAndDirectImplementors() {
     ignoreWarnings(
-        GlobalTypeInfoCollector.INTERFACE_METHOD_NOT_IMPLEMENTED,
         TypeValidator.INTERFACE_METHOD_NOT_IMPLEMENTED);
     test(
         lines(
@@ -713,6 +791,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
             "Baz.prototype.a = function(){};"));
   }
 
+  @Test
   public void testFunctionSubType() {
     String js = lines(
         "Function.prototype.a = 1;",
@@ -725,6 +804,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testFunctionSubType2() {
     String js = lines(
         "Function.prototype.a = 1;",
@@ -737,6 +817,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testPredeclaredType() {
     String js = lines(
         "goog.addDependency('zzz.js', ['goog.Foo'], []);",
@@ -757,6 +838,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, result);
   }
 
+  @Test
   public void testBug14291280() {
     String js = lines(
         "/** @constructor \n @template T */\n",
@@ -787,6 +869,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, result);
   }
 
+  @Test
   public void testAmbiguateWithAnAlias() {
     String js = lines(
         "/** @constructor */ function Foo() { this.abc = 5; }\n",
@@ -805,6 +888,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, result);
   }
 
+  @Test
   public void testAmbiguateWithAliases() {
     String js = lines(
         "/** @constructor */ function Foo() { this.abc = 5; }\n",
@@ -832,6 +916,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
   }
 
   // See https://github.com/google/closure-compiler/issues/1358
+  @Test
   public void testAmbiguateWithStructuralInterfaces() {
     String js = lines(
         "/** @record */",
@@ -851,6 +936,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
   }
 
   // See https://github.com/google/closure-compiler/issues/2119
+  @Test
   public void testUnrelatedObjectLiterals() {
     testSame(lines(
         "/** @constructor */ function Foo() {}",
@@ -859,6 +945,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
         "var lit2 = {b: new Bar()};"));
   }
 
+  @Test
   public void testObjectLitTwoVar() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -869,6 +956,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testObjectLitTwoIndependentVar() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -883,6 +971,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testObjectLitTwoTypesTwoVar() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -897,6 +986,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testObjectLitUnion() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -917,6 +1007,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testObjectLitUnions() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -963,6 +1054,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testObjectLitExtends() {
     String js = lines(
         "/** @constructor */ var Foo = function(){};",
@@ -985,6 +1077,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testObjectLitLotsOfClasses() {
     StringBuilder b = new StringBuilder();
     int classes = 10;
@@ -997,6 +1090,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, js.replaceAll("varness\\d+", "a"));
   }
 
+  @Test
   public void testObjectLitFunctionType() {
     String js = lines(
         "/** @constructor */ function Foo(){};",
@@ -1013,6 +1107,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testObjectLitOverlappingOriginalAndGeneratedNames() {
     test(
         lines(
@@ -1027,6 +1122,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
             "bar.a();"));
   }
 
+  @Test
   public void testEnum() {
     // TODO(sdh): Consider removing this test if we decide that enum objects are
     // okay to ambiguate (in which case, this would rename to Foo.a).
@@ -1036,6 +1132,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
             "var x = Foo.X"));
   }
 
+  @Test
   public void testUnannotatedConstructorsDontCrash() {
     testSame(lines(
         "function Foo() {}",
@@ -1044,6 +1141,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
         "Bar.prototype.a;"));
   }
 
+  @Test
   public void testGenericPrototypeObject() {
     String js = lines(
         "/**",
@@ -1078,6 +1176,7 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
+  @Test
   public void testPropertiesWithTypesThatHaveBeenNarrowed() {
     String js = lines(
         "/** @constructor */",
@@ -1110,38 +1209,433 @@ public final class AmbiguatePropertiesTest extends TypeICompilerTestCase {
     test(js, output);
   }
 
-  public void testDontInvalidateParameterizedObjectTypes() {
+  @Test
+  public void testDontRenamePrototypeWithoutExterns() {
     String js = lines(
-        "/** @constructor */",
-        "function Foo() {",
-        "  this.prop = 1;",
-        "}",
-        "Foo.prototype.toString = function() { return ''; };",
-        "/** @constructor */",
-        "function Bar() {",
-        "  this.prop = 2;",
-        "}",
-        "Bar.prototype.prop2 = function() {};",
-        "/** @type {!Object<string, !Bar>} */",
-        "var x = {};",
-        "x.prop = 3;");
+      "/** @interface */",
+      "function Foo() {}",
+      "/** @return {!Foo} */",
+      "Foo.prototype.foo = function() {};");
 
     String output = lines(
-        "/** @constructor */",
-        "function Foo() {",
-        "  this.a = 1;",
-        "}",
-        "Foo.prototype.toString = function() { return ''; };",
-        "/** @constructor */",
-        "function Bar() {",
-        "  this.a = 2;",
-        "}",
-        "Bar.prototype.b = function() {};",
-        "/** @type {!Object<string, !Bar>} */",
-        "var x = {};",
-        "x.a = 3;");
+      "/** @interface */",
+      "function Foo() {}",
+      "/** @return {!Foo} */",
+      "Foo.prototype.a = function() {};");
 
-    this.mode = TypeInferenceMode.NTI_ONLY;
-    test(js, output);
+    test(externs(""), srcs(js), expected(output));
+  }
+
+  @Test
+  public void testInvalidRenameFunction_withZeroArgs_causesWarning() {
+    testError("const p = JSCompiler_renameProperty()", Warnings.INVALID_RENAME_FUNCTION);
+  }
+
+  @Test
+  public void testInvalidRenameFunction_withThreeArgs_causesWarning() {
+    testError("const p = JSCompiler_renameProperty('foo', 0, 1)", Warnings.INVALID_RENAME_FUNCTION);
+  }
+
+  @Test
+  public void testInvalidRenameFunction_withNonStringArg_causesWarning() {
+    testError("const p = JSCompiler_renameProperty(0)", Warnings.INVALID_RENAME_FUNCTION);
+  }
+
+  @Test
+  public void testInvalidRenameFunction_withPropertyRefInFirstArg_causesWarning() {
+    testError("const p = JSCompiler_renameProperty('a.b')", Warnings.INVALID_RENAME_FUNCTION);
+  }
+
+  @Test
+  public void testJSCompiler_renameProperty_twoArgs_blocksAmbiguation() {
+    testSame(
+        lines(
+            "/** @constructor */",
+            "function Foo() {}",
+            "Foo.prototype.bar = 3;",
+            "const barName = JSCompiler_renameProperty('bar', Foo);"));
+  }
+
+  @Test
+  public void testJSCompiler_renameProperty_oneArg_blocksAmbiguation() {
+    testSame(
+        lines(
+            "/** @constructor */",
+            "function Foo() {}",
+            "Foo.prototype.bar = 3;",
+            "const barName = JSCompiler_renameProperty('bar');"));
+  }
+
+  @Test
+  public void testSingleClass_withSingleMemberFn_ambiguated() {
+    test("class Foo { methodFoo() {} }", "class Foo { a() {} }");
+  }
+
+  @Test
+  public void testQuotedMemberFnInClass_notAmbiguated() {
+    testSame("/** @dict */ class Foo { 'methodFoo'() {} }");
+  }
+
+  @Test
+  public void testQuotedMemberFnInClassReservesPropertyName() {
+    test(
+        "/** @unrestricted */ class Foo { 'a'() {} foo() {} }",
+        "/** @unrestricted */ class Foo { 'a'() {} b() {} }");
+  }
+
+  @Test
+  public void testSingleClass_withTwoMemberFns_notAmbiguated() {
+    test("class Foo { method1() {} method2() {} }", "class Foo { a() {} b() {} }");
+  }
+
+  @Test
+  public void testSingleClass_withStaticAndPrototypeMemberFns_ambiguated() {
+    test("class Foo { static method1() {} method2() {} }", "class Foo { static a() {} a() {} }");
+  }
+
+  @Test
+  public void testTwoUnrelatedClasses_withMemberFns_ambiguated() {
+    test(
+        "class Foo { methodFoo() {} } class Bar { methodBar() {} }",
+        "class Foo { a() {} } class Bar { a() {} }");
+  }
+
+  @Test
+  public void testTwoUnrelatedClasses_withStaticMemberFns_ambiguatede() {
+    test(
+        lines(
+            "class Foo { static methodFoo() {} }", //
+            "class Bar { static methodBar() {} }"),
+        lines(
+            "class Foo { a() {} }", //
+            "class Bar { a() {} }"));
+  }
+
+  @Test
+  public void testEs6SuperclassStaticMethod_notAmbiguated() {
+    test(
+        lines(
+            "class Foo { static methodFoo() {} }",
+            "class Bar extends Foo { static methodBar() {} }"),
+        // Since someone could access Foo.methodFoo() through Bar, make sure the methods get
+        // distinct names.
+        lines(
+            "class Foo { static b() {} }", //
+            "class Bar extends Foo { static a() {} }"));
+  }
+
+  @Test
+  public void testEs6SubclassChain_withStaticMethods_notAmbiguated() {
+    test(
+        lines(
+            "class Foo { static methodFoo() { alert('foo'); } }",
+            "class Bar extends Foo { static methodBar() {alert('bar'); } }",
+            "class Baz extends Bar { static methodBaz() {alert('baz'); } }",
+            "class Moo extends Baz { static methodMoo() { alert('moo'); } }",
+            "Moo.methodFoo();"),
+        // All four static methods must get distinct names, so that Moo.a resolves correctly to
+        // Foo.a
+        lines(
+            "class Foo { static a() {alert('foo'); } }", //
+            "class Bar extends Foo { static b() {alert('bar'); } }",
+            "class Baz extends Bar { static c() {alert('baz'); } }",
+            "class Moo extends Baz { static d() { alert('moo'); } }",
+            "Moo.a();"));
+  }
+
+  @Test
+  public void testEs5ClassWithExtendsChainStaticMethods_notAmbiguated() {
+    test(
+        lines(
+            "/** @constructor */ function Foo () {}",
+            "Foo.methodFoo = function() { alert('foo'); };",
+            "class Bar extends Foo { static methodBar() {alert('bar'); } }",
+            "class Baz extends Bar { static methodBaz() {alert('baz'); } }",
+            "class Moo extends Baz { static methodMoo() { alert('moo'); } }",
+            "Moo.methodFoo();"),
+        lines(
+            "/** @constructor */ function Foo () {}",
+            "Foo.a = function() { alert('foo'); };",
+            "class Bar extends Foo { static b() {alert('bar'); } }",
+            "class Baz extends Bar { static c() {alert('baz'); } }",
+            "class Moo extends Baz { static d() { alert('moo'); } }",
+            "Moo.a();"));
+  }
+
+  @Test
+  public void testEs5ClassWithEs5SubclassWtaticMethods_ambiguated() {
+    test(
+        lines(
+            "/** @constructor */ function Foo () {}",
+            "Foo.methodFoo = function() { alert('foo'); };",
+            "/** @constructor @extends {Foo} */ function Bar() {}",
+            "Bar.methodBar = function() { alert('bar'); };"),
+        lines(
+            "/** @constructor */ function Foo () {}",
+            "Foo.a = function() { alert('foo'); };",
+            "/** @constructor @extends {Foo} */ function Bar() {}",
+            "Bar.a = function() { alert('bar'); };"));
+  }
+
+  @Test
+  public void testClassWithSuperclassStaticMethodsCalledWithSuper_ambiguated() {
+
+    test(
+        lines(
+            "class Foo { static methodFoo() {} }",
+            "class Bar extends Foo { static methodBar() { super.methodFoo(); } }"),
+        // Since someone could access Foo.methodFoo() through Bar, make sure the methods get
+        // distinct names.
+        lines(
+            "class Foo { static a() {} }", //
+            "class Bar extends Foo { static b() { super.a(); } }"));
+  }
+
+  @Test
+  public void testGetterInClass_ambiguated() {
+    test("class Foo { get prop() {} }", "class Foo { get a() {} }");
+  }
+
+  @Test
+  public void testQuotedGetterInClass_isNotAmbiguated() {
+    testSame("/** @dict */ class Foo { get 'prop'() {} }");
+  }
+
+  @Test
+  public void testQuotedGetterInClassReservesPropertyName() {
+    test(
+        "/** @unrestricted */ class Foo { get 'a'() {} foo() {} }",
+        "/** @unrestricted */ class Foo { get 'a'() {} b() {} }");
+  }
+
+  @Test
+  public void testSetterInClass_isAmbiguated() {
+    test("class Foo { set prop(x) {} }", "class Foo { set a(x) {} }");
+  }
+
+  @Test
+  public void testQuotedSetterInClass_notAmbiguated() {
+    testSame("/** @dict */ class Foo { set 'prop'(x) {} }");
+  }
+
+  @Test
+  public void testSameGetterAndSetterInClass_ambiguated() {
+    test("class Foo { get prop() {} set prop(x) {} }", "class Foo { get a() {} set a(x) {} }");
+  }
+
+  @Test
+  public void testDistinctGetterAndSetterInClass_notAmbiguated() {
+    test("class Foo { set propA(x) {} get propB() {} }", "class Foo { set a(x) {} get b() {} }");
+  }
+
+  @Test
+  public void testComputedMemberFunctionInClass_notAmbiguated() {
+    testSame("/** @dict */ class Foo { ['method']() {}}");
+  }
+
+  @Test
+  public void testSimpleComputedMemberFnInClassReservesPropertyName() {
+    test(
+        "/** @unrestricted */ class Foo { ['a']() {} foo() {} }",
+        "/** @unrestricted */ class Foo { ['a']() {} b() {} }");
+  }
+
+  @Test
+  public void testComplexComputedMemberFnInClassDoesntReservePropertyName() {
+    // we don't try to evaluate 'a' + '' to see that it's identical to 'a', and so end up renaming
+    // 'foo' -> 'a'
+    // The property name invalidation is already just a heuristic, so just handle the very simple
+    // case of ['a']() {}
+    test(
+        "/** @unrestricted */ class Foo { ['a' + '']() {} foo() {} }",
+        "/** @unrestricted */ class Foo { ['a' + '']() {} a() {} }");
+  }
+
+  @Test
+  public void testEs6ClassConstructorMethod_notAmbiguated() {
+    testSame("class Foo { constructor() {} }");
+  }
+
+  @Test
+  public void testAmbiguateEs6ClassMethodsDoesntCrashOnClassInACast() {
+    // the cast causes the actual CLASS node to have the unknown type, so verify that the pass
+    // can handle it not being a function type.
+    testSame(
+        lines(
+            "const Foo = /** @type {?} */ (class {", //
+            "  method() {}",
+            "});",
+            "class Bar {",
+            "  method() {}",
+            "}"));
+  }
+
+  @Test
+  public void testObjectSetPrototypeOfIsIgnored() {
+    test(
+        externs("Object.setPrototypeOf = function(obj, proto) {}"),
+        srcs(
+            lines(
+                "/** @constructor */",
+                "function Foo() {}",
+                "Foo.fooMethod = () => 3;",
+                "/** @constructor */",
+                "function Bar() {}",
+                "Bar.barMethod = () => 4;",
+                "Object.setPrototypeOf(Foo, Bar);")),
+        expected(
+            lines(
+                "/** @constructor */",
+                "function Foo() {}",
+                "Foo.a = () => 3;",
+                "/** @constructor */",
+                "function Bar() {}",
+                "Bar.a = () => 4;",
+                "Object.setPrototypeOf(Foo, Bar);")));
+    // now trying to reference Foo.barMethod will not work, and will call barMethod instead.
+    // AmbiguateProperties currently ignores this case
+  }
+
+  @Test
+  public void testComputedPropertyInObjectLiteral_notAmbiguated() {
+    testSame("const obj = {['a']: 3, b: 4}");
+  }
+
+  @Test
+  public void testQuotedPropertyInObjectLiteralReservesPropertyName() {
+    test(
+        "const obj = {'a': 3}; class C { method() {}}",
+        // `method` is renamed to `b`, not `a`, to avoid colliding with the computed prop.
+        // This is just a heuristic; JSCompiler cannot statically determine all string
+        // property names.
+        "const obj = {'a': 3}; class C { b() {}}");
+  }
+
+  @Test
+  public void testQuotedMemberFnInObjectLiteralReservesPropertyName() {
+    test(
+        "const obj = {'a'() {}}; class C { method() {}}",
+        "const obj = {'a'() {}}; class C { b() {}}");
+  }
+
+  @Test
+  public void testComputedPropertyInObjectLiteralReservesPropertyName() {
+    test(
+        "const obj = {['a']: 3}; class C { method() {}}",
+        "const obj = {['a']: 3}; class C { b() {}}");
+  }
+
+  @Test
+  public void testMemberFnInObjectLiteralPreventsPropertyRenaming() {
+    // Don't rename the class member 'm' because the object literal type is invalidating, and
+    // also has a property 'm'
+    testSame("const obj = {m() {}}; class C {m() {}}");
+  }
+
+  @Test
+  public void testSimplePropInObjectLiteralPreventsPropertyRenaminge() {
+    // Don't rename the class member 'm' because the object literal type is invalidating, and
+    // also has a property 'm'
+    testSame("const obj = {m: 0}; class C {m() {}}");
+  }
+
+  @Test
+  public void testObjectPatternDeclarationWithStringKey_ambiguated() {
+    test(
+        lines(
+            "class Foo {", //
+            "  method() {}",
+            "}",
+            "const {method} = new Foo();"),
+        lines(
+            "class Foo {", //
+            "  a() {}",
+            "}",
+            "const {a: method} = new Foo();"));
+  }
+
+  @Test
+  public void testObjectPatternDeclarationWithStringKeWithDefault_ambiguated() {
+    test(
+        lines(
+            "class Foo {", //
+            "  method() {}",
+            "}",
+            "const {method = () => 3} = new Foo();"),
+        lines(
+            "class Foo {", //
+            "  a() {}",
+            "}",
+            "const {a: method = () => 3} = new Foo();"));
+  }
+
+  @Test
+  public void testNestedObjectPatternWithStringKey_ambiguated() {
+    test(
+        lines(
+            "class Foo {", //
+            "  method() {}",
+            "}",
+            "const {foo: {method}} = {foo: new Foo()};"),
+        lines(
+            "class Foo {", //
+            "  a() {}",
+            "}",
+            // note: we rename the 'method' access but not 'foo', because we don't try ambiguating
+            // properties on object literal types.
+            "const {foo: {a: method}} = {foo: new Foo()};"));
+  }
+
+  @Test
+  public void testObjectPatternParameterWithStringKey_ambiguated() {
+    test(
+        lines(
+            "class Foo {", //
+            "  method() {}",
+            "}",
+            "/** @param {!Foo} foo */",
+            "function f({method}) {}"),
+        lines(
+            "class Foo {", //
+            "  a() {}",
+            "}",
+            "/** @param {!Foo} foo */",
+            "function f({a: method}) {}"));
+  }
+
+  @Test
+  public void testObjectPatternQuotedStringKey_notAmbiguated() {
+    // this emits a warning for a computed property access on a struct, since property ambiguation
+    // will break this code.
+    ignoreWarnings(TypeValidator.ILLEGAL_PROPERTY_ACCESS);
+    test(
+        lines(
+            "class Foo {", //
+            "  method() {}",
+            "}",
+            "const {'method': method} = new Foo();"),
+        lines(
+            "class Foo {", //
+            "  a() {}",
+            "}",
+            "const {'method': method} = new Foo();"));
+  }
+
+  @Test
+  public void testObjectPatternComputedProperty_notAmbiguated() {
+    // this emits a warning for a computed property access on a struct, since property ambiguation
+    // will break this code.
+    ignoreWarnings(TypeValidator.ILLEGAL_PROPERTY_ACCESS);
+    test(
+        lines(
+            "class Foo {", //
+            "  method() {}",
+            "}",
+            "const {['method']: method} = new Foo();"),
+        lines(
+            "class Foo {", //
+            "  a() {}",
+            "}",
+            "const {['method']: method} = new Foo();"));
   }
 }

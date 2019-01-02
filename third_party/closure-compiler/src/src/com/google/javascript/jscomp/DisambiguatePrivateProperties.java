@@ -17,7 +17,6 @@ package com.google.javascript.jscomp;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.rhino.Node;
-
 import java.util.Collection;
 
 /**
@@ -54,7 +53,9 @@ class DisambiguatePrivateProperties
 
   @Override
   public void process(Node externs, Node root) {
-    NodeTraversal.traverseEs6(compiler, root, this);
+    NodeTraversal.traverse(compiler, root, this);
+    // We may have renamed some getter / setter properties
+    GatherGettersAndSetterProperties.update(compiler, externs, root);
   }
 
   @Override

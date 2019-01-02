@@ -57,7 +57,7 @@ var TypedMessage = GSC.TypedMessage;
  *
  * Returns null if the parsing failed.
  * @param {*} message
- * @return {TypedMessage}
+ * @return {TypedMessage?}
  */
 TypedMessage.parseTypedMessage = function(message) {
   if (!goog.isObject(message) ||

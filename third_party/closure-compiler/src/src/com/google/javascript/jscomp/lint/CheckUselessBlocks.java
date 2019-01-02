@@ -59,12 +59,12 @@ public final class CheckUselessBlocks implements Callback, HotSwapCompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
-    NodeTraversal.traverseEs6(compiler, root, this);
+    NodeTraversal.traverse(compiler, root, this);
   }
 
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    NodeTraversal.traverseEs6(compiler, scriptRoot, this);
+    NodeTraversal.traverse(compiler, scriptRoot, this);
   }
 
   /**
@@ -74,7 +74,7 @@ public final class CheckUselessBlocks implements Callback, HotSwapCompilerPass {
   private boolean isLoneBlock(Node n) {
     Node parent = n.getParent();
     if (parent != null && (parent.isScript()
-        || (parent.isNormalBlock() && !parent.isSyntheticBlock() && !parent.isAddedBlock()))) {
+        || (parent.isBlock() && !parent.isSyntheticBlock() && !parent.isAddedBlock()))) {
       return !n.isSyntheticBlock() && !n.isAddedBlock();
     }
     return false;
@@ -123,7 +123,7 @@ public final class CheckUselessBlocks implements Callback, HotSwapCompilerPass {
 
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
-    if (n.isNormalBlock() && !loneBlocks.isEmpty() && loneBlocks.peek() == n) {
+    if (n.isBlock() && !loneBlocks.isEmpty() && loneBlocks.peek() == n) {
       loneBlocks.pop();
       t.report(n, USELESS_BLOCK);
     }

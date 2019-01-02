@@ -20,10 +20,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfo.Visibility;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.ObjectTypeI;
 import com.google.javascript.rhino.StaticSourceFile;
-import com.google.javascript.rhino.TypeI;
-
+import com.google.javascript.rhino.jstype.JSType;
+import com.google.javascript.rhino.jstype.ObjectType;
 import javax.annotation.Nullable;
 
 /**
@@ -59,7 +58,7 @@ public final class AccessControlUtils {
     }
     Visibility defaultVisibilityForFile =
         fileVisibilityMap.get(var.getSourceFile());
-    TypeI type = name.getTypeI();
+    JSType type = name.getJSType();
     boolean createdFromGoogProvide = (type != null && type.isLiteralObject());
     // Ignore @fileoverview visibility when computing the effective visibility
     // for names created by goog.provide.
@@ -95,7 +94,7 @@ public final class AccessControlUtils {
    */
   static Visibility getEffectivePropertyVisibility(
       Node property,
-      ObjectTypeI referenceType,
+      ObjectType referenceType,
       ImmutableMap<StaticSourceFile, Visibility> fileVisibilityMap,
       @Nullable CodingConvention codingConvention) {
     String propertyName = property.getLastChild().getString();
@@ -106,7 +105,7 @@ public final class AccessControlUtils {
     boolean isOverride = parent.getJSDocInfo() != null
         && parent.isAssign()
         && parent.getFirstChild() == property;
-    ObjectTypeI objectType = getObjectType(
+    ObjectType objectType = getObjectType(
         referenceType, isOverride, propertyName);
     if (isOverride) {
       Visibility overridden = getOverriddenPropertyVisibility(
@@ -119,26 +118,24 @@ public final class AccessControlUtils {
     }
   }
 
-  /**
-   * Returns the source file in which the given property is defined,
-   * or null if it is not known.
-   */
-  @Nullable static StaticSourceFile getDefiningSource(
-      Node getprop, @Nullable ObjectTypeI referenceType, String propertyName) {
+  /** Returns the source file in which the given property is defined, or null if it is not known. */
+  @Nullable
+  static StaticSourceFile getDefiningSource(
+      Node node, @Nullable ObjectType referenceType, String propertyName) {
     if (referenceType != null) {
       Node propDefNode = referenceType.getPropertyDefSite(propertyName);
       if (propDefNode != null) {
         return propDefNode.getStaticSourceFile();
       }
     }
-    return getprop.getStaticSourceFile();
+    return node.getStaticSourceFile();
   }
 
   /**
    * Returns the lowest property defined on a class with visibility information.
    */
-  @Nullable static ObjectTypeI getObjectType(
-      @Nullable ObjectTypeI referenceType,
+  @Nullable static ObjectType getObjectType(
+      @Nullable ObjectType referenceType,
       boolean isOverride,
       String propertyName) {
     if (referenceType == null) {
@@ -146,8 +143,8 @@ public final class AccessControlUtils {
     }
 
     // Find the lowest property defined on a class with visibility information.
-    ObjectTypeI current = isOverride ? referenceType.getPrototypeObject() : referenceType;
-    for (; current != null; current = current.getPrototypeObject()) {
+    ObjectType current = isOverride ? referenceType.getImplicitPrototype() : referenceType;
+    for (; current != null; current = current.getImplicitPrototype()) {
       JSDocInfo docInfo = current.getOwnPropertyJSDocInfo(propertyName);
       if (docInfo != null && docInfo.getVisibility() != Visibility.INHERITED) {
         return current;
@@ -156,22 +153,18 @@ public final class AccessControlUtils {
     return null;
   }
 
-  /**
-   * Returns the original visibility of an overridden property.
-   */
-  private static Visibility getOverriddenPropertyVisibility(
-      ObjectTypeI objectType, String propertyName) {
+  /** Returns the original visibility of an overridden property. */
+  static Visibility getOverriddenPropertyVisibility(ObjectType objectType, String propertyName) {
     return objectType != null
         ? objectType.getOwnPropertyJSDocInfo(propertyName).getVisibility()
         : Visibility.INHERITED;
   }
 
   /**
-   * Returns the effective visibility of the given overridden property.
-   * An overridden property inherits the visibility of the property it
-   * overrides.
+   * Returns the effective visibility of the given overridden property. An overridden property
+   * inherits the visibility of the property it overrides.
    */
-  private static Visibility getEffectiveVisibilityForOverriddenProperty(
+  static Visibility getEffectiveVisibilityForOverriddenProperty(
       Visibility visibility,
       @Nullable Visibility fileOverviewVisibility,
       String propertyName,
@@ -193,7 +186,7 @@ public final class AccessControlUtils {
    */
   private static Visibility getEffectiveVisibilityForNonOverriddenProperty(
       Node getprop,
-      ObjectTypeI objectType,
+      ObjectType objectType,
       @Nullable Visibility fileOverviewVisibility,
       @Nullable CodingConvention codingConvention) {
     String propertyName = getprop.getLastChild().getString();
@@ -204,7 +197,7 @@ public final class AccessControlUtils {
     if (objectType != null) {
       raw = objectType.getOwnPropertyJSDocInfo(propertyName).getVisibility();
     }
-    TypeI type = getprop.getTypeI();
+    JSType type = getprop.getJSType();
     boolean createdFromGoogProvide = (type != null && type.isLiteralObject());
     // Ignore @fileoverview visibility when computing the effective visibility
     // for properties created by goog.provide.

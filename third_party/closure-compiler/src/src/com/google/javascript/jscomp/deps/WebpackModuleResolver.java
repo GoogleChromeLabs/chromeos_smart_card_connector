@@ -20,7 +20,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.ErrorHandler;
+import com.google.javascript.jscomp.deps.ModuleLoader.ModuleResolverFactory;
+import com.google.javascript.jscomp.deps.ModuleLoader.PathEscaper;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import javax.annotation.Nullable;
 
 /**
@@ -32,12 +36,48 @@ import javax.annotation.Nullable;
 public class WebpackModuleResolver extends NodeModuleResolver {
   private final ImmutableMap<String, String> modulesById;
 
+  /**
+   * Uses a lookup map provided by webpack to locate modules from a numeric id used during import
+   */
+  public static final class Factory implements ModuleResolverFactory {
+    private final Map<String, String> lookupMap;
+
+    public Factory(Map<String, String> lookupMap) {
+      this.lookupMap = lookupMap;
+    }
+
+    @Override
+    public ModuleResolver create(
+        ImmutableSet<String> modulePaths,
+        ImmutableList<String> moduleRootPaths,
+        ErrorHandler errorHandler,
+        PathEscaper pathEscaper) {
+      Map<String, String> normalizedPathsById = new HashMap<>();
+      for (Entry<String, String> moduleEntry : lookupMap.entrySet()) {
+        String canonicalizedPath =
+            ModuleLoader.normalize(pathEscaper.escape(moduleEntry.getValue()), moduleRootPaths);
+        if (ModuleLoader.isAmbiguousIdentifier(canonicalizedPath)) {
+          canonicalizedPath = ModuleLoader.MODULE_SLASH + canonicalizedPath;
+        }
+        normalizedPathsById.put(moduleEntry.getKey(), canonicalizedPath);
+      }
+      return new WebpackModuleResolver(
+          modulePaths, moduleRootPaths, normalizedPathsById, errorHandler, pathEscaper);
+    }
+  }
+
   public WebpackModuleResolver(
       ImmutableSet<String> modulePaths,
       ImmutableList<String> moduleRootPaths,
       Map<String, String> modulesById,
-      ErrorHandler errorHandler) {
-    super(modulePaths, moduleRootPaths, null, errorHandler);
+      ErrorHandler errorHandler,
+      PathEscaper pathEscaper) {
+    super(
+        modulePaths,
+        moduleRootPaths,
+        /* packageJsonMainEntries= */ null,
+        errorHandler,
+        pathEscaper);
 
     this.modulesById = ImmutableMap.copyOf(modulesById);
   }

@@ -19,12 +19,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
-import com.google.javascript.rhino.FunctionTypeI;
 import com.google.javascript.rhino.IR;
-import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.TypeI;
+import com.google.javascript.rhino.jstype.FunctionType;
+import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
+import com.google.javascript.rhino.jstype.ObjectType;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,11 +46,11 @@ final class InlineProperties implements CompilerPass {
   private final AbstractCompiler compiler;
 
   private static class PropertyInfo {
-    PropertyInfo(TypeI type, Node value) {
+    PropertyInfo(JSType type, Node value) {
       this.type = type;
       this.value = value;
     }
-    final TypeI type;
+    final JSType type;
     final Node value;
   }
 
@@ -62,7 +62,7 @@ final class InlineProperties implements CompilerPass {
 
   InlineProperties(AbstractCompiler compiler) {
     this.compiler = compiler;
-    this.invalidatingTypes = new InvalidatingTypes.Builder(compiler.getTypeIRegistry())
+    this.invalidatingTypes = new InvalidatingTypes.Builder(compiler.getTypeRegistry())
         // TODO(sdh): consider allowing inlining properties of global this
         // (we already reserve extern'd names, so this should be safe).
         .disallowGlobalThis()
@@ -83,10 +83,10 @@ final class InlineProperties implements CompilerPass {
   }
 
   /** This method gets the JSType from the Node argument and verifies that it is present. */
-  private TypeI getTypeI(Node n) {
-    TypeI type = n.getTypeI();
+  private JSType getJSType(Node n) {
+    JSType type = n.getJSType();
     if (type == null) {
-      return compiler.getTypeIRegistry().getNativeType(JSTypeNative.UNKNOWN_TYPE);
+      return compiler.getTypeRegistry().getNativeType(JSTypeNative.UNKNOWN_TYPE);
     } else {
       return type;
     }
@@ -95,22 +95,25 @@ final class InlineProperties implements CompilerPass {
   @Override
   public void process(Node externs, Node root) {
     // Find and replace the properties in non-extern AST.
-    NodeTraversal.traverseEs6(compiler, root, new GatherCandidates());
-    NodeTraversal.traverseEs6(compiler, root, new ReplaceCandidates());
+    NodeTraversal.traverse(compiler, root, new GatherCandidates());
+    NodeTraversal.traverse(compiler, root, new ReplaceCandidates());
   }
 
   class GatherCandidates extends AbstractPostOrderCallback {
 
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
-      boolean invalidatingPropRef = false;
-      String propName = null;
+      // These are assigned at most once in the branches below
+      final boolean invalidatingPropRef;
+      final String propName;
+
       if (n.isGetProp()) {
         propName = n.getLastChild().getString();
         if (parent.isAssign()) {
-          invalidatingPropRef = !isValidCandidateDefinition(t, n, parent);
+          invalidatingPropRef = !maybeRecordCandidateDefinition(t, n, parent);
         } else if (NodeUtil.isLValue(n)) {
           // Other LValue references invalidate
+          // e.g. in an enhanced for loop or a destructuring statement
           invalidatingPropRef = true;
         } else if (parent.isDelProp()) {
           // Deletes invalidate
@@ -119,13 +122,21 @@ final class InlineProperties implements CompilerPass {
           // A property read doesn't invalidate
           invalidatingPropRef = false;
         }
-      } else if (n.isStringKey()) {
+      } else if ((n.isStringKey() && !n.getParent().isObjectPattern())
+          || n.isGetterDef()
+          || n.isSetterDef()
+          || n.isMemberFunctionDef()) {
         propName = n.getString();
         // For now, any object literal key invalidates
         // TODO(johnlenz): support prototype properties like:
         //   foo.prototype = { a: 1, b: 2 };
         // TODO(johnlenz): Object.create(), Object.createProperty
+        // and getter/setter defs and member functions also invalidate
+        // since we do not inline functions in this pass
+        // Note that string keys in destructuring patterns are fine, since they just access the prop
         invalidatingPropRef = true;
+      } else {
+        return;
       }
 
       if (invalidatingPropRef) {
@@ -135,7 +146,7 @@ final class InlineProperties implements CompilerPass {
     }
 
     /** @return Whether this is a valid definition for a candidate property. */
-    private boolean isValidCandidateDefinition(NodeTraversal t, Node n, Node parent) {
+    private boolean maybeRecordCandidateDefinition(NodeTraversal t, Node n, Node parent) {
       checkState(n.isGetProp() && parent.isAssign(), n);
       Node src = n.getFirstChild();
       String propName = n.getLastChild().getString();
@@ -145,22 +156,23 @@ final class InlineProperties implements CompilerPass {
         // This is a simple assignment like:
         //    this.foo = 1;
         if (inConstructor(t)) {
-          // This maybe a valid assignment.
-          return maybeStoreCandidateValue(getTypeI(src), propName, value);
+          // This may be a valid assignment.
+          return maybeStoreCandidateValue(getJSType(src), propName, value);
         }
+        return false;
       } else if (t.inGlobalHoistScope()
           && src.isGetProp()
           && src.getLastChild().getString().equals("prototype")) {
         // This is a prototype assignment like:
         //    x.prototype.foo = 1;
-        TypeI instanceType = maybeGetInstanceTypeFromPrototypeRef(src);
+        JSType instanceType = maybeGetInstanceTypeFromPrototypeRef(src);
         if (instanceType != null) {
           return maybeStoreCandidateValue(instanceType, propName, value);
         }
       } else if (t.inGlobalHoistScope()) {
         // This is a static assignment like:
         //    x.foo = 1;
-        TypeI targetType = getTypeI(src);
+        JSType targetType = getJSType(src);
         if (targetType != null && targetType.isConstructor()) {
           return maybeStoreCandidateValue(targetType, propName, value);
         }
@@ -168,10 +180,10 @@ final class InlineProperties implements CompilerPass {
       return false;
     }
 
-    private TypeI maybeGetInstanceTypeFromPrototypeRef(Node src) {
-      TypeI ownerType = getTypeI(src.getFirstChild());
+    private JSType maybeGetInstanceTypeFromPrototypeRef(Node src) {
+      JSType ownerType = getJSType(src.getFirstChild());
       if (ownerType.isConstructor()) {
-        FunctionTypeI functionType = ownerType.toMaybeFunctionType();
+        FunctionType functionType = ownerType.toMaybeFunctionType();
         return functionType.getInstanceType();
       }
       return null;
@@ -186,11 +198,8 @@ final class InlineProperties implements CompilerPass {
      * and is not already present in the map. If the property was already present, it is
      * invalidated. Returns true if the property was successfully added.
      */
-    private boolean maybeStoreCandidateValue(TypeI type, String propName, Node value) {
+    private boolean maybeStoreCandidateValue(JSType type, String propName, Node value) {
       checkNotNull(value);
-      if (type.toMaybeObjectType() != null) {
-        type = type.toMaybeObjectType().withoutStrayProperties();
-      }
       if (!props.containsKey(propName)
           && !invalidatingTypes.isInvalidating(type)
           && NodeUtil.isImmutableValue(value)
@@ -201,13 +210,22 @@ final class InlineProperties implements CompilerPass {
       return false;
     }
 
+    /**
+     * Returns whether the traversal is directly in an ES6 class constructor or an @constructor
+     * function
+     *
+     * <p>This returns false for nested functions inside ctors, including arrow functions (even
+     * though the `this` is the same). This pass only cares about property definitions executed once
+     * per ctor invocation, and in general we don't know how many times an arrow fn will be
+     * executed. In the future, we could special case arrow fn IIFEs in this pass if it becomes
+     * useful.
+     */
     private boolean inConstructor(NodeTraversal t) {
       Node root = t.getEnclosingFunction();
-      if (root == null) {
+      if (root == null) { // we might be in the global scope
         return false;
       }
-      JSDocInfo info = NodeUtil.getBestJSDocInfo(root);
-      return info != null && info.isConstructor();
+      return NodeUtil.isConstructor(root);
     }
   }
 
@@ -231,20 +249,32 @@ final class InlineProperties implements CompilerPass {
       }
     }
 
-    private boolean isMatchingType(Node n, TypeI src) {
+    private boolean isMatchingType(Node n, JSType src) {
       src = src.restrictByNotNullOrUndefined();
-      TypeI dest = getTypeI(n).restrictByNotNullOrUndefined();
-      if (!invalidatingTypes.isInvalidating(dest)) {
-        if (dest.isConstructor() || src.isConstructor()) {
-          // Don't inline constructor properties referenced from
-          // subclass constructor references. This would be appropriate
-          // for ES6 class with Class-side inheritence but not
-          // traditional Closure classes from which subclass constructor
-          // don't inherit the super-classes constructor properties.
-          return dest.equals(src);
-        } else {
-          return dest.isSubtypeOf(src);
+      JSType dest = getJSType(n).restrictByNotNullOrUndefined();
+      if (invalidatingTypes.isInvalidating(dest)) {
+        return false;
+      }
+      if (dest.isConstructor() || src.isConstructor()) {
+        // instead of using .isSubtypeOf for functions, check the prototype chain, since the
+        // FunctionType subtyping semantics is not what we want.
+        // This case is for ES6 class-side inheritance
+        return hasInPrototypeChain(dest.toMaybeFunctionType(), src.toMaybeFunctionType());
+      }
+      return dest.isSubtypeOf(src);
+    }
+
+    @SuppressWarnings("ReferenceEquality")
+    private boolean hasInPrototypeChain(FunctionType subCtor, FunctionType superCtor) {
+      if (subCtor == null || superCtor == null) {
+        return false;
+      }
+      ObjectType proto = subCtor;
+      while (proto != null) {
+        if (proto == superCtor) {
+          return true;
         }
+        proto = proto.getImplicitPrototype();
       }
       return false;
     }

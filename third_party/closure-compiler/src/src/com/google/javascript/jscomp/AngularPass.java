@@ -115,7 +115,7 @@ class AngularPass extends AbstractPostOrderCallback
   @Override
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     // Traverses AST looking for nodes annotated with @ngInject.
-    NodeTraversal.traverseEs6(compiler, scriptRoot, this);
+    NodeTraversal.traverse(compiler, scriptRoot, this);
     // iterates through annotated nodes adding $inject property to elements.
     for (NodeContext entry : injectables) {
       String name = entry.getName();
@@ -294,7 +294,7 @@ class AngularPass extends AbstractPostOrderCallback
     }
     // report an error if the function declaration did not take place in a block or global scope
     if (!target.getParent().isScript()
-        && !target.getParent().isNormalBlock()
+        && !target.getParent().isBlock()
         && !target.getParent().isModuleBody()) {
       compiler.report(t.makeError(n, INJECT_IN_NON_GLOBAL_OR_BLOCK_ERROR));
       return;

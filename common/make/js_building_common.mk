@@ -73,8 +73,8 @@ JS_BUILD_COMPILATION_FLAGS := \
 endif
 
 JS_BUILD_COMPILATION_FLAGS += \
-	--closure_entry_point=goog \
 	--compilation_level=SIMPLE \
+	--dependency_mode=STRICT \
 	--jscomp_error=accessControls \
 	--jscomp_error=ambiguousFunctionDecl \
 	--jscomp_error=checkEventfulObjectDisposal \
@@ -120,8 +120,6 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_error=useOfGoogBase \
 	--jscomp_error=visibility \
 	--jscomp_off reportUnknownTypes \
-	--manage_closure_dependencies \
-	--only_closure_dependencies \
 	--use_types_for_optimization=false \
 	--warning_level=VERBOSE \
 
@@ -133,7 +131,7 @@ JS_BUILD_COMPILATION_FLAGS += \
 
 JS_BUILD_TESTING_ADDITIONAL_COMPILATION_FLAGS := \
 	$(CLOSURE_LIBRARY_TESTING_ADDITIONAL_COMPILER_FLAGS) \
-	--only_closure_dependencies=false \
+	--dependency_mode=LOOSE \
 	--jscomp_off newCheckTypes \
 
 
@@ -178,7 +176,7 @@ $(JS_BUILD_DIR_PATH)/$(1): $(CURDIR)/$(CLOSURE_COMPILER_JAR_PATH) $(CLOSURE_LIBR
 	cd $(ROOT_PATH) && \
 		java -server -XX:+TieredCompilation -jar $(CURDIR)/$(CLOSURE_COMPILER_JAR_PATH) \
 			$(JS_BUILD_COMPILATION_FLAGS) \
-			$(addprefix --closure_entry_point , $(3)) \
+			$(addprefix --entry_point , $(3)) \
 			--create_source_map $(CURDIR)/$(JS_BUILD_DIR_PATH)/$(1).map \
 			--output_manifest $(CURDIR)/$(JS_BUILD_DIR_PATH)/$(1).manifest \
 			$(addprefix --externs $(CURDIR)/,$(CHROME_EXTERNS_COMPILER_INPUTS)) \

@@ -19,6 +19,7 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.GwtIncompatible;
+import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -38,7 +39,6 @@ class CoverageInstrumentationPass implements CompilerPass {
   private final InstrumentOption instrumentOption;
 
   public enum InstrumentOption {
-    ALL,   // Instrument to collect both line coverage and branch coverage.
     LINE_ONLY,  // Collect coverage for every executable statement.
     BRANCH_ONLY  // Collect coverage for control-flow branches.
   }
@@ -85,15 +85,13 @@ class CoverageInstrumentationPass implements CompilerPass {
   public void process(Node externsNode, Node rootNode) {
     if (rootNode.hasChildren()) {
       if (instrumentOption == InstrumentOption.BRANCH_ONLY) {
-        NodeTraversal.traverseEs6(
+        NodeTraversal.traverse(
             compiler,
             rootNode,
             new BranchCoverageInstrumentationCallback(compiler, instrumentationData));
       } else {
-        NodeTraversal.traverseEs6(
-            compiler,
-            rootNode,
-            new CoverageInstrumentationCallback(compiler, instrumentationData, reach));
+        NodeTraversal.traverse(
+            compiler, rootNode, new CoverageInstrumentationCallback(instrumentationData, reach));
       }
       Node firstScript = rootNode.getFirstChild();
       checkState(firstScript.isScript());
@@ -102,22 +100,38 @@ class CoverageInstrumentationPass implements CompilerPass {
   }
 
   private Node createConditionalObjectDecl(String name, Node srcref) {
-    String jscovData;
-    if (instrumentOption == InstrumentOption.BRANCH_ONLY) {
-      jscovData = "{fileNames:[], branchPresent:[], branchesInLine: [], branchesTaken: []}";
-    } else if (instrumentOption == InstrumentOption.LINE_ONLY) {
-      jscovData = "{fileNames:[], instrumentedLines: [], executedLines: []}";
-    } else {
-      jscovData =
-          "{fileNames:[], instrumentedLines: [], executedLines: [],"
-              + " branchPresent:[], branchesInLine: [], branchesTaken: []}";
+    // Make sure to quote properties so they are not renamed.
+    Node jscovData;
+    switch (instrumentOption) {
+      case BRANCH_ONLY:
+        jscovData =
+            IR.objectlit(
+                IR.quotedStringKey("fileNames", IR.arraylit()),
+                IR.quotedStringKey("branchPresent", IR.arraylit()),
+                IR.quotedStringKey("branchesInLine", IR.arraylit()),
+                IR.quotedStringKey("branchesTaken", IR.arraylit()));
+        break;
+      case LINE_ONLY:
+        jscovData =
+            IR.objectlit(
+                IR.quotedStringKey("fileNames", IR.arraylit()),
+                IR.quotedStringKey("instrumentedLines", IR.arraylit()),
+                IR.quotedStringKey("executedLines", IR.arraylit()));
+        break;
+      default:
+        throw new AssertionError("Unexpected option: " + instrumentOption);
     }
 
-    String jscovDecl =
-        " var " + name + " = window.top.__jscov || " + "(window.top.__jscov = " + jscovData + ");";
-
-    Node script = compiler.parseSyntheticCode(jscovDecl);
-    Node var = script.removeFirstChild();
+    // Add the __jscov var to the window as a quoted key so it can be found even if property
+    // renaming is enabled.
+    Node var =
+        IR.var(
+            IR.name(name),
+            IR.or(
+                IR.getelem(IR.getprop(IR.name("window"), "top"), IR.string("__jscov")),
+                IR.assign(
+                    IR.getelem(IR.getprop(IR.name("window"), "top"), IR.string("__jscov")),
+                    jscovData)));
     return var.useSourceInfoIfMissingFromForTree(srcref);
   }
 }

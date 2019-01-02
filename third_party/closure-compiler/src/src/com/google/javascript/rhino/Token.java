@@ -165,6 +165,7 @@ public enum Token {
     LET, // block scoped vars
 
     FOR_OF, // for-of
+    FOR_AWAIT_OF, // for-await-of
 
     YIELD, // generators
 
@@ -187,6 +188,7 @@ public enum Token {
     TAGGED_TEMPLATELIT, // tagged template literal, e.g. foo`bar`
     TEMPLATELIT, // template literal
     TEMPLATELIT_SUB, // template literal substitution
+    TEMPLATELIT_STRING, // template literal string
 
     DEFAULT_VALUE, // Formal parameter or destructuring element with a default value
     NEW_TARGET, // new.target
@@ -290,6 +292,7 @@ public enum Token {
       case NULL:
       case NUMBER:
       case STRING:
+      case TEMPLATELIT_STRING:
       case THIS:
       case TRUE:
         return 0;
@@ -372,6 +375,7 @@ public enum Token {
       case CLASS:
       case FOR_IN:
       case FOR_OF:
+      case FOR_AWAIT_OF:
       case FUNCTION:
       case HOOK:
       case IMPORT:

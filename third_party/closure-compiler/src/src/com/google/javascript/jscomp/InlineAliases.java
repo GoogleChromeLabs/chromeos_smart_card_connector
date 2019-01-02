@@ -17,7 +17,7 @@
 package com.google.javascript.jscomp;
 
 import com.google.common.base.Predicates;
-import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfo.Visibility;
 import com.google.javascript.rhino.Node;
@@ -55,12 +55,19 @@ final class InlineAliases implements CompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
-    namespace = new GlobalNamespace(compiler, root);
-    NodeTraversal.traverseEs6(compiler, root, new AliasesCollector());
-    NodeTraversal.traverseEs6(compiler, root, new AliasesInliner());
+    namespace = new GlobalNamespace(compiler, externs, root);
+    NodeTraversal.traverseRoots(compiler, new AliasesCollector(), externs, root);
+    NodeTraversal.traverseRoots(compiler, new AliasesInliner(), externs, root);
   }
 
-  private class AliasesCollector extends AbstractPostOrderCallback {
+  private abstract static class ExternsSkippingCallback implements Callback {
+    @Override
+    public final boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+      return !n.isScript() || !n.isFromExterns() || NodeUtil.isFromTypeSummary(n);
+    }
+  }
+
+  private class AliasesCollector extends ExternsSkippingCallback {
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
       switch (n.getToken()) {
@@ -94,9 +101,9 @@ final class InlineAliases implements CompilerPass {
           GlobalNamespace.Name lhsName = namespace.getOwnSlot(lhs.getQualifiedName());
           GlobalNamespace.Name rhsName = namespace.getOwnSlot(rhs.getQualifiedName());
           if (lhsName != null
-              && lhsName.isInlinableGlobalAlias()
+              && lhsName.calculateInlinability().shouldInlineUsages()
               && rhsName != null
-              && rhsName.isInlinableGlobalAlias()
+              && rhsName.calculateInlinability().shouldInlineUsages()
               && !isPrivate(rhsName.getDeclaration().getNode())) {
             aliases.put(lhs.getQualifiedName(), rhs.getQualifiedName());
           }
@@ -121,7 +128,7 @@ final class InlineAliases implements CompilerPass {
     }
   }
 
-  private class AliasesInliner extends AbstractPostOrderCallback {
+  private class AliasesInliner extends ExternsSkippingCallback {
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
       switch (n.getToken()) {
@@ -144,6 +151,11 @@ final class InlineAliases implements CompilerPass {
             // If n is get_prop like "obj.foo" then newNode should use only location of foo, not
             // obj.foo.
             newNode.useSourceInfoFromForTree(n.isGetProp() ? n.getLastChild() : n);
+            // Similarly if n is get_prop like "obj.foo" we should index only foo. obj should not
+            // be indexed as it's invisible to users.
+            if (newNode.isGetProp()) {
+              newNode.getFirstChild().makeNonIndexableRecursive();
+            }
             parent.replaceChild(n, newNode);
             t.reportCodeChange();
           }

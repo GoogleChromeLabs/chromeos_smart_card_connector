@@ -39,7 +39,6 @@
 
 package com.google.javascript.rhino.jstype;
 
-import static com.google.common.base.Preconditions.checkState;
 
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.Node;
@@ -142,14 +141,9 @@ public class EnumElementType extends ObjectType {
     return hasReferenceName();
   }
 
-  /**
-   * If this is equal to a NamedType object, its hashCode must be equal
-   * to the hashCode of the NamedType object.
-   */
   @Override
-  public int hashCode() {
-    checkState(hasReferenceName());
-    return getReferenceName().hashCode();
+  int recursionUnsafeHashCode() {
+    return NamedType.nominalHashCode(this);
   }
 
   @Override
@@ -164,11 +158,6 @@ public class EnumElementType extends ObjectType {
   @Override
   public String getReferenceName() {
     return name;
-  }
-
-  @Override
-  public boolean hasReferenceName() {
-    return true;
   }
 
   @Override
@@ -208,7 +197,7 @@ public class EnumElementType extends ObjectType {
   }
 
   @Override
-  public JSType findPropertyType(String propertyName) {
+  protected JSType findPropertyTypeWithoutConsideringTemplateTypes(String propertyName) {
     return primitiveType.findPropertyType(propertyName);
   }
 
@@ -256,8 +245,8 @@ public class EnumElementType extends ObjectType {
   }
 
   @Override
-  JSType resolveInternal(ErrorReporter reporter, StaticTypedScope<JSType> scope) {
-    primitiveType = primitiveType.resolve(reporter, scope);
+  JSType resolveInternal(ErrorReporter reporter) {
+    primitiveType = primitiveType.resolve(reporter);
     primitiveObjectType = ObjectType.cast(primitiveType);
     return this;
   }

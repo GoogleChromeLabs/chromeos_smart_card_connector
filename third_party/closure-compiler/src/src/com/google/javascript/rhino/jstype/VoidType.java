@@ -43,7 +43,6 @@ import static com.google.javascript.rhino.jstype.TernaryValue.FALSE;
 import static com.google.javascript.rhino.jstype.TernaryValue.TRUE;
 import static com.google.javascript.rhino.jstype.TernaryValue.UNKNOWN;
 
-
 /**
  * Void type whose only element is the {@code undefined} value.
  */
@@ -56,6 +55,11 @@ public class VoidType extends ValueType {
 
   @Override
   public JSType restrictByNotNullOrUndefined() {
+    return registry.getNativeType(JSTypeNative.NO_TYPE);
+  }
+
+  @Override
+  public JSType restrictByNotUndefined() {
     return registry.getNativeType(JSTypeNative.NO_TYPE);
   }
 
@@ -118,10 +122,5 @@ public class VoidType extends ValueType {
   @Override
   public <T> T visit(Visitor<T> visitor) {
     return visitor.caseVoidType();
-  }
-
-  @Override
-  public int hashCode() {
-    return System.identityHashCode(this);
   }
 }

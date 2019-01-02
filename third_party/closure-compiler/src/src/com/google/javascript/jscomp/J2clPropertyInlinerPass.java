@@ -59,6 +59,8 @@ public class J2clPropertyInlinerPass implements CompilerPass {
     }
 
     new StaticFieldGetterSetterInliner(root).run();
+    // This pass may remove getters and setters.
+    GatherGettersAndSetterProperties.update(compiler, externs, root);
   }
 
   class StaticFieldGetterSetterInliner {
@@ -70,9 +72,9 @@ public class J2clPropertyInlinerPass implements CompilerPass {
 
     private void run() {
       GatherJ2CLClassGetterSetters gatherer = new GatherJ2CLClassGetterSetters();
-      NodeTraversal.traverseEs6(compiler, root, gatherer);
+      NodeTraversal.traverse(compiler, root, gatherer);
       Map<String, J2clProperty> result = gatherer.getResults();
-      NodeTraversal.traverseEs6(compiler, root, new DetermineInlinableProperties(result));
+      NodeTraversal.traverse(compiler, root, new DetermineInlinableProperties(result));
       new InlinePropertiesPass(result).run();
     }
 
@@ -144,7 +146,7 @@ public class J2clPropertyInlinerPass implements CompilerPass {
         return false;
       }
       Node getFunction = getKey.getFirstChild();
-      if (!getFunction.hasChildren() || !getFunction.getLastChild().isNormalBlock()) {
+      if (!getFunction.hasChildren() || !getFunction.getLastChild().isBlock()) {
         return false;
       }
       Node getBlock = getFunction.getLastChild();
@@ -185,7 +187,7 @@ public class J2clPropertyInlinerPass implements CompilerPass {
       }
       Node setFunction = setKey.getFirstChild();
       if (!setFunction.hasChildren()
-          || !setFunction.getLastChild().isNormalBlock()
+          || !setFunction.getLastChild().isBlock()
           || !setFunction.getSecondChild().isParamList()) {
         return false;
       }
@@ -355,7 +357,7 @@ public class J2clPropertyInlinerPass implements CompilerPass {
       }
 
       private void run() {
-        NodeTraversal.traverseEs6(compiler, root, this);
+        NodeTraversal.traverse(compiler, root, this);
 
         for (J2clProperty prop : propertiesByName.values()) {
           if (prop.isSafeToInline) {

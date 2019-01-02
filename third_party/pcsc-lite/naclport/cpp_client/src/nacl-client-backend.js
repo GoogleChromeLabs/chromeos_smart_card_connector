@@ -82,19 +82,19 @@ GSC.PcscLiteClient.NaclClientBackend = function(
   this.serverAppId_ = opt_serverAppId;
 
   /**
-   * @type {GSC.PcscLiteClient.Context}
+   * @type {GSC.PcscLiteClient.Context?}
    * @private
    */
   this.context_ = null;
 
   /**
-   * @type {GSC.PcscLiteClient.API}
+   * @type {GSC.PcscLiteClient.API?}
    * @private
    */
   this.api_ = null;
 
   /**
-   * @type {goog.structs.Queue.<!BufferedRequest>}
+   * @type {!goog.structs.Queue.<!BufferedRequest>}
    * @private
    */
   this.bufferedRequestsQueue_ = new goog.structs.Queue;

@@ -129,14 +129,14 @@ public class ModificationVisitor implements Visitor<JSType> {
     }
 
     if (changed) {
-      FunctionBuilder builder = new FunctionBuilder(registry)
-          .setIsConstructor(type.isConstructor())
+      FunctionType ft = new FunctionBuilder(registry)
+          .withKind(type.getKind())
           .withParamsNode(paramBuilder.build())
           .withReturnType(afterReturn)
           .withTypeOfThis(afterThis)
-          .withTemplateKeys(
-              type.getTemplateTypeMap().getUnfilledTemplateKeys());
-      return builder.build();
+          .withTemplateKeys(type.getTemplateTypeMap().getUnfilledTemplateKeys())
+          .build();
+      return ft;
     }
 
     return type;
@@ -249,7 +249,7 @@ public class ModificationVisitor implements Visitor<JSType> {
     }
 
     if (changed) {
-      UnionTypeBuilder builder = new UnionTypeBuilder(registry);
+      UnionTypeBuilder builder = UnionTypeBuilder.create(registry);
       for (JSType alternate : results) {
         builder.addAlternate(alternate);
       }

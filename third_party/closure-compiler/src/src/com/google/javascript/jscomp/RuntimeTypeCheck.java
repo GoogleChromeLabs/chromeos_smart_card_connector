@@ -79,8 +79,8 @@ class RuntimeTypeCheck implements CompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
-    NodeTraversal.traverseEs6(compiler, root, new AddMarkers(compiler));
-    NodeTraversal.traverseEs6(compiler, root, new AddChecks());
+    NodeTraversal.traverse(compiler, root, new AddMarkers(compiler));
+    NodeTraversal.traverse(compiler, root, new AddChecks());
     addBoilerplateCode();
     new Normalize(compiler, false).process(externs, root);
   }
@@ -190,7 +190,7 @@ class RuntimeTypeCheck implements CompilerPass {
     }
 
     private static Node findEnclosingConstructorDeclaration(Node n) {
-      while (!n.getParent().isScript() && !n.getParent().isNormalBlock()) {
+      while (!n.getParent().isScript() && !n.getParent().isBlock()) {
         n = n.getParent();
       }
       return n;

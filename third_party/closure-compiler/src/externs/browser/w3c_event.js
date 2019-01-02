@@ -32,7 +32,7 @@ function EventTarget() {}
 
 /**
  * @param {string} type
- * @param {EventListener|function(!Event):(boolean|undefined)} listener
+ * @param {EventListener|function(!Event):*} listener
  * @param {(boolean|!AddEventListenerOptions)=} opt_options
  * @return {undefined}
  * @see https://dom.spec.whatwg.org/#dom-eventtarget-addeventlistener
@@ -42,7 +42,7 @@ EventTarget.prototype.addEventListener = function(type, listener, opt_options) {
 
 /**
  * @param {string} type
- * @param {EventListener|function(!Event):(boolean|undefined)} listener
+ * @param {EventListener|function(!Event):*} listener
  * @param {(boolean|!EventListenerOptions)=} opt_options
  * @return {undefined}
  * @see https://dom.spec.whatwg.org/#dom-eventtarget-removeeventlistener
@@ -172,18 +172,20 @@ Event.prototype.initEvent = function(eventTypeArg, canBubbleArg, cancelableArg) 
 /**
  * @record
  * @extends {EventInit}
+ * @template T
  * @see https://dom.spec.whatwg.org/#dictdef-customeventinit
  */
 function CustomEventInit() {}
 
-/** @type {(*|undefined)} */
+/** @type {(T|undefined)} */
 CustomEventInit.prototype.detail;
 
 /**
  * @constructor
  * @extends {Event}
  * @param {string} type
- * @param {CustomEventInit=} opt_eventInitDict
+ * @param {CustomEventInit<T>=} opt_eventInitDict
+ * @template T
  * @see http://www.w3.org/TR/DOM-Level-3-Events/#interface-CustomEvent
  */
 function CustomEvent(type, opt_eventInitDict) {}
@@ -192,14 +194,14 @@ function CustomEvent(type, opt_eventInitDict) {}
  * @param {string} eventType
  * @param {boolean} bubbles
  * @param {boolean} cancelable
- * @param {*} detail
+ * @param {T} detail
  * @return {undefined}
  */
 CustomEvent.prototype.initCustomEvent = function(
     eventType, bubbles, cancelable, detail) {};
 
 /**
- * @type {?}
+ * @type {T}
  */
 CustomEvent.prototype.detail;
 

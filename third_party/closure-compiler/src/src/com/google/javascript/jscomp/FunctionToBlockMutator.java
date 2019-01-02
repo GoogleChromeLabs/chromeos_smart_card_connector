@@ -147,7 +147,7 @@ class FunctionToBlockMutator {
     boolean hasArgs = !args.isEmpty();
     if (hasArgs) {
       FunctionArgumentInjector.maybeAddTempsForCallArguments(
-          newFnNode, args, namesToAlias, compiler.getCodingConvention());
+          compiler, newFnNode, args, namesToAlias, compiler.getCodingConvention());
     }
 
     Node newBlock = NodeUtil.getFunctionBody(newFnNode);
@@ -255,7 +255,7 @@ class FunctionToBlockMutator {
   private void makeLocalNamesUnique(Node fnNode, boolean isCallInLoop) {
     Supplier<String> idSupplier = compiler.getUniqueNameIdSupplier();
     // Make variable names unique to this instance.
-    NodeTraversal.traverseEs6ScopeRoots(
+    NodeTraversal.traverseScopeRoots(
         compiler,
         null,
         ImmutableList.of(fnNode),
@@ -456,7 +456,7 @@ class FunctionToBlockMutator {
    *   a = (void) 0;
    */
   private static void addDummyAssignment(Node node, String resultName) {
-    checkArgument(node.isNormalBlock());
+    checkArgument(node.isBlock());
 
     // A result is needed create a dummy value.
     Node srcLocation = node;

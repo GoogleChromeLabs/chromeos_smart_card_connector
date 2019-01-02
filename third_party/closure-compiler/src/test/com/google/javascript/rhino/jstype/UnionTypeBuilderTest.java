@@ -38,18 +38,45 @@
 
 package com.google.javascript.rhino.jstype;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.javascript.rhino.testing.TypeSubject.assertType;
+
 import com.google.javascript.rhino.testing.BaseJSTypeTestCase;
 import com.google.javascript.rhino.testing.MapBasedScope;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Test for {@link UnionTypeBuilder}.
  *
  * @author nicksantos@google.com (Nick Santos)
  */
+@RunWith(JUnit4.class)
 public class UnionTypeBuilderTest extends BaseJSTypeTestCase {
 
   private static final MapBasedScope EMPTY_SCOPE = MapBasedScope.emptyScope();
 
+  private ObjectType base;
+  private ObjectType sub;
+
+  @Override
+  @Before
+  public void setUp() throws Exception {
+    super.setUp();
+    FunctionType baseCtor = new FunctionBuilder(registry).forConstructor().withName("Base").build();
+    this.base = baseCtor.getInstanceType();
+    FunctionType subCtor =
+        new FunctionBuilder(registry)
+            .forConstructor()
+            .withName("Sub")
+            .withPrototypeBasedOn(base)
+            .build();
+    this.sub = subCtor.getInstanceType();
+  }
+
+  @Test
   public void testAllType() {
     assertUnion("*", ALL_TYPE);
     assertUnion("*", NUMBER_TYPE, ALL_TYPE);
@@ -57,11 +84,13 @@ public class UnionTypeBuilderTest extends BaseJSTypeTestCase {
     assertUnion("*", ALL_TYPE, NUMBER_TYPE, NO_TYPE);
   }
 
+  @Test
   public void testEmptyUnion() {
     assertUnion("None");
     assertUnion("None", NO_TYPE, NO_TYPE);
   }
 
+  @Test
   public void testUnionTypes() {
     JSType union = registry.createUnionType(STRING_TYPE, OBJECT_TYPE);
 
@@ -77,6 +106,7 @@ public class UnionTypeBuilderTest extends BaseJSTypeTestCase {
     assertUnion("(Object|string)", union, STRING_OBJECT_TYPE);
   }
 
+  @Test
   public void testUnknownTypes() {
     JSType unresolvedNameA1 = new NamedType(EMPTY_SCOPE, registry, "not.resolved.A", null, -1, -1);
     JSType unresolvedNameA2 = new NamedType(EMPTY_SCOPE, registry, "not.resolved.A", null, -1, -1);
@@ -98,49 +128,71 @@ public class UnionTypeBuilderTest extends BaseJSTypeTestCase {
     assertUnion("(Object|not.resolved.A)", unresolvedNameA1, OBJECT_TYPE);
   }
 
+  @Test
   public void testRemovalOfDupes() {
-    JSType stringAndObject =
-        registry.createUnionType(STRING_TYPE, OBJECT_TYPE);
+    JSType stringAndObject = registry.createUnionType(STRING_TYPE, OBJECT_TYPE);
     assertUnion("(Object|string)", stringAndObject, STRING_OBJECT_TYPE);
     assertUnion("(Object|string)", STRING_OBJECT_TYPE, stringAndObject);
   }
 
+  @Test
   public void testRemovalOfDupes2() {
     JSType union =
         registry.createUnionType(
-            EVAL_ERROR_TYPE,
-            createFunctionWithReturn(ERROR_TYPE),
-            ERROR_TYPE,
-            createFunctionWithReturn(EVAL_ERROR_TYPE));
-    assertEquals("(Error|function(): Error)", union.toString());
+            sub,
+            createFunctionWithReturn(base),
+            base,
+            createFunctionWithReturn(sub));
+    assertThat(union.toString()).isEqualTo("(Base|function(): Base)");
   }
 
+  @Test
   public void testRemovalOfDupes3() {
     JSType union =
         registry.createUnionType(
-            ERROR_TYPE,
-            createFunctionWithReturn(EVAL_ERROR_TYPE),
-            EVAL_ERROR_TYPE,
-            createFunctionWithReturn(ERROR_TYPE));
-    assertEquals("(Error|function(): Error)", union.toString());
+            base,
+            createFunctionWithReturn(sub),
+            sub,
+            createFunctionWithReturn(base));
+    assertThat(union.toString()).isEqualTo("(Base|function(): Base)");
   }
 
+  @Test
   public void testRemovalOfDuplicateRecordTypes1() {
-    UnionTypeBuilder builder = new UnionTypeBuilder(registry);
+    UnionTypeBuilder builder = UnionTypeBuilder.create(registry);
 
     addRecordType(builder, false);
     addRecordType(builder, false);
 
-    assertEquals(1, builder.getAlternatesCount());
+    assertThat(builder.getAlternatesCount()).isEqualTo(1);
   }
 
+  @Test
+  public void testDifferentTemplateSpecializations_whenUnioned_doNotLeakRawType() {
+    // Given
+    JSType arrayOfString = registry.createTemplatizedType(ARRAY_TYPE, STRING_TYPE);
+    JSType arrayOfNumber = registry.createTemplatizedType(ARRAY_TYPE, NUMBER_TYPE);
+    JSType arrayOfUnknown = registry.createTemplatizedType(ARRAY_TYPE, UNKNOWN_TYPE);
+
+    UnionTypeBuilder builder =
+        UnionTypeBuilder.create(registry).addAlternate(arrayOfString).addAlternate(arrayOfNumber);
+
+    // When
+    JSType result = builder.build();
+
+    // Then
+    assertType(result).isEqualTo(arrayOfUnknown);
+    assertThat(result.getTemplateTypeMap().numUnfilledTemplateKeys()).isEqualTo(0);
+  }
+
+  @Test
   public void testRemovalOfDuplicateRecordTypes2() {
-    UnionTypeBuilder builder = new UnionTypeBuilder(registry);
+    UnionTypeBuilder builder = UnionTypeBuilder.create(registry);
 
     addRecordType(builder, true);
     addRecordType(builder, true);
 
-    assertEquals(1, builder.getAlternatesCount());
+    assertThat(builder.getAlternatesCount()).isEqualTo(1);
   }
 
   private void addRecordType(UnionTypeBuilder builder, boolean inferred) {
@@ -151,11 +203,11 @@ public class UnionTypeBuilderTest extends BaseJSTypeTestCase {
   }
 
   public void assertUnion(String expected, JSType ... types) {
-    UnionTypeBuilder builder = new UnionTypeBuilder(registry);
+    UnionTypeBuilder builder = UnionTypeBuilder.create(registry);
     for (JSType type : types) {
       builder.addAlternate(type);
     }
-    assertEquals(expected, builder.build().toString());
+    assertThat(builder.build().toString()).isEqualTo(expected);
   }
 
   public FunctionType createFunctionWithReturn(JSType type) {

@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.ErrorHandler;
+import com.google.javascript.jscomp.deps.ModuleLoader.PathEscaper;
 import java.util.Map;
 import javax.annotation.Nullable;
 
@@ -32,14 +33,17 @@ public abstract class ModuleResolver {
   protected final ImmutableList<String> moduleRootPaths;
 
   protected ErrorHandler errorHandler;
+  private final PathEscaper pathEscaper;
 
   public ModuleResolver(
       ImmutableSet<String> modulePaths,
       ImmutableList<String> moduleRootPaths,
-      ErrorHandler errorHandler) {
+      ErrorHandler errorHandler,
+      ModuleLoader.PathEscaper pathEscaper) {
     this.modulePaths = modulePaths;
     this.moduleRootPaths = moduleRootPaths;
     this.errorHandler = errorHandler;
+    this.pathEscaper = pathEscaper;
   }
 
   Map<String, String> getPackageJsonMainEntries() {
@@ -49,6 +53,21 @@ public abstract class ModuleResolver {
   @Nullable
   public abstract String resolveJsModule(
       String scriptAddress, String moduleAddress, String sourcename, int lineno, int colno);
+
+  public String resolveModuleAsPath(String scriptAddress, String moduleAddress) {
+    if (!moduleAddress.endsWith(".js")) {
+      moduleAddress += ".js";
+    }
+    String path = pathEscaper.escape(moduleAddress);
+    if (ModuleLoader.isRelativeIdentifier(moduleAddress)) {
+      String ourPath = scriptAddress;
+      int lastIndex = ourPath.lastIndexOf(ModuleLoader.MODULE_SLASH);
+      path =
+          ModuleNames.canonicalizePath(
+              ourPath.substring(0, lastIndex + ModuleLoader.MODULE_SLASH.length()) + path);
+    }
+    return ModuleLoader.normalize(path, moduleRootPaths);
+  }
 
   /**
    * Locates the module with the given name, but returns null if there is no JS file in the expected
@@ -88,7 +107,7 @@ public abstract class ModuleResolver {
    * relative paths to absolute references.
    */
   protected String canonicalizePath(String scriptAddress, String moduleAddress) {
-    String path = ModuleNames.escapePath(moduleAddress);
+    String path = pathEscaper.escape(moduleAddress);
     if (ModuleLoader.isRelativeIdentifier(moduleAddress)) {
       String ourPath = scriptAddress;
       int lastIndex = ourPath.lastIndexOf(ModuleLoader.MODULE_SLASH);

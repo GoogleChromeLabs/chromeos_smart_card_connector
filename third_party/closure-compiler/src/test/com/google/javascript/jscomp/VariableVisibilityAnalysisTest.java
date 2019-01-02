@@ -18,16 +18,23 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallbackInterface;
 import com.google.javascript.jscomp.VariableVisibilityAnalysis.VariableVisibility;
 import com.google.javascript.rhino.Node;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
  * Tests of {@link VariableVisibilityAnalysis}.
  *
  * @author dcc@google.com (Devin Coughlin)
  */
+@RunWith(JUnit4.class)
 public final class VariableVisibilityAnalysisTest extends CompilerTestCase {
   private VariableVisibilityAnalysis lastAnalysis;
 
@@ -38,6 +45,7 @@ public final class VariableVisibilityAnalysisTest extends CompilerTestCase {
     return lastAnalysis;
   }
 
+  @Test
   public void testCapturedVariables() {
     String source =
         "global:var global;\n" +
@@ -55,6 +63,7 @@ public final class VariableVisibilityAnalysisTest extends CompilerTestCase {
     assertIsUncapturedLocal("notcaptured");
   }
 
+  @Test
   public void testGlobals() {
     String source =
       "global:var global;";
@@ -64,6 +73,7 @@ public final class VariableVisibilityAnalysisTest extends CompilerTestCase {
     assertIsGlobal("global");
   }
 
+  @Test
   public void testParameters() {
     String source =
       "function A(a,b,c) {\n" +
@@ -76,6 +86,7 @@ public final class VariableVisibilityAnalysisTest extends CompilerTestCase {
     assertIsParameter("c");
   }
 
+  @Test
   public void testFunctions() {
     String source =
         "function global() {\n" +
@@ -102,10 +113,10 @@ public final class VariableVisibilityAnalysisTest extends CompilerTestCase {
       VariableVisibility visibility) {
 
     Node functionNode = searchForFunction(functionName);
-    assertNotNull(functionNode);
+    assertThat(functionNode).isNotNull();
 
     Node nameNode = functionNode.getFirstChild();
-    assertEquals(visibility, lastAnalysis.getVariableVisibility(nameNode));
+    assertThat(lastAnalysis.getVariableVisibility(nameNode)).isEqualTo(visibility);
   }
 
   private void assertLabeledVariableHasVisibility(String label,
@@ -118,7 +129,7 @@ public final class VariableVisibilityAnalysisTest extends CompilerTestCase {
     //   NAME
     Node nameNode = labeledVariable.getFirstChild();
 
-    assertEquals(visibility, lastAnalysis.getVariableVisibility(nameNode));
+    assertThat(lastAnalysis.getVariableVisibility(nameNode)).isEqualTo(visibility);
   }
 
   private void assertIsCapturedLocal(String label) {
@@ -139,10 +150,10 @@ public final class VariableVisibilityAnalysisTest extends CompilerTestCase {
   private void assertIsParameter(String parameterName) {
     Node parameterNode = searchForParameter(parameterName);
 
-    assertNotNull(parameterNode);
+    assertThat(parameterNode).isNotNull();
 
-    assertEquals(VariableVisibility.PARAMETER,
-        lastAnalysis.getVariableVisibility(parameterNode));
+    assertThat(lastAnalysis.getVariableVisibility(parameterNode))
+        .isEqualTo(VariableVisibility.PARAMETER);
   }
 
   private VariableVisibilityAnalysis analyze(String src) {
@@ -162,19 +173,14 @@ public final class VariableVisibilityAnalysisTest extends CompilerTestCase {
 
     final Node[] foundNode = new Node[1];
 
-    AbstractPostOrderCallback findParameter = new AbstractPostOrderCallback() {
+    AbstractPostOrderCallbackInterface findParameter =
+        (NodeTraversal t, Node n, Node parent) -> {
+          if (n.getParent().isParamList() && parameterName.equals(n.getString())) {
+            foundNode[0] = n;
+          }
+        };
 
-      @Override
-      public void visit(NodeTraversal t, Node n, Node parent) {
-        if (n.getParent().isParamList()
-            && parameterName.equals(n.getString())) {
-
-          foundNode[0] = n;
-        }
-      }
-    };
-
-    NodeTraversal.traverseEs6(getLastCompiler(), getLastCompiler().jsRoot, findParameter);
+    NodeTraversal.traversePostOrder(getLastCompiler(), getLastCompiler().jsRoot, findParameter);
 
     return foundNode[0];
   }
@@ -190,18 +196,14 @@ public final class VariableVisibilityAnalysisTest extends CompilerTestCase {
 
     final Node[] foundNode = new Node[1];
 
-    AbstractPostOrderCallback findFunction =
-        new AbstractPostOrderCallback() {
-
-          @Override
-          public void visit(NodeTraversal t, Node n, Node parent) {
-            if (n.isFunction() && functionName.equals(NodeUtil.getName(n))) {
-              foundNode[0] = n;
-            }
+    AbstractPostOrderCallbackInterface findFunction =
+        (NodeTraversal t, Node n, Node parent) -> {
+          if (n.isFunction() && functionName.equals(NodeUtil.getName(n))) {
+            foundNode[0] = n;
           }
         };
 
-    NodeTraversal.traverseEs6(getLastCompiler(), getLastCompiler().jsRoot, findFunction);
+    NodeTraversal.traversePostOrder(getLastCompiler(), getLastCompiler().jsRoot, findFunction);
 
     return foundNode[0];
   }
@@ -210,8 +212,8 @@ public final class VariableVisibilityAnalysisTest extends CompilerTestCase {
   private Node searchLabel(String label) {
     LabeledVariableSearcher s = new LabeledVariableSearcher(label);
 
-    NodeTraversal.traverseEs6(getLastCompiler(), getLastCompiler().jsRoot, s);
-    assertNotNull("Label " + label + " should be in the source code", s.found);
+    NodeTraversal.traverse(getLastCompiler(), getLastCompiler().jsRoot, s);
+    assertWithMessage("Label " + label + " should be in the source code").that(s.found).isNotNull();
 
     return s.found;
   }

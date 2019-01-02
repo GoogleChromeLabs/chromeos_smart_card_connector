@@ -54,7 +54,7 @@ class Denormalize implements CompilerPass, Callback, Behavior {
 
   @Override
   public void process(Node externs, Node root) {
-    NodeTraversal.traverseEs6(compiler, root, this);
+    NodeTraversal.traverse(compiler, root, this);
     // Don't inline the VAR declaration if this compilation involves old-style ctemplates.
     if (compiler.getOptions().syntheticBlockStartMarker == null) {
       (new ReferenceCollectingCallback(compiler, this, new Es6SyntacticScopeCreator(compiler)))
@@ -73,7 +73,7 @@ class Denormalize implements CompilerPass, Callback, Behavior {
   @Override
   public void afterExitScope(NodeTraversal t, ReferenceMap referenceMap) {
     Node scopeRoot = t.getScopeRoot();
-    if (scopeRoot.isNormalBlock() && scopeRoot.getParent().isFunction()) {
+    if (scopeRoot.isBlock() && scopeRoot.getParent().isFunction()) {
       boolean changed = false;
       for (Var v : t.getScope().getVarIterable()) {
         ReferenceCollection references = referenceMap.getReferences(v);

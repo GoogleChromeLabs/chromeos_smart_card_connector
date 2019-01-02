@@ -55,21 +55,22 @@ class InstanceObjectType extends PrototypeObjectType {
     this(registry, constructor, false);
   }
 
-  InstanceObjectType(JSTypeRegistry registry, FunctionType constructor,
-                     boolean isNativeType) {
-    super(registry, null, null, isNativeType, constructor.getTemplateTypeMap());
-    checkNotNull(constructor);
-    this.constructor = constructor;
+  InstanceObjectType(JSTypeRegistry registry, FunctionType constructor, boolean isNativeType) {
+    this(registry, constructor, isNativeType, constructor.getTemplateTypeMap());
+  }
+
+  InstanceObjectType(
+      JSTypeRegistry registry,
+      FunctionType constructor,
+      boolean isNativeType,
+      TemplateTypeMap templateTypeMap) {
+    super(registry, null, null, isNativeType, templateTypeMap);
+    this.constructor = checkNotNull(constructor);
   }
 
   @Override
   public String getReferenceName() {
     return getConstructor().getReferenceName();
-  }
-
-  @Override
-  public boolean hasReferenceName() {
-    return getConstructor().hasReferenceName();
   }
 
   @Override
@@ -94,12 +95,21 @@ class InstanceObjectType extends PrototypeObjectType {
 
   @Override
   StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    return constructor.hasReferenceName()
-        ? sb.append(
-            forAnnotations
-                ? constructor.getNormalizedReferenceName()
-                : constructor.getReferenceName())
-        : super.appendTo(sb, forAnnotations);
+    if (!constructor.hasReferenceName()) {
+      return super.appendTo(sb, forAnnotations);
+    } else if (forAnnotations) {
+      return sb.append(constructor.getNormalizedReferenceName());
+    }
+    String name = constructor.getReferenceName();
+    if (name.isEmpty()) {
+      Node n = constructor.getSource();
+      return sb.append("<anonymous@")
+          .append(n != null ? n.getSourceFileName() : "unknown")
+          .append(":")
+          .append(n != null ? n.getLineno() : 0)
+          .append(">");
+    }
+    return sb.append(name);
   }
 
   @Override
@@ -159,14 +169,10 @@ class InstanceObjectType extends PrototypeObjectType {
     return hasReferenceName();
   }
 
-  /**
-   * If this is equal to a NamedType object, its hashCode must be equal
-   * to the hashCode of the NamedType object.
-   */
   @Override
-  public int hashCode() {
+  int recursionUnsafeHashCode() {
     if (hasReferenceName()) {
-      return getReferenceName().hashCode();
+      return NamedType.nominalHashCode(this);
     } else {
       return super.hashCode();
     }
@@ -182,8 +188,13 @@ class InstanceObjectType extends PrototypeObjectType {
     return getConstructor().getExtendedInterfaces();
   }
 
+  @Override
+  public boolean isAmbiguousObject() {
+    return getConstructor().createsAmbiguousObjects();
+  }
+
   // The owner will always be a resolved type, so there's no need to set
   // the constructor in resolveInternal.
   // (it would lead to infinite loops if we did).
-  // JSType resolveInternal(ErrorReporter reporter, StaticTypedScope<JSType> scope);
+  // JSType resolveInternal(ErrorReporter reporter);
 }

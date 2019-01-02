@@ -9,8 +9,7 @@ The [Closure Compiler](https://developers.google.com/closure/compiler/) is a too
  * [Download the latest version](https://dl.google.com/closure-compiler/compiler-latest.zip) ([Release details here](https://github.com/google/closure-compiler/wiki/Releases))
  * [Download a specific version](https://github.com/google/closure-compiler/wiki/Binary-Downloads). Also available via:
    - [Maven](https://github.com/google/closure-compiler/wiki/Maven)
-   - [NPM](https://www.npmjs.com/package/google-closure-compiler)
- * [Use the JavaScript version](https://github.com/google/closure-compiler-js), with no Java dependency
+   - [NPM](https://www.npmjs.com/package/google-closure-compiler) - includes java, native and javascript versions.
  * See the [Google Developers Site](https://developers.google.com/closure/compiler/docs/gettingstarted_app) for documentation including instructions for running the compiler from the command line.
 
 ## Options for Getting Help
@@ -27,7 +26,7 @@ Note: The Closure Compiler requires [Java 8 or higher](https://www.java.com/).
 1. Download [Maven](https://maven.apache.org/download.cgi).
 
 2. Add sonatype snapshots repository to `~/.m2/settings.xml`:
-   ```
+   ```xml
    <profile>
      <id>allow-snapshots</id>
         <activation><activeByDefault>true</activeByDefault></activation>
@@ -62,7 +61,7 @@ unit tests too).
 6. Disregard the warnings about maven-antrun-plugin and build errors.
 7. Configure the project to use the [Google Eclipse style guide](https://github.com/google/styleguide/blob/gh-pages/eclipse-java-google-style.xml)
 8. Edit `.classpath` in closure-compiler-parent. Delete the `<classpathentry ... kind="src" path="src" ... />` line, then add:
-   ```
+   ```xml
    <classpathentry excluding="com/google/debugging/sourcemap/super/**|com/google/javascript/jscomp/debugger/gwt/DebuggerGwtMain.java|com/google/javascript/jscomp/gwt/|com/google/javascript/jscomp/resources/super-gwt/**" kind="src" path="src"/>
    <classpathentry kind="src" path="target/generated-sources/annotations"/>
    ```

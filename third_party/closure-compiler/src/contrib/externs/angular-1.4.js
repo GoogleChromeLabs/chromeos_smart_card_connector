@@ -26,6 +26,7 @@
  *
  * @see http://angularjs.org/
  * @externs
+ * @suppress {strictMissingProperties}
  */
 
 /**
@@ -86,7 +87,7 @@ angular.equals = function(o1, o2) {};
 
 /**
  * @param {Object} dest
- * @param {...Object} srcs
+ * @param {...(Object|undefined)} srcs
  */
 angular.extend = function(dest, srcs) {};
 
@@ -179,7 +180,7 @@ angular.lowercase = function(s) {};
 
 /**
  * @param {Object} dest
- * @param {...Object} srcs
+ * @param {...(Object|undefined)} srcs
  */
 angular.merge = function(dest, srcs) {};
 

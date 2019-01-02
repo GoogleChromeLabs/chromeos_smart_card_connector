@@ -1524,7 +1524,10 @@ RTCIceServerInterface_.prototype.credential;
 var RTCIceServer;
 
 /**
- * @typedef {{iceServers: !Array<!RTCIceServer>}}
+ * @typedef {{
+ *   iceServers: !Array<!RTCIceServer>,
+ *   sdpSemantics: (string|undefined)
+ * }}
  * @private
  */
 var RTCConfigurationRecord_;
@@ -1539,6 +1542,15 @@ function RTCConfigurationInterface_() {}
  * @type {!Array<!RTCIceServer>}
  */
 RTCConfigurationInterface_.prototype.iceServers;
+
+/**
+ * Allows specifying the SDP semantics. Valid values are "plan-b" and
+ * "unified-plan".
+ *
+ * @see {@link https://webrtc.org/web-apis/chrome/unified-plan/}
+ * @type {string|undefined}
+ */
+RTCConfigurationInterface_.prototype.sdpSemantics;
 
 /**
  * @typedef {RTCConfigurationRecord_|RTCConfigurationInterface_}
@@ -1645,9 +1657,10 @@ RTCStatsReport.prototype.id;
 // Mozilla.
 // See https://www.w3.org/TR/webrtc/#rtcstatsreport-object for definition.
 /**
- * @param {function(this:SCOPE, Object)} callback
+ * @param {function(this:SCOPE, Object, string, MAP)} callback
  * @param {SCOPE=} opt_thisObj The value of "this" inside callback function.
- * @template SCOPE
+ * @this {MAP}
+ * @template MAP,SCOPE
  * @readonly
  */
 RTCStatsReport.prototype.forEach = function(callback, opt_thisObj) {};
@@ -1660,7 +1673,7 @@ RTCStatsReport.prototype.forEach = function(callback, opt_thisObj) {};
 RTCStatsReport.prototype.get = function(key) {};
 
 /**
- * @return {!Iterator<string>}
+ * @return {!IteratorIterable<string>}
  * @readonly
  */
 RTCStatsReport.prototype.keys = function() {};
@@ -1940,7 +1953,7 @@ RTCPeerConnection.prototype.createAnswer =
  * @param {!RTCSessionDescription} description
  * @param {!RTCVoidCallback=} successCallback
  * @param {!RTCPeerConnectionErrorCallback=} errorCallback
- * @return {!Promise<!RTCSessionDescription>|undefined}
+ * @return {!Promise<!RTCSessionDescription>}
  */
 RTCPeerConnection.prototype.setLocalDescription = function(description,
     successCallback, errorCallback) {};
@@ -1949,7 +1962,7 @@ RTCPeerConnection.prototype.setLocalDescription = function(description,
  * @param {!RTCSessionDescription} description
  * @param {!RTCVoidCallback=} successCallback
  * @param {!RTCPeerConnectionErrorCallback=} errorCallback
- * @return {!Promise<!RTCSessionDescription>|undefined}
+ * @return {!Promise<!RTCSessionDescription>}
  */
 RTCPeerConnection.prototype.setRemoteDescription = function(description,
     successCallback, errorCallback) {};

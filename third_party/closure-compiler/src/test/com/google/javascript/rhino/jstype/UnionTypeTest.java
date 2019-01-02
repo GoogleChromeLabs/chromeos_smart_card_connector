@@ -38,41 +38,77 @@
 
 package com.google.javascript.rhino.jstype;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.javascript.rhino.testing.TypeSubject.assertType;
+
 import com.google.javascript.rhino.testing.Asserts;
 import com.google.javascript.rhino.testing.BaseJSTypeTestCase;
 import com.google.javascript.rhino.testing.MapBasedScope;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+@RunWith(JUnit4.class)
 public class UnionTypeTest extends BaseJSTypeTestCase {
   private static final MapBasedScope EMPTY_SCOPE = MapBasedScope.emptyScope();
 
   private NamedType unresolvedNamedType;
+  private ObjectType base;
+  private ObjectType sub1;
+  private ObjectType sub2;
+  private ObjectType sub3;
 
   @Override
+  @Before
   public void setUp() throws Exception {
     super.setUp();
     unresolvedNamedType =
         new NamedType(EMPTY_SCOPE, registry, "not.resolved.named.type", null, -1, -1);
+
+    this.base =
+        new FunctionBuilder(registry).forConstructor().withName("Base").build().getInstanceType();
+    this.sub1 =
+        new FunctionBuilder(registry)
+            .forConstructor()
+            .withName("Sub1")
+            .withPrototypeBasedOn(base)
+            .build()
+            .getInstanceType();
+    this.sub2 =
+        new FunctionBuilder(registry)
+            .forConstructor()
+            .withName("Sub2")
+            .withPrototypeBasedOn(base)
+            .build()
+            .getInstanceType();
+    this.sub3 =
+        new FunctionBuilder(registry)
+            .forConstructor()
+            .withName("Sub3")
+            .withPrototypeBasedOn(base)
+            .build()
+            .getInstanceType();
   }
 
   /**
    * Assert that a type can assign to itself.
    */
   private void assertTypeCanAssignToItself(JSType type) {
-    assertTrue(type.isSubtypeOf(type));
+    assertThat(type.isSubtypeOf(type)).isTrue();
   }
 
-  /**
-   * Tests the behavior of variants type.
-   */
+  /** Tests the behavior of variants type. */
   @SuppressWarnings("checked")
-  public void testUnionType() throws Exception {
+  @Test
+  public void testUnionType() {
     UnionType nullOrString =
         (UnionType) createUnionType(NULL_TYPE, STRING_OBJECT_TYPE);
     UnionType stringOrNull =
         (UnionType) createUnionType(STRING_OBJECT_TYPE, NULL_TYPE);
 
-    Asserts.assertTypeEquals(nullOrString, stringOrNull);
-    Asserts.assertTypeEquals(stringOrNull, nullOrString);
+    assertType(stringOrNull).isStructurallyEqualTo(nullOrString);
+    assertType(nullOrString).isStructurallyEqualTo(stringOrNull);
 
     assertTypeCanAssignToItself(createUnionType(VOID_TYPE, NUMBER_TYPE));
     assertTypeCanAssignToItself(
@@ -82,55 +118,48 @@ public class UnionTypeTest extends BaseJSTypeTestCase {
 
     UnionType nullOrUnknown =
         (UnionType) createUnionType(NULL_TYPE, unresolvedNamedType);
-    assertTrue(nullOrUnknown.isUnknownType());
-    Asserts.assertTypeEquals(nullOrUnknown, NULL_TYPE.getLeastSupertype(nullOrUnknown));
-    Asserts.assertTypeEquals(nullOrUnknown, nullOrUnknown.getLeastSupertype(NULL_TYPE));
-    Asserts.assertTypeEquals(UNKNOWN_TYPE,
-        NULL_TYPE.getGreatestSubtype(nullOrUnknown));
-    Asserts.assertTypeEquals(UNKNOWN_TYPE,
-        nullOrUnknown.getGreatestSubtype(NULL_TYPE));
+    assertThat(nullOrUnknown.isUnknownType()).isTrue();
+    assertType(NULL_TYPE.getLeastSupertype(nullOrUnknown)).isStructurallyEqualTo(nullOrUnknown);
+    assertType(nullOrUnknown.getLeastSupertype(NULL_TYPE)).isStructurallyEqualTo(nullOrUnknown);
+    assertType(NULL_TYPE.getGreatestSubtype(nullOrUnknown)).isStructurallyEqualTo(UNKNOWN_TYPE);
+    assertType(nullOrUnknown.getGreatestSubtype(NULL_TYPE)).isStructurallyEqualTo(UNKNOWN_TYPE);
 
-    assertTrue(NULL_TYPE.differsFrom(nullOrUnknown));
-    assertTrue(nullOrUnknown.differsFrom(NULL_TYPE));
-    assertFalse(nullOrUnknown.differsFrom(unresolvedNamedType));
+    assertThat(NULL_TYPE.differsFrom(nullOrUnknown)).isTrue();
+    assertThat(nullOrUnknown.differsFrom(NULL_TYPE)).isTrue();
+    assertThat(nullOrUnknown.differsFrom(unresolvedNamedType)).isFalse();
 
-    assertTrue(NULL_TYPE.isSubtypeOf(nullOrUnknown));
-    assertTrue(unresolvedNamedType.isSubtype(nullOrUnknown));
-    assertTrue(nullOrUnknown.isSubtype(NULL_TYPE));
+    assertThat(NULL_TYPE.isSubtypeOf(nullOrUnknown)).isTrue();
+    assertThat(unresolvedNamedType.isSubtype(nullOrUnknown)).isTrue();
+    assertThat(nullOrUnknown.isSubtype(NULL_TYPE)).isTrue();
 
-    Asserts.assertTypeEquals(unresolvedNamedType,
-        nullOrUnknown.restrictByNotNullOrUndefined());
+    assertType(nullOrUnknown.restrictByNotNullOrUndefined())
+        .isStructurallyEqualTo(unresolvedNamedType);
 
     // findPropertyType
-    Asserts.assertTypeEquals(NUMBER_TYPE, nullOrString.findPropertyType("length"));
-    assertEquals(null, nullOrString.findPropertyType("lengthx"));
+    assertType(nullOrString.findPropertyType("length")).isStructurallyEqualTo(NUMBER_TYPE);
+    assertThat(nullOrString.findPropertyType("lengthx")).isNull();
 
     Asserts.assertResolvesToSame(nullOrString);
   }
 
-  /**
-   * Tests {@link JSType#getGreatestSubtype(JSType)} on union types.
-   */
+  /** Tests {@link JSType#getGreatestSubtype(JSType)} on union types. */
+  @Test
   public void testGreatestSubtypeUnionTypes1() {
-    Asserts.assertTypeEquals(NULL_TYPE, createNullableType(STRING_TYPE).getGreatestSubtype(
-            createNullableType(NUMBER_TYPE)));
+    assertType(createNullableType(STRING_TYPE).getGreatestSubtype(createNullableType(NUMBER_TYPE)))
+        .isStructurallyEqualTo(NULL_TYPE);
   }
 
-  /**
-   * Tests {@link JSType#getGreatestSubtype(JSType)} on union types.
-   */
+  /** Tests {@link JSType#getGreatestSubtype(JSType)} on union types. */
   @SuppressWarnings("checked")
+  @Test
   public void testGreatestSubtypeUnionTypes2() {
-    UnionType evalUriError =
-        (UnionType) createUnionType(EVAL_ERROR_TYPE, URI_ERROR_TYPE);
-    Asserts.assertTypeEquals(evalUriError,
-        evalUriError.getGreatestSubtype(ERROR_TYPE));
+    UnionType subUnion = (UnionType) createUnionType(sub1, sub2);
+    assertType(subUnion.getGreatestSubtype(base)).isStructurallyEqualTo(subUnion);
   }
 
-  /**
-   * Tests {@link JSType#getGreatestSubtype(JSType)} on union types.
-   */
+  /** Tests {@link JSType#getGreatestSubtype(JSType)} on union types. */
   @SuppressWarnings("checked")
+  @Test
   public void testGreatestSubtypeUnionTypes3() {
     // (number,undefined,null)
     UnionType nullableOptionalNumber =
@@ -138,287 +167,248 @@ public class UnionTypeTest extends BaseJSTypeTestCase {
     // (null,undefined)
     UnionType nullUndefined =
         (UnionType) createUnionType(VOID_TYPE, NULL_TYPE);
-    Asserts.assertTypeEquals(nullUndefined,
-        nullUndefined.getGreatestSubtype(nullableOptionalNumber));
-    Asserts.assertTypeEquals(nullUndefined,
-        nullableOptionalNumber.getGreatestSubtype(nullUndefined));
+    assertType(nullUndefined.getGreatestSubtype(nullableOptionalNumber))
+        .isStructurallyEqualTo(nullUndefined);
+    assertType(nullableOptionalNumber.getGreatestSubtype(nullUndefined))
+        .isStructurallyEqualTo(nullUndefined);
   }
 
-  /**
-   * Tests {@link JSType#getGreatestSubtype(JSType)} on union types.
-   */
-  public void testGreatestSubtypeUnionTypes4() throws Exception {
-    UnionType errUnion = (UnionType) createUnionType(
-        NULL_TYPE, EVAL_ERROR_TYPE, URI_ERROR_TYPE);
-    Asserts.assertTypeEquals(createUnionType(EVAL_ERROR_TYPE, URI_ERROR_TYPE),
-        errUnion.getGreatestSubtype(ERROR_TYPE));
+  /** Tests {@link JSType#getGreatestSubtype(JSType)} on union types. */
+  @Test
+  public void testGreatestSubtypeUnionTypes4() {
+    UnionType union = (UnionType) createUnionType(NULL_TYPE, sub1, sub2);
+    assertType(union.getGreatestSubtype(base)).isStructurallyEqualTo(createUnionType(sub1, sub2));
   }
 
-  /**
-   * Tests {@link JSType#getGreatestSubtype(JSType)} on union types.
-   */
-  public void testGreatestSubtypeUnionTypes5() throws Exception {
-    JSType errUnion = createUnionType(EVAL_ERROR_TYPE, URI_ERROR_TYPE);
-    Asserts.assertTypeEquals(NO_OBJECT_TYPE,
-        errUnion.getGreatestSubtype(STRING_OBJECT_TYPE));
+  /** Tests {@link JSType#getGreatestSubtype(JSType)} on union types. */
+  @Test
+  public void testGreatestSubtypeUnionTypes5() {
+    JSType subUnion = createUnionType(sub1, sub2);
+    assertType(subUnion.getGreatestSubtype(STRING_OBJECT_TYPE))
+        .isStructurallyEqualTo(NO_OBJECT_TYPE);
   }
 
-  /**
-   * Tests subtyping of union types.
-   */
-  public void testSubtypingUnionTypes() throws Exception {
+  /** Tests subtyping of union types. */
+  @Test
+  public void testSubtypingUnionTypes() {
     // subtypes
-    assertTrue(BOOLEAN_TYPE.
-        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE)));
-    assertTrue(createUnionType(BOOLEAN_TYPE, STRING_TYPE).
-        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE)));
-    assertTrue(createUnionType(BOOLEAN_TYPE, STRING_TYPE).
-        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
-    assertTrue(createUnionType(BOOLEAN_TYPE, STRING_TYPE).
-        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
-    assertTrue(createUnionType(BOOLEAN_TYPE).
-        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
-    assertTrue(createUnionType(STRING_TYPE).
-        isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)));
-    assertTrue(createUnionType(STRING_TYPE, NULL_TYPE).isSubtypeOf(ALL_TYPE));
-    assertTrue(createUnionType(DATE_TYPE, REGEXP_TYPE).isSubtypeOf(OBJECT_TYPE));
-    assertTrue(createUnionType(URI_ERROR_TYPE, EVAL_ERROR_TYPE).
-        isSubtypeOf(ERROR_TYPE));
-    assertTrue(createUnionType(URI_ERROR_TYPE, EVAL_ERROR_TYPE).
-        isSubtypeOf(OBJECT_TYPE));
+    assertThat(BOOLEAN_TYPE.isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE))).isTrue();
+    assertThat(
+            createUnionType(BOOLEAN_TYPE, STRING_TYPE)
+                .isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE)))
+        .isTrue();
+    assertThat(
+            createUnionType(BOOLEAN_TYPE, STRING_TYPE)
+                .isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)))
+        .isTrue();
+    assertThat(
+            createUnionType(BOOLEAN_TYPE, STRING_TYPE)
+                .isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)))
+        .isTrue();
+    assertThat(
+            createUnionType(BOOLEAN_TYPE)
+                .isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)))
+        .isTrue();
+    assertThat(
+            createUnionType(STRING_TYPE)
+                .isSubtypeOf(createUnionType(BOOLEAN_TYPE, STRING_TYPE, NULL_TYPE)))
+        .isTrue();
+    assertThat(createUnionType(STRING_TYPE, NULL_TYPE).isSubtypeOf(ALL_TYPE)).isTrue();
+    assertThat(createUnionType(DATE_TYPE, REGEXP_TYPE).isSubtypeOf(OBJECT_TYPE)).isTrue();
+    assertThat(createUnionType(sub1, sub2).isSubtypeOf(base)).isTrue();
+    assertThat(createUnionType(sub1, sub2).isSubtypeOf(OBJECT_TYPE)).isTrue();
 
     // not subtypes
-    assertFalse(createUnionType(STRING_TYPE, NULL_TYPE).isSubtypeOf(NO_TYPE));
-    assertFalse(createUnionType(STRING_TYPE, NULL_TYPE).
-        isSubtypeOf(NO_OBJECT_TYPE));
-    assertFalse(createUnionType(NO_OBJECT_TYPE, NULL_TYPE).
-        isSubtypeOf(OBJECT_TYPE));
+    assertThat(createUnionType(STRING_TYPE, NULL_TYPE).isSubtypeOf(NO_TYPE)).isFalse();
+    assertThat(createUnionType(STRING_TYPE, NULL_TYPE).isSubtypeOf(NO_OBJECT_TYPE)).isFalse();
+    assertThat(createUnionType(NO_OBJECT_TYPE, NULL_TYPE).isSubtypeOf(OBJECT_TYPE)).isFalse();
 
     // defined unions
-    assertTrue(NUMBER_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING));
-    assertTrue(OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING));
-    assertTrue(STRING_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING));
-    assertTrue(NO_OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING));
+    assertThat(NUMBER_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING)).isTrue();
+    assertThat(OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING)).isTrue();
+    assertThat(STRING_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING)).isTrue();
+    assertThat(NO_OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING)).isTrue();
 
-    assertTrue(NUMBER_TYPE.isSubtypeOf(NUMBER_STRING_BOOLEAN));
-    assertTrue(BOOLEAN_TYPE.isSubtypeOf(NUMBER_STRING_BOOLEAN));
-    assertTrue(STRING_TYPE.isSubtypeOf(NUMBER_STRING_BOOLEAN));
+    assertThat(NUMBER_TYPE.isSubtypeOf(NUMBER_STRING_BOOLEAN)).isTrue();
+    assertThat(BOOLEAN_TYPE.isSubtypeOf(NUMBER_STRING_BOOLEAN)).isTrue();
+    assertThat(STRING_TYPE.isSubtypeOf(NUMBER_STRING_BOOLEAN)).isTrue();
 
-    assertTrue(NUMBER_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN));
-    assertTrue(OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN));
-    assertTrue(STRING_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN));
-    assertTrue(BOOLEAN_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN));
-    assertTrue(NO_OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN));
+    assertThat(NUMBER_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN)).isTrue();
+    assertThat(OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN)).isTrue();
+    assertThat(STRING_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN)).isTrue();
+    assertThat(BOOLEAN_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN)).isTrue();
+    assertThat(NO_OBJECT_TYPE.isSubtypeOf(OBJECT_NUMBER_STRING_BOOLEAN)).isTrue();
   }
 
   /**
-   * Tests that special union types can assign to other types.  Unions
-   * containing the unknown type should be able to assign to any other
-   * type.
+   * Tests that special union types can assign to other types. Unions containing the unknown type
+   * should be able to assign to any other type.
    */
   @SuppressWarnings("checked")
-  public void testSpecialUnionCanAssignTo() throws Exception {
+  @Test
+  public void testSpecialUnionCanAssignTo() {
     // autoboxing quirks
-    UnionType numbers =
-        (UnionType) createUnionType(NUMBER_TYPE, NUMBER_OBJECT_TYPE);
-    assertFalse(numbers.isSubtype(NUMBER_TYPE));
-    assertFalse(numbers.isSubtype(NUMBER_OBJECT_TYPE));
-    assertFalse(numbers.isSubtype(EVAL_ERROR_TYPE));
+    UnionType numbers = (UnionType) createUnionType(NUMBER_TYPE, NUMBER_OBJECT_TYPE);
+    assertThat(numbers.isSubtype(NUMBER_TYPE)).isFalse();
+    assertThat(numbers.isSubtype(NUMBER_OBJECT_TYPE)).isFalse();
+    assertThat(numbers.isSubtype(sub1)).isFalse();
 
-    UnionType strings =
-        (UnionType) createUnionType(STRING_OBJECT_TYPE, STRING_TYPE);
-    assertFalse(strings.isSubtype(STRING_TYPE));
-    assertFalse(strings.isSubtype(STRING_OBJECT_TYPE));
-    assertFalse(strings.isSubtype(DATE_TYPE));
+    UnionType strings = (UnionType) createUnionType(STRING_OBJECT_TYPE, STRING_TYPE);
+    assertThat(strings.isSubtype(STRING_TYPE)).isFalse();
+    assertThat(strings.isSubtype(STRING_OBJECT_TYPE)).isFalse();
+    assertThat(strings.isSubtype(DATE_TYPE)).isFalse();
 
-    UnionType booleans =
-        (UnionType) createUnionType(BOOLEAN_OBJECT_TYPE, BOOLEAN_TYPE);
-    assertFalse(booleans.isSubtype(BOOLEAN_TYPE));
-    assertFalse(booleans.isSubtype(BOOLEAN_OBJECT_TYPE));
-    assertFalse(booleans.isSubtype(REGEXP_TYPE));
+    UnionType booleans = (UnionType) createUnionType(BOOLEAN_OBJECT_TYPE, BOOLEAN_TYPE);
+    assertThat(booleans.isSubtype(BOOLEAN_TYPE)).isFalse();
+    assertThat(booleans.isSubtype(BOOLEAN_OBJECT_TYPE)).isFalse();
+    assertThat(booleans.isSubtype(REGEXP_TYPE)).isFalse();
 
     // unknown quirks
     JSType unknown = createUnionType(UNKNOWN_TYPE, DATE_TYPE);
-    assertTrue(unknown.isSubtypeOf(STRING_TYPE));
+    assertThat(unknown.isSubtypeOf(STRING_TYPE)).isTrue();
 
     // all members need to be assignable to
-    UnionType stringDate =
-        (UnionType) createUnionType(STRING_OBJECT_TYPE, DATE_TYPE);
-    assertTrue(stringDate.isSubtype(OBJECT_TYPE));
-    assertFalse(stringDate.isSubtype(STRING_OBJECT_TYPE));
-    assertFalse(stringDate.isSubtype(DATE_TYPE));
+    UnionType stringDate = (UnionType) createUnionType(STRING_OBJECT_TYPE, DATE_TYPE);
+    assertThat(stringDate.isSubtype(OBJECT_TYPE)).isTrue();
+    assertThat(stringDate.isSubtype(STRING_OBJECT_TYPE)).isFalse();
+    assertThat(stringDate.isSubtype(DATE_TYPE)).isFalse();
   }
 
-  /**
-   * Tests the factory method
-   * {@link JSTypeRegistry#createUnionType(JSType...)}.
-   */
+  /** Tests the factory method {@link JSTypeRegistry#createUnionType(JSType...)}. */
   @SuppressWarnings("checked")
-  public void testCreateUnionType() throws Exception {
+  @Test
+  public void testCreateUnionType() {
     // number
     UnionType optNumber =
         (UnionType) registry.createUnionType(NUMBER_TYPE, DATE_TYPE);
-    assertTrue(optNumber.contains(NUMBER_TYPE));
-    assertTrue(optNumber.contains(DATE_TYPE));
+    assertThat(optNumber.contains(NUMBER_TYPE)).isTrue();
+    assertThat(optNumber.contains(DATE_TYPE)).isTrue();
 
     // union
     UnionType optUnion =
         (UnionType) registry.createUnionType(REGEXP_TYPE,
             registry.createUnionType(STRING_OBJECT_TYPE, DATE_TYPE));
-    assertTrue(optUnion.contains(DATE_TYPE));
-    assertTrue(optUnion.contains(STRING_OBJECT_TYPE));
-    assertTrue(optUnion.contains(REGEXP_TYPE));
+    assertThat(optUnion.contains(DATE_TYPE)).isTrue();
+    assertThat(optUnion.contains(STRING_OBJECT_TYPE)).isTrue();
+    assertThat(optUnion.contains(REGEXP_TYPE)).isTrue();
   }
 
-
-  public void testUnionWithUnknown() throws Exception {
-    assertTrue(createUnionType(UNKNOWN_TYPE, NULL_TYPE).isUnknownType());
+  @Test
+  public void testUnionWithUnknown() {
+    assertThat(createUnionType(UNKNOWN_TYPE, NULL_TYPE).isUnknownType()).isTrue();
   }
 
-  public void testGetRestrictedUnion1() throws Exception {
+  @Test
+  public void testGetRestrictedUnion1() {
     UnionType numStr = (UnionType) createUnionType(NUMBER_TYPE, STRING_TYPE);
-    Asserts.assertTypeEquals(STRING_TYPE, numStr.getRestrictedUnion(NUMBER_TYPE));
+    assertType(numStr.getRestrictedUnion(NUMBER_TYPE)).isStructurallyEqualTo(STRING_TYPE);
   }
 
-  public void testGetRestrictedUnion2() throws Exception {
-    UnionType numStr = (UnionType) createUnionType(
-        NULL_TYPE, EVAL_ERROR_TYPE, URI_ERROR_TYPE);
-    Asserts.assertTypeEquals(NULL_TYPE, numStr.getRestrictedUnion(ERROR_TYPE));
+  @Test
+  public void testGetRestrictedUnion2() {
+    UnionType numStr = (UnionType) createUnionType(NULL_TYPE, sub1, sub2);
+    assertType(numStr.getRestrictedUnion(base)).isStructurallyEqualTo(NULL_TYPE);
   }
 
+  @Test
   public void testIsEquivalentTo() {
     UnionType type = (UnionType) createUnionType(NUMBER_TYPE, STRING_TYPE);
-    assertFalse(type.equals(null));
-    assertTrue(type.isEquivalentTo(type));
+    assertThat(type.equals(null)).isFalse();
+    assertThat(type.isEquivalentTo(type)).isTrue();
   }
 
-  public void testProxyUnionType() throws Exception {
+  @Test
+  public void testProxyUnionType() {
     UnionType stringOrNumber =
         (UnionType) createUnionType(NUMBER_TYPE, STRING_TYPE);
     UnionType stringOrBoolean =
         (UnionType) createUnionType(BOOLEAN_TYPE, STRING_TYPE);
 
-    assertEquals(
-        "(boolean|number|string)",
-        stringOrNumber.getLeastSupertype(stringOrBoolean).toString());
-    assertEquals(
-        "string",
-        stringOrNumber.getGreatestSubtype(stringOrBoolean).toString());
-    assertEquals(
-        TernaryValue.UNKNOWN,
-        stringOrNumber.testForEquality(stringOrBoolean));
-    assertEquals(
-        "(number|string)",
-        stringOrNumber.getTypesUnderEquality(
-            stringOrBoolean).typeA.toString());
-    assertEquals(
-        "string",
-        stringOrNumber.getTypesUnderShallowEquality(
-            stringOrBoolean).typeA.toString());
-    assertEquals(
-        "(number|string)",
-        stringOrNumber.getTypesUnderInequality(
-            stringOrBoolean).typeA.toString());
-    assertEquals(
-        "(number|string)",
-        stringOrNumber.getTypesUnderShallowInequality(
-            stringOrBoolean).typeA.toString());
+    assertThat(stringOrNumber.getLeastSupertype(stringOrBoolean).toString())
+        .isEqualTo("(boolean|number|string)");
+    assertThat(stringOrNumber.getGreatestSubtype(stringOrBoolean).toString()).isEqualTo("string");
+    assertThat(stringOrNumber.testForEquality(stringOrBoolean)).isEqualTo(TernaryValue.UNKNOWN);
+    assertThat(stringOrNumber.getTypesUnderEquality(stringOrBoolean).typeA.toString())
+        .isEqualTo("(number|string)");
+    assertThat(stringOrNumber.getTypesUnderShallowEquality(stringOrBoolean).typeA.toString())
+        .isEqualTo("string");
+    assertThat(stringOrNumber.getTypesUnderInequality(stringOrBoolean).typeA.toString())
+        .isEqualTo("(number|string)");
+    assertThat(stringOrNumber.getTypesUnderShallowInequality(stringOrBoolean).typeA.toString())
+        .isEqualTo("(number|string)");
 
     ObjectType stringOrNumberProxy =
         new ProxyObjectType(registry, stringOrNumber);
     ObjectType stringOrBooleanProxy =
         new ProxyObjectType(registry, stringOrBoolean);
-    assertEquals(
-        "(boolean|number|string)",
-        stringOrNumberProxy.getLeastSupertype(
-            stringOrBooleanProxy).toString());
-    assertEquals(
-        "string",
-        stringOrNumberProxy.getGreatestSubtype(
-            stringOrBooleanProxy).toString());
-    assertEquals(
-        TernaryValue.UNKNOWN,
-        stringOrNumberProxy.testForEquality(stringOrBooleanProxy));
-    assertEquals(
-        "(number|string)",
-        stringOrNumberProxy.getTypesUnderEquality(
-            stringOrBooleanProxy).typeA.toString());
-    assertEquals(
-        "string",
-        stringOrNumberProxy.getTypesUnderShallowEquality(
-            stringOrBooleanProxy).typeA.toString());
-    assertEquals(
-        "(number|string)",
-        stringOrNumberProxy.getTypesUnderInequality(
-            stringOrBooleanProxy).typeA.toString());
-    assertEquals(
-        "(number|string)",
-        stringOrNumberProxy.getTypesUnderShallowInequality(
-            stringOrBooleanProxy).typeA.toString());
+    assertThat(stringOrNumberProxy.getLeastSupertype(stringOrBooleanProxy).toString())
+        .isEqualTo("(boolean|number|string)");
+    assertThat(stringOrNumberProxy.getGreatestSubtype(stringOrBooleanProxy).toString())
+        .isEqualTo("string");
+    assertThat(stringOrNumberProxy.testForEquality(stringOrBooleanProxy))
+        .isEqualTo(TernaryValue.UNKNOWN);
+    assertThat(stringOrNumberProxy.getTypesUnderEquality(stringOrBooleanProxy).typeA.toString())
+        .isEqualTo("(number|string)");
+    assertThat(
+            stringOrNumberProxy.getTypesUnderShallowEquality(stringOrBooleanProxy).typeA.toString())
+        .isEqualTo("string");
+    assertThat(stringOrNumberProxy.getTypesUnderInequality(stringOrBooleanProxy).typeA.toString())
+        .isEqualTo("(number|string)");
+    assertThat(
+            stringOrNumberProxy
+                .getTypesUnderShallowInequality(stringOrBooleanProxy)
+                .typeA
+                .toString())
+        .isEqualTo("(number|string)");
   }
 
+  @Test
   public void testCollapseUnion1() {
-    assertEquals(
-        "*",
-        registry.createUnionType(NUMBER_TYPE, STRING_TYPE)
-        .collapseUnion().toString());
+    assertThat(registry.createUnionType(NUMBER_TYPE, STRING_TYPE).collapseUnion().toString())
+        .isEqualTo("*");
   }
 
+  @Test
   public void testCollapseUnion2() {
-    assertEquals(
-        "?",
-        registry.createUnionType(UNKNOWN_TYPE, NUMBER_TYPE)
-        .collapseUnion().toString());
-    assertEquals(
-        "?",
-        registry.createUnionType(NUMBER_TYPE, UNKNOWN_TYPE)
-        .collapseUnion().toString());
+    assertThat(registry.createUnionType(UNKNOWN_TYPE, NUMBER_TYPE).collapseUnion().toString())
+        .isEqualTo("?");
+    assertThat(registry.createUnionType(NUMBER_TYPE, UNKNOWN_TYPE).collapseUnion().toString())
+        .isEqualTo("?");
   }
 
+  @Test
   public void testCollapseUnion3() {
-    assertEquals(
-        "Object",
-        registry.createUnionType(ARRAY_TYPE, DATE_TYPE)
-        .collapseUnion().toString());
-    assertEquals(
-        "Object",
-        registry.createUnionType(ARRAY_TYPE, OBJECT_TYPE)
-        .collapseUnion().toString());
-    assertEquals(
-        "Error",
-        registry.createUnionType(ERROR_TYPE, RANGE_ERROR_TYPE)
-        .collapseUnion().toString());
-    assertEquals(
-        "Error",
-        registry.createUnionType(EVAL_ERROR_TYPE, RANGE_ERROR_TYPE)
-        .collapseUnion().toString());
-    assertEquals(
-        "Error",
-        registry.createUnionType(
-            EVAL_ERROR_TYPE, RANGE_ERROR_TYPE, TYPE_ERROR_TYPE)
-        .collapseUnion().toString());
+    assertThat(registry.createUnionType(ARRAY_TYPE, DATE_TYPE).collapseUnion().toString())
+        .isEqualTo("Object");
+    assertThat(registry.createUnionType(ARRAY_TYPE, OBJECT_TYPE).collapseUnion().toString())
+        .isEqualTo("Object");
+    assertThat(registry.createUnionType(base, sub1).collapseUnion().toString()).isEqualTo("Base");
+    assertThat(registry.createUnionType(sub1, sub2).collapseUnion().toString()).isEqualTo("Base");
+    assertThat(registry.createUnionType(sub1, sub2, sub3).collapseUnion().toString())
+        .isEqualTo("Base");
   }
 
+  @Test
   public void testCollapseUnion4() {
-    assertEquals(
-        "*",
-        registry.createUnionType(OBJECT_TYPE, STRING_TYPE)
-        .collapseUnion().toString());
-    assertEquals(
-        "*",
-        registry.createUnionType(STRING_TYPE, OBJECT_TYPE)
-        .collapseUnion().toString());
+    assertThat(registry.createUnionType(OBJECT_TYPE, STRING_TYPE).collapseUnion().toString())
+        .isEqualTo("*");
+    assertThat(registry.createUnionType(STRING_TYPE, OBJECT_TYPE).collapseUnion().toString())
+        .isEqualTo("*");
   }
 
+  @Test
   public void testCollapseProxyUnion() {
     // Make sure we don't unbox the proxy.
     ProxyObjectType type = new ProxyObjectType(registry, OBJECT_TYPE);
-    assertTrue(type == type.collapseUnion());
+    assertThat(type == type.collapseUnion()).isTrue();
   }
 
+  @Test
   public void testShallowEquality() {
-    assertTrue(
-        registry.createUnionType(ARRAY_TYPE, STRING_TYPE)
-        .canTestForShallowEqualityWith(OBJECT_TYPE));
+    assertThat(
+            registry
+                .createUnionType(ARRAY_TYPE, STRING_TYPE)
+                .canTestForShallowEqualityWith(OBJECT_TYPE))
+        .isTrue();
   }
 }

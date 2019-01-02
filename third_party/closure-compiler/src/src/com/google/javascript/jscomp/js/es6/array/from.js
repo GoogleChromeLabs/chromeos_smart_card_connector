@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-'require es6/symbol';
 'require util/polyfill';
 
 $jscomp.polyfill('Array.from', function(orig) {
@@ -30,7 +29,7 @@ $jscomp.polyfill('Array.from', function(orig) {
    *
    * @param {!IArrayLike<INPUT>|!Iterable<INPUT>} arrayLike
    *     An array-like or iterable.
-   * @param {(function(this: THIS, INPUT): OUTPUT)=} opt_mapFn
+   * @param {(function(this: THIS, INPUT, number): OUTPUT)=} opt_mapFn
    *     Function to call on each argument.
    * @param {THIS=} opt_thisArg
    *     Object to use as 'this' when calling mapFn.
@@ -39,23 +38,24 @@ $jscomp.polyfill('Array.from', function(orig) {
    * @suppress {reportUnknownTypes}
    */
   var polyfill = function(arrayLike, opt_mapFn, opt_thisArg) {
-    $jscomp.initSymbolIterator();
     opt_mapFn = opt_mapFn != null ? opt_mapFn : function(x) { return x; };
     var result = [];
     // NOTE: this is cast to ? because [] on @struct is an error
-    var iteratorFunction = /** @type {?} */ (arrayLike)[Symbol.iterator];
+    var iteratorFunction = typeof Symbol != 'undefined' && Symbol.iterator &&
+        (/** @type {?} */ (arrayLike)[Symbol.iterator]);
     if (typeof iteratorFunction == 'function') {
       arrayLike = iteratorFunction.call(arrayLike);
       var next;
+      var k = 0;
       while (!(next = arrayLike.next()).done) {
         result.push(
-            opt_mapFn.call(/** @type {?} */ (opt_thisArg), next.value));
+            opt_mapFn.call(/** @type {?} */ (opt_thisArg), next.value, k++));
       }
     } else {
       var len = arrayLike.length;  // need to support non-iterables
       for (var i = 0; i < len; i++) {
         result.push(
-            opt_mapFn.call(/** @type {?} */ (opt_thisArg), arrayLike[i]));
+            opt_mapFn.call(/** @type {?} */ (opt_thisArg), arrayLike[i], i));
       }
     }
     return result;

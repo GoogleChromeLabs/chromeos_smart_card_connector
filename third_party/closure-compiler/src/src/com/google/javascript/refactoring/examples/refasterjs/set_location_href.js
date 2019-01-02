@@ -16,7 +16,7 @@
 
 /**
  * @fileoverview RefasterJS templates for replacing direct access to the
- * Location.prototype.href and Window.prototype.location DOM properties with a
+ * Location.prototype.href DOM property with a
  * call to the goog.dom.safe.setLocationHref wrapper.
  *
  * For benign URLs, setLocationHref simply forwards the provided URL to the
@@ -27,6 +27,7 @@
  * otherwise be present if the URL is derived from untrusted input.
  */
 
+goog.require('goog.asserts');
 goog.require('goog.dom.safe');
 
 /**
@@ -35,14 +36,6 @@ goog.require('goog.dom.safe');
  */
 function do_not_change_setHrefStringLiteral(loc, string_literal_thing2) {
   loc.href = string_literal_thing2;
-}
-
-/**
- * @param {?} thing1
- * @param {string} string_literal_thing2
- */
-function do_not_change_setLocationStringLiteral(thing1, string_literal_thing2) {
-  thing1.location = string_literal_thing2;
 }
 
 
@@ -64,22 +57,25 @@ function before_setLocationHref(loc, url) {
 function after_setLocationHref(loc, url) {
   goog.dom.safe.setLocationHref(loc, url);
 }
-
 /**
- * Replaces writes to Window.property.location with a call to the corresponding
+ * Replaces writes to Location.property.href with a call to the corresponding
  * goog.dom.safe.setLocationHref wrapper.
+ * +require {goog.asserts}
  * +require {goog.dom.safe}
- * @param {!Window} win The window object.
- * @param {string} url The url.
+ * @param {!Location} loc The location object.
+ * @param {?} url The url.
  */
-function before_setWindowLocation(win, url) {
-  win.location = url;
+function before_setLocationUntypedHref(loc, url) {
+  loc.href = url;
 }
 
 /**
- * @param {!Window} win The window object.
- * @param {string} url The url.
+ * @param {!Location} loc The location object.
+ * @param {?} url The url.
  */
-function after_setWindowLocation(win, url) {
-  goog.dom.safe.setLocationHref(win.location, url);
+function after_setLocationUntypedHref(loc, url) {
+  // TODO(bangert): add test once we have go/api-prohibition-design
+  // (which will re-do the test infrastructure for this).
+  // TODO(bangert): add tests for nullable locations
+  goog.dom.safe.setLocationHref(loc, goog.asserts.assertString(url));
 }

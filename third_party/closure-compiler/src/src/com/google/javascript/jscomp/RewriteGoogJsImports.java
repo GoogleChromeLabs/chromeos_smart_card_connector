@@ -88,7 +88,7 @@ public class RewriteGoogJsImports implements HotSwapCompilerPass {
     LINT_AND_REWRITE
   }
 
-  private static final ImmutableList<String> EXPECTED_BASE_PROVIDES = ImmutableList.of("goog");
+  private static final String EXPECTED_BASE_PROVIDE = "goog";
 
   private final Mode mode;
   private final AbstractCompiler compiler;
@@ -106,7 +106,7 @@ public class RewriteGoogJsImports implements HotSwapCompilerPass {
     public FindExports(Node googRoot) {
       checkState(Es6RewriteModules.isEs6ModuleRoot(googRoot));
       exportedNames = new HashSet<>();
-      NodeTraversal.traverseEs6(compiler, googRoot, this);
+      NodeTraversal.traverse(compiler, googRoot, this);
     }
 
     private void visitExport(Node export) {
@@ -158,7 +158,7 @@ public class RewriteGoogJsImports implements HotSwapCompilerPass {
 
     public ReferenceReplacer(Node script, Node googImportNode) {
       this.googImportNode = googImportNode;
-      NodeTraversal.traverseEs6(compiler, script, this);
+      NodeTraversal.traverse(compiler, script, this);
 
       if (googImportNode.getSecondChild().isImportStar()) {
         if (hasBadExport) {
@@ -309,7 +309,7 @@ public class RewriteGoogJsImports implements HotSwapCompilerPass {
   public void hotSwapScript(Node scriptRoot, Node originalRoot) {
     if (Es6RewriteModules.isEs6ModuleRoot(scriptRoot)) {
       Node googImportNode = findGoogImportNode(scriptRoot);
-      NodeTraversal.traverseEs6(compiler, scriptRoot, new FindReexports(googImportNode != null));
+      NodeTraversal.traverse(compiler, scriptRoot, new FindReexports(googImportNode != null));
 
       // exportsFinder can be null in LINT_AND_REWRITE which indicates that goog.js is not part of
       // the input. Meaning we should just lint and do not do any rewriting.
@@ -326,7 +326,7 @@ public class RewriteGoogJsImports implements HotSwapCompilerPass {
     // Find Closure's base.js file. goog.js should be right next to it.
     for (Node script : root.children()) {
       ImmutableList<String> provides = compiler.getInput(script.getInputId()).getProvides();
-      if (EXPECTED_BASE_PROVIDES.equals(provides)) {
+      if (provides.contains(EXPECTED_BASE_PROVIDE)) {
         // Use resolveModuleAsPath as if it is not part of the input we don't want to report an
         // error.
         expectedGoogPath =
@@ -364,6 +364,11 @@ public class RewriteGoogJsImports implements HotSwapCompilerPass {
     exportsFinder = null;
 
     Node googJsScriptNode = findGoogJsScriptNode(root);
+
+    if (googJsScriptNode == null) {
+      // Potentially in externs if library level type checking.
+      googJsScriptNode = findGoogJsScriptNode(externs);
+    }
 
     if (mode == Mode.LINT_AND_REWRITE) {
       if (googJsScriptNode != null) {

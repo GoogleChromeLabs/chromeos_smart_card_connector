@@ -50,8 +50,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.ObjectTypeI;
-import com.google.javascript.rhino.TypeI;
+import java.io.Serializable;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -85,9 +84,7 @@ import javax.annotation.Nullable;
  * declared or inferred.
  *
  */
-public abstract class ObjectType
-    extends JSType
-    implements ObjectTypeI {
+public abstract class ObjectType extends JSType implements Serializable {
   private boolean visited;
   private JSDocInfo docInfo = null;
   private boolean unknown = true;
@@ -98,12 +95,6 @@ public abstract class ObjectType
 
   ObjectType(JSTypeRegistry registry, TemplateTypeMap templateTypeMap) {
     super(registry, templateTypeMap);
-  }
-
-  public Node getRootNode() { return null; }
-
-  public final ObjectType getParentScope() {
-    return getImplicitPrototype();
   }
 
   /**
@@ -121,7 +112,7 @@ public abstract class ObjectType
     return getPropertyMap().getSlot(name);
   }
 
-  public Property getOwnSlot(String name) {
+  public final Property getOwnSlot(String name) {
     return getPropertyMap().getOwnProperty(name);
   }
 
@@ -134,7 +125,6 @@ public abstract class ObjectType
    *
    * @see TemplatizedType
    */
-  @Override
   public ImmutableList<JSType> getTemplateTypes() {
     return null;
   }
@@ -201,14 +191,28 @@ public abstract class ObjectType
   }
 
   /**
-   * Gets the reference name for this object. This includes named types
-   * like constructors, prototypes, and enums. It notably does not include
-   * literal types like strings and booleans and structural types.
-   * @return the object's name or {@code null} if this is an anonymous
-   *         object
+   * Gets the reference name for this object. This includes named types like constructors,
+   * prototypes, and enums. It notably does not include literal types like strings and booleans and
+   * structural types.
+   *
+   * <p>Returning an empty string means something different than returning null. An empty string may
+   * indicate an anonymous constructor, which we treat differently than a literal type without a
+   * reference name. e.g. in {@link InstanceObjectType#appendTo(StringBuilder, boolean)}
+   *
+   * @return the object's name or {@code null} if this is an anonymous object
    */
   @Nullable
   public abstract String getReferenceName();
+
+  /**
+   * INVARIANT: {@code hasReferenceName()} is true if and only if {@code getReferenceName()} returns
+   * a non-null string.
+   *
+   * @return true if the object is named, false if it is anonymous
+   */
+  public final boolean hasReferenceName() {
+    return getReferenceName() != null;
+  }
 
   /**
    * Due to the complexity of some of our internal type systems, sometimes
@@ -248,26 +252,16 @@ public abstract class ObjectType
     return "(" + suffix + ")";
   }
 
-  /**
-   * @return true if the object is named, false if it is anonymous
-   */
-  public boolean hasReferenceName() {
-    return false;
-  }
-
-  @Override
-  public final boolean isAmbiguousObject() {
+  public boolean isAmbiguousObject() {
     return !hasReferenceName();
   }
 
-  @Override
-  public ObjectType getRawType() {
+  public final ObjectType getRawType() {
     TemplatizedType t = toMaybeTemplatizedType();
     return t == null ? this : t.getReferencedType();
   }
 
-  @Override
-  public ObjectTypeI instantiateGenericsWithUnknown() {
+  public final ObjectType instantiateGenericsWithUnknown() {
     return this.registry.instantiateGenericsWithUnknown(this);
   }
 
@@ -295,21 +289,18 @@ public abstract class ObjectType
    * @return this object's constructor or {@code null} if it is a native
    * object (constructed natively v.s. by instantiation of a function)
    */
-  @Override
   public abstract FunctionType getConstructor();
 
-  @Override
   public FunctionType getSuperClassConstructor() {
-    ObjectType iproto = getPrototypeObject();
+    ObjectType iproto = getImplicitPrototype();
     if (iproto == null) {
       return null;
     }
-    iproto = iproto.getPrototypeObject();
+    iproto = iproto.getImplicitPrototype();
     return iproto == null ? null : iproto.getConstructor();
   }
 
-  @Override
-  public ObjectType getTopDefiningInterface(String propertyName) {
+  public final ObjectType getTopDefiningInterface(String propertyName) {
     ObjectType foundType = null;
     if (hasProperty(propertyName)) {
       foundType = this;
@@ -326,11 +317,6 @@ public abstract class ObjectType
    * Gets the implicit prototype (a.k.a. the {@code [[Prototype]]} property).
    */
   public abstract ObjectType getImplicitPrototype();
-
-  @Override
-  public final ObjectType getPrototypeObject() {
-    return getImplicitPrototype();
-  }
 
   /**
    * Defines a property whose type is explicitly declared by the programmer.
@@ -375,8 +361,7 @@ public abstract class ObjectType
         return true;
       }
       JSType originalType = getPropertyType(propertyName);
-      type = originalType == null ? type :
-          originalType.getLeastSupertype(type);
+      type = originalType == null ? type : originalType.getLeastSupertype(type);
     }
 
     boolean result = defineProperty(propertyName, type, true,
@@ -433,18 +418,16 @@ public abstract class ObjectType
    * @param propertyName the name of the property
    * @return the {@code Node} corresponding to the property or null.
    */
-  public Node getPropertyNode(String propertyName) {
+  public final Node getPropertyNode(String propertyName) {
     Property p = getSlot(propertyName);
     return p == null ? null : p.getNode();
   }
 
-  @Override
-  public Node getPropertyDefSite(String propertyName) {
+  public final Node getPropertyDefSite(String propertyName) {
     return getPropertyNode(propertyName);
   }
 
-  @Override
-  public JSDocInfo getPropertyJSDocInfo(String propertyName) {
+  public final JSDocInfo getPropertyJSDocInfo(String propertyName) {
     Property p = getSlot(propertyName);
     return p == null ? null : p.getJSDocInfo();
   }
@@ -454,14 +437,12 @@ public abstract class ObjectType
    * be implemented recursively, as you generally need to know exactly on
    * which type in the prototype chain the JSDocInfo exists.
    */
-  @Override
-  public JSDocInfo getOwnPropertyJSDocInfo(String propertyName) {
+  public final JSDocInfo getOwnPropertyJSDocInfo(String propertyName) {
     Property p = getOwnSlot(propertyName);
     return p == null ? null : p.getJSDocInfo();
   }
 
-  @Override
-  public Node getOwnPropertyDefSite(String propertyName) {
+  public final Node getOwnPropertyDefSite(String propertyName) {
     Property p = getOwnSlot(propertyName);
     return p == null ? null : p.getNode();
   }
@@ -482,9 +463,8 @@ public abstract class ObjectType
   }
 
   @Override
-  public JSType findPropertyType(String propertyName) {
-    return hasProperty(propertyName) ?
-        getPropertyType(propertyName) : null;
+  protected JSType findPropertyTypeWithoutConsideringTemplateTypes(String propertyName) {
+    return hasProperty(propertyName) ? getPropertyType(propertyName) : null;
   }
 
   /**
@@ -498,9 +478,8 @@ public abstract class ObjectType
    * @return the property's type or {@link UnknownType}. This method never
    *         returns {@code null}.
    */
-  @Override
   public JSType getPropertyType(String propertyName) {
-    StaticTypedSlot<JSType> slot = getSlot(propertyName);
+    StaticTypedSlot slot = getSlot(propertyName);
     if (slot == null) {
       if (isNoResolvedType() || isCheckedUnknownType()) {
         return getNativeType(JSTypeNative.CHECKED_UNKNOWN_TYPE);
@@ -522,7 +501,7 @@ public abstract class ObjectType
    * Checks whether the property whose name is given is present directly on
    * the object.  Returns false even if it is declared on a supertype.
    */
-  public HasPropertyKind getOwnPropertyKind(String propertyName) {
+  public final HasPropertyKind getOwnPropertyKind(String propertyName) {
     return getOwnSlot(propertyName) != null
         ? HasPropertyKind.KNOWN_PRESENT
         : HasPropertyKind.ABSENT;
@@ -532,8 +511,7 @@ public abstract class ObjectType
    * Checks whether the property whose name is given is present directly on
    * the object.  Returns false even if it is declared on a supertype.
    */
-  @Override
-  public boolean hasOwnProperty(String propertyName) {
+  public final boolean hasOwnProperty(String propertyName) {
     return !getOwnPropertyKind(propertyName).equals(HasPropertyKind.ABSENT);
   }
 
@@ -542,9 +520,8 @@ public abstract class ObjectType
    *
    * Overridden by FunctionType to add "prototype".
    */
-  @Override
   public Set<String> getOwnPropertyNames() {
-    // TODO(sdh): ObjectTypeI specifies that this should include prototype properties,
+    // TODO(sdh): ObjectType specifies that this should include prototype properties,
     // but currently it does not.  Check if this is a constructor and add them, but
     // this could possibly break things so it should be done separately.
     return getPropertyMap().getOwnPropertyNames();
@@ -553,16 +530,16 @@ public abstract class ObjectType
   /**
    * Checks whether the property's type is inferred.
    */
-  public boolean isPropertyTypeInferred(String propertyName) {
-    StaticTypedSlot<JSType> slot = getSlot(propertyName);
+  public final boolean isPropertyTypeInferred(String propertyName) {
+    StaticTypedSlot slot = getSlot(propertyName);
     return slot == null ? false : slot.isTypeInferred();
   }
 
   /**
    * Checks whether the property's type is declared.
    */
-  public boolean isPropertyTypeDeclared(String propertyName) {
-    StaticTypedSlot<JSType> slot = getSlot(propertyName);
+  public final boolean isPropertyTypeDeclared(String propertyName) {
+    StaticTypedSlot slot = getSlot(propertyName);
     return slot == null ? false : !slot.isTypeInferred();
   }
 
@@ -580,7 +557,7 @@ public abstract class ObjectType
   }
 
   /** Checks whether the property was defined in the externs. */
-  public boolean isPropertyInExterns(String propertyName) {
+  public final boolean isPropertyInExterns(String propertyName) {
     Property p = getSlot(propertyName);
     return p == null ? false : p.isFromExterns();
   }
@@ -588,7 +565,7 @@ public abstract class ObjectType
   /**
    * Gets the number of properties of this object.
    */
-  public int getPropertiesCount() {
+  public final int getPropertiesCount() {
     return getPropertyMap().getPropertiesCount();
   }
 
@@ -596,7 +573,7 @@ public abstract class ObjectType
    * Check for structural equivalence with {@code that}.
    * (e.g. two @record types with the same prototype properties)
    */
-  boolean checkStructuralEquivalenceHelper(
+  final boolean checkStructuralEquivalenceHelper(
       ObjectType otherObject, EquivalenceMethod eqMethod, EqCache eqCache) {
     if (this.isTemplatizedType() && this.toMaybeTemplatizedType().wrapsSameRawType(otherObject)) {
       return this.getTemplateTypeMap().checkEquivalenceHelper(
@@ -652,7 +629,7 @@ public abstract class ObjectType
   /**
    * Determine if {@code this} is a an implicit subtype of {@code superType}.
    */
-  boolean isStructuralSubtype(ObjectType superType,
+  final boolean isStructuralSubtype(ObjectType superType,
       ImplCache implicitImplCache, SubtypingMode subtypingMode) {
     // Union types should be handled by isSubtype already
     checkArgument(!this.isUnionType());
@@ -676,8 +653,7 @@ public abstract class ObjectType
    * Returns a list of properties defined or inferred on this type and any of
    * its supertypes.
    */
-  @Override
-  public Set<String> getPropertyNames() {
+  public final Set<String> getPropertyNames() {
     Set<String> props = new TreeSet<>();
     collectPropertyNames(props);
     return props;
@@ -738,8 +714,7 @@ public abstract class ObjectType
     // because it might have been resolved since the last check.
     if (unknown) {
       ObjectType implicitProto = getImplicitPrototype();
-      if (implicitProto == null ||
-          implicitProto.isNativeObjectType()) {
+      if (implicitProto == null || implicitProto.isNativeObjectType()) {
         unknown = false;
         for (ObjectType interfaceType : getCtorExtendedInterfaces()) {
           if (interfaceType.isUnknownType()) {
@@ -781,11 +756,6 @@ public abstract class ObjectType
     return false;
   }
 
-  @Override
-  public JSType getLegacyResolvedType() {
-    return toMaybeNamedType().getReferencedType();
-  }
-
   /**
    * A null-safe version of JSType#toObjectType.
    */
@@ -798,24 +768,12 @@ public abstract class ObjectType
     return getOwnerFunction() != null;
   }
 
-  @Override
   public FunctionType getOwnerFunction() {
     return null;
   }
 
   /** Sets the owner function. By default, does nothing. */
   void setOwnerFunction(FunctionType type) {}
-
-  @Override
-  public ObjectType normalizeObjectForCheckAccessControls() {
-    if (this.isFunctionPrototypeType()) {
-      FunctionType owner = this.getOwnerFunction();
-      if (owner.hasInstanceType()) {
-        return owner.getInstanceType();
-      }
-    }
-    return this;
-  }
 
   /**
    * Gets the interfaces implemented by the ctor associated with this type.
@@ -844,20 +802,7 @@ public abstract class ObjectType
     return propTypeMap.build();
   }
 
-  @Override
-  public TypeI getEnumeratedTypeOfEnumObject() {
+  public JSType getEnumeratedTypeOfEnumObject() {
     return null;
-  }
-
-  @Override
-  public ObjectTypeI withoutStrayProperties() {
-    // OTI represents object types in a way that already exhibits the behavior of this method,
-    // so we don't need to change anything.
-    return this;
-  }
-
-  @Override
-  public TypeI getInstantiatedTypeArgument(TypeI supertype) {
-    throw new UnsupportedOperationException();
   }
 }

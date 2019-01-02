@@ -177,7 +177,8 @@ public final class SuggestedFix {
      */
     public Builder attachMatchedNodeInfo(Node node, AbstractCompiler compiler) {
       matchedNodeInfo =
-          MatchedNodeInfo.create(node, isInClosurizedFile(node, new NodeMetadata(compiler)));
+          MatchedNodeInfo.create(
+              node, RefactoringUtils.isInClosurizedFile(node, new NodeMetadata(compiler)));
       return this;
     }
 
@@ -204,7 +205,7 @@ public final class SuggestedFix {
      */
     public Builder addChildToFront(Node parentNode, String content) {
       checkState(
-          parentNode.isNormalBlock(), "addChildToFront is only supported for BLOCK statements.");
+          parentNode.isBlock(), "addChildToFront is only supported for BLOCK statements.");
       int startPosition = parentNode.getSourceOffset() + 1;
       replacements.put(
           parentNode.getSourceFileName(), CodeReplacement.create(startPosition, 0, "\n" + content));
@@ -310,7 +311,7 @@ public final class SuggestedFix {
       Node parent = n.getParent();
       if (deleteWhitespaceBefore
           && parent != null
-          && (parent.isScript() || parent.isNormalBlock())) {
+          && (parent.isScript() || parent.isBlock())) {
         Node previousSibling = n.getPrevious();
         if (previousSibling != null) {
           int previousSiblingEndPosition =
@@ -429,7 +430,7 @@ public final class SuggestedFix {
       boolean needsSemicolon =
           parent != null
               && (parent.isExprResult()
-                  || parent.isNormalBlock()
+                  || parent.isBlock()
                   || parent.isScript()
                   || parent.isModuleBody());
       if (newCode.endsWith(";") && !needsSemicolon) {
@@ -439,7 +440,7 @@ public final class SuggestedFix {
       // If the replacement has lower precedence then we may need to add parentheses.
       if (parent != null && IR.mayBeExpression(parent)) {
         Node replacement = newNode;
-        while ((replacement.isNormalBlock() || replacement.isScript() || replacement.isModuleBody())
+        while ((replacement.isBlock() || replacement.isScript() || replacement.isModuleBody())
             && replacement.hasOneChild()) {
           replacement = replacement.getOnlyChild();
         }
@@ -698,8 +699,8 @@ public final class SuggestedFix {
           IR.string(namespace));
 
       String shortName = getShortNameForRequire(namespace);
-      boolean useConstRequire = usesConstGoogRequires(metadata, script);
-      if (useConstRequire) {
+      boolean useAliasedRequire = usesConstGoogRequires(metadata, script);
+      if (useAliasedRequire) {
         googRequireNode = IR.constNode(IR.name(shortName), googRequireNode);
       } else {
         googRequireNode = IR.exprResult(googRequireNode);
@@ -805,9 +806,9 @@ public final class SuggestedFix {
       if (script.isModuleBody()) {
         return true;
       }
-      HasConstRequireOrModuleCallback callback = new HasConstRequireOrModuleCallback(metadata);
-      NodeTraversal.traverseEs6(metadata.getCompiler(), script, callback);
-      return callback.getUsesConstRequires();
+      HasAliasedRequireOrModuleCallback callback = new HasAliasedRequireOrModuleCallback(metadata);
+      NodeTraversal.traverse(metadata.getCompiler(), script, callback);
+      return callback.getUsesAliasedRequires();
     }
 
     /**
@@ -889,7 +890,7 @@ public final class SuggestedFix {
     public String generateCode(AbstractCompiler compiler, Node node) {
       // TODO(mknichel): Fix all the formatting problems with this code.
       // How does this play with goog.scope?
-      if (node.isNormalBlock()) {
+      if (node.isBlock()) {
         // Avoid printing the {}'s
         node.setToken(Token.SCRIPT);
       }
@@ -917,28 +918,6 @@ public final class SuggestedFix {
           matchedNodeInfo, replacements.build(), description, alternatives.build());
     }
 
-    /** Looks for a goog.require(), goog.provide() or goog.module() call in the fix's file. */
-    private static boolean isInClosurizedFile(Node node, NodeMetadata metadata) {
-      Node script = NodeUtil.getEnclosingScript(node);
-
-      if (script == null) {
-        return false;
-      }
-
-      Node child = script.getFirstChild();
-      while (child != null) {
-        if (NodeUtil.isExprCall(child)) {
-          if (Matchers.googRequire().matches(child.getFirstChild(), metadata)) {
-            return true;
-          }
-          // goog.require or goog.module.
-        } else if (child.isVar() && child.getBooleanProp(Node.IS_NAMESPACE)) {
-          return true;
-        }
-        child = child.getNext();
-      }
-      return false;
-    }
   }
 
   /**
@@ -969,30 +948,30 @@ public final class SuggestedFix {
   }
 
   /** Traverse an AST and find {@code goog.module} or {@code const X = goog.require('...');}. */
-  private static class HasConstRequireOrModuleCallback extends AbstractPreOrderCallback {
-    private boolean usesConstRequires;
+  private static class HasAliasedRequireOrModuleCallback extends AbstractPreOrderCallback {
+    private boolean usesAliasedRequires;
     final NodeMetadata metadata;
 
-    public HasConstRequireOrModuleCallback(NodeMetadata metadata) {
-      this.usesConstRequires = false;
+    public HasAliasedRequireOrModuleCallback(NodeMetadata metadata) {
+      this.usesAliasedRequires = false;
       this.metadata = metadata;
     }
 
-    boolean getUsesConstRequires() {
-      return usesConstRequires;
+    boolean getUsesAliasedRequires() {
+      return usesAliasedRequires;
     }
 
     @Override
     public boolean shouldTraverse(NodeTraversal nodeTraversal, Node n, Node parent) {
-      if (Matchers.googModule().matches(n, metadata) || isConstRequire(n, metadata)) {
-        usesConstRequires = true;
+      if (Matchers.googModule().matches(n, metadata) || isAliasedRequire(n, metadata)) {
+        usesAliasedRequires = true;
         return false;
       }
       return true;
     }
 
-    private static boolean isConstRequire(Node node, NodeMetadata metadata) {
-      return node.isConst()
+    private static boolean isAliasedRequire(Node node, NodeMetadata metadata) {
+      return NodeUtil.isNameDeclaration(node)
           && node.getFirstFirstChild() != null
           && Matchers.googRequire().matches(node.getFirstFirstChild(), metadata);
     }

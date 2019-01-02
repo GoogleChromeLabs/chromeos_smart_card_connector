@@ -38,16 +38,7 @@ refactoring_testcase.location_href_string_literal = function(target) {
 };
 
 /**
- * @param {!Window} target The target.
- * @param {string} val The value.
- */
-refactoring_testcase.test_window_location = function(target, val) {
-  // Should match.
-  goog.dom.safe.setLocationHref(target.location, val);
-};
-
-/**
- * @param {Location|Element} target The target.
+ * @param {!Location|!Element} target The target.
  * @param {string} val The value.
  */
 refactoring_testcase.union_type_href = function(target, val) {
@@ -56,7 +47,7 @@ refactoring_testcase.union_type_href = function(target, val) {
 };
 
 /**
- * @param {Window|Element} target The target.
+ * @param {!Window|!Element} target The target.
  * @param {string} val The value.
  */
 refactoring_testcase.union_type_location = function(target, val) {

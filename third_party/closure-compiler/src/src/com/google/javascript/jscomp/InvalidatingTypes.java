@@ -21,23 +21,23 @@ import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
-import com.google.javascript.rhino.ObjectTypeI;
-import com.google.javascript.rhino.TypeI;
-import com.google.javascript.rhino.TypeIRegistry;
+import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
+import com.google.javascript.rhino.jstype.JSTypeRegistry;
+import com.google.javascript.rhino.jstype.ObjectType;
 import javax.annotation.Nullable;
 
 /**
- * Keeps track of "invalidating types" that force type-based
- * optimizations to back off, specifically for {@link InlineProperties},
- * {@link AmbiguateProperties}, and {@link DisambiguateProperties}.
- * Note that disambiguation has slightly different behavior from the
- * other two, as pointed out in implementation comments.
+ * Keeps track of "invalidating types" that force type-based optimizations to back off, specifically
+ * for {@link InlineProperties}, {@link AmbiguateProperties}, and {@link DisambiguateProperties}.
+ * Note that disambiguation has slightly different behavior from the other two, as pointed out in
+ * implementation comments.
  */
 final class InvalidatingTypes {
-
-  private final ImmutableSet<TypeI> types;
+  private final ImmutableSet<JSType> types;
+  /** Whether to allow disambiguating enum properties */
   private final boolean allowEnums;
+  /** Whether to allow types like 'str'.toString() */
   private final boolean allowScalars;
 
   private InvalidatingTypes(Builder builder) {
@@ -46,14 +46,16 @@ final class InvalidatingTypes {
     this.allowScalars = builder.allowScalars;
   }
 
-  boolean isInvalidating(TypeI type) {
-    if (type == null || type.isUnknownType() || type.isBottom()) {
+  boolean isInvalidating(JSType type) {
+    if (type == null || type.isUnknownType() || type.isEmptyType()) {
       return true;
     }
+
+    // A union type is invalidating if any one of its members is invalidating
     if (type.isUnionType()) {
       type = type.restrictByNotNullOrUndefined();
       if (type.isUnionType()) {
-        for (TypeI alt : type.getUnionMembers()) {
+        for (JSType alt : type.getUnionMembers()) {
           if (isInvalidating(alt)) {
             return true;
           }
@@ -62,25 +64,27 @@ final class InvalidatingTypes {
       }
     }
 
-    ObjectTypeI objType = type.toMaybeObjectType();
+    ObjectType objType = type.toMaybeObjectType();
 
     if (objType == null) {
       return !allowScalars;
     }
+
     return types.contains(objType)
+        // Don't disambiguate properties on object literals, e.g. var obj = {a: 'a', b: 'b'};
         || objType.isAmbiguousObject()
-        || (!allowEnums && objType.isEnumObject())
+        || (!allowEnums && objType.isEnumType())
         || (!allowScalars && objType.isBoxableScalar());
   }
 
   static final class Builder {
-    private final ImmutableSet.Builder<TypeI> types = ImmutableSet.builder();
-    private final TypeIRegistry registry;
+    private final ImmutableSet.Builder<JSType> types = ImmutableSet.builder();
+    private final JSTypeRegistry registry;
     private boolean allowEnums = false;
     private boolean allowScalars = false;
-    @Nullable private Multimap<TypeI, Supplier<JSError>> invalidationMap;
+    @Nullable private Multimap<JSType, Supplier<JSError>> invalidationMap;
 
-    Builder(TypeIRegistry registry) {
+    Builder(JSTypeRegistry registry) {
       this.registry = registry;
     }
 
@@ -91,7 +95,7 @@ final class InvalidatingTypes {
     // TODO(sdh): Investigate whether this can be consolidated between all three passes.
     // In particular, mutation testing suggests allowEnums=true should work everywhere.
     // We should revisit what breaks when we disallow scalars everywhere.
-    Builder recordInvalidations(@Nullable Multimap<TypeI, Supplier<JSError>> invalidationMap) {
+    Builder writeInvalidationsInto(@Nullable Multimap<JSType, Supplier<JSError>> invalidationMap) {
       this.invalidationMap = invalidationMap;
       return this;
     }
@@ -132,22 +136,22 @@ final class InvalidatingTypes {
     }
 
     /** Invalidates the given type, so that no properties on it will be inlined or renamed. */
-    private Builder addType(TypeI type, TypeMismatch mismatch) {
+    private Builder addType(JSType type, TypeMismatch mismatch) {
       type = type.restrictByNotNullOrUndefined();
       if (type.isUnionType()) {
-        for (TypeI alt : type.getUnionMembers()) {
+        for (JSType alt : type.getUnionMembers()) {
           addType(alt, mismatch);
         }
-      } else if (type.isEnumElement()) { // only in disamb
+      } else if (type.isEnumElementType()) { // only in disamb
         addType(type.getEnumeratedTypeOfEnumElement(), mismatch);
       } else { // amb and inl both do this without the else
         checkState(!type.isUnionType());
         types.add(type);
         recordInvalidation(type, mismatch);
 
-        ObjectTypeI objType = type.toMaybeObjectType();
+        ObjectType objType = type.toMaybeObjectType();
         if (objType != null) {
-          ObjectTypeI proto = objType.getPrototypeObject();
+          ObjectType proto = objType.getImplicitPrototype();
           if (proto != null) {
             types.add(proto);
             recordInvalidation(proto, mismatch);
@@ -162,12 +166,12 @@ final class InvalidatingTypes {
       return this;
     }
 
-    private void recordInvalidation(TypeI t, TypeMismatch mis) {
-      if (!t.isObjectType()) {
+    private void recordInvalidation(JSType type, TypeMismatch mis) {
+      if (!type.isObjectType()) {
         return;
       }
       if (invalidationMap != null) {
-        invalidationMap.put(t, mis.error);
+        invalidationMap.put(type, mis.error);
       }
     }
   }

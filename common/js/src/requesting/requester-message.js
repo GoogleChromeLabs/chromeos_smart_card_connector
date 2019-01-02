@@ -98,7 +98,7 @@ var RequestMessageData = RequesterMessage.RequestMessageData;
  *
  * Returns null if the parsing failed.
  * @param {!Object} messageData
- * @return {RequestMessageData}
+ * @return {RequestMessageData?}
  */
 RequestMessageData.parseMessageData = function(messageData) {
   if (goog.object.getCount(messageData) != 2 ||
@@ -184,7 +184,7 @@ ResponseMessageData.prototype.getErrorMessage = function() {
  *
  * Returns null if the parsing failed.
  * @param {!Object} messageData
- * @return {ResponseMessageData}
+ * @return {ResponseMessageData?}
  */
 ResponseMessageData.parseMessageData = function(messageData) {
   if (goog.object.getCount(messageData) != 2 ||

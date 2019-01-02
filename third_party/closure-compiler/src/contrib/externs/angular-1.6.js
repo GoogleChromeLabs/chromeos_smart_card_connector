@@ -88,7 +88,7 @@ angular.equals = function(o1, o2) {};
 
 /**
  * @param {Object} dest
- * @param {...Object} srcs
+ * @param {...(Object|undefined)} srcs
  */
 angular.extend = function(dest, srcs) {};
 
@@ -182,7 +182,7 @@ angular.lowercase = function(s) {};
 
 /**
  * @param {Object} dest
- * @param {...Object} srcs
+ * @param {...(Object|undefined)} srcs
  */
 angular.merge = function(dest, srcs) {};
 
@@ -508,6 +508,15 @@ angular.JQLite.prototype.children = function() {};
  * @return {!angular.JQLite}
  */
 angular.JQLite.prototype.clone = function() {};
+
+/**
+ * `cleanData` is an undocumented method that is relied upon for ngUpgrade.
+ * Without this extern, clients cannot enable property_renaming for ngUpgrade
+ * applications that downgrade components.
+ *
+ * @param {?} element
+ */
+angular.JQLite.prototype.cleanData = function(element) {};
 
 /**
  * @return {!angular.JQLite}
@@ -926,7 +935,7 @@ angular.Scope.prototype.$eval = function(opt_exp, opt_locals) {};
  */
 angular.Scope.prototype.$evalAsync = function(opt_exp, opt_locals) {};
 
-/** @type {string} */
+/** @type {number} */
 angular.Scope.prototype.$id;
 
 /**
@@ -981,6 +990,7 @@ angular.Scope.Event.prototype.name;
 
 angular.Scope.Event.prototype.preventDefault = function() {};
 
+/** @type {!Function|undefined} */
 angular.Scope.Event.prototype.stopPropagation = function() {};
 
 /** @type {!angular.Scope} */
@@ -1786,7 +1796,7 @@ angular.$interpolate;
 
 /**
  * @typedef {
- *  function(function(), number=, number=, boolean=):!angular.$q.Promise
+ *  function(function(number=), number=, number=, boolean=):!angular.$q.Promise
  * }
  */
 angular.$interval;
@@ -2000,6 +2010,11 @@ angular.NgModelController.prototype.$formatters;
  * @type {boolean}
  */
 angular.NgModelController.prototype.$invalid;
+
+/**
+ * @param {!Object} options
+ */
+angular.NgModelController.prototype.$overrideModelOptions = function(options) {};
 
 /**
  * @type {!Array<function(?):*>}
@@ -2366,6 +2381,31 @@ angular.$route.Route.prototype.regexp;
 
 /** @typedef {function(string):string} */
 angular.$sanitize;
+
+/******************************************************************************
+ * $sanitizeProvider Service
+ *****************************************************************************/
+
+/** @interface */
+angular.$sanitizeProvider = function() {};
+
+/**
+ * @param {boolean=} enableSvg
+ * @return {boolean|!angular.$sanitizeProvider}
+ */
+angular.$sanitizeProvider.prototype.enableSvg = function(enableSvg) {};
+
+/**
+ * @param {!Array<string>|!Object} elements
+ * @return {!angular.$sanitizeProvider}
+ */
+angular.$sanitizeProvider.prototype.addValidElements = function(elements) {};
+
+/**
+ * @param {!Array<string>} attrs
+ * @return {!angular.$sanitizeProvider}
+ */
+angular.$sanitizeProvider.prototype.addValidAttrs = function(attrs) {};
 
 /******************************************************************************
  * $sce Service

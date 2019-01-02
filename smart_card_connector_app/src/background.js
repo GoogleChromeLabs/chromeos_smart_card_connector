@@ -154,7 +154,7 @@ function externalMessageListener(message, sender) {
  * new one otherwise. May return null if the channel becomes immediately
  * disposed of due to some error.
  * @param {string} clientExtensionId
- * @return {GSC.SingleMessageBasedChannel}
+ * @return {GSC.SingleMessageBasedChannel?}
  */
 function getOrCreateSingleMessageBasedChannel(clientExtensionId) {
   var existingChannel = messageChannelPool.getChannels(clientExtensionId).find(

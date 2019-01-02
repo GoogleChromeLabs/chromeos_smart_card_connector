@@ -148,7 +148,7 @@ class ScopedAliases implements HotSwapCompilerPass {
   @Override
   public void hotSwapScript(Node root, Node originalRoot) {
     Traversal traversal = new Traversal();
-    NodeTraversal.traverseEs6(compiler, root, traversal);
+    NodeTraversal.traverse(compiler, root, traversal);
 
     if (!traversal.hasErrors()) {
       // Apply the aliases.
@@ -436,7 +436,7 @@ class ScopedAliases implements HotSwapCompilerPass {
       Node scopeRoot = t.getScopeRoot();
       Node enclosingFunctionBody = t.getEnclosingFunction().getLastChild();
       if (isGoogScopeFunctionBody(enclosingFunctionBody)
-          && scopeRoot.isNormalBlock()
+          && scopeRoot.isBlock()
           && !scopeRoot.getParent().isFunction()) {
         for (Var v : t.getScope().getVarIterable()) {
           Node parent = v.getNameNode().getParent();
@@ -478,7 +478,7 @@ class ScopedAliases implements HotSwapCompilerPass {
         Node n = v.getNode();
         Node parent = n.getParent();
         // We use isBlock to avoid variables declared in loop headers.
-        boolean isVar = NodeUtil.isNameDeclaration(parent) && parent.getParent().isNormalBlock();
+        boolean isVar = NodeUtil.isNameDeclaration(parent) && parent.getParent().isBlock();
         boolean isFunctionDecl = NodeUtil.isFunctionDeclaration(parent);
         if (isVar && isAliasDefinition(n)) {
           recordAlias(v);
@@ -635,7 +635,7 @@ class ScopedAliases implements HotSwapCompilerPass {
           renamer.addDeclaredName(s, false);
         }
         MakeDeclaredNamesUnique uniquifier = new MakeDeclaredNamesUnique(renamer);
-        NodeTraversal.traverseEs6ScopeRoots(
+        NodeTraversal.traverseScopeRoots(
             compiler, null, ImmutableList.of(t.getScopeRoot()), uniquifier, true);
       }
     }

@@ -15,7 +15,13 @@
  */
 package com.google.javascript.jscomp;
 
-public class J2clEqualitySameRewriterPassTest extends TypeICompilerTestCase {
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
+
+@RunWith(JUnit4.class)
+public class J2clEqualitySameRewriterPassTest extends CompilerTestCase {
   private static final String EXTERN = "Equality.$same = function(opt_a, opt_b) {};";
 
   public J2clEqualitySameRewriterPassTest() {
@@ -23,9 +29,10 @@ public class J2clEqualitySameRewriterPassTest extends TypeICompilerTestCase {
   }
 
   @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     super.setUp();
-    this.mode = TypeInferenceMode.BOTH;
+    enableTypeCheck();
   }
 
   @Override
@@ -40,6 +47,7 @@ public class J2clEqualitySameRewriterPassTest extends TypeICompilerTestCase {
     return compiler;
   }
 
+  @Test
   public void testRewriteEqualitySame() {
     test(
         lines(
@@ -62,6 +70,7 @@ public class J2clEqualitySameRewriterPassTest extends TypeICompilerTestCase {
             "null == b;"));
   }
 
+  @Test
   public void testNotRewriteEqualitySame() {
     testSame(
         lines(
@@ -77,6 +86,7 @@ public class J2clEqualitySameRewriterPassTest extends TypeICompilerTestCase {
             "Equality.$same(str, allType);"));
   }
 
+  @Test
   public void testNotRewriteEqualitySame_sameTypes() {
     testSame(
         lines(
@@ -104,6 +114,7 @@ public class J2clEqualitySameRewriterPassTest extends TypeICompilerTestCase {
             "Equality.$same(allType1, allType2);"));
   }
 
+  @Test
   public void testNotRewriteEqualitySame_parametersOptimizedAway() {
     testSame(
         lines(

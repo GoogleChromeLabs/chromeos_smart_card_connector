@@ -146,6 +146,12 @@ jasmine.Matchers.prototype.toEqual = function(value) {};
 /** @return {void} */
 jasmine.Matchers.prototype.toHaveBeenCalled = function() {};
 
+/**
+ * @param {!jasmine.Spy} expected
+ * @return {void}
+ */
+jasmine.Matchers.prototype.toHaveBeenCalledBefore = function(expected) {};
+
 
 /** @param {...*} var_args */
 jasmine.Matchers.prototype.toHaveBeenCalledWith = function(var_args) {};
@@ -257,6 +263,12 @@ jasmine.CallTracker = function() {};
  * @return {boolean}
  */
 jasmine.CallTracker.prototype.any = function() {};
+
+
+/**
+ * @return {!Array<{args: !Array, object: Object}>}
+ */
+jasmine.CallTracker.prototype.all = function() {};
 
 
 /**
@@ -377,6 +389,10 @@ jasmine.Suite.prototype.afterAll = function(afterAllFunction) {};
 jasmine.Env = function() {};
 
 
+/** @param {!jasmine.Reporter} reporterToAdd */
+jasmine.Env.prototype.addReporter = function(reporterToAdd) {};
+
+
 /** @type {jasmine.Spec} */
 jasmine.Env.prototype.currentSpec;
 
@@ -405,6 +421,24 @@ jasmine.Env.prototype.afterAll = function(handler) {};
  * @return {!jasmine.Env}
  */
 jasmine.getEnv = function() {};
+
+
+/** @record */
+jasmine.Reporter = function() {};
+
+/**
+ * @param {{
+ *   id: number,
+ *   description: string,
+ *   fullName: string,
+ *   pendingReason: string,
+ *   status: string
+ * }} result
+ */
+jasmine.Reporter.prototype.specDone = function(result) {};
+
+/** @param {{id: number, description: string, fullName: string}} result */
+jasmine.Reporter.prototype.specStarted = function(result) {};
 
 
 /** @param {function(this:jasmine.Spec, function())} handler */
@@ -466,10 +500,9 @@ function fit(description, handler) {}
 
 
 /**
- * @param {string} description
- * @param {function(this:jasmine.Spec, function())} handler
+ * @param {string=} description
  */
-function pending(description, handler) {}
+function pending(description) {}
 
 
 /**

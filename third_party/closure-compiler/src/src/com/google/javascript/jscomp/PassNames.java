@@ -42,22 +42,24 @@ public final class PassNames {
   public static final String COLLAPSE_PROPERTIES = "collapseProperties";
   public static final String COLLAPSE_VARIABLE_DECLARATIONS = "collapseVariableDeclarations";
   public static final String CONVERT_TO_DOTTED_PROPERTIES = "convertToDottedProperties";
-  public static final String CROSS_MODULE_CODE_MOTION = "crossModuleCodeMotion";
-  public static final String CROSS_MODULE_METHOD_MOTION = "crossModuleMethodMotion";
+  public static final String CROSS_CHUNK_CODE_MOTION = "crossChunkCodeMotion";
+  public static final String CROSS_CHUNK_METHOD_MOTION = "crossChunkMethodMotion";
   public static final String DEAD_ASSIGNMENT_ELIMINATION = "deadAssignmentsElimination";
   public static final String DECLARED_GLOBAL_EXTERNS_ON_WINDOW = "declaredGlobalExternsOnWindow";
   public static final String DESERIALIZE_COMPILER_STATE = "deserializeCompilerState";
   public static final String DEVIRTUALIZE_PROTOTYPE_METHODS = "devirtualizePrototypeMethods";
   public static final String DISAMBIGUATE_PRIVATE_PROPERTIES = "disambiguatePrivateProperties";
   public static final String DISAMBIGUATE_PROPERTIES = "disambiguateProperties";
-  public static final String ES6_BLESS_XID_CALLS = "Es6BlessXidCalls";
   public static final String ES6_EXTRACT_CLASSES = "Es6ExtractClasses";
+  public static final String ES6_REWRITE_CLASS_EXTENDS = "Es6ExtractClassExtends";
   public static final String EXPLOIT_ASSIGN = "exploitAssign";
   public static final String EXPORT_TEST_FUNCTIONS = "exportTestFunctions";
   public static final String EXTERN_EXPORTS = "externExports";
   public static final String EXTRACT_PROTOTYPE_MEMBER_DECLARATIONS =
       "extractPrototypeMemberDeclarations";
   public static final String FLOW_SENSITIVE_INLINE_VARIABLES = "flowSensitiveInlineVariables";
+  public static final String GATHER_GETTERS_AND_SETTERS = "gatherGettersAndSetters";
+  public static final String GATHER_MODULE_METADATA = "gatherModuleMetadata";
   public static final String GATHER_RAW_EXPORTS = "gatherRawExports";
   public static final String GENERATE_EXPORTS = "generateExports";
   public static final String INFER_CONSTS = "inferConsts";
@@ -77,7 +79,6 @@ public final class PassNames {
   public static final String PEEPHOLE_OPTIMIZATIONS = "peepholeOptimizations";
   public static final String REWRITE_COMMON_JS_MODULES = "rewriteCommonJsModules";
   public static final String REWRITE_SCRIPTS_TO_ES6_MODULES = "rewriteScriptsToEs6Modules";
-  public static final String REMOVE_SUPER_METHODS = "removeSuperMethods";
   public static final String REMOVE_UNREACHABLE_CODE = "removeUnreachableCode";
   public static final String REMOVE_UNUSED_CLASS_PROPERTIES = "removeUnusedClassProperties";
   public static final String REMOVE_UNUSED_PROTOTYPE_PROPERTIES =

@@ -2129,7 +2129,7 @@ API.ResultOrErrorCode = function(responseItems) {
   this.responseItems = responseItems;
   /**
    * Error code returned by the function call.
-   * @type {API.ERROR_CODE}
+   * @type {!API.ERROR_CODE}
    **/
   this.errorCode = responseItems[0];
   /**
@@ -2157,7 +2157,7 @@ API.ResultOrErrorCode.prototype.logger = GSC.Logging.getScopedLogger(
 /**
  * @param {number} successfulResultItemCount
  * @param {function(...)|undefined=} opt_onSucceeded
- * @param {function(API.ERROR_CODE)|undefined=} opt_onFailed
+ * @param {function(!API.ERROR_CODE)|undefined=} opt_onFailed
  * @param {*=} opt_context
  */
 API.ResultOrErrorCode.prototype.getBase = function(
@@ -2209,7 +2209,7 @@ goog.exportProperty(
 /**
  * Gets a stringified error response.
  *
- * @param {API.ERROR_CODE} errorCode
+ * @param {!API.ERROR_CODE} errorCode
  *
  * @return {!goog.Promise.<string>}
  */
@@ -2294,9 +2294,10 @@ goog.exportProperty(
     API, 'SCardEstablishContextResult', API.SCardEstablishContextResult);
 
 /**
- * @param {function(API.SCARDCONTEXT)=} opt_onSucceeded callback:
+ * @param {function(!API.SCARDCONTEXT)=} opt_onSucceeded callback:
  * function(sCardContext)
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardEstablishContextResult.prototype.get = function(
@@ -2319,7 +2320,7 @@ goog.exportProperty(
  * - SCARD_E_INVALID_HANDLE Invalid sCardContext handle
  * - SCARD_F_COMM_ERROR An internal communications error has been detected
  *
- * @param {API.SCARDCONTEXT} sCardContext Connection context to be closed.
+ * @param {!API.SCARDCONTEXT} sCardContext Connection context to be closed.
  *
  * @return {!goog.Promise.<!API.SCardReleaseContextResult>}
  */
@@ -2354,7 +2355,8 @@ goog.exportProperty(
 
 /**
  * @param {function()=} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardReleaseContextResult.prototype.get = function(
@@ -2393,7 +2395,7 @@ goog.exportProperty(
  * - SCARD_W_UNPOWERED_CARD Card is not powered
  * - SCARD_W_UNRESPONSIVE_CARD Card is mute
  *
- * @param {API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
+ * @param {!API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
  * Resource Manager.
  * @param {string} reader Reader name to connect to.
  * @param {number} shareMode Mode of connection type: exclusive or shared.
@@ -2444,9 +2446,10 @@ goog.exportProperty(API, 'SCardConnectResult', API.SCardConnectResult);
 goog.inherits(API.SCardConnectResult, API.ResultOrErrorCode);
 
 /**
- * @param {function(API.SCARDHANDLE, number)=} opt_onSucceeded callback:
+ * @param {function(!API.SCARDHANDLE, number)=} opt_onSucceeded callback:
  * function(sCardHandle, activeProtocol)
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardConnectResult.prototype.get = function(
@@ -2491,7 +2494,7 @@ goog.exportProperty(
  * - SCARD_W_REMOVED_CARD The smart card has been removed
  * - SCARD_W_UNRESPONSIVE_CARD Card is mute
  *
- * @param {API.SCARDHANDLE} sCardHandle Handle to a previous call to connect.
+ * @param {!API.SCARDHANDLE} sCardHandle Handle to a previous call to connect.
  * @param {number} shareMode Mode of connection type: exclusive/shared.
  * - SCARD_SHARE_SHARED - This application will allow others to share
  *   the reader.
@@ -2542,7 +2545,8 @@ goog.inherits(API.SCardReconnectResult, API.ResultOrErrorCode);
 /**
  * @param {function(number)=} opt_onSucceeded callback:
  * function(activeProtocol)
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardReconnectResult.prototype.get = function(
@@ -2566,7 +2570,7 @@ goog.exportProperty(
  * - SCARD_E_NO_SMARTCARD No smart card present
  * - SCARD_F_COMM_ERROR An internal communications error has been detected
  *
- * @param {API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
+ * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  * @param {number} disposition Reader function to execute.
  * - SCARD_LEAVE_CARD - Do nothing.
  * - SCARD_RESET_CARD - Reset the card (warm reset).
@@ -2601,7 +2605,8 @@ goog.inherits(API.SCardDisconnectResult, API.ResultOrErrorCode);
 
 /**
  * @param {function()=} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardDisconnectResult.prototype.get = function(
@@ -2632,7 +2637,7 @@ goog.exportProperty(
  * - SCARD_E_SHARING_VIOLATION Someone else has exclusive rights
  * - SCARD_F_COMM_ERROR An internal communications error has been detected
  *
- * @param {API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
+ * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  *
  * @return {!goog.Promise.<!API.SCardBeginTransactionResult>}
  */
@@ -2665,7 +2670,8 @@ goog.inherits(API.SCardBeginTransactionResult, API.ResultOrErrorCode);
 
 /**
  * @param {function()=} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardBeginTransactionResult.prototype.get = function(
@@ -2693,7 +2699,7 @@ goog.exportProperty(
  * - SCARD_E_SHARING_VIOLATION Someone else has exclusive rights
  * - SCARD_F_COMM_ERROR An internal communications error has been detected
  *
- * @param {API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
+ * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  * @param {number} disposition Action to be taken on the reader.
  * - SCARD_LEAVE_CARD - Do nothing.
  * - SCARD_RESET_CARD - Reset the card.
@@ -2731,7 +2737,8 @@ goog.inherits(API.SCardEndTransactionResult, API.ResultOrErrorCode);
 
 /**
  * @param {function()=} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardEndTransactionResult.prototype.get = function(
@@ -2787,7 +2794,7 @@ goog.exportProperty(
  * - SCARD_W_REMOVED_CARD The smart card has been removed
  * - SCARD_W_RESET_CARD The smart card has been reset
  *
- * @param {API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
+ * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  *
  * @return {!goog.Promise.<!API.SCardStatusResult>}
  */
@@ -2818,7 +2825,8 @@ goog.inherits(API.SCardStatusResult, API.ResultOrErrorCode);
 /**
  * @param {function(string, number, number, !Array.<number>)=} opt_onSucceeded
  * callback: function(readerName, state, protocol, atr)
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardStatusResult.prototype.get = function(
@@ -2892,7 +2900,7 @@ goog.exportProperty(
  * - SCARD_E_TIMEOUT The user-specified timeout value has expired
  * - SCARD_E_CANCELLED The call has been cancelled by a call to SCardCancel()
  *
- * @param {API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
+ * @param {!API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
  * Resource Manager.
  * @param {number} timeout Maximum waiting time (in milliseconds) for status
  * change, INFINITE for infinite.
@@ -2971,7 +2979,7 @@ goog.exportProperty(
  * - SCARD_W_REMOVED_CARD The card has been removed from the reader
  * - SCARD_W_RESET_CARD The card has been reset by another application
  *
- * @param {API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
+ * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  * @param {number} controlCode Control code for the operation. See
  * http://anonscm.debian.org/viewvc/pcsclite/trunk/Drivers/ccid/SCARDCONTOL.txt?view=markup
  * for a list of supported commands by some drivers.
@@ -3007,7 +3015,8 @@ goog.inherits(API.SCardControlResult, API.ResultOrErrorCode);
 /**
  * @param {function(!Array.<number>)=} opt_onSucceeded callback:
  * function(responseData)
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardControlResult.prototype.get = function(
@@ -3090,7 +3099,7 @@ goog.exportProperty(
  * - SCARD_E_READER_UNAVAILABLE The reader has been removed
  * - SCARD_F_COMM_ERROR An internal communications error has been detected
  *
- * @param {API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
+ * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  * @param {number} attrId Identifier for the attribute to get.
  *
  * @return {!goog.Promise.<!API.SCardGetAttribResult>}
@@ -3123,7 +3132,8 @@ goog.inherits(API.SCardGetAttribResult, API.ResultOrErrorCode);
 
 /**
  * @param {function(!Array.<number>)=} opt_onSucceeded callback: function(attr)
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardGetAttribResult.prototype.get = function(
@@ -3152,7 +3162,7 @@ goog.exportProperty(
  * - SCARD_E_READER_UNAVAILABLE The reader has been removed
  * - SCARD_F_COMM_ERROR An internal communications error has been detected
  *
- * @param {API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
+ * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  * @param {number} attrId Identifier for the attribute to set.
  * @param {!Array.<number>} attr Buffer with the attribute.
  *
@@ -3186,7 +3196,8 @@ goog.inherits(API.SCardSetAttribResult, API.ResultOrErrorCode);
 
 /**
  * @param {function()=} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardSetAttribResult.prototype.get = function(
@@ -3226,7 +3237,7 @@ goog.exportProperty(
  * - SCARD_W_RESET_CARD The card has been reset by another application
  * - SCARD_W_REMOVED_CARD The card has been removed from the reader
  *
- * @param {API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
+ * @param {!API.SCARDHANDLE} sCardHandle Connection made from SCardConnect.
  * @param {!API.SCARD_IO_REQUEST} sendProtocolInformation Structure of Protocol
  * Control Information.
  * - SCARD_PCI_T0 - Predefined T=0 PCI structure.
@@ -3274,7 +3285,8 @@ goog.inherits(API.SCardTransmitResult, API.ResultOrErrorCode);
 /**
  * @param {function(!API.SCARD_IO_REQUEST, !Array.<number>)=} opt_onSucceeded
  * callback: function(responseProtocolInformation, responseData)
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardTransmitResult.prototype.get = function(
@@ -3305,7 +3317,7 @@ goog.exportProperty(
  * - SCARD_E_NO_READERS_AVAILABLE No readers available
  * - SCARD_E_NO_SERVICE The server is not running
  *
- * @param {API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
+ * @param {!API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
  * Resource Manager.
  * @param {null} groups List of groups to list readers (not used).
  *
@@ -3338,7 +3350,7 @@ goog.inherits(API.SCardListReadersResult, API.ResultOrErrorCode);
 /**
  * @param {function(!Array.<string>)=} opt_onSucceeded callback:
  * function(readers)
- * @param {function(API.ERROR_CODE)=} opt_onFailed
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed
  * @param {*=} opt_context
  */
 API.SCardListReadersResult.prototype.get = function(
@@ -3366,7 +3378,7 @@ goog.exportProperty(
  * - SCARD_E_NO_MEMORY Memory allocation failed
  * - SCARD_E_NO_SERVICE The server is not running
  *
- * @param {API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
+ * @param {!API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
  * Resource Manager.
  *
  * @return {!goog.Promise.<!API.SCardListReaderGroupsResult>}
@@ -3401,7 +3413,8 @@ goog.inherits(API.SCardListReaderGroupsResult, API.ResultOrErrorCode);
 /**
  * @param {function(!Array.<string>)=} opt_onSucceeded callback:
  * function(groups)
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardListReaderGroupsResult.prototype.get = function(
@@ -3423,7 +3436,7 @@ goog.exportProperty(
  * - SCARD_E_NO_SERVICE Server is not running
  * - SCARD_F_COMM_ERROR An internal communications error has been detected
  *
- * @param {API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
+ * @param {!API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
  * Resource Manager.
  *
  * @return {!goog.Promise.<!API.SCardCancelResult>}
@@ -3454,7 +3467,8 @@ goog.inherits(API.SCardCancelResult, API.ResultOrErrorCode);
 
 /**
  * @param {function()=} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardCancelResult.prototype.get = function(
@@ -3479,7 +3493,7 @@ goog.exportProperty(
  * - SCARD_S_SUCCESS Successful
  * - SCARD_E_INVALID_HANDLE Invalid sCardContext handle
  *
- * @param {API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
+ * @param {!API.SCARDCONTEXT} sCardContext Connection context to the PC/SC
  * Resource Manager.
  *
  * @return {!goog.Promise.<!API.SCardIsValidContextResult>}
@@ -3511,7 +3525,8 @@ goog.inherits(API.SCardIsValidContextResult, API.ResultOrErrorCode);
 
 /**
  * @param {function()=} opt_onSucceeded callback: function()
- * @param {function(API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ * function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardIsValidContextResult.prototype.get = function(

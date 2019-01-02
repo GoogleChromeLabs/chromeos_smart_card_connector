@@ -16,6 +16,8 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.testing.JSErrorSubject.assertError;
 
 import com.google.common.base.Joiner;
@@ -24,23 +26,31 @@ import com.google.javascript.jscomp.CompilerTestCase.NoninjectingCompiler;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.List;
-import junit.framework.TestCase;
+import org.junit.Before;
 
 /**
  * Framework for end-to-end test cases.
  *
  * @author nicksantos@google.com (Nick Santos)
  */
-abstract class IntegrationTestCase extends TestCase {
+abstract class IntegrationTestCase {
   protected static final Joiner LINE_JOINER = Joiner.on('\n');
   protected static final Joiner EMPTY_JOINER = Joiner.on("");
+
+  protected static String lines(String line) {
+    return line;
+  }
+
+  protected static String lines(String... lines) {
+    return LINE_JOINER.join(lines);
+  }
 
   /** Externs for the test */
   protected static final ImmutableList<SourceFile> DEFAULT_EXTERNS =
       ImmutableList.of(
           SourceFile.fromCode(
               "externs",
-              LINE_JOINER.join(
+              lines(
                   "var arguments;",
                   "var undefined;",
                   "/**",
@@ -100,6 +110,18 @@ abstract class IntegrationTestCase extends TestCase {
                   "",
                   "ObjectPropertyDescriptor.prototype.value;",
                   "",
+                  "/** @type {(function():?)|undefined} */",
+                  "ObjectPropertyDescriptor.prototype.get;",
+                  "",
+                  "/** @type {(function(?):void)|undefined} */",
+                  "ObjectPropertyDescriptor.prototype.set;",
+                  "",
+                  "/** @type {boolean|undefined} */",
+                  "ObjectPropertyDescriptor.prototype.enumerable;",
+                  "",
+                  "/** @type {boolean|undefined} */",
+                  "ObjectPropertyDescriptor.prototype.configurable;",
+                  "",
                   "/** @constructor */ function Window() {}",
                   "/** @type {string} */ Window.prototype.name;",
                   "/** @type {string} */ Window.prototype.offsetWidth;",
@@ -130,7 +152,7 @@ abstract class IntegrationTestCase extends TestCase {
                   "/** @type {number} */",
                   "Array.prototype.length;",
                   "",
-                  "/** @return {IteratorIterable<T>} */",
+                  "/** @return {!IteratorIterable<T>} */",
                   "Array.prototype.values;",
                   "",
                   "Array.prototype.splice;",
@@ -198,9 +220,6 @@ abstract class IntegrationTestCase extends TestCase {
                   "/** @type {function(!Object, ?Object)} */",
                   "Object.setPrototypeOf;",
                   "",
-                  "/** @typedef {?} */",
-                  "var symbol;",
-                  "",
                   "/**",
                   " * @param {string} s",
                   " * @return {symbol}",
@@ -249,29 +268,42 @@ abstract class IntegrationTestCase extends TestCase {
                   " */",
                   "Generator.prototype.throw = function(exception) {};",
                   "",
+                  "/** @interface */",
+                  "function IThenable() {}",
+                  "",
+                  "IThenable.prototype.then = function(callback) {};",
+                  "",
                   "/**",
+                  " * @param {function(",
+                  " *             function((TYPE|IThenable<TYPE>|Thenable|null)=),",
+                  " *             function(*=))} resolver",
                   " * @constructor",
-                  " * @template T",
+                  " * @implements {IThenable<TYPE>}",
+                  " * @template TYPE",
                   " */",
                   "function Promise(resolver) {}",
                   "",
                   "Promise.resolve = function(value) {};",
                   "",
                   "/**",
-                  " * @param {function(T)=} opt_successCallback",
-                  " * @param {function(!Error)=} opt_errorCallback",
+                  " * @param {?(function(this:void, TYPE):VALUE)=} opt_onFulfilled",
+                  " * @param {?(function(this:void, *): *)=} opt_onRejected",
+                  " * @template VALUE",
+                  " * @override",
                   " */",
-                  "Promise.prototype.then = function(opt_successCallback, opt_errorCallback) {};",
+                  "Promise.prototype.then = function(opt_onFulfilled, opt_onRejected) {};",
+                  "",
+                  "/**",
+                  " * @param {function(*): RESULT} opt_errorCallback",
+                  " * @return {!Promise<RESULT>}",
+                  " * @template RESULT",
+                  " */",
+                  "Promise.prototype.catch = function(opt_errorCallback) {};",
                   "",
                   "/**",
                   " * @typedef {{then: ?}}",
                   " */",
                   "var Thenable;",
-                  "",
-                  "/** @interface */",
-                  "function IThenable() {}",
-                  "",
-                  "IThenable.prototype.then = function(callback) {};",
                   "",
                   "/** @constructor */",
                   "var HTMLElement = function() {};",
@@ -288,7 +320,7 @@ abstract class IntegrationTestCase extends TestCase {
   protected String inputFileNamePrefix;
   protected String inputFileNameSuffix;
 
-  @Override
+  @Before
   public void setUp() {
     externs = DEFAULT_EXTERNS;
     lastCompiler = null;
@@ -322,19 +354,32 @@ abstract class IntegrationTestCase extends TestCase {
   protected void test(CompilerOptions options,
       String[] original, String[] compiled) {
     Compiler compiler = compile(options, original);
-    assertEquals("Expected no warnings or errors\n" +
-        "Errors: \n" + Joiner.on("\n").join(compiler.getErrors()) + "\n" +
-        "Warnings: \n" + Joiner.on("\n").join(compiler.getWarnings()),
-        0, compiler.getErrors().length + compiler.getWarnings().length);
+    assertWithMessage(
+            "Expected no warnings or errors\n"
+                + "Errors: \n"
+                + Joiner.on("\n").join(compiler.getErrors())
+                + "\n"
+                + "Warnings: \n"
+                + Joiner.on("\n").join(compiler.getWarnings()))
+        .that(compiler.getErrors().length + compiler.getWarnings().length)
+        .isEqualTo(0);
 
     Node root = compiler.getJsRoot();
-    Node expectedRoot = parseExpectedCode(compiled, options, normalizeResults);
-    String explanation = expectedRoot.checkTreeEquals(root);
-    assertNull("\n"
-        + "Expected: " + compiler.toSource(expectedRoot) + "\n"
-        + "Result:   " + compiler.toSource(root) + "\n"
-        + explanation,
-        explanation);
+    if (compiled != null) {
+      Node expectedRoot = parseExpectedCode(compiled, options, normalizeResults);
+      String explanation = expectedRoot.checkTreeEquals(root);
+      assertWithMessage(
+              "\n"
+                  + "Expected: "
+                  + compiler.toSource(expectedRoot)
+                  + "\n"
+                  + "Result:   "
+                  + compiler.toSource(root)
+                  + "\n"
+                  + explanation)
+          .that(explanation)
+          .isNull();
+    }
   }
 
   /**
@@ -365,8 +410,9 @@ abstract class IntegrationTestCase extends TestCase {
       String[] original, String[] compiled, DiagnosticType warning) {
     Compiler compiler = compile(options, original);
     checkUnexpectedErrorsOrWarnings(compiler, 1);
-    assertEquals("Expected exactly one warning or error",
-        1, compiler.getErrors().length + compiler.getWarnings().length);
+    assertWithMessage("Expected exactly one warning or error")
+        .that(compiler.getErrors().length + compiler.getWarnings().length)
+        .isEqualTo(1);
     if (compiler.getErrors().length > 0) {
       assertError(compiler.getErrors()[0]).hasType(warning);
     } else {
@@ -377,9 +423,15 @@ abstract class IntegrationTestCase extends TestCase {
       Node root = compiler.getRoot().getLastChild();
       Node expectedRoot = parseExpectedCode(compiled, options, normalizeResults);
       String explanation = expectedRoot.checkTreeEquals(root);
-      assertNull("\nExpected: " + compiler.toSource(expectedRoot) +
-          "\nResult: " + compiler.toSource(root) +
-          "\n" + explanation, explanation);
+      assertWithMessage(
+              "\nExpected: "
+                  + compiler.toSource(expectedRoot)
+                  + "\nResult: "
+                  + compiler.toSource(root)
+                  + "\n"
+                  + explanation)
+          .that(explanation)
+          .isNull();
     }
   }
 
@@ -393,14 +445,15 @@ abstract class IntegrationTestCase extends TestCase {
       Node root = compiler.getRoot().getLastChild();
       Node expectedRoot = parseExpectedCode(compiled, options, normalizeResults);
       String explanation = expectedRoot.checkTreeEquals(root);
-      assertNull(
-          "\nExpected: "
-              + compiler.toSource(expectedRoot)
-              + "\nResult:   "
-              + compiler.toSource(root)
-              + "\n"
-              + explanation,
-          explanation);
+      assertWithMessage(
+              "\nExpected: "
+                  + compiler.toSource(expectedRoot)
+                  + "\nResult:   "
+                  + compiler.toSource(root)
+                  + "\n"
+                  + explanation)
+          .that(explanation)
+          .isNull();
     }
   }
 
@@ -419,21 +472,27 @@ abstract class IntegrationTestCase extends TestCase {
     Compiler compiler = compile(options, original);
     for (JSError error : compiler.getErrors()) {
       if (!error.getType().equals(RhinoErrorReporter.PARSE_ERROR)) {
-        fail("Found unexpected error type " + error.getType() + ":\n" + error);
+        assertWithMessage("Found unexpected error type " + error.getType() + ":\n" + error).fail();
       }
     }
-    assertEquals("Unexpected warnings: " +
-        Joiner.on("\n").join(compiler.getWarnings()),
-        0, compiler.getWarnings().length);
+    assertWithMessage("Unexpected warnings: " + Joiner.on("\n").join(compiler.getWarnings()))
+        .that(compiler.getWarnings().length)
+        .isEqualTo(0);
 
     if (compiled != null) {
       Node root = compiler.getRoot().getLastChild();
       Node expectedRoot = parseExpectedCode(
           new String[] {compiled}, options, normalizeResults);
       String explanation = expectedRoot.checkTreeEquals(root);
-      assertNull("\nExpected: " + compiler.toSource(expectedRoot) +
-          "\nResult: " + compiler.toSource(root) +
-          "\n" + explanation, explanation);
+      assertWithMessage(
+              "\nExpected: "
+                  + compiler.toSource(expectedRoot)
+                  + "\nResult: "
+                  + compiler.toSource(root)
+                  + "\n"
+                  + explanation)
+          .that(explanation)
+          .isNull();
     }
   }
 
@@ -448,8 +507,7 @@ abstract class IntegrationTestCase extends TestCase {
       for (JSError err : compiler.getWarnings()) {
         msg += "Warning:" + err + "\n";
       }
-      assertEquals("Unexpected warnings or errors.\n " + msg,
-        expected, actual);
+      assertWithMessage("Unexpected warnings or errors.\n " + msg).that(actual).isEqualTo(expected);
     }
   }
 
@@ -471,6 +529,16 @@ abstract class IntegrationTestCase extends TestCase {
                 ImmutableList.copyOf(original), inputFileNamePrefix, inputFileNameSuffix)),
         options);
     return compiler;
+  }
+
+  protected void testNoWarnings(CompilerOptions options, String code) {
+    testNoWarnings(options, new String[] { code });
+  }
+
+  protected void testNoWarnings(CompilerOptions options, String[] sources) {
+    Compiler compiler = compile(options, sources);
+    assertThat(compiler.getErrors()).isEmpty();
+    assertThat(compiler.getWarnings()).isEmpty();
   }
 
   /**

@@ -47,6 +47,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Sets;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -124,7 +125,7 @@ public class JSDocInfo implements Serializable {
     private String license;
     private ImmutableSet<String> suppressions;
     private ImmutableSet<String> modifies;
-    private String lendsName;
+    private JSTypeExpression lendsName;
 
     // Bit flags for properties.
     private int propertyBitField;
@@ -177,7 +178,7 @@ public class JSDocInfo implements Serializable {
       other.license = license;
       other.suppressions = suppressions == null ? null : ImmutableSet.copyOf(suppressions);
       other.modifies = modifies == null ? null :  ImmutableSet.copyOf(modifies);
-      other.lendsName = lendsName;
+      other.lendsName = cloneType(lendsName, cloneTypeNodes);
 
       other.propertyBitField = propertyBitField;
       return other;
@@ -768,8 +769,13 @@ public class JSDocInfo implements Serializable {
     return getFlag(MASK_MAPPEDIDGEN);
   }
 
+  /**
+   * @return whether this {@link JSDocInfo} implies that annotated value is constant.
+   */
   public boolean isConstant() {
-    return getFlag(MASK_CONSTANT | MASK_DEFINE | MASK_FINAL);
+    // @desc is used with goog.getMsg to define mesages to be translated,
+    // and thus must be @const in order for translation to work correctly.
+    return getFlag(MASK_CONSTANT | MASK_DEFINE | MASK_FINAL) || getDescription() != null;
   }
 
   /**
@@ -984,8 +990,12 @@ public class JSDocInfo implements Serializable {
   }
 
   /**
+   * @deprecated This method is quite heuristic, looking for @type annotations that start with
+   * "function". Other methods like containsDeclaration() and containsTypeDefinition are generally
+   * preferred.
    * @return Whether there is a declaration of a callable type.
    */
+  @Deprecated
   public boolean containsFunctionDeclaration() {
     boolean hasFunctionType = hasType() && getType().getRoot().isFunction();
     return hasFunctionType
@@ -1090,18 +1100,16 @@ public class JSDocInfo implements Serializable {
   }
 
   /**
-   * Sets suppressed warnings.
+   * Adds a set of suppressions to the (possibly currently empty) set of suppressions.
    * @param suppressions A list of suppressed warning types.
    */
-  boolean setSuppressions(Set<String> suppressions) {
+  void addSuppressions(Set<String> suppressions) {
     lazyInitInfo();
 
     if (info.suppressions != null) {
-      return false;
+      suppressions = Sets.union(suppressions, info.suppressions);
     }
-
     info.suppressions = ImmutableSet.copyOf(suppressions);
-    return true;
   }
 
   /**
@@ -1655,18 +1663,21 @@ public class JSDocInfo implements Serializable {
   /**
    * Gets the name we're lending to in a {@code @lends} annotation.
    *
-   * <p>In many reflection APIs, you pass an anonymous object to a function,
-   * and that function mixes the anonymous object into another object.
-   * The {@code @lends} annotation allows the type system to track
-   * those property assignments.
+   * <p>In many reflection APIs, you pass an anonymous object to a function, and that function mixes
+   * the anonymous object into another object. The {@code @lends} annotation allows the type system
+   * to track those property assignments.
    */
-  public String getLendsName() {
+  public JSTypeExpression getLendsName() {
     return (info == null) ? null : info.lendsName;
   }
 
-  void setLendsName(String name) {
+  void setLendsName(JSTypeExpression name) {
     lazyInitInfo();
     info.lendsName = name;
+  }
+
+  public boolean hasLendsName() {
+    return getLendsName() != null;
   }
 
   /**
@@ -2024,10 +2035,10 @@ public class JSDocInfo implements Serializable {
   }
 
   /**
-   * Returns a collection of all type nodes that are a part of this JSDocInfo.
-   * This includes @type, @this, @extends, @implements, @param, @throws,
-   * and @return.  Any future type specific JSDoc should make sure to add the
-   * appropriate nodes here.
+   * Returns a collection of all type nodes that are a part of this JSDocInfo. This
+   * includes @type, @this, @extends, @implements, @param, @throws, @lends, and @return. Any future
+   * type specific JSDoc should make sure to add the appropriate nodes here.
+   *
    * @return collection of all type nodes
    */
   public Collection<Node> getTypeNodes() {
@@ -2076,6 +2087,10 @@ public class JSDocInfo implements Serializable {
             nodes.add(thrownType.getRoot());
           }
         }
+      }
+
+      if (info.lendsName != null) {
+        nodes.add(info.lendsName.getRoot());
       }
     }
 

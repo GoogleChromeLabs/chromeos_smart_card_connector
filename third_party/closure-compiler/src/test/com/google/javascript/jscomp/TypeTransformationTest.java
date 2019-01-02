@@ -16,6 +16,8 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.parsing.TypeTransformationParser;
 import com.google.javascript.rhino.Node;
@@ -24,47 +26,56 @@ import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.RecordTypeBuilder;
 import com.google.javascript.rhino.testing.TestErrorReporter;
 import java.util.Map.Entry;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
+@RunWith(JUnit4.class)
 public final class TypeTransformationTest extends CompilerTypeTestCase {
 
   private ImmutableMap<String, JSType> typeVars;
   private ImmutableMap<String, String> nameVars;
   private static JSType recordTypeTest, nestedRecordTypeTest, asynchRecord;
 
-  static final String EXTRA_TYPE_DEFS = lines(
-      "/** @typedef {!Array<?>} */ var ArrayAlias;",
-      "",
-      "/** @constructor */",
-      "function Bar() {}",
-      "",
-      "/** @type {number} */",
-      "var n = 10;");
+  static final String EXTRA_TYPE_DEFS =
+      lines(
+          "/** @type {number} */ Array.prototype.length;",
+          "/** @typedef {!Array<?>} */ var ArrayAlias;",
+          "",
+          "/** @constructor */",
+          "function Bar() {}",
+          "",
+          "/** @type {number} */",
+          "var n = 10;");
 
   @Override
+  @Before
   public void setUp() throws Exception {
     super.setUp();
     errorReporter = new TestErrorReporter(null, null);
     initRecordTypeTests();
-    typeVars = new ImmutableMap.Builder<String, JSType>()
-        .put("S", STRING_TYPE)
-        .put("N", NUMBER_TYPE)
-        .put("B", BOOLEAN_TYPE)
-        .put("BOT", NO_TYPE)
-        .put("TOP", ALL_TYPE)
-        .put("UNK", UNKNOWN_TYPE)
-        .put("CHKUNK", CHECKED_UNKNOWN_TYPE)
-        .put("SO", STRING_OBJECT_TYPE)
-        .put("NO", NUMBER_OBJECT_TYPE)
-        .put("BO", BOOLEAN_OBJECT_TYPE)
-        .put("NULL", NULL_TYPE)
-        .put("OBJ", OBJECT_TYPE)
-        .put("UNDEF", VOID_TYPE)
-        .put("ARR", ARRAY_TYPE)
-        .put("ARRNUM", type(ARRAY_TYPE, NUMBER_TYPE))
-        .put("REC", recordTypeTest)
-        .put("NESTEDREC", nestedRecordTypeTest)
-        .put("ASYNCH", asynchRecord)
-        .build();
+    typeVars =
+        new ImmutableMap.Builder<String, JSType>()
+            .put("S", getNativeStringType())
+            .put("N", getNativeNumberType())
+            .put("B", getNativeBooleanType())
+            .put("BOT", getNativeNoType())
+            .put("TOP", getNativeAllType())
+            .put("UNK", getNativeUnknownType())
+            .put("CHKUNK", getNativeCheckedUnknownType())
+            .put("SO", getNativeStringObjectType())
+            .put("NO", getNativeNumberObjectType())
+            .put("BO", getNativeBooleanObjectType())
+            .put("NULL", getNativeNullType())
+            .put("OBJ", getNativeObjectType())
+            .put("UNDEF", getNativeVoidType())
+            .put("ARR", getNativeArrayType())
+            .put("ARRNUM", type(getNativeArrayType(), getNativeNumberType()))
+            .put("REC", recordTypeTest)
+            .put("NESTEDREC", nestedRecordTypeTest)
+            .put("ASYNCH", asynchRecord)
+            .build();
     nameVars = new ImmutableMap.Builder<String, String>()
         .put("s", "string")
         .put("n", "number")
@@ -72,851 +83,1040 @@ public final class TypeTransformationTest extends CompilerTypeTestCase {
         .build();
   }
 
+  @Test
   public void testTransformationWithValidBasicTypePredicate() {
-    testTTL(NUMBER_TYPE, "'number'");
+    testTTL(getNativeNumberType(), "'number'");
   }
 
+  @Test
   public void testTransformationWithBasicTypePredicateWithInvalidTypename() {
-    testTTL(UNKNOWN_TYPE, "'foo'",
-        "Reference to an unknown type name foo");
+    testTTL(getNativeUnknownType(), "'foo'", "Reference to an unknown type name foo");
   }
 
+  @Test
   public void testTransformationWithSingleTypeVar() {
-    testTTL(STRING_TYPE, "S");
+    testTTL(getNativeStringType(), "S");
   }
 
+  @Test
   public void testTransformationWithMultipleTypeVars() {
-    testTTL(STRING_TYPE, "S");
-    testTTL(NUMBER_TYPE, "N");
+    testTTL(getNativeStringType(), "S");
+    testTTL(getNativeNumberType(), "N");
   }
 
+  @Test
   public void testTransformationWithValidUnionTypeOnlyVars() {
-    testTTL(union(NUMBER_TYPE, STRING_TYPE), "union(N, S)");
+    testTTL(union(getNativeNumberType(), getNativeStringType()), "union(N, S)");
   }
 
-
+  @Test
   public void testTransformationWithValidUnionTypeOnlyTypePredicates() {
-    testTTL(union(NUMBER_TYPE, STRING_TYPE),
-        "union('number', 'string')");
+    testTTL(union(getNativeNumberType(), getNativeStringType()), "union('number', 'string')");
   }
 
+  @Test
   public void testTransformationWithValidUnionTypeMixed() {
-    testTTL(union(NUMBER_TYPE, STRING_TYPE), "union(S, 'number')");
+    testTTL(union(getNativeNumberType(), getNativeStringType()), "union(S, 'number')");
   }
 
+  @Test
   public void testTransformationWithUnknownParameter() {
     // Returns ? because foo is not defined
-    testTTL(UNKNOWN_TYPE, "union(foo, 'number')",
+    testTTL(
+        getNativeUnknownType(),
+        "union(foo, 'number')",
         "Reference to an unknown type variable foo");
   }
 
+  @Test
   public void testTransformationWithUnknownParameter2() {
     // Returns ? because foo is not defined
-    testTTL(UNKNOWN_TYPE, "union(N, 'foo')",
-        "Reference to an unknown type name foo");
+    testTTL(getNativeUnknownType(), "union(N, 'foo')", "Reference to an unknown type name foo");
   }
 
+  @Test
   public void testTransformationWithNestedUnionInFirstParameter() {
-    testTTL(union(NUMBER_TYPE, NULL_TYPE, STRING_TYPE),
+    testTTL(
+        union(getNativeNumberType(), getNativeNullType(), getNativeStringType()),
         "union(union(N, 'null'), S)");
   }
 
+  @Test
   public void testTransformationWithNestedUnionInSecondParameter() {
-    testTTL(union(NUMBER_TYPE, NULL_TYPE, STRING_TYPE),
+    testTTL(
+        union(getNativeNumberType(), getNativeNullType(), getNativeStringType()),
         "union(N, union('null', S))");
   }
 
+  @Test
   public void testTransformationWithRepeatedTypePredicate() {
-    testTTL(NUMBER_TYPE, "union('number', 'number')");
+    testTTL(getNativeNumberType(), "union('number', 'number')");
   }
 
+  @Test
   public void testTransformationWithUndefinedTypeVar() {
-    testTTL(UNKNOWN_TYPE, "foo", "Reference to an unknown type variable foo");
+    testTTL(getNativeUnknownType(), "foo", "Reference to an unknown type variable foo");
   }
 
+  @Test
   public void testTransformationWithTrueEqtypeConditional() {
-    testTTL(STRING_TYPE, "cond(eq(N, N), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(eq(N, N), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseEqtypeConditional() {
-    testTTL(NUMBER_TYPE, "cond(eq(N, S), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(eq(N, S), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueSubtypeConditional() {
-    testTTL(STRING_TYPE,
-        "cond( sub('Number', 'Object'), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond( sub('Number', 'Object'), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseSubtypeConditional() {
-    testTTL(NUMBER_TYPE,
-        "cond( sub('Number', 'String'), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond( sub('Number', 'String'), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueStreqConditional() {
-    testTTL(STRING_TYPE, "cond(streq(n, 'number'), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(streq(n, 'number'), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueStreqConditional2() {
-    testTTL(STRING_TYPE, "cond(streq(n, n), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(streq(n, n), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueStreqConditional3() {
-    testTTL(STRING_TYPE, "cond(streq('number', 'number'), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(streq('number', 'number'), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseStreqConditional() {
-    testTTL(NUMBER_TYPE, "cond(streq('number', 'foo'), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(streq('number', 'foo'), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseStreqConditional2() {
-    testTTL(NUMBER_TYPE, "cond(streq(n, 'foo'), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(streq(n, 'foo'), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseStreqConditional3() {
-    testTTL(NUMBER_TYPE, "cond(streq(n, s), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(streq(n, s), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithInvalidEqConditional() {
     // It returns number since a failing boolean expression returns false
-    testTTL(NUMBER_TYPE, "cond(eq(foo, S), 'string', 'number')",
+    testTTL(
+        getNativeNumberType(),
+        "cond(eq(foo, S), 'string', 'number')",
         "Reference to an unknown type variable foo");
   }
 
+  @Test
   public void testTransformationWithInvalidStreqConditional() {
     // It returns number since a failing boolean expression returns false
-    testTTL(NUMBER_TYPE, "cond(streq(foo, s), 'string', 'number')",
+    testTTL(
+        getNativeNumberType(),
+        "cond(streq(foo, s), 'string', 'number')",
         "Reference to an unknown string variable foo");
   }
 
+  @Test
   public void testTransformationWithNestedExpressionInBooleanFirstParam() {
-    testTTL(STRING_TYPE,
-        "cond( eq( cond(eq(N, N), 'string', 'number'), 'string'),"
-            + "'string', "
-            + "'number')");
+    testTTL(
+        getNativeStringType(),
+        "cond( eq( cond(eq(N, N), 'string', 'number'), 'string')," + "'string', " + "'number')");
   }
 
+  @Test
   public void testTransformationWithNestedExpressionInBooleanSecondParam() {
-    testTTL(STRING_TYPE,
-        "cond( eq( 'string', cond(eq(N, N), 'string', 'number')),"
-            + "'string', "
-            + "'number')");
+    testTTL(
+        getNativeStringType(),
+        "cond( eq( 'string', cond(eq(N, N), 'string', 'number'))," + "'string', " + "'number')");
   }
 
+  @Test
   public void testTransformationWithNestedExpressionInIfBranch() {
-    testTTL(STRING_OBJECT_TYPE,
-        "cond( eq(N, N),"
-            + "cond(eq(N, S), 'string', 'String'),"
-            + "'number')");
+    testTTL(
+        getNativeStringObjectType(),
+        "cond(eq(N, N), cond(eq(N, S), 'string', 'String'), 'number')");
   }
 
+  @Test
   public void testTransformationWithNestedExpressionInElseBranch() {
-    testTTL(STRING_OBJECT_TYPE,
-        "cond( eq(N, S),"
-        +     "'number',"
-        +     "cond(eq(N, S), 'string', 'String'))");
+    testTTL(
+        getNativeStringObjectType(),
+        "cond(eq(N, S), 'number', cond(eq(N, S), 'string', 'String'))");
   }
 
+  @Test
   public void testTransformationWithMapunionMappingEverythingToString() {
-    testTTL(STRING_TYPE, "mapunion(union(S, N), (x) => S)");
+    testTTL(getNativeStringType(), "mapunion(union(S, N), (x) => S)");
   }
 
+  @Test
   public void testTransformationWithMapunionIdentity() {
-    testTTL(union(NUMBER_TYPE, STRING_TYPE),
-        "mapunion(union(N, S), (x) => x)");
+    testTTL(union(getNativeNumberType(), getNativeStringType()), "mapunion(union(N, S), (x) => x)");
   }
 
+  @Test
   public void testTransformationWithMapunionWithUnionEvaluatedToANonUnion() {
-    testTTL(NUMBER_TYPE,
-        "mapunion(union(N, 'number'), (x) => x)");
+    testTTL(getNativeNumberType(), "mapunion(union(N, 'number'), (x) => x)");
   }
 
+  @Test
   public void testTransformationWithMapunionFilterWithOnlyString() {
-    testTTL(STRING_TYPE,
-        "mapunion(union(S, B, N), (x) => cond(eq(x, S), x, BOT))");
+    testTTL(getNativeStringType(), "mapunion(union(S, B, N), (x) => cond(eq(x, S), x, BOT))");
   }
 
+  @Test
   public void testTransformationWithMapunionOnSingletonStringToNumber() {
-    testTTL(NUMBER_TYPE, "mapunion(S, (x) => cond(eq(x, S), N, BOT))");
+    testTTL(getNativeNumberType(), "mapunion(S, (x) => cond(eq(x, S), N, BOT))");
   }
 
+  @Test
   public void testTransformationWithNestedUnionInMapunionFilterString() {
-    testTTL(union(NUMBER_TYPE, BOOLEAN_TYPE),
-        "mapunion(union(union(S, B), union(N, S)),"
-        + "(x) => cond(eq(x, S), BOT, x))");
+    testTTL(
+        union(getNativeNumberType(), getNativeBooleanType()),
+        "mapunion(union(union(S, B), union(N, S)), (x) => cond(eq(x, S), BOT, x))");
   }
 
+  @Test
   public void testTransformationWithNestedMapunionInMapFunctionBody() {
-    testTTL(STRING_TYPE,
+    testTTL(
+        getNativeStringType(),
         "mapunion(union(S, B),"
-        + "(x) => mapunion(union(S, N), "
-        +          "(y) => cond(eq(x, y), x, BOT)))");
+            + "(x) => mapunion(union(S, N), "
+            + "(y) => cond(eq(x, y), x, BOT)))");
   }
 
+  @Test
   public void testTransformationWithObjectUseCase() {
-    testTTL(OBJECT_TYPE,
+    testTTL(
+        getNativeObjectType(),
         "mapunion("
-        + "union(S, N, B, NULL, UNDEF, ARR),"
-        + "(x) => "
-        + "cond(eq(x, S), SO,"
-        + "cond(eq(x, N), NO,"
-        + "cond(eq(x, B), BO,"
-        + "cond(eq(x, NULL), OBJ,"
-        + "cond(eq(x, UNDEF), OBJ,"
-        + "x ))))))");
+            + "union(S, N, B, NULL, UNDEF, ARR),"
+            + "(x) => "
+            + "cond(eq(x, S), SO,"
+            + "cond(eq(x, N), NO,"
+            + "cond(eq(x, B), BO,"
+            + "cond(eq(x, NULL), OBJ,"
+            + "cond(eq(x, UNDEF), OBJ,"
+            + "x ))))))");
   }
 
   // none() is evaluated to bottom in TTL expressions, but if the overall expression evaluates
   // to bottom, we return unknown to the context.
+  @Test
   public void testTransformatioWithNoneType() {
-    testTTL(UNKNOWN_TYPE, "none()");
+    testTTL(getNativeUnknownType(), "none()");
   }
 
   // The conditional is true, so we follow the THEN branch, and the bottom result is returned
   // to the context as unknown.
+  @Test
   public void testTransformatioWithNoneTypeInConditional() {
-    testTTL(UNKNOWN_TYPE, "cond(eq(BOT, none()), none(), N)");
+    testTTL(getNativeUnknownType(), "cond(eq(BOT, none()), none(), N)");
   }
 
+  @Test
   public void testTransformatioWithNoneTypeInMapunionFilterString() {
-    testTTL(STRING_TYPE,
-        "mapunion(union(S, B, N), (x) => cond(eq(x, S), x, none()))");
+    testTTL(getNativeStringType(), "mapunion(union(S, B, N), (x) => cond(eq(x, S), x, none()))");
   }
 
+  @Test
   public void testTransformatioWithAllType() {
-    testTTL(ALL_TYPE, "all()");
+    testTTL(getNativeAllType(), "all()");
   }
 
+  @Test
   public void testTransformatioWithAllTypeInConditional() {
-    testTTL(ALL_TYPE, "cond(eq(TOP, all()), all(), N)");
+    testTTL(getNativeAllType(), "cond(eq(TOP, all()), all(), N)");
   }
 
+  @Test
   public void testTransformatioWithAllTypeMixUnion() {
-    testTTL(ALL_TYPE,
-        "mapunion(union(S, B, N), (x) => cond(eq(x, S), x, all()))");
+    testTTL(getNativeAllType(), "mapunion(union(S, B, N), (x) => cond(eq(x, S), x, all()))");
   }
 
+  @Test
   public void testTransformatioWithUnknownType() {
-    testTTL(UNKNOWN_TYPE, "unknown()");
+    testTTL(getNativeUnknownType(), "unknown()");
   }
 
+  @Test
   public void testTransformatioWithUnknownTypeInConditional() {
-    testTTL(NUMBER_TYPE, "cond(eq(UNK, unknown()), N, S)");
+    testTTL(getNativeNumberType(), "cond(eq(UNK, unknown()), N, S)");
   }
 
+  @Test
   public void testTransformatioWithUnknownTypeInMapunionStringToUnknown() {
-    testTTL(UNKNOWN_TYPE,
-        "mapunion(union(S, B, N), (x) => cond(eq(x, S), x, unknown()))");
+    testTTL(
+        getNativeUnknownType(), "mapunion(union(S, B, N), (x) => cond(eq(x, S), x, unknown()))");
   }
 
+  @Test
   public void testTransformationWithTemplatizedType() {
-    testTTL(type(ARRAY_TYPE, NUMBER_TYPE), "type('Array', 'number')");
+    testTTL(type(getNativeArrayType(), getNativeNumberType()), "type('Array', 'number')");
   }
 
+  @Test
   public void testTransformationWithTemplatizedType2() {
-    testTTL(type(ARRAY_TYPE, NUMBER_TYPE), "type(ARR, 'number')");
+    testTTL(type(getNativeArrayType(), getNativeNumberType()), "type(ARR, 'number')");
   }
 
+  @Test
   public void testTransformationWithTemplatizedType3() {
-    testTTL(type(ARRAY_TYPE, NUMBER_TYPE), "type(ARR, N)");
+    testTTL(type(getNativeArrayType(), getNativeNumberType()), "type(ARR, N)");
   }
 
+  @Test
   public void testTransformationWithTemplatizedTypeInvalidBaseType() {
-    testTTL(UNKNOWN_TYPE, "type('string', 'number')",
+    testTTL(
+        getNativeUnknownType(),
+        "type('string', 'number')",
         "The type string cannot be templatized");
   }
 
+  @Test
   public void testTransformationWithTemplatizedTypeInvalidBaseType2() {
-    testTTL(UNKNOWN_TYPE, "type(S, 'number')",
-        "The type string cannot be templatized");
+    testTTL(getNativeUnknownType(), "type(S, 'number')", "The type string cannot be templatized");
   }
 
+  @Test
   public void testTransformationWithTemplatizedTypeInvalidBaseType3() {
-    testTTL(UNKNOWN_TYPE, "type('ArrayAlias', number)",
+    testTTL(
+        getNativeUnknownType(),
+        "type('ArrayAlias', number)",
         "The type Array<?> cannot be templatized");
   }
 
+  @Test
   public void testTransformationWithRawTypeOf() {
-    testTTL(ARRAY_TYPE, "rawTypeOf(type('Array', 'number'))");
+    testTTL(getNativeArrayType(), "rawTypeOf(type('Array', 'number'))");
   }
 
+  @Test
   public void testTransformationWithRawTypeOf2() {
-    testTTL(ARRAY_TYPE, "rawTypeOf(ARRNUM)");
+    testTTL(getNativeArrayType(), "rawTypeOf(ARRNUM)");
   }
 
+  @Test
   public void testTransformationWithNestedRawTypeOf() {
-    testTTL(ARRAY_TYPE, "rawTypeOf(type('Array', rawTypeOf(ARRNUM)))");
+    testTTL(getNativeArrayType(), "rawTypeOf(type('Array', rawTypeOf(ARRNUM)))");
   }
 
+  @Test
   public void testTransformationWithInvalidRawTypeOf() {
-    testTTL(UNKNOWN_TYPE, "rawTypeOf(N)",
+    testTTL(
+        getNativeUnknownType(),
+        "rawTypeOf(N)",
         "Expected templatized type in rawTypeOf found number");
   }
 
+  @Test
   public void testTransformationWithTemplateTypeOf() {
-    testTTL(NUMBER_TYPE, "templateTypeOf(type('Array', 'number'), 0)");
+    testTTL(getNativeNumberType(), "templateTypeOf(type('Array', 'number'), 0)");
   }
 
+  @Test
   public void testTransformationWithTemplateTypeOf2() {
-    testTTL(NUMBER_TYPE, "templateTypeOf(ARRNUM, 0)");
+    testTTL(getNativeNumberType(), "templateTypeOf(ARRNUM, 0)");
   }
 
+  @Test
   public void testTransformationWithNestedTemplateTypeOf() {
-    testTTL(NUMBER_TYPE,
-        "templateTypeOf("
-        + "templateTypeOf(type('Array', type('Array', 'number')), 0),"
-        + "0)");
+    testTTL(
+        getNativeNumberType(),
+        "templateTypeOf(templateTypeOf(type('Array', type('Array', 'number')), 0), 0)");
   }
 
+  @Test
   public void testTransformationWithInvalidTypeTemplateTypeOf() {
-    testTTL(UNKNOWN_TYPE, "templateTypeOf(N, 0)",
+    testTTL(
+        getNativeUnknownType(),
+        "templateTypeOf(N, 0)",
         "Expected templatized type in templateTypeOf found number");
   }
 
+  @Test
   public void testTransformationWithInvalidIndexTemplateTypeOf() {
-    testTTL(UNKNOWN_TYPE, "templateTypeOf(ARRNUM, 2)",
+    testTTL(
+        getNativeUnknownType(),
+        "templateTypeOf(ARRNUM, 2)",
         "Index out of bounds in templateTypeOf: expected a number less than 1, found 2");
   }
 
+  @Test
   public void testTransformationWithRecordType() {
-    testTTL(record("x", NUMBER_TYPE),
-        "record({x:'number'})");
+    testTTL(record("x", getNativeNumberType()), "record({x:'number'})");
   }
 
+  @Test
   public void testTransformationWithRecordType2() {
-    testTTL(record("0", NUMBER_TYPE),
-        "record({0:'number'})");
+    testTTL(record("0", getNativeNumberType()), "record({0:'number'})");
   }
 
+  @Test
   public void testTransformationWithRecordTypeMultipleProperties() {
-    testTTL(record("x", NUMBER_TYPE, "y", STRING_TYPE),
+    testTTL(
+        record("x", getNativeNumberType(), "y", getNativeStringType()),
         "record({x:'number', y:S})");
   }
 
+  @Test
   public void testTransformationWithNestedRecordType() {
-    testTTL(record("x", record("z", BOOLEAN_TYPE), "y", STRING_TYPE),
+    testTTL(
+        record("x", record("z", getNativeBooleanType()), "y", getNativeStringType()),
         "record({x:record({z:B}), y:S})");
   }
 
+  @Test
   public void testTransformationWithNestedRecordType2() {
-    testTTL(record("x", NUMBER_TYPE),
-        "record(record({x:N}))");
+    testTTL(record("x", getNativeNumberType()), "record(record({x:N}))");
   }
 
+  @Test
   public void testTransformationWithEmptyRecordType() {
     testTTL(record(), "record({})");
   }
 
+  @Test
   public void testTransformationWithMergeRecord() {
-    testTTL(record("x", NUMBER_TYPE, "y", STRING_TYPE, "z", BOOLEAN_TYPE),
+    testTTL(
+        record("x", getNativeNumberType(), "y", getNativeStringType(), "z", getNativeBooleanType()),
         "record({x:N}, {y:S}, {z:B})");
   }
 
+  @Test
   public void testTransformationWithMergeDuplicatedRecords() {
-    testTTL(record("x", NUMBER_TYPE),
-        "record({x:N}, {x:N}, {x:N})");
+    testTTL(record("x", getNativeNumberType()), "record({x:N}, {x:N}, {x:N})");
   }
 
+  @Test
   public void testTransformationWithMergeRecordTypeWithEmpty() {
-    testTTL(record("x", NUMBER_TYPE),
-        "record({x:N}, {})");
+    testTTL(record("x", getNativeNumberType()), "record({x:N}, {})");
   }
 
+  @Test
   public void testTransformationWithInvalidRecordType() {
-    testTTL(UNKNOWN_TYPE, "record(N)",
-        "Expected a record type, found number");
+    testTTL(getNativeUnknownType(), "record(N)", "Expected a record type, found number");
   }
 
+  @Test
   public void testTransformationWithInvalidMergeRecordType() {
-    testTTL(UNKNOWN_TYPE, "record({x:N}, N)",
-        "Expected a record type, found number");
+    testTTL(getNativeUnknownType(), "record({x:N}, N)", "Expected a record type, found number");
   }
 
+  @Test
   public void testTransformationWithTTLTypeTransformationInFirstParamMapunion() {
-    testTTL(union(NUMBER_TYPE, STRING_TYPE),
-        "mapunion(templateTypeOf(type(ARR, union(N, S)), 0),"
-        + "(x) => x)");
+    testTTL(
+        union(getNativeNumberType(), getNativeStringType()),
+        "mapunion(templateTypeOf(type(ARR, union(N, S)), 0), (x) => x)");
   }
 
+  @Test
   public void testTransformationWithInvalidNestedMapunion() {
-    testTTL(UNKNOWN_TYPE,
+    testTTL(
+        getNativeUnknownType(),
         "mapunion(union(S, B),"
-        + "(x) => mapunion(union(S, N), "
-        +          "(x) => cond(eq(x, x), x, BOT)))",
+            + "(x) => mapunion(union(S, N), "
+            + "(x) => cond(eq(x, x), x, BOT)))",
         "The variable x is already defined");
   }
 
+  @Test
   public void testTransformationWithTTLRecordWithReference() {
-    testTTL(record("number", NUMBER_TYPE, "string", STRING_TYPE,
-        "boolean", BOOLEAN_TYPE),
+    testTTL(
+        record(
+            "number",
+            getNativeNumberType(),
+            "string",
+            getNativeStringType(),
+            "boolean",
+            getNativeBooleanType()),
         "record({[n]:N, [s]:S, [b]:B})");
   }
 
+  @Test
   public void testTransformationWithTTLRecordWithInvalidReference() {
-    testTTL(UNKNOWN_TYPE, "record({[Foo]:N})",
+    testTTL(
+        getNativeUnknownType(),
+        "record({[Foo]:N})",
         "Expected a record type, found ?",
         "Reference to an unknown name variable Foo");
   }
 
+  @Test
   public void testTransformationWithMaprecordMappingEverythingToString() {
     // {n:number, s:string, b:boolean}
     // is transformed to
     // {n:string, s:string, b:string}
-    testTTL(record("n", STRING_TYPE, "s", STRING_TYPE, "b", STRING_TYPE),
+    testTTL(
+        record("n", getNativeStringType(), "s", getNativeStringType(), "b", getNativeStringType()),
         "maprecord(REC, (k, v) => record({[k]:S}))");
   }
 
+  @Test
   public void testTransformationWithMaprecordIdentity() {
     // {n:number, s:string, b:boolean} remains the same
     testTTL(recordTypeTest, "maprecord(REC, (k, v) => record({[k]:v}))");
   }
 
+  @Test
   public void testTransformationWithMaprecordDeleteEverything() {
     // {n:number, s:string, b:boolean}
-    // is transformed to
-    // OBJECT_TYPE
-    testTTL(OBJECT_TYPE, "maprecord(REC, (k, v) => BOT)");
+    // is transformed to object type
+    testTTL(getNativeObjectType(), "maprecord(REC, (k, v) => BOT)");
   }
 
+  @Test
   public void testTransformationWithInvalidMaprecord() {
-    testTTL(UNKNOWN_TYPE, "maprecord(REC, (k, v) => 'number')",
+    testTTL(
+        getNativeUnknownType(),
+        "maprecord(REC, (k, v) => 'number')",
         "The body of a maprecord function must evaluate to a record type "
             + "or a no type, found number");
   }
 
+  @Test
   public void testTransformationWithMaprecordFilterWithOnlyString() {
     // {n:number, s:string, b:boolean}
     // is transformed to
     // {s:string}
-    testTTL(record("s", STRING_TYPE),
+    testTTL(
+        record("s", getNativeStringType()),
         "maprecord(REC, (k, v) => cond(eq(v, S), record({[k]:v}), BOT))");
   }
 
+  @Test
   public void testTransformationWithInvalidMaprecordFirstParam() {
-    testTTL(UNKNOWN_TYPE, "maprecord(N, (k, v) => BOT)",
+    testTTL(
+        getNativeUnknownType(),
+        "maprecord(N, (k, v) => BOT)",
         "The first parameter of a maprecord must be a record type, found number");
   }
 
+  @Test
   public void testTransformationWithObjectInMaprecord() {
-    testTTL(OBJECT_TYPE, "maprecord(OBJ, (k, v) => record({[k]:v}))");
+    testTTL(getNativeObjectType(), "maprecord(OBJ, (k, v) => record({[k]:v}))");
   }
 
+  @Test
   public void testTransformationWithUnionInMaprecord() {
-    testTTL(UNKNOWN_TYPE,
+    testTTL(
+        getNativeUnknownType(),
         "maprecord(union(record({n:N}), S), (k, v) => record({[k]:v}))",
         "The first parameter of a maprecord must be a record type, "
             + "found (string|{n: number})");
   }
 
+  @Test
   public void testTransformationWithUnionOfRecordsInMaprecord() {
-    testTTL(UNKNOWN_TYPE, "maprecord(union(record({n:N}), record({s:S})), "
-        + "(k, v) => record({[k]:v}))",
+    testTTL(
+        getNativeUnknownType(),
+        "maprecord(union(record({n:N}), record({s:S})),  (k, v) => record({[k]:v}))",
         "The first parameter of a maprecord must be a record type, "
             + "found ({n: number}|{s: string})");
   }
 
+  @Test
   public void testTransformationWithNestedRecordInMaprecordFilterOneLevelString() {
     // {s:string, r:{s:string, b:boolean}}
     // is transformed to
     // {r:{s:string, b:boolean}}
-    testTTL(record("r", record("s", STRING_TYPE, "b", BOOLEAN_TYPE)),
-        "maprecord(NESTEDREC,"
-            + "(k, v) => cond(eq(v, S), BOT, record({[k]:v})))");
+    testTTL(
+        record("r", record("s", getNativeStringType(), "b", getNativeBooleanType())),
+        "maprecord(NESTEDREC, (k, v) => cond(eq(v, S), BOT, record({[k]:v})))");
   }
 
+  @Test
   public void testTransformationWithNestedRecordInMaprecordFilterTwoLevelsString() {
     // {s:string, r:{s:string, b:boolean}}
     // is transformed to
     // {r:{b:boolean}}
-    testTTL(record("r", record("b", BOOLEAN_TYPE)),
-        "maprecord(NESTEDREC,"
-            + "(k1, v1) => "
-            +  "cond(sub(v1, 'Object'), "
-            +        "maprecord(v1, (k2, v2) => "
-            +             "cond(eq(v2, S), BOT, record({[k1]:record({[k2]:v2})}))),"
-            +        "cond(eq(v1, S), BOT, record({[k1]:v1}))))");
+    testTTL(
+        record("r", record("b", getNativeBooleanType())),
+        lines(
+            "maprecord(NESTEDREC,",
+            "    (k1, v1) => ",
+            "        cond(sub(v1, 'Object'), ",
+            "            maprecord(v1, (k2, v2) => ",
+            "                cond(eq(v2, S), BOT, record({[k1]:record({[k2]:v2})}))),",
+            "            cond(eq(v1, S), BOT, record({[k1]:v1}))))"));
   }
 
+  @Test
   public void testTransformationWithNestedIdentityOneLevel() {
     // {r:{n:number, s:string}}
-    testTTL(record("r",
-        record("b", BOOLEAN_TYPE, "s", STRING_TYPE)),
-        "maprecord(record({r:record({b:B, s:S})}),"
-            + "(k1, v1) => "
-            +   "maprecord(v1, "
-            +     "(k2, v2) => "
-            +       "record({[k1]:record({[k2]:v2})})))");
+    testTTL(
+        record("r", record("b", getNativeBooleanType(), "s", getNativeStringType())),
+        lines(
+            "maprecord(record({r:record({b:B, s:S})}),",
+            "    (k1, v1) => ",
+            "        maprecord(v1, ",
+            "            (k2, v2) => ",
+            "                record({[k1]:record({[k2]:v2})})))"));
   }
 
+  @Test
   public void testTransformationWithNestedIdentityOneLevel2() {
     // {r:{n:number, s:string}}
-    testTTL(record("r",
-        record("b", BOOLEAN_TYPE, "s", STRING_TYPE)),
-        "maprecord(record({r:record({b:B, s:S})}),\n"
-            + "(k1, v1) =>\n"
-            +   "record({[k1]:\n"
-            +     "maprecord(v1, "
-            +       "(k2, v2) => record({[k2]:v2}))}))");
+    testTTL(
+        record("r", record("b", getNativeBooleanType(), "s", getNativeStringType())),
+        lines(
+            "maprecord(record({r:record({b:B, s:S})}),",
+            "    (k1, v1) =>",
+            "        record({[k1]:",
+            "            maprecord(v1, ",
+            "                (k2, v2) => record({[k2]:v2}))}))"));
   }
 
+  @Test
   public void testTransformationWithNestedIdentityTwoLevels() {
     // {r:{r2:{n:number, s:string}}}
-    testTTL(record("r", record("r2",
-        record("n", NUMBER_TYPE, "s", STRING_TYPE))),
-        "maprecord(record({r:record({r2:record({n:N, s:S})})}),"
-            + "(k1, v1) => "
-            +    "maprecord(v1, "
-            +      "(k2, v2) => "
-            +        "maprecord(v2, "
-            +          "(k3, v3) =>"
-            +             "record({[k1]:"
-            +               "record({[k2]:"
-            +                 "record({[k3]:v3})})}))))");
+    testTTL(
+        record("r", record("r2", record("n", getNativeNumberType(), "s", getNativeStringType()))),
+        lines(
+            "maprecord(record({r:record({r2:record({n:N, s:S})})}),",
+            "    (k1, v1) => ",
+            "        maprecord(v1, ",
+            "            (k2, v2) => ",
+            "                maprecord(v2, ",
+            "                    (k3, v3) =>",
+            "                        record({[k1]:",
+            "                            record({[k2]:",
+            "                                record({[k3]:v3})})}))))"));
   }
 
+  @Test
   public void testTransformationWithNestedIdentityTwoLevels2() {
     // {r:{r2:{n:number, s:string}}}
-    testTTL(record("r", record("r2",
-        record("n", NUMBER_TYPE, "s", STRING_TYPE))),
-        "maprecord(record({r:record({r2:record({n:N, s:S})})}),"
-            + "(k1, v1) => "
-            +    "record({[k1]:"
-            +      "maprecord(v1, "
-            +        "(k2, v2) => "
-            +          "record({[k2]:"
-            +            "maprecord(v2, "
-            +              "(k3, v3) =>"
-            +                "record({[k3]:v3}))}))}))");
+    testTTL(
+        record("r", record("r2", record("n", getNativeNumberType(), "s", getNativeStringType()))),
+        lines(
+            "maprecord(record({r:record({r2:record({n:N, s:S})})}),",
+            "    (k1, v1) => ",
+            "        record({[k1]:",
+            "            maprecord(v1, ",
+            "                (k2, v2) => ",
+            "                    record({[k2]:",
+            "                        maprecord(v2, ",
+            "                            (k3, v3) =>",
+            "                                record({[k3]:v3}))}))}))"));
   }
 
+  @Test
   public void testTransformationWithNestedIdentityThreeLevels() {
     // {r:{r2:{r3:{n:number, s:string}}}}
-    testTTL(record("r", record("r2", record("r3",
-        record("n", NUMBER_TYPE, "s", STRING_TYPE)))),
-        "maprecord(record({r:record({r2:record({r3:record({n:N, s:S})})})}),"
-            + "(k1, v1) => "
-            +    "maprecord(v1, "
-            +      "(k2, v2) => "
-            +        "maprecord(v2, "
-            +          "(k3, v3) =>"
-            +            "maprecord(v3,"
-            +              "(k4, v4) =>"
-            +               "record({[k1]:"
-            +                 "record({[k2]:"
-            +                   "record({[k3]:"
-            +                     "record({[k4]:v4})})})})))))");
+    testTTL(
+        record(
+            "r",
+            record(
+                "r2",
+                record("r3", record("n", getNativeNumberType(), "s", getNativeStringType())))),
+        lines(
+            "maprecord(record({r:record({r2:record({r3:record({n:N, s:S})})})}),",
+            "    (k1, v1) => ",
+            "        maprecord(v1, ",
+            "            (k2, v2) => ",
+            "                maprecord(v2, ",
+            "                    (k3, v3) =>",
+            "                        maprecord(v3,",
+            "                            (k4, v4) =>",
+            "                                record({[k1]:",
+            "                                    record({[k2]:",
+            "                                        record({[k3]:",
+            "                                            record({[k4]:v4})})})})))))"));
   }
 
+  @Test
   public void testTransformationWithNestedIdentityThreeLevels2() {
     // {r:{r2:{r3:{n:number, s:string}}}}
-    testTTL(record("r", record("r2", record("r3",
-        record("n", NUMBER_TYPE, "s", STRING_TYPE)))),
-        "maprecord(record({r:record({r2:record({r3:record({n:N, s:S})})})}),"
-            + "(k1, v1) => "
-            +   "record({[k1]:"
-            +     "maprecord(v1, "
-            +       "(k2, v2) => "
-            +         "record({[k2]:"
-            +           "maprecord(v2, "
-            +             "(k3, v3) =>"
-            +               "record({[k3]:"
-            +                 "maprecord(v3,"
-            +                   "(k4, v4) =>"
-            +                     "record({[k4]:v4}))}))}))}))");
+    testTTL(
+        record(
+            "r",
+            record(
+                "r2",
+                record("r3", record("n", getNativeNumberType(), "s", getNativeStringType())))),
+        lines(
+            "maprecord(record({r:record({r2:record({r3:record({n:N, s:S})})})}),",
+            "    (k1, v1) => ",
+            "        record({[k1]:",
+            "            maprecord(v1, ",
+            "                (k2, v2) => ",
+            "                    record({[k2]:",
+            "                        maprecord(v2, ",
+            "                            (k3, v3) =>",
+            "                                record({[k3]:",
+            "                                    maprecord(v3,",
+            "                                        (k4, v4) =>",
+            "                                            record({[k4]:v4}))}))}))}))"));
   }
 
+  @Test
   public void testTransformationWithNestedRecordDeleteLevelTwoAndThree() {
     // {r:{r2:{r3:{n:number, s:string}}}}
     // is transformed into
     // {r:{n:number, s:string}}
-    testTTL(record("r", record("n", NUMBER_TYPE, "s", STRING_TYPE)),
-        "maprecord(record({r:record({r2:record({r3:record({n:N, s:S})})})}),"
-            + "(k1, v1) => "
-            +    "maprecord(v1, "
-            +      "(k2, v2) => "
-            +        "maprecord(v2, "
-            +          "(k3, v3) =>"
-            +            "maprecord(v3,"
-            +              "(k4, v4) =>"
-            +               "record({[k1]:"
-            +                 "record({[k4]:v4})})))))");
+    testTTL(
+        record("r", record("n", getNativeNumberType(), "s", getNativeStringType())),
+        lines(
+            "maprecord(record({r:record({r2:record({r3:record({n:N, s:S})})})}),",
+            "    (k1, v1) => ",
+            "        maprecord(v1, ",
+            "            (k2, v2) => ",
+            "                maprecord(v2, ",
+            "                    (k3, v3) =>",
+            "                        maprecord(v3,",
+            "                            (k4, v4) =>",
+            "                                record({[k1]:",
+            "                                    record({[k4]:v4})})))))"));
   }
 
+  @Test
   public void testTransformationWithNestedRecordDeleteLevelTwoAndThree2() {
     // {r:{r2:{r3:{n:number, s:string}}}}
     // is transformed into
     // {r:{n:number, s:string}}
-    testTTL(record("r", record("n", NUMBER_TYPE, "s", STRING_TYPE)),
-        "maprecord(record({r:record({r2:record({r3:record({n:N, s:S})})})}),"
-            + "(k1, v1) => "
-            +   "record({[k1]:"
-            +     "maprecord(v1, "
-            +       "(k2, v2) => "
-            +         "maprecord(v2, "
-            +           "(k3, v3) =>"
-            +             "maprecord(v3,"
-            +               "(k4, v4) =>"
-            +                 "record({[k4]:v4}))))}))");
+    testTTL(
+        record("r", record("n", getNativeNumberType(), "s", getNativeStringType())),
+        lines(
+            "maprecord(record({r:record({r2:record({r3:record({n:N, s:S})})})}),",
+            "    (k1, v1) => ",
+            "        record({[k1]:",
+            "            maprecord(v1, ",
+            "                (k2, v2) => ",
+            "                    maprecord(v2, ",
+            "                        (k3, v3) =>",
+            "                            maprecord(v3,",
+            "                                (k4, v4) =>",
+            "                                    record({[k4]:v4}))))}))"));
   }
 
+  @Test
   public void testTransformationWithNestedRecordCollapsePropertiesToRecord() {
     // {a:Array, b:{n:number}}
     // is transformed to
     // {foo:{n:number}}
-    testTTL(record("foo", record("n", NUMBER_TYPE)),
-        "maprecord(record({a:ARR, b:record({n:N})}),"
-            + "(k, v) => record({foo:v}))");
+    testTTL(
+        record("foo", record("n", getNativeNumberType())),
+        "maprecord(record({a:ARR, b:record({n:N})}), (k, v) => record({foo:v}))");
   }
 
+  @Test
   public void testTransformationWithNestedRecordCollapsePropertiesToType() {
     // {a:{n:number}, b:Array}
     // is transformed to
     // {foo:Array}
-    testTTL(record("foo", ARRAY_TYPE),
-        "maprecord(record({a:record({n:N}), b:ARR}),"
-            + "(k, v) =>  record({foo:v}))");
+    testTTL(
+        record("foo", getNativeArrayType()),
+        "maprecord(record({a:record({n:N}), b:ARR}), (k, v) => record({foo:v}))");
   }
 
+  @Test
   public void testTransformationWithNestedRecordCollapsePropertiesJoinRecords() {
     // {a:{n:number}, b:{s:Array}}
     // is transformed to
     // {foo:{n:number, s:Array}}
-    testTTL(record("foo", record("n", NUMBER_TYPE, "s", ARRAY_TYPE)),
-        "maprecord(record({a:record({n:N}), b:record({s:ARR})}),"
-            + "(k, v) => record({foo:v}))");
+    testTTL(
+        record("foo", record("n", getNativeNumberType(), "s", getNativeArrayType())),
+        "maprecord(record({a:record({n:N}), b:record({s:ARR})}), (k, v) => record({foo:v}))");
   }
 
+  @Test
   public void testTransformationWithNestedRecordCollapsePropertiesJoinRecords2() {
     // {a:{n:number, {x:number}}, b:{s:Array, {y:number}}}
     // is transformed to
     // {foo:{n:number, s:Array, r:{x:number, y:number}}}
-    testTTL(record("foo", record("n", NUMBER_TYPE, "s", ARRAY_TYPE,
-        "r", record("x", NUMBER_TYPE, "y", NUMBER_TYPE))),
-        "maprecord(record({a:record({n:N, r:record({x:N})}), "
-        + "b:record({s:ARR, r:record({y:N})})}),"
-            + "(k, v) => record({foo:v}))");
+    testTTL(
+        record(
+            "foo",
+            record(
+                "n",
+                getNativeNumberType(),
+                "s",
+                getNativeArrayType(),
+                "r",
+                record("x", getNativeNumberType(), "y", getNativeNumberType()))),
+        lines(
+            "maprecord(",
+            "    record({a:record({n:N, r:record({x:N})}), b:record({s:ARR, r:record({y:N})})}),",
+            "    (k, v) => record({foo:v}))"));
   }
 
+  @Test
   public void testTransformationWithAsynchUseCase() {
     // TODO(lpino): Use the type Promise instead of Array
     // {service:Array<number>}
     // is transformed to
     // {service:number}
-    testTTL(record("service", NUMBER_TYPE),
-        "cond(sub(ASYNCH, 'Object'),\n"
-            +       "maprecord(ASYNCH, \n"
-            +       "(k, v) => cond(eq(rawTypeOf(v), 'Array'),\n"
-            +                   "record({[k]:templateTypeOf(v, 0)}),\n"
-            +                   "record({[k]:'undefined'})) "
-            +               "),\n"
-            +       "ASYNCH)");
+    testTTL(
+        record("service", getNativeNumberType()),
+        lines(
+            "cond(",
+            "    sub(ASYNCH, 'Object'),",
+            "    maprecord(",
+            "        ASYNCH,",
+            "        (k, v) =>",
+            "            cond(",
+            "                eq(rawTypeOf(v), 'Array'),",
+            "                record({[k]:templateTypeOf(v, 0)}),",
+            "                record({[k]:'undefined'}))),",
+            "    ASYNCH)"));
   }
 
+  @Test
   public void testTransformationWithInvalidNestedMaprecord() {
-    testTTL(UNKNOWN_TYPE,
+    testTTL(
+        getNativeUnknownType(),
         "maprecord(NESTEDREC, (k, v) => maprecord(v, (k, v) => BOT))",
         "The variable k is already defined");
-
   }
 
+  @Test
   public void testTransformationWithMaprecordAndStringEquivalence() {
-    testTTL(record("bool", NUMBER_TYPE, "str", STRING_TYPE),
+    testTTL(
+        record("bool", getNativeNumberType(), "str", getNativeStringType()),
         "maprecord(record({bool:B, str:S}),"
-        + "(k, v) => record({[k]:cond(streq(k, 'bool'), N, v)}))");
+            + "(k, v) => record({[k]:cond(streq(k, 'bool'), N, v)}))");
   }
 
+  @Test
   public void testTransformationWithTypeOfVar() {
-    testTTL(NUMBER_TYPE, "typeOfVar('n')");
+    testTTL(getNativeNumberType(), "typeOfVar('n')");
   }
 
+  @Test
   public void testTransformationWithUnknownTypeOfVar() {
-    testTTL(UNKNOWN_TYPE, "typeOfVar('foo')",
-        "Variable foo is undefined in the scope");
+    testTTL(getNativeUnknownType(), "typeOfVar('foo')", "Variable foo is undefined in the scope");
   }
 
+  @Test
   public void testTransformationWithTrueIsConstructorConditional() {
-    testTTL(STRING_TYPE, "cond(isCtor(typeOfVar('Bar')), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(isCtor(typeOfVar('Bar')), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseIsConstructorConditional() {
-    testTTL(NUMBER_TYPE, "cond(isCtor(N), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(isCtor(N), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueIsTemplatizedConditional() {
-    testTTL(STRING_TYPE, "cond(isTemplatized(type(ARR, N)), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(isTemplatized(type(ARR, N)), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseIsTemplatizedConditional() {
-    testTTL(NUMBER_TYPE, "cond(isTemplatized(ARR), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(isTemplatized(ARR), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueIsRecordConditional() {
-    testTTL(STRING_TYPE, "cond(isRecord(REC), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(isRecord(REC), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseIsRecordConditional() {
-    testTTL(NUMBER_TYPE, "cond(isRecord(N), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(isRecord(N), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueIsDefinedConditional() {
-    testTTL(STRING_TYPE, "cond(isDefined(N), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(isDefined(N), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseIsDefinedConditional() {
-    testTTL(NUMBER_TYPE, "cond(isDefined(Foo), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(isDefined(Foo), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueIsUnknownConditional() {
-    testTTL(STRING_TYPE, "cond(isUnknown(UNK), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(isUnknown(UNK), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueIsUnknownConditional2() {
-    testTTL(STRING_TYPE, "cond(isUnknown(CHKUNK), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(isUnknown(CHKUNK), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseIsUnknownConditional() {
-    testTTL(NUMBER_TYPE, "cond(isUnknown(N), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(isUnknown(N), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueAndConditional() {
-    testTTL(STRING_TYPE,
-        "cond(isDefined(N) && isDefined(N), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(isDefined(N) && isDefined(N), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseAndConditional() {
-    testTTL(NUMBER_TYPE,
-        "cond(isDefined(N) && isDefined(Foo), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(isDefined(N) && isDefined(Foo), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseAndConditional2() {
-    testTTL(NUMBER_TYPE,
-        "cond(isDefined(Foo) && isDefined(N), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(isDefined(Foo) && isDefined(N), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseAndConditional3() {
-    testTTL(NUMBER_TYPE,
-        "cond(isDefined(Foo) && isDefined(Foo), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(isDefined(Foo) && isDefined(Foo), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueOrConditional() {
-    testTTL(STRING_TYPE,
-        "cond(isDefined(N) || isDefined(N), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(isDefined(N) || isDefined(N), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueOrConditional2() {
-    testTTL(STRING_TYPE,
-        "cond(isDefined(Foo) || isDefined(N), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(isDefined(Foo) || isDefined(N), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueOrConditional3() {
-    testTTL(STRING_TYPE,
-        "cond(isDefined(N) || isDefined(Foo), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(isDefined(N) || isDefined(Foo), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseOrConditional() {
-    testTTL(NUMBER_TYPE,
-        "cond(isDefined(Foo) || isDefined(Foo), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(isDefined(Foo) || isDefined(Foo), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithTrueNotConditional3() {
-    testTTL(STRING_TYPE,
-        "cond(!isDefined(Foo), 'string', 'number')");
+    testTTL(getNativeStringType(), "cond(!isDefined(Foo), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithFalseNotConditional() {
-    testTTL(NUMBER_TYPE,
-        "cond(!isDefined(N), 'string', 'number')");
+    testTTL(getNativeNumberType(), "cond(!isDefined(N), 'string', 'number')");
   }
 
+  @Test
   public void testTransformationWithInstanceOf() {
-    testTTL(NUMBER_OBJECT_TYPE, "instanceOf(typeOfVar('Number'))");
+    testTTL(getNativeNumberObjectType(), "instanceOf(typeOfVar('Number'))");
   }
 
+  @Test
   public void testTransformationWithInvalidInstanceOf() {
-    testTTL(UNKNOWN_TYPE, "instanceOf(N)",
-        "Expected a constructor type, found number");
+    testTTL(getNativeUnknownType(), "instanceOf(N)", "Expected a constructor type, found number");
   }
 
+  @Test
   public void testTransformationWithInvalidInstanceOf2() {
-    testTTL(UNKNOWN_TYPE, "instanceOf(foo)",
+    testTTL(
+        getNativeUnknownType(),
+        "instanceOf(foo)",
         "Expected a constructor type, found Unknown",
         "Reference to an unknown type variable foo");
   }
 
+  @Test
   public void testTransformationWithTypeExpr() {
-    testTTL(NUMBER_TYPE, "typeExpr('number')");
+    testTTL(getNativeNumberType(), "typeExpr('number')");
   }
 
+  @Test
   public void testParserWithTTLNativeTypeExprUnion() {
-    testTTL(union(NUMBER_TYPE, BOOLEAN_TYPE), "typeExpr('number|boolean')");
+    testTTL(union(getNativeNumberType(), getNativeBooleanType()), "typeExpr('number|boolean')");
   }
 
+  @Test
   public void testParserWithTTLNativeTypeExprRecord() {
-    testTTL(record("foo", NUMBER_TYPE, "bar", BOOLEAN_TYPE),
+    testTTL(
+        record("foo", getNativeNumberType(), "bar", getNativeBooleanType()),
         "typeExpr('{foo:number, bar:boolean}')");
   }
 
+  @Test
   public void testParserWithTTLNativeTypeExprNullable() {
-    testTTL(union(NUMBER_TYPE, NULL_TYPE), "typeExpr('?number')");
+    testTTL(union(getNativeNumberType(), getNativeNullType()), "typeExpr('?number')");
   }
 
+  @Test
   public void testParserWithTTLNativeTypeExprNonNullable() {
-    testTTL(NUMBER_TYPE, "typeExpr('!number')");
+    testTTL(getNativeNumberType(), "typeExpr('!number')");
   }
 
+  @Test
   public void testTransformationPrintType() {
-    testTTL(NUMBER_TYPE, "printType('Test message: ', N)");
+    testTTL(getNativeNumberType(), "printType('Test message: ', N)");
   }
 
+  @Test
   public void testTransformationPrintType2() {
     testTTL(recordTypeTest, "printType('Test message: ', REC)");
   }
 
+  @Test
   public void testTransformationPropType() {
-    testTTL(NUMBER_TYPE, "propType('a', record({a:N, b:record({x:B})}))");
+    testTTL(getNativeNumberType(), "propType('a', record({a:N, b:record({x:B})}))");
   }
 
+  @Test
   public void testTransformationPropType2() {
-    testTTL(record("x", BOOLEAN_TYPE),
-        "propType('b', record({a:N, b:record({x:B})}))");
+    testTTL(record("x", getNativeBooleanType()), "propType('b', record({a:N, b:record({x:B})}))");
   }
 
+  @Test
   public void testTransformationPropTypeNotFound() {
-    testTTL(UNKNOWN_TYPE, "propType('c', record({a:N, b:record({x:B})}))");
+    testTTL(getNativeUnknownType(), "propType('c', record({a:N, b:record({x:B})}))");
   }
 
+  @Test
   public void testTransformationPropTypeInvalid() {
-    testTTL(UNKNOWN_TYPE, "propType('c', N)",
-        "Expected object type, found number");
+    testTTL(getNativeUnknownType(), "propType('c', N)", "Expected object type, found number");
   }
 
+  @Test
   public void testTransformationInstanceObjectToRecord() {
-    testTTL(OBJECT_TYPE, "record(type(OBJ, N))");
+    testTTL(getNativeObjectType(), "record(type(OBJ, N))");
   }
 
+  @Test
   public void testTransformationInstanceObjectToRecord2() {
-    testTTL(record("length", NUMBER_TYPE), "record(type(ARR, N))");
+    // TODO(bradfordcsmith): Define Array.prototype.length using externs instead.
+    getNativeArrayType()
+        .defineDeclaredProperty("length", getNativeNumberType(), /* propertyNode */ null);
+    testTTL(record("length", getNativeNumberType()), "record(type(ARR, N))");
   }
 
+  @Test
   public void testTransformationInstanceObjectToRecordInvalid() {
-    testTTL(UNKNOWN_TYPE, "record(union(OBJ, NULL))",
+    testTTL(
+        getNativeUnknownType(),
+        "record(union(OBJ, NULL))",
         "Expected a record type, found (Object|null)");
   }
 
   private void initRecordTypeTests() {
     // {n:number, s:string, b:boolean}
-    recordTypeTest = record("n", NUMBER_TYPE, "s", STRING_TYPE,
-        "b", BOOLEAN_TYPE);
+    recordTypeTest =
+        record("n", getNativeNumberType(), "s", getNativeStringType(), "b", getNativeBooleanType());
     // {n:number, r:{s:string, b:boolean}}
-    nestedRecordTypeTest = record("s", STRING_TYPE,
-        "r", record("s", STRING_TYPE, "b", BOOLEAN_TYPE));
+    nestedRecordTypeTest =
+        record(
+            "s",
+            getNativeStringType(),
+            "r",
+            record("s", getNativeStringType(), "b", getNativeBooleanType()));
     // {service:Array<number>}
-    asynchRecord = record("service", type(ARRAY_TYPE, NUMBER_TYPE));
-
+    asynchRecord = record("service", type(getNativeArrayType(), getNativeNumberType()));
   }
 
   private JSType union(JSType... variants) {
     JSType type = createUnionType(variants);
-    assertTrue(type.isUnionType());
+    assertThat(type.isUnionType()).isTrue();
     return type;
   }
 
@@ -963,8 +1163,7 @@ public final class TypeTransformationTest extends CompilerTypeTestCase {
       // Evaluate the type transformation
       TypeTransformation typeTransformation =
           new TypeTransformation(compiler, scope);
-      @SuppressWarnings({"rawtypes", "unchecked"})
-      JSType resultType = (JSType) typeTransformation.eval(ast, (ImmutableMap) typeVars, nameVars);
+      JSType resultType = typeTransformation.eval(ast, typeVars, nameVars);
       checkReportedWarningsHelper(expectedWarnings);
       assertTypeEquals(expectedType, resultType);
     }

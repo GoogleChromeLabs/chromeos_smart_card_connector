@@ -16,7 +16,11 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.javascript.jscomp.ScopeSubject.assertScope;
 import static com.google.javascript.jscomp.TypedScopeCreator.CTOR_INITIALIZER;
 import static com.google.javascript.jscomp.TypedScopeCreator.IFACE_INITIALIZER;
 import static com.google.javascript.rhino.jstype.JSTypeNative.BOOLEAN_TYPE;
@@ -24,10 +28,13 @@ import static com.google.javascript.rhino.jstype.JSTypeNative.NUMBER_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.OBJECT_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.STRING_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.UNKNOWN_TYPE;
+import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
+import static com.google.javascript.rhino.testing.TypeSubject.assertType;
 
 import com.google.common.base.Predicate;
+import com.google.common.collect.ImmutableList;
+import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
-import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -37,23 +44,55 @@ import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
-import com.google.javascript.rhino.testing.Asserts;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import org.junit.Before;
+import org.junit.Ignore;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 
 /**
- * Tests for {@link TypedScopeCreator} and {@link TypeInference}. Admittedly,
- * the name is a bit of a misnomer.
+ * Tests for {@link TypedScopeCreator} and {@link TypeInference}. Admittedly, the name is a bit of a
+ * misnomer.
+ *
  * @author nicksantos@google.com (Nick Santos)
  */
+@RunWith(JUnit4.class)
 public final class TypedScopeCreatorTest extends CompilerTestCase {
 
   private JSTypeRegistry registry;
   private TypedScope globalScope;
   private TypedScope lastLocalScope;
+  private TypedScope lastFunctionScope;
+
+  /**
+   * Maps a label name to information about the labeled statement.
+   *
+   * <p>This map is recreated each time parseAndRunTypeInference() is executed.
+   * TODO(bradfordcsmith): This map and LabeledStatement are also in TypeInferenceTest.
+   *     It would be good to unify them.
+   */
+  private Map<String, LabeledStatement> labeledStatementMap;
+
+  /** Stores information about a labeled statement and allows making assertions on it. */
+  static class LabeledStatement {
+    final Node statementNode;
+    final TypedScope enclosingScope;
+
+    LabeledStatement(Node statementNode, TypedScope enclosingScope) {
+      this.statementNode = checkNotNull(statementNode);
+      this.enclosingScope = checkNotNull(enclosingScope);
+    }
+  }
 
   @Override
-  protected void setUp() throws Exception {
+  @Before
+  public void setUp() throws Exception {
     super.setUp();
     enableTypeInfoValidation();
   }
@@ -63,21 +102,43 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     return 1;
   }
 
-  private final Callback callback = new AbstractPostOrderCallback() {
+  private class ScopeFinder extends AbstractPostOrderCallback {
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
-      TypedScope s = t.getTypedScope();
-      if (s.isGlobal()) {
-        globalScope = s;
-      } else {
-        lastLocalScope = s;
+      TypedScope scope = t.getTypedScope();
+      if (scope.isGlobal()) {
+        globalScope = scope;
+      } else if (scope.isBlockScope()) {
+        // TODO(bradfordcsmith): use labels to find scopes instead of lastLocalScope
+        lastLocalScope = scope;
+      } else if (scope.isFunctionScope()) {
+        lastFunctionScope = scope;
+      }
+      if (parent != null && parent.isLabel() && !n.isLabelName()) {
+        // First child of a LABEL is a LABEL_NAME, n is the second child.
+        Node labelNameNode = checkNotNull(n.getPrevious(), n);
+        checkState(labelNameNode.isLabelName(), labelNameNode);
+        String labelName = labelNameNode.getString();
+        assertWithMessage("Duplicate label name: %s", labelName)
+            .that(labeledStatementMap)
+            .doesNotContainKey(labelName);
+        labeledStatementMap.put(labelName, new LabeledStatement(n, scope));
       }
     }
-  };
+  }
+
+  private LabeledStatement getLabeledStatement(String label) {
+    assertWithMessage("No statement found for label: %s", label)
+        .that(labeledStatementMap)
+        .containsKey(label);
+    return labeledStatementMap.get(label);
+  }
 
   @Override
   protected CompilerPass getProcessor(final Compiler compiler) {
     registry = compiler.getTypeRegistry();
+    // Create a fresh statement map for each test case.
+    labeledStatementMap = new HashMap<>();
     return new CompilerPass() {
       @Override
       public void process(Node externs, Node root) {
@@ -86,30 +147,1102 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         (new TypeInferencePass(
             compiler, compiler.getReverseAbstractInterpreter(),
             topScope, scopeCreator)).process(externs, root);
-        NodeTraversal t = new NodeTraversal(compiler, callback, scopeCreator);
-        t.traverseRoots(externs, root);
+        new NodeTraversal(compiler, new ScopeFinder(), scopeCreator).traverseRoots(externs, root);
       }
     };
   }
 
+  @Test
+  public void testVarDeclarationWithJSDocForObjPatWithOneVariable() {
+    // Ignore JSDoc on a destructuring declaration, and just infer the type.
+    // CheckJSDoc will issue a warning for the @type annotation.
+    testSame("/** @type {string} */ var {a} = {a: 1};");
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testVarDeclarationWithJSDocForObjPatWithMultipleVariables() {
+    // Ignore JSDoc on a destructuring declaration
+    // CheckJSDoc will issue a warning for the @type annotation.
+    testSame("/** @type {string} */ var {a, b} = {a: 1};");
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isTrue();
+
+    TypedVar bVar = checkNotNull(globalScope.getVar("b"));
+    assertType(bVar.getType()).toStringIsEqualTo("?");
+    assertThat(bVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testVarDeclarationObjPatShorthandProp() {
+    testSame("var {/** number */ a} = {a: 1};");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testVarDeclarationObjPatShorthandPropWithDefault() {
+    testSame("var {/** number */ a = 2} = {a: 1};");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testVarDeclarationObjPatNormalProp() {
+    testSame("var {a: /** number */ a} = {a: 1};");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testVarDeclarationObjPatNormalPropWithDefault() {
+    testSame("var {a: /** number */ a = 2} = {a: 1};");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testVarDeclarationObjPatComputedProp() {
+    testSame("var {['a']: /** number */ a} = {a: 1};");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testVarDeclarationObjPatComputedPropWithDefault() {
+    testSame("var {['a']: /** number */ a = 2} = {a: 1};");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testVarDeclarationArrayPat() {
+    testSame("var [ /** number */ a ] = [1];");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testVarDeclarationArrayPatWithDefault() {
+    testSame("var [ /** number */ a = 2 ] = [1];");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testVarDeclarationArrayPatRest() {
+    // TODO(bradfordcsmith): Add a TypeCheck test case to ensure rest values are always Arrays
+    testSame("var [ ... /** !Array<number> */ a ] = [1];");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("Array<number>");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testConstDeclarationObjectPatternInfersType_forAliasedConstructor() {
+    testSame(
+        lines(
+            "const ns = {};",
+            "/** @constructor */",
+            "ns.Foo = function() {}",
+            "",
+            "const {Foo} = ns;",
+            "const /** !Foo */ fooInstance = new Foo();"));
+
+    TypedVar fooVar = checkNotNull(globalScope.getVar("Foo"));
+    assertType(fooVar.getType()).toStringIsEqualTo("function(new:ns.Foo): undefined");
+    assertThat(fooVar.isTypeInferred()).isFalse();
+
+    TypedVar fooInstanceVar = checkNotNull(globalScope.getVar("fooInstance"));
+    assertType(fooInstanceVar.getType()).toStringIsEqualTo("ns.Foo");
+    assertThat(fooInstanceVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testConstDeclarationObjectPatternInfersType_forAliasedTypedef() {
+    testSame(
+        lines(
+            "const ns = {};",
+            "/** @typedef {string} */ ns.Foo;",
+            "const {Foo} = ns;",
+            "let /** !Foo */ f = 'bar';"));
+
+    TypedVar fooVar = checkNotNull(globalScope.getVar("Foo"));
+    assertType(fooVar.getType()).toStringIsEqualTo("None");
+
+    JSType fooType = registry.getGlobalType("Foo");
+    assertType(fooType).isEqualTo(getNativeType(JSTypeNative.STRING_TYPE));
+
+    TypedVar fooInstanceVar = checkNotNull(globalScope.getVar("f"));
+    assertType(fooInstanceVar.getType()).toStringIsEqualTo("string");
+    assertThat(fooInstanceVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testConstDeclarationObjectPatternInfersTypeAsDeclared() {
+    testSame(
+        lines(
+            "const /** {a: number} */ obj = {a: 3};", // preserve newline
+            "const {a} = obj;"));
+
+    // we treat this as declaring a type on `a`
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testConstDeclarationObjectPatternInfersTypeGivenComputedProperty() {
+    testSame(
+        lines(
+            "const /** !IObject<string, number> */ obj = {a: 3};", // preserve newline
+            "const {['foobar']: a} = obj;"));
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testConstDeclarationObjectPatternInfersTypeGivenUnknownComputedProperty() {
+    testSame(
+        lines(
+            "var obj = {};", // preserve newline
+            "const {['foobar']: a} = obj;"));
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("?");
+    assertThat(aVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testConstDeclarationArrayPatternInfersType() {
+    testSame(
+        lines(
+            "const /** !Iterable<number> */ arr = [1, 2, 3];", // preserve newline
+            "const [a] = arr;"));
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testConstDeclarationWithOrInRhs() {
+    // needed because there is a special case for `var goog = goog || {};` that was crashing when
+    // given a destructuring lhs.
+    testSame("let obj; const {a} = obj || {};");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("?");
+    assertThat(aVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testConstDestructuringDeclarationWithUnknownTypeInExtendsClause() {
+    disableTypeInfoValidation();
+    testWarning(
+        externs("var someUnknownExtern;"),
+        srcs("const {Parent} = someUnknownExtern; class Child extends Parent {}"),
+        warning(RhinoErrorReporter.UNRECOGNIZED_TYPE_ERROR));
+
+    TypedVar parentVar = checkNotNull(globalScope.getVar("Parent"));
+    assertType(parentVar.getType()).isUnknown();
+
+    TypedVar childVar = checkNotNull(globalScope.getVar("Child"));
+    FunctionType childType = childVar.getType().toMaybeFunctionType();
+    JSType superclassCtor = childType.getSuperClassConstructor();
+    assertType(superclassCtor).isNull();
+  }
+
+  @Test
+  public void testConstDestructuringDeclarationWithUnknownPropertyInExtendsClause() {
+    disableTypeInfoValidation();
+    testWarning(
+        externs("var /** !Object */ someUnknownExtern;"),
+        srcs("const {Parent} = someUnknownExtern; class Child extends Parent {}"),
+        warning(RhinoErrorReporter.UNRECOGNIZED_TYPE_ERROR));
+
+    TypedVar parentVar = checkNotNull(globalScope.getVar("Parent"));
+    assertType(parentVar.getType()).isUnknown();
+
+    TypedVar childVar = checkNotNull(globalScope.getVar("Child"));
+    FunctionType childType = childVar.getType().toMaybeFunctionType();
+    JSType superclassCtor = childType.getSuperClassConstructor();
+    assertType(superclassCtor).isNull();
+  }
+
+  // TODO(bradfordcsmith): Add Object rest test case.
+
+  @Test
+  public void testVarDeclarationNestedPatterns() {
+    testSame(
+        lines(
+            "var [",
+            "    {a: /** number */ a1},",
+            "    {a: /** string */ a2},",
+            "    ...{/** number */ length}",
+            "  ] = [{a: 1}, {a: '2'}, 1, 2, 3];"));
+
+    TypedVar a1Var = checkNotNull(globalScope.getVar("a1"));
+    assertType(a1Var.getType()).toStringIsEqualTo("number");
+    assertThat(a1Var.isTypeInferred()).isFalse();
+
+    TypedVar a2Var = checkNotNull(globalScope.getVar("a2"));
+    assertType(a2Var.getType()).toStringIsEqualTo("string");
+    assertThat(a2Var.isTypeInferred()).isFalse();
+
+    TypedVar lengthVar = checkNotNull(globalScope.getVar("length"));
+    assertType(lengthVar.getType()).toStringIsEqualTo("number");
+    assertThat(lengthVar.isTypeInferred()).isFalse();
+  }
+
+  // The following testAssign* tests check that we never treat qualified names in destructuring
+  // patterns as declared. CheckJSDoc will warn on those cases, so TypedScopeCreator just ignores
+  // them. The only way to 'declare' a qualified name is:
+  //    /** @type {number} */ a.b.c = rhs;
+
+  @Test
+  public void testAssignWithJSDocForObjPatWithOneVariable() {
+    // Ignore the JSDoc on the assignment
+    testSame("const ns = {}; (/** @type {number} */ {a: ns.a} = {a: 1});");
+
+    TypedVar aVar = globalScope.getVar("ns.a");
+    assertThat(aVar).isNull();
+  }
+
+  @Test
+  public void testAssignWithJSDocForObjPatWithMultipleVariables() {
+    // Ignore the JSDoc on the assignment
+    testSame(
+        "const ns = {}; (/** @type {number} */ {a: ns.a, b: ns.b} = {a: 1});");
+
+    TypedVar aVar = globalScope.getVar("ns.a");
+    assertThat(aVar).isNull();
+  }
+
+  @Test
+  public void testAssignObjPatNormalProp() {
+    // CheckJSDoc will warn on the inline type annotation here, typechecking just ignores it.
+    testSame("const ns = {}; ({a: /** number */ ns.a} = {a: 1});");
+
+    TypedVar aVar = globalScope.getVar("ns.a");
+    assertThat(aVar).isNull();
+  }
+
+  @Test
+  public void testAssignObjPatComputedProp() {
+    // CheckJSDoc will warn on the inline type annotation here, typechecking just ignores it.
+    testSame("const ns = {}; ({['a']: /** number */ ns.a} = {a: 1});");
+
+    TypedVar aVar = globalScope.getVar("ns.a");
+    assertThat(aVar).isNull();
+  }
+
+  @Test
+  public void testAssignArrayPatWithJSDocOnAssign() {
+    testSame("const ns = {}; /** @type {number} */ [ ns.a ] = [1];");
+
+    TypedVar aVar = globalScope.getVar("ns.a");
+    assertThat(aVar).isNull();
+  }
+
+  @Test
+  public void testAssignArrayPatWithQualifiedName() {
+    // CheckJSDoc will warn on the inline type annotation here, typechecking just ignores it.
+    testSame("const ns = {}; [ /** number */ ns.a ] = [1];");
+
+    TypedVar aVar = globalScope.getVar("ns.a");
+    assertThat(aVar).isNull();
+  }
+
+  @Test
+  public void testAssignArrayPatWithQualifiedNameAndDefaultValue() {
+    // CheckJSDoc will warn on the inline type annotation here, typechecking just ignores it.
+    testSame("const ns = {}; [ /** number */ ns.a = 1 ] = [];");
+
+    TypedVar aVar = globalScope.getVar("ns.a");
+    assertThat(aVar).isNull();
+  }
+
+  @Test
+  public void testForOfWithObjectPatVarDeclarationWithShorthand() {
+    testSame("for (var {/** number */ a} of {}) {}");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testForOfWithArrayPatVarDeclaration() {
+    testSame("for (var [/** number */ a] of []) {}");
+
+    TypedVar aVar = checkNotNull(globalScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testCastOnLhsDoesntDeclareProperty() {
+    testSame("const ns = {}; /** @type {null} */ (ns.a) = null;");
+
+    assertThat(globalScope.getVar("ns.a")).isNull();
+  }
+
+  @Test
+  public void testForOfWithObjectPatConstDeclarationShadowedInLoop() {
+    testSame(
+        lines(
+            "for (const {/** number */ a} of {}) {",
+            "  const /** string */ a = 'foo';",
+            "  IN_LOOP: a;",
+            "}"));
+
+    assertScope(globalScope).doesNotDeclare("a");
+    TypedScope loopBlockScope = getLabeledStatement("IN_LOOP").enclosingScope;
+    TypedScope loopInitializerScope = loopBlockScope.getParent();
+    assertThat(loopInitializerScope).isNotEqualTo(globalScope);
+
+    TypedVar aVarloopBlock = loopBlockScope.getVar("a");
+    assertType(aVarloopBlock.getType()).toStringIsEqualTo("string");
+    assertThat(aVarloopBlock.isTypeInferred()).isFalse();
+
+    TypedVar aVarLoopInit = loopInitializerScope.getVar("a");
+    assertType(aVarLoopInit.getType()).toStringIsEqualTo("number");
+    assertThat(aVarLoopInit.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testDeclarativelyUnboundVarsWithoutTypes() {
+    testSame(
+        lines(
+            "var uninitializedVar;",
+            "let uninitializedLet;",
+            "",
+            "/** @type {?} */ var uninitializedVarWithType;",
+            "/** @type {?} */ let uninitializedLetWithType;",
+            "",
+            "/** @typedef {number} */ var typedefVar;",
+            "/** @typedef {number} */ let typedefLet;",
+            "",
+            "var initializedVar = 1;",
+            "let initializedLet = 1;",
+            "",
+            "/** @type {number} */ var initializedVarWithType = 1;",
+            "/** @type {number} */ let initializedLetWithType = 1;",
+            "",
+            "/** @const */ var CONST_VAR = 1;",
+            "/** @const */ let CONST_LET = 1;",
+            "const CONST = 1;",
+            "",
+            "/** @const {number} */ var   CONST_VAR_WITH_TYPE = 1;",
+            "/** @const {number} */ let   CONST_LET_WITH_TYPE = 1;",
+            "/** @type  {number} */ const CONST_WITH_TYPE     = 1;",
+            ""));
+    String[] expectedVarNames =
+        new String[] {
+          "uninitializedVar",
+          "typedefVar",
+        };
+    List<TypedVar> expectedVars = new ArrayList<>();
+    for (String varName : expectedVarNames) {
+      expectedVars.add(globalScope.getVar(varName));
+    }
+    assertThat(globalScope.getDeclarativelyUnboundVarsWithoutTypes())
+        .containsExactlyElementsIn(expectedVars);
+  }
+
+  @Test
+  public void testRestParameters() {
+    testSame(
+        lines(
+            "/**", // preserve newlines
+            " * @param {string} str",
+            " * @param {...number} nums",
+            " */",
+            "function doSomething(str, ...nums) {",
+            "  FUNCTION_BODY: 0;",
+            "}",
+            ""));
+    TypedScope functionBodyScope = getLabeledStatement("FUNCTION_BODY").enclosingScope;
+    assertScope(functionBodyScope)
+        .declares("str")
+        .onClosestContainerScope()
+        .withTypeThat()
+        .toStringIsEqualTo("string");
+    assertScope(functionBodyScope)
+        .declares("nums")
+        .onClosestContainerScope()
+        .withTypeThat()
+        .toStringIsEqualTo("Array<number>");
+  }
+
+  @Test
+  public void testRestObjectPatternParameters() {
+    testSame(
+        externs("/** @type {number} */ Array.prototype.length"),
+        srcs(
+            lines(
+                "/**", // preserve newlines
+                " * @param {...string} strs",
+                " */",
+                "function doSomething(...{length}) {",
+                "  FUNCTION_BODY: 0;",
+                "}",
+                "")));
+    TypedScope functionBodyScope = getLabeledStatement("FUNCTION_BODY").enclosingScope;
+    assertScope(functionBodyScope)
+        .declares("length")
+        .onClosestContainerScope()
+        .withTypeThat()
+        .toStringIsEqualTo("number");
+  }
+
+  @Test
+  public void testDefaultParameterFullJSDoc() {
+    testSame(
+        lines(
+            "/**", // preserve newlines
+            " * @param {string=} str",
+            " */",
+            "function doSomething(str = '') {",
+            "  FUNCTION_BODY: 0;",
+            "}",
+            ""));
+    TypedScope functionBodyScope = getLabeledStatement("FUNCTION_BODY").enclosingScope;
+    assertScope(functionBodyScope)
+        .declares("str")
+        .onClosestContainerScope()
+        .withTypeThat()
+        // TODO(b/117162687): this should just be `string`
+        .toStringIsEqualTo("(string|undefined)");
+  }
+
+  @Test
+  public void testDefaultParameterInlineJSDoc() {
+    testSame(
+        lines(
+            "", // preserve newlines
+            "function doSomething(/** string= */ str = '') {",
+            "  FUNCTION_BODY: 0;",
+            "}",
+            ""));
+    TypedScope functionBodyScope = getLabeledStatement("FUNCTION_BODY").enclosingScope;
+    assertScope(functionBodyScope)
+        .declares("str")
+        .onClosestContainerScope()
+        .withTypeThat()
+        // TODO(b/117162687): this should just be `string`
+        .toStringIsEqualTo("(string|undefined)");
+  }
+
+  @Test
+  public void testDefaultParameterNoJSDoc() {
+    testSame(
+        lines(
+            "", // preserve newlines
+            "function doSomething(str = '') {",
+            "  FUNCTION_BODY: 0;",
+            "}",
+            ""));
+    TypedScope functionBodyScope = getLabeledStatement("FUNCTION_BODY").enclosingScope;
+    assertScope(functionBodyScope)
+        .declares("str")
+        .onClosestContainerScope()
+        .withTypeThat()
+        .toStringIsEqualTo("?");
+  }
+
+  @Test
+  public void testDefaultParameterNoJSDocInferredToBeOptional() {
+    testSame("function f(a = 3) {}");
+
+    assertScope(globalScope)
+        .declares("f")
+        .withTypeThat()
+        .toStringIsEqualTo("function(?=): undefined");
+  }
+
+  @Test
+  public void testDefaultParameterConflictingJSDoc() {
+    testSame(
+        lines(
+            "/**", // preserve newlines
+            " * @param {number=} str",
+            " */",
+            "function doSomething(/** string= */ str = '') {",
+            "  FUNCTION_BODY: 0;",
+            "}",
+            ""));
+    TypedScope functionBodyScope = getLabeledStatement("FUNCTION_BODY").enclosingScope;
+    assertScope(functionBodyScope)
+        .declares("str")
+        .onClosestContainerScope()
+        .withTypeThat()
+        // TODO(b/111523967): Should report an error when header and inline JSDoc types
+        //     conflict.
+        .toStringIsEqualTo("(number|undefined)");
+  }
+
+  @Test
+  public void testDefaultParameterSetToUndefinedIsDeclaredAsPossiblyUndefined() {
+    testSame(
+        lines(
+            "/** @param {number=} num */",
+            "function doSomething(num = undefined) {",
+            "  FUNCTION_BODY: 0;",
+            "}",
+            ""));
+    TypedScope functionBodyScope = getLabeledStatement("FUNCTION_BODY").enclosingScope;
+    assertScope(functionBodyScope)
+        .declares("num")
+        .onClosestContainerScope()
+        .withTypeThat()
+        .toStringIsEqualTo("(number|undefined)");
+  }
+
+  @Test
+  public void testDefaultParameterFullJSDoc_setToUndefined() {
+    testSame(
+        lines(
+            "/**", // preserve newlines
+            " * @param {(string|undefined)=} str", // NOTE: we just drop the |undefined here
+            " */",
+            "function doSomething(str = '') {",
+            "  FUNCTION_BODY: 0;",
+            "}",
+            ""));
+    TypedScope functionBodyScope = getLabeledStatement("FUNCTION_BODY").enclosingScope;
+    assertScope(functionBodyScope)
+        .declares("str")
+        .onClosestContainerScope()
+        .withTypeThat()
+        .toStringIsEqualTo("(string|undefined)");
+  }
+
+  @Test
+  public void testDefaultDestructuringParameterFullJSDoc() {
+    testSame(
+        lines(
+            "/** @param {{str: (string|undefined)}=} data */",
+            "function f({str = ''} = {}) {",
+            "  FUNCTION_BODY: 0;",
+            "}"));
+    TypedScope functionBodyScope = getLabeledStatement("FUNCTION_BODY").enclosingScope;
+    assertScope(functionBodyScope)
+        .declares("str")
+        .onClosestContainerScope()
+        .withTypeThat()
+        .toStringIsEqualTo("(string|undefined)");
+  }
+
+  @Test
+  public void testDestructuringParameterWithNoJSDoc() {
+    testSame("function f([x, y], {z}) {}");
+
+    TypedVar fVar = checkNotNull(globalScope.getVar("f"));
+    assertType(fVar.getType()).toStringIsEqualTo("function(?, ?): undefined");
+    assertThat(fVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testArrayPatternParameterWithFullJSDoc() {
+    testSame(
+        lines(
+            "/**",
+            " * @param {string} x",
+            " * @param {!Iterable<number>} arr",
+            " */",
+            "function f(x, [y]) {}"));
+
+    TypedVar fVar = checkNotNull(globalScope.getVar("f"));
+    assertType(fVar.getType()).toStringIsEqualTo("function(string, Iterable<number>): undefined");
+    assertThat(fVar.isTypeInferred()).isFalse();
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("string");
+    assertThat(xVar.isTypeInferred()).isFalse();
+
+    TypedVar yVar = checkNotNull(lastFunctionScope.getVar("y"));
+    assertType(yVar.getType()).toStringIsEqualTo("number");
+    assertThat(yVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testArrayPatternParameterWithRestWithFullJSDoc() {
+    testSame("/** @param {!Iterable<number>} arr */ function f([x, ...y]) {}");
+
+    TypedVar fVar = checkNotNull(globalScope.getVar("f"));
+    assertType(fVar.getType()).toStringIsEqualTo("function(Iterable<number>): undefined");
+    assertThat(fVar.isTypeInferred()).isFalse();
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("number");
+    assertThat(xVar.isTypeInferred()).isFalse();
+
+    TypedVar yVar = checkNotNull(lastFunctionScope.getVar("y"));
+    assertType(yVar.getType()).toStringIsEqualTo("Array<number>");
+    assertThat(yVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testObjectPatternParameterWithFullJSDoc() {
+    testSame("/** @param {{a: string, b: number}} arr */ function f({a, b}) {}");
+
+    TypedVar fVar = checkNotNull(globalScope.getVar("f"));
+    assertType(fVar.getType()).toStringIsEqualTo("function({a: string, b: number}): undefined");
+    assertThat(fVar.isTypeInferred()).isFalse();
+
+    TypedVar aVar = checkNotNull(lastFunctionScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("string");
+    assertThat(aVar.isTypeInferred()).isFalse();
+
+    TypedVar bVar = checkNotNull(lastFunctionScope.getVar("b"));
+    assertType(bVar.getType()).toStringIsEqualTo("number");
+    assertThat(bVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testObjectPatternParameterWithUnknownPropertyWithFullJSDoc() {
+    testSame("/** @param {{a: string}} arr */ function f({a, b}) {}");
+
+    TypedVar fVar = checkNotNull(globalScope.getVar("f"));
+    assertType(fVar.getType()).toStringIsEqualTo("function({a: string}): undefined");
+    assertThat(fVar.isTypeInferred()).isFalse();
+
+    TypedVar aVar = checkNotNull(lastFunctionScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("string");
+    assertThat(aVar.isTypeInferred()).isFalse();
+
+    TypedVar bVar = checkNotNull(lastFunctionScope.getVar("b"));
+    assertType(bVar.getType()).toStringIsEqualTo("?");
+    assertThat(bVar.isTypeInferred()).isTrue();
+  }
+
+  /**
+   * Note: these tests expect the parameters to have inferred, not declared, types because of the
+   * order in which scope creation & named type resolution happens.
+   *
+   * <p>See also b/118710352
+   */
+  @Test
+  public void testObjectPatternParameter_withUnresolvedForwardDeclaredType_isInferred() {
+    // Note that this only emits one UNRECOGNIZED_TYPE_ERROR for SomeUnknownName. We don't emit
+    // an error for SomeUnknownName#a, as that would be redundant.
+    test(
+        srcs(
+            lines(
+                "goog.forwardDeclare('SomeUnknownName');",
+                "/** @param {!SomeUnknownName} obj */ function f({a}) {}")),
+        warning(RhinoErrorReporter.UNRECOGNIZED_TYPE_ERROR));
+
+    TypedVar aVar = checkNotNull(lastFunctionScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("?");
+    assertThat(aVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testObjectPatternParameterWithFullJSDoc_withMissingProperty_isInferred() {
+    testSame(
+        lines(
+            "class SomeName {}", //
+            "/** @param {!SomeName} obj */ function f({a}) {}"));
+
+    TypedVar aVar = checkNotNull(lastFunctionScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("?");
+    // we still consider this a declared type
+    assertThat(aVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testNestedObjectPatternParameter_withNamedType() {
+    testSame(
+        lines(
+            "class SomeOtherName {",
+            "  constructor() {",
+            "    /** @type {number} */",
+            "    this.a;",
+            "  }",
+            "}",
+            "class SomeName {",
+            "  constructor() {",
+            "    /** @type {!SomeOtherName} */",
+            "    this.data;",
+            "  }",
+            "}",
+            "/** @param {!SomeName} obj */ function f({data: {a}}) { A: a; }",
+            ""));
+
+    // This variable becomes inferred, even though SomeName is declared before it is referenced,
+    // just because the SomeName in the @param is still unresolved at type scope creation time.
+    TypedVar aVar = checkNotNull(getLabeledStatement("A").enclosingScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testTypecheckingTemplatizedTypesForObjectParameter() {
+    testSame(
+        lines(
+            "/**",
+            " * @constructor ",
+            " * @template T",
+            " */",
+            "function TemplatizedClass() {",
+            "  /** @const {T} */",
+            "  this.data;",
+            "}",
+            "/** @param {!TemplatizedClass<!SomeName>} obj */",
+            "function f({data}) { A: data.a; }",
+            "",
+            "class SomeName {",
+            "  constructor() {",
+            "    /** @type {number} */",
+            "    this.a;",
+            "  }",
+            "}"));
+
+    LabeledStatement aStatement = getLabeledStatement("A");
+    TypedVar dataVar = checkNotNull(aStatement.enclosingScope.getVar("data"));
+
+    assertType(dataVar.getType()).toStringIsEqualTo("SomeName");
+    assertType(aStatement.statementNode.getOnlyChild().getJSType()).toStringIsEqualTo("number");
+  }
+
+  @Test
+  public void testTypecheckingAliasOfTypedefType_forObjectParameter() {
+    testSame(
+        lines(
+            "class Foo {",
+            "  constructor() {",
+            "    /** @type {number} */",
+            "    this.a;",
+            "  }",
+            "}",
+            "/** @typedef {!Foo} */",
+            "var TypedefOfFoo;",
+            "",
+            "const ns = {};",
+            "/** @const */",
+            "ns.TypedefOfFoo = TypedefOfFoo;",
+            "",
+            "/** @param {!ns.TypedefOfFoo} obj */",
+            "function f({a}) { A: a; }"));
+
+    TypedVar aVar = checkNotNull(getLabeledStatement("A").enclosingScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testArrayPatternParameter_withNamedType() {
+    testSame(
+        lines(
+            "/**",
+            " * @interface",
+            " * @extends {Iterable<T>}",
+            " * @template T",
+            " */",
+            "function TemplatizedClass() {",
+            "}",
+            "/** @interface @extends {TemplatizedClass<number>} */",
+            "class ASubclass {}",
+            "/** @param {!ASubclass} obj */ function f([a]) { A: a; }",
+            ""));
+
+    // Verify we get the correct type for 'a' after name resolution is complete
+    TypedVar aVar = checkNotNull(getLabeledStatement("A").enclosingScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testObjectPatternParameter_withNamedType_andRest() {
+    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2018);
+    testSame(
+        lines(
+            "class SomeUnknownName {",
+            "  constructor() {",
+            "    /** @type {number} */",
+            "    this.data;",
+            "  }",
+            "}",
+            "/** @param {!SomeUnknownName} obj */ function f({...rest}) { REST: rest; }",
+            ""));
+
+    TypedVar aVar = checkNotNull(getLabeledStatement("REST").enclosingScope.getVar("rest"));
+    assertType(aVar.getType()).toStringIsEqualTo("Object");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testMixedParametersWithFullJSDoc() {
+    testSame(
+        lines(
+            "/**",
+            " * @param {string} x",
+            " * @param {{a: !Iterable<number>}} obj",
+            " * @param {!Iterable<{z: null}>} arr",
+            " */",
+            "function f(x, {a: [y]}, [{z}]) {}"));
+
+    TypedVar fVar = checkNotNull(globalScope.getVar("f"));
+    assertType(fVar.getType())
+        .toStringIsEqualTo(
+            "function(string, {a: Iterable<number>}, Iterable<{z: null}>): undefined");
+    assertThat(fVar.isTypeInferred()).isFalse();
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("string");
+    assertThat(xVar.isTypeInferred()).isFalse();
+
+    TypedVar yVar = checkNotNull(lastFunctionScope.getVar("y"));
+    assertType(yVar.getType()).toStringIsEqualTo("number");
+    assertThat(yVar.isTypeInferred()).isFalse();
+
+    TypedVar zVar = checkNotNull(lastFunctionScope.getVar("z"));
+    assertType(zVar.getType()).toStringIsEqualTo("null");
+    assertThat(zVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testObjectPatternParameterWithComputedPropertyWithFullJSDoc() {
+    testSame(
+        lines(
+            "/**",
+            " * @param {string} x",
+            " * @param {!Object<string, number>} arr",
+            " */",
+            "function f(x, {['foobar' + 3]: a}) {}"));
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("string");
+    assertThat(xVar.isTypeInferred()).isFalse();
+
+    TypedVar aVar = checkNotNull(lastFunctionScope.getVar("a"));
+    assertType(aVar.getType()).toStringIsEqualTo("number");
+    assertThat(aVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testDestructuringParametersInIifeInfersType_withNameArguments() {
+    testSame(
+        lines(
+            "const /** {x:  number} */ data = {x: 3}; ",
+            "const /** !Iterable<string> */ strings = ['foo', 'bar'];",
+            "",
+            "(function ({x}, [y]) {})(data, strings);"));
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("number");
+    assertThat(xVar.isTypeInferred()).isTrue();
+
+    TypedVar yVar = checkNotNull(lastFunctionScope.getVar("y"));
+    assertType(yVar.getType()).toStringIsEqualTo("string");
+    assertThat(yVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testDestructuringParametersInIifeInfersType_withLiteralArguments() {
+    testSame("(function ({x}) {})({x: 3});");
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("number");
+    assertThat(xVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testDestructuringParametersInIifeInfersType_withLiteralArgumentsAndDefaultValue() {
+    testSame("(function ({x = 'bar' + 'baz'}) {})({x: true ? 3 : undefined});");
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("(number|string)");
+    assertThat(xVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testDestructuringParametersInCallbackInfersType() {
+    testSame(
+        lines(
+            "function f(/** function({x: number}, !Iterable<string>) */ callback) {}",
+            "",
+            "f(function ({x}, [y]) {});"));
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("number");
+    assertThat(xVar.isTypeInferred()).isTrue();
+
+    TypedVar yVar = checkNotNull(lastFunctionScope.getVar("y"));
+    assertType(yVar.getType()).toStringIsEqualTo("string");
+    assertThat(yVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
+  public void testOutOfOrderJSDocForDestructuringParameter() {
+    // Even though regular JSDoc parameters can be out of order, there's currently no way for
+    // putting arbitrary orders on destructuring parameters.
+    testWarning(
+        lines(
+            "/**",
+            " * @param {!Iterable<number>} arr",
+            " * @param {string} x",
+            " */",
+            "function f(x, [y, z]) {}"),
+        FunctionTypeBuilder.INEXISTENT_PARAM);
+
+    TypedVar fVar = checkNotNull(globalScope.getVar("f"));
+    // TODO(b/77597706): it would make more sense for this to be function(string, ?) instead
+    assertType(fVar.getType()).toStringIsEqualTo("function(string, string): undefined");
+    assertThat(fVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testObjectPatternParameterWithInlineJSDoc() {
+    testSame("function f({/** number */ x}) {}");
+
+    // TODO(b/112651122): infer that f takes {x: number}
+    TypedVar fVar = checkNotNull(globalScope.getVar("f"));
+    assertType(fVar.getType()).toStringIsEqualTo("function(?): undefined");
+    assertThat(fVar.isTypeInferred()).isFalse();
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("number");
+    assertThat(xVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testArrayPatternParameterWithInlineJSDoc() {
+    testSame("function f([/** number */ x]) {}");
+
+    // TODO(b/112651122): either forbid this case or infer that f takes an !Iterable<number>
+    TypedVar fVar = checkNotNull(globalScope.getVar("f"));
+    assertType(fVar.getType()).toStringIsEqualTo("function(?): undefined");
+    assertThat(fVar.isTypeInferred()).isFalse();
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("number");
+    assertThat(xVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testArrayPatternParametersWithDifferingInlineJSDoc() {
+    testSame("function f([/** number */ x, /** string */ y]) {}");
+
+    // TODO(b/112651122): forbid this case, as there's not a good way to type the function without
+    // having tuple types.
+    TypedVar fVar = checkNotNull(globalScope.getVar("f"));
+    assertType(fVar.getType()).toStringIsEqualTo("function(?): undefined");
+    assertThat(fVar.isTypeInferred()).isFalse();
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("number");
+    assertThat(xVar.isTypeInferred()).isFalse();
+
+    TypedVar yVar = checkNotNull(lastFunctionScope.getVar("y"));
+    assertType(yVar.getType()).toStringIsEqualTo("string");
+    assertThat(yVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testObjectPatternCanAliasUnionTypeProperty() {
+    // tests that we can get properties off the union type `{objA|objB}` even though it's not
+    // represented as an ObjectType. (this used to crash in TypedScopeCreator)
+    testSame(
+        lines(
+            "const ns = {}; ",
+            "",
+            "/** @typedef {{propA: number}} */",
+            "let objA;",
+            "/** @typedef {{propB: string}} */",
+            "let objB;",
+            "",
+            "/** @type {objA|objB} */",
+            "ns.ctor;",
+            "",
+            "const {propA, propB} = ns.ctor;"));
+
+    TypedVar propAVar = checkNotNull(globalScope.getVar("propA"));
+    assertType(propAVar.getType()).isEqualTo(getNativeType(JSTypeNative.NUMBER_TYPE));
+    assertThat(propAVar.isTypeInferred()).isFalse();
+
+    TypedVar propBVar = checkNotNull(globalScope.getVar("propB"));
+    assertType(propBVar.getType()).isEqualTo(getNativeType(JSTypeNative.STRING_TYPE));
+    assertThat(propBVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testConstNestedObjectPatternInArrayPattern() {
+    // regression test for a TypedScopeCreator crash
+    disableTypeInfoValidation();
+    testSame(
+        lines(
+            "const /** !Array<{b: string}> */ a = [{b: 'bbb'}];", //
+            "const [{b}] = a;"));
+
+    TypedVar b = checkNotNull(globalScope.getVar("b"));
+    assertType(b.getType()).isUnknown();
+    assertThat(b.isTypeInferred()).isTrue(); // b is inferred but not treated as declared
+  }
+
+  @Test
+  public void testConstNestedObjectPatternWithComputedPropertyIsUnknown() {
+    // regression test for a TypedScopeCreator crash
+    disableTypeInfoValidation(); // fails on a['foo'].b = function() {};
+    testSame(
+        lines(
+            "const a = {};",
+            "/** @const */ a['foo'] = {};",
+            "/** @const */ a['foo'].b = function() {};",
+            "",
+            "const {['foo']: {b}} = a;"));
+
+    TypedVar b = checkNotNull(globalScope.getVar("b"));
+    assertType(b.getType()).isUnknown();
+    assertThat(b.isTypeInferred()).isTrue();
+  }
+
+  @Test
   public void testStubProperty() {
     testSame("function Foo() {}; Foo.bar;");
     ObjectType foo = (ObjectType) globalScope.getVar("Foo").getType();
-    assertFalse(foo.hasProperty("bar"));
-    Asserts.assertTypeEquals(registry.getNativeType(UNKNOWN_TYPE),
-        foo.getPropertyType("bar"));
+    assertThat(foo.hasProperty("bar")).isFalse();
+    assertType(foo.getPropertyType("bar"))
+        .isStructurallyEqualTo(registry.getNativeType(UNKNOWN_TYPE));
   }
 
+  @Test
   public void testConstructorProperty() {
     testSame("var foo = {}; /** @constructor */ foo.Bar = function() {};");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.hasProperty("Bar"));
-    assertFalse(foo.isPropertyTypeInferred("Bar"));
+    assertThat(foo.hasProperty("Bar")).isTrue();
+    assertThat(foo.isPropertyTypeInferred("Bar")).isFalse();
 
     JSType fooBar = foo.getPropertyType("Bar");
-    assertEquals("function(new:foo.Bar): undefined", fooBar.toString());
+    assertThat(fooBar.toString()).isEqualTo("function(new:foo.Bar): undefined");
   }
 
+  @Test
   public void testPrototypePropertyMethodWithoutAnnotation() {
     testSame("var Foo = function Foo() {};"
         + "var proto = Foo.prototype = {"
@@ -118,110 +1251,120 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         + "proto.baz = function(c) {};"
         + "(function() { proto.baz = function() {}; })();");
     ObjectType foo = (ObjectType) findNameType("Foo", globalScope);
-    assertTrue(foo.hasProperty("prototype"));
+    assertThat(foo.hasProperty("prototype")).isTrue();
 
     ObjectType fooProto = (ObjectType) foo.getPropertyType("prototype");
-    assertTrue(fooProto.hasProperty("bar"));
-    assertEquals("function(?, ?): undefined",
-        fooProto.getPropertyType("bar").toString());
+    assertThat(fooProto.hasProperty("bar")).isTrue();
+    assertThat(fooProto.getPropertyType("bar").toString()).isEqualTo("function(?, ?): undefined");
 
-    assertTrue(fooProto.hasProperty("baz"));
-    assertEquals("function(?): undefined",
-        fooProto.getPropertyType("baz").toString());
+    assertThat(fooProto.hasProperty("baz")).isTrue();
+    assertThat(fooProto.getPropertyType("baz").toString()).isEqualTo("function(?): undefined");
   }
 
+  @Test
   public void testEnumProperty() {
     testSame("var foo = {}; /** @enum */ foo.Bar = {XXX: 'xxx'};");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.hasProperty("Bar"));
-    assertFalse(foo.isPropertyTypeInferred("Bar"));
-    assertTrue(foo.isPropertyTypeDeclared("Bar"));
+    assertThat(foo.hasProperty("Bar")).isTrue();
+    assertThat(foo.isPropertyTypeInferred("Bar")).isFalse();
+    assertThat(foo.isPropertyTypeDeclared("Bar")).isTrue();
 
     JSType fooBar = foo.getPropertyType("Bar");
-    assertEquals("enum{foo.Bar}", fooBar.toString());
+    assertThat(fooBar.toString()).isEqualTo("enum{foo.Bar}");
   }
 
+  @Test
   public void testInferredProperty1() {
     testSame("var foo = {}; foo.Bar = 3;");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.toString(), foo.hasProperty("Bar"));
-    assertEquals("number", foo.getPropertyType("Bar").toString());
-    assertTrue(foo.isPropertyTypeInferred("Bar"));
+    assertWithMessage(foo.toString()).that(foo.hasProperty("Bar")).isTrue();
+    assertThat(foo.getPropertyType("Bar").toString()).isEqualTo("number");
+    assertThat(foo.isPropertyTypeInferred("Bar")).isTrue();
   }
 
+  @Test
   public void testInferredProperty1a() {
     testSame("var foo = {}; /** @type {number} */ foo.Bar = 3;");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.toString(), foo.hasProperty("Bar"));
-    assertEquals("number", foo.getPropertyType("Bar").toString());
-    assertFalse(foo.isPropertyTypeInferred("Bar"));
+    assertWithMessage(foo.toString()).that(foo.hasProperty("Bar")).isTrue();
+    assertThat(foo.getPropertyType("Bar").toString()).isEqualTo("number");
+    assertThat(foo.isPropertyTypeInferred("Bar")).isFalse();
   }
 
+  @Test
   public void testInferredProperty2() {
     testSame("var foo = { Bar: 3 };");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.toString(), foo.hasProperty("Bar"));
-    assertEquals("number", foo.getPropertyType("Bar").toString());
-    assertTrue(foo.isPropertyTypeInferred("Bar"));
+    assertWithMessage(foo.toString()).that(foo.hasProperty("Bar")).isTrue();
+    assertThat(foo.getPropertyType("Bar").toString()).isEqualTo("number");
+    assertThat(foo.isPropertyTypeInferred("Bar")).isTrue();
   }
 
+  @Test
   public void testInferredProperty2b() {
     testSame("var foo = { /** @type {number} */ Bar: 3 };");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.toString(), foo.hasProperty("Bar"));
-    assertEquals("number", foo.getPropertyType("Bar").toString());
-    assertFalse(foo.isPropertyTypeInferred("Bar"));
+    assertWithMessage(foo.toString()).that(foo.hasProperty("Bar")).isTrue();
+    assertThat(foo.getPropertyType("Bar").toString()).isEqualTo("number");
+    assertThat(foo.isPropertyTypeInferred("Bar")).isFalse();
   }
 
+  @Test
   public void testInferredProperty2c() {
     testSame("var foo = { /** @return {number} */ Bar: 3 };");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.toString(), foo.hasProperty("Bar"));
-    assertEquals("function(): number", foo.getPropertyType("Bar").toString());
-    assertFalse(foo.isPropertyTypeInferred("Bar"));
+    assertWithMessage(foo.toString()).that(foo.hasProperty("Bar")).isTrue();
+    assertThat(foo.getPropertyType("Bar").toString()).isEqualTo("function(): number");
+    assertThat(foo.isPropertyTypeInferred("Bar")).isFalse();
   }
 
+  @Test
   public void testInferredProperty3() {
     testSame("var foo = { /** @type {number} */ get Bar() { return 3 } };");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.toString(), foo.hasProperty("Bar"));
-    assertEquals("?", foo.getPropertyType("Bar").toString());
-    assertTrue(foo.isPropertyTypeInferred("Bar"));
+    assertWithMessage(foo.toString()).that(foo.hasProperty("Bar")).isTrue();
+    assertThat(foo.getPropertyType("Bar").toString()).isEqualTo("?");
+    assertThat(foo.isPropertyTypeInferred("Bar")).isTrue();
   }
 
+  @Test
   public void testInferredProperty4() {
     testSame("var foo = { /** @type {number} */ set Bar(a) {} };");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.toString(), foo.hasProperty("Bar"));
-    assertEquals("?", foo.getPropertyType("Bar").toString());
-    assertTrue(foo.isPropertyTypeInferred("Bar"));
+    assertWithMessage(foo.toString()).that(foo.hasProperty("Bar")).isTrue();
+    assertThat(foo.getPropertyType("Bar").toString()).isEqualTo("?");
+    assertThat(foo.isPropertyTypeInferred("Bar")).isTrue();
   }
 
+  @Test
   public void testInferredProperty5() {
     testSame("var foo = { /** @return {number} */ get Bar() { return 3 } };");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.toString(), foo.hasProperty("Bar"));
-    assertEquals("number", foo.getPropertyType("Bar").toString());
-    assertFalse(foo.isPropertyTypeInferred("Bar"));
+    assertWithMessage(foo.toString()).that(foo.hasProperty("Bar")).isTrue();
+    assertThat(foo.getPropertyType("Bar").toString()).isEqualTo("number");
+    assertThat(foo.isPropertyTypeInferred("Bar")).isFalse();
   }
 
+  @Test
   public void testInferredProperty6() {
     testSame("var foo = { /** @param {number} a */ set Bar(a) {} };");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.toString(), foo.hasProperty("Bar"));
-    assertEquals("number", foo.getPropertyType("Bar").toString());
-    assertFalse(foo.isPropertyTypeInferred("Bar"));
+    assertWithMessage(foo.toString()).that(foo.hasProperty("Bar")).isTrue();
+    assertThat(foo.getPropertyType("Bar").toString()).isEqualTo("number");
+    assertThat(foo.isPropertyTypeInferred("Bar")).isFalse();
   }
 
+  @Test
   public void testPrototypeInit() {
     testSame("/** @constructor */ var Foo = function() {};"
         + "Foo.prototype = {bar: 1}; var foo = new Foo();");
     ObjectType foo = (ObjectType) findNameType("foo", globalScope);
-    assertTrue(foo.hasProperty("bar"));
-    assertEquals("number", foo.getPropertyType("bar").toString());
-    assertTrue(foo.isPropertyTypeInferred("bar"));
+    assertThat(foo.hasProperty("bar")).isTrue();
+    assertThat(foo.getPropertyType("bar").toString()).isEqualTo("number");
+    assertThat(foo.isPropertyTypeInferred("bar")).isTrue();
   }
 
+  @Test
   public void testBogusPrototypeInit() {
     // This used to cause a compiler crash.
     testSame("/** @const */ var goog = {}; "
@@ -229,41 +1372,80 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         + "/** @constructor */ goog.F = function() {};");
   }
 
+  @Test
   public void testInferredPrototypeProperty1() {
     testSame("/** @constructor */ var Foo = function() {};"
         + "Foo.prototype.bar = 1; var x = new Foo();");
 
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertTrue(x.hasProperty("bar"));
-    assertEquals("number", x.getPropertyType("bar").toString());
-    assertTrue(x.isPropertyTypeInferred("bar"));
+    assertThat(x.hasProperty("bar")).isTrue();
+    assertThat(x.getPropertyType("bar").toString()).isEqualTo("number");
+    assertThat(x.isPropertyTypeInferred("bar")).isTrue();
   }
 
+  @Test
   public void testInferredPrototypeProperty2() {
     testSame("/** @constructor */ var Foo = function() {};"
         + "Foo.prototype = {bar: 1}; var x = new Foo();");
 
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertTrue(x.hasProperty("bar"));
-    assertEquals("number", x.getPropertyType("bar").toString());
-    assertTrue(x.isPropertyTypeInferred("bar"));
+    assertThat(x.hasProperty("bar")).isTrue();
+    assertThat(x.getPropertyType("bar").toString()).isEqualTo("number");
+    assertThat(x.isPropertyTypeInferred("bar")).isTrue();
   }
 
+  @Test
   public void testEnum() {
     testSame("/** @enum */ var Foo = {BAR: 1}; var f = Foo;");
     ObjectType f = (ObjectType) findNameType("f", globalScope);
-    assertTrue(f.hasProperty("BAR"));
-    assertEquals("Foo<number>", f.getPropertyType("BAR").toString());
+    assertThat(f.hasProperty("BAR")).isTrue();
+    assertType(f.getPropertyType("BAR")).toStringIsEqualTo("Foo<number>");
     assertThat(f).isInstanceOf(EnumType.class);
   }
 
+  @Test
+  public void testLetEnum() {
+    testSame("/** @enum */ let Foo = {BAR: 1}; let f = Foo;");
+    ObjectType f = (ObjectType) findNameType("f", globalScope);
+    assertThat(f.hasProperty("BAR")).isTrue();
+    assertType(f.getPropertyType("BAR")).toStringIsEqualTo("Foo<number>");
+    assertThat(f).isInstanceOf(EnumType.class);
+  }
+
+  @Test
+  public void testConstEnum() {
+    testSame("/** @enum */ const Foo = {BAR: 1}; const f = Foo;");
+    ObjectType f = (ObjectType) findNameType("f", globalScope);
+    assertThat(f.hasProperty("BAR")).isTrue();
+    assertType(f.getPropertyType("BAR")).toStringIsEqualTo("Foo<number>");
+    assertThat(f).isInstanceOf(EnumType.class);
+  }
+
+  @Test
   public void testEnumElement() {
     testSame("/** @enum */ var Foo = {BAR: 1}; var f = Foo;");
     TypedVar bar = globalScope.getVar("Foo.BAR");
-    assertNotNull(bar);
-    assertEquals("Foo<number>", bar.getType().toString());
+    assertThat(bar).isNotNull();
+    assertType(bar.getType()).toStringIsEqualTo("Foo<number>");
   }
 
+  @Test
+  public void testLetEnumElement() {
+    testSame("/** @enum */ let Foo = {BAR: 1}; let f = Foo;");
+    TypedVar bar = globalScope.getVar("Foo.BAR");
+    assertThat(bar).isNotNull();
+    assertType(bar.getType()).toStringIsEqualTo("Foo<number>");
+  }
+
+  @Test
+  public void testConstEnumElement() {
+    testSame("/** @enum */ const Foo = {BAR: 1}; const f = Foo;");
+    TypedVar bar = globalScope.getVar("Foo.BAR");
+    assertThat(bar).isNotNull();
+    assertType(bar.getType()).toStringIsEqualTo("Foo<number>");
+  }
+
+  @Test
   public void testNamespacedEnum() {
     testSame("var goog = {}; goog.ui = {};"
         + "/** @constructor */goog.ui.Zippy = function() {};"
@@ -272,41 +1454,116 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         + "var y = goog.ui.Zippy.EventType.TOGGLE;");
 
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertTrue(x.isEnumType());
-    assertTrue(x.hasProperty("TOGGLE"));
-    assertEquals("enum{goog.ui.Zippy.EventType}", x.getReferenceName());
+    assertThat(x.isEnumType()).isTrue();
+    assertThat(x.hasProperty("TOGGLE")).isTrue();
+    assertThat(x.getReferenceName()).isEqualTo("enum{goog.ui.Zippy.EventType}");
 
     ObjectType y = (ObjectType) findNameType("y", globalScope);
-    assertTrue(y.isSubtypeOf(getNativeType(STRING_TYPE)));
-    assertTrue(y.isEnumElementType());
-    assertEquals("goog.ui.Zippy.EventType", y.getReferenceName());
+    assertThat(y.isSubtypeOf(getNativeType(STRING_TYPE))).isTrue();
+    assertThat(y.isEnumElementType()).isTrue();
+    assertThat(y.getReferenceName()).isEqualTo("goog.ui.Zippy.EventType");
   }
 
+  @Test
+  public void testGlobalTypedefs1() {
+    testSame(
+        lines(
+            "", // preserve newlines
+            "/** @typedef {number} */",
+            "var VarTypedef;",
+            "{",
+            "  /** @typedef {number} */",
+            "  var VarTypedefInBlock;", // still global despite enclosing block
+            "}",
+            "/** @typedef {number} */",
+            "let LetTypedef;",
+            // TODO(bradfordcsmith): We should probably disallow @typedef on const.
+            "/** @typedef {number} */",
+            "const ConstTypedef = undefined;",
+            ""));
+    assertType(registry.getGlobalType("VarTypedef")).isNumber();
+    assertType(registry.getGlobalType("VarTypedefInBlock")).isNumber();
+    assertType(registry.getGlobalType("LetTypedef")).isNumber();
+    assertType(registry.getGlobalType("ConstTypedef")).isNumber();
+  }
+
+  @Test
+  public void testGlobalTypedefs2() {
+    testSame(
+        lines(
+            "", // preserve newlines
+            "{",
+            "  /** @typedef {number} */",
+            "  var VarTypedefInBlock;", // still global despite enclosing block
+            "}",
+            ""));
+  }
+
+  @Test
+  public void testLocalTypedefs1() {
+    testSame(
+        lines(
+            "", // preserve newlines
+            "function f() {",
+            "  /** @typedef {number} */",
+            "  var VarTypedefInFunc;",
+            "  /** @typedef {number} */",
+            "  let LetTypedefInFunc;",
+            "  /** @typedef {number} */",
+            // TODO(bradfordcsmith): We should probably disallow @typedef on const.
+            "  const ConstTypedefInFunc = undefined;",
+            "}",
+            ""));
+    TypedScope fnRoot = lastLocalScope;
+    assertType(registry.getType(fnRoot, "VarTypedefInFunc")).isNumber();
+    assertType(registry.getType(fnRoot, "LetTypedefInFunc")).isNumber();
+    assertType(registry.getType(fnRoot, "ConstTypedefInFunc")).isNumber();
+  }
+
+  @Test
+  public void testLocalTypedefs2() {
+    testSame(
+        lines(
+            "", // preserve newlines
+            "{",
+            "  /** @typedef {number} */",
+            "  let LetTypedefInBlock;",
+            "  /** @typedef {number} */",
+            "  const ConstTypedefInBlock = undefined;",
+            "}",
+            ""));
+    TypedScope fnRoot = lastLocalScope;
+
+    assertType(registry.getType(fnRoot, "LetTypedefInBlock")).isNumber();
+    assertType(registry.getType(fnRoot, "ConstTypedefInBlock")).isNumber();
+  }
+
+  @Test
   public void testEnumAlias() {
     testSame("/** @enum */ var Foo = {BAR: 1}; " +
         "/** @enum */ var FooAlias = Foo; var f = FooAlias;");
 
-    assertEquals("Foo<number>",
-        registry.getType(null, "FooAlias").toString());
-    Asserts.assertTypeEquals(registry.getType(null, "FooAlias"),
-        registry.getType(null, "Foo"));
+    assertThat(registry.getType(null, "FooAlias").toString()).isEqualTo("Foo<number>");
+    assertType(registry.getType(null, "Foo"))
+        .isStructurallyEqualTo(registry.getType(null, "FooAlias"));
 
     ObjectType f = (ObjectType) findNameType("f", globalScope);
-    assertTrue(f.hasProperty("BAR"));
-    assertEquals("Foo<number>", f.getPropertyType("BAR").toString());
+    assertThat(f.hasProperty("BAR")).isTrue();
+    assertThat(f.getPropertyType("BAR").toString()).isEqualTo("Foo<number>");
     assertThat(f).isInstanceOf(EnumType.class);
   }
 
+  @Test
   public void testNamespacesEnumAlias() {
     testSame("var goog = {}; /** @enum */ goog.Foo = {BAR: 1}; " +
         "/** @enum */ goog.FooAlias = goog.Foo;");
 
-    assertEquals("goog.Foo<number>",
-        registry.getType(null, "goog.FooAlias").toString());
-    Asserts.assertTypeEquals(registry.getType(null, "goog.Foo"),
-        registry.getType(null, "goog.FooAlias"));
+    assertThat(registry.getType(null, "goog.FooAlias").toString()).isEqualTo("goog.Foo<number>");
+    assertType(registry.getType(null, "goog.FooAlias"))
+        .isStructurallyEqualTo(registry.getType(null, "goog.Foo"));
   }
 
+  @Test
   public void testCollectedFunctionStub() {
     testSame(
         "/** @constructor */ function f() { " +
@@ -314,13 +1571,13 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "}" +
         "var x = new f();");
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("function(this:f): number",
-        x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("function(this:f): number");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
   }
 
+  @Test
   public void testCollectedFunctionStubLocal() {
     testSame(
         "(function() {" +
@@ -330,28 +1587,28 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "var x = new f();" +
         "});");
     ObjectType x = (ObjectType) findNameType("x", lastLocalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("function(this:f): number",
-        x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("function(this:f): number");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
   }
 
+  @Test
   public void testNamespacedFunctionStub() {
     testSame(
         "var goog = {};" +
         "/** @param {number} x */ goog.foo;");
 
     ObjectType goog = (ObjectType) findNameType("goog", globalScope);
-    assertTrue(goog.hasProperty("foo"));
-    assertEquals("function(number): ?",
-        goog.getPropertyType("foo").toString());
-    assertTrue(goog.isPropertyTypeDeclared("foo"));
+    assertThat(goog.hasProperty("foo")).isTrue();
+    assertThat(goog.getPropertyType("foo").toString()).isEqualTo("function(number): ?");
+    assertThat(goog.isPropertyTypeDeclared("foo")).isTrue();
 
-    Asserts.assertTypeEquals(globalScope.getVar("goog.foo").getType(),
-        goog.getPropertyType("foo"));
+    assertType(goog.getPropertyType("foo"))
+        .isStructurallyEqualTo(globalScope.getVar("goog.foo").getType());
   }
 
+  @Test
   public void testNamespacedFunctionStubLocal() {
     testSame(
         "(function() {" +
@@ -360,15 +1617,15 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "});");
 
     ObjectType goog = (ObjectType) findNameType("goog", lastLocalScope);
-    assertTrue(goog.hasProperty("foo"));
-    assertEquals("function(number): ?",
-        goog.getPropertyType("foo").toString());
-    assertTrue(goog.isPropertyTypeDeclared("foo"));
+    assertThat(goog.hasProperty("foo")).isTrue();
+    assertThat(goog.getPropertyType("foo").toString()).isEqualTo("function(number): ?");
+    assertThat(goog.isPropertyTypeDeclared("foo")).isTrue();
 
-    Asserts.assertTypeEquals(lastLocalScope.getVar("goog.foo").getType(),
-        goog.getPropertyType("foo"));
+    assertType(goog.getPropertyType("foo"))
+        .isStructurallyEqualTo(lastLocalScope.getVar("goog.foo").getType());
   }
 
+  @Test
   public void testCollectedCtorProperty1() {
     testSame(
         "/** @constructor */ function f() { " +
@@ -376,13 +1633,14 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "}" +
         "var x = new f();");
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("number", x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
-    assertTrue(x.isPropertyTypeDeclared("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("number");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
+    assertThat(x.isPropertyTypeDeclared("foo")).isTrue();
   }
 
+  @Test
   public void testCollectedCtorProperty2() {
     testSame(
         "/** @constructor */ function f() { " +
@@ -390,13 +1648,14 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "}" +
         "var x = new f();");
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("number", x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
-    assertTrue(x.isPropertyTypeDeclared("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("number");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
+    assertThat(x.isPropertyTypeDeclared("foo")).isTrue();
   }
 
+  @Test
   public void testCollectedCtorProperty3() {
     testSame(
         "/** @constructor */ function f() { " +
@@ -404,13 +1663,14 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "}" +
         "var x = new f();");
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("number", x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
-    assertTrue(x.isPropertyTypeDeclared("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("number");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
+    assertThat(x.isPropertyTypeDeclared("foo")).isTrue();
   }
 
+  @Test
   public void testCollectedCtorProperty5() {
     testSame(
         "/** @constructor */ function f() { " +
@@ -418,13 +1678,14 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "}" +
         "var x = new f();");
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("string", x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
-    assertTrue(x.isPropertyTypeDeclared("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("string");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
+    assertThat(x.isPropertyTypeDeclared("foo")).isTrue();
   }
 
+  @Test
   public void testCollectedCtorProperty9() {
     testSame(
         "/** @constructor */ function f() {}\n" +
@@ -433,13 +1694,14 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "};" +
         "var x = new f();");
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("FOO"));
-    assertEquals("string", x.getPropertyType("FOO").toString());
-    assertFalse(x.isPropertyTypeInferred("FOO"));
-    assertTrue(x.isPropertyTypeDeclared("FOO"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("FOO")).isTrue();
+    assertThat(x.getPropertyType("FOO").toString()).isEqualTo("string");
+    assertThat(x.isPropertyTypeInferred("FOO")).isFalse();
+    assertThat(x.isPropertyTypeDeclared("FOO")).isTrue();
   }
 
+  @Test
   public void testCollectedCtorProperty10() {
     testSame(
         "/** @constructor */ function f() {}\n" +
@@ -448,13 +1710,14 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "};" +
         "var x = new f();");
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("String", x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
-    assertTrue(x.isPropertyTypeDeclared("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("String");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
+    assertThat(x.isPropertyTypeDeclared("foo")).isTrue();
   }
 
+  @Test
   public void testCollectedCtorProperty11() {
     testSame(
         "/** @constructor */ function f() {}\n" +
@@ -463,58 +1726,71 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "};" +
         "var x = new f();");
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("Array", x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
-    assertTrue(x.isPropertyTypeDeclared("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("Array");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
+    assertThat(x.isPropertyTypeDeclared("foo")).isTrue();
   }
 
+  @Test
   public void testCollectedCtorProperty12() {
     testSame(
-        "/** @constructor */ function f() {}\n" +
-        "f.prototype.init_f = function() {" +
-        "  /** @const */ this.foo = !!unknown;" +
-        "};" +
-        "var x = new f();");
+        externs("/** @type {?} */ let unknown;"),
+        srcs(
+            lines(
+                "/** @constructor */ function f() {}",
+                "f.prototype.init_f = function() {",
+                "  /** @const */ this.foo = !!unknown;",
+                "};",
+                "var x = new f();")));
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("boolean", x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
-    assertTrue(x.isPropertyTypeDeclared("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("boolean");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
+    assertThat(x.isPropertyTypeDeclared("foo")).isTrue();
   }
 
+  @Test
   public void testCollectedCtorProperty13() {
     testSame(
-        "/** @constructor */ function f() {}\n" +
-        "f.prototype.init_f = function() {" +
-        "  /** @const */ this.foo = +unknown;" +
-        "};" +
-        "var x = new f();");
+        externs("/** @type {?} */ let unknown;"),
+        srcs(
+            lines(
+                "/** @constructor */ function f() {}",
+                "f.prototype.init_f = function() {",
+                "  /** @const */ this.foo = +unknown;",
+                "};",
+                "var x = new f();")));
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("number", x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
-    assertTrue(x.isPropertyTypeDeclared("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("number");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
+    assertThat(x.isPropertyTypeDeclared("foo")).isTrue();
   }
 
+  @Test
   public void testCollectedCtorProperty14() {
     testSame(
-        "/** @constructor */ function f() {}\n" +
-        "f.prototype.init_f = function() {" +
-        "  /** @const */ this.foo = unknown + '';" +
-        "};" +
-        "var x = new f();");
+        externs("/** @type {?} */ let unknown;"),
+        srcs(
+            lines(
+                "/** @constructor */ function f() {}",
+                "f.prototype.init_f = function() {",
+                "  /** @const */ this.foo = unknown + '';",
+                "};",
+                "var x = new f();")));
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("string", x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
-    assertTrue(x.isPropertyTypeDeclared("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("string");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
+    assertThat(x.isPropertyTypeDeclared("foo")).isTrue();
   }
 
+  @Test
   public void testCollectedCtorProperty15() {
     testSame(
         "/** " +
@@ -526,13 +1802,14 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "};" +
         "var x = new f();");
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("f", x.toString());
-    assertTrue(x.hasProperty("foo"));
-    assertEquals("string", x.getPropertyType("foo").toString());
-    assertFalse(x.isPropertyTypeInferred("foo"));
-    assertTrue(x.isPropertyTypeDeclared("foo"));
+    assertThat(x.toString()).isEqualTo("f");
+    assertThat(x.hasProperty("foo")).isTrue();
+    assertThat(x.getPropertyType("foo").toString()).isEqualTo("string");
+    assertThat(x.isPropertyTypeInferred("foo")).isFalse();
+    assertThat(x.isPropertyTypeDeclared("foo")).isTrue();
   }
 
+  @Test
   public void testPropertyOnUnknownSuperClass1() {
     testWarning(
         "var goog = this.foo();"
@@ -542,12 +1819,13 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
             + "var x = new Foo();",
         RhinoErrorReporter.UNRECOGNIZED_TYPE_ERROR);
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("Foo", x.toString());
-    assertTrue(x.getImplicitPrototype().hasOwnProperty("bar"));
-    assertEquals("?", x.getPropertyType("bar").toString());
-    assertTrue(x.isPropertyTypeInferred("bar"));
+    assertThat(x.toString()).isEqualTo("Foo");
+    assertThat(x.getImplicitPrototype().hasOwnProperty("bar")).isTrue();
+    assertThat(x.getPropertyType("bar").toString()).isEqualTo("?");
+    assertThat(x.isPropertyTypeInferred("bar")).isTrue();
   }
 
+  @Test
   public void testPropertyOnUnknownSuperClass2() {
     testWarning(
         "var goog = this.foo();"
@@ -557,14 +1835,15 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
             + "var x = new Foo();",
         RhinoErrorReporter.UNRECOGNIZED_TYPE_ERROR);
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("Foo", x.toString());
-    assertEquals("Foo.prototype", x.getImplicitPrototype().toString());
-    assertTrue(x.getImplicitPrototype().hasOwnProperty("bar"));
-    assertEquals("?", x.getPropertyType("bar").toString());
-    assertTrue(x.isPropertyTypeInferred("bar"));
+    assertThat(x.toString()).isEqualTo("Foo");
+    assertThat(x.getImplicitPrototype().toString()).isEqualTo("Foo.prototype");
+    assertThat(x.getImplicitPrototype().hasOwnProperty("bar")).isTrue();
+    assertThat(x.getPropertyType("bar").toString()).isEqualTo("?");
+    assertThat(x.isPropertyTypeInferred("bar")).isTrue();
   }
 
-  public void testSubBeforeSuper1() throws Exception {
+  @Test
+  public void testSubBeforeSuper1() {
     testSame(
         "/** @interface\n * @extends {MidI} */" +
         "function LowI() {}" +
@@ -574,7 +1853,8 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "function HighI() {}");
   }
 
-  public void testSubBeforeSuper2() throws Exception {
+  @Test
+  public void testSubBeforeSuper2() {
     testSame(
         "/** @constructor\n * @extends {MidI} */" +
         "function LowI() {}" +
@@ -584,7 +1864,8 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "function HighI() {}");
   }
 
-  public void testMethodBeforeFunction1() throws Exception {
+  @Test
+  public void testMethodBeforeFunction1() {
     testSame(
         "var y = Window.prototype;" +
         "Window.prototype.alert = function(message) {};" +
@@ -592,18 +1873,19 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "var window = new Window(); \n" +
         "var x = window;");
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("Window", x.toString());
-    assertTrue(x.getImplicitPrototype().hasOwnProperty("alert"));
-    assertEquals("function(this:Window, ?): undefined",
-        x.getPropertyType("alert").toString());
-    assertTrue(x.isPropertyTypeDeclared("alert"));
+    assertThat(x.toString()).isEqualTo("Window");
+    assertThat(x.getImplicitPrototype().hasOwnProperty("alert")).isTrue();
+    assertThat(x.getPropertyType("alert").toString())
+        .isEqualTo("function(this:Window, ?): undefined");
+    assertThat(x.isPropertyTypeDeclared("alert")).isTrue();
 
     ObjectType y = (ObjectType) findNameType("y", globalScope);
-    assertEquals("function(this:Window, ?): undefined",
-        y.getPropertyType("alert").toString());
+    assertThat(y.getPropertyType("alert").toString())
+        .isEqualTo("function(this:Window, ?): undefined");
   }
 
-  public void testMethodBeforeFunction2() throws Exception {
+  @Test
+  public void testMethodBeforeFunction2() {
     testSame(
         "var y = Window.prototype;" +
         "Window.prototype = {alert: function(message) {}};" +
@@ -611,18 +1893,19 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "var window = new Window(); \n" +
         "var x = window;");
     ObjectType x = (ObjectType) findNameType("x", globalScope);
-    assertEquals("Window", x.toString());
-    assertTrue(x.getImplicitPrototype().hasOwnProperty("alert"));
-    assertEquals("function(this:Window, ?): undefined",
-        x.getPropertyType("alert").toString());
-    assertFalse(x.isPropertyTypeDeclared("alert"));
+    assertThat(x.toString()).isEqualTo("Window");
+    assertThat(x.getImplicitPrototype().hasOwnProperty("alert")).isTrue();
+    assertThat(x.getPropertyType("alert").toString())
+        .isEqualTo("function(this:Window, ?): undefined");
+    assertThat(x.isPropertyTypeDeclared("alert")).isFalse();
 
     ObjectType y = (ObjectType) findNameType("y", globalScope);
-    assertEquals("function(this:Window, ?): undefined",
-        y.getPropertyType("alert").toString());
+    assertThat(y.getPropertyType("alert").toString())
+        .isEqualTo("function(this:Window, ?): undefined");
   }
 
-  public void testAddMethodsPrototypeTwoWays() throws Exception {
+  @Test
+  public void testAddMethodsPrototypeTwoWays() {
     testSame(
         "/** @constructor */function A() {}" +
         "A.prototype = {m1: 5, m2: true};" +
@@ -630,166 +1913,236 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "var x = new A();");
 
     ObjectType instanceType = (ObjectType) findNameType("x", globalScope);
-    assertEquals(
-        getNativeObjectType(OBJECT_TYPE).getPropertiesCount() + 3,
-        instanceType.getPropertiesCount());
-    Asserts.assertTypeEquals(getNativeType(NUMBER_TYPE),
-        instanceType.getPropertyType("m1"));
-    Asserts.assertTypeEquals(getNativeType(BOOLEAN_TYPE),
-        instanceType.getPropertyType("m2"));
-    Asserts.assertTypeEquals(getNativeType(STRING_TYPE),
-        instanceType.getPropertyType("m3"));
+    assertThat(instanceType.getPropertiesCount())
+        .isEqualTo(getNativeObjectType(OBJECT_TYPE).getPropertiesCount() + 3);
+    assertType(instanceType.getPropertyType("m1"))
+        .isStructurallyEqualTo(getNativeType(NUMBER_TYPE));
+    assertType(instanceType.getPropertyType("m2"))
+        .isStructurallyEqualTo(getNativeType(BOOLEAN_TYPE));
+    assertType(instanceType.getPropertyType("m3"))
+        .isStructurallyEqualTo(getNativeType(STRING_TYPE));
 
     // Verify the prototype chain.
     // This is a special case where we want the anonymous object to
     // become a prototype.
-    assertFalse(instanceType.hasOwnProperty("m1"));
-    assertFalse(instanceType.hasOwnProperty("m2"));
-    assertFalse(instanceType.hasOwnProperty("m3"));
+    assertThat(instanceType.hasOwnProperty("m1")).isFalse();
+    assertThat(instanceType.hasOwnProperty("m2")).isFalse();
+    assertThat(instanceType.hasOwnProperty("m3")).isFalse();
 
     ObjectType proto1 = instanceType.getImplicitPrototype();
-    assertTrue(proto1.hasOwnProperty("m1"));
-    assertTrue(proto1.hasOwnProperty("m2"));
-    assertTrue(proto1.hasOwnProperty("m3"));
+    assertThat(proto1.hasOwnProperty("m1")).isTrue();
+    assertThat(proto1.hasOwnProperty("m2")).isTrue();
+    assertThat(proto1.hasOwnProperty("m3")).isTrue();
 
     ObjectType proto2 = proto1.getImplicitPrototype();
-    assertFalse(proto2.hasProperty("m1"));
-    assertFalse(proto2.hasProperty("m2"));
-    assertFalse(proto2.hasProperty("m3"));
+    assertThat(proto2.hasProperty("m1")).isFalse();
+    assertThat(proto2.hasProperty("m2")).isFalse();
+    assertThat(proto2.hasProperty("m3")).isFalse();
   }
 
-  public void testInferredVar() throws Exception {
+  @Test
+  public void testInferredVar() {
     testSame("var x = 3; x = 'x'; x = true;");
 
     TypedVar x = globalScope.getVar("x");
-    assertEquals("(boolean|number|string)", x.getType().toString());
-    assertTrue(x.isTypeInferred());
+    assertType(x.getType()).toStringIsEqualTo("(boolean|number|string)");
+    assertThat(x.isTypeInferred()).isTrue();
   }
 
-  public void testDeclaredVar() throws Exception {
-    testSame("/** @type {?number} */ var x = 3; var y = x;");
+  @Test
+  public void testInferredLet() {
+    testSame("let x = 3; x = 'x'; x = true;");
 
     TypedVar x = globalScope.getVar("x");
-    assertEquals("(null|number)", x.getType().toString());
-    assertFalse(x.isTypeInferred());
-
-    JSType y = findNameType("y", globalScope);
-    assertEquals("(null|number)", y.toString());
+    assertType(x.getType()).toStringIsEqualTo("(boolean|number|string)");
+    assertThat(x.isTypeInferred()).isTrue();
   }
 
-  public void testStructuralInterfaceMatchingOnInterface1() throws Exception {
+  @Test
+  public void testInferredConst() {
+    testSame("const x = 3;");
+
+    TypedVar x = globalScope.getVar("x");
+    assertType(x.getType()).isNumber();
+    assertThat(x.isConst()).isTrue();
+    // Although we did infer the type, we'll consider it effectively declared because the variable
+    // was declared to be constant. This is consistent with the way we handle the @const annotation
+    // on var declarations.
+    assertThat(x.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testInferredAnnotatedConst() {
+    testSame("/** @const */ var x = 3;");
+
+    TypedVar x = globalScope.getVar("x");
+    assertType(x.getType()).isNumber();
+    assertThat(x.isConst()).isFalse();
+    assertThat(x.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testDeclaredVar() {
+    testSame("/** @type {?number} */ var x = 3; var y = x;");
+
+    assertScope(globalScope).declares("x").directly();
+    TypedVar x = globalScope.getVar("x");
+    assertType(x.getType()).toStringIsEqualTo("(null|number)");
+    assertThat(x.isTypeInferred()).isFalse();
+
+    JSType y = findNameType("y", globalScope);
+    assertThat(y.toString()).isEqualTo("(null|number)");
+  }
+
+  @Test
+  public void testDeclaredLet() {
+    testSame("/** @type {?number} */ let x = 3; let y = x;");
+
+    assertScope(globalScope).declares("x").directly();
+    TypedVar x = globalScope.getVar("x");
+    assertType(x.getType()).toStringIsEqualTo("(null|number)");
+    assertThat(x.isTypeInferred()).isFalse();
+
+    JSType y = findNameType("y", globalScope);
+    assertThat(y.toString()).isEqualTo("(null|number)");
+  }
+
+  @Test
+  public void testDeclaredConst() {
+    testSame("/** @type {?number} */ const x = 3; const y = x;");
+
+    assertScope(globalScope).declares("x").directly();
+    TypedVar x = globalScope.getVar("x");
+    assertType(x.getType()).toStringIsEqualTo("(null|number)");
+    assertThat(x.isTypeInferred()).isFalse();
+    assertThat(x.isConst()).isTrue();
+
+    JSType y = findNameType("y", globalScope);
+    assertThat(y.toString()).isEqualTo("(null|number)");
+  }
+
+  @Test
+  public void testStructuralInterfaceMatchingOnInterface1() {
     testSame("/** @record */ var I = function() {};" +
         "/** @type {number} */ I.prototype.bar;" +
         "I.prototype.baz = function(){};");
 
     TypedVar i = globalScope.getVar("I");
-    assertEquals("function(this:I): ?", i.getType().toString());
-    assertTrue(i.getType().isInterface());
-    assertTrue(i.getType().isFunctionType());
-    assertTrue(i.getType().toMaybeFunctionType().isStructuralInterface());
+    assertThat(i.getType().toString()).isEqualTo("function(this:I): ?");
+    assertThat(i.getType().isInterface()).isTrue();
+    assertThat(i.getType().isFunctionType()).isTrue();
+    assertThat(i.getType().toMaybeFunctionType().isStructuralInterface()).isTrue();
   }
 
-  public void testStructuralInterfaceMatchingOnInterface2() throws Exception {
+  @Test
+  public void testStructuralInterfaceMatchingOnInterface2() {
     testSame("/** @interface */ var I = function() {};" +
         "/** @type {number} */ I.prototype.bar;" +
         "I.prototype.baz = function(){};");
 
     TypedVar i = globalScope.getVar("I");
-    assertEquals("function(this:I): ?", i.getType().toString());
-    assertTrue(i.getType().isInterface());
-    assertTrue(i.getType().isFunctionType());
-    assertFalse(i.getType().toMaybeFunctionType().isStructuralInterface());
+    assertThat(i.getType().toString()).isEqualTo("function(this:I): ?");
+    assertThat(i.getType().isInterface()).isTrue();
+    assertThat(i.getType().isFunctionType()).isTrue();
+    assertThat(i.getType().toMaybeFunctionType().isStructuralInterface()).isFalse();
   }
 
-  public void testStructuralInterfaceMatchingOnInterface3() throws Exception {
+  @Test
+  public void testStructuralInterfaceMatchingOnInterface3() {
     testSame("/** @interface */ var I = function() {};" +
         "/** @type {number} */ I.prototype.bar;" +
         "/** @record */ I.prototype.baz = function() {};");
 
     TypedVar baz = globalScope.getVar("I.prototype.baz");
-    assertTrue(baz.getType().isInterface());
-    assertTrue(baz.getType().isFunctionType());
-    assertTrue(baz.getType().toMaybeFunctionType().isStructuralInterface());
+    assertThat(baz.getType().isInterface()).isTrue();
+    assertThat(baz.getType().isFunctionType()).isTrue();
+    assertThat(baz.getType().toMaybeFunctionType().isStructuralInterface()).isTrue();
   }
 
-  public void testStructuralInterfaceMatchingOnInterface4() throws Exception {
+  @Test
+  public void testStructuralInterfaceMatchingOnInterface4() {
     testSame("/** @interface */ var I = function() {};" +
         "/** @type {number} */ I.prototype.bar;" +
         "/** @interface */ I.prototype.baz = function() {};");
 
     TypedVar baz = globalScope.getVar("I.prototype.baz");
-    assertTrue(baz.getType().isInterface());
-    assertTrue(baz.getType().isFunctionType());
-    assertFalse(baz.getType().toMaybeFunctionType().isStructuralInterface());
+    assertThat(baz.getType().isInterface()).isTrue();
+    assertThat(baz.getType().isFunctionType()).isTrue();
+    assertThat(baz.getType().toMaybeFunctionType().isStructuralInterface()).isFalse();
   }
 
-  public void testStructuralInterfaceMatchingOnInterface5() throws Exception {
+  @Test
+  public void testStructuralInterfaceMatchingOnInterface5() {
     testSame("/** @constructor */ var C = function() {};" +
         "/** @type {number} */ C.prototype.bar;" +
         "/** @record */ C.prototype.baz = function() {};" +
         "var c = new C(); var cbaz = c.baz;");
 
     TypedVar cBaz = globalScope.getVar("cbaz");
-    assertTrue(cBaz.getType().isFunctionType());
-    assertTrue(cBaz.getType().toMaybeFunctionType().isStructuralInterface());
+    assertThat(cBaz.getType().isFunctionType()).isTrue();
+    assertThat(cBaz.getType().toMaybeFunctionType().isStructuralInterface()).isTrue();
   }
 
-  public void testStructuralInterfaceMatchingOnInterface6() throws Exception {
+  @Test
+  public void testStructuralInterfaceMatchingOnInterface6() {
     testSame("/** @constructor */ var C = function() {};" +
         "/** @type {number} */ C.prototype.bar;" +
         "/** @interface */ C.prototype.baz = function() {};" +
         "var c = new C(); var cbaz = c.baz;");
 
     TypedVar cBaz = globalScope.getVar("cbaz");
-    assertTrue(cBaz.getType().isFunctionType());
-    assertFalse(cBaz.getType().toMaybeFunctionType().isStructuralInterface());
+    assertThat(cBaz.getType().isFunctionType()).isTrue();
+    assertThat(cBaz.getType().toMaybeFunctionType().isStructuralInterface()).isFalse();
   }
 
-  public void testPropertiesOnInterface() throws Exception {
+  @Test
+  public void testPropertiesOnInterface() {
     testSame("/** @interface */ var I = function() {};" +
         "/** @type {number} */ I.prototype.bar;" +
         "I.prototype.baz = function(){};");
 
     TypedVar i = globalScope.getVar("I");
-    assertEquals("function(this:I): ?", i.getType().toString());
-    assertTrue(i.getType().isInterface());
+    assertThat(i.getType().toString()).isEqualTo("function(this:I): ?");
+    assertThat(i.getType().isInterface()).isTrue();
 
     ObjectType iPrototype = (ObjectType)
         ((ObjectType) i.getType()).getPropertyType("prototype");
-    assertEquals("I.prototype", iPrototype.toString());
-    assertTrue(iPrototype.isFunctionPrototypeType());
+    assertThat(iPrototype.toString()).isEqualTo("I.prototype");
+    assertThat(iPrototype.isFunctionPrototypeType()).isTrue();
 
-    assertEquals("number", iPrototype.getPropertyType("bar").toString());
-    assertEquals("function(this:I): undefined",
-        iPrototype.getPropertyType("baz").toString());
+    assertThat(iPrototype.getPropertyType("bar").toString()).isEqualTo("number");
+    assertThat(iPrototype.getPropertyType("baz").toString())
+        .isEqualTo("function(this:I): undefined");
 
-    Asserts.assertTypeEquals(iPrototype, globalScope.getVar("I.prototype").getType());
+    assertType(globalScope.getVar("I.prototype").getType()).isStructurallyEqualTo(iPrototype);
   }
 
-  public void testPropertiesOnInterface2() throws Exception {
+  @Test
+  public void testPropertiesOnInterface2() {
     testSame("/** @interface */ var I = function() {};" +
         "I.prototype = {baz: function(){}};" +
         "/** @type {number} */ I.prototype.bar;");
 
     TypedVar i = globalScope.getVar("I");
-    assertEquals("function(this:I): ?", i.getType().toString());
-    assertTrue(i.getType().isInterface());
+    assertThat(i.getType().toString()).isEqualTo("function(this:I): ?");
+    assertThat(i.getType().isInterface()).isTrue();
 
     ObjectType iPrototype = (ObjectType)
         ((ObjectType) i.getType()).getPropertyType("prototype");
-    assertEquals("I.prototype", iPrototype.toString());
-    assertTrue(iPrototype.isFunctionPrototypeType());
+    assertThat(iPrototype.toString()).isEqualTo("I.prototype");
+    assertThat(iPrototype.isFunctionPrototypeType()).isTrue();
 
-    assertEquals("number", iPrototype.getPropertyType("bar").toString());
+    assertThat(iPrototype.getPropertyType("bar").toString()).isEqualTo("number");
 
-    assertEquals("function(this:I): undefined",
-        iPrototype.getPropertyType("baz").toString());
+    assertThat(iPrototype.getPropertyType("baz").toString())
+        .isEqualTo("function(this:I): undefined");
 
-    assertEquals(iPrototype, globalScope.getVar("I.prototype").getType());
+    assertThat(globalScope.getVar("I.prototype").getType()).isEqualTo(iPrototype);
   }
 
   // TODO(johnlenz): A syntax for stubs using object literals?
 
+  @Test
   public void testStubsInExterns() {
     testSame(
         externs(
@@ -802,14 +2155,15 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
                 + "var f = new Foo(); f.baz;"));
 
     ObjectType e = (ObjectType) globalScope.getVar("e").getType();
-    assertEquals("?", e.getPropertyType("bar").toString());
-    assertEquals("?", e.getPropertyType("baz").toString());
+    assertThat(e.getPropertyType("bar").toString()).isEqualTo("?");
+    assertThat(e.getPropertyType("baz").toString()).isEqualTo("?");
 
     ObjectType f = (ObjectType) globalScope.getVar("f").getType();
-    assertEquals("?", f.getPropertyType("bar").toString());
-    assertFalse(f.hasProperty("baz"));
+    assertThat(f.getPropertyType("bar").toString()).isEqualTo("?");
+    assertThat(f.hasProperty("baz")).isFalse();
   }
 
+  @Test
   public void testStubsInExterns2() {
     testSame(
         externs(
@@ -819,16 +2173,18 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         srcs(""));
 
     JSType e = globalScope.getVar("myExtern").getType();
-    assertEquals("(Extern|null)", e.toString());
+    assertThat(e.toString()).isEqualTo("(Extern|null)");
 
     ObjectType externType = (ObjectType) e.restrictByNotNullOrUndefined();
-    assertTrue(globalScope.getRootNode().toStringTree(),
-        externType.hasOwnProperty("foo"));
-    assertTrue(externType.isPropertyTypeDeclared("foo"));
-    assertEquals("number", externType.getPropertyType("foo").toString());
-    assertTrue(externType.isPropertyInExterns("foo"));
+    assertWithMessage(globalScope.getRootNode().toStringTree())
+        .that(externType.hasOwnProperty("foo"))
+        .isTrue();
+    assertThat(externType.isPropertyTypeDeclared("foo")).isTrue();
+    assertThat(externType.getPropertyType("foo").toString()).isEqualTo("number");
+    assertThat(externType.isPropertyInExterns("foo")).isTrue();
   }
 
+  @Test
   public void testStubsInExterns3() {
     testSame(
         externs(
@@ -838,66 +2194,91 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         srcs(""));
 
     JSType e = globalScope.getVar("myExtern").getType();
-    assertEquals("(Extern|null)", e.toString());
+    assertThat(e.toString()).isEqualTo("(Extern|null)");
 
     ObjectType externType = (ObjectType) e.restrictByNotNullOrUndefined();
-    assertTrue(globalScope.getRootNode().toStringTree(),
-        externType.hasOwnProperty("foo"));
-    assertTrue(externType.isPropertyTypeDeclared("foo"));
-    assertEquals("number", externType.getPropertyType("foo").toString());
-    assertTrue(externType.isPropertyInExterns("foo"));
+    assertWithMessage(globalScope.getRootNode().toStringTree())
+        .that(externType.hasOwnProperty("foo"))
+        .isTrue();
+    assertThat(externType.isPropertyTypeDeclared("foo")).isTrue();
+    assertThat(externType.getPropertyType("foo").toString()).isEqualTo("number");
+    assertThat(externType.isPropertyInExterns("foo")).isTrue();
   }
 
+  @Test
   public void testStubsInExterns4() {
     testSame(
         externs("Extern.prototype.foo;" + "/** @constructor */ function Extern() {}"), srcs(""));
 
     JSType e = globalScope.getVar("Extern").getType();
-    assertEquals("function(new:Extern): ?", e.toString());
+    assertThat(e.toString()).isEqualTo("function(new:Extern): ?");
 
     ObjectType externProto = ((FunctionType) e).getPrototype();
-    assertTrue(globalScope.getRootNode().toStringTree(),
-        externProto.hasOwnProperty("foo"));
-    assertTrue(externProto.isPropertyTypeInferred("foo"));
-    assertEquals("?", externProto.getPropertyType("foo").toString());
-    assertTrue(externProto.isPropertyInExterns("foo"));
+    assertWithMessage(globalScope.getRootNode().toStringTree())
+        .that(externProto.hasOwnProperty("foo"))
+        .isTrue();
+    assertThat(externProto.isPropertyTypeInferred("foo")).isTrue();
+    assertThat(externProto.getPropertyType("foo").toString()).isEqualTo("?");
+    assertThat(externProto.isPropertyInExterns("foo")).isTrue();
   }
 
+  @Test
   public void testPropertyInExterns1() {
+    // Declaring a property on a non-native extern type (e.g. 'Extern') declares it as a property
+    // on the instance type, but only in externs.
     testSame(
         externs(
-            "/** @constructor */ function Extern() {}"
-                + "/** @type {Extern} */ var extern;"
-                + "/** @return {number} */ extern.one;"),
+            lines(
+                "/** @constructor */ function Extern() {}",
+                "/** @type {Extern} */ var extern;",
+                "/** @return {number} */ extern.one;")),
         srcs(
-            "/** @constructor */ function Normal() {}"
-                + "/** @type {Normal} */ var normal;"
-                + "/** @return {number} */ normal.one;"));
+            lines(
+                "/** @constructor */ function Normal() {}",
+                "/** @type {Normal} */ var normal;",
+                "/** @return {number} */ normal.one;",
+                "var result = new Extern().one();")));
 
     JSType e = globalScope.getVar("Extern").getType();
     ObjectType externInstance = ((FunctionType) e).getInstanceType();
-    assertTrue(externInstance.hasOwnProperty("one"));
-    assertTrue(externInstance.isPropertyTypeDeclared("one"));
-    assertEquals("function(): number",
-        externInstance.getPropertyType("one").toString());
+    assertThat(externInstance.hasOwnProperty("one")).isTrue();
+    assertThat(externInstance.isPropertyTypeDeclared("one")).isTrue();
+    assertThat(externInstance.getPropertyType("one").toString()).isEqualTo("function(): number");
+    assertThat(globalScope.getVar("result").getType().toString()).isEqualTo("number");
 
     JSType n = globalScope.getVar("Normal").getType();
     ObjectType normalInstance = ((FunctionType) n).getInstanceType();
-    assertFalse(normalInstance.hasOwnProperty("one"));
+    assertThat(normalInstance.hasOwnProperty("one")).isFalse();
   }
 
+  @Test
   public void testPropertyInExterns2() {
+    // Native extern types (such as Object) do not get stray properties declared, since this would
+    // cause problems with bad externs (such as `/** @type {!Object} */ var api = {}; api.foo;`,
+    // where we don't want to declare that all Objects have a "foo" property.  Nevertheless, the
+    // specific qualified name (i.e. extern.one, in the example below) is still declared on the
+    // global scope, so referring to the "one" property specifically on "extern" is still checked
+    // as one would expect.
     testSame(
-        externs("/** @type {Object} */ var extern;" + "/** @return {number} */ extern.one;"),
-        srcs("/** @type {Object} */ var normal;" + "/** @return {number} */ normal.one;"));
+        externs(
+            lines(
+                "/** @type {Object} */ var extern;", //
+                "/** @return {number} */ extern.one;")),
+        srcs(
+            lines(
+                "/** @type {Object} */ var normal;", //
+                "/** @return {number} */ normal.one;",
+                "var result = extern.one();")));
 
     JSType e = globalScope.getVar("extern").getType();
-    assertFalse(e.dereference().hasOwnProperty("one"));
+    assertThat(e.dereference().hasOwnProperty("one")).isFalse();
+    assertThat(globalScope.getVar("result").getType().toString()).isEqualTo("number");
 
     JSType normal = globalScope.getVar("normal").getType();
-    assertFalse(normal.dereference().hasOwnProperty("one"));
+    assertThat(normal.dereference().hasOwnProperty("one")).isFalse();
   }
 
+  @Test
   public void testPropertyInExterns3() {
     testSame(
         externs(
@@ -907,10 +2288,11 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         srcs(""));
 
     ObjectType obj = globalScope.getVar("Object").getType().dereference();
-    assertTrue(obj.hasOwnProperty("one"));
-    assertEquals("number", obj.getPropertyType("one").toString());
+    assertThat(obj.hasOwnProperty("one")).isTrue();
+    assertThat(obj.getPropertyType("one").toString()).isEqualTo("number");
   }
 
+  @Test
   public void testTypedStubsInExterns() {
     testSame(
         externs(
@@ -923,51 +2305,52 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
 
     // The type of apply() on a function instance is resolved dynamically,
     // since apply varies with the type of the function it's called on.
-    assertEquals(
-        "function(?=, (Object|null)=): ?",
-        f.getPropertyType("apply").toString());
+    assertThat(f.getPropertyType("apply").toString()).isEqualTo("function(?=, (Object|null)=): ?");
 
     // The type of apply() on the function prototype just takes what it was
     // declared with.
     FunctionType func = (FunctionType) globalScope.getVar("Function").getType();
-    assertEquals("Function",
-        func.getPrototype().getPropertyType("apply").toString());
+    assertThat(func.getPrototype().getPropertyType("apply").toString()).isEqualTo("Function");
   }
 
-  public void testTypesInExterns() throws Exception {
+  @Test
+  public void testTypesInExterns() {
     testSame(externs(CompilerTypeTestCase.DEFAULT_EXTERNS), srcs(""));
 
     TypedVar v = globalScope.getVar("Object");
     FunctionType obj = (FunctionType) v.getType();
-    assertEquals("function(new:Object, *=): Object", obj.toString());
-    assertNotNull(v.getNode());
-    assertNotNull(v.input);
+    assertThat(obj.toString()).isEqualTo("function(new:Object, *=): Object");
+    assertThat(v.getNode()).isNotNull();
+    assertThat(v.input).isNotNull();
   }
 
+  @Test
   public void testPropertyDeclarationOnInstanceType() {
     testSame(
         "/** @type {!Object} */ var a = {};" +
         "/** @type {number} */ a.name = 0;");
 
-    assertEquals("number", globalScope.getVar("a.name").getType().toString());
+    assertThat(globalScope.getVar("a.name").getType().toString()).isEqualTo("number");
 
     ObjectType a = (ObjectType) (globalScope.getVar("a").getType());
-    assertFalse(a.hasProperty("name"));
-    assertFalse(getNativeObjectType(OBJECT_TYPE).hasProperty("name"));
+    assertThat(a.hasProperty("name")).isFalse();
+    assertThat(getNativeObjectType(OBJECT_TYPE).hasProperty("name")).isFalse();
   }
 
+  @Test
   public void testPropertyDeclarationOnRecordType() {
     testSame(
         "/** @type {{foo: number}} */ var a = {foo: 3};" +
         "/** @type {number} */ a.name = 0;");
 
-    assertEquals("number", globalScope.getVar("a.name").getType().toString());
+    assertThat(globalScope.getVar("a.name").getType().toString()).isEqualTo("number");
 
     ObjectType a = (ObjectType) (globalScope.getVar("a").getType());
-    assertEquals("{foo: number}", a.toString());
-    assertFalse(a.hasProperty("name"));
+    assertThat(a.toString()).isEqualTo("{foo: number}");
+    assertThat(a.hasProperty("name")).isFalse();
   }
 
+  @Test
   public void testGlobalThis1() {
     testSame(
         "/** @constructor */ function Window() {}" +
@@ -977,12 +2360,13 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     ObjectType x = (ObjectType) (globalScope.getVar("x").getType());
     FunctionType windowCtor =
         (FunctionType) (globalScope.getVar("Window").getType());
-    assertEquals("global this", x.toString());
-    assertTrue(x.isSubtypeOf(windowCtor.getInstanceType()));
-    assertFalse(x.isEquivalentTo(windowCtor.getInstanceType()));
-    assertTrue(x.hasProperty("alert"));
+    assertThat(x.toString()).isEqualTo("global this");
+    assertThat(x.isSubtypeOf(windowCtor.getInstanceType())).isTrue();
+    assertThat(x.isEquivalentTo(windowCtor.getInstanceType())).isFalse();
+    assertThat(x.hasProperty("alert")).isTrue();
   }
 
+  @Test
   public void testGlobalThis2() {
     testSame(
         "/** @constructor */ function Window() {}" +
@@ -992,12 +2376,13 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     ObjectType x = (ObjectType) (globalScope.getVar("x").getType());
     FunctionType windowCtor =
         (FunctionType) (globalScope.getVar("Window").getType());
-    assertEquals("global this", x.toString());
-    assertTrue(x.isSubtypeOf(windowCtor.getInstanceType()));
-    assertFalse(x.isEquivalentTo(windowCtor.getInstanceType()));
-    assertTrue(x.hasProperty("alert"));
+    assertThat(x.toString()).isEqualTo("global this");
+    assertThat(x.isSubtypeOf(windowCtor.getInstanceType())).isTrue();
+    assertThat(x.isEquivalentTo(windowCtor.getInstanceType())).isFalse();
+    assertThat(x.hasProperty("alert")).isTrue();
   }
 
+  @Test
   public void testObjectLiteralCast() {
     // Verify that "goog.reflect.object" does not modify the types on
     // "A.B"
@@ -1014,57 +2399,569 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
             + "$jscomp.reflectObject(A.B, {isEnabled: 3})\n"
             + "var x = (new A.B()).isEnabled;");
 
-    assertEquals("A.B",
-        findTokenType(Token.OBJECTLIT, globalScope).toString());
-    assertEquals("boolean",
-        findNameType("x", globalScope).toString());
+    assertThat(findTokenType(Token.OBJECTLIT, globalScope).toString()).isEqualTo("A.B");
+    assertThat(findNameType("x", globalScope).toString()).isEqualTo("boolean");
   }
 
+  @Test
   public void testBadObjectLiteralCast1() {
     testWarning(
         "/** @constructor */ A.B = function() {}\n" + "goog.reflect.object(A.B, 1)",
         ClosureCodingConvention.OBJECTLIT_EXPECTED);
   }
 
+  @Test
   public void testBadObjectLiteralCast2() {
     testWarning("goog.reflect.object(A.B, {})", TypedScopeCreator.CONSTRUCTOR_EXPECTED);
   }
 
+  @Test
   public void testConstructorNode() {
     testSame("var goog = {}; /** @constructor */ goog.Foo = function() {};");
 
     ObjectType ctor = (ObjectType) (findNameType("goog.Foo", globalScope));
-    assertNotNull(ctor);
-    assertTrue(ctor.isConstructor());
-    assertEquals("function(new:goog.Foo): undefined", ctor.toString());
+    assertThat(ctor).isNotNull();
+    assertThat(ctor.isConstructor()).isTrue();
+    assertThat(ctor.toString()).isEqualTo("function(new:goog.Foo): undefined");
   }
 
+  @Test
+  public void testClassDeclaration() {
+    testSame("class Foo {}");
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertThat(foo.isConstructor()).isTrue();
+    assertScope(globalScope).declares("Foo").withTypeThat().isEqualTo(foo);
+  }
+
+  @Test
+  public void testClassDeclarationWithoutConstructor() {
+    testSame("class Foo {}");
+
+    FunctionType fooClass = (FunctionType) findNameType("Foo", globalScope);
+    ObjectType fooProto = fooClass.getPrototype();
+
+    // Test class typing.
+    assertThat(fooClass.isConstructor()).isTrue();
+
+    // Test constructor property.
+    assertThat(fooProto.hasOwnProperty("constructor")).isTrue();
+    assertNode(fooProto.getOwnPropertyDefSite("constructor")).isNull();
+    assertType(fooProto)
+        .withTypeOfProp("constructor")
+        .toStringIsEqualTo("function(new:Foo, ...?): ?");
+  }
+
+  @Test
+  public void testClassDeclarationWithConstructor() {
+    testSame(
+        lines(
+            "class Foo {", //
+            "  /** @param {number} arg */",
+            "  constructor(arg) {",
+            "    CTOR_BODY:;",
+            "  }",
+            "}"));
+
+    FunctionType fooClass = (FunctionType) findNameType("Foo", globalScope);
+    ObjectType fooProto = fooClass.getPrototype();
+    List<JSType> params = ImmutableList.copyOf(fooClass.getParameterTypes());
+    Node ctorDef = getLabeledStatement("CTOR_BODY").statementNode.getAncestor(3);
+
+    // Test class typing.
+    assertThat(fooClass.isConstructor()).isTrue();
+    assertThat(params).hasSize(1);
+    assertType(params.get(0)).isNumber();
+
+    // Test constructor property.
+    assertThat(fooProto.hasOwnProperty("constructor")).isTrue();
+    assertNode(fooProto.getOwnPropertyDefSite("constructor")).isSameAs(ctorDef);
+    assertType(fooProto)
+        .withTypeOfProp("constructor")
+        .toStringIsEqualTo("function(new:Foo, ...?): ?");
+  }
+
+  @Test
+  public void testInterfaceClassDeclarationWithConstructor() {
+    testSame(
+        lines(
+            "/** @interface */", //
+            "class Foo {",
+            "  constructor(arg) {}",
+            "}"));
+
+    FunctionType fooClass = (FunctionType) findNameType("Foo", globalScope);
+    ObjectType fooProto = fooClass.getPrototype();
+
+    // Test class typing.
+    assertThat(fooClass.isInterface()).isTrue();
+
+    // Test constructor property.
+    assertThat(fooProto.hasOwnProperty("constructor")).isFalse();
+  }
+
+  @Test
+  public void testClassDeclarationWithExtends() {
+    testSame(
+        lines(
+            "class Bar {}", //
+            "class Foo extends Bar {}"));
+    FunctionType bar = (FunctionType) (findNameType("Bar", globalScope));
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertType(foo.getInstanceType()).isSubtypeOf(bar.getInstanceType());
+    assertScope(globalScope).declares("Bar").withTypeThat().isEqualTo(bar);
+    assertScope(globalScope).declares("Foo").withTypeThat().isEqualTo(foo);
+  }
+
+  @Test
+  public void testClassDeclarationWithNestedExtends() {
+    testSame(
+        lines(
+            "class Bar {}", //
+            "class Foo extends class extends class extends Bar {} {} {}"));
+    FunctionType bar = (FunctionType) (findNameType("Bar", globalScope));
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertType(foo.getInstanceType()).isSubtypeOf(bar.getInstanceType());
+  }
+
+  @Test
+  public void testClassDeclarationWithInheritedConstructor() {
+    testSame(
+        lines(
+            "class Bar {",
+            "  constructor(/** string */ arg) {}",
+            "}",
+            "class Foo extends Bar {}"));
+
+    FunctionType fooClass = (FunctionType) findNameType("Foo", globalScope);
+    ObjectType fooProto = fooClass.getPrototype();
+    List<JSType> params = ImmutableList.copyOf(fooClass.getParameterTypes());
+
+    // Test class typing.
+    assertThat(fooClass.isConstructor()).isTrue();
+    assertThat(params).hasSize(1);
+    assertType(params.get(0)).isString();
+
+    // Test constructor property.
+    assertThat(fooProto.hasOwnProperty("constructor")).isTrue();
+    assertNode(fooProto.getOwnPropertyDefSite("constructor")).isNull();
+    assertType(fooProto)
+        .withTypeOfProp("constructor")
+        .toStringIsEqualTo("function(new:Foo, ...?): ?");
+  }
+
+  @Test
+  public void testClassDeclarationWithOverriddenConstructor() {
+    testSame(
+        lines(
+            "class Bar {",
+            "  constructor(/** string */ arg) {}",
+            "}",
+            "class Foo extends Bar {",
+            "  constructor(/** number */ arg) { CTOR_BODY:super(''); }",
+            "  static method() {}",
+            "}"));
+
+    FunctionType bar = (FunctionType) (findNameType("Bar", globalScope));
+    ObjectType barObject = bar.getInstanceType();
+    JSType barConstructorProperty = barObject.getPropertyType("constructor");
+
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    ObjectType fooObject = foo.getInstanceType();
+    ObjectType fooProto = foo.getPrototype();
+    JSType fooConstructorProperty = fooObject.getPropertyType("constructor");
+    Node fooCtorDef = getLabeledStatement("CTOR_BODY").statementNode.getAncestor(3);
+
+    assertType(foo).withTypeOfProp("method").isNotUnknown();
+    assertType(foo).withTypeOfProp("method").isNotEmpty();
+
+    List<JSType> params = ImmutableList.copyOf(foo.getParameterTypes());
+    assertThat(params).hasSize(1);
+    assertType(params.get(0)).isNumber();
+    assertType(barConstructorProperty).toStringIsEqualTo("function(new:Bar, ...?): ?");
+
+    assertType(fooConstructorProperty).toStringIsEqualTo("function(new:Foo, ...?): ?");
+    assertNode(fooProto.getOwnPropertyDefSite("constructor")).isSameAs(fooCtorDef);
+
+    assertType(fooConstructorProperty).isSubtypeOf(barConstructorProperty);
+    // TODO(b/118174876): The type of `this` should be equal to the Foo class itself.
+    assertType(fooConstructorProperty)
+        .withTypeOfProp("method")
+        .isFunctionTypeThat()
+        .hasTypeOfThisThat()
+        .isUnknown();
+  }
+
+  @Test
+  public void testClassDeclarationWithNestedExtendsAndInheritedConstructor() {
+    testSame(
+        lines(
+            "class Bar {",
+            "  constructor(/** string */ arg) {}",
+            "}",
+            "class Foo extends class extends class extends Bar {} {} {}"));
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    List<JSType> params = ImmutableList.copyOf(foo.getParameterTypes());
+    assertThat(params).hasSize(1);
+    assertType(params.get(0)).isString();
+  }
+
+  @Test
+  public void testClassDeclarationWithMethod() {
+    testSame(
+        lines(
+            "class Foo {",
+            "  /** @param {string} arg */",
+            "  method(arg) {",
+            "    METHOD:;",
+            "    var /** number */ foo;",
+            "  }",
+            "}"));
+    TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
+    TypedScope methodScope = methodBlockScope.getParentScope();
+    assertScope(methodBlockScope).declares("foo").directly().withTypeThat().isNumber();
+    assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
+
+    FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
+    assertType(method).toStringIsEqualTo("function(this:Foo, string): undefined");
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertType(foo.getInstanceType()).withTypeOfProp("method").isEqualTo(method);
+  }
+
+  @Test
+  public void testClassDeclarationWithDucplicatePrototypeMethodAfterward() {
+    // Given
+    testSame(
+        lines(
+            "class Foo {",
+            "  /** @param {string} arg */",
+            "  method(arg) { }",
+            "}",
+            "",
+            // This declaration should be ignored in preference of the one in the CLASS body.
+            // Constructs like this are sometimes valid (e.g. in mod files) and have error reporting
+            // separate from `TypedScopeCreator`.
+            "/** @param {number} arg */",
+            "Foo.prototype.method = function(arg) { }"));
+
+    // Then
+    FunctionType foo = (FunctionType) findNameType("Foo", globalScope);
+    assertType(foo.getInstanceType())
+        .withTypeOfProp("method")
+        .toStringIsEqualTo("function(this:Foo, string): undefined");
+  }
+
+  @Test
+  public void testClassDeclarationWithDucplicateStaticMethodAfterward() {
+    // Given
+    testSame(
+        lines(
+            "class Foo {",
+            "  /** @param {string} arg */",
+            "  static method(arg) { }",
+            "}",
+            "",
+            // This declaration should be ignored in preference of the one in the CLASS body.
+            // Constructs like this are sometimes valid (e.g. in mod files) and have error reporting
+            // separate from `TypedScopeCreator`.
+            "/** @param {number} arg */",
+            "Foo.method = function(arg) { }"));
+
+    // Then
+    FunctionType foo = (FunctionType) findNameType("Foo", globalScope);
+    assertType(foo).withTypeOfProp("method").toStringIsEqualTo("function(string): undefined");
+  }
+
+  @Test
+  public void testClassDeclarationWithMethodAndInlineParamDocs() {
+    testSame(
+        lines(
+            "class Foo {",
+            "  method(/** string */ arg) {",
+            "    METHOD:;",
+            "    var /** number */ foo;",
+            "  }",
+            "}"));
+    TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
+    TypedScope methodScope = methodBlockScope.getParentScope();
+    assertScope(methodBlockScope).declares("foo").directly().withTypeThat().isNumber();
+    assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
+
+    FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
+    assertType(method).toStringIsEqualTo("function(this:Foo, string): undefined");
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertType(foo.getInstanceType()).withTypeOfProp("method").isEqualTo(method);
+  }
+
+  @Test
+  public void testClassDeclarationWithOverriddenMethod() {
+    testSame(
+        lines(
+            "class Bar {",
+            "  method(/** string */ arg) {}",
+            "}",
+            "class Foo extends Bar {",
+            "  method(arg) {",
+            "    METHOD:;",
+            "  }",
+            "}"));
+    TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
+    TypedScope methodScope = methodBlockScope.getParentScope();
+    assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
+
+    FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
+    assertType(method).toStringIsEqualTo("function(this:Foo, string): undefined");
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertType(foo.getInstanceType()).withTypeOfProp("method").isEqualTo(method);
+  }
+
+  @Test
+  public void testClassDeclarationWithStaticMethod() {
+    testSame(
+        lines(
+            "class Foo {",
+            "  static method(/** string */ arg) {",
+            "    METHOD:;",
+            "    var /** number */ foo;",
+            "  }",
+            "}"));
+    TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
+    TypedScope methodScope = methodBlockScope.getParentScope();
+    assertScope(methodBlockScope).declares("foo").directly().withTypeThat().isNumber();
+    assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
+
+    FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
+    // TODO(sdh): Probably want function(this:function(new:Foo), string): undefined
+    assertType(method).toStringIsEqualTo("function(string): undefined");
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertType(foo).withTypeOfProp("method").isEqualTo(method);
+  }
+
+  @Test
+  public void testClassDeclarationWithOverriddenStaticMethod() {
+    testSame(
+        lines(
+            "class Foo {",
+            "  /** @param {number} arg */",
+            "  static method(arg) {}",
+            "}",
+            "class Bar extends Foo {",
+            "  static method(arg) {",
+            "    METHOD:;",
+            "  }",
+            "}"));
+    TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
+    TypedScope methodScope = methodBlockScope.getParentScope();
+    assertScope(methodScope).declares("arg").directly().withTypeThat().isNumber();
+
+    FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
+    // TODO(sdh): Probably want function(this:function(new:Foo), string): undefined
+    assertType(method).toStringIsEqualTo("function(number): undefined");
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertType(foo).withTypeOfProp("method").isEqualTo(method);
+  }
+
+  @Test
+  public void testClassDeclarationWithAsyncMethod() {
+    testSame(
+        lines(
+            "class Foo {",
+            "  /** @param {string} arg */",
+            "  async method(arg) {",
+            "    METHOD:;",
+            "  }",
+            "}"));
+    TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
+    TypedScope methodScope = methodBlockScope.getParentScope();
+    assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
+
+    FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
+    assertType(method).toStringIsEqualTo("function(this:Foo, string): Promise<undefined>");
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertType(foo.getInstanceType()).withTypeOfProp("method").isEqualTo(method);
+  }
+
+  @Test
+  public void testClassDeclarationWithGeneratorMethod() {
+    testSame(
+        lines(
+            "class Foo {",
+            "  /** @param {string} arg */",
+            "  * method(arg) {",
+            "    METHOD:;",
+            "  }",
+            "}"));
+    TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
+    TypedScope methodScope = methodBlockScope.getParentScope();
+    assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
+
+    FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
+    assertType(method).toStringIsEqualTo("function(this:Foo, string): Generator<?>");
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertType(foo.getInstanceType()).withTypeOfProp("method").isEqualTo(method);
+  }
+
+  @Test
+  public void testClassDeclarationWithComputedPropertyMethod() {
+    testSame(
+        lines(
+            "class Foo {",
+            "  /** @param {string} arg */",
+            "  ['method'](arg) {",
+            "    METHOD:;",
+            "    var /** number */ foo;",
+            "  }",
+            "}"));
+    TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
+    TypedScope methodScope = methodBlockScope.getParentScope();
+    assertScope(methodBlockScope).declares("foo").directly().withTypeThat().isNumber();
+    assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
+
+    FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
+    assertType(method).toStringIsEqualTo("function(this:Foo, string): undefined");
+  }
+
+  @Test
+  public void testClassExpressionAssignment() {
+    testSame("var Foo = class Bar {}");
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertThat(foo.isConstructor()).isTrue();
+    FunctionType bar = (FunctionType) (findNameType("Bar", globalScope));
+    assertThat(bar).isEqualTo(foo);
+  }
+
+  @Test
+  public void testClassExpressionBleedingNameScope() {
+    testSame(
+        lines(
+            "var Foo = class Bar {",
+            "  constructor() {",
+            "    CTOR:;",
+            "  }",
+            "};"));
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    TypedScope ctorBlockScope = getLabeledStatement("CTOR").enclosingScope;
+    TypedScope ctorScope = ctorBlockScope.getParentScope();
+    TypedScope classScope = ctorScope.getParentScope();
+    assertScope(globalScope).declares("Foo").withTypeThat().isEqualTo(foo);
+    assertScope(classScope).declares("Bar").directly().withTypeThat().isEqualTo(foo);
+    assertScope(globalScope).doesNotDeclare("Bar");
+  }
+
+  @Test
+  public void testClassExpressionWithMethod() {
+    testSame(
+        lines(
+            "var Foo = class {",
+            "  /** @param {string} arg */",
+            "  method(arg) {",
+            "    METHOD:;",
+            "  }",
+            "};"));
+    TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
+    TypedScope methodScope = methodBlockScope.getParentScope();
+    assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
+
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertType(foo.getInstanceType())
+        .withTypeOfProp("method")
+        .toStringIsEqualTo("function(this:Foo, string): undefined");
+  }
+
+  @Test
+  public void testClassExpressionWithStaticMethod() {
+    testSame(
+        lines(
+            "var Foo = class {",
+            "  static method(/** string */ arg) {",
+            "    METHOD:;",
+            "    var /** number */ foo;",
+            "  }",
+            "}"));
+    TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
+    TypedScope methodScope = methodBlockScope.getParentScope();
+    assertScope(methodBlockScope).declares("foo").directly().withTypeThat().isNumber();
+    assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
+
+    FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
+    // TODO(sdh): Probably want function(this:function(new:Foo), string): undefined
+    assertType(method).toStringIsEqualTo("function(string): undefined");
+    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
+    assertType(foo).withTypeOfProp("method").isEqualTo(method);
+  }
+
+  @Test
+  public void testClassExpressionWithStaticClassAssignedLater() {
+    testSame(
+        lines(
+            "var Foo = class {};",
+            // even though there's no JSDoc, this should be treated as a type declaration.
+            "Foo.Something = class {};",
+            ""));
+    assertScope(globalScope)
+        .declares("Foo")
+        .directly()
+        .withTypeThat()
+        .toStringIsEqualTo("function(new:Foo): undefined");
+    assertScope(globalScope)
+        .declares("Foo.Something")
+        .directly()
+        .withTypeThat()
+        .toStringIsEqualTo("function(new:Foo.Something): undefined");
+  }
+
+  @Test
+  public void testClassExpressionInCallback() {
+    testSame(
+        lines(
+            "function use(arg) {}",
+            "use(class Bar {",
+            "  constructor() {",
+            "    CTOR:;",
+            "  }",
+            "});"));
+    TypedScope ctorBlockScope = getLabeledStatement("CTOR").enclosingScope;
+    TypedScope ctorScope = ctorBlockScope.getParentScope();
+    TypedScope classScope = ctorScope.getParentScope();
+    assertScope(classScope)
+        .declares("Bar")
+        .directly()
+        .withTypeThat()
+        // TODO(sdh): Print a better name (https://github.com/google/closure-compiler/issues/2982)
+        .toStringIsEqualTo("function(new:<anonymous@testcode:2>): undefined");
+    assertScope(globalScope).doesNotDeclare("Bar");
+  }
+
+  @Test
   public void testForLoopIntegration() {
     testSame("var y = 3; for (var x = true; x; y = x) {}");
 
     TypedVar y = globalScope.getVar("y");
-    assertTrue(y.isTypeInferred());
-    assertEquals("(boolean|number)", y.getType().toString());
+    assertThat(y.isTypeInferred()).isTrue();
+    assertThat(y.getType().toString()).isEqualTo("(boolean|number)");
   }
 
+  @Test
   public void testConstructorAlias() {
     testSame(
         "/** @constructor */ var Foo = function() {};" +
         "/** @constructor */ var FooAlias = Foo;");
-    assertEquals("Foo", registry.getType(null, "FooAlias").toString());
-    Asserts.assertTypeEquals(registry.getType(null, "Foo"), registry.getType(null, "FooAlias"));
+    assertThat(registry.getType(null, "FooAlias").toString()).isEqualTo("Foo");
+    assertType(registry.getType(null, "FooAlias"))
+        .isStructurallyEqualTo(registry.getType(null, "Foo"));
   }
 
+  @Test
   public void testNamespacedConstructorAlias() {
     testSame(
         "var goog = {};" +
         "/** @constructor */ goog.Foo = function() {};" +
         "/** @constructor */ goog.FooAlias = goog.Foo;");
-    assertEquals("goog.Foo", registry.getType(null, "goog.FooAlias").toString());
-    Asserts.assertTypeEquals(registry.getType(null, "goog.Foo"),
-        registry.getType(null, "goog.FooAlias"));
+    assertThat(registry.getType(null, "goog.FooAlias").toString()).isEqualTo("goog.Foo");
+    assertType(registry.getType(null, "goog.FooAlias"))
+        .isStructurallyEqualTo(registry.getType(null, "goog.Foo"));
   }
 
+  @Test
   public void testTemplateType1() {
     testSame(
         "/**\n" +
@@ -1078,10 +2975,11 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "/** @return {number} */\n" +
         "Foo.prototype.baz = function() {};\n" +
         "bind(function() { var g = this; var f = this.baz(); }, new Foo());");
-    assertEquals("Foo", findNameType("g", lastLocalScope).toString());
-    assertEquals("number", findNameType("f", lastLocalScope).toString());
+    assertThat(findNameType("g", lastLocalScope).toString()).isEqualTo("Foo");
+    assertThat(findNameType("f", lastLocalScope).toString()).isEqualTo("number");
   }
 
+  @Test
   public void testTemplateType2() {
     testSame(
         "/**\n" +
@@ -1095,9 +2993,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "/** @type {string} */\n" +
         "var val = 'hi';\n" +
         "var result = f(val);");
-    assertEquals("string", findNameType("result", globalScope).toString());
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("string");
   }
 
+  @Test
   public void testTemplateType2a() {
     testSame(
         "/**\n" +
@@ -1111,10 +3010,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "/** @type {string} */\n" +
         "var val = 'hi';\n" +
         "var result = f(val);");
-    assertEquals("(string|undefined)",
-        findNameType("result", globalScope).toString());
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("(string|undefined)");
   }
 
+  @Test
   public void testTemplateType2b() {
     testSame(
         "/**\n" +
@@ -1128,10 +3027,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "/** @type {string|undefined} */\n" +
         "var val = 'hi';\n" +
         "var result = f(val);");
-    assertEquals("(string|undefined)",
-        findNameType("result", globalScope).toString());
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("(string|undefined)");
   }
 
+  @Test
   public void testTemplateType3() {
     testSame(
         "/**\n" +
@@ -1149,10 +3048,11 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "var val2 = 0;\n" +
         "var result2 = f(val2);");
 
-    assertEquals("string", findNameType("result1", globalScope).toString());
-    assertEquals("number", findNameType("result2", globalScope).toString());
+    assertThat(findNameType("result1", globalScope).toString()).isEqualTo("string");
+    assertThat(findNameType("result2", globalScope).toString()).isEqualTo("number");
   }
 
+  @Test
   public void testTemplateType4() {
     testSame(
         "/**\n" +
@@ -1168,9 +3068,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "(function() {var result = f(arr);})();");
 
     JSType resultType = findNameType("result", lastLocalScope);
-    assertEquals("Array<string>", resultType.toString());
+    assertThat(resultType.toString()).isEqualTo("Array<string>");
   }
 
+  @Test
   public void testTemplateType4a() {
     testSame(
         "/**\n" +
@@ -1186,9 +3087,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "(function() {var result = f(g);})();");
 
     JSType resultType = findNameType("result", lastLocalScope);
-    assertEquals("string", resultType.toString());
+    assertThat(resultType.toString()).isEqualTo("string");
   }
 
+  @Test
   public void testTemplateType4b() {
     testSame(
         "/**\n" +
@@ -1204,9 +3106,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "(function() {var result = f(g);})();");
 
     JSType resultType = findNameType("result", lastLocalScope);
-    assertEquals("string", resultType.toString());
+    assertThat(resultType.toString()).isEqualTo("string");
   }
 
+  @Test
   public void testTemplateType5() {
     testSame(
         "/**\n" +
@@ -1221,9 +3124,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "var arr = [];\n" +
         "var result = f(arr);");
 
-    assertEquals("Array<string>", findNameTypeStr("result", globalScope));
+    assertThat(findNameTypeStr("result", globalScope)).isEqualTo("Array<string>");
   }
 
+  @Test
   public void testTemplateType6() {
     testSame(
         "/**\n" +
@@ -1238,119 +3142,123 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "var arr = [];\n" +
         "var result = f(arr);");
 
-    assertEquals("Array<string>", findNameTypeStr("result", globalScope));
+    assertThat(findNameTypeStr("result", globalScope)).isEqualTo("Array<string>");
   }
 
-
+  @Test
   public void testTemplateType7() {
     testSame(
-        "var goog = {};\n" +
-        "goog.array = {};\n" +
-        "/**\n" +
-        " * @param {Array<T>} arr\n" +
-        " * @param {function(this:S, !T, number, !Array<!T>):boolean} f\n" +
-        " * @param {!S=} opt_obj\n" +
-        " * @return {!Array<T>}\n" +
-        " * @template T,S\n" +
-        " */\n" +
-        "goog.array.filter = function(arr, f, opt_obj) {\n" +
-        "  var res = [];\n" +
-        "  for (var i = 0; i < arr.length; i++) {\n" +
-        "     if (f.call(opt_obj, arr[i], i, arr)) {\n" +
-        "        res.push(val);\n" +
-        "     }\n" +
-        "  }\n" +
-        "  return res;\n" +
-        "}" +
-        "/** @constructor */\n" +
-        "function Foo() {}\n" +
-        "/** @type {Array<string>} */\n" +
-        "var arr = [];\n" +
-        "var result = goog.array.filter(arr," +
-        "  function(a,b,c) {var self=this;}, new Foo());");
+        lines(
+            "var goog = {};",
+            "goog.array = {};",
+            "/**",
+            " * @param {Array<T>} arr",
+            " * @param {function(this:S, !T, number, !Array<!T>):boolean} f",
+            " * @param {!S=} opt_obj",
+            " * @return {!Array<T>}",
+            " * @template T,S",
+            " */",
+            "goog.array.filter = function(arr, f, opt_obj) {",
+            "  var res = [];",
+            "  for (var i = 0; i < arr.length; i++) {",
+            "     const val = arr[i];",
+            "     if (f.call(opt_obj, val, i, arr)) {",
+            "        res.push(val);",
+            "     }",
+            "  }",
+            "  return res;",
+            "}",
+            "/** @constructor */",
+            "function Foo() {}",
+            "/** @type {Array<string>} */",
+            "var arr = [];",
+            "var result = goog.array.filter(arr,",
+            "  function(a,b,c) {var self=this;}, new Foo());"));
 
-    assertEquals("Foo", findNameType("self", lastLocalScope).toString());
-    assertEquals("string", findNameType("a", lastLocalScope).toString());
-    assertEquals("number", findNameType("b", lastLocalScope).toString());
-    assertEquals("Array<string>",
-        findNameType("c", lastLocalScope).toString());
-    assertEquals("Array<string>",
-        findNameType("result", globalScope).toString());
+    assertThat(findNameType("self", lastFunctionScope).toString()).isEqualTo("Foo");
+    assertThat(findNameType("a", lastFunctionScope).toString()).isEqualTo("string");
+    assertThat(findNameType("b", lastFunctionScope).toString()).isEqualTo("number");
+    assertThat(findNameType("c", lastFunctionScope).toString()).isEqualTo("Array<string>");
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("Array<string>");
   }
 
+  @Test
   public void testTemplateType7b() {
     testSame(
-        "var goog = {};\n" +
-        "goog.array = {};\n" +
-        "/**\n" +
-        " * @param {Array<T>} arr\n" +
-        " * @param {function(this:S, !T, number, !Array<T>):boolean} f\n" +
-        " * @param {!S=} opt_obj\n" +
-        " * @return {!Array<T>}\n" +
-        " * @template T,S\n" +
-        " */\n" +
-        "goog.array.filter = function(arr, f, opt_obj) {\n" +
-        "  var res = [];\n" +
-        "  for (var i = 0; i < arr.length; i++) {\n" +
-        "     if (f.call(opt_obj, arr[i], i, arr)) {\n" +
-        "        res.push(val);\n" +
-        "     }\n" +
-        "  }\n" +
-        "  return res;\n" +
-        "}" +
-        "/** @constructor */\n" +
-        "function Foo() {}\n" +
-        "/** @type {Array<string>} */\n" +
-        "var arr = [];\n" +
-        "var result = goog.array.filter(arr," +
-        "  function(a,b,c) {var self=this;}, new Foo());");
+        lines(
+            "var goog = {};",
+            "goog.array = {};",
+            "/**",
+            " * @param {Array<T>} arr",
+            " * @param {function(this:S, !T, number, !Array<T>):boolean} f",
+            " * @param {!S=} opt_obj",
+            " * @return {!Array<T>}",
+            " * @template T,S",
+            " */",
+            "goog.array.filter = function(arr, f, opt_obj) {",
+            "  var res = [];",
+            "  for (var i = 0; i < arr.length; i++) {",
+            "     const val = arr[i];",
+            "     if (f.call(opt_obj, val, i, arr)) {",
+            "        res.push(val);",
+            "     }",
+            "  }",
+            "  return res;",
+            "}",
+            "/** @constructor */",
+            "function Foo() {}",
+            "/** @type {Array<string>} */",
+            "var arr = [];",
+            "var result = goog.array.filter(arr,",
+            "  function(a,b,c) {var self=this;}, new Foo());"));
 
-    assertEquals("Foo", findNameType("self", lastLocalScope).toString());
-    assertEquals("string", findNameType("a", lastLocalScope).toString());
-    assertEquals("number", findNameType("b", lastLocalScope).toString());
-    assertEquals("Array<string>",
-        findNameType("c", lastLocalScope).toString());
-    assertEquals("Array<string>",
-        findNameType("result", globalScope).toString());
+    assertThat(findNameType("self", lastFunctionScope).toString()).isEqualTo("Foo");
+    assertThat(findNameType("a", lastFunctionScope).toString()).isEqualTo("string");
+    assertThat(findNameType("b", lastFunctionScope).toString()).isEqualTo("number");
+    assertThat(findNameType("c", lastFunctionScope).toString()).isEqualTo("Array<string>");
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("Array<string>");
   }
 
+  @Test
   public void testTemplateType7c() {
     testSame(
-        "var goog = {};\n" +
-        "goog.array = {};\n" +
-        "/**\n" +
-        " * @param {Array<T>} arr\n" +
-        " * @param {function(this:S, T, number, Array<T>):boolean} f\n" +
-        " * @param {!S=} opt_obj\n" +
-        " * @return {!Array<T>}\n" +
-        " * @template T,S\n" +
-        " */\n" +
-        "goog.array.filter = function(arr, f, opt_obj) {\n" +
-        "  var res = [];\n" +
-        "  for (var i = 0; i < arr.length; i++) {\n" +
-        "     if (f.call(opt_obj, arr[i], i, arr)) {\n" +
-        "        res.push(val);\n" +
-        "     }\n" +
-        "  }\n" +
-        "  return res;\n" +
-        "}" +
-        "/** @constructor */\n" +
-        "function Foo() {}\n" +
-        "/** @type {Array<string>} */\n" +
-        "var arr = [];\n" +
-        "var result = goog.array.filter(arr," +
-        "  function(a,b,c) {var self=this;}, new Foo());");
+        lines(
+            "var goog = {};",
+            "goog.array = {};",
+            "/**",
+            " * @param {Array<T>} arr",
+            " * @param {function(this:S, T, number, Array<T>):boolean} f",
+            " * @param {!S=} opt_obj",
+            " * @return {!Array<T>}",
+            " * @template T,S",
+            " */",
+            "goog.array.filter = function(arr, f, opt_obj) {",
+            "  var res = [];",
+            "  for (var i = 0; i < arr.length; i++) {",
+            "     const val = arr[i];",
+            "     if (f.call(opt_obj, val, i, arr)) {",
+            "        res.push(val);",
+            "     }",
+            "  }",
+            "  return res;",
+            "}",
+            "/** @constructor */",
+            "function Foo() {}",
+            "/** @type {Array<string>} */",
+            "var arr = [];",
+            "var result = goog.array.filter(arr,",
+            "  function(a,b,c) {var self=this;}, new Foo());"));
 
-    assertEquals("Foo", findNameType("self", lastLocalScope).toString());
-    assertEquals("string", findNameType("a", lastLocalScope).toString());
-    assertEquals("number", findNameType("b", lastLocalScope).toString());
-    assertEquals("(Array<string>|null)",
-        findNameType("c", lastLocalScope).toString());
-    assertEquals("Array<string>",
-        findNameType("result", globalScope).toString());
+    assertThat(findNameType("self", lastFunctionScope).toString()).isEqualTo("Foo");
+    assertThat(findNameType("a", lastFunctionScope).toString()).isEqualTo("string");
+    assertThat(findNameType("b", lastFunctionScope).toString()).isEqualTo("number");
+    assertThat(findNameType("c", lastFunctionScope).toString()).isEqualTo("(Array<string>|null)");
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("Array<string>");
   }
 
-  public void disable_testTemplateType8() {
+  @Test
+  @Ignore
+  public void testTemplateType8() {
     // TODO(johnlenz): somehow allow templated typedefs
     testSame(
         "/** @constructor */ NodeList = function() {};" +
@@ -1373,12 +3281,13 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "/** @return {number} */\n" +
         "Foo.prototype.baz = function() {};\n" +
         "bind(function() { var g = this; var f = this.baz(); }, new Foo());");
-    assertEquals("T", findNameType("g", lastLocalScope).toString());
-    assertTrue(findNameType("g", lastLocalScope).isEquivalentTo(
-        registry.getType(null, "Foo")));
-    assertEquals("number", findNameType("f", lastLocalScope).toString());
+    assertThat(findNameType("g", lastLocalScope).toString()).isEqualTo("T");
+    assertThat(findNameType("g", lastLocalScope).isEquivalentTo(registry.getType(null, "Foo")))
+        .isTrue();
+    assertThat(findNameType("f", lastLocalScope).toString()).isEqualTo("number");
   }
 
+  @Test
   public void testTemplateType9() {
     testSame(
         "/** @constructor */\n" +
@@ -1396,9 +3305,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "function Bar() {}\n" +
         "\n" +
         "var g = new Bar().method();\n");
-    assertEquals("Bar", findNameType("g", globalScope).toString());
+    assertThat(findNameType("g", globalScope).toString()).isEqualTo("Bar");
   }
 
+  @Test
   public void testTemplateType10() {
     // NOTE: we would like the type within the function to remain "Foo"
     // we can handle this by support template type like "T extends Foo"
@@ -1413,9 +3323,51 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         " * @template T\n" +
         " */\n" +
         "Foo.prototype.method = function() {var g = this;};\n");
-    assertEquals("T", findNameType("g", lastLocalScope).toString());
+    assertThat(findNameType("g", lastLocalScope).toString()).isEqualTo("T");
   }
 
+  @Test
+  public void testTemplatedThis_inClassInstanceMethod_isInferredToBe_receiverType() {
+    testSame(
+        lines(
+            "class Foo {",
+            "  /**",
+            "   * @template THIS",
+            "   * @this {THIS}",
+            "   * @return {THIS}",
+            "   */",
+            "  clone() { return this; }",
+            "}",
+            "",
+            "var result = new Foo().clone();"));
+
+    assertType(findNameType("result", globalScope)).toStringIsEqualTo("Foo");
+  }
+
+  @Test
+  public void testTemplatedThis_inClassInstanceMethod_invokedOnSuper_isInferredToBe_subtype() {
+    testSame(
+        lines(
+            "class Foo {",
+            "  /**",
+            "   * @template THIS",
+            "   * @this {THIS}",
+            "   * @return {THIS}",
+            "   */",
+            "  clone() { return this; }",
+            "}",
+            "",
+            "class SubFoo extends Foo {",
+            "  other() {",
+            "    LABEL: super.clone();",
+            "  }",
+            "}"));
+
+    Node superCloneCall = getLabeledStatement("LABEL").statementNode.getOnlyChild();
+    assertType(superCloneCall.getJSType()).toStringIsEqualTo("SubFoo");
+  }
+
+  @Test
   public void testTemplateType11() {
     testSame(
         "/**\n" +
@@ -1431,9 +3383,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "\n" +
         "var g = method().call(new Bar());\n");
     // NOTE: we would like this to be "Bar"
-    assertEquals("?", findNameType("g", globalScope).toString());
+    assertThat(findNameType("g", globalScope).toString()).isEqualTo("?");
   }
 
+  @Test
   public void testTemplateType12() {
     testSame(
         "/** @constructor */\n" +
@@ -1445,11 +3398,13 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         " * @template T\n" +
         " */\n" +
         "Foo.prototype.method = function() {var g = this;};\n");
-    assertEquals("(Array<T>|{length: number})",
-        findNameType("g", lastLocalScope).toString());
+    assertThat(findNameType("g", lastLocalScope).toString())
+        .isEqualTo("(Array<T>|{length: number})");
   }
 
-  public void disable_testTemplateType13() {
+  @Test
+  @Ignore
+  public void testTemplateType13() {
     // TODO(johnlenz): allow template types in @type function expressions
     testSame(
         "/**\n" +
@@ -1460,10 +3415,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "/** @type {string} */\n" +
         "var val = 'hi';\n" +
         "var result = f(val);");
-    assertEquals("(string|undefined)",
-        findNameType("result", globalScope).toString());
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("(string|undefined)");
   }
 
+  @Test
   public void testClassTemplateType1() {
     // Verify that template types used in method signature are resolved.
     testSame(
@@ -1478,9 +3433,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "" +
         "/** @type {C<string>} */ var x = new C();\n" +
         "var result = x.method();\n");
-    assertEquals("string", findNameType("result", globalScope).toString());
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("string");
   }
 
+  @Test
   public void testClassTemplateType2() {
     // Verify that template types used in method signature on namespaced
     // objects are resolved.
@@ -1497,9 +3453,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "" +
         "/** @type {ns.C<string>} */ var x = new ns.C();\n" +
         "var result = x.method();\n");
-    assertEquals("string", findNameType("result", globalScope).toString());
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("string");
   }
 
+  @Test
   public void testClassTemplateType3() {
     // Verify that template types used for instance properties are recognized.
     testSame(
@@ -1514,9 +3471,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "" +
         "/** @type {C<string>} */ var x = new C();\n" +
         "var result = x.foo;\n");
-    assertEquals("string", findNameType("result", globalScope).toString());
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("string");
   }
 
+  @Test
   public void testClassTemplateType4() {
     // Verify that template types used for instance properties are recognized.
     testSame(
@@ -1532,9 +3490,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "" +
         "/** @type {ns.C<string>} */ var x = new ns.C();\n" +
         "var result = x.foo;\n");
-    assertEquals("string", findNameType("result", globalScope).toString());
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("string");
   }
 
+  @Test
   public void testClassTemplateType5() {
     // Verify that template types used for prototype properties in stub
     // declarations are recognized.
@@ -1551,9 +3510,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "" +
         "/** @type {C<string>} */ var x = new C();\n" +
         "var result = x.foo;\n");
-    assertEquals("string", findNameType("result", globalScope).toString());
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("string");
   }
 
+  @Test
   public void testClassTemplateType6() {
     // Verify that template types used for prototype properties in assignment
     // expressions are recognized.
@@ -1570,9 +3530,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "" +
         "/** @type {C<string>} */ var x = new C();\n" +
         "var result = x.foo;\n");
-    assertEquals("string", findNameType("result", globalScope).toString());
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("string");
   }
 
+  @Test
   public void testClassTemplateType7() {
     // Verify that template types used in prototype methods are recognized.
     testSame(
@@ -1585,24 +3546,29 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "C.prototype.method = function() {\n" +
         "  /** @type {T} */ var local;" +
         "}\n");
-    assertEquals("T", findNameType("local", lastLocalScope).toString());
+    assertThat(findNameType("local", lastLocalScope).toString()).isEqualTo("T");
   }
 
+  @Test
   public void testClassTemplateType8() {
     // Verify that template types used in casts are recognized.
     testSame(
-        "/**\n" +
-        " * @constructor\n" +
-        " * @template T\n" +
-        " */\n" +
-        "function C() {};\n" +
-        "" +
-        "C.prototype.method = function() {\n" +
-        "  var local = /** @type {T} */ (x);" +
-        "}\n");
-    assertEquals("T", findNameType("local", lastLocalScope).toString());
+        externs("/** @type {?} */ let unknown;"),
+        srcs(
+            lines(
+                "/**",
+                " * @constructor",
+                " * @template T",
+                " */",
+                "function C() {};",
+                "",
+                "C.prototype.method = function() {",
+                "  var local = /** @type {T} */ (unknown);",
+                "}")));
+    assertThat(findNameType("local", lastLocalScope).toString()).isEqualTo("T");
   }
 
+  @Test
   public void testClassTemplateInheritance1() {
     // Verify that template type inheritance works for prototype properties.
     testSame(
@@ -1628,10 +3594,11 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "/** @type {D<string, number>} */ var x = new D();\n" +
         "var result1 = x.foo;\n" +
         "var result2 = x.bar;\n");
-    assertEquals("number", findNameType("result1", globalScope).toString());
-    assertEquals("string", findNameType("result2", globalScope).toString());
+    assertThat(findNameType("result1", globalScope).toString()).isEqualTo("number");
+    assertThat(findNameType("result2", globalScope).toString()).isEqualTo("string");
   }
 
+  @Test
   public void testClassTemplateInheritance2() {
     // Verify that template type inheritance works for properties and methods.
     testSame(
@@ -1657,10 +3624,11 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "/** @type {D<boolean, string>} */ var x = new D();\n" +
         "var result1 = x.method1();\n" +
         "var result2 = x.method2();\n");
-    assertEquals("string", findNameType("result1", globalScope).toString());
-    assertEquals("boolean", findNameType("result2", globalScope).toString());
+    assertThat(findNameType("result1", globalScope).toString()).isEqualTo("string");
+    assertThat(findNameType("result2", globalScope).toString()).isEqualTo("boolean");
   }
 
+  @Test
   public void testClassTemplateInheritance3() {
     // Verify that template type inheritance works when the superclass template
     // types are not specified.
@@ -1687,12 +3655,13 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "/** @type {D<boolean>} */ var x = new D();\n" +
         "var result1 = x.foo;\n" +
         "var result2 = x.bar;\n");
-    assertEquals("?", findNameType("result1", globalScope).toString());
+    assertThat(findNameType("result1", globalScope).toString()).isEqualTo("?");
     // TODO(nicksantos): There's a bug where the template name T clashes between
     // D and C.
-    //assertEquals("boolean", findNameType("result2", globalScope).toString());
+    // assertEquals("boolean", findNameType("result2", globalScope).toString());
   }
 
+  @Test
   public void testClassTemplateInheritance4() {
     // Verify that overriding methods works with template type inheritance.
     testSame(
@@ -1717,9 +3686,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "" +
         "/** @type {D<boolean, string>} */ var x = new D();\n" +
         "var result = x.method();\n");
-    assertEquals("string", findNameType("result", globalScope).toString());
+    assertThat(findNameType("result", globalScope).toString()).isEqualTo("string");
   }
 
+  @Test
   public void testClassTemplateInheritance5() {
     // Verify that overriding methods works with template type inheritance.
     testSame(
@@ -1748,11 +3718,12 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "var result1 = x.method2();\n" +
         "var result2 = y.method1();\n" +
         "var result3 = z.method1();\n");
-    assertEquals("string", findNameType("result1", globalScope).toString());
-    assertEquals("boolean", findNameType("result2", globalScope).toString());
-    assertEquals("T", findNameType("result3", globalScope).toString());
+    assertThat(findNameType("result1", globalScope).toString()).isEqualTo("string");
+    assertThat(findNameType("result2", globalScope).toString()).isEqualTo("boolean");
+    assertThat(findNameType("result3", globalScope).toString()).isEqualTo("T");
   }
 
+  @Test
   public void testClosureParameterTypesWithoutJSDoc() {
     testSame(
         "/**\n" +
@@ -1760,284 +3731,263 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         " */\n" +
         "function foo(bar) {}\n" +
         "foo(function(baz) { var f = baz; })\n");
-    assertEquals("Object", findNameType("f", lastLocalScope).toString());
+    assertThat(findNameType("f", lastLocalScope).toString()).isEqualTo("Object");
   }
 
+  @Test
   public void testDuplicateExternProperty1() {
     testSame(
         "/** @constructor */ function Foo() {}"
             + "Foo.prototype.bar;"
             + "/** @type {number} */ Foo.prototype.bar; var x = (new Foo).bar;");
-    assertEquals("number", findNameType("x", globalScope).toString());
+    assertThat(findNameType("x", globalScope).toString()).isEqualTo("number");
   }
 
+  @Test
   public void testDuplicateExternProperty2() {
     testSame(
         "/** @constructor */ function Foo() {}"
             + "/** @type {number} */ Foo.prototype.bar;"
             + "Foo.prototype.bar; var x = (new Foo).bar;");
-    assertEquals("number", findNameType("x", globalScope).toString());
+    assertThat(findNameType("x", globalScope).toString()).isEqualTo("number");
   }
 
+  @Test
   public void testAbstractMethod() {
     testSame(
         "/** @type {!Function} */ var abstractMethod;" +
         "/** @constructor */ function Foo() {}" +
         "/** @param {number} x */ Foo.prototype.bar = abstractMethod;");
-    assertEquals(
-        "Function", findNameType("abstractMethod", globalScope).toString());
+    assertThat(findNameType("abstractMethod", globalScope).toString()).isEqualTo("Function");
 
     FunctionType ctor = (FunctionType) findNameType("Foo", globalScope);
     ObjectType instance = ctor.getInstanceType();
-    assertEquals("Foo", instance.toString());
+    assertThat(instance.toString()).isEqualTo("Foo");
 
     ObjectType proto = instance.getImplicitPrototype();
-    assertEquals("Foo.prototype", proto.toString());
+    assertThat(proto.toString()).isEqualTo("Foo.prototype");
 
-    assertEquals(
-        "function(this:Foo, number): ?",
-        proto.getPropertyType("bar").toString());
+    assertThat(proto.getPropertyType("bar").toString()).isEqualTo("function(this:Foo, number): ?");
   }
 
+  @Test
   public void testAbstractMethod2() {
     testSame(
         "/** @type {!Function} */ var abstractMethod;" +
         "/** @param {number} x */ var y = abstractMethod;");
-    assertEquals(
-        "Function",
-        findNameType("y", globalScope).toString());
-    assertEquals(
-        "function(number): ?",
-        globalScope.getVar("y").getType().toString());
+    assertThat(findNameType("y", globalScope).toString()).isEqualTo("Function");
+    assertThat(globalScope.getVar("y").getType().toString()).isEqualTo("function(number): ?");
   }
 
+  @Test
   public void testAbstractMethod3() {
     testSame(
         "/** @type {!Function} */ var abstractMethod;" +
         "/** @param {number} x */ var y = abstractMethod; y;");
-    assertEquals(
-        "function(number): ?",
-        findNameType("y", globalScope).toString());
+    assertThat(findNameType("y", globalScope).toString()).isEqualTo("function(number): ?");
   }
 
+  @Test
   public void testAbstractMethod4() {
     testSame(
         "/** @type {!Function} */ var abstractMethod;" +
         "/** @constructor */ function Foo() {}" +
         "Foo.prototype = {/** @param {number} x */ bar: abstractMethod};");
-    assertEquals(
-        "Function", findNameType("abstractMethod", globalScope).toString());
+    assertThat(findNameType("abstractMethod", globalScope).toString()).isEqualTo("Function");
 
     FunctionType ctor = (FunctionType) findNameType("Foo", globalScope);
     ObjectType instance = ctor.getInstanceType();
-    assertEquals("Foo", instance.toString());
+    assertThat(instance.toString()).isEqualTo("Foo");
 
     ObjectType proto = instance.getImplicitPrototype();
-    assertEquals("Foo.prototype", proto.toString());
+    assertThat(proto.toString()).isEqualTo("Foo.prototype");
 
-    assertEquals(
-        // should be: "function(this:Foo, number): ?"
-        "function(this:Foo, number): ?",
-        proto.getPropertyType("bar").toString());
+    assertType(proto.getPropertyType("bar")).toStringIsEqualTo("function(this:Foo, number): ?");
   }
 
+  @Test
   public void testReturnTypeInference1() {
     testSame("function f() {}");
-    assertEquals(
-        "function(): undefined",
-        findNameType("f", globalScope).toString());
+    assertThat(findNameType("f", globalScope).toString()).isEqualTo("function(): undefined");
   }
 
+  @Test
   public void testReturnTypeInference2() {
     testSame("/** @return {?} */ function f() {}");
-    assertEquals(
-        "function(): ?",
-        findNameType("f", globalScope).toString());
+    assertThat(findNameType("f", globalScope).toString()).isEqualTo("function(): ?");
   }
 
+  @Test
   public void testReturnTypeInference3() {
     testSame("function f() {x: return 3;}");
-    assertEquals(
-        "function(): ?",
-        findNameType("f", globalScope).toString());
+    assertThat(findNameType("f", globalScope).toString()).isEqualTo("function(): ?");
   }
 
+  @Test
   public void testReturnTypeInference4() {
-    testSame("function f() { throw Error(); }");
-    assertEquals(
-        "function(): ?",
-        findNameType("f", globalScope).toString());
+    testSame("function f() { throw 'error'; }");
+    assertThat(findNameType("f", globalScope).toString()).isEqualTo("function(): ?");
   }
 
+  @Test
   public void testReturnTypeInference5() {
     testSame("function f() { if (true) { return 1; } }");
-    assertEquals(
-        "function(): ?",
-        findNameType("f", globalScope).toString());
+    assertThat(findNameType("f", globalScope).toString()).isEqualTo("function(): ?");
   }
 
+  @Test
   public void testLiteralTypesInferred() {
     testSame("null + true + false + 0 + '' + {}");
-    assertEquals(
-        "null", findTokenType(Token.NULL, globalScope).toString());
-    assertEquals(
-        "boolean", findTokenType(Token.TRUE, globalScope).toString());
-    assertEquals(
-        "boolean", findTokenType(Token.FALSE, globalScope).toString());
-    assertEquals(
-        "number", findTokenType(Token.NUMBER, globalScope).toString());
-    assertEquals(
-        "string", findTokenType(Token.STRING, globalScope).toString());
-    assertEquals(
-        "{}", findTokenType(Token.OBJECTLIT, globalScope).toString());
+    assertThat(findTokenType(Token.NULL, globalScope).toString()).isEqualTo("null");
+    assertThat(findTokenType(Token.TRUE, globalScope).toString()).isEqualTo("boolean");
+    assertThat(findTokenType(Token.FALSE, globalScope).toString()).isEqualTo("boolean");
+    assertThat(findTokenType(Token.NUMBER, globalScope).toString()).isEqualTo("number");
+    assertThat(findTokenType(Token.STRING, globalScope).toString()).isEqualTo("string");
+    assertThat(findTokenType(Token.OBJECTLIT, globalScope).toString()).isEqualTo("{}");
   }
 
+  @Test
   public void testGlobalQualifiedNameInLocalScope() {
     testSame(
         "var ns = {}; " +
         "(function() { " +
         "    /** @param {number} x */ ns.foo = function(x) {}; })();" +
         "(function() { ns.foo(3); })();");
-    assertNotNull(globalScope.getVar("ns.foo"));
-    assertEquals(
-        "function(number): undefined",
-        globalScope.getVar("ns.foo").getType().toString());
+    assertThat(globalScope.getVar("ns.foo")).isNotNull();
+    assertThat(globalScope.getVar("ns.foo").getType().toString())
+        .isEqualTo("function(number): undefined");
   }
 
-  public void testDeclaredObjectLitProperty1() throws Exception {
+  @Test
+  public void testDeclaredObjectLitProperty1() {
     testSame("var x = {/** @type {number} */ y: 3};");
     ObjectType xType = ObjectType.cast(globalScope.getVar("x").getType());
-    assertEquals(
-        "number",
-         xType.getPropertyType("y").toString());
-    assertEquals(
-        "{y: number}",
-        xType.toString());
+    assertThat(xType.getPropertyType("y").toString()).isEqualTo("number");
+    assertThat(xType.toString()).isEqualTo("{y: number}");
   }
 
-  public void testDeclaredObjectLitProperty2() throws Exception {
+  @Test
+  public void testDeclaredObjectLitProperty2() {
     testSame("var x = {/** @param {number} z */ y: function(z){}};");
     ObjectType xType = ObjectType.cast(globalScope.getVar("x").getType());
-    assertEquals(
-        "function(number): undefined",
-         xType.getPropertyType("y").toString());
-    assertEquals(
-        "{y: function(number): undefined}",
-        xType.toString());
+    assertThat(xType.getPropertyType("y").toString()).isEqualTo("function(number): undefined");
+    assertThat(xType.toString()).isEqualTo("{y: function(number): undefined}");
   }
 
-  public void testDeclaredObjectLitProperty3() throws Exception {
+  @Test
+  public void testDeclaredObjectLitProperty3() {
     testSame("function f() {" +
         "  var x = {/** @return {number} */ y: function(z){ return 3; }};" +
         "}");
     ObjectType xType = ObjectType.cast(lastLocalScope.getVar("x").getType());
-    assertEquals(
-        "function(?): number",
-         xType.getPropertyType("y").toString());
-    assertEquals(
-        "{y: function(?): number}",
-        xType.toString());
+    assertThat(xType.getPropertyType("y").toString()).isEqualTo("function(?): number");
+    assertThat(xType.toString()).isEqualTo("{y: function(?): number}");
   }
 
-  public void testDeclaredObjectLitProperty4() throws Exception {
+  @Test
+  public void testDeclaredObjectLitProperty4() {
     testSame("var x = {y: 5, /** @type {number} */ z: 3};");
     ObjectType xType = ObjectType.cast(globalScope.getVar("x").getType());
-    assertEquals(
-        "number", xType.getPropertyType("y").toString());
-    assertFalse(xType.isPropertyTypeDeclared("y"));
-    assertTrue(xType.isPropertyTypeDeclared("z"));
-    assertEquals(
-        "{y: number, z: number}",
-        xType.toString());
+    assertThat(xType.getPropertyType("y").toString()).isEqualTo("number");
+    assertThat(xType.isPropertyTypeDeclared("y")).isFalse();
+    assertThat(xType.isPropertyTypeDeclared("z")).isTrue();
+    assertThat(xType.toString()).isEqualTo("{y: number, z: number}");
   }
 
-  public void testDeclaredObjectLitProperty5() throws Exception {
+  @Test
+  public void testDeclaredObjectLitProperty5() {
     testSame("var x = {/** @type {number} */ prop: 3};" +
              "function f() { var y = x.prop; }");
     JSType yType = lastLocalScope.getVar("y").getType();
-    assertEquals("number", yType.toString());
+    assertThat(yType.toString()).isEqualTo("number");
   }
 
-  public void testDeclaredObjectLitProperty6() throws Exception {
+  @Test
+  public void testDeclaredObjectLitProperty6() {
     testSame("var x = {/** This is JsDoc */ prop: function(){}};");
     TypedVar prop = globalScope.getVar("x.prop");
     JSType propType = prop.getType();
-    assertEquals("function(): undefined", propType.toString());
-    assertFalse(prop.isTypeInferred());
-    assertFalse(
-        ObjectType.cast(globalScope.getVar("x").getType())
-        .isPropertyTypeInferred("prop"));
+    assertThat(propType.toString()).isEqualTo("function(): undefined");
+    assertThat(prop.isTypeInferred()).isFalse();
+    assertThat(ObjectType.cast(globalScope.getVar("x").getType()).isPropertyTypeInferred("prop"))
+        .isFalse();
   }
 
-  public void testInferredObjectLitProperty1() throws Exception {
+  @Test
+  public void testInferredObjectLitProperty1() {
     testSame("var x = {prop: 3};");
     TypedVar prop = globalScope.getVar("x.prop");
     JSType propType = prop.getType();
-    assertEquals("number", propType.toString());
-    assertTrue(prop.isTypeInferred());
-    assertTrue(
-        ObjectType.cast(globalScope.getVar("x").getType())
-        .isPropertyTypeInferred("prop"));
+    assertThat(propType.toString()).isEqualTo("number");
+    assertThat(prop.isTypeInferred()).isTrue();
+    assertThat(ObjectType.cast(globalScope.getVar("x").getType()).isPropertyTypeInferred("prop"))
+        .isTrue();
   }
 
-  public void testInferredObjectLitProperty2() throws Exception {
+  @Test
+  public void testInferredObjectLitProperty2() {
     testSame("var x = {prop: function(){}};");
     TypedVar prop = globalScope.getVar("x.prop");
     JSType propType = prop.getType();
-    assertEquals("function(): undefined", propType.toString());
-    assertTrue(prop.isTypeInferred());
-    assertTrue(
-        ObjectType.cast(globalScope.getVar("x").getType())
-        .isPropertyTypeInferred("prop"));
+    assertThat(propType.toString()).isEqualTo("function(): undefined");
+    assertThat(prop.isTypeInferred()).isTrue();
+    assertThat(ObjectType.cast(globalScope.getVar("x").getType()).isPropertyTypeInferred("prop"))
+        .isTrue();
   }
 
-  public void testDeclaredConstType1() throws Exception {
+  @Test
+  public void testDeclaredConstType1() {
     testSame(
         "/** @const */ var x = 3;" +
         "function f() { var y = x; }");
     JSType yType = lastLocalScope.getVar("y").getType();
-    assertEquals("number", yType.toString());
+    assertThat(yType.toString()).isEqualTo("number");
   }
 
-  public void testDeclaredConstType2() throws Exception {
+  @Test
+  public void testDeclaredConstType2() {
     testSame(
         "/** @const */ var x = {};" +
         "function f() { var y = x; }");
     JSType yType = lastLocalScope.getVar("y").getType();
-    assertEquals("{}", yType.toString());
+    assertThat(yType.toString()).isEqualTo("{}");
   }
 
-  public void testDeclaredConstType3() throws Exception {
+  @Test
+  public void testDeclaredConstType3() {
     testSame(
         "/** @const */ var x = {};" +
         "/** @const */ x.z = 'hi';" +
         "function f() { var y = x.z; }");
     JSType yType = lastLocalScope.getVar("y").getType();
-    assertEquals("string", yType.toString());
+    assertThat(yType.toString()).isEqualTo("string");
   }
 
-  public void testDeclaredConstType4() throws Exception {
+  @Test
+  public void testDeclaredConstType4() {
     testSame(
         "/** @constructor */ function Foo() {}" +
         "/** @const */ Foo.prototype.z = 'hi';" +
         "function f() { var y = (new Foo()).z; }");
     JSType yType = lastLocalScope.getVar("y").getType();
-    assertEquals("string", yType.toString());
+    assertThat(yType.toString()).isEqualTo("string");
 
     ObjectType fooType =
         ((FunctionType) globalScope.getVar("Foo").getType()).getInstanceType();
-    assertTrue(fooType.isPropertyTypeDeclared("z"));
+    assertThat(fooType.isPropertyTypeDeclared("z")).isTrue();
   }
 
-  public void testDeclaredConstType5a() throws Exception {
+  @Test
+  public void testDeclaredConstType5a() {
     testSame(
         "/** @const */ var goog = goog || {};" +
         "function f() { var y = goog; }");
     JSType yType = lastLocalScope.getVar("y").getType();
-    assertEquals("{}", yType.toString());
+    assertThat(yType.toString()).isEqualTo("{}");
   }
 
-  public void testDeclaredConstType6() throws Exception {
+  @Test
+  public void testDeclaredConstType6() {
     testSame(
         "/** " +
         " * @param {{y:string}} a\n" +
@@ -2046,58 +3996,95 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "var C = function(a) { /** @const */ this.x = a.y;};\n" +
         "var instance = new C({y:'str'})");
     ObjectType instance = (ObjectType) findNameType("instance", globalScope);
-    assertEquals("C", instance.toString());
-    assertTrue(instance.hasProperty("x"));
-    assertEquals("string",
-        instance.getPropertyType("x").toString());
-    assertFalse(instance.isPropertyTypeInferred("x"));
+    assertThat(instance.toString()).isEqualTo("C");
+    assertThat(instance.hasProperty("x")).isTrue();
+    assertThat(instance.getPropertyType("x").toString()).isEqualTo("string");
+    assertThat(instance.isPropertyTypeInferred("x")).isFalse();
   }
 
-  public void testBadCtorInit1() throws Exception {
+  @Test
+  public void testBadCtorInit1() {
     testWarning("/** @constructor */ var f;", CTOR_INITIALIZER);
   }
 
-  public void testBadCtorInit2() throws Exception {
+  @Test
+  public void testBadCtorInit2() {
     testWarning("var x = {}; /** @constructor */ x.f;", CTOR_INITIALIZER);
   }
 
-  public void testBadIfaceInit1() throws Exception {
+  @Test
+  public void testBadIfaceInit1() {
     testWarning("/** @interface */ var f;", IFACE_INITIALIZER);
   }
 
-  public void testBadIfaceInit2() throws Exception {
+  @Test
+  public void testBadIfaceInit2() {
     testWarning("var x = {}; /** @interface */ x.f;", IFACE_INITIALIZER);
   }
 
+  @Test
   public void testDeclaredCatchExpression1() {
     testSame(
         "try {} catch (e) {}");
-    // Note: "e" actually belongs to a inner scope but we don't
-    // model catches as separate scopes currently.
-    assertNull(globalScope.getVar("e").getType());
+    assertThat(lastLocalScope.getVar("e").getType()).isNull();
   }
 
+  @Test
   public void testDeclaredCatchExpression2() {
     testSame(
         "try {} catch (/** @type {string} */ e) {}");
-    // Note: "e" actually belongs to a inner scope but we don't
-    // model catches as separate scopes currently.
-    assertEquals("string", globalScope.getVar("e").getType().toString());
+    assertThat(lastLocalScope.getVar("e").getType().toString()).isEqualTo("string");
   }
 
+  @Test
+  public void testDestructuringCatch() {
+    testSame(
+        "try {} catch ({/** string */ message, /** number */ errno}) {}");
+    assertType(lastLocalScope.getVar("message").getType()).toStringIsEqualTo("string");
+    assertType(lastLocalScope.getVar("errno").getType()).toStringIsEqualTo("number");
+  }
+
+  @Test
+  public void testDuplicateCatchVariableNames() {
+    testSame(
+        lines(
+            "try {}", // preserve newlines
+            "catch (err) {",
+            "  FIRST_CATCH: err;",
+            "}",
+            "try {}",
+            "catch (err) {",
+            "  SECOND_CATCH: err;",
+            "}",
+            ""));
+    TypedScope firstCatchScope = getLabeledStatement("FIRST_CATCH").enclosingScope;
+    assertScope(firstCatchScope).declares("err").directly();
+    TypedVar firstErrVar = firstCatchScope.getVar("err");
+
+    TypedScope secondCatchScope = getLabeledStatement("SECOND_CATCH").enclosingScope;
+    assertScope(firstCatchScope).declares("err").directly();
+    assertThat(firstCatchScope).isNotSameAs(secondCatchScope);
+
+    TypedVar secondErrVar = secondCatchScope.getVar("err");
+    assertThat(firstErrVar).isNotSameAs(secondErrVar);
+  }
+
+  @Test
   public void testGenerator1() {
     testSame("function *gen() { yield 1; } var g = gen();");
-    assertEquals("function(): Generator<?>", findNameType("gen", globalScope).toString());
-    assertEquals("Generator<?>", findNameType("g", globalScope).toString());
+    assertThat(findNameType("gen", globalScope).toString()).isEqualTo("function(): Generator<?>");
+    assertThat(findNameType("g", globalScope).toString()).isEqualTo("Generator<?>");
   }
 
+  @Test
   public void testGenerator2() {
     testSame("var gen = function *() { yield 1; }; var g = gen();");
-    assertEquals("function(): Generator<?>", findNameType("gen", globalScope).toString());
-    assertEquals("Generator<?>", findNameType("g", globalScope).toString());
+    assertThat(findNameType("gen", globalScope).toString()).isEqualTo("function(): Generator<?>");
+    assertThat(findNameType("g", globalScope).toString()).isEqualTo("Generator<?>");
   }
 
   // Just check that this doesn't cause a StackOverflowError.
+  @Test
   public void testArgumentsStackOverflow() {
     String js = lines(
         "/**",
@@ -2107,7 +4094,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "",
         "function getStackTrace() {",
         "  try {",
-        "    throw new Error();",
+        "    throw 'error';",
         "  } catch (e) {",
         "    return 0;",
         "  }",
@@ -2120,18 +4107,101 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     testSame(js);
   }
 
-  public void testMemoization() throws Exception {
+  @Test
+  public void testSpreadInIifeBlocksTypeInference() {
+    testSame(
+        lines(
+            "const /** !Array<string> */ arr = [];",
+            "(function (x = 4, y = 5) {})(...arr, undefined);"));
+
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("?");
+
+    TypedVar yVar = checkNotNull(lastFunctionScope.getVar("y"));
+    assertType(yVar.getType()).toStringIsEqualTo("?");
+  }
+
+  @Test
+  public void testAliasTypeFromClass() {
+    testSame(
+        lines(
+            "class Foo {};",
+            "/** @enum {number} */ Foo.E = {A: 1};",
+            "const F = Foo;",
+            "const E = F.E;"));
+    assertThat(findNameType("E", globalScope).toString()).isEqualTo("enum{Foo.E}");
+  }
+
+  @Test
+  public void testAliasTypeFromNamespace() {
+    testSame(
+        lines(
+            "const Foo = {};",
+            "/** @enum {number} */ Foo.E = {A: 1};",
+            "const F = Foo;",
+            "const E = F.E;"));
+    assertThat(findNameType("E", globalScope).toString()).isEqualTo("enum{Foo.E}");
+  }
+
+  @Test
+  public void testAliasTypeFromClassPrototype() {
+    // This is very weird but falls out of how we module types.
+    testSame(
+        lines(
+            "class Foo {}",
+            "/** @enum {number} */ Foo.prototype.E = {A: 1};",
+            "const F = new Foo();",
+            "const E = F.E;"));
+    assertThat(findNameType("E", globalScope).toString()).isEqualTo("enum{Foo.prototype.E}");
+  }
+
+  @Test
+  public void testAliasTypedef() {
+    testSame(
+        lines(
+            "/** @typedef {number} */ let Foo;", //
+            "const E = Foo;",
+            "/** @type {E} */ let x;"));
+    assertThat(findNameType("x", globalScope).toString()).isEqualTo("number");
+  }
+
+  @Test
+  public void testAliasTypedefFromNamespace() {
+    testSame(
+        lines(
+            "const Foo = {};",
+            "/** @typedef {number} */ Foo.E;",
+            "const E = Foo.E;",
+            "/** @type {E} */ let x;"));
+    assertThat(findNameType("x", globalScope).toString()).isEqualTo("number");
+  }
+
+  @Test
+  public void testAliasTypedefFromNamespaceAlias() {
+    testSame(
+        lines(
+            "const Foo = {};",
+            "/** @typedef {number} */ Foo.E;",
+            "const F = Foo;",
+            "const E = F.E;",
+            "/** @type {E} */ let x;"));
+    assertThat(findNameType("x", globalScope).toString()).isEqualTo("number");
+  }
+
+  @Test
+  public void testMemoization() {
     Node root1 = createEmptyRoot();
     Node root2 = createEmptyRoot();
     Compiler compiler = new Compiler();
     compiler.initOptions(new CompilerOptions());
     TypedScopeCreator creator = new TypedScopeCreator(compiler);
     TypedScope scopeA = creator.createScope(root1, null);
-    assertSame(scopeA, creator.createScope(root1, null));
-    assertNotSame(scopeA, creator.createScope(root2, null));
+    assertThat(creator.createScope(root1, null)).isSameAs(scopeA);
+    assertThat(creator.createScope(root2, null)).isNotSameAs(scopeA);
   }
 
-  public void testMemoizationPreconditionCheck() throws Exception {
+  @Test
+  public void testMemoizationPreconditionCheck() {
     Compiler compiler = new Compiler();
     compiler.initOptions(new CompilerOptions());
     Node root = createEmptyRoot();
@@ -2140,8 +4210,9 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
 
     try {
       creator.createScope(root, scopeA);
-      fail("Expected an IllegalStateException");
-    } catch (IllegalStateException expected) {}
+      assertWithMessage("Expected an IllegalStateException").fail();
+    } catch (IllegalStateException expected) {
+    }
   }
 
   private static Node createEmptyRoot() {
@@ -2150,15 +4221,15 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     return root;
   }
 
-  private JSType findNameType(final String name, TypedScope scope) {
+  private JSType findNameType(String name, TypedScope scope) {
     return findTypeOnMatchedNode(n -> n.matchesQualifiedName(name), scope);
   }
 
-  private String findNameTypeStr(final String name, TypedScope scope) {
+  private String findNameTypeStr(String name, TypedScope scope) {
     return findNameType(name, scope).toString();
   }
 
-  private JSType findTokenType(final Token type, TypedScope scope) {
+  private JSType findTokenType(Token type, TypedScope scope) {
     return findTypeOnMatchedNode(n -> type == n.getToken(), scope);
   }
 

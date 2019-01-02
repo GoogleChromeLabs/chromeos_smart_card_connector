@@ -23,11 +23,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.debugging.sourcemap.FilePosition;
 import com.google.javascript.jscomp.CodePrinter.Builder.CodeGeneratorFactory;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.Token;
-import com.google.javascript.rhino.TypeIRegistry;
+import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -145,43 +145,54 @@ public final class CodePrinter {
     }
 
     /**
-     * Reports to the code consumer that the given line has been cut at the
-     * given position, i.e. a \n has been inserted there. Or that a cut has
-     * been undone, i.e. a previously inserted \n has been removed.
-     * All mappings in the source maps after that position will be renormalized
-     * as needed.
+     * Reports to the code consumer that the given line has been cut at the given position, i.e. a
+     * \n has been inserted there. Or that a cut has been undone, i.e. a previously inserted \n has
+     * been removed. All mappings in the source maps after that position will be renormalized as
+     * needed.
+     *
+     * @param lineIndex The index of the line at which the newline was inserted/removed.
+     * @param charIndex The position on the line at which the newline was inserted./removed
+     * @param insertion True if a newline was inserted, false if a newline was removed.
+     * @param lastLineContainsLineBreaks True if the last line contains line breaks. This is useful
+     *     when the last line is a template literal that spans multiple lines.
      */
-    void reportLineCut(int lineIndex, int charIndex, boolean insertion) {
+    void reportLineCut(
+        int lineIndex, int charIndex, boolean insertion, boolean lastLineContainsLineBreaks) {
       if (createSrcMap) {
         for (Mapping mapping : allMappings) {
-          mapping.start = convertPosition(mapping.start, lineIndex, charIndex,
-              insertion);
+          mapping.start =
+              convertPosition(
+                  mapping.start, lineIndex, charIndex, insertion, lastLineContainsLineBreaks);
 
           if (mapping.end != null) {
-            mapping.end = convertPosition(mapping.end, lineIndex, charIndex,
-                insertion);
+            mapping.end =
+                convertPosition(
+                    mapping.end, lineIndex, charIndex, insertion, lastLineContainsLineBreaks);
           }
         }
       }
     }
 
     /**
-     * Converts the given position by normalizing it against the insertion
-     * or removal of a newline at the given line and character position.
+     * Converts the given position by normalizing it against the insertion or removal of a newline
+     * at the given line and character position.
      *
-     * @param position The existing position before the newline was inserted.
-     * @param lineIndex The index of the line at which the newline was inserted.
-     * @param characterPosition The position on the line at which the newline
-     *     was inserted.
-     * @param insertion True if a newline was inserted, false if a newline was
-     *     removed.
-     *
+     * @param position The existing position before the newline was inserted/removed.
+     * @param lineIndex The index of the line at which the newline was inserted/removed.
+     * @param characterPosition The position on the line at which the newline was inserted.
+     * @param insertion True if a newline was inserted, false if a newline was removed.
+     * @param lastLineContainsLineBreaks True if the last line contains line breaks. This is useful
+     *     when the last line is a template literal that spans multiple lines.
      * @return The normalized position.
-     * @throws IllegalStateException if an attempt to reverse a line cut is
-     *     made on a previous line rather than the current line.
+     * @throws IllegalStateException if an attempt to reverse a line cut is made on a previous line
+     *     rather than the current line.
      */
-    private static FilePosition convertPosition(FilePosition position, int lineIndex,
-                                                int characterPosition, boolean insertion) {
+    private static FilePosition convertPosition(
+        FilePosition position,
+        int lineIndex,
+        int characterPosition,
+        boolean insertion,
+        boolean lastLineContainsLineBreaks) {
       int originalLine = position.getLine();
       int originalChar = position.getColumn();
       if (insertion) {
@@ -198,11 +209,14 @@ public final class CodePrinter {
           return new FilePosition(
               originalLine - 1, originalChar + characterPosition);
         } else if (originalLine > lineIndex) {
+          if (lastLineContainsLineBreaks) {
+            return new FilePosition(originalLine - 1, originalChar);
+          } else {
             // Not supported, can only undo a cut on the most recent line. To
             // do this on a previous lines would require reevaluating the cut
             // positions on all subsequent lines.
-            throw new IllegalStateException(
-                "Cannot undo line cut on a previous line.");
+            throw new IllegalStateException("Cannot undo line cut on a previous line.");
+          }
         } else {
           return position;
         }
@@ -478,7 +492,7 @@ public final class CodePrinter {
      */
     @Override
     boolean breakAfterBlockFor(Node n,  boolean isStatementContext) {
-      checkState(n.isNormalBlock(), n);
+      checkState(n.isBlock(), n);
       Node parent = n.getParent();
       Token type = parent.getToken();
       switch (type) {
@@ -648,7 +662,7 @@ public final class CodePrinter {
           int position = preferredBreakPosition;
           code.insert(position, '\n');
           prevCutPosition = position;
-          reportLineCut(lineIndex, position - lineStartPosition, true);
+          reportLineCut(lineIndex, position - lineStartPosition, true, false);
           lineIndex++;
           lineLength -= (position - lineStartPosition);
           prevLineStartPosition = lineStartPosition;
@@ -675,15 +689,25 @@ public final class CodePrinter {
         append(";");
         startNewLine();
       } else if (prevCutPosition > 0) {
+
         // Shift the previous break to end of file by replacing it with a
         // <space> and adding a new break at end of file. Adding the space
         // handles cases like instanceof\nfoo. (it would be nice to avoid this)
         code.setCharAt(prevCutPosition, ' ');
         lineStartPosition = prevLineStartPosition;
-        lineLength = code.length() - lineStartPosition;
+        int cutLineIndex = lineIndex;
         // We need +1 to account for the space added few lines above.
         int prevLineEndPosition = prevCutPosition - prevLineStartPosition + 1;
-        reportLineCut(lineIndex, prevLineEndPosition, false);
+        if (code.indexOf("\n", prevCutPosition) != -1) {
+          // having "\n" in the code after prevCutPosition means that the original code had
+          // irremovable \n such as template literals with line breaks.
+          lineLength = code.length() - code.lastIndexOf("\n");
+          cutLineIndex = lineIndex - CharMatcher.is('\n').countIn(code.substring(prevCutPosition));
+          reportLineCut(cutLineIndex, prevLineEndPosition, false, true);
+        } else {
+          lineLength = code.length() - lineStartPosition;
+          reportLineCut(cutLineIndex, prevLineEndPosition, false, false);
+        }
         lineIndex--;
         prevCutPosition = 0;
         prevLineStartPosition = 0;
@@ -705,10 +729,9 @@ public final class CodePrinter {
     private boolean prettyPrint;
     private boolean outputTypes = false;
     private SourceMap sourceMap = null;
-    private boolean tagAsExterns;
     private boolean tagAsTypeSummary;
     private boolean tagAsStrict;
-    private TypeIRegistry registry;
+    private JSTypeRegistry registry;
     private CodeGeneratorFactory codeGeneratorFactory = new CodeGeneratorFactory() {
       @Override
       public CodeGenerator getCodeGenerator(Format outputFormat, CodeConsumer cc) {
@@ -736,7 +759,7 @@ public final class CodePrinter {
       return this;
     }
 
-    public Builder setTypeRegistry(TypeIRegistry registry) {
+    public Builder setTypeRegistry(JSTypeRegistry registry) {
       this.registry = registry;
       return this;
     }
@@ -786,14 +809,6 @@ public final class CodePrinter {
     }
 
     /**
-     * Set whether the output should be tagged as @externs code.
-     */
-    public Builder setTagAsExterns(boolean tagAsExterns) {
-      this.tagAsExterns = tagAsExterns;
-      return this;
-    }
-
-    /**
      * Set whether the output should be tags as ECMASCRIPT 5 Strict.
      */
     public Builder setTagAsStrict(boolean tagAsStrict) {
@@ -828,7 +843,6 @@ public final class CodePrinter {
           options,
           sourceMap,
           tagAsTypeSummary,
-          tagAsExterns,
           tagAsStrict,
           lineBreak,
           codeGeneratorFactory);
@@ -847,7 +861,7 @@ public final class CodePrinter {
       if (outputTypes) {
         return Format.TYPED;
       }
-      if (prettyPrint || options.getLanguageOut() == LanguageMode.ECMASCRIPT6_TYPED) {
+      if (prettyPrint || options.getOutputFeatureSet().contains(FeatureSet.TYPESCRIPT)) {
         return Format.PRETTY;
       }
       return Format.COMPACT;
@@ -861,7 +875,6 @@ public final class CodePrinter {
       CompilerOptions options,
       SourceMap sourceMap,
       boolean tagAsTypeSummary,
-      boolean tagAsExterns,
       boolean tagAsStrict,
       boolean lineBreak,
       CodeGeneratorFactory codeGeneratorFactory) {
@@ -882,9 +895,6 @@ public final class CodePrinter {
             options.sourceMapDetailLevel);
     CodeGenerator cg = codeGeneratorFactory.getCodeGenerator(outputFormat, mcp);
 
-    if (tagAsExterns) {
-      cg.tagAsExterns();
-    }
     if (tagAsTypeSummary) {
       cg.tagAsTypeSummary();
     }
