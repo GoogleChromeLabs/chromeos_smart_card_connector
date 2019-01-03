@@ -42,8 +42,9 @@ var logger = GSC.Logging.getScopedLogger('ConnectorApp.BackgroundMain');
 
 logger.info(
     'The Smart Card Connector app (id "' + chrome.runtime.id + '", version ' +
-    chrome.runtime.getManifest()['version'] + ') background script started');
-logger.info('Browser version: "' + window.navigator.appVersion + '"');
+    chrome.runtime.getManifest()['version'] + ') background script started. ' +
+    'Browser version: "' + window.navigator.appVersion + '". System time: "' +
+    (new Date()).toLocaleString() + '"');
 
 var naclModule = new GSC.NaclModule(
     'nacl_module.nmf', GSC.NaclModule.Type.PNACL);
