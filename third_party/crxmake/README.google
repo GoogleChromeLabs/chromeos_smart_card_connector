@@ -7,3 +7,5 @@ Shell script that builds the extension's CRX package.
 Local Modifications:
 LICENSE file has been created for compliance purposes. Not included in original
 distribution.
+The script was partially rewritten to produce the file in the CRX3 format
+(instead of the deprecated CRX2).
