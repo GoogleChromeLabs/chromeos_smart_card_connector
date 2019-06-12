@@ -59,9 +59,9 @@ $(eval $(call CLEAN_RULE,$(APP_RUN_USER_DATA_DIR_PATH)))
 # <https://developer.chrome.com/webstore/publish>).
 #
 # The ID of the generated App packaged in the .CRX file is controlled by the
-# private key .PEM file. The PEM file, if missing, is automatically generated
-# with some random contents - so, in order to keep ID the same, the PEM file
-# should be preserved.
+# private key .P8 file. The P8 file, if missing, is automatically generated with
+# some random contents - so, in order to keep ID the same, the P8 file should be
+# preserved.
 #
 # The .ZIP archive intended for WebStore, in contrast, has no signature, as
 # WebStore stores the private key internally and signs the App package itself.
@@ -69,13 +69,16 @@ $(eval $(call CLEAN_RULE,$(APP_RUN_USER_DATA_DIR_PATH)))
 
 .PHONY: package
 
-$(TARGET).pem:
-	@rm -f $(TARGET).pem
-	openssl genrsa -out "$(TARGET).pem" 2048
+$(TARGET).p8:
+	@rm -f $(TARGET).p8
+	openssl genpkey -out $(TARGET).p8 -algorithm RSA -pkeyopt rsa_keygen_bits:2048
 
-$(TARGET).crx: all $(TARGET).pem
+$(TARGET).crx: all $(TARGET).p8
 	@rm -f $(TARGET).crx
-	$(THIRD_PARTY_DIR_PATH)/crxmake/src/crxmake.sh "$(OUT_DIR_PATH)" "$(TARGET).pem"
+	$(CHROME_ENV) $(CHROME_PATH) \
+		--pack-extension="$(abspath $(OUT_DIR_PATH))" \
+		--pack-extension-key="$(TARGET).p8"
+	@mv $(OUT_DIR_PATH).crx $(TARGET).crx
 
 $(TARGET)__webstore.zip: all
 	@rm -f "$(TARGET)__webstore.zip"
