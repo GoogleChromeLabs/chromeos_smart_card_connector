@@ -91,10 +91,10 @@ PCSC_LITE_COMMON_CPPFLAGS := \
 
 # Part of the list of the original PC/SC-Lite daemon source files to be
 # compiled (see also PCSC_LITE_SERVER_SVC_SOURCES,
-# PCSC_LITE_SERVER_READERFACTORY_SOURCES variables)
+# PCSC_LITE_SERVER_DEBUGLOG_SOURCES, PCSC_LITE_SERVER_READERFACTORY_SOURCES
+# variables).
 PCSC_LITE_SERVER_SOURCES := \
 	$(PCSC_LITE_SOURCES_PATH)/atrhandler.c \
-	$(PCSC_LITE_SOURCES_PATH)/debuglog.c \
 	$(PCSC_LITE_SOURCES_PATH)/error.c \
 	$(PCSC_LITE_SOURCES_PATH)/eventhandler.c \
 	$(PCSC_LITE_SOURCES_PATH)/hotplug_libusb.c \
@@ -134,12 +134,28 @@ PCSC_LITE_SERVER_SVC_SOURCES := \
 # * close redefinition makes the original PC/SC-Lite code use the function from
 #   the emulated socketpair library (because the emulated socketpair library
 #   generates fake file descriptors, and calling the real close function with
-#   them may cause bad effects)
+#   them may cause bad effects);
+# * no-return-type suppresses spurious compiler errors in cases when it doesn't
+#   recognize calls to library functions that terminate the thread or the
+#   program and bypass returning from a non-void function.
 PCSC_LITE_SERVER_SVC_CPPFLAGS := \
 	$(PCSC_LITE_SERVER_CPPFLAGS) \
 	-Dclose=ServerCloseSession \
+	-Wno-return-type \
 
 $(foreach src,$(PCSC_LITE_SERVER_SVC_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_SVC_CPPFLAGS))))
+
+# Special group just for debuglog.c.
+PCSC_LITE_SERVER_DEBUGLOG_SOURCES := \
+	$(PCSC_LITE_SOURCES_PATH)/debuglog.c \
+
+# * suppress spurious compiler errors due to usage of non-portable in printf
+#   formats.
+PCSC_LITE_SERVER_DEBUGLOG_CPPFLAGS := \
+	$(PCSC_LITE_SERVER_CPPFLAGS) \
+	-Wno-format \
+
+$(foreach src,$(PCSC_LITE_SERVER_DEBUGLOG_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(PCSC_LITE_SERVER_DEBUGLOG_CPPFLAGS))))
 
 # Special group just for readerfactory.c
 PCSC_LITE_SERVER_READERFACTORY_SOURCES := \
@@ -194,6 +210,7 @@ $(foreach src,$(PCSC_LITE_SERVER_NACL_SOURCES),$(eval $(call COMPILE_RULE,$(src)
 SOURCES := \
 	$(PCSC_LITE_SERVER_SOURCES) \
 	$(PCSC_LITE_SERVER_SVC_SOURCES) \
+	$(PCSC_LITE_SERVER_DEBUGLOG_SOURCES) \
 	$(PCSC_LITE_CLIENT_SOURCES) \
 	$(PCSC_LITE_SERVER_NACL_SOURCES) \
 	$(PCSC_LITE_SERVER_READERFACTORY_SOURCES) \
