@@ -5,3 +5,5 @@ License File: LICENSE
 Description:
 The Native Client SDK that allows to build native code for being used on Web
 and in Chrome extensions.
+Fixes were made for making the TLS validation during the SDK's network requests
+work again.
