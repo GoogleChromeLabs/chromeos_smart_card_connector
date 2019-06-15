@@ -203,7 +203,8 @@ def create_fancy_connection(tunnel_host=None, key_file=None,
                                     keyfile=self.key_file,
                                     certfile=self.cert_file,
                                     ca_certs=self.ca_certs,
-                                    cert_reqs=self.cert_reqs)
+                                    cert_reqs=self.cert_reqs,
+                                    ssl_version=ssl.PROTOCOL_TLSv1)
 
         if self.cert_reqs & ssl.CERT_REQUIRED:
           cert = self.sock.getpeercert()
