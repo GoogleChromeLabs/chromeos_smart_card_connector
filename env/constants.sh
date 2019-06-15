@@ -17,7 +17,6 @@
 
 DEPOT_TOOLS_REPOSITORY_URL="https://chromium.googlesource.com/chromium/tools/depot_tools.git"
 
-NACL_SDK_ARCHIVE_URL="https://storage.googleapis.com/nativeclient-mirror/nacl/nacl_sdk/nacl_sdk.zip"
 NACL_SDK_VERSION="47"
 
 WEBPORTS_REPOSITORY_URL="https://chromium.googlesource.com/webports.git"

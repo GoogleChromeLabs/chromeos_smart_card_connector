@@ -40,11 +40,9 @@ initialize_depot_tools() {
 
 initialize_nacl_sdk() {
   log_message "Installing Native Client SDK (version ${NACL_SDK_VERSION})..."
-  curl -o nacl_sdk.zip "${NACL_SDK_ARCHIVE_URL}"
   rm -rf nacl_sdk
-  unzip -q nacl_sdk.zip
-  rm nacl_sdk.zip
-  nacl_sdk/naclsdk install pepper_${NACL_SDK_VERSION}
+  cp -r ../third_party/nacl_sdk/nacl_sdk .
+  python nacl_sdk/sdk_tools/sdk_update_main.py install pepper_${NACL_SDK_VERSION}
   export NACL_SDK_ROOT="${SCRIPTPATH}/nacl_sdk/pepper_${NACL_SDK_VERSION}"
   log_message "Native Client SDK was installed successfully."
 }
