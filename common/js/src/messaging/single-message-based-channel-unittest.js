@@ -123,6 +123,8 @@ goog.exportSymbol('testSingleMessageBasedChannelEstablishing', function() {
   chrome.runtime.sendMessage.$replay();
 
   function onChannelEstablished() {
+    /** @type {?} */ chrome.runtime.sendMessage;
+
     chrome.runtime.sendMessage.$verify();
     testCasePromiseResolver.resolve();
     globalChannel.dispose();
@@ -161,6 +163,8 @@ goog.exportSymbol('testSingleMessageBasedChannelFailureToEstablish',
   }
 
   function onChannelDisposed() {
+    /** @type {?} */ chrome.runtime.sendMessage;
+
     chrome.runtime.sendMessage.$verify();
     testCasePromiseResolver.resolve();
     globalChannel.dispose();
@@ -185,14 +189,18 @@ goog.exportSymbol('testSingleMessageBasedChannelSending', function() {
   /** @type {?} */ chrome.runtime.sendMessage;
 
   for (let testMessage of TEST_MESSAGES) {
-    chrome.runtime.sendMessage(
-        verifyChannelIdMatcher, new goog.testing.mockmatchers.ObjectEquals(
-            testMessage.makeMessage())).$once();
+    let mock = (/** @type {!goog.testing.StrictMock} */ (/** @type {?} */ (
+        chrome.runtime.sendMessage(
+            verifyChannelIdMatcher, new goog.testing.mockmatchers.ObjectEquals(
+                testMessage.makeMessage())))));
+    mock.$once();
   }
 
   chrome.runtime.sendMessage.$replay();
 
   function onChannelEstablished() {
+    /** @type {?} */ chrome.runtime.sendMessage;
+
     for (let testMessage of TEST_MESSAGES) {
       globalChannel.send(testMessage.type, testMessage.data);
     }
@@ -227,6 +235,8 @@ goog.exportSymbol('testSingleMessageBasedChannelReceiving', function() {
   chrome.runtime.sendMessage.$replay();
 
   function onChannelEstablished() {
+    /** @type {?} */ chrome.runtime.sendMessage;
+
     var receivedMessages = [];
 
     for (let testMessage of TEST_MESSAGES) {
@@ -290,6 +300,8 @@ goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
   }
 
   function onChannelDisposed() {
+    /** @type {?} */ chrome.runtime.sendMessage;
+
     assert('Channel wasn\'t successfully established prior to failure',
            channelEstablished);
     assert(globalChannel.isDisposed());
