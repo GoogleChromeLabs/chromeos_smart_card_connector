@@ -38,14 +38,16 @@ import com.google.gson.Gson;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import com.google.javascript.jscomp.CompilerOptions.JsonStreamMode;
+import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.CompilerOptions.OutputJs;
 import com.google.javascript.jscomp.CompilerOptions.TweakProcessing;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.jscomp.deps.SourceCodeEscapers;
+import com.google.javascript.jscomp.ijs.IjsErrors;
+import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
 import com.google.javascript.rhino.TokenStream;
-import com.google.protobuf.CodedOutputStream;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
@@ -64,6 +66,7 @@ import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -242,7 +245,7 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
       Supplier<List<SourceFile>> inputsSupplier,
       Supplier<List<JSModule>> modulesSupplier,
       Function<Integer, Void> exitCodeReceiver) {
-    checkArgument(inputsSupplier == null ^ modulesSupplier == null);
+    checkArgument(inputsSupplier == null != (modulesSupplier == null));
     testMode = true;
     this.externsSupplierForTesting = externsSupplier;
     this.inputsSupplierForTesting = inputsSupplier;
@@ -322,7 +325,7 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
     if (warningGuards != null) {
       for (FlagEntry<CheckLevel> entry : warningGuards) {
         if ("*".equals(entry.value)) {
-          Set<String> groupNames = diagnosticGroups.getRegisteredGroups().keySet();
+          Set<String> groupNames = DiagnosticGroups.getRegisteredGroups().keySet();
           for (String groupName : groupNames) {
             if (!DiagnosticGroups.wildcardExcludedGroups.contains(groupName)) {
               diagnosticGroups.setWarningLevel(options, groupName, entry.flag);
@@ -356,7 +359,31 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
           ShowByPathWarningsGuard.ShowType.EXCLUDE));
     }
 
-    createDefineOrTweakReplacements(config.define, options, false);
+    List<String> define = new ArrayList<>(config.define);
+    if (config.browserFeaturesetYear != 0) {
+      // TODO(b/128873198): Add validation of the year.
+      int currentYear = Calendar.getInstance().get(Calendar.YEAR);
+      if (config.browserFeaturesetYear > currentYear) {
+        throw new FlagUsageException(
+            SimpleFormat.format(
+                "--browser_featureset_year=%d is the latest meaningful value to use", currentYear));
+      } else if (config.browserFeaturesetYear >= 2019) {
+        options.setLanguageOut(LanguageMode.ECMASCRIPT_2017);
+      } else if (config.browserFeaturesetYear > 2012) {
+        throw new FlagUsageException(
+            SimpleFormat.format(
+                "--browser_featureset_year=2019 is the earliest meaningful value"
+                    + " to use after 2012"));
+      } else if (config.browserFeaturesetYear == 2012) {
+        options.setLanguageOut(LanguageMode.ECMASCRIPT5_STRICT);
+      } else {
+        throw new FlagUsageException(
+            SimpleFormat.format(
+                "Illegal --browser_featureset_year: %d", config.browserFeaturesetYear));
+      }
+      define.add(SimpleFormat.format("goog.FEATURESET_YEAR=%d", config.browserFeaturesetYear));
+    }
+    createDefineOrTweakReplacements(define, options, false);
 
     options.setTweakProcessing(config.tweakProcessing);
     createDefineOrTweakReplacements(config.tweak, options, true);
@@ -447,7 +474,6 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
     options.processCommonJSModules = config.processCommonJSModules;
     options.moduleRoots = config.moduleRoots;
     options.angularPass = config.angularPass;
-    options.instrumentationTemplateFile = config.instrumentationTemplateFile;
 
     if (!config.jsonWarningsFile.isEmpty()) {
       options.addReportGenerator(
@@ -551,8 +577,6 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
   /**
    * Creates inputs from a list of files.
    *
-   * <p>Can be overridden by subclasses who want to pull files from different places.
-   *
    * @param files A list of flag entries indicates js and zip file names.
    * @param allowStdIn Whether '-' is allowed appear as a filename to represent stdin. If true, '-'
    *     is only allowed to appear once.
@@ -560,16 +584,14 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
    * @return An array of inputs
    */
   @GwtIncompatible("Unnecessary")
-  protected List<SourceFile> createInputs(
+  private List<SourceFile> createInputs(
       List<FlagEntry<JsSourceType>> files, boolean allowStdIn, List<JsModuleSpec> jsModuleSpecs)
       throws IOException {
-    return createInputs(files, null /* jsonFiles */, allowStdIn, jsModuleSpecs);
+    return createInputs(files, /* jsonFiles= */ null, allowStdIn, jsModuleSpecs);
   }
 
   /**
    * Creates inputs from a list of source files and json files.
-   *
-   * <p>Can be overridden by subclasses who want to pull files from different places.
    *
    * @param files A list of flag entries indicates js and zip file names.
    * @param jsonFiles A list of json encoded files.
@@ -577,12 +599,12 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
    * @return An array of inputs
    */
   @GwtIncompatible("Unnecessary")
-  protected List<SourceFile> createInputs(
+  private List<SourceFile> createInputs(
       List<FlagEntry<JsSourceType>> files,
       List<JsonFileSpec> jsonFiles,
       List<JsModuleSpec> jsModuleSpecs)
       throws IOException {
-    return createInputs(files, jsonFiles, false, jsModuleSpecs);
+    return createInputs(files, jsonFiles, /* allowStdIn= */ false, jsModuleSpecs);
   }
 
   /**
@@ -677,6 +699,72 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
   }
 
   /**
+   * Removes input --ijs files whose basename matches an input --js or --weakdep file.
+   *
+   * @throws FlagUsageException If there are both input --ijs files and module specs.
+   */
+  @GwtIncompatible("Unnecessary")
+  private ImmutableList<JSError> deduplicateIjsFiles(
+      List<FlagEntry<JsSourceType>> files, List<String> moduleRoots, boolean hasModuleSpecs) {
+    ImmutableList.Builder<JSError> errors = ImmutableList.builder();
+
+    // First pass: collect the (module root relative) names of --js and --weakdep files.
+    Map<String, String> relativeToAbsoluteName = new HashMap<>();
+    for (FlagEntry<JsSourceType> file : files) {
+      // TODO(tjgq): Handle zip files.
+      if (file.flag == JsSourceType.JS || file.flag == JsSourceType.WEAKDEP) {
+        String absoluteName = file.value;
+        String relativeName = getModuleRootRelativeName(absoluteName, moduleRoots);
+        relativeToAbsoluteName.put(relativeName, absoluteName);
+      }
+    }
+
+    // Second pass: drop --ijs files whose (module root relative) name matches a --js or --weakdep
+    // file.
+    Iterator<FlagEntry<JsSourceType>> iterator = files.iterator();
+    while (iterator.hasNext()) {
+      FlagEntry<JsSourceType> file = iterator.next();
+      if (file.flag == JsSourceType.IJS) {
+        if (hasModuleSpecs) {
+          throw new FlagUsageException("--ijs is incompatible with --chunk or --module.");
+        }
+        String absoluteName = file.value;
+        if (!absoluteName.endsWith(".i.js")) {
+          errors.add(JSError.make(IjsErrors.BAD_IJS_FILE_NAME, absoluteName));
+          continue;
+        }
+        String relativeName = getModuleRootRelativeName(absoluteName, moduleRoots);
+        String relativeNonIjsName;
+        if (relativeName.endsWith(".starlark_aspect.i.js")) {
+          relativeNonIjsName =
+              relativeName.substring(0, relativeName.length() - ".starlark_aspect.i.js".length());
+        } else {
+          relativeNonIjsName = relativeName.substring(0, relativeName.length() - ".i.js".length());
+        }
+        if (relativeToAbsoluteName.containsKey(relativeNonIjsName)) {
+          errors.add(
+              JSError.make(
+                  IjsErrors.CONFLICTING_IJS_FILE,
+                  relativeToAbsoluteName.get(relativeNonIjsName),
+                  absoluteName));
+          iterator.remove();
+        }
+      }
+    }
+
+    return errors.build();
+  }
+
+  private String getModuleRootRelativeName(String filename, List<String> moduleRoots) {
+    for (String moduleRoot : moduleRoots) {
+      if (filename.startsWith(moduleRoot + "/")) {
+        return filename.substring(moduleRoot.length() + 1);
+      }
+    }
+    return filename;
+  }
+
+  /**
    * Check that relative paths inside zip files are unique, since multiple files with the same path
    * inside different zips are considered duplicate inputs. Parameter {@code sourceFiles} may be
    * modified if duplicates are removed.
@@ -732,7 +820,8 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
   private List<SourceFile> createSourceInputs(
       List<JsModuleSpec> jsModuleSpecs,
       List<FlagEntry<JsSourceType>> files,
-      List<JsonFileSpec> jsonFiles)
+      List<JsonFileSpec> jsonFiles,
+      List<String> moduleRoots)
       throws IOException {
     if (isInTestMode()) {
       return inputsSupplierForTesting != null ? inputsSupplierForTesting.get()
@@ -742,6 +831,11 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
       // Request to read from stdin.
       files = ImmutableList.of(new FlagEntry<JsSourceType>(JsSourceType.JS, "-"));
     }
+
+    for (JSError error : deduplicateIjsFiles(files, moduleRoots, !jsModuleSpecs.isEmpty())) {
+      compiler.report(error);
+    }
+
     try {
       if (jsonFiles != null) {
         return createInputs(files, jsonFiles, jsModuleSpecs);
@@ -977,6 +1071,7 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
    * placeholder where the code should be inserted.
    */
   @GwtIncompatible("Unnecessary")
+  @VisibleForTesting
   void writeOutput(
       Appendable out,
       Compiler compiler,
@@ -1061,13 +1156,11 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
 
     compiler = createCompiler();
     B options = createOptions();
+    setRunOptions(options);
 
     List<SourceFile> externs = createExterns(options);
-
     List<JSModule> modules = null;
     Result result = null;
-
-    setRunOptions(options);
 
     rootRelativePathsMap = constructRootRelativePathsMap();
 
@@ -1124,8 +1217,9 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
     }
 
     compiler.initWarningsGuard(options.getWarningsGuard());
+
     List<SourceFile> inputs =
-        createSourceInputs(jsModuleSpecs, config.mixedJsSources, jsonFiles);
+        createSourceInputs(jsModuleSpecs, config.mixedJsSources, jsonFiles, config.moduleRoots);
     if (!jsModuleSpecs.isEmpty()) {
       if (isInTestMode()) {
         modules = modulesSupplierForTesting.get();
@@ -1365,7 +1459,7 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
     }
 
     // return 0 if no errors, the error count otherwise
-    return Math.min(result.errors.length, 0x7f);
+    return Math.min(result.errors.size(), 0x7f);
   }
 
   @GwtIncompatible("Unnecessary")
@@ -1470,7 +1564,7 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
         String moduleFilename = getModuleOutputFileName(m);
         try (Writer writer = fileNameToLegacyOutputWriter(moduleFilename)) {
           if (options.sourceMapOutputPath != null) {
-            compiler.getSourceMap().reset();
+            compiler.resetAndIntitializeSourceMap();
           }
           writeModuleOutput(writer, m);
           if (options.sourceMapOutputPath != null) {
@@ -1494,7 +1588,7 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
   /** Given an output module, convert it to a JSONFileSpec with associated sourcemap */
   @GwtIncompatible("Unnecessary")
   private JsonFileSpec createJsonFileFromModule(JSModule module) throws IOException {
-    compiler.getSourceMap().reset();
+    compiler.resetAndIntitializeSourceMap();
 
     StringBuilder output = new StringBuilder();
     writeModuleOutput(output, module);
@@ -1775,7 +1869,6 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
 
     String propertyMapOutputPath = null;
     String variableMapOutputPath = null;
-    String functionInformationMapOutputPath = null;
 
     // Check the create_name_map_files FLAG.
     if (config.createNameMapFiles) {
@@ -1783,7 +1876,6 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
 
       propertyMapOutputPath = basePath + "_props_map.out";
       variableMapOutputPath = basePath + "_vars_map.out";
-      functionInformationMapOutputPath = basePath + "_functions_map.out";
     }
 
     // Check the individual FLAGS.
@@ -1812,15 +1904,6 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
 
     if (propertyMapOutputPath != null && compiler.getPropertyMap() != null) {
       compiler.getPropertyMap().save(propertyMapOutputPath);
-    }
-
-    if (functionInformationMapOutputPath != null
-        && compiler.getFunctionalInformationMap() != null) {
-      try (final OutputStream file = filenameToOutputStream(functionInformationMapOutputPath)) {
-        CodedOutputStream outputStream = CodedOutputStream.newInstance(file);
-        compiler.getFunctionalInformationMap().writeTo(outputStream);
-        outputStream.flush();
-      }
     }
   }
 
@@ -2054,6 +2137,11 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
   @VisibleForTesting
   @GwtIncompatible("Unnecessary")
   void printBundleTo(Iterable<CompilerInput> inputs, Appendable out) throws IOException {
+    // Prebuild ASTs before they're needed in getLoadFlags, for performance and because
+    // StackOverflowErrors can be hit if not prebuilt.
+    if (compiler.getOptions().numParallelThreads > 1) {
+      new PrebuildAst(compiler, compiler.getOptions().numParallelThreads).prebuild(inputs);
+    }
     if (!compiler.getOptions().preventLibraryInjection) {
       // ES6 modules will need a runtime in a bundle. Skip appending this runtime if there are no
       // ES6 modules to cut down on size.
@@ -2476,6 +2564,14 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
       return this;
     }
 
+    private Integer browserFeaturesetYear = 0;
+
+    /** Indicates target browser's year */
+    public CommandLineConfig setBrowserFeaturesetYear(Integer browserFeaturesetYear) {
+      this.browserFeaturesetYear = browserFeaturesetYear;
+      return this;
+    }
+
     private final List<String> tweak = new ArrayList<>();
 
     /**
@@ -2641,13 +2737,6 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
       return this;
     }
 
-    private String instrumentationTemplateFile = "";
-
-    public CommandLineConfig setInstrumentationTemplateFile(String fileName) {
-        this.instrumentationTemplateFile = fileName;
-        return this;
-    }
-
     private JsonStreamMode jsonStreamMode = JsonStreamMode.NONE;
 
     public CommandLineConfig setJsonStreamMode(JsonStreamMode mode) {
@@ -2727,13 +2816,14 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
     }
   }
 
-  /** Flag types for js source files. */
+  /** Flag types for JavaScript source files. */
   @GwtIncompatible("Unnecessary")
   protected enum JsSourceType {
     EXTERN("extern"),
     JS("js"),
     JS_ZIP("jszip"),
-    WEAKDEP("weakdep");
+    WEAKDEP("weakdep"),
+    IJS("ijs");
 
     @VisibleForTesting
     final String flagName;

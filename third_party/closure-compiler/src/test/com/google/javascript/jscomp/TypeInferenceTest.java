@@ -21,7 +21,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.CompilerTypeTestCase.lines;
-import static com.google.javascript.jscomp.ScopeSubject.assertScope;
+import static com.google.javascript.jscomp.testing.ScopeSubject.assertScope;
 import static com.google.javascript.rhino.jstype.JSTypeNative.ALL_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.ARRAY_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.BOOLEAN_TYPE;
@@ -36,26 +36,35 @@ import static com.google.javascript.rhino.jstype.JSTypeNative.STRING_OBJECT_TYPE
 import static com.google.javascript.rhino.jstype.JSTypeNative.STRING_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.UNKNOWN_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.VOID_TYPE;
+import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 import static com.google.javascript.rhino.testing.TypeSubject.assertType;
 import static com.google.javascript.rhino.testing.TypeSubject.types;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.javascript.jscomp.CodingConvention.AssertionFunctionSpec;
+import com.google.common.collect.Streams;
+import com.google.javascript.jscomp.CodingConvention.AssertionFunctionLookup;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.DataFlowAnalysis.BranchedFlowState;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
+import com.google.javascript.jscomp.modules.ModuleMapCreator;
+import com.google.javascript.jscomp.testing.ScopeSubject;
 import com.google.javascript.jscomp.type.FlowScope;
 import com.google.javascript.jscomp.type.ReverseAbstractInterpreter;
+import com.google.javascript.rhino.ClosurePrimitive;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.jstype.EnumType;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
+import com.google.javascript.rhino.jstype.StaticTypedRef;
+import com.google.javascript.rhino.jstype.StaticTypedScope;
 import com.google.javascript.rhino.jstype.StaticTypedSlot;
 import com.google.javascript.rhino.jstype.TemplateType;
 import com.google.javascript.rhino.testing.TypeSubject;
@@ -78,15 +87,8 @@ public final class TypeInferenceTest {
   private Map<String, JSType> assumptions;
   private JSType assumedThisType;
   private FlowScope returnScope;
-  // TODO(bradfordcsmith): This should be an ImmutableMap.
-  private static final Map<String, AssertionFunctionSpec> ASSERTION_FUNCTION_MAP = new HashMap<>();
-
-  static {
-    for (AssertionFunctionSpec func :
-        new ClosureCodingConvention().getAssertionFunctions()) {
-      ASSERTION_FUNCTION_MAP.put(func.getFunctionName(), func);
-    }
-  }
+  private static final AssertionFunctionLookup ASSERTION_FUNCTION_MAP =
+      AssertionFunctionLookup.of(new ClosureCodingConvention().getAssertionFunctions());
 
   /**
    * Maps a label name to information about the labeled statement.
@@ -139,21 +141,41 @@ public final class TypeInferenceTest {
     parseAndRunTypeInference("(" + thisBlock + " function() {" + js + "});");
   }
 
+  private void inModule(String js) {
+    Node script = compiler.parseTestCode(js);
+    assertWithMessage("parsing error: " + Joiner.on(", ").join(compiler.getErrors()))
+        .that(compiler.getErrorCount())
+        .isEqualTo(0);
+    Node root = IR.root(IR.root(), IR.root(script));
+    new GatherModuleMetadata(compiler, /* processCommonJsModules= */ false, ResolutionMode.BROWSER)
+        .process(root.getFirstChild(), root.getSecondChild());
+    new ModuleMapCreator(compiler, compiler.getModuleMetadataMap())
+        .process(root.getFirstChild(), root.getSecondChild());
+
+    // SCRIPT -> MODULE_BODY
+    Node moduleBody = script.getFirstChild();
+    parseAndRunTypeInference(root, moduleBody);
+  }
+
   private void inGenerator(String js) {
     checkState(assumedThisType == null);
     parseAndRunTypeInference("(function *() {" + js + "});");
   }
 
   private void parseAndRunTypeInference(String js) {
-    Node root = compiler.parseTestCode(js);
+    Node script = compiler.parseTestCode(js);
+    Node root = IR.root(IR.root(), IR.root(script));
     assertWithMessage("parsing error: " + Joiner.on(", ").join(compiler.getErrors()))
         .that(compiler.getErrorCount())
         .isEqualTo(0);
 
     // SCRIPT -> EXPR_RESULT -> FUNCTION
     // `(function() { TEST CODE HERE });`
-    Node n = root.getFirstFirstChild();
+    Node function = script.getFirstFirstChild();
+    parseAndRunTypeInference(root, function);
+  }
 
+  private void parseAndRunTypeInference(Node root, Node cfgRoot) {
     // Create the scope with the assumptions.
     TypedScopeCreator scopeCreator = new TypedScopeCreator(compiler);
     // Also populate a map allowing us to look up labeled statements later.
@@ -178,13 +200,13 @@ public final class TypeInferenceTest {
             },
             scopeCreator)
         .traverse(root);
-    TypedScope assumedScope = scopeCreator.createScope(n);
+    TypedScope assumedScope = scopeCreator.createScope(cfgRoot);
     for (Map.Entry<String,JSType> entry : assumptions.entrySet()) {
       assumedScope.declare(entry.getKey(), null, entry.getValue(), null, false);
     }
     // Create the control graph.
     ControlFlowAnalysis cfa = new ControlFlowAnalysis(compiler, false, false);
-    cfa.process(null, n);
+    cfa.process(null, cfgRoot);
     ControlFlowGraph<Node> cfg = cfa.getCfg();
     // Create a simple reverse abstract interpreter.
     ReverseAbstractInterpreter rai = compiler.getReverseAbstractInterpreter();
@@ -195,9 +217,15 @@ public final class TypeInferenceTest {
     // Get the scope of the implicit return.
     BranchedFlowState<FlowScope> rtnState =
         cfg.getImplicitReturn().getAnnotation();
-    // Reset the flow scope's syntactic scope to the function block, rather than the function node
-    // itself.  This allows pulling out local vars from the function by name to verify their types.
-    returnScope = rtnState.getIn().withSyntacticScope(scopeCreator.createScope(n.getLastChild()));
+    if (cfgRoot.isFunction()) {
+      // Reset the flow scope's syntactic scope to the function block, rather than the function node
+      // itself.  This allows pulling out local vars from the function by name to verify their
+      // types.
+      returnScope =
+          rtnState.getIn().withSyntacticScope(scopeCreator.createScope(cfgRoot.getLastChild()));
+    } else {
+      returnScope = rtnState.getIn();
+    }
   }
 
   private LabeledStatement getLabeledStatement(String label) {
@@ -237,6 +265,22 @@ public final class TypeInferenceTest {
     StaticTypedSlot var = returnScope.getSlot(name);
     assertWithMessage("The variable " + name + " is missing from the scope.").that(var).isNotNull();
     return var.getType();
+  }
+
+  /** Returns the NAME node {@code name} from the PARAM_LIST of the top level of type inference. */
+  private Node getParamNameNode(String name) {
+    StaticTypedScope staticScope = checkNotNull(returnScope.getDeclarationScope(), returnScope);
+    StaticTypedSlot slot = checkNotNull(staticScope.getSlot(name), staticScope);
+    StaticTypedRef declaration = checkNotNull(slot.getDeclaration(), slot);
+    Node node = checkNotNull(declaration.getNode(), declaration);
+
+    assertNode(node).hasType(Token.NAME);
+    Streams.stream(node.getAncestors())
+        .filter(Node::isParamList)
+        .findFirst()
+        .orElseThrow(AssertionError::new);
+
+    return node;
   }
 
   private void verify(String name, JSType type) {
@@ -459,6 +503,7 @@ public final class TypeInferenceTest {
   @Test
   public void testAssert6() {
     JSType startType = createNullableType(OBJECT_TYPE);
+    assuming("x", getNativeType(UNKNOWN_TYPE)); // Only global qname roots can be undeclared
     assuming("x.y", startType);
     inFunction("out1 = x.y; goog.asserts.assert(x.y); out2 = x.y;");
     verify("out1", startType);
@@ -493,17 +538,6 @@ public final class TypeInferenceTest {
   }
 
   @Test
-  public void testAssert10() {
-    JSType startType = createNullableType(OBJECT_TYPE);
-    assuming("x", startType);
-    assuming("y", startType);
-    inFunction("out1 = x; out2 = goog.asserts.assert(x && y); out3 = x;");
-    verify("out1", startType);
-    verify("out2", OBJECT_TYPE);
-    verify("out3", OBJECT_TYPE);
-  }
-
-  @Test
   public void testAssert11() {
     JSType startType = createNullableType(OBJECT_TYPE);
     assuming("x", startType);
@@ -514,194 +548,322 @@ public final class TypeInferenceTest {
   }
 
   @Test
-  public void testAssertNumber() {
-    JSType startType = createNullableType(ALL_TYPE);
-    assuming("x", startType);
-    inFunction("out1 = x; goog.asserts.assertNumber(x); out2 = x;");
-    verify("out1", startType);
-    verify("out2", NUMBER_TYPE);
-  }
-
-  @Test
-  public void testAssertNumber2() {
-    // Make sure it ignores expressions.
-    JSType startType = createNullableType(ALL_TYPE);
-    assuming("x", startType);
-    inFunction("goog.asserts.assertNumber(x + x); out1 = x;");
-    verify("out1", startType);
-  }
-
-  @Test
-  public void testAssertNumber3() {
-    // Make sure it ignores expressions.
-    JSType startType = createNullableType(ALL_TYPE);
-    assuming("x", startType);
-    inFunction("out1 = x; out2 = goog.asserts.assertNumber(x + x);");
-    verify("out1", startType);
-    verify("out2", NUMBER_TYPE);
-  }
-
-  @Test
-  public void testAssertString() {
-    JSType startType = createNullableType(ALL_TYPE);
-    assuming("x", startType);
-    inFunction("out1 = x; goog.asserts.assertString(x); out2 = x;");
-    verify("out1", startType);
-    verify("out2", STRING_TYPE);
-  }
-
-  @Test
-  public void testAssertFunction() {
-    JSType startType = createNullableType(ALL_TYPE);
-    assuming("x", startType);
-    inFunction("out1 = x; goog.asserts.assertFunction(x); out2 = x;");
-    verify("out1", startType);
-    verifySubtypeOf("out2", FUNCTION_INSTANCE_TYPE);
-  }
-
-  @Test
-  public void testAssertObject() {
-    JSType startType = createNullableType(ALL_TYPE);
-    assuming("x", startType);
-    inFunction("out1 = x; goog.asserts.assertObject(x); out2 = x;");
-    verify("out1", startType);
-    verifySubtypeOf("out2", OBJECT_TYPE);
-  }
-
-  @Test
-  public void testAssertElement() {
-    JSType elementType =
-        registry.createObjectType("Element", registry.getNativeObjectType(OBJECT_TYPE));
-    assuming("x", elementType);
-    inFunction("out1 = x; goog.asserts.assertElement(x); out2 = x;");
-    verify("out1", elementType);
-  }
-
-  @Test
-  public void testAssertObject2() {
-    JSType startType = createNullableType(ARRAY_TYPE);
-    assuming("x", startType);
-    inFunction("out1 = x; goog.asserts.assertObject(x); out2 = x;");
-    verify("out1", startType);
-    verify("out2", ARRAY_TYPE);
-  }
-
-  @Test
-  public void testAssertObject3() {
+  public void testPrimitiveAssertTruthy_narrowsNullableObjectToObject() {
     JSType startType = createNullableType(OBJECT_TYPE);
-    assuming("x.y", startType);
-    inFunction("out1 = x.y; goog.asserts.assertObject(x.y); out2 = x.y;");
+    includePrimitiveTruthyAssertionFunction("assertTruthy");
+    assuming("x", startType);
+
+    inFunction("out1 = x; assertTruthy(x); out2 = x;");
+
     verify("out1", startType);
     verify("out2", OBJECT_TYPE);
   }
 
   @Test
-  public void testAssertObject4() {
-    JSType startType = createNullableType(ARRAY_TYPE);
+  public void testPrimitiveAssertTruthy_narrowsNullableObjectInNeqNullToObject() {
+    JSType startType = createNullableType(OBJECT_TYPE);
+    includePrimitiveTruthyAssertionFunction("assertTruthy");
     assuming("x", startType);
-    inFunction("out1 = x; out2 = goog.asserts.assertObject(x);");
+
+    inFunction("out1 = x; assertTruthy(x !== null); out2 = x;");
+
+    verify("out1", startType);
+    verify("out2", OBJECT_TYPE);
+  }
+
+  @Test
+  public void testPrimitiveAssertTruthy_ignoresSecondArgumentEvenIfNullable() {
+    JSType startType = createNullableType(OBJECT_TYPE);
+    includePrimitiveTruthyAssertionFunction("assertTruthy");
+    assuming("x", startType);
+
+    inFunction("assertTruthy(1, x); out1 = x;");
+
+    verify("out1", startType);
+  }
+
+  @Test
+  public void testAssertNumber_narrowsAllTypeToNumber() {
+    JSType startType = createNullableType(ALL_TYPE);
+    includeGoogAssertionFn("assertNumber", getNativeType(NUMBER_TYPE));
+    assuming("x", startType);
+
+    inFunction("out1 = x; goog.asserts.assertNumber(x); out2 = x;");
+
+    verify("out1", startType);
+    verify("out2", NUMBER_TYPE);
+  }
+
+  @Test
+  public void testAssertNumber_doesNotNarrowNamesInExpression() {
+    // Make sure it ignores expressions.
+    JSType startType = createNullableType(ALL_TYPE);
+    includeGoogAssertionFn("assertNumber", getNativeType(NUMBER_TYPE));
+    assuming("x", startType);
+
+    inFunction("goog.asserts.assertNumber(x + x); out1 = x;");
+
+    verify("out1", startType);
+  }
+
+  @Test
+  public void testAssertNumber_returnsNumberGivenExpression() {
+    // Make sure it ignores expressions.
+    JSType startType = createNullableType(ALL_TYPE);
+    includeGoogAssertionFn("assertNumber", getNativeType(NUMBER_TYPE));
+    assuming("x", startType);
+
+    inFunction("out1 = x; out2 = goog.asserts.assertNumber(x + x);");
+
+    verify("out1", startType);
+    verify("out2", NUMBER_TYPE);
+  }
+
+  @Test
+  public void testPrimitiveAssertNumber_narrowsAllTypeToNumber() {
+    JSType startType = createNullableType(ALL_TYPE);
+    includePrimitiveAssertionFn("assertNumber", getNativeType(NUMBER_TYPE));
+    assuming("x", startType);
+
+    inFunction("out1 = x; assertNumber(x); out2 = x;");
+
+    verify("out1", startType);
+    verify("out2", NUMBER_TYPE);
+  }
+
+  @Test
+  public void testPrimitiveAssertNumber_doesNotNarrowNamesInExpression() {
+    // Make sure it ignores expressions.
+    JSType startType = createNullableType(ALL_TYPE);
+    includePrimitiveAssertionFn("assertNumber", getNativeType(NUMBER_TYPE));
+    assuming("x", startType);
+
+    inFunction("assertNumber(x + x); out1 = x;");
+
+    verify("out1", startType);
+  }
+
+  @Test
+  public void testPrimitiveAssertNumber_returnsNumberGivenExpression() {
+    // Make sure it ignores expressions.
+    JSType startType = createNullableType(ALL_TYPE);
+    includePrimitiveAssertionFn("assertNumber", getNativeType(NUMBER_TYPE));
+    assuming("x", startType);
+
+    inFunction("out1 = x; out2 = assertNumber(x + x);");
+
+    verify("out1", startType);
+    verify("out2", NUMBER_TYPE);
+  }
+
+  @Test
+  public void testAssertBoolean_narrowsAllTypeToBoolean() {
+    JSType startType = createNullableType(ALL_TYPE);
+    includeGoogAssertionFn("assertBoolean", getNativeType(BOOLEAN_TYPE));
+    assuming("x", startType);
+
+    inFunction("out1 = x; goog.asserts.assertBoolean(x); out2 = x;");
+
+    verify("out1", startType);
+    verify("out2", BOOLEAN_TYPE);
+  }
+
+  @Test
+  public void testAssertString_narrowsAllTypeToString() {
+    JSType startType = createNullableType(ALL_TYPE);
+    includeGoogAssertionFn("assertString", getNativeType(STRING_TYPE));
+    assuming("x", startType);
+
+    inFunction("out1 = x; goog.asserts.assertString(x); out2 = x;");
+
+    verify("out1", startType);
+    verify("out2", STRING_TYPE);
+  }
+
+  @Test
+  public void testAssertFunction_narrowsAllTypeToFunction() {
+    JSType startType = createNullableType(ALL_TYPE);
+    includeGoogAssertionFn("assertFunction", getNativeType(FUNCTION_INSTANCE_TYPE));
+    assuming("x", startType);
+
+    inFunction("out1 = x; goog.asserts.assertFunction(x); out2 = x;");
+
+    verify("out1", startType);
+    verifySubtypeOf("out2", FUNCTION_INSTANCE_TYPE);
+  }
+
+  @Test
+  public void testAssertElement_doesNotChangeElementType() {
+    JSType elementType =
+        registry.createObjectType("Element", registry.getNativeObjectType(OBJECT_TYPE));
+    includeGoogAssertionFn("assertElement", elementType);
+    assuming("x", elementType);
+
+    inFunction("out1 = x; goog.asserts.assertElement(x); out2 = x;");
+
+    verify("out1", elementType);
+    verify("out2", elementType);
+  }
+
+  @Test
+  public void testAssertObject_narrowsNullableArrayToArray() {
+    JSType startType = createNullableType(ARRAY_TYPE);
+    includeGoogAssertionFn("assertObject", getNativeType(OBJECT_TYPE));
+    assuming("x", startType);
+
+    inFunction("out1 = x; goog.asserts.assertObject(x); out2 = x;");
+
     verify("out1", startType);
     verify("out2", ARRAY_TYPE);
   }
 
   @Test
-  public void testAssertObject5() {
-    JSType startType = createNullableType(ALL_TYPE);
+  public void testAssertObject_narrowsNullableObjectToObject() {
+    JSType startType = createNullableType(OBJECT_TYPE);
+    includeGoogAssertionFn("assertObject", getNativeType(OBJECT_TYPE));
     assuming("x", startType);
+
+    inFunction("out1 = x; goog.asserts.assertObject(x); out2 = x;");
+
+    verify("out1", startType);
+    verify("out2", OBJECT_TYPE);
+  }
+
+  @Test
+  public void testAssertObject_narrowsQualifiedNameArgument() {
+    JSType startType = createNullableType(OBJECT_TYPE);
+    includeGoogAssertionFn("assertObject", getNativeType(OBJECT_TYPE));
+    assuming("x", getNativeType(UNKNOWN_TYPE)); // Only global qname roots can be undeclared
+    assuming("x.y", startType);
+
+    // test a property "x.y" instead of a simple name
+    inFunction("out1 = x.y; goog.asserts.assertObject(x.y); out2 = x.y;");
+
+    verify("out1", startType);
+    verify("out2", OBJECT_TYPE);
+  }
+
+  @Test
+  public void testAssertObject_inCastToArray_returnsArray() {
+    JSType startType = createNullableType(ALL_TYPE);
+    includeGoogAssertionFn("assertObject", getNativeType(OBJECT_TYPE));
+    assuming("x", startType);
+
     inFunction(
         "out1 = x;" +
         "out2 = /** @type {!Array} */ (goog.asserts.assertObject(x));");
+
     verify("out1", startType);
     verify("out2", ARRAY_TYPE);
   }
 
   @Test
-  public void testAssertArray() {
+  public void testAssertArray_narrowsNullableAllTypeToArray() {
     JSType startType = createNullableType(ALL_TYPE);
+    includeGoogAssertionFn("assertArray", getNativeType(ARRAY_TYPE));
     assuming("x", startType);
+
     inFunction("out1 = x; goog.asserts.assertArray(x); out2 = x;");
+
     verify("out1", startType);
     verifySubtypeOf("out2", ARRAY_TYPE);
   }
 
   @Test
-  public void testAssertInstanceof1() {
+  public void testAssertArray_narrowsObjectTypeToArray() {
+    JSType startType = getNativeType(OBJECT_TYPE);
+    includeGoogAssertionFn("assertArray", getNativeType(ARRAY_TYPE));
+    assuming("x", startType);
+
+    inFunction("out1 = x; goog.asserts.assertArray(x); out2 = x;");
+
+    verify("out1", startType);
+    verifySubtypeOf("out2", ARRAY_TYPE);
+  }
+
+  @Test
+  public void testAssertInstanceof_invalidCall_setsArgToUnknownType() {
     // Test invalid assert (2 params are required)
     JSType startType = createNullableType(ALL_TYPE);
+    includeAssertInstanceof();
     assuming("x", startType);
+
     inFunction("out1 = x; goog.asserts.assertInstanceof(x); out2 = x;");
+
     verify("out1", startType);
     verify("out2", UNKNOWN_TYPE);
   }
 
   @Test
-  public void testAssertInstanceof2() {
+  public void testAssertInstanceof_stringCtor_narrowsAllTypeToString() {
     JSType startType = createNullableType(ALL_TYPE);
+    includeAssertInstanceof();
     assuming("x", startType);
+
     inFunction("out1 = x; goog.asserts.assertInstanceof(x, String); out2 = x;");
+
     verify("out1", startType);
     verify("out2", STRING_OBJECT_TYPE);
   }
 
   @Test
-  public void testAssertInstanceof3() {
-    JSType unknownType = registry.getNativeType(UNKNOWN_TYPE);
-    JSType startType = registry.getNativeType(STRING_TYPE);
-    assuming("x", startType);
-    assuming("Foo", unknownType);
+  public void testAssertInstanceof_unknownCtor_setsStringToUnknown() {
+    includeAssertInstanceof();
+    assuming("x", STRING_TYPE);
+    assuming("Foo", UNKNOWN_TYPE);
+
     inFunction("out1 = x; goog.asserts.assertInstanceof(x, Foo); out2 = x;");
-    verify("out1", startType);
+
+    verify("out1", STRING_TYPE);
     verify("out2", UNKNOWN_TYPE);
   }
 
   @Test
-  public void testAssertInstanceof3a() {
+  public void testAssertInstanceof_stringCtor_narrowsUnknownToString() {
     JSType startType = registry.getNativeType(UNKNOWN_TYPE);
+    includeAssertInstanceof();
     assuming("x", startType);
+
     inFunction("out1 = x; goog.asserts.assertInstanceof(x, String); out2 = x;");
+
     verify("out1", startType);
     verify("out2", STRING_OBJECT_TYPE);
   }
 
   @Test
-  public void testAssertInstanceof4() {
+  public void testAssertInstanceof_objectCtor_doesNotChangeStringType() {
     JSType startType = registry.getNativeType(STRING_OBJECT_TYPE);
+    includeAssertInstanceof();
     assuming("x", startType);
+
     inFunction("out1 = x; goog.asserts.assertInstanceof(x, Object); out2 = x;");
+
     verify("out1", startType);
     verify("out2", STRING_OBJECT_TYPE);
   }
 
   @Test
-  public void testAssertInstanceof5() {
-    JSType startType = registry.getNativeType(ALL_TYPE);
+  public void testAssertInstanceof_stringCtor_narrowsObjOrVoidToString() {
+    JSType startType = createUnionType(OBJECT_TYPE, VOID_TYPE);
+    includeAssertInstanceof();
     assuming("x", startType);
-    inFunction(
-        "out1 = x; goog.asserts.assertInstanceof(x, String); var r = x;");
+
+    inFunction("out1 = x; goog.asserts.assertInstanceof(x, String); var r = x;");
+
     verify("out1", startType);
     verify("x", STRING_OBJECT_TYPE);
   }
 
   @Test
-  public void testAssertInstanceof6() {
-    JSType startType = createUnionType(OBJECT_TYPE,VOID_TYPE);
+  public void testAssertInstanceof_stringCtor_returnsStringFromObjOrVoid() {
+    JSType startType = createUnionType(OBJECT_TYPE, VOID_TYPE);
+    includeAssertInstanceof();
     assuming("x", startType);
-    inFunction(
-        "out1 = x; goog.asserts.assertInstanceof(x, String); var r = x;");
-    verify("out1", startType);
-    verify("x", STRING_OBJECT_TYPE);
-  }
 
-  @Test
-  public void testAssertInstanceof7() {
-    JSType startType = createUnionType(OBJECT_TYPE,VOID_TYPE);
-    assuming("x", startType);
-    inFunction(
-        "out1 = x; var y = goog.asserts.assertInstanceof(x, String); var r = x;");
+    inFunction("out1 = x; var y = goog.asserts.assertInstanceof(x, String);");
+
     verify("out1", startType);
     verify("y", STRING_OBJECT_TYPE);
-    verify("r", STRING_OBJECT_TYPE);
-    verify("x", STRING_OBJECT_TYPE);
   }
 
   @Test
@@ -1020,6 +1182,80 @@ public final class TypeInferenceTest {
             "var result = new F(x,y,z);"));
 
     assertThat(getType("result").toString()).isEqualTo("F<(number|string),boolean>");
+  }
+
+  @Test
+  public void testParamNodeType_simpleName() {
+    parseAndRunTypeInference("(/** @param {number} i */ function(i) {})");
+
+    assertNode(getParamNameNode("i")).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testParamNodeType_rest() {
+    parseAndRunTypeInference("(/** @param {...number} i */ function(...i) {})");
+
+    assertNode(getParamNameNode("i")).hasJSTypeThat().toStringIsEqualTo("Array<number>");
+  }
+
+  @Test
+  public void testParamNodeType_arrayDestructuring() {
+    parseAndRunTypeInference("(/** @param {!Iterable<number>} i */ function([i]) {})");
+
+    // TODO(nickreid): Also check the types of the other nodes in the PARAM_LIST tree.
+    assertNode(getParamNameNode("i")).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testParamNodeType_objectDestructuring() {
+    parseAndRunTypeInference("(/** @param {{a: number}} i */ function({a: i}) {})");
+
+    // TODO(nickreid): Also check the types of the other nodes in the PARAM_LIST tree.
+    assertNode(getParamNameNode("i")).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testParamNodeType_simpleName_withDefault() {
+    parseAndRunTypeInference("(/** @param {number=} i */ function(i = 9) {})");
+
+    // TODO(nickreid): Also check the types of the other nodes in the PARAM_LIST tree.
+    assertNode(getParamNameNode("i")).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testParamNodeType_arrayDestructuring_withDefault() {
+    parseAndRunTypeInference(
+        lines(
+            "(/** @param {!Iterable<number>=} unused */",
+            "function([i] = /** @type ({!Array<number>} */ ([])) {})"));
+
+    // TODO(nickreid): Also check the types of the other nodes in the PARAM_LIST tree.
+    // TODO(b/122904530): `i` should be `number`.
+    assertNode(getParamNameNode("i")).hasJSTypeThat().isUnknown();
+  }
+
+  @Test
+  public void testParamNodeType_objectDestructuring_withDefault() {
+    parseAndRunTypeInference("(/** @param {{a: number}=} i */ function({a: i} = {a: 9}) {})");
+
+    // TODO(nickreid): Also check the types of the other nodes in the PARAM_LIST tree.
+    assertNode(getParamNameNode("i")).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testParamNodeType_arrayDestructuring_withDefault_nestedInPattern() {
+    parseAndRunTypeInference("(/** @param {!Iterable<number>} i */ function([i = 9]) {})");
+
+    // TODO(nickreid): Also check the types of the other nodes in the PARAM_LIST tree.
+    assertNode(getParamNameNode("i")).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testParamNodeType_objectDestructuring_withDefault_nestedInPattern() {
+    parseAndRunTypeInference("(/** @param {{a: number}} i */ function({a: i = 9}) {})");
+
+    // TODO(nickreid): Also check the types of the other nodes in the PARAM_LIST tree.
+    assertNode(getParamNameNode("i")).hasJSTypeThat().isNumber();
   }
 
   @Test
@@ -1368,6 +1604,30 @@ public final class TypeInferenceTest {
   }
 
   @Test
+  public void testObjectSpread_isInferredToBeObject() {
+    // Given
+    JSType recordType =
+        registry.createRecordType(
+            ImmutableMap.of(
+                "x", getNativeType(STRING_TYPE),
+                "y", getNativeType(NUMBER_TYPE)));
+    assuming("obj", recordType);
+
+    assuming("before", BOOLEAN_TYPE);
+    assuming("after", NULL_TYPE);
+
+    // When
+    inFunction(lines("let spread = {before, ...obj, after};"));
+
+    // Then
+
+    // TODO(b/128355893): Do smarter inferrence. There are a lot of potential issues with
+    // inference on object-rest, so for now we just give up and say `Object`. In theory we could
+    // infer something like `{after: null, before: boolean, x: string, y: number}`.
+    verify("spread", OBJECT_TYPE);
+  }
+
+  @Test
   public void testCast1() {
     inFunction("var x = /** @type {Object} */ (this);");
     verify("x", createNullableType(OBJECT_TYPE));
@@ -1466,16 +1726,143 @@ public final class TypeInferenceTest {
   }
 
   @Test
-  public void testTemplateForTypeTransformationTests() {
+  public void testFunctionTemplateType_literalParam() {
     inFunction(
-        "/**\n"
-        + " * @param {T} a\n"
-        + " * @return {R}\n"
-        + " * @template T, R\n"
-        + " */\n"
-        + "function f(a){}\n"
-        + "var result = f(10);");
-      verify("result", UNKNOWN_TYPE);
+        lines(
+            "/**",
+            " * @template T",
+            " * @param {T} a",
+            " * @return {T}",
+            " */",
+            "function f(a){}",
+            "",
+            "var result = f(10);"));
+    verify("result", NUMBER_TYPE);
+  }
+
+  @Test
+  public void testFunctionTemplateType_unionsPossibilities() {
+    inFunction(
+        lines(
+            "/**",
+            " * @template T",
+            " * @param {T} a",
+            " * @param {T} b",
+            " * @return {T}",
+            " */",
+            "function f(a, b){}",
+            "",
+            "var result = f(10, 'x');"));
+    verify("result", registry.createUnionType(NUMBER_TYPE, STRING_TYPE));
+  }
+
+  @Test
+  public void testFunctionTemplateType_willUseUnknown() {
+    inFunction(
+        lines(
+            "/**",
+            " * @template T",
+            " * @param {T} a",
+            " * @return {T}",
+            " */",
+            "function f(a){}",
+            "",
+            "var result = f(/** @type {?} */ ({}));"));
+    verify("result", UNKNOWN_TYPE);
+  }
+
+  @Test
+  public void testFunctionTemplateType_willUseUnknown_butPrefersTighterTypes() {
+    inFunction(
+        lines(
+            "/**",
+            " * @template T",
+            " * @param {T} a",
+            " * @param {T} b",
+            " * @param {T} c",
+            " * @return {T}",
+            " */",
+            "function f(a, b, c){}",
+            "",
+            // Make sure `?` is dispreferred before *and* after a known type.
+            "var result = f('x', /** @type {?} */ ({}), 5);"));
+    verify("result", registry.createUnionType(NUMBER_TYPE, STRING_TYPE));
+  }
+
+  @Test
+  public void testFunctionTemplateType_recursesIntoFunctionParams() {
+    inFunction(
+        lines(
+            "/**",
+            " * @template T",
+            " * @param {function(T)} a",
+            " * @return {T}",
+            " */",
+            "function f(a){}",
+            "",
+            "var result = f(function(/** number */ a) { });"));
+    verify("result", NUMBER_TYPE);
+  }
+
+  @Test
+  public void testFunctionTemplateType_recursesIntoFunctionParams_throughUnknown() {
+    inFunction(
+        lines(
+            "/**",
+            " * @template T",
+            " * @param {function(T)=} a",
+            " * @return {T}",
+            " */",
+            "function f(a){}",
+            "",
+            "var result = f(/** @type {?} */ ({}));"));
+    verify("result", UNKNOWN_TYPE);
+  }
+
+  @Test
+  public void testFunctionTemplateType_unpacksUnions_fromParamType() {
+    inFunction(
+        lines(
+            "/**",
+            " * @template T",
+            " * @param {!Iterable<T>|number} a",
+            " * @return {T}",
+            " */",
+            "function f(a){}",
+            "",
+            "var result = f(/** @type {!Iterable<number>} */ ({}));"));
+    verify("result", NUMBER_TYPE);
+  }
+
+  @Test
+  public void testFunctionTemplateType_unpacksUnions_fromArgType() {
+    inFunction(
+        lines(
+            "/**",
+            " * @template T",
+            " * @param {!Iterable<T>} a",
+            " * @return {T}",
+            " */",
+            "function f(a){}",
+            "",
+            // The arg type is illegal, but the inference should still work.
+            "var result = f(/** @type {!Iterable<number>|number} */ ({}));"));
+    verify("result", NUMBER_TYPE);
+  }
+
+  @Test
+  public void testFunctionTemplateType_unpacksUnions_fromArgType_acrossSubtypes() {
+    inFunction(
+        lines(
+            "/**",
+            " * @template T",
+            " * @param {!Iterable<T>} a",
+            " * @return {T}",
+            " */",
+            "function f(a){}",
+            "",
+            "var result = f(/** @type {!Array<number>|!Generator<string>} */ ({}));"));
+    verify("result", registry.createUnionType(NUMBER_TYPE, STRING_TYPE));
   }
 
   @Test
@@ -2110,35 +2497,11 @@ public final class TypeInferenceTest {
   }
 
   @Test
-  public void testObjectRestInferredAsObjectIfGivenUnknownType() {
-    assuming("unknown", UNKNOWN_TYPE);
-    inFunction("const {a, ...rest} = unknown;  A: a; REST: rest;");
-
-    assertTypeOfExpression("REST").toStringIsEqualTo("Object");
-  }
-
-  @Test
-  public void testObjectRestInferredGivenRecordType() {
+  public void testObjectRest_inferredGivenObjectLiteralType() {
     inFunction("var obj = {a: 1, b: 2, c: 3}; const {a, ...rest} = obj;  A: a; REST: rest;");
 
     assertTypeOfExpression("A").toStringIsEqualTo("number");
-    assertTypeOfExpression("REST").toStringIsEqualTo("{b: number, c: number}");
-  }
-
-  @Test
-  public void testObjectRestInferredGivenRecordTypeAndComputedProperty() {
-    inFunction(
-        "var obj =  {a: 1, b: 2, c: 3}; const {['a']: a, ...rest} = obj;  A: a; REST: rest;");
-
-    assertTypeOfExpression("A").toStringIsEqualTo("?");
-    assertTypeOfExpression("REST").toStringIsEqualTo("Object");
-  }
-
-  @Test
-  public void testObjectRestInferredAsTemplatizedObjectType() {
-    inFunction("var /** !Object<number, string> */ obj = {}; const {...rest} = obj; REST: rest;");
-
-    assertTypeOfExpression("REST").toStringIsEqualTo("Object<number,string>");
+    assertTypeOfExpression("REST").isEqualTo(registry.getNativeType(OBJECT_TYPE));
   }
 
   @Test
@@ -2332,6 +2695,44 @@ public final class TypeInferenceTest {
     assertTypeOfExpression("Y").toStringIsEqualTo("undefined");
   }
 
+  @Test
+  public void constDeclarationWithReturnJSDoc_ignoresUnknownRhsType() {
+    assuming("foo", UNKNOWN_TYPE);
+
+    inFunction(lines("/** @return {number} */ const fn = foo;"));
+
+    JSType fooWithInterfaceType = getType("fn");
+    assertType(fooWithInterfaceType).isFunctionTypeThat().hasReturnTypeThat().isNumber();
+  }
+
+  @Test
+  public void constDeclarationWithCtorJSDoc_ignoresKnownMixinReturnType() {
+    // Create a function always returning a constructor for 'Foo'
+    JSType fooType = FunctionType.builder(registry).forConstructor().withName("Foo").build();
+    assuming("Foo", fooType);
+    FunctionType mixinType = FunctionType.builder(registry).withReturnType(fooType).build();
+    assuming("mixin", mixinType);
+
+    // The @constructor JSDoc should declare a new type, and FooExtended should refer to that
+    // type instead of the constructor for Foo
+    inFunction(lines("/** @constructor @extends {Foo} */ const FooExtended = mixin();"));
+
+    JSType fooWithInterfaceType = getType("FooExtended");
+    assertType(fooWithInterfaceType).isNotEqualTo(fooType);
+    assertType(fooWithInterfaceType).toStringIsEqualTo("function(new:FooExtended): ?");
+  }
+
+  @Test
+  public void testSideEffectsInEsExportDefaultInferred() {
+    assuming("foo", NUMBER_TYPE);
+    assuming("bar", UNKNOWN_TYPE);
+
+    inModule("export default (bar = foo, foo = 'not a number');");
+
+    assertType(getType("bar")).isNumber();
+    assertType(getType("foo")).isString();
+  }
+
   private ObjectType getNativeObjectType(JSTypeNative t) {
     return registry.getNativeObjectType(t);
   }
@@ -2342,5 +2743,74 @@ public final class TypeInferenceTest {
 
   private JSType templatize(ObjectType objType, ImmutableList<JSType> t) {
     return registry.createTemplatizedType(objType, t);
+  }
+
+  /** Adds a goog.asserts.assert[name] function to the scope that asserts the given returnType */
+  private void includeGoogAssertionFn(String fnName, JSType returnType) {
+    String fullName = "goog.asserts." + fnName;
+    FunctionType fnType =
+        FunctionType.builder(registry)
+            .withReturnType(returnType)
+            .withParamsNode(IR.paramList(IR.name("p")))
+            .withName(fullName)
+            .build();
+    assuming(fullName, fnType);
+  }
+
+  /** Adds a function with {@link ClosurePrimitive#ASSERTS_TRUTHY} and the given name */
+  private void includePrimitiveTruthyAssertionFunction(String fnName) {
+    TemplateType t = registry.createTemplateType("T");
+    FunctionType assertType =
+        FunctionType.builder(registry)
+            .withName(fnName)
+            .withClosurePrimitiveId(ClosurePrimitive.ASSERTS_TRUTHY)
+            .withReturnType(t)
+            .withParamsNode(IR.paramList(IR.name("x").setJSType(t)))
+            .withTemplateKeys(t)
+            .build();
+    assuming(fnName, assertType);
+  }
+
+  /**
+   * Adds a function with {@link ClosurePrimitive#ASSERTS_MATCHES_RETURN} that asserts the given
+   * returnType
+   */
+  private void includePrimitiveAssertionFn(String fullName, JSType returnType) {
+    FunctionType fnType =
+        FunctionType.builder(registry)
+            .withReturnType(returnType)
+            .withParamsNode(IR.paramList(IR.name("p")))
+            .withName(fullName)
+            .withClosurePrimitiveId(ClosurePrimitive.ASSERTS_MATCHES_RETURN)
+            .build();
+    assuming(fullName, fnType);
+  }
+
+  /** Adds goog.asserts.assertInstanceof to the scope, to do fine-grained assertion testing */
+  private void includeAssertInstanceof() {
+    String fullName = "goog.asserts.assertInstanceof";
+    TemplateType templateType = registry.createTemplateType("T");
+    // Create the function type `function(new:T)`
+    FunctionType templateTypeCtor =
+        FunctionType.builder(registry).forConstructor().withTypeOfThis(templateType).build();
+    // Create the function type `function(?, function(new:T)): T`
+    // This matches the JSDoc for goog.asserts.assertInstanceof:
+    //   /**
+    //    * @param {?} value The value to check
+    //    * @param {function(new:T)) type A user-defined ctor
+    //    * @return {T}
+    //    * @template T
+    //    */
+    FunctionType fnType =
+        FunctionType.builder(registry)
+            .withParamsNode(
+                IR.paramList(
+                    IR.name("value").setJSType(getNativeType(UNKNOWN_TYPE)),
+                    IR.name("type").setJSType(templateTypeCtor)))
+            .withTemplateKeys(templateType)
+            .withReturnType(templateType)
+            .withName(fullName)
+            .build();
+    assuming(fullName, fnType);
   }
 }

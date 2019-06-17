@@ -40,17 +40,21 @@
 package com.google.javascript.rhino.jstype;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.javascript.rhino.jstype.ObjectType.PropertyOptionality.VOIDABLE_PROPS_ARE_OPTIONAL;
 import static com.google.javascript.rhino.jstype.TernaryValue.FALSE;
 import static com.google.javascript.rhino.jstype.TernaryValue.UNKNOWN;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.jstype.Property.OwnedProperty;
 import java.io.Serializable;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -109,7 +113,8 @@ public abstract class ObjectType extends JSType implements Serializable {
    * for lazily-resolved prototypes.
    */
   public Property getSlot(String name) {
-    return getPropertyMap().getSlot(name);
+    OwnedProperty property = getPropertyMap().findClosest(name);
+    return property == null ? null : property.getValue();
   }
 
   public final Property getOwnSlot(String name) {
@@ -300,23 +305,59 @@ public abstract class ObjectType extends JSType implements Serializable {
     return iproto == null ? null : iproto.getConstructor();
   }
 
-  public final ObjectType getTopDefiningInterface(String propertyName) {
-    ObjectType foundType = null;
-    if (hasProperty(propertyName)) {
-      foundType = this;
-    }
-    for (ObjectType interfaceType : getCtorExtendedInterfaces()) {
-      if (interfaceType.hasProperty(propertyName)) {
-        foundType = interfaceType.getTopDefiningInterface(propertyName);
-      }
-    }
-    return foundType;
+  /**
+   * Returns the top most type that defines the property.
+   *
+   * <p>Note: if you are doing type validation, you are probably looking for the closest definition
+   * of the property which could be resolved by {@link #getClosestDefiningType}.
+   */
+  public final ObjectType getTopMostDefiningType(String propertyName) {
+    OwnedProperty property = getPropertyMap().findTopMost(propertyName);
+    return property == null ? null : property.getOwner();
+  }
+
+  /** Returns the closest ancestor that defines the property including this type itself. */
+  public final ObjectType getClosestDefiningType(String propertyName) {
+    OwnedProperty property = getPropertyMap().findClosest(propertyName);
+    return property == null ? null : property.getOwner();
+  }
+
+  /** Returns the closest definition of the property including this type itself. */
+  public final OwnedProperty findClosestDefinition(String propertyName) {
+    return getPropertyMap().findClosest(propertyName);
   }
 
   /**
    * Gets the implicit prototype (a.k.a. the {@code [[Prototype]]} property).
    */
   public abstract ObjectType getImplicitPrototype();
+
+  /**
+   * Returns a lazy, dynamic {@link Iterable} for the types forming the implicit prototype chain of
+   * this type.
+   *
+   * <p>The chain is iterated bottom to top; from the nearest ancestor to the most distant.
+   * Iteration stops when the next ancestor would be a {@code null} reference.
+   *
+   * <p>The created {@link Iterator}s will not reflect changes to the prototype chain of elements it
+   * has already iterated past, but will reflect those of upcoming elements. Neither the {@link
+   * Iterable} nor its {@link Iterator} support mutation.
+   */
+  public final Iterable<ObjectType> getImplicitPrototypeChain() {
+    final ObjectType self = this;
+
+    return () ->
+        new AbstractIterator<ObjectType>() {
+
+          private ObjectType next = self; // We increment past this type before first access.
+
+          @Override
+          public ObjectType computeNext() {
+            next = next.getImplicitPrototype();
+            return (next != null) ? next : endOfData();
+          }
+        };
+  }
 
   /**
    * Defines a property whose type is explicitly declared by the programmer.
@@ -601,30 +642,51 @@ public abstract class ObjectType extends JSType implements Serializable {
     return true;
   }
 
-  private static boolean isStructuralSubtypeHelper(
-      ObjectType typeA, ObjectType typeB,
-      ImplCache implicitImplCache, SubtypingMode subtypingMode) {
+  protected static boolean isStructuralSubtypeHelper(
+      ObjectType typeA,
+      ObjectType typeB,
+      ImplCache implicitImplCache,
+      SubtypingMode subtypingMode,
+      PropertyOptionality optionality) {
 
     // typeA is a subtype of record type typeB iff:
     // 1) typeA has all the non-optional properties declared in typeB.
     // 2) And for each property of typeB, its type must be
     //    a super type of the corresponding property of typeA.
-    for (String property : typeB.getPropertyNames()) {
+
+    Iterable<String> props =
+        // NOTE: Inline record literal types always have Object as a supertype. In these cases, we
+        // really only care about the properties explicitly declared in the record literal, and not
+        // about any properties inherited from Object.prototype. On the other hand, @record types
+        // allow inheritance and we need to match against inherited properties as well.
+        typeB.isRecordType() ? typeB.getOwnPropertyNames() : typeB.getPropertyNames();
+
+    for (String property : props) {
       JSType propB = typeB.getPropertyType(property);
-      if (!typeA.hasProperty(property)) {
-        // Currently, any type that explicitly includes undefined (eg, `?|undefined`) is optional.
-        if (propB.isExplicitlyVoidable()) {
-          continue;
+      if (typeA.hasProperty(property)) {
+        JSType propA = typeA.getPropertyType(property);
+        if (!propA.isSubtype(propB, implicitImplCache, subtypingMode)) {
+          return false;
         }
-        return false;
-      }
-      JSType propA = typeA.getPropertyType(property);
-      if (!propA.isSubtype(propB, implicitImplCache, subtypingMode)) {
+      } else if (!optionality.isOptional(propB)) {
+        // Currently, any type that explicitly includes undefined (eg, `?|undefined`) is optional.
         return false;
       }
     }
     return true;
   }
+
+  /** How to treat explicitly voidable properties for structural subtype checking. */
+  protected enum PropertyOptionality {
+    /** Explicitly voidable properties are treated as optional. */
+    VOIDABLE_PROPS_ARE_OPTIONAL,
+    /** All properties are always required, even if explicitly voidable. */
+    ALL_PROPS_ARE_REQUIRED;
+
+    boolean isOptional(JSType propType) {
+      return this == VOIDABLE_PROPS_ARE_OPTIONAL && propType.isExplicitlyVoidable();
+    }
+  };
 
   /**
    * Determine if {@code this} is a an implicit subtype of {@code superType}.
@@ -642,11 +704,10 @@ public abstract class ObjectType extends JSType implements Serializable {
       return cachedResult.subtypeValue();
     }
 
-    boolean result = isStructuralSubtypeHelper(
-        this, superType, implicitImplCache, subtypingMode);
-    implicitImplCache.updateCache(
-        this, superType, result ? MatchStatus.MATCH : MatchStatus.NOT_MATCH);
-    return result;
+    boolean result =
+        isStructuralSubtypeHelper(
+            this, superType, implicitImplCache, subtypingMode, VOIDABLE_PROPS_ARE_OPTIONAL);
+    return implicitImplCache.updateCache(this, superType, MatchStatus.valueOf(result));
   }
 
   /**
@@ -676,27 +737,47 @@ public abstract class ObjectType extends JSType implements Serializable {
   }
 
   /**
-   * Checks that the prototype is an implicit prototype of this object. Since
-   * each object has an implicit prototype, an implicit prototype's
-   * implicit prototype is also this implicit prototype's.
+   * Checks that the prototype is an implicit prototype of this object. Since each object has an
+   * implicit prototype, an implicit prototype's implicit prototype is also this implicit
+   * prototype's.
    *
    * @param prototype any prototype based object
-   *
-   * @return {@code true} if {@code prototype} is {@code equal} to any
-   *         object in this object's implicit prototype chain.
+   * @return {@code true} if {@code prototype} is {@code equal} to any object in this object's
+   *     implicit prototype chain.
    */
+  @SuppressWarnings("ReferenceEquality")
   final boolean isImplicitPrototype(ObjectType prototype) {
-    for (ObjectType current = this;
-         current != null;
-         current = current.getImplicitPrototype()) {
+    for (ObjectType current = this; current != null; current = current.getImplicitPrototype()) {
       if (current.isTemplatizedType()) {
         current = current.toMaybeTemplatizedType().getReferencedType();
       }
-      if (current.isEquivalentTo(prototype)) {
+
+      current = deeplyUnwrap(current);
+
+      // The prototype should match exactly.
+      // NOTE: the use of "==" here rather than isEquivalentTo is deliberate.  This method
+      // is very hot in the type checker and relying on identity improves performance of both
+      // type checking/type inferrence and property disambiguation.
+      if (current != null && current == prototype) {
         return true;
       }
     }
     return false;
+  }
+
+  private static ObjectType deeplyUnwrap(ObjectType current) {
+    while (current instanceof ProxyObjectType) {
+      if (current.isTemplatizedType()) {
+        current = current.toMaybeTemplatizedType().getReferencedType();
+      }
+      if (current.isNamedType()) {
+        if (!current.isSuccessfullyResolved()) {
+          break;
+        }
+        current = current.toMaybeNamedType().getReferencedObjTypeInternal();
+      }
+    }
+    return current;
   }
 
   @Override

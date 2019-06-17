@@ -15,7 +15,9 @@
  */
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Strings;
 import com.google.common.collect.HashMultimap;
@@ -33,6 +35,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -71,7 +74,7 @@ public class J2clClinitPrunerPass implements CompilerPass {
 
     // Update the function side-effect markers on the AST.
     // Removing a clinit from a function may make it side-effect free.
-    new PureFunctionIdentifier.Driver(compiler, null).process(externs, root);
+    new PureFunctionIdentifier.Driver(compiler).process(externs, root);
   }
 
   private void removeRedundantClinits(Node root, List<Node> changedScopeNodes) {
@@ -187,7 +190,7 @@ public class J2clClinitPrunerPass implements CompilerPass {
         clinitsCalledAtBranch = new HierarchicalSet<>(clinitsCalledAtBranch);
         if (isClinitMethod(parent)) {
           // Adds itself as any of your children can assume clinit is already called.
-          clinitsCalledAtBranch.add(NodeUtil.getName(parent));
+          clinitsCalledAtBranch.add(getQualifiedNameOfFunction(parent));
         }
       }
 
@@ -228,6 +231,7 @@ public class J2clClinitPrunerPass implements CompilerPass {
     private boolean isNewControlBranch(Node n) {
       return n != null
           && (NodeUtil.isControlStructure(n)
+              || n.isDefaultValue()
               || n.isHook()
               || n.isAnd()
               || n.isOr()
@@ -358,7 +362,7 @@ public class J2clClinitPrunerPass implements CompilerPass {
 
     /** Clears the body of any functions that are equivalent to empty functions. */
     private void trySubstituteEmptyFunction(Node fnNode) {
-      String fnQualifiedName = NodeUtil.getName(fnNode);
+      String fnQualifiedName = getQualifiedNameOfFunction(fnNode);
 
       // Ignore anonymous/constructor functions.
       if (Strings.isNullOrEmpty(fnQualifiedName)) {
@@ -402,18 +406,25 @@ public class J2clClinitPrunerPass implements CompilerPass {
       }
 
       Node lhs = node.getFirstFirstChild();
+      if (lhs.isGetElem()) {
+        // This can happen if code has been inserted, for example for instrumentation.
+        return false;
+      }
+      checkState(lhs.isName() || lhs.isGetProp(), lhs);
+
       Node rhs = node.getFirstChild().getLastChild();
-      return NodeUtil.isEmptyFunctionExpression(rhs) && lhs.matchesQualifiedName(enclosingFnName);
+      return NodeUtil.isEmptyFunctionExpression(rhs)
+          && Objects.equals(NodeUtil.getBestLValueName(lhs), enclosingFnName);
     }
   }
 
   private static boolean isClinitMethod(Node node) {
-    return node.isFunction() && isClinitMethodName(NodeUtil.getName(node));
+    return node.isFunction() && isClinitMethodName(getQualifiedNameOfFunction(node));
   }
 
   private static String getClinitMethodName(Node node) {
     if (node.isCall()) {
-      String fnName = node.getFirstChild().getQualifiedName();
+      String fnName = NodeUtil.getBestLValueName(node.getFirstChild());
       return isClinitMethodName(fnName) ? fnName : null;
     }
     return null;
@@ -444,5 +455,21 @@ public class J2clClinitPrunerPass implements CompilerPass {
     private boolean parentsContains(T o) {
       return parent != null && (parent.currentSet.contains(o) || parent.parentsContains(o));
     }
+  }
+
+  /**
+   * Returns the qualifed name {@code function} is being assigned to.
+   *
+   * <p>This implementation abstracts over the various ways of naming a function. ASSIGN need not be
+   * involved and there may not be a sequence of GETPROPs representing the name.
+   *
+   * <p>TODO(b/123354857): Delete this method when naming concepts have been unified. It was created
+   * as a temporary measure to support ES6 in this pass without becoming blocked on name APIs.
+   */
+  private static String getQualifiedNameOfFunction(Node function) {
+    checkArgument(function.isFunction(), function);
+    // The node representing the name (e.g. GETPROP, MEMBER_FUNCTION_DEF, etc.).
+    Node lValue = NodeUtil.getBestLValue(function);
+    return NodeUtil.getBestLValueName(lValue);
   }
 }

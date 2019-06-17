@@ -46,20 +46,24 @@ public class J2clPassTest extends CompilerTestCase {
   }
 
   @Test
-  public void testQualifiedInlines() {
-    // Arrays functions.
+  public void testQualifiedInlines_arrays() {
+    // Function definitions and calls are qualified globals.
+    String declarations =
+        lines(
+            "class Arrays {",
+            "  static $create() { return 1; }",
+            "  static $init() { return 2; }",
+            "  static $instanceIsOfType() { return 3; }",
+            "  static $castTo() { return 4; }",
+            "  static $stampType() { return 5; }",
+            "}");
+
     test(
         Lists.newArrayList(
             SourceFile.fromCode(
                 "j2cl/transpiler/vmbootstrap/Arrays.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var Arrays = function() {};",
-                    "Arrays.$create = function() { return 1; }",
-                    "Arrays.$init = function() { return 2; }",
-                    "Arrays.$instanceIsOfType = function() { return 3; }",
-                    "Arrays.$castTo = function() { return 4; }",
-                    "Arrays.$stampType = function() { return 5; }",
+                    declarations,
                     "",
                     "alert(Arrays.$create());",
                     "alert(Arrays.$init());",
@@ -70,52 +74,58 @@ public class J2clPassTest extends CompilerTestCase {
             SourceFile.fromCode(
                 "j2cl/transpiler/vmbootstrap/Arrays.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var Arrays = function() {};",
-                    "Arrays.$create = function() { return 1; }",
-                    "Arrays.$init = function() { return 2; }",
-                    "Arrays.$instanceIsOfType = function() { return 3; }",
-                    "Arrays.$castTo = function() { return 4; }",
-                    "Arrays.$stampType = function() { return 5; }",
+                    declarations,
                     "",
                     "alert(1);",
                     "alert(2);",
                     "alert(3);",
                     "alert(4);",
                     "alert(5);"))));
+  }
 
-    // Casts functions.
+  @Test
+  public void testQualifiedInlines_casts() {
+    // Function definitions and calls are qualified globals.
+    String declarations =
+        lines(
+            "class Casts {", //
+            "  static $to() { return 1; }",
+            "}");
+
     test(
         Lists.newArrayList(
             SourceFile.fromCode(
                 "j2cl/transpiler/vmbootstrap/Casts.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var Casts = function() {};",
-                    "Casts.$to = function() { return 1; }",
+                    declarations, //
                     "",
                     "alert(Casts.$to());"))),
         Lists.newArrayList(
             SourceFile.fromCode(
                 "j2cl/transpiler/vmbootstrap/Casts.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var Casts = function() {};",
-                    "Casts.$to = function() { return 1; }",
+                    declarations, //
                     "",
                     "alert(1);"))));
+  }
 
-    // Interface $markImplementor() functions.
+  @Test
+  public void testQualifiedInlines_markImplementor() {
+    // Function definitions and calls are qualified globals.
+    String declarations =
+        lines(
+            "class FooInterface {",
+            "  static $markImplementor(classDef) {",
+            "    classDef.$implements__FooInterface = true;",
+            "  }",
+            "}");
+
     test(
         Lists.newArrayList(
             SourceFile.fromCode(
                 "name/doesnt/matter/Foo.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var FooInterface = function() {};",
-                    "FooInterface.$markImplementor = function(classDef) {",
-                    "  classDef.$implements__FooInterface = true;",
-                    "}",
+                    declarations,
                     "",
                     "var Foo = function() {};",
                     "FooInterface.$markImplementor(Foo);"))),
@@ -123,32 +133,32 @@ public class J2clPassTest extends CompilerTestCase {
             SourceFile.fromCode(
                 "name/doesnt/matter/Foo.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var FooInterface = function() {};",
-                    "FooInterface.$markImplementor = function(classDef) {",
-                    "  classDef.$implements__FooInterface = true;",
-                    "}",
+                    declarations,
                     "",
                     "var Foo = function() {};",
                     "{Foo.$implements__FooInterface = true;}"))));
   }
 
   @Test
-  public void testRenamedQualifierStillInlines() {
-    // Arrays functions.
+  public void testRenamedQualifierStillInlines_arrays() {
+    // Function definitions and calls are qualified globals.
+    String declarations =
+        lines(
+            "var $jscomp = {};",
+            "$jscomp.scope = {};",
+            "$jscomp.scope.Arrays = class {;",
+            "  static $create() { return 1; }",
+            "  static $init() { return 2; }",
+            "  static $instanceIsOfType() { return 3; }",
+            "  static $castTo() { return 4; }",
+            "}");
+
     test(
         Lists.newArrayList(
             SourceFile.fromCode(
                 "j2cl/transpiler/vmbootstrap/Arrays.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var $jscomp = {};",
-                    "$jscomp.scope = {};",
-                    "$jscomp.scope.Arrays = {};",
-                    "$jscomp.scope.Arrays.$create = function() { return 1; }",
-                    "$jscomp.scope.Arrays.$init = function() { return 2; }",
-                    "$jscomp.scope.Arrays.$instanceIsOfType = function() { return 3; }",
-                    "$jscomp.scope.Arrays.$castTo = function() { return 4; }",
+                    declarations,
                     "",
                     "alert($jscomp.scope.Arrays.$create());",
                     "alert($jscomp.scope.Arrays.$init());",
@@ -158,58 +168,61 @@ public class J2clPassTest extends CompilerTestCase {
             SourceFile.fromCode(
                 "j2cl/transpiler/vmbootstrap/Arrays.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var $jscomp = {};",
-                    "$jscomp.scope = {};",
-                    "$jscomp.scope.Arrays = {};",
-                    "$jscomp.scope.Arrays.$create = function() { return 1; }",
-                    "$jscomp.scope.Arrays.$init = function() { return 2; }",
-                    "$jscomp.scope.Arrays.$instanceIsOfType = function() { return 3; }",
-                    "$jscomp.scope.Arrays.$castTo = function() { return 4; }",
+                    declarations, //
                     "",
                     "alert(1);",
                     "alert(2);",
                     "alert(3);",
                     "alert(4);"))));
+  }
 
-    // Casts functions.
+  @Test
+  public void testRenamedQualifierStillInlines_casts() {
+    // Function definitions and calls are qualified globals.
+    String declarations =
+        lines(
+            "var $jscomp = {};",
+            "$jscomp.scope = {};",
+            "$jscomp.scope.Casts = class {",
+            "  static $to() { return 1; }",
+            "}");
+
     test(
         Lists.newArrayList(
             SourceFile.fromCode(
                 "j2cl/transpiler/vmbootstrap/Casts.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var $jscomp = {};",
-                    "$jscomp.scope = {};",
-                    "$jscomp.scope.Casts = function() {};",
-                    "$jscomp.scope.Casts.$to = function() { return 1; }",
+                    declarations, //
                     "",
                     "alert($jscomp.scope.Casts.$to());"))),
         Lists.newArrayList(
             SourceFile.fromCode(
                 "j2cl/transpiler/vmbootstrap/Casts.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var $jscomp = {};",
-                    "$jscomp.scope = {};",
-                    "$jscomp.scope.Casts = function() {};",
-                    "$jscomp.scope.Casts.$to = function() { return 1; }",
+                    declarations, //
                     "",
                     "alert(1);"))));
+  }
 
-    // Interface $markImplementor() functions.
+  @Test
+  public void testRenamedQualifierStillInlines_markImplementor() {
+    // Function definitions and calls are qualified globals.
+    String declarations =
+        lines(
+            "var $jscomp = {};",
+            "$jscomp.scope = {};",
+            "$jscomp.scope.FooInterface = class {",
+            "  static $markImplementor(classDef) {",
+            "    classDef.$implements__FooInterface = true;",
+            "  }",
+            "}");
+
     test(
         Lists.newArrayList(
             SourceFile.fromCode(
                 "name/doesnt/matter/Foo.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var $jscomp = {};",
-                    "$jscomp.scope = {};",
-                    "$jscomp.scope.FooInterface = function() {};",
-                    "$jscomp.scope.FooInterface.$markImplementor = function(classDef) {",
-                    "  classDef.$implements__FooInterface = true;",
-                    "}",
+                    declarations,
                     "",
                     "$jscomp.scope.Foo = function() {};",
                     "$jscomp.scope.FooInterface.$markImplementor($jscomp.scope.Foo);"))),
@@ -217,13 +230,7 @@ public class J2clPassTest extends CompilerTestCase {
             SourceFile.fromCode(
                 "name/doesnt/matter/Foo.impl.java.js",
                 lines(
-                    // Function definitions and calls are qualified globals.
-                    "var $jscomp = {};",
-                    "$jscomp.scope = {};",
-                    "$jscomp.scope.FooInterface = function() {};",
-                    "$jscomp.scope.FooInterface.$markImplementor = function(classDef) {",
-                    "  classDef.$implements__FooInterface = true;",
-                    "}",
+                    declarations,
                     "",
                     "$jscomp.scope.Foo = function() {};",
                     "{$jscomp.scope.Foo.$implements__FooInterface = true;}"))));
@@ -238,8 +245,9 @@ public class J2clPassTest extends CompilerTestCase {
                 "j2cl/transpiler/vmbootstrap/Arrays.impl.java.js",
                 lines(
                     // Function definitions and calls are qualified globals.
-                    "var Arrays = function() {};",
-                    "Arrays.fooBar = function() { return 4; }",
+                    "var Arrays = class {",
+                    "  static fooBar() { return 4; }",
+                    "}",
                     "",
                     "alert(Arrays.fooBar());"))));
 
@@ -250,8 +258,9 @@ public class J2clPassTest extends CompilerTestCase {
                 "j2cl/transpiler/vmbootstrap/Casts.impl.java.js",
                 lines(
                     // Function definitions and calls are qualified globals.
-                    "var Casts = function() {};",
-                    "Casts.fooBar = function() { return 4; }",
+                    "var Casts = class {",
+                    "  static fooBar() { return 4; }",
+                    "}",
                     "",
                     "alert(Casts.fooBar());"))));
 
@@ -359,6 +368,5 @@ public class J2clPassTest extends CompilerTestCase {
                     "Casts.$to = function(instance) { return instance; }",
                     "",
                     "alert(function(a) { return a; });"))));
-
   }
 }

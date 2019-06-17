@@ -71,6 +71,8 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
    */
   private final AbstractCompiler compiler;
 
+  private final SideEffectPredicate sideEffectPredicate;
+
   // These two pieces of data is persistent in the whole execution of enter
   // scope.
   private ControlFlowGraph<Node> cfg;
@@ -78,7 +80,7 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
   private MustBeReachingVariableDef reachingDef;
   private MaybeReachingVariableUse reachingUses;
 
-  private static class SideEffectPredicate implements Predicate<Node> {
+  private class SideEffectPredicate implements Predicate<Node> {
     // Check if there are side effects affecting the value of any of these names
     // (but not properties defined on that name)
     private final Set<String> namesToCheck;
@@ -108,14 +110,15 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
         return !isTopLevelAssignTarget(n);
       }
 
+      AstAnalyzer astAnalyzer = compiler.getAstAnalyzer();
       // TODO(user): We only care about calls to functions that
       // passes one of the dependent variable to a non-side-effect free
       // function.
-      if (n.isCall() && NodeUtil.functionCallHasSideEffects(n)) {
+      if (n.isCall() && astAnalyzer.functionCallHasSideEffects(n)) {
         return true;
       }
 
-      if (n.isNew() && NodeUtil.constructorCallHasSideEffects(n)) {
+      if (n.isNew() && astAnalyzer.constructorCallHasSideEffects(n)) {
         return true;
       }
 
@@ -132,9 +135,6 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
     }
   }
 
-  // predicate that does not check for any ASSIGNs, only function calls and delete props
-  private static final Predicate<Node> SIDE_EFFECT_PREDICATE = new SideEffectPredicate();
-
   /** Whether the given node is the target of a (possibly chained) assignment */
   private static boolean isTopLevelAssignTarget(Node n) {
     Node ancestor = n.getParent();
@@ -146,6 +146,7 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
 
   public FlowSensitiveInlineVariables(AbstractCompiler compiler) {
     this.compiler = compiler;
+    this.sideEffectPredicate = new SideEffectPredicate();
   }
 
   @Override
@@ -417,7 +418,7 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
       // TODO(user): Side-effect is OK sometimes. As long as there are no
       // side-effect function down all paths to the use. Once we have all the
       // side-effect analysis tool.
-      if (NodeUtil.mayHaveSideEffects(def.getLastChild(), compiler)) {
+      if (compiler.getAstAnalyzer().mayHaveSideEffects(def.getLastChild())) {
         return false;
       }
 
@@ -452,15 +453,14 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
         // Similar side effect check as above but this time the side effect is
         // else where along the path.
         // x = readProp(b); while(modifyProp(b)) {}; print(x);
-        CheckPathsBetweenNodes<Node, ControlFlowGraph.Branch>
-            pathCheck = new CheckPathsBetweenNodes<>(
-            cfg,
-            cfg.getDirectedGraphNode(getDefCfgNode()),
-            cfg.getDirectedGraphNode(useCfgNode),
-            SIDE_EFFECT_PREDICATE,
-            Predicates.
-                <DiGraphEdge<Node, ControlFlowGraph.Branch>>alwaysTrue(),
-            false);
+        CheckPathsBetweenNodes<Node, ControlFlowGraph.Branch> pathCheck =
+            new CheckPathsBetweenNodes<>(
+                cfg,
+                cfg.getDirectedGraphNode(getDefCfgNode()),
+                cfg.getDirectedGraphNode(useCfgNode),
+                sideEffectPredicate,
+                Predicates.<DiGraphEdge<Node, ControlFlowGraph.Branch>>alwaysTrue(),
+                false);
         if (pathCheck.somePathsSatisfyPredicate()) {
           return false;
         }

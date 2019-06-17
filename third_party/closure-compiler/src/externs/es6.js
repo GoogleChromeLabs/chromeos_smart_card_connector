@@ -21,7 +21,13 @@
  * @externs
  */
 
-
+/**
+ * Some es6 definitions:
+ * Symbol, IIterableResult, Iterable, IteratorIterable, Iterator,
+ * IteratorIterable moved to es3 file, because some base type requires them, and
+ * we want to keep them together. If you add new externs related to those types
+ * define them together in the es3 file.
+ */
 
 /**
  * @interface
@@ -144,13 +150,12 @@ Math.sign = function(value) {};
 Math.cbrt = function(value) {};
 
 /**
- * @param {number} value1
  * @param {...number} var_args
  * @return {number}
  * @nosideeffects
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/hypot
  */
-Math.hypot = function(value1, var_args) {};
+Math.hypot = function(var_args) {};
 
 /**
  * @param {number} value1
@@ -318,6 +323,23 @@ String.prototype.endsWith = function(searchString, opt_position) {};
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/includes
  */
 String.prototype.includes = function(searchString, opt_position) {};
+
+/**
+ * @this {String|string}
+ * @return {string}
+ * @nosideeffects
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/trimStart
+ */
+String.prototype.trimStart = function() {};
+
+
+/**
+ * @this {String|string}
+ * @return {string}
+ * @nosideeffects
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/trimEnd
+ */
+String.prototype.trimEnd = function() {};
 
 
 /**
@@ -1126,8 +1148,8 @@ function IThenable() {}
  * @return {RESULT}
  * @template VALUE
  *
- * When a Promise (or thenable) is returned from the fulfilled callback,
- * the result is the payload of that promise, not the promise itself.
+ * When a `Thenable` is fulfilled or rejected with another `Thenable`, the
+ * payload of the second is used as the payload of the first.
  *
  * @template RESULT := type('IThenable',
  *     cond(isUnknown(VALUE), unknown(),
@@ -1216,8 +1238,8 @@ Promise.race = function(iterable) {};
  * @return {RESULT}
  * @template VALUE
  *
- * When a Promise (or thenable) is returned from the fulfilled callback,
- * the result is the payload of that promise, not the promise itself.
+ * When a `Thenable` is fulfilled or rejected with another `Thenable`, the
+ * payload of the second is used as the payload of the first.
  *
  * @template RESULT := type('Promise',
  *     cond(isUnknown(VALUE), unknown(),
@@ -1234,9 +1256,27 @@ Promise.prototype.then = function(opt_onFulfilled, opt_onRejected) {};
 
 
 /**
- * @param {function(*): RESULT} onRejected
- * @return {!Promise<RESULT>}
- * @template RESULT
+ * @param {function(*):VALUE} onRejected
+ * @return {!Promise<TYPE|RESULT>} A Promise of the original type or a possibly
+ *     a different type depending on whether the parent promise was rejected.
+ *
+ * @template VALUE
+ *
+ * When a `Thenable` is rejected with another `Thenable`, the payload of the
+ * second is used as the payload of the first.
+ *
+ * @template RESULT := cond(
+ *     isUnknown(VALUE),
+ *     unknown(),
+ *     mapunion(VALUE, (V) =>
+ *         cond(
+ *             isTemplatized(V) && sub(rawTypeOf(V), 'IThenable'),
+ *             templateTypeOf(V, 0),
+ *             cond(
+ *                 sub(V, 'Thenable'),
+ *                 unknown(),
+ *                 V))))
+ * =:
  */
 Promise.prototype.catch = function(onRejected) {};
 
@@ -1287,7 +1327,7 @@ Array.prototype.entries;
 
 
 /**
- * @param {!function(this:S, T, number, !Array<T>): boolean} predicateFn
+ * @param {function(this:S, T, number, !Array<T>): boolean} predicateFn
  * @param {S=} opt_this
  * @return {T|undefined}
  * @this {IArrayLike<T>|string}
@@ -1298,7 +1338,7 @@ Array.prototype.find = function(predicateFn, opt_this) {};
 
 
 /**
- * @param {!function(this:S, T, number, !Array<T>): boolean} predicateFn
+ * @param {function(this:S, T, number, !Array<T>): boolean} predicateFn
  * @param {S=} opt_this
  * @return {number}
  * @this {IArrayLike<T>|string}
@@ -1325,6 +1365,7 @@ Array.prototype.fill = function(value, opt_begin, opt_end) {};
  * @param {number} start
  * @param {number=} opt_end
  * @see http://www.ecma-international.org/ecma-262/6.0/#sec-array.prototype.copywithin
+ * @this {!IArrayLike<T>|string}
  * @template T
  * @return {!Array<T>}
  */
@@ -1343,6 +1384,41 @@ Array.prototype.copyWithin = function(target, start, opt_end) {};
  */
 Array.prototype.includes = function(searchElement, opt_fromIndex) {};
 
+/**
+ * Generates an array by passing every element of this array to a callback that
+ * returns an array of zero or more elements to be added to the result.
+ *
+ * NOTE: The specified behavior of the method is that the callback can return
+ * either an Array, which will be flattened into the result, or a non-array,
+ * which will simply be included.
+ *
+ * However, while defining that in the type information here is possible it's
+ * very hard to understand both for humans and automated tools other than
+ * closure-compiler that process these files. Also, we think it's best to
+ * encourage writing callbacks that just always return an Array for the sake
+ * of readability.
+ *
+ * The polyfill for this method provided by closure-compiler does behave as
+ * defined in the specification, though.
+ *
+ * @param {function(this: THIS, T, number, !IArrayLike<T>): !Array<S>}
+ *     callback
+ * @param {THIS=} thisArg
+ * @return {!Array<S>}
+ * @this {!IArrayLike<T>}
+ * @template T, THIS, S
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flatMap
+ */
+Array.prototype.flatMap = function(callback, thisArg) {};
+
+/**
+ * @param {number=} depth
+ * @return {!Array<S>}
+ * @this {!IArrayLike<T>}
+ * @template T, S
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/flat
+ */
+Array.prototype.flat = function(depth) {};
 
 /**
  * @param {!Object} obj
@@ -1464,6 +1540,13 @@ Object.values = function(obj) {};
  * @template T
  */
 Object.entries = function(obj) {};
+
+/**
+ * @param {!Iterable<*>} iter
+ * @return {!Object}
+ * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/fromEntries
+ */
+Object.fromEntries = function(iter) {};
 
 /**
  * NOTE: this is an ES2017 (ES8) extern.
@@ -1699,13 +1782,6 @@ Atomics.wake = function(typedArray, index, count) {}
  * @return {number}
  */
 Atomics.xor = function(typedArray, index, value) {}
-
-
-/**
- * @see https://tc39.github.io/proposal-async-iteration/
- * @const {symbol}
- */
-Symbol.asyncIterator;
 
 
 /**

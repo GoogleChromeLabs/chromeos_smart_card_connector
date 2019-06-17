@@ -63,6 +63,7 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
 
   private Set<String> extraAnnotations;
   private Set<String> extraSuppressions;
+  private Set<String> extraPrimitives;
   private JSDocInfoBuilder fileLevelJsDocBuilder = null;
 
   private static final String MISSING_TYPE_DECL_WARNING_TEXT =
@@ -86,6 +87,11 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
     extraSuppressions.add("x");
     extraSuppressions.add("y");
     extraSuppressions.add("z");
+
+    extraPrimitives = new HashSet<>();
+    extraPrimitives.add("id");
+    extraPrimitives.add("idA");
+    extraPrimitives.add("idB");
   }
 
   @Test
@@ -686,6 +692,13 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testParseImportTypeError() {
+    parse(
+        "@type {import('http').Stream} */",
+        "Bad type annotation. Import in typedef is not supported." + BAD_TYPE_WIKI_LINK);
+  }
+
+  @Test
   public void testParseFunctionalTypeError1() {
     parse(
         "@type {function number):string}*/",
@@ -819,8 +832,10 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
     Node node = parse("@type {typeof Foo}*/").getType().getRoot();
     assertNode(node).hasToken(Token.TYPEOF);
     assertThat(node.getChildCount()).isEqualTo(1);
-    assertNode(node.getFirstChild()).hasToken(Token.STRING);
-    assertNode(node.getFirstChild()).hasStringThat().isEqualTo("Foo");
+    Node fooNode = node.getFirstChild();
+    assertNode(fooNode).hasToken(Token.STRING);
+    assertNode(fooNode).hasStringThat().isEqualTo("Foo");
+    assertNode(fooNode).hasCharno(14);
   }
 
   @Test
@@ -828,8 +843,10 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
     Node node = parse("@type {(typeof Foo)}*/").getType().getRoot();
     assertNode(node).hasToken(Token.TYPEOF);
     assertThat(node.getChildCount()).isEqualTo(1);
-    assertNode(node.getFirstChild()).hasToken(Token.STRING);
-    assertNode(node.getFirstChild()).hasStringThat().isEqualTo("Foo");
+    Node fooNode = node.getFirstChild();
+    assertNode(fooNode).hasToken(Token.STRING);
+    assertNode(fooNode).hasStringThat().isEqualTo("Foo");
+    assertNode(fooNode).hasCharno(15);
   }
 
   @Test
@@ -837,16 +854,32 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
     Node node = parse("@type {typeof Foo|Bar<typeof Baz>}*/").getType().getRoot();
     assertNode(node).hasToken(Token.PIPE);
     assertNode(node.getFirstChild()).hasToken(Token.TYPEOF);
-    assertNode(node.getFirstFirstChild()).hasToken(Token.STRING);
-    assertNode(node.getFirstFirstChild()).hasStringThat().isEqualTo("Foo");
-    assertNode(node.getLastChild()).hasToken(Token.STRING);
-    assertNode(node.getLastChild()).hasStringThat().isEqualTo("Bar");
-    assertNode(node.getLastChild().getFirstChild()).hasToken(Token.BLOCK);
-    assertNode(node.getLastChild().getFirstFirstChild()).hasToken(Token.TYPEOF);
-    assertNode(node.getLastChild().getFirstFirstChild().getFirstChild()).hasToken(Token.STRING);
-    assertNode(node.getLastChild().getFirstFirstChild().getFirstChild())
-        .hasStringThat()
-        .isEqualTo("Baz");
+    Node fooNode = node.getFirstFirstChild();
+    assertNode(fooNode).hasToken(Token.STRING);
+    assertNode(fooNode).hasStringThat().isEqualTo("Foo");
+    assertNode(fooNode).hasCharno(14);
+    Node barNode = node.getLastChild();
+    assertNode(barNode).hasToken(Token.STRING);
+    assertNode(barNode).hasStringThat().isEqualTo("Bar");
+    assertNode(barNode).hasCharno(18);
+    assertNode(barNode.getFirstChild()).hasToken(Token.BLOCK);
+    assertNode(barNode.getFirstFirstChild()).hasToken(Token.TYPEOF);
+    Node bazNode = barNode.getFirstFirstChild().getFirstChild();
+    assertNode(bazNode).hasToken(Token.STRING);
+    assertNode(bazNode).hasStringThat().isEqualTo("Baz");
+    assertNode(bazNode).hasCharno(29);
+  }
+
+  @Test
+  public void testParseTypeofTypeNewLine() {
+    Node node = parse("@type {typeof \n  Foo}*/").getType().getRoot();
+    assertNode(node).hasToken(Token.TYPEOF);
+    assertThat(node.getChildCount()).isEqualTo(1);
+    Node fooNode = node.getFirstChild();
+    assertNode(fooNode).hasToken(Token.STRING);
+    assertNode(fooNode).hasStringThat().isEqualTo("Foo");
+    assertNode(fooNode).hasCharno(2);
+    assertNode(fooNode).hasLineno(1);
   }
 
   private JSType testParseType(String type) {
@@ -1644,6 +1677,63 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
   public void testParseMeaning4() {
     parse("@meaning  tigers\n * @meaning and lions  */",
         "extra @meaning tag");
+  }
+
+  @Test
+  public void testParseClosurePrimitive() {
+    JSDocInfo info = parse("@closurePrimitive {id} */");
+    assertThat(info.getClosurePrimitiveId()).isEqualTo("id");
+  }
+
+  @Test
+  public void testParseClosurePrimitiveOnNewLine() {
+    JSDocInfo info = parse("@closurePrimitive    \n\n {id} */");
+    assertThat(info.getClosurePrimitiveId()).isEqualTo("id");
+  }
+
+  @Test
+  public void testParseClosurePrimitiveWithAnnotationAfterId() {
+    JSDocInfo info = parse("@closurePrimitive {id} @const */");
+    assertThat(info.getClosurePrimitiveId()).isEqualTo("id");
+    assertThat(info.isConstant()).isTrue();
+  }
+
+  @Test
+  public void testParseClosurePrimitiveWithStringAfterId() {
+    JSDocInfo info = parse("@closurePrimitive {id} some comment\n@const */");
+    assertThat(info.getClosurePrimitiveId()).isEqualTo("id");
+    assertThat(info.isConstant()).isTrue();
+  }
+
+  @Test
+  public void testParseClosurePrimitiveIdMissingIdentifier() {
+    parse("@closurePrimitive */", "missing opening {");
+  }
+
+  @Test
+  public void testParseClosurePrimitiveIdInvalidId() {
+    parse("@closurePrimitive {unrecognizedId } */", "invalid id in @closurePrimitive tag.");
+  }
+
+  @Test
+  public void testParseClosurePrimitiveIdMissingLeftCurly() {
+    parse("@closurePrimitive id} */", "missing opening {");
+  }
+
+  @Test
+  public void testParseClosurePrimitiveIdMissingRightCurly() {
+    parse("@closurePrimitive {id */", "expected closing }");
+  }
+
+  @Test
+  public void testParseClosurePrimitiveIdMissingStringInCurly() {
+    parse("@closurePrimitive {} */", "missing id in @closurePrimitive tag.");
+  }
+
+  @Test
+  public void testParseClosurePrimitiveDuplicateTags() {
+    parse(
+        "@closurePrimitive {idA}\n@closurePrimitive {idB} */", "conflicting @closurePrimitive tag");
   }
 
   @Test
@@ -3555,21 +3645,20 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
 
   @Test
   public void testStableIdGenerator() {
-    JSDocInfo info = parse("/**\n"
-        + " * @stableIdGenerator\n"
-        + " */\n"
-        + "function getId() {}");
+    JSDocInfo info =
+        parse("/**\n" + " * @idGenerator {stable}\n" + " */\n" + "function getId() {}");
     assertThat(info.isStableIdGenerator()).isTrue();
   }
 
   @Test
   public void testStableIdGeneratorConflict() {
-    parse("/**\n"
-        + " * @stableIdGenerator\n"
-        + " * @stableIdGenerator\n"
-        + " */\n"
-        + "function getId() {}",
-        "extra @stableIdGenerator tag");
+    parse(
+        "/**\n"
+            + " * @idGenerator {stable}\n"
+            + " * @idGenerator {stable}\n"
+            + " */\n"
+            + "function getId() {}",
+        "extra @idGenerator tag");
   }
 
   @Test
@@ -5070,61 +5159,6 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
-  public void testParseDisposes1() {
-    assertThat(parse("@param {?} x \n * @disposes x */").isDisposes()).isTrue();
-  }
-
-  @Test
-  public void testParseDisposes2() {
-    parse(
-        "@param {?} x \n * @disposes */",
-        true,
-        "Bad type annotation. @disposes tag missing parameter name." + BAD_TYPE_WIKI_LINK);
-  }
-
-  @Test
-  public void testParseDisposes3() {
-    assertThat(parse("@param {?} x \n @param {?} y\n * @disposes x, y */").isDisposes()).isTrue();
-  }
-
-  @Test
-  public void testParseDisposesUnknown() {
-    parse(
-        "@param {?} x \n * @disposes x,y */",
-        true,
-        "Bad type annotation. @disposes parameter unknown or parameter specified multiple times."
-            + BAD_TYPE_WIKI_LINK);
-  }
-
-  @Test
-  public void testParseDisposesMultiple() {
-    parse(
-        "@param {?} x \n * @disposes x,x */",
-        true,
-        "Bad type annotation. @disposes parameter unknown or parameter specified multiple times."
-            + BAD_TYPE_WIKI_LINK);
-  }
-
-  @Test
-  public void testParseDisposesAll1() {
-    assertThat(parse("@param {?} x \n * @disposes * */").isDisposes()).isTrue();
-  }
-
-  @Test
-  public void testParseDisposesAll2() {
-    assertThat(parse("@param {?} x \n * @disposes x,* */").isDisposes()).isTrue();
-  }
-
-  @Test
-  public void testParseDisposesAll3() {
-    parse(
-        "@param {?} x \n * @disposes *, * */",
-        true,
-        "Bad type annotation. @disposes parameter unknown or parameter specified multiple times."
-            + BAD_TYPE_WIKI_LINK);
-  }
-
-  @Test
   public void testTextExtents() {
     parse(
         "@return {@code foo} bar \n *    baz. */",
@@ -5601,6 +5635,7 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
             .setExtraAnnotationNames(extraAnnotations)
             .setJsDocParsingMode(parseDocumentation)
             .setSuppressionNames(extraSuppressions)
+            .setClosurePrimitiveNames(extraPrimitives)
             .setLanguageMode(LanguageMode.ECMASCRIPT3)
             .setParseInlineSourceMaps(true)
             .setStrictMode(Config.StrictMode.SLOPPY)

@@ -45,7 +45,6 @@ import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -94,23 +93,6 @@ class DisambiguateProperties implements CompilerPass {
   private static final Logger logger = Logger.getLogger(
       DisambiguateProperties.class.getName());
   private static final Pattern NONWORD_PATTERN = Pattern.compile("[^\\w$]");
-
-  static class Warnings {
-    // TODO(user): {1} and {2} are not exactly useful for most people.
-    static final DiagnosticType INVALIDATION = DiagnosticType.disabled(
-        "JSC_INVALIDATION",
-        "Property disambiguator skipping all instances of property {0} "
-            + "because of type {1} node {2}. {3}");
-
-    static final DiagnosticType INVALIDATION_ON_TYPE = DiagnosticType.disabled(
-        "JSC_INVALIDATION_TYPE",
-        "Property disambiguator skipping instances of property {0} on type {1}. {2}");
-
-    // TODO(tbreisacher): Check this in a separate pass, so that users get the error even if
-    // optimizations are not running.
-    static final DiagnosticType INVALID_RENAME_FUNCTION =
-        DiagnosticType.error("JSC_INVALID_RENAME_FUNCTION", "{0} call is invalid: {1}");
-  }
 
   private final AbstractCompiler compiler;
 
@@ -307,14 +289,13 @@ class DisambiguateProperties implements CompilerPass {
 
     /**
      * Schedule the node to potentially be renamed.
+     *
      * @param node the node to rename
-     * @param type the highest type in the prototype chain for which the
-     *     property is defined
-     * @return True if type was accepted without invalidation or if the property
-     *     was already invalidated.  False if this property was invalidated this
-     *     time.
+     * @return True if type was accepted without invalidation or if the property was already
+     *     invalidated. False if this property was invalidated this time.
      */
-    boolean scheduleRenaming(Node node, JSType type) {
+    boolean scheduleRenaming(Node node, JSType targetType) {
+      JSType type = processProperty(targetType);
       if (!skipRenaming) {
         if (invalidatingTypes.isInvalidating(type)) {
           invalidate();
@@ -323,6 +304,47 @@ class DisambiguateProperties implements CompilerPass {
         rootTypesByNode.put(node, type);
       }
       return true;
+    }
+
+    @Nullable
+    private JSType processProperty(JSType type) {
+      return processProperty(type, null);
+    }
+
+    /**
+     * Processes a property, adding it to the list of properties to rename.
+     *
+     * @param type a type this property is known to be on, not necessarily the highest type
+     * @param relatedType only for use inside this function, other callers should pass null.
+     * @return a representative type for the property reference, which will be the highest type on
+     *     the prototype chain of the provided type. In the case of a union type, it will be the
+     *     highest type on the prototype chain of one of the members of the union. Returns null if
+     *     the property is marked as not renamable or the given type is invalidated
+     */
+    @Nullable
+    private JSType processProperty(JSType type, @Nullable JSType relatedType) {
+      type = type.restrictByNotNullOrUndefined();
+      if (this.skipRenaming || invalidatingTypes.isInvalidating(type)) {
+        return null;
+      }
+      Iterable<? extends JSType> alternatives = getTypeAlternatives(type);
+      if (alternatives != null) {
+        JSType firstType = relatedType;
+        for (JSType subType : alternatives) {
+          JSType lastType = processProperty(subType, firstType);
+          if (firstType == null) {
+            firstType = lastType; // maybe null
+          }
+        }
+        return firstType;
+      } else {
+        JSType topType = getTypeWithProperty(this.name, type);
+        if (invalidatingTypes.isInvalidating(topType)) {
+          return null;
+        }
+        this.addType(type, relatedType);
+        return topType;
+      }
     }
   }
 
@@ -461,7 +483,7 @@ class DisambiguateProperties implements CompilerPass {
       String name = n.getLastChild().getString();
       JSType type = getType(n.getFirstChild());
       Property prop = getProperty(name);
-      if (!prop.scheduleRenaming(n.getLastChild(), processProperty(prop, type, null))
+      if (!prop.scheduleRenaming(n.getLastChild(), type)
           && propertiesToErrorFor.containsKey(name)) {
         String suggestion = "";
         if (type.isAllType() || type.isUnknownType()) {
@@ -479,8 +501,14 @@ class DisambiguateProperties implements CompilerPass {
             suggestion += Joiner.on("\n").join(errors);
           }
         }
-        compiler.report(JSError.make(n, propertiesToErrorFor.get(name),
-                Warnings.INVALIDATION, name, String.valueOf(type), n.toString(),
+        compiler.report(
+            JSError.make(
+                n,
+                propertiesToErrorFor.get(name),
+                PropertyRenamingDiagnostics.INVALIDATION,
+                name,
+                String.valueOf(type),
+                n.toString(),
                 suggestion));
       }
     }
@@ -491,26 +519,49 @@ class DisambiguateProperties implements CompilerPass {
         return;
       }
 
-      for (Node child = n.getFirstChild();
-          child != null;
-          child = child.getNext()) {
-        if (child.isQuotedString() || child.isComputedProp()) {
-          // Ignore properties that the compiler does not rename
-          //   var obj = {'quoted': 0, ['computed']: 1};
-          continue;
-        }
+      for (Node child = n.getFirstChild(); child != null; child = child.getNext()) {
+        switch (child.getToken()) {
+          case COMPUTED_PROP:
+            // These won't be renamed due to our assumptions. Ignore them.
+          case SPREAD:
+            // Ignore properties added via spread. All properties accessed from object literals are
+            // invalidated regardless, so we don't have to explicitly do that here. Additionally,
+            // even if we invalidated all the properties known to be on the spread type, there may
+            // be others we're unaware of, so it would be insufficient.
+            continue;
 
-        // We should never see a mix of numbers and strings.
-        String name = child.getString();
-        JSType objlitType = getType(n);
-        Property prop = getProperty(name);
-        if (!prop.scheduleRenaming(child, processProperty(prop, objlitType, null))) {
-          // TODO(user): It doesn't look like the user can do much in this
-          // case right now.
-          if (propertiesToErrorFor.containsKey(name)) {
-            compiler.report(JSError.make(child, propertiesToErrorFor.get(name),
-                Warnings.INVALIDATION, name, String.valueOf(objlitType), n.toString(), ""));
-          }
+          case STRING_KEY:
+          case MEMBER_FUNCTION_DEF:
+          case GETTER_DEF:
+          case SETTER_DEF:
+            if (child.isQuotedString()) {
+              continue; // These won't be renamed due to our assumptions. Ignore them.
+            }
+
+            // We should never see a mix of numbers and strings.
+            String name = child.getString();
+            JSType objlitType = getType(n);
+            Property prop = getProperty(name);
+            if (!prop.scheduleRenaming(child, objlitType)) {
+              // TODO(user): It doesn't look like the user can do much in this
+              // case right now.
+              if (propertiesToErrorFor.containsKey(name)) {
+                compiler.report(
+                    JSError.make(
+                        child,
+                        propertiesToErrorFor.get(name),
+                        PropertyRenamingDiagnostics.INVALIDATION,
+                        name,
+                        String.valueOf(objlitType),
+                        n.toString(),
+                        ""));
+              }
+            }
+            break;
+
+          default:
+            throw new IllegalStateException(
+                "Unexpected child of OBJECTLIT: " + child.toStringTree());
         }
       }
     }
@@ -553,8 +604,7 @@ class DisambiguateProperties implements CompilerPass {
         Property prop = getProperty(name);
         JSType ownerType = member.isStaticMember() ? classType : classInstanceType;
 
-        if (!prop.scheduleRenaming(member, processProperty(prop, ownerType, null))
-            && propertiesToErrorFor.containsKey(name)) {
+        if (!prop.scheduleRenaming(member, ownerType) && propertiesToErrorFor.containsKey(name)) {
           String suggestion = "";
           List<String> errors = new ArrayList<>();
           printErrorLocations(errors, ownerType);
@@ -566,7 +616,7 @@ class DisambiguateProperties implements CompilerPass {
               JSError.make(
                   member,
                   propertiesToErrorFor.get(name),
-                  Warnings.INVALIDATION,
+                  PropertyRenamingDiagnostics.INVALIDATION,
                   name,
                   String.valueOf(ownerType),
                   member.toString(),
@@ -594,7 +644,7 @@ class DisambiguateProperties implements CompilerPass {
         }
         String name = stringKey.getString();
         Property prop = getProperty(name);
-        if (!prop.scheduleRenaming(stringKey, processProperty(prop, objectPatternType, null))
+        if (!prop.scheduleRenaming(stringKey, objectPatternType)
             && propertiesToErrorFor.containsKey(name)) {
           String suggestion = "";
           if (objectPatternType.isAllType() || objectPatternType.isUnknownType()) {
@@ -616,7 +666,7 @@ class DisambiguateProperties implements CompilerPass {
               JSError.make(
                   stringKey,
                   propertiesToErrorFor.get(name),
-                  Warnings.INVALIDATION,
+                  PropertyRenamingDiagnostics.INVALIDATION,
                   name,
                   String.valueOf(objectPatternType),
                   stringKey.toString(),
@@ -631,7 +681,7 @@ class DisambiguateProperties implements CompilerPass {
         compiler.report(
             JSError.make(
                 call,
-                Warnings.INVALID_RENAME_FUNCTION,
+                PropertyRenamingDiagnostics.INVALID_RENAME_FUNCTION,
                 renameFunctionName,
                 " Must be called with 1 or 2 arguments"));
         return;
@@ -641,7 +691,7 @@ class DisambiguateProperties implements CompilerPass {
         compiler.report(
             JSError.make(
                 call,
-                Warnings.INVALID_RENAME_FUNCTION,
+                PropertyRenamingDiagnostics.INVALID_RENAME_FUNCTION,
                 renameFunctionName,
                 " The first argument must be a string literal."));
         return;
@@ -653,7 +703,7 @@ class DisambiguateProperties implements CompilerPass {
         compiler.report(
             JSError.make(
                 call,
-                Warnings.INVALID_RENAME_FUNCTION,
+                PropertyRenamingDiagnostics.INVALID_RENAME_FUNCTION,
                 renameFunctionName,
                 " The first argument must not be a property path."));
         return;
@@ -662,7 +712,7 @@ class DisambiguateProperties implements CompilerPass {
       Node obj = call.getChildAtIndex(2);
       JSType type = getType(obj);
       Property prop = getProperty(propName);
-      if (!prop.scheduleRenaming(call.getSecondChild(), processProperty(prop, type, null))
+      if (!prop.scheduleRenaming(call.getSecondChild(), type)
           && propertiesToErrorFor.containsKey(propName)) {
         String suggestion = "";
         if (type.isAllType() || type.isUnknownType()) {
@@ -685,7 +735,7 @@ class DisambiguateProperties implements CompilerPass {
             JSError.make(
                 call,
                 propertiesToErrorFor.get(propName),
-                Warnings.INVALIDATION,
+                PropertyRenamingDiagnostics.INVALIDATION,
                 propName,
                 String.valueOf(type),
                 renameFunctionName,
@@ -708,7 +758,7 @@ class DisambiguateProperties implements CompilerPass {
 
         String propName = key.getString();
         Property prop = getProperty(propName);
-        prop.scheduleRenaming(key, processProperty(prop, type, null));
+        prop.scheduleRenaming(key, type);
       }
     }
 
@@ -730,42 +780,6 @@ class DisambiguateProperties implements CompilerPass {
               .limit(MAX_INVALIDATION_WARNINGS_PER_PROPERTY);
       for (JSError error : invalidations) {
         errors.add(t + " at " + error.sourceName + ":" + error.lineNumber);
-      }
-    }
-
-    /**
-     * Processes a property, adding it to the list of properties to rename.
-     *
-     * @param type a type this property is known to be on, not necessarily the highest type
-     * @param relatedType only for use inside this function, other callers should pass null.
-     * @return a representative type for the property reference, which will be the highest type on
-     *     the prototype chain of the provided type. In the case of a union type, it will be the
-     *     highest type on the prototype chain of one of the members of the union. Returns null if
-     *     the property is marked as not renamable or the given type is invalidated
-     */
-    @Nullable
-    private JSType processProperty(Property prop, JSType type, @Nullable JSType relatedType) {
-      type = type.restrictByNotNullOrUndefined();
-      if (prop.skipRenaming || invalidatingTypes.isInvalidating(type)) {
-        return null;
-      }
-      Iterable<? extends JSType> alternatives = getTypeAlternatives(type);
-      if (alternatives != null) {
-        JSType firstType = relatedType;
-        for (JSType subType : alternatives) {
-          JSType lastType = processProperty(prop, subType, firstType);
-          if (lastType != null) {
-            firstType = firstType == null ? lastType : firstType;
-          }
-        }
-        return firstType;
-      } else {
-        JSType topType = getTypeWithProperty(prop.name, type);
-        if (invalidatingTypes.isInvalidating(topType)) {
-          return null;
-        }
-        prop.addType(type, relatedType);
-        return topType;
       }
     }
   }
@@ -805,11 +819,14 @@ class DisambiguateProperties implements CompilerPass {
                 && checkLevelForProp != CheckLevel.OFF
                 && !reported.contains(prop.name)) {
               reported.add(prop.name);
-              compiler.report(JSError.make(
-                  node,
-                  checkLevelForProp,
-                  Warnings.INVALIDATION_ON_TYPE, prop.name,
-                  rootType.toString(), ""));
+              compiler.report(
+                  JSError.make(
+                      node,
+                      checkLevelForProp,
+                      PropertyRenamingDiagnostics.INVALIDATION_ON_TYPE,
+                      prop.name,
+                      rootType.toString(),
+                      ""));
             }
           }
         }
@@ -991,19 +1008,8 @@ class DisambiguateProperties implements CompilerPass {
     // this appears.  This will make references to overridden properties look
     // like references to the initial property, so they are renamed alike.
     ObjectType objType = type.toMaybeObjectType();
-    if (objType != null && objType.getConstructor() != null
-        && objType.getConstructor().isInterface()) {
-      ObjectType topInterface = objType.getTopDefiningInterface(field);
-      if (topInterface != null && topInterface.getConstructor() != null) {
-        foundType = topInterface.getImplicitPrototype();
-      }
-    } else {
-      while (objType != null && !Objects.equals(objType.getImplicitPrototype(), objType)) {
-        if (objType.hasOwnProperty(field)) {
-          foundType = objType;
-        }
-        objType = objType.getImplicitPrototype();
-      }
+    if (objType != null) {
+      foundType = objType.getTopMostDefiningType(field);
     }
 
     // If the property does not exist on the referenced type but the original

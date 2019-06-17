@@ -22,11 +22,12 @@ import static com.google.javascript.jscomp.ClosureCheckModule.DECLARE_LEGACY_NAM
 import static com.google.javascript.jscomp.ClosurePrimitiveErrors.INVALID_REQUIRE_NAMESPACE;
 
 import com.google.common.collect.LinkedHashMultiset;
-import com.google.javascript.jscomp.ModuleMetadataMap.ModuleMetadata;
-import com.google.javascript.jscomp.ModuleMetadataMap.ModuleType;
 import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.jscomp.deps.ModuleLoader.ModulePath;
 import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleType;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import java.util.HashMap;
@@ -121,16 +122,20 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
 
   private class ModuleMetadataBuilder {
     private boolean ambiguous;
+    private boolean hasModuleBody;
     private Node declaredModuleId;
     private Node declaresLegacyNamespace;
-    private final Node rootNode;
     final ModuleMetadata.Builder metadataBuilder;
     LinkedHashMultiset<String> googNamespaces = LinkedHashMultiset.create();
 
     ModuleMetadataBuilder(Node rootNode, @Nullable ModulePath path) {
-      this.metadataBuilder = ModuleMetadata.builder();
-      this.rootNode = rootNode;
-      metadataBuilder.path(path).moduleType(ModuleType.SCRIPT).usesClosure(false).isTestOnly(false);
+      this.metadataBuilder =
+          ModuleMetadata.builder()
+              .path(path)
+              .rootNode(rootNode)
+              .moduleType(ModuleType.SCRIPT)
+              .usesClosure(false)
+              .isTestOnly(false);
     }
 
     void moduleType(ModuleType type, NodeTraversal t, Node n) {
@@ -164,6 +169,11 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
     ModuleMetadata build() {
       metadataBuilder.googNamespacesBuilder().addAll(googNamespaces);
       if (!ambiguous) {
+        if (hasModuleBody && metadataBuilder.moduleType() == ModuleType.SCRIPT) {
+          // A script with no imports or exports, but has a module body, must be an ES module.
+          metadataBuilder.moduleType(ModuleType.ES6_MODULE);
+        }
+
         if (declaredModuleId != null && metadataBuilder.moduleType() != ModuleType.ES6_MODULE) {
           compiler.report(JSError.make(declaredModuleId, DECLARE_MODULE_ID_OUTSIDE_ES6_MODULE));
         }
@@ -199,6 +209,9 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
             loadModuleCall = n;
             enterModule(n, null);
           }
+          break;
+        case MODULE_BODY:
+          currentModule.hasModuleBody = true;
           break;
         default:
           break;
@@ -248,8 +261,9 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
       if (processCommonJsModules && currentModule != null && currentModule.isScript()) {
-        if (ProcessCommonJSModules.isCommonJsExport(t, n, moduleResolutionMode)
-            || ProcessCommonJSModules.isCommonJsImport(n, moduleResolutionMode)) {
+        // A common JS import (call to "require") does not force a module to be rewritten as
+        // commonJS. Only an export statement.
+        if (ProcessCommonJSModules.isCommonJsExport(t, n, moduleResolutionMode)) {
           currentModule.moduleType(ModuleType.COMMON_JS, t, n);
           return;
         }

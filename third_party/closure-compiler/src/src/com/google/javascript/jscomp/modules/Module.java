@@ -18,8 +18,8 @@ package com.google.javascript.jscomp.modules;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
-import com.google.javascript.jscomp.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.jscomp.deps.ModuleLoader;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
 import javax.annotation.Nullable;
 
 /**
@@ -57,6 +57,8 @@ public abstract class Module {
    *   <li><code>import</code> statements make no entries on their own. If imported values are
    *       exported with <code> export {};</code> then an entry is created like <code>export {} from
    *       </code>.
+   *   <li><code>exports.foo = bar;</code> creates an entry with the name "foo" for the expression
+   *       on the right-hand side. This is not bound to a local name.
    * </ul>
    */
   public abstract ImmutableMap<String, Binding> namespace();
@@ -66,6 +68,9 @@ public abstract class Module {
    *
    * <p>This includes all names bound by import and exported names which originate in this module.
    * Used for rewriting in later stages of the compiler.
+   *
+   * <p>ES modules may have names bound by both imports and exports. Closure modules only have names
+   * bound by imports, as it is impossible to create a new local identifier in an export.
    *
    * <p>Examples:
    *
@@ -77,6 +82,8 @@ public abstract class Module {
    *   <li><code>export default function foo() {}</code> creates an entry with the name "foo" for
    *       the local module's export definition.
    *   <li><code>export {x as v} from 'mod';</code> does not create any entry in this module.
+   *   <li><code>const C = goog.require('mod.C')</code> creates an entry with the name "C" for the
+   *       binding containing the default export of 'mod.C'
    * </ul>
    */
   public abstract ImmutableMap<String, Binding> boundNames();
@@ -91,24 +98,38 @@ public abstract class Module {
   @Nullable
   public abstract String closureNamespace();
 
-  static Builder builder() {
+  /**
+   * The unresolved module this module was made from. Needed for hotswap functionality - the Module
+   * may not have all the information needed to be made into an UnresolvedModule again, so instead
+   * store it.
+   */
+  abstract UnresolvedModule unresolvedModule();
+
+  /** Creates a new builder. */
+  public static Builder builder() {
     return new AutoValue_Module.Builder();
   }
 
+  /** Returns this module in builder form. */
+  public abstract Builder toBuilder();
+
+  /** Builder for {@link Module}. */
   @AutoValue.Builder
-  abstract static class Builder {
-    abstract Builder metadata(ModuleMetadata value);
+  public abstract static class Builder {
+    public abstract Builder metadata(ModuleMetadata value);
 
-    abstract Builder path(@Nullable ModuleLoader.ModulePath value);
+    public abstract Builder path(@Nullable ModuleLoader.ModulePath value);
 
-    abstract Builder namespace(ImmutableMap<String, Binding> value);
+    public abstract Builder namespace(ImmutableMap<String, Binding> value);
 
-    abstract Builder boundNames(ImmutableMap<String, Binding> value);
+    public abstract Builder boundNames(ImmutableMap<String, Binding> value);
 
-    abstract Builder localNameToLocalExport(ImmutableMap<String, Export> value);
+    public abstract Builder localNameToLocalExport(ImmutableMap<String, Export> value);
 
-    abstract Builder closureNamespace(@Nullable String value);
+    public abstract Builder closureNamespace(@Nullable String value);
 
-    abstract Module build();
+    public abstract Builder unresolvedModule(UnresolvedModule value);
+
+    public abstract Module build();
   }
 }

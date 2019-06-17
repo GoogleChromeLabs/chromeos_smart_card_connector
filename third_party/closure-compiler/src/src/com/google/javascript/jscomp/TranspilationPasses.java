@@ -17,7 +17,6 @@
 package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES2018;
-import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES2018_MODULES;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES6;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES7;
 import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES8;
@@ -48,6 +47,7 @@ public class TranspilationPasses {
             return new Es6RewriteModules(
                 compiler,
                 compiler.getModuleMetadataMap(),
+                compiler.getModuleMap(),
                 preprocessorTableFactory.getInstanceOrNull());
           }
 
@@ -60,35 +60,11 @@ public class TranspilationPasses {
 
   public static void addPreTypecheckTranspilationPasses(
       List<PassFactory> passes, CompilerOptions options) {
-    addPreTypecheckTranspilationPasses(
-        passes,
-        options,
-        // This condition works most of the time, but has edge cases that fail in tests.
-        !options.skipNonTranspilationPasses);
-  }
-
-  // Tests extending CompilerTestCase and TypeCheckTestCase fail if the es6ExternsCheck pass is
-  // run. Ideally a condition based on the CompilerOptions should be used so that the boolean
-  // parameter can be removed.
-  static void addPreTypecheckTranspilationPasses(
-      List<PassFactory> passes, CompilerOptions options, boolean doEs6ExternsCheck) {
 
     // TODO(bradfordcsmith): Rename this since it isn't just libraries for ES6 features anymore.
     // Inject runtime libraries needed for the transpilation we will have to do.
     passes.add(es6InjectRuntimeLibraries);
 
-    passes.add(
-        markUntranspilableFeaturesAsRemoved(
-            options.getLanguageIn().toFeatureSet(), options.getOutputFeatureSet()));
-
-    if (options.needsTranspilationFrom(ES2018)) {
-      passes.add(rewriteAsyncIteration);
-      passes.add(rewriteObjectSpread);
-    }
-
-    if (options.needsTranspilationFrom(ES6) && doEs6ExternsCheck) {
-      passes.add(es6ExternsCheck);
-    }
   }
 
   public static void addEs6ModuleToCjsPass(List<PassFactory> passes) {
@@ -102,6 +78,15 @@ public class TranspilationPasses {
   /** Adds transpilation passes that should run after all checks are done. */
   public static void addPostCheckTranspilationPasses(
       List<PassFactory> passes, CompilerOptions options) {
+    if (options.needsTranspilationFrom(FeatureSet.ES_NEXT)) {
+      passes.add(rewriteCatchWithNoBinding);
+    }
+
+    if (options.needsTranspilationFrom(ES2018)) {
+      passes.add(rewriteAsyncIteration);
+      passes.add(rewriteObjectSpread);
+    }
+
     if (options.needsTranspilationFrom(ES8)) {
       // Trailing commas in parameter lists are flagged as present by the parser,
       // but never actually represented in the AST.
@@ -161,19 +146,6 @@ public class TranspilationPasses {
     passes.add(rewritePolyfills);
   }
 
-  private static PassFactory markUntranspilableFeaturesAsRemoved(FeatureSet from, FeatureSet to) {
-    return new PassFactory("markUntranspilableFeaturesAsRemoved", true) {
-      @Override
-      protected CompilerPass create(AbstractCompiler compiler) {
-        return new MarkUntranspilableFeaturesAsRemoved(compiler, from, to);
-      }
-
-      @Override
-      protected FeatureSet featureSet() {
-        return ES_NEXT;
-      }
-    };
-  }
 
   /** Rewrites ES6 modules */
   private static final PassFactory es6RewriteModuleToCjs =
@@ -254,6 +226,19 @@ public class TranspilationPasses {
         }
       };
 
+  private static final PassFactory rewriteCatchWithNoBinding =
+      new HotSwapPassFactory("rewriteCatchWithNoBinding") {
+        @Override
+        protected HotSwapCompilerPass create(final AbstractCompiler compiler) {
+          return new RewriteCatchWithNoBinding(compiler);
+        }
+
+        @Override
+        protected FeatureSet featureSet() {
+          return ES_NEXT;
+        }
+      };
+
   private static final PassFactory rewriteExponentialOperator =
       new HotSwapPassFactory("rewriteExponentialOperator") {
         @Override
@@ -277,20 +262,6 @@ public class TranspilationPasses {
         @Override
         protected FeatureSet featureSet() {
           return ES2018;
-        }
-      };
-
-  static final PassFactory es6ExternsCheck =
-      new PassFactory("es6ExternsCheck", true) {
-        @Override
-        protected CompilerPass create(final AbstractCompiler compiler) {
-          // TODO(johnlenz): Investigate if this can be removed
-          return new Es6ExternsCheck(compiler);
-        }
-
-        @Override
-        protected FeatureSet featureSet() {
-          return ES2018_MODULES;
         }
       };
 

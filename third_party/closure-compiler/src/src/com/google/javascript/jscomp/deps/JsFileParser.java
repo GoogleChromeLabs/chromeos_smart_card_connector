@@ -54,7 +54,7 @@ public final class JsFileParser extends JsFileLineParser {
           "(?:^|;)(?:[a-zA-Z0-9$_,:{}\\s]+=)?\\s*"
               + "goog\\.(?<func>provide|module|require|requireType|addDependency|declareModuleId)"
               // TODO(johnplaisted): Remove declareNamespace.
-              + "(?<subfunc>\\.declareNamespace)?\\s*\\((?<args>.*?)\\)");
+              + "\\s*\\((?<args>.*?)\\)");
 
   /**
    * Pattern for matching import ... from './path/to/file'.
@@ -90,6 +90,12 @@ public final class JsFileParser extends JsFileLineParser {
   /** Line in comment indicating that the file is Closure's base.js. */
   private static final String PROVIDES_GOOG_COMMENT = "@provideGoog";
 
+  /** Line in comment indicating that the file is an extern. */
+  private static final String EXTERNS_COMMENT = "@externs";
+
+  /** Line in comment indicating that the file should not be touched by JSCompiler. */
+  private static final String NOCOMPILE_COMMENT = "@nocompile";
+
   /** The start of a bundled goog.module, i.e. one that is wrapped in a goog.loadModule call */
   private static final String BUNDLED_GOOG_MODULE_START = "goog.loadModule(function(";
 
@@ -104,6 +110,8 @@ public final class JsFileParser extends JsFileLineParser {
   private List<Require> requires;
   private List<String> typeRequires;
   private boolean fileHasProvidesOrRequires;
+  private boolean hasExternsAnnotation;
+  private boolean hasNoCompileAnnotation;
   private ModuleLoader loader = ModuleLoader.EMPTY;
   private ModuleLoader.ModulePath file;
 
@@ -211,6 +219,8 @@ public final class JsFileParser extends JsFileLineParser {
             .setRequires(requires)
             .setTypeRequires(typeRequires)
             .setLoadFlags(loadFlags)
+            .setHasExternsAnnotation(hasExternsAnnotation)
+            .setHasNoCompileAnnotation(hasNoCompileAnnotation)
             .build();
     if (logger.isLoggable(Level.FINE)) {
       logger.fine("DepInfo: " + dependencyInfo);
@@ -218,7 +228,11 @@ public final class JsFileParser extends JsFileLineParser {
     return dependencyInfo;
   }
 
-  private void setModuleType(ModuleType type) {
+  /**
+   * @return {@code true} if the moduleType is successfully set and {@code false} otherwise (e.g.
+   *     goog.provide, goog.module conflict).
+   */
+  private boolean setModuleType(ModuleType type) {
     boolean provide = type == ModuleType.GOOG_PROVIDE || moduleType == ModuleType.GOOG_PROVIDE;
     boolean es6Module = type == ModuleType.ES6_MODULE || moduleType == ModuleType.ES6_MODULE;
     boolean googModule = type == ModuleType.GOOG_MODULE || moduleType == ModuleType.GOOG_MODULE;
@@ -227,7 +241,7 @@ public final class JsFileParser extends JsFileLineParser {
       // We have to assume this is a top level goog.provide and a wrapped goog.loadModule. We can't
       // correctly validate this with just regular expressions.
       moduleType = ModuleType.GOOG_PROVIDE;
-      return;
+      return true;
     }
 
     boolean provideGoogModuleConflict = googModule && provide && !seenLoadModule;
@@ -239,15 +253,27 @@ public final class JsFileParser extends JsFileLineParser {
       // TODO(sdh): should this be an error?
       errorManager.report(
           CheckLevel.WARNING, JSError.make(ModuleLoader.MODULE_CONFLICT, file.toString()));
+      return false;
     }
 
     moduleType = type;
+    return true;
   }
 
   @Override
-  protected boolean parseBlockCommentLine(String line) {
+  protected boolean parseJsDocCommentLine(String line) {
+    // Since these checks are all mutually exclusive, bail out after we see the first one.
+    // @providesGoog should only ever be in one file (namely base.js),
+    // and @nocompile means the file is thrown out entirely,
+    // so it should never exist with @externs.
     if (includeGoogBase && line.contains(PROVIDES_GOOG_COMMENT)) {
       provides.add("goog");
+      return false;
+    } else if (line.contains(EXTERNS_COMMENT)) {
+      hasExternsAnnotation = true;
+      return false;
+    } else if (line.contains(NOCOMPILE_COMMENT)) {
+      hasNoCompileAnnotation = true;
       return false;
     }
     return true;
@@ -281,19 +307,18 @@ public final class JsFileParser extends JsFileLineParser {
         // See if it's a require or provide.
         String methodName = googMatcher.group("func");
         char firstChar = methodName.charAt(0);
-        boolean isDeclareModuleNamespace =
-            firstChar == 'd' || (firstChar == 'm' && googMatcher.group("subfunc") != null);
+        boolean isDeclareModuleNamespace = firstChar == 'd';
         boolean isModule = !isDeclareModuleNamespace && firstChar == 'm';
         boolean isProvide = firstChar == 'p';
         boolean providesNamespace = isProvide || isModule || isDeclareModuleNamespace;
         boolean isRequire = firstChar == 'r';
 
         if (isModule && !seenLoadModule) {
-          setModuleType(ModuleType.GOOG_MODULE);
+          providesNamespace = setModuleType(ModuleType.GOOG_MODULE);
         }
 
         if (isProvide) {
-          setModuleType(ModuleType.GOOG_PROVIDE);
+          providesNamespace = setModuleType(ModuleType.GOOG_PROVIDE);
         }
 
         if (providesNamespace || isRequire) {
@@ -327,7 +352,8 @@ public final class JsFileParser extends JsFileLineParser {
             // cut off the "goog:" prefix
             requires.add(Require.googRequireSymbol(arg.substring(5)));
           } else {
-            ModuleLoader.ModulePath path = file.resolveJsModule(arg);
+            ModuleLoader.ModulePath path =
+                file.resolveJsModule(arg, filePath, lineNum, es6Matcher.start());
             if (path == null) {
               path = file.resolveModuleAsPath(arg);
             }

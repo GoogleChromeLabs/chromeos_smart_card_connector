@@ -22,28 +22,12 @@
  * @externs
  */
 
-
 /**
  * @param {boolean=} opt_center
  * @see https://bugzilla.mozilla.org/show_bug.cgi?id=403510
  * @return {undefined}
  */
 Element.prototype.scrollIntoViewIfNeeded = function(opt_center) {};
-
-/**
- * @constructor
- * @see https://cs.chromium.org/search/?q=%22interface+MemoryInfo%22+file:idl+file:WebKit+package:chromium&type=cs
- */
-function MemoryInfo() {};
-
-/** @type {number} */
-MemoryInfo.prototype.totalJSHeapSize;
-
-/** @type {number} */
-MemoryInfo.prototype.usedJSHeapSize;
-
-/** @type {number} */
-MemoryInfo.prototype.jsHeapSizeLimit;
 
 /**
  * @constructor
@@ -94,147 +78,6 @@ ScriptProfile.prototype.uid;
 ScriptProfile.prototype.head;
 
 /**
- * @constructor
- * @see https://console.spec.whatwg.org/
- */
-function Console() {};
-
-/**
- * @param {*} condition
- * @param {...*} var_args
- * @return {undefined}
- */
-Console.prototype.assert = function(condition, var_args) {};
-
-/**
- * @param {...*} var_args
- * @return {undefined}
- */
-Console.prototype.error = function(var_args) {};
-
-/**
- * @param {...*} var_args
- * @return {undefined}
- */
-Console.prototype.info = function(var_args) {};
-
-/**
- * @param {...*} var_args
- * @return {undefined}
- */
-Console.prototype.log = function(var_args) {};
-
-/**
- * @param {...*} var_args
- * @return {undefined}
- */
-Console.prototype.warn = function(var_args) {};
-
-/**
- * @param {...*} var_args
- * @return {undefined}
- */
-Console.prototype.debug = function(var_args) {};
-
-/**
- * @param {*} value
- * @return {undefined}
- */
-Console.prototype.dir = function(value) {};
-
-/**
- * @param {...*} var_args
- * @return {undefined}
- */
-Console.prototype.dirxml = function(var_args) {};
-
-/**
- * @param {!Object} data
- * @param {*=} opt_columns
- * @return {undefined}
- */
-Console.prototype.table = function(data, opt_columns) {};
-
-/**
- * @param {...*} var_args
- * @return {undefined}
- */
-Console.prototype.trace = function(var_args) {};
-
-/**
- * @param {*} value
- * @return {undefined}
- */
-Console.prototype.count = function(value) {};
-
-/**
- * @param {*} value
- * @return {undefined}
- */
-Console.prototype.markTimeline = function(value) {};
-
-/**
- * @param {string=} opt_title
- * @return {undefined}
- */
-Console.prototype.profile = function(opt_title) {};
-
-/** @type {Array<ScriptProfile>} */
-Console.prototype.profiles;
-
-/**
- * @param {string=} opt_title
- * @return {undefined}
- */
-Console.prototype.profileEnd = function(opt_title) {};
-
-/**
- * @param {string} name
- * @return {undefined}
- */
-Console.prototype.time = function(name) {};
-
-/**
- * @param {string} name
- * @return {undefined}
- */
-Console.prototype.timeEnd = function(name) {};
-
-/**
- * @param {*} value
- * @return {undefined}
- */
-Console.prototype.timeStamp = function(value) {};
-
-/**
- * @param {...*} var_args
- * @return {undefined}
- */
-Console.prototype.group = function(var_args) {};
-
-/**
- * @param {...*} var_args
- * @return {undefined}
- */
-Console.prototype.groupCollapsed = function(var_args) {};
-
-Console.prototype.groupEnd = function() {};
-
-Console.prototype.clear = function() {};
-
-/** @type {MemoryInfo} */
-Console.prototype.memory;
-
-/** @type {!Console} */
-Window.prototype.console;
-
-/**
- * @type {!Console}
- * @suppress {duplicate}
- */
-var console;
-
-/**
  * @type {number}
  * @see http://developer.android.com/reference/android/webkit/WebView.html
  */
@@ -252,23 +95,28 @@ Selection.prototype.extentNode;
 /** @type {number} */
 Selection.prototype.extentOffset;
 
-/** @type {string} */
+/**
+ * @type {string}
+ * @see https://w3c.github.io/selection-api/#dom-selection-type
+ */
 Selection.prototype.type;
 
 /**
  * @return {undefined}
+ * @see https://w3c.github.io/selection-api/#dom-selection-empty
  */
 Selection.prototype.empty = function() {};
 
 /**
- * @param {Node} baseNode
- * @param {number} baseOffset
- * @param {Node} extentNode
- * @param {number} extentOffset
+ * @param {Node} anchorNode
+ * @param {number} anchorOffset
+ * @param {Node} focusNode
+ * @param {number} focusOffset
  * @return {undefined}
+ * @see https://w3c.github.io/selection-api/#dom-selection-setbaseandextent
  */
 Selection.prototype.setBaseAndExtent =
- function(baseNode, baseOffset, extentNode, extentOffset) {};
+ function(anchorNode, anchorOffset, focusNode, focusOffset) {};
 
 /**
  * @param {string} alter
@@ -277,16 +125,6 @@ Selection.prototype.setBaseAndExtent =
  * @return {undefined}
  */
 Selection.prototype.modify = function(alter, direction, granularity) {};
-
-/**
- * @param {Element} element
- * @param {string} pseudoElement
- * @param {boolean=} opt_authorOnly
- * @return {CSSRuleList}
- * @nosideeffects
- */
-ViewCSS.prototype.getMatchedCSSRules =
-    function(element, pseudoElement, opt_authorOnly) {};
 
 /**
  * @param {string} contextId

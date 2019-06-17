@@ -18,12 +18,12 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.javascript.jscomp.testing.JSCompCorrespondences.DESCRIPTION_EQUALITY;
 import static com.google.javascript.rhino.testing.TypeSubject.assertType;
 import static com.google.javascript.rhino.testing.TypeSubject.types;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.common.truth.Correspondence;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.JSTypeExpression;
@@ -36,44 +36,42 @@ import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.RecordTypeBuilder;
 import com.google.javascript.rhino.jstype.TemplatizedType;
 import com.google.javascript.rhino.testing.TestErrorReporter;
-import java.util.Objects;
 import org.junit.Before;
 
-/**
- * This class is mostly used by passes testing the old type checker. Passes that run after type
- * checking and need type information use the class TypeICompilerTestCase.
- */
+/** This class is mostly used by passes testing {@link TypeCheck}. */
 abstract class CompilerTypeTestCase {
   protected static final Joiner LINE_JOINER = Joiner.on('\n');
 
-  static final String CLOSURE_DEFS = LINE_JOINER.join(
-      "/** @const */ var goog = {};",
-      "goog.inherits = function(x, y) {};",
-      "/** @type {!Function} */ goog.abstractMethod = function() {};",
-      "goog.isArray = function(x) {};",
-      "goog.isDef = function(x) {};",
-      "goog.isFunction = function(x) {};",
-      "goog.isNull = function(x) {};",
-      "goog.isString = function(x) {};",
-      "goog.isObject = function(x) {};",
-      "goog.isDefAndNotNull = function(x) {};",
-      "/** @const */ goog.array = {};",
-      // simplified ArrayLike definition
-      "/**",
-      " * @typedef {Array|{length: number}}",
-      " */",
-      "goog.array.ArrayLike;",
-      "/**",
-      " * @param {Array.<T>|{length:number}} arr",
-      " * @param {function(this:S, T, number, goog.array.ArrayLike):boolean} f",
-      " * @param {S=} opt_obj",
-      " * @return {!Array.<T>}",
-      " * @template T,S",
-      " */",
-      // return empty array to satisfy return type
-      "goog.array.filter = function(arr, f, opt_obj){ return []; };",
-      "goog.asserts = {};",
-      "/** @return {*} */ goog.asserts.assert = function(x) { return x; };");
+  static final String CLOSURE_DEFS =
+      LINE_JOINER.join(
+          "/** @const */ var goog = {};",
+          "goog.inherits = function(x, y) {};",
+          "/** @type {!Function} */ goog.abstractMethod = function() {};",
+          "goog.isArray = function(x) {};",
+          "goog.isDef = function(x) {};",
+          "goog.isFunction = function(x) {};",
+          "goog.isNull = function(x) {};",
+          "goog.isString = function(x) {};",
+          "goog.isObject = function(x) {};",
+          "goog.isDefAndNotNull = function(x) {};",
+          "/** @const */ goog.array = {};",
+          // simplified ArrayLike definition
+          "/**",
+          " * @typedef {Array|{length: number}}",
+          " */",
+          "goog.array.ArrayLike;",
+          "/**",
+          " * @param {Array<T>|{length:number}} arr",
+          " * @param {function(this:S, T, number, goog.array.ArrayLike):boolean} f",
+          " * @param {S=} obj",
+          " * @return {!Array<T>}",
+          " * @template T,S",
+          " */",
+          // return empty array to satisfy return type
+          "goog.array.filter = function(arr, f, obj){ return []; };",
+          "goog.asserts = {};",
+          "/** @return {*} */ goog.asserts.assert = function(x) { return x; };",
+          "goog.module = function(ns) {};");
 
   /**
    * A default set of externs for testing.
@@ -112,7 +110,6 @@ abstract class CompilerTypeTestCase {
 
     assertWithMessage("Regarding warnings:")
         .that(compiler.getWarnings())
-        .asList()
         .comparingElementsUsing(DESCRIPTION_EQUALITY)
         .containsExactlyElementsIn(expected)
         .inOrder();
@@ -315,17 +312,4 @@ abstract class CompilerTypeTestCase {
   JSType getNativeType(JSTypeNative jsTypeNative) {
     return registry.getNativeType(jsTypeNative);
   }
-
-  static final Correspondence<JSError, String> DESCRIPTION_EQUALITY =
-      new Correspondence<JSError, String>() {
-        @Override
-        public boolean compare(JSError error, String description) {
-          return Objects.equals(error.description, description);
-        }
-
-        @Override
-        public String toString() {
-          return "has description equal to";
-        }
-      };
 }

@@ -18,7 +18,6 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.javascript.jscomp.DisambiguateProperties.Warnings;
 import com.google.javascript.rhino.Node;
 import java.util.HashMap;
 import java.util.Map;
@@ -71,11 +70,6 @@ public final class AmbiguatePropertiesTest extends CompilerTestCase {
         lastPass.process(externs, root);
       }
     };
-  }
-
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
   }
 
   @Test
@@ -935,6 +929,16 @@ public final class AmbiguatePropertiesTest extends CompilerTestCase {
     testSame(js);
   }
 
+  @Test
+  public void testObjectSpreadDoesNotCrash() {
+    testSame("var lit1 = {...a};");
+  }
+
+  @Test
+  public void testObjectRestDoesNotCrash() {
+    testSame("var {...a} = b;");
+  }
+
   // See https://github.com/google/closure-compiler/issues/2119
   @Test
   public void testUnrelatedObjectLiterals() {
@@ -1228,22 +1232,30 @@ public final class AmbiguatePropertiesTest extends CompilerTestCase {
 
   @Test
   public void testInvalidRenameFunction_withZeroArgs_causesWarning() {
-    testError("const p = JSCompiler_renameProperty()", Warnings.INVALID_RENAME_FUNCTION);
+    testError(
+        "const p = JSCompiler_renameProperty()",
+        PropertyRenamingDiagnostics.INVALID_RENAME_FUNCTION);
   }
 
   @Test
   public void testInvalidRenameFunction_withThreeArgs_causesWarning() {
-    testError("const p = JSCompiler_renameProperty('foo', 0, 1)", Warnings.INVALID_RENAME_FUNCTION);
+    testError(
+        "const p = JSCompiler_renameProperty('foo', 0, 1)",
+        PropertyRenamingDiagnostics.INVALID_RENAME_FUNCTION);
   }
 
   @Test
   public void testInvalidRenameFunction_withNonStringArg_causesWarning() {
-    testError("const p = JSCompiler_renameProperty(0)", Warnings.INVALID_RENAME_FUNCTION);
+    testError(
+        "const p = JSCompiler_renameProperty(0)",
+        PropertyRenamingDiagnostics.INVALID_RENAME_FUNCTION);
   }
 
   @Test
   public void testInvalidRenameFunction_withPropertyRefInFirstArg_causesWarning() {
-    testError("const p = JSCompiler_renameProperty('a.b')", Warnings.INVALID_RENAME_FUNCTION);
+    testError(
+        "const p = JSCompiler_renameProperty('a.b')",
+        PropertyRenamingDiagnostics.INVALID_RENAME_FUNCTION);
   }
 
   @Test
@@ -1301,14 +1313,14 @@ public final class AmbiguatePropertiesTest extends CompilerTestCase {
   }
 
   @Test
-  public void testTwoUnrelatedClasses_withStaticMemberFns_ambiguatede() {
+  public void testTwoUnrelatedClasses_withStaticMemberFns_ambiguated() {
     test(
         lines(
             "class Foo { static methodFoo() {} }", //
             "class Bar { static methodBar() {} }"),
         lines(
-            "class Foo { a() {} }", //
-            "class Bar { a() {} }"));
+            "class Foo { static a() {} }", //
+            "class Bar { static a() {} }"));
   }
 
   @Test

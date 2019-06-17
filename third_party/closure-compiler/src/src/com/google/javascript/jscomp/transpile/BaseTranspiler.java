@@ -136,7 +136,8 @@ public final class BaseTranspiler implements Transpiler {
     public CompileResult compile(URI path, String code) {
       Compiler compiler = compiler();
       Result result =
-          compiler.compile(EXTERNS, SourceFile.fromCode(path.toString(), code), options());
+          compiler.compile(
+              createTrivialExterns(), SourceFile.fromCode(path.toString(), code), options());
       String source = compiler.toSource();
       StringBuilder sourceMap = new StringBuilder();
       if (result.sourceMap != null) {
@@ -147,7 +148,7 @@ public final class BaseTranspiler implements Transpiler {
         }
       }
       boolean transpiled = !result.transpiledFiles.isEmpty();
-      if (result.errors.length > 0) {
+      if (!result.errors.isEmpty()) {
         throw new TranspilationException(compiler, result.errors, result.warnings);
       }
       return new CompileResult(
@@ -160,7 +161,7 @@ public final class BaseTranspiler implements Transpiler {
       Compiler compiler = compiler();
       CompilerOptions options = options();
       options.setForceLibraryInjection(ImmutableList.of(library));
-      compiler.compile(EXTERNS, EMPTY, options);
+      compiler.compile(createTrivialExterns(), createEmptySource(), options);
       return compiler.toSource();
     }
 
@@ -190,6 +191,10 @@ public final class BaseTranspiler implements Transpiler {
       options.setModuleResolutionMode(moduleResolution);
       options.setModuleRoots(moduleRoots);
       options.setBrowserResolverPrefixReplacements(prefixReplacements);
+
+      // Transpiler often used in isolation, so references to other files will never exist.
+      options.setWarningLevel(DiagnosticGroups.MODULE_LOAD, CheckLevel.OFF);
+
       // Don't escape module paths when bundling in the event paths are URLs.
       options.setPathEscaper(PathEscaper.CANONICALIZE_ONLY);
 
@@ -211,9 +216,14 @@ public final class BaseTranspiler implements Transpiler {
           }));
     }
 
-    protected static final SourceFile EXTERNS =
-        SourceFile.fromCode("externs.js", "function Symbol() {}");
-    protected static final SourceFile EMPTY = SourceFile.fromCode("empty.js", "");
+    protected SourceFile createTrivialExterns() {
+      return SourceFile.fromCode("externs.js", "function Symbol() {}");
+    }
+
+    protected SourceFile createEmptySource() {
+      return SourceFile.fromCode("empty.js", "");
+    }
+
     protected static final DiagnosticGroup ES5_WARNINGS = new DiagnosticGroup(
         DiagnosticType.error("JSC_CANNOT_CONVERT", ""));
   }

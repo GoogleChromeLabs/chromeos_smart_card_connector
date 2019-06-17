@@ -19,6 +19,7 @@ package com.google.javascript.jscomp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.testing.JSErrorSubject.assertError;
+import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -361,24 +362,13 @@ abstract class IntegrationTestCase {
                 + "\n"
                 + "Warnings: \n"
                 + Joiner.on("\n").join(compiler.getWarnings()))
-        .that(compiler.getErrors().length + compiler.getWarnings().length)
+        .that(compiler.getErrors().size() + compiler.getWarnings().size())
         .isEqualTo(0);
 
     Node root = compiler.getJsRoot();
     if (compiled != null) {
       Node expectedRoot = parseExpectedCode(compiled, options, normalizeResults);
-      String explanation = expectedRoot.checkTreeEquals(root);
-      assertWithMessage(
-              "\n"
-                  + "Expected: "
-                  + compiler.toSource(expectedRoot)
-                  + "\n"
-                  + "Result:   "
-                  + compiler.toSource(root)
-                  + "\n"
-                  + explanation)
-          .that(explanation)
-          .isNull();
+      assertNode(root).usingSerializer(compiler::toSource).isEqualTo(expectedRoot);
     }
   }
 
@@ -411,27 +401,18 @@ abstract class IntegrationTestCase {
     Compiler compiler = compile(options, original);
     checkUnexpectedErrorsOrWarnings(compiler, 1);
     assertWithMessage("Expected exactly one warning or error")
-        .that(compiler.getErrors().length + compiler.getWarnings().length)
+        .that(compiler.getErrors().size() + compiler.getWarnings().size())
         .isEqualTo(1);
-    if (compiler.getErrors().length > 0) {
-      assertError(compiler.getErrors()[0]).hasType(warning);
+    if (!compiler.getErrors().isEmpty()) {
+      assertError(compiler.getErrors().get(0)).hasType(warning);
     } else {
-      assertError(compiler.getWarnings()[0]).hasType(warning);
+      assertError(compiler.getWarnings().get(0)).hasType(warning);
     }
 
     if (compiled != null) {
       Node root = compiler.getRoot().getLastChild();
       Node expectedRoot = parseExpectedCode(compiled, options, normalizeResults);
-      String explanation = expectedRoot.checkTreeEquals(root);
-      assertWithMessage(
-              "\nExpected: "
-                  + compiler.toSource(expectedRoot)
-                  + "\nResult: "
-                  + compiler.toSource(root)
-                  + "\n"
-                  + explanation)
-          .that(explanation)
-          .isNull();
+      assertNode(root).usingSerializer(compiler::toSource).isEqualTo(expectedRoot);
     }
   }
 
@@ -444,16 +425,7 @@ abstract class IntegrationTestCase {
     if (compiled != null) {
       Node root = compiler.getRoot().getLastChild();
       Node expectedRoot = parseExpectedCode(compiled, options, normalizeResults);
-      String explanation = expectedRoot.checkTreeEquals(root);
-      assertWithMessage(
-              "\nExpected: "
-                  + compiler.toSource(expectedRoot)
-                  + "\nResult:   "
-                  + compiler.toSource(root)
-                  + "\n"
-                  + explanation)
-          .that(explanation)
-          .isNull();
+      assertNode(root).usingSerializer(compiler::toSource).isEqualTo(expectedRoot);
     }
   }
 
@@ -476,29 +448,20 @@ abstract class IntegrationTestCase {
       }
     }
     assertWithMessage("Unexpected warnings: " + Joiner.on("\n").join(compiler.getWarnings()))
-        .that(compiler.getWarnings().length)
+        .that(compiler.getWarnings().size())
         .isEqualTo(0);
 
     if (compiled != null) {
       Node root = compiler.getRoot().getLastChild();
       Node expectedRoot = parseExpectedCode(
           new String[] {compiled}, options, normalizeResults);
-      String explanation = expectedRoot.checkTreeEquals(root);
-      assertWithMessage(
-              "\nExpected: "
-                  + compiler.toSource(expectedRoot)
-                  + "\nResult: "
-                  + compiler.toSource(root)
-                  + "\n"
-                  + explanation)
-          .that(explanation)
-          .isNull();
+      assertNode(root).usingSerializer(compiler::toSource).isEqualTo(expectedRoot);
     }
   }
 
   protected void checkUnexpectedErrorsOrWarnings(
       Compiler compiler, int expected) {
-    int actual = compiler.getErrors().length + compiler.getWarnings().length;
+    int actual = compiler.getErrors().size() + compiler.getWarnings().size();
     if (actual != expected) {
       String msg = "";
       for (JSError err : compiler.getErrors()) {

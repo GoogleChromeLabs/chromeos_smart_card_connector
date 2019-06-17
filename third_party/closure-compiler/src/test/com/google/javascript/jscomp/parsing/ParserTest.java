@@ -95,6 +95,47 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testParseUnescapedLineSep() {
+    parse("`\u2028`;");
+
+    expectFeatures(Feature.UNESCAPED_UNICODE_LINE_OR_PARAGRAPH_SEP);
+    parse("\"\u2028\";");
+    parse("'\u2028';");
+  }
+
+  @Test
+  public void testParseUnescapedParagraphSep() {
+    parse("`\u2029`;");
+
+    expectFeatures(Feature.UNESCAPED_UNICODE_LINE_OR_PARAGRAPH_SEP);
+    parse("\"\u2029\";");
+    parse("'\u2029';");
+  }
+
+  @Test
+  public void testOptionalCatchBinding() {
+    mode = LanguageMode.UNSUPPORTED;
+
+    expectFeatures(Feature.OPTIONAL_CATCH_BINDING);
+
+    parse("try {} catch {}");
+    parse("try {} catch {} finally {}");
+  }
+
+  @Test
+  public void testOptionalCatchBindingSourceInfo() {
+    mode = LanguageMode.UNSUPPORTED;
+
+    expectFeatures(Feature.OPTIONAL_CATCH_BINDING);
+
+    Node result = parse("try {} catch     {}");
+    Node catchNode = result.getFirstFirstChild().getNext().getFirstChild();
+    assertNode(catchNode).hasToken(Token.CATCH);
+    Node emptyNode = catchNode.getFirstChild();
+    assertNode(emptyNode).hasToken(Token.EMPTY).hasLength(5); // The length matches the whitespace.
+  }
+
+  @Test
   public void testExponentOperator() {
     mode = LanguageMode.ECMASCRIPT7;
     strictMode = STRICT;
@@ -371,14 +412,28 @@ public final class ParserTest extends BaseJSTypeTestCase {
   @Test
   public void testLabeledFunctionDeclaration() {
     parseError(
-        "foo:function f() {}", "Functions can only be declared at top level or inside a block.");
+        "foo:function f() {}",
+        "Lexical declarations are only allowed at top level or inside a block.");
   }
 
   @Test
   public void testLabeledClassDeclaration() {
-    mode = LanguageMode.ECMASCRIPT6;
     parseError(
-        "foo:class Foo {}", "Classes can only be declared at top level or inside a block.");
+        "foo:class Foo {}",
+        "Lexical declarations are only allowed at top level or inside a block.");
+  }
+
+  @Test
+  public void testLabeledLetDeclaration() {
+    parseError(
+        "foo: let x = 0;", "Lexical declarations are only allowed at top level or inside a block.");
+  }
+
+  @Test
+  public void testLabeledConstDeclaration() {
+    parseError(
+        "foo: const x = 0;",
+        "Lexical declarations are only allowed at top level or inside a block.");
   }
 
   @Test
@@ -925,7 +980,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
-  public void testJSDocAttachment17() {
+  public void testJSDocAttachmentForCastFnCall() {
     Node fn =
         parse(
             "function f() { " +
@@ -937,7 +992,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
-  public void testJSDocAttachment18() {
+  public void testJSDocAttachmentForCastName() {
     Node fn =
         parse(
             "function f() { " +
@@ -946,6 +1001,17 @@ public final class ParserTest extends BaseJSTypeTestCase {
     assertNode(fn).hasType(Token.FUNCTION);
     Node cast = fn.getLastChild().getFirstFirstChild().getFirstChild();
     assertNode(cast).hasType(Token.CAST);
+  }
+
+  @Test
+  public void testJSDocAttachmentForCastLhs() {
+    Node expr = parse("/** some jsdoc */ (/** @type {?} */ (a)).b = 0;").getOnlyChild();
+    Node lhs = expr.getFirstFirstChild(); // child is ASSIGN, grandchild is the GETPROP
+    Node cast = lhs.getFirstChild();
+    assertNode(cast).hasToken(Token.CAST);
+    assertThat(cast.getJSDocInfo()).isNotNull();
+    // TODO(b/123955687): this should be true
+    assertThat(cast.getJSDocInfo().hasType()).isFalse();
   }
 
   @Test
@@ -1568,10 +1634,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   private static void assertNodeEquality(Node expected, Node found) {
-    String message = expected.checkTreeEquals(found);
-    if (message != null) {
-      assertWithMessage(message).fail();
-    }
+    assertNode(found).isEqualTo(expected);
   }
 
   @SuppressWarnings("unchecked")
@@ -2870,9 +2933,11 @@ public final class ParserTest extends BaseJSTypeTestCase {
     mode = LanguageMode.ECMASCRIPT6;
     strictMode = SLOPPY;
     expectFeatures(Feature.TEMPLATE_LITERALS);
-    Node n = parseWarning("`string \\\ncontinuation`",
-        "String continuations are not recommended. See"
-        + " https://google.github.io/styleguide/jsguide.html#features-strings-no-line-continuations");
+    Node n =
+        parseWarning(
+            "`string \\\ncontinuation`",
+            "String continuations are not recommended. See"
+                + " https://google.github.io/styleguide/jsguide.html#features-strings-no-line-continuations");
     Node templateLiteral = n.getFirstFirstChild();
     Node stringNode = templateLiteral.getFirstChild();
     assertNode(stringNode).hasType(Token.TEMPLATELIT_STRING);
@@ -4107,6 +4172,66 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testClass_constructorMember_legalModifiers() {
+    mode = LanguageMode.ECMASCRIPT_2018;
+    final String errorMsg = "Class constructor may not be getter, setter, async, or generator.";
+
+    // The expected default case.
+    parse("class A { constructor() { } }");
+
+    // Modifiers are legal on a static "constructor" member.
+    parse("class A { static constructor() { } }");
+    parse("class A { static get constructor() { } }");
+    parse("class A { static set constructor(x) { } }");
+    parse("class A { static async constructor() { } }");
+    parse("class A { static *constructor() { } }");
+
+    // Modifiers are illegal on an instance "constructor" member.
+    parseError("class A { get constructor() { } }", errorMsg);
+    parseError("class A { set constructor(x) { } }", errorMsg);
+    parseError("class A { async constructor() { } }", errorMsg);
+    parseError("class A { *constructor() { } }", errorMsg);
+
+    // Modifiers are also illegal on a constructor declared using a string literal.
+    // TODO(b/123769080): These should be parse errors, but this case can't be detected currently.
+    parse("class A { 'constructor'() { } }");
+    parse("class A { get 'constructor'() { } }");
+    parse("class A { set 'constructor'(x) { } }");
+    parse("class A { async 'constructor'() { } }");
+    parse("class A { *'constructor'() { } }");
+
+    // Modifiers are legal on computed properties that happen to be named "constructor".
+    parse("class A { ['constructor']() { } }");
+    parse("class A { get ['constructor']() { } }");
+    parse("class A { set ['constructor'](x) { } }");
+    parse("class A { async ['constructor']() { } }");
+    parse("class A { *['constructor']() { } }");
+  }
+
+  @Test
+  public void testClass_constructorMember_atMostOne() {
+    mode = LanguageMode.ECMASCRIPT6;
+    final String errorMsg = "Class may have only one constructor.";
+
+    // The expected default cases.
+    parse("class A { }");
+    parse("class A { constructor() { } }");
+
+    // Not more than one.
+    parseError("class A { constructor() { } constructor() { } }", errorMsg);
+    parseError(
+        "class A { constructor() { } constructor() { } constructor() { } }", errorMsg, errorMsg);
+    // TODO(b/123769080): These should be parse errors, but this case can't be detected currently.
+    parse("class A { constructor() { } 'constructor'() { } }");
+
+    // Computed properties can't be the class constructor.
+    parse("class A { constructor() { } ['constructor']() { } }");
+
+    // Statics can't be the class constructor.
+    parse("class A { constructor() { } static constructor() { } }");
+  }
+
+  @Test
   public void testSuper1() {
     expectFeatures(Feature.SUPER);
     mode = LanguageMode.ECMASCRIPT6;
@@ -4779,7 +4904,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
 
     long stop = System.currentTimeMillis();
 
-    assertThat(stop - start).named("runtime").isLessThan(5000L);
+    assertWithMessage("runtime").that(stop - start).isLessThan(5000L);
   }
 
   @Test
@@ -4944,6 +5069,49 @@ public final class ParserTest extends BaseJSTypeTestCase {
         "Semi-colon expected");
   }
 
+  @Test
+  public void testDynamicImport() {
+    List<String> dynamicImportUses =
+        ImmutableList.of(
+            "import('foo')",
+            "import('foo').then(function(a) { return a; })",
+            "var moduleNamespace = import('foo')",
+            "Promise.all([import('foo')]).then(function(a) { return a; })");
+    expectFeatures(Feature.DYNAMIC_IMPORT);
+
+    for (LanguageMode m : LanguageMode.values()) {
+      mode = m;
+      strictMode = (m == LanguageMode.ECMASCRIPT3) ? SLOPPY : STRICT;
+      if (m.featureSet.has(Feature.DYNAMIC_IMPORT)) {
+        for (String importUseSource : dynamicImportUses) {
+          parse(importUseSource);
+        }
+      } else {
+        for (String importUseSource : dynamicImportUses) {
+          parseWarning(importUseSource, unsupportedFeatureMessage(Feature.DYNAMIC_IMPORT));
+        }
+      }
+    }
+  }
+
+  @Test
+  public void testAwaitDynamicImport() {
+    List<String> awaitDynamicImportUses =
+        ImmutableList.of(
+            "(async function() { return await import('foo'); })()",
+            "(async function() { await import('foo').then(function(a) { return a; }); })()",
+            "(async function() { var moduleNamespace = await import('foo'); })()",
+            lines(
+                "(async function() {",
+                "await Promise.all([import('foo')]).then(function(a) { return a; }); })()"));
+    expectFeatures(Feature.DYNAMIC_IMPORT, Feature.ASYNC_FUNCTIONS);
+    mode = LanguageMode.UNSUPPORTED;
+
+    for (String importUseSource : awaitDynamicImportUses) {
+      parse(importUseSource);
+    }
+  }
+
   private void assertNodeHasJSDocInfoWithJSType(Node node, JSType jsType) {
     JSDocInfo info = node.getJSDocInfo();
     assertWithMessage("Node has no JSDocInfo: %s", node).that(info).isNotNull();
@@ -4975,6 +5143,11 @@ public final class ParserTest extends BaseJSTypeTestCase {
         "This language feature is only supported for %s mode or better: %s",
         languageMode,
         feature);
+  }
+
+  private static String unsupportedFeatureMessage(Feature feature) {
+    return String.format(
+        "This language feature is not currently supported by the compiler: %s", feature);
   }
 
   private static Node script(Node stmt) {
@@ -5049,8 +5222,12 @@ public final class ParserTest extends BaseJSTypeTestCase {
       node = deque.remove();
 
       assertWithMessage("Source information must be present on %s", node)
-          .that(node.getLineno() >= 0)
-          .isTrue();
+          .that(node.getLineno())
+          .isAtLeast(0);
+
+      assertWithMessage("Source length must be nonnegative on %s", node)
+          .that(node.getLength())
+          .isAtLeast(0);
 
       for (Node child : node.children()) {
         deque.add(child);

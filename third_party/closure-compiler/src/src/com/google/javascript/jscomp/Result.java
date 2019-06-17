@@ -17,6 +17,8 @@
 package com.google.javascript.jscomp;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.util.Map;
 import java.util.Set;
 
@@ -25,36 +27,38 @@ import java.util.Set;
  */
 public class Result {
   public final boolean success;
-  public final JSError[] errors;
-  public final JSError[] warnings;
+  public final ImmutableList<JSError> errors;
+  public final ImmutableList<JSError> warnings;
 
   public final VariableMap variableMap;
   public final VariableMap propertyMap;
   public final VariableMap namedAnonFunctionMap;
   public final VariableMap stringMap;
-  public final FunctionInformationMap functionInformationMap;
   public final SourceMap sourceMap;
   public final Map<String, Integer> cssNames;
   public final String externExport;
   public final String idGeneratorMap;
   public final Set<SourceFile> transpiledFiles;
 
-  Result(JSError[] errors, JSError[] warnings,
-         VariableMap variableMap, VariableMap propertyMap,
-         VariableMap namedAnonFunctionMap,
-         VariableMap stringMap,
-         FunctionInformationMap functionInformationMap,
-         SourceMap sourceMap, String externExport,
-         Map<String, Integer> cssNames, String idGeneratorMap,
-         Set<SourceFile> transpiledFiles) {
-    this.success = errors.length == 0;
+  Result(
+      ImmutableList<JSError> errors,
+      ImmutableList<JSError> warnings,
+      VariableMap variableMap,
+      VariableMap propertyMap,
+      VariableMap namedAnonFunctionMap,
+      VariableMap stringMap,
+      SourceMap sourceMap,
+      String externExport,
+      Map<String, Integer> cssNames,
+      String idGeneratorMap,
+      Set<SourceFile> transpiledFiles) {
+    this.success = errors.isEmpty();
     this.errors  = errors;
     this.warnings = warnings;
     this.variableMap = variableMap;
     this.propertyMap = propertyMap;
     this.namedAnonFunctionMap = namedAnonFunctionMap;
     this.stringMap = stringMap;
-    this.functionInformationMap = functionInformationMap;
     this.sourceMap = sourceMap;
     this.externExport = externExport;
     this.cssNames = cssNames;
@@ -63,13 +67,48 @@ public class Result {
   }
 
   @VisibleForTesting
-  public Result(JSError[] errors, JSError[] warnings,
-                VariableMap variableMap, VariableMap propertyMap,
-                VariableMap namedAnonFunctionMap,
-                FunctionInformationMap functionInformationMap,
-                SourceMap sourceMap, String externExport) {
-    this(errors, warnings, variableMap, propertyMap,
-         namedAnonFunctionMap, null, functionInformationMap, sourceMap,
-         externExport, null, null, null);
+  @Deprecated
+  public Result(
+      ImmutableList<JSError> errors,
+      ImmutableList<JSError> warnings,
+      VariableMap variableMap,
+      VariableMap propertyMap,
+      VariableMap namedAnonFunctionMap,
+      SourceMap sourceMap,
+      String externExport) {
+    this(
+        errors,
+        warnings,
+        variableMap,
+        propertyMap,
+        namedAnonFunctionMap,
+        null,
+        sourceMap,
+        externExport,
+        null,
+        null,
+        null);
+  }
+
+  /**
+   * Returns an almost empty result that is used for multistage compilation.
+   *
+   * <p>For multistage compilations, Result for stage1 only cares about errors and warnings. It is
+   * unnecessary to write all of other results in the disk.
+   */
+  public static Result createResultForStage1(Result result) {
+    VariableMap emptyVariableMap = new VariableMap(ImmutableMap.of());
+    return new Result(
+        result.errors,
+        result.warnings,
+        emptyVariableMap,
+        emptyVariableMap,
+        emptyVariableMap,
+        null,
+        null,
+        "",
+        null,
+        null,
+        null);
   }
 }

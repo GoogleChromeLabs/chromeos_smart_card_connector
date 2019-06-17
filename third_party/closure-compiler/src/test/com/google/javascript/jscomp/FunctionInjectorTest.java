@@ -19,6 +19,8 @@ package com.google.javascript.jscomp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.CompilerTestCase.lines;
+import static com.google.javascript.jscomp.FunctionInjector.isDirectCallNodeReplacementPossible;
+import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -49,68 +51,54 @@ public final class FunctionInjectorTest {
   private boolean assumeStrictThis = false;
   private final boolean assumeMinimumCapture = false;
   private boolean allowDecomposition;
+  private boolean allowMethodCallDecomposition;
 
   @Before
   public void setUp() throws Exception {
     assumeStrictThis = false;
     allowDecomposition = false;
-  }
-
-  private FunctionInjector getInjector() {
-    Compiler compiler = new Compiler();
-    return new FunctionInjector(
-        compiler, compiler.getUniqueNameIdSupplier(), true,
-        assumeStrictThis, assumeMinimumCapture);
+    allowMethodCallDecomposition = false;
   }
 
   @Test
   public void testIsSimpleFunction1() {
-    assertThat(getInjector().isDirectCallNodeReplacementPossible(prep("function f(){}"))).isTrue();
+    assertThat(isDirectCallNodeReplacementPossible(prep("function f(){}"))).isTrue();
   }
 
   @Test
   public void testIsSimpleFunction2() {
-    assertThat(getInjector().isDirectCallNodeReplacementPossible(prep("function f(){return 0;}")))
-        .isTrue();
+    assertThat(isDirectCallNodeReplacementPossible(prep("function f(){return 0;}"))).isTrue();
   }
 
   @Test
   public void testIsSimpleFunction3() {
-    assertThat(
-            getInjector()
-                .isDirectCallNodeReplacementPossible(prep("function f(){return x ? 0 : 1}")))
+    assertThat(isDirectCallNodeReplacementPossible(prep("function f(){return x ? 0 : 1}")))
         .isTrue();
   }
 
   @Test
   public void testIsSimpleFunction4() {
-    assertThat(getInjector().isDirectCallNodeReplacementPossible(prep("function f(){return;}")))
-        .isFalse();
+    assertThat(isDirectCallNodeReplacementPossible(prep("function f(){return;}"))).isFalse();
   }
 
   @Test
   public void testIsSimpleFunction5() {
-    assertThat(
-            getInjector()
-                .isDirectCallNodeReplacementPossible(prep("function f(){return 0; return 0;}")))
+    assertThat(isDirectCallNodeReplacementPossible(prep("function f(){return 0; return 0;}")))
         .isFalse();
   }
 
   @Test
   public void testIsSimpleFunction6() {
     assertThat(
-            getInjector()
-                .isDirectCallNodeReplacementPossible(
-                    prep("function f(){var x=true;return x ? 0 : 1}")))
+            isDirectCallNodeReplacementPossible(prep("function f(){var x=true;return x ? 0 : 1}")))
         .isFalse();
   }
 
   @Test
   public void testIsSimpleFunction7() {
     assertThat(
-            getInjector()
-                .isDirectCallNodeReplacementPossible(
-                    prep("function f(){if (x) return 0; else return 1}")))
+            isDirectCallNodeReplacementPossible(
+                prep("function f(){if (x) return 0; else return 1}")))
         .isFalse();
   }
 
@@ -571,6 +559,19 @@ public final class FunctionInjectorTest {
     helperCanInlineReferenceToFunction(
         CanInlineResult.AFTER_PREPARATION,
         "function foo(a){return true;}; function x() { if (foo(1)) throw 'test'; }",
+        "foo",
+        INLINE_BLOCK);
+  }
+
+  @Test
+  public void cannotInlineReferenceToFunctionInMethodCall() {
+    // Call within a method call that must be decomposed in order to inline.
+    // Ensure that inlining will not happen if method call decomposition is disabled.
+    allowDecomposition = true;
+    allowMethodCallDecomposition = false;
+    helperCanInlineReferenceToFunction(
+        CanInlineResult.NO,
+        "function foo(a){return true;}; function x() { if (obj.method(foo(1))) throw 'test'; }",
         "foo",
         INLINE_BLOCK);
   }
@@ -1667,6 +1668,109 @@ public final class FunctionInjectorTest {
   }
 
   @Test
+  public void testCanInlineReference_isNo_ifCalledWithSpread() {
+    helperCanInlineReferenceToFunction(
+        CanInlineResult.NO, //
+        lines(
+            "function foo(a) { return a; };", //
+            "foo(...b);"),
+        "foo",
+        INLINE_DIRECT);
+  }
+
+  @Test
+  public void testCanInlineReference_direct_ifArgExpression_containsSpread() {
+    helperInlineReferenceToFunction(
+        lines(
+            "function foo(a) { return a; };", //
+            "foo([...b]);"),
+        lines(
+            "function foo(a) { return a; };", //
+            "[...b]"),
+        "foo",
+        INLINE_DIRECT);
+  }
+
+  @Test
+  public void testCanInlineReference_direct_ifResultIsSpread() {
+    helperInlineReferenceToFunction(
+        lines(
+            "function foo(b) { return [1, 2, b]; }", //
+            "bar(...foo(5));"),
+        lines(
+            "function foo(b) { return [1, 2, b]; }", //
+            "bar(...[1, 2, 5]);"),
+        "foo",
+        INLINE_DIRECT);
+  }
+
+  @Test
+  public void testCanInlineReference_block_ifResultIsSpread() {
+    allowDecomposition = true;
+    helperInlineReferenceToFunction(
+        lines(
+            "function foo(b) {",
+            "  return [1, 2, b];",
+            "}", //
+            "const bar = function() { };",
+            "",
+            "bar(...foo(5));"),
+        lines(
+            "function foo(b) {",
+            "  return [1, 2, b];",
+            "}", //
+            "const bar = function() { };",
+            "",
+            "var JSCompiler_inline_result$jscomp$0",
+            "{",
+            "  JSCompiler_inline_result$jscomp$0 = [1, 2, 5];",
+            "}",
+            "bar(...JSCompiler_inline_result$jscomp$0);"),
+        "foo",
+        INLINE_BLOCK);
+  }
+
+  @Test
+  public void testCanInlineReference_direct_ifPreviousSibling_isSpread() {
+    helperInlineReferenceToFunction(
+        lines(
+            "function foo(b) { return b + 1; }", //
+            "bar(...qux(), foo(5));"),
+        lines(
+            "function foo(b) { return b + 1; }", //
+            "bar(...qux(), 5 + 1);"),
+        "foo",
+        INLINE_DIRECT);
+  }
+
+  @Test
+  public void testCanInlineReference_block_ifPreviousSibling_isSpread() {
+    allowDecomposition = true;
+    helperInlineReferenceToFunction(
+        lines(
+            "function foo(b) {",
+            "  return [1, 2, b];",
+            "}", //
+            "const bar = function() { };",
+            "",
+            "bar(...qux(), foo(5));"),
+        lines(
+            "function foo(b) {",
+            "  return [1, 2, b];",
+            "}",
+            "const bar = function() { };",
+            "",
+            "var JSCompiler_temp_const$jscomp$0 = [...qux()];",
+            "var JSCompiler_inline_result$jscomp$1",
+            "{",
+            "  JSCompiler_inline_result$jscomp$1 = [1, 2, 5];",
+            "}",
+            "bar(...JSCompiler_temp_const$jscomp$0, JSCompiler_inline_result$jscomp$1);"),
+        "foo",
+        INLINE_BLOCK);
+  }
+
+  @Test
   public void testArgumentsReferenceInArrowFunction() {
     assertThat(
             doesFunctionMeetMinimumRequirements(
@@ -1699,15 +1803,22 @@ public final class FunctionInjectorTest {
       final String fnName,
       final InliningMode mode) {
     final Compiler compiler = new Compiler();
-    final FunctionInjector injector = new FunctionInjector(
-        compiler, compiler.getUniqueNameIdSupplier(), allowDecomposition,
-        assumeStrictThis,
-        assumeMinimumCapture);
+    compiler.initOptions(new CompilerOptions());
+    final FunctionArgumentInjector functionArgumentInjector =
+        new FunctionArgumentInjector(compiler.getAstAnalyzer());
+    final FunctionInjector injector =
+        new FunctionInjector.Builder(compiler)
+            .allowDecomposition(allowDecomposition)
+            .allowMethodCallDecomposing(allowMethodCallDecomposition)
+            .assumeStrictThis(assumeStrictThis)
+            .assumeMinimumCapture(assumeMinimumCapture)
+            .functionArgumentInjector(functionArgumentInjector)
+            .build();
     final Node tree = parse(compiler, code);
 
     final Node fnNode = findFunction(tree, fnName);
     final ImmutableSet<String> unsafe =
-        ImmutableSet.copyOf(FunctionArgumentInjector.findModifiedParameters(fnNode));
+        ImmutableSet.copyOf(functionArgumentInjector.findModifiedParameters(fnNode));
 
     // can-inline tester
     Method tester =
@@ -1748,11 +1859,6 @@ public final class FunctionInjectorTest {
       String code, final String expectedResult,
       final String fnName, final InliningMode mode) {
     final Compiler compiler = new Compiler();
-    final FunctionInjector injector = new FunctionInjector(
-        compiler, compiler.getUniqueNameIdSupplier(), allowDecomposition,
-        assumeStrictThis,
-        assumeMinimumCapture);
-
     List<SourceFile> externsInputs = ImmutableList.of(
         SourceFile.fromCode("externs", ""));
 
@@ -1760,17 +1866,29 @@ public final class FunctionInjectorTest {
     options.setCodingConvention(new GoogleCodingConvention());
     compiler.init(externsInputs, ImmutableList.of(
         SourceFile.fromCode("code", code)), options);
+
+    final FunctionArgumentInjector functionArgumentInjector =
+        new FunctionArgumentInjector(compiler.getAstAnalyzer());
+    final FunctionInjector injector =
+        new FunctionInjector.Builder(compiler)
+            .allowDecomposition(allowDecomposition)
+            .allowMethodCallDecomposing(allowMethodCallDecomposition)
+            .assumeStrictThis(assumeStrictThis)
+            .assumeMinimumCapture(assumeMinimumCapture)
+            .functionArgumentInjector(functionArgumentInjector)
+            .build();
+
     Node parseRoot = compiler.parseInputs();
     Node externsRoot = parseRoot.getFirstChild();
     final Node tree = parseRoot.getLastChild();
     assertThat(tree).isNotNull();
-    assertThat(tree).isNotSameAs(externsRoot);
+    assertThat(tree).isNotSameInstanceAs(externsRoot);
 
     final Node expectedRoot = parseExpected(new Compiler(), expectedResult);
 
     Node mainRoot = tree;
-    MarkNoSideEffectCalls mark = new MarkNoSideEffectCalls(compiler);
-    mark.process(externsRoot, mainRoot);
+    new Normalize(compiler, false).process(externsRoot, mainRoot);
+    new PureFunctionIdentifier.Driver(compiler).process(externsRoot, mainRoot);
 
     Normalize normalize = new Normalize(compiler, false);
     normalize.process(externsRoot, mainRoot);
@@ -1779,7 +1897,7 @@ public final class FunctionInjectorTest {
     final Node fnNode = findFunction(tree, fnName);
     assertThat(fnNode).isNotNull();
     final ImmutableSet<String> unsafe =
-        ImmutableSet.copyOf(FunctionArgumentInjector.findModifiedParameters(fnNode));
+        ImmutableSet.copyOf(functionArgumentInjector.findModifiedParameters(fnNode));
     assertThat(fnNode).isNotNull();
 
     // inline tester
@@ -1802,7 +1920,7 @@ public final class FunctionInjectorTest {
               assertWithMessage(
                       "canInlineReferenceToFunction should be CAN_INLINE_AFTER_DECOMPOSITION")
                   .that(CanInlineResult.AFTER_PREPARATION)
-                  .isSameAs(canInline);
+                  .isSameInstanceAs(canInline);
 
               Set<String> knownConstants = new HashSet<>();
               injector.setKnownConstants(knownConstants);
@@ -1815,17 +1933,11 @@ public final class FunctionInjectorTest {
 
             Node result = injector.inline(ref, fnName, fnNode);
             validateSourceInfo(compiler, result);
-            String explanation = expectedRoot.checkTreeEquals(tree.getFirstChild());
-            assertWithMessage(
-                    ""
-                        + "\nExpected: "
-                        + toSource(expectedRoot)
-                        + "\nResult:   "
-                        + toSource(tree.getFirstChild())
-                        + "\n"
-                        + explanation)
-                .that(explanation)
-                .isNull();
+
+            assertNode(tree.getFirstChild())
+                .usingSerializer(FunctionInjectorTest::toSource)
+                .isEqualTo(expectedRoot);
+
             return true;
           }
         };
@@ -1845,13 +1957,14 @@ public final class FunctionInjectorTest {
    */
   public boolean doesFunctionMeetMinimumRequirements(final String code, final String fnName) {
     final Compiler compiler = new Compiler();
+    compiler.initOptions(new CompilerOptions());
     final FunctionInjector injector =
-        new FunctionInjector(
-            compiler,
-            compiler.getUniqueNameIdSupplier(),
-            allowDecomposition,
-            assumeStrictThis,
-            assumeMinimumCapture);
+        new FunctionInjector.Builder(compiler)
+            .allowDecomposition(allowDecomposition)
+            .allowMethodCallDecomposing(allowMethodCallDecomposition)
+            .assumeStrictThis(assumeStrictThis)
+            .assumeMinimumCapture(assumeMinimumCapture)
+            .build();
     final Node tree = parse(compiler, code);
 
     final Node fnNode = findFunction(tree, fnName);
@@ -1933,7 +2046,7 @@ public final class FunctionInjectorTest {
   private static Node parseExpected(Compiler compiler, String js) {
     Node n = compiler.parseTestCode(js);
     String message = "Unexpected errors: ";
-    JSError[] errs = compiler.getErrors();
+    ImmutableList<JSError> errs = compiler.getErrors();
     for (JSError element : errs) {
       message += "\n" + element;
     }

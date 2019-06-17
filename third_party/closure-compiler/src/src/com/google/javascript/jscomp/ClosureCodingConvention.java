@@ -27,8 +27,6 @@ import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.NominalTypeBuilder;
 import com.google.javascript.rhino.jstype.FunctionType;
-import com.google.javascript.rhino.jstype.JSTypeNative;
-import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -345,8 +343,8 @@ public final class ClosureCodingConvention extends CodingConventions.Proxy {
 
   @Override
   public boolean isFunctionCallThatAlwaysThrows(Node n) {
-    return CodingConventions.defaultIsFunctionCallThatAlwaysThrows(
-        n, "goog.asserts.fail");
+    return super.isFunctionCallThatAlwaysThrows(n)
+        || CodingConventions.defaultIsFunctionCallThatAlwaysThrows(n, "goog.asserts.fail");
   }
 
   @Override
@@ -384,16 +382,26 @@ public final class ClosureCodingConvention extends CodingConventions.Proxy {
 
   @Override
   public ImmutableCollection<AssertionFunctionSpec> getAssertionFunctions() {
-    return ImmutableList.of(
-        new AssertionFunctionSpec("goog.asserts.assert", JSTypeNative.TRUTHY),
-        new AssertionFunctionSpec("goog.asserts.assertNumber", JSTypeNative.NUMBER_TYPE),
-        new AssertionFunctionSpec("goog.asserts.assertString", JSTypeNative.STRING_TYPE),
-        new AssertionFunctionSpec("goog.asserts.assertObject", JSTypeNative.OBJECT_TYPE),
-        new AssertFunctionByTypeName("goog.asserts.assertFunction", "Function"),
-        new AssertFunctionByTypeName("goog.asserts.assertArray", "Array"),
-        new AssertFunctionByTypeName("goog.asserts.assertElement", "Element"),
-        new AssertInstanceofSpec("goog.asserts.assertInstanceof")
-    );
+    return ImmutableSet.<AssertionFunctionSpec>builder()
+        .addAll(super.getAssertionFunctions())
+        .add(
+            AssertionFunctionSpec.forTruthy().setFunctionName("goog.asserts.assert").build(),
+            createGoogAssertOnReturn("Array"),
+            createGoogAssertOnReturn("Boolean"),
+            createGoogAssertOnReturn("Element"),
+            createGoogAssertOnReturn("Function"),
+            createGoogAssertOnReturn("Instanceof"),
+            createGoogAssertOnReturn("Number"),
+            createGoogAssertOnReturn("Object"),
+            createGoogAssertOnReturn("String"))
+        .build();
+  }
+
+  /** Returns a new assertion function goog.asserts.assert[assertedTypeName] */
+  private static AssertionFunctionSpec createGoogAssertOnReturn(String assertedTypeName) {
+    return AssertionFunctionSpec.forMatchesReturn()
+        .setFunctionName("goog.asserts.assert" + assertedTypeName)
+        .build();
   }
 
   @Override
@@ -475,57 +483,5 @@ public final class ClosureCodingConvention extends CodingConventions.Proxy {
       return n.getNext();
     }
     return null;
-  }
-
-  /**
-   * A function that will throw an exception when if the value is not
-   * an instanceof a specific type.
-   */
-  public static class AssertInstanceofSpec extends AssertionFunctionSpec {
-    public AssertInstanceofSpec(String functionName) {
-      super(functionName, JSTypeNative.OBJECT_TYPE);
-    }
-
-    /**
-     * Returns the type for a type assertion, or null if the function asserts
-     * that the node must not be null or undefined.
-     */
-    @Override
-    public com.google.javascript.rhino.jstype.JSType
-        getAssertedOldType(Node call, JSTypeRegistry registry) {
-      if (call.getChildCount() > 2) {
-        Node constructor = call.getSecondChild().getNext();
-        if (constructor != null) {
-          com.google.javascript.rhino.jstype.JSType ownerType =
-              constructor.getJSType();
-          if (ownerType != null
-              && ownerType.isFunctionType()
-              && ownerType.isConstructor()) {
-            FunctionType functionType = ((FunctionType) ownerType);
-            return functionType.getInstanceType();
-          }
-        }
-      }
-      return registry.getNativeType(JSTypeNative.UNKNOWN_TYPE);
-    }
-  }
-
-  /**
-   * A function that will throw an exception when the value is not an
-   * instanceof the given type name, for instance "Element".
-   */
-  public static class AssertFunctionByTypeName extends AssertionFunctionSpec {
-    private final String typeName;
-
-    public AssertFunctionByTypeName(String functionName, String typeName) {
-      super(functionName, null);
-      this.typeName = typeName;
-    }
-
-    @Override
-    public com.google.javascript.rhino.jstype.JSType
-        getAssertedOldType(Node call, JSTypeRegistry registry) {
-      return registry.getGlobalType(typeName);
-    }
   }
 }

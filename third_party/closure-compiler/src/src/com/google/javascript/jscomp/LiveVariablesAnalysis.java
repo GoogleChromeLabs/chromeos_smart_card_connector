@@ -51,8 +51,6 @@ class LiveVariablesAnalysis
 
   static final int MAX_VARIABLES_TO_ANALYZE = 100;
 
-  public static final String ARGUMENT_ARRAY_ALIAS = "arguments";
-
   private static class LiveVariableJoinOp implements JoinOp<LiveVariableLattice> {
     @Override
     public LiveVariableLattice apply(List<LiveVariableLattice> in) {
@@ -255,6 +253,7 @@ class LiveVariablesAnalysis
         return;
 
       case FOR_OF:
+      case FOR_AWAIT_OF:
       case FOR_IN:
         {
           // for (x in y) {...}
@@ -313,9 +312,9 @@ class LiveVariablesAnalysis
         return;
 
       case NAME:
-        if (isArgumentsName(n)) {
+        if (n.getString().equals("arguments")) {
           markAllParametersEscaped();
-          } else if (!NodeUtil.isLhsByDestructuring(n)) {
+        } else if (!NodeUtil.isLhsByDestructuring(n)) {
           // Only add names in destructuring patterns if they're not lvalues.
           // e.g. "x" in "const {foo = x} = obj;"
           addToSetIfLocal(n, gen);
@@ -393,29 +392,26 @@ class LiveVariablesAnalysis
   }
 
   /**
-   * Give up computing liveness of formal parameter by putting all the parameter names in the
+   * Give up computing liveness of formal parameters by putting all the simple parameters in the
    * escaped set.
+   *
+   * <p>This only applies to simple parameters, that is NAMEs, because other parameter syntaxes
+   * never need to be escaped in this way. The known applications of this method are for uses of
+   * `arguments`, and for IE8. In a function with non-simple paremeters, `arguments` is not
+   * parameter-mapped, and so referencing it doesn't escape paremeters. IE8 just doess't support
+   * non-simple parameters.
+   *
+   * <p>We could actaully continue tracking simple parameters if any parameter is non-simple, but it
+   * wasn't worth the complexity or cost to do so.
+   *
+   * @see https://tc39.github.io/ecma262/#sec-functiondeclarationinstantiation
    */
   void markAllParametersEscaped() {
     Node paramList = NodeUtil.getFunctionParameters(jsScope.getRootNode());
-    for (Node arg = paramList.getFirstChild(); arg != null; arg = arg.getNext()) {
-      if (arg.isRest() || arg.isDefaultValue()) {
-        escaped.add(jsScope.getVar(arg.getFirstChild().getString()));
-      } else {
-        escaped.add(jsScope.getVar(arg.getString()));
+    for (Node param = paramList.getFirstChild(); param != null; param = param.getNext()) {
+      if (param.isName()) {
+        escaped.add(jsScope.getVar(param.getString()));
       }
     }
-  }
-
-  private boolean isArgumentsName(Node n) {
-    boolean childDeclared;
-    if (jsScopeChild != null) {
-      childDeclared = jsScopeChild.hasOwnSlot(ARGUMENT_ARRAY_ALIAS);
-    } else {
-      childDeclared = true;
-    }
-    return n.isName()
-        && n.getString().equals(ARGUMENT_ARRAY_ALIAS)
-        && (!jsScope.hasOwnSlot(ARGUMENT_ARRAY_ALIAS) || !childDeclared);
   }
 }

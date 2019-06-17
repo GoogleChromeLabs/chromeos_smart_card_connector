@@ -97,6 +97,16 @@ public final class JSModule extends DependencyInfo.Base implements Serializable 
   }
 
   @Override
+  public boolean getHasExternsAnnotation() {
+    return false;
+  }
+
+  @Override
+  public boolean getHasNoCompileAnnotation() {
+    return false;
+  }
+
+  @Override
   public ImmutableList<Require> getRequires() {
     ImmutableList.Builder<Require> builder = ImmutableList.builder();
     for (JSModule m : deps) {
@@ -288,22 +298,6 @@ public final class JSModule extends DependencyInfo.Base implements Serializable 
   @Override
   public String toString() {
     return name;
-  }
-
-  /**
-   * Removes any references to nodes of the AST and resets fields used by JSModuleGraph.
-   *
-   * <p>This method is needed by some tests to allow modules to be reused and their ASTs garbage
-   * collected.
-   * @deprecated Fix tests to avoid reusing modules.
-   */
-  @Deprecated
-  void resetThisModuleSoItCanBeReused() {
-    for (CompilerInput input : inputs) {
-      input.clearAst();
-    }
-    depth = -1;
-    index = -1;
   }
 
   /**

@@ -18,10 +18,14 @@ package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.CollapseProperties.NAMESPACE_REDEFINED_WARNING;
 import static com.google.javascript.jscomp.CollapseProperties.UNSAFE_NAMESPACE_WARNING;
+import static com.google.javascript.jscomp.CollapseProperties.UNSAFE_THIS;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.CompilerOptions.PropertyCollapseLevel;
+import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import java.util.ArrayList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -44,6 +48,9 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
 
   private PropertyCollapseLevel propertyCollapseLevel = PropertyCollapseLevel.ALL;
 
+  private boolean enableDependencyManagement = false;
+  private List<ModuleIdentifier> entryPoints = null;
+
   public CollapsePropertiesTest() {
     super(EXTERNS);
   }
@@ -61,17 +68,233 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
     disableScriptFeatureValidation();
   }
 
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
-  }
-
   private void setupModuleExportsOnly() {
     this.setAcceptedLanguage(LanguageMode.ECMASCRIPT_2015);
     this.setLanguageOut(LanguageMode.ECMASCRIPT5);
     enableProcessCommonJsModules();
     enableTranspile();
     propertyCollapseLevel = PropertyCollapseLevel.MODULE_EXPORT;
+  }
+
+  @Override
+  protected CompilerOptions getOptions() {
+    CompilerOptions options = super.getOptions();
+
+    if (this.enableDependencyManagement && this.entryPoints != null) {
+      options.setDependencyOptions(DependencyOptions.pruneForEntryPoints(this.entryPoints));
+    }
+
+    return options;
+  }
+
+  @Test
+  public void doNotCollapseAStaticPropertyUsedInAGetter() {
+    test(
+        lines(
+            "class C {",
+            "  /** @type {number} */",
+            "  static get p() { return this.p_; }",
+            "}",
+            // declaration and initialization of private static field
+            "/** @private {number} */",
+            "C.p_ = 1;",
+            // reference via getter
+            "alert(C.p);",
+            ""),
+        lines(
+            "class C {",
+            "  /** @type {number} */",
+            "  static get p() { return this.p_; }",
+            "}",
+            // TODO(b/130682799): C.p_ should not be collapsed
+            "/** @private {number} */",
+            "var C$p_ = 1;",
+            "alert(C.p);",
+            ""));
+  }
+
+  @Test
+  public void doNotCollapseAStaticPropertyUsedInASetter() {
+    test(
+        lines(
+            "class C {",
+            "  /** @param {number} v */",
+            "  static set p(v) { this.p_ = v; }",
+            "}",
+            // declaration and initialization of private static field
+            "/** @private {number} */",
+            "C.p_ = 0;",
+            // changing private static field through setter property
+            "C.p = 1;",
+            "alert(C.p_);",
+            ""),
+        lines(
+            "class C {",
+            "  /** @param {number} v */",
+            "  static set p(v) { this.p_ = v; }",
+            "}",
+            // TODO(b/130682799): C.p_ should not be collapsed
+            "/** @private {number} */",
+            "var C$p_ = 0;",
+            "C.p = 1;",
+            "alert(C$p_);",
+            ""));
+  }
+
+  @Test
+  public void doNotCollapseAStaticPropertyReadInAStaticMethod() {
+    testWarning(
+        lines(
+            "class C {",
+            "  /** @return {number} */",
+            "  static getP() { return this.p_; }",
+            "}",
+            // declaration and initialization of private static field
+            "/** @private {number} */",
+            "C.p_ = 1;",
+            // reference via method
+            "alert(C.getP());",
+            ""),
+        lines(
+            "class C {",
+            "  /** @return {number} */",
+            "  static getP() { return this.p_; }",
+            "}",
+            // declaration and initialization of private static field
+            "/** @private {number} */",
+            "C.p_ = 1;",
+            // reference via method
+            "alert(C.getP());",
+            ""),
+        // TODO(b/117437011): should recognize type of `this` in a static method
+        UNSAFE_THIS);
+  }
+
+  @Test
+  public void doNotCollapseAStaticPropertyAssignedInAStaticMethod() {
+    testWarning(
+        lines(
+            "class C {",
+            "  /** @param {number} v */",
+            "  static setP(v) { this.p_ = v; }",
+            "}",
+            // declaration and initialization of private static field
+            "/** @private {number} */",
+            "C.p_ = 0;",
+            // changing private static field through method
+            "C.setP(1);",
+            "alert(C.p_);",
+            ""),
+        lines(
+            "class C {",
+            "  /** @param {number} v */",
+            "  static setP(v) { this.p_ = v; }",
+            "}",
+            // declaration and initialization of private static field
+            "/** @private {number} */",
+            "C.p_ = 0;",
+            // changing private static field through method
+            "C.setP(1);",
+            "alert(C.p_);",
+            ""),
+        // TODO(b/117437011): should recognize type of `this` in a static method
+        UNSAFE_THIS);
+  }
+
+  @Test
+  public void doNotCollapseAPropertyReadByAnObjectLiteralMethod() {
+    test(
+        lines(
+            "const obj = {",
+            "  /** @private {number} */",
+            "  p_: 0,",
+            "  /**",
+            "   * @this {{p_: number}}",
+            "   * @return {number}",
+            "   */",
+            "  getP() { return this.p_; }",
+            "};",
+            "alert(obj.getP());",
+            ""),
+        lines(
+            // TODO(b/130829946): Should not collapse obj.p_ and obj.getP
+            "var obj$p_ = 0;",
+            "var obj$getP = function() { return this.p_; };",
+            "alert(obj$getP());",
+            ""));
+  }
+
+  @Test
+  public void doNotCollapseAPropertyAssignedInAnObjectLiteralMethod() {
+    test(
+        lines(
+            "const obj = {",
+            "  /** @private {number} */",
+            "  p_: 0,",
+            "  /**",
+            "   * @this {{p_: number}}",
+            "   * @param {number} v",
+            "   */",
+            "  setP(v) { this.p_ = v; }",
+            "}",
+            "obj.setP(1);",
+            "alert(obj.p_);",
+            ""),
+        lines(
+            // TODO(b/130829946): Should not collapse obj.p_ and obj.getP
+            "var obj$p_ = 0;",
+            "var obj$setP = function(v) { this.p_ = v; };",
+            "obj$setP(1);",
+            "alert(obj$p_);",
+            ""));
+  }
+
+  @Test
+  public void doNotCollapseAPropertyUsedInAnObjectLiteralGetter() {
+    test(
+        lines(
+            "const obj = {",
+            "  /** @private {number} */",
+            "  p_: 0,",
+            "  /** @type {number} */",
+            "  get p() { return this.p_; }",
+            "}",
+            "alert(obj.p);",
+            ""),
+        lines(
+            // TODO(b/130829946): Should not collapse obj.p_
+            "var obj$p_ = 0;",
+            "const obj = {",
+            "  /** @type {number} */",
+            "  get p() { return this.p_; }",
+            "}",
+            "alert(obj.p);",
+            ""));
+  }
+
+  @Test
+  public void doNotCollapseAPropertyUsedInAnObjectLiteralSetter() {
+    test(
+        lines(
+            "const obj = {",
+            "  /** @private {number} */",
+            "  p_: 0,",
+            "  /** @param {number} v */",
+            "  set p(v) { this.p_ = v; }",
+            "}",
+            "obj.p = 1;",
+            "alert(obj.p_);",
+            ""),
+        lines(
+            // TODO(b/130829946): Should not collapse obj.p_
+            "var obj$p_ = 0;",
+            "const obj = {",
+            "  /** @param {number} v */",
+            "  set p(v) { this.p_ = v; }",
+            "}",
+            "obj.p = 1;",
+            "alert(obj$p_);",
+            ""));
   }
 
   @Test
@@ -2016,15 +2239,119 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
   }
 
   @Test
-  public void testDestructuredArrays() {
+  public void testCanCollapseSinglePropertyInObjectPattern() {
+    test(
+        "const x = {y: 1}; const {y} = x; use(y);",
+        "var x$y = 1; const x = {}; const {} = x; const y = x$y; use(y);");
+  }
+
+  @Test
+  public void testCanCollapseSinglePropertyInObjectPatternWithDefaultValue() {
+    test(
+        "const x = {y: 1}; const {y = 0} = x; use(y);",
+        "var x$y = 1; const x = {}; const {} = x; const y = void 0 === x$y ? 0 : x$y; use(y);");
+  }
+
+  @Test
+  public void testCanCollapsePropertyInObjectPatternWithKeyBefore() {
+    test(
+        "let x = {y: 1, /** @nocollapse */ z: 2}; let {z, y} = x; use(y, z);",
+        "var x$y = 1; let x = {/** @nocollapse */ z: 2}; let {z} = x; let y = x$y; use(y, z);");
+  }
+
+  @Test
+  public void testCanCollapsePropertyInObjectPatternWithKeyAfter() {
+    test(
+        "let x = {y: 1, /** @nocollapse */ z: 2}; let {y, z=y} = x; use(y, z);",
+        "var x$y = 1; let x = {/** @nocollapse */ z: 2}; let y = x$y; let {z=y} = x; use(y, z);");
+  }
+
+  @Test
+  public void testCanCollapsePropertyInObjectPatternWithKeyBeforeAndAfter() {
+    test(
+        lines(
+            "let  foo = {bar: {y: 1}};", //
+            "let {x1, x2, y, z1, z2} =  foo.bar;",
+            "use(x1, x2, y, z1, z2);"),
+        lines(
+            "var foo$bar$y = 1;",
+            "var foo$bar = {};",
+            "let {x1, x2} = foo$bar;", // don't collapse x1 etc. because they're undefined
+            "let y = foo$bar$y;",
+            "let {z1, z2} = foo$bar;",
+            "use(x1, x2, y, z1, z2);"));
+  }
+
+  @Test
+  public void testCannotCollapsePropertyInNestedObjectPattern() {
+    test(
+        "const x = {y: {z: 1}}; const {y: {z}} = x; use(z);",
+        "var x$y = {z: 1}; const x = {}; const {} = x; const {z} = x$y; use(z);");
+  }
+
+  @Test
+  public void testCanCollapseSinglePropertyInObjectPatternAssign() {
+    test(
+        "const x = {y: 1}; var y; ({y} = x); use(y);",
+        "var x$y = 1; const x = {}; var y; ({} = x, y = x$y); use(y);");
+  }
+
+  @Test
+  public void testCanCollapseSinglePropertyInObjectPatternInForLoopClosure() {
+    test(
+        "const x = {y: 1}; for (const {y} = x; true;) { use(() => y); }",
+        "var x$y = 1; const x = {}; for (const {} = x, y = x$y; true;) { use(() => y); }");
+  }
+
+  @Test
+  public void testPropertyInArray() {
     testSame("var a, b = [{}, {}]; a.foo = 5; b.bar = 6;");
 
-    test("var a = {}; a.b = {}; [a.b.c, a.b.d] = [1, 2];",
-        "var a$b = {}; [a$b.c, a$b.d] = [1, 2];");
+    test("var a = {}; a.b = 5; var c, d = [6, a.b]", "var a$b = 5; var c, d = [6, a$b];");
+  }
+
+  @Test
+  public void testCollapsePropertySetInPattern() {
+    // TODO(b/120303257): collapse lvalues in destructuring patterns. We delayed implementing this
+    // because it's uncommon to have properties as lvalues in destructuring patterns.
+    test(
+        "var a = {}; a.b = {}; [a.b.c, a.b.d] = [1, 2];", "var a$b = {}; [a$b.c, a$b.d] = [1, 2];");
 
     test(
-        "var a = {}; a.b = 5; var c, d = [6, a.b]",
-        "var a$b = 5; var c, d = [6, a$b];");
+        "var a = {}; a.b = {}; ({x: a.b.c, y: a.b.d} = {});",
+        "var a$b = {}; ({x: a$b.c, y: a$b.d} = {});");
+  }
+
+  @Test
+  public void testDontCollapsePropertiesOfSpreadNamespace() {
+    // Notice we can still collapse the parent namespace, `a`.
+    test(
+        "var a = {b: {c: 0}}; var d = {...a.b}; use(a.b.c);", //
+        "var a$b = {c: 0}; use(a$b.c);");
+  }
+
+  @Test
+  public void testDontCollapsePropertiesOfRestedNamespace() {
+    test(
+        "var a = {b: {c: 0}}; var {...d} = a.b; use(a.b.c);", //
+        // `d` is a dead name that will be eliminated by other optimzation.
+        "var a$b = {c: 0}; var {...d} = a$b; use(a$b.c);");
+
+    // "a.b.c" is not aliased by the REST in this case.
+    test(
+        "var a = {b: {c: 0}}; var {d: {...d}} = a.b; use(a.b.c);", //
+        "var a$b$c = 0; var a$b = {}; var {d: {...d}} = a$b; use(a$b$c);");
+  }
+
+  @Test
+  public void testCollapsePropertiesWhenDeclaredInObjectLitWithSpread() {
+    testSame("var a = {b: 0, ...c}; use(a.b);");
+
+    testSame("var a = {...c}; use(a.b);");
+
+    test(
+        "var a = {...c, b: 0}; use(a.b);", //
+        "var a$b = 0; use(a$b);");
   }
 
   @Test
@@ -2091,9 +2418,9 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
             "    x = xIn;",
             "  }",
             "}",
-            "var barObj = new Bar(1);",
-            "bar.foo();",
-            "bar.foo(2);"));
+            "var bar = new Bar(1);",
+            "bar.foo;",
+            "bar.foo = 2;"));
   }
 
   @Test
@@ -2140,24 +2467,220 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
   }
 
   @Test
-  public void testClassStaticMembers() {
-    // TODO (simranarora) Make the pass collapse for static methods. Currently we have backed off
-    // because we will need to handle super and this occurrences within the method.
-    testSame(
+  public void testClassDeclarationWithStaticMembers() {
+    test(
+        "class Bar { static double(n) { return n*2; } } Bar.double(1);",
+        "var Bar$double = function(n) { return n * 2; }; class Bar {} Bar$double(1);");
+  }
+
+  @Test
+  public void testClassAssignmentWithStaticMembers() {
+    test(
+        "const ns = {}; ns.Bar = class { static double(n) { return n*2; } }; ns.Bar.double(1);",
+        lines(
+            "var ns$Bar$double = function(n) { return n * 2; }",
+            "var ns$Bar = class {}",
+            "ns$Bar$double(1);"));
+  }
+
+  @Test
+  public void testClassWithMultipleStaticMembers() {
+    test(
+        lines(
+            "class Bar {",
+            "  static double(n) {",
+            "    return n*2",
+            "  }",
+            "  static triple(n) {",
+            "    return n*3;",
+            "  }",
+            "}",
+            "Bar.double(1);",
+            "Bar.triple(2);"),
+        lines(
+            "var Bar$double = function(n) { return n * 2; }",
+            "var Bar$triple = function(n) { return n * 3; }",
+            "class Bar {}",
+            "Bar$double(1);",
+            "Bar$triple(2);"));
+  }
+
+  @Test
+  public void testClassStaticMembersWithAdditionalUndeclaredProperty() {
+    test(
         lines(
             "class Bar {",
             "  static double(n) {",
             "    return n*2",
             "  }",
             "}",
-            "Bar.double(1);"));
+            "use(Bar.double.trouble);"),
+        lines(
+            "var Bar$double = function(n) { return n * 2; }",
+            "class Bar {}",
+            "use(Bar$double.trouble);"));
+  }
 
-    // If we add a static function to the class after the class definition, we still collapse it, as
-    // we don't detect that it's specifically a static class function.
-    // TODO(b/68948902): Consider adding a warning for this kind of class static method declaration.
+  @Test
+  public void testClassStaticMembersWithAdditionalPropertySetLocally() {
     test(
         lines(
+            "class Bar {",
+            "  static double(n) {",
+            "    return n*2",
+            "  }",
+            "}",
+            "(function() { Bar.double.trouble = -1; })();",
+            "use(Bar.double.trouble);"),
+        lines(
+            "var Bar$double = function(n) { return n * 2; }",
             "class Bar {}",
+            "var Bar$double$trouble;",
+            "(function() { Bar$double$trouble = -1; })();",
+            "use(Bar$double$trouble);"));
+  }
+
+  @Test
+  public void testClassStaticMembersWithAdditionalPropertySetGlobally() {
+    test(
+        lines(
+            "class Bar {",
+            "  static double(n) {",
+            "    return n*2",
+            "  }",
+            "}",
+            "Bar.double.trouble = -1;",
+            "use(Bar.double.trouble);"),
+        lines(
+            "var Bar$double = function(n) { return n * 2; }",
+            "class Bar {}",
+            "var Bar$double$trouble = -1;",
+            "use(Bar$double$trouble);"));
+  }
+
+  @Test
+  public void testClassDeclarationWithEscapedStaticMember_collapsesMemberButNotMemberProp() {
+    test(
+        lines(
+            "class Bar {", //
+            "  static double(n) {",
+            "    return n*2",
+            "  }",
+            "}",
+            "Bar.double.trouble = 4;",
+            "use(Bar.double);",
+            "use(Bar.double.trouble);"),
+        lines(
+            "var Bar$double = function(n) { return n * 2; }",
+            "class Bar {}",
+            // don't collapse this property because Bar$double is escaped
+            "Bar$double.trouble = 4;",
+            "use(Bar$double);",
+            "use(Bar$double.trouble);"));
+  }
+
+  @Test
+  public void testClassDeclarationWithStaticMembersWithNoCollapse() {
+    testSame(
+        lines(
+            "class Bar {",
+            "  /** @nocollapse */",
+            "  static double(n) {",
+            "    return n*2",
+            "  }",
+            "}",
+            "Bar.double(1);"));
+  }
+
+  @Test
+  public void testClassStaticMemberWithUnreferencedInnerName() {
+    test(
+        lines(
+            "const Bar = class BarInternal {",
+            "  static baz(n) {",
+            "    use(n);",
+            "  }",
+            "}",
+            "Bar.baz();"),
+        lines(
+            "var Bar$baz = function(n) { use(n); }",
+            "const Bar = class BarInternal {}",
+            "Bar$baz();"));
+  }
+
+  @Test
+  public void testDontCollapseClassStaticMemberReferencingInnerName() {
+    // probably we could do some rewriting to make this work, but for now just back off.
+    testSame(
+        lines(
+            "const Bar = class BarInternal {",
+            "  static baz(n) {",
+            "    use(BarInternal);",
+            "  }",
+            "}",
+            "Bar.baz();"));
+  }
+
+  @Test
+  public void testDontCollapseClassStaticMemberReferencingInnerNameInNestedFunction() {
+    // probably we could do some rewriting to make this work, but for now just back off.
+    testSame(
+        lines(
+            "const Bar = class BarInternal {",
+            "  static baz(n) {",
+            "    return function() { use(BarInternal); };",
+            "  }",
+            "}",
+            "Bar.baz();"));
+  }
+
+  @Test
+  public void testClassStaticMemberUsingSuperNotCollapsed() {
+    testSame(
+        lines(
+            "class Baz extends Bar() {",
+            "  static quadruple(n) {",
+            "    return 2 * super.double(n);",
+            " }",
+            "}"));
+  }
+
+  @Test
+  public void testClassStaticMemberUsingSuperInArrowFnNotCollapsed() {
+    testSame(
+        lines(
+            "class Baz extends Bar() {",
+            "  static quadruple(n) {",
+            "    return () => 2 * super.double(n);",
+            " }",
+            "}"));
+  }
+
+  @Test
+  public void testClassStaticMemberWithInnerClassUsingSuperIsCollapsed() {
+    test(
+        lines(
+            "class Bar extends fn() {",
+            "  static m() {",
+            "    class Inner extends fn() {",
+            "      static n() { super.n(); } ", // does not block collapsing Bar.m
+            "    }",
+            "  }",
+            "}"),
+        lines(
+            "var Bar$m = function() {",
+            "  class Inner extends fn() {",
+            "    static n() { super.n(); } ",
+            "  }",
+            "};",
+            "class Bar extends fn() {}"));
+  }
+
+  @Test
+  public void testEs6StaticMemberAddedAfterDefinition() {
+    test(
+        lines(
+            "class Bar {}", //
             "Bar.double = function(n) {",
             "  return n*2",
             "}",
@@ -2171,25 +2694,53 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
   }
 
   @Test
+  public void testEs6StaticMemberOnEscapedClassIsCollapsed() {
+    test(
+        "class Bar { static m() {} } use(Bar);",
+        "var Bar$m = function() {}; class Bar {} use(Bar);");
+  }
+
+  @Test
   public void testClassStaticProperties() {
-    test("class A {} A.foo = 'bar'; use(A.foo);",
-        "class A {} var A$foo = 'bar'; use(A$foo);");
+    test("class A {} A.foo = 'bar'; use(A.foo);", "class A {} var A$foo = 'bar'; use(A$foo);");
 
     // Collapsing A.foo is known to be unsafe.
     test(
-        "class A { static useFoo() { alert(this.foo); } } A.foo = 'bar'; A.useFoo();",
-        "class A { static useFoo() { alert(this.foo); } } var A$foo = 'bar'; A.useFoo();");
+        srcs("class A { static useFoo() { alert(this.foo); } } A.foo = 'bar'; A.useFoo();"),
+        expected(
+            lines(
+                "var A$useFoo = function() { alert(this.foo); };",
+                "class A {}",
+                "var A$foo = 'bar';",
+                "A$useFoo();")),
+        warning(UNSAFE_THIS));
 
-    testSame(
-        lines(
-            "class A {",
-            "  static useFoo() {",
-            "    alert(this.foo);",
-            "  }",
-            "};",
-            "/** @nocollapse */",
-            "A.foo = 'bar';",
-            "A.useFoo();"));
+    test(
+        srcs(
+            lines(
+                "class A {",
+                "  static useFoo() {",
+                "    alert(this.foo);",
+                "  }",
+                "}",
+                "/** @nocollapse */",
+                "A.foo = 'bar';",
+                "A.useFoo();")),
+        expected(
+            lines(
+                "var A$useFoo = function() { alert(this.foo); }; ",
+                "class A {}",
+                "/** @nocollapse */",
+                "A.foo = 'bar';",
+                "A$useFoo();")),
+        warning(UNSAFE_THIS));
+  }
+
+  @Test
+  public void testClassStaticAndPrototypePropWithSameName() {
+    test(
+        "const ns = {}; ns.C = class { x() {} }; ns.C.x = 3;",
+        "var ns$C = class { x() {} }; var ns$C$x = 3;");
   }
 
   @Test
@@ -2510,14 +3061,15 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
     expected.add(
         SourceFile.fromCode(
             "mod1.js",
-            LINE_JOINER.join(
+            lines(
                 "var $jscompDefaultExport$$module$mod1=123;",
                 "var bar$$module$mod1 = 'bar';",
                 "/** @const */ var module$mod1={};",
-                "/** @const */ var module$mod1$default = $jscompDefaultExport$$module$mod1;",
-                "/** @const */ var module$mod1$bar = bar$$module$mod1")));
+                "/** @const */ var module$mod1$bar = bar$$module$mod1",
+                "/** @const */ var module$mod1$default = $jscompDefaultExport$$module$mod1;")));
     expected.add(
-        SourceFile.fromCode("entry.js", "alert(module$mod1$default); alert(module$mod1$bar);"));
+        SourceFile.fromCode(
+            "entry.js", "alert($jscompDefaultExport$$module$mod1); alert(bar$$module$mod1);"));
 
     test(inputs, expected);
   }
@@ -2531,7 +3083,9 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
         SourceFile.fromCode(
             "mod1.js",
             lines(
-                "export default 123;", "export var bar = 'ba';", "function f() { bar += 'r'; }")));
+                "export default 123;", //
+                "export var bar = 'ba';",
+                "function f() { bar += 'r'; }")));
     inputs.add(
         SourceFile.fromCode(
             "entry.js", "import mod, {bar} from './mod1.js'; alert(mod); alert(bar)"));
@@ -2540,7 +3094,7 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
     expected.add(
         SourceFile.fromCode(
             "mod1.js",
-            LINE_JOINER.join(
+            lines(
                 "var $jscompDefaultExport$$module$mod1=123;",
                 "var bar$$module$mod1 = 'ba';",
                 "function f$$module$mod1() { bar$$module$mod1 += 'r'; }",
@@ -2549,7 +3103,11 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
                 "};",
                 "/** @const */ var module$mod1$default = $jscompDefaultExport$$module$mod1;")));
     expected.add(
-        SourceFile.fromCode("entry.js", "alert(module$mod1$default); alert(module$mod1.bar);"));
+        SourceFile.fromCode(
+            "entry.js",
+            lines(
+                "alert($jscompDefaultExport$$module$mod1);", //
+                "alert(bar$$module$mod1);")));
 
     test(inputs, expected);
   }
@@ -2591,22 +3149,26 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
     inputs.add(
         SourceFile.fromCode(
             "mod1.js",
-            LINE_JOINER.join(
-                "var foo ={};", "foo.bar = {};", "foo.bar.baz = 123;", "export default foo;")));
+            lines(
+                "var foo ={};", //
+                "foo.bar = {};",
+                "foo.bar.baz = 123;",
+                "export default foo;")));
     inputs.add(SourceFile.fromCode("entry.js", "import mod from './mod1.js'; alert(mod.bar.baz);"));
 
     ArrayList<SourceFile> expected = new ArrayList<>();
     expected.add(
         SourceFile.fromCode(
             "mod1.js",
-            LINE_JOINER.join(
+            lines(
                 "var foo$$module$mod1 = {};",
                 "foo$$module$mod1.bar = {};",
                 "foo$$module$mod1.bar.baz = 123;",
                 "var $jscompDefaultExport$$module$mod1 = foo$$module$mod1;",
                 "/** @const */ var module$mod1={};",
                 "/** @const */ var module$mod1$default = $jscompDefaultExport$$module$mod1;")));
-    expected.add(SourceFile.fromCode("entry.js", "alert(module$mod1$default.bar.baz);"));
+    expected.add(
+        SourceFile.fromCode("entry.js", "alert($jscompDefaultExport$$module$mod1.bar.baz);"));
 
     test(inputs, expected);
   }
@@ -2634,6 +3196,43 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
     expected.add(
         SourceFile.fromCode(
             "entry.js", "var mod = module$mod1$default; alert(module$mod1$default.bar);"));
+
+    test(inputs, expected);
+  }
+
+  @Test
+  public void testModuleDynamicImportCommonJs() {
+    this.setupModuleExportsOnly();
+    this.setWebpackModulesById(
+        ImmutableMap.of(
+            "1", "mod1.js",
+            "2", "entry.js"));
+    this.setModuleResolutionMode(ResolutionMode.WEBPACK);
+    this.enableDependencyManagement = true;
+    this.entryPoints = new ArrayList<>();
+    this.entryPoints.add(ModuleIdentifier.forFile("entry.js"));
+
+    ArrayList<SourceFile> inputs = new ArrayList<>();
+    inputs.add(SourceFile.fromCode("mod1.js", "module.exports = 123;"));
+    inputs.add(
+        SourceFile.fromCode(
+            "entry.js",
+            lines(
+                "__webpack_require__.e(1).then(",
+                "    function() { return __webpack_require__(1);})")));
+
+    ArrayList<SourceFile> expected = new ArrayList<>();
+    expected.add(
+        SourceFile.fromCode(
+            "mod1.js",
+            "/** @const */ var module$mod1={}; /** @const */ module$mod1.default = 123;"));
+    expected.add(
+        SourceFile.fromCode(
+            "entry.js",
+            lines(
+                "/** @const */ var module$entry={};",
+                "__webpack_require__.e(1).then(",
+                "    function() { return module$mod1.default;})")));
 
     test(inputs, expected);
   }

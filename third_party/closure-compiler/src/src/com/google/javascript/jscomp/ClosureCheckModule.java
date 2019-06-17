@@ -24,8 +24,9 @@ import static com.google.javascript.jscomp.ClosurePrimitiveErrors.INVALID_DESTRU
 import static com.google.javascript.jscomp.ClosurePrimitiveErrors.MODULE_USES_GOOG_MODULE_GET;
 
 import com.google.common.collect.Iterables;
-import com.google.javascript.jscomp.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.jscomp.NodeTraversal.AbstractModuleCallback;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -44,7 +45,10 @@ import javax.annotation.Nullable;
 public final class ClosureCheckModule extends AbstractModuleCallback
     implements HotSwapCompilerPass {
   static final DiagnosticType AT_EXPORT_IN_GOOG_MODULE =
-      DiagnosticType.error("JSC_AT_EXPORT_IN_GOOG_MODULE", "@export has no effect here");
+      DiagnosticType.error(
+          "JSC_AT_EXPORT_IN_GOOG_MODULE",
+          "@export has no effect on top-level names in a goog.module."
+              + " Consider using goog.exportSymbol instead.");
 
   static final DiagnosticType AT_EXPORT_IN_NON_LEGACY_GOOG_MODULE =
       DiagnosticType.error(
@@ -222,6 +226,7 @@ public final class ClosureCheckModule extends AbstractModuleCallback
             && !currentModuleInfo.name.equals(extractFirstArgumentName(n))) {
           t.report(n, MULTIPLE_MODULES_IN_FILE);
         } else if (callee.matchesQualifiedName("goog.require")
+            || callee.matchesQualifiedName("goog.requireType")
             || callee.matchesQualifiedName("goog.forwardDeclare")) {
           checkRequireCall(t, n, parent);
         } else if (callee.matchesQualifiedName("goog.module.get") && t.inModuleHoistScope()) {
@@ -367,35 +372,13 @@ public final class ClosureCheckModule extends AbstractModuleCallback
         || (lhs.isGetProp() && lhs.getFirstChild().matchesQualifiedName("exports"));
   }
 
-  /**
-   * Returns if the given export RHS nodes are safe to export multiple times. previousLhs is the LHS
-   * of the first assignment to the given export, and newLhs is a later assignment to the same
-   * export.
-   *
-   * <p>This is specifically to allow the TypeScript like the following: var foo; ((object) => { ...
-   * })(foo = exports.foo || (exports.name = {})); ((object) => { ... })(foo = exports.foo ||
-   * (exports.name = {})); which doesn't abide by the goog.module restriction that each export be
-   * exported only once. Since these exports do have a constant value at the end of loading the
-   * goog.module, and we only rewrite named exports whose RHS is a name node in
-   * ClosureRewriteModule, this pattern with an object literal on the RHS is safe to process.
-   */
-  private boolean isPermittedTypeScriptMultipleExportPattern(Node previousLhs, Node newLhs) {
-    Node previousRhs = NodeUtil.getRValueOfLValue(previousLhs);
-    Node newRhs = NodeUtil.getRValueOfLValue(newLhs);
-    return previousRhs != null
-        && previousRhs.isObjectLit()
-        && newRhs != null
-        && newRhs.isObjectLit();
-  }
-
   private void checkModuleExport(NodeTraversal t, Node n, Node parent) {
     checkArgument(n.isAssign());
     Node lhs = n.getFirstChild();
     checkState(isExportLhs(lhs));
     // Check multiple exports of the same name
     Node previousDefinition = currentModuleInfo.exportNodesByName.get(lhs.getQualifiedName());
-    if (previousDefinition != null
-        && !isPermittedTypeScriptMultipleExportPattern(previousDefinition, lhs)) {
+    if (previousDefinition != null) {
       int previousLine = previousDefinition.getLineno();
       t.report(n, EXPORT_REPEATED_ERROR, String.valueOf(previousLine));
     }

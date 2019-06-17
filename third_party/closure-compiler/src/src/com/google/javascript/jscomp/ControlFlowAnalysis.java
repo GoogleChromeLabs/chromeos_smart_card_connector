@@ -278,6 +278,8 @@ public final class ControlFlowAnalysis implements Callback, CompilerPass {
         case VAR:
         case LET:
         case CONST:
+        case EXPORT:
+        case IMPORT:
         case RETURN:
         case THROW:
           return false;
@@ -340,6 +342,7 @@ public final class ControlFlowAnalysis implements Callback, CompilerPass {
       case BLOCK:
       case ROOT:
       case SCRIPT:
+      case MODULE_BODY:
         handleStmtList(n);
         return;
       case FUNCTION:
@@ -545,6 +548,7 @@ public final class ControlFlowAnalysis implements Callback, CompilerPass {
         case TRY:
           break;
         case ROOT:
+          // TODO(b/71873602): why is this path necessary?
           if (node.isRoot() && node.getNext() != null) {
             createEdge(node, Branch.UNCOND, node.getNext());
           }
@@ -994,6 +998,7 @@ public final class ControlFlowAnalysis implements Callback, CompilerPass {
       case FOR:
       case FOR_IN:
       case FOR_OF:
+      case FOR_AWAIT_OF:
       case DO:
       case WHILE:
       case SWITCH:

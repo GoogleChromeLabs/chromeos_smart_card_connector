@@ -299,6 +299,8 @@ public class RewritePolyfills implements HotSwapCompilerPass {
     switch (features.version()) {
       case "ts":
         return languageOutIsAtLeast(LanguageMode.ECMASCRIPT6_TYPED);
+      case "es_2019":
+        return languageOutIsAtLeast(LanguageMode.ECMASCRIPT_2019);
       case "es9":
         return languageOutIsAtLeast(LanguageMode.ECMASCRIPT_2018);
       case "es8":
@@ -306,7 +308,6 @@ public class RewritePolyfills implements HotSwapCompilerPass {
       case "es7":
         return languageOutIsAtLeast(LanguageMode.ECMASCRIPT_2016);
       case "es6":
-      case "es6-impl": // TODO(sdh): support a separate language mode for es6-impl?
         return languageOutIsAtLeast(LanguageMode.ECMASCRIPT_2015);
       case "es5":
         return languageOutIsAtLeast(LanguageMode.ECMASCRIPT5);

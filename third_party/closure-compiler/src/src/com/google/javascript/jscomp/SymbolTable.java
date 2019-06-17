@@ -420,13 +420,16 @@ public final class SymbolTable {
 
     int refCount = 0;
     for (Reference ref : getReferences(symbol)) {
+      Node node = ref.getNode();
       builder.append(
           SimpleFormat.format(
-              "  Ref %d: %s:%d %s\n",
+              "  Ref %d: %s line: %d col: %d len: %d %s\n",
               refCount,
-              ref.getNode().getSourceFileName(),
-              ref.getNode().getLineno(),
-              ref.getNode().isIndexable() ? "" : "non indexable"));
+              node.getSourceFileName(),
+              node.getLineno(),
+              node.getCharno(),
+              node.getLength(),
+              node.isIndexable() ? "" : "non indexable"));
       refCount++;
     }
   }
@@ -482,23 +485,30 @@ public final class SymbolTable {
     if (sym == null) {
       // JSCompiler has no symbol for this scope. Check to see if it's a
       // local function. If it is, give it a name.
+      Node rootNode = scope.getRootNode();
       if (scope.isLexicalScope()
           && !scope.isGlobalScope()
-          && scope.getRootNode() != null
-          && !scope.getRootNode().isFromExterns()
+          && rootNode != null
+          && !rootNode.isFromExterns()
           && scope.getParentScope() != null
-          && scope.getRootNode().isFunction()) {
+          && rootNode.isFunction()) {
         SymbolScope parent = scope.getParentScope();
 
         String innerName = "function%" + scope.getIndexInParent();
+        JSType type = rootNode.getJSType();
+
+        // Functions defined on anonymous objects are considered anonymous as well:
+        // doFoo({bar() {}});
+        // bar is not technically anonymous, but it's a method on an anonymous object literal so
+        // effectively it's anonymous/inaccessible. In this case, slightly correct rootNode to
+        // be a MEMBER_FUNCTION_DEF node instead of a FUNCTION node.
+        if (rootNode.getParent().isMemberFunctionDef()) {
+          rootNode = rootNode.getParent();
+        }
+
         Symbol anonymousFunctionSymbol =
             declareSymbol(
-                innerName,
-                scope.getRootNode().getJSType(),
-                /* inferred= */ true,
-                parent,
-                scope.getRootNode(),
-                /* info= */ null);
+                innerName, type, /* inferred= */ true, parent, rootNode, /* info= */ null);
         scope.setSymbolForScope(anonymousFunctionSymbol);
       }
     }
@@ -1146,21 +1156,6 @@ public final class SymbolTable {
     NodeTraversal.traverseRoots(compiler, collectSuper, externs, root);
   }
 
-  private boolean isSymbolGeneratedAndShouldNotBeIndexed(Symbol symbol) {
-    // Destructuring pass introduces new variables:
-    //
-    // let {a, b} = foo;
-    //
-    // is transpiled to
-    //
-    // let destructuring$var0 = foo;
-    // let a = destructuring$var0.a;
-    // let b = destructuring$var0.b;
-    //
-    // destructuring$var0 should not get into index as it's invisible to a user.
-    // TODO(b/77597706): remove this once destructuring transpilation is done after type checks.
-    return symbol.getName().contains(Es6RewriteDestructuring.DESTRUCTURING_TEMP_VAR);
-  }
   /*
    * Checks whether symbol is a quoted object literal key. In the following object:
    *
@@ -1243,9 +1238,7 @@ public final class SymbolTable {
     // Need to iterate over copy of values list because removeSymbol() will change the map
     // and we'll get ConcurrentModificationException
     for (Symbol symbol : ImmutableList.copyOf(symbols.values())) {
-      if (isSymbolGeneratedAndShouldNotBeIndexed(symbol)) {
-        removeSymbol(symbol);
-      } else if (symbol.getDeclaration() != null
+      if (symbol.getDeclaration() != null
           && symbol.getDeclaration().getNode().getBooleanProp(Node.MODULE_EXPORT)) {
 
         // Lazy initialize nodeToSymbol map as it's needed only when ES6 modules are used.

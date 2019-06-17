@@ -76,7 +76,7 @@ final class PeepholeCollectPropertyAssignments extends AbstractPeepholeOptimizat
     }
 
     if (codeChanged) {
-      compiler.reportChangeToEnclosingScope(subtree);
+      reportChangeToEnclosingScope(subtree);
     }
     return subtree;
   }
@@ -235,7 +235,7 @@ final class PeepholeCollectPropertyAssignments extends AbstractPeepholeOptimizat
 
     String propertyName;
     if (property.isNumber()) {
-      propertyName = NodeUtil.getStringValue(property);
+      propertyName = getSideEffectFreeStringValue(property);
     } else {
       propertyName = property.getString();
     }
@@ -280,7 +280,7 @@ final class PeepholeCollectPropertyAssignments extends AbstractPeepholeOptimizat
     newProperty.addChildToBack(newValue);
 
     if (existingProperty != null) {
-       NodeUtil.deleteNode(existingProperty, compiler);
+      deleteNode(existingProperty);
     }
     // If the property does not already exist we can safely add it
     objectLiteral.addChildToBack(newProperty);

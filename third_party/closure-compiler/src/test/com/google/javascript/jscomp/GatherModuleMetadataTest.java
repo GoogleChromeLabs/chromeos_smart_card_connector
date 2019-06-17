@@ -19,8 +19,10 @@ package com.google.javascript.jscomp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.javascript.jscomp.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleType;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -29,10 +31,35 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class GatherModuleMetadataTest extends CompilerTestCase {
 
+  private boolean rewriteScriptsToModules;
+  private ImmutableList<ModuleIdentifier> entryPoints;
+
+  @Override
+  public void setUp() throws Exception {
+    super.setUp();
+    entryPoints = ImmutableList.of();
+    rewriteScriptsToModules = false;
+  }
+
+  @Override
+  protected CompilerOptions getOptions(CompilerOptions options) {
+    options = super.getOptions(options);
+    if (!entryPoints.isEmpty()) {
+      options.setDependencyOptions(DependencyOptions.pruneForEntryPoints(entryPoints));
+    }
+    return options;
+  }
+
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new GatherModuleMetadata(
-        compiler, /* processCommonJsModules= */ true, ResolutionMode.BROWSER);
+    return (externs, root) -> {
+      if (rewriteScriptsToModules) {
+        new Es6RewriteScriptsToModules(compiler).process(externs, root);
+      }
+      new GatherModuleMetadata(
+              compiler, /* processCommonJsModules= */ true, ResolutionMode.BROWSER)
+          .process(externs, root);
+    };
   }
 
   private ModuleMetadataMap metadataMap() {
@@ -207,7 +234,8 @@ public final class GatherModuleMetadataTest extends CompilerTestCase {
 
     ModuleMetadata m = metadataMap().getModulesByGoogNamespace().get("multiple.calls.c0");
     assertThat(m.googNamespaces()).containsExactly("multiple.calls.c0", "multiple.calls.c1");
-    assertThat(metadataMap().getModulesByGoogNamespace().get("multiple.calls.c1")).isSameAs(m);
+    assertThat(metadataMap().getModulesByGoogNamespace().get("multiple.calls.c1"))
+        .isSameInstanceAs(m);
     assertThat(m.isNonLegacyGoogModule()).isTrue();
     assertThat(m.path()).isNull();
 
@@ -352,25 +380,16 @@ public final class GatherModuleMetadataTest extends CompilerTestCase {
   }
 
   @Test
-  public void testEs6ModuleDeclareNamespace() {
-    testSame("export var x; goog.module.declareNamespace('my.module');");
-    assertThat(metadataMap().getModulesByGoogNamespace().keySet()).containsExactly("my.module");
-    ModuleMetadata m = metadataMap().getModulesByGoogNamespace().get("my.module");
-    assertThat(m.googNamespaces()).containsExactly("my.module");
-    assertThat(m.isEs6Module()).isTrue();
-    assertThat(m.isGoogModule()).isFalse();
-  }
-
-  @Test
-  public void testEs6ModuleDeclareNamespaceImportedGoog() {
+  public void testEs6ModuleDeclareModuleIdImportedGoog() {
     testSame(
         ImmutableList.of(
             SourceFile.fromCode("goog.js", ""),
             SourceFile.fromCode(
-                "testcode", lines(
+                "testcode",
+                lines(
                     "import * as goog from './goog.js';",
                     "export var x;",
-                    "goog.module.declareNamespace('my.module');"))));
+                    "goog.declareModuleId('my.module');"))));
     assertThat(metadataMap().getModulesByGoogNamespace().keySet()).containsExactly("my.module");
     ModuleMetadata m = metadataMap().getModulesByGoogNamespace().get("my.module");
     assertThat(m.googNamespaces()).containsExactly("my.module");
@@ -414,12 +433,12 @@ public final class GatherModuleMetadataTest extends CompilerTestCase {
   public void testDuplicateProvideAndEs6Module() {
     testError(
         new String[] {
-          "goog.provide('duplciated');", "export {}; goog.module.declareNamespace('duplciated');"
+          "goog.provide('duplciated');", "export {}; goog.declareModuleId('duplciated');"
         },
         ClosureRewriteModule.DUPLICATE_NAMESPACE);
     testError(
         new String[] {
-          "export {}; goog.module.declareNamespace('duplciated');", "goog.provide('duplciated');"
+          "export {}; goog.declareModuleId('duplciated');", "goog.provide('duplciated');"
         },
         ClosureRewriteModule.DUPLICATE_MODULE);
   }
@@ -435,12 +454,12 @@ public final class GatherModuleMetadataTest extends CompilerTestCase {
   public void testDuplicateGoogAndEs6Module() {
     testError(
         new String[] {
-            "goog.module('duplciated');", "export {}; goog.module.declareNamespace('duplciated');"
+          "goog.module('duplciated');", "export {}; goog.declareModuleId('duplciated');"
         },
         ClosureRewriteModule.DUPLICATE_MODULE);
     testError(
         new String[] {
-            "export {}; goog.module.declareNamespace('duplciated');", "goog.module('duplciated');"
+          "export {}; goog.declareModuleId('duplciated');", "goog.module('duplciated');"
         },
         ClosureRewriteModule.DUPLICATE_MODULE);
   }
@@ -449,14 +468,14 @@ public final class GatherModuleMetadataTest extends CompilerTestCase {
   public void testDuplicatEs6Modules() {
     testError(
         new String[] {
-          "export {}; goog.module.declareNamespace('duplciated');",
-          "export {}; goog.module.declareNamespace('duplciated');"
+          "export {}; goog.declareModuleId('duplciated');",
+          "export {}; goog.declareModuleId('duplciated');"
         },
         ClosureRewriteModule.DUPLICATE_MODULE);
     testError(
         new String[] {
-          "export {}; goog.module.declareNamespace('duplciated');",
-          "export {}; goog.module.declareNamespace('duplciated');"
+          "export {}; goog.declareModuleId('duplciated');",
+          "export {}; goog.declareModuleId('duplciated');"
         },
         ClosureRewriteModule.DUPLICATE_MODULE);
   }
@@ -569,11 +588,59 @@ public final class GatherModuleMetadataTest extends CompilerTestCase {
   @Test
   public void testGatherFromExterns() {
     // js_lib will put data in externs for .i.js files.
-    test(externs("export var x; goog.module.declareNamespace('my.module');"), srcs(""));
+    test(externs("export var x; goog.declareModuleId('my.module');"), srcs(""));
     assertThat(metadataMap().getModulesByGoogNamespace().keySet()).containsExactly("my.module");
     ModuleMetadata m = metadataMap().getModulesByGoogNamespace().get("my.module");
     assertThat(m.googNamespaces()).containsExactly("my.module");
     assertThat(m.isEs6Module()).isTrue();
     assertThat(m.isGoogModule()).isFalse();
+  }
+
+  @Test
+  public void testImportedScript() {
+    test(
+        srcs(
+            SourceFile.fromCode("imported.js", "console.log('lol');"),
+            SourceFile.fromCode("notimported.js", "console.log('lol');"),
+            SourceFile.fromCode("module.js", "import './imported.js';")));
+
+    assertThat(metadataMap().getModulesByPath().get("imported.js").moduleType())
+        .isEqualTo(ModuleType.SCRIPT);
+    assertThat(metadataMap().getModulesByPath().get("notimported.js").moduleType())
+        .isEqualTo(ModuleType.SCRIPT);
+  }
+
+  @Test
+  public void testImportedScriptWithScriptsToModules() {
+    // Default dependency options should still mark imported files as ES modules.
+    rewriteScriptsToModules = true;
+
+    test(
+        srcs(
+            SourceFile.fromCode("imported.js", "console.log('lol');"),
+            SourceFile.fromCode("notimported.js", "console.log('lol');"),
+            SourceFile.fromCode("module.js", "import './imported.js';")));
+
+    assertThat(metadataMap().getModulesByPath().get("imported.js").moduleType())
+        .isEqualTo(ModuleType.ES6_MODULE);
+    assertThat(metadataMap().getModulesByPath().get("notimported.js").moduleType())
+        .isEqualTo(ModuleType.SCRIPT);
+  }
+
+  @Test
+  public void testImportedScriptWithEntryPoint() {
+    rewriteScriptsToModules = true;
+    entryPoints = ImmutableList.of(ModuleIdentifier.forFile("module.js"));
+
+    test(
+        srcs(
+            SourceFile.fromCode("imported.js", "console.log('lol');"),
+            SourceFile.fromCode("notimported.js", "console.log('lol');"),
+            SourceFile.fromCode("module.js", "import './imported.js';")));
+
+    assertThat(metadataMap().getModulesByPath().get("imported.js").moduleType())
+        .isEqualTo(ModuleType.ES6_MODULE);
+    // Pruned
+    assertThat(metadataMap().getModulesByPath().keySet()).doesNotContain("notimported.js");
   }
 }

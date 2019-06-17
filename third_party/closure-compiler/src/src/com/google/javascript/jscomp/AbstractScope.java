@@ -27,6 +27,7 @@ import java.util.Collections;
 import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /**
  * Scope contains information about a variable scope in JavaScript. Scopes can be nested, a scope
@@ -52,13 +53,13 @@ import java.util.Map;
  * Local variables are declared on the function block, while parameters and optionally the function
  * name (if it bleeds, i.e. from a named function expression) are declared on the container scope.
  * This is required so that default parameter initializers can refer to names from outside the
- * function that could possibly be shadowed in the function block.  But these scopes are not fully
+ * function that could possibly be shadowed in the function block. But these scopes are not fully
  * independent of one another, since the language does not allow a top-level local variable to
  * shadow a parameter name - so in some situations these scopes must be treated as a single scope.
  *
  * @see NodeTraversal
  */
-abstract class AbstractScope<S extends AbstractScope<S, V>, V extends AbstractVar<S, V>>
+public abstract class AbstractScope<S extends AbstractScope<S, V>, V extends AbstractVar<S, V>>
     implements StaticScope, Serializable {
   private final Map<String, V> vars = new LinkedHashMap<>();
   private final Map<ImplicitVar, V> implicitVars = new EnumMap<>(ImplicitVar.class);
@@ -112,7 +113,7 @@ abstract class AbstractScope<S extends AbstractScope<S, V>, V extends AbstractVa
   }
 
   /** Walks up the tree to find the global scope. */
-  final S getGlobalScope() {
+  public final S getGlobalScope() {
     S result = thisScope();
     while (result.getParent() != null) {
       result = result.getParent();
@@ -151,83 +152,79 @@ abstract class AbstractScope<S extends AbstractScope<S, V>, V extends AbstractVa
     vars.clear();
   }
 
-  @Override
-  public final V getSlot(String name) {
-    // TODO(sdh): This behavior is inconsistent with getOwnSlot, hasSlot, and hasOwnSlot
-    // when it comes to implicit vars.  The other three methods all exclude implicits,
-    // but this one returns them.  It would be good to clean this up one way or the other.
-    return getVar(name);
-  }
-
-  @Override
-  public final V getOwnSlot(String name) {
-    return vars.get(name);
-  }
-
-  /**
-   * Returns the variable, may be null
-   */
-  // Non-final for jsdev tests
-  public V getVar(String name) {
-    ImplicitVar implicit = name != null ? ImplicitVar.of(name) : null;
-    if (implicit != null) {
-      return getImplicitVar(implicit, true);
-    }
-    S scope = thisScope();
-    while (scope != null) {
-      V var = scope.getOwnSlot(name);
-      if (var != null) {
-        return var;
-      }
-      // Recurse up the parent Scope
-      scope = scope.getParent();
-    }
-    return null;
-  }
-
-  /**
-   * Get a unique Var object to represent "arguments" within this scope
-   */
-  public final V getArgumentsVar() {
-    return getImplicitVar(ImplicitVar.ARGUMENTS, false);
-  }
-
-  /** Get a unique Var object of the given implicit var type. */
-  private final V getImplicitVar(ImplicitVar var, boolean allowDeclaredVars) {
-    S scope = thisScope();
-    while (scope != null) {
-      if (var.isMadeByScope(scope)) {
-        V result = ((AbstractScope<S, V>) scope).implicitVars.get(var);
-        if (result == null) {
-          ((AbstractScope<S, V>) scope).implicitVars.put(var, result = scope.makeImplicitVar(var));
-        }
-        return result;
-      }
-      V result = allowDeclaredVars ? scope.getOwnSlot(var.name) : null;
-      if (result != null) {
-        return result;
-      }
-      // Recurse up the parent Scope
-      scope = scope.getParent();
-    }
-    return null;
+  /** Returns true iff this scope implies a slot with the given name. */
+  protected boolean hasOwnImplicitSlot(@Nullable ImplicitVar name) {
+    return name != null && name.isMadeByScope(this);
   }
 
   /** Returns true if a variable is declared in this scope, with no recursion. */
   public final boolean hasOwnSlot(String name) {
-    return vars.containsKey(name);
+    return vars.containsKey(name) || hasOwnImplicitSlot(ImplicitVar.of(name));
   }
 
   /** Returns true if a variable is declared in this or any parent scope. */
   public final boolean hasSlot(String name) {
-    S scope = thisScope();
-    while (scope != null) {
+    for (S scope = thisScope(); scope != null; scope = scope.getParent()) {
       if (scope.hasOwnSlot(name)) {
         return true;
       }
-      scope = scope.getParent();
     }
     return false;
+  }
+
+  @Nullable
+  private final V getOwnImplicitSlot(@Nullable ImplicitVar name) {
+    if (!hasOwnImplicitSlot(name)) {
+      return null;
+    }
+
+    return implicitVars.computeIfAbsent(name, this::makeImplicitVar);
+  }
+
+  @Override
+  public final V getOwnSlot(String name) {
+    V var = vars.get(name);
+    if (var != null) {
+      return var;
+    }
+
+    return getOwnImplicitSlot(ImplicitVar.of(name));
+  }
+
+  @Override
+  public final V getSlot(String name) {
+    return getVar(name);
+  }
+
+  /**
+   * Returns the variable, may be null
+   *
+   * <p>Non-final for {@link TypedScope} which needs to handle qualified names.
+   */
+  public V getVar(String name) {
+    for (AbstractScope<S, V> scope = thisScope(); scope != null; scope = scope.getParent()) {
+      @Nullable V var = scope.getOwnSlot(name);
+      if (var != null) {
+        return var;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Get a unique Var object to represent "arguments" within this scope.
+   *
+   * <p>This explicitly excludes user declared variables that are names "arguments". It only returns
+   * special "arguments" variable that is inherent to a function.
+   */
+  public final V getArgumentsVar() {
+    for (AbstractScope<S, V> scope = thisScope(); scope != null; scope = scope.getParent()) {
+      @Nullable V arguments = scope.getOwnImplicitSlot(ImplicitVar.ARGUMENTS);
+      if (arguments != null) {
+        return arguments;
+      }
+    }
+    return null;
   }
 
   /**
@@ -249,7 +246,9 @@ abstract class AbstractScope<S extends AbstractScope<S, V>, V extends AbstractVa
    */
   private boolean isBleedingFunctionName(String name) {
     V var = getVar(name);
-    return var != null && var.getNode().getParent().isFunction();
+    return var != null //
+        && var.getNode() != null //
+        && var.getNode().getParent().isFunction();
   }
 
   /**
@@ -434,11 +433,24 @@ abstract class AbstractScope<S extends AbstractScope<S, V>, V extends AbstractVa
   }
 
   /**
+   * Returns the closest scope upon which `this` is defined, which is either the global scope or a
+   * non-arrow-function scope.
+   */
+  final S getScopeOfThis() {
+    S scope = getClosestContainerScope();
+    while (!scope.isGlobal() && !NodeUtil.isNonArrowFunction(scope.getRootNode())) {
+      scope = scope.getParent().getClosestContainerScope();
+    }
+    return scope;
+  }
+
+  /**
    * The three implicit var types, which are defined implicitly (at least) in
    * every vanilla function scope without actually being declared.
    */
   enum ImplicitVar {
     ARGUMENTS("arguments"),
+    EXPORTS("exports"),
     SUPER("super"),
     // TODO(sdh): Expand THIS.isMadeByScope to check super.isMadeByScope(scope) || scope.isGlobal()
     // Currently this causes a number of problems (see b/74980936), but could eventually lead to
@@ -456,7 +468,11 @@ abstract class AbstractScope<S extends AbstractScope<S, V>, V extends AbstractVa
 
     /** Whether this kind of implicit variable is created/owned by the given scope. */
     boolean isMadeByScope(AbstractScope<?, ?> scope) {
-      return NodeUtil.isVanillaFunction(scope.getRootNode());
+      if (this.equals(EXPORTS)) {
+        return scope.isModuleScope()
+            && scope.getRootNode().getParent().getBooleanProp(Node.GOOG_MODULE);
+      }
+      return NodeUtil.isNonArrowFunction(scope.getRootNode());
     }
 
     static ImplicitVar of(String name) {
@@ -467,6 +483,8 @@ abstract class AbstractScope<S extends AbstractScope<S, V>, V extends AbstractVa
           return SUPER;
         case "this":
           return THIS;
+        case "exports":
+          return EXPORTS;
         default:
           return null;
       }

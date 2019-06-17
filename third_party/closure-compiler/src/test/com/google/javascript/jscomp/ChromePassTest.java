@@ -362,10 +362,23 @@ public class ChromePassTest extends CompilerTestCase {
   }
 
   @Test
+  public void testObjectDefinePropertyWithoutArgsDoesntThrow() {
+    test("Object.defineProperty();", "Object.defineProperty();");
+    test("Object.defineProperty(a);", "Object.defineProperty(a);");
+    test("Object.defineProperty(a, 'b');", "Object.defineProperty(a, 'b');");
+  }
+
+  @Test
   public void testObjectDefinePropertyDefinesUnquotedProperty() {
     test(
         "Object.defineProperty(a.b, 'c', {});",
         "Object.defineProperty(a.b, 'c', {});\n" + "/** @type {?} */\n" + "a.b.c;");
+  }
+
+  @Test
+  public void testCrDefinePropertyTooFewArguments() {
+    testError("cr.defineProperty();\n", ChromePass.CR_DEFINE_PROPERTY_TOO_FEW_ARGUMENTS);
+    testError("cr.defineProperty(a.prototype);\n", ChromePass.CR_DEFINE_PROPERTY_TOO_FEW_ARGUMENTS);
   }
 
   @Test
@@ -606,173 +619,5 @@ public class ChromePassTest extends CompilerTestCase {
   @Test
   public void testCrExportPathInvalidNumberOfArguments() {
     testError("cr.exportPath();", ChromePass.CR_EXPORT_PATH_TOO_FEW_ARGUMENTS);
-  }
-
-  @Test
-  public void testCrMakePublicWorksOnOneMethodDefinedInPrototypeObject() {
-    test(
-        "/** @constructor */\n"
-            + "function Class() {};\n"
-            + "\n"
-            + "Class.prototype = {\n"
-            + "  /** @return {number} */\n"
-            + "  method_: function() { return 42; }\n"
-            + "};\n"
-            + "\n"
-            + "cr.makePublic(Class, ['method']);",
-        "/** @constructor */\n"
-            + "function Class() {};\n"
-            + "\n"
-            + "Class.prototype = {\n"
-            + "  /** @return {number} */\n"
-            + "  method_: function() { return 42; }\n"
-            + "};\n"
-            + "\n"
-            + "/** @return {number} */\n"
-            + "Class.method;\n"
-            + "\n"
-            + "cr.makePublic(Class, ['method']);");
-  }
-
-  @Test
-  public void testCrMakePublicWorksOnTwoMethods() {
-    test(
-        "/** @constructor */\n"
-            + "function Class() {}\n"
-            + "\n"
-            + "Class.prototype = {\n"
-            + "  /** @return {number} */\n"
-            + "  m1_: function() { return 42; },\n"
-            + "\n"
-            + "  /** @return {string} */\n"
-            + "  m2_: function() { return ''; }\n"
-            + "};\n"
-            + "\n"
-            + "cr.makePublic(Class, ['m1', 'm2']);",
-        "/** @constructor */\n"
-            + "function Class() {}\n"
-            + "\n"
-            + "Class.prototype = {\n"
-            + "  /** @return {number} */\n"
-            + "  m1_: function() { return 42; },\n"
-            + "\n"
-            + "  /** @return {string} */\n"
-            + "  m2_: function() { return ''; }\n"
-            + "}\n"
-            + "\n"
-            + "/** @return {number} */\n"
-            + "Class.m1;\n"
-            + "\n"
-            + "/** @return {string} */\n"
-            + "Class.m2;\n"
-            + "\n"
-            + "cr.makePublic(Class, ['m1', 'm2']);");
-  }
-
-  @Test
-  public void testCrMakePublicRequiresMethodsToHaveJSDoc() {
-    testError(
-        "/** @constructor */\n"
-            + "function Class() {}\n"
-            + "\n"
-            + "Class.prototype = {\n"
-            + "  method_: function() {}\n"
-            + "}\n"
-            + "\n"
-            + "cr.makePublic(Class, ['method']);",
-        ChromePass.CR_MAKE_PUBLIC_HAS_NO_JSDOC);
-  }
-
-  @Test
-  public void testCrMakePublicDoesNothingWithMethodsNotInAPI() {
-    test(
-        "/** @constructor */\n"
-            + "function Class() {}\n"
-            + "\n"
-            + "Class.prototype = {\n"
-            + "  method_: function() {}\n"
-            + "}\n"
-            + "\n"
-            + "cr.makePublic(Class, []);",
-        "/** @constructor */\n"
-            + "function Class() {}\n"
-            + "\n"
-            + "Class.prototype = {\n"
-            + "  method_: function() {}\n"
-            + "}\n"
-            + "\n"
-            + "cr.makePublic(Class, []);");
-  }
-
-  @Test
-  public void testCrMakePublicRequiresExportedMethodToBeDeclared() {
-    testError(
-        "/** @constructor */\n"
-            + "function Class() {}\n"
-            + "\n"
-            + "Class.prototype = {\n"
-            + "}\n"
-            + "\n"
-            + "cr.makePublic(Class, ['method']);",
-        ChromePass.CR_MAKE_PUBLIC_MISSED_DECLARATION);
-  }
-
-  @Test
-  public void testCrMakePublicWorksOnOneMethodDefinedDirectlyOnPrototype() {
-    test(
-        "/** @constructor */\n"
-            + "function Class() {}\n"
-            + "\n"
-            + "/** @return {number} */\n"
-            + "Class.prototype.method_ = function() {};\n"
-            + "\n"
-            + "cr.makePublic(Class, ['method']);",
-        "/** @constructor */\n"
-            + "function Class() {}\n"
-            + "\n"
-            + "/** @return {number} */\n"
-            + "Class.prototype.method_ = function() {};\n"
-            + "\n"
-            + "/** @return {number} */\n"
-            + "Class.method;\n"
-            + "\n"
-            + "cr.makePublic(Class, ['method']);");
-  }
-
-  @Test
-  public void testCrMakePublicWorksOnDummyDeclaration() {
-    test(
-        "/** @constructor */\n"
-            + "function Class() {}\n"
-            + "\n"
-            + "/** @return {number} */\n"
-            + "Class.prototype.method_;\n"
-            + "\n"
-            + "cr.makePublic(Class, ['method']);",
-        "/** @constructor */\n"
-            + "function Class() {}\n"
-            + "\n"
-            + "/** @return {number} */\n"
-            + "Class.prototype.method_;\n"
-            + "\n"
-            + "/** @return {number} */\n"
-            + "Class.method;\n"
-            + "\n"
-            + "cr.makePublic(Class, ['method']);");
-  }
-
-  @Test
-  public void testCrMakePublicReportsInvalidSecondArgumentMissing() {
-    testError("cr.makePublic(Class);", ChromePass.CR_MAKE_PUBLIC_INVALID_SECOND_ARGUMENT);
-  }
-
-  @Test
-  public void testCrMakePublicReportsInvalidSecondArgumentNotAnArray() {
-    testError("cr.makePublic(Class, 42);", ChromePass.CR_MAKE_PUBLIC_INVALID_SECOND_ARGUMENT);
-  }
-
-  @Test
-  public void testCrMakePublicReportsInvalidSecondArgumentArrayWithNotAString() {
-    testError("cr.makePublic(Class, [42]);", ChromePass.CR_MAKE_PUBLIC_INVALID_SECOND_ARGUMENT);
   }
 }

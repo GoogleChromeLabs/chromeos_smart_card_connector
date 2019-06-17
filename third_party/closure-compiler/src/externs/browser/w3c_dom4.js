@@ -55,52 +55,64 @@ CharacterData.prototype.remove = function() {};
 DocumentType.prototype.replaceWith = function(nodes) {};
 
 /**
- * @type {number}
- * @see https://www.w3.org/TR/2015/REC-dom-20151119/#dfn-error-names-table
+ * @const {string}
+ * @see https://www.w3.org/TR/2015/REC-dom-20151119/#sec-domerror
  */
-DOMException.SECURITY_ERR = 18;
+DOMException.prototype.name;
 
 /**
- * @type {number}
- * @see https://www.w3.org/TR/2015/REC-dom-20151119/#dfn-error-names-table
+ * @const {string}
+ * @see https://www.w3.org/TR/2015/REC-dom-20151119/#sec-domerror
  */
-DOMException.NETWORK_ERR = 19;
+DOMException.prototype.message;
 
 /**
- * @type {number}
+ * @const {number}
  * @see https://www.w3.org/TR/2015/REC-dom-20151119/#dfn-error-names-table
  */
-DOMException.ABORT_ERR = 20;
+DOMException.SECURITY_ERR;
 
 /**
- * @type {number}
+ * @const {number}
  * @see https://www.w3.org/TR/2015/REC-dom-20151119/#dfn-error-names-table
  */
-DOMException.URL_MISMATCH_ERR = 21;
+DOMException.NETWORK_ERR;
 
 /**
- * @type {number}
+ * @const {number}
  * @see https://www.w3.org/TR/2015/REC-dom-20151119/#dfn-error-names-table
  */
-DOMException.QUOTA_EXCEEDED_ERR = 22;
+DOMException.ABORT_ERR;
 
 /**
- * @type {number}
+ * @const {number}
  * @see https://www.w3.org/TR/2015/REC-dom-20151119/#dfn-error-names-table
  */
-DOMException.TIMEOUT_ERR = 23;
+DOMException.URL_MISMATCH_ERR;
 
 /**
- * @type {number}
+ * @const {number}
  * @see https://www.w3.org/TR/2015/REC-dom-20151119/#dfn-error-names-table
  */
-DOMException.INVALID_NODE_TYPE_ERR = 24;
+DOMException.QUOTA_EXCEEDED_ERR;
 
 /**
- * @type {number}
+ * @const {number}
  * @see https://www.w3.org/TR/2015/REC-dom-20151119/#dfn-error-names-table
  */
-DOMException.DATA_CLONE_ERR = 25;
+DOMException.TIMEOUT_ERR;
+
+/**
+ * @const {number}
+ * @see https://www.w3.org/TR/2015/REC-dom-20151119/#dfn-error-names-table
+ */
+DOMException.INVALID_NODE_TYPE_ERR;
+
+/**
+ * @const {number}
+ * @see https://www.w3.org/TR/2015/REC-dom-20151119/#dfn-error-names-table
+ */
+DOMException.DATA_CLONE_ERR;
 
 /**
  * @param {...(!Node|string)} nodes
@@ -214,3 +226,25 @@ CharacterData.prototype.after = function(nodes) {};
  * @see https://dom.spec.whatwg.org/#dom-element-toggleattribute
  */
 Element.prototype.toggleAttribute = function(name, force) {};
+
+/**
+ * @type {Element}
+ * @see http://msdn.microsoft.com/en-us/library/ms534327(VS.85).aspx
+ */
+Node.prototype.parentElement;
+
+/**
+ * @param {string} name
+ * @return {!HTMLCollection<!Element>}
+ * @nosideeffects
+ * @see https://dom.spec.whatwg.org/#dom-document-getelementsbyclassname-classnames-classnames
+ */
+Document.prototype.getElementsByClassName = function(name) {};
+
+/**
+ * @param {string} classNames
+ * @return {!HTMLCollection<!Element>}
+ * @nosideeffects
+ * @see https://dom.spec.whatwg.org/#dom-element-getelementsbyclassname-classnames-classnames
+ */
+Element.prototype.getElementsByClassName = function(classNames) {};

@@ -16,6 +16,7 @@
 
 package com.google.javascript.jscomp;
 
+import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.rhino.Node;
 import org.junit.Before;
 import org.junit.Test;
@@ -41,6 +42,13 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
   }
 
   @Override
+  protected CompilerOptions getOptions() {
+    CompilerOptions options = super.getOptions();
+    options.setLanguageIn(LanguageMode.ECMASCRIPT_2018);
+    return options;
+  }
+
+  @Override
   protected CompilerPass getProcessor(final Compiler compiler) {
     return new CompilerPass() {
       @Override
@@ -49,11 +57,6 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
             compiler, js, new DeadAssignmentsElimination(compiler));
       }
     };
-  }
-
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
   }
 
   @Test
@@ -426,6 +429,16 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
          "function FUNC(param1, param2){" + expected + "}");
   }
 
+  private void inAsyncFunction(String src) {
+    inAsyncFunction(src, src);
+  }
+
+  private void inAsyncFunction(String src, String expected) {
+    test(
+        "async function FUNC(param1, param2){" + src + "}",
+        "async function FUNC(param1, param2){" + expected + "}");
+  }
+
   @Test
   public void testBug8730257() {
     inFunction(
@@ -709,6 +722,15 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
   }
 
   @Test
+  public void testForAwaitOf() {
+    inAsyncFunction("var x = {}; for await (var y of x) { y() }");
+
+    inAsyncFunction(
+        "var x, y, z; x = {}; z = {}; for await (y of x = z) {}",
+        "var x, y, z;   ({}); z = {}; for await (y of z)     {}");
+  }
+
+  @Test
   public void testTemplateStrings() {
     inFunction("var name; name = 'Foo'; `Hello ${name}`");
 
@@ -870,6 +892,97 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
   @Test
   public void testObjectLiteralsComputedProperties() {
     inFunction("let a; a = 2; let obj = {[a]: 3}; obj");
+  }
+
+  @Test
+  public void testSpread_consideredRead() {
+    inFunction(
+        lines(
+            "var a;", //
+            "a = [];", //
+            "[...a];"));
+
+    inFunction(
+        lines(
+            "var a;", //
+            "a = {};", //
+            "({...a});"));
+  }
+
+  @Test
+  public void testRest_notConsideredWrite() {
+    // TODO(b/126441776): The initial writes are dead. The pass should rewrite to the commented
+    // code.
+
+    inFunction(
+        lines(
+            "var a = 9;", //
+            "[...a] = itr;",
+            "return a;")
+        /** , lines( "var a;", // "[...a] = itr;", "return a;") */
+        );
+
+    inFunction(
+        lines(
+            "var a = 9;", //
+            "({...a} = obj);",
+            "return a;")
+        /** , lines( "var a;", // "({...a} = obj);", "return a;") */
+        );
+  }
+
+  @Test
+  public void testDestructuring_notConsideredWrite() {
+    // TODO(b/126441776): The initial writes are dead. The pass should rewrite to the commented
+    // code.
+
+    inFunction(
+        lines(
+            "var a = 9;", //
+            "[a] = itr;",
+            "return a;")
+        /** , lines( "var a;", // "[a] = itr;", "return a;") */
+        );
+
+    inFunction(
+        lines(
+            "var a = 9;", //
+            "({a} = obj);",
+            "return a;")
+        /** , lines( "var a;", // "({a} = obj);", "return a;") */
+        );
+  }
+
+  @Test
+  public void testRest_isNotRemovable() {
+    // TODO(b/126441776): Elimination is possible here under getter/setter assumptions. Determine if
+    // this is the correct behaviour.
+
+    inFunction(
+        lines(
+            "var a;", //
+            "[...a] = itr;"));
+
+    inFunction(
+        lines(
+            "var a;", //
+            "({...a} = obj);"));
+  }
+
+  @Test
+  public void testDestructuring_isNotRemovable() {
+    // TODO(b/126441776): Elimination is possible here under getter/setter assumptions. Determine if
+    // this is the correct behaviour.
+
+    inFunction(
+        lines(
+            "var a;", //
+            "[a] = itr;"));
+
+    inFunction(
+        lines(
+            "var a;", //
+            "({a} = obj);"));
   }
 
   @Test

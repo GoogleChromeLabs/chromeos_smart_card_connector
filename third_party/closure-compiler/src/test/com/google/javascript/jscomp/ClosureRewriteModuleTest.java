@@ -18,8 +18,6 @@ package com.google.javascript.jscomp;
 import static com.google.javascript.jscomp.ClosurePrimitiveErrors.INVALID_FORWARD_DECLARE_NAMESPACE;
 import static com.google.javascript.jscomp.ClosurePrimitiveErrors.INVALID_GET_CALL_SCOPE;
 import static com.google.javascript.jscomp.ClosurePrimitiveErrors.INVALID_GET_NAMESPACE;
-import static com.google.javascript.jscomp.ClosurePrimitiveErrors.INVALID_REQUIRE_NAMESPACE;
-import static com.google.javascript.jscomp.ClosurePrimitiveErrors.INVALID_REQUIRE_TYPE_NAMESPACE;
 import static com.google.javascript.jscomp.ClosurePrimitiveErrors.MISSING_MODULE_OR_PROVIDE;
 import static com.google.javascript.jscomp.ClosureRewriteModule.DUPLICATE_MODULE;
 import static com.google.javascript.jscomp.ClosureRewriteModule.DUPLICATE_NAMESPACE;
@@ -28,9 +26,8 @@ import static com.google.javascript.jscomp.ClosureRewriteModule.ILLEGAL_DESTRUCT
 import static com.google.javascript.jscomp.ClosureRewriteModule.IMPORT_INLINING_SHADOWS_VAR;
 import static com.google.javascript.jscomp.ClosureRewriteModule.INVALID_EXPORT_COMPUTED_PROPERTY;
 import static com.google.javascript.jscomp.ClosureRewriteModule.INVALID_GET_ALIAS;
-import static com.google.javascript.jscomp.ClosureRewriteModule.INVALID_MODULE_NAMESPACE;
-import static com.google.javascript.jscomp.ClosureRewriteModule.INVALID_PROVIDE_CALL;
 import static com.google.javascript.jscomp.ClosureRewriteModule.LATE_PROVIDE_ERROR;
+import static com.google.javascript.jscomp.ClosureRewriteModule.LOAD_MODULE_FN_MISSING_RETURN;
 
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
@@ -55,11 +52,6 @@ public final class ClosureRewriteModuleTest extends CompilerTestCase {
   }
 
   @Override
-  protected int getNumRepetitions() {
-    return 1;
-  }
-
-  @Override
   @Before
   public void setUp() throws Exception {
     super.setUp();
@@ -73,6 +65,7 @@ public final class ClosureRewriteModuleTest extends CompilerTestCase {
     options.setWarningLevel(DiagnosticGroups.LINT_CHECKS, CheckLevel.WARNING);
     options.setPreserveClosurePrimitives(this.preserveClosurePrimitives);
     options.setWarningLevel(DiagnosticGroups.MISSING_PROVIDE, CheckLevel.WARNING);
+    options.setWarningLevel(DiagnosticGroups.MODULE_LOAD, CheckLevel.OFF);
     return options;
   }
 
@@ -210,6 +203,147 @@ public final class ClosureRewriteModuleTest extends CompilerTestCase {
         lines(
           "/** @const */ var module$exports$a = {};",
           "module$exports$a.x = foo();"));
+  }
+
+  @Test
+  public void testNamedExportInliningJSDoc_atConstJSDoc() {
+    test(
+        new String[] {
+          lines(
+              "goog.module('ns.b');", //
+              "/** @const */ var Foo = {a: 0};",
+              "exports.Foo = Foo;"),
+          lines(
+              "goog.module('ns.a');", //
+              "var {Foo} = goog.require('ns.b');",
+              "var f = Foo;")
+        },
+        new String[] {
+          lines(
+              "/** @const */ var module$exports$ns$b = {};",
+              "/** @const */ module$exports$ns$b.Foo = {a: 0};"),
+          lines(
+              "/** @const */ var module$exports$ns$a = {}",
+              "var module$contents$ns$a_f = module$exports$ns$b.Foo;")
+        });
+  }
+
+  @Test
+  public void testNamedExportInliningJSDoc_semanticConst() {
+    test(
+        new String[] {
+          lines(
+              "goog.module('ns.b');", //
+              "const Foo = {a: 0};",
+              "exports.Foo = Foo;"),
+          lines(
+              "goog.module('ns.a');", //
+              "var {Foo} = goog.require('ns.b');",
+              "var f = Foo;")
+        },
+        new String[] {
+          lines(
+              "/** @const */ var module$exports$ns$b = {};",
+              "/** @const */ module$exports$ns$b.Foo = {a: 0};"),
+          lines(
+              "/** @const */ var module$exports$ns$a = {}",
+              "var module$contents$ns$a_f = module$exports$ns$b.Foo;")
+        });
+  }
+
+  @Test
+  public void testNamedExportInliningJSDoc_semanticConstWithExistingJSDoc() {
+    test(
+        new String[] {
+          lines(
+              "goog.module('ns.b');", //
+              "/** @interface */ const Foo = class {};",
+              "exports.Foo = Foo;"),
+          lines(
+              "goog.module('ns.a');", //
+              "var {Foo} = goog.require('ns.b');",
+              "var f = Foo;")
+        },
+        new String[] {
+          lines(
+              "/** @const */ var module$exports$ns$b = {};",
+              "/** @const @interface */ module$exports$ns$b.Foo = class {};"),
+          lines(
+              "/** @const */ var module$exports$ns$a = {}",
+              "var module$contents$ns$a_f = module$exports$ns$b.Foo;")
+        });
+  }
+
+  @Test
+  public void testNamedExportInliningJSDoc_semanticConstWithInlineJSDoc() {
+    test(
+        new String[] {
+          lines(
+              "goog.module('ns.b');", //
+              "const /** number */ foo = 0;",
+              "exports.foo = foo;"),
+          lines(
+              "goog.module('ns.a');", //
+              "var {foo} = goog.require('ns.b');",
+              "var f = foo;")
+        },
+        new String[] {
+          lines(
+              "/** @const */ var module$exports$ns$b = {};",
+              "/** @const {number} */ module$exports$ns$b.foo = 0;"),
+          lines(
+              "/** @const */ var module$exports$ns$a = {}",
+              "var module$contents$ns$a_f = module$exports$ns$b.foo;")
+        });
+  }
+
+  @Test
+  public void testNamedExportInliningJSDoc_nonConstWithInlineJSDoc() {
+    test(
+        new String[] {
+          lines(
+              "goog.module('ns.b');", //
+              "let /** number */ foo = 0;",
+              "exports.foo = foo;"),
+          lines(
+              "goog.module('ns.a');", //
+              "var {foo} = goog.require('ns.b');",
+              "var f = foo;")
+        },
+        new String[] {
+          lines(
+              "/** @const */ var module$exports$ns$b = {};",
+              "/** @type {number} */ module$exports$ns$b.foo = 0;"),
+          lines(
+              "/** @const */ var module$exports$ns$a = {}",
+              "var module$contents$ns$a_f = module$exports$ns$b.foo;")
+        });
+  }
+
+  @Test
+  public void testNamedExportInliningJSDoc_mutatedLocal() {
+    // TODO(lharker): Stop inlining 'exports.Foo -> Foo' in this case.
+    test(
+        new String[] {
+          lines(
+              "goog.module('ns.b');", //
+              "let Foo = {a: 0};",
+              "exports.Foo = Foo;",
+              "Foo = {};"),
+          lines(
+              "goog.module('ns.a');", //
+              "var {Foo} = goog.require('ns.b');",
+              "var f = Foo;")
+        },
+        new String[] {
+          lines(
+              "/** @const */ var module$exports$ns$b = {};",
+              "module$exports$ns$b.Foo = {a: 0};",
+              "module$exports$ns$b.Foo = {};"),
+          lines(
+              "/** @const */ var module$exports$ns$a = {}",
+              "var module$contents$ns$a_f = module$exports$ns$b.Foo;")
+        });
   }
 
   @Test
@@ -936,6 +1070,16 @@ public final class ClosureRewriteModuleTest extends CompilerTestCase {
   }
 
   @Test
+  public void testGoogLoadModule_missingReturn() {
+    testError(
+        lines(
+            "goog.loadModule(function(exports) {", //
+            "  goog.module('ns.b');",
+            "});"),
+        LOAD_MODULE_FN_MISSING_RETURN);
+  }
+
+  @Test
   public void testGoogLoadModuleString() {
     testSame("goog.loadModule(\"goog.module('a.b.c'); exports = class {};\");");
   }
@@ -1030,28 +1174,6 @@ public final class ClosureRewriteModuleTest extends CompilerTestCase {
         lines(
             "/** @const */ var module$exports$a = {};",
             "this;"));
-  }
-
-  @Test
-  public void testInvalidModule() {
-    testError("goog.module(a);", INVALID_MODULE_NAMESPACE);
-  }
-
-  @Test
-  public void testInvalidRequire() {
-    testError("goog.module('ns.a');" + "goog.require(a);", INVALID_REQUIRE_NAMESPACE);
-  }
-
-  @Test
-  public void testInvalidRequireType() {
-    testError("goog.module('ns.a');" + "goog.requireType(a);", INVALID_REQUIRE_TYPE_NAMESPACE);
-  }
-
-  @Test
-  public void testInvalidProvide() {
-    // The ES6 path turns on DependencyOptions.needsManagement() which leads to JsFileLineParser
-    // execution that throws a different exception on some invalid goog.provide()s.
-    testError("goog.module('a'); goog.provide('b');", INVALID_PROVIDE_CALL);
   }
 
   @Test
@@ -2655,6 +2777,6 @@ public final class ClosureRewriteModuleTest extends CompilerTestCase {
   @Test
   public void testEs6Module() {
     testSame("export var x;");
-    testSame("import {x} from 'y';");
+    testSame("import {x} from '/y';");
   }
 }

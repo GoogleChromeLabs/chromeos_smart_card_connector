@@ -21,6 +21,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.rhino.Node;
+import java.nio.charset.Charset;
 import org.junit.Before;
 
 /** Base class for tests that exercise {@link CodePrinter}. */
@@ -30,8 +31,10 @@ public abstract class CodePrinterTestBase {
   protected boolean allowWarnings = false;
   protected boolean trustedStrings = true;
   protected boolean preserveTypeAnnotations = false;
+  protected boolean useUnsupportedFeatures = false;
   protected LanguageMode languageMode = LanguageMode.ECMASCRIPT5;
   protected Compiler lastCompiler = null;
+  protected Charset outputCharset = null;
 
   @Before
   public void setUp() throws Exception {
@@ -39,7 +42,9 @@ public abstract class CodePrinterTestBase {
     preserveTypeAnnotations = false;
     trustedStrings = true;
     lastCompiler = null;
-    languageMode = LanguageMode.ECMASCRIPT5;
+    useUnsupportedFeatures = false;
+    languageMode = LanguageMode.ECMASCRIPT_NEXT;
+    outputCharset = null;
   }
 
   Node parse(String js) {
@@ -52,8 +57,12 @@ public abstract class CodePrinterTestBase {
     CompilerOptions options = new CompilerOptions();
     options.setTrustedStrings(trustedStrings);
     options.preserveTypeAnnotations = preserveTypeAnnotations;
-    // Allow getters and setters.
-    options.setLanguageIn(languageMode);
+    options.setOutputCharset(outputCharset);
+    if (useUnsupportedFeatures) {
+      options.setLanguageInToUnsupported();
+    } else {
+      options.setLanguageIn(languageMode);
+    }
 
     compiler.init(
         ImmutableList.of(SourceFile.fromCode("externs", CompilerTestCase.MINIMAL_EXTERNS)),
@@ -78,9 +87,9 @@ public abstract class CodePrinterTestBase {
 
   private void checkUnexpectedErrorsOrWarnings(
       Compiler compiler, int expected) {
-    int actual = compiler.getErrors().length;
+    int actual = compiler.getErrors().size();
     if (!allowWarnings) {
-      actual += compiler.getWarnings().length;
+      actual += compiler.getWarnings().size();
     }
 
     if (actual != expected) {
@@ -107,6 +116,7 @@ public abstract class CodePrinterTestBase {
 
   CompilerOptions newCompilerOptions(CompilerOptionBuilder builder) {
     CompilerOptions options = new CompilerOptions();
+    options.setOutputCharset(outputCharset);
     options.setTrustedStrings(trustedStrings);
     options.preserveTypeAnnotations = preserveTypeAnnotations;
     options.setLanguageOut(languageMode);
@@ -118,6 +128,7 @@ public abstract class CodePrinterTestBase {
     CompilerOptions options = new CompilerOptions();
     options.setLineLengthThreshold(CompilerOptions.DEFAULT_LINE_LENGTH_THRESHOLD);
     options.setLanguageOut(languageMode);
+    options.setOutputCharset(outputCharset);
     return new CodePrinter.Builder(n).setCompilerOptions(options).build();
   }
 

@@ -52,11 +52,6 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
     return new ProcessCommonJSModules(compiler);
   }
 
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
-  }
-
   void testModules(String filename, String input, String expected) {
     ModulesTestUtils.testModules(this, filename, input, expected);
   }
@@ -1559,6 +1554,25 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
   }
 
   @Test
+  public void testWebpackRequireNamespace() {
+    Map<String, String> webpackModulesById =
+        ImmutableMap.of(
+            "1", "other.js",
+            "yet_another.js", "yet_another.js",
+            "3", "test.js");
+    setWebpackModulesById(webpackModulesById);
+    resolutionMode = ModuleLoader.ResolutionMode.WEBPACK;
+
+    testModules(
+        "test.js",
+        lines("var name = __webpack_require__.t('yet_another.js');", "exports.foo = 1;"),
+        lines(
+            "/** @const */ var module$test = {/** @const */ default: {}};",
+            "var name$$module$test = module$yet_another;",
+            "module$test.default.foo = 1;"));
+  }
+
+  @Test
   public void testGoogModuleUnaffected() {
     testModules(
         "test.js", "goog.module('foo'); exports.y = 123;", "goog.module('foo'); exports.y = 123;");
@@ -1574,5 +1588,13 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
     // This test the case when some JS doesn't use common js but uses top-level module calls.
     // For example in Jasmine test framwork.
     testModules("test.js", "module('foo.bar');", "module('foo.bar');");
+  }
+
+  @Test
+  public void testEsModuleExportsNotRewritten() {
+    // There was a bug where logic in the ProcessCommonJsModules incorrectly split this double
+    // declaration.
+    String code = "export var foo = 1, bar = 2;";
+    testModules("test.js", code, code);
   }
 }

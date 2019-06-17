@@ -27,16 +27,15 @@ enum Annotation {
   NG_INJECT,
   ABSTRACT,
   AUTHOR,
-  CUSTOM_ELEMENT,
-  CONSISTENTIDGENERATOR,
+  CLOSURE_PRIMITIVE,
   CONSTANT,
   CONSTRUCTOR,
+  CUSTOM_ELEMENT,
   RECORD,
   DEFINE,
   DEPRECATED,
   DESC,
   DICT,
-  DISPOSES,
   ENUM,
   EXTENDS,
   EXTERNS,
@@ -72,7 +71,6 @@ enum Annotation {
   PUBLIC,
   RETURN,
   SEE,
-  STABLEIDGENERATOR,
   STRUCT,
   SUPPRESS,
   TEMPLATE,
@@ -91,7 +89,7 @@ enum Annotation {
           .put("abstract", Annotation.ABSTRACT)
           .put("argument", Annotation.PARAM)
           .put("author", Annotation.AUTHOR)
-          .put("consistentIdGenerator", Annotation.CONSISTENTIDGENERATOR)
+          .put("closurePrimitive", Annotation.CLOSURE_PRIMITIVE)
           .put("const", Annotation.CONSTANT)
           .put("constant", Annotation.CONSTANT)
           .put("constructor", Annotation.CONSTRUCTOR)
@@ -101,7 +99,6 @@ enum Annotation {
           .put("deprecated", Annotation.DEPRECATED)
           .put("desc", Annotation.DESC)
           .put("dict", Annotation.DICT)
-          .put("disposes", Annotation.DISPOSES)
           .put("enum", Annotation.ENUM)
           .put("export", Annotation.EXPORT)
           .put("expose", Annotation.EXPOSE)
@@ -139,7 +136,7 @@ enum Annotation {
           .put("return", Annotation.RETURN)
           .put("returns", Annotation.RETURN)
           .put("see", Annotation.SEE)
-          .put("stableIdGenerator", Annotation.STABLEIDGENERATOR)
+
           .put("struct", Annotation.STRUCT)
           .put("suppress", Annotation.SUPPRESS)
           .put("template", Annotation.TEMPLATE)

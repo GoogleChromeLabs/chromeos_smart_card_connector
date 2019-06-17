@@ -61,7 +61,7 @@ class CheckUnreachableCode extends AbstractPreOrderCallback implements ScopedCal
       if (n.getLineno() != -1 &&
           // Allow spurious semi-colons and spurious breaks.
           !n.isEmpty() && !n.isBreak()) {
-        compiler.report(t.makeError(n, UNREACHABLE_CODE));
+        compiler.report(JSError.make(n, UNREACHABLE_CODE));
         // From now on, we are going to assume the user fixed the error and not
         // give more warning related to code section reachable from this node.
         new GraphReachability<>(t.getControlFlowGraph()).recompute(n);
@@ -96,7 +96,7 @@ class CheckUnreachableCode extends AbstractPreOrderCallback implements ScopedCal
           // TODO(user): Handle more complicated expression like true == true,
           // etc....
           if (condition != null) {
-            TernaryValue val = NodeUtil.getImpureBooleanValue(condition);
+            TernaryValue val = NodeUtil.getBooleanValue(condition);
             if (val != TernaryValue.UNKNOWN) {
               return val.toBoolean(true) == (branch == Branch.ON_TRUE);
             }

@@ -34,6 +34,12 @@ class LineNumberCheck implements Callback, CompilerPass {
           + " and line/column location.  Usually this is done using"
           + " Node.useSourceInfoIfMissingFrom and supplying a Node from the source AST.");
 
+  private static final DiagnosticType MISSING_LENGTH =
+      DiagnosticType.error(
+          "JSC_MISSING_LENGTH",
+          "Negative length associated with {0}.\n"
+              + "Most likely a Node's source information was set incorrectly at parse time.");
+
   private final AbstractCompiler compiler;
   private boolean requiresLineNumbers = false;
 
@@ -55,7 +61,7 @@ class LineNumberCheck implements Callback, CompilerPass {
   }
 
   @Override
-  public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+  public boolean shouldTraverse(NodeTraversal unused, Node n, Node parent) {
     // Each JavaScript file is rooted in a script node, so we'll only
     // have line number information inside the script node.
     if (n.isScript()) {
@@ -65,16 +71,16 @@ class LineNumberCheck implements Callback, CompilerPass {
   }
 
   @Override
-  public void visit(NodeTraversal t, Node n, Node parent) {
+  public void visit(NodeTraversal unused, Node n, Node parent) {
     if (n.isScript()) {
       requiresLineNumbers = false;
     } else if (requiresLineNumbers) {
       if (n.getLineno() == -1) {
         // The tree version of the node is really the best diagnostic
         // info we have to offer here.
-        compiler.report(
-            t.makeError(n, MISSING_LINE_INFO,
-                n.toStringTree()));
+        compiler.report(JSError.make(n, MISSING_LINE_INFO, n.toStringTree()));
+      } else if (n.getLength() < 0) {
+        compiler.report(JSError.make(n, MISSING_LENGTH, n.toStringTree()));
       }
     }
   }

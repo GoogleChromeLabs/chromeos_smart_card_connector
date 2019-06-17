@@ -154,19 +154,24 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
   }
 
   // TODO(tbreisacher): Update CodingConvention.extractClassNameIf{Require,Provide} to match this.
-  private String extractNamespace(Node call, String functionName) {
+  private String extractNamespace(Node call, String... primitiveNames) {
     Node callee = call.getFirstChild();
-    if (callee.isGetProp() && callee.matchesQualifiedName(functionName)) {
-      Node target = callee.getNext();
-      if (target != null && target.isString()) {
-        return target.getString();
+    if (!callee.isGetProp()) {
+      return null;
+    }
+    for (String primitiveName : primitiveNames) {
+      if (callee.matchesQualifiedName(primitiveName)) {
+        Node target = callee.getNext();
+        if (target != null && target.isString()) {
+          return target.getString();
+        }
       }
     }
     return null;
   }
 
   private String extractNamespaceIfRequire(Node call) {
-    return extractNamespace(call, "goog.require");
+    return extractNamespace(call, "goog.require", "goog.requireType");
   }
 
   private String extractNamespaceIfForwardDeclare(Node call) {
@@ -223,7 +228,7 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
         visitCallNode(t, n, parent);
         break;
       case SCRIPT:
-        visitScriptNode(t);
+        visitScriptNode();
         reset();
         break;
       case NEW:
@@ -250,7 +255,7 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
     this.googScopeBlock = null;
   }
 
-  private void visitScriptNode(NodeTraversal t) {
+  private void visitScriptNode() {
     if (mode == Mode.SINGLE_FILE && requires.isEmpty() && closurizedNamespaces.isEmpty()) {
       // Likely a file that isn't using Closure at all.
       return;
@@ -283,15 +288,15 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
                     ? namespace.substring(0, namespace.lastIndexOf('.'))
                     : namespace;
             String nameToReport = Iterables.getFirst(getClassNames(namespace), defaultName);
-            compiler.report(t.makeError(node, MISSING_REQUIRE_STRICT_WARNING, nameToReport));
+            compiler.report(JSError.make(node, MISSING_REQUIRE_STRICT_WARNING, nameToReport));
           } else if (node.getParent().isName()
               && node.getParent().getGrandparent() == googScopeBlock) {
-            compiler.report(t.makeError(node, MISSING_REQUIRE_FOR_GOOG_SCOPE, namespace));
+            compiler.report(JSError.make(node, MISSING_REQUIRE_FOR_GOOG_SCOPE, namespace));
           } else {
             if (node.isGetProp() && !node.getParent().isClass()) {
-              compiler.report(t.makeError(node, MISSING_REQUIRE_STRICT_WARNING, namespace));
+              compiler.report(JSError.make(node, MISSING_REQUIRE_STRICT_WARNING, namespace));
             } else {
-              compiler.report(t.makeError(node, MISSING_REQUIRE_WARNING, namespace));
+              compiler.report(JSError.make(node, MISSING_REQUIRE_WARNING, namespace));
             }
           }
           namespaces.add(namespace);
@@ -314,13 +319,10 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
   private boolean isMissingRequire(String namespace, Node node) {
     if (namespace.startsWith("goog.global.")
         // Most functions in base.js are goog.someName, but
-        // goog.module.{get,declareLegacyNamespace,declareNamespace} are the exceptions, so just
+        // goog.module.{get,declareLegacyNamespace} are the exceptions, so just
         // check for them explicitly.
         || namespace.equals("goog.module.get")
-        || namespace.equals("goog.module.declareLegacyNamespace")
-        // TODO(johnplaisted): Consolidate on declareModuleId.
-        || namespace.equals("goog.module.declareNamespace")
-        || namespace.equals("goog.declareModuleId")) {
+        || namespace.equals("goog.module.declareLegacyNamespace")) {
       return false;
     }
 

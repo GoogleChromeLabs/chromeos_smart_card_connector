@@ -45,11 +45,13 @@ class FunctionToBlockMutator {
 
   private final AbstractCompiler compiler;
   private final Supplier<String> safeNameIdSupplier;
+  private final FunctionArgumentInjector functionArgumentInjector;
 
   FunctionToBlockMutator(
       AbstractCompiler compiler, Supplier<String> safeNameIdSupplier) {
-    this.compiler = compiler;
+    this.compiler = checkNotNull(compiler);
     this.safeNameIdSupplier = safeNameIdSupplier;
+    this.functionArgumentInjector = new FunctionArgumentInjector(compiler.getAstAnalyzer());
   }
 
   /**
@@ -139,14 +141,13 @@ class FunctionToBlockMutator {
     }
 
     // TODO(johnlenz): Mark NAME nodes constant for parameters that are not modified.
-    Set<String> namesToAlias =
-        FunctionArgumentInjector.findModifiedParameters(newFnNode);
+    Set<String> namesToAlias = functionArgumentInjector.findModifiedParameters(newFnNode);
     ImmutableMap<String, Node> args =
-        FunctionArgumentInjector.getFunctionCallParameterMap(
+        functionArgumentInjector.getFunctionCallParameterMap(
             newFnNode, callNode, this.safeNameIdSupplier);
     boolean hasArgs = !args.isEmpty();
     if (hasArgs) {
-      FunctionArgumentInjector.maybeAddTempsForCallArguments(
+      functionArgumentInjector.maybeAddTempsForCallArguments(
           compiler, newFnNode, args, namesToAlias, compiler.getCodingConvention());
     }
 
@@ -312,8 +313,7 @@ class FunctionToBlockMutator {
 
     if (namesToAlias == null || namesToAlias.isEmpty()) {
       // There are no names to alias, just inline the arguments directly.
-      Node result = FunctionArgumentInjector.inject(
-          compiler, fnTemplateRoot, null, argMap);
+      Node result = functionArgumentInjector.inject(compiler, fnTemplateRoot, null, argMap);
       checkState(result == fnTemplateRoot);
       return result;
     } else {
@@ -340,17 +340,15 @@ class FunctionToBlockMutator {
 
             Node value = entry.getValue();
             if (!value.isThis()
-                && (referencesThis
-                    || NodeUtil.mayHaveSideEffects(value, compiler))) {
+                && (referencesThis || compiler.getAstAnalyzer().mayHaveSideEffects(value))) {
               String newName = getUniqueThisName();
               Node newValue = entry.getValue().cloneTree();
-              Node newNode = NodeUtil.newVarNode(newName, newValue)
-                  .useSourceInfoIfMissingFromForTree(newValue);
+              Node newNode =
+                  NodeUtil.newVarNode(newName, newValue)
+                      .useSourceInfoIfMissingFromForTree(newValue);
               newVars.add(0, newNode);
               // Remove the parameter from the list to replace.
-              newArgMap.put(THIS_MARKER,
-                  IR.name(newName)
-                      .srcrefTree(newValue));
+              newArgMap.put(THIS_MARKER, IR.name(newName).srcrefTree(newValue));
             }
           } else {
             Node newValue = entry.getValue().cloneTree();
@@ -364,8 +362,7 @@ class FunctionToBlockMutator {
       }
 
       // Inline the arguments.
-      Node result = FunctionArgumentInjector.inject(
-          compiler, fnTemplateRoot, null, newArgMap);
+      Node result = functionArgumentInjector.inject(compiler, fnTemplateRoot, null, newArgMap);
       checkState(result == fnTemplateRoot);
 
       // Now that the names have been replaced, add the new aliases for

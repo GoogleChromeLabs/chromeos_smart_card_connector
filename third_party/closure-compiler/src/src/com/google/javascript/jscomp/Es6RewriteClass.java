@@ -17,8 +17,8 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.javascript.jscomp.Es6ToEs3Util.CANNOT_CONVERT;
-import static com.google.javascript.jscomp.Es6ToEs3Util.CANNOT_CONVERT_YET;
+import static com.google.javascript.jscomp.Es6ToEs3Util.cannotConvert;
+import static com.google.javascript.jscomp.Es6ToEs3Util.cannotConvertYet;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
@@ -110,12 +110,12 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, HotSwapCom
       case GETTER_DEF:
       case SETTER_DEF:
         if (FeatureSet.ES3.contains(compiler.getOptions().getOutputFeatureSet())) {
-          cannotConvert(n, "ES5 getters/setters (consider using --language_out=ES5)");
+          cannotConvert(compiler, n, "ES5 getters/setters (consider using --language_out=ES5)");
           return false;
         }
         break;
       case NEW_TARGET:
-        cannotConvertYet(n, "new.target");
+        cannotConvertYet(compiler, n, "new.target");
         break;
       default:
         break;
@@ -183,7 +183,7 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, HotSwapCom
                   || member.getBooleanProp(Node.COMPUTED_PROP_SETTER)))
           || (member.isGetterDef() || member.isSetterDef())) {
         visitNonMethodMember(member, metadata);
-      } else if (member.isMemberFunctionDef() && member.getString().equals("constructor")) {
+      } else if (NodeUtil.isEs6ConstructorMemberFunctionDef(member)) {
         ctorJSDocInfo = member.getJSDocInfo();
         constructor = member.getFirstChild().detach().setJSType(classNode.getJSType());
         constructor.setJSTypeBeforeCast(classNode.getJSTypeBeforeCast());
@@ -208,7 +208,6 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, HotSwapCom
         "Es6RewriteClasses expects all classes to have (possibly synthetic) constructors");
 
     if (metadata.getDefinePropertiesObjForPrototype().hasChildren()) {
-      compiler.ensureLibraryInjected("util/global", false);
       Node definePropsCall =
           IR.exprResult(
               astFactory.createCall(
@@ -220,7 +219,6 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, HotSwapCom
     }
 
     if (metadata.getDefinePropertiesObjForClass().hasChildren()) {
-      compiler.ensureLibraryInjected("util/global", false);
       Node definePropsCall =
           IR.exprResult(
               astFactory.createCall(
@@ -244,21 +242,20 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, HotSwapCom
                 new Node(Token.BANG, IR.string(superClassString)),
                 metadata.getSuperClassNameNode().getSourceFileName()));
       } else {
-        if (!classNode.isFromExterns()) {
-          compiler.ensureLibraryInjected("es6/util/inherits", false);
-          Node inheritsCall =
-              IR.exprResult(
-                      astFactory.createCall(
-                          astFactory.createQName(t.getScope(), "$jscomp.inherits"),
-                          metadata.getFullClassNameNode().cloneTree(),
-                          metadata.getSuperClassNameNode().cloneTree()))
-                  .useSourceInfoIfMissingFromForTree(metadata.getSuperClassNameNode());
-          enclosingStatement.getParent().addChildAfter(inheritsCall, enclosingStatement);
-        }
         newInfo.recordBaseType(
             new JSTypeExpression(
                 new Node(Token.BANG, IR.string(superClassString)),
                 metadata.getSuperClassNameNode().getSourceFileName()));
+      }
+      if (!classNode.isFromExterns()) {
+        Node inheritsCall =
+            IR.exprResult(
+                    astFactory.createCall(
+                        astFactory.createQName(t.getScope(), "$jscomp.inherits"),
+                        metadata.getFullClassNameNode().cloneTree(),
+                        metadata.getSuperClassNameNode().cloneTree()))
+                .useSourceInfoIfMissingFromForTree(metadata.getSuperClassNameNode());
+        enclosingStatement.getParent().addChildAfter(inheritsCall, enclosingStatement);
       }
     }
 
@@ -271,7 +268,7 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, HotSwapCom
       Node ctorVar = IR.let(metadata.getClassNameNode().cloneNode(), constructor);
       ctorVar.useSourceInfoIfMissingFromForTree(classNode);
       parent.replaceChild(classNode, ctorVar);
-      NodeUtil.addFeatureToScript(t.getCurrentFile(), Feature.LET_DECLARATIONS);
+      NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.LET_DECLARATIONS);
     } else {
       parent.replaceChild(classNode, constructor);
     }
@@ -434,11 +431,12 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, HotSwapCom
    */
   private void visitNonMethodMember(Node member, ClassDeclarationMetadata metadata) {
     if (member.isComputedProp() && member.isStaticMember()) {
-      cannotConvertYet(member, "Static computed property");
+      cannotConvertYet(compiler, member, "Static computed property");
       return;
     }
     if (member.isComputedProp() && !member.getFirstChild().isQualifiedName()) {
-      cannotConvert(member.getFirstChild(), "Computed property with non-qualified-name key");
+      cannotConvert(
+          compiler, member.getFirstChild(), "Computed property with non-qualified-name key");
       return;
     }
 
@@ -587,19 +585,6 @@ public final class Es6RewriteClass implements NodeTraversal.Callback, HotSwapCom
       }
     }
 
-  }
-
-  private void cannotConvert(Node n, String message) {
-    compiler.report(JSError.make(n, CANNOT_CONVERT, message));
-  }
-
-  /**
-   * Warns the user that the given ES6 feature cannot be converted to ES3
-   * because the transpilation is not yet implemented. A call to this method
-   * is essentially a "TODO(tbreisacher): Implement {@code feature}" comment.
-   */
-  private void cannotConvertYet(Node n, String feature) {
-    compiler.report(JSError.make(n, CANNOT_CONVERT_YET, feature));
   }
 
   private Node createPropertyDescriptor() {

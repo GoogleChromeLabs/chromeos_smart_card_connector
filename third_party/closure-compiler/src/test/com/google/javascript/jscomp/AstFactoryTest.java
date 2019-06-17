@@ -198,6 +198,15 @@ public class AstFactoryTest {
   }
 
   @Test
+  public void testCreateSuperReference() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node x = astFactory.createSuper(getNativeType(JSTypeNative.STRING_TYPE));
+    assertNode(x).hasType(Token.SUPER);
+    assertType(x.getJSType()).isString();
+  }
+
+  @Test
   public void createThisForFunction() {
     AstFactory astFactory = createTestAstFactory();
 
@@ -227,6 +236,46 @@ public class AstFactoryTest {
     Node newThis = astFactory.createThisForFunction(methodFunction);
     assertNode(newThis).isEqualTo(existingThis);
     assertNode(newThis).hasJSTypeThat().isEqualTo(existingThis.getJSTypeRequired());
+  }
+
+  @Test
+  public void createSuperForFunction() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node root =
+        parseAndAddTypes(
+            lines(
+                "class A {}",
+                "class B extends A {", //
+                "  method() {",
+                "    super.method();", // created `super` should match this one
+                "  }",
+                "}",
+                ""));
+
+    Node a =
+        root.getFirstChild() // script
+            .getFirstChild(); // class A
+
+    Node methodFunction =
+        root.getFirstChild() // script
+            .getSecondChild() // class B
+            .getLastChild() // class members
+            .getFirstChild() // class method member function def
+            .getOnlyChild(); // method function
+
+    Node existingSuper =
+        methodFunction
+            .getLastChild() // method function body
+            .getFirstChild() // expr_result
+            .getOnlyChild() // call "method"
+            .getFirstFirstChild(); // super
+
+    Node newSuper = astFactory.createSuperForFunction(methodFunction);
+    assertNode(newSuper).isEqualTo(existingSuper);
+    assertNode(newSuper)
+        .hasJSTypeThat()
+        .isEqualTo(a.getJSType().assertFunctionType().getInstanceType());
   }
 
   @Test
@@ -979,5 +1028,61 @@ public class AstFactoryTest {
     Node hook = astFactory.createHook(condition, left, right);
     assertNode(hook).hasToken(Token.HOOK);
     assertType(hook.getJSType()).isEqualTo(getRegistry().createUnionType(stringType, numberType));
+  }
+
+  @Test
+  public void testCreateArraylit() {
+    // Given
+    AstFactory astFactory = createTestAstFactory();
+    JSType numberType = getNativeType(JSTypeNative.NUMBER_TYPE);
+
+    Node first = IR.number(0).setJSType(numberType);
+    Node second = IR.number(1).setJSType(numberType);
+    Node third = IR.number(2).setJSType(numberType);
+
+    Node expected =
+        parseAndAddTypes("[0, 1, 2]")
+            .getFirstChild() // Script
+            .getFirstChild() // Expression
+            .getFirstChild(); // Array
+
+    // When
+    Node array = astFactory.createArraylit(first, second, third);
+
+    // Then
+    assertNode(array).isEquivalentTo(expected);
+    assertType(array.getJSType()).isEqualTo(expected.getJSType());
+  }
+
+  @Test
+  public void testCreateNewNode() {
+    // Given
+    AstFactory astFactory = createTestAstFactory();
+    JSType numberType = getNativeType(JSTypeNative.NUMBER_TYPE);
+
+    Node first = IR.number(0).setJSType(numberType);
+    Node second = IR.number(1).setJSType(numberType);
+
+    Node classNode =
+        parseAndAddTypes(
+                lines(
+                    "class Example { constructor(arg0, arg1) {} }", //
+                    "new Example(0, 1);"))
+            .getFirstChild() // Script
+            .getFirstChild(); // class
+
+    Node expected =
+        classNode
+            .getNext() // ExpressionResult
+            .getFirstChild(); // NewExpression
+
+    // When
+    Node newExpr =
+        astFactory.createNewNode(
+            astFactory.createName("Example", classNode.getJSType()), first, second);
+
+    // Then
+    assertNode(newExpr).isEquivalentTo(expected);
+    assertType(newExpr.getJSType()).isEqualTo(expected.getJSType());
   }
 }

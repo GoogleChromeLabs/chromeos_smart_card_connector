@@ -49,6 +49,7 @@ public final class VariableReferenceCheckTest extends CompilerTestCase {
   @Override
   public CompilerOptions getOptions() {
     CompilerOptions options = super.getOptions();
+    options.setLanguageIn(LanguageMode.ECMASCRIPT_2018);
     if (enableUnusedLocalAssignmentCheck) {
       options.setWarningLevel(DiagnosticGroups.UNUSED_LOCAL_VARIABLE, CheckLevel.WARNING);
     }
@@ -404,6 +405,13 @@ public final class VariableReferenceCheckTest extends CompilerTestCase {
   public void testForOf() {
     assertEarlyReferenceError("for (let x of []) { console.log(x); let x = 123; }");
     assertNoWarning("for (let x of []) { let x; }");
+  }
+
+  @Test
+  public void testForAwaitOf() {
+    assertEarlyReferenceError(
+        "async () => { for await (let x of []) { console.log(x); let x = 123; } }");
+    assertNoWarning("async () => { for (let x of []) { let x; } }");
   }
 
   @Test
@@ -1416,6 +1424,14 @@ public final class VariableReferenceCheckTest extends CompilerTestCase {
 
     testSame("import {x as x} from 'whatever'; function f() { let x = 0; }");
     testSame("import {y as x} from 'whatever'; function f() { let x = 0; }");
+  }
+
+  @Test
+  public void testOkExportsRefInGoogModule() {
+    testSame("goog.module('m');");
+    testSame("goog.module('m'); exports.Foo = 0;");
+    testSame("goog.module('m'); exports = 0;");
+    testSame("goog.module('m'); function f() { exports = 0; }"); // Bad style but warn elsewhere
   }
 
   /**

@@ -16,9 +16,13 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSortedMap;
 import com.google.javascript.jscomp.NodeTraversal.ScopedCallback;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
@@ -26,6 +30,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Optimization for functions that have {@code var_args} or access the
@@ -46,20 +51,17 @@ import java.util.List;
  */
 class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
 
-  // The arguments object as described by ECMAScript version 3
-  // section 10.1.8
+  // The arguments object as described by ECMAScript version 3 section 10.1.8
   private static final String ARGUMENTS = "arguments";
 
   // To ensure that the newly introduced parameter names are unique. We will
-  // use this string as prefix unless the caller specify a different prefix.
-  private static final String PARAMETER_PREFIX =
-      "JSCompiler_OptimizeArgumentsArray_p";
+  // use this string as prefix unless the caller specifies a different prefix.
+  private static final String PARAMETER_PREFIX = "JSCompiler_OptimizeArgumentsArray_p";
 
   // The prefix for the newly introduced parameter name.
   private final String paramPrefix;
 
-  // To make each parameter name unique in the function. We append an
-  // unique integer at the end.
+  // To make each parameter name unique in the function we append a unique integer.
   private int uniqueId = 0;
 
   // Reference to the compiler object to notify any changes to source code AST.
@@ -68,8 +70,11 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
   // A stack of arguments access list to the corresponding outer functions.
   private final Deque<List<Node>> argumentsAccessStack = new ArrayDeque<>();
 
-  // This stores a list of argument access in the current scope.
-  private List<Node> currentArgumentsAccess = null;
+  // The `arguments` access in the current scope.
+  //
+  // The elements are NAME nodes. This initial value is a error-detecting sentinel for the global
+  // scope, which is used because since `ArrayDeque` is null-hostile.
+  private List<Node> currentArgumentsAccesses = ImmutableList.of();
 
   /**
    * Construct this pass and use {@link #PARAMETER_PREFIX} as the prefix for
@@ -95,131 +100,71 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
 
   @Override
   public void enterScope(NodeTraversal traversal) {
-    checkNotNull(traversal);
-
-    // This optimization is valid only within a function so we are going to
-    // skip over the initial entry to the global scope.
-    Node function = traversal.getScopeRoot();
-    if (!function.isFunction()) {
+    if (!definesArgumentsVar(traversal.getScopeRoot())) {
       return;
     }
 
-    // Introduces a new access list and stores the access list of the outer
-    // scope in the stack if necessary.
-    if (currentArgumentsAccess != null) {
-      argumentsAccessStack.push(currentArgumentsAccess);
-    }
-    currentArgumentsAccess = new ArrayList<>();
+    // Introduces a new access list and stores the access list of the outer scope.
+    argumentsAccessStack.push(currentArgumentsAccesses);
+    currentArgumentsAccesses = new ArrayList<>();
   }
 
   @Override
   public void exitScope(NodeTraversal traversal) {
-    checkNotNull(traversal);
-
-    // This is the case when we are exiting the global scope where we had never
-    // collected argument access list. Since we do not perform this optimization
-    // for the global scope, we will skip this exit point.
-    if (currentArgumentsAccess == null) {
-      return;
-    }
-
-    Node function = traversal.getScopeRoot();
-    if (!function.isFunction()) {
-      return;
-    } else if (function.isArrowFunction()) {
+    if (!definesArgumentsVar(traversal.getScopeRoot())) {
       return;
     }
 
     // Attempt to replace the argument access and if the AST has been change,
     // report back to the compiler.
-    if (tryReplaceArguments(traversal.getScope())) {
-      traversal.reportCodeChange();
-    }
+    tryReplaceArguments(traversal.getScope());
 
-    // After the attempt to replace the arguments. The currentArgumentsAccess
-    // is stale and as we exit the Scope, no longer holds all the access to the
-    // current scope anymore. We'll pop the access list from the outer scope
-    // and set it as currentArgumentsAccess if the outer scope is not the global
-    // scope.
-    if (!argumentsAccessStack.isEmpty()) {
-      currentArgumentsAccess = argumentsAccessStack.pop();
-    } else {
-      currentArgumentsAccess = null;
-    }
+    currentArgumentsAccesses = argumentsAccessStack.pop();
+  }
+
+  private static boolean definesArgumentsVar(Node root) {
+    return root.isFunction() && !root.isArrowFunction();
   }
 
   @Override
-  public boolean shouldTraverse(
-      NodeTraversal nodeTraversal, Node node, Node parent) {
-    // We will continuously recurse down the AST regardless of the node types.
+  public boolean shouldTraverse(NodeTraversal unused0, Node unused1, Node unused2) {
     return true;
   }
 
   @Override
   public void visit(NodeTraversal traversal, Node node, Node parent) {
-    checkNotNull(traversal);
-    checkNotNull(node);
-
-    // Searches for all the references to the arguments array.
-
-    // We don't have an arguments list set up for this scope. This implies we
-    // are currently in the global scope so we will not record any arguments
-    // array access.
-    if (currentArgumentsAccess == null) {
-      return;
+    if (traversal.inGlobalHoistScope()) {
+      return; // Do no rewriting in the global scope.
     }
 
-    // Otherwise, we are in a function scope and we should record if the current
-    // name is referring to the implicit arguments array.
     if (node.isName() && ARGUMENTS.equals(node.getString())) {
-      currentArgumentsAccess.add(node);
+      currentArgumentsAccesses.add(node); // Record all potential references to the arguments array.
     }
   }
 
   /**
-   * Tries to optimize all the arguments array access in this scope by assigning
-   * a name to each element.
+   * Tries to optimize all the arguments array access in this scope by assigning a name to each
+   * element.
    *
    * @param scope scope of the function
-   * @return true if any modification has been done to the AST
    */
-  private boolean tryReplaceArguments(Scope scope) {
-    Node parametersList = scope.getRootNode().getSecondChild();
-    checkState(parametersList.isParamList());
-
-    // Keep track of rather this function modified the AST and needs to be
-    // reported back to the compiler later.
-
-    // Number of parameter that can be accessed without using the arguments
-    // array.
+  private void tryReplaceArguments(Scope scope) {
+    // Find the number of parameters that can be accessed without using `arguments`.
+    Node parametersList = NodeUtil.getFunctionParameters(scope.getRootNode());
+    checkState(parametersList.isParamList(), parametersList);
     int numParameters = parametersList.getChildCount();
 
-    // We want to guess what the highest index that has been access from the
-    // arguments array. We will guess that it does not use anything index higher
-    // than the named parameter list first until we see other wise.
-    int highestIndex = numParameters - 1;
-    highestIndex = getHighestIndex(highestIndex);
+    // Determine the highest index that is used to make an access on `arguments`. By default, assume
+    // that the value is the number of parameters to the function.
+    int highestIndex = getHighestIndex(numParameters - 1);
     if (highestIndex < 0) {
-      return false;
+      return;
     }
 
-    // Number of extra arguments we need.
-    // For example: function() { arguments[3] } access index 3 so
-    // it will need 4 extra named arguments to changed into:
-    // function(a,b,c,d) { d }.
-    int numExtraArgs = highestIndex - numParameters + 1;
-
-    // Temporary holds the new names as string for quick access later.
-    String[] argNames = new String[numExtraArgs];
-
-    boolean changed = false;
-    boolean changedSignature = changeMethodSignature(numExtraArgs, parametersList, argNames);
-    boolean changedBody = changeBody(numParameters, argNames, parametersList);
-    changed = changedSignature;
-    if (changedBody) {
-      changed = changedBody;
-    }
-    return changed;
+    ImmutableSortedMap<Integer, String> argNames =
+        assembleParamNames(parametersList, highestIndex + 1);
+    changeMethodSignature(argNames, parametersList);
+    changeBody(argNames);
   }
 
   /**
@@ -230,7 +175,7 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
    * @param highestIndex highest index that has been accessed from the arguments array
    */
   private int getHighestIndex(int highestIndex) {
-    for (Node ref : currentArgumentsAccess) {
+    for (Node ref : currentArgumentsAccesses) {
 
       Node getElem = ref.getParent();
 
@@ -278,96 +223,89 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
   }
 
   /**
-   * Insert the formal parameter to the method's signature. Example: function() -->
-   * function(r0, r1, r2)
+   * Inserts new formal parameters into the method's signature based on the given set of names.
    *
-   * @param numExtraArgs num extra method parameters needed to replace all the arguments[i]
-   * @param parametersList node representing the function signature
-   * @param argNames holds the replacement names in a String array
+   * <p>Example: function() --> function(r0, r1, r2)
+   *
+   * @param argNames maps param index to param name, if the param with that index has a name.
+   * @param paramList node representing the function signature
    */
-  private boolean changeMethodSignature(int numExtraArgs, Node parametersList, String[] argNames) {
-
-    boolean changed = false;
-
-    for (int i = 0; i < numExtraArgs; i++) {
-      String name = getNewName();
-      argNames[i] = name;
-      parametersList.addChildToBack(
-          IR.name(name).useSourceInfoIfMissingFrom(parametersList));
-      changed = true;
+  private void changeMethodSignature(ImmutableSortedMap<Integer, String> argNames, Node paramList) {
+    ImmutableSortedMap<Integer, String> newParams = argNames.tailMap(paramList.getChildCount());
+    for (String name : newParams.values()) {
+      paramList.addChildToBack(IR.name(name).useSourceInfoIfMissingFrom(paramList));
     }
-    return changed;
+    if (!newParams.isEmpty()) {
+      compiler.reportChangeToEnclosingScope(paramList);
+    }
   }
 
   /**
    * Performs the replacement of arguments[x] -> a if x is known.
+   *
+   * @param argNames maps param index to param name, if the param with that index has a name.
    */
-  private boolean changeBody(int numNamedParameter, String[] argNames, Node parametersList) {
-    boolean changed = false;
-    boolean nextArguments = true;
+  private void changeBody(ImmutableMap<Integer, String> argNames) {
+    for (Node ref : currentArgumentsAccesses) {
+      Node index = ref.getNext();
+      Node parent = ref.getParent();
+      int value = (int) index.getDouble(); // This was validated earlier.
 
-    while (nextArguments) {
-
-      nextArguments = false;
-
-      for (Node ref : currentArgumentsAccess) {
-        if (NodeUtil.getEnclosingFunction(ref).isArrowFunction()) {
-          nextArguments = true;
-        }
-
-        Node index = ref.getNext();
-        Node grandParent = ref.getGrandparent();
-        Node parent = ref.getParent();
-
-        // Skip if it is unknown.
-        if (!index.isNumber()) {
-          continue;
-        }
-        int value = (int) index.getDouble();
-
-        // Unnamed parameter.
-        if (value >= numNamedParameter) {
-          grandParent.replaceChild(parent, IR.name(argNames[value - numNamedParameter]));
-          compiler.reportChangeToEnclosingScope(grandParent);
-        } else {
-
-          // Here, for no apparent reason, the user is accessing a named parameter
-          // with arguments[idx]. We can replace it with the actual name for them.
-          Node name = parametersList.getFirstChild();
-
-          // This is a linear search for the actual name from the signature.
-          // It is not necessary to make this fast because chances are the user
-          // will not deliberately write code like this.
-          for (int i = 0; i < value; i++) {
-            name = parametersList.getChildAtIndex(value);
-          }
-          grandParent.replaceChild(parent, IR.name(name.getString()));
-          compiler.reportChangeToEnclosingScope(grandParent);
-        }
-        changed = true;
+      @Nullable String name = argNames.get(value);
+      if (name == null) {
+        continue;
       }
 
-      if (nextArguments) {
-        // After the attempt to replace the arguments. The currentArgumentsAccess
-        // is stale and as we exit the Scope, no longer holds all the access to the
-        // current scope anymore. We'll pop the access list from the outer scope
-        // and set it as currentArgumentsAccess if the outer scope is not the global
-        // scope.
-        if (!argumentsAccessStack.isEmpty()) {
-          currentArgumentsAccess = argumentsAccessStack.pop();
-        } else {
-          currentArgumentsAccess = null;
-        }
-      }
+      Node newName = IR.name(name).useSourceInfoIfMissingFrom(parent);
+      parent.replaceWith(newName);
+      // TODO(nickreid): See if we can do this fewer times. The accesses may be in different scopes.
+      compiler.reportChangeToEnclosingScope(newName);
     }
-
-    return changed;
   }
 
   /**
-   * Generate a unique name for the next parameter.
+   * Generates a {@link Map} from argument indices to parameter names.
+   *
+   * <p>A {@link Map} is used because the sequence may be sparse in the case that there is an
+   * anonymous param, such as a destructuring param. There may also be fewer returned names than
+   * {@code maxCount} if there is a rest param, since no additional params may be synthesized.
+   *
+   * @param maxCount The maximum number of argument names in the returned map.
    */
-  private String getNewName() {
-    return paramPrefix + uniqueId++;
+  private ImmutableSortedMap<Integer, String> assembleParamNames(Node paramList, int maxCount) {
+    checkArgument(paramList.isParamList(), paramList);
+
+    ImmutableSortedMap.Builder<Integer, String> builder = ImmutableSortedMap.naturalOrder();
+    int index = 0;
+
+    // Collect all existing param names first...
+    for (Node param = paramList.getFirstChild(); param != null; param = param.getNext()) {
+      switch (param.getToken()) {
+        case NAME:
+          builder.put(index, param.getString());
+          break;
+
+        case REST:
+          return builder.build();
+
+        case DEFAULT_VALUE:
+          // `arguments` doesn't consider default values. It holds exactly the provided args.
+        case OBJECT_PATTERN:
+        case ARRAY_PATTERN:
+          // Patterns have no names to substitute into the body.
+          break;
+
+        default:
+          throw new IllegalArgumentException(param.toString());
+      }
+
+      index++;
+    }
+    // ... then synthesize any additional param names.
+    for (; index < maxCount; index++) {
+      builder.put(index, paramPrefix + uniqueId++);
+    }
+
+    return builder.build();
   }
 }

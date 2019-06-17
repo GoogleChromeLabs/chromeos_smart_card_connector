@@ -74,7 +74,7 @@ final class Promises {
 
     if (type.isUnionType()) {
       UnionTypeBuilder unionTypeBuilder = UnionTypeBuilder.create(registry);
-      for (JSType alternate : type.toMaybeUnionType().getAlternatesWithoutStructuralTyping()) {
+      for (JSType alternate : type.toMaybeUnionType().getAlternates()) {
         unionTypeBuilder.addAlternate(getResolvedType(registry, alternate));
       }
       return unionTypeBuilder.build();
@@ -99,6 +99,28 @@ final class Promises {
     }
 
     return type;
+  }
+
+  /**
+   * Wraps the given type in an IThenable.
+   *
+   * <p>If the given type is already IThenable it is first unwrapped. For example:
+   *
+   * <p>{@code number} becomes {@code IThenable<number>}
+   *
+   * <p>{@code IThenable<number>} becomes {@code IThenable<number>}
+   *
+   * <p>{@code Promise<number>} becomes {@code IThenable<number>}
+   *
+   * <p>{@code IThenable<number>|string} becomes {@code IThenable<number|string>}
+   *
+   * <p>{@code IThenable<number>|IThenable<string>} becomes {@code IThenable<number|string>}
+   */
+  static final JSType wrapInIThenable(JSTypeRegistry registry, JSType maybeThenable) {
+    // Unwrap for simplicity first in the event it is a thenable.
+    JSType unwrapped = getResolvedType(registry, maybeThenable);
+    return registry.createTemplatizedType(
+        registry.getNativeObjectType(JSTypeNative.I_THENABLE_TYPE), unwrapped);
   }
 
   /**

@@ -16,13 +16,11 @@
 
 package com.google.javascript.jscomp;
 
-import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.common.truth.Expect;
 import com.google.javascript.jscomp.GlobalNamespace.Name;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -32,7 +30,6 @@ import org.junit.runners.JUnit4;
 public class AggressiveInlineAliasesTest extends CompilerTestCase {
 
   private AggressiveInlineAliases lastAggressiveInlineAliases;
-  @Rule public final Expect expect = Expect.create();
 
   private static final String EXTERNS =
       "var window;"
@@ -43,11 +40,6 @@ public class AggressiveInlineAliasesTest extends CompilerTestCase {
 
   public AggressiveInlineAliasesTest() {
     super(EXTERNS);
-  }
-
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
   }
 
   @Override
@@ -434,8 +426,8 @@ public class AggressiveInlineAliasesTest extends CompilerTestCase {
 
   @Test
   public void testLocalAliasCreatedAfterVarDeclaration1() {
-test(
-    lines(
+    test(
+        lines(
             "var a = { b : 3 };",
             "function f() {",
             "  var tmp;",
@@ -444,8 +436,8 @@ test(
             "    use(tmp);",
             "  }",
             "}"),
-               lines(
-                   "var a = { b : 3 };",
+        lines(
+            "var a = { b : 3 };",
             "function f() {",
             "  var tmp;",
             "  if (true) {",
@@ -876,6 +868,25 @@ test(
             + "/** @enum { number } */ ns.Foo.Other = { X: 1, Y: 2 };"
             + "var x = function() { use(ns.Foo.Other.X) };"
             + "use(x)");
+  }
+
+  @Test
+  public void testGlobalAliasWithPropertiesAsNestedObjectLits() {
+    test(
+        lines(
+            "var ns = {};"
+                + "ns.Foo = function() {};"
+                + "ns.Bar = ns.Foo;"
+                + "/** @enum { number } */ ns.Bar.Other = { X: {Y: 1}};"
+                + "var x = function() { use(ns.Bar.Other.X.Y) };"
+                + "use(x)"),
+        lines(
+            "var ns = {};"
+                + "ns.Foo = function() {};"
+                + "ns.Bar = null;"
+                + "/** @enum { number } */ ns.Foo.Other = { X: {Y: 1}};"
+                + "var x = function() { use(ns.Foo.Other.X.Y) };"
+                + "use(x)"));
   }
 
   @Test
@@ -1365,6 +1376,19 @@ test(
   }
 
   @Test
+  public void testObjectRest_restingFromANamespace_isNotInlinable() {
+    // TODO(nickreid): These might actually be inlinable.
+    testSame("var a = {x: 5, y: 6}; var {...b} = a; use(b.y);");
+    testSame("var a = {x: 5, y: 6}; var {x, ...b} = a; use(b.y);");
+  }
+
+  @Test
+  public void testObjectSpread_spreadingInNamespaceDef_preventsInliningItsProps() {
+    testSame("var a = {x: 5, y: 6}; var b = {...a}; use(b.z);");
+    testSame("var a = {x: 5, y: 6, z: 7}; var b = {z: -7, ...a}; use(b.z);");
+  }
+
+  @Test
   public void testDefaultParamAlias() {
     test(
         "var a = {b: 5}; var b = a; function f(x=b) { alert(x.b); }",
@@ -1393,10 +1417,67 @@ test(
   public void testClassStaticInheritance_method() {
     test(
         "class A { static s() {} } class B extends A {} const C = B; C.s();",
-        "class A { static s() {} } class B extends A {} const C = null; B.s();");
+        "class A { static s() {} } class B extends A {} const C = null; A.s();");
 
-    testSame("class A { static s() {} } class B extends A {} B.s();");
-    testSame("class A {} A.s = function() {}; class B extends A {} B.s();");
+    test(
+        "class A { static s() {} } class B extends A {} B.s();",
+        "class A { static s() {} } class B extends A {} A.s();");
+    test(
+        "class A {} A.s = function() {}; class B extends A {} B.s();",
+        "class A {} A.s = function() {}; class B extends A {} A.s();");
+  }
+
+  @Test
+  public void testClassStaticInheritance_methodsFromMultipleClasses() {
+    // C is an alias of B
+    test(
+        lines(
+            "class A { static a() {} }",
+            "class B extends A { static b() {} }",
+            "const C = B;",
+            "C.a();",
+            "C.b()"),
+        lines(
+            "class A { static a() {} }",
+            "class B extends A { static b() {} }",
+            "const C = null;",
+            "A.a();",
+            "B.b()"));
+
+    // C is a subclass of A and B
+    test(
+        lines(
+            "class A { static a() {} }",
+            "class B extends A { static b() {} }",
+            "class C extends B {}",
+            "C.a();",
+            "C.b()"),
+        lines(
+            "class A { static a() {} }",
+            "class B extends A { static b() {} }",
+            "class C extends B {}",
+            "A.a();",
+            "B.b()"));
+  }
+
+  @Test
+  public void testClassStaticInheritance_methodWithNoCollapse() {
+    // back off on replacing `B.s` -> `A.s` if A.s is not collapsible for two reasons:
+    //  1. the main reason we do this replacing is to make collapsing safer
+    //  2. people may use @nocollapse to avoid breaking static `this` refs, and if that were the
+    //     case then inlining would also break those refs.
+    testSame("class A { /** @nocollapse */ static s() {} } class B extends A {} B.s();");
+  }
+
+  @Test
+  public void testChainedClassStaticInheritance_methodWithNoCollapse() {
+    // verify we also don't replace C.s with B.s, and inherit the 'non-collapsibility' from 'A.s'
+    testSame(
+        lines(
+            "class A {/** @nocollapse */ static s() {}}",
+            "class B extends A {}",
+            "class C extends B {}",
+            "C.s();"));
   }
 
   @Test
@@ -1893,6 +1974,220 @@ test(
             "use(Letters.B);"));
   }
 
+  @Test
+  public void testInlineDestructuredAliasProp() {
+    test(
+        "var a = {x: 2}; var b = {}; b.y = a.x; var {y} = b; use(y);",
+        "var a = {x: 2}; var b = {}; b.y = null; var {} = b; var y = null; use(a.x);");
+  }
+
+  @Test
+  public void testInlineDestructuredAliasPropWithKeyBefore() {
+    test(
+        "var a = {x: 2}; var b = {z: 3}; b.y = a.x; b.z = 4; var {z, y} = b; use(y + z);",
+        lines(
+            "var a = {x: 2};",
+            "var b = {z: 3};",
+            "b.y = null;",
+            "b.z = 4;",
+            "var {z} = b;",
+            "var y = null;",
+            "use(a.x + z);"));
+  }
+
+  @Test
+  public void testInlineDestructuredAliasPropWithKeyAfter() {
+    test(
+        "var a = {x: 2}; var b = {z: 3}; b.y = a.x; b.z = 4; var {y, z} = b; use(y + z);",
+        lines(
+            "var a = {x: 2};",
+            "var b = {z: 3};",
+            "b.y = null;",
+            "b.z = 4;",
+            "var y = null;",
+            "var {z} = b;",
+            "use(a.x + z);"));
+  }
+
+  @Test
+  public void testInlineDestructuredAliasPropWithKeyBeforeAndAfter() {
+    test(
+        lines(
+            "var a = {x: 2};",
+            "var b = {z: 3};",
+            "b.y = a.x;",
+            "b.z = 4;", // add second assign so that this won't get inlined
+            "var {x, y, z} = b;",
+            "use(y + z);"),
+        lines(
+            "var a = {x: 2};",
+            "var b = {z: 3};",
+            "b.y = null;",
+            "b.z = 4;",
+            "var {x} = b;",
+            "var y = null;",
+            "var {z} = b;",
+            "use(a.x + z);"));
+  }
+
+  @Test
+  public void testDestructuredPropAccessInAssignWithKeyBefore() {
+    test(
+        lines(
+            "var a = {x: 2};",
+            "var b = {};",
+            "b.y = a.x;",
+            "var obj = {};",
+            "({missing: obj.foo, y: obj.foo} = b);",
+            "use(obj.foo);"),
+        lines(
+            "var a = {x: 2};",
+            "var b = {};",
+            "b.y = null;",
+            "var obj = {};",
+            "({missing: obj.foo} = b, obj.foo = a.x);",
+            "use(obj.foo);"));
+  }
+
+  @Test
+  public void testDestructuredPropAccessInAssignWithKeyAfter() {
+    test(
+        lines(
+            "var a = {x: 2};",
+            "var b = {};",
+            "b.y = a.x;",
+            "var obj = {};",
+            "({y: obj.foo, missing: obj.foo} = b);",
+            "use(obj.foo);"),
+        lines(
+            "var a = {x: 2};",
+            "var b = {};",
+            "b.y = null;",
+            "var obj = {};",
+            "(obj.foo = a.x, {missing: obj.foo} = b);",
+            "use(obj.foo);"));
+  }
+
+  @Test
+  public void testDestructuredPropAccessInDeclarationWithDefault() {
+    test(
+        lines("var a = {x: {}};", "var b = {};", "b.y = a.x;", "var {y = 0} = b;", "use(y);"),
+        lines(
+            "var a = {x: {}};",
+            "var b = {};",
+            "b.y = null;",
+            "var {} = b;",
+            "var y = void 0 === a.x ? 0 : a.x;",
+            "use(y);"));
+  }
+
+  @Test
+  public void testDestructuringPropertyOnAliasedNamespace() {
+    // We can inline a part of a getprop chain on the rhs of a destructuring pattern:
+    //   replace 'alias -> a.b' in 'const {A} = alias.Enum;'
+    test(
+        lines(
+            "const a = {};",
+            "/** @const */ a.b = {};",
+            "/** @enum {string} */ a.b.Enum = {A: 'a'};",
+            "",
+            "const alias = a.b;",
+            "function f() { const {A} = alias.Enum; }"),
+        lines(
+            "const a = {}; ",
+            "/** @const */ a.b = {};",
+            "/** @enum {string} */ a.b.Enum = {A: 'a'};",
+            "",
+            "const alias = null;",
+            "function f() { const {A} = a.b.Enum; }"));
+  }
+
+  @Test
+  public void testReplaceSuperGetPropInStaticMethod() {
+    test(
+        "class Foo { static m() {} } class Bar extends Foo { static m() { super.m(); } }",
+        "class Foo { static m() {} } class Bar extends Foo { static m() { Foo.m(); } }");
+  }
+
+  @Test
+  public void testReplaceSuperInArrowInStaticMethod() {
+    test(
+        lines(
+            "class Foo { static m() {} }",
+            " class Bar extends Foo { static m() { return () => super.m(); } }"),
+        lines(
+            "class Foo { static m() {} }",
+            " class Bar extends Foo { static  m() { return () => Foo.m(); } }"));
+  }
+
+  @Test
+  public void testReplaceSuperInStaticMethodWithQualifiedNameSuperclass() {
+    test(
+        lines(
+            "const a = {b: {}};",
+            "/** @const */",
+            "a.b.Foo = class { static m() {} };",
+            "class Bar extends a.b.Foo { static m() { super.m(); } }"),
+        lines(
+            "const a = {b: {}};",
+            "/** @const */",
+            "a.b.Foo = class { static m() {} };",
+            "class Bar extends a.b.Foo { static m() { a.b.Foo.m(); } }"));
+  }
+
+  @Test
+  public void testDontReplaceSuperInObjectLiteralMethod() {
+    testSame("var obj = {m() { super.n(); } };");
+  }
+
+  @Test
+  public void testDontReplaceSuperInObjectLitFnInStaticClassMethod() {
+    testSame(
+        lines(
+            "class Foo { static m() {} }",
+            // `super.n` refers to a different object than `Foo.n`
+            "class Bar extends Foo { static m() { return {m() { super.n(); }}; } }"));
+  }
+
+  @Test
+  public void testReplaceChainedSuperRefInStaticMethod() {
+    test(
+        lines(
+            "class Foo { static m() {} }",
+            "class Bar extends Foo {}",
+            "class Baz extends Bar { static m() { super.m(); } }"),
+        lines(
+            "class Foo { static m() {} }",
+            "class Bar extends Foo {}",
+            "class Baz extends Bar { static m() { Foo.m(); } }"));
+  }
+
+  @Test
+  public void testDontReplaceSuperInStaticMethodWithNonQnameSuperclass() {
+    // note - if we wanted, we could extract `mysteryFn()` into a tmp variable then use that to
+    // replace `super`.
+    testSame("class Bar extends getClass() { static m() { super.m(); } }");
+  }
+
+  @Test
+  public void testDontReplaceSuperInStaticMethodWithNonQnameGetPropSuperclass() {
+    testSame("class Bar extends getClasses().Foo { static m() { super.m(); } }");
+  }
+
+  @Test
+  public void testReplaceSuperGetElemInStaticMethod() {
+    // while CollapseProperties won't collapse Foo['m'], replacing `super` enables collapsing Bar.m
+    // (since CollapseProperties cannot collapse methods using super) and helps code size.
+    test(
+        "class Foo { static 'm'() {} } class Bar extends Foo { static m() { super['m'](); } }",
+        "class Foo { static 'm'() {} } class Bar extends Foo { static m() { Foo['m'](); } }");
+  }
+
+  @Test
+  public void testDontReplaceSuperInClassPrototypeMethod() {
+    testSame("class Foo { m() {} } class Bar extends Foo { m() { super.m(); } }");
+  }
+
   /**
    * To ensure that as we modify the AST, the GlobalNamespace stays up-to-date, we do a consistency
    * check after every unit test.
@@ -1917,27 +2212,33 @@ test(
       }
       String fullName = expectedName.getFullName();
       Name actualName = passGlobalNamespace.getSlot(expectedName.getFullName());
-      assertThat(actualName).named(fullName).isNotNull();
+      assertWithMessage(fullName).that(actualName).isNotNull();
 
-      assertThat(actualName.getAliasingGets())
-          .named(fullName)
+      assertWithMessage(fullName)
+          .that(actualName.getAliasingGets())
           .isEqualTo(expectedName.getAliasingGets());
-      assertThat(actualName.getSubclassingGets())
-          .named(fullName)
+      assertWithMessage(fullName)
+          .that(actualName.getSubclassingGets())
           .isEqualTo(expectedName.getSubclassingGets());
-      assertThat(actualName.getLocalSets()).named(fullName).isEqualTo(expectedName.getLocalSets());
-      assertThat(actualName.getGlobalSets())
-          .named(fullName)
+      assertWithMessage(fullName)
+          .that(actualName.getLocalSets())
+          .isEqualTo(expectedName.getLocalSets());
+      assertWithMessage(fullName)
+          .that(actualName.getGlobalSets())
           .isEqualTo(expectedName.getGlobalSets());
-      assertThat(actualName.getDeleteProps())
-          .named(fullName)
+      assertWithMessage(fullName)
+          .that(actualName.getDeleteProps())
           .isEqualTo(expectedName.getDeleteProps());
-      assertThat(actualName.getCallGets()).named(fullName).isEqualTo(expectedName.getCallGets());
+      assertWithMessage(fullName)
+          .that(actualName.getCallGets())
+          .isEqualTo(expectedName.getCallGets());
     }
     // Verify that no names in the actual name forest are not present in the expected name forest
     for (Name actualName : passGlobalNamespace.getNameForest()) {
       String actualFullName = actualName.getFullName();
-      assertThat(expectedGlobalNamespace.getSlot(actualFullName)).named(actualFullName).isNotNull();
+      assertWithMessage(actualFullName)
+          .that(expectedGlobalNamespace.getSlot(actualFullName))
+          .isNotNull();
     }
   }
 }

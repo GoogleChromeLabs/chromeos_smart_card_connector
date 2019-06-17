@@ -18,6 +18,7 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.javascript.jscomp.CompilerTestCase.lines;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
@@ -30,6 +31,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -264,12 +266,32 @@ public final class ControlFlowAnalysisTest {
   }
 
   @Test
-  public void testSimpleStatements() throws IOException {
+  public void testSimpleStatementsInScript() {
     String src = "var a; a = a; a = a";
     ControlFlowGraph<Node> cfg = createCfg(src);
     assertDownEdge(cfg, Token.SCRIPT, Token.VAR, Branch.UNCOND);
     assertCrossEdge(cfg, Token.VAR, Token.EXPR_RESULT, Branch.UNCOND);
     assertCrossEdge(cfg, Token.EXPR_RESULT, Token.EXPR_RESULT, Branch.UNCOND);
+  }
+
+  @Test
+  public void testSimpleStatementsInGoogModule() {
+    String src = "goog.module('myMod'); var a; a = a; a = a";
+    ControlFlowGraph<Node> cfg = createCfg(src);
+    assertDownEdge(cfg, Token.SCRIPT, Token.MODULE_BODY, Branch.UNCOND);
+    // the EXPR_RESULT is the goog.module(...) call
+    assertDownEdge(cfg, Token.MODULE_BODY, Token.EXPR_RESULT, Branch.UNCOND);
+    assertCrossEdge(cfg, Token.EXPR_RESULT, Token.VAR, Branch.UNCOND); // goog.module() -> var a;
+  }
+
+  @Test
+  public void testSimpleStatementsInEsModule() {
+    String src = "var a; a = a; export default a;";
+    ControlFlowGraph<Node> cfg = createCfg(src);
+    assertDownEdge(cfg, Token.SCRIPT, Token.MODULE_BODY, Branch.UNCOND);
+    assertDownEdge(cfg, Token.MODULE_BODY, Token.VAR, Branch.UNCOND);
+    assertCrossEdge(cfg, Token.VAR, Token.EXPR_RESULT, Branch.UNCOND);
+    assertCrossEdge(cfg, Token.EXPR_RESULT, Token.EXPORT, Branch.UNCOND);
   }
 
   // Test a simple IF control flow.
@@ -1442,6 +1464,22 @@ public final class ControlFlowAnalysisTest {
   }
 
   @Test
+  public void testSimpleExportDeclarationsInEsModule() {
+    assertNodeOrder(
+        createCfg("export let a = 0; export default a; export {b} from './mod';"),
+        ImmutableList.of(
+            Token.SCRIPT, Token.MODULE_BODY, Token.EXPORT, Token.EXPORT, Token.EXPORT));
+  }
+
+  @Test
+  public void testSimpleImportDeclarationsInEsModule() {
+    assertNodeOrder(
+        createCfg("import x from './mod'; import {y} from './mod'; import * as z from './mod';"),
+        ImmutableList.of(
+            Token.SCRIPT, Token.MODULE_BODY, Token.IMPORT, Token.IMPORT, Token.IMPORT));
+  }
+
+  @Test
   public void testLocalFunctionOrder() throws IOException {
     ControlFlowGraph<Node> cfg =
         createCfg("function f() { while (x) { x++; } } var x = 3;");
@@ -1490,6 +1528,72 @@ public final class ControlFlowAnalysisTest {
             Token.BLOCK,
             Token.EXPR_RESULT,
             Token.RETURN));
+  }
+
+  @Test
+  public void testForAwaitOfOrderBreakAndContinue() throws IOException {
+    assertNodeOrder(
+        createCfg(
+            lines(
+                "async function f() {",
+                "  outer: for await (let x of y) {",
+                "    inner: for await (let z of x) {",
+                "      if (z) break inner;",
+                "      else continue outer;",
+                "    }",
+                "  }",
+                "  return 0;",
+                "}")),
+        ImmutableList.of(
+            Token.SCRIPT,
+            Token.FUNCTION,
+            Token.BLOCK,
+            Token.NAME,
+            Token.FOR_AWAIT_OF,
+            Token.BLOCK,
+            Token.NAME,
+            Token.FOR_AWAIT_OF,
+            Token.BLOCK,
+            Token.IF,
+            Token.BLOCK,
+            Token.BREAK,
+            Token.BLOCK,
+            Token.CONTINUE,
+            Token.RETURN));
+  }
+
+  @Test
+  public void testForAwaitOfOrderBreakAndContinueAndYield() throws IOException {
+    assertNodeOrder(
+        createCfg(
+            lines(
+                "async function* f() {",
+                "  outer: for await (let x of y) {",
+                "    inner: for await (let z of x) {",
+                "      if (z > 0) break inner;",
+                "      else if (z < 0) continue outer;",
+                "      yield z;",
+                "    }",
+                "  }",
+                "}")),
+        ImmutableList.of(
+            Token.SCRIPT,
+            Token.FUNCTION,
+            Token.BLOCK,
+            Token.NAME,
+            Token.FOR_AWAIT_OF,
+            Token.BLOCK,
+            Token.NAME,
+            Token.FOR_AWAIT_OF,
+            Token.BLOCK,
+            Token.IF,
+            Token.BLOCK,
+            Token.BREAK,
+            Token.BLOCK,
+            Token.IF,
+            Token.BLOCK,
+            Token.CONTINUE,
+            Token.EXPR_RESULT));
   }
 
   @Test
@@ -1630,13 +1734,11 @@ public final class ControlFlowAnalysisTest {
         .that(implicitReturn)
         .isNull();
 
-    assertWithMessage("Wrong number of CFG nodes")
-        .that(cfgNodes.size())
-        .isEqualTo(nodeTypes.size());
-    for (int i = 0; i < cfgNodes.size(); i++) {
-      Token expectedType = nodeTypes.get(i);
-      Token actualType = cfgNodes.get(i).getValue().getToken();
-      assertWithMessage("node type mismatch at " + i).that(actualType).isEqualTo(expectedType);
-    }
+    assertThat(
+            cfgNodes.stream()
+                .map(DiGraphNode::getValue)
+                .map(Node::getToken)
+                .collect(Collectors.toList()))
+        .isEqualTo(nodeTypes);
   }
 }

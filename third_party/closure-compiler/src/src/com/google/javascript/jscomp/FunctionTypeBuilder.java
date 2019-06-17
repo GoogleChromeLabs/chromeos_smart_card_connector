@@ -21,6 +21,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.javascript.jscomp.TypeCheck.BAD_IMPLEMENTED_TYPE;
+import static com.google.javascript.rhino.jstype.JSTypeNative.ASYNC_GENERATOR_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.FUNCTION_FUNCTION_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.GENERATOR_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.PROMISE_TYPE;
@@ -31,11 +32,11 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.google.javascript.rhino.ClosurePrimitive;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.jstype.FunctionBuilder;
 import com.google.javascript.rhino.jstype.FunctionParamBuilder;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
@@ -86,11 +87,13 @@ final class FunctionTypeBuilder {
   private boolean isClass = false;
   private boolean isConstructor = false;
   private boolean makesStructs = false;
+  private boolean makesUnrestricted = false;
   private boolean makesDicts = false;
   private boolean isInterface = false;
   private boolean isRecord = false;
   private boolean isAbstract = false;
   private Node parametersNode = null;
+  private ClosurePrimitive closurePrimitiveId = null;
   private ImmutableList<TemplateType> templateTypeNames = ImmutableList.of();
   private ImmutableList<TemplateType> constructorTemplateTypeNames = ImmutableList.of();
   private TypedScope declarationScope = null;
@@ -372,12 +375,15 @@ final class FunctionTypeBuilder {
   /** Infer whether the function is a normal function, a constructor, or an interface. */
   FunctionTypeBuilder inferKind(@Nullable JSDocInfo info) {
     if (info != null) {
-      isConstructor = info.isConstructor();
-      isInterface = info.isInterface();
-      isRecord = info.usesImplicitMatch();
+      if (!NodeUtil.isMethodDeclaration(errorRoot)) {
+        isConstructor = info.isConstructor();
+        isInterface = info.isInterface();
+        isRecord = info.usesImplicitMatch();
+        makesStructs = info.makesStructs();
+        makesUnrestricted = info.makesUnrestricted();
+        makesDicts = info.makesDicts();
+      }
       isAbstract = info.isAbstract();
-      makesStructs = info.makesStructs();
-      makesDicts = info.makesDicts();
     }
     if (isClass) {
       // If a CLASS literal has not been explicitly declared an interface, it's a constructor.
@@ -420,7 +426,7 @@ final class FunctionTypeBuilder {
       @Nullable JSDocInfo info, @Nullable ObjectType classExtendsType) {
 
     if (info != null && info.hasBaseType()) {
-      if (isConstructor) {
+      if (isConstructor || isInterface) {
         ObjectType infoBaseType =
             info.getBaseType().evaluate(templateScope, typeRegistry).toMaybeObjectType();
         // TODO(sdh): ensure JSDoc's baseType and AST's baseType are compatible if both are set
@@ -430,7 +436,7 @@ final class FunctionTypeBuilder {
       } else {
         reportWarning(EXTENDS_WITHOUT_TYPEDEF, formatFnName());
       }
-    } else if (classExtendsType != null && isConstructor) {
+    } else if (classExtendsType != null && (isConstructor || isInterface)) {
       // This case is:
       // // no JSDoc here
       // class extends astBaseType {...}
@@ -701,6 +707,13 @@ final class FunctionTypeBuilder {
     return this;
   }
 
+  FunctionTypeBuilder inferClosurePrimitive(@Nullable JSDocInfo info) {
+    if (info != null && info.hasClosurePrimitiveId()) {
+      this.closurePrimitiveId = ClosurePrimitive.fromStringId(info.getClosurePrimitiveId());
+    }
+    return this;
+  }
+
   private void setConstructorTemplateTypeNames(List<TemplateType> templates, @Nullable Node ctor) {
     if (!templates.isEmpty()) {
       this.constructorTemplateTypeNames = ImmutableList.copyOf(templates);
@@ -830,7 +843,15 @@ final class FunctionTypeBuilder {
 
   /** Sets the returnType for this function using very basic type inference. */
   private void provideDefaultReturnType() {
-    if (contents.getSourceNode() != null && contents.getSourceNode().isGeneratorFunction()) {
+    if (contents.getSourceNode() != null && contents.getSourceNode().isAsyncGeneratorFunction()) {
+      // Set the return type of a generator function to:
+      //   @return {!AsyncGenerator<?>}
+      ObjectType generatorType = typeRegistry.getNativeObjectType(ASYNC_GENERATOR_TYPE);
+      returnType =
+          typeRegistry.createTemplatizedType(
+              generatorType, typeRegistry.getNativeType(UNKNOWN_TYPE));
+      return;
+    } else if (contents.getSourceNode() != null && contents.getSourceNode().isGeneratorFunction()) {
       // Set the return type of a generator function to:
       //   @return {!Generator<?>}
       ObjectType generatorType = typeRegistry.getNativeObjectType(GENERATOR_TYPE);
@@ -889,7 +910,7 @@ final class FunctionTypeBuilder {
       fnType = getOrCreateInterface();
     } else {
       fnType =
-          new FunctionBuilder(typeRegistry)
+          FunctionType.builder(typeRegistry)
               .withName(fnName)
               .withSourceNode(contents.getSourceNode())
               .withParamsNode(parametersNode)
@@ -897,6 +918,7 @@ final class FunctionTypeBuilder {
               .withTypeOfThis(thisType)
               .withTemplateKeys(templateTypeNames)
               .withIsAbstract(isAbstract)
+              .withClosurePrimitiveId(closurePrimitiveId)
               .build();
       maybeSetBaseType(fnType);
     }
@@ -917,7 +939,7 @@ final class FunctionTypeBuilder {
   }
 
   private void maybeSetBaseType(FunctionType fnType) {
-    if (!fnType.isInterface() && baseType != null) {
+    if (fnType.hasInstanceType() && baseType != null) {
       fnType.setPrototypeBasedOn(baseType);
       fnType.extendTemplateTypeMapBasedOn(baseType);
     }
@@ -938,7 +960,7 @@ final class FunctionTypeBuilder {
    */
   private FunctionType getOrCreateConstructor() {
     FunctionType fnType =
-        new FunctionBuilder(typeRegistry)
+        FunctionType.builder(typeRegistry)
             .forConstructor()
             .withName(fnName)
             .withSourceNode(contents.getSourceNode())
@@ -953,6 +975,8 @@ final class FunctionTypeBuilder {
       fnType.setStruct();
     } else if (makesDicts) {
       fnType.setDict();
+    } else if (makesUnrestricted) {
+      fnType.setExplicitUnrestricted();
     }
 
     // There are two cases where this type already exists in the current scope:
@@ -1030,6 +1054,7 @@ final class FunctionTypeBuilder {
     }
     return fnType;
   }
+
   private void reportWarning(DiagnosticType warning, String ... args) {
     compiler.report(JSError.make(errorRoot, warning, args));
   }

@@ -19,6 +19,7 @@ package com.google.javascript.jscomp.deps;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.javascript.jscomp.deps.DependencyInfo.Require.es6Import;
 import static com.google.javascript.jscomp.deps.DependencyInfo.Require.googRequireSymbol;
+import static com.google.javascript.jscomp.testing.JSCompCorrespondences.DIAGNOSTIC_EQUALITY;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -324,8 +325,7 @@ public final class JsFileParserTest {
 
     DependencyInfo expected =
         SimpleDependencyInfo.builder("../bar/baz.js", "/foo/js/bar/baz.js")
-            .setProvides(ImmutableList.of("my.namespace", "module$js$bar$baz"))
-            .setLoadFlags(ImmutableMap.of("module", "es6"))
+            .setProvides(ImmutableList.of("my.namespace"))
             .build();
 
     DependencyInfo result =
@@ -336,30 +336,7 @@ public final class JsFileParserTest {
     assertThat(result).isEqualTo(expected);
     assertThat(errorManager.getErrorCount()).isEqualTo(0);
     assertThat(errorManager.getWarningCount()).isEqualTo(1);
-    assertThat(errorManager.getWarnings()[0].getType()).isEqualTo(ModuleLoader.MODULE_CONFLICT);
-  }
-
-  @Test
-  public void testEs6ModuleWithDeclareNamespace() {
-    ModuleLoader loader =
-        new ModuleLoader(
-            null,
-            ImmutableList.of("/foo"),
-            ImmutableList.of(),
-            BrowserModuleResolver.FACTORY);
-
-    String contents = "goog.module.declareNamespace('my.namespace');\nexport {};";
-
-    DependencyInfo expected =
-        SimpleDependencyInfo.builder("../bar/baz.js", "/foo/js/bar/baz.js")
-            .setProvides(ImmutableList.of("my.namespace", "module$js$bar$baz"))
-            .setLoadFlags(ImmutableMap.of("module", "es6"))
-            .build();
-
-    DependencyInfo result =
-        parser.setModuleLoader(loader).parseFile("/foo/js/bar/baz.js", "../bar/baz.js", contents);
-
-    assertDeps(expected, result);
+    assertThat(errorManager.getWarnings().get(0).getType()).isEqualTo(ModuleLoader.MODULE_CONFLICT);
   }
 
   @Test
@@ -508,6 +485,62 @@ public final class JsFileParserTest {
   }
 
   @Test
+  public void testIncludeGoog1_quotes() {
+    String contents = "var x = \"/**\\\\n * @provideGoog\\\\n */\\\\n\";";
+
+    DependencyInfo expected =
+        SimpleDependencyInfo.builder(CLOSURE_PATH, SRC_PATH)
+            .setProvides(ImmutableList.of())
+            .setGoogModule(false)
+            .build();
+    DependencyInfo result =
+        parser.setIncludeGoogBase(true).parseFile(SRC_PATH, CLOSURE_PATH, contents);
+    assertDeps(expected, result);
+  }
+
+  @Test
+  public void testIncludeGoog1_quotesSingleLine() {
+    String contents = "var x = \"/** @provideGoog */\";";
+
+    DependencyInfo expected =
+        SimpleDependencyInfo.builder(CLOSURE_PATH, SRC_PATH)
+            .setProvides(ImmutableList.of())
+            .setGoogModule(false)
+            .build();
+    DependencyInfo result =
+        parser.setIncludeGoogBase(true).parseFile(SRC_PATH, CLOSURE_PATH, contents);
+    assertDeps(expected, result);
+  }
+
+  @Test
+  public void testIncludeGoog1_quotesBeforeComment() {
+    String contents = "var x = \"foo\"; /** @provideGoog */";
+
+    DependencyInfo expected =
+        SimpleDependencyInfo.builder(CLOSURE_PATH, SRC_PATH)
+            .setProvides(ImmutableList.of("goog"))
+            .setGoogModule(false)
+            .build();
+    DependencyInfo result =
+        parser.setIncludeGoogBase(true).parseFile(SRC_PATH, CLOSURE_PATH, contents);
+    assertDeps(expected, result);
+  }
+
+  @Test
+  public void testIncludeGoog1_multipleQuotes() {
+    String contents = "var x = \"foo\"; var y = \"/** @provideGoog */\";";
+
+    DependencyInfo expected =
+        SimpleDependencyInfo.builder(CLOSURE_PATH, SRC_PATH)
+            .setProvides()
+            .setGoogModule(false)
+            .build();
+    DependencyInfo result =
+        parser.setIncludeGoogBase(true).parseFile(SRC_PATH, CLOSURE_PATH, contents);
+    assertDeps(expected, result);
+  }
+
+  @Test
   public void testIncludeGoog2() {
     String contents = "goog.require('bar');";
 
@@ -556,6 +589,89 @@ public final class JsFileParserTest {
   }
 
   @Test
+  public void testExternsAnnotation_basic_multiline() {
+    String contents = "/**\n" + " * @externs\n" + " */\n";
+
+    DependencyInfo expected =
+        SimpleDependencyInfo.builder(CLOSURE_PATH, SRC_PATH).setHasExternsAnnotation(true).build();
+    DependencyInfo result =
+        parser.setIncludeGoogBase(true).parseFile(SRC_PATH, CLOSURE_PATH, contents);
+    assertDeps(expected, result);
+  }
+
+  @Test
+  public void testExternsAnnotation_basic_oneLine() {
+    String contents = "/** @externs */\n";
+
+    DependencyInfo expected =
+        SimpleDependencyInfo.builder(CLOSURE_PATH, SRC_PATH).setHasExternsAnnotation(true).build();
+    DependencyInfo result =
+        parser.setIncludeGoogBase(true).parseFile(SRC_PATH, CLOSURE_PATH, contents);
+    assertDeps(expected, result);
+  }
+
+  @Test
+  public void testExternsAnnotation_blockComment() {
+    String contents = "/* @externs */\n";
+
+    DependencyInfo expected =
+        SimpleDependencyInfo.builder(CLOSURE_PATH, SRC_PATH).setHasExternsAnnotation(false).build();
+    DependencyInfo result =
+        parser.setIncludeGoogBase(true).parseFile(SRC_PATH, CLOSURE_PATH, contents);
+    assertDeps(expected, result);
+  }
+
+  @Test
+  public void testExternsAnnotation_blockComment_multiline() {
+    String contents = "/*\n @externs */\n";
+
+    DependencyInfo expected =
+        SimpleDependencyInfo.builder(CLOSURE_PATH, SRC_PATH).setHasExternsAnnotation(false).build();
+    DependencyInfo result =
+        parser.setIncludeGoogBase(true).parseFile(SRC_PATH, CLOSURE_PATH, contents);
+    assertDeps(expected, result);
+  }
+
+  @Test
+  public void testNoCompileAnnotation_basic_multiline() {
+    String contents = "/**\n" + " * @nocompile\n" + " */\n";
+
+    DependencyInfo expected =
+        SimpleDependencyInfo.builder(CLOSURE_PATH, SRC_PATH)
+            .setHasNoCompileAnnotation(true)
+            .build();
+    DependencyInfo result =
+        parser.setIncludeGoogBase(true).parseFile(SRC_PATH, CLOSURE_PATH, contents);
+    assertDeps(expected, result);
+  }
+
+  @Test
+  public void testNoCompileAnnotation_basic_oneLine() {
+    String contents = "/** @nocompile */\n";
+
+    DependencyInfo expected =
+        SimpleDependencyInfo.builder(CLOSURE_PATH, SRC_PATH)
+            .setHasNoCompileAnnotation(true)
+            .build();
+    DependencyInfo result =
+        parser.setIncludeGoogBase(true).parseFile(SRC_PATH, CLOSURE_PATH, contents);
+    assertDeps(expected, result);
+  }
+
+  @Test
+  public void testNoCompileAnnotation_blockComment() {
+    String contents = "/* @nocompile */\n";
+
+    DependencyInfo expected =
+        SimpleDependencyInfo.builder(CLOSURE_PATH, SRC_PATH)
+            .setHasNoCompileAnnotation(false)
+            .build();
+    DependencyInfo result =
+        parser.setIncludeGoogBase(true).parseFile(SRC_PATH, CLOSURE_PATH, contents);
+    assertDeps(expected, result);
+  }
+
+  @Test
   public void testParseProvidesAndWrappedGoogModule() {
     String contents =
         ""
@@ -588,15 +704,16 @@ public final class JsFileParserTest {
 
     parser.parseFile(SRC_PATH, CLOSURE_PATH, contents);
 
-    assertThat(errorManager.getErrorCount()).isEqualTo(0);
-    assertThat(errorManager.getWarningCount()).isEqualTo(1);
-    assertThat(errorManager.getWarnings()[0].getType()).isEqualTo(ModuleLoader.MODULE_CONFLICT);
+    assertThat(errorManager.getErrors()).isEmpty();
+    assertThat(errorManager.getWarnings())
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
+        .containsExactly(ModuleLoader.MODULE_CONFLICT);
   }
 
   /** Asserts the deps match without errors */
   private void assertDeps(DependencyInfo expected, DependencyInfo actual) {
     assertThat(actual).isEqualTo(expected);
-    assertThat(errorManager.getErrorCount()).isEqualTo(0);
-    assertThat(errorManager.getWarningCount()).isEqualTo(0);
+    assertThat(errorManager.getErrors()).isEmpty();
+    assertThat(errorManager.getWarnings()).isEmpty();
   }
 }

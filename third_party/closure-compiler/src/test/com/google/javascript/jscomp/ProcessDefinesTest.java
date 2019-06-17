@@ -38,14 +38,14 @@ public final class ProcessDefinesTest extends CompilerTestCase {
 
   private final Map<String, Node> overrides = new HashMap<>();
   private GlobalNamespace namespace;
-  private boolean doReplacements;
+  private boolean checksOnly;
 
   @Override
   @Before
   public void setUp() throws Exception {
     super.setUp();
     overrides.clear();
-    doReplacements = true;
+    checksOnly = false;
 
     // ProcessDefines emits warnings if the user tries to re-define a constant,
     // but the constant is not defined anywhere in the binary.
@@ -94,13 +94,13 @@ public final class ProcessDefinesTest extends CompilerTestCase {
 
   @Test
   public void testChecksOnlyProducesErrors() {
-    doReplacements = false;
+    checksOnly = true;
     testError("/** @define {Object} */ var DEF = {}", ProcessDefines.INVALID_DEFINE_TYPE_ERROR);
   }
 
   @Test
   public void testChecksOnlyProducesUnknownDefineWarning() {
-    doReplacements = false;
+    checksOnly = true;
     overrides.put("a.B", new Node(Token.TRUE));
     test("var a = {};", "var a = {};", warning(ProcessDefines.UNKNOWN_DEFINE_WARNING));
   }
@@ -114,6 +114,37 @@ public final class ProcessDefinesTest extends CompilerTestCase {
   @Test
   public void testDefineWithBadValue2() {
     testError("/** @define {string} */ var DEF = 'x' + y;",
+        ProcessDefines.INVALID_DEFINE_INIT_ERROR);
+  }
+
+  @Test
+  public void testDefineWithBadValue3() {
+    // alias is not const
+    testError(
+        "let x = 'x'; /** @define {string} */ var DEF = x;",
+        ProcessDefines.INVALID_DEFINE_INIT_ERROR);
+  }
+
+  @Test
+  public void testDefineWithBadValue4() {
+    testError("/** @define {string} */ var DEF = null;", ProcessDefines.INVALID_DEFINE_INIT_ERROR);
+  }
+
+  @Test
+  public void testDefineWithBadValue5() {
+    testError(
+        "/** @define {string} */ var DEF = undefined;", ProcessDefines.INVALID_DEFINE_INIT_ERROR);
+  }
+
+  @Test
+  public void testDefineWithBadValue6() {
+    testError("/** @define {string} */ var DEF = NaN;", ProcessDefines.INVALID_DEFINE_INIT_ERROR);
+  }
+
+  @Test
+  public void testDefineWithLet() {
+    testError(
+        "/** @define {boolean} */ let DEF = new Boolean(true);",
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
@@ -165,8 +196,9 @@ public final class ProcessDefinesTest extends CompilerTestCase {
   @Test
   public void testDefineWithInvalidDependentValue() {
     testError(
-        "var BASE = false;\n"
-            + "/** @define {boolean} */ var DEF = !BASE;",
+        lines(
+            "var BASE = false;", //
+            "/** @define {boolean} */ var DEF = !BASE;"),
         ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
@@ -283,6 +315,76 @@ public final class ProcessDefinesTest extends CompilerTestCase {
             "/** @define {boolean} */ var DEF = true;",
             "var x;",
             "x = true"));
+  }
+
+  @Test
+  public void testDefineAssignedToSimpleAlias() {
+    testSame(
+        lines(
+            "const x = true;", //
+            "const ALIAS = x;",
+            "/** @define {boolean} */ const DEF2 = ALIAS;"));
+  }
+
+  @Test
+  public void testDefineAssignedToEnumAlias() {
+    testError(
+        lines(
+            "/** @enum {string} */ const E = {A: 'a'};", //
+            "/** @define {string} */ const DEF2 = E.A;"),
+        // TODO(sdh): It would be nice if this worked, but doesn't seem worth implementing.
+        ProcessDefines.INVALID_DEFINE_INIT_ERROR);
+  }
+
+  @Test
+  public void testDefineAssignedToDefineAlias() {
+    overrides.put("DEF2", new Node(Token.TRUE));
+    test(
+        lines(
+            "/** @define {boolean} */ const DEF1 = false;",
+            "const ALIAS = DEF1;",
+            "/** @define {boolean} */ const DEF2 = ALIAS;"),
+        lines(
+            "/** @define {boolean} */ const DEF1 = false;",
+            "const ALIAS = DEF1;",
+            "/** @define {boolean} */ const DEF2 = true;"));
+  }
+
+  @Test
+  public void testDefineAssignedToQualifiedNameAlias() {
+    overrides.put("DEF1", new Node(Token.TRUE));
+    test(
+        lines(
+            "const ns = {};",
+            "/** @define {boolean} */ const DEF1 = false;",
+            "/** @const */ ns.ALIAS = DEF1;",
+            "/** @define {boolean} */ const DEF2 = ns.ALIAS;"),
+        lines(
+            "const ns = {};",
+            "/** @define {boolean} */ const DEF1 = true;",
+            "/** @const */ ns.ALIAS = DEF1;",
+            "/** @define {boolean} */ const DEF2 = ns.ALIAS;"));
+  }
+
+  @Test
+  public void testDefineAssignedToNonconstDefineAlias() {
+    testError(
+        lines(
+            "/** @define {boolean} */ const DEF1 = false;",
+            "var ALIAS = DEF1;",
+            "/** @define {boolean} */ const DEF2 = ALIAS;"),
+        ProcessDefines.INVALID_DEFINE_INIT_ERROR);
+  }
+
+  @Test
+  public void testDefineAssignedToNonconstQualifiedNameAlias() {
+    testError(
+        lines(
+            "const ns = {};",
+            "/** @define {boolean} */ const DEF1 = false;",
+            "ns.ALIAS = DEF1;",
+            "/** @define {boolean} */ const DEF2 = ns.ALIAS;"),
+        ProcessDefines.INVALID_DEFINE_INIT_ERROR);
   }
 
   @Test
@@ -419,6 +521,21 @@ public final class ProcessDefinesTest extends CompilerTestCase {
   }
 
   @Test
+  public void testGoogDefine_notOverridden() {
+    test(
+        "/** @define {boolean} */ const B = goog.define('a.B', false);",
+        "/** @define {boolean} */ const B = false;");
+  }
+
+  @Test
+  public void testGoogDefine_overridden() {
+    overrides.put("a.B", new Node(Token.TRUE));
+    test(
+        "/** @define {boolean} */ const B = goog.define('a.B', false);",
+        "/** @define {boolean} */ const B = true;");
+  }
+
+  @Test
   public void testOverrideAfterAlias() {
     testError("var x; /** @define {boolean} */var DEF=true; x=DEF; DEF=false;",
         ProcessDefines.DEFINE_NOT_ASSIGNABLE_ERROR);
@@ -448,7 +565,7 @@ public final class ProcessDefinesTest extends CompilerTestCase {
 
   @Test
   public void testConstProducesUnknownDefineWarning() {
-    doReplacements = false;
+    checksOnly = true;
     overrides.put("a.B", new Node(Token.TRUE));
     test("const a = {};", "const a = {};", warning(ProcessDefines.UNKNOWN_DEFINE_WARNING));
   }
@@ -479,9 +596,13 @@ public final class ProcessDefinesTest extends CompilerTestCase {
 
     @Override
     public void process(Node externs, Node js) {
+      new ProcessClosurePrimitives(compiler, null).process(externs, js);
       namespace = new GlobalNamespace(compiler, externs, js);
-      new ProcessDefines(compiler, overrides, doReplacements)
-          .injectNamespace(namespace)
+      new ProcessDefines.Builder(compiler)
+          .putReplacements(overrides)
+          .checksOnly(checksOnly)
+          .injectNamespace(() -> namespace)
+          .build()
           .process(externs, js);
     }
   }

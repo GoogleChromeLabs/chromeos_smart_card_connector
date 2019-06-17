@@ -185,6 +185,11 @@ public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
   }
 
   @Test
+  public void testNegativeArgumentIndex() {
+    testSame("function badFunction() { arguments[-1]; }");
+  }
+
+  @Test
   public void testArrowFunctions() {
 
     // simple
@@ -224,6 +229,39 @@ public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
   }
 
   @Test
+  public void testArrowFunctionInInnerFunctionUsingArguments() {
+    // See https://github.com/google/closure-compiler/issues/3195
+    test(
+        lines(
+            "function f() {",
+            "  function g() {",
+            "    arguments[0].map((v) => v.error);",
+            "  };",
+            "}"),
+        lines(
+            "function f() {", //
+            "  function g(p0) {",
+            "    p0.map((v) => v.error);",
+            "  };",
+            "}"));
+  }
+
+  @Test
+  public void testArgumentsReferenceInFunctionAndArrow() {
+    test(
+        lines(
+            "function f() {", //
+            "  arguments[0];",
+            "  return () => arguments[0];",
+            "}"),
+        lines(
+            "function f(p0) {", //
+            "  p0;",
+            "  return () => p0;",
+            "}"));
+  }
+
+  @Test
   public void testArrowFunctionDeclaration() {
 
     test(
@@ -251,7 +289,13 @@ public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
 
   @Test
   public void testNoOptimizationWhenArgumentIsUsedAsFunctionCall() {
-    testSame("function f() {arguments[0]()}");
+    testSame("function f() {arguments[0]()}"); // replacing the call would change `this`
+  }
+
+  @Test
+  public void testNoOptimizationWhenArgumentsReassigned() {
+    // replacing the post-assignment `arguments[0]` with a named parameter would be incorrect
+    testSame("function f() { arguments[0]; arguments = [3, 4, 5]; arguments[0]; }");
   }
 
   @Test
@@ -260,7 +304,52 @@ public final class OptimizeArgumentsArrayTest extends CompilerTestCase {
   }
 
   @Test
-  public void testNegativeIndexNoCrash() {
-    testSame("function badFunction() { arguments[-1]; }");
+  public void testUseArguments_withDefaultValue() {
+    // `arguments` doesn't consider default values. It holds exaclty the provided args.
+    testSame("function f(x = 0) { arguments[0]; }");
+
+    test(
+        "function f(x = 0) { arguments[1]; }", //
+        "function f(x = 0, p0) { p0; }");
+  }
+
+  @Test
+  public void testUseArguments_withRestParam() {
+    test(
+        "function f(x, ...rest) { arguments[0]; }", //
+        "function f(x, ...rest) { x; }");
+
+    // We could possibly do better here by referencing through `rest` instead, but the additional
+    // complexity of tracking and validating the rest parameter isn't worth it.
+    testSame("function f(x, ...rest) { arguments[1]; }");
+    testSame("function f(x, ...rest) { arguments[2]; }"); // Don't synthesize params after a rest.
+  }
+
+  @Test
+  public void testUseArguments_withArrayDestructuringParam() {
+    testSame("function f([x, y]) { arguments[0]; }");
+
+    test(
+        "function f([x, y]) { arguments[1]; }", //
+        "function f([x, y], p0) { p0; }");
+  }
+
+  @Test
+  public void testUseArguments_withObjectDestructuringParam() {
+    test(
+        "function f({x: y}) { arguments[1]; }", //
+        "function f({x: y}, p0) { p0; }");
+
+    testSame("function f({x: y}) { arguments[0]; }");
+  }
+
+  @Test
+  public void testGlobalArgumentsReferences() {
+    testSame("arguments;");
+    testSame(
+        lines(
+            "if (typeof arguments != \"undefined\") {", //
+            "  console.log(arguments);",
+            "}"));
   }
 }

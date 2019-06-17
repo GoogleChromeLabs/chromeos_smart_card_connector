@@ -91,7 +91,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     // first collect the arguments, if they are all numbers then we proceed
     List<Double> args = ImmutableList.of();
     for (Node arg = callTarget.getNext(); arg != null; arg = arg.getNext()) {
-      Double d = NodeUtil.getNumberValue(arg);
+      Double d = getSideEffectFreeNumberValue(arg);
       if (d != null) {
         if (args.isEmpty()) {
           // lazily allocate, most calls will not be optimizable
@@ -184,7 +184,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     if (replacement != null) {
       Node numberNode = NodeUtil.numberNode(replacement, subtree);
       subtree.replaceWith(numberNode);
-      compiler.reportChangeToEnclosingScope(numberNode);
+      reportChangeToEnclosingScope(numberNode);
       return numberNode;
     }
     return subtree;
@@ -248,10 +248,10 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
             || (stringNode.getJSType() != null
                 && stringNode.getJSType().isStringValueType()))) {
       if (subtree.hasXChildren(3)) {
-        Double maybeStart = NodeUtil.getNumberValue(firstArg);
+        Double maybeStart = getSideEffectFreeNumberValue(firstArg);
         if (maybeStart != null) {
           int start = maybeStart.intValue();
-          Double maybeLengthOrEnd = NodeUtil.getNumberValue(firstArg.getNext());
+          Double maybeLengthOrEnd = getSideEffectFreeNumberValue(firstArg.getNext());
           if (maybeLengthOrEnd != null) {
             switch (functionNameString) {
               case "substr":
@@ -305,7 +305,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     String lowered = stringNode.getString().toLowerCase(Locale.ROOT);
     Node replacement = IR.string(lowered);
     subtree.replaceWith(replacement);
-    compiler.reportChangeToEnclosingScope(replacement);
+    reportChangeToEnclosingScope(replacement);
     return replacement;
   }
 
@@ -317,7 +317,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     String upped = stringNode.getString().toUpperCase(Locale.ROOT);
     Node replacement = IR.string(upped);
     subtree.replaceWith(replacement);
-    compiler.reportChangeToEnclosingScope(replacement);
+    reportChangeToEnclosingScope(replacement);
     return replacement;
   }
 
@@ -331,7 +331,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
         stringNode.getString().replaceAll("^" + whitespace + "|" + whitespace + "$", "");
     Node replacement = IR.string(trimmed);
     subtree.replaceWith(replacement);
-    compiler.reportChangeToEnclosingScope(replacement);
+    reportChangeToEnclosingScope(replacement);
     return replacement;
   }
 
@@ -408,7 +408,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     String stringVal = null;
     Double checkVal;
     if (firstArg.isNumber()) {
-      checkVal = NodeUtil.getNumberValue(firstArg);
+      checkVal = getSideEffectFreeNumberValue(firstArg);
       if (!(radix == 0 || radix == 10) && isParseInt) {
         //Convert a numeric first argument to a different base
         stringVal = String.valueOf(checkVal.intValue());
@@ -424,11 +424,11 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
           numericNode = IR.number(checkVal);
         }
         n.replaceWith(numericNode);
-        compiler.reportChangeToEnclosingScope(numericNode);
+        reportChangeToEnclosingScope(numericNode);
         return numericNode;
       }
     } else {
-      stringVal = NodeUtil.getStringValue(firstArg);
+      stringVal = getSideEffectFreeStringValue(firstArg);
       if (stringVal == null) {
         return n;
       }
@@ -495,7 +495,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     }
 
     n.replaceWith(newNode);
-    compiler.reportChangeToEnclosingScope(newNode);
+    reportChangeToEnclosingScope(newNode);
 
     return newNode;
   }
@@ -510,10 +510,10 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     checkArgument(n.isCall());
     checkArgument(lstringNode.isString());
 
-    String lstring = NodeUtil.getStringValue(lstringNode);
+    String lstring = lstringNode.getString();
     boolean isIndexOf = functionName.equals("indexOf");
     Node secondArg = firstArg.getNext();
-    String searchValue = NodeUtil.getStringValue(firstArg);
+    String searchValue = getSideEffectFreeStringValue(firstArg);
     // searchValue must be a valid string.
     if (searchValue == null) {
       return n;
@@ -531,7 +531,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
                              : lstring.lastIndexOf(searchValue, fromIndex);
     Node newNode = IR.number(indexVal);
     n.replaceWith(newNode);
-    compiler.reportChangeToEnclosingScope(newNode);
+    reportChangeToEnclosingScope(newNode);
 
     return newNode;
   }
@@ -564,9 +564,11 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     if (right != null && right.isString() && ",".equals(right.getString())) {
       // "," is the default, it doesn't need to be explicit
       n.removeChild(right);
-      compiler.reportChangeToEnclosingScope(n);
+      reportChangeToEnclosingScope(n);
     }
 
+    // logic above ensures that `right` is immutable, so no need to check for
+    // side effects with getSideEffectFreeStringValue(right)
     String joinString = (right == null) ? "," : NodeUtil.getStringValue(right);
     List<Node> arrayFoldedChildren = new ArrayList<>();
     StringBuilder sb = null;
@@ -613,7 +615,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
       case 0:
         Node emptyStringNode = IR.string("");
         n.getParent().replaceChild(n, emptyStringNode);
-        compiler.reportChangeToEnclosingScope(emptyStringNode);
+        reportChangeToEnclosingScope(emptyStringNode);
         return emptyStringNode;
       case 1:
         Node foldedStringNode = arrayFoldedChildren.remove(0);
@@ -625,7 +627,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
         if (foldedStringNode.isString()) {
           arrayNode.detachChildren();
           n.replaceWith(foldedStringNode);
-          compiler.reportChangeToEnclosingScope(foldedStringNode);
+          reportChangeToEnclosingScope(foldedStringNode);
           return foldedStringNode;
         } else {
           // Because of special case behavior for `null` and `undefined` values, there's no safe way
@@ -648,7 +650,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
         for (Node node : arrayFoldedChildren) {
           arrayNode.addChildToBack(node);
         }
-        compiler.reportChangeToEnclosingScope(arrayNode);
+        reportChangeToEnclosingScope(arrayNode);
         break;
     }
 
@@ -667,7 +669,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     int length;
     String stringAsString = stringNode.getString();
 
-    Double maybeStart = NodeUtil.getNumberValue(arg1);
+    Double maybeStart = getSideEffectFreeNumberValue(arg1);
     if (maybeStart != null) {
       start = maybeStart.intValue();
     } else {
@@ -676,7 +678,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
 
     Node arg2 = arg1.getNext();
     if (arg2 != null) {
-      Double maybeLength = NodeUtil.getNumberValue(arg2);
+      Double maybeLength = getSideEffectFreeNumberValue(arg2);
       if (maybeLength != null) {
         length = maybeLength.intValue();
       } else {
@@ -707,7 +709,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
 
     Node parent = n.getParent();
     parent.replaceChild(n, resultNode);
-    compiler.reportChangeToEnclosingScope(parent);
+    reportChangeToEnclosingScope(parent);
     return resultNode;
   }
 
@@ -723,7 +725,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     int end;
     String stringAsString = stringNode.getString();
 
-    Double maybeStart = NodeUtil.getNumberValue(arg1);
+    Double maybeStart = getSideEffectFreeNumberValue(arg1);
     if (maybeStart != null) {
       start = maybeStart.intValue();
     } else {
@@ -732,7 +734,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
 
     Node arg2 = arg1.getNext();
     if (arg2 != null) {
-      Double maybeEnd = NodeUtil.getNumberValue(arg2);
+      Double maybeEnd = getSideEffectFreeNumberValue(arg2);
       if (maybeEnd != null) {
         end = maybeEnd.intValue();
       } else {
@@ -763,7 +765,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
 
     Node parent = n.getParent();
     parent.replaceChild(n, resultNode);
-    compiler.reportChangeToEnclosingScope(parent);
+    reportChangeToEnclosingScope(parent);
     return resultNode;
   }
 
@@ -771,7 +773,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     // TODO(moz): Maybe correct the arity of the function type here.
     callTarget.getLastChild().setString("charAt");
     firstArg.getNext().detach();
-    compiler.reportChangeToEnclosingScope(firstArg);
+    reportChangeToEnclosingScope(firstArg);
     return n;
   }
 
@@ -802,7 +804,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
         stringAsString.substring(index, index + 1));
     Node parent = n.getParent();
     parent.replaceChild(n, resultNode);
-    compiler.reportChangeToEnclosingScope(parent);
+    reportChangeToEnclosingScope(parent);
     return resultNode;
   }
 
@@ -832,7 +834,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
     Node resultNode = IR.number(stringAsString.charAt(index));
     Node parent = n.getParent();
     parent.replaceChild(n, resultNode);
-    compiler.reportChangeToEnclosingScope(parent);
+    reportChangeToEnclosingScope(parent);
     return resultNode;
   }
 
@@ -951,7 +953,7 @@ class PeepholeReplaceKnownMethods extends AbstractPeepholeOptimization {
 
     Node parent = n.getParent();
     parent.replaceChild(n, arrayOfStrings);
-    compiler.reportChangeToEnclosingScope(parent);
+    reportChangeToEnclosingScope(parent);
     return arrayOfStrings;
   }
 }

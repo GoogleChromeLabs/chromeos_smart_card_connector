@@ -18,8 +18,10 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.javascript.jscomp.PhaseOptimizer.FEATURES_NOT_SUPPORTED_BY_PASS;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.truth.Correspondence;
 import com.google.javascript.jscomp.CompilerOptions.TracerMode;
 import com.google.javascript.jscomp.PhaseOptimizer.Loop;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
@@ -221,14 +223,24 @@ public final class PhaseOptimizerTest {
   public void testSetSkipUnsupportedPasses() {
     compiler.getOptions().setSkipUnsupportedPasses(true);
     addUnsupportedPass("testPassFactory");
+
     assertPasses();
+
+    assertThat(compiler.getWarnings())
+        .comparingElementsUsing(DIAGNOSTIC_CORRESPONDENCE)
+        .containsExactly(FEATURES_NOT_SUPPORTED_BY_PASS);
   }
 
   @Test
   public void testSetDontSkipUnsupportedPasses() {
     compiler.getOptions().setSkipUnsupportedPasses(false);
     addUnsupportedPass("testPassFactory");
+
     assertPasses("testPassFactory");
+
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DIAGNOSTIC_CORRESPONDENCE)
+        .containsExactly(FEATURES_NOT_SUPPORTED_BY_PASS);
   }
 
   public void assertPasses(String ... names) {
@@ -291,4 +303,8 @@ public final class PhaseOptimizerTest {
       }
     };
   }
+
+  private static final Correspondence<JSError, DiagnosticType> DIAGNOSTIC_CORRESPONDENCE =
+      Correspondence.from(
+          (actual, expected) -> actual.getType().equals(expected), "has diagnostic");
 }

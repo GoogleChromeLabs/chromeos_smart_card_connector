@@ -22,9 +22,7 @@ import static com.google.javascript.jscomp.CompilerTestCase.lines;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
-import com.google.javascript.jscomp.NodeTraversal.AbstractNodeTypePruningCallback;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallbackInterface;
 import com.google.javascript.jscomp.NodeTraversal.ChangeScopeRootCallback;
@@ -43,45 +41,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link NodeTraversal}. */
 @RunWith(JUnit4.class)
 public final class NodeTraversalTest {
-  @Test
-  public void testPruningCallbackShouldTraverse1() {
-    PruningCallback include =
-      new PruningCallback(ImmutableSet.of(Token.SCRIPT, Token.VAR), true);
-
-    Node script = new Node(Token.SCRIPT);
-    assertThat(include.shouldTraverse(null, script, null)).isTrue();
-    assertThat(include.shouldTraverse(null, new Node(Token.VAR), null)).isTrue();
-    assertThat(include.shouldTraverse(null, new Node(Token.NAME), null)).isFalse();
-    assertThat(include.shouldTraverse(null, new Node(Token.ADD), null)).isFalse();
-  }
-
-  @Test
-  public void testPruningCallbackShouldTraverse2() {
-    PruningCallback include =
-      new PruningCallback(ImmutableSet.of(Token.SCRIPT, Token.VAR), false);
-
-    Node script = new Node(Token.SCRIPT);
-    assertThat(include.shouldTraverse(null, script, null)).isFalse();
-    assertThat(include.shouldTraverse(null, new Node(Token.VAR), null)).isFalse();
-    assertThat(include.shouldTraverse(null, new Node(Token.NAME), null)).isTrue();
-    assertThat(include.shouldTraverse(null, new Node(Token.ADD), null)).isTrue();
-  }
-
-  /**
-   * Concrete implementation of AbstractPrunedCallback to test the
-   * AbstractNodeTypePruningCallback shouldTraverse method.
-   */
-  static class PruningCallback extends AbstractNodeTypePruningCallback {
-    public PruningCallback(Set<Token> nodeTypes, boolean include) {
-      super(nodeTypes, include);
-    }
-
-    @Override
-    public void visit(NodeTraversal t, Node n, Node parent) {
-      throw new UnsupportedOperationException();
-    }
-  }
-
   @Test
   public void testReport() {
     final List<JSError> errors = new ArrayList<>();
@@ -164,6 +123,66 @@ public final class NodeTraversalTest {
 
           @Override
           public void visit(NodeTraversal t, Node n, Node parent) {}
+        });
+  }
+
+  @Test
+  public void testGetScopeRoot_inEsModule() {
+    Compiler compiler = new Compiler();
+    String code =
+        lines(
+            "const x = 0;", //
+            "export {x};");
+    Node tree = parse(compiler, code);
+    NodeTraversal.traverse(
+        compiler,
+        tree,
+        new NodeTraversal.Callback() {
+          @Override
+          public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+            if (n.isModuleBody() || (parent != null && parent.isModuleBody())) {
+              assertNode(t.getScopeRoot()).hasToken(Token.MODULE_BODY);
+            }
+            return true;
+          }
+
+          @Override
+          public void visit(NodeTraversal t, Node n, Node parent) {
+            if (n.isModuleBody() || (parent != null && parent.isModuleBody())) {
+              assertNode(t.getScopeRoot()).hasToken(Token.MODULE_BODY);
+            }
+          }
+        });
+  }
+
+  @Test
+  public void testGetScopeRoot_inGoogModule() {
+    Compiler compiler = new Compiler();
+    String code =
+        lines(
+            "goog.module('a.b');", //
+            "function foo() {",
+            "  var b",
+            "}");
+    Node tree = parse(compiler, code);
+    NodeTraversal.traverse(
+        compiler,
+        tree,
+        new NodeTraversal.Callback() {
+          @Override
+          public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+            if (n.isModuleBody() || (parent != null && parent.isModuleBody())) {
+              assertNode(t.getScopeRoot()).hasToken(Token.MODULE_BODY);
+            }
+            return true;
+          }
+
+          @Override
+          public void visit(NodeTraversal t, Node n, Node parent) {
+            if (n.isModuleBody() || (parent != null && parent.isModuleBody())) {
+              assertNode(t.getScopeRoot()).hasToken(Token.MODULE_BODY);
+            }
+          }
         });
   }
 
@@ -333,7 +352,7 @@ public final class NodeTraversalTest {
   @Test
   public void testGetCurrentNode() {
     Compiler compiler = new Compiler();
-    ScopeCreator creator = SyntacticScopeCreator.makeUntyped(compiler);
+    ScopeCreator creator = new Es6SyntacticScopeCreator(compiler);
     ExpectNodeOnEnterScope callback = new ExpectNodeOnEnterScope();
     NodeTraversal t = new NodeTraversal(compiler, callback, creator);
 
@@ -815,7 +834,7 @@ public final class NodeTraversalTest {
 
     @Override
     public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
-      return true;
+      return !entered;
     }
   }
 
