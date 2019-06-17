@@ -49,7 +49,7 @@
 
 #define PCSCLITE_CSOCK_NAME		PCSCLITE_IPC_DIR "/pcscd.comm"
 
-#define PCSCLITE_VERSION_NUMBER		"1.8.24"	/**< Current version */
+#define PCSCLITE_VERSION_NUMBER		"1.8.25"	/**< Current version */
 #define PCSCLITE_STATUS_POLL_RATE	400000		/**< Status polling rate */
 #define PCSCLITE_LOCK_POLL_RATE		100000		/**< Lock polling rate */
 

@@ -1,4 +1,185 @@
-commit 73d95ada3221c060cbd7b6aa2375453f9d0e359b (HEAD -> master, origin/master, origin/HEAD)
+commit efc56971cb8f8bf9cb44090bb3851d8c1d2a00f7 (HEAD -> master, tag: pcsc-1.8.25, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Mar 25 20:56:43 2019 +0100
+
+    Release 1.8.25
+
+ ChangeLog    | 9 +++++++++
+ configure.ac | 2 +-
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+commit d627aee864c3e9ce40e375fcc0e34a7855b6f0f1 (zotac/master, github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 24 14:51:41 2019 +0100
+
+    pcscd.socket.in: explicitly set socket file mode
+    
+    Fixes Debian #924914
+    Thanks to Mathias Behrle for the patch
+
+ etc/pcscd.socket.in | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit b9e6fe054c2ce883ce6070d4a5761d9d1e1da1bc (zmaster)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Mar 22 10:39:14 2019 +0100
+
+    pcsc-spy: always a total time of execution
+    
+    Use the latest function return to compute the total execution time.
+    
+    Now the total time is always available. If the latest PC/SC command
+    does not return (because the process has been interrupted) the total
+    time may be a bit shorter than expected but it is less problematic than
+    no total tiem at all.
+
+ src/spy/pcsc-spy | 13 ++++++-------
+ 1 file changed, 6 insertions(+), 7 deletions(-)
+
+commit 9561e5562d5fb00540589ccb9e4744366ec4b310
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Mar 22 10:21:35 2019 +0100
+
+    pcsc-spy: fix a typo in a comment
+
+ src/spy/pcsc-spy | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit e641eaa72530bd8188ff584e33d06bf60a384995
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 16 11:03:19 2019 +0100
+
+    Doc: more explicit documentation for −−auto−exit
+    
+    pcscd does not exit after 60 seconds but after 60 seconds of inactivity
+    after the release of the last PC/SC context.
+    If you start pcscd with −−auto−exit but do run any PC/SC application
+    then pcscd will NOT exit after 60 seconds.
+    
+    Thanks to Matthias Apitz for the bug report.
+
+ doc/pcscd.8.in | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+commit 36c8eae890dc81f0e25ebf0be1c6a969ffd9543a
+Author: vegaMato <localhost@azet.sk>
+Date:   Tue Dec 18 18:37:22 2018 +0100
+
+    Remove usage of function chmod(2) to use fchmod(2)
+    
+    Race condition possibility; CWE-362: Concurrent Execution using Shared
+    Resource with Improper Synchronization ('Race Condition')
+    
+    Thanks to PA193 project
+    https://github.com/vegaMato/PCSC-lite-project-tasks
+
+ src/pcscdaemon.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit 430043842e05a300f1dda1b93fcfa8fceadd81e5
+Author: St4lkerino <denis.varga97@gmail.com>
+Date:   Tue Dec 18 19:22:32 2018 +0100
+
+    Fix realloc(3) error handling
+    
+    From realloc(3) manpage:
+           The realloc() function returns a pointer to the newly allocated memory,
+           which  is  suitably  aligned for any built-in type and may be different
+           from ptr, or NULL if the request fails.  If size was equal to 0, either
+           NULL  or  a  pointer  suitable  to be passed to free() is returned.  If
+           realloc() fails, the original block is left untouched; it is not  freed
+           or moved.
+    
+    If realloc() fails then the memory that was previously allocated needs
+    to be freed, or it will create a memory leak.
+    
+    It was not a real problem because if realloc(3) failed then pcscd would
+    exit immediatly and the memory would not leak for a long time.
+    
+    Thanks to PA193 project
+    https://github.com/vegaMato/PCSC-lite-project-tasks
+
+ src/hotplug_libudev.c | 8 ++++++--
+ src/hotplug_libusb.c  | 6 ++++--
+ 2 files changed, 10 insertions(+), 4 deletions(-)
+
+commit ad8c6fb98d29ccca5c5ae5287311b845f42853f1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jan 3 19:11:55 2019 +0100
+
+    pcscd: update copyright dates returned by --version
+
+ src/pcscdaemon.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit ea89e0598f86e56d51126addcbab97c4d722cd79
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Dec 15 13:43:10 2018 +0100
+
+    log: on GNU/Linux a pthread_t is unsigned
+    
+    Do not log the thread id as a signed integer.
+    We should not have logs like:
+    00000012 [-1211058432] pcscdaemon.c:352:main() Force colored logs
+
+ src/debuglog.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 9d5572b85c1f827e8e7075e34d4c11293188963e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Dec 12 17:45:05 2018 +0100
+
+    .gitignore: ignore doc/api
+
+ .gitignore | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 4e736c11d6414b1bc2cc8cccbde1f784e08e2dd7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Dec 7 09:28:12 2018 +0100
+
+    Remove 2 outdated comments about card always powered on
+    
+    Since "Card auto power on and off" feature as been introduced in 2010
+    the card is _not_ always powered.
+    
+    Thanks to Jan Parcel for the bug report.
+
+ src/winscard.c | 6 ------
+ 1 file changed, 6 deletions(-)
+
+commit 53ab2bc875d24c80d2069440cf2a9ec95eda892d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon Nov 26 15:04:55 2018 +0100
+
+    MSGRemoveContext: remove dead code
+    
+    Issue found by Coverity:
+    >>>     CID 1441490:  Code maintainability issues  (UNUSED_VALUE)
+    >>>     Assigning value "2148532329L" to "rv" here, but that stored value is overwritten before it can be used.
+
+ UnitaryTests/SCardBeginTransaction_SharedMode.py | 2 +-
+ src/winscard_svc.c                               | 2 --
+ 2 files changed, 1 insertion(+), 3 deletions(-)
+
+commit dd34cb3695cfee90e4cc8720446b1116ca19e2d0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Nov 15 11:54:31 2018 +0100
+
+    Fix resource leak if SCardEstablishContext() fails
+    
+    When SCardEstablishContext() failed after the connection to the daemon
+    was made (for example when polkit is used) then the socket to the daemon
+    was not closed.
+    
+    Thanks to MartinN-n for the bug report
+    "Leaking sockets #50"
+    https://github.com/LudovicRousseau/PCSC/issues/50
+
+ src/winscard_clnt.c | 24 ++++++++++++++++++------
+ 1 file changed, 18 insertions(+), 6 deletions(-)
+
+commit 73d95ada3221c060cbd7b6aa2375453f9d0e359b (tag: pcsc-1.8.24)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Oct 12 10:43:51 2018 +0200
 
@@ -82,7 +263,7 @@ Date:   Tue Oct 9 12:10:13 2018 +0200
  COPYING | 24 ------------------------
  1 file changed, 24 deletions(-)
 
-commit db6b67acf7027ecbc275cdb8242cddf3e6508b26 (zotac/master, zmaster)
+commit db6b67acf7027ecbc275cdb8242cddf3e6508b26
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Oct 8 14:41:53 2018 +0200
 
