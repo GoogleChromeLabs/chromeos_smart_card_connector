@@ -245,7 +245,7 @@ class PpInstance final : public pp::Instance {
           stop_pin_request_options);
 
       GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] demo finished: " <<
-          "received PIN entered by the user.";
+          "received PIN of length " << pin.length() << " entered by the user.";
       return true;
     }
 

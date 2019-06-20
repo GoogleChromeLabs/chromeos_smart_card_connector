@@ -23,6 +23,7 @@
 
 #include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
 #include <ppapi/cpp/core.h>

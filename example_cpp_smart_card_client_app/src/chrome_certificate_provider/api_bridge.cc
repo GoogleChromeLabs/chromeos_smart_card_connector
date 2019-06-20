@@ -14,7 +14,6 @@
 
 #include "chrome_certificate_provider/api_bridge.h"
 
-#include <string>
 #include <thread>
 
 #include <google_smart_card_common/logging/logging.h>
@@ -136,19 +135,32 @@ bool ApiBridge::RequestPin(
   GOOGLE_SMART_CARD_LOG_DEBUG << "Starting a PIN request";
   const gsc::GenericRequestResult generic_request_result =
       remote_call_adaptor_.SyncCall("requestPin", options);
-  std::string error_message;
-  RequestPinResults results;
-  if (!gsc::RemoteCallAdaptor::ExtractResultPayload(
-           generic_request_result, &error_message, &results)) {
-    GOOGLE_SMART_CARD_LOG_INFO << "PIN request failed: " << error_message;
+  if (!generic_request_result.is_successful()) {
+    GOOGLE_SMART_CARD_LOG_INFO << "PIN request failed: " <<
+        generic_request_result.error_message();
     return false;
+  }
+  // Note: Cannot use RemoteCallAdaptor::ExtractResultPayload(), since the API
+  // result value is defined as optional, so that the length of the array we
+  // parse here isn't fixed.
+  pp::VarArray var_array;
+  std::string error_message;
+  if (!gsc::VarAs(generic_request_result.payload(), &var_array,
+                  &error_message)) {
+    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the PIN response " <<
+        "payload items: " << error_message;
+  }
+  RequestPinResults results;
+  if (gsc::GetVarArraySize(var_array) &&
+      !gsc::TryGetVarArrayItems(var_array, &error_message, &results)) {
+    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the PIN response " <<
+        "payload items: " << error_message;
   }
   if (!results.user_input || results.user_input->empty()) {
     GOOGLE_SMART_CARD_LOG_INFO << "PIN request finished with no PIN";
     return false;
   }
-  GOOGLE_SMART_CARD_LOG_DEBUG << "The PIN request completed with the PIN " <<
-      "of length " << results.user_input->length();
+  GOOGLE_SMART_CARD_LOG_INFO << "The PIN request completed successfully";
   *pin = std::move(*results.user_input);
   return true;
 }
