@@ -24,7 +24,8 @@
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 
-const char kRequestReceiverName[] = "certificate_provider_bridge";
+const char kRequesterName[] = "certificate_provider_nacl_outgoing";
+const char kRequestReceiverName[] = "certificate_provider_nacl_incoming";
 const char kHandleCertificatesRequestFunctionName[] =
     "HandleCertificatesRequest";
 const char kHandleSignDigestRequestFunctionName[] =
@@ -89,8 +90,15 @@ void ProcessSignDigestRequest(
 ApiBridge::ApiBridge(
     gsc::TypedMessageRouter* typed_message_router,
     pp::Instance* pp_instance,
+    pp::Core* pp_core,
     bool execute_requests_sequentially)
-    : request_receiver_(new gsc::JsRequestReceiver(
+    : requester_(
+          kRequesterName,
+          typed_message_router,
+          gsc::MakeUnique<gsc::JsRequester::PpDelegateImpl>(
+              pp_instance, pp_core)),
+      remote_call_adaptor_(&requester_),
+      request_receiver_(new gsc::JsRequestReceiver(
           kRequestReceiverName,
           this,
           typed_message_router,
@@ -101,6 +109,7 @@ ApiBridge::ApiBridge(
 }
 
 void ApiBridge::Detach() {
+  requester_.Detach();
   request_receiver_->Detach();
 }
 
@@ -120,6 +129,41 @@ void ApiBridge::SetSignDigestRequestHandler(
 
 void ApiBridge::RemoveSignDigestRequestHandler() {
   sign_digest_request_handler_.reset();
+}
+
+bool ApiBridge::RequestPin(
+    chrome_certificate_provider::RequestPinOptions options, std::string* pin) {
+  GOOGLE_SMART_CARD_LOG_DEBUG << "Starting a PIN request";
+  const gsc::GenericRequestResult generic_request_result =
+      remote_call_adaptor_.SyncCall("requestPin", options);
+  std::string error_message;
+  RequestPinResults results;
+  if (!gsc::RemoteCallAdaptor::ExtractResultPayload(
+           generic_request_result, &error_message, &results)) {
+    GOOGLE_SMART_CARD_LOG_INFO << "PIN request failed: " << error_message;
+    return false;
+  }
+  if (!results.user_input || results.user_input->empty()) {
+    GOOGLE_SMART_CARD_LOG_INFO << "PIN request finished with no PIN";
+    return false;
+  }
+  GOOGLE_SMART_CARD_LOG_DEBUG << "The PIN request completed with the PIN " <<
+      "of length " << results.user_input->length();
+  *pin = std::move(*results.user_input);
+  return true;
+}
+
+void ApiBridge::StopPinRequest(
+    chrome_certificate_provider::StopPinRequestOptions options) {
+  GOOGLE_SMART_CARD_LOG_DEBUG << "Stopping the PIN request";
+  const gsc::GenericRequestResult generic_request_result =
+      remote_call_adaptor_.SyncCall("stopPinRequest", options);
+  if (generic_request_result.is_successful()) {
+    GOOGLE_SMART_CARD_LOG_DEBUG << "Successfully stopped the PIN request";
+  } else {
+    GOOGLE_SMART_CARD_LOG_INFO << "Failed to stop the PIN request: " <<
+        generic_request_result.error_message();
+  }
 }
 
 void ApiBridge::HandleRequest(
