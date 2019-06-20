@@ -74,7 +74,7 @@ class SignDigestRequestHandler {
 // receive events sent by Chrome.
 //
 // Under the hood, this class is implemented by sending and receiving messages
-// of special form with the corresponding backend on the JavaScript side (the
+// of special form to/from the corresponding backend on the JavaScript side (the
 // bridge-backend.js file), with the latter transforming them to/from the actual
 // chrome.certificateProvider method calls and events.
 class ApiBridge final : public google_smart_card::RequestHandler {

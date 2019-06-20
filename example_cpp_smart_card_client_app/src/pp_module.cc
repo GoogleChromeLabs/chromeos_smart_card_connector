@@ -288,8 +288,8 @@ class PpInstance final : public pp::Instance {
   // its comment for the justification.
   std::unique_ptr<gsc::PcscLiteOverRequesterGlobal>
   pcsc_lite_over_requester_global_;
-  // Object that allows to receive and handle requests received from the
-  // chrome.certificateProvider JavaScript API event listeners (see
+  // Object that allows to make calls to and receive events from the
+  // chrome.certificateProvider JavaScript API (see
   // <https://developer.chrome.com/extensions/certificateProvider#events>).
   std::shared_ptr<ccp::ApiBridge> chrome_certificate_provider_api_bridge_;
   // Handler of the onCertificatesRequested request

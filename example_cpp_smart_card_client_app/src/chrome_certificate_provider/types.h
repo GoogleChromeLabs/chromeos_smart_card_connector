@@ -124,13 +124,6 @@ struct StopPinRequestOptions {
   google_smart_card::optional<PinRequestErrorType> error_type;
 };
 
-// Structure containing the output parameters from the
-// chrome.certificateProvider.stopPinRequest() function call.
-//
-// For the corresponding original JavaScript definition, refer to:
-// <https://developer.chrome.com/extensions/certificateProvider#method-stopPinRequest>.
-struct StopPinRequestResult {};
-
 bool VarAs(const pp::Var& var, Hash* result, std::string* error_message);
 pp::Var MakeVar(Hash value);
 
@@ -160,12 +153,6 @@ pp::Var MakeVar(const RequestPinResults& value);
 bool VarAs(const pp::Var& var, StopPinRequestOptions* result,
            std::string* error_message);
 pp::Var MakeVar(const StopPinRequestOptions& value);
-
-// Structure containing the output parameters from the
-// chrome.certificateProvider.requestPin() function call.
-struct RequestPinResult {
-  google_smart_card::optional<std::string> user_input;
-};
 
 }  // namespace chrome_certificate_provider
 
