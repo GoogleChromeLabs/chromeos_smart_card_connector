@@ -75,7 +75,8 @@ $(TARGET).p8:
 
 $(TARGET).crx: all $(TARGET).p8
 	@rm -f $(TARGET).crx
-	$(CHROME_ENV) $(CHROME_PATH) \
+	xvfb-run \
+		$(CHROME_ENV) $(CHROME_PATH) \
 		--pack-extension="$(abspath $(OUT_DIR_PATH))" \
 		--pack-extension-key="$(TARGET).p8"
 	@mv $(OUT_DIR_PATH).crx $(TARGET).crx
