@@ -142,11 +142,12 @@ if (goog.DEBUG) {
 
 /** @override */
 Backend.prototype.disposeInternal = function() {
-  chrome.certificateProvider.onSignDigestRequested.removeListener(
-      this.boundSignDigestRequestListener_);
-
-  chrome.certificateProvider.onCertificatesRequested.removeListener(
-      this.boundCertificatesRequestListener_);
+  if (chrome.certificateProvider) {
+    chrome.certificateProvider.onSignDigestRequested.removeListener(
+        this.boundSignDigestRequestListener_);
+    chrome.certificateProvider.onCertificatesRequested.removeListener(
+        this.boundCertificatesRequestListener_);
+  }
 
   this.requester_.dispose();
   this.requester_ = null;
