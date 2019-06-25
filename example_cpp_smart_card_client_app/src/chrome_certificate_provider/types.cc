@@ -24,10 +24,14 @@ namespace gsc = google_smart_card;
 namespace google_smart_card {
 
 using HashConverter = EnumConverter<ccp::Hash, std::string>;
-
+using PinRequestTypeConverter = EnumConverter<ccp::PinRequestType, std::string>;
+using PinRequestErrorTypeConverter = EnumConverter<
+    ccp::PinRequestErrorType, std::string>;
 using CertificateInfoConverter = StructConverter<ccp::CertificateInfo>;
-
 using SignRequestConverter = StructConverter<ccp::SignRequest>;
+using RequestPinOptionsConverter = StructConverter<ccp::RequestPinOptions>;
+using RequestPinResultsConverter = StructConverter<ccp::RequestPinResults>;
+using StopPinRequestOptionsConverter = StructConverter<ccp::StopPinRequestOptions>;
 
 // static
 template <>
@@ -44,6 +48,36 @@ void HashConverter::VisitCorrespondingPairs(Callback callback) {
   callback(ccp::Hash::kSha256, "SHA256");
   callback(ccp::Hash::kSha384, "SHA384");
   callback(ccp::Hash::kSha512, "SHA512");
+}
+
+// static
+template <>
+constexpr const char* PinRequestTypeConverter::GetEnumTypeName() {
+  return "chrome_certificate_provider::PinRequestType";
+}
+
+// static
+template <>
+template <typename Callback>
+void PinRequestTypeConverter::VisitCorrespondingPairs(Callback callback) {
+  callback(ccp::PinRequestType::kPin, "PIN");
+  callback(ccp::PinRequestType::kPuk, "PUK");
+}
+
+// static
+template <>
+constexpr const char* PinRequestErrorTypeConverter::GetEnumTypeName() {
+  return "chrome_certificate_provider::PinRequestErrorType";
+}
+
+// static
+template <>
+template <typename Callback>
+void PinRequestErrorTypeConverter::VisitCorrespondingPairs(Callback callback) {
+  callback(ccp::PinRequestErrorType::kInvalidPin, "INVALID_PIN");
+  callback(ccp::PinRequestErrorType::kInvalidPuk, "INVALID_PUK");
+  callback(ccp::PinRequestErrorType::kMaxAttemptsExceeded, "MAX_ATTEMPTS_EXCEEDED");
+  callback(ccp::PinRequestErrorType::kUnknownError, "UNKNOWN_ERROR");
 }
 
 // static
@@ -72,9 +106,56 @@ template <>
 template <typename Callback>
 void SignRequestConverter::VisitFields(
     const ccp::SignRequest& value, Callback callback) {
+  callback(&value.sign_request_id, "signRequestId");
   callback(&value.digest, "digest");
   callback(&value.hash, "hash");
   callback(&value.certificate, "certificate");
+}
+
+// static
+template <>
+constexpr const char* RequestPinOptionsConverter::GetStructTypeName() {
+  return "chrome_certificate_provider::RequestPinOptions";
+}
+
+// static
+template <>
+template <typename Callback>
+void RequestPinOptionsConverter::VisitFields(
+    const ccp::RequestPinOptions& value, Callback callback) {
+  callback(&value.sign_request_id, "signRequestId");
+  callback(&value.request_type, "requestType");
+  callback(&value.error_type, "errorType");
+  callback(&value.attempts_left, "attemptsLeft");
+}
+
+// static
+template <>
+constexpr const char* RequestPinResultsConverter::GetStructTypeName() {
+  return "chrome_certificate_provider::RequestPinResults";
+}
+
+// static
+template <>
+template <typename Callback>
+void RequestPinResultsConverter::VisitFields(
+    const ccp::RequestPinResults& value, Callback callback) {
+  callback(&value.user_input, "userInput");
+}
+
+// static
+template <>
+constexpr const char* StopPinRequestOptionsConverter::GetStructTypeName() {
+  return "chrome_certificate_provider::StopPinRequestOptions";
+}
+
+// static
+template <>
+template <typename Callback>
+void StopPinRequestOptionsConverter::VisitFields(
+    const ccp::StopPinRequestOptions& value, Callback callback) {
+  callback(&value.sign_request_id, "signRequestId");
+  callback(&value.error_type, "errorType");
 }
 
 }  // namespace google_smart_card
@@ -89,6 +170,26 @@ bool VarAs(const pp::Var& var, Hash* result, std::string* error_message) {
 
 pp::Var MakeVar(Hash value) {
   return gsc::HashConverter::ConvertToVar(value);
+}
+
+bool VarAs(const pp::Var& var, PinRequestType* result,
+           std::string* error_message) {
+  return gsc::PinRequestTypeConverter::ConvertFromVar(
+      var, result, error_message);
+}
+
+pp::Var MakeVar(PinRequestType value) {
+  return gsc::PinRequestTypeConverter::ConvertToVar(value);
+}
+
+bool VarAs(const pp::Var& var, PinRequestErrorType* result,
+           std::string* error_message) {
+  return gsc::PinRequestErrorTypeConverter::ConvertFromVar(
+      var, result, error_message);
+}
+
+pp::Var MakeVar(PinRequestErrorType value) {
+  return gsc::PinRequestErrorTypeConverter::ConvertToVar(value);
 }
 
 bool VarAs(
@@ -108,6 +209,36 @@ bool VarAs(
 
 pp::Var MakeVar(const SignRequest& value) {
   return gsc::SignRequestConverter::ConvertToVar(value);
+}
+
+bool VarAs(const pp::Var& var, RequestPinOptions* result,
+           std::string* error_message) {
+  return gsc::RequestPinOptionsConverter::ConvertFromVar(
+      var, result, error_message);
+}
+
+pp::Var MakeVar(const RequestPinOptions& value) {
+  return gsc::RequestPinOptionsConverter::ConvertToVar(value);
+}
+
+bool VarAs(const pp::Var& var, RequestPinResults* result,
+           std::string* error_message) {
+  return gsc::RequestPinResultsConverter::ConvertFromVar(
+      var, result, error_message);
+}
+
+pp::Var MakeVar(const RequestPinResults& value) {
+  return gsc::RequestPinResultsConverter::ConvertToVar(value);
+}
+
+bool VarAs(const pp::Var& var, StopPinRequestOptions* result,
+           std::string* error_message) {
+  return gsc::StopPinRequestOptionsConverter::ConvertFromVar(
+      var, result, error_message);
+}
+
+pp::Var MakeVar(const StopPinRequestOptions& value) {
+  return gsc::StopPinRequestOptionsConverter::ConvertToVar(value);
 }
 
 }  // namespace chrome_certificate_provider

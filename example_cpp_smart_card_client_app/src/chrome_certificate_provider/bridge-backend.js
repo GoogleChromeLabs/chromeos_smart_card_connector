@@ -27,6 +27,7 @@ goog.require('GoogleSmartCard.DeferredProcessor');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.RemoteCallMessage');
+goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
 goog.require('goog.array');
@@ -36,7 +37,10 @@ goog.require('goog.log.Logger');
 goog.scope(function() {
 
 /** @const */
-var REQUESTER_NAME = 'certificate_provider_bridge';
+var NACL_INCOMING_REQUESTER_NAME = 'certificate_provider_nacl_incoming';
+
+/** @const */
+var NACL_OUTGOING_REQUESTER_NAME = 'certificate_provider_nacl_outgoing';
 
 /** @const */
 var HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME = 'HandleCertificatesRequest';
@@ -78,7 +82,14 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(naclModule) {
 
   /** @private */
   this.requester_ = new GSC.Requester(
-      REQUESTER_NAME, naclModule.messageChannel);
+      NACL_INCOMING_REQUESTER_NAME, naclModule.messageChannel);
+
+  // Note: the request receiver instance is not stored anywhere, as it makes
+  // itself being owned by the message channel.
+  new GSC.RequestReceiver(
+      NACL_OUTGOING_REQUESTER_NAME,
+      naclModule.messageChannel,
+      this.handleRequest_.bind(this));
 
   /** @private */
   this.boundCertificatesRequestListener_ =
@@ -140,9 +151,58 @@ Backend.prototype.disposeInternal = function() {
   this.requester_.dispose();
   this.requester_ = null;
 
+  this.requestReceiver_ = null;
+
   this.logger.fine('Disposed');
 
   Backend.base(this, 'disposeInternal');
+};
+
+/**
+ * Handles a remote call request received from the NaCl module.
+ * @param {!Object} payload
+ * @return {!goog.Promise}
+ * @private
+ */
+Backend.prototype.handleRequest_ = function(payload) {
+  var remoteCallMessage = GSC.RemoteCallMessage.parseRequestPayload(payload);
+  if (!remoteCallMessage) {
+    GSC.Logging.failWithLogger(
+        this.logger,
+        'Failed to parse the remote call message: ' +
+        GSC.DebugDump.debugDump(payload));
+  }
+
+  var debugRepresentation = 'chrome.certificateProvider.' +
+                            remoteCallMessage.getDebugRepresentation();
+  this.logger.fine('Received a remote call request: ' + debugRepresentation);
+
+  var promiseResolver = goog.Promise.withResolver();
+
+  var apiFunction = chrome.certificateProvider[remoteCallMessage.functionName];
+  if (apiFunction) {
+    /** @preserveTry */
+    try {
+      remoteCallMessage.functionArguments.push(function() {
+        if (chrome.runtime.lastError) {
+          promiseResolver.reject(new Error(goog.object.get(
+              chrome.runtime.lastError, 'message', 'Unknown error')));
+          return;
+        }
+        promiseResolver.resolve(Array.prototype.slice.call(arguments));
+      });
+      apiFunction.apply(null, remoteCallMessage.functionArguments);
+    } catch (exc) {
+      promiseResolver.reject(exc);
+    }
+  } else {
+    promiseResolver.reject(
+        'No such function in the API: ' + remoteCallMessage.functionName +
+        '. Please check that the extension is running on Chrome OS and that ' +
+        'the Chrome version is sufficiently new.');
+  }
+
+  return promiseResolver.promise;
 };
 
 /** @private */

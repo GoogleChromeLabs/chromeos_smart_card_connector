@@ -31,6 +31,7 @@
 
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 
@@ -38,7 +39,7 @@ namespace smart_card_client {
 
 namespace chrome_certificate_provider {
 
-// Enumerate that corresponds to different has algorithms.
+// Enumerate that corresponds to different hash algorithms.
 //
 // For the corresponding original JavaScript definition, refer to:
 // <https://developer.chrome.com/extensions/certificateProvider#type-Hash>.
@@ -48,6 +49,28 @@ enum class Hash {
   kSha256,
   kSha384,
   kSha512,
+};
+
+// Enumerate that corresponds to the type of the PIN dialog.
+//
+// For the corresponding original JavaScript definition, refer to the
+// "requestType" parameter definition:
+// <https://developer.chrome.com/extensions/certificateProvider#method-requestPin>.
+enum class PinRequestType {
+  kPin,
+  kPuk,
+};
+
+// Enumerate that corresponds to an error that has to be displayed in the PIN
+// dialog.
+//
+// For the corresponding original JavaScript definition, refer to:
+// <https://developer.chrome.com/extensions/certificateProvider#type-PinRequestErrorType>.
+enum class PinRequestErrorType {
+  kInvalidPin,
+  kInvalidPuk,
+  kMaxAttemptsExceeded,
+  kUnknownError,
 };
 
 // Structure containing a certificate description.
@@ -64,23 +87,72 @@ struct CertificateInfo {
 // For the corresponding original JavaScript definition, refer to:
 // <https://developer.chrome.com/extensions/certificateProvider#type-SignRequest>.
 struct SignRequest {
+  int sign_request_id;
   std::vector<uint8_t> digest;
   Hash hash;
   std::vector<uint8_t> certificate;
 };
 
-bool VarAs(const pp::Var& var, Hash* result, std::string* error_message);
+// Structure containing the parameters for the
+// chrome.certificateProvider.requestPin() function.
+//
+// For the corresponding original JavaScript definition, refer to:
+// <https://developer.chrome.com/extensions/certificateProvider#method-requestPin>.
+struct RequestPinOptions {
+  int sign_request_id;
+  google_smart_card::optional<PinRequestType> request_type;
+  google_smart_card::optional<PinRequestErrorType> error_type;
+  google_smart_card::optional<int> attempts_left;
+};
 
+// Structure containing the results returned from the
+// chrome.certificateProvider.requestPin() function call.
+//
+// For the corresponding original JavaScript definition, refer to:
+// <https://developer.chrome.com/extensions/certificateProvider#method-requestPin>.
+struct RequestPinResults {
+  google_smart_card::optional<std::string> user_input;
+};
+
+// Structure containing the parameters for the
+// chrome.certificateProvider.stopPinRequest() function.
+//
+// For the corresponding original JavaScript definition, refer to:
+// <https://developer.chrome.com/extensions/certificateProvider#method-stopPinRequest>.
+struct StopPinRequestOptions {
+  int sign_request_id;
+  google_smart_card::optional<PinRequestErrorType> error_type;
+};
+
+bool VarAs(const pp::Var& var, Hash* result, std::string* error_message);
 pp::Var MakeVar(Hash value);
+
+bool VarAs(const pp::Var& var, PinRequestType* result,
+           std::string* error_message);
+pp::Var MakeVar(PinRequestType value);
+
+bool VarAs(const pp::Var& var, PinRequestErrorType* result,
+           std::string* error_message);
+pp::Var MakeVar(PinRequestErrorType value);
 
 bool VarAs(
     const pp::Var& var, CertificateInfo* result, std::string* error_message);
-
 pp::Var MakeVar(const CertificateInfo& value);
 
 bool VarAs(const pp::Var& var, SignRequest* result, std::string* error_message);
-
 pp::Var MakeVar(const SignRequest& value);
+
+bool VarAs(const pp::Var& var, RequestPinOptions* result,
+           std::string* error_message);
+pp::Var MakeVar(const RequestPinOptions& value);
+
+bool VarAs(const pp::Var& var, RequestPinResults* result,
+           std::string* error_message);
+pp::Var MakeVar(const RequestPinResults& value);
+
+bool VarAs(const pp::Var& var, StopPinRequestOptions* result,
+           std::string* error_message);
+pp::Var MakeVar(const StopPinRequestOptions& value);
 
 }  // namespace chrome_certificate_provider
 

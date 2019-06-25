@@ -13,7 +13,6 @@
   },
   "default_locale": "en",
   "permissions": [
-    "alwaysOnTopWindows",
     "certificateProvider"
   ]
 }

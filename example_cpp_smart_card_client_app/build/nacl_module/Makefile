@@ -35,7 +35,6 @@ SOURCES_DIR := ../../src
 SOURCES := \
 	$(SOURCES_DIR)/chrome_certificate_provider/api_bridge.cc \
 	$(SOURCES_DIR)/chrome_certificate_provider/types.cc \
-	$(SOURCES_DIR)/pin-dialog/pin_dialog_server.cc \
 	$(SOURCES_DIR)/pp_module.cc \
 
 LIBS := \
