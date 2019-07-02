@@ -85,28 +85,30 @@ var globalChannel;
  * Setup the mock for chrome.runtime.sendMessage.
  * @param {!goog.promise.Resolver} testCasePromiseResolver
  * @param {!goog.testing.PropertyReplacer} propertyReplacer
+ * @return {!goog.testing.StrictMock}
  */
 function setupSendMessageMock(testCasePromiseResolver, propertyReplacer) {
-  propertyReplacer.setPath(
-      'chrome.runtime.sendMessage',
+  // Cast to work around the issue that the return type of createFunctionMock()
+  // is too generic (as it depends on the value of the optional second
+  // argument).
+  var mockedSendMessage = /** @type {!goog.testing.StrictMock} */ (
       goog.testing.createFunctionMock('sendMessage'));
+  propertyReplacer.setPath('chrome.runtime.sendMessage', mockedSendMessage);
   testCasePromiseResolver.promise.thenAlways(
       propertyReplacer.reset, propertyReplacer);
+  return mockedSendMessage;
 }
 
 /**
  * Setup ping responding to messages going through chrome.runtime.sendMessage
  * (essentially intercepts the message and sends a response back).
+ * @param {!goog.testing.StrictMock} mockedSendMessage
  */
-function setupSendMessagePingResponding() {
-  // Type cast to prevent Closure compiler from complaining.
-  /** @type {?} */ chrome.runtime.sendMessage;
-
-  chrome.runtime.sendMessage(verifyChannelIdMatcher, isPingMessageMatcher)
-      .$atLeastOnce().$does(
-          function(channelId, message) {
-            globalChannel.deliverMessage(pingResponseMessage);
-          });
+function setupSendMessagePingResponding(mockedSendMessage) {
+  chrome.runtime.sendMessage(verifyChannelIdMatcher, isPingMessageMatcher);
+  mockedSendMessage.$atLeastOnce().$does(function(channelId, message) {
+    globalChannel.deliverMessage(pingResponseMessage);
+  });
 }
 
 // Test that the channel is successfully established once a response to the ping
@@ -115,17 +117,14 @@ goog.exportSymbol('testSingleMessageBasedChannelEstablishing', function() {
   var testCasePromiseResolver = goog.Promise.withResolver();
   var propertyReplacer = new goog.testing.PropertyReplacer;
 
-  setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
-  setupSendMessagePingResponding();
+  const mockedSendMessage = setupSendMessageMock(
+      testCasePromiseResolver, propertyReplacer);
+  setupSendMessagePingResponding(mockedSendMessage);
 
-  /** @type {?} */ chrome.runtime.sendMessage;
-
-  chrome.runtime.sendMessage.$replay();
+  mockedSendMessage.$replay();
 
   function onChannelEstablished() {
-    /** @type {?} */ chrome.runtime.sendMessage;
-
-    chrome.runtime.sendMessage.$verify();
+    mockedSendMessage.$verify();
     testCasePromiseResolver.resolve();
     globalChannel.dispose();
   }
@@ -148,24 +147,22 @@ goog.exportSymbol('testSingleMessageBasedChannelFailureToEstablish',
   var testCasePromiseResolver = goog.Promise.withResolver();
   var propertyReplacer = new goog.testing.PropertyReplacer;
 
-  setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
+  const mockedSendMessage = setupSendMessageMock(
+      testCasePromiseResolver, propertyReplacer);
   propertyReplacer.set(Pinger, 'TIMEOUT_MILLISECONDS', 400);
   propertyReplacer.set(Pinger, 'INTERVAL_MILLISECONDS', 200);
 
-  /** @type {?} */ chrome.runtime.sendMessage;
-
   chrome.runtime.sendMessage(verifyChannelIdMatcher,
-                             goog.testing.mockmatchers.isObject).$anyTimes();
-  chrome.runtime.sendMessage.$replay();
+                             goog.testing.mockmatchers.isObject);
+  mockedSendMessage.$anyTimes();
+  mockedSendMessage.$replay();
 
   function onChannelEstablished() {
     testCasePromiseResolver.reject();
   }
 
   function onChannelDisposed() {
-    /** @type {?} */ chrome.runtime.sendMessage;
-
-    chrome.runtime.sendMessage.$verify();
+    mockedSendMessage.$verify();
     testCasePromiseResolver.resolve();
     globalChannel.dispose();
   }
@@ -183,29 +180,25 @@ goog.exportSymbol('testSingleMessageBasedChannelSending', function() {
   var testCasePromiseResolver = goog.Promise.withResolver();
   var propertyReplacer = new goog.testing.PropertyReplacer;
 
-  setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
-  setupSendMessagePingResponding();
+  const mockedSendMessage = setupSendMessageMock(
+      testCasePromiseResolver, propertyReplacer);
+  setupSendMessagePingResponding(mockedSendMessage);
 
-  /** @type {?} */ chrome.runtime.sendMessage;
-
-  for (let testMessage of TEST_MESSAGES) {
-    let mock = (/** @type {!goog.testing.StrictMock} */ (/** @type {?} */ (
-        chrome.runtime.sendMessage(
-            verifyChannelIdMatcher, new goog.testing.mockmatchers.ObjectEquals(
-                testMessage.makeMessage())))));
-    mock.$once();
+  for (const testMessage of TEST_MESSAGES) {
+    chrome.runtime.sendMessage(
+        verifyChannelIdMatcher, new goog.testing.mockmatchers.ObjectEquals(
+            testMessage.makeMessage()));
+    mockedSendMessage.$once();
   }
 
-  chrome.runtime.sendMessage.$replay();
+  mockedSendMessage.$replay();
 
   function onChannelEstablished() {
-    /** @type {?} */ chrome.runtime.sendMessage;
-
     for (let testMessage of TEST_MESSAGES) {
       globalChannel.send(testMessage.type, testMessage.data);
     }
 
-    chrome.runtime.sendMessage.$verify();
+    mockedSendMessage.$verify();
     testCasePromiseResolver.resolve();
     globalChannel.dispose();
   }
@@ -227,16 +220,13 @@ goog.exportSymbol('testSingleMessageBasedChannelReceiving', function() {
   var testCasePromiseResolver = goog.Promise.withResolver();
   var propertyReplacer = new goog.testing.PropertyReplacer;
 
-  setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
-  setupSendMessagePingResponding();
+  const mockedSendMessage = setupSendMessageMock(
+      testCasePromiseResolver, propertyReplacer);
+  setupSendMessagePingResponding(mockedSendMessage);
 
-  /** @type {?} */ chrome.runtime.sendMessage;
-
-  chrome.runtime.sendMessage.$replay();
+  mockedSendMessage.$replay();
 
   function onChannelEstablished() {
-    /** @type {?} */ chrome.runtime.sendMessage;
-
     var receivedMessages = [];
 
     for (let testMessage of TEST_MESSAGES) {
@@ -255,7 +245,7 @@ goog.exportSymbol('testSingleMessageBasedChannelReceiving', function() {
       globalChannel.deliverMessage(testMessage.makeMessage());
     }
 
-    chrome.runtime.sendMessage.$verify();
+    mockedSendMessage.$verify();
     testCasePromiseResolver.resolve();
     globalChannel.dispose();
   }
@@ -277,22 +267,21 @@ goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
   var testCasePromiseResolver = goog.Promise.withResolver();
   var propertyReplacer = new goog.testing.PropertyReplacer;
 
-  setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
+  const mockedSendMessage = setupSendMessageMock(
+      testCasePromiseResolver, propertyReplacer);
   propertyReplacer.set(Pinger, 'TIMEOUT_MILLISECONDS', 400);
   propertyReplacer.set(Pinger, 'INTERVAL_MILLISECONDS', 200);
-  /** @type {?} */ chrome.runtime.sendMessage;
 
   var firstCallSeen = false;
-  chrome.runtime.sendMessage(verifyChannelIdMatcher, isPingMessageMatcher)
-      .$atLeastOnce().$does(
-          function(message) {
-            if (!firstCallSeen) {
-              firstCallSeen = true;
-              globalChannel.deliverMessage(pingResponseMessage);
-            }
-          });
+  chrome.runtime.sendMessage(verifyChannelIdMatcher, isPingMessageMatcher);
+  mockedSendMessage.$atLeastOnce().$does(function(message) {
+    if (!firstCallSeen) {
+      firstCallSeen = true;
+      globalChannel.deliverMessage(pingResponseMessage);
+    }
+  });
 
-  chrome.runtime.sendMessage.$replay();
+  mockedSendMessage.$replay();
 
   var channelEstablished = false;
   function onChannelEstablished() {
@@ -300,8 +289,6 @@ goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
   }
 
   function onChannelDisposed() {
-    /** @type {?} */ chrome.runtime.sendMessage;
-
     assert('Channel wasn\'t successfully established prior to failure',
            channelEstablished);
     assert(globalChannel.isDisposed());
@@ -310,7 +297,7 @@ goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
       globalChannel.send('foo', {});
     });
 
-    chrome.runtime.sendMessage.$verify();
+    mockedSendMessage.$verify();
     testCasePromiseResolver.resolve();
     globalChannel.dispose();
   }
