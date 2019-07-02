@@ -26,11 +26,9 @@
  *   into the JavaScript PC/SC-Lite client API method calls (see the
  *   GoogleSmartCard.PcscLiteClient.API class).
  * * A SmartCardClientApp.CertificateProviderBridge.Backend object is created,
- *   that subscribes itself for chrome.certificateProvider API events (see
- *   <https://developer.chrome.com/extensions/certificateProvider#events>) and
- *   translates them into requests to the NaCl module.
- * * A SmartCardClientApp.PinDialog.Backend object is created, that performs the
- *   PIN dialog requests received from the NaCl module.
+ *   that translates between requests to/from the chrome.certificateProvider API
+ *   (see <https://developer.chrome.com/extensions/certificateProvider>) into
+ *   from/to the NaCl module.
  * * Subscribing to a special Chrome Extensions API event that makes the App
  *   auto-loading.
  *
@@ -50,7 +48,6 @@ goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('SmartCardClientApp.CertificateProviderBridge.Backend');
-goog.require('SmartCardClientApp.PinDialog.Backend');
 goog.require('goog.log.Level');
 goog.require('goog.log.Logger');
 
@@ -109,13 +106,6 @@ var pcscLiteNaclClientBackend = new GSC.PcscLiteClient.NaclClientBackend(
  */
 var certificateProviderBridgeBackend =
     new SmartCardClientApp.CertificateProviderBridge.Backend(naclModule);
-
-/**
- * Object that performs the PIN dialog requests received from the NaCl module.
- * @const
- */
-var pinDialogBackend = new SmartCardClientApp.PinDialog.Backend(
-    naclModule.messageChannel);
 
 // Starts the NaCl module loading. Up to this point, the module was not actually
 // loading yet, which allowed to add all the necessary event listeners in

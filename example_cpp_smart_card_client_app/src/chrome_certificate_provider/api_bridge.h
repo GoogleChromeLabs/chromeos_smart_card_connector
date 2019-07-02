@@ -23,14 +23,18 @@
 
 #include <memory>
 #include <mutex>
+#include <string>
 #include <vector>
 
+#include <ppapi/cpp/core.h>
 #include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/var.h>
 #include <ppapi/cpp/var_array.h>
 
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/js_request_receiver.h>
+#include <google_smart_card_common/requesting/js_requester.h>
+#include <google_smart_card_common/requesting/remote_call_adaptor.h>
 #include <google_smart_card_common/requesting/request_handler.h>
 #include <google_smart_card_common/requesting/request_receiver.h>
 
@@ -40,7 +44,7 @@ namespace smart_card_client {
 
 namespace chrome_certificate_provider {
 
-// Handler of the certificates request.
+// Handler of the certificates listing request.
 //
 // For the related original JavaScript definition, refer to:
 // <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesRequested>
@@ -66,10 +70,13 @@ class SignDigestRequestHandler {
 // This class provides a C++ bridge to the chrome.certificateProvider JavaScript
 // API (see <https://developer.chrome.com/extensions/certificateProvider>).
 //
-// The integration with the JavaScript API is done by performing the requests of
-// some special form to the JavaScript side. On the JavaScript side, the handler
-// of these requests will call the corresponding chrome.usb API methods (see the
-// bridge-backend.js files).
+// The bridge is bidirectional: it allows both to make requests to Chrome and to
+// receive events sent by Chrome.
+//
+// Under the hood, this class is implemented by sending and receiving messages
+// of special form to/from the corresponding backend on the JavaScript side (the
+// bridge-backend.js file), with the latter transforming them to/from the actual
+// chrome.certificateProvider method calls and events.
 class ApiBridge final : public google_smart_card::RequestHandler {
  public:
   // Creates the bridge instance.
@@ -84,6 +91,7 @@ class ApiBridge final : public google_smart_card::RequestHandler {
   ApiBridge(
       google_smart_card::TypedMessageRouter* typed_message_router,
       pp::Instance* pp_instance,
+      pp::Core* pp_core,
       bool execute_requests_sequentially);
 
   ApiBridge(const ApiBridge&) = delete;
@@ -98,6 +106,26 @@ class ApiBridge final : public google_smart_card::RequestHandler {
       std::weak_ptr<SignDigestRequestHandler> handler);
   void RemoveSignDigestRequestHandler();
 
+  // Sends a PIN request and waits for the response being received.
+  //
+  // Returns whether the PIN dialog finished successfully, and, if yes, returns
+  // the PIN entered by user through the pin output argument.
+  //
+  // Note that this function must not be called from the main thread, because
+  // otherwise it would block receiving of the incoming messages and,
+  // consequently, it would lock forever. (Actually, the validity of the current
+  // thread is asserted inside.)
+  bool RequestPin(RequestPinOptions options, std::string* pin);
+
+  // Stops the PIN request that was previously started by the RequestPin()
+  // function.
+  //
+  // Note that this function must not be called from the main thread, because
+  // otherwise it would block receiving of the incoming messages and,
+  // consequently, it would lock forever. (Actually, the validity of the current
+  // thread is asserted inside.)
+  void StopPinRequest(StopPinRequestOptions options);
+
  private:
   // google_smart_card::RequestHandler:
   void HandleRequest(
@@ -111,6 +139,13 @@ class ApiBridge final : public google_smart_card::RequestHandler {
   void HandleSignDigestRequest(
       const pp::VarArray& arguments,
       google_smart_card::RequestReceiver::ResultCallback result_callback);
+
+  // Members related to outgoing requests:
+
+  google_smart_card::JsRequester requester_;
+  google_smart_card::RemoteCallAdaptor remote_call_adaptor_;
+
+  // Members related to incoming requests:
 
   std::shared_ptr<google_smart_card::JsRequestReceiver> request_receiver_;
   std::shared_ptr<std::mutex> request_handling_mutex_;

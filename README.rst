@@ -257,6 +257,8 @@ Apps:
 
 *   **OpenSSL** (version 1.0+ is recommended).
 
+*   **Xvfb**.
+
 *   (for 64-bit Linux) **32-bit version of libstdc++**.
 
     For example, on Ubuntu it's provided by the libstdc++6:i386 package.
