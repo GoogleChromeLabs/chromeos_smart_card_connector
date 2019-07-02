@@ -160,9 +160,9 @@ LogMessage::~LogMessage() {
     EmitLogMessage(severity_, stream_.str());
     if (severity_ == LogSeverity::kFatal) {
       // Wait for some time before crashing, to leave a chance for the log
-      // message with the crash reason to be delivered the JavaScript side. This
-      // is not a 100%-reliable solution, but the logging functionality in the
-      // fatal error case is best-effort anyway.
+      // message with the crash reason to be delivered to the JavaScript side.
+      // This is not a 100%-reliable solution, but the logging functionality in
+      // the fatal error case is best-effort anyway.
       std::this_thread::sleep_for(std::chrono::seconds(1));
       std::abort();
     }
