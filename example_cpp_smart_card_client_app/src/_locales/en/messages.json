@@ -6,25 +6,5 @@
   "appDesc": {
     "message": "An example of App that works with Smart Card readers through a PC/SC-Lite API provided by Smart Card Connector App",
     "description": "The description of the application, displayed in the web store"
-  },
-  "pinDialogTitle": {
-    "message": "Smart Card PIN",
-    "description": "Window title of the Smart Card PIN dialog"
-  },
-  "pinDialogHeader": {
-    "message": "Smart Card PIN",
-    "description": "Caption displayed in the Smart Card PIN dialog"
-  },
-  "pinDialogLabel": {
-    "message": "Please enter your Smart Card PIN:",
-    "description": "Label text displayed in the Smart Card PIN dialog"
-  },
-  "pinDialogOK": {
-    "message": "OK",
-    "description": "\"OK\" button title in the Smart Card PIN dialog"
-  },
-  "pinDialogCancel": {
-    "message": "Cancel",
-    "description": "\"Cancel\" button title in the Smart Card PIN dialog"
   }
 }

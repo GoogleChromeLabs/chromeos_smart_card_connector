@@ -201,7 +201,7 @@ inline T VarAs(const pp::Var& var) {
 // Returns the number of items in the Pepper dictionary.
 int GetVarDictSize(const pp::VarDictionary& var);
 
-// Returns the number of items in the Pepper dictionary.
+// Returns the number of items in the Pepper array.
 int GetVarArraySize(const pp::VarArray& var);
 
 // Extracts the value from the Pepper dictionary by the given key.

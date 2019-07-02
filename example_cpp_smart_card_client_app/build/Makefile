@@ -42,13 +42,9 @@ JS_COMPILER_INPUT_PATHS := \
 
 $(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BackgroundMain))
 
-$(eval $(call BUILD_JS_SCRIPT,pin-dialog.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.PinDialog.Main))
-
 
 $(eval $(call ADD-NACL-MODULE-DEPENDENCY,nacl_module))
 
 
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/_locales))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/manifest.json))
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/pin-dialog/pin-dialog.css))
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/pin-dialog/pin-dialog.html))

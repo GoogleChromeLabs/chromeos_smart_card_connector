@@ -40,7 +40,6 @@
 
 #include "chrome_certificate_provider/api_bridge.h"
 #include "chrome_certificate_provider/types.h"
-#include "pin-dialog/pin_dialog_server.h"
 
 namespace scc = smart_card_client;
 namespace ccp = scc::chrome_certificate_provider;
@@ -54,8 +53,7 @@ namespace {
 //
 // The implementation presented here is a skeleton that initializes all pieces
 // necessary for PC/SC-Lite client API initialization,
-// chrome.certificateProvider JavaScript API integration and PIN dialog
-// execution.
+// chrome.certificateProvider JavaScript API integration.
 //
 // As an example, this implementation starts a background thread running the
 // Work method after the initialization happens.
@@ -80,8 +78,6 @@ class PpInstance final : public pp::Instance {
   // * creates a google_smart_card::PcscLiteClientNaclGlobal class instance that
   //   initializes the internal state required for PC/SC-Lite API functions
   //   implementation;
-  // * creates a PinDialogServer class instance that allows to perform PIN
-  //   dialog requests;
   // * creates a chrome_certificate_provider::ApiBridge class instance that can
   //   be used to handle requests received from the chrome.certificateProvider
   //   JavaScript API event listeners (see
@@ -91,18 +87,18 @@ class PpInstance final : public pp::Instance {
         pcsc_lite_over_requester_global_(
             new gsc::PcscLiteOverRequesterGlobal(
                 &typed_message_router_, this, pp::Module::Get()->core())),
-        pin_dialog_server_(new PinDialogServer(
-            &typed_message_router_, this, pp::Module::Get()->core())),
         chrome_certificate_provider_api_bridge_(
-            &typed_message_router_,
-            this,
-            /* execute_requests_sequentially */ false),
+            new ccp::ApiBridge(
+                &typed_message_router_,
+                this,
+                pp::Module::Get()->core(),
+                /* execute_requests_sequentially */ false)),
         certificates_request_handler_(new ClientCertificatesRequestHandler),
         sign_digest_request_handler_(new ClientSignDigestRequestHandler(
-            pin_dialog_server_)) {
-    chrome_certificate_provider_api_bridge_.SetCertificatesRequestHandler(
+            chrome_certificate_provider_api_bridge_)) {
+    chrome_certificate_provider_api_bridge_->SetCertificatesRequestHandler(
         certificates_request_handler_);
-    chrome_certificate_provider_api_bridge_.SetSignDigestRequestHandler(
+    chrome_certificate_provider_api_bridge_->SetSignDigestRequestHandler(
         sign_digest_request_handler_);
     StartWorkInBackgroundThread();
   }
@@ -124,7 +120,7 @@ class PpInstance final : public pp::Instance {
     pcsc_lite_over_requester_global_->Detach();
     pcsc_lite_over_requester_global_.release();
 
-    pin_dialog_server_->Detach();
+    chrome_certificate_provider_api_bridge_->Detach();
   }
 
   // This method is called with each message received by the NaCl module from
@@ -140,9 +136,8 @@ class PpInstance final : public pp::Instance {
   // and handled here:
   // * results of the submitted PC/SC-Lite API calls (see the
   //   google_smart_card::PcscLiteOverRequesterGlobal class);
-  // * results returned from PIN dialogs (see the PinDialogServer class);
-  // * requests received from chrome.certificateProvider API event handlers (see
-  //   the chrome_certificate_provider::ApiBridge class).
+  // * requests and responses sent to/received from chrome.certificateProvider
+  //   API (see the chrome_certificate_provider::ApiBridge class).
   //
   // Note that this method should not perform any long operations or
   // blocking operations that wait for responses received from the JavaScript
@@ -168,7 +163,7 @@ class PpInstance final : public pp::Instance {
     //
     // Returns whether the operation finished successfully. In case of success,
     // the resulting certificates information should be returned through the
-    // result output argument.
+    // |result| output argument.
     //
     // Note that this method is executed by
     // chrome_certificate_provider::ApiBridge object on a separate background
@@ -180,6 +175,9 @@ class PpInstance final : public pp::Instance {
       // Place your custom code here:
       //
 
+      // Note: the bytes "1, 2, 3" and the signature algorithms below are just
+      // an example. In the real application, replace them with the bytes of the
+      // DER encoding of a X.509 certificate and the supported algorithms.
       ccp::CertificateInfo certificate_info_1;
       certificate_info_1.certificate.assign({1, 2, 3});
       certificate_info_1.supported_hashes.push_back(ccp::Hash::kMd5Sha1);
@@ -187,6 +185,7 @@ class PpInstance final : public pp::Instance {
       certificate_info_2.supported_hashes.push_back(ccp::Hash::kSha512);
       result->push_back(certificate_info_1);
       result->push_back(certificate_info_2);
+
       return true;
     }
   };
@@ -198,14 +197,15 @@ class PpInstance final : public pp::Instance {
       : public ccp::SignDigestRequestHandler {
    public:
     explicit ClientSignDigestRequestHandler(
-        std::weak_ptr<PinDialogServer> pin_dialog_server)
-        : pin_dialog_server_(pin_dialog_server) {}
+        std::weak_ptr<ccp::ApiBridge> chrome_certificate_provider_api_bridge)
+        : chrome_certificate_provider_api_bridge_(
+              chrome_certificate_provider_api_bridge) {}
 
     // Handles the received sign digest request (the request data is passed
-    // through the sign_request argument).
+    // through the |sign_request| argument).
     //
     // Returns whether the operation finished successfully. In case of success,
-    // the resulting signature should be returned through the result output
+    // the resulting signature should be returned through the |result| output
     // argument.
     //
     // Note that this method is executed by
@@ -220,31 +220,45 @@ class PpInstance final : public pp::Instance {
       // Place your custom code here:
       //
 
-      *result = sign_request.digest;
-
-      const std::shared_ptr<PinDialogServer> locked_pin_dialog_server =
-          pin_dialog_server_.lock();
-      if (!locked_pin_dialog_server) {
+      const std::shared_ptr<ccp::ApiBridge>
+          locked_chrome_certificate_provider_api_bridge =
+              chrome_certificate_provider_api_bridge_.lock();
+      if (!locked_chrome_certificate_provider_api_bridge) {
         GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Skipped PIN dialog " <<
             "demo: the shutdown process has started";
         return false;
       }
+
       GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Running PIN dialog " <<
           "demo...";
+      ccp::RequestPinOptions request_pin_options;
+      request_pin_options.sign_request_id = sign_request.sign_request_id;
       std::string pin;
-      if (locked_pin_dialog_server->RequestPin(&pin)) {
-        GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] demo finished: " <<
-            "received PIN enter by the user.";
-      } else {
+      if (!locked_chrome_certificate_provider_api_bridge->RequestPin(
+               request_pin_options, &pin)) {
         GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] demo finished: " <<
             "dialog was canceled.";
+        return false;
       }
+
+      ccp::StopPinRequestOptions stop_pin_request_options;
+      stop_pin_request_options.sign_request_id = sign_request.sign_request_id;
+      locked_chrome_certificate_provider_api_bridge->StopPinRequest(
+          stop_pin_request_options);
+
+      GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] demo finished: " <<
+          "received PIN of length " << pin.length() << " entered by the user.";
+
+      // Note: these bytes "4, 5, 6" below are just an example. In the real
+      // application, replace them with the bytes of the real signature
+      // generated by the smart card.
+      *result = std::vector<uint8_t>({4, 5, 6});
 
       return true;
     }
 
    private:
-    const std::weak_ptr<PinDialogServer> pin_dialog_server_;
+    const std::weak_ptr<ccp::ApiBridge> chrome_certificate_provider_api_bridge_;
   };
 
   // This method is called by the constructor once all of the initialization
@@ -282,12 +296,10 @@ class PpInstance final : public pp::Instance {
   // its comment for the justification.
   std::unique_ptr<gsc::PcscLiteOverRequesterGlobal>
   pcsc_lite_over_requester_global_;
-  // Object that allows to perform PIN dialog requests.
-  std::shared_ptr<PinDialogServer> pin_dialog_server_;
-  // Object that allows to receive and handle requests received from the
-  // chrome.certificateProvider JavaScript API event listeners (see
+  // Object that allows to make calls to and receive events from the
+  // chrome.certificateProvider JavaScript API (see
   // <https://developer.chrome.com/extensions/certificateProvider#events>).
-  ccp::ApiBridge chrome_certificate_provider_api_bridge_;
+  std::shared_ptr<ccp::ApiBridge> chrome_certificate_provider_api_bridge_;
   // Handler of the onCertificatesRequested request
   // from the chrome.certificateProvider JavaScript API (see
   // <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesRequested>).
