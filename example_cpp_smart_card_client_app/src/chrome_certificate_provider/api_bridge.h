@@ -115,7 +115,7 @@ class ApiBridge final : public google_smart_card::RequestHandler {
   // otherwise it would block receiving of the incoming messages and,
   // consequently, it would lock forever. (Actually, the validity of the current
   // thread is asserted inside.)
-  bool RequestPin(RequestPinOptions options, std::string* pin);
+  bool RequestPin(const RequestPinOptions& options, std::string* pin);
 
   // Stops the PIN request that was previously started by the RequestPin()
   // function.
@@ -124,7 +124,7 @@ class ApiBridge final : public google_smart_card::RequestHandler {
   // otherwise it would block receiving of the incoming messages and,
   // consequently, it would lock forever. (Actually, the validity of the current
   // thread is asserted inside.)
-  void StopPinRequest(StopPinRequestOptions options);
+  void StopPinRequest(const StopPinRequestOptions& options);
 
  private:
   // google_smart_card::RequestHandler:
