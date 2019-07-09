@@ -53,6 +53,7 @@ import java.io.StringWriter;
 import java.lang.reflect.AnnotatedElement;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
+import java.nio.file.FileVisitOption;
 import java.nio.file.FileVisitResult;
 import java.nio.file.Path;
 import java.nio.file.PathMatcher;
@@ -62,6 +63,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -179,6 +181,14 @@ public class CommandLineRunner extends
         Collections.synchronizedList(new ArrayList<FlagEntry<CheckLevel>>());
     private static final List<FlagEntry<JsSourceType>> mixedJsSources =
         Collections.synchronizedList(new ArrayList<FlagEntry<JsSourceType>>());
+
+    @Option(
+        name = "--browser_featureset_year",
+        usage =
+            "shortcut for defining "
+                + "goog.FEATURESET_YEAR=YYYY."
+                + " The minimum valid value of the browser year is 2012")
+    private Integer browserFeaturesetYear = 0;
 
     @Option(
       name = "--help",
@@ -329,10 +339,12 @@ public class CommandLineRunner extends
         + "3 (always print summary). The default level is 1")
     private int summaryDetailLevel = 1;
 
-    @Option(name = "--isolation_mode",
-        usage = "If set to IIFE the compiler output will follow the form:\n"
-        + "  (function(){%output%)).call(this);\n"
-        + "Options: NONE, IIFE")
+    @Option(
+        name = "--isolation_mode",
+        usage =
+            "If set to IIFE the compiler output will follow the form:\n"
+                + "  (function(){%output%}).call(this);\n"
+                + "Options: NONE, IIFE")
     private IsolationMode isolationMode = IsolationMode.NONE;
 
     @Option(
@@ -676,7 +688,7 @@ public class CommandLineRunner extends
             "Sets the language spec to which input sources should conform. "
                 + "Options: ECMASCRIPT3, ECMASCRIPT5, ECMASCRIPT5_STRICT, "
                 + "ECMASCRIPT6_TYPED (experimental), ECMASCRIPT_2015, ECMASCRIPT_2016, "
-                + "ECMASCRIPT_2017, STABLE, ECMASCRIPT_NEXT")
+                + "ECMASCRIPT_2017, ECMASCRIPT_2018, ECMASCRIPT_2019, STABLE, ECMASCRIPT_NEXT")
     private String languageIn = "STABLE";
 
     @Option(
@@ -684,7 +696,8 @@ public class CommandLineRunner extends
         usage =
             "Sets the language spec to which output should conform. "
                 + "Options: ECMASCRIPT3, ECMASCRIPT5, ECMASCRIPT5_STRICT, "
-                + "ECMASCRIPT_2015, STABLE")
+                + "ECMASCRIPT_2015, ECMASCRIPT_2016, ECMASCRIPT_2017, "
+                + "ECMASCRIPT_2018, ECMASCRIPT_2019, STABLE")
     private String languageOut = "STABLE";
 
 
@@ -734,14 +747,6 @@ public class CommandLineRunner extends
     private CompilerOptions.TracerMode tracerMode =
         CompilerOptions.TracerMode.OFF;
 
-    @Option(
-      name = "--new_type_inf",
-      hidden = true,
-      handler = BooleanOptionHandler.class,
-      usage = "Deprecated.  Does nothing. Use jscomp_error=strictCheckTypes instead."
-    )
-    private boolean useNewTypeInference = false;
-
     @Option(name = "--rename_variable_prefix",
         usage = "Specifies a prefix that will be prepended to all variables.")
     private String renamePrefix = null;
@@ -760,12 +765,6 @@ public class CommandLineRunner extends
             + "Options: BROWSER, CUSTOM. Defaults to BROWSER.")
     private CompilerOptions.Environment environment =
         CompilerOptions.Environment.BROWSER;
-
-
-    @Option(name = "--instrumentation_template",
-            hidden = true,
-            usage = "A file containing an instrumentation template.")
-    private String instrumentationFile = "";
 
     @Option(
       name = "--json_streams",
@@ -825,11 +824,6 @@ public class CommandLineRunner extends
         handler = BooleanOptionHandler.class,
         usage = "Rewrite ES6 library calls to use polyfills provided by the compiler's runtime.")
     private boolean rewritePolyfills = true;
-
-    @Option(name = "--allow_method_call_decomposing",
-        handler = BooleanOptionHandler.class,
-        usage = "Allow decomposing x.y(); to: var tmp = x.y; tmp.call(x); Unsafe on IE 8 and 9")
-    private boolean allowMethodCallDecomposing = false;
 
     @Option(
       name = "--print_source_after_each_pass",
@@ -996,6 +990,7 @@ public class CommandLineRunner extends
                     "charset",
                     "checks_only",
                     "define",
+                    "browser_featureset_year",
                     "flagfile",
                     "help",
                     "third_party",
@@ -1740,6 +1735,7 @@ public class CommandLineRunner extends
           .setApplyInputSourceMaps(applyInputSourceMaps)
           .setWarningGuards(Flags.guardLevels)
           .setDefine(flags.define)
+          .setBrowserFeaturesetYear(flags.browserFeaturesetYear)
           .setCharset(flags.charset)
           .setDependencyOptions(dependencyOptions)
           .setOutputManifest(ImmutableList.of(flags.outputManifest))
@@ -1752,7 +1748,6 @@ public class CommandLineRunner extends
           .setWarningsWhitelistFile(flags.warningsWhitelistFile)
           .setHideWarningsFor(flags.hideWarningsFor)
           .setAngularPass(flags.angularPass)
-          .setInstrumentationTemplateFile(flags.instrumentationFile)
           .setJsonStreamMode(flags.jsonStreamMode)
           .setErrorFormat(flags.errorFormat);
     }
@@ -1781,6 +1776,10 @@ public class CommandLineRunner extends
     if (!flags.languageIn.isEmpty()) {
       CompilerOptions.LanguageMode languageMode =
           CompilerOptions.LanguageMode.fromString(flags.languageIn);
+      if (languageMode == LanguageMode.UNSUPPORTED) {
+        throw new FlagUsageException(
+            "Cannot specify the unsupported set of features for language_in.");
+      }
       if (languageMode != null) {
         options.setLanguageIn(languageMode);
       } else {
@@ -1793,6 +1792,10 @@ public class CommandLineRunner extends
     } else {
       CompilerOptions.LanguageMode languageMode =
           CompilerOptions.LanguageMode.fromString(flags.languageOut);
+      if (languageMode == LanguageMode.UNSUPPORTED) {
+        throw new FlagUsageException(
+            "Cannot specify the unsupported set of features for language_out.");
+      }
       if (languageMode != null) {
         options.setLanguageOut(languageMode);
       } else {
@@ -1894,8 +1897,6 @@ public class CommandLineRunner extends
     options.rewritePolyfills =
         flags.rewritePolyfills && options.getLanguageIn().toFeatureSet().contains(FeatureSet.ES6);
 
-    options.setAllowMethodCallDecomposing(flags.allowMethodCallDecomposing);
-
     if (!flags.translationsFile.isEmpty()) {
       try {
         options.messageBundle = new XtbMessageBundle(
@@ -1918,30 +1919,6 @@ public class CommandLineRunner extends
     }
 
     options.setConformanceConfigs(loadConformanceConfigs(flags.conformanceConfigs));
-
-    if (!flags.instrumentationFile.isEmpty()) {
-      String instrumentationPb;
-      Instrumentation.Builder builder = Instrumentation.newBuilder();
-      try (BufferedReader br =
-          new BufferedReader(Files.newReader(new File(flags.instrumentationFile), UTF_8))) {
-        StringBuilder sb = new StringBuilder();
-        String line = br.readLine();
-
-        while (line != null) {
-          sb.append(line);
-          sb.append(System.lineSeparator());
-          line = br.readLine();
-        }
-        instrumentationPb = sb.toString();
-        TextFormat.merge(instrumentationPb, builder);
-
-        // Setting instrumentation template
-        options.instrumentationTemplate = builder.build();
-
-      } catch (IOException e) {
-        throw new RuntimeException("Error reading instrumentation template", e);
-      }
-    }
 
     options.setPrintSourceAfterEachPass(flags.printSourceAfterEachPass);
     options.setTracerMode(flags.tracerMode);
@@ -2135,7 +2112,10 @@ public class CommandLineRunner extends
 
     final PathMatcher matcher = fs.getPathMatcher("glob:" + prefix + separator + pattern);
     java.nio.file.Files.walkFileTree(
-        fs.getPath(prefix), new SimpleFileVisitor<Path>() {
+        fs.getPath(prefix),
+        EnumSet.of(FileVisitOption.FOLLOW_LINKS),
+        Integer.MAX_VALUE,
+        new SimpleFileVisitor<Path>() {
           @Override
           public FileVisitResult visitFile(Path p, BasicFileAttributes attrs) {
             if (matcher.matches(p) || matcher.matches(p.normalize())) {

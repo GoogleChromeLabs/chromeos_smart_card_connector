@@ -55,7 +55,7 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
     if (File.separatorChar == '\\') {
       return "c:/myfile.js";
     } else {
-      return "c:\\\\myfile.js";
+      return "c:\\myfile.js";
     }
   }
 
@@ -67,16 +67,16 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
   @Test
   public void testBasicMappingGoldenOutput() throws Exception {
     // Empty source map test
-    checkSourceMap("function __BASIC__() { }",
-
-                   "{\n" +
-                   "\"version\":3,\n" +
-                   "\"file\":\"testcode\",\n" +
-                   "\"lineCount\":1,\n" +
-                   "\"mappings\":\"AAAAA,QAASA,UAAS,EAAG;\",\n" +
-                   "\"sources\":[\"testcode\"],\n" +
-                   "\"names\":[\"__BASIC__\"]\n" +
-                   "}\n");
+    checkSourceMap(
+        "function __BASIC__() { }",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(1)
+            .setMappings("A,aAAAA,QAASA,UAAS,EAAG;")
+            .setSources("testcode")
+            .setNames("__BASIC__")
+            .build());
   }
 
   @Test
@@ -93,19 +93,16 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
   @Test
   public void testLiteralMappingsGoldenOutput() throws Exception {
     // Empty source map test
-    checkSourceMap("function __BASIC__(__PARAM1__, __PARAM2__) { " +
-                   "var __VAR__ = '__STR__'; }",
-
-                   "{\n" +
-                   "\"version\":3,\n" +
-                   "\"file\":\"testcode\",\n" +
-                   "\"lineCount\":1,\n" +
-                   "\"mappings\":\"AAAAA,QAASA,UAAS,CAACC,UAAD,CAAaC,UAAb," +
-                   "CAAyB,CAAE,IAAIC,QAAU,SAAhB;\",\n" +
-                   "\"sources\":[\"testcode\"],\n" +
-                   "\"names\":[\"__BASIC__\",\"__PARAM1__\",\"__PARAM2__\"," +
-                   "\"__VAR__\"]\n" +
-                   "}\n");
+    checkSourceMap(
+        "function __BASIC__(__PARAM1__, __PARAM2__) { " + "var __VAR__ = '__STR__'; }",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(1)
+            .setMappings("A,aAAAA,QAASA,UAAS,CAACC,UAAD,CAAaC,UAAb,CAAyB,CAAE,IAAIC,QAAU,SAAhB;")
+            .setSources("testcode")
+            .setNames("__BASIC__", "__PARAM1__", "__PARAM2__", "__VAR__")
+            .build());
   }
 
   @Test
@@ -140,141 +137,143 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
   @Test
   public void testGoldenOutput0() throws Exception {
     // Empty source map test
-    checkSourceMap("",
-
-                   "{\n" +
-                   "\"version\":3,\n" +
-                   "\"file\":\"testcode\",\n" +
-                   "\"lineCount\":1,\n" +
-                   "\"mappings\":\";\",\n" +
-                   "\"sources\":[],\n" +
-                   "\"names\":[]\n" +
-                   "}\n");
+    checkSourceMap(
+        "",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(1)
+            .setMappings("A;")
+            .setSources()
+            .setNames()
+            .build());
   }
 
   @Test
   public void testGoldenOutput0a() throws Exception {
-    checkSourceMap("a;",
-
-                   "{\n" +
-                   "\"version\":3,\n" +
-                   "\"file\":\"testcode\",\n" +
-                   "\"lineCount\":1,\n" +
-                   "\"mappings\":\"AAAAA;\",\n" +
-                   "\"sources\":[\"testcode\"],\n" +
-                   "\"names\":[\"a\"]\n" +
-                   "}\n");
+    checkSourceMap(
+        "a;",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(1)
+            .setMappings("A,aAAAA;")
+            .setSources("testcode")
+            .setNames("a")
+            .build());
 
     sourceMapIncludeSourcesContent = true;
 
-    checkSourceMap("a;",
-
-                   "{\n" +
-                   "\"version\":3,\n" +
-                   "\"file\":\"testcode\",\n" +
-                   "\"lineCount\":1,\n" +
-                   "\"mappings\":\"AAAAA;\",\n" +
-                   "\"sources\":[\"testcode\"],\n" +
-                   "\"sourcesContent\":[\"a;\"],\n" +
-                   "\"names\":[\"a\"]\n" +
-                   "}\n");
+    checkSourceMap(
+        "a;",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(1)
+            .setMappings("A,aAAAA;")
+            .setSources("testcode")
+            .setSourcesContent("a;")
+            .setNames("a")
+            .build());
   }
 
   @Test
   public void testGoldenOutput1() throws Exception {
     detailLevel = SourceMap.DetailLevel.ALL;
 
-    checkSourceMap("function f(foo, bar) { foo = foo + bar + 2; return foo; }",
-
-                   "{\n" +
-                   "\"version\":3,\n" +
-                   "\"file\":\"testcode\",\n" +
-                   "\"lineCount\":1,\n" +
-                   "\"mappings\":\"AAAAA,QAASA,EAAC,CAACC,GAAD,CAAMC,GAAN," +
-                       "CAAW,CAAED,GAAA,CAAMA,GAAN,CAAYC,GAAZ,CAAkB,CAAG," +
-                       "OAAOD,IAA9B;\",\n" +
-                   "\"sources\":[\"testcode\"],\n" +
-                   "\"names\":[\"f\",\"foo\",\"bar\"]\n" +
-                   "}\n");
+    checkSourceMap(
+        "function f(foo, bar) { foo = foo + bar + 2; return foo; }",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(1)
+            .setMappings(
+                "A,aAAAA,QAASA,EAAC,CAACC,GAAD,CAAMC,GAAN,"
+                    + "CAAW,CAAED,GAAA,CAAMA,GAAN,CAAYC,GAAZ,CAAkB,CAAG,"
+                    + "OAAOD,IAA9B;")
+            .setSources("testcode")
+            .setNames("f", "foo", "bar")
+            .build());
 
     detailLevel = SourceMap.DetailLevel.SYMBOLS;
 
-    checkSourceMap("function f(foo, bar) { foo = foo + bar + 2; return foo; }",
-
-                   "{\n" +
-                   "\"version\":3,\n" +
-                   "\"file\":\"testcode\",\n" +
-                   "\"lineCount\":1,\n" +
-                   "\"mappings\":\"AAAAA,QAASA,EAATA,CAAWC,GAAXD,CAAgBE," +
-                       "GAAhBF,EAAuBC,GAAvBD,CAA6BC,GAA7BD,CAAmCE,GAAnCF," +
-                       "SAAmDC,IAAnDD;\",\n" +
-                   "\"sources\":[\"testcode\"],\n" +
-                   "\"names\":[\"f\",\"foo\",\"bar\"]\n" +
-                   "}\n");
+    checkSourceMap(
+        "function f(foo, bar) { foo = foo + bar + 2; return foo; }",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(1)
+            .setMappings(
+                "A,aAAAA,QAASA,EAATA,CAAWC,GAAXD,CAAgBE,"
+                    + "GAAhBF,EAAuBC,GAAvBD,CAA6BC,GAA7BD,CAAmCE,GAAnCF,"
+                    + "SAAmDC,IAAnDD;")
+            .setSources("testcode")
+            .setNames("f", "foo", "bar")
+            .build());
 
     sourceMapIncludeSourcesContent = true;
 
-    checkSourceMap("function f(foo, bar) { foo = foo + bar + 2; return foo; }",
-
-                   "{\n" +
-                   "\"version\":3,\n" +
-                   "\"file\":\"testcode\",\n" +
-                   "\"lineCount\":1,\n" +
-                   "\"mappings\":\"AAAAA,QAASA,EAATA,CAAWC,GAAXD,CAAgBE," +
-                       "GAAhBF,EAAuBC,GAAvBD,CAA6BC,GAA7BD,CAAmCE,GAAnCF," +
-                       "SAAmDC,IAAnDD;\",\n" +
-                   "\"sources\":[\"testcode\"],\n" +
-                   "\"sourcesContent\":" +
-                       "[\"function f(foo, bar) { foo = foo + bar + 2; return foo; }\"],\n" +
-                   "\"names\":[\"f\",\"foo\",\"bar\"]\n" +
-                   "}\n");
+    checkSourceMap(
+        "function f(foo, bar) { foo = foo + bar + 2; return foo; }",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(1)
+            .setMappings(
+                "A,aAAAA,QAASA,EAATA,CAAWC,GAAXD,CAAgBE,"
+                    + "GAAhBF,EAAuBC,GAAvBD,CAA6BC,GAA7BD,CAAmCE,GAAnCF,"
+                    + "SAAmDC,IAAnDD;")
+            .setSources("testcode")
+            .setSourcesContent("function f(foo, bar) { foo = foo + bar + 2; return foo; }")
+            .setNames("f", "foo", "bar")
+            .build());
   }
 
   @Test
   public void testGoldenOutput2() throws Exception {
-    checkSourceMap("function f(foo, bar) {\r\n\n\n\nfoo = foo + bar + foo;" +
-                   "\nreturn foo;\n}",
-
-                   "{\n" +
-                   "\"version\":3,\n" +
-                   "\"file\":\"testcode\",\n" +
-                   "\"lineCount\":1,\n" +
-                   "\"mappings\":\"AAAAA,QAASA,EAAC,CAACC,GAAD,CAAMC,GAAN," +
-                       "CAAW,CAIrBD,GAAA,CAAMA,GAAN,CAAYC,GAAZ,CAAkBD," +
-                       "GAClB,OAAOA,IALc;\",\n" +
-                   "\"sources\":[\"testcode\"],\n" +
-                   "\"names\":[\"f\",\"foo\",\"bar\"]\n" +
-                   "}\n");
+    checkSourceMap(
+        "function f(foo, bar) {\r\n\n\n\nfoo = foo + bar + foo;" + "\nreturn foo;\n}",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(1)
+            .setMappings(
+                "A,aAAAA,QAASA,EAAC,CAACC,GAAD,CAAMC,GAAN,"
+                    + "CAAW,CAIrBD,GAAA,CAAMA,GAAN,CAAYC,GAAZ,CAAkBD,"
+                    + "GAClB,OAAOA,IALc;")
+            .setSources("testcode")
+            .setNames("f", "foo", "bar")
+            .build());
   }
 
   @Test
   public void testGoldenOutput3() throws Exception {
-    checkSourceMap("c:\\myfile.js",
-                   "foo;",
-
-                   "{\n" +
-                   "\"version\":3,\n" +
-                   "\"file\":\"testcode\",\n" +
-                   "\"lineCount\":1,\n" +
-                   "\"mappings\":\"AAAAA;\",\n" +
-                   "\"sources\":[\"" + getEncodedFileName() + "\"],\n" +
-                   "\"names\":[\"foo\"]\n" +
-                   "}\n");
+    checkSourceMap(
+        "c:\\myfile.js",
+        "foo;",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(1)
+            .setMappings("A,aAAAA;")
+            .setSources(getEncodedFileName())
+            .setNames("foo")
+            .build());
   }
 
   @Test
   public void testGoldenOutput4() throws Exception {
-    checkSourceMap("c:\\myfile.js",
-                   "foo;   boo;   goo;",
-
-                   "{\n" +
-                   "\"version\":3,\n" +
-                   "\"file\":\"testcode\",\n" +
-                   "\"lineCount\":1,\n" +
-                   "\"mappings\":\"AAAAA,GAAOC,IAAOC;\",\n" +
-                   "\"sources\":[\"" + getEncodedFileName() + "\"],\n" +
-                   "\"names\":[\"foo\",\"boo\",\"goo\"]\n" +
-                   "}\n");
+    checkSourceMap(
+        "c:\\myfile.js",
+        "foo;   boo;   goo;",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(1)
+            .setMappings("A,aAAAA,GAAOC,IAAOC;")
+            .setSources(getEncodedFileName())
+            .setNames("foo", "boo", "goo")
+            .build());
   }
 
   @Test
@@ -283,90 +282,110 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
 
     checkSourceMap(
         "c:\\myfile.js",
-        "/** @preserve\n" +
-        " * this is a test.\n" +
-        " */\n" +
-        "var foo=a + 'this is a really long line that will force the"
-        + " mapping to span multiple lines 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + "' + c + d + e;",
-
-        "{\n" +
-        "\"version\":3,\n" +
-        "\"file\":\"testcode\",\n" +
-        "\"lineCount\":6,\n" +
-        "\"mappings\":\"A;;;;AAGA,IAAIA,IAAIC,CAAJD,CAAQ,mxCAARA;AAA8xCE," +
-            "CAA9xCF,CAAkyCG,CAAlyCH,CAAsyCI;\",\n" +
-        "\"sources\":[\"" + getEncodedFileName() + "\"],\n" +
-        "\"names\":[\"foo\",\"a\",\"c\",\"d\",\"e\"]\n" +
-        "}\n");
+        "/** @preserve\n"
+            + " * this is a test.\n"
+            + " */\n"
+            + "var foo=a + 'this is a really long line that will force the"
+            + " mapping to span multiple lines 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + "' + c + d + e;",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(6)
+            .setMappings(
+                "A;;;;aAGA,IAAIA,IAAIC,CAAJD,CAAQ,mxCAARA;AAA8xCE,"
+                    + "CAA9xCF,CAAkyCG,CAAlyCH,CAAsyCI;")
+            .setSources(getEncodedFileName())
+            .setNames("foo", "a", "c", "d", "e")
+            .build());
 
     detailLevel = SourceMap.DetailLevel.SYMBOLS;
 
-    checkSourceMap("c:\\myfile.js",
-        "/** @preserve\n" +
-        " * this is a test.\n" +
-        " */\n" +
-        "var foo=a + 'this is a really long line that will force the"
-        + " mapping to span multiple lines 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + " 123456789 123456789 123456789 123456789 123456789"
-        + "' + c + d + e;",
+    checkSourceMap(
+        "c:\\myfile.js",
+        "/** @preserve\n"
+            + " * this is a test.\n"
+            + " */\n"
+            + "var foo=a + 'this is a really long line that will force the"
+            + " mapping to span multiple lines 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + " 123456789 123456789 123456789 123456789 123456789"
+            + "' + c + d + e;",
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(6)
+            .setMappings("A;;;;iBAGIA,IAAIC,CAAJD;AAA8xCE,CAA9xCF,CAAkyCG,CAAlyCH,CAAsyCI;")
+            .setSources(getEncodedFileName())
+            .setNames("foo", "a", "c", "d", "e")
+            .build());
+  }
 
-        "{\n" +
-        "\"version\":3,\n" +
-        "\"file\":\"testcode\",\n" +
-        "\"lineCount\":6,\n" +
-        "\"mappings\":\"A;;;;IAGIA,IAAIC,CAAJD;AAA8xCE,CAA9xCF,CAAkyCG," +
-        "CAAlyCH,CAAsyCI;\",\n" +
-        "\"sources\":[\"" + getEncodedFileName() + "\"],\n" +
-        "\"names\":[\"foo\",\"a\",\"c\",\"d\",\"e\"]\n" +
-        "}\n");
+  @Test
+  public void testGoldenOutput_semanticLineBreaks() throws Exception {
+    // Mapping code segments that contained newlines caused b/121282798. It appears to be related to
+    // template literals because they can contain newlines which are meaningful within a single
+    // expression, and are thus preserved.
+    checkSourceMap(
+        "c:\\myfile.js",
+        lines(
+            "var myMultilineTemplate = `Item ${a}", //
+            "Item ${b}",
+            "Item ${c}`;"),
+        TestJsonBuilder.create()
+            .setVersion(3)
+            .setFile("testcode")
+            .setLineCount(3)
+            .setMappings("A,aAAA,IAAIA,oBAAsB,QAAQC,CAAR;OACnBC,CADmB;OAEnBC,CAFmB;")
+            .setSources(getEncodedFileName())
+            .setNames("myMultilineTemplate", "a", "b", "c")
+            .build());
   }
 
   @Test
@@ -573,16 +592,18 @@ public final class SourceMapGeneratorV3Test extends SourceMapTestCase {
   @Test
   public void testSourceMapMergeExtensions() throws Exception {
     SourceMapGeneratorV3 mapper = new SourceMapGeneratorV3();
-    mapper.mergeMapSection(0, 0,
-        "{\n" +
-        "\"version\":3,\n" +
-        "\"file\":\"testcode\",\n" +
-        "\"lineCount\":1,\n" +
-        "\"mappings\":\"AAAAA,QAASA,UAAS,EAAG;\",\n" +
-        "\"sources\":[\"testcode\"],\n" +
-        "\"names\":[\"__BASIC__\"],\n" +
-        "\"x_company_foo\":2\n" +
-        "}\n");
+    mapper.mergeMapSection(
+        0,
+        0,
+        "{\n"
+            + "\"version\":3,\n"
+            + "\"file\":\"testcode\",\n"
+            + "\"lineCount\":1,\n"
+            + "\"mappings\":\"AAAAA,a,QAASA,UAAS,EAAG;\",\n"
+            + "\"sources\":[\"testcode\"],\n"
+            + "\"names\":[\"__BASIC__\"],\n"
+            + "\"x_company_foo\":2\n"
+            + "}\n");
 
     assertThat(mapper.hasExtension("x_company_foo")).isFalse();
 

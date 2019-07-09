@@ -31,10 +31,18 @@
 
 
 /**
- * @param {string=} opt_description
+ * @constructor
+ * @param {*=} opt_description
  * @return {symbol}
  */
 function Symbol(opt_description) {}
+
+
+/**
+ * @const {string|undefined}
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/description
+ */
+Symbol.prototype.description;
 
 
 /**
@@ -42,7 +50,7 @@ function Symbol(opt_description) {}
  * @return {symbol|undefined}
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/for
  */
-Symbol.for;
+Symbol.for = function(sym) {};
 
 
 /**
@@ -50,18 +58,87 @@ Symbol.for;
  * @return {string|undefined}
  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/keyFor
  */
-Symbol.keyFor;
+Symbol.keyFor = function(sym) {};
 
 
 // Well known symbols
 
-/** @const {symbol} */
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/asyncIterator
+ * @const {symbol}
+ */
+Symbol.asyncIterator;
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/hasInstance
+ * @const {symbol}
+ */
+Symbol.hasInstance;
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/isConcatSpreadable
+ * @const {symbol}
+ */
+Symbol.isConcatSpreadable;
+
+/**
+ * @const {symbol}
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/iterator
+ */
 Symbol.iterator;
 
-/** @const {symbol} */
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/match
+ * @const {symbol}
+ */
+Symbol.match;
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/matchAll
+ * @const {symbol}
+ */
+Symbol.matchAll;
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/replace
+ * @const {symbol}
+ */
+Symbol.replace;
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/search
+ * @const {symbol}
+ */
+Symbol.search;
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/species
+ * @const {symbol}
+ */
+Symbol.species;
+
+// /**
+//  * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/split
+//  * @const {symbol}
+//  */
+// Symbol.split;
+
+/**
+ * @const {symbol}
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/toPrimitive
+ */
+Symbol.toPrimitive;
+
+/**
+ * @const {symbol}
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/toStringTag
+ */
 Symbol.toStringTag;
 
-/** @const {symbol} */
+/**
+ * @const {symbol}
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Symbol/unscopables
+ */
 Symbol.unscopables;
 
 
@@ -106,7 +183,7 @@ function Iterator() {}
  * @param {?=} opt_value
  * @return {!IIterableResult<VALUE>}
  */
-Iterator.prototype.next;
+Iterator.prototype.next = function(opt_value) {};
 
 
 /**
@@ -327,6 +404,7 @@ Object.prototype.constructor = function() {};
  * @modifies {this}
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineGetter
  * @return {undefined}
+ * @deprecated
  */
 Object.prototype.__defineGetter__ = function(sprop, fun) {};
 
@@ -340,6 +418,7 @@ Object.prototype.__defineGetter__ = function(sprop, fun) {};
  * @modifies {this}
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/defineSetter
  * @return {undefined}
+ * @deprecated
  */
 Object.prototype.__defineSetter__ = function(sprop, fun) {};
 
@@ -371,6 +450,7 @@ Object.prototype.isPrototypeOf = function(other) {};
  * getter should be returned
  * @return {Function}
  * @nosideeffects
+ * @deprecated
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/lookupGetter
  */
 Object.prototype.__lookupGetter__ = function(sprop) {};
@@ -383,6 +463,7 @@ Object.prototype.__lookupGetter__ = function(sprop) {};
  *     setter should be returned.
  * @return {Function}
  * @nosideeffects
+ * @deprecated
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/lookupSetter
  */
 Object.prototype.__lookupSetter__ = function(sprop) {};
@@ -393,6 +474,7 @@ Object.prototype.__lookupSetter__ = function(sprop) {};
  *
  * @param {Function} fun
  * @return {*}
+ * @deprecated
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/noSuchMethod
  */
 Object.prototype.__noSuchMethod__ = function(fun) {};
@@ -628,9 +710,8 @@ Array.prototype.shift = function() {};
 /**
  * Extracts a section of an array and returns a new array.
  *
- * @param {*=} opt_begin Zero-based index at which to begin extraction.  A
- *     non-number type will be auto-cast by the browser to a number.
- * @param {*=} opt_end Zero-based index at which to end extraction.  slice
+ * @param {?number=} begin Zero-based index at which to begin extraction.
+ * @param {?number=} end Zero-based index at which to end extraction.  slice
  *     extracts up to but not including end.
  * @return {!Array<T>}
  * @this {IArrayLike<T>|string}
@@ -638,7 +719,7 @@ Array.prototype.shift = function() {};
  * @nosideeffects
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice
  */
-Array.prototype.slice = function(opt_begin, opt_end) {};
+Array.prototype.slice = function(begin, end) {};
 
 /**
  * Sorts the elements of an array in place.
@@ -657,11 +738,10 @@ Array.prototype.sort = function(opt_compareFn) {};
  * Changes the content of an array, adding new elements while removing old
  * elements.
  *
- * @param {*=} opt_index Index at which to start changing the array. If negative,
- *     will begin that many elements from the end.  A non-number type will be
- *     auto-cast by the browser to a number.
- * @param {*=} opt_howMany An integer indicating the number of old array elements
- *     to remove.
+ * @param {?number=} index Index at which to start changing the array. If
+ *     negative, will begin that many elements from the end.
+ * @param {?number=} howMany An integer indicating the number of old array
+ *     elements to remove.
  * @param {...T} var_args
  * @return {!Array<T>}
  * @this {IArrayLike<T>}
@@ -669,7 +749,7 @@ Array.prototype.sort = function(opt_compareFn) {};
  * @template T
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/splice
  */
-Array.prototype.splice = function(opt_index, opt_howMany, var_args) {};
+Array.prototype.splice = function(index, howMany, var_args) {};
 
 /**
  * @return {string}
@@ -821,75 +901,6 @@ Array.prototype.input;
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/length
  */
 Array.prototype.length;
-
-/**
- * @param {IArrayLike<T>} arr
- * @param {?function(this:S, T, number, ?) : ?} callback
- * @param {S=} opt_context
- * @return {boolean}
- * @template T,S
- */
-Array.every = function(arr, callback, opt_context) {};
-
-/**
- * @param {IArrayLike<T>} arr
- * @param {?function(this:S, T, number, ?) : ?} callback
- * @param {S=} opt_context
- * @return {!Array<T>}
- * @template T,S
- */
-Array.filter = function(arr, callback, opt_context) {};
-
-/**
- * @param {IArrayLike<T>} arr
- * @param {?function(this:S, T, number, ?) : ?} callback
- * @param {S=} opt_context
- * @template T,S
- * @return {undefined}
- */
-Array.forEach = function(arr, callback, opt_context) {};
-
-/**
- * Mozilla 1.6+ only.
- * @param {IArrayLike<T>} arr
- * @param {T} obj
- * @param {number=} opt_fromIndex
- * @return {number}
- * @template T
- * @nosideeffects
- * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/indexOf
- */
-Array.indexOf = function(arr, obj, opt_fromIndex) {};
-
-/**
- * Mozilla 1.6+ only.
- * @param {IArrayLike<T>} arr
- * @param {T} obj
- * @param {number=} opt_fromIndex
- * @return {number}
- * @template T
- * @nosideeffects
- * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/lastIndexOf
- */
-Array.lastIndexOf = function(arr, obj, opt_fromIndex) {};
-
-/**
- * @param {IArrayLike<T>} arr
- * @param {?function(this:S, T, number, !Array<T>): R} callback
- * @param {S=} opt_context
- * @return {!Array<R>}
- * @template T,S,R
- */
-Array.map = function(arr, callback, opt_context) {};
-
-/**
- * @param {IArrayLike<T>} arr
- * @param {?function(this:S, T, number, ?) : ?} callback
- * @param {S=} opt_context
- * @return {boolean}
- * @template T,S
- */
-Array.some = function(arr, callback, opt_context) {};
 
 /**
  * Introduced in 1.8.5.
@@ -1876,7 +1887,7 @@ String.prototype.quote = function() {};
  *
  * @this {String|string}
  * @param {RegExp|string} pattern
- * @param {string|Function} replacement
+ * @param {?string|function(string, ...?):*} replacement
  * @return {string}
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/replace
  */
@@ -1966,19 +1977,21 @@ String.prototype.sup = function() {};
 
 /**
  * @this {String|string}
+ * @param {(string|Array<string>)=} opt_locales
  * @return {string}
  * @nosideeffects
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/toLocaleUpperCase
  */
-String.prototype.toLocaleUpperCase = function() {};
+String.prototype.toLocaleUpperCase = function(opt_locales) {};
 
 /**
  * @this {String|string}
+ * @param {(string|Array<string>)=} opt_locales
  * @return {string}
  * @nosideeffects
  * @see http://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/toLocaleLowerCase
  */
-String.prototype.toLocaleLowerCase = function() {};
+String.prototype.toLocaleLowerCase = function(opt_locales) {};
 
 /**
  * @this {String|string}
@@ -2388,5 +2401,6 @@ function URIError(opt_message, opt_file, opt_line) {}
 /**
  * @see http://msdn.microsoft.com/en-us/library/7sw4ddf8.aspx
  * @type {function(new:?, string, string=)}
+ * @deprecated
  */
 function ActiveXObject(progId, opt_location) {}

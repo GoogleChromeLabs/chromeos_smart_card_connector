@@ -283,7 +283,26 @@ chrome.app.runtime.LaunchItem.prototype.type;
 chrome.app.runtime.onEmbedRequested;
 
 
-/** @type {!ChromeObjectEvent} */
+/**
+ * @constructor
+ * @see https://developer.chrome.com/apps/app_runtime#event-onLaunched
+ */
+chrome.app.runtime.LaunchData = function() {};
+
+
+/** @type {!Array<{entry: !FileEntry, type: (string|undefined)}>|undefined} */
+chrome.app.runtime.LaunchData.prototype.items;
+
+
+/** @type {boolean|undefined} */
+chrome.app.runtime.LaunchData.prototype.isKioskSession;
+
+
+/** @type {string|undefined} */
+chrome.app.runtime.LaunchData.prototype.source;
+
+
+/** @type {!ChromeBaseEvent<function(!chrome.app.runtime.LaunchData)>} */
 chrome.app.runtime.onLaunched;
 
 
@@ -2280,6 +2299,29 @@ chrome.enterprise.platformKeys.importCertificate = function(
 chrome.enterprise.platformKeys.removeCertificate = function(
     tokenId, certificate, opt_callback) {};
 
+/**
+ * reportingPrivate is a Private API for reporting Chrome browser status to
+ * admin console.
+ * @see https://cs.chromium.org/chromium/src/chrome/common/extensions/api/enterprise_reporting_private.idl
+ */
+chrome.enterprise.reportingPrivate = {};
+
+/**
+ * Uploads the status of Chrome browser to the admin console by sending
+ * request to the DMServer. Sets runtime.lastError on failure.
+ * @param {!Object} report Object to report to admin console.
+ * @param {(function(): void)=} callback Called back when this operation is
+ *     finished.
+ */
+chrome.enterprise.reportingPrivate.uploadChromeDesktopReport = function(
+    report, callback) {};
+
+/**
+ * Gets the identity of device that Chrome browser is running on. The ID is
+ * retrieved from the local device and used by the Google admin console.
+ * @param {(function(!string): void)=} callback Called with the device ID.
+ */
+chrome.enterprise.reportingPrivate.getDeviceId = function(callback) {};
 
 /**
  * @see https://developer.chrome.com/extensions/extension.html
@@ -4128,6 +4170,11 @@ chrome.idle.queryState = function(thresholdSeconds, callback) {};
  */
 chrome.idle.setDetectionInterval = function(intervalInSeconds) {};
 
+/**
+ * @param {function(number): void} callback Callback to receive the delay
+ * @return {undefined}
+ */
+chrome.idle.getAutoLockDelay = function(callback) {};
 
 /** @type {!ChromeEvent} */
 chrome.idle.onStateChanged;
@@ -5050,7 +5097,8 @@ chrome.permissions.onRemoved;
 
 
 /**
- *  @see https://developer.chrome.com/extensions/platformKeys
+ * @const
+ * @see https://developer.chrome.com/extensions/platformKeys
  */
 chrome.platformKeys = {};
 
@@ -5131,6 +5179,7 @@ chrome.platformKeys.verifyTLSServerCertificate = function(details, callback) {};
 
 
 /**
+ * @const
  * @see http://developer.chrome.com/dev/extensions/power.html
  */
 chrome.power = {};
@@ -6678,6 +6727,9 @@ chrome.system.display.clearTouchCalibration = function(id) {};
 chrome.system.display.onDisplayChanged;
 
 
+/**
+ * @const
+ */
 chrome.types = {};
 
 
@@ -9283,9 +9335,9 @@ chrome.serial = {};
  *   persistent: (boolean|undefined),
  *   name: (string|undefined),
  *   bufferSize: (number|undefined),
- *   bitRate: (number|undefined),
+ *   bitrate: (number|undefined),
  *   dataBits: (string|undefined),
- *   parityBits: (string|undefined),
+ *   parityBit: (string|undefined),
  *   stopBits: (string|undefined),
  *   ctsFlowControl: (boolean|undefined),
  *   receiveTimeout: (number|undefined),
@@ -9305,9 +9357,9 @@ chrome.serial.ConnectionOptions;
  *   bufferSize: number,
  *   receiveTimeout: number,
  *   sendTimeout: number,
- *   bitRate: (number|undefined),
+ *   bitrate: (number|undefined),
  *   dataBits: (string|undefined),
- *   parityBits: (string|undefined),
+ *   parityBit: (string|undefined),
  *   stopBits: (string|undefined),
  *   ctsFlowControl: (boolean|undefined)
  * }}
@@ -10513,6 +10565,16 @@ chrome.bluetoothPrivate.TransportType = {
 
 
 /**
+ * Connects to the given device. This will only throw an error if the device
+ * address is invalid or the device is already connected. Otherwise this will
+ * succeed and invoke |callback| with ConnectResultType.
+ * @param {string} deviceAddress
+ * @param {function(!chrome.bluetoothPrivate.ConnectResultType):void=} callback
+ */
+chrome.bluetoothPrivate.connect = function(deviceAddress, callback) {};
+
+
+/**
  * @const
  * @see http://goo.gl/XmVdHm
  */
@@ -11070,3 +11132,70 @@ chrome.declarativeContent.RequestContentScript = function(literalValue) {};
  * @see https://developer.chrome.com/extensions/declarativeContent#event-onPageChanged
  */
 chrome.declarativeContent.onPageChanged;
+
+/**
+ * @see https://developer.chrome.com/extensions/instanceID
+ * @const
+ */
+chrome.instanceID = {};
+
+/**
+ * @param {function(string)} callback
+ * @see https://developer.chrome.com/extensions/instanceID#method-getID
+ */
+chrome.instanceID.getID = function(callback) {};
+
+/**
+ * @param {function(number)} callback
+ * @see https://developer.chrome.com/extensions/instanceID#method-getCreationTime
+ */
+chrome.instanceID.getCreationTime = function(callback) {};
+
+/**
+ * @typedef {{
+ *   authorizedEntity: string,
+ *   scope: string,
+ *   options: (!Object|undefined)
+ * }}
+ */
+chrome.instanceID.GetTokenParams;
+
+/**
+ * @param {!chrome.instanceID.GetTokenParams} getTokenParams
+ * @param {function(string)} callback
+ * @see https://developer.chrome.com/extensions/instanceID#method-getToken
+ */
+chrome.instanceID.getToken = function(getTokenParams, callback) {};
+
+/**
+ * @typedef {{
+ *   authorizedEntity: string,
+ *   scope: string,
+ * }}
+ */
+chrome.instanceID.DeleteTokenParams;
+
+/**
+ * @param {!chrome.instanceID.DeleteTokenParams} deleteTokenParams
+ * @param {function()} callback
+ * @see https://developer.chrome.com/extensions/instanceID#method-deleteToken
+ */
+chrome.instanceID.deleteToken = function(deleteTokenParams, callback) {};
+
+/**
+ * @param {function()} callback
+ * @see https://developer.chrome.com/extensions/instanceID#method-deleteID
+ */
+chrome.instanceID.deleteID = function(callback) {};
+
+/**
+ * @const
+ * @see https://developer.chrome.com/extensions/instanceID#event-onTokenRefresh
+ */
+chrome.instanceID.onTokenRefresh = {};
+
+/**
+ * @param {function()} callback
+ * @see https://developer.chrome.com/extensions/instanceID#event-onTokenRefresh
+ */
+chrome.instanceID.onTokenRefresh.addListener = function(callback) {};

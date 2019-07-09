@@ -47,12 +47,6 @@ Window.prototype.Components;
  */
 Window.prototype.content;
 
-/**
- * @type {boolean}
- * @see https://developer.mozilla.org/en/DOM/window.closed
- */
-Window.prototype.closed;
-
 /** @see https://developer.mozilla.org/en/DOM/window.controllers */
 Window.prototype.controllers;
 
@@ -73,107 +67,21 @@ Window.prototype.dialogArguments;
 Window.prototype.directories;
 
 /**
- * @type {HTMLObjectElement|HTMLIFrameElement|null}
- * @see https://developer.mozilla.org/en/DOM/window.frameElement
- */
-Window.prototype.frameElement;
-
-/**
- * Allows lookup of frames by index or by name.
- * @type {!Window}
- * @see https://developer.mozilla.org/en/DOM/window.frames
- */
-Window.prototype.frames;
-
-/**
  * @type {boolean}
  * @see https://developer.mozilla.org/en/DOM/window.fullScreen
  */
 Window.prototype.fullScreen;
 
 /**
- * @return {!Promise<!BatteryManager>}
- * @see http://www.w3.org/TR/battery-status/
- */
-Navigator.prototype.getBattery = function() {};
-
-/**
  * @see https://developer.mozilla.org/en/DOM/Storage#globalStorage
  */
 Window.prototype.globalStorage;
-
-/**
- * @type {!History}
- * @suppress {duplicate}
- * @see https://developer.mozilla.org/en/DOM/window.history
- */
-var history;
-
-/**
- * Returns the number of frames (either frame or iframe elements) in the
- * window.
- *
- * @type {number}
- * @see https://developer.mozilla.org/en/DOM/window.length
- */
-Window.prototype.length;
-
-/**
- * Location has an exception in the DeclaredGlobalExternsOnWindow pass
- * so we have to manually include it:
- * https://github.com/google/closure-compiler/blob/master/src/com/google/javascript/jscomp/DeclaredGlobalExternsOnWindow.java#L116
- *
- * @type {!Location}
- * @implicitCast
- * @see https://developer.mozilla.org/en/DOM/window.location
- */
-Window.prototype.location;
-
-/**
- * @see https://developer.mozilla.org/en/DOM/window.locationbar
- */
-Window.prototype.locationbar;
-
-/**
- * @see https://developer.mozilla.org/en/DOM/window.menubar
- */
-Window.prototype.menubar;
-
-/**
- * @type {string}
- * @see https://developer.mozilla.org/en/DOM/window.name
- */
-Window.prototype.name;
-
-/**
- * @type {Navigator}
- * @see https://developer.mozilla.org/en/DOM/window.navigator
- */
-Window.prototype.navigator;
-
-/**
- * @type {?Window}
- * @see https://developer.mozilla.org/en/DOM/window.opener
- */
-Window.prototype.opener;
-
-/**
- * @type {!Window}
- * @see https://developer.mozilla.org/en/DOM/window.parent
- */
-Window.prototype.parent;
-
-/** @see https://developer.mozilla.org/en/DOM/window.personalbar */
-Window.prototype.personalbar;
 
 /** @see https://developer.mozilla.org/en/DOM/window.pkcs11 */
 Window.prototype.pkcs11;
 
 /** @see https://developer.mozilla.org/en/DOM/window */
 Window.prototype.returnValue;
-
-/** @see https://developer.mozilla.org/en/DOM/window.scrollbars */
-Window.prototype.scrollbars;
 
 /**
  * @type {number}
@@ -187,12 +95,6 @@ Window.prototype.scrollMaxX;
  */
 Window.prototype.scrollMaxY;
 
-/**
- * @type {!Window}
- * @see https://developer.mozilla.org/en/DOM/window.self
- */
-Window.prototype.self;
-
 /** @see https://developer.mozilla.org/en/DOM/Storage#sessionStorage */
 Window.prototype.sessionStorage;
 
@@ -200,83 +102,16 @@ Window.prototype.sessionStorage;
 Window.prototype.sidebar;
 
 /**
- * @type {?string}
- * @see https://developer.mozilla.org/en/DOM/window.status
- */
-Window.prototype.status;
-
-/** @see https://developer.mozilla.org/en/DOM/window.statusbar */
-Window.prototype.statusbar;
-
-/** @see https://developer.mozilla.org/en/DOM/window.toolbar */
-Window.prototype.toolbar;
-
-/**
- * @type {!Window}
- * @see https://developer.mozilla.org/en/DOM/window.self
- */
-Window.prototype.top;
-
-/**
- * @type {!Window}
- * @see https://developer.mozilla.org/en/DOM/window.self
- */
-Window.prototype.window;
-
-/**
- * @param {*} message
- * @see https://developer.mozilla.org/en/DOM/window.alert
- * @return {undefined}
- */
-Window.prototype.alert = function(message) {};
-
-/**
- * Decodes a string of data which has been encoded using base-64 encoding.
- *
- * @param {string} encodedData
- * @return {string}
- * @see https://developer.mozilla.org/en/DOM/window.atob
- * @nosideeffects
- */
-function atob(encodedData) {}
-
-/**
  * @see https://developer.mozilla.org/en/DOM/window.back
  * @return {undefined}
  */
 Window.prototype.back = function() {};
 
-/**
- * @see https://developer.mozilla.org/en/DOM/window.blur
- * @return {undefined}
- */
-Window.prototype.blur = function() {};
-
-/**
- * @param {string} stringToEncode
- * @return {string}
- * @see https://developer.mozilla.org/en/DOM/window.btoa
- * @nosideeffects
- */
-function btoa(stringToEncode) {}
-
 /** @deprecated */
 Window.prototype.captureEvents;
 
-/**
- * @see https://developer.mozilla.org/en/DOM/window.close
- * @return {undefined}
- */
-Window.prototype.close = function() {};
-
 /**@see https://developer.mozilla.org/en/DOM/window.find */
 Window.prototype.find;
-
-/**
- * @see https://developer.mozilla.org/en/DOM/window.focus
- * @return {undefined}
- */
-Window.prototype.focus = function() {};
 
 /**
  * @see https://developer.mozilla.org/en/DOM/window.forward
@@ -291,9 +126,9 @@ Window.prototype.forward = function() {};
 Window.prototype.getAttention = function() {};
 
 /**
- * @return {Selection}
- * @see https://developer.mozilla.org/en/DOM/window.getSelection
+ * @return {?Selection}
  * @nosideeffects
+ * @see https://w3c.github.io/selection-api/#dom-window-getselection
  */
 Window.prototype.getSelection = function() {};
 
@@ -318,12 +153,6 @@ Window.prototype.showModalDialog;
 
 Window.prototype.sizeToContent;
 
-/**
- * @see http://msdn.microsoft.com/en-us/library/ms536769(VS.85).aspx
- * @return {undefined}
- */
-Window.prototype.stop = function() {};
-
 Window.prototype.updateCommands;
 
 // properties of Document
@@ -346,7 +175,7 @@ Document.prototype.anchors;
  */
 Document.prototype.applets;
 /** @type {boolean} */ Document.prototype.async;
-/** @type {string?} */ Document.prototype.baseURI;
+/** @type {?string} */ Document.prototype.baseURI;
 
 /**
  * @see https://developer.mozilla.org/en/DOM/document.bgColor
@@ -497,14 +326,6 @@ Document.prototype.evaluate;
 Document.prototype.execCommand;
 
 /**
- * @param {string} name
- * @return {!NodeList<!Element>}
- * @nosideeffects
- * @see https://developer.mozilla.org/en/DOM/document.getElementsByClassName
- */
-Document.prototype.getElementsByClassName = function(name) {};
-
-/**
  * @param {string} uri
  * @return {undefined}
  */
@@ -550,14 +371,14 @@ Document.prototype.queryCommandValue;
 
 /**
  * @see https://developer.mozilla.org/en/DOM/document.write
- * @param {string} text
+ * @param {!TrustedHTML|string} text
  * @return {undefined}
  */
 Document.prototype.write = function(text) {};
 
 /**
  * @see https://developer.mozilla.org/en/DOM/document.writeln
- * @param {string} text
+ * @param {!TrustedHTML|string} text
  * @return {undefined}
  */
 Document.prototype.writeln = function(text) {};
@@ -577,7 +398,7 @@ Document.prototype.getBoxObjectFor = function(element) {};
 // http://lxr.mozilla.org/mozilla1.8/source/dom/public/idl/range/nsIDOMNSRange.idl
 
 /**
- * @param {string} tag
+ * @param {!TrustedHTML|string} tag
  * @return {DocumentFragment}
  */
 Range.prototype.createContextualFragment;
@@ -613,119 +434,130 @@ Range.prototype.intersectsNode;
 Range.prototype.compareNode;
 
 
-/** @constructor */
+/**
+ * @constructor
+ * @see http://w3c.github.io/selection-api/#selection-interface
+ */
 function Selection() {}
 
 /**
- * @type {Node}
- * @see https://developer.mozilla.org/en/DOM/Selection/anchorNode
+ * @type {?Node}
+ * @see https://w3c.github.io/selection-api/#dom-selection-anchornode
  */
 Selection.prototype.anchorNode;
 
 /**
  * @type {number}
- * @see https://developer.mozilla.org/en/DOM/Selection/anchorOffset
+ * @see https://w3c.github.io/selection-api/#dom-selection-anchoroffset
  */
 Selection.prototype.anchorOffset;
 
 /**
- * @type {Node}
- * @see https://developer.mozilla.org/en/DOM/Selection/focusNode
+ * @type {?Node}
+ * @see https://w3c.github.io/selection-api/#dom-selection-focusnode
  */
 Selection.prototype.focusNode;
 
 /**
  * @type {number}
- * @see https://developer.mozilla.org/en/DOM/Selection/focusOffset
+ * @see https://w3c.github.io/selection-api/#dom-selection-focusoffset
  */
 Selection.prototype.focusOffset;
 
 /**
  * @type {boolean}
- * @see https://developer.mozilla.org/en/DOM/Selection/isCollapsed
+ * @see https://w3c.github.io/selection-api/#dom-selection-iscollapsed
  */
 Selection.prototype.isCollapsed;
 
 /**
  * @type {number}
- * @see https://developer.mozilla.org/en/DOM/Selection/rangeCount
+ * @see https://w3c.github.io/selection-api/#dom-selection-rangecount
  */
 Selection.prototype.rangeCount;
 
 /**
  * @param {Range} range
  * @return {undefined}
- * @see https://developer.mozilla.org/en/DOM/Selection/addRange
+ * @see https://w3c.github.io/selection-api/#dom-selection-addrange
  */
 Selection.prototype.addRange = function(range) {};
 
 /**
  * @param {number} index
- * @return {Range}
- * @see https://developer.mozilla.org/en/DOM/Selection/getRangeAt
+ * @return {!Range}
  * @nosideeffects
+ * @see https://w3c.github.io/selection-api/#dom-selection-getrangeat
  */
 Selection.prototype.getRangeAt = function(index) {};
 
 /**
- * @param {Node} node
- * @param {number} index
+ * @param {?Node} node
+ * @param {number=} offset
  * @return {undefined}
- * @see https://developer.mozilla.org/en/DOM/Selection/collapse
+ * @see https://w3c.github.io/selection-api/#dom-selection-collapse
  */
-Selection.prototype.collapse = function(node, index) {};
+Selection.prototype.collapse = function(node, offset) {};
+
+/**
+ * @param {?Node} node
+ * @param {number=} offset
+ * @return {undefined}
+ * @see https://w3c.github.io/selection-api/#dom-selection-setposition
+ */
+Selection.prototype.setPosition = function(node, offset) {};
 
 /**
  * @return {undefined}
- * @see https://developer.mozilla.org/en/DOM/Selection/collapseToEnd
+ * @see https://w3c.github.io/selection-api/#dom-selection-collapsetoend
  */
 Selection.prototype.collapseToEnd = function() {};
 
 /**
  * @return {undefined}
- * @see https://developer.mozilla.org/en/DOM/Selection/collapseToStart
+ * @see https://w3c.github.io/selection-api/#dom-selection-collapsetostart
  */
 Selection.prototype.collapseToStart = function() {};
 
 /**
- * @param {Node} node
- * @param {boolean} partlyContained
+ * @param {!Node} node
+ * @param {boolean=} allowPartialContainment
  * @return {boolean}
- * @see https://developer.mozilla.org/en/DOM/Selection/containsNode
  * @nosideeffects
+ * @see https://w3c.github.io/selection-api/#dom-selection-containsnode
  */
-Selection.prototype.containsNode = function(node, partlyContained) {};
+Selection.prototype.containsNode = function(node, allowPartialContainment) {};
 
 /**
- * @see https://developer.mozilla.org/en/DOM/Selection/deleteFromDocument
  * @return {undefined}
+ * @see https://w3c.github.io/selection-api/#dom-selection-deletefromdocument
  */
 Selection.prototype.deleteFromDocument = function() {};
 
 /**
  * @param {Node} parentNode
- * @param {number} offset
- * @see https://developer.mozilla.org/en/DOM/Selection/extend
+ * @param {number=} offset
  * @return {undefined}
+ * @see https://w3c.github.io/selection-api/#dom-selection-extend
  */
 Selection.prototype.extend = function(parentNode, offset) {};
 
 /**
- * @see https://developer.mozilla.org/en/DOM/Selection/removeAllRanges
  * @return {undefined}
+ * @see https://w3c.github.io/selection-api/#dom-selection-removeallranges
  */
 Selection.prototype.removeAllRanges = function() {};
 
 /**
- * @param {Range} range
- * @see https://developer.mozilla.org/en/DOM/Selection/removeRange
+ * @param {!Range} range
  * @return {undefined}
+ * @see https://w3c.github.io/selection-api/#dom-selection-removerange
  */
 Selection.prototype.removeRange = function(range) {};
 
 /**
  * @param {Node} parentNode
- * @see https://developer.mozilla.org/en/DOM/Selection/selectAllChildren
+ * @see http://w3c.github.io/selection-api/#dom-selection-selectallchildren
  */
 Selection.prototype.selectAllChildren;
 
@@ -745,22 +577,6 @@ Element.prototype.children;
  * @type {boolean}
  */
 Element.prototype.firebugIgnore;
-
-/**
- * Note: According to the spec, id is actually defined on HTMLElement and
- * SVGElement, rather than Element. Deliberately ignore this so that saying
- * Element.id is allowed.
- * @type {string}
- * @implicitCast
- */
-Element.prototype.id;
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/DOM-Parsing/#widl-Element-innerHTML
- * @implicitCast
- */
-Element.prototype.innerHTML;
 
 /**
  * Note: According to the spec, name is defined on specific types of

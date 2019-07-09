@@ -26,7 +26,6 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Multiset;
 import com.google.javascript.jscomp.NodeTraversal.ScopedCallback;
-import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.TokenStream;
 import java.util.ArrayDeque;
@@ -109,27 +108,17 @@ class MakeDeclaredNamesUnique extends NodeTraversal.AbstractScopedCallback {
     switch (n.getToken()) {
       case NAME:
       case IMPORT_STAR:
-        visitName(t, n, parent);
+        visitNameOrImportStar(t, n, parent);
         break;
-
-      case STRING_KEY: {
-        String newName = getReplacementName(n.getString());
-        if (newName != null && !n.hasChildren()) {
-          Node name = IR.name(n.getString()).useSourceInfoFrom(n);
-          n.addChildToBack(name);
-          visitName(t, name, n);
-        }
-        break;
-      }
 
       default:
         break;
     }
   }
 
-  private void visitName(NodeTraversal t, Node n, Node parent) {
+  private void visitNameOrImportStar(NodeTraversal t, Node n, Node parent) {
     // Don't rename the exported name foo in export {a as foo}; or import {foo as b};
-    if (NodeUtil.isNonlocalModuleExportName(n)) {
+    if (n.isName() && NodeUtil.isNonlocalModuleExportName(n)) {
       return;
     }
     String newName = getReplacementName(n.getString());

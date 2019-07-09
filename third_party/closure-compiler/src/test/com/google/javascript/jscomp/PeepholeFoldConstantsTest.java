@@ -1067,6 +1067,78 @@ public final class PeepholeFoldConstantsTest extends CompilerTestCase {
   }
 
   @Test
+  public void testFoldArrayLitSpreadGetElem() {
+    numRepetitions = 1;
+    fold("x = [...[0]][0]", "x = 0;");
+    fold("x = [0, 1, ...[2, 3, 4]][3]", "x = 3;");
+    fold("x = [...[0, 1], 2, ...[3, 4]][3]", "x = 3;");
+    fold("x = [...[...[0, 1], 2, 3], 4][0]", "x = 0");
+    fold("x = [...[...[0, 1], 2, 3], 4][3]", "x = 3");
+    test(
+        srcs("x = [...[]][100]"),
+        expected("x = [][100]"),
+        warning(PeepholeFoldConstants.INDEX_OUT_OF_BOUNDS_ERROR));
+    test(
+        srcs("x = [...[0]][100]"),
+        expected("x = [0][100]"),
+        warning(PeepholeFoldConstants.INDEX_OUT_OF_BOUNDS_ERROR));
+  }
+
+  @Test
+  public void testDontFoldNonLiteralSpreadGetElem() {
+    foldSame("x = [...iter][0];");
+    foldSame("x = [0, 1, ...iter][2];");
+    //  `...iter` could have side effects, so don't replace `x` with `0`
+    foldSame("x = [0, 1, ...iter][0];");
+  }
+
+  @Test
+  public void testFoldArraySpread() {
+    numRepetitions = 1;
+    fold("x = [...[]]", "x = []");
+    fold("x = [0, ...[], 1]", "x = [0, 1]");
+    fold("x = [...[0, 1], 2, ...[3, 4]]", "x = [0, 1, 2, 3, 4]");
+    fold("x = [...[...[0], 1], 2]", "x = [0, 1, 2]");
+    foldSame("[...[x]] = arr");
+  }
+
+  @Test
+  public void testFoldObjectLitSpreadGetProp() {
+    numRepetitions = 1;
+    fold("x = {...{a}}.a", "x = a;");
+    fold("x = {a, b, ...{c, d, e}}.d", "x = d;");
+    fold("x = {...{a, b}, c, ...{d, e}}.d", "x = d;");
+    fold("x = {...{...{a, b}, c, d}, e}.a", "x = a");
+    fold("x = {...{...{a, b}, c, d}, e}.d", "x = d");
+  }
+
+  @Test
+  public void testDontFoldNonLiteralObjectSpreadGetProp() {
+    foldSame("x = {...obj}.a;");
+    foldSame("x = {a, ...obj, c}.a;");
+    fold("x = {a, ...obj, c}.c;", "x = c;"); // We assume object spread has no side-effects.
+  }
+
+  @Test
+  public void testFoldObjectSpread() {
+    numRepetitions = 1;
+    fold("x = {...{}}", "x = {}");
+    fold("x = {a, ...{}, b}", "x = {a, b}");
+    fold("x = {...{a, b}, c, ...{d, e}}", "x = {a, b, c, d, e}");
+    fold("x = {...{...{a}, b}, c}", "x = {a, b, c}");
+    foldSame("({...{x}} = obj)");
+  }
+
+  @Test
+  public void testDontFoldMixedObjectAndArraySpread() {
+    numRepetitions = 1;
+    foldSame("x = [...{}]");
+    foldSame("x = {...[]}");
+    fold("x = [a, ...[...{}]]", "x = [a, ...{}]");
+    fold("x = {a, ...{...[]}}", "x = {a, ...[]}");
+  }
+
+  @Test
   public void testFoldComplex() {
     fold("x = (3 / 1.0) + (1 * 2)", "x = 5");
     fold("x = (1 == 1.0) && foo() && true", "x = foo()&&true");

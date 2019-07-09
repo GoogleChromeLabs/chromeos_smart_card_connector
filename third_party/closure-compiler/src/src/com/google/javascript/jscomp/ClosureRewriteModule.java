@@ -156,6 +156,11 @@ final class ClosureRewriteModule implements HotSwapCompilerPass {
           "JSC_ILLEGAL_DESTRUCTURING_NOT_EXPORTED",
           "Destructuring import reference to name \"{0}\" was not exported in module {1}");
 
+  static final DiagnosticType LOAD_MODULE_FN_MISSING_RETURN =
+      DiagnosticType.error(
+          "JSC_LOAD_MODULE_FN_MISSING_RETURN",
+          "goog.loadModule function should end with 'return exports;'");
+
   private static final ImmutableSet<String> USE_STRICT_ONLY = ImmutableSet.of("use strict");
 
   private static final String MODULE_EXPORTS_PREFIX = "module$exports$";
@@ -667,8 +672,12 @@ final class ClosureRewriteModule implements HotSwapCompilerPass {
             moduleBody.setToken(Token.MODULE_BODY);
             n.replaceWith(moduleBody);
             Node returnNode = moduleBody.getLastChild();
-            checkState(returnNode.isReturn(), returnNode);
-            returnNode.detach();
+            if (!returnNode.isReturn()) {
+              compiler.report(JSError.make(moduleBody, LOAD_MODULE_FN_MISSING_RETURN));
+            } else {
+              returnNode.detach();
+            }
+            t.reportCodeChange();
           }
           return false;
         default:
@@ -1664,7 +1673,19 @@ final class ClosureRewriteModule implements HotSwapCompilerPass {
       case CONST:
         {
           Node rhs = nameNode.hasChildren() ? nameNode.getLastChild().detach() : null;
+          if (jsdoc == null) {
+            // Get inline JSDocInfo if there is no JSDoc on the actual declaration.
+            jsdoc = nameNode.getJSDocInfo();
+          }
           Node newStatement = NodeUtil.newQNameDeclaration(compiler, newString, rhs, jsdoc);
+          if (NodeUtil.isExprAssign(newStatement) && nameParent.isConst()) {
+            // When replacing `const name = ...;` with `some.prop = ...`, ensure that `some.prop`
+            // is annotated @const.
+            JSDocInfoBuilder jsdocBuilder = JSDocInfoBuilder.maybeCopyFrom(jsdoc);
+            jsdocBuilder.recordConstancy();
+            jsdoc = jsdocBuilder.build();
+            newStatement.getOnlyChild().setJSDocInfo(jsdoc);
+          }
           newStatement.useSourceInfoIfMissingFromForTree(nameParent);
           int nameLength =
               nameNode.getOriginalName() != null

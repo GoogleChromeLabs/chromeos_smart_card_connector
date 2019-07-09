@@ -95,6 +95,7 @@ public final class ImplicitNullabilityCheck extends AbstractPostOrderCallback
                   case QMARK:
                   case THIS: // The names inside function(this:Foo) and
                   case NEW: // function(new:Bar) are already non-null.
+                  case TYPEOF: // Names after 'typeof' don't have nullability.
                     return;
                   case PIPE:
                     { // Inside a union
@@ -120,18 +121,11 @@ public final class ImplicitNullabilityCheck extends AbstractPostOrderCallback
               }
               JSType type = registry.createTypeFromCommentNode(node);
               if (type.isNullable()) {
-                reportWarning(t, node, typeName);
+                compiler.report(JSError.make(node, IMPLICITLY_NULLABLE_JSDOC, typeName));
               }
             }
           },
           Predicates.alwaysTrue());
     }
-  }
-
-  /**
-   * Reports an implicitly nullable name in JSDoc warning.
-   */
-  void reportWarning(NodeTraversal t, Node n, String name) {
-    compiler.report(t.makeError(n, IMPLICITLY_NULLABLE_JSDOC, name));
   }
 }

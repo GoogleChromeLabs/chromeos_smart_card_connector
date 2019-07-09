@@ -23,6 +23,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.deps.ModuleLoader;
+import com.google.javascript.jscomp.modules.ModuleMap;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap;
 import com.google.javascript.jscomp.parsing.Config;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.trees.Comment;
@@ -114,12 +116,6 @@ public abstract class AbstractCompiler implements SourceExcerptProvider {
 
   /** Sets the string replacement map */
   public abstract void setStringMap(VariableMap stringMap);
-
-  /** Sets the fully qualified function name and globally unique id mapping. */
-  public abstract void setFunctionNames(FunctionNames functionNames);
-
-  /** Gets the fully qualified function name and globally unique id mapping. */
-  public abstract FunctionNames getFunctionNames();
 
   /** Sets the css names found during compilation. */
   public abstract void setCssNames(Map<String, Integer> newCssNames);
@@ -293,6 +289,18 @@ public abstract class AbstractCompiler implements SourceExcerptProvider {
     return stage;
   }
 
+  private static final String FILL_FILE_SUFFIX = "$fillFile";
+
+  /** Empty modules get an empty "fill" file, so that we can move code into an empty module. */
+  static String createFillFileName(String moduleName) {
+    return moduleName + FILL_FILE_SUFFIX;
+  }
+
+  /** Returns whether a file name was created by {@link createFillFileName}. */
+  public static boolean isFillFileName(String fileName) {
+    return fileName.endsWith(FILL_FILE_SUFFIX);
+  }
+
   /**
    * Generates unique ids.
    */
@@ -450,6 +458,21 @@ public abstract class AbstractCompiler implements SourceExcerptProvider {
 
   abstract CompilerOptions getOptions();
 
+  /**
+   * The set of features defined by the input language mode that have not (yet) been transpiled
+   * away.
+   *
+   * <p>This is **not** the exact set of all features currently in the AST, but rather an improper
+   * super set. This set starts out as the set of features from the language input mode specified by
+   * the options, which is verified to be a super set of what appears in the input code (if the
+   * input code contains a feature outside the language input mode it is an error). As the compiler
+   * transpiles code any features that are transpiled away from the AST are removed from this set.
+   *
+   * <p>The feature set is computed this way, rather than using the detected features in the AST, so
+   * that the set of passes that run is determined purely by input flags. Otherwise, introducing a
+   * previously unused feature in any of the transitive deps of compilation target could effect the
+   * build behaviour.
+   */
   abstract FeatureSet getFeatureSet();
 
   abstract void setFeatureSet(FeatureSet fs);
@@ -690,7 +713,21 @@ public abstract class AbstractCompiler implements SourceExcerptProvider {
         : AstFactory.createFactoryWithoutTypes();
   }
 
+  private final AstAnalyzer astAnalyzer = new AstAnalyzer(this);
+
+  /**
+   * Returns a new AstAnalyzer configured correctly to answer questions about Nodes in the AST
+   * currently being compiled.
+   */
+  public AstAnalyzer getAstAnalyzer() {
+    return astAnalyzer;
+  }
+
   public abstract ModuleMetadataMap getModuleMetadataMap();
 
   public abstract void setModuleMetadataMap(ModuleMetadataMap moduleMetadataMap);
+
+  public abstract ModuleMap getModuleMap();
+
+  public abstract void setModuleMap(ModuleMap moduleMap);
 }

@@ -58,6 +58,12 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
   }
 
   @Override
+  protected int getNumRepetitions() {
+    // TODO(b/33104006): remove this override.
+    return 2;
+  }
+
+  @Override
   protected CompilerOptions getOptions() {
     CompilerOptions options = super.getOptions();
     options.setParseJsDocDocumentation(INCLUDE_DESCRIPTIONS_NO_WHITESPACE);
@@ -348,7 +354,7 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
                 )));
 
     JSType xType = inferredTypeOfName("x");
-    assertThat(xType.toString()).isEqualTo("function(new:Foo): undefined");
+    assertThat(xType.toString()).isEqualTo("(typeof Foo)");
 
     // Then
     assertThat(xType.getJSDocInfo().getBlockDescription()).isEqualTo("I'm a user class.");
@@ -534,7 +540,7 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
     JSType test0Type = inferredTypeOfName("test0");
     JSType test1Type = inferredTypeOfName("test1");
     // For some reason `test0Type` and `test1Type` aren't equal. This is good, but unexpected.
-    assertThat(test1Type).isNotSameAs(test0Type);
+    assertThat(test1Type).isNotSameInstanceAs(test0Type);
 
     // Then
     assertThat(test0Type.getJSDocInfo().getBlockDescription()).isEqualTo("I'm test0.");
@@ -568,7 +574,7 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
     // We really only care that they match, not about equality.
     // TODO(b/111070482): That fact that these are equal yet have different JSDocs is bad.
     assertThat(test1Type).isEqualTo(test0Type);
-    assertThat(test1Type).isNotSameAs(test0Type);
+    assertThat(test1Type).isNotSameInstanceAs(test0Type);
 
     // Then
     assertThat(test0Type.getJSDocInfo().getBlockDescription()).isEqualTo("I'm test0.");
@@ -596,7 +602,7 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
 
     JSType test0Type = inferredTypeOfName("test0");
     JSType test1Type = inferredTypeOfName("test1");
-    assertThat(test1Type).isSameAs(test0Type);
+    assertThat(test1Type).isSameInstanceAs(test0Type);
 
     // Then
     assertThat(test0Type.getJSDocInfo().getBlockDescription()).isEqualTo("I'm test0.");
@@ -627,7 +633,7 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
 
     JSType test0Type = inferredTypeOfName("test0");
     JSType test1Type = inferredTypeOfName("test1");
-    assertThat(test1Type).isSameAs(test0Type);
+    assertThat(test1Type).isSameInstanceAs(test0Type);
 
     // Then
     assertThat(test0Type.getJSDocInfo().getBlockDescription()).isEqualTo("I'm test0.");
@@ -913,7 +919,7 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
                 )));
 
     ObjectType xType = (ObjectType) inferredTypeOfName("x");
-    assertThat(xType.toString()).isEqualTo("function(new:Foo): undefined");
+    assertThat(xType.toString()).isEqualTo("(typeof Foo)");
 
     // Then
     assertThat(xType.getPropertyJSDocInfo("static").getBlockDescription())
@@ -938,7 +944,7 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
                 )));
 
     ObjectType xType = (ObjectType) inferredTypeOfName("x");
-    assertThat(xType.toString()).isEqualTo("function(new:Foo): undefined");
+    assertThat(xType.toString()).isEqualTo("(typeof Foo)");
 
     // Then
     assertThat(xType.getPropertyJSDocInfo("static").getBlockDescription())
@@ -997,7 +1003,7 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
 
     JSType freeType = inferredTypeOfName("free");
     ObjectType xType = (ObjectType) inferredTypeOfName("x");
-    assertThat(xType).isNotSameAs(freeType);
+    assertThat(xType).isNotSameInstanceAs(freeType);
 
     // Then
     assertThat(freeType.getJSDocInfo().getBlockDescription()).isEqualTo("I'm a free function.");

@@ -24,6 +24,7 @@ import static com.google.javascript.jscomp.CheckJSDoc.INVALID_DEFINE_ON_LET;
 import static com.google.javascript.jscomp.CheckJSDoc.INVALID_MODIFIES_ANNOTATION;
 import static com.google.javascript.jscomp.CheckJSDoc.INVALID_NO_SIDE_EFFECT_ANNOTATION;
 import static com.google.javascript.jscomp.CheckJSDoc.JSDOC_IN_BLOCK_COMMENT;
+import static com.google.javascript.jscomp.CheckJSDoc.JSDOC_ON_RETURN;
 import static com.google.javascript.jscomp.CheckJSDoc.MISPLACED_ANNOTATION;
 import static com.google.javascript.jscomp.CheckJSDoc.MISPLACED_MSG_ANNOTATION;
 import static com.google.javascript.jscomp.CheckJSDoc.MISPLACED_SUPPRESS;
@@ -474,6 +475,13 @@ public final class CheckJsDocTest extends CompilerTestCase {
   @Test
   public void testInlineJSDoc_withES6Modules() {
     testSame("export function f(/** string */ x) {}");
+  }
+
+  @Test
+  public void testFunctionJSDocOnStubDeclarations() {
+    testSame("/** @return {string} */ ns.my.abstract.ctor.method;");
+    // should this only be allowed on well-known Symbols ?
+    testSame("/** @return {string} */ ns.my.abstract.ctor['method'];");
   }
 
   @Test
@@ -999,5 +1007,41 @@ public final class CheckJsDocTest extends CompilerTestCase {
     testSame("/* @cc_on */ var x = 3;");
     // a jsdoc tag can't be immediately followed by a paren
     testSame("/* @TODO(username) */ var x = 3;");
+  }
+
+  @Test
+  public void testClosurePrimitive() {
+    testSame("/** @closurePrimitive {asserts.fail} */ function fail() {}");
+    testSame("/** @closurePrimitive {asserts.fail} */ goog.asserts.fail = function() {};");
+    testSame("/** @closurePrimitive {asserts.fail} */ let fail = function() {}");
+    testWarning("/** @fileoverview @closurePrimitive {asserts.fail} */", MISPLACED_ANNOTATION);
+  }
+
+  @Test
+  public void testJsDocOnReturn() {
+    // JSDoc on a class defined in return statement is a warning.
+    testWarning(
+        lines(
+            "/** @return {function(new:EventTarget)} */",
+            "function get() {",
+            "/** @implements {EventTarget} */",
+            "return class {};",
+            "}"),
+        JSDOC_ON_RETURN);
+    testWarning("function get() {\n/** @enum {string} */\nreturn {A: 'a'};\n}", JSDOC_ON_RETURN);
+    testWarning("function get() {\n/** @typedef {string} */\nreturn 'a';\n}", JSDOC_ON_RETURN);
+
+    // No warning when returning a class annotated with JSDoc.
+    testSame(
+        lines(
+            "/** @return {function(new:EventTarget)} */",
+            "function mixin() {",
+            "/** @implements {EventTarget} */",
+            "class MyEventTarget {}",
+            "return MyEventTarget;",
+            "}"));
+
+    // No warning for regular JSDoc.
+    testSame(lines("function f() {", "/** Some value. */", "return 5;", "}"));
   }
 }

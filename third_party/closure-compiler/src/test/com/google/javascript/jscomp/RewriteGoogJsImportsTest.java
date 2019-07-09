@@ -15,9 +15,16 @@
  */
 package com.google.javascript.jscomp;
 
+import static com.google.common.truth.Truth.assertThat;
 import static com.google.javascript.jscomp.RewriteGoogJsImports.GOOG_JS_IMPORT_MUST_BE_GOOG_STAR;
+import static com.google.javascript.jscomp.RewriteGoogJsImports.GOOG_JS_REEXPORTED;
+import static com.google.javascript.jscomp.deps.ModuleLoader.LOAD_WARNING;
 
+import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.RewriteGoogJsImports.Mode;
+import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
+import com.google.javascript.jscomp.modules.ModuleMapCreator;
+import com.google.javascript.rhino.Node;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -51,12 +58,16 @@ public final class RewriteGoogJsImportsTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new RewriteGoogJsImports(compiler, Mode.LINT_AND_REWRITE);
-  }
-
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
+    return (Node externs, Node root) -> {
+      GatherModuleMetadata gmm =
+          new GatherModuleMetadata(
+              compiler, /* processCommonJsModules= */ false, ResolutionMode.BROWSER);
+      gmm.process(externs, root);
+      ModuleMapCreator mmc = new ModuleMapCreator(compiler, compiler.getModuleMetadataMap());
+      mmc.process(externs, root);
+      new RewriteGoogJsImports(compiler, Mode.LINT_AND_REWRITE, compiler.getModuleMap())
+          .process(externs, root);
+    };
   }
 
   @Test
@@ -65,17 +76,22 @@ public final class RewriteGoogJsImportsTest extends CompilerTestCase {
   }
 
   @Test
-  public void testIfCannotDetectGoogJsThenDoesNotRewrite() {
+  public void testIfCannotDetectGoogJsThenGlobalizesAll() {
     SourceFile testcode =
         SourceFile.fromCode(
             "testcode", "import * as goog from './closure/goog.js'; use(goog.bad);");
 
+    SourceFile expected =
+        SourceFile.fromCode("testcode", "import './closure/goog.js'; use(goog.bad);");
+
+    ignoreWarnings(LOAD_WARNING);
+
     // No base.js = no detecting goog.js
-    testSame(srcs(GOOG, testcode));
+    test(srcs(GOOG, testcode), expected(GOOG, expected));
 
     // No goog.js
-    testSame(srcs(BASE, testcode));
-    testSame(srcs(testcode));
+    test(srcs(BASE, testcode), expected(BASE, expected));
+    test(srcs(testcode), expected(expected));
 
     // Linting still happens.
     testError("import * as notgoog from './goog.js';", GOOG_JS_IMPORT_MUST_BE_GOOG_STAR);
@@ -100,10 +116,19 @@ public final class RewriteGoogJsImportsTest extends CompilerTestCase {
                 lines(
                     "import './closure/goog.js';",
                     "use(goog.require, goog.foo, goog.MyClass, goog.constant);"))));
+    assertThat(
+            getLastCompiler()
+                .getModuleMap()
+                .getModule(getLastCompiler().getModuleLoader().resolve("testcode"))
+                .boundNames()
+                .keySet())
+        .isEmpty();
   }
 
   @Test
   public void testGoogAndBaseInExterns() {
+    ignoreWarnings(LOAD_WARNING);
+
     test(
         externs(BASE, GOOG),
         srcs(
@@ -121,7 +146,7 @@ public final class RewriteGoogJsImportsTest extends CompilerTestCase {
   }
 
   @Test
-  public void testBadPropertyAccess() {
+  public void testKnownBadPropertyAccess() {
     test(
         srcs(
             BASE,
@@ -138,5 +163,49 @@ public final class RewriteGoogJsImportsTest extends CompilerTestCase {
                 lines(
                     "import * as $goog from './closure/goog.js';",
                     "use(goog.require, $goog.bad);"))));
+    assertThat(
+            getLastCompiler()
+                .getModuleMap()
+                .getModule(getLastCompiler().getModuleLoader().resolve("testcode"))
+                .boundNames()
+                .keySet())
+        .containsExactly("$goog");
+  }
+
+  @Test
+  public void testReexportGoog() {
+    testError(
+        ImmutableList.of(
+            BASE,
+            GOOG,
+            SourceFile.fromCode(
+                "testcode",
+                lines(
+                    "import * as goog from './closure/goog.js';", //
+                    "export {goog};"))),
+        GOOG_JS_REEXPORTED);
+
+    testError(
+        ImmutableList.of(
+            BASE,
+            GOOG,
+            SourceFile.fromCode(
+                "testcode",
+                lines(
+                    "import * as goog from './closure/goog.js';", //
+                    "export default goog;"))),
+        GOOG_JS_REEXPORTED);
+
+    testError(
+        ImmutableList.of(
+            BASE, GOOG, SourceFile.fromCode("testcode", "export * from './closure/goog.js';")),
+        GOOG_JS_REEXPORTED);
+
+    testError(
+        ImmutableList.of(
+            BASE,
+            GOOG,
+            SourceFile.fromCode("testcode", "export {require} from './closure/goog.js';")),
+        GOOG_JS_REEXPORTED);
   }
 }

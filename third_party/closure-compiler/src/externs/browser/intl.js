@@ -156,6 +156,12 @@ Intl.DateTimeFormat.supportedLocalesOf = function(locales, opt_options) {};
 Intl.DateTimeFormat.prototype.format = function(date) {};
 
 /**
+ * @param {(!Date|number)=} date
+ * @return {Array<{type: string, value: string}>}
+ */
+Intl.DateTimeFormat.prototype.formatToParts = function(date) {};
+
+/**
  * @return {{locale: string, calendar: string, numberingSystem: string,
  *    timeZone: (string|undefined), weekday: (string|undefined),
  *    era: (string|undefined), year: (string|undefined),
@@ -165,3 +171,33 @@ Intl.DateTimeFormat.prototype.format = function(date) {};
  *    hour12: (boolean|undefined)}}
  */
 Intl.DateTimeFormat.prototype.resolvedOptions = function() {};
+
+/**
+ * @constructor
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/PluralRules#Syntax
+ * @param {string|Array<string>=} opt_locales
+ * @param {{localeMatcher: (string|undefined), type: (string|undefined)}=}
+ *         opt_options
+ */
+Intl.PluralRules = function(opt_locales, opt_options) {};
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/PluralRules/supportedLocalesOf#Syntax
+ * @param {Array<string>} locales
+ * @param {{localeMatcher: string}=} opt_options
+ * @return {Array<string>}
+ */
+Intl.PluralRules.supportedLocalesOf = function(locales, opt_options) {};
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/PluralRules/resolvedOptions#Syntax
+ * @return {{locale: string, pluralCategories: Array<string>, type: string}}
+ */
+Intl.PluralRules.prototype.resolvedOptions = function() {};
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/PluralRules/select#Syntax
+ * @param {number} number
+ * @return {string}
+ */
+Intl.PluralRules.prototype.select = function(number) {};

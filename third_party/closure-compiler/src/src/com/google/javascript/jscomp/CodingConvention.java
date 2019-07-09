@@ -15,20 +15,26 @@
  */
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
+import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.annotations.Immutable;
+import com.google.javascript.rhino.ClosurePrimitive;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.NominalTypeBuilder;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
-import com.google.javascript.rhino.jstype.JSTypeNative;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
+import javax.annotation.Nullable;
 
 /**
  * CodingConvention defines a set of hooks to customize the behavior of the
@@ -426,9 +432,9 @@ public interface CodingConvention extends Serializable {
 
     public SubclassRelationship(
         SubclassType type, Node subclassNode, Node superclassNode) {
-      Preconditions.checkArgument(
+      checkArgument(
           subclassNode.isQualifiedName(), "Expected qualified name, found: %s", subclassNode);
-      Preconditions.checkArgument(
+      checkArgument(
           superclassNode.isQualifiedName(), "Expected qualified name, found: %s", superclassNode);
       this.type = type;
       this.subclassName = subclassNode.getQualifiedName();
@@ -478,44 +484,132 @@ public interface CodingConvention extends Serializable {
   }
 
   /**
-   * A function that will throw an exception when either:
-   *   -One or more of its parameters evaluate to false.
-   *   -One or more of its parameters are not of a certain type.
+   * A description of a JavaScript function that will throw an exception when either:
+   *
+   * <ul>
+   *   <li>One of its parameters does not match the return type of the function
+   *   <li>One of its parameters is falsy. This has some special handling for expressions that the
+   *       match-return-type handling does not have.
+   * </ul>
    */
-  public class AssertionFunctionSpec {
-    protected final String functionName;
-    protected final JSTypeNative assertedType;
+  @Immutable
+  @AutoValue
+  abstract class AssertionFunctionSpec {
+    // TODO(b/126254920): remove this field and always use ClosurePrimitive
+    @Nullable
+    abstract String getFunctionName();
 
-    @Deprecated
-    public AssertionFunctionSpec(String functionName) {
-      this(functionName, null);
+    @Nullable
+    abstract ClosurePrimitive getClosurePrimitive();
+
+    abstract AssertionKind getAssertionKind();
+
+    abstract int getParamIndex(); // the index of the formal parameter that is actually asserted
+
+    public enum AssertionKind {
+      TRUTHY, // an assertion that the parameter is 'truthy'
+      MATCHES_RETURN_TYPE // an assertion that the parameter matches the inferred return kind
     }
 
-    public AssertionFunctionSpec(String functionName, JSTypeNative assertedType) {
-      this.functionName = functionName;
-      this.assertedType = assertedType;
+    static Builder builder() {
+      return new AutoValue_CodingConvention_AssertionFunctionSpec.Builder().setParamIndex(0);
     }
 
-    /** Returns the name of the function. */
-    public String getFunctionName() {
-      return functionName;
+    public static Builder forTruthy() {
+      return builder().setAssertionKind(AssertionKind.TRUTHY);
+    }
+
+    public static Builder forMatchesReturn() {
+      return builder().setAssertionKind(AssertionKind.MATCHES_RETURN_TYPE);
+    }
+
+    @AutoValue.Builder
+    public abstract static class Builder {
+      public abstract Builder setFunctionName(String name);
+
+      abstract Builder setClosurePrimitive(ClosurePrimitive primitive);
+
+      public abstract Builder setParamIndex(int paramIndex);
+
+      abstract Builder setAssertionKind(AssertionKind kind);
+
+      abstract AssertionFunctionSpec autoBuild();
+
+      public AssertionFunctionSpec build() {
+        AssertionFunctionSpec spec = autoBuild();
+        Preconditions.checkState(
+            spec.getFunctionName() != null || spec.getClosurePrimitive() != null,
+            "Must provide a function name or ClosurePrimitive for each spec");
+        return spec;
+      }
+    }
+
+    private Object getId() {
+      return getClosurePrimitive() != null ? getClosurePrimitive() : getFunctionName();
+    }
+
+    /** Returns which argument is actually being asserted, or null if fewer args than expected */
+    @Nullable
+    Node getAssertedArg(Node firstArg) {
+      for (int i = 0; i < getParamIndex(); i++) {
+        if (firstArg == null) {
+          // If there are fewer arguments than expected, return null instead of crashing in this
+          // function.
+          return null;
+        }
+        firstArg = firstArg.getNext();
+      }
+      return firstArg;
+    }
+  }
+
+  /** This stores a relation from either name or Closure Primitive to assertion function */
+  @Immutable
+  final class AssertionFunctionLookup {
+    // the key type 'Object' is mutable, but at runtime is only ever a string or ClosurePrimitive
+    @SuppressWarnings("Immutable")
+    private final ImmutableMap<Object, AssertionFunctionSpec> internal;
+
+    private AssertionFunctionLookup(ImmutableMap<Object, AssertionFunctionSpec> internal) {
+      this.internal = internal;
     }
 
     /**
-     * Returns the parameter of the assertion function that is being checked.
-     * @param firstParam The first parameter of the function call.
+     * Returns a new map containing all the given {@link AssertionFunctionSpec}s
+     *
+     * <p>Assumes that in the input, there is a unique mapping from string name to spec and closure
+     * primitive to spec.
      */
-    public Node getAssertedParam(Node firstParam) {
-      return firstParam;
+    static AssertionFunctionLookup of(Collection<AssertionFunctionSpec> specs) {
+      ImmutableMap<Object, AssertionFunctionSpec> idToSpecMap =
+          specs.stream()
+              .collect(
+                  ImmutableMap.toImmutableMap(AssertionFunctionSpec::getId, Function.identity()));
+
+      return new AssertionFunctionLookup(idToSpecMap);
     }
 
     /**
-     * Returns the old type system type for a type assertion, or null if
-     * the function asserts that the node must not be null or undefined.
-     * @param call The asserting call
+     * Returns the {@link AssertionFunctionSpec} matching the given function reference.
+     *
+     * <p>This first looks up specs by their ClosurePrimitive, then falls back to qualified name
      */
-    public JSType getAssertedOldType(Node call, JSTypeRegistry registry) {
-      return assertedType != null ? registry.getNativeType(assertedType) : null;
+    @Nullable
+    AssertionFunctionSpec lookupByCallee(Node callee) {
+      FunctionType fnType = JSType.toMaybeFunctionType(callee.getJSType());
+      if (fnType != null && fnType.getClosurePrimitive() != null) {
+        AssertionFunctionSpec spec = internal.get(fnType.getClosurePrimitive());
+        if (spec != null) {
+          return spec;
+        }
+      }
+
+      // TODO(b/126254920): remove this
+      if (callee.isQualifiedName()) {
+        return internal.get(callee.getQualifiedName());
+      }
+
+      return null;
     }
   }
 }

@@ -16,6 +16,7 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -25,6 +26,7 @@ import com.google.common.collect.Iterables;
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
 import com.google.javascript.jscomp.OptimizeCalls.ReferenceMap;
 import com.google.javascript.rhino.IR;
+import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -45,19 +47,25 @@ import javax.annotation.Nullable;
  */
 class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompilerPass {
   private final AbstractCompiler compiler;
+  private final AstAnalyzer astAnalyzer;
   private Scope globalScope;
 
   OptimizeParameters(AbstractCompiler compiler) {
-    this.compiler = compiler;
+    this.compiler = checkNotNull(compiler);
+    this.astAnalyzer = compiler.getAstAnalyzer();
   }
 
   @Override
   @VisibleForTesting
   public void process(Node externs, Node root) {
     checkState(compiler.getLifeCycleStage() == LifeCycleStage.NORMALIZED);
-    ReferenceMap refMap = OptimizeCalls.buildPropAndGlobalNameReferenceMap(
-        compiler, externs, root);
-    process(externs, root, refMap);
+
+    OptimizeCalls.builder()
+        .setCompiler(compiler)
+        .setConsiderExterns(false)
+        .addPass(this)
+        .build()
+        .process(externs, root);
   }
 
   @Override
@@ -233,7 +241,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
               break;
             }
 
-            if (!unremovable.get(paramIndex) && NodeUtil.mayHaveSideEffects(param, compiler)) {
+            if (!unremovable.get(paramIndex) && astAnalyzer.mayHaveSideEffects(param)) {
               unremovable.set(paramIndex);
             }
 
@@ -296,7 +304,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
           arg.getNext(), index + 1);
 
       if (index < firstRestIndex && unused.get(index)) {
-        if (!NodeUtil.mayHaveSideEffects(arg, compiler)) {
+        if (!astAnalyzer.mayHaveSideEffects(arg)) {
           if (unremovable.get(index)) {
             if (!arg.isNumber() || arg.getDouble() != 0) {
               toReplaceWithZero.add(arg);
@@ -311,7 +319,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
     void removeArgAndFollowing(Node arg) {
       if (arg != null) {
         removeArgAndFollowing(arg.getNext());
-        if (!NodeUtil.mayHaveSideEffects(arg, compiler)) {
+        if (!astAnalyzer.mayHaveSideEffects(arg)) {
           toRemove.add(arg);
         }
       }
@@ -376,7 +384,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
       return false;
     }
 
-    boolean seenCandidateDefiniton = false;
+    boolean seenCandidateDefinition = false;
     boolean seenCandidateUse = false;
     for (Node n : refs) {
       // TODO(johnlenz): Determine what to do about ".constructor" references.
@@ -390,7 +398,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
         // TODO(johnlenz): filter .apply when we support it
         seenCandidateUse = true;
       } else if (isCandidateDefinition(n)) {
-        seenCandidateDefiniton = true;
+        seenCandidateDefinition = true;
       } else {
         // If this isn't an non-aliasing reference (typeof, instanceof, etc)
         // then there is nothing that can be done.
@@ -401,7 +409,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
       }
     }
 
-    return seenCandidateDefiniton && seenCandidateUse;
+    return seenCandidateDefinition && seenCandidateUse;
   }
 
   private boolean isCandidateDefinition(Node n) {
@@ -417,7 +425,9 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
         return true;
       }
     } else if (isClassMemberDefinition(n)) {
-      return true;
+      if (!NodeUtil.doesFunctionReferenceOwnArgumentsObject(n.getFirstChild())) {
+        return true;
+      }
     }
 
     return false;
@@ -511,7 +521,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
     }
 
     // Only one definition is currently supported.
-    Node fn = Iterables.get(fns.values(), 0);
+    Node fn = Iterables.getOnlyElement(fns.values());
 
     boolean continueLooking = adjustForConstraints(fn, parameters);
     if (!continueLooking) {
@@ -579,6 +589,11 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
    * @return Whether there are any movable parameters.
    */
   private static boolean adjustForConstraints(Node fn, List<Parameter> parameters) {
+    JSDocInfo info = NodeUtil.getBestJSDocInfo(fn);
+    if (info != null && info.isNoInline()) {
+      return false;
+    }
+
     Node paramList = NodeUtil.getFunctionParameters(fn);
     Node lastFormal = paramList.getLastChild();
     int restIndex = Integer.MAX_VALUE;
@@ -721,7 +736,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
   }
 
   private void setParameterSideEffectInfo(Parameter p, Node value) {
-    p.setHasSideEffects(NodeUtil.mayHaveSideEffects(value, compiler));
+    p.setHasSideEffects(astAnalyzer.mayHaveSideEffects(value));
     p.setCanBeSideEffected(NodeUtil.canBeSideEffected(value));
     p.setMayBeUndefined(NodeUtil.mayBeUndefined(value));
   }
@@ -736,6 +751,7 @@ class OptimizeParameters implements CompilerPass, OptimizeCalls.CallGraphCompile
     // values.
     switch (n.getToken()) {
       case THIS:
+      case SUPER:
         return false;
       case FUNCTION:
         // Don't move function closures.

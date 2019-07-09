@@ -16,12 +16,11 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.javascript.jscomp.DisambiguateProperties.Warnings.INVALIDATION;
-import static com.google.javascript.jscomp.DisambiguateProperties.Warnings.INVALIDATION_ON_TYPE;
+import static com.google.javascript.jscomp.PropertyRenamingDiagnostics.INVALIDATION;
+import static com.google.javascript.jscomp.PropertyRenamingDiagnostics.INVALIDATION_ON_TYPE;
 
 import com.google.common.collect.Multimap;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
-import com.google.javascript.jscomp.DisambiguateProperties.Warnings;
 import com.google.javascript.rhino.Node;
 import java.util.Collection;
 import java.util.HashMap;
@@ -30,6 +29,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -80,11 +80,6 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
         lastPass.process(externs, root);
       }
     };
-  }
-
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
   }
 
   @Test
@@ -618,14 +613,14 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
       + "Bar.a = 0;";
     String output;
 
-    output = ""
-        + "/** @constructor */ function Foo(){}"
-        + "/** @constructor */ function Bar(){}"
-        + "Foo.function_new_Foo___undefined$a = 0;"
-        + "Bar.function_new_Bar___undefined$a = 0;";
+    output =
+        ""
+            + "/** @constructor */ function Foo(){}"
+            + "/** @constructor */ function Bar(){}"
+            + "Foo._typeof_Foo_$a = 0;"
+            + "Bar._typeof_Bar_$a = 0;";
 
-    testSets(js, output, "{a=[[function(new:Bar): undefined]," +
-    " [function(new:Foo): undefined]]}");
+    testSets(js, output, "{a=[[(typeof Bar)]," + " [(typeof Foo)]]}");
   }
 
   @Test
@@ -1319,6 +1314,34 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
     testSets(js, "{a=[[Foo.prototype, I.prototype]]}");
   }
 
+  // TODO(b/131257037): Support ES6 style instance properties on interfaces.
+  @Ignore
+  @Test
+  public void testInterface_es6() {
+    testSets(
+        lines(
+            "/** @interface */ class I { constructor(){ this.a; } };",
+            "/** @implements {I} */ class Foo {};",
+            "Foo.prototype.a;",
+            "/** @type {I} */",
+            "var f = new Foo;",
+            "var x = f.a;"),
+        "{a=[[Foo.prototype, I.prototype]]}");
+  }
+
+  @Test
+  public void testInterface_es6withTypeDeclaration() {
+    testSets(
+        lines(
+            "/** @interface */ class I { constructor(){ /** @type {number} */ this.a; } };",
+            "/** @implements {I} */ class Foo {};",
+            "Foo.prototype.a;",
+            "/** @type {I} */",
+            "var f = new Foo;",
+            "var x = f.a;"),
+        "{a=[[Foo.prototype, I]]}");
+  }
+
   @Test
   public void testInterface_noDirectImplementors() {
     String js = ""
@@ -1634,9 +1657,13 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
         "",
         "(new Bar()).alias();");
 
-    testSets("", js, js, "{}", TypeValidator.TYPE_MISMATCH_WARNING, "assignment\n"
-            + "found   : function(new:Foo): undefined\n"
-            + "required: function(new:Bar): undefined");
+    testSets(
+        "",
+        js,
+        js,
+        "{}",
+        TypeValidator.TYPE_MISMATCH_WARNING,
+        "assignment\n" + "found   : (typeof Foo)\n" + "required: (typeof Bar)");
   }
 
   @Test
@@ -2017,22 +2044,48 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
         "",
         "function f(/** Bar */ i) { return i.x; }");
 
-    String output = lines(
-        "/** @record */",
-        "function I(){}",
-        "/** @type {number} */",
-        "I.prototype.Foo_prototype$x;",
-        "/** @constructor @implements {I} */",
-        "function Foo(){}",
-        "/** @type {number} */",
-        "Foo.prototype.Foo_prototype$x;",
-        "/** @constructor */",
-        "function Bar(){}",
-        "/** @type {number} */",
-        "Bar.prototype.Bar_prototype$x;",
-        "function f(/** Bar */ i){return i.Bar_prototype$x}");
+    String output =
+        lines(
+            "/** @record */",
+            "function I(){}",
+            "/** @type {number} */",
+            "I.prototype.Foo_prototype$x;",
+            "/** @constructor @implements {I} */",
+            "function Foo(){}",
+            "/** @type {number} */",
+            "Foo.prototype.Foo_prototype$x;",
+            "/** @constructor */",
+            "function Bar(){}",
+            "/** @type {number} */",
+            "Bar.prototype.Bar_prototype$x;",
+            "function f(/** Bar */ i){return i.Bar_prototype$x}");
 
     testSets(js, output, "{x=[[Bar.prototype], [Foo.prototype, I.prototype]]}");
+  }
+
+  @Test
+  public void testStructuralTyping_typeConflationIsRecordedThroughTemplateTypes() {
+    testSets(
+        lines(
+            "/** @record */",
+            "class Record {",
+            "  /** @return {string} */",
+            "  bar() {}",
+            "}",
+            "",
+            "class Concrete {",
+            "  /** @return {string} */",
+            "  bar() { return ''; }",
+            "}",
+            "",
+            "/**",
+            " * @param {!Array<!Concrete>} concretes",
+            " * @return {!Array<!Record>}",
+            " */",
+            "function conflate(concretes) { return concretes; }"),
+        // TODO(b/124766232): The correct disambiguation sets would be:
+        // "{bar=[[Concrete.prototype, Record.prototype]]}"
+        "{bar=[[Concrete.prototype], [Record.prototype]]}");
   }
 
   /**
@@ -2309,6 +2362,30 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
         "MyAbstractCollection.prototype.MyAbstractCollection_prototype$iterator = function() {};");
 
     testSets(js, output, "{iterator=[[MyAbstractCollection.prototype, MyIterable.prototype]]}");
+  }
+
+  @Test
+  public void testPropInParentInterfaceOverAbstractClass() {
+    String js =
+        lines(
+            "/** @interface */",
+            "function MyIterable() {}",
+            "MyIterable.prototype.iterator = function() {};",
+            "/**",
+            " * @constructor",
+            " * @abstract",
+            " * @implements {MyIterable}",
+            " */",
+            "function MyAbstractIterable() {}",
+            "/**",
+            " * @constructor",
+            " * @extends {MyAbstractIterable}",
+            " */",
+            "function MyCollection() {}",
+            "/** @override */",
+            "MyCollection.prototype.iterator = function() {};");
+
+    testSets(js, "{iterator=[[MyCollection.prototype, MyIterable.prototype]]}");
   }
 
   // In function subtyping, the type of THIS should be contravariant, like the argument types.
@@ -2934,7 +3011,32 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
   }
 
   @Test
-  public void testDisambiguateEs6ClassStaticMethods() {
+  public void testDisambiguateEs5StaticMethods_declaredOutsideBody() {
+    test(
+        lines(
+            "/** @constructor */",
+            "function Foo() {}",
+            "Foo.method = function() { };",
+            "",
+            "class Bar {}",
+            "Bar.method = function() { };",
+            "",
+            "Foo.method();",
+            "Bar.method();"),
+        lines(
+            "/** @constructor */",
+            "function Foo() {}",
+            "Foo._typeof_Foo_$method = function() {}",
+            "",
+            "class Bar {}",
+            "Bar._typeof_Bar_$method = function() {}",
+            "",
+            "Foo._typeof_Foo_$method();",
+            "Bar._typeof_Bar_$method();"));
+  }
+
+  @Test
+  public void testDisambiguateEs6ClassStaticMethods_declaredInsideBody() {
     test(
         lines(
             "class Foo {",
@@ -2947,13 +3049,13 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "Bar.method();"),
         lines(
             "class Foo {",
-            "  function_new_Foo___undefined$method() {}",
+            "  static _typeof_Foo_$method() {}",
             "}",
             "class Bar {",
-            "  function_new_Bar___undefined$method() {}",
+            "  static _typeof_Bar_$method() {}",
             "}",
-            "Foo.function_new_Foo___undefined$method();",
-            "Bar.function_new_Bar___undefined$method();"));
+            "Foo._typeof_Foo_$method();",
+            "Bar._typeof_Bar_$method();"));
   }
 
   @Test
@@ -2974,41 +3076,60 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "Bar.method();"),
         lines(
             "class Foo {",
-            "  function_new_Foo___undefined$method() {}",
+            "  static _typeof_Foo_$method() {}",
             "}",
             "class SubFoo extends Foo {",
-            "  static function_new_Foo___undefined$method() {}",
+            "  static _typeof_Foo_$method() {}",
             "}",
             "class Bar {",
-            "  function_new_Bar___undefined$method() {}",
+            "  static _typeof_Bar_$method() {}",
             "}",
-            "Foo.function_new_Foo___undefined$method();",
-            "SubFoo.function_new_Foo___undefined$method();",
-            "Bar.function_new_Bar___undefined$method();"));
+            "Foo._typeof_Foo_$method();",
+            "SubFoo._typeof_Foo_$method();",
+            "Bar._typeof_Bar_$method();"));
   }
 
   @Test
   public void testEs6ClassSideInheritedMethods_referencedWithThis_areDisambiguated() {
-    // TODO(b/117437011): compiler should disambiguate `method` but can't because `this` is unknown
-    // in static methods
-    testSame(
+    test(
         lines(
             "class Foo {",
             "  static method() {}",
             "  static useMethod() {",
-            "    this.method();", // this could refer to either Foo.method or SubFoo.method
+            "    this.method();",
             "  }",
             "}",
             "class SubFoo extends Foo {",
             "  static method() {}",
             "}",
+            "",
             "class Bar {",
             "  static method() {}",
             "}",
+            "",
             "SubFoo.useMethod();",
             "Foo.method();",
             "SubFoo.method();",
-            "Bar.method();"));
+            "Bar.method();"),
+        lines(
+            "class Foo {",
+            "  static _typeof_Foo_$method() {}",
+            "  static useMethod() {",
+            "    this._typeof_Foo_$method();",
+            "  }",
+            "}",
+            "class SubFoo extends Foo {",
+            "  static _typeof_Foo_$method() {}",
+            "}",
+            "",
+            "class Bar {",
+            "  static _typeof_Bar_$method() {}",
+            "}",
+            "",
+            "SubFoo.useMethod();",
+            "Foo._typeof_Foo_$method();",
+            "SubFoo._typeof_Foo_$method();",
+            "Bar._typeof_Bar_$method();"));
   }
 
   @Test
@@ -3030,18 +3151,18 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "Bar.method();"),
         lines(
             "class Foo {",
-            "  static function_new_Foo___undefined$method() {}",
+            "  static _typeof_Foo_$method() {}",
             "}",
             "class SubFoo extends Foo {",
             "  static method2() {",
-            "    super.function_new_Foo___undefined$method();",
+            "    super._typeof_Foo_$method();",
             "  }",
             "}",
             "class Bar {",
-            "  static function_new_Bar___undefined$method() {}",
+            "  static _typeof_Bar_$method() {}",
             "}",
-            "Foo.function_new_Foo___undefined$method();",
-            "Bar.function_new_Bar___undefined$method();"));
+            "Foo._typeof_Foo_$method();",
+            "Bar._typeof_Bar_$method();"));
   }
 
   @Test
@@ -3207,9 +3328,9 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "  }",
             "}",
             "/** @type {string} */",
-            "Foo.function_new_Foo___undefined$prop = 'static property!';",
+            "Foo._typeof_Foo_$prop = 'static property!';",
             "const {Foo$prop: prop} = (new Foo());"),
-        "{prop=[[Foo], [function(new:Foo): undefined]]}");
+        "{prop=[[(typeof Foo)], [Foo]]}");
   }
 
   @Test
@@ -3233,10 +3354,10 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "  }",
             "}",
             "/** @type {string} */",
-            "Foo.function_new_Foo___undefined$prop = 'static property!';",
+            "Foo._typeof_Foo_$prop = 'static property!';",
             // we still rewrite the other 'prop' references, but ignore the quoted 'prop'
             "const {'prop': prop} = {'prop': 3};"),
-        "{prop=[[Foo], [function(new:Foo): undefined]]}");
+        "{prop=[[(typeof Foo)], [Foo]]}");
   }
 
   @Test
@@ -3260,9 +3381,9 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "  }",
             "}",
             "/** @type {string} */",
-            "Foo.function_new_Foo___undefined$prop = 'static property!';",
-            "const {function_new_Foo___undefined$prop: prop} = Foo;"),
-        "{prop=[[Foo], [function(new:Foo): undefined]]}");
+            "Foo._typeof_Foo_$prop = 'static property!';",
+            "const {_typeof_Foo_$prop: prop} = Foo;"),
+        "{prop=[[(typeof Foo)], [Foo]]}");
   }
 
   @Test
@@ -3286,9 +3407,9 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "  }",
             "}",
             "/** @type {string} */",
-            "Foo.function_new_Foo___undefined$prop = 'static property!';",
+            "Foo._typeof_Foo_$prop = 'static property!';",
             "const {Foo$prop: prop = 0} = (new Foo());"),
-        "{prop=[[Foo], [function(new:Foo): undefined]]}");
+        "{prop=[[(typeof Foo)], [Foo]]}");
   }
 
   @Test
@@ -3312,9 +3433,9 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "  }",
             "}",
             "/** @type {string} */",
-            "Foo.function_new_Foo___undefined$prop = 'static property!';",
+            "Foo._typeof_Foo_$prop = 'static property!';",
             "const fn = (/** !Foo */ {Foo$prop: prop}) => prop;"),
-        "{prop=[[Foo], [function(new:Foo): undefined]]}");
+        "{prop=[[(typeof Foo)], [Foo]]}");
   }
 
   @Test
@@ -3338,13 +3459,35 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "  }",
             "}",
             "/** @type {string} */",
-            "Foo.function_new_Foo___undefined$prop = 'static property!';",
+            "Foo._typeof_Foo_$prop = 'static property!';",
             "const {f: {Foo$prop: prop}} = {f: new Foo()};"),
-        "{prop=[[Foo], [function(new:Foo): undefined]]}");
+        "{prop=[[(typeof Foo)], [Foo]]}");
   }
 
   @Test
-  public void testPropertyReference_leftFromObjectPatternRest_blocksDisambiguation() {
+  public void testObjectRest_blocksDisambiguation_ofPropertiesAccessedFromResultType() {
+    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2018);
+    testSets(
+        lines(
+            "class Foo {", //
+            "  constructor() {",
+            "    /** @const {number} */",
+            "    this.prop = 3;",
+            "  }",
+            "",
+            "  /** @return {number} */",
+            "  method() { return 5; }",
+            "}",
+            "",
+            "const {...rest} = new Foo();",
+            "alert(rest.prop);"),
+        // `method` can be disambiguated, because it's always accesed from a reveiver known to
+        // possess it. This is not true for `prop`.
+        "{method=[[Foo.prototype]]}");
+  }
+
+  @Test
+  public void testObjectRest_allowsDisambiguation_betweenInstanceAndRecordType() {
     setAcceptedLanguage(LanguageMode.ECMASCRIPT_2018);
     testSets(
         lines(
@@ -3354,11 +3497,145 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "    this.prop = 3;",
             "  }",
             "}",
-            "/** @type {string} */",
-            "Foo.prop = 'static property!';",
-            "const {...rest} = (new Foo());",
-            "alert(rest.prop);"),
-        "{}");
+            "",
+            "/** @record */",
+            "class Bar {", //
+            "  constructor() {",
+            "    /** @const {number} */",
+            "    this.prop = 3;",
+            "  }",
+            "}",
+            "",
+            // Generates a type mismatch warning because `bar` is just an `Object`. The
+            // relationship with `Foo` is hidden by spreading its instance. If the user chooses to
+            // ignore the mismatch warning, the compiler is free to break them by disambiguating
+            // "prop". See b/128355893#comment3
+            "const {.../** !Bar */ bar} = new Foo();",
+            "alert(bar.prop);"),
+        "{prop=[[Bar], [Foo]]}",
+        TypeValidator.TYPE_MISMATCH_WARNING);
+  }
+
+  @Test
+  public void testObjectRest_allowsDisambiguation_betweenPairOfRecordTypes() {
+    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2018);
+    testSets(
+        lines(
+            "/** @record */",
+            "class Foo {",
+            "  constructor() {",
+            "    /** @const {number} */",
+            "    this.prop = 3;",
+            "    /** @const {string} */",
+            "    this.uniqueProp = 'str';",
+            "  }",
+            "}",
+            "",
+            "/** @record */",
+            "class Bar {",
+            "  constructor() {",
+            "    /** @type {number} */",
+            "    this.prop = 3;",
+            "  }",
+            "}",
+            "",
+            "function f(/** !Foo */ f) {",
+            // Generates a type mismatch warning because `bar` is just an `Object`. The
+            // relationship with `Foo` is hidden by spreading its instance. If the user chooses to
+            // ignore the mismatch warning, the compiler is free to break them by disambiguating
+            // "prop". See b/128355893#comment3
+            "  const {.../** !Bar */ bar} = f;",
+            "  alert(bar.prop);",
+            "}"),
+        "{prop=[[Bar], [Foo]], uniqueProp=[[Foo]]}",
+        TypeValidator.TYPE_MISMATCH_WARNING);
+  }
+
+  @Test
+  public void testObjectSpread_blocksDisambiguation_ofPropertiesAccessedFromResultType() {
+    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2018);
+    testSets(
+        lines(
+            "class Foo {", //
+            "  constructor() {",
+            "    /** @const {number} */",
+            "    this.prop = 3;",
+            "  }",
+            "",
+            "  /** @return {number} */",
+            "  method() { return 0; }",
+            "}",
+            "",
+            "const spread = {...new Foo()};",
+            "alert(spread.prop);"),
+        // `method` can be disambiguated, because weit's always accesed from a reveiver known to
+        // possess it. This is not true for `prop`.
+        "{method=[[Foo.prototype]]}");
+  }
+
+  @Test
+  public void testObjectSpread_allowsDisambiguation_betweenInstanceAndRecordType() {
+    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2018);
+    testSets(
+        lines(
+            "class Foo {", //
+            "  constructor() {",
+            "    /** @const {number} */",
+            "    this.prop = 3;",
+            "  }",
+            "}",
+            "",
+            "/** @record */",
+            "class Bar {", //
+            "  constructor() {",
+            "    /** @type {number} */",
+            "    this.prop = 3;",
+            "  }",
+            "}",
+            "",
+            // Generates a type mismatch warning because `bar` is just an `Object`. The
+            // relationship with `Foo` is hidden by spreading its instance. If the user chooses to
+            // ignore the mismatch warning, the compiler is free to break them by disambiguating
+            // "prop". See b/128355893#comment3
+            "const /** !Bar */ bar = {...new Foo()};",
+            "alert(bar.prop);"),
+        "{prop=[[Bar], [Foo]]}",
+        TypeValidator.TYPE_MISMATCH_WARNING);
+  }
+
+  @Test
+  public void testObjectSpread_allowsDisambiguation_betweenPairOfRecordTypes() {
+    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2018);
+    testSets(
+        lines(
+            "/** @record */",
+            "class Foo {",
+            "  constructor() {",
+            "    /** @const {number} */",
+            "    this.prop = 3;",
+            "    /** @const {string} */",
+            "    this.uniqueProp = 'str';",
+            "  }",
+            "}",
+            "",
+            "/** @record */",
+            "class Bar {",
+            "  constructor() {",
+            "    /** @type {number} */",
+            "    this.prop = 3;",
+            "  }",
+            "}",
+            "",
+            "function f(/** !Foo */ f) {",
+            // Generates a type mismatch warning because `bar` is just an `Object`. The
+            // relationship with `Foo` is hidden by spreading its instance. If the user chooses to
+            // ignore the mismatch warning, the compiler is free to break them by disambiguating
+            // "prop". See b/128355893#comment3
+            "  const /** !Bar */ bar = {...f};",
+            "  alert(bar.prop);",
+            "}"),
+        "{prop=[[Bar], [Foo]], uniqueProp=[[Foo]]}",
+        TypeValidator.TYPE_MISMATCH_WARNING);
   }
 
   @Test
@@ -3376,7 +3653,7 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
                 "Foo.foobar = 'static property!';",
                 // cause a type mismatch warning on Foo, preventing disambiguation
                 "const /** !Foo */ foo = {};")),
-        error(Warnings.INVALIDATION).withMessageContaining("Foo"));
+        error(INVALIDATION).withMessageContaining("Foo"));
   }
 
   @Test
@@ -3394,7 +3671,7 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
                 "Foo.foobar = 'static property!';",
                 // because unknownName is of the unknown type '?', we can't disambiguate foobar
                 "const {foobar: someRandomName} = unknownName;")),
-        error(Warnings.INVALIDATION).withMessageContaining("someRandomName"));
+        error(INVALIDATION).withMessageContaining("someRandomName"));
   }
 
   private void testSets(String js, String expected, final String fieldTypes) {

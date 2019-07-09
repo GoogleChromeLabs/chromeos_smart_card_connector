@@ -42,6 +42,7 @@ class MinimizeExitPoints extends AbstractPeepholeOptimization {
       case FOR:
       case FOR_IN:
       case FOR_OF:
+      case FOR_AWAIT_OF:
       case WHILE:
         tryMinimizeExits(NodeUtil.getLoopCodeBlock(n), Token.CONTINUE, null);
         break;
@@ -50,7 +51,7 @@ class MinimizeExitPoints extends AbstractPeepholeOptimization {
         tryMinimizeExits(NodeUtil.getLoopCodeBlock(n), Token.CONTINUE, null);
 
         Node cond = NodeUtil.getConditionExpression(n);
-        if (NodeUtil.getPureBooleanValue(cond) == TernaryValue.FALSE) {
+        if (getSideEffectFreeBooleanValue(cond) == TernaryValue.FALSE) {
           // Normally, we wouldn't be able to optimize BREAKs inside a loop
           // but as we know the condition will always be false, we can treat them
           // as we would a CONTINUE.
@@ -107,7 +108,7 @@ class MinimizeExitPoints extends AbstractPeepholeOptimization {
 
     // Just an 'exit'.
     if (matchingExitNode(n, exitType, labelName)) {
-      compiler.reportChangeToEnclosingScope(n);
+      reportChangeToEnclosingScope(n);
       NodeUtil.removeChild(n.getParent(), n);
       return;
     }
@@ -302,7 +303,7 @@ class MinimizeExitPoints extends AbstractPeepholeOptimization {
 
       // Move all the if node's following siblings.
       moveAllFollowing(ifNode, ifNode.getParent(), newDestBlock);
-      compiler.reportChangeToEnclosingScope(ifNode);
+      reportChangeToEnclosingScope(ifNode);
     }
   }
 

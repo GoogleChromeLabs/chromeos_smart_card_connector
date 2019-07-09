@@ -46,11 +46,6 @@ public final class OptimizeParametersTest extends CompilerTestCase {
     enableGatherExternProperties();
   }
 
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
-  }
-
   @Test
   public void testNoRemoval1() {
     testSame("function foo(p1) { } foo(1); foo(2)"); // required "remove unused vars"
@@ -636,6 +631,9 @@ public final class OptimizeParametersTest extends CompilerTestCase {
     test("function foo(p1, p2) {}; foo(1,2); foo(2,2);",
          "function foo(p1) {var p2 = 2}; foo(1); foo(2)");
 
+    // @noinline prevents constant inlining
+    testSame("/** @noinline */ function foo(p1, p2) {}; foo(1,2); foo(2,2);");
+
     // Remove nothing
     testSame("function foo(p1, p2) {}; foo(1); foo(2,3);");
 
@@ -734,10 +732,28 @@ public final class OptimizeParametersTest extends CompilerTestCase {
   }
 
   @Test
-  public void testFunctionWithReferenceToArgumentsShouldNotBeOptimize() {
+  public void testFunctionWithReferenceToArgumentsShouldNotBeOptimized() {
     testSame("function foo(a,b,c) { return arguments.size; }; foo(1);");
     testSame("var foo = function(a,b,c) { return arguments.size }; foo(1);");
     testSame("var foo = function bar(a,b,c) { return arguments.size }; foo(2); bar(2);");
+  }
+
+  @Test
+  public void testClassMemberWithReferenceToArgumentsShouldNotBeOptimize() {
+    testSame(
+        lines(
+            "class C {", //
+            "  constructor() {",
+            "  }",
+            "  setValue(value) {",
+            "    if (!arguments.length) {",
+            "      return 0;",
+            "    }",
+            "    return value;",
+            "  }",
+            "}",
+            "var c = new C();",
+            "alert(c.setValue(42));"));
   }
 
   @Test
@@ -875,12 +891,6 @@ public final class OptimizeParametersTest extends CompilerTestCase {
   }
 
   @Test
-  public void testDoNotOptimizeJSCompiler_ObjectPropertyString() {
-    testSame("function JSCompiler_ObjectPropertyString(a, b) {return a[b]};" +
-             "JSCompiler_renameProperty(window,'b');");
-  }
-
-  @Test
   public void testMutableValues1() {
     test("function foo(p1) {} foo()",
          "function foo() {var p1} foo()");
@@ -987,6 +997,15 @@ public final class OptimizeParametersTest extends CompilerTestCase {
         "var x; var y; var z;" +
         "function foo(p2, p3) {var p1=[]}" +
         "new foo(y(), z()); new foo(y(),3)");
+  }
+
+  @Test
+  public void testMutableValuesDoNotMoveSuper() {
+    testSame(
+        lines(
+            "var A;",
+            "function fn(p1) {}",
+            "class B extends A { constructor() { fn(super.x); } }"));
   }
 
   @Test
@@ -1184,4 +1203,45 @@ public final class OptimizeParametersTest extends CompilerTestCase {
         "f()"));
   }
 
+  @Test
+  public void testSuperInvocation_preventsParamInlining_whenImplicit() {
+    // TODO(b/130054506): It would be better if we did inline in this case. However, right now it's
+    // sufficient that we don't inline at all, since it would be dangerous if we overlooked `super`
+    // calls.
+    testSame(
+        lines(
+            "class Foo {",
+            "  constructor(x) {",
+            "    this.x = x;",
+            "  }",
+            "}",
+            "",
+            "class Bar extends Foo { }",
+            "",
+            "new Foo(4);",
+            "new Bar(4);"));
+  }
+
+  @Test
+  public void testSuperInvocation_preventsParamInlining_whenExplicit() {
+    // TODO(b/130054506): It would be better if we did inline in this case. However, right now it's
+    // sufficient that we don't inline at all, since it would be dangerous if we overlooked `super`
+    // calls.
+    testSame(
+        lines(
+            "class Foo {",
+            "  constructor(x) {",
+            "    this.x = x;",
+            "  }",
+            "}",
+            "",
+            "class Bar extends Foo {",
+            "  constructor() {",
+            "    super(4);",
+            "  }",
+            "}",
+            "",
+            "new Foo(4);",
+            "new Bar();"));
+  }
 }

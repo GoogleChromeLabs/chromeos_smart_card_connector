@@ -20,9 +20,12 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
-import static com.google.javascript.jscomp.ScopeSubject.assertScope;
 import static com.google.javascript.jscomp.TypedScopeCreator.CTOR_INITIALIZER;
 import static com.google.javascript.jscomp.TypedScopeCreator.IFACE_INITIALIZER;
+import static com.google.javascript.jscomp.modules.ModuleMapCreator.DOES_NOT_HAVE_EXPORT;
+import static com.google.javascript.jscomp.modules.ModuleMapCreator.MISSING_NAMESPACE_IMPORT;
+import static com.google.javascript.jscomp.testing.ScopeSubject.assertScope;
+import static com.google.javascript.jscomp.testing.TypedVarSubject.assertThat;
 import static com.google.javascript.rhino.jstype.JSTypeNative.BOOLEAN_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NUMBER_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.OBJECT_TYPE;
@@ -35,6 +38,12 @@ import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.deps.JsFileLineParser;
+import com.google.javascript.jscomp.deps.ModuleLoader;
+import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
+import com.google.javascript.jscomp.modules.Export;
+import com.google.javascript.jscomp.modules.ModuleMapCreator;
+import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -69,6 +78,8 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
   private TypedScope globalScope;
   private TypedScope lastLocalScope;
   private TypedScope lastFunctionScope;
+  private final ResolutionMode moduleResolutionMode = ResolutionMode.BROWSER;
+  private boolean processClosurePrimitives = false;
 
   /**
    * Maps a label name to information about the labeled statement.
@@ -95,11 +106,6 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
   public void setUp() throws Exception {
     super.setUp();
     enableTypeInfoValidation();
-  }
-
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
   }
 
   private class ScopeFinder extends AbstractPostOrderCallback {
@@ -139,17 +145,23 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     registry = compiler.getTypeRegistry();
     // Create a fresh statement map for each test case.
     labeledStatementMap = new HashMap<>();
-    return new CompilerPass() {
-      @Override
-      public void process(Node externs, Node root) {
-        TypedScopeCreator scopeCreator = new TypedScopeCreator(compiler);
-        TypedScope topScope = scopeCreator.createScope(root.getParent(), null);
-        (new TypeInferencePass(
-            compiler, compiler.getReverseAbstractInterpreter(),
-            topScope, scopeCreator)).process(externs, root);
-        new NodeTraversal(compiler, new ScopeFinder(), scopeCreator).traverseRoots(externs, root);
-      }
+    return (Node externs, Node root) -> {
+      new GatherModuleMetadata(compiler, false, moduleResolutionMode).process(externs, root);
+      new ModuleMapCreator(compiler, compiler.getModuleMetadataMap()).process(externs, root);
+      TypedScopeCreator scopeCreator = new TypedScopeCreator(compiler);
+      TypedScope topScope = scopeCreator.createScope(root.getParent(), null);
+      new TypeInferencePass(
+              compiler, compiler.getReverseAbstractInterpreter(), topScope, scopeCreator)
+          .process(externs, root);
+      new NodeTraversal(compiler, new ScopeFinder(), scopeCreator).traverseRoots(externs, root);
     };
+  }
+
+  @Override
+  protected CompilerOptions getOptions() {
+    CompilerOptions options = super.getOptions();
+    options.setClosurePass(processClosurePrimitives);
+    return options;
   }
 
   @Test
@@ -270,7 +282,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
             "const /** !Foo */ fooInstance = new Foo();"));
 
     TypedVar fooVar = checkNotNull(globalScope.getVar("Foo"));
-    assertType(fooVar.getType()).toStringIsEqualTo("function(new:ns.Foo): undefined");
+    assertType(fooVar.getType()).toStringIsEqualTo("(typeof ns.Foo)");
     assertThat(fooVar.isTypeInferred()).isFalse();
 
     TypedVar fooInstanceVar = checkNotNull(globalScope.getVar("fooInstance"));
@@ -511,6 +523,42 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
   }
 
   @Test
+  public void testClassInstancePropertyInArrowFunction() {
+    testSame(
+        lines(
+            "class C {",
+            "  constructor() {",
+            "    (() => {",
+            "      /** @type {number} */",
+            "      this.size = 0;",
+            "    })();",
+            "    CTOR: 0;",
+            "  }",
+            "}"));
+
+    // Declare `this.size` in the enclosing constructor's scope.
+    assertScope(getLabeledStatement("CTOR").enclosingScope.getParent())
+        .declares("this.size")
+        .directly();
+  }
+
+  @Test
+  public void testObjectLiteralShadowingFnExpressionName() {
+    testSame(
+        lines(
+            "var obj = {",
+            "  key: function f() {",
+            "    var f = {x: 0};",
+            "    FN: 0; ",
+            "  }",
+            "};"));
+
+    // Test that we declare 'f.x' on the function block scope, not the enclosing function scope,
+    // which also contains `f`.
+    assertScope(getLabeledStatement("FN").enclosingScope).declares("f.x").directly();
+  }
+
+  @Test
   public void testForOfWithObjectPatConstDeclarationShadowedInLoop() {
     testSame(
         lines(
@@ -560,11 +608,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
             "/** @const {number} */ let   CONST_LET_WITH_TYPE = 1;",
             "/** @type  {number} */ const CONST_WITH_TYPE     = 1;",
             ""));
-    String[] expectedVarNames =
-        new String[] {
-          "uninitializedVar",
-          "typedefVar",
-        };
+    String[] expectedVarNames = new String[] {"uninitializedVar"};
     List<TypedVar> expectedVars = new ArrayList<>();
     for (String varName : expectedVarNames) {
       expectedVars.add(globalScope.getVar(varName));
@@ -742,6 +786,39 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
   }
 
   @Test
+  public void testDefaultParameterInferredNotUndefinedInCallback() {
+    testSame(
+        lines(
+            "function takesCallback(/** function(string=): ? */ cb) {}",
+            "",
+            "takesCallback((str = '') => {})",
+            ""));
+
+    TypedVar strVar = checkNotNull(lastFunctionScope.getVar("str"));
+    assertType(strVar.getType()).isString();
+    assertThat(strVar.isTypeInferred()).isTrue();
+
+    JSType strType = findNameType("str", globalScope);
+    assertType(strType).isString(); // the actual parameter is also typed as not-undefined
+  }
+
+  @Test
+  public void testDefaultParameterInferredNotUndefinedInCallbackButLaterSetToUndefined() {
+    testSame(
+        lines(
+            "function takesCallback(/** function(string=): ? */ cb) {}",
+            "",
+            "takesCallback((str = '') => {",
+            "  str = undefined;",
+            "})",
+            ""));
+
+    TypedVar strVar = checkNotNull(lastFunctionScope.getVar("str"));
+    assertType(strVar.getType()).toStringIsEqualTo("(string|undefined)");
+    assertThat(strVar.isTypeInferred()).isTrue();
+  }
+
+  @Test
   public void testDefaultDestructuringParameterFullJSDoc() {
     testSame(
         lines(
@@ -804,6 +881,42 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     TypedVar yVar = checkNotNull(lastFunctionScope.getVar("y"));
     assertType(yVar.getType()).toStringIsEqualTo("Array<number>");
     assertThat(yVar.isTypeInferred()).isFalse();
+  }
+
+  @Test
+  public void testArrayPatternParameterWithDefaultName() {
+    testSame(
+        lines(
+            "const /** !Iterable<number> */ iter = [0];",
+            "",
+            "/** @param {!Iterable<number>=} p */",
+            "function f([x] = iter) { ",
+            "}"));
+
+    // JSType on the actual node
+    JSType xType = findNameType("x", lastFunctionScope);
+    assertType(xType).isNumber();
+
+    // JSType in the scope
+    TypedVar xVar = checkNotNull(lastFunctionScope.getVar("x"));
+    assertType(xVar.getType()).toStringIsEqualTo("number");
+    assertThat(xVar.isTypeInferred()).isTrue();
+
+    // JSType on the array pattern
+    JSType arrayPatternType = findTokenType(Token.ARRAY_PATTERN, globalScope);
+    assertType(arrayPatternType).toStringIsEqualTo("Iterable<number>");
+  }
+
+  @Test
+  public void testArrayDestructuringPatternParameterWithDefaultArray() {
+    testSame(
+        lines(
+            "/** @param {!Iterable<number>=} p */", //
+            "function f([x] = [0]) {}"));
+
+    JSType xType = findNameType("x", lastFunctionScope);
+    // This is unknown because we infer `[0]` to have type `!Array<?>`
+    assertType(xType).isUnknown();
   }
 
   @Test
@@ -1201,7 +1314,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
             "const [{b}] = a;"));
 
     TypedVar b = checkNotNull(globalScope.getVar("b"));
-    assertType(b.getType()).isUnknown();
+    assertType(b.getType()).isString();
     assertThat(b.isTypeInferred()).isTrue(); // b is inferred but not treated as declared
   }
 
@@ -1239,7 +1352,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     assertThat(foo.isPropertyTypeInferred("Bar")).isFalse();
 
     JSType fooBar = foo.getPropertyType("Bar");
-    assertThat(fooBar.toString()).isEqualTo("function(new:foo.Bar): undefined");
+    assertThat(fooBar.toString()).isEqualTo("(typeof foo.Bar)");
   }
 
   @Test
@@ -2028,7 +2141,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "I.prototype.baz = function(){};");
 
     TypedVar i = globalScope.getVar("I");
-    assertThat(i.getType().toString()).isEqualTo("function(this:I): ?");
+    assertThat(i.getType().toString()).isEqualTo("(typeof I)");
     assertThat(i.getType().isInterface()).isTrue();
     assertThat(i.getType().isFunctionType()).isTrue();
     assertThat(i.getType().toMaybeFunctionType().isStructuralInterface()).isTrue();
@@ -2041,7 +2154,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "I.prototype.baz = function(){};");
 
     TypedVar i = globalScope.getVar("I");
-    assertThat(i.getType().toString()).isEqualTo("function(this:I): ?");
+    assertThat(i.getType().toString()).isEqualTo("(typeof I)");
     assertThat(i.getType().isInterface()).isTrue();
     assertThat(i.getType().isFunctionType()).isTrue();
     assertThat(i.getType().toMaybeFunctionType().isStructuralInterface()).isFalse();
@@ -2102,7 +2215,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "I.prototype.baz = function(){};");
 
     TypedVar i = globalScope.getVar("I");
-    assertThat(i.getType().toString()).isEqualTo("function(this:I): ?");
+    assertThat(i.getType().toString()).isEqualTo("(typeof I)");
     assertThat(i.getType().isInterface()).isTrue();
 
     ObjectType iPrototype = (ObjectType)
@@ -2124,7 +2237,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         "/** @type {number} */ I.prototype.bar;");
 
     TypedVar i = globalScope.getVar("I");
-    assertThat(i.getType().toString()).isEqualTo("function(this:I): ?");
+    assertThat(i.getType().toString()).isEqualTo("(typeof I)");
     assertThat(i.getType().isInterface()).isTrue();
 
     ObjectType iPrototype = (ObjectType)
@@ -2211,7 +2324,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         externs("Extern.prototype.foo;" + "/** @constructor */ function Extern() {}"), srcs(""));
 
     JSType e = globalScope.getVar("Extern").getType();
-    assertThat(e.toString()).isEqualTo("function(new:Extern): ?");
+    assertThat(e.toString()).isEqualTo("(typeof Extern)");
 
     ObjectType externProto = ((FunctionType) e).getPrototype();
     assertWithMessage(globalScope.getRootNode().toStringTree())
@@ -2319,7 +2432,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
 
     TypedVar v = globalScope.getVar("Object");
     FunctionType obj = (FunctionType) v.getType();
-    assertThat(obj.toString()).isEqualTo("function(new:Object, *=): Object");
+    assertThat(obj.toString()).isEqualTo("(typeof Object)");
     assertThat(v.getNode()).isNotNull();
     assertThat(v.input).isNotNull();
   }
@@ -2422,7 +2535,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     ObjectType ctor = (ObjectType) (findNameType("goog.Foo", globalScope));
     assertThat(ctor).isNotNull();
     assertThat(ctor.isConstructor()).isTrue();
-    assertThat(ctor.toString()).isEqualTo("function(new:goog.Foo): undefined");
+    assertThat(ctor.toString()).isEqualTo("(typeof goog.Foo)");
   }
 
   @Test
@@ -2446,9 +2559,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     // Test constructor property.
     assertThat(fooProto.hasOwnProperty("constructor")).isTrue();
     assertNode(fooProto.getOwnPropertyDefSite("constructor")).isNull();
-    assertType(fooProto)
-        .withTypeOfProp("constructor")
-        .toStringIsEqualTo("function(new:Foo, ...?): ?");
+    assertType(fooProto).withTypeOfProp("constructor").toStringIsEqualTo("(typeof Foo)");
   }
 
   @Test
@@ -2474,10 +2585,8 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
 
     // Test constructor property.
     assertThat(fooProto.hasOwnProperty("constructor")).isTrue();
-    assertNode(fooProto.getOwnPropertyDefSite("constructor")).isSameAs(ctorDef);
-    assertType(fooProto)
-        .withTypeOfProp("constructor")
-        .toStringIsEqualTo("function(new:Foo, ...?): ?");
+    assertNode(fooProto.getOwnPropertyDefSite("constructor")).isSameInstanceAs(ctorDef);
+    assertType(fooProto).withTypeOfProp("constructor").toStringIsEqualTo("(typeof Foo)");
   }
 
   @Test
@@ -2544,9 +2653,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     // Test constructor property.
     assertThat(fooProto.hasOwnProperty("constructor")).isTrue();
     assertNode(fooProto.getOwnPropertyDefSite("constructor")).isNull();
-    assertType(fooProto)
-        .withTypeOfProp("constructor")
-        .toStringIsEqualTo("function(new:Foo, ...?): ?");
+    assertType(fooProto).withTypeOfProp("constructor").toStringIsEqualTo("(typeof Foo)");
   }
 
   @Test
@@ -2561,34 +2668,38 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
             "  static method() {}",
             "}"));
 
-    FunctionType bar = (FunctionType) (findNameType("Bar", globalScope));
-    ObjectType barObject = bar.getInstanceType();
+    FunctionType barCtor = (FunctionType) findNameType("Bar", globalScope);
+    ObjectType barObject = barCtor.getInstanceType();
     JSType barConstructorProperty = barObject.getPropertyType("constructor");
 
-    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
-    ObjectType fooObject = foo.getInstanceType();
-    ObjectType fooProto = foo.getPrototype();
+    FunctionType fooCtor = (FunctionType) findNameType("Foo", globalScope);
+    ObjectType fooObject = fooCtor.getInstanceType();
+    ObjectType fooProto = fooCtor.getPrototype();
     JSType fooConstructorProperty = fooObject.getPropertyType("constructor");
-    Node fooCtorDef = getLabeledStatement("CTOR_BODY").statementNode.getAncestor(3);
 
-    assertType(foo).withTypeOfProp("method").isNotUnknown();
-    assertType(foo).withTypeOfProp("method").isNotEmpty();
+    Node superInvocation = getLabeledStatement("CTOR_BODY").statementNode.getFirstChild();
 
-    List<JSType> params = ImmutableList.copyOf(foo.getParameterTypes());
+    Node superRef = superInvocation.getFirstChild();
+    assertNode(superRef).hasToken(Token.SUPER).hasJSTypeThat().isEqualTo(barCtor);
+
+    assertType(fooCtor).withTypeOfProp("method").isNotUnknown();
+    assertType(fooCtor).withTypeOfProp("method").isNotEmpty();
+
+    List<JSType> params = ImmutableList.copyOf(fooCtor.getParameterTypes());
     assertThat(params).hasSize(1);
     assertType(params.get(0)).isNumber();
-    assertType(barConstructorProperty).toStringIsEqualTo("function(new:Bar, ...?): ?");
+    assertType(barConstructorProperty).toStringIsEqualTo("(typeof Bar)");
 
-    assertType(fooConstructorProperty).toStringIsEqualTo("function(new:Foo, ...?): ?");
-    assertNode(fooProto.getOwnPropertyDefSite("constructor")).isSameAs(fooCtorDef);
+    Node fooCtorDef = NodeUtil.getEnclosingFunction(superInvocation);
+    assertType(fooConstructorProperty).toStringIsEqualTo("(typeof Foo)");
+    assertNode(fooProto.getOwnPropertyDefSite("constructor")).isSameInstanceAs(fooCtorDef);
 
     assertType(fooConstructorProperty).isSubtypeOf(barConstructorProperty);
-    // TODO(b/118174876): The type of `this` should be equal to the Foo class itself.
     assertType(fooConstructorProperty)
         .withTypeOfProp("method")
         .isFunctionTypeThat()
         .hasTypeOfThisThat()
-        .isUnknown();
+        .toStringIsEqualTo("(typeof Foo)");
   }
 
   @Test
@@ -2668,7 +2779,9 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
 
     // Then
     FunctionType foo = (FunctionType) findNameType("Foo", globalScope);
-    assertType(foo).withTypeOfProp("method").toStringIsEqualTo("function(string): undefined");
+    assertType(foo)
+        .withTypeOfProp("method")
+        .toStringIsEqualTo("function(this:(typeof Foo), string): undefined");
   }
 
   @Test
@@ -2704,14 +2817,17 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
             "    METHOD:;",
             "  }",
             "}"));
+    ObjectType bar = ((FunctionType) findNameType("Bar", globalScope)).getInstanceType();
+    ObjectType foo = ((FunctionType) findNameType("Foo", globalScope)).getInstanceType();
+
     TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
     TypedScope methodScope = methodBlockScope.getParentScope();
     assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
+    assertScope(methodScope).declares("super").withTypeThat().isEqualTo(bar);
 
     FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
     assertType(method).toStringIsEqualTo("function(this:Foo, string): undefined");
-    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
-    assertType(foo.getInstanceType()).withTypeOfProp("method").isEqualTo(method);
+    assertType(foo).withTypeOfProp("method").isEqualTo(method);
   }
 
   @Test
@@ -2730,8 +2846,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
 
     FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
-    // TODO(sdh): Probably want function(this:function(new:Foo), string): undefined
-    assertType(method).toStringIsEqualTo("function(string): undefined");
+    assertType(method).toStringIsEqualTo("function(this:(typeof Foo), string): undefined");
     FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
     assertType(foo).withTypeOfProp("method").isEqualTo(method);
   }
@@ -2746,18 +2861,25 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
             "}",
             "class Bar extends Foo {",
             "  static method(arg) {",
-            "    METHOD:;",
+            "    METHOD: super.method(arg);",
             "  }",
             "}"));
-    TypedScope methodBlockScope = getLabeledStatement("METHOD").enclosingScope;
-    TypedScope methodScope = methodBlockScope.getParentScope();
-    assertScope(methodScope).declares("arg").directly().withTypeThat().isNumber();
+    FunctionType fooCtor = (FunctionType) findNameType("Foo", globalScope);
+    LabeledStatement superMethodCall = getLabeledStatement("METHOD");
 
-    FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
-    // TODO(sdh): Probably want function(this:function(new:Foo), string): undefined
-    assertType(method).toStringIsEqualTo("function(number): undefined");
-    FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
-    assertType(foo).withTypeOfProp("method").isEqualTo(method);
+    TypedScope methodOverrideBlockScope = superMethodCall.enclosingScope;
+    TypedScope methodOverrideScope = methodOverrideBlockScope.getParentScope();
+    assertScope(methodOverrideScope).declares("arg").directly().withTypeThat().isNumber();
+    assertScope(methodOverrideScope).declares("super").withTypeThat().isEqualTo(fooCtor);
+
+    FunctionType methodOverride = (FunctionType) methodOverrideScope.getRootNode().getJSType();
+    assertType(methodOverride).toStringIsEqualTo("function(this:(typeof Bar), number): undefined");
+    assertType(fooCtor)
+        .withTypeOfProp("method")
+        .toStringIsEqualTo("function(this:(typeof Foo), number): undefined");
+
+    Node superRef = superMethodCall.statementNode.getFirstChild().getFirstFirstChild();
+    assertNode(superRef).hasToken(Token.SUPER).hasJSTypeThat().isEqualTo(fooCtor);
   }
 
   @Test
@@ -2883,8 +3005,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     assertScope(methodScope).declares("arg").directly().withTypeThat().isString();
 
     FunctionType method = (FunctionType) methodScope.getRootNode().getJSType();
-    // TODO(sdh): Probably want function(this:function(new:Foo), string): undefined
-    assertType(method).toStringIsEqualTo("function(string): undefined");
+    assertType(method).toStringIsEqualTo("function(this:(typeof Foo), string): undefined");
     FunctionType foo = (FunctionType) (findNameType("Foo", globalScope));
     assertType(foo).withTypeOfProp("method").isEqualTo(method);
   }
@@ -2901,12 +3022,12 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         .declares("Foo")
         .directly()
         .withTypeThat()
-        .toStringIsEqualTo("function(new:Foo): undefined");
+        .toStringIsEqualTo("(typeof Foo)");
     assertScope(globalScope)
         .declares("Foo.Something")
         .directly()
         .withTypeThat()
-        .toStringIsEqualTo("function(new:Foo.Something): undefined");
+        .toStringIsEqualTo("(typeof Foo.Something)");
   }
 
   @Test
@@ -2927,7 +3048,7 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
         .directly()
         .withTypeThat()
         // TODO(sdh): Print a better name (https://github.com/google/closure-compiler/issues/2982)
-        .toStringIsEqualTo("function(new:<anonymous@testcode:2>): undefined");
+        .toStringIsEqualTo("(typeof <anonymous@testcode:2>)");
     assertScope(globalScope).doesNotDeclare("Bar");
   }
 
@@ -2959,6 +3080,53 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     assertThat(registry.getType(null, "goog.FooAlias").toString()).isEqualTo("goog.Foo");
     assertType(registry.getType(null, "goog.FooAlias"))
         .isStructurallyEqualTo(registry.getType(null, "goog.Foo"));
+  }
+
+  @Test
+  public void testConstructorAliasWithPrototypeMethodHasCorrectThisType() {
+    testSame(
+        lines(
+            "class Foo {}", //
+            "const FooAlias = Foo;",
+            "FooAlias.prototype.fn = function() {};"));
+
+    Node fnAliasNameNode =
+        findQualifiedNameNode("FooAlias.prototype.fn", globalScope.getRootNode());
+
+    JSType fooCtorType = findNameType("Foo", globalScope);
+    JSType fooType = fooCtorType.toMaybeFunctionType().getInstanceType();
+
+    assertType(fnAliasNameNode.getJSType())
+        .isFunctionTypeThat()
+        .hasTypeOfThisThat()
+        .isEqualTo(fooType);
+  }
+
+  @Test
+  public void testConstructorAliasPrototypePropIsInScope() {
+    testSame(
+        lines(
+            "class Foo {}", //
+            "const FooAlias = Foo;",
+            "FooAlias.prototype.fn = function() {};"));
+
+    TypedVar fooAliasPrototype = globalScope.getSlot("FooAlias.prototype");
+    assertThat(fooAliasPrototype).isNotNull();
+    assertType(fooAliasPrototype.getType())
+        .isEqualTo(globalScope.getSlot("Foo.prototype").getType());
+  }
+
+  @Test
+  public void testNoConstructorAlias_namespaceIsShadowedInParameter() {
+    testWarning(
+        lines(
+            "const a = {};",
+            "a.B = class {};",
+            "function f(a) {",
+            "  const B = a.B;", // This does /not/ create a constructor alias as `a` is shadowed.
+            "  var /** !B */ b;",
+            "}"),
+        RhinoErrorReporter.UNRECOGNIZED_TYPE_ERROR);
   }
 
   @Test
@@ -4063,10 +4231,10 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
 
     TypedScope secondCatchScope = getLabeledStatement("SECOND_CATCH").enclosingScope;
     assertScope(firstCatchScope).declares("err").directly();
-    assertThat(firstCatchScope).isNotSameAs(secondCatchScope);
+    assertThat(firstCatchScope).isNotSameInstanceAs(secondCatchScope);
 
     TypedVar secondErrVar = secondCatchScope.getVar("err");
-    assertThat(firstErrVar).isNotSameAs(secondErrVar);
+    assertThat(firstErrVar).isNotSameInstanceAs(secondErrVar);
   }
 
   @Test
@@ -4166,6 +4334,21 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
   }
 
   @Test
+  public void testAliasTypedefOntoNamespace() {
+    testSame(
+        lines(
+            "/** @typedef {number} */ let Foo;", //
+            "const E = {};",
+            "/** @const */",
+            "E.F = Foo;",
+            "/** @type {E.F} */ let x;"));
+    assertType(findNameType("x", globalScope)).isNumber();
+    ObjectType eType = findNameType("E", globalScope).toMaybeObjectType();
+    assertThat(eType).isNotNull();
+    assertThat(eType.isPropertyTypeDeclared("F")).isTrue();
+  }
+
+  @Test
   public void testAliasTypedefFromNamespace() {
     testSame(
         lines(
@@ -4189,6 +4372,1498 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
   }
 
   @Test
+  public void testTypedefName_hasNoType() {
+    testSame("/** @typedef {number} */ let Foo;");
+
+    TypedVar foo = globalScope.getSlot("Foo");
+    assertThat(foo).isNotInferred();
+    assertThat(foo).hasJSTypeThat().isNoType();
+  }
+
+  @Test
+  public void testTypedefQualifiedName_hasNoType() {
+    testSame("const ns = {}; /** @typedef {number} */ ns.Foo;");
+
+    TypedVar foo = globalScope.getSlot("ns.Foo");
+    assertThat(foo).isNotInferred();
+    assertThat(foo).hasJSTypeThat().isNoType(); // Note: we would like this to be 'void' eventually.
+  }
+
+  @Test
+  public void testTypedefName_usingLetWithLiteralRhs_hasNoType() {
+    testSame("/** @typedef {number} */ let Foo = 'a string';"); // This will cause a type error.
+
+    TypedVar foo = globalScope.getSlot("Foo");
+    assertThat(foo).isNotInferred();
+    assertThat(foo).hasJSTypeThat().isNoType();
+  }
+
+  @Test
+  public void testTypedefNameVar_usingConstWithLiteralRhs_hasLiteralType() {
+    testSame("/** @enum */ let Enum = {A: 0}; /** @typedef {number} */ const Foo = Enum;");
+
+    TypedVar foo = globalScope.getSlot("Foo");
+    assertThat(foo).isNotInferred();
+    // Currently a typedef can be a const alias of a type.
+    assertThat(foo).hasJSTypeThat().toStringIsEqualTo("enum{Enum}");
+
+    assertType(registry.getGlobalType("Foo")).isNumber();
+  }
+
+  @Test
+  public void testTypedefNameVar_usingConstWithObjectLitRhs_canHaveAdditionalProperties() {
+    testSame("/** @typedef {number} */ const Foo = {}; Foo.Builder = () => 0;");
+
+    TypedVar foo = globalScope.getSlot("Foo");
+    assertThat(foo).isNotInferred();
+    assertThat(foo).hasJSTypeThat().isObjectTypeWithProperty("Builder");
+
+    assertType(registry.getGlobalType("Foo")).isNumber();
+  }
+
+  @Test
+  public void testTypedefQualifiedName_withLiteralRhs_hasNoType() {
+    testSame("const ns = {}; /** @typedef {number} */ ns.Foo = 'a string';");
+
+    TypedVar foo = globalScope.getSlot("ns.Foo");
+    assertThat(foo).isNotNull();
+    assertThat(foo).isNotInferred();
+    assertThat(foo).hasJSTypeThat().isNoType();
+  }
+
+  @Test
+  public void testTypedefQualifiedName_withObjectLiteralRhs_hasNoType() {
+    testSame("const ns = {}; /** @typedef {number} */ ns.Foo = {}; ns.Foo.Builder = () => 0;");
+
+    TypedVar foo = globalScope.getSlot("ns.Foo");
+    assertThat(foo).isNotInferred();
+    assertThat(foo).hasJSTypeThat().isNoType(); // Note: eventually we may want to make this {}.
+
+    assertType(registry.getGlobalType("ns.Foo")).isNumber();
+  }
+
+  @Test
+  public void testObjectPatternInParametersWithDefaultGetsCorrectType() {
+    testSame("/** @param {{a: string}=} obj */ function f({a = 'foo'} = {}) {}");
+
+    JSType patternType = findTokenType(Token.OBJECT_PATTERN, globalScope);
+    // the pattern has the type after the default value is evaluated, not ({a:string}|undefined)
+    assertType(patternType).toStringIsEqualTo("({a: string}|{})");
+
+    JSType aNameType = findNameType("a", globalScope);
+    assertType(aNameType).isString();
+  }
+
+  @Test
+  public void testGoogModuleMissingNamespaceDoesntCrash() {
+    getOptions().setContinueAfterErrors(true);
+    testError("goog.module(); const x = 0;", JsFileLineParser.PARSE_ERROR);
+    testError("goog.module(0); const x = 0;", JsFileLineParser.PARSE_ERROR);
+  }
+
+  @Test
+  public void testScriptAndGoogModuleWithShadowedVar() {
+    testSame(
+        new String[] {
+          "var x = 0; GLOBAL_X: x;", //
+          "goog.module('a'); var x = 'str'; LOCAL_X: x;"
+        });
+    TypedScope globalScope = getLabeledStatement("GLOBAL_X").enclosingScope;
+    TypedScope localScope = getLabeledStatement("LOCAL_X").enclosingScope;
+
+    TypedVar globalX = globalScope.getSlot("x");
+    TypedVar localX = localScope.getSlot("x");
+
+    assertThat(globalX).isNotEqualTo(localX);
+    assertThat(globalX).hasJSTypeThat().isNumber();
+    assertThat(localX).hasJSTypeThat().isString();
+  }
+
+  @Test
+  public void testTwoGoogModulesWithSameNamedVar() {
+    testSame(
+        new String[] {
+          "goog.module('a'); var x = 'str'; MOD_A_X: x;", //
+          "goog.module('b'); var x = 0; MOD_B_X: x"
+        });
+
+    assertScope(globalScope).doesNotDeclare("x");
+
+    TypedVar modAX = getLabeledStatement("MOD_A_X").enclosingScope.getSlot("x");
+    TypedVar modBX = getLabeledStatement("MOD_B_X").enclosingScope.getSlot("x");
+
+    assertThat(modAX).isNotEqualTo(modBX);
+    assertType(modAX.getType()).isString();
+    assertType(modBX.getType()).isNumber();
+  }
+
+  @Test
+  public void testTwoGoogModuleWithSameNamedFunctionDeclaration() {
+    testSame(
+        new String[] {
+          "goog.module('a'); function foo() {} MOD_A_FOO: foo;", //
+          "goog.module('b'); function foo() {} MOD_B_FOO: foo;"
+        });
+
+    assertScope(globalScope).doesNotDeclare("foo");
+
+    TypedVar modAX = getLabeledStatement("MOD_A_FOO").enclosingScope.getSlot("foo");
+    TypedVar modBX = getLabeledStatement("MOD_B_FOO").enclosingScope.getSlot("foo");
+
+    assertThat(modAX).isNotEqualTo(modBX);
+  }
+
+  @Test
+  public void testGoogModule_requiringMissingNamespace() {
+    testError("goog.module('a'); const b = goog.require('b'); B: b;", MISSING_NAMESPACE_IMPORT);
+
+    assertNode(getLabeledStatement("B").statementNode.getOnlyChild()).hasJSTypeThat().isUnknown();
+  }
+
+  @Test
+  public void testGoogModule_requiringMissingNamespace_emptyDestructuring() {
+    testSame("goog.module('a'); const {} = goog.require('b');");
+  }
+
+  @Test
+  public void testGoogModule_declaresExportsVariableImplicitly() {
+    testSame("goog.module('a'); EXPORTS: exports;");
+
+    TypedVar exports = getLabeledStatement("EXPORTS").enclosingScope.getSlot("exports");
+    assertThat(exports).isNotInferred();
+    assertThat(exports).hasJSTypeThat().isLiteralObject();
+  }
+
+  @Test
+  public void testGoogModule_exportsDeclaresTypeInModuleScope() {
+    testSame("goog.module('mod.a'); exports = class {}; MOD_A: 0;");
+
+    assertType(registry.getGlobalType("exports")).isNull();
+    assertType(registry.getTypeForScope(getLabeledStatement("MOD_A").enclosingScope, "exports"))
+        .isNotNull();
+  }
+
+  @Test
+  public void testGoogModule_namedExportDeclaresTypeInModuleScope() {
+    testSame("goog.module('mod.a'); exports.B = class {}; MOD_A: 0;");
+
+    assertType(registry.getGlobalType("exports.B")).isNull();
+    assertType(registry.getTypeForScope(getLabeledStatement("MOD_A").enclosingScope, "exports.B"))
+        .isNotNull();
+  }
+
+  @Test
+  public void testGoogRequireDefaultExport_getsInferredType() {
+    // Do some indirection when assigning `exports = f()` so  that we don't find the type of
+    // `exports` until flow-sensitive inference runs. This is to verify that required variables
+    // types are tightened after flow-sensitive type inference.
+    testSame(
+        srcs(
+            "goog.module('a'); /** @return {number} */ function f() {} exports = f();",
+            "goog.module('b'); const x = goog.require('a'); X: x;"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isNumber();
+
+    TypedVar xVar = getLabeledStatement("X").enclosingScope.getSlot("x");
+    assertType(xVar.getType()).isNumber();
+    assertThat(xVar).isInferred();
+  }
+
+  @Test
+  public void testGoogRequire_defaultExportWithExplicitType() {
+    testSame(
+        srcs(
+            lines(
+                "goog.module('a');",
+                "/** @return {number} */ function f() {}",
+                "/** @type {number} */ exports = f();"),
+            "goog.module('b'); const x = goog.require('a'); X: x;"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isNumber();
+
+    TypedVar xVar = getLabeledStatement("X").enclosingScope.getSlot("x");
+    assertThat(xVar).hasJSTypeThat().isNumber();
+    assertThat(xVar).isNotInferred();
+  }
+
+  @Test
+  public void testGoogForwardDeclare_defaultExportWithExplicitType() {
+    testSame(
+        srcs(
+            "goog.module('b'); const x = goog.forwardDeclare('a'); function inner() { X: x; }",
+            lines(
+                "goog.module('a');",
+                "/** @return {number} */ function f() {}",
+                "/** @type {number} */ exports = f();")));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isNumber();
+
+    TypedVar xVar = getLabeledStatement("X").enclosingScope.getSlot("x");
+    assertThat(xVar).hasJSTypeThat().isNumber();
+    assertThat(xVar).isNotInferred();
+  }
+
+  @Test
+  public void testGoogRequire_defaultExportOfConstructor() {
+    testSame(
+        srcs(
+            "goog.module('a.Foo'); exports = class Foo {};",
+            "goog.module('b'); const Foo = goog.require('a.Foo'); var /** !Foo */ foo; FOO: foo"));
+
+    Node xNode = getLabeledStatement("FOO").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().toStringIsEqualTo("exports");
+  }
+
+  @Test
+  public void testGoogModuleRequire_defaultExportAliasingLocalConstructor() {
+    testSame(
+        srcs(
+            "goog.module('a.Foo'); class LocalFoo {} exports = LocalFoo;",
+            "goog.module('b'); const Foo = goog.require('a.Foo'); var /** !Foo */ foo; FOO: foo"));
+
+    Node fooNode = getLabeledStatement("FOO").statementNode.getOnlyChild();
+    assertNode(fooNode).hasJSTypeThat().toStringIsEqualTo("LocalFoo");
+
+    TypedVar fooCtorVar = getLabeledStatement("FOO").enclosingScope.getVar("Foo");
+    assertThat(fooCtorVar).hasJSTypeThat().isFunctionTypeThat().isConstructorFor("LocalFoo");
+    assertThat(fooCtorVar).isNotInferred();
+  }
+
+  @Test
+  public void testGoogModuleRequire_defaultExportOfLocalTypedef() {
+    testSame(
+        srcs(
+            "goog.module('a.Foo'); /** @typedef {number} */ var numType; exports = numType;",
+            "goog.module('b'); const Foo = goog.require('a.Foo'); var /** !Foo */ x; X: x"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testGoogModuleRequire_defaultExportOfEnum() {
+    testSame(
+        srcs(
+            "goog.module('a.Foo'); exports = class Foo {};",
+            "goog.module('b'); const Foo = goog.require('a.Foo'); var /** !Foo */ foo; FOO: foo"));
+
+    Node xNode = getLabeledStatement("FOO").statementNode.getOnlyChild();
+    // TODO(b/124919359): can we make a better name than 'exports' ?
+    assertNode(xNode).hasJSTypeThat().toStringIsEqualTo("exports");
+  }
+
+  @Test
+  public void testGoogModuleRequireAndRequireType_defaultExportOfClasses() {
+    testSame(
+        srcs(
+            lines(
+                "goog.module('a.Foo');",
+                "const Bar = goog.requireType('b.Bar'); ",
+                "var /** !Bar */ b;",
+                "B: b;",
+                "exports = class {};"),
+            lines(
+                "goog.module('b.Bar');",
+                "const Foo = goog.require('a.Foo'); ",
+                "const /** !Foo */ f = new Foo();",
+                "F: f;",
+                "exports = class {};")));
+
+    Node fNode = getLabeledStatement("F").statementNode.getOnlyChild();
+    assertNode(fNode).hasJSTypeThat().toStringIsEqualTo("exports");
+
+    Node bNode = getLabeledStatement("B").statementNode.getOnlyChild();
+    assertNode(bNode).hasJSTypeThat().toStringIsEqualTo("exports");
+  }
+
+  @Test
+  public void testGoogModuleRequireAndRequireType_namedExportOfClasses() {
+    testSame(
+        srcs(
+            lines(
+                "goog.module('a');",
+                "const {Bar} = goog.requireType('b');",
+                "var /** !Bar */ b;",
+                "B: b;",
+                "exports.Foo = class {};"),
+            lines(
+                "goog.module('b');",
+                "const {Foo} = goog.require('a');",
+                "const /** !Foo */ f = new Foo();",
+                "F: f;",
+                "exports.Bar = class {};")));
+
+    Node fNode = getLabeledStatement("F").statementNode.getOnlyChild();
+    assertNode(fNode).hasJSTypeThat().toStringIsEqualTo("exports.Foo");
+
+    Node bNode = getLabeledStatement("B").statementNode.getOnlyChild();
+    assertNode(bNode).hasJSTypeThat().toStringIsEqualTo("exports.Bar");
+  }
+
+  @Test
+  public void testGoogModuleRequireAndRequireType_typedef() {
+    testSame(
+        srcs(
+            lines(
+                "goog.module('a.Foo');",
+                "const Bar = goog.requireType('b.Bar'); ",
+                "var /** !Bar */ x;",
+                "X: x;"),
+            lines(
+                "goog.module('b.Bar');",
+                "/** @typedef {number} */",
+                "let numType;",
+                "exports = numType;")));
+
+    Node fNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(fNode).hasJSTypeThat().isNumber();
+
+    Node barDeclaration = getLabeledStatement("X").enclosingScope.getVar("Bar").getNameNode();
+    assertType(barDeclaration.getTypedefTypeProp()).isNumber();
+  }
+
+  @Test
+  public void testGoogModuleRequireAndRequireType_invalidDestructuringImport() {
+    testError(
+        srcs(
+            lines(
+                "goog.module('a.Foo');", //
+                "const {Bar} = goog.requireType('b.Bar');"),
+            "goog.module('b.Bar');"),
+        error(DOES_NOT_HAVE_EXPORT));
+  }
+
+  @Test
+  public void testGoogRequireModuleWithoutExports() {
+    testSame(new String[] {"goog.module('a');", "goog.module('b'); const a = goog.require('a');"});
+  }
+
+  @Test
+  public void testGoogRequire_exportObjectLiteralWithLiteralValue() {
+    testSame(
+        srcs(
+            "goog.module('a'); exports = {x: 3};",
+            "goog.module('b'); const x = goog.require('a'); X: x;" // can't destructure this
+            ));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().toStringIsEqualTo("{x: number}");
+  }
+
+  @Test
+  public void testGoogRequire_namedExportImportedAsNamespace() {
+    testSame(
+        srcs(
+            "goog.module('a'); /** @type {number} */ exports.x = 0;",
+            "goog.module('b'); const a = goog.require('a'); X: a.x;"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isNumber();
+
+    TypedVar xVar = getLabeledStatement("X").enclosingScope.getSlot("a");
+    assertThat(xVar).hasJSTypeThat().isObjectTypeWithProperty("x");
+    assertThat(xVar).isNotInferred();
+  }
+
+  @Test
+  public void testGoogRequire_destructuringInferredNamedExport() {
+    testSame(
+        srcs(
+            "goog.module('a'); /** @return {number} */ function f() {} exports.x = f();",
+            "goog.module('b'); const {x} = goog.require('a'); X: x;"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testGoogRequire_destructuringTypedNamedExport() {
+    testSame(
+        srcs(
+            "goog.module('a'); /** @type {number} */ exports.x = 3;",
+            "goog.module('b'); const {x} = goog.require('a'); X: x;"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isNumber();
+
+    TypedVar xVar = getLabeledStatement("X").enclosingScope.getSlot("x");
+    assertThat(xVar).hasJSTypeThat().isNumber();
+    assertThat(xVar).isNotInferred();
+  }
+
+  @Test
+  public void testGoogRequire_destructuringNonShorthand() {
+    testSame(
+        srcs(
+            "goog.module('a'); /** @type {number} */ exports.x = 3;",
+            "goog.module('b'); const {x: y} = goog.require('a'); Y: y;"));
+
+    Node yNode = getLabeledStatement("Y").statementNode.getOnlyChild();
+    assertNode(yNode).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testGoogRequire_exportObjectLiteral() {
+    testSame(
+        srcs(
+            "goog.module('a'); const y = 3; exports = {x: y};",
+            "goog.module('b'); const {x} = goog.require('a'); X: x;"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testGoogRequire_namedExportDeclaredAsConstructor() {
+    testSame(
+        srcs(
+            "goog.module('a'); /** @constructor */ exports.X = function() {};",
+            "goog.module('b'); const {X} = goog.require('a'); var /** !X */ x; X: x;"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().toStringIsEqualTo("exports.X");
+  }
+
+  @Test
+  public void testGoogRequire_namedExportDeclaredAsEnum() {
+    testSame(
+        srcs(
+            "goog.module('a'); /** @enum {number} */ exports.Enum = {A: 0};",
+            "goog.module('b'); const {Enum} = goog.require('a'); var /** !Enum */ x; X: x;"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().toStringIsEqualTo("exports.Enum<number>");
+  }
+
+  @Test
+  public void testGoogRequire_namedExportOfLocalEnum() {
+    testSame(
+        srcs(
+            "goog.module('a'); /** @enum {number} */ const Enum = {A: 0}; exports.Enum = Enum;",
+            "goog.module('b'); const {Enum} = goog.require('a'); var /** !Enum */ x; X: x"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().toStringIsEqualTo("Enum<number>");
+  }
+
+  @Test
+  public void testGoogRequire_namedExportOfLocalEnum_inObjectLit() {
+    testSame(
+        srcs(
+            "goog.module('a'); /** @enum {number} */ const Enum = {A: 0}; exports = {Enum}",
+            "goog.module('b'); const {Enum} = goog.require('a'); var /** !Enum */ x; X: x"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().toStringIsEqualTo("Enum<number>");
+  }
+
+  @Test
+  public void testGoogRequire_namedExportDeclaredAsTypedef() {
+    testSame(
+        srcs(
+            "goog.module('a'); /** @typedef {number} */ exports.numType;",
+            "goog.module('b'); const {numType} = goog.require('a'); var /** numType */ x; X: x;"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testGoogRequire_namedExportOfLocalTypedef() {
+    testSame(
+        srcs(
+            "goog.module('a'); /** @typedef {number} */ let numType; exports.numType = numType;",
+            "goog.module('b'); const {numType} = goog.require('a'); var /** numType */ x; X: x;"));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testGoogRequire_destructuringMissingExportDoesntCrash() {
+    testError(
+        srcs("goog.module('a');", "goog.module('b'); const {x} = goog.require('a'); X: x;"),
+        error(DOES_NOT_HAVE_EXPORT));
+
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isUnknown(); // Note: we warn for this case elsewhere.
+  }
+
+  @Test
+  public void testRequire_requireRegularModuleInLoadModule() {
+    testSame(
+        srcs(
+            "goog.module('A'); exports = class {};",
+            lines(
+                "goog.loadModule(function(exports) {",
+                "  goog.module('b');",
+                "  const A = goog.require('A');",
+                "  /** @type {!A} */ var a;",
+                "  A: a;",
+                "  return exports;",
+                "});")));
+
+    Node aNode = getLabeledStatement("A").statementNode.getOnlyChild();
+    assertNode(aNode).hasJSTypeThat().toStringIsEqualTo("exports");
+  }
+
+  @Test
+  public void testGoogRequire_requireLoadModuleInRegularModule() {
+    testSame(
+        srcs(
+            lines(
+                "goog.loadModule(function(exports) {",
+                "  goog.module('A');",
+                "  /** @constructor*/",
+                "  exports = function() {};",
+                " return exports;",
+                "});"),
+            "goog.module('b'); const A = goog.require('A'); /** @type {!A} */ var a; A: a;"));
+
+    Node aNode = getLabeledStatement("A").statementNode.getOnlyChild();
+    assertNode(aNode).hasJSTypeThat().toStringIsEqualTo("exports");
+  }
+
+  @Test
+  public void testGoogRequire_requireLoadModuleInRegularModule_destructuring() {
+    testSame(
+        srcs(
+            lines(
+                "goog.loadModule(function(exports) {",
+                "  goog.module('mod');", //
+                "  /** @constructor*/",
+                "  exports.A = function() {};",
+                "  return exports;",
+                "});"),
+            "goog.module('b'); const {A} = goog.require('mod'); /** @type {!A} */ var a; A: a;"));
+
+    Node aNode = getLabeledStatement("A").statementNode.getOnlyChild();
+    assertNode(aNode).hasJSTypeThat().toStringIsEqualTo("exports.A");
+  }
+
+  @Test
+  public void testRequire_requireLoadModuleInRegularModule_inferredDefaultExport() {
+    testSame(
+        srcs(
+            lines(
+                "goog.loadModule(function(exports) {",
+                "  goog.module('a');",
+                "  /** @return {number} */ function f() {}",
+                "  exports = f();",
+                "  return exports;",
+                "});"),
+            "goog.module('b'); const x = goog.require('a'); X: x;"));
+
+    // This is unknown because we visit the CFG for the module before visiting the CFG for the
+    // function block. Users can work around this by explicitly typing their exports.
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isUnknown();
+  }
+
+  @Test
+  public void testRequire_requireLoadModuleInRegularModule_inferredNamedExport() {
+    testSame(
+        srcs(
+            lines(
+                "goog.loadModule(function(exports) {",
+                "  goog.module('a');",
+                "  /** @return {number} */ function f() {}",
+                "  exports.x = f();",
+                "  return exports;",
+                "});"),
+            "goog.module('b'); const {x} = goog.require('a'); X: x;"));
+
+    // This is unknown because we visit the CFG for the module before visiting the CFG for the
+    // function block. Users can work around this by explicitly typing their exports.
+    Node xNode = getLabeledStatement("X").statementNode.getOnlyChild();
+    assertNode(xNode).hasJSTypeThat().isUnknown();
+  }
+
+  @Test
+  public void testRequire_requireLoadModule_defaultExportOfLocalClass() {
+    testSame(
+        srcs(
+            lines(
+                "goog.loadModule(function(exports) {",
+                "  goog.module('a');",
+                "  class X {}",
+                "  exports = X;",
+                "  return exports;",
+                "});"),
+            lines(
+                "goog.module('b');", //
+                "const Y = goog.require('a');",
+                "var /** !Y */ x;")));
+  }
+
+  @Test
+  public void testGoogProvide_singleNameWithConstJSDocIsDeclared() {
+    processClosurePrimitives = true;
+    testSame(srcs(CLOSURE_GLOBALS, "goog.provide('foo'); /** @const */ foo = 3;"));
+
+    TypedVar fooVar = globalScope.getVar("foo");
+    assertThat(fooVar).hasJSTypeThat().isNumber();
+    assertThat(fooVar).isNotInferred();
+  }
+
+  @Test
+  public void testGoogProvide_singleNameWithAtTypeJSDocIsDeclared() {
+    processClosurePrimitives = true;
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.provide('foo');", //
+                "class Bar {}",
+                "/** @type {!Bar} */ foo = new Bar();")));
+
+    TypedVar fooVar = globalScope.getVar("foo");
+    assertThat(fooVar).hasJSTypeThat().toStringIsEqualTo("Bar");
+    assertThat(fooVar).isNotInferred();
+  }
+
+  @Test
+  public void testGoogProvide_singleStubNameWithAtTypeJSDoc_ignoresJSDoc() {
+    processClosurePrimitives = true;
+    // NOTE: this causes a CheckJSDoc warning.
+    testSame(srcs(CLOSURE_GLOBALS, "goog.provide('foo'); class Bar {} /** @type {!Bar} */ foo;"));
+
+    TypedVar fooVar = globalScope.getVar("foo");
+    assertThat(fooVar).hasJSTypeThat().isLiteralObject();
+    assertThat(fooVar).isNotInferred();
+  }
+
+  @Test
+  public void testGoogProvide_singleNameWithoutJSDocIsInferred() {
+    processClosurePrimitives = true;
+    testSame(srcs(CLOSURE_GLOBALS, "goog.provide('foo'); foo = 3;"));
+
+    TypedVar fooVar = globalScope.getVar("foo");
+    assertThat(fooVar).hasJSTypeThat().isNumber();
+    assertThat(fooVar).isInferred();
+  }
+
+  @Test
+  public void testGoogProvide_singleNameWithoutDefinition() {
+    processClosurePrimitives = true;
+    testSame(srcs(CLOSURE_GLOBALS, "goog.provide('foo'); foo.Bar = class {};"));
+
+    TypedVar fooVar = globalScope.getVar("foo");
+    assertThat(fooVar).hasJSTypeThat().isObjectTypeWithProperty("Bar");
+    assertThat(fooVar).isNotInferred();
+  }
+
+  @Test
+  public void testGoogProvide_getPropWithoutJSDoc() {
+    processClosurePrimitives = true;
+    testSame(srcs(CLOSURE_GLOBALS, "goog.provide('foo.bar'); foo.bar = 3;"));
+
+    TypedVar fooVar = globalScope.getVar("foo");
+    assertThat(fooVar).hasJSTypeThat().withTypeOfProp("bar").isNumber();
+    assertThat(fooVar.getType().toMaybeObjectType().isPropertyTypeDeclared("bar")).isFalse();
+  }
+
+  @Test
+  public void testGoogProvide_getPropTypedef_createsBothTypedefAndObjectType() {
+    processClosurePrimitives = true;
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.provide('foo.bar');",
+                "goog.provide('foo.bar.baz'); ",
+                "/** @typedef {number} */ foo.bar;",
+                "/** @const */ foo.bar.baz = '';")));
+
+    TypedVar fooVar = globalScope.getVar("foo");
+    assertThat(fooVar).hasJSTypeThat().withTypeOfProp("bar").isNoType();
+    assertThat(fooVar).hasJSTypeThat().hasDeclaredProperty("bar");
+
+    assertType(registry.getGlobalType("foo.bar")).isNumber();
+    TypedVar fooBarVar = globalScope.getVar("foo.bar");
+    assertThat(fooBarVar).hasJSTypeThat().isNoType(); // Note: this is questionable.
+
+    TypedVar fooBarBaz = globalScope.getVar("foo.bar.baz");
+    assertThat(fooBarBaz).hasJSTypeThat().isString();
+  }
+
+  @Test
+  public void testGoogProvideGetPropWithTypeDeclaration() {
+    processClosurePrimitives = true;
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.provide('foo.bar');", //
+                "/** @type {number} */ foo.bar = 3;",
+                "FOOBAR: foo.bar;")));
+
+    TypedVar fooVar = globalScope.getVar("foo");
+    assertThat(fooVar).hasJSTypeThat().withTypeOfProp("bar").isNumber();
+    assertThat(fooVar).hasJSTypeThat().hasDeclaredProperty("bar");
+
+    assertType(getLabeledStatement("FOOBAR").statementNode.getOnlyChild().getJSType()).isNumber();
+  }
+
+  @Test
+  public void testGoogProvide_namespaceWithMultipleChildren() {
+    processClosurePrimitives = true;
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.provide('foo.bar');",
+                "goog.provide('foo.baz');",
+                "/** @const */",
+                "foo.bar = 3;",
+                "/** @const */",
+                "foo.baz = 'str';")));
+
+    TypedVar fooVar = globalScope.getVar("foo");
+    assertType(fooVar.getType().findPropertyType("bar")).isNumber();
+    assertThat(fooVar).hasJSTypeThat().hasDeclaredProperty("bar");
+    assertType(fooVar.getType().findPropertyType("baz")).isString();
+    assertThat(fooVar).hasJSTypeThat().hasDeclaredProperty("baz");
+  }
+
+  @Test
+  public void testProvide_longNamespace_declaresProperties() {
+    processClosurePrimitives = true;
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.provide('a.b.c.d.e.f');", //
+                "",
+                "a.b.c.d.e.f.g = function() {};")));
+
+    TypedVar abcdeVar = globalScope.getVar("a.b.c.d.e");
+    assertThat(abcdeVar).hasJSTypeThat().hasDeclaredProperty("f");
+  }
+
+  @Test
+  public void testGoogProvide_parentNamespaceIsInferred() {
+    processClosurePrimitives = true;
+    testSame(srcs(CLOSURE_GLOBALS, "goog.provide('a.b.c'); a.b = {};"));
+
+    assertThat(globalScope.getVar("a")).hasJSTypeThat().withTypeOfProp("b").isLiteralObject();
+    assertThat(globalScope.getVar("a.b")).isNull(); // Only declared qnames get TypedVars.
+    assertThat(globalScope.getVar("a.b.c")).isNotInferred();
+  }
+
+  @Test
+  public void testGoogProvide_extendsExternsNamespace() {
+    processClosurePrimitives = true;
+    testSame(
+        externs(
+            new String[] {
+              "/** @externs */ /** @const */ var google = {}; /** @type {string} */ google.boogle;"
+            }),
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.provide('google.ly');",
+                "",
+                "/** @return {number} */",
+                "google.ly = function() { return 0; }")),
+        warning(TypeValidator.DUP_VAR_DECLARATION_TYPE_MISMATCH));
+
+    TypedVar fooVar = globalScope.getVar("google");
+    assertThat(fooVar).hasJSTypeThat().hasDeclaredProperty("ly");
+    assertThat(fooVar).hasJSTypeThat().hasDeclaredProperty("boogle");
+  }
+
+  @Test
+  public void testGoogProvide_overwritingExternsFunction() {
+    processClosurePrimitives = true;
+    testSame(
+        externs("/** @externs */ function eval(code) {}"),
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.provide('eval.subNs');", //
+                "eval.subNs = class {};",
+                "new eval.subNs();")),
+        warning(TypeValidator.DUP_VAR_DECLARATION_TYPE_MISMATCH));
+  }
+
+  @Test
+  public void testLegacyGoogLoadModule_accessibleWithGoogRequire_exportingConstructor() {
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.loadModule(function (exports) {",
+                "  goog.module('mod.A');",
+                "  goog.module.declareLegacyNamespace();",
+                "",
+                "  exports = class A {};",
+                "});"),
+            lines(
+                "goog.require('mod.A');", //
+                "const /** !mod.A */ a = new mod.A();",
+                "A: a;")));
+
+    assertType(getLabeledStatement("A").statementNode.getOnlyChild().getJSType())
+        .toStringIsEqualTo("exports");
+  }
+
+  @Test
+  public void testLegacyGoogModule_declaresParentNamespacesGlobally() {
+    processClosurePrimitives = true;
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            "goog.module('a.b.c'); goog.module.declareLegacyNamespace(); MOD: 0;"));
+
+    assertScope(globalScope).declares("a").directly();
+    assertScope(globalScope).declares("a.b").directly();
+    assertScope(globalScope).declares("a.b.c").directly();
+    assertScope(getLabeledStatement("MOD").enclosingScope).declares("a").onSomeParent();
+  }
+
+  @Test
+  public void testGoogRequire_multipleRequiresInModule() {
+    // TODO(b/132208293): we should not get this error.
+    testSame(
+        srcs(
+            lines(
+                "goog.module('mod.A');", //
+                "/** @interface */",
+                "exports = class {};"),
+            lines(
+                "goog.module('mod.B');", //
+                "/** @interface */",
+                "exports = class {};"),
+            lines(
+                "goog.module('mod.C');",
+                "const A = goog.require('mod.A');",
+                "const B = goog.require('mod.B');",
+                "/** @implements {A} @implements {B} */",
+                "class C {};",
+                "MOD_C: 0;")),
+        warning(FunctionTypeBuilder.SAME_INTERFACE_MULTIPLE_IMPLEMENTS));
+
+    TypedScope modCScope = getLabeledStatement("MOD_C").enclosingScope;
+    FunctionType aCtor = modCScope.getVar("A").getType().toMaybeFunctionType();
+    FunctionType cCtor = modCScope.getVar("C").getType().toMaybeFunctionType();
+
+    // TODO(b/132208293): This list should include B.
+    assertThat(cCtor.getAllImplementedInterfaces()).containsExactly(aCtor.getInstanceType());
+  }
+
+  @Test
+  public void testLegacyGoogModule_accessibleWithGoogRequire_exportingConstructor() {
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.module('mod.A');",
+                "goog.module.declareLegacyNamespace();",
+                "",
+                "exports = class A {};"),
+            lines(
+                "goog.require('mod.A');", //
+                "const /** !mod.A */ a = new mod.A();",
+                "A: a;")));
+
+    assertType(getLabeledStatement("A").statementNode.getOnlyChild().getJSType())
+        .toStringIsEqualTo("exports");
+  }
+
+  @Test
+  public void testLegacyGoogModule_accessibleWithGoogRequire_exportingLocalTypedef() {
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.module('mod.A');",
+                "goog.module.declareLegacyNamespace();",
+                "",
+                "/** @typedef {number} */",
+                "let numType;",
+                "",
+                "exports = numType;"),
+            lines(
+                "goog.require('mod.A');", //
+                "var /** !mod.A */ x;",
+                "X: x")));
+
+    assertType(getLabeledStatement("X").statementNode.getOnlyChild().getJSType()).isNumber();
+  }
+
+  @Test
+  public void testLegacyGoogModule_accessibleWithGoogRequire_exportingNamespace() {
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.module('mod');",
+                "goog.module.declareLegacyNamespace();",
+                "",
+                "exports.A = class A {};"),
+            lines(
+                "goog.require('mod');", //
+                "const /** !mod.A */ a = new mod.A();")));
+  }
+
+  @Test
+  public void testLegacyGoogModule_withNamedExport_extendedByGoogProvide() {
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.module('mod');",
+                "goog.module.declareLegacyNamespace();",
+                "",
+                "exports.A = class A {};"),
+            lines(
+                "goog.provide('mod.B');", // This is bad style, but probably people do it.
+                "mod.B = class B {};")));
+
+    JSType modType = globalScope.getVar("mod").getType();
+    assertType(modType).withTypeOfProp("A").toStringIsEqualTo("(typeof exports.A)");
+    assertType(modType).withTypeOfProp("B").toStringIsEqualTo("(typeof mod.B)");
+  }
+
+  @Test
+  public void testLegacyGoogModule_withDefaultClassExport_createsGlobalType() {
+    processClosurePrimitives = true;
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.module('mod.MyClass');",
+                "goog.module.declareLegacyNamespace();",
+                "class MyClass {}",
+                "exports = MyClass;")));
+
+    assertType(registry.getGlobalType("mod.MyClass")).toStringIsEqualTo("MyClass");
+  }
+
+  @Test
+  public void testLegacyGoogModule_withDefaultEnumExport_createsGlobalType() {
+    processClosurePrimitives = true;
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.module('mod.MyEnum');",
+                "goog.module.declareLegacyNamespace();",
+                "/** @enum {string} */",
+                "const MyEnum = {A: 'a', B: 'b'};",
+                "exports = MyEnum;")));
+
+    assertType(registry.getGlobalType("mod.MyEnum")).toStringIsEqualTo("MyEnum<string>");
+  }
+
+  @Test
+  public void testLegacyGoogModule_withDefaultTypedefExport_createsGlobalType() {
+    processClosurePrimitives = true;
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.module('mod.MyTypedef');",
+                "goog.module.declareLegacyNamespace();",
+                "/** @typedef {number} */",
+                "let MyTypedef;",
+                "exports = MyTypedef;")));
+
+    assertType(registry.getGlobalType("mod.MyTypedef")).isNumber();
+  }
+
+  @Test
+  public void testLegacyGoogModule_withDefaultExport_extendedByGoogProvide() {
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.module('mod');",
+                "goog.module.declareLegacyNamespace();",
+                "",
+                "/** @return {number} */",
+                "exports = function() { return 0; };"),
+            lines(
+                "goog.provide('mod.B');", // This is bad style, but probably people do it.
+                "mod.B = class B {};")));
+
+    JSType modType = globalScope.getVar("mod").getType();
+    assertType(modType).isFunctionTypeThat().hasReturnTypeThat().isNumber();
+    assertType(modType).withTypeOfProp("B").toStringIsEqualTo("(typeof mod.B)");
+  }
+
+  @Test
+  public void testLegacyGoogModule_accessibleWithGoogRequire_exportingTypedef() {
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.module('mod');",
+                "goog.module.declareLegacyNamespace();",
+                "",
+                "/** @typedef {number} */",
+                "exports.numType;"),
+            lines(
+                "goog.require('mod');", //
+                "var /** !mod.numType */ a;")));
+
+    JSType modType = globalScope.getVar("a").getType();
+    assertType(modType).isNumber();
+  }
+
+  @Test
+  public void testGoogModuleRequiringGoogProvide_class() {
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.provide('a.b.Foo')", //
+                "a.b.Foo = class {};"),
+            lines(
+                "goog.module('c');",
+                "const Foo = goog.require('a.b.Foo');",
+                "var /** !Foo */ x;",
+                "X: x;")));
+
+    assertType(getLabeledStatement("X").statementNode.getOnlyChild().getJSType())
+        .toStringIsEqualTo("a.b.Foo");
+  }
+
+  @Test
+  public void testTypedef_namedExportInObjectLit() {
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.module('a');", //
+                "/** @typedef {number} */",
+                "let Foo;",
+                "exports = {Foo};"),
+            lines(
+                "goog.module('b');", //
+                "const {Foo} = goog.require('a');",
+                "var /** !Foo */ x;")));
+  }
+
+  @Test
+  public void testGoogModuleRequiringGoogProvide_classWithDestructuring() {
+    testSame(
+        srcs(
+            CLOSURE_GLOBALS,
+            lines(
+                "goog.provide('a.b')", //
+                "a.b.Foo = class {};"),
+            lines(
+                "goog.module('c');",
+                "const {Foo} = goog.require('a.b');",
+                "var /** !Foo */ x;",
+                "X: x;")));
+
+    assertType(getLabeledStatement("X").statementNode.getOnlyChild().getJSType())
+        .toStringIsEqualTo("a.b.Foo");
+  }
+
+  @Test
+  public void testEsModule_importStarMissingModule() {
+    // Make sure this does not crash the typechecker.
+    testError("import * as x from './invalid_path;'; X: x; export {x};", ModuleLoader.LOAD_WARNING);
+
+    assertScope(getLabeledStatement("X").enclosingScope).declares("x").withTypeThat().isUnknown();
+    assertScope(getLabeledStatement("X").enclosingScope)
+        .declares(Export.NAMESPACE)
+        .withTypeThat()
+        .hasInferredProperty("x");
+  }
+
+  @Test
+  public void testEsModule_importSpecsMissingModule() {
+    // Make sure this does not crash the typechecker.
+    testError("import {x} from './invalid_path;'; X: x; export {x};", ModuleLoader.LOAD_WARNING);
+
+    assertScope(getLabeledStatement("X").enclosingScope).declares("x").withTypeThat().isUnknown();
+    assertScope(getLabeledStatement("X").enclosingScope)
+        .declares(Export.NAMESPACE)
+        .withTypeThat()
+        .hasInferredProperty("x");
+  }
+
+  @Test
+  public void testEsModule_importNameFromScript() {
+    // Make sure this does not crash the typechecker. Importing a script for the side effects is
+    // fine, but you can't import a name.
+    testSame(
+        srcs(
+            lines("const x = 'oops, you did not export me.';"),
+            lines(
+                "import {x} from './input0';", //
+                "X: x;")));
+
+    assertScope(getLabeledStatement("X").enclosingScope).declares("x").withTypeThat().isUnknown();
+  }
+
+  @Test
+  public void testEsModule_exportNameDeclaration() {
+    testSame("/** @type {string|number} */ export let strOrNum = 0; MOD: 0;");
+
+    TypedVar strOrNum = getLabeledStatement("MOD").enclosingScope.getVar("strOrNum");
+    assertThat(strOrNum).isNotNull();
+    assertThat(strOrNum).isNotInferred();
+    assertThat(strOrNum).hasJSTypeThat().toStringIsEqualTo("(number|string)");
+  }
+
+  @Test
+  public void testEsModule_importSpecs_declaredExport() {
+    testSame(
+        srcs(
+            lines(
+                "let /** number */ num;", //
+                "export {num as y};"),
+            lines(
+                "import {y as x} from './input0';", //
+                "X: x;")));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+    assertThat(getLabeledStatement("X").enclosingScope.getVar("x")).isNotInferred();
+  }
+
+  @Test
+  public void testEsModule_importSpecs_inferredExport_nameDeclaration() {
+    testSame(
+        srcs(
+            lines(
+                "/** @return {number} */ const f = () => 0;", //
+                "export const y = f();"),
+            lines(
+                "import {y as x} from './input0';", //
+                "X: x;")));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+    assertThat(getLabeledStatement("X").enclosingScope.getVar("x")).isInferred();
+  }
+
+  @Test
+  public void testEsModule_importSpecs_inferredExport_exportSpecs() {
+    testSame(
+        srcs(
+            lines(
+                "/** @return {number} */ const f = () => 0;", //
+                "const num = f();",
+                "export {num as y};"),
+            lines(
+                "import {y as x} from './input0';", //
+                "X: x;")));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+    assertThat(getLabeledStatement("X").enclosingScope.getVar("x")).isInferred();
+  }
+
+  @Test
+  public void testEsModule_importSpecs_typedef() {
+    testSame(
+        srcs(
+            lines(
+                "/** @typedef {number} */ let numType;", //
+                "export {numType};"),
+            lines(
+                "import {numType} from './input0';", //
+                "var /** !numType */ x;",
+                "X: x;")));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testEsModule_exportDefault() {
+    testSame(srcs("export default 0;", "import x from './input0'; X: x;"));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testEsModule_exportDefaultImportedWithSpecs() {
+    testSame(srcs("export default 0;", "import {default as x} from './input0'; X: x;"));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testEsModule_importDefault_exportedUsingDefaultNamedKey() {
+    testSame(srcs("const x = 0; export {x as default};", "import x from './input0'; X: x;"));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testEsModule_importDefaultClass() {
+    testSame(
+        srcs(
+            "export default class Button {}; const /** !Button */ b = new Button(); B1: b;",
+            "import Button from './input0'; const /** !Button */ b = new Button(); B2: b;"));
+
+    assertNode(getLabeledStatement("B1").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("Button");
+    assertNode(getLabeledStatement("B2").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("Button");
+  }
+
+  @Test
+  public void testEsModule_exportNameFrom() {
+    testSame(
+        srcs(
+            "export const x = 0; export class Button {}",
+            "export {x, Button} from './input0';",
+            lines(
+                "import {x as y, Button} from './input0';",
+                "Y: y;",
+                "const /** !Button */ b = new Button();")));
+
+    assertNode(getLabeledStatement("Y").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testEsModule_exportStarFrom() {
+    testSame(
+        srcs(
+            "export const x = 0; export class Button {}",
+            "export * from './input0';",
+            lines(
+                "import {x as y, Button} from './input0';",
+                "Y: y;",
+                "const /** !Button */ b = new Button();")));
+
+    assertNode(getLabeledStatement("Y").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testEsModule_importStar_declaredExport() {
+    testSame(
+        srcs(
+            "export let /** number */ x;",
+            lines(
+                "import * as ns from './input0';", //
+                "NS: ns;",
+                "X: ns.x;")));
+
+    JSType nsType = getLabeledStatement("NS").statementNode.getOnlyChild().getJSType();
+    assertType(nsType).hasDeclaredProperty("x");
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testEsModule_importStar_inferredExport() {
+    testSame(
+        srcs(
+            lines(
+                "/** @return {number} */ const f = () => 0;", //
+                "export const x = f();"),
+            lines(
+                "import * as ns from './input0';", //
+                "NS: ns;",
+                "X: ns.x;")));
+
+    JSType nsType = getLabeledStatement("NS").statementNode.getOnlyChild().getJSType();
+    assertType(nsType).hasInferredProperty("x");
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testEsModule_importStar_typedefInExportSpec() {
+    testSame(
+        srcs(
+            "/** @typedef {number} */ let numType; export {numType};",
+            "import * as ns from './input0'; var /** !ns.numType */ x; X: x;"));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testEsModule_importStar_typedefExportDeclaration() {
+    testSame(
+        srcs(
+            "/** @typedef {number} */ export let numType;",
+            "import * as ns from './input0'; var /** !ns.numType */ x; X: x;"));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testEsModule_importStar_typedefReexported() {
+    testSame(
+        srcs(
+            "/** @typedef {number} */ export let numType;",
+            "import * as mod from './input0'; export {mod};",
+            "import {mod} from './input1'; var /** !mod.numType */ x; X: x;"));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testEsModule_importStar_typedefReexportedThenImportStarred() {
+    testSame(
+        srcs(
+            "/** @typedef {number} */ export let numType;",
+            "import * as mod0 from './input0'; export {mod0};",
+            "import * as mod1 from './input1'; var /** !mod1.mod0.numType */ x; X: x;"));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testGoogRequire_esModuleId_namespaceRequire() {
+    testSame(
+        srcs(
+            "goog.declareModuleId('a'); export const x = 0;",
+            "goog.module('b'); const a = goog.require('a'); X: a.x;"));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testGoogRequire_esModuleId_destructuringRequire() {
+    testSame(
+        srcs(
+            "goog.declareModuleId('a'); export const x = 0;",
+            "goog.module('b'); const {x} = goog.require('a'); X: x;"));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testGoogRequire_insideEsModule_namedExport() {
+    testSame(
+        srcs(
+            "goog.module('b'); exports.x = 0;",
+            "const {x} = goog.require('b'); X: x; export {x};"));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild()).hasJSTypeThat().isNumber();
+  }
+
+  @Test
+  public void testGoogRequire_insideEsModule_class() {
+    testSame(
+        srcs(
+            lines(
+                "goog.module('b');", //
+                "exports.X = class {};"),
+            lines(
+                "const {X} = goog.require('b');", //
+                "var /** !X */ x;",
+                "X: x;",
+                "export {x};")));
+
+    assertNode(getLabeledStatement("X").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("exports.X");
+  }
+
+  @Test
+  public void testEsModuleImportCycle_namedExports() {
+    // Note: we cannot reference circular imports directly in the module body but we can reference
+    // them by type and inside functions.
+    testSame(
+        srcs(
+            lines(
+                "import {Bar} from './input1';", //
+                "var /** !Bar */ b;",
+                "BAR: b;",
+                "export class Foo {}"),
+            lines(
+                "import {Foo} from './input0';", //
+                "var /** !Foo */ f;",
+                "FOO: f;",
+                "export class Bar {}")));
+
+    assertNode(getLabeledStatement("FOO").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("Foo");
+    assertNode(getLabeledStatement("BAR").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("Bar");
+  }
+
+  @Test
+  public void testEsModuleImportCycle_importStarPlusNamedExport() {
+    testSame(
+        srcs(
+            lines(
+                "import * as mod from './input1';", //
+                "var /** !mod.Bar */ b;",
+                "BAR: b;",
+                "export class Foo {}"),
+            lines(
+                "import {Foo} from './input0';", //
+                "var /** !Foo */ f;",
+                "FOO: f;",
+                "export class Bar {}")));
+
+    assertNode(getLabeledStatement("FOO").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("Foo");
+    assertNode(getLabeledStatement("BAR").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("Bar");
+  }
+
+  @Test
+  public void testEsModuleImportStar_reexportLateReference() {
+    testSame(
+        srcs(
+            lines(
+                "import * as mod from './input1';", //
+                "function f() {",
+                "  BAR1: new mod.Bar();",
+                "}",
+                "export {mod};"),
+            lines(
+                "import {mod} from './input0';", //
+                "var /** !mod.Bar */ b;",
+                "BAR: b;",
+                "function f() {",
+                "  BAR2: new mod.Bar();",
+                "}",
+                "export class Bar {}")));
+
+    assertNode(getLabeledStatement("BAR").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("Bar");
+    assertNode(getLabeledStatement("BAR1").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("Bar");
+    assertNode(getLabeledStatement("BAR2").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("Bar");
+  }
+
+  @Test
+  public void testEsModuleImportCycle_importStar() {
+    testSame(
+        srcs(
+            lines(
+                "import * as mod from './input1';",
+                "var /** !mod.Bar */ b;",
+                "BAR: b;",
+                "export class Foo {}"),
+            lines(
+                "import * as mod from './input0';",
+                "var /** !mod.Foo */ f;",
+                "FOO: f;",
+                "export class Bar {}")));
+
+    assertNode(getLabeledStatement("FOO").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("Foo");
+    assertNode(getLabeledStatement("BAR").statementNode.getOnlyChild())
+        .hasJSTypeThat()
+        .toStringIsEqualTo("Bar");
+  }
+
+  @Test
   public void testMemoization() {
     Node root1 = createEmptyRoot();
     Node root2 = createEmptyRoot();
@@ -4196,8 +5871,8 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
     compiler.initOptions(new CompilerOptions());
     TypedScopeCreator creator = new TypedScopeCreator(compiler);
     TypedScope scopeA = creator.createScope(root1, null);
-    assertThat(creator.createScope(root1, null)).isSameAs(scopeA);
-    assertThat(creator.createScope(root2, null)).isNotSameAs(scopeA);
+    assertThat(creator.createScope(root1, null)).isSameInstanceAs(scopeA);
+    assertThat(creator.createScope(root2, null)).isNotSameInstanceAs(scopeA);
   }
 
   @Test
@@ -4216,8 +5891,9 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
   }
 
   private static Node createEmptyRoot() {
-    Node root = new Node(Token.ROOT, new Node(Token.SCRIPT));
-    root.getFirstChild().setInputId(new InputId("input"));
+    Node script = IR.script();
+    Node root = IR.root(IR.root(), IR.root(script));
+    script.setInputId(new InputId("input"));
     return root;
   }
 
@@ -4258,4 +5934,13 @@ public final class TypedScopeCreatorTest extends CompilerTestCase {
   private ObjectType getNativeObjectType(JSTypeNative type) {
     return (ObjectType) registry.getNativeType(type);
   }
+
+  private static final String CLOSURE_GLOBALS =
+      lines(
+          "var goog = {};",
+          "goog.module = function(name) {};",
+          "/** @return {?} */",
+          "goog.require = function(id) {};",
+          "goog.provide = function(id) {};");
 }
+

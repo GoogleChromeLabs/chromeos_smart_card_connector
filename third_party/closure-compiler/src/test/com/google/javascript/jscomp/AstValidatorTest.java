@@ -47,6 +47,13 @@ public final class AstValidatorTest extends CompilerTestCase {
     return createValidator(compiler);
   }
 
+  @Override
+  public CompilerOptions getOptions() {
+    CompilerOptions options = super.getOptions();
+    options.setWarningLevel(DiagnosticGroups.MODULE_LOAD, CheckLevel.OFF);
+    return options;
+  }
+
   private AstValidator createValidator(Compiler compiler) {
     lastCheckWasValid = true;
     return new AstValidator(
@@ -58,11 +65,6 @@ public final class AstValidatorTest extends CompilerTestCase {
           }
         },
         /* validateScriptFeatures= */ true);
-  }
-
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
   }
 
   @Override

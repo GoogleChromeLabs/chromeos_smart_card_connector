@@ -47,11 +47,6 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     assumeCrossModuleNames = true;
   }
 
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
-  }
-
   @Test
   public void testVarDeclarations() {
     test("var a = 1;", "_.a = 1;");
@@ -61,9 +56,7 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
         "_.a = 'str'; _.b = 1; _.c = { foo: 'bar' }; _.d = function() {};");
     test("if(1){var x = 1;}", "if(1){_.x = 1;}");
     test("var x;", "");
-    test("var x; alert(x)", "window.alert(_.x);");
     test("var a, b = 1;", "_.b = 1");
-    test("var a, b = 1; alert(a);", "_.b = 1; window.alert(_.a);");
   }
 
   @Test
@@ -124,9 +117,7 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
         "_.a = 'str'; _.b = 1; _.c = { foo: 'bar' }; _.d = function() {};");
     testSame("if(1){let x = 1;}");
     test("let x;", "");
-    test("let x; alert(x);", "window.alert(_.x);");
     test("let a, b = 1;", "_.b = 1");
-    test("let a, b = 1; alert(a);", "_.b = 1; window.alert(_.a);");
   }
 
   @Test
@@ -235,6 +226,13 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     test("var {a: {key: b}} = {}; b;", "({a: {key: _.b}} = {}); _.b;");
     test("var {['computed']: a} = {}; a;", "({['computed']: _.a} = {}); _.a;");
 
+    test(
+        "var {...a} = {a: 1, b: 2, c: 3}; a;", //
+        "({..._.a} = {a: 1, b: 2, c: 3}); _.a;");
+    test(
+        "var {a, ...b} = {x: 1, y: 2, z: 3}; a; b;",
+        "({a: _.a, ..._.b} = {x: 1, y: 2, z: 3}); _.a; _.b;");
+
     test("var {a = 3} = {}; a;", "({a: _.a = 3} = {}); _.a");
     test("var {key: a = 3} = {}; a;", "({key: _.a = 3} = {}); _.a");
     test("var {a} = {}, [b] = [], c = 3", "({a: _.a} = {}); [_.b] = []; _.c = 3;");
@@ -254,6 +252,8 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     testSame("var {a} = {}, b = 3;");
     testSame("var [a] = [], b = 3;");
     testSame("var a = 1, [b] = [], {c} = {};");
+    testSame("var {...a} = {x: 1, y: 2, z: 3}; a;");
+    testSame("var {a, ...b} = {x: 1, y: 2, z: 3}; a; b;");
   }
 
   @Test
@@ -276,6 +276,13 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     test(
         createModules("var {a} = {}, b = 3;", "b"),
         new String[] {"var a; ({a} = {}); _.b = 3;", "_.b"});
+
+    test(
+        createModules("var {a: a, ...c} = {};", "a;"),
+        new String[] {"var c; ({a: _.a, ...c} = {});", "_.a;"});
+    test(
+        createModules("var {a: a, ...c} = {};", "c;"),
+        new String[] {"var a; ({a: a, ..._.c} = {});", "_.c"});
   }
 
   @Test
@@ -289,6 +296,13 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     test(
         "var obj = {}; ({a:   obj['foo bar']} = {});   obj['foo bar'];",
         "  _.obj = {}; ({a: _.obj['foo bar']} = {}); _.obj['foo bar'];");
+
+    test(
+        "var a = {}; ({...a.b} = {a: 1, b: 2, c: 3}); a.b;", //
+        "_.a = {}; ({..._.a.b} = {a: 1, b: 2, c: 3}); _.a.b;");
+    test(
+        "var a = {}; ({c, ...a.b} = {a: 1, b: 2, c: 3}); a.b;", //
+        "_.a = {}; ({c, ..._.a.b} = {a: 1, b: 2, c: 3}); _.a.b;");
   }
 
   @Test
@@ -328,6 +342,13 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     test(
         createModules("var [a, b, c] = []; b; c;", "a; c;"),
         new String[] {"var b; [_.a, b, _.c] = []; b; _.c;", "_.a; _.c"});
+
+    test(
+        createModules("var [a, ...c] = [];", "a;"),
+        new String[] {"var c; ([_.a, ...c] = []);", "_.a;"});
+    test(
+        createModules("var [a, ...c] = [];", "c;"),
+        new String[] {"var a; ([a, ..._.c] = []);", "_.c"});
   }
 
   @Test
@@ -342,6 +363,13 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     test(
         "var obj = {}; [  obj['foo bar']] = [];   obj['foo bar'];",
         "  _.obj = {}; [_.obj['foo bar']] = []; _.obj['foo bar'];");
+
+    test(
+        "var a = {}; ([...a.b] = [1, 2, 3]); a.b;", //
+        "_.a = {}; ([..._.a.b] = [1, 2, 3]); _.a.b;");
+    test(
+        "var a = {}; ([c, ...a.b] = [1, 2, 3]); a.b;", //
+        "_.a = {}; ([c, ..._.a.b] = [1, 2, 3]); _.a.b;");
   }
 
   @Test
@@ -362,7 +390,7 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
             "_.PI = 3.14;",
             "_.A = class {",
             "  static printPi() {",
-            "    window.console.log(_.PI);",
+            "    console.log(_.PI);",
             "  }",
             "}",
             "_.A.printPi();"));
@@ -470,6 +498,28 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     test(
         createModules("       for (var {i: i, c:   c} of []);", "c"),
         new String[] {"var i; for (    {i: i, c: _.c} of []);", "_.c"});
+  }
+
+  @Test
+  public void testForAwaitOfLoops_allSameModule() {
+    assumeCrossModuleNames = false;
+    testSame("for await (var i of [1, 2, 3]);");
+    testSame("for await (var [a] of []);");
+    testSame("for await (var {a: a} of {});");
+  }
+
+  @Test
+  public void testForAwaitOfLoops_acrossModules() {
+    assumeCrossModuleNames = false;
+    test(
+        createModules("for await (var i of []);", "i"), //
+        new String[] {"for await (_.i of []);", "_.i"});
+    test(
+        createModules("       for await (var [  a, b] of []);", "a;"),
+        new String[] {"var b; for await (    [_.a, b] of []);", "_.a"});
+    test(
+        createModules("       for await (var {i: i, c:   c} of []);", "c"),
+        new String[] {"var i; for await (    {i: i, c: _.c} of []);", "_.c"});
   }
 
   @Test
@@ -639,48 +689,36 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
 
   @Test
   public void testExterns() {
-    test(
-        externs("var document;"),
-        srcs("document"),
-        expected("window.document"));
+    test(externs("var document;"), srcs("document"), expected("document"));
     test(
         externs("var document;"),
         srcs("document.getElementsByTagName('test')"),
-        expected("window.document.getElementsByTagName('test')"));
+        expected("document.getElementsByTagName('test')"));
     test(
         externs("var document;"),
-        srcs("window.document.getElementsByTagName('test')"),
-        expected("window.document.getElementsByTagName('test')"));
+        srcs("document.getElementsByTagName('test')"),
+        expected("document.getElementsByTagName('test')"));
     test(
         externs("var document;document.getElementsByTagName"),
         srcs("document.getElementsByTagName('test')"),
-        expected("window.document.getElementsByTagName('test')"));
+        expected("document.getElementsByTagName('test')"));
     test(
         externs("var document,navigator"),
         srcs("document.navigator;navigator"),
-        expected("window.document.navigator;window.navigator"));
+        expected("document.navigator;navigator"));
     test(
         externs("var iframes"),
         srcs("function test() { iframes.resize(); }"),
-        expected("_.test = function() { window.iframes.resize(); }"));
-    test(
-        externs("var iframes"),
-        srcs("var foo = iframes;"),
-        expected("_.foo = window.iframes;"));
-    test(
-        externs("class A {}"),
-        srcs("A"),
-        expected("window.A"));
+        expected("_.test = function() { iframes.resize(); }"));
+    test(externs("var iframes"), srcs("var foo = iframes;"), expected("_.foo = iframes;"));
+    test(externs("class A {}"), srcs("A"), expected("A"));
     // Special names.
     test(
         externs("var arguments, window, eval;"),
         srcs("arguments;window;eval;"),
         expected("arguments;window;eval;"));
     // Actually not an extern.
-    test(
-        externs(""),
-        srcs("document"),
-        expected("window.document"));
+    test(externs(""), srcs("document"), expected("document"));
     // Javascript builtin objects
     testSame(
         "Object;Function;Array;String;Boolean;Number;Math;"
@@ -693,17 +731,9 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     test(
         externs("/** @const */ var ns = {}; function f() {}"),
         srcs("/** @const */ var ns = ns || {};"),
-        expected("/** @const */ window.ns = window.ns || {};"));
+        expected("/** @const */ ns = ns || {};"));
 
-    test(
-        externs("var x;"),
-        srcs("var x = 1; x = 2;"),
-        expected("window.x = 1; window.x = 2;"));
-
-    test(
-        externs("var x;"),
-        srcs("var x; x = 1;"),
-        expected("window.x = 1;"));
+    test(externs("var x;"), srcs("var x = 1; x = 2;"), expected("x = 1; x = 2;"));
 
     test(
         externs("var x;"),
@@ -713,76 +743,57 @@ public final class RescopeGlobalSymbolsTest extends CompilerTestCase {
     test(
         externs("var x;"),
         srcs("function f() { x = 1; }"),
-        expected("_.f = function() { window.x = 1; };"));
+        expected("_.f = function() { x = 1; };"));
 
-    test(
-        externs("var x, y;"),
-        srcs("var x = 1, y = 2;"),
-        expected("window.x = 1; window.y = 2;"));
+    test(externs("var x, y;"), srcs("var x = 1, y = 2;"), expected("x = 1; y = 2;"));
 
-    test(
-        externs("var x, y;"),
-        srcs("var x, y = 2;"),
-        expected("window.y = 2;"));
+    test(externs("var x, y;"), srcs("var x, y = 2;"), expected("y = 2;"));
 
-    test(
-        externs("var x;"),
-        srcs("var x = 1, y = 2;"),
-        expected("window.x = 1; _.y = 2;"));
+    test(externs("var x;"), srcs("var x = 1, y = 2;"), expected("x = 1; _.y = 2;"));
 
-    test(
-        externs("var x;"),
-        srcs("var y = 2, x = 1;"),
-        expected("_.y = 2; window.x = 1;"));
+    test(externs("var x;"), srcs("var y = 2, x = 1;"), expected("_.y = 2; x = 1;"));
 
-    test(
-        externs("var x;"),
-        srcs("var y, x = 1;"),
-        expected("window.x = 1;"));
+    test(externs("var x;"), srcs("var y, x = 1;"), expected("x = 1;"));
 
     test(
         externs("var foo;"),
         srcs("var foo = function(x) { if (x > 0) { var y = foo; } };"),
-        expected(
-            "window.foo = function(x) { if (x > 0) { var y = window.foo; } };"));
+        expected("foo = function(x) { if (x > 0) { var y = foo; } };"));
 
     // The parameter x doesn't conflict with the x in the source
-    test(
-        externs("function f(x) {}"),
-        srcs("var f = 1; var x = 2;"),
-        expected("window.f = 1; _.x = 2;"));
+    test(externs("function f(x) {}"), srcs("var f = 1; var x = 2;"), expected("f = 1; _.x = 2;"));
   }
 
   @Test
   public void testSameVarDeclaredInExternsAndSource2() {
     assumeCrossModuleNames = false;
 
-    test(createModules(
-        lines(
-            "Foo = function() { this.b = ns; };",
-            "var f = function(a) {",
-            "  if (a instanceof Foo && a.b === ns) {}",
-            "},",
-            "ns = {},",
-            "g = function(a) { var b = new Foo; };"),
-        "f; g;"),
-        new String[] {
+    test(
+        createModules(
             lines(
-                "var ns;",
-                "window.Foo = function() { this.b = ns; };",
-                "_.f = function(a) {",
-                "  if (a instanceof window.Foo && a.b === ns) {}",
-                "};",
-                "ns = {};",
-                "_.g = function(a) { var b = new window.Foo; };"),
-            "_.f; _.g;"
-    });
+                "Foo = function() { this.b = ns; };",
+                "var f = function(a) {",
+                "  if (a instanceof Foo && a.b === ns) {}",
+                "},",
+                "ns = {},",
+                "g = function(a) { var b = new Foo; };"),
+            "f; g;"),
+        new String[] {
+          lines(
+              "var ns;",
+              "Foo = function() { this.b = ns; };",
+              "_.f = function(a) {",
+              "  if (a instanceof Foo && a.b === ns) {}",
+              "};",
+              "ns = {};",
+              "_.g = function(a) { var b = new Foo; };"),
+          "_.f; _.g;"
+        });
 
     test(
         externs("var y;"),
-        srcs("var x = 1, y = 2; function f() { return x + window.y; }"),
-        expected(
-            "var x; x = 1; window.y = 2; var f = function() { return x + window.y; }"));
+        srcs("var x = 1, y = 2; function f() { return x + y; }"),
+        expected("var x; x = 1; y = 2; var f = function() { return x + y; }"));
   }
 
   @Test

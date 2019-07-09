@@ -18,15 +18,14 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.CompilerOptions.LanguageMode.ECMASCRIPT_NEXT;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
-import com.google.common.collect.Iterables;
+import com.google.common.truth.Correspondence;
 import com.google.javascript.jscomp.ReferenceCollectingCallback.Behavior;
+import com.google.javascript.jscomp.testing.JSCompCorrespondences;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,7 +34,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
   private Behavior behavior;
-  private boolean es6ScopeCreator;
 
   @Override
   @Before
@@ -43,7 +41,6 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
     super.setUp();
     setLanguage(ECMASCRIPT_NEXT, ECMASCRIPT_NEXT);
     behavior = null;
-    es6ScopeCreator = true;
   }
 
   @Override
@@ -57,14 +54,18 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(final Compiler compiler) {
-    ScopeCreator scopeCreator =
-        es6ScopeCreator
-            ? new Es6SyntacticScopeCreator(compiler)
-            : SyntacticScopeCreator.makeUntyped(compiler);
+    ScopeCreator scopeCreator = new Es6SyntacticScopeCreator(compiler);
     return new ReferenceCollectingCallback(
         compiler,
         this.behavior,
         scopeCreator);
+  }
+
+  @Override
+  public CompilerOptions getOptions() {
+    CompilerOptions options = super.getOptions();
+    options.setWarningLevel(DiagnosticGroups.MODULE_LOAD, CheckLevel.OFF);
+    return options;
   }
 
   private void testBehavior(String js, Behavior behavior) {
@@ -72,76 +73,84 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
     testSame(js);
   }
 
+  private static final Correspondence<Reference, Boolean> IS_DECLARATION =
+      JSCompCorrespondences.transforming(Reference::isDeclaration, "isDeclaration() is");
+
   @Test
-  public void testRestDeclaration() {
+  public void testIterableRest_declaration() {
     testBehavior(
         "let [x, ...arr] = [1, 2, 3]; [x, ...arr] = [4, 5, 6];",
         (NodeTraversal t, ReferenceMap rm) -> {
           ReferenceCollection arrReferenceCollection = rm.getReferences(t.getScope().getVar("arr"));
-          List<Reference> references = arrReferenceCollection.references;
-          assertThat(references).hasSize(2);
-          assertWithMessage("First reference is a declaration")
-              .that(references.get(0).isDeclaration())
-              .isTrue();
-          assertWithMessage("Second reference is a declaration")
-              .that(references.get(1).isDeclaration())
-              .isFalse();
+          assertThat(arrReferenceCollection)
+              .comparingElementsUsing(IS_DECLARATION)
+              .containsExactly(true, false)
+              .inOrder();
+        });
+  }
+
+  @Test
+  public void testObjectRest_declaration() {
+    testBehavior(
+        "let {x, ...obj} = {x: 1, y: 2, z: 3}; ({x, ...obj} = {x: 4, q: 5, u: 6});",
+        (NodeTraversal t, ReferenceMap rm) -> {
+          ReferenceCollection objReferenceCollection = rm.getReferences(t.getScope().getVar("obj"));
+          assertThat(objReferenceCollection)
+              .comparingElementsUsing(IS_DECLARATION)
+              .containsExactly(true, false)
+              .inOrder();
         });
   }
 
   @Test
   public void testImport1() {
-    es6ScopeCreator = true;
     testBehavior(
-        "import x from 'm';",
+        "import x from '/m';",
         (NodeTraversal t, ReferenceMap rm) -> {
           if (t.getScope().isModuleScope()) {
             ReferenceCollection x = rm.getReferences(t.getScope().getVar("x"));
 
             assertThat(x.isAssignedOnceInLifetime()).isTrue();
             assertThat(x.isWellDefined()).isTrue();
-            assertThat(Iterables.getOnlyElement(x).isDeclaration()).isTrue();
+            assertThat(x).comparingElementsUsing(IS_DECLARATION).containsExactly(true).inOrder();
           }
         });
   }
 
   @Test
   public void testImport2() {
-    es6ScopeCreator = true;
     testBehavior(
-        "import {x} from 'm';",
+        "import {x} from '/m';",
         (NodeTraversal t, ReferenceMap rm) -> {
           if (t.getScope().isModuleScope()) {
             ReferenceCollection x = rm.getReferences(t.getScope().getVar("x"));
 
             assertThat(x.isAssignedOnceInLifetime()).isTrue();
             assertThat(x.isWellDefined()).isTrue();
-            assertThat(Iterables.getOnlyElement(x).isDeclaration()).isTrue();
+            assertThat(x).comparingElementsUsing(IS_DECLARATION).containsExactly(true).inOrder();
           }
         });
   }
 
   @Test
   public void testImport2_alternate() {
-    es6ScopeCreator = true;
     testBehavior(
-        "import {x as x} from 'm';",
+        "import {x as x} from '/m';",
         (NodeTraversal t, ReferenceMap rm) -> {
           if (t.getScope().isModuleScope()) {
             ReferenceCollection x = rm.getReferences(t.getScope().getVar("x"));
 
             assertThat(x.isAssignedOnceInLifetime()).isTrue();
             assertThat(x.isWellDefined()).isTrue();
-            assertThat(Iterables.getOnlyElement(x).isDeclaration()).isTrue();
+            assertThat(x).comparingElementsUsing(IS_DECLARATION).containsExactly(true).inOrder();
           }
         });
   }
 
   @Test
   public void testImport3() {
-    es6ScopeCreator = true;
     testBehavior(
-        "import {y as x} from 'm';",
+        "import {y as x} from '/m';",
         (NodeTraversal t, ReferenceMap rm) -> {
           if (t.getScope().isModuleScope()) {
             assertThat(t.getScope().getVar("y")).isNull();
@@ -149,16 +158,15 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
 
             assertThat(x.isAssignedOnceInLifetime()).isTrue();
             assertThat(x.isWellDefined()).isTrue();
-            assertThat(Iterables.getOnlyElement(x).isDeclaration()).isTrue();
+            assertThat(x).comparingElementsUsing(IS_DECLARATION).containsExactly(true).inOrder();
           }
         });
   }
 
   @Test
   public void testImport4() {
-    es6ScopeCreator = true;
     testBehavior(
-        "import * as x from 'm';",
+        "import * as x from '/m';",
         (NodeTraversal t, ReferenceMap rm) -> {
           if (t.getScope().isModuleScope()) {
             Var var = t.getScope().getVar("x");
@@ -168,31 +176,7 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
 
             assertThat(x.isAssignedOnceInLifetime()).isTrue();
             assertThat(x.isWellDefined()).isTrue();
-            assertThat(Iterables.getOnlyElement(x).isDeclaration()).isTrue();
-          }
-        });
-  }
-
-  @Test
-  public void testVarInBlock_oldScopeCreator() {
-    es6ScopeCreator = false;
-    testBehavior(
-        lines(
-            "function f(x) {",
-            "  if (true) {",
-            "    var y = x;",
-            "    y;",
-            "    y;",
-            "  }",
-            "}"),
-        new Behavior() {
-          @Override
-          public void afterExitScope(NodeTraversal t, ReferenceMap rm) {
-            if (t.getScope().isFunctionScope()) {
-              ReferenceCollection y = rm.getReferences(t.getScope().getVar("y"));
-              assertThat(y.isAssignedOnceInLifetime()).isTrue();
-              assertThat(y.isWellDefined()).isTrue();
-            }
+            assertThat(x).comparingElementsUsing(IS_DECLARATION).containsExactly(true).inOrder();
           }
         });
   }
@@ -402,12 +386,6 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
 
   @Test
   public void testBasicBlocks() {
-    testBasicBlocks(true);
-    testBasicBlocks(false);
-  }
-
-  private void testBasicBlocks(boolean scopeCreator) {
-    es6ScopeCreator = scopeCreator;
     testBehavior(
         lines(
             "var x = 0;",
@@ -431,32 +409,6 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
 
   @Test
   public void testThis() {
-    testBehavior(
-        lines(
-            "/** @constructor */",
-            "function C() {}",
-            "",
-            "C.prototype.m = function m() {",
-            "  var self = this;",
-            "  if (true) {",
-            "    alert(self);",
-            "  }",
-            "};"),
-        new Behavior() {
-          @Override
-          public void afterExitScope(NodeTraversal t, ReferenceMap rm) {
-            if (t.getScope().isFunctionBlockScope()
-                && t.getScopeRoot().getParent().getFirstChild().matchesQualifiedName("m")) {
-              ReferenceCollection self = rm.getReferences(t.getScope().getVar("self"));
-              assertThat(self.isEscaped()).isFalse();
-            }
-          }
-        });
-  }
-
-  @Test
-  public void testThis_oldScopeCreator() {
-    es6ScopeCreator = false;
     testBehavior(
         lines(
             "/** @constructor */",

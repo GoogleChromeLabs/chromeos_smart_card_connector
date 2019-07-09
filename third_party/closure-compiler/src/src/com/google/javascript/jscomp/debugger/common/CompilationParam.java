@@ -44,7 +44,7 @@ public enum CompilationParam {
     @Override
     public void apply(CompilerOptions options, boolean value) {
       if (value) {
-        for (DiagnosticGroup group : new DiagnosticGroups().getRegisteredGroups().values()) {
+        for (DiagnosticGroup group : DiagnosticGroups.getRegisteredGroups().values()) {
           options.setWarningLevel(group, CheckLevel.WARNING);
         }
       }
@@ -57,7 +57,7 @@ public enum CompilationParam {
   },
 
   /** If true, the output language is ES5. If false, we skip transpilation. */
-  TRANSPILE(true, ParamGroup.TRANSPILATION) {
+  TRANSPILE(ParamGroup.TRANSPILATION) {
     @Override
     public void apply(CompilerOptions options, boolean value) {
       options.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT_2017);
@@ -363,22 +363,6 @@ public enum CompilationParam {
     }
   },
 
-  /**
-   * See
-   * https://github.com/google/closure-compiler/wiki/FAQ#i-get-an-undecomposable-expression-error-for-my-yield-or-await-expression-what-do-i-do
-   */
-  ALLOW_METHOD_CALL_DECOMPOSING(ParamGroup.OPTIMIZATION) {
-    @Override
-    public void apply(CompilerOptions options, boolean value) {
-      options.setAllowMethodCallDecomposing(value);
-    }
-
-    @Override
-    public boolean isApplied(CompilerOptions options) {
-      return options.allowMethodCallDecomposing();
-    }
-  },
-
   AMBIGUATE_PROPERTIES(ParamGroup.OPTIMIZATION) {
     @Override
     public void apply(CompilerOptions options, boolean value) {
@@ -469,18 +453,6 @@ public enum CompilationParam {
     }
   },
 
-  MARK_NO_SIDE_EFFECT_CALLS(ParamGroup.OPTIMIZATION){
-    @Override
-    public void apply(CompilerOptions options, boolean value) {
-      options.setMarkNoSideEffectCalls(value);
-    }
-
-    @Override
-    public boolean isApplied(CompilerOptions options) {
-      return options.markNoSideEffectCalls;
-    }
-  },
-
   /** Converts quoted property accesses to dot syntax (a['b'] -> a.b) */
   CONVERT_TO_DOTTED_PROPERTIES(ParamGroup.OPTIMIZATION){
     @Override
@@ -535,15 +507,15 @@ public enum CompilationParam {
     }
   },
 
-  DEVIRTUALIZE_PROTOTYPE_METHODS(ParamGroup.OPTIMIZATION) {
+  DEVIRTUALIZE_METHODS(ParamGroup.OPTIMIZATION) {
     @Override
     public void apply(CompilerOptions options, boolean value) {
-      options.setDevirtualizePrototypeMethods(value);
+      options.setDevirtualizeMethods(value);
     }
 
     @Override
     public boolean isApplied(CompilerOptions options) {
-      return options.devirtualizePrototypeMethods;
+      return options.devirtualizeMethods;
     }
   },
 
@@ -662,6 +634,18 @@ public enum CompilationParam {
     @Override
     public boolean isApplied(CompilerOptions options) {
       return options.optimizeCalls;
+    }
+  },
+
+  OPTIMIZE_ARGUMENTS_ARRAY(ParamGroup.OPTIMIZATION) {
+    @Override
+    public void apply(CompilerOptions options, boolean value) {
+      options.setOptimizeArgumentsArray(value);
+    }
+
+    @Override
+    public boolean isApplied(CompilerOptions options) {
+      return options.optimizeArgumentsArray;
     }
   },
 

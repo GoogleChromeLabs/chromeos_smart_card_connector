@@ -178,7 +178,7 @@ public enum CompilationLevel {
     options.setRemoveAbstractMethods(true);
     options.setReserveRawExports(true);
     options.setRenamingPolicy(VariableRenamingPolicy.ALL, PropertyRenamingPolicy.ALL_UNQUOTED);
-    options.setShadowVariables(true);
+    options.setShadowVariables(false);
     options.setRemoveUnusedPrototypeProperties(true);
     options.setRemoveUnusedPrototypePropertiesInExterns(false);
     options.setRemoveUnusedClassProperties(true);
@@ -203,7 +203,7 @@ public enum CompilationLevel {
     options.setCrossChunkMethodMotion(true);
 
     // Call optimizations
-    options.setDevirtualizePrototypeMethods(true);
+    options.setDevirtualizeMethods(true);
     options.setOptimizeCalls(true);
   }
 

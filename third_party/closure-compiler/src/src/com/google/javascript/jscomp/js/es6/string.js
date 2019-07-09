@@ -16,6 +16,7 @@
 
 /**
  * @fileoverview Brings in all ES6 String polyfills.
+ * @suppress {uselessCode}
  */
 'require es6/string/codepointat';
 'require es6/string/endswith';
@@ -25,3 +26,5 @@
 'require es6/string/padstart';
 'require es6/string/repeat';
 'require es6/string/startswith';
+'require es6/string/trimend';
+'require es6/string/trimstart';

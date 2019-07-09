@@ -40,6 +40,7 @@ package com.google.javascript.rhino;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.javascript.rhino.JSDocInfo.Visibility.INHERITED;
 import static com.google.javascript.rhino.JSDocInfo.Visibility.PACKAGE;
 import static com.google.javascript.rhino.JSDocInfo.Visibility.PRIVATE;
 import static com.google.javascript.rhino.JSDocInfo.Visibility.PROTECTED;
@@ -519,14 +520,15 @@ public class JSDocInfoTest {
 
     JSDocInfo cloned = info.clone(true);
 
-    assertThat(cloned.getBaseType().getRoot()).isNotSameAs(info.getBaseType().getRoot());
+    assertThat(cloned.getBaseType().getRoot()).isNotSameInstanceAs(info.getBaseType().getRoot());
     assertType(resolve(cloned.getBaseType()))
         .isStructurallyEqualTo(getNativeType(NUMBER_OBJECT_TYPE));
     assertThat(cloned.getDescription()).isEqualTo("The source info");
-    assertThat(cloned.getReturnType().getRoot()).isNotSameAs(info.getReturnType().getRoot());
+    assertThat(cloned.getReturnType().getRoot())
+        .isNotSameInstanceAs(info.getReturnType().getRoot());
     assertType(resolve(cloned.getReturnType())).isStructurallyEqualTo(getNativeType(STRING_TYPE));
     assertThat(cloned.getParameterType("a").getRoot())
-        .isNotSameAs(info.getParameterType("a").getRoot());
+        .isNotSameInstanceAs(info.getParameterType("a").getRoot());
     assertType(resolve(cloned.getParameterType("a")))
         .isStructurallyEqualTo(getNativeType(STRING_TYPE));
   }
@@ -622,6 +624,38 @@ public class JSDocInfoTest {
 
     Collection<Node> nodes = info.getTypeNodes();
     assertThat(nodes).isEmpty();
+  }
+
+  @Test
+  public void testContainsDeclaration_implements() {
+    JSDocInfo info = new JSDocInfo();
+    info.setVisibility(INHERITED);
+    info.addImplementedInterface(fromString("MyInterface"));
+
+    assertThat(info.getImplementedInterfaceCount()).isEqualTo(1);
+    assertThat(info.containsDeclaration()).isTrue();
+  }
+
+  @Test
+  public void testContainsDeclaration_extends() {
+    JSDocInfo info = new JSDocInfo();
+    info.setVisibility(INHERITED);
+    info.setBaseType(fromString("MyBaseClass"));
+
+    assertThat(info.hasBaseType()).isTrue();
+    assertThat(info.containsDeclaration()).isTrue();
+  }
+
+  @Test
+  public void testClosurePrimitiveId_affectsEquality() {
+    JSDocInfo assertsFailJSDoc = new JSDocInfo();
+    assertsFailJSDoc.setClosurePrimitiveId("asserts.fail");
+
+    JSDocInfo otherInfo = new JSDocInfo();
+    assertThat(JSDocInfo.areEquivalent(assertsFailJSDoc, otherInfo)).isFalse();
+
+    otherInfo.setClosurePrimitiveId("asserts.fail");
+    assertThat(JSDocInfo.areEquivalent(assertsFailJSDoc, otherInfo)).isTrue();
   }
 
   /** Gets the type expression for a simple type name. */

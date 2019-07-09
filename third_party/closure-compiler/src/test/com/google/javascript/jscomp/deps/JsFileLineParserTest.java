@@ -89,6 +89,46 @@ public final class JsFileLineParserTest {
   }
 
   @Test
+  public void testBlockComment_singleQuotes() {
+    assertBlocks("", "var x = '/** one line */';");
+  }
+
+  @Test
+  public void testBlockComment_singleQuote() {
+    assertBlocks("/** one line */", "'/** one line */");
+  }
+
+  @Test
+  public void testBlockComment_singleQuotes_escaped() {
+    assertBlocks("", "var x = '\\'/** one line */';");
+  }
+
+  @Test
+  public void testBlockComment_singleQuotes_escapedSlash() {
+    assertBlocks("", "var x = '\\'/** one line */\\\\';");
+  }
+
+  @Test
+  public void testBlockComment_doubleQuotes() {
+    assertBlocks("", "var x = \"/** one line */\";");
+  }
+
+  @Test
+  public void testBlockComment_doubleQuote() {
+    assertBlocks("/** one line */", "\"/** one line */;");
+  }
+
+  @Test
+  public void testBlockComment_doubleQuotes_escaped() {
+    assertBlocks("", "var x = \"\\\"/** one line */\";");
+  }
+
+  @Test
+  public void testBlockComment_doubleQuotes_escapedSlash() {
+    assertBlocks("", "var x = \"\\\"/** one line */\\\\\";");
+  }
+
+  @Test
   public void testInlineBlockComment() {
     assertBlocks("/** one line */", "var x; /** one line */");
     assertBlocks("/** one line */", "/** one line */ var y;");
@@ -129,7 +169,7 @@ public final class JsFileLineParserTest {
     }
 
     @Override
-    boolean parseBlockCommentLine(String line) {
+    boolean parseJsDocCommentLine(String line) {
       comments.append(line);
       return true;
     }

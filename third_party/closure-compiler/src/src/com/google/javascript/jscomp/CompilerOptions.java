@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.GwtIncompatible;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Optional;
@@ -50,6 +51,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
@@ -120,10 +122,8 @@ public class CompilerOptions implements Serializable {
   /**
    * Skips passes (logging a warning) whose PassFactory feature set doesn't include some features
    * currently in the AST.
-   *
-   * <p>At the moment, this should only ever be set to false for testing.
    */
-  private boolean skipUnsupportedPasses = true;
+  private boolean skipUnsupportedPasses = false;
 
   /**
    * The builtin set of externs to be used
@@ -142,6 +142,18 @@ public class CompilerOptions implements Serializable {
 
   public boolean getInstrumentForCoverageOnly() {
     return instrumentForCoverageOnly;
+  }
+
+  @Nullable private OutputStream typedAstOutputFile = null;
+
+  /** Sets file to output in-progress TypedAST format to. DO NOT USE! */
+  void setTypedAstOutputFile(@Nullable OutputStream file) {
+    this.typedAstOutputFile = file;
+  }
+
+  @Nullable
+  OutputStream getTypedAstOutputFile() {
+    return this.typedAstOutputFile;
   }
 
   @Deprecated
@@ -614,14 +626,14 @@ public class CompilerOptions implements Serializable {
     renamePrefixNamespaceAssumeCrossChunkNames = assume;
   }
 
-  @Deprecated
-  void setRenamePrefixNamespaceAssumeCrossModuleNames(boolean assume) {
-    setRenamePrefixNamespaceAssumeCrossChunkNames(assume);
-  }
-
   private PropertyCollapseLevel collapsePropertiesLevel;
 
-  /** Flattens multi-level property names (e.g. a$b = x) */
+  /**
+   * Flattens multi-level property names (e.g. a$b = x)
+   *
+   * @deprecated use getPropertyCollapseLevel
+   */
+  @Deprecated
   public boolean shouldCollapseProperties() {
     return collapsePropertiesLevel != PropertyCollapseLevel.NONE;
   }
@@ -642,21 +654,16 @@ public class CompilerOptions implements Serializable {
   }
 
   /**
-   * Devirtualize prototype method by rewriting them to be static calls that
-   * take the this pointer as their first argument
+   * Devirtualize prototype method by rewriting them to be static calls that take the this pointer
+   * as their first argument
    */
-  public boolean devirtualizePrototypeMethods;
+  public boolean devirtualizeMethods;
 
   /**
    * Use @nosideeffects annotations, function bodies and name graph
    * to determine if calls have side effects.  Requires --check_types.
    */
   public boolean computeFunctionSideEffects;
-
-  /**
-   * Where to save debug report for compute function side effects.
-   */
-  String debugFunctionSideEffectsPath;
 
   /**
    * Rename private properties to disambiguate between unrelated fields based on
@@ -813,9 +820,6 @@ public class CompilerOptions implements Serializable {
   protected transient
       Multimap<CustomPassExecutionTime, CompilerPass> customPasses;
 
-  /** Mark no side effect calls */
-  public boolean markNoSideEffectCalls;
-
   /** Replacements for @defines. Will be Boolean, Numbers, or Strings */
   private Map<String, Object> defineReplacements;
 
@@ -827,22 +831,6 @@ public class CompilerOptions implements Serializable {
 
   /** Move top-level function declarations to the top */
   public boolean moveFunctionDeclarations;
-
-  /** Instrumentation template to use with #recordFunctionInformation */
-  public Instrumentation instrumentationTemplate;
-
-  String appNameStr;
-
-  /**
-   * App identifier string for use by the instrumentation template's
-   * app_name_setter. @see #instrumentationTemplate
-   */
-  public void setAppNameStr(String appNameStr) {
-    this.appNameStr = appNameStr;
-  }
-
-  /** Record function information */
-  public boolean recordFunctionInformation;
 
   boolean checksOnly;
 
@@ -871,9 +859,6 @@ public class CompilerOptions implements Serializable {
 
   /** Whitelist used in the renaming of CSS class names. */
   Set<String> cssRenamingWhitelist;
-
-  /** Process instances of goog.testing.ObjectPropertyString. */
-  boolean processObjectPropertyString;
 
   /** Replace id generators */
   boolean replaceIdGenerators = true;  // true by default for legacy reasons.
@@ -978,26 +963,6 @@ public class CompilerOptions implements Serializable {
    */
   public void setTrustedStrings(boolean yes) {
     trustedStrings = yes;
-  }
-
-  private boolean allowMethodCallDecomposing;
-
-  /**
-   * See
-   * https://github.com/google/closure-compiler/wiki/FAQ#i-get-an-undecomposable-expression-error-for-my-yield-or-await-expression-what-do-i-do
-   */
-  public boolean allowMethodCallDecomposing() {
-    return allowMethodCallDecomposing;
-  }
-
-  /**
-   * Setting this to true indicates that it's safe to rewrite x.y() as: fn = x.y; fn.call(x);
-   * This should be false if supporting IE 8 or IE 9 is necessary.
-   *
-   * See https://github.com/google/closure-compiler/wiki/FAQ#i-get-an-undecomposable-expression-error-for-my-yield-or-await-expression-what-do-i-do
-   */
-  public void setAllowMethodCallDecomposing(boolean value) {
-    this.allowMethodCallDecomposing = value;
   }
 
   // Should only be used when debugging compiler bugs.
@@ -1173,8 +1138,6 @@ public class CompilerOptions implements Serializable {
   /** Instrument branch coverage data - valid only if instrumentForCoverage is True */
   public boolean instrumentBranchCoverage;
 
-  String instrumentationTemplateFile;
-
   private static final ImmutableList<ConformanceConfig> GLOBAL_CONFORMANCE_CONFIGS =
       ImmutableList.of(ResourceLoader.loadGlobalConformance(CompilerOptions.class));
 
@@ -1186,8 +1149,14 @@ public class CompilerOptions implements Serializable {
   private ImmutableList<ConformanceConfig> conformanceConfigs = GLOBAL_CONFORMANCE_CONFIGS;
 
   /**
-   * For use in {@link CompilationLevel#WHITESPACE_ONLY} mode, when using goog.module.
+   * Remove the first match of this regex from any paths when checking conformance whitelists.
+   *
+   * <p>You can use this to make absolute paths relative to the root of your source tree. This is
+   * useful to work around CI and build systems that use absolute paths.
    */
+  Pattern conformanceRemoveRegexFromPath = Pattern.compile(".*?google3/");
+
+  /** For use in {@link CompilationLevel#WHITESPACE_ONLY} mode, when using goog.module. */
   boolean wrapGoogModulesForWhitespaceOnly = true;
 
   public void setWrapGoogModulesForWhitespaceOnly(boolean enable) {
@@ -1235,7 +1204,7 @@ public class CompilerOptions implements Serializable {
    */
   public CompilerOptions() {
     // Accepted language
-    languageIn = LanguageMode.ECMASCRIPT_2017;
+    languageIn = LanguageMode.STABLE_IN;
 
     // Which environment to use
     environment = Environment.BROWSER;
@@ -1307,7 +1276,7 @@ public class CompilerOptions implements Serializable {
     renamePrefix = null;
     collapsePropertiesLevel = PropertyCollapseLevel.NONE;
     collapseObjectLiterals = false;
-    devirtualizePrototypeMethods = false;
+    devirtualizeMethods = false;
     disambiguateProperties = false;
     ambiguateProperties = false;
     anonymousFunctionNaming = AnonymousFunctionNamingPolicy.OFF;
@@ -1336,13 +1305,10 @@ public class CompilerOptions implements Serializable {
     stripNamePrefixes = ImmutableSet.of();
     stripTypePrefixes = ImmutableSet.of();
     customPasses = null;
-    markNoSideEffectCalls = false;
     defineReplacements = new HashMap<>();
     tweakProcessing = TweakProcessing.OFF;
     tweakReplacements = new HashMap<>();
     moveFunctionDeclarations = false;
-    appNameStr = "";
-    recordFunctionInformation = false;
     checksOnly = false;
     outputJs = OutputJs.NORMAL;
     generateExports = false;
@@ -1350,7 +1316,6 @@ public class CompilerOptions implements Serializable {
     exportLocalPropertyDefinitions = false;
     cssRenamingMap = null;
     cssRenamingWhitelist = null;
-    processObjectPropertyString = false;
     idGenerators = ImmutableMap.of();
     replaceStringsFunctionDescriptions = ImmutableList.of();
     replaceStringsPlaceholderToken = "";
@@ -1359,10 +1324,8 @@ public class CompilerOptions implements Serializable {
     inputSourceMaps = ImmutableMap.of();
 
     // Instrumentation
-    instrumentationTemplate = null;  // instrument functions
     instrumentForCoverage = false;  // instrument lines
     instrumentBranchCoverage = false; // instrument branches
-    instrumentationTemplateFile = "";
 
     // Output
     preserveTypeAnnotations = false;
@@ -1373,7 +1336,6 @@ public class CompilerOptions implements Serializable {
     tracer = TracerMode.OFF;
     colorizeErrorOutput = false;
     errorFormat = ErrorFormat.SINGLELINE;
-    debugFunctionSideEffectsPath = null;
     externExports = false;
 
     // Debugging
@@ -1584,13 +1546,6 @@ public class CompilerOptions implements Serializable {
   /** Should shadow outer scope variable name during renaming. */
   public void setShadowVariables(boolean shadow) {
     this.shadowVariables = shadow;
-  }
-
-  /**
-   * If true, process goog.testing.ObjectPropertyString instances.
-   */
-  public void setProcessObjectPropertyString(boolean process) {
-    processObjectPropertyString = process;
   }
 
   /**
@@ -1840,14 +1795,6 @@ public class CompilerOptions implements Serializable {
     this.summaryDetailLevel = summaryDetailLevel;
   }
 
-  /**
-   * @deprecated replaced by {@link #setExternExports}
-   */
-  @Deprecated
-  public void enableExternExports(boolean enabled) {
-    this.externExports = enabled;
-  }
-
   public void setExtraAnnotationNames(Iterable<String> extraAnnotationNames) {
     this.extraAnnotationNames = ImmutableSet.copyOf(extraAnnotationNames);
   }
@@ -1886,6 +1833,7 @@ public class CompilerOptions implements Serializable {
    */
   public void setLanguage(LanguageMode language) {
     checkState(language != LanguageMode.NO_TRANSPILE);
+    checkState(language != LanguageMode.UNSUPPORTED);
     this.setLanguageIn(language);
     this.setLanguageOut(language);
   }
@@ -1896,7 +1844,19 @@ public class CompilerOptions implements Serializable {
    */
   public void setLanguageIn(LanguageMode languageIn) {
     checkState(languageIn != LanguageMode.NO_TRANSPILE);
+    checkState(languageIn != LanguageMode.UNSUPPORTED);
     this.languageIn = languageIn == LanguageMode.STABLE ? LanguageMode.STABLE_IN : languageIn;
+  }
+
+  /**
+   * Sets the ECMAScript version to the unsupported features that can be parsed but are not
+   * understood by the rest of the compiler.
+   *
+   * <p>Should not be used outside tests!
+   */
+  @VisibleForTesting()
+  public void setLanguageInToUnsupported() {
+    this.languageIn = LanguageMode.UNSUPPORTED;
   }
 
   public LanguageMode getLanguageIn() {
@@ -1912,6 +1872,7 @@ public class CompilerOptions implements Serializable {
    * #setOutputFeatureSet.
    */
   public void setLanguageOut(LanguageMode languageOut) {
+    checkState(languageOut != LanguageMode.UNSUPPORTED);
     if (languageOut == LanguageMode.NO_TRANSPILE) {
       languageOutIsDefaultStrict = Optional.absent();
       outputFeatureSet = Optional.absent();
@@ -2216,12 +2177,6 @@ public class CompilerOptions implements Serializable {
         parentChunkCanSeeSymbolsDeclaredInChildren;
   }
 
-  @Deprecated
-  public void setParentModuleCanSeeSymbolsDeclaredInChildren(
-      boolean parentChunkCanSeeSymbolsDeclaredInChildren) {
-    setParentChunkCanSeeSymbolsDeclaredInChildren(parentChunkCanSeeSymbolsDeclaredInChildren);
-  }
-
   public void setCrossChunkMethodMotion(boolean crossChunkMethodMotion) {
     this.crossChunkMethodMotion = crossChunkMethodMotion;
   }
@@ -2388,16 +2343,12 @@ public class CompilerOptions implements Serializable {
         fullyCollapse ? PropertyCollapseLevel.ALL : PropertyCollapseLevel.NONE;
   }
 
-  public void setDevirtualizePrototypeMethods(boolean devirtualizePrototypeMethods) {
-    this.devirtualizePrototypeMethods = devirtualizePrototypeMethods;
+  public void setDevirtualizeMethods(boolean devirtualizeMethods) {
+    this.devirtualizeMethods = devirtualizeMethods;
   }
 
   public void setComputeFunctionSideEffects(boolean computeFunctionSideEffects) {
     this.computeFunctionSideEffects = computeFunctionSideEffects;
-  }
-
-  public void setDebugFunctionSideEffectsPath(String debugFunctionSideEffectsPath) {
-    this.debugFunctionSideEffectsPath = debugFunctionSideEffectsPath;
   }
 
   /**
@@ -2488,13 +2439,6 @@ public class CompilerOptions implements Serializable {
     this.preserveClosurePrimitives = preserveClosurePrimitives;
   }
 
-  // TODO(bangert): Delete this alias once it has been deprecated for 3 months.
-  /** Preserve goog.provide(), goog.require() and goog.module() calls. */
-  @Deprecated
-  public void setPreserveGoogProvidesAndRequires(boolean preserveGoogProvidesAndRequires) {
-     setPreserveClosurePrimitives(preserveGoogProvidesAndRequires);
-  }
-
   public boolean shouldPreservesGoogProvidesAndRequires() {
     return this.preserveClosurePrimitives;
   }
@@ -2539,10 +2483,6 @@ public class CompilerOptions implements Serializable {
     customPasses.put(time, customPass);
   }
 
-  public void setMarkNoSideEffectCalls(boolean markNoSideEffectCalls) {
-    this.markNoSideEffectCalls = markNoSideEffectCalls;
-  }
-
   public void setDefineReplacements(Map<String, Object> defineReplacements) {
     this.defineReplacements = defineReplacements;
   }
@@ -2553,18 +2493,6 @@ public class CompilerOptions implements Serializable {
 
   public void setMoveFunctionDeclarations(boolean moveFunctionDeclarations) {
     this.moveFunctionDeclarations = moveFunctionDeclarations;
-  }
-
-  public void setInstrumentationTemplate(Instrumentation instrumentationTemplate) {
-    this.instrumentationTemplate = instrumentationTemplate;
-  }
-
-  public void setInstrumentationTemplateFile(String filename){
-    this.instrumentationTemplateFile = filename;
-  }
-
-  public void setRecordFunctionInformation(boolean recordFunctionInformation) {
-    this.recordFunctionInformation = recordFunctionInformation;
   }
 
   public void setCssRenamingMap(CssRenamingMap cssRenamingMap) {
@@ -2925,7 +2853,6 @@ public class CompilerOptions implements Serializable {
             .add("ambiguateProperties", ambiguateProperties)
             .add("angularPass", angularPass)
             .add("anonymousFunctionNaming", anonymousFunctionNaming)
-            .add("appNameStr", appNameStr)
             .add("assumeClosuresOnlyCaptureReferences", assumeClosuresOnlyCaptureReferences)
             .add("assumeStrictThis", assumeStrictThis())
             .add("browserResolverPrefixReplacements", browserResolverPrefixReplacements)
@@ -2949,6 +2876,7 @@ public class CompilerOptions implements Serializable {
             .add("colorizeErrorOutput", shouldColorizeErrorOutput())
             .add("computeFunctionSideEffects", computeFunctionSideEffects)
             .add("conformanceConfigs", getConformanceConfigs())
+            .add("conformanceRemoveRegexFromPath", conformanceRemoveRegexFromPath)
             .add("continueAfterErrors", canContinueAfterErrors())
             .add("convertToDottedProperties", convertToDottedProperties)
             .add("crossChunkCodeMotion", crossChunkCodeMotion)
@@ -2959,11 +2887,10 @@ public class CompilerOptions implements Serializable {
             .add("customPasses", customPasses)
             .add("dartPass", dartPass)
             .add("deadAssignmentElimination", deadAssignmentElimination)
-            .add("debugFunctionSideEffectsPath", debugFunctionSideEffectsPath)
             .add("declaredGlobalExternsOnWindow", declaredGlobalExternsOnWindow)
             .add("defineReplacements", getDefineReplacements())
             .add("dependencyOptions", getDependencyOptions())
-            .add("devirtualizePrototypeMethods", devirtualizePrototypeMethods)
+            .add("devirtualizeMethods", devirtualizeMethods)
             .add("devMode", devMode)
             .add("disambiguatePrivateProperties", disambiguatePrivateProperties)
             .add("disambiguateProperties", disambiguateProperties)
@@ -3004,8 +2931,6 @@ public class CompilerOptions implements Serializable {
             .add("inputPropertyMap", inputPropertyMap)
             .add("inputSourceMaps", inputSourceMaps)
             .add("inputVariableMap", inputVariableMap)
-            .add("instrumentationTemplateFile", instrumentationTemplateFile)
-            .add("instrumentationTemplate", instrumentationTemplate)
             .add("instrumentForCoverage", instrumentForCoverage)
             .add("instrumentForCoverageOnly", instrumentForCoverageOnly)
             .add("instrumentBranchCoverage", instrumentBranchCoverage)
@@ -3018,7 +2943,6 @@ public class CompilerOptions implements Serializable {
             .add("lineLengthThreshold", lineLengthThreshold)
             .add("locale", locale)
             .add("markAsCompiled", markAsCompiled)
-            .add("markNoSideEffectCalls", markNoSideEffectCalls)
             .add("maxFunctionSizeAfterInlining", maxFunctionSizeAfterInlining)
             .add("messageBundle", messageBundle)
             .add("moduleRoots", moduleRoots)
@@ -3050,12 +2974,10 @@ public class CompilerOptions implements Serializable {
             .add("printInputDelimiter", printInputDelimiter)
             .add("printSourceAfterEachPass", printSourceAfterEachPass)
             .add("processCommonJSModules", processCommonJSModules)
-            .add("processObjectPropertyString", processObjectPropertyString)
             .add("propertyInvalidationErrors", propertyInvalidationErrors)
             .add("propertyRenaming", propertyRenaming)
             .add("protectHiddenSideEffects", protectHiddenSideEffects)
             .add("quoteKeywordProperties", quoteKeywordProperties)
-            .add("recordFunctionInformation", recordFunctionInformation)
             .add("removeAbstractMethods", removeAbstractMethods)
             .add("removeClosureAsserts", removeClosureAsserts)
             .add("removeJ2clAsserts", removeJ2clAsserts)
@@ -3159,18 +3081,25 @@ public class CompilerOptions implements Serializable {
     /** ECMAScript standard approved in 2018. Adds "..." in object literals/patterns. */
     ECMASCRIPT_2018,
 
+    /** ECMAScript standard approved in 2019. Adds catch blocks with no error binding. */
+    ECMASCRIPT_2019,
+
     /** ECMAScript latest draft standard. */
     ECMASCRIPT_NEXT,
 
     /** Use stable features. */
     STABLE,
 
-    /**
-     * For languageOut only. The same language mode as the input.
-     */
-    NO_TRANSPILE;
+    /** For languageOut only. The same language mode as the input. */
+    NO_TRANSPILE,
 
-    public static final LanguageMode STABLE_IN = ECMASCRIPT_2017;
+    /**
+     * For testing only. Features that can be parsed but cannot be understood by the rest of the
+     * compiler yet.
+     */
+    UNSUPPORTED;
+
+    public static final LanguageMode STABLE_IN = ECMASCRIPT_2019;
     public static final LanguageMode STABLE_OUT = ECMASCRIPT5;
 
     /** Whether this language mode defaults to strict mode */
@@ -3218,9 +3147,13 @@ public class CompilerOptions implements Serializable {
           return FeatureSet.ES8_MODULES;
         case ECMASCRIPT_2018:
           return FeatureSet.ES2018_MODULES;
+        case ECMASCRIPT_2019:
+          return FeatureSet.ES2019_MODULES;
         case ECMASCRIPT_NEXT:
         case NO_TRANSPILE:
           return FeatureSet.ES_NEXT;
+        case UNSUPPORTED:
+          return FeatureSet.ES_UNSUPPORTED;
         case ECMASCRIPT6_TYPED:
           return FeatureSet.TYPESCRIPT;
         case STABLE:

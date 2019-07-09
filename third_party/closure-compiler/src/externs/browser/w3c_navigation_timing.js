@@ -114,10 +114,14 @@ function PerformanceNavigationTiming() {}
 
 /** @constructor */
 function PerformanceNavigation() {}
-/** @type {number} */ PerformanceNavigation.prototype.TYPE_NAVIGATE = 0;
-/** @type {number} */ PerformanceNavigation.prototype.TYPE_RELOAD = 1;
-/** @type {number} */ PerformanceNavigation.prototype.TYPE_BACK_FORWARD = 2;
-/** @type {number} */ PerformanceNavigation.prototype.TYPE_RESERVED = 255;
+/** @const {number} */ PerformanceNavigation.TYPE_NAVIGATE;
+/** @const {number} */ PerformanceNavigation.prototype.TYPE_NAVIGATE;
+/** @const {number} */ PerformanceNavigation.TYPE_RELOAD;
+/** @const {number} */ PerformanceNavigation.prototype.TYPE_RELOAD;
+/** @const {number} */ PerformanceNavigation.TYPE_BACK_FORWARD;
+/** @const {number} */ PerformanceNavigation.prototype.TYPE_BACK_FORWARD;
+/** @const {number} */ PerformanceNavigation.TYPE_RESERVED;
+/** @const {number} */ PerformanceNavigation.prototype.TYPE_RESERVED;
 /** @type {number} */ PerformanceNavigation.prototype.type;
 /** @type {number} */ PerformanceNavigation.prototype.redirectCount;
 
@@ -163,12 +167,6 @@ Performance.prototype.timeOrigin;
 Performance.prototype.clearResourceTimings = function() {};
 
 /**
- * Clear out the buffer of performance timing events for webkit browsers.
- * @return {undefined}
- */
-Performance.prototype.webkitClearResourceTimings = function() {};
-
-/**
  * A callback that is invoked when the resourcetimingbufferfull event is fired.
  * @type {?function(Event)}
  */
@@ -208,21 +206,11 @@ Performance.prototype.getEntriesByType = function(entryType) {};
  */
 Performance.prototype.getEntriesByName = function(name, opt_entryType) {};
 
-// Nonstandard. Only available in Blink.
-// Returns more granular results with the --enable-memory-info flag.
-/** @type {MemoryInfo} */ Performance.prototype.memory;
-
 /**
  * @return {number}
  * @nosideeffects
  */
 Performance.prototype.now = function() {};
-
-/**
- * @return {number}
- * @nosideeffects
- */
-Performance.prototype.webkitNow = function() {};
 
 /**
  * @param {string} markName
@@ -288,12 +276,20 @@ PerformanceObserver.prototype.observe = function(options) {};
 PerformanceObserver.prototype.disconnect = function() {};
 
 /**
+ * See https://developer.mozilla.org/en-US/docs/Web/API/PerformanceObserver/takeRecords
+ * @return {!PerformanceObserverEntryList}
+ */
+PerformanceObserver.prototype.takeRecords = function() {};
+
+/**
  * @record
  */
 function PerformanceObserverInit() {}
 
 /** @type {undefined|!Array<string>} */
 PerformanceObserverInit.prototype.entryTypes;
+/** @type {undefined|string} */
+PerformanceObserverInit.prototype.type;
 /** @type {undefined|boolean} */
 PerformanceObserverInit.prototype.buffered;
 

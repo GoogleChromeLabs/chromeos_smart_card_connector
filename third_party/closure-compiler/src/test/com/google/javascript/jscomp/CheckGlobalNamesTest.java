@@ -83,8 +83,8 @@ public final class CheckGlobalNamesTest extends CompilerTestCase {
   private static final String NAMES = "var a = {d: 1}; a.b = 3; a.c = {e: 5};";
   private static final String LET_NAMES = "let a = {d: 1}; a.b = 3; a.c = {e: 5};";
   private static final String CONST_NAMES = "const a = {d: 1, b: 3, c: {e: 5}};";
-  private static final String CLASS_DECLARATION_NAMES = "class A{ b(){} }";
-  private static final String CLASS_EXPRESSION_NAMES_STUB = "A = class{ b(){} };";
+  private static final String CLASS_DECLARATION_NAMES = "class A{ static b(){} }";
+  private static final String CLASS_EXPRESSION_NAMES_STUB = "A = class{ static b(){} };";
   private static final String CLASS_EXPRESSION_NAMES = "var " + CLASS_EXPRESSION_NAMES_STUB;
   private static final String EXT_OBJLIT_NAMES = "var a = {b(){}, d}; a.c = 3;";
 
@@ -195,6 +195,12 @@ public final class CheckGlobalNamesTest extends CompilerTestCase {
   }
 
   @Test
+  public void testRefToClassPrototypeMemberThroughCtor() {
+    testWarning("class C { b() {} } C.b()", UNDEFINED_NAME_WARNING);
+    testSame("class C { static b() {} b() {} } C.b();");
+  }
+
+  @Test
   public void testRefToDescendantOfUndefinedProperty1() {
     testWarning(NAMES + "var c = a.x.b;", UNDEFINED_NAME_WARNING);
 
@@ -252,6 +258,17 @@ public final class CheckGlobalNamesTest extends CompilerTestCase {
   @Test
   public void testTypedefGivesNoWarning() {
     testSame("var a = {}; /** @typedef {number} */ a.b;");
+  }
+
+  @Test
+  public void testTypedefAliasGivesNoWarning() {
+
+    testSame("var a = {}; /** @typedef {number} */ a.b; const b = a.b;");
+  }
+
+  @Test
+  public void testDestructuringTypedefAliasGivesNoWarning() {
+    testSame("var a = {}; /** @typedef {number} */ a.b; const {b} = a;");
   }
 
   @Test
@@ -333,6 +350,33 @@ public final class CheckGlobalNamesTest extends CompilerTestCase {
         "a.xxx = 3;",
         "var x = a.xxx;"
     ), STRICT_MODULE_DEP_QNAME);
+  }
+
+  @Test
+  public void testGlobalNameSetTwiceInSiblingModulesAllowed() {
+    testSame(
+        createModuleStar(
+            // root module
+            "class C {};",
+            // leaf 1
+            "C.m = 1; alert(C.m);",
+            // leaf 2
+            "C.m = 1; alert(C.m);"));
+  }
+
+  @Test
+  public void testGlobalNameSetOnlyInOtherSiblingModuleNotAllowed() {
+    testSame(
+        createModuleStar(
+            // root module
+            "class C {};",
+            // leaf 1 sets than uses C.m
+            "C.m = 1; alert(C.m);",
+            // leaf 2 also sets then uses C.m
+            "C.m = 1; alert(C.m);",
+            // leaf 3 uses C.m without it having been set
+            "alert(C.m);"),
+        STRICT_MODULE_DEP_QNAME);
   }
 
   @Test
@@ -549,6 +593,13 @@ public final class CheckGlobalNamesTest extends CompilerTestCase {
   public void testEs6NonSubclass_stillWarnsForMissingProperty() {
     // We still do warn for undefined properties on an ES6 class with no superclass
     testWarning("class Child {} Child.f();", UNDEFINED_NAME_WARNING);
+  }
+
+  @Test
+  public void testDestructuringUndefinedProperty() {
+    testWarning(
+        lines("var ns = {};", "/** @enum */", "ns.Modes = {A, B};", "const {C} = ns.Modes;"),
+        UNDEFINED_NAME_WARNING);
   }
 
   @Test

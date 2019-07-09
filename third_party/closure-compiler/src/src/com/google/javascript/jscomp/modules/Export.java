@@ -20,9 +20,9 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.auto.value.AutoValue;
-import com.google.javascript.jscomp.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.jscomp.deps.ModuleLoader.ModulePath;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.rhino.Node;
 import javax.annotation.Nullable;
 
@@ -35,14 +35,26 @@ import javax.annotation.Nullable;
 // TODO(johnplaisted): Add validation tests. Current ModulePath makes this difficult as it is non
 @AutoValue
 public abstract class Export {
-  // Prevent unwanted subclasses.
-  Export() {}
-
   /**
    * The {@link Export#localName()} of anonymous ES module default exports, e.g. {@code export
    * default 0}.
    */
   public static final String DEFAULT_EXPORT_NAME = "*default*";
+
+  /**
+   * The {@link Export#exportName()} of anonymous ES module default exports, e.g. {@code export
+   * default 0}.
+   */
+  static final String DEFAULT = "default";
+
+  /**
+   * The {@link Export#exportName()} of goog.module default exports, e.g. {@code exports = class
+   * {};}, and the 'namespace' of an ES module consisting of all exported names.
+   */
+  public static final String NAMESPACE = "*exports*";
+
+  // Prevent unwanted subclasses.
+  Export() {}
 
   @AutoValue.Builder
   abstract static class Builder {
@@ -54,7 +66,7 @@ public abstract class Export {
 
     abstract Builder localName(@Nullable String value);
 
-    abstract Builder modulePath(ModulePath value);
+    abstract Builder modulePath(@Nullable ModulePath value);
 
     abstract Builder exportNode(@Nullable Node value);
 
@@ -72,15 +84,16 @@ public abstract class Export {
       Export e = autoBuild();
       if (e.moduleMetadata().isEs6Module()) {
         validateEsModule(e);
+      } else if (e.moduleMetadata().isGoogModule()) {
+        validateGoogModule(e);
       } else {
-        validateNonEsModule(e);
+        validateOtherModule(e);
       }
       return e;
     }
 
     /** Export from an ES module. */
     private void validateEsModule(Export e) {
-      checkNotNull(e.exportNode());
       checkState(e.closureNamespace() == null);
 
       checkState(
@@ -103,13 +116,22 @@ public abstract class Export {
           "Exports with an import name should be a reexport.");
     }
 
+    /** Some export from a goog module. */
+    private static void validateGoogModule(Export e) {
+      checkState(e.closureNamespace() != null, "Exports should be associated with a namespace");
+      checkState(e.exportName() != null, "Exports should be named");
+      checkState(e.exportNode() != null, "Exports should have a node");
+      checkState(e.localName() == null, "goog.module Exports don't set a localName");
+      checkState(e.moduleRequest() == null, "goog modules cannot export from other modules");
+    }
+
     /** Some faux export from a non-ES module. */
-    private static void validateNonEsModule(Export e) {
-      checkNotNull(e.localName());
+    private static void validateOtherModule(Export e) {
+      checkNotNull(e.exportName());
 
       // Fields ignored for these fake exports. Should not set these.
       checkState(e.exportNode() == null);
-      checkState(e.exportName() == null);
+      checkState(e.localName() == null);
       checkState(e.moduleRequest() == null);
       checkState(e.importName() == null);
       checkState(e.nameNode() == null);
@@ -150,12 +172,13 @@ public abstract class Export {
   public abstract String localName();
 
   /** Returns the path of the containing module */
+  @Nullable
   public abstract ModuleLoader.ModulePath modulePath();
 
   /**
    * Node that this export originates from. Used for its source location.
    *
-   * <p>Null only if from non-ES module.
+   * <p>Null only if from non-ES module or from a missing ES module.
    */
   @Nullable
   public abstract Node exportNode();

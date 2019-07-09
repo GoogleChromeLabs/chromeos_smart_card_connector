@@ -19,7 +19,9 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.annotations.Immutable;
+import com.google.javascript.rhino.ClosurePrimitive;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.NominalTypeBuilder;
 import com.google.javascript.rhino.StaticSourceFile;
@@ -27,7 +29,6 @@ import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -358,6 +359,10 @@ public final class CodingConventions {
 
     @Override
     public boolean isFunctionCallThatAlwaysThrows(Node n) {
+      if (NodeUtil.isExprCall(n)) {
+        FunctionType fnType = FunctionType.toMaybeFunctionType(n.getFirstFirstChild().getJSType());
+        return fnType != null && ClosurePrimitive.ASSERTS_FAIL == fnType.getClosurePrimitive();
+      }
       return false;
     }
 
@@ -532,7 +537,7 @@ public final class CodingConventions {
 
     @Override
     public boolean isPropertyRenameFunction(String name) {
-      return NodeUtil.JSC_PROPERTY_NAME_FN.equals(name);
+      return NodeUtil.JSC_PROPERTY_NAME_FN.equals(name) || "$jscomp.reflectProperty".equals(name);
     }
 
     @Override
@@ -546,8 +551,14 @@ public final class CodingConventions {
     }
 
     @Override
-    public Collection<AssertionFunctionSpec> getAssertionFunctions() {
-      return Collections.emptySet();
+    public ImmutableSet<AssertionFunctionSpec> getAssertionFunctions() {
+      return ImmutableSet.of(
+          AssertionFunctionSpec.forTruthy()
+              .setClosurePrimitive(ClosurePrimitive.ASSERTS_TRUTHY)
+              .build(),
+          AssertionFunctionSpec.forMatchesReturn()
+              .setClosurePrimitive(ClosurePrimitive.ASSERTS_MATCHES_RETURN)
+              .build());
     }
 
     @Override

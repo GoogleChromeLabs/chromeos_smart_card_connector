@@ -22,11 +22,15 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.javascript.jscomp.CheckLevel;
 import com.google.javascript.jscomp.CompilerInput;
 import com.google.javascript.jscomp.ErrorHandler;
+import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.jscomp.deps.ModuleLoader.PathEscaper;
 import com.google.javascript.jscomp.deps.ModuleLoader.PathResolver;
+import java.util.ArrayList;
+import java.util.List;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -395,6 +399,66 @@ public final class ModuleLoaderTest {
   }
 
   @Test
+  public void testLocateNodeModuleWithMultipleRootsSimple() {
+    // Ensure that root modules work with Node resolver.
+    ImmutableList<CompilerInput> compilerInputs =
+        inputs(
+            // node_modules in generated_files directory. Note that generated_files
+            // is used as root directory so this node_modules should be equivalent to just
+            // "/node_modules"
+            "/generated_files/node_modules/second.js",
+
+            // file that will be basis for resolving modules in this test.
+            "/foo.js");
+
+    ModuleLoader loader =
+        new ModuleLoader(
+            null,
+            ImmutableList.of("generated_files/"),
+            compilerInputs,
+            new NodeModuleResolver.Factory(ImmutableMap.of()),
+            ModuleLoader.PathResolver.RELATIVE);
+
+    assertUri("/node_modules/second.js", loader.resolve("/foo.js").resolveJsModule("second"));
+  }
+
+  @Test
+  public void testLocateNodeModuleWithMultipleRoots() {
+    // Ensure that root modules work with Node resolver.
+    ImmutableList<CompilerInput> compilerInputs =
+        inputs(
+            // node_modules in root directory.
+            "/node_modules/first.js",
+
+            // node_modules in generated_files directory. Note that generated_files
+            // is used as root directory so this node_modules should be equivalent to just
+            // "/node_modules"
+            "/generated_files/node_modules/second.js",
+
+            // Here node_modules is not root or insite a root path. So it should be not accessible
+            // from foo.js.
+            "/some_other/node_modules/third.js",
+
+            // file that will be basis for resolving modules in this test.
+            "/foo.js");
+
+    ModuleLoader loader =
+        new ModuleLoader(
+            null,
+            ImmutableList.of("generated_files/"),
+            compilerInputs,
+            new NodeModuleResolver.Factory(ImmutableMap.of()),
+            ModuleLoader.PathResolver.RELATIVE);
+
+    // 'first' and 'second' should resolve from foo.js
+    assertUri("/node_modules/first.js", loader.resolve("/foo.js").resolveJsModule("first"));
+    assertUri("/node_modules/second.js", loader.resolve("/foo.js").resolveJsModule("second"));
+
+    // 'third' doesn't resolve
+    assertThat(loader.resolve("/foo.js").resolveJsModule("third")).isNull();
+  }
+
+  @Test
   public void testWebpack() {
     ImmutableMap<String, String> webpackModulesById =
         ImmutableMap.of(
@@ -501,6 +565,27 @@ public final class ModuleLoaderTest {
     assertUri(
         "/p0/p1/p2/file.js",
         loader.resolve("fake.js").resolveJsModule("0/1/2/file.js"));
+  }
+
+  @Test
+  public void testBrowserWithPrefixReplacementInvalidPrefix() {
+    List<JSError> errors = new ArrayList<>();
+
+    ModuleLoader loader =
+        new ModuleLoader(
+            (CheckLevel level, JSError error) -> errors.add(error),
+            ImmutableList.of("."),
+            inputs("/path/to/file.js"),
+            new BrowserWithTransformedPrefixesModuleResolver.Factory(
+                ImmutableMap.of("prefix/", "/path/to/")));
+
+    assertUri("/path/to/file.js", loader.resolve("fake.js").resolveJsModule("prefix/file.js"));
+    assertThat(errors).isEmpty();
+
+    loader.resolve("fake.js").resolveJsModule("invalid/file.js");
+    assertThat(errors).hasSize(1);
+    assertThat(errors.get(0).getType())
+        .isSameInstanceAs(BrowserWithTransformedPrefixesModuleResolver.INVALID_AMBIGUOUS_PATH);
   }
 
   @Test

@@ -23,9 +23,12 @@ import static com.google.javascript.jscomp.JsMessage.Style.RELAX;
 import static com.google.javascript.jscomp.JsMessageVisitor.MESSAGE_TREE_MALFORMED;
 import static com.google.javascript.jscomp.JsMessageVisitor.isLowerCamelCaseWithNumericSuffixes;
 import static com.google.javascript.jscomp.JsMessageVisitor.toLowerCamelCaseWithNumericSuffixes;
+import static com.google.javascript.jscomp.testing.JSCompCorrespondences.DESCRIPTION_EQUALITY;
+import static com.google.javascript.jscomp.testing.JSCompCorrespondences.DIAGNOSTIC_EQUALITY;
 import static com.google.javascript.jscomp.testing.JSErrorSubject.assertError;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.debugging.sourcemap.FilePosition;
 import com.google.debugging.sourcemap.SourceMapGeneratorV3;
@@ -195,8 +198,8 @@ public final class JsMessageVisitorTest {
             "var MyEnum = {",
             "  MSG_ONE: 0",
             "};"));
-    assertThat(compiler.getErrors()).hasLength(1);
-    assertError(compiler.getErrors()[0]).hasType(MESSAGE_TREE_MALFORMED);
+    assertThat(compiler.getErrors()).hasSize(1);
+    assertError(compiler.getErrors().get(0)).hasType(MESSAGE_TREE_MALFORMED);
   }
 
   @Test
@@ -235,8 +238,8 @@ public final class JsMessageVisitorTest {
         + "pint.sub = {"
         + "  /** @desc a */ MSG_MENU_MARK_AS_UNREAD: undefined"
         + "}");
-    assertThat(compiler.getErrors()).hasLength(1);
-    assertError(compiler.getErrors()[0]).hasType(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
+    assertThat(compiler.getErrors()).hasSize(1);
+    assertError(compiler.getErrors().get(0)).hasType(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
   }
 
   @Test
@@ -248,6 +251,45 @@ public final class JsMessageVisitorTest {
   }
 
   @Test
+  public void testMessageExport_shortHand() {
+    extractMessagesSafely("exports = {MSG_FOO};");
+    assertThat(messages).isEmpty();
+  }
+
+  @Test
+  public void testMessageExport_longHand() {
+    extractMessagesSafely("exports = {MSG_FOO: MSG_FOO};");
+    assertThat(messages).isEmpty();
+  }
+
+  @Test
+  public void testMessageDefinedInExportsIsNotOrphaned() {
+    extractMessagesSafely(""
+        + "exports = {"
+        + "  /** @desc Description. */"
+        + "  MSG_FOO: goog.getMsg('Foo'),"
+        + "};");
+    assertThat(compiler.getWarnings()).isEmpty();
+  }
+
+  @Test
+  public void testJsMessageAlias_fromObjectDestrucuturing_longhand() {
+    extractMessagesSafely("({MSG_MENU_MARK_AS_UNREAD: MSG_MENU_MARK_AS_UNREAD} = x);");
+  }
+
+  @Test
+  public void testJsMessageAlias_fromObjectDestrucuturing_longhand_invalid() {
+    extractMessages("({MSG_NOT_FOO: MSG_FOO} = x);");
+
+    assertThat(compiler.getErrors()).hasSize(1);
+  }
+
+  @Test
+  public void testJsMessageAlias_fromObjectDestrucuturing_shorthand() {
+    extractMessagesSafely("({MSG_MENU_MARK_AS_UNREAD} = x);");
+  }
+
+  @Test
   public void testJsMessageOnRHSOfVar() {
     extractMessagesSafely("var MSG_MENU_MARK_AS_UNREAD = a.name.space.MSG_MENU_MARK_AS_UNREAD;");
     assertThat(messages).isEmpty();
@@ -256,33 +298,34 @@ public final class JsMessageVisitorTest {
   @Test
   public void testOrphanedJsMessage() {
     extractMessagesSafely("goog.getMsg('a')");
-    assertThat(compiler.getWarnings()).hasLength(1);
     assertThat(messages).isEmpty();
 
-    JSError warn = compiler.getWarnings()[0];
-    assertError(warn).hasType(JsMessageVisitor.MESSAGE_NODE_IS_ORPHANED);
+    assertThat(compiler.getWarnings())
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
+        .containsExactly(JsMessageVisitor.MESSAGE_NODE_IS_ORPHANED);
   }
 
   @Test
   public void testMessageWithoutDescription() {
     extractMessagesSafely("var MSG_HELLO = goog.getMsg('a')");
-    assertThat(compiler.getWarnings()).hasLength(1);
-    assertThat(messages).hasSize(1);
 
+    assertThat(messages).hasSize(1);
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
 
-    assertError(compiler.getWarnings()[0]).hasType(JsMessageVisitor.MESSAGE_HAS_NO_DESCRIPTION);
+    assertThat(compiler.getWarnings())
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
+        .containsExactly(JsMessageVisitor.MESSAGE_HAS_NO_DESCRIPTION);
   }
 
   @Test
   public void testIncorrectMessageReporting() {
     extractMessages("var MSG_HELLO = goog.getMsg('a' + + 'b')");
-    assertThat(compiler.getErrors()).hasLength(1);
+    assertThat(compiler.getErrors()).hasSize(1);
     assertThat(compiler.getWarnings()).isEmpty();
     assertThat(messages).isEmpty();
 
-    JSError malformedTreeError = compiler.getErrors()[0];
+    JSError malformedTreeError = compiler.getErrors().get(0);
     assertError(malformedTreeError).hasType(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
     assertThat(malformedTreeError.description)
         .isEqualTo("Message parse tree malformed. " + "STRING or ADD node expected; found: POS");
@@ -309,11 +352,11 @@ public final class JsMessageVisitorTest {
     compilerOptions.setLanguageIn(LanguageMode.ECMASCRIPT_2015);
 
     extractMessages("/** @desc Hello */ var MSG_HELLO = goog.getMsg(`hello ${name}`);");
-    assertThat(compiler.getErrors()).hasLength(1);
+    assertThat(compiler.getErrors()).hasSize(1);
     assertThat(compiler.getWarnings()).isEmpty();
     assertThat(messages).isEmpty();
 
-    JSError malformedTreeError = compiler.getErrors()[0];
+    JSError malformedTreeError = compiler.getErrors().get(0);
     assertError(malformedTreeError).hasType(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
     assertThat(malformedTreeError.description).isEqualTo(
         "Message parse tree malformed."
@@ -392,7 +435,7 @@ public final class JsMessageVisitorTest {
         "/** @desc The description in @desc*/ var MSG_A = 'The Message';");
 
     assertThat(messages).hasSize(1);
-    assertThat(compiler.getWarnings()).hasLength(1);
+    assertThat(compiler.getWarnings()).hasSize(1);
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_A");
     assertThat(msg.toString()).isEqualTo("The Message");
@@ -418,9 +461,9 @@ public final class JsMessageVisitorTest {
     extractMessages("var MSG_FOO_HELP = 'I am a bad message';");
 
     assertThat(messages).isEmpty();
-    assertThat(compiler.getWarnings()).hasLength(1);
-    assertError(compiler.getWarnings()[0]).hasType(
-        JsMessageVisitor.MESSAGE_NOT_INITIALIZED_USING_NEW_SYNTAX);
+    assertThat(compiler.getWarnings()).hasSize(1);
+    assertError(compiler.getWarnings().get(0))
+        .hasType(JsMessageVisitor.MESSAGE_NOT_INITIALIZED_USING_NEW_SYNTAX);
   }
 
   @Test
@@ -487,10 +530,10 @@ public final class JsMessageVisitorTest {
     extractMessagesSafely("/** @desc text */ var MSG_FOO = goog.getMsg('');");
 
     assertThat(messages).hasSize(1);
-    assertThat(compiler.getWarnings()).hasLength(1);
-    assertThat(compiler.getWarnings()[0].description)
-        .isEqualTo(
-            "Message value of MSG_FOO is just an empty string. " + "Empty messages are forbidden.");
+    assertThat(compiler.getWarnings())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly(
+            "Message value of MSG_FOO is just an empty string. Empty messages are forbidden.");
   }
 
   @Test
@@ -499,9 +542,9 @@ public final class JsMessageVisitorTest {
         + "'' + '' + ''     + ''\n+'');");
 
     assertThat(messages).hasSize(1);
-    assertThat(compiler.getWarnings()).hasLength(1);
-    assertThat(compiler.getWarnings()[0].description)
-        .isEqualTo(
+    assertThat(compiler.getWarnings())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly(
             "Message value of MSG_BAR is just an empty string. " + "Empty messages are forbidden.");
   }
 
@@ -509,9 +552,9 @@ public final class JsMessageVisitorTest {
   public void testMsgVarWithoutAssignment() {
     extractMessages("var MSG_SILLY;");
 
-    assertThat(compiler.getErrors()).hasLength(1);
-    JSError error = compiler.getErrors()[0];
-    assertThat(error.getType()).isEqualTo(JsMessageVisitor.MESSAGE_HAS_NO_VALUE);
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
+        .containsExactly(JsMessageVisitor.MESSAGE_HAS_NO_VALUE);
   }
 
   @Test
@@ -526,19 +569,19 @@ public final class JsMessageVisitorTest {
   public void testMsgPropertyWithoutAssignment() {
     extractMessages("goog.message.MSG_SILLY_PROP;");
 
-    assertThat(compiler.getErrors()).hasLength(1);
-    JSError error = compiler.getErrors()[0];
-    assertThat(error.description).isEqualTo("Message MSG_SILLY_PROP has no value");
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly("Message MSG_SILLY_PROP has no value");
   }
 
   @Test
   public void testMsgVarWithIncorrectRightSide() {
     extractMessages("var MSG_SILLY = 0;");
 
-    assertThat(compiler.getErrors()).hasLength(1);
-    JSError error = compiler.getErrors()[0];
-    assertThat(error.description)
-        .isEqualTo("Message parse tree malformed. Cannot parse value of " + "message MSG_SILLY");
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly(
+            "Message parse tree malformed. Cannot parse value of " + "message MSG_SILLY");
   }
 
   @Test
@@ -546,10 +589,9 @@ public final class JsMessageVisitorTest {
     extractMessages("DP_DatePicker.MSG_DATE_SELECTION = {};");
 
     assertThat(messages).isEmpty();
-    assertThat(compiler.getErrors()).hasLength(1);
-    JSError error = compiler.getErrors()[0];
-    assertThat(error.description)
-        .isEqualTo(
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly(
             "Message parse tree malformed."
                 + " Message must be initialized using goog.getMsg function.");
   }
@@ -560,10 +602,9 @@ public final class JsMessageVisitorTest {
     extractMessages("DP_DatePicker.MSG_DATE_SELECTION = somefunc('a')");
 
     assertThat(messages).isEmpty();
-    assertThat(compiler.getErrors()).hasLength(1);
-    JSError error = compiler.getErrors()[0];
-    assertThat(error.description)
-        .isEqualTo(
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DESCRIPTION_EQUALITY)
+        .containsExactly(
             "Message parse tree malformed. Message initialized using unrecognized function. "
                 + "Please use goog.getMsg() instead.");
   }
@@ -677,9 +718,9 @@ public final class JsMessageVisitorTest {
     extractMessages("var MSG_FOO = goog.getMsg('{$foo}:', {});");
 
     assertThat(messages).isEmpty();
-    JSError[] errors = compiler.getErrors();
-    assertThat(errors).hasLength(1);
-    JSError error = errors[0];
+    ImmutableList<JSError> errors = compiler.getErrors();
+    assertThat(errors).hasSize(1);
+    JSError error = errors.get(0);
     assertThat(error.getType()).isEqualTo(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
     assertThat(error.description)
         .isEqualTo(
@@ -691,9 +732,9 @@ public final class JsMessageVisitorTest {
     extractMessages("/** @desc AA */ "
         + "var MSG_FOO = goog.getMsg('lalala:', {foo:1});");
     assertThat(messages).isEmpty();
-    JSError[] errors = compiler.getErrors();
-    assertThat(errors).hasLength(1);
-    JSError error = errors[0];
+    ImmutableList<JSError> errors = compiler.getErrors();
+    assertThat(errors).hasSize(1);
+    JSError error = errors.get(0);
     assertThat(error.getType()).isEqualTo(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
     assertThat(error.description)
         .isEqualTo("Message parse tree malformed. Unused message placeholder: " + "foo");
@@ -705,9 +746,9 @@ public final class JsMessageVisitorTest {
         + "'{$foo}:', {'foo': 1, 'foo' : 2});");
 
     assertThat(messages).isEmpty();
-    JSError[] errors = compiler.getErrors();
-    assertThat(errors).hasLength(1);
-    JSError error = errors[0];
+    ImmutableList<JSError> errors = compiler.getErrors();
+    assertThat(errors).hasSize(1);
+    JSError error = errors.get(0);
     assertThat(error.getType()).isEqualTo(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
     assertThat(error.description)
         .isEqualTo("Message parse tree malformed. Duplicate placeholder " + "name: foo");
@@ -743,9 +784,9 @@ public final class JsMessageVisitorTest {
         + "'Slide {$slide_number}:', {'slide_number': opt_index + 1});");
 
     assertThat(messages).isEmpty();
-    JSError[] errors = compiler.getErrors();
-    assertThat(errors).hasLength(1);
-    JSError error = errors[0];
+    ImmutableList<JSError> errors = compiler.getErrors();
+    assertThat(errors).hasSize(1);
+    JSError error = errors.get(0);
     assertThat(error.getType()).isEqualTo(JsMessageVisitor.MESSAGE_TREE_MALFORMED);
     assertThat(error.description)
         .isEqualTo(
@@ -872,8 +913,9 @@ public final class JsMessageVisitorTest {
   }
 
   private void assertOneError(DiagnosticType type) {
-    assertThat(compiler.getErrors()).hasLength(1);
-    assertError(compiler.getErrors()[0]).hasType(type);
+    assertThat(compiler.getErrors())
+        .comparingElementsUsing(DIAGNOSTIC_EQUALITY)
+        .containsExactly(type);
   }
 
   private void extractMessagesSafely(String input) {

@@ -51,6 +51,7 @@ public final class ParserRunner {
 
   private static Set<String> suppressionNames = null;
   private static Set<String> reservedVars = null;
+  private static Set<String> closurePrimitiveNames = null;
 
   // Should never need to instantiate class of static methods.
   private ParserRunner() {}
@@ -87,6 +88,7 @@ public final class ParserRunner {
         .setJsDocParsingMode(jsdocParsingMode)
         .setRunMode(runMode)
         .setSuppressionNames(suppressionNames)
+        .setClosurePrimitiveNames(closurePrimitiveNames)
         .setLanguageMode(languageMode)
         .setParseInlineSourceMaps(parseInlineSourceMaps)
         .setStrictMode(strictMode)
@@ -106,6 +108,7 @@ public final class ParserRunner {
     ResourceBundle config = ResourceBundle.getBundle(CONFIG_RESOURCE);
     annotationNames = extractList(config.getString("jsdoc.annotations"));
     suppressionNames = extractList(config.getString("jsdoc.suppressions"));
+    closurePrimitiveNames = extractList(config.getString("jsdoc.primitives"));
     reservedVars = extractList(config.getString("compiler.reserved.vars"));
   }
 
@@ -172,10 +175,14 @@ public final class ParserRunner {
         break;
       case ECMASCRIPT8:
       case ECMASCRIPT_2018:
+      case ECMASCRIPT_2019:
         parserConfigLanguageMode = Mode.ES8_OR_GREATER;
         break;
       case ES_NEXT:
         parserConfigLanguageMode = Mode.ES_NEXT;
+        break;
+      case UNSUPPORTED:
+        parserConfigLanguageMode = Mode.UNSUPPORTED;
         break;
     }
     return new com.google.javascript.jscomp.parsing.parser.Parser.Config(

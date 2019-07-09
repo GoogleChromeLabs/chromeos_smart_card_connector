@@ -68,6 +68,7 @@ class InlineFunctions implements CompilerPass {
   private final AbstractCompiler compiler;
 
   private final FunctionInjector injector;
+  private final FunctionArgumentInjector functionArgumentInjector;
 
   private final Reach reach;
   private final boolean assumeMinimumCapture;
@@ -95,9 +96,21 @@ class InlineFunctions implements CompilerPass {
     this.enforceMaxSizeAfterInlining =
         maxSizeAfterInlining != CompilerOptions.UNLIMITED_FUN_SIZE_AFTER_INLINING;
 
+    // TODO(b/124253050): Update bookkeeping logic and reenable method call inliing.
+    // Method call decomposition creates new call nodes after all the analysis
+    // is done, which would cause such calls to function to be left behind after
+    // the function itself is removed.  The function inliner need to be made
+    // aware of these new calls in order to enble it.
+
+    this.functionArgumentInjector = new FunctionArgumentInjector(compiler.getAstAnalyzer());
     this.injector =
-        new FunctionInjector(
-            compiler, safeNameIdSupplier, true, assumeStrictThis, assumeMinimumCapture);
+        new FunctionInjector.Builder(compiler)
+            .safeNameIdSupplier(safeNameIdSupplier)
+            .assumeStrictThis(assumeStrictThis)
+            .assumeMinimumCapture(assumeMinimumCapture)
+            .allowMethodCallDecomposing(false)
+            .functionArgumentInjector(this.functionArgumentInjector)
+            .build();
   }
 
   FunctionState getOrCreateFunctionState(String fnName) {
@@ -301,7 +314,7 @@ class InlineFunctions implements CompilerPass {
       if (functionState.canInline()) {
         functionState.setModule(module);
 
-        Set<String> namesToAlias = FunctionArgumentInjector.findModifiedParameters(fnNode);
+        Set<String> namesToAlias = functionArgumentInjector.findModifiedParameters(fnNode);
         if (!namesToAlias.isEmpty()) {
           functionState.inlineDirectly(false);
           functionState.setNamesToAlias(namesToAlias);
@@ -569,18 +582,6 @@ class InlineFunctions implements CompilerPass {
         return;
       }
 
-      // Unlike normal call/new parameters, references passed to
-      // JSCompiler_ObjectPropertyString are not aliases of a value, but
-      // a reference to the name itself, as such the value of the name is
-      // unknown and can not be inlined.
-      if (parent.isNew()) {
-        Node target = parent.getFirstChild();
-        if (target.isName() && target.getString().equals(NodeUtil.EXTERN_OBJECT_PROPERTY_STRING)) {
-          // This method is going to be replaced so don't inline it anywhere.
-          functionState.disallowInlining();
-        }
-      }
-
       // If the name is being assigned to it can not be inlined.
       if (parent.isAssign() && parent.getFirstChild() == n) {
         // e.g. bar = something; <== we can't inline "bar"
@@ -803,12 +804,14 @@ class InlineFunctions implements CompilerPass {
 
   /** Removed inlined functions that no longer have any references. */
   void removeInlinedFunctions() {
-    for (FunctionState functionState : fns.values()) {
+    for (Map.Entry<String, FunctionState> entry : fns.entrySet()) {
+      String name = entry.getKey();
+      FunctionState functionState = entry.getValue();
       if (functionState.canRemove()) {
         Function fn = functionState.getFn();
         checkState(functionState.canInline());
         checkState(fn != null);
-        verifyAllReferencesInlined(functionState);
+        verifyAllReferencesInlined(name, functionState);
         fn.remove();
         NodeUtil.markFunctionsDeleted(fn.getFunctionNode(), compiler);
       }
@@ -816,14 +819,17 @@ class InlineFunctions implements CompilerPass {
   }
 
   /** Check to verify that expression rewriting didn't make a call inaccessible. */
-  void verifyAllReferencesInlined(FunctionState functionState) {
+  void verifyAllReferencesInlined(String name, FunctionState functionState) {
     for (Reference ref : functionState.getReferences()) {
       if (!ref.inlined) {
+        Node parent = ref.callNode.getParent();
         throw new IllegalStateException(
-            "Call site missed.\n call: "
+            "Call site missed ("
+                + name
+                + ").\n call: "
                 + ref.callNode.toStringTree()
                 + "\n parent:  "
-                + ref.callNode.getParent().toStringTree());
+                + ((parent == null) ? "null" : parent.toStringTree()));
       }
     }
   }

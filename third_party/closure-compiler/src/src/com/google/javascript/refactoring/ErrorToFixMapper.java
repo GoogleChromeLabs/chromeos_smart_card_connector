@@ -19,24 +19,19 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.javascript.refactoring.SuggestedFix.getShortNameForRequire;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Iterables;
 import com.google.javascript.jscomp.AbstractCompiler;
 import com.google.javascript.jscomp.JSError;
 import com.google.javascript.jscomp.NodeTraversal;
 import com.google.javascript.jscomp.NodeUtil;
-import com.google.javascript.jscomp.lint.CheckRequiresAndProvidesSorted;
+import com.google.javascript.jscomp.lint.CheckProvidesSorted;
+import com.google.javascript.jscomp.lint.CheckRequiresSorted;
 import com.google.javascript.rhino.IR;
-import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 
 /**
  * Maps a {@code JSError} to a list of {@code SuggestedFix}es, if possible.
@@ -51,8 +46,6 @@ public final class ErrorToFixMapper {
       Pattern.compile("Variable referenced before declaration: (.*)");
   private static final Pattern MISSING_REQUIRE =
       Pattern.compile("missing require: '([^']+)'");
-  private static final Pattern DUPLICATE_REQUIRE =
-      Pattern.compile("'([^']+)' required more than once\\.");
   private static final Pattern FULLY_QUALIFIED_NAME =
       Pattern.compile("Reference to fully qualified import name '([^']+)'.*");
   private static final Pattern USE_SHORT_NAME =
@@ -87,10 +80,9 @@ public final class ErrorToFixMapper {
       case "JSC_MISSING_SEMICOLON":
         return getFixForMissingSemicolon(error, compiler);
       case "JSC_REQUIRES_NOT_SORTED":
-        return getFixForUnsortedRequiresOrProvides(
-            error, compiler, "goog.require", "goog.forwardDeclare");
+        return getFixForUnsortedRequires(error, compiler);
       case "JSC_PROVIDES_NOT_SORTED":
-        return getFixForUnsortedRequiresOrProvides(error, compiler, "goog.provide");
+        return getFixForUnsortedProvides(error, compiler);
       case "JSC_DEBUGGER_STATEMENT_PRESENT":
         return removeNode(error, compiler);
       case "JSC_USELESS_EMPTY_STATEMENT":
@@ -104,8 +96,6 @@ public final class ErrorToFixMapper {
       case "JSC_MISSING_REQUIRE_WARNING":
       case "JSC_MISSING_REQUIRE_STRICT_WARNING":
         return getFixForMissingRequire(error, compiler);
-      case "JSC_DUPLICATE_REQUIRE":
-        return getFixForDuplicateRequire(error, compiler);
       case "JSC_EXTRA_REQUIRE_WARNING":
         return getFixForExtraRequire(error, compiler);
       case "JSC_REFERENCE_TO_SHORT_IMPORT_BY_LONG_NAME_INCLUDING_SHORT_NAME":
@@ -232,6 +222,12 @@ public final class ErrorToFixMapper {
 
   private static ImmutableList<SuggestedFix> getFixesForImplicitNullabilityErrors(
       JSError error, AbstractCompiler compiler) {
+
+    if (error.node.getSourceFileName() == null) {
+      // If we don't have a source location we can't generate a valid fix.
+      return ImmutableList.of();
+    }
+
     SuggestedFix qmark =
         new SuggestedFix.Builder()
             .attachMatchedNodeInfo(error.node, compiler)
@@ -340,39 +336,6 @@ public final class ErrorToFixMapper {
     return fix.build();
   }
 
-  @Nullable
-  private static SuggestedFix getFixForDuplicateRequire(JSError error, AbstractCompiler compiler) {
-    Matcher regexMatcher = DUPLICATE_REQUIRE.matcher(error.description);
-    checkState(
-        regexMatcher.matches(), "Unexpected error description: %s", error.description);
-    String namespace = regexMatcher.group(1);
-    NodeMetadata metadata = new NodeMetadata(compiler);
-    Match match = new Match(error.node, metadata);
-    if (error.node.isExprResult()) {
-      return new SuggestedFix.Builder()
-          .attachMatchedNodeInfo(error.node, compiler)
-          .removeGoogRequire(match, namespace)
-          .build();
-    } else {
-      checkState(NodeUtil.isNameDeclaration(error.node), error.node);
-      if (error.node.getFirstChild().isName()) {
-        return null;
-      }
-
-      checkState(error.node.getFirstChild().isDestructuringLhs(), error.node);
-
-      SuggestedFix fix =
-          new SuggestedFix.Builder()
-              .attachMatchedNodeInfo(error.node, compiler)
-              .mergeGoogRequire(error.node, match.getMetadata(), namespace, compiler)
-              .build();
-      if (!fix.isNoOp()) {
-        return fix;
-      }
-      return null;
-    }
-  }
-
   private static SuggestedFix getFixForExtraRequire(JSError error, AbstractCompiler compiler) {
     SuggestedFix.Builder fix =
         new SuggestedFix.Builder().attachMatchedNodeInfo(error.node, compiler);
@@ -390,29 +353,38 @@ public final class ErrorToFixMapper {
     return fix.build();
   }
 
-  private static SuggestedFix getFixForUnsortedRequiresOrProvides(
-      JSError error, AbstractCompiler compiler, String... closureFunctions) {
-    SuggestedFix.Builder fix = new SuggestedFix.Builder();
-    fix.attachMatchedNodeInfo(error.node, compiler);
+  private static SuggestedFix getFixForUnsortedRequires(JSError error, AbstractCompiler compiler) {
+    // TODO(tjgq): Encode enough information in the error to avoid the need to run a traversal in
+    // order to produce the fix.
     Node script = NodeUtil.getEnclosingScript(error.node);
-    RequireProvideSorter cb = new RequireProvideSorter(closureFunctions);
-    NodeTraversal.traverse(compiler, script, cb);
-    Node first = cb.calls.get(0);
-    Node last = Iterables.getLast(cb.calls);
+    CheckRequiresSorted callback = new CheckRequiresSorted(CheckRequiresSorted.Mode.COLLECT_ONLY);
+    NodeTraversal.traverse(compiler, script, callback);
 
-    cb.sortCallsAlphabetically();
-    StringBuilder sb = new StringBuilder();
-    for (Node n : cb.calls) {
-      String statement = fix.generateCode(compiler, n);
-      JSDocInfo jsDoc = NodeUtil.getBestJSDocInfo(n);
-      if (jsDoc != null) {
-        statement = jsDoc.getOriginalCommentString() + "\n" + statement;
-      }
-      sb.append(statement);
+    if (!callback.needsFix()) {
+      return null;
     }
-    // Trim to remove the newline after the last goog.require/provide.
-    String newContent = sb.toString().trim();
-    return fix.replaceRange(first, last, newContent).build();
+
+    return new SuggestedFix.Builder()
+        .attachMatchedNodeInfo(callback.getFirstNode(), compiler)
+        .replaceRange(callback.getFirstNode(), callback.getLastNode(), callback.getReplacement())
+        .build();
+  }
+
+  private static SuggestedFix getFixForUnsortedProvides(JSError error, AbstractCompiler compiler) {
+    // TODO(tjgq): Encode enough information in the error to avoid the need to run a traversal in
+    // order to produce the fix.
+    Node script = NodeUtil.getEnclosingScript(error.node);
+    CheckProvidesSorted callback = new CheckProvidesSorted(CheckProvidesSorted.Mode.COLLECT_ONLY);
+    NodeTraversal.traverse(compiler, script, callback);
+
+    if (!callback.needsFix()) {
+      return null;
+    }
+
+    return new SuggestedFix.Builder()
+        .attachMatchedNodeInfo(callback.getFirstNode(), compiler)
+        .replaceRange(callback.getFirstNode(), callback.getLastNode(), callback.getReplacement())
+        .build();
   }
 
   private static SuggestedFix getFixForRedundantNullabilityModifierJsDoc(
@@ -421,58 +393,5 @@ public final class ErrorToFixMapper {
         .attachMatchedNodeInfo(error.node, compiler)
         .replaceText(error.node, 1, "")
         .build();
-  }
-
-  private static class RequireProvideSorter implements NodeTraversal.Callback, Comparator<Node> {
-    private final ImmutableSet<String> closureFunctions;
-    private final List<Node> calls = new ArrayList<>();
-    private boolean finished = false;
-
-    RequireProvideSorter(String... closureFunctions) {
-      this.closureFunctions = ImmutableSet.copyOf(closureFunctions);
-    }
-
-    @Override
-    public final boolean shouldTraverse(NodeTraversal nodeTraversal, Node n, Node parent) {
-      return !finished;
-    }
-
-    @Override
-    public final void visit(NodeTraversal nodeTraversal, Node n, Node parent) {
-      if (n.isCall()
-          && parent.isExprResult()
-          && matchName(n.getFirstChild())) {
-        calls.add(parent);
-      } else if (NodeUtil.isNameDeclaration(parent)
-          && n.hasChildren()
-          && n.getLastChild().isCall()
-          && matchName(n.getLastChild().getFirstChild())) {
-        checkState(n.isName() || n.isDestructuringLhs(), n);
-        calls.add(parent);
-      } else if (!calls.isEmpty() && parent != null && NodeUtil.isStatement(parent)) {
-        // Reached a non-goog.(require|provide|forwardDeclare) statement, so stop.
-        finished = true;
-      }
-    }
-
-    private boolean matchName(Node n) {
-      for (String closureFn : closureFunctions) {
-        if (n.matchesQualifiedName(closureFn)) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    public void sortCallsAlphabetically() {
-      Collections.sort(calls, this);
-    }
-
-    @Override
-    public int compare(Node n1, Node n2) {
-      String namespace1 = CheckRequiresAndProvidesSorted.getSortKey(n1);
-      String namespace2 = CheckRequiresAndProvidesSorted.getSortKey(n2);
-      return namespace1.compareTo(namespace2);
-    }
   }
 }

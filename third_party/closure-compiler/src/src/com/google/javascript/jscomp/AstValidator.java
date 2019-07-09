@@ -397,10 +397,6 @@ public final class AstValidator implements CompilerPass {
         validateCall(n);
         return;
 
-      case SPREAD:
-        validateSpread(n);
-        return;
-
       case NEW:
         validateNew(n);
         return;
@@ -447,10 +443,6 @@ public final class AstValidator implements CompilerPass {
         }
         break;
 
-      case SPREAD:
-        // we don't type spread nodes
-        break;
-
       default:
         expectSomeTypeInformation(n);
     }
@@ -474,16 +466,17 @@ public final class AstValidator implements CompilerPass {
   private void validateCallType(Node callNode) {
     // TODO(b/74537281): Shouldn't CALL nodes always have a type, even if it is unknown?
     Node callee = callNode.getFirstChild();
-    JSType calleeTypeI =
+    JSType calleeType =
         checkNotNull(callee.getJSType(), "Callee of\n\n%s\nhas no type.", callNode.toStringTree());
 
-    if (calleeTypeI.isFunctionType()) {
-      FunctionType calleeFunctionTypeI = calleeTypeI.toMaybeFunctionType();
-      JSType returnTypeI = calleeFunctionTypeI.getReturnType();
+    if (calleeType.isFunctionType()) {
+      FunctionType calleeFunctionType = calleeType.toMaybeFunctionType();
+      JSType returnType = calleeFunctionType.getReturnType();
       // Skip this check if the call node was originally in a cast, because the cast type may be
-      // narrower than the return type.
-      if (callNode.getJSTypeBeforeCast() == null) {
-        expectMatchingTypeInformation(callNode, returnTypeI);
+      // narrower than the return type. Also skip the check if the function's return type is the
+      // any (formerly unknown) type, since we may have inferred a better type.
+      if (callNode.getJSTypeBeforeCast() == null && !returnType.isUnknownType()) {
+        expectMatchingTypeInformation(callNode, returnType);
       }
     } // TODO(b/74537281): What other cases should be covered?
   }
@@ -983,7 +976,14 @@ public final class AstValidator implements CompilerPass {
     validateNodeType(Token.CALL, n);
     validateMinimumChildCount(n, 1);
     for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
-      validateExpression(c);
+      switch (c.getToken()) {
+        case SPREAD:
+          validateSpread(c);
+          break;
+        default:
+          validateExpression(c);
+          break;
+      }
     }
   }
 
@@ -1044,7 +1044,14 @@ public final class AstValidator implements CompilerPass {
     validateNodeType(Token.NEW, n);
     validateMinimumChildCount(n, 1);
     for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
-      validateExpression(c);
+      switch (c.getToken()) {
+        case SPREAD:
+          validateSpread(c);
+          break;
+        default:
+          validateExpression(c);
+          break;
+      }
     }
   }
 
@@ -1209,7 +1216,6 @@ public final class AstValidator implements CompilerPass {
 
   private void validateForAwaitOf(Node n) {
     validateFeature(Feature.FOR_AWAIT_OF, n);
-    validateFeature(Feature.ASYNC_FUNCTIONS, n);
     validateNodeType(Token.FOR_AWAIT_OF, n);
     validateChildCount(n);
     validateVarOrAssignmentTarget(n.getFirstChild());
@@ -1337,10 +1343,19 @@ public final class AstValidator implements CompilerPass {
       validateName(caught);
     } else if (caught.isArrayPattern()) {
       validateArrayPattern(Token.CATCH, caught);
-    } else {
+    } else if (caught.isObjectPattern()) {
       validateObjectPattern(Token.CATCH, caught);
+    } else if (caught.isEmpty()) {
+      validateNoCatchBinding(caught);
+    } else {
+      violation("Unexpected catch binding: " + caught, n);
     }
     validateBlock(n.getLastChild());
+  }
+
+  private void validateNoCatchBinding(Node n) {
+    validateFeature(Feature.OPTIONAL_CATCH_BINDING, n);
+    validateChildCount(n);
   }
 
   private void validateSwitch(Node n) {
@@ -1464,8 +1479,15 @@ public final class AstValidator implements CompilerPass {
   private void validateArrayLit(Node n) {
     validateNodeType(Token.ARRAYLIT, n);
     for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
-      // EMPTY is allowed to represent empty slots.
-      validateOptionalExpression(c);
+      switch (c.getToken()) {
+        case SPREAD:
+          validateSpread(c);
+          break;
+        default:
+          // Optional because array-literals may have empty slots.
+          validateOptionalExpression(c);
+          break;
+      }
     }
   }
 

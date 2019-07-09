@@ -21,10 +21,12 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.Iterables;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.StaticTypedScope;
 import com.google.javascript.rhino.jstype.StaticTypedSlot;
+import javax.annotation.Nullable;
 
 /**
  * TypedScope contains information about variables and their types. Scopes can be nested, a scope
@@ -110,7 +112,7 @@ public class TypedScope extends AbstractScope<TypedScope, TypedVar> implements S
     Node root = getRootNode();
     if (isGlobal()) {
       return ObjectType.cast(root.getJSType());
-    } else if (NodeUtil.isVanillaFunction(root)) {
+    } else if (NodeUtil.isNonArrowFunction(root)) {
       JSType nodeType = root.getJSType();
       if (nodeType != null && nodeType.isFunctionType()) {
         return nodeType.toMaybeFunctionType().getTypeOfThis();
@@ -141,21 +143,50 @@ public class TypedScope extends AbstractScope<TypedScope, TypedVar> implements S
       // TODO(sdh): This is incorrect for 'global this', but since that's currently not handled
       // by this code, it's okay to bail out now until we find the root cause.  See b/74980936.
       return null;
+    } else if (var.equals(ImplicitVar.EXPORTS)) {
+      // Instead of using the implicit 'exports' var, we want to pretend that the var is actually
+      // declared.
+      return null;
     }
     return new TypedVar(false, var.name, null, getImplicitVarType(var), this, -1, null);
   }
 
+  @Override
+  protected boolean hasOwnImplicitSlot(@Nullable ImplicitVar name) {
+    return name != null && !name.equals(ImplicitVar.EXPORTS) && name.isMadeByScope(this);
+  }
+
   private JSType getImplicitVarType(ImplicitVar var) {
-    if (var == ImplicitVar.ARGUMENTS) {
-      // Look for an extern named "arguments" and use its type if available.
-      // TODO(sdh): consider looking for "Arguments" ctor rather than "arguments" var: this could
-      // allow deleting the variable, which doesn't really belong in externs in the first place.
-      TypedVar globalArgs = getGlobalScope().getVar(Var.ARGUMENTS);
-      return globalArgs != null && globalArgs.isExtern()
-          ? globalArgs.getType()
-          : null;
+    switch (var) {
+      case ARGUMENTS:
+        // Look for an extern named "arguments" and use its type if available.
+        // TODO(sdh): consider looking for "Arguments" ctor rather than "arguments" var: this could
+        // allow deleting the variable, which doesn't really belong in externs in the first place.
+        TypedVar globalArgs = getGlobalScope().getVar(Var.ARGUMENTS);
+        return globalArgs != null && globalArgs.isExtern() ? globalArgs.getType() : null;
+
+      case THIS:
+        return getTypeOfThis();
+
+      case SUPER:
+        // Inside a constructor, `super` may have two different types. Calls to `super()` use the
+        // super-ctor type, while property accesses use the super-instance type. This logic always
+        // returns the latter case.
+        ObjectType receiverType = ObjectType.cast(getTypeOfThis());
+        if (receiverType == null) {
+          return null;
+        } else if (receiverType.isInstanceType()) {
+          FunctionType superclassCtor = receiverType.getSuperClassConstructor();
+          return superclassCtor == null ? null : superclassCtor.getInstanceType();
+        } else {
+          return receiverType.getImplicitPrototype();
+        }
+
+      case EXPORTS:
+        throw new AssertionError("TypedScopes should not contain an implicit 'exports'");
     }
-    return getTypeOfThis();
+
+    throw new AssertionError();
   }
 
   /**
@@ -187,5 +218,50 @@ public class TypedScope extends AbstractScope<TypedScope, TypedVar> implements S
   public JSDocInfo getJsdocOfTypeDeclaration(String typeName) {
     StaticTypedSlot slot = getSlot(typeName);
     return slot == null ? null : slot.getJSDocInfo();
+  }
+
+  /**
+   * Returns the slot for {@code name}, considering shadowing of qualified names.
+   *
+   * <p>The superclass method does not handle shadowing.
+   *
+   * <p>Lookup of qualified names (i.e. names with dots) executes against scopes in the following
+   * precedence:
+   *
+   * <ol>
+   *   <li>This {@link Scope}.
+   *   <li>The first ancestor {@link Scope}, if any, that declares the root of the qualified name.
+   *   <li>The global {@link Scope}.
+   * </ol>
+   *
+   * <p>An example of where this is necessary: say the global scope contains "a" and "a.b" and a
+   * function scope contains "a". When looking up "a.b" in the function scope, AbstractScope::getVar
+   * returns "a.b". This method returns null because the global "a" is shadowed.
+   */
+  // Non-final for JSDev
+  @Override
+  public TypedVar getVar(String name) {
+    TypedVar ownSlot = getOwnSlot(name);
+    if (ownSlot != null) {
+      // Micro-optimization: variables declared directly in this scope cannot have been shadowed.
+      return ownSlot;
+    } else if (this.getParent() == null) {
+      return null;
+    }
+    // Find the root name and its slot.
+    int dot = name.indexOf('.');
+    String rootName = dot < 0 ? name : name.substring(0, dot);
+    TypedVar rootVar = super.getVar(rootName); // Use the superclass method to skip string checks.
+
+    if (dot < 0) {
+      return rootVar;
+    } else if (rootVar == null) {
+      // Default to the global scope because externs may have qualified names with undeclared roots.
+      return this.getParent().getGlobalScope().getOwnSlot(name);
+    } else {
+      // Qualified names 'a.b.c' are declared in the same scope as 'a', never a child scope, which
+      // is why calling `getOwnSlot` is sufficient.
+      return rootVar.getScope().getOwnSlot(name);
+    }
   }
 }

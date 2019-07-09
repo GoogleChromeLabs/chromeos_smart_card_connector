@@ -60,7 +60,8 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
           "function doThing1() {}",
           "function doThing2() {}",
           "function use(something) {}",
-          "function alert(something) {}");
+          "function alert(something) {}",
+          "function sideEffect() {}");
 
   public RemoveUnusedCodeNameAnalyzerTest() {
     super(EXTERNS);
@@ -78,11 +79,11 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   }
 
   private static class MarkNoSideEffectCallsAndRemoveUnusedCodeRunner implements CompilerPass {
-    MarkNoSideEffectCalls markNoSideEffectCalls;
+    PureFunctionIdentifier.Driver pureFunctionIdentifier;
     RemoveUnusedCode removeUnusedCode;
 
     MarkNoSideEffectCallsAndRemoveUnusedCodeRunner(Compiler compiler) {
-      this.markNoSideEffectCalls = new MarkNoSideEffectCalls(compiler);
+      this.pureFunctionIdentifier = new PureFunctionIdentifier.Driver(compiler);
       this.removeUnusedCode =
           new RemoveUnusedCode.Builder(compiler)
               .removeGlobals(true)
@@ -99,7 +100,7 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
 
     @Override
     public void process(Node externs, Node root) {
-      markNoSideEffectCalls.process(externs, root);
+      pureFunctionIdentifier.process(externs, root);
       removeUnusedCode.process(externs, root);
     }
   }
@@ -434,43 +435,43 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
 
   @Test
   public void testNoSideEffectAnnotation1() {
-    test("function f(){} var a = f();", "function f(){} f()");
+    test(externs("function f(){}"), srcs("var a = f();"), expected("f()"));
 
-    test("function f(){} let a = f();", "function f(){} f()");
+    test(externs("function f(){}"), srcs("let a = f();"), expected("f()"));
 
-    test("function f(){} const a = f();", "function f(){} f()");
+    test(externs("function f(){}"), srcs("const a = f();"), expected("f()"));
   }
 
   @Test
   public void testNoSideEffectAnnotation2() {
-    test(
-        externs("/**@nosideeffects*/function f(){}"),
-        srcs("var a = f();"),
-        expected(""));
+    test(externs("/** @nosideeffects */ function f(){}"), srcs("var a = f();"), expected(""));
   }
 
   @Test
   public void testNoSideEffectAnnotation3() {
-    test("var f = function(){}; var a = f();", "var f = function(){}; f();");
+    test(externs("var f = function(){};"), srcs("var a = f();"), expected("f()"));
   }
 
   @Test
   public void testNoSideEffectAnnotation4() {
     test(
-        externs("var f = /**@nosideeffects*/function(){};"),
-        srcs("var a = f();"),
-        expected(""));
+        externs("var f = /** @nosideeffects */ function(){};"), srcs("var a = f();"), expected(""));
+
+    test(
+        externs("/** @nosideeffects */ var f = function(){};"), srcs("var a = f();"), expected(""));
   }
 
   @Test
   public void testNoSideEffectAnnotation5() {
-    test("var f; f = function(){}; var a = f();", "var f; f = function(){}; f();");
+    test(
+        "var f; f = function(){alert('a')}; var a = f();",
+        "var f; f = function(){alert('a')}; f();");
   }
 
   @Test
   public void testNoSideEffectAnnotation6() {
     test(
-        externs("f = /**@nosideeffects*/function(){};"),
+        externs("var f = /** @nosideeffects */ function(){};"), //
         srcs("var a = f();"),
         expected(""));
   }
@@ -478,29 +479,30 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   @Test
   public void testNoSideEffectAnnotation7() {
     test(
-        externs("var f = /**@nosideeffects*/function(){};"),
+        externs("var f = /** @nosideeffects */ function(){};"),
         srcs("f = function(){};var a = f();"),
-        expected("f = function(){};        f();"));
+        expected("f = function(){};"));
+
+    test(
+        externs("function sideEffect() {}; var f = /** @nosideeffects */ function(){};"),
+        srcs("f = function(){sideEffect()};var a = f();"),
+        expected("f = function(){sideEffect()};f()"));
   }
 
   @Test
   public void testNoSideEffectAnnotation8() {
     test(
-        externs("var f = function(){}; f = /**@nosideeffects*/function(){};"), // preserve newline
+        externs("var f = function(){}; f = /** @nosideeffects */ function(){};"),
         srcs("var a = f();"),
-        expected("        f();"));
+        expected("f();"));
   }
 
   @Test
-  public void testNoSideEffectAnnotation9() {
+  public void testNoSideEffectAnnotation_whenUsedOnDuplicateDefinitions_eliminatesSideEffects() {
     test(
         externs(
-            "f = /**@nosideeffects*/function(){};" + "f = /**@nosideeffects*/function(){};"),
-        srcs("var a = f();"),
-        expected(""));
-
-    test(
-        externs("f = /**@nosideeffects*/function(){};"),
+            "var f = /** @nosideeffects */ function(){};",
+            "var f = /** @nosideeffects */ function(){};"),
         srcs("var a = f();"),
         expected(""));
   }
@@ -508,28 +510,27 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   @Test
   public void testNoSideEffectAnnotation10() {
     test(
-        "var o = {}; o.f = function(){}; var a = o.f();", "var o = {}; o.f = function(){}; o.f();");
+        externs("var o = {}; o.f = function(){};"), //
+        srcs("var a = o.f();"),
+        expected("o.f();"));
   }
 
   @Test
   public void testNoSideEffectAnnotation11() {
     test(
-        externs("var o = {}; o.f = /**@nosideeffects*/function(){};"),
+        externs("var o = {}; o.f = /** @nosideeffects */ function(){};"),
         srcs("var a = o.f();"),
         expected(""));
   }
 
   @Test
   public void testNoSideEffectAnnotation12() {
-    test("function c(){} var a = new c", "function c(){} new c");
+    test(externs("function c(){}"), srcs("var a = new c()"), expected("new c()"));
   }
 
   @Test
   public void testNoSideEffectAnnotation13() {
-    test(
-        externs("/**@nosideeffects*/function c(){}"),
-        srcs("var a = new c"),
-        expected(""));
+    test(externs("/** @nosideeffects */ function c(){}"), srcs("var a = new c"), expected(""));
   }
 
   @Test
@@ -544,16 +545,17 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   @Test
   public void testNoSideEffectAnnotation15() {
     test(
-        "function c(){}; c.prototype.f = function(){}; var a = (new c).f()",
-        "function c(){}; c.prototype.f = function(){}; (new c).f()");
+        externs("/** @nosideeffects */ function c(){}", "c.prototype.f = function(){};"),
+        srcs("var a = (new c).f()"),
+        expected("(new c).f()"));
   }
 
   @Test
   public void testNoSideEffectAnnotation16() {
     test(
         externs(
-            "/**@nosideeffects*/function c(){}"
-                + "c.prototype.f = /**@nosideeffects*/function(){};"),
+            "/** @nosideeffects */ function c(){}",
+            "c.prototype.f = /** @nosideeffects */ function(){};"),
         srcs("var a = (new c).f()"),
         expected(""));
   }
@@ -668,7 +670,7 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
             "c.add();",
             "use(c.x);"));
 
-    test("class C{} class D{} var d = new D;", "class D{} new D;");
+    test("class C{} class D{} var d = new D;", "");
 
     test("{class C{} }", "{}");
     testSame("{class C{} var c = new C; use(c)}");
@@ -937,15 +939,15 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   @Test
   public void testFunctions1() {
     test(
-        "var foo = null; function baz() {} function bar() {foo=baz();} bar();",
-        "                function baz() {} function bar() {    baz();} bar();");
+        "var foo = null; function baz() {sideEffect()} function bar() {foo=baz();} bar();",
+        "                function baz() {sideEffect()} function bar() {    baz();} bar();");
   }
 
   @Test
   public void testFunctions2() {
     test(
-        "var foo; foo = function() {var a = bar()}; var bar = function(){}; foo();",
-        "var foo; foo = function() {        bar()}; var bar = function(){}; foo();");
+        "var foo; foo = function() {var a = bar()}; var bar = function(){sideEffect()}; foo();",
+        "var foo; foo = function() {        bar()}; var bar = function(){sideEffect()}; foo();");
   }
 
   @Test
@@ -1833,8 +1835,8 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   @Test
   public void testAssign4() {
     test(
-        "function Foo(){} var foo = null; var f = {};" + "f.b = new Foo();",
-        "function Foo(){} new Foo()");
+        "function Foo(){sideEffect()} var foo = null; var f = {};" + "f.b = new Foo();",
+        "function Foo(){sideEffect()} new Foo()");
   }
 
   @Test
@@ -2017,8 +2019,8 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   @Test
   public void testRefChain17() {
     test(
-        "function f(){} var a = 1; var b = a; var c = f(); var d = c[b]",
-        "function f(){}                               f()              ");
+        "function f(){sideEffect()} var a = 1; var b = a; var c = f(); var d = c[b]",
+        "function f(){sideEffect()}                               f()              ");
   }
 
   @Test
@@ -2434,10 +2436,10 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   public void testObjectDefinePropertiesOnPrototype3() {
     test(
         lines(
-            "var b = function() {};",
+            "var b = function() {sideEffect()};",
             "function Foo() {}",
             "Object.defineProperties(Foo.prototype, {prop: {value: b()}});"),
-        "var b = function() {}; ({prop: {value: b()}});");
+        "var b = function() {sideEffect()}; ({prop: {value: b()}});");
   }
 
   @Test

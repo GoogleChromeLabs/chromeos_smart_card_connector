@@ -20,7 +20,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.javascript.jscomp.CompilerTestCase.lines;
-import static com.google.javascript.jscomp.ScopeSubject.assertScope;
+import static com.google.javascript.jscomp.testing.ScopeSubject.assertScope;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.collect.HashMultiset;
@@ -790,18 +790,21 @@ public final class Es6SyntacticScopeCreatorTest {
     Node function = root.getFirstChild();
     checkState(function.isFunction(), function);
     Scope fScope = scopeCreator.createScope(function, global);
+    // Check "has" before "get" to ensure it works before lazy instantiation.
+    assertThat(fScope.hasOwnSlot("arguments")).isTrue();
+    assertThat(fScope.hasSlot("arguments")).isTrue();
     Var arguments = fScope.getArgumentsVar();
-    assertThat(fScope.getVar("arguments")).isSameAs(arguments);
+    assertThat(fScope.getVar("arguments")).isSameInstanceAs(arguments);
 
     Node fBlock = NodeUtil.getFunctionBody(function);
     Scope fBlockScope = scopeCreator.createScope(fBlock, fScope);
-    assertThat(fBlockScope.getVar("arguments")).isSameAs(arguments);
-    assertThat(fBlockScope.getArgumentsVar()).isSameAs(arguments);
+    assertThat(fBlockScope.getVar("arguments")).isSameInstanceAs(arguments);
+    assertThat(fBlockScope.getArgumentsVar()).isSameInstanceAs(arguments);
 
     Node ifBlock = fBlock.getFirstChild().getLastChild();
     Scope blockScope = scopeCreator.createScope(ifBlock, fBlockScope);
     assertScope(blockScope).declares("arguments").directly();
-    assertThat(blockScope.getArgumentsVar()).isSameAs(arguments);
+    assertThat(blockScope.getArgumentsVar()).isSameInstanceAs(arguments);
     assertThat(blockScope.getVar("arguments")).isNotEqualTo(arguments);
   }
 
@@ -826,7 +829,7 @@ public final class Es6SyntacticScopeCreatorTest {
     checkState(inner.isFunction(), inner);
     checkState(inner.isArrowFunction(), inner);
     Scope innerFunctionScope = scopeCreator.createScope(inner, outerBodyScope);
-    assertThat(innerFunctionScope.getArgumentsVar()).isSameAs(arguments);
+    assertThat(innerFunctionScope.getArgumentsVar()).isSameInstanceAs(arguments);
   }
 
   @Test
@@ -838,25 +841,59 @@ public final class Es6SyntacticScopeCreatorTest {
     Node function = root.getFirstChild();
     checkState(function.isFunction(), function);
     Scope fScope = scopeCreator.createScope(function, global);
-    assertThat(fScope.hasSlot("this")).isFalse();
+    // Check "has" before "get" to ensure it works before lazy instantiation.
+    assertThat(fScope.hasOwnSlot("this")).isTrue();
+    assertThat(fScope.hasSlot("this")).isTrue();
     Var thisVar = fScope.getVar("this");
     assertThat(thisVar.isThis()).isTrue();
 
     Node fBlock = NodeUtil.getFunctionBody(function);
     Scope fBlockScope = scopeCreator.createScope(fBlock, fScope);
-    assertScope(fBlockScope).doesNotDeclare("this");
-    assertThat(fBlockScope.getVar("this")).isSameAs(thisVar);
+    assertScope(fBlockScope).declares("this");
+    assertThat(fBlockScope.getVar("this")).isSameInstanceAs(thisVar);
 
     Node ifBlock = fBlock.getFirstChild().getLastChild();
     Scope blockScope = scopeCreator.createScope(ifBlock, fBlockScope);
-    assertScope(blockScope).doesNotDeclare("this");
-    assertThat(blockScope.getVar("this")).isSameAs(thisVar);
-    assertThat(blockScope.getVar("this").getScope()).isSameAs(fScope);
+    assertScope(blockScope).declares("this");
+    assertThat(blockScope.getVar("this")).isSameInstanceAs(thisVar);
+    assertThat(blockScope.getVar("this").getScope()).isSameInstanceAs(fScope);
 
     Node gFunction = ifBlock.getFirstChild();
     Scope gScope = scopeCreator.createScope(gFunction, blockScope);
-    assertScope(gScope).doesNotDeclare("this");
-    assertThat(gScope.getVar("this").getScope()).isSameAs(gScope);
+    assertScope(gScope).declares("this").directly();
+    assertThat(gScope.getVar("this").getScope()).isSameInstanceAs(gScope);
+  }
+
+  @Test
+  public void testTheSuperVariable() {
+    String js = "function f() { if (true) { function g() {} } }";
+    Node root = getRoot(js);
+    Scope global = scopeCreator.createScope(root, null);
+
+    Node function = root.getFirstChild();
+    checkState(function.isFunction(), function);
+    Scope fScope = scopeCreator.createScope(function, global);
+    // Check "has" before "get" to ensure it works before lazy instantiation.
+    assertThat(fScope.hasOwnSlot("super")).isTrue();
+    assertThat(fScope.hasSlot("super")).isTrue();
+    Var thisVar = fScope.getVar("super");
+
+    Node fBlock = NodeUtil.getFunctionBody(function);
+    Scope fBlockScope = scopeCreator.createScope(fBlock, fScope);
+    assertScope(fBlockScope).declares("super");
+    assertThat(fBlockScope.getVar("super")).isSameInstanceAs(thisVar);
+
+    Node ifBlock = fBlock.getFirstChild().getLastChild();
+    Scope blockScope = scopeCreator.createScope(ifBlock, fBlockScope);
+    assertScope(blockScope).declares("super");
+    assertThat(blockScope.getVar("super")).isSameInstanceAs(thisVar);
+    assertThat(blockScope.getVar("super").getScope()).isSameInstanceAs(fScope);
+
+    Node gFunction = ifBlock.getFirstChild();
+    Scope gScope = scopeCreator.createScope(gFunction, blockScope);
+    assertScope(gScope).declares("super").directly();
+    assertThat(gScope.getVar("super").getScope()).isSameInstanceAs(gScope);
+    assertThat(gScope.getVar("super")).isNotSameInstanceAs(gScope.getVar("this"));
   }
 
   @Test
@@ -880,7 +917,7 @@ public final class Es6SyntacticScopeCreatorTest {
     checkState(inner.isFunction(), inner);
     checkState(inner.isArrowFunction(), inner);
     Scope innerFunctionScope = scopeCreator.createScope(inner, outerBodyScope);
-    assertThat(innerFunctionScope.getVar("this")).isSameAs(thisVar);
+    assertThat(innerFunctionScope.getVar("this")).isSameInstanceAs(thisVar);
   }
 
   @Test
@@ -1220,5 +1257,29 @@ public final class Es6SyntacticScopeCreatorTest {
     checkState(moduleBody.isModuleBody(), moduleBody);
     Scope moduleScope = scopeCreator.createScope(moduleBody, globalScope);
     assertScope(moduleScope).declares("x").directly();
+  }
+
+  @Test
+  public void testGoogModuleDeclaresImplicitExports() {
+    Node root = getRoot("goog.module('example');");
+    Scope globalScope = scopeCreator.createScope(root, null);
+    assertScope(globalScope).doesNotDeclare("exports");
+
+    Node moduleBody = root.getFirstChild();
+    checkState(moduleBody.isModuleBody(), moduleBody);
+    Scope moduleScope = scopeCreator.createScope(moduleBody, globalScope);
+    assertScope(moduleScope).declares("exports").directly();
+  }
+
+  @Test
+  public void testGoogModuleCanOverrideImplicitExports() {
+    Node root = getRoot("goog.module('example'); var exports = {};");
+    Scope globalScope = scopeCreator.createScope(root, null);
+    assertScope(globalScope).doesNotDeclare("exports");
+
+    Node moduleBody = root.getFirstChild();
+    checkState(moduleBody.isModuleBody(), moduleBody);
+    Scope moduleScope = scopeCreator.createScope(moduleBody, globalScope);
+    assertScope(moduleScope).declares("exports").directly();
   }
 }

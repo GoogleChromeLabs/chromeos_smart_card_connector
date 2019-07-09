@@ -48,6 +48,8 @@ import com.google.common.annotations.GwtIncompatible;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Ascii;
 import com.google.common.base.Objects;
+import com.google.common.collect.ImmutableList;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
 import com.google.javascript.rhino.jstype.JSType;
 import java.io.IOException;
@@ -61,6 +63,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.function.Function;
 import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 
@@ -201,6 +204,8 @@ public class Node implements Serializable {
     // Record the type associated with a @typedef to enable looking up typedef in the AST possible
     // without saving the type scope.
     TYPEDEF_TYPE,
+    // Original name of a goog.define call.
+    DEFINE_NAME,
   }
 
   // TODO(sdh): Get rid of these by using accessor methods instead.
@@ -1520,6 +1525,15 @@ public class Node implements Serializable {
     this.length = length;
   }
 
+  /** Useful to set length of a transpiled node tree to map back to the length of original node. */
+  public final void setLengthForTree(int length) {
+    this.length = length;
+
+    for (Node child = first; child != null; child = child.next) {
+      child.setLengthForTree(length);
+    }
+  }
+
   public final int getLineno() {
     return extractLineno(sourcePosition);
   }
@@ -1868,99 +1882,6 @@ public class Node implements Serializable {
     return false;
   }
 
-  /**
-   * Checks if the subtree under this node is the same as another subtree. Returns null if it's
-   * equal, or a message describing the differences. Should be called with {@code this} as the
-   * "expected" node and {@code actual} as the "actual" node.
-   */
-  @VisibleForTesting
-  @Nullable
-  public final String checkTreeEquals(Node actual) {
-      NodeMismatch diff = checkTreeEqualsImpl(actual);
-      if (diff != null) {
-        return "Node tree inequality:" +
-            "\nTree1:\n" + toStringTree() +
-            "\n\nTree2:\n" + actual.toStringTree() +
-            "\n\nSubtree1: " + diff.nodeExpected.toStringTree() +
-            "\n\nSubtree2: " + diff.nodeActual.toStringTree();
-      }
-      return null;
-  }
-
-  /**
-   * Checks if the subtree under this node is the same as another subtree. Returns null if it's
-   * equal, or a message describing the differences. Considers two nodes to be unequal if their
-   * JSDocInfo doesn't match. Should be called with {@code this} as the "expected" node and {@code
-   * actual} as the "actual" node.
-   *
-   * @see JSDocInfo#equals(Object)
-   */
-  @VisibleForTesting
-  @Nullable
-  public final String checkTreeEqualsIncludingJsDoc(Node actual) {
-      NodeMismatch diff = checkTreeEqualsImpl(actual, true);
-      if (diff != null) {
-        if (diff.nodeActual.isEquivalentTo(diff.nodeExpected, false, true, false)) {
-          // The only difference is that the JSDoc is different on
-          // the subtree.
-          String jsDocActual = diff.nodeActual.getJSDocInfo() == null ?
-              "(none)" :
-              diff.nodeActual.getJSDocInfo().toStringVerbose();
-
-          String jsDocExpected = diff.nodeExpected.getJSDocInfo() == null ?
-              "(none)" :
-              diff.nodeExpected.getJSDocInfo().toStringVerbose();
-
-          return "Node tree inequality:" +
-              "\nTree:\n" + toStringTree() +
-              "\n\nJSDoc differs on subtree: " + diff.nodeExpected +
-              "\nExpected JSDoc: " + jsDocExpected +
-              "\nActual JSDoc  : " + jsDocActual;
-        }
-        return "Node tree inequality:" +
-            "\nExpected tree:\n" + toStringTree() +
-            "\n\nActual tree:\n" + actual.toStringTree() +
-            "\n\nExpected subtree: " + diff.nodeExpected.toStringTree() +
-            "\n\nActual subtree: " + diff.nodeActual.toStringTree();
-      }
-      return null;
-  }
-
-  /**
-   * Compare this node to the given node recursively and return the first pair of nodes that differs
-   * doing a preorder depth-first traversal. Package private for testing. Returns null if the nodes
-   * are equivalent. Should be called with {@code this} as the "expected" node and {@code actual} as
-   * the "actual" node.
-   */
-  @Nullable
-  final NodeMismatch checkTreeEqualsImpl(Node actual) {
-    return checkTreeEqualsImpl(actual, false);
-  }
-
-  /**
-   * Compare this node to the given node recursively and return the first pair of nodes that differs
-   * doing a preorder depth-first traversal. Should be called with {@code this} as the "expected"
-   * node and {@code actual} as the "actual" node.
-   *
-   * @param jsDoc Whether to check for differences in JSDoc.
-   */
-  @Nullable
-  private NodeMismatch checkTreeEqualsImpl(Node actual, boolean jsDoc) {
-    if (!isEquivalentTo(actual, false, false, jsDoc)) {
-      return new NodeMismatch(this, actual);
-    }
-
-    for (Node expectedChild = first, actualChild = actual.first;
-         expectedChild != null;
-         expectedChild = expectedChild.next, actualChild = actualChild.next) {
-      NodeMismatch res = expectedChild.checkTreeEqualsImpl(actualChild, jsDoc);
-      if (res != null) {
-        return res;
-      }
-    }
-    return null;
-  }
-
   /** Checks equivalence without going into child nodes */
   public final boolean isEquivalentToShallow(Node node) {
     return isEquivalentTo(node, false, false, false, false);
@@ -2032,39 +1953,8 @@ public class Node implements Serializable {
       return false;
     }
 
-    if (token == Token.INC || token == Token.DEC) {
-      int post1 = this.getIntProp(Prop.INCRDECR);
-      int post2 = node.getIntProp(Prop.INCRDECR);
-      if (post1 != post2) {
-        return false;
-      }
-    } else if (token == Token.STRING || token == Token.STRING_KEY) {
-      if (token == Token.STRING_KEY) {
-        int quoted1 = this.getIntProp(Prop.QUOTED);
-        int quoted2 = node.getIntProp(Prop.QUOTED);
-        if (quoted1 != quoted2) {
-          return false;
-        }
-      }
-
-      int slashV1 = this.getIntProp(Prop.SLASH_V);
-      int slashV2 = node.getIntProp(Prop.SLASH_V);
-      if (slashV1 != slashV2) {
-        return false;
-      }
-    } else if (token == Token.CALL) {
-      if (this.getBooleanProp(Prop.FREE_CALL) != node.getBooleanProp(Prop.FREE_CALL)) {
-        return false;
-      }
-    } else if (token == Token.FUNCTION) {
-      // Must be the same kind of function to be equivalent
-      if (this.isArrowFunction() != node.isArrowFunction()) {
-        return false;
-      }
-      if (this.isGeneratorFunction() != node.isGeneratorFunction()) {
-        return false;
-      }
-      if (this.isAsyncFunction() != node.isAsyncFunction()) {
+    for (Function<Node, Object> getter : PROP_GETTERS_FOR_EQUALITY) {
+      if (!Objects.equal(getter.apply(this), getter.apply(node))) {
         return false;
       }
     }
@@ -2091,6 +1981,33 @@ public class Node implements Serializable {
 
     return true;
   }
+
+  /**
+   * Accessors for {@link Node} properties that should also be compared when comparing nodes for
+   * equality.
+   *
+   * <p>We'd prefer to list the props that should be ignored rather than the ones that should be
+   * checked, but that was too difficult initially. In general these properties are ones that show
+   * up as keywords / symbols which don't have their own nodes.
+   *
+   * <p>Accessor functions are used rather than {@link Prop}s to encode the correct way of reading
+   * the prop.
+   */
+  private static final ImmutableList<Function<Node, Object>> PROP_GETTERS_FOR_EQUALITY =
+      ImmutableList.of(
+          Node::isArrowFunction,
+          Node::isAsyncFunction,
+          Node::isAsyncGeneratorFunction,
+          Node::isGeneratorFunction,
+          Node::isStaticMember,
+          Node::isYieldAll,
+          (n) -> n.getIntProp(Prop.SLASH_V),
+          (n) -> n.getIntProp(Prop.INCRDECR),
+          (n) -> n.getIntProp(Prop.QUOTED),
+          (n) -> n.getBooleanProp(Prop.FREE_CALL),
+          (n) -> n.getBooleanProp(Prop.COMPUTED_PROP_METHOD),
+          (n) -> n.getBooleanProp(Prop.COMPUTED_PROP_GETTER),
+          (n) -> n.getBooleanProp(Prop.COMPUTED_PROP_SETTER));
 
   /**
    * This function takes a set of GETPROP nodes and produces a string that is each property
@@ -2203,6 +2120,9 @@ public class Node implements Serializable {
         return true;
       case GETPROP:
         return getFirstChild().isQualifiedName();
+
+      case MEMBER_FUNCTION_DEF:
+        // These are explicitly *not* qualified name components.
       default:
         return false;
     }
@@ -2213,7 +2133,7 @@ public class Node implements Serializable {
    * <code>x</code> or <code>a.b.c</code> or <code>this.a</code>.
    */
   public final boolean matchesQualifiedName(String name) {
-    return name != null && matchesQualifiedName(name, name.length());
+    return matchesQualifiedName(name, name.length());
   }
 
   /**
@@ -2225,7 +2145,6 @@ public class Node implements Serializable {
 
     switch (this.getToken()) {
       case NAME:
-      case MEMBER_FUNCTION_DEF:
         String name = getString();
         return start == 0 && !name.isEmpty() && name.length() == endIndex && qname.startsWith(name);
       case THIS:
@@ -2238,6 +2157,9 @@ public class Node implements Serializable {
             && prop.length() == endIndex - start
             && prop.regionMatches(0, qname, start, endIndex - start)
             && getFirstChild().matchesQualifiedName(qname, start - 1);
+
+      case MEMBER_FUNCTION_DEF:
+        // These are explicitly *not* qualified name components.
       default:
         return false;
     }
@@ -2249,7 +2171,7 @@ public class Node implements Serializable {
    */
   @SuppressWarnings("ReferenceEquality")
   public final boolean matchesQualifiedName(Node n) {
-    if (n == null || n.token != token) {
+    if (n.token != token) {
       return false;
     }
     switch (token) {
@@ -2263,6 +2185,9 @@ public class Node implements Serializable {
         // ==, rather than equal as it is intern'd in setString
         return getLastChild().getString() == n.getLastChild().getString()
             && getFirstChild().matchesQualifiedName(n.getFirstChild());
+
+      case MEMBER_FUNCTION_DEF:
+        // These are explicitly *not* qualified name components.
       default:
         return false;
     }
@@ -2819,29 +2744,15 @@ public class Node implements Serializable {
     return isClass() || getBooleanProp(Prop.IS_ES6_CLASS);
   }
 
-  // There are four values of interest:
-  //   global state changes
-  //   this state changes
-  //   arguments state changes
-  //   whether the call throws an exception
-  //   locality of the result
-  // We want a value of 0 to mean "global state changes and
-  // unknown locality of result".
+  /** Returns any goog.define'd name corresponding to this NAME or GETPROP node. */
+  public final String getDefineName() {
+    return (String) getProp(Prop.DEFINE_NAME);
+  }
 
-  public static final int FLAG_GLOBAL_STATE_UNMODIFIED = 1;
-  public static final int FLAG_THIS_UNMODIFIED = 2;
-  public static final int FLAG_ARGUMENTS_UNMODIFIED = 4;
-  public static final int FLAG_NO_THROWS = 8;
-  public static final int FLAG_LOCAL_RESULTS = 16;
-
-  public static final int SIDE_EFFECTS_FLAGS_MASK = 31;
-
-  public static final int SIDE_EFFECTS_ALL = 0;
-  public static final int NO_SIDE_EFFECTS =
-    FLAG_GLOBAL_STATE_UNMODIFIED
-    | FLAG_THIS_UNMODIFIED
-    | FLAG_ARGUMENTS_UNMODIFIED
-    | FLAG_NO_THROWS;
+  /** Sets the goog.define name for a NAME or GETPROP node. */
+  public final void setDefineName(String name) {
+    putProp(Prop.DEFINE_NAME, name);
+  }
 
   /**
    * Marks this function or constructor call's side effect flags.
@@ -2849,12 +2760,17 @@ public class Node implements Serializable {
    * {@link Token#NEW} nodes.
    */
   public final void setSideEffectFlags(int flags) {
-    checkArgument(
+    checkState(
         this.isCall() || this.isNew() || this.isTaggedTemplateLit(),
-        "setIsNoSideEffectsCall only supports call-like nodes, got %s",
+        "Side-effect flags can only be set on invocation nodes; got %s",
         this);
 
-    putIntProp(Prop.SIDE_EFFECT_FLAGS, flags);
+    // We invert the flags before setting because we also invert the them when getting; they go
+    // full circle.
+    //
+    // We apply the mask after inversion so that if all flags are being set (all 1s), it's
+    // equivalent to storing a 0, the default value of an int-prop, which has no memory cost.
+    putIntProp(Prop.SIDE_EFFECT_FLAGS, ~flags & SideEffectFlags.USED_BITS_MASK);
   }
 
   public final void setSideEffectFlags(SideEffectFlags flags) {
@@ -2865,15 +2781,45 @@ public class Node implements Serializable {
    * Returns the side effects flags for this node.
    */
   public final int getSideEffectFlags() {
-    return getIntProp(Prop.SIDE_EFFECT_FLAGS);
+    // Int props default to 0, but we want the default for side-effect flags to be all 1s.
+    // Therefore, we invert the value returned here. This is correct for non-defaults because we
+    // also invert when setting the flags.
+    return ~getIntProp(Prop.SIDE_EFFECT_FLAGS) & SideEffectFlags.USED_BITS_MASK;
   }
 
   /**
-   * A helper class for getting and setting the side-effect flags.
+   * A helper class for getting and setting invocation side-effect flags.
+   *
+   * <p>The following values are of interest:
+   *
+   * <ol>
+   *   <li>Is global state mutated? ({@code MUTATES_GLOBAL_STATE})
+   *   <li>Is the receiver (`this`) mutated? ({@code MUTATES_THIS})
+   *   <li>Are any arguments mutated? ({@code MUTATES_ARGUMENTS})
+   *   <li>Does the call throw an error? ({@code THROWS})
+   *   <li>Is the return an escaped (mutable by other code) value? ({@code ESCAPED_RETURN})
+   * </ol>
+   *
    * @author johnlenz@google.com (John Lenz)
    */
   public static final class SideEffectFlags {
-    private int value = Node.SIDE_EFFECTS_ALL;
+    public static final int MUTATES_GLOBAL_STATE = 1;
+    public static final int MUTATES_THIS = 2;
+    public static final int MUTATES_ARGUMENTS = 4;
+    public static final int THROWS = 8;
+    public static final int ESCAPED_RETURN = 16;
+
+    private static final int USED_BITS_MASK = (1 << 5) - 1;
+
+    // TODO(nickreid): Delete one of these values. They should be symmetric with respect to
+    // inversion. We need better noenclature to describe ESCAPED_RETURN.
+    public static final int NO_SIDE_EFFECTS = ESCAPED_RETURN;
+    public static final int ALL_SIDE_EFFECTS =
+        MUTATES_GLOBAL_STATE | MUTATES_THIS | MUTATES_ARGUMENTS | THROWS | ESCAPED_RETURN;
+
+    // A bitfield indicating the flag statuses. All bits set to 1 means "global state changes and
+    // unknown locality of result".
+    private int value = ALL_SIDE_EFFECTS;
 
     public SideEffectFlags() {
     }
@@ -2888,13 +2834,13 @@ public class Node implements Serializable {
 
     /** All side-effect occur and the returned results are non-local. */
     public SideEffectFlags setAllFlags() {
-      value = Node.SIDE_EFFECTS_ALL;
+      value = ALL_SIDE_EFFECTS;
       return this;
     }
 
     /** No side-effects occur and the returned results are local. */
     public SideEffectFlags clearAllFlags() {
-      value = Node.NO_SIDE_EFFECTS | Node.FLAG_LOCAL_RESULTS;
+      value = NO_SIDE_EFFECTS & ~ESCAPED_RETURN;
       return this;
     }
 
@@ -2903,63 +2849,56 @@ public class Node implements Serializable {
      *   no global state change, no throws, no this change, no arguments change
      */
     public void clearSideEffectFlags() {
-      value |= Node.NO_SIDE_EFFECTS;
+      value &= ESCAPED_RETURN;
     }
 
     public SideEffectFlags setMutatesGlobalState() {
       // Modify global means everything must be assumed to be modified.
-      removeFlag(Node.FLAG_GLOBAL_STATE_UNMODIFIED);
-      removeFlag(Node.FLAG_ARGUMENTS_UNMODIFIED);
-      removeFlag(Node.FLAG_THIS_UNMODIFIED);
+      value |= MUTATES_GLOBAL_STATE | MUTATES_ARGUMENTS | MUTATES_THIS;
       return this;
     }
 
     public SideEffectFlags setThrows() {
-      removeFlag(Node.FLAG_NO_THROWS);
+      value |= THROWS;
       return this;
     }
 
     public SideEffectFlags setMutatesThis() {
-      removeFlag(Node.FLAG_THIS_UNMODIFIED);
+      value |= MUTATES_THIS;
       return this;
     }
 
     public SideEffectFlags setMutatesArguments() {
-      removeFlag(Node.FLAG_ARGUMENTS_UNMODIFIED);
+      value |= MUTATES_ARGUMENTS;
       return this;
     }
 
     public SideEffectFlags setReturnsTainted() {
-      removeFlag(Node.FLAG_LOCAL_RESULTS);
+      value |= ESCAPED_RETURN;
       return this;
     }
 
-    private void removeFlag(int flag) {
-      value &= ~flag;
-    }
-
     @Override
+    @DoNotCall // For debugging only.
     public String toString() {
       StringBuilder builder = new StringBuilder("Side effects: ");
-      if ((value & Node.FLAG_THIS_UNMODIFIED) == 0) {
+
+      if ((value & MUTATES_THIS) != 0) {
         builder.append("this ");
       }
-
-      if ((value & Node.FLAG_GLOBAL_STATE_UNMODIFIED) == 0) {
+      if ((value & MUTATES_GLOBAL_STATE) != 0) {
         builder.append("global ");
       }
-
-      if ((value & Node.FLAG_NO_THROWS) == 0) {
+      if ((value & THROWS) != 0) {
         builder.append("throw ");
       }
-
-      if ((value & Node.FLAG_ARGUMENTS_UNMODIFIED) == 0) {
+      if ((value & MUTATES_ARGUMENTS) != 0) {
         builder.append("args ");
       }
-
-      if ((value & Node.FLAG_LOCAL_RESULTS) == 0) {
+      if ((value & ESCAPED_RETURN) != 0) {
         builder.append("return ");
       }
+
       return builder.toString();
     }
   }
@@ -2968,22 +2907,28 @@ public class Node implements Serializable {
    * @return Whether the only side-effect is "modifies this"
    */
   public final boolean isOnlyModifiesThisCall() {
-    return areBitFlagsSet(
-        getSideEffectFlags() & Node.NO_SIDE_EFFECTS,
-        Node.FLAG_GLOBAL_STATE_UNMODIFIED
-            | Node.FLAG_ARGUMENTS_UNMODIFIED
-            | Node.FLAG_NO_THROWS);
+    int consideredFlags = getSideEffectFlags();
+    consideredFlags |= SideEffectFlags.NO_SIDE_EFFECTS; // Set non-side-effect bits to 1.
+
+    // TODO(nickreid): Delete this; check if MUTATES_THIS is actually set. This was left in to
+    // maintain existing behaviour but it makes the name of this method misleading.
+    consideredFlags &= ~SideEffectFlags.MUTATES_THIS;
+
+    return consideredFlags == SideEffectFlags.NO_SIDE_EFFECTS;
   }
 
   /**
    * @return Whether the only side-effect is "modifies arguments"
    */
   public final boolean isOnlyModifiesArgumentsCall() {
-    return areBitFlagsSet(
-        getSideEffectFlags() & Node.NO_SIDE_EFFECTS,
-        Node.FLAG_GLOBAL_STATE_UNMODIFIED
-            | Node.FLAG_THIS_UNMODIFIED
-            | Node.FLAG_NO_THROWS);
+    int consideredFlags = getSideEffectFlags();
+    consideredFlags |= SideEffectFlags.NO_SIDE_EFFECTS; // Set non-side-effect bits to 1.
+
+    // TODO(nickreid): Delete this; check if MUTATES_ARGUMENTS is actually set. This was left in to
+    // maintain existing behaviour but it makes the name of this method misleading.
+    consideredFlags &= ~SideEffectFlags.MUTATES_ARGUMENTS;
+
+    return consideredFlags == SideEffectFlags.NO_SIDE_EFFECTS;
   }
 
   /**
@@ -2991,7 +2936,10 @@ public class Node implements Serializable {
    * has no side effects.
    */
   public final boolean isNoSideEffectsCall() {
-    return areBitFlagsSet(getSideEffectFlags(), NO_SIDE_EFFECTS);
+    int consideredFlags = getSideEffectFlags();
+    consideredFlags |= SideEffectFlags.NO_SIDE_EFFECTS; // Set non-side-effect bits to 1.
+
+    return consideredFlags == SideEffectFlags.NO_SIDE_EFFECTS;
   }
 
   /**
@@ -3000,25 +2948,28 @@ public class Node implements Serializable {
    * references).
    */
   public final boolean isLocalResultCall() {
-    return areBitFlagsSet(getSideEffectFlags(), FLAG_LOCAL_RESULTS);
+    return !allBitsSet(getSideEffectFlags(), SideEffectFlags.ESCAPED_RETURN);
   }
 
   /** Returns true if this is a new/call that may mutate its arguments. */
   public final boolean mayMutateArguments() {
-    return !areBitFlagsSet(getSideEffectFlags(), FLAG_ARGUMENTS_UNMODIFIED);
+    return allBitsSet(getSideEffectFlags(), SideEffectFlags.MUTATES_ARGUMENTS);
   }
 
   /** Returns true if this is a new/call that may mutate global state or throw. */
   public final boolean mayMutateGlobalStateOrThrow() {
-    return !areBitFlagsSet(getSideEffectFlags(),
-        FLAG_GLOBAL_STATE_UNMODIFIED | FLAG_NO_THROWS);
+    return anyBitSet(
+        getSideEffectFlags(), SideEffectFlags.MUTATES_GLOBAL_STATE | SideEffectFlags.THROWS);
   }
 
-  /**
-   * returns true if all the flags are set in value.
-   */
-  private static boolean areBitFlagsSet(int value, int flags) {
-    return (value & flags) == flags;
+  /** Returns true iff all the set bits in {@code mask} are also set in {@code value}. */
+  private static boolean allBitsSet(int value, int mask) {
+    return (value & mask) == mask;
+  }
+
+  /** Returns true iff any the bit set in {@code mask} is also set in {@code value}. */
+  private static boolean anyBitSet(int value, int mask) {
+    return (value & mask) != 0;
   }
 
   /**
@@ -3033,31 +2984,6 @@ public class Node implements Serializable {
    */
   public void setQuotedString() {
     throw new IllegalStateException(this + " is not a StringNode");
-  }
-
-  static final class NodeMismatch {
-    final Node nodeExpected;
-    final Node nodeActual;
-
-    NodeMismatch(Node nodeExpected, Node nodeActual) {
-      this.nodeExpected = nodeExpected;
-      this.nodeActual = nodeActual;
-    }
-
-    @Override
-    public boolean equals(@Nullable Object object) {
-      if (object instanceof NodeMismatch) {
-        NodeMismatch that = (NodeMismatch) object;
-        return that.nodeExpected.equals(this.nodeExpected)
-            && that.nodeActual.equals(this.nodeActual);
-      }
-      return false;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hashCode(nodeExpected, nodeActual);
-    }
   }
 
 

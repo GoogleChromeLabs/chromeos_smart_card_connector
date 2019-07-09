@@ -78,11 +78,6 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     return new Es6ConvertSuper(compiler);
   }
 
-  @Override
-  protected int getNumRepetitions() {
-    return 1;
-  }
-
   // Instance `super` resolution
 
   @Test
@@ -1046,8 +1041,7 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
                 "}",
                 "",
                 "class B extends A {",
-                "  /** @param {...?} var_args */",
-                "  constructor(var_args) { super(...arguments); }",
+                "  constructor() { super(...arguments); }",
                 "}")));
 
     // get the types we'll need to check
@@ -1151,8 +1145,7 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
             "}",
             "",
             "class B extends A {",
-            "  /** @param {...?} var_args */",
-            "  constructor(var_args) { }",
+            "  constructor() { }",
             "}"));
     // TODO(bradfordcsmith): Test addition of types in externs.
     // Currently testExternChanges() doesn't set things up correctly for getting the last compiler
@@ -1243,10 +1236,9 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
         srcs("/** @interface */ class B extends A { }"),
         expected(
             lines(
-                "/** @interface */",
+                "/** @interface */", //
                 "class B extends A {",
-                "  /** @param {...?} var_args */",
-                "  constructor(var_args) { }",
+                "  constructor() { }",
                 "}")));
   }
 

@@ -157,8 +157,10 @@ public final class Es6TypedToEs6Converter implements NodeTraversal.Callback, Hot
         visitEnum(t, n, parent);
         break;
       case NAME:
-      case REST:
         maybeVisitColonType(t, n, n);
+        break;
+      case REST:
+        maybeVisitColonType(t, n, n.getOnlyChild());
         break;
       case FUNCTION:
         visitFunction(t, n, parent);
@@ -325,7 +327,7 @@ public final class Es6TypedToEs6Converter implements NodeTraversal.Callback, Hot
     Node empty = new Node(Token.EMPTY).useSourceInfoIfMissingFrom(n);
     n.replaceChild(superTypes, empty);
     members.setToken(Token.CLASS_MEMBERS);
-    NodeUtil.addFeatureToScript(t.getCurrentFile(), Feature.CLASSES);
+    NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CLASSES);
 
     maybeCreateQualifiedDeclaration(t, n, parent);
     t.reportCodeChange();

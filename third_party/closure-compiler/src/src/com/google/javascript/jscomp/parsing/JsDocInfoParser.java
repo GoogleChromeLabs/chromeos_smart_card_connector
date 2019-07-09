@@ -119,6 +119,7 @@ public final class JsDocInfoParser {
 
   private final Map<String, Annotation> annotations;
   private final Set<String> suppressionNames;
+  private final Set<String> closurePrimitiveNames;
   private final boolean preserveWhitespace;
   private static final Set<String> modifiesAnnotationKeywords =
       ImmutableSet.of("this", "arguments");
@@ -159,13 +160,13 @@ public final class JsDocInfoParser {
     NEXT_IS_ANNOTATION
   }
 
-
-  JsDocInfoParser(JsDocTokenStream stream,
-                  String comment,
-                  int commentPosition,
-                  Node templateNode,
-                  Config config,
-                  ErrorReporter errorReporter) {
+  public JsDocInfoParser(
+      JsDocTokenStream stream,
+      String comment,
+      int commentPosition,
+      Node templateNode,
+      Config config,
+      ErrorReporter errorReporter) {
     this.stream = stream;
 
     boolean parseDocumentation = config.jsDocParsingMode().shouldParseDescriptions();
@@ -176,6 +177,7 @@ public final class JsDocInfoParser {
     }
     this.annotations = config.annotations();
     this.suppressionNames = config.suppressionNames();
+    this.closurePrimitiveNames = config.closurePrimitiveNames();
     this.preserveWhitespace = config.jsDocParsingMode().shouldPreserveWhitespace();
 
     this.errorReporter = errorReporter;
@@ -249,6 +251,7 @@ public final class JsDocInfoParser {
         Config.builder()
             .setLanguageMode(LanguageMode.ECMASCRIPT3)
             .setStrictMode(Config.StrictMode.SLOPPY)
+            .setClosurePrimitiveNames(ImmutableSet.of("testPrimitive"))
             .build();
     JsDocInfoParser parser =
         new JsDocInfoParser(
@@ -258,14 +261,12 @@ public final class JsDocInfoParser {
   }
 
   /**
-   * Parses a {@link JSDocInfo} object. This parsing method reads all tokens
-   * returned by the {@link JsDocTokenStream#getJsDocToken()} method until the
-   * {@link JsDocToken#EOC} is returned.
+   * Parses a {@link JSDocInfo} object. This parsing method reads all tokens returned by the {@link
+   * JsDocTokenStream#getJsDocToken()} method until the {@link JsDocToken#EOC} is returned.
    *
-   * @return {@code true} if JSDoc information was correctly parsed,
-   *     {@code false} otherwise
+   * @return {@code true} if JSDoc information was correctly parsed, {@code false} otherwise
    */
-  boolean parse() {
+  public boolean parse() {
     state = State.SEARCHING_ANNOTATION;
     skipEOLs();
 
@@ -424,12 +425,6 @@ public final class JsDocInfoParser {
             token = eatUntilEOLIfNotAnnotation();
           }
           return token;
-
-        case CONSISTENTIDGENERATOR:
-          if (!jsdocBuilder.recordConsistentIdGenerator()) {
-            addParserWarning("msg.jsdoc.consistidgen");
-          }
-          return eatUntilEOLIfNotAnnotation();
 
         case UNRESTRICTED:
           if (!jsdocBuilder.recordUnrestricted()) {
@@ -675,6 +670,10 @@ public final class JsDocInfoParser {
             addParserWarning("msg.jsdoc.meaning.extra");
           }
           return token;
+
+        case CLOSURE_PRIMITIVE:
+          skipEOLs();
+          return parseClosurePrimitiveTag(next());
 
         case NO_COMPILE:
           if (!jsdocBuilder.recordNoCompile()) {
@@ -926,12 +925,6 @@ public final class JsDocInfoParser {
           }
           return token;
 
-        case STABLEIDGENERATOR:
-          if (!jsdocBuilder.recordStableIdGenerator()) {
-            addParserWarning("msg.jsdoc.stableidgen");
-          }
-          return eatUntilEOLIfNotAnnotation();
-
         case SUPPRESS:
           token = parseSuppressTag(next());
           return token;
@@ -1043,23 +1036,6 @@ public final class JsDocInfoParser {
             addParserWarning("msg.jsdoc.wizaction");
           }
           return eatUntilEOLIfNotAnnotation();
-
-        case DISPOSES:
-          {
-          ExtractionInfo templateInfo = extractSingleLineBlock();
-          List<String> names = Splitter.on(',')
-              .trimResults()
-              .splitToList(templateInfo.string);
-
-          if (names.isEmpty() || names.get(0).isEmpty()) {
-            addTypeWarning("msg.jsdoc.disposeparameter.missing");
-          } else if (!jsdocBuilder.recordDisposesParameter(names)) {
-            addTypeWarning("msg.jsdoc.disposeparameter.error");
-          }
-
-          token = templateInfo.token;
-          return token;
-        }
 
         case VERSION:
           ExtractionInfo versionInfo = extractSingleLineBlock();
@@ -1344,6 +1320,36 @@ public final class JsDocInfoParser {
       }
       return eatUntilEOLIfNotAnnotation();
     }
+  }
+
+  /**
+   * Parse a {@code @closurePrimitive} tag
+   *
+   * @param token The current token.
+   */
+  private JsDocToken parseClosurePrimitiveTag(JsDocToken token) {
+    if (token != JsDocToken.LEFT_CURLY) {
+      addParserWarning("msg.jsdoc.missing.lc");
+      return token;
+    } else if (match(JsDocToken.STRING)) {
+      String name = stream.getString();
+      if (!closurePrimitiveNames.contains(name)) {
+        addParserWarning("msg.jsdoc.closurePrimitive.invalid", name);
+      } else if (!jsdocBuilder.recordClosurePrimitiveId(name)) {
+        addParserWarning("msg.jsdoc.closurePrimitive.extra");
+      }
+      token = next();
+    } else {
+      addParserWarning("msg.jsdoc.closurePrimitive.missing");
+      return token;
+    }
+
+    if (!match(JsDocToken.RIGHT_CURLY)) {
+      addParserWarning("msg.jsdoc.missing.rc");
+    } else {
+      token = next();
+    }
+    return eatUntilEOLIfNotAnnotation();
   }
 
   /**
@@ -1904,7 +1910,11 @@ public final class JsDocInfoParser {
       if (typeNode != null) {
         skipEOLs();
         if (!match(JsDocToken.RIGHT_CURLY)) {
-          reportTypeSyntaxWarning("msg.jsdoc.missing.rc");
+          if (typeNode.isString() && "import".equals(typeNode.getString())) {
+            reportTypeSyntaxWarning("msg.jsdoc.import");
+          } else {
+            reportTypeSyntaxWarning("msg.jsdoc.missing.rc");
+          }
         } else {
           next();
         }
@@ -2147,6 +2157,7 @@ public final class JsDocInfoParser {
         case "undefined":
           return newStringNode(string);
         case "typeof":
+          skipEOLs();
           return parseTypeofType(next());
         default:
           return parseTypeName(token);
@@ -2208,7 +2219,6 @@ public final class JsDocInfoParser {
   /** TypeofType := 'typeof' NameExpression | 'typeof' '(' NameExpression ')' */
   private Node parseTypeofType(JsDocToken token) {
     Node typeofType = newNode(Token.TYPEOF);
-    skipEOLs();
     Node name = parseNameExpression(token);
     skipEOLs();
     typeofType.addChildToFront(name);
@@ -2726,7 +2736,7 @@ public final class JsDocInfoParser {
     return jsdocBuilder.isPopulatedWithFileOverview();
   }
 
-  JSDocInfo retrieveAndResetParsedJSDocInfo() {
+  public JSDocInfo retrieveAndResetParsedJSDocInfo() {
     return jsdocBuilder.build();
   }
 

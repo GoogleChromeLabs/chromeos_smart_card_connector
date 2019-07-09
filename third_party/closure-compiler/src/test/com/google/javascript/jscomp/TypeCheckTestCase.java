@@ -18,9 +18,12 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.javascript.jscomp.testing.JSCompCorrespondences.DESCRIPTION_EQUALITY;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.truth.Correspondence;
+import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
+import com.google.javascript.jscomp.modules.ModuleMapCreator;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.jscomp.type.SemanticReverseAbstractInterpreter;
@@ -38,6 +41,7 @@ import org.junit.Before;
 abstract class TypeCheckTestCase extends CompilerTypeTestCase {
 
   private boolean reportUnknownTypes = false;
+  private boolean runClosurePass = false;
 
   @Override
   @Before
@@ -64,6 +68,10 @@ abstract class TypeCheckTestCase extends CompilerTypeTestCase {
     this.reportUnknownTypes = true;
   }
 
+  protected void enableRunClosurePass() {
+    this.runClosurePass = true;
+  }
+
   protected static ObjectType getInstanceType(Node js1Node) {
     JSType type = js1Node.getFirstChild().getJSType();
     assertThat(type).isNotNull();
@@ -78,13 +86,13 @@ abstract class TypeCheckTestCase extends CompilerTypeTestCase {
   }
 
   protected double getTypedPercentWithExterns(String externs, String js) {
-    Node n = compiler.parseTestCode(js);
+    Node jsRoot = IR.root(compiler.parseTestCode(js));
 
-    Node externsRoot = compiler.parseTestCode(externs);
-    IR.root(externsRoot, n);
+    Node externsRoot = IR.root(compiler.parseTestCode(externs));
+    IR.root(externsRoot, jsRoot);
 
     TypeCheck t = makeTypeCheck();
-    t.processForTesting(null, n);
+    t.processForTesting(externsRoot, jsRoot);
     return t.getTypedPercent();
   }
 
@@ -137,9 +145,9 @@ abstract class TypeCheckTestCase extends CompilerTypeTestCase {
     assertThat(compiler.getErrors()).isEmpty();
     Node externsNode = IR.root();
     // create a parent node for the extern and source blocks
-    IR.root(externsNode, n);
+    Node root = IR.root(externsNode, IR.root(n));
 
-    makeTypeCheck().processForTesting(null, n);
+    makeTypeCheck().processForTesting(root.getFirstChild(), root.getSecondChild());
     assertThat(compiler.getErrors()).isEmpty();
     checkReportedWarningsHelper(warnings);
   }
@@ -168,13 +176,21 @@ abstract class TypeCheckTestCase extends CompilerTypeTestCase {
   void testTypesWithExterns(String externs, String js, List<String> descriptions, boolean isError) {
     parseAndTypeCheck(externs, js);
 
-    (isError
-            ? assertWithMessage("Regarding errors:").that(compiler.getErrors())
-            : assertWithMessage("Regarding warnings:").that(compiler.getWarnings()))
-        .asList()
-        .comparingElementsUsing(DESCRIPTION_EQUALITY)
-        .containsExactlyElementsIn(descriptions)
-        .inOrder();
+    if (isError) {
+      assertWithMessage("Regarding errors:")
+          .that(compiler.getErrors())
+          .comparingElementsUsing(DESCRIPTION_EQUALITY)
+          .containsExactlyElementsIn(descriptions)
+          .inOrder();
+      assertWithMessage("Regarding warnings").that(compiler.getWarnings()).isEmpty();
+    } else {
+      assertWithMessage("Regarding warnings:")
+          .that(compiler.getWarnings())
+          .comparingElementsUsing(DESCRIPTION_EQUALITY)
+          .containsExactlyElementsIn(descriptions)
+          .inOrder();
+      assertWithMessage("Regarding errors:").that(compiler.getErrors()).isEmpty();
+    }
   }
 
   void testTypesWithExterns(
@@ -184,17 +200,29 @@ abstract class TypeCheckTestCase extends CompilerTypeTestCase {
     ImmutableList<DiagnosticType> expectedTypes =
         (diagnosticType == null) ? ImmutableList.of() : ImmutableList.of(diagnosticType);
 
-    (isError
-            ? assertWithMessage("Regarding errors:").that(compiler.getErrors())
-            : assertWithMessage("Regarding warnings:").that(compiler.getWarnings()))
-        .asList()
-        .comparingElementsUsing(DIAGNOSTIC_TYPE_EQUALITY)
-        .containsExactlyElementsIn(expectedTypes)
-        .inOrder();
+    if (isError) {
+      assertWithMessage("Regarding errors:")
+          .that(compiler.getErrors())
+          .comparingElementsUsing(DIAGNOSTIC_TYPE_EQUALITY)
+          .containsExactlyElementsIn(expectedTypes)
+          .inOrder();
+      assertWithMessage("Regarding warnings").that(compiler.getWarnings()).isEmpty();
+    } else {
+      assertWithMessage("Regarding warnings:")
+          .that(compiler.getWarnings())
+          .comparingElementsUsing(DIAGNOSTIC_TYPE_EQUALITY)
+          .containsExactlyElementsIn(expectedTypes)
+          .inOrder();
+      assertWithMessage("Regarding errors:").that(compiler.getErrors()).isEmpty();
+    }
   }
 
   protected void testTypesWithExterns(String externs, String js, String description) {
     testTypesWithExterns(externs, js, description, false);
+  }
+
+  protected void testTypesWithExterns(String externs, String js, DiagnosticType diagnosticType) {
+    testTypesWithExterns(externs, js, diagnosticType, false);
   }
 
   protected void testTypesWithExterns(String externs, String js) {
@@ -237,6 +265,7 @@ abstract class TypeCheckTestCase extends CompilerTypeTestCase {
         ImmutableList.of(SourceFile.fromCode("[testcode]", js)),
         compiler.getOptions());
     compiler.setFeatureSet(compiler.getFeatureSet().without(Feature.MODULES));
+    compiler.getOptions().setClosurePass(runClosurePass);
 
     Node jsNode = IR.root(compiler.getInput(new InputId("[testcode]")).getAstRoot(compiler));
     Node externsNode = IR.root(compiler.getInput(new InputId("[externs]")).getAstRoot(compiler));
@@ -244,12 +273,14 @@ abstract class TypeCheckTestCase extends CompilerTypeTestCase {
     compiler.jsRoot = jsNode;
     compiler.externsRoot = externsNode;
     compiler.externAndJsRoot = externAndJsRoot;
+    new GatherModuleMetadata(compiler, false, ResolutionMode.BROWSER).process(externsNode, jsNode);
+    new ModuleMapCreator(compiler, compiler.getModuleMetadataMap()).process(externsNode, jsNode);
 
     assertWithMessage("Regarding errors:").that(compiler.getErrors()).isEmpty();
 
     if (compiler.getOptions().needsTranspilationFrom(FeatureSet.ES6)) {
       List<PassFactory> passes = new ArrayList<>();
-      TranspilationPasses.addPreTypecheckTranspilationPasses(passes, compiler.getOptions(), false);
+      TranspilationPasses.addPreTypecheckTranspilationPasses(passes, compiler.getOptions());
       PhaseOptimizer phaseopt = new PhaseOptimizer(compiler, null);
       phaseopt.consume(passes);
       phaseopt.process(externsNode, jsNode);
@@ -259,12 +290,24 @@ abstract class TypeCheckTestCase extends CompilerTypeTestCase {
     return new TypeCheckResult(jsNode.getFirstChild(), s);
   }
 
+  /** @param n A valid statement node, SCRIPT, or ROOT node. */
   protected Node typeCheck(Node n) {
+    Node jsRoot;
+    if (n.isRoot()) {
+      // This is fine as is.
+      jsRoot = n;
+    } else if (n.isScript()) {
+      jsRoot = IR.root(n);
+    } else {
+      Node script = IR.script(n);
+      jsRoot = IR.root(script);
+      script.setInputId(new InputId("test"));
+    }
     Node externsNode = IR.root();
     Node externAndJsRoot = IR.root(externsNode);
-    externAndJsRoot.addChildToBack(n);
+    externAndJsRoot.addChildToBack(jsRoot);
 
-    makeTypeCheck().processForTesting(null, n);
+    makeTypeCheck().processForTesting(externsNode, externAndJsRoot.getSecondChild());
     return n;
   }
 
@@ -310,15 +353,6 @@ abstract class TypeCheckTestCase extends CompilerTypeTestCase {
   }
 
   private static final Correspondence<JSError, DiagnosticType> DIAGNOSTIC_TYPE_EQUALITY =
-      new Correspondence<JSError, DiagnosticType>() {
-        @Override
-        public boolean compare(JSError error, DiagnosticType type) {
-          return Objects.equals(error.getType(), type);
-        }
-
-        @Override
-        public String toString() {
-          return "has diagnostic type equal to";
-        }
-      };
+      Correspondence.from(
+          (error, type) -> Objects.equals(error.getType(), type), "has diagnostic type equal to");
 }

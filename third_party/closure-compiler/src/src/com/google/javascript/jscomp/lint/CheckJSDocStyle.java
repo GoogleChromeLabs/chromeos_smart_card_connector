@@ -87,20 +87,24 @@ public final class CheckJSDocStyle extends AbstractPostOrderCallback implements 
           "JSC_PREFER_BACKTICKS_TO_AT_SIGN_CODE",
           "Use `some_code` instead of '{'@code some_code'}'.");
 
-  public static final DiagnosticGroup ALL_DIAGNOSTICS =
+  public static final DiagnosticGroup LINT_DIAGNOSTICS =
       new DiagnosticGroup(
           CLASS_DISALLOWED_JSDOC,
           MISSING_JSDOC,
           MISSING_PARAMETER_JSDOC,
           MIXED_PARAM_JSDOC_STYLES,
           MISSING_RETURN_JSDOC,
-          MUST_BE_PRIVATE,
-          MUST_HAVE_TRAILING_UNDERSCORE,
           OPTIONAL_PARAM_NOT_MARKED_OPTIONAL,
           WRONG_NUMBER_OF_PARAMS,
           INCORRECT_PARAM_NAME,
           EXTERNS_FILES_SHOULD_BE_ANNOTATED,
           PREFER_BACKTICKS_TO_AT_SIGN_CODE);
+
+  public static final DiagnosticGroup UNDERSCORE_DIAGNOSTICS =
+      new DiagnosticGroup(MUST_BE_PRIVATE, MUST_HAVE_TRAILING_UNDERSCORE);
+
+  public static final DiagnosticGroup ALL_DIAGNOSTICS =
+      new DiagnosticGroup(LINT_DIAGNOSTICS, UNDERSCORE_DIAGNOSTICS);
 
   private final AbstractCompiler compiler;
 
@@ -166,7 +170,11 @@ public final class CheckJSDocStyle extends AbstractPostOrderCallback implements 
 
     checkForAtSignCodePresence(t, n, jsDoc);
 
-    String name;
+    if (NodeUtil.isEs6ConstructorMemberFunctionDef(n)) {
+      return;
+    }
+
+    final String name;
     if (n.isMemberFunctionDef() || n.isGetterDef() || n.isSetterDef()) {
       name = n.getString();
     } else {
@@ -176,9 +184,6 @@ public final class CheckJSDocStyle extends AbstractPostOrderCallback implements 
         return;
       }
       name = lhs.getLastChild().getString();
-    }
-    if (name.equals("constructor")) {
-      return;
     }
 
     if (jsDoc != null && name != null) {
@@ -225,12 +230,8 @@ public final class CheckJSDocStyle extends AbstractPostOrderCallback implements 
   }
 
   private void checkMissingJsDoc(NodeTraversal t, Node function) {
-    if (isFunctionThatShouldHaveJsDoc(t, function)) {
-      String name = NodeUtil.getName(function);
-      // Don't warn for test functions, setUp, tearDown, etc.
-      if (name == null || !ExportTestFunctions.isTestFunction(name)) {
-        t.report(function, MISSING_JSDOC);
-      }
+    if (isFunctionThatShouldHaveJsDoc(t, function) && !isTestMethod(function)) {
+      t.report(function, MISSING_JSDOC);
     }
   }
 
@@ -240,6 +241,7 @@ public final class CheckJSDocStyle extends AbstractPostOrderCallback implements 
    */
   private boolean isFunctionThatShouldHaveJsDoc(NodeTraversal t, Node function) {
     if (!(t.inGlobalHoistScope() || t.inModuleScope())) {
+      // TODO(b/233631820): this should check for the module hoist scope instead
       return false;
     }
     if (NodeUtil.isFunctionDeclaration(function)) {
@@ -271,8 +273,15 @@ public final class CheckJSDocStyle extends AbstractPostOrderCallback implements 
     return false;
   }
 
+  /** Whether this is a test method (test* or setup/teardown) that does not require JSDoc */
+  private boolean isTestMethod(Node function) {
+    Node bestLValue = NodeUtil.getBestLValue(function);
+    String name = bestLValue != null ? NodeUtil.getBestLValueName(bestLValue) : null;
+    return name != null && ExportTestFunctions.isTestFunction(name);
+  }
+
   private boolean isConstructorWithoutParameters(Node function) {
-    return function.getParent().matchesQualifiedName("constructor")
+    return NodeUtil.isEs6Constructor(function)
         && !NodeUtil.getFunctionParameters(function).hasChildren();
   }
 
@@ -395,8 +404,7 @@ public final class CheckJSDocStyle extends AbstractPostOrderCallback implements 
       return;
     }
 
-    Node parent = function.getParent();
-    if (parent.isMemberFunctionDef() && parent.getString().equals("constructor")) {
+    if (NodeUtil.isEs6Constructor(function)) {
       // ES6 class constructors should never have "@return".
       return;
     }

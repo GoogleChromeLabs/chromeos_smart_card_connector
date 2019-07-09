@@ -191,11 +191,11 @@ class FindExportableNodes extends AbstractPostOrderCallback {
       // If we cleanup the code base in the future, we can warn again.
       else if (!(n.isGetProp() && parent.isExprResult())) {
         // Don't produce extra warnings for functions values of object literals
-        if (!n.isFunction() || !NodeUtil.isObjectLitKey(parent)) {
+        if (!n.isFunction() || !NodeUtil.mayBeObjectLitKey(parent)) {
           if (allowLocalExports) {
-            compiler.report(t.makeError(n, EXPORT_ANNOTATION_NOT_ALLOWED));
+            compiler.report(JSError.make(n, EXPORT_ANNOTATION_NOT_ALLOWED));
           } else {
-            compiler.report(t.makeError(n, NON_GLOBAL_ERROR));
+            compiler.report(JSError.make(n, NON_GLOBAL_ERROR));
           }
         }
       }

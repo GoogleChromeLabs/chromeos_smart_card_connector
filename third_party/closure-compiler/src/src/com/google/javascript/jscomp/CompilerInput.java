@@ -32,6 +32,7 @@ import com.google.javascript.jscomp.deps.ModuleLoader.ModulePath;
 import com.google.javascript.jscomp.deps.SimpleDependencyInfo;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.rhino.InputId;
+import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
 import java.io.IOException;
@@ -190,6 +191,16 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
     return getDependencyInfo().getProvides();
   }
 
+  @Override
+  public boolean getHasExternsAnnotation() {
+    return getDependencyInfo().getHasExternsAnnotation();
+  }
+
+  @Override
+  public boolean getHasNoCompileAnnotation() {
+    return getDependencyInfo().getHasNoCompileAnnotation();
+  }
+
   /**
    * Gets a list of types provided, but does not attempt to
    * regenerate the dependency information. Typically this occurs
@@ -257,10 +268,8 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
     extraRequires.add(require);
   }
 
-  /**
-   * Returns the DependencyInfo object, generating it lazily if necessary.
-   */
-  private DependencyInfo getDependencyInfo() {
+  /** Returns the DependencyInfo object, generating it lazily if necessary. */
+  DependencyInfo getDependencyInfo() {
     if (dependencyInfo == null) {
       dependencyInfo = generateDependencyInfo();
     }
@@ -271,6 +280,8 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
               .setRequires(concat(dependencyInfo.getRequires(), extraRequires))
               .setTypeRequires(dependencyInfo.getTypeRequires())
               .setLoadFlags(dependencyInfo.getLoadFlags())
+              .setHasExternsAnnotation(dependencyInfo.getHasExternsAnnotation())
+              .setHasNoCompileAnnotation(dependencyInfo.getHasNoCompileAnnotation())
               .build();
       extraRequires.clear();
       extraProvides.clear();
@@ -319,6 +330,7 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
       }
 
       finder.visitTree(root);
+      JSDocInfo info = root.getJSDocInfo();
 
       // TODO(nicksantos|user): This caching behavior is a bit
       // odd, and only works if you assume the exact call flow that
@@ -335,6 +347,8 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
           .setRequires(finder.requires)
           .setTypeRequires(finder.typeRequires)
           .setLoadFlags(finder.loadFlags)
+          .setHasExternsAnnotation(info != null && info.isExterns())
+          .setHasNoCompileAnnotation(info != null && info.isNoCompile())
           .build();
     }
   }
@@ -412,8 +426,7 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
             }
           } else if (parent.isGetProp()
               // TODO(johnplaisted): Consolidate on declareModuleId
-              && (parent.matchesQualifiedName("goog.module.declareNamespace")
-                  || parent.matchesQualifiedName("goog.declareModuleId"))
+              && parent.matchesQualifiedName("goog.declareModuleId")
               && parent.getParent().isCall()) {
             Node argument = parent.getParent().getSecondChild();
             if (!argument.isString()) {
@@ -549,7 +562,7 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
     return ImmutableSet.<T>builder().addAll(first).addAll(second).build();
   }
 
-  ModulePath getPath() {
+  public ModulePath getPath() {
     if (modulePath == null) {
       ModuleLoader moduleLoader = compiler.getModuleLoader();
       this.modulePath = moduleLoader.resolve(getName());

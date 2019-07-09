@@ -25,12 +25,18 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class CoverageInstrumentationPassTest {
 
-  private CompilerOptions options(LanguageMode inMode) {
+  private CompilerOptions options(LanguageMode inMode, LanguageMode outMode, boolean coverageOnly) {
     CompilerOptions options = GoldenFileComparer.options();
     options.setInstrumentForCoverage(true);
+    options.setInstrumentForCoverageOnly(coverageOnly);
     options.setLanguageIn(inMode);
-    options.setLanguageOut(LanguageMode.ECMASCRIPT5);
+    options.setLanguageOut(outMode);
+    options.setWarningLevel(DiagnosticGroups.MODULE_LOAD, CheckLevel.OFF);
     return options;
+  }
+
+  private CompilerOptions options(LanguageMode inMode) {
+    return options(inMode, LanguageMode.ECMASCRIPT5, /* coverageOnly= */ false);
   }
 
   private CompilerOptions branchOptions(LanguageMode inMode) {
@@ -152,4 +158,12 @@ public final class CoverageInstrumentationPassTest {
     compareWhileLoopBranch(LanguageMode.ECMASCRIPT_2015);
   }
 
+  @Test
+  public void testEsModule() throws Exception {
+    GoldenFileComparer.compileAndCompare(
+        "CoverageInstrumentationPassTest/EsModuleGolden.jsdata",
+        options(
+            LanguageMode.ECMASCRIPT_NEXT, LanguageMode.ECMASCRIPT_NEXT, /* coverageOnly= */ true),
+        "CoverageInstrumentationPassTest/EsModule.jsdata");
+  }
 }

@@ -32,16 +32,16 @@
 DOMException.prototype.code;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-258A00AF
  */
-DOMException.VALIDATION_ERR = 16;
+DOMException.VALIDATION_ERR;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-258A00AF
  */
-DOMException.TYPE_MISMATCH_ERR = 17;
+DOMException.TYPE_MISMATCH_ERR;
 
 /**
  * @constructor
@@ -286,40 +286,40 @@ Node.prototype.prefix;
 Node.prototype.textContent;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Node-DOCUMENT_POSITION_DISCONNECTED
  */
-Node.DOCUMENT_POSITION_DISCONNECTED = 0x01;
+Node.DOCUMENT_POSITION_DISCONNECTED;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Node-DOCUMENT_POSITION_PRECEDING
  */
-Node.DOCUMENT_POSITION_PRECEDING    = 0x02;
+Node.DOCUMENT_POSITION_PRECEDING;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Node-DOCUMENT_POSITION_FOLLOWING
  */
-Node.DOCUMENT_POSITION_FOLLOWING    = 0x04;
+Node.DOCUMENT_POSITION_FOLLOWING;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Node-DOCUMENT_POSITION_CONTAINS
  */
-Node.DOCUMENT_POSITION_CONTAINS     = 0x08;
+Node.DOCUMENT_POSITION_CONTAINS;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Node-DOCUMENT_POSITION_CONTAINED_BY
  */
-Node.DOCUMENT_POSITION_CONTAINED_BY = 0x10;
+Node.DOCUMENT_POSITION_CONTAINED_BY;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Node-DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC
  */
-Node.DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20;
+Node.DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC;
 
 /**
  * @param {Node} other
@@ -565,25 +565,25 @@ Text.prototype.wholeText;
 function TypeInfo() {}
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo-DERIVATION_EXTENSION
  */
 TypeInfo.prototype.DERIVATION_EXTENSION;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo-DERIVATION_LIST
  */
 TypeInfo.prototype.DERIVATION_LIST;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo-DERIVATION_RESTRICTION
  */
 TypeInfo.prototype.DERIVATION_RESTRICTION;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo-DERIVATION_UNION
  */
 TypeInfo.prototype.DERIVATION_UNION;
@@ -617,34 +617,34 @@ TypeInfo.prototype.isDerivedFrom = function(typeNamespaceArg, typeNameArg, deriv
 function UserDataHandler() {}
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#UserDataHandler-CLONED
  */
-UserDataHandler.prototype.NODE_CLONED = 1;
+UserDataHandler.prototype.NODE_CLONED;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#UserDataHandler-IMPORTED
  */
-UserDataHandler.prototype.NODE_IMPORTED = 2;
+UserDataHandler.prototype.NODE_IMPORTED;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#UserDataHandler-DELETED
  */
-UserDataHandler.prototype.NODE_DELETED = 3;
+UserDataHandler.prototype.NODE_DELETED;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#UserDataHandler-RENAMED
  */
-UserDataHandler.prototype.NODE_RENAMED = 4;
+UserDataHandler.prototype.NODE_RENAMED;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#UserDataHandler-ADOPTED
  */
-UserDataHandler.prototype.NODE_ADOPTED = 5;
+UserDataHandler.prototype.NODE_ADOPTED;
 
 /**
  * @param {number} operation
@@ -689,22 +689,22 @@ DOMError.prototype.relatedData;
 DOMError.prototype.relatedException;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ERROR-DOMError-severity-warning
  */
-DOMError.SEVERITY_WARNING = 1;
+DOMError.SEVERITY_WARNING;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ERROR-DOMError-severity-error
  */
-DOMError.SEVERITY_ERROR = 2;
+DOMError.SEVERITY_ERROR;
 
 /**
- * @type {number}
+ * @const {number}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ERROR-DOMError-severity-fatal-error
  */
-DOMError.SEVERITY_FATAL_ERROR = 3;
+DOMError.SEVERITY_FATAL_ERROR;
 
 /**
  * @type {number}

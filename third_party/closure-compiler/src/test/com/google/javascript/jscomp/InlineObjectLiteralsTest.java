@@ -40,6 +40,12 @@ public final class InlineObjectLiteralsTest extends CompilerTestCase {
   }
 
   @Override
+  protected int getNumRepetitions() {
+    // TODO(b/33104006): remove this override.
+    return 2;
+  }
+
+  @Override
   protected CompilerPass getProcessor(final Compiler compiler) {
     return new InlineObjectLiterals(
         compiler,
@@ -579,6 +585,23 @@ public final class InlineObjectLiteralsTest extends CompilerTestCase {
     testSameLocal("var obj = {'a.b.c': 'd'}; use(obj['a.b.c']);");
 
     testSameLocal("var obj = {}; obj['a'] = 3; use(obj['a']);");
+  }
+
+  @Test
+  public void testObjectSpread_readingFromSpreadAssignment() {
+    testSameLocal(
+        lines(
+            "var obj = {...foo};", //
+            "use(obj.bar);"));
+  }
+
+  @Test
+  public void testObjectSpread_readingFromOverwrittenProp() {
+    testSameLocal(
+        lines(
+            "var foo = {prop: 7};",
+            "var obj = {prop: 6, ...foo};", //
+            "use(obj.prop);"));
   }
 
   private static final String LOCAL_PREFIX = "function local(){";

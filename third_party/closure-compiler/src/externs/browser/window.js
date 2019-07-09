@@ -26,105 +26,60 @@
 // should be used with an explicit Window object.
 
 /**
- * @type {!Window}
+ * @const {!Window}
  * @see https://developer.mozilla.org/en/DOM/window.top
- * @const
  */
 var top;
 
 /**
- * @type {!Navigator}
+ * @const {!Navigator}
  * @see https://developer.mozilla.org/en/DOM/window.navigator
- * @const
  */
 var navigator;
 
 /**
- * @type {!HTMLDocument}
+ * @const {!HTMLDocument}
  * @see https://developer.mozilla.org/en/DOM/window.document
- * @const
  */
 var document;
 
 /**
- * @type {!Location}
+ * @const {!Location}
  * @see https://developer.mozilla.org/en/DOM/window.location
- * @const
  * @suppress {duplicate}
  * @implicitCast
  */
 var location;
 
 /**
- * @type {!Screen}
+ * @const {!Screen}
  * @see https://developer.mozilla.org/En/DOM/window.screen
- * @const
  */
 var screen;
 
 /**
- * @type {!Window}
+ * @const {!Window}
  * @see https://developer.mozilla.org/En/DOM/Window.self
- * @const
  */
 var self;
 
 /**
- * @type {boolean}
+ * @type {!Window}
+ * @see https://developer.mozilla.org/en/DOM/window
+ */
+var window;
+
+/**
+ * @const {boolean}
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Window/isSecureContext
- * @const
  */
 var isSecureContext;
 
 /**
- * @type {!VisualViewport}
+ * @const {!VisualViewport}
  * @see https://developer.mozilla.org/en-US/docs/Web/API/Window/visualViewport
- * @const
  */
 var visualViewport;
-
-// Magic functions for Firefox's LiveConnect.
-// We'll probably never use these in practice. But redefining them
-// will fire up the JVM, so we want to reserve the symbol names.
-
-/**
- * @see https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/JavaArray
- */
-var JavaArray;
-
-/**
- * @see https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/JavaClass
- */
-var JavaClass;
-
-// We just ripped this from the FF source; it doesn't appear to be
-// publicly documented.
-var JavaMember;
-
-/**
- * @see https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/JavaObject
- */
-var JavaObject;
-
-/**
- * @see https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/JavaPackage
- */
-var JavaPackage;
-
-/**
- * @see https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/Packages
- */
-var Packages;
-
-/**
- * @see https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/java
- */
-var java;
-
-/**
- * @see https://developer.mozilla.org/en/Core_JavaScript_1.5_Reference/Global_Objects/netscape
- */
-var netscape;
 
 /**
  * @param {*} message
@@ -134,7 +89,7 @@ var netscape;
 function alert(message) {}
 
 /**
- * @param {number|undefined|null} immediateID
+ * @param {number=} immediateID
  * @see https://developer.mozilla.org/en-US/docs/DOM/window.clearImmediate
  * @see http://msdn.microsoft.com/en-us/library/ie/hh924825(v=vs.85).aspx
  * @return {undefined}
@@ -142,7 +97,7 @@ function alert(message) {}
 function clearImmediate(immediateID) {}
 
 /**
- * @param {number|undefined?} intervalID
+ * @param {?number|undefined} intervalID
  * @see https://developer.mozilla.org/en/DOM/window.clearInterval
  * @suppress {duplicate}
  * @return {undefined}
@@ -150,7 +105,7 @@ function clearImmediate(immediateID) {}
 function clearInterval(intervalID) {}
 
 /**
- * @param {number|undefined?} timeoutID
+ * @param {?number|undefined} timeoutID
  * @see https://developer.mozilla.org/en/DOM/window.clearTimeout
  * @suppress {duplicate}
  * @return {undefined}
@@ -181,32 +136,32 @@ function prompt(message, opt_value) {}
 
 /**
  * @param {function()} callback
- * @param {...?} var_args
+ * @param {...?} callbackParams
  * @return {number}
  * @see https://developer.mozilla.org/en-US/docs/DOM/window.setImmediate
  * @see http://msdn.microsoft.com/en-us/library/ie/hh773176(v=vs.85).aspx
  */
-function setImmediate(callback, var_args) {}
+function setImmediate(callback, callbackParams) {}
 
 /**
- * @param {Function|string} callback
+ * @param {Function|!TrustedScript|string} callback
  * @param {number=} opt_delay
- * @param {...?} var_args
+ * @param {...?} callbackParams
  * @return {number}
  * @see https://developer.mozilla.org/en/DOM/window.setInterval
  * @see https://html.spec.whatwg.org/multipage/webappapis.html#timers
  */
-function setInterval(callback, opt_delay, var_args) {}
+function setInterval(callback, opt_delay, callbackParams) {}
 
 /**
- * @param {Function|string} callback
+ * @param {Function|!TrustedScript|string} callback
  * @param {number=} opt_delay
- * @param {...*} var_args
+ * @param {...*} callbackParams
  * @return {number}
  * @see https://developer.mozilla.org/en/DOM/window.setTimeout
  * @see https://html.spec.whatwg.org/multipage/webappapis.html#timers
  */
-function setTimeout(callback, opt_delay, var_args) {}
+function setTimeout(callback, opt_delay, callbackParams) {}
 
 /**
  * Returns whether the object has a property with the specified name.

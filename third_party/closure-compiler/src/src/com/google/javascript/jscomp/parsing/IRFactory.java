@@ -73,6 +73,7 @@ import com.google.javascript.jscomp.parsing.parser.trees.DebuggerStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.DefaultClauseTree;
 import com.google.javascript.jscomp.parsing.parser.trees.DefaultParameterTree;
 import com.google.javascript.jscomp.parsing.parser.trees.DoWhileStatementTree;
+import com.google.javascript.jscomp.parsing.parser.trees.DynamicImportTree;
 import com.google.javascript.jscomp.parsing.parser.trees.EmptyStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.EnumDeclarationTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ExportDeclarationTree;
@@ -813,10 +814,16 @@ class IRFactory {
   }
 
   String languageFeatureWarningMessage(Feature feature) {
-    return "This language feature is only supported for "
-              + LanguageMode.minimumRequiredFor(feature)
-              + " mode or better: "
-              + feature;
+    LanguageMode forFeature = LanguageMode.minimumRequiredFor(feature);
+
+    if (forFeature == LanguageMode.UNSUPPORTED) {
+      return "This language feature is not currently supported by the compiler: " + feature;
+    } else {
+      return "This language feature is only supported for "
+          + LanguageMode.minimumRequiredFor(feature)
+          + " mode or better: "
+          + feature;
+    }
   }
 
   void maybeWarnForFeature(ParseTree node, Feature feature) {
@@ -1607,14 +1614,16 @@ class IRFactory {
 
     Node processLabeledStatement(LabelledStatementTree labelTree) {
       Node statement = transform(labelTree.statement);
-      if (statement.isFunction()) {
+      if (statement.isFunction()
+          || statement.isClass()
+          || statement.isLet()
+          || statement.isConst()) {
         errorReporter.error(
-            "Functions can only be declared at top level or inside a block.",
-            sourceName, lineno(labelTree), charno(labelTree));
-      } else if (statement.isClass()) {
-        errorReporter.error(
-            "Classes can only be declared at top level or inside a block.",
-            sourceName, lineno(labelTree), charno(labelTree));
+            "Lexical declarations are only allowed at top level or inside a block.",
+            sourceName,
+            lineno(labelTree),
+            charno(labelTree));
+        return statement; // drop the LABEL node so that the resulting AST is valid
       }
       return newNode(Token.LABEL,
           transformLabelName(labelTree.name),
@@ -2097,6 +2106,10 @@ class IRFactory {
     }
 
     Node processCatchClause(CatchTree clauseNode) {
+      if (clauseNode.exception.type == ParseTreeType.EMPTY_STATEMENT) {
+        maybeWarnForFeature(clauseNode, Feature.OPTIONAL_CATCH_BINDING);
+      }
+
       return newNode(Token.CATCH,
           transform(clauseNode.exception),
           transformBlock(clauseNode.catchBody));
@@ -2311,17 +2324,41 @@ class IRFactory {
 
       Node body = newNode(Token.CLASS_MEMBERS);
       setSourceInfo(body, tree);
+
+      boolean hasConstructor = false;
       for (ParseTree child : tree.elements) {
-        if (child.type == ParseTreeType.MEMBER_VARIABLE
-            || child.type == ParseTreeType.COMPUTED_PROPERTY_MEMBER_VARIABLE) {
-          maybeWarnTypeSyntax(child, Feature.MEMBER_VARIABLE_IN_CLASS);
+        switch (child.type) {
+          case MEMBER_VARIABLE:
+          case COMPUTED_PROPERTY_MEMBER_VARIABLE:
+            maybeWarnTypeSyntax(child, Feature.MEMBER_VARIABLE_IN_CLASS);
+            break;
+          default:
+            break;
         }
-        if (child.type == ParseTreeType.COMPUTED_PROPERTY_GETTER
-            || child.type == ParseTreeType.COMPUTED_PROPERTY_SETTER
-            || child.type == ParseTreeType.GET_ACCESSOR
-            || child.type == ParseTreeType.SET_ACCESSOR) {
-          features = features.with(Feature.CLASS_GETTER_SETTER);
+
+        switch (child.type) {
+          case COMPUTED_PROPERTY_GETTER:
+          case COMPUTED_PROPERTY_SETTER:
+          case GET_ACCESSOR:
+          case SET_ACCESSOR:
+            features = features.with(Feature.CLASS_GETTER_SETTER);
+            break;
+          default:
+            break;
         }
+
+        boolean childIsCtor = validateClassConstructorMember(child); // Has side-effects.
+        if (childIsCtor) {
+          if (hasConstructor) {
+            errorReporter.error(
+                "Class may have only one constructor.", //
+                sourceName,
+                lineno(child),
+                charno(child));
+          }
+          hasConstructor = true;
+        }
+
         body.addChildToBack(transform(child));
       }
 
@@ -2331,6 +2368,63 @@ class IRFactory {
         classNode.putProp(Node.IMPLEMENTS, interfaces);
       }
       return classNode;
+    }
+
+    /** Returns {@code true} iff this member is a legal class constructor. */
+    private boolean validateClassConstructorMember(ParseTree member) {
+      final com.google.javascript.jscomp.parsing.parser.Token memberName;
+      final boolean isStatic;
+      final boolean hasIllegalModifier;
+      switch (member.type) {
+        case GET_ACCESSOR:
+          GetAccessorTree getter = member.asGetAccessor();
+          memberName = getter.propertyName;
+          isStatic = getter.isStatic;
+          hasIllegalModifier = true;
+          break;
+
+        case SET_ACCESSOR:
+          SetAccessorTree setter = member.asSetAccessor();
+          memberName = setter.propertyName;
+          isStatic = setter.isStatic;
+          hasIllegalModifier = true;
+          break;
+
+        case FUNCTION_DECLARATION:
+          FunctionDeclarationTree method = member.asFunctionDeclaration();
+          memberName = method.name;
+          isStatic = method.isStatic;
+          hasIllegalModifier = method.isGenerator || method.isAsync;
+          break;
+
+        default:
+          // Computed properties aren't an issue here because they aren't used as the class
+          // constructor, regardless of their name.
+          return false;
+      }
+
+      if (isStatic) {
+        // Statics are fine because they're never the class constructor.
+        return false;
+      }
+
+      if (!memberName.type.equals(TokenType.IDENTIFIER)
+          || !memberName.asIdentifier().value.equals("constructor")) {
+        // There's only a potential issue if the member is named "constructor".
+        // TODO(b/123769080): Also check for quoted string literals with the value "constructor".
+        return false;
+      }
+
+      if (hasIllegalModifier) {
+        errorReporter.error(
+            "Class constructor may not be getter, setter, async, or generator.",
+            sourceName,
+            lineno(member),
+            charno(member));
+        return false;
+      }
+
+      return true;
     }
 
     Node processInterfaceDeclaration(InterfaceDeclarationTree tree) {
@@ -2476,6 +2570,12 @@ class IRFactory {
         importSpec.addChildToBack(processName(tree.destinationName));
       }
       return importSpec;
+    }
+
+    Node processDynamicImport(DynamicImportTree dynamicImportNode) {
+      maybeWarnForFeature(dynamicImportNode, Feature.DYNAMIC_IMPORT);
+      Node argument = transform(dynamicImportNode.argument);
+      return newNode(Token.DYNAMIC_IMPORT, argument);
     }
 
     Node processTypeName(TypeNameTree tree) {
@@ -2987,6 +3087,8 @@ class IRFactory {
           return processImportDecl(node.asImportDeclaration());
         case IMPORT_SPECIFIER:
           return processImportSpec(node.asImportSpecifier());
+        case DYNAMIC_IMPORT_EXPRESSION:
+          return processDynamicImport(node.asDynamicImportExpression());
 
         case ARRAY_PATTERN:
           return processArrayPattern(node.asArrayPattern());

@@ -29,7 +29,8 @@ public final class PassNames {
   public static final String BEFORE_STANDARD_OPTIMIZATIONS = "beforeStandardOptimizations";
   public static final String BEFORE_MAIN_OPTIMIZATIONS = "beforeMainOptimizations";
   public static final String BEFORE_TYPE_CHECKING = "beforeTypeChecking";
-  public static final String BEFORE_ES_2017_TRANSPILATION = "beforeES2017Transpilation";
+  public static final String BEFORE_PRE_TYPECHECK_TRANSPILATION = "beforePreTypeCheckTranspilation";
+  public static final String BEFORE_SERIALIZATION = "beforeSerialization";
   public static final String CHECK_CONST_PARAMS = "checkConstParams";
   public static final String CHECK_REG_EXP = "checkRegExp";
   public static final String CHECK_TYPES = "checkTypes";
@@ -42,12 +43,13 @@ public final class PassNames {
   public static final String COLLAPSE_PROPERTIES = "collapseProperties";
   public static final String COLLAPSE_VARIABLE_DECLARATIONS = "collapseVariableDeclarations";
   public static final String CONVERT_TO_DOTTED_PROPERTIES = "convertToDottedProperties";
+  public static final String CREATE_MODULE_MAP = "createModuleMap";
   public static final String CROSS_CHUNK_CODE_MOTION = "crossChunkCodeMotion";
   public static final String CROSS_CHUNK_METHOD_MOTION = "crossChunkMethodMotion";
   public static final String DEAD_ASSIGNMENT_ELIMINATION = "deadAssignmentsElimination";
   public static final String DECLARED_GLOBAL_EXTERNS_ON_WINDOW = "declaredGlobalExternsOnWindow";
   public static final String DESERIALIZE_COMPILER_STATE = "deserializeCompilerState";
-  public static final String DEVIRTUALIZE_PROTOTYPE_METHODS = "devirtualizePrototypeMethods";
+  public static final String DEVIRTUALIZE_METHODS = "devirtualizeMethods";
   public static final String DISAMBIGUATE_PRIVATE_PROPERTIES = "disambiguatePrivateProperties";
   public static final String DISAMBIGUATE_PROPERTIES = "disambiguateProperties";
   public static final String ES6_EXTRACT_CLASSES = "Es6ExtractClasses";
@@ -69,7 +71,6 @@ public final class PassNames {
   public static final String INLINE_TYPE_ALIASES = "inlineTypeAliases";
   public static final String INLINE_VARIABLES = "inlineVariables";
   public static final String LINT_CHECKS = "lintChecks";
-  public static final String MARK_NO_SIDE_EFFECT_CALLS = "markNoSideEffectCalls";
   public static final String MOVE_FUNCTION_DECLARATIONS = "moveFunctionDeclarations";
   public static final String NAME_ANONYMOUS_FUNCTIONS = "nameAnonymousFunctions";
   public static final String NORMALIZE = "normalize";

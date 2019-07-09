@@ -68,7 +68,7 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, HotSwapC
         break;
       case FUNCTION:
         if (!n.isArrowFunction()) {
-          contextStack.push(contextForFunction(n, parent));
+          contextStack.push(contextForFunction(n));
         }
         break;
       case SUPER:
@@ -131,7 +131,7 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, HotSwapC
     if (context.needsThisVar) {
       Node name = IR.name(THIS_VAR).setJSType(context.getThisType());
       Node thisVar = IR.constNode(name, IR.thisNode().setJSType(context.getThisType()));
-      NodeUtil.addFeatureToScript(t.getCurrentFile(), Feature.CONST_DECLARATIONS);
+      NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS);
       thisVar.useSourceInfoIfMissingFromForTree(scopeBody);
       makeTreeNonIndexable(thisVar);
 
@@ -150,7 +150,7 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, HotSwapC
       Node name = IR.name(ARGUMENTS_VAR).setJSType(context.getArgumentsType());
       Node argumentsVar =
           IR.constNode(name, IR.name("arguments").setJSType(context.getArgumentsType()));
-      NodeUtil.addFeatureToScript(t.getCurrentFile(), Feature.CONST_DECLARATIONS);
+      NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS);
       scopeBody.addChildToFront(argumentsVar);
 
       JSDocInfoBuilder jsdoc = new JSDocInfoBuilder(false);
@@ -223,11 +223,9 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, HotSwapC
     }
   }
 
-  private ThisAndArgumentsContext contextForFunction(Node functionNode, Node functionParent) {
+  private ThisAndArgumentsContext contextForFunction(Node functionNode) {
     Node scopeBody = functionNode.getLastChild();
-    boolean isConstructor =
-        functionParent.isMemberFunctionDef() && functionParent.getString().equals("constructor");
-    return new ThisAndArgumentsContext(scopeBody, isConstructor);
+    return new ThisAndArgumentsContext(scopeBody, NodeUtil.isEs6Constructor(functionNode));
   }
 
   private ThisAndArgumentsContext contextForScript(Node scriptNode) {

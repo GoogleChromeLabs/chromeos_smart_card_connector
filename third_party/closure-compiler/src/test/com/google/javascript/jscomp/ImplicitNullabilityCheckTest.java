@@ -37,11 +37,6 @@ public final class ImplicitNullabilityCheckTest extends CompilerTestCase {
   }
 
   @Override
-  protected int getNumRepetitions() {
-    return 1;
-  }
-
-  @Override
   @Before
   public void setUp() throws Exception {
     super.setUp();
@@ -119,6 +114,11 @@ public final class ImplicitNullabilityCheckTest extends CompilerTestCase {
   public void testThrowsDoesntWarn() {
     noWarning("/** @throws {Error} */ function f() {}");
     noWarning("/** @throws {TypeError}\n * @throws {SyntaxError} */ function f() {}");
+  }
+
+  @Test
+  public void testTypeofDoesntWarn() {
+    noWarning("/** @type {typeof Object} */ var x;");
   }
 
   @Test

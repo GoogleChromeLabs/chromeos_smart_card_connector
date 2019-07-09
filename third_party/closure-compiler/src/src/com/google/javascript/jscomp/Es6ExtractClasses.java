@@ -63,12 +63,13 @@ public final class Es6ExtractClasses
   Es6ExtractClasses(AbstractCompiler compiler) {
     this.compiler = compiler;
     Set<String> consts = new HashSet<>();
-    this.expressionDecomposer = new ExpressionDecomposer(
-        compiler,
-        compiler.getUniqueNameIdSupplier(),
-        consts,
-        Scope.createGlobalScope(new Node(Token.SCRIPT)),
-        compiler.getOptions().allowMethodCallDecomposing());
+    this.expressionDecomposer =
+        new ExpressionDecomposer(
+            compiler,
+            compiler.getUniqueNameIdSupplier(),
+            consts,
+            Scope.createGlobalScope(new Node(Token.SCRIPT)),
+            /* allowMethodCallDecomposing = */ true);
   }
 
   @Override
@@ -87,8 +88,8 @@ public final class Es6ExtractClasses
 
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
-    if (n.isClass() && shouldExtractClass(n, parent)) {
-      extractClass(t, n, parent);
+    if (n.isClass() && shouldExtractClass(n)) {
+      extractClass(t, n);
     }
   }
 
@@ -154,7 +155,8 @@ public final class Es6ExtractClasses
     }
   }
 
-  private boolean shouldExtractClass(Node classNode, Node parent) {
+  private boolean shouldExtractClass(Node classNode) {
+    Node parent = classNode.getParent();
     boolean isAnonymous = classNode.getFirstChild().isEmpty();
     if (NodeUtil.isClassDeclaration(classNode)
         || (isAnonymous && parent.isName())
@@ -166,12 +168,7 @@ public final class Es6ExtractClasses
       return false;
     }
 
-    if (NodeUtil.mayHaveSideEffects(classNode, compiler)
-        // Don't extract the class if it's not safe to do so. For example,
-        // var c = maybeTrue() && class extends someSideEffect() {};
-        // TODO(brndn): it is possible to be less conservative. If the classNode is DECOMPOSABLE,
-        // we could use the expression decomposer to move it out of the way.
-        || expressionDecomposer.canExposeExpression(classNode) != DecompositionType.MOVABLE) {
+    if (expressionDecomposer.canExposeExpression(classNode) == DecompositionType.UNDECOMPOSABLE) {
       compiler.report(
           JSError.make(classNode, CANNOT_CONVERT, "class expression that cannot be extracted"));
       return false;
@@ -180,7 +177,12 @@ public final class Es6ExtractClasses
     return true;
   }
 
-  private void extractClass(NodeTraversal t, Node classNode, Node parent) {
+  private void extractClass(NodeTraversal t, Node classNode) {
+    if (expressionDecomposer.canExposeExpression(classNode) == DecompositionType.DECOMPOSABLE) {
+      expressionDecomposer.exposeExpression(classNode);
+    }
+    Node parent = classNode.getParent();
+
     String name = ModuleNames.fileToJsIdentifier(classNode.getStaticSourceFile().getName())
         + CLASS_DECL_VAR
         + (classDeclVarCounter++);
@@ -196,7 +198,7 @@ public final class Es6ExtractClasses
     parent.replaceChild(classNode, classNameRhs);
     Node classDeclaration =
         IR.constNode(classNameLhs, classNode).useSourceInfoIfMissingFromForTree(classNode);
-    NodeUtil.addFeatureToScript(t.getCurrentFile(), Feature.CONST_DECLARATIONS);
+    NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS);
     classDeclaration.setJSDocInfo(JSDocInfoBuilder.maybeCopyFrom(info).build());
     statement.getParent().addChildBefore(classDeclaration, statement);
 

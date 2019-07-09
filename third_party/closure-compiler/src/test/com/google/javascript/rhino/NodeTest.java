@@ -41,7 +41,6 @@ package com.google.javascript.rhino;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
-import com.google.javascript.rhino.Node.NodeMismatch;
 import com.google.javascript.rhino.jstype.JSTypeNative;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.testing.TestErrorReporter;
@@ -71,49 +70,6 @@ public class NodeTest {
     int linecharno = Node.mergeLineCharNo(89, 4096);
     assertThat(Node.extractLineno(linecharno)).isEqualTo(89);
     assertThat(Node.extractCharno(linecharno)).isEqualTo(4095);
-  }
-
-  @Test
-  public void testCheckTreeEqualsImplSame() {
-    Node node1 = new Node(Token.LET, new Node(Token.VAR));
-    Node node2 = new Node(Token.LET, new Node(Token.VAR));
-    assertThat(node1.checkTreeEqualsImpl(node2)).isNull();
-  }
-
-  @Test
-  public void testCheckTreeEqualsImplDifferentType() {
-    Node node1 = new Node(Token.LET, new Node(Token.VAR));
-    Node node2 = new Node(Token.VAR, new Node(Token.VAR));
-    assertThat(node1.checkTreeEqualsImpl(node2)).isEqualTo(new NodeMismatch(node1, node2));
-  }
-
-  @Test
-  public void testCheckTreeEqualsImplDifferentChildCount() {
-    Node node1 = new Node(Token.LET, new Node(Token.VAR));
-    Node node2 = new Node(Token.LET);
-    assertThat(node1.checkTreeEqualsImpl(node2)).isEqualTo(new NodeMismatch(node1, node2));
-  }
-
-  @Test
-  public void testCheckTreeEqualsImplDifferentChild() {
-    Node child1 = new Node(Token.LET);
-    Node child2 = new Node(Token.VAR);
-    Node node1 = new Node(Token.LET, child1);
-    Node node2 = new Node(Token.LET, child2);
-    assertThat(node1.checkTreeEqualsImpl(node2)).isEqualTo(new NodeMismatch(child1, child2));
-  }
-
-  @Test
-  public void testCheckTreeEqualsSame() {
-    Node node1 = new Node(Token.LET);
-    assertThat(node1.checkTreeEquals(node1)).isNull();
-  }
-
-  @Test
-  public void testCheckTreeEqualsStringDifferent() {
-    Node node1 = new Node(Token.ADD);
-    Node node2 = new Node(Token.SUB);
-    assertThat(node1.checkTreeEquals(node2)).isNotNull();
   }
 
   @Test
@@ -160,32 +116,24 @@ public class NodeTest {
   }
 
   @Test
-  public void testCheckTreeEqualsBooleanSame() {
+  public void testIsEquivalentTo_withBoolean_isSame() {
     Node node1 = new Node(Token.LET);
     assertThat(node1.isEquivalentTo(node1)).isTrue();
   }
 
   @Test
-  public void testCheckTreeEqualsBooleanDifferent() {
+  public void testIsEquivalentTo_withBoolean_isDifferent() {
     Node node1 = new Node(Token.LET);
     Node node2 = new Node(Token.VAR);
     assertThat(node1.isEquivalentTo(node2)).isFalse();
   }
 
   @Test
-  public void testCheckTreeEqualsSlashVDifferent() {
+  public void testIsEquivalentTo_withSlashV_isDifferent() {
     Node node1 = Node.newString("\u000B");
     node1.putBooleanProp(Node.SLASH_V, true);
     Node node2 = Node.newString("\u000B");
     assertThat(node1.isEquivalentTo(node2)).isFalse();
-  }
-
-  @Test
-  public void testCheckTreeEqualsImplDifferentIncProp() {
-    Node node1 = new Node(Token.INC);
-    node1.putBooleanProp(Node.INCRDECR_PROP, true);
-    Node node2 = new Node(Token.INC);
-    assertThat(node1.checkTreeEqualsImpl(node2)).isNotNull();
   }
 
   @Test
@@ -283,16 +231,10 @@ public class NodeTest {
   }
 
   @Test
-  public void testMatchesQualifiedNameX() {
-    assertThat(qname("this.b").matchesQualifiedName("this.b")).isTrue();
-  }
-
-  @Test
   public void testMatchesQualifiedName1() {
     assertThat(IR.name("a").matchesQualifiedName("a")).isTrue();
     assertThat(IR.name("a").matchesQualifiedName("ab")).isFalse();
     assertThat(IR.name("a").matchesQualifiedName("a.b")).isFalse();
-    assertThat(IR.name("a").matchesQualifiedName((String) null)).isFalse();
     assertThat(IR.name("a").matchesQualifiedName(".b")).isFalse();
     assertThat(IR.name("a").matchesQualifiedName("a.")).isFalse();
 
@@ -343,7 +285,6 @@ public class NodeTest {
   public void testMatchesQualifiedName2() {
     assertThat(IR.name("a").matchesQualifiedName(qname("a"))).isTrue();
     assertThat(IR.name("a").matchesQualifiedName(qname("a.b"))).isFalse();
-    assertThat(IR.name("a").matchesQualifiedName((Node) null)).isFalse();
 
     assertThat(qname("a.b").matchesQualifiedName(qname("a"))).isFalse();
     assertThat(qname("a.b").matchesQualifiedName(qname("a.b"))).isTrue();
@@ -579,21 +520,21 @@ public class NodeTest {
     // By default the JSDocInfo and JSTypeExpression objects are not cloned
     Node clone = original.cloneTree();
     assertThat(clone.getFirstChild().getJSDocInfo())
-        .isSameAs(original.getFirstChild().getJSDocInfo());
+        .isSameInstanceAs(original.getFirstChild().getJSDocInfo());
     assertThat(clone.getFirstChild().getJSDocInfo().getType())
-        .isSameAs(original.getFirstChild().getJSDocInfo().getType());
+        .isSameInstanceAs(original.getFirstChild().getJSDocInfo().getType());
     assertThat(clone.getFirstChild().getJSDocInfo().getType().getRoot())
-        .isSameAs(original.getFirstChild().getJSDocInfo().getType().getRoot());
+        .isSameInstanceAs(original.getFirstChild().getJSDocInfo().getType().getRoot());
 
     // If requested the JSDocInfo and JSTypeExpression objects are cloned.
     // This is required because compiler classes are modifying the type expressions in place
     clone = original.cloneTree(true);
     assertThat(clone.getFirstChild().getJSDocInfo())
-        .isNotSameAs(original.getFirstChild().getJSDocInfo());
+        .isNotSameInstanceAs(original.getFirstChild().getJSDocInfo());
     assertThat(clone.getFirstChild().getJSDocInfo().getType())
-        .isNotSameAs(original.getFirstChild().getJSDocInfo().getType());
+        .isNotSameInstanceAs(original.getFirstChild().getJSDocInfo().getType());
     assertThat(clone.getFirstChild().getJSDocInfo().getType().getRoot())
-        .isNotSameAs(original.getFirstChild().getJSDocInfo().getType().getRoot());
+        .isNotSameInstanceAs(original.getFirstChild().getJSDocInfo().getType().getRoot());
   }
 
   @Test

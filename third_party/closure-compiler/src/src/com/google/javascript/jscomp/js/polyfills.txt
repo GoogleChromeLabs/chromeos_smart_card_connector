@@ -5,6 +5,8 @@ Array.prototype.entries es6 es3 es6/array/entries
 Array.prototype.fill es6 es3 es6/array/fill
 Array.prototype.find es6 es3 es6/array/find
 Array.prototype.findIndex es6 es3 es6/array/findindex
+Array.prototype.flat es9 es5 es6/array/flat
+Array.prototype.flatMap es9 es5 es6/array/flatmap
 Array.prototype.includes es7 es3 es6/array/includes
 Array.prototype.keys es6 es3 es6/array/keys
 Array.prototype.values es8 es3 es6/array/values
@@ -37,6 +39,7 @@ Number.parseFloat es6 es3 es6/number/parsefloat
 Number.parseInt es6 es3 es6/number/parseint
 Object.assign es6 es3 es6/object/assign
 Object.entries es8 es3 es6/object/entries
+Object.fromEntries es_2019 es3 es6/object/fromentries
 Object.getOwnPropertyDescriptors es8 es5 es6/object/getownpropertydescriptors
 Object.getOwnPropertySymbols es6 es5 es6/object/getownpropertysymbols
 Object.is es6 es3 es6/object/is
@@ -68,6 +71,8 @@ String.prototype.padEnd es8 es3 es6/string/padend
 String.prototype.padStart es8 es3 es6/string/padstart
 String.prototype.repeat es6 es3 es6/string/repeat
 String.prototype.startsWith es6 es3 es6/string/startswith
+String.prototype.trimEnd es_2019 es3 es6/string/trimend
+String.prototype.trimStart es_2019 es3 es6/string/trimstart
 String.raw es6 es6
 WeakMap es6 es3 es6/weakmap
 WeakSet es6 es3 es6/weakset
