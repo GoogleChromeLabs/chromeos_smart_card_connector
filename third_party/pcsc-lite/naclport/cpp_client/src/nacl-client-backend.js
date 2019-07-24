@@ -310,27 +310,38 @@ NaclClientBackend.prototype.startRequest_ = function(
   var resultPromise = method.apply(
       this.api_, remoteCallMessage.functionArguments);
   resultPromise.then(
-      this.apiMethodResolvedCallback_.bind(this, promiseResolver),
-      this.apiMethodRejectedCallback_.bind(this, promiseResolver));
+      this.apiMethodResolvedCallback_.bind(
+          this, remoteCallMessage, promiseResolver),
+      this.apiMethodRejectedCallback_.bind(
+          this, remoteCallMessage, promiseResolver));
 };
 
 /**
+ * @param {!GSC.RemoteCallMessage} remoteCallMessage
  * @param {!goog.promise.Resolver} promiseResolver
  * @param {!GSC.PcscLiteClient.API.ResultOrErrorCode} apiMethodResult
  * @private
  */
 NaclClientBackend.prototype.apiMethodResolvedCallback_ = function(
-    promiseResolver, apiMethodResult) {
+    remoteCallMessage, promiseResolver, apiMethodResult) {
+  this.logger.fine(
+      'The remote call completed: ' +
+      remoteCallMessage.getDebugRepresentation() + ' with the result: ' +
+      apiMethodResult.getDebugRepresentation());
   promiseResolver.resolve(apiMethodResult.responseItems);
 };
 
 /**
+ * @param {!GSC.RemoteCallMessage} remoteCallMessage
  * @param {!goog.promise.Resolver} promiseResolver
  * @param {*} apiMethodError
  * @private
  */
 NaclClientBackend.prototype.apiMethodRejectedCallback_ = function(
-    promiseResolver, apiMethodError) {
+    remoteCallMessage, promiseResolver, apiMethodError) {
+  this.logger.fine(
+      'The remote call failed: ' + remoteCallMessage.getDebugRepresentation() +
+      ' with the error: ' + apiMethodError);
   promiseResolver.reject(apiMethodError);
 };
 

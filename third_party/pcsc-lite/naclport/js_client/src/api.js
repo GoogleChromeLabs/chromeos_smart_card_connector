@@ -48,6 +48,7 @@ goog.provide('GoogleSmartCard.PcscLiteClient.API.SCardSetAttribResult');
 goog.provide('GoogleSmartCard.PcscLiteClient.API.SCardStatusResult');
 goog.provide('GoogleSmartCard.PcscLiteClient.API.SCardTransmitResult');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.FixedSizeInteger');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
@@ -2204,6 +2205,29 @@ goog.exportProperty(
     API.ResultOrErrorCode.prototype,
     'getResult',
     API.ResultOrErrorCode.prototype.getResult);
+
+/**
+ * Generates a debug textual representation of the remote call message
+ * structure.
+ *
+ * This function is safe to be used in Release builds, because all potentially
+ * privacy-sensitive data is stripped away from the resulting text.
+ *
+ * @return {string}
+ */
+API.ResultOrErrorCode.prototype.getDebugRepresentation = function() {
+  if (this.errorCode == API.SCARD_S_SUCCESS) {
+    const dumpedItems = this.resultItems && this.resultItems.length ?
+        ' ' + GSC.DebugDump.debugDump(this.resultItems) : '';
+    return 'SCARD_S_SUCCESS' + dumpedItems;
+  }
+  return 'error ' + GSC.DebugDump.dump(this.errorCode);
+};
+
+goog.exportProperty(
+    API.ResultOrErrorCode.prototype,
+    'getDebugRepresentation',
+    API.ResultOrErrorCode.prototype.getDebugRepresentation);
 
 
 /**
