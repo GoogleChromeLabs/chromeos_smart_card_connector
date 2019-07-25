@@ -2207,7 +2207,7 @@ goog.exportProperty(
     API.ResultOrErrorCode.prototype.getResult);
 
 /**
- * Generates a debug textual representation of the remote call message
+ * Generates a debug textual representation of the PC/SC-Lite call result
  * structure.
  *
  * This function is safe to be used in Release builds, because all potentially
