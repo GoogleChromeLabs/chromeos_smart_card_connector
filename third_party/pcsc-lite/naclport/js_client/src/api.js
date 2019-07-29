@@ -48,6 +48,7 @@ goog.provide('GoogleSmartCard.PcscLiteClient.API.SCardSetAttribResult');
 goog.provide('GoogleSmartCard.PcscLiteClient.API.SCardStatusResult');
 goog.provide('GoogleSmartCard.PcscLiteClient.API.SCardTransmitResult');
 
+goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.FixedSizeInteger');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
@@ -2204,6 +2205,35 @@ goog.exportProperty(
     API.ResultOrErrorCode.prototype,
     'getResult',
     API.ResultOrErrorCode.prototype.getResult);
+
+/**
+ * Generates a debug textual representation of the PC/SC-Lite call result
+ * structure.
+ *
+ * This function is safe to be used in Release builds, because all potentially
+ * security/privacy-sensitive data is stripped away from the resulting text.
+ *
+ * @return {string}
+ */
+API.ResultOrErrorCode.prototype.getDebugRepresentation = function() {
+  if (this.errorCode == API.SCARD_S_SUCCESS) {
+    // Apply debugDump() to all result values except the error code, since they
+    // can contain sensitive information in them (like the contents of the
+    // digital signature). The debugDump() function dumps the values only when
+    // goog.DEBUG is true, and otherwise shows only the number of values.
+    const dumpedItems = this.resultItems && this.resultItems.length ?
+        ' ' + GSC.DebugDump.debugDump(this.resultItems) : '';
+    return 'SCARD_S_SUCCESS' + dumpedItems;
+  }
+  // Dump the error code regardless of whether the mode is Debug or Release,
+  // since there's no sensitive information in it.
+  return 'error ' + GSC.DebugDump.dump(this.errorCode);
+};
+
+goog.exportProperty(
+    API.ResultOrErrorCode.prototype,
+    'getDebugRepresentation',
+    API.ResultOrErrorCode.prototype.getDebugRepresentation);
 
 
 /**
