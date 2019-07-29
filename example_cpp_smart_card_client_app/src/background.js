@@ -89,20 +89,20 @@ var logger = GSC.Logging.getLogger(
 var naclModule = new GSC.NaclModule(
     'nacl_module.nmf', GSC.NaclModule.Type.PNACL);
 
-// Reload the self app when the NaCl module is disposed of (e.g., due to a
-// crash).
-
 /**
  * Called when the NaCl module is disposed of.
  */
 function naclModuleDisposedListener() {
   if (!goog.DEBUG) {
     // Trigger the fatal error in the Release mode, which will emit an error
-    // message and trigger the app reload.
+    // message and cause the app reload (see the GSC.Logging.fail() function
+    // implementation in //common/js/src/logging/logging.js).
     GSC.Logging.failWithLogger(logger, 'NaCl module was disposed of');
   }
 }
 
+// Reload our app when the NaCl module is disposed of (e.g., due to a crash) and
+// we're in the Release mode.
 naclModule.addOnDisposeCallback(naclModuleDisposedListener);
 
 /**
