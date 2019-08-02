@@ -83,7 +83,7 @@ var logger = GSC.Logging.getLogger(
     goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO);
 
 logger.info(
-    'The app (id "' + chrome.runtime.id + '", version ' +
+    'The extension (id "' + chrome.runtime.id + '", version ' +
     chrome.runtime.getManifest()['version'] + ') background script started. ' +
     'Browser version: "' + window.navigator.appVersion + '". System time: "' +
     (new Date()).toLocaleString() + '"');
