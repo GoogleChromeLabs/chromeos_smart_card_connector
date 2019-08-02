@@ -82,6 +82,12 @@ var logger = GSC.Logging.getLogger(
     'SmartCardClientApp',
     goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO);
 
+logger.info(
+    'The app (id "' + chrome.runtime.id + '", version ' +
+    chrome.runtime.getManifest()['version'] + ') background script started. ' +
+    'Browser version: "' + window.navigator.appVersion + '". System time: "' +
+    (new Date()).toLocaleString() + '"');
+
 /**
  * Holder of the NaCl module containing the actual smart card client code.
  * @const
