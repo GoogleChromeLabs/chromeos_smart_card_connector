@@ -40,11 +40,13 @@ var GSC = GoogleSmartCard;
  */
 var logger = GSC.Logging.getScopedLogger('ConnectorApp.BackgroundMain');
 
+const extensionManifest = chrome.runtime.getManifest();
+const formattedStartupTime = (new Date()).toLocaleString();
 logger.info(
-    'The Smart Card Connector app (id "' + chrome.runtime.id + '", version ' +
-    chrome.runtime.getManifest()['version'] + ') background script started. ' +
-    'Browser version: "' + window.navigator.appVersion + '". System time: "' +
-    (new Date()).toLocaleString() + '"');
+    `The Smart Card Connector app (id "${chrome.runtime.id}", version ` +
+    `${extensionManifest.version}) background script started. Browser ` +
+    `version: "${window.navigator.appVersion}". System time: ` +
+    `"${formattedStartupTime}"`);
 
 var naclModule = new GSC.NaclModule(
     'nacl_module.nmf', GSC.NaclModule.Type.PNACL);
