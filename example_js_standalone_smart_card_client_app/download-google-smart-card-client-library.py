@@ -19,7 +19,15 @@ communicating to the Google Smart Card Connector app."""
 import json
 import os
 import sys
-import urllib2
+
+try:
+  # Python 3+.
+  import urllib.request
+  urlopen = urllib.request.urlopen
+except ImportError:
+  # Python 2.
+  import urllib2
+  urlopen = urllib2.urlopen
 
 GITHUB_REPO_OWNER = "GoogleChrome"
 GITHUB_REPO = "chromeos_smart_card_connector"
@@ -33,7 +41,7 @@ def main():
   sys.stderr.write('Accessing GitHub API...\n')
   latest_release_url = GITHUB_LATEST_RELEASE_URL_TEMPLATE.format(
       owner=GITHUB_REPO_OWNER, repo=GITHUB_REPO)
-  latest_release_info = json.load(urllib2.urlopen(latest_release_url))
+  latest_release_info = json.load(urlopen(latest_release_url))
 
   client_library_download_url = None
   for asset in latest_release_info.get("assets", []):
@@ -45,14 +53,14 @@ def main():
 
   sys.stderr.write('Downloading from "{0}"...\n'.format(
       client_library_download_url))
-  client_library = urllib2.urlopen(client_library_download_url).read()
+  client_library = urlopen(client_library_download_url).read()
 
   if os.path.dirname(__file__):
     output_file_path = os.path.join(
         os.path.relpath(os.path.dirname(__file__)), OUTPUT_FILE_NAME)
   else:
     output_file_path = OUTPUT_FILE_NAME
-  with open(output_file_path, "wt") as f:
+  with open(output_file_path, 'wb') as f:
     f.write(client_library)
 
   sys.stderr.write(
