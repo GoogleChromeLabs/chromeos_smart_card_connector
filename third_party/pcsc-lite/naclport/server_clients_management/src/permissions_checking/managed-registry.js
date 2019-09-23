@@ -45,7 +45,8 @@ var PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
- * FIXME(emaxx): Write docs.
+ * This class encapsulates the part of the client app permission checks that is
+ * related to policy configured by the admin via policy for extensions.
  * @constructor
  */
 PermissionsChecking.ManagedRegistry = function() {
@@ -75,7 +76,11 @@ ManagedRegistry.prototype.logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.ManagedRegistry');
 
 /**
- * FIXME(emaxx): Write docs.
+ * Starts the permission check for the given client app against the managed
+ * storage, that contains the admin-configured policy.
+ *
+ * The result is returned asynchronously as a promise (which will be eventually
+ * resolved if the permission is granted or rejected otherwise).
  * @param {string} clientAppId
  * @return {!goog.Promise}
  */

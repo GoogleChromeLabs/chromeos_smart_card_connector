@@ -45,7 +45,18 @@ var PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
- * FIXME(emaxx): Write docs.
+ * Provides interface for performing permissions checks for the given client
+ * apps, which gates access to sending PC/SC requests to our Smart Card
+ * Connector app.
+ *
+ * Criteria for granting the permissions, in the order of their application:
+ * 1. Allow if admin force-allowed the permission via policy for extensions (the
+ *    "force_allowed_client_app_ids" key).
+ * 2. Allow/reject if the user previously allowed/rejected the permission. (The
+ *    "allow" decisions are stored persistently in the local storage; the
+ *    "reject" decisions are stored in-memory till the next restart.)
+ * 3. Show the dialog to the user and allow/reject the permission based on the
+ *    result.
  * @constructor
  */
 PermissionsChecking.Checker = function() {
@@ -66,8 +77,12 @@ Checker.prototype.logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.Checker');
 
 /**
- * FIXME(emaxx): Write docs.
- * @param {string|null} clientAppId
+ * Starts the permission check for the given client app.
+ *
+ * The result is returned asynchronously as a promise (which will be eventually
+ * resolved if the permission is granted or rejected otherwise).
+ * @param {string|null} clientAppId ID of the client app, or null if the client
+ * is our own app.
  * @return {!goog.Promise}
  */
 Checker.prototype.check = function(clientAppId) {
