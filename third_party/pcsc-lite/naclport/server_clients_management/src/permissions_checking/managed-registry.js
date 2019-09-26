@@ -45,7 +45,7 @@ var PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
- * This class encapsulates the part of the client app permission checks that is
+ * This class encapsulates the part of the client app permission check that is
  * related to policy configured by the admin via policy for extensions.
  * @constructor
  */

@@ -45,7 +45,7 @@ var PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
- * Provides interface for performing permissions checks for the given client
+ * Provides an interface for performing permission checks for the given client
  * apps, which gates access to sending PC/SC requests to our Smart Card
  * Connector app.
  *

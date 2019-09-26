@@ -69,7 +69,7 @@ PermissionsChecking.KnownApp = function(id, name) {
 var KnownApp = PermissionsChecking.KnownApp;
 
 /**
- * This class provides interface for querying the information about the known
+ * This class provides an interface for querying the information about the known
  * client apps (i.e., the apps that are listed in the manually maintained
  * //third_party/pcsc-lite/naclport/server_clients_management/src/known_client_apps.json
  * config).
@@ -96,8 +96,8 @@ KnownAppsRegistry.prototype.logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
 
 /**
- * Starts the request of the information about the given app from the config
- * that contains the list of known client apps.
+ * Requests information about the given app from the config that contains the
+ * list of known client apps.
  *
  * The result is returned asynchronously as a promise (which will be rejected if
  * the given app isn't present in the config).
@@ -129,8 +129,9 @@ KnownAppsRegistry.prototype.getById = function(id) {
  * at once.
  *
  * The result is returned asynchronously as a promise that, when resolved, will
- * contain the same number of elements as |idList|, with each value containing
- * the app's information or |null| if the app isn't present in the config.
+ * contain the same number of elements as |idList|, with the i-th value
+ * containing either the information for the i-th app in |idList| or |null| if
+ * the app isn't present in the config.
  * @param {!Array.<string>} idList
  * @return {!goog.Promise.<!Array.<KnownApp>>}
  */

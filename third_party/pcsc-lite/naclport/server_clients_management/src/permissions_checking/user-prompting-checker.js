@@ -65,7 +65,7 @@ var PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
- * This class encapsulates the part of the client app permission checks that is
+ * This class encapsulates the part of the client app permission check that is
  * related to prompting the user about permissions and loading/storing these
  * prompt results.
  * @constructor
@@ -114,7 +114,7 @@ UserPromptingChecker.prototype.check = function(clientAppId) {
   var existingPromise = this.checkPromiseMap_.get(clientAppId);
   if (goog.isDef(existingPromise)) {
     this.logger.finest(
-        'Found the existing promise for the permissions checking of the ' +
+        'Found the existing promise for the permission checking of the ' +
         'client App with id "' + clientAppId + '", returning it');
     return existingPromise;
   }
