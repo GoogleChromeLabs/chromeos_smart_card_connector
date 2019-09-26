@@ -118,17 +118,17 @@ var PermissionsChecking =
  *    Each client has to have a special permission in order to be able to
  *    execute requests.
  *
- *    The permissions checking is performed using the
+ *    The permission checking is performed using the
  *    GSC.PcscLiteServerClientsManagement.PermissionsChecking.Checker class.
  *
- *    During the permissions check (which may be a long lasting operation - e.g.
+ *    During the permission check (which may be a long lasting operation - e.g.
  *    showing a user prompt), all incoming requests are held in an internal
  *    buffer.
  *
- *    If the permissions check finishes successfully, then all buffered requests
+ *    If the permission check finishes successfully, then all buffered requests
  *    (and all requests that may come later) are being executed (see item #2).
  *
- *    If the permissions check fails, then all buffered requests (and all
+ *    If the permission check fails, then all buffered requests (and all
  *    requests that may come later) immediately get the error response.
  *
  * 2. Performing of the PC/SC requests received from the client.
@@ -224,7 +224,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
     permissionsChecker = new PermissionsChecking.Checker;
 
   // The requests processing is deferred until both the server readiness is
-  // established and the permissions check is resolved.
+  // established and the permission check is resolved.
   /** @private */
   this.deferredProcessor_ = new DeferredProcessor(goog.Promise.all([
       this.serverReadinessTracker_.promise,

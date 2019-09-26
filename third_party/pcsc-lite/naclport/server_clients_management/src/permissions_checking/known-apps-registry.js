@@ -55,7 +55,7 @@ var PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
- * FIXME(emaxx): Write docs.
+ * This structure holds the information about the known client app.
  * @param {string} id
  * @param {string} name
  * @constructor
@@ -69,7 +69,10 @@ PermissionsChecking.KnownApp = function(id, name) {
 var KnownApp = PermissionsChecking.KnownApp;
 
 /**
- * FIXME(emaxx): Write docs.
+ * This class provides an interface for querying the information about the known
+ * client apps (i.e., the apps that are listed in the manually maintained
+ * //third_party/pcsc-lite/naclport/server_clients_management/src/known_client_apps.json
+ * config).
  * @constructor
  */
 PermissionsChecking.KnownAppsRegistry = function() {
@@ -93,7 +96,11 @@ KnownAppsRegistry.prototype.logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
 
 /**
- * FIXME(emaxx): Write docs.
+ * Requests information about the given app from the config that contains the
+ * list of known client apps.
+ *
+ * The result is returned asynchronously as a promise (which will be rejected if
+ * the given app isn't present in the config).
  * @param {string} id
  * @return {!goog.Promise.<!KnownApp>}
  */
@@ -118,8 +125,15 @@ KnownAppsRegistry.prototype.getById = function(id) {
 };
 
 /**
+ * Similar to getById(), but performs a batch request for the list of given IDs
+ * at once.
+ *
+ * The result is returned asynchronously as a promise that, when resolved, will
+ * contain the same number of elements as |idList|, with the i-th value
+ * containing either the information for the i-th app in |idList| or |null| if
+ * the app isn't present in the config.
  * @param {!Array.<string>} idList
- * @return {!goog.Promise.<!Array.<!KnownApp>>}
+ * @return {!goog.Promise.<!Array.<KnownApp>>}
  */
 KnownAppsRegistry.prototype.tryGetByIds = function(idList) {
   var promiseResolver = goog.Promise.withResolver();

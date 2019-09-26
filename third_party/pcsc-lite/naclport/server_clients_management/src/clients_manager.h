@@ -75,7 +75,7 @@ namespace google_smart_card {
 //    refcounting-based storage of the PcscLiteClientRequestProcessor class,
 //    its instance gets destroyed after the last request is finished.)
 //
-// Note that this class does _not_ perform permissions checking regarding
+// Note that this class does _not_ perform permission checking regarding
 // whether a client is allowed to issue PC/SC function calls. This should have
 // already been done on the JavaScript side before sending client handler
 // creation messages.

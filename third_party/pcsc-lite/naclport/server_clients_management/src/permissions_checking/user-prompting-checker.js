@@ -65,7 +65,9 @@ var PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
- * FIXME(emaxx): Write docs.
+ * This class encapsulates the part of the client app permission check that is
+ * related to prompting the user about permissions and loading/storing these
+ * prompt results.
  * @constructor
  */
 PermissionsChecking.UserPromptingChecker = function() {
@@ -97,7 +99,11 @@ UserPromptingChecker.prototype.logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
 
 /**
- * FIXME(emaxx): Write docs.
+ * Starts the permission check for the given client app - against the previously
+ * stored user prompt results and via prompting the user.
+ *
+ * The result is returned asynchronously as a promise (which will eventually be
+ * resolved if the permission is granted or rejected otherwise).
  * @param {string} clientAppId
  * @return {!goog.Promise}
  */
@@ -108,7 +114,7 @@ UserPromptingChecker.prototype.check = function(clientAppId) {
   var existingPromise = this.checkPromiseMap_.get(clientAppId);
   if (goog.isDef(existingPromise)) {
     this.logger.finest(
-        'Found the existing promise for the permissions checking of the ' +
+        'Found the existing promise for the permission checking of the ' +
         'client App with id "' + clientAppId + '", returning it');
     return existingPromise;
   }
