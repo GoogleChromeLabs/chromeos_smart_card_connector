@@ -102,7 +102,7 @@ UserPromptingChecker.prototype.logger = GSC.Logging.getScopedLogger(
  * Starts the permission check for the given client app - against the previously
  * stored user prompt results and via prompting the user.
  *
- * The result is returned asynchronously as a promise (which will be eventually
+ * The result is returned asynchronously as a promise (which will eventually be
  * resolved if the permission is granted or rejected otherwise).
  * @param {string} clientAppId
  * @return {!goog.Promise}

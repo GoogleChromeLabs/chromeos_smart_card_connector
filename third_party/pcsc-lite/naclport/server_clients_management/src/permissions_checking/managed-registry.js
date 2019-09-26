@@ -79,7 +79,7 @@ ManagedRegistry.prototype.logger = GSC.Logging.getScopedLogger(
  * Starts the permission check for the given client app against the managed
  * storage, that contains the admin-configured policy.
  *
- * The result is returned asynchronously as a promise (which will be eventually
+ * The result is returned asynchronously as a promise (which will eventually be
  * resolved if the permission is granted or rejected otherwise).
  * @param {string} clientAppId
  * @return {!goog.Promise}

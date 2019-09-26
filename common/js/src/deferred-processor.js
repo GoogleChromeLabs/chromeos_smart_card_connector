@@ -112,7 +112,7 @@ function Job(jobFunction, promiseResolver) {
 }
 
 /**
- * Adds a new job, whose result will be eventually passed through the returned
+ * Adds a new job, whose result will eventually be passed through the returned
  * promise.
  *
  * The job may be executed immediately, if the awaited promise is already
