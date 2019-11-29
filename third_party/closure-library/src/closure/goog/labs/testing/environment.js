@@ -53,14 +53,14 @@ goog.labs.testing.Environment = goog.defineClass(null, {
      */
     this.mockControl = null;
 
-    /** @type {goog.testing.MockClock} */
+    /** @type {?goog.testing.MockClock} */
     this.mockClock = null;
 
     /** @private {boolean} */
     this.shouldMakeMockControl_ = false;
 
-    /** @private {boolean} */
-    this.shouldMakeMockClock_ = false;
+    /** @protected {boolean} */
+    this.mockClockOn = false;
 
     /** @const {!goog.debug.Console} */
     this.console = goog.labs.testing.Environment.console_;
@@ -72,11 +72,11 @@ goog.labs.testing.Environment = goog.defineClass(null, {
 
   /**
    * Runs immediately before the setUpPage phase of JsUnit tests.
-   * @return {!goog.Promise<?>|undefined} An optional Promise which must be
+   * @return {!IThenable<*>|undefined} An optional Promise which must be
    *     resolved before the test is executed.
    */
   setUpPage: function() {
-    if (this.mockClock && this.mockClock.isDisposed()) {
+    if (this.mockClockOn && !this.hasMockClock()) {
       this.mockClock = new goog.testing.MockClock(true);
     }
   },
@@ -85,19 +85,23 @@ goog.labs.testing.Environment = goog.defineClass(null, {
   /** Runs immediately after the tearDownPage phase of JsUnit tests. */
   tearDownPage: function() {
     // If we created the mockClock, we'll also dispose it.
-    if (this.shouldMakeMockClock_) {
+    if (this.hasMockClock()) {
       this.mockClock.dispose();
     }
   },
 
   /**
    * Runs immediately before the setUp phase of JsUnit tests.
-   * @return {!goog.Promise<?>|undefined} An optional Promise which must be
+   * @return {!IThenable<*>|undefined} An optional Promise which must be
    *     resolved before the test case is executed.
    */
   setUp: goog.nullFunction,
 
-  /** Runs immediately after the tearDown phase of JsUnit tests. */
+  /**
+   * Runs immediately after the tearDown phase of JsUnit tests.
+   * @return {!IThenable<*>|undefined} An optional Promise which must be
+   *     resolved before the next test case is executed.
+   */
   tearDown: function() {
     // Make sure promises and other stuff that may still be scheduled, get a
     // chance to run (and throw errors).
@@ -106,7 +110,7 @@ goog.labs.testing.Environment = goog.defineClass(null, {
         this.mockClock.tick(1000);
       }
       // If we created the mockClock, we'll also reset it.
-      if (this.shouldMakeMockClock_) {
+      if (this.hasMockClock()) {
         this.mockClock.reset();
       }
     }
@@ -161,19 +165,26 @@ goog.labs.testing.Environment = goog.defineClass(null, {
    * @return {!goog.labs.testing.Environment} For chaining.
    */
   withMockClock: function() {
-    if (!this.shouldMakeMockClock_) {
-      this.shouldMakeMockClock_ = true;
+    if (!this.hasMockClock()) {
+      this.mockClockOn = true;
       this.mockClock = new goog.testing.MockClock(true);
     }
     return this;
   },
 
+  /**
+   * @return {boolean}
+   * @protected
+   */
+  hasMockClock: function() {
+    return this.mockClockOn && !!this.mockClock && !this.mockClock.isDisposed();
+  },
 
   /**
    * Creates a basic strict mock of a `toMock`. For more advanced mocking,
    * please use the MockControl directly.
-   * @param {Function} toMock
-   * @return {!goog.testing.StrictMock}
+   * @param {?Function|?Object} toMock
+   * @return {?}
    */
   mock: function(toMock) {
     if (!this.shouldMakeMockControl_) {
@@ -182,8 +193,33 @@ goog.labs.testing.Environment = goog.defineClass(null, {
           'Call withMockControl if this environment is expected ' +
           'to contain a MockControl.');
     }
-    return this.mockControl.createStrictMock(toMock);
-  }
+    var mock = this.mockControl.createStrictMock(toMock);
+    // Mocks are not type-checkable. To reduce burden on tests that are type
+    // checked, this is typed as "?" to turn off JSCompiler checking.
+    // TODO(b/69851971): Enable a type-checked mocking library.
+    return /** @type {?} */ (mock);
+  },
+
+  /**
+   * Creates a basic loose mock of a `toMock`. For more advanced mocking, please
+   * use the MockControl directly.
+   * @param {?Function|?Object} toMock
+   * @param {boolean=} ignoreUnexpectedCalls Defaults to false.
+   * @return {?}
+   */
+  looseMock: function(toMock, ignoreUnexpectedCalls = false) {
+    if (!this.shouldMakeMockControl_) {
+      throw new Error(
+          'MockControl not available on this environment. ' +
+          'Call withMockControl if this environment is expected ' +
+          'to contain a MockControl.');
+    }
+    var mock = this.mockControl.createLooseMock(toMock, ignoreUnexpectedCalls);
+    // Mocks are not type-checkable. To reduce burden on tests that are type
+    // checked, this is typed as "?" to turn off JSCompiler checking.
+    // TODO(b/69851971): Enable a type-checked mocking library.
+    return /** @type {?} */ (mock);
+  },
 });
 
 
@@ -218,7 +254,8 @@ goog.labs.testing.Environment.console_.setCapturing(true);
  * @extends {goog.testing.TestCase}
  */
 goog.labs.testing.EnvironmentTestCase_ = function() {
-  goog.labs.testing.EnvironmentTestCase_.base(this, 'constructor');
+  goog.labs.testing.EnvironmentTestCase_.base(
+      this, 'constructor', document.title);
 
   /** @private {!Array<!goog.labs.testing.Environment>}> */
   this.environments_ = [];
@@ -281,12 +318,12 @@ goog.labs.testing.EnvironmentTestCase_.prototype.registerEnvironment_ =
 /** @override */
 goog.labs.testing.EnvironmentTestCase_.prototype.setUpPage = function() {
   var setUpPageFns = goog.array.map(this.environments_, function(env) {
-    return goog.bind(env.setUpPage, env);
-  }, this);
+    return () => env.setUpPage();
+  });
 
   // User defined setUpPage method.
   if (this.testobj_['setUpPage']) {
-    setUpPageFns.push(goog.bind(this.testobj_['setUpPage'], this.testobj_));
+    setUpPageFns.push(() => this.testobj_['setUpPage']());
   }
   return this.callAndChainPromises_(setUpPageFns);
 };
@@ -297,8 +334,7 @@ goog.labs.testing.EnvironmentTestCase_.prototype.setUp = function() {
   var setUpFns = [];
   // User defined configure method.
   if (this.testobj_['configureEnvironment']) {
-    setUpFns.push(
-        goog.bind(this.testobj_['configureEnvironment'], this.testobj_));
+    setUpFns.push(() => this.testobj_['configureEnvironment']());
   }
   var test = this.getCurrentTest();
   if (test instanceof goog.labs.testing.EnvironmentTest_) {
@@ -306,12 +342,12 @@ goog.labs.testing.EnvironmentTestCase_.prototype.setUp = function() {
   }
 
   goog.array.forEach(this.environments_, function(env) {
-    setUpFns.push(goog.bind(env.setUp, env));
+    setUpFns.push(() => env.setUp());
   }, this);
 
   // User defined setUp method.
   if (this.testobj_['setUp']) {
-    setUpFns.push(goog.bind(this.testobj_['setUp'], this.testobj_));
+    setUpFns.push(() => this.testobj_['setUp']());
   }
   return this.callAndChainPromises_(setUpFns);
 };
@@ -321,52 +357,85 @@ goog.labs.testing.EnvironmentTestCase_.prototype.setUp = function() {
  * Calls a chain of methods and makes sure to properly chain them if any of the
  * methods returns a thenable.
  * @param {!Array<function()>} fns
- * @return {!goog.Thenable|undefined}
+ * @param {boolean=} ensureAllFnsCalled If true, this method calls each function
+ *     even if one of them throws an Error or returns a rejected Promise. If
+ *     there were any Errors thrown (or Promises rejected), the first Error will
+ *     be rethrown after all of the functions are called.
+ * @return {!IThenable<*>|undefined}
  * @private
  */
 goog.labs.testing.EnvironmentTestCase_.prototype.callAndChainPromises_ =
-    function(fns) {
-  return goog.array.reduce(fns, function(previousResult, fn) {
-    if (goog.Thenable.isImplementedBy(previousResult)) {
-      return previousResult.then(function() {
-        return fn();
-      });
+    function(fns, ensureAllFnsCalled) {
+  // Using await here (and making callAndChainPromises_ an async method)
+  // causes many tests across google3 to start failing with errors like this:
+  // "Timed out while waiting for a promise returned from setUp to resolve".
+
+  const isThenable = (v) => goog.Thenable.isImplementedBy(v) ||
+      (typeof goog.global['Promise'] === 'function' &&
+       v instanceof goog.global['Promise']);
+
+  // Record the first error that occurs so that it can be rethrown in the case
+  // where ensureAllFnsCalled is set.
+  let firstError;
+  const recordFirstError = (e) => {
+    if (!firstError) {
+      firstError = e instanceof Error ? e : new Error(e);
     }
-    return fn();
-  }, undefined /* initialValue */, this);
+  };
+
+  // Call the fns, chaining results that are Promises.
+  let lastFnResult;
+  for (const fn of fns) {
+    if (isThenable(lastFnResult)) {
+      // The previous fn was async, so chain the next fn.
+      const rejectedHandler = ensureAllFnsCalled ? (e) => {
+        recordFirstError(e);
+        return fn();
+      } : undefined;
+      lastFnResult = lastFnResult.then(() => fn(), rejectedHandler);
+    } else {
+      // The previous fn was not async, so simply call the next fn.
+      try {
+        lastFnResult = fn();
+      } catch (e) {
+        if (!ensureAllFnsCalled) {
+          throw e;
+        }
+        recordFirstError(e);
+      }
+    }
+  }
+
+  // After all of the fns have been called, either throw the first error if
+  // there was one, or otherwise return the result of the last fn.
+  const resultFn = () => {
+    if (firstError) {
+      throw firstError;
+    }
+    return lastFnResult;
+  };
+  return isThenable(lastFnResult) ? lastFnResult.then(resultFn, resultFn) :
+                                    resultFn();
 };
 
 
 /** @override */
 goog.labs.testing.EnvironmentTestCase_.prototype.tearDown = function() {
-  var firstException;
+  var tearDownFns = [];
   // User defined tearDown method.
   if (this.testobj_['tearDown']) {
-    try {
-      this.testobj_['tearDown']();
-    } catch (e) {
-      if (!firstException) {
-        firstException = e || new Error('Exception thrown: ' + String(e));
-      }
-    }
+    tearDownFns.push(() => this.testobj_['tearDown']());
   }
 
   // Execute the tearDown methods for the environment in the reverse order
   // in which they were registered to "unfold" the setUp.
   goog.array.forEachRight(this.environments_, function(env) {
-    // For tearDowns between tests make sure they run as much as possible to
-    // avoid interference between tests.
-    try {
-      env.tearDown();
-    } catch (e) {
-      if (!firstException) {
-        firstException = e || new Error('Exception thrown: ' + String(e));
-      }
-    }
+    tearDownFns.push(() => env.tearDown());
   });
-  if (firstException) {
-    throw firstException;
-  }
+  // For tearDowns between tests make sure they run as much as possible to avoid
+  // interference between tests.
+  return this.callAndChainPromises_(
+      tearDownFns, /* ensureAllFnsCalled= */ true);
 };
 
 

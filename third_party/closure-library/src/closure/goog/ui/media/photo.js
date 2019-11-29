@@ -49,16 +49,14 @@
  *   photo.setHighlighted(true);
  *   photo.setSelected(true);
  * </pre>
- *
  */
 
 goog.provide('goog.ui.media.Photo');
 
+goog.forwardDeclare('goog.ui.media.MediaModel');
 goog.require('goog.dom.TagName');
 goog.require('goog.ui.media.Media');
 goog.require('goog.ui.media.MediaRenderer');
-
-goog.forwardDeclare('goog.ui.media.MediaModel');
 
 
 

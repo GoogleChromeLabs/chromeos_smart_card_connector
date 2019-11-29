@@ -32,7 +32,6 @@
  *  } catch (e) {
  *    ...
  *  }
- *
  */
 
 goog.provide('goog.net.WebSocket');
@@ -209,7 +208,7 @@ goog.net.WebSocket.EventType = {
   /**
    * Fired when the WebSocket connection has been established.
    */
-  OPENED: goog.events.getUniqueId('opened')
+  OPENED: goog.events.getUniqueId('opened'),
 };
 
 
@@ -227,7 +226,7 @@ goog.net.WebSocket.ReadyState_ = {
   // Note that this is a valid state even if the OPEN state was never achieved.
   CLOSING: 2,
   // This is when the socket is actually closed.
-  CLOSED: 3
+  CLOSED: 3,
 };
 
 /**
@@ -451,12 +450,13 @@ goog.net.WebSocket.prototype.onClose_ = function(event) {
 /**
  * Called when a new message arrives from the server.
  *
- * @param {MessageEvent<string>} event The web socket message event.
+ * @param {!MessageEvent<string|!ArrayBuffer|!Blob>} event The web socket
+ *     message event.
+ * @return {void}
  * @private
  */
 goog.net.WebSocket.prototype.onMessage_ = function(event) {
-  var message = event.data;
-  this.dispatchEvent(new goog.net.WebSocket.MessageEvent(message));
+  this.dispatchEvent(new goog.net.WebSocket.MessageEvent(event.data));
 };
 
 
@@ -479,7 +479,7 @@ goog.net.WebSocket.prototype.onError_ = function(event) {
  * @private
  */
 goog.net.WebSocket.prototype.clearReconnectTimer_ = function() {
-  if (goog.isDefAndNotNull(this.reconnectTimer_)) {
+  if (this.reconnectTimer_ != null) {
     goog.Timer.clear(this.reconnectTimer_);
   }
   this.reconnectTimer_ = null;
@@ -496,7 +496,8 @@ goog.net.WebSocket.prototype.disposeInternal = function() {
 /**
  * Object representing a new incoming message event.
  *
- * @param {string} message The raw message coming from the web socket.
+ * @param {string|!ArrayBuffer|!Blob} message The raw message coming from the
+ *     web socket.
  * @extends {goog.events.Event}
  * @constructor
  * @final
@@ -505,9 +506,11 @@ goog.net.WebSocket.MessageEvent = function(message) {
   goog.net.WebSocket.MessageEvent.base(
       this, 'constructor', goog.net.WebSocket.EventType.MESSAGE);
 
+  // TODO this used to be just `string`, but that is incorrect. Until all usages
+  // have been cleaned up we need to leave this as ?.
   /**
    * The new message from the web socket.
-   * @type {string}
+   * @type {?}
    */
   this.message = message;
 };

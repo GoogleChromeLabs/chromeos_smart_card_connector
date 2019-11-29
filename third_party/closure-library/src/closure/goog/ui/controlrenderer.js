@@ -15,12 +15,11 @@
 /**
  * @fileoverview Base class for control renderers.
  * TODO(attila):  If the renderer framework works well, pull it into Component.
- *
- * @author attila@google.com (Attila Bodis)
  */
 
 goog.provide('goog.ui.ControlRenderer');
 
+goog.forwardDeclare('goog.ui.Control');
 goog.require('goog.a11y.aria');
 goog.require('goog.a11y.aria.Role');
 goog.require('goog.a11y.aria.State');
@@ -34,9 +33,7 @@ goog.require('goog.string');
 goog.require('goog.style');
 goog.require('goog.ui.Component');
 goog.require('goog.ui.ControlContent');
-goog.require('goog.userAgent');
-
-goog.forwardDeclare('goog.ui.Control');  // circular
+goog.require('goog.userAgent');  // circular
 
 
 
@@ -426,7 +423,7 @@ goog.ui.ControlRenderer.prototype.setAriaStates = function(control, element) {
   goog.asserts.assert(element);
 
   var ariaLabel = control.getAriaLabel();
-  if (goog.isDefAndNotNull(ariaLabel)) {
+  if (ariaLabel != null) {
     this.setAriaLabel(element, ariaLabel);
   }
 
@@ -660,14 +657,14 @@ goog.ui.ControlRenderer.prototype.setContent = function(element, content) {
   if (contentElem) {
     goog.dom.removeChildren(contentElem);
     if (content) {
-      if (goog.isString(content)) {
+      if (typeof content === 'string') {
         goog.dom.setTextContent(contentElem, content);
       } else {
         var childHandler = function(child) {
           if (child) {
             var doc = goog.dom.getOwnerDocument(contentElem);
             contentElem.appendChild(
-                goog.isString(child) ? doc.createTextNode(child) : child);
+                typeof child === 'string' ? doc.createTextNode(child) : child);
           }
         };
         if (goog.isArray(content)) {

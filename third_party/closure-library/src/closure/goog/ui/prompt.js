@@ -80,7 +80,7 @@ goog.ui.Prompt = function(
   this.setSafeHtmlContent(goog.html.SafeHtml.concat(label, br, br));
 
   this.callback_ = callback;
-  this.defaultValue_ = goog.isDef(opt_defaultValue) ? opt_defaultValue : '';
+  this.defaultValue_ = (opt_defaultValue !== undefined) ? opt_defaultValue : '';
 
   /** @desc label for a dialog button. */
   var MSG_PROMPT_OK = goog.getMsg('OK');
@@ -149,7 +149,7 @@ goog.ui.Prompt.prototype.cols_ = 0;
 
 /**
  * The input decorator function.
- * @type {function(Element)?}
+ * @type {?function(?Element)}
  * @private
  */
 goog.ui.Prompt.prototype.inputDecoratorFn_ = null;

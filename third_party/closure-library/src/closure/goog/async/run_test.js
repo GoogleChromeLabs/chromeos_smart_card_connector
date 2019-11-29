@@ -12,133 +12,163 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('goog.async.runTest');
+goog.module('goog.async.runTest');
+goog.setTestOnly();
 
-goog.require('goog.async.run');
-goog.require('goog.testing.MockClock');
-goog.require('goog.testing.jsunit');
-goog.require('goog.testing.recordFunction');
+const recordFunction = goog.require('goog.testing.recordFunction');
+const run = goog.require('goog.async.run');
+const testSuite = goog.require('goog.testing.testSuite');
 
-goog.setTestOnly('goog.async.runTest');
+let mockClock;
+let futureCallback1;
+let futureCallback2;
 
+let futurePromise1;
+let futurePromise2;
 
-var mockClock;
-var futureCallback1, futureCallback2;
+testSuite({
+  setUpPage() {
+    goog.ASSUME_PROMISE = true;
+    // See run_text_tick_test.js for tests covering the nextTick code path.
+  },
 
-function setUpPage() {
-  mockClock = new goog.testing.MockClock();
-  mockClock.install();
-}
+  setUp() {
+    futurePromise1 = new Promise((resolve) => {
+      futureCallback1 = new recordFunction(resolve);
+    });
+    futurePromise2 = new Promise((resolve) => {
+      futureCallback2 = new recordFunction(resolve);
+    });
+  },
 
-function setUp() {
-  mockClock.reset();
-  futureCallback1 = new goog.testing.recordFunction();
-  futureCallback2 = new goog.testing.recordFunction();
-}
+  tearDown() {
+    futureCallback1 = null;
+    futureCallback2 = null;
+    futurePromise1 = null;
+    futurePromise2 = null;
+  },
 
-function tearDown() {
-  futureCallback1 = null;
-  futureCallback2 = null;
-}
+  tearDownPage() {
+    goog.ASSUME_PROMISE = false;
+  },
 
-function tearDownPage() {
-  mockClock.uninstall();
-  goog.dispose(mockClock);
-}
+  testCalledAsync() {
+    if (!Promise) return;
+    return new Promise((allDone) => {
+      run(futureCallback1);
+      run(futureCallback2);
 
-function testCalledAsync() {
-  goog.async.run(futureCallback1);
-  goog.async.run(futureCallback2);
+      assertEquals(0, futureCallback1.getCallCount());
+      assertEquals(0, futureCallback2.getCallCount());
 
-  assertEquals(0, futureCallback1.getCallCount());
-  assertEquals(0, futureCallback2.getCallCount());
+      // but the callbacks are scheduled...
+      Promise.all([futurePromise1, futurePromise2]).then(() => {
+        // and called.
+        assertEquals(1, futureCallback1.getCallCount());
+        assertEquals(1, futureCallback2.getCallCount());
 
-  // but the callbacks are scheduled...
-  mockClock.tick();
+        // and aren't called a second time.
+        assertEquals(1, futureCallback1.getCallCount());
+        assertEquals(1, futureCallback2.getCallCount());
+        allDone();
+      });
+    });
+  },
 
-  // and called.
-  assertEquals(1, futureCallback1.getCallCount());
-  assertEquals(1, futureCallback2.getCallCount());
+  testSequenceCalledInOrder() {
+    if (!Promise) return;
+    return new Promise((allDone) => {
+      const checkCallback1 = () => {
+        futureCallback1();
+        // called before futureCallback2
+        assertEquals(0, futureCallback2.getCallCount());
+      };
+      const checkCallback2 = () => {
+        futureCallback2();
+        // called after futureCallback1
+        assertEquals(1, futureCallback1.getCallCount());
+      };
+      run(checkCallback1);
+      run(checkCallback2);
 
-  // and aren't called a second time.
-  assertEquals(1, futureCallback1.getCallCount());
-  assertEquals(1, futureCallback2.getCallCount());
-}
+      // goog.async.run doesn't call the top callback immediately.
+      assertEquals(0, futureCallback1.getCallCount());
 
-function testSequenceCalledInOrder() {
-  futureCallback1 = new goog.testing.recordFunction(function() {
-    // called before futureCallback2
-    assertEquals(0, futureCallback2.getCallCount());
-  });
-  futureCallback2 = new goog.testing.recordFunction(function() {
-    // called after futureCallback1
-    assertEquals(1, futureCallback1.getCallCount());
-  });
-  goog.async.run(futureCallback1);
-  goog.async.run(futureCallback2);
+      // but the callbacks are scheduled...
+      Promise.all([futurePromise1, futurePromise2]).then(() => {
+        // and called during the same "tick".
+        assertEquals(1, futureCallback1.getCallCount());
+        assertEquals(1, futureCallback2.getCallCount());
+        allDone();
+      });
+    });
+  },
 
-  // goog.async.run doesn't call the top callback immediately.
-  assertEquals(0, futureCallback1.getCallCount());
+  testSequenceScheduledTwice() {
+    if (!Promise) return;
+    return new Promise((allDone) => {
+      run(futureCallback1);
+      run(futureCallback1);
 
-  // but the callbacks are scheduled...
-  mockClock.tick();
+      // goog.async.run doesn't call the top callback immediately.
+      assertEquals(0, futureCallback1.getCallCount());
 
-  // and called during the same "tick".
-  assertEquals(1, futureCallback1.getCallCount());
-  assertEquals(1, futureCallback2.getCallCount());
-}
+      // but the callbacks are scheduled...
+      futurePromise1.then(() => {
+        // and called twice during the same "tick".
+        assertEquals(2, futureCallback1.getCallCount());
+        allDone();
+      });
+    });
+  },
 
-function testSequenceScheduledTwice() {
-  goog.async.run(futureCallback1);
-  goog.async.run(futureCallback1);
+  testSequenceCalledSync() {
+    if (!Promise) return;
+    return new Promise((allDone) => {
+      const wrapCallback1 = () => {
+        futureCallback1();
+        run(futureCallback2);
+        // goog.async.run doesn't call the inner callback immediately.
+        assertEquals(0, futureCallback2.getCallCount());
+      };
+      run(wrapCallback1);
 
-  // goog.async.run doesn't call the top callback immediately.
-  assertEquals(0, futureCallback1.getCallCount());
+      // goog.async.run doesn't call the top callback immediately.
+      assertEquals(0, futureCallback1.getCallCount());
 
-  // but the callbacks are scheduled...
-  mockClock.tick();
+      // but the callbacks are scheduled...
+      futurePromise1.then(() => {
+        // and called during the same "tick".
+        assertEquals(1, futureCallback1.getCallCount());
+        assertEquals(1, futureCallback2.getCallCount());
+        allDone();
+      });
+    });
+  },
 
-  // and called twice during the same "tick".
-  assertEquals(2, futureCallback1.getCallCount());
-}
+  testScope() {
+    if (!Promise) return;
+    return new Promise((allDone) => {
+      const aScope = {};
+      run(futureCallback1);
+      run(futureCallback2, aScope);
 
-function testSequenceCalledSync() {
-  futureCallback1 = new goog.testing.recordFunction(function() {
-    goog.async.run(futureCallback2);
-    // goog.async.run doesn't call the inner callback immediately.
-    assertEquals(0, futureCallback2.getCallCount());
-  });
-  goog.async.run(futureCallback1);
+      // the callbacks are scheduled...
+      Promise.all([futurePromise1, futurePromise2]).then(() => {
+        // and called.
+        assertEquals(1, futureCallback1.getCallCount());
+        assertEquals(1, futureCallback2.getCallCount());
 
-  // goog.async.run doesn't call the top callback immediately.
-  assertEquals(0, futureCallback1.getCallCount());
+        // and get the correct scope.
+        const last1 = futureCallback1.popLastCall();
+        assertEquals(0, last1.getArguments().length);
+        assertEquals(goog.global, last1.getThis());
 
-  // but the callbacks are scheduled...
-  mockClock.tick();
-
-  // and called during the same "tick".
-  assertEquals(1, futureCallback1.getCallCount());
-  assertEquals(1, futureCallback2.getCallCount());
-}
-
-function testScope() {
-  var aScope = {};
-  goog.async.run(futureCallback1);
-  goog.async.run(futureCallback2, aScope);
-
-  // the callbacks are scheduled...
-  mockClock.tick();
-
-  // and called.
-  assertEquals(1, futureCallback1.getCallCount());
-  assertEquals(1, futureCallback2.getCallCount());
-
-  // and get the correct scope.
-  var last1 = futureCallback1.popLastCall();
-  assertEquals(0, last1.getArguments().length);
-  assertEquals(goog.global, last1.getThis());
-
-  var last2 = futureCallback2.popLastCall();
-  assertEquals(0, last2.getArguments().length);
-  assertEquals(aScope, last2.getThis());
-}
+        const last2 = futureCallback2.popLastCall();
+        assertEquals(0, last2.getArguments().length);
+        assertEquals(aScope, last2.getThis());
+        allDone();
+      });
+    });
+  },
+});

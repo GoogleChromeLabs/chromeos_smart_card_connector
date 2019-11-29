@@ -12,40 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('goog.dom.fullscreen_test');
-goog.setTestOnly('goog.dom.fullscreen_test');
+goog.module('goog.dom.fullscreen_test');
+goog.setTestOnly();
 
-goog.require('goog.dom.DomHelper');
-goog.require('goog.dom.fullscreen');
-goog.require('goog.testing.PropertyReplacer');
-goog.require('goog.testing.asserts');
-goog.require('goog.testing.jsunit');
+const DomHelper = goog.require('goog.dom.DomHelper');
+const PropertyReplacer = goog.require('goog.testing.PropertyReplacer');
+const asserts = goog.require('goog.testing.asserts');
+const fullscreen = goog.require('goog.dom.fullscreen');
+const testSuite = goog.require('goog.testing.testSuite');
 
-var domHelper;
-var mock_doc;
-var stubs;
+let domHelper;
+let mockDoc;
+let stubs;
 
-function clearFullscreenElement() {
-  mock_doc.webkitFullscreenElement = null;
-  mock_doc.mozFullScreenElement = null;
-  mock_doc.msFullscreenElement = null;
-  mock_doc.fullscreenElement = null;
-}
+testSuite({
+  setUp() {
+    mockDoc = {};
+    domHelper = new DomHelper();
+    stubs = new PropertyReplacer();
+    stubs.replace(domHelper, 'getDocument', () => mockDoc);
+  },
 
-function setUp() {
-  mock_doc = {};
-  clearFullscreenElement();
-  domHelper = new goog.dom.DomHelper();
-  stubs = new goog.testing.PropertyReplacer();
-  stubs.replace(domHelper, 'getDocument', function() { return mock_doc; });
-}
+  testGetFullScreenElement() {
+    const element = document.createElement('div');
+    mockDoc.fullscreenElement = element;
+    assertEquals(element, fullscreen.getFullScreenElement(domHelper));
+  },
 
-function testGetFullScreenElement() {
-  var element = {};
-  mock_doc.webkitFullscreenElement = element;
-  assertEquals(element, goog.dom.fullscreen.getFullScreenElement(domHelper));
-}
-
-function testGetFullScreenElementNotFullScreen() {
-  assertNull(goog.dom.fullscreen.getFullScreenElement(domHelper));
-}
+  testGetFullScreenElementNotFullScreen() {
+    assertNull(fullscreen.getFullScreenElement(domHelper));
+  },
+});

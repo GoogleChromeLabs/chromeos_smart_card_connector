@@ -14,11 +14,13 @@
 
 /**
  * @fileoverview Emoji Palette renderer implementation.
- *
+ * @suppress {checkPrototypalTypes}
  */
 
 goog.provide('goog.ui.emoji.EmojiPaletteRenderer');
 
+goog.forwardDeclare('goog.ui.Palette');
+goog.forwardDeclare('goog.ui.emoji.SpriteInfo');
 goog.require('goog.a11y.aria');
 goog.require('goog.asserts');
 goog.require('goog.dom.NodeType');
@@ -27,9 +29,6 @@ goog.require('goog.dom.classlist');
 goog.require('goog.style');
 goog.require('goog.ui.PaletteRenderer');
 goog.require('goog.ui.emoji.Emoji');
-
-goog.forwardDeclare('goog.ui.Palette');
-goog.forwardDeclare('goog.ui.emoji.SpriteInfo');
 
 
 

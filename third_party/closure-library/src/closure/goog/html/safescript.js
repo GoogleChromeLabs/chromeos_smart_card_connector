@@ -21,6 +21,7 @@
 goog.provide('goog.html.SafeScript');
 
 goog.require('goog.asserts');
+goog.require('goog.html.trustedtypes');
 goog.require('goog.string.Const');
 goog.require('goog.string.TypedString');
 
@@ -71,7 +72,7 @@ goog.html.SafeScript = function() {
    * The contained value of this SafeScript.  The field has a purposely
    * ugly name to make (non-compiled) code that attempts to directly access this
    * field stand out.
-   * @private {string}
+   * @private {!TrustedScript|string}
    */
   this.privateDoNotAccessOrElseSafeScriptWrappedValue_ = '';
 
@@ -152,6 +153,18 @@ goog.html.SafeScript.fromConstantAndArgs = function(code, var_args) {
 
 
 /**
+ * Creates a SafeScript JSON representation from anything that could be passed
+ * to JSON.stringify.
+ * @param {*} val
+ * @return {!goog.html.SafeScript}
+ */
+goog.html.SafeScript.fromJson = function(val) {
+  return goog.html.SafeScript.createSafeScriptSecurityPrivateDoNotAccessOrElse(
+      goog.html.SafeScript.stringify_(val));
+};
+
+
+/**
  * Returns this SafeScript's value as a string.
  *
  * IMPORTANT: In code where it is security relevant that an object's type is
@@ -173,7 +186,7 @@ goog.html.SafeScript.fromConstantAndArgs = function(code, var_args) {
  * @override
  */
 goog.html.SafeScript.prototype.getTypedStringValue = function() {
-  return this.privateDoNotAccessOrElseSafeScriptWrappedValue_;
+  return this.privateDoNotAccessOrElseSafeScriptWrappedValue_.toString();
 };
 
 
@@ -205,6 +218,17 @@ if (goog.DEBUG) {
  *     `goog.asserts.AssertionError`.
  */
 goog.html.SafeScript.unwrap = function(safeScript) {
+  return goog.html.SafeScript.unwrapTrustedScript(safeScript).toString();
+};
+
+
+/**
+ * Unwraps value as TrustedScript if supported or as a string if not.
+ * @param {!goog.html.SafeScript} safeScript
+ * @return {!TrustedScript|string}
+ * @see goog.html.SafeScript.unwrap
+ */
+goog.html.SafeScript.unwrapTrustedScript = function(safeScript) {
   // Perform additional Run-time type-checking to ensure that
   // safeScript is indeed an instance of the expected type.  This
   // provides some additional protection against security bugs due to
@@ -266,7 +290,11 @@ goog.html.SafeScript.createSafeScriptSecurityPrivateDoNotAccessOrElse =
  */
 goog.html.SafeScript.prototype.initSecurityPrivateDoNotAccessOrElse_ = function(
     script) {
-  this.privateDoNotAccessOrElseSafeScriptWrappedValue_ = script;
+  this.privateDoNotAccessOrElseSafeScriptWrappedValue_ =
+      goog.html.trustedtypes.PRIVATE_DO_NOT_ACCESS_OR_ELSE_POLICY ?
+      goog.html.trustedtypes.PRIVATE_DO_NOT_ACCESS_OR_ELSE_POLICY.createScript(
+          script) :
+      script;
   return this;
 };
 

@@ -15,14 +15,23 @@
 /**
  * @fileoverview Mock filesystem objects. These are all in the same file to
  * avoid circular dependency issues.
- *
  */
 
 goog.setTestOnly('goog.testing.fs.DirectoryEntry');
+
+// TODO(b/130421259): We're trying to migrate all ES5 subclasses of Closure
+// Library to ES6. In ES6 this cannot be referenced before super is called. This
+// file has at least one this before a super call (in ES5) and cannot be
+// automatically upgraded to ES6 as a result. Please fix this if you have a
+// chance. Note: This can sometimes be caused by not calling the super
+// constructor at all. You can run the conversion tool yourself to see what it
+// does on this file: blaze run //javascript/refactoring/es6_classes:convert.
+
 goog.provide('goog.testing.fs.DirectoryEntry');
 goog.provide('goog.testing.fs.Entry');
 goog.provide('goog.testing.fs.FileEntry');
 
+goog.forwardDeclare('goog.testing.fs.FileSystem');
 goog.require('goog.Timer');
 goog.require('goog.array');
 goog.require('goog.asserts');
@@ -37,8 +46,6 @@ goog.require('goog.object');
 goog.require('goog.string');
 goog.require('goog.testing.fs.File');
 goog.require('goog.testing.fs.FileWriter');
-
-goog.forwardDeclare('goog.testing.fs.FileSystem');
 
 
 
@@ -374,14 +381,13 @@ goog.testing.fs.DirectoryEntry.prototype.getFileSync = function(
     path, opt_behavior, opt_data, opt_type) {
   opt_behavior = opt_behavior || goog.fs.DirectoryEntry.Behavior.DEFAULT;
   return (
-      /** @type {!goog.testing.fs.FileEntry} */ (
-          this.getEntry_(
-              path, opt_behavior, true /* isFile */,
-              goog.bind(function(parent, name) {
-                return new goog.testing.fs.FileEntry(
-                    this.getFileSystem(), parent, name,
-                    goog.isDef(opt_data) ? opt_data : '', opt_type);
-              }, this))));
+      /** @type {!goog.testing.fs.FileEntry} */ (this.getEntry_(
+          path, opt_behavior, true /* isFile */,
+          goog.bind(function(parent, name) {
+            return new goog.testing.fs.FileEntry(
+                this.getFileSystem(), parent, name,
+                opt_data !== undefined ? opt_data : '', opt_type);
+          }, this))));
 };
 
 

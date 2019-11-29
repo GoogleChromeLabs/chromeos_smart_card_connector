@@ -15,7 +15,6 @@
 /**
  * @fileoverview Contains application code for the XPC demo.
  * This script is used in both the container page and the iframe.
- *
  */
 goog.provide('xpcdemo');
 
@@ -90,10 +89,10 @@ xpcdemo.initOuter = function() {
   var peerUri =
       ownUri.resolve(new goog.Uri('inner.html')).setDomain(peerDomain);
   // Passthrough of verbose and compiled flags.
-  if (goog.isDef(ownUri.getParameterValue('verbose'))) {
+  if (ownUri.getParameterValue('verbose') !== undefined) {
     peerUri.setParameterValue('verbose', '');
   }
-  if (goog.isDef(ownUri.getParameterValue('compiled'))) {
+  if (ownUri.getParameterValue('compiled') !== undefined) {
     peerUri.setParameterValue('compiled', '');
   }
 

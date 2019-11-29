@@ -15,15 +15,13 @@
 /**
  * @fileoverview Constant declarations for common key codes.
  *
- * @author eae@google.com (Emil A Eklund)
  * @see ../demos/keyhandler.html
  */
 
 goog.provide('goog.events.KeyCodes');
 
-goog.require('goog.userAgent');
-
 goog.forwardDeclare('goog.events.BrowserEvent');
+goog.require('goog.userAgent');
 
 
 /**
@@ -70,9 +68,16 @@ goog.events.KeyCodes = {
   SEVEN: 55,
   EIGHT: 56,
   NINE: 57,
-  FF_SEMICOLON: 59,   // Firefox (Gecko) fires this for semicolon instead of 186
-  FF_EQUALS: 61,      // Firefox (Gecko) fires this for equals instead of 187
-  FF_DASH: 173,       // Firefox (Gecko) fires this for dash instead of 189
+  FF_SEMICOLON: 59,  // Firefox (Gecko) fires this for semicolon instead of 186
+  FF_EQUALS: 61,     // Firefox (Gecko) fires this for equals instead of 187
+  FF_DASH: 173,      // Firefox (Gecko) fires this for dash instead of 189
+  // Firefox (Gecko) fires this for # on UK keyboards, rather than
+  // Shift+SINGLE_QUOTE.
+  FF_HASH: 163,
+  // Firefox (Gecko) fires this for ' (:) on JP keyboards, rather than
+  // SINGLE_QUOTE (US keyboard layout) or SEMICOLON (JP keyboard layout in
+  // chrome)
+  FF_JP_QUOTE: 58,
   QUESTION_MARK: 63,  // needs localization
   AT_SIGN: 64,
   A: 65,
@@ -191,9 +196,13 @@ goog.events.KeyCodes.isTextModifyingKeyEvent = function(e) {
     return false;
   }
 
-  // The following keys are quite harmless, even in combination with
-  // CTRL, ALT or SHIFT.
+  if (goog.events.KeyCodes.isCharacterKey(e.keyCode)) {
+    return true;
+  }
+
   switch (e.keyCode) {
+    // The following keys are quite harmless, even in combination with
+    // CTRL, ALT or SHIFT.
     case goog.events.KeyCodes.ALT:
     case goog.events.KeyCodes.CAPS_LOCK:
     case goog.events.KeyCodes.CONTEXT_MENU:
@@ -279,7 +288,7 @@ goog.events.KeyCodes.firesKeyPressEvent = function(
   // Gecko doesn't need to use the held key for modifiers, it just checks the
   // ctrl/meta/alt/shiftKey fields.
   if (!goog.userAgent.GECKO) {
-    if (goog.isNumber(opt_heldKeyCode)) {
+    if (typeof opt_heldKeyCode === 'number') {
       opt_heldKeyCode = goog.events.KeyCodes.normalizeKeyCode(opt_heldKeyCode);
     }
     var heldKeyIsModifier = opt_heldKeyCode == goog.events.KeyCodes.CTRL ||
@@ -398,7 +407,11 @@ goog.events.KeyCodes.isCharacterKey = function(keyCode) {
     case goog.events.KeyCodes.OPEN_SQUARE_BRACKET:
     case goog.events.KeyCodes.BACKSLASH:
     case goog.events.KeyCodes.CLOSE_SQUARE_BRACKET:
+    case goog.events.KeyCodes.FF_HASH:
+    case goog.events.KeyCodes.FF_JP_QUOTE:
       return true;
+    case goog.events.KeyCodes.FF_DASH:
+      return goog.userAgent.GECKO;
     default:
       return false;
   }

@@ -41,8 +41,6 @@
  * NOTE: The keyCode member contains the raw browser keyCode. For normalized
  * key and character code use {@link goog.events.KeyHandler}.
  * </pre>
- *
- * @author arv@google.com (Erik Arvidsson)
  */
 
 goog.provide('goog.events.BrowserEvent');
@@ -56,7 +54,14 @@ goog.require('goog.events.EventType');
 goog.require('goog.reflect');
 goog.require('goog.userAgent');
 
-
+/**
+ * @define {boolean} If true, use the layerX and layerY properties of a native
+ * browser event over the offsetX and offsetY properties, which cause expensive
+ * reflow. If layerX or layerY is not defined, offsetX and offsetY will be used
+ * as usual.
+ */
+goog.events.USE_LAYER_XY_AS_OFFSET_XY =
+    goog.define('goog.events.USE_LAYER_XY_AS_OFFSET_XY', false);
 
 /**
  * Accepts a browser event object and creates a patched, cross browser event
@@ -74,20 +79,20 @@ goog.events.BrowserEvent = function(opt_e, opt_currentTarget) {
   /**
    * Target that fired the event.
    * @override
-   * @type {Node}
+   * @type {?Node}
    */
   this.target = null;
 
   /**
    * Node that had the listener attached.
    * @override
-   * @type {Node|undefined}
+   * @type {?Node|undefined}
    */
   this.currentTarget = null;
 
   /**
    * For mouseover and mouseout events, the related object for the event.
-   * @type {Node}
+   * @type {?Node}
    */
   this.relatedTarget = null;
 
@@ -178,7 +183,7 @@ goog.events.BrowserEvent = function(opt_e, opt_currentTarget) {
   /**
    * History state object, only set for PopState events where it's a copy of the
    * state object provided to pushState or replaceState.
-   * @type {Object}
+   * @type {?Object}
    */
   this.state = null;
 
@@ -201,7 +206,7 @@ goog.events.BrowserEvent = function(opt_e, opt_currentTarget) {
 
   /**
    * The browser event object.
-   * @private {Event}
+   * @private {?Event}
    */
   this.event_ = null;
 
@@ -275,9 +280,10 @@ goog.events.BrowserEvent.prototype.init = function(e, opt_currentTarget) {
 
   /**
    * On touch devices use the first "changed touch" as the relevant touch.
-   * @type {Touch}
+   * @type {?Touch}
    */
-  var relevantTouch = e.changedTouches ? e.changedTouches[0] : null;
+  var relevantTouch =
+      e.changedTouches && e.changedTouches.length ? e.changedTouches[0] : null;
 
   // TODO(nicksantos): Change this.target to type EventTarget.
   this.target = /** @type {Node} */ (e.target) || e.srcElement;
@@ -304,7 +310,7 @@ goog.events.BrowserEvent.prototype.init = function(e, opt_currentTarget) {
 
   this.relatedTarget = relatedTarget;
 
-  if (!goog.isNull(relevantTouch)) {
+  if (relevantTouch) {
     this.clientX = relevantTouch.clientX !== undefined ? relevantTouch.clientX :
                                                          relevantTouch.pageX;
     this.clientY = relevantTouch.clientY !== undefined ? relevantTouch.clientY :
@@ -312,14 +318,19 @@ goog.events.BrowserEvent.prototype.init = function(e, opt_currentTarget) {
     this.screenX = relevantTouch.screenX || 0;
     this.screenY = relevantTouch.screenY || 0;
   } else {
-    // Webkit emits a lame warning whenever layerX/layerY is accessed.
-    // http://code.google.com/p/chromium/issues/detail?id=101733
-    this.offsetX = (goog.userAgent.WEBKIT || e.offsetX !== undefined) ?
-        e.offsetX :
-        e.layerX;
-    this.offsetY = (goog.userAgent.WEBKIT || e.offsetY !== undefined) ?
-        e.offsetY :
-        e.layerY;
+    if (goog.events.USE_LAYER_XY_AS_OFFSET_XY) {
+      this.offsetX = (e.layerX !== undefined) ? e.layerX : e.offsetX;
+      this.offsetY = (e.layerY !== undefined) ? e.layerY : e.offsetY;
+    } else {
+      // Webkit emits a lame warning whenever layerX/layerY is accessed.
+      // http://code.google.com/p/chromium/issues/detail?id=101733
+      this.offsetX = (goog.userAgent.WEBKIT || e.offsetX !== undefined) ?
+          e.offsetX :
+          e.layerX;
+      this.offsetY = (goog.userAgent.WEBKIT || e.offsetY !== undefined) ?
+          e.offsetY :
+          e.layerY;
+    }
     this.clientX = e.clientX !== undefined ? e.clientX : e.pageX;
     this.clientY = e.clientY !== undefined ? e.clientY : e.pageY;
     this.screenX = e.screenX || 0;
@@ -460,7 +471,7 @@ goog.events.BrowserEvent.prototype.getBrowserEvent = function() {
  * @private
  */
 goog.events.BrowserEvent.getPointerType_ = function(e) {
-  if (goog.isString(e.pointerType)) {
+  if (typeof (e.pointerType) === 'string') {
     return e.pointerType;
   }
   // IE10 uses integer codes for pointer type.

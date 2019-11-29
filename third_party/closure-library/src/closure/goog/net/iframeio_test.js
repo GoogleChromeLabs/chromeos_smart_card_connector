@@ -12,49 +12,48 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('goog.net.IframeIoTest');
+goog.module('goog.net.IframeIoTest');
 goog.setTestOnly('goog.net.IframeIoTest');
 
-goog.require('goog.debug');
-goog.require('goog.debug.DivConsole');
-goog.require('goog.debug.LogManager');
-goog.require('goog.dom');
-goog.require('goog.dom.TagName');
-goog.require('goog.events');
-goog.require('goog.events.EventType');
-goog.require('goog.log');
-goog.require('goog.log.Level');
-goog.require('goog.net.IframeIo');
-goog.require('goog.testing.events');
-goog.require('goog.testing.events.Event');
-goog.require('goog.testing.jsunit');
-goog.require('goog.userAgent');
+const DivConsole = goog.require('goog.debug.DivConsole');
+const Event = goog.require('goog.testing.events.Event');
+const EventType = goog.require('goog.events.EventType');
+const IframeIo = goog.require('goog.net.IframeIo');
+const Level = goog.require('goog.log.Level');
+const LogManager = goog.require('goog.debug.LogManager');
+const TEST_ONLY = goog.require('goog.net.IframeIo.TEST_ONLY');
+const TagName = goog.require('goog.dom.TagName');
+const debug = goog.require('goog.debug');
+const dom = goog.require('goog.dom');
+const events = goog.require('goog.events');
+const log = goog.require('goog.log');
+const testSuite = goog.require('goog.testing.testSuite');
+const testingEvents = goog.require('goog.testing.events');
+const userAgent = goog.require('goog.userAgent');
 
 // MANUAL TESTS - The tests should be run in the browser from the Closure Test
 // Server
 
 // Set up a logger to track responses
-goog.debug.LogManager.getRoot().setLevel(goog.log.Level.INFO);
-var logconsole;
-var testLogger = goog.log.getLogger('test');
-
-function setUpPage() {
-  var logconsole = new goog.debug.DivConsole(document.getElementById('log'));
-  logconsole.setCapturing(true);
-}
+LogManager.getRoot().setLevel(Level.INFO);
+let logconsole;
+const testLogger = log.getLogger('test');
 
 
-/** Creates an iframeIo instance and sets up the test environment */
+/**
+ * Creates an iframeIo instance and sets up the test environment.
+ * @return {!IframeIo}
+ */
 function getTestIframeIo() {
   logconsole.addSeparator();
   logconsole.getFormatter().resetRelativeTimeStart();
 
-  var io = new goog.net.IframeIo();
+  const io = new IframeIo();
   io.setErrorChecker(checkForError);
 
-  goog.events.listen(io, 'success', onSuccess);
-  goog.events.listen(io, 'error', onError);
-  goog.events.listen(io, 'ready', onReady);
+  events.listen(io, 'success', onSuccess);
+  events.listen(io, 'error', onError);
+  events.listen(io, 'ready', onReady);
 
   return io;
 }
@@ -63,11 +62,12 @@ function getTestIframeIo() {
 /**
  * Checks for error strings returned by the GSE and error variables that
  * the Gmail server and GFE set on certain errors.
+ * @param {!Document} doc
  */
 function checkForError(doc) {
-  var win = goog.dom.getWindow(doc);
-  var text = doc.body.textContent || doc.body.innerText || '';
-  var gseError = text.match(/([^\n]+)\nError ([0-9]{3})/);
+  const win = dom.getWindow(doc);
+  const text = doc.body.textContent || doc.body.innerText || '';
+  const gseError = text.match(/([^\n]+)\nError ([0-9]{3})/);
   if (gseError) {
     return '(Error ' + gseError[2] + ') ' + gseError[1];
   } else if (win.gmail_error) {
@@ -80,248 +80,298 @@ function checkForError(doc) {
 }
 
 
-/** Logs the status of an iframeIo object */
+/**
+ * Logs the status of an iframeIo object
+ * @param {!IframeIo} i
+ */
 function logStatus(i) {
-  goog.log.fine(
-      testLogger, 'Is complete/success/active: ' +
-          [i.isComplete(), i.isSuccess(), i.isActive()].join('/'));
+  log.fine(testLogger, 'Is complete/success/active: ' + [
+    i.isComplete(),
+    i.isSuccess(),
+    i.isActive(),
+  ].join('/'));
 }
 
+/**
+ * @param {!Event} e
+ */
 function onSuccess(e) {
-  goog.log.warning(testLogger, 'Request Succeeded');
+  log.warning(testLogger, 'Request Succeeded');
   logStatus(e.target);
 }
 
+/**
+ * @param {!Event} e
+ */
 function onError(e) {
-  goog.log.warning(testLogger, 'Request Errored: ' + e.target.getLastError());
+  log.warning(testLogger, 'Request Errored: ' + e.target.getLastError());
   logStatus(e.target);
 }
 
+/**
+ * @param {!Event} e
+ */
 function onReady(e) {
-  goog.log.info(
-      testLogger, 'Test finished and iframe ready, disposing test object');
+  log.info(testLogger, 'Test finished and iframe ready, disposing test object');
   e.target.dispose();
 }
 
 
-
 function simpleGet() {
-  var io = getTestIframeIo();
-  goog.events.listen(io, 'complete', onSimpleTestComplete);
+  const io = getTestIframeIo();
+  events.listen(io, 'complete', onSimpleTestComplete);
   io.send('/iframeio/ping', 'GET');
 }
 
 
 function simplePost() {
-  var io = getTestIframeIo();
-  goog.events.listen(io, 'complete', onSimpleTestComplete);
+  const io = getTestIframeIo();
+  events.listen(io, 'complete', onSimpleTestComplete);
   io.send('/iframeio/ping', 'POST');
 }
 
+/**
+ * @param {!Event} e
+ */
 function onSimpleTestComplete(e) {
-  goog.log.info(testLogger, 'ResponseText: ' + e.target.getResponseText());
+  log.info(testLogger, 'ResponseText: ' + e.target.getResponseText());
 }
 
 function abort() {
-  var io = getTestIframeIo();
-  goog.events.listen(io, 'complete', onAbortComplete);
-  goog.events.listen(io, 'abort', onAbort);
+  const io = getTestIframeIo();
+  events.listen(io, 'complete', onAbortComplete);
+  events.listen(io, 'abort', onAbort);
   io.send('/iframeio/ping', 'GET');
   io.abort();
 }
 
+/**
+ * @param {!Event} e
+ */
 function onAbortComplete(e) {
-  goog.log.info(testLogger, 'Hmm, request should have been aborted');
+  log.info(testLogger, 'Hmm, request should have been aborted');
 }
 
+/**
+ * @param {!Event} e
+ */
 function onAbort(e) {
-  goog.log.info(testLogger, 'Request aborted');
+  log.info(testLogger, 'Request aborted');
 }
 
 
 function errorGse404() {
-  var io = getTestIframeIo();
+  const io = getTestIframeIo();
   io.send('/iframeio/404', 'GET');
 }
 
+/**
+ * @param {string} method
+ */
 function jsonEcho(method) {
-  var io = getTestIframeIo();
-  goog.events.listen(io, 'complete', onJsonComplete);
-  var data = {'p1': 'x', 'p2': 'y', 'p3': 'z', 'r': 10};
+  const io = getTestIframeIo();
+  events.listen(io, 'complete', onJsonComplete);
+  const data = {'p1': 'x', 'p2': 'y', 'p3': 'z', 'r': 10};
   io.send('/iframeio/jsonecho?q1=a&q2=b&q3=c&r=5', method, false, data);
 }
 
+/**
+ * @param {!Event} e
+ */
 function onJsonComplete(e) {
-  goog.log.info(testLogger, 'ResponseText: ' + e.target.getResponseText());
-  var json = e.target.getResponseJson();
-  goog.log.info(
-      testLogger, 'ResponseJson:\n' + goog.debug.deepExpose(json, true));
+  log.info(testLogger, 'ResponseText: ' + e.target.getResponseText());
+  const json = e.target.getResponseJson();
+  log.info(testLogger, 'ResponseJson:\n' + debug.deepExpose(json, true));
 }
-
 
 
 function sendFromForm() {
-  var io = getTestIframeIo();
-  goog.events.listen(io, 'success', onUploadSuccess);
-  goog.events.listen(io, 'error', onUploadError);
+  const io = getTestIframeIo();
+  events.listen(io, 'success', onUploadSuccess);
+  events.listen(io, 'error', onUploadError);
   io.sendFromForm(document.getElementById('uploadform'));
 }
 
+/**
+ * @param {!Event} e
+ */
 function onUploadSuccess(e) {
-  goog.log.log(testLogger, goog.log.Level.SHOUT, 'Upload Succeeded');
-  goog.log.info(testLogger, 'ResponseText: ' + e.target.getResponseText());
+  log.log(testLogger, Level.SHOUT, 'Upload Succeeded');
+  log.info(testLogger, 'ResponseText: ' + e.target.getResponseText());
 }
 
+/**
+ * @param {!Event} e
+ */
 function onUploadError(e) {
-  goog.log.log(testLogger, goog.log.Level.SHOUT, 'Upload Errored');
-  goog.log.info(testLogger, 'ResponseText: ' + e.target.getResponseText());
+  log.log(testLogger, Level.SHOUT, 'Upload Errored');
+  log.info(testLogger, 'ResponseText: ' + e.target.getResponseText());
 }
 
 
 function redirect1() {
-  var io = getTestIframeIo();
+  const io = getTestIframeIo();
   io.send('/iframeio/redirect', 'GET');
 }
 
 function redirect2() {
-  var io = getTestIframeIo();
+  const io = getTestIframeIo();
   io.send('/iframeio/move', 'GET');
 }
 
 function badUrl() {
-  var io = getTestIframeIo();
+  const io = getTestIframeIo();
   io.send('http://news.bbc.co.uk', 'GET');
 }
 
 function localUrl1() {
-  var io = getTestIframeIo();
-  goog.events.listen(io, 'complete', onLocalSuccess);
+  const io = getTestIframeIo();
+  events.listen(io, 'complete', onLocalSuccess);
   io.send('c:\test.txt', 'GET');
 }
 
 function localUrl2() {
-  var io = getTestIframeIo();
-  goog.events.listen(io, 'success', onLocalSuccess);
+  const io = getTestIframeIo();
+  events.listen(io, 'success', onLocalSuccess);
   io.send('//test.txt', 'GET');
 }
 
+/**
+ * @param {!Event} e
+ */
 function onLocalSuccess(e) {
-  goog.log.info(
-      testLogger, 'The file was found:\n' + e.target.getResponseText());
+  log.info(testLogger, 'The file was found:\n' + e.target.getResponseText());
 }
 
 function getServerTime(noCache) {
-  var io = getTestIframeIo();
-  goog.events.listen(io, 'success', onTestCacheSuccess);
+  const io = getTestIframeIo();
+  events.listen(io, 'success', onTestCacheSuccess);
   io.send('/iframeio/datetime', 'GET', noCache);
 }
 
+/**
+ * @param {!Event} e
+ */
 function onTestCacheSuccess(e) {
-  goog.log.info(testLogger, 'Date reported: ' + e.target.getResponseText());
+  log.info(testLogger, 'Date reported: ' + e.target.getResponseText());
 }
 
 
 function errorGmail() {
-  var io = getTestIframeIo();
-  goog.events.listen(io, 'error', onGmailError);
+  const io = getTestIframeIo();
+  events.listen(io, 'error', onGmailError);
   io.send('/iframeio/gmailerror', 'GET');
 }
 
+/**
+ * @param {!Event} e
+ */
 function onGmailError(e) {
-  goog.log.info(testLogger, 'Gmail error: ' + e.target.getLastError());
+  log.info(testLogger, 'Gmail error: ' + e.target.getLastError());
 }
 
 
 function errorGfe() {
-  var io = getTestIframeIo();
-  goog.events.listen(io, 'error', onGfeError);
+  const io = getTestIframeIo();
+  events.listen(io, 'error', onGfeError);
   io.send('/iframeio/gfeerror', 'GET');
 }
 
+/**
+ * @param {!Event} e
+ */
 function onGfeError(e) {
-  goog.log.info(testLogger, 'GFE error: ' + e.target.getLastError());
+  log.info(testLogger, 'GFE error: ' + e.target.getLastError());
 }
 
 
 
 function incremental() {
-  var io = getTestIframeIo();
+  const io = getTestIframeIo();
   io.send('/iframeio/incremental', 'GET');
 }
 
 window['P'] = function(iframe, data) {
-  goog.net.IframeIo.getInstanceByName(iframe.name);
-  goog.log.info(testLogger, 'Data received - ' + data);
+  IframeIo.getInstanceByName(iframe.name);
+  log.info(testLogger, 'Data received - ' + data);
 };
 
 
 function postForm() {
-  var io = getTestIframeIo();
-  goog.events.listen(io, 'complete', onJsonComplete);
+  const io = getTestIframeIo();
+  events.listen(io, 'complete', onJsonComplete);
   io.sendFromForm(document.getElementById('testfrm'));
 }
-// UNIT TESTS - to be run via the JsUnit testRunner
-
-// TODO(user): How to unit test all of this?  Creating a MockIframe could
-// help for the IE code path, but since the other browsers require weird
-// behaviors this becomes very tricky.
 
 
-function testGetForm() {
-  var frm1 = goog.net.IframeIo.getForm_;
-  var frm2 = goog.net.IframeIo.getForm_;
-  assertEquals(frm1, frm2);
-}
+// UNIT TESTS
+testSuite({
+  setUpPage() {
+    const logconsole = new DivConsole(document.getElementById('log'));
+    logconsole.setCapturing(true);
+  },
+
+  // TODO(user): How to unit test all of this?  Creating a MockIframe could
+  // help for the IE code path, but since the other browsers require weird
+  // behaviors this becomes very tricky.
 
 
-function testAddFormInputs() {
-  var form = goog.dom.createElement(goog.dom.TagName.FORM);
-  goog.net.IframeIo.addFormInputs_(form, {'a': 1, 'b': 2, 'c': 3});
-  var inputs = goog.dom.getElementsByTagName(goog.dom.TagName.INPUT, form);
-  assertEquals(3, inputs.length);
-  for (var i = 0; i < inputs.length; i++) {
-    assertEquals('hidden', inputs[i].type);
-    var n = inputs[i].name;
-    assertEquals(n == 'a' ? '1' : n == 'b' ? '2' : '3', inputs[i].value);
-  }
-}
+  testGetForm() {
+    const frm1 = TEST_ONLY.getForm();
+    const frm2 = TEST_ONLY.getForm();
+    assertEquals(frm1, frm2);
+  },
 
-function testAddFormArrayInputs() {
-  var form = goog.dom.createElement(goog.dom.TagName.FORM);
-  var data = {'a': ['blue', 'green'], 'b': ['red', 'pink', 'white']};
-  goog.net.IframeIo.addFormInputs_(form, data);
-  var inputs = goog.dom.getElementsByTagName(goog.dom.TagName.INPUT, form);
-  assertEquals(5, inputs.length);
-  for (var i = 0; i < inputs.length; i++) {
-    assertEquals('hidden', inputs[i].type);
-    var n = inputs[i].name;
-    assertContains(inputs[i].value, data[n]);
-  }
-}
 
-function testNotIgnoringResponse() {
-  // This test can't run in IE because we can't forge the check for
-  // iframe.readyState = 'complete'.
-  if (goog.userAgent.IE) {
-    return;
-  }
-  var iframeIo = new goog.net.IframeIo();
-  iframeIo.send('about:blank');
-  // Simulate the frame finishing loading.
-  goog.testing.events.fireBrowserEvent(
-      new goog.testing.events.Event(
-          goog.events.EventType.LOAD, iframeIo.getRequestIframe()));
-  assertTrue(iframeIo.isComplete());
-}
+  testAddFormInputs() {
+    const form = dom.createElement(TagName.FORM);
+    IframeIo.addFormInputs_(form, {'a': 1, 'b': 2, 'c': 3});
+    const inputs = dom.getElementsByTagName(dom.TagName.INPUT, form);
+    assertEquals(3, inputs.length);
+    for (let i = 0; i < inputs.length; i++) {
+      assertEquals('hidden', inputs[i].type);
+      const n = inputs[i].name;
+      assertEquals(n == 'a' ? '1' : n == 'b' ? '2' : '3', inputs[i].value);
+    }
+  },
 
-function testIgnoreResponse() {
-  var iframeIo = new goog.net.IframeIo();
-  iframeIo.setIgnoreResponse(true);
-  iframeIo.send('about:blank');
-  // Simulate the frame finishing loading.
-  goog.testing.events.fireBrowserEvent(
-      new goog.testing.events.Event(
-          goog.events.EventType.LOAD, iframeIo.getRequestIframe()));
-  // Although the request is complete, the IframeIo isn't paying attention.
-  assertFalse(iframeIo.isComplete());
-}
+  testAddFormArrayInputs() {
+    const form = dom.createElement(TagName.FORM);
+    const data = {'a': ['blue', 'green'], 'b': ['red', 'pink', 'white']};
+    IframeIo.addFormInputs_(form, data);
+    const inputs = dom.getElementsByTagName(TagName.INPUT, form);
+    assertEquals(5, inputs.length);
+    for (let i = 0; i < inputs.length; i++) {
+      assertEquals('hidden', inputs[i].type);
+      const n = inputs[i].name;
+      assertContains(inputs[i].value, data[n]);
+    }
+  },
+
+  testNotIgnoringResponse() {
+    // This test can't run in IE because we can't forge the check for
+    // iframe.readyState = 'complete'.
+    if (userAgent.IE) {
+      return;
+    }
+    const iframeIo = new IframeIo();
+    iframeIo.send('about:blank');
+    // Simulate the frame finishing loading.
+    testingEvents.fireBrowserEvent(
+        new Event(EventType.LOAD, iframeIo.getRequestIframe()));
+    assertTrue(iframeIo.isComplete());
+  },
+
+  testIgnoreResponse() {
+    const iframeIo = new IframeIo();
+    iframeIo.setIgnoreResponse(true);
+    iframeIo.send('about:blank');
+    // Simulate the frame finishing loading.
+    testingEvents.fireBrowserEvent(
+        new Event(EventType.LOAD, iframeIo.getRequestIframe()));
+    // Although the request is complete, the IframeIo isn't paying attention.
+    assertFalse(iframeIo.isComplete());
+  },
+
+
+});

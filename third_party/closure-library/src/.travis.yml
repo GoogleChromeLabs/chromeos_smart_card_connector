@@ -4,6 +4,8 @@
 # See the LICENSE file for details.
 
 language: node_js
+node_js:
+  - "8"
 sudo: required
 
 # This is required for Java 8 in non-java image
@@ -12,6 +14,7 @@ dist: trusty
 cache:
   directories:
     - node_modules
+    - closure-deps/node_modules
 
 install:
   # We need jdk8 for JsDossier; but this needs to come first because
@@ -37,6 +40,7 @@ script:
   - ./scripts/ci/compile_closure.sh
   - ./scripts/ci/lint_pull_request.sh
   - ./scripts/ci/check_code_format.sh
+  - ./scripts/ci/test_closuredeps.sh
   # Disable unit tests
   # - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then travis_wait 30 ./scripts/ci/run_all_tests.sh; fi'
 

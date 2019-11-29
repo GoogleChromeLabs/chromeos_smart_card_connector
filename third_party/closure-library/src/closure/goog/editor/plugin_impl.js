@@ -21,6 +21,7 @@
 
 goog.provide('goog.editor.PluginImpl');
 
+goog.forwardDeclare('goog.editor.Field');
 // TODO(user): Remove the dependency on goog.editor.Command asap. Currently only
 // needed for execCommand issues with links.
 goog.require('goog.events.EventTarget');
@@ -29,8 +30,6 @@ goog.require('goog.log');
 goog.require('goog.object');
 goog.require('goog.reflect');
 goog.require('goog.userAgent');
-
-goog.forwardDeclare('goog.editor.Field');
 
 /**
  * Abstract API for trogedit plugins.
@@ -50,7 +49,7 @@ goog.editor.PluginImpl = function() {
 
   /**
    * The field object this plugin is attached to.
-   * @type {goog.editor.Field}
+   * @type {?goog.editor.Field}
    * @protected
    * @deprecated Use goog.editor.PluginImpl.getFieldObject and
    *     goog.editor.PluginImpl.setFieldObject.

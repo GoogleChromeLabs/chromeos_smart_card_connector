@@ -24,11 +24,11 @@
  * decrypting them. If sensitive metadata is added in subclasses, it is up
  * to the subclass to protect this information, perhaps by embedding it in
  * the object.
- *
  */
 
 goog.provide('goog.storage.EncryptedStorage');
 
+goog.forwardDeclare('goog.storage.mechanism.IterableMechanism');
 goog.require('goog.crypt');
 goog.require('goog.crypt.Arc4');
 goog.require('goog.crypt.Sha1');
@@ -38,8 +38,6 @@ goog.require('goog.json.Serializer');
 goog.require('goog.storage.CollectableStorage');
 goog.require('goog.storage.ErrorCode');
 goog.require('goog.storage.RichStorage');
-
-goog.forwardDeclare('goog.storage.mechanism.IterableMechanism');
 
 
 
@@ -98,7 +96,8 @@ goog.storage.EncryptedStorage.prototype.hashKeyWithSecret_ = function(key) {
   var sha1 = new goog.crypt.Sha1();
   sha1.update(goog.crypt.stringToByteArray(key));
   sha1.update(this.secret_);
-  return goog.crypt.base64.encodeByteArray(sha1.digest(), true);
+  return goog.crypt.base64.encodeByteArray(
+      sha1.digest(), goog.crypt.base64.Alphabet.WEBSAFE_DOT_PADDING);
 };
 
 
@@ -149,7 +148,7 @@ goog.storage.EncryptedStorage.prototype.decryptValue_ = function(
 /** @override */
 goog.storage.EncryptedStorage.prototype.set = function(
     key, value, opt_expiration) {
-  if (!goog.isDef(value)) {
+  if (value === undefined) {
     goog.storage.EncryptedStorage.prototype.remove.call(this, key);
     return;
   }
@@ -177,7 +176,7 @@ goog.storage.EncryptedStorage.prototype.getWrapper = function(
   }
   var value = goog.storage.RichStorage.Wrapper.unwrap(wrapper);
   var salt = wrapper[goog.storage.EncryptedStorage.SALT_KEY];
-  if (!goog.isString(value) || !goog.isArray(salt) || !salt.length) {
+  if (typeof value !== 'string' || !goog.isArray(salt) || !salt.length) {
     throw goog.storage.ErrorCode.INVALID_VALUE;
   }
   var json = this.decryptValue_(salt, key, value);

@@ -14,7 +14,6 @@
 
 /**
  * @fileoverview Base WebChannel implementation.
- *
  */
 
 
@@ -24,7 +23,6 @@ goog.require('goog.Uri');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.async.run');
-goog.require('goog.debug.TextFormatter');
 goog.require('goog.json');
 goog.require('goog.labs.net.webChannel.BaseTestChannel');
 goog.require('goog.labs.net.webChannel.Channel');
@@ -36,7 +34,6 @@ goog.require('goog.labs.net.webChannel.Wire');
 goog.require('goog.labs.net.webChannel.WireV8');
 goog.require('goog.labs.net.webChannel.netUtils');
 goog.require('goog.labs.net.webChannel.requestStats');
-goog.require('goog.log');
 goog.require('goog.net.WebChannel');
 goog.require('goog.net.XhrIo');
 goog.require('goog.net.XmlHttpFactory');
@@ -44,7 +41,6 @@ goog.require('goog.net.rpc.HttpCors');
 goog.require('goog.object');
 goog.require('goog.string');
 goog.require('goog.structs');
-goog.require('goog.structs.CircularBuffer');
 
 goog.scope(function() {
 var WebChannel = goog.net.WebChannel;
@@ -112,13 +108,13 @@ goog.labs.net.webChannel.WebChannelBase = function(
 
   /**
    * Extra HTTP headers to add to all the requests sent to the server.
-   * @private {Object}
+   * @private {?Object}
    */
   this.extraHeaders_ = null;
 
   /**
    * Extra HTTP headers to add to the init request(s) sent to the server.
-   * @private {Object}
+   * @private {?Object}
    */
   this.initHeaders_ = null;
 
@@ -130,7 +126,7 @@ goog.labs.net.webChannel.WebChannelBase = function(
 
   /**
    * Extra parameters to add to all the requests sent to the server.
-   * @private {Object}
+   * @private {?Object}
    */
   this.extraParams_ = null;
 
@@ -149,7 +145,7 @@ goog.labs.net.webChannel.WebChannelBase = function(
 
   /**
    * The ChannelRequest object for the backchannel.
-   * @private {ChannelRequest}
+   * @private {?ChannelRequest}
    */
   this.backChannelRequest_ = null;
 
@@ -162,13 +158,13 @@ goog.labs.net.webChannel.WebChannelBase = function(
 
   /**
    * The absolute URI for the forwardchannel request.
-   * @private {goog.Uri}
+   * @private {?goog.Uri}
    */
   this.forwardChannelUri_ = null;
 
   /**
    * The absolute URI for the backchannel request.
-   * @private {goog.Uri}
+   * @private {?goog.Uri}
    */
   this.backChannelUri_ = null;
 
@@ -208,13 +204,15 @@ goog.labs.net.webChannel.WebChannelBase = function(
 
   /**
    * The handler that receive callbacks for state changes and data.
-   * @private {goog.labs.net.webChannel.WebChannelBase.Handler}
+   * @private {?goog.labs.net.webChannel.WebChannelBase.Handler}
    */
   this.handler_ = null;
 
   /**
    * Timer identifier for asynchronously making a forward channel request.
-   * @private {?number}
+   * This is set to true if the func is scheduled with async.run, which
+   * is equivalent to setTimeout(0).
+   * @private {?number|?boolean}
    */
   this.forwardChannelTimerId_ = null;
 
@@ -234,7 +232,7 @@ goog.labs.net.webChannel.WebChannelBase = function(
   /**
    * The TestChannel object which encapsulates the logic for determining
    * interesting network conditions about the client.
-   * @private {BaseTestChannel}
+   * @private {?BaseTestChannel}
    */
   this.connectionTest_ = null;
 
@@ -401,7 +399,7 @@ goog.labs.net.webChannel.WebChannelBase = function(
    * @private {boolean}
    */
   this.backgroundChannelTest_ =
-      opt_options && goog.isDef(opt_options.backgroundChannelTest) ?
+      opt_options && opt_options.backgroundChannelTest !== undefined ?
       opt_options.backgroundChannelTest :
       true;
 
@@ -421,6 +419,17 @@ goog.labs.net.webChannel.WebChannelBase = function(
   if (opt_options && opt_options.disableRedact) {
     this.channelDebug_.disableRedact();
   }
+
+  if (opt_options && opt_options.forceLongPolling) {
+    this.allowChunkedMode_ = false;
+  }
+
+  /**
+   * Callback when all the pending client-sent messages have been flushed.
+   *
+   * @private {function()|undefined}
+   */
+  this.forwardChannelFlushedCallback_ = undefined;
 };
 
 var WebChannelBase = goog.labs.net.webChannel.WebChannelBase;
@@ -549,6 +558,15 @@ WebChannelBase.MAX_MAPS_PER_REQUEST_ = 1000;
 
 
 /**
+ * The maximum number of utf-8 chars that can be sent in one GET to enable 0-RTT
+ * handshake.
+ *
+ *  @const @private {number}
+ */
+WebChannelBase.MAX_CHARS_PER_GET_ = 4 * 1024;
+
+
+/**
  * A guess at a cutoff at which to no longer assume the backchannel is dead
  * when we are slow to receive data. Number in bytes.
  *
@@ -557,6 +575,14 @@ WebChannelBase.MAX_MAPS_PER_REQUEST_ = 1000;
  * @type {number}
  */
 WebChannelBase.OUTSTANDING_DATA_BACKCHANNEL_RETRY_CUTOFF = 37500;
+
+
+/**
+ * @return {number} The server version or 0 if undefined
+ */
+WebChannelBase.prototype.getServerVersion = function() {
+  return this.serverVersion_;
+};
 
 
 /**
@@ -615,7 +641,7 @@ WebChannelBase.prototype.connect = function(
   this.extraParams_ = opt_extraParams || {};
 
   // Attach parameters about the previous session if reconnecting.
-  if (opt_oldSessionId && goog.isDef(opt_oldArrayId)) {
+  if (opt_oldSessionId && opt_oldArrayId !== undefined) {
     this.extraParams_['OSID'] = opt_oldSessionId;
     this.extraParams_['OAID'] = opt_oldArrayId;
   }
@@ -736,9 +762,21 @@ WebChannelBase.prototype.cancelRequests_ = function() {
   this.forwardChannelRequestPool_.cancel();
 
   if (this.forwardChannelTimerId_) {
-    goog.global.clearTimeout(this.forwardChannelTimerId_);
-    this.forwardChannelTimerId_ = null;
+    this.clearForwardChannelTimer_();
   }
+};
+
+
+/**
+ * Clears the forward channel timer.
+ * @private
+ */
+WebChannelBase.prototype.clearForwardChannelTimer_ = function() {
+  if (typeof this.forwardChannelTimerId_ === 'number') {
+    goog.global.clearTimeout(this.forwardChannelTimerId_);
+  }
+
+  this.forwardChannelTimerId_ = null;
 };
 
 
@@ -995,8 +1033,7 @@ WebChannelBase.prototype.setFailFast = function(failFast) {
     if (!this.forwardChannelRequestPool_.forceComplete(
             goog.bind(this.onRequestComplete, this))) {
       // i.e., this.forwardChannelTimerId_
-      goog.global.clearTimeout(this.forwardChannelTimerId_);
-      this.forwardChannelTimerId_ = null;
+      this.clearForwardChannelTimer_();
       // The error code from the last failed request is gone, so just use a
       // generic one.
       this.signalError_(WebChannelBase.Error.REQUEST_FAILED);
@@ -1115,8 +1152,11 @@ WebChannelBase.prototype.ensureForwardChannel_ = function() {
     return;
   }
 
-  this.forwardChannelTimerId_ = requestStats.setTimeout(
-      goog.bind(this.onStartForwardChannelTimer_, this), 0);
+  // Use async.run instead of setTimeout(0) to avoid the 1s message delay
+  // from chrome/firefox background tabs
+  this.forwardChannelTimerId_ = true;
+  goog.async.run(this.onStartForwardChannelTimer_, this);
+
   this.forwardChannelRetryCount_ = 0;
 };
 
@@ -1170,8 +1210,11 @@ WebChannelBase.prototype.maybeRetryForwardChannel_ = function(request) {
  */
 WebChannelBase.prototype.onStartForwardChannelTimer_ = function(
     opt_retryRequest) {
-  this.forwardChannelTimerId_ = null;
-  this.startForwardChannel_(opt_retryRequest);
+  // null is possible if scheduled with async.run
+  if (this.forwardChannelTimerId_) {
+    this.forwardChannelTimerId_ = null;
+    this.startForwardChannel_(opt_retryRequest);
+  }
 };
 
 
@@ -1246,7 +1289,11 @@ WebChannelBase.prototype.open_ = function() {
     request.setExtraHeaders(extraHeaders);
   }
 
-  var requestText = this.dequeueOutgoingMaps_(request);
+  var requestText = this.dequeueOutgoingMaps_(
+      request,
+      this.fastHandshake_ ? this.getMaxNumMessagesForFastHandshake_() :
+                            WebChannelBase.MAX_MAPS_PER_REQUEST_);
+
   var uri = this.forwardChannelUri_.clone();
   uri.setParameterValue('RID', rid);
 
@@ -1283,6 +1330,37 @@ WebChannelBase.prototype.open_ = function() {
     request.xmlHttpPost(uri, requestText, true);
   }
 };
+
+
+/**
+ * @return {number} The number of raw JSON messages to be encoded
+ * with the fast-handshake (GET) request, including zero. If messages are not
+ * encoded as raw JSON data, return WebChannelBase.MAX_MAPS_PER_REQUEST_
+ * @private
+ */
+WebChannelBase.prototype.getMaxNumMessagesForFastHandshake_ = function() {
+  var total = 0;
+  for (var i = 0; i < this.outgoingMaps_.length; i++) {
+    var map = this.outgoingMaps_[i];
+    var size = map.getRawDataSize();
+    if (size === undefined) {
+      break;
+    }
+    total += size;
+
+    if (total > WebChannelBase.MAX_CHARS_PER_GET_) {
+      return i;
+    }
+
+    if (total === WebChannelBase.MAX_CHARS_PER_GET_ ||
+        i === this.outgoingMaps_.length - 1) {
+      return i + 1;
+    }
+  }
+
+  return WebChannelBase.MAX_MAPS_PER_REQUEST_;
+};
+
 
 
 /**
@@ -1323,7 +1401,8 @@ WebChannelBase.prototype.makeForwardChannelRequest_ = function(
   if (opt_retryRequest) {
     this.requeuePendingMaps_(opt_retryRequest);
   }
-  requestText = this.dequeueOutgoingMaps_(request);
+  requestText =
+      this.dequeueOutgoingMaps_(request, WebChannelBase.MAX_MAPS_PER_REQUEST_);
 
   // Randomize from 50%-100% of the forward channel timeout to avoid
   // a big hit if servers happen to die at once.
@@ -1355,14 +1434,15 @@ WebChannelBase.prototype.addAdditionalParams_ = function(uri) {
 
 /**
  * Returns the request text from the outgoing maps and resets it.
- * @param {!ChannelRequest=} request The new request for sending the messages.
+ * @param {!ChannelRequest} request The new request for sending the messages.
+ * @param {number} maxNum The maximum number of messages to be encoded
  * @return {string} The encoded request text created from all the currently
  *                  queued outgoing maps.
  * @private
  */
-WebChannelBase.prototype.dequeueOutgoingMaps_ = function(request) {
-  var count =
-      Math.min(this.outgoingMaps_.length, WebChannelBase.MAX_MAPS_PER_REQUEST_);
+WebChannelBase.prototype.dequeueOutgoingMaps_ = function(request, maxNum) {
+  var count = Math.min(this.outgoingMaps_.length, maxNum);
+
   var badMapHandler = this.handler_ ?
       goog.bind(this.handler_.badMapError, this.handler_, this) :
       null;
@@ -1573,6 +1653,7 @@ WebChannelBase.prototype.onRequestData = function(request, responseText) {
     }
     if (goog.isArray(response) && response.length == 3) {
       this.handlePostResponse_(/** @type {!Array<?>} */ (response), request);
+      this.onForwardChannelFlushed_();
     } else {
       this.channelDebug_.debug('Bad POST response data returned');
       this.signalError_(WebChannelBase.Error.BAD_RESPONSE);
@@ -1585,6 +1666,27 @@ WebChannelBase.prototype.onRequestData = function(request, responseText) {
     if (!goog.string.isEmptyOrWhitespace(responseText)) {
       var response = this.wireCodec_.decodeMessage(responseText);
       this.onInput_(/** @type {!Array<?>} */ (response), request);
+    }
+  }
+};
+
+
+/**
+ * Checks if we need call the flush callback.
+ *
+ * @private
+ */
+WebChannelBase.prototype.onForwardChannelFlushed_ = function() {
+  if (this.forwardChannelRequestPool_.getRequestCount() <= 1) {
+    if (this.forwardChannelFlushedCallback_) {
+      try {
+        this.forwardChannelFlushedCallback_();
+      } catch (ex) {
+        this.channelDebug_.dumpException(
+            ex, 'Exception from forwardChannelFlushedCallback_ ');
+      }
+      // reset
+      this.forwardChannelFlushedCallback_ = undefined;
     }
   }
 };
@@ -1699,7 +1801,7 @@ WebChannelBase.prototype.correctHostPrefix = function(serverHostPrefix) {
  * @private
  */
 WebChannelBase.prototype.onBackChannelDead_ = function() {
-  if (goog.isDefAndNotNull(this.deadBackChannelTimerId_)) {
+  if (this.deadBackChannelTimerId_ != null) {
     this.deadBackChannelTimerId_ = null;
     this.backChannelRequest_.cancel();
     this.backChannelRequest_ = null;
@@ -1715,7 +1817,7 @@ WebChannelBase.prototype.onBackChannelDead_ = function() {
  * @private
  */
 WebChannelBase.prototype.clearDeadBackchannelTimer_ = function() {
-  if (goog.isDefAndNotNull(this.deadBackChannelTimerId_)) {
+  if (this.deadBackChannelTimerId_ != null) {
     goog.global.clearTimeout(this.deadBackChannelTimerId_);
     this.deadBackChannelTimerId_ = null;
   }
@@ -1918,21 +2020,21 @@ WebChannelBase.prototype.onInput_ = function(respArray, request) {
         this.hostPrefix_ = this.correctHostPrefix(nextArray[2]);
 
         var negotiatedVersion = nextArray[3];
-        if (goog.isDefAndNotNull(negotiatedVersion)) {
+        if (negotiatedVersion != null) {
           this.channelVersion_ = negotiatedVersion;
           this.channelDebug_.info('VER=' + this.channelVersion_);
         }
 
         var negotiatedServerVersion = nextArray[4];
-        if (goog.isDefAndNotNull(negotiatedServerVersion)) {
+        if (negotiatedServerVersion != null) {
           this.serverVersion_ = negotiatedServerVersion;
           this.channelDebug_.info('SVER=' + this.serverVersion_);
         }
 
         // CVER=22
         var serverKeepaliveMs = nextArray[5];
-        if (goog.isDefAndNotNull(serverKeepaliveMs) &&
-            goog.isNumber(serverKeepaliveMs) && serverKeepaliveMs > 0) {
+        if (serverKeepaliveMs != null &&
+            typeof serverKeepaliveMs === 'number' && serverKeepaliveMs > 0) {
           var timeout = 1.5 * serverKeepaliveMs;
           this.backChannelRequestTimeoutMs_ = timeout;
           this.channelDebug_.info('backChannelRequestTimeoutMs_=' + timeout);
@@ -1946,6 +2048,10 @@ WebChannelBase.prototype.onInput_ = function(respArray, request) {
         }
 
         this.startBackchannelAfterHandshake_(request);
+
+        if (this.outgoingMaps_.length > 0) {
+          this.ensureForwardChannel_();
+        }
       } else if (nextArray[0] == 'stop' || nextArray[0] == 'close') {
         // treat close also as an abort
         this.signalError_(WebChannelBase.Error.STOP);
@@ -2228,91 +2334,13 @@ WebChannelBase.prototype.shouldUseSecondaryDomains = function() {
 
 
 /**
- * A LogSaver that can be used to accumulate all the debug logs so they
- * can be sent to the server when a problem is detected.
- * @const
+ * Sets (overwrites) the forward channel flush callback.
+ *
+ * @param {function()} callback The callback to be invoked.
  */
-WebChannelBase.LogSaver = {};
-
-
-/**
- * Buffer for accumulating the debug log
- * @type {goog.structs.CircularBuffer}
- * @private
- */
-WebChannelBase.LogSaver.buffer_ = new goog.structs.CircularBuffer(1000);
-
-
-/**
- * Whether we're currently accumulating the debug log.
- * @type {boolean}
- * @private
- */
-WebChannelBase.LogSaver.enabled_ = false;
-
-
-/**
- * Formatter for saving logs.
- * @type {goog.debug.Formatter}
- * @private
- */
-WebChannelBase.LogSaver.formatter_ = new goog.debug.TextFormatter();
-
-
-/**
- * Returns whether the LogSaver is enabled.
- * @return {boolean} Whether saving is enabled or disabled.
- */
-WebChannelBase.LogSaver.isEnabled = function() {
-  return WebChannelBase.LogSaver.enabled_;
+WebChannelBase.prototype.setForwardChannelFlushCallback = function(callback) {
+  this.forwardChannelFlushedCallback_ = callback;
 };
-
-
-/**
- * Enables of disables the LogSaver.
- * @param {boolean} enable Whether to enable or disable saving.
- */
-WebChannelBase.LogSaver.setEnabled = function(enable) {
-  if (enable == WebChannelBase.LogSaver.enabled_) {
-    return;
-  }
-
-  var fn = WebChannelBase.LogSaver.addLogRecord;
-  var logger = goog.log.getLogger('goog.net');
-  if (enable) {
-    goog.log.addHandler(logger, fn);
-  } else {
-    goog.log.removeHandler(logger, fn);
-  }
-};
-
-
-/**
- * Adds a log record.
- * @param {goog.log.LogRecord} logRecord the LogRecord.
- */
-WebChannelBase.LogSaver.addLogRecord = function(logRecord) {
-  WebChannelBase.LogSaver.buffer_.add(
-      WebChannelBase.LogSaver.formatter_.formatRecord(logRecord));
-};
-
-
-/**
- * Returns the log as a single string.
- * @return {string} The log as a single string.
- */
-WebChannelBase.LogSaver.getBuffer = function() {
-  return WebChannelBase.LogSaver.buffer_.getValues().join('');
-};
-
-
-/**
- * Clears the buffer
- */
-WebChannelBase.LogSaver.clearBuffer = function() {
-  WebChannelBase.LogSaver.buffer_.clear();
-};
-
 
 
 /**

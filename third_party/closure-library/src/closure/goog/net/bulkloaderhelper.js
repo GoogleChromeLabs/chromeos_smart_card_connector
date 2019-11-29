@@ -16,14 +16,12 @@
  * @fileoverview Helper class to load a list of URIs in bulk. All URIs
  * must be a successfully loaded in order for the entire load to be considered
  * a success.
- *
  */
 
 goog.provide('goog.net.BulkLoaderHelper');
 
-goog.require('goog.Disposable');
-
 goog.forwardDeclare('goog.Uri');
+goog.require('goog.Disposable');
 
 
 
@@ -102,7 +100,7 @@ goog.net.BulkLoaderHelper.prototype.isLoadComplete = function() {
   var responseTexts = this.responseTexts_;
   if (responseTexts.length == this.uris_.length) {
     for (var i = 0; i < responseTexts.length; i++) {
-      if (!goog.isDefAndNotNull(responseTexts[i])) {
+      if (responseTexts[i] == null) {
         return false;
       }
     }

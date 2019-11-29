@@ -14,8 +14,6 @@
 
 /**
  * @fileoverview Detection of JScript version.
- *
- * @author arv@google.com (Erik Arvidsson)
  */
 
 
@@ -28,7 +26,8 @@ goog.require('goog.string');
  * @define {boolean} True if it is known at compile time that the runtime
  *     environment will not be using JScript.
  */
-goog.define('goog.userAgent.jscript.ASSUME_NO_JSCRIPT', false);
+goog.userAgent.jscript.ASSUME_NO_JSCRIPT =
+    goog.define('goog.userAgent.jscript.ASSUME_NO_JSCRIPT', false);
 
 
 /**

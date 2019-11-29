@@ -19,7 +19,6 @@
  * of the WebChannel are limited to what's supported by the implementation.
  * Particularly, multiplexing is not possible, and only strings are
  * supported as message types.
- *
  */
 
 goog.provide('goog.labs.net.webChannel.WebChannelBaseTransport');
@@ -29,6 +28,7 @@ goog.require('goog.events.EventTarget');
 goog.require('goog.json');
 goog.require('goog.labs.net.webChannel.ChannelRequest');
 goog.require('goog.labs.net.webChannel.WebChannelBase');
+goog.require('goog.labs.net.webChannel.Wire');
 goog.require('goog.log');
 goog.require('goog.net.WebChannel');
 goog.require('goog.net.WebChannelTransport');
@@ -58,6 +58,7 @@ goog.labs.net.webChannel.WebChannelBaseTransport = function() {
 goog.scope(function() {
 var WebChannelBaseTransport = goog.labs.net.webChannel.WebChannelBaseTransport;
 var WebChannelBase = goog.labs.net.webChannel.WebChannelBase;
+var Wire = goog.labs.net.webChannel.Wire;
 
 
 /**
@@ -270,16 +271,16 @@ WebChannelBaseTransport.Channel.prototype.halfClose = function() {
  */
 WebChannelBaseTransport.Channel.prototype.send = function(message) {
   goog.asserts.assert(
-      goog.isObject(message) || goog.isString(message),
+      goog.isObject(message) || typeof message === 'string',
       'only object type or raw string is supported');
 
-  if (goog.isString(message)) {
+  if (typeof message === 'string') {
     var rawJson = {};
-    rawJson['__data__'] = message;
+    rawJson[Wire.RAW_DATA_KEY] = message;
     this.channel_.sendMap(rawJson);
   } else if (this.sendRawJson_) {
     var rawJson = {};
-    rawJson['__data__'] = goog.json.serialize(message);
+    rawJson[Wire.RAW_DATA_KEY] = goog.json.serialize(message);
     this.channel_.sendMap(rawJson);
   } else {
     this.channel_.sendMap(message);
@@ -491,8 +492,10 @@ WebChannelBaseTransport.ChannelProperties.prototype.getHttpSessionId =
 /**
  * @override
  */
-WebChannelBaseTransport.ChannelProperties.prototype.commit =
-    goog.abstractMethod;
+WebChannelBaseTransport.ChannelProperties.prototype.commit = function(
+    callback) {
+  this.channel_.setForwardChannelFlushCallback(callback);
+};
 
 
 /**

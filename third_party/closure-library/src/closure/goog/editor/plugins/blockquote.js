@@ -14,8 +14,6 @@
 
 /**
  * @fileoverview goog.editor plugin to handle splitting block quotes.
- *
- * @author robbyw@google.com (Robby Walker)
  */
 
 goog.provide('goog.editor.plugins.Blockquote');
@@ -244,6 +242,7 @@ goog.editor.plugins.Blockquote.prototype.execCommandInternal = function(
  * @param {Object} anchorPos The current cursor position.
  * @return {boolean} Whether the blockquote was split.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.editor.plugins.Blockquote.prototype.splitQuotedBlockW3C_ = function(
     anchorPos) {

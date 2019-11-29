@@ -15,8 +15,6 @@
 /**
  * @fileoverview Provides facilities for creating and querying tweaks.
  * @see http://code.google.com/p/closure-library/wiki/UsingTweaks
- *
- * @author agrieve@google.com (Andrew Grieve)
  */
 
 goog.provide('goog.tweak');
@@ -47,7 +45,7 @@ goog.tweak.getCompilerOverrides_ = function() {
 
 /**
  * The global reference to the registry, if it exists.
- * @type {goog.tweak.Registry}
+ * @type {?goog.tweak.Registry}
  * @private
  */
 goog.tweak.registry_ = null;
@@ -55,7 +53,7 @@ goog.tweak.registry_ = null;
 
 /**
  * The boolean group set by beginBooleanGroup and cleared by endBooleanGroup.
- * @type {goog.tweak.BooleanGroup}
+ * @type {?goog.tweak.BooleanGroup}
  * @private
  */
 goog.tweak.activeBooleanGroup_ = null;
@@ -115,14 +113,14 @@ goog.tweak.applyConfigParams_ = function(entry, configParams) {
     }
     delete configParams.validValues;
   }
-  if (goog.isDef(configParams.paramName)) {
+  if (configParams.paramName !== undefined) {
     goog.asserts.assertInstanceof(
         entry, goog.tweak.BaseSetting, 'Cannot set paramName on tweak: %s',
         entry.getId());
     entry.setParamName(configParams.paramName);
     delete configParams.paramName;
   }
-  if (goog.isDef(configParams.restartRequired)) {
+  if (configParams.restartRequired !== undefined) {
     entry.setRestartRequired(configParams.restartRequired);
     delete configParams.restartRequired;
   }

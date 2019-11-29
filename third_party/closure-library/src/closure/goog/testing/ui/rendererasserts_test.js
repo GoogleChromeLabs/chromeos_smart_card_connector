@@ -12,42 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('goog.testing.ui.rendererassertsTest');
-goog.setTestOnly('goog.testing.ui.rendererassertsTest');
+goog.module('goog.testing.ui.rendererassertsTest');
+goog.setTestOnly();
 
-goog.require('goog.testing.TestCase');
-goog.require('goog.testing.asserts');
-goog.require('goog.testing.jsunit');
-goog.require('goog.testing.ui.rendererasserts');
-goog.require('goog.ui.ControlRenderer');
+const ControlRenderer = goog.require('goog.ui.ControlRenderer');
+const asserts = goog.require('goog.testing.asserts');
+const rendererasserts = goog.require('goog.testing.ui.rendererasserts');
+const testSuite = goog.require('goog.testing.testSuite');
 
-function setUp() {
-  // TODO(b/25875505): Fix unreported assertions (go/failonunreportedasserts).
-  goog.testing.TestCase.getActiveTestCase().failOnUnreportedAsserts = false;
-}
+testSuite({
+  testSuccess() {
+    function GoodRenderer() {}
 
-function testSuccess() {
-  function GoodRenderer() {}
+    rendererasserts.assertNoGetCssClassCallsInConstructor(GoodRenderer);
+  },
 
-  goog.testing.ui.rendererasserts.assertNoGetCssClassCallsInConstructor(
-      GoodRenderer);
-}
+  testFailure() {
+    function BadRenderer() {
+      ControlRenderer.call(this);
+      this.myClass = this.getCssClass();
+    }
+    goog.inherits(BadRenderer, ControlRenderer);
 
-function testFailure() {
-  function BadRenderer() {
-    goog.ui.ControlRenderer.call(this);
-    this.myClass = this.getCssClass();
-  }
-  goog.inherits(BadRenderer, goog.ui.ControlRenderer);
-
-  var ex = assertThrows(
-      'Expected assertNoGetCssClassCallsInConstructor to fail.', function() {
-        goog.testing.ui.rendererasserts.assertNoGetCssClassCallsInConstructor(
-            BadRenderer);
-      });
-  assertTrue(
-      'Expected assertNoGetCssClassCallsInConstructor to throw a' +
-          ' jsunit exception',
-      ex.isJsUnitException);
-  assertContains('getCssClass', ex.message);
-}
+    // Expected assertNoGetCssClassCallsInConstructor to fail.
+    const ex = assertThrowsJsUnitException(() => {
+      rendererasserts.assertNoGetCssClassCallsInConstructor(BadRenderer);
+    });
+    assertTrue(
+        'Expected assertNoGetCssClassCallsInConstructor to throw a' +
+            ' jsunit exception',
+        ex.isJsUnitException);
+    assertContains('getCssClass', ex.message);
+  },
+});

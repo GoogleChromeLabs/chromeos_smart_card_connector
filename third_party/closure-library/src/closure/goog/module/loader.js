@@ -18,7 +18,6 @@
  * javascript modules at runtime, as described in the designdoc.
  *
  *   <http://go/js_modules_design>
- *
  */
 
 goog.provide('goog.module.Loader');
@@ -261,7 +260,7 @@ goog.module.Loader.prototype.require = function(module, symbol, callback) {
     pending[module] = [[symbol, callback]];  // Yes, really [[ ]].
     // Defer loading to initialization if Loader is not yet
     // initialized, otherwise load the module.
-    if (goog.isString(this.urlBase_)) {
+    if (typeof this.urlBase_ === 'string') {
       this.load_(module);
     } else {
       this.pendingBeforeInit_.push(module);
@@ -274,7 +273,6 @@ goog.module.Loader.prototype.require = function(module, symbol, callback) {
  * Registers a symbol in a loaded module. When called without symbol,
  * registers the module to be fully loaded and executes all callbacks
  * from pending require() callbacks for this module.
- *
  * @param {string} module The name of the module. Cf. parameter module
  *     of method require().
  * @param {number|string=} opt_symbol The symbol being defined, or nothing when
@@ -282,6 +280,7 @@ goog.module.Loader.prototype.require = function(module, symbol, callback) {
  *     require().
  * @param {Object=} opt_object The object bound to the symbol, or nothing when
  *     all symbols of the module are defined.
+ * @suppress {strictPrimitiveOperators} Part of the go/strict_warnings_migration
  */
 goog.module.Loader.prototype.provide = function(
     module, opt_symbol, opt_object) {

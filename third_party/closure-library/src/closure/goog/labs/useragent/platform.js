@@ -18,7 +18,6 @@
  * For more information on browser brand, rendering engine, or device see the
  * other sub-namespaces in goog.labs.userAgent (browser, engine, and device
  * respectively).
- *
  */
 
 goog.provide('goog.labs.userAgent.platform');
@@ -119,6 +118,13 @@ goog.labs.userAgent.platform.isKaiOS = function() {
 };
 
 /**
+ * @return {boolean} Whether the platform is Go2Phone.
+ */
+goog.labs.userAgent.platform.isGo2Phone = function() {
+  return goog.labs.userAgent.util.matchUserAgentIgnoreCase('GAFP');
+};
+
+/**
  * The version of the platform. We only determine the version for Windows,
  * Mac, and Chrome OS. It doesn't make much sense on Linux. For Windows, we only
  * look at the NT version. Non-NT-based versions (e.g. 95, 98, etc.) are given
@@ -149,6 +155,10 @@ goog.labs.userAgent.platform.getVersion = function() {
     // Note: some old versions of Camino do not report an OSX version.
     // Default to 10.
     version = match ? match[1].replace(/_/g, '.') : '10';
+  } else if (goog.labs.userAgent.platform.isKaiOS()) {
+    re = /(?:KaiOS)\/(\S+)/i;
+    var match = re.exec(userAgentString);
+    version = match && match[1];
   } else if (goog.labs.userAgent.platform.isAndroid()) {
     re = /Android\s+([^\);]+)(\)|;)/;
     var match = re.exec(userAgentString);

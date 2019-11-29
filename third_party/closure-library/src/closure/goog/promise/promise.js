@@ -98,7 +98,7 @@ goog.Promise = function(resolver, opt_context) {
 
   /**
    * For Promises created by calling `then()`, the originating parent.
-   * @private {goog.Promise}
+   * @private {?goog.Promise}
    */
   this.parent_ = null;
 
@@ -203,7 +203,8 @@ goog.Promise = function(resolver, opt_context) {
  * @define {boolean} Whether traces of `then` calls should be included in
  * exceptions thrown
  */
-goog.define('goog.Promise.LONG_STACK_TRACES', false);
+goog.Promise.LONG_STACK_TRACES =
+    goog.define('goog.Promise.LONG_STACK_TRACES', false);
 
 
 /**
@@ -215,7 +216,8 @@ goog.define('goog.Promise.LONG_STACK_TRACES', false);
  * Rejections are rethrown as quickly as possible by default. A negative value
  * disables rejection handling entirely.
  */
-goog.define('goog.Promise.UNHANDLED_REJECTION_DELAY', 0);
+goog.Promise.UNHANDLED_REJECTION_DELAY =
+    goog.define('goog.Promise.UNHANDLED_REJECTION_DELAY', 0);
 
 
 /**
@@ -250,9 +252,9 @@ goog.Promise.State_ = {
 goog.Promise.CallbackEntry_ = function() {
   /** @type {?goog.Promise} */
   this.child = null;
-  /** @type {Function} */
+  /** @type {?Function} */
   this.onFulfilled = null;
-  /** @type {Function} */
+  /** @type {?Function} */
   this.onRejected = null;
   /** @type {?} */
   this.context = null;
@@ -284,7 +286,8 @@ goog.Promise.CallbackEntry_.prototype.reset = function() {
  * @define {number} The number of currently unused objects to keep around for
  *    reuse.
  */
-goog.define('goog.Promise.DEFAULT_MAX_UNUSED', 100);
+goog.Promise.DEFAULT_MAX_UNUSED =
+    goog.define('goog.Promise.DEFAULT_MAX_UNUSED', 100);
 
 
 /** @const @private {goog.async.FreeList<!goog.Promise.CallbackEntry_>} */
@@ -697,8 +700,10 @@ goog.Promise.prototype.thenCatch = function(onRejected, opt_context) {
  */
 goog.Promise.prototype.cancel = function(opt_message) {
   if (this.state_ == goog.Promise.State_.PENDING) {
+    // Instantiate Error object synchronously. This ensures Error::stack points
+    // to the cancel() callsite.
+    var err = new goog.Promise.CancellationError(opt_message);
     goog.async.run(function() {
-      var err = new goog.Promise.CancellationError(opt_message);
       this.cancelInternal_(err);
     }, this);
   }
@@ -837,7 +842,7 @@ goog.Promise.prototype.addChildPromise_ = function(
     callbackEntry.onRejected = onRejected ? function(reason) {
       try {
         var result = onRejected.call(opt_context, reason);
-        if (!goog.isDef(result) &&
+        if (result === undefined &&
             reason instanceof goog.Promise.CancellationError) {
           // Propagate cancellation to children if no other result is returned.
           reject(reason);
@@ -1181,7 +1186,7 @@ goog.Promise.invokeCallback_ = function(callbackEntry, state, result) {
  * @private
  */
 goog.Promise.prototype.addStackTrace_ = function(err) {
-  if (goog.Promise.LONG_STACK_TRACES && goog.isString(err.stack)) {
+  if (goog.Promise.LONG_STACK_TRACES && typeof err.stack === 'string') {
     // Extract the third line of the stack trace, which is the entry for the
     // user function that called into Promise code.
     var trace = err.stack.split('\n', 4)[3];
@@ -1204,7 +1209,7 @@ goog.Promise.prototype.addStackTrace_ = function(err) {
  * @private
  */
 goog.Promise.prototype.appendLongStack_ = function(err) {
-  if (goog.Promise.LONG_STACK_TRACES && err && goog.isString(err.stack) &&
+  if (goog.Promise.LONG_STACK_TRACES && err && typeof err.stack === 'string' &&
       this.stack_.length) {
     var longTrace = ['Promise trace:'];
 

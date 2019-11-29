@@ -15,8 +15,6 @@
 /**
  * @fileoverview Generic factory functions for creating the building blocks for
  * an editor toolbar.
- *
- * @author attila@google.com (Attila Bodis)
  */
 
 goog.provide('goog.ui.editor.ToolbarFactory');
@@ -121,6 +119,7 @@ goog.ui.editor.ToolbarFactory.addFontSizes = function(button, sizes) {
  * @param {!goog.ui.Select} button Font size menu button.
  * @param {string} caption Caption to show in the font size menu.
  * @param {number} value Value for the corresponding HTML font size.
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.editor.ToolbarFactory.addFontSize = function(button, caption, value) {
   // Construct the option, and add it to the button.

@@ -18,7 +18,6 @@
  * {@link MessageChannel}s) between each pair of nodes in the network that need
  * to communicate with one another. Each network should have one and only one
  * operator.
- *
  */
 
 goog.provide('goog.messaging.PortOperator');
@@ -133,7 +132,7 @@ goog.messaging.PortOperator.prototype.requestConnection_ = function(
   var sourceChannel = this.switchboard_[sourceName];
   var requestedChannel = this.switchboard_[requestedName];
 
-  goog.asserts.assert(goog.isDefAndNotNull(sourceChannel));
+  goog.asserts.assert(sourceChannel != null);
   if (!requestedChannel) {
     var err = 'Port "' + sourceName + '" requested a connection to port "' +
         requestedName + '", which doesn\'t exist';

@@ -15,7 +15,6 @@
 /**
  * @fileoverview Implementation of a progress bar.
  *
- * @author arv@google.com (Erik Arvidsson)
  * @see ../demos/progressbar.html
  */
 
@@ -139,6 +138,7 @@ goog.ui.ProgressBar.prototype.createThumb_ = function() {
 /**
  * Adds the initial event listeners to the element.
  * @private
+ * @suppress {strictPrimitiveOperators} Part of the go/strict_warnings_migration
  */
 goog.ui.ProgressBar.prototype.attachEvents_ = function() {
   if (goog.userAgent.IE && goog.userAgent.VERSION < 7) {
@@ -152,6 +152,7 @@ goog.ui.ProgressBar.prototype.attachEvents_ = function() {
 /**
  * Removes the event listeners added by attachEvents_.
  * @private
+ * @suppress {strictPrimitiveOperators} Part of the go/strict_warnings_migration
  */
 goog.ui.ProgressBar.prototype.detachEvents_ = function() {
   if (goog.userAgent.IE && goog.userAgent.VERSION < 7) {
@@ -303,6 +304,7 @@ goog.ui.ProgressBar.prototype.handleChange_ = function(e) {
  * This is called when we need to update the size of the thumb. This happens
  * when first created as well as when the value and the orientation changes.
  * @private
+ * @suppress {strictPrimitiveOperators} Part of the go/strict_warnings_migration
  */
 goog.ui.ProgressBar.prototype.updateUi_ = function() {
   if (this.thumbElement_) {

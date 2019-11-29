@@ -15,8 +15,6 @@
 /**
  * @fileoverview Utilities for element styles.
  *
- * @author arv@google.com (Erik Arvidsson)
- * @author eae@google.com (Emil A Eklund)
  * @see ../demos/inline_block_quirks.html
  * @see ../demos/inline_block_standards.html
  * @see ../demos/style_viewport.html
@@ -25,6 +23,7 @@
 goog.provide('goog.style');
 
 
+goog.forwardDeclare('goog.events.Event');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.dom');
@@ -40,8 +39,6 @@ goog.require('goog.object');
 goog.require('goog.reflect');
 goog.require('goog.string');
 goog.require('goog.userAgent');
-
-goog.forwardDeclare('goog.events.Event');
 
 
 /**
@@ -61,7 +58,7 @@ goog.forwardDeclare('goog.events.Event');
  *     should be the value.
  */
 goog.style.setStyle = function(element, style, opt_value) {
-  if (goog.isString(style)) {
+  if (typeof style === 'string') {
     goog.style.setStyle_(element, opt_value, style);
   } else {
     for (var key in style) {
@@ -1033,7 +1030,7 @@ goog.style.getSizeWithDisplay_ = function(element) {
   var offsetHeight = /** @type {!HTMLElement} */ (element).offsetHeight;
   var webkitOffsetsZero =
       goog.userAgent.WEBKIT && !offsetWidth && !offsetHeight;
-  if ((!goog.isDef(offsetWidth) || webkitOffsetsZero) &&
+  if ((offsetWidth === undefined || webkitOffsetsZero) &&
       element.getBoundingClientRect) {
     // Fall back to calling getBoundingClientRect when offsetWidth or
     // offsetHeight are not defined, or when they are zero in WebKit browsers.
@@ -1344,7 +1341,7 @@ goog.style.uninstallStyles = function(styleSheet) {
  */
 goog.style.setSafeStyleSheet = function(element, safeStyleSheet) {
   var stylesString = goog.html.SafeStyleSheet.unwrap(safeStyleSheet);
-  if (goog.userAgent.IE && goog.isDef(element.cssText)) {
+  if (goog.userAgent.IE && element.cssText !== undefined) {
     // Adding the selectors individually caused the browser to hang if the
     // selector was invalid or there were CSS comments.  Setting the cssText of
     // the style node works fine and ignores CSS that IE doesn't understand.

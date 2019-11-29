@@ -15,7 +15,6 @@
 
 /**
  * @fileoverview Plugin to handle Remove Formatting.
- *
  */
 
 goog.provide('goog.editor.plugins.RemoveFormatting');
@@ -180,7 +179,7 @@ goog.editor.plugins.RemoveFormatting.prototype.setKeyboardShortcutKey =
  */
 goog.editor.plugins.RemoveFormatting.prototype.removeFormatting_ = function() {
   var range = this.getFieldObject().getRange();
-  if (range.isCollapsed()) {
+  if (!range || range.isCollapsed()) {
     return;
   }
 
@@ -671,7 +670,7 @@ goog.editor.plugins.RemoveFormatting.prototype.removeFormattingWorker_ =
       var nodeName = node.nodeName;
 
       var formatted = this.getValueForNode(node);
-      if (goog.isDefAndNotNull(formatted)) {
+      if (formatted != null) {
         sb.push(formatted);
         continue;
       }

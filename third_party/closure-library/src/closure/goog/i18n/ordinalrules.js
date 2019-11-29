@@ -16,7 +16,7 @@
  * @fileoverview Ordinal rules.
  *
  *
- * File generated from CLDR ver. 33.1
+ * File generated from CLDR ver. 36
  *
  * Before check in, this file could have been manually edited. This is to
  * incorporate changes before we could fix CLDR. All manual modification must be
@@ -70,8 +70,8 @@ goog.i18n.ordinalRules.defaultSelect_ = function(n, opt_precision) {
  * @private
  */
 goog.i18n.ordinalRules.decimals_ = function(n) {
-  var str = n + '';
-  var result = str.indexOf('.');
+  const str = n + '';
+  const result = str.indexOf('.');
   return (result == -1) ? 0 : str.length - result - 1;
 };
 
@@ -85,16 +85,17 @@ goog.i18n.ordinalRules.decimals_ = function(n) {
  * @private
  */
 goog.i18n.ordinalRules.get_vf_ = function(n, opt_precision) {
-  var DEFAULT_DIGITS = 3;
+  const DEFAULT_DIGITS = 3;
 
+  let v;
   if (undefined === opt_precision) {
-    var v = Math.min(goog.i18n.ordinalRules.decimals_(n), DEFAULT_DIGITS);
+    v = Math.min(goog.i18n.ordinalRules.decimals_(n), DEFAULT_DIGITS);
   } else {
-    var v = opt_precision;
+    v = opt_precision;
   }
 
-  var base = Math.pow(10, v);
-  var f = ((n * base) | 0) % base;
+  const base = Math.pow(10, v);
+  const f = ((n * base) | 0) % base;
 
   return {v: v, f: f};
 };
@@ -262,7 +263,7 @@ goog.i18n.ordinalRules.beSelect_ = function(n, opt_precision) {
  * @private
  */
 goog.i18n.ordinalRules.azSelect_ = function(n, opt_precision) {
-  var i = n | 0;
+  const i = n | 0;
   if ((i % 10 == 1 || i % 10 == 2 || i % 10 == 5 || i % 10 == 7 || i % 10 == 8) || (i % 100 == 20 || i % 100 == 50 || i % 100 == 70 || i % 100 == 80)) {
     return goog.i18n.ordinalRules.Keyword.ONE;
   }
@@ -284,7 +285,7 @@ goog.i18n.ordinalRules.azSelect_ = function(n, opt_precision) {
  * @private
  */
 goog.i18n.ordinalRules.kaSelect_ = function(n, opt_precision) {
-  var i = n | 0;
+  const i = n | 0;
   if (i == 1) {
     return goog.i18n.ordinalRules.Keyword.ONE;
   }
@@ -354,7 +355,7 @@ goog.i18n.ordinalRules.kkSelect_ = function(n, opt_precision) {
  * @private
  */
 goog.i18n.ordinalRules.mkSelect_ = function(n, opt_precision) {
-  var i = n | 0;
+  const i = n | 0;
   if (i % 10 == 1 && i % 100 != 11) {
     return goog.i18n.ordinalRules.Keyword.ONE;
   }
@@ -471,6 +472,45 @@ goog.i18n.ordinalRules.guSelect_ = function(n, opt_precision) {
 goog.i18n.ordinalRules.tkSelect_ = function(n, opt_precision) {
   if ((n % 10 == 6 || n % 10 == 9) || n == 10) {
     return goog.i18n.ordinalRules.Keyword.FEW;
+  }
+  return goog.i18n.ordinalRules.Keyword.OTHER;
+};
+
+/**
+ * Ordinal select rules for gd locale
+ *
+ * @param {number} n  The count of items.
+ * @param {number=} opt_precision Precision for number formatting, if not default.
+ * @return {goog.i18n.ordinalRules.Keyword} Locale-specific ordinal value.
+ * @private
+ */
+goog.i18n.ordinalRules.gdSelect_ = function(n, opt_precision) {
+  if (n == 1 || n == 11) {
+    return goog.i18n.ordinalRules.Keyword.ONE;
+  }
+  if (n == 2 || n == 12) {
+    return goog.i18n.ordinalRules.Keyword.TWO;
+  }
+  if (n == 3 || n == 13) {
+    return goog.i18n.ordinalRules.Keyword.FEW;
+  }
+  return goog.i18n.ordinalRules.Keyword.OTHER;
+};
+
+/**
+ * Ordinal select rules for kw locale
+ *
+ * @param {number} n  The count of items.
+ * @param {number=} opt_precision Precision for number formatting, if not default.
+ * @return {goog.i18n.ordinalRules.Keyword} Locale-specific ordinal value.
+ * @private
+ */
+goog.i18n.ordinalRules.kwSelect_ = function(n, opt_precision) {
+  if (n >= 1 && n <= 4 || (n % 100 >= 1 && n % 100 <= 4 || n % 100 >= 21 && n % 100 <= 24 || n % 100 >= 41 && n % 100 <= 44 || n % 100 >= 61 && n % 100 <= 64 || n % 100 >= 81 && n % 100 <= 84)) {
+    return goog.i18n.ordinalRules.Keyword.ONE;
+  }
+  if (n == 5 || n % 100 == 5) {
+    return goog.i18n.ordinalRules.Keyword.MANY;
   }
   return goog.i18n.ordinalRules.Keyword.OTHER;
 };

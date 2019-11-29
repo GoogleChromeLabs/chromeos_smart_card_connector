@@ -30,7 +30,6 @@
  * This script works in all browsers that are currently supported by
  * the Google Maps API, which is IE 6.0+, Firefox 0.8+, Safari 1.2.4+,
  * Netscape 7.1+, Mozilla 1.4+, Opera 8.02+.
- *
  */
 
 goog.provide('goog.net.Jsonp');
@@ -239,8 +238,8 @@ goog.net.Jsonp.prototype.send = function(
 /**
  * Cancels a given request. The request must be exactly the object returned by
  * the send method.
- *
  * @param {Object} request The request object returned by the send method.
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.net.Jsonp.prototype.cancel = function(request) {
   if (request) {

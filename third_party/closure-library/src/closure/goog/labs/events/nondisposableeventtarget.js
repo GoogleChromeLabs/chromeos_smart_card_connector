@@ -88,7 +88,7 @@ goog.labs.events.NonDisposableEventTarget.MAX_ANCESTORS_ = 1000;
 
 /**
  * Parent event target, used during event bubbling.
- * @private {goog.events.Listenable}
+ * @private {?goog.events.Listenable}
  */
 goog.labs.events.NonDisposableEventTarget.prototype.parentEventTarget_ = null;
 
@@ -224,7 +224,7 @@ goog.labs.events.NonDisposableEventTarget.prototype.getListener = function(
 /** @override */
 goog.labs.events.NonDisposableEventTarget.prototype.hasListener = function(
     opt_type, opt_capture) {
-  var id = goog.isDef(opt_type) ? String(opt_type) : undefined;
+  var id = (opt_type !== undefined) ? String(opt_type) : undefined;
   return this.eventTargetListeners_.hasListener(id, opt_capture);
 };
 
@@ -247,7 +247,6 @@ goog.labs.events.NonDisposableEventTarget.prototype.assertInitialized_ =
  *
  * TODO(chrishenry): Look for a way to reuse this logic in
  * goog.events, if possible.
- *
  * @param {!Object} target The target to dispatch on.
  * @param {goog.events.Event|Object|string} e The event object.
  * @param {Array<goog.events.Listenable>=} opt_ancestorsTree The ancestors
@@ -256,6 +255,7 @@ goog.labs.events.NonDisposableEventTarget.prototype.assertInitialized_ =
  * @return {boolean} If anyone called preventDefault on the event object (or
  *     if any of the listeners returns false) this will also return false.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.labs.events.NonDisposableEventTarget.dispatchEventInternal_ = function(
     target, e, opt_ancestorsTree) {
@@ -263,7 +263,7 @@ goog.labs.events.NonDisposableEventTarget.dispatchEventInternal_ = function(
 
   // If accepting a string or object, create a custom event object so that
   // preventDefault and stopPropagation work with the event.
-  if (goog.isString(e)) {
+  if (typeof e === 'string') {
     e = new goog.events.Event(e, target);
   } else if (!(e instanceof goog.events.Event)) {
     var oldEvent = e;

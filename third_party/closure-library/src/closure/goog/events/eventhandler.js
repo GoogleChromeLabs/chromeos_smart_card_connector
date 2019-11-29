@@ -52,16 +52,14 @@
  *   }
  * }
  * </pre>
- *
  */
 
 goog.provide('goog.events.EventHandler');
 
+goog.forwardDeclare('goog.events.EventWrapper');
 goog.require('goog.Disposable');
 goog.require('goog.events');
 goog.require('goog.object');
-
-goog.forwardDeclare('goog.events.EventWrapper');
 
 
 

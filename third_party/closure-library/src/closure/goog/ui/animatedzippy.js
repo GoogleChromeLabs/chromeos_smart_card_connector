@@ -15,7 +15,6 @@
 /**
  * @fileoverview Animated zippy widget implementation.
  *
- * @author eae@google.com (Emil A Eklund)
  * @see ../demos/zippy.html
  */
 
@@ -68,7 +67,7 @@ goog.ui.AnimatedZippy = function(
 
   /**
    * Reference to animation or null if animation is not active.
-   * @type {goog.fx.Animation}
+   * @type {?goog.fx.Animation}
    * @private
    */
   this.anim_ = null;
@@ -147,7 +146,6 @@ goog.ui.AnimatedZippy.prototype.setExpanded = function(expanded) {
   // Stop active animation (if any) and determine starting height.
   var startH = 0;
   if (this.anim_) {
-    expanded = this.isExpanded();
     goog.events.removeAll(this.anim_);
     this.anim_.stop(false);
 

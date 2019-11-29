@@ -32,8 +32,6 @@
  * TODO(b/8933952): Migrate to explicitly non-nullable types. At present, many
  *     functions in this file expect non-null inputs but do not explicitly
  *     indicate this.
- *
- * @author nicksantos@google.com (Nick Santos)
  */
 
 goog.setTestOnly('goog.testing.events');
@@ -318,7 +316,7 @@ goog.testing.events.fireNonAsciiKeySequence = function(
           /** @type {!Event} */ (new goog.testing.events.Event(
               goog.events.EventType.KEYPRESS, target)));
 
-  if (goog.isString(keyOrKeyCode)) {
+  if (typeof keyOrKeyCode === 'string') {
     keydown.key = keyup.key = /** @type {string} */ (keyOrKeyCode);
     keypress.key = /** @type {string} */ (keyPressKeyOrKeyCode);
 
@@ -354,7 +352,7 @@ goog.testing.events.fireNonAsciiKeySequence = function(
   // Fire keydown, keypress, and keyup. Note that if the keydown is
   // prevent-defaulted, then the keypress will not fire.
   var result = goog.testing.events.fireBrowserEvent(keydown);
-  if (goog.isString(keyOrKeyCode)) {
+  if (typeof keyOrKeyCode === 'string') {
     if (/** @type {string} */ (keyPressKeyOrKeyCode) != '' && result) {
       result = goog.testing.events.eagerAnd_(
           result, goog.testing.events.fireBrowserEvent(keypress));

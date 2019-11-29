@@ -15,8 +15,6 @@
 /**
  * @fileoverview Interface definitions for working with ranges
  * in HTML documents.
- *
- * @author robbyw@google.com (Robby Walker)
  */
 
 
@@ -24,13 +22,12 @@ goog.provide('goog.dom.AbstractRange');
 goog.provide('goog.dom.RangeIterator');
 goog.provide('goog.dom.RangeType');
 
+goog.forwardDeclare('goog.dom.TextRange');
 goog.require('goog.dom');
 goog.require('goog.dom.NodeType');
 goog.require('goog.dom.SavedCaretRange');
 goog.require('goog.dom.TagIterator');
 goog.require('goog.userAgent');
-
-goog.forwardDeclare('goog.dom.TextRange');
 
 
 /**

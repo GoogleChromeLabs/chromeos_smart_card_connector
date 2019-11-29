@@ -14,15 +14,12 @@
 
 /**
  * @fileoverview Helper class for creating stubs for testing.
- *
  */
 
 goog.setTestOnly('goog.testing.PropertyReplacer');
 goog.provide('goog.testing.PropertyReplacer');
 
 goog.require('goog.asserts');
-/** @suppress {extraRequire} Needed for some tests to compile. */
-goog.require('goog.testing.ObjectPropertyString');
 goog.require('goog.userAgent');
 
 
@@ -231,8 +228,8 @@ goog.testing.PropertyReplacer.prototype.replace = function(
   }
   // If opt_allowNullOrUndefined is true, then we do not check the types if
   // either the original or new value is null or undefined.
-  var shouldCheckTypes = !opt_allowNullOrUndefined ||
-      (goog.isDefAndNotNull(obj[key]) && goog.isDefAndNotNull(value));
+  var shouldCheckTypes =
+      !opt_allowNullOrUndefined || (obj[key] != null && value != null);
   if (shouldCheckTypes) {
     var originalType = goog.typeOf(obj[key]);
     var newType = goog.typeOf(value);

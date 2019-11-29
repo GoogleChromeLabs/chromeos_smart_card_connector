@@ -21,7 +21,6 @@
  * incomplete implementation of web workers, it doesn't support sending ports
  * over Window connections. IE has no web worker support at all, and so is
  * unsupported by this class.
- *
  */
 
 goog.provide('goog.messaging.PortChannel');
@@ -301,7 +300,7 @@ goog.messaging.PortChannel.prototype.deliver_ = function(e) {
     payload = this.decodePayload(
         serviceName, this.injectPorts_(browserEvent.ports || [], payload),
         service.objectPayload);
-    if (goog.isDefAndNotNull(payload)) {
+    if (payload != null) {
       service.callback(payload);
     }
   }

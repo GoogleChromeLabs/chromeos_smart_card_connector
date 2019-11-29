@@ -19,6 +19,7 @@
 
 goog.provide('goog.window');
 
+goog.require('goog.dom');
 goog.require('goog.dom.TagName');
 goog.require('goog.dom.safe');
 goog.require('goog.html.SafeUrl');
@@ -62,14 +63,14 @@ goog.window.createFakeWindow_ = function() {
 /**
  * Opens a new window.
  *
- * @param {goog.html.SafeUrl|string|Object|null} linkRef If an Object with an 'href'
- *     attribute (such as HTMLAnchorElement) is passed then the value of 'href'
- *     is used, otherwise its toString method is called. Note that if a
+ * @param {!goog.html.SafeUrl|string|!Object|null} linkRef If an Object with an
+ *     'href' attribute (such as HTMLAnchorElement) is passed then the value of
+ *     'href' is used, otherwise its toString method is called. Note that if a
  *     string|Object is used, it will be sanitized with SafeUrl.sanitize().
  *
  * @param {?Object=} opt_options supports the following options:
  *  'target': (string) target (window name). If null, linkRef.target will
- *          be used.
+ *      be used.
  *  'width': (number) window width.
  *  'height': (number) window height.
  *  'top': (number) distance from top of screen
@@ -83,6 +84,10 @@ goog.window.createFakeWindow_ = function() {
  *  'noreferrer': (boolean) whether to attempt to remove the referrer header
  *      from the request headers. Does this by opening a blank window that
  *      then redirects to the target url, so users may see some flickering.
+ *  'noopener': (boolean) whether to remove the `opener` property from the
+ *      window object of the newly created window. The property contains a
+ *      reference to the original window, and can be used to launch a
+ *      reverse tabnabbing attack.
  *
  * @param {?Window=} opt_parentWin Parent window that should be used to open the
  *                 new window.
@@ -150,8 +155,7 @@ goog.window.open = function(linkRef, opt_options, opt_parentWin) {
     // element and send a click event to it.
     // Notice that the "A" tag does NOT have to be added to the DOM.
 
-    var a = /** @type {!HTMLAnchorElement} */
-        (parentWin.document.createElement(String(goog.dom.TagName.A)));
+    var a = goog.dom.createElement(goog.dom.TagName.A);
     goog.dom.safe.setAnchorHref(a, safeLinkRef);
 
     a.setAttribute('target', target);
@@ -232,8 +236,14 @@ goog.window.open = function(linkRef, opt_options, opt_parentWin) {
                   '<meta name="referrer" content="no-referrer">' +
                       '<meta http-equiv="refresh" content="0; url=' +
                       goog.string.htmlEscape(sanitizedLinkRef) + '">');
-      goog.dom.safe.documentWrite(newWin.document, safeHtml);
-      newWin.document.close();
+
+      // During window loading `newWin.document` may be unset in some browsers.
+      // Storing and checking a reference to the document prevents NPEs.
+      var newDoc = newWin.document;
+      if (newDoc) {
+        goog.dom.safe.documentWrite(newDoc, safeHtml);
+        newDoc.close();
+      }
     }
   } else {
     newWin = parentWin.open(

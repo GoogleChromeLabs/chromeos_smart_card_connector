@@ -43,7 +43,6 @@
  * 2. New programming models for cloud (on the server-side) may require
  *    new APIs to be defined.
  * 3. WebRTC DataChannel alignment
- *
  */
 
 goog.provide('goog.net.WebChannel');
@@ -131,9 +130,9 @@ goog.net.WebChannel.FailureRecovery = function() {};
  * testUrl: the test URL for detecting connectivity during the initial
  * handshake. This parameter defaults to "/<channel_url>/test".
  *
- * sendRawJson: whether to bypass v8 encoding of client-sent messages. Will be
- * deprecated after v9 wire protocol is introduced. Only safe to set if the
- * server is known to support this feature.
+ * sendRawJson: whether to bypass v8 encoding of client-sent messages.
+ * This defaults to false now due to legacy servers. New applications should
+ * always configure this option to true.
  *
  * httpSessionIdParam: the URL parameter name that contains the session id (
  * for sticky routing of HTTP requests). When this param is specified, a server
@@ -150,15 +149,22 @@ goog.net.WebChannel.FailureRecovery = function() {};
  * backgroundChannelTest: whether to run the channel test (detecting networking
  * conditions) as a background process so the OPEN event will be fired sooner
  * to reduce the initial handshake delay. This option defaults to true.
+ * The actual background channel test is not fully implemented.
  *
- * fastHandshake: experimental feature to enable true 0-RTT message delivery,
- * e.g. by leveraging QUIC 0-RTT (which requires GET to be used). This option
- * defaults to false. When this option is enabled, backgroundChannelTest will
- * be forced to true. Note it is allowed to send messages before Open event is
- * received, after a channel has been connected. In order to enable 0-RTT,
- * messages need be encoded as part of URL and therefore there needs be a size
- * limit (e.g. 16KB) for messages that need be sent immediately
- * as part of the handshake.
+ * forceLongPolling: whether to force long-polling from client to server.
+ * This defaults to false. Long-polling may be necessary when a (MITM) proxy
+ * is buffering data sent by the server.
+ *
+ * fastHandshake: enable true 0-RTT message delivery, including
+ * leveraging QUIC 0-RTT (which requires GET to be used). This option
+ * defaults to false. Note it is allowed to send messages before Open event is
+ * received, after a channel has been opened. In order to enable 0-RTT,
+ * messages will be encoded as part of URL and therefore there needs be a size
+ * limit for those initial messages that are sent immediately as part of the
+ * GET handshake request. With sendRawJson=true, this limit is currently set
+ * to 4K chars and data beyond this limit will be buffered till the handshake
+ * (1-RTT) finishes. With sendRawJson=false, it's up to the application
+ * to limit the amount of data that is sent as part of the handshake.
  *
  * disableRedact: whether to disable logging redact. By default, redact is
  * enabled to remove any message payload or user-provided info
@@ -198,6 +204,7 @@ goog.net.WebChannel.FailureRecovery = function() {};
  *   httpSessionIdParam: (string|undefined),
  *   httpHeadersOverwriteParam: (string|undefined),
  *   backgroundChannelTest: (boolean|undefined),
+ *   forceLongPolling: (boolean|undefined),
  *   fastHandshake: (boolean|undefined),
  *   disableRedact: (boolean|undefined),
  *   clientProfile: (string|undefined),
@@ -477,6 +484,8 @@ goog.net.WebChannel.RuntimeProperties.prototype.getHttpSessionId =
 
 
 /**
+ * Experimental API.
+ *
  * This method generates an in-band commit request to the server, which will
  * ack the commit request as soon as all messages sent prior to this commit
  * request have been committed by the application.
@@ -485,8 +494,21 @@ goog.net.WebChannel.RuntimeProperties.prototype.getHttpSessionId =
  * to the application. Detail spec:
  * https://github.com/bidiweb/webchannel/blob/master/commit.md
  *
- * Timeout or cancellation is not supported and the application may have to
+ * Timeout or cancellation is not supported and the application is expected to
  * abort the channel if the commit-ack fails to arrive in time.
+ *
+ * ===
+ *
+ * This is currently implemented only in the client layer and the commit
+ * callback will be invoked after all the pending client-sent messages have been
+ * delivered by the server-side webchannel end-point. This semantics is
+ * different and weaker than what's required for end-to-end ack which requires
+ * the server application to ack the in-order delivery of messages that are sent
+ * before the commit request is issued.
+ *
+ * Commit should only be called after the channel open event is received.
+ * Duplicated commits are allowed and only the last callback is guaranteed.
+ * Commit called after the channel has been closed will be ignored.
  *
  * @param {function()} callback The callback will be invoked once an
  * ack has been received for the current commit or any newly issued commit.
@@ -499,6 +521,8 @@ goog.net.WebChannel.RuntimeProperties.prototype.commit = goog.abstractMethod;
  * or to enable sender-initiated flow-control.
  *
  * Detail spec: https://github.com/bidiweb/webchannel/blob/master/commit.md
+ *
+ * This is not yet implemented.
  *
  * @return {number} The total number of messages that have not received
  * commit-ack from the server; or if no commit has been issued, the number
@@ -518,6 +542,8 @@ goog.net.WebChannel.RuntimeProperties.prototype.getNonAckedMessageCount =
  * is exceeded, the application should install a callback via this method
  * to be notified when to start to send new messages.
  *
+ * This is not yet implemented.
+ *
  * @param {number} count The low water-mark count. It is an error to pass
  * a non-positive value.
  * @param {function()} callback The call back to notify the application
@@ -530,9 +556,13 @@ goog.net.WebChannel.RuntimeProperties.prototype.notifyNonAckedMessageCount =
 
 
 /**
+ * Experimental API.
+ *
  * This method registers a callback to handle the commit request sent
  * by the server. Commit protocol spec:
  * https://github.com/bidiweb/webchannel/blob/master/commit.md
+ *
+ * This is not yet implemented.
  *
  * @param {function(!Object)} callback The callback will take an opaque
  * commitId which needs be passed back to the server when an ack-commit
@@ -542,9 +572,13 @@ goog.net.WebChannel.RuntimeProperties.prototype.onCommit = goog.abstractMethod;
 
 
 /**
+ * Experimental API.
+ *
  * This method is used by the application to generate an ack-commit response
  * for the given commitId. Commit protocol spec:
  * https://github.com/bidiweb/webchannel/blob/master/commit.md
+ *
+ * This is not yet implemented.
  *
  * @param {!Object} commitId The commitId which denotes the commit request
  * from the server that needs be ack'ed.

@@ -12,10 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/**
+ * @fileoverview Utilities used by goog.labs.userAgent tools. These functions
+ * should not be used outside of goog.labs.userAgent.*.
+ */
 
 goog.provide('goog.labs.userAgent.util');
 
-goog.require('goog.string');
+goog.require('goog.string.internal');
 
 
 /**
@@ -83,7 +87,7 @@ goog.labs.userAgent.util.getUserAgent = function() {
  */
 goog.labs.userAgent.util.matchUserAgent = function(str) {
   var userAgent = goog.labs.userAgent.util.getUserAgent();
-  return goog.string.contains(userAgent, str);
+  return goog.string.internal.contains(userAgent, str);
 };
 
 
@@ -94,7 +98,7 @@ goog.labs.userAgent.util.matchUserAgent = function(str) {
  */
 goog.labs.userAgent.util.matchUserAgentIgnoreCase = function(str) {
   var userAgent = goog.labs.userAgent.util.getUserAgent();
-  return goog.string.caseInsensitiveContains(userAgent, str);
+  return goog.string.internal.caseInsensitiveContains(userAgent, str);
 };
 
 

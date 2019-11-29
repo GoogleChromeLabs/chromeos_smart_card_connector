@@ -19,11 +19,10 @@
 
 goog.provide('goog.proto2.Message');
 
+goog.forwardDeclare('goog.proto2.LazyDeserializer');
 goog.require('goog.asserts');
 goog.require('goog.proto2.Descriptor');
-goog.require('goog.proto2.FieldDescriptor');
-
-goog.forwardDeclare('goog.proto2.LazyDeserializer');  // circular reference
+goog.require('goog.proto2.FieldDescriptor');  // circular reference
 
 
 
@@ -50,7 +49,7 @@ goog.proto2.Message = function() {
 
   /**
    * The lazy deserializer for this message instance, if any.
-   * @type {goog.proto2.LazyDeserializer}
+   * @type {?goog.proto2.LazyDeserializer}
    * @private
    */
   this.lazyDeserializer_ = null;
@@ -58,7 +57,7 @@ goog.proto2.Message = function() {
   /**
    * A map of those fields deserialized, from tag number to their deserialized
    * value.
-   * @type {Object}
+   * @type {?Object}
    * @private
    */
   this.deserializedFields_ = null;
@@ -514,7 +513,7 @@ goog.proto2.Message.prototype.has$Value = function(tag) {
 goog.proto2.Message.prototype.getValueForTag_ = function(tag) {
   // Retrieve the current value, which may still be serialized.
   var value = this.values_[tag];
-  if (!goog.isDefAndNotNull(value)) {
+  if (value == null) {
     return null;
   }
 

@@ -27,9 +27,11 @@ goog.require('goog.async.Delay');
 goog.require('goog.dispose');
 goog.require('goog.dom');
 goog.require('goog.dom.TagName');
+goog.require('goog.dom.safe');
 goog.require('goog.events');
 goog.require('goog.events.EventHandler');
 goog.require('goog.events.EventType');
+goog.require('goog.html.legacyconversions');
 goog.require('goog.json');
 goog.require('goog.log');
 goog.require('goog.messaging.AbstractChannel');
@@ -38,10 +40,7 @@ goog.require('goog.net.xpc.CfgFields');
 goog.require('goog.net.xpc.ChannelStates');
 goog.require('goog.net.xpc.CrossPageChannelRole');
 goog.require('goog.net.xpc.DirectTransport');
-goog.require('goog.net.xpc.FrameElementMethodTransport');
-goog.require('goog.net.xpc.IframeRelayTransport');
 goog.require('goog.net.xpc.NativeMessagingTransport');
-goog.require('goog.net.xpc.NixTransport');
 goog.require('goog.net.xpc.TransportTypes');
 goog.require('goog.net.xpc.UriCfgFields');
 goog.require('goog.string');
@@ -59,6 +58,7 @@ goog.require('goog.userAgent');
  *     use for looking up elements in the dom.
  * @constructor
  * @extends {goog.messaging.AbstractChannel}
+ * @deprecated Prefer goog.messaging.MessageChannel and friends.
  */
 goog.net.xpc.CrossPageChannel = function(cfg, opt_domHelper) {
   goog.net.xpc.CrossPageChannel.base(this, 'constructor');
@@ -157,7 +157,7 @@ goog.net.xpc.CrossPageChannel.TRANSPORT_SERVICE_UNESCAPE_RE_ =
 /**
  * A delay between the transport reporting as connected and the calling of the
  * connection callback.  Sometimes used to paper over timing vulnerabilities.
- * @type {goog.async.Delay}
+ * @type {?goog.async.Delay}
  * @private
  */
 goog.net.xpc.CrossPageChannel.prototype.connectionDelay_ = null;
@@ -167,7 +167,7 @@ goog.net.xpc.CrossPageChannel.prototype.connectionDelay_ = null;
  * A deferred which is set to non-null while a peer iframe is being created
  * but has not yet thrown its load event, and which fires when that load event
  * arrives.
- * @type {goog.async.Deferred}
+ * @type {?goog.async.Deferred}
  * @private
  */
 goog.net.xpc.CrossPageChannel.prototype.peerWindowDeferred_ = null;
@@ -201,7 +201,7 @@ goog.net.xpc.CrossPageChannel.prototype.isConnected = function() {
 
 /**
  * Reference to the window-object of the peer page.
- * @type {Object}
+ * @type {?Object}
  * @private
  */
 goog.net.xpc.CrossPageChannel.prototype.peerWindowObject_ = null;
@@ -297,13 +297,6 @@ goog.net.xpc.CrossPageChannel.prototype.determineTransportType_ = function() {
       // typeof window.postMessage returns "object"
       (goog.userAgent.IE && window.postMessage)) {
     transportType = goog.net.xpc.TransportTypes.NATIVE_MESSAGING;
-  } else if (goog.userAgent.GECKO) {
-    transportType = goog.net.xpc.TransportTypes.FRAME_ELEMENT_METHOD;
-  } else if (
-      goog.userAgent.IE && this.cfg_[goog.net.xpc.CfgFields.PEER_RELAY_URI]) {
-    transportType = goog.net.xpc.TransportTypes.IFRAME_RELAY;
-  } else if (goog.userAgent.IE && goog.net.xpc.NixTransport.isNixSupported()) {
-    transportType = goog.net.xpc.TransportTypes.NIX;
   } else {
     transportType = goog.net.xpc.TransportTypes.UNDEFINED;
   }
@@ -343,17 +336,6 @@ goog.net.xpc.CrossPageChannel.prototype.createTransport_ = function() {
         this.transport_ = new goog.net.xpc.NativeMessagingTransport(
             this, this.cfg_[CfgFields.PEER_HOSTNAME], this.domHelper_,
             !!this.cfg_[CfgFields.ONE_SIDED_HANDSHAKE], protocolVersion);
-        break;
-      case goog.net.xpc.TransportTypes.NIX:
-        this.transport_ = new goog.net.xpc.NixTransport(this, this.domHelper_);
-        break;
-      case goog.net.xpc.TransportTypes.FRAME_ELEMENT_METHOD:
-        this.transport_ =
-            new goog.net.xpc.FrameElementMethodTransport(this, this.domHelper_);
-        break;
-      case goog.net.xpc.TransportTypes.IFRAME_RELAY:
-        this.transport_ =
-            new goog.net.xpc.IframeRelayTransport(this, this.domHelper_);
         break;
       case goog.net.xpc.TransportTypes.DIRECT:
         if (this.peerWindowObject_ &&
@@ -487,12 +469,18 @@ goog.net.xpc.CrossPageChannel.prototype.createPeerIframe = function(
     // is present in Safari and Gecko.
     window.setTimeout(goog.bind(function() {
       parentElm.appendChild(iframeElm);
-      iframeElm.src = peerUri.toString();
+      goog.dom.safe.setIframeSrc(
+          iframeElm,
+          goog.html.legacyconversions.trustedResourceUrlFromString(
+              peerUri.toString()));
       goog.log.info(
           goog.net.xpc.logger, 'peer iframe created (' + iframeId + ')');
     }, this), 1);
   } else {
-    iframeElm.src = peerUri.toString();
+    goog.dom.safe.setIframeSrc(
+        iframeElm,
+        goog.html.legacyconversions.trustedResourceUrlFromString(
+            peerUri.toString()));
     parentElm.appendChild(iframeElm);
     goog.log.info(
         goog.net.xpc.logger, 'peer iframe created (' + iframeId + ')');
@@ -528,7 +516,7 @@ goog.net.xpc.CrossPageChannel.prototype.cleanUpIncompleteConnection_ =
  */
 goog.net.xpc.CrossPageChannel.prototype.getPeerUri = function(opt_addCfgParam) {
   var peerUri = this.cfg_[goog.net.xpc.CfgFields.PEER_URI];
-  if (goog.isString(peerUri)) {
+  if (typeof peerUri === 'string') {
     peerUri = this.cfg_[goog.net.xpc.CfgFields.PEER_URI] =
         new goog.Uri(peerUri);
   }
@@ -646,7 +634,7 @@ goog.net.xpc.CrossPageChannel.prototype.notifyConnected = function(opt_delay) {
   this.state_ = goog.net.xpc.ChannelStates.CONNECTED;
   goog.log.info(goog.net.xpc.logger, 'Channel "' + this.name + '" connected');
   goog.dispose(this.connectionDelay_);
-  if (goog.isDef(opt_delay)) {
+  if (opt_delay !== undefined) {
     this.connectionDelay_ = new goog.async.Delay(this.connectCb_, opt_delay);
     this.connectionDelay_.start();
   } else {
@@ -792,7 +780,7 @@ goog.net.xpc.CrossPageChannel.prototype.unescapeServiceName_ = function(name) {
  */
 goog.net.xpc.CrossPageChannel.prototype.getRole = function() {
   var role = this.cfg_[goog.net.xpc.CfgFields.ROLE];
-  if (goog.isNumber(role)) {
+  if (typeof role === 'number') {
     return role;
   } else {
     return window.parent == this.peerWindowObject_ ?

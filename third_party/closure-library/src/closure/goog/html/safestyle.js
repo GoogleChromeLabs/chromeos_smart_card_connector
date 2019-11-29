@@ -23,9 +23,9 @@ goog.provide('goog.html.SafeStyle');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.html.SafeUrl');
-goog.require('goog.string');
 goog.require('goog.string.Const');
 goog.require('goog.string.TypedString');
+goog.require('goog.string.internal');
 
 
 
@@ -175,27 +175,15 @@ goog.html.SafeStyle.fromConstant = function(style) {
   if (styleString.length === 0) {
     return goog.html.SafeStyle.EMPTY;
   }
-  goog.html.SafeStyle.checkStyle_(styleString);
   goog.asserts.assert(
-      goog.string.endsWith(styleString, ';'),
+      goog.string.internal.endsWith(styleString, ';'),
       'Last character of style string is not \';\': ' + styleString);
   goog.asserts.assert(
-      goog.string.contains(styleString, ':'),
+      goog.string.internal.contains(styleString, ':'),
       'Style string must contain at least one \':\', to ' +
           'specify a "name: value" pair: ' + styleString);
   return goog.html.SafeStyle.createSafeStyleSecurityPrivateDoNotAccessOrElse(
       styleString);
-};
-
-
-/**
- * Checks if the style definition is valid.
- * @param {string} style
- * @private
- */
-goog.html.SafeStyle.checkStyle_ = function(style) {
-  goog.asserts.assert(
-      !/[<>]/.test(style), 'Forbidden characters in style string: ' + style);
 };
 
 
@@ -377,7 +365,6 @@ goog.html.SafeStyle.create = function(map) {
   if (!style) {
     return goog.html.SafeStyle.EMPTY;
   }
-  goog.html.SafeStyle.checkStyle_(style);
   return goog.html.SafeStyle.createSafeStyleSecurityPrivateDoNotAccessOrElse(
       style);
 };
@@ -399,7 +386,10 @@ goog.html.SafeStyle.sanitizePropertyValue_ = function(value) {
       goog.html.SafeStyle.sanitizePropertyValueString_(String(value));
   // These characters can be used to change context and we don't want that even
   // with const values.
-  goog.asserts.assert(!/[{;}]/.test(result), 'Value does not allow [{;}].');
+  if (/[{;}]/.test(result)) {
+    throw new goog.asserts.AssertionError(
+        'Value does not allow [{;}], got: %s.', [result]);
+  }
   return result;
 };
 
@@ -538,14 +528,31 @@ goog.html.SafeStyle.URL_RE_ = new RegExp(
         ')([ \t\n]*\\))',
     'g');
 
+/**
+ * Names of functions allowed in FUNCTIONS_RE_.
+ * @private @const {!Array<string>}
+ */
+goog.html.SafeStyle.ALLOWED_FUNCTIONS_ = [
+  'calc',
+  'cubic-bezier',
+  'fit-content',
+  'hsl',
+  'hsla',
+  'matrix',
+  'minmax',
+  'repeat',
+  'rgb',
+  'rgba',
+  '(rotate|scale|translate)(X|Y|Z|3d)?',
+];
+
 
 /**
  * Regular expression for simple functions.
  * @private @const {!RegExp}
  */
 goog.html.SafeStyle.FUNCTIONS_RE_ = new RegExp(
-    '\\b(hsl|hsla|rgb|rgba|matrix|calc|minmax|fit-content|repeat|' +
-        '(rotate|scale|translate)(X|Y|Z|3d)?)' +
+    '\\b(' + goog.html.SafeStyle.ALLOWED_FUNCTIONS_.join('|') + ')' +
         '\\([-+*/0-9a-z.%\\[\\], ]+\\)',
     'g');
 

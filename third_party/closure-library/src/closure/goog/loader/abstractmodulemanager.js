@@ -264,14 +264,14 @@ goog.loader.AbstractModuleManager.prototype.prefetchModule = function(id) {
 
 
 /**
- * Records that a module was loaded. Also initiates loading the next module if
- * any module requests are queued. This method is called by code that is
- * generated and appended to each dynamic module's code at compilation time.
+ * Records that the currently loading module was loaded. Also initiates loading
+ * the next module if any module requests are queued. This method is called by
+ * code that is generated and appended to each dynamic module's code at
+ * compilation time.
  *
- * @param {string} id A module id.
  * @abstract
  */
-goog.loader.AbstractModuleManager.prototype.setLoaded = function(id) {};
+goog.loader.AbstractModuleManager.prototype.setLoaded = function() {};
 
 
 /**
@@ -342,15 +342,6 @@ goog.loader.AbstractModuleManager.prototype.loadMultiple = function(
  * @abstract
  */
 goog.loader.AbstractModuleManager.prototype.beforeLoadModuleCode = function(
-    id) {};
-
-
-/**
- * Method called just after module code is loaded
- * @param {string} id Identifier of the module.
- * @abstract
- */
-goog.loader.AbstractModuleManager.prototype.afterLoadModuleCode = function(
     id) {};
 
 

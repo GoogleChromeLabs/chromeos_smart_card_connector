@@ -15,18 +15,14 @@
 /**
  * @fileoverview Default renderer for {@link goog.ui.TabBar}s.  Based on the
  * original `TabPane` code.
- *
- * @author attila@google.com (Attila Bodis)
- * @author eae@google.com (Emil A. Eklund)
  */
 
 goog.provide('goog.ui.TabBarRenderer');
 
+goog.forwardDeclare('goog.ui.Container');
 goog.require('goog.a11y.aria.Role');
 goog.require('goog.object');
 goog.require('goog.ui.ContainerRenderer');
-
-goog.forwardDeclare('goog.ui.Container');
 
 
 

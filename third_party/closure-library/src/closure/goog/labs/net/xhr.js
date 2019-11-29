@@ -18,7 +18,6 @@
  * via XMLHttpRequest.  Instead of mirroring the XHR interface and exposing
  * events, results are used as a way to pass a "promise" of the response to
  * interested parties.
- *
  */
 
 goog.provide('goog.labs.net.xhr');
@@ -270,7 +269,8 @@ xhr.send = function(method, url, data, opt_options) {
       options.xmlHttpFactory.createInstance() :
       goog.net.XmlHttp();
 
-  var result = new goog.Promise(function(resolve, reject) {
+  var result = new goog.Promise(/** @suppress {strictPrimitiveOperators} Part of the go/strict_warnings_migration */
+                                function(resolve, reject) {
     var timer;
 
     try {
@@ -304,7 +304,7 @@ xhr.send = function(method, url, data, opt_options) {
     if (options.headers) {
       for (var key in options.headers) {
         var value = options.headers[key];
-        if (goog.isDefAndNotNull(value)) {
+        if (value != null) {
           request.setRequestHeader(key, value);
         }
       }
@@ -384,13 +384,23 @@ xhr.isEffectiveSchemeHttp_ = function(url) {
   return scheme == 'http' || scheme == 'https' || scheme == '';
 };
 
+/**
+ * @param {string} responseText
+ * @param {string=} opt_xssiPrefix Prefix used for protecting against XSSI
+ *     attacks, which should be removed before parsing the response as JSON.
+ * @return {!Object} JSON-parsed value of the original responseText.
+ */
+xhr.parseJson = function(responseText, opt_xssiPrefix) {
+  return xhr.parseJson_(responseText, {xssiPrefix: opt_xssiPrefix});
+};
+
 
 /**
  * JSON-parses the given response text, returning an Object.
  *
  * @param {string} responseText Response text.
  * @param {xhr.Options|undefined} options The options object.
- * @return {Object} The JSON-parsed value of the original responseText.
+ * @return {!Object} The JSON-parsed value of the original responseText.
  * @private
  */
 xhr.parseJson_ = function(responseText, options) {

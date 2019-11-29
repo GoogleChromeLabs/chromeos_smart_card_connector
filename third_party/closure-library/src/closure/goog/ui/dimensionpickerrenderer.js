@@ -17,12 +17,11 @@
  * dimension picker allows the user to visually select a row and column count.
  * It looks like a palette but in order to minimize DOM load it is rendered.
  * using CSS background tiling instead of as a grid of nodes.
- *
- * @author robbyw@google.com (Robby Walker)
  */
 
 goog.provide('goog.ui.DimensionPickerRenderer');
 
+goog.forwardDeclare('goog.ui.DimensionPicker');
 goog.require('goog.a11y.aria.Announcer');
 goog.require('goog.a11y.aria.LivePriority');
 goog.require('goog.dom');
@@ -31,8 +30,6 @@ goog.require('goog.i18n.bidi');
 goog.require('goog.style');
 goog.require('goog.ui.ControlRenderer');
 goog.require('goog.userAgent');
-
-goog.forwardDeclare('goog.ui.DimensionPicker');
 
 
 

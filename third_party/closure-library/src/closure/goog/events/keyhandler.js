@@ -99,8 +99,6 @@
  * p:     undefined      80 undefined
  * P:     undefined      80 undefined
  *
- * @author arv@google.com (Erik Arvidsson)
- * @author eae@google.com (Emil A Eklund)
  * @see ../demos/keyhandler.html
  */
 
@@ -138,7 +136,7 @@ goog.inherits(goog.events.KeyHandler, goog.events.EventTarget);
 
 /**
  * This is the element that we will listen to the real keyboard events on.
- * @type {Element|Document|null}
+ * @type {?Element|?Document|null}
  * @private
  */
 goog.events.KeyHandler.prototype.element_ = null;
@@ -146,7 +144,7 @@ goog.events.KeyHandler.prototype.element_ = null;
 
 /**
  * The key for the key press listener.
- * @type {goog.events.Key}
+ * @type {?goog.events.Key}
  * @private
  */
 goog.events.KeyHandler.prototype.keyPressKey_ = null;
@@ -154,7 +152,7 @@ goog.events.KeyHandler.prototype.keyPressKey_ = null;
 
 /**
  * The key for the key down listener.
- * @type {goog.events.Key}
+ * @type {?goog.events.Key}
  * @private
  */
 goog.events.KeyHandler.prototype.keyDownKey_ = null;
@@ -162,7 +160,7 @@ goog.events.KeyHandler.prototype.keyDownKey_ = null;
 
 /**
  * The key for the key up listener.
- * @type {goog.events.Key}
+ * @type {?goog.events.Key}
  * @private
  */
 goog.events.KeyHandler.prototype.keyUpKey_ = null;
@@ -399,12 +397,40 @@ goog.events.KeyHandler.prototype.handleEvent = function(e) {
 
     // Mozilla reports the character code in the charCode field.
   } else {
-    keyCode = be.keyCode || this.keyCode_;
-    charCode = be.charCode || 0;
-    if (goog.events.KeyHandler.SAVE_ALT_FOR_KEYPRESS_ &&
-        e.type == goog.events.EventType.KEYPRESS) {
-      altKey = this.altKey_;
+    if (e.type == goog.events.EventType.KEYPRESS) {
+      if (goog.events.KeyHandler.SAVE_ALT_FOR_KEYPRESS_) {
+        altKey = this.altKey_;
+      }
+
+      // Newer versions of Firefox will set the keyCode of non-function keys to
+      // be the same as charCode. We need to account for this and update the
+      // key event values accordingly. See
+      // https://github.com/google/closure-library/issues/932 for more details.
+      if (be.keyCode == be.charCode) {
+        // Adjust any function key (ie. non-printable, such as ESC or
+        // backspace) to not have a charCode. We don't want these keys to
+        // accidentally be interpreted as insertable characters.
+        if (be.keyCode < 0x20) {
+          keyCode = be.keyCode;
+          charCode = 0;
+        } else {
+          // For character keys, we want to use the preserved key code rather
+          // than the keyCode on the browser event, which now uses the charCode.
+          // These differ (eg. pressing 'a' gives keydown with keyCode = 65,
+          // keypress with keyCode = charCode = 97) and so we need to account
+          // for this.
+          keyCode = this.keyCode_;
+          charCode = be.charCode;
+        }
+      } else {
+        keyCode = be.keyCode || this.keyCode_;
+        charCode = be.charCode || 0;
+      }
+    } else {
+      keyCode = be.keyCode || this.keyCode_;
+      charCode = be.charCode || 0;
     }
+
     // On the Mac, shift-/ triggers a question mark char code and no key code
     // (WIN_KEY_FF_LINUX), so we synthesize the latter.
     if (goog.userAgent.MAC && charCode == goog.events.KeyCodes.QUESTION_MARK &&

@@ -15,15 +15,13 @@
 
 /**
  * @fileoverview A thick wrapper around rectangles.
- * @author robbyw@google.com (Robby Walker)
  */
 
 
 goog.provide('goog.graphics.ext.Rectangle');
 
-goog.require('goog.graphics.ext.StrokeAndFillElement');
-
 goog.forwardDeclare('goog.graphics.ext.Group');
+goog.require('goog.graphics.ext.StrokeAndFillElement');
 
 
 

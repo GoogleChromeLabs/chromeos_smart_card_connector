@@ -14,11 +14,11 @@
 
 /**
  * @fileoverview Defines the goog.module.ModuleInfo class.
- *
  */
 
 goog.provide('goog.module.ModuleInfo');
 
+goog.forwardDeclare('goog.loader.AbstractModuleManager.FailureType');
 goog.require('goog.Disposable');
 goog.require('goog.async.throwException');
 goog.require('goog.functions');
@@ -27,8 +27,6 @@ goog.require('goog.html.TrustedResourceUrl');
 goog.require('goog.module');
 goog.require('goog.module.BaseModule');
 goog.require('goog.module.ModuleLoadCallback');
-
-goog.forwardDeclare('goog.loader.AbstractModuleManager.FailureType');
 
 
 
@@ -238,6 +236,17 @@ goog.module.ModuleInfo.prototype.registerCallback_ = function(
  */
 goog.module.ModuleInfo.prototype.isLoaded = function() {
   return !!this.module_;
+};
+
+
+/**
+ * Marks the current module as loaded. This is useful for subtractive module
+ * loading, where occasionally we need to fallback to normal module loading,
+ * and re-fetch the module graph. In this case, we need a way to tell the module
+ * manager to mark all modules that are already loaded.
+ */
+goog.module.ModuleInfo.prototype.setLoaded = function() {
+  this.module_ = new goog.module.BaseModule();
 };
 
 

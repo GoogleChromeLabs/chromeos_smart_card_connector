@@ -14,14 +14,12 @@
 
 /**
  * @fileoverview Provides a convenient API for data persistence with expiration.
- *
  */
 
 goog.provide('goog.storage.ExpiringStorage');
 
-goog.require('goog.storage.RichStorage');
-
 goog.forwardDeclare('goog.storage.mechanism.Mechanism');
+goog.require('goog.storage.RichStorage');
 
 
 

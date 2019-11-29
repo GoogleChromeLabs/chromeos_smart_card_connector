@@ -32,7 +32,6 @@
  * </ul>
  *
  * For examples, please see the unit test.
- *
  */
 
 
@@ -103,7 +102,7 @@ goog.testing.MockClassRecord = function(
 
 /**
  * A mock associated with the static functions for a given class.
- * @type {goog.testing.StrictMock|goog.testing.LooseMock|null}
+ * @type {?goog.testing.StrictMock|?goog.testing.LooseMock|null}
  * @private
  */
 goog.testing.MockClassRecord.prototype.staticMock_ = null;
