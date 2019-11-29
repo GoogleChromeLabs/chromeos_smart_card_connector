@@ -115,7 +115,7 @@ public class JSDocInfo implements Serializable {
     private ArrayList<JSTypeExpression> implementedInterfaces;
     private LinkedHashMap<String, JSTypeExpression> parameters;
     private ArrayList<JSTypeExpression> thrownTypes;
-    private ArrayList<String> templateTypeNames;
+    private LinkedHashMap<String, JSTypeExpression> templateTypeNames;
     private Set<String> disposedParameters;
     private LinkedHashMap<String, Node> typeTransformations;
 
@@ -169,7 +169,7 @@ public class JSDocInfo implements Serializable {
       other.parameters = cloneTypeMap(parameters, cloneTypeNodes);
       other.thrownTypes = cloneTypeList(thrownTypes, cloneTypeNodes);
       other.templateTypeNames = templateTypeNames == null ? null
-          : new ArrayList<>(templateTypeNames);
+          : new LinkedHashMap<>(templateTypeNames);
       other.disposedParameters = disposedParameters == null ? null
           : new HashSet<>(disposedParameters);
       other.typeTransformations = typeTransformations == null ? null
@@ -185,22 +185,6 @@ public class JSDocInfo implements Serializable {
       other.closurePrimitiveId = closurePrimitiveId;
 
       other.propertyBitField = propertyBitField;
-      return other;
-    }
-
-    protected LazilyInitializedInfo cloneClassDoc() {
-      LazilyInitializedInfo other = clone(/* cloneTypeNodes= */ false);
-      other.parameters = null;
-      other.suppressions = null;
-      other.setBit(Property.NG_INJECT, false);
-      return other;
-    }
-
-    protected LazilyInitializedInfo cloneConstructorDoc() {
-      LazilyInitializedInfo other = new LazilyInitializedInfo();
-      other.parameters = cloneTypeMap(parameters, /* cloneTypeExpressionNodes= */ false);
-      other.suppressions = suppressions == null ? null : ImmutableSet.copyOf(suppressions);
-      other.setBit(Property.NG_INJECT, isBitSet(Property.NG_INJECT));
       return other;
     }
 
@@ -264,14 +248,6 @@ public class JSDocInfo implements Serializable {
 
     private List<String> authors;
     private List<String> sees;
-
-    LazilyInitializedDocumentation cloneConstructorDoc() {
-      LazilyInitializedDocumentation other = new LazilyInitializedDocumentation();
-      if (parameters != null) {
-        other.parameters = new LinkedHashMap<>(parameters);
-      }
-      return other;
-    }
 
     @Override
     public String toString() {
@@ -567,6 +543,7 @@ public class JSDocInfo implements Serializable {
 
   // 3 bit type field stored in the top 3 bits of the most significant
   // nibble.
+  private static final int COMPLEMENT_TYPEFIELD = 0x1FFFFFFF; // 0001...
   private static final int MASK_TYPEFIELD    = 0xE0000000; // 1110...
   private static final int TYPEFIELD_TYPE    = 0x20000000; // 0010...
   private static final int TYPEFIELD_RETURN  = 0x40000000; // 0100...
@@ -589,6 +566,13 @@ public class JSDocInfo implements Serializable {
     return clone(false);
   }
 
+  public JSDocInfo cloneWithNewType(boolean cloneTypeNodes, JSTypeExpression typeExpression) {
+    JSDocInfo other = clone(cloneTypeNodes);
+    other.bitset = other.bitset & COMPLEMENT_TYPEFIELD;
+    other.setType(typeExpression);
+    return other;
+  }
+
   public JSDocInfo clone(boolean cloneTypeNodes) {
     JSDocInfo other = new JSDocInfo();
     other.info = this.info == null ? null : this.info.clone(cloneTypeNodes);
@@ -599,40 +583,6 @@ public class JSDocInfo implements Serializable {
     other.thisType = cloneType(this.thisType, cloneTypeNodes);
     other.includeDocumentation = this.includeDocumentation;
     other.originalCommentPosition = this.originalCommentPosition;
-    return other;
-  }
-
-  /**
-   * This is used to get all nodes + the description, excluding the param nodes. Used to help in an
-   * ES5 to ES6 class converter only.
-   */
-  public JSDocInfo cloneClassDoc() {
-    JSDocInfo other = new JSDocInfo();
-    other.info = this.info == null ? null : this.info.cloneClassDoc();
-    other.documentation = this.documentation;
-    other.visibility = this.visibility;
-    other.bitset = this.bitset;
-    other.type = cloneType(this.type, false);
-    other.thisType = cloneType(this.thisType, false);
-    other.includeDocumentation = this.includeDocumentation;
-    other.originalCommentPosition = this.originalCommentPosition;
-    other.setConstructor(false);
-    other.setStruct(false);
-    if (!isInterface() && other.info != null) {
-      other.info.baseType = null;
-    }
-    return other;
-  }
-
-  /**
-   * This is used to get only the parameter nodes. Used to help in an ES5 to ES6 converter class
-   * only.
-   */
-  public JSDocInfo cloneConstructorDoc() {
-    JSDocInfo other = new JSDocInfo();
-    other.info = this.info == null ? null : this.info.cloneConstructorDoc();
-    other.documentation =
-        this.documentation == null ? null : this.documentation.cloneConstructorDoc();
     return other;
   }
 
@@ -1396,24 +1346,36 @@ public class JSDocInfo implements Serializable {
   }
 
   /**
-   * Declares a template type name. Template type names are described using the
-   * {@code @template} annotation.
+   * Declares a template type name. Template type names are described using the {@code @template}
+   * annotation.
    *
    * @param newTemplateTypeName the template type name.
    */
   boolean declareTemplateTypeName(String newTemplateTypeName) {
     lazyInitInfo();
 
+    return declareTemplateTypeName(newTemplateTypeName, null);
+  }
+
+  boolean declareTemplateTypeName(
+      String newTemplateTypeName, JSTypeExpression newTemplateTypeBound) {
+    lazyInitInfo();
+
+    newTemplateTypeBound =
+        newTemplateTypeBound == null
+            ? JSTypeExpression.IMPLICIT_TEMPLATE_BOUND
+            : newTemplateTypeBound;
+
     if (isTypeTransformationName(newTemplateTypeName) || hasTypedefType()) {
       return false;
     }
-    if (info.templateTypeNames == null){
-      info.templateTypeNames = new ArrayList<>();
-    } else if (info.templateTypeNames.contains(newTemplateTypeName)) {
+    if (info.templateTypeNames == null) {
+      info.templateTypeNames = new LinkedHashMap<>();
+    } else if (info.templateTypeNames.containsKey(newTemplateTypeName)) {
       return false;
     }
 
-    info.templateTypeNames.add(newTemplateTypeName);
+    info.templateTypeNames.put(newTemplateTypeName, newTemplateTypeBound);
     return true;
   }
 
@@ -1421,7 +1383,7 @@ public class JSDocInfo implements Serializable {
     if (info.templateTypeNames == null) {
       return false;
     }
-    return info.templateTypeNames.contains(name);
+    return info.templateTypeNames.containsKey(name);
   }
 
   private boolean isTypeTransformationName(String name) {
@@ -2079,14 +2041,14 @@ public class JSDocInfo implements Serializable {
   /**
    * Returns the list of authors or null if none.
    */
-  public Collection<String> getAuthors() {
+  public List<String> getAuthors() {
     return documentation == null ? null : documentation.authors;
   }
 
   /**
    * Returns the list of references or null if none.
    */
-  public Collection<String> getReferences() {
+  public List<String> getReferences() {
     return documentation == null ? null : documentation.sees;
   }
 
@@ -2140,7 +2102,14 @@ public class JSDocInfo implements Serializable {
     if (info == null || info.templateTypeNames == null) {
       return ImmutableList.of();
     }
-    return ImmutableList.copyOf(info.templateTypeNames);
+    return ImmutableList.copyOf(info.templateTypeNames.keySet());
+  }
+
+  public ImmutableMap<String, JSTypeExpression> getTemplateTypes() {
+    if (info == null || info.templateTypeNames == null) {
+      return ImmutableMap.of();
+    }
+    return ImmutableMap.copyOf(info.templateTypeNames);
   }
 
   /** Gets the type transformations. */
@@ -2152,32 +2121,46 @@ public class JSDocInfo implements Serializable {
   }
 
   /**
-   * Returns a collection of all type nodes that are a part of this JSDocInfo. This
-   * includes @type, @this, @extends, @implements, @param, @throws, @lends, and @return. Any future
-   * type specific JSDoc should make sure to add the appropriate nodes here.
+   * Returns a collection of all JSTypeExpressions that are a part of this JSDocInfo.
+   *
+   * <p>This includes:
+   *
+   * <ul>
+   *   <li>@extends
+   *   <li>@implements
+   *   <li>@lend
+   *   <li>@param
+   *   <li>@return
+   *   <li>@template
+   *   <li>@this
+   *   <li>@throws
+   *   <li>@type
+   * </ul>
+   *
+   * Any future type specific JSDoc should make sure to add the appropriate nodes here.
    *
    * @return collection of all type nodes
    */
-  public Collection<Node> getTypeNodes() {
-    List<Node> nodes = new ArrayList<>();
+  public Collection<JSTypeExpression> getTypeExpressions() {
+    List<JSTypeExpression> nodes = new ArrayList<>();
 
     if (type != null) {
-      nodes.add(type.getRoot());
+      nodes.add(type);
     }
 
     if (thisType != null) {
-      nodes.add(thisType.getRoot());
+      nodes.add(thisType);
     }
 
     if (info != null) {
       if (info.baseType != null) {
-        nodes.add(info.baseType.getRoot());
+        nodes.add(info.baseType);
       }
 
       if (info.extendedInterfaces != null) {
         for (JSTypeExpression interfaceType : info.extendedInterfaces) {
           if (interfaceType != null) {
-            nodes.add(interfaceType.getRoot());
+            nodes.add(interfaceType);
           }
         }
       }
@@ -2185,7 +2168,7 @@ public class JSDocInfo implements Serializable {
       if (info.implementedInterfaces != null) {
         for (JSTypeExpression interfaceType : info.implementedInterfaces) {
           if (interfaceType != null) {
-            nodes.add(interfaceType.getRoot());
+            nodes.add(interfaceType);
           }
         }
       }
@@ -2193,7 +2176,7 @@ public class JSDocInfo implements Serializable {
       if (info.parameters != null) {
         for (JSTypeExpression parameterType : info.parameters.values()) {
           if (parameterType != null) {
-            nodes.add(parameterType.getRoot());
+            nodes.add(parameterType);
           }
         }
       }
@@ -2201,14 +2184,53 @@ public class JSDocInfo implements Serializable {
       if (info.thrownTypes != null) {
         for (JSTypeExpression thrownType : info.thrownTypes) {
           if (thrownType != null) {
-            nodes.add(thrownType.getRoot());
+            nodes.add(thrownType);
           }
         }
       }
 
       if (info.lendsName != null) {
-        nodes.add(info.lendsName.getRoot());
+        nodes.add(info.lendsName);
       }
+
+      if (info.templateTypeNames != null) {
+        for (JSTypeExpression upperBound : info.templateTypeNames.values()) {
+          if (upperBound != null) {
+            nodes.add(upperBound);
+          }
+        }
+      }
+    }
+
+    return nodes;
+  }
+
+  /**
+   * Returns a collection of all type nodes that are a part of this JSDocInfo.
+   *
+   * <p>This includes:
+   *
+   * <ul>
+   *   <li>@extends
+   *   <li>@implements
+   *   <li>@lend
+   *   <li>@param
+   *   <li>@return
+   *   <li>@template
+   *   <li>@this
+   *   <li>@throws
+   *   <li>@type
+   * </ul>
+   *
+   * Any future type specific JSDoc should make sure to add the appropriate nodes here.
+   *
+   * @return collection of all type nodes
+   */
+  public Collection<Node> getTypeNodes() {
+    List<Node> nodes = new ArrayList<>();
+
+    for (JSTypeExpression type : getTypeExpressions()) {
+      nodes.add(type.getRoot());
     }
 
     return nodes;

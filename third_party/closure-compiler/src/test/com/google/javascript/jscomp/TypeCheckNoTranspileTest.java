@@ -1027,7 +1027,6 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
 
   @Test
   public void testLocalEnumWithLet() {
-    // TODO(bradfordcsmith): Local enum types should be non-nullable just like the global ones.
     testTypes(
         lines(
             "{",
@@ -1039,16 +1038,11 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
             "   * @return {number}",
             "   */",
             "  function f(x) {return x}",
-            "}"),
-        lines(
-            "inconsistent return type",
-            "found   : (E<number>|null)",
-            "required: number"));
+            "}"));
   }
 
   @Test
   public void testLocalEnumWithConst() {
-    // TODO(bradfordcsmith): Local enum types should be non-nullable just like the global ones.
     testTypes(
         lines(
             "{",
@@ -1060,11 +1054,7 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
             "   * @return {number}",
             "   */",
             "  function f(x) {return x}",
-            "}"),
-        lines(
-            "inconsistent return type",
-            "found   : (E<number>|null)",
-            "required: number"));
+            "}"));
   }
 
   @Test
@@ -1477,7 +1467,7 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
             "}"),
         lines(
             "Can only iterate over a (non-null) Iterable type",
-            "found   : (Array|number)",
+            "found   : (Array<?>|number)",
             "required: Iterable"));
   }
 
@@ -4792,6 +4782,32 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
   }
 
   @Test
+  public void testSuperclassMixinDoesntCollideWithAnotherScope() {
+    testTypes(
+        lines(
+            "class ParentOne {}",
+            "class ParentTwo {}",
+            "function fn(x) {",
+            "  let klass;",
+            "  if (x) {",
+            "    /** @constructor @extends {ParentOne} */",
+            "    let templatizedBase = SomeVar;",
+            "    klass = class TE extends templatizedBase {};",
+            "  } else {",
+            "    /** @constructor @extends {ParentTwo} */",
+            "    let templatizedBase = OtherVar;",
+            "    klass = class TY extends templatizedBase {};",
+            "  }",
+            "}"),
+        // TODO(b/140735194): stop reporting this error, and either ban this pattern of reassigning
+        // klass outright or make it work as expected.
+        lines(
+            "mismatch in declaration of superclass type",
+            "found   : templatizedBase",
+            "required: templatizedBase"));
+  }
+
+  @Test
   public void testAsyncFunction_cannotDeclareReturnToBe_aSubtypeOfPromise() {
     testTypesWithCommonExterns(
         lines(
@@ -6157,18 +6173,25 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
 
   @Test
   public void testGlobalEnumDoesNotInfluenceLocalDefaultNullablity() {
-    // TODO(b/123710194): the local Foo should be nullable and this should not warn
     testTypes(
         lines(
             "/** @enum {number} */ const Foo = {A: 1};",
             "function f() {",
             "  class Foo {};",
             "  /** @type {Foo} */ let x = null;",
-            "}"),
+            "}"));
+  }
+
+  @Test
+  public void testLocalEnumAliasDoesNotInfluenceGlobalDefaultNullablity() {
+    testTypes(
         lines(
-            "initializing variable", //
-            "found   : null",
-            "required: Foo"));
+            "class Foo {};",
+            "/** @enum {number} */ const Bar = {A: 1};",
+            "function f() {",
+            "  const Foo = Bar;",
+            "}",
+            "/** @type {Foo} */ let x = null;"));
   }
 
   @Test
@@ -6346,7 +6369,7 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
             "async function* asyncGen() { yield* gen; }"),
         lines(
             "Expression yield* expects an iterable or async iterable",
-            "found   : (AsyncGenerator<number>|Generator<string>|number)",
+            "found   : (AsyncGenerator<number>|Generator<string,?,?>|number)",
             "required: (AsyncIterator|Iterator)"));
   }
 
@@ -6921,6 +6944,27 @@ public final class TypeCheckNoTranspileTest extends TypeCheckTestCase {
             "initializing variable", //
             "found   : string",
             "required: number"));
+  }
+
+  @Test
+  public void testGoogModuleGet_hasTypeInferredInNestedExpression() {
+    testTypes(
+        lines(
+            CLOSURE_DEFS,
+            "function takesString(/** string */ s) {}",
+            "goog.loadModule(function(exports) {",
+            "  goog.module('a');",
+            "  exports.NUM = 0;",
+            "  return exports;",
+            "});",
+            "",
+            "(function() {", //
+            "  takesString(goog.module.get('a').NUM);",
+            "})();"),
+        lines(
+            "actual parameter 1 of takesString does not match formal parameter",
+            "found   : number",
+            "required: string"));
   }
 
   @Test

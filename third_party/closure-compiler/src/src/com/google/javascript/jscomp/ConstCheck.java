@@ -27,7 +27,6 @@ import java.util.Set;
  * e.g. var XX = 5;
  * XX = 3;    // error!
  * XX++;      // error!
- *
  */
 // TODO(tbreisacher): Consider merging this with CheckAccessControls so that all
 // const-related checks are in the same place.
@@ -128,7 +127,7 @@ class ConstCheck extends AbstractPostOrderCallback
    * the point where it is declared.
    */
   private static boolean isConstant(Var var) {
-    return var != null && var.isInferredConst();
+    return var != null && var.isDeclaredOrInferredConst();
   }
 
   /** Reports a reassigned constant error. */

@@ -23,7 +23,6 @@ import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.truth.Correspondence;
 import com.google.javascript.jscomp.ReferenceCollectingCallback.Behavior;
-import com.google.javascript.jscomp.testing.JSCompCorrespondences;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import org.junit.Before;
@@ -54,7 +53,7 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(final Compiler compiler) {
-    ScopeCreator scopeCreator = new Es6SyntacticScopeCreator(compiler);
+    ScopeCreator scopeCreator = new SyntacticScopeCreator(compiler);
     return new ReferenceCollectingCallback(
         compiler,
         this.behavior,
@@ -74,7 +73,7 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
   }
 
   private static final Correspondence<Reference, Boolean> IS_DECLARATION =
-      JSCompCorrespondences.transforming(Reference::isDeclaration, "isDeclaration() is");
+      Correspondence.transforming(Reference::isDeclaration, "isDeclaration() is");
 
   @Test
   public void testIterableRest_declaration() {
@@ -424,7 +423,7 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
           @Override
           public void afterExitScope(NodeTraversal t, ReferenceMap rm) {
             if (t.getScope().isFunctionBlockScope()
-                && t.getScopeRoot().getParent().getFirstChild().matchesQualifiedName("m")) {
+                && t.getScopeRoot().getParent().getFirstChild().matchesName("m")) {
               ReferenceCollection self = rm.getReferences(t.getScope().getVar("self"));
               assertThat(self.isEscaped()).isFalse();
             }
@@ -437,7 +436,7 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
     // Tests the case where the scope we pass in is not really a basic block, but we create a new
     // basic block anyway because ReferenceCollectingCallback expects all nodes to be in a block.
     Compiler compiler = createCompiler();
-    Es6SyntacticScopeCreator es6SyntacticScopeCreator = new Es6SyntacticScopeCreator(compiler);
+    SyntacticScopeCreator syntacticScopeCreator = new SyntacticScopeCreator(compiler);
     ReferenceCollectingCallback referenceCollectingCallback =
         new ReferenceCollectingCallback(
             compiler,
@@ -456,14 +455,14 @@ public final class ReferenceCollectingCallbackTest extends CompilerTestCase {
                 assertNode(secondBasicBlock.getRoot().getParent()).hasType(Token.IF);
               }
             },
-            es6SyntacticScopeCreator);
+            syntacticScopeCreator);
 
     String js = "let x = 5; { let y = x + 1; if (true) { { use(y); } } }";
     Node root = compiler.parseTestCode(js);
     Node block = root.getSecondChild();
 
-    Scope globalScope = es6SyntacticScopeCreator.createScope(root, null);
-    Scope blockScope = es6SyntacticScopeCreator.createScope(block, globalScope);
+    Scope globalScope = syntacticScopeCreator.createScope(root, null);
+    Scope blockScope = syntacticScopeCreator.createScope(block, globalScope);
     referenceCollectingCallback.processScope(blockScope);
   }
 }

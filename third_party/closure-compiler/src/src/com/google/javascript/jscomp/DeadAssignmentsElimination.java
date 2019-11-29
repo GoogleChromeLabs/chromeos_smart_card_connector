@@ -36,7 +36,6 @@ import java.util.Map;
  * LiveVariablesAnalysis}. If there is an assignment to variable {@code x} and {@code x} is dead
  * after this assignment, we know that the current content of {@code x} will not be read and this
  * assignment is useless.
- *
  */
 class DeadAssignmentsElimination extends AbstractScopedCallback implements CompilerPass {
 
@@ -123,7 +122,7 @@ class DeadAssignmentsElimination extends AbstractScopedCallback implements Compi
     ControlFlowGraph<Node> cfg = t.getControlFlowGraph();
     liveness =
         new LiveVariablesAnalysis(
-            cfg, functionScope, blockScope, compiler, new Es6SyntacticScopeCreator(compiler));
+            cfg, functionScope, blockScope, compiler, new SyntacticScopeCreator(compiler));
     liveness.analyze();
     Map<String, Var> allVarsInFn = liveness.getAllVariables();
     tryRemoveDeadAssignments(t, cfg, allVarsInFn);

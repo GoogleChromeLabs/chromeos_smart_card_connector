@@ -19,6 +19,7 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.base.Ascii;
 import com.google.common.base.Preconditions;
 import com.google.debugging.sourcemap.Util;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
@@ -33,7 +34,6 @@ import java.util.Map;
 /**
  * CodeGenerator generates codes from a parse tree, sending it to the specified
  * CodeConsumer.
- *
  */
 public class CodeGenerator {
   private static final String LT_ESCAPED = "\\x3c";
@@ -404,13 +404,15 @@ public class CodeGenerator {
           }
           break;
         }
-      case REST:
+      case ITER_REST:
+      case OBJECT_REST:
         add("...");
         add(first);
         maybeAddTypeDecl(n);
         break;
 
-      case SPREAD:
+      case ITER_SPREAD:
+      case OBJECT_SPREAD:
         add("...");
         add(n.getFirstChild());
         break;
@@ -485,6 +487,10 @@ public class CodeGenerator {
         add("import(");
         addExpr(first, NodeUtil.precedence(type), context);
         add(")");
+        break;
+
+      case IMPORT_META:
+        add("import.meta");
         break;
 
         // CLASS -> NAME,EXPR|EMPTY,BLOCK
@@ -1052,7 +1058,7 @@ public class CodeGenerator {
           add("get ");
         } else if (n.getBooleanProp(Node.COMPUTED_PROP_SETTER)) {
           add("set ");
-        } else {
+        } else if (n.getBooleanProp(Node.COMPUTED_PROP_METHOD)) {
           if (last.isAsyncFunction()) {
             add("async");
           }
@@ -1429,7 +1435,7 @@ public class CodeGenerator {
   private void maybeAddAccessibilityModifier(Node n) {
     Visibility access = (Visibility) n.getProp(Node.ACCESS_MODIFIER);
     if (access != null) {
-      add(access.toString().toLowerCase() + " ");
+      add(Ascii.toLowerCase(access.toString()) + " ");
     }
   }
 

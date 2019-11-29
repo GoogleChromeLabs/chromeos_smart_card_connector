@@ -47,7 +47,9 @@ import com.google.javascript.rhino.jstype.TemplateType;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -64,8 +66,6 @@ import javax.annotation.Nullable;
  * NOTE(nicksantos): Organizationally, this feels like it should be in Rhino.
  * But it depends on some coding convention stuff that's really part
  * of JSCompiler.
- *
- * @author nicksantos@google.com (Nick Santos)
  */
 final class FunctionTypeBuilder {
 
@@ -74,7 +74,6 @@ final class FunctionTypeBuilder {
   private final CodingConvention codingConvention;
   private final JSTypeRegistry typeRegistry;
   private final Node errorRoot;
-  private final TypedScope enclosingScope;
 
   private FunctionContents contents = UnknownFunctionContents.get();
 
@@ -151,6 +150,11 @@ final class FunctionTypeBuilder {
       "JSC_TEMPLATE_TYPE_EXPECTED",
       "The template type must be a parameter type");
 
+  static final DiagnosticType TEMPLATE_TYPE_ILLEGAL_BOUND =
+      DiagnosticType.error(
+          "JSC_TEMPLATE_TYPE_ILLEGAL_BOUND",
+          "Illegal upper bound ''{0}'' on template type parameter {1}");
+
   static final DiagnosticType THIS_TYPE_NON_OBJECT =
       DiagnosticType.warning(
           "JSC_THIS_TYPE_NON_OBJECT",
@@ -177,6 +181,7 @@ final class FunctionTypeBuilder {
           TEMPLATE_TRANSFORMATION_ON_CLASS,
           TEMPLATE_TYPE_DUPLICATED,
           TEMPLATE_TYPE_EXPECTED,
+          TEMPLATE_TYPE_ILLEGAL_BOUND,
           THIS_TYPE_NON_OBJECT,
           SAME_INTERFACE_MULTIPLE_IMPLEMENTS);
 
@@ -242,7 +247,6 @@ final class FunctionTypeBuilder {
     this.typeRegistry = compiler.getTypeRegistry();
     this.errorRoot = errorRoot;
     this.compiler = compiler;
-    this.enclosingScope = scope;
     this.templateScope = scope;
   }
 
@@ -751,25 +755,67 @@ final class FunctionTypeBuilder {
 
   private ImmutableList<TemplateType> buildTemplateTypesFromJSDocInfo(
       JSDocInfo info, boolean allowTypeTransformations) {
-    ImmutableList<String> infoTypeKeys = info.getTemplateTypeNames();
+    ImmutableMap<String, JSTypeExpression> infoTypeKeys = info.getTemplateTypes();
     ImmutableMap<String, Node> infoTypeTransformations = info.getTypeTransformations();
     if (infoTypeKeys.isEmpty() && infoTypeTransformations.isEmpty()) {
       return ImmutableList.of();
     }
-    ImmutableList.Builder<TemplateType> templates = ImmutableList.builder();
-    for (String key : infoTypeKeys) {
-      templates.add(typeRegistry.createTemplateType(key));
+
+    // Temporarily bootstrap the template environment with unbound (unknown bound) template types
+    List<TemplateType> unboundedTemplates = new ArrayList<>();
+    for (String templateKey : infoTypeKeys.keySet()) {
+      unboundedTemplates.add(typeRegistry.createTemplateType(templateKey));
     }
-    for (String key : infoTypeTransformations.keySet()) {
-      if (allowTypeTransformations) {
-        templates.add(
-            typeRegistry.createTemplateTypeWithTransformation(
-                key, infoTypeTransformations.get(key)));
+    this.templateScope = typeRegistry.createScopeWithTemplates(templateScope, unboundedTemplates);
+
+    // Evaluate template type bounds with bootstrapped environment and reroute the bounds to these
+    ImmutableList.Builder<TemplateType> templates = ImmutableList.builder();
+    Map<TemplateType, JSType> templatesToBounds = new LinkedHashMap<>();
+    for (Map.Entry<String, JSTypeExpression> entry : infoTypeKeys.entrySet()) {
+      JSTypeExpression expr = entry.getValue();
+      JSType typeBound = typeRegistry.evaluateTypeExpression(entry.getValue(), templateScope);
+      // It's an error to mark a template bound explicitly {?}. Unbounded templates have an implicit
+      // unknown bound. Allowing explicit unknowns would make it more difficult to stricten their
+      // treatment in the future, since "unknown" is currently used as a proxy for "implicit".
+      if (expr.isExplicitUnknownTemplateBound()) {
+        reportError(TEMPLATE_TYPE_ILLEGAL_BOUND, String.valueOf(typeBound), entry.getKey());
+      }
+      TemplateType template =
+          typeRegistry.getType(templateScope, entry.getKey()).toMaybeTemplateType();
+      if (template != null) {
+        templatesToBounds.put(template, typeBound);
       } else {
-        reportWarning(TEMPLATE_TRANSFORMATION_ON_CLASS, key);
+        templatesToBounds.put(
+            typeRegistry.createTemplateType(entry.getKey(), typeBound), typeBound);
       }
     }
-    return templates.build();
+
+    for (Map.Entry<TemplateType, JSType> entry : templatesToBounds.entrySet()) {
+      TemplateType template = entry.getKey();
+      JSType bound = entry.getValue();
+      template.setBound(bound);
+      templates.add(template);
+    }
+
+    for (Map.Entry<String, Node> entry : infoTypeTransformations.entrySet()) {
+      if (allowTypeTransformations) {
+        templates.add(
+            typeRegistry.createTemplateTypeWithTransformation(entry.getKey(), entry.getValue()));
+      } else {
+        reportWarning(TEMPLATE_TRANSFORMATION_ON_CLASS, entry.getKey());
+      }
+    }
+
+    ImmutableList<TemplateType> builtTemplates = templates.build();
+    for (TemplateType template : builtTemplates) {
+      if (template.containsCycle()) {
+        reportError(
+            RhinoErrorReporter.PARSE_ERROR,
+            "Cycle detected in inheritance chain of type " + template.getReferenceName());
+      }
+    }
+
+    return builtTemplates;
   }
 
   /** Infer the template type from the doc info. */
@@ -939,10 +985,12 @@ final class FunctionTypeBuilder {
   }
 
   private void maybeSetBaseType(FunctionType fnType) {
-    if (fnType.hasInstanceType() && baseType != null) {
-      fnType.setPrototypeBasedOn(baseType);
-      fnType.extendTemplateTypeMapBasedOn(baseType);
+    if (!fnType.hasInstanceType() || baseType == null) {
+      return;
     }
+
+    fnType.setPrototypeBasedOn(baseType);
+    fnType.getInstanceType().mergeSupertypeTemplateTypes(baseType);
   }
 
   /**
@@ -984,9 +1032,9 @@ final class FunctionTypeBuilder {
     //  externs.
     //   2. Cases like "class C {} C = class {}"
     // See https://github.com/google/closure-compiler/issues/2928 for some related bugs.
-    // We use "getTypeForScope" to specifically check if this was defined for getScopeDeclaredIn()
+    // We use "getTypeForScope" to specifically check if this was defined for declarationScope
     // so we don't pick up types that are going to be shadowed.
-    JSType existingType = typeRegistry.getTypeForScope(getScopeDeclaredIn(), fnName);
+    JSType existingType = typeRegistry.getTypeForScope(declarationScope, fnName);
     if (existingType != null) {
       boolean isInstanceObject = existingType.isInstanceType();
       if (isInstanceObject || fnName.equals("Function")) {
@@ -1025,7 +1073,7 @@ final class FunctionTypeBuilder {
     //   this.Foo = ...
     //
     if (!fnName.isEmpty() && !fnName.startsWith("this.")) {
-      typeRegistry.declareTypeForExactScope(getScopeDeclaredIn(), fnName, fnType.getInstanceType());
+      typeRegistry.declareTypeForExactScope(declarationScope, fnName, fnType.getInstanceType());
     }
     return fnType;
   }
@@ -1033,7 +1081,7 @@ final class FunctionTypeBuilder {
   private FunctionType getOrCreateInterface() {
     FunctionType fnType = null;
 
-    JSType type = typeRegistry.getType(getScopeDeclaredIn(), fnName);
+    JSType type = typeRegistry.getType(declarationScope, fnName);
     if (type != null && type.isInstanceType()) {
       FunctionType ctor = type.toMaybeObjectType().getConstructor();
       if (ctor.isInterface()) {
@@ -1047,8 +1095,7 @@ final class FunctionTypeBuilder {
           typeRegistry.createInterfaceType(
               fnName, contents.getSourceNode(), templateTypeNames, makesStructs);
       if (!fnName.isEmpty()) {
-        typeRegistry.declareTypeForExactScope(
-            getScopeDeclaredIn(), fnName, fnType.getInstanceType());
+        typeRegistry.declareTypeForExactScope(declarationScope, fnName, fnType.getInstanceType());
       }
       maybeSetBaseType(fnType);
     }
@@ -1073,27 +1120,6 @@ final class FunctionTypeBuilder {
         || info.isConstructor()
         || info.isInterface()
         || info.isAbstract();
-  }
-
-  /**
-   * The scope that we should declare this function in, if it needs
-   * to be declared in a scope. Notice that TypedScopeCreator takes
-   * care of most scope-declaring.
-   */
-  private TypedScope getScopeDeclaredIn() {
-    if (declarationScope != null) {
-      return declarationScope;
-    }
-
-    int dotIndex = fnName.indexOf('.');
-    if (dotIndex != -1) {
-      String rootVarName = fnName.substring(0, dotIndex);
-      TypedVar rootVar = enclosingScope.getVar(rootVarName);
-      if (rootVar != null) {
-        return rootVar.getScope();
-      }
-    }
-    return enclosingScope;
   }
 
   /**
@@ -1197,4 +1223,6 @@ final class FunctionTypeBuilder {
       return block.hasOneChild() && block.getFirstChild().isThrow();
     }
   }
+
+
 }

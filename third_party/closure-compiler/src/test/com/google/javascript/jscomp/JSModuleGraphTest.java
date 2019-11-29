@@ -163,7 +163,7 @@ public final class JSModuleGraphTest {
     } catch (IllegalStateException e) {
       assertThat(e)
           .hasMessageThat()
-          .isEqualTo("A weak module already exists but weak sources were found in other modules.");
+          .contains("Found these weak sources in other modules:\n  a (in module moduleA)");
     }
   }
 
@@ -188,7 +188,7 @@ public final class JSModuleGraphTest {
     } catch (IllegalStateException e) {
       assertThat(e)
           .hasMessageThat()
-          .isEqualTo("A weak module already exists but strong sources were found in it.");
+          .contains("Found these strong sources in the weak module:\n  a");
     }
   }
 
@@ -389,6 +389,32 @@ public final class JSModuleGraphTest {
     assertInputs(moduleE);
 
     assertThat(sourceNames(results)).containsExactly("a1", "c1", "c2").inOrder();
+  }
+
+  @Test
+  public void testManageDependenciesStrictWithEntryPointWithDuplicates() throws Exception {
+    final JSModule a = new JSModule("a");
+    JSModuleGraph graph = new JSModuleGraph(new JSModule[] {a});
+
+    // Create all the input files.
+    List<CompilerInput> inputs = new ArrayList<>();
+    a.add(code("a1", provides("a1"), requires("a2")));
+    a.add(code("a2", provides("a2"), requires()));
+    a.add(code("a3", provides("a2"), requires()));
+    inputs.addAll(a.getInputs());
+    for (CompilerInput input : inputs) {
+      input.setCompiler(compiler);
+    }
+
+    DependencyOptions depOptions =
+        DependencyOptions.pruneForEntryPoints(ImmutableList.of(ModuleIdentifier.forClosure("a1")));
+    List<CompilerInput> results = graph.manageDependencies(compiler, depOptions);
+
+    // Everything gets pushed up into module c, because that's
+    // the only one that has entry points.
+    assertInputs(a, "a2", "a3", "a1");
+
+    assertThat(sourceNames(results)).containsExactly("a2", "a3", "a1").inOrder();
   }
 
   @Test

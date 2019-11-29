@@ -534,13 +534,6 @@ MediaStream.prototype.onremovetrack;
 MediaStream.prototype.stop = function() {};
 
 /**
- * @type {function(new: MediaStream,
- *                 (!MediaStream|!Array<!MediaStreamTrack>)=)}
- */
-var webkitMediaStream;
-
-
-/**
  * @typedef {{tone: string}}
  * @see https://www.w3.org/TR/webrtc/#dom-rtcdtmftonechangeeventinit
  */
@@ -575,6 +568,11 @@ function RTCDTMFSender() {}
  */
 RTCDTMFSender.prototype.insertDTMF =
     function(tones, opt_duration, opt_interToneGap) {};
+
+/**
+ * @type {?boolean}
+ */
+RTCDTMFSender.prototype.canInsertDTMF;
 
 /**
  * @type {?function(!RTCDTMFToneChangeEvent)}
@@ -668,6 +666,14 @@ RTCRtpContributingSource.prototype.timestamp;
  * @type {number|undefined}
  */
 RTCRtpContributingSource.prototype.audioLevel;
+
+/**
+ * This is a relatively new field and browsers may not yet be compliant to the
+ * spec.
+ * @type {?number}
+ * @see https://w3c.github.io/webrtc-pc/#dom-rtcrtpcontributingsource-rtptimestamp
+ */
+RTCRtpContributingSource.prototype.rtpTimestamp;
 
 /**
  * @interface
@@ -1099,19 +1105,6 @@ NavigatorUserMediaError.prototype.message;
 NavigatorUserMediaError.prototype.constraintName;
 
 /**
- * @param {MediaStreamConstraints} constraints A MediaStreamConstraints object.
- * @param {function(!MediaStream)} successCallback
- *     A NavigatorUserMediaSuccessCallback function.
- * @param {function(!NavigatorUserMediaError)=} errorCallback A
- *     NavigatorUserMediaErrorCallback function.
- * @see http://dev.w3.org/2011/webrtc/editor/getusermedia.html
- * @see https://www.w3.org/TR/mediacapture-streams/
- * @return {undefined}
- */
-Navigator.prototype.webkitGetUserMedia =
-  function(constraints, successCallback, errorCallback) {};
-
-/**
  * @param {string} type
  * @param {!Object} eventInitDict
  * @constructor
@@ -1420,6 +1413,13 @@ MediaDevices.prototype.enumerateDevices = function() {};
  * @return {!Promise<!MediaStream>}
  */
 MediaDevices.prototype.getUserMedia = function(constraints) {}
+
+/**
+ * @see https://w3c.github.io/mediacapture-screen-share/#dom-mediadevices-getdisplaymedia
+ * @param {!MediaStreamConstraints=} constraints
+ * @return {!Promise<!MediaStream>}
+ */
+MediaDevices.prototype.getDisplayMedia = function(constraints) {}
 
 /**
  * @see https://w3c.github.io/mediacapture-main/#dom-mediadevices-getsupportedconstraints
@@ -1873,6 +1873,7 @@ var MediaConstraints;
 /**
  * @interface
  * @extends {EventTarget}
+ * @see https://w3c.github.io/webrtc-pc/#dom-rtcdatachannel
  */
 function RTCDataChannel() {}
 
@@ -1901,6 +1902,11 @@ RTCDataChannel.prototype.readyState;
 RTCDataChannel.prototype.bufferedAmount;
 
 /**
+ * @type {number}
+ */
+RTCDataChannel.prototype.bufferedAmountLowThreshold;
+
+/**
  * @type {?function(!Event)}
  */
 RTCDataChannel.prototype.onopen;
@@ -1921,6 +1927,11 @@ RTCDataChannel.prototype.close = function() {};
  * @type {?function(!MessageEvent<*>)}
  */
 RTCDataChannel.prototype.onmessage;
+
+/**
+ * @type {?function(!Event)}
+ */
+RTCDataChannel.prototype.onbufferedamountlow;
 
 /**
  * @type {string}
@@ -2262,8 +2273,3 @@ RTCPeerConnection.prototype.oniceconnectionstatechange;
  * @type {?function(!RTCDataChannelEvent)}
  */
 RTCPeerConnection.prototype.ondatachannel;
-
-/**
- * @const
- */
-var webkitRTCPeerConnection = RTCPeerConnection;

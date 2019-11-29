@@ -64,6 +64,15 @@ final class NonEsModuleProcessor implements ModuleProcessor {
       String namespace = null;
       if (moduleSpecifier != null && GoogEsImports.isGoogImportSpecifier(moduleSpecifier)) {
         namespace = GoogEsImports.getClosureIdFromGoogImportSpecifier(moduleSpecifier);
+      } else if (metadata.isGoogProvide()) {
+        namespace = moduleSpecifier;
+      }
+      if (metadata.isCommonJs()) {
+        // Currently we don't scan require()s, so this only gets hit if an ES module imports a CJS
+        // module. If so then this module should only have a default export.
+        if (!exportName.equals("default")) {
+          return ResolveExportResult.NOT_FOUND;
+        }
       }
       return ResolveExportResult.of(
           Binding.from(

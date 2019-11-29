@@ -31,7 +31,8 @@ import org.junit.runners.JUnit4;
 public final class Es6RewriteGeneratorsTest extends CompilerTestCase {
 
   public Es6RewriteGeneratorsTest() {
-    super(DEFAULT_EXTERNS);
+    super(
+        new TestExternsBuilder().addAsyncIterable().addArray().addArguments().addObject().build());
   }
 
   @Override
@@ -1378,7 +1379,7 @@ public final class Es6RewriteGeneratorsTest extends CompilerTestCase {
     Node yieldedValue = callNode.getSecondChild(); // [1, 2]
 
     checkState(yieldedValue.isArrayLit(), yieldedValue);
-    assertThat(yieldedValue.getJSType().toString()).isEqualTo("Array"); // [1, 2]
+    assertThat(yieldedValue.getJSType().toString()).isEqualTo("Array<?>"); // [1, 2]
     assertThat(yieldedValue.getFirstChild().getJSType().toString()).isEqualTo("number"); // 1
     assertThat(yieldedValue.getSecondChild().getJSType().toString()).isEqualTo("number"); // 2
 
@@ -1534,7 +1535,7 @@ public final class Es6RewriteGeneratorsTest extends CompilerTestCase {
     assertThat(createGenerator.getJSType().isFunctionType())
         .isTrue(); // $jscomp.generator.createGenerator
     assertThat(createGenerator.getJSType().toMaybeFunctionType().getReturnType().toString())
-        .isEqualTo("Generator<number>");
+        .isEqualTo("Generator<number,?,?>");
 
     Node program = createGenerator.getNext().getNext();
 

@@ -36,6 +36,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.common.collect.UnmodifiableIterator;
+import com.google.javascript.jscomp.parsing.Config.JsDocParsing;
 import com.google.javascript.jscomp.parsing.Config.LanguageMode;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
@@ -47,7 +48,6 @@ import com.google.javascript.jscomp.parsing.parser.trees.AmbientDeclarationTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ArrayLiteralExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ArrayPatternTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ArrayTypeTree;
-import com.google.javascript.jscomp.parsing.parser.trees.AssignmentRestElementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.AwaitExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.BinaryOperatorTree;
 import com.google.javascript.jscomp.parsing.parser.trees.BlockTree;
@@ -92,9 +92,12 @@ import com.google.javascript.jscomp.parsing.parser.trees.GetAccessorTree;
 import com.google.javascript.jscomp.parsing.parser.trees.IdentifierExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.IfStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ImportDeclarationTree;
+import com.google.javascript.jscomp.parsing.parser.trees.ImportMetaExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ImportSpecifierTree;
 import com.google.javascript.jscomp.parsing.parser.trees.IndexSignatureTree;
 import com.google.javascript.jscomp.parsing.parser.trees.InterfaceDeclarationTree;
+import com.google.javascript.jscomp.parsing.parser.trees.IterRestTree;
+import com.google.javascript.jscomp.parsing.parser.trees.IterSpreadTree;
 import com.google.javascript.jscomp.parsing.parser.trees.LabelledStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.LiteralExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.MemberExpressionTree;
@@ -108,6 +111,7 @@ import com.google.javascript.jscomp.parsing.parser.trees.NewTargetExpressionTree
 import com.google.javascript.jscomp.parsing.parser.trees.NullTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ObjectLiteralExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ObjectPatternTree;
+import com.google.javascript.jscomp.parsing.parser.trees.ObjectSpreadTree;
 import com.google.javascript.jscomp.parsing.parser.trees.OptionalParameterTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ParameterizedTypeTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ParenExpressionTree;
@@ -116,10 +120,8 @@ import com.google.javascript.jscomp.parsing.parser.trees.ParseTreeType;
 import com.google.javascript.jscomp.parsing.parser.trees.ProgramTree;
 import com.google.javascript.jscomp.parsing.parser.trees.PropertyNameAssignmentTree;
 import com.google.javascript.jscomp.parsing.parser.trees.RecordTypeTree;
-import com.google.javascript.jscomp.parsing.parser.trees.RestParameterTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ReturnStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.SetAccessorTree;
-import com.google.javascript.jscomp.parsing.parser.trees.SpreadExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.SuperExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.SwitchStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.TemplateLiteralExpressionTree;
@@ -152,14 +154,17 @@ import com.google.javascript.rhino.JSDocInfo.Visibility;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Node.TypeDeclarationNode;
+import com.google.javascript.rhino.NonJSDocComment;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.TokenStream;
 import com.google.javascript.rhino.dtoa.DToA;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -257,8 +262,10 @@ class IRFactory {
   private final Node templateNode;
 
   private final UnmodifiableIterator<Comment> nextCommentIter;
+  private final UnmodifiableIterator<Comment> nextNonJSDocCommentIter;
 
   private Comment currentComment;
+  private Comment currentNonJSDocComment;
 
   private boolean currentFileIsExterns = false;
   private boolean hasJsDocTypeAnnotations = false;
@@ -273,7 +280,9 @@ class IRFactory {
                     ImmutableList<Comment> comments) {
     this.sourceString = sourceString;
     this.nextCommentIter = comments.iterator();
+    this.nextNonJSDocCommentIter = comments.iterator();
     this.currentComment = skipNonJsDoc(nextCommentIter);
+    this.currentNonJSDocComment = skipJsDocComments(nextNonJSDocCommentIter);
     this.sourceFile = sourceFile;
     // The template node properties are applied to all nodes in this transform.
     this.templateNode = createTemplateNode();
@@ -520,20 +529,20 @@ class IRFactory {
 
   private void validateParameters(Node n) {
     if (n.isParamList()) {
-      Node c = n.getFirstChild();
-      for (; c != null; c = c.getNext()) {
-        if (!c.isName()) {
-          continue;
-        }
-        Node sibling = c.getNext();
-        for (; sibling != null; sibling = sibling.getNext()) {
-          if (sibling.isName() && c.getString().equals(sibling.getString())) {
-            errorReporter.warning(
-                SimpleFormat.format(DUPLICATE_PARAMETER, c.getString()),
-                sourceName,
-                n.getLineno(), n.getCharno());
-          }
-        }
+      Set<String> seenNames = new LinkedHashSet<>();
+      for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
+        ParsingUtil.getParamOrPatternNames(
+            c,
+            (Node param) -> {
+              String paramName = param.getString();
+              if (!seenNames.add(paramName)) {
+                errorReporter.warning(
+                    SimpleFormat.format(DUPLICATE_PARAMETER, paramName),
+                    sourceName,
+                    param.getLineno(),
+                    param.getCharno());
+              }
+            });
       }
     }
   }
@@ -692,6 +701,75 @@ class IRFactory {
     }
   }
 
+  /**
+   * Appends every comment associated with this node into one NonJSDocComment. It would be legal to
+   * replace all comments associated with this node with that one string.
+   *
+   * @param comments - list of line or block comments that are sequential in source code
+   * @return complete comment as NonJSDocComment
+   */
+  private static NonJSDocComment combineCommentsIntoSingleComment(ArrayList<Comment> comments) {
+    String result = "";
+    Iterator<Comment> itr = comments.iterator();
+    int prevCommentEndLine = Integer.MAX_VALUE;
+    int completeCommentBegin = Integer.MAX_VALUE;
+    int completeCommentEnd = 0;
+    while (itr.hasNext()) {
+      Comment currComment = itr.next();
+      if (currComment.location.start.offset < completeCommentBegin) {
+        completeCommentBegin = currComment.location.start.offset;
+      }
+      if (currComment.location.end.offset > completeCommentEnd) {
+        completeCommentEnd = currComment.location.end.offset;
+      }
+      while (prevCommentEndLine < currComment.location.start.line) {
+        result += "\n";
+        prevCommentEndLine++;
+      }
+      result += currComment.value;
+      if (itr.hasNext()) {
+        prevCommentEndLine = currComment.location.end.line;
+      }
+    }
+
+    NonJSDocComment nonJSDocComment =
+        new NonJSDocComment(completeCommentBegin, completeCommentEnd, result);
+    return nonJSDocComment;
+  }
+
+  private static Comment skipJsDocComments(UnmodifiableIterator<Comment> comments) {
+    while (comments.hasNext()) {
+      Comment comment = comments.next();
+      if (comment.type == Comment.Type.LINE || comment.type == Comment.Type.BLOCK) {
+        return comment;
+      }
+    }
+    return null;
+  }
+
+  private boolean hasPendingNonJSDocCommentBefore(SourceRange location) {
+    return currentNonJSDocComment != null
+        && currentNonJSDocComment.location.end.offset <= location.start.offset;
+  }
+
+  private ArrayList<Comment> getNonJSDocComments(SourceRange location) {
+    ArrayList<Comment> previousComments = new ArrayList<>();
+    while (hasPendingNonJSDocCommentBefore(location)) {
+      previousComments.add(currentNonJSDocComment);
+      currentNonJSDocComment = skipJsDocComments(nextNonJSDocCommentIter);
+    }
+    return previousComments;
+  }
+
+  private ArrayList<Comment> getNonJSDocComments(
+      com.google.javascript.jscomp.parsing.parser.Token token) {
+    return getNonJSDocComments(token.location);
+  }
+
+  private ArrayList<Comment> getNonJSDocComments(ParseTree tree) {
+    return getNonJSDocComments(tree.location);
+  }
+
   private static ParseTree findNearestNode(ParseTree tree) {
     while (true) {
       switch (tree.type) {
@@ -724,11 +802,24 @@ class IRFactory {
 
   Node transform(ParseTree tree) {
     JSDocInfo info = handleJsDoc(tree);
+    NonJSDocComment associatedNonJSDocComment = null;
+    if (config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
+      ArrayList<Comment> nonJSDocComments = getNonJSDocComments(tree);
+      if (!nonJSDocComments.isEmpty()) {
+        associatedNonJSDocComment = combineCommentsIntoSingleComment(nonJSDocComments);
+      }
+    }
     Node node = transformDispatcher.process(tree);
     if (info != null) {
       node = maybeInjectCastNode(tree, info, node);
       node.setJSDocInfo(info);
     }
+    if (this.config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
+      if (associatedNonJSDocComment != null) {
+        node.setNonJSDocComment(associatedNonJSDocComment);
+      }
+    }
+
     setSourceInfo(node, tree);
     return node;
   }
@@ -741,22 +832,36 @@ class IRFactory {
   }
 
   /**
-   * Names and destructuring patterns, in parameters or variable declarations are special,
-   * because they can have inline type docs attached.
+   * Names and destructuring patterns, in parameters or variable declarations are special, because
+   * they can have inline type docs attached.
    *
-   * <pre>function f(/** string &#42;/ x) {}</pre> annotates 'x' as a string.
+   * <pre>function f(/** string &#42;/ x) {}</pre>
    *
-   * @see <a href="http://code.google.com/p/jsdoc-toolkit/wiki/InlineDocs">
-   *   Using Inline Doc Comments</a>
+   * annotates 'x' as a string.
+   *
+   * @see <a href="http://code.google.com/p/jsdoc-toolkit/wiki/InlineDocs">Using Inline Doc
+   *     Comments</a>
    */
-  Node transformNodeWithInlineJsDoc(ParseTree node) {
-    JSDocInfo info = handleInlineJsDoc(node);
-    Node irNode = transformDispatcher.process(node);
-    if (info != null) {
-      irNode.setJSDocInfo(info);
+  Node transformNodeWithInlineComments(ParseTree tree) {
+    JSDocInfo info = handleInlineJsDoc(tree);
+    NonJSDocComment associatedNonJSDocComment = null;
+    if (config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
+      ArrayList<Comment> nonJSDocComments = getNonJSDocComments(tree);
+      if (!nonJSDocComments.isEmpty()) {
+        associatedNonJSDocComment = combineCommentsIntoSingleComment(nonJSDocComments);
+      }
     }
-    setSourceInfo(irNode, node);
-    return irNode;
+    Node node = transformDispatcher.process(tree);
+    if (info != null) {
+      node.setJSDocInfo(info);
+    }
+    if (this.config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
+      if (associatedNonJSDocComment != null) {
+        node.setNonJSDocComment(associatedNonJSDocComment);
+      }
+    }
+    setSourceInfo(node, tree);
+    return node;
   }
 
   JSDocInfo handleInlineJsDoc(ParseTree node) {
@@ -1015,12 +1120,19 @@ class IRFactory {
 
       Node node = newNode(Token.ARRAY_PATTERN);
       for (ParseTree child : tree.elements) {
-        Node elementNode;
-        if (child.type == ParseTreeType.DEFAULT_PARAMETER) {
-          // processDefaultParameter() knows how to find and apply inline JSDoc to the right node
-          elementNode = processDefaultParameter(child.asDefaultParameter());
-        } else {
-          elementNode = transformNodeWithInlineJsDoc(child);
+        final Node elementNode;
+        switch (child.type) {
+          case DEFAULT_PARAMETER:
+            // processDefaultParameter() knows how to find and apply inline JSDoc to the right node
+            elementNode = processDefaultParameter(child.asDefaultParameter());
+            break;
+          case ITER_REST:
+            maybeWarnForFeature(child, Feature.ARRAY_PATTERN_REST);
+            elementNode = transformNodeWithInlineComments(child);
+            break;
+          default:
+            elementNode = transformNodeWithInlineComments(child);
+            break;
         }
         node.addChildToBack(elementNode);
       }
@@ -1051,11 +1163,15 @@ class IRFactory {
           ComputedPropertyDefinitionTree computedPropertyDefinition =
               child.asComputedPropertyDefinition();
           return processObjectPatternComputedPropertyDefinition(computedPropertyDefinition);
-        default:
+        case OBJECT_REST:
           // let {...restObject} = someObject;
-          checkState(child.type == ParseTreeType.ASSIGNMENT_REST_ELEMENT, child);
           maybeWarnForFeature(child, Feature.OBJECT_PATTERN_REST);
-          return processAssignmentRestElement(child.asAssignmentRestElement());
+          Node target = transformNodeWithInlineComments(child.asObjectRest().assignmentTarget);
+          Node rest = newNode(Token.OBJECT_REST, target);
+          setSourceInfo(rest, child);
+          return rest;
+        default:
+          throw new IllegalStateException("Unexpected object pattern element: " + child);
       }
     }
 
@@ -1100,7 +1216,7 @@ class IRFactory {
       if (targetTree == null) {
         // `let { /** inlineType */ key } = something;`
         // The key is also the target name.
-        valueNode = processNameWithInlineJSDoc(propertyNameAssignment.name.asIdentifier());
+        valueNode = processNameWithInlineComments(propertyNameAssignment.name.asIdentifier());
         key.setShorthandProperty(true);
       } else {
         valueNode = processDestructuringElementTarget(targetTree);
@@ -1120,12 +1236,12 @@ class IRFactory {
         // let {key: /** inlineType */ name} = something
         // let [/** inlineType */ name] = something
         // Allow inline JSDoc on the name, since we may well be declaring it here.
-        valueNode = processNameWithInlineJSDoc(targetTree.asIdentifierExpression());
+        valueNode = processNameWithInlineComments(targetTree.asIdentifierExpression());
       } else {
         // ({prop: /** string */ ns.a.b} = someObject);
         // NOTE: CheckJSDoc will report an error for this case, since we want qualified names to be
         // declared with individual statements, like `/** @type {string} */ ns.a.b;`
-        valueNode = transformNodeWithInlineJsDoc(targetTree);
+        valueNode = transformNodeWithInlineComments(targetTree);
       }
       return valueNode;
     }
@@ -1151,13 +1267,6 @@ class IRFactory {
       Node computedPropertyNode = newNode(Token.COMPUTED_PROP, expressionNode, valueNode);
       setSourceInfo(computedPropertyNode, computedPropertyDefinition);
       return computedPropertyNode;
-    }
-
-    Node processAssignmentRestElement(AssignmentRestElementTree tree) {
-      maybeWarnForFeature(tree, Feature.ARRAY_PATTERN_REST);
-      Node restNode = newNode(Token.REST, transformNodeWithInlineJsDoc(tree.assignmentTarget));
-      setSourceInfo(restNode, tree);
-      return restNode;
     }
 
     Node processAstRoot(ProgramTree rootNode) {
@@ -1399,7 +1508,7 @@ class IRFactory {
       IdentifierToken name = functionTree.name;
       Node newName;
       if (name != null) {
-        newName = processNameWithInlineJSDoc(name);
+        newName = processNameWithInlineComments(name);
       } else {
         if (isDeclaration || isMember) {
           errorReporter.error(
@@ -1464,26 +1573,37 @@ class IRFactory {
 
     Node processFormalParameterList(FormalParameterListTree tree) {
       Node params = newNode(Token.PARAM_LIST);
-      if (checkParameters(tree.parameters)) {
-        for (ParseTree param : tree.parameters) {
-          Node paramNode;
-          if (param.type == ParseTreeType.DEFAULT_PARAMETER) {
+      if (!checkParameters(tree.parameters)) {
+        return params;
+      }
+
+      for (ParseTree param : tree.parameters) {
+        final Node paramNode;
+        switch (param.type) {
+          case DEFAULT_PARAMETER:
             // processDefaultParameter() knows how to find and apply inline JSDoc to the right node
             paramNode = processDefaultParameter(param.asDefaultParameter());
-          } else {
-            paramNode = transformNodeWithInlineJsDoc(param);
-          }
-          // Children must be simple names, default parameters, rest
-          // parameters, or destructuring patterns.
-          checkState(
-              paramNode.isName()
-                  || paramNode.isRest()
-                  || paramNode.isArrayPattern()
-                  || paramNode.isObjectPattern()
-                  || paramNode.isDefaultValue());
-          params.addChildToBack(paramNode);
+            break;
+          case ITER_REST:
+            maybeWarnForFeature(param, Feature.REST_PARAMETERS);
+            paramNode = transformNodeWithInlineComments(param);
+            break;
+          default:
+            paramNode = transformNodeWithInlineComments(param);
+            break;
         }
+
+        // Children must be simple names, default parameters, rest
+        // parameters, or destructuring patterns.
+        checkState(
+            paramNode.isName()
+                || paramNode.isRest()
+                || paramNode.isArrayPattern()
+                || paramNode.isObjectPattern()
+                || paramNode.isDefaultValue());
+        params.addChildToBack(paramNode);
       }
+
       return params;
     }
 
@@ -1495,12 +1615,12 @@ class IRFactory {
         // allow inline JSDoc on an identifier
         // let { /** inlineType */ x = defaultValue } = someObject;
         // TODO(bradfordcsmith): Do we need to allow inline JSDoc for qualified names, too?
-        targetNode = processNameWithInlineJSDoc(targetTree.asIdentifierExpression());
+        targetNode = processNameWithInlineComments(targetTree.asIdentifierExpression());
       } else {
         // ({prop: /** string */ ns.a.b = 'foo'} = someObject);
         // NOTE: CheckJSDoc will report an error for this case, since we want qualified names to be
         // declared with individual statements, like `/** @type {string} */ ns.a.b;`
-        targetNode = transformNodeWithInlineJsDoc(targetTree);
+        targetNode = transformNodeWithInlineComments(targetTree);
       }
       Node defaultValueNode =
           newNode(Token.DEFAULT_VALUE, targetNode, transform(tree.defaultValue));
@@ -1508,22 +1628,21 @@ class IRFactory {
       return defaultValueNode;
     }
 
-    Node processRestParameter(RestParameterTree tree) {
-      maybeWarnForFeature(tree, Feature.REST_PARAMETERS);
-
-      Node assignmentTarget = transformNodeWithInlineJsDoc(tree.assignmentTarget);
-      if (assignmentTarget.isObjectPattern()) {
-        maybeWarnForFeature(tree.assignmentTarget, Feature.OBJECT_DESTRUCTURING);
-      } else if (assignmentTarget.isArrayPattern()) {
-        maybeWarnForFeature(tree.assignmentTarget, Feature.ARRAY_DESTRUCTURING);
-      }
-      return newNode(Token.REST, assignmentTarget);
+    Node processIterRest(IterRestTree tree) {
+      Node target = transformNodeWithInlineComments(tree.assignmentTarget);
+      return newNode(Token.ITER_REST, target);
     }
 
-    Node processSpreadExpression(SpreadExpressionTree tree) {
+    Node processIterSpread(IterSpreadTree tree) {
       maybeWarnForFeature(tree, Feature.SPREAD_EXPRESSIONS);
 
-      return newNode(Token.SPREAD, transform(tree.expression));
+      return newNode(Token.ITER_SPREAD, transform(tree.expression));
+    }
+
+    Node processObjectSpread(ObjectSpreadTree tree) {
+      maybeWarnForFeature(tree, Feature.OBJECT_LITERALS_WITH_SPREAD);
+
+      return newNode(Token.OBJECT_SPREAD, transform(tree.expression));
     }
 
     Node processIfStatement(IfStatementTree statementNode) {
@@ -1681,16 +1800,28 @@ class IRFactory {
       return node;
     }
 
-    private Node processNameWithInlineJSDoc(IdentifierExpressionTree identifierExpression) {
-      return processNameWithInlineJSDoc(identifierExpression.identifierToken);
+    private Node processNameWithInlineComments(IdentifierExpressionTree identifierExpression) {
+      return processNameWithInlineComments(identifierExpression.identifierToken);
     }
 
-    Node processNameWithInlineJSDoc(IdentifierToken identifierToken) {
+    Node processNameWithInlineComments(IdentifierToken identifierToken) {
       JSDocInfo info = handleInlineJsDoc(identifierToken);
+      NonJSDocComment associatedNonJSDocComment = null;
+      if (config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
+        ArrayList<Comment> nonJSDocComments = getNonJSDocComments(identifierToken);
+        if (!nonJSDocComments.isEmpty()) {
+          associatedNonJSDocComment = combineCommentsIntoSingleComment(nonJSDocComments);
+        }
+      }
       maybeWarnReservedKeyword(identifierToken);
       Node node = newStringNode(Token.NAME, identifierToken.value);
       if (info != null) {
         node.setJSDocInfo(info);
+      }
+      if (config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
+        if (associatedNonJSDocComment != null) {
+          node.setNonJSDocComment(associatedNonJSDocComment);
+        }
       }
       setSourceInfo(node, identifierToken);
       return node;
@@ -1768,9 +1899,6 @@ class IRFactory {
             && !key.isSpread()
             && !currentFileIsExterns) {
           maybeWarnKeywordProperty(key);
-        }
-        if (key.isSpread()) {
-          maybeWarnForFeature(el, Feature.OBJECT_LITERALS_WITH_SPREAD);
         }
         if (key.isShorthandProperty()) {
           maybeWarn = true;
@@ -1902,7 +2030,7 @@ class IRFactory {
       if (exprNode.expression.type == ParseTreeType.COMMA_EXPRESSION) {
         List<ParseTree> commaNodes = exprNode.expression.asCommaExpression().expressions;
         ParseTree lastChild = Iterables.getLast(commaNodes);
-        if (lastChild.type == ParseTreeType.REST_PARAMETER) {
+        if (lastChild.type == ParseTreeType.ITER_REST) {
           errorReporter.error(
               "A rest parameter must be in a parameter list.",
               sourceName,
@@ -2190,13 +2318,13 @@ class IRFactory {
 
       Node node = newNode(declType);
       for (VariableDeclarationTree child : decl.declarations) {
-        node.addChildToBack(transformNodeWithInlineJsDoc(child));
+        node.addChildToBack(transformNodeWithInlineComments(child));
       }
       return node;
     }
 
     Node processVariableDeclaration(VariableDeclarationTree decl) {
-      Node node = transformNodeWithInlineJsDoc(decl.lvalue);
+      Node node = transformNodeWithInlineComments(decl.lvalue);
       Node lhs = node.isDestructuringPattern() ? newNode(Token.DESTRUCTURING_LHS, node) : node;
       if (decl.initializer != null) {
         Node initializer = transform(decl.initializer);
@@ -2578,6 +2706,12 @@ class IRFactory {
       return newNode(Token.DYNAMIC_IMPORT, argument);
     }
 
+    Node processImportMeta(ImportMetaExpressionTree tree) {
+      maybeWarnForFeature(tree, Feature.MODULES);
+      maybeWarnForFeature(tree, Feature.IMPORT_META);
+      return newNode(Token.IMPORT_META);
+    }
+
     Node processTypeName(TypeNameTree tree) {
       Node typeNode;
       if (tree.segments.size() == 1) {
@@ -2775,7 +2909,7 @@ class IRFactory {
           case OPTIONAL_PARAMETER:
             seenOptional = true;
             break;
-          case REST_PARAMETER:
+          case ITER_REST:
             if (i != params.size() - 1) {
               errorReporter.error(
                   "A rest parameter must be last in a parameter list.",
@@ -2825,12 +2959,12 @@ class IRFactory {
                       .identifierToken.value,
                   type);
               break;
-            case REST_PARAMETER:
+            case ITER_REST:
               // TypeScript doesn't allow destructuring parameters, so the assignment target must
               // be an identifier.
               restName =
                   param
-                      .asRestParameter()
+                      .asIterRest()
                       .assignmentTarget
                       .asIdentifierExpression()
                       .identifierToken
@@ -3089,13 +3223,13 @@ class IRFactory {
           return processImportSpec(node.asImportSpecifier());
         case DYNAMIC_IMPORT_EXPRESSION:
           return processDynamicImport(node.asDynamicImportExpression());
+        case IMPORT_META_EXPRESSION:
+          return processImportMeta(node.asImportMetaExpression());
 
         case ARRAY_PATTERN:
           return processArrayPattern(node.asArrayPattern());
         case OBJECT_PATTERN:
           return processObjectPattern(node.asObjectPattern());
-        case ASSIGNMENT_REST_ELEMENT:
-          return processAssignmentRestElement(node.asAssignmentRestElement());
 
         case COMPREHENSION:
           return processComprehension(node.asComprehension());
@@ -3106,10 +3240,16 @@ class IRFactory {
 
         case DEFAULT_PARAMETER:
           return processDefaultParameter(node.asDefaultParameter());
-        case REST_PARAMETER:
-          return processRestParameter(node.asRestParameter());
-        case SPREAD_EXPRESSION:
-          return processSpreadExpression(node.asSpreadExpression());
+        case ITER_REST:
+          return processIterRest(node.asIterRest());
+        case ITER_SPREAD:
+          return processIterSpread(node.asIterSpread());
+
+          // ES2019
+        case OBJECT_REST:
+          return processObjectPatternElement(node.asObjectRest());
+        case OBJECT_SPREAD:
+          return processObjectSpread(node.asObjectSpread());
 
         // ES6 Typed
         case TYPE_NAME:

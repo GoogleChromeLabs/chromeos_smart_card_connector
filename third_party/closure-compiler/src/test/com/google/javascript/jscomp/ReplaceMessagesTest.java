@@ -401,18 +401,38 @@ public final class ReplaceMessagesTest extends CompilerTestCase {
 
   @Test
   public void testBadFallbackSyntax3() {
-    testError("/** @desc d */\n" +
-         "var MSG_A = goog.getMsg('asdf');" +
-         "var x = goog.getMsgWithFallback(MSG_A, y);",
-         JsMessageVisitor.FALLBACK_ARG_ERROR);
+    testError(
+        "/** @desc d */\n"
+            + "var MSG_A = goog.getMsg('asdf');"
+            + "var x = goog.getMsgWithFallback(MSG_A, NOT_A_MESSAGE);",
+        JsMessageVisitor.BAD_FALLBACK_SYNTAX);
   }
 
   @Test
   public void testBadFallbackSyntax4() {
-    testError("/** @desc d */\n" +
-         "var MSG_A = goog.getMsg('asdf');" +
-         "var x = goog.getMsgWithFallback(y, MSG_A);",
-         JsMessageVisitor.FALLBACK_ARG_ERROR);
+    testError(
+        "/** @desc d */\n"
+            + "var MSG_A = goog.getMsg('asdf');"
+            + "var x = goog.getMsgWithFallback(NOT_A_MESSAGE, MSG_A);",
+        JsMessageVisitor.BAD_FALLBACK_SYNTAX);
+  }
+
+  @Test
+  public void testBadFallbackSyntax5() {
+    testError(
+        "/** @desc d */\n"
+            + "var MSG_A = goog.getMsg('asdf');"
+            + "var x = goog.getMsgWithFallback(MSG_A, MSG_DOES_NOT_EXIST);",
+        JsMessageVisitor.FALLBACK_ARG_ERROR);
+  }
+
+  @Test
+  public void testBadFallbackSyntax6() {
+    testError(
+        "/** @desc d */\n"
+            + "var MSG_A = goog.getMsg('asdf');"
+            + "var x = goog.getMsgWithFallback(MSG_DOES_NOT_EXIST, MSG_A);",
+        JsMessageVisitor.FALLBACK_ARG_ERROR);
   }
 
   @Test
@@ -523,6 +543,20 @@ public final class ReplaceMessagesTest extends CompilerTestCase {
     testError(
         "/** @desc d */\n var MSG_C = goog.getMsg(`asdf ${42}`);",
         JsMessageVisitor.MESSAGE_TREE_MALFORMED);
+  }
+
+  @Test
+  public void testReplaceHtmlMessageWithPlaceholder() {
+    registerMessage(
+        new JsMessage.Builder("MSG_A")
+            .appendStringPart("Hello <")
+            .appendPlaceholderReference("br")
+            .appendStringPart("&gt;")
+            .build());
+
+    test(
+        "/** @desc d */\n var MSG_A = goog.getMsg('{$br}', {'br': '<br>'}, {html: true});",
+        "/** @desc d */\n var MSG_A='Hello &lt;'+('<br>'+'&gt;')");
   }
 
   private void registerMessage(JsMessage message) {

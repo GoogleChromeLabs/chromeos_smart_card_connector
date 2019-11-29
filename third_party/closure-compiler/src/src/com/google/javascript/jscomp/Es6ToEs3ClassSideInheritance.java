@@ -25,9 +25,7 @@ import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfoBuilder;
-import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.Token;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -102,9 +100,6 @@ import java.util.Set;
  * <p>
  * TODO(tdeegan): In the future the type information for getter/setter properties could be stored
  * in the defineProperties functions.  It would reduce the complexity of this pass significantly.
- *
- * @author mattloring@google.com (Matthew Loring)
- * @author tdeegan@google.com (Thomas Deegan)
  */
 public final class Es6ToEs3ClassSideInheritance implements HotSwapCompilerPass {
 
@@ -198,12 +193,8 @@ public final class Es6ToEs3ClassSideInheritance implements HotSwapCompilerPass {
       }
       Node subclassNameNode = inheritsCall.getSecondChild();
       Node getprop = IR.getprop(subclassNameNode.cloneTree(), IR.string(memberName));
-      JSDocInfoBuilder info = JSDocInfoBuilder.maybeCopyFrom(staticGetProp.getJSDocInfo());
-      JSTypeExpression unknown = new JSTypeExpression(new Node(Token.QMARK), "<synthetic>");
-      info.recordType(unknown); // In case there wasn't a type specified on the base class.
-      info.addSuppression("visibility");
-      getprop.setJSDocInfo(info.build());
 
+      getprop.setJSDocInfo(null);
       Node declaration = IR.exprResult(getprop);
       declaration.useSourceInfoIfMissingFromForTree(inheritsCall);
       Node parent = inheritsCall.getParent();

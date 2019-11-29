@@ -89,17 +89,8 @@ public class IR {
     return func;
   }
 
-  public static Node paramList() {
-    return new Node(Token.PARAM_LIST);
-  }
-
-  public static Node paramList(Node param) {
-    checkState(param.isName() || param.isRest());
-    return new Node(Token.PARAM_LIST, param);
-  }
-
   public static Node paramList(Node... params) {
-    Node paramList = paramList();
+    Node paramList = new Node(Token.PARAM_LIST);
     for (Node param : params) {
       checkState(param.isName() || param.isRest());
       paramList.addChildToBack(param);
@@ -469,6 +460,11 @@ public class IR {
     return binaryOp(Token.LT, expr1, expr2);
   }
 
+  /** "&gt;=" */
+  public static Node ge(Node expr1, Node expr2) {
+    return binaryOp(Token.GE, expr1, expr2);
+  }
+
   /**
    * "=="
    */
@@ -546,7 +542,8 @@ public class IR {
         case MEMBER_FUNCTION_DEF:
         case GETTER_DEF:
         case SETTER_DEF:
-        case SPREAD:
+
+        case OBJECT_SPREAD:
         case COMPUTED_PROP:
           break;
         default:
@@ -631,14 +628,24 @@ public class IR {
     return k;
   }
 
-  public static Node rest(Node target) {
+  public static Node iterRest(Node target) {
     checkState(target.isValidAssignmentTarget(), target);
-    return new Node(Token.REST, target);
+    return new Node(Token.ITER_REST, target);
   }
 
-  public static Node spread(Node expr) {
+  public static Node objectRest(Node target) {
+    checkState(target.isValidAssignmentTarget(), target);
+    return new Node(Token.OBJECT_REST, target);
+  }
+
+  public static Node iterSpread(Node expr) {
     checkState(mayBeExpression(expr));
-    return new Node(Token.SPREAD, expr);
+    return new Node(Token.ITER_SPREAD, expr);
+  }
+
+  public static Node objectSpread(Node expr) {
+    checkState(mayBeExpression(expr));
+    return new Node(Token.OBJECT_SPREAD, expr);
   }
 
   public static Node superNode() {
@@ -674,6 +681,10 @@ public class IR {
 
   public static Node typeof(Node expr) {
     return unaryOp(Token.TYPEOF, expr);
+  }
+
+  public static Node importMeta() {
+    return new Node(Token.IMPORT_META);
   }
 
   // helper methods
@@ -795,6 +806,7 @@ public class IR {
       case GETELEM:
       case GT:
       case HOOK:
+      case IMPORT_META:
       case IN:
       case INC:
       case INSTANCEOF:

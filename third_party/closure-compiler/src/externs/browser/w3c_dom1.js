@@ -390,14 +390,6 @@ Document.prototype.createDocumentFragment = function() {};
 Document.prototype.createElement = function(tagName, opt_typeExtension) {};
 
 /**
- * @param {string} name
- * @return {!EntityReference}
- * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#method-createEntityReference
- * @nosideeffects
- */
-Document.prototype.createEntityReference = function(name) {};
-
-/**
  * @param {string} target
  * @param {string} data
  * @return {!ProcessingInstruction}
@@ -421,6 +413,32 @@ Document.prototype.createTextNode = function(data) {};
  * @nosideeffects
  */
 Document.prototype.getElementsByTagName = function(tagname) {};
+
+/**
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/Document/open
+ * @see https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-open
+ */
+Document.prototype.open;
+
+/**
+ * @return {undefined}
+ * @see https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-close
+ */
+Document.prototype.close = function() {};
+
+/**
+ * @param {!TrustedHTML|string} text
+ * @return {undefined}
+ * @see https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-write
+ */
+Document.prototype.write = function(text) {};
+
+/**
+ * @param {!TrustedHTML|string} text
+ * @return {undefined}
+ * @see https://html.spec.whatwg.org/multipage/dynamic-markup-insertion.html#dom-document-writeln
+ */
+Document.prototype.writeln = function(text) {};
 
 /**
  * @constructor
@@ -665,9 +683,9 @@ Element.prototype.removeAttributeNode = function(oldAttr) {};
 
 /**
  * @param {string} name
- * @param {string|number|boolean} value Values are converted to strings with
- *     ToString, so we accept number and boolean since both convert easily to
- *     strings.
+ * @param {string|number|boolean|!TrustedHTML|!TrustedScriptURL|!TrustedURL}
+ *     value Values are converted to strings with ToString, so we accept number
+ *     and boolean since both convert easily to strings.
  * @return {undefined}
  * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#method-setAttribute
  */
@@ -759,73 +777,10 @@ function CDATASection() {}
 function DocumentType() {}
 
 /**
- * @type {NamedNodeMap<!Entity>}
- * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#ID-1788794630
- */
-DocumentType.prototype.entities;
-
-/**
  * @type {string}
  * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#ID-1844763134
  */
 DocumentType.prototype.name;
-
-/**
- * @type {NamedNodeMap<!Notation>}
- * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#ID-D46829EF
- */
-DocumentType.prototype.notations;
-
-/**
- * @constructor
- * @extends {Node}
- * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#ID-5431D1B9
- */
-function Notation() {}
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#ID-54F2B4D0
- */
-Notation.prototype.publicId;
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#ID-E8AAB1D0
- */
-Notation.prototype.systemId;
-
-/**
- * @constructor
- * @extends {Node}
- * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#ID-527DCFF2
- */
-function Entity() {}
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#ID-D7303025
- */
-Entity.prototype.publicId;
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#ID-D7C29F3E
- */
-Entity.prototype.systemId;
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#ID-6ABAEB38
- */
-Entity.prototype.notationName;
-
-/**
- * @constructor
- * @extends {Node}
- * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#ID-11C98490
- */
-function EntityReference() {}
 
 /**
  * @constructor

@@ -112,6 +112,13 @@ function PerformanceNavigationTiming() {}
 /** @type {NavigationType} */ PerformanceNavigationTiming.prototype.type;
 /** @type {number} */ PerformanceNavigationTiming.prototype.redirectCount;
 
+/**
+ * https://w3c.github.io/paint-timing/#sec-PerformancePaintTiming
+ * @constructor
+ * @extends {PerformanceEntry}
+ */
+function PerformancePaintTiming() {}
+
 /** @constructor */
 function PerformanceNavigation() {}
 /** @const {number} */ PerformanceNavigation.TYPE_NAVIGATE;
@@ -145,6 +152,38 @@ function PerformanceLongTaskTiming() {}
 /** @type {!Array<!TaskAttributionTiming>} */
 PerformanceLongTaskTiming.prototype.attribution;
 
+/**
+ * https://wicg.github.io/layout-instability/#sec-layout-shift
+ * @constructor
+ * @extends {PerformanceEntry}
+ */
+function LayoutShift() {}
+/** @type {number} */ LayoutShift.prototype.value;
+/** @type {boolean} */ LayoutShift.prototype.hadRecentInput;
+/** @type {number} */ LayoutShift.prototype.lastInputTime;
+
+/**
+ * https://wicg.github.io/largest-contentful-paint/#largestcontentfulpaint
+ * @constructor
+ * @extends {PerformanceEntry}
+ */
+function LargestContentfulPaint() {}
+/** @type {number} */ LargestContentfulPaint.prototype.renderTime;
+/** @type {number} */ LargestContentfulPaint.prototype.loadTime;
+/** @type {number} */ LargestContentfulPaint.prototype.size;
+/** @type {string} */ LargestContentfulPaint.prototype.id;
+/** @type {string} */ LargestContentfulPaint.prototype.url;
+/** @type {?Element} */ LargestContentfulPaint.prototype.element;
+
+/**
+ * https://wicg.github.io/event-timing/#sec-performance-event-timing
+ * @constructor
+ * @extends {PerformanceEntry}
+ */
+function PerformanceEventTiming() {}
+/** @type {number} */ PerformanceEventTiming.prototype.processingStart;
+/** @type {number} */ PerformanceEventTiming.prototype.processingEnd;
+/** @type {boolean} */ PerformanceEventTiming.prototype.cancelable;
 
 /** @constructor */
 function Performance() {}

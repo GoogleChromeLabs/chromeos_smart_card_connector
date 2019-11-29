@@ -906,19 +906,19 @@ public final class CodePrinterTest extends CodePrinterTestBase {
   public void testPreferLineBreakAtEndOfFile() {
     // short final line, no previous break, do nothing
     assertLineBreakAtEndOfFile(
-        "\"1234567890\";",
+        "\"1234567890\";", //
         "\"1234567890\"",
-        "\"1234567890\"");
+        "\"1234567890\";\n");
 
     // short final line, shift previous break to end
     assertLineBreakAtEndOfFile(
         "\"123456789012345678901234567890\";\"1234567890\"",
         "\"123456789012345678901234567890\";\n\"1234567890\"",
-        "\"123456789012345678901234567890\"; \"1234567890\";\n");
+        "\"123456789012345678901234567890\";\n\"1234567890\";\n");
     assertLineBreakAtEndOfFile(
         "var12345678901234567890123456 instanceof Object;",
         "var12345678901234567890123456 instanceof\nObject",
-        "var12345678901234567890123456 instanceof Object;\n");
+        "var12345678901234567890123456 instanceof\nObject;\n");
 
     // long final line, no previous break, add a break at end
     assertLineBreakAtEndOfFile(
@@ -1305,7 +1305,6 @@ public final class CodePrinterTest extends CodePrinterTestBase {
     // TODO(johnlenz): It would be nice if there were some way to preserve
     // typedefs but currently they are resolved into the basic types in the
     // type registry.
-    // NOTE(sdh): The type inferrence does not correctly remove null
     assertTypeAnnotations(
         LINE_JOINER.join(
             "/** @const */ var goog = {};",
@@ -1318,7 +1317,7 @@ public final class CodePrinterTest extends CodePrinterTestBase {
             "/** @const */ goog.java = {};",
             "goog.java.Long;",
             "/**",
-            " * @param {(Array<number>|null)} a",
+            " * @param {!Array<number>} a",
             " * @return {undefined}",
             " */",
             "function f(a) {\n}\n"));
@@ -1418,7 +1417,7 @@ public final class CodePrinterTest extends CodePrinterTestBase {
             " * @return {number}",
             " */",
             "a.Foo.prototype.foo = function(foo) {\n  return 3;\n};",
-            "/** @type {!Array} */",
+            "/** @type {!Array<?>} */",
             "a.Foo.prototype.bar = [];\n"));
   }
 
@@ -2748,6 +2747,14 @@ public final class CodePrinterTest extends CodePrinterTestBase {
   }
 
   @Test
+  public void testImportMeta() {
+    useUnsupportedFeatures = true;
+    assertPrintSame("import.meta");
+    assertPrintSame("import.meta.url");
+    assertPrintSame("console.log(import.meta.url)");
+  }
+
+  @Test
   public void testGeneratorYield() {
     assertPrintSame("function*f(){yield 1}");
     assertPrintSame("function*f(){yield}");
@@ -2781,7 +2788,10 @@ public final class CodePrinterTest extends CodePrinterTestBase {
   @Test
   public void testMemberGeneratorYield1() {
     assertPrintSame("class C{*member(){(yield 1)+(yield 1)}}");
+    assertPrintSame("class C{*[0](){(yield 1)+(yield 1)}}");
     assertPrintSame("var obj={*member(){(yield 1)+(yield 1)}}");
+    assertPrintSame("var obj={*[0](){(yield 1)+(yield 1)}}");
+    assertPrintSame("var obj={[0]:function*(){(yield 1)+(yield 1)}}");
   }
 
   @Test
@@ -2853,6 +2863,7 @@ public final class CodePrinterTest extends CodePrinterTestBase {
     languageMode = LanguageMode.ECMASCRIPT_NEXT;
     assertPrintSame("o={async m(){}}");
     assertPrintSame("o={async[a+b](){}}");
+    assertPrintSame("o={[0]:async function(){}}"); // (not technically a method)
     assertPrintSame("class C{async m(){}}");
     assertPrintSame("class C{async[a+b](){}}");
     assertPrintSame("class C{static async m(){}}");
@@ -2864,6 +2875,7 @@ public final class CodePrinterTest extends CodePrinterTestBase {
     languageMode = LanguageMode.ECMASCRIPT_NEXT;
     assertPrintSame("o={async *m(){}}");
     assertPrintSame("o={async*[a+b](){}}");
+    assertPrintSame("o={[0]:async*function(){}}"); // (not technically a method)
     assertPrintSame("class C{async *m(){}}");
     assertPrintSame("class C{async*[a+b](){}}");
     assertPrintSame("class C{static async *m(){}}");
@@ -3247,20 +3259,23 @@ public final class CodePrinterTest extends CodePrinterTestBase {
 
   @Test
   public void testEs6GoogModule() {
-    String code = ""
-        + "goog.module('foo.bar');\n"
-        + "const STR = '3';\n"
-        + "function fn() {\n"
-        + "  alert(STR);\n"
-        + "}\n"
-        + "exports.fn = fn;\n";
-    String expectedCode = ""
-        + "goog.module('foo.bar');\n"
-        + "var module$exports$foo$bar = {};\n"
-        + "const STR = '3';\n"
-        + "module$exports$foo$bar.fn = function fn() {\n"
-        + "  alert(STR);\n"
-        + "};\n";
+    String code =
+        lines(
+            "goog.module('foo.bar');",
+            "const STR = '3';",
+            "function fn() {",
+            "  alert(STR);",
+            "}",
+            "exports.fn = fn;");
+    String expectedCode =
+        lines(
+            "goog.module('foo.bar');",
+            "var module$exports$foo$bar = {};",
+            "const STR = '3';",
+            "function fn() {",
+            "  alert(STR);",
+            "}",
+            "exports.fn = fn;\n");
 
     CompilerOptions compilerOptions = new CompilerOptions();
     compilerOptions.setClosurePass(true);

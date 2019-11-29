@@ -33,8 +33,6 @@ import java.util.Set;
  * if they are redeclared in a way that is suspicious (i.e. not dictated by
  * control structures). This is a more aggressive version of {@link VarCheck},
  * but it lacks the cross-module checks.
- *
- * @author kushal@google.com (Kushal Dave)
  */
 class VariableReferenceCheck implements HotSwapCompilerPass {
 
@@ -113,7 +111,7 @@ class VariableReferenceCheck implements HotSwapCompilerPass {
   public void process(Node externs, Node root) {
     if (shouldProcess(root)) {
       new ReferenceCollectingCallback(
-              compiler, new ReferenceCheckingBehavior(), new Es6SyntacticScopeCreator(compiler))
+              compiler, new ReferenceCheckingBehavior(), new SyntacticScopeCreator(compiler))
           .process(externs, root);
     }
   }
@@ -124,7 +122,7 @@ class VariableReferenceCheck implements HotSwapCompilerPass {
         || (compiler.getOptions().getLanguageIn().toFeatureSet().contains(FeatureSet.ES6)
             && TranspilationPasses.isScriptEs6OrHigher(scriptRoot))) {
       new ReferenceCollectingCallback(
-              compiler, new ReferenceCheckingBehavior(), new Es6SyntacticScopeCreator(compiler))
+              compiler, new ReferenceCheckingBehavior(), new SyntacticScopeCreator(compiler))
           .hotSwapScript(scriptRoot, originalRoot);
     }
   }

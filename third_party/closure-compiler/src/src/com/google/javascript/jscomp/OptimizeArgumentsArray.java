@@ -47,7 +47,6 @@ import javax.annotation.Nullable;
  *
  * Each newly inserted variable name will be unique very much like the output
  * of the AST found after the {@link Normalize} pass.
- *
  */
 class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
 
@@ -285,7 +284,7 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
           builder.put(index, param.getString());
           break;
 
-        case REST:
+        case ITER_REST:
           return builder.build();
 
         case DEFAULT_VALUE:

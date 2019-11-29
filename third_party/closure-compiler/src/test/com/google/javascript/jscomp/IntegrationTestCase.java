@@ -142,7 +142,7 @@ abstract class IntegrationTestCase {
                   "",
                   "/**",
                   " * @constructor",
-                  " * @implements {IArrayLike}",
+                  " * @implements {IArrayLike<T>}",
                   " * @implements {Iterable<T>}",
                   " * @return {!Array<?>}",
                   " * @param {...*} var_args",
@@ -355,6 +355,10 @@ abstract class IntegrationTestCase {
   protected void test(CompilerOptions options,
       String[] original, String[] compiled) {
     Compiler compiler = compile(options, original);
+
+    Node root = compiler.getJsRoot();
+
+    // Verify that there are no unexpected errors before checking the compiled output
     assertWithMessage(
             "Expected no warnings or errors\n"
                 + "Errors: \n"
@@ -365,7 +369,6 @@ abstract class IntegrationTestCase {
         .that(compiler.getErrors().size() + compiler.getWarnings().size())
         .isEqualTo(0);
 
-    Node root = compiler.getJsRoot();
     if (compiled != null) {
       Node expectedRoot = parseExpectedCode(compiled, options, normalizeResults);
       assertNode(root).usingSerializer(compiler::toSource).isEqualTo(expectedRoot);

@@ -33,7 +33,7 @@ import com.google.javascript.rhino.jstype.JSTypeNative;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.TemplateTypeMap;
-import com.google.javascript.rhino.jstype.TemplateTypeMapReplacer;
+import com.google.javascript.rhino.jstype.TemplateTypeReplacer;
 import javax.annotation.Nullable;
 
 /**
@@ -233,6 +233,22 @@ final class AstFactory {
     Node result = IR.nullNode();
     if (isAddingTypes()) {
       result.setJSType(getNativeType(JSTypeNative.NULL_TYPE));
+    }
+    return result;
+  }
+
+  Node createVoid(Node child) {
+    Node result = IR.voidNode(child);
+    if (isAddingTypes()) {
+      result.setJSType(getNativeType(JSTypeNative.VOID_TYPE));
+    }
+    return result;
+  }
+
+  Node createNot(Node child) {
+    Node result = IR.not(child);
+    if (isAddingTypes()) {
+      result.setJSType(getNativeType(JSTypeNative.BOOLEAN_TYPE));
     }
     return result;
   }
@@ -663,15 +679,12 @@ final class AstFactory {
   }
 
   /**
-   * Creates an empty object literal, `{}`.
+   * Creates an object-literal with zero or more elements, `{}`.
    *
-   * <p>TODO(nickreid): Consider a single method {@code createObjectLit}, which accepts varargs.
-   * When this method was created it seemed valuable to explicitly distinguish these cases, which is
-   * why this method cannot be called with args. However, that differentiation might be frustrating
-   * to callers.
+   * <p>The type of the literal, if assigned, may be a supertype of the known properties.
    */
-  Node createEmptyObjectLit() {
-    Node result = IR.objectlit();
+  Node createObjectLit(Node... elements) {
+    Node result = IR.objectlit(elements);
     if (isAddingTypes()) {
       result.setJSType(registry.createAnonymousObjectType(null));
     }
@@ -800,18 +813,14 @@ final class AstFactory {
       JSType iterableType =
           iterable
               .getJSType()
-              .getInstantiatedTypeArgument(getNativeType(JSTypeNative.ITERABLE_TYPE));
+              .getTemplateTypeMap()
+              .getResolvedTemplateType(registry.getIterableTemplate());
       JSType makeIteratorType = makeIteratorName.getJSType();
       // e.g. replace
       //   function(Iterable<T>): Iterator<T>
       // with
       //   function(Iterable<number>): Iterator<number>
-      TemplateTypeMap typeMap =
-          registry.createTemplateTypeMap(
-              makeIteratorType.getTemplateTypeMap().getTemplateKeys(),
-              ImmutableList.of(iterableType));
-      TemplateTypeMapReplacer replacer = new TemplateTypeMapReplacer(registry, typeMap);
-      makeIteratorName.setJSType(makeIteratorType.visit(replacer));
+      makeIteratorName.setJSType(replaceTemplate(makeIteratorType, ImmutableList.of(iterableType)));
     }
     return createCall(makeIteratorName, iterable);
   }
@@ -825,22 +834,17 @@ final class AstFactory {
       // if makeIteratorName has the unknown type, we must have not injected the required runtime
       // libraries - hopefully because this is in a test using NonInjectingCompiler.
 
-      // e.g get `number` from `Iterator<number>`
       JSType iterableType =
           iterator
               .getJSType()
-              .getInstantiatedTypeArgument(getNativeType(JSTypeNative.ITERATOR_TYPE));
+              .getTemplateTypeMap()
+              .getResolvedTemplateType(registry.getIteratorValueTemplate());
       JSType makeIteratorType = makeIteratorName.getJSType();
       // e.g. replace
       //   function(Iterator<T>): Array<T>
       // with
       //   function(Iterator<number>): Array<number>
-      TemplateTypeMap typeMap =
-          registry.createTemplateTypeMap(
-              makeIteratorType.getTemplateTypeMap().getTemplateKeys(),
-              ImmutableList.of(iterableType));
-      TemplateTypeMapReplacer replacer = new TemplateTypeMapReplacer(registry, typeMap);
-      makeIteratorName.setJSType(makeIteratorType.visit(replacer));
+      makeIteratorName.setJSType(replaceTemplate(makeIteratorType, ImmutableList.of(iterableType)));
     }
     return createCall(makeIteratorName, iterator);
   }
@@ -875,22 +879,18 @@ final class AstFactory {
       //   function(AsyncIterable<T>): AsyncIterator<T>
       // with
       //   function(AsyncIterable<number>): AsyncIterator<number>
-      TemplateTypeMap typeMap =
-          registry.createTemplateTypeMap(
-              makeAsyncIteratorType.getTemplateTypeMap().getTemplateKeys(),
-              ImmutableList.of(asyncIterableType));
-      TemplateTypeMapReplacer replacer = new TemplateTypeMapReplacer(registry, typeMap);
-      makeIteratorAsyncName.setJSType(makeAsyncIteratorType.visit(replacer));
+      makeIteratorAsyncName.setJSType(
+          replaceTemplate(makeAsyncIteratorType, ImmutableList.of(asyncIterableType)));
     }
     return createCall(makeIteratorAsyncName, iterable);
   }
 
-  private JSType replaceTemplate(JSType templatedType, JSType... templateTypes) {
+  private JSType replaceTemplate(JSType templatedType, ImmutableList<JSType> templateTypes) {
     TemplateTypeMap typeMap =
-        registry.createTemplateTypeMap(
-            templatedType.getTemplateTypeMap().getTemplateKeys(),
-            ImmutableList.copyOf(templateTypes));
-    TemplateTypeMapReplacer replacer = new TemplateTypeMapReplacer(registry, typeMap);
+        registry
+            .getEmptyTemplateTypeMap()
+            .copyWithExtension(templatedType.getTemplateTypeMap().getTemplateKeys(), templateTypes);
+    TemplateTypeReplacer replacer = TemplateTypeReplacer.forPartialReplacement(registry, typeMap);
     return templatedType.visit(replacer);
   }
 
@@ -912,13 +912,14 @@ final class AstFactory {
           originalFunctionType
               .toMaybeFunctionType()
               .getReturnType()
-              .getInstantiatedTypeArgument(getNativeType(JSTypeNative.ASYNC_ITERABLE_TYPE));
+              .getTemplateTypeMap()
+              .getResolvedTemplateType(registry.getAsyncIterableTemplate());
 
       // e.g. replace
       //  AsyncGeneratorWrapper<T>
       // with
       //  AsyncGeneratorWrapper<number>
-      ctor.setJSType(replaceTemplate(ctor.getJSType(), yieldedType));
+      ctor.setJSType(replaceTemplate(ctor.getJSType(), ImmutableList.of(yieldedType)));
     }
 
     return ctor;
@@ -940,7 +941,8 @@ final class AstFactory {
         // Not injecting libraries?
         generatorType =
             registry.createFunctionType(
-                replaceTemplate(getNativeType(JSTypeNative.GENERATOR_TYPE), unknownType));
+                replaceTemplate(
+                    getNativeType(JSTypeNative.GENERATOR_TYPE), ImmutableList.of(unknownType)));
       } else {
         // Generator<$jscomp.AsyncGeneratorWrapper$ActionRecord<number>>
         JSType innerFunctionReturnType =
@@ -1016,7 +1018,7 @@ final class AstFactory {
     // TODO(bradfordcsmith): Special case $jscomp.global until we annotate its type correctly.
     if (getpropType.isUnknownType()
         && propertyName.equals("global")
-        && receiver.matchesQualifiedName("$jscomp")) {
+        && receiver.matchesName("$jscomp")) {
       getpropType = getNativeType(JSTypeNative.GLOBAL_THIS);
     }
     return getpropType;

@@ -45,9 +45,6 @@ import java.util.regex.Pattern;
  * what to do with the white-list by implementing the {@code level} function.
  * Warnings are defined by the name of the JS file and the first line of
  * warnings description.
- *
- * @author anatol@google.com (Anatol Pomazau)
- * @author bashir@google.com (Bashir Sadjad)
  */
 @GwtIncompatible("java.io, java.util.regex")
 public class WhitelistWarningsGuard extends WarningsGuard {
@@ -180,11 +177,11 @@ public class WhitelistWarningsGuard extends WarningsGuard {
    */
   protected String formatWarning(JSError error, boolean withMetaData) {
     StringBuilder sb = new StringBuilder();
-    sb.append(error.sourceName).append(":");
+    sb.append(error.getSourceName()).append(":");
     if (withMetaData) {
-      sb.append(error.lineNumber);
+      sb.append(error.getLineNumber());
     }
-    List<String> lines = LINE_SPLITTER.splitToList(error.description);
+    List<String> lines = LINE_SPLITTER.splitToList(error.getDescription());
     sb.append("  ").append(lines.get(0));
 
     // Add the rest of the message as a comment.

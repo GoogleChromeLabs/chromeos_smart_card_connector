@@ -1023,13 +1023,13 @@ public final class ExpressionDecomposerTest {
   }
 
   @Test
-  public void testMoveSpread_siblingOfCall_outOfObjectLiteral_usesNoTempObject() {
+  public void testMoveSpread_siblingOfCall_outOfObjectLiteral_usesTempObject() {
     shouldTestTypes = false; // TODO(nickreid): Enable this when tests support typed `AstFactory`.
     helperExposeExpression(
         "({...x, y: foo()});",
         "foo",
         lines(
-            "var temp_const$jscomp$0 = x;", // This is a temp var, not a temp *object*.
+            "var temp_const$jscomp$0 = {...x};", //
             "({...temp_const$jscomp$0, y: foo()});"));
   }
 
@@ -1159,6 +1159,50 @@ public final class ExpressionDecomposerTest {
         "foo");
   }
 
+  @Test
+  public void testMoveSuperCall() {
+    helperMoveExpression(
+        "class A { constructor() { super(foo()) } }",
+        "foo",
+        "class A{constructor(){var result$jscomp$0=foo();super(result$jscomp$0)}}");
+  }
+
+  @Test
+  public void testMoveSuperCall_noSideEffects() {
+    // String() is being used since it's known to not have side-effects.
+    helperMoveExpression(
+        "class A { constructor() { super(String()) } }",
+        "String",
+        "class A{constructor(){var result$jscomp$0=String();super(result$jscomp$0)}}");
+  }
+
+  @Test
+  public void testExposeSuperCall() {
+    times = 2;
+    helperExposeExpression(
+        "class A { constructor() { super(goo(), foo()) } }",
+        "foo",
+        lines(
+            "class A{ constructor(){", //
+            "   var temp_const$jscomp$0=goo();",
+            "   super(temp_const$jscomp$0, foo())",
+            "}}"));
+  }
+
+  @Test
+  public void testExposeSuperCall_noSideEffects() {
+    times = 2;
+    // String() is being used since it's known to not have side-effects.
+    helperExposeExpression(
+        "class A { constructor() { super(goo(), String()) } }",
+        "String",
+        lines(
+            "class A{ constructor(){", //
+            "   var temp_const$jscomp$0=goo();",
+            "   super(temp_const$jscomp$0, String())",
+            "}}"));
+  }
+
   /** Test case helpers. */
 
   private void helperCanExposeFunctionExpression(
@@ -1240,7 +1284,7 @@ public final class ExpressionDecomposerTest {
       decomposer.exposeExpression(expr);
     }
     validateSourceInfo(compiler, tree);
-    assertNode(tree).isEqualTo(expectedRoot);
+    assertNode(tree).usingSerializer(compiler::toSource).isEqualTo(expectedRoot);
 
     if (shouldTestTypes) {
       Node trueExpr = nodeFinder.apply(originalTree);
@@ -1290,7 +1334,7 @@ public final class ExpressionDecomposerTest {
       decomposer.moveExpression(expr);
     }
     validateSourceInfo(compiler, tree);
-    assertNode(tree).isEqualTo(expectedRoot);
+    assertNode(tree).usingSerializer(compiler::toSource).isEqualTo(expectedRoot);
 
     if (shouldTestTypes) {
       // find a basis for comparison:
@@ -1405,7 +1449,7 @@ public final class ExpressionDecomposerTest {
   }
 
   private void validateSourceInfo(Compiler compiler, Node subtree) {
-    new LineNumberCheck(compiler).setCheckSubTree(subtree);
+    new SourceInfoCheck(compiler).setCheckSubTree(subtree);
     // Source information problems are reported as compiler errors.
     assertThat(compiler.getErrors()).isEmpty();
   }

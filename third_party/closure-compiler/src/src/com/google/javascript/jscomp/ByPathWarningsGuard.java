@@ -36,7 +36,6 @@ import java.util.List;
  *
  * This guard will convert any warning that came from a file that contains "foo"
  * in its path to an error.
- *
  */
 public final class ByPathWarningsGuard extends WarningsGuard {
   private static final long serialVersionUID = 1L;
@@ -90,7 +89,7 @@ public final class ByPathWarningsGuard extends WarningsGuard {
 
   @Override
   public CheckLevel level(JSError error) {
-    final String errorPath = error.sourceName;
+    final String errorPath = error.getSourceName();
     CheckLevel defaultLevel = error.getDefaultLevel();
     if (defaultLevel != CheckLevel.ERROR && errorPath != null) {
       boolean inPath = false;

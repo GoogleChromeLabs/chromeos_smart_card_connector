@@ -16,7 +16,7 @@
 package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.ClosurePrimitiveErrors.MISSING_MODULE_OR_PROVIDE;
-import static com.google.javascript.jscomp.ProcessClosurePrimitives.MISSING_PROVIDE_ERROR;
+import static com.google.javascript.jscomp.ClosurePrimitiveErrors.MISSING_MODULE_OR_PROVIDE_FOR_FORWARD_DECLARE;
 
 import com.google.javascript.rhino.Node;
 import org.junit.Before;
@@ -284,7 +284,7 @@ public final class MissingProvideTest extends CompilerTestCase {
             "exports = B;");
 
     String msg = "Required namespace \"missing.legacy.script.A\" never defined.";
-    testError(googModule, MISSING_MODULE_OR_PROVIDE, msg);
+    testError(googModule, MISSING_MODULE_OR_PROVIDE_FOR_FORWARD_DECLARE, msg);
   }
 
   @Test
@@ -323,8 +323,8 @@ public final class MissingProvideTest extends CompilerTestCase {
             "goog.require('legacy.script.A');",
             "new legacy.script.A;");
 
-    String msg = "required \"legacy.script.A\" namespace never provided";
-    testError(legacyScript, MISSING_PROVIDE_ERROR, msg);
+    String msg = "Required namespace \"legacy.script.A\" never defined.";
+    test(srcs(legacyScript), error(MISSING_MODULE_OR_PROVIDE).withMessage(msg));
   }
 
   @Test

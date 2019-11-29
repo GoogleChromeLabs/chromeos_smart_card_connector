@@ -691,6 +691,9 @@ public class JSTypeTest extends BaseJSTypeTestCase {
     assertTypeEquals(
         nullable, nullable.getGreatestSubtype(NULL_TYPE));
     assertTypeEquals(NO_RESOLVED_TYPE, nullable.getRestrictedUnion(NULL_TYPE));
+
+    UnionType testIsVoidable = (UnionType) registry.createUnionType(NO_RESOLVED_TYPE, VOID_TYPE);
+    assertThat(testIsVoidable.getPossibleToBooleanOutcomes()).isEqualTo(BooleanLiteralSet.BOTH);
   }
 
   /** Tests the behavior of the Array type. */
@@ -2589,7 +2592,7 @@ public class JSTypeTest extends BaseJSTypeTestCase {
   /** Tests the behavior of the instance of Function. */
   @Test
   public void testFunctionInstanceType() {
-    FunctionType functionInst = FUNCTION_INSTANCE_TYPE;
+    FunctionType functionInst = U2U_CONSTRUCTOR_TYPE;
 
     // isXxx
     assertThat(functionInst.isObject()).isTrue();
@@ -3812,8 +3815,7 @@ public class JSTypeTest extends BaseJSTypeTestCase {
   /** Tests object types. */
   @Test
   public void testObjectType() {
-    PrototypeObjectType objectType =
-        new PrototypeObjectType(registry, null, null);
+    PrototypeObjectType objectType = PrototypeObjectType.builder(registry).build();
 
     // isXxx
     assertThat(objectType.isAllType()).isFalse();
@@ -3857,7 +3859,7 @@ public class JSTypeTest extends BaseJSTypeTestCase {
     assertThat(objectType.toString()).isEqualTo("{...}");
     assertThat(objectType.getDisplayName()).isNull();
     assertType(objectType).getReferenceNameIsNull();
-    assertThat(new PrototypeObjectType(registry, "anObject", null).getDisplayName())
+    assertThat(PrototypeObjectType.builder(registry).setName("anObject").build().getDisplayName())
         .isEqualTo("anObject");
 
     Asserts.assertResolvesToSame(objectType);
@@ -5000,25 +5002,27 @@ public class JSTypeTest extends BaseJSTypeTestCase {
 
   @Test
   public void testConstructorSubtypeChain() throws Exception {
-    List<JSType> typeChain = ImmutableList.of(
-        registry.getNativeType(JSTypeNative.ALL_TYPE),
-        registry.getNativeType(JSTypeNative.OBJECT_PROTOTYPE),
-        registry.getNativeType(JSTypeNative.OBJECT_TYPE),
-        registry.getNativeType(JSTypeNative.FUNCTION_PROTOTYPE),
-        registry.getNativeType(JSTypeNative.FUNCTION_INSTANCE_TYPE),
-        registry.getNativeType(JSTypeNative.NO_OBJECT_TYPE),
-        registry.getNativeType(JSTypeNative.NO_TYPE));
+    List<JSType> typeChain =
+        ImmutableList.of(
+            registry.getNativeType(JSTypeNative.ALL_TYPE),
+            registry.getNativeType(JSTypeNative.OBJECT_PROTOTYPE),
+            registry.getNativeType(JSTypeNative.OBJECT_TYPE),
+            registry.getNativeType(JSTypeNative.FUNCTION_PROTOTYPE),
+            registry.getNativeType(JSTypeNative.U2U_CONSTRUCTOR_TYPE),
+            registry.getNativeType(JSTypeNative.NO_OBJECT_TYPE),
+            registry.getNativeType(JSTypeNative.NO_TYPE));
     verifySubtypeChain(typeChain);
   }
 
   @Test
   public void testGoogBarSubtypeChain() throws Exception {
-    List<JSType> typeChain = ImmutableList.of(
-        registry.getNativeType(JSTypeNative.FUNCTION_INSTANCE_TYPE),
-        googBar,
-        googSubBar,
-        googSubSubBar,
-        registry.getNativeType(JSTypeNative.NO_OBJECT_TYPE));
+    List<JSType> typeChain =
+        ImmutableList.of(
+            registry.getNativeType(JSTypeNative.U2U_CONSTRUCTOR_TYPE),
+            googBar,
+            googSubBar,
+            googSubSubBar,
+            registry.getNativeType(JSTypeNative.NO_OBJECT_TYPE));
     verifySubtypeChain(typeChain, false);
   }
 
@@ -5031,11 +5035,12 @@ public class JSTypeTest extends BaseJSTypeTestCase {
         registry.createConstructorType(
             "subBarArg", null, registry.createParameters(googSubBar), null, null, false);
 
-    List<JSType> typeChain = ImmutableList.of(
-        registry.getNativeType(JSTypeNative.FUNCTION_INSTANCE_TYPE),
-        googBarArgConstructor,
-        googSubBarArgConstructor,
-        registry.getNativeType(JSTypeNative.NO_OBJECT_TYPE));
+    List<JSType> typeChain =
+        ImmutableList.of(
+            registry.getNativeType(JSTypeNative.U2U_CONSTRUCTOR_TYPE),
+            googBarArgConstructor,
+            googSubBarArgConstructor,
+            registry.getNativeType(JSTypeNative.NO_OBJECT_TYPE));
     verifySubtypeChain(typeChain, false);
   }
 
@@ -5302,6 +5307,41 @@ public class JSTypeTest extends BaseJSTypeTestCase {
     assertTypeEquals(
         JSType.getGreatestSubtype(OBJECT_TYPE, arrayOfString),
         arrayOfString);
+  }
+
+  @Test
+  public void testTemplatizedTypesWithBoundedGenerics() {
+    FunctionType templatizedCtor =
+        registry.createConstructorType(
+            "TestingType",
+            null,
+            null,
+            UNKNOWN_TYPE,
+            ImmutableList.of(
+                registry.createTemplateType("A", NUMBER_TYPE),
+                registry.createTemplateType("B", STRING_TYPE)),
+            false);
+    JSType templatizedInstance = registry.createTemplatizedType(
+        templatizedCtor.getInstanceType(),
+        ImmutableList.of(NUMBER_TYPE));
+
+    TemplateTypeMap ctrTypeMap = templatizedCtor.getTemplateTypeMap();
+    TemplateType keyA = ctrTypeMap.getTemplateTypeKeyByName("A");
+    assertThat(keyA).isNotNull();
+    TemplateType keyB = ctrTypeMap.getTemplateTypeKeyByName("B");
+    assertThat(keyB).isNotNull();
+    TemplateType keyC = ctrTypeMap.getTemplateTypeKeyByName("C");
+    assertThat(keyC).isNull();
+    TemplateType unknownKey = registry.createTemplateType("C");
+
+    TemplateTypeMap templateTypeMap = templatizedInstance.getTemplateTypeMap();
+    assertThat(templateTypeMap.hasTemplateKey(keyA)).isTrue();
+    assertThat(templateTypeMap.hasTemplateKey(keyB)).isTrue();
+    assertThat(templateTypeMap.hasTemplateKey(unknownKey)).isFalse();
+
+    assertThat(templateTypeMap.getResolvedTemplateType(keyA)).isEqualTo(NUMBER_TYPE);
+    assertThat(templateTypeMap.getResolvedTemplateType(keyB)).isEqualTo(keyB);
+    assertThat(templateTypeMap.getResolvedTemplateType(unknownKey)).isEqualTo(UNKNOWN_TYPE);
   }
 
   /**
@@ -6215,6 +6255,51 @@ public class JSTypeTest extends BaseJSTypeTestCase {
 
     // We currently allow any function to be cast to any other function type
     assertThat(ARRAY_FUNCTION_TYPE.canCastTo(BOOLEAN_OBJECT_FUNCTION_TYPE)).isTrue();
+  }
+
+  @Test
+  public void testEqualityOfClassTypes_withSameReferenceName_preResolution() {
+    FunctionType classACtor =
+        FunctionType.builder(registry).forConstructor().withName("Foo").build();
+
+    FunctionType classBCtor =
+        FunctionType.builder(registry).forConstructor().withName("Foo").build();
+
+    // Currently, to handle NamedTypes, we treat unresolved type equality as purely based on
+    // reference name.
+    assertType(classACtor.getInstanceType()).isEqualTo(classBCtor.getInstanceType());
+  }
+
+  @Test
+  public void testEqualityOfClassTypes_withSameReferenceName_postResolution() {
+    FunctionType classACtor =
+        FunctionType.builder(registry).forConstructor().withName("Foo").build();
+
+    FunctionType classBCtor =
+        FunctionType.builder(registry).forConstructor().withName("Foo").build();
+
+    classACtor.resolve(registry.getErrorReporter());
+    classBCtor.resolve(registry.getErrorReporter());
+
+    assertType(classACtor).isNotEqualTo(classBCtor);
+    assertType(classACtor.getInstanceType()).isNotEqualTo(classBCtor.getInstanceType());
+    assertType(classACtor.getPrototype()).isNotEqualTo(classBCtor.getPrototype());
+  }
+
+  @Test
+  public void testEqualityOfInterfaceTypes_withSameReferenceName_postResolution() {
+    FunctionType interfaceACtor =
+        FunctionType.builder(registry).forInterface().withName("Foo").build();
+
+    FunctionType interfaceBCtor =
+        FunctionType.builder(registry).forInterface().withName("Foo").build();
+
+    interfaceACtor.resolve(registry.getErrorReporter());
+    interfaceBCtor.resolve(registry.getErrorReporter());
+
+    assertType(interfaceACtor).isNotEqualTo(interfaceBCtor);
+    assertType(interfaceACtor.getInstanceType()).isNotEqualTo(interfaceBCtor.getInstanceType());
+    assertType(interfaceACtor.getPrototype()).isNotEqualTo(interfaceBCtor.getPrototype());
   }
 
   @Test

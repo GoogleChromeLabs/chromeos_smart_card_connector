@@ -48,10 +48,11 @@ public final class MissingRequireTest extends CompilerTestCase {
   }
 
   @Override
-  protected CompilerOptions getOptions(CompilerOptions options) {
+  protected CompilerOptions getOptions() {
+    CompilerOptions options = super.getOptions();
     options.setWarningLevel(DiagnosticGroups.MODULE_LOAD, CheckLevel.OFF);
     options.setWarningLevel(DiagnosticGroups.STRICT_MISSING_REQUIRE, CheckLevel.WARNING);
-    return super.getOptions(options);
+    return options;
   }
 
   @Override
@@ -921,7 +922,7 @@ public final class MissingRequireTest extends CompilerTestCase {
     String expectation = "missing require: 'foo.bar.goo'";
 
     for (JSError warning : warnings) {
-      if (expectation.equals(warning.description)) {
+      if (expectation.equals(warning.getDescription())) {
         return;
       }
     }
@@ -1292,6 +1293,16 @@ public final class MissingRequireTest extends CompilerTestCase {
         "/** @constructor @extends {AnotherClass} */",
         "function C() {}",
         ""));
+  }
+
+  @Test
+  public void testNoCrash() {
+    testSame(
+        lines(
+            "goog.module('example');",
+            "",
+            "const {getElement: {getEl}} = goog.require('goog.dom');",
+            ""));
   }
 
   @Test

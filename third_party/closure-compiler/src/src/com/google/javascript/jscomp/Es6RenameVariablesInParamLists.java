@@ -28,8 +28,6 @@ import java.util.Set;
 /**
  * Renames declarations and references in function bodies to avoid shadowing
  * names referenced in the parameter list, in default values or computed properties.
- *
- * @author moz@google.com (Michael Zhou)
  */
 public final class Es6RenameVariablesInParamLists extends AbstractPostOrderCallback
     implements HotSwapCompilerPass {
@@ -68,7 +66,7 @@ public final class Es6RenameVariablesInParamLists extends AbstractPostOrderCallb
     });
 
     Node block = paramList.getNext();
-    Es6SyntacticScopeCreator creator = new Es6SyntacticScopeCreator(compiler);
+    SyntacticScopeCreator creator = new SyntacticScopeCreator(compiler);
     Scope fScope = creator.createScope(n, t.getScope());
     Scope fBlockScope = creator.createScope(block, fScope);
     Table<Node, String, String> renameTable = HashBasedTable.create();
@@ -81,7 +79,7 @@ public final class Es6RenameVariablesInParamLists extends AbstractPostOrderCallb
       }
     }
     new NodeTraversal(
-            compiler, new Es6RenameReferences(renameTable), new Es6SyntacticScopeCreator(compiler))
+            compiler, new Es6RenameReferences(renameTable), new SyntacticScopeCreator(compiler))
         .traverseInnerNode(block, block.getParent(), fScope);
   }
 

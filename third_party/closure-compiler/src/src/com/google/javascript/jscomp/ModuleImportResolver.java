@@ -16,17 +16,18 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.javascript.jscomp.deps.ModuleNames;
 import com.google.javascript.jscomp.modules.Binding;
 import com.google.javascript.jscomp.modules.Export;
 import com.google.javascript.jscomp.modules.Module;
 import com.google.javascript.jscomp.modules.ModuleMap;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
@@ -47,8 +48,9 @@ final class ModuleImportResolver {
   private final JSTypeRegistry registry;
 
   private static final String GOOG = "goog";
-  private static final ImmutableSet<String> googDependencyCalls =
+  private static final ImmutableSet<String> GOOG_DEPENDENCY_CALLS =
       ImmutableSet.of("require", "requireType", "forwardDeclare");
+  private static final QualifiedName GOOG_MODULE_GET = QualifiedName.of("goog.module.get");
 
   ModuleImportResolver(
       ModuleMap moduleMap, Function<Node, TypedScope> nodeToScopeMapper, JSTypeRegistry registry) {
@@ -57,9 +59,19 @@ final class ModuleImportResolver {
     this.registry = registry;
   }
 
-  /** Returns whether this is a CALL node for goog.require(Type) or goog.forwardDeclare */
+  /**
+   * Returns whether this is a CALL node for goog.require(Type), goog.forwardDeclare, or
+   * goog.module.get.
+   *
+   * <p>This method does not verify that the call is actually in a valid location. For example, this
+   * method does not verify that goog.require calls are at the top-level. That is left to the
+   * caller.
+   */
   static boolean isGoogModuleDependencyCall(Node value) {
-    if (value == null || !value.isCall()) {
+    if (value == null
+        || !value.isCall()
+        || !value.hasTwoChildren()
+        || !value.getSecondChild().isString()) {
       return false;
     }
     Node callee = value.getFirstChild();
@@ -68,9 +80,10 @@ final class ModuleImportResolver {
     }
     Node owner = callee.getFirstChild();
     Node property = callee.getSecondChild();
-    return owner.isName()
-        && owner.getString().equals(GOOG)
-        && googDependencyCalls.contains(property.getString());
+    return (owner.isName()
+            && owner.getString().equals(GOOG)
+            && GOOG_DEPENDENCY_CALLS.contains(property.getString()))
+        || GOOG_MODULE_GET.matches(callee);
   }
 
   /**
@@ -170,6 +183,7 @@ final class ModuleImportResolver {
       ScopedName export = getScopedNameFromEsBinding(binding);
       TypedScope modScope = nodeToScopeMapper.apply(export.getScopeRoot());
       if (modScope == null) {
+        checkState(binding.sourceNode().getString().equals(localName), binding.sourceNode());
         missingNames.put(binding.sourceNode(), export);
         continue;
       }
@@ -274,33 +288,32 @@ final class ModuleImportResolver {
 
   /** Returns the {@link Module} corresponding to this scope root, or null if not a module root. */
   @Nullable
-  Module getModuleFromScopeRoot(Node moduleBody) {
-    if (moduleBody.isModuleBody()) {
-      Node scriptNode = moduleBody.getParent();
-      if (scriptNode.getBooleanProp(Node.GOOG_MODULE)) {
-        Node googModuleCall = moduleBody.getFirstChild();
-        String namespace = googModuleCall.getFirstChild().getSecondChild().getString();
-        return moduleMap.getClosureModule(namespace);
-      } else {
-        String modulePath = ModuleNames.fileToModuleName(scriptNode.getSourceFileName());
-        Module module = moduleMap.getModule(modulePath);
-        // TODO(b/131418081): Also cover CommonJS modules.
-        checkState(
-            module.metadata().isEs6Module(),
-            "Typechecking of non-goog- and non-es-modules not supported");
-        return module;
-      }
-    } else if (isGoogLoadModuleBlock(moduleBody)) {
+  static Module getModuleFromScopeRoot(
+      ModuleMap moduleMap, CompilerInputProvider inputProvider, Node moduleBody) {
+    if (isGoogModuleBody(moduleBody)) {
       Node googModuleCall = moduleBody.getFirstChild();
       String namespace = googModuleCall.getFirstChild().getSecondChild().getString();
       return moduleMap.getClosureModule(namespace);
+    } else if (moduleBody.isModuleBody()) {
+      Node scriptNode = moduleBody.getParent();
+      CompilerInput input = checkNotNull(inputProvider.getInput(scriptNode.getInputId()));
+      Module module = moduleMap.getModule(input.getPath());
+      // TODO(b/131418081): Also cover CommonJS modules.
+      checkState(
+          module.metadata().isEs6Module(),
+          "Typechecking of non-goog- and non-es-modules not supported");
+      return module;
     }
     return null;
   }
 
-  private static boolean isGoogLoadModuleBlock(Node scopeRoot) {
-    return scopeRoot.isBlock()
-        && scopeRoot.getParent().isFunction()
-        && NodeUtil.isBundledGoogModuleCall(scopeRoot.getGrandparent());
+  private static boolean isGoogModuleBody(Node moduleBody) {
+    if (moduleBody.isModuleBody()) {
+      return moduleBody.getParent().getBooleanProp(Node.GOOG_MODULE);
+    } else if (moduleBody.isBlock()) {
+      return moduleBody.getParent().isFunction()
+          && NodeUtil.isBundledGoogModuleCall(moduleBody.getGrandparent());
+    }
+    return false;
   }
 }

@@ -334,6 +334,11 @@ public final class CheckJsDocTest extends CompilerTestCase {
   }
 
   @Test
+  public void testAbstract_class_withSymbolNamedMethod() {
+    testSame("/** @abstract */ class Foo { /** @abstract */ [Symbol.iterator]() {} }");
+  }
+
+  @Test
   public void testAbstract_defineClass() {
     testSame("/** @abstract */ goog.defineClass(null, { constructor: function() {} });");
     testSame("/** @abstract */ var Foo = goog.defineClass(null, { constructor: function() {} });");
@@ -790,31 +795,29 @@ public final class CheckJsDocTest extends CompilerTestCase {
         lines(
             "export class C { /** @template T \n @param {T} a\n @param {T} b \n */ ",
             "constructor(a,b){} }"));
+    testSame("export /** @template T */ function f(/** T */ a) {}");
   }
 
   @Test
-  public void testBadTemplate1() {
+  public void testGoodTemplate_constructorDefinition() {
+    testSame(
+        lines(
+            "x.y.z = goog.defineClass(null, {",
+            "  /** @template T */ constructor: function() {}",
+            "});"));
+  }
+
+  @Test
+  public void testGoodTemplate_FunctionDefinition() {
+    testSame("/** @template T */ function f() {}");
+    testSame("/** @template T */ var f = function() {};");
+    testSame("/** @template T */ Foo.prototype.f = function() {};");
+    testSame("/** @template T */ function f(/** T */ a) {}");
+  }
+
+  @Test
+  public void testBadTemplate_functionInvocation() {
     testBadTemplate("/** @template T */ foo();");
-  }
-
-  @Test
-  public void testBadTemplate2() {
-    testBadTemplate(lines(
-        "x.y.z = goog.defineClass(null, {",
-        "  /** @template T */ constructor: function() {}",
-        "});"));
-  }
-
-  @Test
-  public void testBadTemplate3() {
-    testBadTemplate("/** @template T */ function f() {}");
-    testBadTemplate("/** @template T */ var f = function() {};");
-    testBadTemplate("/** @template T */ Foo.prototype.f = function() {};");
-  }
-
-  @Test
-  public void testBadTemplate_withES6Modules() {
-    testBadTemplate("export /** @template T */ function f() {}");
   }
 
   @Test
@@ -970,6 +973,11 @@ public final class CheckJsDocTest extends CompilerTestCase {
     testWarning("/** @suppress {uselessCode} */ goog.require('unused.Class');", MISPLACED_SUPPRESS);
     testWarning("const {/** @suppress {duplicate} */ Foo} = foo();", MISPLACED_SUPPRESS);
     testWarning("foo(/** @suppress {duplicate} */ ns.x = 7);", MISPLACED_SUPPRESS);
+
+    testSame("/** @suppress {visibility} */ a.x_ = 0;");
+    testSame("/** @suppress {visibility} */ a.x_ += 0;");
+    testSame("/** @suppress {visibility} */ a.x_ *= 0;");
+    testSame("/** @suppress {visibility} */ a.x_ /= 0;");
   }
 
   @Test

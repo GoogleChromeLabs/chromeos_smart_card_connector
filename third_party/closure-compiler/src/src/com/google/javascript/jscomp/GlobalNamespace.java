@@ -18,27 +18,31 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.Streams.stream;
-import static com.google.javascript.rhino.jstype.JSTypeNative.GLOBAL_THIS;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.base.MoreObjects;
+import com.google.common.collect.HashBasedTable;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.common.collect.Table;
 import com.google.javascript.jscomp.CodingConvention.SubclassRelationship;
+import com.google.javascript.jscomp.modules.ModuleMap;
+import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
+import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
+import com.google.javascript.rhino.StaticRef;
+import com.google.javascript.rhino.StaticScope;
+import com.google.javascript.rhino.StaticSlot;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.StaticSymbolTable;
-import com.google.javascript.rhino.jstype.JSType;
-import com.google.javascript.rhino.jstype.StaticTypedRef;
-import com.google.javascript.rhino.jstype.StaticTypedScope;
-import com.google.javascript.rhino.jstype.StaticTypedSlot;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -47,20 +51,31 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * Builds a global namespace of all the objects and their properties in the global scope. Also
- * builds an index of all the references to those names.
+ * Builds a namespace of all qualified names whose root is in the global scope or a module, plus an
+ * index of all references to those global names.
  *
- * @author nicksantos@google.com (Nick Santos)
+ * <p>When used as a StaticScope this class acts like a single parentless global scope. The module
+ * references are currently only accessible by {@link #getNameFromModule(ModuleMetadata, String)},
+ * as many use cases only care about global names. (This may change as module rewriting is moved
+ * later in compilation). Module tracking also only occurs when {@link
+ * com.google.javascript.jscomp.modules.ModuleMapCreator} has run.
+ *
+ * <p>The namespace can be updated as the AST is changed. Removing names or references should be
+ * done by the methods on Name. Adding new names should be done with {@link #scanNewNodes}.
  */
 class GlobalNamespace
-    implements StaticTypedScope, StaticSymbolTable<GlobalNamespace.Name, GlobalNamespace.Ref> {
+    implements StaticScope, StaticSymbolTable<GlobalNamespace.Name, GlobalNamespace.Ref> {
 
   private final AbstractCompiler compiler;
+  private final boolean enableImplicityAliasedValues;
   private final Node root;
   private final Node externsRoot;
+  private final Node globalRoot = IR.root();
+  private final LinkedHashMap<Node, Boolean> spreadSiblingCache = new LinkedHashMap<>();
   private SourceKind sourceKind;
   private Scope externsScope;
   private boolean generated = false;
+  private static final QualifiedName GOOG_PROVIDE = QualifiedName.of("goog.provide");
 
   enum SourceKind {
     EXTERN,
@@ -90,6 +105,9 @@ class GlobalNamespace
   /** Maps names (e.g. "a.b.c") to nodes in the global namespace tree */
   private final Map<String, Name> nameMap = new HashMap<>();
 
+  /** Maps names (e.g. "a.b.c") and MODULE_BODY nodes to Names in that module */
+  private final Table<ModuleMetadata, String, Name> nameMapByModule = HashBasedTable.create();
+
   /**
    * Creates an instance that may emit warnings when building the namespace.
    *
@@ -114,6 +132,7 @@ class GlobalNamespace
     this.compiler = compiler;
     this.externsRoot = externsRoot;
     this.root = root;
+    this.enableImplicityAliasedValues = compiler.getOptions().getAssumeStaticInheritanceRequired();
   }
 
   boolean hasExternsRoot() {
@@ -125,8 +144,28 @@ class GlobalNamespace
     return root.getParent();
   }
 
+  /**
+   * Returns the root node of the scope in which the root of a qualified name is declared, or null.
+   *
+   * @param name A variable name (e.g. "a")
+   * @param s The scope in which the name is referenced
+   * @return The root node of the scope in which this is defined, or null if this is undeclared.
+   */
+  private Node getRootNode(String name, Scope s) {
+    name = getTopVarName(name);
+    Var v = s.getVar(name);
+    if (v == null && externsScope != null) {
+      v = externsScope.getVar(name);
+    }
+    if (v == null) {
+      Name providedName = nameMap.get(name);
+      return providedName != null && providedName.isProvided ? globalRoot : null;
+    }
+    return v.isLocal() ? v.getScopeRoot() : globalRoot;
+  }
+
   @Override
-  public StaticTypedScope getParentScope() {
+  public StaticScope getParentScope() {
     return null;
   }
 
@@ -142,18 +181,13 @@ class GlobalNamespace
   }
 
   @Override
-  public JSType getTypeOfThis() {
-    return compiler.getTypeRegistry().getNativeObjectType(GLOBAL_THIS);
-  }
-
-  @Override
   public Iterable<Ref> getReferences(Name slot) {
     ensureGenerated();
     return Collections.unmodifiableCollection(slot.getRefs());
   }
 
   @Override
-  public StaticTypedScope getScope(Name slot) {
+  public StaticScope getScope(Name slot) {
     return this;
   }
 
@@ -271,18 +305,6 @@ class GlobalNamespace
   }
 
   /**
-   * Determines whether a name reference in a particular scope is a global name reference.
-   *
-   * @param name A variable or property name (e.g. "a" or "a.b.c.d")
-   * @param s The scope in which the name is referenced
-   * @return Whether the name reference is a global name reference
-   */
-  private boolean isGlobalNameReference(String name, Scope s) {
-    String topVarName = getTopVarName(name);
-    return isGlobalVarReference(topVarName, s);
-  }
-
-  /**
    * Gets the top variable name from a possibly namespaced name.
    *
    * @param name A variable or qualified property name (e.g. "a" or "a.b.c.d")
@@ -293,26 +315,58 @@ class GlobalNamespace
     return firstDotIndex == -1 ? name : name.substring(0, firstDotIndex);
   }
 
+  @Nullable
+  Name getNameFromModule(ModuleMetadata moduleMetadata, String name) {
+    checkNotNull(moduleMetadata);
+    checkNotNull(name);
+    ensureGenerated();
+    return nameMapByModule.get(moduleMetadata, name);
+  }
+
   /**
-   * Determines whether a variable name reference in a particular scope is a global variable
-   * reference.
+   * Returns whether a declaration node, inside an object-literal, has a following OBJECT_SPREAD
+   * sibling.
    *
-   * @param name A variable name (e.g. "a")
-   * @param s The scope in which the name is referenced
-   * @return Whether the name reference is a global variable reference
+   * <p>This check is implemented using a cache because otherwise it has aggregate {@code O(n^2)}
+   * performance in terms of the size of an OBJECTLIT. If each declaration checked each sibling
+   * independently, each sibling would be checked up-to once for each of it's preceeding siblings.
    */
-  private boolean isGlobalVarReference(String name, Scope s) {
-    Var v = s.getVar(name);
-    if (v == null && externsScope != null) {
-      v = externsScope.getVar(name);
+  private boolean declarationHasFollowingObjectSpreadSibling(Node declaration) {
+    checkState(declaration.getParent().isObjectLit(), declaration);
+
+    @Nullable Boolean cached = this.spreadSiblingCache.get(declaration);
+    if (cached != null) {
+      return cached;
     }
-    return v != null && !v.isLocal();
+
+    /**
+     * Iterate backward over all children of the object-literal, filling in the cache.
+     *
+     * <p>We iterate the entire literal because we expect to eventually need the result for each of
+     * them. Additionally, it makes the loop conditions simpler.
+     *
+     * <p>We use a loop rather than recursion to minimize stack depth. Large object-literals were
+     * the reason caching was added.
+     */
+    boolean toCache = false;
+    for (Node sibling = declaration.getParent().getLastChild();
+        sibling != null;
+        sibling = sibling.getPrevious()) {
+      if (sibling.isSpread()) {
+        toCache = true;
+      }
+      this.spreadSiblingCache.put(sibling, toCache);
+    }
+
+    return this.spreadSiblingCache.get(declaration);
   }
 
   // -------------------------------------------------------------------------
 
   /** Builds a tree representation of the global namespace. Omits prototypes. */
   private class BuildGlobalNamespace extends NodeTraversal.AbstractPreOrderCallback {
+    private Node curModuleRoot = null;
+    private ModuleMetadata curMetadata = null;
     /** Collect the references in pre-order. */
     @Override
     public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
@@ -327,10 +381,37 @@ class GlobalNamespace
           sourceKind = SourceKind.fromScriptNode(n);
         }
       }
+      if (n.isModuleBody() || NodeUtil.isBundledGoogModuleScopeRoot(n)) {
+        setupModuleMetadata(n);
+      } else if (n.isScript() || NodeUtil.isBundledGoogModuleCall(n)) {
+        curModuleRoot = null;
+        curMetadata = null;
+      }
 
       collect(t.getModule(), t.getScope(), n);
 
       return true;
+    }
+
+    /**
+     * Initializes the {@link ModuleMetadata} for a goog;.module or ES module
+     *
+     * @param moduleRoot either a MODULE_BODY or a goog.loadModule BLOCK.
+     */
+    private void setupModuleMetadata(Node moduleRoot) {
+      ModuleMap moduleMap = compiler.getModuleMap();
+      if (moduleMap == null) {
+        return;
+      }
+      curModuleRoot = moduleRoot;
+
+      curMetadata =
+          checkNotNull(
+              ModuleImportResolver.getModuleFromScopeRoot(moduleMap, compiler, moduleRoot)
+                  .metadata());
+      if (curMetadata.isGoogModule()) {
+        getOrCreateName("exports", curMetadata);
+      }
     }
 
     private void collect(JSModule module, Scope scope, Node n) {
@@ -338,7 +419,7 @@ class GlobalNamespace
 
       String name;
       boolean isSet = false;
-      Name.Type type = Name.Type.OTHER;
+      NameType type = NameType.OTHER;
 
       switch (n.getToken()) {
         case GETTER_DEF:
@@ -349,7 +430,7 @@ class GlobalNamespace
           }
           name = NodeUtil.getBestLValueName(n);
           isSet = true;
-          type = n.isMemberFunctionDef() ? Name.Type.FUNCTION : Name.Type.GET_SET;
+          type = n.isMemberFunctionDef() ? NameType.FUNCTION : NameType.GET_SET;
           break;
         case STRING_KEY:
           name = null;
@@ -371,7 +452,7 @@ class GlobalNamespace
             case CONST:
               isSet = true;
               Node rvalue = n.getFirstChild();
-              type = (rvalue == null) ? Name.Type.OTHER : getValueType(rvalue);
+              type = (rvalue == null) ? NameType.OTHER : getValueType(rvalue);
               break;
             case ASSIGN:
               if (parent.getFirstChild() == n) {
@@ -389,38 +470,40 @@ class GlobalNamespace
                 return;
               }
               isSet = true;
-              type = Name.Type.FUNCTION;
+              type = NameType.FUNCTION;
               break;
             case CATCH:
             case INC:
             case DEC:
               isSet = true;
-              type = Name.Type.OTHER;
+              type = NameType.OTHER;
               break;
             case CLASS:
               // The first child is the class name, and the second child is the superclass name.
               if (parent.getFirstChild() == n) {
                 isSet = true;
-                type = Name.Type.CLASS;
+                type = NameType.CLASS;
               }
               break;
             case STRING_KEY:
             case ARRAY_PATTERN:
             case DEFAULT_VALUE:
             case COMPUTED_PROP:
-            case REST:
+            case ITER_REST:
+            case OBJECT_REST:
               // This may be a set.
               if (NodeUtil.isLhsByDestructuring(n)) {
                 isSet = true;
-                type = Name.Type.OTHER;
+                type = NameType.OTHER;
               }
               break;
-            case SPREAD:
+            case ITER_SPREAD:
+            case OBJECT_SPREAD:
               break; // isSet = false, type = OTHER.
             default:
               if (NodeUtil.isAssignmentOp(parent) && parent.getFirstChild() == n) {
                 isSet = true;
-                type = Name.Type.OTHER;
+                type = NameType.OTHER;
               }
           }
           name = n.getString();
@@ -438,19 +521,19 @@ class GlobalNamespace
                   type = getValueType(n.getNext());
                 }
                 break;
-              case INC:
-              case DEC:
-                break;
               case GETPROP:
                 // This is nested in another getprop. Return and only create a Ref for the outermost
                 // getprop in the chain.
                 return;
-              case SPREAD:
+              case INC:
+              case DEC:
+              case ITER_SPREAD:
+              case OBJECT_SPREAD:
                 break; // isSet = false, type = OTHER.
               default:
                 if (NodeUtil.isAssignmentOp(parent) && parent.getFirstChild() == n) {
                   isSet = true;
-                  type = Name.Type.OTHER;
+                  type = NameType.OTHER;
                 }
             }
           }
@@ -462,8 +545,16 @@ class GlobalNamespace
         case CALL:
           if (isObjectHasOwnPropertyCall(n)) {
             String qname = n.getFirstFirstChild().getQualifiedName();
-            Name globalName = getOrCreateName(qname);
+            Name globalName = getOrCreateName(qname, curMetadata);
             globalName.usedHasOwnProperty = true;
+          } else if (parent.isExprResult()
+              && GOOG_PROVIDE.matches(n.getFirstChild())
+              && n.getSecondChild().isString()) {
+            // goog.provide goes through a different code path than regular sets because it can
+            // create multiple names, e.g. `goog.provide('a.b.c');` creates the global names
+            // a, a.b, and a.b.c. Other sets only create a single global name.
+            createNamesFromProvide(n.getSecondChild().getString());
+            return;
           }
           return;
         default:
@@ -474,23 +565,68 @@ class GlobalNamespace
         return;
       }
 
-      // We are only interested in global names.
-      if (!isGlobalNameReference(name, scope)) {
+      Node root = getRootNode(name, scope);
+      // We are only interested in global and module names.
+      if (!isTopLevelScopeRoot(root)) {
         return;
       }
 
+      ModuleMetadata nameMetadata = root == globalRoot ? null : curMetadata;
       if (isSet) {
         // Use the closest hoist scope to select handleSetFromGlobal or handleSetFromLocal
         // because they use the term 'global' in an ES5, pre-block-scoping sense.
         Scope hoistScope = scope.getClosestHoistScope();
-        if (hoistScope.isGlobal()) {
-          handleSetFromGlobal(module, scope, n, parent, name, type);
+        // Consider a set to be 'global' if it is in the hoist scope in which the name is defined.
+        // For example, a global name set in a module scope is a 'local' set, but a module-level
+        // name set in a module scope is a 'global' set.
+        if (hoistScope.isGlobal()
+            || (root != globalRoot && hoistScope.getRootNode() == curModuleRoot)) {
+          handleSetFromGlobal(module, scope, n, parent, name, type, nameMetadata);
         } else {
-          handleSetFromLocal(module, scope, n, parent, name);
+          handleSetFromLocal(module, scope, n, parent, name, nameMetadata);
         }
       } else {
-        handleGet(module, scope, n, parent, name);
+        handleGet(module, scope, n, parent, name, nameMetadata);
       }
+    }
+
+    /** Declares all subnamespaces from `goog.provide('some.long.namespace')` globally. */
+    private void createNamesFromProvide(String namespace) {
+      Name name;
+      int dot = 0;
+
+      while (dot >= 0) {
+        dot = namespace.indexOf('.', dot + 1);
+        String subNamespace = dot < 0 ? namespace : namespace.substring(0, dot);
+        checkState(!subNamespace.isEmpty());
+        name = getOrCreateName(subNamespace, null);
+        name.isProvided = true;
+      }
+
+      Name newName = getOrCreateName(namespace, null);
+      newName.isProvided = true;
+    }
+
+    /**
+     * Whether the given name root represents a global or module-level name
+     *
+     * <p>This method will return false for functions and blocks and true for module bodies and the
+     * {@code globalRoot}. The one exception is if the function or block is from a goog.loadModule
+     * argument, as those functions/blocks are treated as module roots.
+     */
+    private boolean isTopLevelScopeRoot(Node root) {
+      if (root == null) {
+        return false;
+      } else if (root == globalRoot) {
+        return true;
+      } else if (root == curModuleRoot) {
+        return true;
+      }
+      // Given
+      //   goog.loadModule(function(exports) {
+      // pretend that assignments to `exports` or `exports.x = ...` are scoped to the function body,
+      // although `exports` is really in the enclosing function parameter scope.
+      return curModuleRoot != null && curModuleRoot.isBlock() && root == curModuleRoot.getParent();
     }
 
     /**
@@ -525,20 +661,20 @@ class GlobalNamespace
      * Gets the type of a value or simple expression.
      *
      * @param n An r-value in an assignment or variable declaration (not null)
-     * @return A {@link Name.Type}
+     * @return A {@link NameType}
      */
-    Name.Type getValueType(Node n) {
+    NameType getValueType(Node n) {
       // Shorthand assignment of extended object literal
       if (n == null) {
-        return Name.Type.OTHER;
+        return NameType.OTHER;
       }
       switch (n.getToken()) {
         case CLASS:
-          return Name.Type.CLASS;
+          return NameType.CLASS;
         case OBJECTLIT:
-          return Name.Type.OBJECTLIT;
+          return NameType.OBJECTLIT;
         case FUNCTION:
-          return Name.Type.FUNCTION;
+          return NameType.FUNCTION;
         case OR:
           // Recurse on the second value. If the first value were an object
           // literal or function, then the OR would be meaningless and the
@@ -549,8 +685,8 @@ class GlobalNamespace
         case HOOK:
           // The same line of reasoning used for the OR case applies here.
           Node second = n.getSecondChild();
-          Name.Type t = getValueType(second);
-          if (t != Name.Type.OTHER) {
+          NameType t = getValueType(second);
+          if (t != NameType.OTHER) {
             return t;
           }
           Node third = second.getNext();
@@ -558,7 +694,7 @@ class GlobalNamespace
         default:
           break;
       }
-      return Name.Type.OTHER;
+      return NameType.OTHER;
     }
 
     /**
@@ -574,12 +710,18 @@ class GlobalNamespace
      * @param type The type of the value that the name is being assigned
      */
     void handleSetFromGlobal(
-        JSModule module, Scope scope, Node n, Node parent, String name, Name.Type type) {
-      if (maybeHandlePrototypePrefix(module, scope, n, parent, name)) {
+        JSModule module,
+        Scope scope,
+        Node n,
+        Node parent,
+        String name,
+        NameType type,
+        ModuleMetadata metadata) {
+      if (maybeHandlePrototypePrefix(module, scope, n, parent, name, metadata)) {
         return;
       }
 
-      Name nameObj = getOrCreateName(name);
+      Name nameObj = getOrCreateName(name, metadata);
       if (!nameObj.isGetOrSetDefinition()) {
         // Don't change the type of a getter or setter. This is because given:
         //   var a = {set b(item) {}}; a.b = class {};
@@ -666,12 +808,13 @@ class GlobalNamespace
      * @param parent {@code n}'s parent
      * @param name The global name (e.g. "a" or "a.b.c.d")
      */
-    void handleSetFromLocal(JSModule module, Scope scope, Node n, Node parent, String name) {
-      if (maybeHandlePrototypePrefix(module, scope, n, parent, name)) {
+    void handleSetFromLocal(
+        JSModule module, Scope scope, Node n, Node parent, String name, ModuleMetadata metadata) {
+      if (maybeHandlePrototypePrefix(module, scope, n, parent, name, metadata)) {
         return;
       }
 
-      Name nameObj = getOrCreateName(name);
+      Name nameObj = getOrCreateName(name, metadata);
       if (n.getBooleanProp(Node.MODULE_EXPORT)) {
         nameObj.isModuleProp = true;
       }
@@ -693,8 +836,9 @@ class GlobalNamespace
      * @param parent {@code n}'s parent
      * @param name The global name (e.g. "a" or "a.b.c.d")
      */
-    void handleGet(JSModule module, Scope scope, Node n, Node parent, String name) {
-      if (maybeHandlePrototypePrefix(module, scope, n, parent, name)) {
+    void handleGet(
+        JSModule module, Scope scope, Node n, Node parent, String name, ModuleMetadata metadata) {
+      if (maybeHandlePrototypePrefix(module, scope, n, parent, name, metadata)) {
         return;
       }
 
@@ -749,10 +893,6 @@ class GlobalNamespace
           // This node is the superclass in an extends clause.
           type = Ref.Type.SUBCLASSING_GET;
           break;
-        case OBJECT_PATTERN: // Handle STRING_KEYS in object patterns.
-        case SPREAD:
-          type = Ref.Type.ALIASING_GET;
-          break;
         case DESTRUCTURING_LHS:
         case ASSIGN:
           Node lhs = n.getPrevious();
@@ -768,19 +908,9 @@ class GlobalNamespace
               // The rhs of an assign or a name declaration is escaped if it's assigned to a name
               // directly ...
             case ARRAY_PATTERN:
-              // ... or referenced through numeric keys.
-              type = Ref.Type.ALIASING_GET;
-              break;
             case OBJECT_PATTERN:
-              type =
-                  // Nested patterns don't affect the type of the top-level reference. REST is
-                  // always the last child of a pattern.
-                  lhs.hasChildren() && lhs.getLastChild().isRest()
-                      // ... or through a rest.
-                      ? Ref.Type.ALIASING_GET
-                      // It's a 'direct get' if it's actually destructured, since we know what
-                      // properties are accessed.
-                      : Ref.Type.DIRECT_GET;
+              // ... or referenced through numeric/object keys.
+              type = Ref.Type.ALIASING_GET;
               break;
             default:
               throw new IllegalStateException(
@@ -788,12 +918,15 @@ class GlobalNamespace
           }
 
           break;
+        case OBJECT_PATTERN: // Handle STRING_KEYS in object patterns.
+        case ITER_SPREAD:
+        case OBJECT_SPREAD:
         default:
           type = Ref.Type.ALIASING_GET;
           break;
       }
 
-      handleGet(module, scope, n, parent, name, type);
+      handleGet(module, scope, n, parent, name, type, metadata);
     }
 
     /**
@@ -806,8 +939,15 @@ class GlobalNamespace
      * @param name The global name (e.g. "a" or "a.b.c.d")
      * @param type The reference type
      */
-    void handleGet(JSModule module, Scope scope, Node n, Node parent, String name, Ref.Type type) {
-      Name nameObj = getOrCreateName(name);
+    void handleGet(
+        JSModule module,
+        Scope scope,
+        Node n,
+        Node parent,
+        String name,
+        Ref.Type type,
+        ModuleMetadata metadata) {
+      Name nameObj = getOrCreateName(name, metadata);
 
       // No need to look up additional ancestors, since they won't be used.
       addOrConfirmRef(nameObj, n, type, module, scope);
@@ -941,7 +1081,7 @@ class GlobalNamespace
      * @return Whether the name was handled
      */
     boolean maybeHandlePrototypePrefix(
-        JSModule module, Scope scope, Node n, Node parent, String name) {
+        JSModule module, Scope scope, Node n, Node parent, String name, ModuleMetadata metadata) {
       // We use a string-based approach instead of inspecting the parse tree
       // to avoid complexities with object literals, possibly nested, beneath
       // assignments.
@@ -976,7 +1116,7 @@ class GlobalNamespace
         n = n.getFirstChild();
       }
 
-      handleGet(module, scope, n, parent, prefix, Ref.Type.PROTOTYPE_GET);
+      handleGet(module, scope, n, parent, prefix, Ref.Type.PROTOTYPE_GET, metadata);
       return true;
     }
 
@@ -997,19 +1137,28 @@ class GlobalNamespace
      * @param name A global name (e.g. "a", "a.b.c.d")
      * @return The {@link Name} instance for {@code name}
      */
-    Name getOrCreateName(String name) {
-      Name node = nameMap.get(name);
+    Name getOrCreateName(String name, ModuleMetadata metadata) {
+      Name node = metadata == null ? nameMap.get(name) : nameMapByModule.get(metadata, name);
       if (node == null) {
         int i = name.lastIndexOf('.');
         if (i >= 0) {
           String parentName = name.substring(0, i);
-          Name parent = getOrCreateName(parentName);
+          Name parent = getOrCreateName(parentName, metadata);
           node = parent.addProperty(name.substring(i + 1), sourceKind);
+          if (metadata == null) {
+            nameMap.put(name, node);
+          } else {
+            nameMapByModule.put(metadata, name, node);
+          }
         } else {
           node = new Name(name, null, sourceKind);
-          globalNames.add(node);
+          if (metadata == null) {
+            globalNames.add(node);
+            nameMap.put(name, node);
+          } else {
+            nameMapByModule.put(metadata, name, node);
+          }
         }
-        nameMap.put(name, node);
       }
       return node;
     }
@@ -1017,20 +1166,53 @@ class GlobalNamespace
 
   // -------------------------------------------------------------------------
 
+  @VisibleForTesting
+  Name createNameForTesting(String name) {
+    return new Name(name, null, SourceKind.CODE);
+  }
+
+  private enum NameType {
+    CLASS, // class C {}
+    OBJECTLIT, // var x = {};
+    FUNCTION, // function f() {}
+    SUBCLASSING_GET, // class C extends SuperClass {
+    GET_SET, // a getter, setter, or both; e.g. `obj.b` in `const obj = {set b(x) {}};`
+    OTHER; // anything else, including `var x = 1;`, var x = new Something();`, etc.
+  }
+
   /**
-   * A name defined in global scope (e.g. "a" or "a.b.c.d"). These form a tree. As the parse tree
+   * How much to inline a {@link Name}.
+   *
+   * <p>The {@link INLINE_BUT_KEEP_DECLARATION} case is really an indicator that something 'unsafe'
+   * is happening in order to not break CollapseProperties as badly. Sadly {@link INLINE_COMPLETELY}
+   * may <em>also</em> be unsafe.
+   */
+  enum Inlinability {
+    INLINE_COMPLETELY,
+    INLINE_BUT_KEEP_DECLARATION,
+    DO_NOT_INLINE;
+
+    boolean shouldInlineUsages() {
+      return this != DO_NOT_INLINE;
+    }
+
+    boolean shouldRemoveDeclaration() {
+      return this == INLINE_COMPLETELY;
+    }
+
+    boolean canCollapse() {
+      return this != DO_NOT_INLINE;
+    }
+  }
+
+  /**
+   * A name defined in global scope (e.g. "a" or "a.b.c.d").
+   *
+   * <p>Instances form a tree describing the "Closure namespaces" in the program. As the parse tree
    * traversal proceeds, we'll discover that some names correspond to JavaScript objects whose
    * properties we should consider collapsing.
    */
-  static final class Name implements StaticTypedSlot {
-    private enum Type {
-      CLASS, // class C {}
-      OBJECTLIT, // var x = {};
-      FUNCTION, // function f() {}
-      SUBCLASSING_GET, // class C extends SuperClass {
-      GET_SET, // a getter, setter, or both; e.g. `obj.b` in `const obj = {set b(x) {}};`
-      OTHER; // anything else, including `var x = 1;`, var x = new Something();`, etc.
-    }
+  final class Name implements StaticSlot {
 
     private final String baseName;
     private final Name parent;
@@ -1046,13 +1228,11 @@ class GlobalNamespace
     /** Keep track of which Nodes are Refs for this Name */
     private final Map<Node, ImmutableList<Ref>> refsForNodeMap = new HashMap<>();
 
-    /** All Es6 subclasses of a name that is an Es6 class. Must be null if not an ES6 class. */
-    @Nullable List<Name> subclasses;
-
-    private Type type; // not final to handle forward references to names
+    private NameType type; // not final to handle forward references to names
     private boolean declaredType = false;
     private boolean isDeclared = false;
     private boolean isModuleProp = false;
+    private boolean isProvided = false; // If this name was in any goog.provide() calls.
     private boolean usedHasOwnProperty = false;
     private int globalSets = 0;
     private int localSets = 0;
@@ -1061,7 +1241,7 @@ class GlobalNamespace
     private int totalGets = 0;
     private int callGets = 0;
     private int deleteProps = 0;
-    int subclassingGets = 0;
+    private int subclassingGets = 0;
     private final SourceKind sourceKind;
 
     // Will be set to the JSDocInfo associated with the first SET_FROM_GLOBAL reference added
@@ -1078,14 +1258,10 @@ class GlobalNamespace
     // X.numberProp;
     @Nullable private JSDocInfo firstQnameDeclarationWithoutAssignmentJsDocInfo = null;
 
-    static Name createForTesting(String name) {
-      return new Name(name, null, SourceKind.CODE);
-    }
-
     private Name(String name, Name parent, SourceKind sourceKind) {
       this.baseName = name;
       this.parent = parent;
-      this.type = Type.OTHER;
+      this.type = NameType.OTHER;
       this.sourceKind = sourceKind;
     }
 
@@ -1110,6 +1286,10 @@ class GlobalNamespace
       return this.sourceKind;
     }
 
+    int subclassingGetCount() {
+      return this.subclassingGets;
+    }
+
     @Override
     public String getName() {
       return getFullName();
@@ -1125,26 +1305,16 @@ class GlobalNamespace
       return declaration;
     }
 
-    @Override
-    public boolean isTypeInferred() {
-      return false;
-    }
-
-    @Override
-    public JSType getType() {
-      return null;
-    }
-
     boolean isFunction() {
-      return this.type == Type.FUNCTION;
+      return this.type == NameType.FUNCTION;
     }
 
     boolean isClass() {
-      return this.type == Type.CLASS;
+      return this.type == NameType.CLASS;
     }
 
     boolean isObjectLiteral() {
-      return this.type == Type.OBJECTLIT;
+      return this.type == NameType.OBJECTLIT;
     }
 
     int getAliasingGets() {
@@ -1180,7 +1350,7 @@ class GlobalNamespace
     }
 
     @Override
-    public StaticTypedScope getScope() {
+    public StaticScope getScope() {
       throw new UnsupportedOperationException();
     }
 
@@ -1547,29 +1717,6 @@ class GlobalNamespace
     }
 
     /**
-     * How much to inline a variable The INLINE_BUT_KEEP_DECLARATION case is really an indicator
-     * that something 'unsafe' is happening in order to not break CollapseProperties as badly. Sadly
-     * INLINE_COMPLETELY may /also/ be unsafe.
-     */
-    enum Inlinability {
-      INLINE_COMPLETELY,
-      INLINE_BUT_KEEP_DECLARATION,
-      DO_NOT_INLINE;
-
-      boolean shouldInlineUsages() {
-        return this != DO_NOT_INLINE;
-      }
-
-      boolean shouldRemoveDeclaration() {
-        return this == INLINE_COMPLETELY;
-      }
-
-      boolean canCollapse() {
-        return this != DO_NOT_INLINE;
-      }
-    }
-
-    /**
      * Returns whether to treat this alias as completely inlinable or to keep the aliasing
      * assignment
      *
@@ -1673,11 +1820,17 @@ class GlobalNamespace
 
       if (getDeclaration() != null) {
         Node declaration = getDeclaration().getNode();
-        if (declaration.getParent().isObjectLit()
-            && stream(declaration.siblings()).anyMatch(Node::isSpread)) {
-          // Case: `var x = {a: 0, ...b, c: 2}` where declaration is `a` but not `c`.
-          // Following spreads may overwrite the declaration.
-          return Inlinability.DO_NOT_INLINE;
+        if (declaration.getParent().isObjectLit()) {
+          if (declarationHasFollowingObjectSpreadSibling(declaration)) {
+            // Case: `var x = {a: 0, ...b, c: 2}` where declaration is `a` but not `c`.
+            // Following spreads may overwrite the declaration.
+            return Inlinability.DO_NOT_INLINE;
+          }
+          Node grandparent = declaration.getGrandparent();
+          if (grandparent.isOr() || grandparent.isHook()) {
+            // Case: `var x = y || {a: b}` or `var x = cond ? y : {a: b}`.
+            return Inlinability.DO_NOT_INLINE;
+          }
         }
       }
 
@@ -1768,7 +1921,7 @@ class GlobalNamespace
     }
 
     boolean isGetOrSetDefinition() {
-      return this.type == Type.GET_SET;
+      return this.type == NameType.GET_SET;
     }
 
     boolean canCollapseUnannotatedChildNames() {
@@ -1789,6 +1942,8 @@ class GlobalNamespace
      *   c) one or more of the above conditions applies to a parent name
      *   d) it's annotated @nocollapse
      *   e) it's in the externs.
+     *   f) it's assigned a value that supports being aliased (e.g. ctors, so their static
+     *      properties can be accessed via `this`)
      * </pre>
      *
      * <p>However, in some cases for properties of `@constructor` or `@enum` names, we ignore some
@@ -1796,7 +1951,7 @@ class GlobalNamespace
      * goog.provide namespace chains.
      */
     private Inlinability canCollapseOrInlineChildNames() {
-      if (type == Type.OTHER
+      if (type == NameType.OTHER
           || isGetOrSetDefinition()
           || globalSets != 1
           || localSets != 0
@@ -1825,6 +1980,11 @@ class GlobalNamespace
 
       if (usedHasOwnProperty) {
         // condition (b)
+        return Inlinability.DO_NOT_INLINE;
+      }
+
+      if (valueImplicitlySupportsAliasing()) {
+        // condition (f)
         return Inlinability.DO_NOT_INLINE;
       }
 
@@ -1861,9 +2021,29 @@ class GlobalNamespace
       return parentInlinability;
     }
 
+    private boolean valueImplicitlySupportsAliasing() {
+      if (!GlobalNamespace.this.enableImplicityAliasedValues) {
+        return false;
+      }
+
+      switch (type) {
+        case CLASS:
+          // Properties on classes may be referenced via `this` in static methods.
+          return true;
+        case FUNCTION:
+          // We want ES5 ctors/interfaces to behave consistently with ES6 because:
+          // - transpilation should not change behaviour
+          // - updating code shouldn't be hindered by behaviour changes
+          @Nullable JSDocInfo jsdoc = getJSDocInfo();
+          return jsdoc != null && jsdoc.isConstructorOrInterface();
+        default:
+          return false;
+      }
+    }
+
     /** Whether this is an object literal that needs to keep its keys. */
     boolean shouldKeepKeys() {
-      return type == Type.OBJECTLIT && (aliasingGets > 0 || isCollapsingExplicitlyDenied());
+      return type == NameType.OBJECTLIT && (aliasingGets > 0 || isCollapsingExplicitlyDenied());
     }
 
     boolean needsToBeStubbed() {
@@ -1903,7 +2083,7 @@ class GlobalNamespace
      * namespaces.
      */
     boolean isNamespaceObjectLit() {
-      return isDeclared && type == Type.OBJECTLIT;
+      return isDeclared && type == NameType.OBJECTLIT;
     }
 
     /** Determines whether this is a simple name (as opposed to a qualified name). */
@@ -1939,7 +2119,7 @@ class GlobalNamespace
     }
 
     /** Tries to get the doc info for a given declaration ref. */
-    private static JSDocInfo getDocInfoForDeclaration(Ref ref) {
+    private JSDocInfo getDocInfoForDeclaration(Ref ref) {
       if (ref.node != null) {
         Node refParent = ref.node.getParent();
         if (refParent == null) {
@@ -1991,13 +2171,16 @@ class GlobalNamespace
    * A global name reference. Contains references to the relevant parse tree node and its ancestors
    * that may be affected.
    */
-  static class Ref implements StaticTypedRef {
+  static class Ref implements StaticRef {
 
     // Note: we are more aggressive about collapsing @enum and @constructor
     // declarations than implied here, see Name#canCollapse
     enum Type {
-      /** Set in the global scope: a.b.c = 0; */
-      SET_FROM_GLOBAL,
+      /**
+       * Set in the scope in which a name is declared, either the global scope or a module scope:
+       * `a.b.c = 0;` or `goog.module('mod'); exports.Foo = class {};`
+       */
+      SET_FROM_GLOBAL, // TODO(lharker): rename this to explain it includes modules
 
       /** Set in a local scope: function f() { a.b.c = 0; } */
       SET_FROM_LOCAL,
@@ -2075,7 +2258,7 @@ class GlobalNamespace
     }
 
     @Override
-    public StaticTypedSlot getSymbol() {
+    public StaticSlot getSymbol() {
       return name;
     }
 

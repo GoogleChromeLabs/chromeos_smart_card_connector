@@ -22,12 +22,9 @@ import com.google.gwt.core.client.EntryPoint;
  * These two classes share a lot of code and thus producing one binary should save code over two.
  */
 final class CompilerMain implements EntryPoint {
-  private static final GwtRunner gwtRunner = new GwtRunner();
-  private static final JsfileParser jsFileParser = new JsfileParser();
-
   @Override
   public void onModuleLoad() {
-    gwtRunner.exportCompile();
-    jsFileParser.exportGjd();
+    JsRunnerMain.exportCompile();
+    JsfileParserMain.exportGjd();
   }
 }

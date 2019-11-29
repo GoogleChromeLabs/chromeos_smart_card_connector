@@ -17,7 +17,7 @@
 package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.CollapseProperties.NAMESPACE_REDEFINED_WARNING;
-import static com.google.javascript.jscomp.CollapseProperties.UNSAFE_NAMESPACE_WARNING;
+import static com.google.javascript.jscomp.CollapseProperties.PARTIAL_NAMESPACE_WARNING;
 import static com.google.javascript.jscomp.CollapseProperties.UNSAFE_THIS;
 
 import com.google.common.collect.ImmutableMap;
@@ -490,11 +490,13 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
     // a.b *is* safely collapsible, the Boolean logic should be smart enough to
     // only consider the right side of the && as aliasing.
     test(
-        "var a = {}; a.b = {}; /** @constructor */ a.b.c = function(){};"
-            + " a.b.z = 1; var d = a.b && a.b.c;",
-        "var a$b = {}; /** @constructor */ var a$b$c = function(){};"
-            + " a$b.z = 1; var d = a$b && a$b$c;",
-        warning(UNSAFE_NAMESPACE_WARNING));
+        lines(
+            "var a = {}; a.b = {}; /** @constructor */ a.b.c = function(){};",
+            " a.b.z = 1; var d = a.b && a.b.c;"),
+        lines(
+            "var a$b = {}; /** @constructor */ a$b.c = function(){};",
+            " a$b.z = 1; var d = a$b && a$b.c;"),
+        warning(PARTIAL_NAMESPACE_WARNING));
   }
 
   @Test
@@ -594,12 +596,12 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
   }
 
   @Test
-  public void testAliasCreatedForObjectDepth1_2() {
+  public void testDontCollapseAliasedNamespace_1() {
     testSame("var a = {b: 0}; f(a); a.b;");
   }
 
   @Test
-  public void testAliasCreatedForObjectDepth1_3() {
+  public void testDontCollapseAliasedNamespace_2() {
     testSame("var a = {b: 0}; new f(a); a.b;");
   }
 
@@ -692,13 +694,12 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
   }
 
   @Test
-  public void testAliasCreatedForEnumDepth2_3() {
-    test(
-        "var a = {}; var d = 1; d = a; /** @enum */ a.b = {c: 0};"
-            + "for (var p in a.b) { f(a.b[p]); }",
-        "var a = {}; var d = 1; d = a; var a$b$c = 0; /** @enum */ var a$b = {c: a$b$c};"
-            + "for (var p in a$b) { f(a$b[p]); }",
-        warning(UNSAFE_NAMESPACE_WARNING));
+  public void testDontCollapseEnumWhenParentNamespaceAliased() {
+    testSame(
+        lines(
+            "var a = {}; var d = 1; d = a; /** @enum */ a.b = {c: 0};",
+            "for (var p in a.b) { f(a.b[p]); }"),
+        PARTIAL_NAMESPACE_WARNING);
   }
 
   @Test
@@ -771,22 +772,40 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
 
   @Test
   public void testAliasCreatedForClassDepth1_2() {
-    test(
+    testSame(
         "var a = {}; /** @constructor */ a.b = function(){}; f(a); a.b;",
-        "var a = {}; /** @constructor */ var a$b = function(){}; f(a); a$b;",
-        warning(UNSAFE_NAMESPACE_WARNING));
+        PARTIAL_NAMESPACE_WARNING);
   }
 
   @Test
   public void testAliasCreatedForClassDepth1_3() {
-    test(
+    testSame(
         "var a = {}; /** @constructor */ a.b = function(){}; new f(a); a.b;",
-        "var a = {}; /** @constructor */ var a$b = function(){}; new f(a); a$b;",
-        warning(UNSAFE_NAMESPACE_WARNING));
+        PARTIAL_NAMESPACE_WARNING);
   }
 
   @Test
   public void testAliasCreatedForClassDepth2_1() {
+    test(
+        lines("var a = {};", "a.b = {};", "/** @constructor */", "a.b.c = function(){};", "a.b.c;"),
+        lines("/** @constructor */", "var a$b$c = function(){};", "a$b$c;"));
+
+    test(
+        lines(
+            "var a = {};", //
+            "a.b = {};",
+            " /** @constructor @nocollapse */",
+            " a.b.c = function(){}; ",
+            "a.b.c;"),
+        lines(
+            "var a$b = {};", //
+            "/** @constructor @nocollapse */",
+            "a$b.c = function(){};",
+            "a$b.c;"));
+  }
+
+  @Test
+  public void testDontCollapseClassIfParentNamespaceAliased() {
     test(
         lines(
             "var a = {};",
@@ -795,49 +814,31 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
             "a.b.c = function(){};",
             "var d = 1;",
             "d = a.b;",
-            "a.b.c != d.c;"),
+            "a.b.c == d.c;"),
         lines(
             "var a$b = {}; ",
             "/** @constructor */",
-            "var a$b$c = function(){};",
-            "var d = 1;",
-            "d = a$b;",
-            "a$b$c != d.c;"),
-        warning(UNSAFE_NAMESPACE_WARNING));
-
-    test(
-        lines(
-            "var a = {};",
-            "a.b = {};",
-            " /** @constructor @nocollapse */",
-            " a.b.c = function(){}; ",
-            "var d = 1;",
-            " d = a.b; ",
-            "a.b.c == d.c;"),
-        lines(
-            "var a$b = {};",
-            "/** @constructor @nocollapse */",
             "a$b.c = function(){};",
-            "var d = 1; ",
+            "var d = 1;",
             "d = a$b;",
             "a$b.c == d.c;"),
-        warning(UNSAFE_NAMESPACE_WARNING));
+        warning(PARTIAL_NAMESPACE_WARNING));
   }
 
   @Test
-  public void testAliasCreatedForClassDepth2_2() {
+  public void testDontCollapseIfParentNamespaceAliased2() {
     test(
         "var a = {}; a.b = {}; /** @constructor */ a.b.c = function(){}; f(a.b); a.b.c;",
-        "var a$b = {}; /** @constructor */ var a$b$c = function(){}; f(a$b); a$b$c;",
-        warning(UNSAFE_NAMESPACE_WARNING));
+        "var a$b = {}; /** @constructor */ a$b.c = function(){}; f(a$b); a$b.c;",
+        warning(PARTIAL_NAMESPACE_WARNING));
   }
 
   @Test
-  public void testAliasCreatedForClassDepth2_3() {
+  public void testDontCollapseIfParentNamespaceAliased3() {
     test(
         "var a = {}; a.b = {}; /** @constructor */ a.b.c = function(){}; new f(a.b); a.b.c;",
-        "var a$b = {}; /** @constructor */ var a$b$c = function(){}; new f(a$b); a$b$c;",
-        warning(UNSAFE_NAMESPACE_WARNING));
+        "var a$b = {}; /** @constructor */ a$b.c = function(){}; new f(a$b); a$b.c;",
+        warning(PARTIAL_NAMESPACE_WARNING));
   }
 
   @Test
@@ -1467,8 +1468,8 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
   public void testChainedAssignments7() {
     test(
         "var x = {}; a = x.y = {}; /** @constructor */ x.y.z = function() {};",
-        "var x$y; a = x$y = {}; /** @constructor */ var x$y$z = function() {};",
-        warning(UNSAFE_NAMESPACE_WARNING));
+        "var x$y; a = x$y = {}; /** @constructor */ x$y.z = function() {};",
+        warning(PARTIAL_NAMESPACE_WARNING));
   }
 
   @Test
@@ -1866,21 +1867,17 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
 
   @Test
   public void testIssue389() {
-    test("function alias() {}"
-    + "var dojo = {};"
-    + "dojo.gfx = {};"
-    + "dojo.declare = function() {};"
-    + "/** @constructor */"
-    + "dojo.gfx.Shape = function() {};"
-    + "dojo.gfx.Shape = dojo.declare('dojo.gfx.Shape');"
-    + "alias(dojo);", "function alias() {}"
-    + "var dojo = {};"
-    + "dojo.gfx = {};"
-    + "dojo.declare = function() {};"
-    + "/** @constructor */"
-    + "var dojo$gfx$Shape = function() {};"
-    + "dojo$gfx$Shape = dojo.declare('dojo.gfx.Shape');"
-    + "alias(dojo);", warning(UNSAFE_NAMESPACE_WARNING));
+    testSame(
+        lines(
+            "function alias() {}",
+            "var dojo = {};",
+            "dojo.gfx = {};",
+            "dojo.declare = function() {};",
+            "/** @constructor */",
+            "dojo.gfx.Shape = function() {};",
+            "dojo.gfx.Shape = dojo.declare('dojo.gfx.Shape');",
+            "alias(dojo);"),
+        PARTIAL_NAMESPACE_WARNING);
   }
 
   @Test
@@ -1898,23 +1895,18 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
 
   @Test
   public void testAliasedTopLevelEnum() {
-    test("function alias() {}"
-    + "var dojo = {};"
-    + "dojo.gfx = {};"
-    + "dojo.declare = function() {};"
-    + "/** @enum {number} */"
-    + "dojo.gfx.Shape = {SQUARE: 2};"
-    + "dojo.gfx.Shape = dojo.declare('dojo.gfx.Shape');"
-    + "alias(dojo);"
-    + "alias(dojo.gfx.Shape.SQUARE);", "function alias() {}"
-    + "var dojo = {};"
-    + "dojo.gfx = {};"
-    + "dojo.declare = function() {};"
-    + "/** @enum {number} */"
-    + "var dojo$gfx$Shape = {SQUARE: 2};"
-    + "dojo$gfx$Shape = dojo.declare('dojo.gfx.Shape');"
-    + "alias(dojo);"
-    + "alias(dojo$gfx$Shape.SQUARE);", warning(UNSAFE_NAMESPACE_WARNING));
+    testSame(
+        lines(
+            "function alias() {}",
+            "var dojo = {};",
+            "dojo.gfx = {};",
+            "dojo.declare = function() {};",
+            "/** @enum {number} */",
+            "dojo.gfx.Shape = {SQUARE: 2};",
+            "dojo.gfx.Shape = dojo.declare('dojo.gfx.Shape');",
+            "alias(dojo);",
+            "alias(dojo.gfx.Shape.SQUARE);"),
+        PARTIAL_NAMESPACE_WARNING);
   }
 
   @Test
@@ -2239,68 +2231,48 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
   }
 
   @Test
-  public void testCanCollapseSinglePropertyInObjectPattern() {
+  public void testDestructuredClassAlias() {
     test(
-        "const x = {y: 1}; const {y} = x; use(y);",
-        "var x$y = 1; const x = {}; const {} = x; const y = x$y; use(y);");
+        lines(
+            "const ns = {}",
+            "ns.Foo = class {};",
+            "ns.Foo.STR = '';",
+            "const {Foo} = ns;",
+            "foo(Foo.STR);",
+            ""),
+        lines(
+            "const ns = {}",
+            "ns.Foo = class {};",
+            "ns.Foo.STR = '';",
+            "const {Foo} = ns;",
+            "foo(Foo.STR);",
+            ""),
+        warning(PARTIAL_NAMESPACE_WARNING));
+  }
+
+  @Test
+  public void testCanCollapseSinglePropertyInObjectPattern() {
+    testSame("const x = {y: 1}; const {y} = x; use(y);");
   }
 
   @Test
   public void testCanCollapseSinglePropertyInObjectPatternWithDefaultValue() {
-    test(
-        "const x = {y: 1}; const {y = 0} = x; use(y);",
-        "var x$y = 1; const x = {}; const {} = x; const y = void 0 === x$y ? 0 : x$y; use(y);");
-  }
-
-  @Test
-  public void testCanCollapsePropertyInObjectPatternWithKeyBefore() {
-    test(
-        "let x = {y: 1, /** @nocollapse */ z: 2}; let {z, y} = x; use(y, z);",
-        "var x$y = 1; let x = {/** @nocollapse */ z: 2}; let {z} = x; let y = x$y; use(y, z);");
-  }
-
-  @Test
-  public void testCanCollapsePropertyInObjectPatternWithKeyAfter() {
-    test(
-        "let x = {y: 1, /** @nocollapse */ z: 2}; let {y, z=y} = x; use(y, z);",
-        "var x$y = 1; let x = {/** @nocollapse */ z: 2}; let y = x$y; let {z=y} = x; use(y, z);");
-  }
-
-  @Test
-  public void testCanCollapsePropertyInObjectPatternWithKeyBeforeAndAfter() {
-    test(
-        lines(
-            "let  foo = {bar: {y: 1}};", //
-            "let {x1, x2, y, z1, z2} =  foo.bar;",
-            "use(x1, x2, y, z1, z2);"),
-        lines(
-            "var foo$bar$y = 1;",
-            "var foo$bar = {};",
-            "let {x1, x2} = foo$bar;", // don't collapse x1 etc. because they're undefined
-            "let y = foo$bar$y;",
-            "let {z1, z2} = foo$bar;",
-            "use(x1, x2, y, z1, z2);"));
+    testSame("const x = {y: 1}; const {y = 0} = x; use(y);");
   }
 
   @Test
   public void testCannotCollapsePropertyInNestedObjectPattern() {
-    test(
-        "const x = {y: {z: 1}}; const {y: {z}} = x; use(z);",
-        "var x$y = {z: 1}; const x = {}; const {} = x; const {z} = x$y; use(z);");
+    testSame("const x = {y: {z: 1}}; const {y: {z}} = x; use(z);");
   }
 
   @Test
   public void testCanCollapseSinglePropertyInObjectPatternAssign() {
-    test(
-        "const x = {y: 1}; var y; ({y} = x); use(y);",
-        "var x$y = 1; const x = {}; var y; ({} = x, y = x$y); use(y);");
+    testSame("const x = {y: 1}; var y; ({y} = x); use(y);");
   }
 
   @Test
   public void testCanCollapseSinglePropertyInObjectPatternInForLoopClosure() {
-    test(
-        "const x = {y: 1}; for (const {y} = x; true;) { use(() => y); }",
-        "var x$y = 1; const x = {}; for (const {} = x, y = x$y; true;) { use(() => y); }");
+    testSame("const x = {y: 1}; for (const {y} = x; true;) { use(() => y); }");
   }
 
   @Test
@@ -2340,7 +2312,7 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
     // "a.b.c" is not aliased by the REST in this case.
     test(
         "var a = {b: {c: 0}}; var {d: {...d}} = a.b; use(a.b.c);", //
-        "var a$b$c = 0; var a$b = {}; var {d: {...d}} = a$b; use(a$b$c);");
+        "var a$b = {c: 0}; var {d: {...d}} = a$b; use(a$b.c);");
   }
 
   @Test
@@ -3235,5 +3207,60 @@ public final class CollapsePropertiesTest extends CompilerTestCase {
                 "    function() { return module$mod1.default;})")));
 
     test(inputs, expected);
+  }
+
+  @Test
+  public void testOrExpression() {
+    // left branch, read declared prop
+    testSame("var a = {b: 1} || x; var t = a.b;");
+
+    // left branch, read undeclared prop
+    testSame("var a = {b: 1} || x; var t = a.c;");
+
+    // left branch, write to declared prop
+    testSame("var a = {b: 1} || x; a.b = 2;");
+
+    // left branch, write to undeclared prop
+    // TODO(tjgq): Consider also collapsing a.c in this case.
+    testSame("var a = {b: 1} || x; a.c = 2;");
+
+    // right branch, read declared prop
+    testSame("var a = x || {b: 1}; var t = a.b;");
+
+    // right branch, read undeclared prop
+    testSame("var a = x || {b: 1}; var t = a.c;");
+
+    // right branch, write to declared prop
+    testSame("var a = x || {b: 1}; a.b = 2;");
+
+    // right branch, write to undeclared prop
+    test("var a = x || {b: 1}; a.c = 2;", "var a = x || {b: 1}; var a$c = 2;");
+  }
+
+  @Test
+  public void testTernaryExpression() {
+    // left branch, read declared prop
+    testSame("var a = p ? {b: 1} : x; var t = a.b;");
+
+    // left branch, read undeclared prop
+    testSame("var a = p ? {b: 1} : x; var t = a.c;");
+
+    // left branch, write to declared prop
+    testSame("var a = p ? {b: 1} : x; a.b = 2;");
+
+    // left branch, write to undeclared prop
+    test("var a = p ? {b: 1} : x; a.c = 2;", "var a = p ? {b: 1} : x; var a$c = 2;");
+
+    // right branch, read declared prop
+    testSame("var a = p ? x : {b: 1}; var t = a.b;");
+
+    // right branch, read undeclared prop
+    testSame("var a = p ? x : {b: 1}; var t = a.c;");
+
+    // right branch, write to declared prop
+    testSame("var a = p ? x : {b: 1}; a.b = 2;");
+
+    // right branch, write to undeclared prop
+    test("var a = p ? x : {b: 1}; a.c = 2;", "var a = p ? x : {b: 1}; var a$c = 2;");
   }
 }

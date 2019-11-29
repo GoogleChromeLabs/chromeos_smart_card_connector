@@ -22,11 +22,10 @@ import static com.google.javascript.rhino.jstype.JSTypeNative.ARRAY_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.BOOLEAN_OBJECT_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.BOOLEAN_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.CHECKED_UNKNOWN_TYPE;
-import static com.google.javascript.rhino.jstype.JSTypeNative.ITERABLE_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.I_TEMPLATE_ARRAY_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NULL_TYPE;
+import static com.google.javascript.rhino.jstype.JSTypeNative.NUMBER_OBJECT_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NUMBER_TYPE;
-import static com.google.javascript.rhino.jstype.JSTypeNative.NUMBER_VALUE_OR_OBJECT_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.STRING_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.UNKNOWN_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.VOID_TYPE;
@@ -52,11 +51,11 @@ import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
-import com.google.javascript.rhino.jstype.ModificationVisitor;
 import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.StaticTypedSlot;
 import com.google.javascript.rhino.jstype.TemplateType;
 import com.google.javascript.rhino.jstype.TemplateTypeMap;
+import com.google.javascript.rhino.jstype.TemplateTypeReplacer;
 import com.google.javascript.rhino.jstype.TemplatizedType;
 import com.google.javascript.rhino.jstype.UnionType;
 import java.util.ArrayList;
@@ -74,7 +73,6 @@ import javax.annotation.Nullable;
 /**
  * Type inference within a script node or a function body, using the data-flow
  * analysis framework.
- *
  */
 class TypeInference
     extends DataFlowAnalysis.BranchedForwardDataFlowAnalysis<Node, FlowScope> {
@@ -108,7 +106,7 @@ class TypeInference
       TypedScope syntacticScope,
       TypedScopeCreator scopeCreator,
       AssertionFunctionLookup assertionFunctionLookup) {
-    super(cfg, new LinkedFlowScope.FlowScopeJoinOp());
+    super(cfg, new LinkedFlowScope.FlowScopeJoinOp(compiler));
     this.compiler = compiler;
     this.registry = compiler.getTypeRegistry();
     this.reverseInterpreter = reverseInterpreter;
@@ -124,13 +122,13 @@ class TypeInference
 
     FlowScope entryScope =
         inferDeclarativelyUnboundVarsWithoutTypes(
-            LinkedFlowScope.createEntryLattice(syntacticScope));
+            LinkedFlowScope.createEntryLattice(compiler, syntacticScope));
 
     this.functionScope = inferParameters(entryScope);
 
     this.bottomScope =
         LinkedFlowScope.createEntryLattice(
-            TypedScope.createLatticeBottom(syntacticScope.getRootNode()));
+            compiler, TypedScope.createLatticeBottom(syntacticScope.getRootNode()));
   }
 
   @CheckReturnValue
@@ -359,11 +357,12 @@ class TypeInference
     // Inferred types of ES module imports/exports aren't knowable until after TypeInference runs.
     // First update the type of all imports in the scope, then do flow-sensitive inference, then
     // update the implicit '*exports*' object.
-    Module module = moduleImportResolver.getModuleFromScopeRoot(root);
+    Module module =
+        ModuleImportResolver.getModuleFromScopeRoot(compiler.getModuleMap(), compiler, root);
     TypedScope syntacticBlockScope = scopeCreator.createScope(root);
     if (module != null && module.metadata().isEs6Module()) {
       moduleImportResolver.declareEsModuleImports(
-          module, syntacticBlockScope, compiler.getInput(n.getInputId()));
+          module, syntacticBlockScope, compiler.getInput(NodeUtil.getInputId(n)));
     }
 
     // This logic is not specific to ES modules.
@@ -443,7 +442,8 @@ class TypeInference
               // for/of. The type of `item` is the type parameter of the Iterable type.
               JSType objType = getJSType(obj).autobox();
               // NOTE: this returns the UNKNOWN_TYPE if objType does not implement Iterable
-              JSType newType = objType.getInstantiatedTypeArgument(getNativeType(ITERABLE_TYPE));
+              TemplateType templateType = registry.getIterableTemplate();
+              JSType newType = objType.getTemplateTypeMap().getResolvedTemplateType(templateType);
 
               // Note that `item` can be an arbitrary LHS expression we need to check.
               if (item.isDestructuringPattern()) {
@@ -725,7 +725,8 @@ class TypeInference
         traverseSuper(n);
         break;
 
-      case SPREAD:
+      case ITER_SPREAD:
+      case OBJECT_SPREAD:
         // The spread itself has no type, but the expression it contains does and may affect
         // type inference.
         scope = traverseChildren(n, scope);
@@ -750,6 +751,11 @@ class TypeInference
             defaultExport.setType(getJSType(n.getOnlyChild()));
           }
         }
+        break;
+
+      case IMPORT_META:
+        // TODO(b/137797083): Set an appropriate type.
+        n.setJSType(unknownType);
         break;
 
       case ROOT:
@@ -1386,7 +1392,9 @@ class TypeInference
   /** Traverse each element of the array. */
   private FlowScope traverseArrayLiteral(Node n, FlowScope scope) {
     scope = traverseChildren(n, scope);
-    n.setJSType(getNativeType(ARRAY_TYPE));
+    n.setJSType(
+        registry.createTemplatizedType(
+            registry.getNativeObjectType(ARRAY_TYPE), getNativeType(UNKNOWN_TYPE)));
     return scope;
   }
 
@@ -1489,8 +1497,14 @@ class TypeInference
   }
 
   private boolean isAddedAsNumber(JSType type) {
-    return type.isSubtypeOf(registry.createUnionType(VOID_TYPE, NULL_TYPE,
-        NUMBER_VALUE_OR_OBJECT_TYPE, BOOLEAN_TYPE, BOOLEAN_OBJECT_TYPE));
+    return type.isSubtypeOf(
+        registry.createUnionType(
+            VOID_TYPE,
+            NULL_TYPE,
+            NUMBER_TYPE,
+            NUMBER_OBJECT_TYPE,
+            BOOLEAN_TYPE,
+            BOOLEAN_OBJECT_TYPE));
   }
 
   private FlowScope traverseHook(Node n, FlowScope scope) {
@@ -1532,10 +1546,10 @@ class TypeInference
     checkArgument(n.isCall() || n.isTaggedTemplateLit(), n);
     scope = traverseChildren(n, scope);
 
-    // Resolve goog.require, goog.requireType, and goog.forwardDeclare calls separately, as they
-    // are not normal functions.
+    // Resolve goog.{require,requireType,forwardDeclare,module.get} calls separately, as they are
+    // not normal functions.
     if (n.isCall()
-        && (n.getParent().isName() || n.getParent().isDestructuringLhs())
+        && !n.getParent().isExprResult() // Don't bother typing calls if the result is unused.
         && ModuleImportResolver.isGoogModuleDependencyCall(n)) {
       ScopedName name = moduleImportResolver.getClosureNamespaceTypeFromCall(n);
       if (name != null) {
@@ -1997,35 +2011,12 @@ class TypeInference
 
   private static void resolvedTemplateType(
       Map<TemplateType, JSType> map, TemplateType template, JSType resolved) {
-    JSType previous = map.get(template);
-    if (!resolved.isUnknownType()) {
-      if (previous == null) {
-        map.put(template, resolved);
-      } else {
-        JSType join = previous.getLeastSupertype(resolved);
-        map.put(template, join);
-      }
-    }
-  }
-
-  private static class TemplateTypeReplacer extends ModificationVisitor {
-    private final Map<TemplateType, JSType> replacements;
-    private final JSTypeRegistry registry;
-    boolean madeChanges = false;
-
-    TemplateTypeReplacer(
-        JSTypeRegistry registry, Map<TemplateType, JSType> replacements) {
-      super(registry, true);
-      this.registry = registry;
-      this.replacements = replacements;
+    if (resolved.isUnknownType()) {
+      return;
     }
 
-    @Override
-    public JSType caseTemplateType(TemplateType type) {
-      madeChanges = true;
-      JSType replacement = replacements.get(type);
-      return replacement != null ? replacement : registry.getNativeType(UNKNOWN_TYPE);
-    }
+    // Don't worry about checking bounds here. We'll validate them once they're all collected.
+    map.merge(template, resolved, (a, b) -> a.getLeastSupertype(b));
   }
 
   /**
@@ -2088,15 +2079,15 @@ class TypeInference
     }
 
     // Try to infer the template types
-    Map<TemplateType, JSType> rawInferrence = inferTemplateTypesFromParameters(fnType, n, scope);
+    Map<TemplateType, JSType> bindings = inferTemplateTypesFromParameters(fnType, n, scope);
     Map<TemplateType, JSType> inferred = Maps.newIdentityHashMap();
     for (TemplateType key : keys) {
-      JSType type = rawInferrence.get(key);
-      if (type == null) {
-        type = unknownType;
-      }
-      inferred.put(key, type);
+      inferred.put(key, bindings.getOrDefault(key, unknownType));
     }
+
+    // If the inferred type doesn't satisfy the template bound, swap to using the bound. This
+    // ensures errors will be reported in type-checking.
+    inferred.replaceAll((k, v) -> v.isSubtypeOf(k.getBound()) ? v : k.getBound());
 
     // Try to infer the template types using the type transformations
     Map<TemplateType, JSType> typeTransformations =
@@ -2107,7 +2098,7 @@ class TypeInference
 
     // Replace all template types. If we couldn't find a replacement, we
     // replace it with UNKNOWN.
-    TemplateTypeReplacer replacer = new TemplateTypeReplacer(registry, inferred);
+    TemplateTypeReplacer replacer = TemplateTypeReplacer.forInference(registry, inferred);
     Node callTarget = n.getFirstChild();
 
     FunctionType replacementFnType = fnType.visit(replacer).toMaybeFunctionType();
@@ -2115,7 +2106,7 @@ class TypeInference
     callTarget.setJSType(replacementFnType);
     n.setJSType(replacementFnType.getReturnType());
 
-    return replacer.madeChanges;
+    return replacer.hasMadeReplacement();
   }
 
   private FlowScope traverseNew(Node n, FlowScope scope) {
@@ -2125,36 +2116,48 @@ class TypeInference
     return traverseInstantiation(n, constructorType, scope);
   }
 
-  private FlowScope traverseInstantiation(Node n, JSType constructorType, FlowScope scope) {
-    JSType type = null;
-    if (constructorType != null) {
-      constructorType = constructorType.restrictByNotNullOrUndefined();
-      if (constructorType.isUnknownType()) {
-        type = unknownType;
-      } else {
-        FunctionType ct = constructorType.toMaybeFunctionType();
-        if (ct == null && constructorType instanceof FunctionType) {
-          // If constructorType is a NoObjectType, then toMaybeFunctionType will
-          // return null. But NoObjectType implements the FunctionType
-          // interface, precisely because it can validly construct objects.
-          ct = (FunctionType) constructorType;
-        }
-        if (ct != null && ct.isConstructor()) {
-          backwardsInferenceFromCallSite(n, ct, scope);
-
-          // If necessary, create a TemplatizedType wrapper around the instance
-          // type, based on the types of the constructor parameters.
-          ObjectType instanceType = ct.getInstanceType();
-          Map<TemplateType, JSType> inferredTypes = inferTemplateTypesFromParameters(ct, n, scope);
-          if (inferredTypes.isEmpty()) {
-            type = instanceType;
-          } else {
-            type = registry.createTemplatizedType(instanceType, inferredTypes);
-          }
-        }
-      }
+  private FlowScope traverseInstantiation(Node n, JSType ctorType, FlowScope scope) {
+    if (ctorType == null) {
+      n.setJSType(null);
+      return scope;
+    } else if (ctorType.isUnknownType()) {
+      n.setJSType(unknownType);
+      return scope;
     }
-    n.setJSType(type);
+
+    ctorType = ctorType.restrictByNotNullOrUndefined();
+
+    FunctionType ctorFnType = ctorType.toMaybeFunctionType();
+    if (ctorFnType == null && ctorType instanceof FunctionType) {
+      // If ctorType is a NoObjectType, then toMaybeFunctionType will
+      // return null. But NoObjectType implements the FunctionType
+      // interface, precisely because it can validly construct objects.
+      ctorFnType = (FunctionType) ctorType;
+    }
+
+    if (ctorFnType == null || !ctorFnType.isConstructor()) {
+      n.setJSType(null);
+      return scope;
+    }
+
+    // TODO(nickreid): This probably isn't the right thing to do based on the differences between
+    // the `this` parameter between CALL and NEW.
+    backwardsInferenceFromCallSite(n, ctorFnType, scope);
+
+    ObjectType instantiatedType = ctorFnType.getInstanceType();
+    if (ctorFnType == registry.getNativeType(JSTypeNative.OBJECT_FUNCTION_TYPE)) {
+      // TODO(b/138617950): Delete this case when `Object` and `Object<?, ?> are sparate.
+    } else if (ctorFnType.hasAnyTemplateTypes()) {
+      if (instantiatedType.isTemplatizedType()) {
+        instantiatedType = instantiatedType.toMaybeTemplatizedType().getRawType();
+      }
+      // If necessary, templatized the instance type based on the the constructor parameters.
+      Map<TemplateType, JSType> inferredTypes =
+          inferTemplateTypesFromParameters(ctorFnType, n, scope);
+      instantiatedType = registry.createTemplatizedType(instantiatedType, inferredTypes);
+    }
+
+    n.setJSType(instantiatedType);
     return scope;
   }
 

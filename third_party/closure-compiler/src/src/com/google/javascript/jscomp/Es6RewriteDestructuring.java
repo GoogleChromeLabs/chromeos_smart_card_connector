@@ -225,9 +225,8 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Ho
   private void pullDestructuringOutOfParams(Node paramList, Node function) {
     Node insertSpot = null;
     Node body = function.getLastChild();
-    int i = 0;
     Node next = null;
-    for (Node param = paramList.getFirstChild(); param != null; param = next, i++) {
+    for (Node param = paramList.getFirstChild(); param != null; param = next) {
       next = param.getNext();
       if (param.isDefaultValue()) {
         Node nameOrPattern = param.removeFirstChild();
@@ -481,7 +480,7 @@ public final class Es6RewriteDestructuring implements NodeTraversal.Callback, Ho
         }
         // TODO(b/116532470): see if casting this to a more specific type fixes disambiguation
         Node assignCall = astFactory.createCall(astFactory.createQName(scope, "Object.assign"));
-        assignCall.addChildToBack(astFactory.createEmptyObjectLit());
+        assignCall.addChildToBack(astFactory.createObjectLit());
         assignCall.addChildToBack(astFactory.createName(tempVarName, tempVarType));
 
         Node restTempDecl = IR.var(astFactory.createName(restTempVarName, tempVarType), assignCall);

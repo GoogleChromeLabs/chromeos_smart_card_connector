@@ -27,8 +27,6 @@ import java.util.List;
 
 /**
  * Pass factories and meta-data for native Compiler passes.
- *
- * @author nicksantos@google.com (Nick Santos)
  */
 public abstract class PassConfig {
 
@@ -138,9 +136,9 @@ public abstract class PassConfig {
       }
       graph.createNode(passName);
 
-      if (loopStart == null && !pass.isOneTimePass()) {
+      if (loopStart == null && pass.isRunInFixedPointLoop()) {
         loopStart = passName;
-      } else if (loopStart != null && pass.isOneTimePass()) {
+      } else if (loopStart != null && !pass.isRunInFixedPointLoop()) {
         graph.connect(lastPass, "loop", loopStart);
         loopStart = null;
       }

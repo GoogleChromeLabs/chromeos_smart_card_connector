@@ -123,16 +123,14 @@ public class AbstractVar<S extends AbstractScope<S, V>, V extends AbstractVar<S,
     return input == null || input.isExtern();
   }
 
-  /**
-   * Returns {@code true} if the variable is declared as a constant,
-   * based on the value reported by {@code NodeUtil}.
-   */
-  public final boolean isInferredConst() {
+  /** Returns {@code true} if the variable is declared or inferred to be a constant. */
+  public final boolean isDeclaredOrInferredConst() {
     if (nameNode == null) {
       return false;
     }
 
-    return nameNode.getBooleanProp(Node.IS_CONSTANT_VAR)
+    return nameNode.isDeclaredConstantVar()
+        || nameNode.isInferredConstantVar()
         || nameNode.getBooleanProp(Node.IS_CONSTANT_NAME);
   }
 
@@ -221,7 +219,7 @@ public class AbstractVar<S extends AbstractScope<S, V>, V extends AbstractVar<S,
       Token.IMPORT,
       Token.PARAM_LIST);
 
-  protected Token declarationType() {
+  final Token declarationType() {
     for (Node current = nameNode; current != null;
          current = current.getParent()) {
       if (DECLARATION_TYPES.contains(current.getToken())) {

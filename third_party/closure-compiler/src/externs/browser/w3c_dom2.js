@@ -87,9 +87,9 @@ Document.prototype.createTreeWalker = function(
 Document.prototype.getElementsByTagNameNS = function(namespace, name) {};
 
 /**
- * @param {Node} externalNode
- * @param {boolean} deep
- * @return {Node}
+ * @param {!Node} externalNode
+ * @param {boolean=} deep
+ * @return {!Node}
  * @see https://www.w3.org/TR/2000/CR-DOM-Level-2-20000510/core.html#Core-Document-importNode
  */
 Document.prototype.importNode = function(externalNode, deep) {};
@@ -249,29 +249,6 @@ HTMLDocument.prototype.cookie;
  * @override
  */
 HTMLDocument.prototype.open = function(opt_mimeType, opt_replace) {};
-
-/**
- * @return {undefined}
- * @see http://www.w3.org/TR/2000/CR-DOM-Level-2-20000510/html.html#ID-98948567
- * @override
- */
-HTMLDocument.prototype.close = function() {};
-
-/**
- * @param {!TrustedHTML|string} text
- * @return {undefined}
- * @see http://www.w3.org/TR/2000/CR-DOM-Level-2-20000510/html.html#ID-75233634
- * @override
- */
-HTMLDocument.prototype.write = function(text) {};
-
-/**
- * @param {!TrustedHTML|string} text
- * @return {undefined}
- * @see http://www.w3.org/TR/2000/CR-DOM-Level-2-20000510/html.html#ID-35318390
- * @override
- */
-HTMLDocument.prototype.writeln = function(text) {};
 
 /**
  * @param {string} elementName
@@ -726,7 +703,6 @@ function HTMLFormControlsCollection() {}
  * @see https://html.spec.whatwg.org/multipage/infrastructure.html#dom-htmlformcontrolscollection-nameditem
  * @nosideeffects
  * @override
- * @suppress {newCheckTypes}
  */
 HTMLFormControlsCollection.prototype.namedItem = function(name) {};
 

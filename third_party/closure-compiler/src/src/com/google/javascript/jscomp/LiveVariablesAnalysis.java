@@ -43,8 +43,6 @@ import javax.annotation.Nullable;
  * <p>Due to the possibility of inner functions and closures, certain "local" variables can escape
  * the function. These variables will be considered as global and they can be retrieved with {@link
  * #getEscapedLocals()}.
- *
- * @author simranarora@google.com (Simran Arora)
  */
 class LiveVariablesAnalysis
     extends DataFlowAnalysis<Node, LiveVariablesAnalysis.LiveVariableLattice> {
@@ -142,7 +140,7 @@ class LiveVariablesAnalysis
       Scope jsScope,
       @Nullable Scope jsScopeChild,
       AbstractCompiler compiler,
-      Es6SyntacticScopeCreator scopeCreator) {
+      SyntacticScopeCreator scopeCreator) {
     super(cfg, new LiveVariableJoinOp());
     checkState(jsScope.isFunctionScope(), jsScope);
 

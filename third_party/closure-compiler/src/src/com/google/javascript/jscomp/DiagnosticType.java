@@ -21,7 +21,6 @@ import java.text.MessageFormat;
 
 /**
  * The type of a compile or analysis error.
- *
  */
 public final class DiagnosticType
     implements Comparable<DiagnosticType>, Serializable {
@@ -106,8 +105,7 @@ public final class DiagnosticType
 
   @Override
   public boolean equals(Object type) {
-    return type instanceof DiagnosticType &&
-        ((DiagnosticType) type).key.equals(key);
+    return type instanceof DiagnosticType && ((DiagnosticType) type).key.equals(key);
   }
 
   @Override

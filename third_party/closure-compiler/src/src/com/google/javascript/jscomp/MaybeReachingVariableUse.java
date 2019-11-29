@@ -42,7 +42,6 @@ import java.util.Set;
  * the definition of {@code A} at {@code A = foo()} if at least one path from
  * the use node reaches that definition and it is the last definition before
  * the use on that path.
- *
  */
 class MaybeReachingVariableUse extends
     DataFlowAnalysis<Node, MaybeReachingVariableUse.ReachingUses> {
@@ -56,7 +55,7 @@ class MaybeReachingVariableUse extends
       ControlFlowGraph<Node> cfg,
       Scope jsScope,
       AbstractCompiler compiler,
-      Es6SyntacticScopeCreator scopeCreator) {
+      SyntacticScopeCreator scopeCreator) {
     super(cfg, new ReachingUsesJoinOp());
     this.escaped = new HashSet<>();
     this.allVarsInFn = new HashMap<>();

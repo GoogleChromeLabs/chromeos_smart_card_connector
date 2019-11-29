@@ -999,6 +999,24 @@ public final class CompilerTest {
   }
 
   @Test
+  public void testErrorLeveling_forFeaturesNotSupportedByPass_controlledByOptions() {
+    JSError error = JSError.make(PhaseOptimizer.FEATURES_NOT_SUPPORTED_BY_PASS, "");
+    CompilerOptions options = new CompilerOptions();
+    Compiler compiler = new Compiler();
+
+    compiler.initOptions(options);
+    assertThat(compiler.getErrorLevel(error)).isNull();
+
+    options.setSkipUnsupportedPasses(false);
+    compiler.initOptions(options);
+    assertThat(compiler.getErrorLevel(error)).isNull();
+
+    options.setSkipUnsupportedPasses(true);
+    compiler.initOptions(options);
+    assertThat(compiler.getErrorLevel(error)).isEqualTo(CheckLevel.WARNING);
+  }
+
+  @Test
   public void testExportSymbolReservesNamesForRenameVars() {
     Compiler compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
@@ -2373,7 +2391,8 @@ public final class CompilerTest {
     } catch (RuntimeException e) {
       assertThat(e)
           .hasMessageThat()
-          .isEqualTo("A weak module already exists but strong sources were found in it.");
+          .contains(
+              "Found these strong sources in the weak module:\n  weak_but_actually_strong.js");
     }
   }
 
@@ -2394,10 +2413,11 @@ public final class CompilerTest {
       compiler.initModules(ImmutableList.of(), ImmutableList.of(strong, weak), options);
       fail();
     } catch (RuntimeException e) {
-
       assertThat(e)
           .hasMessageThat()
-          .isEqualTo("A weak module already exists but weak sources were found in other modules.");
+          .contains(
+              "Found these weak sources in other modules:\n"
+                  + "  strong_but_actually_weak.js (in module m)");
     }
   }
 

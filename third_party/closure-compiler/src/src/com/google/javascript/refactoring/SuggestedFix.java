@@ -37,6 +37,7 @@ import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.NonJSDocComment;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.jstype.JSType;
 import java.util.Collection;
@@ -49,8 +50,6 @@ import javax.annotation.Nullable;
  * Object representing the fixes to apply to the source code to create the
  * refactoring CL. To create a class, use the {@link Builder} class and helper
  * functions.
- *
- * @author mknichel@google.com (Mark Knichel)
  */
 public final class SuggestedFix {
 
@@ -243,12 +242,7 @@ public final class SuggestedFix {
     }
 
     private Builder insertBefore(Node nodeToInsertBefore, String content, String sortKey) {
-      int startPosition = nodeToInsertBefore.getSourceOffset();
-      JSDocInfo jsDoc = NodeUtil.getBestJSDocInfo(nodeToInsertBefore);
-      // ClosureRewriteModule adds jsDOC everywhere.
-      if (jsDoc != null && jsDoc.getOriginalCommentString() != null) {
-        startPosition = jsDoc.getOriginalCommentPosition();
-      }
+      int startPosition = getStartPositionForNodeConsideringComments(nodeToInsertBefore);
       Preconditions.checkNotNull(nodeToInsertBefore.getSourceFileName(),
           "No source file name for node: %s", nodeToInsertBefore);
       replacements.put(
@@ -267,18 +261,16 @@ public final class SuggestedFix {
 
     /** Deletes a node and its contents from the source file. */
     private Builder delete(Node n, boolean deleteWhitespaceBefore) {
-      int startPosition = n.getSourceOffset();
-      int length;
-      if (n.getNext() != null && NodeUtil.getBestJSDocInfo(n.getNext()) == null) {
+      int startPosition = getStartPositionForNodeConsideringComments(n);
+      int startOffsetWithoutComments = n.getSourceOffset();
+      int length = (startOffsetWithoutComments - startPosition) + n.getLength();
+
+      if (n.getNext() != null
+          && NodeUtil.getBestJSDocInfo(n.getNext()) == null
+          && n.getNext().getNonJSDocComment() == null) {
         length = n.getNext().getSourceOffset() - startPosition;
-      } else {
-        length = n.getLength();
       }
-      JSDocInfo jsDoc = NodeUtil.getBestJSDocInfo(n);
-      if (jsDoc != null) {
-        length += (startPosition - jsDoc.getOriginalCommentPosition());
-        startPosition = jsDoc.getOriginalCommentPosition();
-      }
+
       // Variable declarations and string keys require special handling since the node doesn't
       // contain enough if it has a child. The NAME node in a var/let/const declaration doesn't
       // include its child in its length, and the code needs to know how to delete the commas.
@@ -287,7 +279,7 @@ public final class SuggestedFix {
       // so that it can be reused in other methods.
       if ((n.isName() && NodeUtil.isNameDeclaration(n.getParent())) || n.isStringKey()) {
         if (n.getNext() != null) {
-          length = n.getNext().getSourceOffset() - startPosition;
+          length = getStartPositionForNodeConsideringComments(n.getNext()) - startPosition;
         } else if (n.hasChildren()) {
           Node child = n.getFirstChild();
           length = (child.getSourceOffset() + child.getLength()) - startPosition;
@@ -393,14 +385,11 @@ public final class SuggestedFix {
     public Builder replaceRange(Node first, Node last, String newContent) {
       checkState(first.getParent() == last.getParent());
 
-      int start;
-      JSDocInfo jsdoc = NodeUtil.getBestJSDocInfo(first);
-      if (jsdoc == null) {
+      int start = getStartPositionForNodeConsideringComments(first);
+      if (start == 0) {
+        // if there are file-level comments at the top of the file, we do not wish to remove them
         start = first.getSourceOffset();
-      } else {
-        start = jsdoc.getOriginalCommentPosition();
       }
-
       int end = last.getSourceOffset() + last.getLength();
       int length = end - start;
       replacements.put(
@@ -504,7 +493,7 @@ public final class SuggestedFix {
       JSDocInfo jsDoc = NodeUtil.getBestJSDocInfo(n);
       if (jsDoc != null) {
         startPosition = jsDoc.getOriginalCommentPosition();
-        length = n.getSourceOffset() - jsDoc.getOriginalCommentPosition();
+        length = jsDoc.getOriginalCommentString().length();
       }
       replacements.put(
           n.getSourceFileName(), CodeReplacement.create(startPosition, length, newJsDoc));
@@ -575,13 +564,7 @@ public final class SuggestedFix {
             position == i, "The specified position must be less than the number of arguments.");
         startPosition = n.getSourceOffset() + n.getLength() - 1;
       } else {
-        JSDocInfo jsDoc = argument.getJSDocInfo();
-        if (jsDoc != null) {
-          // Remove any cast or associated JS Doc if it exists.
-          startPosition = jsDoc.getOriginalCommentPosition();
-        } else {
-          startPosition = argument.getSourceOffset();
-        }
+        startPosition = getStartPositionForNodeConsideringComments(argument);
       }
 
       String newContent = Joiner.on(", ").join(args);
@@ -630,18 +613,8 @@ public final class SuggestedFix {
           startOfArgumentToRemove = argument.getSourceOffset() + argument.getLength();
         } else if (i == position) {
           if (position == 0) {
-            startOfArgumentToRemove = argument.getSourceOffset();
-
-            // If we have a prefix jsdoc, back up further and remove that too.
-            JSDocInfo jsDoc = argument.getJSDocInfo();
-            if (jsDoc != null) {
-              int jsDocPosition = jsDoc.getOriginalCommentPosition();
-              if (jsDocPosition < startOfArgumentToRemove) {
-                startOfArgumentToRemove = jsDocPosition;
-              }
-            }
+            startOfArgumentToRemove = getStartPositionForNodeConsideringComments(argument);
           }
-
           endOfArgumentToRemove = argument.getSourceOffset() + argument.getLength();
         } else if (i > position) {
           if (position == 0) {
@@ -849,9 +822,11 @@ public final class SuggestedFix {
 
       for (Node child : script.children()) {
         if (NodeUtil.isNameDeclaration(child)
+            // TODO(b/139953612): respect destructured goog.requires
+            && !child.getFirstChild().isDestructuringLhs()
             && child.getFirstChild().getLastChild() != null
-            && Matchers.googRequire(namespace).matches(
-                child.getFirstChild().getLastChild(), metadata)) {
+            && Matchers.googRequire(namespace)
+                .matches(child.getFirstChild().getLastChild(), metadata)) {
           return child;
         }
       }
@@ -946,5 +921,22 @@ public final class SuggestedFix {
           && node.getFirstFirstChild() != null
           && Matchers.googRequire().matches(node.getFirstFirstChild(), metadata);
     }
+  }
+
+  /**
+   * Helper function to return the source offset of this node considering that JSDoc comments,
+   * non-JDDoc comments, or both may or may not be attached.
+   */
+  private static int getStartPositionForNodeConsideringComments(Node node) {
+    JSDocInfo jsdoc = NodeUtil.getBestJSDocInfo(node);
+    NonJSDocComment associatedNonJSDocComment = node.getNonJSDocComment();
+    int start = node.getSourceOffset();
+    if (jsdoc != null) {
+      start = jsdoc.getOriginalCommentPosition();
+    }
+    if (associatedNonJSDocComment != null) {
+      start = Math.min(start, associatedNonJSDocComment.getBeginOffset());
+    }
+    return start;
   }
 }

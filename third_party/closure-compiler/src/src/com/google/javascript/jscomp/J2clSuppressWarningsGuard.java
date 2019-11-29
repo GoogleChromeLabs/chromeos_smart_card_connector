@@ -36,6 +36,8 @@ public class J2clSuppressWarningsGuard extends DiagnosticGroupWarningsGuard {
           DiagnosticGroups.STRICT_MODULE_DEP_CHECK,
           DiagnosticGroups.SUSPICIOUS_CODE,
           DiagnosticGroups.UNUSED_LOCAL_VARIABLE,
+          // TODO(b/78521031): J2CL targets are not strict missing property compatible.
+          DiagnosticGroups.STRICT_MISSING_PROPERTIES,
           DiagnosticGroups.forName("transitionalSuspiciousCodeWarnings"));
 
   public J2clSuppressWarningsGuard() {
@@ -50,7 +52,8 @@ public class J2clSuppressWarningsGuard extends DiagnosticGroupWarningsGuard {
 
   @Override
   public CheckLevel level(JSError error) {
-    boolean isJ2clSource = error.sourceName != null && error.sourceName.endsWith(".java.js");
+    boolean isJ2clSource =
+        error.getSourceName() != null && error.getSourceName().endsWith(".java.js");
     return isJ2clSource ? super.level(error) /* suppress */ : null /* proceed */;
   }
 

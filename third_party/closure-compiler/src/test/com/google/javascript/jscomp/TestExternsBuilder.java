@@ -54,7 +54,7 @@ public class TestExternsBuilder {
           "",
           "/**",
           " * @interface",
-          " * @template VALUE",
+          " * @template VALUE, UNUSED_RETURN_T, UNUSED_NEXT_T",
           " */",
           "function Iterator() {}",
           "/**",
@@ -79,14 +79,14 @@ public class TestExternsBuilder {
           " * @interface",
           " * @extends {Iterator<VALUE>}",
           " * @extends {Iterable<VALUE>}",
-          " * @template VALUE",
+          " * @template VALUE, UNUSED_RETURN_T, UNUSED_NEXT_T",
           " */",
           "function IteratorIterable() {}",
           "",
           "/**",
           " * @interface",
           " * @extends {IteratorIterable<VALUE>}",
-          " * @template VALUE",
+          " * @template VALUE, UNUSED_RETURN_T, UNUSED_NEXT_T",
           " */",
           "function Generator() {}",
           "/**",
@@ -231,6 +231,9 @@ public class TestExternsBuilder {
           " */",
           "function IArrayLike() {};",
           "",
+          "/** @type {number} */",
+          "IArrayLike.prototype.length;",
+          "",
           "/**",
           " * @template T",
           " * @constructor",
@@ -246,6 +249,16 @@ public class TestExternsBuilder {
           " * @return {boolean}",
           " */",
           "Array.isArray = function(arr) {};",
+          "",
+          "/**",
+          " * @param {string|IArrayLike<T>|!Iterable<T>} arrayLike",
+          " * @param {function(this:S, (string|T), number): R=} mapFn",
+          " * @param {S=} thisObj",
+          " * @return {!Array<R>}",
+          " * @template T,S,R",
+          " */",
+          "Array.from = function(arrayLike, mapFn, thisObj) {}",
+          "",
           "/**",
           " * @param {...T} var_args",
           " * @return {number} The new length of the array.",
@@ -293,6 +306,9 @@ public class TestExternsBuilder {
           " * @template T",
           " */",
           "function Arguments() {}",
+          "",
+          "/** @type {number} */",
+          "Arguments.prototype.length;",
           "",
           "/** @type {!Arguments} */",
           "var arguments;",
@@ -456,7 +472,7 @@ public class TestExternsBuilder {
           "Symbol.asyncIterator;",
           "/**",
           " * @interface",
-          " * @template VALUE",
+          " * @template VALUE, UNUSED_RETURN_T, UNUSED_NEXT_T",
           " */",
           "function AsyncIterator() {}",
           "/**",
@@ -635,6 +651,11 @@ public class TestExternsBuilder {
     }
     externSections.addAll(extraExterns);
     return LINE_JOINER.join(externSections);
+  }
+
+  public SourceFile buildExternsFile(String filePath) {
+    String externsString = build();
+    return SourceFile.fromCode(filePath, externsString);
   }
 
   private static String lines(String... lines) {

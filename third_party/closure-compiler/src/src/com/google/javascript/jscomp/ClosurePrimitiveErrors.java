@@ -20,6 +20,16 @@ final class ClosurePrimitiveErrors {
 
   private ClosurePrimitiveErrors() {}
 
+  static final DiagnosticType DUPLICATE_MODULE =
+      DiagnosticType.error(
+          "JSC_DUPLICATE_MODULE",
+          "Duplicate module: {0}. Module already declared in other file {1}");
+
+  static final DiagnosticType DUPLICATE_NAMESPACE =
+      DiagnosticType.error(
+          "JSC_DUPLICATE_NAMESPACE",
+          "Duplicate namespace: {0}. Namespace already provided in other file {1}");
+
   static final DiagnosticType INVALID_DESTRUCTURING_FORWARD_DECLARE =
       DiagnosticType.error(
           "JSC_INVALID_DESTRUCTURING_FORWARD_DECLARE",
@@ -54,6 +64,11 @@ final class ClosurePrimitiveErrors {
   static final DiagnosticType MISSING_MODULE_OR_PROVIDE =
       DiagnosticType.error(
           "JSC_MISSING_MODULE_OR_PROVIDE", "Required namespace \"{0}\" never defined.");
+
+  static final DiagnosticType MISSING_MODULE_OR_PROVIDE_FOR_FORWARD_DECLARE =
+      DiagnosticType.error(
+          "JSC_MISSING_MODULE_OR_PROVIDE_FOR_FORWARD_DECLARE",
+          "Required namespace \"{0}\" never defined.");
 
   static final DiagnosticType INVALID_GET_CALL_SCOPE =
       DiagnosticType.error(

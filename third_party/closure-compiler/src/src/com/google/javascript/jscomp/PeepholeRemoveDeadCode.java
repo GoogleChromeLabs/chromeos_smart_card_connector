@@ -31,7 +31,6 @@ import javax.annotation.Nullable;
 /**
  * Peephole optimization to remove useless code such as IF's with false
  * guard conditions, comma operator left hand sides with no side effects, etc.
- *
  */
 class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
 
@@ -118,9 +117,38 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       case CONST:
       case LET:
         return tryOptimizeNameDeclaration(subtree);
+      case DEFAULT_VALUE:
+        return tryRemoveDefaultValue(subtree);
       default:
           return subtree;
     }
+  }
+
+  private Node tryRemoveDefaultValue(Node defaultValue) {
+    checkArgument(defaultValue.isDefaultValue(), defaultValue);
+
+    Node lValue = defaultValue.getFirstChild();
+    Node val = defaultValue.getSecondChild();
+    boolean removeVal = false;
+
+    // If the default is `undefined` always remove the value
+    if (val.isName() && val.getString().equals("undefined")) {
+      removeVal = true;
+    }
+
+    // If the `void` application is pure, remove the value
+    if (val.isVoid()) {
+      Node voidArg = val.getFirstChild();
+      removeVal = !mayHaveSideEffects(voidArg);
+    }
+
+    if (removeVal) {
+      defaultValue.replaceWith(lValue.detach());
+      reportChangeToEnclosingScope(lValue);
+      return lValue;
+    }
+
+    return defaultValue;
   }
 
   private Node tryFoldLabel(Node n) {
@@ -421,8 +449,20 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
    */
   private static Node asDetachedExpression(Node expr) {
     switch (expr.getToken()) {
-      case SPREAD:
-        expr = IR.arraylit(expr.detach()).srcref(expr);
+      case ITER_SPREAD:
+      case OBJECT_SPREAD:
+        switch (expr.getParent().getToken()) {
+          case ARRAYLIT:
+          case NEW:
+          case CALL:
+            expr = IR.arraylit(expr.detach()).srcref(expr);
+            break;
+          case OBJECTLIT:
+            expr = IR.objectlit(expr.detach()).srcref(expr);
+            break;
+          default:
+            throw new IllegalStateException(expr.toStringTree());
+        }
         break;
       default:
         break;
@@ -454,9 +494,10 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       case OR:
         return true;
       case ARRAYLIT:
-        // Make a special allowance for SPREADs so they remain in a legal context. Iterable SPREADs
-        // with other parent types are not fixed-point because ARRAYLIT is the tersest legal parent
-        // and is known to be side-effect free.
+      case OBJECTLIT:
+        // Make a special allowance for SPREADs so they remain in a legal context. Parent types
+        // other than ARRAYLIT and OBJECTLIT are not fixed-point because they are the tersest legal
+        // parents and are known to be side-effect free.
         return expr.isSpread();
       default:
         // Statments are always fixed-point parents. All other expressions are not.

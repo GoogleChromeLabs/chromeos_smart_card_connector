@@ -159,8 +159,10 @@ class TypeMismatch implements Serializable {
   private static JSType removeNullUndefinedAndTemplates(JSType t) {
     JSType result = t.restrictByNotNullOrUndefined();
     ObjectType obj = result.toMaybeObjectType();
-    if (obj != null && obj.isGenericObjectType()) {
-      return obj.instantiateGenericsWithUnknown();
+    if (obj != null && obj.isTemplatizedType()) {
+      // We don't care about the specific specalization involved in the mismatch because all
+      // specializations share the same JS code.
+      return obj.toMaybeTemplatizedType().getRawType();
     }
     return result;
   }

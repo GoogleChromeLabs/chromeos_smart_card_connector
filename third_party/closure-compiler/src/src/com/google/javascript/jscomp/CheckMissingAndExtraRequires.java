@@ -32,6 +32,7 @@ import com.google.javascript.rhino.Node;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -52,7 +53,6 @@ import javax.annotation.Nullable;
  *   <li>Type is not referenced at all → goog.require is forbidden (extraRequires check fails if it
  *       is there)
  * </ul>
- *
  */
 public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTraversal.Callback {
   private final AbstractCompiler compiler;
@@ -131,7 +131,7 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
   // Return true if the name is a class name (starts with an uppercase
   // character, but is not in all-caps).
   private static boolean isClassName(String name) {
-    return isClassOrConstantName(name) && !name.equals(name.toUpperCase());
+    return isClassOrConstantName(name) && !name.equals(name.toUpperCase(Locale.ROOT));
   }
 
   // Return true if the name looks like a class name or a constant name.
@@ -444,11 +444,12 @@ public class CheckMissingAndExtraRequires implements HotSwapCompilerPass, NodeTr
     } else if (parent.isDestructuringLhs() && parent.getFirstChild().isObjectPattern()) {
       if (parent.getFirstChild().hasChildren()) {
         for (Node stringKey : parent.getFirstChild().children()) {
-          if (stringKey.hasChildren()) {
-            visitRequire(stringKey.getFirstChild().getString(), stringKey.getFirstChild());
-          } else {
-            visitRequire(stringKey.getString(), stringKey);
+          Node importName = stringKey.getFirstChild();
+          if (!importName.isName()) {
+            // invalid reported elsewhere
+            continue;
           }
+          visitRequire(importName.getString(), importName);
         }
       } else {
         visitRequire(namespace, googRequireCall);

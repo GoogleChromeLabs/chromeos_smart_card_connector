@@ -20,7 +20,6 @@ import static com.google.javascript.rhino.jstype.JSTypeNative.ARRAY_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NO_OBJECT_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NULL_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NULL_VOID;
-import static com.google.javascript.rhino.jstype.JSTypeNative.NUMBER_STRING_BOOLEAN_SYMBOL;
 import static com.google.javascript.rhino.jstype.JSTypeNative.OBJECT_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.VOID_TYPE;
 
@@ -38,7 +37,6 @@ import javax.annotation.CheckReturnValue;
 /**
  * A reverse abstract interpreter (RAI) for specific closure patterns such as
  * {@code goog.isDef}.
- *
  */
 public final class ClosureReverseAbstractInterpreter
     extends ChainableReverseAbstractInterpreter {
@@ -65,18 +63,9 @@ public final class ClosureReverseAbstractInterpreter
         }
       };
 
-  /**
-   * For when {@code goog.isObject} returns false.
-   */
+  /** For when {@code goog.isObject} returns false. */
   private final Visitor<JSType> restrictToNotObjectVisitor =
       new RestrictByFalseTypeOfResultVisitor() {
-
-        @Override
-        public JSType caseAllType() {
-          return typeRegistry.createUnionType(
-              getNativeType(NUMBER_STRING_BOOLEAN_SYMBOL), getNativeType(NULL_VOID));
-        }
-
         @Override
         public JSType caseObjectType(ObjectType type) {
           return null;
@@ -99,7 +88,7 @@ public final class ClosureReverseAbstractInterpreter
                 "isDef",
                 p -> {
                   if (p.outcome) {
-                    return getRestrictedWithoutUndefined(p.type);
+                    return p.type != null ? p.type.restrictByNotUndefined() : null;
                   } else {
                     return p.type != null
                         ? getNativeType(VOID_TYPE).getGreatestSubtype(p.type)
@@ -114,14 +103,14 @@ public final class ClosureReverseAbstractInterpreter
                         ? getNativeType(NULL_TYPE).getGreatestSubtype(p.type)
                         : null;
                   } else {
-                    return getRestrictedWithoutNull(p.type);
+                    return p.type != null ? p.type.restrictByNotNull() : null;
                   }
                 })
             .put(
                 "isDefAndNotNull",
                 p -> {
                   if (p.outcome) {
-                    return getRestrictedWithoutUndefined(getRestrictedWithoutNull(p.type));
+                    return p.type != null ? p.type.restrictByNotNullOrUndefined() : null;
                   } else {
                     return p.type != null
                         ? getNativeType(NULL_VOID).getGreatestSubtype(p.type)

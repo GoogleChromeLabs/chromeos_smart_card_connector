@@ -17,7 +17,6 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.javascript.jscomp.PropertyRenamingDiagnostics.INVALIDATION;
-import static com.google.javascript.jscomp.PropertyRenamingDiagnostics.INVALIDATION_ON_TYPE;
 
 import com.google.common.collect.Multimap;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
@@ -1183,6 +1182,107 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "  }",
             "});");
     testSets(externs, js, result, "{bar_=[[Foo]]}");
+  }
+
+  @Test
+  public void testObjectLiteralDefinePropertiesComputed() {
+    String externs = "Object.defineProperties = function(typeRef, definitions) {}";
+
+    String js =
+        lines(
+            "/** @struct @constructor */ var Foo = function() {};",
+            "/** @type {?} */ Foo.prototype['bar'];",
+            "Object.defineProperties(Foo.prototype, {",
+            "  ['bar']: {",
+            "    configurable: true,",
+            "    enumerable: true,",
+            "    /** @this {Foo} */ get: function() {},",
+            "    /** @this {Foo} */ set: function(value) {}",
+            "  }",
+            "});");
+
+    String result =
+        lines(
+            "/** @struct @constructor */ var Foo = function() {};",
+            "/** @type {?} */ Foo.prototype['bar'];",
+            "Object.defineProperties(Foo.prototype, {",
+            "  ['bar']: {",
+            "    configurable: true,",
+            "    enumerable: true,",
+            "    /** @this {Foo} */ get: function() {},",
+            "    /** @this {Foo} */ set: function(value) {}",
+            "  }",
+            "});");
+    testSets(externs, js, result, "{}");
+  }
+
+  @Test
+  public void testObjectLiteralDefinePropertiesMemberFn() {
+    // NOTE: this is probably not code someone would write, but we don't want to crash on it.
+    String externs =
+        lines(
+            "Object.defineProperties = function(typeRef, definitions) {}",
+            "/** @constructor */ function FooBar() {}",
+            "/** @type {string} */ FooBar.prototype.bar;");
+
+    String js =
+        lines(
+            "/** @struct @constructor */ var Foo = function() {};",
+            "/** @type {?} */ Foo.prototype.bar;",
+            "Object.defineProperties(Foo.prototype, {",
+            "  bar() {}",
+            "});");
+
+    String result =
+        lines(
+            "/** @struct @constructor */ var Foo = function() {};",
+            "/** @type {?} */ Foo.prototype.Foo_prototype$bar;",
+            "Object.defineProperties(Foo.prototype, {",
+            "  Foo_prototype$bar() {}",
+            "});");
+    testSets(externs, js, result, "{bar=[[Foo.prototype]]}");
+  }
+
+  @Test
+  public void testObjectLiteralDefinePropertiesGetter() {
+    // NOTE: this is probably not code someone would write, but we don't want to crash on it.
+    String externs =
+        lines(
+            "Object.defineProperties = function(typeRef, definitions) {}",
+            "/** @constructor */ function FooBar() {}",
+            "/** @type {string} */ FooBar.prototype.bar;");
+
+    String js =
+        lines(
+            "/** @struct @constructor */ var Foo = function() {};",
+            "/** @type {?} */ Foo.prototype.bar;",
+            "Object.defineProperties(Foo.prototype, {",
+            "  get bar() {}",
+            "});");
+
+    String result =
+        lines(
+            "/** @struct @constructor */ var Foo = function() {};",
+            "/** @type {?} */ Foo.prototype.Foo_prototype$bar;",
+            "Object.defineProperties(Foo.prototype, {",
+            "  get Foo_prototype$bar() {}",
+            "});");
+    testSets(externs, js, result, "{bar=[[Foo.prototype]]}");
+  }
+
+  @Test
+  public void testObjectLiteralDefinePropertiesSpread() {
+    String externs =
+        lines("Object.defineProperties = function(typeRef, definitions) {}", "var props;");
+
+    String js =
+        lines(
+            "/** @struct @constructor */ var Foo = function() {};",
+            "Object.defineProperties(Foo.prototype, {",
+            "  ...props",
+            "});");
+
+    testSets(externs, js, js, "{}");
   }
 
   @Test
@@ -2602,31 +2702,6 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
   }
 
   @Test
-  public void testUnionTypeInvalidationError() {
-    String externs = lines(
-        "/** @constructor */ function Baz() {}",
-        "Baz.prototype.foobar");
-    String js = lines(
-        "/** @constructor */ function Ind() {this.foobar=0}",
-        "/** @constructor */ function Foo() {}",
-        "Foo.prototype.foobar = 0;",
-        "/** @constructor */ function Bar() {}",
-        "Bar.prototype.foobar = 0;",
-        "/** @type {Foo|Bar} */",
-        "var F = new Foo;",
-        "F.foobar = 1;",
-        "F = new Bar;",
-        "/** @type {Baz} */",
-        "var Z = new Baz;",
-        "Z.foobar = 1;\n");
-
-    test(
-        externs(DEFAULT_EXTERNS + externs),
-        srcs(js),
-        error(INVALIDATION_ON_TYPE).withMessageContaining("foobar"));
-  }
-
-  @Test
   public void testDontCrashOnNonConstructorsWithPrototype() {
     String externs = lines(
         "function f(x) { return x; }",
@@ -2639,20 +2714,23 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
   }
 
   @Test
-  public void testDontRenameStaticPropertiesOnBuiltins() {
+  public void testDontRenameStaticPropertiesOnExterns() {
     String externs = "Array.foobar = function() {};";
-
-    String js = lines(
-        "/** @constructor */",
-        "function Foo() {}",
-        "Foo.prototype.foobar = function() {};",
-        "var x = Array.foobar;");
 
     test(
         externs(DEFAULT_EXTERNS + externs),
-        srcs(js),
-        error(INVALIDATION_ON_TYPE)
-            .withMessageContaining("foobar"));
+        srcs(
+            lines(
+                "/** @constructor */",
+                "function Foo() {}",
+                "Foo.prototype.foobar = function() {};",
+                "var x = Array.foobar;")),
+        expected(
+            lines(
+                "/** @constructor */",
+                "function Foo() {}",
+                "Foo.prototype.Foo_prototype$foobar = function() {};",
+                "var x = Array.foobar;")));
   }
 
   @Test
@@ -2701,6 +2779,29 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
         "function f(ctor) {",
         "  if (ctor.abc) { return ctor.abc; }",
         "}");
+
+    testSame(js);
+  }
+
+  // TODO(b/142431852): Delete this test as obsolete.
+  @Test
+  public void testDontCrashWhenConstructingPrimitve() {
+    String js =
+        lines(
+            "/** @constructor */",
+            "function Foo() {",
+            "  this.abc = 123;",
+            "}",
+            "/**",
+            " * @template T",
+            " * @param {T} value",
+            " * @param {function(new:T)=} ctor",
+            " */",
+            "function f(value, ctor) {",
+            "  if (ctor.abc) { return ctor.abc; }",
+            "}",
+            // Bind `T` to `number` at this invocation.
+            "f(0);");
 
     testSame(js);
   }
@@ -3163,6 +3264,53 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
             "}",
             "Foo._typeof_Foo_$method();",
             "Bar._typeof_Bar_$method();"));
+  }
+
+  @Test
+  public void testCtors_areNotConflatedWithOtherTypes_viaTheirInstanceInterfaces() {
+    testSets(
+        lines(
+            // The property isn't on the interface; the interface just creates edges in the type
+            // lattice.
+            "/** @interface */",
+            "class Iface {}",
+            "",
+            "/** @implements {Iface} */",
+            "class InstanceFoo {",
+            "  method() {}",
+            "}",
+            "/** @implements {Iface} */",
+            "class StaticFoo {",
+            "  static method() {}",
+            "}",
+            "",
+            "new InstanceFoo().method();",
+            "StaticFoo.method();"),
+        "{method=[[(typeof StaticFoo)], [InstanceFoo.prototype]]}");
+
+    testSets(
+        lines(
+            // But also try it when the interface does include the property, just to be sure.
+            "/** @interface */",
+            "class Iface {",
+            "  method() { }",
+            "}",
+            "",
+            "/** @implements {Iface} */",
+            "class InstanceFoo {",
+            "  method() {}",
+            "}",
+            "/** @implements {Iface} */",
+            "class StaticFoo {",
+            "  static method() {}",
+            "",
+            "  method() {}", // For typechecking.
+            "}",
+            "",
+            "new InstanceFoo().method();",
+            "StaticFoo.method();"),
+        "{method=[[(typeof StaticFoo)], [Iface.prototype, InstanceFoo.prototype,"
+            + " StaticFoo.prototype]]}");
   }
 
   @Test
@@ -3672,6 +3820,82 @@ public final class DisambiguatePropertiesTest extends CompilerTestCase {
                 // because unknownName is of the unknown type '?', we can't disambiguate foobar
                 "const {foobar: someRandomName} = unknownName;")),
         error(INVALIDATION).withMessageContaining("someRandomName"));
+  }
+
+  @Test
+  public void testInvalidedTypes_withoutPropAccesses_invalidateTheirSupertypes() {
+    testSets(
+        lines(
+            "class SuperLeft { method() { } }",
+            "",
+            "class SubLeft extends SuperLeft { }",
+            "",
+            "",
+            "class SuperRight { method() { } }",
+            "",
+            "class SubRight extends SuperRight { }",
+            "",
+            "/**",
+            " * @suppress {checkTypes}",
+            " * @param {!SubLeft} x",
+            " * @return {!SubRight}",
+            " */",
+            "function f(x) {",
+            " return x;",
+            "}",
+            "",
+            "const /** !SuperRight */ y = f(new SubLeft())",
+            "y.method()"),
+        lines(
+            "class SuperLeft { SuperLeft_prototype$method() { } }",
+            "",
+            "class SubLeft extends SuperLeft { }",
+            "",
+            "",
+            "class SuperRight { SuperRight_prototype$method() { } }",
+            "",
+            "class SubRight extends SuperRight { }",
+            "",
+            "/**",
+            " * @suppress {checkTypes}",
+            " * @param {!SubLeft} x",
+            " * @return {!SubRight}",
+            " */",
+            "function f(x) {",
+            " return x;",
+            "}",
+            "",
+            "const /** !SuperRight */ y = f(new SubLeft())",
+            "y.SuperRight_prototype$method()"),
+        // TODO(b/135045845): Expect invalidation or
+        // "{method=[[SuperLeft.prototype, SuperRight.prototype]]}".
+        "{method=[[SuperLeft.prototype], [SuperRight.prototype]]}");
+  }
+
+  @Test
+  public void testStructuralMatches_againstSupertypesWithoutAProperty_invalidates() {
+    String js =
+        lines(
+            "class Super { }",
+            "",
+            "class Sub extends Super { method() { } }",
+            "",
+            // Notice how `Opt` is a structural supertype of `Super` (and `Sub`) but won't be used
+            // as the representative type of (`Sub`, "method").
+            "/** @record */",
+            "class Opt {",
+            "  constructor() {",
+            "    /** @type {!Function|undefined} */ this.method;",
+            "  }",
+            "}",
+            "",
+            "const /** !Super */ x = new Sub();",
+            "const /** !Opt */ y = x;",
+            "",
+            "y.method()");
+
+    // TODO(b/144063288): Expect "{method=[[Opt, Sub.prototype, Super]]}".
+    testSets(js, js, "{}");
   }
 
   private void testSets(String js, String expected, final String fieldTypes) {

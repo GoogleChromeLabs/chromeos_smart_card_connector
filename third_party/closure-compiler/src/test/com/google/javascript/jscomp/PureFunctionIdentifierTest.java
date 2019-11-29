@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import com.google.javascript.jscomp.AccessorSummary.PropertyAccessKind;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.testing.JSCompCorrespondences;
 import com.google.javascript.rhino.Node;
@@ -227,6 +228,7 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
     public void process(Node externs, Node root) {
       noSideEffectCalls = new ArrayList<>();
       localResultCalls = new ArrayList<>();
+      // TODO(nickreid): Move these into 'getOptions' and 'getCompiler' overrides.
       compiler.setHasRegExpGlobalReferences(regExpHaveSideEffects);
       compiler.getOptions().setUseTypesForLocalOptimization(true);
 
@@ -2719,29 +2721,51 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
   }
 
   @Test
-  public void testObjectSpread_leavesFunctionPure() {
-    // We assume that getters are pure, so getters on `a` aren't an issue.
-    //
-    // Spreading doesn't have any _direct_ side-effects; only using members of the extracted
-    // properties would.
-    assertPureCallsMarked(
+  public void testObjectSpread_hasSideEffects() {
+    // Object-spread may trigger a getter.
+    assertNoPureCalls(
         lines(
             "function foo(a) { ({...a}); }", //
-            "foo(x);"),
-        ImmutableList.of("foo"));
+            "foo(x);"));
   }
 
   @Test
-  public void testObjectRest_leavesFunctionPure() {
-    // We assume that getters are pure, so getters on `a` aren't an issue.
-    //
-    // Resting doesn't have any _direct_ side-effects; only using members of the extracted
-    // properties would.
-    assertPureCallsMarked(
+  public void testObjectRest_hasSideEffects() {
+    // Object-rest may trigger a getter.
+    assertNoPureCalls(
         lines(
             "function foo(a, b) { ({...b} = a); }", //
-            "foo(x, y);"),
-        ImmutableList.of("foo"));
+            "foo(x, y);"));
+    assertNoPureCalls(
+        lines(
+            "function foo({...b}) { }", //
+            "foo(x);"));
+  }
+
+  @Test
+  public void testGetterAccess_hasSideEffects() {
+    assertNoPureCalls(
+        lines(
+            "class Foo { get getter() { } }",
+            "",
+            "function foo(a) { a.getter; }", //
+            "foo(x);"));
+    assertNoPureCalls(
+        lines(
+            "class Foo { get getter() { } }",
+            "",
+            "function foo(a) { const {getter} = a; }", //
+            "foo(x);"));
+  }
+
+  @Test
+  public void testSetterAccess_hasSideEffects() {
+    assertNoPureCalls(
+        lines(
+            "class Foo { set setter(x) { } }",
+            "",
+            "function foo(a) { a.setter = 0; }", //
+            "foo(x);"));
   }
 
   @Test
@@ -2751,6 +2775,33 @@ public final class PureFunctionIdentifierTest extends CompilerTestCase {
             // We use an array-literal so that it's not just the iteration that's impure.
             "function foo() { for await (const t of []) { } }", //
             "foo();"));
+  }
+
+  @Test
+  public void testExistenceOfAGetter_makesPropertyNameImpure() {
+    declareAccessor("foo", PropertyAccessKind.GETTER_ONLY);
+
+    // Imagine the getter returned a function.
+    assertNoPureCalls(
+        lines(
+            "class Foo {", //
+            "  foo() {}",
+            "}",
+            "x.foo();"));
+  }
+
+  @Test
+  public void testExistenceOfASetter_makesPropertyNameImpure() {
+    declareAccessor("foo", PropertyAccessKind.SETTER_ONLY);
+
+    // This doesn't actually seem like a risk but it's hard to say, and other optimizations that use
+    // optimize calls would be dangerous on setters.
+    assertNoPureCalls(
+        lines(
+            "class Foo {", //
+            "  foo() {}",
+            "}",
+            "x.foo();"));
   }
 
   @Test

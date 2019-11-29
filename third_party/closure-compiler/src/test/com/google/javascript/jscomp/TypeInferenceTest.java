@@ -26,7 +26,6 @@ import static com.google.javascript.rhino.jstype.JSTypeNative.ALL_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.ARRAY_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.BOOLEAN_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.CHECKED_UNKNOWN_TYPE;
-import static com.google.javascript.rhino.jstype.JSTypeNative.FUNCTION_INSTANCE_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NO_RESOLVED_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NULL_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NUMBER_OBJECT_TYPE;
@@ -34,6 +33,7 @@ import static com.google.javascript.rhino.jstype.JSTypeNative.NUMBER_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.OBJECT_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.STRING_OBJECT_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.STRING_TYPE;
+import static com.google.javascript.rhino.jstype.JSTypeNative.U2U_CONSTRUCTOR_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.UNKNOWN_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.VOID_TYPE;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
@@ -683,13 +683,13 @@ public final class TypeInferenceTest {
   @Test
   public void testAssertFunction_narrowsAllTypeToFunction() {
     JSType startType = createNullableType(ALL_TYPE);
-    includeGoogAssertionFn("assertFunction", getNativeType(FUNCTION_INSTANCE_TYPE));
+    includeGoogAssertionFn("assertFunction", getNativeType(U2U_CONSTRUCTOR_TYPE));
     assuming("x", startType);
 
     inFunction("out1 = x; goog.asserts.assertFunction(x); out2 = x;");
 
     verify("out1", startType);
-    verifySubtypeOf("out2", FUNCTION_INSTANCE_TYPE);
+    verifySubtypeOf("out2", U2U_CONSTRUCTOR_TYPE);
   }
 
   @Test
@@ -1162,6 +1162,68 @@ public final class TypeInferenceTest {
         "var result = new F(x,y,z);");
 
     assertThat(getType("result").toString()).isEqualTo("F<(number|string),boolean>");
+  }
+
+  @Test
+  public void testNew4() {
+    inFunction(
+        lines(
+            "/**",
+            " * @constructor",
+            " * @param {!Array<T>} x",
+            " * @param {T} y",
+            " * @param {S} z",
+            " * @param {U} m",
+            " * @template T,S,U",
+            " */",
+            "function F(x,y,z,m) {}",
+            "var /** !Array<number> */ x = [];",
+            "var y = 'foo';",
+            "var z = true;",
+            "var m = 9;",
+            "var result = new F(x,y,z,m);"));
+
+    assertThat(getType("result").toString()).isEqualTo("F<(number|string),boolean,number>");
+  }
+
+  @Test
+  public void testNew_onCtor_instantiatingTemplatizedType_withNoTemplateInformation() {
+    inFunction(
+        lines(
+            "/**",
+            " * @constructor",
+            " * @template T",
+            " */",
+            "function Foo() {}",
+            "",
+            "var result = new Foo();"));
+
+    assertThat(getType("result").toString()).isEqualTo("Foo<?>");
+  }
+
+  @Test
+  public void testNew_onCtor_instantiatingTemplatizedType_specializedOnSecondaryTemplate() {
+    inFunction(
+        lines(
+            "/**",
+            " * @constructor",
+            " * @template T",
+            " */",
+            "function Foo() {}",
+            "",
+            "/**",
+            " * @template U",
+            " * @param {function(new:Foo<U>)} ctor",
+            " * @param {U} arg",
+            " * @return {!Foo<U>}",
+            " */",
+            "function create(ctor, arg) {",
+            "  return new ctor(arg);",
+            "}",
+            "",
+            "var result = create(Foo, 0);"));
+
+    assertThat(getType("result").toString()).isEqualTo("Foo<number>");
   }
 
   @Test

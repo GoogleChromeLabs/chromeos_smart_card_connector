@@ -33,9 +33,6 @@ import java.util.logging.Logger;
 
 /**
  * An object that optimizes the order of compiler passes.
- *
- * @author nicksantos@google.com (Nick Santos)
- * @author dimvar@google.com (Dimitris Vardoulakis)
  */
 class PhaseOptimizer implements CompilerPass {
 
@@ -103,8 +100,6 @@ class PhaseOptimizer implements CompilerPass {
           PassNames.DEAD_ASSIGNMENT_ELIMINATION,
           PassNames.COLLAPSE_OBJECT_LITERALS,
           PassNames.REMOVE_UNUSED_CODE,
-          PassNames.REMOVE_UNUSED_PROTOTYPE_PROPERTIES,
-          PassNames.REMOVE_UNUSED_CLASS_PROPERTIES,
           PassNames.PEEPHOLE_OPTIMIZATIONS,
           PassNames.REMOVE_UNREACHABLE_CODE);
 
@@ -158,14 +153,14 @@ class PhaseOptimizer implements CompilerPass {
   void consume(List<PassFactory> factories) {
     Loop currentLoop = new Loop();
     for (PassFactory factory : factories) {
-      if (factory.isOneTimePass()) {
+      if (factory.isRunInFixedPointLoop()) {
+        currentLoop.addLoopedPass(factory);
+      } else {
         if (currentLoop.isPopulated()) {
           passes.add(currentLoop);
           currentLoop = new Loop();
         }
         addOneTimePass(factory);
-      } else {
-        currentLoop.addLoopedPass(factory);
       }
     }
 
@@ -284,28 +279,22 @@ class PhaseOptimizer implements CompilerPass {
     @Override
     public void process(Node externs, Node root) {
       FeatureSet featuresInAst = compiler.getFeatureSet();
-      FeatureSet featuresSupportedByPass = factory.featureSet();
+      FeatureSet featuresSupportedByPass = factory.getFeatureSet();
 
       if (!featuresSupportedByPass.contains(featuresInAst)) {
         FeatureSet unsupportedFeatures = featuresInAst.without(featuresSupportedByPass);
 
+        compiler.report(
+            JSError.make(
+                FEATURES_NOT_SUPPORTED_BY_PASS,
+                name,
+                compiler.getOptions().shouldSkipUnsupportedPasses()
+                    ? "Skipping pass."
+                    : "Running pass anyway.",
+                unsupportedFeatures.toString()));
+
         if (compiler.getOptions().shouldSkipUnsupportedPasses()) {
-          compiler.report(
-              JSError.make(
-                  CheckLevel.WARNING,
-                  FEATURES_NOT_SUPPORTED_BY_PASS,
-                  name,
-                  "Skipping pass.",
-                  unsupportedFeatures.toString()));
           return;
-        } else {
-          compiler.report(
-              JSError.make(
-                  CheckLevel.ERROR,
-                  FEATURES_NOT_SUPPORTED_BY_PASS,
-                  name,
-                  "Running pass anyway.",
-                  unsupportedFeatures.toString()));
         }
       }
 
@@ -316,7 +305,7 @@ class PhaseOptimizer implements CompilerPass {
         changeVerifier = new ChangeVerifier(compiler).snapshot(jsRoot);
       }
       if (tracker != null) {
-        tracker.recordPassStart(name, factory.isOneTimePass());
+        tracker.recordPassStart(name, !factory.isRunInFixedPointLoop());
       }
       tracer = new Tracer("Compiler", name);
 

@@ -19,6 +19,11 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.testing.JSCompCorrespondences.DESCRIPTION_EQUALITY;
+import static com.google.javascript.rhino.jstype.JSTypeNative.BOOLEAN_TYPE;
+import static com.google.javascript.rhino.jstype.JSTypeNative.NUMBER_TYPE;
+import static com.google.javascript.rhino.jstype.JSTypeNative.OBJECT_TYPE;
+import static com.google.javascript.rhino.jstype.JSTypeNative.STRING_TYPE;
+import static com.google.javascript.rhino.jstype.JSTypeNative.SYMBOL_TYPE;
 import static com.google.javascript.rhino.testing.TypeSubject.assertType;
 import static com.google.javascript.rhino.testing.TypeSubject.types;
 
@@ -71,7 +76,11 @@ abstract class CompilerTypeTestCase {
           "goog.array.filter = function(arr, f, obj){ return []; };",
           "goog.asserts = {};",
           "/** @return {*} */ goog.asserts.assert = function(x) { return x; };",
-          "goog.module = function(ns) {};");
+          "goog.module = function(ns) {};",
+          "goog.module.get = function(ns) {};",
+          "/** @return {?} */",
+          "goog.require = function(ns) {};",
+          "goog.loadModule = function(mod) {};");
 
   /**
    * A default set of externs for testing.
@@ -86,7 +95,9 @@ abstract class CompilerTypeTestCase {
 
   protected CompilerOptions getDefaultOptions() {
     CompilerOptions options = new CompilerOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT5);
+    options.setLanguageIn(LanguageMode.ECMASCRIPT_2019);
+    options.setCodingConvention(getCodingConvention());
+
     options.setWarningLevel(
         DiagnosticGroups.MISSING_PROPERTIES, CheckLevel.WARNING);
     options.setWarningLevel(
@@ -95,7 +106,7 @@ abstract class CompilerTypeTestCase {
         DiagnosticGroups.INVALID_CASTS, CheckLevel.WARNING);
     options.setWarningLevel(DiagnosticGroups.LINT_CHECKS, CheckLevel.WARNING);
     options.setWarningLevel(DiagnosticGroups.JSDOC_MISSING_TYPE, CheckLevel.WARNING);
-    options.setCodingConvention(getCodingConvention());
+    options.setWarningLevel(DiagnosticGroups.BOUNDED_GENERICS, CheckLevel.WARNING);
     return options;
   }
 
@@ -290,7 +301,7 @@ abstract class CompilerTypeTestCase {
   }
 
   protected JSType getNativeObjectNumberStringBooleanType() {
-    return getNativeType(JSTypeNative.OBJECT_NUMBER_STRING_BOOLEAN);
+    return registry.createUnionType(OBJECT_TYPE, NUMBER_TYPE, STRING_TYPE, BOOLEAN_TYPE);
   }
 
   protected JSType getNativeNumberStringBooleanType() {
@@ -298,11 +309,12 @@ abstract class CompilerTypeTestCase {
   }
 
   protected JSType getNativeObjectNumberStringBooleanSymbolType() {
-    return getNativeType(JSTypeNative.OBJECT_NUMBER_STRING_BOOLEAN_SYMBOL);
+    return registry.createUnionType(
+        OBJECT_TYPE, NUMBER_TYPE, STRING_TYPE, BOOLEAN_TYPE, SYMBOL_TYPE);
   }
 
-  protected JSType getNativeNumberStringBooleanSymbolType() {
-    return getNativeType(JSTypeNative.NUMBER_STRING_BOOLEAN_SYMBOL);
+  protected JSType getNativeValueTypes() {
+    return getNativeType(JSTypeNative.VALUE_TYPES);
   }
 
   JSType getNativeAllType() {

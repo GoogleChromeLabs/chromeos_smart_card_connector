@@ -87,19 +87,8 @@ public class NoType extends NoObjectType {
   }
 
   @Override
-  public boolean isSubtype(JSType that) {
-    return isSubtype(that, null, SubtypingMode.NORMAL);
-  }
-
-  @Override
-  protected boolean isSubtype(JSType that,
-      ImplCache implicitImplCache, SubtypingMode subtypingMode) {
-    return true;
-  }
-
-  @Override
   public final BooleanLiteralSet getPossibleToBooleanOutcomes() {
-    return BooleanLiteralSet.EMPTY;
+    return BooleanLiteralSet.BOTH;
   }
 
   @Override

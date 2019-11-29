@@ -91,6 +91,12 @@ public final class JSDocInfoBuilder {
     return new JSDocInfoBuilder(clone, info.isDocumentationIncluded(), true);
   }
 
+  public static JSDocInfoBuilder copyFromWithNewType(
+      JSDocInfo info, JSTypeExpression typeExpression) {
+    JSDocInfo newTypeInfo = info.cloneWithNewType(false, typeExpression);
+    return new JSDocInfoBuilder(newTypeInfo, info.isDocumentationIncluded(), true);
+  }
+
   public static JSDocInfoBuilder maybeCopyFrom(@Nullable JSDocInfo info) {
     if (info == null) {
       return new JSDocInfoBuilder(true);
@@ -351,11 +357,15 @@ public final class JSDocInfoBuilder {
   /**
    * Records a template type name.
    *
-   * @return {@code true} if the template type name was recorded and
-   *     {@code false} if the input template type name was already defined.
+   * @return {@code true} if the template type name was recorded and {@code false} if the input
+   *     template type name was already defined.
    */
   public boolean recordTemplateTypeName(String name) {
-    if (currentInfo.declareTemplateTypeName(name)) {
+    return recordTemplateTypeName(name, null);
+  }
+
+  public boolean recordTemplateTypeName(String name, JSTypeExpression bound) {
+    if (currentInfo.declareTemplateTypeName(name, bound)) {
       populated = true;
       return true;
     } else {
@@ -747,6 +757,22 @@ public final class JSDocInfoBuilder {
   }
 
   /**
+   * Records that the {@link JSDocInfo} being built should have its {@link JSDocInfo#isConstant()}
+   * flag set to {@code false}.
+   *
+   * @return {@code true} if the mutability was recorded and {@code false} if it was already defined
+   */
+  public boolean recordMutable() {
+    if (currentInfo.hasConstAnnotation()) {
+      currentInfo.setConstant(false);
+      populated = true;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
    * Records that the {@link JSDocInfo} being built should have its
    * {@link JSDocInfo#isFinal()} flag set to {@code true}.
    *
@@ -1103,6 +1129,20 @@ public final class JSDocInfoBuilder {
   public boolean recordExport() {
     if (!currentInfo.isExport()) {
       currentInfo.setExport(true);
+      populated = true;
+      return true;
+    } else {
+      return false;
+    }
+  }
+
+  /**
+   * Records that the {@link JSDocInfo} being built should have its {@link JSDocInfo#isExport()}
+   * flag set to {@code false}.
+   */
+  public boolean removeExport() {
+    if (currentInfo.isExport()) {
+      currentInfo.setExport(false);
       populated = true;
       return true;
     } else {

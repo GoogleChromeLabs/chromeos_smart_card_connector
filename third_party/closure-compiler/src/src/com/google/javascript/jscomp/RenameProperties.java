@@ -62,7 +62,6 @@ import javax.annotation.Nullable;
  * references. Here are two examples:
  *    JSCompiler_renameProperty('propertyName') -> 'jYq'
  *    JSCompiler_renameProperty('myProp.nestedProp.innerProp') -> 'e4.sW.C$'
- *
  */
 class RenameProperties implements CompilerPass {
   private static final Splitter DOT_SPLITTER = Splitter.on('.');
@@ -255,7 +254,7 @@ class RenameProperties implements CompilerPass {
 
     compiler.setLifeCycleStage(LifeCycleStage.NORMALIZED_OBFUSCATED);
     // This pass may rename getter or setter properties
-    GatherGettersAndSetterProperties.update(compiler, externs, root);
+    GatherGetterAndSetterProperties.update(compiler, externs, root);
   }
 
   /**
@@ -351,8 +350,8 @@ class RenameProperties implements CompilerPass {
           for (Node key = n.getFirstChild(); key != null; key = key.getNext()) {
             switch (key.getToken()) {
               case COMPUTED_PROP: // We don't want to rename computed properties
-              case REST:
-              case SPREAD:
+              case OBJECT_REST:
+              case OBJECT_SPREAD:
                 break;
 
               case GETTER_DEF:

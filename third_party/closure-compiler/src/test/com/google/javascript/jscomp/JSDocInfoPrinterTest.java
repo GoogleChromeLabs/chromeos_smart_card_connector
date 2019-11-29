@@ -18,6 +18,7 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.javascript.jscomp.CompilerTestCase.lines;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
@@ -115,8 +116,109 @@ public final class JSDocInfoPrinterTest {
   public void testTemplate() {
     builder.recordTemplateTypeName("T");
     builder.recordTemplateTypeName("U");
+
     JSDocInfo info = builder.buildAndReset();
-    assertThat(jsDocInfoPrinter.print(info)).isEqualTo("/**\n * @template T, U\n */\n");
+
+    assertThat(jsDocInfoPrinter.print(info))
+        .isEqualTo(
+            lines(
+                "/**", //
+                " * @template T",
+                " * @template U",
+                " */",
+                ""));
+  }
+
+  @Test
+  public void testTemplateBound_single() {
+    builder.recordTemplateTypeName(
+        "T", new JSTypeExpression(JsDocInfoParser.parseTypeString("!Array<number>"), ""));
+
+    JSDocInfo info = builder.buildAndReset();
+
+    assertThat(jsDocInfoPrinter.print(info))
+        .isEqualTo(
+            lines(
+                "/**", //
+                " * @template {!Array<number>} T",
+                " */",
+                ""));
+  }
+
+  @Test
+  public void testTemplateBound_nullabilityIsPreserved() {
+    builder.recordTemplateTypeName(
+        "T", new JSTypeExpression(JsDocInfoParser.parseTypeString("?Array<number>"), ""));
+
+    JSDocInfo info = builder.buildAndReset();
+
+    assertThat(jsDocInfoPrinter.print(info))
+        .isEqualTo(
+            lines(
+                "/**", //
+                " * @template {?Array<number>} T",
+                " */",
+                ""));
+  }
+
+  @Test
+  public void testTemplateBound_explicitlyOnUnknown_isOmitted() {
+    builder.recordTemplateTypeName(
+        "T", new JSTypeExpression(JsDocInfoParser.parseTypeString("?"), ""));
+
+    JSDocInfo info = builder.buildAndReset();
+
+    assertThat(jsDocInfoPrinter.print(info))
+        .isEqualTo(
+            lines(
+                "/**", //
+                " * @template T",
+                " */",
+                ""));
+  }
+
+  @Test
+  public void testTemplatesBound_multiple() {
+    builder.recordTemplateTypeName(
+        "T", new JSTypeExpression(JsDocInfoParser.parseTypeString("!Array<number>"), ""));
+    builder.recordTemplateTypeName(
+        "U", new JSTypeExpression(JsDocInfoParser.parseTypeString("boolean"), ""));
+
+    JSDocInfo info = builder.buildAndReset();
+
+    assertThat(jsDocInfoPrinter.print(info))
+        .isEqualTo(
+            lines(
+                "/**", //
+                " * @template {!Array<number>} T",
+                " * @template {boolean} U",
+                " */",
+                ""));
+  }
+
+  @Test
+  public void testTemplatesBound_mixedWithUnbounded() {
+    builder.recordTemplateTypeName(
+        "T", new JSTypeExpression(JsDocInfoParser.parseTypeString("!Object"), ""));
+    builder.recordTemplateTypeName("S");
+    builder.recordTemplateTypeName("R");
+    builder.recordTemplateTypeName(
+        "U", new JSTypeExpression(JsDocInfoParser.parseTypeString("*"), ""));
+    builder.recordTemplateTypeName("Q");
+
+    JSDocInfo info = builder.buildAndReset();
+
+    assertThat(jsDocInfoPrinter.print(info))
+        .isEqualTo(
+            lines(
+                "/**",
+                " * @template {!Object} T",
+                " * @template S",
+                " * @template R",
+                " * @template {*} U",
+                " * @template Q",
+                " */",
+                ""));
   }
 
   @Test
@@ -142,13 +244,13 @@ public final class JSDocInfoPrinterTest {
     info = builder.buildAndReset();
     assertThat(jsDocInfoPrinter.print(info)).isEqualTo("/**\n * @param {number=} foo\n */\n");
 
-    builder.recordParameter("foo",
-        new JSTypeExpression(new Node(Token.ELLIPSIS, IR.string("number")), "<testParam>"));
+    builder.recordParameter(
+        "foo", new JSTypeExpression(new Node(Token.ITER_REST, IR.string("number")), "<testParam>"));
     info = builder.buildAndReset();
     assertThat(jsDocInfoPrinter.print(info)).isEqualTo("/**\n * @param {...number} foo\n */\n");
 
-    builder.recordParameter("foo",
-        new JSTypeExpression(new Node(Token.ELLIPSIS, IR.empty()), "<testParam>"));
+    builder.recordParameter(
+        "foo", new JSTypeExpression(new Node(Token.ITER_REST, IR.empty()), "<testParam>"));
     info = builder.buildAndReset();
     assertThat(jsDocInfoPrinter.print(info)).isEqualTo("/**\n * @param {...} foo\n */\n");
 
@@ -200,8 +302,8 @@ public final class JSDocInfoPrinterTest {
     JSDocInfo info = builder.buildAndReset();
     assertThat(jsDocInfoPrinter.print(info)).isEqualTo("/**\n * @return {(number|string)}\n */\n");
 
-    builder.recordParameter("foo",
-        new JSTypeExpression(new Node(Token.ELLIPSIS, IR.string("number")), "<testTypes>"));
+    builder.recordParameter(
+        "foo", new JSTypeExpression(new Node(Token.ITER_REST, IR.string("number")), "<testTypes>"));
     info = builder.buildAndReset();
     assertThat(jsDocInfoPrinter.print(info)).isEqualTo("/**\n * @param {...number} foo\n */\n");
     builder.recordThrowType(new JSTypeExpression(new Node(Token.STAR), "<testTypes>"));
@@ -488,6 +590,11 @@ public final class JSDocInfoPrinterTest {
   @Test
   public void testClosurePrimitive() {
     testSame("/** @closurePrimitive {testPrimitive} */ ");
+  }
+
+  @Test
+  public void testNgInect() {
+    testSame("/** @ngInject */ ");
   }
 
   private void testSame(String jsdoc) {

@@ -29,8 +29,6 @@ import java.util.Set;
 
 /**
  * Checks references to undefined properties of global variables.
- *
- * @author nicksantos@google.com (Nick Santos)
  */
 class CheckGlobalNames implements CompilerPass {
 
@@ -227,6 +225,12 @@ class CheckGlobalNames implements CompilerPass {
    * </ul>
    */
   private boolean checkForBadModuleReference(Name name, Ref ref) {
+    if (!(name.getParent().isObjectLiteral()
+        || name.getParent().isClass()
+        || name.getParent().isFunction())) {
+      // We don't know the source of non-literal names, so don't warn for property accesses.
+      return false;
+    }
     JSModuleGraph moduleGraph = compiler.getModuleGraph();
     if (name.getGlobalSets() == 0 || ref.type == Ref.Type.SET_FROM_GLOBAL) {
       // Back off if either 1) this name was never set, or 2) this reference /is/ a set.
@@ -329,7 +333,10 @@ class CheckGlobalNames implements CompilerPass {
   private boolean hasSuperclass(Name es6Class) {
     Node decl = es6Class.getDeclaration().getNode();
     Node classNode = NodeUtil.getRValueOfLValue(decl);
-    checkState(classNode.isClass(), classNode);
+    // TODO(b/139763147): make this into a Preconditions check once the underlying bug is fixed.
+    if (!classNode.isClass()) {
+      return false;
+    }
     Node superclass = classNode.getSecondChild();
 
     return !superclass.isEmpty();

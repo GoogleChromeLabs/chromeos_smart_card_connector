@@ -57,8 +57,6 @@ import javax.annotation.Nullable;
 /**
  * Rewrites a ES6 module into a form that can be safely concatenated. Note that we treat a file as
  * an ES6 module if it has at least one import or export statement.
- *
- * @author moz@google.com (Michael Zhou)
  */
 public final class Es6RewriteModules extends AbstractPostOrderCallback
     implements HotSwapCompilerPass {
@@ -165,7 +163,7 @@ public final class Es6RewriteModules extends AbstractPostOrderCallback
     }
     compiler.setFeatureSet(compiler.getFeatureSet().without(MODULES));
     // This pass may add getters properties on module objects.
-    GatherGettersAndSetterProperties.update(compiler, externs, root);
+    GatherGetterAndSetterProperties.update(compiler, externs, root);
   }
 
   @Override
@@ -604,8 +602,9 @@ public final class Es6RewriteModules extends AbstractPostOrderCallback
         // /** @typedef {foo} */
         // moduleName.foo;
         JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
-        JSTypeExpression typeExpr = new JSTypeExpression(
-            IR.string(exportedName), script.getSourceFileName());
+        JSTypeExpression typeExpr =
+            new JSTypeExpression(
+                IR.string(exportedName).srcref(nodeForSourceInfo), script.getSourceFileName());
         builder.recordTypedef(typeExpr);
         JSDocInfo info = builder.build();
         getProp.setJSDocInfo(info);
@@ -647,7 +646,8 @@ public final class Es6RewriteModules extends AbstractPostOrderCallback
 
     JSDocInfoBuilder builder = new JSDocInfoBuilder(true);
     builder.recordReturnType(
-        new JSTypeExpression(new Node(Token.QMARK), script.getSourceFileName()));
+        new JSTypeExpression(
+            new Node(Token.QMARK).srcref(forSourceInfo), script.getSourceFileName()));
     getter.setJSDocInfo(builder.build());
 
     getter.useSourceInfoIfMissingFromForTree(forSourceInfo);

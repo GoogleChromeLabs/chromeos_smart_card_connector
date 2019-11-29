@@ -25,6 +25,7 @@ import static com.google.javascript.jscomp.CompilerTestCase.lines;
 import static com.google.javascript.jscomp.TypeCheck.DETERMINISTIC_TEST;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.ShowByPathWarningsGuard.ShowType;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -117,33 +118,35 @@ public final class WarningsGuardTest {
 
   @Test
   public void testComposeGuard() {
-    WarningsGuard g1 = new WarningsGuard() {
-      private static final long serialVersionUID = 1L;
+    WarningsGuard g1 =
+        new WarningsGuard() {
+          private static final long serialVersionUID = 1L;
 
-      @Override
-      public CheckLevel level(JSError error) {
-        return error.sourceName.equals("123456") ? ERROR : null;
-      }
+          @Override
+          public CheckLevel level(JSError error) {
+            return error.getSourceName().equals("123456") ? ERROR : null;
+          }
 
-      @Override
-      public boolean disables(DiagnosticGroup otherGroup) {
-        return false;
-      }
-    };
+          @Override
+          public boolean disables(DiagnosticGroup otherGroup) {
+            return false;
+          }
+        };
 
-    WarningsGuard g2 = new WarningsGuard() {
-      private static final long serialVersionUID = 1L;
+    WarningsGuard g2 =
+        new WarningsGuard() {
+          private static final long serialVersionUID = 1L;
 
-      @Override
-      public CheckLevel level(JSError error) {
-        return error.lineNumber == 12 ? WARNING : null;
-      }
+          @Override
+          public CheckLevel level(JSError error) {
+            return error.getLineNumber() == 12 ? WARNING : null;
+          }
 
-      @Override
-      public boolean disables(DiagnosticGroup otherGroup) {
-        return true;
-      }
-    };
+          @Override
+          public boolean disables(DiagnosticGroup otherGroup) {
+            return true;
+          }
+        };
 
     WarningsGuard guard = new ComposeWarningsGuard(g1, g2);
 
@@ -439,6 +442,18 @@ public final class WarningsGuardTest {
                 "  [a]() { }",
                 "}"));
 
+    assertThat(guard.level(JSError.make(findNameNode(code, "a"), BAR_WARNING))).isEqualTo(OFF);
+  }
+
+  @Test
+  public void testSuppressGuard_onCompoundAssignment() {
+    Compiler compiler = new Compiler();
+    WarningsGuard guard =
+        new SuppressDocWarningsGuard(
+            compiler, ImmutableMap.of("deprecated", new DiagnosticGroup(BAR_WARNING)));
+
+    Node code =
+        compiler.parseTestCode("var goog = {}; " + "/** @suppress {deprecated} */ goog.f += a");
     assertThat(guard.level(JSError.make(findNameNode(code, "a"), BAR_WARNING))).isEqualTo(OFF);
   }
 

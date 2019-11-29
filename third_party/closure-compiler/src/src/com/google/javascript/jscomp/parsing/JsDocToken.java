@@ -20,7 +20,6 @@ package com.google.javascript.jscomp.parsing;
  * JSDoc-specific tokens.
  *
  * This class is based on Rhino's Token.
- *
  */
 enum JsDocToken {
   // Tokens recycled from Rhino
@@ -37,13 +36,13 @@ enum JsDocToken {
   RIGHT_PAREN,
   COMMA,  // comma operator
   COLON,
+  ITER_REST,
   // JsDoc-only tokens
   ANNOTATION,
   PIPE,
   STAR,
   EOC,
   QMARK,
-  ELLIPSIS,
   BANG,
   EQUALS;
 }

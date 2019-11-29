@@ -43,9 +43,6 @@ import java.util.Set;
  * backwards-compatibility with compiler clients that don't want --inline_variables.
  *
  * <p>The approach of this pass is similar to {@link CrossChunkCodeMotion}
- *
- * @author kushal@google.com (Kushal Dave)
- * @author nicksantos@google.com (Nick Santos)
  */
 class InlineVariables implements CompilerPass {
 
@@ -53,7 +50,7 @@ class InlineVariables implements CompilerPass {
 
   enum Mode {
     // Only inline things explicitly marked as constant.
-    CONSTANTS_ONLY(Var::isInferredConst),
+    CONSTANTS_ONLY(Var::isDeclaredOrInferredConst),
     // Locals only
     LOCALS_ONLY(Var::isLocal),
     ALL(Predicates.alwaysTrue());
@@ -86,7 +83,7 @@ class InlineVariables implements CompilerPass {
         new ReferenceCollectingCallback(
             compiler,
             new InliningBehavior(),
-            new Es6SyntacticScopeCreator(compiler),
+            new SyntacticScopeCreator(compiler),
             mode.varPredicate);
     callback.process(externs, root);
   }

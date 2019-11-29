@@ -33,7 +33,7 @@ import com.google.common.collect.Sets;
 import com.google.common.reflect.TypeToken;
 import com.google.javascript.jscomp.CheckConformance.InvalidRequirementSpec;
 import com.google.javascript.jscomp.CheckConformance.Rule;
-import com.google.javascript.jscomp.CodingConvention.AssertionFunctionSpec;
+import com.google.javascript.jscomp.CodingConvention.AssertionFunctionLookup;
 import com.google.javascript.jscomp.Requirement.Severity;
 import com.google.javascript.jscomp.Requirement.Type;
 import com.google.javascript.jscomp.parsing.JsDocInfoParser;
@@ -55,7 +55,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Objects;
+import java.util.Locale;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -117,6 +117,31 @@ public final class ConformanceRules {
     VIOLATION,
   }
 
+  @Nullable
+  private static Pattern buildPattern(List<String> reqPatterns) throws InvalidRequirementSpec {
+    if (reqPatterns == null || reqPatterns.isEmpty()) {
+      return null;
+    }
+
+    // validate the patterns
+    for (String reqPattern : reqPatterns) {
+      try {
+        Pattern.compile(reqPattern);
+      } catch (PatternSyntaxException e) {
+        throw new InvalidRequirementSpec("invalid regex pattern", e);
+      }
+    }
+
+    Pattern pattern = null;
+    try {
+      String jointRegExp = "(" + Joiner.on("|").join(reqPatterns) + ")";
+      pattern = Pattern.compile(jointRegExp);
+    } catch (PatternSyntaxException e) {
+      throw new RuntimeException("bad joined regexp", e);
+    }
+    return pattern;
+  }
+
   private static class Whitelist {
     @Nullable final ImmutableList<String> prefixes;
     @Nullable final Pattern regexp;
@@ -147,31 +172,6 @@ public final class ConformanceRules {
       }
 
       return regexp != null && regexp.matcher(path).find();
-    }
-
-    @Nullable
-    private static Pattern buildPattern(List<String> reqPatterns) throws InvalidRequirementSpec {
-      if (reqPatterns == null || reqPatterns.isEmpty()) {
-        return null;
-      }
-
-      // validate the patterns
-      for (String reqPattern : reqPatterns) {
-        try {
-          Pattern.compile(reqPattern);
-        } catch (PatternSyntaxException e) {
-          throw new InvalidRequirementSpec("invalid regex pattern", e);
-        }
-      }
-
-      Pattern pattern = null;
-      try {
-        String jointRegExp = "(" + Joiner.on("|").join(reqPatterns) + ")";
-        pattern = Pattern.compile(jointRegExp);
-      } catch (PatternSyntaxException e) {
-        throw new RuntimeException("bad joined regexp", e);
-      }
-      return pattern;
     }
   }
 
@@ -251,7 +251,11 @@ public final class ConformanceRules {
     /** Returns the first Whitelist entry that matches the given path, and null otherwise. */
     @Nullable
     private Whitelist findWhitelistForPath(String path) {
-      path = compiler.getOptions().conformanceRemoveRegexFromPath.matcher(path).replaceFirst("");
+      Optional<Pattern> pathRegex = compiler.getOptions().getConformanceRemoveRegexFromPath();
+      if (pathRegex.isPresent()) {
+        path = pathRegex.get().matcher(path).replaceFirst("");
+      }
+
       for (Whitelist whitelist : whitelists) {
         if (whitelist.matches(path)) {
           return whitelist;
@@ -314,7 +318,7 @@ public final class ConformanceRules {
   abstract static class AbstractTypeRestrictionRule extends AbstractRule {
     private final JSType nativeObjectType;
     private final JSType whitelistedTypes;
-    private final ImmutableList<Node> assertionsFunctionNames;
+    private final AssertionFunctionLookup assertionFunctions;
 
     public AbstractTypeRestrictionRule(AbstractCompiler compiler, Requirement requirement)
         throws InvalidRequirementSpec {
@@ -323,14 +327,8 @@ public final class ConformanceRules {
       List<String> whitelistedTypeNames = requirement.getValueList();
       whitelistedTypes = union(whitelistedTypeNames);
 
-      // TODO(b/126254920): make this use ClosurePrimitive instead
-      // so that we don't have to filter out the null functionNames.
-      assertionsFunctionNames =
-          compiler.getCodingConvention().getAssertionFunctions().stream()
-              .map(AssertionFunctionSpec::getFunctionName)
-              .filter(Objects::nonNull)
-              .map(name -> NodeUtil.newQName(compiler, name))
-              .collect(ImmutableList.toImmutableList());
+      assertionFunctions =
+          AssertionFunctionLookup.of(compiler.getCodingConvention().getAssertionFunctions());
     }
 
     protected boolean isWhitelistedType(Node n) {
@@ -394,11 +392,7 @@ public final class ConformanceRules {
     protected boolean isAssertionCall(Node n) {
       if (n.isCall() && n.getFirstChild().isQualifiedName()) {
         Node target = n.getFirstChild();
-        for (int i = 0; i < assertionsFunctionNames.size(); i++) {
-          if (target.matchesQualifiedName(assertionsFunctionNames.get(i))) {
-            return true;
-          }
-        }
+        return assertionFunctions.lookupByCallee(target) != null;
       }
       return false;
     }
@@ -477,6 +471,32 @@ public final class ConformanceRules {
           if (srcFile.startsWith(path)) {
             return ConformanceResult.VIOLATION;
           }
+        }
+      }
+      return ConformanceResult.CONFORMANCE;
+    }
+  }
+
+  /** Banned dependency via regex rule */
+  static class BannedDependencyRegex extends AbstractRule {
+    @Nullable private final Pattern pathRegexp;
+
+    BannedDependencyRegex(AbstractCompiler compiler, Requirement requirement)
+        throws InvalidRequirementSpec {
+      super(compiler, requirement);
+      List<String> pathRegexpList = requirement.getValueList();
+      if (pathRegexpList.isEmpty()) {
+        throw new InvalidRequirementSpec("missing value (no banned dependency regexps)");
+      }
+      pathRegexp = buildPattern(pathRegexpList);
+    }
+
+    @Override
+    protected ConformanceResult checkConformance(NodeTraversal t, Node n) {
+      if (n.isScript()) {
+        String srcFile = n.getSourceFileName();
+        if (pathRegexp != null && pathRegexp.matcher(srcFile).find()) {
+          return ConformanceResult.VIOLATION;
         }
       }
       return ConformanceResult.CONFORMANCE;
@@ -622,7 +642,7 @@ public final class ConformanceRules {
               if (ownerFun.isConstructor()) {
                 foundType = ownerFun.getInstanceType();
               }
-            } else if (foundObj.isGenericObjectType()) {
+            } else if (foundObj.isTemplatizedType()) {
               foundType = foundObj.getRawType();
             }
           }
@@ -1038,6 +1058,7 @@ public final class ConformanceRules {
     }
 
     @Override
+    @SuppressWarnings("ReferenceEquality") // take advantage of string interning.
     protected ConformanceResult checkConformance(NodeTraversal t, Node n) {
       if (n.isGetProp() && NodeUtil.isLhsOfAssign(n)) {
         JSType rhsType = n.getNext().getJSType();
@@ -1568,7 +1589,8 @@ public final class ConformanceRules {
         Node enclosingScript = NodeUtil.getEnclosingScript(n);
         if (enclosingScript != null
             && (enclosingScript.getBooleanProp(Node.GOOG_MODULE)
-                || enclosingScript.getBooleanProp(Node.ES6_MODULE))) {
+                || enclosingScript.getBooleanProp(Node.ES6_MODULE)
+                || enclosingScript.getInputId().equals(compiler.getSyntheticCodeInputId()))) {
           return ConformanceResult.CONFORMANCE;
         }
         return ConformanceResult.VIOLATION;
@@ -1720,7 +1742,7 @@ public final class ConformanceRules {
         if (tagAttr.length != 2 || tagAttr[0].isEmpty() || tagAttr[1].isEmpty()) {
           throw new InvalidRequirementSpec("Values must be in the format tagname.attribute.");
         }
-        tagAttr[0] = tagAttr[0].toLowerCase();
+        tagAttr[0] = tagAttr[0].toLowerCase(Locale.ROOT);
         bannedTagAttrs.add(tagAttr);
       }
       if (bannedTagAttrs.isEmpty()) {
@@ -1814,13 +1836,13 @@ public final class ConformanceRules {
 
     private ImmutableCollection<String> getTagNames(Node tag) {
       if (tag.isString()) {
-        return ImmutableSet.of(tag.getString().toLowerCase());
+        return ImmutableSet.of(tag.getString().toLowerCase(Locale.ROOT));
       } else if (tag.isGetProp() && tag.getFirstChild().matchesQualifiedName("goog.dom.TagName")) {
-        return ImmutableSet.of(tag.getLastChild().getString().toLowerCase());
+        return ImmutableSet.of(tag.getLastChild().getString().toLowerCase(Locale.ROOT));
       }
       // TODO(jakubvrana): Support union, e.g. {!TagName<!HTMLDivElement>|!TagName<!HTMLBRElement>}.
       JSType type = tag.getJSType();
-      if (type == null || !type.isGenericObjectType()) {
+      if (type == null || !type.isTemplatizedType()) {
         return null;
       }
       ObjectType typeAsObj = type.toMaybeObjectType();

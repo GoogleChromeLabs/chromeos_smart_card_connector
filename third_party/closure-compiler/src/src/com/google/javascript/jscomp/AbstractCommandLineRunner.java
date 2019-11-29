@@ -38,7 +38,6 @@ import com.google.gson.Gson;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonWriter;
 import com.google.javascript.jscomp.CompilerOptions.JsonStreamMode;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.CompilerOptions.OutputJs;
 import com.google.javascript.jscomp.CompilerOptions.TweakProcessing;
 import com.google.javascript.jscomp.deps.ModuleLoader;
@@ -65,8 +64,9 @@ import java.io.PrintStream;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -112,8 +112,6 @@ import javax.annotation.Nullable;
  *   }
  * }
  * </pre>
- *
- * @author bolinfest@google.com (Michael Bolin)
  */
 public abstract class AbstractCommandLineRunner<A extends Compiler,
     B extends CompilerOptions> {
@@ -138,12 +136,6 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
           "JSC_INVALID_MODULE_SOURCEMAP_PATTERN",
           "When using --module flags, the --create_source_map flag must contain "
               + "%outname% in the value.");
-
-  static final DiagnosticType CONFLICTING_DUPLICATE_ZIP_CONTENTS = DiagnosticType.error(
-      "JSC_CONFLICTING_DUPLICATE_ZIP_CONTENTS",
-      "Two zip entries containing conflicting contents with the same relative path.\n"
-      + "Entry 1: {0}\n"
-      + "Entry 2: {1}");
 
   static final String WAITING_FOR_INPUT_WARNING =
       "The compiler is waiting for input via stdin.";
@@ -339,6 +331,32 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
   }
 
   /**
+   * Validates whether --browser_featureset_year input is legal
+   *
+   * @param inputYear integer value passed as input
+   */
+  @GwtIncompatible("java.time")
+  public void validateBrowserFeaturesetYearFlag(Integer inputYear) {
+    int currentYear = LocalDateTime.now(ZoneId.systemDefault()).getYear();
+    if (inputYear > currentYear) {
+      throw new FlagUsageException(
+          SimpleFormat.format(
+              "--browser_featureset_year=%d is the latest meaningful value to use", currentYear));
+    } else if (inputYear < 2019 && inputYear > 2012) {
+      throw new FlagUsageException(
+          SimpleFormat.format(
+              "--browser_featureset_year=2019 is the earliest meaningful value"
+                  + " to use after 2012"));
+    } else if (inputYear < 2012) {
+      throw new FlagUsageException(
+          SimpleFormat.format(
+              "Illegal --browser_featureset_year=%d. --browser_featureset_year=2012 is the"
+                  + " earliest meaningful value to use",
+              inputYear));
+    }
+  }
+
+  /**
    * Sets options based on the configurations set flags API. Called during the run() run() method.
    * If you want to ignore the flags API, or interpret flags your own way, then you should override
    * this method.
@@ -361,28 +379,11 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
 
     List<String> define = new ArrayList<>(config.define);
     if (config.browserFeaturesetYear != 0) {
-      // TODO(b/128873198): Add validation of the year.
-      int currentYear = Calendar.getInstance().get(Calendar.YEAR);
-      if (config.browserFeaturesetYear > currentYear) {
-        throw new FlagUsageException(
-            SimpleFormat.format(
-                "--browser_featureset_year=%d is the latest meaningful value to use", currentYear));
-      } else if (config.browserFeaturesetYear >= 2019) {
-        options.setLanguageOut(LanguageMode.ECMASCRIPT_2017);
-      } else if (config.browserFeaturesetYear > 2012) {
-        throw new FlagUsageException(
-            SimpleFormat.format(
-                "--browser_featureset_year=2019 is the earliest meaningful value"
-                    + " to use after 2012"));
-      } else if (config.browserFeaturesetYear == 2012) {
-        options.setLanguageOut(LanguageMode.ECMASCRIPT5_STRICT);
-      } else {
-        throw new FlagUsageException(
-            SimpleFormat.format(
-                "Illegal --browser_featureset_year: %d", config.browserFeaturesetYear));
-      }
+      validateBrowserFeaturesetYearFlag(config.browserFeaturesetYear);
+      options.setBrowserFeaturesetYear(config.browserFeaturesetYear);
       define.add(SimpleFormat.format("goog.FEATURESET_YEAR=%d", config.browserFeaturesetYear));
     }
+
     createDefineOrTweakReplacements(define, options, false);
 
     options.setTweakProcessing(config.tweakProcessing);
@@ -692,9 +693,7 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
         inputs.add(SourceFile.fromCode(jsonFile.getPath(), jsonFile.getSrc()));
       }
     }
-    for (JSError error : removeDuplicateZipEntries(inputs, jsModuleSpecs)) {
-      compiler.report(error);
-    }
+
     return inputs;
   }
 
@@ -762,57 +761,6 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
       }
     }
     return filename;
-  }
-
-  /**
-   * Check that relative paths inside zip files are unique, since multiple files with the same path
-   * inside different zips are considered duplicate inputs. Parameter {@code sourceFiles} may be
-   * modified if duplicates are removed.
-   */
-  @GwtIncompatible("Unnecessary")
-  public static ImmutableList<JSError> removeDuplicateZipEntries(
-      List<SourceFile> sourceFiles, List<JsModuleSpec> jsModuleSpecs) throws IOException {
-    ImmutableList.Builder<JSError> errors = ImmutableList.builder();
-    Map<String, SourceFile> sourceFilesByName = new HashMap<>();
-    Iterator<SourceFile> fileIterator = sourceFiles.iterator();
-    int currentFileIndex = 0;
-    Iterator<JsModuleSpec> moduleIterator = jsModuleSpecs.iterator();
-    // Tracks the total number of js files for current module and all the previous modules.
-    int cumulatedJsFileNum = 0;
-    JsModuleSpec currentModule = null;
-    while (fileIterator.hasNext()) {
-      SourceFile sourceFile = fileIterator.next();
-      currentFileIndex++;
-      // Check whether we reached the next module.
-      if (moduleIterator.hasNext() && currentFileIndex > cumulatedJsFileNum) {
-        currentModule = moduleIterator.next();
-        cumulatedJsFileNum += currentModule.numJsFiles;
-      }
-      String fullPath = sourceFile.getName();
-      if (!fullPath.contains("!/")) {
-        // Not a zip file
-        continue;
-      }
-      String relativePath = fullPath.split("!")[1];
-      if (!sourceFilesByName.containsKey(relativePath)) {
-        sourceFilesByName.put(relativePath, sourceFile);
-      } else {
-        SourceFile firstSourceFile = sourceFilesByName.get(relativePath);
-        if (firstSourceFile.getCode().equals(sourceFile.getCode())) {
-          fileIterator.remove();
-          if (currentModule != null) {
-            currentModule.numJsFiles--;
-          }
-        } else {
-          errors.add(
-              JSError.make(
-                  CONFLICTING_DUPLICATE_ZIP_CONTENTS,
-                  firstSourceFile.getName(),
-                  sourceFile.getName()));
-        }
-      }
-    }
-    return errors.build();
   }
 
   /** Creates JS source code inputs from a list of files. */
@@ -1554,6 +1502,10 @@ public abstract class AbstractCommandLineRunner<A extends Compiler,
     }
 
     for (JSModule m : modules) {
+      if (m.getName().equals(JSModule.WEAK_MODULE_NAME)) {
+        // Skip the weak module, which is always empty.
+        continue;
+      }
       if (isOutputInJson()) {
         this.filesToStreamOut.add(createJsonFileFromModule(m));
       } else {

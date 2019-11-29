@@ -40,8 +40,6 @@ import java.util.Map;
  * GETPROP access of a property B on some object inside of a method named A.
  *
  * <p>Global functions are also represented by nodes in this graph, with similar semantics.
- *
- * @author nicksantos@google.com (Nick Santos)
  */
 class AnalyzePrototypeProperties implements CompilerPass {
 
@@ -292,8 +290,10 @@ class AnalyzePrototypeProperties implements CompilerPass {
           for (Node propNode = n.getFirstChild(); propNode != null; propNode = propNode.getNext()) {
             switch (propNode.getToken()) {
               case COMPUTED_PROP:
-              case REST:
-              case SPREAD:
+              case ITER_REST:
+              case OBJECT_REST:
+              case ITER_SPREAD:
+              case OBJECT_SPREAD:
                 break;
 
               case STRING_KEY:
@@ -553,6 +553,27 @@ class AnalyzePrototypeProperties implements CompilerPass {
       if (n.isGetProp()) {
         symbolGraph.connect(
             externNode, firstModule, getNameInfoForName(n.getLastChild().getString(), PROPERTY));
+      } else if (n.isMemberFunctionDef() || n.isGetterDef() || n.isSetterDef()) {
+        // As of 2019-08-29 the only user of this class is CrossChunkMethodMotion, which never
+        // moves static methods, but that could change. So, we're intentionally including static
+        // methods, static getters, and static setters here, because there are cases where they
+        // could act like prototype properties.
+        //
+        // e.g.
+        // // externs.js
+        // class Foo {
+        //   static foo() {}
+        // }
+        //
+        // // src.js
+        // /** @record */
+        // class ObjWithFooMethod {
+        //   foo() {}
+        // }
+        // /** @type {!ObjWithFooMethod} */
+        // let objWithFooMethod = Foo; // yes, this is valid
+        //
+        symbolGraph.connect(externNode, firstModule, getNameInfoForName(n.getString(), PROPERTY));
       }
     }
   }

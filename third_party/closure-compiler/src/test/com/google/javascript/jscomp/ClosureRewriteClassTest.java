@@ -576,6 +576,22 @@ public final class ClosureRewriteClassTest extends CompilerTestCase {
         warning(GOOG_CLASS_NG_INJECT_ON_CLASS));
   }
 
+  @Test
+  public void testNgInject_onClass_inAssign() {
+    testRewriteWarning(
+        lines(
+            "var x = {};", //
+            "/** @ngInject */",
+            "x.y = goog.defineClass(Object, {",
+            "  constructor: function(x, y) {}",
+            "});"),
+        lines(
+            "var x = {};", //
+            "/** @ngInject @constructor @struct */",
+            "x.y = function(x, y) {};"),
+        warning(GOOG_CLASS_NG_INJECT_ON_CLASS));
+  }
+
   // The two following tests are just to make sure that these functionalities in
   // Es6 does not break the compiler during this pass
 
@@ -806,15 +822,44 @@ public final class ClosureRewriteClassTest extends CompilerTestCase {
         LanguageMode.ECMASCRIPT_2015);
   }
 
-  //public void testNestedObjectLiteral(){
-  //testRewriteError(
+  @Test
+  public void testNoExportInModule() {
+    // TODO(b/138324343): This should keep the @export so that we later warn on this code.
+    testRewrite(
+        lines(
+            "goog.module('m');",
+            "var x = goog.defineClass(null, {",
+            "/** @export */",
+            "  constructor: function(){}",
+            "});"),
+        lines(
+            "goog.module('m');", //
+            "/** @public @constructor @struct */",
+            "var x = function() {};"));
+  }
+
+  @Test
+  public void testIncludeExportForGlobal() {
+    testRewrite(
+        lines(
+            "var x = goog.defineClass(null, {",
+            "/** @export */",
+            "  constructor: function(){}",
+            "});"),
+        lines(
+            "/** @export @public @constructor @struct */", //
+            "var x = function() {};"));
+  }
+
+  // public void testNestedObjectLiteral(){
+  // testRewriteError(
   //    lines(
   //        "var FancyClass = goog.defineClass(null, {",
   //        "  constructor: function() {},",
   //        "  someNestedObjLit:{}",
   //        "});"),
   //    GOOG_CLASS_NESTED_OBJECT_LITERAL_FOUND, LanguageMode.ECMASCRIPT_2015);
-  //testRewriteError(
+  // testRewriteError(
   //    lines(
   //        "var FancyClass = goog.defineClass(null, {",
   //        "  constructor() {},",
@@ -823,5 +868,5 @@ public final class ClosureRewriteClassTest extends CompilerTestCase {
   //        "  }",
   //        "});"),
   //    GOOG_CLASS_NESTED_OBJECT_LITERAL_FOUND, LanguageMode.ECMASCRIPT_2015);
-  //}
+  // }
 }

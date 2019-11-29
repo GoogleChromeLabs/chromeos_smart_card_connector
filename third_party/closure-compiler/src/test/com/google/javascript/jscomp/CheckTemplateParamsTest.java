@@ -45,10 +45,43 @@ public final class CheckTemplateParamsTest extends CompilerTestCase {
   }
 
   @Override
-  protected CompilerOptions getOptions(CompilerOptions options) {
-    super.getOptions(options);
+  protected CompilerOptions getOptions() {
+    CompilerOptions options = super.getOptions();
     options.setWarningLevel(DiagnosticGroups.TOO_MANY_TYPE_PARAMS, CheckLevel.WARNING);
     return options;
+  }
+
+  @Test
+  public void testIterator() {
+    testSame("/** @type {!Iterator} */ var x;");
+    testSame("/** @type {!Iterator<string>} */ var x;");
+    testSame("/** @type {!Iterator<string, number>} */ var x;");
+    testSame("/** @type {!Iterator<string, number, void>} */ var x;");
+    test(
+        srcs("/** @type {!Iterator<string, number, void, void>} */ var x;"),
+        warning(TOO_MANY_TEMPLATE_PARAMS));
+  }
+
+  @Test
+  public void testGenerator() {
+    testSame("/** @type {!Generator} */ var x;");
+    testSame("/** @type {!Generator<string>} */ var x;");
+    testSame("/** @type {!Generator<string, number>} */ var x;");
+    testSame("/** @type {!Iterator<string, number, void>} */ var x;");
+    test(
+        srcs("/** @type {!Generator<string, number, void, void>} */ var x;"),
+        warning(TOO_MANY_TEMPLATE_PARAMS));
+  }
+
+  @Test
+  public void testAsyncIterator() {
+    testSame("/** @type {!AsyncIterator} */ var x;");
+    testSame("/** @type {!AsyncIterator<string>} */ var x;");
+    testSame("/** @type {!AsyncIterator<string, number>} */ var x;");
+    testSame("/** @type {!AsyncIterator<string, number, void>} */ var x;");
+    test(
+        srcs("/** @type {!AsyncIterator<string, number, void, void>} */ var x;"),
+        warning(TOO_MANY_TEMPLATE_PARAMS));
   }
 
   @Test
