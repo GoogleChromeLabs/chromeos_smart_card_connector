@@ -77,7 +77,6 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--dependency_mode=STRICT \
 	--jscomp_error=accessControls \
 	--jscomp_error=ambiguousFunctionDecl \
-	--jscomp_error=checkEventfulObjectDisposal \
 	--jscomp_error=checkRegExp \
 	--jscomp_error=checkTypes \
 	--jscomp_error=checkVars \
