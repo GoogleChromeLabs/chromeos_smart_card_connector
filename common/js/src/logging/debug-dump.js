@@ -54,7 +54,7 @@ function guessIntegerBitLength(value) {
   goog.array.forEach(BIT_LENGTHS, function(bitLength) {
     var signedBegin = -Math.pow(2, bitLength - 1);
     var unsignedEnd = Math.pow(2, bitLength);
-    if (signedBegin <= value && value < unsignedEnd && goog.isNull(result))
+    if (signedBegin <= value && value < unsignedEnd && result === null)
       result = bitLength;
   });
   return result;
@@ -200,13 +200,13 @@ function dump(value) {
     return '<Node>';
   }
 
-  if (!goog.isDef(value))
+  if (value === undefined)
     return 'undefined';
-  if (goog.isNull(value))
+  if (value === null)
     return 'null';
-  if (goog.isNumber(value))
+  if (typeof value === 'number')
     return dumpNumber(value);
-  if (goog.isString(value))
+  if (typeof value === 'string')
     return dumpString(value);
   if (goog.isArray(value))
     return dumpArray(value);

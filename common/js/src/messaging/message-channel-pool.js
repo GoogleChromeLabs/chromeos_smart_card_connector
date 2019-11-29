@@ -106,7 +106,7 @@ MessageChannelPool.prototype.addOnUpdateListener = function(
     listener, opt_scope) {
   this.logger.fine('Added an OnUpdateListener');
   this.onUpdateListeners_.push(
-      goog.isDef(opt_scope) ? goog.bind(listener, opt_scope) : listener);
+      opt_scope !== undefined ? goog.bind(listener, opt_scope) : listener);
   // Fire it once immediately to update.
   this.fireOnUpdateListeners_();
 };

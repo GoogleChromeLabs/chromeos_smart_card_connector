@@ -235,7 +235,7 @@ GSC.Logging.fail = function(opt_message, var_args) {
  */
 GSC.Logging.failWithLogger = function(logger, opt_message, var_args) {
   var messagePrefix = 'Failure in ' + logger.getName();
-  if (goog.isDef(opt_message)) {
+  if (opt_message !== undefined) {
     var transformedMessage = messagePrefix + ': ' + opt_message;
     var args = Array.prototype.slice.call(arguments, 2);
     GSC.Logging.fail.apply(

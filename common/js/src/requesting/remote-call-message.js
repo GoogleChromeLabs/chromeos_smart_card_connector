@@ -68,7 +68,7 @@ var RemoteCallMessage = GSC.RemoteCallMessage;
 RemoteCallMessage.parseRequestPayload = function(requestPayload) {
   if (goog.object.getCount(requestPayload) != 2 ||
       !goog.object.containsKey(requestPayload, FUNCTION_NAME_MESSAGE_KEY) ||
-      !goog.isString(requestPayload[FUNCTION_NAME_MESSAGE_KEY]) ||
+      typeof requestPayload[FUNCTION_NAME_MESSAGE_KEY] !== 'string' ||
       !goog.object.containsKey(requestPayload, ARGUMENTS_MESSAGE_KEY) ||
       !goog.isArray(requestPayload[ARGUMENTS_MESSAGE_KEY])) {
     return null;

@@ -70,22 +70,23 @@ function prepareMessage() {
   var data = GSC.PopupWindow.Client.getData();
 
   var isClientKnown = data['is_client_known'];
-  GSC.Logging.checkWithLogger(logger, goog.isBoolean(isClientKnown));
+  GSC.Logging.checkWithLogger(logger, typeof isClientKnown === 'boolean');
   goog.asserts.assertBoolean(isClientKnown);
 
   var clientAppId = data['client_app_id'];
-  GSC.Logging.checkWithLogger(logger, goog.isString(clientAppId));
+  GSC.Logging.checkWithLogger(logger, typeof clientAppId === 'string');
   goog.asserts.assertString(clientAppId);
 
   var clientAppName = data['client_app_name'];
   if (isClientKnown) {
-    GSC.Logging.checkWithLogger(logger, goog.isString(clientAppName));
+    GSC.Logging.checkWithLogger(logger, typeof clientAppName === 'string');
     goog.asserts.assertString(clientAppName);
   } else {
     GSC.Logging.checkWithLogger(
-        logger, !goog.isDef(clientAppName) || goog.isString(clientAppName));
+        logger,
+        clientAppName === undefined || typeof clientAppName === 'string');
     goog.asserts.assert(
-        !goog.isDef(clientAppName) || goog.isString(clientAppName));
+        clientAppName === undefined || typeof clientAppName === 'string');
   }
 
   var linkTitle;

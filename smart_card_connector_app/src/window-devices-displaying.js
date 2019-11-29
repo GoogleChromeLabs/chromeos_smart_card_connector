@@ -81,7 +81,7 @@ function displayReaderList(readers) {
   goog.dom.removeChildren(readersListElement);
 
   for (let reader of readers) {
-    GSC.Logging.checkWithLogger(logger, !goog.isNull(readersListElement));
+    GSC.Logging.checkWithLogger(logger, readersListElement !== null);
     goog.asserts.assert(readersListElement);
 
     var indicatorClasses = 'reader-state-indicator reader-state-indicator-' +

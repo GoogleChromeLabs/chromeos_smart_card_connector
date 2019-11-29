@@ -60,7 +60,7 @@ GSC.PopupWindow.Server.createWindow = function(
   var createdWindowExtends = {};
   createdWindowExtends[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME] =
       GSC.Logging.getLogBuffer();
-  if (goog.isDef(opt_data))
+  if (opt_data !== undefined)
     createdWindowExtends['passedData'] = opt_data;
 
   logger.fine(
@@ -101,7 +101,7 @@ GSC.PopupWindow.Server.runModalDialog = function(
         !goog.object.containsKey(opt_createWindowOptionsOverrides, 'id'),
         '"id" window option is disallowed for the modal dialogs (as this ' +
         'option may result in not creating the new modal dialog)');
-    goog.object.extend(createWindowOptions, opt_createWindowOptionsOverrides);
+    Object.assign(createWindowOptions, opt_createWindowOptionsOverrides);
   }
 
   var promiseResolver = goog.Promise.withResolver();
@@ -110,8 +110,8 @@ GSC.PopupWindow.Server.runModalDialog = function(
     'resolveModalDialog': promiseResolver.resolve,
     'rejectModalDialog': promiseResolver.reject
   };
-  if (goog.isDef(opt_data))
-    goog.object.extend(dataWithDialogCallbacks, opt_data);
+  if (opt_data !== undefined)
+    Object.assign(dataWithDialogCallbacks, opt_data);
 
   GSC.PopupWindow.Server.createWindow(
       url, createWindowOptions, dataWithDialogCallbacks);
@@ -136,7 +136,7 @@ function createWindowCallback(createdWindowExtends, createdWindow) {
       'The popup window callback is executed, injecting the following data ' +
       'into the created window: ' +
       GSC.DebugDump.debugDump(createdWindowExtends));
-  goog.object.extend(createdWindowScope, createdWindowExtends);
+  Object.assign(createdWindowScope, createdWindowExtends);
 }
 
 });  // goog.scope

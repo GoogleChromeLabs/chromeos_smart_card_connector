@@ -96,7 +96,7 @@ GSC.MessageChannelPinging.Pinger = function(
       PingResponder.SERVICE_NAME, this.serviceCallback_.bind(this), true);
 
   /** @private */
-  this.onEstablished_ = goog.isDef(opt_onEstablished) ?
+  this.onEstablished_ = opt_onEstablished !== undefined ?
       opt_onEstablished : null;
 
   /**
@@ -187,14 +187,14 @@ Pinger.prototype.serviceCallback_ = function(messageData) {
     return;
   }
   var channelId = messageData[CHANNEL_ID_MESSAGE_KEY];
-  if (!goog.isNumber(channelId)) {
+  if (typeof channelId !== 'number') {
     this.logger.warning('Received pong message has wrong format: channel id ' +
                         'is not a number. Disposing...');
     this.disposeChannelAndSelf_();
     return;
   }
 
-  if (goog.isNull(this.previousRemoteEndChannelId_)) {
+  if (this.previousRemoteEndChannelId_ === null) {
     this.logger.fine(
         'Received the first pong response (remote channel id is ' + channelId +
         '). The message channel is considered established');
@@ -240,7 +240,7 @@ Pinger.prototype.schedulePostingPingMessage_ = function() {
 
 /** @private */
 Pinger.prototype.scheduleTimeoutTimer_ = function() {
-  GSC.Logging.checkWithLogger(this.logger, goog.isNull(this.timeoutTimerId_));
+  GSC.Logging.checkWithLogger(this.logger, this.timeoutTimerId_ === null);
   this.timeoutTimerId_ = goog.Timer.callOnce(
       this.timeoutCallback_.bind(this),
       Pinger.TIMEOUT_MILLISECONDS,
@@ -249,7 +249,7 @@ Pinger.prototype.scheduleTimeoutTimer_ = function() {
 
 /** @private */
 Pinger.prototype.clearTimeoutTimer_ = function() {
-  if (!goog.isNull(this.timeoutTimerId_)) {
+  if (this.timeoutTimerId_ !== null) {
     goog.Timer.clear(this.timeoutTimerId_);
     this.timeoutTimerId_ = null;
   }

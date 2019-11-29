@@ -112,7 +112,7 @@ function connectionListener(port) {
 function externalConnectionListener(port) {
   logger.fine('Received onConnectExternal event');
   var portMessageChannel = new GSC.PortMessageChannel(port);
-  if (goog.isNull(portMessageChannel.extensionId)) {
+  if (portMessageChannel.extensionId === null) {
     logger.warning('Ignoring the external connection as there is no sender ' +
                    'extension id specified');
     return;
@@ -130,7 +130,7 @@ function externalConnectionListener(port) {
  */
 function externalMessageListener(message, sender) {
   logger.fine('Received onMessageExternal event');
-  if (!goog.isDef(sender.id)) {
+  if (sender.id === undefined) {
     logger.warning('Ignoring the external message as there is no sender ' +
                    'extension id specified');
     return;
@@ -185,7 +185,7 @@ function getOrCreateSingleMessageBasedChannel(clientExtensionId) {
 function createClientHandler(clientMessageChannel, clientExtensionId) {
   GSC.Logging.checkWithLogger(logger, !clientMessageChannel.isDisposed());
 
-  var clientTitleForLog = goog.isDef(clientExtensionId) ?
+  var clientTitleForLog = clientExtensionId !== undefined ?
       'app "' + clientExtensionId + '"' : 'own app';
 
   if (naclModule.isDisposed() || naclModule.messageChannel.isDisposed()) {
@@ -209,7 +209,7 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
   var logMessage =
       'Created a new PC/SC-Lite client handler for ' + clientTitleForLog +
       ' (handler id ' + clientHandler.id + ')';
-  if (goog.isDef(clientExtensionId))
+  if (clientExtensionId !== undefined)
     logger.info(logMessage);
   else
     logger.fine(logMessage);

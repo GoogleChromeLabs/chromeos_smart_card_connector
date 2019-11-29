@@ -103,7 +103,7 @@ var RequestMessageData = RequesterMessage.RequestMessageData;
 RequestMessageData.parseMessageData = function(messageData) {
   if (goog.object.getCount(messageData) != 2 ||
       !goog.object.containsKey(messageData, REQUEST_ID_MESSAGE_KEY) ||
-      !goog.isNumber(messageData[REQUEST_ID_MESSAGE_KEY]) ||
+      typeof messageData[REQUEST_ID_MESSAGE_KEY] !== 'number' ||
       !goog.object.containsKey(messageData, PAYLOAD_MESSAGE_KEY) ||
       !goog.isObject(messageData[PAYLOAD_MESSAGE_KEY])) {
     return null;
@@ -141,7 +141,7 @@ RequesterMessage.ResponseMessageData = function(
   this.errorMessage = opt_errorMessage;
 
   GSC.Logging.checkWithLogger(
-      this.logger, !goog.isDef(opt_payload) || !goog.isDef(opt_errorMessage));
+      this.logger, opt_payload === undefined || opt_errorMessage === undefined);
 };
 
 /** @const */
@@ -158,7 +158,7 @@ ResponseMessageData.prototype.logger = GSC.Logging.getScopedLogger(
  * @return {boolean}
  */
 ResponseMessageData.prototype.isSuccessful = function() {
-  return !goog.isDef(this.errorMessage);
+  return this.errorMessage === undefined;
 };
 
 /**
@@ -174,7 +174,8 @@ ResponseMessageData.prototype.getPayload = function() {
  */
 ResponseMessageData.prototype.getErrorMessage = function() {
   GSC.Logging.checkWithLogger(this.logger, !this.isSuccessful());
-  GSC.Logging.checkWithLogger(this.logger, goog.isString(this.errorMessage));
+  GSC.Logging.checkWithLogger(
+      this.logger, typeof this.errorMessage === 'string');
   goog.asserts.assertString(this.errorMessage);
   return this.errorMessage;
 };
@@ -189,7 +190,7 @@ ResponseMessageData.prototype.getErrorMessage = function() {
 ResponseMessageData.parseMessageData = function(messageData) {
   if (goog.object.getCount(messageData) != 2 ||
       !goog.object.containsKey(messageData, REQUEST_ID_MESSAGE_KEY) ||
-      !goog.isNumber(messageData[REQUEST_ID_MESSAGE_KEY])) {
+      typeof messageData[REQUEST_ID_MESSAGE_KEY] !== 'number') {
     return null;
   }
   var requestId = messageData[REQUEST_ID_MESSAGE_KEY];
@@ -197,7 +198,7 @@ ResponseMessageData.parseMessageData = function(messageData) {
     return new ResponseMessageData(requestId, messageData[PAYLOAD_MESSAGE_KEY]);
   }
   if (goog.object.containsKey(messageData, ERROR_MESSAGE_KEY) &&
-      goog.isString(messageData[ERROR_MESSAGE_KEY])) {
+      typeof messageData[ERROR_MESSAGE_KEY] === 'string') {
     return new ResponseMessageData(
         requestId, undefined, messageData[ERROR_MESSAGE_KEY]);
   }

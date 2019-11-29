@@ -190,7 +190,7 @@ Requester.prototype.responseMessageReceivedListener_ = function(messageData) {
   }
 
   var responseMessageData = ResponseMessageData.parseMessageData(messageData);
-  if (goog.isNull(responseMessageData)) {
+  if (responseMessageData === null) {
     GSC.Logging.failWithLogger(
         this.logger,
         'Failed to parse the received response message: ' +
@@ -240,7 +240,7 @@ Requester.prototype.rejectRequest_ = function(requestId, errorMessage) {
  */
 Requester.prototype.popRequestPromiseResolver_ = function(requestId) {
   var result = this.requestIdToPromiseResolverMap_.get(requestId);
-  GSC.Logging.checkWithLogger(this.logger, goog.isDef(result));
+  GSC.Logging.checkWithLogger(this.logger, result !== undefined);
   this.requestIdToPromiseResolverMap_.delete(requestId);
   return result;
 };
