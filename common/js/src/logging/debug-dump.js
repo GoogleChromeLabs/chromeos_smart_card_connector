@@ -22,13 +22,11 @@
 goog.provide('GoogleSmartCard.DebugDump');
 
 goog.require('goog.array');
-goog.require('goog.functions');
 goog.require('goog.iter');
 goog.require('goog.json');
 goog.require('goog.math');
 goog.require('goog.object');
 goog.require('goog.string');
-goog.require('goog.structs');
 
 goog.scope(function() {
 

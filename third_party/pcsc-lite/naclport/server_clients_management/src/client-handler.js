@@ -38,7 +38,6 @@ goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
-goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.iter');
 goog.require('goog.iter.Iterator');

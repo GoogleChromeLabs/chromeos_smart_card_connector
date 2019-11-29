@@ -33,13 +33,10 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('goog.Promise');
-goog.require('goog.array');
-goog.require('goog.functions');
 goog.require('goog.iter');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
 goog.require('goog.promise.Resolver');
-goog.require('goog.structs');
 
 goog.scope(function() {
 

@@ -31,7 +31,6 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
-goog.require('goog.functions');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.promise.Resolver');
