@@ -162,8 +162,8 @@ CTAGS = ctags
 CSCOPE = cscope
 DIST_SUBDIRS = $(SUBDIRS)
 am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in AUTHORS \
-	COPYING ChangeLog INSTALL NEWS README ar-lib compile \
-	config.guess config.sub install-sh ltmain.sh missing ylwrap
+	COPYING ChangeLog INSTALL NEWS ar-lib compile config.guess \
+	config.sub install-sh ltmain.sh missing ylwrap
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 distdir = $(PACKAGE)-$(VERSION)
 top_distdir = $(distdir)
@@ -354,6 +354,7 @@ usbdropdir = @usbdropdir@
 ACLOCAL_AMFLAGS = -I m4
 SUBDIRS = readers examples contrib src
 EXTRA_DIST = bootstrap ChangeLog SCARDGETATTRIB.txt \
+	README.md \
 	$(AUX_DIST) \
 	m4/ax_pthread.m4 \
 	MacOSX/configure \

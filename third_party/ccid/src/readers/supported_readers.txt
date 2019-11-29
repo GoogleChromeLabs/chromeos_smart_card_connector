@@ -1,6 +1,6 @@
 #
 # List of readers supported by the CCID driver
-# Generated: 2018-12-19
+# Generated: 2019-07-31
 #
 # DO NOT EDIT BY HAND
 
@@ -130,6 +130,7 @@
 0x072F:0x1204:ACS ACR101 ICC Reader
 0x072F:0x221A:ACS ACR1251 Dual Reader
 0x072F:0x223B:ACS ACR1252 Dual Reader
+0x072F:0x223E:ACS ACR1252 Reader
 0x072F:0x223F:ACS ACR1255U-J1
 0x072F:0x8201:ACS APG8201 PINhandy 1
 0x072F:0x8202:ACS APG8201 USB Reader
@@ -162,8 +163,12 @@
 0x24DC:0x0201:Aladdin R.D. JCR-770
 0x24DC:0x0401:Aladdin R.D. JC-WebPass (JC600)
 0x24DC:0x0402:Aladdin R.D. JaCarta
+0x24DC:0x0428:Aladdin R.D. JaCartaReader
 0x24DC:0x0501:Aladdin R.D. JaCarta U2F (JC602)
 0x24DC:0x100F:Aladdin R.D. JaCarta Flash
+
+# Alcor Link
+0x2CE3:0x9563:Alcor Link AK9563
 
 # Alcor Micro
 0x058F:0x9522:Alcor Micro AU9522
@@ -193,9 +198,13 @@
 0x03EB:0x6012:ATMEL VaultIC420 Smart Object
 0x03EB:0x6014:ATMEL VaultIC440
 
+# AvestUA
+0xC1A6:0x0131:AvestUA AvestKey
+
 # Avtor
 0x15CF:0x0019:Avtor SecureToken
 0x15CF:0x001D:Avtor SC Reader 371
+0x15CF:0x0020:Avtor SecureToken
 
 # Axalto
 0x04E6:0x511C:Axalto Reflex USB v3
@@ -215,7 +224,10 @@
 0x25DD:0x2351:Bit4id Digital DNA Key
 0x25DD:0x2361:Bit4id Digital-DNA Key BT
 0x25DD:0x2362:Bit4id Digital-DNA Key
+0x25DD:0x2371:Bit4id TokenME EVO v2
 0x25DD:0x3111:Bit4id miniLector
+0x25DD:0x3211:Bit4id miniLector AIR EVO
+0x25DD:0xB001:Bit4id miniLector Blue
 
 # Bluink Ltd.
 0x2ABE:0x1003:Bluink Ltd. Bluink CCID
@@ -230,6 +242,9 @@
 0x0A5C:0x5833:Broadcom Corp 5880
 0x0A5C:0x5834:Broadcom Corp 5880
 0x0A5C:0x5842:Broadcom Corp 58200
+0x0A5C:0x5843:Broadcom Corp 58200
+0x0A5C:0x5844:Broadcom Corp 58200
+0x0A5C:0x5845:Broadcom Corp 58200
 
 # C3PO
 0x0783:0x0007:C3PO TLTC2USB
@@ -245,6 +260,7 @@
 
 # Certgate GmbH
 0x2DFF:0xB601:Certgate GmbH AirID 2 USB
+0x2DFF:0xB602:Certgate GmbH ONEKEY ID 2 USB
 
 # charismathics
 0x19E7:0x0002:charismathics plug'n'crypt CCID token
@@ -384,6 +400,10 @@
 # HID
 
 # HID Global
+0x09C3:0x0028:HID Global Crescendo Key
+0x09C3:0x0029:HID Global Crescendo Key
+0x09C3:0x002B:HID Global Crescendo Key
+0x09C3:0x002D:HID Global Crescendo Key
 0x076B:0x3031:HID Global OMNIKEY 3x21 Smart Card Reader
 0x076B:0x5022:HID Global OMNIKEY 5022 Smart Card Reader
 0x076B:0x5023:HID Global OMNIKEY 5023 Smart Card Reader
@@ -441,6 +461,9 @@
 # IIT
 0x03EB:0x9308:IIT E.Key Crystal-1
 0x03EB:0x9324:IIT E.Key Almaz-1C
+
+# InfoCert
+0x2FD2:0x0100:InfoCert WirelessKey
 
 # InfoThink
 0x1FC9:0x0102:InfoThink IT-102MU Reader
@@ -541,6 +564,7 @@
 # NXP
 0x1FC9:0x0107:NXP Pegoda 2 N
 0x1FC9:0x010B:NXP PR533
+0x1FC9:0x0117:NXP PN7462AU CCID
 
 # OBERTHUR TECHNOLOGIES
 0x1A74:0xB111:OBERTHUR TECHNOLOGIES ID-ONE TOKEN SLIM v2
@@ -593,6 +617,9 @@
 # Rocketek
 0x14CD:0x8166:Rocketek RT-SCR1
 
+# Route1
+0x13FE:0xC831:Route1 MobiKEY Fusion3
+
 # SafeNet
 0x0529:0x0602:SafeNet eToken 7300
 0x0529:0x0620:SafeNet eToken 5100
@@ -631,6 +658,9 @@
 
 # Softforum Co., Ltd
 0x04E8:0x0007:Softforum Co., Ltd XecureHSM
+
+# SPECINFOSYSTEMS
+0x316E:0x0001:SPECINFOSYSTEMS DIAMOND token
 
 # SpringCard
 0x1C34:0x7113:SpringCard CrazyWriter
