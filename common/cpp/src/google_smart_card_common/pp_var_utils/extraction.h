@@ -22,8 +22,8 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_PP_VAR_UTILS_EXTRACTION_H_
 #define GOOGLE_SMART_CARD_COMMON_PP_VAR_UTILS_EXTRACTION_H_
 
+#include <inttypes.h>
 #include <stdint.h>
-
 #include <set>
 #include <string>
 #include <vector>
@@ -39,17 +39,6 @@
 #include <google_smart_card_common/pp_var_utils/debug_dump.h>
 
 namespace google_smart_card {
-
-namespace internal {
-
-// Error messages constants that are needed in the header file already
-extern const char kErrorWhileDictItemExtraction[];
-extern const char kErrorWrongArraySize[];
-extern const char kErrorWhileArrayItemExtraction[];
-extern const char kErrorDictHasUnexpectedKeys[];
-extern const char kErrorArrayOrArrayBufferExpected[];
-
-}  // namespace internal
 
 //
 // Following there is a group of functions that extract the value of the
@@ -135,8 +124,10 @@ inline bool GetVarArrayItemsVector(
   result->resize(var.GetLength());
   for (uint32_t index = 0; index < var.GetLength(); ++index) {
     if (!VarAs(var.Get(index), &(*result)[index], error_message)) {
-      *error_message = FormatBoostFormatTemplate(
-          kErrorWhileArrayItemExtraction, index, *error_message);
+      *error_message = FormatPrintfTemplate(
+          "Failed to extract the array item with index %" PRIu32 ": %s",
+          index,
+          error_message->c_str());
       return false;
     }
   }
@@ -160,8 +151,9 @@ inline bool VarAsVarArrayBufferAsUint8Vector(
     std::string* error_message) {
   pp::VarArrayBuffer var_array_buffer;
   if (!VarAs(var, &var_array_buffer, error_message)) {
-    *error_message = FormatBoostFormatTemplate(
-        kErrorArrayOrArrayBufferExpected, DebugDumpVar(var));
+    *error_message = FormatPrintfTemplate(
+        "Expected an array of unsigned bytes or ArrayBuffer, instead got: %s",
+        DebugDumpVar(var).c_str());
     return false;
   }
   *result = GetVarArrayBufferData(var_array_buffer);
@@ -233,8 +225,9 @@ inline bool GetVarDictValueAs(
     std::string* error_message) {
   pp::Var value_var;
   if (!GetVarDictValue(var, key, &value_var, error_message)) {
-    *error_message = FormatBoostFormatTemplate(
-        internal::kErrorWhileDictItemExtraction, key, *error_message);
+    *error_message = FormatPrintfTemplate(
+        "Failed to extract the dictionary value with key \"%s\": %s",
+        key.c_str(), error_message->c_str());
     return false;
   }
   return VarAs(value_var, result, error_message);
@@ -264,8 +257,10 @@ inline bool IsVarArraySizeValid(
     size_t expected_size,
     std::string* error_message) {
   if (var.GetLength() != expected_size) {
-    *error_message = FormatBoostFormatTemplate(
-        kErrorWrongArraySize, expected_size, var.GetLength());
+    *error_message = FormatPrintfTemplate(
+        "Expected an array of size %zu, instead got: %" PRIu32,
+        expected_size,
+        var.GetLength());
     return false;
   }
   return true;
@@ -288,10 +283,10 @@ inline bool TryGetVarArrayItemsInternal(
     Arg* arg,
     Args* ... args) {
   if (!VarAs(var.Get(current_item_index), arg, error_message)) {
-    *error_message = FormatBoostFormatTemplate(
-        internal::kErrorWhileArrayItemExtraction,
+    *error_message = FormatPrintfTemplate(
+        "Failed to extract the array item with index %" PRIu32 ": %s",
         current_item_index,
-        *error_message);
+        error_message->c_str());
     return false;
   }
   return TryGetVarArrayItemsInternal(

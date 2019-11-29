@@ -18,31 +18,7 @@
 
 #include <google_smart_card_common/numeric_conversions.h>
 
-// Error messages and related bits of strings
-const char kErrorWrongType[] =
-    "Expected a value of type \"%1%\", instead got: %2%";
-const char kErrorIntegerOutsideJsNumberExactRange[] =
-    "The integer %1% cannot be converted into JavaScript Number without loss "
-    "of precision";
-const char kErrorDictKeyMissing[] = "The dictionary has no key \"%1%\"";
-
 namespace google_smart_card {
-
-namespace internal {
-
-// Definitions of the constants declared in the header file
-const char kErrorWhileDictItemExtraction[] =
-    "Failed to extract the dictionary value with key \"%1%\": %2%";
-const char kErrorWrongArraySize[] =
-    "Expected an array of size %1%, instead got: %2%";
-const char kErrorWhileArrayItemExtraction[] =
-    "Failed to extract the array item with index %1%: %2%";
-const char kErrorDictHasUnexpectedKeys[] =
-    "The dictionary contains unexpected keys: %1%";
-const char kErrorArrayOrArrayBufferExpected[] =
-    "Expected an array of unsigned bytes or ArrayBuffer, instead got: %1%";
-
-}  // namespace internal
 
 namespace {
 
@@ -59,8 +35,9 @@ bool VarAsInteger(
     if (!CastDoubleToInt64(var.AsDouble(), &integer, error_message))
       return false;
   } else {
-    *error_message = FormatBoostFormatTemplate(
-        kErrorWrongType, kIntegerJsTypeTitle, DebugDumpVar(var));
+    *error_message = FormatPrintfTemplate(
+        "Expected a value of type \"%s\", instead got: %s",
+        kIntegerJsTypeTitle, DebugDumpVar(var).c_str());
     return false;
   }
   return CastInt64ToInteger(integer, type_name, result, error_message);
@@ -119,8 +96,10 @@ bool VarAs(const pp::Var& var, float* result, std::string* error_message) {
 
 bool VarAs(const pp::Var& var, double* result, std::string* error_message) {
   if (!var.is_number()) {
-    *error_message = FormatBoostFormatTemplate(
-        kErrorWrongType, kIntegerJsTypeTitle, DebugDumpVar(var));
+    *error_message = FormatPrintfTemplate(
+        "Expected a value of type \"%s\", instead got: %s",
+        kIntegerJsTypeTitle,
+        DebugDumpVar(var).c_str());
     return false;
   }
   *result = var.AsDouble();
@@ -129,8 +108,10 @@ bool VarAs(const pp::Var& var, double* result, std::string* error_message) {
 
 bool VarAs(const pp::Var& var, bool* result, std::string* error_message) {
   if (!var.is_bool()) {
-    *error_message = FormatBoostFormatTemplate(
-        kErrorWrongType, kBooleanJsTypeTitle, DebugDumpVar(var));
+    *error_message = FormatPrintfTemplate(
+        "Expected a value of type \"%s\", instead got: %s",
+        kBooleanJsTypeTitle,
+        DebugDumpVar(var).c_str());
     return false;
   }
   *result = var.AsBool();
@@ -140,8 +121,10 @@ bool VarAs(const pp::Var& var, bool* result, std::string* error_message) {
 bool VarAs(
     const pp::Var& var, std::string* result, std::string* error_message) {
   if (!var.is_string()) {
-    *error_message = FormatBoostFormatTemplate(
-        kErrorWrongType, kStringJsTypeTitle, DebugDumpVar(var));
+    *error_message = FormatPrintfTemplate(
+        "Expected a value of type \"%s\", instead got: %s",
+        kStringJsTypeTitle,
+        DebugDumpVar(var).c_str());
     return false;
   }
   *result = var.AsString();
@@ -157,8 +140,10 @@ bool VarAs(
 bool VarAs(
     const pp::Var& var, pp::VarArray* result, std::string* error_message) {
   if (!var.is_array()) {
-    *error_message = FormatBoostFormatTemplate(
-        kErrorWrongType, kArrayJsTypeTitle, DebugDumpVar(var));
+    *error_message = FormatPrintfTemplate(
+        "Expected a value of type \"%s\", instead got: %s",
+        kArrayJsTypeTitle,
+        DebugDumpVar(var).c_str());
     return false;
   }
   *result = pp::VarArray(var);
@@ -170,8 +155,10 @@ bool VarAs(
     pp::VarArrayBuffer* result,
     std::string* error_message) {
   if (!var.is_array_buffer()) {
-    *error_message = FormatBoostFormatTemplate(
-        kErrorWrongType, kArrayBufferJsTypeTitle, DebugDumpVar(var));
+    *error_message = FormatPrintfTemplate(
+        "Expected a value of type \"%s\", instead got: %s",
+        kArrayBufferJsTypeTitle,
+        DebugDumpVar(var).c_str());
     return false;
   }
   *result = pp::VarArrayBuffer(var);
@@ -181,8 +168,10 @@ bool VarAs(
 bool VarAs(
     const pp::Var& var, pp::VarDictionary* result, std::string* error_message) {
   if (!var.is_dictionary()) {
-    *error_message = FormatBoostFormatTemplate(
-        kErrorWrongType, kDictionaryJsTypeTitle, DebugDumpVar(var));
+    *error_message = FormatPrintfTemplate(
+        "Expected a value of type \"%s\", instead got: %s",
+        kDictionaryJsTypeTitle,
+        DebugDumpVar(var).c_str());
     return false;
   }
   *result = pp::VarDictionary(var);
@@ -192,8 +181,10 @@ bool VarAs(
 bool VarAs(
     const pp::Var& var, pp::Var::Null* /*result*/, std::string* error_message) {
   if (!var.is_null()) {
-    *error_message = FormatBoostFormatTemplate(
-        kErrorWrongType, kNullJsTypeTitle, DebugDumpVar(var));
+    *error_message = FormatPrintfTemplate(
+        "Expected a value of type \"%s\", instead got: %s",
+        kNullJsTypeTitle,
+        DebugDumpVar(var).c_str());
     return false;
   }
   return true;
@@ -226,7 +217,8 @@ bool GetVarDictValue(
     pp::Var* result,
     std::string* error_message) {
   if (!var.HasKey(key)) {
-    *error_message = FormatBoostFormatTemplate(kErrorDictKeyMissing, key);
+    *error_message = FormatPrintfTemplate(
+        "The dictionary has no key \"%s\"", key.c_str());
     return false;
   }
   *result = var.Get(key);
@@ -268,8 +260,9 @@ bool VarDictValuesExtractor::GetSuccessWithNoExtraKeysAllowed(
         unexpected_keys_dump += ", ";
       unexpected_keys_dump += '"' + key + '"';
     }
-    *error_message = FormatBoostFormatTemplate(
-        internal::kErrorDictHasUnexpectedKeys, unexpected_keys_dump);
+    *error_message = FormatPrintfTemplate(
+        "The dictionary contains unexpected keys: %s",
+        unexpected_keys_dump.c_str());
     return false;
   }
   return true;
@@ -298,8 +291,10 @@ void VarDictValuesExtractor::ProcessFailedExtraction(
     // only should be enough.
     return;
   }
-  error_message_ = FormatBoostFormatTemplate(
-      internal::kErrorWhileDictItemExtraction, key, extraction_error_message);
+  error_message_ = FormatPrintfTemplate(
+      "Failed to extract the dictionary value with key \"%s\": %s",
+      key.c_str(),
+      extraction_error_message.c_str());
   failed_ = true;
 }
 

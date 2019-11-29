@@ -80,10 +80,10 @@ class EnumConverter final {
 
     VarValueType var_value;
     if (!VarAs(var, &var_value, error_message)) {
-      *error_message = FormatBoostFormatTemplate(
-          "Failed to parse %1% enum value: value of unexpected type got: %2%",
+      *error_message = FormatPrintfTemplate(
+          "Failed to parse %s enum value: value of unexpected type got: %s",
           GetEnumTypeName(),
-          DebugDumpVar(var));
+          DebugDumpVar(var).c_str());
       return false;
     }
 
@@ -97,10 +97,10 @@ class EnumConverter final {
       }
     });
     if (!succeeded) {
-      *error_message = FormatBoostFormatTemplate(
-          "Failed to parse %1% enum value: unknown value got: %2%",
+      *error_message = FormatPrintfTemplate(
+          "Failed to parse %s enum value: unknown value got: %s",
           GetEnumTypeName(),
-          DebugDumpVar(var));
+          DebugDumpVar(var).c_str());
     }
     return succeeded;
   }

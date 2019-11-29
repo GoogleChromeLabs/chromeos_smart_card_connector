@@ -31,7 +31,6 @@
 
 const char kSampleType1[] = "sample type 1";
 const char kSampleType2[] = "sample type 2";
-const char kSampleDataFormat[] = "sample value #%1%";
 
 using testing::_;
 using testing::Eq;
@@ -58,7 +57,7 @@ class MockTypedMessageListener final : public TypedMessageListener {
 };
 
 std::string MakeSampleData(int index) {
-  return FormatBoostFormatTemplate(kSampleDataFormat, index);
+  return FormatPrintfTemplate("sample value #%d", index);
 }
 
 std::string GetMessageDataString(const pp::Var& data) {

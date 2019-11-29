@@ -20,6 +20,7 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_NUMERIC_CONVERSIONS_H_
 #define GOOGLE_SMART_CARD_COMMON_NUMERIC_CONVERSIONS_H_
 
+#include <inttypes.h>
 #include <stdint.h>
 
 #include <limits>
@@ -31,10 +32,6 @@
 namespace google_smart_card {
 
 namespace internal {
-
-// Error messages constants that are needed in the header file already
-extern const char kErrorNumberOutsideTypeRange[];
-extern const char kErrorIntegerOutsideDoubleExactRange[];
 
 // The range of integer numbers that can be represented by the double type
 // exactly (this is calculated from the bit length of the mantissa, taking into
@@ -96,12 +93,13 @@ inline bool CastInt64ToInteger(
     *result = static_cast<T>(value);
     return true;
   }
-  *error_message = FormatBoostFormatTemplate(
-      internal::kErrorNumberOutsideTypeRange,
-      type_name,
+  *error_message = FormatPrintfTemplate(
+      "The integer value is outside the range of type \"%s\": %" PRId64 " not "
+      "in [%" PRId64 "; %" PRIu64 "] range",
+      type_name.c_str(),
       value,
-      std::numeric_limits<T>::min(),
-      std::numeric_limits<T>::max());
+      static_cast<int64_t>(std::numeric_limits<T>::min()),
+      static_cast<uint64_t>(std::numeric_limits<T>::max()));
   return false;
 }
 
@@ -116,9 +114,19 @@ inline bool CastIntegerToDouble(
     *result = static_cast<double>(value);
     return true;
   }
-  *error_message = FormatBoostFormatTemplate(
-      internal::kErrorIntegerOutsideDoubleExactRange,
-      value,
+  std::string formatted_value;
+  if (value >= 0) {
+    formatted_value = FormatPrintfTemplate(
+        "%" PRIu64, static_cast<uint64_t>(value));
+  } else {
+    formatted_value = FormatPrintfTemplate(
+        "%" PRId64, static_cast<int64_t>(value));
+  }
+  *error_message = FormatPrintfTemplate(
+      "The integer %s cannot be converted into a floating-point double value "
+      "without loss of precision: it is outside [%" PRId64 "; %" PRId64
+      "] range",
+      formatted_value.c_str(),
       internal::kDoubleExactRangeMin,
       internal::kDoubleExactRangeMax);
   return false;

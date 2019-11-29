@@ -16,22 +16,11 @@
 
 #include <google_smart_card_common/logging/logging.h>
 
-// Error messages
-const char kErrorDoubleOutsideExactRange[] =
-    "The real value is outside the exact integer representation range: %1% not "
-    "in [%2%; %3%]";
-
 namespace google_smart_card {
 
 namespace internal {
 
 // Definitions of the constants declared in the header file
-const char kErrorNumberOutsideTypeRange[] =
-    "The integer value is outside the range of type \"%1%\": %2% not in "
-    "[%3%; %4%] range";
-const char kErrorIntegerOutsideDoubleExactRange[] =
-    "The integer %1% cannot be converted into a floating-point double value "
-    "without loss of precision: it is outside [%2%; %3%] range";
 const int64_t kDoubleExactRangeMax = 1LL << std::numeric_limits<double>::digits;
 const int64_t kDoubleExactRangeMin = -(1LL <<
     std::numeric_limits<double>::digits);
@@ -42,8 +31,9 @@ bool CastDoubleToInt64(
     double value, int64_t* result, std::string* error_message) {
   if (!(internal::kDoubleExactRangeMin <= value &&
         value <= internal::kDoubleExactRangeMax)) {
-    *error_message = FormatBoostFormatTemplate(
-        kErrorDoubleOutsideExactRange,
+    *error_message = FormatPrintfTemplate(
+        "The real value is outside the exact integer representation range: %f "
+        "not in [%" PRId64 "; %" PRId64 "]",
         value,
         internal::kDoubleExactRangeMin,
         internal::kDoubleExactRangeMax);
