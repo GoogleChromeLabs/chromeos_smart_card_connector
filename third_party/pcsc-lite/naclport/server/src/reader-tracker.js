@@ -33,7 +33,6 @@ goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Promise');
 goog.require('goog.Timer');
 goog.require('goog.array');
-goog.require('goog.asserts');
 goog.require('goog.iter');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');

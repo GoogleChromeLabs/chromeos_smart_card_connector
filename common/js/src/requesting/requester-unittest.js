@@ -18,7 +18,6 @@ goog.require('GoogleSmartCard.Requester');
 goog.require('GoogleSmartCard.RequesterMessage');
 goog.require('GoogleSmartCard.RequesterMessage.RequestMessageData');
 goog.require('GoogleSmartCard.RequesterMessage.ResponseMessageData');
-goog.require('goog.Promise');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.messaging.MockMessageChannel');

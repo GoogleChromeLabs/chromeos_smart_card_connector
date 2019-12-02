@@ -20,7 +20,6 @@ goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('goog.Promise');
-goog.require('goog.json');
 goog.require('goog.testing');
 goog.require('goog.testing.MockControl');
 goog.require('goog.testing.jsunit');

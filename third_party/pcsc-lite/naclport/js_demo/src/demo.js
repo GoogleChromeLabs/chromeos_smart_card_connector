@@ -36,7 +36,6 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('goog.array');
-goog.require('goog.asserts');
 goog.require('goog.iter');
 goog.require('goog.log.Logger');
 goog.require('goog.object');

@@ -19,7 +19,6 @@ goog.require('GoogleSmartCard.MessageChannelPinging.Pinger');
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Promise');
-goog.require('goog.async.Delay');
 goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.mockmatchers');

@@ -26,7 +26,6 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('goog.Promise');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
-goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 

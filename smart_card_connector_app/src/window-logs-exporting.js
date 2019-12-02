@@ -25,7 +25,6 @@ goog.require('GoogleSmartCard.Clipboard');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.Timer');
 goog.require('goog.dom');
-goog.require('goog.dom.classlist');
 goog.require('goog.events.EventType');
 goog.require('goog.log.Logger');
 

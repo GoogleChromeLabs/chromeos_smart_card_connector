@@ -27,13 +27,11 @@ goog.provide('GoogleSmartCard.PopupWindow.Client');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
-goog.require('goog.dom');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
 goog.require('goog.events.KeyCodes');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
-goog.require('goog.string');
 
 goog.scope(function() {
 
