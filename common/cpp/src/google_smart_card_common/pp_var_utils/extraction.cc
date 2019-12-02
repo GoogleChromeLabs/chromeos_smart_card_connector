@@ -18,6 +18,9 @@
 
 #include <google_smart_card_common/numeric_conversions.h>
 
+const char kErrorWrongType[] =
+    "Expected a value of type \"%s\", instead got: %s";
+
 namespace google_smart_card {
 
 namespace {
@@ -36,8 +39,7 @@ bool VarAsInteger(
       return false;
   } else {
     *error_message = FormatPrintfTemplate(
-        "Expected a value of type \"%s\", instead got: %s",
-        kIntegerJsTypeTitle, DebugDumpVar(var).c_str());
+        kErrorWrongType, kIntegerJsTypeTitle, DebugDumpVar(var).c_str());
     return false;
   }
   return CastInt64ToInteger(integer, type_name, result, error_message);
@@ -97,9 +99,7 @@ bool VarAs(const pp::Var& var, float* result, std::string* error_message) {
 bool VarAs(const pp::Var& var, double* result, std::string* error_message) {
   if (!var.is_number()) {
     *error_message = FormatPrintfTemplate(
-        "Expected a value of type \"%s\", instead got: %s",
-        kIntegerJsTypeTitle,
-        DebugDumpVar(var).c_str());
+        kErrorWrongType, kIntegerJsTypeTitle, DebugDumpVar(var).c_str());
     return false;
   }
   *result = var.AsDouble();
@@ -109,9 +109,7 @@ bool VarAs(const pp::Var& var, double* result, std::string* error_message) {
 bool VarAs(const pp::Var& var, bool* result, std::string* error_message) {
   if (!var.is_bool()) {
     *error_message = FormatPrintfTemplate(
-        "Expected a value of type \"%s\", instead got: %s",
-        kBooleanJsTypeTitle,
-        DebugDumpVar(var).c_str());
+        kErrorWrongType, kBooleanJsTypeTitle, DebugDumpVar(var).c_str());
     return false;
   }
   *result = var.AsBool();
@@ -122,9 +120,7 @@ bool VarAs(
     const pp::Var& var, std::string* result, std::string* error_message) {
   if (!var.is_string()) {
     *error_message = FormatPrintfTemplate(
-        "Expected a value of type \"%s\", instead got: %s",
-        kStringJsTypeTitle,
-        DebugDumpVar(var).c_str());
+        kErrorWrongType, kStringJsTypeTitle, DebugDumpVar(var).c_str());
     return false;
   }
   *result = var.AsString();
@@ -141,9 +137,7 @@ bool VarAs(
     const pp::Var& var, pp::VarArray* result, std::string* error_message) {
   if (!var.is_array()) {
     *error_message = FormatPrintfTemplate(
-        "Expected a value of type \"%s\", instead got: %s",
-        kArrayJsTypeTitle,
-        DebugDumpVar(var).c_str());
+        kErrorWrongType, kArrayJsTypeTitle, DebugDumpVar(var).c_str());
     return false;
   }
   *result = pp::VarArray(var);
@@ -156,9 +150,7 @@ bool VarAs(
     std::string* error_message) {
   if (!var.is_array_buffer()) {
     *error_message = FormatPrintfTemplate(
-        "Expected a value of type \"%s\", instead got: %s",
-        kArrayBufferJsTypeTitle,
-        DebugDumpVar(var).c_str());
+        kErrorWrongType, kArrayBufferJsTypeTitle, DebugDumpVar(var).c_str());
     return false;
   }
   *result = pp::VarArrayBuffer(var);
@@ -169,9 +161,7 @@ bool VarAs(
     const pp::Var& var, pp::VarDictionary* result, std::string* error_message) {
   if (!var.is_dictionary()) {
     *error_message = FormatPrintfTemplate(
-        "Expected a value of type \"%s\", instead got: %s",
-        kDictionaryJsTypeTitle,
-        DebugDumpVar(var).c_str());
+        kErrorWrongType, kDictionaryJsTypeTitle, DebugDumpVar(var).c_str());
     return false;
   }
   *result = pp::VarDictionary(var);
@@ -182,9 +172,7 @@ bool VarAs(
     const pp::Var& var, pp::Var::Null* /*result*/, std::string* error_message) {
   if (!var.is_null()) {
     *error_message = FormatPrintfTemplate(
-        "Expected a value of type \"%s\", instead got: %s",
-        kNullJsTypeTitle,
-        DebugDumpVar(var).c_str());
+        kErrorWrongType, kNullJsTypeTitle, DebugDumpVar(var).c_str());
     return false;
   }
   return true;
