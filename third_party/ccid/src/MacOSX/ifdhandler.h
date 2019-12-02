@@ -40,7 +40,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 The routines specified hereafter will allow you to write an IFD handler
 for the PC/SC Lite resource manager. Please use the complement
 developer's kit complete with headers and Makefile at:
-http://www.musclecard.com/drivers.html
+https://muscle.apdu.fr/musclecard.com/sourcedrivers.html
 
 This gives a common API for communication to most readers in a
 homogeneous fashion. This document assumes that the driver developer is
@@ -82,7 +82,7 @@ Example:
     <string>0x04E6</string>
 @endverbatim
 
-You may have an OEM of this reader in which an additional @c <string>
+You may have an OEM of this reader in which an additional @c \<string>
 can be used like in the below example:
 
 @verbatim
@@ -202,7 +202,7 @@ It has the following syntax:
 # Configuration file for pcsc-lite
 # David Corcoran <corcoran@musclecard.com>
 
-FRIENDLYNAME  Generic Reader
+FRIENDLYNAME  "Generic Reader"
 DEVICENAME    /dev/ttyS0
 LIBPATH       /usr/lib/pcsc/drivers/libgen_ifd.so
 CHANNELID     1
