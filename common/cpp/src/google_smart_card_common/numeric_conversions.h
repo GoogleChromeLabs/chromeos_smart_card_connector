@@ -95,11 +95,11 @@ inline bool CastInt64ToInteger(
   }
   *error_message = FormatPrintfTemplate(
       "The integer value is outside the range of type \"%s\": %" PRId64 " not "
-      "in [%" PRId64 "; %" PRIu64 "] range",
+      "in [%" PRIdMAX "; %" PRIuMAX "] range",
       type_name.c_str(),
       value,
-      static_cast<int64_t>(std::numeric_limits<T>::min()),
-      static_cast<uint64_t>(std::numeric_limits<T>::max()));
+      static_cast<intmax_t>(std::numeric_limits<T>::min()),
+      static_cast<uintmax_t>(std::numeric_limits<T>::max()));
   return false;
 }
 
@@ -117,10 +117,10 @@ inline bool CastIntegerToDouble(
   std::string formatted_value;
   if (value >= 0) {
     formatted_value = FormatPrintfTemplate(
-        "%" PRIu64, static_cast<uint64_t>(value));
+        "%" PRIuMAX, static_cast<uintmax_t>(value));
   } else {
     formatted_value = FormatPrintfTemplate(
-        "%" PRId64, static_cast<int64_t>(value));
+        "%" PRIdMAX, static_cast<intmax_t>(value));
   }
   *error_message = FormatPrintfTemplate(
       "The integer %s cannot be converted into a floating-point double value "
