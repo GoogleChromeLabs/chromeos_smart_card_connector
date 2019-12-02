@@ -133,7 +133,7 @@ KnownAppsRegistry.prototype.getById = function(id) {
  * containing either the information for the i-th app in |idList| or |null| if
  * the app isn't present in the config.
  * @param {!Array.<string>} idList
- * @return {!goog.Promise.<!Array.<KnownApp>>}
+ * @return {!goog.Promise.<!Array.<?KnownApp>>}
  */
 KnownAppsRegistry.prototype.tryGetByIds = function(idList) {
   var promiseResolver = goog.Promise.withResolver();
