@@ -25,8 +25,8 @@
 
 #include "client_request_processor.h"
 
+#include <inttypes.h>
 #include <stdlib.h>
-
 #include <cstring>
 #include <thread>
 #include <tuple>
@@ -118,9 +118,9 @@ PcscLiteClientRequestProcessor::PcscLiteClientRequestProcessor(
       client_app_id_(client_app_id),
       status_log_severity_(
           client_app_id ? LogSeverity::kInfo : LogSeverity::kDebug),
-      logging_prefix_(FormatBoostFormatTemplate(
-          "[PC/SC-Lite client handler for %1% (id %2%)] ",
-          client_app_id ? "\"" + *client_app_id + "\"" : "own app",
+      logging_prefix_(FormatPrintfTemplate(
+          "[PC/SC-Lite client handler for %s (id %" PRId64 ")] ",
+          client_app_id ? ("\"" + *client_app_id + "\"").c_str() : "own app",
           client_handler_id)) {
   BuildHandlerMap();
   GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix_ << "Created client handler";
@@ -266,8 +266,8 @@ PcscLiteClientRequestProcessor::WrapHandler(
              arguments,
              &error_message,
              &std::get<arg_indexes>(args_tuple)...)) {
-      return ReturnFailure(FormatBoostFormatTemplate(
-          "Failed to extract arguments: %1%", error_message));
+      return ReturnFailure(FormatPrintfTemplate(
+          "Failed to extract arguments: %s", error_message.c_str()));
     }
     return (this->*handler)(std::get<arg_indexes>(args_tuple)...);
   };
@@ -289,17 +289,17 @@ GenericRequestResult PcscLiteClientRequestProcessor::FindHandlerAndCall(
   const HandlerMap::const_iterator handler_map_iter = handler_map_.find(
       function_name);
   if (handler_map_iter == handler_map_.end()) {
-    return ReturnFailure(FormatBoostFormatTemplate(
-        "Unknown function \"%1%\"", function_name));
+    return ReturnFailure(FormatPrintfTemplate(
+        "Unknown function \"%s\"", function_name.c_str()));
   }
   const Handler& handler = handler_map_iter->second;
 
   const GenericRequestResult result = handler(arguments);
   if (!result.is_successful()) {
-    return ReturnFailure(FormatBoostFormatTemplate(
-        "Error while processing the \"%1%\" request: %2%",
-        function_name,
-        result.error_message()));
+    return ReturnFailure(FormatPrintfTemplate(
+        "Error while processing the \"%s\" request: %s",
+        function_name.c_str(),
+        result.error_message().c_str()));
   }
   return result;
 }

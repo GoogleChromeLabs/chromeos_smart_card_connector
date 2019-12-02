@@ -25,6 +25,7 @@
 
 #include "clients_manager.h"
 
+#include <inttypes.h>
 #include <sstream>
 #include <utility>
 
@@ -38,8 +39,6 @@
 
 const char kCreateHandlerMessageType[] = "pcsc_lite_create_client_handler";
 const char kDeleteHandlerMessageType[] = "pcsc_lite_delete_client_handler";
-const char kPcscFunctionCallRequesterNameTemplate[] =
-    "pcsc_lite_client_handler_%1%_call_function";
 const char kLoggingPrefix[] = "[PC/SC-Lite clients manager] ";
 
 namespace google_smart_card {
@@ -173,8 +172,8 @@ PcscLiteServerClientsManager::Handler::Handler(
       request_processor_(new PcscLiteClientRequestProcessor(
           handler_id, client_app_id_)),
       request_receiver_(new JsRequestReceiver(
-          FormatBoostFormatTemplate(
-              kPcscFunctionCallRequesterNameTemplate, handler_id),
+          FormatPrintfTemplate(
+              "pcsc_lite_client_handler_%" PRId64 "_call_function", handler_id),
           this,
           typed_message_router,
           MakeUnique<JsRequestReceiver::PpDelegateImpl>(pp_instance))) {}
