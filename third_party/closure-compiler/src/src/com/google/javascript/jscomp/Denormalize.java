@@ -41,8 +41,6 @@ import com.google.javascript.rhino.Token;
  *   if (y) { x = 0; }
  * </code> becomes <code>if (y) { var x = 0; }</code>, effectively undoing what {@link
  * HoistVarsOutOfBlocks} does.
- *
- * @author johnlenz@google.com (johnlenz)
  */
 class Denormalize implements CompilerPass, Callback, Behavior {
 
@@ -57,7 +55,7 @@ class Denormalize implements CompilerPass, Callback, Behavior {
     NodeTraversal.traverse(compiler, root, this);
     // Don't inline the VAR declaration if this compilation involves old-style ctemplates.
     if (compiler.getOptions().syntheticBlockStartMarker == null) {
-      (new ReferenceCollectingCallback(compiler, this, new Es6SyntacticScopeCreator(compiler)))
+      (new ReferenceCollectingCallback(compiler, this, new SyntacticScopeCreator(compiler)))
           .process(root);
     }
   }

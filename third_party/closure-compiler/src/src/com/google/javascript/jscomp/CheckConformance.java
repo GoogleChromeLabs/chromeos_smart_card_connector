@@ -37,7 +37,6 @@ import java.util.Set;
  *
  * <p>Conformance violations are both reported as compiler errors, and are also reported separately
  * to the {cI gue@link ErrorManager}
- *
  */
 @GwtIncompatible("com.google.protobuf")
 public final class CheckConformance implements Callback, CompilerPass {
@@ -209,6 +208,8 @@ public final class CheckConformance implements Callback, CompilerPass {
           return new ConformanceRules.BannedCodePattern(compiler, requirement);
         case BANNED_DEPENDENCY:
           return new ConformanceRules.BannedDependency(compiler, requirement);
+        case BANNED_DEPENDENCY_REGEX:
+          return new ConformanceRules.BannedDependencyRegex(compiler, requirement);
         case BANNED_NAME:
         case BANNED_NAME_CALL:
           return new ConformanceRules.BannedName(compiler, requirement);

@@ -22,7 +22,7 @@ import static com.google.javascript.rhino.testing.TypeSubject.assertType;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
-import com.google.javascript.jscomp.Es6SyntacticScopeCreator.RedeclarationHandler;
+import com.google.javascript.jscomp.SyntacticScopeCreator.RedeclarationHandler;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -101,11 +101,10 @@ public class AstFactoryTest {
   }
 
   private Scope getScope(Node root) {
-    // Normal passes use Es6SyntacticScopeCreator, so that's what we use here.
+    // Normal passes use SyntacticScopeCreator, so that's what we use here.
     RedeclarationHandler redeclarationHandler =
         (Scope s, String name, Node n, CompilerInput input) -> {};
-    Es6SyntacticScopeCreator scopeCreator =
-        new Es6SyntacticScopeCreator(compiler, redeclarationHandler);
+    SyntacticScopeCreator scopeCreator = new SyntacticScopeCreator(compiler, redeclarationHandler);
     return scopeCreator.createScope(root, null);
   }
 
@@ -143,6 +142,24 @@ public class AstFactoryTest {
   }
 
   @Test
+  public void testVoidExpression() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node voidNode = astFactory.createVoid(astFactory.createNumber(0));
+    assertNode(voidNode).hasType(Token.VOID);
+    assertNode(voidNode).hasJSTypeThat().isVoid();
+  }
+
+  @Test
+  public void testNotExpression() {
+    AstFactory astFactory = createTestAstFactory();
+
+    Node notNode = astFactory.createNot(astFactory.createNumber(0));
+    assertNode(notNode).hasType(Token.NOT);
+    assertNode(notNode).hasJSTypeThat().isBoolean();
+  }
+
+  @Test
   public void testCreateArgumentsReference() {
     // Make sure the compiler's type registry includes the standard externs definition for
     // Arguments.
@@ -151,7 +168,7 @@ public class AstFactoryTest {
     AstFactory astFactory = createTestAstFactory();
 
     Node argumentsNode = astFactory.createArgumentsReference();
-    assertNode(argumentsNode).matchesQualifiedName("arguments");
+    assertNode(argumentsNode).matchesName("arguments");
     assertType(argumentsNode.getJSType()).isEqualTo(getRegistry().getGlobalType("Arguments"));
   }
 
@@ -410,7 +427,7 @@ public class AstFactoryTest {
                 "/** @type {T} */ Bar.prototype.property;",
                 "var /** !Bar<number> */ b;"));
     Node bName = root.getFirstChild().getLastChild().getOnlyChild();
-    assertNode(bName).matchesQualifiedName("b");
+    assertNode(bName).matchesName("b");
     JSType barOfNumber = bName.getJSType();
 
     Node barName = astFactory.createName("bar", barOfNumber);
@@ -972,7 +989,7 @@ public class AstFactoryTest {
   }
 
   @Test
-  public void testCreateEmptyObjectLit() {
+  public void testCreateObjectLit_empty() {
     AstFactory astFactory = createTestAstFactory();
 
     // just a quick way to get a valid object literal type
@@ -983,12 +1000,37 @@ public class AstFactoryTest {
             .getOnlyChild() // object literal
             .getJSType();
 
-    Node objectLit = astFactory.createEmptyObjectLit();
+    Node objectLit = astFactory.createObjectLit();
 
     assertType(objectLit.getJSType()).toStringIsEqualTo("{}");
     assertThat(objectLit.getJSType()).isInstanceOf(objectLitType.getClass());
     assertNode(objectLit).hasToken(Token.OBJECTLIT);
     assertNode(objectLit).hasChildren(false);
+  }
+
+  @Test
+  public void testCreateObjectLit_withElements() {
+    AstFactory astFactory = createTestAstFactory();
+
+    // just a quick way to get a valid object literal type
+    Node root = parseAndAddTypes("({})");
+    JSType objectLitType =
+        root.getFirstChild() // script
+            .getFirstChild() // expression result
+            .getOnlyChild() // object literal
+            .getJSType();
+
+    Node spread = IR.objectSpread(IR.name("a"));
+    Node stringKey = IR.stringKey("b", IR.number(0));
+
+    Node objectLit = astFactory.createObjectLit(spread, stringKey);
+
+    assertType(objectLit.getJSType()).toStringIsEqualTo("{}");
+    assertThat(objectLit.getJSType()).isInstanceOf(objectLitType.getClass());
+    assertNode(objectLit).hasToken(Token.OBJECTLIT);
+
+    assertNode(objectLit.getFirstChild()).isSameInstanceAs(spread);
+    assertNode(objectLit.getSecondChild()).isSameInstanceAs(stringKey);
   }
 
   @Test

@@ -102,7 +102,7 @@ public abstract class Binding {
         sourceNode,
         boundExport,
         /* isModuleNamespace= */ false,
-        /* closureNamespace= */ null,
+        /* closureNamespace= */ boundExport.closureNamespace(),
         CreatedBy.EXPORT);
   }
 
@@ -159,9 +159,9 @@ public abstract class Binding {
   /**
    * The AST node to use for source location when rewriting.
    *
-   * <p>This is generally a NAME node inside an import or export statement that represents where the
-   * name was bound. However as {@code export * from} has no NAME nodes the source node in that
-   * instance should be the entire export node.
+   * <p>This is generally a NAME or IMPORT_STAR node inside an import or export statement that
+   * represents where the name was bound. However as {@code export * from} has no NAME nodes the
+   * source node in that instance should be the entire export node.
    *
    * <p>Null for missing ES modules and non-ES modules as they are currently not scanned.
    */
@@ -209,5 +209,18 @@ public abstract class Binding {
    */
   public final boolean isCreatedByEsImport() {
     return createdBy().equals(CreatedBy.IMPORT);
+  }
+
+  /**
+   * Returns whether this Binding originated from an ES import, as opposed to an export or
+   * goog.require.
+   */
+  public final boolean isCreatedByEsExport() {
+    return createdBy().equals(CreatedBy.EXPORT);
+  }
+
+  /** Returns whether this Binding originated from an ES import or goog.require */
+  public final boolean isSomeImport() {
+    return !createdBy().equals(CreatedBy.EXPORT);
   }
 }

@@ -210,7 +210,8 @@ final class DestructuredTarget {
         builder.setDefaultValue(destructuringChild.getSecondChild());
         break;
 
-      case REST:
+      case ITER_REST:
+      case OBJECT_REST:
         // const [...x] = ...
         // const {...x} = ...
         builder.setNode(destructuringChild.getFirstChild());
@@ -328,7 +329,7 @@ final class DestructuredTarget {
 
     // e.g. get `number` from `!Iterable<number>`
     JSType templateTypeOfIterable =
-        patternType.getInstantiatedTypeArgument(registry.getNativeType(JSTypeNative.ITERABLE_TYPE));
+        patternType.getTemplateTypeMap().getResolvedTemplateType(registry.getIterableTemplate());
 
     if (isRest) {
       // return `!Array<number>`

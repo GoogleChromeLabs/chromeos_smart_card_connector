@@ -48,8 +48,8 @@ public final class ExternExportsPassTest extends CompilerTestCase {
   }
 
   @Override
-  public CompilerOptions getOptions(CompilerOptions options) {
-    super.getOptions(options);
+  public CompilerOptions getOptions() {
+    CompilerOptions options = super.getOptions();
     options.externExportsPath = "externs.js";
     // Check types so we can make sure our exported externs have type information.
     options.setCheckSymbols(true);
@@ -1070,7 +1070,7 @@ public final class ExternExportsPassTest extends CompilerTestCase {
         lines(
             "/**",
             " * @param {number} a",
-            " * @return {!Iterator<number>}",
+            " * @return {!Iterator<number,?,?>}",
             " */",
             "var externalName = function(a) {",
             "};",

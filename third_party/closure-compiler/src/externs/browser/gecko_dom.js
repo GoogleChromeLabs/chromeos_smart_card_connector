@@ -126,13 +126,6 @@ Window.prototype.forward = function() {};
 Window.prototype.getAttention = function() {};
 
 /**
- * @return {?Selection}
- * @nosideeffects
- * @see https://w3c.github.io/selection-api/#dom-window-getselection
- */
-Window.prototype.getSelection = function() {};
-
-/**
  * @see https://developer.mozilla.org/en/DOM/window.home
  * @return {undefined}
  */
@@ -174,7 +167,6 @@ Document.prototype.anchors;
  * @type {HTMLCollection<!HTMLAppletElement>}
  */
 Document.prototype.applets;
-/** @type {boolean} */ Document.prototype.async;
 /** @type {?string} */ Document.prototype.baseURI;
 
 /**
@@ -234,9 +226,6 @@ Document.prototype.fgColor;
  * @type {HTMLCollection<!HTMLFormElement>}
  */
 Document.prototype.forms;
-
-/** @type {number} */
-Document.prototype.height;
 
 /** @type {HTMLCollection<!HTMLImageElement>} */
 Document.prototype.images;
@@ -302,11 +291,6 @@ Document.prototype.vlinkColor;
 Document.prototype.clear = function() {};
 
 /**
- * @see https://developer.mozilla.org/en/DOM/document.close
- */
-Document.prototype.close;
-
-/**
  * @param {string} type
  * @return {Event}
  */
@@ -325,17 +309,7 @@ Document.prototype.evaluate;
  */
 Document.prototype.execCommand;
 
-/**
- * @param {string} uri
- * @return {undefined}
- */
-Document.prototype.load = function(uri) {};
 Document.prototype.loadOverlay;
-
-/**
- * @see https://developer.mozilla.org/en/DOM/document.open
- */
-Document.prototype.open;
 
 /**
  * @see https://developer.mozilla.org/en/Midas
@@ -368,20 +342,6 @@ Document.prototype.queryCommandSupported;
  * @see http://msdn.microsoft.com/en-us/library/ms536683(VS.85).aspx
  */
 Document.prototype.queryCommandValue;
-
-/**
- * @see https://developer.mozilla.org/en/DOM/document.write
- * @param {!TrustedHTML|string} text
- * @return {undefined}
- */
-Document.prototype.write = function(text) {};
-
-/**
- * @see https://developer.mozilla.org/en/DOM/document.writeln
- * @param {!TrustedHTML|string} text
- * @return {undefined}
- */
-Document.prototype.writeln = function(text) {};
 
 Document.prototype.ononline;
 Document.prototype.onoffline;
@@ -433,139 +393,6 @@ Range.prototype.intersectsNode;
  */
 Range.prototype.compareNode;
 
-
-/**
- * @constructor
- * @see http://w3c.github.io/selection-api/#selection-interface
- */
-function Selection() {}
-
-/**
- * @type {?Node}
- * @see https://w3c.github.io/selection-api/#dom-selection-anchornode
- */
-Selection.prototype.anchorNode;
-
-/**
- * @type {number}
- * @see https://w3c.github.io/selection-api/#dom-selection-anchoroffset
- */
-Selection.prototype.anchorOffset;
-
-/**
- * @type {?Node}
- * @see https://w3c.github.io/selection-api/#dom-selection-focusnode
- */
-Selection.prototype.focusNode;
-
-/**
- * @type {number}
- * @see https://w3c.github.io/selection-api/#dom-selection-focusoffset
- */
-Selection.prototype.focusOffset;
-
-/**
- * @type {boolean}
- * @see https://w3c.github.io/selection-api/#dom-selection-iscollapsed
- */
-Selection.prototype.isCollapsed;
-
-/**
- * @type {number}
- * @see https://w3c.github.io/selection-api/#dom-selection-rangecount
- */
-Selection.prototype.rangeCount;
-
-/**
- * @param {Range} range
- * @return {undefined}
- * @see https://w3c.github.io/selection-api/#dom-selection-addrange
- */
-Selection.prototype.addRange = function(range) {};
-
-/**
- * @param {number} index
- * @return {!Range}
- * @nosideeffects
- * @see https://w3c.github.io/selection-api/#dom-selection-getrangeat
- */
-Selection.prototype.getRangeAt = function(index) {};
-
-/**
- * @param {?Node} node
- * @param {number=} offset
- * @return {undefined}
- * @see https://w3c.github.io/selection-api/#dom-selection-collapse
- */
-Selection.prototype.collapse = function(node, offset) {};
-
-/**
- * @param {?Node} node
- * @param {number=} offset
- * @return {undefined}
- * @see https://w3c.github.io/selection-api/#dom-selection-setposition
- */
-Selection.prototype.setPosition = function(node, offset) {};
-
-/**
- * @return {undefined}
- * @see https://w3c.github.io/selection-api/#dom-selection-collapsetoend
- */
-Selection.prototype.collapseToEnd = function() {};
-
-/**
- * @return {undefined}
- * @see https://w3c.github.io/selection-api/#dom-selection-collapsetostart
- */
-Selection.prototype.collapseToStart = function() {};
-
-/**
- * @param {!Node} node
- * @param {boolean=} allowPartialContainment
- * @return {boolean}
- * @nosideeffects
- * @see https://w3c.github.io/selection-api/#dom-selection-containsnode
- */
-Selection.prototype.containsNode = function(node, allowPartialContainment) {};
-
-/**
- * @return {undefined}
- * @see https://w3c.github.io/selection-api/#dom-selection-deletefromdocument
- */
-Selection.prototype.deleteFromDocument = function() {};
-
-/**
- * @param {Node} parentNode
- * @param {number=} offset
- * @return {undefined}
- * @see https://w3c.github.io/selection-api/#dom-selection-extend
- */
-Selection.prototype.extend = function(parentNode, offset) {};
-
-/**
- * @return {undefined}
- * @see https://w3c.github.io/selection-api/#dom-selection-removeallranges
- */
-Selection.prototype.removeAllRanges = function() {};
-
-/**
- * @param {!Range} range
- * @return {undefined}
- * @see https://w3c.github.io/selection-api/#dom-selection-removerange
- */
-Selection.prototype.removeRange = function(range) {};
-
-/**
- * @param {Node} parentNode
- * @see http://w3c.github.io/selection-api/#dom-selection-selectallchildren
- */
-Selection.prototype.selectAllChildren;
-
-/**
- * @see https://developer.mozilla.org/en/DOM/Selection/selectionLanguageChange
- */
-Selection.prototype.selectionLanguageChange;
-
 /**
  * @type {!NodeList<!Element>}
  * @see https://developer.mozilla.org/en/DOM/element.children
@@ -603,32 +430,7 @@ Element.prototype.style;
 Element.prototype.cloneNode = function(deep) {};
 
 /** @return {undefined} */
-Element.prototype.blur = function() {};
-
-/** @return {undefined} */
 Element.prototype.click = function() {};
-
-/**
- * @param {{preventScroll: boolean}=} focusOption
- * @return {undefined}
- * @see https://html.spec.whatwg.org/multipage/interaction.html#focus-management-apis
- */
-Element.prototype.focus = function(focusOption) {};
-
-/** @type {number} */
-HTMLInputElement.prototype.selectionStart;
-
-/** @type {number} */
-HTMLInputElement.prototype.selectionEnd;
-
-/**
- * @param {number} selectionStart
- * @param {number} selectionEnd
- * @see http://www.whatwg.org/specs/web-apps/current-work/multipage/editing.html#dom-textarea/input-setselectionrange
- * @return {undefined}
- */
-HTMLInputElement.prototype.setSelectionRange =
-    function(selectionStart, selectionEnd) {};
 
 /** @type {number} */
 HTMLTextAreaElement.prototype.selectionStart;

@@ -27,13 +27,16 @@ import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.NodeUtil;
+import com.google.javascript.jscomp.parsing.Config.JsDocParsing;
 import com.google.javascript.jscomp.parsing.Config.LanguageMode;
 import com.google.javascript.jscomp.parsing.ParserRunner.ParseResult;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
+import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.NonJSDocComment;
 import com.google.javascript.rhino.SimpleSourceFile;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
@@ -80,6 +83,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
   private static final String SEMICOLON_EXPECTED = "Semi-colon expected";
 
   private Config.LanguageMode mode;
+  private Config.JsDocParsing parsingMode;
   private Config.StrictMode strictMode;
   private boolean isIdeMode = false;
   private FeatureSet expectedFeatures;
@@ -89,6 +93,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
   public void setUp() throws Exception {
     super.setUp();
     mode = LanguageMode.ES_NEXT;
+    parsingMode = JsDocParsing.INCLUDE_DESCRIPTIONS_NO_WHITESPACE;
     strictMode = SLOPPY;
     isIdeMode = false;
     expectedFeatures = FeatureSet.BARE_MINIMUM;
@@ -1083,6 +1088,27 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testInlineNonJSDocCommentAttachmentToVar() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node letNode = parse("let /* blah */ x = 'a';").getFirstChild();
+    assertNode(letNode).hasType(Token.LET);
+
+    NonJSDocComment nonJSDocComment = letNode.getFirstChild().getNonJSDocComment();
+    assertThat(nonJSDocComment).isNotNull();
+    assertThat(nonJSDocComment.getCommentString()).contains("/* blah */");
+  }
+
+  @Test
+  public void testNoInlineNonJSDocCommentAttachmentWithoutParsingMode() {
+    Node letNode = parse("let /* blah */ x = 'a';").getFirstChild();
+    assertNode(letNode).hasType(Token.LET);
+
+    NonJSDocComment nonJSDocComment = letNode.getFirstChild().getNonJSDocComment();
+    assertThat(nonJSDocComment).isNull();
+  }
+
+  @Test
   public void testInlineJSDocAttachmentToObjPatNormalProp() {
     Node letNode =
         parse("let { normalProp: /** string */ normalPropTarget } = {};").getFirstChild();
@@ -1095,6 +1121,36 @@ public final class ParserTest extends BaseJSTypeTestCase {
     assertNode(normalProp).hasType(Token.STRING_KEY);
     Node normalPropTarget = normalProp.getOnlyChild();
     assertNodeHasJSDocInfoWithJSType(normalPropTarget, STRING_TYPE);
+  }
+
+  @Test
+  public void testInlineNonJSDocCommentAttachmentToObjPatNormalProp() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node letNode = parse("let { normalProp: /* blah */ normalPropTarget } = {};").getFirstChild();
+    assertNode(letNode).hasType(Token.LET);
+
+    Node destructuringLhs = letNode.getFirstChild();
+    Node objectPattern = destructuringLhs.getFirstChild();
+
+    Node normalProp = objectPattern.getFirstChild();
+    assertNode(normalProp).hasType(Token.STRING_KEY);
+    Node normalPropTarget = normalProp.getOnlyChild();
+    assertThat(normalPropTarget.getNonJSDocCommentString()).contains("/* blah */");
+  }
+
+  @Test
+  public void testNoInlineNonJSDocCommentAttachmentToObjWithoutParsingMode() {
+    Node letNode = parse("let { normalProp: /* blah */ normalPropTarget } = {};").getFirstChild();
+    assertNode(letNode).hasType(Token.LET);
+
+    Node destructuringLhs = letNode.getFirstChild();
+    Node objectPattern = destructuringLhs.getFirstChild();
+
+    Node normalProp = objectPattern.getFirstChild();
+    assertNode(normalProp).hasType(Token.STRING_KEY);
+    Node normalPropTarget = normalProp.getOnlyChild();
+    assertThat(normalPropTarget.getNonJSDocComment()).isNull();
   }
 
   @Test
@@ -1113,6 +1169,24 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testInlineNonJSDocCommentAttachmentToObjPatNormalPropKey() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node letNode = parse("let { /* blah */ normalProp: normalProp } = {};").getFirstChild();
+    assertNode(letNode).hasType(Token.LET);
+
+    Node destructuringLhs = letNode.getFirstChild();
+    Node objectPattern = destructuringLhs.getFirstChild();
+
+    Node normalProp = objectPattern.getFirstChild();
+    assertNode(normalProp).hasType(Token.STRING_KEY);
+    // TODO(b/138749905): Unlike inline JSDoc in the corresponding test above, inline nonJSDoc
+    // comment on key should be allowed, i.e. it should be attached to the string key and not the
+    // name value
+    assertThat(normalProp.getOnlyChild().getNonJSDocCommentString()).contains("/* blah */");
+  }
+
+  @Test
   public void testInlineJSDocAttachmentToObjPatShorthandProp() {
     Node letNode = parse("let { /** string */ shorthandProp } = {};").getFirstChild();
     assertNode(letNode).hasType(Token.LET);
@@ -1124,6 +1198,22 @@ public final class ParserTest extends BaseJSTypeTestCase {
     assertNode(shorthandProp).hasType(Token.STRING_KEY);
     Node shorthandPropTarget = shorthandProp.getOnlyChild();
     assertNodeHasJSDocInfoWithJSType(shorthandPropTarget, STRING_TYPE);
+  }
+
+  @Test
+  public void testInlineNonJSDocAttachmentToObjPatShorthandProp() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node letNode = parse("let { /* blah */ shorthandProp } = {};").getFirstChild();
+    assertNode(letNode).hasType(Token.LET);
+
+    Node destructuringLhs = letNode.getFirstChild();
+    Node objectPattern = destructuringLhs.getFirstChild();
+
+    Node shorthandProp = objectPattern.getFirstChild();
+    assertNode(shorthandProp).hasType(Token.STRING_KEY);
+    Node shorthandPropTarget = shorthandProp.getOnlyChild();
+    assertThat(shorthandPropTarget.getNonJSDocCommentString()).contains("/* blah */");
   }
 
   @Test
@@ -1145,6 +1235,26 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testInlineNonJSDocCommentAttachmentToObjPatNormalPropWithDefault() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node letNode =
+        parse("let { normalPropWithDefault: /* blah */ normalPropWithDefault = 'hi' } = {};")
+            .getFirstChild();
+    assertNode(letNode).hasType(Token.LET);
+
+    Node destructuringLhs = letNode.getFirstChild();
+    Node objectPattern = destructuringLhs.getFirstChild();
+
+    Node normalPropWithDefault = objectPattern.getFirstChild();
+    assertNode(normalPropWithDefault).hasType(Token.STRING_KEY);
+    Node normalPropDefaultValue = normalPropWithDefault.getOnlyChild();
+    assertNode(normalPropDefaultValue).hasType(Token.DEFAULT_VALUE);
+    Node normalPropWithDefaultTarget = normalPropDefaultValue.getFirstChild();
+    assertThat(normalPropWithDefaultTarget.getNonJSDocCommentString()).contains("/* blah */");
+  }
+
+  @Test
   public void testInlineJSDocAttachmentToObjPatShorthandWithDefault() {
     Node letNode =
         parse("let { /** string */ shorthandPropWithDefault = 'lo' } = {};").getFirstChild();
@@ -1159,6 +1269,25 @@ public final class ParserTest extends BaseJSTypeTestCase {
     assertNode(shorthandPropDefaultValue).hasType(Token.DEFAULT_VALUE);
     Node shorthandPropWithDefaultTarget = shorthandPropDefaultValue.getFirstChild();
     assertNodeHasJSDocInfoWithJSType(shorthandPropWithDefaultTarget, STRING_TYPE);
+  }
+
+  @Test
+  public void testInlineNonJSDocCommentAttachmentToObjPatShorthandWithDefault() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node letNode =
+        parse("let { /* blah */ shorthandPropWithDefault = 'lo' } = {};").getFirstChild();
+    assertNode(letNode).hasType(Token.LET);
+
+    Node destructuringLhs = letNode.getFirstChild();
+    Node objectPattern = destructuringLhs.getFirstChild();
+
+    Node shorthandPropWithDefault = objectPattern.getFirstChild();
+    assertNode(shorthandPropWithDefault).hasType(Token.STRING_KEY);
+    Node shorthandPropDefaultValue = shorthandPropWithDefault.getOnlyChild();
+    assertNode(shorthandPropDefaultValue).hasType(Token.DEFAULT_VALUE);
+    Node shorthandPropWithDefaultTarget = shorthandPropDefaultValue.getFirstChild();
+    assertThat(shorthandPropWithDefaultTarget.getNonJSDocCommentString()).contains("/* blah */");
   }
 
   @Test
@@ -1399,6 +1528,93 @@ public final class ParserTest extends BaseJSTypeTestCase {
     JSDocInfo info = fn.getSecondChild().getFirstChild().getJSDocInfo();
     assertThat(info).isNotNull();
     assertTypeEquals(STRING_TYPE, info.getType());
+  }
+
+  @Test
+  public void testInline_BlockCommentAttachment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node fn = parse("function f(/* blah */ x) {}").getFirstChild();
+    assertNode(fn).hasType(Token.FUNCTION);
+    Node xNode = fn.getSecondChild().getFirstChild();
+    assertThat(xNode.getNonJSDocCommentString()).contains("/* blah */");
+  }
+
+  @Test
+  public void testInline_LineCommentAttachment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node fn = parse("function f( // blah\n x) {}").getFirstChild();
+    assertNode(fn).hasType(Token.FUNCTION);
+    Node xNode = fn.getSecondChild().getFirstChild();
+    assertThat(xNode.getNonJSDocCommentString()).contains("// blah");
+  }
+
+  @Test
+  public void testMultipleInline_LineCommentsAttachment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node fn = parse("function f( // blah1\n x, // blah2\n y) {}").getFirstChild();
+    assertNode(fn).hasType(Token.FUNCTION);
+
+    Node xNode = fn.getSecondChild().getFirstChild();
+    assertThat(xNode.getNonJSDocCommentString()).contains("// blah1");
+
+    Node yNode = fn.getSecondChild().getSecondChild();
+    assertThat(yNode.getNonJSDocCommentString()).contains("// blah2");
+  }
+
+  @Test
+  public void testMultipleInline_MixedCommentsAttachment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node fn = parse("function f( /* blah1 */ x, // blah2\n y) {}").getFirstChild();
+    assertNode(fn).hasType(Token.FUNCTION);
+
+    Node xNode = fn.getSecondChild().getFirstChild();
+    assertThat(xNode.getNonJSDocCommentString()).contains("/* blah1 */");
+
+    Node yNode = fn.getSecondChild().getSecondChild();
+    assertThat(yNode.getNonJSDocCommentString()).contains("// blah2");
+  }
+
+  @Test
+  public void testMultipleInline_NonJSDocCommentsGetAttachedToSameNode() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node fn = parse("function f(/* blah1 */\n// blah\n x) {}").getFirstChild();
+    assertNode(fn).hasType(Token.FUNCTION);
+
+    Node xNode = fn.getSecondChild().getFirstChild();
+    assertThat(xNode.getNonJSDocCommentString()).contains("/* blah1 */\n// blah");
+  }
+
+  @Test
+  public void testBothJSDocAndNonJSDocCommentsGetAttached() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node fn = parse("function f(/** string */ // nonJSDoc\n x) {}").getFirstChild();
+    assertNode(fn).hasType(Token.FUNCTION);
+
+    Node xNode = fn.getSecondChild().getFirstChild();
+    JSDocInfo info = xNode.getJSDocInfo();
+    assertThat(info).isNotNull();
+    assertNodeHasJSDocInfoWithJSType(xNode, STRING_TYPE);
+    assertThat(xNode.getNonJSDocCommentString()).contains("// nonJSDoc");
+  }
+
+  @Test
+  public void testBothNonJSDocAndJSDocCommentsGetAttached() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node fn = parse("function f(// nonJSDoc\n /** string */ x) {}").getFirstChild();
+    assertNode(fn).hasType(Token.FUNCTION);
+
+    Node xNode = fn.getSecondChild().getFirstChild();
+    JSDocInfo info = xNode.getJSDocInfo();
+    assertThat(info).isNotNull();
+    assertNodeHasJSDocInfoWithJSType(xNode, STRING_TYPE);
+    assertThat(xNode.getNonJSDocCommentString()).contains("// nonJSDoc");
   }
 
   @Test
@@ -2120,7 +2336,6 @@ public final class ParserTest extends BaseJSTypeTestCase {
     mode = LanguageMode.ECMASCRIPT5;
     parseWarning(
         "var o = {first: 1, ...spread};",
-        getRequiresEs6Message(Feature.SPREAD_EXPRESSIONS),
         getRequiresEs2018Message(Feature.OBJECT_LITERALS_WITH_SPREAD));
 
     mode = LanguageMode.ECMASCRIPT6;
@@ -2180,7 +2395,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
     parse("function f([x, [y, z]]) {}");
     parse("function f([x, {y, foo: z}]) {}");
     parse("function f([x, y] = [1, 2]) { use(x); use(y); }");
-    parse("function f([x, x]) {}");
+    parse("function f([x1, x2]) {}");
   }
 
   @Test
@@ -2275,7 +2490,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
     parse("function f({x, y}) { use(x); use(y); }");
     parse("function f({w, x: {y, z}}) {}");
     parse("function f({x, y} = {x:1, y:2}) {}");
-    parse("function f({x, x}) {}");
+    parse("function f({x1, x2}) {}");
   }
 
   @Test
@@ -2670,6 +2885,61 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testBlockCommentParsed() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse("/* Hi mom! */ \n function Foo() {}");
+    assertNode(n.getFirstChild()).hasType(Token.FUNCTION);
+    assertThat(n.getFirstChild().getNonJSDocCommentString()).isEqualTo("/* Hi mom! */");
+  }
+
+  @Test
+  public void testBlockCommentNotParsedWithoutParsingMode() {
+    Node n = parse("/* Hi mom! */ \n function Foo() {}");
+    assertNode(n.getFirstChild()).hasType(Token.FUNCTION);
+    assertThat(n.getFirstChild().getNonJSDocComment()).isNull();
+  }
+
+  @Test
+  public void testLineCommentParsed() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse("// Hi mom! \n function Foo() {}");
+    assertNode(n.getFirstChild()).hasType(Token.FUNCTION);
+    assertThat(n.getFirstChild().getNonJSDocCommentString()).isEqualTo("// Hi mom!");
+  }
+
+  @Test
+  public void testManyIndividualCommentsGetAttached() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse("// Hi Mom! \n function Foo() {} \n // Hi Dad! \n  function Bar() {}");
+    assertNode(n.getFirstChild()).hasType(Token.FUNCTION);
+    assertThat(n.getFirstChild().getNonJSDocCommentString()).isEqualTo("// Hi Mom!");
+    assertNode(n.getSecondChild()).hasType(Token.FUNCTION);
+    assertThat(n.getSecondChild().getNonJSDocCommentString()).isEqualTo("// Hi Dad!");
+  }
+
+  @Test
+  public void testMultipleLinedCommentsAttachedToSameNode() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse("// Hi Mom! \n // And Dad! \n  function Foo() {} ");
+    assertNode(n.getFirstChild()).hasType(Token.FUNCTION);
+    assertThat(n.getFirstChild().getNonJSDocCommentString()).isEqualTo("// Hi Mom!\n// And Dad!");
+  }
+
+  @Test
+  public void testEmptyLinesBetweenCommentsIsPreserved() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    Node n = parse("/* Hi Mom!*/ \n\n\n // And Dad! \n  function Foo() {} ");
+    assertNode(n.getFirstChild()).hasType(Token.FUNCTION);
+    assertThat(n.getFirstChild().getNonJSDocCommentString())
+        .isEqualTo("/* Hi Mom!*/\n\n\n// And Dad!");
+  }
+
+  @Test
   public void testObjectLiteralDoc1() {
     Node n = parse("var x = {/** @type {number} */ 1: 2};");
 
@@ -2684,6 +2954,21 @@ public final class ParserTest extends BaseJSTypeTestCase {
   @Test
   public void testDuplicatedParam() {
     parseWarning("function foo(x, x) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo(x, n, x) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo(n, x, x) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo(x, {x}) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo(x, {n: {x}}) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo(x, [x]) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo(x, ...x) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo(...[x, x]) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo(...[x,,x]) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo(x, x = 1) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo([x, x] = [1, 2]) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo({x, x} = {x: 1}) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo(x, {[n()]: x}) {}", "Duplicate parameter name \"x\"");
+    parseWarning("function foo(x = x) {}");
+    parseWarning("function foo({x: x}) {}");
+    parseWarning("function foo(foo) {}");
   }
 
   @Test
@@ -2803,12 +3088,12 @@ public final class ParserTest extends BaseJSTypeTestCase {
     parseError("function * f() { yield , yield; }");
   }
 
+  private static final String STRING_CONTINUATIONS_WARNING =
+      "String continuations are not recommended. See https://google.github.io/"
+          + "styleguide/jsguide.html#features-strings-no-line-continuations";
+
   @Test
   public void testStringLineContinuationWarningsByMode() {
-    String unrecommendedWarning =
-        "String continuations are not recommended. See"
-            + " https://google.github.io/styleguide/jsguide.html#features-strings-no-line-continuations";
-
     expectFeatures(Feature.STRING_CONTINUATION);
     strictMode = SLOPPY;
 
@@ -2816,39 +3101,50 @@ public final class ParserTest extends BaseJSTypeTestCase {
     parseWarning(
         "'one\\\ntwo';",
         requiresLanguageModeMessage(LanguageMode.ECMASCRIPT5, Feature.STRING_CONTINUATION),
-        unrecommendedWarning);
+        STRING_CONTINUATIONS_WARNING);
 
     mode = LanguageMode.ECMASCRIPT5;
-    parseWarning("'one\\\ntwo';", unrecommendedWarning);
+    parseWarning("'one\\\ntwo';", STRING_CONTINUATIONS_WARNING);
 
     mode = LanguageMode.ECMASCRIPT6;
-    parseWarning("'one\\\ntwo';", unrecommendedWarning);
+    parseWarning("'one\\\ntwo';", STRING_CONTINUATIONS_WARNING);
   }
 
   @Test
   public void testStringLineContinuationNormalization() {
-    String unrecommendedWarning =
-        "String continuations are not recommended. See"
-            + " https://google.github.io/styleguide/jsguide.html#features-strings-no-line-continuations";
-
     expectFeatures(Feature.STRING_CONTINUATION);
     mode = LanguageMode.ECMASCRIPT6;
     strictMode = SLOPPY;
 
-    Node n = parseWarning("'one\\\ntwo';", unrecommendedWarning);
+    Node n = parseWarning("'one\\\ntwo';", STRING_CONTINUATIONS_WARNING);
     assertThat(n.getFirstFirstChild().getString()).isEqualTo("onetwo");
 
-    n = parseWarning("'one\\\rtwo';", unrecommendedWarning);
+    n = parseWarning("'one\\\rtwo';", STRING_CONTINUATIONS_WARNING);
     assertThat(n.getFirstFirstChild().getString()).isEqualTo("onetwo");
 
-    n = parseWarning("'one\\\r\ntwo';", unrecommendedWarning);
+    n = parseWarning("'one\\\r\ntwo';", STRING_CONTINUATIONS_WARNING);
     assertThat(n.getFirstFirstChild().getString()).isEqualTo("onetwo");
 
-    n = parseWarning("'one \\\ntwo';", unrecommendedWarning);
+    n = parseWarning("'one \\\ntwo';", STRING_CONTINUATIONS_WARNING);
     assertThat(n.getFirstFirstChild().getString()).isEqualTo("one two");
 
-    n = parseWarning("'one\\\n two';", unrecommendedWarning);
+    n = parseWarning("'one\\\n two';", STRING_CONTINUATIONS_WARNING);
     assertThat(n.getFirstFirstChild().getString()).isEqualTo("one two");
+  }
+
+  /** See https://github.com/google/closure-compiler/issues/3492 */
+  @Test
+  public void testStringContinuationIssue3492() {
+    expectFeatures(Feature.STRING_CONTINUATION);
+    mode = LanguageMode.ECMASCRIPT6;
+    strictMode = SLOPPY;
+
+    parseWarning(
+        Joiner.on('\n')
+            .join("function x() {", "        a = \"\\", "        \\ \\", "        \";", "};"),
+        "Unnecessary escape: '\\ ' is equivalent to just ' '",
+        STRING_CONTINUATIONS_WARNING,
+        STRING_CONTINUATIONS_WARNING);
   }
 
   @Test
@@ -4000,6 +4296,21 @@ public final class ParserTest extends BaseJSTypeTestCase {
   }
 
   @Test
+  public void testDefaultParameterInlineNonJSDocComment() {
+    isIdeMode = true;
+    parsingMode = JsDocParsing.INCLUDE_ALL_COMMENTS;
+    expectFeatures(Feature.DEFAULT_PARAMETERS);
+    Node functionNode = parse("function f(/* number */ a = 0) {}").getFirstChild();
+    Node parameterList = functionNode.getSecondChild();
+    Node defaultValue = parameterList.getFirstChild();
+    assertNode(defaultValue).hasType(Token.DEFAULT_VALUE);
+
+    Node aName = defaultValue.getFirstChild();
+    assertNode(aName).hasType(Token.NAME);
+    assertThat(aName.getNonJSDocCommentString()).contains("/* number */");
+  }
+
+  @Test
   public void testRestParameters() {
     mode = LanguageMode.ECMASCRIPT6;
     strictMode = SLOPPY;
@@ -4169,6 +4480,22 @@ public final class ParserTest extends BaseJSTypeTestCase {
             "  static get break() {};",
             "  static set break(a) {};",
             "}"));
+  }
+
+  @Test
+  public void testClass_semicolonsInBodyAreIgnored() {
+    mode = LanguageMode.ECMASCRIPT6;
+
+    Node tree =
+        parse(
+            LINE_JOINER.join(
+                "class C {", //
+                "  foo() {};;;;;;",
+                "}"));
+
+    Node members = tree.getFirstChild().getChildAtIndex(2);
+    assertThat(members.isClassMembers()).isTrue();
+    assertThat(members.getChildCount()).isEqualTo(1);
   }
 
   @Test
@@ -5112,6 +5439,55 @@ public final class ParserTest extends BaseJSTypeTestCase {
     }
   }
 
+  @Test
+  public void testImportMeta() {
+    mode = LanguageMode.UNSUPPORTED;
+    expectFeatures(Feature.MODULES, Feature.IMPORT_META);
+
+    Node tree = parse("import.meta");
+    assertNode(tree.getFirstFirstChild()).isEqualTo(IR.exprResult(IR.importMeta()));
+  }
+
+  @Test
+  public void testImportMeta_es5() {
+    mode = LanguageMode.ECMASCRIPT5;
+    expectFeatures(Feature.MODULES, Feature.IMPORT_META);
+
+    parseWarning(
+        "import.meta",
+        requiresLanguageModeMessage(LanguageMode.ECMASCRIPT6, Feature.MODULES),
+        unsupportedFeatureMessage(Feature.IMPORT_META));
+  }
+
+  @Test
+  public void testImportMeta_es6() {
+    mode = LanguageMode.ECMASCRIPT6;
+    expectFeatures(Feature.MODULES, Feature.IMPORT_META);
+
+    parseWarning("import.meta", unsupportedFeatureMessage(Feature.IMPORT_META));
+  }
+
+  @Test
+  public void testImportMeta_inExpression() {
+    mode = LanguageMode.UNSUPPORTED;
+    expectFeatures(Feature.MODULES, Feature.IMPORT_META);
+
+    Node propTree = parse("import.meta.url");
+    assertNode(propTree.getFirstFirstChild())
+        .isEqualTo(IR.exprResult(IR.getprop(IR.importMeta(), "url")));
+
+    Node callTree = parse("f(import.meta.url)");
+    assertNode(callTree.getFirstFirstChild())
+        .isEqualTo(IR.exprResult(IR.call(IR.name("f"), IR.getprop(IR.importMeta(), "url"))));
+  }
+
+  @Test
+  public void testImportMeta_asDotProperty() {
+    Node tree = parse("x.import.meta");
+    assertNode(tree.getFirstChild())
+        .isEqualTo(IR.exprResult(IR.getprop(IR.name("x"), "import", "meta")));
+  }
+
   private void assertNodeHasJSDocInfoWithJSType(Node node, JSType jsType) {
     JSDocInfo info = node.getJSDocInfo();
     assertWithMessage("Node has no JSDocInfo: %s", node).that(info).isNotNull();
@@ -5246,12 +5622,7 @@ public final class ParserTest extends BaseJSTypeTestCase {
   private Config createConfig() {
     if (isIdeMode) {
       return ParserRunner.createConfig(
-          mode,
-          Config.JsDocParsing.INCLUDE_DESCRIPTIONS_NO_WHITESPACE,
-          Config.RunMode.KEEP_GOING,
-          null,
-          true,
-          strictMode);
+          mode, parsingMode, Config.RunMode.KEEP_GOING, null, true, strictMode);
     } else {
       return ParserRunner.createConfig(mode, null, strictMode);
     }

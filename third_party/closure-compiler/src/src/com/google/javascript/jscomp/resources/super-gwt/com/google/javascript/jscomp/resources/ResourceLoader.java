@@ -21,10 +21,10 @@ import com.google.gwt.resources.client.ClientBundle;
 import com.google.gwt.resources.client.TextResource;
 import com.google.javascript.jscomp.ConformanceConfig;
 import jsinterop.annotations.JsMethod;
+import jsinterop.annotations.JsPackage;
 
 /**
  * GWT compatible replacement for {@code ResourceLoader}.
- *
  */
 public final class ResourceLoader {
   static interface Libraries extends ClientBundle {
@@ -32,7 +32,7 @@ public final class ResourceLoader {
 
     // This is a generated file containing all the text resources we want to package
     // as a single JSON string mapping (relative) filename to file content strings.
-    @Source("com/google/javascript/jscomp/resources.json")
+    @Source("com/google/javascript/jscomp/resources/resources.json")
     TextResource resources();
   }
 
@@ -69,9 +69,9 @@ public final class ResourceLoader {
     return obj[key];
   }-*/;
 
-  @JsMethod(namespace = "JSON")
+  @JsMethod(namespace = JsPackage.GLOBAL, name = "JSON.parse")
   private static native JsObject parse(String json);
 
-  @JsMethod(namespace = "Object")
+  @JsMethod(namespace = JsPackage.GLOBAL, name = "Object.keys")
   private static native String[] keys(JsObject obj);
 }

@@ -464,6 +464,50 @@ public final class CheckConformanceTest extends CompilerTestCase {
   }
 
   @Test
+  public void testBannedDepRegexNoValue() {
+    allowSourcelessWarnings();
+    configuration =
+        "requirement: {\n"
+            + "  type: BANNED_DEPENDENCY_REGEX\n"
+            + "  error_message: 'testcode is not allowed'\n"
+            + "}";
+
+    testError(
+        "anything;",
+        CheckConformance.INVALID_REQUIREMENT_SPEC,
+        "Invalid requirement. Reason: missing value (no banned dependency regexps)\n"
+            + "Requirement spec:\n"
+            + "error_message: \"testcode is not allowed\"\n"
+            + "type: BANNED_DEPENDENCY_REGEX\n");
+  }
+
+  @Test
+  public void testBannedDepRegex() {
+    configuration =
+        "requirement: {\n"
+            + "  type: BANNED_DEPENDENCY_REGEX\n"
+            + "  error_message: 'testcode is not allowed'\n"
+            + "  value: '.*test.*'\n"
+            + "}";
+
+    testWarning(
+        "anything;", CheckConformance.CONFORMANCE_VIOLATION, "Violation: testcode is not allowed");
+  }
+
+  @Test
+  public void testBannedDepRegexWithWhitelist() {
+    configuration =
+        "requirement: {\n"
+            + "  type: BANNED_DEPENDENCY_REGEX\n"
+            + "  error_message: 'testcode is not allowed'\n"
+            + "  value: '.*test.*'\n"
+            + "  whitelist_regexp: 'testcode'\n"
+            + "}";
+
+    testNoWarning("anything;");
+  }
+
+  @Test
   public void testReportLooseTypeViolations() {
     configuration =
         lines(
@@ -1374,7 +1418,7 @@ public final class CheckConformanceTest extends CompilerTestCase {
   }
 
   @Test
-  public void testCustomBanUnknownThis4() {
+  public void testCustomBanUnknownThis_allowsClosurePrimitiveAssert() {
     configuration =
         "requirement: {\n" +
         "  type: CUSTOM\n" +
@@ -1382,8 +1426,33 @@ public final class CheckConformanceTest extends CompilerTestCase {
         "  error_message: 'BanUnknownThis Message'\n" +
         "}";
 
-    testNoWarning(
-        "function f() {goog.asserts.assertInstanceof(this, Error);}");
+    String assertInstanceof =
+        lines(
+            "/** @const */ var asserts = {};",
+            "/**",
+            " * @param {?} value The value to check.",
+            " * @param {function(new: T, ...)} type A user-defined constructor.",
+            " * @return {T}",
+            " * @template T",
+            " * @closurePrimitive {asserts.matchesReturn}",
+            " */",
+            "asserts.assertInstanceof = function(value, type) {",
+            "  return value;",
+            "};");
+
+    testNoWarning(lines(assertInstanceof, "function f() {asserts.assertInstanceof(this, Error);}"));
+  }
+
+  @Test
+  public void testCustomBanUnknownThis_allowsGoogAssert() {
+    configuration =
+        "requirement: {\n"
+            + "  type: CUSTOM\n"
+            + "  java_class: 'com.google.javascript.jscomp.ConformanceRules$BanUnknownThis'\n"
+            + "  error_message: 'BanUnknownThis Message'\n"
+            + "}";
+
+    testNoWarning("function f() {goog.asserts.assertInstanceof(this, Error);}");
   }
 
   private static String config(String rule, String message, String... fields) {

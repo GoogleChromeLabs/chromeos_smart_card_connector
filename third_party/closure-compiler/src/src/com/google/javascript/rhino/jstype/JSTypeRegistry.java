@@ -42,11 +42,13 @@ package com.google.javascript.rhino.jstype;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.rhino.jstype.JSTypeIterations.mapTypes;
 import static com.google.javascript.rhino.jstype.JSTypeNative.ALL_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NO_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.UNKNOWN_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.VOID_TYPE;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -79,7 +81,6 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -109,8 +110,11 @@ public class JSTypeRegistry implements Serializable {
   /** The template variable corresponding to the VALUE type in {@code Iterable<VALUE>} */
   private TemplateType iterableTemplate;
 
-  /** The template variable corresponding to the VALUE type in {@code Iterator<VALUE>} */
-  private TemplateType iteratorTemplate;
+  /**
+   * The template variable corresponding to the VALUE type in {@code Iterator<VALUE,
+   * UNUSED_RETURN_T, UNUSED_NEXT_T>}
+   */
+  private TemplateType iteratorValueTemplate;
 
   /** The template variable corresponding to the VALUE type in {@code IIterableResult<VALUE>} */
   private TemplateType iiterableResultTemplate;
@@ -119,10 +123,13 @@ public class JSTypeRegistry implements Serializable {
   private TemplateType asyncIterableTemplate;
 
   /** The template variable corresponding to the VALUE type in {@code AsyncIterator<VALUE>} */
-  private TemplateType asyncIteratorTemplate;
+  private TemplateType asyncIteratorValueTemplate;
 
-  /** The template variable corresponding to the VALUE type in {@code Generator<VALUE>} */
-  private TemplateType generatorTemplate;
+  /**
+   * The template variable corresponding to the VALUE type in {@code Generator<VALUE,
+   * UNUSED_RETURN_T, UNUSED_NEXT_T>}
+   */
+  private TemplateType generatorValueTemplate;
 
   /** The template variable corresponding to the VALUE type in {@code AsyncGenerator<VALUE>} */
   private TemplateType asyncGeneratorTemplate;
@@ -155,24 +162,29 @@ public class JSTypeRegistry implements Serializable {
 
   private final Table<Node, String, JSType> scopedNameTable = HashBasedTable.create();
 
+  // Only needed for type resolution at the moment
+  private final transient Map<String, ModuleSlot> moduleToSlotMap = new HashMap<>();
+
   // NOTE: This would normally be "static final" but that causes unit test failures
   // when serializing and deserializing compiler state for multistage builds.
   private final Node nameTableGlobalRoot = new Node(Token.ROOT);
 
-  // NOTE(nicksantos): This is a terrible terrible hack. When type expressions
-  // are evaluated, we need to be able to decide whether that type name
-  // resolves to a nullable type or a non-nullable type. Object types are
-  // nullable, but enum types are not.
+  // NOTE(nicksantos): This is a terrible terrible hack. When type expressions are evaluated, we
+  // need to be able to decide whether that type name resolves to a nullable type or a non-nullable
+  // type. Object types are nullable, but enum types and typedefs are not.
   //
-  // Notice that it's not good enough to just declare enum types sooner.
+  // Notice that it's not good enough to just declare enum types and typedefs sooner.
   // For example, if we have
-  // /** @enum {MyObject} */ var MyEnum = ...;
-  // we won't be to declare "MyEnum" without evaluating the expression
-  // {MyObject}, and following those dependencies starts to lead us into
-  // undecidable territory. Instead, we "pre-declare" enum types and typedefs,
-  // so that the expression resolver can decide whether a given name is
+  //   /** @enum {MyObject} */ var MyEnum = ...;
+  // we won't be to declare "MyEnum" without evaluating the expression {MyObject}, and following
+  // those dependencies starts to lead us into undecidable territory. Instead, we "pre-declare" enum
+  // types and typedefs, so that the expression resolver can decide whether a given name is
   // nullable or not.
-  private final Set<String> nonNullableTypeNames = new LinkedHashSet<>();
+  // Also, note that this solution is buggy and the type resolution still gets default nullability
+  // wrong in some cases. See b/116853368. Probably NamedType should be responsible for
+  // applying nullability to forward references instead of the type expression evaluation.
+  private final Multimap<Node, String> nonNullableTypeNames =
+      MultimapBuilder.hashKeys().hashSetValues().build();
 
   // Types that have been "forward-declared."
   // If these types are not declared anywhere in the binary, we shouldn't
@@ -229,9 +241,9 @@ public class JSTypeRegistry implements Serializable {
   public JSTypeRegistry(ErrorReporter reporter, Set<String> forwardDeclaredTypes) {
     this.reporter = reporter;
     this.forwardDeclaredTypes = forwardDeclaredTypes;
-    this.emptyTemplateTypeMap = new TemplateTypeMap(
-        this, ImmutableList.<TemplateType>of(), ImmutableList.<JSType>of());
-    nativeTypes = new JSType[JSTypeNative.values().length];
+    this.emptyTemplateTypeMap = TemplateTypeMap.createEmpty(this);
+    this.nativeTypes = new JSType[JSTypeNative.values().length];
+
     resetForTypeCheck();
   }
 
@@ -260,24 +272,20 @@ public class JSTypeRegistry implements Serializable {
   }
 
   /**
-   * @return The template variable corresponding to the
-   * property key type of the built-in Javascript object.
-   */
-  public TemplateType getThenableValueKey() {
-    checkNotNull(iThenableTemplateKey);
-    return iThenableTemplateKey;
-  }
-
-  /**
    * @return The template variable for the Iterable interface.
    */
   public TemplateType getIterableTemplate() {
     return checkNotNull(iterableTemplate);
   }
 
-  /** @return The template variable for the Iterator interface. */
-  public TemplateType getIteratorTemplate() {
-    return checkNotNull(iteratorTemplate);
+  /** Return the value template variable for the Iterator interface. */
+  public TemplateType getIteratorValueTemplate() {
+    return checkNotNull(iteratorValueTemplate);
+  }
+
+  /** Return the value template variable for the Generator interface. */
+  public TemplateType getGeneratorValueTemplate() {
+    return checkNotNull(generatorValueTemplate);
   }
 
   /** Returns the template variable for the AsyncIterable interface. */
@@ -286,8 +294,8 @@ public class JSTypeRegistry implements Serializable {
   }
 
   /** Returns the template variable for the AsyncIterator interface. */
-  public TemplateType getAsyncIteratorTemplate() {
-    return checkNotNull(asyncIteratorTemplate);
+  public TemplateType getAsyncIteratorValueTemplate() {
+    return checkNotNull(asyncIteratorValueTemplate);
   }
 
   /** @return The template variable for the IThenable interface. */
@@ -300,9 +308,7 @@ public class JSTypeRegistry implements Serializable {
     JSType type = getType(null, fnName);
     ObjectType objType = type == null ? null : type.toObjectType();
     if (objType != null && objType.isNativeObjectType()) {
-      ImmutableList<TemplateType> templateKeys =
-          objType.getTemplateTypeMap().getUnfilledTemplateKeys();
-      return templateKeys;
+      return objType.getTypeParameters();
     }
     return null;
   }
@@ -354,11 +360,20 @@ public class JSTypeRegistry implements Serializable {
     iObjectIndexTemplateKey = new TemplateType(this, "IObject#KEY1");
     iObjectElementTemplateKey = new TemplateType(this, I_OBJECT_ELEMENT_TEMPLATE);
     // These should match the template type name in externs files.
+    TemplateType iArrayLikeTemplate = new TemplateType(this, "VALUE2");
     arrayElementTemplateKey = new TemplateType(this, "T");
-    iteratorTemplate = new TemplateType(this, "VALUE");
+    iteratorValueTemplate = new TemplateType(this, "VALUE");
+    // TODO(b/142881197): start using these unused iterator (and related type) template params
+    // https://github.com/google/closure-compiler/issues/3489
+    TemplateType iteratorReturnTemplate = new TemplateType(this, "UNUSED_RETURN_T");
+    TemplateType iteratorNextTemplate = new TemplateType(this, "UNUSED_NEXT_T");
     iiterableResultTemplate = new TemplateType(this, "VALUE");
-    asyncIteratorTemplate = new TemplateType(this, "VALUE");
-    generatorTemplate = new TemplateType(this, "VALUE");
+    asyncIteratorValueTemplate = new TemplateType(this, "VALUE");
+    TemplateType asyncIteratorReturnTemplate = new TemplateType(this, "UNUSED_RETURN_T");
+    TemplateType asyncIteratorNextTemplate = new TemplateType(this, "UNUSED_NEXT_T");
+    generatorValueTemplate = new TemplateType(this, "VALUE");
+    TemplateType generatorReturnTemplate = new TemplateType(this, "UNUSED_RETURN_T");
+    TemplateType generatorNextTemplate = new TemplateType(this, "UNUSED_NEXT_T");
     asyncGeneratorTemplate = new TemplateType(this, "VALUE");
     iterableTemplate = new TemplateType(this, "VALUE");
     asyncIterableTemplate = new TemplateType(this, "VALUE");
@@ -366,18 +381,18 @@ public class JSTypeRegistry implements Serializable {
     promiseTemplateKey = new TemplateType(this, "TYPE");
 
     // Top Level Prototype (the One)
-    // The initializations of TOP_LEVEL_PROTOTYPE and OBJECT_FUNCTION_TYPE
+    // The initializations of OBJECT_PROTOTYPE and OBJECT_FUNCTION_TYPE
     // use each other's results, so at least one of them will get null
     // instead of an actual type; however, this seems to be benign.
     PrototypeObjectType topLevelPrototype =
-        new PrototypeObjectType(this, null, null, true, null);
-    registerNativeType(JSTypeNative.TOP_LEVEL_PROTOTYPE, topLevelPrototype);
+        PrototypeObjectType.builder(this).setNative(true).build();
 
     // IObject
     FunctionType iObjectFunctionType =
         nativeInterface("IObject", iObjectIndexTemplateKey, iObjectElementTemplateKey);
     registerNativeType(JSTypeNative.I_OBJECT_FUNCTION_TYPE, iObjectFunctionType);
-    registerNativeType(JSTypeNative.I_OBJECT_TYPE, iObjectFunctionType.getInstanceType());
+    ObjectType iObjectType = iObjectFunctionType.getInstanceType();
+    registerNativeType(JSTypeNative.I_OBJECT_TYPE, iObjectType);
 
     // Object
     FunctionType objectFunctionType =
@@ -421,7 +436,9 @@ public class JSTypeRegistry implements Serializable {
     ObjectType iterableType = iterableFunctionType.getInstanceType();
     registerNativeType(JSTypeNative.ITERABLE_TYPE, iterableType);
 
-    FunctionType iteratorFunctionType = nativeInterface("Iterator", iteratorTemplate);
+    FunctionType iteratorFunctionType =
+        nativeInterface(
+            "Iterator", iteratorValueTemplate, iteratorReturnTemplate, iteratorNextTemplate);
     registerNativeType(JSTypeNative.ITERATOR_FUNCTION_TYPE, iteratorFunctionType);
     ObjectType iteratorType = iteratorFunctionType.getInstanceType();
     registerNativeType(JSTypeNative.ITERATOR_TYPE, iteratorType);
@@ -432,21 +449,26 @@ public class JSTypeRegistry implements Serializable {
     ObjectType iiterableResultType = iiterableResultFunctionType.getInstanceType();
     registerNativeType(JSTypeNative.I_ITERABLE_RESULT_TYPE, iiterableResultType);
 
+    // IArrayLike.
+    FunctionType iArrayLikeFunctionType = nativeRecord("IArrayLike", iArrayLikeTemplate);
+    iArrayLikeFunctionType.setExtendedInterfaces(
+        ImmutableList.of(createTemplatizedType(iObjectType, numberType, iArrayLikeTemplate)));
+    registerNativeType(JSTypeNative.I_ARRAY_LIKE_FUNCTION_TYPE, iArrayLikeFunctionType);
+    ObjectType iArrayLikeType = iArrayLikeFunctionType.getInstanceType();
+    registerNativeType(JSTypeNative.I_ARRAY_LIKE_TYPE, iArrayLikeType);
+
     // Array
     FunctionType arrayFunctionType =
         nativeConstructorBuilder("Array")
             .withParamsNode(createParametersWithVarArgs(allType))
             .withReturnsOwnInstanceType()
-            // TODO(nickreid): Could this be achieved by having `Array` implement `IObject`?
-            .withTemplateTypeMap(
-                new TemplateTypeMap(
-                    this,
-                    ImmutableList.of(iObjectElementTemplateKey, arrayElementTemplateKey),
-                    ImmutableList.<JSType>of(arrayElementTemplateKey)))
+            .withTemplateKeys(arrayElementTemplateKey)
             .build();
     arrayFunctionType.getPrototype(); // Force initialization
     arrayFunctionType.setImplementedInterfaces(
-        ImmutableList.of(createTemplatizedType(iterableType, arrayElementTemplateKey)));
+        ImmutableList.of(
+            createTemplatizedType(iArrayLikeType, arrayElementTemplateKey),
+            createTemplatizedType(iterableType, arrayElementTemplateKey)));
     registerNativeType(JSTypeNative.ARRAY_FUNCTION_TYPE, arrayFunctionType);
 
     ObjectType arrayType = arrayFunctionType.getInstanceType();
@@ -460,17 +482,23 @@ public class JSTypeRegistry implements Serializable {
     registerNativeType(
         JSTypeNative.I_TEMPLATE_ARRAY_TYPE, iTemplateArrayFunctionType.getInstanceType());
 
-    FunctionType generatorFunctionType = nativeInterface("Generator", generatorTemplate);
+    FunctionType generatorFunctionType =
+        nativeInterface(
+            "Generator", generatorValueTemplate, generatorReturnTemplate, generatorNextTemplate);
     // TODO(nickreid): Model this using `IteratorIterable<T>` as in the externs.
     generatorFunctionType.setExtendedInterfaces(
         ImmutableList.of(
-            createTemplatizedType(iterableType, generatorTemplate),
-            createTemplatizedType(iteratorType, generatorTemplate)));
+            createTemplatizedType(iterableType, generatorValueTemplate),
+            createTemplatizedType(iteratorType, generatorValueTemplate)));
     registerNativeType(JSTypeNative.GENERATOR_FUNCTION_TYPE, generatorFunctionType);
     registerNativeType(JSTypeNative.GENERATOR_TYPE, generatorFunctionType.getInstanceType());
 
     FunctionType asyncIteratorFunctionType =
-        nativeInterface("AsyncIterator", asyncIteratorTemplate);
+        nativeInterface(
+            "AsyncIterator",
+            asyncIteratorValueTemplate,
+            asyncIteratorReturnTemplate,
+            asyncIteratorNextTemplate);
     registerNativeType(JSTypeNative.ASYNC_ITERATOR_FUNCTION_TYPE, asyncIteratorFunctionType);
     registerNativeType(
         JSTypeNative.ASYNC_ITERATOR_TYPE, asyncIteratorFunctionType.getInstanceType());
@@ -488,13 +516,14 @@ public class JSTypeRegistry implements Serializable {
         JSTypeNative.ASYNC_GENERATOR_TYPE, asyncGeneratorFunctionType.getInstanceType());
 
     FunctionType ithenableFunctionType = nativeInterface("IThenable", iThenableTemplateKey);
+    ithenableFunctionType.setStruct();
     registerNativeType(JSTypeNative.I_THENABLE_FUNCTION_TYPE, ithenableFunctionType);
     ObjectType ithenableType = ithenableFunctionType.getInstanceType();
     registerNativeType(JSTypeNative.I_THENABLE_TYPE, ithenableType);
 
     // Thenable is an @typedef
     JSType thenableType = createRecordType(ImmutableMap.of("then", unknownType));
-    identifyNonNullableName("Thenable");
+    identifyNonNullableName(null, "Thenable");
     registerNativeType(JSTypeNative.THENABLE_TYPE, thenableType);
 
     // Create built-in Promise type, whose constructor takes one parameter.
@@ -521,7 +550,6 @@ public class JSTypeRegistry implements Serializable {
         nativeConstructorBuilder("Promise")
             .withParamsNode(IR.paramList(promiseParameter))
             .withTemplateKeys(promiseTemplateKey)
-            .withExtendedTemplate(iThenableTemplateKey, promiseTemplateKey)
             .build();
     promiseFunctionType.setImplementedInterfaces(
         ImmutableList.of(createTemplatizedType(ithenableType, promiseTemplateKey)));
@@ -615,33 +643,13 @@ public class JSTypeRegistry implements Serializable {
     JSType nullVoid = createUnionType(nullType, voidType);
     registerNativeType(JSTypeNative.NULL_VOID, nullVoid);
 
-    // (Object|symbol)
-    JSType objectSymbol = createUnionType(objectType, symbolType);
-    registerNativeType(JSTypeNative.OBJECT_SYMBOL, objectSymbol);
-
-    // (Object|string|number)
-    JSType objectNumberString = createUnionType(objectType, numberType, stringType);
-    registerNativeType(JSTypeNative.OBJECT_NUMBER_STRING, objectNumberString);
-
-    // (Object|string|number|boolean)
-    JSType objectNumberStringBoolean =
-        createUnionType(objectType, numberType, stringType, booleanType);
-    registerNativeType(JSTypeNative.OBJECT_NUMBER_STRING_BOOLEAN, objectNumberStringBoolean);
-
-    // (Object|string|number|boolean|symbol)
-    JSType objectNumberStringBooleanSymbol =
-        createUnionType(objectType, numberType, stringType, booleanType, symbolType);
-    registerNativeType(JSTypeNative.OBJECT_NUMBER_STRING_BOOLEAN_SYMBOL,
-        objectNumberStringBooleanSymbol);
-
     // (string|number|boolean)
     JSType numberStringBoolean = createUnionType(numberType, stringType, booleanType);
     registerNativeType(JSTypeNative.NUMBER_STRING_BOOLEAN, numberStringBoolean);
 
     // (string|number|boolean|symbol)
-    JSType numberStringBooleanSymbol =
-        createUnionType(numberType, stringType, booleanType, symbolType);
-    registerNativeType(JSTypeNative.NUMBER_STRING_BOOLEAN_SYMBOL, numberStringBooleanSymbol);
+    JSType valueTypes = createUnionType(numberType, stringType, booleanType, symbolType);
+    registerNativeType(JSTypeNative.VALUE_TYPES, valueTypes);
 
     // (number|symbol)
     JSType numberSymbol = createUnionType(numberType, symbolType);
@@ -660,18 +668,6 @@ public class JSTypeRegistry implements Serializable {
     registerNativeType(JSTypeNative.NUMBER_STRING_SYMBOL, numberStringSymbol);
 
     // Native object properties are filled in by externs...
-
-    // (String|string)
-    JSType stringValueOrObjectType = createUnionType(stringObjectType, stringType);
-    registerNativeType(JSTypeNative.STRING_VALUE_OR_OBJECT_TYPE, stringValueOrObjectType);
-
-    // (Number|number)
-    JSType numberValueOrObjectType = createUnionType(numberObjectType, numberType);
-    registerNativeType(JSTypeNative.NUMBER_VALUE_OR_OBJECT_TYPE, numberValueOrObjectType);
-
-    // (Symbol, symbol)
-    JSType symbolValueOrObjectType = createUnionType(symbolObjectType, symbolType);
-    registerNativeType(JSTypeNative.SYMBOL_VALUE_OR_OBJECT_TYPE, symbolValueOrObjectType);
 
     // unknown function type, i.e. (?...) -> ?
     FunctionType u2uFunctionType = createFunctionTypeWithVarArgs(unknownType, unknownType);
@@ -704,7 +700,6 @@ public class JSTypeRegistry implements Serializable {
     functionFunctionType.setInstanceType(u2uConstructorType);
     u2uConstructorType.setImplicitPrototype(functionPrototype);
     registerNativeType(JSTypeNative.U2U_CONSTRUCTOR_TYPE, u2uConstructorType);
-    registerNativeType(JSTypeNative.FUNCTION_INSTANCE_TYPE, u2uConstructorType);
 
     // least function type, i.e. (All...) -> NoType
     FunctionType leastFunctionType = createNativeFunctionTypeWithVarArgs(noType, allType);
@@ -735,6 +730,7 @@ public class JSTypeRegistry implements Serializable {
     registerGlobalType(getNativeType(JSTypeNative.ASYNC_GENERATOR_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.BOOLEAN_OBJECT_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.BOOLEAN_TYPE));
+    registerGlobalType(getNativeType(JSTypeNative.I_ARRAY_LIKE_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ITERABLE_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.ITERATOR_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.GENERATOR_TYPE));
@@ -758,12 +754,8 @@ public class JSTypeRegistry implements Serializable {
     registerGlobalType(getNativeType(JSTypeNative.VOID_TYPE));
     registerGlobalType(getNativeType(JSTypeNative.VOID_TYPE), "Undefined");
     registerGlobalType(getNativeType(JSTypeNative.VOID_TYPE), "void");
-    registerGlobalType(getNativeType(JSTypeNative.FUNCTION_INSTANCE_TYPE), "Function");
+    registerGlobalType(getNativeType(JSTypeNative.U2U_CONSTRUCTOR_TYPE), "Function");
     registerGlobalType(getNativeType(JSTypeNative.GLOBAL_THIS), "Global");
-  }
-
-  private static boolean isCompoundName(String name) {
-    return name.indexOf('.') != -1;
   }
 
   private static String getRootElementOfName(String name) {
@@ -783,28 +775,7 @@ public class JSTypeRegistry implements Serializable {
    */
   private static StaticScope getLookupScope(StaticScope scope, String name) {
     if (scope != null && scope.getParentScope() != null) {
-      StaticSlot slot = scope.getSlot(getRootElementOfName(name));
-      return slot != null ? slot.getScope() : null;
-    }
-    return scope;
-  }
-
-  // TODO(johnlenz): Remove the use of this.  Instead the callers should provide the correct scope.
-  // This method isn't valid if the scope is under construction.  The type registry does not
-  // have enough context to select the correct scope if the symbol isn't already present.
-  // Specifically, a "var" declaration in a block belongs in an outer scope.
-  /**
-   * @return Which scope in the provided scope chain the provided name is declared in, or else
-   * the provide scope if it is not declared.  The assumption is that provided scopes is the
-   * correct scope for new names.
-   */
-  private static StaticScope getCreationScope(StaticScope scope, String name) {
-    if (scope != null && scope.getParentScope() != null) {
-      String rootName = getRootElementOfName(name);
-      StaticSlot slot = scope.getSlot(rootName);
-      checkState(
-          slot != null || !isCompoundName(name) || rootName.equals("this"), "missing %s", name);
-      return slot != null ? slot.getScope() : scope;
+      return scope.getTopmostScopeOfEventualDeclaration(getRootElementOfName(name));
     }
     return scope;
   }
@@ -855,7 +826,7 @@ public class JSTypeRegistry implements Serializable {
 
   private void register(StaticScope scope, JSType type, String name) {
     checkTypeName(name);
-    registerForScope(getCreationScope(scope, name), type, name);
+    registerForScope(getLookupScope(scope, name), type, name);
   }
 
   private void registerForScope(StaticScope scope, JSType type, String name) {
@@ -977,7 +948,7 @@ public class JSTypeRegistry implements Serializable {
     if (typesIndexedByProperty.containsKey(propertyName)) {
       Collection<JSType> typesWithProp = typesIndexedByProperty.get(propertyName);
       JSType built =
-          UnionTypeBuilder.createForPropertyChecking(this).addAlternates(typesWithProp).build();
+          UnionType.builderForPropertyChecking(this).addAlternates(typesWithProp).build();
       greatestSubtypeByProperty.put(propertyName, built);
       return built.getGreatestSubtype(type);
     }
@@ -1138,7 +1109,7 @@ public class JSTypeRegistry implements Serializable {
    */
   public boolean declareType(StaticScope scope, String name, JSType type) {
     checkState(!name.isEmpty());
-    if (getTypeForScopeInternal(getCreationScope(scope, name), name) != null) {
+    if (getTypeForScopeInternal(getLookupScope(scope, name), name) != null) {
       return false;
     }
 
@@ -1432,6 +1403,11 @@ public class JSTypeRegistry implements Serializable {
     unresolvedNamedTypes.clear();
   }
 
+  /** Records a named type that needs to be resolved later. */
+  void addUnresolvedNamedType(NamedType type) {
+    unresolvedNamedTypes.add(type);
+  }
+
   /** Resolve all the unresolved types in the given scope. */
   public void resolveTypes() {
     for (NamedType type : unresolvedNamedTypes) {
@@ -1477,20 +1453,6 @@ public class JSTypeRegistry implements Serializable {
    * Creates a type representing nullable values of the given type.
    * @return the union of the type and the Null type
    */
-  public JSType createDefaultObjectUnion(JSType type) {
-    if (type.isTemplateType()) {
-      // Template types represent the substituted type exactly and should
-      // not be wrapped.
-      return type;
-    } else {
-      return createNullableType(type);
-    }
-  }
-
-  /**
-   * Creates a type representing nullable values of the given type.
-   * @return the union of the type and the Null type
-   */
   public JSType createNullableType(JSType type) {
     return createUnionType(type, getNativeType(JSTypeNative.NULL_TYPE));
   }
@@ -1508,15 +1470,11 @@ public class JSTypeRegistry implements Serializable {
    * Creates a union type whose variants are the arguments.
    */
   public JSType createUnionType(JSType... variants) {
-    UnionTypeBuilder builder = UnionTypeBuilder.create(this);
-    for (JSType type : variants) {
-      builder.addAlternate(type);
-    }
-    return builder.build();
+    return createUnionType(ImmutableList.copyOf(variants));
   }
 
   public JSType createUnionType(List<? extends JSType> variants) {
-    return createUnionType(variants.toArray(new JSType[0]));
+    return UnionType.builder(this).addAlternates(variants).build();
   }
 
   /**
@@ -1524,9 +1482,9 @@ public class JSTypeRegistry implements Serializable {
    * by the arguments.
    */
   public JSType createUnionType(JSTypeNative... variants) {
-    UnionTypeBuilder builder = UnionTypeBuilder.create(this);
-    for (JSTypeNative typeId : variants) {
-      builder.addAlternate(getNativeType(typeId));
+    UnionType.Builder builder = UnionType.builder(this);
+    for (JSTypeNative type : variants) {
+      builder.addAlternate(getNativeType(type));
     }
     return builder.build();
   }
@@ -1746,7 +1704,10 @@ public class JSTypeRegistry implements Serializable {
    * Create an object type.
    */
   public ObjectType createObjectType(String name, ObjectType implicitPrototype) {
-    return new PrototypeObjectType(this, name, implicitPrototype);
+    return PrototypeObjectType.builder(this)
+        .setName(name)
+        .setImplicitPrototype(implicitPrototype)
+        .build();
   }
 
   /**
@@ -1754,8 +1715,7 @@ public class JSTypeRegistry implements Serializable {
    * @param info Used to mark object literals as structs; can be {@code null}
    */
   public ObjectType createAnonymousObjectType(JSDocInfo info) {
-    PrototypeObjectType type = new PrototypeObjectType(
-        this, null, null, true /* anonymousType */);
+    PrototypeObjectType type = PrototypeObjectType.builder(this).setAnonymous(true).build();
     type.setPrettyPrint(true);
     type.setJSDocInfo(info);
     return type;
@@ -1793,7 +1753,7 @@ public class JSTypeRegistry implements Serializable {
       Node source,
       Node parameters,
       JSType returnType,
-      ImmutableList<TemplateType> templateKeys,
+      @Nullable ImmutableList<TemplateType> templateKeys,
       boolean isAbstract) {
     checkArgument(source == null || source.isFunction() || source.isClass());
     return FunctionType.builder(this)
@@ -1802,7 +1762,7 @@ public class JSTypeRegistry implements Serializable {
         .withSourceNode(source)
         .withParamsNode(parameters)
         .withReturnType(returnType)
-        .withTemplateKeys(templateKeys)
+        .withTemplateKeys((templateKeys == null) ? ImmutableList.of() : templateKeys)
         .withIsAbstract(isAbstract)
         .build();
   }
@@ -1823,7 +1783,7 @@ public class JSTypeRegistry implements Serializable {
             .withName(name)
             .withSourceNode(source)
             .withEmptyParams()
-            .withTemplateKeys(templateKeys)
+            .withTemplateKeys((templateKeys == null) ? ImmutableList.of() : templateKeys)
             .build();
     if (struct) {
       fn.setStruct();
@@ -1832,7 +1792,13 @@ public class JSTypeRegistry implements Serializable {
   }
 
   public TemplateType createTemplateType(String name) {
-    return new TemplateType(this, name);
+    return new TemplateType(
+        this,
+        name);
+  }
+
+  public TemplateType createTemplateType(String name, JSType bound) {
+    return new TemplateType(this, name, bound);
   }
 
   public TemplateType createTemplateTypeWithTransformation(
@@ -1840,47 +1806,17 @@ public class JSTypeRegistry implements Serializable {
     return new TemplateType(this, name, expr);
   }
 
-  /**
-   * Creates a template type map from the specified list of template keys and
-   * template value types.
-   */
-  public TemplateTypeMap createTemplateTypeMap(
-      ImmutableList<TemplateType> templateKeys,
-      ImmutableList<JSType> templateValues) {
-    if (templateKeys == null) {
-      templateKeys = ImmutableList.of();
-    }
-    if (templateValues == null) {
-      templateValues = ImmutableList.of();
-    }
-    return (templateKeys.isEmpty() && templateValues.isEmpty())
-        ? emptyTemplateTypeMap
-            : new TemplateTypeMap(this, templateKeys, templateValues);
-  }
-
-  public ObjectType instantiateGenericsWithUnknown(ObjectType obj) {
-    if (obj.isTemplatizedType()) {
-      ImmutableList.Builder<JSType> unknowns = ImmutableList.builder();
-      for (TemplateType unused : obj.getTemplateTypeMap().getTemplateKeys()) {
-        unknowns.add(getNativeType(UNKNOWN_TYPE));
-      }
-      return createTemplatizedType(obj.toMaybeTemplatizedType().getRawType(), unknowns.build());
-    }
-    return obj;
-  }
-
-  public JSType instantiateGenericType(
-      ObjectType genericType, ImmutableList<JSType> typeArgs) {
-    return createTemplatizedType(genericType, typeArgs);
+  public TemplateTypeMap getEmptyTemplateTypeMap() {
+    return this.emptyTemplateTypeMap;
   }
 
   /**
-   * Creates a templatized instance of the specified type.  Only ObjectTypes
-   * can currently be templatized; extend the logic in this function when
-   * more types can be templatized.
+   * Creates a templatized instance of the specified type. Only ObjectTypes can currently be
+   * templatized; extend the logic in this function when more types can be templatized.
+   *
    * @param baseType the type to be templatized.
-   * @param templatizedTypes a list of the template JSTypes. Will be matched by
-   *     list order to the template keys on the base type.
+   * @param templatizedTypes a list of the template JSTypes. Will be matched by list order to the
+   *     template keys on the base type.
    */
   public TemplatizedType createTemplatizedType(
       ObjectType baseType, ImmutableList<JSType> templatizedTypes) {
@@ -1890,33 +1826,31 @@ public class JSTypeRegistry implements Serializable {
   }
 
   /**
-   * Creates a templatized instance of the specified type.  Only ObjectTypes
-   * can currently be templatized; extend the logic in this function when
-   * more types can be templatized.
+   * Creates a templatized instance of the specified type. Only ObjectTypes can currently be
+   * templatized; extend the logic in this function when more types can be templatized.
+   *
    * @param baseType the type to be templatized.
-   * @param templatizedTypes a map from TemplateType to corresponding JSType
-   *     value. Any unfilled TemplateTypes on the baseType that are *not*
-   *     contained in this map will have UNKNOWN_TYPE used as their value.
+   * @param templatizedTypes a map from TemplateType to corresponding JSType value. Any unfilled
+   *     TemplateTypes on the baseType that are *not* contained in this map will have UNKNOWN_TYPE
+   *     used as their value.
    */
   public TemplatizedType createTemplatizedType(
       ObjectType baseType, Map<TemplateType, JSType> templatizedTypes) {
-    ImmutableList.Builder<JSType> builder = ImmutableList.builder();
-    TemplateTypeMap baseTemplateTypeMap = baseType.getTemplateTypeMap();
-    for (TemplateType key : baseTemplateTypeMap.getUnfilledTemplateKeys()) {
-      JSType templatizedType = templatizedTypes.containsKey(key) ?
-          templatizedTypes.get(key) : getNativeType(UNKNOWN_TYPE);
-      builder.add(templatizedType);
-    }
-    return createTemplatizedType(baseType, builder.build());
+    JSType unknownType = getNativeType(UNKNOWN_TYPE);
+    return createTemplatizedType(
+        baseType,
+        mapTypes(
+            (key) -> templatizedTypes.getOrDefault(key, unknownType),
+            baseType.getTypeParameters()));
   }
 
   /**
-   * Creates a templatized instance of the specified type.  Only ObjectTypes
-   * can currently be templatized; extend the logic in this function when
-   * more types can be templatized.
+   * Creates a templatized instance of the specified type. Only ObjectTypes can currently be
+   * templatized; extend the logic in this function when more types can be templatized.
+   *
    * @param baseType the type to be templatized.
-   * @param templatizedTypes a list of the template JSTypes. Will be matched by
-   *     list order to the template keys on the base type.
+   * @param templatizedTypes a list of the template JSTypes. Will be matched by list order to the
+   *     template keys on the base type.
    */
   public TemplatizedType createTemplatizedType(ObjectType baseType, JSType... templatizedTypes) {
     return createTemplatizedType(baseType, ImmutableList.copyOf(templatizedTypes));
@@ -1929,20 +1863,18 @@ public class JSTypeRegistry implements Serializable {
     return new NamedType(scope, this, reference, sourceName, lineno, charno);
   }
 
-  /**
-   * Identifies the name of a typedef or enum before we actually declare it.
-   */
-  public void identifyNonNullableName(String name) {
+  /** Identifies the name of a typedef or enum before we actually declare it. */
+  public void identifyNonNullableName(StaticScope scope, String name) {
     checkNotNull(name);
-    nonNullableTypeNames.add(name);
+    StaticScope lookupScope = getLookupScope(scope, name);
+    nonNullableTypeNames.put(getRootNodeForScope(lookupScope), name);
   }
 
-  /**
-   * Identifies the name of a typedef or enum before we actually declare it.
-   */
-  public boolean isNonNullableName(String name) {
+  /** Identifies the name of a typedef or enum before we actually declare it. */
+  public boolean isNonNullableName(StaticScope scope, String name) {
     checkNotNull(name);
-    return nonNullableTypeNames.contains(name);
+    scope = getLookupScope(scope, name);
+    return nonNullableTypeNames.containsEntry(getRootNodeForScope(scope), name);
   }
 
   public JSType evaluateTypeExpression(JSTypeExpression expr, StaticTypedScope scope) {
@@ -1973,9 +1905,20 @@ public class JSTypeRegistry implements Serializable {
             n.getFirstChild(), sourceName, scope);
 
       case BANG: // Not nullable
-        return createFromTypeNodesInternal(
-            n.getFirstChild(), sourceName, scope, recordUnresolvedTypes)
-            .restrictByNotNullOrUndefined();
+        {
+          JSType child =
+              createFromTypeNodesInternal(
+                  n.getFirstChild(), sourceName, scope, recordUnresolvedTypes);
+          if (child instanceof NamedType
+              && isNonNullableName(scope, child.toMaybeNamedType().getReferenceName())) {
+            JSType type = ((NamedType) child).getBangType();
+            if (type instanceof NamedType && recordUnresolvedTypes && type != child) {
+              unresolvedNamedTypes.add((NamedType) type);
+            }
+            return type;
+          }
+          return child.restrictByNotNullOrUndefined();
+        }
 
       case QMARK: // Nullable or unknown
         Node firstChild = n.getFirstChild();
@@ -1992,7 +1935,7 @@ public class JSTypeRegistry implements Serializable {
             createFromTypeNodesInternal(
                 n.getFirstChild(), sourceName, scope, recordUnresolvedTypes));
 
-      case ELLIPSIS: // Var args
+      case ITER_REST: // Var args
         return createFromTypeNodesInternal(
             n.getFirstChild(), sourceName, scope, recordUnresolvedTypes);
 
@@ -2000,13 +1943,11 @@ public class JSTypeRegistry implements Serializable {
         return getNativeType(ALL_TYPE);
 
       case PIPE: // Union type
-        UnionTypeBuilder builder = UnionTypeBuilder.create(this);
-        for (Node child = n.getFirstChild(); child != null;
-             child = child.getNext()) {
-          builder.addAlternate(
-              createFromTypeNodesInternal(child, sourceName, scope, recordUnresolvedTypes));
+        ImmutableList.Builder<JSType> builder = ImmutableList.builder();
+        for (Node child = n.getFirstChild(); child != null; child = child.getNext()) {
+          builder.add(createFromTypeNodesInternal(child, sourceName, scope, recordUnresolvedTypes));
         }
-        return builder.build();
+        return createUnionType(builder.build());
 
       case EMPTY: // When the return value of a function is not specified
         return getNativeType(UNKNOWN_TYPE);
@@ -2018,14 +1959,19 @@ public class JSTypeRegistry implements Serializable {
         {
           String name = n.getFirstChild().getString();
           // TODO(sdh): require var to be const?
-          JSType type = scope.lookupQualifiedName(QualifiedName.of(name));
-          if (type == null || type.isUnknownType()) {
-            reporter.warning(
-                "Missing type for `typeof` value. The value must be declared and const.",
+          QualifiedName qname = QualifiedName.of(name);
+          String root = qname.getRoot();
+          StaticScope declarationScope = scope.getTopmostScopeOfEventualDeclaration(root);
+          StaticSlot rootSlot = scope.getSlot(root);
+          JSType type = scope.lookupQualifiedName(qname);
+          if (type == null || type.isUnknownType() || rootSlot.getScope() != declarationScope) {
+            // Create a NamedType via getType so that it will be added to the list of types to
+            // eventually resolve if necessary.
+            return getType(scope, "typeof " + n.getFirstChild().getString(),
                 sourceName,
                 n.getLineno(),
-                n.getCharno());
-            return getNativeType(UNKNOWN_TYPE);
+                n.getCharno(),
+                recordUnresolvedTypes);
           }
           if (type.isLiteralObject()) {
             JSType scopeType = type;
@@ -2040,73 +1986,91 @@ public class JSTypeRegistry implements Serializable {
         // TODO(martinprobst): The new type syntax resolution should be separate.
         // Remove the NAME case then.
       case NAME:
-        JSType namedType =
-            getType(
-                scope,
-                n.getString(),
-                sourceName,
-                n.getLineno(),
-                n.getCharno(),
-                recordUnresolvedTypes);
-        if (namedType instanceof ObjectType && !nonNullableTypeNames.contains(n.getString())) {
-          Node typeList = n.getFirstChild();
-          boolean isForwardDeclared = namedType instanceof NamedType;
-          if ((!namedType.isUnknownType() || isForwardDeclared) && typeList != null) {
-            // Templatized types.
-            ImmutableList.Builder<JSType> templateTypes = ImmutableList.builder();
-
-            // Special case for Object, where Object<X> implies Object<?,X>.
-            if ((n.getString().equals("Object") || n.getString().equals("window.Object"))
-                && typeList.hasZeroOrOneChild()) {
-              templateTypes.add(getNativeType(UNKNOWN_TYPE));
-            }
-
-            int nAllowedTypes =
-                isForwardDeclared
-                    ? Integer.MAX_VALUE
-                    : namedType.getTemplateTypeMap().numUnfilledTemplateKeys();
-            boolean recordTemplateArgs = recordUnresolvedTypes && !isForwardDeclared;
-            int templateNodeIndex = 0;
-            for (Node templateNode : typeList.children()) {
-              // Don't parse more templatized type nodes than the type can
-              // accommodate. This is because some existing clients have
-              // template annotations on non-templatized classes, for instance:
-              //   goog.structs.Set<SomeType>
-              // The problem in these cases is that the previously-unparsed
-              // SomeType is not actually a valid type. To prevent these clients
-              // from seeing unknown type errors, we explicitly don't parse
-              // these types.
-              // TODO(dimvar): Address this issue by removing bad template
-              // annotations on non-templatized classes.
-              if (++templateNodeIndex > nAllowedTypes) {
-                reporter.warning(
-                    "Too many template parameters",
-                    sourceName,
-                    templateNode.getLineno(),
-                    templateNode.getCharno());
-                break;
-              }
-              templateTypes.add(
-                  createFromTypeNodesInternal(templateNode, sourceName, scope, recordTemplateArgs));
-            }
-            if (isForwardDeclared) {
-              namedType =
-                  new NamedType(
-                      scope,
-                      this,
-                      n.getString(),
-                      sourceName,
-                      n.getLineno(),
-                      n.getCharno(),
-                      templateTypes.build());
-            } else {
-              namedType = createTemplatizedType((ObjectType) namedType, templateTypes.build());
-            }
-            checkNotNull(namedType);
+        {
+          JSType nominalType =
+              getType(
+                  scope,
+                  n.getString(),
+                  sourceName,
+                  n.getLineno(),
+                  n.getCharno(),
+                  recordUnresolvedTypes);
+          if (!(nominalType instanceof ObjectType) || isNonNullableName(scope, n.getString())) {
+            return nominalType;
           }
-          return createDefaultObjectUnion(namedType);
-        } else {
-          return namedType;
+
+          boolean isForwardDeclared = nominalType instanceof NamedType;
+          if (nominalType.isUnknownType() && !isForwardDeclared) {
+            return addNullabilityBasedOnParseContext(n, nominalType);
+          }
+
+          Node typeList = n.getFirstChild();
+          if (typeList == null) {
+            // We don't want to templatize the result if there are no template parameters.
+            // TODO(nickreid): Warn when `typeList` has 0 children.
+            // TODO(nickreid): This case leaves template parameters unbound if users fail to
+            // specify any arguments, allowing raw types to leak into programs.
+            return addNullabilityBasedOnParseContext(n, nominalType);
+          }
+
+          if (isForwardDeclared) {
+            ImmutableList.Builder<JSType> templateArgs = ImmutableList.builder();
+            for (Node templateNode : typeList.children()) {
+              templateArgs.add(createFromTypeNodesInternal(templateNode, sourceName, scope, false));
+            }
+            return addNullabilityBasedOnParseContext(
+                n,
+                new NamedType(
+                    scope,
+                    this,
+                    n.getString(),
+                    sourceName,
+                    n.getLineno(),
+                    n.getCharno(),
+                    templateArgs.build()));
+          }
+
+          boolean isObject =
+              n.getString().equals("Object") || n.getString().equals("window.Object");
+          int requiredTemplateArgCount =
+              // TODO(b/138617950): Eliminate the specical case for `Object`.
+              isObject ? 2 : nominalType.getTemplateParamCount();
+          List<JSType> templateArgs = new ArrayList<>();
+
+          for (Node templateNode : typeList.children()) {
+            // Don't parse more templatized type nodes than the type can
+            // accommodate. This is because some existing clients have
+            // template annotations on non-templatized classes, for instance:
+            //   goog.structs.Set<SomeType>
+            // The problem in these cases is that the previously-unparsed
+            // SomeType is not actually a valid type. To prevent these clients
+            // from seeing unknown type errors, we explicitly don't parse
+            // these types.
+            // TODO(dimvar): Address this issue by removing bad template
+            // annotations on non-templatized classes.
+            if (templateArgs.size() >= requiredTemplateArgCount) {
+              reporter.warning(
+                  "Too many template parameters",
+                  sourceName,
+                  templateNode.getLineno(),
+                  templateNode.getCharno());
+              // The rest of the types aren't needed even if they're unresolved, /but/ we should
+              // still report an error if they are unrecognized types.
+              createFromTypeNodesInternal(templateNode, sourceName, scope, recordUnresolvedTypes);
+              continue;
+            }
+            templateArgs.add(
+                createFromTypeNodesInternal(
+                    templateNode, sourceName, scope, recordUnresolvedTypes));
+          }
+          if (isObject && templateArgs.size() == 1) {
+            // Special case for Object, where Object<X> implies Object<?,X>.
+            templateArgs.add(0, getNativeType(UNKNOWN_TYPE));
+          }
+
+          return addNullabilityBasedOnParseContext(
+              n,
+              createTemplatizedType((ObjectType) nominalType, ImmutableList.copyOf(templateArgs)));
         }
 
       case FUNCTION:
@@ -2145,7 +2109,7 @@ public class JSTypeRegistry implements Serializable {
 
         if (current.getToken() == Token.PARAM_LIST) {
           for (Node arg = current.getFirstChild(); arg != null; arg = arg.getNext()) {
-            if (arg.getToken() == Token.ELLIPSIS) {
+            if (arg.getToken() == Token.ITER_REST) {
               if (!arg.hasChildren()) {
                 paramBuilder.addVarArgs(getNativeType(UNKNOWN_TYPE));
               } else {
@@ -2188,6 +2152,23 @@ public class JSTypeRegistry implements Serializable {
     }
 
     throw new IllegalStateException("Unexpected node in type expression: " + n);
+  }
+
+  private JSType addNullabilityBasedOnParseContext(Node n, JSType type) {
+    // Other node types may be appropriate in the future.
+    checkState(n.isName() || n.isString(), n);
+    checkNotNull(type);
+
+    if (type.isTemplateType()) {
+      // Template types represent the substituted type exactly and should
+      // not be wrapped.
+      return type;
+    } else if (n.getParent() != null && n.getParent().getToken() == Token.BANG) {
+      // Names parsed from beneath a BANG never need nullability added.
+      return type;
+    } else {
+      return createNullableType(type);
+    }
   }
 
   /**
@@ -2313,6 +2294,14 @@ public class JSTypeRegistry implements Serializable {
     TemplateType getTemplateType(String name) {
       return types.get(name);
     }
+
+    @Override
+    public StaticScope getTopmostScopeOfEventualDeclaration(String name) {
+      if (types.get(name) != null) {
+        return this;
+      }
+      return delegate.getTopmostScopeOfEventualDeclaration(name);
+    }
   }
 
   /**
@@ -2354,5 +2343,50 @@ public class JSTypeRegistry implements Serializable {
       builder.withTemplateKeys(templateKeys);
     }
     return builder.build();
+  }
+
+  private FunctionType nativeRecord(String name, TemplateType... templateKeys) {
+    FunctionType type = nativeInterface(name, templateKeys);
+    type.setImplicitMatch(true);
+    return type;
+  }
+
+  /** Ensures that a type annotation pointing to a Closure modules is correctly resolved. */
+  public void registerClosureModule(String moduleName, Node definitionNode, JSType type) {
+    moduleToSlotMap.put(moduleName, ModuleSlot.create(/* isLegacy= */ false, definitionNode, type));
+  }
+
+  /**
+   * Ensures that a type annotation pointing to a Closure modules is correctly resolved.
+   *
+   * <p>Currently this is useful because module rewriting will prevent type resolution given a
+   */
+  public void registerLegacyClosureModule(String moduleName) {
+    moduleToSlotMap.put(moduleName, ModuleSlot.create(/* isLegacy= */ true, null, null));
+  }
+
+  /**
+   * Returns the associated slot, if any, for the given module namespace.
+   *
+   * <p>Returns null if the given name is not a Closure namespace from a goog.provide or goog.module
+   */
+  ModuleSlot getModuleSlot(String moduleName) {
+    return moduleToSlotMap.get(moduleName);
+  }
+
+  /** Stores information about a Closure namespace. */
+  @AutoValue
+  abstract static class ModuleSlot {
+    abstract boolean isLegacyModule();
+
+    @Nullable
+    abstract Node definitionNode();
+
+    @Nullable
+    abstract JSType type();
+
+    static ModuleSlot create(boolean isLegacy, Node definitionNode, JSType type) {
+      return new AutoValue_JSTypeRegistry_ModuleSlot(isLegacy, definitionNode, type);
+    }
   }
 }

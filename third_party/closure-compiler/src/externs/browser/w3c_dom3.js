@@ -74,52 +74,6 @@ DOMStringList.prototype.item = function(index) {};
 
 /**
  * @constructor
- * @implements {IArrayLike<string>}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#NameList
- */
-function NameList() {}
-
-/**
- * @type {number}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#NameList-length
- */
-NameList.prototype.length;
-
-/**
- * @param {string} str
- * @return {boolean}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#NameList-contains
- * @nosideeffects
- */
-NameList.prototype.contains = function(str) {};
-
-/**
- * @param {?string} namespaceURI
- * @param {string} name
- * @return {boolean}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#NameList-containsNS
- * @nosideeffects
- */
-NameList.prototype.containsNS = function(namespaceURI, name) {};
-
-/**
- * @param {number} index
- * @return {string}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#NameList-getName
- * @nosideeffects
- */
-NameList.prototype.getName = function(index) {};
-
-/**
- * @param {number} index
- * @return {string}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#NameList-getNamespaceURI
- * @nosideeffects
- */
-NameList.prototype.getNamespaceURI = function(index) {};
-
-/**
- * @constructor
  * @implements {IArrayLike<!DOMImplementation>}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#DOMImplementationList
  */
@@ -182,15 +136,6 @@ DOMImplementationSource.prototype.getDOMImplementation = function(features) {};
 DOMImplementationSource.prototype.getDOMImplementationList = function(features) {};
 
 /**
- * @param {string} feature
- * @param {string} version
- * @return {Object}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#DOMImplementation3-getFeature
- * @nosideeffects
- */
-DOMImplementation.prototype.getFeature = function(feature, version) {};
-
-/**
  * @param {Node} externalNode
  * @return {Node}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Document3-adoptNode
@@ -204,22 +149,10 @@ Document.prototype.adoptNode = function(externalNode) {};
 Document.prototype.documentURI;
 
 /**
- * @type {DOMConfiguration}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Document3-domConfig
- */
-Document.prototype.domConfig;
-
-/**
  * @type {string}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Document3-inputEncoding
  */
 Document.prototype.inputEncoding;
-
-/**
- * @type {boolean}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Document3-strictErrorChecking
- */
-Document.prototype.strictErrorChecking;
 
 /**
  * @type {string}
@@ -238,21 +171,6 @@ Document.prototype.xmlStandalone;
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Document3-version
  */
 Document.prototype.xmlVersion;
-
-/**
- * @return {undefined}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Document3-normalizeDocument
- */
-Document.prototype.normalizeDocument = function() {};
-
-/**
- * @param {Node} n
- * @param {?string} namespaceURI
- * @param {string} qualifiedName
- * @return {Node}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Document3-renameNode
- */
-Document.prototype.renameNode = function(n, namespaceURI, qualifiedName) {};
 
 /**
  * @type {?string}
@@ -378,15 +296,6 @@ Node.prototype.isEqualNode = function(arg) {};
 Node.prototype.isSameNode = function(other) {};
 
 /**
- * @param {string} feature
- * @param {string} version
- * @return {boolean}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Level-2-Core-Node-supports
- * @nosideeffects
- */
-Node.prototype.isSupported = function(feature, version) {};
-
-/**
  * @param {string} prefix
  * @return {string}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Node3-lookupNamespaceURI
@@ -407,15 +316,6 @@ Node.prototype.lookupPrefix = function(namespaceURI) {};
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-normalize
  */
 Node.prototype.normalize = function() {};
-
-/**
- * @param {Object} key
- * @param {Object} data
- * @param {UserDataHandler} handler
- * @return {Object}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Node3-setUserData'
- */
-Node.prototype.setUserData = function(key, data, handler) {};
 
 /**
  * @param {string} query
@@ -444,18 +344,6 @@ Attr.prototype.ownerElement;
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Attr-isId
  */
 Attr.prototype.isId;
-
-/**
- * @type {TypeInfo}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Attr-schemaTypeInfo
- */
-Attr.prototype.schemaTypeInfo;
-
-/**
- * @type {TypeInfo}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Element-schemaTypeInfo
- */
-Element.prototype.schemaTypeInfo;
 
 /**
  * @param {?string} namespaceURI
@@ -528,135 +416,10 @@ Element.prototype.setAttributeNodeNS = function(newAttr) {};
 Element.prototype.setAttributeNS = function(namespaceURI, qualifiedName, value) {};
 
 /**
- * @param {string} name
- * @param {boolean} isId
- * @return {undefined}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-ElSetIdAttr
- */
-Element.prototype.setIdAttribute = function(name, isId) {};
-
-/**
- * @param {Attr} idAttr
- * @param {boolean} isId
- * @return {undefined}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-ElSetIdAttrNode
- */
-Element.prototype.setIdAttributeNode = function(idAttr, isId) {};
-
-/**
- * @param {?string} namespaceURI
- * @param {string} localName
- * @param {boolean} isId
- * @return {undefined}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-ElSetIdAttrNS
- */
-Element.prototype.setIdAttributeNS = function(namespaceURI, localName, isId) {};
-
-/**
  * @type {string}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Text3-wholeText
  */
 Text.prototype.wholeText;
-
-/**
- * @constructor
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo
- */
-function TypeInfo() {}
-
-/**
- * @const {number}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo-DERIVATION_EXTENSION
- */
-TypeInfo.prototype.DERIVATION_EXTENSION;
-
-/**
- * @const {number}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo-DERIVATION_LIST
- */
-TypeInfo.prototype.DERIVATION_LIST;
-
-/**
- * @const {number}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo-DERIVATION_RESTRICTION
- */
-TypeInfo.prototype.DERIVATION_RESTRICTION;
-
-/**
- * @const {number}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo-DERIVATION_UNION
- */
-TypeInfo.prototype.DERIVATION_UNION;
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo-typeName
- */
-TypeInfo.prototype.typeName;
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo-typeNamespace
- */
-TypeInfo.prototype.typeNamespace;
-
-/**
- * @param {string} typeNamespaceArg
- * @param {string} typeNameArg
- * @param {number} derivationMethod
- * @return {boolean}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#TypeInfo-isDerivedFrom
- * @nosideeffects
- */
-TypeInfo.prototype.isDerivedFrom = function(typeNamespaceArg, typeNameArg, derivationMethod) {};
-
-/**
- * @constructor
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#UserDataHandler
- */
-function UserDataHandler() {}
-
-/**
- * @const {number}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#UserDataHandler-CLONED
- */
-UserDataHandler.prototype.NODE_CLONED;
-
-/**
- * @const {number}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#UserDataHandler-IMPORTED
- */
-UserDataHandler.prototype.NODE_IMPORTED;
-
-/**
- * @const {number}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#UserDataHandler-DELETED
- */
-UserDataHandler.prototype.NODE_DELETED;
-
-/**
- * @const {number}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#UserDataHandler-RENAMED
- */
-UserDataHandler.prototype.NODE_RENAMED;
-
-/**
- * @const {number}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#UserDataHandler-ADOPTED
- */
-UserDataHandler.prototype.NODE_ADOPTED;
-
-/**
- * @param {number} operation
- * @param {string} key
- * @param {*=} opt_data
- * @param {?Node=} opt_src
- * @param {?Node=} opt_dst
- * @return {undefined}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-handleUserDataEvent
- */
-UserDataHandler.prototype.handle = function(operation, key, opt_data,
-  opt_src, opt_dst) {};
 
 /**
  * @constructor
@@ -780,48 +543,6 @@ DOMLocator.prototype.uri;
 DOMLocator.prototype.utf16Offset;
 
 /**
- * @constructor
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#DOMConfiguration
- */
-function DOMConfiguration() {}
-
-/**
- * @type {DOMStringList}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#DOMConfiguration-parameterNames
- */
-DOMConfiguration.prototype.parameterNames;
-
-/**
- * @param {string} name
- * @return {boolean}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#DOMConfiguration-canSetParameter
- * @nosideeffects
- */
-DOMConfiguration.prototype.canSetParameter = function(name) {};
-
-/**
- * @param {string} name
- * @return {*}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#DOMConfiguration-getParameter
- * @nosideeffects
- */
-DOMConfiguration.prototype.getParameter = function(name) {};
-
-/**
- * @param {string} name
- * @param {*} value
- * @return {*}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#DOMConfiguration-property
- */
-DOMConfiguration.prototype.setParameter = function(name, value) {};
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-Core-DocType-internalSubset
- */
-DocumentType.prototype.internalSubset;
-
-/**
  * @type {string}
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-Core-DocType-publicId
  */
@@ -832,21 +553,3 @@ DocumentType.prototype.publicId;
  * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#ID-Core-DocType-systemId
  */
 DocumentType.prototype.systemId;
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Entity3-inputEncoding
- */
-Entity.prototype.inputEncoding;
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Entity3-encoding
- */
-Entity.prototype.xmlEncoding;
-
-/**
- * @type {string}
- * @see http://www.w3.org/TR/DOM-Level-3-Core/core.html#Entity3-version
- */
-Entity.prototype.xmlVersion;

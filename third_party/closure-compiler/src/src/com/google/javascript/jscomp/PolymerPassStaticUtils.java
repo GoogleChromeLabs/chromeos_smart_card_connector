@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.javascript.jscomp.PolymerPassErrors.POLYMER_MISPLACED_PROPERTY_JSDOC;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ascii;
 import com.google.common.base.CaseFormat;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.PolymerPass.MemberDefinition;
@@ -49,7 +50,7 @@ final class PolymerPassStaticUtils {
     // When imported from an ES module, the rewriting should set the original name.
     // When imported from an goog module (TS), we'll have a GETPROP like
     // `module$polymer$polymer_legacy.Polymer`.
-    return name.matchesQualifiedName("Polymer")
+    return name.matchesName("Polymer")
         || "Polymer".equals(name.getOriginalQualifiedName())
         || (name.isGetProp() && name.getLastChild().getString().equals("Polymer"));
   }
@@ -72,13 +73,18 @@ final class PolymerPassStaticUtils {
     // `module$polymer$polymer_element.PolymerElement`.
     return !heritage.isEmpty()
         && (heritage.matchesQualifiedName("Polymer.Element")
-            || heritage.matchesQualifiedName("PolymerElement")
+            || heritage.matchesName("PolymerElement")
             || "PolymerElement".equals(heritage.getOriginalQualifiedName())
             || (heritage.isGetProp()
                 && heritage.getLastChild().getString().equals("PolymerElement")));
   }
 
-  /** Switches all "this.$.foo" to "this.$['foo']". */
+  /**
+   * The "$" member in a Polymer element is a map of statically created nodes in its local DOM. This
+   * method is used to rewrite usage of this map from "this.$.foo" to "this.$['foo']" to avoid
+   * JSC_POSSIBLE_INEXISTENT_PROPERTY errors. Excludes function calls like "bar.$.foo()" since some
+   * libraries place methods under a "$" member.
+   */
   static void switchDollarSignPropsToBrackets(Node def, final AbstractCompiler compiler) {
     checkState(def.isObjectLit() || def.isClassMembers());
     for (Node keyNode : def.children()) {
@@ -93,6 +99,13 @@ final class PolymerPassStaticUtils {
                     && n.getString().equals("$")
                     && n.getParent().isGetProp()
                     && n.getGrandparent().isGetProp()) {
+
+                  // Some libraries like Mojo JS Bindings and jQuery place methods in a "$" member
+                  // e.g. "foo.$.closePipe()". Avoid converting to brackets for these cases.
+                  if (n.getAncestor(3).isCall() && n.getAncestor(3).hasOneChild()) {
+                    return;
+                  }
+
                   Node dollarChildProp = n.getGrandparent();
                   dollarChildProp.setToken(Token.GETELEM);
                   compiler.reportChangeToEnclosingScope(dollarChildProp);
@@ -207,38 +220,43 @@ final class PolymerPassStaticUtils {
   static JSTypeExpression getTypeFromProperty(
       MemberDefinition property, AbstractCompiler compiler) {
     if (property.info != null && property.info.hasType()) {
-      return property.info.getType();
+      return property.info.getType().copy();
     }
 
-    String typeString;
+    Node typeValue;
     if (property.value.isObjectLit()) {
-      Node typeValue = NodeUtil.getFirstPropMatchingKey(property.value, "type");
+      typeValue = NodeUtil.getFirstPropMatchingKey(property.value, "type");
       if (typeValue == null || !typeValue.isName()) {
         compiler.report(JSError.make(property.name, PolymerPassErrors.POLYMER_INVALID_PROPERTY));
         return null;
       }
-      typeString = typeValue.getString();
     } else if (property.value.isName()) {
-      typeString = property.value.getString();
+      typeValue = property.value;
     } else {
-      typeString = "";
+      typeValue = null;
     }
 
+    if (typeValue == null) {
+      compiler.report(JSError.make(property.value, PolymerPassErrors.POLYMER_INVALID_PROPERTY));
+      return null;
+    }
+
+    String typeString = typeValue.getString();
     Node typeNode;
     switch (typeString) {
       case "Boolean":
       case "String":
       case "Number":
-        typeNode = IR.string(typeString.toLowerCase());
+        typeNode = IR.string(Ascii.toLowerCase(typeString)).srcref(typeValue);
         break;
       case "Array":
       case "Function":
       case "Object":
       case "Date":
-        typeNode = new Node(Token.BANG, IR.string(typeString));
+        typeNode = new Node(Token.BANG, IR.string(typeString)).srcrefTree(typeValue);
         break;
       default:
-        compiler.report(JSError.make(property.name, PolymerPassErrors.POLYMER_INVALID_PROPERTY));
+        compiler.report(JSError.make(property.value, PolymerPassErrors.POLYMER_INVALID_PROPERTY));
         return null;
     }
 

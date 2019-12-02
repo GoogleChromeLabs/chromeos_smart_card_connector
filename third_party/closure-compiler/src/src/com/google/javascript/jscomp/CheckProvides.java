@@ -15,17 +15,15 @@
  */
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.NodeTraversal.AbstractShallowCallback;
+import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfo.Visibility;
 import com.google.javascript.rhino.Node;
-
 import java.util.HashMap;
 import java.util.Map;
 
 /**
  * Ensures that '@constructor X' has a 'goog.provide("X")' .
- *
  */
 class CheckProvides implements HotSwapCompilerPass {
   private final AbstractCompiler compiler;
@@ -52,7 +50,7 @@ class CheckProvides implements HotSwapCompilerPass {
     NodeTraversal.traverse(compiler, scriptRoot, callback);
   }
 
-  private class CheckProvidesCallback extends AbstractShallowCallback {
+  private class CheckProvidesCallback implements Callback {
     private final Map<String, Node> provides = new HashMap<>();
     private final Map<String, Node> ctors = new HashMap<>();
     private final CodingConvention convention;
@@ -60,6 +58,16 @@ class CheckProvides implements HotSwapCompilerPass {
 
     CheckProvidesCallback(CodingConvention convention){
       this.convention = convention;
+    }
+
+    @Override
+    public final boolean shouldTraverse(NodeTraversal nodeTraversal, Node n, Node parent) {
+      // We do want to traverse the name of a named function, but we don't
+      // want to traverse the arguments or body. We also don't care about modules.
+      if (n.isModuleBody()) {
+        return false;
+      }
+      return parent == null || !parent.isFunction() || n == parent.getFirstChild();
     }
 
     @Override

@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -89,7 +88,6 @@ public final class RemoveUnusedCodeClassPropertiesTest extends CompilerTestCase 
     return new RemoveUnusedCode.Builder(compiler)
         .removeUnusedPrototypeProperties(true)
         .removeUnusedThisProperties(true)
-        .removeUnusedConstructorProperties(true)
         .removeUnusedObjectDefinePropertiesDefinitions(true)
         .build();
   }
@@ -100,7 +98,7 @@ public final class RemoveUnusedCodeClassPropertiesTest extends CompilerTestCase 
     super.setUp();
     enableNormalize();
     enableGatherExternProperties();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2017);
+    onlyValidateNoNewGettersAndSetters();
     disableTypeCheck();
   }
 
@@ -200,6 +198,15 @@ public final class RemoveUnusedCodeClassPropertiesTest extends CompilerTestCase 
     test("--this.a, alert()", "alert()");
     test("let x = (--this.a, alert())", "let x = alert()");
     testSame("let x = (alert(), --this.a)");
+  }
+
+  @Test
+  public void testDestructuringRest() {
+    testSame(
+        lines(
+            "function Foo() {}", //
+            "Foo.a = function() {};",
+            "({ ...Foo.a.b } = 0);"));
   }
 
   @Test
@@ -444,19 +451,14 @@ public final class RemoveUnusedCodeClassPropertiesTest extends CompilerTestCase 
   }
 
   @Test
-  public void testObjectDefineProperties_used_setter_removed() {
-    // TODO(bradfordcsmith): Either remove, fix this, or document it as a limitation of advanced
-    // mode optimizations.
+  public void testObjectDefineProperties_usedSetter_notRemoved() {
     enableTypeCheck();
 
-    test(
+    testSame(
         lines(
             "/** @constructor */ function C() {}",
             "Object.defineProperties(C, {prop:{set:function (a) {alert(2)}}});",
-            "C.prop = 2;"),
-        lines(
-            "/** @constructor */ function C() {}",
-            "Object.defineProperties(C, {                                  });"));
+            "C.prop = 2;"));
   }
 
   @Test
@@ -537,7 +539,7 @@ public final class RemoveUnusedCodeClassPropertiesTest extends CompilerTestCase 
             "/** @constructor @struct */",
             "var C = function() {};",
             "/** @type {?} */",
-            "C.prototype.value;",
+            "C.prototype.value = 0;",
             "$jscomp.global.Object.defineProperties(C.prototype, {",
             "  value: {",
             "    configurable: true,",
@@ -633,10 +635,10 @@ public final class RemoveUnusedCodeClassPropertiesTest extends CompilerTestCase 
             "[this.x        ] = [1, 2]", // preserve newline
             "var p = this.x;"));
 
-    // Test rest destructuring removal
+    // Test rest destructuring, `this` property
     test(
         "[this.x, ...this.z] = [1, 2, 3]", // preserve newline
-        "[                 ] = [1, 2, 3]");
+        "[      , ...this.z] = [1, 2, 3]");
 
     // Test rest destructuring with normal variable
     test(
@@ -749,6 +751,19 @@ public final class RemoveUnusedCodeClassPropertiesTest extends CompilerTestCase 
     test(
         "({['a']:0}); this.a = 1;", // preserve newline
         "({['a']:0});            ");
+  }
+
+  @Test
+  public void testDestrucuturing_assginmentToProperty_consideredUse() {
+    testSame(
+        lines(
+            "class Foo {",
+            "  constructor() {",
+            "    this.x = 0;",
+            "  }",
+            "}",
+            "",
+            "({a: new Foo().x} = {a: 0});"));
   }
 
   @Test

@@ -121,14 +121,6 @@ XMLDOMDocument.prototype.abort = function() {};
 XMLDOMDocument.prototype.createNode = function(type, name, namespaceURI) {};
 
 /**
- * @param {string} xmlSource
- * @return {undefined}
- * @see http://msdn.microsoft.com/en-us/library/ms762722(VS.85).aspx
- * @override
- */
-XMLDOMDocument.prototype.load = function(xmlSource) {};
-
-/**
  * @param {string} xmlString
  * @return {boolean}
  * @see http://msdn.microsoft.com/en-us/library/ms754585(VS.85).aspx
@@ -670,24 +662,6 @@ TextRange.prototype.select = function() {};
 TextRange.prototype.setEndPoint;
 
 /**
- * @return {undefined}
- * @see http://msdn.microsoft.com/en-us/library/ms536418(VS.85).aspx
- */
-Selection.prototype.clear = function() {};
-
-/**
- * @return {TextRange|ControlRange}
- * @see http://msdn.microsoft.com/en-us/library/ms536394(VS.85).aspx
- */
-Selection.prototype.createRange = function() {};
-
-/**
- * @return {Array<TextRange>}
- * @see http://msdn.microsoft.com/en-us/library/ms536396(VS.85).aspx
- */
-Selection.prototype.createRangeCollection = function() {};
-
-/**
  * @constructor
  * @see http://msdn.microsoft.com/en-us/library/ms537447(VS.85).aspx
  */
@@ -700,12 +674,6 @@ Document.prototype.loadXML;
 // http://msdn.microsoft.com/en-us/library/ms531073(VS.85).aspx
 
 /**
- * @type {!Element}
- * @see http://msdn.microsoft.com/en-us/library/ms533065(VS.85).aspx
- */
-Document.prototype.activeElement;
-
-/**
  * @see http://msdn.microsoft.com/en-us/library/ms533553(VS.85).aspx
  */
 Document.prototype.charset;
@@ -714,11 +682,6 @@ Document.prototype.charset;
  * @see http://msdn.microsoft.com/en-us/library/ms533693(VS.85).aspx
  */
 Document.prototype.cookie;
-
-/**
- * @see http://msdn.microsoft.com/en-us/library/ms533714(VS.85).aspx
- */
-Document.prototype.defaultCharset;
 
 /**
  * @see http://msdn.microsoft.com/en-us/library/ms533731(VS.85).aspx
@@ -766,12 +729,6 @@ Document.prototype.protocol;
  * @see http://msdn.microsoft.com/en-us/library/ms534359(VS.85).aspx
  */
 HTMLDocument.prototype.readyState;
-
-/**
- * @type {Selection}
- * @see http://msdn.microsoft.com/en-us/library/ms535869(VS.85).aspx
- */
-Document.prototype.selection;
 
 /**
  * @see http://msdn.microsoft.com/en-us/library/ms534704(VS.85).aspx
@@ -823,12 +780,6 @@ Document.prototype.detachEvent;
  * @see http://msdn.microsoft.com/en-us/library/ms536425(VS.85).aspx
  */
 Document.prototype.focus;
-
-/**
- * @see http://msdn.microsoft.com/en-us/library/ms536447(VS.85).aspx
- * @return {boolean}
- */
-Document.prototype.hasFocus = function() {};
 
 /**
  * @see http://msdn.microsoft.com/en-us/library/ms536614(VS.85).aspx
@@ -963,6 +914,12 @@ Element.prototype.fireEvent;
 Element.prototype.hideFocus;
 
 /**
+ * @type {string}
+ * @implicitCast
+ *
+ * TODO(lharker): remove the @implicitCast to enforce assigning an explicit
+ * string to innerText instead of relying on coercion.
+ *
  * @see http://msdn.microsoft.com/en-us/library/ms533899.aspx
  */
 Element.prototype.innerText;
@@ -1010,18 +967,6 @@ Element.prototype.onmouseenter;
  * @see http://msdn.microsoft.com/en-us/library/ms536946(VS.85).aspx
  */
 Element.prototype.onmouseleave;
-
-/**
- * @type {?function(Event)}
- * @see https://w3c.github.io/selection-api/#dom-globaleventhandlers-onselectstart
- */
-Element.prototype.onselectstart;
-
-/**
- * @type {?function(!Event): void}
- * @see https://w3c.github.io/selection-api/#dom-globaleventhandlers-onselectionchange
- */
-Element.prototype.onselectionchange;
 
 /**
  * @see http://msdn.microsoft.com/en-us/library/ms536689(VS.85).aspx

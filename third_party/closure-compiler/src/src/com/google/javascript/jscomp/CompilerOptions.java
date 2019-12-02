@@ -34,6 +34,7 @@ import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import com.google.javascript.jscomp.parsing.Config;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
+import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.jscomp.resources.ResourceLoader;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
@@ -43,9 +44,9 @@ import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.io.OutputStream;
-import java.io.PrintStream;
 import java.io.Serializable;
 import java.nio.charset.Charset;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -56,8 +57,6 @@ import javax.annotation.Nullable;
 
 /**
  * Compiler options
- *
- * @author nicksantos@google.com (Nick Santos)
  */
 public class CompilerOptions implements Serializable {
   // The number of characters after which we insert a line break in the code
@@ -131,6 +130,63 @@ public class CompilerOptions implements Serializable {
   private Environment environment;
 
   /**
+   * Represents browser feature set year to use for compilation. It tells the JSCompiler to output
+   * code that works on the releases of major browsers that were current as of January 1 of the
+   * given year, without including transpilation or other workarounds for browsers older than that
+   */
+  private class BrowserFeaturesetYear implements Serializable {
+
+    private Integer year = 0;
+
+    public Integer getYear() {
+      return this.year;
+    }
+
+    public void setYear(Integer inputYear) {
+      this.year = inputYear;
+      this.setDependentValuesFromYear();
+    }
+
+    public void setDependentValuesFromYear() {
+      this.setLanguageOutFromYear();
+    }
+
+    private void setLanguageOutFromYear() {
+      if (year != 0) {
+        if (year == 2019) {
+          CompilerOptions.this.setLanguageOut(LanguageMode.ECMASCRIPT_2017);
+        } else if (year == 2012) {
+          CompilerOptions.this.setLanguageOut(LanguageMode.ECMASCRIPT5_STRICT);
+        }
+      }
+    }
+  }
+
+  /** Represents browserFeaturesetYear to use for compilation */
+  private final BrowserFeaturesetYear browserFeaturesetYear;
+
+  public Integer getBrowserFeaturesetYear() {
+    return this.browserFeaturesetYear.getYear();
+  }
+
+  /**
+   * Validates whether browser featureset year option is legal
+   *
+   * @param inputYear Integer value passed as input
+   */
+  public void validateBrowserFeaturesetYearOption(Integer inputYear) {
+    checkState(
+        inputYear == 2019 || inputYear == 2012,
+        SimpleFormat.format(
+            "Illegal browser_featureset_year=%d. We support values 2012 and 2019 only", inputYear));
+  }
+
+  public void setBrowserFeaturesetYear(Integer year) {
+    validateBrowserFeaturesetYearOption(year);
+    this.browserFeaturesetYear.setYear(year);
+  }
+
+  /**
    * Instrument code for the purpose of collecting coverage data - restrict to coverage pass only,
    * and skip all other passes.
    */
@@ -144,15 +200,15 @@ public class CompilerOptions implements Serializable {
     return instrumentForCoverageOnly;
   }
 
-  @Nullable private OutputStream typedAstOutputFile = null;
+  @Nullable private Path typedAstOutputFile = null;
 
   /** Sets file to output in-progress TypedAST format to. DO NOT USE! */
-  void setTypedAstOutputFile(@Nullable OutputStream file) {
+  void setTypedAstOutputFile(@Nullable Path file) {
     this.typedAstOutputFile = file;
   }
 
   @Nullable
-  OutputStream getTypedAstOutputFile() {
+  Path getTypedAstOutputFile() {
     return this.typedAstOutputFile;
   }
 
@@ -349,35 +405,6 @@ public class CompilerOptions implements Serializable {
    * effect as specifying an empty set.
    */
   Set<String> extraAnnotationNames;
-
-  /** @deprecated No longer has any effect. */
-  @Deprecated
-  public enum DisposalCheckingPolicy {
-    /**
-     * Don't check any disposal.
-     */
-    OFF,
-
-    /**
-     * Default/conservative disposal checking.
-     */
-    ON,
-
-    /**
-     * Aggressive disposal checking.
-     */
-    AGGRESSIVE,
-  }
-
-  /** @deprecated No longer has any effect. */
-  @Deprecated
-  public void setCheckEventfulObjectDisposalPolicy(DisposalCheckingPolicy policy) {}
-
-  /** @deprecated No longer has any effect. */
-  @Deprecated
-  public DisposalCheckingPolicy getCheckEventfulObjectDisposalPolicy() {
-    return DisposalCheckingPolicy.OFF;
-  }
 
   /**
    * Used for projects that are not well maintained, but are still used.
@@ -718,9 +745,9 @@ public class CompilerOptions implements Serializable {
     this.nameGenerator = nameGenerator;
   }
 
-  //--------------------------------
+  // --------------------------------
   // Special-purpose alterations
-  //--------------------------------
+  // --------------------------------
 
   /**
    * Replace UI strings with chrome.i18n.getMessage calls.
@@ -847,11 +874,6 @@ public class CompilerOptions implements Serializable {
 
   public boolean generateExports;
 
-  // TODO(dimvar): generate-exports should always run after typechecking.
-  // If it runs before, it adds a bunch of properties to Object, which masks
-  // many type warnings. Cleanup all clients and remove this.
-  boolean generateExportsAfterTypeChecking;
-
   boolean exportLocalPropertyDefinitions;
 
   /** Map used in the renaming of CSS class names. */
@@ -939,6 +961,13 @@ public class CompilerOptions implements Serializable {
   /** The string to use as the separator for printInputDelimiter */
   public String inputDelimiter = "// Input %num%";
 
+  /**
+   * A directory into which human readable debug log files can be written.
+   *
+   * <p>{@code null} indicates that no such files should be written.
+   */
+  @Nullable private Path debugLogDirectory;
+
   /** Whether to write keyword properties as foo['class'] instead of foo.class; needed for IE8. */
   private boolean quoteKeywordProperties;
 
@@ -1001,13 +1030,13 @@ public class CompilerOptions implements Serializable {
     this.tracer = mode;
   }
 
-  private PrintStream tracerOutput;
+  private Path tracerOutput;
 
-  PrintStream getTracerOutput() {
+  Path getTracerOutput() {
     return tracerOutput;
   }
 
-  public void setTracerOutput(PrintStream out) {
+  public void setTracerOutput(Path out) {
     tracerOutput = out;
   }
 
@@ -1121,6 +1150,58 @@ public class CompilerOptions implements Serializable {
   }
 
   /**
+   * Ignore the possibility that getter invocations (gets) can have side-effects and that the
+   * results of gets can be side-effected by local state mutations.
+   *
+   * <p>When {@code false}, it doesn't necessarily mean that all gets are considered side-effectful
+   * or side-effected. Gets that can be proven to be pure may still be considered as such.
+   *
+   * <p>Recall that object-spread is capable of triggering getters. Since the syntax doesn't
+   * explicitly specifiy a property, it is essentailly impossible to prove it has no side-effects
+   * without this assumption.
+   */
+  private boolean assumeGettersArePure = true;
+
+  public void setAssumeGettersArePure(boolean x) {
+    this.assumeGettersArePure = x;
+  }
+
+  public boolean getAssumeGettersArePure() {
+    return assumeGettersArePure;
+  }
+
+  /**
+   * Consider that static (class-side) inheritance may be being used and that static methods may be
+   * referenced via `this` or through subclasses.
+   *
+   * <p>When {@code false}, the compiler is free to make unsafe (breaking) optimizations to code
+   * that depends on static inheritance. These optimizations represent a substantial code-size
+   * reduction for older projects and therefore cannot be unilaterally disabled. {@code false} was
+   * the long-standing implicit assumption before static inheritance came about in ES6.
+   *
+   * <p>Example of what may break if this flag is {@code false}:
+   *
+   * <pre>{@code
+   * class Parent {
+   *   static method() { }
+   * }
+   *
+   * class Child extends Parent { }
+   *
+   * Child.method(); // `method` will not be defined.
+   * }</pre>
+   */
+  private boolean assumeStaticInheritanceRequired = false;
+
+  public void setAssumeStaticInheritanceRequired(boolean x) {
+    this.assumeStaticInheritanceRequired = x;
+  }
+
+  public boolean getAssumeStaticInheritanceRequired() {
+    return assumeStaticInheritanceRequired;
+  }
+
+  /**
    * Data holder Alias Transformation information accumulated during a compile.
    */
   private transient AliasTransformationHandler aliasHandler;
@@ -1154,7 +1235,16 @@ public class CompilerOptions implements Serializable {
    * <p>You can use this to make absolute paths relative to the root of your source tree. This is
    * useful to work around CI and build systems that use absolute paths.
    */
-  Pattern conformanceRemoveRegexFromPath = Pattern.compile(".*?google3/");
+  private Optional<Pattern> conformanceRemoveRegexFromPath =
+      Optional.of(Pattern.compile("^((.*/)?google3/)?((^/)?(blaze|bazel)-out/[^/]+/bin/)?"));
+
+  public void setConformanceRemoveRegexFromPath(Optional<Pattern> pattern) {
+    conformanceRemoveRegexFromPath = pattern;
+  }
+
+  public Optional<Pattern> getConformanceRemoveRegexFromPath() {
+    return conformanceRemoveRegexFromPath;
+  }
 
   /** For use in {@link CompilationLevel#WHITESPACE_ONLY} mode, when using goog.module. */
   boolean wrapGoogModulesForWhitespaceOnly = true;
@@ -1172,6 +1262,17 @@ public class CompilerOptions implements Serializable {
    * Are the input files written for strict mode?
    */
   private Optional<Boolean> isStrictModeInput = Optional.absent();
+
+  private boolean rewriteModulesBeforeTypechecking = true;
+
+  /** Whether to enable the bad module rewriting before typechecking that we want to get rid of */
+  public void setBadRewriteModulesBeforeTypecheckingThatWeWantToGetRidOf(boolean b) {
+    this.rewriteModulesBeforeTypechecking = b;
+  }
+
+  public boolean shouldRewriteModulesBeforeTypechecking() {
+    return this.rewriteModulesBeforeTypechecking;
+  }
 
   /** Which algorithm to use for locating ES6 and CommonJS modules */
   ResolutionMode moduleResolutionMode;
@@ -1205,6 +1306,7 @@ public class CompilerOptions implements Serializable {
   public CompilerOptions() {
     // Accepted language
     languageIn = LanguageMode.STABLE_IN;
+    browserFeaturesetYear = new BrowserFeaturesetYear();
 
     // Which environment to use
     environment = Environment.BROWSER;
@@ -1214,6 +1316,7 @@ public class CompilerOptions implements Serializable {
     moduleResolutionMode = ModuleLoader.ResolutionMode.BROWSER;
     packageJsonEntryNames = ImmutableList.of("browser", "module", "main");
     pathEscaper = ModuleLoader.PathEscaper.ESCAPE;
+    rewriteModulesBeforeTypechecking = true;
 
     // Checks
     skipNonTranspilationPasses = false;
@@ -1254,7 +1357,6 @@ public class CompilerOptions implements Serializable {
     removeUnusedPrototypeProperties = false;
     removeUnusedPrototypePropertiesInExterns = false;
     removeUnusedClassProperties = false;
-    removeUnusedConstructorProperties = false;
     removeUnusedVars = false;
     removeUnusedLocalVars = false;
     collapseVariableDeclarations = false;
@@ -1312,7 +1414,6 @@ public class CompilerOptions implements Serializable {
     checksOnly = false;
     outputJs = OutputJs.NORMAL;
     generateExports = false;
-    generateExportsAfterTypeChecking = true;
     exportLocalPropertyDefinitions = false;
     cssRenamingMap = null;
     cssRenamingWhitelist = null;
@@ -1357,21 +1458,6 @@ public class CompilerOptions implements Serializable {
    */
   public void setRemoveUnusedClassProperties(boolean removeUnusedClassProperties) {
     this.removeUnusedClassProperties = removeUnusedClassProperties;
-  }
-
-  /**
-   * @return Whether to attempt to remove unused constructor properties
-   */
-  public boolean isRemoveUnusedConstructorProperties() {
-    return removeUnusedConstructorProperties;
-  }
-
-  /**
-   * @param removeUnused Whether to attempt to remove
-   *      unused constructor properties
-   */
-  public void setRemoveUnusedConstructorProperties(boolean removeUnused) {
-    this.removeUnusedConstructorProperties = removeUnused;
   }
 
   /**
@@ -1751,6 +1837,10 @@ public class CompilerOptions implements Serializable {
     this.polymerVersion = polymerVersion;
   }
 
+  public void setPolymerExportPolicy(PolymerExportPolicy polymerExportPolicy) {
+    this.polymerExportPolicy = polymerExportPolicy;
+  }
+
   public void setChromePass(boolean chromePass) {
     this.chromePass = chromePass;
   }
@@ -1882,6 +1972,7 @@ public class CompilerOptions implements Serializable {
       setOutputFeatureSet(languageOut.toFeatureSet());
     }
   }
+
 
   /**
    * Sets the features that allowed to appear in the output. Any feature in the input that is not
@@ -2553,6 +2644,15 @@ public class CompilerOptions implements Serializable {
     this.inputDelimiter = inputDelimiter;
   }
 
+  public void setDebugLogDirectory(@Nullable Path dir) {
+    this.debugLogDirectory = dir;
+  }
+
+  @Nullable
+  public Path getDebugLogDirectory() {
+    return debugLogDirectory;
+  }
+
   public void setQuoteKeywordProperties(boolean quoteKeywordProperties) {
     this.quoteKeywordProperties = quoteKeywordProperties;
   }
@@ -2854,6 +2954,7 @@ public class CompilerOptions implements Serializable {
             .add("angularPass", angularPass)
             .add("anonymousFunctionNaming", anonymousFunctionNaming)
             .add("assumeClosuresOnlyCaptureReferences", assumeClosuresOnlyCaptureReferences)
+            .add("assumeGettersArePure", assumeGettersArePure)
             .add("assumeStrictThis", assumeStrictThis())
             .add("browserResolverPrefixReplacements", browserResolverPrefixReplacements)
             .add("brokenClosureRequiresLevel", brokenClosureRequiresLevel)
@@ -2887,6 +2988,7 @@ public class CompilerOptions implements Serializable {
             .add("customPasses", customPasses)
             .add("dartPass", dartPass)
             .add("deadAssignmentElimination", deadAssignmentElimination)
+            .add("debugLogDirectory", debugLogDirectory)
             .add("declaredGlobalExternsOnWindow", declaredGlobalExternsOnWindow)
             .add("defineReplacements", getDefineReplacements())
             .add("dependencyOptions", getDependencyOptions())
@@ -2911,7 +3013,6 @@ public class CompilerOptions implements Serializable {
             .add("foldConstants", foldConstants)
             .add("forceLibraryInjection", forceLibraryInjection)
             .add("gatherCssNames", gatherCssNames)
-            .add("generateExportsAfterTypeChecking", generateExportsAfterTypeChecking)
             .add("generateExports", generateExports)
             .add("generatePseudoNames", generatePseudoNames)
             .add("generateTypedExterns", shouldGenerateTypedExterns())
@@ -2985,10 +3086,10 @@ public class CompilerOptions implements Serializable {
             .add("removeUnusedClassProperties", removeUnusedClassProperties)
             .add("removeUnusedConstructorProperties", removeUnusedConstructorProperties)
             .add("removeUnusedLocalVars", removeUnusedLocalVars)
+            .add("removeUnusedPrototypeProperties", removeUnusedPrototypeProperties)
             .add(
                 "removeUnusedPrototypePropertiesInExterns",
                 removeUnusedPrototypePropertiesInExterns)
-            .add("removeUnusedPrototypeProperties", removeUnusedPrototypeProperties)
             .add("removeUnusedVars", removeUnusedVars)
             .add(
                 "renamePrefixNamespaceAssumeCrossChunkNames",
@@ -3196,7 +3297,7 @@ public class CompilerOptions implements Serializable {
     TIMING_ONLY, // Collect timing metrics only.
     OFF;  // Collect no timing and size metrics.
 
-    boolean isOn() {
+    public boolean isOn() {
       return this != OFF;
     }
   }
@@ -3232,8 +3333,6 @@ public class CompilerOptions implements Serializable {
    * Calls to the mutators are expected to resolve very quickly, so
    * implementations should not perform expensive operations in the mutator
    * methods.
-   *
-   * @author tylerg@google.com (Tyler Goodwin)
    */
   public interface AliasTransformationHandler {
 

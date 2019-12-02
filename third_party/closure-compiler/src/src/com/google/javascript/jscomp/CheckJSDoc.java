@@ -31,8 +31,6 @@ import javax.annotation.Nullable;
 
 /**
  * Checks for misplaced, misused or deprecated JSDoc annotations.
- *
- * @author chadkillingsworth@gmail.com (Chad Killingsworth)
  */
 final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompilerPass {
 
@@ -193,6 +191,18 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
         break;
 
       case ASSIGN:
+      case ASSIGN_BITOR:
+      case ASSIGN_BITXOR:
+      case ASSIGN_BITAND:
+      case ASSIGN_LSH:
+      case ASSIGN_RSH:
+      case ASSIGN_URSH:
+      case ASSIGN_ADD:
+      case ASSIGN_SUB:
+      case ASSIGN_MUL:
+      case ASSIGN_DIV:
+      case ASSIGN_MOD:
+      case ASSIGN_EXPONENT:
       case GETPROP:
         if (n.getParent().isExprResult()) {
           return;
@@ -240,16 +250,11 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
         && !info.getTemplateTypeNames().isEmpty()
         && !info.isConstructorOrInterface()
         && !isClassDecl(n)
-        && !info.containsFunctionDeclaration()) {
-      if (getFunctionDecl(n) != null) {
-        reportMisplaced(n, "template",
-            "The template variable is unused."
-            + " Please remove the @template annotation.");
-      } else {
+        && !info.containsFunctionDeclaration()
+        && getFunctionDecl(n) == null) {
         reportMisplaced(n, "template",
             "@template is only allowed in class, constructor, interface, function "
             + "or method declarations");
-      }
     }
   }
 
@@ -283,6 +288,10 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
 
     if (n.isGetterDef() || n.isSetterDef()) {
       return n.getFirstChild();
+    }
+
+    if (n.isComputedProp() && n.getLastChild().isFunction()) {
+      return n.getLastChild();
     }
 
     return null;
@@ -355,6 +364,7 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
     if (!info.isConstructor()
         && !n.isMemberFunctionDef()
         && !n.isStringKey()
+        && !n.isComputedProp()
         && !n.isGetterDef()
         && !n.isSetterDef()
         && !NodeUtil.isPrototypeMethod(functionNode)) {
@@ -568,10 +578,9 @@ final class CheckJSDoc extends AbstractPostOrderCallback implements HotSwapCompi
         // Property assignments are valid, if at the root of an expression.
         case ASSIGN: {
           Node lvalue = n.getFirstChild();
-          valid = n.getParent().isExprResult()
-              && (lvalue.isGetProp()
-                  || lvalue.isGetElem()
-                  || lvalue.matchesQualifiedName("exports"));
+            valid =
+                n.getParent().isExprResult()
+                    && (lvalue.isGetProp() || lvalue.isGetElem() || lvalue.matchesName("exports"));
           break;
         }
         case GETPROP:

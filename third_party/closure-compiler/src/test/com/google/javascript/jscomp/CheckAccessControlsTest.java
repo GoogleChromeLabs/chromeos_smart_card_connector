@@ -254,23 +254,29 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   }
 
   @Test
-  public void testWarningForDeprecatedSuperClass() {
-    testDepClass(
-        "/** @constructor \n * @deprecated Superclass to the rescue! */ function Foo() {} "
-            + "/** @constructor \n * @extends {Foo} */ function SubFoo() {}"
-            + "function f() { new SubFoo(); }",
-        "Class SubFoo has been deprecated: Superclass to the rescue!");
+  public void testNoWarningForDeprecatedSuperClass() {
+    testNoWarning(
+        lines(
+            "/** @constructor @deprecated Superclass to the rescue! */",
+            "function Foo() {}",
+            "/** @constructor * @extends {Foo} */",
+            "function SubFoo() {}",
+            "function f() { new SubFoo(); }"));
   }
 
   @Test
-  public void testWarningForDeprecatedSuperClass2() {
-    testDepClass(
-        "/** @constructor \n * @deprecated Its only weakness is Kryptoclass */ function Foo() {} "
-            + "/** @const */ var namespace = {}; "
-            + "/** @constructor \n * @extends {Foo} */ "
-            + "namespace.SubFoo = function() {}; "
-            + "function f() { new namespace.SubFoo(); }",
-        "Class namespace.SubFoo has been deprecated: Its only weakness is Kryptoclass");
+  public void testNoWarningForDeprecatedSuperClassOnNamespace() {
+    testNoWarning(
+        lines(
+            "/**",
+            " * @constructor",
+            " * @deprecated Its only weakness is Kryptoclass",
+            "*/",
+            " function Foo() {} ",
+            "/** @const */ var namespace = {};",
+            "/** @constructor \n * @extends {Foo} */",
+            "namespace.SubFoo = function() {};",
+            "function f() { new namespace.SubFoo(); }"));
   }
 
   @Test
@@ -512,6 +518,42 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
             }),
         error(BAD_PRIVATE_PROPERTY_ACCESS)
             .withMessage("Access to private property prop of Parent not allowed here."));
+  }
+
+  @Test
+  public void testBug133902968() {
+    test(
+        externs(
+            lines(
+                "/** @interface */", //
+                "function CSSProperties() {}",
+                "/** @type {string} */",
+                "CSSProperties.prototype.fontStyle;",
+                "",
+                "/** @struct @interface @extends {CSSProperties} */",
+                "function CSSStyleDeclaration() {}",
+                "",
+                "function alert(s) {}")),
+        srcs(
+            SourceFile.fromCode(
+                Compiler.joinPathParts("apackage", "afile.js"),
+                lines(
+                    "/**", //
+                    " * @fileoverview",
+                    " * @package",
+                    " */",
+                    "",
+                    "/** @param {!CSSStyleDeclaration} style */",
+                    "function f(style) {",
+                    "  style.fontStyle = 'normal';",
+                    "}")),
+            SourceFile.fromCode(
+                Compiler.joinPathParts("anotherpackage", "anotherfile.js"),
+                lines(
+                    "/** @param {!CSSStyleDeclaration} style */", //
+                    "function g(style) {",
+                    "  alert(style.fontStyle);",
+                    "}"))));
   }
 
   @Test
@@ -2266,10 +2308,8 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Test
   public void testConstantPropertyReassigned_crossModuleWithCollidingNames() {
-    // TODO(b/133447431): This code should not cause a warning, but the compiler incorrectly treats
-    // both 'A' instances as the same type.
     disableRewriteClosureCode();
-    test(
+    testNoWarning(
         srcs(
             "var goog = {}; goog.module = function(ns) {};",
             lines(
@@ -2285,8 +2325,7 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
                 "function A() {",
                 "  /** @const */",
                 "  this.bar = 3;",
-                "}")),
-        error(CONST_PROPERTY_REASSIGNED_VALUE));
+                "}")));
   }
 
   @Test

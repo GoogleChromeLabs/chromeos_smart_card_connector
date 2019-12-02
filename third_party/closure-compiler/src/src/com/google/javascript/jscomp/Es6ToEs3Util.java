@@ -26,8 +26,6 @@ import java.util.Locale;
 
 /**
  * Util functions for converting Es6 to Es5
- *
- * @author tbreisacher@google.com (Tyler Breisacher)
  */
 public final class Es6ToEs3Util {
 
@@ -75,7 +73,7 @@ public final class Es6ToEs3Util {
   }
 
   static void preloadEs6RuntimeFunction(AbstractCompiler compiler, String function) {
-    compiler.ensureLibraryInjected("es6/util/" + function.toLowerCase(Locale.US), false);
+    compiler.ensureLibraryInjected("es6/util/" + function.toLowerCase(Locale.ROOT), false);
   }
 
   static Node callEs6RuntimeFunction(
@@ -116,6 +114,6 @@ public final class Es6ToEs3Util {
     }
     ObjectType genericType = (ObjectType) (registry.getNativeType(typeName));
     ObjectType uninstantiated = genericType.getRawType();
-    return registry.instantiateGenericType(uninstantiated, ImmutableList.of(typeArg));
+    return registry.createTemplatizedType(uninstantiated, ImmutableList.of(typeArg));
   }
 }

@@ -43,8 +43,6 @@ import javax.annotation.Nullable;
  *   <li>{@link OptimizeReturns} (remove unused)
  *   <li>{@link DevirtualizeMethods}
  * </ul>
- *
- * @author johnlenz@google.com (John Lenz)
  */
 class OptimizeCalls implements CompilerPass {
 
@@ -121,6 +119,7 @@ class OptimizeCalls implements CompilerPass {
     final ReferenceMap references = new ReferenceMap();
     NodeTraversal.traverseRoots(
         compiler, new ReferenceMapBuildingCallback(references), externs, root);
+    eliminateAccessorsFrom(references);
 
     for (CallGraphCompilerPass pass : passes) {
       pass.process(externs, root, references);
@@ -128,8 +127,30 @@ class OptimizeCalls implements CompilerPass {
   }
 
   /**
-   * A reference map for global symbols and properties.
+   * Delete getter and setter names from {@code references}.
+   *
+   * <p>Accessor names are disqualified from being in the {@code ReferenceMap}. We don't
+   * intentionally collect them, but other properties may share the same names. One reason why we do
+   * this is exemplified below:
+   *
+   * <pre>{@code
+   * class A {
+   *   pure() { }
+   * }
+   *
+   * class B {
+   *   get pure() { return impure; }
+   * }
+   *
+   * var x = (Math.random() > 0.5) ? new A() : new B();
+   * x.pure(); // We can't safely optimize this call.
+   * }</pre>
    */
+  private void eliminateAccessorsFrom(ReferenceMap references) {
+    references.props.keySet().removeAll(compiler.getAccessorSummary().getAccessors().keySet());
+  }
+
+  /** A reference map for global symbols and properties. */
   static class ReferenceMap {
     private Scope globalScope;
     private final LinkedHashMap<String, ArrayList<Node>> names = new LinkedHashMap<>();
@@ -198,7 +219,7 @@ class OptimizeCalls implements CompilerPass {
      *
      * @see {@link #getFunctionNodes()}
      */
-    private static List<Node> definitionFunctionNodesFor(Node definitionSite) {
+    private static ImmutableList<Node> definitionFunctionNodesFor(Node definitionSite) {
       if (definitionSite.isGetterDef() || definitionSite.isSetterDef()) {
         // TODO(nickreid): Support getters and setters. Ignore them for now since they aren't
         // "called".
@@ -211,7 +232,7 @@ class OptimizeCalls implements CompilerPass {
         return ImmutableList.of();
       }
 
-      ArrayList<Node> fns = new ArrayList<>();
+      ImmutableList.Builder<Node> fns = ImmutableList.builder();
       switch (parent.getToken()) {
         case FUNCTION:
           fns.add(parent);
@@ -249,10 +270,10 @@ class OptimizeCalls implements CompilerPass {
         default:
           break;
       }
-      return fns;
+      return fns.build();
     }
 
-    private static void addValueFunctionNodes(ArrayList<Node> fns, Node n) {
+    private static void addValueFunctionNodes(ImmutableList.Builder<Node> fns, Node n) {
       // TODO(johnlenz): add member definitions
       switch (n.getToken()) {
         case FUNCTION:
@@ -280,15 +301,15 @@ class OptimizeCalls implements CompilerPass {
 
     /**
      * Whether the provided node acts as the target function in a new or call expression including
-     * .call expressions.  For example, returns true for 'x' in 'x.call()'.
+     * .call expressions. For example, returns true for 'x' in 'x.call()'.
      */
     static boolean isCallOrNewTarget(Node n) {
       return isCallTarget(n) || isNewTarget(n);
     }
 
     /**
-     * Whether the provided node acts as the target function in a call expression including
-     * .call expressions.  For example, returns true for 'x' in 'x.call()'.
+     * Whether the provided node acts as the target function in a call expression including .call
+     * expressions. For example, returns true for 'x' in 'x.call()'.
      */
     static boolean isCallTarget(Node n) {
       Node parent = n.getParent();
@@ -298,17 +319,13 @@ class OptimizeCalls implements CompilerPass {
               && parent.getLastChild().getString().equals("call"));
     }
 
-    /**
-     * Whether the provided node acts as the target function in a new expression.
-     */
+    /** Whether the provided node acts as the target function in a new expression. */
     static boolean isNewTarget(Node n) {
       Node parent = n.getParent();
       return parent.isNew() && parent.getFirstChild() == n;
     }
 
-    /**
-     * Finds the associated call node for a node for which isCallOrNewTarget returns true.
-     */
+    /** Finds the associated call node for a node for which isCallOrNewTarget returns true. */
     static Node getCallOrNewNodeForTarget(Node n) {
       Node maybeCall = n.getParent();
       checkState(n.isFirstChildOf(maybeCall), "%s\n\n%s", maybeCall, n);
@@ -329,8 +346,8 @@ class OptimizeCalls implements CompilerPass {
 
     /**
      * Finds the call argument node matching the first parameter of the called function for a node
-     * for which isCallOrNewTarget returns true.  Specifically, corrects for the additional
-     * argument provided to .call expressions.
+     * for which isCallOrNewTarget returns true. Specifically, corrects for the additional argument
+     * provided to .call expressions.
      */
     static Node getFirstArgumentForCallOrNewOrDotCall(Node n) {
       return getArgumentForCallOrNewOrDotCall(n, 0);
@@ -338,8 +355,8 @@ class OptimizeCalls implements CompilerPass {
 
     /**
      * Finds the call argument node matching the parameter at the specified index of the called
-     * function for a node for which isCallOrNewTarget returns true.  Specifically, corrects for
-     * the additional argument provided to .call expressions.
+     * function for a node for which isCallOrNewTarget returns true. Specifically, corrects for the
+     * additional argument provided to .call expressions.
      */
     static Node getArgumentForCallOrNewOrDotCall(Node n, int index) {
       int adjustedIndex = index;
@@ -402,8 +419,8 @@ class OptimizeCalls implements CompilerPass {
         case GETELEM:
           // Ignore quoted keys.
           // TODO(johnlenz): support symbols.
-        case REST:
-        case SPREAD:
+        case OBJECT_REST:
+        case OBJECT_SPREAD:
           // Don't worry about invisible accesses using these. To be invoked there would need to be
           // downstream references that use the actual name. We'd see those.
         default:
@@ -430,10 +447,10 @@ class OptimizeCalls implements CompilerPass {
 
     @Override
     public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
-      if (n.isFromExterns()) {
+      if (n.isScript()) {
         // Even when considering externs, we only care about top-level identifiers. Dummy function
         // parameters, for example, shouldn't be considered references.
-        return considerExterns && t.inGlobalScope();
+        return (considerExterns && t.inGlobalScope()) || !n.isFromExterns();
       } else {
         return true;
       }
@@ -448,14 +465,10 @@ class OptimizeCalls implements CompilerPass {
     }
 
     @Override
-    public void exitScope(NodeTraversal t) {
-    }
+    public void exitScope(NodeTraversal t) {}
   }
 
-  /**
-   * @return Whether the provide name may be a candidate for
-   *    call optimizations.
-   */
+  /** @return Whether the provide name may be a candidate for call optimizations. */
   static boolean mayBeOptimizableName(AbstractCompiler compiler, String name) {
     if (compiler.getCodingConvention().isExported(name)) {
       return false;
@@ -472,9 +485,7 @@ class OptimizeCalls implements CompilerPass {
     return true;
   }
 
-  /**
-   * @return Whether the reference is a known non-aliasing reference.
-   */
+  /** @return Whether the reference is a known non-aliasing reference. */
   static boolean isAllowedReference(Node n) {
     Node parent = n.getParent();
     switch (parent.getToken()) {

@@ -126,12 +126,11 @@ final class InvalidatingTypes {
       types.addAll(
           ImmutableList.of(
               registry.getNativeType(JSTypeNative.FUNCTION_FUNCTION_TYPE),
-              registry.getNativeType(JSTypeNative.FUNCTION_INSTANCE_TYPE),
+              registry.getNativeType(JSTypeNative.U2U_CONSTRUCTOR_TYPE),
               registry.getNativeType(JSTypeNative.FUNCTION_PROTOTYPE),
               registry.getNativeType(JSTypeNative.OBJECT_TYPE),
               registry.getNativeType(JSTypeNative.OBJECT_PROTOTYPE),
-              registry.getNativeType(JSTypeNative.OBJECT_FUNCTION_TYPE),
-              registry.getNativeType(JSTypeNative.TOP_LEVEL_PROTOTYPE)));
+              registry.getNativeType(JSTypeNative.OBJECT_FUNCTION_TYPE)));
       return this;
     }
 
@@ -157,7 +156,12 @@ final class InvalidatingTypes {
             recordInvalidation(proto, mismatch);
           }
           if (objType.isConstructor()) {
-            types.add(objType.toMaybeFunctionType().getInstanceType());
+            ObjectType instanceType = objType.toMaybeFunctionType().getInstanceType();
+            if (instanceType != null) {
+              // TODO(b/142431852): This shouldn't be possible.
+              // Case: `function(new:T)`, `T = number`.
+              types.add(instanceType);
+            }
           } else if (objType.isInstanceType()) {
             types.add(objType.getConstructor());
           }

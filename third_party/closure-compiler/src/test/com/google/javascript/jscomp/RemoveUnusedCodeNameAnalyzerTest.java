@@ -90,7 +90,6 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
               .removeLocalVars(true)
               .removeUnusedPrototypeProperties(true)
               .removeUnusedThisProperties(true)
-              .removeUnusedConstructorProperties(true)
               .removeUnusedObjectDefinePropertiesDefinitions(true)
               // Removal of function expression names isn't what these tests are about.
               // It just adds noise to the tests when we can't use testSame() because of it.
@@ -112,6 +111,7 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
     setAcceptedLanguage(LanguageMode.ECMASCRIPT_2017);
     enableNormalize();
     enableGatherExternProperties();
+    onlyValidateNoNewGettersAndSetters();
   }
 
   @Test
@@ -2962,11 +2962,11 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   public void testArrayDestructuring() {
     test(
         "var [a, b = 3, ...c] = [1, 2, 3]", // preserve newline
-        "var [              ] = [1, 2, 3]");
+        "var [ ,      , ...c] = [1, 2, 3]");
 
     test(
         "var [a, b = 3, ...c] = [1, 2, 3]; use(b);", // preserve newline
-        "var [ , b = 3      ] = [1, 2, 3]; use(b);");
+        "var [ , b = 3  ...c] = [1, 2, 3]; use(b);");
 
     test(
         "var [a, b = 3, ...c] = [1, 2, 3]; use(c);", // preserve newline
@@ -2974,7 +2974,7 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
 
     test(
         "var a, b, c; [a, b, ...c] = [1, 2, 3]", // preserve newline
-        "             [          ] = [1, 2, 3]");
+        "var c      ; [ ,  , ...c] = [1, 2, 3]");
 
     test(
         "var [a, [b, [c, d]]] = [1, [2, [[[3, 4], 5], 6]]];", // preserve newline

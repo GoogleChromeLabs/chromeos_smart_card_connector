@@ -27,7 +27,6 @@ import com.google.javascript.rhino.TokenUtil;
 /**
  * Lightweight message formatter. The format of messages this formatter
  * produces is very compact and to the point.
- *
  */
 public final class LightweightMessageFormatter extends AbstractMessageFormatter {
   private final SourceExcerpt excerpt;
@@ -81,8 +80,8 @@ public final class LightweightMessageFormatter extends AbstractMessageFormatter 
 
   private String format(JSError error, boolean warning) {
     SourceExcerptProvider source = getSource();
-    String sourceName = error.sourceName;
-    int lineNumber = error.lineNumber;
+    String sourceName = error.getSourceName();
+    int lineNumber = error.getLineNumber();
     int charno = error.getCharno();
 
     // Format the non-reverse-mapped position.
@@ -92,8 +91,11 @@ public final class LightweightMessageFormatter extends AbstractMessageFormatter 
 
     // Check if we can reverse-map the source.
     if (includeLocation) {
-      OriginalMapping mapping = source == null ? null : source.getSourceMapping(
-          error.sourceName, error.lineNumber, error.getCharno());
+      OriginalMapping mapping =
+          source == null
+              ? null
+              : source.getSourceMapping(
+                  error.getSourceName(), error.getLineNumber(), error.getCharno());
       if (mapping == null) {
         boldLine.append(nonMappedPosition);
       } else {
@@ -114,7 +116,7 @@ public final class LightweightMessageFormatter extends AbstractMessageFormatter 
       boldLine.append("] ");
     }
 
-    boldLine.append(error.description);
+    boldLine.append(error.getDescription());
 
     b.append(maybeEmbolden(boldLine.toString()));
     b.append('\n');
@@ -128,7 +130,8 @@ public final class LightweightMessageFormatter extends AbstractMessageFormatter 
   }
 
   String getExcerptWithPosition(JSError error) {
-    return getExcerptWithPosition(error, error.sourceName, error.lineNumber, error.getCharno());
+    return getExcerptWithPosition(
+        error, error.getSourceName(), error.getLineNumber(), error.getCharno());
   }
 
   String getExcerptWithPosition(JSError error, String sourceName, int lineNumber, int charno) {
@@ -154,11 +157,11 @@ public final class LightweightMessageFormatter extends AbstractMessageFormatter 
             b.append(' ');
           }
         }
-        if (error.node == null) {
+        if (error.getNode() == null) {
           b.append("^");
         } else {
           int length =
-              Math.max(1, Math.min(error.node.getLength(), sourceExcerpt.length() - charno));
+              Math.max(1, Math.min(error.getNode().getLength(), sourceExcerpt.length() - charno));
           for (int i = 0; i < length; i++) {
             b.append("^");
           }

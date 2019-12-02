@@ -44,8 +44,6 @@ import javax.annotation.Nullable;
  *
  * <p>Because access control restrictions are attached to type information, this pass must run after
  * TypeInference, and InferJSDocInfo.
- *
- * @author nicksantos@google.com (Nick Santos)
  */
 class CheckAccessControls implements Callback, HotSwapCompilerPass {
 
@@ -1142,19 +1140,7 @@ class CheckAccessControls implements Callback, HotSwapCompilerPass {
       return null;
     }
 
-    String depReason = getDeprecationReason(type.getJSDocInfo());
-    if (depReason != null) {
-      return depReason;
-    }
-
-    ObjectType objType = castToObject(type);
-    if (objType != null) {
-      ObjectType implicitProto = objType.getImplicitPrototype();
-      if (implicitProto != null) {
-        return getTypeDeprecationInfo(implicitProto);
-      }
-    }
-    return null;
+    return getDeprecationReason(type.getJSDocInfo());
   }
 
   private static String getDeprecationReason(JSDocInfo info) {

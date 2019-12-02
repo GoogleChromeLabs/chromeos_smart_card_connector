@@ -194,7 +194,7 @@ public final class ProcessCommonJSModules extends NodeTraversal.AbstractPreOrder
         return true;
       }
     } else if (requireCall.isCall()
-        && requireCall.getChildCount() == 3
+        && requireCall.hasXChildren(3)
         && resolutionMode == ModuleLoader.ResolutionMode.WEBPACK
         && requireCall.getFirstChild().matchesQualifiedName(WEBPACK_REQUIRE + ".bind")
         && requireCall.getSecondChild().isNull()
@@ -493,16 +493,13 @@ public final class ProcessCommonJSModules extends NodeTraversal.AbstractPreOrder
     }
 
     // Find the IIFE call and function nodes
-    Node fnc;
-    if (call.getFirstChild().isFunction()) {
-      fnc = n.getFirstFirstChild();
-    } else if (call.getFirstChild().isGetProp()
-        && call.getFirstFirstChild().isFunction()
-        && call.getFirstFirstChild().getNext().matchesQualifiedName("call")) {
-      fnc = call.getFirstFirstChild();
-    } else {
+
+    Node callTarget = call.getFirstChild();
+    if (!callTarget.isFunction()) {
       return;
     }
+
+    Node fnc = callTarget;
 
     Node params = NodeUtil.getFunctionParameters(fnc);
     Node moduleParam = null;
@@ -526,12 +523,12 @@ public final class ProcessCommonJSModules extends NodeTraversal.AbstractPreOrder
       return;
     }
 
+    Node argCallTarget = arg.getFirstChild();
     if (arg.isCall()
-        && arg.getFirstChild().isCall()
-        && isCommonJsImport(arg.getFirstChild())
-        && arg.getSecondChild().isName()
-        && arg.getSecondChild().getString().equals(MODULE)) {
-      String importPath = getCommonJsImportPath(arg.getFirstChild());
+        && argCallTarget.isCall()
+        && isCommonJsImport(argCallTarget)
+        && argCallTarget.getNext().matchesName(MODULE)) {
+      String importPath = getCommonJsImportPath(argCallTarget);
 
       ModulePath modulePath =
           compiler
@@ -729,7 +726,7 @@ public final class ProcessCommonJSModules extends NodeTraversal.AbstractPreOrder
      * <p>require.ensure(['module1', ...], function(require) {})
      */
     private void visitRequireEnsureCall(NodeTraversal t, Node call) {
-      if (call.getChildCount() != 3) {
+      if (!call.hasXChildren(3)) {
         compiler.report(
             JSError.make(
                 call,
@@ -761,7 +758,7 @@ public final class ProcessCommonJSModules extends NodeTraversal.AbstractPreOrder
       }
       Node callback = dependencies.getNext();
       if (!(callback.isFunction()
-          && callback.getSecondChild().getChildCount() == 1
+          && callback.getSecondChild().hasOneChild()
           && callback.getSecondChild().getFirstChild().isName()
           && "require".equals(callback.getSecondChild().getFirstChild().getString()))) {
         compiler.report(
@@ -1050,8 +1047,7 @@ public final class ProcessCommonJSModules extends NodeTraversal.AbstractPreOrder
         }
 
         // Remove redundant block node. Not strictly necessary, but makes tests more legible.
-        if (umdPattern.activeBranch.isBlock()
-            && umdPattern.activeBranch.getChildCount() == 1) {
+        if (umdPattern.activeBranch.isBlock() && umdPattern.activeBranch.hasOneChild()) {
           newNode = umdPattern.activeBranch.removeFirstChild();
         } else {
           newNode.detach();

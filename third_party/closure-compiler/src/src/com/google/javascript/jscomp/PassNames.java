@@ -31,6 +31,7 @@ public final class PassNames {
   public static final String BEFORE_TYPE_CHECKING = "beforeTypeChecking";
   public static final String BEFORE_PRE_TYPECHECK_TRANSPILATION = "beforePreTypeCheckTranspilation";
   public static final String BEFORE_SERIALIZATION = "beforeSerialization";
+  public static final String CHECK_CONFORMANCE = "checkConformance";
   public static final String CHECK_CONST_PARAMS = "checkConstParams";
   public static final String CHECK_REG_EXP = "checkRegExp";
   public static final String CHECK_TYPES = "checkTypes";
@@ -81,9 +82,6 @@ public final class PassNames {
   public static final String REWRITE_COMMON_JS_MODULES = "rewriteCommonJsModules";
   public static final String REWRITE_SCRIPTS_TO_ES6_MODULES = "rewriteScriptsToEs6Modules";
   public static final String REMOVE_UNREACHABLE_CODE = "removeUnreachableCode";
-  public static final String REMOVE_UNUSED_CLASS_PROPERTIES = "removeUnusedClassProperties";
-  public static final String REMOVE_UNUSED_PROTOTYPE_PROPERTIES =
-      "removeUnusedPrototypeProperties";
   public static final String REMOVE_UNUSED_CODE = "removeUnusedCode";
   public static final String REPLACE_ID_GENERATORS = "replaceIdGenerators";
   public static final String REPLACE_MESSAGES = "replaceMessages";

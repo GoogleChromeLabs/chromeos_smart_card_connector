@@ -17,7 +17,6 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
@@ -25,29 +24,31 @@ import static com.google.javascript.jscomp.DiagnosticGroups.ES5_STRICT;
 import static com.google.javascript.rhino.Token.AWAIT;
 import static com.google.javascript.rhino.Token.CALL;
 import static com.google.javascript.rhino.Token.CLASS;
-import static com.google.javascript.rhino.Token.COMPUTED_PROP;
 import static com.google.javascript.rhino.Token.DESTRUCTURING_LHS;
 import static com.google.javascript.rhino.Token.FOR_AWAIT_OF;
 import static com.google.javascript.rhino.Token.FOR_OF;
 import static com.google.javascript.rhino.Token.FUNCTION;
 import static com.google.javascript.rhino.Token.GETTER_DEF;
+import static com.google.javascript.rhino.Token.ITER_REST;
+import static com.google.javascript.rhino.Token.ITER_SPREAD;
 import static com.google.javascript.rhino.Token.MEMBER_FUNCTION_DEF;
-import static com.google.javascript.rhino.Token.REST;
 import static com.google.javascript.rhino.Token.SCRIPT;
 import static com.google.javascript.rhino.Token.SETTER_DEF;
-import static com.google.javascript.rhino.Token.SPREAD;
-import static com.google.javascript.rhino.Token.THROW;
+import static com.google.javascript.rhino.Token.SUPER;
 import static com.google.javascript.rhino.Token.YIELD;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 import static java.lang.Boolean.FALSE;
 import static java.lang.Boolean.TRUE;
+import static org.mockito.Mockito.verify;
 
-import com.google.common.base.Joiner;
+import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Streams;
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import com.google.javascript.jscomp.NodeUtil.GoogRequire;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.IR;
@@ -65,6 +66,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
@@ -73,6 +75,8 @@ import org.junit.runners.JUnit4;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 import org.junit.runners.Parameterized.Parameters;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 
 /**
  * Tests for NodeUtil.
@@ -101,11 +105,6 @@ public final class NodeUtilTest {
       Node n = compiler.parseTestCode(js);
       assertThat(compiler.getErrors()).isEmpty();
       return n;
-    }
-
-    private Compiler getCompiler() {
-      checkNotNull(compiler, "no parse method called yet");
-      return compiler;
     }
 
     private Node parseFirst(Token token, String js) {
@@ -290,42 +289,6 @@ public final class NodeUtilTest {
    */
   @RunWith(JUnit4.class)
   public static final class AssortedTests {
-    @Test
-    public void testGetNodeByLineCol_1() {
-      Node root = parse("var x = 1;");
-      assertNode(NodeUtil.getNodeByLineCol(root, 1, 0)).isNull();
-      assertNode(NodeUtil.getNodeByLineCol(root, 1, 1)).hasType(Token.VAR);
-      assertNode(NodeUtil.getNodeByLineCol(root, 1, 2)).hasType(Token.VAR);
-      assertNode(NodeUtil.getNodeByLineCol(root, 1, 5)).hasType(Token.NAME);
-      assertNode(NodeUtil.getNodeByLineCol(root, 1, 9)).hasType(Token.NUMBER);
-      assertNode(NodeUtil.getNodeByLineCol(root, 1, 11)).hasType(Token.VAR);
-    }
-
-    @Test
-    public void testGetNodeByLineCol_2() {
-      Node root = parse(Joiner.on("\n").join("var x = {};", "x.prop = 123;"));
-      assertNode(NodeUtil.getNodeByLineCol(root, 2, 1)).hasType(Token.NAME);
-      assertNode(NodeUtil.getNodeByLineCol(root, 2, 2)).hasType(Token.NAME);
-      assertNode(NodeUtil.getNodeByLineCol(root, 2, 3)).hasType(Token.STRING);
-      assertNode(NodeUtil.getNodeByLineCol(root, 2, 8)).hasType(Token.ASSIGN);
-      assertNode(NodeUtil.getNodeByLineCol(root, 2, 11)).hasType(Token.NUMBER);
-      assertNode(NodeUtil.getNodeByLineCol(root, 2, 13)).hasType(Token.NUMBER);
-      assertNode(NodeUtil.getNodeByLineCol(root, 2, 14)).hasType(Token.EXPR_RESULT);
-    }
-
-    @Test
-    public void testGetNodeByLineCol_preferLiterals() {
-      Node root;
-
-      root = parse("x-5;");
-      assertNode(NodeUtil.getNodeByLineCol(root, 1, 2)).hasType(Token.NAME);
-      assertNode(NodeUtil.getNodeByLineCol(root, 1, 3)).hasType(Token.NUMBER);
-
-      root = parse(Joiner.on("\n").join("function f(x) {", "  return x||null;", "}"));
-      assertNode(NodeUtil.getNodeByLineCol(root, 2, 11)).hasType(Token.NAME);
-      assertNode(NodeUtil.getNodeByLineCol(root, 2, 12)).hasType(Token.OR);
-      assertNode(NodeUtil.getNodeByLineCol(root, 2, 13)).hasType(Token.NULL);
-    }
 
     @Test
     public void testIsLiteralOrConstValue() {
@@ -652,324 +615,6 @@ public final class NodeUtilTest {
       assertThat(NodeUtil.isClassDeclaration(parseFirst(CLASS, "export class Foo {}"))).isTrue();
       assertThat(NodeUtil.isClassDeclaration(parseFirst(CLASS, "export default class {}")))
           .isFalse();
-    }
-
-    private void assertSideEffect(boolean se, String js) {
-      ParseHelper helper = new ParseHelper();
-
-      Node n = helper.parse(js);
-      assertThat(NodeUtil.mayHaveSideEffects(n.getFirstChild(), helper.getCompiler()))
-          .isEqualTo(se);
-    }
-
-    private void assertNodeHasSideEffect(boolean se, Token token, String js) {
-      ParseHelper helper = new ParseHelper();
-
-      Node node = helper.parseFirst(token, js);
-      assertThat(NodeUtil.mayHaveSideEffects(node, helper.getCompiler())).isEqualTo(se);
-    }
-
-    private void assertSideEffect(boolean se, String js, boolean globalRegExp) {
-      Node n = parse(js);
-      Compiler compiler = new Compiler();
-      compiler.initCompilerOptionsIfTesting();
-      compiler.setHasRegExpGlobalReferences(globalRegExp);
-      assertThat(NodeUtil.mayHaveSideEffects(n.getFirstChild(), compiler)).isEqualTo(se);
-    }
-
-    @Test
-    public void testMayHaveSideEffects_undifferentiatedCases() {
-      assertSideEffect(false, "[1]");
-      assertSideEffect(false, "[1, 2]");
-      assertSideEffect(true, "i++");
-      assertSideEffect(true, "[b, [a, i++]]");
-      assertSideEffect(true, "i=3");
-      assertSideEffect(true, "[0, i=3]");
-      assertSideEffect(true, "b()");
-      assertSideEffect(true, "[1, b()]");
-      assertSideEffect(true, "b.b=4");
-      assertSideEffect(true, "b.b--");
-      assertSideEffect(true, "i--");
-      assertSideEffect(true, "a[0][i=4]");
-      assertSideEffect(true, "a += 3");
-      assertSideEffect(true, "a, b, z += 4");
-      assertSideEffect(true, "a ? c : d++");
-      assertSideEffect(true, "a + c++");
-      assertSideEffect(true, "a + c - d()");
-      assertSideEffect(true, "a + c - d()");
-
-      assertSideEffect(true, "function foo() {}");
-      assertSideEffect(true, "class Foo {}");
-      assertSideEffect(true, "while(true);");
-      assertSideEffect(true, "if(true){a()}");
-
-      assertSideEffect(false, "if(true){a}");
-      assertSideEffect(false, "(function() { })");
-      assertSideEffect(false, "(function() { i++ })");
-      assertSideEffect(false, "[function a(){}]");
-      assertSideEffect(false, "(class { })");
-      assertSideEffect(false, "(class { method() { i++ } })");
-      assertSideEffect(true, "(class { [computedName()]() {} })");
-      assertSideEffect(false, "(class { [computedName]() {} })");
-      assertSideEffect(false, "(class Foo extends Bar { })");
-      assertSideEffect(true, "(class extends foo() { })");
-
-      assertSideEffect(false, "a");
-      assertSideEffect(false, "a.b");
-      assertSideEffect(false, "a.b.c");
-      assertSideEffect(false, "[b, c [d, [e]]]");
-      assertSideEffect(false, "({a: x, b: y, c: z})");
-      assertSideEffect(false, "({a, b, c})");
-      assertSideEffect(false, "/abc/gi");
-      assertSideEffect(false, "'a'");
-      assertSideEffect(false, "0");
-      assertSideEffect(false, "a + c");
-      assertSideEffect(false, "'c' + a[0]");
-      assertSideEffect(false, "a[0][1]");
-      assertSideEffect(false, "'a' + c");
-      assertSideEffect(false, "'a' + a.name");
-      assertSideEffect(false, "1, 2, 3");
-      assertSideEffect(false, "a, b, 3");
-      assertSideEffect(false, "(function(a, b) {  })");
-      assertSideEffect(false, "a ? c : d");
-      assertSideEffect(false, "'1' + navigator.userAgent");
-
-      assertSideEffect(false, "`template`");
-      assertSideEffect(false, "`template${name}`");
-      assertSideEffect(false, "`${name}template`");
-      assertSideEffect(true, "`${naming()}template`");
-      assertSideEffect(true, "templateFunction`template`");
-      assertSideEffect(true, "st = `${name}template`");
-      assertSideEffect(true, "tempFunc = templateFunction`template`");
-
-      assertSideEffect(false, "new RegExp('foobar', 'i')");
-      assertSideEffect(true, "new RegExp(SomethingWacky(), 'i')");
-      assertSideEffect(false, "new Array()");
-      assertSideEffect(false, "new Array");
-      assertSideEffect(false, "new Array(4)");
-      assertSideEffect(false, "new Array('a', 'b', 'c')");
-      assertSideEffect(true, "new SomeClassINeverHeardOf()");
-      assertSideEffect(true, "new SomeClassINeverHeardOf()");
-
-      assertSideEffect(false, "({}).foo = 4");
-      assertSideEffect(false, "([]).foo = 4");
-      assertSideEffect(false, "(function() {}).foo = 4");
-
-      assertSideEffect(true, "this.foo = 4");
-      assertSideEffect(true, "a.foo = 4");
-      assertSideEffect(true, "(function() { return n; })().foo = 4");
-      assertSideEffect(true, "([]).foo = bar()");
-
-      assertSideEffect(false, "undefined");
-      assertSideEffect(false, "void 0");
-      assertSideEffect(true, "void foo()");
-      assertSideEffect(false, "-Infinity");
-      assertSideEffect(false, "Infinity");
-      assertSideEffect(false, "NaN");
-
-      assertSideEffect(false, "({}||[]).foo = 2;");
-      assertSideEffect(false, "(true ? {} : []).foo = 2;");
-      assertSideEffect(false, "({},[]).foo = 2;");
-
-      assertSideEffect(true, "delete a.b");
-
-      assertSideEffect(false, "Math.random();");
-      assertSideEffect(true, "Math.random(seed);");
-      assertSideEffect(false, "[1, 1].foo;");
-
-      assertSideEffect(true, "export var x = 0;");
-      assertSideEffect(true, "export let x = 0;");
-      assertSideEffect(true, "export const x = 0;");
-      assertSideEffect(true, "export class X {};");
-      assertSideEffect(true, "export function x() {};");
-      assertSideEffect(true, "export {x};");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_iterableSpread() {
-      // ARRAYLIT-SPREAD
-      assertSideEffect(false, "[...[]]");
-      assertSideEffect(false, "[...[1]]");
-      assertSideEffect(true, "[...[i++]]");
-      assertSideEffect(false, "[...'string']");
-      assertSideEffect(false, "[...`templatelit`]");
-      assertSideEffect(false, "[...`templatelit ${safe}`]");
-      assertSideEffect(true, "[...`templatelit ${unsafe()}`]");
-      assertSideEffect(true, "[...f()]");
-      assertSideEffect(true, "[...5]");
-      assertSideEffect(true, "[...null]");
-      assertSideEffect(true, "[...true]");
-
-      // CALL-SPREAD
-      assertSideEffect(false, "Math.sin(...[])");
-      assertSideEffect(false, "Math.sin(...[1])");
-      assertSideEffect(true, "Math.sin(...[i++])");
-      assertSideEffect(false, "Math.sin(...'string')");
-      assertSideEffect(false, "Math.sin(...`templatelit`)");
-      assertSideEffect(false, "Math.sin(...`templatelit ${safe}`)");
-      assertSideEffect(true, "Math.sin(...`templatelit ${unsafe()}`)");
-      assertSideEffect(true, "Math.sin(...f())");
-      assertSideEffect(true, "Math.sin(...5)");
-      assertSideEffect(true, "Math.sin(...null)");
-      assertSideEffect(true, "Math.sin(...true)");
-
-      // NEW-SPREAD
-      assertSideEffect(false, "new Object(...[])");
-      assertSideEffect(false, "new Object(...[1])");
-      assertSideEffect(true, "new Object(...[i++])");
-      assertSideEffect(false, "new Object(...'string')");
-      assertSideEffect(false, "new Object(...`templatelit`)");
-      assertSideEffect(false, "new Object(...`templatelit ${safe}`)");
-      assertSideEffect(true, "new Object(...`templatelit ${unsafe()}`)");
-      assertSideEffect(true, "new Object(...f())");
-      assertSideEffect(true, "new Object(...5)");
-      assertSideEffect(true, "new Object(...null)");
-      assertSideEffect(true, "new Object(...true)");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_objectSpread() {
-      // OBJECT-SPREAD
-      assertSideEffect(false, "({...x})");
-      assertSideEffect(false, "({...{}})");
-      assertSideEffect(false, "({...{a:1}})");
-      assertSideEffect(true, "({...{a:i++}})");
-      assertSideEffect(true, "({...{a:f()}})");
-      assertSideEffect(true, "({...f()})");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_rest() {
-      // REST
-      assertNodeHasSideEffect(false, REST, "({...x} = something)");
-      // We currently assume all iterable-rests are side-effectful.
-      assertNodeHasSideEffect(true, REST, "([...x] = 'safe')");
-      assertNodeHasSideEffect(false, REST, "(function(...x) { })");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_contextSwitch() {
-      assertNodeHasSideEffect(true, AWAIT, "async function f() { await 0; }");
-      assertNodeHasSideEffect(true, FOR_AWAIT_OF, "(async()=>{ for await (let x of []) {} })");
-      assertNodeHasSideEffect(true, THROW, "function f() { throw 'something'; }");
-      assertNodeHasSideEffect(true, YIELD, "function* f() { yield 'something'; }");
-      assertNodeHasSideEffect(true, YIELD, "function* f() { yield* 'something'; }");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_enhancedForLoop() {
-      // These edge cases are actually side-effect free. We include them to confirm we just give up
-      // on enhanced for loops.
-      assertSideEffect(true, "for (const x in []) { }");
-      assertSideEffect(true, "for (const x of []) { }");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_computedProp() {
-      assertNodeHasSideEffect(false, COMPUTED_PROP, "({[a]: x})");
-      assertNodeHasSideEffect(true, COMPUTED_PROP, "({[a()]: x})");
-      assertNodeHasSideEffect(true, COMPUTED_PROP, "({[a]: x()})");
-
-      // computed property getters and setters are modeled as COMPUTED_PROP with an
-      // annotation to indicate getter or setter.
-      assertNodeHasSideEffect(false, COMPUTED_PROP, "({ get [a]() {} })");
-      assertNodeHasSideEffect(true, COMPUTED_PROP, "({ get [a()]() {} })");
-
-      assertNodeHasSideEffect(false, COMPUTED_PROP, "({ set [a](x) {} })");
-      assertNodeHasSideEffect(true, COMPUTED_PROP, "({ set [a()](x) {} })");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_classComputedProp() {
-      assertNodeHasSideEffect(false, COMPUTED_PROP, "class C { [a]() {} }");
-      assertNodeHasSideEffect(true, COMPUTED_PROP, "class C { [a()]() {} }");
-
-      // computed property getters and setters are modeled as COMPUTED_PROP with an
-      // annotation to indicate getter or setter.
-      assertNodeHasSideEffect(false, COMPUTED_PROP, "class C { get [a]() {} }");
-      assertNodeHasSideEffect(true, COMPUTED_PROP, "class C { get [a()]() {} }");
-
-      assertNodeHasSideEffect(false, COMPUTED_PROP, "class C { set [a](x) {} }");
-      assertNodeHasSideEffect(true, COMPUTED_PROP, "class C { set [a()](x) {} }");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_getter() {
-      assertNodeHasSideEffect(false, GETTER_DEF, "({ get a() {} })");
-      assertNodeHasSideEffect(false, GETTER_DEF, "class C { get a() {} }");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_setter() {
-      assertNodeHasSideEffect(false, SETTER_DEF, "({ set a(x) {} })");
-      assertNodeHasSideEffect(false, SETTER_DEF, "class C { set a(x) {} }");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_method() {
-      assertNodeHasSideEffect(false, MEMBER_FUNCTION_DEF, "({ a(x) {} })");
-      assertNodeHasSideEffect(false, MEMBER_FUNCTION_DEF, "class C { a(x) {} }");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_objectMethod() {
-      // "toString" and "valueOf" are assumed to be side-effect free
-      assertSideEffect(false, "o.toString()");
-      assertSideEffect(false, "o.valueOf()");
-
-      // other methods depend on the extern definitions
-      assertSideEffect(true, "o.watch()");
-    }
-
-    @Test
-    public void testMayHaveSideEffects_regExp() {
-      // A RegExp Object by itself doesn't have any side-effects
-      assertSideEffect(false, "/abc/gi", true);
-      assertSideEffect(false, "/abc/gi", false);
-
-      // RegExp instance methods have global side-effects, so whether they are
-      // considered side-effect free depends on whether the global properties
-      // are referenced.
-      assertSideEffect(true, "(/abc/gi).test('')", true);
-      assertSideEffect(false, "(/abc/gi).test('')", false);
-      assertSideEffect(true, "(/abc/gi).test(a)", true);
-      assertSideEffect(false, "(/abc/gi).test(b)", false);
-
-      assertSideEffect(true, "(/abc/gi).exec('')", true);
-      assertSideEffect(false, "(/abc/gi).exec('')", false);
-
-      // Some RegExp object method that may have side-effects.
-      assertSideEffect(true, "(/abc/gi).foo('')", true);
-      assertSideEffect(true, "(/abc/gi).foo('')", false);
-
-      // Try the string RegExp ops.
-      assertSideEffect(true, "''.match('a')", true);
-      assertSideEffect(false, "''.match('a')", false);
-      assertSideEffect(true, "''.match(/(a)/)", true);
-      assertSideEffect(false, "''.match(/(a)/)", false);
-
-      assertSideEffect(true, "''.replace('a')", true);
-      assertSideEffect(false, "''.replace('a')", false);
-
-      assertSideEffect(true, "''.search('a')", true);
-      assertSideEffect(false, "''.search('a')", false);
-
-      assertSideEffect(true, "''.split('a')", true);
-      assertSideEffect(false, "''.split('a')", false);
-
-      // Some non-RegExp string op that may have side-effects.
-      assertSideEffect(true, "''.foo('a')", true);
-      assertSideEffect(true, "''.foo('a')", false);
-
-      // 'a' might be a RegExp object with the 'g' flag, in which case
-      // the state might change by running any of the string ops.
-      // Specifically, using these methods resets the "lastIndex" if used
-      // in combination with a RegExp instance "exec" method.
-      assertSideEffect(true, "''.match(a)", true);
-      assertSideEffect(true, "''.match(a)", false);
-
-      assertSideEffect(true, "'a'.replace(/a/, function (s) {alert(s)})", false);
-      assertSideEffect(false, "'a'.replace(/a/, 'x')", false);
     }
 
     @Test
@@ -1899,76 +1544,6 @@ public final class NodeUtilTest {
 
       expr = parseFirst(YIELD, "function *f() { yield 'something'; }");
       assertThat(NodeUtil.evaluatesToLocalValue(expr)).isFalse();
-    }
-
-    @Test
-    public void testCallSideEffects() {
-      ParseHelper helper = new ParseHelper();
-
-      // Parens force interpretation as an expression.
-      Node newXDotMethodCall = helper.parseFirst(CALL, "(new x().method());");
-      Compiler compiler = helper.getCompiler();
-      assertThat(NodeUtil.functionCallHasSideEffects(newXDotMethodCall, compiler)).isTrue();
-
-      Node newExpr = newXDotMethodCall.getFirstFirstChild();
-      checkState(newExpr.isNew());
-      Node.SideEffectFlags flags = new Node.SideEffectFlags();
-
-      // No side effects, local result
-      flags.clearAllFlags();
-      newExpr.setSideEffectFlags(flags);
-      flags.clearAllFlags();
-      newXDotMethodCall.setSideEffectFlags(flags);
-
-      assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isTrue();
-      assertThat(NodeUtil.functionCallHasSideEffects(newXDotMethodCall, compiler)).isFalse();
-      assertThat(NodeUtil.mayHaveSideEffects(newXDotMethodCall, compiler)).isFalse();
-
-      // Modifies this, local result
-      flags.clearAllFlags();
-      newExpr.setSideEffectFlags(flags);
-      flags.clearAllFlags();
-      flags.setMutatesThis();
-      newXDotMethodCall.setSideEffectFlags(flags);
-
-      assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isTrue();
-      assertThat(NodeUtil.functionCallHasSideEffects(newXDotMethodCall, compiler)).isFalse();
-      assertThat(NodeUtil.mayHaveSideEffects(newXDotMethodCall, compiler)).isFalse();
-
-      // Modifies this, non-local result
-      flags.clearAllFlags();
-      newExpr.setSideEffectFlags(flags);
-      flags.clearAllFlags();
-      flags.setMutatesThis();
-      flags.setReturnsTainted();
-      newXDotMethodCall.setSideEffectFlags(flags);
-
-      assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isFalse();
-      assertThat(NodeUtil.functionCallHasSideEffects(newXDotMethodCall, compiler)).isFalse();
-      assertThat(NodeUtil.mayHaveSideEffects(newXDotMethodCall, compiler)).isFalse();
-
-      // No modifications, non-local result
-      flags.clearAllFlags();
-      newExpr.setSideEffectFlags(flags);
-      flags.clearAllFlags();
-      flags.setReturnsTainted();
-      newXDotMethodCall.setSideEffectFlags(flags);
-
-      assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isFalse();
-      assertThat(NodeUtil.functionCallHasSideEffects(newXDotMethodCall, compiler)).isFalse();
-      assertThat(NodeUtil.mayHaveSideEffects(newXDotMethodCall, compiler)).isFalse();
-
-      // The new modifies global state, no side-effect call, non-local result
-      // This call could be removed, but not the new.
-      flags.clearAllFlags();
-      flags.setMutatesGlobalState();
-      newExpr.setSideEffectFlags(flags);
-      flags.clearAllFlags();
-      newXDotMethodCall.setSideEffectFlags(flags);
-
-      assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isTrue();
-      assertThat(NodeUtil.functionCallHasSideEffects(newXDotMethodCall, compiler)).isFalse();
-      assertThat(NodeUtil.mayHaveSideEffects(newXDotMethodCall, compiler)).isTrue();
     }
 
     @Test
@@ -3526,7 +3101,7 @@ public final class NodeUtilTest {
       Node ast = parse("/** @param {...number} x */ function f(...x) {}");
       Node x = getNameNode(ast, "x");
       JSTypeExpression typeExpr = NodeUtil.getDeclaredTypeExpression(x);
-      assertNode(typeExpr.getRoot()).hasType(Token.ELLIPSIS);
+      assertNode(typeExpr.getRoot()).hasType(Token.ITER_REST);
       assertThat(typeExpr.getRoot().getFirstChild().getString()).isEqualTo("number");
     }
 
@@ -3623,6 +3198,25 @@ public final class NodeUtilTest {
       assertThat(lhsNodes).hasSize(1);
       Iterator<Node> nodeIterator = lhsNodes.iterator();
       assertNode(nodeIterator.next()).matchesQualifiedName("a.b");
+    }
+
+    @Test
+    public void testGetGoogRequireInfo_returnsNullForShadowedRequires() {
+      String src = "goog.module('a.b.c'); const Foo = goog.require('d.Foo'); { const Foo = 0; }";
+
+      ParseHelper parser = new ParseHelper();
+      Node first = parser.parse(src);
+      // Build the three layers of scopes: global scope, module scope, and block scope.
+      SyntacticScopeCreator scopeCreator = new SyntacticScopeCreator(parser.compiler);
+      Scope globalScope = scopeCreator.createScope(first, null);
+      Node module = getNode(first, Token.MODULE_BODY);
+      Scope moduleScope = scopeCreator.createScope(module, globalScope);
+      Node block = getNode(first, Token.BLOCK);
+      Scope blockScope = scopeCreator.createScope(block, moduleScope);
+
+      assertThat(NodeUtil.getGoogRequireInfo("Foo", moduleScope))
+          .isEqualTo(GoogRequire.fromNamespace("d.Foo"));
+      assertThat(NodeUtil.getGoogRequireInfo("Foo", blockScope)).isNull();
     }
 
     @Test
@@ -3765,7 +3359,7 @@ public final class NodeUtilTest {
       String fnString = "var h; function g(x, y) {var z; h = 2; {let a; const b = 1} let c}";
       Compiler compiler = new Compiler();
       compiler.setLifeCycleStage(LifeCycleStage.NORMALIZED);
-      Es6SyntacticScopeCreator scopeCreator = new Es6SyntacticScopeCreator(compiler);
+      SyntacticScopeCreator scopeCreator = new SyntacticScopeCreator(compiler);
 
       Node ast = parse(fnString);
       Node functionNode = parseFirst(FUNCTION, fnString);
@@ -3793,7 +3387,7 @@ public final class NodeUtilTest {
 
       Compiler compiler = new Compiler();
       compiler.setLifeCycleStage(LifeCycleStage.NORMALIZED);
-      Es6SyntacticScopeCreator scopeCreator = new Es6SyntacticScopeCreator(compiler);
+      SyntacticScopeCreator scopeCreator = new SyntacticScopeCreator(compiler);
 
       Node ast = parse(fnString);
       Node functionNode = parseFirst(FUNCTION, fnString);
@@ -3937,6 +3531,154 @@ public final class NodeUtilTest {
     }
   }
 
+  @RunWith(JUnit4.class)
+  public static class NodeTraversalTests {
+
+    @Test
+    public void testVisitPreOrder() {
+      NodeUtil.Visitor visitor = Mockito.mock(NodeUtil.Visitor.class);
+      NodeUtil.visitPreOrder(buildTestTree(), visitor);
+      assertThat(getNodeStringsFromMockVisitor(visitor))
+          .containsExactly("A", "B", "C", "D", "E", "F", "G")
+          .inOrder();
+    }
+
+    @Test
+    public void testVisitPostOrder() {
+      NodeUtil.Visitor visitor = Mockito.mock(NodeUtil.Visitor.class);
+      NodeUtil.visitPostOrder(buildTestTree(), visitor);
+      assertThat(getNodeStringsFromMockVisitor(visitor))
+          .containsExactly("C", "D", "B", "F", "G", "E", "A")
+          .inOrder();
+    }
+
+    @Test
+    public void testIteratePreOrder() {
+      List<String> nodeNames =
+          Streams.stream(NodeUtil.preOrderIterable(buildTestTree()))
+              .map(n -> n.getString())
+              .collect(Collectors.toList());
+
+      assertThat(nodeNames).containsExactly("A", "B", "C", "D", "E", "F", "G").inOrder();
+    }
+
+    @Test
+    public void testIteratePreOrderWithPredicate() {
+      Predicate<Node> isNotE = n -> !n.getString().equals("E");
+      List<String> nodeNames =
+          Streams.stream(NodeUtil.preOrderIterable(buildTestTree(), isNotE))
+              .map(n -> n.getString())
+              .collect(Collectors.toList());
+
+      assertThat(nodeNames).containsExactly("A", "B", "C", "D", "E").inOrder();
+    }
+
+    /**
+     * Builds a node tree of string {@link com.google.javascript.rhino.Node} with string labels that
+     * can be used to verify order in tests.
+     *
+     * <p>The resultant tree looks like this.
+     *
+     * <pre>
+     *      A
+     *    ↙   ↘
+     *   B     E
+     *  ↙ ↘    ↙ ↘
+     * C   D  F   G
+     * </pre>
+     */
+    private static Node buildTestTree() {
+      Node a = Node.newString("A");
+
+      Node b = Node.newString("B");
+      b.addChildToBack(Node.newString("C"));
+      b.addChildToBack(Node.newString("D"));
+      a.addChildToBack(b);
+
+      Node e = Node.newString("E");
+      e.addChildToBack(Node.newString("F"));
+      e.addChildToBack(Node.newString("G"));
+      a.addChildToBack(e);
+
+      return a;
+    }
+
+    private static ImmutableList<String> getNodeStringsFromMockVisitor(
+        NodeUtil.Visitor mockVisitor) {
+      ArgumentCaptor<Node> captor = ArgumentCaptor.forClass(Node.class);
+      verify(mockVisitor, Mockito.atLeastOnce()).visit(captor.capture());
+      return captor.getAllValues().stream()
+          .map(n -> n.getString())
+          .collect(ImmutableList.toImmutableList());
+    }
+  }
+
+  @RunWith(Parameterized.class)
+  public static final class GoogRequireInfoTest {
+
+    @Parameters(name = "src={0}, name={1}, GoogRequire={2}")
+    public static Iterable<Object[]> cases() {
+      return ImmutableList.copyOf(
+          new Object[][] {
+            {
+              "goog.module('a.b.c'); const {Bar} = goog.require('d.Foo');",
+              "Bar",
+              GoogRequire.fromNamespaceAndProperty("d.Foo", "Bar")
+            },
+            {"goog.module('a.b.c'); const {Bar} = goog.require('d.Foo');", "Foo", null},
+            {
+              "goog.module('a.b.c'); const {Bar: BarLocal} = goog.require('d.Foo');",
+              "BarLocal",
+              GoogRequire.fromNamespaceAndProperty("d.Foo", "Bar")
+            },
+            {
+              "goog.module('a.b.c'); const {Bar: BarLocal} =" + " goog.require('d.Foo');",
+              "Bar",
+              null
+            },
+            {
+              "goog.module('a.b.c'); const Foo = goog.require('d.Foo');",
+              "Foo",
+              GoogRequire.fromNamespace("d.Foo")
+            },
+            {
+              "goog.module('a.b.c'); const dFoo = goog.require('d.Foo');",
+              "dFoo",
+              GoogRequire.fromNamespace("d.Foo")
+            },
+            // Test that non-requires just return null.
+            {"goog.module('a.b.c'); const Foo = goog.requireType('d.Foo');", "Foo", null},
+            {"goog.module('a.b.c'); const {Bar} = goog.requireType('d.Foo');", "Bar", null},
+            {"goog.module('a.b.c'); let Foo;", "Foo", null},
+            {"goog.module('a.b.c'); let [Foo] = arr;", "Foo", null},
+            {"goog.module('a.b.c'); let {Bar: {Foo}} = obj;", "Foo", null},
+            {"goog.module('a.b.c'); const Foo = 0;", "Foo", null},
+            {"const Foo = goog.require('d.Foo');", "Foo", null} // NB: Foo will be null here.
+          });
+    }
+
+    @Parameter(0)
+    public String src;
+
+    @Parameter(1)
+    public String name;
+
+    @Parameter(2)
+    public GoogRequire require;
+
+    @Test
+    public void test() {
+      ParseHelper parser = new ParseHelper();
+      Node first = parser.parse(src);
+      SyntacticScopeCreator scopeCreator = new SyntacticScopeCreator(parser.compiler);
+      Scope globalScope = scopeCreator.createScope(first, null);
+      Node module = getNodeOrNull(first, Token.MODULE_BODY);
+      Scope localScope =
+          module != null ? scopeCreator.createScope(module, globalScope) : globalScope;
+      assertThat(NodeUtil.getGoogRequireInfo(name, localScope)).isEqualTo(require);
+    }
+  }
+
   @RunWith(Parameterized.class)
   public static final class ReferencesThisTest {
     @Parameters(name = "{0} node in \"{1}\" referencesThis() should be {2}")
@@ -4055,55 +3797,51 @@ public final class NodeUtilTest {
     public static Iterable<Object[]> cases() {
       return ImmutableList.copyOf(
           new Object[][] {
-            // SPREAD < ARRAYLIT
-            {SPREAD, "[...[]]", false},
-            {SPREAD, "[...[danger()]]", false},
-            {SPREAD, "[...'lit']", false},
-            {SPREAD, "[...`template`]", false},
-            {SPREAD, "[...`template ${sub}`]", false},
-            {SPREAD, "[...`template ${danger()}`]", false},
-            {SPREAD, "[...danger]", true},
-            {SPREAD, "[...danger()]", true},
-            {SPREAD, "[...5]", true},
-            // SPREAD < CALL
-            {SPREAD, "foo(...[])", false},
-            {SPREAD, "foo(...[danger()])", false},
-            {SPREAD, "foo(...'lit')", false},
-            {SPREAD, "foo(...`template`)", false},
-            {SPREAD, "foo(...`template ${safe}`)", false},
-            {SPREAD, "foo(...`template ${danger()}`)", false},
-            {SPREAD, "foo(...danger)", true},
-            {SPREAD, "foo(...danger())", true},
-            {SPREAD, "foo(...5)", true},
-            // SPREAD < NEW
-            {SPREAD, "new foo(...[])", false},
-            {SPREAD, "new foo(...[danger()])", false},
-            {SPREAD, "new foo(...'lit')", false},
-            {SPREAD, "new foo(...`template`)", false},
-            {SPREAD, "new foo(...`template ${safe}`)", false},
-            {SPREAD, "new foo(...`template ${danger()}`)", false},
-            {SPREAD, "new foo(...danger)", true},
-            {SPREAD, "new foo(...danger())", true},
-            {SPREAD, "new foo(...5)", true},
-            // SPREAD < OBJECTLIT
-            {SPREAD, "({...danger()})", false},
-            // REST < ARRAY_PATTERN
-            {REST, "const [...rest] = []", true},
-            {REST, "const [...rest] = 'lit'", true},
-            {REST, "const [...rest] = `template`", true},
-            {REST, "const [...rest] = safe", true},
-            {REST, "function f([...rest]) { }", true},
-            {REST, "const [[...rest]] = safe", true},
-            {REST, "const {key: [...rest]} = safe", true},
-            // REST < PARAM_LIST
-            {REST, "function f(...x) { }", false},
-            {REST, "function f(a, ...x) { }", false},
-            {REST, "async function f(...x) { }", false},
-            {REST, "function* f(...x) { }", false},
-            {REST, "async function* f(...x) { }", false},
-            {REST, "((...x) => { })", false},
-            // REST < OBJECT_PATTERN
-            {REST, "const {...rest} = danger();", false},
+            // ITER_SPREAD < ARRAYLIT
+            {ITER_SPREAD, "[...[]]", false},
+            {ITER_SPREAD, "[...[danger()]]", false},
+            {ITER_SPREAD, "[...'lit']", false},
+            {ITER_SPREAD, "[...`template`]", false},
+            {ITER_SPREAD, "[...`template ${sub}`]", false},
+            {ITER_SPREAD, "[...`template ${danger()}`]", false},
+            {ITER_SPREAD, "[...danger]", true},
+            {ITER_SPREAD, "[...danger()]", true},
+            {ITER_SPREAD, "[...5]", true},
+            // ITER_SPREAD < CALL
+            {ITER_SPREAD, "foo(...[])", false},
+            {ITER_SPREAD, "foo(...[danger()])", false},
+            {ITER_SPREAD, "foo(...'lit')", false},
+            {ITER_SPREAD, "foo(...`template`)", false},
+            {ITER_SPREAD, "foo(...`template ${safe}`)", false},
+            {ITER_SPREAD, "foo(...`template ${danger()}`)", false},
+            {ITER_SPREAD, "foo(...danger)", true},
+            {ITER_SPREAD, "foo(...danger())", true},
+            {ITER_SPREAD, "foo(...5)", true},
+            // ITER_SPREAD < NEW
+            {ITER_SPREAD, "new foo(...[])", false},
+            {ITER_SPREAD, "new foo(...[danger()])", false},
+            {ITER_SPREAD, "new foo(...'lit')", false},
+            {ITER_SPREAD, "new foo(...`template`)", false},
+            {ITER_SPREAD, "new foo(...`template ${safe}`)", false},
+            {ITER_SPREAD, "new foo(...`template ${danger()}`)", false},
+            {ITER_SPREAD, "new foo(...danger)", true},
+            {ITER_SPREAD, "new foo(...danger())", true},
+            {ITER_SPREAD, "new foo(...5)", true},
+            // ITER_REST < ARRAY_PATTERN
+            {ITER_REST, "const [...rest] = []", true},
+            {ITER_REST, "const [...rest] = 'lit'", true},
+            {ITER_REST, "const [...rest] = `template`", true},
+            {ITER_REST, "const [...rest] = safe", true},
+            {ITER_REST, "function f([...rest]) { }", true},
+            {ITER_REST, "const [[...rest]] = safe", true},
+            {ITER_REST, "const {key: [...rest]} = safe", true},
+            // ITER_REST < PARAM_LIST
+            {ITER_REST, "function f(...x) { }", false},
+            {ITER_REST, "function f(a, ...x) { }", false},
+            {ITER_REST, "async function f(...x) { }", false},
+            {ITER_REST, "function* f(...x) { }", false},
+            {ITER_REST, "async function* f(...x) { }", false},
+            {ITER_REST, "((...x) => { })", false},
             // FOR_OF
             {FOR_OF, "for (let x of []) {}", false},
             {FOR_OF, "for (let x of [danger()]) {}", false},
@@ -4153,6 +3891,40 @@ public final class NodeUtilTest {
     public void test() {
       Node node = parseFirst(token, source);
       assertThat(NodeUtil.iteratesImpureIterable(node)).isEqualTo(expectation);
+    }
+  }
+
+  @RunWith(Parameterized.class)
+  public static final class CanBeSideEffectedTest {
+
+    @Parameters(name = "{0} in \"{1}\"")
+    public static Iterable<Object[]> cases() {
+      return ImmutableList.copyOf(
+          new Object[][] {
+            // TODO: Expand test cases for more node types.
+
+            // SUPER
+            {SUPER, "super()", false},
+            {SUPER, "super.foo()", false},
+            {CALL, "super()", true},
+            {CALL, "super.foo()", true},
+          });
+    }
+
+    private final Token token;
+    private final String source;
+    private final boolean expectation;
+
+    public CanBeSideEffectedTest(Token token, String source, boolean expectation) {
+      this.token = token;
+      this.source = source;
+      this.expectation = expectation;
+    }
+
+    @Test
+    public void test() {
+      Node node = parseFirst(token, source);
+      assertThat(NodeUtil.canBeSideEffected(node)).isEqualTo(expectation);
     }
   }
 

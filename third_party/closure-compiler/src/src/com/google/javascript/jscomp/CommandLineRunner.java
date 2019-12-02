@@ -82,7 +82,6 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.NamedOptionDef;
 import org.kohsuke.args4j.Option;
 import org.kohsuke.args4j.OptionDef;
-import org.kohsuke.args4j.OptionHandlerFilter;
 import org.kohsuke.args4j.spi.FieldSetter;
 import org.kohsuke.args4j.spi.IntOptionHandler;
 import org.kohsuke.args4j.spi.OptionHandler;
@@ -125,8 +124,6 @@ import org.kohsuke.args4j.spi.StringOptionHandler;
  * </pre>
  *
  * This class is totally not thread-safe.
- *
- * @author bolinfest@google.com (Michael Bolin)
  */
 @GwtIncompatible("Unnecessary")
 public class CommandLineRunner extends
@@ -667,6 +664,12 @@ public class CommandLineRunner extends
     private String j2clPassMode = "AUTO";
 
     @Option(
+        name = "--remove_j2cl_asserts",
+        hidden = true,
+        usage = "Remove calls to J2CL assertions.")
+    private boolean removeJ2cLAsserts = true;
+
+    @Option(
         name = "--output_manifest",
         usage =
             "Prints out a list of all the files in the compilation. "
@@ -1063,18 +1066,13 @@ public class CommandLineRunner extends
             parser.printUsage(
                 stringWriter,
                 null,
-                new OptionHandlerFilter() {
-                  @Override
-                  public boolean select(OptionHandler optionHandler) {
-                    if (optionHandler.option instanceof NamedOptionDef) {
-                      return !optionHandler.option.hidden()
-                          && optionName.equals(
-                              ((NamedOptionDef) optionHandler.option)
-                                  .name()
-                                  .replaceFirst("^--", ""));
-                    }
-                    return false;
+                (optionHandler) -> {
+                  if (optionHandler.option instanceof NamedOptionDef) {
+                    return !optionHandler.option.hidden()
+                        && optionName.equals(
+                            ((NamedOptionDef) optionHandler.option).name().replaceFirst("^--", ""));
                   }
+                  return false;
                 });
             stringWriter.flush();
             String rawOptionUsage = stringWriter.toString();
@@ -1108,16 +1106,13 @@ public class CommandLineRunner extends
           parser.printUsage(
               outputStream,
               null,
-              new OptionHandlerFilter() {
-                @Override
-                public boolean select(OptionHandler optionHandler) {
-                  if (optionHandler.option instanceof NamedOptionDef) {
-                    return !optionHandler.option.hidden()
-                        && options.contains(
-                            ((NamedOptionDef) optionHandler.option).name().replaceFirst("^--", ""));
-                  }
-                  return false;
+              (optionHandler) -> {
+                if (optionHandler.option instanceof NamedOptionDef) {
+                  return !optionHandler.option.hidden()
+                      && options.contains(
+                          ((NamedOptionDef) optionHandler.option).name().replaceFirst("^--", ""));
                 }
+                return false;
               });
         }
 
@@ -1881,6 +1876,8 @@ public class CommandLineRunner extends
             "Unknown J2clPassMode `" + flags.j2clPassMode + "' specified.");
       }
     }
+
+    options.removeJ2clAsserts = flags.removeJ2cLAsserts;
 
     options.renamePrefix = flags.renamePrefix;
 

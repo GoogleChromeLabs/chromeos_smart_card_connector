@@ -39,8 +39,8 @@
 
 package com.google.javascript.rhino.jstype;
 
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.javascript.rhino.jstype.ObjectType.PropertyOptionality.ALL_PROPS_ARE_REQUIRED;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.rhino.ErrorReporter;
@@ -49,6 +49,7 @@ import com.google.javascript.rhino.Node;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Function;
 
 /**
  * The object type represents instances of JavaScript objects such as
@@ -70,7 +71,8 @@ public class PrototypeObjectType extends ObjectType {
   private static final long serialVersionUID = 1L;
 
   private final String className;
-  private final PropertyMap properties;
+  private final int templateParamCount;
+  private final PropertyMap properties = new PropertyMap();
   private final boolean nativeType;
   private final boolean anonymousType;
 
@@ -91,85 +93,93 @@ public class PrototypeObjectType extends ObjectType {
   private static final int MAX_PRETTY_PRINTED_PROPERTIES = 10;
 
   /**
-   * Creates an object type.
-   *
-   * @param className the name of the class.  May be {@code null} to
-   *        denote an anonymous class.
-   *
-   * @param implicitPrototype the implicit prototype
-   *        (a.k.a. {@code [[Prototype]]}) as defined by ECMA-262. If the
-   *        implicit prototype is {@code null} the implicit prototype will be
-   *        set to the {@link JSTypeNative#OBJECT_TYPE}.
+   * Creates an object type, allowing specification of the implicit prototype, whether the object is
+   * native, and any templatized types.
    */
-  PrototypeObjectType(JSTypeRegistry registry, String className,
-      ObjectType implicitPrototype) {
-    this(
-        registry,
-        className,
-        implicitPrototype,
-        false /* nativeType */,
-        null /* templateTypeMap */,
-        false /* anonymousType */);
-  }
+  PrototypeObjectType(Builder<?> builder) {
+    super(builder.registry, builder.templateTypeMap);
 
-  /**
-   * Creates an object type.
-   *
-   * @param className the name of the class.  May be {@code null} to
-   *        denote an anonymous class.
-   *
-   * @param implicitPrototype the implicit prototype
-   *        (a.k.a. {@code [[Prototype]]}) as defined by ECMA-262. If the
-   *        implicit prototype is {@code null} the implicit prototype will be
-   *        set to the {@link JSTypeNative#OBJECT_TYPE}.
-   * @param anonymousType True if the class is intended to be anonymous.
-   */
-  PrototypeObjectType(JSTypeRegistry registry, String className,
-      ObjectType implicitPrototype, boolean anonymousType) {
-    this(
-        registry,
-        className,
-        implicitPrototype,
-        false /* nativeType */,
-        null /* templateTypeMap */,
-        anonymousType);
-  }
+    this.className = builder.className;
+    this.templateParamCount = builder.templateParamCount;
+    this.nativeType = builder.nativeType;
+    this.anonymousType = builder.anonymousType;
 
-  /**
-   * Creates an object type, allowing specification of the implicit prototype,
-   * whether the object is native, and any templatized types.
-   */
-  PrototypeObjectType(JSTypeRegistry registry, String className,
-      ObjectType implicitPrototype, boolean nativeType,
-      TemplateTypeMap templateTypeMap) {
-    this(
-        registry,
-        className,
-        implicitPrototype,
-        nativeType,
-        templateTypeMap,
-        false /* anonymousType */);
-  }
-
-  /**
-   * Creates an object type, allowing specification of the implicit prototype,
-   * whether the object is native, and any templatized types.
-   */
-  private PrototypeObjectType(JSTypeRegistry registry, String className,
-      ObjectType implicitPrototype, boolean nativeType,
-      TemplateTypeMap templateTypeMap, boolean anonymousType) {
-    super(registry, templateTypeMap);
-    this.properties = new PropertyMap();
     this.properties.setParentSource(this);
 
-    this.className = className;
-    this.nativeType = nativeType;
-    this.anonymousType = anonymousType;
-    if (nativeType || implicitPrototype != null) {
-      setImplicitPrototype(implicitPrototype);
+    if (this.nativeType || builder.implicitPrototype != null) {
+      this.setImplicitPrototype(builder.implicitPrototype);
     } else {
-      setImplicitPrototype(registry.getNativeObjectType(JSTypeNative.OBJECT_TYPE));
+      this.setImplicitPrototype(registry.getNativeObjectType(JSTypeNative.OBJECT_TYPE));
     }
+
+    if (this.anonymousType) {
+      checkState(this.className == null);
+    }
+    checkNotNull(this.templateTypeMap);
+    // Also guarantees `templateParamCount >= 0`.
+    checkState(this.templateTypeMap.size() >= this.templateParamCount);
+  }
+
+  static class Builder<T extends Builder<T>> {
+    final JSTypeRegistry registry;
+
+    private String className;
+    private ObjectType implicitPrototype;
+
+    private boolean nativeType;
+    private boolean anonymousType;
+
+    private TemplateTypeMap templateTypeMap;
+    private int templateParamCount;
+
+    Builder(JSTypeRegistry registry) {
+      this.registry = registry;
+
+      this.templateTypeMap = registry.getEmptyTemplateTypeMap();
+    }
+
+    final T setName(String x) {
+      this.className = x;
+      return castThis();
+    }
+
+    final T setImplicitPrototype(ObjectType x) {
+      this.implicitPrototype = x;
+      return castThis();
+    }
+
+    final T setNative(boolean x) {
+      this.nativeType = x;
+      return castThis();
+    }
+
+    final T setAnonymous(boolean x) {
+      this.anonymousType = x;
+      return castThis();
+    }
+
+    final T setTemplateTypeMap(TemplateTypeMap x) {
+      this.templateTypeMap = x;
+      return castThis();
+    }
+
+    final T setTemplateParamCount(int x) {
+      this.templateParamCount = x;
+      return castThis();
+    }
+
+    @SuppressWarnings("unchecked")
+    final T castThis() {
+      return (T) this;
+    }
+
+    PrototypeObjectType build() {
+      return new PrototypeObjectType(this);
+    }
+  }
+
+  static Builder<?> builder(JSTypeRegistry registry) {
+    return new Builder<>(registry);
   }
 
   @Override
@@ -361,6 +371,11 @@ public class PrototypeObjectType extends ObjectType {
   }
 
   @Override
+  public final int getTemplateParamCount() {
+    return this.templateParamCount;
+  }
+
+  @Override
   public String getReferenceName() {
     if (className != null) {
       return className;
@@ -373,78 +388,6 @@ public class PrototypeObjectType extends ObjectType {
 
   public boolean isAnonymous() {
     return anonymousType;
-  }
-
-  @Override
-  public boolean isSubtype(JSType that) {
-    return isSubtype(that, ImplCache.create(), SubtypingMode.NORMAL);
-  }
-
-  @Override
-  protected boolean isSubtype(JSType that,
-      ImplCache implicitImplCache, SubtypingMode subtypingMode) {
-    if (JSType.isSubtypeHelper(this, that, implicitImplCache, subtypingMode)) {
-      return true;
-    }
-
-    // Union types
-    if (that.isUnionType()) {
-      // The static {@code JSType.isSubtype} check already decomposed
-      // union types, so we don't need to check those again.
-      return false;
-    }
-
-    // record types
-    if (that.isRecordType()) {
-      return PrototypeObjectType.isSubtype(
-          this, that.toMaybeRecordType(), implicitImplCache, subtypingMode);
-    }
-
-    // Interfaces
-    // Find all the interfaces implemented by this class and compare each one
-    // to the interface instance.
-    ObjectType thatObj = that.toObjectType();
-    FunctionType thatCtor = thatObj == null ? null : thatObj.getConstructor();
-
-    if (getConstructor() != null && getConstructor().isInterface()) {
-      for (ObjectType thisInterface : getCtorExtendedInterfaces()) {
-        if (thisInterface.isSubtype(that, implicitImplCache, subtypingMode)) {
-          return true;
-        }
-      }
-    } else if (thatCtor != null && thatCtor.isInterface()) {
-      Iterable<ObjectType> thisInterfaces = getCtorImplementedInterfaces();
-      for (ObjectType thisInterface : thisInterfaces) {
-        if (thisInterface.isSubtype(that, implicitImplCache, subtypingMode)) {
-          return true;
-        }
-      }
-    }
-
-    // other prototype based objects
-    if (isUnknownType()) {
-      // If unsure, say 'yes', to avoid spurious warnings.
-      return true;
-    }
-    return thatObj != null && isImplicitPrototype(thatObj);
-  }
-
-  /** Determines if typeA is a subtype of typeB */
-  private static boolean isSubtype(
-      ObjectType typeA,
-      RecordType typeB,
-      ImplCache implicitImplCache,
-      SubtypingMode subtypingMode) {
-
-    MatchStatus cached = implicitImplCache.checkCache(typeA, typeB);
-    if (cached != null) {
-      return cached.subtypeValue();
-    }
-
-    boolean result =
-        isStructuralSubtypeHelper(
-            typeA, typeB, implicitImplCache, subtypingMode, ALL_PROPS_ARE_REQUIRED);
-    return implicitImplCache.updateCache(typeA, typeB, MatchStatus.valueOf(result));
   }
 
   /** Whether this is a built-in object. */

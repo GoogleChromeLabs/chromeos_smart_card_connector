@@ -41,21 +41,28 @@ import com.google.common.base.Joiner;
 import com.google.javascript.jscomp.JsIterables.MaybeBoxedIterableOrAsyncIterable;
 import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.jstype.EnumElementType;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSType.Nullability;
 import com.google.javascript.rhino.jstype.JSType.SubtypingMode;
 import com.google.javascript.rhino.jstype.JSTypeNative;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
+import com.google.javascript.rhino.jstype.NamedType;
 import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.Property;
 import com.google.javascript.rhino.jstype.Property.OwnedProperty;
+import com.google.javascript.rhino.jstype.TemplateType;
 import com.google.javascript.rhino.jstype.TemplateTypeMap;
-import com.google.javascript.rhino.jstype.TemplateTypeMapReplacer;
+import com.google.javascript.rhino.jstype.TemplateTypeReplacer;
+import com.google.javascript.rhino.jstype.TemplatizedType;
+import com.google.javascript.rhino.jstype.UnionType;
 import com.google.javascript.rhino.jstype.UnknownType;
+import com.google.javascript.rhino.jstype.Visitor;
 import java.io.Serializable;
 import java.text.MessageFormat;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,8 +78,6 @@ import javax.annotation.Nullable;
  *
  * Also doubles as a central repository for all type violations, so that
  * type-based optimizations (like AmbiguateProperties) can be fault-tolerant.
- *
- * @author nicksantos@google.com (Nick Santos)
  */
 class TypeValidator implements Serializable {
   private final transient AbstractCompiler compiler;
@@ -144,10 +149,20 @@ class TypeValidator implements Serializable {
   static final DiagnosticType HIDDEN_INTERFACE_PROPERTY_MISMATCH =
       DiagnosticType.warning(
           "JSC_HIDDEN_INTERFACE_PROPERTY_MISMATCH",
-          "mismatch of the {0} property on type {1} and the type "
-              + "of the property it overrides from interface {2}\n"
-              + "original: {3}\n"
-              + "override: {4}");
+          "mismatch of the {0} property on type {4} and the type "
+              + "of the property it overrides from interface {1}\n"
+              + "original: {2}\n"
+              + "override: {3}");
+
+  // TODO(goktug): consider updating super class / interface property mismatch to follow the same
+  // pattern.
+  static final DiagnosticType HIDDEN_SUPERCLASS_PROPERTY_MISMATCH =
+      DiagnosticType.warning(
+          "JSC_HIDDEN_SUPERCLASS_PROPERTY_MISMATCH",
+          "mismatch of the {0} property type and the type "
+              + "of the property it overrides from superclass {1}\n"
+              + "original: {2}\n"
+              + "override: {3}");
 
   static final DiagnosticType ABSTRACT_METHOD_NOT_IMPLEMENTED =
       DiagnosticType.warning(
@@ -517,18 +532,9 @@ class TypeValidator implements Serializable {
 
   /** Expect that the type of a switch condition matches the type of its case condition. */
   void expectSwitchMatchesCase(Node n, JSType switchType, JSType caseType) {
-    // ECMA-262, page 68, step 3 of evaluation of CaseBlock,
-    // but allowing extra autoboxing.
-    // TODO(user): remove extra conditions when type annotations
-    // in the code base have adapted to the change in the compiler.
-    if (!switchType.canTestForShallowEqualityWith(caseType)
-        && (caseType.autoboxesTo() == null || !caseType.autoboxesTo().isSubtypeOf(switchType))) {
+    // ECMA-262, page 68, step 3 of evaluation of CaseBlock
+    if (!switchType.canTestForShallowEqualityWith(caseType)) {
       mismatch(n.getFirstChild(), "case expression doesn't match switch", caseType, switchType);
-    } else if (!switchType.canTestForShallowEqualityWith(caseType)
-        && (caseType.autoboxesTo() == null
-            || !caseType.autoboxesTo().isSubtypeWithoutStructuralTyping(switchType))) {
-      TypeMismatch.recordImplicitInterfaceUses(this.implicitInterfaceUses, n, caseType, switchType);
-      TypeMismatch.recordImplicitUseOfNativeObject(this.mismatches, n, caseType, switchType);
     }
   }
 
@@ -549,35 +555,33 @@ class TypeValidator implements Serializable {
       // on the subtypes for which they are defined.
       return;
     }
-    if (objType.isStruct()) {
-      report(JSError.make(indexNode,
-                          ILLEGAL_PROPERTY_ACCESS, "'[]'", "struct"));
-    }
     if (objType.isUnknownType()) {
       expectStringOrNumberOrSymbol(indexNode, indexType, "property access");
+      return;
+    }
+    ObjectType dereferenced = objType.dereference();
+    if (dereferenced != null
+        && dereferenced.getTemplateTypeMap().hasTemplateKey(typeRegistry.getObjectIndexKey())) {
+      expectCanAssignTo(
+          indexNode,
+          indexType,
+          dereferenced
+              .getTemplateTypeMap()
+              .getResolvedTemplateType(typeRegistry.getObjectIndexKey()),
+          "restricted index type");
+    } else if (dereferenced != null && dereferenced.isArrayType()) {
+      expectNumberOrSymbol(indexNode, indexType, "array access");
+    } else if (objType.isStruct()) {
+      report(JSError.make(indexNode,
+                          ILLEGAL_PROPERTY_ACCESS, "'[]'", "struct"));
+    } else if (objType.matchesObjectContext()) {
+      expectStringOrSymbol(indexNode, indexType, "property access");
     } else {
-      ObjectType dereferenced = objType.dereference();
-      if (dereferenced != null && dereferenced
-          .getTemplateTypeMap()
-          .hasTemplateKey(typeRegistry.getObjectIndexKey())) {
-        expectCanAssignTo(
-            indexNode,
-            indexType,
-            dereferenced
-                .getTemplateTypeMap()
-                .getResolvedTemplateType(typeRegistry.getObjectIndexKey()),
-            "restricted index type");
-      } else if (dereferenced != null && dereferenced.isArrayType()) {
-        expectNumberOrSymbol(indexNode, indexType, "array access");
-      } else if (objType.matchesObjectContext()) {
-        expectStringOrSymbol(indexNode, indexType, "property access");
-      } else {
-        mismatch(
-            n,
-            "only arrays or objects can be accessed",
-            objType,
-            typeRegistry.createUnionType(ARRAY_TYPE, OBJECT_TYPE));
-      }
+      mismatch(
+          n,
+          "only arrays or objects can be accessed",
+          objType,
+          typeRegistry.createUnionType(ARRAY_TYPE, OBJECT_TYPE));
     }
   }
 
@@ -594,6 +598,28 @@ class TypeValidator implements Serializable {
    */
   boolean expectCanAssignToPropertyOf(
       Node n, JSType rightType, JSType leftType, Node owner, String propName) {
+    if (leftType.isTemplateType()) {
+      TemplateType left = leftType.toMaybeTemplateType();
+      if (rightType.containsReferenceAncestor(left)
+          || rightType.isUnknownType()
+          || left.isUnknownType()) {
+        // The only time we can assign to a variable with a template type is if the value assigned
+        // has a type that explicitly has it as a supertype.
+        // Otherwise, the template type is existential and it is unknown whether or not it is a
+        // proper super type.
+        return true;
+      } else {
+        registerMismatchAndReport(
+            n,
+            TYPE_MISMATCH_WARNING,
+            "assignment to property " + propName + " of " + typeRegistry.getReadableTypeName(owner),
+            rightType,
+            leftType,
+            new HashSet<>(),
+            new HashSet<>());
+        return false;
+      }
+    }
     // The NoType check is a hack to make typedefs work OK.
     if (!leftType.isNoType() && !rightType.isSubtypeOf(leftType)) {
       // Do not type-check interface methods, because we expect that
@@ -632,6 +658,22 @@ class TypeValidator implements Serializable {
    * @return True if the types matched, false otherwise.
    */
   boolean expectCanAssignTo(Node n, JSType rightType, JSType leftType, String msg) {
+    if (leftType.isTemplateType()) {
+      TemplateType left = leftType.toMaybeTemplateType();
+      if (rightType.containsReferenceAncestor(left)
+          || rightType.isUnknownType()
+          || left.isUnknownType()) {
+        // The only time we can assign to a variable with a template type is if the value assigned
+        // has a type that explicitly has it as a supertype.
+        // Otherwise, the template type is existential and it is unknown whether or not it is a
+        // proper super type.
+        return true;
+      } else {
+        registerMismatchAndReport(
+            n, TYPE_MISMATCH_WARNING, msg, rightType, leftType, new HashSet<>(), new HashSet<>());
+        return false;
+      }
+    }
     if (!rightType.isSubtypeOf(leftType)) {
       mismatch(n, msg, rightType, leftType);
       return false;
@@ -877,15 +919,23 @@ class TypeValidator implements Serializable {
   void expectAllInterfaceProperties(Node n, FunctionType type) {
     ObjectType instance = type.getInstanceType();
     for (ObjectType implemented : type.getAllImplementedInterfaces()) {
-      // Case: `/** @interface */ class Foo { constructor() { this.prop; } }`
-      for (String prop : implemented.getOwnPropertyNames()) {
-        expectInterfaceProperty(n, instance, implemented, prop);
-      }
-      if (implemented.getImplicitPrototype() != null) {
-        // Case: `/** @interface */ class Foo { prop() { } }`
-        for (String prop : implemented.getImplicitPrototype().getOwnPropertyNames()) {
-          expectInterfaceProperty(n, instance, implemented, prop);
-        }
+      expectInterfaceProperties(n, instance, implemented);
+    }
+    for (ObjectType extended : type.getExtendedInterfaces()) {
+      expectInterfaceProperties(n, instance, extended);
+    }
+  }
+
+  private void expectInterfaceProperties(
+      Node n, ObjectType instance, ObjectType ancestorInterface) {
+    // Case: `/** @interface */ class Foo { constructor() { this.prop; } }`
+    for (String prop : ancestorInterface.getOwnPropertyNames()) {
+      expectInterfaceProperty(n, instance, ancestorInterface, prop);
+    }
+    if (ancestorInterface.getImplicitPrototype() != null) {
+      // Case: `/** @interface */ class Foo { prop() { } }`
+      for (String prop : ancestorInterface.getImplicitPrototype().getOwnPropertyNames()) {
+        expectInterfaceProperty(n, instance, ancestorInterface, prop);
       }
     }
   }
@@ -897,9 +947,11 @@ class TypeValidator implements Serializable {
   private void expectInterfaceProperty(
       Node n, ObjectType instance, ObjectType implementedInterface, String propName) {
     OwnedProperty propSlot = instance.findClosestDefinition(propName);
-    if (propSlot == null || propSlot.isOwnedByInterface()) {
-      if (instance.getConstructor().isAbstract()) {
-        // Abstract classes are not required to implement interface properties.
+    if (propSlot == null
+        || (!instance.getConstructor().isInterface() && propSlot.isOwnedByInterface())) {
+
+      if (instance.getConstructor().isAbstract() || instance.getConstructor().isInterface()) {
+        // Abstract classes and interfaces are not required to implement interface properties.
         return;
       }
       registerMismatch(
@@ -910,43 +962,53 @@ class TypeValidator implements Serializable {
                   n,
                   INTERFACE_METHOD_NOT_IMPLEMENTED,
                   propName,
-                  implementedInterface.toString(),
+                  implementedInterface.getReferenceName(),
                   instance.toString())));
     } else {
+      boolean local = propSlot.getOwnerInstanceType().equals(instance);
+      if (!local && instance.getConstructor().isInterface()) {
+        // non-local interface mismatches already handled via interface property conflict checks.
+        return;
+      }
+
       Property prop = propSlot.getValue();
       Node propNode = prop.getDeclaration() == null ? null : prop.getDeclaration().getNode();
-
-      // Fall back on the constructor node if we can't find a node for the
-      // property.
+      // Fall back on the constructor node if we can't find a node for the property.
       propNode = propNode == null ? n : propNode;
 
-      JSType found = prop.getType();
-      found = found.restrictByNotNullOrUndefined();
-
-      JSType required = implementedInterface.getPropertyType(propName);
-      TemplateTypeMap typeMap = implementedInterface.getTemplateTypeMap();
-      if (!typeMap.isEmpty()) {
-        TemplateTypeMapReplacer replacer = new TemplateTypeMapReplacer(
-            typeRegistry, typeMap);
-        required = required.visit(replacer);
-      }
-      required = required.restrictByNotNullOrUndefined();
-
-      if (!found.isSubtype(required, this.subtypingMode)) {
-        // Implemented, but not correctly typed
-        JSError err =
-            JSError.make(
-                propNode,
-                HIDDEN_INTERFACE_PROPERTY_MISMATCH,
-                propName,
-                instance.toString(),
-                getClosestDefiningTypeName(implementedInterface, propName),
-                required.toString(),
-                found.toString());
-        registerMismatch(found, required, err);
-        report(err);
-      }
+      checkPropertyType(propNode, instance, implementedInterface, propName, prop.getType());
     }
+  }
+
+  /**
+   * Check the property is correctly typed (i.e. subtype of the parent property's type declaration).
+   */
+  void checkPropertyType(
+      Node n, JSType instance, ObjectType parent, String propertyName, JSType found) {
+    JSType required = parent.getPropertyType(propertyName);
+    TemplateTypeMap typeMap = instance.getTemplateTypeMap();
+    if (!typeMap.isEmpty() && required.hasAnyTemplateTypes()) {
+      required = required.visit(TemplateTypeReplacer.forPartialReplacement(typeRegistry, typeMap));
+    }
+
+    if (found.isSubtypeOf(required, this.subtypingMode)) {
+      return;
+    }
+
+    // Implemented, but not correctly typed
+    JSError err =
+        JSError.make(
+            n,
+            parent.getConstructor().isInterface()
+                ? HIDDEN_INTERFACE_PROPERTY_MISMATCH
+                : HIDDEN_SUPERCLASS_PROPERTY_MISMATCH,
+            propertyName,
+            parent.getReferenceName(),
+            required.toString(),
+            found.toString(),
+            instance.toString());
+    registerMismatch(found, required, err);
+    report(err);
   }
 
   /**
@@ -1000,7 +1062,7 @@ class TypeValidator implements Serializable {
   }
 
   private void mismatch(Node n, String msg, JSType found, JSType required) {
-    if (!found.isSubtype(required, this.subtypingMode)) {
+    if (!found.isSubtypeOf(required, this.subtypingMode)) {
       Set<String> missing = null;
       Set<String> mismatch = null;
       if (required.isStructuralType()) {
@@ -1016,7 +1078,7 @@ class TypeValidator implements Serializable {
               if (hasProperty) {
                 if (!foundObject
                     .getPropertyType(property)
-                    .isSubtype(propRequired, subtypingMode)) {
+                    .isSubtypeOf(propRequired, subtypingMode)) {
                   mismatch.add(property);
                 }
               } else {
@@ -1111,11 +1173,84 @@ class TypeValidator implements Serializable {
     return originalDeclLevel == CheckLevel.OFF;
   }
 
-  /** Given an instance type and a property, finds the closest type that defines the property. */
-  static String getClosestDefiningTypeName(ObjectType instanceType, String propertyName) {
-    ObjectType type = instanceType.getClosestDefiningType(propertyName);
-    return type.isFunctionPrototypeType()
-        ? type.getOwnerFunction().getReferenceName()
-        : type.getReferenceName();
+  void expectWellFormedTemplatizedType(Node n) {
+    WellFormedTemplatizedTypeVerifier verifier = new WellFormedTemplatizedTypeVerifier(n);
+    if (n.getJSType() != null) {
+      n.getJSType().visit(verifier);
+    }
+  }
+
+  final class WellFormedTemplatizedTypeVerifier extends Visitor.WithDefaultCase<Boolean> {
+    Node node;
+
+    WellFormedTemplatizedTypeVerifier(Node node) {
+      this.node = node;
+    }
+
+    @Override
+    protected Boolean caseDefault(@Nullable JSType type) {
+      return true;
+    }
+
+    @Override
+    public Boolean caseEnumElementType(EnumElementType type) {
+      return type.getPrimitiveType() != null ? type.getPrimitiveType().visit(this) : true;
+    }
+
+    @Override
+    public Boolean caseFunctionType(FunctionType type) {
+      for (JSType param : type.getParameterTypes()) {
+        if (!param.visit(this)) {
+          return false;
+        }
+      }
+      return type.getReturnType().visit(this);
+    }
+
+    @Override
+    public Boolean caseNamedType(NamedType type) {
+      return type.getReferencedType().visit(this);
+    }
+
+    @Override
+    public Boolean caseUnionType(UnionType type) {
+      for (JSType alt : type.getAlternates()) {
+        if (!alt.visit(this)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    @Override
+    public Boolean caseTemplatizedType(TemplatizedType type) {
+      List<TemplateType> referencedTemplates =
+          type.getReferencedType().getTemplateTypeMap().getTemplateKeys();
+      for (int i = 0; i < type.getTemplateTypes().size(); i++) {
+        JSType assignedType = type.getTemplateTypes().get(i);
+        if (i < referencedTemplates.size()) {
+          TemplateType templateType = referencedTemplates.get(i);
+          if (!assignedType.isSubtype(templateType.getBound())) {
+            registerMismatch(
+                assignedType,
+                templateType.getBound(),
+                report(
+                    JSError.make(
+                        node,
+                        RhinoErrorReporter.BOUNDED_GENERIC_TYPE_ERROR,
+                        assignedType.toString(),
+                        templateType.getReferenceName(),
+                        templateType.getBound().toString())));
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    @Override
+    public Boolean caseTemplateType(TemplateType templateType) {
+      return !templateType.containsCycle() && templateType.getBound().visit(this);
+    }
   }
 }

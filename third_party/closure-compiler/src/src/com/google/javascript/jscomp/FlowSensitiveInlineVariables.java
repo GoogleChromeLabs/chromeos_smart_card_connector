@@ -52,7 +52,6 @@ import java.util.Set;
  *
  * <p>Other requirements can be found in {@link Candidate#canInline}. Currently
  * this pass does not operate on the global scope due to compilation time.
- *
  */
 class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
 
@@ -175,7 +174,7 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
       return;
     }
 
-    Es6SyntacticScopeCreator scopeCreator = (Es6SyntacticScopeCreator) t.getScopeCreator();
+    SyntacticScopeCreator scopeCreator = (SyntacticScopeCreator) t.getScopeCreator();
 
     // Compute the forward reaching definition.
     ControlFlowAnalysis cfa = new ControlFlowAnalysis(compiler, false, true);
@@ -260,7 +259,7 @@ class FlowSensitiveInlineVariables implements CompilerPass, ScopedCallback {
 
   @Override
   public void process(Node externs, Node root) {
-    (new NodeTraversal(compiler, this,  new Es6SyntacticScopeCreator(compiler)))
+    (new NodeTraversal(compiler, this, new SyntacticScopeCreator(compiler)))
         .traverseRoots(externs, root);
   }
 

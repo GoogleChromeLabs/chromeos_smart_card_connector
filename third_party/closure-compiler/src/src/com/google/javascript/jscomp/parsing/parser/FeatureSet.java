@@ -82,7 +82,7 @@ public final class FeatureSet implements Serializable {
 
   public static final FeatureSet TYPESCRIPT = ES_NEXT.with(LangVersion.TYPESCRIPT.features());
 
-  public static final FeatureSet TYPE_CHECK_SUPPORTED = ES2019;
+  public static final FeatureSet TYPE_CHECK_SUPPORTED = ES2019_MODULES;
 
   private enum LangVersion {
     ES3,
@@ -180,8 +180,9 @@ public final class FeatureSet implements Serializable {
     // https://github.com/tc39/proposal-optional-catch-binding
     OPTIONAL_CATCH_BINDING("Optional catch binding", LangVersion.ES2019),
 
-    // Stage 3 proposal likely to be part of ES2020
+    // Stage 3 proposals likely to be part of ES2020
     DYNAMIC_IMPORT("Dynamic module import", LangVersion.ES_UNSUPPORTED),
+    IMPORT_META("import.meta", LangVersion.ES_UNSUPPORTED),
 
     // ES6 typed features that are not at all implemented in browsers
     ACCESSIBILITY_MODIFIER("accessibility modifier", LangVersion.TYPESCRIPT),
@@ -436,7 +437,11 @@ public final class FeatureSet implements Serializable {
     }
   }
 
-  public static FeatureSet latest() {
+  public static FeatureSet all() {
     return TYPESCRIPT;
+  }
+
+  public static FeatureSet latest() {
+    return ES_NEXT;
   }
 }

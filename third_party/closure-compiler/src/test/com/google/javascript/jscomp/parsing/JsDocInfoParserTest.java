@@ -17,6 +17,7 @@
 package com.google.javascript.jscomp.parsing;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.truth.Correspondence.transforming;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.parsing.JsDocInfoParser.BAD_TYPE_WIKI_LINK;
@@ -24,6 +25,7 @@ import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.javascript.jscomp.NodeUtil;
 import com.google.javascript.jscomp.SourceFile;
 import com.google.javascript.jscomp.parsing.Config.JsDocParsing;
 import com.google.javascript.jscomp.parsing.Config.LanguageMode;
@@ -3749,7 +3751,9 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
   public void testParserWithTemplateTypeNameMissing() {
     parse(
         "@template */",
-        "Bad type annotation. @template tag missing type name." + BAD_TYPE_WIKI_LINK);
+        "name not recognized due to syntax error.",
+        "Bad type annotation. @template tag missing type name." + BAD_TYPE_WIKI_LINK,
+        "Unexpected end of file");
   }
 
   @Test
@@ -3761,14 +3765,34 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
   public void testParserWithInvalidTemplateType() {
     parse(
         "@template {T} */",
-        "Bad type annotation. Invalid type name(s) for @template annotation." + BAD_TYPE_WIKI_LINK);
+        "Bounded generic semantics are currently still in development",
+        "name not recognized due to syntax error.",
+        "Bad type annotation. @template tag missing type name." + BAD_TYPE_WIKI_LINK,
+        "Unexpected end of file");
+  }
+
+  @Test
+  public void testBoundedGenericWithoutName() {
+    parse(
+        "@template {number} */",
+        "Bounded generic semantics are currently still in development",
+        "name not recognized due to syntax error.",
+        "Bad type annotation. @template tag missing type name." + BAD_TYPE_WIKI_LINK,
+        "Unexpected end of file");
+  }
+
+  @Test
+  public void testParserWithValidTemplateType() {
+    parse(
+        "@template {string} T */", //
+        "Bounded generic semantics are currently still in development");
   }
 
   @Test
   public void testParserWithValidAndInvalidTemplateType() {
     parse(
-        "@template S, {T} */",
-        "Bad type annotation. Invalid type name(s) for @template annotation." + BAD_TYPE_WIKI_LINK);
+        "@template S, {T} */", //
+        "name not recognized due to syntax error.");
   }
 
   @Test
@@ -3833,7 +3857,9 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
   public void testParserWithTemplateDuplicatedTypeNameMissing() {
     parse(
         "@template T,R\n@template */",
-        "Bad type annotation. @template tag missing type name." + BAD_TYPE_WIKI_LINK);
+        "name not recognized due to syntax error.",
+        "Bad type annotation. @template tag missing type name." + BAD_TYPE_WIKI_LINK,
+        "Unexpected end of file");
   }
 
   /** This is unusual, but allowed. */
@@ -3865,7 +3891,7 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
     parse(
         "@template T, R := 'string' =:*/",
         "Bad type annotation. "
-            + "Type transformation must be associated to a single type name."
+            + "Multiple template names cannot be declared with bounds or TTL."
             + BAD_TYPE_WIKI_LINK);
   }
 
@@ -3873,9 +3899,9 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
   public void testParserWithMissingTypeTransformationExpression() {
     parse(
         "@template T := */",
-        "Bad type annotation. "
-            + "Expected end delimiter for a type transformation."
-            + BAD_TYPE_WIKI_LINK);
+        "Bad type annotation. Expected end delimiter for a type transformation."
+            + BAD_TYPE_WIKI_LINK,
+        "Bad type annotation. Missing type transformation expression." + BAD_TYPE_WIKI_LINK);
   }
 
   @Test
@@ -5425,6 +5451,87 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
     checkTokenPosition(root.getLastChild().getFirstChild(), Token.STRING, 0, 27);
   }
 
+  @Test
+  public void testBoundedGeneric() {
+    parse(
+        "@template {number} T */", "Bounded generic semantics are currently still in development");
+  }
+
+  @Test
+  public void testUnbalancedBracesBoundedGeneric() {
+    parse(
+        "@template {number T */",
+        "Bounded generic semantics are currently still in development",
+        "Bad type annotation. expected closing } See"
+            + " https://github.com/google/closure-compiler/wiki/Annotating-JavaScript-for-the-Closure-Compiler"
+            + " for more information.");
+  }
+
+  @Test
+  public void testMultipleBoundedGeneric() {
+    parse(
+        "@template {string} T,U */",
+        "Bounded generic semantics are currently still in development",
+        "Bad type annotation. Multiple template names cannot be declared with bounds or TTL."
+            + BAD_TYPE_WIKI_LINK);
+  }
+
+  @Test
+  public void testMultipleBoundsBoundedGeneric() {
+    parse(
+        "@template {string} T, {number} U */",
+        "Bounded generic semantics are currently still in development",
+        "name not recognized due to syntax error.");
+  }
+
+  @Test
+  public void testBadTypeExpressionBoundedGeneric() {
+    parse(
+        "@template {string || number} T */",
+        "Bounded generic semantics are currently still in development",
+        "Bad type annotation. type not recognized due to syntax error." + BAD_TYPE_WIKI_LINK,
+        "name not recognized due to syntax error.",
+        "Bad type annotation. @template tag missing type name." + BAD_TYPE_WIKI_LINK);
+  }
+
+  @Test
+  public void testReuseTemplateTypeName() {
+    parse(
+        "@template {string} T \n* @template {number} T */",
+        "Bounded generic semantics are currently still in development",
+        "Bounded generic semantics are currently still in development",
+        "Bad type annotation. Type name(s) for @template annotation declared twice."
+            + BAD_TYPE_WIKI_LINK);
+  }
+
+  @Test
+  public void testMultipleTemplateBoundDeclarations() {
+    parse(
+        " @template {string} T \n* @template {number} U */",
+        "Bounded generic semantics are currently still in development",
+        "Bounded generic semantics are currently still in development");
+  }
+
+  @Test
+  public void testTemplateJSTypeExpression() {
+    JSDocInfo info =
+        parse(
+            "@template {string|number} T */",
+            "Bounded generic semantics are currently still in development");
+
+    assertThat((info.getTemplateTypes().size() == 1)).isTrue();
+    assertThat(info.getTemplateTypeNames().get(0).equals("T")).isTrue();
+
+    Node root = info.getTemplateTypes().get("T").getRoot();
+    checkTokenPosition(root, Token.PIPE, 0, 18);
+
+    checkTokenPosition(root.getFirstChild(), Token.STRING, 0, 11);
+    assertThat(root.getFirstChild().getString().equals("string")).isTrue();
+
+    checkTokenPosition(root.getSecondChild(), Token.STRING, 0, 18);
+    assertThat(root.getSecondChild().getString().equals("number")).isTrue();
+  }
+
   private static void checkTokenPosition(Node n, Token t, int lineno, int charno) {
     assertNode(n).hasType(t);
     assertNode(n).hasLineno(lineno);
@@ -5661,11 +5768,20 @@ public final class JsDocInfoParserTest extends BaseJSTypeTestCase {
 
     errorReporter.assertHasEncounteredAllWarnings();
 
+    final JSDocInfo result;
     if (parseFileOverview) {
-      return jsdocParser.getFileOverviewJSDocInfo();
+      result = jsdocParser.getFileOverviewJSDocInfo();
     } else {
-      return jsdocParser.retrieveAndResetParsedJSDocInfo();
+      result = jsdocParser.retrieveAndResetParsedJSDocInfo();
     }
+
+    if (result != null) {
+      assertThat(result.getTypeNodes())
+          .comparingElementsUsing(transforming(NodeUtil::getSourceName, "has source name that"))
+          .doesNotContain(null);
+    }
+
+    return result;
   }
 
   private static Node parseType(String typeComment) {

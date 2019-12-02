@@ -336,6 +336,18 @@ public final class CheckGlobalNamesTest extends CompilerTestCase {
   }
 
   @Test
+  public void testNoWarningForModuleDep_onUnknownOriginNamespace() {
+    testSame(
+        createModuleStar(
+            // root module, e.g. a legacy namespace goog.module.
+            "const ns = {}; class C { static m() {} }; ns.C = C;",
+            // leaf 1, uses ns.C.
+            "alert(ns.C.m);",
+            // leaf 2, a mod.
+            "ns.C.m = function() { return 0; };"));
+  }
+
+  @Test
   public void testBadModuleDep1() {
     testSame(createModuleChain(
         "var c = a.b;",
@@ -597,9 +609,12 @@ public final class CheckGlobalNamesTest extends CompilerTestCase {
 
   @Test
   public void testDestructuringUndefinedProperty() {
-    testWarning(
-        lines("var ns = {};", "/** @enum */", "ns.Modes = {A, B};", "const {C} = ns.Modes;"),
-        UNDEFINED_NAME_WARNING);
+    testSame(
+        lines(
+            "var ns = {};", //
+            "/** @enum */",
+            "ns.Modes = {A, B};",
+            "const {C} = ns.Modes;"));
   }
 
   @Test
@@ -671,5 +686,16 @@ public final class CheckGlobalNamesTest extends CompilerTestCase {
             "var a = {};",
             "var alias = a;",
             "alert(a.b.c.d);")); // This will cause a runtime error but not a compiler warning.
+  }
+
+  @Test
+  public void testReassignedName() {
+    // regression test for an obscure bug triggered by redefining a name as a class after its
+    // original definition, and also adding a property to that name.
+    testSame(
+        lines(
+            "let fnOrClass = function() {};", //
+            "fnOrClass = class {};",
+            "fnOrClass.PROP = 0;"));
   }
 }

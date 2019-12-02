@@ -77,6 +77,8 @@ public class Node implements Serializable {
   private static final long serialVersionUID = 1L;
 
   private enum Prop {
+    // Contains non-JSDoc comment
+    NON_JSDOC_COMMENT,
     // Contains a JSDocInfo object
     JSDOC_INFO,
     // The name node is a variable length argument placeholder.
@@ -97,6 +99,7 @@ public class Node implements Serializable {
     // Function or constructor call side effect flags.
     SIDE_EFFECT_FLAGS,
     // The variable or property is constant.
+    // TODO(lukes): either document the differences or otherwise reconcile with CONSTANT_VAR_FLAGS
     IS_CONSTANT_NAME,
     // The variable creates a namespace.
     IS_NAMESPACE,
@@ -113,8 +116,6 @@ public class Node implements Serializable {
     // Whether a STRING node contains a \v vertical tab escape. This is a total hack. See comments
     // in IRFactory about this.
     SLASH_V,
-    // Marks a function whose parameter types have been inferred.
-    INFERRED,
     // For passes that work only on changed funs.
     CHANGE_TIME,
     // An object that's used for goog.object.reflect-style reflection.
@@ -133,8 +134,10 @@ public class Node implements Serializable {
     EXPORT_DEFAULT,
     // Set if an export is a "*"
     EXPORT_ALL_FROM,
-    // A lexical variable is inferred const
-    IS_CONSTANT_VAR,
+    // A variable is inferred or declared as const meaning it is only ever assigned once at its
+    // declaration site.
+    // This is an int prop that holds a bitset of {@link ConstantVarFlags} values.
+    CONSTANT_VAR_FLAGS,
     // Used by the ES6-to-ES3 translator.
     IS_GENERATOR_MARKER,
     // Used by the ES6-to-ES3 translator.
@@ -182,8 +185,6 @@ public class Node implements Serializable {
     IS_MODULE_NAME,
     // Indicates a namespace that was provided at some point in the past.
     WAS_PREVIOUSLY_PROVIDED,
-    // Indicates that a FUNCTION node is converted from an ES6 class
-    IS_ES6_CLASS,
     // Indicates that a SCRIPT represents a transpiled file
     TRANSPILED,
     // For passes that work only on deleted funs.
@@ -208,6 +209,28 @@ public class Node implements Serializable {
     DEFINE_NAME,
   }
 
+  /**
+   * Get the NonJSDoc comment string attached to this node.
+   *
+   * @return the information or empty string if no nonJSDoc is attached to this node
+   */
+  public final String getNonJSDocCommentString() {
+    if (getProp(Prop.NON_JSDOC_COMMENT) == null) {
+      return "";
+    }
+    return ((NonJSDocComment) getProp(Prop.NON_JSDOC_COMMENT)).getCommentString();
+  }
+
+  public final NonJSDocComment getNonJSDocComment() {
+    return (NonJSDocComment) getProp(Prop.NON_JSDOC_COMMENT);
+  }
+
+  /** Sets the NonJSDoc comment attached to this node. */
+  public final Node setNonJSDocComment(NonJSDocComment comment) {
+    putProp(Prop.NON_JSDOC_COMMENT, comment);
+    return this;
+  }
+
   // TODO(sdh): Get rid of these by using accessor methods instead.
   // These export instances of a private type, which is awkward but a side effect is that it
   // prevents anyone from introducing problemmatic uses of the general-purpose accessors.
@@ -226,7 +249,6 @@ public class Node implements Serializable {
   public static final Prop YIELD_ALL = Prop.YIELD_ALL;
   public static final Prop EXPORT_DEFAULT = Prop.EXPORT_DEFAULT;
   public static final Prop EXPORT_ALL_FROM = Prop.EXPORT_ALL_FROM;
-  public static final Prop IS_CONSTANT_VAR = Prop.IS_CONSTANT_VAR;
   public static final Prop COMPUTED_PROP_METHOD = Prop.COMPUTED_PROP_METHOD;
   public static final Prop COMPUTED_PROP_GETTER = Prop.COMPUTED_PROP_GETTER;
   public static final Prop COMPUTED_PROP_SETTER = Prop.COMPUTED_PROP_SETTER;
@@ -241,7 +263,6 @@ public class Node implements Serializable {
   public static final Prop FEATURE_SET = Prop.FEATURE_SET;
   public static final Prop IS_MODULE_NAME = Prop.IS_MODULE_NAME;
   public static final Prop WAS_PREVIOUSLY_PROVIDED = Prop.WAS_PREVIOUSLY_PROVIDED;
-  public static final Prop IS_ES6_CLASS = Prop.IS_ES6_CLASS;
   public static final Prop TRANSPILED = Prop.TRANSPILED;
   public static final Prop MODULE_ALIAS = Prop.MODULE_ALIAS;
   public static final Prop MODULE_EXPORT = Prop.MODULE_EXPORT;
@@ -1203,7 +1224,7 @@ public class Node implements Serializable {
     return keys;
   }
 
-  /** Can only be called when <tt>getType() == TokenStream.NUMBER</tt> */
+  /** Can only be called when <code>getType() == TokenStream.NUMBER</code> */
   public double getDouble() {
     if (this.token == Token.NUMBER) {
       throw new IllegalStateException(
@@ -1214,7 +1235,7 @@ public class Node implements Serializable {
   }
 
   /**
-   * Can only be called when <tt>getType() == Token.NUMBER</tt>
+   * Can only be called when <code>getType() == Token.NUMBER</code>
    *
    * @param value value to set.
    */
@@ -1251,7 +1272,7 @@ public class Node implements Serializable {
     }
   }
 
-  /** Can only be called when <tt>getType() == Token.TEMPLATELIT_STRING</tt> */
+  /** Can only be called when <code>getType() == Token.TEMPLATELIT_STRING</code> */
   public String getRawString() {
     if (this.token == Token.TEMPLATELIT_STRING) {
       throw new IllegalStateException(
@@ -1261,7 +1282,7 @@ public class Node implements Serializable {
     }
   }
 
-  /** Can only be called when <tt>getType() == Token.TEMPLATELIT_STRING</tt> */
+  /** Can only be called when <code>getType() == Token.TEMPLATELIT_STRING</code> */
   @Nullable
   public String getCookedString() {
     if (this.token == Token.TEMPLATELIT_STRING) {
@@ -1449,8 +1470,9 @@ public class Node implements Serializable {
     setStaticSourceFile(other.getStaticSourceFile());
   }
 
-  public final void setStaticSourceFile(@Nullable StaticSourceFile file) {
+  public final Node setStaticSourceFile(@Nullable StaticSourceFile file) {
     this.putProp(Prop.SOURCE_FILE, file);
+    return this;
   }
 
   /** Sets the source file to a non-extern file of the given name. */
@@ -1770,7 +1792,7 @@ public class Node implements Serializable {
    * Iterates all of the node's ancestors excluding itself.
    */
   public final AncestorIterable getAncestors() {
-    return new AncestorIterable(checkNotNull(this.getParent()));
+    return new AncestorIterable(this.getParent());
   }
 
   /**
@@ -1779,10 +1801,8 @@ public class Node implements Serializable {
   public static final class AncestorIterable implements Iterable<Node> {
     @Nullable private Node cur;
 
-    /**
-     * @param cur The node to start.
-     */
-    AncestorIterable(Node cur) {
+    /** @param cur The node to start. */
+    AncestorIterable(@Nullable Node cur) {
       this.cur = cur;
     }
 
@@ -2129,6 +2149,35 @@ public class Node implements Serializable {
   }
 
   /**
+   * Returns whether a node matches a simple name, such as
+   * <code>x</code>, returns false if this is not a NAME node.
+   */
+  public final boolean matchesName(String name) {
+    if (token != token.NAME) {
+      return false;
+    }
+    String internalString = getString();
+    return !internalString.isEmpty() && name.equals(internalString);
+  }
+
+  /**
+   * Check that if two NAME node match, returns false if either node is
+   * not a NAME node. As a empty string is not considered a
+   * valid Name (it is an AST placeholder), empty strings are never
+   * considered to be matches.
+   */
+  @SuppressWarnings("ReferenceEquality")
+  public final boolean matchesName(Node n) {
+    if (token != token.NAME || n.token != Token.NAME) {
+      return false;
+    }
+
+    // ==, rather than equal as it is intern'd in setString
+    String internalString = getString();
+    return internalString != "" && internalString == n.getString();
+  }
+
+  /**
    * Returns whether a node matches a simple or a qualified name, such as
    * <code>x</code> or <code>a.b.c</code> or <code>this.a</code>.
    */
@@ -2145,6 +2194,7 @@ public class Node implements Serializable {
 
     switch (this.getToken()) {
       case NAME:
+      case IMPORT_STAR:
         String name = getString();
         return start == 0 && !name.isEmpty() && name.length() == endIndex && qname.startsWith(name);
       case THIS:
@@ -2177,7 +2227,8 @@ public class Node implements Serializable {
     switch (token) {
       case NAME:
         // ==, rather than equal as it is intern'd in setString
-        return !getString().isEmpty() && getString() == n.getString();
+        String internalString = getString();
+        return internalString != "" && internalString == n.getString();
       case THIS:
       case SUPER:
         return true;
@@ -2198,10 +2249,12 @@ public class Node implements Serializable {
    * a "this" reference, such as <code>a.b.c</code>, but not <code>this.a</code>
    * .
    */
+  @SuppressWarnings("ReferenceEquality")
   public final boolean isUnscopedQualifiedName() {
     switch (this.getToken()) {
       case NAME:
-        return !getString().isEmpty();
+        // Both string are intern'd.
+        return getString() != "";
       case GETPROP:
         return getFirstChild().isUnscopedQualifiedName();
       default:
@@ -2739,11 +2792,6 @@ public class Node implements Serializable {
     return getBooleanProp(Prop.YIELD_ALL);
   }
 
-  /** Returns true if this is or ever was a CLASS node (i.e. even after transpilation). */
-  public final boolean isEs6Class() {
-    return isClass() || getBooleanProp(Prop.IS_ES6_CLASS);
-  }
-
   /** Returns any goog.define'd name corresponding to this NAME or GETPROP node. */
   public final String getDefineName() {
     return (String) getProp(Prop.DEFINE_NAME);
@@ -2970,6 +3018,109 @@ public class Node implements Serializable {
   /** Returns true iff any the bit set in {@code mask} is also set in {@code value}. */
   private static boolean anyBitSet(int value, int mask) {
     return (value & mask) != 0;
+  }
+
+  /**
+   * Constants for the {@link Prop#CONSTANT_VAR_FLAGS} bit set property.
+   *
+   * <ul>
+   *   <li>{@link ConstantVarFlags#DECLARED} means the name was declared using annotation or syntax
+   *       indicating it must be constant
+   *   <li>{@link ConstantVarFlags#INFERRED} means the compiler can see that it is assigned exactly
+   *       once, whether or not it was declared to be constant.
+   * </ul>
+   *
+   * <p>Either, both, or neither may be set for any name.
+   */
+  private static final class ConstantVarFlags {
+    // each constant should be a distinct power of 2.
+
+    static final int DECLARED = 1;
+    static final int INFERRED = 2;
+
+    private ConstantVarFlags() {}
+  }
+
+  private final int getConstantVarFlags() {
+    return getIntProp(Prop.CONSTANT_VAR_FLAGS);
+  }
+
+  private final void setConstantVarFlag(int flag, boolean value) {
+    int flags = getConstantVarFlags();
+    if (value) {
+      flags = flags | flag;
+    } else {
+      flags = flags & ~flag;
+    }
+    putIntProp(Prop.CONSTANT_VAR_FLAGS, flags);
+  }
+
+  /**
+   * Returns whether this variable is declared as a constant.
+   *
+   * <p>The compiler considers a variable to be declared if:
+   *
+   * <ul>
+   *   <li>it is declared with the {@code const} keyword, or
+   *   <li>It is declared with a jsdoc {@code @const} annotation, or
+   *   <li>The current coding convention considers it to be a constant.
+   * </ul>
+   *
+   * <p>Only valid to call on a {@linkplain #isName name} node.
+   */
+  public final boolean isDeclaredConstantVar() {
+    checkState(
+        isName() || isImportStar(),
+        "Should only be called on name or import * nodes. Found %s",
+        this);
+    return anyBitSet(getConstantVarFlags(), ConstantVarFlags.DECLARED);
+  }
+
+  /**
+   * Sets this variable to be a declared constant.
+   *
+   * <p>See {@link #isDeclaredConstantVar} for the rules.
+   */
+  public final void setDeclaredConstantVar(boolean value) {
+    checkState(
+        isName() || isImportStar(),
+        "Should only be called on name or import * nodes. Found %s",
+        this);
+    setConstantVarFlag(ConstantVarFlags.DECLARED, value);
+  }
+
+  /**
+   * Returns whether this variable is inferred to be constant.
+   *
+   * <p>The compiler infers a variable to be a constant if:
+   *
+   * <ul>
+   *   <li>It is assigned at its declaration site, and
+   *   <li>It is never reassigned during its lifetime, and
+   *   <li>It is not defined by an extern.
+   * </ul>
+   *
+   * <p>Only valid to call on a {@linkplain #isName name} node.
+   */
+  public final boolean isInferredConstantVar() {
+    checkState(
+        isName() || isImportStar(),
+        "Should only be called on name or import * nodes. Found %s",
+        this);
+    return anyBitSet(getConstantVarFlags(), ConstantVarFlags.INFERRED);
+  }
+
+  /**
+   * Sets this variable to be an inferred constant. *
+   *
+   * <p>See {@link #isInferredConstantVar} for the rules.
+   */
+  public final void setInferredConstantVar(boolean value) {
+    checkState(
+        isName() || isImportStar(),
+        "Should only be called on name or import * nodes. Found %s",
+        this);
+    setConstantVarFlag(ConstantVarFlags.INFERRED, value);
   }
 
   /**
@@ -3286,7 +3437,7 @@ public class Node implements Serializable {
   }
 
   public final boolean isRest() {
-    return this.token == Token.REST;
+    return this.token == Token.ITER_REST || this.token == Token.OBJECT_REST;
   }
 
   public final boolean isReturn() {
@@ -3302,7 +3453,7 @@ public class Node implements Serializable {
   }
 
   public final boolean isSpread() {
-    return this.token == Token.SPREAD;
+    return this.token == Token.ITER_SPREAD || this.token == Token.OBJECT_SPREAD;
   }
 
   public final boolean isString() {

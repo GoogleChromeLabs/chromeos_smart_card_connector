@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.jscomp.ijs.IjsErrors;
 import com.google.javascript.jscomp.lint.CheckArrayWithGoogObject;
+import com.google.javascript.jscomp.lint.CheckConstantCaseNames;
 import com.google.javascript.jscomp.lint.CheckDuplicateCase;
 import com.google.javascript.jscomp.lint.CheckEmptyStatements;
 import com.google.javascript.jscomp.lint.CheckEnums;
@@ -52,7 +53,6 @@ import java.util.Set;
 
 /**
  * Named groups of DiagnosticTypes exposed by Compiler.
- * @author nicksantos@google.com (Nick Santos)
  */
 public class DiagnosticGroups {
   static final DiagnosticType UNUSED =
@@ -63,15 +63,10 @@ public class DiagnosticGroups {
           "reportUnknownTypes",
           "analyzerChecks",
           "analyzerChecksInternal",
-          "oldReportUnknownTypes",
           "newCheckTypes",
           "newCheckTypesCompatibility",
           "newCheckTypesExtraChecks",
-          "missingSourcesWarnings",
-          // TODO(johnlenz): "strictMissingProperties" is here until it has a shake down cruise.
-          "strictMissingProperties",
-          "strictPrimitiveOperators",
-          "strictCheckTypes");
+          "missingSourcesWarnings");
 
   public DiagnosticGroups() {}
 
@@ -119,7 +114,6 @@ public class DiagnosticGroups {
   // to parsing/ParserConfig.properties
   static final String DIAGNOSTIC_GROUP_NAMES =
       "accessControls, "
-          + "ambiguousFunctionDecl, "
           + "checkPrototypalTypes, "
           + "checkRegExp, "
           + "checkTypes, "
@@ -152,6 +146,7 @@ public class DiagnosticGroups {
           + "msgDescriptions, "
           + "newCheckTypes, "
           + "nonStandardJsDocs, "
+          + "partialAlias, "
           + "polymer, "
           + "reportUnknownTypes, "
           + "strictCheckTypes, "
@@ -253,9 +248,9 @@ public class DiagnosticGroups {
           VarCheck.NAME_REFERENCE_IN_EXTERNS_ERROR,
           VarCheck.UNDEFINED_EXTERN_VAR_ERROR);
 
+  @Deprecated
   public static final DiagnosticGroup AMBIGUOUS_FUNCTION_DECL =
-      DiagnosticGroups.registerGroup("ambiguousFunctionDecl",
-          StrictModeCheck.BAD_FUNCTION_DECLARATION);
+      DiagnosticGroups.registerDeprecatedGroup("ambiguousFunctionDecl");
 
   public static final DiagnosticGroup UNKNOWN_DEFINES =
       DiagnosticGroups.registerGroup("unknownDefines",
@@ -353,14 +348,6 @@ public class DiagnosticGroups {
   public static final DiagnosticGroup TOO_MANY_TYPE_PARAMS =
       DiagnosticGroups.registerGroup("tooManyTypeParams",
           RhinoErrorReporter.TOO_MANY_TEMPLATE_PARAMS);
-
-  @Deprecated
-  public static final DiagnosticGroup CHECK_EVENTFUL_OBJECT_DISPOSAL =
-      DiagnosticGroups.registerDeprecatedGroup("checkEventfulObjectDisposal");
-
-  public static final DiagnosticGroup OLD_REPORT_UNKNOWN_TYPES =
-      DiagnosticGroups.registerGroup("oldReportUnknownTypes", // undocumented
-          TypeCheck.UNKNOWN_EXPR_TYPE);
 
   public static final DiagnosticGroup STRICT_MISSING_PROPERTIES =
       DiagnosticGroups.registerGroup("strictMissingProperties",
@@ -461,8 +448,8 @@ public class DiagnosticGroups {
       DiagnosticGroups.registerGroup(
           "missingProvide",
           CheckProvides.MISSING_PROVIDE_WARNING,
-          MISSING_MODULE_OR_PROVIDE,
-          ModuleMapCreator.MISSING_NAMESPACE_IMPORT);
+          // TODO(b/143887932): Move this into a better DiagnosticGroup
+          ClosurePrimitiveErrors.MISSING_MODULE_OR_PROVIDE_FOR_FORWARD_DECLARE);
 
   public static final DiagnosticGroup UNRECOGNIZED_TYPE_ERROR =
       DiagnosticGroups.registerGroup("unrecognizedTypeError", // undocumented
@@ -484,7 +471,8 @@ public class DiagnosticGroups {
           UNDEFINED_VARIABLES,
           MISSING_PROVIDE,
           DiagnosticGroup.forType(FunctionTypeBuilder.RESOLVED_TAG_EMPTY),
-          DiagnosticGroup.forType(ProcessClosurePrimitives.MISSING_PROVIDE_ERROR),
+          DiagnosticGroup.forType(MISSING_MODULE_OR_PROVIDE),
+          DiagnosticGroup.forType(ModuleMapCreator.MISSING_NAMESPACE_IMPORT),
           MISSING_PROPERTIES,
           // triggered by typedefs with missing types
           DUPLICATE_VARS,
@@ -604,6 +592,9 @@ public class DiagnosticGroups {
       DiagnosticGroups.registerGroup(
           "typeImportCodeReferences", CheckTypeImportCodeReferences.TYPE_IMPORT_CODE_REFERENCE);
 
+  public static final DiagnosticGroup PARTIAL_ALIAS =
+      DiagnosticGroups.registerGroup("partialAlias", CollapseProperties.PARTIAL_NAMESPACE_WARNING);
+
   // Warnings reported by the linter. If you enable these as errors in your build targets,
   // the JS Compiler team will break your build and not rollback.
   public static final DiagnosticGroup LINT_CHECKS =
@@ -612,6 +603,7 @@ public class DiagnosticGroups {
           CheckJSDocStyle.LINT_DIAGNOSTICS,
           new DiagnosticGroup(
               CheckClosureImports.LET_CLOSURE_IMPORT,
+              CheckConstantCaseNames.MISSING_CONST_PROPERTY,
               CheckEmptyStatements.USELESS_EMPTY_STATEMENT,
               CheckEnums.COMPUTED_PROP_NAME_IN_ENUM,
               CheckEnums.DUPLICATE_ENUM_VALUE,
@@ -688,7 +680,6 @@ public class DiagnosticGroups {
   // be moved to the suspiciousCode group.
   static {
     DiagnosticGroups.registerGroup("transitionalSuspiciousCodeWarnings",
-        PeepholeFoldConstants.INDEX_OUT_OF_BOUNDS_ERROR,
         PeepholeFoldConstants.FRACTIONAL_BITWISE_OPERAND);
   }
 
@@ -709,7 +700,7 @@ public class DiagnosticGroups {
   public static final DiagnosticGroup LATE_PROVIDE =
       DiagnosticGroups.registerGroup(
           "lateProvide", // undocumented
-          ProcessClosurePrimitives.LATE_PROVIDE_ERROR);
+          CheckClosureImports.LATE_PROVIDE_ERROR);
 
   public static final DiagnosticGroup MISSING_POLYFILL =
       DiagnosticGroups.registerGroup(
@@ -717,6 +708,12 @@ public class DiagnosticGroups {
 
   public static final DiagnosticGroup POLYMER =
       DiagnosticGroups.registerGroup("polymer", PolymerPassErrors.POLYMER_DESCRIPTOR_NOT_VALID);
+
+  static final DiagnosticGroup BOUNDED_GENERICS =
+      DiagnosticGroups.registerGroup(
+          "boundedGenerics",
+          RhinoErrorReporter.UNSUPPORTED_BOUNDED_GENERIC_TYPES,
+          RhinoErrorReporter.BOUNDED_GENERIC_TYPE_ERROR);
 
   // For internal use only, so there are no constants for these groups.
   static {

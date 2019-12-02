@@ -23,13 +23,12 @@ import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
+import com.google.javascript.rhino.jstype.TemplateType;
 import com.google.javascript.rhino.jstype.TemplateTypeMap;
-import com.google.javascript.rhino.jstype.UnionTypeBuilder;
+import com.google.javascript.rhino.jstype.UnionType;
 
 /**
  * Models different Javascript Promise-related operations
- *
- * @author lharker@google.com (Laura Harker)
  */
 final class Promises {
 
@@ -44,10 +43,13 @@ final class Promises {
    * of an expression after calling Promise.resolve() on it.
    */
   static final JSType getTemplateTypeOfThenable(JSTypeRegistry registry, JSType maybeThenable) {
+    // Without ".restrictByNotNullOrUndefined" we'd get the unknown type for "?IThenable<null>"
+    TemplateType templateType = registry.getIThenableTemplate();
     return maybeThenable
         // Without ".restrictByNotNullOrUndefined" we'd get the unknown type for "?IThenable<null>"
         .restrictByNotNullOrUndefined()
-        .getInstantiatedTypeArgument(registry.getNativeType(JSTypeNative.I_THENABLE_TYPE));
+        .getTemplateTypeMap()
+        .getResolvedTemplateType(templateType);
   }
 
   /**
@@ -73,7 +75,7 @@ final class Promises {
     }
 
     if (type.isUnionType()) {
-      UnionTypeBuilder unionTypeBuilder = UnionTypeBuilder.create(registry);
+      UnionType.Builder unionTypeBuilder = UnionType.builder(registry);
       for (JSType alternate : type.toMaybeUnionType().getAlternates()) {
         unionTypeBuilder.addAlternate(getResolvedType(registry, alternate));
       }

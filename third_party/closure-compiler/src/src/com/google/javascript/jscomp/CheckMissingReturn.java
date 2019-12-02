@@ -33,7 +33,6 @@ import javax.annotation.Nullable;
  * expected for functions with return type information. Functions with empty
  * bodies are ignored.
  *
- *
  * NOTE(dimvar):
  * Do not convert this pass to use JSType. The pass is only used with the old type checker.
  * The new type inference checks missing returns on its own.
@@ -216,8 +215,7 @@ class CheckMissingReturn implements ScopedCallback {
    *     with an empty body
    */
   private static boolean isEmptyFunction(Node function) {
-    return function.getChildCount() == 3
-           && !function.getSecondChild().getNext().hasChildren();
+    return function.hasXChildren(3) && !function.getSecondChild().getNext().hasChildren();
   }
 
   /**

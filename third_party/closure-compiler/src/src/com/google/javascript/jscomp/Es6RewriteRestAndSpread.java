@@ -100,7 +100,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
   @Override
   public void visit(NodeTraversal traversal, Node current, Node parent) {
     switch (current.getToken()) {
-      case REST:
+      case ITER_REST:
         visitRestParam(traversal, current, parent);
         break;
       case ARRAYLIT:
@@ -144,7 +144,8 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
 
     // TODO(lharker): we should report this error in typechecking, not during transpilation, so
     // that it also occurs when natively typechecking ES6.
-    if (paramTypeAnnotation != null && paramTypeAnnotation.getRoot().getToken() != Token.ELLIPSIS) {
+    if (paramTypeAnnotation != null
+        && paramTypeAnnotation.getRoot().getToken() != Token.ITER_REST) {
       compiler.report(JSError.make(restParam, BAD_REST_PARAMETER_ANNOTATION));
     }
 
@@ -385,9 +386,10 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
       }
       joinedGroups.setJSType(arrayType);
     }
+    boolean isFreeCall = spreadParent.getBooleanProp(Node.FREE_CALL);
 
     final Node callToApply;
-    if (calleeMayHaveSideEffects && callee.isGetProp()) {
+    if (calleeMayHaveSideEffects && callee.isGetProp() && !isFreeCall) {
       JSType receiverType = callee.getFirstChild().getJSType(); // Type of `foo()`.
 
       // foo().method(...[a, b, c])
@@ -416,7 +418,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
       // or
       // foo(...[a, b, c]) -> foo.apply(null, [a, b, c])
       Node context =
-          (callee.isGetProp() || callee.isGetElem())
+          (callee.isGetProp() || callee.isGetElem()) && !isFreeCall
               ? callee.getFirstChild().cloneTree()
               : nullWithJSType();
       callToApply = IR.call(getpropInferringJSType(callee, "apply"), context, joinedGroups);
@@ -429,7 +431,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
   }
 
   private boolean isSpreadOfArguments(Node n) {
-    return n.isSpread() && n.getOnlyChild().matchesQualifiedName("arguments");
+    return n.isSpread() && n.getOnlyChild().matchesName("arguments");
   }
 
   /**

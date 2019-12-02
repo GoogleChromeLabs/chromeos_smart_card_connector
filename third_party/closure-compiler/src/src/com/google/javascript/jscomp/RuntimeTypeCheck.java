@@ -45,7 +45,6 @@ import javax.annotation.Nullable;
  * which the compiler has a type.
  *
  * <p>The JavaScript code which implements the type assertions is in js/runtime_type_check.js.
- *
  */
 class RuntimeTypeCheck implements CompilerPass {
 
@@ -430,45 +429,8 @@ class RuntimeTypeCheck implements CompilerPass {
     checkArgument(paramList.isParamList(), paramList);
 
     ImmutableList.Builder<Node> builder = ImmutableList.builder();
-    paramNamesOf(paramList, builder);
+    NodeUtil.getParamOrPatternNames(paramList, builder::add);
     return builder.build();
-  }
-
-  /**
-   * Recursively collects the NAME parameter nodes of a FUNCTION.
-   *
-   * <p>This lookup abstracts over the other legal node types in a PARAM_LIST. It includes only
-   * those nodes that declare bindings within the function body.
-   */
-  private static void paramNamesOf(Node node, ImmutableList.Builder<Node> names) {
-    switch (node.getToken()) {
-      case NAME:
-        names.add(node);
-        break;
-
-      case REST:
-      case DEFAULT_VALUE:
-        paramNamesOf(node.getFirstChild(), names);
-        break;
-
-      case PARAM_LIST:
-      case ARRAY_PATTERN:
-        for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
-          paramNamesOf(child, names);
-        }
-        break;
-
-      case OBJECT_PATTERN:
-        for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
-          checkArgument(child.isStringKey() || child.isComputedProp(), child);
-          paramNamesOf(child.getLastChild(), names);
-        }
-        break;
-
-      default:
-        checkArgument(false, node);
-        break;
-    }
   }
 
   private void addBoilerplateCode() {

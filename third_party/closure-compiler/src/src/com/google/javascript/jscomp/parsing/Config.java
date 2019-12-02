@@ -25,8 +25,6 @@ import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 /**
  * Configuration for the AST factory. Should be shared across AST creation for all files of a
  * compilation process.
- *
- * @author nicksantos@google.com (Nick Santos)
  */
 @Immutable @AutoValue @AutoValue.CopyAnnotations
 public abstract class Config {
@@ -99,14 +97,15 @@ public abstract class Config {
   public enum JsDocParsing {
     TYPES_ONLY,
     INCLUDE_DESCRIPTIONS_NO_WHITESPACE,
-    INCLUDE_DESCRIPTIONS_WITH_WHITESPACE;
+    INCLUDE_DESCRIPTIONS_WITH_WHITESPACE,
+    INCLUDE_ALL_COMMENTS;
 
     boolean shouldParseDescriptions() {
       return this != TYPES_ONLY;
     }
 
     boolean shouldPreserveWhitespace() {
-      return this == INCLUDE_DESCRIPTIONS_WITH_WHITESPACE;
+      return this == INCLUDE_DESCRIPTIONS_WITH_WHITESPACE || this == INCLUDE_ALL_COMMENTS;
     }
   }
 

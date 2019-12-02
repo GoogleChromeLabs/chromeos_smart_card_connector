@@ -137,7 +137,7 @@ class TypedCodeGenerator extends CodeGenerator {
     }
 
     FunctionType funType = type.toMaybeFunctionType();
-    if (type.equals(registry.getNativeType(JSTypeNative.FUNCTION_INSTANCE_TYPE))) {
+    if (type.equals(registry.getNativeType(JSTypeNative.U2U_CONSTRUCTOR_TYPE))) {
       return "/** @type {!Function} */\n";
     }
     StringBuilder sb = new StringBuilder("/**\n");
@@ -260,11 +260,11 @@ class TypedCodeGenerator extends CodeGenerator {
   }
 
   private String getClassAnnotation(JSType classType) {
-    checkState(classType.isFunctionType(), classType);
-
     if (classType == null || classType.isUnknownType()) {
       return "";
     }
+
+    checkState(classType.isFunctionType(), classType);
 
     FunctionType funType = classType.toMaybeFunctionType();
     StringBuilder sb = new StringBuilder();

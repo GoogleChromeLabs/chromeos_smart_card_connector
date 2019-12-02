@@ -404,7 +404,8 @@ public final class EsModuleProcessor implements Callback, ModuleProcessor {
       } else {
         boolean importStar = i.importName().equals("*");
         if (importStar
-            || (i.importName().equals(Export.DEFAULT) && !requested.metadata().isEs6Module())) {
+            || (i.importName().equals(Export.DEFAULT)
+                && (requested.metadata().isGoogProvide() || requested.metadata().isGoogModule()))) {
           if (!GoogEsImports.isGoogImportSpecifier(i.moduleRequest())
               && (requested.metadata().isGoogModule() || requested.metadata().isGoogProvide())) {
             compiler.report(
@@ -897,7 +898,7 @@ public final class EsModuleProcessor implements Callback, ModuleProcessor {
               .localName(localName)
               .modulePath(t.getInput().getPath())
               .importNode(importNode)
-              .nameNode(child.getFirstChild())
+              .nameNode(child.getSecondChild())
               .build());
     }
   }

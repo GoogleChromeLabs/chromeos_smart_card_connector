@@ -39,8 +39,6 @@ import javax.annotation.Nullable;
  * Performs some Closure-specific simplifications including rewriting goog.base, goog.addDependency.
  *
  * <p>Adds forwardDeclared and goog.defined names to the compiler.
- *
- * @author chrisn@google.com (Chris Nokleberg)
  */
 class ProcessClosurePrimitives extends AbstractPostOrderCallback implements HotSwapCompilerPass {
 
@@ -68,12 +66,6 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements HotS
       "JSC_TOO_MANY_ARGUMENTS_ERROR",
       "method \"{0}\" called with more than one argument");
 
-  static final DiagnosticType DUPLICATE_NAMESPACE_ERROR =
-      DiagnosticType.error(
-          "JSC_DUPLICATE_NAMESPACE_ERROR",
-          "namespace \"{0}\" cannot be provided twice\n" //
-              + "Originally provided at {1}");
-
   static final DiagnosticType WEAK_NAMESPACE_TYPE = DiagnosticType.warning(
       "JSC_WEAK_NAMESPACE_TYPE",
       "Provided symbol declared with type Object. This is rarely useful. "
@@ -87,14 +79,6 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements HotS
   static final DiagnosticType FUNCTION_NAMESPACE_ERROR = DiagnosticType.error(
       "JSC_FUNCTION_NAMESPACE_ERROR",
       "\"{0}\" cannot be both provided and declared as a function");
-
-  static final DiagnosticType MISSING_PROVIDE_ERROR = DiagnosticType.error(
-      "JSC_MISSING_PROVIDE_ERROR",
-      "required \"{0}\" namespace never provided");
-
-  static final DiagnosticType LATE_PROVIDE_ERROR = DiagnosticType.error(
-      "JSC_LATE_PROVIDE_ERROR",
-      "required \"{0}\" namespace not provided yet");
 
   static final DiagnosticType INVALID_PROVIDE_ERROR = DiagnosticType.error(
       "JSC_INVALID_PROVIDE_ERROR",
@@ -134,6 +118,11 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements HotS
   static final DiagnosticType CLOSURE_DEFINES_ERROR = DiagnosticType.error(
       "JSC_CLOSURE_DEFINES_ERROR",
       "Invalid CLOSURE_DEFINES definition");
+
+  static final DiagnosticType DEFINE_CALL_WITHOUT_ASSIGNMENT =
+      DiagnosticType.error(
+          "JSC_DEFINE_CALL_WITHOUT_ASSIGNMENT",
+          "The result of a goog.define call must be assigned as an isolated statement.");
 
   static final DiagnosticType INVALID_FORWARD_DECLARE = DiagnosticType.error(
       "JSC_INVALID_FORWARD_DECLARE",
@@ -195,16 +184,9 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements HotS
   private void replaceGoogDefines(Node n) {
     Node parent = n.getParent();
     String name = n.getSecondChild().getString();
-    JSDocInfo jsdoc = n.getJSDocInfo();
     Node value = n.getChildAtIndex(2).detach();
 
     switch (parent.getToken()) {
-      case EXPR_RESULT:
-        Node replacement = NodeUtil.newQNameDeclaration(compiler, name, value, jsdoc);
-        replacement.useSourceInfoIfMissingFromForTree(parent);
-        parent.replaceWith(replacement);
-        compiler.reportChangeToEnclosingScope(replacement);
-        break;
       case NAME:
         parent.setDefineName(name);
         n.replaceWith(value);
@@ -217,7 +199,7 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements HotS
         compiler.reportChangeToEnclosingScope(parent);
         break;
       default:
-        throw new IllegalStateException("goog.define outside of EXPR_RESULT, NAME, or ASSIGN");
+        throw new IllegalStateException("goog.define outside of NAME, or ASSIGN");
     }
   }
 
@@ -312,7 +294,7 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements HotS
   }
 
   /**
-   * Verifies that a) the call is in the global scope and b) the return value is unused
+   * Verifies that a) the call is in the top level of a file and b) the return value is unused
    *
    * <p>This method is for primitives that never return a value.
    */
@@ -321,7 +303,7 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements HotS
   }
 
   /**
-   * @param methodName list of primitve types classed together with this one
+   * @param methodName list of primitive types classed together with this one
    * @param invalidAliasingError which DiagnosticType to emit if this call is aliased. this depends
    *     on whether the primitive is sometimes aliasiable in a module or never aliasable.
    */
@@ -332,10 +314,12 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements HotS
       return true;
     }
 
-    if (!t.inGlobalHoistScope()) {
+    if (!t.inGlobalHoistScope() && !t.inModuleScope()) {
       compiler.report(JSError.make(n, INVALID_CLOSURE_CALL_SCOPE_ERROR));
       return false;
-    } else if (!n.getParent().isExprResult() && !"goog.define".equals(methodName)) {
+    } else if (!n.getParent().isExprResult()
+        && !t.inModuleScope()
+        && !"goog.define".equals(methodName)) {
       // If the call is in the global hoist scope, but the result is used
       compiler.report(JSError.make(n, invalidAliasingError, GOOG + "." + methodName));
       return false;
@@ -680,7 +664,7 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements HotS
    * Processes the goog.inherits call.
    */
   private void processInheritsCall(Node n) {
-    if (n.getChildCount() == 3) {
+    if (n.hasXChildren(3)) {
       Node subClass = n.getSecondChild();
       Node superClass = subClass.getNext();
       if (subClass.isUnscopedQualifiedName() && superClass.isUnscopedQualifiedName()) {
@@ -828,18 +812,20 @@ class ProcessClosurePrimitives extends AbstractPostOrderCallback implements HotS
     // Calls to goog.define must be in the global hoist scope.  This is copied from
     // validate(Un)aliasablePrimitiveCall.
     // TODO(sdh): loosen this restriction if the results are assigned?
-    if (!compiler.getOptions().shouldPreserveGoogModule() && !t.inGlobalHoistScope()) {
+    if (!compiler.getOptions().shouldPreserveGoogModule()
+        && !t.inGlobalHoistScope()
+        && !t.inModuleScope()) {
       compiler.report(JSError.make(methodName.getParent(), INVALID_CLOSURE_CALL_SCOPE_ERROR));
       return false;
     }
 
-    // It is an error for goog.define to show up anywhere except on its own or immediately after =.
+    // It is an error for goog.define to show up anywhere except immediately after =.
     if (parent.isAssign() && parent.getParent().isExprResult()) {
       parent = parent.getParent();
     } else if (parent.isName() && NodeUtil.isNameDeclaration(parent.getParent())) {
       parent = parent.getParent();
-    } else if (!parent.isExprResult()) {
-      compiler.report(JSError.make(methodName.getParent(), INVALID_CLOSURE_CALL_SCOPE_ERROR));
+    } else {
+      compiler.report(JSError.make(methodName.getParent(), DEFINE_CALL_WITHOUT_ASSIGNMENT));
       return false;
     }
 

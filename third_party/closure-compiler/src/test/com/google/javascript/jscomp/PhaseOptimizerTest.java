@@ -59,7 +59,7 @@ public final class PhaseOptimizerTest {
     dummyRoot = IR.root(dummyScript);
     compiler = new Compiler();
     compiler.initCompilerOptionsIfTesting();
-    tracker = new PerformanceTracker(dummyExternsRoot, dummyRoot, TracerMode.TIMING_ONLY, null);
+    tracker = new PerformanceTracker(dummyExternsRoot, dummyRoot, TracerMode.TIMING_ONLY);
     optimizer = new PhaseOptimizer(compiler, tracker);
     compiler.setPhaseOptimizer(optimizer);
   }
@@ -226,7 +226,8 @@ public final class PhaseOptimizerTest {
 
     assertPasses();
 
-    assertThat(compiler.getWarnings())
+    // Error will be converted to warning by a `WarningsGuard`.
+    assertThat(compiler.getErrors())
         .comparingElementsUsing(DIAGNOSTIC_CORRESPONDENCE)
         .containsExactly(FEATURES_NOT_SUPPORTED_BY_PASS);
   }
@@ -277,17 +278,12 @@ public final class PhaseOptimizerTest {
 
   private PassFactory createPassFactory(
       String name, final CompilerPass pass, boolean isOneTime, FeatureSet featureSet) {
-    return new PassFactory(name, isOneTime) {
-      @Override
-      protected CompilerPass create(AbstractCompiler compiler) {
-        return pass;
-      }
-
-      @Override
-      public FeatureSet featureSet() {
-        return featureSet;
-      }
-    };
+    return PassFactory.builder()
+        .setName(name)
+        .setRunInFixedPointLoop(!isOneTime)
+        .setInternalFactory((compiler) -> pass)
+        .setFeatureSet(featureSet)
+        .build();
   }
 
   private CompilerPass createPass(final String name, int numChanges) {

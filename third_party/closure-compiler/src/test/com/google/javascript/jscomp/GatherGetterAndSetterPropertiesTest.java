@@ -17,108 +17,95 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import com.google.javascript.jscomp.AbstractCompiler.PropertyAccessKind;
+import com.google.common.collect.ImmutableMap;
+import com.google.javascript.jscomp.AccessorSummary.PropertyAccessKind;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Tests for {@link GatherGettersAndSetterProperties}. */
+/** Tests for {@link GatherGetterAndSetterProperties}. */
 @RunWith(JUnit4.class)
 public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new GatherGettersAndSetterProperties(compiler);
+    return new GatherGetterAndSetterProperties(compiler);
   }
 
   @Test
   public void defaultToNormal() {
     testSame("");
-    assertThat(getLastCompiler().getPropertyAccessKind("dne")).isEqualTo(PropertyAccessKind.NORMAL);
+    assertThat(getLastAccessorSummary().getKind("dne")).isEqualTo(PropertyAccessKind.NORMAL);
   }
 
   @Test
   public void findGettersAndSettersInExterns() {
     testSame(externs("({get x() {}, set y(v) {}})"), srcs(""));
-    assertThat(getLastCompiler().getExternGetterAndSetterProperties().get("x"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
-    assertThat(getLastCompiler().getExternGetterAndSetterProperties().get("y"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
-    assertThat(getLastCompiler().getExternGetterAndSetterProperties()).hasSize(2);
-    assertThat(getLastCompiler().getSourceGetterAndSetterProperties()).isEmpty();
-    assertThat(getLastCompiler().getPropertyAccessKind("x"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
-    assertThat(getLastCompiler().getPropertyAccessKind("y"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
+
+    assertThat(getLastCompiler().getAccessorSummary().getAccessors())
+        .containsExactlyEntriesIn(
+            ImmutableMap.of(
+                "x", PropertyAccessKind.GETTER_ONLY, //
+                "y", PropertyAccessKind.SETTER_ONLY));
   }
 
   @Test
   public void findGettersAndSettersInSources() {
     testSame(srcs("({get x() {}, set y(v) {}})"));
-    assertThat(getLastCompiler().getSourceGetterAndSetterProperties().get("x"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
-    assertThat(getLastCompiler().getSourceGetterAndSetterProperties().get("y"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
-    assertThat(getLastCompiler().getSourceGetterAndSetterProperties()).hasSize(2);
-    assertThat(getLastCompiler().getExternGetterAndSetterProperties()).isEmpty();
-    assertThat(getLastCompiler().getPropertyAccessKind("x"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
-    assertThat(getLastCompiler().getPropertyAccessKind("y"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
+
+    assertThat(getLastCompiler().getAccessorSummary().getAccessors())
+        .containsExactlyEntriesIn(
+            ImmutableMap.of(
+                "x", PropertyAccessKind.GETTER_ONLY, //
+                "y", PropertyAccessKind.SETTER_ONLY));
   }
 
   @Test
   public void mergeInExterns() {
     testSame(externs("({get x() {}}); ({set x(v) {}});"), srcs(""));
-    assertThat(getLastCompiler().getPropertyAccessKind("x"))
+    assertThat(getLastAccessorSummary().getKind("x"))
         .isEqualTo(PropertyAccessKind.GETTER_AND_SETTER);
   }
 
   @Test
   public void mergeInSrcs() {
     testSame(srcs("({get x() {}}); ({set x(v) {}});"));
-    assertThat(getLastCompiler().getPropertyAccessKind("x"))
+    assertThat(getLastAccessorSummary().getKind("x"))
         .isEqualTo(PropertyAccessKind.GETTER_AND_SETTER);
   }
 
   @Test
   public void mergeExtersAndSrcs() {
     testSame(externs("({get x() {}})"), srcs("({set x(v) {}})"));
-    assertThat(getLastCompiler().getPropertyAccessKind("x"))
+    assertThat(getLastAccessorSummary().getKind("x"))
         .isEqualTo(PropertyAccessKind.GETTER_AND_SETTER);
   }
 
   @Test
   public void detectObjectLiteral() {
     testSame(srcs("var a = { set x(v) {} };"));
-    assertThat(getLastCompiler().getPropertyAccessKind("x"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("x")).isEqualTo(PropertyAccessKind.SETTER_ONLY);
 
     testSame(srcs("var a = { get x() {} };"));
-    assertThat(getLastCompiler().getPropertyAccessKind("x"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("x")).isEqualTo(PropertyAccessKind.GETTER_ONLY);
   }
 
   @Test
   public void detectClass() {
     testSame(srcs("class Class { set x(v) {} };"));
-    assertThat(getLastCompiler().getPropertyAccessKind("x"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("x")).isEqualTo(PropertyAccessKind.SETTER_ONLY);
 
     testSame(srcs("class Class { get x() {} };"));
-    assertThat(getLastCompiler().getPropertyAccessKind("x"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("x")).isEqualTo(PropertyAccessKind.GETTER_ONLY);
   }
 
   @Test
   public void detectClassStatic() {
     testSame(srcs("class Class { static set x(v) {} };"));
-    assertThat(getLastCompiler().getPropertyAccessKind("x"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("x")).isEqualTo(PropertyAccessKind.SETTER_ONLY);
 
     testSame(srcs("class Class { static get x() {} };"));
-    assertThat(getLastCompiler().getPropertyAccessKind("x"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("x")).isEqualTo(PropertyAccessKind.GETTER_ONLY);
   }
 
   @Test
@@ -129,8 +116,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    'get': function() {},",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.GETTER_ONLY);
 
     testSame(
         lines(
@@ -138,8 +124,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    'set': function(v) {}",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.SETTER_ONLY);
 
     testSame(
         lines(
@@ -148,7 +133,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    'set': function(v) {}",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
+    assertThat(getLastAccessorSummary().getKind("prop"))
         .isEqualTo(PropertyAccessKind.GETTER_AND_SETTER);
   }
 
@@ -160,8 +145,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    get: function() {},",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.GETTER_ONLY);
 
     testSame(
         lines(
@@ -169,8 +153,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    set: function(v) {}",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.SETTER_ONLY);
 
     testSame(
         lines(
@@ -179,7 +162,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    set: function(v) {}",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
+    assertThat(getLastAccessorSummary().getKind("prop"))
         .isEqualTo(PropertyAccessKind.GETTER_AND_SETTER);
   }
 
@@ -191,8 +174,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    get() {},",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.GETTER_ONLY);
 
     testSame(
         lines(
@@ -200,8 +182,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    set(v) {}",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.SETTER_ONLY);
 
     testSame(
         lines(
@@ -210,7 +191,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    set(v) {}",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
+    assertThat(getLastAccessorSummary().getKind("prop"))
         .isEqualTo(PropertyAccessKind.GETTER_AND_SETTER);
   }
 
@@ -224,8 +205,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "  }",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.GETTER_ONLY);
 
     testSame(
         lines(
@@ -235,8 +215,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "  }",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.SETTER_ONLY);
 
     testSame(
         lines(
@@ -247,7 +226,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "  }",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
+    assertThat(getLastAccessorSummary().getKind("prop"))
         .isEqualTo(PropertyAccessKind.GETTER_AND_SETTER);
   }
 
@@ -261,8 +240,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "  }",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.GETTER_ONLY);
 
     testSame(
         lines(
@@ -272,8 +250,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "  }",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.SETTER_ONLY);
 
     testSame(
         lines(
@@ -284,7 +261,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "  }",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
+    assertThat(getLastAccessorSummary().getKind("prop"))
         .isEqualTo(PropertyAccessKind.GETTER_AND_SETTER);
   }
 
@@ -298,8 +275,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "  }",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.GETTER_ONLY);
 
     testSame(
         lines(
@@ -309,8 +285,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "  }",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.SETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.SETTER_ONLY);
 
     testSame(
         lines(
@@ -321,7 +296,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "  }",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
+    assertThat(getLastAccessorSummary().getKind("prop"))
         .isEqualTo(PropertyAccessKind.GETTER_AND_SETTER);
   }
 
@@ -333,8 +308,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    get: function() {},",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.GETTER_ONLY);
 
     testSame(
         lines(
@@ -342,8 +316,7 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    get: function() {}",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.GETTER_ONLY);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.GETTER_ONLY);
 
     testSame(
         lines(
@@ -351,7 +324,10 @@ public class GatherGetterAndSetterPropertiesTest extends CompilerTestCase {
             "    get: function() {},",
             "});"));
 
-    assertThat(getLastCompiler().getPropertyAccessKind("prop"))
-        .isEqualTo(PropertyAccessKind.NORMAL);
+    assertThat(getLastAccessorSummary().getKind("prop")).isEqualTo(PropertyAccessKind.NORMAL);
+  }
+
+  private AccessorSummary getLastAccessorSummary() {
+    return getLastCompiler().getAccessorSummary();
   }
 }

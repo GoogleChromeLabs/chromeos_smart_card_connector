@@ -17,6 +17,7 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.base.CaseFormat;
@@ -37,8 +38,6 @@ import javax.annotation.Nullable;
 /**
  * Traverses across parsed tree and finds I18N messages. Then it passes it to {@link
  * JsMessageVisitor#processJsMessage(JsMessage, JsMessageDefinition)}.
- *
- * @author anatol@google.com (Anatol Pomazau)
  */
 @GwtIncompatible("JsMessage, java.util.regex")
 public abstract class JsMessageVisitor extends AbstractPostOrderCallback implements CompilerPass {
@@ -175,6 +174,7 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
     checkMessageInitialization(traversal, node);
   }
 
+  /** This method is called for every Node in the sources AST. */
   private void checkMessageInitialization(NodeTraversal traversal, Node node) {
     final Node parent = node.getParent();
 
@@ -211,10 +211,18 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
 
       case STRING_KEY:
         // Case: `var t = {MSG_HELLO: 'Message'}`;
-        // Case: `var {MSG_HELLO} = x;
-        if (node.isQuotedString() || !node.hasChildren()) {
+        if (node.isQuotedString() || !node.hasChildren() || parent.isObjectPattern()) {
+          // Don't require goog.getMsg() for quoted keys
+          // Case: `var msgs = { 'MSG_QUOTED': anything };`
+          //
+          // Don't try to require goog.getMsg() for destructuring assignment targets.
+          // goog.getMsg() needs to be used in a direct assignment to a variable or property
+          // only.
+          // Case: `var {MSG_HELLO} = anything;
+          // Case: `var {something: MSG_HELLO} = anything;
           return;
         }
+        checkState(parent.isObjectLit(), parent);
 
         messageKey = node.getString();
         originalMessageKey = node.getOriginalName();
@@ -230,6 +238,11 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
       messageKey = originalMessageKey;
     }
 
+    // If we've reached this point, then messageKey is the name of a variable or a property that is
+    // being assigned a value and msgNode is the Node representing the value being assigned.
+    // However, we haven't actually determined yet that name looks like it should be a translatable
+    // message or that the value is a call to goog.getMsg().
+
     // Is this a message name?
     boolean isNewStyleMessage = msgNode != null && msgNode.isCall();
     if (!isMessageName(messageKey, isNewStyleMessage)) {
@@ -241,7 +254,7 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
       return;
     }
 
-    if (isLegalMessageVarAlias(msgNode, messageKey)) {
+    if (isLegalMessageVarAlias(msgNode)) {
       return;
     }
 
@@ -349,48 +362,39 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
    *
    * <p>These exceptions are generally due to the pass being designed before new syntax was
    * introduced.
+   *
+   * @param msgNode Node representing the value assigned to the message variable or property
    */
-  private static boolean isLegalMessageVarAlias(Node msgNode, String msgKey) {
+  private static boolean isLegalMessageVarAlias(Node msgNode) {
     if (msgNode.isGetProp()
         && msgNode.isQualifiedName()
-        && msgNode.getLastChild().getString().equals(msgKey)) {
-      // Case: `foo.Thing.MSG_EXAMPLE = bar.OtherThing.MSG_EXAMPLE;`
+        && msgNode.getLastChild().getString().startsWith(MSG_PREFIX)) {
+      // Case: `foo.Thing.MSG_EXAMPLE_ALIAS = bar.OtherThing.MSG_EXAMPLE;`
       //
-      // This kind of construct is created by Es6ToEs3ClassSideInheritance. Just ignore it; the
-      // message will have already been extracted from the base class.
+      // This kind of construct is created by TypeScript code generation and
+      // Es6ToEs3ClassSideInheritance. Just ignore it; the message will have already been extracted
+      // from the base class.
       return true;
     }
 
-    if (msgNode.getGrandparent().isObjectPattern() && msgNode.isName()) {
-      // Case: `var {MSG_HELLO} = x;
-      //
-      // It's a destructuring import. Ignore it if the name is the same. We compare against the
-      // original name if possible because in modules, the NAME node will be rewritten with a
-      // module-qualified name (e.g. `var {MSG_HELLO: goog$module$my$module_MSG_HELLO} = x;`).
-      String aliasName =
-          (msgNode.getOriginalName() != null) ? msgNode.getOriginalName() : msgNode.getString();
-      if (aliasName.equals(msgKey)) {
-        return true;
-      }
-    }
-
-    Node greatGrandparent = msgNode.getGrandparent().getParent();
-    if (greatGrandparent == null) {
+    if (!msgNode.isName()) {
       return false;
     }
-    if (msgNode.isName()
-        && msgNode.getString().equals(msgKey)
-        && msgNode.getGrandparent().isObjectLit()
-        && greatGrandparent.isAssign()
-        && greatGrandparent.getFirstChild().isName()
-        && greatGrandparent.getFirstChild().getString().equals("exports")) {
-      // Case: 'exports = {MSG_FOO};' or 'exports = {MSG_FOO: MSG_FOO}'
-      //
-      // This is an export of a message variable.
+
+    String originalName =
+        (msgNode.getOriginalName() != null) ? msgNode.getOriginalName() : msgNode.getString();
+
+    if (originalName.startsWith(MSG_PREFIX)) {
+      // Creating an alias for a message is also allowed, and sometimes happens in generated code,
+      // including some of the code generated by this compiler's transpilations.
+      // e.g.
+      // `var MSG_EXAMPLE_ALIAS = MSG_EXAMPLE;`
+      // `var {MSG_HELLO_ALIAS} = MSG_HELLO;
+      // `var {MSG_HELLO_ALIAS: goog$module$my$module_MSG_HELLO} = x;`).
+      // `exports = {MSG_FOO}`
+      // or `exports = {MSG_FOO: MSG_FOO}` when used with declareLegacyNamespace.
       return true;
     }
-
-    // TODO(nickreid): Should `var MSG_HELLO = x.MSG_HELLO;` also be allowed?
 
     return false;
   }
@@ -713,11 +717,11 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
    *  |
    *  |-- string 'Hi {$userName}! Welcome to {$product}.'
    *  +-- objlit
-   *      |-- string 'userName'
-   *      |-- name 'someUserName'
-   *      |-- string 'product'
-   *      +-- call
-   *          +-- name 'getProductName'
+   *      |-- string_key 'userName'
+   *      |   +-- name 'someUserName'
+   *      +-- string_key 'product'
+   *          +-- call
+   *              +-- name 'getProductName'
    * </pre>
    *
    * @param builder the message builder
@@ -839,18 +843,17 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
   private void visitFallbackFunctionCall(NodeTraversal t, Node call) {
     // Check to make sure the function call looks like:
     // goog.getMsgWithFallback(MSG_1, MSG_2);
-    if (call.getChildCount() != 3
-        || !call.getSecondChild().isName()
-        || !call.getLastChild().isName()) {
+    // or:
+    // goog.getMsgWithFallback(some.import.MSG_1, some.import.MSG_2);
+    if (!call.hasXChildren(3)
+        || !isMessageIdentifier(call.getSecondChild())
+        || !isMessageIdentifier(call.getLastChild())) {
       compiler.report(JSError.make(call, BAD_FALLBACK_SYNTAX));
       return;
     }
 
     Node firstArg = call.getSecondChild();
-    String name = firstArg.getOriginalName();
-    if (name == null) {
-      name = firstArg.getString();
-    }
+    String name = getMessageNameFromNode(firstArg);
     JsMessage firstMessage = getTrackedMessage(t, name);
     if (firstMessage == null) {
       compiler.report(JSError.make(firstArg, FALLBACK_ARG_ERROR, name));
@@ -858,7 +861,7 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
     }
 
     Node secondArg = firstArg.getNext();
-    name = secondArg.getOriginalName();
+    name = getMessageNameFromNode(secondArg);
     if (name == null) {
       name = secondArg.getString();
     }
@@ -899,6 +902,32 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
         && (style == JsMessage.Style.CLOSURE
             || isNewStyleMessage
             || !identifier.endsWith(DESC_SUFFIX));
+  }
+
+  private static boolean isMessageIdentifier(Node node) {
+    return getMessageNameFromNode(node) != null;
+  }
+
+  /**
+   * Extracts a message name (e.g. MSG_FOO) from either a NAME node or a GETPROP node. This should
+   * cover all of the following cases:
+   *
+   * <ol>
+   *   <li>a NAME node (e.g. MSG_FOO)
+   *   <li>a NAME node which is the product of renaming (e.g. $module$contents$MSG_FOO)
+   *   <li>a GETPROP node (e.g. some.import.MSG_FOO)
+   * </ol>
+   */
+  private static String getMessageNameFromNode(Node node) {
+    String messageName = node.getQualifiedName();
+    if (messageName == null) {
+      return null;
+    }
+
+    if (messageName.contains(MSG_PREFIX)) {
+      return messageName.substring(messageName.indexOf(MSG_PREFIX));
+    }
+    return null;
   }
 
   /** Returns whether the given message name is in the unnamed namespace. */

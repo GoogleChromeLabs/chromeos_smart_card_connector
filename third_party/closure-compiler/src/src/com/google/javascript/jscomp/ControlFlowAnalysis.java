@@ -40,7 +40,6 @@ import java.util.PriorityQueue;
 /**
  * This is a compiler pass that computes a control flow graph. Note that this is only a CompilerPass
  * because the Compiler invokes it via Compiler#process. It is never included in a PassConfig.
- *
  */
 public final class ControlFlowAnalysis implements Callback, CompilerPass {
 
@@ -565,7 +564,7 @@ public final class ControlFlowAnalysis implements Callback, CompilerPass {
   private void handleFunction(Node node) {
     // A block transfer control to its first child if it is not empty.
     checkState(node.isFunction());
-    checkState(node.getChildCount() == 3);
+    checkState(node.hasXChildren(3));
     createEdge(node, Branch.UNCOND,
         computeFallThrough(node.getLastChild()));
     checkState(exceptionHandler.peek() == node);

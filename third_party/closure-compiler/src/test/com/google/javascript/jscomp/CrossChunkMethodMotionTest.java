@@ -28,20 +28,22 @@ import org.junit.runners.JUnit4;
  */
 @RunWith(JUnit4.class)
 public final class CrossChunkMethodMotionTest extends CompilerTestCase {
-  private static final String EXTERNS =
-      "IFoo.prototype.bar; var mExtern; mExtern.bExtern; mExtern['cExtern'];";
 
   private boolean canMoveExterns = false;
   private boolean noStubs = false;
   private static final String STUB_DECLARATIONS = CrossChunkMethodMotion.STUB_DECLARATIONS;
 
-  public CrossChunkMethodMotionTest() {
-    super(EXTERNS);
-  }
-
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
     return new CrossChunkMethodMotion(compiler, new IdGenerator(), canMoveExterns, noStubs);
+  }
+
+  @Override
+  protected CompilerOptions getOptions() {
+    CompilerOptions options = super.getOptions();
+    // pretty printing makes it much easier to read the failure messages.
+    options.setPrettyPrint(true);
+    return options;
   }
 
   @Override
@@ -55,33 +57,36 @@ public final class CrossChunkMethodMotionTest extends CompilerTestCase {
 
   @Test
   public void moveMethodAssignedToPrototype() {
-    // bar property is defined in externs, so it cannot be moved
     testSame(
-        createModuleChain(
-            lines(
-                "function Foo() {}", //
-                "Foo.prototype.bar = function() {};"),
-            // Chunk 2
-            "(new Foo).bar()"));
+        // bar property is defined in externs, so it cannot be moved
+        externs("IFoo.prototype.bar;"),
+        srcs(
+            createModuleChain(
+                lines(
+                    "function Foo() {}", //
+                    "Foo.prototype.bar = function() {};"),
+                // Chunk 2
+                "(new Foo).bar()")));
 
     canMoveExterns = true;
     test(
-        createModuleChain(
+        externs("IFoo.prototype.bar;"),
+        srcs(
+            createModuleChain(
+                lines(
+                    "function Foo() {}", //
+                    "Foo.prototype.bar = function() {};"),
+                // Chunk 2
+                "(new Foo).bar()")),
+        expected(
             lines(
-                "function Foo() {}", //
-                "Foo.prototype.bar = function() {};"),
+                STUB_DECLARATIONS,
+                "function Foo() {}",
+                "Foo.prototype.bar = JSCompiler_stubMethod(0);"),
             // Chunk 2
-            "(new Foo).bar()"),
-        new String[] {
-          lines(
-              STUB_DECLARATIONS,
-              "function Foo() {}",
-              "Foo.prototype.bar = JSCompiler_stubMethod(0);"),
-          // Chunk 2
-          lines(
-              "Foo.prototype.bar = JSCompiler_unstubMethod(0, function() {});", //
-              "(new Foo).bar()")
-        });
+            lines(
+                "Foo.prototype.bar = JSCompiler_unstubMethod(0, function() {});", //
+                "(new Foo).bar()")));
   }
 
   @Test
@@ -263,53 +268,139 @@ public final class CrossChunkMethodMotionTest extends CompilerTestCase {
   @Test
   public void movePrototypeMethodWithoutStub() {
     testSame(
-        createModuleChain(
-            lines(
-                "function Foo() {}", //
-                "Foo.prototype.bar = function() {};"),
-            // Chunk 2
-            "(new Foo).bar()"));
+        externs("IFoo.prototype.bar;"),
+        srcs(
+            createModuleChain(
+                lines(
+                    "function Foo() {}", //
+                    "Foo.prototype.bar = function() {};"),
+                // Chunk 2
+                "(new Foo).bar()")));
 
     canMoveExterns = true;
     noStubs = true;
     test(
-        createModuleChain(
-            lines(
-                "function Foo() {}", //
-                "Foo.prototype.bar = function() {};"),
+        externs("IFoo.prototype.bar;"),
+        srcs(
+            createModuleChain(
+                lines(
+                    "function Foo() {}", //
+                    "Foo.prototype.bar = function() {};"),
+                // Chunk 2
+                "(new Foo).bar()")),
+        expected(
+            "function Foo() {}",
             // Chunk 2
-            "(new Foo).bar()"),
-        new String[] {
-          "function Foo() {}",
-          // Chunk 2
-          lines(
-              "Foo.prototype.bar = function() {};", //
-              "(new Foo).bar()")
-        });
+            lines(
+                "Foo.prototype.bar = function() {};", //
+                "(new Foo).bar()")));
+  }
+
+  @Test
+  public void movePrototypeMethodImplementingInterfaceWithoutStub() {
+    testSame(
+        externs(lines("/** @interface */", "class IFoo {", "  ifooMethod() {}", "}", "")),
+        srcs(
+            createModuleChain(
+                lines(
+                    "/**", //
+                    " * @constructor",
+                    " * @implements {IFoo}",
+                    " */",
+                    "function Foo() {}",
+                    "Foo.prototype.ifooMethod = function() {};"),
+                // Chunk 2
+                "(new Foo).ifooMethod()")));
+
+    canMoveExterns = true;
+    noStubs = true;
+    test(
+        externs(lines("/** @interface */", "class IFoo {", "  ifooMethod() {}", "}", "")),
+        srcs(
+            createModuleChain(
+                lines(
+                    "/**", //
+                    " * @constructor",
+                    " * @implements {IFoo}",
+                    " */",
+                    "function Foo() {}",
+                    "Foo.prototype.ifooMethod = function() {};"),
+                // Chunk 2
+                "(new Foo).ifooMethod()")),
+        expected(
+            lines(
+                "/**", //
+                " * @constructor",
+                " * @implements {IFoo}",
+                " */",
+                "function Foo() {}"),
+            // Chunk 2
+            lines(
+                "Foo.prototype.ifooMethod = function() {};", //
+                "(new Foo).ifooMethod()")));
   }
 
   @Test
   public void moveClassMethodWithoutStub() {
     testSame(
-        createModuleChain(
-            "class Foo { bar() {} }",
-            // Chunk 2
-            "(new Foo).bar()"));
+        externs("IFoo.prototype.bar;"),
+        srcs(
+            createModuleChain(
+                "class Foo { bar() {} }",
+                // Chunk 2
+                "(new Foo).bar()")));
 
     canMoveExterns = true;
     noStubs = true;
     test(
-        createModuleChain(
-            "class Foo { bar() {} }",
+        externs("IFoo.prototype.bar;"),
+        srcs(
+            createModuleChain(
+                "class Foo { bar() {} }",
+                // Chunk 2
+                "(new Foo).bar()")),
+        expected(
+            "class Foo {}",
             // Chunk 2
-            "(new Foo).bar()"),
-        new String[] {
-          "class Foo {}",
-          // Chunk 2
-          lines(
-              "Foo.prototype.bar = function() {};", //
-              "(new Foo).bar()")
-        });
+            lines(
+                "Foo.prototype.bar = function() {};", //
+                "(new Foo).bar()")));
+  }
+
+  @Test
+  public void moveClassMethodImplementingExternsInterfaceWithoutStub() {
+    testSame(
+        externs(lines("/** @interface */", "class IFoo {", "  ifooMethod() {}", "}", "")),
+        srcs(
+            createModuleChain(
+                "/** @implements {IFoo} */",
+                "class Foo { ifooMethod() {} }",
+                // Chunk 2
+                "(new Foo).ifooMethod()")));
+
+    canMoveExterns = true;
+    noStubs = true;
+    test(
+        externs(
+            lines(
+                "/** @interface */", //
+                "class IFoo {",
+                "  ifooMethod() {}",
+                "}",
+                "")),
+        srcs(
+            createModuleChain(
+                "/** @implements {IFoo} */",
+                "class Foo { ifooMethod() {} }",
+                // Chunk 2
+                "(new Foo).ifooMethod()")),
+        expected(
+            "/** @implements {IFoo} */",
+            "class Foo {}",
+            // Chunk 2
+            lines(
+                "Foo.prototype.ifooMethod = function() {};", //
+                "(new Foo).ifooMethod()")));
   }
 
   @Test

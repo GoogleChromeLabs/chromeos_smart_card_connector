@@ -32,7 +32,6 @@ import java.util.List;
 
 /**
  * This describes the Closure-specific JavaScript coding conventions.
- *
  */
 @Immutable
 public final class ClosureCodingConvention extends CodingConventions.Proxy {
@@ -358,7 +357,7 @@ public final class ClosureCodingConvention extends CodingConventions.Proxy {
     Node callName = callNode.getFirstChild();
     if (!(callName.matchesQualifiedName("goog.reflect.object")
             || callName.matchesQualifiedName("$jscomp.reflectObject"))
-        || callNode.getChildCount() != 3) {
+        || !callNode.hasXChildren(3)) {
       return null;
     }
 

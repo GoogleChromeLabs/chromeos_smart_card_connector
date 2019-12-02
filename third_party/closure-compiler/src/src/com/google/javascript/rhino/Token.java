@@ -181,8 +181,10 @@ public enum Token {
   MODULE_BODY,
   DYNAMIC_IMPORT,
 
-  REST, // "..." in formal parameters, or an array pattern.
-  SPREAD, // "..." in a call expression, or an array literal.
+  ITER_REST, // Rests that use the iterator protocol.
+  OBJECT_REST, // Rests that get object properties.
+  ITER_SPREAD, // Spreads that use the iterator protocol.
+  OBJECT_SPREAD, // Spreads that get object properties.
 
   COMPUTED_PROP,
 
@@ -193,6 +195,7 @@ public enum Token {
 
   DEFAULT_VALUE, // Formal parameter or destructuring element with a default value
   NEW_TARGET, // new.target
+  IMPORT_META, // import.meta
 
   // Used by type declaration ASTs
   STRING_TYPE,
@@ -219,7 +222,6 @@ public enum Token {
   STAR,
   EOC,
   QMARK, // type is nullable or unknown
-  ELLIPSIS,
   BANG,
   EQUALS,
   LB, // left brackets
@@ -261,7 +263,6 @@ public enum Token {
       case CONST:
       case CONTINUE:
       case DEBUGGER:
-      case ELLIPSIS:
       case EOC:
       case EQUALS:
       case FOR:
@@ -297,6 +298,7 @@ public enum Token {
       case THIS:
       case TRUE:
         return 0;
+      case AWAIT:
       case BITNOT:
       case CALL_SIGNATURE:
       case CAST:
@@ -307,14 +309,16 @@ public enum Token {
       case GETTER_DEF:
       case INC:
       case INDEX_SIGNATURE:
+      case ITER_REST:
+      case ITER_SPREAD:
       case MEMBER_FUNCTION_DEF:
       case NAMED_TYPE:
       case NEG:
       case NOT:
+      case OBJECT_REST:
+      case OBJECT_SPREAD:
       case POS:
-      case REST:
       case SETTER_DEF:
-      case SPREAD:
       case TEMPLATELIT_SUB:
       case THROW:
       case TYPEOF:

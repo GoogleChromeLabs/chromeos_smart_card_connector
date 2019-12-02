@@ -46,7 +46,7 @@ public final class SemanticReverseAbstractInterpreterTest extends CompilerTypeTe
   private FlowScope[] newScope() {
     TypedScope globalScope = TypedScope.createGlobalScope(new Node(Token.ROOT));
     functionScope = new TypedScope(globalScope, new Node(Token.FUNCTION));
-    return new FlowScope[] {LinkedFlowScope.createEntryLattice(functionScope)};
+    return new FlowScope[] {LinkedFlowScope.createEntryLattice(compiler, functionScope)};
   }
 
   /** Tests reverse interpretation of a NAME expression. */
@@ -606,7 +606,7 @@ public final class SemanticReverseAbstractInterpreterTest extends CompilerTypeTe
 
   private Node createVar(FlowScope[] scope, String name, JSType type) {
     Node n = Node.newString(Token.NAME, name);
-    functionScope.declare(name, n, null, null);
+    functionScope.declare(name, n, null, null, true);
     scope[0] = scope[0].inferSlotType(name, type);
     n.setJSType(type);
     return n;

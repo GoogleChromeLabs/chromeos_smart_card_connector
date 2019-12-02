@@ -25,7 +25,6 @@ import java.util.regex.Pattern;
 
 /**
  * An error reporter for serializing Rhino errors into our error format.
- * @author nicksantos@google.com (Nick Santos)
  */
 class RhinoErrorReporter {
 
@@ -109,6 +108,17 @@ class RhinoErrorReporter {
       DiagnosticType.error(
           "JSC_MISPLACED_TYPE_SYNTAX", "Can only have JSDoc or inline type annotations, not both");
 
+  static final DiagnosticType UNSUPPORTED_BOUNDED_GENERIC_TYPES =
+      DiagnosticType.error(
+          "JSC_UNSUPPORTED_BOUNDED_GENERIC_TYPES",
+          "Bounded generic semantics are currently still in development");
+
+  static final DiagnosticType BOUNDED_GENERIC_TYPE_ERROR =
+      DiagnosticType.error(
+          "JSC_BOUNDED_GENERIC_TYPE_ERROR",
+          "Bounded generic type error. "
+              + "{0} assigned to template type {1} is not a subtype of bound {2}");
+
   // A map of Rhino messages to their DiagnosticType.
   private static final Map<Pattern, DiagnosticType> typeMap =
       ImmutableMap.<Pattern, DiagnosticType>builder()
@@ -136,6 +146,7 @@ class RhinoErrorReporter {
           .put(Pattern.compile("Missing type declaration\\."), JSDOC_MISSING_TYPE_WARNING)
           // Unresolved types that aren't forward declared.
           .put(Pattern.compile(".*Unknown type.*"), UNRECOGNIZED_TYPE_ERROR)
+          .put(Pattern.compile(".*Unknown type.*\n.*"), UNRECOGNIZED_TYPE_ERROR)
           // Import annotation errors.
           .put(
               Pattern.compile("^Bad type annotation. Import in typedef.*"),
@@ -155,6 +166,10 @@ class RhinoErrorReporter {
               UNSUPPORTED_LANGUAGE_FEATURE)
           .put(Pattern.compile("^type syntax is only supported in ES6 typed mode.*"), ES6_TYPED)
           .put(Pattern.compile("^Can only have JSDoc or inline type.*"), MISPLACED_TYPE_SYNTAX)
+          .put(
+              Pattern.compile("Bounded generic semantics are currently still in development"),
+              UNSUPPORTED_BOUNDED_GENERIC_TYPES)
+          .put(Pattern.compile("^Bounded generic type error.*"), BOUNDED_GENERIC_TYPE_ERROR)
           .build();
 
   private final ErrorHandler internalReporter;

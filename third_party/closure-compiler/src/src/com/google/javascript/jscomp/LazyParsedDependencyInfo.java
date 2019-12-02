@@ -46,12 +46,19 @@ public class LazyParsedDependencyInfo extends DependencyInfo.Base {
   public ImmutableMap<String, String> getLoadFlags() {
     if (loadFlags == null) {
       Map<String, String> loadFlagsBuilder = new TreeMap<>();
+      boolean hadSourceInMemory = ast.getSourceFile().hasSourceInMemory();
       loadFlagsBuilder.putAll(delegate.getLoadFlags());
       FeatureSet features = ast.getFeatures(compiler);
       if (features.has(Feature.MODULES)) {
         String previousModule = loadFlagsBuilder.get("module");
         if (previousModule != null && !previousModule.equals("es6")) {
-          compiler.report(JSError.make(ModuleLoader.MODULE_CONFLICT, getName()));
+          compiler.report(
+              JSError.make(
+                  getName(),
+                  /* lineno= */ -1,
+                  /* charno= */ -1,
+                  ModuleLoader.MODULE_CONFLICT,
+                  getName()));
         }
         loadFlagsBuilder.put("module", "es6");
       }
@@ -61,6 +68,10 @@ public class LazyParsedDependencyInfo extends DependencyInfo.Base {
       }
       loadFlags = ImmutableMap.copyOf(loadFlagsBuilder);
 
+      // Don't preserve the source in memory if it was loaded only for getLoadFlags().
+      if (!hadSourceInMemory) {
+        ast.getSourceFile().clearCachedSource();
+      }
       // Don't preserve the full AST longer than necessary.  It can consume a lot of memory.
       ast = null;
     }

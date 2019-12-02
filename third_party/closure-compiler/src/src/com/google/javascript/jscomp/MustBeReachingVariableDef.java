@@ -40,7 +40,6 @@ import javax.annotation.Nullable;
  * A definition of {@code A} in {@code A = foo()} is a reaching definition of
  * the use of {@code A} in {@code alert(A)} if all paths from entry node must
  * reaches that definition and it is the last definition before the use.
- *
  */
 final class MustBeReachingVariableDef extends
     DataFlowAnalysis<Node, MustBeReachingVariableDef.MustDef> {
@@ -55,7 +54,7 @@ final class MustBeReachingVariableDef extends
       ControlFlowGraph<Node> cfg,
       Scope jsScope,
       AbstractCompiler compiler,
-      Es6SyntacticScopeCreator scopeCreator) {
+      SyntacticScopeCreator scopeCreator) {
     super(cfg, new MustDefJoin());
     this.compiler = compiler;
     this.escaped = new HashSet<>();

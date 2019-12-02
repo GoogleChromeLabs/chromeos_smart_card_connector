@@ -19,10 +19,10 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.javascript.jscomp.Es6SyntacticScopeCreator.RedeclarationHandler;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPreOrderCallback;
 import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.jscomp.NodeTraversal.ScopedCallback;
+import com.google.javascript.jscomp.SyntacticScopeCreator.RedeclarationHandler;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.Node;
@@ -35,7 +35,6 @@ import java.util.Set;
  * Checks that all variables are declared, that file-private variables are accessed only in the file
  * that declares them, and that any var references that cross module boundaries respect declared
  * module dependencies.
- *
  */
 class VarCheck implements ScopedCallback, HotSwapCompilerPass {
 
@@ -94,6 +93,7 @@ class VarCheck implements ScopedCallback, HotSwapCompilerPass {
 
   private static final Node googLoadModule = IR.getprop(IR.name("goog"), "loadModule");
   private static final Node googProvide = IR.getprop(IR.name("goog"), "provide");
+  private static final Node googForwardDeclare = IR.getprop(IR.name("goog"), "forwardDeclare");
 
   // Vars that still need to be declared in externs. These will be declared
   // at the end of the pass, or when we see the equivalent var declared
@@ -131,12 +131,12 @@ class VarCheck implements ScopedCallback, HotSwapCompilerPass {
    * Creates the scope creator used by this pass. If not in validity check mode, use a {@link
    * RedeclarationCheckHandler} to check var redeclarations.
    */
-  private Es6SyntacticScopeCreator createScopeCreator() {
+  private SyntacticScopeCreator createScopeCreator() {
     if (validityCheck) {
-      return new Es6SyntacticScopeCreator(compiler);
+      return new SyntacticScopeCreator(compiler);
     } else {
       dupHandler = new RedeclarationCheckHandler();
-      return new Es6SyntacticScopeCreator(compiler, dupHandler);
+      return new SyntacticScopeCreator(compiler, dupHandler);
     }
   }
 
@@ -178,7 +178,7 @@ class VarCheck implements ScopedCallback, HotSwapCompilerPass {
       gatherImplicitVars(compiler.getRoot());
     }
 
-    Es6SyntacticScopeCreator scopeCreator = createScopeCreator();
+    SyntacticScopeCreator scopeCreator = createScopeCreator();
     NodeTraversal t = new NodeTraversal(compiler, this, scopeCreator);
     // Note we use the global scope to prevent wrong "undefined-var errors" on
     // variables that are defined in other JS files.
@@ -387,6 +387,7 @@ class VarCheck implements ScopedCallback, HotSwapCompilerPass {
           "Float32Array",
           "Function",
           "Infinity",
+          "JSCompiler_renameProperty",
           "Map",
           "Math",
           "Number",
@@ -463,7 +464,8 @@ class VarCheck implements ScopedCallback, HotSwapCompilerPass {
           case CLASS:
           case PARAM_LIST:
           case DEFAULT_VALUE:
-          case REST:
+          case ITER_REST:
+          case OBJECT_REST:
           case ARRAY_PATTERN:
             // These are okay.
             return;
@@ -476,19 +478,26 @@ class VarCheck implements ScopedCallback, HotSwapCompilerPass {
             if (n == parent.getFirstChild()) {
               Scope scope = t.getScope();
               Var var = scope.getVar(n.getString());
-              if (var == null) {
-                if (!googProvidedRoots.contains(n.getString())) {
-                  t.report(n, UNDEFINED_EXTERN_VAR_ERROR, n.getString());
-                }
-                varsToDeclareInExterns.add(n.getString());
+              if (var != null) {
+                return;
               }
+              if (parent.matchesQualifiedName(googForwardDeclare)) {
+                // Allow using `goog.forwardDeclare` in the externs without an externs definition
+                // of goog.
+                return;
+              }
+              if (!googProvidedRoots.contains(n.getString())) {
+                t.report(n, UNDEFINED_EXTERN_VAR_ERROR, n.getString());
+              }
+              varsToDeclareInExterns.add(n.getString());
             }
             return;
           case ASSIGN:
             // Don't warn for the "window.foo = foo;" nodes added by
             // DeclaredGlobalExternsOnWindow, nor for alias declarations
             // of the form "/** @const */ ns.Foo = Bar;"
-            if (n == parent.getLastChild() && n.isQualifiedName()
+            if (n == parent.getLastChild()
+                && n.isQualifiedName()
                 && parent.getFirstChild().isQualifiedName()) {
               return;
             }

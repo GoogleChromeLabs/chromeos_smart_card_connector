@@ -52,11 +52,7 @@ public final class ClosureReverseAbstractInterpreterTest extends CompilerTypeTes
 
   @Test
   public void testGoogIsDef3() {
-    testClosureFunction(
-        "goog.isDef",
-        getNativeAllType(),
-        createUnionType(getNativeObjectNumberStringBooleanSymbolType(), getNativeNullType()),
-        getNativeVoidType());
+    testClosureFunction("goog.isDef", getNativeAllType(), getNativeAllType(), getNativeVoidType());
   }
 
   @Test
@@ -88,11 +84,7 @@ public final class ClosureReverseAbstractInterpreterTest extends CompilerTypeTes
 
   @Test
   public void testGoogIsNull3() {
-    testClosureFunction(
-        "goog.isNull",
-        getNativeAllType(),
-        getNativeNullType(),
-        createUnionType(getNativeObjectNumberStringBooleanSymbolType(), getNativeVoidType()));
+    testClosureFunction("goog.isNull", getNativeAllType(), getNativeNullType(), getNativeAllType());
   }
 
   @Test
@@ -134,10 +126,7 @@ public final class ClosureReverseAbstractInterpreterTest extends CompilerTypeTes
   @Test
   public void testGoogIsDefAndNotNull4() {
     testClosureFunction(
-        "goog.isDefAndNotNull",
-        getNativeAllType(),
-        getNativeObjectNumberStringBooleanSymbolType(),
-        getNativeNullVoidType());
+        "goog.isDefAndNotNull", getNativeAllType(), getNativeAllType(), getNativeNullVoidType());
   }
 
   @Test
@@ -300,8 +289,7 @@ public final class ClosureReverseAbstractInterpreterTest extends CompilerTypeTes
         "goog.isObject",
         getNativeAllType(),
         getNativeNoObjectType(),
-        createUnionType(
-            getNativeNumberStringBooleanSymbolType(), getNativeNullType(), getNativeVoidType()));
+        getNativeAllType());
   }
 
   @Test
@@ -317,9 +305,9 @@ public final class ClosureReverseAbstractInterpreterTest extends CompilerTypeTes
   public void testGoogIsObject2b() {
     testClosureFunction(
         "goog.isObject",
-        createUnionType(getNativeObjectType(), getNativeNumberStringBooleanSymbolType()),
+        createUnionType(getNativeObjectType(), getNativeValueTypes()),
         getNativeObjectType(),
-        getNativeNumberStringBooleanSymbolType());
+        getNativeValueTypes());
   }
 
   @Test
@@ -341,13 +329,9 @@ public final class ClosureReverseAbstractInterpreterTest extends CompilerTypeTes
     testClosureFunction(
         "goog.isObject",
         createUnionType(
-            getNativeObjectType(),
-            getNativeNumberStringBooleanSymbolType(),
-            getNativeNullType(),
-            getNativeVoidType()),
+            getNativeObjectType(), getNativeValueTypes(), getNativeNullType(), getNativeVoidType()),
         getNativeObjectType(),
-        createUnionType(
-            getNativeNumberStringBooleanSymbolType(), getNativeNullType(), getNativeVoidType()));
+        createUnionType(getNativeValueTypes(), getNativeNullType(), getNativeVoidType()));
   }
 
   @Test
@@ -368,7 +352,7 @@ public final class ClosureReverseAbstractInterpreterTest extends CompilerTypeTes
 
     Node root = IR.root(IR.root(), IR.root(n));
     TypedScope scope = new TypedScopeCreator(compiler).createScope(root, null);
-    FlowScope flowScope = LinkedFlowScope.createEntryLattice(scope);
+    FlowScope flowScope = LinkedFlowScope.createEntryLattice(compiler, scope);
 
     assertThat(call.getToken()).isEqualTo(Token.CALL);
     assertThat(name.getToken()).isEqualTo(Token.NAME);

@@ -17,12 +17,15 @@
 package com.google.debugging.sourcemap;
 
 import com.google.common.collect.ImmutableList;
+import elemental2.core.JSONType;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import jsinterop.annotations.JsMethod;
 import jsinterop.annotations.JsPackage;
+import jsinterop.annotations.JsProperty;
 import jsinterop.annotations.JsType;
+import jsinterop.base.Js;
+import jsinterop.base.JsPropertyMap;
 
 /**
  * ClientSide implementation of the source map parser using jsinterop.
@@ -31,23 +34,14 @@ import jsinterop.annotations.JsType;
  */
 public class SourceMapObjectParserJs {
 
-  // TODO(dankurka): Use elemental2 here once available
-  @JsMethod(name = "parse", namespace = "JSON")
-  private static native Object parseJson(String json);
+  @JsProperty(namespace = JsPackage.GLOBAL)
+  private static native JSONType getJSON();
 
-  // TODO(dankurka): Use elemental2 here once available
-  @JsMethod(name = "keys", namespace = "Object")
-  private static native String[] keys(Object o);
-
-  // TODO(dankurka): Switch to our general util once available
-  // JsMethod to prevent mangling
-  @JsMethod
-  public static native Object get(Object o, String key) /*-{
-    return o[key];
-  }-*/;
-
-  @JsType(isNative = true, name = "Object", namespace = JsPackage.GLOBAL)
-  private static class JsonMap {
+  @JsType(
+      isNative = true,
+      namespace = JsPackage.GLOBAL,
+      name = "com_google_debugging_sourcemap_SourceMapObjectParserJs$JsonMap")
+  private abstract static class JsonMap implements JsPropertyMap<Object> {
     int version;
     String file;
     String mappings;
@@ -57,32 +51,28 @@ public class SourceMapObjectParserJs {
     String[] names;
   }
 
-  @JsType(isNative = true, name = "Object", namespace = JsPackage.GLOBAL)
-  private static class Section {
+  @JsType(
+      isNative = true,
+      namespace = JsPackage.GLOBAL,
+      name = "com_google_debugging_sourcemap_SourceMapObjectParserJs$Section")
+  private abstract static class Section {
     Offset offset;
     String url;
     String map;
   }
 
-  @JsType(isNative = true, name = "Object", namespace = JsPackage.GLOBAL)
-  private static class Offset {
+  @JsType(
+      isNative = true,
+      namespace = JsPackage.GLOBAL,
+      name = "com_google_debugging_sourcemap_SourceMapObjectParserJs$Offset")
+  private abstract static class Offset {
     int line;
     int column;
   }
 
   public static SourceMapObject parse(String contents) throws SourceMapParseException {
-
+    JsonMap sourceMap = Js.uncheckedCast(getJSON().parse(contents));
     SourceMapObject.Builder builder = SourceMapObject.builder();
-
-    Object jsonInstance = null;
-
-    try {
-      jsonInstance = parseJson(contents);
-    } catch (Exception ex) {
-      throw new SourceMapParseException("JSON parse exception: " + ex);
-    }
-
-    JsonMap sourceMap = (JsonMap) jsonInstance;
 
     builder.setVersion(sourceMap.version);
     builder.setFile(sourceMap.file);
@@ -105,14 +95,12 @@ public class SourceMapObjectParserJs {
     builder.setNames(sourceMap.names);
 
     Map<String, Object> extensions = new LinkedHashMap<>();
-    String[] keys = keys(sourceMap);
-
-    for (String key : keys) {
-      if (key.startsWith("x_")) {
-        extensions.put(key, get(sourceMap, key));
-      }
-    }
-
+    sourceMap.forEach(
+        (key) -> {
+          if (key.startsWith("x_")) {
+            extensions.put(key, sourceMap.get(key));
+          }
+        });
     builder.setExtensions(Collections.unmodifiableMap(extensions));
     return builder.build();
   }

@@ -20,8 +20,6 @@ import static com.google.javascript.jscomp.parsing.parser.FeatureSet.ES5;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.GlobalVarReferenceMap.GlobalVarRefCleanupPass;
-import com.google.javascript.jscomp.PassFactory.HotSwapPassFactory;
-import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
@@ -30,8 +28,6 @@ import java.util.List;
 
 /**
  * Provides passes that should be run before hot-swap/incremental builds.
- *
- * @author tylerg@google.com (Tyler Goodwin)
  */
 class CleanupPasses extends PassConfig {
 
@@ -54,46 +50,25 @@ class CleanupPasses extends PassConfig {
   }
 
   final PassFactory fieldCleanupPassFactory =
-      new HotSwapPassFactory("FieldCleanupPassFactory") {
-        @Override
-        protected HotSwapCompilerPass create(
-            AbstractCompiler compiler) {
-          return new FieldCleanupPass(compiler);
-        }
-
-        @Override
-        protected FeatureSet featureSet() {
-          return ES5;
-        }
-      };
+      PassFactory.builderForHotSwap()
+          .setName("FieldCleanupPassFactory")
+          .setInternalFactory(FieldCleanupPass::new)
+          .setFeatureSet(ES5)
+          .build();
 
   final PassFactory scopeCleanupPassFactory =
-      new HotSwapPassFactory("ScopeCleanupPassFactory") {
-        @Override
-        protected HotSwapCompilerPass create(
-            AbstractCompiler compiler) {
-          return new MemoizedScopeCleanupPass(compiler);
-        }
-
-        @Override
-        protected FeatureSet featureSet() {
-          return ES5;
-        }
-      };
+      PassFactory.builderForHotSwap()
+          .setName("ScopeCleanupPassFactory")
+          .setInternalFactory(MemoizedScopeCleanupPass::new)
+          .setFeatureSet(ES5)
+          .build();
 
   final PassFactory globalVarRefCleanupPassFactory =
-      new HotSwapPassFactory("GlobalVarRefCleanupPassFactory") {
-        @Override
-        protected HotSwapCompilerPass create(
-            AbstractCompiler compiler) {
-          return new GlobalVarRefCleanupPass(compiler);
-        }
-
-        @Override
-        protected FeatureSet featureSet() {
-          return ES5;
-        }
-  };
+      PassFactory.builderForHotSwap()
+          .setName("GlobalVarRefCleanupPassFactory")
+          .setInternalFactory(GlobalVarRefCleanupPass::new)
+          .setFeatureSet(ES5)
+          .build();
 
   /**
    * A CleanupPass implementation that will remove stored scopes from the

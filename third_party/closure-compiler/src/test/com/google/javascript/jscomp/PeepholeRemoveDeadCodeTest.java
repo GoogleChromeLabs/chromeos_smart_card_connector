@@ -46,8 +46,6 @@ public final class PeepholeRemoveDeadCodeTest extends CompilerTestCase {
     return new CompilerPass() {
       @Override
       public void process(Node externs, Node root) {
-        new PureFunctionIdentifier.Driver(compiler).process(externs, root);
-
         PeepholeOptimizationsPass peepholePass =
             new PeepholeOptimizationsPass(compiler, getName(), new PeepholeRemoveDeadCode());
         peepholePass.process(externs, root);
@@ -1258,8 +1256,9 @@ public final class PeepholeRemoveDeadCodeTest extends CompilerTestCase {
     test("({a:1})", "");
     test("({a:foo()})", "foo()");
     test("({'a':foo()})", "foo()");
-    test("({...a})", "");
-    test("({...foo()})", "foo()");
+    // Object-spread may tigger getters.
+    testSame("({...a})");
+    testSame("({...foo()})");
   }
 
   @Test
@@ -1355,5 +1354,197 @@ public final class PeepholeRemoveDeadCodeTest extends CompilerTestCase {
     setAcceptedLanguage(LanguageMode.ECMASCRIPT_2018);
     testSame("const {f: {}, ...g} = foo()");
     testSame("const {f: [], ...g} = foo()");
+  }
+
+  @Test
+  public void testUndefinedDefaultParameterRemoved() {
+    test(
+        "function f(x=undefined,y) {  }", //
+        "function f(x,y)             {  }");
+    test(
+        "function f(x,y=undefined,z) {  }", //
+        "function f(x,y          ,z) {  }");
+    test(
+        "function f(x=undefined,y=undefined,z=undefined) {  }", //
+        "function f(x,          y,          z)           {  }");
+  }
+
+  @Test
+  public void testPureVoidDefaultParameterRemoved() {
+    test(
+        "function f(x = void 0) {  }", //
+        "function f(x         ) {  }");
+    test(
+        "function f(x = void \"XD\") {  }", //
+        "function f(x              ) {  }");
+    test(
+        "function f(x = void f()) {  }", //
+        "function f(x)            {  }");
+  }
+
+  @Test
+  public void testNoDefaultParameterNotRemoved() {
+    testSame("function f(x,y) {  }");
+    testSame("function f(x) {  }");
+    testSame("function f() {  }");
+  }
+
+  @Test
+  public void testEffectfulDefaultParameterNotRemoved() {
+    testSame("function f(x = void console.log(1)) {  }");
+    testSame("function f(x = void f()) { alert(x); }");
+  }
+
+  @Test
+  public void testDestructuringUndefinedDefaultParameter() {
+    test(
+        "function f({a=undefined,b=1,c}) {  }", //
+        "function f({a          ,b=1,c}) {  }");
+    test(
+        "function f({a={},b=0}=undefined) {  }", //
+        "function f({a={},b=0}) {  }");
+    test(
+        "function f({a=undefined,b=0}) {  }", //
+        "function f({a,b=0}) {  }");
+    test(
+        " function f({a: {b = undefined}}) {  }", //
+        " function f({a: {b}}) {  }");
+    testSame("function f({a,b}) {  }");
+    testSame("function f({a=0, b=1}) {  }");
+    testSame("function f({a=0,b=0}={}) {  }");
+    testSame("function f({a={},b=0}={}) {  }");
+  }
+
+  @Test
+  public void testUndefinedDefaultObjectPatterns() {
+    test(
+        "const {a = undefined} = obj;", //
+        "const {a} = obj;");
+    test(
+        "const {a = void 0} = obj;", //
+        "const {a} = obj;");
+  }
+
+  @Test
+  public void testDoNotRemoveGetterOnlyAccess() {
+    testSame(
+        lines(
+            "var a = {", //
+            "  get property() {}",
+            "};",
+            "a.property;"));
+
+    testSame(
+        lines(
+            "var a = {};", //
+            "Object.defineProperty(a, 'property', {",
+            "  get() {}",
+            "});",
+            "a.property;"));
+  }
+
+  @Test
+  public void testDoNotRemoveNestedGetterOnlyAccess() {
+    testSame(
+        lines(
+            "var a = {", //
+            "  b: { get property() {} }",
+            "};",
+            "a.b.property;"));
+  }
+
+  @Test
+  public void testRemoveAfterNestedGetterOnlyAccess() {
+    test(
+        lines(
+            "var a = {", //
+            "  b: { get property() {} }",
+            "};",
+            "a.b.property.d.e;"),
+        lines(
+            "var a = {", //
+            "  b: { get property() {} }",
+            "};",
+            "a.b.property;"));
+  }
+
+  @Test
+  public void testRetainSetterOnlyAccess() {
+    testSame(
+        lines(
+            "var a = {", //
+            "  set property(v) {}",
+            "};",
+            "a.property;"));
+  }
+
+  @Test
+  public void testDoNotRemoveGetterSetterAccess() {
+    testSame(
+        lines(
+            "var a = {", //
+            "  get property() {},",
+            "  set property(x) {}",
+            "};",
+            "a.property;"));
+  }
+
+  @Test
+  public void testDoNotRemoveSetSetterToGetter() {
+    testSame(
+        lines(
+            "var a = {", //
+            "  get property() {},",
+            "  set property(x) {}",
+            "};",
+            "a.property = a.property;"));
+  }
+
+  @Test
+  public void testDoNotRemoveAccessIfOtherPropertyIsGetter() {
+    testSame(
+        lines(
+            "var a = {", //
+            "  get property() {}",
+            "};",
+            "var b = {",
+            "  property: 0,",
+            "};",
+            // This pass should be conservative and not remove this since it sees a getter for
+            // "property"
+            "b.property;"));
+
+    testSame(
+        lines(
+            "var a = {};", //
+            "Object.defineProperty(a, 'property', {",
+            "  get() {}",
+            "});",
+            "var b = {",
+            "  property: 0,",
+            "};",
+            "b.property;"));
+  }
+
+  @Test
+  public void testFunctionCallReferencesGetterIsNotRemoved() {
+    testSame(
+        lines(
+            "var a = {", //
+            "  get property() {}",
+            "};",
+            "function foo() { a.property; }",
+            "foo();"));
+  }
+
+  @Test
+  public void testFunctionCallReferencesSetterIsNotRemoved() {
+    testSame(
+        lines(
+            "var a = {", //
+            "  set property(v) {}",
+            "};",
+            "function foo() { a.property = 0; }",
+            "foo();"));
   }
 }

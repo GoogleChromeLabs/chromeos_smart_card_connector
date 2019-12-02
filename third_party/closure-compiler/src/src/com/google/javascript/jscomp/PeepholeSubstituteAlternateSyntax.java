@@ -31,7 +31,6 @@ import java.util.regex.Pattern;
  * A peephole optimization that minimizes code by simplifying conditional
  * expressions, replacing IFs with HOOKs, replacing object constructors
  * with literals, and simplifying returns.
- *
  */
 class PeepholeSubstituteAlternateSyntax
   extends AbstractPeepholeOptimization {
@@ -640,7 +639,7 @@ class PeepholeSubstituteAlternateSyntax
       return n;
     }
 
-    String[] strings = new String[n.getChildCount()];
+    String[] strings = new String[numElements];
     int idx = 0;
     for (Node cur = n.getFirstChild(); cur != null; cur = cur.getNext()) {
       strings[idx++] = cur.getString();
