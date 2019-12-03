@@ -185,7 +185,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
   this.id = idGenerator.next();
 
   /** @private */
-  this.clientAppId_ = goog.isDef(clientAppId) ? clientAppId : null;
+  this.clientAppId_ = clientAppId !== undefined ? clientAppId : null;
 
   /**
    * @type {!goog.log.Logger}
@@ -193,7 +193,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
    */
   this.logger = GSC.Logging.getScopedLogger(
       'PcscLiteServerClientsManagement.ClientHandler<' +
-      (goog.isNull(this.clientAppId_) ?
+      (this.clientAppId_ === null ?
            'own app' : '"' + this.clientAppId_ + '"') +
       ', id=' + this.id + '>');
 
@@ -338,7 +338,7 @@ ClientHandler.prototype.handleRequest_ = function(payload) {
  */
 ClientHandler.prototype.getPermissionsCheckPromise_ = function() {
   return permissionsChecker.check(this.clientAppId_).then(function() {
-    if (!goog.isNull(this.clientAppId_)) {
+    if (this.clientAppId_ !== null) {
       this.logger.info(
           'Client was granted permissions to issue PC/SC requests');
     }
@@ -392,7 +392,7 @@ ClientHandler.prototype.clientMessageChannelDisposedListener_ = function() {
   if (this.isDisposed())
     return;
   var logMessage = 'Client message channel was disposed, disposing...';
-  if (goog.isNull(this.clientAppId_))
+  if (this.clientAppId_ === null)
     this.logger.fine(logMessage);
   else
     this.logger.info(logMessage);
@@ -446,7 +446,7 @@ ClientHandler.prototype.createServerRequesterIfNeed_ = function() {
 
   this.sendServerCreateHandlerMessage_();
   GSC.Logging.checkWithLogger(
-      this.logger, !goog.isNull(this.serverMessageChannel_));
+      this.logger, this.serverMessageChannel_ !== null);
   goog.asserts.assert(this.serverMessageChannel_);
 
   var requesterTitle = goog.string.subs(
@@ -469,7 +469,7 @@ ClientHandler.prototype.sendServerCreateHandlerMessage_ = function() {
       this.logger, !this.serverMessageChannel_.isDisposed());
   var messageData = {};
   messageData[CLIENT_HANDLER_ID_MESSAGE_KEY] = this.id;
-  if (!goog.isNull(this.clientAppId_))
+  if (this.clientAppId_ !== null)
     messageData[CLIENT_APP_ID_MESSAGE_KEY] = this.clientAppId_;
   this.serverMessageChannel_.send(
       CREATE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME, messageData);

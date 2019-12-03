@@ -112,7 +112,7 @@ function setUpChromeStorageMock(
         callback(fakeInitialData);
       });
 
-  if (!goog.isNull(expectedDataToBeWritten))
+  if (expectedDataToBeWritten !== null)
     chrome.storage.local.set(expectedDataToBeWritten);
 }
 

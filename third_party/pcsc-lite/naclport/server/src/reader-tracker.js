@@ -260,7 +260,7 @@ TrackerThroughPcscServerHook.prototype.getReaders = function() {
       ports, this.portToReaderInfoMap_.get, this.portToReaderInfoMap_);
   // Remove null entries, as they correspond to readers that should be hidden.
   return /** @type {!Array.<!ReaderInfo>} */ (mappedReaderInfos.filter(
-      function(item) { return !goog.isNull(item); }));
+      function(item) { return item !== null; }));
 };
 
 /**
@@ -484,7 +484,7 @@ TrackerThroughPcscApi.prototype.runStatusTrackingLoop_ = function(
     // If an intermittent error was returned from the previous request, then
     // just sleep for some time and repeat the tracking loop body; otherwise -
     // block on waiting for a notification from PC/SC that something is changed.
-    if (goog.isNull(readerStates)) {
+    if (readerStates === null) {
       return goog.Timer.promise(READER_STATUS_FAILED_QUERY_DELAY_MILLISECONDS);
     } else {
       this.updateResultFromReaderStates_(readerStates);

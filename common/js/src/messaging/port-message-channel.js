@@ -74,7 +74,7 @@ GSC.PortMessageChannel = function(port, opt_onEstablished) {
    */
   this.logger = GSC.Logging.getScopedLogger(
       'PortMessageChannel<"' + port.name + '"' +
-      (goog.isNull(this.extensionId) ? '' : ', id="' + this.extensionId + '"') +
+      (this.extensionId === null ? '' : ', id="' + this.extensionId + '"') +
       '>');
 
   /** @private */
@@ -155,15 +155,15 @@ PortMessageChannel.prototype.getPortExtensionId_ = function(port) {
   if (!goog.object.containsKey(port, 'sender'))
     return null;
   var sender = port['sender'];
-  if (!goog.isDef(sender))
+  if (sender === undefined)
     return null;
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(sender));
   if (!goog.object.containsKey(sender, 'id'))
     return null;
   var senderId = sender['id'];
-  if (!goog.isDef(senderId))
+  if (senderId === undefined)
     return null;
-  GSC.Logging.checkWithLogger(this.logger, goog.isString(senderId));
+  GSC.Logging.checkWithLogger(this.logger, typeof senderId === 'string');
   return senderId;
 };
 

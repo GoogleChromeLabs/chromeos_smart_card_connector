@@ -109,7 +109,7 @@ UserPromptingChecker.prototype.check = function(clientAppId) {
                      clientAppId + '"...');
 
   var existingPromise = this.checkPromiseMap_.get(clientAppId);
-  if (goog.isDef(existingPromise)) {
+  if (existingPromise !== undefined) {
     this.logger.finest(
         'Found the existing promise for the permission checking of the ' +
         'client App with id "' + clientAppId + '", returning it');
@@ -203,7 +203,7 @@ UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
     return storedUserSelections;
   }
   goog.object.forEach(contents, function(userSelection, appId) {
-    if (!goog.isBoolean(userSelection)) {
+    if (typeof userSelection !== 'boolean') {
       this.logger.warning(
           'Corrupted local storage entry - expected the object value to ' +
           'be a boolean, received: ' + GSC.DebugDump.dump(userSelection));

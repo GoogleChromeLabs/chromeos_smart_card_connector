@@ -110,7 +110,8 @@ GSC.PopupWindow.Client.setWindowHeightToFitContent = function() {
   var wholeContentHeight = document.documentElement['offsetHeight'];
   GSC.Logging.checkWithLogger(
       logger,
-      goog.isDef(wholeContentHeight) && goog.isNumber(wholeContentHeight));
+      wholeContentHeight !== undefined &&
+          typeof wholeContentHeight === 'number');
   logger.fine('Resizing the window size to ' + wholeContentHeight + 'px');
   chrome.app.window.current().innerBounds.height = wholeContentHeight;
 };

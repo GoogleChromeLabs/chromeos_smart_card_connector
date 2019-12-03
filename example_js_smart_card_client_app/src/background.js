@@ -88,7 +88,7 @@ var context = null;
  * Initiates the PC/SC-Lite client API context initialization.
  */
 function initializeContext() {
-  GSC.Logging.checkWithLogger(logger, goog.isNull(context));
+  GSC.Logging.checkWithLogger(logger, context === null);
   context = new GSC.PcscLiteClient.Context(CLIENT_TITLE, SERVER_APP_ID);
   context.addOnInitializedCallback(contextInitializedListener);
   context.addOnDisposeCallback(contextDisposedListener);

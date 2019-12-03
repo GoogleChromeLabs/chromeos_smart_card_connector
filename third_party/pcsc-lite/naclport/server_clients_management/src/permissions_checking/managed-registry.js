@@ -182,7 +182,7 @@ ManagedRegistry.prototype.setAllowedClientAppIdsFromStorageData_ = function(
   var newAllowedClientAppIds = new Set;
   var success = true;
   goog.array.forEach(storageData, function(item) {
-    if (!goog.isString(item)) {
+    if (typeof item !== 'string') {
       this.logger.warning(
           'Failed to load the allowed client App id from the managed ' +
           'storage item: expected a string, instead got: ' +

@@ -165,7 +165,7 @@ NaclClientBackend.prototype.handleRequest_ = function(payload) {
     //
     // Only the last case is the case when the immediate initialization makes
     // sense.
-    if (!this.context_ && goog.isNull(this.initializationTimerId_))
+    if (!this.context_ && this.initializationTimerId_ === null)
       this.initialize_();
   }
 
@@ -207,7 +207,7 @@ NaclClientBackend.prototype.initialize_ = function() {
 /** @private */
 NaclClientBackend.prototype.contextInitializedListener_ = function(api) {
   GSC.Logging.checkWithLogger(
-      this.logger, goog.isNull(this.initializationTimerId_));
+      this.logger, this.initializationTimerId_ === null);
 
   GSC.Logging.checkWithLogger(this.logger, !this.api_);
   this.api_ = api;
@@ -223,7 +223,7 @@ NaclClientBackend.prototype.contextDisposedListener_ = function() {
       'PC/SC-Lite Client Context instance was disposed, cleaning up, ' +
       'rejecting all queued requests and scheduling reinitialization...');
   GSC.Logging.checkWithLogger(
-      this.logger, goog.isNull(this.initializationTimerId_));
+      this.logger, this.initializationTimerId_ === null);
   if (this.api_) {
     this.api_.dispose();
     this.api_ = null;

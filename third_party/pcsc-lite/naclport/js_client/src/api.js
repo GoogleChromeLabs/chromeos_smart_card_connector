@@ -2049,7 +2049,7 @@ goog.exportProperty(API, 'SCARD_PCI_RAW', API.SCARD_PCI_RAW);
 API.SCARD_READERSTATE_IN = function(readerName, currentState, opt_userData) {
   this['reader_name'] = readerName;
   this['current_state'] = currentState;
-  if (goog.isDef(opt_userData))
+  if (opt_userData !== undefined)
     this['user_data'] = opt_userData;
 };
 
@@ -2095,7 +2095,7 @@ API.SCARD_READERSTATE_OUT = function(
   this['current_state'] = currentState;
   this['event_state'] = eventState;
   this['atr'] = atr;
-  if (goog.isDef(opt_userData))
+  if (opt_userData !== undefined)
     this['user_data'] = opt_userData;
 };
 
@@ -2196,7 +2196,7 @@ goog.exportProperty(
  */
 API.ResultOrErrorCode.prototype.getResult = function() {
   GSC.Logging.checkWithLogger(this.logger, this.isSuccessful());
-  GSC.Logging.checkWithLogger(this.logger, goog.isDef(this.resultItems));
+  GSC.Logging.checkWithLogger(this.logger, this.resultItems !== undefined);
   goog.asserts.assert(this.resultItems);
   return this.resultItems;
 };
@@ -2250,7 +2250,8 @@ API.prototype.pcsc_stringify_error = function(errorCode) {
       [errorCode],
       function(responseItems) {
         GSC.Logging.checkWithLogger(logger, responseItems.length == 1);
-        GSC.Logging.checkWithLogger(logger, goog.isString(responseItems[0]));
+        GSC.Logging.checkWithLogger(
+            logger, typeof responseItems[0] === 'string');
         return responseItems[0];
       });
 };
@@ -2291,9 +2292,9 @@ goog.exportProperty(
  */
 API.prototype.SCardEstablishContext = function(
     scope, opt_reserved_1, opt_reserved_2) {
-  if (!goog.isDef(opt_reserved_1))
+  if (opt_reserved_1 === undefined)
     opt_reserved_1 = null;
-  if (!goog.isDef(opt_reserved_2))
+  if (opt_reserved_2 === undefined)
     opt_reserved_2 = null;
   return this.postRequest_(
       'SCardEstablishContext',

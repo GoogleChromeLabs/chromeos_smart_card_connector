@@ -143,7 +143,7 @@ KnownAppsRegistry.prototype.tryGetByIds = function(idList) {
         var knownApps = [];
         for (let id of idList) {
           var knownApp = knownAppsMap.get(id);
-          knownApps.push(goog.isDef(knownApp) ? knownApp : null);
+          knownApps.push(knownApp !== undefined ? knownApp : null);
         }
         promiseResolver.resolve(knownApps);
       },
@@ -246,7 +246,7 @@ KnownAppsRegistry.prototype.tryParseKnownAppJson_ = function(key, value) {
   if (!goog.object.containsKey(value, KNOWN_CLIENT_APP_NAME_FIELD))
     return null;
   var nameField = value[KNOWN_CLIENT_APP_NAME_FIELD];
-  if (!goog.isString(nameField))
+  if (typeof nameField !== 'string')
     return null;
 
   return new KnownApp(key, nameField);

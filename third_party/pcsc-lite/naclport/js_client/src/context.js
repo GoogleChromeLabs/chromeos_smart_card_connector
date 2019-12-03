@@ -77,9 +77,9 @@ GSC.PcscLiteClient.Context = function(clientTitle, opt_serverAppId) {
    * @private
    */
   this.serverAppId_ = undefined;
-  if (!goog.isDef(opt_serverAppId))
+  if (opt_serverAppId === undefined)
     this.serverAppId_ = GSC.PcscLiteCommon.Constants.SERVER_OFFICIAL_APP_ID;
-  else if (!goog.isNull(opt_serverAppId))
+  else if (opt_serverAppId !== null)
     this.serverAppId_ = opt_serverAppId;
 
   /**
@@ -123,18 +123,18 @@ goog.exportProperty(Context.prototype, 'logger', Context.prototype.logger);
  * to be used instead of opening a new port.
  */
 Context.prototype.initialize = function(opt_messageChannel) {
-  if (goog.isDef(opt_messageChannel)) {
+  if (opt_messageChannel !== undefined) {
     this.channel_ = opt_messageChannel;
     goog.async.nextTick(this.messageChannelEstablishedListener_, this);
   } else {
     this.logger.fine(
         'Opening a connection to the server app ' +
-        (goog.isDef(this.serverAppId_) ?
+        (this.serverAppId_ !== undefined ?
              '(extension id is "' + this.serverAppId_ + '")' :
              '(which is the own app)') +
         '...');
     var connectInfo = {'name': this.clientTitle};
-    if (goog.isDef(this.serverAppId_)) {
+    if (this.serverAppId_ !== undefined) {
       var port = chrome.runtime.connect(this.serverAppId_, connectInfo);
     } else {
       var port = chrome.runtime.connect(connectInfo);
@@ -159,7 +159,7 @@ goog.exportProperty(
  * @param {function()|function(!GSC.PcscLiteClient.API)} callback
  */
 Context.prototype.addOnInitializedCallback = function(callback) {
-  if (!goog.isNull(this.api))
+  if (this.api !== null)
     callback(this.api);
   else
     this.onInitializedCallbacks_.push(callback);
@@ -215,8 +215,8 @@ Context.prototype.messageChannelEstablishedListener_ = function() {
 
   this.logger.fine('Message channel was established successfully');
 
-  GSC.Logging.checkWithLogger(this.logger, goog.isNull(this.api));
-  GSC.Logging.checkWithLogger(this.logger, !goog.isNull(this.channel_));
+  GSC.Logging.checkWithLogger(this.logger, this.api === null);
+  GSC.Logging.checkWithLogger(this.logger, this.channel_ !== null);
   goog.asserts.assert(this.channel_);
   var api = new GSC.PcscLiteClient.API(this.channel_);
   this.api = api;

@@ -97,7 +97,7 @@ NaclModuleLogMessagesReceiver.prototype.extractLogMessageLevel_ = function(
       this.logger, goog.object.containsKey(messageData, LOG_LEVEL_MESSAGE_KEY));
   var value = messageData[LOG_LEVEL_MESSAGE_KEY];
 
-  GSC.Logging.checkWithLogger(this.logger, goog.isString(value));
+  GSC.Logging.checkWithLogger(this.logger, typeof value === 'string');
   goog.asserts.assertString(value);
 
   var result = goog.log.Level.getPredefinedLevel(value);
@@ -121,7 +121,7 @@ NaclModuleLogMessagesReceiver.prototype.extractLogMessageText_ = function(
       this.logger, goog.object.containsKey(messageData, TEXT_MESSAGE_KEY));
   var value = messageData[TEXT_MESSAGE_KEY];
 
-  GSC.Logging.checkWithLogger(this.logger, goog.isString(value));
+  GSC.Logging.checkWithLogger(this.logger, typeof value === 'string');
   goog.asserts.assertString(value);
 
   return value;

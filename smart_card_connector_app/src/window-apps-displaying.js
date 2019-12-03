@@ -73,7 +73,7 @@ var lastKnownAppsPromise = null;
 function updateAppView(knownAppsPromise, appIds, knownApps) {
   if (knownAppsPromise !== lastKnownAppsPromise) return false;
 
-  GSC.Logging.checkWithLogger(logger, !goog.isNull(appListElement));
+  GSC.Logging.checkWithLogger(logger, appListElement !== null);
   goog.asserts.assert(appListElement);
 
   goog.dom.removeChildren(appListElement);

@@ -63,7 +63,7 @@ TypedMessage.parseTypedMessage = function(message) {
   if (!goog.isObject(message) ||
       goog.object.getCount(message) != 2 ||
       !goog.object.containsKey(message, TYPE_MESSAGE_KEY) ||
-      !goog.isString(message[TYPE_MESSAGE_KEY]) ||
+      typeof message[TYPE_MESSAGE_KEY] !== 'string' ||
       !goog.object.containsKey(message, DATA_MESSAGE_KEY) ||
       !goog.isObject(message[DATA_MESSAGE_KEY])) {
     return null;

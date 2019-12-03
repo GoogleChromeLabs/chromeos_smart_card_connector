@@ -89,7 +89,7 @@ Checker.prototype.check = function(clientAppId) {
   this.logger.finer('Checking permissions for client App with id ' +
                     GSC.DebugDump.dump(clientAppId) + '...');
 
-  if (goog.isNull(clientAppId)) {
+  if (clientAppId === null) {
     this.logger.finer('Granted permissions for client with null App id');
     return goog.Promise.resolve();
   }

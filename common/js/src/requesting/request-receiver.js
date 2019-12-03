@@ -113,7 +113,7 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
   goog.asserts.assertObject(messageData);
 
   var requestMessageData = RequestMessageData.parseMessageData(messageData);
-  if (goog.isNull(requestMessageData)) {
+  if (requestMessageData === null) {
     if (this.shouldDisposeOnInvalidMessage_) {
       this.logger.warning(
           'Failed to parse the received request message: ' +
