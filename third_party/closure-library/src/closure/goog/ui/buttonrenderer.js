@@ -14,21 +14,18 @@
 
 /**
  * @fileoverview Default renderer for {@link goog.ui.Button}s.
- *
- * @author attila@google.com (Attila Bodis)
  */
 
 goog.provide('goog.ui.ButtonRenderer');
 
+goog.forwardDeclare('goog.ui.Button');
 goog.require('goog.a11y.aria');
 goog.require('goog.a11y.aria.Role');
 goog.require('goog.a11y.aria.State');
 goog.require('goog.asserts');
 goog.require('goog.ui.ButtonSide');
 goog.require('goog.ui.Component');
-goog.require('goog.ui.ControlRenderer');
-
-goog.forwardDeclare('goog.ui.Button');  // circular
+goog.require('goog.ui.ControlRenderer');  // circular
 
 
 

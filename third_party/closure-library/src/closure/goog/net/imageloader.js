@@ -15,8 +15,6 @@
 /**
  * @fileoverview Image loader utility class.  Useful when an application needs
  * to preload multiple images, for example so they can be sized.
- *
- * @author attila@google.com (Attila Bodis)
  */
 
 goog.provide('goog.net.ImageLoader');
@@ -113,7 +111,7 @@ goog.inherits(goog.net.ImageLoader, goog.events.EventTarget);
  */
 goog.net.ImageLoader.CorsRequestType = {
   ANONYMOUS: 'anonymous',
-  USE_CREDENTIALS: 'use-credentials'
+  USE_CREDENTIALS: 'use-credentials',
 };
 
 
@@ -150,7 +148,8 @@ goog.net.ImageLoader.IMAGE_LOAD_EVENTS_ = [
   goog.userAgent.IE && !goog.userAgent.isVersionOrHigher('11') ?
       goog.net.EventType.READY_STATE_CHANGE :
       goog.events.EventType.LOAD,
-  goog.net.EventType.ABORT, goog.net.EventType.ERROR
+  goog.net.EventType.ABORT,
+  goog.net.EventType.ERROR,
 ];
 
 
@@ -168,13 +167,13 @@ goog.net.ImageLoader.IMAGE_LOAD_EVENTS_ = [
  */
 goog.net.ImageLoader.prototype.addImage = function(
     id, image, opt_corsRequestType) {
-  var src = goog.isString(image) ? image : image.src;
+  var src = (typeof image === 'string') ? image : image.src;
   if (src) {
     // For now, we just store the source URL for the image.
     this.imageIdToRequestMap_[id] = {
       src: src,
-      corsRequestType: goog.isDef(opt_corsRequestType) ? opt_corsRequestType :
-                                                         null
+      corsRequestType: opt_corsRequestType !== undefined ? opt_corsRequestType :
+                                                           null,
     };
   }
 };
@@ -267,6 +266,7 @@ goog.net.ImageLoader.prototype.loadImage_ = function(imageRequest, id) {
  * Handles net events (READY_STATE_CHANGE, LOAD, ABORT, and ERROR).
  * @param {goog.events.Event} evt The network event to handle.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.net.ImageLoader.prototype.onNetworkEvent_ = function(evt) {
   var image = /** @type {Element} */ (evt.currentTarget);

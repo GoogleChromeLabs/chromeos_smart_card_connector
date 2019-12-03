@@ -173,7 +173,7 @@ completely new window such as a popup or an iframe.
 
 If you need to use it, use the type-safe [`goog.dom.safe.documentWrite`]
 wrapper, or directly render a Strict Soy template using
-`goog.soy.Renderer.prototype.renderElement` (or similar).
+[`goog.soy.Renderer.prototype.renderElement`] \(or similar\).
 
 
 {: #innerHtml}
@@ -187,7 +187,7 @@ vulnerabilities.
 
 Instead, use the type-safe [`goog.dom.safe.setInnerHtml`] wrapper, or directly
 render a Strict Soy template using [`goog.soy.Renderer.prototype.renderElement`]
-(or similar).
+\(or similar\).
 
 Note: Reads of these properties are permitted.
 
@@ -209,19 +209,6 @@ too.
 For this reason, we ban creating untyped `'script'`, `'iframe'`, `'frame'`,
 `'embed'`, and `'object'` elements and require using `goog.dom` methods with
 `goog.dom.TagName` with them.
-
-
-{: #soyDeprecatedAutoescaping}
-### Non-strict escaping in Soy templates 
-
-Rendering non-strict templates is prohibited for security reasons. We check if
-functions `soy.renderAsElement`, `soy.renderAsFragment` and `soy.renderElement`
-plus their versions in `goog.soy` and `goog.soy.Renderer` are called with
-strict-autoescaping templates. Calling them with non-strict templates is banned.
-
-This violation might be a false positive if you pass strict templates around
-with type `{Function}` or `function(): *`. Pass them with type
-`{goog.soy.StrictTemplate}` instead.
 
 
 {: #location}
@@ -333,6 +320,7 @@ communication to/from an iframe hosted on the same domain as the page containing
 the iframe. However, be sure to get a security review to allow usage of this.
 
 
+
 {: #expose}
 ### @expose 
 
@@ -373,7 +361,7 @@ Closure (as well as some libraries built on top of
 Closure)
 include several APIs that consume plain strings, and pass them on to an API that
 process that string in an injection-vulnerability-prone way (most commonly, an
-assigmnent to `.innerHTML`). Thus, use of such APIs incurs similar risks of
+assignment to `.innerHTML`). Thus, use of such APIs incurs similar risks of
 injection vulnerabilities as the underlying DOM API (e.g., `innerHTML`
 assignment). Due to these risks, conformance rules disallow the use of such
 APIs. The respective conformance rules' error message refers to the equivalent,

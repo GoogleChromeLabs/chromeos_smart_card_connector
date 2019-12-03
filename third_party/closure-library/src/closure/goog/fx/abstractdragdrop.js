@@ -17,8 +17,6 @@
  *
  * Provides functionality for implementing drag and drop classes. Also provides
  * support classes and events.
- *
- * @author eae@google.com (Emil A Eklund)
  */
 
 goog.provide('goog.fx.AbstractDragDrop');
@@ -1070,7 +1068,7 @@ goog.fx.AbstractDragDrop.prototype.maybeCreateDummyTargetForPosition_ =
     // If both clippings are possible, choose one that gives us larger distance
     // to mouse pointer (mark the shorter clipping as impossible, by setting it
     // to null).
-    if (!goog.isNull(horizontalClip) && !goog.isNull(verticalClip)) {
+    if (horizontalClip !== null && verticalClip !== null) {
       if (Math.abs(horizontalClip - x) > Math.abs(verticalClip - y)) {
         verticalClip = null;
       } else {
@@ -1080,13 +1078,13 @@ goog.fx.AbstractDragDrop.prototype.maybeCreateDummyTargetForPosition_ =
 
     // Clip none or one of fake target box sides (at most one clipping
     // coordinate can be active).
-    if (!goog.isNull(horizontalClip)) {
+    if (horizontalClip !== null) {
       if (horizontalClip <= x) {
         fakeTargetBox.left = horizontalClip;
       } else {
         fakeTargetBox.right = horizontalClip;
       }
-    } else if (!goog.isNull(verticalClip)) {
+    } else if (verticalClip !== null) {
       if (verticalClip <= y) {
         fakeTargetBox.top = verticalClip;
       } else {
@@ -1171,7 +1169,10 @@ goog.fx.AbstractDragDrop.prototype.getEventPosition = function(event) {
 };
 
 
-/** @override */
+/**
+ * @override
+ * @protected
+ */
 goog.fx.AbstractDragDrop.prototype.disposeInternal = function() {
   goog.fx.AbstractDragDrop.base(this, 'disposeInternal');
   this.removeItems();
@@ -1568,8 +1569,17 @@ goog.fx.ScrollableContainer_ = function(element) {
 
   /**
    * The space occupied by the container.
-   * @type {goog.math.Box}
+   * @type {?goog.math.Box}
    * @private
    */
   this.box_ = null;
+};
+
+
+/**
+ * Test-only exports.
+ * @const
+ */
+goog.fx.AbstractDragDrop.TEST_ONLY = {
+  ActiveDropTarget: goog.fx.ActiveDropTarget_,
 };

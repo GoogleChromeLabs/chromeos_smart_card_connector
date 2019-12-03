@@ -18,7 +18,6 @@
  * matcher function into an ArgumentMatcher instance.
  *
  * For examples, please see the unit test.
- *
  */
 
 
@@ -32,11 +31,10 @@ goog.provide('goog.testing.mockmatchers.RegexpMatch');
 goog.provide('goog.testing.mockmatchers.SaveArgument');
 goog.provide('goog.testing.mockmatchers.TypeOf');
 
+goog.forwardDeclare('goog.testing.MockExpectation');
 goog.require('goog.array');
 goog.require('goog.dom');
-goog.require('goog.testing.asserts');
-
-goog.forwardDeclare('goog.testing.MockExpectation'); // circular
+goog.require('goog.testing.asserts');  // circular
 
 
 
@@ -162,7 +160,7 @@ goog.inherits(
 /**
  * A matcher that always returns true. It is useful when the user does not care
  * for some arguments.
- * For example: mockFunction('username', 'password', IgnoreArgument);
+ * For example: mockFunction('username', 'password', new IgnoreArgument());
  * @constructor
  * @extends {goog.testing.mockmatchers.ArgumentMatcher}
  * @final
@@ -230,6 +228,12 @@ goog.testing.mockmatchers.SaveArgument = function(opt_matcher, opt_matchName) {
   goog.testing.mockmatchers.ArgumentMatcher.call(
       this, /** @type {Function} */ (opt_matcher), opt_matchName);
 
+  /**
+   * All saved arguments that were verified.
+   * @const {!Array<*>}
+   */
+  this.allArgs = [];
+
   if (opt_matcher instanceof goog.testing.mockmatchers.ArgumentMatcher) {
     /**
      * Delegate match requests to this matcher.
@@ -250,6 +254,7 @@ goog.inherits(
 goog.testing.mockmatchers.SaveArgument.prototype.matches = function(
     toVerify, opt_expectation) {
   this.arg = toVerify;
+  this.allArgs.push(toVerify);
   if (this.delegateMatcher_) {
     return this.delegateMatcher_.matches(toVerify, opt_expectation);
   }
@@ -259,7 +264,7 @@ goog.testing.mockmatchers.SaveArgument.prototype.matches = function(
 
 
 /**
- * Saved argument that was verified.
+ * The last (or only) saved argument that was verified.
  * @type {*}
  */
 goog.testing.mockmatchers.SaveArgument.prototype.arg;

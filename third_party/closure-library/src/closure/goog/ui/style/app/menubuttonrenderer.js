@@ -15,12 +15,11 @@
 /**
  * @fileoverview Renderer for {@link goog.ui.style.app.MenuButton}s and
  * subclasses.
- *
- * @author attila@google.com (Attila Bodis)
  */
 
 goog.provide('goog.ui.style.app.MenuButtonRenderer');
 
+goog.forwardDeclare('goog.ui.MenuButton');
 goog.require('goog.a11y.aria.Role');
 goog.require('goog.array');
 goog.require('goog.dom');
@@ -29,8 +28,6 @@ goog.require('goog.style');
 goog.require('goog.ui.Menu');
 goog.require('goog.ui.MenuRenderer');
 goog.require('goog.ui.style.app.ButtonRenderer');
-
-goog.forwardDeclare('goog.ui.MenuButton');
 
 
 

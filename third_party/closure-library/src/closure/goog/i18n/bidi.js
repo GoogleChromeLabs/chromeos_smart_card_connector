@@ -34,7 +34,7 @@ goog.provide('goog.i18n.bidi.Format');
  *
  * {@see goog.i18n.bidi.IS_RTL}
  */
-goog.define('goog.i18n.bidi.FORCE_RTL', false);
+goog.i18n.bidi.FORCE_RTL = goog.define('goog.i18n.bidi.FORCE_RTL', false);
 
 
 /**
@@ -59,6 +59,7 @@ goog.define('goog.i18n.bidi.FORCE_RTL', false);
  *
  * TODO(user): write a test that checks that this is a compile-time constant.
  */
+// LINT.IfChange
 goog.i18n.bidi.IS_RTL =
     goog.i18n.bidi.FORCE_RTL ||
     ((goog.LOCALE.substring(0, 2).toLowerCase() == 'ar' ||
@@ -77,13 +78,28 @@ goog.i18n.bidi.IS_RTL =
         goog.LOCALE.substring(0, 3).toLowerCase() == 'ckb' &&
         (goog.LOCALE.length == 3 || goog.LOCALE.substring(3, 4) == '-' ||
          goog.LOCALE.substring(3, 4) == '_')) ||
-    (  // Fulbe (aka Fulani, Pular) with Adlam or Arabic script
+    (  // 2 letter language codes with RTL scripts
         goog.LOCALE.length >= 7 &&
-        goog.LOCALE.substring(0, 2).toLowerCase() == 'ff' &&
-        (goog.LOCALE.substring(2, 3) == '-' ||
-         goog.LOCALE.substring(2, 3) == '_') &&
-        (goog.LOCALE.substring(3, 7).toLowerCase() == 'adlm' ||
-         goog.LOCALE.substring(3, 7).toLowerCase() == 'arab'));
+        ((goog.LOCALE.substring(2, 3) == '-' ||
+          goog.LOCALE.substring(2, 3) == '_') &&
+         (goog.LOCALE.substring(3, 7).toLowerCase() == 'adlm' ||
+          goog.LOCALE.substring(3, 7).toLowerCase() == 'arab' ||
+          goog.LOCALE.substring(3, 7).toLowerCase() == 'hebr' ||
+          goog.LOCALE.substring(3, 7).toLowerCase() == 'nkoo' ||
+          goog.LOCALE.substring(3, 7).toLowerCase() == 'rohg' ||
+          goog.LOCALE.substring(3, 7).toLowerCase() == 'thaa'))) ||
+    (  // 3 letter languages codes with RTL scripts
+        goog.LOCALE.length >= 8 &&
+        ((goog.LOCALE.substring(3, 4) == '-' ||
+          goog.LOCALE.substring(3, 4) == '_') &&
+         (goog.LOCALE.substring(4, 8).toLowerCase() == 'adlm' ||
+          goog.LOCALE.substring(4, 8).toLowerCase() == 'arab' ||
+          goog.LOCALE.substring(4, 8).toLowerCase() == 'hebr' ||
+          goog.LOCALE.substring(4, 8).toLowerCase() == 'nkoo' ||
+          goog.LOCALE.substring(4, 8).toLowerCase() == 'rohg' ||
+          goog.LOCALE.substring(4, 8).toLowerCase() == 'thaa')));
+//    closure/RtlLocalesTest.java)
+
 // TODO(b/77919903): Add additional scripts and languages that are RTL,
 // e.g., mende, samaritan, etc.
 
@@ -178,9 +194,10 @@ goog.i18n.bidi.I18N_LEFT =
 goog.i18n.bidi.toDir = function(givenDir, opt_noNeutral) {
   if (typeof givenDir == 'number') {
     // This includes the non-null goog.i18n.bidi.Dir case.
-    return givenDir > 0 ? goog.i18n.bidi.Dir.LTR : givenDir < 0 ?
-                          goog.i18n.bidi.Dir.RTL :
-                          opt_noNeutral ? null : goog.i18n.bidi.Dir.NEUTRAL;
+    return givenDir > 0 ?
+        goog.i18n.bidi.Dir.LTR :
+        givenDir < 0 ? goog.i18n.bidi.Dir.RTL :
+                       opt_noNeutral ? null : goog.i18n.bidi.Dir.NEUTRAL;
   } else if (givenDir == null) {
     return null;
   } else {
@@ -194,7 +211,11 @@ goog.i18n.bidi.toDir = function(givenDir, opt_noNeutral) {
  * A practical pattern to identify strong LTR character in the BMP.
  * This pattern is not theoretically correct according to the Unicode
  * standard. It is simplified for performance and small code size.
- * It includes high surrogates in LTR, but not low surrogates or private use.
+ * It also partially supports LTR scripts beyond U+FFFF by including
+ * UTF-16 high surrogate values corresponding to mostly L-class code
+ * point ranges.
+ * However, low surrogate values and private-use regions are not included
+ * in this RegEx.
  * @type {string}
  * @private
  */
@@ -207,23 +228,17 @@ goog.i18n.bidi.ltrChars_ =
  * A practical pattern to identify strong RTL character. This pattern is not
  * theoretically correct according to the Unicode standard. It is simplified
  * for performance and small code size.
- * It includes high surrogates for RTL, but not low surrogates or private use.
+ * It also partially supports RTL scripts beyond U+FFFF by including
+ * UTF-16 high surrogate values corresponding to mostly R- or AL-class
+ * code point ranges.
+ * However, low surrogate values and private-use regions are not included
+ * in this RegEx.
  * @type {string}
  * @private
  */
 goog.i18n.bidi.rtlChars_ =
     '\u0591-\u06EF\u06FA-\u08FF\u200F\uD802-\uD803\uD83A-\uD83B' +
     '\uFB1D-\uFDFF\uFE70-\uFEFC';
-/**
- * A practical pattern to identify the high (leading) surrogate for
- * strong RTL character in the Supplementary Multilingual Planes (SMP.)
- * This set of first 16-bit values covers the RTL range for Unicode 11.
- * It is simplified for performance and small code size.
- * Note that this may need to be recomputed with updates to Unicode standard.
- * @type {string}
- * @private
- */
-goog.i18n.bidi.lowSurrogate_ = '\uDC00-\uDFFF';
 
 /**
  * Simplified regular expression for an HTML tag (opening or closing) or an HTML
@@ -458,7 +473,6 @@ goog.i18n.bidi.isNeutralText = function(str, opt_isHtml) {
  */
 goog.i18n.bidi.ltrExitDirCheckRe_ = new RegExp(
     '[' + goog.i18n.bidi.ltrChars_ + ']' +
-    '(' + goog.i18n.bidi.lowSurrogate_ + ')?' +
     '[^' + goog.i18n.bidi.rtlChars_ + ']*$');
 
 
@@ -470,7 +484,6 @@ goog.i18n.bidi.ltrExitDirCheckRe_ = new RegExp(
  */
 goog.i18n.bidi.rtlExitDirCheckRe_ = new RegExp(
     '[' + goog.i18n.bidi.rtlChars_ + ']' +
-    '(' + goog.i18n.bidi.lowSurrogate_ + ')?' +
     '[^' + goog.i18n.bidi.ltrChars_ + ']*$');
 
 
@@ -529,12 +542,13 @@ goog.i18n.bidi.isRtlExitText = goog.i18n.bidi.endsWithRtl;
 /**
  * A regular expression for matching right-to-left language codes.
  * See {@link #isRtlLanguage} for the design.
- * @type {RegExp}
+ * Note that not all RTL scripts are included.
+ * @type {!RegExp}
  * @private
  */
 goog.i18n.bidi.rtlLocalesRe_ = new RegExp(
     '^(ar|ckb|dv|he|iw|fa|nqo|ps|sd|ug|ur|yi|' +
-        '.*[-_](Adlm|Arab|Hebr|Thaa|Nkoo|Tfng))' +
+        '.*[-_](Adlm|Arab|Hebr|Nkoo|Rohg|Thaa))' +
         '(?!.*[-_](Latn|Cyrl)($|-|_))($|-|_)',
     'i');
 
@@ -548,12 +562,13 @@ goog.i18n.bidi.rtlLocalesRe_ = new RegExp(
  *   Latin or Cyrillic script (which are the usual LTR alternatives).<p>
  * The list of right-to-left scripts appears in the 100-199 range in
  * http://www.unicode.org/iso15924/iso15924-num.html, of which Arabic and
- * Hebrew are by far the most widely used. We also recognize Thaana, N'Ko, and
- * Tifinagh, which also have significant modern usage. The rest (Syriac,
- * Samaritan, Mandaic, etc.) seem to have extremely limited or no modern usage
- * and are not recognized to save on code size.
- * The languages usually written in a right-to-left script are taken as those
- * with Suppress-Script: Hebr|Arab|Thaa|Nkoo|Tfng  in
+ * Hebrew are by far the most widely used. We also recognize Thaana, and N'Ko,
+ * which also have significant modern usage. Adlam and Rohingya
+ * scripts are now included since they can be expected to be used in the
+ * future. The rest (Syriac, Samaritan, Mandaic, etc.) seem to have extremely
+ * limited or no modern usage and are not recognized to save on code size. The
+ * languages usually written in a right-to-left script are taken as those with
+ * Suppress-Script: Hebr|Arab|Thaa|Nkoo|Adlm|Rohg in
  * http://www.iana.org/assignments/language-subtag-registry,
  * as well as Central (or Sorani) Kurdish (ckb), Sindhi (sd) and Uyghur (ug).
  * Other subtags of the language code, e.g. regions like EG (Egypt), are
@@ -587,9 +602,9 @@ goog.i18n.bidi.bracketGuardTextRe_ =
  * @return {string} The processed string, with all bracket guarded.
  */
 goog.i18n.bidi.guardBracketInText = function(s, opt_isRtlContext) {
-  var useRtl = opt_isRtlContext === undefined ? goog.i18n.bidi.hasAnyRtl(s) :
-                                                opt_isRtlContext;
-  var mark = useRtl ? goog.i18n.bidi.Format.RLM : goog.i18n.bidi.Format.LRM;
+  const useRtl = opt_isRtlContext === undefined ? goog.i18n.bidi.hasAnyRtl(s) :
+                                                  opt_isRtlContext;
+  const mark = useRtl ? goog.i18n.bidi.Format.RLM : goog.i18n.bidi.Format.LRM;
   return s.replace(goog.i18n.bidi.bracketGuardTextRe_, mark + '$&' + mark);
 };
 
@@ -788,13 +803,13 @@ goog.i18n.bidi.rtlDetectionThreshold_ = 0.40;
  * @return {goog.i18n.bidi.Dir} Estimated overall directionality of `str`.
  */
 goog.i18n.bidi.estimateDirection = function(str, opt_isHtml) {
-  var rtlCount = 0;
-  var totalCount = 0;
-  var hasWeaklyLtr = false;
-  var tokens = goog.i18n.bidi.stripHtmlIfNeeded_(str, opt_isHtml)
-                   .split(goog.i18n.bidi.wordSeparatorRe_);
-  for (var i = 0; i < tokens.length; i++) {
-    var token = tokens[i];
+  let rtlCount = 0;
+  let totalCount = 0;
+  let hasWeaklyLtr = false;
+  const tokens = goog.i18n.bidi.stripHtmlIfNeeded_(str, opt_isHtml)
+                     .split(goog.i18n.bidi.wordSeparatorRe_);
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
     if (goog.i18n.bidi.startsWithRtl(token)) {
       rtlCount++;
       totalCount++;
@@ -843,7 +858,7 @@ goog.i18n.bidi.detectRtlDirectionality = function(str, opt_isHtml) {
  */
 goog.i18n.bidi.setElementDirAndAlign = function(element, dir) {
   if (element) {
-    var htmlElement = /** @type {!HTMLElement} */ (element);
+    const htmlElement = /** @type {!HTMLElement} */ (element);
     dir = goog.i18n.bidi.toDir(dir);
     if (dir) {
       htmlElement.style.textAlign = dir == goog.i18n.bidi.Dir.RTL ?
@@ -861,7 +876,7 @@ goog.i18n.bidi.setElementDirAndAlign = function(element, dir) {
  * @param {string} text
  */
 goog.i18n.bidi.setElementDirByTextDirectionality = function(element, text) {
-  var htmlElement = /** @type {!HTMLElement} */ (element);
+  const htmlElement = /** @type {!HTMLElement} */ (element);
   switch (goog.i18n.bidi.estimateDirection(text)) {
     case (goog.i18n.bidi.Dir.LTR):
       htmlElement.dir = 'ltr';

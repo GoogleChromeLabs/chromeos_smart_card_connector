@@ -14,8 +14,6 @@
 
 /**
  * @fileoverview A dialog for editing/creating a link.
- *
- * @author robbyw@google.com (Robby Walker)
  */
 
 goog.provide('goog.ui.editor.LinkDialog');
@@ -81,7 +79,7 @@ goog.ui.editor.LinkDialog = function(domHelper, link) {
 
   /**
    * Optional warning to show about email addresses.
-   * @type {goog.html.SafeHtml}
+   * @type {?goog.html.SafeHtml}
    * @private
    */
   this.emailWarning_ = null;
@@ -121,14 +119,14 @@ goog.ui.editor.LinkDialog = function(domHelper, link) {
 
   /**
    * InputHandler object to listen for changes in the url input field.
-   * @type {goog.events.InputHandler}
+   * @type {?goog.events.InputHandler}
    * @private
    */
   this.urlInputHandler_ = null;
 
   /**
    * InputHandler object to listen for changes in the email input field.
-   * @type {goog.events.InputHandler}
+   * @type {?goog.events.InputHandler}
    * @private
    */
   this.emailInputHandler_ = null;
@@ -136,28 +134,28 @@ goog.ui.editor.LinkDialog = function(domHelper, link) {
   /**
    * InputHandler object to listen for changes in the text to display input
    * field.
-   * @type {goog.events.InputHandler}
+   * @type {?goog.events.InputHandler}
    * @private
    */
   this.textInputHandler_ = null;
 
   /**
    * The tab bar where the url and email tabs are.
-   * @type {goog.ui.editor.TabPane}
+   * @type {?goog.ui.editor.TabPane}
    * @private
    */
   this.tabPane_ = null;
 
   /**
    * The div element holding the link's display text input.
-   * @type {HTMLDivElement}
+   * @type {?HTMLDivElement}
    * @private
    */
   this.textToDisplayDiv_ = null;
 
   /**
    * The input element holding the link's display text.
-   * @type {HTMLInputElement}
+   * @type {?HTMLInputElement}
    * @private
    */
   this.textToDisplayInput_ = null;
@@ -187,7 +185,7 @@ goog.ui.editor.LinkDialog = function(domHelper, link) {
   /**
    * The input element (checkbox) to indicate that the link should open in a new
    * window.
-   * @type {HTMLInputElement}
+   * @type {?HTMLInputElement}
    * @private
    */
   this.openInNewWindowCheckbox_ = null;
@@ -195,7 +193,7 @@ goog.ui.editor.LinkDialog = function(domHelper, link) {
   /**
    * The input element (checkbox) to indicate that the link should have
    * 'rel=nofollow' attribute.
-   * @type {HTMLInputElement}
+   * @type {?HTMLInputElement}
    * @private
    */
   this.relNoFollowCheckbox_ = null;
@@ -203,10 +201,17 @@ goog.ui.editor.LinkDialog = function(domHelper, link) {
   /**
    * Whether to stop leaking the page's url via the referrer header when the
    * "test this link" link is clicked.
-   * @type {boolean}
-   * @private
+   * @private {boolean}
    */
   this.stopReferrerLeaks_ = false;
+
+  /**
+   * Whether to remove access to the current window object in the newly created
+   * window when the "test this link" is clicked, since it can be used to launch
+   * a reverse tabnabbing attack.
+   * @private {boolean}
+   */
+  this.stopTabNabbing_ = false;
 };
 goog.inherits(goog.ui.editor.LinkDialog, goog.ui.editor.AbstractDialog);
 
@@ -396,6 +401,18 @@ goog.ui.editor.LinkDialog.prototype.setStopReferrerLeaks = function(stop) {
 
 
 /**
+ * Tells the plugin whether to remove access to the current window object in the
+ * newly created window when the "test this link" is clicked, since it can be
+ * used to launch a reverse tabnabbing attack.
+ * @param {boolean} stop Whether to remove the reference to the current window
+ *     in the new window.
+ */
+goog.ui.editor.LinkDialog.prototype.setStopTabNabbing = function(stop) {
+  this.stopTabNabbing_ = stop;
+};
+
+
+/**
  * Tells the dialog whether the autogeneration of text to display is to be
  * enabled.
  * @param {boolean} enable Whether to enable the feature.
@@ -516,6 +533,7 @@ goog.ui.editor.LinkDialog.prototype.createDialogContent_ = function() {
  * Builds and returns the text to display section of the edit link dialog.
  * @return {!Element} A div element to be appended into the dialog div.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.editor.LinkDialog.prototype.buildTextToDisplayDiv_ = function() {
   var table = this.dom.createTable(1, 2);
@@ -745,6 +763,7 @@ goog.ui.editor.LinkDialog.prototype.getTargetUrl_ = function() {
  * @param {string} text The inner text of the link.
  * @param {string} url The href for the link.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.editor.LinkDialog.prototype.selectAppropriateTab_ = function(
     text, url) {
@@ -773,6 +792,7 @@ goog.ui.editor.LinkDialog.prototype.selectAppropriateTab_ = function(
  * the isNewLink_() == true case of selectAppropriateTab_().
  * @param {string} text The inner text of the link.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.editor.LinkDialog.prototype.guessUrlAndSelectTab_ = function(text) {
   if (goog.editor.Link.isLikelyEmailAddress(text)) {
@@ -806,6 +826,7 @@ goog.ui.editor.LinkDialog.prototype.guessUrlAndSelectTab_ = function(text) {
  * Called on a change to the url or email input. If either one of those tabs
  * is active, sets the OK button to enabled/disabled accordingly.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.editor.LinkDialog.prototype.syncOkButton_ = function() {
   var inputValue;
@@ -884,6 +905,7 @@ goog.ui.editor.LinkDialog.prototype.createOkEventFromWebTab_ = function() {
  * @return {!goog.ui.editor.LinkDialog.OkEvent} The event object to be used when
  *     dispatching the OK event to listeners.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.editor.LinkDialog.prototype.createOkEventFromEmailTab_ = function(
     opt_inputId) {
@@ -920,7 +942,10 @@ goog.ui.editor.LinkDialog.prototype.onWebTestLink_ = function() {
       scrollbars: true,
       location: true,
       statusbar: false,
-      menubar: true, 'resizable': true, 'noreferrer': this.stopReferrerLeaks_
+      menubar: true,
+      resizable: true,
+      noreferrer: this.stopReferrerLeaks_,
+      noopener: this.stopTabNabbing_
     };
     goog.window.open(url, openOptions, win);
   }
@@ -1033,6 +1058,7 @@ goog.ui.editor.LinkDialog.prototype.createOkEventFromUrl_ = function(url) {
  * If an email or url is being edited, set autogenerate to on if the text to
  * display matches the url.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.editor.LinkDialog.prototype.setAutogenFlagFromCurInput_ = function() {
   var autogen = false;

@@ -16,7 +16,6 @@
  * @fileoverview Abstract class for all UI components. This defines the standard
  * design pattern that all UI components should follow.
  *
- * @author attila@google.com (Attila Bodis)
  * @see ../demos/samplecomponent.html
  * @see http://code.google.com/p/closure-library/wiki/IntroToComponents
  */
@@ -82,7 +81,7 @@ goog.ui.Component = function(opt_domHelper) {
   // TODO(attila): Stop referring to this private field in subclasses.
   /**
    * The DOM element for the component.
-   * @private {Element}
+   * @private {?Element}
    */
   this.element_ = null;
 
@@ -112,7 +111,7 @@ goog.ui.Component = function(opt_domHelper) {
    * Array of child components.  Lazily initialized on first use.  Must be kept
    * in sync with `childIndex_`.  This property is strictly private and
    * must not be accessed directly outside of this class!
-   * @private {Array<goog.ui.Component>?}
+   * @private {?Array<?goog.ui.Component>}
    */
   this.children_ = null;
 
@@ -127,7 +126,7 @@ goog.ui.Component = function(opt_domHelper) {
    * 'valueOf', but this shouldn't really be an issue in practice, and if it is,
    * we can always fix it later without changing the API.
    *
-   * @private {Object}
+   * @private {?Object}
    */
   this.childIndex_ = null;
 
@@ -160,7 +159,8 @@ goog.inherits(goog.ui.Component, goog.events.EventTarget);
  *     document, and avoid calling enterDocument if it isn't. If false, we
  *     maintain legacy behavior (always call enterDocument from decorate).
  */
-goog.define('goog.ui.Component.ALLOW_DETACHED_DECORATION', false);
+goog.ui.Component.ALLOW_DETACHED_DECORATION =
+    goog.define('goog.ui.Component.ALLOW_DETACHED_DECORATION', false);
 
 
 /**
@@ -178,7 +178,8 @@ goog.ui.Component.prototype.idGenerator_ = goog.ui.IdGenerator.getInstance();
  *     1: Left-to-right.
  *     -1: Right-to-left.
  */
-goog.define('goog.ui.Component.DEFAULT_BIDI_DIR', 0);
+goog.ui.Component.DEFAULT_BIDI_DIR =
+    goog.define('goog.ui.Component.DEFAULT_BIDI_DIR', 0);
 
 
 /**
@@ -1244,7 +1245,7 @@ goog.ui.Component.prototype.removeChild = function(child, opt_unrender) {
   if (child) {
     // Normalize child to be the object and id to be the ID string.  This also
     // ensures that the child is really ours.
-    var id = goog.isString(child) ? child : child.getId();
+    var id = (typeof child === 'string') ? child : child.getId();
     child = this.getChild(id);
 
     if (id && child) {

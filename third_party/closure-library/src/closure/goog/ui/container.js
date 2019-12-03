@@ -18,7 +18,6 @@
  * handling and child management, based on a generalized version of
  * {@link goog.ui.Menu}.
  *
- * @author attila@google.com (Attila Bodis)
  * @see ../demos/container.html
  */
 // TODO(attila):  Fix code/logic duplication between this and goog.ui.Control.
@@ -107,7 +106,7 @@ goog.ui.Container.Orientation = {
 /**
  * Allows an alternative element to be set to receive key events, otherwise
  * defers to the renderer's element choice.
- * @type {Element|undefined}
+ * @type {?Element|undefined}
  * @private
  */
 goog.ui.Container.prototype.keyEventTarget_ = null;
@@ -212,7 +211,7 @@ goog.ui.Container.prototype.openFollowsHighlight_ = true;
  * control's root element; each value is a reference to the child control
  * itself.  Used for looking up the child control corresponding to a DOM
  * node in O(1) time.
- * @type {Object}
+ * @type {?Object}
  * @private
  */
 goog.ui.Container.prototype.childElementIdMap_ = null;
@@ -362,6 +361,7 @@ goog.ui.Container.prototype.decorateInternal = function(element) {
  * Configures the container after its DOM has been rendered, and sets up event
  * handling.  Overrides {@link goog.ui.Component#enterDocument}.
  * @override
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.Container.prototype.enterDocument = function() {
   goog.ui.Container.superClass_.enterDocument.call(this);
@@ -516,6 +516,7 @@ goog.ui.Container.prototype.handleEnterItem = function(e) {
  * Handles HIGHLIGHT events dispatched by items in the container when
  * they are highlighted.
  * @param {goog.events.Event} e Highlight event to handle.
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.Container.prototype.handleHighlightItem = function(e) {
   var index = this.indexOfChild(/** @type {goog.ui.Control} */ (e.target));
@@ -597,6 +598,7 @@ goog.ui.Container.prototype.handleOpenItem = function(e) {
  * Handles CLOSE events dispatched by items in the container when they are
  * closed.
  * @param {goog.events.Event} e Close event to handle.
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.Container.prototype.handleCloseItem = function(e) {
   if (e.target == this.openItem_) {
@@ -652,6 +654,7 @@ goog.ui.Container.prototype.handleDocumentMouseUp = function(e) {
  * in the container.  Locates the child control based on the DOM node that
  * dispatched the event, and forwards the event to the control for handling.
  * @param {goog.events.BrowserEvent} e Mouse event to handle.
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.Container.prototype.handleChildMouseEvents = function(e) {
   var MouseEventType = goog.ui.ComponentUtil.getMouseEventType(this);
@@ -688,6 +691,7 @@ goog.ui.Container.prototype.handleChildMouseEvents = function(e) {
  * @return {goog.ui.Control?} Control hosted in the container to which the node
  *     belongs (if found).
  * @protected
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.Container.prototype.getOwnerControl = function(node) {
   // Ensure that this container actually has child controls before
@@ -989,7 +993,7 @@ goog.ui.Container.prototype.updateHighlightedIndex_ = function(
  * @override
  */
 goog.ui.Container.prototype.removeChild = function(control, opt_unrender) {
-  control = goog.isString(control) ? this.getChild(control) : control;
+  control = (typeof control === 'string') ? this.getChild(control) : control;
   goog.asserts.assertInstanceof(control, goog.ui.Control);
 
   if (control) {

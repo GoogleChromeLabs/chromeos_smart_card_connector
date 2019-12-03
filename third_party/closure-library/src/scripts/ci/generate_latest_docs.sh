@@ -30,6 +30,9 @@ mkdir -p "$GIT_DIR"
 BLACKLIST_FILES=(
   date/relativecommontests.js
   events/eventtargettester.js
+  # Causes an invalid use of goog.base error - disable temporarily. Dossier
+  # probably just needs a release...
+  goog.js
   i18n/compactnumberformatsymbolsext.js
   i18n/datetimepatternsext.js
   i18n/listsymbolsext.js
@@ -99,7 +102,7 @@ BUILD=${TRAVIS_BUILD_NUMBER+ after successful travis build $TRAVIS_BUILD_NUMBER}
 
 # Make a commit.
 git add -A
-git commit --allow-empty -m "Latest documentation auto-pushed to gh-pages
+git commit -q --allow-empty -m "Latest documentation auto-pushed to gh-pages
 
 Built from commit $COMMIT$BUILD."
 

@@ -15,7 +15,6 @@
 /**
  * @fileoverview A utility to load JavaScript files via DOM script tags.
  * Refactored from goog.net.Jsonp. Works cross-domain.
- *
  */
 
 goog.provide('goog.net.jsloader');
@@ -168,7 +167,7 @@ goog.net.jsloader.safeLoad = function(trustedUri, opt_options) {
 
   // Set a timeout.
   var timeout = null;
-  var timeoutDuration = goog.isDefAndNotNull(options.timeout) ?
+  var timeoutDuration = (options.timeout != null) ?
       options.timeout :
       goog.net.jsloader.DEFAULT_TIMEOUT;
   if (timeoutDuration > 0) {
@@ -249,7 +248,7 @@ goog.net.jsloader.safeLoadAndVerify = function(
   var uri = goog.html.TrustedResourceUrl.unwrap(trustedUri);
 
   // Verify that the expected object does not exist yet.
-  if (goog.isDef(verifyObjs[verificationObjName])) {
+  if (verifyObjs[verificationObjName] !== undefined) {
     // TODO(user): Error or reset variable?
     return goog.async.Deferred.fail(
         new goog.net.jsloader.Error(
@@ -268,7 +267,7 @@ goog.net.jsloader.safeLoadAndVerify = function(
   // Call user back with object that was set by the script.
   sendDeferred.addCallback(function() {
     var result = verifyObjs[verificationObjName];
-    if (goog.isDef(result)) {
+    if (result !== undefined) {
       deferred.callback(result);
       delete verifyObjs[verificationObjName];
     } else {
@@ -283,7 +282,7 @@ goog.net.jsloader.safeLoadAndVerify = function(
 
   // Pass error to new deferred object.
   sendDeferred.addErrback(function(error) {
-    if (goog.isDef(verifyObjs[verificationObjName])) {
+    if (verifyObjs[verificationObjName] !== undefined) {
       delete verifyObjs[verificationObjName];
     }
     deferred.errback(error);
@@ -330,15 +329,15 @@ goog.net.jsloader.cancel_ = function() {
 
 /**
  * Removes the script node and the timeout.
- *
  * @param {Node} scriptNode The node to be cleaned up.
  * @param {boolean} removeScriptNode If true completely remove the script node.
  * @param {?number=} opt_timeout The timeout handler to cleanup.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.net.jsloader.cleanup_ = function(
     scriptNode, removeScriptNode, opt_timeout) {
-  if (goog.isDefAndNotNull(opt_timeout)) {
+  if (opt_timeout != null) {
     goog.global.clearTimeout(opt_timeout);
   }
 
@@ -362,7 +361,7 @@ goog.net.jsloader.ErrorCode = {
   LOAD_ERROR: 0,
   TIMEOUT: 1,
   VERIFY_ERROR: 2,
-  VERIFY_OBJECT_ALREADY_EXISTS: 3
+  VERIFY_OBJECT_ALREADY_EXISTS: 3,
 };
 
 

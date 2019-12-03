@@ -25,8 +25,6 @@
  * more permissive than the goog.style API should be. For example,
  * goog.style.getComputedStyle will throw an exception if you give it a
  * text node.
- *
- * @author nicksantos@google.com (Nick Santos)
  */
 
 goog.provide('goog.editor.style');
@@ -128,6 +126,7 @@ goog.editor.style.SELECTABLE_INPUT_TYPES_ =
  * Prevent the default action on mousedown events.
  * @param {goog.events.Event} e The mouse down event.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.editor.style.cancelMouseDownHelper_ = function(e) {
   var targetTagName = e.target.tagName;

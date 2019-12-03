@@ -14,16 +14,14 @@
 
 /**
  * @fileoverview Global renderer and decorator registry.
- * @author attila@google.com (Attila Bodis)
  */
 
 goog.provide('goog.ui.registry');
 
-goog.require('goog.asserts');
-goog.require('goog.dom.classlist');
-
 goog.forwardDeclare('goog.ui.Component');
 goog.forwardDeclare('goog.ui.ControlRenderer');
+goog.require('goog.asserts');
+goog.require('goog.dom.classlist');
 
 
 /**
@@ -37,6 +35,7 @@ goog.forwardDeclare('goog.ui.ControlRenderer');
  *     no default renderer was found.
  */
 goog.ui.registry.getDefaultRenderer = function(componentCtor) {
+  // TODO(b/141512323): This should probably be implemented with a `WeakMap`.
   // Locate the default renderer based on the constructor's unique ID.  If no
   // renderer is registered for this class, walk up the superClass_ chain.
   var key;

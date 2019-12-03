@@ -15,7 +15,6 @@
 
 /**
  * @fileoverview Code for handling edit history (undo/redo).
- *
  */
 
 
@@ -717,6 +716,24 @@ goog.editor.plugins.UndoRedo.UndoState_.prototype.redoContent_;
  * @private
  */
 goog.editor.plugins.UndoRedo.UndoState_.prototype.redoCursorPosition_;
+
+
+/**
+ * Get the content to restore on undo.
+ * @return {string}
+ */
+goog.editor.plugins.UndoRedo.UndoState_.prototype.getUndoContent = function() {
+  return this.undoContent_;
+};
+
+
+/**
+ * Get the content to restore on redo.
+ * @return {string|undefined}
+ */
+goog.editor.plugins.UndoRedo.UndoState_.prototype.getRedoContent = function() {
+  return this.redoContent_;
+};
 
 
 /**

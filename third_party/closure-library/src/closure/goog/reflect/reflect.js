@@ -14,8 +14,6 @@
 
 /**
  * @fileoverview Useful compiler idioms.
- *
- * @author johnlenz@google.com (John Lenz)
  */
 
 goog.provide('goog.reflect');
@@ -128,7 +126,7 @@ goog.reflect.canAccessProperty = function(obj, prop) {
  * @template V
  */
 goog.reflect.cache = function(cacheObj, key, valueFn, opt_keyFn) {
-  var storedKey = opt_keyFn ? opt_keyFn(key) : key;
+  const storedKey = opt_keyFn ? opt_keyFn(key) : key;
 
   if (Object.prototype.hasOwnProperty.call(cacheObj, storedKey)) {
     return cacheObj[storedKey];

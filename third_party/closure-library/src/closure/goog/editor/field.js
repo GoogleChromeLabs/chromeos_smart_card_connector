@@ -18,7 +18,6 @@
  * iframe to contain the editable area, never inherits the style of the
  * surrounding page, and is always a fixed height.
  *
- * @author nicksantos@google.com (Nick Santos)
  * @see ../demos/editor/editor.html
  * @see ../demos/editor/field_basic.html
  */
@@ -106,7 +105,7 @@ goog.editor.Field = function(id, opt_doc) {
 
   /**
    * Dom helper for the editable node.
-   * @type {goog.dom.DomHelper}
+   * @type {?goog.dom.DomHelper}
    * @protected
    */
   this.editableDomHelper = null;
@@ -152,6 +151,7 @@ goog.editor.Field = function(id, opt_doc) {
   this.delayedChangeTimer_ = new goog.async.Delay(
       this.dispatchDelayedChange_, goog.editor.Field.DELAYED_CHANGE_FREQUENCY,
       this);
+  this.registerDisposable(this.delayedChangeTimer_);
 
   /** @private */
   this.debouncedEvents_ = {};
@@ -163,6 +163,7 @@ goog.editor.Field = function(id, opt_doc) {
     /** @private */
     this.changeTimerGecko_ = new goog.async.Delay(
         this.handleChange, goog.editor.Field.CHANGE_FREQUENCY, this);
+    this.registerDisposable(this.changeTimerGecko_);
   }
 
   /**
@@ -210,7 +211,7 @@ goog.inherits(goog.editor.Field, goog.events.EventTarget);
 
 /**
  * The editable dom node.
- * @type {Element}
+ * @type {?Element}
  * TODO(user): Make this private!
  */
 goog.editor.Field.prototype.field = null;
@@ -595,7 +596,7 @@ goog.editor.Field.prototype.resetOriginalElemProperties = function() {
     goog.dom.setProperties(field, {'style': cssText});
   }
 
-  if (goog.isString(this.originalFieldLineHeight_)) {
+  if (typeof (this.originalFieldLineHeight_) === 'string') {
     goog.style.setStyle(field, 'lineHeight', this.originalFieldLineHeight_);
     this.originalFieldLineHeight_ = null;
   }
@@ -911,6 +912,7 @@ goog.editor.Field.prototype.setupChangeListeners_ = function() {
   this.selectionChangeTimer_ = new goog.async.Delay(
       this.handleSelectionChangeTimer_,
       goog.editor.Field.SELECTION_CHANGE_FREQUENCY_, this);
+  this.registerDisposable(this.selectionChangeTimer_);
 
   if (this.followLinkInNewWindow_) {
     this.addListener(
@@ -1404,24 +1406,23 @@ goog.editor.Field.prototype.maybeStartSelectionChangeTimer_ = function(e) {
 goog.editor.Field.prototype.handleKeyboardShortcut_ = function(e) {
   // Alt key is used for i18n languages to enter certain characters. like
   // control + alt + z (used for IMEs) and control + alt + s for Polish.
-  // So we don't invoke handleKeyboardShortcut at all for alt keys.
-  if (e.altKey) {
+  // So we only invoke handleKeyboardShortcut for alt + shift only.
+  if (e.altKey && !e.shiftKey) {
     return;
   }
-
-  var isModifierPressed = goog.userAgent.MAC ? e.metaKey : e.ctrlKey;
-  if (isModifierPressed ||
+  // TODO(user): goog.events.KeyHandler uses much more complicated logic
+  // to determine key.  Consider changing to what they do.
+  var key = e.charCode || e.keyCode;
+  var stringKey = String.fromCharCode(key).toLowerCase();
+  var isPrimaryModifierPressed = goog.userAgent.MAC ? e.metaKey : e.ctrlKey;
+  var isAltShiftPressed = e.altKey && e.shiftKey;
+  if (isPrimaryModifierPressed || isAltShiftPressed ||
       goog.editor.Field.POTENTIAL_SHORTCUT_KEYCODES_[e.keyCode]) {
-    // TODO(user): goog.events.KeyHandler uses much more complicated logic
-    // to determine key.  Consider changing to what they do.
-    var key = e.charCode || e.keyCode;
-
     if (key == 17) {  // Ctrl key
       // In IE and Webkit pressing Ctrl key itself results in this event.
       return;
     }
 
-    var stringKey = String.fromCharCode(key).toLowerCase();
     // Ctrl+Cmd+Space generates a charCode for a backtick on Mac Firefox, but
     // has the correct string key in the browser event.
     if (goog.userAgent.MAC && goog.userAgent.GECKO && stringKey == '`' &&
@@ -1436,7 +1437,7 @@ goog.editor.Field.prototype.handleKeyboardShortcut_ = function(e) {
 
     if (this.invokeShortCircuitingOp_(
             goog.editor.PluginImpl.Op.SHORTCUT, e, stringKey,
-            isModifierPressed)) {
+            isPrimaryModifierPressed)) {
       e.preventDefault();
       // We don't call stopPropagation as some other handler outside of
       // trogedit might need it.
@@ -1481,7 +1482,7 @@ goog.editor.Field.prototype.execCommand = function(command, var_args) {
  */
 goog.editor.Field.prototype.queryCommandValue = function(commands) {
   var isEditable = this.isLoaded() && this.isSelectionEditable();
-  if (goog.isString(commands)) {
+  if (typeof commands === 'string') {
     return this.queryCommandValueInternal_(commands, isEditable);
   } else {
     var state = {};
@@ -2177,7 +2178,7 @@ goog.editor.Field.prototype.getFieldCopy = function() {
  * @param {boolean} addParas Boolean to specify whether to add paragraphs
  *    to long fields.
  * @param {?goog.html.SafeHtml} html html to insert.  If html=null, then this
- *    defaults to a nsbp for mozilla and an empty string for IE.
+ *    defaults to a nbsp for mozilla and an empty string for IE.
  * @param {boolean=} opt_dontFireDelayedChange True to make this content change
  *    not fire a delayed change event.
  * @param {boolean=} opt_applyLorem Whether to apply lorem ipsum styles.
@@ -2547,7 +2548,7 @@ goog.editor.Field.prototype.makeUneditable = function(opt_skipRestore) {
   // If html is provided, copy it back and reset the properties on the field
   // so that the original node will have the same properties as it did before
   // it was made editable.
-  if (goog.isString(html)) {
+  if (typeof html === 'string') {
     goog.editor.node.replaceInnerHtml(field, html);
     this.resetOriginalElemProperties();
   }
@@ -2592,7 +2593,7 @@ goog.editor.Field.prototype.restoreDom = function() {
  * @protected
  */
 goog.editor.Field.prototype.shouldLoadAsynchronously = function() {
-  if (!goog.isDef(this.isHttps_)) {
+  if (this.isHttps_ === undefined) {
     this.isHttps_ = false;
 
     if (goog.userAgent.IE && this.usesIframe()) {

@@ -15,7 +15,6 @@
 /**
  * @fileoverview Creates a string of a JSON object, properly indented for
  * display.
- *
  */
 
 goog.provide('goog.format.JsonPrettyPrinter');
@@ -111,10 +110,10 @@ goog.format.JsonPrettyPrinter.prototype.formatSafeHtml = function(json) {
  */
 goog.format.JsonPrettyPrinter.prototype.format_ = function(json) {
   // If input is undefined, null, or empty, return an empty string.
-  if (!goog.isDefAndNotNull(json)) {
+  if (json == null) {
     return [];
   }
-  if (goog.isString(json)) {
+  if (typeof json === 'string') {
     if (goog.string.isEmptyOrWhitespace(json)) {
       return [];
     }
@@ -135,6 +134,7 @@ goog.format.JsonPrettyPrinter.prototype.format_ = function(json) {
  * @param {number} indent The number of spaces to indent each line of the
  *     output.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.format.JsonPrettyPrinter.prototype.printObject_ = function(
     val, outputBuffer, indent) {

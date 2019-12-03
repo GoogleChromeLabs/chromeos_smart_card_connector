@@ -26,8 +26,6 @@
  * Some changes have been made to the interface (more like .NETs), though the
  * internal representation is now of un-encoded parts, this will change the
  * behavior slightly.
- *
- * @author msamuel@google.com (Mike Samuel)
  */
 
 goog.provide('goog.Uri');
@@ -132,8 +130,8 @@ goog.Uri = function(opt_uri, opt_ignoreCase) {
   // Parse in the uri string
   var m;
   if (opt_uri instanceof goog.Uri) {
-    this.ignoreCase_ =
-        goog.isDef(opt_ignoreCase) ? opt_ignoreCase : opt_uri.getIgnoreCase();
+    this.ignoreCase_ = (opt_ignoreCase !== undefined) ? opt_ignoreCase :
+                                                        opt_uri.getIgnoreCase();
     this.setScheme(opt_uri.getScheme());
     this.setUserInfo(opt_uri.getUserInfo());
     this.setDomain(opt_uri.getDomain());
@@ -237,7 +235,7 @@ goog.Uri.prototype.toString = function() {
  *
  * There are several kinds of relative URIs:<br>
  * 1. foo - replaces the last part of the path, the whole query and fragment<br>
- * 2. /foo - replaces the the path, the query and fragment<br>
+ * 2. /foo - replaces the path, the query and fragment<br>
  * 3. //foo - replaces everything from the domain on.  foo is a domain name<br>
  * 4. ?foo - replace the query and fragment<br>
  * 5. #foo - replace the fragment only
@@ -586,7 +584,7 @@ goog.Uri.prototype.getQuery = function() {
  * that key.
  *
  * @param {string} key The parameter to set.
- * @param {*} value The new value.
+ * @param {*} value The new value. Value does not need to be encoded.
  * @return {!goog.Uri} Reference to this URI object.
  */
 goog.Uri.prototype.setParameterValue = function(key, value) {
@@ -606,7 +604,8 @@ goog.Uri.prototype.setParameterValue = function(key, value) {
  *
  * @param {string} key The parameter to set.
  * @param {*} values The new values. If values is a single
- *     string then it will be treated as the sole value.
+ *     string then it will be treated as the sole value. Values do not need to
+ *     be encoded.
  * @return {!goog.Uri} Reference to this URI object.
  */
 goog.Uri.prototype.setParameterValues = function(key, values) {
@@ -935,7 +934,7 @@ goog.Uri.decodeOrEmpty_ = function(val, opt_preserveReserved) {
  */
 goog.Uri.encodeSpecialChars_ = function(
     unescapedPart, extra, opt_removeDoubleEncoding) {
-  if (goog.isString(unescapedPart)) {
+  if (typeof unescapedPart === 'string') {
     var encoded = encodeURI(unescapedPart).replace(extra, goog.Uri.encodeChar_);
     if (opt_removeDoubleEncoding) {
       // encodeURI double-escapes %XX sequences used to represent restricted
@@ -1057,7 +1056,7 @@ goog.Uri.QueryData = function(opt_query, opt_uri, opt_ignoreCase) {
    * We need to use a Map because we cannot guarantee that the key names will
    * not be problematic for IE.
    *
-   * @private {goog.structs.Map<string, !Array<*>>}
+   * @private {?goog.structs.Map<string, !Array<*>>}
    */
   this.keyMap_ = null;
 
@@ -1305,7 +1304,7 @@ goog.Uri.QueryData.prototype.getKeys = function() {
 goog.Uri.QueryData.prototype.getValues = function(opt_key) {
   this.ensureKeyMapInitialized_();
   var rv = [];
-  if (goog.isString(opt_key)) {
+  if (typeof opt_key === 'string') {
     if (this.containsKey(opt_key)) {
       rv = goog.array.concat(rv, this.keyMap_.get(this.getKeyName_(opt_key)));
     }

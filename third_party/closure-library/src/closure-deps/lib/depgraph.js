@@ -18,7 +18,7 @@
 const {SourceError} = require('./sourceerror');
 const path = require('path');
 
-/** @enum {stromg} */
+/** @enum {string} */
 const DependencyType = {
   /** A file containing goog.provide statements. */
   CLOSURE_PROVIDE: 'closure provide',
@@ -76,6 +76,79 @@ class Dependency {
      */
     this.language = language;
   }
+
+  /**
+   * Updates the path to Closure Library for this file. This is useful for
+   * ParsedDependency, which cannot know the full path of a file on until it
+   * knows the path to Closure Library, as the path in the goog.addDependency
+   * call is relative from Closure Library.
+   *
+   * @param {string} path
+   */
+  setClosurePath(path) {}
+
+  /**
+   * @return {boolean}
+   */
+  isParsedFromDepsFile() { return false; }
+}
+
+let hasWarnedForAssignmentToPath = false;
+
+/**
+ * A dependency that was parsed from an goog.addDependnecy call.
+ */
+class ParsedDependency extends Dependency {
+  /**
+   * @param {!DependencyType} type
+   * @param {string} closureRelativePath
+   * @param {!Array<string>} closureSymbols
+   * @param {!Array<!Import>} imports
+   * @param {string=} language
+   */
+  constructor(
+      type, closureRelativePath, closureSymbols, imports, language = 'es3') {
+    super(type, /* filepath= */ '', closureSymbols, imports, language);
+    /** @private @const {boolean} */
+    this.hasCalledSuper_ = true;
+    /** @private {string|undefined} */
+    this.path_ = undefined;
+
+    /**
+     * Relative path from Closure Library to this file.
+     * @const
+     */
+    this.closureRelativePath = closureRelativePath;
+  }
+
+  /** @return {string} */
+  get path() {
+    if (!this.path_) {
+      throw new Error(
+          'Must call setClosurePath in order to determine the ' +
+          'actual path of this dependency.');
+    }
+    return this.path_;
+  }
+
+  /** @param {string} value */
+  set path(value) {
+    // Ignore, only here to satisfy super constructor.
+    if (!hasWarnedForAssignmentToPath && this.hasCalledSuper_) {
+      console.warn(
+          'Assigning a path of a ParsedDependency instance was ignored. ' +
+          'Use setClosurePath method instead.');
+      hasWarnedForAssignmentToPath = true;
+    }
+  }
+
+  /** @override */
+  setClosurePath(closurePath) {
+    this.path_ = path.resolve(closurePath, this.closureRelativePath);
+  }
+
+  /** @override */
+  isParsedFromDepsFile() { return true; }
 }
 
 
@@ -211,8 +284,11 @@ class InvalidCycleError extends Error {
 }
 
 /**
- * Auto validating dependency graph that also provides a topological sorting
+ * Dependency graph that provides validation along with a topological sorting
  * of dependencies given an entrypoint.
+ *
+ * A dependency graph is not validated by default, you must call validate() if
+ * you wish to perform validation.
  */
 class Graph {
   /**
@@ -243,19 +319,16 @@ class Graph {
         this.depsBySymbol.set(sym, dep);
       }
     }
-
-    this.validate_();
   }
 
   /**
-   * Validates the dependency graph.
+   * Validates the dependency graph. Throws an error if the graph is invalid.
    *
    * This method uses Tarjan's algorithm to ensure Closure files are not part
    * of any cycle. Check it out:
    * https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm
-   * @private
    */
-  validate_() {
+  validate() {
     let index = 0;
 
     // Map that assigns each dependency an index in visit-order.
@@ -275,11 +348,25 @@ class Graph {
 
       depStack.add(dep);
 
-      for (const i of dep.imports) {
+      // We might modify the imports when iterating (drop unrecognized ES6
+      // imports), so iterate over a copy.
+      for (const i of [...dep.imports]) {
         const to = this.resolve_(i);
 
         if (!to) {
-          throw new SourceError(`Could not find "${i.symOrPath}".`, dep.path);
+          if (i.isGoogRequire()) {
+            throw new SourceError(`Could not find "${i.symOrPath}".`, dep.path);
+          } else {
+            // Just drop unrecognized ES6 imports. Assume their entire branch is
+            // non-Closure, like a built-in Node module.
+            dep.imports.splice(dep.imports.indexOf(i), 1);
+            console.warn(
+                `Could not find "${i.symOrPath}".` +
+                    'Assuming it (and its transitive dependencies) are ' +
+                    'non-Closure managed.',
+                dep.path);
+            continue;
+          }
         }
 
         i.validate(to);
@@ -368,6 +455,7 @@ class Graph {
 module.exports = {
   DependencyType,
   Dependency,
+  ParsedDependency,
   GoogRequire,
   Es6Import,
   Graph,

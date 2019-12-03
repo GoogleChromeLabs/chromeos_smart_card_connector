@@ -38,7 +38,6 @@
  * </pre>
  *
  *                                            in IE and event object patching]
- * @author arv@google.com (Erik Arvidsson)
  *
  * @see ../demos/events.html
  * @see ../demos/event-propagation.html
@@ -56,15 +55,14 @@ goog.provide('goog.events.CaptureSimulationMode');
 goog.provide('goog.events.Key');
 goog.provide('goog.events.ListenableType');
 
+goog.forwardDeclare('goog.debug.ErrorHandler');
+goog.forwardDeclare('goog.events.EventWrapper');
 goog.require('goog.asserts');
 goog.require('goog.debug.entryPointRegistry');
 goog.require('goog.events.BrowserEvent');
 goog.require('goog.events.BrowserFeature');
 goog.require('goog.events.Listenable');
 goog.require('goog.events.ListenerMap');
-
-goog.forwardDeclare('goog.debug.ErrorHandler');
-goog.forwardDeclare('goog.events.EventWrapper');
 
 
 /**
@@ -133,7 +131,8 @@ goog.events.CaptureSimulationMode = {
  * @define {number} The capture simulation mode for IE8-. By default,
  *     this is ON.
  */
-goog.define('goog.events.CAPTURE_SIMULATION_MODE', 2);
+goog.events.CAPTURE_SIMULATION_MODE =
+    goog.define('goog.events.CAPTURE_SIMULATION_MODE', 2);
 
 
 /**
@@ -444,7 +443,7 @@ goog.events.unlisten = function(src, type, listener, opt_options, opt_handler) {
 goog.events.unlistenByKey = function(key) {
   // TODO(chrishenry): Remove this check when tests that rely on this
   // are fixed.
-  if (goog.isNumber(key)) {
+  if (typeof key === 'number') {
     return false;
   }
 

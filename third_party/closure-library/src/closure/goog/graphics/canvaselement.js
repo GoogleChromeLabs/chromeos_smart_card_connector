@@ -15,7 +15,6 @@
 
 /**
  * @fileoverview Objects representing shapes drawn on a canvas.
- * @author robbyw@google.com (Robby Walker)
  */
 
 goog.provide('goog.graphics.CanvasEllipseElement');
@@ -26,6 +25,7 @@ goog.provide('goog.graphics.CanvasRectElement');
 goog.provide('goog.graphics.CanvasTextElement');
 
 
+goog.forwardDeclare('goog.graphics.CanvasGraphics');
 goog.require('goog.array');
 goog.require('goog.dom');
 goog.require('goog.dom.TagName');
@@ -43,8 +43,6 @@ goog.require('goog.html.uncheckedconversions');
 goog.require('goog.math');
 goog.require('goog.string');
 goog.require('goog.string.Const');
-
-goog.forwardDeclare('goog.graphics.CanvasGraphics');
 
 
 

@@ -14,7 +14,6 @@
 
 /**
  * @fileoverview Provides the enum for the role of the CrossPageChannel.
- *
  */
 
 goog.provide('goog.net.xpc.CrossPageChannelRole');
@@ -26,5 +25,5 @@ goog.provide('goog.net.xpc.CrossPageChannelRole');
  */
 goog.net.xpc.CrossPageChannelRole = {
   OUTER: 0,
-  INNER: 1
+  INNER: 1,
 };

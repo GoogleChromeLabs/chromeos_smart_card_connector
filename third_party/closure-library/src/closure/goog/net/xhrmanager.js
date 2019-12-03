@@ -25,7 +25,6 @@
  * when there are no more retries left). For this reason, all send requests have
  * to have an id, so that the user of this object can know which event is for
  * which request.
- *
  */
 
 goog.provide('goog.net.XhrManager');
@@ -70,15 +69,16 @@ goog.net.XhrManager = function(
    * @type {number}
    * @private
    */
-  this.maxRetries_ = goog.isDef(opt_maxRetries) ? opt_maxRetries : 1;
+  this.maxRetries_ = (opt_maxRetries !== undefined) ? opt_maxRetries : 1;
 
   /**
    * Timeout interval for an attempt of a given request.
    * @type {number}
    * @private
    */
-  this.timeoutInterval_ =
-      goog.isDef(opt_timeoutInterval) ? Math.max(0, opt_timeoutInterval) : 0;
+  this.timeoutInterval_ = (opt_timeoutInterval !== undefined) ?
+      Math.max(0, opt_timeoutInterval) :
+      0;
 
   /**
    * Add credentials to every request.
@@ -126,9 +126,12 @@ goog.net.XhrManager.ERROR_ID_IN_USE_ = '[goog.net.XhrManager] ID in use';
  * @private
  */
 goog.net.XhrManager.XHR_EVENT_TYPES_ = [
-  goog.net.EventType.READY, goog.net.EventType.COMPLETE,
-  goog.net.EventType.SUCCESS, goog.net.EventType.ERROR,
-  goog.net.EventType.ABORT, goog.net.EventType.TIMEOUT
+  goog.net.EventType.READY,
+  goog.net.EventType.COMPLETE,
+  goog.net.EventType.SUCCESS,
+  goog.net.EventType.ERROR,
+  goog.net.EventType.ABORT,
+  goog.net.EventType.TIMEOUT,
 ];
 
 
@@ -204,10 +207,10 @@ goog.net.XhrManager.prototype.send = function(
   var request = new goog.net.XhrManager.Request(
       url, goog.bind(this.handleEvent_, this, id), opt_method, opt_content,
       opt_headers, opt_callback,
-      goog.isDef(opt_maxRetries) ? opt_maxRetries : this.maxRetries_,
+      opt_maxRetries !== undefined ? opt_maxRetries : this.maxRetries_,
       opt_responseType,
-      goog.isDef(opt_withCredentials) ? opt_withCredentials :
-                                        this.withCredentials_);
+      opt_withCredentials !== undefined ? opt_withCredentials :
+                                          this.withCredentials_);
   this.requests_.set(id, request);
 
   // Setup the callback for the pool.
@@ -582,7 +585,7 @@ goog.net.XhrManager.Request = function(
    * @type {number}
    * @private
    */
-  this.maxRetries_ = goog.isDef(opt_maxRetries) ? opt_maxRetries : 1;
+  this.maxRetries_ = (opt_maxRetries !== undefined) ? opt_maxRetries : 1;
 
   /**
    * The number of attempts  so far.
@@ -634,7 +637,7 @@ goog.net.XhrManager.Request = function(
 
   /**
    * The XhrIo instance handling this request. Set in handleAvailableXhr.
-   * @type {goog.net.XhrIo}
+   * @type {?goog.net.XhrIo}
    */
   this.xhrIo = null;
 

@@ -18,7 +18,6 @@
  *
  * Testing code should not have dependencies outside of goog.testing so as to
  * reduce the chance of masking missing dependencies.
- *
  */
 
 goog.setTestOnly('goog.testing.jsunit');
@@ -34,7 +33,8 @@ goog.require('goog.userAgent');
  * @define {boolean} If this code is being parsed by JsTestC, we let it disable
  * the onload handler to avoid running the test in JsTestC.
  */
-goog.define('goog.testing.jsunit.AUTO_RUN_ONLOAD', true);
+goog.testing.jsunit.AUTO_RUN_ONLOAD =
+    goog.define('goog.testing.jsunit.AUTO_RUN_ONLOAD', true);
 
 
 /**
@@ -43,7 +43,8 @@ goog.define('goog.testing.jsunit.AUTO_RUN_ONLOAD', true);
  * event if the page has iframes.  The appropriate value is zero;
  * maximum should be 500.  Do not use this value to support asynchronous tests.
  */
-goog.define('goog.testing.jsunit.AUTO_RUN_DELAY_IN_MS', 0);
+goog.testing.jsunit.AUTO_RUN_DELAY_IN_MS =
+    goog.define('goog.testing.jsunit.AUTO_RUN_DELAY_IN_MS', 0);
 
 
 (function() {
@@ -95,14 +96,8 @@ goog.define('goog.testing.jsunit.AUTO_RUN_DELAY_IN_MS', 0);
   }
 
   var maybeGetStack = function(error) {
-    if (typeof error == 'object') {
-      var stack = error.stack;
-      if (stack && typeof stack == 'string') {
-        // non-empty string
-        return stack;
-      }
-    }
-    return '';
+    var stack = error && error.stack;
+    return typeof stack === 'string' ? stack : '';
   };
 
   // Add an error handler to report errors that may occur during
@@ -120,9 +115,9 @@ goog.define('goog.testing.jsunit.AUTO_RUN_DELAY_IN_MS', 0);
     }
     var stack = maybeGetStack(errObj || messageOrEvent);
     if (stack) {
-      tr.logError(stack);
+      tr.logError(String(messageOrEvent) + '\n' + stack);
     } else if (typeof messageOrEvent == 'object') {
-      var error = messageOrEvent;
+      var error = /** @type {{target: ?}} */ (messageOrEvent);
       // Some older webkit browsers pass an event object as the only argument
       // to window.onerror.  It doesn't contain an error message, url or line
       // number.  We therefore log as much info as we can.

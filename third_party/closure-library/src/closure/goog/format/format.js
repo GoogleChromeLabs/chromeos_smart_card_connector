@@ -14,7 +14,6 @@
 
 /**
  * @fileoverview Provides utility functions for formatting strings, numbers etc.
- *
  */
 
 goog.provide('goog.format');
@@ -112,7 +111,7 @@ goog.format.numericValueToString = function(val, opt_decimals) {
 goog.format.numBytesToString = function(
     val, opt_decimals, opt_suffix, opt_useSeparator) {
   var suffix = '';
-  if (!goog.isDef(opt_suffix) || opt_suffix) {
+  if (opt_suffix === undefined || opt_suffix) {
     suffix = 'B';
   }
   return goog.format.numericValueToString_(
@@ -181,7 +180,7 @@ goog.format.numericValueToString_ = function(
       separator = ' ';
     }
   }
-  var ex = Math.pow(10, goog.isDef(opt_decimals) ? opt_decimals : 2);
+  var ex = Math.pow(10, opt_decimals !== undefined ? opt_decimals : 2);
   return Math.round(orig_val / scale * ex) / ex + separator + symbol;
 };
 

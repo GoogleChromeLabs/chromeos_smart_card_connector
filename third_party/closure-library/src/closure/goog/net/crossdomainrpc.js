@@ -61,7 +61,6 @@
  *
  * <h5>System Requirements</h5>
  * Tested on IE6, IE7, Firefox 2.0 and Safari nightly r23841.
- *
  */
 
 goog.provide('goog.net.CrossDomainRpc');
@@ -605,6 +604,7 @@ goog.net.CrossDomainRpc.isResponseInfoFrame_ = function(frame) {
  * @param {Object} frame Frame.
  * @return {string} Payload of that frame.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.net.CrossDomainRpc.getFramePayload_ = function(frame) {
   var href = frame.location.href;

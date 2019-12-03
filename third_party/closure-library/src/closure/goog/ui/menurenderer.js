@@ -14,12 +14,11 @@
 
 /**
  * @fileoverview Renderer for {@link goog.ui.Menu}s.
- *
- * @author robbyw@google.com (Robby Walker)
  */
 
 goog.provide('goog.ui.MenuRenderer');
 
+goog.forwardDeclare('goog.ui.Menu');
 goog.require('goog.a11y.aria');
 goog.require('goog.a11y.aria.Role');
 goog.require('goog.a11y.aria.State');
@@ -28,8 +27,6 @@ goog.require('goog.dom');
 goog.require('goog.dom.TagName');
 goog.require('goog.ui.ContainerRenderer');
 goog.require('goog.ui.Separator');
-
-goog.forwardDeclare('goog.ui.Menu');
 
 
 

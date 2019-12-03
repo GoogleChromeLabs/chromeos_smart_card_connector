@@ -12,22 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('goog.debug.ErrorHandlerAsyncTest');
-goog.setTestOnly('goog.debug.ErrorHandlerAsyncTest');
+goog.module('goog.debug.ErrorHandlerAsyncTest');
+goog.setTestOnly();
 
-goog.require('goog.Promise');
-goog.require('goog.debug.ErrorHandler');
-goog.require('goog.testing.TestCase');
-goog.require('goog.testing.jsunit');
-goog.require('goog.userAgent');
-
+const ErrorHandler = goog.require('goog.debug.ErrorHandler');
+const GoogPromise = goog.require('goog.Promise');
+// const TestCase = goog.require('goog.testing.TestCase');
+const testSuite = goog.require('goog.testing.testSuite');
+const userAgent = goog.require('goog.userAgent');
 
 /** @type {!goog.promise.Resolver} */
-var resolver;
-var testCase = new goog.testing.TestCase(document.title);
+let resolver;
+
+const testCase = {};
 
 testCase.setUpPage = function() {
-  resolver = goog.Promise.withResolver();
+  resolver = GoogPromise.withResolver();
 
   this.oldTimeout = window.setTimeout;
   this.oldInterval = window.setInterval;
@@ -36,10 +36,14 @@ testCase.setUpPage = function() {
   // Whether requestAnimationFrame is available for testing.
   this.testingReqAnimFrame = !!window.requestAnimationFrame;
 
-  this.handler = new goog.debug.ErrorHandler(goog.bind(this.onException, this));
+  // Whether a rejection handler is available for testing.
+  this.testingUnhandledRejection = 'onunhandledrejection' in window;
+
+  this.handler = new ErrorHandler(goog.bind(this.onException, this));
   this.handler.protectWindowSetTimeout();
   this.handler.protectWindowSetInterval();
   this.handler.protectWindowRequestAnimationFrame();
+  this.handler.catchUnhandledRejections();
   this.exceptions = [];
   this.errors = 0;
 
@@ -54,6 +58,11 @@ testCase.setUpPage = function() {
   if (this.testingReqAnimFrame) {
     window.requestAnimationFrame(goog.bind(this.animFrame, this));
   }
+
+  if (this.testingUnhandledRejection) {
+    this.async();
+  }
+
   this.promiseTimeout = 10000;  // 10s.
 };
 
@@ -66,7 +75,8 @@ testCase.tearDownPage = function() {
 testCase.onException = function(e) {
   this.exceptions.push(e);
   if (this.timeoutHit && this.intervalHit &&
-      (!this.testingReqAnimFrame || this.animFrameHit)) {
+      (!this.testingReqAnimFrame || this.animFrameHit) &&
+      (!this.testingUnhandledRejection || this.async)) {
     resolver.resolve();
   }
 };
@@ -78,25 +88,36 @@ testCase.onError = function(msg, url, line) {
 
 testCase.timeOut = function() {
   this.timeoutHit = true;
-  throw arguments.callee;
+  throw testCase.timeOut;
 };
 
 testCase.interval = function() {
   this.intervalHit = true;
   window.clearTimeout(this.intervalId);
-  throw arguments.callee;
+  throw testCase.interval;
 };
 
 testCase.animFrame = function() {
   this.animFrameHit = true;
-  throw arguments.callee;
+  throw testCase.animFrame;
 };
 
-testCase.addNewTest('testResults', function() {
-  return resolver.promise.then(function() {
-    var timeoutHit, intervalHit, animFrameHit;
+/** Test uncaught errors in async/await */
+testCase.async = async function() {
+  this.asyncHit = true;
+  const p = Promise.resolve();
+  await p;
+  throw testCase.async;
+};
 
-    for (var i = 0; i < this.exceptions.length; ++i) {
+testCase.testResults = function() {
+  return resolver.promise.then(function() {
+    let animFrameHit;
+    let asyncHit;
+    let intervalHit;
+    let timeoutHit;
+
+    for (let i = 0; i < this.exceptions.length; ++i) {
       switch (this.exceptions[i]) {
         case this.timeOut:
           timeoutHit = true;
@@ -106,6 +127,9 @@ testCase.addNewTest('testResults', function() {
           break;
         case this.animFrame:
           animFrameHit = true;
+          break;
+        case this.async:
+          asyncHit = true;
           break;
       }
     }
@@ -118,15 +142,19 @@ testCase.addNewTest('testResults', function() {
       assertTrue('anim frame exception not received', animFrameHit);
       assertTrue('animFrame not called', this.animFrameHit);
     }
+    if (this.testingUnhandledRejection) {
+      assertTrue('Unhandled Rejection exception not received', asyncHit);
+    }
 
-    if (!goog.userAgent.WEBKIT) {
-      var expectedRethrownCount = this.testingReqAnimFrame ? 3 : 2;
+    if (!userAgent.WEBKIT) {
+      let expectedRethrownCount = 2;
+      if (this.testingReqAnimFrame) expectedRethrownCount++;
+      if (this.testingUnhandledRejection) expectedRethrownCount++;
       assertEquals(
-          expectedRethrownCount + ' exceptions should have been rethrown',
+          `${expectedRethrownCount} exceptions should have been rethrown`,
           expectedRethrownCount, this.errors);
     }
   }, null, this);
-});
+};
 
-// Standalone Closure Test Runner.
-G_testRunner.initialize(testCase);
+testSuite(testCase);

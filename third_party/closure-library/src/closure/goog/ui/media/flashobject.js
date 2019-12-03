@@ -39,7 +39,6 @@
  * TODO(user, jessan): create a goog.ui.media.BrowserInterfaceFlashObject that
  * subclasses goog.ui.media.FlashObject to provide all the goodness of
  * http://go/browserinterface.as
- *
  */
 
 goog.provide('goog.ui.media.FlashObject');
@@ -339,7 +338,7 @@ goog.ui.media.FlashObject.prototype.setFlashVars = function(
     this.addFlashVars(/**@type {!goog.structs.Map|!Object}*/ (flashVar));
   } else {
     goog.asserts.assert(
-        goog.isString(flashVar) && goog.isDef(opt_value),
+        typeof flashVar === 'string' && opt_value !== undefined,
         'Invalid argument(s)');
     this.setFlashVar(
         /**@type {string}*/ (flashVar),
@@ -405,8 +404,9 @@ goog.ui.media.FlashObject.prototype.getAllowScriptAccess = function() {
  * @return {!goog.ui.media.FlashObject} The flash object instance for chaining.
  */
 goog.ui.media.FlashObject.prototype.setSize = function(width, height) {
-  this.width_ = goog.isString(width) ? width : Math.round(width) + 'px';
-  this.height_ = goog.isString(height) ? height : Math.round(height) + 'px';
+  this.width_ = (typeof width === 'string') ? width : Math.round(width) + 'px';
+  this.height_ =
+      (typeof height === 'string') ? height : Math.round(height) + 'px';
   if (this.getElement()) {
     goog.style.setSize(this.getFlashElement(), this.width_, this.height_);
   }

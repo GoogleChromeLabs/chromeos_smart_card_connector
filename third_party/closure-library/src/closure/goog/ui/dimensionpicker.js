@@ -16,7 +16,6 @@
  * @fileoverview A dimension picker control.  A dimension picker allows the
  * user to visually select a row and column count.
  *
- * @author robbyw@google.com (Robby Walker)
  * @see ../demos/dimensionpicker.html
  * @see ../demos/dimensionpicker_rtl.html
  */
@@ -323,7 +322,7 @@ goog.ui.DimensionPicker.prototype.getValue = function() {
  *     omitted when columns is a good.math.Size object.
  */
 goog.ui.DimensionPicker.prototype.setValue = function(columns, opt_rows) {
-  if (!goog.isDef(opt_rows)) {
+  if (opt_rows === undefined) {
     columns = /** @type {!goog.math.Size} */ (columns);
     opt_rows = columns.height;
     columns = columns.width;

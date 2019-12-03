@@ -14,7 +14,6 @@
 
 /**
  * @fileoverview Utilities for string manipulation.
- * @author arv@google.com (Erik Arvidsson)
  */
 
 
@@ -24,18 +23,25 @@
 goog.provide('goog.string');
 goog.provide('goog.string.Unicode');
 
+goog.require('goog.dom.safe');
+goog.require('goog.html.uncheckedconversions');
+goog.require('goog.string.Const');
+goog.require('goog.string.internal');
+
 
 /**
  * @define {boolean} Enables HTML escaping of lowercase letter "e" which helps
  * with detection of double-escaping as this letter is frequently used.
  */
-goog.define('goog.string.DETECT_DOUBLE_ESCAPING', false);
+goog.string.DETECT_DOUBLE_ESCAPING =
+    goog.define('goog.string.DETECT_DOUBLE_ESCAPING', false);
 
 
 /**
  * @define {boolean} Whether to force non-dom html unescaping.
  */
-goog.define('goog.string.FORCE_NON_DOM_HTML_UNESCAPING', false);
+goog.string.FORCE_NON_DOM_HTML_UNESCAPING =
+    goog.define('goog.string.FORCE_NON_DOM_HTML_UNESCAPING', false);
 
 
 /**
@@ -53,9 +59,7 @@ goog.string.Unicode = {
  * @param {string} prefix A string to look for at the start of `str`.
  * @return {boolean} True if `str` begins with `prefix`.
  */
-goog.string.startsWith = function(str, prefix) {
-  return str.lastIndexOf(prefix, 0) == 0;
-};
+goog.string.startsWith = goog.string.internal.startsWith;
 
 
 /**
@@ -64,10 +68,7 @@ goog.string.startsWith = function(str, prefix) {
  * @param {string} suffix A string to look for at the end of `str`.
  * @return {boolean} True if `str` ends with `suffix`.
  */
-goog.string.endsWith = function(str, suffix) {
-  var l = str.length - suffix.length;
-  return l >= 0 && str.indexOf(suffix, l) == l;
-};
+goog.string.endsWith = goog.string.internal.endsWith;
 
 
 /**
@@ -77,10 +78,8 @@ goog.string.endsWith = function(str, suffix) {
  * @return {boolean} True if `str` begins with `prefix` (ignoring
  *     case).
  */
-goog.string.caseInsensitiveStartsWith = function(str, prefix) {
-  return goog.string.caseInsensitiveCompare(
-             prefix, str.substr(0, prefix.length)) == 0;
-};
+goog.string.caseInsensitiveStartsWith =
+    goog.string.internal.caseInsensitiveStartsWith;
 
 
 /**
@@ -90,11 +89,8 @@ goog.string.caseInsensitiveStartsWith = function(str, prefix) {
  * @return {boolean} True if `str` ends with `suffix` (ignoring
  *     case).
  */
-goog.string.caseInsensitiveEndsWith = function(str, suffix) {
-  return (
-      goog.string.caseInsensitiveCompare(
-          suffix, str.substr(str.length - suffix.length, suffix.length)) == 0);
-};
+goog.string.caseInsensitiveEndsWith =
+    goog.string.internal.caseInsensitiveEndsWith;
 
 
 /**
@@ -104,9 +100,7 @@ goog.string.caseInsensitiveEndsWith = function(str, suffix) {
  * @return {boolean} True if `str1` and `str2` are the same string,
  *     ignoring case.
  */
-goog.string.caseInsensitiveEquals = function(str1, str2) {
-  return str1.toLowerCase() == str2.toLowerCase();
-};
+goog.string.caseInsensitiveEquals = goog.string.internal.caseInsensitiveEquals;
 
 
 /**
@@ -152,14 +146,7 @@ goog.string.collapseWhitespace = function(str) {
  * @param {string} str The string to check.
  * @return {boolean} Whether `str` is empty or whitespace only.
  */
-goog.string.isEmptyOrWhitespace = function(str) {
-  // testing length == 0 first is actually slower in all browsers (about the
-  // same in Opera).
-  // Since IE doesn't include non-breaking-space (0xa0) in their \s character
-  // class (as required by section 7.2 of the ECMAScript spec), we explicitly
-  // include it in the regexp to enforce consistent cross-browser behavior.
-  return /^[\s\xa0]*$/.test(str);
-};
+goog.string.isEmptyOrWhitespace = goog.string.internal.isEmptyOrWhitespace;
 
 
 /**
@@ -330,18 +317,7 @@ goog.string.collapseBreakingSpaces = function(str) {
  * @param {string} str The string to trim.
  * @return {string} A trimmed copy of `str`.
  */
-goog.string.trim =
-    (goog.TRUSTED_SITE && String.prototype.trim) ? function(str) {
-      return str.trim();
-    } : function(str) {
-      // Since IE doesn't include non-breaking-space (0xa0) in their \s
-      // character class (as required by section 7.2 of the ECMAScript spec),
-      // we explicitly include it in the regexp to enforce consistent
-      // cross-browser behavior.
-      // NOTE: We don't use String#replace because it might have side effects
-      // causing this function to not compile to 0 bytes.
-      return /^[\s\xa0]*([\s\S]*?)[\s\xa0]*$/.exec(str)[1];
-    };
+goog.string.trim = goog.string.internal.trim;
 
 
 /**
@@ -380,18 +356,8 @@ goog.string.trimRight = function(str) {
  * @param {string} str2 The string to compare `str1` to.
  * @return {number} The comparator result, as described above.
  */
-goog.string.caseInsensitiveCompare = function(str1, str2) {
-  var test1 = String(str1).toLowerCase();
-  var test2 = String(str2).toLowerCase();
-
-  if (test1 < test2) {
-    return -1;
-  } else if (test1 == test2) {
-    return 0;
-  } else {
-    return 1;
-  }
-};
+goog.string.caseInsensitiveCompare =
+    goog.string.internal.caseInsensitiveCompare;
 
 
 /**
@@ -533,9 +499,7 @@ goog.string.urlDecode = function(str) {
  * @param {boolean=} opt_xml Whether to use XML compatible tags.
  * @return {string} A copy of `str` with converted newlines.
  */
-goog.string.newLineToBr = function(str, opt_xml) {
-  return str.replace(/(\r\n|\r|\n)/g, opt_xml ? '<br />' : '<br>');
-};
+goog.string.newLineToBr = goog.string.internal.newLineToBr;
 
 
 /**
@@ -583,96 +547,12 @@ goog.string.newLineToBr = function(str, opt_xml) {
  * @return {string} An escaped copy of `str`.
  */
 goog.string.htmlEscape = function(str, opt_isLikelyToContainHtmlChars) {
-  if (opt_isLikelyToContainHtmlChars) {
-    str = str.replace(goog.string.AMP_RE_, '&amp;')
-              .replace(goog.string.LT_RE_, '&lt;')
-              .replace(goog.string.GT_RE_, '&gt;')
-              .replace(goog.string.QUOT_RE_, '&quot;')
-              .replace(goog.string.SINGLE_QUOTE_RE_, '&#39;')
-              .replace(goog.string.NULL_RE_, '&#0;');
-    if (goog.string.DETECT_DOUBLE_ESCAPING) {
-      str = str.replace(goog.string.E_RE_, '&#101;');
-    }
-    return str;
-
-  } else {
-    // quick test helps in the case when there are no chars to replace, in
-    // worst case this makes barely a difference to the time taken
-    if (!goog.string.ALL_RE_.test(str)) return str;
-
-    // str.indexOf is faster than regex.test in this case
-    if (str.indexOf('&') != -1) {
-      str = str.replace(goog.string.AMP_RE_, '&amp;');
-    }
-    if (str.indexOf('<') != -1) {
-      str = str.replace(goog.string.LT_RE_, '&lt;');
-    }
-    if (str.indexOf('>') != -1) {
-      str = str.replace(goog.string.GT_RE_, '&gt;');
-    }
-    if (str.indexOf('"') != -1) {
-      str = str.replace(goog.string.QUOT_RE_, '&quot;');
-    }
-    if (str.indexOf('\'') != -1) {
-      str = str.replace(goog.string.SINGLE_QUOTE_RE_, '&#39;');
-    }
-    if (str.indexOf('\x00') != -1) {
-      str = str.replace(goog.string.NULL_RE_, '&#0;');
-    }
-    if (goog.string.DETECT_DOUBLE_ESCAPING && str.indexOf('e') != -1) {
-      str = str.replace(goog.string.E_RE_, '&#101;');
-    }
-    return str;
+  str = goog.string.internal.htmlEscape(str, opt_isLikelyToContainHtmlChars);
+  if (goog.string.DETECT_DOUBLE_ESCAPING) {
+    str = str.replace(goog.string.E_RE_, '&#101;');
   }
+  return str;
 };
-
-
-/**
- * Regular expression that matches an ampersand, for use in escaping.
- * @const {!RegExp}
- * @private
- */
-goog.string.AMP_RE_ = /&/g;
-
-
-/**
- * Regular expression that matches a less than sign, for use in escaping.
- * @const {!RegExp}
- * @private
- */
-goog.string.LT_RE_ = /</g;
-
-
-/**
- * Regular expression that matches a greater than sign, for use in escaping.
- * @const {!RegExp}
- * @private
- */
-goog.string.GT_RE_ = />/g;
-
-
-/**
- * Regular expression that matches a double quote, for use in escaping.
- * @const {!RegExp}
- * @private
- */
-goog.string.QUOT_RE_ = /"/g;
-
-
-/**
- * Regular expression that matches a single quote, for use in escaping.
- * @const {!RegExp}
- * @private
- */
-goog.string.SINGLE_QUOTE_RE_ = /'/g;
-
-
-/**
- * Regular expression that matches null character, for use in escaping.
- * @const {!RegExp}
- * @private
- */
-goog.string.NULL_RE_ = /\x00/g;
 
 
 /**
@@ -681,15 +561,6 @@ goog.string.NULL_RE_ = /\x00/g;
  * @private
  */
 goog.string.E_RE_ = /e/g;
-
-
-/**
- * Regular expression that matches any character that needs to be escaped.
- * @const {!RegExp}
- * @private
- */
-goog.string.ALL_RE_ =
-    (goog.string.DETECT_DOUBLE_ESCAPING ? /[\x00&<>"'e]/ : /[\x00&<>"']/);
 
 
 /**
@@ -742,6 +613,7 @@ goog.string.unescapeEntitiesWithDocument = function(str, document) {
 goog.string.unescapeEntitiesUsingDom_ = function(str, opt_document) {
   /** @type {!Object<string, string>} */
   var seen = {'&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"'};
+  /** @type {!Element} */
   var div;
   if (opt_document) {
     div = opt_document.createElement('div');
@@ -771,7 +643,11 @@ goog.string.unescapeEntitiesUsingDom_ = function(str, opt_document) {
     if (!value) {
       // Append a non-entity character to avoid a bug in Webkit that parses
       // an invalid entity at the end of innerHTML text as the empty string.
-      div.innerHTML = s + ' ';
+      goog.dom.safe.setInnerHtml(
+          div,
+          goog.html.uncheckedconversions
+              .safeHtmlFromStringKnownToSatisfyTypeContract(
+                  goog.string.Const.from('Single HTML entity.'), s + ' '));
       // Then remove the trailing character from the result.
       value = div.firstChild.nodeValue.slice(0, -1);
     }
@@ -959,8 +835,8 @@ goog.string.specialEscapeChars_ = {
   // tags, we have to make sure HTML comments and opening/closing script tags do
   // not appear in the resulting string. The specific strings that must be
   // escaped are documented at:
-  // http://www.w3.org/TR/html51/semantics.html#restrictions-for-contents-of-script-elements
-  '<': '\x3c'
+  // https://html.spec.whatwg.org/multipage/scripting.html#restrictions-for-contents-of-script-elements
+  '<': '\\u003C'  // NOTE: JSON.parse crashes on '\\x3c'.
 };
 
 
@@ -1053,9 +929,7 @@ goog.string.escapeChar = function(c) {
  * @param {string} subString The substring to search for.
  * @return {boolean} Whether `str` contains `subString`.
  */
-goog.string.contains = function(str, subString) {
-  return str.indexOf(subString) != -1;
-};
+goog.string.contains = goog.string.internal.contains;
 
 
 /**
@@ -1064,9 +938,8 @@ goog.string.contains = function(str, subString) {
  * @param {string} subString The substring to search for.
  * @return {boolean} Whether `str` contains `subString`.
  */
-goog.string.caseInsensitiveContains = function(str, subString) {
-  return goog.string.contains(str.toLowerCase(), subString.toLowerCase());
-};
+goog.string.caseInsensitiveContains =
+    goog.string.internal.caseInsensitiveContains;
 
 
 /**
@@ -1182,7 +1055,8 @@ goog.string.repeat = (String.prototype.repeat) ? function(string, length) {
  * @return {string} `num` as a string with the given options.
  */
 goog.string.padNumber = function(num, length, opt_precision) {
-  var s = goog.isDef(opt_precision) ? num.toFixed(opt_precision) : String(num);
+  var s =
+      (opt_precision !== undefined) ? num.toFixed(opt_precision) : String(num);
   var index = s.indexOf('.');
   if (index == -1) {
     index = s.length;
@@ -1248,73 +1122,7 @@ goog.string.getRandomString = function() {
  *                   0 if arguments are equal.
  *                  -1 if `version2` is higher.
  */
-goog.string.compareVersions = function(version1, version2) {
-  var order = 0;
-  // Trim leading and trailing whitespace and split the versions into
-  // subversions.
-  var v1Subs = goog.string.trim(String(version1)).split('.');
-  var v2Subs = goog.string.trim(String(version2)).split('.');
-  var subCount = Math.max(v1Subs.length, v2Subs.length);
-
-  // Iterate over the subversions, as long as they appear to be equivalent.
-  for (var subIdx = 0; order == 0 && subIdx < subCount; subIdx++) {
-    var v1Sub = v1Subs[subIdx] || '';
-    var v2Sub = v2Subs[subIdx] || '';
-
-    do {
-      // Split the subversions into pairs of numbers and qualifiers (like 'b').
-      // Two different RegExp objects are use to make it clear the code
-      // is side-effect free
-      var v1Comp = /(\d*)(\D*)(.*)/.exec(v1Sub) || ['', '', '', ''];
-      var v2Comp = /(\d*)(\D*)(.*)/.exec(v2Sub) || ['', '', '', ''];
-      // Break if there are no more matches.
-      if (v1Comp[0].length == 0 && v2Comp[0].length == 0) {
-        break;
-      }
-
-      // Parse the numeric part of the subversion. A missing number is
-      // equivalent to 0.
-      var v1CompNum = v1Comp[1].length == 0 ? 0 : parseInt(v1Comp[1], 10);
-      var v2CompNum = v2Comp[1].length == 0 ? 0 : parseInt(v2Comp[1], 10);
-
-      // Compare the subversion components. The number has the highest
-      // precedence. Next, if the numbers are equal, a subversion without any
-      // qualifier is always higher than a subversion with any qualifier. Next,
-      // the qualifiers are compared as strings.
-      order = goog.string.compareElements_(v1CompNum, v2CompNum) ||
-          goog.string.compareElements_(
-              v1Comp[2].length == 0, v2Comp[2].length == 0) ||
-          goog.string.compareElements_(v1Comp[2], v2Comp[2]);
-      // Stop as soon as an inequality is discovered.
-
-      v1Sub = v1Comp[3];
-      v2Sub = v2Comp[3];
-    } while (order == 0);
-  }
-
-  return order;
-};
-
-
-/**
- * Compares elements of a version number.
- *
- * @param {string|number|boolean} left An element from a version number.
- * @param {string|number|boolean} right An element from a version number.
- *
- * @return {number}  1 if `left` is higher.
- *                   0 if arguments are equal.
- *                  -1 if `right` is higher.
- * @private
- */
-goog.string.compareElements_ = function(left, right) {
-  if (left < right) {
-    return -1;
-  } else if (left > right) {
-    return 1;
-  }
-  return 0;
-};
+goog.string.compareVersions = goog.string.internal.compareVersions;
 
 
 /**
@@ -1462,7 +1270,7 @@ goog.string.toSelectorCase = function(str) {
  * @return {string} String value in TitleCase form.
  */
 goog.string.toTitleCase = function(str, opt_delimiters) {
-  var delimiters = goog.isString(opt_delimiters) ?
+  var delimiters = (typeof opt_delimiters === 'string') ?
       goog.string.regExpEscape(opt_delimiters) :
       '\\s';
 
@@ -1519,7 +1327,7 @@ goog.string.parseInt = function(value) {
     value = String(value);
   }
 
-  if (goog.isString(value)) {
+  if (typeof value === 'string') {
     // If the string starts with '0x' or '-0x', parse as hex.
     return /^\s*-?0x/i.test(value) ? parseInt(value, 16) : parseInt(value, 10);
   }

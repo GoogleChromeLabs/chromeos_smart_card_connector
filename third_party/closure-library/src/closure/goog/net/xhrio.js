@@ -39,13 +39,13 @@
  * goog.net.EventType.PROGRESS event will be the re-dispatched browser
  * progress event. Additionally, a DOWNLOAD_PROGRESS or UPLOAD_PROGRESS event
  * will be fired for download and upload progress respectively.
- *
  */
 
 
 goog.provide('goog.net.XhrIo');
 goog.provide('goog.net.XhrIo.ResponseType');
 
+goog.forwardDeclare('goog.Uri');
 goog.require('goog.Timer');
 goog.require('goog.array');
 goog.require('goog.asserts');
@@ -57,13 +57,12 @@ goog.require('goog.net.ErrorCode');
 goog.require('goog.net.EventType');
 goog.require('goog.net.HttpStatus');
 goog.require('goog.net.XmlHttp');
+goog.require('goog.object');
 goog.require('goog.string');
 goog.require('goog.structs');
 goog.require('goog.structs.Map');
 goog.require('goog.uri.utils');
 goog.require('goog.userAgent');
-
-goog.forwardDeclare('goog.Uri');
 
 goog.scope(function() {
 
@@ -106,7 +105,7 @@ goog.net.XhrIo = function(opt_xmlHttpFactory) {
 
   /**
    * The options to use with the current XMLHttpRequest object.
-   * @private {Object}
+   * @private {?Object}
    */
   this.xhrOptions_ = null;
 
@@ -238,7 +237,7 @@ goog.net.XhrIo.ResponseType = {
   DOCUMENT: 'document',
   // Not supported as of Chrome 10.0.612.1 dev
   BLOB: 'blob',
-  ARRAY_BUFFER: 'arraybuffer'
+  ARRAY_BUFFER: 'arraybuffer',
 };
 
 var ResponseType = goog.net.XhrIo.ResponseType;
@@ -655,8 +654,8 @@ goog.net.XhrIo.prototype.send = function(
  */
 goog.net.XhrIo.shouldUseXhr2Timeout_ = function(xhr) {
   return goog.userAgent.IE && goog.userAgent.isVersionOrHigher(9) &&
-      goog.isNumber(xhr[goog.net.XhrIo.XHR2_TIMEOUT_]) &&
-      goog.isDef(xhr[goog.net.XhrIo.XHR2_ON_TIMEOUT_]);
+      typeof xhr[goog.net.XhrIo.XHR2_TIMEOUT_] === 'number' &&
+      xhr[goog.net.XhrIo.XHR2_ON_TIMEOUT_] !== undefined;
 };
 
 
@@ -921,7 +920,7 @@ goog.net.XhrIo.buildProgressEvent_ = function(e, eventType) {
     type: eventType,
     lengthComputable: e.lengthComputable,
     loaded: e.loaded,
-    total: e.total
+    total: e.total,
   });
 };
 
@@ -1248,7 +1247,7 @@ goog.net.XhrIo.prototype.getResponseHeader = function(key) {
   }
 
   var value = this.xhr_.getResponseHeader(key);
-  return goog.isNull(value) ? undefined : value;
+  return value === null ? undefined : value;
 };
 
 
@@ -1280,20 +1279,37 @@ goog.net.XhrIo.prototype.getAllResponseHeaders = function() {
  *     and header values as values.
  */
 goog.net.XhrIo.prototype.getResponseHeaders = function() {
+  // TODO(b/120371595): Make this function parse headers as per the spec
+  // (https://tools.ietf.org/html/rfc2616#section-4.2).
+
   var headersObject = {};
   var headersArray = this.getAllResponseHeaders().split('\r\n');
   for (var i = 0; i < headersArray.length; i++) {
     if (goog.string.isEmptyOrWhitespace(headersArray[i])) {
       continue;
     }
-    var keyValue = goog.string.splitLimit(headersArray[i], ': ', 2);
-    if (headersObject[keyValue[0]]) {
-      headersObject[keyValue[0]] += ', ' + keyValue[1];
-    } else {
-      headersObject[keyValue[0]] = keyValue[1];
+    var keyValue =
+        goog.string.splitLimit(headersArray[i], ':', /* maxSplitCount= */ 1);
+    var key = keyValue[0];
+    var value = keyValue[1];
+
+    if (typeof value !== 'string') {
+      // There must be a value but it can be the empty string.
+      continue;
     }
+
+    // Whitespace at the start and end of the value is meaningless.
+    value = value.trim();
+    // The key should not contain whitespace but we currently ignore that.
+
+    var values = headersObject[key] || [];
+    headersObject[key] = values;
+    values.push(value);
   }
-  return headersObject;
+
+  return goog.object.map(headersObject, function(values) {
+    return values.join(', ');
+  });
 };
 
 
@@ -1335,8 +1351,8 @@ goog.net.XhrIo.prototype.getLastErrorCode = function() {
  * @return {string} Last error message.
  */
 goog.net.XhrIo.prototype.getLastError = function() {
-  return goog.isString(this.lastError_) ? this.lastError_ :
-                                          String(this.lastError_);
+  return typeof this.lastError_ === 'string' ? this.lastError_ :
+                                               String(this.lastError_);
 };
 
 

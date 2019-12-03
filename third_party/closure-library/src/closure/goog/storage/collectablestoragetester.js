@@ -14,17 +14,15 @@
 
 /**
  * @fileoverview Unit tests for the collectable storage interface.
- *
  */
 
 goog.provide('goog.storage.collectableStorageTester');
 goog.setTestOnly();
 
-goog.require('goog.testing.asserts');
-
 goog.forwardDeclare('goog.storage.CollectableStorage');
 goog.forwardDeclare('goog.storage.mechanism.IterableMechanism');
 goog.forwardDeclare('goog.testing.MockClock');
+goog.require('goog.testing.asserts');
 
 
 

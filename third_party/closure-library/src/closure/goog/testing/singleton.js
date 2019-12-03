@@ -21,7 +21,6 @@
  *
  * The `goog.testing.singleton` functions expect that the goog.DEBUG flag
  * is enabled, and the tests are either uncompiled or compiled without renaming.
- *
  */
 
 goog.setTestOnly('goog.testing.singleton');
@@ -33,8 +32,8 @@ goog.provide('goog.testing.singleton');
  * instance on next call.
  */
 goog.testing.singleton.reset = function() {
-  var singletons = goog.getObjectByName('goog.instantiatedSingletons_');
-  var ctor;
+  const singletons = goog.getObjectByName('goog.instantiatedSingletons_');
+  let ctor;
   while (ctor = singletons.pop()) {
     delete ctor.instance_;
   }

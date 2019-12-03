@@ -41,6 +41,7 @@ goog.provide('goog.ui.PopupMenu');
 
 goog.require('goog.events');
 goog.require('goog.events.BrowserEvent');
+goog.require('goog.events.BrowserEvent.MouseButton');
 goog.require('goog.events.EventType');
 goog.require('goog.events.KeyCodes');
 goog.require('goog.positioning.AnchoredViewportPosition');
@@ -90,6 +91,14 @@ goog.tagUnsealableClass(goog.ui.PopupMenu);
  */
 goog.ui.PopupMenu.prototype.toggleMode_ = false;
 
+/**
+ * If true, then the browser context menu will override the menu activation when
+ * the shift key is held down.
+ * @type {boolean}
+ * @private
+ */
+goog.ui.PopupMenu.prototype.shiftOverride_ = false;
+
 
 /**
  * Time that the menu was last shown.
@@ -113,6 +122,7 @@ goog.ui.PopupMenu.prototype.currentAnchor_ = null;
  * made from HR elements.
  * @param {?Element} element Element to decorate.
  * @override
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.PopupMenu.prototype.decorateInternal = function(element) {
   goog.ui.PopupMenu.superClass_.decorateInternal.call(this, element);
@@ -316,6 +326,7 @@ goog.ui.PopupMenu.prototype.getAttachedElement = function() {
  * and one with the KEYDOWN event type for accessibility purposes.
  * @param {?Object} target The target to attach an event to.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.PopupMenu.prototype.attachEvent_ = function(target) {
   this.getHandler().listen(
@@ -365,6 +376,7 @@ goog.ui.PopupMenu.prototype.detach = function(element) {
  * Detaches an event listener to a target
  * @param {!Object} target The target to detach events from.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.PopupMenu.prototype.detachEvent_ = function(target) {
   this.getHandler().unlisten(
@@ -381,6 +393,14 @@ goog.ui.PopupMenu.prototype.setToggleMode = function(toggle) {
   this.toggleMode_ = toggle;
 };
 
+/**
+ * Sets whether the browser context menu will override the menu activation when
+ * the shift key is held down.
+ * @param {boolean} shiftOverride
+ */
+goog.ui.PopupMenu.prototype.setShiftOverride = function(shiftOverride) {
+  this.shiftOverride_ = shiftOverride;
+};
 
 /**
  * Gets whether the menu is in toggle mode
@@ -388,6 +408,15 @@ goog.ui.PopupMenu.prototype.setToggleMode = function(toggle) {
  */
 goog.ui.PopupMenu.prototype.getToggleMode = function() {
   return this.toggleMode_;
+};
+
+/**
+ * Gets whether the browser context menu will override the menu activation when
+ * the shift key is held down.
+ * @return {boolean}
+ */
+goog.ui.PopupMenu.prototype.getShiftOverride = function() {
+  return this.shiftOverride_;
 };
 
 
@@ -453,9 +482,10 @@ goog.ui.PopupMenu.prototype.showWithPosition = function(
  * @param {number} x The client-X associated with the show event.
  * @param {number} y The client-Y associated with the show event.
  * @protected
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.PopupMenu.prototype.showMenu = function(target, x, y) {
-  var position = goog.isDef(target.targetCorner_) ?
+  var position = (target.targetCorner_ !== undefined) ?
       new goog.positioning.AnchoredViewportPosition(
           target.element_, target.targetCorner_, true) :
       new goog.positioning.ViewportClientPosition(x, y);
@@ -557,6 +587,10 @@ goog.ui.PopupMenu.prototype.onAction_ = function(opt_e) {
  * @private
  */
 goog.ui.PopupMenu.prototype.onTargetClick_ = function(e) {
+  if (this.shiftOverride_ && e.shiftKey &&
+      e.button == goog.events.BrowserEvent.MouseButton.RIGHT) {
+    return;
+  }
   this.onTargetActivation_(e);
 };
 
@@ -584,6 +618,7 @@ goog.ui.PopupMenu.prototype.onTargetKeyboardAction_ = function(e) {
  * Handles a browser event on one of the popup targets.
  * @param {?goog.events.BrowserEvent} e The browser event.
  * @private
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.PopupMenu.prototype.onTargetActivation_ = function(e) {
   var keys = this.targets_.getKeys();

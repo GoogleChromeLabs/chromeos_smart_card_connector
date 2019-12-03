@@ -1,7 +1,7 @@
 {
   "name": "google-closure-library",
   "description": "Google's common JavaScript library",
-  "version": "v20180805.0.0",
+  "version": "v20191027.0.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/google/closure-library.git"
@@ -22,5 +22,8 @@
   "devDependencies": {
     "promise": "^7.0.4",
     "protractor": "^2.1.0"
+  },
+  "dependencies": {
+    "promises-aplus-tests": "^2.1.2"
   }
 }

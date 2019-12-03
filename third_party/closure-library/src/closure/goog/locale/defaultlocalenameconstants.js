@@ -15,8 +15,7 @@
 /**
  * @fileoverview Default list of locale specific country and language names.
  *
- * File generated from CLDR ver. 33.1
- *
+ * File generated from CLDR ver. 36
  */
 
 // clang-format off
@@ -213,11 +212,11 @@ goog.locale.defaultLocaleNameConstants = {
     'MF': 'St. Martin',
     'MG': 'Madagascar',
     'MH': 'Marshall Islands',
-    'MK': 'Macedonia (FYROM)',
+    'MK': 'North Macedonia',
     'ML': 'Mali',
     'MM': 'Myanmar (Burma)',
     'MN': 'Mongolia',
-    'MO': 'Macau',
+    'MO': 'Macao',
     'MP': 'Northern Mariana Islands',
     'MQ': 'Martinique',
     'MR': 'Mauritania',
@@ -283,7 +282,7 @@ goog.locale.defaultLocaleNameConstants = {
     'SV': 'El Salvador',
     'SX': 'Sint Maarten',
     'SY': 'Syria',
-    'SZ': 'Swaziland',
+    'SZ': 'Eswatini',
     'TA': 'Tristan da Cunha',
     'TC': 'Turks & Caicos Islands',
     'TD': 'Chad',
@@ -470,6 +469,7 @@ goog.locale.defaultLocaleNameConstants = {
     'fan': 'Fang',
     'fat': 'Fanti',
     'ff': 'Fulah',
+    'ff_Latn': 'Fulah (Latin)',
     'fi': 'Finnish',
     'fil': 'Filipino',
     'fj': 'Fijian',
@@ -646,7 +646,7 @@ goog.locale.defaultLocaleNameConstants = {
     'mt': 'Maltese',
     'mua': 'Mundang',
     'mul': 'Multiple languages',
-    'mus': 'Creek',
+    'mus': 'Muscogee',
     'mwl': 'Mirandese',
     'mwr': 'Marwari',
     'my': 'Burmese',
@@ -819,7 +819,6 @@ goog.locale.defaultLocaleNameConstants = {
     'uga': 'Ugaritic',
     'uk': 'Ukrainian',
     'umb': 'Umbundu',
-    'und': 'Unknown language',
     'ur': 'Urdu',
     'uz': 'Uzbek',
     'uz_Arab': 'Uzbek (Arabic)',

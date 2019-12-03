@@ -14,8 +14,6 @@
 
 /**
  * @fileoverview DOM pattern base class.
- *
- * @author robbyw@google.com (Robby Walker)
  */
 
 goog.provide('goog.dom.pattern.AbstractPattern');
@@ -33,7 +31,7 @@ goog.require('goog.dom.pattern.MatchType');
 goog.dom.pattern.AbstractPattern = function() {
   /**
    * The first node matched by this pattern.
-   * @type {Node}
+   * @type {?Node}
    */
   this.matchedNode = null;
 };

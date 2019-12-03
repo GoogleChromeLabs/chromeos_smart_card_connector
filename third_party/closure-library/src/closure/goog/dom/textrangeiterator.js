@@ -14,9 +14,16 @@
 
 /**
  * @fileoverview Iterator between two DOM text range positions.
- *
- * @author robbyw@google.com (Robby Walker)
  */
+
+
+// TODO(b/130421259): We're trying to migrate all ES5 subclasses of Closure
+// Library to ES6. In ES6 this cannot be referenced before super is called. This
+// file has at least one this before a super call (in ES5) and cannot be
+// automatically upgraded to ES6 as a result. Please fix this if you have a
+// chance. Note: This can sometimes be caused by not calling the super
+// constructor at all. You can run the conversion tool yourself to see what it
+// does on this file: blaze run //javascript/refactoring/es6_classes:convert.
 
 goog.provide('goog.dom.TextRangeIterator');
 
@@ -50,13 +57,13 @@ goog.dom.TextRangeIterator = function(
     startNode, startOffset, endNode, endOffset, opt_reverse) {
   /**
    * The first node in the selection.
-   * @private {Node}
+   * @private {?Node}
    */
   this.startNode_ = null;
 
   /**
    * The last node in the selection.
-   * @private {Node}
+   * @private {?Node}
    */
   this.endNode_ = null;
 
@@ -249,7 +256,10 @@ goog.dom.TextRangeIterator.prototype.skipTag = function() {
 };
 
 
-/** @override */
+/**
+ * @override
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
+ */
 goog.dom.TextRangeIterator.prototype.copyFrom = function(other) {
   this.startNode_ = other.startNode_;
   this.endNode_ = other.endNode_;

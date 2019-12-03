@@ -15,7 +15,6 @@
 /**
  * @fileoverview Implements the disposable interface. The dispose method is used
  * to clean up references and resources.
- * @author arv@google.com (Erik Arvidsson)
  */
 
 
@@ -86,14 +85,16 @@ goog.Disposable.MonitoringMode = {
  *     performance and memory usage. If switched off, the monitoring code
  *     compiles down to 0 bytes.
  */
-goog.define('goog.Disposable.MONITORING_MODE', 0);
+goog.Disposable.MONITORING_MODE =
+    goog.define('goog.Disposable.MONITORING_MODE', 0);
 
 
 /**
  * @define {boolean} Whether to attach creation stack to each created disposable
  *     instance; This is only relevant for when MonitoringMode != OFF.
  */
-goog.define('goog.Disposable.INCLUDE_STACK_ON_CREATION', true);
+goog.Disposable.INCLUDE_STACK_ON_CREATION =
+    goog.define('goog.Disposable.INCLUDE_STACK_ON_CREATION', true);
 
 
 /**
@@ -220,7 +221,7 @@ goog.Disposable.prototype.registerDisposable = function(disposable) {
  */
 goog.Disposable.prototype.addOnDisposeCallback = function(callback, opt_scope) {
   if (this.disposed_) {
-    goog.isDef(opt_scope) ? callback.call(opt_scope) : callback();
+    opt_scope !== undefined ? callback.call(opt_scope) : callback();
     return;
   }
   if (!this.onDisposeCallbacks_) {
@@ -228,7 +229,7 @@ goog.Disposable.prototype.addOnDisposeCallback = function(callback, opt_scope) {
   }
 
   this.onDisposeCallbacks_.push(
-      goog.isDef(opt_scope) ? goog.bind(callback, opt_scope) : callback);
+      opt_scope !== undefined ? goog.bind(callback, opt_scope) : callback);
 };
 
 

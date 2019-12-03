@@ -88,20 +88,18 @@
  *
  * TODO(user): implement, as needed, the Media specific state changes UI, such
  * as minimize/maximize buttons, expand/close buttons, etc.
- *
  */
 
 goog.provide('goog.ui.media.Media');
 goog.provide('goog.ui.media.MediaRenderer');
 
+goog.forwardDeclare('goog.ui.media.MediaModel');
 goog.require('goog.asserts');
 goog.require('goog.dom.TagName');
 goog.require('goog.style');
 goog.require('goog.ui.Component');
 goog.require('goog.ui.Control');
 goog.require('goog.ui.ControlRenderer');
-
-goog.forwardDeclare('goog.ui.media.MediaModel');
 
 
 
@@ -246,8 +244,7 @@ goog.ui.media.MediaRenderer.prototype.createDom = function(control) {
     // seems to exist in some cases.
     var size = thumbnail.getSize();
 
-    if (size && goog.isDefAndNotNull(size.height) &&
-        goog.isDefAndNotNull(size.width)) {
+    if (size && size.height != null && size.width != null) {
       goog.style.setSize(thumbnailElement, size);
     }
     domHelper.appendChild(div, thumbnailElement);

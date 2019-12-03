@@ -14,7 +14,6 @@
 
 /**
  * @fileoverview JSON utility functions.
- * @author arv@google.com (Erik Arvidsson)
  */
 
 
@@ -31,7 +30,7 @@ goog.provide('goog.json.Serializer');
  * anymore so this is safe to enable for parsing JSPB. Using native JSON is
  * faster and safer than the default implementation using `eval`.
  */
-goog.define('goog.json.USE_NATIVE_JSON', false);
+goog.json.USE_NATIVE_JSON = goog.define('goog.json.USE_NATIVE_JSON', false);
 
 /**
  * @define {boolean} If true, try the native JSON parsing API first. If it
@@ -40,7 +39,7 @@ goog.define('goog.json.USE_NATIVE_JSON', false);
  * be set by `goog.json.setErrorLogger`. If it is not set then the error
  * is ignored.
  */
-goog.define('goog.json.TRY_NATIVE_JSON', false);
+goog.json.TRY_NATIVE_JSON = goog.define('goog.json.TRY_NATIVE_JSON', false);
 
 
 /**
@@ -80,11 +79,11 @@ goog.json.isValid = function(s) {
   // ',' or ':' or '{' or '}'. If that is so, then the text is safe for eval.
 
   // Don't make these static since they have the global flag.
-  var backslashesRe = /\\["\\\/bfnrtu]/g;
-  var simpleValuesRe =
+  const backslashesRe = /\\["\\\/bfnrtu]/g;
+  const simpleValuesRe =
       /(?:"[^"\\\n\r\u2028\u2029\x00-\x08\x0a-\x1f]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)[\s\u2028\u2029]*(?=:|,|]|}|$)/g;
-  var openBracketsRe = /(?:^|:|,)(?:[\s\u2028\u2029]*\[)+/g;
-  var remainderRe = /^[\],:{}\s\u2028\u2029]*$/;
+  const openBracketsRe = /(?:^|:|,)(?:[\s\u2028\u2029]*\[)+/g;
+  const remainderRe = /^[\],:{}\s\u2028\u2029]*$/;
 
   return remainderRe.test(
       s.replace(backslashesRe, '@')
@@ -126,7 +125,7 @@ goog.json.setErrorLogger = function(errorLogger) {
 goog.json.parse = goog.json.USE_NATIVE_JSON ?
     /** @type {function(*):Object} */ (goog.global['JSON']['parse']) :
     function(s) {
-      var error;
+      let error;
       if (goog.json.TRY_NATIVE_JSON) {
         try {
           return goog.global['JSON']['parse'](s);
@@ -134,11 +133,11 @@ goog.json.parse = goog.json.USE_NATIVE_JSON ?
           error = ex;
         }
       }
-      var o = String(s);
+      const o = String(s);
       if (goog.json.isValid(o)) {
 
         try {
-          var result = /** @type {?Object} */ (eval('(' + o + ')'));
+          const result = /** @type {?Object} */ (eval('(' + o + ')'));
           if (error) {
             goog.json.errorLogger_('Invalid JSON: ' + o, error);
           }
@@ -221,7 +220,7 @@ goog.json.Serializer = function(opt_replacer) {
  * @return {string} A JSON string representation of the input.
  */
 goog.json.Serializer.prototype.serialize = function(object) {
-  var sb = [];
+  const sb = [];
   this.serializeInternal(object, sb);
   return sb.join('');
 };
@@ -318,7 +317,7 @@ goog.json.Serializer.prototype.serializeString_ = function(s, sb) {
   // characters.
   sb.push('"', s.replace(goog.json.Serializer.charsToReplace_, function(c) {
     // caching the result improves performance by a factor 2-3
-    var rv = goog.json.Serializer.charToJsonCharCache_[c];
+    let rv = goog.json.Serializer.charToJsonCharCache_[c];
     if (!rv) {
       rv = '\\u' + (c.charCodeAt(0) | 0x10000).toString(16).substr(1);
       goog.json.Serializer.charToJsonCharCache_[c] = rv;
@@ -346,13 +345,13 @@ goog.json.Serializer.prototype.serializeNumber_ = function(n, sb) {
  * @protected
  */
 goog.json.Serializer.prototype.serializeArray = function(arr, sb) {
-  var l = arr.length;
+  const l = arr.length;
   sb.push('[');
-  var sep = '';
-  for (var i = 0; i < l; i++) {
+  let sep = '';
+  for (let i = 0; i < l; i++) {
     sb.push(sep);
 
-    var value = arr[i];
+    const value = arr[i];
     this.serializeInternal(
         this.replacer_ ? this.replacer_.call(arr, String(i), value) : value,
         sb);
@@ -371,10 +370,10 @@ goog.json.Serializer.prototype.serializeArray = function(arr, sb) {
  */
 goog.json.Serializer.prototype.serializeObject_ = function(obj, sb) {
   sb.push('{');
-  var sep = '';
-  for (var key in obj) {
+  let sep = '';
+  for (const key in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, key)) {
-      var value = obj[key];
+      const value = obj[key];
       // Skip functions.
       if (typeof value != 'function') {
         sb.push(sep);

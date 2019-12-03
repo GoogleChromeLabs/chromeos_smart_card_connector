@@ -115,9 +115,10 @@ goog.require('goog.string');
  * @final
  */
 goog.i18n.DateTimeFormat = function(pattern, opt_dateTimeSymbols) {
-  goog.asserts.assert(goog.isDef(pattern), 'Pattern must be defined');
+  goog.asserts.assert(pattern !== undefined, 'Pattern must be defined');
   goog.asserts.assert(
-      goog.isDef(opt_dateTimeSymbols) || goog.isDef(goog.i18n.DateTimeSymbols),
+      opt_dateTimeSymbols !== undefined ||
+          goog.i18n.DateTimeSymbols !== undefined,
       'goog.i18n.DateTimeSymbols or explicit symbols must be defined');
 
   this.patternParts_ = [];
@@ -401,6 +402,7 @@ goog.i18n.DateTimeFormat.isEnforceAsciiDigits = function() {
  * @param {!Object=} opt_dateTimeSymbols Optional symbols to use rather than
  *     the global symbols.
  * @return {string} localized string, potentially using native digits.
+ * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.i18n.DateTimeFormat.localizeNumbers = function(
     input, opt_dateTimeSymbols) {

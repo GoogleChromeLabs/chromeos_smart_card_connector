@@ -103,8 +103,6 @@
  *     This seems to catch errors only in ff2/ff3. It does not work in Safari or
  *     IE7. The consequence of this is that exceptions that would have been
  *     caught by window.onerror show up as timeouts.
- *
- * @author agrieve@google.com (Andrew Grieve)
  */
 
 goog.setTestOnly('goog.testing.AsyncTestCase');
@@ -646,6 +644,7 @@ goog.testing.AsyncTestCase.prototype.hookAssert_ = function() {
       }
     };
 
+    /** @suppress {const} */
     fail = function() {
       var expectedUnknownThis = /** @type {?} */ (this);
       try {
@@ -704,6 +703,7 @@ goog.testing.AsyncTestCase.prototype.unhookAll_ = function() {
     _assert = goog.asserts.assert(this.origAssert_);
     this.origAssert_ = null;
 
+    /** @suppress {const} */
     fail = goog.asserts.assert(this.origFail_);
     this.origFail_ = null;
   }

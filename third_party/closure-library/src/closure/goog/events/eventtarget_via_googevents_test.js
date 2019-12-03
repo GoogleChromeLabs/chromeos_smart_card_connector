@@ -12,63 +12,79 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-goog.provide('goog.events.EventTargetGoogEventsTest');
-goog.setTestOnly('goog.events.EventTargetGoogEventsTest');
+goog.module('goog.events.EventTargetGoogEventsTest');
+goog.setTestOnly();
 
-goog.require('goog.events');
-goog.require('goog.events.EventTarget');
-goog.require('goog.events.eventTargetTester');
-goog.require('goog.events.eventTargetTester.KeyType');
-goog.require('goog.events.eventTargetTester.UnlistenReturnType');
-goog.require('goog.testing');
-goog.require('goog.testing.jsunit');
+const GoogEventTarget = goog.require('goog.events.EventTarget');
+const eventTargetTester = goog.require('goog.events.eventTargetTester');
+const events = goog.require('goog.events');
+const testSuite = goog.require('goog.testing.testSuite');
+const testing = goog.require('goog.testing');
 
-function setUp() {
-  var newListenableFn = function() { return new goog.events.EventTarget(); };
-  var unlistenByKeyFn = function(src, key) {
-    return goog.events.unlistenByKey(key);
-  };
-  goog.events.eventTargetTester.setUp(
-      newListenableFn, goog.events.listen, goog.events.unlisten,
-      unlistenByKeyFn, goog.events.listenOnce, goog.events.dispatchEvent,
-      goog.events.removeAll, goog.events.getListeners, goog.events.getListener,
-      goog.events.hasListener, goog.events.eventTargetTester.KeyType.NUMBER,
-      goog.events.eventTargetTester.UnlistenReturnType.BOOLEAN, true);
-}
+const KeyType = eventTargetTester.KeyType;
+const EventType = eventTargetTester.EventType;
+const TestEvent = eventTargetTester.TestEvent;
+const UnlistenReturnType = eventTargetTester.UnlistenReturnType;
 
-function tearDown() {
-  goog.events.eventTargetTester.tearDown();
-}
+testSuite(Object.assign(
+    {
+      setUp() {
+        const newListenableFn = () => new GoogEventTarget();
+        const unlistenByKeyFn = (src, key) => events.unlistenByKey(key);
+        eventTargetTester.setUp(
+            newListenableFn, events.listen, events.unlisten, unlistenByKeyFn,
+            events.listenOnce, events.dispatchEvent, events.removeAll,
+            events.getListeners, events.getListener, events.hasListener,
+            KeyType.NUMBER, UnlistenReturnType.BOOLEAN, true);
+      },
 
-function testUnlistenProperCleanup() {
-  goog.events.listen(eventTargets[0], EventType.A, listeners[0]);
-  goog.events.unlisten(eventTargets[0], EventType.A, listeners[0]);
+      tearDown() {
+        eventTargetTester.tearDown();
+      },
 
-  goog.events.listen(eventTargets[0], EventType.A, listeners[0]);
-  eventTargets[0].unlisten(EventType.A, listeners[0]);
-}
+      testUnlistenProperCleanup() {
+        events.listen(
+            eventTargetTester.getTargets()[0], EventType.A,
+            eventTargetTester.getListeners()[0]);
+        events.unlisten(
+            eventTargetTester.getTargets()[0], EventType.A,
+            eventTargetTester.getListeners()[0]);
 
-function testUnlistenByKeyProperCleanup() {
-  var keyNum = goog.events.listen(eventTargets[0], EventType.A, listeners[0]);
-  goog.events.unlistenByKey(keyNum);
-}
+        events.listen(
+            eventTargetTester.getTargets()[0], EventType.A,
+            eventTargetTester.getListeners()[0]);
+        eventTargetTester.getTargets()[0].unlisten(
+            EventType.A, eventTargetTester.getListeners()[0]);
+      },
 
-function testListenOnceProperCleanup() {
-  goog.events.listenOnce(eventTargets[0], EventType.A, listeners[0]);
-  eventTargets[0].dispatchEvent(EventType.A);
-}
+      testUnlistenByKeyProperCleanup() {
+        const keyNum = events.listen(
+            eventTargetTester.getTargets()[0], EventType.A,
+            eventTargetTester.getListeners()[0]);
+        events.unlistenByKey(keyNum);
+      },
 
-function testListenWithObject() {
-  var obj = {};
-  obj.handleEvent = goog.testing.recordFunction();
-  goog.events.listen(eventTargets[0], EventType.A, obj);
-  eventTargets[0].dispatchEvent(EventType.A);
-  assertEquals(1, obj.handleEvent.getCallCount());
-}
+      testListenOnceProperCleanup() {
+        events.listenOnce(
+            eventTargetTester.getTargets()[0], EventType.A,
+            eventTargetTester.getListeners()[0]);
+        eventTargetTester.getTargets()[0].dispatchEvent(EventType.A);
+      },
 
-function testListenWithObjectHandleEventReturningFalse() {
-  var obj = {};
-  obj.handleEvent = function() { return false; };
-  goog.events.listen(eventTargets[0], EventType.A, obj);
-  assertFalse(eventTargets[0].dispatchEvent(EventType.A));
-}
+      testListenWithObject() {
+        const obj = {};
+        obj.handleEvent = testing.recordFunction();
+        events.listen(eventTargetTester.getTargets()[0], EventType.A, obj);
+        eventTargetTester.getTargets()[0].dispatchEvent(EventType.A);
+        assertEquals(1, obj.handleEvent.getCallCount());
+      },
+
+      testListenWithObjectHandleEventReturningFalse() {
+        const obj = {};
+        obj.handleEvent = () => false;
+        events.listen(eventTargetTester.getTargets()[0], EventType.A, obj);
+        assertFalse(
+            eventTargetTester.getTargets()[0].dispatchEvent(EventType.A));
+      },
+    },
+    eventTargetTester.commonTests));

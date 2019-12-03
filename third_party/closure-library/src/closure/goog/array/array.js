@@ -14,8 +14,6 @@
 
 /**
  * @fileoverview Utilities for manipulating arrays.
- *
- * @author arv@google.com (Erik Arvidsson)
  */
 
 
@@ -39,7 +37,8 @@ goog.require('goog.asserts');
  * Setting goog.TRUSTED_SITE to false will automatically set
  * NATIVE_ARRAY_PROTOTYPES to false.
  */
-goog.define('goog.NATIVE_ARRAY_PROTOTYPES', goog.TRUSTED_SITE);
+goog.NATIVE_ARRAY_PROTOTYPES =
+    goog.define('goog.NATIVE_ARRAY_PROTOTYPES', goog.TRUSTED_SITE);
 
 
 /**
@@ -47,7 +46,8 @@ goog.define('goog.NATIVE_ARRAY_PROTOTYPES', goog.TRUSTED_SITE);
  * array functions where appropriate (e.g., `Array#filter`) and remove the
  * unused pure JS implementation.
  */
-goog.define('goog.array.ASSUME_NATIVE_FUNCTIONS', false);
+goog.array.ASSUME_NATIVE_FUNCTIONS = goog.define(
+    'goog.array.ASSUME_NATIVE_FUNCTIONS', goog.FEATURESET_YEAR > 2012);
 
 
 /**
@@ -104,9 +104,9 @@ goog.array.indexOf = goog.NATIVE_ARRAY_PROTOTYPES &&
           (opt_fromIndex < 0 ? Math.max(0, arr.length + opt_fromIndex) :
                                opt_fromIndex);
 
-      if (goog.isString(arr)) {
+      if (typeof arr === 'string') {
         // Array.prototype.indexOf uses === so only strings should be found.
-        if (!goog.isString(obj) || obj.length != 1) {
+        if (typeof obj !== 'string' || obj.length != 1) {
           return -1;
         }
         return arr.indexOf(obj, fromIndex);
@@ -149,9 +149,9 @@ goog.array.lastIndexOf = goog.NATIVE_ARRAY_PROTOTYPES &&
         fromIndex = Math.max(0, arr.length + fromIndex);
       }
 
-      if (goog.isString(arr)) {
+      if (typeof arr === 'string') {
         // Array.prototype.lastIndexOf uses === so only strings should be found.
-        if (!goog.isString(obj) || obj.length != 1) {
+        if (typeof obj !== 'string' || obj.length != 1) {
           return -1;
         }
         return arr.lastIndexOf(obj, fromIndex);
@@ -185,7 +185,7 @@ goog.array.forEach = goog.NATIVE_ARRAY_PROTOTYPES &&
     } :
     function(arr, f, opt_obj) {
       var l = arr.length;  // must be fixed during loop... see docs
-      var arr2 = goog.isString(arr) ? arr.split('') : arr;
+      var arr2 = (typeof arr === 'string') ? arr.split('') : arr;
       for (var i = 0; i < l; i++) {
         if (i in arr2) {
           f.call(/** @type {?} */ (opt_obj), arr2[i], i, arr);
@@ -210,7 +210,7 @@ goog.array.forEach = goog.NATIVE_ARRAY_PROTOTYPES &&
  */
 goog.array.forEachRight = function(arr, f, opt_obj) {
   var l = arr.length;  // must be fixed during loop... see docs
-  var arr2 = goog.isString(arr) ? arr.split('') : arr;
+  var arr2 = (typeof arr === 'string') ? arr.split('') : arr;
   for (var i = l - 1; i >= 0; --i) {
     if (i in arr2) {
       f.call(/** @type {?} */ (opt_obj), arr2[i], i, arr);
@@ -249,7 +249,7 @@ goog.array.filter = goog.NATIVE_ARRAY_PROTOTYPES &&
       var l = arr.length;  // must be fixed during loop... see docs
       var res = [];
       var resLength = 0;
-      var arr2 = goog.isString(arr) ? arr.split('') : arr;
+      var arr2 = (typeof arr === 'string') ? arr.split('') : arr;
       for (var i = 0; i < l; i++) {
         if (i in arr2) {
           var val = arr2[i];  // in case f mutates arr2
@@ -288,7 +288,7 @@ goog.array.map = goog.NATIVE_ARRAY_PROTOTYPES &&
     function(arr, f, opt_obj) {
       var l = arr.length;  // must be fixed during loop... see docs
       var res = new Array(l);
-      var arr2 = goog.isString(arr) ? arr.split('') : arr;
+      var arr2 = (typeof arr === 'string') ? arr.split('') : arr;
       for (var i = 0; i < l; i++) {
         if (i in arr2) {
           res[i] = f.call(/** @type {?} */ (opt_obj), arr2[i], i, arr);
@@ -411,7 +411,7 @@ goog.array.some = goog.NATIVE_ARRAY_PROTOTYPES &&
     } :
     function(arr, f, opt_obj) {
       var l = arr.length;  // must be fixed during loop... see docs
-      var arr2 = goog.isString(arr) ? arr.split('') : arr;
+      var arr2 = (typeof arr === 'string') ? arr.split('') : arr;
       for (var i = 0; i < l; i++) {
         if (i in arr2 && f.call(/** @type {?} */ (opt_obj), arr2[i], i, arr)) {
           return true;
@@ -447,7 +447,7 @@ goog.array.every = goog.NATIVE_ARRAY_PROTOTYPES &&
     } :
     function(arr, f, opt_obj) {
       var l = arr.length;  // must be fixed during loop... see docs
-      var arr2 = goog.isString(arr) ? arr.split('') : arr;
+      var arr2 = (typeof arr === 'string') ? arr.split('') : arr;
       for (var i = 0; i < l; i++) {
         if (i in arr2 && !f.call(/** @type {?} */ (opt_obj), arr2[i], i, arr)) {
           return false;
@@ -495,7 +495,7 @@ goog.array.count = function(arr, f, opt_obj) {
  */
 goog.array.find = function(arr, f, opt_obj) {
   var i = goog.array.findIndex(arr, f, opt_obj);
-  return i < 0 ? null : goog.isString(arr) ? arr.charAt(i) : arr[i];
+  return i < 0 ? null : typeof arr === 'string' ? arr.charAt(i) : arr[i];
 };
 
 
@@ -515,7 +515,7 @@ goog.array.find = function(arr, f, opt_obj) {
  */
 goog.array.findIndex = function(arr, f, opt_obj) {
   var l = arr.length;  // must be fixed during loop... see docs
-  var arr2 = goog.isString(arr) ? arr.split('') : arr;
+  var arr2 = (typeof arr === 'string') ? arr.split('') : arr;
   for (var i = 0; i < l; i++) {
     if (i in arr2 && f.call(/** @type {?} */ (opt_obj), arr2[i], i, arr)) {
       return i;
@@ -541,7 +541,7 @@ goog.array.findIndex = function(arr, f, opt_obj) {
  */
 goog.array.findRight = function(arr, f, opt_obj) {
   var i = goog.array.findIndexRight(arr, f, opt_obj);
-  return i < 0 ? null : goog.isString(arr) ? arr.charAt(i) : arr[i];
+  return i < 0 ? null : typeof arr === 'string' ? arr.charAt(i) : arr[i];
 };
 
 
@@ -561,7 +561,7 @@ goog.array.findRight = function(arr, f, opt_obj) {
  */
 goog.array.findIndexRight = function(arr, f, opt_obj) {
   var l = arr.length;  // must be fixed during loop... see docs
-  var arr2 = goog.isString(arr) ? arr.split('') : arr;
+  var arr2 = (typeof arr === 'string') ? arr.split('') : arr;
   for (var i = l - 1; i >= 0; i--) {
     if (i in arr2 && f.call(/** @type {?} */ (opt_obj), arr2[i], i, arr)) {
       return i;
@@ -982,8 +982,8 @@ goog.array.removeDuplicates = function(arr, opt_rv, opt_hashFn) {
  * behavior for homogeneous arrays of String(s) and Number(s). The array
  * specified <b>must</b> be sorted in ascending order (as defined by the
  * comparison function).  If the array is not sorted, results are undefined.
- * If the array contains multiple instances of the specified target value, any
- * of these instances may be found.
+ * If the array contains multiple instances of the specified target value, the
+ * left-most instance will be found.
  *
  * Runtime: O(log n)
  *
@@ -991,9 +991,9 @@ goog.array.removeDuplicates = function(arr, opt_rv, opt_hashFn) {
  * @param {TARGET} target The sought value.
  * @param {function(TARGET, VALUE): number=} opt_compareFn Optional comparison
  *     function by which the array is ordered. Should take 2 arguments to
- *     compare, and return a negative number, zero, or a positive number
- *     depending on whether the first argument is less than, equal to, or
- *     greater than the second.
+ *     compare, the target value and an element from your array, and return a
+ *     negative number, zero, or a positive number depending on whether the
+ *     first argument is less than, equal to, or greater than the second.
  * @return {number} Lowest index of the target value if found, otherwise
  *     (-(insertion point) - 1). The insertion point is where the value should
  *     be inserted into arr to preserve the sorted property.  Return value >= 0
@@ -1072,7 +1072,7 @@ goog.array.binarySearch_ = function(
   var right = arr.length;  // exclusive
   var found;
   while (left < right) {
-    var middle = (left + right) >> 1;
+    var middle = left + ((right - left) >>> 1);
     var compareResult;
     if (isEvaluator) {
       compareResult = compareFn.call(opt_selfObj, arr[middle], middle, arr);
@@ -1091,8 +1091,10 @@ goog.array.binarySearch_ = function(
     }
   }
   // left is the index if found, or the insertion point otherwise.
-  // ~left is a shorthand for -left - 1.
-  return found ? left : ~left;
+  // Avoiding bitwise not operator, as that causes a loss in precision for array
+  // indexes outside the bounds of a 32-bit signed integer.  Array indexes have
+  // a maximum value of 2^32-2 https://tc39.es/ecma262/#array-index
+  return found ? left : -left - 1;
 };
 
 
@@ -1383,7 +1385,7 @@ goog.array.bucket = function(array, sorter, opt_obj) {
   for (var i = 0; i < array.length; i++) {
     var value = array[i];
     var key = sorter.call(/** @type {?} */ (opt_obj), value, i, array);
-    if (goog.isDef(key)) {
+    if (key !== undefined) {
       // Push the value to the right bucket, creating it if necessary.
       var bucket = buckets[key] || (buckets[key] = []);
       bucket.push(value);
@@ -1604,7 +1606,7 @@ goog.array.zip = function(var_args) {
  * Shuffles the values in the specified array using the Fisher-Yates in-place
  * shuffle (also known as the Knuth Shuffle). By default, calls Math.random()
  * and so resets the state of that random number generator. Similarly, may reset
- * the state of the any other specified random number generator.
+ * the state of any other specified random number generator.
  *
  * Runtime: O(n)
  *

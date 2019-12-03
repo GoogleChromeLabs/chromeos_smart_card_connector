@@ -16,16 +16,14 @@
  * @fileoverview An animation class that animates CSS sprites by changing the
  * CSS background-position.
  *
- * @author arv@google.com (Erik Arvidsson)
  * @see ../demos/cssspriteanimation.html
  */
 
 goog.provide('goog.fx.CssSpriteAnimation');
 
-goog.require('goog.fx.Animation');
-
 goog.forwardDeclare('goog.math.Box');
 goog.forwardDeclare('goog.math.Size');
+goog.require('goog.fx.Animation');
 
 
 

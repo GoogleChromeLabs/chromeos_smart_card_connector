@@ -42,7 +42,7 @@ goog.labs.testing.AnyStringMatcher = function() {};
 
 /** @override */
 goog.labs.testing.AnyStringMatcher.prototype.matches = function(actualValue) {
-  return goog.isString(actualValue);
+  return typeof actualValue === 'string';
 };
 
 
@@ -314,8 +314,8 @@ goog.labs.testing.StringContainsInOrderMatcher = function(values) {
 
 /**
  * Determines if input string contains, in order, the expected array of strings.
- *
  * @override
+ * @suppress {strictPrimitiveOperators} Part of the go/strict_warnings_migration
  */
 goog.labs.testing.StringContainsInOrderMatcher.prototype.matches = function(
     actualValue) {
