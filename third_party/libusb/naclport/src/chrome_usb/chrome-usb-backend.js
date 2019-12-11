@@ -55,7 +55,10 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
   // itself being owned by the message channel.
   new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, this.handleRequest_.bind(this));
-
+  this.fakeNoDevices = false;
+  if (chrome.loginState) {
+    chrome.loginState.getProfileType(this.receiveProfileType_.bind(this));
+  }
   this.startObservingDevices_();
 };
 
@@ -228,10 +231,43 @@ ChromeUsbBackend.prototype.reportRequestError_ = function(
  */
 ChromeUsbBackend.prototype.reportRequestSuccess_ = function(
     debugRepresentation, promiseResolver, resultArgs) {
+  if (this.fakeNoDevices &&
+      (debugRepresentation.startsWith('chrome.usb.getDevices') ||
+      debugRepresentation.startsWith('chrome.usb.getConfigurations'))) {
+    resultArgs[0] = [];
+  }
   this.logger.fine(
       'Results returned by the ' + debugRepresentation + ' call: ' +
       goog.iter.join(goog.iter.map(resultArgs, debugDump), ', '));
   promiseResolver.resolve(resultArgs);
+};
+
+/**
+ * @param {!chrome.loginState.ProfileType} profileType
+ * @private
+ */
+ChromeUsbBackend.prototype.receiveProfileType_ = function(profileType) {
+  if (chrome.loginState &&
+      profileType === chrome.loginState.ProfileType.USER_PROFILE) {
+    chrome.loginState.onSessionStateChanged.addListener(
+        this.sessionStateChangedListener_.bind(this));
+  }
+};
+
+/**
+ * @param {!chrome.loginState.SessionState} sessionState
+ * @private
+ */
+ChromeUsbBackend.prototype.sessionStateChangedListener_ = function(
+    sessionState) {
+  if (chrome.loginState &&
+      sessionState === chrome.loginState.SessionState.IN_LOCK_SCREEN) {
+    this.logger.info("No longer showing USB devices.");
+    this.fakeNoDevices = true;
+  } else {
+    this.logger.info("Showing USB devices.");
+    this.fakeNoDevices = false;
+  }
 };
 
 });  // goog.scope

@@ -23,6 +23,7 @@
 #include <cstring>
 #include <functional>
 #include <limits>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -32,9 +33,15 @@
 #include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 
-// This arbitrary chosen constant is used as a stub for the device bus number
-// (as the chrome.usb API does not provide means of retrieving this).
-const uint8_t kFakeDeviceBusNumber = 42;
+//
+// We use stubs for the device bus number (as the chrome.usb API does not provide means of 
+// retrieving it). We modify this for a device when opening the device fails.
+// This makes PCSC recognize it as a new device which causes PCSC to retry opening it.
+//
+
+std::unordered_map<int64_t, uint8_t> kBusNumbers;
+const uint8_t kDefaultBusNumber = 1;
+const uint8_t kMaximumReconnectAttempts = 64;
 
 //
 // Bit mask values for the bmAttributes field of the libusb_config_descriptor
@@ -498,8 +505,11 @@ int LibusbOverChromeUsb::LibusbGetDeviceDescriptor(
   return LIBUSB_SUCCESS;
 }
 
-uint8_t LibusbOverChromeUsb::LibusbGetBusNumber(libusb_device* /*dev*/) {
-  return kFakeDeviceBusNumber;
+uint8_t LibusbOverChromeUsb::LibusbGetBusNumber(libusb_device* dev) {
+  if (kBusNumbers.find(dev->chrome_usb_device().device) != kBusNumbers.end()) {
+    return kBusNumbers[dev->chrome_usb_device().device];
+  }
+  return kDefaultBusNumber;
 }
 
 uint8_t LibusbOverChromeUsb::LibusbGetDeviceAddress(libusb_device* dev) {
@@ -523,6 +533,17 @@ int LibusbOverChromeUsb::LibusbOpen(
   if (!result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_WARNING << "LibusbOverChromeUsb::LibusbOpen " <<
         "request failed: " << result.error_message();
+    // modify the devices (fake) bus number that we report so that PCSC will 
+    // retry to connect to the device once it updates the device list
+    if (kBusNumbers.find(dev->chrome_usb_device().device) != 
+        kBusNumbers.end()) {
+      kBusNumbers[dev->chrome_usb_device().device] = std::min(
+          static_cast<uint8_t>(
+          kBusNumbers[dev->chrome_usb_device().device] + 1),
+          kMaximumReconnectAttempts);
+    } else {
+      kBusNumbers[dev->chrome_usb_device().device] = kDefaultBusNumber + 1;
+    }
     return LIBUSB_ERROR_OTHER;
   }
   const chrome_usb::ConnectionHandle chrome_usb_connection_handle =
