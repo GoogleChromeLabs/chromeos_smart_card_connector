@@ -34,14 +34,15 @@
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 
 //
-// We use stubs for the device bus number (as the chrome.usb API does not provide means of 
-// retrieving it). We modify this for a device when opening the device fails.
-// This makes PCSC recognize it as a new device which causes PCSC to retry opening it.
+// We use stubs for the device bus number (as the chrome.usb API does not 
+// provide means of retrieving it). We modify this for a device when opening
+// the device fails. This makes PCSC recognize it as a new device which causes
+// PCSC to retry opening it. The number of reconnection attempts is limited
+// by kMaximumBusNumber - kDefaultBusNumber.
 //
 
-std::unordered_map<int64_t, uint8_t> kBusNumbers;
 const uint8_t kDefaultBusNumber = 1;
-const uint8_t kMaximumReconnectAttempts = 64;
+const uint8_t kMaximumBusNumber = 64;
 
 //
 // Bit mask values for the bmAttributes field of the libusb_config_descriptor
@@ -506,8 +507,9 @@ int LibusbOverChromeUsb::LibusbGetDeviceDescriptor(
 }
 
 uint8_t LibusbOverChromeUsb::LibusbGetBusNumber(libusb_device* dev) {
-  if (kBusNumbers.find(dev->chrome_usb_device().device) != kBusNumbers.end()) {
-    return kBusNumbers[dev->chrome_usb_device().device];
+  auto busNumbersIterator = busNumbers_.find(dev->chrome_usb_device().device);
+  if (busNumbersIterator != busNumbers_.end()) {
+    return busNumbersIterator->second;
   }
   return kDefaultBusNumber;
 }
@@ -533,16 +535,11 @@ int LibusbOverChromeUsb::LibusbOpen(
   if (!result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_WARNING << "LibusbOverChromeUsb::LibusbOpen " <<
         "request failed: " << result.error_message();
-    // modify the devices (fake) bus number that we report so that PCSC will 
-    // retry to connect to the device once it updates the device list
-    if (kBusNumbers.find(dev->chrome_usb_device().device) != 
-        kBusNumbers.end()) {
-      kBusNumbers[dev->chrome_usb_device().device] = std::min(
-          static_cast<uint8_t>(
-          kBusNumbers[dev->chrome_usb_device().device] + 1),
-          kMaximumReconnectAttempts);
-    } else {
-      kBusNumbers[dev->chrome_usb_device().device] = kDefaultBusNumber + 1;
+    // Modify the devices (fake) bus number that we report so that PCSC will 
+    // retry to connect to the device once it updates the device list.
+    uint32_t newBusNumber = LibusbGetBusNumber(dev) + 1;
+    if (newBusNumber <= kMaximumBusNumber) {
+      busNumbers_[dev->chrome_usb_device().device] = newBusNumber;
     }
     return LIBUSB_ERROR_OTHER;
   }

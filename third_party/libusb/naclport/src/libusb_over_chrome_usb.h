@@ -139,6 +139,7 @@ class LibusbOverChromeUsb final : public LibusbInterface {
   int LibusbHandleEventsWithTimeout(
       libusb_context* context, int timeout_seconds);
 
+  std::unordered_map<int64_t, uint8_t> busNumbers_;
   chrome_usb::ApiBridgeInterface* const chrome_usb_api_bridge_;
   LibusbContextsStorage contexts_storage_;
   const std::shared_ptr<libusb_context> default_context_;
