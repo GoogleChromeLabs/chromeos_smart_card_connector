@@ -23,6 +23,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
+goog.require('goog.asserts');
 goog.require('goog.array');
 goog.require('goog.iter');
 goog.require('goog.log.Logger');
@@ -55,11 +56,8 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
   // itself being owned by the message channel.
   new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, this.handleRequest_.bind(this));
-  this.fakeNoDevices = false;
-  if (chrome.loginState) {
-    chrome.loginState.getProfileType(this.receiveProfileType_.bind(this));
-  }
   this.startObservingDevices_();
+  this.responseSuccessHooks_ = new Map();
 };
 
 /** @const */
@@ -71,6 +69,21 @@ var ChromeUsbBackend = GSC.Libusb.ChromeUsbBackend;
  */
 ChromeUsbBackend.prototype.logger = GSC.Logging.getScopedLogger(
     'Libusb.ChromeUsbBackend');
+
+/**
+ * @param {string} key
+ * @param {function(string, !Array)} hook parameters: API call and results
+ */
+ChromeUsbBackend.prototype.addResponseSuccessHook = function(key, hook) {
+  this.responseSuccessHooks_.set(key, hook);
+};
+
+/**
+ * @param {string} key
+ */
+ChromeUsbBackend.prototype.removeResponseSuccessHook = function(key) {
+  this.responseSuccessHooks_.delete(key);
+};
 
 /** @private */
 ChromeUsbBackend.prototype.startObservingDevices_ = function() {
@@ -137,7 +150,10 @@ ChromeUsbBackend.prototype.handleRequest_ = function(payload) {
   var chromeUsbFunctionArgs = goog.array.concat(
       remoteCallMessage.functionArguments,
       this.chromeUsbApiGenericCallback_.bind(
-          this, debugRepresentation, promiseResolver));
+          this,
+          debugRepresentation,
+          remoteCallMessage.functionName,
+          promiseResolver));
 
   /** @preserveTry */
   try {
@@ -166,12 +182,13 @@ ChromeUsbBackend.prototype.getChromeUsbFunction_ = function(functionName) {
 
 /**
  * @param {string} debugRepresentation
+ * @param {string} functionName API function that was called
  * @param {!goog.promise.Resolver} promiseResolver
  * @param {...*} var_args Values passed to the callback by chrome.usb API.
  * @private
  */
 ChromeUsbBackend.prototype.chromeUsbApiGenericCallback_ = function(
-    debugRepresentation, promiseResolver, var_args) {
+    debugRepresentation, functionName, promiseResolver, var_args) {
   var lastError = chrome.runtime.lastError;
   if (lastError !== undefined) {
     // FIXME(emaxx): Looks like the USB transfer timeouts also raise this
@@ -184,8 +201,9 @@ ChromeUsbBackend.prototype.chromeUsbApiGenericCallback_ = function(
   } else {
     this.reportRequestSuccess_(
         debugRepresentation,
+        functionName,
         promiseResolver,
-        Array.prototype.slice.call(arguments, 2));
+        Array.prototype.slice.call(arguments, 3));
   }
 };
 
@@ -225,49 +243,19 @@ ChromeUsbBackend.prototype.reportRequestError_ = function(
 
 /**
  * @param {string} debugRepresentation
+ * @param {string} functionName API function that was called
  * @param {!goog.promise.Resolver} promiseResolver
  * @param {!Array} resultArgs
  * @private
  */
 ChromeUsbBackend.prototype.reportRequestSuccess_ = function(
-    debugRepresentation, promiseResolver, resultArgs) {
-  if (this.fakeNoDevices &&
-      (debugRepresentation.startsWith('chrome.usb.getDevices') ||
-      debugRepresentation.startsWith('chrome.usb.getConfigurations'))) {
-    resultArgs[0] = [];
-  }
+    debugRepresentation, functionName, promiseResolver, resultArgs) {
+  this.responseSuccessHooks_.forEach(function f(hook, key, map) {
+      hook(functionName, resultArgs[0]);});
   this.logger.fine(
       'Results returned by the ' + debugRepresentation + ' call: ' +
       goog.iter.join(goog.iter.map(resultArgs, debugDump), ', '));
   promiseResolver.resolve(resultArgs);
-};
-
-/**
- * @param {!chrome.loginState.ProfileType} profileType
- * @private
- */
-ChromeUsbBackend.prototype.receiveProfileType_ = function(profileType) {
-  if (chrome.loginState &&
-      profileType === chrome.loginState.ProfileType.USER_PROFILE) {
-    chrome.loginState.onSessionStateChanged.addListener(
-        this.sessionStateChangedListener_.bind(this));
-  }
-};
-
-/**
- * @param {!chrome.loginState.SessionState} sessionState
- * @private
- */
-ChromeUsbBackend.prototype.sessionStateChangedListener_ = function(
-    sessionState) {
-  if (chrome.loginState &&
-      sessionState === chrome.loginState.SessionState.IN_LOCK_SCREEN) {
-    this.logger.info("No longer showing USB devices.");
-    this.fakeNoDevices = true;
-  } else {
-    this.logger.info("Showing USB devices.");
-    this.fakeNoDevices = false;
-  }
 };
 
 });  // goog.scope

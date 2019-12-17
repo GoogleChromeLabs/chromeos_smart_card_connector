@@ -18,6 +18,7 @@ goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 
 goog.require('GoogleSmartCard.ConnectorApp.Background.MainWindowManaging');
 goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
+goog.require('GoogleSmartCard.Libusb.ChromeLoginStateHook');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessageChannelPair');
 goog.require('GoogleSmartCard.MessageChannelPool');
@@ -54,6 +55,8 @@ naclModule.addOnDisposeCallback(naclModuleDisposedListener);
 
 var libusbChromeUsbBackend = new GSC.Libusb.ChromeUsbBackend(
     naclModule.messageChannel);
+var libusbChromeUsbBackendLoginStateHook = new GSC.Libusb.ChromeLoginStateHook(
+    libusbChromeUsbBackend);
 var pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
         naclModule.messageChannel);

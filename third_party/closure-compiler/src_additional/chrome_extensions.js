@@ -152,14 +152,12 @@ chrome.loginState.SessionState = {
 };
 
 /**
- * @param {function(!chrome.loginState.ProfileType)} callback Callback function.
- * @return {undefined}
+ * @param {function(!chrome.loginState.ProfileType)} callback
  */
 chrome.loginState.getProfileType = function(callback) {};
 
 /**
- * @param {function(!chrome.loginState.SessionState)} callback Callback function.
- * @return {undefined}
+ * @param {function(!chrome.loginState.SessionState)} callback
  */
 chrome.loginState.getSessionState = function(callback) {};
 
