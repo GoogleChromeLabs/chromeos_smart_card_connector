@@ -23,7 +23,6 @@
 #include <cstring>
 #include <functional>
 #include <limits>
-#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -508,8 +507,8 @@ int LibusbOverChromeUsb::LibusbGetDeviceDescriptor(
 
 uint8_t LibusbOverChromeUsb::LibusbGetBusNumber(libusb_device* dev) {
   auto bus_numbers_iterator = 
-      busNumbers_.find(dev->chrome_usb_device().device);
-  if (bus_numbers_iterator != busNumbers_.end()) {
+      bus_numbers_.find(dev->chrome_usb_device().device);
+  if (bus_numbers_iterator != bus_numbers_.end()) {
     return bus_numbers_iterator->second;
   }
   return kDefaultBusNumber;
@@ -538,9 +537,10 @@ int LibusbOverChromeUsb::LibusbOpen(
         "request failed: " << result.error_message();
     // Modify the devices (fake) bus number that we report so that PCSC will 
     // retry to connect to the device once it updates the device list.
-    uint32_t new_bus_number = LibusbGetBusNumber(dev) + 1;
+    uint32_t new_bus_number =
+        static_cast<uint32_t>(LibusbGetBusNumber(dev)) + 1;
     if (new_bus_number <= kMaximumBusNumber) {
-      busNumbers_[dev->chrome_usb_device().device] = new_bus_number;
+      bus_numbers_[dev->chrome_usb_device().device] = new_bus_number;
     }
     return LIBUSB_ERROR_OTHER;
   }
