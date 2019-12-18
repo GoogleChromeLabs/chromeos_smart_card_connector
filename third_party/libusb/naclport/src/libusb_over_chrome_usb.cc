@@ -32,9 +32,16 @@
 #include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 
-// This arbitrary chosen constant is used as a stub for the device bus number
-// (as the chrome.usb API does not provide means of retrieving this).
-const uint8_t kFakeDeviceBusNumber = 42;
+//
+// We use stubs for the device bus number (as the chrome.usb API does not 
+// provide means of retrieving it). We modify this for a device when opening
+// the device fails. This makes PCSC recognize it as a new device which causes
+// PCSC to retry opening it. The number of reconnection attempts is limited
+// by kMaximumBusNumber - kDefaultBusNumber.
+//
+
+const uint8_t kDefaultBusNumber = 1;
+const uint8_t kMaximumBusNumber = 64;
 
 //
 // Bit mask values for the bmAttributes field of the libusb_config_descriptor
@@ -498,8 +505,13 @@ int LibusbOverChromeUsb::LibusbGetDeviceDescriptor(
   return LIBUSB_SUCCESS;
 }
 
-uint8_t LibusbOverChromeUsb::LibusbGetBusNumber(libusb_device* /*dev*/) {
-  return kFakeDeviceBusNumber;
+uint8_t LibusbOverChromeUsb::LibusbGetBusNumber(libusb_device* dev) {
+  auto bus_numbers_iterator = 
+      bus_numbers_.find(dev->chrome_usb_device().device);
+  if (bus_numbers_iterator != bus_numbers_.end()) {
+    return bus_numbers_iterator->second;
+  }
+  return kDefaultBusNumber;
 }
 
 uint8_t LibusbOverChromeUsb::LibusbGetDeviceAddress(libusb_device* dev) {
@@ -523,6 +535,13 @@ int LibusbOverChromeUsb::LibusbOpen(
   if (!result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_WARNING << "LibusbOverChromeUsb::LibusbOpen " <<
         "request failed: " << result.error_message();
+    // Modify the devices (fake) bus number that we report so that PCSC will 
+    // retry to connect to the device once it updates the device list.
+    uint32_t new_bus_number =
+        static_cast<uint32_t>(LibusbGetBusNumber(dev)) + 1;
+    if (new_bus_number <= kMaximumBusNumber) {
+      bus_numbers_[dev->chrome_usb_device().device] = new_bus_number;
+    }
     return LIBUSB_ERROR_OTHER;
   }
   const chrome_usb::ConnectionHandle chrome_usb_connection_handle =
