@@ -41,16 +41,13 @@ var GSC = GoogleSmartCard;
  * This class implements a hook that hides USB devices when the app is running
  * for a user who has locked their screen. This causes PCSC Lite to release all
  * owned USB devices so that they can be accessed from the sign-in profile app.
- * @param {!GSC.Libusb.ChromeUsbBackend} libusbChromeUsbBackend
  * @constructor
  */
-GSC.Libusb.ChromeLoginStateHook = function(libusbChromeUsbBackend) {
+GSC.Libusb.ChromeLoginStateHook = function() {
   this.simulateDevicesAbsent_ = false;
   if (chrome.loginState) {
     chrome.loginState.getProfileType(this.onGotProfileType_.bind(this));
   }
-  libusbChromeUsbBackend.addResponseSuccessHook('loginState', 
-      this.requestSuccessHook_.bind(this));
 };
 
 /** @const */
@@ -63,6 +60,14 @@ var ChromeLoginStateHook = GSC.Libusb.ChromeLoginStateHook;
 ChromeLoginStateHook.prototype.logger = GSC.Logging.getScopedLogger(
     'Libusb.LoginStateHook');
 
+/**
+ * @return {!Function}
+ * @public
+ */ 
+ChromeLoginStateHook.prototype.getRequestSuccessHook = function() {
+    return this.requestSuccessHook_.bind(this);
+};
+
  /**
  * @param {!chrome.loginState.ProfileType} profileType
  * @private
@@ -70,8 +75,10 @@ ChromeLoginStateHook.prototype.logger = GSC.Logging.getScopedLogger(
 ChromeLoginStateHook.prototype.onGotProfileType_ = function(profileType) {
   goog.asserts.assert(chrome.loginState);
   if (profileType === chrome.loginState.ProfileType.USER_PROFILE) {
+    chrome.loginState.getSessionState(
+        this.onGetSessionState_.bind(this));
     chrome.loginState.onSessionStateChanged.addListener(
-        this.sessionStateChangedListener_.bind(this));
+        this.onGetSessionState_.bind(this));
   }
 };
 
@@ -79,7 +86,7 @@ ChromeLoginStateHook.prototype.onGotProfileType_ = function(profileType) {
  * @param {!chrome.loginState.SessionState} sessionState
  * @private
  */
-ChromeLoginStateHook.prototype.sessionStateChangedListener_ = function(
+ChromeLoginStateHook.prototype.onGetSessionState_ = function(
     sessionState) {
   goog.asserts.assert(chrome.loginState);
   if (sessionState === chrome.loginState.SessionState.IN_LOCK_SCREEN) {

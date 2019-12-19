@@ -55,8 +55,9 @@ naclModule.addOnDisposeCallback(naclModuleDisposedListener);
 
 var libusbChromeUsbBackend = new GSC.Libusb.ChromeUsbBackend(
     naclModule.messageChannel);
-var libusbChromeUsbBackendLoginStateHook = new GSC.Libusb.ChromeLoginStateHook(
-    libusbChromeUsbBackend);
+var chromeLoginStateHook = new GSC.Libusb.ChromeLoginStateHook();
+libusbChromeUsbBackend.addRequestSuccessHook(
+    'loginState', chromeLoginStateHook.getRequestSuccessHook());
 var pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
         naclModule.messageChannel);

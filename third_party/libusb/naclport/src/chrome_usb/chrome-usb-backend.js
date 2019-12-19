@@ -57,7 +57,7 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
   new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, this.handleRequest_.bind(this));
   this.startObservingDevices_();
-  this.responseSuccessHooks_ = new Map();
+  this.requestSuccessHooks_ = new Map();
 };
 
 /** @const */
@@ -74,15 +74,15 @@ ChromeUsbBackend.prototype.logger = GSC.Logging.getScopedLogger(
  * @param {string} key
  * @param {function(string, !Array)} hook parameters: API call and results
  */
-ChromeUsbBackend.prototype.addResponseSuccessHook = function(key, hook) {
-  this.responseSuccessHooks_.set(key, hook);
+ChromeUsbBackend.prototype.addRequestSuccessHook = function(key, hook) {
+  this.requestSuccessHooks_.set(key, hook);
 };
 
 /**
  * @param {string} key
  */
-ChromeUsbBackend.prototype.removeResponseSuccessHook = function(key) {
-  this.responseSuccessHooks_.delete(key);
+ChromeUsbBackend.prototype.removeRequestSuccessHook = function(key) {
+  this.requestSuccessHooks_.delete(key);
 };
 
 /** @private */
@@ -250,7 +250,7 @@ ChromeUsbBackend.prototype.reportRequestError_ = function(
  */
 ChromeUsbBackend.prototype.reportRequestSuccess_ = function(
     debugRepresentation, functionName, promiseResolver, resultArgs) {
-  this.responseSuccessHooks_.forEach(function f(hook, key, map) {
+  this.requestSuccessHooks_.forEach(function f(hook, key, map) {
       hook(functionName, resultArgs[0]);});
   this.logger.fine(
       'Results returned by the ' + debugRepresentation + ' call: ' +
