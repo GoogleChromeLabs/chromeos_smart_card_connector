@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
 goog.require('goog.asserts');
 goog.require('goog.array');
+goog.require('goog.Disposable');
 goog.require('goog.iter');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
@@ -35,37 +36,79 @@ goog.require('goog.promise.Resolver');
 goog.scope(function() {
 
 /** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * This class implements a hook that hides USB devices when the app is running
  * for a user who has locked their screen. This causes PCSC Lite to release all
  * owned USB devices so that they can be accessed from the sign-in profile app.
+ * @extends goog.Disposable
  * @constructor
  */
 GSC.Libusb.ChromeLoginStateHook = function() {
+  /** 
+   * @type {boolean}
+   * @private  
+   */
   this.simulateDevicesAbsent_ = false;
+  /** 
+   * @type {!Function}
+   * @private 
+   */
+  this.boundOnGotSessionState_ = this.onGotSessionState_.bind(this);
+  /** 
+   * @type {!goog.promise.Resolver}
+   * @private 
+   */
+  this.hookIsReadyResolver_ = goog.Promise.withResolver();
   if (chrome.loginState) {
     chrome.loginState.getProfileType(this.onGotProfileType_.bind(this));
+  } else {
+    GSC.Logging.getScopedLogger('Libusb.LoginStateHook').warning(
+        'chrome.loginState API is not available. This app might require a '
+        + 'newer version of Chrome.');
+    this.hookIsReadyResolver_.reject();
   }
 };
 
 /** @const */
-var ChromeLoginStateHook = GSC.Libusb.ChromeLoginStateHook;
+const ChromeLoginStateHook = GSC.Libusb.ChromeLoginStateHook;
+
+goog.inherits(ChromeLoginStateHook, goog.Disposable);
 
 /**
  * @type {!goog.log.Logger}
  * @const
  */
 ChromeLoginStateHook.prototype.logger = GSC.Logging.getScopedLogger(
-    'Libusb.LoginStateHook');
+  'Libusb.LoginStateHook');
+
+/** @override */
+ChromeLoginStateHook.prototype.disposeInternal = function() {
+  if (chrome.loginState) {
+    chrome.loginState.onSessionStateChanged.removeListener(
+        this.boundOnGotSessionState_);
+  }
+
+  this.logger.fine('Disposed');
+
+  ChromeLoginStateHook.base(this, 'disposeInternal');
+};
 
 /**
- * @return {!Function}
+ * @return {function(string, !Array): !Array}
  * @public
  */ 
 ChromeLoginStateHook.prototype.getRequestSuccessHook = function() {
-    return this.requestSuccessHook_.bind(this);
+  return this.requestSuccessHook_.bind(this);
+};
+
+/**
+ * @return {!goog.Promise}
+ * @public
+ */ 
+ChromeLoginStateHook.prototype.getHookReadyPromise = function() {
+  return this.hookIsReadyResolver_.promise;
 };
 
  /**
@@ -75,10 +118,11 @@ ChromeLoginStateHook.prototype.getRequestSuccessHook = function() {
 ChromeLoginStateHook.prototype.onGotProfileType_ = function(profileType) {
   goog.asserts.assert(chrome.loginState);
   if (profileType === chrome.loginState.ProfileType.USER_PROFILE) {
-    chrome.loginState.getSessionState(
-        this.onGetSessionState_.bind(this));
+    chrome.loginState.getSessionState(this.boundOnGotSessionState_);
     chrome.loginState.onSessionStateChanged.addListener(
-        this.onGetSessionState_.bind(this));
+        this.onSessionStateChanged_.bind(this));
+  } else {
+    this.hookIsReadyResolver_.resolve();
   }
 };
 
@@ -86,21 +130,32 @@ ChromeLoginStateHook.prototype.onGotProfileType_ = function(profileType) {
  * @param {!chrome.loginState.SessionState} sessionState
  * @private
  */
-ChromeLoginStateHook.prototype.onGetSessionState_ = function(
+ChromeLoginStateHook.prototype.onGotSessionState_ = function(
     sessionState) {
   goog.asserts.assert(chrome.loginState);
-  if (sessionState === chrome.loginState.SessionState.IN_LOCK_SCREEN) {
+  if (sessionState === chrome.loginState.SessionState.IN_LOCK_SCREEN
+      && !this.simulateDevicesAbsent_) {
     this.logger.info("No longer showing USB devices.");
     this.simulateDevicesAbsent_ = true;
-  } else {
+  } else if (sessionState !== chrome.loginState.SessionState.IN_LOCK_SCREEN
+             && this.simulateDevicesAbsent_) {
     this.logger.info("Showing USB devices.");
     this.simulateDevicesAbsent_ = false;
   }
+  this.hookIsReadyResolver_.resolve();
+};
+
+/**
+ * @private
+ */
+ChromeLoginStateHook.prototype.onSessionStateChanged_ = function() {
+  chrome.loginState.getSessionState(this.boundOnGotSessionState_);
 };
 
 /**
  * @param {string} functionName chrome.usb function that was called
  * @param {!Array} callResults
+ * @return {!Array} new callResults
  * @private
  */
 ChromeLoginStateHook.prototype.requestSuccessHook_ = function(functionName, 
@@ -108,8 +163,9 @@ ChromeLoginStateHook.prototype.requestSuccessHook_ = function(functionName,
   if (this.simulateDevicesAbsent_ &&
       (functionName === 'getDevices' ||
        functionName === 'getConfigurations')) {
-    callResults.length = 0;
+    callResults[0] = [];
   }
+  return callResults;
 };
 
 });  // goog.scope

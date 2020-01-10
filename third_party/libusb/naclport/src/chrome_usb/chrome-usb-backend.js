@@ -19,6 +19,7 @@
 goog.provide('GoogleSmartCard.Libusb.ChromeUsbBackend');
 
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.DeferredProcessor');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.RequestReceiver');
@@ -34,15 +35,15 @@ goog.require('goog.promise.Resolver');
 goog.scope(function() {
 
 /** @const */
-var REQUESTER_NAME = 'libusb_chrome_usb';
+const REQUESTER_NAME = 'libusb_chrome_usb';
 
 /** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /** @const */
-var debugDump = GSC.DebugDump.debugDump;
+const debugDump = GSC.DebugDump.debugDump;
 /** @const */
-var RemoteCallMessage = GSC.RemoteCallMessage;
+const RemoteCallMessage = GSC.RemoteCallMessage;
 
 /**
  * This class implements handling of requests received from libusb NaCl port,
@@ -57,11 +58,33 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
   new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, this.handleRequest_.bind(this));
   this.startObservingDevices_();
-  this.requestSuccessHooks_ = new Map();
+
+  /** 
+   * @type {!Array<function(string, !Array): !Array>}
+   * Array of hooks that are called on every successful API request.
+   * @private  
+   */
+  this.requestSuccessHooks_ = [];
+
+  /** 
+   * @type {!goog.promise.Resolver}
+   * Gets resolved once setup is complete and API requests can be processed.
+   * @private  
+   */
+  this.setupDonePromiseResolver_ = goog.Promise.withResolver();
+
+  /** 
+   * @type {!GoogleSmartCard.DeferredProcessor}
+   * Queue of API requests that are not yet processed because setup is still in
+   * progress.
+   * @private  
+   */
+  this.deferredProcessor_ = new GSC.DeferredProcessor(
+    this.setupDonePromiseResolver_.promise);
 };
 
 /** @const */
-var ChromeUsbBackend = GSC.Libusb.ChromeUsbBackend;
+const ChromeUsbBackend = GSC.Libusb.ChromeUsbBackend;
 
 /**
  * @type {!goog.log.Logger}
@@ -71,18 +94,31 @@ ChromeUsbBackend.prototype.logger = GSC.Logging.getScopedLogger(
     'Libusb.ChromeUsbBackend');
 
 /**
- * @param {string} key
- * @param {function(string, !Array)} hook parameters: API call and results
+ * Adds a function hook that is called whenever a request is resolved
+ * successfully. The hook is called with the request name and its results
+ * and can modify the results.
+ * @param {function(string, !Array): !Array} hook parameters: API call and
+ * results
  */
-ChromeUsbBackend.prototype.addRequestSuccessHook = function(key, hook) {
-  this.requestSuccessHooks_.set(key, hook);
+ChromeUsbBackend.prototype.addRequestSuccessHook = function(hook) {
+  this.requestSuccessHooks_.push(hook);
 };
 
 /**
- * @param {string} key
+ * @param {function(string, !Array): !Array} hook
  */
-ChromeUsbBackend.prototype.removeRequestSuccessHook = function(key) {
-  this.requestSuccessHooks_.delete(key);
+ChromeUsbBackend.prototype.removeRequestSuccessHook = function(hook) {
+  this.requestSuccessHooks_ = this.requestSuccessHooks_.filter(
+      function(value) {
+        return value !== hook; 
+      });
+};
+
+/**
+ * Start processing API calls. All registered hooks must have completed setup.
+ */
+ChromeUsbBackend.prototype.startProcessingEvents = function() {
+  this.setupDonePromiseResolver_.resolve();
 };
 
 /** @private */
@@ -132,6 +168,17 @@ ChromeUsbBackend.prototype.logDevices_ = function(devices) {
  * @private
  */
 ChromeUsbBackend.prototype.handleRequest_ = function(payload) {
+  return this.deferredProcessor_.addJob(
+      this.processRequest_.bind(this, payload));
+};
+
+/**
+ * @param {!Object} payload
+ * @return {!goog.Promise}
+ * @private
+ */
+ChromeUsbBackend.prototype.processRequest_ = function(payload) {
+  //extract into processRequest and call DeferredProcessor with it
   var remoteCallMessage = RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {
     GSC.Logging.failWithLogger(
@@ -250,8 +297,8 @@ ChromeUsbBackend.prototype.reportRequestError_ = function(
  */
 ChromeUsbBackend.prototype.reportRequestSuccess_ = function(
     debugRepresentation, functionName, promiseResolver, resultArgs) {
-  this.requestSuccessHooks_.forEach(function f(hook, key, map) {
-      hook(functionName, resultArgs[0]);});
+  this.requestSuccessHooks_.forEach(function(hook) {
+      resultArgs = hook(functionName, resultArgs);});
   this.logger.fine(
       'Results returned by the ' + debugRepresentation + ' call: ' +
       goog.iter.join(goog.iter.map(resultArgs, debugDump), ', '));

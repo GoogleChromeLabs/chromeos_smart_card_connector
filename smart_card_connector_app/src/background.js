@@ -57,7 +57,10 @@ var libusbChromeUsbBackend = new GSC.Libusb.ChromeUsbBackend(
     naclModule.messageChannel);
 var chromeLoginStateHook = new GSC.Libusb.ChromeLoginStateHook();
 libusbChromeUsbBackend.addRequestSuccessHook(
-    'loginState', chromeLoginStateHook.getRequestSuccessHook());
+    chromeLoginStateHook.getRequestSuccessHook());
+chromeLoginStateHook.getHookReadyPromise().then(
+    function() { libusbChromeUsbBackend.startProcessingEvents(); },
+    function() { libusbChromeUsbBackend.startProcessingEvents(); });
 var pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
         naclModule.messageChannel);

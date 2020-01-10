@@ -136,19 +136,19 @@ chrome.loginState = {};
  * @enum {string}
  */
 chrome.loginState.ProfileType = {
-  SIGNIN_PROFILE: '',
-  USER_PROFILE: '',
+  SIGNIN_PROFILE: 'SIGNIN_PROFILE',
+  USER_PROFILE: 'USER_PROFILE',
 };
 
 /**
  * @enum {string}
  */
 chrome.loginState.SessionState = {
-  UNKNOWN: '',
-  IN_OOBE_SCREEN: '',
-  IN_LOGIN_SCREEN: '',
-  IN_SESSION: '',
-  IN_LOCK_SCREEN: '',
+  UNKNOWN: 'UNKNOWN',
+  IN_OOBE_SCREEN: 'IN_OOBE_SCREEN',
+  IN_LOGIN_SCREEN: 'IN_LOGIN_SCREEN',
+  IN_SESSION: 'IN_SESSION',
+  IN_LOCK_SCREEN: 'IN_LOCK_SCREEN',
 };
 
 /**
