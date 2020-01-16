@@ -19,10 +19,12 @@
 goog.provide('GoogleSmartCard.Libusb.ChromeUsbBackend');
 
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.DeferredProcessor');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
+goog.require('goog.asserts');
 goog.require('goog.array');
 goog.require('goog.iter');
 goog.require('goog.log.Logger');
@@ -33,15 +35,15 @@ goog.require('goog.promise.Resolver');
 goog.scope(function() {
 
 /** @const */
-var REQUESTER_NAME = 'libusb_chrome_usb';
+const REQUESTER_NAME = 'libusb_chrome_usb';
 
 /** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /** @const */
-var debugDump = GSC.DebugDump.debugDump;
+const debugDump = GSC.DebugDump.debugDump;
 /** @const */
-var RemoteCallMessage = GSC.RemoteCallMessage;
+const RemoteCallMessage = GSC.RemoteCallMessage;
 
 /**
  * This class implements handling of requests received from libusb NaCl port,
@@ -55,12 +57,34 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
   // itself being owned by the message channel.
   new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, this.handleRequest_.bind(this));
-
   this.startObservingDevices_();
+
+  /** 
+   * @type {!Array<function(string, !Array): !Array>}
+   * Array of hooks that are called on every successful API request.
+   * @private  
+   */
+  this.requestSuccessHooks_ = [];
+
+  /** 
+   * @type {!goog.promise.Resolver}
+   * Gets resolved once setup is complete and API requests can be processed.
+   * @private  
+   */
+  this.setupDonePromiseResolver_ = goog.Promise.withResolver();
+
+  /** 
+   * @type {!GoogleSmartCard.DeferredProcessor}
+   * Queue of API requests that are not yet processed because setup is still in
+   * progress.
+   * @private  
+   */
+  this.deferredProcessor_ = new GSC.DeferredProcessor(
+      this.setupDonePromiseResolver_.promise);
 };
 
 /** @const */
-var ChromeUsbBackend = GSC.Libusb.ChromeUsbBackend;
+const ChromeUsbBackend = GSC.Libusb.ChromeUsbBackend;
 
 /**
  * @type {!goog.log.Logger}
@@ -68,6 +92,34 @@ var ChromeUsbBackend = GSC.Libusb.ChromeUsbBackend;
  */
 ChromeUsbBackend.prototype.logger = GSC.Logging.getScopedLogger(
     'Libusb.ChromeUsbBackend');
+
+/**
+ * Adds a function hook that is called whenever a request is resolved
+ * successfully. The hook is called with the request name and its results
+ * and can modify the results.
+ * @param {function(string, !Array): !Array} hook parameters: API call and
+ * results
+ */
+ChromeUsbBackend.prototype.addRequestSuccessHook = function(hook) {
+  this.requestSuccessHooks_.push(hook);
+};
+
+/**
+ * @param {function(string, !Array): !Array} hook
+ */
+ChromeUsbBackend.prototype.removeRequestSuccessHook = function(hook) {
+  this.requestSuccessHooks_ = this.requestSuccessHooks_.filter(
+      function(value) {
+        return value !== hook; 
+      });
+};
+
+/**
+ * Start processing API calls. All registered hooks must have completed setup.
+ */
+ChromeUsbBackend.prototype.startProcessingEvents = function() {
+  this.setupDonePromiseResolver_.resolve();
+};
 
 /** @private */
 ChromeUsbBackend.prototype.startObservingDevices_ = function() {
@@ -116,6 +168,16 @@ ChromeUsbBackend.prototype.logDevices_ = function(devices) {
  * @private
  */
 ChromeUsbBackend.prototype.handleRequest_ = function(payload) {
+  return this.deferredProcessor_.addJob(
+      this.processRequest_.bind(this, payload));
+};
+
+/**
+ * @param {!Object} payload
+ * @return {!goog.Promise}
+ * @private
+ */
+ChromeUsbBackend.prototype.processRequest_ = function(payload) {
   var remoteCallMessage = RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {
     GSC.Logging.failWithLogger(
@@ -134,7 +196,10 @@ ChromeUsbBackend.prototype.handleRequest_ = function(payload) {
   var chromeUsbFunctionArgs = goog.array.concat(
       remoteCallMessage.functionArguments,
       this.chromeUsbApiGenericCallback_.bind(
-          this, debugRepresentation, promiseResolver));
+          this,
+          debugRepresentation,
+          remoteCallMessage.functionName,
+          promiseResolver));
 
   /** @preserveTry */
   try {
@@ -163,12 +228,13 @@ ChromeUsbBackend.prototype.getChromeUsbFunction_ = function(functionName) {
 
 /**
  * @param {string} debugRepresentation
+ * @param {string} functionName API function that was called
  * @param {!goog.promise.Resolver} promiseResolver
  * @param {...*} var_args Values passed to the callback by chrome.usb API.
  * @private
  */
 ChromeUsbBackend.prototype.chromeUsbApiGenericCallback_ = function(
-    debugRepresentation, promiseResolver, var_args) {
+    debugRepresentation, functionName, promiseResolver, var_args) {
   var lastError = chrome.runtime.lastError;
   if (lastError !== undefined) {
     // FIXME(emaxx): Looks like the USB transfer timeouts also raise this
@@ -181,8 +247,9 @@ ChromeUsbBackend.prototype.chromeUsbApiGenericCallback_ = function(
   } else {
     this.reportRequestSuccess_(
         debugRepresentation,
+        functionName,
         promiseResolver,
-        Array.prototype.slice.call(arguments, 2));
+        Array.prototype.slice.call(arguments, 3));
   }
 };
 
@@ -222,12 +289,16 @@ ChromeUsbBackend.prototype.reportRequestError_ = function(
 
 /**
  * @param {string} debugRepresentation
+ * @param {string} functionName API function that was called
  * @param {!goog.promise.Resolver} promiseResolver
  * @param {!Array} resultArgs
  * @private
  */
 ChromeUsbBackend.prototype.reportRequestSuccess_ = function(
-    debugRepresentation, promiseResolver, resultArgs) {
+    debugRepresentation, functionName, promiseResolver, resultArgs) {
+  this.requestSuccessHooks_.forEach(function(hook) {
+    resultArgs = hook(functionName, resultArgs);
+  });
   this.logger.fine(
       'Results returned by the ' + debugRepresentation + ' call: ' +
       goog.iter.join(goog.iter.map(resultArgs, debugDump), ', '));

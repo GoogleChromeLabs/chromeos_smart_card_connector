@@ -126,3 +126,49 @@ chrome.certificateProvider.SignDigestRequestEvent.prototype.removeListener = fun
  * @type {!chrome.certificateProvider.SignDigestRequestEvent}
  */
 chrome.certificateProvider.onSignDigestRequested;
+
+/**
+ * @const
+ */
+chrome.loginState = {};
+
+/**
+ * @enum {string}
+ */
+chrome.loginState.ProfileType = {
+  SIGNIN_PROFILE: 'SIGNIN_PROFILE',
+  USER_PROFILE: 'USER_PROFILE',
+};
+
+/**
+ * @enum {string}
+ */
+chrome.loginState.SessionState = {
+  UNKNOWN: 'UNKNOWN',
+  IN_OOBE_SCREEN: 'IN_OOBE_SCREEN',
+  IN_LOGIN_SCREEN: 'IN_LOGIN_SCREEN',
+  IN_SESSION: 'IN_SESSION',
+  IN_LOCK_SCREEN: 'IN_LOCK_SCREEN',
+};
+
+/**
+ * @param {function(!chrome.loginState.ProfileType)} callback
+ */
+chrome.loginState.getProfileType = function(callback) {};
+
+/**
+ * @param {function(!chrome.loginState.SessionState)} callback
+ */
+chrome.loginState.getSessionState = function(callback) {};
+
+/**
+ * Event that triggers when the session state changes.
+ * @interface
+ * @extends {ChromeBaseEvent<function(!chrome.loginState.SessionState)>}
+ */
+chrome.loginState.SessionStateEvent = function() {};
+
+/**
+ * @type {!chrome.loginState.SessionStateEvent}
+ */
+chrome.loginState.onSessionStateChanged;
