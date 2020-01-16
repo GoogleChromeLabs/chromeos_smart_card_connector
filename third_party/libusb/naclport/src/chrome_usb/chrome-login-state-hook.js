@@ -64,7 +64,7 @@ GSC.Libusb.ChromeLoginStateHook = function() {
   if (chrome.loginState) {
     chrome.loginState.getProfileType(this.onGotProfileType_.bind(this));
   } else {
-    GSC.Logging.getScopedLogger('Libusb.LoginStateHook').warning(
+    this.logger.warning(
         'chrome.loginState API is not available. This app might require a '
         + 'newer version of Chrome.');
     this.hookIsReadyResolver_.reject();
@@ -142,6 +142,7 @@ ChromeLoginStateHook.prototype.onGotSessionState_ = function(
     this.logger.info("Showing USB devices.");
     this.simulateDevicesAbsent_ = false;
   }
+  // All calls after the first one to resolve() will be ignored.
   this.hookIsReadyResolver_.resolve();
 };
 
@@ -163,7 +164,7 @@ ChromeLoginStateHook.prototype.requestSuccessHook_ = function(functionName,
   if (this.simulateDevicesAbsent_ &&
       (functionName === 'getDevices' ||
        functionName === 'getConfigurations')) {
-    callResults[0] = [];
+    return [[]];
   }
   return callResults;
 };

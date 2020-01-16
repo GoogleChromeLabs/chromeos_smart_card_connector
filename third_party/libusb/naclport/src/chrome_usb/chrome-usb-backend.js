@@ -80,7 +80,7 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
    * @private  
    */
   this.deferredProcessor_ = new GSC.DeferredProcessor(
-    this.setupDonePromiseResolver_.promise);
+      this.setupDonePromiseResolver_.promise);
 };
 
 /** @const */
@@ -178,7 +178,6 @@ ChromeUsbBackend.prototype.handleRequest_ = function(payload) {
  * @private
  */
 ChromeUsbBackend.prototype.processRequest_ = function(payload) {
-  //extract into processRequest and call DeferredProcessor with it
   var remoteCallMessage = RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {
     GSC.Logging.failWithLogger(
@@ -298,7 +297,8 @@ ChromeUsbBackend.prototype.reportRequestError_ = function(
 ChromeUsbBackend.prototype.reportRequestSuccess_ = function(
     debugRepresentation, functionName, promiseResolver, resultArgs) {
   this.requestSuccessHooks_.forEach(function(hook) {
-      resultArgs = hook(functionName, resultArgs);});
+    resultArgs = hook(functionName, resultArgs);
+  });
   this.logger.fine(
       'Results returned by the ' + debugRepresentation + ' call: ' +
       goog.iter.join(goog.iter.map(resultArgs, debugDump), ', '));

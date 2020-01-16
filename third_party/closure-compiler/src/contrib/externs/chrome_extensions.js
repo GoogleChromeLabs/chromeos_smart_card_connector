@@ -9305,6 +9305,7 @@ chrome.usb.ConfigDescriptor.prototype.extra_data;
  *     search for on target devices.
  * @param {function(!Array<!chrome.usb.Device>)} callback Invoked with a list
  *     of |Device|s on complete.
+ * @return {undefined}
  */
 chrome.usb.getDevices = function(options, callback) {};
 
@@ -9315,6 +9316,7 @@ chrome.usb.getDevices = function(options, callback) {};
  *     the device picker dialog box.
  * @param {function(!Array<!chrome.usb.Device>)} callback Invoked with a list
  *     of |Device|s on complete.
+ * @return {undefined}
  */
 chrome.usb.getUserSelectedDevices = function(options, callback) {};
 
@@ -9324,6 +9326,7 @@ chrome.usb.getUserSelectedDevices = function(options, callback) {};
  * @param {!chrome.usb.Device} device The device to fetch descriptors from.
  * @param {function(!Array<!chrome.usb.ConfigDescriptor>)} callback Invoked with
  *     the full set of device configuration descriptors.
+ * @return {undefined}
  */
 chrome.usb.getConfigurations = function(device, callback) {};
 
@@ -9333,6 +9336,7 @@ chrome.usb.getConfigurations = function(device, callback) {};
  * @param {!chrome.usb.Device} device The device to request access to.
  * @param {number} interfaceId
  * @param {function(boolean)} callback
+ * @return {undefined}
  */
 chrome.usb.requestAccess = function(device, interfaceId, callback) {};
 
@@ -9342,6 +9346,7 @@ chrome.usb.requestAccess = function(device, interfaceId, callback) {};
  * @param {!chrome.usb.Device} device The device to open.
  * @param {function(!chrome.usb.ConnectionHandle)} callback Invoked with the
  *     created ConnectionHandle on complete.
+ * @return {undefined}
  */
 chrome.usb.openDevice = function(device, callback) {};
 
