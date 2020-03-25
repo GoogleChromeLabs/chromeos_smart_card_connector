@@ -34,7 +34,7 @@ class ExternalLogsPrinter final : public TypedMessageListener {
   bool OnTypedMessageReceived(const pp::Var& data) override;
 
  private:
-   const std::string listened_message_type_;
+  const std::string listened_message_type_;
 };
 
 }  // namespace google_smart_card
