@@ -44,10 +44,9 @@ const POSTPONING_BUFFER_CAPACITY = 100;
  *
  * NOTE: It's the responsibility of the caller to make sure that the specified
  * message channel doesn't emit logs when sending a message or that they are
- * filtered out - failing to guarantee that can result in infinite recursion.
- * (This class provides some heuristical protection against synchronous
- * failures, but it won't help when the problematic logs are emitted
- * asynchronously.)
+ * ignored - failing to guarantee that can result in infinite recursion. (This
+ * class provides some heuristical protection against synchronous failures, but
+ * it won't help when the problematic logs are emitted asynchronously.)
  *
  * NOTE 2: It's expected that startForwarding() is called "soon", because this
  * class has only limited capacity for storing messages before that.
@@ -65,7 +64,7 @@ GSC.LogBufferForwarder = function(logBuffer, messageChannelServiceName) {
    * @type {!Set}
    * @private
    */
-  this.filteredLoggerNames_ = new Set();
+  this.ignoredLoggerNames_ = new Set();
   /**
    * @type {?goog.messaging.AbstractChannel}
    * @private
@@ -110,8 +109,8 @@ LogBufferForwarder.prototype.startForwarding = function(messageChannel) {
  * messages from children of the specified logger.
  * @param {string} loggerName
  */
-LogBufferForwarder.prototype.addFilter = function(loggerName) {
-  this.filteredLoggerNames_.add(loggerName);
+LogBufferForwarder.prototype.ignoreLogger = function(loggerName) {
+  this.ignoredLoggerNames_.add(loggerName);
 };
 
 /**
@@ -122,7 +121,7 @@ LogBufferForwarder.prototype.addFilter = function(loggerName) {
 LogBufferForwarder.prototype.onLogRecordObserved_ = function(
     documentLocation, logRecord) {
   if (!this.logCapturingEnabled_ ||
-      this.filteredLoggerNames_.has(logRecord.getLoggerName())) {
+      this.ignoredLoggerNames_.has(logRecord.getLoggerName())) {
     return;
   }
   const formattedLogRecord = GSC.LogFormatting.formatLogRecord(
@@ -140,12 +139,13 @@ LogBufferForwarder.prototype.onLogRecordObserved_ = function(
  */
 LogBufferForwarder.prototype.sendLogRecord_ = function(formattedLogRecord) {
   // Ignore log messages emitted while sending the log, to minimize the risk of
-  // infinite recursion if the message channel emits an unfiltered message.
+  // infinite recursion if the message channel emits a non-ignored message.
   this.logCapturingEnabled_ = false;
 
   GSC.Logging.check(this.messageChannel_);
   const message = {formatted_log_message: formattedLogRecord};
   this.messageChannel_.send(this.messageChannelServiceName_, message);
+  GSC.Logging.check(!this.logCapturingEnabled_);
 
   this.logCapturingEnabled_ = true;
 };
