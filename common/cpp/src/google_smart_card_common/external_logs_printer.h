@@ -18,6 +18,8 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_EXTERNAL_LOGS_PRINTER_H_
 #define GOOGLE_SMART_CARD_COMMON_EXTERNAL_LOGS_PRINTER_H_
 
+#include <string>
+
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 
 namespace google_smart_card {

@@ -25,14 +25,13 @@ namespace google_smart_card {
 
 namespace {
 
-// The structure represents the message data contents for the client handler
-// creation message.
+// The structure represents the message handled by the external logs printer.
 struct ExternalLogMessageData {
   std::string formatted_log_message;
 };
 
 void PrintExternalLogMessage(const ExternalLogMessageData& message_data) {
-  // Note: Intentionally not using the GOOGLE_SMART_CARD_LOG() macro and
+  // Note: Intentionally not using the GOOGLE_SMART_CARD_LOG*() macros and
   // related here, in order to avoid delivering them to the JS side and
   // therefore likely duplicating them.
   std::cerr << message_data.formatted_log_message;
