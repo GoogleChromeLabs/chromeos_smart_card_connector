@@ -28,6 +28,7 @@ ROOT_SOURCES_SUBDIR := google_smart_card_common
 SOURCES_PATH := $(ROOT_SOURCES_PATH)/$(ROOT_SOURCES_SUBDIR)
 
 SOURCES := \
+	$(SOURCES_PATH)/external_logs_printer.cc \
 	$(SOURCES_PATH)/formatting.cc \
 	$(SOURCES_PATH)/logging/function_call_tracer.cc \
 	$(SOURCES_PATH)/logging/hex_dumping.cc \
@@ -64,6 +65,7 @@ $(eval $(call NACL_LIBRARY_BUILD_RULE,$(SOURCES)))
 
 
 INSTALLING_HEADERS := \
+	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):external_logs_printer.h \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):formatting.h \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):logging/function_call_tracer.h \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):logging/hex_dumping.h \
