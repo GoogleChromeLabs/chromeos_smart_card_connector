@@ -22,6 +22,7 @@
 #include <ppapi/cpp/module.h>
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/external_logs_printer.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
@@ -36,6 +37,10 @@ namespace google_smart_card {
 
 namespace {
 
+// Message type of the messages containing logs forwarded from the JS side.
+// This constant must match the one in background.js.
+constexpr char kJsLogsHandlerMessageType[] = "js_logs_handler";
+
 class PpInstance final : public pp::Instance {
  public:
   explicit PpInstance(PP_Instance instance)
@@ -43,10 +48,14 @@ class PpInstance final : public pp::Instance {
         libusb_over_chrome_usb_global_(new LibusbOverChromeUsbGlobal(
             &typed_message_router_, this, pp::Module::Get()->core())),
         pcsc_lite_server_global_(new PcscLiteServerGlobal(this)) {
+    typed_message_router_.AddRoute(&external_logs_printer_);
+
     StartServicesInitialization();
   }
 
   ~PpInstance() override {
+    typed_message_router_.RemoveRoute(&external_logs_printer_);
+
     // Detach the LibusbNaclGlobal and leak it intentionally, so that any
     // concurrent libusb_* function calls still don't result in UB.
     libusb_over_chrome_usb_global_->Detach();
@@ -87,6 +96,7 @@ class PpInstance final : public pp::Instance {
   }
 
   TypedMessageRouter typed_message_router_;
+  ExternalLogsPrinter external_logs_printer_{kJsLogsHandlerMessageType};
   std::unique_ptr<LibusbOverChromeUsbGlobal> libusb_over_chrome_usb_global_;
   std::unique_ptr<PcscLiteServerClientsManagementBackend>
       pcsc_lite_server_clients_management_backend_;

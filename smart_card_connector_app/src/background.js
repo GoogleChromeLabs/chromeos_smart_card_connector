@@ -17,8 +17,9 @@
 goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 
 goog.require('GoogleSmartCard.ConnectorApp.Background.MainWindowManaging');
-goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
 goog.require('GoogleSmartCard.Libusb.ChromeLoginStateHook');
+goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
+goog.require('GoogleSmartCard.LogBufferForwarder');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessageChannelPair');
 goog.require('GoogleSmartCard.MessageChannelPool');
@@ -35,11 +36,20 @@ goog.scope(function() {
 /** @const */
 var GSC = GoogleSmartCard;
 
+const JS_LOGS_HANDLER_MESSAGE_TYPE = 'js_logs_handler';
+
 /**
  * @type {!goog.log.Logger}
  * @const
  */
 var logger = GSC.Logging.getScopedLogger('ConnectorApp.BackgroundMain');
+
+// Used to forward logs collected on the JS side to the NaCl module's stdout, in
+// order to simplify accessing them in some configurations.
+// Note that this object needs to be created as early as possible, in order to
+// not miss any important log.
+const logBufferForwarderToNaclModule = new GSC.LogBufferForwarder(
+    GSC.Logging.getLogBuffer(), JS_LOGS_HANDLER_MESSAGE_TYPE);
 
 const extensionManifest = chrome.runtime.getManifest();
 const formattedStartupTime = (new Date()).toLocaleString();
@@ -52,6 +62,17 @@ logger.info(
 var naclModule = new GSC.NaclModule(
     'nacl_module.nmf', GSC.NaclModule.Type.PNACL);
 naclModule.addOnDisposeCallback(naclModuleDisposedListener);
+
+naclModule.getLoadPromise().then(() => {
+  // Skip forwarding logs that were received from the NaCl module or generated
+  // while sending messages to it, in order to avoid duplication and/or infinite
+  // recursion.
+  logBufferForwarderToNaclModule.ignoreLogger(
+      naclModule.logMessagesReceiver.logger.getName());
+  // Start forwarding all future log messages collected on the JS side, but also
+  // immediately post the messages that have been accumulated so far.
+  logBufferForwarderToNaclModule.startForwarding(naclModule.messageChannel);
+});
 
 var libusbChromeUsbBackend = new GSC.Libusb.ChromeUsbBackend(
     naclModule.messageChannel);

@@ -304,7 +304,7 @@ function setupLogBuffer() {
         'Created a new log buffer instance, attaching it to the root logger');
   }
 
-  logBuffer.attachToLogger(rootLogger, document.location.pathname);
+  logBuffer.attachToLogger(rootLogger, document.location.href);
 }
 
 GSC.Logging.setupLogging();
