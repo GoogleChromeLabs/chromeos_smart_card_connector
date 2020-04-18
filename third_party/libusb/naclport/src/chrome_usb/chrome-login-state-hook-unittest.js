@@ -100,10 +100,14 @@ function makeTest(fakeProfileType, fakeSessionState, testCallback) {
 
     /** @preserveTry */
     try {
-      testCallback(propertyReplacer);
-    } finally {
+      var testPromise = testCallback(propertyReplacer);
+    } catch (exc) {
+      // Cleanup after the test fatally failed synchronously.
       cleanup();
+      throw exc;
     }
+    // Return a child promise that performs cleanup after the test.
+    return testPromise.then(cleanup, cleanup);
   };
 }
 
@@ -123,14 +127,25 @@ function changeSessionState(fakeNewSessionState, propertyReplacer) {
 }
 
 goog.exportSymbol(
+    'test_ChromeLoginStateHook_NoApi', function() {
+      const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
+      // Expect that getHookReadyPromise() gets rejected.
+      return loginStateHook.getHookReadyPromise().then(() => {
+        fail('Unexpected successful response');
+      }, () => {});
+    });
+
+goog.exportSymbol(
     'test_ChromeLoginStateHook_DoesNotFilterInSession', makeTest(
       USER_PROFILE_TYPE, IN_SESSION_STATE,
       function() {
         const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-        const hook = loginStateHook.getRequestSuccessHook();
-        let apiCallResult = [['fakeResult']];
-        const hookResult = hook('getDevices', apiCallResult);
-        assertObjectEquals([['fakeResult']], hookResult);
+        return loginStateHook.getHookReadyPromise().then(() => {
+          const hook = loginStateHook.getRequestSuccessHook();
+          let apiCallResult = [['fakeResult']];
+          const hookResult = hook('getDevices', apiCallResult);
+          assertObjectEquals([['fakeResult']], hookResult);
+        });
       }
     ));
 
@@ -139,20 +154,22 @@ goog.exportSymbol(
       USER_PROFILE_TYPE, IN_LOCK_SCREEN_STATE,
       function() {
         const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-        const hook = loginStateHook.getRequestSuccessHook();
+        return loginStateHook.getHookReadyPromise().then(() => {
+          const hook = loginStateHook.getRequestSuccessHook();
 
-        let apiCallResult = [['fakeResult']];
-        let hookResult = hook('getDevices', apiCallResult);
-        assertObjectEquals([[]], hookResult);
+          let apiCallResult = [['fakeResult']];
+          let hookResult = hook('getDevices', apiCallResult);
+          assertObjectEquals([[]], hookResult);
 
-        apiCallResult = [['fakeResult']];
-        hookResult = hook('getConfigurations', apiCallResult);
-        assertObjectEquals([[]], hookResult);
+          apiCallResult = [['fakeResult']];
+          hookResult = hook('getConfigurations', apiCallResult);
+          assertObjectEquals([[]], hookResult);
 
-        //only getDevices and getConfigurations should get filtered
-        apiCallResult = ['otherCallResult'];
-        hookResult = hook('listInterfaces', apiCallResult);
-        assertObjectEquals(['otherCallResult'], hookResult);
+          //only getDevices and getConfigurations should get filtered
+          apiCallResult = ['otherCallResult'];
+          hookResult = hook('listInterfaces', apiCallResult);
+          assertObjectEquals(['otherCallResult'], hookResult);
+        });
       }
     ));
 
@@ -161,10 +178,12 @@ goog.exportSymbol(
       SIGNIN_PROFILE_TYPE, IN_SESSION_STATE,
       function() {
         const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-        const hook = loginStateHook.getRequestSuccessHook();
-        const apiCallResult = [['fakeResult']];
-        const hookResult = hook('getDevices', apiCallResult);
-        assertObjectEquals([['fakeResult']], hookResult);
+        return loginStateHook.getHookReadyPromise().then(() => {
+          const hook = loginStateHook.getRequestSuccessHook();
+          const apiCallResult = [['fakeResult']];
+          const hookResult = hook('getDevices', apiCallResult);
+          assertObjectEquals([['fakeResult']], hookResult);
+        });
       }
     ));
 
@@ -173,11 +192,13 @@ goog.exportSymbol(
       USER_PROFILE_TYPE, IN_SESSION_STATE,
       function(propertyReplacer) {
         const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-        changeSessionState(IN_LOCK_SCREEN_STATE, propertyReplacer);
-        const hook = loginStateHook.getRequestSuccessHook();
-        const apiCallResult = [['fakeResult']];
-        const hookResult = hook('getDevices', apiCallResult);
-        assertObjectEquals([[]], hookResult);
+        return loginStateHook.getHookReadyPromise().then(() => {
+          changeSessionState(IN_LOCK_SCREEN_STATE, propertyReplacer);
+          const hook = loginStateHook.getRequestSuccessHook();
+          const apiCallResult = [['fakeResult']];
+          const hookResult = hook('getDevices', apiCallResult);
+          assertObjectEquals([[]], hookResult);
+        });
       }
     ));
 
@@ -186,11 +207,13 @@ goog.exportSymbol(
       USER_PROFILE_TYPE, IN_LOCK_SCREEN_STATE,
       function(propertyReplacer) {
         const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-        changeSessionState(IN_SESSION_STATE, propertyReplacer);
-        const hook = loginStateHook.getRequestSuccessHook();
-        const apiCallResult = [['fakeResult']];
-        const hookResult = hook('getDevices', apiCallResult);
-        assertObjectEquals([['fakeResult']], hookResult);
+        return loginStateHook.getHookReadyPromise().then(() => {
+          changeSessionState(IN_SESSION_STATE, propertyReplacer);
+          const hook = loginStateHook.getRequestSuccessHook();
+          const apiCallResult = [['fakeResult']];
+          const hookResult = hook('getDevices', apiCallResult);
+          assertObjectEquals([['fakeResult']], hookResult);
+        });
       }
     ));
 
