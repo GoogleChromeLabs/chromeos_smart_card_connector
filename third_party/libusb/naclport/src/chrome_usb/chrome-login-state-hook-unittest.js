@@ -129,7 +129,8 @@ function changeSessionState(fakeNewSessionState, propertyReplacer) {
 goog.exportSymbol(
     'test_ChromeLoginStateHook_NoApi', function() {
       const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-      // Expect that getHookReadyPromise() gets rejected.
+      // Expect that getHookReadyPromise() gets rejected, because the
+      // chrome.loginState mock is not set up.
       return loginStateHook.getHookReadyPromise().then(() => {
         fail('Unexpected successful response');
       }, () => {});
