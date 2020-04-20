@@ -33,7 +33,7 @@ const GSC = GoogleSmartCard;
  * @type {!goog.debug.TextFormatter}
  */
 const textFormatter = new goog.debug.TextFormatter();
-textFormatter.showAbsoluteTime = false;
+textFormatter.showAbsoluteTime = true;
 textFormatter.showSeverityLevel = true;
 
 /**

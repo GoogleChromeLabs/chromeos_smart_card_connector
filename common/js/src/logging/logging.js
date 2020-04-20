@@ -282,6 +282,7 @@ function reloadApp() {
 
 function setupConsoleLogging() {
   var console = new goog.debug.Console;
+  console.getFormatter().showAbsoluteTime = true;
   console.setCapturing(true);
 }
 
