@@ -165,6 +165,10 @@ var pcscLiteNaclClientBackend = new GSC.PcscLiteClient.NaclClientBackend(
 var certificateProviderBridgeBackend =
     new SmartCardClientApp.CertificateProviderBridge.Backend(naclModule);
 
+// Ignore messages sent from the NaCl module to the main window when the latter
+// is not opened.
+naclModule.messageChannel.registerService('ui', () => {});
+
 // Starts the NaCl module loading. Up to this point, the module was not actually
 // loading yet, which allowed to add all the necessary event listeners in
 // advance.
@@ -172,7 +176,9 @@ naclModule.startLoading();
 
 // Open the UI window when the user launches the app.
 chrome.app.runtime.onLaunched.addListener(() => {
-  GSC.PopupWindow.Server.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS);
+  GSC.PopupWindow.Server.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS, {
+    naclModuleMessageChannel: naclModule.messageChannel,
+  });
 });
 
 // Automatically load the App (in the background) with Chrome startup.
