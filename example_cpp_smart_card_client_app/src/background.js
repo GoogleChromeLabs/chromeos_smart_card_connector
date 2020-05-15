@@ -47,6 +47,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
+goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('SmartCardClientApp.CertificateProviderBridge.Backend');
 goog.require('goog.log.Level');
 goog.require('goog.log.Logger');
@@ -72,6 +73,39 @@ var CLIENT_TITLE = 'example_cpp_client_app';
  * @const
  */
 var SERVER_APP_ID = Constants.SERVER_OFFICIAL_APP_ID;
+
+/**
+ * URL of the main window.
+ *
+ * It's opened when the user launches the App.
+ */
+const MAIN_WINDOW_URL = 'window.html';
+
+/**
+ * Identifier of the main window.
+ *
+ * It's used in order to prevent opening multiple instances of the main window.
+ * Additionally, this enables remembering of window's position across restarts.
+ */
+const MAIN_WINDOW_ID = 'main-window';
+
+/**
+ * Parameters of the main window.
+ *
+ * Note that the window is intentionally created as "hidden", because the window
+ * should only be shown after some additional initialization is done (see
+ * window.js).
+ */
+const MAIN_WINDOW_OPTIONS = {
+  'frame': 'none',
+  'hidden': true,
+  'id': MAIN_WINDOW_ID,
+  'innerBounds': {
+    'width': 500,
+    'height': 500,
+  },
+  'resizable': false,
+};
 
 /**
  * Logger that should be used for logging the App log messages.
@@ -136,6 +170,12 @@ var certificateProviderBridgeBackend =
 // advance.
 naclModule.startLoading();
 
+// Open the UI window when the user launches the app.
+chrome.app.runtime.onLaunched.addListener(() => {
+  GSC.PopupWindow.Server.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS);
+});
+
+// Automatically load the App (in the background) with Chrome startup.
 GSC.AppUtils.enableSelfAutoLoading();
 
 });  // goog.scope
