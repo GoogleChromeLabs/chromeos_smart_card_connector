@@ -22,6 +22,7 @@
 goog.provide('GoogleSmartCard.LogBuffer');
 
 goog.require('GoogleSmartCard.LogFormatting');
+goog.require('goog.Disposable');
 goog.require('goog.array');
 goog.require('goog.iter');
 goog.require('goog.log.LogRecord');
@@ -50,8 +51,11 @@ var GSC = GoogleSmartCard;
  * the crucial information.
  * @param {number} capacity The maximum number of stored log messages.
  * @constructor
+ * @extends {goog.Disposable}
  */
 GSC.LogBuffer = function(capacity) {
+  LogBuffer.base(this, 'constructor');
+
   /** @private */
   this.capacity_ = capacity;
 
@@ -81,6 +85,8 @@ GSC.LogBuffer = function(capacity) {
 
 /** @const */
 var LogBuffer = GSC.LogBuffer;
+
+goog.inherits(LogBuffer, goog.Disposable);
 
 goog.exportSymbol('GoogleSmartCard.LogBuffer', LogBuffer);
 

@@ -21,6 +21,7 @@
 
 goog.provide('GoogleSmartCard.DebugDump');
 
+goog.require('goog.Disposable');
 goog.require('goog.array');
 goog.require('goog.iter');
 goog.require('goog.json');
@@ -197,6 +198,11 @@ function dump(value) {
     // DOM-related types.
     return '<Node>';
   }
+
+  // Fast exit for types that are likely non-struct classes, in order to avoid
+  // cyclic references or huge meaningless debug dumps.
+  if (value instanceof goog.Disposable)
+    return '<Class>';
 
   if (value === undefined)
     return 'undefined';
