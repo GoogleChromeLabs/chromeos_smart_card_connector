@@ -67,7 +67,7 @@ function onRunTestClicked(e) {
 // a line into the "output" <pre> element in the UI.
 function displayOutputMessage(text) {
   const outputElem = goog.dom.getElement('output');
-  outputElem.innerHTML = text + '\n' + outputElem.innerHTML;
+  outputElem.innerHTML = outputElem.innerHTML + text + '\n';
 }
 
 // Set up UI event listeners.

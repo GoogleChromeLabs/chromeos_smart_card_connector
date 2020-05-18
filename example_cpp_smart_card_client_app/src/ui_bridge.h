@@ -64,6 +64,10 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
   // Note that if the UI is currently closed, the message is silently discarded.
   void SendMessageToUi(const pp::Var& message);
 
+  // google_smart_card::TypedMessageListener:
+  std::string GetListenedMessageType() const override;
+  bool OnTypedMessageReceived(const pp::Var& data) override;
+
  private:
   struct AttachedState {
     AttachedState(pp::Instance* pp_instance,
@@ -74,10 +78,6 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
     pp::Instance* const pp_instance;
     google_smart_card::TypedMessageRouter* const typed_message_router;
   };
-
-  // google_smart_card::TypedMessageListener:
-  std::string GetListenedMessageType() const override;
-  bool OnTypedMessageReceived(const pp::Var& data) override;
 
   // State associated with the attached configuration. Null after Detach() is
   // called.
