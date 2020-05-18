@@ -34,12 +34,15 @@
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
+#include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/debug_dump.h>
+#include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_pcsc_lite_client/global.h>
 #include <google_smart_card_pcsc_lite_cpp_demo/demo.h>
 
 #include "chrome_certificate_provider/api_bridge.h"
 #include "chrome_certificate_provider/types.h"
+#include "ui_bridge.h"
 
 namespace scc = smart_card_client;
 namespace ccp = scc::chrome_certificate_provider;
@@ -93,13 +96,16 @@ class PpInstance final : public pp::Instance {
                 this,
                 pp::Module::Get()->core(),
                 /* execute_requests_sequentially */ false)),
+        ui_bridge_(new UiBridge(&typed_message_router_, this)),
         certificates_request_handler_(new ClientCertificatesRequestHandler),
         sign_digest_request_handler_(new ClientSignDigestRequestHandler(
-            chrome_certificate_provider_api_bridge_)) {
+            chrome_certificate_provider_api_bridge_)),
+        message_from_ui_handler_(new ClientMessageFromUiHandler(ui_bridge_)) {
     chrome_certificate_provider_api_bridge_->SetCertificatesRequestHandler(
         certificates_request_handler_);
     chrome_certificate_provider_api_bridge_->SetSignDigestRequestHandler(
         sign_digest_request_handler_);
+    ui_bridge_->SetHandler(message_from_ui_handler_);
     StartWorkInBackgroundThread();
   }
 
@@ -121,6 +127,7 @@ class PpInstance final : public pp::Instance {
     pcsc_lite_over_requester_global_.release();
 
     chrome_certificate_provider_api_bridge_->Detach();
+    ui_bridge_->Detach();
   }
 
   // This method is called with each message received by the NaCl module from
@@ -261,6 +268,57 @@ class PpInstance final : public pp::Instance {
     const std::weak_ptr<ccp::ApiBridge> chrome_certificate_provider_api_bridge_;
   };
 
+  class ClientMessageFromUiHandler final : public MessageFromUiHandler {
+   public:
+    explicit ClientMessageFromUiHandler(std::weak_ptr<UiBridge> ui_bridge)
+      : ui_bridge_(ui_bridge) {}
+
+    void HandleMessageFromUi(const pp::Var& message) override {
+      //
+      // CHANGE HERE:
+      // Place your custom code here:
+      //
+
+      pp::VarDictionary message_dict;
+      std::string command;
+      std::string error_message;
+      if (gsc::VarAs(message, &message_dict, &error_message) &&
+          gsc::GetVarDictValueAs(message_dict, /*key=*/"command", &command,
+                                  &error_message) &&
+          command == "run_test") {
+        OnRunTestCommandReceived();
+        return;
+      }
+      GOOGLE_SMART_CARD_LOG_ERROR << "Unexpected message from UI: " <<
+          gsc::DebugDumpVar(message);
+    }
+
+   private:
+    void OnRunTestCommandReceived() {
+      GOOGLE_SMART_CARD_LOG_INFO << "[PC/SC-Lite DEMO] Starting PC/SC-Lite " <<
+          "demo...";
+      SendOutputMessageToUi("Starting demo...");
+      if (gsc::ExecutePcscLiteCppDemo()) {
+        GOOGLE_SMART_CARD_LOG_INFO << "[PC/SC-Lite DEMO] demo finished " <<
+            "successfully.";
+        SendOutputMessageToUi("Demo finished successfully.");
+      } else {
+        GOOGLE_SMART_CARD_LOG_ERROR << "[PC/SC-Lite DEMO] demo failed.";
+        SendOutputMessageToUi("Demo failed.");
+      }
+    }
+
+    void SendOutputMessageToUi(const std::string& text) {
+      std::shared_ptr<UiBridge> locked_ui_bridge = ui_bridge_.lock();
+      if (!locked_ui_bridge)
+        return;
+      locked_ui_bridge->SendMessageToUi(
+          gsc::VarDictBuilder().Add("output_message", text).Result());
+    }
+
+    std::weak_ptr<UiBridge> ui_bridge_;
+  };
+
   // This method is called by the constructor once all of the initialization
   // steps finish.
   void StartWorkInBackgroundThread() {
@@ -272,17 +330,8 @@ class PpInstance final : public pp::Instance {
   static void Work() {
     //
     // CHANGE HERE:
-    // Place your custom code here:
+    // Place your custom initialization code here:
     //
-
-    GOOGLE_SMART_CARD_LOG_INFO << "[PC/SC-Lite DEMO] Starting PC/SC-Lite " <<
-        "demo...";
-    if (gsc::ExecutePcscLiteCppDemo()) {
-      GOOGLE_SMART_CARD_LOG_INFO << "[PC/SC-Lite DEMO] demo finished " <<
-          "successfully.";
-    } else {
-      GOOGLE_SMART_CARD_LOG_ERROR << "[PC/SC-Lite DEMO] demo failed.";
-    }
   }
 
   // Router of the incoming typed messages that passes incoming messages to the
@@ -300,6 +349,8 @@ class PpInstance final : public pp::Instance {
   // chrome.certificateProvider JavaScript API (see
   // <https://developer.chrome.com/extensions/certificateProvider#events>).
   std::shared_ptr<ccp::ApiBridge> chrome_certificate_provider_api_bridge_;
+  // Object that sends/receives messages to/from the UI.
+  const std::shared_ptr<UiBridge> ui_bridge_;
   // Handler of the onCertificatesRequested request
   // from the chrome.certificateProvider JavaScript API (see
   // <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesRequested>).
@@ -310,6 +361,8 @@ class PpInstance final : public pp::Instance {
   // <https://developer.chrome.com/extensions/certificateProvider#event-onSignDigestRequested>).
   const std::shared_ptr<ClientSignDigestRequestHandler>
   sign_digest_request_handler_;
+  // Handler of messages from UI.
+  const std::shared_ptr<ClientMessageFromUiHandler> message_from_ui_handler_;
 };
 
 // This class represents the NaCl module for the NaCl framework.

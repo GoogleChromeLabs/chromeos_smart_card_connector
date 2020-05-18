@@ -36,6 +36,7 @@ SOURCES := \
 	$(SOURCES_DIR)/chrome_certificate_provider/api_bridge.cc \
 	$(SOURCES_DIR)/chrome_certificate_provider/types.cc \
 	$(SOURCES_DIR)/pp_module.cc \
+	$(SOURCES_DIR)/ui_bridge.cc \
 
 LIBS := \
 	$(PCSC_LITE_CPP_DEMO_LIB) \

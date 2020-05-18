@@ -18,5 +18,9 @@
   "windowClose": {
     "message": "Close",
     "description": "Accessibility text for close button"
+  },
+  "runTest": {
+    "message": "Test",
+    "description": "Title of the button that can be used to run the smart card test"
   }
 }
