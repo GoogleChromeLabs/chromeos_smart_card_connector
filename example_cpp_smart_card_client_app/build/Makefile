@@ -33,6 +33,8 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_client/include.mk
 SOURCES_PATH := ../src
 
 
+# Constants and rules for compiling the JS files.
+
 JS_COMPILER_INPUT_PATHS := \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
@@ -41,10 +43,18 @@ JS_COMPILER_INPUT_PATHS := \
 	$(SOURCES_PATH) \
 
 $(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BackgroundMain))
+$(eval $(call BUILD_JS_SCRIPT,window.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.WindowMain))
 
+
+# Rules for invoking recursive make files that build the app's NaCl module
+# (the actual recursive rules can be found at ./nacl_module/Makefile).
 
 $(eval $(call ADD-NACL-MODULE-DEPENDENCY,nacl_module))
 
 
+# Rules for copying the static resources files into the app's out directory.
+
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/_locales))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/manifest.json))
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/window.html))
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/window.css))
