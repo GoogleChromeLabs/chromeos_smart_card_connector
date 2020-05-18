@@ -21,6 +21,7 @@
 #include <stdint.h>
 
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
@@ -87,6 +88,7 @@ class PpInstance final : public pp::Instance {
   //   <https://developer.chrome.com/extensions/certificateProvider#events>).
   explicit PpInstance(PP_Instance instance)
       : pp::Instance(instance),
+        request_handling_mutex_(std::make_shared<std::mutex>()),
         pcsc_lite_over_requester_global_(
             new gsc::PcscLiteOverRequesterGlobal(
                 &typed_message_router_, this, pp::Module::Get()->core())),
@@ -95,8 +97,9 @@ class PpInstance final : public pp::Instance {
                 &typed_message_router_,
                 this,
                 pp::Module::Get()->core(),
-                /* execute_requests_sequentially */ false)),
-        ui_bridge_(new UiBridge(&typed_message_router_, this)),
+                request_handling_mutex_)),
+        ui_bridge_(new UiBridge(
+            &typed_message_router_, this, request_handling_mutex_)),
         certificates_request_handler_(new ClientCertificatesRequestHandler),
         sign_digest_request_handler_(new ClientSignDigestRequestHandler(
             chrome_certificate_provider_api_bridge_)),
@@ -334,6 +337,8 @@ class PpInstance final : public pp::Instance {
     //
   }
 
+  // Mutex that enforces that all requests are handled sequentially.
+  const std::shared_ptr<std::mutex> request_handling_mutex_;
   // Router of the incoming typed messages that passes incoming messages to the
   // appropriate handlers according the the special type field of the message
   // (see common/cpp/src/google_smart_card_common/messaging/typed_message.h).

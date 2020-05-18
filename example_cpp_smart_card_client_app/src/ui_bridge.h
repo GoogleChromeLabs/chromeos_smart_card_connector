@@ -18,8 +18,6 @@
 #ifndef SMART_CARD_CLIENT_UI_BRIDGE_H_
 #define SMART_CARD_CLIENT_UI_BRIDGE_H_
 
-#include <mutex>
-
 #include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/var.h>
 
@@ -45,9 +43,14 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
   //
   // On construction, registers self for receiving the messages from UI through
   // the supplied TypedMessageRouter typed_message_router instance.
+  //
+  // The |request_handling_mutex| parameter, when non-null, allows to avoid
+  // simultaneous execution of multiple requests: each next request will be
+  // executed only once the previous one finishes.
   UiBridge(
       google_smart_card::TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance);
+      pp::Instance* pp_instance,
+      std::shared_ptr<std::mutex> request_handling_mutex);
 
   UiBridge(const UiBridge&) = delete;
   UiBridge& operator=(const UiBridge&) = delete;
@@ -82,6 +85,8 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
   // State associated with the attached configuration. Null after Detach() is
   // called.
   google_smart_card::ThreadSafeUniquePtr<AttachedState> attached_state_;
+
+  std::shared_ptr<std::mutex> request_handling_mutex_;
 
   std::weak_ptr<MessageFromUiHandler> message_from_ui_handler_;
 };

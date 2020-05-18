@@ -39,7 +39,12 @@ namespace {
 
 void ProcessMessageFromUi(
     const pp::Var& data,
-    std::weak_ptr<MessageFromUiHandler> message_from_ui_handler) {
+    std::weak_ptr<MessageFromUiHandler> message_from_ui_handler,
+    std::shared_ptr<std::mutex> request_handling_mutex) {
+  std::unique_lock<std::mutex> lock;
+  if (request_handling_mutex)
+    lock = std::unique_lock<std::mutex>(*request_handling_mutex);
+
   GOOGLE_SMART_CARD_LOG_DEBUG << "Processing message from UI: " <<
       gsc::DebugDumpVar(data);
   std::shared_ptr<MessageFromUiHandler> locked_handler =
@@ -56,9 +61,11 @@ void ProcessMessageFromUi(
 
 UiBridge::UiBridge(
     gsc::TypedMessageRouter* typed_message_router,
-    pp::Instance* pp_instance)
+    pp::Instance* pp_instance,
+    std::shared_ptr<std::mutex> request_handling_mutex)
     : attached_state_(gsc::MakeUnique<AttachedState>(
-          pp_instance, typed_message_router)) {
+          pp_instance, typed_message_router)),
+      request_handling_mutex_(request_handling_mutex) {
   typed_message_router->AddRoute(this);
 }
 
@@ -101,7 +108,8 @@ bool UiBridge::OnTypedMessageReceived(const pp::Var& data) {
   std::thread(
       &ProcessMessageFromUi,
       data,
-      message_from_ui_handler_).detach();
+      message_from_ui_handler_,
+      request_handling_mutex_).detach();
   return true;
 }
 

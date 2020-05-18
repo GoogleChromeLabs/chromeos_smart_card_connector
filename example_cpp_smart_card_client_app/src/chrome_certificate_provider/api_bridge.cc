@@ -94,8 +94,9 @@ ApiBridge::ApiBridge(
     gsc::TypedMessageRouter* typed_message_router,
     pp::Instance* pp_instance,
     pp::Core* pp_core,
-    bool execute_requests_sequentially)
-    : requester_(
+    std::shared_ptr<std::mutex> request_handling_mutex)
+    : request_handling_mutex_(request_handling_mutex),
+      requester_(
           kRequesterName,
           typed_message_router,
           gsc::MakeUnique<gsc::JsRequester::PpDelegateImpl>(
@@ -106,10 +107,7 @@ ApiBridge::ApiBridge(
           this,
           typed_message_router,
           gsc::MakeUnique<gsc::JsRequestReceiver::PpDelegateImpl>(
-              pp_instance))) {
-  if (execute_requests_sequentially)
-    request_handling_mutex_.reset(new std::mutex);
-}
+              pp_instance))) {}
 
 void ApiBridge::Detach() {
   requester_.Detach();
