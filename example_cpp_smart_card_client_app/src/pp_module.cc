@@ -41,9 +41,9 @@
 #include <google_smart_card_pcsc_lite_client/global.h>
 #include <google_smart_card_pcsc_lite_cpp_demo/demo.h>
 
+#include "built_in_pin_dialog/built_in_pin_dialog_server.h"
 #include "chrome_certificate_provider/api_bridge.h"
 #include "chrome_certificate_provider/types.h"
-#include "pin-dialog/pin_dialog_server.h"
 #include "ui_bridge.h"
 
 namespace scc = smart_card_client;
@@ -88,15 +88,16 @@ class PpInstance final : public pp::Instance {
   //   be used to handle requests received from the chrome.certificateProvider
   //   JavaScript API event listeners (see
   //   <https://developer.chrome.com/extensions/certificateProvider#events>);
-  // * creates a PinDialogServer class instance that allows to perform built-in
-  //   PIN dialog requests;
+  // * creates a BuiltInPinDialogServer class instance that allows to perform
+  //   built-in PIN dialog requests (for the cases when the
+  //   chrome.certificateProvider.requestPin() API cannot be used).
   explicit PpInstance(PP_Instance instance)
       : pp::Instance(instance),
         request_handling_mutex_(std::make_shared<std::mutex>()),
         pcsc_lite_over_requester_global_(
             new gsc::PcscLiteOverRequesterGlobal(
                 &typed_message_router_, this, pp::Module::Get()->core())),
-        pin_dialog_server_(new PinDialogServer(
+        built_in_pin_dialog_server_(new BuiltInPinDialogServer(
             &typed_message_router_, this, pp::Module::Get()->core())),
         chrome_certificate_provider_api_bridge_(
             new ccp::ApiBridge(
@@ -110,7 +111,7 @@ class PpInstance final : public pp::Instance {
         sign_digest_request_handler_(new ClientSignDigestRequestHandler(
             chrome_certificate_provider_api_bridge_)),
         message_from_ui_handler_(new ClientMessageFromUiHandler(
-            ui_bridge_, pin_dialog_server_)) {
+            ui_bridge_, built_in_pin_dialog_server_)) {
     chrome_certificate_provider_api_bridge_->SetCertificatesRequestHandler(
         certificates_request_handler_);
     chrome_certificate_provider_api_bridge_->SetSignDigestRequestHandler(
@@ -136,7 +137,7 @@ class PpInstance final : public pp::Instance {
     pcsc_lite_over_requester_global_->Detach();
     pcsc_lite_over_requester_global_.release();
 
-    pin_dialog_server_->Detach();
+    built_in_pin_dialog_server_->Detach();
     chrome_certificate_provider_api_bridge_->Detach();
     ui_bridge_->Detach();
   }
@@ -283,9 +284,9 @@ class PpInstance final : public pp::Instance {
    public:
     explicit ClientMessageFromUiHandler(
         std::weak_ptr<UiBridge> ui_bridge,
-        std::weak_ptr<PinDialogServer> pin_dialog_server)
+        std::weak_ptr<BuiltInPinDialogServer> built_in_pin_dialog_server)
       : ui_bridge_(ui_bridge),
-        pin_dialog_server_(pin_dialog_server) {}
+        built_in_pin_dialog_server_(built_in_pin_dialog_server) {}
 
     void HandleMessageFromUi(const pp::Var& message) override {
       //
@@ -318,8 +319,8 @@ class PpInstance final : public pp::Instance {
       // above).
       GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Running built-in PIN " <<
           "dialog demo...";
-      const std::shared_ptr<PinDialogServer> locked_pin_dialog_server =
-          pin_dialog_server_.lock();
+      const std::shared_ptr<BuiltInPinDialogServer> locked_pin_dialog_server =
+          built_in_pin_dialog_server_.lock();
       if (!locked_pin_dialog_server) {
         GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Skipped PIN dialog " <<
             "demo: the shutdown process has started";
@@ -356,7 +357,7 @@ class PpInstance final : public pp::Instance {
     }
 
     std::weak_ptr<UiBridge> ui_bridge_;
-    const std::weak_ptr<PinDialogServer> pin_dialog_server_;
+    const std::weak_ptr<BuiltInPinDialogServer> built_in_pin_dialog_server_;
   };
 
   // This method is called by the constructor once all of the initialization
@@ -388,7 +389,7 @@ class PpInstance final : public pp::Instance {
   std::unique_ptr<gsc::PcscLiteOverRequesterGlobal>
   pcsc_lite_over_requester_global_;
   // Object that allows to perform built-in PIN dialog requests.
-  std::shared_ptr<PinDialogServer> pin_dialog_server_;
+  std::shared_ptr<BuiltInPinDialogServer> built_in_pin_dialog_server_;
   // Object that allows to make calls to and receive events from the
   // chrome.certificateProvider JavaScript API (see
   // <https://developer.chrome.com/extensions/certificateProvider#events>).

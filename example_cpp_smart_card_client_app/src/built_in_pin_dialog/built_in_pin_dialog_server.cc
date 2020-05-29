@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pin-dialog/pin_dialog_server.h"
+#include "built_in_pin_dialog/built_in_pin_dialog_server.h"
 
 #include <ppapi/cpp/var_dictionary.h>
 
@@ -20,6 +20,8 @@
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 
+// Note: These parameters should stay in sync with the JS side
+// (pin-dialog-backend.js).
 const char kRequesterName[] = "pin_dialog";
 const char kPinMessageKey[] = "pin";
 
@@ -40,7 +42,7 @@ void ExtractPinRequestResult(
 
 }  // namespace
 
-PinDialogServer::PinDialogServer(
+BuiltInPinDialogServer::BuiltInPinDialogServer(
     google_smart_card::TypedMessageRouter* typed_message_router,
     pp::Instance* pp_instance,
     pp::Core* pp_core)
@@ -51,11 +53,11 @@ PinDialogServer::PinDialogServer(
               google_smart_card::JsRequester::PpDelegateImpl>(
                   pp_instance, pp_core)) {}
 
-void PinDialogServer::Detach() {
+void BuiltInPinDialogServer::Detach() {
   js_requester_.Detach();
 }
 
-bool PinDialogServer::RequestPin(std::string* pin) {
+bool BuiltInPinDialogServer::RequestPin(std::string* pin) {
   const google_smart_card::GenericRequestResult request_result =
       js_requester_.PerformSyncRequest(pp::VarDictionary());
   if (!request_result.is_successful())

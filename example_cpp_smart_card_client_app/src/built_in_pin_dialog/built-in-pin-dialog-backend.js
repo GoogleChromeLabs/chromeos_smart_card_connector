@@ -23,7 +23,7 @@
  * chrome.certificateProvider.requestPin() method should be used.
  */
 
-goog.provide('SmartCardClientApp.PinDialog.Backend');
+goog.provide('SmartCardClientApp.BuiltInPinDialog.Backend');
 
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('GoogleSmartCard.RequestReceiver');
@@ -34,52 +34,49 @@ goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
-/** @const */
-var REQUESTER_NAME = 'pin_dialog';
+// Note: these parameters should stay in sync with the C++ side
+// (pin_dialog_server.cc).
+const REQUESTER_NAME = 'pin_dialog';
+const PIN_MESSAGE_KEY = 'pin';
 
-/** @const */
-var PIN_MESSAGE_KEY = 'pin';
+const PIN_DIALOG_URL = 'built-in-pin-dialog.html';
 
-/** @const */
-var PIN_DIALOG_URL = 'pin-dialog.html';
-
-/** @const */
-var PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
+const PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
   'alwaysOnTop': false,
   'innerBounds': {
     'width': 230
   }
 };
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * @type {!goog.log.Logger}
- * @const
  */
-var logger = GSC.Logging.getLogger('SmartCardClientApp.PinDialog');
+const logger = GSC.Logging.getLogger('SmartCardClientApp.BuiltInPinDialog');
 
 /**
- * Backend that handles PIN dialog requests received from the NaCl module.
+ * Backend that handles built-in PIN dialog requests received from the NaCl
+ & module.
  *
  * On construction, subscribes at the passed message channel for receiving
  * messages of the special type representing PIN requests.
  *
- * Once the message with the PIN request is received, opens the PIN dialog and,
- * once it finishes, sends its result as a message through the message channel.
+ * Once the message with the PIN request is received, opens the built-in PIN
+ * dialog and, once it finishes, sends its result as a message through the
+ * message channel.
  * @param {!goog.messaging.AbstractChannel} naclModuleMessageChannel
  * @constructor
  */
-SmartCardClientApp.PinDialog.Backend = function(naclModuleMessageChannel) {
+SmartCardClientApp.BuiltInPinDialog.Backend = function(
+    naclModuleMessageChannel) {
   // Note: the request receiver instance is not stored anywhere, as it makes
   // itself being owned by the message channel.
   new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, handleRequest);
 };
 
-/** @const */
-var Backend = SmartCardClientApp.PinDialog.Backend;
+const Backend = SmartCardClientApp.BuiltInPinDialog.Backend;
 
 /**
  * @param {!Object} payload
@@ -88,10 +85,10 @@ var Backend = SmartCardClientApp.PinDialog.Backend;
 function handleRequest(payload) {
   logger.info('Starting PIN dialog...');
 
-  var pinPromise = GSC.PopupWindow.Server.runModalDialog(
+  const pinPromise = GSC.PopupWindow.Server.runModalDialog(
       PIN_DIALOG_URL, PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES);
 
-  var promiseResolver = goog.Promise.withResolver();
+  const promiseResolver = goog.Promise.withResolver();
 
   pinPromise.then(function(pin) {
     logger.info('PIN dialog finished successfully');

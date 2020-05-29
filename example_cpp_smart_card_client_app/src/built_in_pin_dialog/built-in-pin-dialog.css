@@ -18,7 +18,7 @@ html {
 }
 
 title::after {
-  content: "__MSG_pinDialogTitle__";
+  content: "__MSG_builtInPinDialogTitle__";
 }
 
 body {
@@ -26,11 +26,11 @@ body {
 }
 
 #header::after {
-  content: "__MSG_pinDialogHeader__";
+  content: "__MSG_builtInPinDialogHeader__";
 }
 
 #input-label::after {
-  content: "__MSG_pinDialogLabel__";
+  content: "__MSG_builtInPinDialogLabel__";
 }
 
 #input {
@@ -42,11 +42,11 @@ body {
 }
 
 #ok::after {
-  content: "__MSG_pinDialogOK__";
+  content: "__MSG_builtInPinDialogOK__";
 }
 
 #cancel::after {
-  content: "__MSG_pinDialogCancel__";
+  content: "__MSG_pbuiltInPinDialogCancel__";
 }
 
 

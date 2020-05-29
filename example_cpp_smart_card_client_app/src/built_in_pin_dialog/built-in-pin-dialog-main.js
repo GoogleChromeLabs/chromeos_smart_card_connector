@@ -15,7 +15,7 @@
  */
 
 /**
- * @fileoverview Main script of the PIN dialog window.
+ * @fileoverview Main script of the built-in PIN dialog window.
  *
  * Once the dialog is finished with some result (either successfully returning
  * data entered by user, or being canceled), it uses the methods of the
@@ -23,7 +23,7 @@
  * window (i.e. to the App's background page).
  */
 
-goog.provide('SmartCardClientApp.PinDialog.Main');
+goog.provide('SmartCardClientApp.BuiltInPinDialog.Main');
 
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PopupWindow.Client');
@@ -33,11 +33,10 @@ goog.require('goog.events');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 function okClickListener() {
-  var pin = goog.dom.forms.getValue(goog.dom.getElement('input'));
+  const pin = goog.dom.forms.getValue(goog.dom.getElement('input'));
   GSC.PopupWindow.Client.resolveModalDialog(pin);
 }
 

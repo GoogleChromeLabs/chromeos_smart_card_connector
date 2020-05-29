@@ -44,7 +44,7 @@ JS_COMPILER_INPUT_PATHS := \
 
 $(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BackgroundMain))
 $(eval $(call BUILD_JS_SCRIPT,window.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.WindowMain))
-$(eval $(call BUILD_JS_SCRIPT,pin-dialog.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.PinDialog.Main))
+$(eval $(call BUILD_JS_SCRIPT,built-in-pin-dialog.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BuiltInPinDialog.Main))
 
 
 # Rules for invoking recursive make files that build the app's NaCl module
@@ -59,5 +59,5 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/_locales))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/manifest.json))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/window.html))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/window.css))
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/pin-dialog/pin-dialog.css))
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/pin-dialog/pin-dialog.html))
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/built_in_pin_dialog/built-in-pin-dialog.css))
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/built_in_pin_dialog/built-in-pin-dialog.html))

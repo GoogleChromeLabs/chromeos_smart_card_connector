@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef SMART_CARD_CLIENT_PIN_DIALOG_PIN_DIALOG_SERVER_H_
-#define SMART_CARD_CLIENT_PIN_DIALOG_PIN_DIALOG_SERVER_H_
+#ifndef SMART_CARD_CLIENT_BUILT_IN_PIN_DIALOG_BUILT_IN_PIN_DIALOG_SERVER_H_
+#define SMART_CARD_CLIENT_BUILT_IN_PIN_DIALOG_BUILT_IN_PIN_DIALOG_SERVER_H_
 
 #include <string>
 
@@ -25,7 +25,7 @@
 
 namespace smart_card_client {
 
-// This class allows to perform PIN dialog requests.
+// This class allows to request the built-in PIN dialog.
 //
 // NOTE: This should only be used for the PIN requests that aren't associated
 // with signature requests made by Chrome, since for those the
@@ -33,22 +33,22 @@ namespace smart_card_client {
 //
 // Implementation notes:
 // * A PIN request is sent to the JavaScript side as a message with a generated
-// request id. Response from the JavaScript side, once the PIN dialog finishes,
-// is received as an incoming message containing the request id, whether the
-// dialog finished successfully and, if yes, the data entered by user.
+//   request id. Response from the JavaScript side, once the PIN dialog
+//   finishes, is received as an incoming message containing the request id,
+//   whether the dialog finished successfully and, if yes, the data entered by
+//   user.
 // * Using request ids allows to operate with multiple PIN requests at the same
-// time.
-class PinDialogServer final {
+//   time.
+class BuiltInPinDialogServer final {
  public:
   // Creates the object and an internal JsRequester object, which adds a route
-  // into the specified TypedMessageRouter for receiving of the requests
-  // responses.
-  PinDialogServer(
+  // into the specified TypedMessageRouter for receiving the request responses.
+  BuiltInPinDialogServer(
       google_smart_card::TypedMessageRouter* typed_message_router,
       pp::Instance* pp_instance,
       pp::Core* pp_core);
 
-  PinDialogServer(const PinDialogServer&) = delete;
+  BuiltInPinDialogServer(const BuiltInPinDialogServer&) = delete;
 
   // Detaches from the Pepper module and the typed message router, which
   // prevents any further requests and waiting for the request responses.
@@ -81,4 +81,4 @@ class PinDialogServer final {
 
 }  // namespace smart_card_client
 
-#endif  // SMART_CARD_CLIENT_PIN_DIALOG_PIN_DIALOG_SERVER_H_
+#endif  // SMART_CARD_CLIENT_BUILT_IN_PIN_DIALOG_BUILT_IN_PIN_DIALOG_SERVER_H_

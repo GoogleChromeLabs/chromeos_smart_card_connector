@@ -50,8 +50,8 @@ goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PopupWindow.Server');
+goog.require('SmartCardClientApp.BuiltInPinDialog.Backend');
 goog.require('SmartCardClientApp.CertificateProviderBridge.Backend');
-goog.require('SmartCardClientApp.PinDialog.Backend');
 goog.require('goog.log.Level');
 goog.require('goog.log.Logger');
 
@@ -173,14 +173,15 @@ var certificateProviderBridgeBackend =
 naclModule.messageChannel.registerService('ui', () => {});
 
 /**
- * Object that handles the PIN dialog requests received from the NaCl module.
+ * Object that handles the built-in PIN dialog requests received from the NaCl
+ * module.
  *
  * NOTE: This should only be used for the PIN requests that aren't associated
  * with signature requests made by Chrome, since for those the
  * chrome.certificateProvider.requestPin() method should be used.
  * @const
  */
-var pinDialogBackend = new SmartCardClientApp.PinDialog.Backend(
+var builtInPinDialogBackend = new SmartCardClientApp.BuiltInPinDialog.Backend(
     naclModule.messageChannel);
 
 // Starts the NaCl module loading. Up to this point, the module was not actually
