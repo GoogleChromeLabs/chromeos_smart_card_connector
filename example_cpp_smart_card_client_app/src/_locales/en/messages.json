@@ -15,6 +15,26 @@
     "message": "C++ Smart Card Client Example",
     "description": "The header displayed in the main window"
   },
+  "pinDialogTitle": {
+    "message": "Smart Card PIN",
+    "description": "Window title of the Smart Card PIN dialog"
+  },
+  "pinDialogHeader": {
+    "message": "Smart Card PIN",
+    "description": "Caption displayed in the Smart Card PIN dialog"
+  },
+  "pinDialogLabel": {
+    "message": "Please enter your Smart Card PIN:",
+    "description": "Label text displayed in the Smart Card PIN dialog"
+  },
+  "pinDialogOK": {
+    "message": "OK",
+    "description": "\"OK\" button title in the Smart Card PIN dialog"
+  },
+  "pinDialogCancel": {
+    "message": "Cancel",
+    "description": "\"Cancel\" button title in the Smart Card PIN dialog"
+  },
   "windowClose": {
     "message": "Close",
     "description": "Accessibility text for close button"
