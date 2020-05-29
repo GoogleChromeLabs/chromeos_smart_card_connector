@@ -22,7 +22,7 @@
 
 // Note: These parameters should stay in sync with the JS side
 // (pin-dialog-backend.js).
-const char kRequesterName[] = "pin_dialog";
+const char kRequesterName[] = "built_in_pin_dialog";
 const char kPinMessageKey[] = "pin";
 
 namespace smart_card_client {

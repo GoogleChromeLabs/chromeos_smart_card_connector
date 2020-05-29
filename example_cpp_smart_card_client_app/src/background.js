@@ -29,8 +29,8 @@
  *   that translates between requests to/from the chrome.certificateProvider API
  *   (see <https://developer.chrome.com/extensions/certificateProvider>) into
  *   from/to the NaCl module.
- * * A SmartCardClientApp.PinDialog.Backend object is created, that handles the
- *   built-in PIN dialog requests received from the NaCl module.
+ * * A SmartCardClientApp.BuiltInPinDialog.Backend object is created, that
+ *   handles the built-in PIN dialog requests received from the NaCl module.
  * * Subscribing to a special Chrome Extensions API event that makes the App
  *   auto-loading.
  *
@@ -179,9 +179,8 @@ naclModule.messageChannel.registerService('ui', () => {});
  * NOTE: This should only be used for the PIN requests that aren't associated
  * with signature requests made by Chrome, since for those the
  * chrome.certificateProvider.requestPin() method should be used.
- * @const
  */
-var builtInPinDialogBackend = new SmartCardClientApp.BuiltInPinDialog.Backend(
+const builtInPinDialogBackend = new SmartCardClientApp.BuiltInPinDialog.Backend(
     naclModule.messageChannel);
 
 // Starts the NaCl module loading. Up to this point, the module was not actually

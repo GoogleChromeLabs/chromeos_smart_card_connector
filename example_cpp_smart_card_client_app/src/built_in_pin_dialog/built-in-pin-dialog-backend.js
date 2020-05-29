@@ -36,7 +36,7 @@ goog.scope(function() {
 
 // Note: these parameters should stay in sync with the C++ side
 // (pin_dialog_server.cc).
-const REQUESTER_NAME = 'pin_dialog';
+const REQUESTER_NAME = 'built_in_pin_dialog';
 const PIN_MESSAGE_KEY = 'pin';
 
 const PIN_DIALOG_URL = 'built-in-pin-dialog.html';
