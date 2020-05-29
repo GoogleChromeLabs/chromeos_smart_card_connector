@@ -7,6 +7,26 @@
     "message": "An example of App that works with Smart Card readers through a PC/SC-Lite API provided by Smart Card Connector App",
     "description": "The description of the application, displayed in the web store"
   },
+  "builtInPinDialogTitle": {
+    "message": "Smart Card PIN",
+    "description": "Window title of the built-in smart card PIN dialog"
+  },
+  "builtInPinDialogHeader": {
+    "message": "Smart Card PIN",
+    "description": "Caption displayed in the built-in smart card PIN dialog"
+  },
+  "builtInPinDialogLabel": {
+    "message": "Please enter your Smart Card PIN:",
+    "description": "Label text displayed in the built-in smart card PIN dialog"
+  },
+  "builtInPinDialogOK": {
+    "message": "OK",
+    "description": "\"OK\" button title in the built-in smart card PIN dialog"
+  },
+  "builtInPinDialogCancel": {
+    "message": "Cancel",
+    "description": "\"Cancel\" button title in the built-in smart card PIN dialog"
+  },
   "mainWindowTitle": {
     "message": "C++ Smart Card Client Example",
     "description": "The title of the main window"

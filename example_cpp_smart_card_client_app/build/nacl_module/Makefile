@@ -33,6 +33,7 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_demo/dependency.mk
 SOURCES_DIR := ../../src
 
 SOURCES := \
+	$(SOURCES_DIR)/built_in_pin_dialog/built_in_pin_dialog_server.cc \
 	$(SOURCES_DIR)/chrome_certificate_provider/api_bridge.cc \
 	$(SOURCES_DIR)/chrome_certificate_provider/types.cc \
 	$(SOURCES_DIR)/pp_module.cc \
