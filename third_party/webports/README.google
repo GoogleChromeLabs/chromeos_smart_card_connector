@@ -5,3 +5,6 @@ License File: LICENSE
 Description:
 Collection of open source libraries and applications that have been ported to
 Native Client, along with set to tools for building and maintaining them.
+Local Modifications:
+Changed the PIP installation script to work around the import error.
+Added the git.tar.gz archive with the Git repository contents.

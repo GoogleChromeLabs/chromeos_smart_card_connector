@@ -50,13 +50,11 @@ initialize_nacl_sdk() {
 initialize_webports() {
   log_message "Installing webports (with building the following libraries: ${WEBPORTS_TARGETS})..."
   rm -rf webports
-  mkdir webports
-  cd ${SCRIPTPATH}/webports
-  gclient config --unmanaged --name=src "${WEBPORTS_REPOSITORY_URL}"
-  gclient sync --with_branch_heads
-  cd ${SCRIPTPATH}/webports/src
-  git checkout -b pepper_${NACL_SDK_VERSION} origin/pepper_${NACL_SDK_VERSION}
-  gclient sync
+  cp -r ../third_party/webports/src webports
+  cd webports
+  tar -zxf git.tar.gz
+  gclient runhooks
+  cd src
   local failed_targets=
   for target in ${WEBPORTS_TARGETS}; do
     if ! NACL_ARCH=pnacl TOOLCHAIN=pnacl make ${target} ; then
