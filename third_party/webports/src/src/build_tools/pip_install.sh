@@ -17,6 +17,7 @@ export PYTHONUSERBASE=$PWD/out/pip
 pip_bin_dir=$PYTHONUSERBASE/bin
 pip_bin=$pip_bin_dir/pip
 export PATH=$pip_bin_dir:$PATH
+unset PYTHONNOUSERSITE
 
 if [ ! -f "$pip_bin" ]; then
   # On first run install pip directly from the network
