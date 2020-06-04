@@ -1,0 +1,13 @@
+IPython Kernel for Native Client
+===============================
+
+This package runs an IPython kernel inside Native Client.
+It creates a Native Client binary, and support files that
+must be available to the binary via HTTP.  Running this
+Native Client binary inside Chrome, runs an IPython kernel.
+
+Communication with the kernel is done by Pepper messaging,
+not by ZeroMQ.  This is accomplished by making modifications
+to the IPython Kernel.  Users call postMessage from JavaScript,
+and listening for the replies.  Messages follow essentially the
+same pattern as the IPython messaging system.

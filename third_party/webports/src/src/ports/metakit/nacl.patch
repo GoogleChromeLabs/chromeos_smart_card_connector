@@ -1,0 +1,103 @@
+diff --git a/include/mk4.h b/include/mk4.h
+--- a/include/mk4.h
++++ b/include/mk4.h
+@@ -99,7 +99,7 @@ class c4_Persist; // not defined here
+ #endif 
+ 
+ // and here's the other end of the scale...
+-#if !defined (_WIN32) && !defined (q4_LONG64)
++#if !defined (_WIN32) && !defined(__native_client__) && !defined (q4_LONG64)
+ #if defined (_PA_RISC2_0) || defined (__powerpc64__) || defined(__sparcv9) || \
+ defined(__x86_64__) || defined(__s390x__) || defined(__alpha) ||  \
+   (defined(__ia64) && (!defined(__HP_aCC) || defined(__LP64__)))
+diff --git a/unix/Makefile.in b/unix/Makefile.in
+--- a/unix/Makefile.in
++++ b/unix/Makefile.in
+@@ -47,6 +47,8 @@ CXXFLAGS = $(CXX_FLAGS)
+ #CXXFLAGS = -Dq4_CHECK $(CXX_FLAGS)
+ #CXXFLAGS = -Wall -pedantic -Wno-unused $(CXX_FLAGS)
+ 
++AR = @AR@
++RANLIB = @RANLIB@
+ CXX = @CXX@
+ INSTALL = @INSTALL@
+ INSTALL_DATA = @INSTALL_DATA@
+@@ -98,12 +100,12 @@ install-mk: libmk4$(LIBEXT)
+ 			$(srcdir)/../include/mk4str.h \
+ 			$(srcdir)/../include/mk4str.inl $(DESTDIR)$(includedir)
+ 	$(INSTALL_PROGRAM) libmk4$(LIBEXT) $(DESTDIR)$(libdir)
+-	if [ '${LIBEXT}' = '.a' ]; then ranlib $(DESTDIR)$(libdir)/libmk4.a; fi
++	if [ '${LIBEXT}' = '.a' ]; then $(RANLIB) $(DESTDIR)$(libdir)/libmk4.a; fi
+ 
+ install-tcl: Mk4tcl$(LIBEXT)
+ 	mkdir -p $(DESTDIR)$(tcllibdir)/Mk4tcl
+ 	$(INSTALL_PROGRAM) Mk4tcl$(LIBEXT) $(DESTDIR)$(tcllibdir)/Mk4tcl
+-	if [ '${LIBEXT}' = '.a' ]; then ranlib $(DESTDIR)$(tcllibdir)/Mk4tcl/Mk4tcl.a; fi
++	if [ '${LIBEXT}' = '.a' ]; then $(RANLIB) $(DESTDIR)$(tcllibdir)/Mk4tcl/Mk4tcl.a; fi
+ 	echo 'package ifneeded Mk4tcl 2.4.9.7 [list load [file join $$dir Mk4tcl$(LIBEXT)] Mk4tcl]' >$(DESTDIR)$(tcllibdir)/Mk4tcl/pkgIndex.tcl
+ 
+ install-python: Mk4py$(LIBEXT)
+@@ -130,22 +132,22 @@ $(srcdir)/configure: $(srcdir)/configure.in
+ 	cd $(srcdir) && autoconf
+ 
+ libmk4$(LIB_SUFFIX): $(LOBJS)
+-	ar rcu $@ $(LOBJS)
+-	ranlib $@
++	$(AR) rcu $@ $(LOBJS)
++	$(RANLIB) $@
+ 
+ libmk4$(SHLIB_SUFFIX): $(LOBJS) $(LINK_SPECIAL_FILES)
+ 	$(SHLIB_LD) -o $@ $(LOBJS) $(LINK_SPECIAL_FLAGS)
+ 
+ Mk4tcl$(LIB_SUFFIX): mk4tcl.o mk4too.o $(LOBJS)
+-	ar rcu $@ mk4tcl.o mk4too.o $(LOBJS)
+-	ranlib $@
++	$(AR) rcu $@ mk4tcl.o mk4too.o $(LOBJS)
++	$(RANLIB) $@
+ 
+ Mk4tcl$(SHLIB_SUFFIX): mk4tcl.o mk4too.o $(LOBJS) $(LINK_SPECIAL_FILES)
+ 	$(SHLIB_LD) -o $@ mk4tcl.o mk4too.o $(LOBJS) $(LINK_SPECIAL_FLAGS)
+ 
+ Mk4py$(LIB_SUFFIX): $(PYOBJS) $(LOBJS)
+-	ar cru $@ $(PYOBJS) $(LOBJS)
+-	ranlib $@
++	$(AR) cru $@ $(PYOBJS) $(LOBJS)
++	$(RANLIB) $@
+ 
+ Mk4py$(SHLIB_SUFFIX): $(PYOBJS) $(LOBJS) $(LINK_SPECIAL_FILES)
+ 	$(SHLIB_LD) -o $@ $(PYOBJS) $(LOBJS) $(LINK_SPECIAL_FLAGS)
+diff --git a/unix/configure.in b/unix/configure.in
+--- a/unix/configure.in
++++ b/unix/configure.in
+@@ -117,7 +117,7 @@ fi
+ if test $SHARED_BUILD = 1; then
+   SHLIB_FLAGS="-shared"
+   SHLIB_CFLAGS="-fPIC -DUSE_TCL_STUBS"
+-  SHLIB_LD="g++ -shared"
++  SHLIB_LD="\$(CXX) -shared"
+ else
+   SHLIB_FLAGS=""
+   SHLIB_CFLAGS=""
+@@ -127,6 +127,9 @@ fi
+ # Checks for programs.
+ AC_PROG_CXX
+ AC_PROG_INSTALL
++AC_PROG_RANLIB
++m4_include([m4/ac_prog_ar.m4])
++AC_PROG_AR
+ 
+ # Checks for libraries.
+ 
+diff --git a/unix/m4/ac_prog_ar.m4 b/unix/m4/ac_prog_ar.m4
+new file mode 100644
+--- /dev/null
++++ b/unix/m4/ac_prog_ar.m4
+@@ -0,0 +1,8 @@
++dnl Copied from chromiumos/third_party/ltp/m4/ac_prog_ar.m4
++dnl based on AC_PROG_RANLIB from autoconf
++m4_ifndef([AC_PROG_AR],[dnl
++AN_MAKEVAR([AR], [AC_PROG_AR])
++AN_PROGRAM([ar], [AC_PROG_AR])
++AC_DEFUN([AC_PROG_AR],
++[AC_CHECK_TOOL(AR, ar, :)])
++])

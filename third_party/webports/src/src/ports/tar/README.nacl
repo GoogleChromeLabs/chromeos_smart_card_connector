@@ -1,0 +1,7 @@
+We are intentionally using an old version of GNU tar. nacl_io
+does not have openat as of January 2014 and more recent releases of
+GNU tar heavily uses it. Note that you should be able to remove
+nacl.patch if you can update the version of GNU tar.
+
+The build of this package failed with newlib, so currently this port
+is glibc only.

@@ -1,0 +1,4 @@
+This is a work in progress. Currently only built with glibc and not tested at
+runtime yet.
+
+This is not tested or complete and is only a port of the client library.

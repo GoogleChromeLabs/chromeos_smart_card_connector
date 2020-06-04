@@ -1,0 +1,9 @@
+NAME=speex
+VERSION=1.2rc1
+URL=http://downloads.xiph.org/releases/speex/speex-1.2rc1.tar.gz
+LICENSE=BSD:COPYING
+DEPENDS=(libogg)
+# arm-nacl-clang crashes
+# https://code.google.com/p/nativeclient/issues/detail?id=4114
+DISABLED_TOOLCHAIN=(clang-newlib/arm emscripten)
+SHA1=52daa72572e844e5165315e208da539b2a55c5eb

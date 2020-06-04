@@ -1,0 +1,7 @@
+NAME=findutils
+VERSION=4.4.2
+URL=http://ftp.gnu.org/gnu/findutils/findutils-4.4.2.tar.gz
+DEPENDS=(ncurses nacl-spawn)
+DISABLED_LIBC=(bionic)
+SHA1=e8dd88fa2cc58abffd0bfc1eddab9020231bb024
+DISABLED_TOOLCHAIN=(emscripten)

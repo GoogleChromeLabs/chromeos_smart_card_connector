@@ -1,0 +1,9 @@
+NAME=avrdude
+VERSION=6.1
+URL=http://download.savannah.gnu.org/releases/avrdude/avrdude-6.1.tar.gz
+LICENSE=GPL
+DEPENDS=(glibc-compat nacl-spawn libelf)
+LIBC=glibc
+BUILD_OS=linux
+SHA1=15525cbff5918568ef3955d871dbb94feaf83c79
+DISABLED_TOOLCHAIN=(emscripten glibc/arm)

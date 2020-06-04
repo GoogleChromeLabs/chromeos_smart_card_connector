@@ -1,0 +1,4 @@
+NAME=alut-demo
+VERSION=0.1
+DEPENDS=(freealut)
+DISABLED_TOOLCHAIN=(emscripten)

@@ -1,0 +1,6 @@
+NAME=libtommath
+VERSION=0.41
+URL=http://download.sf.net/tommath/libtommath/0.41/ltm-0.41.tar.bz2
+LICENSE=CUSTOM:LICENSE
+SHA1=a6db2221c64a1951c5c78d573dbf427f989fd346
+DISABLED_TOOLCHAIN=(emscripten)

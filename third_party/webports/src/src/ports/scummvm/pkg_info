@@ -1,0 +1,7 @@
+NAME=scummvm
+VERSION=1.7.0
+URL=http://downloads.sf.net/scummvm/scummvm/1.7.0/scummvm-1.7.0.tar.gz
+LICENSE=LGPL,GPL,BSD
+DEPENDS=(sdl libvorbis libtar)
+SHA1=fcf083a3539a9daa69713794cdc8c2953a096f24
+DISABLED_TOOLCHAIN=(emscripten)

@@ -1,0 +1,8 @@
+NAME=libxmu
+ARCHIVE_ROOT=libXmu-1.1.1
+VERSION=1.1.1
+URL=http://www.x.org/releases/X11R7.7/src/everything/libXmu-1.1.1.tar.bz2
+LICENSE=GPL
+DEPENDS=(libxt libxext libx11 xextproto)
+SHA1=3e280aa927d78c05f94db6c7ae606f7ad132b495
+DISABLED_TOOLCHAIN=(emscripten)

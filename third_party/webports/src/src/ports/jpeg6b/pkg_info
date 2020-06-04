@@ -1,0 +1,8 @@
+NAME=jpeg6b
+VERSION=6b
+ARCHIVE_ROOT=jpeg-6b
+URL=http://www.ijg.org/files/jpegsrc.v6b.tar.gz
+LICENSE=CUSTOM:README
+SHA1=7079f0d6c42fad0cfba382cf6ad322add1ace8f9
+CONFLICTS=(jpeg8d)
+DISABLED_TOOLCHAIN=(emscripten)

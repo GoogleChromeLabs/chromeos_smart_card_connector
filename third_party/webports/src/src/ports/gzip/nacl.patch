@@ -1,0 +1,282 @@
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -27641,7 +27641,6 @@ printf "%s\n" "$gl_cv_cc_uninitialized_supported" >&6; }
+     -Wattributes \
+     -Wbad-function-cast \
+     -Wbuiltin-macro-redefined \
+-    -Wcast-align \
+     -Wchar-subscripts \
+     -Wclobbered \
+     -Wcomment \
+@@ -27655,10 +27654,8 @@ printf "%s\n" "$gl_cv_cc_uninitialized_supported" >&6; }
+     -Wdouble-promotion \
+     -Wempty-body \
+     -Wendif-labels \
+-    -Wenum-compare \
+     -Wextra \
+     -Wformat-contains-nul \
+-    -Wformat-extra-args \
+     -Wformat-nonliteral \
+     -Wformat-security \
+     -Wformat-y2k \
+@@ -27666,7 +27663,6 @@ printf "%s\n" "$gl_cv_cc_uninitialized_supported" >&6; }
+     -Wfree-nonheap-object \
+     -Wignored-qualifiers \
+     -Wimplicit \
+-    -Wimplicit-function-declaration \
+     -Wimplicit-int \
+     -Winit-self \
+     -Winline \
+@@ -27676,14 +27672,10 @@ printf "%s\n" "$gl_cv_cc_uninitialized_supported" >&6; }
+     -Wjump-misses-init \
+     -Wlogical-op \
+     -Wmain \
+-    -Wmaybe-uninitialized \
+     -Wmissing-braces \
+-    -Wmissing-declarations \
+     -Wmissing-field-initializers \
+     -Wmissing-include-dirs \
+     -Wmissing-parameter-type \
+-    -Wmissing-prototypes \
+-    -Wmudflap \
+     -Wmultichar \
+     -Wnarrowing \
+     -Wnested-externs \
+@@ -27710,10 +27702,6 @@ printf "%s\n" "$gl_cv_cc_uninitialized_supported" >&6; }
+     -Wstrict-aliasing \
+     -Wstrict-overflow \
+     -Wstrict-prototypes \
+-    -Wsuggest-attribute=const \
+-    -Wsuggest-attribute=format \
+-    -Wsuggest-attribute=noreturn \
+-    -Wsuggest-attribute=pure \
+     -Wswitch \
+     -Wswitch-default \
+     -Wsync-nand \
+@@ -27724,20 +27712,15 @@ printf "%s\n" "$gl_cv_cc_uninitialized_supported" >&6; }
+     -Wuninitialized \
+     -Wunknown-pragmas \
+     -Wunsafe-loop-optimizations \
+-    -Wunused \
+     -Wunused-but-set-parameter \
+     -Wunused-but-set-variable \
+-    -Wunused-function \
+     -Wunused-label \
+     -Wunused-local-typedefs \
+-    -Wunused-macros \
+     -Wunused-parameter \
+     -Wunused-result \
+     -Wunused-value \
+-    -Wunused-variable \
+     -Wvarargs \
+     -Wvariadic-macros \
+-    -Wvector-operation-performance \
+     -Wvla \
+     -Wvolatile-register-var \
+     -Wwrite-strings \
+@@ -27903,6 +27886,7 @@ main ()
+   ;
+   return 0;
+ }
++#if !defined(__NEWLIB_VERSION) || !defined(__arm__)
+ _ACEOF
+ if ac_fn_c_try_compile "$LINENO"; then :
+   gl_cv_warn_c__Wsuggest_attribute_const=yes
+@@ -27930,6 +27914,7 @@ else
+   gl_save_compiler_FLAGS="$CFLAGS"
+   as_fn_append CFLAGS " $gl_unknown_warnings_are_errors -Wsuggest-attribute=noreturn"
+   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++  #endif
+ /* end confdefs.h.  */
+ 
+ int
+@@ -27939,6 +27924,7 @@ main ()
+   ;
+   return 0;
+ }
++#if !defined(__NEWLIB_VERSION) || !defined(__arm__)
+ _ACEOF
+ if ac_fn_c_try_compile "$LINENO"; then :
+   gl_cv_warn_c__Wsuggest_attribute_noreturn=yes
+@@ -27954,7 +27940,7 @@ printf "%s\n" "$gl_cv_warn_c__Wsuggest_attribute_noreturn" >&6; }
+ if test "x$gl_cv_warn_c__Wsuggest_attribute_noreturn" = xyes; then :
+   as_fn_append WARN_CFLAGS " -Wsuggest-attribute=noreturn"
+ fi
+-
++#endif
+ 
+ 
+ { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether C compiler handles -Wno-format-nonliteral" >&5
+@@ -28028,7 +28014,7 @@ else
+   as_fn_append CFLAGS " $gl_unknown_warnings_are_errors -Wsuggest-attribute=pure"
+   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+-
++#if !defined(__NEWLIB_VERSION) || !defined(__arm__)
+ int
+ main ()
+ {
+@@ -28051,7 +28037,7 @@ printf "%s\n" "$gl_cv_warn_c__Wsuggest_attribute_pure" >&6; }
+ if test "x$gl_cv_warn_c__Wsuggest_attribute_pure" = xyes; then :
+   as_fn_append WARN_CFLAGS " -Wsuggest-attribute=pure"
+ fi
+-
++#endif
+ 
+ fi
+ rm -f conftest.err conftest.i conftest.$ac_ext
+diff --git a/gzip.c b/gzip.c
+--- a/gzip.c
++++ b/gzip.c
+@@ -300,7 +300,9 @@ local int  check_ofname (void);
+ local void copy_stat    (struct stat *ifstat);
+ local void install_signal_handlers (void);
+ local void remove_output_file (void);
++#if !defined(__pnacl__)
+ local RETSIGTYPE abort_gzip_signal (int);
++#endif
+ local void do_exit      (int exitcode) ATTRIBUTE_NORETURN;
+       int main          (int argc, char **argv);
+ static int (*work) (int infile, int outfile) = zip; /* function to call */
+@@ -1577,10 +1579,18 @@ local void do_list(ifd, method)
+         struct tm *tm = localtime (&time_stamp.tv_sec);
+         printf ("%5s %08lx ", methods[method], crc);
+         if (tm)
++          #ifdef __NEWLIB_VERSION
+           printf ("%s%3d %02d:%02d ",
+                   ("Jan\0Feb\0Mar\0Apr\0May\0Jun\0Jul\0Aug\0Sep\0Oct\0Nov\0Dec"
+                    + 4 * tm->tm_mon),
+                   tm->tm_mday, tm->tm_hour, tm->tm_min);
++          #else
++            // non-newlib requires the parenthesis before addition to a pointer
++            printf ("%s%3d %02d:%02d ",
++                  ("Jan\0Feb\0Mar\0Apr\0May\0Jun\0Jul\0Aug\0Sep\0Oct\0Nov\0Dec") 
++                  + 4 * tm->tm_mon,
++                  tm->tm_mday, tm->tm_hour, tm->tm_min);
++          #endif
+         else
+           printf ("??? ?? ??:?? ");
+       }
+@@ -1837,8 +1847,9 @@ install_signal_handlers ()
+       if (act.sa_handler != SIG_IGN)
+         sigaddset (&caught_signals, handled_sig[i]);
+     }
+-
++  #if !defined(__pnacl__)
+   act.sa_handler = abort_gzip_signal;
++  #endif
+   act.sa_mask = caught_signals;
+   act.sa_flags = 0;
+ 
+@@ -1921,6 +1932,7 @@ abort_gzip ()
+ /* ========================================================================
+  * Signal handler.
+  */
++#if !defined(__pnacl__)
+ static RETSIGTYPE
+ abort_gzip_signal (sig)
+      int sig;
+@@ -1933,3 +1945,4 @@ abort_gzip_signal (sig)
+    signal (sig, SIG_DFL);
+    raise (sig);
+ }
++#endif
+diff --git a/lib/chdir-long.c b/lib/chdir-long.c
+--- a/lib/chdir-long.c
++++ b/lib/chdir-long.c
+@@ -59,8 +59,8 @@ cdb_free (struct cd_buf const *cdb)
+ {
+   if (0 <= cdb->fd)
+     {
+-      bool close_fail = close (cdb->fd);
+-      assert (! close_fail);
++      if(!close (cdb->fd))
++        assert (false);
+     }
+ }
+ 
+diff --git a/lib/error.c b/lib/error.c
+--- a/lib/error.c
++++ b/lib/error.c
+@@ -172,7 +172,8 @@ print_errno_message (int errnum)
+ #if defined HAVE_STRERROR_R || _LIBC
+   char errbuf[1024];
+ # if STRERROR_R_CHAR_P || _LIBC
+-  s = __strerror_r (errnum, errbuf, sizeof errbuf);
++  __strerror_r (errnum, errbuf, sizeof errbuf);
++  s = errbuf;
+ # else
+   if (__strerror_r (errnum, errbuf, sizeof errbuf) == 0)
+     s = errbuf;
+@@ -376,7 +377,7 @@ error_at_line (int status, int errnum, const char *file_name,
+ #if _LIBC
+   __fxprintf (NULL, file_name != NULL ? "%s:%d: " : " ",
+               file_name, line_number);
+-#else
++#elif defined __NEWLIB_VERSION
+   fprintf (stderr, file_name != NULL ? "%s:%d: " : " ",
+            file_name, line_number);
+ #endif
+diff --git a/lib/fpending.c b/lib/fpending.c
+--- a/lib/fpending.c
++++ b/lib/fpending.c
+@@ -23,8 +23,10 @@
+ 
+ /* Return the number of pending (aka buffered, unflushed)
+    bytes on the stream, FP, that is open for writing.  */
++# if !(HAVE_STDIO_EXT_H)
+ size_t
+ __fpending (FILE *fp)
+ {
+   return PENDING_OUTPUT_N_BYTES;
+ }
++# endif
+diff --git a/lib/getcwd-lgpl.c b/lib/getcwd-lgpl.c
+--- a/lib/getcwd-lgpl.c
++++ b/lib/getcwd-lgpl.c
+@@ -22,6 +22,9 @@
+ #include <errno.h>
+ #include <string.h>
+ 
++#ifdef __GLIBC__
++#include <stdlib.h>
++#endif
+ #if GNULIB_GETCWD
+ /* Favor GPL getcwd.c if both getcwd and getcwd-lgpl modules are in use.  */
+ typedef int dummy;
+diff --git a/lib/strerror_r.c b/lib/strerror_r.c
+--- a/lib/strerror_r.c
++++ b/lib/strerror_r.c
+@@ -195,11 +195,16 @@ strerror_r (int errnum, char *buf, size_t buflen)
+         ret = strerror_r (errnum, buf, buflen);
+     }
+ # else
+-    ret = strerror_r (errnum, buf, buflen);
++    strerror_r (errnum, buf, buflen);
+ 
+     /* Some old implementations may return (-1, EINVAL) instead of EINVAL.  */
+-    if (ret < 0)
+-      ret = errno;
++    if (*buf == '\0')
++      ret = 0;
++    // When not in newlib, requires a value for ret (although never used)
++    #if !defined(__NEWLIB_VERSION)
++    else 
++      ret = 1;
++    #endif
+ # endif
+ 
+ # ifdef _AIX
+@@ -229,8 +234,9 @@ strerror_r (int errnum, char *buf, size_t buflen)
+         char stackbuf[STACKBUF_LEN];
+ 
+         /* STACKBUF_LEN should have been large enough.  */
+-        if (strerror_r (errnum, stackbuf, sizeof stackbuf) == ERANGE)
+-          abort ();
++        /* copies empty string instead of aborting when string buf is
++         too small */
++        strerror_r (errnum, stackbuf, sizeof stackbuf);
+         safe_copy (buf, buflen, stackbuf);
+       }
+ # endif

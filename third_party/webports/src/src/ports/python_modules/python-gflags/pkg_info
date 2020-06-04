@@ -1,0 +1,8 @@
+NAME=python-gflags
+VERSION=2.0
+URL=https://pypi.python.org/packages/source/p/python-gflags/python-gflags-2.0.tar.gz
+LICENSE=BSD
+DEPENDS=(python-host openssl setuptools)
+DISABLED_LIBC=(bionic)
+SHA1=1529a1102da2fc671f2a9a5e387ebabd1ceacbbf
+DISABLED_TOOLCHAIN=(emscripten)

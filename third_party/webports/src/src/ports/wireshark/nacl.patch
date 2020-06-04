@@ -1,0 +1,241 @@
+diff --git a/capture-pcap-util.c b/capture-pcap-util.c
+index 2cc7a49..179b83d 100644
+--- a/capture-pcap-util.c
++++ b/capture-pcap-util.c
+@@ -568,7 +568,7 @@ static struct dlt_choice dlt_choices[] = {
+ 	DLT_CHOICE_SENTINEL
+ };
+ 
+-#if !defined(HAVE_PCAP_DATALINK_NAME_TO_VAL)
++#if !defined(__native_client__) && !defined(HAVE_PCAP_DATALINK_NAME_TO_VAL)
+ static int
+ pcap_datalink_name_to_val(const char *name)
+ {
+@@ -583,7 +583,7 @@ pcap_datalink_name_to_val(const char *name)
+ }
+ #endif /* defined(HAVE_PCAP_DATALINK_NAME_TO_VAL) */
+ 
+-#if !defined(HAVE_PCAP_DATALINK_VAL_TO_NAME)
++#if !defined(__native_client__) && !defined(HAVE_PCAP_DATALINK_VAL_TO_NAME)
+ static const char *
+ pcap_datalink_val_to_name(int dlt)
+ {
+diff --git a/dumpcap.c b/dumpcap.c
+index bcfd02e..d1ec43c 100644
+--- a/dumpcap.c
++++ b/dumpcap.c
+@@ -808,7 +808,7 @@ set_pcap_linktype(pcap_t *pcap_h, int linktype,
+ 
+     if (linktype == -1)
+         return TRUE; /* just use the default */
+-#ifdef HAVE_PCAP_SET_DATALINK
++#if defined(HAVE_PCAP_SET_DATALINK) || defined(__native_client__)
+     if (pcap_set_datalink(pcap_h, linktype) == 0)
+         return TRUE; /* no error */
+     set_linktype_err_str = pcap_geterr(pcap_h);
+diff --git a/epan/filesystem.c b/epan/filesystem.c
+index 053711d..846a614 100644
+--- a/epan/filesystem.c
++++ b/epan/filesystem.c
+@@ -386,6 +386,9 @@ init_progfile_dir(const char *arg0
+          * Get the current directory, and combine it
+          * with that directory.
+          */
++#ifdef __native_client__
++        path_max = PATH_MAX;
++#else
+         path_max = pathconf(".", _PC_PATH_MAX);
+         if (path_max == -1) {
+             /*
+@@ -395,6 +398,7 @@ init_progfile_dir(const char *arg0
+             return g_strdup_printf("pathconf failed: %s\n",
+                 g_strerror(errno));
+         }
++#endif
+         curdir = (char *)g_malloc(path_max);
+         if (getcwd(curdir, path_max) == NULL) {
+             /*
+diff --git a/tshark.c b/tshark.c
+index b366ce5..4a5601a 100644
+--- a/tshark.c
++++ b/tshark.c
+@@ -167,7 +167,12 @@ static void report_counts_siginfo(int);
+ 
+ #else /* HAVE_LIBPCAP */
+ 
++#ifdef __native_client__
++static char *pcap_output_file_name;
++static char *text_output_file_name;
++#else
+ static char *output_file_name;
++#endif
+ 
+ #endif /* HAVE_LIBPCAP */
+ 
+@@ -316,6 +321,11 @@ print_usage(gboolean print_ver)
+   fprintf(output, "  -x                       add output of hex and ASCII dump (Packet Bytes)\n");
+   fprintf(output, "  -T pdml|ps|psml|text|fields\n");
+   fprintf(output, "                           format of text output (def: text)\n");
++#ifdef __native_client__
++  fprintf(output, "  -o <outfile>             write text output to \"outfile\"\n)");
++  fprintf(output, "                           (or to the standard output if unspecified)");
++  fprintf(output, "                           (note: currently only implemented for psml and pdml)");
++#endif
+   fprintf(output, "  -e <field>               field to print if -Tfields selected (e.g. tcp.port, col.Info);\n");
+   fprintf(output, "                           this option can be repeated to print multiple fields\n");
+   fprintf(output, "  -E<fieldsoption>=<value> set options for output when -Tfields selected:\n");
+@@ -340,7 +350,9 @@ print_usage(gboolean print_ver)
+   fprintf(output, "Miscellaneous:\n");
+   fprintf(output, "  -h                       display this help and exit\n");
+   fprintf(output, "  -v                       display version info and exit\n");
++#ifndef __native_client__
+   fprintf(output, "  -o <name>:<value> ...    override preference setting\n");
++#endif
+   fprintf(output, "  -K <keytab>              keytab file to use for kerberos decryption\n");
+   fprintf(output, "  -G [report]              dump one of several available reports and exit\n");
+   fprintf(output, "                           default report=\"fields\"\n");
+@@ -1237,7 +1249,11 @@ main(int argc, char *argv[])
+          * Output file name, if we're reading a file and writing to another
+          * file.
+          */
++#ifdef __native_client__
++        pcap_output_file_name = optarg;
++#else
+         output_file_name = optarg;
++#endif
+       } else {
+         capture_option_specified = TRUE;
+         arg_error = TRUE;
+@@ -1361,6 +1377,11 @@ main(int argc, char *argv[])
+         return 1;
+       }
+       break;
++#ifdef __native_client__
++    case 'o':       /* Write text output to output file */
++      text_output_file_name = optarg;
++      break;
++#else
+     case 'o':        /* Override preference from command line */
+       switch (prefs_set_pref(optarg)) {
+ 
+@@ -1379,6 +1400,7 @@ main(int argc, char *argv[])
+         break;
+       }
+       break;
++#endif
+     case 'q':        /* Quiet */
+       quiet = TRUE;
+       break;
+@@ -1935,8 +1957,12 @@ main(int argc, char *argv[])
+           global_capture_opts.has_autostop_packets ? global_capture_opts.autostop_packets : 0,
+           global_capture_opts.has_autostop_filesize ? global_capture_opts.autostop_filesize : 0);
+ #else
++#ifdef __native_client__
++      err = load_cap_file(&cfile, pcap_output_file_name, out_file_type, out_file_name_res, 0, 0);
++#else
+       err = load_cap_file(&cfile, output_file_name, out_file_type, out_file_name_res, 0, 0);
+ #endif
++#endif
+     }
+     CATCH(OutOfMemoryError) {
+       fprintf(stderr,
+@@ -3364,10 +3390,27 @@ write_preamble(capture_file *cf)
+     return print_preamble(print_stream, cf ? cf->filename : NULL);
+ 
+   case WRITE_XML:
++#ifdef __native_client__
++    {
++      FILE * fp;
++      if (text_output_file_name) {
++        fp = fopen(text_output_file_name, "w");
++      } else {
++        fp = stdout;
++      }
++      if (print_details) {
++        write_pdml_preamble(fp, cf ? cf->filename : NULL);
++      } else {
++        write_psml_preamble(fp);
++      }
++      fclose(fp);
++    }
++#else
+     if (print_details)
+       write_pdml_preamble(stdout, cf ? cf->filename : NULL);
+     else
+       write_psml_preamble(stdout);
++#endif
+     return !ferror(stdout);
+ 
+   case WRITE_FIELDS:
+@@ -3639,7 +3682,20 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
+         break;
+ 
+       case WRITE_XML:
++#ifdef __native_client__
++        {
++          FILE * fp;
++          if (text_output_file_name) {
++            fp = fopen(text_output_file_name, "a+");
++          } else {
++            fp = stdout;
++          }
++          proto_tree_write_psml(edt, fp);
++          fclose(fp);
++        }
++#else
+         proto_tree_write_psml(edt, stdout);
++#endif
+         return !ferror(stdout);
+       case WRITE_FIELDS: /*No non-verbose "fields" format */
+         g_assert_not_reached();
+@@ -3673,8 +3729,22 @@ print_packet(capture_file *cf, epan_dissect_t *edt)
+       break;
+ 
+     case WRITE_XML:
++#ifdef __native_client__
++      {
++        FILE * fp;
++        if (text_output_file_name) {
++          fp = fopen(text_output_file_name, "a+");
++        } else {
++          fp = stdout;
++        }
++        proto_tree_write_pdml(edt, fp);
++        printf("\n");
++        fclose(fp);
++      }
++#else
+       proto_tree_write_pdml(edt, stdout);
+       printf("\n");
++#endif
+       return !ferror(stdout);
+     case WRITE_FIELDS:
+       proto_tree_write_fields(output_fields, edt, &cf->cinfo, stdout);
+@@ -3704,10 +3774,27 @@ write_finale(void)
+     return print_finale(print_stream);
+ 
+   case WRITE_XML:
++#ifdef __native_client__
++    {
++      FILE * fp;
++      if (text_output_file_name) {
++        fp = fopen(text_output_file_name, "a+");
++      } else {
++        fp = stdout;
++      }
++      if (print_details) {
++        write_pdml_finale(fp);
++      } else {
++        write_psml_finale(fp);
++      }
++      fclose(fp);
++    }
++#else
+     if (print_details)
+       write_pdml_finale(stdout);
+     else
+       write_psml_finale(stdout);
++#endif
+     return !ferror(stdout);
+ 
+   case WRITE_FIELDS:

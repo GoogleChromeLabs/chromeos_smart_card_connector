@@ -1,0 +1,438 @@
+diff --git a/Makefile.micro b/Makefile.micro
+old mode 100644
+new mode 100755
+--- a/Makefile.micro
++++ b/Makefile.micro
+@@ -1,11 +1,14 @@
+ LD = $(CC)
+ CCFLAGS = -c
++BUILD_CCFLAGS = -c
+ DEFINES = -DPERL_CORE -DPERL_MICRO -DSTANDARD_C -DPERL_USE_SAFE_PUTENV \
+ 	  -DNO_MATHOMS
+ OPTIMIZE = 
+ CFLAGS = $(DEFINES) $(OPTIMIZE)
+ LDFLAGS = 
++BUILD_LDFLAGS = 
+ LIBS = -lm
++BUILD_LIBS = -lm
+ _O = .o
+ ENV = env
+ PERL = perl
+@@ -14,7 +17,7 @@ RUN =
+ 
+ all:	microperl
+ 
+-O = uav$(_O) udeb$(_O) udoio$(_O) udoop$(_O) udump$(_O) \
++O = uav$(_O) ucaretx$(_O) udeb$(_O) udoio$(_O) udoop$(_O) udump$(_O) \
+ 	uglobals$(_O) ugv$(_O) uhv$(_O) umro$(_O)\
+ 	umg$(_O) uperlmain$(_O) uop$(_O) ureentr$(_O) \
+ 	upad$(_O) uperl$(_O) uperlio$(_O) uperly$(_O) upp$(_O) \
+@@ -66,6 +69,9 @@ perly.h: perly.y
+ 
+ uav$(_O):	$(HE) av.c
+ 	$(CC) $(CCFLAGS) -o $@ $(CFLAGS) av.c
++	
++ucaretx$(_O):	$(HE) caretx.c
++	$(CC) $(CCFLAGS) -o $@ $(CFLAGS) caretx.c
+ 
+ udeb$(_O):	$(HE) deb.c
+ 	$(CC) $(CCFLAGS) -o $@ $(CFLAGS) deb.c
+@@ -184,10 +190,10 @@ ubitcount.h: ugenerate_uudmap$(_X)
+ 	$(RUN) ./ugenerate_uudmap$(_X) $(generated_headers)
+ 
+ ugenerate_uudmap$(_O): generate_uudmap.c
+-	$(CC) $(CCFLAGS) -o $@ $(CFLAGS) generate_uudmap.c
++	$(BUILD_CC) $(BUILD_CCFLAGS) -o $@ $(CFLAGS) generate_uudmap.c
+ 
+ ugenerate_uudmap$(_X): ugenerate_uudmap$(_O)
+-	$(LD) -o ugenerate_uudmap $(LDFLAGS) ugenerate_uudmap$(_O) $(LIBS)
++	$(BUILD_LD) -o ugenerate_uudmap $(BUILD_LDFLAGS) ugenerate_uudmap$(_O) $(BUILD_LIBS)
+ 
+ microtest: microperl
+ 	- cd t && (rm -f perl; ln -s ../microperl perl) \
+diff --git a/ext/ExtUtils-Miniperl/lib/ExtUtils/Miniperl.pm b/ext/ExtUtils-Miniperl/lib/ExtUtils/Miniperl.pm
+old mode 100644
+new mode 100755
+--- a/ext/ExtUtils-Miniperl/lib/ExtUtils/Miniperl.pm
++++ b/ext/ExtUtils-Miniperl/lib/ExtUtils/Miniperl.pm
+@@ -89,11 +89,19 @@ struct perl_vars* Perl_GetVarsPrivate(void) { return my_plvarsp; }
+ #ifdef NO_ENV_ARRAY_IN_MAIN
+ extern char **environ;
+ int
++#ifdef __native_client__
++nacl_main(int argc, char **argv)
++#else
+ main(int argc, char **argv)
++#endif
+ #else
+ int
++#ifdef __native_client__
++nacl_main(int argc, char **argv, char **env)
++#else
+ main(int argc, char **argv, char **env)
+ #endif
++#endif
+ {
+     int exitstatus, i;
+ #ifdef PERL_GLOBAL_STRUCT
+diff --git a/installperl b/installperl
+--- a/installperl
++++ b/installperl
+@@ -383,9 +383,9 @@ foreach my $file (@corefiles) {
+     if (copy_if_diff($file,"$installarchlib/CORE/$file")) {
+ 	if ($file =~ /\.(\Q$so\E|\Q$dlext\E)$/) {
+ 	    strip("-S", "$installarchlib/CORE/$file") if $^O eq 'darwin';
+-	    chmod(0555, "$installarchlib/CORE/$file");
++	    chmod(0755, "$installarchlib/CORE/$file");
+ 	} else {
+-	    chmod(0444, "$installarchlib/CORE/$file");
++	    chmod(0644, "$installarchlib/CORE/$file");
+ 	}
+     }
+ }
+@@ -753,7 +753,7 @@ sub installlib {
+             if (copy_if_diff($_, "$installlib/$name")) {
+                 strip("-S", "$installlib/$name")
+                     if $^O eq 'darwin' and /\.(?:so|$dlext|a)$/;
+-                chmod(/\.(so|$dlext)$/ ? 0555 : 0444, "$installlib/$name");
++                chmod(/\.(so|$dlext)$/ ? 0755 : 0644, "$installlib/$name");
+             }
+ 	}
+     }
+diff --git a/lib/ExtUtils/t/Embed.t b/lib/ExtUtils/t/Embed.t
+old mode 100644
+new mode 100755
+--- a/lib/ExtUtils/t/Embed.t
++++ b/lib/ExtUtils/t/Embed.t
+@@ -168,11 +168,20 @@ struct perl_vars* Perl_GetVarsPrivate(void) { return my_plvarsp; }
+ #endif
+ 
+ #ifdef NO_ENV_ARRAY_IN_MAIN
++#ifdef __native_client__
++int nacl_main(int argc, char **argv) {
++    char **env;
++#else
+ int main(int argc, char **argv) {
+     char **env;
++#endif
++#else
++#ifdef __native_client__
++int nacl_main(int argc, char **argv, char **env) {
+ #else
+ int main(int argc, char **argv, char **env) {
+ #endif
++#endif
+     PerlInterpreter *my_perl;
+ #ifdef PERL_GLOBAL_STRUCT
+     struct perl_vars *my_vars = init_global_struct();
+diff --git a/perl.h b/perl.h
+old mode 100644
+new mode 100755
+--- a/perl.h
++++ b/perl.h
+@@ -3561,7 +3561,7 @@ my_swap16(const U16 x) {
+ #endif
+ 
+ #ifndef __cplusplus
+-#if !(defined(WIN32) || defined(UNDER_CE) || defined(SYMBIAN))
++#if !(defined(WIN32) || defined(UNDER_CE) || defined(SYMBIAN) || defined(__native_client__))
+ Uid_t getuid (void);
+ Uid_t geteuid (void);
+ Gid_t getgid (void);
+diff --git a/pod/Makefile.SH b/pod/Makefile.SH
+old mode 100644
+new mode 100755
+diff --git a/pp_sys.c b/pp_sys.c
+old mode 100644
+new mode 100755
+--- a/pp_sys.c
++++ b/pp_sys.c
+@@ -32,6 +32,11 @@
+ #include "time64.h"
+ #include "time64.c"
+ 
++#if defined(__native_client__)
++#include <spawn.h>
++#define pipe nacl_spawn_pipe
++#endif
++
+ #ifdef I_SHADOW
+ /* Shadow password support for solaris - pdo@cs.umd.edu
+  * Not just Solaris: at least HP-UX, IRIX, Linux.
+@@ -302,11 +307,31 @@ PP(pp_backtick)
+     const char *mode = "r";
+ 
+     TAINT_PROPER("``");
++    /* Kind of like an inline implementation of popen.
++     * Currently has race issues, and also possibly doesn't
++     * work with some coreutils utilities.
++     */
++#   if defined(__native_client__)
++    int pipe_ends[2];
++    char * popen_args[] = {"bash", "-c", tmps, NULL};
++    pipe(pipe_ends);
++    pid_t pid = vfork();
++    /* CHILD */
++    if (!pid) {
++        close(pipe_ends[0]);
++        dup2(pipe_ends[1], 1);
++        execv(popen_args[0], popen_args);
++    }
++    /* PARENT */
++    close(pipe_ends[1]);
++    fp = fdopen(pipe_ends[0], "r");
++#   else
+     if (PL_op->op_private & OPpOPEN_IN_RAW)
+ 	mode = "rb";
+     else if (PL_op->op_private & OPpOPEN_IN_CRLF)
+ 	mode = "rt";
+     fp = PerlProc_popen(tmps, mode);
++#   endif
+     if (fp) {
+         const char * const type = Perl_PerlIO_context_layers(aTHX_ NULL);
+ 	if (type && *type)
+@@ -342,7 +367,18 @@ PP(pp_backtick)
+ 		SvTAINTED_on(sv);
+ 	    }
+ 	}
++#       if defined(__native_client__)
++        /* Inline pclose */
++        int pstat;
++        (void) fclose(fp);
++        do {
++        pid = waitpid(pid, &pstat, 0);
++        } while (pid == -1 && errno == EINTR);
++        int ret = (pid == -1 ? -1 : pstat);
++	STATUS_NATIVE_CHILD_SET(ret);
++#       else
+ 	STATUS_NATIVE_CHILD_SET(PerlProc_pclose(fp));
++#       endif
+ 	TAINT;		/* "I believe that this is not gratuitous!" */
+     }
+     else {
+@@ -4114,7 +4150,7 @@ PP(pp_system)
+ 	TAINT_PROPER("system");
+     }
+     PERL_FLUSHALL_FOR_CHILD;
+-#if (defined(HAS_FORK) || defined(AMIGAOS)) && !defined(VMS) && !defined(OS2) || defined(PERL_MICRO)
++#if (defined(HAS_FORK) || defined(AMIGAOS)) && !defined(VMS) && !defined(__native_client__) && !defined(OS2) || defined(PERL_MICRO)
+     {
+ 	Pid_t childpid;
+ 	int pp[2];
+@@ -4213,26 +4249,62 @@ PP(pp_system)
+ 	}
+ 	PerlProc__exit(-1);
+     }
+-#else /* ! FORK or VMS or OS/2 */
++#else /* ! FORK or VMS or OS/2 or NaCl */
+     PL_statusvalue = 0;
+     result = 0;
++    char * args[(SP-MARK)+3];
++    args[0] = "bash";
++    args[1] = "-c";
++    int index = 2, counter = 0;
++    while (++MARK <= SP) {
++        if (*MARK) {
++            args[index++] = SvPV_nolen(*MARK);
++            counter++;
++        }
++        else
++            args[index++] = "";
++    }
++    args[index] = NULL;
+     if (PL_op->op_flags & OPf_STACKED) {
+ 	SV * const really = *++MARK;
+ #  if defined(WIN32) || defined(OS2) || defined(__SYMBIAN32__) || defined(__VMS)
+ 	value = (I32)do_aspawn(really, MARK, SP);
+ #  else
++#  if defined(__native_client__)
++        /* In subsequent spawnv's, ideally "really"
++         * should be first checked. If it is not NULL,
++         * then it should be used instead of args[0]
++         * But I'm replacing with args[0] or "bash",
++         * since it always works. Also handling the
++         * case when system() is called without any
++         * arguments.
++         */
++        if (counter > 0) value = (I32)spawnv(P_WAIT, args[0], args); 
++#  else
+ 	value = (I32)do_aspawn(really, (void **)MARK, (void **)SP);
+ #  endif
++#  endif
+     }
+     else if (SP - MARK != 1) {
+ #  if defined(WIN32) || defined(OS2) || defined(__SYMBIAN32__) || defined(__VMS)
+ 	value = (I32)do_aspawn(NULL, MARK, SP);
+ #  else
++#  if defined(__native_client__)
++        /*
++         * "really" is NULL.
++         */
++        if (counter > 0) value = (I32)spawnv(P_WAIT, args[0], args);
++#  else
+ 	value = (I32)do_aspawn(NULL, (void **)MARK, (void **)SP);
+ #  endif
++#  endif
+     }
+     else {
++#  if defined(__native_client__)
++        if (counter > 0) value = (I32)spawnv(P_WAIT, args[0], args);
++#  else
+ 	value = (I32)do_spawn(SvPVx_nolen(sv_mortalcopy(*SP)));
++#  endif
+     }
+     if (PL_statusvalue == -1)	/* hint that value must be returned as is */
+ 	result = 1;
+@@ -4240,7 +4312,7 @@ PP(pp_system)
+     do_execfree();
+     SP = ORIGMARK;
+     XPUSHi(result ? value : STATUS_CURRENT);
+-#endif /* !FORK or VMS or OS/2 */
++#endif /* !FORK or VMS or OS/2 or NaCl */
+ #endif
+     RETURN;
+ }
+@@ -4561,12 +4633,17 @@ PP(pp_sleep)
+     Time_t when;
+ 
+     (void)time(&lasttime);
++    #if defined(__native_client__)
++    duration = POPi;
++    sleep((unsigned int)duration);
++    #else
+     if (MAXARG < 1 || (!TOPs && !POPs))
+ 	PerlProc_pause();
+     else {
+ 	duration = POPi;
+ 	PerlProc_sleep((unsigned int)duration);
+     }
++    #endif
+     (void)time(&when);
+     XPUSHi(when - lasttime);
+     RETURN;
+diff --git a/util.c b/util.c
+old mode 100644
+new mode 100755
+--- a/util.c
++++ b/util.c
+@@ -26,6 +26,11 @@
+ #include "perl.h"
+ #include "reentr.h"
+ 
++#if defined(__native_client__)
++#include <spawn.h>
++#define pipe nacl_spawn_pipe
++#endif
++
+ #if defined(USE_PERLIO)
+ #include "perliol.h" /* For PerlIOUnix_refcnt */
+ #endif
+@@ -2285,6 +2290,9 @@ Perl_my_popen_list(pTHX_ const char *mode, int n, SV **args)
+     /* Try for another pipe pair for error return */
+     if (PerlProc_pipe(pp) >= 0)
+ 	did_pipes = 1;
++    #if defined(__native_client__)
++    pid = vfork();
++    #else
+     while ((pid = PerlProc_fork()) < 0) {
+ 	if (errno != EAGAIN) {
+ 	    PerlLIO_close(p[This]);
+@@ -2298,6 +2306,7 @@ Perl_my_popen_list(pTHX_ const char *mode, int n, SV **args)
+ 	Perl_ck_warner(aTHX_ packWARN(WARN_PIPE), "Can't fork, trying again in 5 seconds");
+ 	sleep(5);
+     }
++    #endif
+     if (pid == 0) {
+ 	/* Child */
+ #undef THIS
+@@ -2335,7 +2344,24 @@ Perl_my_popen_list(pTHX_ const char *mode, int n, SV **args)
+ 	    }
+ 	}
+ #endif
++	#if defined(__native_client__)
++	/* Extract the char data in args to execv according to us */
++        char * exec_args[n+3]; 
++        int i = 2;
++        exec_args[0] = "bash";
++        exec_args[1] = "-c";
++        SV **beg = args-1, **end = args-1+n;
++	while (++beg <= end) {
++	    if (*beg)
++		exec_args[i++] = SvPV_nolen_const(*beg);
++	    else
++		exec_args[i++] = "";
++	}
++        exec_args[i] = NULL;
++        execv(exec_args[0], exec_args);
++        #else
+ 	do_aexec5(NULL, args-1, args-1+n, pp[1], did_pipes);
++	#endif
+ 	PerlProc__exit(1);
+ #undef THIS
+ #undef THAT
+@@ -2430,6 +2456,9 @@ Perl_my_popen(pTHX_ const char *cmd, const char *mode)
+ 	return NULL;
+     if (doexec && PerlProc_pipe(pp) >= 0)
+ 	did_pipes = 1;
++    #if defined(__native_client__)
++    pid = vfork();
++    #else
+     while ((pid = PerlProc_fork()) < 0) {
+ 	if (errno != EAGAIN) {
+ 	    PerlLIO_close(p[This]);
+@@ -2445,6 +2474,7 @@ Perl_my_popen(pTHX_ const char *cmd, const char *mode)
+ 	Perl_ck_warner(aTHX_ packWARN(WARN_PIPE), "Can't fork, trying again in 5 seconds");
+ 	sleep(5);
+     }
++    #endif
+     if (pid == 0) {
+ 
+ #undef THIS
+@@ -2480,7 +2510,12 @@ Perl_my_popen(pTHX_ const char *cmd, const char *mode)
+ 	    }
+ #endif
+ 	    /* may or may not use the shell */
++    	    #if defined(__native_client__)
++            char * exec_args[] = {"bash", "-c", cmd, NULL};
++            execv(exec_args[0], exec_args);
++            #else
+ 	    do_exec3(cmd, pp[1], did_pipes);
++	    #endif
+ 	    PerlProc__exit(1);
+ 	}
+ #endif	/* defined OS2 */
+@@ -2616,7 +2651,17 @@ Perl_my_fork(void)
+ #else
+     /* atfork_lock() and atfork_unlock() are installed as pthread_atfork()
+      * handlers elsewhere in the code */
++    /* (TODO) agaurav77 : Remove vfork when all modules and functions using
++     *                    fork have been patched to work fine, or when fork
++     *                    is available. Currently doing a vfork is
++     *                    advantageous in some situations and risky in some 
++     *                    other situations.
++     */
++    # if defined(__native_client__)
++    pid = vfork();
++    # else
+     pid = fork();
++    # endif
+ #endif
+     return pid;
+ #else
+diff --git a/x2p/a2py.c b/x2p/a2py.c
+old mode 100644
+new mode 100755
+--- a/x2p/a2py.c
++++ b/x2p/a2py.c
+@@ -57,7 +57,11 @@ usage()
+ #endif
+ 
+ int
++#ifdef __native_client__
++nacl_main(int argc, const char **argv)
++#else
+ main(int argc, const char **argv)
++#endif
+ {
+     STR *str;
+     int i;

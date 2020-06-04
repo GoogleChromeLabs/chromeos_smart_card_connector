@@ -1,0 +1,424 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index add0c1a..2313293 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.8.8)
+ 
+ project (BoringSSL)
+ 
+-if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
++if(CMAKE_COMPILER_IS_GNUCXX OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR ${CMAKE_SYSTEM_PROCESSOR} STREQUAL "pnacl")
+ 	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Werror -ggdb -std=c89")
+ 	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Werror -ggdb -std=c++0x")
+ elseif(MSVC)
+@@ -10,6 +10,13 @@ elseif(MSVC)
+ 	set(CMAKE_C_FLAGS "/wd4267")
+ endif()
+ 
++if (NACL)
++	add_definitions(-DOPENSSL_NO_ASM)
++	if (NACL_LIBC STREQUAL newlib)
++		link_libraries(glibc-compat)
++	endif()
++endif()
++
+ add_definitions(-DBORINGSSL_IMPLEMENTATION)
+ 
+ if (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "x86_64")
+@@ -31,6 +38,8 @@ elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "i686")
+ 	set(ARCH "x86")
+ elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "arm")
+ 	set(ARCH "arm")
++elseif (${CMAKE_SYSTEM_PROCESSOR} STREQUAL "pnacl")
++	set(ARCH "pnacl")
+ else()
+ 	message(FATAL_ERROR "Unknown processor:" ${CMAKE_SYSTEM_PROCESSOR})
+ endif()
+@@ -38,4 +47,6 @@ endif()
+ add_subdirectory(crypto)
+ add_subdirectory(ssl)
+ add_subdirectory(ssl/test)
+-add_subdirectory(tool)
++if (NOT NACL)
++	add_subdirectory(tool)
++endif()
+diff --git a/crypto/aes/aes.c b/crypto/aes/aes.c
+index 2f428b1..97b4fbd 100644
+--- a/crypto/aes/aes.c
++++ b/crypto/aes/aes.c
+@@ -525,32 +525,6 @@ static const uint8_t Td4[256] = {
+     0x04U, 0x7eU, 0xbaU, 0x77U, 0xd6U, 0x26U, 0xe1U, 0x69U, 0x14U, 0x63U, 0x55U,
+     0x21U, 0x0cU, 0x7dU, };
+ 
+-static const uint8_t Te4[256] = {
+-    0x63U, 0x7cU, 0x77U, 0x7bU, 0xf2U, 0x6bU, 0x6fU, 0xc5U, 0x30U, 0x01U, 0x67U,
+-    0x2bU, 0xfeU, 0xd7U, 0xabU, 0x76U, 0xcaU, 0x82U, 0xc9U, 0x7dU, 0xfaU, 0x59U,
+-    0x47U, 0xf0U, 0xadU, 0xd4U, 0xa2U, 0xafU, 0x9cU, 0xa4U, 0x72U, 0xc0U, 0xb7U,
+-    0xfdU, 0x93U, 0x26U, 0x36U, 0x3fU, 0xf7U, 0xccU, 0x34U, 0xa5U, 0xe5U, 0xf1U,
+-    0x71U, 0xd8U, 0x31U, 0x15U, 0x04U, 0xc7U, 0x23U, 0xc3U, 0x18U, 0x96U, 0x05U,
+-    0x9aU, 0x07U, 0x12U, 0x80U, 0xe2U, 0xebU, 0x27U, 0xb2U, 0x75U, 0x09U, 0x83U,
+-    0x2cU, 0x1aU, 0x1bU, 0x6eU, 0x5aU, 0xa0U, 0x52U, 0x3bU, 0xd6U, 0xb3U, 0x29U,
+-    0xe3U, 0x2fU, 0x84U, 0x53U, 0xd1U, 0x00U, 0xedU, 0x20U, 0xfcU, 0xb1U, 0x5bU,
+-    0x6aU, 0xcbU, 0xbeU, 0x39U, 0x4aU, 0x4cU, 0x58U, 0xcfU, 0xd0U, 0xefU, 0xaaU,
+-    0xfbU, 0x43U, 0x4dU, 0x33U, 0x85U, 0x45U, 0xf9U, 0x02U, 0x7fU, 0x50U, 0x3cU,
+-    0x9fU, 0xa8U, 0x51U, 0xa3U, 0x40U, 0x8fU, 0x92U, 0x9dU, 0x38U, 0xf5U, 0xbcU,
+-    0xb6U, 0xdaU, 0x21U, 0x10U, 0xffU, 0xf3U, 0xd2U, 0xcdU, 0x0cU, 0x13U, 0xecU,
+-    0x5fU, 0x97U, 0x44U, 0x17U, 0xc4U, 0xa7U, 0x7eU, 0x3dU, 0x64U, 0x5dU, 0x19U,
+-    0x73U, 0x60U, 0x81U, 0x4fU, 0xdcU, 0x22U, 0x2aU, 0x90U, 0x88U, 0x46U, 0xeeU,
+-    0xb8U, 0x14U, 0xdeU, 0x5eU, 0x0bU, 0xdbU, 0xe0U, 0x32U, 0x3aU, 0x0aU, 0x49U,
+-    0x06U, 0x24U, 0x5cU, 0xc2U, 0xd3U, 0xacU, 0x62U, 0x91U, 0x95U, 0xe4U, 0x79U,
+-    0xe7U, 0xc8U, 0x37U, 0x6dU, 0x8dU, 0xd5U, 0x4eU, 0xa9U, 0x6cU, 0x56U, 0xf4U,
+-    0xeaU, 0x65U, 0x7aU, 0xaeU, 0x08U, 0xbaU, 0x78U, 0x25U, 0x2eU, 0x1cU, 0xa6U,
+-    0xb4U, 0xc6U, 0xe8U, 0xddU, 0x74U, 0x1fU, 0x4bU, 0xbdU, 0x8bU, 0x8aU, 0x70U,
+-    0x3eU, 0xb5U, 0x66U, 0x48U, 0x03U, 0xf6U, 0x0eU, 0x61U, 0x35U, 0x57U, 0xb9U,
+-    0x86U, 0xc1U, 0x1dU, 0x9eU, 0xe1U, 0xf8U, 0x98U, 0x11U, 0x69U, 0xd9U, 0x8eU,
+-    0x94U, 0x9bU, 0x1eU, 0x87U, 0xe9U, 0xceU, 0x55U, 0x28U, 0xdfU, 0x8cU, 0xa1U,
+-    0x89U, 0x0dU, 0xbfU, 0xe6U, 0x42U, 0x68U, 0x41U, 0x99U, 0x2dU, 0x0fU, 0xb0U,
+-    0x54U, 0xbbU, 0x16U};
+-
+ static const uint32_t rcon[] = {
+     0x01000000, 0x02000000, 0x04000000, 0x08000000, 0x10000000,
+     0x20000000, 0x40000000, 0x80000000, 0x1B000000, 0x36000000,
+diff --git a/crypto/bio/bio_test.c b/crypto/bio/bio_test.c
+index 86363f9..a863875 100644
+--- a/crypto/bio/bio_test.c
++++ b/crypto/bio/bio_test.c
+@@ -194,7 +194,9 @@ int main(void) {
+ #endif
+ 
+   if (!test_socket_connect()) {
++#ifndef __native_client__
+     return 1;
++#endif
+   }
+ 
+   if (!test_printf()) {
+diff --git a/crypto/bio/printf.c b/crypto/bio/printf.c
+index 3638915..ef46225 100644
+--- a/crypto/bio/printf.c
++++ b/crypto/bio/printf.c
+@@ -58,6 +58,12 @@
+ #define _POSIX_C_SOURCE 201410L  /* for snprintf, vprintf etc */
+ #endif
+ 
++#if defined(__native_client__) && !defined(__pnacl__)
++/* native client toolchains fail to define vsnprintf/strdup/etc if only
++ * _POSIX_C_SOURCE is defined */
++#define _GNU_SOURCE 1
++#endif
++
+ #include <openssl/bio.h>
+ 
+ #include <assert.h>
+diff --git a/crypto/bn/asm/x86_64-gcc.c b/crypto/bn/asm/x86_64-gcc.c
+index be119aa..e8844bd 100644
+--- a/crypto/bn/asm/x86_64-gcc.c
++++ b/crypto/bn/asm/x86_64-gcc.c
+@@ -1,6 +1,6 @@
+ #include <openssl/bn.h>
+ 
+-#if defined(OPENSSL_X86_64) && !defined(OPENSSL_WINDOWS)
++#if defined(OPENSSL_X86_64) && !defined(OPENSSL_WINDOWS) && !defined(OPENSSL_NO_ASM)
+ 
+ #include "../internal.h"
+ 
+diff --git a/crypto/chacha/chacha_vec.c b/crypto/chacha/chacha_vec.c
+index 90629a4..87c67ae 100644
+--- a/crypto/chacha/chacha_vec.c
++++ b/crypto/chacha/chacha_vec.c
+@@ -176,7 +176,7 @@ void CRYPTO_chacha_20(
+ 	s2 = LOAD(&((vec*)kp)[1]);
+ 	s3 = (vec){
+ 		counter & 0xffffffff,
+-#if __ARM_NEON__ || defined(OPENSSL_X86)
++#if __ARM_NEON__ || defined(OPENSSL_32_BIT)
+ 		0,  /* can't right-shift 32 bits on a 32-bit system. */
+ #else
+ 		counter >> 32,
+diff --git a/crypto/lhash/lhash_test.c b/crypto/lhash/lhash_test.c
+index cf5e99b..edc4943 100644
+--- a/crypto/lhash/lhash_test.c
++++ b/crypto/lhash/lhash_test.c
+@@ -16,6 +16,12 @@
+ #define _POSIX_C_SOURCE 201410L
+ #endif
+ 
++#if defined(__native_client__) && !defined(__pnacl__)
++/* native client toolchains fail to define vsnprintf/strdup/etc if only
++ * _POSIX_C_SOURCE is defined */
++#define _GNU_SOURCE 1
++#endif
++
+ #include <openssl/crypto.h>
+ #include <openssl/lhash.h>
+ 
+diff --git a/crypto/mem.c b/crypto/mem.c
+index 11ef335..3118891 100644
+--- a/crypto/mem.c
++++ b/crypto/mem.c
+@@ -57,6 +57,12 @@
+ #define _POSIX_C_SOURCE 201410L  /* needed for strdup, snprintf, vprintf etc */
+ #endif
+ 
++#if defined(__native_client__) && !defined(__pnacl__)
++/* native client toolchains fail to define vsnprintf/strdup/etc if only
++ * _POSIX_C_SOURCE is defined */
++#define _GNU_SOURCE 1
++#endif
++
+ #include <openssl/mem.h>
+ 
+ #include <assert.h>
+diff --git a/crypto/poly1305/poly1305.c b/crypto/poly1305/poly1305.c
+index bf5cd5e..7dd98cc 100644
+--- a/crypto/poly1305/poly1305.c
++++ b/crypto/poly1305/poly1305.c
+@@ -23,7 +23,7 @@
+ #include <openssl/cpu.h>
+ 
+ 
+-#if defined(OPENSSL_WINDOWS) || !defined(OPENSSL_X86_64)
++#if defined(OPENSSL_WINDOWS) || !defined(OPENSSL_X86_64) || defined(OPENSSL_NO_ASM)
+ 
+ #if defined(OPENSSL_X86) || defined(OPENSSL_X86_64) || defined(OPENSSL_ARM)
+ /* We can assume little-endian. */
+diff --git a/crypto/poly1305/poly1305_vec.c b/crypto/poly1305/poly1305_vec.c
+index 89fcacb..e32e05a 100644
+--- a/crypto/poly1305/poly1305_vec.c
++++ b/crypto/poly1305/poly1305_vec.c
+@@ -21,7 +21,7 @@
+ #include <openssl/poly1305.h>
+ 
+ 
+-#if !defined(OPENSSL_WINDOWS) && defined(OPENSSL_X86_64)
++#if !defined(OPENSSL_WINDOWS) && !defined(__native_client__) && defined(OPENSSL_X86_64)
+ 
+ #include <emmintrin.h>
+ 
+diff --git a/crypto/sha/sha512.c b/crypto/sha/sha512.c
+index 884371a..6da8e5a 100644
+--- a/crypto/sha/sha512.c
++++ b/crypto/sha/sha512.c
+@@ -242,7 +242,7 @@ int SHA512_Final(unsigned char *md, SHA512_CTX *sha) {
+   p[n] = 0x80; /* There always is a room for one */
+   n++;
+   if (n > (sizeof(sha->u) - 16)) {
+-    memset(p + n, 0, sizeof(sha->u) - n);
++    /*memset(p + n, 0, sizeof(sha->u) - n);*/
+     n = 0;
+     sha512_block_data_order(sha, p, 1);
+   }
+@@ -311,33 +311,46 @@ int SHA512_Final(unsigned char *md, SHA512_CTX *sha) {
+ 
+ #ifndef SHA512_ASM
+ static const uint64_t K512[80] = {
+-    0x428a2f98d728ae22, 0x7137449123ef65cd, 0xb5c0fbcfec4d3b2f,
+-    0xe9b5dba58189dbbc, 0x3956c25bf348b538, 0x59f111f1b605d019,
+-    0x923f82a4af194f9b, 0xab1c5ed5da6d8118, 0xd807aa98a3030242,
+-    0x12835b0145706fbe, 0x243185be4ee4b28c, 0x550c7dc3d5ffb4e2,
+-    0x72be5d74f27b896f, 0x80deb1fe3b1696b1, 0x9bdc06a725c71235,
+-    0xc19bf174cf692694, 0xe49b69c19ef14ad2, 0xefbe4786384f25e3,
+-    0x0fc19dc68b8cd5b5, 0x240ca1cc77ac9c65, 0x2de92c6f592b0275,
+-    0x4a7484aa6ea6e483, 0x5cb0a9dcbd41fbd4, 0x76f988da831153b5,
+-    0x983e5152ee66dfab, 0xa831c66d2db43210, 0xb00327c898fb213f,
+-    0xbf597fc7beef0ee4, 0xc6e00bf33da88fc2, 0xd5a79147930aa725,
+-    0x06ca6351e003826f, 0x142929670a0e6e70, 0x27b70a8546d22ffc,
+-    0x2e1b21385c26c926, 0x4d2c6dfc5ac42aed, 0x53380d139d95b3df,
+-    0x650a73548baf63de, 0x766a0abb3c77b2a8, 0x81c2c92e47edaee6,
+-    0x92722c851482353b, 0xa2bfe8a14cf10364, 0xa81a664bbc423001,
+-    0xc24b8b70d0f89791, 0xc76c51a30654be30, 0xd192e819d6ef5218,
+-    0xd69906245565a910, 0xf40e35855771202a, 0x106aa07032bbd1b8,
+-    0x19a4c116b8d2d0c8, 0x1e376c085141ab53, 0x2748774cdf8eeb99,
+-    0x34b0bcb5e19b48a8, 0x391c0cb3c5c95a63, 0x4ed8aa4ae3418acb,
+-    0x5b9cca4f7763e373, 0x682e6ff3d6b2b8a3, 0x748f82ee5defb2fc,
+-    0x78a5636f43172f60, 0x84c87814a1f0ab72, 0x8cc702081a6439ec,
+-    0x90befffa23631e28, 0xa4506cebde82bde9, 0xbef9a3f7b2c67915,
+-    0xc67178f2e372532b, 0xca273eceea26619c, 0xd186b8c721c0c207,
+-    0xeada7dd6cde0eb1e, 0xf57d4f7fee6ed178, 0x06f067aa72176fba,
+-    0x0a637dc5a2c898a6, 0x113f9804bef90dae, 0x1b710b35131c471b,
+-    0x28db77f523047d84, 0x32caab7b40c72493, 0x3c9ebe0a15c9bebc,
+-    0x431d67c49c100d4c, 0x4cc5d4becb3e42b6, 0x597f299cfc657e2a,
+-    0x5fcb6fab3ad6faec, 0x6c44198c4a475817};
++    OPENSSL_U64(0x428a2f98d728ae22), OPENSSL_U64(0x7137449123ef65cd),
++    OPENSSL_U64(0xb5c0fbcfec4d3b2f), OPENSSL_U64(0xe9b5dba58189dbbc),
++    OPENSSL_U64(0x3956c25bf348b538), OPENSSL_U64(0x59f111f1b605d019),
++    OPENSSL_U64(0x923f82a4af194f9b), OPENSSL_U64(0xab1c5ed5da6d8118),
++    OPENSSL_U64(0xd807aa98a3030242), OPENSSL_U64(0x12835b0145706fbe),
++    OPENSSL_U64(0x243185be4ee4b28c), OPENSSL_U64(0x550c7dc3d5ffb4e2),
++    OPENSSL_U64(0x72be5d74f27b896f), OPENSSL_U64(0x80deb1fe3b1696b1),
++    OPENSSL_U64(0x9bdc06a725c71235), OPENSSL_U64(0xc19bf174cf692694),
++    OPENSSL_U64(0xe49b69c19ef14ad2), OPENSSL_U64(0xefbe4786384f25e3),
++    OPENSSL_U64(0x0fc19dc68b8cd5b5), OPENSSL_U64(0x240ca1cc77ac9c65),
++    OPENSSL_U64(0x2de92c6f592b0275), OPENSSL_U64(0x4a7484aa6ea6e483),
++    OPENSSL_U64(0x5cb0a9dcbd41fbd4), OPENSSL_U64(0x76f988da831153b5),
++    OPENSSL_U64(0x983e5152ee66dfab), OPENSSL_U64(0xa831c66d2db43210),
++    OPENSSL_U64(0xb00327c898fb213f), OPENSSL_U64(0xbf597fc7beef0ee4),
++    OPENSSL_U64(0xc6e00bf33da88fc2), OPENSSL_U64(0xd5a79147930aa725),
++    OPENSSL_U64(0x06ca6351e003826f), OPENSSL_U64(0x142929670a0e6e70),
++    OPENSSL_U64(0x27b70a8546d22ffc), OPENSSL_U64(0x2e1b21385c26c926),
++    OPENSSL_U64(0x4d2c6dfc5ac42aed), OPENSSL_U64(0x53380d139d95b3df),
++    OPENSSL_U64(0x650a73548baf63de), OPENSSL_U64(0x766a0abb3c77b2a8),
++    OPENSSL_U64(0x81c2c92e47edaee6), OPENSSL_U64(0x92722c851482353b),
++    OPENSSL_U64(0xa2bfe8a14cf10364), OPENSSL_U64(0xa81a664bbc423001),
++    OPENSSL_U64(0xc24b8b70d0f89791), OPENSSL_U64(0xc76c51a30654be30),
++    OPENSSL_U64(0xd192e819d6ef5218), OPENSSL_U64(0xd69906245565a910),
++    OPENSSL_U64(0xf40e35855771202a), OPENSSL_U64(0x106aa07032bbd1b8),
++    OPENSSL_U64(0x19a4c116b8d2d0c8), OPENSSL_U64(0x1e376c085141ab53),
++    OPENSSL_U64(0x2748774cdf8eeb99), OPENSSL_U64(0x34b0bcb5e19b48a8),
++    OPENSSL_U64(0x391c0cb3c5c95a63), OPENSSL_U64(0x4ed8aa4ae3418acb),
++    OPENSSL_U64(0x5b9cca4f7763e373), OPENSSL_U64(0x682e6ff3d6b2b8a3),
++    OPENSSL_U64(0x748f82ee5defb2fc), OPENSSL_U64(0x78a5636f43172f60),
++    OPENSSL_U64(0x84c87814a1f0ab72), OPENSSL_U64(0x8cc702081a6439ec),
++    OPENSSL_U64(0x90befffa23631e28), OPENSSL_U64(0xa4506cebde82bde9),
++    OPENSSL_U64(0xbef9a3f7b2c67915), OPENSSL_U64(0xc67178f2e372532b),
++    OPENSSL_U64(0xca273eceea26619c), OPENSSL_U64(0xd186b8c721c0c207),
++    OPENSSL_U64(0xeada7dd6cde0eb1e), OPENSSL_U64(0xf57d4f7fee6ed178),
++    OPENSSL_U64(0x06f067aa72176fba), OPENSSL_U64(0x0a637dc5a2c898a6),
++    OPENSSL_U64(0x113f9804bef90dae), OPENSSL_U64(0x1b710b35131c471b),
++    OPENSSL_U64(0x28db77f523047d84), OPENSSL_U64(0x32caab7b40c72493),
++    OPENSSL_U64(0x3c9ebe0a15c9bebc), OPENSSL_U64(0x431d67c49c100d4c),
++    OPENSSL_U64(0x4cc5d4becb3e42b6), OPENSSL_U64(0x597f299cfc657e2a),
++    OPENSSL_U64(0x5fcb6fab3ad6faec), OPENSSL_U64(0x6c44198c4a475817)};
+ 
+ #if defined(__GNUC__) && __GNUC__ >= 2 && !defined(OPENSSL_NO_ASM)
+ #if defined(__x86_64) || defined(__x86_64__)
+diff --git a/crypto/x509/x509_trs.c b/crypto/x509/x509_trs.c
+index 1a8ed49..290b2a8 100644
+--- a/crypto/x509/x509_trs.c
++++ b/crypto/x509/x509_trs.c
+@@ -227,8 +227,8 @@ static void trtable_free(X509_TRUST *p)
+ 
+ void X509_TRUST_cleanup(void)
+ {
+-	unsigned int i;
+-	for(i = 0; i < X509_TRUST_COUNT; i++) trtable_free(trstandard + i);
++	/* unsigned int i; */
++	/* for(i = 0; i < X509_TRUST_COUNT; i++) trtable_free(trstandard + i); */
+ 	sk_X509_TRUST_pop_free(trtable, trtable_free);
+ 	trtable = NULL;
+ }
+diff --git a/crypto/x509v3/v3_purp.c b/crypto/x509v3/v3_purp.c
+index e08bdf4..5deef9d 100644
+--- a/crypto/x509v3/v3_purp.c
++++ b/crypto/x509v3/v3_purp.c
+@@ -243,9 +243,9 @@ static void xptable_free(X509_PURPOSE *p)
+ 
+ void X509_PURPOSE_cleanup(void)
+ {
+-	unsigned int i;
++	/* unsigned int i; */
+ 	sk_X509_PURPOSE_pop_free(xptable, xptable_free);
+-	for(i = 0; i < X509_PURPOSE_COUNT; i++) xptable_free(xstandard + i);
++	/*for(i = 0; i < X509_PURPOSE_COUNT; i++) xptable_free(&xstandard[i]); */
+ 	xptable = NULL;
+ }
+ 
+diff --git a/include/openssl/base.h b/include/openssl/base.h
+index 52cb1e9..0ef853b 100644
+--- a/include/openssl/base.h
++++ b/include/openssl/base.h
+@@ -69,8 +69,12 @@ extern "C" {
+ 
+ 
+ #if defined(__x86_64) || defined(_M_AMD64) || defined(_M_X64)
+-#define OPENSSL_64_BIT
+ #define OPENSSL_X86_64
++#ifndef __LP64__
++#define OPENSSL_32_BIT
++#else
++#define OPENSSL_64_BIT
++#endif
+ #elif defined(__x86) || defined(__i386) || defined(__i386__) || defined(_M_IX86)
+ #define OPENSSL_32_BIT
+ #define OPENSSL_X86
+diff --git a/tool/CMakeLists.txt b/tool/CMakeLists.txt
+index e513c8b..9ab027b 100644
+--- a/tool/CMakeLists.txt
++++ b/tool/CMakeLists.txt
+@@ -11,7 +11,7 @@ add_executable(
+ 	tool.cc
+ )
+ 
+-if (APPLE)
++if (APPLE OR NACL)
+ 	target_link_libraries(bssl ssl crypto)
+ else()
+ 	target_link_libraries(bssl ssl crypto -lrt)
+diff --git a/util/all_tests.sh b/util/all_tests.sh
+index de6800f..7c58c66 100644
+--- a/util/all_tests.sh
++++ b/util/all_tests.sh
+@@ -15,40 +15,44 @@
+ # CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE. */
+ 
+ SRC=..
++EXE=
+ if [ "$#" -ge 1 ]; then
+   SRC=$1
+ fi
++if [ "$#" -ge 2 ]; then
++  EXE=$2
++fi
+ 
+ TESTS="
+-./crypto/base64/base64_test
+-./crypto/bio/bio_test
+-./crypto/bn/bn_test
+-./crypto/bytestring/bytestring_test
+-./crypto/cipher/aead_test aes-128-gcm $SRC/crypto/cipher/aes_128_gcm_tests.txt
+-./crypto/cipher/aead_test aes-128-key-wrap $SRC/crypto/cipher/aes_128_key_wrap_tests.txt
+-./crypto/cipher/aead_test aes-256-gcm $SRC/crypto/cipher/aes_256_gcm_tests.txt
+-./crypto/cipher/aead_test aes-256-key-wrap $SRC/crypto/cipher/aes_256_key_wrap_tests.txt
+-./crypto/cipher/aead_test chacha20-poly1305 $SRC/crypto/cipher/chacha20_poly1305_tests.txt
+-./crypto/cipher/aead_test rc4-md5 $SRC/crypto/cipher/rc4_md5_tests.txt
+-./crypto/cipher/cipher_test $SRC/crypto/cipher/cipher_test.txt
+-./crypto/dh/dh_test
+-./crypto/dsa/dsa_test
+-./crypto/ec/example_mul
+-./crypto/ecdsa/ecdsa_test
+-./crypto/err/err_test
+-./crypto/evp/example_sign
+-./crypto/hmac/hmac_test
+-./crypto/lhash/lhash_test
+-./crypto/md5/md5_test
+-./crypto/modes/gcm_test
+-./crypto/pkcs8/pkcs12_test
+-./crypto/rsa/rsa_test
+-./crypto/sha/sha1_test
+-./crypto/x509/pkcs7_test
+-./crypto/x509v3/tab_test
+-./crypto/x509v3/v3name_test
+-./ssl/pqueue/pqueue_test
+-./ssl/ssl_test
++./crypto/base64/base64_test$EXE
++./crypto/bio/bio_test$EXE
++./crypto/bn/bn_test$EXE
++./crypto/bytestring/bytestring_test$EXE
++./crypto/cipher/aead_test$EXE aes-128-gcm $SRC/crypto/cipher/aes_128_gcm_tests.txt
++./crypto/cipher/aead_test$EXE aes-128-key-wrap $SRC/crypto/cipher/aes_128_key_wrap_tests.txt
++./crypto/cipher/aead_test$EXE aes-256-gcm $SRC/crypto/cipher/aes_256_gcm_tests.txt
++./crypto/cipher/aead_test$EXE aes-256-key-wrap $SRC/crypto/cipher/aes_256_key_wrap_tests.txt
++./crypto/cipher/aead_test$EXE chacha20-poly1305 $SRC/crypto/cipher/chacha20_poly1305_tests.txt
++./crypto/cipher/aead_test$EXE rc4-md5 $SRC/crypto/cipher/rc4_md5_tests.txt
++./crypto/cipher/cipher_test$EXE $SRC/crypto/cipher/cipher_test.txt
++./crypto/dh/dh_test$EXE
++./crypto/dsa/dsa_test$EXE
++./crypto/ec/example_mul$EXE
++./crypto/ecdsa/ecdsa_test$EXE
++./crypto/err/err_test$EXE
++./crypto/evp/example_sign$EXE
++./crypto/hmac/hmac_test$EXE
++./crypto/lhash/lhash_test$EXE
++./crypto/md5/md5_test$EXE
++./crypto/modes/gcm_test$EXE
++./crypto/pkcs8/pkcs12_test$EXE
++./crypto/rsa/rsa_test$EXE
++./crypto/sha/sha1_test$EXE
++./crypto/x509/pkcs7_test$EXE
++./crypto/x509v3/tab_test$EXE
++./crypto/x509v3/v3name_test$EXE
++./ssl/pqueue/pqueue_test$EXE
++./ssl/ssl_test$EXE
+ "
+ 
+ IFS=$'\n'

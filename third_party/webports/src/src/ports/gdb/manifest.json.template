@@ -1,0 +1,51 @@
+{
+  "name": "Native Client GDB",
+  "short_name": "NaCl GDB",
+  "description": "GDB running using NativeClient",
+  "version": "7.7.0.%(version)s",
+  "manifest_version": 2,
+  "minimum_chrome_version": "28",
+  "icons": {
+    "16": "ladybug_16.png",
+    "48": "ladybug_48.png",
+    "128": "ladybug_128.png"
+  },
+  %(key)s
+  "app": {
+    "background": {
+      "scripts": ["background.js"],
+      "persistent": true
+    }
+  },
+  "externally_connectable": {
+    "ids": ["*"],
+    "matches": [
+      "*://nacltools.storage.googleapis.com/*",
+      "*://*.chrome.com/*",
+      "*://localhost/*",
+      "*://127.0.0.1/*",
+      "*://0.0.0.0/*"
+    ]
+  },
+  "permissions": [
+    "storage",
+    {"socket": [
+      "resolve-host",
+      "tcp-connect"
+    ]}
+  ],
+  "platforms": [
+    {
+      "nacl_arch": "arm",
+      "sub_package_path": "_platform_specific/arm/"
+    },
+    {
+      "nacl_arch": "x86-32",
+      "sub_package_path": "_platform_specific/i686/"
+    },
+    {
+      "nacl_arch": "x86-64",
+      "sub_package_path": "_platform_specific/x86_64/"
+    }
+  ]
+}

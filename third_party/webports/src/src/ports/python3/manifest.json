@@ -1,0 +1,45 @@
+{
+  "name": "Python3",
+  "description": "Python 3.4 interactive shell built with Native Client",
+  "version": "3.4.2.%(version)s",
+  "manifest_version": 2,
+  "minimum_chrome_version": "30",
+  "icons": {
+    "16": "icon_16.png",
+    "48": "icon_48.png",
+    "128": "icon_128.png"
+  },
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "platforms": [
+    {
+      "nacl_arch": "arm",
+      "sub_package_path": "_platform_specific/arm/"
+    },
+    {
+      "nacl_arch": "x86-32",
+      "sub_package_path": "_platform_specific/i686/"
+    },
+    {
+      "nacl_arch": "x86-64",
+      "sub_package_path": "_platform_specific/x86_64/"
+    }
+  ],
+  "permissions": [
+    "clipboardRead",
+    "clipboardWrite",
+    "storage",
+    "unlimitedStorage",
+    { "socket": [
+        "tcp-listen:*:*",
+        "tcp-connect",
+        "resolve-host",
+        "udp-bind:*:*",
+        "udp-send-to:*:*"
+      ]
+    }
+  ]
+}

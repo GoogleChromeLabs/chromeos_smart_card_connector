@@ -1,0 +1,6 @@
+NAME=renderproto
+VERSION=0.11.1
+URL=http://www.x.org/releases/X11R7.7/src/everything/renderproto-0.11.1.tar.bz2
+LICENSE=GPL
+SHA1=7ae9868a358859fe539482b02414aa15c2d8b1e4
+DISABLED_TOOLCHAIN=(emscripten)

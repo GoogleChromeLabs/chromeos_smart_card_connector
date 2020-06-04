@@ -1,0 +1,4 @@
+This port of wireshark builds a modified version of tshark without packet
+capture support.  However, it can still be useful for processing raw capture
+files. In this version, the -o option has been overwritten to allow writing
+the text output to an output file instead of the standard output.

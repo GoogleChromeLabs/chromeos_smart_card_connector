@@ -1,0 +1,22 @@
+#!/bin/bash
+# Copyright (c) 2014 The Native Client Authors. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+# Wrapper for system python that first set PYTHONUSERBASE so that
+# the python modules installed via pip (during glclient runhooks)
+# are accessible.
+
+SCRIPT_DIR=$(cd $(dirname "$BASH_SOURCE") && pwd)
+
+export PYTHONPATH="${PYTHONPATH}:${SCRIPT_DIR}:$(dirname ${SCRIPT_DIR})/lib"
+export PYTHONUSERBASE="$(dirname $SCRIPT_DIR)/out/pip"
+
+if [ ! -d "${PYTHONUSERBASE}" ]; then
+  echo "error: pip installation not found (${PYTHONUSERBASE})"
+  echo "Did you use gclient to fetch the naclports repo?"
+  echo "(See https://code.google.com/p/naclports/wiki/HowTo_Checkout)"
+  exit 1
+fi
+
+exec python $*

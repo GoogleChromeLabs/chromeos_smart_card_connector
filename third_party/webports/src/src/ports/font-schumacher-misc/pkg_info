@@ -1,0 +1,9 @@
+NAME=font-schumacher-misc
+VERSION=1.1.2
+URL=http://www.x.org/releases/X11R7.7/src/everything/font-schumacher-misc-1.1.2.tar.bz2
+LICENSE=GPL
+DEPENDS=(font-util)
+SHA1=fbe3629e9dcc03d12300d4ebab64fd038ea98952
+# Disabled on OSX due to lack of mkfontdir.
+BUILD_OS=linux
+DISABLED_TOOLCHAIN=(emscripten)

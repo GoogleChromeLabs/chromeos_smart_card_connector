@@ -1,0 +1,408 @@
+diff --git a/fixincludes/Makefile.in b/fixincludes/Makefile.in
+--- a/fixincludes/Makefile.in
++++ b/fixincludes/Makefile.in
+@@ -33,6 +33,13 @@ LDFLAGS = @LDFLAGS@
+ INCLUDES = -I. -I$(srcdir) -I../include -I$(srcdir)/../include
+ FIXINC_CFLAGS = -DHAVE_CONFIG_H $(INCLUDES)
+ 
++# When building for NaCl, link glibc-compat headers
++ifeq ($(NACL_LIBC),newlib)
++ifneq ($(CC),gcc)
++	EXTRA_LINK = -lglibc-compat
++endif
++endif
++
+ # Directory where sources are, from where we are.
+ srcdir = @srcdir@
+ VPATH = $(srcdir)
+@@ -106,8 +113,10 @@ gen : $(srcdir)/fixincl.x
+ oneprocess : full-stamp
+ twoprocess : test-stamp $(AF)
+ 
++FULLSTAMP_LIBS = $(FI) $(ALLOBJ) $(LIBIBERTY) $(EXTRA_LINK)
++
+ full-stamp : $(ALLOBJ) $(LIBIBERTY)
+-	$(CC) $(CFLAGS) $(LDFLAGS) -o $(FI) $(ALLOBJ) $(LIBIBERTY)
++	$(CC) $(CFLAGS) $(LDFLAGS) -o $(FULLSTAMP_LIBS)
+ 	$(STAMP) $@
+ 
+ test-stamp : $(TESTOBJ) $(LIBIBERTY)
+diff --git a/gcc/Makefile.in b/gcc/Makefile.in
+--- a/gcc/Makefile.in
++++ b/gcc/Makefile.in
+@@ -1005,7 +1005,7 @@ BUILD_LIBDEPS= $(BUILD_LIBIBERTY)
+ # How to link with both our special library facilities
+ # and the system's installed libraries.
+ LIBS = @LIBS@ libcommon.a $(CPPLIB) $(LIBINTL) $(LIBICONV) $(LIBBACKTRACE) \
+-	$(LIBIBERTY) $(LIBDECNUMBER) $(HOST_LIBS)
++	$(LIBIBERTY) $(LIBDECNUMBER) $(HOST_LIBS) $(EXTRA_LIBS)
+ BACKENDLIBS = $(ISLLIBS) $(GMPLIBS) $(PLUGINLIBS) $(HOST_LIBS) \
+ 	$(ZLIB)
+ # Any system libraries needed just for GNAT.
+@@ -1040,7 +1040,7 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
+ 	   $(CPPINC) $(GMPINC) $(DECNUMINC) $(BACKTRACEINC) \
+ 	   $(ISLINC)
+ 
+-COMPILE.base = $(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) -o $@
++COMPILE.base = $(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) $(EXTRA_INCLUDES) -o $@
+ ifeq ($(CXXDEPMODE),depmode=gcc3)
+ # Note a subtlety here: we use $(@D) for the directory part, to make
+ # things like the go/%.o rule work properly; but we use $(*F) for the
+diff --git a/gcc/collect2.c b/gcc/collect2.c
+--- a/gcc/collect2.c
++++ b/gcc/collect2.c
+@@ -50,6 +50,15 @@ along with GCC; see the file COPYING3.  If not see
+ #include "intl.h"
+ #include "version.h"
+ 
++
++#if defined(__native_client__) && defined(CROSS_DIRECTORY_STRUCTURE)
++/* ./configure of GCC thinks we should find i686-nacl-ld instead of
++   ld on i686 because --target is different from --host. As we always
++   use plain "ld", we undefine the macro which indicates we are
++   cross-compiling. */
++#undef CROSS_DIRECTORY_STRUCTURE
++#endif
++
+ /* On certain systems, we have code that works by scanning the object file
+    directly.  But this code uses system-specific header files and library
+    functions, so turn it off in a cross-compiler.  Likewise, the names of
+@@ -822,8 +831,13 @@ maybe_run_lto_and_relink (char **lto_ld_argv, char **object_lst,
+ 
+ /* Main program.  */
+ 
++#if defined(__native_client__)
++extern "C" int
++nacl_main (int argc, char **argv)
++#else
+ int
+ main (int argc, char **argv)
++#endif
+ {
+   enum linker_select
+     {
+diff --git a/gcc/config/i386/cpuid.h b/gcc/config/i386/cpuid.h
+--- a/gcc/config/i386/cpuid.h
++++ b/gcc/config/i386/cpuid.h
+@@ -176,6 +176,10 @@
+ static __inline unsigned int
+ __get_cpuid_max (unsigned int __ext, unsigned int *__sig)
+ {
++  /* NaCl verifier does not allow cpuid. */
++#if defined(__native_client__)
++  return 0;
++#else
+   unsigned int __eax, __ebx, __ecx, __edx;
+ 
+ #ifndef __x86_64__
+@@ -221,6 +225,7 @@ __get_cpuid_max (unsigned int __ext, unsigned int *__sig)
+     *__sig = __ebx;
+ 
+   return __eax;
++#endif
+ }
+ 
+ /* Return cpuid data for requested cpuid level, as found in returned
+diff --git a/gcc/configure b/gcc/configure
+--- a/gcc/configure
++++ b/gcc/configure
+@@ -10754,13 +10754,14 @@ rlim_t l = 0;
+   return 0;
+ }
+ _ACEOF
+-if ac_fn_c_try_compile "$LINENO"; then :
+-
+-else
+-
+-$as_echo "#define rlim_t long" >>confdefs.h
+-
+-fi
++# Messes up newlib.
++#if ac_fn_c_try_compile "$LINENO"; then :
++#
++#else
++#
++#$as_echo "#define rlim_t long" >>confdefs.h
++#
++#fi
+ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+ 
+ # On AIX 5.2, <ldfcn.h> conflicts with <fcntl.h>, as both define incompatible
+diff --git a/gcc/gcc-ar.c b/gcc/gcc-ar.c
+--- a/gcc/gcc-ar.c
++++ b/gcc/gcc-ar.c
+@@ -122,8 +122,13 @@ setup_prefixes (const char *exec_path)
+   prefix_from_env ("PATH", &path);
+ }
+ 
+-int 
++#if defined(__native_client__)
++extern "C" int
++nacl_main (int ac, char **av)
++#else
++int
+ main (int ac, char **av)
++#endif
+ {
+   const char *exe_name;
+   char *plugin;
+diff --git a/gcc/gcc-main.c b/gcc/gcc-main.c
+--- a/gcc/gcc-main.c
++++ b/gcc/gcc-main.c
+@@ -35,10 +35,17 @@ along with GCC; see the file COPYING3.  If not see
+ /* Implement the top-level "main" within the driver in terms of
+    driver::main (implemented in gcc.c).  */
+ 
+-extern int main (int, char **);
+-
+-int
+-main (int argc, char **argv)
++#if defined(__native_client__)
++extern "C" int nacl_main (int argc, char **argv);
++#else
++int main (int argc, char **argv);
++#endif
++
++#if defined(__native_client__)
++extern "C" int nacl_main (int argc, char **argv)
++#else
++int main (int argc, char **argv)
++#endif
+ {
+   driver d;
+ 
+diff --git a/gcc/gcov-dump.c b/gcc/gcov-dump.c
+--- a/gcc/gcov-dump.c
++++ b/gcc/gcov-dump.c
+@@ -40,7 +40,11 @@ static void tag_counters (const char *, unsigned, unsigned);
+ static void tag_summary (const char *, unsigned, unsigned);
+ static void dump_working_sets (const char *filename ATTRIBUTE_UNUSED,
+                                const struct gcov_ctr_summary *summary);
+-extern int main (int, char **);
++#if defined(__native_client__)
++extern "C" int nacl_main (int argc, char **argv);
++#else
++int main (int argc, char **argv);
++#endif
+ 
+ typedef struct tag_format
+ {
+@@ -77,8 +81,11 @@ static const tag_format_t tag_table[] =
+   {0, NULL, NULL}
+ };
+ 
+-int
+-main (int argc ATTRIBUTE_UNUSED, char **argv)
++#if defined(__native_client__)
++extern "C" int nacl_main (int argc ATTRIBUTE_UNUSED, char **argv)
++#else
++int main (int argc ATTRIBUTE_UNUSED, char **argv)
++#endif
+ {
+   int opt;
+   const char *p;
+diff --git a/gcc/gcov-tool.c b/gcc/gcov-tool.c
+--- a/gcc/gcov-tool.c
++++ b/gcc/gcov-tool.c
+@@ -570,8 +570,11 @@ process_args (int argc, char **argv)
+ 
+ /* Main function for gcov-tool.  */
+ 
+-int
+-main (int argc, char **argv)
++#if defined(__native_client__)
++extern "C" int nacl_main (int argc, char **argv)
++#else
++int main (int argc, char **argv)
++#endif
+ {
+   const char *p;
+   const char *sub_command;
+diff --git a/gcc/gcov.c b/gcc/gcov.c
+--- a/gcc/gcov.c
++++ b/gcc/gcov.c
+@@ -405,10 +405,18 @@ static char *make_gcov_file_name (const char *, const char *);
+ static char *mangle_name (const char *, char *);
+ static void release_structures (void);
+ static void release_function (function_t *);
+-extern int main (int, char **);
+ 
+-int
+-main (int argc, char **argv)
++#if defined(__native_client__)
++extern "C" int nacl_main (int argc, char **argv);
++#else
++int main (int argc, char **argv);
++#endif
++
++#if defined(__native_client__)
++extern "C" int nacl_main (int argc, char **argv)
++#else
++int main (int argc, char **argv)
++#endif
+ {
+   int argno;
+   int first_arg;
+diff --git a/gcc/gengtype.c b/gcc/gengtype.c
+--- a/gcc/gengtype.c
++++ b/gcc/gengtype.c
+@@ -5195,9 +5195,13 @@ htab_eq_inputfile (const void *x, const void *y)
+   return !filename_cmp (get_input_file_name (inpfx), get_input_file_name (inpfy));
+ }
+ 
+-
++#if defined(__native_client__)
++extern "C" int
++nacl_main (int argc, char **argv)
++#else
+ int
+ main (int argc, char **argv)
++#endif
+ {
+   size_t i;
+   static struct fileloc pos = { NULL, 0 };
+diff --git a/gcc/lto-wrapper.c b/gcc/lto-wrapper.c
+--- a/gcc/lto-wrapper.c
++++ b/gcc/lto-wrapper.c
+@@ -1332,8 +1332,11 @@ cont:
+ 
+ /* Entry point.  */
+ 
+-int
+-main (int argc, char *argv[])
++#if defined(__native_client__)
++extern "C" int nacl_main (int argc, char *argv[])
++#else
++int main (int argc, char *argv[])
++#endif
+ {
+   const char *p;
+ 
+diff --git a/gcc/main.c b/gcc/main.c
+--- a/gcc/main.c
++++ b/gcc/main.c
+@@ -24,14 +24,21 @@ along with GCC; see the file COPYING3.  If not see
+ #include "diagnostic-core.h"
+ #include "toplev.h"
+ 
++#if defined(__native_client__)
++extern "C" int nacl_main (int argc, char **argv);
++#else
+ int main (int argc, char **argv);
++#endif
+ 
+ /* We define main() to call toplev::main(), which is defined in toplev.c.
+    We do this in a separate file in order to allow the language front-end
+    to define a different main(), if it so desires.  */
+ 
+-int
+-main (int argc, char **argv)
++#if defined(__native_client__)
++extern "C" int nacl_main (int argc, char **argv)
++#else
++int main (int argc, char **argv)
++#endif
+ {
+   toplev toplev (true, /* use_TV_TOTAL */
+ 		 true /* init_signals */);
+diff --git a/libcpp/lex.c b/libcpp/lex.c
+--- a/libcpp/lex.c
++++ b/libcpp/lex.c
+@@ -1502,7 +1502,7 @@ lex_raw_string (cpp_reader *pfile, cpp_token *token, const uchar *base,
+   const uchar *orig_base;
+   unsigned int raw_prefix_len = 0, raw_suffix_len = 0;
+   enum raw_str_phase { RAW_STR_PREFIX, RAW_STR, RAW_STR_SUFFIX };
+-  raw_str_phase phase = RAW_STR_PREFIX;
++  enum raw_str_phase phase = RAW_STR_PREFIX;
+   enum cpp_ttype type;
+   size_t total_len = 0;
+   /* Index into temp_buffer during phases other than RAW_STR,
+diff --git a/libcpp/macro.c b/libcpp/macro.c
+--- a/libcpp/macro.c
++++ b/libcpp/macro.c
+@@ -453,7 +453,7 @@ builtin_macro (cpp_reader *pfile, cpp_hashnode *node, source_location loc)
+ 	 macro.  */
+       source_location *virt_locs = NULL;
+       _cpp_buff *token_buf = tokens_buff_new (pfile, 1, &virt_locs);
+-      const line_map * map =
++      const struct line_map * map =
+ 	linemap_enter_macro (pfile->line_table, node,
+ 					    token->src_loc, 1);
+       tokens_buff_add_token (token_buf, virt_locs, token,
+diff --git a/libiberty/pex-unix.c b/libiberty/pex-unix.c
+--- a/libiberty/pex-unix.c
++++ b/libiberty/pex-unix.c
+@@ -59,6 +59,18 @@ extern int errno;
+ #include <process.h>
+ #endif
+ 
++/*
++ * Declared inline rather than by including spawn.h because this portion
++ * of the build may build for x86-64 without nacl-spawn having been built for
++ * that architecture (ie when building for i686).
++ */
++#if defined(__native_client__)
++#define P_NOWAIT 1
++extern int spawnve(int mode, const char* path,
++                   char *const argv[], char *const envp[]);
++#endif
++
++
+ #ifdef vfork /* Autoconf may define this to fork for us. */
+ # define VFORK_STRING "fork"
+ #else
+@@ -392,7 +404,7 @@ pex_child_error (struct pex_obj *obj, const char *executable,
+ 
+ extern char **environ;
+ 
+-#if defined(HAVE_SPAWNVE) && defined(HAVE_SPAWNVPE)
++#if (defined(HAVE_SPAWNVE) && defined(HAVE_SPAWNVPE)) || defined(__native_client__)
+ /* Implementation of pex->exec_child using the Cygwin spawn operation.  */
+ 
+ /* Subroutine of pex_unix_exec_child.  Move OLD_FD to a new file descriptor
+@@ -496,6 +508,12 @@ pex_unix_exec_child (struct pex_obj *obj ATTRIBUTE_UNUSED,
+                      int in, int out, int errdes, int toclose,
+ 		     const char **errmsg, int *err)
+ {
++  /* Use spawnve to spawn a child process.
++     TODO(hamaji): Add support of pipes to nacl-spawn and handle
++     arguments for file descriptors to support -pipe option. */
++#if defined(__native_client__)
++  return spawnve(P_NOWAIT, argv[0], argv, NULL);
++#else
+   int fl_in = 0, fl_out = 0, fl_err = 0, fl_tc = 0;
+   int save_in = -1, save_out = -1, save_err = -1;
+   int max, retries;
+@@ -583,6 +601,7 @@ pex_unix_exec_child (struct pex_obj *obj ATTRIBUTE_UNUSED,
+   *err = errno;
+   *errmsg = "dup2";
+   return (pid_t) -1;
++#endif
+ }
+ 
+ #else
+@@ -731,6 +750,16 @@ pex_unix_wait (struct pex_obj *obj, pid_t pid, int *status,
+ 	       struct pex_time *time, int done, const char **errmsg,
+ 	       int *err)
+ {
++#if defined(__native_client__)
++  if (waitpid(pid, status, 0) < 0)
++    {
++      *err = errno;
++      *errmsg = "wait";
++      return -1;
++    }
++  return 0;
++#else
++
+   /* If we are cleaning up when the caller didn't retrieve process
+      status for some reason, encourage the process to go away.  */
+   if (done)
+@@ -744,6 +773,7 @@ pex_unix_wait (struct pex_obj *obj, pid_t pid, int *status,
+     }
+ 
+   return 0;
++#endif
+ }
+ 
+ /* Create a pipe.  */

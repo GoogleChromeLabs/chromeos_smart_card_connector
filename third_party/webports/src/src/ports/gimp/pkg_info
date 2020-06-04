@@ -1,0 +1,8 @@
+NAME=gimp
+VERSION=2.8.14
+URL=http://download.gimp.org/pub/gimp/v2.8/gimp-2.8.14.tar.bz2
+LICENSE=GPL
+DEPENDS=(gtk+ gegl)
+SHA1=380a8e2887e1a161056444921807e338c3d31653
+DISABLED_TOOLCHAIN=(emscripten)
+DISABLED_LIBC=(bionic)

@@ -1,0 +1,9 @@
+NAME=font-misc-cyrillic
+VERSION=1.0.3
+URL=http://www.x.org/releases/X11R7.7/src/everything/font-misc-cyrillic-1.0.3.tar.bz2
+LICENSE=GPL
+DEPENDS=(font-util)
+SHA1=9c0e283ae59e7b05c0798fe0645cc822d22dcb0c
+# Disabled on OSX due to lack of mkfontdir.
+BUILD_OS=linux
+DISABLED_TOOLCHAIN=(emscripten)

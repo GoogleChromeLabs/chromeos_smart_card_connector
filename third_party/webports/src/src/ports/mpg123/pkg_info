@@ -1,0 +1,7 @@
+NAME=mpg123
+VERSION=1.20.0
+URL=http://www.mpg123.de/download/mpg123-1.20.0.tar.bz2
+LICENSE=LGPL:COPYING
+DEPENDS=(openal-soft)
+SHA1=f8060769e60c88fa2debf6c998773880e57b31a6
+DISABLED_TOOLCHAIN=(emscripten)

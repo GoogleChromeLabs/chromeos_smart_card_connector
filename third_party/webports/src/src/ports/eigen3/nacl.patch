@@ -1,0 +1,14 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -161,7 +161,9 @@ if(NOT MSVC)
+   if(COMPILER_SUPPORT_STRICTANSI)
+     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -strict-ansi")
+   else()
+-    ei_add_cxx_compiler_flag("-ansi")
++    if(NOT NACL)
++      ei_add_cxx_compiler_flag("-ansi")
++    endif()
+   endif()
+   
+   set(CMAKE_REQUIRED_FLAGS "")

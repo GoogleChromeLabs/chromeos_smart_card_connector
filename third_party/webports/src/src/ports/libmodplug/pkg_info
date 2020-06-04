@@ -1,0 +1,9 @@
+NAME=libmodplug
+VERSION=0.8.7
+URL=http://download.sf.net/modplug-xmms/libmodplug/0.8.7/libmodplug-0.8.7.tar.gz
+LICENSE=CUSTOM:COPYING
+SHA1=52cb47ef9291b0286430c5de02ef33731d359f2e
+DEPENDS=(glibc-compat)
+# configure tests fail to link (so setenv is not detected correctly)
+DISABLED_LIBC=(bionic)
+DISABLED_TOOLCHAIN=(emscripten)

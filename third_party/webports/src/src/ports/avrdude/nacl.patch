@@ -1,0 +1,275 @@
+diff --git a/Makefile.in b/Makefile.in
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -708,7 +708,7 @@ clean-binPROGRAMS:
+ 
+ avrdude$(EXEEXT): $(avrdude_OBJECTS) $(avrdude_DEPENDENCIES) $(EXTRA_avrdude_DEPENDENCIES) 
+ 	@rm -f avrdude$(EXEEXT)
+-	$(AM_V_CCLD)$(avrdude_LINK) $(avrdude_OBJECTS) $(avrdude_LDADD) $(LIBS)
++	$(AM_V_CCLD)$(avrdude_LINK) $(avrdude_OBJECTS) $(EXTRA_LIBS) $(avrdude_LDADD) $(LIBS)
+ 
+ mostlyclean-compile:
+ 	-rm -f *.$(OBJEXT)
+diff --git a/dfu.c b/dfu.c
+--- a/dfu.c
++++ b/dfu.c
+@@ -36,13 +36,13 @@
+ 
+ #ifndef HAVE_LIBUSB
+ 
+-int dfu_open(struct dfu_dev *dfu, char *port_name) {
++struct dfu_dev *dfu_open(char *port_name) {
+   fprintf(stderr, "%s: Error: No USB support in this compile of avrdude\n",
+     progname);
+-  return -1;
++  return 0;
+ }
+ 
+-int dfu_init(struct dfu_dev *dfu, unsigned short usb_pid) {
++int dfu_init(struct dfu_dev *dfu, unsigned short vid, unsigned short usb_pid) {
+   return -1;
+ }
+ 
+diff --git a/flip1.c b/flip1.c
+--- a/flip1.c
++++ b/flip1.c
+@@ -260,7 +260,7 @@ int flip1_initialize(PROGRAMMER* pgm, AVRPART *part)
+     goto flip1_initialize_fail;
+ 
+   /* Check if descriptor values are what we expect. */
+-
++#if HAVE_USB
+   if (dfu->dev_desc.idVendor != vid)
+     fprintf( stderr, "%s: Warning: USB idVendor = 0x%04X (expected 0x%04X)\n",
+       progname, dfu->dev_desc.idVendor, vid);
+@@ -318,6 +318,7 @@ int flip1_initialize(PROGRAMMER* pgm, AVRPART *part)
+ 
+   dfu_abort(dfu);
+ 
++#endif
+   return 0;
+ 
+ flip1_initialize_fail:
+@@ -361,6 +362,7 @@ int flip1_program_enable(PROGRAMMER* pgm, AVRPART *part)
+ 
+ int flip1_chip_erase(PROGRAMMER* pgm, AVRPART *part)
+ {
++#if HAVE_USB
+   struct dfu_status status;
+   int cmd_result = 0;
+   int aux_result;
+@@ -388,6 +390,7 @@ int flip1_chip_erase(PROGRAMMER* pgm, AVRPART *part)
+       dfu_clrstatus(FLIP1(pgm)->dfu);
+     return -1;
+   }
++#endif
+ 
+   return 0;
+ }
+@@ -509,6 +512,7 @@ int flip1_paged_write(PROGRAMMER* pgm, AVRPART *part, AVRMEM *mem,
+ 
+ int flip1_read_sig_bytes(PROGRAMMER* pgm, AVRPART *part, AVRMEM *mem)
+ {
++#if HAVE_USB
+   if (verbose > 1)
+     fprintf(stderr, "%s: flip1_read_sig_bytes(): ", progname);
+ 
+@@ -583,6 +587,7 @@ int flip1_read_sig_bytes(PROGRAMMER* pgm, AVRPART *part, AVRMEM *mem)
+ 
+   memcpy(mem->buf, FLIP1(pgm)->part_sig, sizeof(FLIP1(pgm)->part_sig));
+ 
++#endif
+   return 0;
+ }
+ 
+@@ -608,14 +613,17 @@ void flip1_teardown(PROGRAMMER * pgm)
+ 
+ void flip1_show_info(struct flip1 *flip1)
+ {
++#if HAVE_USB
+   dfu_show_info(flip1->dfu);
+   fprintf(stderr, "    USB max packet size : %hu\n",
+     (unsigned short) flip1->dfu->dev_desc.bMaxPacketSize0);
++#endif
+ }
+ 
+ int flip1_read_memory(PROGRAMMER * pgm,
+   enum flip1_mem_unit mem_unit, uint32_t addr, void *ptr, int size)
+ {
++#if HAVE_USB
+   struct dfu_dev *dfu = FLIP1(pgm)->dfu;
+   unsigned short page_addr;
+   struct dfu_status status;
+@@ -696,6 +704,7 @@ int flip1_read_memory(PROGRAMMER * pgm,
+       dfu_clrstatus(dfu);
+     return -1;
+   }
++#endif
+ 
+   return 0;
+ }
+@@ -703,6 +712,7 @@ int flip1_read_memory(PROGRAMMER * pgm,
+ int flip1_write_memory(struct dfu_dev *dfu,
+   enum flip1_mem_unit mem_unit, uint32_t addr, const void *ptr, int size)
+ {
++#if HAVE_USB
+   unsigned short page_addr;
+   int write_size;
+   struct dfu_status status;
+@@ -800,6 +810,7 @@ int flip1_write_memory(struct dfu_dev *dfu,
+       dfu_clrstatus(dfu);
+     return -1;
+   }
++#endif
+ 
+   return 0;
+ }
+@@ -807,6 +818,7 @@ int flip1_write_memory(struct dfu_dev *dfu,
+ int flip1_set_mem_page(struct dfu_dev *dfu,
+   unsigned short page_addr)
+ {
++#if HAVE_USB
+   struct dfu_status status;
+   int cmd_result = 0;
+   int aux_result;
+@@ -831,6 +843,7 @@ int flip1_set_mem_page(struct dfu_dev *dfu,
+     return -1;
+   }
+ 
++#endif
+   return 0;
+ }
+ 
+diff --git a/flip2.c b/flip2.c
+--- a/flip2.c
++++ b/flip2.c
+@@ -255,6 +255,7 @@ int flip2_initialize(PROGRAMMER* pgm, AVRPART *part)
+     goto flip2_initialize_fail;
+ 
+   /* Check if descriptor values are what we expect. */
++#if HAVE_USB
+ 
+   if (dfu->dev_desc.idVendor != vid)
+     fprintf( stderr, "%s: Warning: USB idVendor = 0x%04X (expected 0x%04X)\n",
+@@ -311,6 +312,8 @@ int flip2_initialize(PROGRAMMER* pgm, AVRPART *part)
+   if (verbose)
+     flip2_show_info(FLIP2(pgm));
+ 
++#endif
++
+   return 0;
+ 
+ flip2_initialize_fail:
+@@ -357,6 +360,7 @@ int flip2_chip_erase(PROGRAMMER* pgm, AVRPART *part)
+   struct dfu_status status;
+   int cmd_result = 0;
+   int aux_result;
++#if HAVE_USB
+ 
+   if (verbose > 1)
+     fprintf(stderr, "%s: flip_chip_erase()\n", progname);
+@@ -384,6 +388,7 @@ int flip2_chip_erase(PROGRAMMER* pgm, AVRPART *part)
+     } else
+       break;
+   }
++#endif
+ 
+   return cmd_result;
+ }
+@@ -539,6 +544,7 @@ void flip2_teardown(PROGRAMMER * pgm)
+ 
+ void flip2_show_info(struct flip2 *flip2)
+ {
++#if HAVE_USB
+   dfu_show_info(flip2->dfu);
+ 
+   fprintf(stderr, "    Part signature      : 0x%02X%02X%02X\n",
+@@ -560,6 +566,7 @@ void flip2_show_info(struct flip2 *flip2)
+ 
+   fprintf(stderr, "    USB max packet size : %hu\n",
+     (unsigned short) flip2->dfu->dev_desc.bMaxPacketSize0);
++#endif
+ }
+ 
+ int flip2_read_memory(struct dfu_dev *dfu,
+@@ -697,6 +704,7 @@ int flip2_set_mem_unit(struct dfu_dev *dfu, enum flip2_mem_unit mem_unit)
+   struct dfu_status status;
+   int cmd_result = 0;
+   int aux_result;
++#if HAVE_USB
+ 
+   struct flip2_cmd cmd = {
+     FLIP2_CMD_GROUP_SELECT, FLIP2_CMD_SELECT_MEMORY, { 0, 0, 0, 0 }
+@@ -723,6 +731,7 @@ int flip2_set_mem_unit(struct dfu_dev *dfu, enum flip2_mem_unit mem_unit)
+         flip2_status_str(&status));
+     dfu_clrstatus(dfu);
+   }
++#endif
+ 
+   return cmd_result;
+ }
+@@ -733,7 +742,7 @@ int flip2_set_mem_page(struct dfu_dev *dfu,
+   struct dfu_status status;
+   int cmd_result = 0;
+   int aux_result;
+-
++#if HAVE_USB
+   struct flip2_cmd cmd = {
+     FLIP2_CMD_GROUP_SELECT, FLIP2_CMD_SELECT_MEMORY, { 0, 0, 0, 0 }
+   };
+@@ -761,6 +770,8 @@ int flip2_set_mem_page(struct dfu_dev *dfu,
+     dfu_clrstatus(dfu);
+   }
+ 
++#endif
++
+   return cmd_result;
+ }
+ 
+@@ -770,6 +781,7 @@ int flip2_read_max1k(struct dfu_dev *dfu,
+   struct dfu_status status;
+   int cmd_result = 0;
+   int aux_result;
++#if HAVE_USB
+ 
+   struct flip2_cmd cmd = {
+     FLIP2_CMD_GROUP_UPLOAD, FLIP2_CMD_READ_MEMORY, { 0, 0, 0, 0 }
+@@ -805,6 +817,7 @@ flip2_read_max1k_status:
+         flip2_status_str(&status));
+     dfu_clrstatus(dfu);
+   }
++#endif
+ 
+   return cmd_result;
+ }
+@@ -817,6 +830,7 @@ int flip2_write_max1k(struct dfu_dev *dfu,
+   struct dfu_status status;
+   int cmd_result = 0;
+   int aux_result;
++#if HAVE_USB
+ 
+   struct flip2_cmd cmd = {
+     FLIP2_CMD_GROUP_DOWNLOAD, FLIP2_CMD_PROG_START, { 0, 0, 0, 0 }
+@@ -866,6 +880,7 @@ int flip2_write_max1k(struct dfu_dev *dfu,
+         flip2_status_str(&status));
+     dfu_clrstatus(dfu);
+   }
++#endif
+ 
+   return cmd_result;
+ }
+diff --git a/main.c b/main.c
+--- a/main.c
++++ b/main.c
+@@ -297,7 +297,11 @@ static void cleanup_main(void)
+ /*
+  * main routine
+  */
++#if defined(__native_client__)
++int nacl_main(int argc, char **argv)
++#else
+ int main(int argc, char * argv [])
++#endif
+ {
+   int              rc;          /* general return code checking */
+   int              exitrc;      /* exit code for main() */

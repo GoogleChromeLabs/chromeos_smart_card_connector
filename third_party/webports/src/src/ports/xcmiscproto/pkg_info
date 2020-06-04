@@ -1,0 +1,6 @@
+NAME=xcmiscproto
+VERSION=1.2.2
+URL=http://www.x.org/releases/X11R7.7/src/everything/xcmiscproto-1.2.2.tar.bz2
+LICENSE=GPL
+SHA1=59ae9ec6414964440bf654b207618e5dd66a32fb
+DISABLED_TOOLCHAIN=(emscripten)

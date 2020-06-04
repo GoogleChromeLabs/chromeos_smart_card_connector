@@ -1,0 +1,66 @@
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -34537,7 +34537,6 @@ $as_echo "$gl_cv_cc_uninitialized_supported" >&6; }
+     -Wswitch \
+     -Wswitch-default \
+     -Wsync-nand \
+-    -Wsystem-headers \
+     -Wtrampolines \
+     -Wtrigraphs \
+     -Wtype-limits \
+diff --git a/src/Makefile.in b/src/Makefile.in
+--- a/src/Makefile.in
++++ b/src/Makefile.in
+@@ -873,7 +873,7 @@ LIBGNU_LTLIBDEPS = @LIBGNU_LTLIBDEPS@
+ LIBICONV = @LIBICONV@
+ LIBINTL = @LIBINTL@
+ LIBOBJS = @LIBOBJS@
+-LIBS = @LIBS@
++LIBS = @LIBS@ $(EXTRA_LIBS)
+ LIBUNISTRING_UNITYPES_H = @LIBUNISTRING_UNITYPES_H@
+ LIBUNISTRING_UNIWIDTH_H = @LIBUNISTRING_UNIWIDTH_H@
+ LIB_ACL = @LIB_ACL@
+diff --git a/src/extract.c b/src/extract.c
+--- a/src/extract.c
++++ b/src/extract.c
+@@ -357,6 +357,10 @@ set_stat (char const *file_name,
+ 	  check_time (file_name, ts[1]);
+ 	}
+       else if (typeflag != SYMTYPE || implemented (errno))
++        /* TODO(bradnelson): Remove this when all mounts handle utime. */
++#if defined(__native_client__)
++	if (errno != ENOSYS && errno != EINVAL)
++#endif
+ 	utime_error (file_name);
+     }
+ 
+diff --git a/src/tar.c b/src/tar.c
+--- a/src/tar.c
++++ b/src/tar.c
+@@ -42,6 +42,7 @@
+ #include <closeout.h>
+ #include <configmake.h>
+ #include <exitfail.h>
++#include <locale.h>
+ #include <parse-datetime.h>
+ #include <rmt.h>
+ #include <rmt-command.h>
+@@ -1348,7 +1349,7 @@ static char const *const sort_mode_arg[] = {
+ static int sort_mode_flag[] = {
+     SAVEDIR_SORT_NONE,
+     SAVEDIR_SORT_NAME,
+-    SAVEDIR_SORT_INODE
++    SAVEDIR_SORT_FASTREAD
+ };
+ 
+ ARGMATCH_VERIFY (sort_mode_arg, sort_mode_flag);
+@@ -2716,7 +2717,7 @@ more_options (int argc, char **argv)
+ 
+ /* Main routine for tar.  */
+ int
+-main (int argc, char **argv)
++nacl_main (int argc, char **argv)
+ {
+   set_start_time ();
+   set_program_name (argv[0]);

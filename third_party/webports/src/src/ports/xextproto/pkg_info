@@ -1,0 +1,6 @@
+NAME=xextproto
+VERSION=7.2.1
+URL=http://www.x.org/releases/X11R7.7/src/everything/xextproto-7.2.1.tar.bz2
+LICENSE=GPL
+SHA1=f969e02009adf2d51fd1ba4583a859984728a461
+DISABLED_TOOLCHAIN=(emscripten)

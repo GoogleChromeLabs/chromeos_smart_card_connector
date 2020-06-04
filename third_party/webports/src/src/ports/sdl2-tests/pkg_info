@@ -1,0 +1,10 @@
+NAME=sdl2-tests
+VERSION=2.0.3
+URL=https://github.com/sbc100/SDL-mirror.git@b406d6b
+LICENSE=ZLIB
+DEPENDS=(sdl2)
+# bionic build fails with undefined symbol:
+# https://code.google.com/p/nativeclient/issues/detail?id=3938
+DISABLED_LIBC=(bionic)
+SHA1=e40051311b648e4e60ed1683f62a948d93a0a49f
+DISABLED_TOOLCHAIN=(emscripten)

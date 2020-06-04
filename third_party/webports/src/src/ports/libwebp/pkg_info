@@ -1,0 +1,7 @@
+NAME=libwebp
+VERSION=0.4.2
+URL=http://downloads.webmproject.org/releases/webp/libwebp-0.4.2.tar.gz
+LICENSE=BSD
+DEPENDS=(tiff jpeg8d libpng)
+SHA1=49bb46fcb27aa01c7417064828560a57e3c7ff47
+DISABLED_TOOLCHAIN=(emscripten)

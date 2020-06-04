@@ -1,0 +1,10 @@
+leveldb port to Native Client
+=============================
+
+This port pulls code directly from git since leveldb stopped
+publishing tarball releases on code.google.com with 1.15.0.
+
+While code.google.com does support automatic archives using
+URLs like 'https://leveldb.googlecode.com/archive/e353fbc.tar.gz'
+it seems that these do not have consistent hashes and so we
+can't use them in naclports.

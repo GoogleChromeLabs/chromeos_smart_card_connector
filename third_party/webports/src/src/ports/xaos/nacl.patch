@@ -1,0 +1,129 @@
+diff --git a/configure.in b/configure.in
+--- a/configure.in
++++ b/configure.in
+@@ -42,6 +42,7 @@ x11_linked=no
+ x_driver_test=yes
+ gtk_driver_test=no
+ aa_driver_test=no
++nacl_driver_test=yes
+ win32_driver_test=yes
+ long_double=yes
+ pthread=no
+@@ -231,6 +232,10 @@ AC_DEFUN([AC_AALIB], [
+ ])
+ 
+ 
++if test  "$nacl_driver_test" = yes; then
++  nacl_driver=true
++fi
++
+ if test "$aa_driver_test" = yes; then
+     OLDLIBS="$LIBS"
+     OLDCFLAGS="$CFLAGS"
+@@ -372,6 +377,16 @@ if test "x$aa_driver" = xtrue; then
+ fi
+ fi
+ 
++if test "$nacl_driver_test" = yes; then
++if test "x$nacl_driver" = xtrue; then
++  drivers=yes
++  AC_DEFINE(NACL_DRIVER)
++  DRIVERDIRS="$DRIVERDIRS ui/ui-drv/nacl"
++  DRIVERLIBS="$DRIVERLIBS lib/libuinacl.a"
++  echo "   nacl-lib"
++fi
++fi
++
+ if test "$gtk_driver_test" = yes; then
+ if test "x$gtk_driver" = xtrue; then
+   drivers=yes
+@@ -490,6 +505,7 @@ AC_CONFIG_FILES([src/i18n/Makefile.in
+     Makefile src/Makefile src/i18n/Makefile src/engine/Makefile 
+     src/util/Makefile src/ui/Makefile src/filter/Makefile src/ui-hlp/Makefile
+     src/ui/ui-drv/aa/Makefile
++    src/ui/ui-drv/nacl/Makefile
+     src/ui/ui-drv/x11/Makefile src/ui/ui-drv/win32/Makefile
+     doc/Makefile help/Makefile src/ui/ui-drv/gtk/Makefile src/sffe/Makefile
+   ])
+diff --git a/src/include/config/config.autoconf b/src/include/config/config.autoconf
+--- a/src/include/config/config.autoconf
++++ b/src/include/config/config.autoconf
+@@ -2,6 +2,14 @@
+ #define CONFIG_H
+ #define HOMEDIR
+ 
++#ifdef __native_client__
++#define HAVE_GETTIMEOFDAY 1
++#define HAVE_UNISTD_H 1
++#define HAVE_UNISTD_H 1
++#define MAIN_FUNCTION original_main
++#define NOASSEMBLY
++#endif
++
+ #ifdef __BEOS__
+ #define MAIN_FUNCTION be_main
+ #ifdef __POWERPC__
+diff --git a/src/include/ui.h b/src/include/ui.h
+--- a/src/include/ui.h
++++ b/src/include/ui.h
+@@ -116,7 +116,7 @@ extern "C" {
+ 	CONST struct gui_driver *gui_driver;
+     };
+ 
+-    struct uih_context *globaluih;
++    extern struct uih_context *globaluih;
+ 
+ #ifdef USE_LOCALEPATH
+     extern char *localepath;
+diff --git a/src/ui/drivers.c b/src/ui/drivers.c
+--- a/src/ui/drivers.c
++++ b/src/ui/drivers.c
+@@ -27,6 +27,7 @@ extern CONST struct ui_driver svga_driver, x11_driver, dog_driver,
+     osx_fullscreen_driver, os2vio_driver, cocoa_driver,
+     cocoa_fullscreen_driver, be_driver, be_direct_driver, be_screen_driver,
+     aalib_driver, gtk_driver, ggi_driver, win32_driver, dxw_driver,
++    nacl_driver,
+     dxf_driver, DGA_driver;
+ CONST struct ui_driver *CONST drivers[] = {
+ #ifdef WIN32_DRIVER
+@@ -36,6 +37,9 @@ CONST struct ui_driver *CONST drivers[] = {
+     &dxw_driver,
+     &dxf_driver,
+ #endif
++// #ifdef NACL_DRIVER
++  &nacl_driver,
++//#endif
+ #ifdef SVGA_DRIVER
+     &svga_driver,
+ #endif
+diff --git a/src/ui/ui.c b/src/ui/ui.c
+--- a/src/ui/ui.c
++++ b/src/ui/ui.c
+@@ -146,6 +146,8 @@ char *sffeform = NULL;
+ char *sffeinit = NULL;
+ #endif
+ 
++struct uih_context *globaluih;
++
+ CONST struct params global_params[] = {
+     {"-delay", P_NUMBER, &delaytime,
+      "Delay screen updates (milliseconds)"},
+diff --git a/src/util/timers.c b/src/util/timers.c
+--- a/src/util/timers.c
++++ b/src/util/timers.c
+@@ -218,6 +218,7 @@ static int plan9_msec(void)
+ #ifndef HAVE_FTIME
+ #ifndef _plan9_
+ #ifndef _MAC
++#ifndef __native_client__
+ #error I am unable to get time in milisecond. Please edit timers.c and make tl_update_time and tl_lookup_timer to work for your architecture and send me then back(to hubicka@paru.cas.cz). You will need also define timers.h and change type of lasttime.
+ #endif
+ #endif
+@@ -225,6 +226,7 @@ static int plan9_msec(void)
+ #endif
+ #endif
+ #endif
++#endif
+ 
+ 
+ #ifdef USE_ALLEGRO

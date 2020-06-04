@@ -1,0 +1,6 @@
+NAME=inputproto
+VERSION=2.2
+URL=http://www.x.org/releases/X11R7.7/src/everything/inputproto-2.2.tar.bz2
+LICENSE=GPL
+SHA1=500e0a6dac3523887c0b82753fe5e9d4bb982137
+DISABLED_TOOLCHAIN=(emscripten)

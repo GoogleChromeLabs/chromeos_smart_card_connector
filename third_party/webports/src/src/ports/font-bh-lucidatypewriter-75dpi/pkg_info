@@ -1,0 +1,9 @@
+NAME=font-bh-lucidatypewriter-75dpi
+VERSION=1.0.3
+URL=http://www.x.org/releases/X11R7.7/src/everything/font-bh-lucidatypewriter-75dpi-1.0.3.tar.bz2
+LICENSE=GPL
+DEPENDS=(font-util)
+SHA1=3c6678e6bbb2bd352baaf610a8f6aac9c5140c85
+# Disabled on OSX due to lack of mkfontdir.
+BUILD_OS=linux
+DISABLED_TOOLCHAIN=(emscripten)

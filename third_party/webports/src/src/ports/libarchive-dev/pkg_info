@@ -1,0 +1,8 @@
+NAME=libarchive-dev
+VERSION=0.1  # Custom version.
+URL=https://github.com/libarchive/libarchive.git@d094dc
+LICENSE=BSD
+DEPENDS=(zlib openssl bzip2 xz)
+DISABLED_LIBC=(bionic)
+CONFLICTS=(libarchive)
+DISABLED_TOOLCHAIN=(emscripten)

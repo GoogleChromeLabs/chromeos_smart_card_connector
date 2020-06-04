@@ -1,0 +1,12 @@
+diff --git a/src/iceauth.c b/src/iceauth.c
+--- a/src/iceauth.c
++++ b/src/iceauth.c
+@@ -67,7 +67,7 @@ IceGenerateMagicCookie (
+     }
+ #else
+     {
+-#ifndef __UNIXOS2__
++#if !defined(__UNIXOS2__) && (!defined(__native_client__) || !defined(_NEWLIB_VERSION))
+ 	long    time ();
+ #endif
+ 	ldata[0] = time ((long *) 0);

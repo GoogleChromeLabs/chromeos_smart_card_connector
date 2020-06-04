@@ -1,0 +1,4 @@
+NAME=libgit2-demo
+VERSION=0.1
+DISABLED_TOOLCHAIN=(emscripten)
+DEPENDS=(libgit2 nacl-spawn)

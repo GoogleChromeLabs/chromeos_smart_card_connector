@@ -1,0 +1,7 @@
+NAME=devil
+VERSION=1.7.8
+URL=http://downloads.sf.net/openil/DevIL-1.7.8.tar.gz
+LICENSE=LGPL:COPYING
+DEPENDS=(libpng jpeg8d libmng tiff lcms)
+SHA1=bc27e3e830ba666a3af03548789700d10561fcb1
+DISABLED_TOOLCHAIN=(emscripten)

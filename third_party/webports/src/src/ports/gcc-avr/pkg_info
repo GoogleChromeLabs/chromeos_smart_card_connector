@@ -1,0 +1,15 @@
+NAME=gcc-avr
+VERSION=5.1.0
+URL=http://ftp.gnu.org/gnu/gcc/gcc-5.1.0/gcc-5.1.0.tar.bz2
+ARCHIVE_ROOT=gcc-5.1.0
+LICENSE=GPL
+DEPENDS=(glibc-compat nacl-spawn gmp mpfr mpc binutils-2.25)
+BUILD_OS=linux
+SHA1=b6c947b09adf780fe02065d0c48bfd7b4bdddfa3
+# clang builds currently disabled due to some inconsistencies in the
+# way clang++ compiles the *.c files that include headers with c++ content
+# TODO(gdeepti): Enable gcc-avr for pnacl, newlib-clang
+# ICE in glibc/arm toolchain:
+# https://code.google.com/p/nativeclient/issues/detail?id=3205
+DISABLED_TOOLCHAIN=(bionic clang-newlib emscripten pnacl glibc/arm)
+DISABLED_ARCH=(arm)

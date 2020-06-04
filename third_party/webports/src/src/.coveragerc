@@ -1,0 +1,6 @@
+[run]
+omit = *_test.py,*/tests/*.py,out/*
+data_file = out/coverage
+
+[html]
+directory = out/coverage_html

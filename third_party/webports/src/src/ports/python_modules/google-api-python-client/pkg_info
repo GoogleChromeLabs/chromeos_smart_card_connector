@@ -1,0 +1,8 @@
+NAME=google-api-python-client
+VERSION=1.2
+URL=https://pypi.python.org/packages/source/g/google-api-python-client/google-api-python-client-1.2.tar.gz
+LICENSE=Apache
+DEPENDS=(python-host httplib2 openssl setuptools)
+DISABLED_LIBC=(bionic)
+SHA1=31ddb6e125b0683d29493c9f486d48a4f63c913b
+DISABLED_TOOLCHAIN=(emscripten)

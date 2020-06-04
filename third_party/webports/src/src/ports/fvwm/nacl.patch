@@ -1,0 +1,261 @@
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -6492,7 +6492,7 @@ int i; static j; int *p; char *c;
+   switch (*p = p = *c) { case 0: printf("%Q", c, p); }
+   *c = &i; c = p;
+   while (1 || (unsigned int)3 >= 0 || ((int)-1) == ((unsigned int)1));
+-  return;
++  return 0;
+   ;
+   return 0;
+ }
+@@ -12610,10 +12610,10 @@ done
+ $as_echo_n "checking if mkstemp is safe... " >&6; }
+   if test x$ac_cv_func_mkstemp != xno; then
+     if test "$cross_compiling" = yes; then :
+-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+-as_fn_error $? "cannot run test program while cross compiling
+-See \`config.log' for more details" "$LINENO" 5; }
++#  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
++#$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
++#as_fn_error $? "cannot run test program while cross compiling
++#See \`config.log' for more details" "$LINENO" 5; }
+ else
+   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+@@ -13461,10 +13461,10 @@ CPPFLAGS="$CPPFLAGS $X_CFLAGS"
+ 
+ 
+ if test "$cross_compiling" = yes; then :
+-  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+-$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+-as_fn_error $? "cannot run test program while cross compiling
+-See \`config.log' for more details" "$LINENO" 5; }
++#  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
++#$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
++#as_fn_error $? "cannot run test program while cross compiling
++#See \`config.log' for more details" "$LINENO" 5; }
+ else
+   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+ /* end confdefs.h.  */
+diff --git a/fvwm/fvwm.h b/fvwm/fvwm.h
+--- a/fvwm/fvwm.h
++++ b/fvwm/fvwm.h
+@@ -201,7 +201,21 @@ typedef struct
+ 	unsigned has_no_border : 1;
+ 	unsigned has_window_font : 1;
+ 	unsigned title_dir : 2;
++
++#if defined(__pnacl__)
++        // PNaCl can't handle bit fields that are >64 bits, break it up.
++        // https://code.google.com/p/nativeclient/issues/detail?id=3714
++        char pad1;
++#endif
++
+ 	unsigned user_states : 32;
++
++#if defined(__pnacl__)
++        // PNaCl can't handle bit fields that are >64 bits, break it up.
++        // https://code.google.com/p/nativeclient/issues/detail?id=3714
++        char pad2;
++#endif
++
+ 	/* static flags that do not change dynamically after the window has
+ 	 * been created */
+ 	struct
+@@ -237,6 +251,13 @@ typedef struct
+ 		unsigned has_override_size : 1;
+ 		unsigned has_stippled_title : 1;
+ 		unsigned has_stippled_icon_title : 1;
++
++#if defined(__pnacl__)
++                // PNaCl can't handle bit fields that are >64 bits, break it up.
++                // https://code.google.com/p/nativeclient/issues/detail?id=3714
++                char pad3;
++#endif
++
+ 		/* default has to be 0, therefore no_, not in macros */
+ 		unsigned has_no_sticky_stippled_title : 1;
+ 		unsigned has_no_sticky_stippled_icon_title : 1;
+@@ -346,6 +367,13 @@ typedef struct
+ 	unsigned is_pixmap_ours : 1;
+ 	/* fvwm places the window itself */
+ 	unsigned is_placed_by_fvwm : 1;
++
++#if defined(__pnacl__)
++        // PNaCl can't handle bit fields that are >64 bits, break it up.
++        // https://code.google.com/p/nativeclient/issues/detail?id=3714
++        char pad;
++#endif
++
+ 	/* mark window to be destroyed after last complex func has finished. */
+ 	unsigned is_scheduled_for_destroy : 1;
+ 	/* mark window to be raised after function execution. */
+@@ -382,6 +410,13 @@ typedef struct
+ 	 * icon in its list of icons */
+ 	unsigned has_ewmh_mini_icon : 1;
+ 	unsigned has_ewmh_wm_pid : 1;
++
++#if defined(__pnacl__)
++        // PNaCl can't handle bit fields that are >64 bits, break it up.
++        // https://code.google.com/p/nativeclient/issues/detail?id=3714
++        char pad2;
++#endif
++
+ 	/* the ewmh icon is used as icon pixmap */
+ 	unsigned use_ewmh_icon : 1;
+ 	unsigned is_ewmh_modal : 1;
+@@ -540,6 +575,13 @@ typedef struct style_flags
+ 	unsigned has_color_fore : 1;
+ 	unsigned has_color_back_hi : 1;
+ 	unsigned has_color_fore_hi : 1;
++
++#if defined(__pnacl__)
++        // PNaCl can't handle bit fields that are >64 bits, break it up.
++        // https://code.google.com/p/nativeclient/issues/detail?id=3714
++        char pad1;
++#endif
++
+ 	unsigned has_decor : 1;
+ 	unsigned has_edge_delay_ms_move : 1;
+ 	unsigned has_edge_delay_ms_resize : 1;
+@@ -572,6 +614,13 @@ typedef struct style_flags
+ #define BACKINGSTORE_ON      1
+ #define BACKINGSTORE_OFF     2
+ #define BACKINGSTORE_MASK  0x3
++
++#if defined(__pnacl__)
++        // PNaCl can't handle bit fields that are >64 bits, break it up.
++        // https://code.google.com/p/nativeclient/issues/detail?id=3714
++        char pad2;
++#endif
++
+ 	unsigned use_backing_store : 2;
+ 	unsigned use_parent_relative : 1;
+ 	unsigned use_colorset : 1;
+diff --git a/libs/System.c b/libs/System.c
+--- a/libs/System.c
++++ b/libs/System.c
+@@ -46,11 +46,15 @@ fd_set_size_t fvwmlib_max_fd = (fd_set_size_t)-9999999;
+ 
+ fd_set_size_t GetFdWidth(void)
+ {
++#if defined(__native_client__)
++  return 10000;
++#else
+ #if HAVE_SYSCONF
+ 	return min(sysconf(_SC_OPEN_MAX),FD_SETSIZE);
+ #else
+ 	return min(getdtablesize(),FD_SETSIZE);
+ #endif
++#endif
+ }
+ 
+ void fvwmlib_init_max_fd(void)
+diff --git a/libs/fvwmlib.h b/libs/fvwmlib.h
+--- a/libs/fvwmlib.h
++++ b/libs/fvwmlib.h
+@@ -24,7 +24,7 @@ int atexit(void(*func)());
+ #endif
+ 
+ #ifndef HAVE_GETHOSTNAME
+-int gethostname(char* name, int len);
++int gethostname(char* name, size_t len);
+ #endif
+ 
+ #ifndef HAVE_STRCASECMP
+diff --git a/libs/gethostname.c b/libs/gethostname.c
+--- a/libs/gethostname.c
++++ b/libs/gethostname.c
+@@ -27,7 +27,7 @@
+    Null terminate it if the name is shorter than LEN.
+    Return 0 if ok, -1 if error.  */
+ 
+-int gethostname(char *name, int len)
++int gethostname(char *name, size_t len)
+ {
+ #ifdef HAVE_UNAME
+ 	struct utsname uts;
+diff --git a/modules/FvwmConsole/FvwmConsole.c b/modules/FvwmConsole/FvwmConsole.c
+--- a/modules/FvwmConsole/FvwmConsole.c
++++ b/modules/FvwmConsole/FvwmConsole.c
+@@ -223,11 +223,15 @@ void server(void)
+ 	}
+ 	else
+ 	{
++#if !defined(__native_client__)
+ 		/* don't wait forever for connections */
+ 		alarm(FVWMCONSOLE_CONNECTION_TO_SECS);
++#endif
+ 		/* listen to the socket */
+ 		rc = listen(s, 5);
++#if !defined(__native_client__)
+ 		alarm(0);
++#endif
+ 		if (rc < 0)
+ 		{
+ 			ErrMsg("listen");
+diff --git a/modules/FvwmForm/FvwmForm.c b/modules/FvwmForm/FvwmForm.c
+--- a/modules/FvwmForm/FvwmForm.c
++++ b/modules/FvwmForm/FvwmForm.c
+@@ -134,7 +134,9 @@ static void SetupTimer(void)
+ #endif
+ #endif
+ 
++#if !defined(__native_client__)
+   alarm(1);
++#endif
+ }
+ 
+ /* copy a string until '"', or '\n', or '\0' */
+@@ -2585,7 +2587,9 @@ TimerHandler(int sig)
+   }
+   else {
+     RedrawTimeout(timer);
++#if !defined(__native_client__)
+     alarm(1);
++#endif
+   }
+ 
+   SIGNAL_RETURN;
+diff --git a/modules/FvwmScroll/GrabWindow.c b/modules/FvwmScroll/GrabWindow.c
+--- a/modules/FvwmScroll/GrabWindow.c
++++ b/modules/FvwmScroll/GrabWindow.c
+@@ -80,7 +80,7 @@ extern char *BackColor;
+ 		     ButtonPressMask | ButtonMotionMask | FocusChangeMask)
+ 
+ Atom wm_del_win;
+-Atom _XA_WM_PROTOCOLS;
++extern Atom _XA_WM_PROTOCOLS;
+ Atom _XA_WM_COLORMAP_WINDOWS;
+ 
+ /*
+diff --git a/modules/FvwmTaskBar/FvwmTaskBar.c b/modules/FvwmTaskBar/FvwmTaskBar.c
+--- a/modules/FvwmTaskBar/FvwmTaskBar.c
++++ b/modules/FvwmTaskBar/FvwmTaskBar.c
+@@ -2528,9 +2528,13 @@ void HideTaskBar(void)
+ static void
+ SetAlarm(tb_alarm_t event)
+ {
++#if !defined(__native_client__)
+   alarm(0);  /* remove a race-condition */
++#endif
+   AlarmSet |= event;
++#if !defined(__native_client__)
+   alarm(1);
++#endif
+ }
+ 
+ /*
+@@ -2542,7 +2546,9 @@ ClearAlarm(tb_alarm_t event)
+   AlarmSet &= ~event;
+   if (AlarmSet == 0)
+   {
++#if !defined(__native_client__)
+     alarm(0);
++#endif
+   }
+ }
+ 

@@ -1,0 +1,456 @@
+diff --git a/configure.py b/configure.py
+--- a/configure.py
++++ b/configure.py
+@@ -28,7 +28,9 @@ import string
+ import subprocess
+ import sys
+ 
+-sys.path.insert(0, 'misc')
++SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
++sys.path.insert(0, os.path.join(SCRIPT_DIR, 'misc'))
++
+ import ninja_syntax
+ 
+ 
+@@ -57,11 +59,13 @@ class Platform(object):
+             self._platform = 'bitrig'
+         elif self._platform.startswith('netbsd'):
+             self._platform = 'netbsd'
++        elif self._platform.startswith('nacl'):
++            self._platform = 'nacl'
+ 
+     @staticmethod
+     def known_platforms():
+       return ['linux', 'darwin', 'freebsd', 'openbsd', 'solaris', 'sunos5',
+-              'mingw', 'msvc', 'gnukfreebsd', 'bitrig', 'netbsd']
++              'mingw', 'msvc', 'gnukfreebsd', 'bitrig', 'netbsd', 'nacl']
+ 
+     def platform(self):
+         return self._platform
+@@ -75,6 +79,9 @@ class Platform(object):
+     def is_msvc(self):
+         return self._platform == 'msvc'
+ 
++    def is_nacl(self):
++        return self._platform == 'nacl'
++
+     def msvc_needs_fs(self):
+         popen = subprocess.Popen(['cl', '/nologo', '/?'],
+                                  stdout=subprocess.PIPE,
+@@ -231,7 +238,7 @@ configure_args = sys.argv[1:]
+ if '--bootstrap' in configure_args:
+     configure_args.remove('--bootstrap')
+ n.variable('configure_args', ' '.join(configure_args))
+-env_keys = set(['CXX', 'AR', 'CFLAGS', 'LDFLAGS'])
++env_keys = set(['CXX', 'AR', 'CFLAGS', 'LDFLAGS', 'LIBS'])
+ configure_env = dict((k, os.environ[k]) for k in os.environ if k in env_keys)
+ if configure_env:
+     config_str = ' '.join([k + '=' + pipes.quote(configure_env[k])
+@@ -246,7 +253,7 @@ if platform.is_msvc():
+     objext = '.obj'
+ 
+ def src(filename):
+-    return os.path.join('src', filename)
++    return os.path.join('$srcdir', 'src', filename)
+ def built(filename):
+     return os.path.join('$builddir', filename)
+ def doc(filename):
+@@ -263,6 +270,7 @@ def binary(name):
+     return name
+ 
+ n.variable('builddir', 'build')
++n.variable('srcdir', os.path.relpath(SCRIPT_DIR, os.getcwd()))
+ n.variable('cxx', CXX)
+ if platform.is_msvc():
+     n.variable('ar', 'link')
+@@ -354,9 +362,12 @@ def shell_escape(str):
+ 
+ if 'CFLAGS' in configure_env:
+     cflags.append(configure_env['CFLAGS'])
+-n.variable('cflags', ' '.join(shell_escape(flag) for flag in cflags))
+ if 'LDFLAGS' in configure_env:
+     ldflags.append(configure_env['LDFLAGS'])
++if 'LIBS' in configure_env:
++    libs.append(configure_env['LIBS'])
++
++n.variable('cflags', ' '.join(shell_escape(flag) for flag in cflags))
+ n.variable('ldflags', ' '.join(shell_escape(flag) for flag in ldflags))
+ n.newline()
+ 
+@@ -403,10 +414,10 @@ objs = []
+ if platform.supports_ninja_browse():
+     n.comment('browse_py.h is used to inline browse.py.')
+     n.rule('inline',
+-           command='src/inline.sh $varname < $in > $out',
++           command='$srcdir/src/inline.sh $varname < $in > $out',
+            description='INLINE $out')
+     n.build(built('browse_py.h'), 'inline', src('browse.py'),
+-            implicit='src/inline.sh',
++            implicit=src('inline.sh'),
+             variables=[('varname', 'kBrowsePy')])
+     n.newline()
+ 
+@@ -469,10 +480,11 @@ else:
+     ninja_lib = n.build(built('libninja.a'), 'ar', objs)
+ n.newline()
+ 
++# TODO(bradnelson): Upstream this fix.
+ if platform.is_msvc():
+-    libs.append('ninja.lib')
++    libs.insert(0, 'ninja.lib')
+ else:
+-    libs.append('-lninja')
++    libs.insert(0, '-lninja')
+ 
+ all_targets = []
+ 
+@@ -583,7 +595,7 @@ if not host.is_mingw():
+                options.with_python,
+            generator=True)
+     n.build('build.ninja', 'configure',
+-            implicit=['configure.py', os.path.normpath('misc/ninja_syntax.py')])
++            implicit=['$srcdir/configure.py', os.path.normpath('$srcdir/misc/ninja_syntax.py')])
+     n.newline()
+ 
+ n.default(ninja)
+diff --git a/src/disk_interface_test.cc b/src/disk_interface_test.cc
+--- a/src/disk_interface_test.cc
++++ b/src/disk_interface_test.cc
+@@ -13,6 +13,8 @@
+ // limitations under the License.
+ 
+ #include <assert.h>
++#include <errno.h>
++#include <limits.h>
+ #include <stdio.h>
+ #ifdef _WIN32
+ #include <io.h>
+@@ -65,8 +67,14 @@ TEST_F(DiskInterfaceTest, StatBadPath) {
+   string bad_path("cc:\\foo");
+   EXPECT_EQ(-1, disk_.Stat(bad_path));
+ #else
+-  string too_long_name(512, 'x');
++  // If any component of the path is longer then NAME_MAX stat *should*
++  // fail with ENAMETOOLONG. However this is not a POSIX requirement
++  // according to the stat(3) manpage so this test is slightly dubious
++#ifndef __native_client__
++  string too_long_name(NAME_MAX+1, 'x');
+   EXPECT_EQ(-1, disk_.Stat(too_long_name));
++  EXPECT_EQ(ENAMETOOLONG, errno);
++#endif
+ #endif
+   disk_.quiet_ = false;
+ }
+diff --git a/src/line_printer.cc b/src/line_printer.cc
+--- a/src/line_printer.cc
++++ b/src/line_printer.cc
+@@ -93,10 +93,13 @@ void LinePrinter::Print(string to_print, LineType type) {
+ #else
+     // Limit output to width of the terminal if provided so we don't cause
+     // line-wrapping.
++    // TODO(bradnelson): Drop when bionic includes winsize.
++# if !defined(__native_client__) || !defined(__BIONIC__)
+     winsize size;
+     if ((ioctl(0, TIOCGWINSZ, &size) == 0) && size.ws_col) {
+       to_print = ElideMiddle(to_print, size.ws_col);
+     }
++#endif
+     printf("%s", to_print.c_str());
+     printf("\x1B[K");  // Clear to end of line.
+     fflush(stdout);
+diff --git a/src/manifest_parser_perftest.cc b/src/manifest_parser_perftest.cc
+--- a/src/manifest_parser_perftest.cc
++++ b/src/manifest_parser_perftest.cc
+@@ -99,7 +99,7 @@ int main(int argc, char* argv[]) {
+   }
+ 
+   if (chdir(kManifestDir) < 0)
+-    Fatal("chdir: %s", strerror(errno));
++    Fatal("chdir %s: %s", kManifestDir, strerror(errno));
+ 
+   const int kNumRepetitions = 5;
+   vector<int> times;
+diff --git a/src/ninja.cc b/src/ninja.cc
+--- a/src/ninja.cc
++++ b/src/ninja.cc
+@@ -42,6 +42,11 @@
+ #include "util.h"
+ #include "version.h"
+ 
++#if defined(__native_client__)
++# include "nacl_main.h"
++# define main nacl_main
++#endif
++
+ #ifdef _MSC_VER
+ // Defined in msvc_helper_main-win32.cc.
+ int MSVCHelperMain(int argc, char** argv);
+diff --git a/src/ninja_test.cc b/src/ninja_test.cc
+--- a/src/ninja_test.cc
++++ b/src/ninja_test.cc
+@@ -14,6 +14,7 @@
+ 
+ #include <stdarg.h>
+ #include <stdio.h>
++#include <stdlib.h>
+ 
+ #ifdef _WIN32
+ #include "getopt.h"
+@@ -21,6 +22,14 @@
+ #include <getopt.h>
+ #endif
+ 
++#if defined(__native_client__)
++#include <sys/stat.h>
++#include <sys/mount.h>
++#include "nacl_main.h"
++#include "nacl_io/nacl_io.h"
++#define main nacl_main
++#endif
++
+ #include "test.h"
+ #include "line_printer.h"
+ 
+@@ -123,6 +132,16 @@ bool testing::Test::Check(bool condition, const char* file, int line,
+ }
+ 
+ int main(int argc, char **argv) {
++#ifdef __native_client__
++  // ninja tests require fcntl() and other functions which are not
++  // available under sel_ldr, so we configure nacl_io and run the tests
++  // in a memfs.
++  nacl_io_init();
++  umount("/");
++  mount("", "/", "memfs", 0, NULL);
++  mkdir("/tmp", 0777);
++  chdir("/");
++#endif
+   int tests_started = 0;
+ 
+   const char* test_filter = "*";
+@@ -152,5 +171,8 @@ int main(int argc, char **argv) {
+   }
+ 
+   printer.PrintOnNewLine(passed ? "passed\n" : "failed\n");
++#ifdef __native_client__
++  nacl_io_uninit();
++#endif
+   return passed ? EXIT_SUCCESS : EXIT_FAILURE;
+ }
+diff --git a/src/subprocess-posix.cc b/src/subprocess-posix.cc
+--- a/src/subprocess-posix.cc
++++ b/src/subprocess-posix.cc
+@@ -17,14 +17,22 @@
+ #include <assert.h>
+ #include <errno.h>
+ #include <fcntl.h>
+-#include <poll.h>
++// TODO(bradnelson): Drop this once poll.h in newlib is actually includable.
++#if !defined(__native_client__) || !defined(_NEWLIB_VERSION)
++# include <poll.h>
++#endif
++#include <sys/select.h>
+ #include <unistd.h>
+ #include <stdio.h>
+ #include <string.h>
+ #include <sys/wait.h>
+ 
++#if defined(__native_client__)
++# include <spawn.h>
++#endif
+ #include "util.h"
+ 
++
+ Subprocess::Subprocess(bool use_console) : fd_(-1), pid_(-1),
+                                            use_console_(use_console) {
+ }
+@@ -49,6 +57,14 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
+ #endif  // !USE_PPOLL
+   SetCloseOnExec(fd_);
+ 
++#if defined(__native_client__)
++  const char *cmd[] = {"bash", "-c", (char *) NULL, (char *) NULL};
++  cmd[2] = command.c_str(); 
++  pid_ = spawnve(P_NOWAIT, cmd[0], const_cast<char *const*>(cmd), NULL);
++  if (pid_ < 0) {
++    Fatal("spawnve: %s", strerror(errno));
++  }
++#else
+   pid_ = fork();
+   if (pid_ < 0)
+     Fatal("fork: %s", strerror(errno));
+@@ -59,10 +75,12 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
+     // Track which fd we use to report errors on.
+     int error_pipe = output_pipe[1];
+     do {
++#if !defined(__native_client__)
+       if (sigaction(SIGINT, &set->old_act_, 0) < 0)
+         break;
+       if (sigprocmask(SIG_SETMASK, &set->old_mask_, 0) < 0)
+         break;
++#endif
+ 
+       if (!use_console_) {
+         // Put the child in its own process group, so ctrl-c won't reach it.
+@@ -100,6 +118,7 @@ bool Subprocess::Start(SubprocessSet* set, const string& command) {
+     }
+     _exit(1);
+   }
++#endif
+ 
+   close(output_pipe[1]);
+   return true;
+@@ -152,6 +171,7 @@ void SubprocessSet::SetInterruptedFlag(int signum) {
+ }
+ 
+ SubprocessSet::SubprocessSet() {
++#if !defined(__native_client__)
+   sigset_t set;
+   sigemptyset(&set);
+   sigaddset(&set, SIGINT);
+@@ -163,15 +183,18 @@ SubprocessSet::SubprocessSet() {
+   act.sa_handler = SetInterruptedFlag;
+   if (sigaction(SIGINT, &act, &old_act_) < 0)
+     Fatal("sigaction: %s", strerror(errno));
++#endif
+ }
+ 
+ SubprocessSet::~SubprocessSet() {
+   Clear();
+ 
++#if !defined(__native_client__)
+   if (sigaction(SIGINT, &old_act_, 0) < 0)
+     Fatal("sigaction: %s", strerror(errno));
+   if (sigprocmask(SIG_SETMASK, &old_mask_, 0) < 0)
+     Fatal("sigprocmask: %s", strerror(errno));
++#endif
+ }
+ 
+ Subprocess *SubprocessSet::Add(const string& command, bool use_console) {
+@@ -247,7 +270,11 @@ bool SubprocessSet::DoWork() {
+   }
+ 
+   interrupted_ = false;
++#if defined(__native_client__)
++  int ret = select(nfds, &set, 0, 0, 0);
++#else
+   int ret = pselect(nfds, &set, 0, 0, 0, &old_mask_);
++#endif
+   if (ret == -1) {
+     if (errno != EINTR) {
+       perror("ninja: pselect");
+diff --git a/src/test.cc b/src/test.cc
+--- a/src/test.cc
++++ b/src/test.cc
+@@ -20,10 +20,15 @@
+ 
+ #include <algorithm>
+ 
++#ifdef __native_client__
++#include <dirent.h>
++#include <sys/stat.h>
++#endif
+ #include <errno.h>
+ #ifdef _WIN32
+ #include <windows.h>
+ #else
++#include <stdlib.h>
+ #include <unistd.h>
+ #endif
+ 
+@@ -156,7 +161,7 @@ void ScopedTempDir::CreateAndEnter(const string& name) {
+   if (start_dir_.empty())
+     Fatal("couldn't get system temp dir");
+   if (chdir(start_dir_.c_str()) < 0)
+-    Fatal("chdir: %s", strerror(errno));
++    Fatal("chdir %s: %s", start_dir_.c_str(), strerror(errno));
+ 
+   // Create a temporary subdirectory of that.
+   char name_template[1024];
+@@ -169,8 +174,49 @@ void ScopedTempDir::CreateAndEnter(const string& name) {
+ 
+   // chdir into the new temporary directory.
+   if (chdir(temp_dir_name_.c_str()) < 0)
+-    Fatal("chdir: %s", strerror(errno));
++    Fatal("chdir %s: %s", temp_dir_name_.c_str(), strerror(errno));
++}
++
++#ifdef __native_client__
++static int rmtree(const string& dirname) {
++  while (1) {
++    // Reopen the directory after each remove operation to work around
++    // a bug in nacl_io.
++    // TODO(sbc): simplify this once we fix this bug:
++    DIR* dir = opendir(dirname.c_str());
++
++    struct dirent* entry;
++    while ((entry = readdir(dir))) {
++      struct stat buf;
++      char fullname[PATH_MAX];
++      if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
++        continue;
++      sprintf(fullname, "%s/%s", dirname.c_str(), entry->d_name);
++      if (stat(fullname, &buf) != 0) {
++        printf("stat failed '%s': %s\n", fullname, strerror(errno));
++        return -1;
++      }
++
++      if (S_ISDIR(buf.st_mode)) {
++        if (rmtree(fullname) != 0) {
++          return -1;
++        }
++      } else {
++        if (remove(fullname) != 0) {
++          printf("remove failed '%s': %s\n", fullname, strerror(errno));
++          return -1;
++        }
++      }
++      break;
++    }
++    closedir(dir);
++    if (entry == NULL)
++      break;
++  }
++
++  return rmdir(dirname.c_str());
+ }
++#endif
+ 
+ void ScopedTempDir::Cleanup() {
+   if (temp_dir_name_.empty())
+@@ -180,6 +226,10 @@ void ScopedTempDir::Cleanup() {
+   if (chdir(start_dir_.c_str()) < 0)
+     Fatal("chdir: %s", strerror(errno));
+ 
++#ifdef __native_client__
++  if (rmtree(temp_dir_name_.c_str()) < 0)
++    Fatal("rmtree: %s", strerror(errno));
++#else
+ #ifdef _WIN32
+   string command = "rmdir /s /q " + temp_dir_name_;
+ #else
+@@ -187,6 +237,7 @@ void ScopedTempDir::Cleanup() {
+ #endif
+   if (system(command.c_str()) < 0)
+     Fatal("system: %s", strerror(errno));
++#endif
+ 
+   temp_dir_name_.clear();
+ }
+diff --git a/src/util.cc b/src/util.cc
+--- a/src/util.cc
++++ b/src/util.cc
+@@ -49,6 +49,13 @@
+ #include "edit_distance.h"
+ #include "metrics.h"
+ 
++#ifdef __native_client__
++int getloadavg(double loadavg[], int nelem) {
++  errno = ENOSYS;
++  return -1;
++}
++#endif
++
+ void Fatal(const char* msg, ...) {
+   va_list ap;
+   fprintf(stderr, "ninja: fatal: ");

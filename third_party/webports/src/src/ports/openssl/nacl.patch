@@ -1,0 +1,90 @@
+diff --git a/Configure b/Configure
+--- a/Configure
++++ b/Configure
+@@ -419,6 +419,13 @@ my %table=(
+ "linux-x86_64-icc", "icc:-DL_ENDIAN -O2::-D_REENTRANT::-ldl -no_cpprt:SIXTY_FOUR_BIT_LONG RC4_CHUNK DES_INT DES_UNROLL:${x86_64_asm}:elf:dlfcn:linux-shared:-fPIC::.so.\$(SHLIB_MAJOR).\$(SHLIB_MINOR):::64",
+ "linux-x32",	"gcc:-mx32 -DL_ENDIAN -O3 -Wall::-D_REENTRANT::-ldl:SIXTY_FOUR_BIT RC4_CHUNK_LL DES_INT DES_UNROLL:${x86_64_asm}:elf:dlfcn:linux-shared:-fPIC:-mx32:.so.\$(SHLIB_MAJOR).\$(SHLIB_MINOR):::x32",
+ "linux64-s390x",	"gcc:-m64 -DB_ENDIAN -O3 -Wall::-D_REENTRANT::-ldl:SIXTY_FOUR_BIT_LONG RC4_CHAR RC4_CHUNK DES_INT DES_UNROLL:${s390x_asm}:64:dlfcn:linux-shared:-fPIC:-m64:.so.\$(SHLIB_MAJOR).\$(SHLIB_MINOR):::64",
++
++#### NaCl configurations (glibc is much like linux-elf, newlib is
++# similar to linux-aout, since it's statically linked.
++"nacl-le32newlib",     "gcc:-DL_ENDIAN -DTERMIOS -O3 -fomit-frame-pointer -Wall::-D_REENTRANT:::BN_LLONG ${x86_gcc_des} ${x86_gcc_opts}:${x86_asm}:a.out",
++"nacl-le32bionic",     "gcc:-DL_ENDIAN -DTERMIOS -O3 -fomit-frame-pointer -Wall::-D_REENTRANT::-ldl:BN_LLONG ${x86_gcc_des} ${x86_gcc_opts}:${x86_elf_asm}:dlfcn:linux-shared:-fPIC::.so.\$(SHLIB_MAJOR).\$(SHLIB_MINOR)",
++"nacl-le32glibc",      "gcc:-DL_ENDIAN -DTERMIOS -O3 -fomit-frame-pointer -Wall::-D_REENTRANT::-ldl:BN_LLONG ${x86_gcc_des} ${x86_gcc_opts}:${x86_elf_asm}:dlfcn:linux-shared:-fPIC::.so.\$(SHLIB_MAJOR).\$(SHLIB_MINOR)",
++
+ #### So called "highgprs" target for z/Architecture CPUs
+ # "Highgprs" is kernel feature first implemented in Linux 2.6.32, see
+ # /proc/cpuinfo. The idea is to preserve most significant bits of
+@@ -932,6 +939,10 @@ PROCESS_ARGS:
+ 			# The check for the option is there so scripts aren't
+ 			# broken
+ 			}
++		elsif (/^[\/]/) # allow '-isystem /foo/bar' flags
++      {
++				$flags.=$_." ";
++      }
+ 		elsif (/^[-+]/)
+ 			{
+ 			if (/^--prefix=(.*)$/)
+diff --git a/apps/speed.c b/apps/speed.c
+--- a/apps/speed.c
++++ b/apps/speed.c
+@@ -108,6 +108,10 @@
+ #  include <signal.h>
+ # endif
+ 
++#ifdef __native_client__
++#undef SIGALRM
++#endif
++
+ # if defined(_WIN32) || defined(__CYGWIN__)
+ #  include <windows.h>
+ #  if defined(__CYGWIN__) && !defined(_WIN32)
+diff --git a/config b/config
+--- a/config
++++ b/config
+@@ -679,6 +679,9 @@ case "$GUESSOS" in
+ 	#fi
+ 	OUT="linux64-s390x"
+ 	;;
++  le32newlib-*-nacl) OUT="nacl-le32newlib" ;;
++  le32bionic-*-nacl) OUT="nacl-le32bionic" ;;
++  le32glibc-*-nacl) OUT="nacl-le32glibc" ;;
+   x86_64-*-linux?) OUT="linux-x86_64" ;;
+   *86-*-linux2) OUT="linux-elf"
+ 	if [ "$GCCVER" -gt 28 ]; then
+diff --git a/crypto/rand/rand_unix.c b/crypto/rand/rand_unix.c
+--- a/crypto/rand/rand_unix.c
++++ b/crypto/rand/rand_unix.c
+@@ -134,7 +134,30 @@
+ #  define FD_SETSIZE (8*sizeof(fd_set))
+ # endif
+ 
+-# if defined(OPENSSL_SYS_VOS)
++#if defined(__native_client__)
++#include <stdlib.h>
++#include <irt.h>
++/* TODO(sehr): remove this patch when nacl_io can handle /dev/urandom. */
++int RAND_poll(void)
++{
++  unsigned char buf[ENTROPY_NEEDED];
++  size_t n = 0;
++  struct nacl_irt_random rand_intf;
++  if (nacl_interface_query(NACL_IRT_RANDOM_v0_1, &rand_intf, sizeof(rand_intf))
++      != sizeof(rand_intf))
++    abort();
++  while (n < sizeof(buf)) {
++    size_t nread;
++    if (rand_intf.get_random_bytes((unsigned char *)buf+n,
++                                   ENTROPY_NEEDED-n, &nread) != 0)
++      abort();
++    n += nread;
++  }
++  RAND_add(buf, sizeof(buf), ENTROPY_NEEDED);
++  memset(buf, 0, sizeof(buf));
++  return 1;
++}
++#elif defined(OPENSSL_SYS_VOS)
+ 
+ /*
+  * The following algorithm repeatedly samples the real-time clock (RTC) to

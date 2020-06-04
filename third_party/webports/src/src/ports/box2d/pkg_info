@@ -1,0 +1,7 @@
+NAME=box2d
+VERSION=2.2.1
+URL=http://box2d.googlecode.com/files/Box2D_v2.2.1.zip
+ARCHIVE_ROOT=Box2D_v2.2.1
+LICENSE=CUSTOM:License.txt
+SHA1=f97e75227a19b01858b1431e5f3eb6b8827bed12
+DISABLED_TOOLCHAIN=(emscripten)

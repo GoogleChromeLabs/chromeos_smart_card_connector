@@ -1,0 +1,334 @@
+diff --git a/.gitignore b/.gitignore
+new file mode 100644
+--- /dev/null
++++ b/.gitignore
+@@ -0,0 +1,2 @@
++*.pyc
++/bin
+diff --git a/buildtools/wafsamba/samba_python.py b/buildtools/wafsamba/samba_python.py
+--- a/buildtools/wafsamba/samba_python.py
++++ b/buildtools/wafsamba/samba_python.py
+@@ -37,6 +37,8 @@ def SAMBA_PYTHON(bld, name,
+                  enabled=True):
+     '''build a python extension for Samba'''
+ 
++    return
++
+     # when we support static python modules we'll need to gather
+     # the list from all the SAMBA_PYTHON() targets
+     if init_function_sentinel is not None:
+diff --git a/buildtools/wafsamba/wafsamba.py b/buildtools/wafsamba/wafsamba.py
+--- a/buildtools/wafsamba/wafsamba.py
++++ b/buildtools/wafsamba/wafsamba.py
+@@ -135,6 +135,9 @@ def SAMBA_LIBRARY(bld, libname, source,
+                   enabled=True):
+     '''define a Samba library'''
+ 
++    if pyembed or pyext:
++      return
++
+     if LIB_MUST_BE_PRIVATE(bld, libname):
+         private_library=True
+ 
+@@ -520,6 +523,9 @@ def SAMBA_SUBSYSTEM(bld, modname, source,
+                     pyembed=False):
+     '''define a Samba subsystem'''
+ 
++    if pyext or pyembed:
++        return
++
+     if not enabled:
+         SET_TARGET_TYPE(bld, modname, 'DISABLED')
+         return
+diff --git a/buildtools/wafsamba/wscript b/buildtools/wafsamba/wscript
+--- a/buildtools/wafsamba/wscript
++++ b/buildtools/wafsamba/wscript
+@@ -291,7 +291,7 @@ def configure(conf):
+     conf.CHECK_CODE('printf("hello world")',
+                     define='HAVE_SIMPLE_C_PROG',
+                     mandatory=True,
+-                    execute=True,
++#                    execute=True,
+                     headers='stdio.h',
+                     msg='Checking simple C program')
+ 
+@@ -372,8 +372,8 @@ def configure(conf):
+     conf.CHECK_HEADERS('limits.h assert.h')
+ 
+     # see if we need special largefile flags
+-    if not conf.CHECK_LARGEFILE():
+-        raise Utils.WafError('Samba requires large file support support, but not available on this platform: sizeof(off_t) < 8')
++#    if not conf.CHECK_LARGEFILE():
++#        raise Utils.WafError('Samba requires large file support support, but not available on this platform: sizeof(off_t) < 8')
+ 
+     if 'HAVE_STDDEF_H' in conf.env and 'HAVE_STDLIB_H' in conf.env:
+         conf.DEFINE('STDC_HEADERS', 1)
+diff --git a/lib/ccan/wscript b/lib/ccan/wscript
+--- a/lib/ccan/wscript
++++ b/lib/ccan/wscript
+@@ -60,6 +60,7 @@ def configure(conf):
+                         #endif""",
+                            headers="endian.h sys/endian.h",
+                            define="HAVE_BIG_ENDIAN")
++    conf.DEFINE('HAVE_LITTLE_ENDIAN', 1)
+ 
+     if not conf.CONFIG_SET("HAVE_BIG_ENDIAN") and not conf.CONFIG_SET("HAVE_LITTLE_ENDIAN"):
+         # That didn't work!  Do runtime test.
+@@ -129,13 +130,15 @@ def configure(conf):
+     # or _FILE_OFFSET_BITS defines.
+     conf.check(fragment="""#include <sys/types.h>
+                int main(void) { return !(sizeof(off_t) < 8); }""",
+-               execute=True, msg='Checking for small off_t',
++               #execute=True,
++               msg='Checking for small off_t',
+                define_name='SMALL_OFF_T')
+     # Unreliable return value above, hence use define.
+     if conf.CONFIG_SET('SMALL_OFF_T'):
+         conf.check(fragment="""#include <sys/types.h>
+                    int main(void) { return !(sizeof(off_t) >= 8); }""",
+-                   execute=True, msg='Checking for -D_FILE_OFFSET_BITS=64',
++                   #execute=True,
++                   msg='Checking for -D_FILE_OFFSET_BITS=64',
+                    ccflags='-D_FILE_OFFSET_BITS=64',
+                    define_name='HAVE_FILE_OFFSET_BITS')
+ 
+diff --git a/lib/ldb-samba/wscript_build b/lib/ldb-samba/wscript_build
+--- a/lib/ldb-samba/wscript_build
++++ b/lib/ldb-samba/wscript_build
+@@ -8,7 +8,7 @@ bld.SAMBA_LIBRARY('ldbsamba',
+                   source='ldif_handlers.c',
+                   autoproto='ldif_handlers_proto.h',
+                   public_deps='ldb',
+-                  deps='samba-security ndr NDR_DRSBLOBS NDR_DNSP ldbwrap samdb-common SAMDB_SCHEMA tdb pyldb-util errors',
++                  deps='samba-security ndr NDR_DRSBLOBS NDR_DNSP ldbwrap samdb-common SAMDB_SCHEMA tdb errors',
+                   private_library=True
+                   )
+ 
+diff --git a/lib/replace/system/wait.h b/lib/replace/system/wait.h
+--- a/lib/replace/system/wait.h
++++ b/lib/replace/system/wait.h
+@@ -49,7 +49,7 @@ typedef int sig_atomic_t;
+ #endif
+ 
+ #if !defined(HAVE_WAITPID) && defined(HAVE_WAIT4)
+-int rep_waitpid(pid_t pid,int *status,int options)
++int rep_waitpid(pid_t pid,int *status,int options);
+ #endif
+ 
+ #endif
+diff --git a/lib/replace/wscript b/lib/replace/wscript
+--- a/lib/replace/wscript
++++ b/lib/replace/wscript
+@@ -540,7 +540,8 @@ removeea setea
+                     define='HAVE_UNIXSOCKET', headers='sys/socket.h sys/un.h')
+ 
+ 
+-    conf.CHECK_CODE('''
++    if False:
++      conf.CHECK_CODE('''
+                     struct stat st;
+                     char tpl[20]="/tmp/test.XXXXXX";
+                     char tpl2[20]="/tmp/test.XXXXXX";
+diff --git a/source3/wscript b/source3/wscript
+--- a/source3/wscript
++++ b/source3/wscript
+@@ -130,7 +130,7 @@ long ret = splice(0,0,1,0,400,SPLICE_F_MOVE);
+ #endif
+ main() {
+         exit(fcntl(open("/tmp", O_RDONLY), F_NOTIFY, 0) == -1 ?  1 : 0);
+-}''', 'HAVE_KERNEL_CHANGE_NOTIFY', addmain=False, execute=True,
++}''', 'HAVE_KERNEL_CHANGE_NOTIFY', addmain=False, #execute=True,
+         headers='fcntl.h signal.h',
+         msg="Checking for kernel change notify support")
+ 
+@@ -144,7 +144,7 @@ main() {
+ #endif
+ main() {
+         exit(fcntl(open("/tmp", O_RDONLY), F_NOTIFY, 0) == -1 ?  1 : 0);
+-}''', 'HAVE_KERNEL_OPLOCKS_LINUX', addmain=False, execute=True,
++}''', 'HAVE_KERNEL_OPLOCKS_LINUX', addmain=False, #execute=True,
+         msg="Checking for Linux kernel oplocks")
+ 
+     # Check for IRIX kernel oplock types
+@@ -164,7 +164,7 @@ main() {
+ #endif
+ main() {
+         exit(flock(open("/dev/null", O_RDWR), LOCK_MAND|LOCK_READ) != 0);
+-}''', 'HAVE_KERNEL_SHARE_MODES', addmain=False, execute=True,
++}''', 'HAVE_KERNEL_SHARE_MODES', addmain=False, #execute=True,
+         msg="Checking for kernel share modes")
+ 
+     # check for fam libs
+@@ -251,7 +251,7 @@ int main(int argc, char **argv)
+ ''',
+             'USEABLE_DMAPI_LIBRARY',
+             addmain=False,
+-            execute=False,
++            #execute=False,
+             lib=samba_dmapi_lib,
+             msg='Checking whether DMAPI lib '+samba_dmapi_lib+' can be used')
+             if not conf.CONFIG_SET('USEABLE_DMAPI_LIBRARY'):
+@@ -998,7 +998,7 @@ syscall(SYS_setgroups32, 0, NULL);
+                                 addmain=False,
+                                 execute=True,
+                                 msg="Checking whether seteuid is available")
+-    if not seteuid:
++    if not seteuid and False:
+         seteuid = conf.CHECK_CODE('''
+                                 #define AUTOCONF_TEST 1
+                                 #define USE_SETUIDX 1
+@@ -1040,7 +1040,7 @@ syscall(SYS_setgroups32, 0, NULL);
+ ''',
+                 'HAVE_FCNTL_LOCK',
+                 addmain=False,
+-                execute=True,
++                #execute=True,
+                 msg='Checking whether fcntl locking is available')
+ 
+ # glibc up to 2.3.6 had dangerously broken posix_fallocate(). DON'T USE IT.
+@@ -1144,7 +1144,7 @@ main() {
+ }''',
+         '__TIME_T_MAX',
+         addmain=False,
+-        execute=True,
++        #execute=True,
+         msg="Checking for the maximum value of the 'time_t' type"):
+             conf.DEFINE('TIME_T_MAX', '67768036191676799ll')
+ 
+@@ -1177,14 +1177,15 @@ main() {
+ ''',
+         'REALPATH_TAKES_NULL',
+         addmain=False,
+-        execute=True,
++        #execute=True,
+         msg='Checking whether the realpath function allows a NULL argument')
+ 
+     conf.CHECK_CODE('''#include "../tests/ftruncate.c"''',
+                     'HAVE_FTRUNCATE_EXTEND',
+                     msg='Checking for ftruncate extend',
+                     addmain=False,
+-                    execute=True)
++                    #execute=True
++                    )
+ 
+     if Options.options.with_sendfile_support:
+         if (host_os.rfind('linux') > -1) or (host_os.rfind('gnu') > -1) or (host_os.rfind('k*bsd*-gnu') > -1) or (host_os.rfind('kopensolaris*-gnu') > -1):
+@@ -1323,7 +1324,7 @@ main() {
+ main() {
+         char *s = getcwd(NULL,0);
+         exit(s != NULL ?  0 : 1);
+-}''', 'GETCWD_TAKES_NULL', addmain=False, execute=True,
++}''', 'GETCWD_TAKES_NULL', addmain=False, #execute=True,
+         msg="getcwd takes a NULL argument")
+ 
+ 
+@@ -1382,7 +1383,7 @@ main() {
+                                    cflags=conf.env['WERROR_CFLAGS'],
+                                    define='HAVE_QUOTACTL_4A',
+                                    msg='for QUOTACTL_4A: long quotactl(int cmd, char *special, qid_t id, caddr_t addr)',
+-                                   execute=True,
++                                   #execute=True,
+                                    addmain=False):
+ 
+                 conf.CHECK_CODE('''
+@@ -1393,7 +1394,7 @@ main() {
+                                 cflags=conf.env['WERROR_CFLAGS'],
+                                 define='HAVE_QUOTACTL_4B',
+                                 msg='for QUOTACTL_4B:  int quotactl(const char *path, int cmd, int id, char *addr)',
+-                                execute=True,
++                                #execute=True,
+                                 addmain=False)
+ 
+         conf.CHECK_CODE('''
+@@ -1402,7 +1403,7 @@ main() {
+                         headers="rpc/rpc.h rpc/types.h rpcsvc/rquota.h rpc/nettype.h rpc/xdr.h", 
+                         define='HAVE_NFS_QUOTAS',
+                         msg='for NFS QUOTAS',
+-                        execute=True,
++                        #execute=True,
+                         local_include=False)
+ 
+         if conf.CONFIG_SET('HAVE_QUOTACTL_LINUX') or \
+diff --git a/source4/libnet/wscript_build b/source4/libnet/wscript_build
+--- a/source4/libnet/wscript_build
++++ b/source4/libnet/wscript_build
+@@ -3,7 +3,7 @@
+ bld.SAMBA_LIBRARY('samba-net',
+ 	source='libnet.c libnet_passwd.c libnet_time.c libnet_rpc.c libnet_join.c libnet_site.c libnet_become_dc.c libnet_unbecome_dc.c libnet_vampire.c libnet_samdump.c libnet_samsync_ldb.c libnet_user.c libnet_group.c libnet_share.c libnet_lookup.c libnet_domain.c userinfo.c groupinfo.c userman.c groupman.c prereq_domain.c libnet_samsync.c',
+ 	autoproto='libnet_proto.h',
+-	public_deps='samba-credentials dcerpc dcerpc-samr RPC_NDR_LSA RPC_NDR_SRVSVC RPC_NDR_DRSUAPI cli_composite LIBCLI_RESOLVE LIBCLI_FINDDCS cli_cldap LIBCLI_FINDDCS gensec_schannel LIBCLI_AUTH ndr smbpasswdparser PROVISION LIBCLI_SAMSYNC LIBTSOCKET',
++	public_deps='samba-credentials dcerpc dcerpc-samr RPC_NDR_LSA RPC_NDR_SRVSVC RPC_NDR_DRSUAPI cli_composite LIBCLI_RESOLVE LIBCLI_FINDDCS cli_cldap LIBCLI_FINDDCS gensec_schannel LIBCLI_AUTH ndr smbpasswdparser LIBCLI_SAMSYNC LIBTSOCKET',
+ 	private_library=True
+ 	)
+ 
+diff --git a/source4/smbd/wscript_build b/source4/smbd/wscript_build
+--- a/source4/smbd/wscript_build
++++ b/source4/smbd/wscript_build
+@@ -22,7 +22,7 @@ bld.SAMBA_BINARY('samba',
+ 	subsystem_name='service',
+ 	deps='''events process_model service samba-hostconfig samba-util POPT_SAMBA
+                 popt gensec registry ntptr ntvfs share cluster COMMON_SCHANNEL SECRETS''',
+-	pyembed=True,
++	#pyembed=True,
+ 	install_path='${SBINDIR}',
+ 	enabled=bld.AD_DC_BUILD_IS_ENABLED()
+ 	)
+diff --git a/source4/torture/local/wscript_build b/source4/torture/local/wscript_build
+--- a/source4/torture/local/wscript_build
++++ b/source4/torture/local/wscript_build
+@@ -18,7 +18,7 @@ TORTURE_LOCAL_SOURCE = '''../../../lib/util/charset/tests/iconv.c
+ 	../../dsdb/schema/tests/schema_syntax.c
+ 	../../../lib/util/tests/anonymous_shared.c'''
+ 
+-TORTURE_LOCAL_DEPS = 'RPC_NDR_ECHO TDR LIBCLI_SMB MESSAGING iconv POPT_CREDENTIALS TORTURE_AUTH TORTURE_UTIL TORTURE_NDR TORTURE_LIBCRYPTO share torture_registry PROVISION ldb samdb replace-test'
++TORTURE_LOCAL_DEPS = 'RPC_NDR_ECHO TDR LIBCLI_SMB MESSAGING iconv POPT_CREDENTIALS TORTURE_AUTH TORTURE_UTIL TORTURE_NDR TORTURE_LIBCRYPTO share torture_registry ldb samdb replace-test'
+ 
+ if bld.CONFIG_SET("NSS_WRAPPER"):
+ 	TORTURE_LOCAL_SOURCE += " ../../../lib/nss_wrapper/testsuite.c"
+diff --git a/source4/torture/wscript_build b/source4/torture/wscript_build
+--- a/source4/torture/wscript_build
++++ b/source4/torture/wscript_build
+@@ -132,7 +132,7 @@ bld.SAMBA_MODULE('TORTURE_NET',
+ 	autoproto='libnet/proto.h',
+ 	subsystem='smbtorture',
+ 	init_function='torture_net_init',
+-	deps='samba-net POPT_CREDENTIALS torture_rpc PROVISION',
++	deps='samba-net POPT_CREDENTIALS torture_rpc',
+ 	internal_module=True
+ 	)
+ 
+@@ -159,7 +159,7 @@ bld.SAMBA_BINARY('smbtorture',
+                  manpages='man/smbtorture.1',
+                  public_headers='smbtorture.h',
+                  deps='torturemain torture popt POPT_SAMBA POPT_CREDENTIALS dcerpc LIBCLI_SMB SMBREADLINE ' + TORTURE_MODULES,
+-                 pyembed=True
++                 #pyembed=True
+                  )
+ 
+ bld.SAMBA_BINARY('gentest',
+diff --git a/source4/utils/wscript_build b/source4/utils/wscript_build
+--- a/source4/utils/wscript_build
++++ b/source4/utils/wscript_build
+@@ -6,7 +6,7 @@ bld.SAMBA_BINARY('ntlm_auth4',
+                  deps='''samba-hostconfig samba-util popt
+                  POPT_SAMBA POPT_CREDENTIALS gensec LIBCLI_RESOLVE
+                  auth4 NTLMSSP_COMMON MESSAGING events service''',
+-                 pyembed=True,
++                 #pyembed=True,
+                  install=False
+ 	)
+ 
+diff --git a/wscript b/wscript
+--- a/wscript
++++ b/wscript
+@@ -96,8 +96,8 @@ def configure(conf):
+     conf.SAMBA_CHECK_PERL(mandatory=True)
+     conf.find_program('xsltproc', var='XSLTPROC')
+ 
+-    conf.SAMBA_CHECK_PYTHON(mandatory=True, version=(2,5,0))
+-    conf.SAMBA_CHECK_PYTHON_HEADERS(mandatory=True)
++    conf.SAMBA_CHECK_PYTHON(mandatory=False, version=(2,5,0))
++    conf.SAMBA_CHECK_PYTHON_HEADERS(mandatory=False)
+ 
+     if sys.platform == 'darwin' and not conf.env['HAVE_ENVIRON_DECL']:
+         # Mac OSX needs to have this and it's also needed that the python is compiled with this

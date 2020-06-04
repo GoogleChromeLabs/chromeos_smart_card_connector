@@ -1,0 +1,21 @@
+diff -ru lua-5.3.0-tests.good/literals.lua lua-5.3.0-tests/literals.lua
+--- lua-5.3.0-tests.good/literals.lua	2015-06-08 16:37:37.370668718 -0700
++++ lua-5.3.0-tests/literals.lua	2015-06-08 16:17:53.205731969 -0700
+@@ -3,7 +3,7 @@
+ print('testing scanner')
+ 
+ local debug = require "debug"
+-
++local nacl = true
+ 
+ local function dostring (x) return assert(load(x))() end
+ 
+@@ -261,7 +261,7 @@
+ 
+ 
+ -- testing decimal point locale
+-if os.setlocale("pt_BR") or os.setlocale("ptb") then
++if not nacl and (os.setlocale("pt_BR") or os.setlocale("ptb")) then
+   assert(not load("a = (3,4)"))
+   assert(tonumber("3,4") == 3.4 and tonumber"3.4" == nil)
+   assert(assert(load("return 3.4"))() == 3.4)

@@ -1,0 +1,12 @@
+NAME=samba
+VERSION=4.1.16
+URL=http://ftp.samba.org/pub/samba/samba-4.1.16.tar.gz
+LICENSE=GPL
+DEPENDS=(nacl-spawn glibc-compat)
+LIBC=glibc
+# glibc/arm disabled due to missing FIONREAD
+# https://code.google.com/p/nativeclient/issues/detail?id=4233
+DISABLED_ARCH=(i686 arm)
+# Build broken on mac.
+BUILD_OS=linux
+SHA1=6fe5cbbec3ebf29a22af35229c17f699b6559c6d

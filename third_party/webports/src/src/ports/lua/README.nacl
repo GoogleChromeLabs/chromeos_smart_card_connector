@@ -1,0 +1,47 @@
+Lua for Chrome
+==============
+
+This is package of the Lua interactive shell built to run under Native Client
+within Chrome/Chromium.
+
+The NaCl binary is essentially an slightly modfied version of the 'lua'
+executable linked with the 'nacl_io' library in order to provide emulated POSIX
+I/O within Chrome.  The terminal is rendered in HTML/CSS using hterm
+(https://github.com/libapps-mirror/libapps).  See naclterm.js for more
+details.
+
+The logo files here are derived from the postscript logo available at:
+http://www.lua.org/images/
+
+The PNaCl version is published here:
+http://gonativeclient.appspot.com/demos/lua/
+
+The NaCl version is published in the Chrome Web Store:
+https://chrome.google.com/webstore/detail/lua/nkcnhkobblkmiampcmimoemaeffjopph
+
+Passing Arguments to Lua
+------------------------
+
+Aguments can be passed to Lua via the URL parameters.  For example to run
+Lua with the arguments "myfile.lua -v" the URL can be modified to look like::
+
+  index.html?ARG1=myfile.lua&ARG2=-v
+
+URL parameters are converted automatically to environment variables and
+variables of form ARG<N> are passed to the executable as part of the argv
+array.
+
+Testing
+-------
+
+The Lua test suite is installed into the application virtual files system
+at startup and is located at "/lua-5.3.0-tests".  The current working
+directory is also set to this directory on startup so it is possible to
+run all the tests using the following URL::
+
+  index.html?ARG1=all.lua&ARG2=-e_U%3dtrue
+
+For more information on how to running the lua test suite see the lua
+teste suite website at http://www.lua.org/tests/.
+
+.. vim:ft=rst:

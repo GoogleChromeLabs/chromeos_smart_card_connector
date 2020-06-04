@@ -1,0 +1,35 @@
+diff --git a/test/configure.in b/test/configure.in
+--- a/test/configure.in
++++ b/test/configure.in
+@@ -50,6 +50,18 @@ case "$host" in
+             SYS_GL_LIBS="-lOSMesa"
+         fi
+ 		;;
++    *-*-nacl*)
++        case "$CC" in
++            */pnacl*)
++                EXE=".pexe"
++                ;;
++            *)
++                EXE=".nexe"
++                ;;
++        esac
++        MATHLIB="-lm"
++        SYS_GL_LIBS=""
++        ;;
+     *)
+         EXE=""
+         MATHLIB="-lm"
+@@ -68,6 +80,12 @@ AM_PATH_SDL($SDL_VERSION,
+ CFLAGS="$CFLAGS $SDL_CFLAGS"
+ LIBS="$LIBS $SDL_LIBS"
+ 
++case "$host" in
++    *-*-nacl*)
++        LIBS="$LIBS -lnacl_io -l${NACL_CXX_LIB}"
++        ;;
++esac
++
+ dnl Check for X11 path, needed for OpenGL on some systems
+ AC_PATH_X
+ if test x$have_x = xyes; then

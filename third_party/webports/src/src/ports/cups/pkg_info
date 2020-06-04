@@ -1,0 +1,9 @@
+NAME=cups
+VERSION=2.1.0
+URL=https://www.cups.org/software/2.1.0/cups-2.1.0-source.tar.bz2
+LICENSE=CUSTOM:LICENSE.txt
+SHA1=92332b6785471b388929913be780d557ac00b7d0
+DEPENDS=(glibc-compat)
+DISABLED_LIBC=(bionic)
+BUILD_OS=linux
+DISABLED_TOOLCHAIN=(emscripten)

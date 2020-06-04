@@ -1,0 +1,12 @@
+diff --git a/configure.in b/configure.in
+--- a/configure.in
++++ b/configure.in
+@@ -1355,7 +1355,7 @@ CheckNativeClient()
+         AC_DEFINE(SDL_VIDEO_OPENGL_ES2, 1, [ ])
+         AC_DEFINE(SDL_VIDEO_RENDER_OGL_ES2, 1, [ ])
+ 
+-        SDL_LIBS="-Wl,--undefined=PSUserCreateInstance -lSDL2main $SDL_LIBS -lppapi_gles2 -lppapi_simple -lnacl_io -lppapi_cpp -lppapi -lm -l${NACL_CPP_LIB:-stdc++}"
++        SDL_LIBS="-Wl,--undefined=PSUserMainGet -lSDL2main $SDL_LIBS -lppapi_gles2 -lppapi_simple -lnacl_io -lppapi -lm -l${NACL_CXX_LIB:-stdc++}"
+         EXTRA_LDFLAGS="-lppapi_simple"
+ 
+         SDLMAIN_SOURCES="$srcdir/src/main/nacl/*.c"

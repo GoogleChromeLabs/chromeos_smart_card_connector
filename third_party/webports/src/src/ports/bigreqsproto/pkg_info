@@ -1,0 +1,6 @@
+NAME=bigreqsproto
+VERSION=1.1.2
+URL=http://www.x.org/releases/X11R7.7/src/everything/bigreqsproto-1.1.2.tar.bz2
+LICENSE=GPL
+SHA1=ef1765eeb5e9e38d080225fe6a64ed7cd2984b46
+DISABLED_TOOLCHAIN=(emscripten)

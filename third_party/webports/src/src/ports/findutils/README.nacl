@@ -1,0 +1,36 @@
+Major Changes for port findutils:
+1. disabled the check for mnttab
+   changed gnulib/m4/ls-mntd-fs.m4
+
+2. fixed time_t related issue
+
+	had an complie issue like this:
+	>>getdate.y:118: negative width in bit-field
+    >>`verify_error_if_negative_size__'
+    >>The line in question is
+    >>verify (LONG_MIN <= TYPE_MINIMUM (time_t) 
+        && TYPE_MAXIMUM (time_t) <= LONG_MAX);
+    disabled this verify.
+
+    also there is an complie error in gnulib/lib/mktime.c, 
+    fixed by getting the following files from the gnulib repo:
+
+    http://git.savannah.gnu.org/gitweb/?p=gnulib.git;a=tree;f=lib; \
+    h=c30852beffcfcdd47da3cfbd7af8cae7c950ad94; \
+    hb=233419c39c6d13d84439b95766328a238ffb6518
+    
+    gnulib/lib/mktime.c 
+    gnulib/lib/mktime-internal.h gnulib/m4/mktime.m4 
+    Todo: We might need port gnulib in the future
+
+3. a few macro to make findutils include the header file in nacl include 
+  instead of header file in gnulib
+
+4. changed the link line in the make file
+
+5. find.c ftsfind.c  added "nalc_main"
+
+6. comment out the mount logic in gnulib/lib/mountlist.c
+
+7. lib/buildcmd.c 
+   added macro _POSIX_ARG_MAX

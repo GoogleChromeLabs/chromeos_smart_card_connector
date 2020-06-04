@@ -1,0 +1,6 @@
+NAME=glproto
+VERSION=1.4.15
+URL=http://www.x.org/releases/X11R7.7/src/everything/glproto-1.4.15.tar.bz2
+LICENSE=GPL
+SHA1=4cee35232f1926312b29d59a94da1c526b01e5c3
+DISABLED_TOOLCHAIN=(emscripten)

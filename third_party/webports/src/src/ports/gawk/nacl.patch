@@ -1,0 +1,96 @@
+diff --git a/Makefile.in b/Makefile.in
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -472,7 +472,6 @@ SUBDIRS = \
+ 	awklib \
+ 	doc \
+ 	po \
+-	extension \
+ 	test
+ 
+ include_HEADERS = gawkapi.h
+diff --git a/dfa.c b/dfa.c
+--- a/dfa.c
++++ b/dfa.c
+@@ -25,6 +25,7 @@
+ #include <assert.h>
+ #include <ctype.h>
+ #include <stdio.h>
++#include <stddef.h>
+ 
+ #ifndef VMS
+ #include <sys/types.h>
+diff --git a/getopt.c b/getopt.c
+--- a/getopt.c
++++ b/getopt.c
+@@ -21,6 +21,7 @@
+ 
+ /* This tells Alpha OSF/1 not to define a getopt prototype in <stdio.h>.
+    Ditto for AIX 3.2 and <stdlib.h>.  */
++#ifndef __native_client__
+ #ifndef _NO_PROTO
+ # define _NO_PROTO
+ #endif
+@@ -1291,3 +1292,4 @@ main (int argc, char **argv)
+ }
+ 
+ #endif /* TEST */
++#endif
+diff --git a/getopt1.c b/getopt1.c
+--- a/getopt1.c
++++ b/getopt1.c
+@@ -16,6 +16,7 @@
+    License along with the GNU C Library; if not, see
+    <http://www.gnu.org/licenses/>.  */
+ 
++#ifndef __native_client__
+ #ifdef HAVE_CONFIG_H
+ #include <config.h>
+ #endif
+@@ -193,3 +194,4 @@ main (int argc, char **argv)
+ }
+ 
+ #endif /* TEST */
++#endif
+diff --git a/io.c b/io.c
+--- a/io.c
++++ b/io.c
+@@ -29,6 +29,7 @@
+ #endif
+ 
+ #include "awk.h"
++#include <sys/time.h>
+ 
+ #ifdef HAVE_SYS_PARAM_H
+ #undef RE_DUP_MAX	/* avoid spurious conflict w/regex.h */
+diff --git a/posix/gawkmisc.c b/posix/gawkmisc.c
+--- a/posix/gawkmisc.c
++++ b/posix/gawkmisc.c
+@@ -24,6 +24,27 @@
+ #include <io.h>
+ #endif
+ 
++// fix for fcntl not implemented problems
++#if defined(__native_client__)
++#include "nacl_io/kernel_intercept.h"
++#include "nacl_io/kernel_wrap.h"
++#include <stdarg.h>
++
++/*
++ * TODO(bradnelson): Drop this when fcntl is sorted out in nacl_io.
++ * Explicitly use nacl_fcntl.
++ * When built as a shared library, without this emacs seems to hit stubs.
++ */
++int nacl_fcntl(int fd, int cmd, ...) {
++  va_list ap;
++  va_start(ap, cmd);
++  int rtn = ki_fcntl(fd, cmd, ap);
++  va_end(ap);
++  return rtn;
++}
++#define fcntl nacl_fcntl
++#endif
++
+ char quote = '\'';
+ char *defpath = DEFPATH;
+ char *deflibpath = DEFLIBPATH;

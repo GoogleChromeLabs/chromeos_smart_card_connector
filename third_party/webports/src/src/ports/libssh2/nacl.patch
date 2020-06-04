@@ -1,0 +1,11 @@
+diff --git a/example/x11.c b/example/x11.c
+--- a/example/x11.c
++++ b/example/x11.c
+@@ -10,6 +10,7 @@
+ #include <sys/ioctl.h>
+ #include <netinet/in.h>
+ #include <sys/socket.h>
++#include <sys/time.h>
+ #include <arpa/inet.h>
+ #include <unistd.h>
+ #include <sys/types.h>

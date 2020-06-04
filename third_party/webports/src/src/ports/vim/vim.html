@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>vim</title>
+    <script type="text/javascript" src="hterm.concat.js"></script>
+    <script type="text/javascript" src="pipeserver.js"></script>
+    <script type="text/javascript" src="naclprocess.js"></script>
+    <script type="text/javascript" src="naclterm.js"></script>
+    <script type="text/javascript" src="vim.js"></script>
+
+    <style type="text/css">
+      #terminal {
+        width: 90%;
+        height: 500px;
+        position: relative;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Vim for Native Client</h1>
+    <label for="infile">Select file to edit: </label>
+    <input type="file" id="infile">
+    <div id="terminal"></div>
+  </body>
+</html>

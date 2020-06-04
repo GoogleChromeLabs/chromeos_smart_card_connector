@@ -1,0 +1,7 @@
+# DEPS
+/third_party/
+/native_client/
+
+*.pyc
+*~
+/out

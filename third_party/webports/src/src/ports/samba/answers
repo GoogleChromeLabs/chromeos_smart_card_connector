@@ -1,0 +1,53 @@
+Checking uname sysname type: "nacl"
+Checking uname machine type: "nacl"
+Checking uname release type: "nacl"
+Checking uname version type: "nacl"
+rpath library support: OK
+-Wl,--version-script support: FAIL
+Checking for WORDS_BIGENDIAN: FAIL
+Checking size of bool: "1"
+Checking size of char: "1"
+Checking size of int: "4"
+Checking size of long long: "8"
+Checking size of long: "4"
+Checking size of short: "2"
+Checking size of size_t: "4"
+Checking size of ssize_t: "4"
+Checking size of int8_t: "1"
+Checking size of uint8_t: "1"
+Checking size of int16_t: "2"
+Checking size of uint16_t: "2"
+Checking size of int32_t: "4"
+Checking size of uint32_t: "4"
+Checking size of int64_t: "8"
+Checking size of uint64_t: "8"
+Checking size of void*: "4"
+Checking size of off_t: "8"
+Checking size of dev_t: "4"
+Checking size of ino_t: "4"
+Checking size of time_t: "8"
+Checking correct behavior of strtoll: FAIL
+Checking for working strptime: OK
+Checking for C99 vsnprintf: OK
+Checking for HAVE_SHARED_MMAP: FAIL
+Checking for HAVE_MREMAP: FAIL
+Checking for HAVE_INCOHERENT_MMAP: FAIL
+Checking value of NSIG: "0"
+Checking value of _NSIG: "0"
+Checking value of SIGRTMAX: "0"
+Checking value of SIGRTMIN: "0"
+Checking whether blkcnt_t is 32 bit: OK
+Checking whether blkcnt_t is 64 bit: FAIL
+Checking if can we convert from CP850 to UCS-2LE: FAIL
+Checking if can we convert from IBM850 to UCS-2LE: FAIL
+Checking if can we convert from UTF-8 to UCS-2LE: FAIL
+Checking if can we convert from UTF8 to UCS-2LE: FAIL
+vfs_fileid checking for statfs() and struct statfs.f_fsid: FAIL
+Checking size of ((struct utmp *)NULL)->ut_line: FAIL
+Checking whether we can use Linux thread-specific credentials: FAIL
+Checking whether setreuid is available: FAIL
+Checking whether setresuid is available: FAIL
+Checking whether seteuid is available: FAIL
+Checking for HAVE_IFACE_GETIFADDRS: FAIL
+Checking for HAVE_IFACE_IFCONF: FAIL
+Checking for HAVE_IFACE_IFREQ: FAIL

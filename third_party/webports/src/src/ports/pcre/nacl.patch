@@ -1,0 +1,13 @@
+diff --git a/pcretest.c b/pcretest.c
+--- a/pcretest.c
++++ b/pcretest.c
+@@ -3101,7 +3101,8 @@ while (argc > 1 && argv[op][0] == '-')
+       ((stack_size = get_value((pcre_uint8 *)argv[op+1], &endptr)),
+         *endptr == 0))
+     {
+-#if defined(_WIN32) || defined(WIN32) || defined(__minix) || defined(NATIVE_ZOS) || defined(__VMS)
++#if defined(_WIN32) || defined(WIN32) || defined(__minix) || \
++        defined(NATIVE_ZOS) || defined(__VMS) || defined(__native_client__)
+     printf("PCRE: -S not supported on this OS\n");
+     exit(1);
+ #else

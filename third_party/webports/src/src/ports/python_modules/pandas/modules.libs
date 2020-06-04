@@ -1,0 +1,1 @@
+PY_MOD_LIBS+=" -lpng -lfreetype"

@@ -1,0 +1,8 @@
+NAME=json-glib
+VERSION=1.0.4
+URL=http://ftp.gnome.org/pub/gnome/sources/json-glib/1.0/json-glib-1.0.4.tar.xz
+LICENSE=LGPL
+DEPENDS=(glib)
+SHA1=efdf5a66d1d8fb504448a40ba2352bbfef301074
+DISABLED_TOOLCHAIN=(emscripten)
+DISABLED_LIBC=(bionic)

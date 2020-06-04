@@ -1,0 +1,91 @@
+diff --git a/Makefile.in b/Makefile.in
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -83,6 +83,7 @@ SHELL = @SHELL@
+ 
+ @SET_MAKE@
+ 
++AR = @AR@
+ CC = @CC@
+ CXX = @CXX@
+ CFLAGS = @CFLAGS@ @GUI_CFLAGS@ $(MCH_CFLAGS) $(FLA_FLAGS) @DEFINE_PLUGIN_PATH@ -DBX_SHARE_PATH='"$(sharedir)"'
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -24619,6 +24619,9 @@ fi
+ DIALOG_OBJS=""
+ EXPORT_DYNAMIC="-export-dynamic"
+ case $target in
++  *nacl*)
++    EXPORT_DYNAMIC=""
++    ;;
+   *-pc-windows* | *-pc-winnt*)
+     if test "$bx_plugins" = 1; then
+       # set variables for building DLL plugins
+diff --git a/cpu/init.cc b/cpu/init.cc
+--- a/cpu/init.cc
++++ b/cpu/init.cc
+@@ -111,6 +111,7 @@ void BX_CPU_C::initialize(void)
+     BX_CPU_THIS_PTR msrs[n] = 0;
+   }
+   const char *msrs_filename = SIM->get_param_string(BXPN_CONFIGURABLE_MSRS_PATH)->getptr();
++  msrs_filename = "/img/msrs.def";
+   load_MSRs(msrs_filename);
+ #endif
+ 
+diff --git a/iodev/hdimage/vvfat.cc b/iodev/hdimage/vvfat.cc
+--- a/iodev/hdimage/vvfat.cc
++++ b/iodev/hdimage/vvfat.cc
+@@ -1554,7 +1554,9 @@ bx_bool vvfat_image_t::write_file(const char *path, direntry_t *entry, bx_bool c
+   } else {
+     ut.actime = ut.modtime;
+   }
++# if !defined(__native_client__)
+   utime(path, &ut);
++# endif
+ #else
+   hFile = CreateFile(path, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+   if (hFile != INVALID_HANDLE_VALUE) {
+diff --git a/main.cc b/main.cc
+--- a/main.cc
++++ b/main.cc
+@@ -473,6 +473,12 @@ int WINAPI WinMain(
+ // wxWidgets under win32.
+ int CDECL main(int argc, char *argv[])
+ {
++#if defined(__native_client__)
++  chdir("/img");
++  const char* fake_argv[] = {"bochs", "-qf", "linux-img/bochsrc", NULL};
++  argv = (char**)fake_argv;
++  argc = 3;
++#endif
+   bx_startup_flags.argc = argc;
+   bx_startup_flags.argv = argv;
+ #ifdef WIN32
+@@ -1341,7 +1347,7 @@ void bx_init_hardware()
+ #endif
+ 
+ #if BX_SHOW_IPS
+-#if !defined(WIN32)
++#if !defined(WIN32) && !defined(__native_client__)
+   if (!SIM->is_wx_selected()) {
+     signal(SIGALRM, bx_signal_handler);
+     alarm(1);
+@@ -1387,7 +1393,7 @@ int bx_atexit(void)
+ #endif
+ 
+ #if BX_SHOW_IPS
+-#if !defined(__MINGW32__) && !defined(_MSC_VER)
++#if !defined(__MINGW32__) && !defined(_MSC_VER) && !defined(__native_client__)
+   if (!SIM->is_wx_selected()) {
+     alarm(0);
+     signal(SIGALRM, SIG_DFL);
+@@ -1448,7 +1454,7 @@ void CDECL bx_signal_handler(int signum)
+ #if BX_SHOW_IPS
+   if (signum == SIGALRM) {
+     bx_show_ips_handler();
+-#if !defined(WIN32)
++#if !defined(WIN32) && !defined(__native_client__)
+     if (!SIM->is_wx_selected()) {
+       signal(SIGALRM, bx_signal_handler);
+       alarm(1);

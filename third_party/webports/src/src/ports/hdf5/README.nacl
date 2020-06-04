@@ -1,0 +1,12 @@
+HDF5 relies on a number of POSIX commands and conventions that are not
+necessarily supported in Native Client (as of pepper_34).  The changes made
+here include a pre-generated H5Tinit.c, run inside sel_ldr on x86_64, that
+creates the "native" datatypes, and a H5lib_settings.c also run inside sel_ldr.
+The options in config.site were computed by manually extracting the test
+programs from configure.ac and executing them inside sel_ldr, where some
+surprising results for number rounding were found.
+
+The only file driver known to work in sec2, which may behave strangely
+depending on the file system being used.  Note that support for truncate is
+required, and a hack for computing inodes of files for internal reference
+counts (to prevent collision) has been implemented.

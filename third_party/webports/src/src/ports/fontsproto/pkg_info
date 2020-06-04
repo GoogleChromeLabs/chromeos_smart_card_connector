@@ -1,0 +1,6 @@
+NAME=fontsproto
+VERSION=2.1.2
+URL=http://www.x.org/releases/X11R7.7/src/everything/fontsproto-2.1.2.tar.bz2
+LICENSE=GPL
+SHA1=538f0880faa6981cb1a348ced93dc715c42840f7
+DISABLED_TOOLCHAIN=(emscripten)

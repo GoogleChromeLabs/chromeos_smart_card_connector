@@ -1,0 +1,81 @@
+diff --git a/job.c b/job.c
+--- a/job.c
++++ b/job.c
+@@ -29,6 +29,10 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
+ 
+ #include <string.h>
+ 
++#if defined(__native_client__)
++# include <spawn.h>
++#endif
++
+ /* Default shell to use.  */
+ #ifdef WINDOWS32
+ #include <windows.h>
+diff --git a/main.c b/main.c
+--- a/main.c
++++ b/main.c
+@@ -911,6 +911,9 @@ open_tmpfile(char **name, const char *template)
+ #ifdef _AMIGA
+ int
+ main (int argc, char **argv)
++#elif defined(__native_client__)
++int
++nacl_main (int argc, char **argv)
+ #else
+ int
+ main (int argc, char **argv, char **envp)
+@@ -921,6 +924,9 @@ main (int argc, char **argv, char **envp)
+   struct dep *read_makefiles;
+   PATH_VAR (current_directory);
+   unsigned int restarts = 0;
++#if defined(__native_client__)
++  char **envp = environ;
++#endif
+ #ifdef WINDOWS32
+   char *unix_path = NULL;
+   char *windows32_path = NULL;
+diff --git a/misc.c b/misc.c
+--- a/misc.c
++++ b/misc.c
+@@ -715,7 +715,7 @@ log_access (const char *flavor)
+ static void
+ init_access (void)
+ {
+-#ifndef VMS
++#if !defined(VMS) && !defined(__native_client__)
+   user_uid = getuid ();
+   user_gid = getgid ();
+ 
+@@ -723,6 +723,7 @@ init_access (void)
+   make_gid = getegid ();
+ 
+   /* Do these ever fail?  */
++  printf("%d %d %d %d\n", getuid(), getgid(), geteuid(), getegid());
+   if (user_uid == -1 || user_gid == -1 || make_uid == -1 || make_gid == -1)
+     pfatal_with_name ("get{e}[gu]id");
+ 
+@@ -772,8 +773,11 @@ user_access (void)
+      or the saved set ID (what the effective ID was before this set-ID
+      executable (make) was exec'd).  */
+ 
++  /* TODO(sbc): remove this once nacl_io implements setuid and friends */
++#if !(defined(__native_client__) && defined(_NEWLIB_VERSION))
+   if (setuid (user_uid) < 0)
+     pfatal_with_name ("user_access: setuid");
++#endif
+ 
+ #else	/* HAVE_SETREUID.  */
+ 
+@@ -795,8 +799,11 @@ user_access (void)
+     pfatal_with_name ("user_access: setegid");
+ #else
+ #ifndef	HAVE_SETREGID
++/* TODO(sbc): remove this once nacl_io implements setuid and friends */
++#if !(defined(__native_client__) && defined(_NEWLIB_VERSION))
+   if (setgid (user_gid) < 0)
+     pfatal_with_name ("user_access: setgid");
++#endif
+ #else
+   if (setregid (make_gid, user_gid) < 0)
+     pfatal_with_name ("user_access: setregid");

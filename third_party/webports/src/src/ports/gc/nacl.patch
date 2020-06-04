@@ -1,0 +1,751 @@
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -3988,7 +3988,7 @@ _ACEOF
+ _ACEOF
+ 
+ 	;;
+-     *-*-linux*)
++     *-*-linux* | *-*-nacl*)
+ 	cat >>confdefs.h <<\_ACEOF
+ #define GC_LINUX_THREADS 1
+ _ACEOF
+@@ -4512,6 +4512,12 @@ _ACEOF
+  ia64-*-*)
+     machdep="mach_dep.lo ia64_save_regs_in_stack.lo"
+     ;;
++ *-*-nacl*)
++    cat >>confdefs.h <<\_ACEOF
++#define NO_EXECUTE_PERMISSION 1
++_ACEOF
++
++    ;;
+ esac
+ if test x"$machdep" = x; then
+ echo "$as_me:$LINENO: result: $machdep" >&5
+diff --git a/configure.in b/configure.in
+--- a/configure.in
++++ b/configure.in
+@@ -86,7 +86,7 @@ case "$THREADS" in
+ 	fi
+ 	AC_DEFINE(THREAD_LOCAL_ALLOC)
+ 	;;
+-     *-*-linux*)
++     *-*-linux* | *-*-nacl*)
+ 	AC_DEFINE(GC_LINUX_THREADS)
+ 	AC_DEFINE(_REENTRANT)
+ 	;;
+@@ -332,6 +332,9 @@ case "$host" in
+  ia64-*-*)
+     machdep="mach_dep.lo ia64_save_regs_in_stack.lo"
+     ;;
++ *-*-nacl*)
++    AC_DEFINE(NO_EXECUTE_PERMISSION)
++    ;;
+ esac
+ if test x"$machdep" = x; then
+ AC_MSG_RESULT($machdep)
+diff --git a/gc_dlopen.c b/gc_dlopen.c
+--- a/gc_dlopen.c
++++ b/gc_dlopen.c
+@@ -25,7 +25,7 @@
+ 
+ #include "private/gc_priv.h"
+ 
+-# if (defined(GC_PTHREADS) && !defined(GC_DARWIN_THREADS)) \
++# if defined(DYNAMIC_LOADING) && (defined(GC_PTHREADS) && !defined(GC_DARWIN_THREADS)) \
+       || defined(GC_SOLARIS_THREADS)
+ 
+ # if defined(dlopen) && !defined(GC_USE_LD_WRAP)
+diff --git a/include/gc_pthread_redirects.h b/include/gc_pthread_redirects.h
+--- a/include/gc_pthread_redirects.h
++++ b/include/gc_pthread_redirects.h
+@@ -57,6 +57,12 @@
+ #endif
+   int GC_pthread_join(pthread_t thread, void **retval);
+   int GC_pthread_detach(pthread_t thread);
++#if defined(__native_client__) || defined(NACL)
++  void GC_pthread_exit(void *status);
++# undef pthread_exit
++# define pthread_exit GC_pthread_exit
++#endif
++
+ 
+ #if defined(GC_OSF1_THREADS) \
+     && defined(_PTHREAD_USE_MANGLED_NAMES_) && !defined(_PTHREAD_USE_PTDNAM_)
+diff --git a/include/private/gc_priv.h b/include/private/gc_priv.h
+--- a/include/private/gc_priv.h
++++ b/include/private/gc_priv.h
+@@ -1942,6 +1942,8 @@ void GC_err_puts GC_PROTO((GC_CONST char *s));
+        /* SPARC/Linux doesn't properly define SIGPWR in <signal.h>.
+         * It is aliased to SIGLOST in asm/signal.h, though.		*/
+ #      define SIG_SUSPEND SIGLOST
++#    elif defined(NACL)
++#      define SIG_SUSPEND 0
+ #    else
+        /* Linuxthreads itself uses SIGUSR1 and SIGUSR2.			*/
+ #      define SIG_SUSPEND SIGPWR
+diff --git a/include/private/gcconfig.h b/include/private/gcconfig.h
+--- a/include/private/gcconfig.h
++++ b/include/private/gcconfig.h
+@@ -61,9 +61,16 @@
+ # endif
+ 
+ /* Determine the machine type: */
++# if defined(__native_client__)
++#    define NACL
++#    if !defined(__arm__) && !defined(__thumb__)
++#       define I386
++#    endif
++#    define mach_type_known
++# endif
+ # if defined(__arm__) || defined(__thumb__)
+ #    define ARM32
+-#    if !defined(LINUX) && !defined(NETBSD)
++#    if !defined(LINUX) && !defined(NETBSD) && !defined(NACL)
+ #      define NOSYS
+ #      define mach_type_known
+ #    endif
+@@ -1029,17 +1036,23 @@
+ # endif
+ 
+ # ifdef I386
+-#   define MACH_TYPE "I386"
+-#   if defined(__LP64__) || defined(_WIN64)
+-#     define CPP_WORDSZ 64
+-#     define ALIGNMENT 8
+-#   else
++#   if defined(NACL)
++#     define MACH_TYPE "NACL"
+ #     define CPP_WORDSZ 32
+ #     define ALIGNMENT 4
++#   else
++#     define MACH_TYPE "I386"
++#     if defined(__LP64__) || defined(_WIN64)
++#       define CPP_WORDSZ 64
++#       define ALIGNMENT 8
++#     else
++#       define CPP_WORDSZ 32
++#       define ALIGNMENT 4
+ 			/* Appears to hold for all "32 bit" compilers	*/
+ 			/* except Borland.  The -a4 option fixes 	*/
+ 			/* Borland.					*/
+                         /* Ivan Demakov: For Watcom the option is -zp4. */
++#     endif
+ #   endif
+ #   ifndef SMALL_CONFIG
+ #     define ALIGN_DOUBLE /* Not strictly necessary, but may give speed   */
+@@ -1131,6 +1144,33 @@
+ #	endif /* USE_MMAP */
+ #   endif /* DGUX */
+ 
++#   ifdef NACL
++#      define OS_TYPE "NACL"
++       extern int etext[];
++#      define DATASTART ((ptr_t)((((word) (etext)) + 0xfff) & ~0xfff))
++       extern int _end[];
++#      define DATAEND (_end)
++#      ifdef STACK_GRAN
++#        undef STACK_GRAN
++#      endif /* STACK_GRAN */
++#      define STACK_GRAN 0x10000
++#      define HEURISTIC1
++#      ifdef USE_MMAP
++#        undef USE_MMAP
++#      endif
++#      ifdef USE_MUNMAP
++#        undef USE_MUNMAP
++#      endif
++#      ifdef USE_MMAP_ANON
++#        undef USE_MMAP_ANON
++#      endif
++#      ifdef USE_MMAP_FIXED
++#        undef USE_MMAP_FIXED
++#      endif
++#      define GETPAGESIZE() 65536
++#      define MAX_NACL_GC_THREADS 1024
++#   endif
++
+ #   ifdef LINUX
+ #	ifndef __GNUC__
+ 	  /* The Intel compiler doesn't like inline assembly */
+@@ -1862,6 +1902,33 @@
+ #	endif
+ #       define USE_GENERIC_PUSH_REGS
+ #   endif
++#   ifdef NACL
++       /* Copied from NACL x86 block above */
++#      define OS_TYPE "NACL"
++       extern int etext[];
++#      define DATASTART ((ptr_t)((((word) (etext)) + 0xfff) & ~0xfff))
++       extern int _end[];
++#      define DATAEND (_end)
++#      ifdef STACK_GRAN
++#        undef STACK_GRAN
++#      endif /* STACK_GRAN */
++#      define STACK_GRAN 0x10000
++#      define HEURISTIC1
++#      ifdef USE_MMAP
++#        undef USE_MMAP
++#      endif
++#      ifdef USE_MUNMAP
++#        undef USE_MUNMAP
++#      endif
++#      ifdef USE_MMAP_ANON
++#        undef USE_MMAP_ANON
++#      endif
++#      ifdef USE_MMAP_FIXED
++#        undef USE_MMAP_FIXED
++#      endif
++#      define GETPAGESIZE() 65536
++#      define MAX_NACL_GC_THREADS 1024
++#   endif
+ #   ifdef LINUX
+ #       define OS_TYPE "LINUX"
+ #       define LINUX_STACKBOTTOM
+@@ -2238,7 +2305,7 @@
+ # if defined(GC_IRIX_THREADS) && !defined(IRIX5)
+ 	--> inconsistent configuration
+ # endif
+-# if defined(GC_LINUX_THREADS) && !defined(LINUX)
++# if defined(GC_LINUX_THREADS) && !(defined(LINUX) || defined(NACL))
+ 	--> inconsistent configuration
+ # endif
+ # if defined(GC_NETBSD_THREADS) && !defined(NETBSD)
+diff --git a/include/private/pthread_stop_world.h b/include/private/pthread_stop_world.h
+--- a/include/private/pthread_stop_world.h
++++ b/include/private/pthread_stop_world.h
+@@ -6,6 +6,15 @@ struct thread_stop_info {
+     				/* last successfully handled a suspend	*/
+     				/* signal.				*/
+     ptr_t stack_ptr;  		/* Valid only when stopped.      	*/
++#ifdef NACL
++/* Grab NACL_GC_REG_STORAGE_SIZE pointers off the stack when going into */
++/* a syscall.  20 is more than we need, but it's an overestimate in case*/
++/* the instrumented function uses any callee saved registers, they may  */
++/* be pushed to the stack much earlier.  Also, on amd64 'push' puts 8   */
++/* bytes on the stack even though our pointers are 4 bytes.             */
++#define NACL_GC_REG_STORAGE_SIZE 20
++    ptr_t reg_storage[NACL_GC_REG_STORAGE_SIZE];
++#endif
+ };
+     
+ #endif
+diff --git a/include/private/pthread_support.h b/include/private/pthread_support.h
+--- a/include/private/pthread_support.h
++++ b/include/private/pthread_support.h
+@@ -86,6 +86,9 @@ typedef struct GC_Thread_Rep {
+ 
+ # define THREAD_TABLE_SZ 128	/* Must be power of 2	*/
+ extern volatile GC_thread GC_threads[THREAD_TABLE_SZ];
++#ifdef NACL
++extern __thread GC_thread gc_thread_self;
++#endif
+ 
+ extern GC_bool GC_thr_initialized;
+ 
+diff --git a/os_dep.c b/os_dep.c
+--- a/os_dep.c
++++ b/os_dep.c
+@@ -131,7 +131,7 @@
+ # include <errno.h>
+ #endif
+ 
+-#ifdef UNIX_LIKE
++#if defined(UNIX_LIKE) || defined(NACL)
+ # include <fcntl.h>
+ # if defined(SUNOS5SIGS) && !defined(FREEBSD)
+ #  include <sys/siginfo.h>
+@@ -510,6 +510,12 @@ void GC_enable_signals(void)
+     	  /* longjmp implementations.  Most systems appear not to have	*/
+     	  /* a signal 32.						*/
+ #	define SIGSETMASK(old, new) (old) = sigsetmask(new)
++#   elif defined(NACL)
++       /* We don't use signals in NaCl. */
++#      define SIGSET_T int
++#      define SIG_DEL(set, signal)
++#      define SIG_FILL(set)
++#      define SIGSETMASK(old, new)
+ #   else
+ 	/* Use POSIX/SYSV interface	*/
+ #	define SIGSET_T sigset_t
+@@ -1014,8 +1020,8 @@ ptr_t GC_get_stack_base()
+ #   if defined(HEURISTIC1) || defined(HEURISTIC2) || \
+        defined(LINUX_STACKBOTTOM) || defined(FREEBSD_STACKBOTTOM)
+     word dummy;
+-    ptr_t result;
+ #   endif
++    ptr_t result;
+ 
+ #   define STACKBOTTOM_ALIGNMENT_M1 ((word)STACK_GRAN - 1)
+ 
+@@ -1904,8 +1910,21 @@ void GC_remap(ptr_t start, word bytes)
+       int result; 
+ 
+       if (0 == start_addr) return;
++#ifdef NACL
++      {
++       /* NaCl doesn't expose mprotect, but mmap should work fine */
++       void * mmap_result;
++        mmap_result = mmap(start_addr, len, PROT_READ | PROT_WRITE | OPT_PROT_EXEC,
++                     MAP_PRIVATE | MAP_FIXED | OPT_MAP_ANON,
++                     zero_fd, 0/* offset */);
++        if (mmap_result != (void *)start_addr) ABORT("mmap as mprotect failed");
++        /* Fake the return value as if mprotect succeeded. */
++        result = 0;
++      }
++#else /* NACL */
+       result = mprotect(start_addr, len,
+ 		        PROT_READ | PROT_WRITE | OPT_PROT_EXEC);
++#endif /* NACL */
+       if (result != 0) {
+ 	  GC_err_printf3(
+ 		"Mprotect failed at 0x%lx (length %ld) with errno %ld\n",
+diff --git a/pthread_stop_world.c b/pthread_stop_world.c
+--- a/pthread_stop_world.c
++++ b/pthread_stop_world.c
+@@ -8,11 +8,24 @@
+ #include <errno.h>
+ #include <unistd.h>
+ #include <sys/time.h>
+-#ifndef HPUX
++#if !defined(HPUX) && !defined(NACL)
+ # include <sys/select.h>
+   /* Doesn't exist on HP/UX 11.11. */
+ #endif
+ 
++#ifdef NACL
++int nacl_park_threads_now = 0;
++pthread_t nacl_thread_parker = -1;
++
++int nacl_thread_parked[MAX_NACL_GC_THREADS];
++int nacl_thread_used[MAX_NACL_GC_THREADS];
++int nacl_thread_parking_inited = 0;
++int nacl_num_gc_threads = 0;
++pthread_mutex_t nacl_thread_alloc_lock = PTHREAD_MUTEX_INITIALIZER;
++__thread int nacl_thread_idx = -1;
++__thread GC_thread nacl_gc_thread_self = NULL;
++#endif
++
+ #if DEBUG_THREADS
+ 
+ #ifndef NSIG
+@@ -27,6 +40,7 @@
+ # endif
+ #endif
+ 
++#ifndef NACL
+ void GC_print_sig_mask()
+ {
+     sigset_t blocked;
+@@ -40,6 +54,7 @@ void GC_print_sig_mask()
+     }
+     GC_printf0("\n");
+ }
++#endif /* NACL */
+ 
+ #endif
+ 
+@@ -85,7 +100,11 @@ void GC_brief_async_signal_safe_sleep()
+     struct timeval tv;
+     tv.tv_sec = 0;
+     tv.tv_usec = 1000 * TIME_LIMIT / 2;
++#ifndef NACL
+     select(0, 0, 0, 0, &tv);
++#else
++    nanosleep(&tv, 0);
++#endif
+ }
+ 
+ #ifdef GC_OSF1_THREADS
+@@ -152,6 +171,7 @@ void GC_suspend_handler(int sig)
+ 
+ void GC_suspend_handler_inner(ptr_t sig_arg)
+ {
++#ifndef NACL
+     int sig = (int)(word)sig_arg;
+     int dummy;
+     pthread_t my_thread = pthread_self();
+@@ -226,6 +246,8 @@ void GC_suspend_handler_inner(ptr_t sig_arg)
+ #if DEBUG_THREADS
+     GC_printf1("Continuing 0x%lx\n", my_thread);
+ #endif
++
++#endif /* NACL */
+ }
+ 
+ void GC_restart_handler(int sig)
+@@ -307,6 +329,10 @@ void GC_push_all_stacks()
+ #       else
+           GC_push_all_stack(lo, hi);
+ #	endif
++#       ifdef NACL
++         /* Push reg_storage as roots, this will cover the reg context */
++          GC_push_all_stack(p -> stop_info.reg_storage, p -> stop_info.reg_storage + NACL_GC_REG_STORAGE_SIZE);
++#       endif
+ #	ifdef IA64
+ #         if DEBUG_THREADS
+             GC_printf3("Reg stack for thread 0x%lx = [%lx,%lx)\n",
+@@ -337,6 +363,7 @@ int GC_stopping_pid;
+ /* were sent. */
+ int GC_suspend_all()
+ {
++#ifndef NACL
+     int n_live_threads = 0;
+     int i;
+     GC_thread p;
+@@ -371,6 +398,9 @@ int GC_suspend_all()
+       }
+     }
+     return n_live_threads;
++#else /* NACL */
++    return 0;
++#endif
+ }
+ 
+ /* Caller holds allocation lock.	*/
+@@ -395,6 +425,8 @@ void GC_stop_world()
+ #   endif /* PARALLEL_MARK */
+     ++GC_stop_count;
+     GC_world_is_stopped = TRUE;
++
++#   ifndef NACL
+     n_live_threads = GC_suspend_all();
+ 
+       if (GC_retry_signals) {
+@@ -434,19 +466,143 @@ void GC_stop_world()
+ 	      }
+ 	  }
+     }
+-#   ifdef PARALLEL_MARK
+-      GC_release_mark_lock();
+-#   endif
+     #if DEBUG_THREADS
+       GC_printf1("World stopped from 0x%lx\n", pthread_self());
+     #endif
+     GC_stopping_thread = 0;  /* debugging only */
++#   else /* NACL */
++    {
++      GC_thread p;
++      int i;
++
++      #if DEBUG_THREADS
++      GC_printf1("pthread_stop_world: num_threads %d\n", nacl_num_gc_threads - 1);
++      #endif
++      nacl_thread_parker = pthread_self();
++      nacl_park_threads_now = 1;
++    
++      while (1) {
++        #define NACL_PARK_WAIT_NANOSECONDS 100000
++        int num_threads_parked = 0;
++        struct timespec ts;
++        int num_used = 0;
++        /* Check the 'parked' flag for each thread the GC knows about */
++        for (i = 0; i < MAX_NACL_GC_THREADS && num_used < nacl_num_gc_threads; i++) {
++          if (nacl_thread_used[i] == 1) {
++            num_used++;
++              if (nacl_thread_parked[i] == 1) {
++                num_threads_parked++;
++              }
++          }
++        }
++        /* -1 for the current thread */
++        if (num_threads_parked >= nacl_num_gc_threads - 1)
++          break;
++        ts.tv_sec = 0;
++        ts.tv_nsec = NACL_PARK_WAIT_NANOSECONDS;
++        #if DEBUG_THREADS
++        GC_printf1("sleeping waiting for %d threads to park...\n", nacl_num_gc_threads - num_threads_parked - 1);
++        #endif
++        nanosleep(&ts, 0);
++      }
++    }
++#   endif /* NACL */
++
++#   ifdef PARALLEL_MARK
++      GC_release_mark_lock();
++#   endif
+ }
+ 
++#ifdef NACL
++
++#if __x86_64__
++
++#define NACL_STORE_REGS()  \
++    do {                  \
++       asm("push %rbx");\
++       asm("push %rbp");\
++       asm("push %r12");\
++       asm("push %r13");\
++       asm("push %r14");\
++       asm("push %r15");\
++       asm("mov %%esp, %0" : "=m" (nacl_gc_thread_self->stop_info.stack_ptr));\
++        memcpy(nacl_gc_thread_self->stop_info.reg_storage, nacl_gc_thread_self->stop_info.stack_ptr, NACL_GC_REG_STORAGE_SIZE * sizeof(ptr_t));\
++       asm("naclasp $48, %r15");\
++    } while (0)
++
++#elif __i386__
++
++#define NACL_STORE_REGS()  \
++    do {                  \
++       asm("push %ebx");\
++       asm("push %ebp");\
++       asm("push %esi");\
++       asm("push %edi");\
++       asm("mov %%esp, %0" : "=m" (nacl_gc_thread_self->stop_info.stack_ptr));\
++        memcpy(nacl_gc_thread_self->stop_info.reg_storage, nacl_gc_thread_self->stop_info.stack_ptr, NACL_GC_REG_STORAGE_SIZE * sizeof(ptr_t));\
++       asm("add $16, %esp");\
++    } while (0)
++
++#endif
++
++void nacl_pre_syscall_hook()
++{
++    int local_dummy = 0;
++    if (nacl_thread_idx != -1) {
++       NACL_STORE_REGS();
++        nacl_gc_thread_self->stop_info.stack_ptr = (ptr_t)(&local_dummy);
++        nacl_thread_parked[nacl_thread_idx] = 1;
++    }
++}
++
++void __nacl_suspend_thread_if_needed();
++
++void nacl_post_syscall_hook()
++{
++    /* Calling __nacl_suspend_thread_if_needed() right away should guarantee we don't mutate the GC set. */
++    __nacl_suspend_thread_if_needed();
++    if (nacl_thread_idx != -1) {
++        nacl_thread_parked[nacl_thread_idx] = 0;
++    }
++}
++
++void __nacl_suspend_thread_if_needed() {
++    if (nacl_park_threads_now) {
++        pthread_t self = pthread_self();
++        int local_dummy = 0;
++        /* Don't try to park the thread parker. */
++        if (nacl_thread_parker == self)
++            return;
++
++        /* This can happen when a thread is created   */
++        /* outside of the GC system (wthread mostly). */
++        if (nacl_thread_idx < 0)
++            return;
++
++        /* If it was already 'parked', we're returning from a syscall, */
++        /* so don't bother storing registers again, the GC has a set.  */
++        if (!nacl_thread_parked[nacl_thread_idx]) {
++            NACL_STORE_REGS();
++            nacl_gc_thread_self->stop_info.stack_ptr = (ptr_t)(&local_dummy);
++        }
++        nacl_thread_parked[nacl_thread_idx] = 1;
++        while (nacl_park_threads_now)
++            ; /* spin */
++        nacl_thread_parked[nacl_thread_idx] = 0;
++
++        /* Clear out the reg storage for next suspend. */
++        memset(nacl_gc_thread_self->stop_info.reg_storage, 0, NACL_GC_REG_STORAGE_SIZE * sizeof(ptr_t));
++    }
++}
++
++#endif /* NACL */
++
++
+ /* Caller holds allocation lock, and has held it continuously since	*/
+ /* the world stopped.							*/
+ void GC_start_world()
+ {
++#ifndef NACL
+     pthread_t my_thread = pthread_self();
+     register int i;
+     register GC_thread p;
+@@ -495,9 +651,16 @@ void GC_start_world()
+     #if DEBUG_THREADS
+       GC_printf0("World started\n");
+     #endif
++#else /* NACL */
++#   if DEBUG_THREADS
++    GC_printf0("World starting\n");
++#   endif
++    nacl_park_threads_now = 0;
++#endif /* NACL */
+ }
+ 
+ void GC_stop_init() {
++#ifndef NACL
+     struct sigaction act;
+     
+     if (sem_init(&GC_suspend_ack_sem, 0, 0) != 0)
+@@ -542,6 +705,7 @@ void GC_stop_init() {
+               GC_printf0("Will retry suspend signal if necessary.\n");
+ 	  }
+ #     endif
++#endif /* NACL */
+ }
+ 
+ #endif
+diff --git a/pthread_support.c b/pthread_support.c
+--- a/pthread_support.c
++++ b/pthread_support.c
+@@ -153,6 +153,9 @@
+ #   endif
+ #   undef pthread_join
+ #   undef pthread_detach
++#   if defined(NACL)
++#     undef pthread_exit
++#   endif
+ #   if defined(GC_OSF1_THREADS) && defined(_PTHREAD_USE_MANGLED_NAMES_) \
+        && !defined(_PTHREAD_USE_PTDNAM_)
+ /* Restore the original mangled names on Tru64 UNIX.  */
+@@ -557,6 +560,53 @@ void GC_mark_thread_local_free_lists(void)
+ 
+ static struct GC_Thread_Rep first_thread;
+ 
++#ifdef NACL
++extern int nacl_thread_parked[MAX_NACL_GC_THREADS];
++extern int nacl_thread_used[MAX_NACL_GC_THREADS];
++extern int nacl_thread_parking_inited;
++extern int nacl_num_gc_threads;
++extern pthread_mutex_t nacl_thread_alloc_lock;
++extern __thread int nacl_thread_idx;
++extern __thread GC_thread nacl_gc_thread_self;
++
++void nacl_initialize_gc_thread()
++{
++    int i;
++    pthread_mutex_lock(&nacl_thread_alloc_lock);
++    if (!nacl_thread_parking_inited)
++    {
++        for (i = 0; i < MAX_NACL_GC_THREADS; i++) {
++            nacl_thread_used[i] = 0;
++            nacl_thread_parked[i] = 0;
++        }
++        nacl_thread_parking_inited = 1;
++    }
++    GC_ASSERT(nacl_num_gc_threads <= MAX_NACL_GC_THREADS);
++    for (i = 0; i < MAX_NACL_GC_THREADS; i++) {
++        if (nacl_thread_used[i] == 0) {
++            nacl_thread_used[i] = 1;
++            nacl_thread_idx = i;
++            nacl_num_gc_threads++;
++            break;
++        }
++    }
++    pthread_mutex_unlock(&nacl_thread_alloc_lock);
++}
++
++void nacl_shutdown_gc_thread()
++{
++    pthread_mutex_lock(&nacl_thread_alloc_lock);
++    GC_ASSERT(nacl_thread_idx >= 0 && nacl_thread_idx < MAX_NACL_GC_THREADS);
++    GC_ASSERT(nacl_thread_used[nacl_thread_idx] != 0);
++    nacl_thread_used[nacl_thread_idx] = 0;
++    nacl_thread_idx = -1;
++    nacl_num_gc_threads--;
++    pthread_mutex_unlock(&nacl_thread_alloc_lock);
++}
++
++#endif /* NACL */
++
++
+ /* Add a thread to GC_threads.  We assume it wasn't already there.	*/
+ /* Caller holds allocation lock.					*/
+ GC_thread GC_new_thread(pthread_t id)
+@@ -576,6 +626,10 @@ GC_thread GC_new_thread(pthread_t id)
+     result -> id = id;
+     result -> next = GC_threads[hv];
+     GC_threads[hv] = result;
++#ifdef NACL
++    nacl_gc_thread_self = result;
++    nacl_initialize_gc_thread();
++#endif
+     GC_ASSERT(result -> flags == 0 && result -> thread_blocked == 0);
+     return(result);
+ }
+@@ -616,6 +670,11 @@ void GC_delete_gc_thread(pthread_t id, GC_thread gc_id)
+     register GC_thread p = GC_threads[hv];
+     register GC_thread prev = 0;
+ 
++#ifdef NACL
++    nacl_shutdown_gc_thread();
++    nacl_gc_thread_self = NULL;
++#endif
++
+     while (p != gc_id) {
+         prev = p;
+         p = p -> next;
+@@ -710,6 +769,7 @@ int GC_segment_is_thread_stack(ptr_t lo, ptr_t hi)
+ /* Return the number of processors, or i<= 0 if it can't be determined.	*/
+ int GC_get_nprocs()
+ {
++#ifndef NACL
+     /* Should be "return sysconf(_SC_NPROCESSORS_ONLN);" but that	*/
+     /* appears to be buggy in many cases.				*/
+     /* We look for lines "cpu<n>" in /proc/stat.			*/
+@@ -739,6 +799,9 @@ int GC_get_nprocs()
+     }
+     close(f);
+     return result;
++#else /* NACL */
++    return sysconf(_SC_NPROCESSORS_ONLN);
++#endif /* NACL */
+ }
+ #endif /* GC_LINUX_THREADS */
+ 
+@@ -984,7 +1047,7 @@ void GC_init_parallel()
+ }
+ 
+ 
+-#if !defined(GC_DARWIN_THREADS)
++#if !defined(GC_DARWIN_THREADS) && !defined(NACL)
+ int WRAP_FUNC(pthread_sigmask)(int how, const sigset_t *set, sigset_t *oset)
+ {
+     sigset_t fudged_set;
+@@ -996,7 +1059,7 @@ int WRAP_FUNC(pthread_sigmask)(int how, const sigset_t *set, sigset_t *oset)
+     }
+     return(REAL_FUNC(pthread_sigmask)(how, set, oset));
+ }
+-#endif /* !GC_DARWIN_THREADS */
++#endif /* !GC_DARWIN_THREADS && !defined(NACL) */
+ 
+ /* Wrappers for functions that are likely to block for an appreciable	*/
+ /* length of time.  Must be called in pairs, if at all.			*/
+@@ -1121,6 +1184,17 @@ int WRAP_FUNC(pthread_join)(pthread_t thread, void **retval)
+     return result;
+ }
+ 
++#ifdef NACL
++/* Native Client doesn't support pthread cleanup functions, */
++/* so wrap pthread_exit and manually cleanup the thread.    */
++void
++WRAP_FUNC(pthread_exit)(void *status)
++{
++    GC_thread_exit_proc(0); 
++    REAL_FUNC(pthread_exit)(status);
++}
++#endif
++
+ int
+ WRAP_FUNC(pthread_detach)(pthread_t thread)
+ {
+@@ -1203,7 +1277,9 @@ void * GC_start_routine(void * arg)
+     start_arg = si -> arg;
+     sem_post(&(si -> registered));	/* Last action on si.	*/
+     					/* OK to deallocate.	*/
++#ifndef NACL
+     pthread_cleanup_push(GC_thread_exit_proc, 0);
++#endif
+ #   if defined(THREAD_LOCAL_ALLOC) && !defined(DBG_HDRS_ALL)
+  	LOCK();
+         GC_init_thread_local(me);
+@@ -1214,7 +1290,9 @@ void * GC_start_routine(void * arg)
+         GC_printf1("Finishing thread 0x%x\n", pthread_self());
+ #endif
+     me -> status = result;
++#ifndef NACL
+     pthread_cleanup_pop(1);
++#endif
+     /* Cleanup acquires lock, ensuring that we can't exit		*/
+     /* while a collection that thinks we're alive is trying to stop     */
+     /* us.								*/

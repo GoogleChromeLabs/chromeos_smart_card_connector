@@ -1,0 +1,147 @@
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -90,7 +90,11 @@ endif  # PLATFORM_SHARED_EXT
+ 
+ all: $(SHARED) $(LIBRARY)
+ 
+-check: all $(PROGRAMS) $(TESTS)
++tests: $(TESTS)
++
++programs: $(PROGRAMS)
++
++check: all programs tests
+ 	for t in $(TESTS); do echo "***** Running $$t"; ./$$t || exit 1; done
+ 
+ clean:
+diff --git a/build_detect_platform b/build_detect_platform
+--- a/build_detect_platform
++++ b/build_detect_platform
+@@ -98,6 +98,22 @@ case "$TARGET_OS" in
+         PLATFORM_LIBS="-lpthread"
+         PORT_FILE=port/port_posix.cc
+         ;;
++    NaCl)
++        PLATFORM=OS_NACL
++        COMMON_FLAGS="$MEMCMP_FLAG -D_REENTRANT -DOS_NACL -DLEVELDB_PLATFORM_POSIX"
++        PLATFORM_LDFLAGS="-pthread"
++        PORT_FILE=port/port_posix.cc
++        CROSS_COMPILE=true
++        if [ "$NACL_ARCH" = arm -o "$NACL_ARCH" = pnacl ]; then
++            COMMON_FLAGS="$COMMON_FLAGS -DLEVELDB_ATOMIC_PRESENT"
++            # Would use -std=c++11 here but its broken on PNaCl:
++            # http://crbug.com/314944
++            PLATFORM_CXXFLAGS="-std=gnu++11"
++        fi
++        if [ "$NACL_SHARED" != 1 ]; then
++          PLATFORM_SHARED_EXT=""
++        fi
++        ;;
+     NetBSD)
+         PLATFORM=OS_NETBSD
+         COMMON_FLAGS="$MEMCMP_FLAG -D_REENTRANT -DOS_NETBSD"
+diff --git a/port/atomic_pointer.h b/port/atomic_pointer.h
+--- a/port/atomic_pointer.h
++++ b/port/atomic_pointer.h
+@@ -20,6 +20,9 @@
+ #define PORT_ATOMIC_POINTER_H_
+ 
+ #include <stdint.h>
++#ifdef LEVELDB_ATOMIC_PRESENT
++#include <atomic>
++#endif
+ #ifdef LEVELDB_CSTDATOMIC_PRESENT
+ #include <cstdatomic>
+ #endif
+@@ -125,8 +128,8 @@ class AtomicPointer {
+   }
+ };
+ 
+-// AtomicPointer based on <cstdatomic>
+-#elif defined(LEVELDB_CSTDATOMIC_PRESENT)
++// AtomicPointer based on <cstdatomic> or <atomic>
++#elif defined(LEVELDB_CSTDATOMIC_PRESENT) || defined(LEVELDB_ATOMIC_PRESENT)
+ class AtomicPointer {
+  private:
+   std::atomic<void*> rep_;
+diff --git a/port/port_posix.h b/port/port_posix.h
+--- a/port/port_posix.h
++++ b/port/port_posix.h
+@@ -37,6 +37,14 @@
+   // See http://code.google.com/p/android/issues/detail?id=39824
+   #include <endian.h>
+   #define PLATFORM_IS_LITTLE_ENDIAN  (_BYTE_ORDER == _LITTLE_ENDIAN)
++#elif defined(OS_NACL)
++  #include <sys/types.h>
++  #if defined(_NEWLIB_VERSION)
++    #include <machine/endian.h>
++    #define PLATFORM_IS_LITTLE_ENDIAN  (BYTE_ORDER == LITTLE_ENDIAN)
++  #else
++    #include <endian.h>
++  #endif
+ #else
+   #include <endian.h>
+ #endif
+@@ -55,7 +63,7 @@
+ 
+ #if defined(OS_MACOSX) || defined(OS_SOLARIS) || defined(OS_FREEBSD) ||\
+     defined(OS_NETBSD) || defined(OS_OPENBSD) || defined(OS_DRAGONFLYBSD) ||\
+-    defined(OS_ANDROID) || defined(OS_HPUX)
++    defined(OS_ANDROID) || defined(OS_HPUX) || (defined(OS_NACL) && (defined(_NEWLIB_VERSION) || defined(__BIONIC__)))
+ // Use fread/fwrite/fflush on platforms without _unlocked variants
+ #define fread_unlocked fread
+ #define fwrite_unlocked fwrite
+diff --git a/util/env_posix.cc b/util/env_posix.cc
+--- a/util/env_posix.cc
++++ b/util/env_posix.cc
+@@ -27,6 +27,32 @@
+ #include "util/mutexlock.h"
+ #include "util/posix_logger.h"
+ 
++#ifdef __native_client__
++// TODO(sbc): remove once fsync/fdatasync get implemented in sel_ldr.
++#define fsync(X) 0
++#define fdatasync(X) 0
++#ifdef __GLIBC__
++#define geteuid(X) 0
++ssize_t pread(int fd, char* buf, size_t n, off_t off) {
++  off_t cur_pos;
++  ssize_t num_read;
++
++  if ((cur_pos = lseek(fd, 0, SEEK_CUR)) == (off_t)-1)
++    return -1;
++
++  if (lseek(fd, off, SEEK_SET) == (off_t)-1)
++    return -1;
++
++  num_read = read(fd, buf, n);
++
++  if (lseek(fd, cur_pos, SEEK_SET) == (off_t)-1)
++    return -1;
++
++  return num_read;
++}
++#endif
++#endif
++
+ namespace leveldb {
+ 
+ namespace {
+@@ -257,6 +283,9 @@ class PosixWritableFile : public WritableFile {
+ };
+ 
+ static int LockOrUnlock(int fd, bool lock) {
++#ifdef __native_client__
++  return 0;
++#else
+   errno = 0;
+   struct flock f;
+   memset(&f, 0, sizeof(f));
+@@ -265,6 +294,7 @@ static int LockOrUnlock(int fd, bool lock) {
+   f.l_start = 0;
+   f.l_len = 0;        // Lock/unlock entire file
+   return fcntl(fd, F_SETLK, &f);
++#endif
+ }
+ 
+ class PosixFileLock : public FileLock {

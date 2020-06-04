@@ -1,0 +1,46 @@
+Copyright (c) 2011 The Native Client Authors. All rights reserved.
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+
+Copyright (c) 1994, 1996 by Bennet Yee.
+
+This material was developed by the author.  Permission to copy this
+software, to redistribute it, and to use it for any purpose is hereby
+granted, subject to the following five restrictions.
+
+1. Any copy made of this software must include this copyright notice in
+full.
+
+2. All materials containing this software or derivatives thereof must
+provide this software in source form or provide a means of obtaining
+this software in source form; no fees may be charged for this software
+except those for covering media costs and handling.
+
+3. All materials developed as a consequence of the use of this software
+shall duly acknowledge such use, in accordance with the usual standards
+of acknowledging credit in academic research.
+
+4. The author makes no warranty or representation that the operation
+of this software will be error-free, and the author is under no
+obligation to provide any services, by way of maintenance, update, or
+otherwise.
+
+5. In conjunction with products arising from the use of this material,
+there shall be no use of the names of the author, of Carnegie-Mellon
+University or University of California, nor of any adaptation thereof
+in any advertising, promotional, or sales literature without prior
+written consent from the author, Carnegie-Mellon University, and
+University of California in each case.
+
+If you have questions, you can contact the author at bsy@cs.ucsd.edu
+
+Users of this software is requested to make their best efforts (a) to
+return to the author any improvements or extensions that they make, so
+that these may be included in future releases; (b) to document clearly
+any improvements or extensions made to this software; and (c) to inform
+the author of noteworthy uses of this software.  Any improvements or
+extensions to this software may be placed under different copyright
+restrictions by the author of those improvements or extensions.  That
+those improvements or extensions be placed under the same copyright as
+this software is encouraged.
+

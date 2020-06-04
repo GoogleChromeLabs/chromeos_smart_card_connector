@@ -1,0 +1,8 @@
+NAME=wireshark
+VERSION=1.10.11
+URL=https://www.wireshark.org/download/src/all-versions/wireshark-1.10.11.tar.bz2
+LICENSE=GPL2
+LIBC=newlib
+DEPENDS=(glib nacl-spawn)
+SHA1=f8c75b65d79fc597a7a2468cf01d4e3061997ebf
+DISABLED_TOOLCHAIN=(emscripten pnacl)

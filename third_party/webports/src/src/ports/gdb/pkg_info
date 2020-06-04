@@ -1,0 +1,12 @@
+NAME=gdb
+VERSION=7.7
+URL=https://chromium.googlesource.com/native_client/nacl-binutils.git@5deb479
+LICENSE=CUSTOM
+# arm-nacl-clang crashes
+# https://code.google.com/p/nativeclient/issues/detail?id=4114
+# glibc/arm: missing FIONBIO ioctl
+# https://code.google.com/p/nativeclient/issues/detail?id=4233
+DISABLED_TOOLCHAIN=(glibc/arm clang-newlib/arm pnacl emscripten)
+BUILD_OS=linux
+DISABLED_LIBC=(bionic)
+DEPENDS=(ncurses expat readline zlib glibc-compat nacl-spawn)

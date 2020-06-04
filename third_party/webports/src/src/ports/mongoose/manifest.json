@@ -1,0 +1,24 @@
+{
+  "name": "Mongoose Webserver",
+  "description": "Mongoose Webserver built using Native Client",
+  "version": "0.0.0.0",
+  "manifest_version": 2,
+  "icons": {
+    "16": "icon_16.png",
+    "48": "icon_48.png",
+    "128": "icon_128.png"
+  },
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "permissions": [
+    "storage",
+    {"socket": [
+      "resolve-host",
+      "tcp-listen:*:*",
+      "tcp-connect"
+    ]}
+  ]
+}

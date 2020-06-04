@@ -1,0 +1,271 @@
+diff --git a/bfd/opncls.c b/bfd/opncls.c
+--- a/bfd/opncls.c
++++ b/bfd/opncls.c
+@@ -673,6 +673,10 @@ bfd_openw (const char *filename, const char *target)
+ static inline void
+ _maybe_make_executable (bfd * abfd)
+ {
++#if defined(__native_client__)
++  /* TODO(bradnelson): Fix nacl_io and remove. */
++  (void) abfd;
++#else
+   /* If the file was open for writing and is now executable,
+      make it so.  */
+   if (abfd->direction == write_direction
+@@ -694,6 +698,7 @@ _maybe_make_executable (bfd * abfd)
+ 		  & (buf.st_mode | ((S_IXUSR | S_IXGRP | S_IXOTH) &~ mask))));
+ 	}
+     }
++#endif
+ }
+ 
+ /*
+diff --git a/config/dfp.m4 b/config/dfp.m4
+--- a/config/dfp.m4
++++ b/config/dfp.m4
+@@ -23,7 +23,7 @@ Valid choices are 'yes', 'bid', 'dpd', and 'no'.]) ;;
+     powerpc*-*-linux* | i?86*-*-linux* | x86_64*-*-linux* | s390*-*-linux* | \
+     i?86*-*-gnu* | \
+     i?86*-*-mingw* | x86_64*-*-mingw* | \
+-    i?86*-*-cygwin* | x86_64*-*-cygwin*)
++    i?86*-*-cygwin* | x86_64*-*-cygwin* | *nacl*)
+       enable_decimal_float=yes
+       ;;
+     *)
+diff --git a/gas/as.c b/gas/as.c
+--- a/gas/as.c
++++ b/gas/as.c
+@@ -1134,6 +1134,10 @@ create_obj_attrs_section (void)
+ #endif
+ 
+ 
++#ifdef __native_client__
++int nacl_main(int argc, char ** argv);
++#endif
++
+ int
+ main (int argc, char ** argv)
+ {
+diff --git a/gdb/charset.c b/gdb/charset.c
+--- a/gdb/charset.c
++++ b/gdb/charset.c
+@@ -767,6 +767,7 @@ find_charset_names (void)
+    introduction even when stdout is not a tty.  Newer versions omit
+    the intro if stdout is not a tty.  */
+ 
++#if !defined(__native_client__)
+ static int
+ ignore_line_p (const char *line)
+ {
+@@ -790,10 +791,14 @@ ignore_line_p (const char *line)
+ 
+   return 0;
+ }
++#endif
+ 
+ static void
+ find_charset_names (void)
+ {
++#if defined(__native_client__)
++  charsets = NULL;
++#else
+   struct pex_obj *child;
+   char *args[3];
+   int err, status;
+@@ -915,6 +920,7 @@ find_charset_names (void)
+     }
+   else
+     VEC_safe_push (char_ptr, charsets, NULL);
++#endif
+ }
+ 
+ #endif /* HAVE_ICONVLIST || HAVE_LIBICONVLIST */
+diff --git a/gdb/configure b/gdb/configure
+--- a/gdb/configure
++++ b/gdb/configure
+@@ -5188,7 +5188,7 @@ fi
+ gdb_host_obs=posix-hdep.o
+ 
+ if test "${target}" = "${host}"; then
+-  gdb_native=yes
++  gdb_native=no
+ else
+   gdb_native=no
+ fi
+diff --git a/gdb/inflow.c b/gdb/inflow.c
+--- a/gdb/inflow.c
++++ b/gdb/inflow.c
+@@ -121,6 +121,7 @@ gdb_getpgrp (void)
+ {
+   int process_group = -1;
+ 
++#if !defined(__native_client__)
+ #ifdef HAVE_TERMIOS
+   process_group = tcgetpgrp (0);
+ #endif
+@@ -130,6 +131,7 @@ gdb_getpgrp (void)
+ #ifdef HAVE_SGTTY
+   ioctl (0, TIOCGPGRP, &process_group);
+ #endif
++#endif
+   return process_group;
+ }
+ #endif
+@@ -327,11 +329,13 @@ terminal_inferior (void)
+ 
+       if (job_control)
+ 	{
++#if !defined(__native_client__)
+ #ifdef HAVE_TERMIOS
+ 	  result = tcsetpgrp (0, tinfo->process_group);
+ 	  if (!inf->attach_flag)
+ 	    OOPSY ("tcsetpgrp");
+ #endif
++#endif
+ 
+ #ifdef HAVE_SGTTY
+ 	  result = ioctl (0, TIOCSPGRP, &tinfo->process_group);
+@@ -437,6 +441,7 @@ terminal_ours_1 (int output_only)
+ 
+       if (job_control)
+ 	{
++#if !defined(__native_client__)
+ #ifdef HAVE_TERMIOS
+ 	  result = tcsetpgrp (0, our_terminal_info.process_group);
+ #if 0
+@@ -450,6 +455,7 @@ terminal_ours_1 (int output_only)
+ 				safe_strerror (errno));
+ #endif
+ #endif /* termios */
++#endif
+ 
+ #ifdef HAVE_SGTTY
+ 	  result = ioctl (0, TIOCSPGRP, &our_terminal_info.process_group);
+@@ -808,7 +814,8 @@ clear_sigint_trap (void)
+ pid_t
+ create_tty_session (void)
+ {
+-#ifdef HAVE_SETSID
++  /* TODO(bradnelson): Remove once nacl_io has a setsid implementation. */
++#if defined(HAVE_SETSID) && !defined(__native_client__)
+   pid_t ret;
+ 
+   if (!job_control || inferior_thisrun_terminal == 0)
+diff --git a/gdb/ser-pipe.c b/gdb/ser-pipe.c
+--- a/gdb/ser-pipe.c
++++ b/gdb/ser-pipe.c
+@@ -100,7 +100,8 @@ pipe_open (struct serial *scb, const char *name)
+   if (pid == 0)
+     {
+       /* We don't want ^c to kill the connection.  */
+-#ifdef HAVE_SETSID
++      /* TODO(bradnelson): Remove once nacl_io has a setsid implementation. */
++#if defined(HAVE_SETSID) && !defined(__native_client__)
+       pid_t sid = setsid ();
+       if (sid == -1)
+ 	signal (SIGINT, SIG_IGN);
+diff --git a/gdb/utils.c b/gdb/utils.c
+--- a/gdb/utils.c
++++ b/gdb/utils.c
+@@ -3168,7 +3168,8 @@ gdb_realpath (const char *filename)
+      path.  Use that and realpath() to canonicalize the name.  This is
+      the most common case.  Note that, if there isn't a compile time
+      upper bound, you want to avoid realpath() at all costs.  */
+-#if defined (HAVE_REALPATH) && defined (PATH_MAX)
++  /* TODO(bradnelson): Drop this once nacl_io has realpath. */
++#if defined (HAVE_REALPATH) && defined (PATH_MAX) && !defined(__native_client__)
+   {
+     char buf[PATH_MAX];
+     const char *rp = realpath (filename, buf);
+@@ -3209,7 +3210,8 @@ gdb_realpath (const char *filename)
+      pathconf()) making it impossible to pass a correctly sized buffer
+      to realpath() (it could always overflow).  On those systems, we
+      skip this.  */
+-#if defined (HAVE_REALPATH) && defined (_PC_PATH_MAX) && defined(HAVE_ALLOCA)
++  /* TODO(bradnelson): Drop this once nacl_io has realpath. */
++#if defined (HAVE_REALPATH) && defined (_PC_PATH_MAX) && defined(HAVE_ALLOCA) && !defined(__native_client__)
+   {
+     /* Find out the max path size.  */
+     long path_max = pathconf ("/", _PC_PATH_MAX);
+@@ -3770,6 +3772,7 @@ substitute_path_component (char **stringp, const char *from, const char *to)
+ 
+ #ifdef HAVE_WAITPID
+ 
++#if !defined(__native_client__)
+ #ifdef SIGALRM
+ 
+ /* SIGALRM handler for waitpid_with_timeout.  */
+@@ -3781,6 +3784,7 @@ sigalrm_handler (int signo)
+ }
+ 
+ #endif
++#endif
+ 
+ /* Wrapper to wait for child PID to die with TIMEOUT.
+    TIMEOUT is the time to stop waiting in seconds.
+@@ -3801,6 +3805,9 @@ wait_to_die_with_timeout (pid_t pid, int *status, int timeout)
+ 
+   if (timeout > 0)
+     {
++#ifdef __native_client__
++#undef SIGALRM
++#endif
+ #ifdef SIGALRM
+ #if defined (HAVE_SIGACTION) && defined (SA_RESTART)
+       struct sigaction sa, old_sa;
+diff --git a/libdecnumber/configure b/libdecnumber/configure
+--- a/libdecnumber/configure
++++ b/libdecnumber/configure
+@@ -4616,7 +4616,7 @@ else
+     powerpc*-*-linux* | i?86*-*-linux* | x86_64*-*-linux* | s390*-*-linux* | \
+     i?86*-*-gnu* | \
+     i?86*-*-mingw* | x86_64*-*-mingw* | \
+-    i?86*-*-cygwin* | x86_64*-*-cygwin*)
++    i?86*-*-cygwin* | x86_64*-*-cygwin* | *nacl*)
+       enable_decimal_float=yes
+       ;;
+     *)
+diff --git a/libiberty/lrealpath.c b/libiberty/lrealpath.c
+--- a/libiberty/lrealpath.c
++++ b/libiberty/lrealpath.c
+@@ -79,7 +79,8 @@ lrealpath (const char *filename)
+      path.  Use that and realpath() to canonicalize the name.  This is
+      the most common case.  Note that, if there isn't a compile time
+      upper bound, you want to avoid realpath() at all costs.  */
+-#if defined(REALPATH_LIMIT)
++  /* TODO(bradnelson): Drop this once nacl_io supports realpath. */
++#if defined(REALPATH_LIMIT) && !defined(__native_client__)
+   {
+     char buf[REALPATH_LIMIT];
+     const char *rp = realpath (filename, buf);
+@@ -109,7 +110,8 @@ lrealpath (const char *filename)
+      pathconf()) making it impossible to pass a correctly sized buffer
+      to realpath() (it could always overflow).  On those systems, we
+      skip this.  */
+-#if defined (HAVE_REALPATH) && defined (HAVE_UNISTD_H)
++  /* TODO(bradnelson): Drop this once nacl_io supports realpath. */
++#if defined (HAVE_REALPATH) && defined (HAVE_UNISTD_H) && !defined(__native_client__)
+   {
+     /* Find out the max path size.  */
+     long path_max = pathconf ("/", _PC_PATH_MAX);
+diff --git a/libiberty/pex-unix.c b/libiberty/pex-unix.c
+--- a/libiberty/pex-unix.c
++++ b/libiberty/pex-unix.c
+@@ -593,6 +593,9 @@ pex_unix_exec_child (struct pex_obj *obj, int flags, const char *executable,
+                      int in, int out, int errdes,
+ 		     int toclose, const char **errmsg, int *err)
+ {
++#if defined(__native_client__)
++  return -1;
++#else
+   pid_t pid;
+ 
+   /* We declare these to be volatile to avoid warnings from gcc about
+@@ -720,6 +723,7 @@ pex_unix_exec_child (struct pex_obj *obj, int flags, const char *executable,
+ 
+       return pid;
+     }
++#endif
+ }
+ #endif /* SPAWN */
+ 

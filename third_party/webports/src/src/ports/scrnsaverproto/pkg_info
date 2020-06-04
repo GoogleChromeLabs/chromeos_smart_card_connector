@@ -1,0 +1,6 @@
+NAME=scrnsaverproto
+VERSION=1.2.2
+URL=http://www.x.org/releases/X11R7.7/src/everything/scrnsaverproto-1.2.2.tar.bz2
+LICENSE=GPL
+SHA1=640a2cbef5893aacda74799e6fa4d973e629b753
+DISABLED_TOOLCHAIN=(emscripten)

@@ -1,0 +1,8 @@
+NAME=openal-soft
+VERSION=1.16.0
+URL=http://kcat.strangesoft.net/openal-releases/openal-soft-1.16.0.tar.bz2
+LICENSE=LGPL2
+# sched_yield no defined
+DISABLED_LIBC=(bionic)
+SHA1=f70892fc075ae726320478c0179f7011fea0d157
+DISABLED_TOOLCHAIN=(emscripten)

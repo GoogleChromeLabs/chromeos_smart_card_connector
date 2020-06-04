@@ -1,0 +1,96 @@
+/*
+ * Copyright 2015 The Native Client Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+#terminal {
+  display: block;
+  position: fixed;
+  top: 10px;
+  width: 100%;
+  height: calc(100% - 10px);
+}
+
+#spacer {
+  height: 10px;
+}
+
+#mounterBackground {
+  position: fixed;
+  width: 100%;
+  background-color: rgba(50, 50, 50, 0.7);
+  -webkit-transition: top 0.2s cubic-bezier(1, 0, 0, 1);
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+  font-family: sans-serif;
+  font-size: medium;
+  top: 0px;
+}
+
+#mounter {
+  padding: 5px;
+  padding-top: 0px;
+  padding-bottom: 10px;
+  background-color: #d8d8d8;
+  flex: 0 0 auto;
+}
+
+#mounterHeader {
+  padding: 5px;
+  padding-bottom: 5px;
+  font-weight: bold;
+}
+
+.mountControl {
+  display: flex;
+  width: 100%;
+  padding-top: 5px;
+  flex-direction: row;
+}
+
+.mountControl * {
+  margin-right: 5px;
+  margin-left: 5px;
+  font-size: small;
+  flex: 0 0 auto;
+}
+
+.mountControl input {
+  flex: 1 1 auto;
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+.mountControl span {
+  margin-right: 0px;
+  position: relative;
+  top: 3px;
+}
+
+.mountControl .spacer {
+  flex: 1 1 auto;
+}
+
+.addOrRemoveButton {
+  width: 24px;
+}
+
+#mounterSpacer {
+  flex: 1 1 auto;
+}
+
+#mounterThumb {
+  background-color: #d8d8d8;
+  height: 10px;
+  width: 100%;
+  text-align: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+
+#mounterThumb span {
+  position: relative;
+  top: -8px;
+  cursor: default;

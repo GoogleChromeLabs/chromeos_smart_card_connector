@@ -1,0 +1,6 @@
+NAME=damageproto
+VERSION=1.2.1
+URL=http://www.x.org/releases/X11R7.7/src/everything/damageproto-1.2.1.tar.bz2
+LICENSE=GPL
+SHA1=bd0f0f4dc8f37eaabd9279d10fe2889710507358
+DISABLED_TOOLCHAIN=(emscripten)

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Native Client Debugger</title>
+<script type="text/javascript" src="hterm.concat.js"></script>
+<script type="text/javascript" src="main.js"></script>
+<link rel="stylesheet" type="text/css" href="main.css">
+</head>
+
+<body>
+  <div class="table">
+    <div class="row">
+      <div class="options" id="sized">
+        <form>
+          <fieldset class="vertical">
+            <legend>Native Client Modules</legend>
+            <select id="modules" size="10"></select>
+            <button id="kill">Kill</button>
+            <button id="attach">Attach...</button>
+            <span id="moduleInfo"></span>
+          </fieldset>
+          <fieldset class="vertical">
+            <button id="manual">Setup GDB Manually...</button>
+          </fieldset>
+          <div>
+            <fieldset>
+              <legend>Action on fault</legend>
+              <label> <input type="radio" name="onFault" value="attach"
+                id="onFaultAttach">attach</label>
+              <label><input type="radio" name="onFault" value="terminate"
+                id="onFaultTerminate">terminate</label>
+            </fieldset>
+            <fieldset>
+              <legend>Action on start</legend>
+              <label><input type="radio" name="onStart" value="run"
+                id="onStartRun">run</label>
+              <label><input type="radio" name="onStart" value="attach"
+                id="onStartAttach">attach</label>
+            </fieldset>
+            <fieldset>
+              <legend>GDB modules</legend>
+              <label><input type="checkbox" name="showGdb"
+                id="showGdb">visible</label>
+            </fieldset>
+          </div>
+        </form>
+      </div>
+      <div class="sizer" id="sizer"></div>
+      <div class="cell">
+        <div id="terminal"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

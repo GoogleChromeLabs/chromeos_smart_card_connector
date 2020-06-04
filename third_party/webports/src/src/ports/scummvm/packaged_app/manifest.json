@@ -1,0 +1,17 @@
+{
+  "name": "ScummVM",
+  "description": "Play Beneath a Steel Sky and Lure of the Temptress",
+  "version": "0.0.0.2",
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "icons": {
+    "128": "scummvm_128.png",
+    "16": "scummvm_16.png"
+  },
+  "permissions": [
+    "unlimitedStorage"
+  ]
+}

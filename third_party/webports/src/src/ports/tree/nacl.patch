@@ -1,0 +1,12 @@
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -26,7 +26,7 @@ BINDIR=${prefix}/bin
+ MAN=tree.1
+ MANDIR=${prefix}/man/man1
+ OBJS=tree.o unix.o html.o xml.o json.o hash.o color.o
+-
++OBJS+=strverscmp.o
+ # Uncomment options below for your particular OS:
+ 
+ # Linux defaults:

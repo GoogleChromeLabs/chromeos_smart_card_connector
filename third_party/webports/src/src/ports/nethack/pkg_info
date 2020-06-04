@@ -1,0 +1,10 @@
+NAME=nethack
+VERSION=3.4.3
+URL=http://storage.googleapis.com/naclports/mirror/nethack-343-src.tgz
+LICENSE=CUSTOM:dat/license
+DEPENDS=(ncurses libtar nacl-spawn)
+DISABLED_LIBC=(bionic)
+SHA1=c26537093c38152bc0fbcec20468d975b35f59fd
+# glibc/arm: missing getlogin()
+# https://code.google.com/p/nativeclient/issues/detail?id=4236
+DISABLED_TOOLCHAIN=(emscripten glibc/arm)

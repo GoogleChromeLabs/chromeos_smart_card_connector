@@ -1,0 +1,8 @@
+NAME=mpc
+VERSION=1.0.1
+URL=http://www.multiprecision.org/mpc/download/mpc-1.0.1.tar.gz
+LICENSE=LGPL3
+DEPENDS=(gmp mpfr)
+DISABLED_LIBC=(bionic)
+SHA1=8c7e19ad0dd9b3b5cc652273403423d6cf0c5edf
+DISABLED_TOOLCHAIN=(emscripten)

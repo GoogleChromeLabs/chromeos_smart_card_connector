@@ -1,0 +1,8 @@
+NAME=bison
+VERSION=3.0.4
+URL=http://ftp.gnu.org/gnu/bison/bison-3.0.4.tar.xz
+LICENSE=GPL
+DEPENDS=(m4)
+DISABLED_LIBC=(bionic)
+SHA1=8270497aad88c7dd4f2c317298c50513fb0c3c8e
+DISABLED_TOOLCHAIN=(emscripten)

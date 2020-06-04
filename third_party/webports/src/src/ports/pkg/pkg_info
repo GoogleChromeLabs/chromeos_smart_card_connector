@@ -1,0 +1,8 @@
+NAME=pkg
+VERSION=1.6.1
+URL=https://github.com/freebsd/pkg/archive/1.6.1/pkg-1.6.1.tar.gz
+LICENSE="BSD 2-Clause"
+DEPENDS=(glibc-compat zlib libarchive-dev bzip2 xz libtar nacl-spawn libelf libbsd geturl)
+SHA1=e29a0d0926708713916e695ff3ec786aeab83dd6
+DISABLED_LIBC=(bionic)
+DISABLED_TOOLCHAIN=(emscripten)

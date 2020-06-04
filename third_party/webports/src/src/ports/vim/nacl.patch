@@ -1,0 +1,101 @@
+diff --git a/src/Makefile b/src/Makefile
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -1576,6 +1576,7 @@ OBJ_COMMON = \
+ 
+ OBJ = $(OBJ_COMMON) \
+ 	objects/main.o \
++	objects/vim_pepper.o \
+ 	objects/memfile.o
+ 
+ MEMFILE_TEST_OBJ = $(OBJ_COMMON) \
+@@ -1737,7 +1738,7 @@ $(VIMTARGET): auto/config.mk objects $(OBJ) version.c version.h
+ 		sh $(srcdir)/link.sh
+ 
+ xxd/xxd$(EXEEXT): xxd/xxd.c
+-	cd xxd; CC="$(CC)" CFLAGS="$(CPPFLAGS) $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
++	cd xxd; CC="$(CC)" EXEEXT="$(EXEEXT)" CFLAGS="$(CPPFLAGS) $(CFLAGS)" LDFLAGS="$(LDFLAGS)" \
+ 		$(MAKE) -f Makefile
+ 
+ # Build the language specific files if they were unpacked.
+@@ -2627,6 +2628,9 @@ objects/integration.o: integration.c
+ objects/main.o: main.c
+ 	$(CCC) -o $@ main.c
+ 
++objects/vim_pepper.o: vim_pepper.c
++	$(CCC) -o $@ vim_pepper.c
++
+ objects/mark.o: mark.c
+ 	$(CCC) -o $@ mark.c
+ 
+diff --git a/src/auto/configure b/src/auto/configure
+--- a/src/auto/configure
++++ b/src/auto/configure
+@@ -13006,16 +13006,16 @@ $as_echo "yes" >&6; }
+     { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+ $as_echo "no" >&6; }
+   fi
+-          { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether we need -D_FORTIFY_SOURCE=1" >&5
+-$as_echo_n "checking whether we need -D_FORTIFY_SOURCE=1... " >&6; }
+-  if test "$gccmajor" -gt "3"; then
+-    CFLAGS=`echo "$CFLAGS" | sed -e 's/ *-Wp,-D_FORTIFY_SOURCE=.//g' -e 's/ *-D_FORTIFY_SOURCE=.//g' -e 's/ *-U_FORTIFY_SOURCE//g' -e 's/$/ -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1/'`
+-    { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+-$as_echo "yes" >&6; }
+-  else
+-    { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+-$as_echo "no" >&6; }
+-  fi
++#          { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether we need -D_FORTIFY_SOURCE=1" >&5
++#$as_echo_n "checking whether we need -D_FORTIFY_SOURCE=1... " >&6; }
++#  if test "$gccmajor" -gt "3"; then
++#    CFLAGS=`echo "$CFLAGS" | sed -e 's/ *-Wp,-D_FORTIFY_SOURCE=.//g' -e 's/ *-D_FORTIFY_SOURCE=.//g' -e 's/ *-U_FORTIFY_SOURCE//g' -e 's/$/ -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=1/'`
++#    { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
++#$as_echo "yes" >&6; }
++#  else
++#    { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
++#$as_echo "no" >&6; }
++#  fi
+ fi
+ 
+ 
+diff --git a/src/main.c b/src/main.c
+--- a/src/main.c
++++ b/src/main.c
+@@ -159,7 +159,11 @@ _cdecl
+ #  endif
+ VimMain
+ # else
++#  if defined(__native_client__)
++nacl_vim_main
++#  else
+ main
++#  endif
+ # endif
+ (argc, argv)
+     int		argc;
+diff --git a/src/memfile.c b/src/memfile.c
+--- a/src/memfile.c
++++ b/src/memfile.c
+@@ -639,7 +639,8 @@ mf_sync(mfp, flags)
+ # endif
+ 	    /* OpenNT is strictly POSIX (Benzinger) */
+ 	    /* Tandem/Himalaya NSK-OSS doesn't have sync() */
+-# if defined(__OPENNT) || defined(__TANDEM)
++	    /* TODO(sbc): remove once nacl_io provides sync() */
++# if defined(__OPENNT) || defined(__TANDEM) || defined(__native_client__)
+ 	    fflush(NULL);
+ # else
+ 	    sync();
+diff --git a/src/xxd/Makefile b/src/xxd/Makefile
+--- a/src/xxd/Makefile
++++ b/src/xxd/Makefile
+@@ -1,7 +1,7 @@
+ # The most simplistic Makefile
+ 
+-xxd: xxd.c
+-	$(CC) $(CFLAGS) $(LDFLAGS) -DUNIX -o xxd xxd.c
++xxd$(EXEEXT): xxd.c
++	$(CC) $(CFLAGS) $(LDFLAGS) -DUNIX -o xxd$(EXEEXT) xxd.c
+ 
+ clean:
+ 	rm -f xxd xxd.o

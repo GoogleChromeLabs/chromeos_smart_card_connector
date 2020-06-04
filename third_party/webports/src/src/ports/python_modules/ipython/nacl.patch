@@ -1,0 +1,76 @@
+diff --git a/IPython/core/prompts.py b/IPython/core/prompts.py
+--- a/IPython/core/prompts.py
++++ b/IPython/core/prompts.py
+@@ -145,7 +145,9 @@ HOME = os.path.realpath(HOME)
+ # fixed once ipython starts.  This reduces the runtime overhead of computing
+ # prompt strings.
+ USER           = py3compat.str_to_unicode(os.environ.get("USER",''))
+-HOSTNAME       = py3compat.str_to_unicode(socket.gethostname())
++# NACLPORTS NOTE: sockets module is not present in naclports,
++# so we sent HOSTNAME to empty
++HOSTNAME       = '' #py3compat.str_to_unicode(socket.gethostname())
+ HOSTNAME_SHORT = HOSTNAME.split(".")[0]
+ 
+ # IronPython doesn't currently have os.getuid() even if 
+diff --git a/IPython/external/pexpect/_pexpect.py b/IPython/external/pexpect/_pexpect.py
+--- a/IPython/external/pexpect/_pexpect.py
++++ b/IPython/external/pexpect/_pexpect.py
+@@ -70,7 +70,7 @@ try:
+     import select
+     import re
+     import struct
+-    import resource
++    #import resource
+     import types
+     import pty
+     import tty
+@@ -571,7 +571,8 @@ class spawnb(object):
+                 # This is a serious limitation, but not a show stopper.
+                 pass
+             # Do not allow child to inherit open file descriptors from parent.
+-            max_fd = resource.getrlimit(resource.RLIMIT_NOFILE)[0]
++            #max_fd = resource.getrlimit(resource.RLIMIT_NOFILE)[0]
++            max_fd = 1024
+             for i in range (3, max_fd):
+                 try:
+                     os.close (i)
+diff --git a/IPython/kernel/__init__.py b/IPython/kernel/__init__.py
+--- a/IPython/kernel/__init__.py
++++ b/IPython/kernel/__init__.py
+@@ -1,11 +1,6 @@
+ """IPython kernels and associated utilities"""
+ 
+-# just for friendlier zmq version check
+-from . import zmq
+-
+-from .connect import *
+-from .launcher import *
+-from .client import KernelClient
+-from .manager import KernelManager
+-from .blocking import BlockingKernelClient
+-from .multikernelmanager import MultiKernelManager
++# NACLPORTS NOTE:
++# This file is left empty because this package
++# is only needed for IPython/kernel/zmq/pylab/backend_inline.py
++# which in turn does not require the rest of the package to load.
+diff --git a/IPython/kernel/zmq/__init__.py b/IPython/kernel/zmq/__init__.py
+--- a/IPython/kernel/zmq/__init__.py
++++ b/IPython/kernel/zmq/__init__.py
+@@ -5,13 +5,7 @@
+ #  the file COPYING.txt, distributed as part of this software.
+ #-----------------------------------------------------------------------------
+ 
+-#-----------------------------------------------------------------------------
+-# Verify zmq version dependency >= 2.1.11
+-#-----------------------------------------------------------------------------
+-
+-from IPython.utils.zmqrelated import check_for_zmq
+-
+-check_for_zmq('2.1.11', 'IPython.kernel.zmq')
+-
+-from .session import Session
+-
++# NACLPORTS NOTE:
++# This file is left empty because this package
++# is only needed for IPython/kernel/zmq/pylab/backend_inline.py
++# which in turn does not require the rest of the package to load.

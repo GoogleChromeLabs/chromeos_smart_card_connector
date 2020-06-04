@@ -1,0 +1,7 @@
+NAME=thttpd
+VERSION=2.25b
+URL=http://www.acme.com/software/thttpd/thttpd-2.25b.tar.gz
+LICENSE=BSD
+LIBC=glibc
+DEPENDS=(jsoncpp nacl-spawn)
+SHA1=cd0e823233ad73e34ee1c9b871b01050feb9db52

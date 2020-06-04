@@ -1,0 +1,8 @@
+NAME=gzip
+VERSION=1.6
+URL=ftp://ftp.gnu.org/gnu/gzip/gzip-1.6.tar.gz
+LICENSE=GPL
+DEPENDS=(glibc-compat nacl-spawn)
+SHA1=7ec6403090b3eaeb53ef017223cb8034eebc1f49
+DISABLED_TOOLCHAIN=(emscripten)
+DISABLED_LIBC=(bionic)

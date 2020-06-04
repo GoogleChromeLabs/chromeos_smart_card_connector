@@ -1,0 +1,11 @@
+NAME=libiconv
+VERSION=1.14
+URL=http://ftp.gnu.org/pub/gnu/libiconv/libiconv-1.14.tar.gz
+LICENSE=GPL
+DEPENDS=(glibc-compat)
+# The configure script for libiconv doesn't honor $AR which means
+# pnacl builds on OSX fail.
+BUILD_OS=linux
+SHA1=be7d67e50d72ff067b2c0291311bc283add36965
+DISABLED_LIBC=(bionic)
+DISABLED_TOOLCHAIN=(emscripten)

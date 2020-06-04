@@ -1,0 +1,1 @@
+PY_MOD_LIBS+=" -lhdf5 -lhdf5_hl"

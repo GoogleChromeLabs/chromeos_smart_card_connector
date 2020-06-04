@@ -1,0 +1,11 @@
+NAME=bochs
+VERSION=2.6.2
+URL=http://downloads.sf.net/bochs/bochs/2.6.2/bochs-2.6.2.tar.gz
+LICENSE=LGPL
+DEPENDS=(sdl)
+# Disabled on mac because build system tries to use system 'ar'
+BUILD_OS=linux
+# Disabled for bionic due to sdl, due to regal.
+DISABLED_LIBC=(bionic)
+SHA1=f82ee01a52367d2a6daffa2774a1297b978f6821
+DISABLED_TOOLCHAIN=(emscripten)

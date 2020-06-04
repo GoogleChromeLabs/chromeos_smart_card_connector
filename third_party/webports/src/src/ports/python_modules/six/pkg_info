@@ -1,0 +1,7 @@
+NAME=six
+VERSION=1.5.2
+URL=https://pypi.python.org/packages/source/s/six/six-1.5.2.tar.gz
+LICENSE=MIT
+DEPENDS=(python-host setuptools)
+DISABLED_LIBC=(bionic)
+SHA1=90128862139a79d10cf213b3baad9c6e2f72fc78

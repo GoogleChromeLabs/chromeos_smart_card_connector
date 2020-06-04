@@ -1,0 +1,15 @@
+diff --git a/src/dsp/dsp.h b/src/dsp/dsp.h
+--- a/src/dsp/dsp.h
++++ b/src/dsp/dsp.h
+@@ -67,8 +67,11 @@ extern "C" {
+ #endif
+ 
+ #if defined(__ARM_NEON__) || defined(WEBP_ANDROID_NEON) || defined(__aarch64__)
++#if !defined(__native_client__)
++// The neon ASM code has not yet to be ported to Native Client
+ #define WEBP_USE_NEON
+ #endif
++#endif
+ 
+ #if defined(__mips__) && !defined(__mips64) && (__mips_isa_rev < 6)
+ #define WEBP_USE_MIPS32

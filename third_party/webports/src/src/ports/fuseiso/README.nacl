@@ -1,0 +1,64 @@
+Original fuseiso is a standalone app, however for naclport,
+we chagned it to a library so that we can use it in other app.
+
+Major Changes for port fuseiso:
+1. added 'nacl_fuseiso_lib_init' and removed 'main' function in fuseiso.c.
+ 
+2. disabled the check for mnttab(fuseiso.c).
+
+3. disabled isofs_real_statfs, the parameters we have in nacl_io is statvfs,
+   but in fuseiso, it requires statfs, also since we nacl_io currently 
+   doesn't support statfs(more details see nacl_io/fuse.h in nacl_sdk).
+
+4. in currenl newlib, we don't have "bswap_16", using "__byte_swap_16" 
+   from sys/endian.h instead.
+
+5. created a seperate Makefile.in for fuseisolib.
+
+Some sample code to test this lib(newlib version):
+
+//fusefoo.c
+
+#include <fuseiso_lib.h>
+#include <stdio.h>
+#include <fcntl.h>  
+#include <unistd.h> 
+
+int nacl_main(int argc, char* argv[]) {
+
+  char* path = "<YOUR ISO PATH>";
+  char* mount_point = "/foo";
+  char* fs_name = "fuseiso_fs";
+  mkdir(mount_point, 0777);
+  nacl_fuseiso_lib_init(path, mount_point, fs_name);
+
+  char buffer[1024];
+  int fd = open("/foo/<PATH_IN_ISO>", O_RDONLY);
+
+  read(fd, &buffer,1024);
+  printf("%s\n", buffer);
+  close(fd);
+  return 0;
+}
+
+// copy and paste following command to complie and link, 
+// you might need install (ncurses nacl-spawn glib glibc-compat) first.
+
+NACLSDKPATH= <nacl_sdk home path e.g. /home/foo/nacl_sdk/pepper_canary> 
+
+$NACLSDKPATH/toolchain/linux_x86_newlib/bin/x86_64-nacl-gcc  fusefoo.c \
+  -DHAVE_CONFIG_H -I. -I. -I.. -I$NACLSDKPATH/include/nacl_io \
+  -I$NACLSDKPATH/include -I$NACLSDKPATH/ports/include  \
+  -I$NACLSDKPATH/toolchain/linux_x86_newlib/x86_64-nacl/usr/include \
+  -Wall -DNDEBUG -O2 -c
+
+$NACLSDKPATH/toolchain/linux_x86_newlib/bin/x86_64-nacl-gcc \
+  -I$NACLSDKPATH/include -L$NACLSDKPATH/lib/newlib_x86_64/Release \
+  -L$NACLSDKPATH/toolchain/linux_x86_newlib/x86_64-nacl/usr/lib \
+  -L$NACLSDKPATH/toolchain/linux_x86_glibc/x86_64-nacl/usr/lib \
+  -o fusefoo_newlib.nexe fusefoo.o  -Wl,--undefined=PSUserMainGet \
+  -Xlinker -uPSUserMainGet -lcli_main -lnacl_spawn -lppapi_simple \
+  -lnacl_io -lppapi -lfuseiso -lstdc++ -lncurses -lglib-2.0 -lz -lintl
+
+Should be able to get a fusefoo_newlib.nexe after complie and link.
+Copy fusefoo_newlib.nexe and the iso file to devenv to test it.

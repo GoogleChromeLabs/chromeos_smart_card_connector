@@ -1,0 +1,29 @@
+diff --git a/src/alutWaveform.c b/src/alutWaveform.c
+--- a/src/alutWaveform.c
++++ b/src/alutWaveform.c
+@@ -35,12 +35,14 @@ waveformSawtooth (double UNUSED (lastPhase), double phase)
+   return 2 * phase - 1;
+ }
+ 
++#if !defined __native_client__ || defined __GLIBC__
+ static double
+ waveformWhitenoise (double UNUSED (lastPhase), double UNUSED (phase))
+ {
+   static const long prime = 67867967L;
+   return 2 * (double) (random () % prime) / prime - 1;
+ }
++#endif
+ 
+ static double
+ waveformImpulse (double lastPhase, double phase)
+@@ -59,8 +61,10 @@ getWaveformFunction (ALenum waveshape)
+       return &waveformSquare;
+     case ALUT_WAVEFORM_SAWTOOTH:
+       return &waveformSawtooth;
++#if !defined __native_client__ || defined __GLIBC__
+     case ALUT_WAVEFORM_WHITENOISE:
+       return &waveformWhitenoise;
++#endif
+     case ALUT_WAVEFORM_IMPULSE:
+       return &waveformImpulse;
+     }

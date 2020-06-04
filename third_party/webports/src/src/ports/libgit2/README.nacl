@@ -1,0 +1,13 @@
+This port of libgit2 has been extended with a new transport layer. Normally
+libgit2 uses POSIX sockets to communicate with remote git servers. These APIs
+are available in Pepper (via nacl_io), but can only be used with Chrome Apps,
+not when running on the open web.
+
+The new transport layer uses the Pepper URLLoader interface, which is
+equivalent to a JavaScript XMLHttpRequest. This is allowed for all Native
+Client applications. The one drawback is that this requires cooperation with
+the git server to return the correct CORS headers. The httpd.py Python server
+in the libgit2-demo example shows how to do this.
+
+To use this new transport layer, you must register it with a custom URL scheme.
+See the libgit2-demo for an example of this.

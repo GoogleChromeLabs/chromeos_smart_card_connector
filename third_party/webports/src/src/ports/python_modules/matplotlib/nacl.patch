@@ -1,0 +1,162 @@
+diff --git a/lib/matplotlib/mpl-data/matplotlibrc b/lib/matplotlib/mpl-data/matplotlibrc
+--- a/lib/matplotlib/mpl-data/matplotlibrc
++++ b/lib/matplotlib/mpl-data/matplotlibrc
+@@ -29,7 +29,7 @@
+ # You can also deploy your own backend outside of matplotlib by
+ # referring to the module name (which must be in the PYTHONPATH) as
+ # 'module://my_backend'
+-backend      : qt4agg
++backend      : Agg
+ 
+ # If you are using the Qt4Agg backend, you can choose here
+ # to use the PyQt4 bindings or the newer PySide bindings to
+diff --git a/lib/matplotlib/tri/_tri.cpp b/lib/matplotlib/tri/_tri.cpp
+--- a/lib/matplotlib/tri/_tri.cpp
++++ b/lib/matplotlib/tri/_tri.cpp
+@@ -2177,14 +2177,14 @@ TrapezoidMapTriFinder::Trapezoid::set_upper_right(Trapezoid* upper_right_)
+ 
+ 
+ RandomNumberGenerator::RandomNumberGenerator(unsigned long seed)
+-    : _M(21870), _A(1291), _C(4621), _seed(seed % _M)
++    : _m(21870), _a(1291), _c(4621), _seed(seed % _m)
+ {}
+ 
+ unsigned long
+ RandomNumberGenerator::operator()(unsigned long max_value)
+ {
+-    _seed = (_seed*_A + _C) % _M;
+-    return (_seed*max_value) / _M;
++    _seed = (_seed*_a + _c) % _m;
++    return (_seed*max_value) / _m;
+ }
+ 
+ 
+diff --git a/lib/matplotlib/tri/_tri.h b/lib/matplotlib/tri/_tri.h
+--- a/lib/matplotlib/tri/_tri.h
++++ b/lib/matplotlib/tri/_tri.h
+@@ -818,7 +818,7 @@ public:
+     unsigned long operator()(unsigned long max_value);
+ 
+ private:
+-    const unsigned long _M, _A, _C;
++    const unsigned long _m, _a, _c;
+     unsigned long _seed;
+ };
+ 
+diff --git a/setup.cfg b/setup.cfg
+new file mode 100644
+--- /dev/null
++++ b/setup.cfg
+@@ -0,0 +1,84 @@
++# Rename this file to setup.cfg to modify matplotlib's
++# build options.
++
++[egg_info]
++
++[directories]
++# Uncomment to override the default basedir in setupext.py.
++# This can be a single directory or a comma-delimited list of directories.
++# This will be set inside setupext.py if we are inside a NaCl build.
++#basedirlist=%(NACL_PREFIX)s
++
++[status]
++# To suppress display of the dependencies and their versions
++# at the top of the build log, uncomment the following line:
++#suppress = False
++
++[packages]
++# There are a number of subpackages of matplotlib that are considered
++# optional.  They are all installed by default, but they may be turned
++# off here.
++#
++#tests = True
++#sample_data = True
++toolkits = False
++
++[gui_support]
++# Matplotlib supports multiple GUI toolkits, including Cocoa,
++# GTK, Fltk, MacOSX, Qt, Qt4, Tk, and WX. Support for many of
++# these toolkits requires AGG, the Anti-Grain Geometry library,
++# which is provided by matplotlib and built by default.
++#
++# Some backends are written in pure Python, and others require
++# extension code to be compiled. By default, matplotlib checks for
++# these GUI toolkits during installation and, if present, compiles the
++# required extensions to support the toolkit.
++#
++# - GTK 2.x support of any kind requires the GTK runtime environment
++#   headers and PyGTK.
++# - Tk support requires Tk development headers and Tkinter.
++# - Mac OSX backend requires the Cocoa headers included with XCode.
++# - Windowing is MS-Windows specific, and requires the "windows.h"
++#   header.
++#
++# The other GUI toolkits do not require any extension code, and can be
++# used as long as the libraries are installed on your system --
++# therefore they are installed unconditionally.
++#
++# You can uncomment any the following lines to change this
++# behavior. Acceptible values are:
++#
++#     True: build the extension. Exits with a warning if the
++#           required dependencies are not available
++#     False: do not build the extension
++#     auto: build if the required dependencies are available,
++#           otherwise skip silently. This is the default
++#           behavior
++#
++agg =  True
++cairo =  False
++gtk =  False
++gtk3agg =  False
++gtk3cairo =  False
++gtkagg =  False
++macosx =  False
++pyside =  False
++qt4agg =  False
++tkagg =  False
++windowing =  False
++wxagg =  False
++webagg = False
++
++[rc_options]
++# User-configurable options
++#
++# Default backend, one of: Agg, Cairo, CocoaAgg, GTK, GTKAgg, GTKCairo,
++# FltkAgg, MacOSX, Pdf, Ps, QtAgg, Qt4Agg, SVG, TkAgg, WX, WXAgg.
++#
++# The Agg, Ps, Pdf and SVG backends do not require external
++# dependencies. Do not choose GTK, GTKAgg, GTKCairo, MacOSX, or TkAgg
++# if you have disabled the relevent extension modules.  Agg will be used
++# by default.
++#
++backend = Agg
++#
+diff --git a/setupext.py b/setupext.py
+--- a/setupext.py
++++ b/setupext.py
+@@ -60,10 +60,12 @@ options = {
+     'basedirlist': None
+     }
+ 
+-
++defaults = {}
++if os.environ.get("NACL_BUILD_TREE") is not None:
++    defaults["basedirlist"] = os.environ["NACL_BUILD_TREE"]
+ setup_cfg = os.environ.get('MPLSETUPCFG', 'setup.cfg')
+ if os.path.exists(setup_cfg):
+-    config = configparser.SafeConfigParser()
++    config = configparser.SafeConfigParser(defaults)
+     config.read(setup_cfg)
+ 
+     try:
+@@ -1064,7 +1066,8 @@ class Tornado(SetupPackage):
+         return "using tornado version %s" % tornado.version
+ 
+     def get_install_requires(self):
+-        return ['tornado']
++        # Manually force *not* to require tornado.
++        return []
+ 
+ 
+ class Pyparsing(SetupPackage):

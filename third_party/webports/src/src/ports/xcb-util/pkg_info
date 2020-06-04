@@ -1,0 +1,7 @@
+NAME=xcb-util
+VERSION=0.3.9
+URL=http://xcb.freedesktop.org/dist/xcb-util-0.3.9.tar.bz2
+LICENSE=GPL
+DEPENDS=(glibc-compat libxcb)
+SHA1=02060d8e2e70838fc41cd3a27c7f2909090d8c20
+DISABLED_TOOLCHAIN=(emscripten)

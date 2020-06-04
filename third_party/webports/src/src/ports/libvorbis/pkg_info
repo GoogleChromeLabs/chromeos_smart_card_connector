@@ -1,0 +1,7 @@
+NAME=libvorbis
+VERSION=1.3.3
+URL=http://downloads.xiph.org/releases/vorbis/libvorbis-1.3.3.tar.gz
+LICENSE=CUSTOM:COPYING
+DEPENDS=(libogg)
+SHA1=8dae60349292ed76db0e490dc5ee51088a84518b
+DISABLED_TOOLCHAIN=(emscripten)

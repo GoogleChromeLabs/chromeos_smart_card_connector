@@ -1,0 +1,8 @@
+NAME=pytz
+VERSION=2014.2
+URL=https://pypi.python.org/packages/source/p/pytz/pytz-2014.2.tar.gz
+LICENSE=MIT
+LIBC=newlib
+DEPENDS=(python-host)
+SHA1=ca2ddf147dee651e211d77438a914e0fac6414f2
+DISABLED_TOOLCHAIN=(emscripten)

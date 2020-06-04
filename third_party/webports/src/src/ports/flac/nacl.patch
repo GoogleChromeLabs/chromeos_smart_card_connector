@@ -1,0 +1,24 @@
+diff --git a/examples/cpp/encode/file/main.cpp b/examples/cpp/encode/file/main.cpp
+--- a/examples/cpp/encode/file/main.cpp
++++ b/examples/cpp/encode/file/main.cpp
+@@ -29,6 +29,7 @@
+ #endif
+ 
+ #include <stdio.h>
++#include <string.h>
+ #include <stdlib.h>
+ #include "FLAC++/metadata.h"
+ #include "FLAC++/encoder.h"
+diff --git a/src/test_libFLAC++/metadata_manip.cpp b/src/test_libFLAC++/metadata_manip.cpp
+--- a/src/test_libFLAC++/metadata_manip.cpp
++++ b/src/test_libFLAC++/metadata_manip.cpp
+@@ -44,6 +44,9 @@ extern "C" {
+ #include "test_libs_common/file_utils_flac.h"
+ }
+ 
++/* utime is unimplemented */
++#define utime(path, times) (0)
++
+ /******************************************************************************
+ 	The general strategy of these tests (for interface levels 1 and 2) is
+ 	to create a dummy FLAC file with a known set of initial metadata

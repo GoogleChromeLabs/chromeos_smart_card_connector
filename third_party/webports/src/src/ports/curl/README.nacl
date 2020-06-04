@@ -1,0 +1,10 @@
+libcurl port to Native Client
+=============================
+
+This package builds both libcurl and the curl executable.
+
+The sel_ldr build of curl doesn't work because there is no
+socket support.
+
+The ppapi (chrome) version of curl is published to
+out/publish/curl.

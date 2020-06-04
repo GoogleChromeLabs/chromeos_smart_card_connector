@@ -1,0 +1,6 @@
+NAME=gawk
+VERSION=4.1.1
+URL=http://ftp.gnu.org/gnu/gawk/gawk-4.1.1.tar.gz
+LICENSE=GPL
+DEPENDS=(nacl-spawn readline mpfr gmp ncurses)
+SHA1=0480d23fffbf04bfd0d4ede4c1c3d57eb81cc771

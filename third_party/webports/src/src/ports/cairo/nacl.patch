@@ -1,0 +1,193 @@
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -18159,32 +18190,9 @@ NO_WARN="unused-but-set-variable"
+ MAYBE_WARN="$MAYBE_WARN -erroff=E_ENUM_TYPE_MISMATCH_ARG \
+ 			-erroff=E_ENUM_TYPE_MISMATCH_OP"
+ 
+-
+-
+-safe_MAYBE_WARN="$MAYBE_WARN"
+-MAYBE_WARN="$MAYBE_WARN -flto"
+-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+-/* end confdefs.h.  */
+-
+-int
+-main ()
+-{
+-
+-	int main(int argc, char **argv) { return 0; }
+-
+-  ;
+-  return 0;
+-}
+-_ACEOF
+-if ac_fn_c_try_link "$LINENO"; then :
+-
+-else
+-
+-	MAYBE_WARN="$safe_MAYBE_WARN"
+-
+-fi
+-rm -f core conftest.err conftest.$ac_objext \
+-    conftest$ac_exeext conftest.$ac_ext
++# Removed -flto flag as it seems to cause problems with the latest
++# version of our arm compiler:
++# https://code.google.com/p/nativeclient/issues/detail?id=3995
+ 
+ MAYBE_WARN="$MAYBE_WARN -fno-strict-aliasing -fno-common"
+ 
+@@ -18805,10 +18813,10 @@ _ACEOF
+ if ac_fn_c_try_compile "$LINENO"; then :
+ 
+ 
+-if strings - conftest.$ac_objext | grep noonsees >/dev/null ; then
++if ${NACLSTRINGS} - conftest.$ac_objext | grep noonsees >/dev/null ; then
+   ax_cv_c_float_words_bigendian=yes
+ fi
+-if strings - conftest.$ac_objext | grep seesnoon >/dev/null ; then
++if ${NACLSTRINGS} - conftest.$ac_objext | grep seesnoon >/dev/null ; then
+   if test "$ax_cv_c_float_words_bigendian" = unknown; then
+     ax_cv_c_float_words_bigendian=no
+   else
+diff --git a/src/cairo-wideint-type-private.h b/src/cairo-wideint-type-private.h
+--- a/src/cairo-wideint-type-private.h
++++ b/src/cairo-wideint-type-private.h
+@@ -124,12 +124,20 @@ typedef struct _cairo_quorem64 {
+     cairo_int64_t	rem;
+ } cairo_quorem64_t;
+ 
++/*
++ * TODO(phosek): nacl-clang declares __uint128_t (but not uint128_t), which
++ * is a gcc extension. However, it does not provide a runtime support for
++ * neither __uint128_t nor uint128_t in compiler-rt which causes an error
++ * during linking. The following check is a temporary workaround.
++ */
++#if !defined(__native_client__) || !defined(__clang__)
+ /* gcc has a non-standard name. */
+ #if HAVE___UINT128_T && !HAVE_UINT128_T
+ typedef __uint128_t uint128_t;
+ typedef __int128_t int128_t;
+ #define HAVE_UINT128_T 1
+ #endif
++#endif
+ 
+ #if !HAVE_UINT128_T
+ 
+diff --git a/src/cairo-xlib-surface-shm.c b/src/cairo-xlib-surface-shm.c
+--- a/src/cairo-xlib-surface-shm.c
++++ b/src/cairo-xlib-surface-shm.c
+@@ -149,8 +149,10 @@ void _cairo_xlib_display_fini_shm (cairo_xlib_display_t *display) {}
+ #elif HAVE_X11_EXTENSIONS_SHMSTR_H
+ #include <X11/extensions/shmstr.h>
+ #endif
++#ifndef __native_client__
+ #include <sys/ipc.h>
+ #include <sys/shm.h>
++#endif
+ 
+ #define MIN_PIXMAP_SIZE 4096
+ 
+@@ -362,6 +364,12 @@ _check_error_handler (Display     *display,
+ static cairo_bool_t
+ can_use_shm (Display *dpy, int *has_pixmap)
+ {
++    // to avoid sys/ipo and sys/uio requiring functions
++    // not using the shm requires cairo to copy the buffer everytime
++    // instead of using shared memory, but should still work 
++    #ifdef __native_client__
++    return FALSE;
++    #else
+     XShmSegmentInfo shm;
+     int (*old_handler) (Display *display, XErrorEvent *event);
+     Status success;
+@@ -402,6 +410,7 @@ can_use_shm (Display *dpy, int *has_pixmap)
+     shmdt (shm.shmaddr);
+ 
+     return success && ! _x_error_occurred;
++    #endif
+ }
+ 
+ static inline Display *
+@@ -420,7 +429,7 @@ static void
+ _cairo_xlib_display_shm_pool_destroy (cairo_xlib_display_t *display,
+ 				      cairo_xlib_shm_t *pool)
+ {
+-    shmdt (pool->shm.shmaddr);
++    // shmdt (pool->shm.shmaddr);
+     if (display->display) /* may be called after CloseDisplay */
+ 	XShmDetach (display->display, &pool->shm);
+ 
+@@ -568,6 +577,9 @@ static cairo_xlib_shm_t *
+ _cairo_xlib_shm_pool_create(cairo_xlib_display_t *display,
+ 			    size_t size, void **ptr)
+ {
++    // again disabling the shm here because the shared memory is done through
++    // sys/ipo and sys/uio should work without the shm just slower
++    #ifndef __native_client__
+     Display *dpy = display->display;
+     cairo_xlib_shm_t *pool;
+     size_t bytes, maxbits = 16, minbits = MIN_BITS;
+@@ -625,6 +637,7 @@ cleanup_shm:
+     shmdt (pool->shm.shmaddr);
+ cleanup:
+     free (pool);
++    #endif
+     return NULL;
+ }
+ 
+@@ -1301,6 +1314,10 @@ static cairo_bool_t
+ has_broken_send_shm_event (cairo_xlib_display_t *display,
+ 			   cairo_xlib_shm_display_t *shm)
+ {
++    // never use xlib shm and always fall back on the buffer copy
++    #ifdef __native_client__
++    return TRUE;
++    #else
+     Display *dpy = display->display;
+     int (*old_handler) (Display *display, XErrorEvent *event);
+     XShmCompletionEvent ev;
+@@ -1346,6 +1363,7 @@ has_broken_send_shm_event (cairo_xlib_display_t *display,
+     shmdt (info.shmaddr);
+ 
+     return _x_error_occurred;
++    #endif
+ }
+ 
+ static cairo_bool_t
+diff --git a/src/cairo-xlib-surface.c b/src/cairo-xlib-surface.c
+--- a/src/cairo-xlib-surface.c
++++ b/src/cairo-xlib-surface.c
+@@ -68,8 +68,10 @@
+ #include <X11/Xutil.h> /* for XDestroyImage */
+ 
+ #include <X11/extensions/XShm.h>
++#ifndef __native_client__
+ #include <sys/ipc.h>
+ #include <sys/shm.h>
++#endif
+ 
+ #define XLIB_COORD_MAX 32767
+ 
+diff --git a/test/Makefile.am b/test/Makefile.am
+--- a/test/Makefile.am
++++ b/test/Makefile.am
+@@ -85,7 +85,6 @@ cairo_test_suite_SOURCES = 		\
+ 	cairo-test-constructors.c
+ cairo_test_suite_CFLAGS = $(AM_CFLAGS) $(real_pthread_CFLAGS) 
+ cairo_test_suite_LDADD = 					\
+-	$(real_pthread_LIBS)					\
+ 	$(top_builddir)/test/pdiff/libpdiff.la 			\
+         $(top_builddir)/boilerplate/libcairoboilerplate.la	\
+ 	$(top_builddir)/src/libcairo.la 			\
+diff --git a/test/Makefile.in b/test/Makefile.in
+--- a/test/Makefile.in
++++ b/test/Makefile.in
+@@ -1283,7 +1283,6 @@ cairo_test_suite_SOURCES = \
+ 
+ cairo_test_suite_CFLAGS = $(AM_CFLAGS) $(real_pthread_CFLAGS) 
+ cairo_test_suite_LDADD = \
+-	$(real_pthread_LIBS)					\
+ 	$(top_builddir)/test/pdiff/libpdiff.la 			\
+         $(top_builddir)/boilerplate/libcairoboilerplate.la	\
+ 	$(top_builddir)/src/libcairo.la 			\

@@ -1,0 +1,6 @@
+NAME=sympy
+VERSION=0.7.4.1
+URL=https://github.com/sympy/sympy/releases/download/sympy-0.7.4.1/sympy-0.7.4.1.tar.gz
+LICENSE=BSD
+DEPENDS=(python-host)
+SHA1=073b2ddf7ee8bc2b9e3687660d59e8848d6fce6c
