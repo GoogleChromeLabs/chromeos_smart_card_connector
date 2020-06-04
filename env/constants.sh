@@ -19,5 +19,4 @@ DEPOT_TOOLS_REPOSITORY_URL="https://chromium.googlesource.com/chromium/tools/dep
 
 NACL_SDK_VERSION="47"
 
-WEBPORTS_REPOSITORY_URL="https://chromium.googlesource.com/webports.git"
 WEBPORTS_TARGETS="glibc-compat openssl"
