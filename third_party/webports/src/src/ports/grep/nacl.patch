@@ -1,0 +1,168 @@
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -33696,7 +33696,6 @@ printf "%s\n" "$gl_cv_cc_uninitialized_supported" >&6; }
+     -Wattributes \
+     -Wbad-function-cast \
+     -Wbuiltin-macro-redefined \
+-    -Wcast-align \
+     -Wchar-subscripts \
+     -Wclobbered \
+     -Wcomment \
+@@ -33711,7 +33710,6 @@ printf "%s\n" "$gl_cv_cc_uninitialized_supported" >&6; }
+     -Wdouble-promotion \
+     -Wempty-body \
+     -Wendif-labels \
+-    -Wenum-compare \
+     -Wextra \
+     -Wformat-contains-nul \
+     -Wformat-extra-args \
+@@ -33734,14 +33732,11 @@ printf "%s\n" "$gl_cv_cc_uninitialized_supported" >&6; }
+     -Wmain \
+     -Wmaybe-uninitialized \
+     -Wmissing-braces \
+-    -Wmissing-declarations \
+     -Wmissing-field-initializers \
+     -Wmissing-include-dirs \
+     -Wmissing-parameter-type \
+-    -Wmissing-prototypes \
+     -Wmultichar \
+     -Wnarrowing \
+-    -Wnested-externs \
+     -Wnonnull \
+     -Wold-style-declaration \
+     -Wold-style-definition \
+@@ -33767,8 +33762,6 @@ printf "%s\n" "$gl_cv_cc_uninitialized_supported" >&6; }
+     -Wstrict-prototypes \
+     -Wsuggest-attribute=const \
+     -Wsuggest-attribute=format \
+-    -Wsuggest-attribute=noreturn \
+-    -Wsuggest-attribute=pure \
+     -Wswitch \
+     -Wswitch-default \
+     -Wsync-nand \
+diff --git a/lib/error.c b/lib/error.c
+--- a/lib/error.c
++++ b/lib/error.c
+@@ -378,13 +378,14 @@ error_at_line (int status, int errnum, const char *file_name,
+ #endif
+     }
+ 
++  if (file_name != NULL)
+ #if _LIBC
+-  __fxprintf (NULL, file_name != NULL ? "%s:%d: " : " ",
+-              file_name, line_number);
++    __fxprintf (NULL, "%s:%d: ", file_name, line_number);
+ #else
+-  fprintf (stderr, file_name != NULL ? "%s:%d: " : " ",
+-           file_name, line_number);
++    fprintf (stderr, "%s:%d: ", file_name, line_number);
+ #endif
++  else
++    fprintf (stderr, " ");
+ 
+   va_start (args, message);
+   error_tail (status, errnum, message, args);
+diff --git a/lib/fcntl.c b/lib/fcntl.c
+--- a/lib/fcntl.c
++++ b/lib/fcntl.c
+@@ -202,7 +202,12 @@ rpl_fcntl (int fd, int action, /* arg */...)
+       {
+         int target = va_arg (arg, int);
+         /* Detect invalid target; needed for cygwin 1.5.x.  */
++        /* TODO(bradnelson): Drop once newlib has getdtablesize. */
++#if defined(__native_client__) && defined(_NEWLIB_VERSION)
++        if (target < 0)
++#else
+         if (target < 0 || getdtablesize () <= target)
++#endif
+           errno = EINVAL;
+         else
+           {
+diff --git a/lib/gettimeofday.c b/lib/gettimeofday.c
+--- a/lib/gettimeofday.c
++++ b/lib/gettimeofday.c
+@@ -19,6 +19,11 @@
+ 
+ #include <config.h>
+ 
++/* TODO(bradnelson): Drop this once newlib's includes are order independent. */
++#if !defined(__native_client__) || !defined(_NEWLIB_VERSION)
++#include <sys/types.h>
++#endif
++
+ /* Specification.  */
+ #include <sys/time.h>
+ 
+diff --git a/lib/glthread/lock.h b/lib/glthread/lock.h
+--- a/lib/glthread/lock.h
++++ b/lib/glthread/lock.h
+@@ -125,11 +125,13 @@ extern int glthread_in_use (void);
+ #  pragma weak pthread_mutex_lock
+ #  pragma weak pthread_mutex_unlock
+ #  pragma weak pthread_mutex_destroy
++#ifdef HAVE_PTHREAD_RWLOCK
+ #  pragma weak pthread_rwlock_init
+ #  pragma weak pthread_rwlock_rdlock
+ #  pragma weak pthread_rwlock_wrlock
+ #  pragma weak pthread_rwlock_unlock
+ #  pragma weak pthread_rwlock_destroy
++#endif
+ #  pragma weak pthread_once
+ #  pragma weak pthread_cond_init
+ #  pragma weak pthread_cond_wait
+diff --git a/lib/openat.c b/lib/openat.c
+--- a/lib/openat.c
++++ b/lib/openat.c
+@@ -27,6 +27,11 @@
+ #include <sys/types.h>
+ #undef __need_system_fcntl_h
+ 
++/* TODO(bradnelson): Drop once nacl_io has openat. */
++#if defined(__native_client__)
++# undef HAVE_OPENAT
++#endif
++
+ #if HAVE_OPENAT
+ static int
+ orig_openat (int fd, char const *filename, int flags, mode_t mode)
+diff --git a/lib/regex_internal.c b/lib/regex_internal.c
+--- a/lib/regex_internal.c
++++ b/lib/regex_internal.c
+@@ -1389,7 +1389,12 @@ static void
+ internal_function
+ re_node_set_remove_at (re_node_set *set, Idx idx)
+ {
++#if defined(__clang__)
++  /* clang notices this can never be negative. */
++  if (idx >= set->nelem)
++#else
+   if (idx < 0 || idx >= set->nelem)
++#endif
+     return;
+   --set->nelem;
+   for (; idx < set->nelem; idx++)
+diff --git a/src/Makefile.in b/src/Makefile.in
+--- a/src/Makefile.in
++++ b/src/Makefile.in
+@@ -1259,7 +1259,7 @@ clean-binPROGRAMS:
+ 
+ grep$(EXEEXT): $(grep_OBJECTS) $(grep_DEPENDENCIES) $(EXTRA_grep_DEPENDENCIES) 
+ 	@rm -f grep$(EXEEXT)
+-	$(AM_V_CCLD)$(LINK) $(grep_OBJECTS) $(grep_LDADD) $(LIBS)
++	$(AM_V_CCLD)$(LINK) $(grep_OBJECTS) $(grep_LDADD) -Wl,--undefined=PSUserMainGet -lcli_main -lnacl_spawn -lppapi_simple -lnacl_io -lppapi -pthread $(LIBS)
+ install-binSCRIPTS: $(bin_SCRIPTS)
+ 	@$(NORMAL_INSTALL)
+ 	@list='$(bin_SCRIPTS)'; test -n "$(bindir)" || list=; \
+diff --git a/src/grep.c b/src/grep.c
+--- a/src/grep.c
++++ b/src/grep.c
+@@ -2107,7 +2107,7 @@ fgrep_to_grep_pattern (size_t len, char const *keys,
+ }
+ 
+ int
+-main (int argc, char **argv)
++nacl_main (int argc, char **argv)
+ {
+   char *keys;
+   size_t keycc, oldcc, keyalloc;

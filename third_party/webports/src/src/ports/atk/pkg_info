@@ -1,0 +1,7 @@
+NAME=atk
+VERSION=2.16.0
+URL=ftp://ftp.gnome.org/pub/gnome/sources/atk/2.16/atk-2.16.0.tar.xz
+LICENSE=LGPL
+DEPENDS=(glib)
+SHA1=d097c6cec71ffede77be9f13f4ceee9880c0a5d7
+DISABLED_TOOLCHAIN=(emscripten)

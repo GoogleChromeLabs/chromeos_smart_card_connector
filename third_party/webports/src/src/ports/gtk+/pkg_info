@@ -1,0 +1,8 @@
+NAME=gtk+
+VERSION=2.24.28
+URL=http://ftp.gnome.org/pub/gnome/sources/gtk+/2.24/gtk+-2.24.28.tar.xz
+LICENSE=LGPL
+DEPENDS=(pango atk cairo gdk-pixbuf glibc-compat xfonts)
+SHA1=f3c2f1a3728ed51d08054f6b4c7384fbf99477c0
+# buildbots mess up the pango flags for newlib and clang-newlib
+LIBC=glibc

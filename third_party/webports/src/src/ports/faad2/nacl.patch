@@ -1,0 +1,22 @@
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -22755,7 +22755,9 @@ if test "${ac_cv_c99_lrintf+set}" = set; then
+ else
+ 
+ lrintf_save_CFLAGS=$CFLAGS
+-CFLAGS="-O -lm"
++lrintf_save_LIBS=$LIBS
++CFLAGS="-O"
++LIBS="-lm"
+ cat >conftest.$ac_ext <<_ACEOF
+ /* confdefs.h.  */
+ _ACEOF
+@@ -22807,6 +22809,7 @@ fi
+ rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+       conftest$ac_exeext conftest.$ac_ext
+ 
++LIBS=$lrintf_save_LIBS
+ CFLAGS=$lrintf_save_CFLAGS
+ 
+ 

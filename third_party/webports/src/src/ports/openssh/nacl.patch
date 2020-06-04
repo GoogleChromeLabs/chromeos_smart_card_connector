@@ -1,0 +1,158 @@
+diff --git a/channels.h b/channels.h
+--- a/channels.h
++++ b/channels.h
+@@ -161,9 +161,9 @@ struct Channel {
+ 
+ /* default window/packet sizes for tcp/x11-fwd-channel */
+ #define CHAN_SES_PACKET_DEFAULT	(32*1024)
+-#define CHAN_SES_WINDOW_DEFAULT	(64*CHAN_SES_PACKET_DEFAULT)
++#define CHAN_SES_WINDOW_DEFAULT	(4*CHAN_SES_PACKET_DEFAULT)
+ #define CHAN_TCP_PACKET_DEFAULT	(32*1024)
+-#define CHAN_TCP_WINDOW_DEFAULT	(64*CHAN_TCP_PACKET_DEFAULT)
++#define CHAN_TCP_WINDOW_DEFAULT	(4*CHAN_TCP_PACKET_DEFAULT)
+ #define CHAN_X11_PACKET_DEFAULT	(16*1024)
+ #define CHAN_X11_WINDOW_DEFAULT	(4*CHAN_X11_PACKET_DEFAULT)
+ 
+diff --git a/includes.h b/includes.h
+--- a/includes.h
++++ b/includes.h
+@@ -172,4 +172,10 @@
+ 
+ #include "entropy.h"
+ 
++/* TODO(sbc): remove this if/when arm/glibc toolchain is fixed */
++/* https://code.google.com/p/nativeclient/issues/detail?id=4299 */
++#ifndef MAXHOSTNAMELEN
++#define MAXHOSTNAMELEN 64
++#endif
++
+ #endif /* INCLUDES_H */
+diff --git a/misc.h b/misc.h
+--- a/misc.h
++++ b/misc.h
+@@ -15,6 +15,11 @@
+ #ifndef _MISC_H
+ #define _MISC_H
+ 
++#if defined __native_client__ && !defined __GLIBC__
++// for struct timeval
++#include <sys/time.h>
++#endif
++
+ /* misc.c */
+ 
+ char	*chop(char *);
+diff --git a/openbsd-compat/bsd-closefrom.c b/openbsd-compat/bsd-closefrom.c
+--- a/openbsd-compat/bsd-closefrom.c
++++ b/openbsd-compat/bsd-closefrom.c
+@@ -93,12 +93,14 @@ closefrom(int lowfd)
+ 	 * resource limits since it is possible to open a file descriptor
+ 	 * and then drop the rlimit such that it is below the open fd.
+ 	 */
++#if !defined __native_client__ || defined __GLIBC__
+ #ifdef HAVE_SYSCONF
+ 	maxfd = sysconf(_SC_OPEN_MAX);
+ #else
+ 	maxfd = getdtablesize();
+ #endif /* HAVE_SYSCONF */
+ 	if (maxfd < 0)
++#endif
+ 	    maxfd = OPEN_MAX;
+ 
+ 	for (fd = lowfd; fd < maxfd; fd++)
+diff --git a/openbsd-compat/bsd-misc.c b/openbsd-compat/bsd-misc.c
+--- a/openbsd-compat/bsd-misc.c
++++ b/openbsd-compat/bsd-misc.c
+@@ -169,12 +169,16 @@ int nanosleep(const struct timespec *req, struct timespec *rem)
+ pid_t
+ tcgetpgrp(int fd)
+ {
++#ifdef __native_client__
++  return(-1);
++#else
+ 	int ctty_pgrp;
+ 
+ 	if (ioctl(fd, TIOCGPGRP, &ctty_pgrp) == -1)
+ 		return(-1);
+ 	else
+ 		return(ctty_pgrp);
++#endif
+ }
+ #endif /* HAVE_TCGETPGRP */
+ 
+diff --git a/openbsd-compat/xcrypt.c b/openbsd-compat/xcrypt.c
+--- a/openbsd-compat/xcrypt.c
++++ b/openbsd-compat/xcrypt.c
+@@ -24,6 +24,7 @@
+ 
+ #include "includes.h"
+ 
++#include <assert.h>
+ #include <sys/types.h>
+ #include <unistd.h>
+ #include <pwd.h>
+@@ -75,7 +76,11 @@ xcrypt(const char *password, const char *salt)
+ # elif defined(HAVE_SECUREWARE)
+         crypted = bigcrypt(password, salt);
+ # else
++#ifdef __native_client__
++        assert(0);
++#else
+         crypted = crypt(password, salt);
++#endif
+ # endif 
+ 
+ 	return crypted;
+diff --git a/ssh.c b/ssh.c
+--- a/ssh.c
++++ b/ssh.c
+@@ -231,12 +231,29 @@ tilde_expand_paths(char **paths, u_int num_paths)
+ 	}
+ }
+ 
++#ifdef __native_client__
++struct passwd *getpwuid(uid_t uid) {
++  static struct passwd passwd;
++  passwd.pw_name = "user";
++  passwd.pw_passwd = "*";
++  passwd.pw_uid = 0;
++  passwd.pw_gid = 0;
++  passwd.pw_gecos = "";
++  passwd.pw_dir = "/home";
++  passwd.pw_shell = "/bin/sh";
++  return &passwd;
++}
++#endif
++
+ /*
+  * Main program for the ssh client.
+  */
+ int
+-main(int ac, char **av)
++nacl_main(int ac, char **av)
+ {
++	mkdir("/home", 0777);
++	setenv("HOME", "/home", 1);
++
+ 	int i, r, opt, exit_status, use_syslog;
+ 	char *p, *cp, *line, *argv0, buf[MAXPATHLEN], *host_arg;
+ 	char thishost[NI_MAXHOST], shorthost[NI_MAXHOST], portstr[NI_MAXSERV];
+diff --git a/sshconnect.h b/sshconnect.h
+--- a/sshconnect.h
++++ b/sshconnect.h
+@@ -55,6 +55,10 @@ void	 ssh_userauth2(const char *, const char *, char *, Sensitive *);
+ void	 ssh_put_password(char *);
+ int	 ssh_local_cmd(const char *);
+ 
++#ifdef __native_client__
++#define PRIV_START
++#define PRIV_END
++#else
+ /*
+  * Macros to raise/lower permissions.
+  */
+@@ -73,3 +77,4 @@ int	 ssh_local_cmd(const char *);
+ 		    strerror(errno));			\
+ 	errno = save_errno;				\
+ } while (0)
++#endif

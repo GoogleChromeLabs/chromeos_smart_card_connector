@@ -1,0 +1,29 @@
+DOSBox for NaCl
+===============
+
+This port of DOSBox to NaCl enables running on legacy DOS
+application withing chrome.  Its is based on the NaCl SDL
+port.
+
+In order to load applications into the system the dosbox
+'mount' command must be used to export part of the NaCl
+virtual filesystem to dosbox. e.g::
+
+  $ mount c /path/to/app
+
+This command will mount the contents of /path/to/app as
+the DOS C: drive.
+
+Tar files can be extract into the NaCl VFS by setting the
+sdl_mount_http attribute on the NaCl embed tag. e.g::
+
+  sdl_tar_extract="/mnt/http/myapp.tar:/myapp"
+
+This attribute tells SDL to extra the file app.tar (which
+should live alongside the html file on the web server) to
+/app in the NaCl virtual filesystem.  Then the following
+commands can be entered to run the app within dosbox:
+
+ $ mount c /myapp
+ $ c:
+ $ myapp.exe

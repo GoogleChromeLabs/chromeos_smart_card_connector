@@ -1,0 +1,8 @@
+NAME=make
+VERSION=3.82
+URL=http://ftp.gnu.org/gnu/make/make-3.82.tar.gz
+LICENSE=GPL
+DEPENDS=(nacl-spawn)
+DISABLED_LIBC=(bionic)
+SHA1=92d1b87a30d1c9482e52fb4a68e8a355e7946331
+DISABLED_TOOLCHAIN=(emscripten)

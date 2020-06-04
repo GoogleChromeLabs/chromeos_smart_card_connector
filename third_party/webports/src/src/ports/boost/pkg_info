@@ -1,0 +1,11 @@
+NAME=boost
+VERSION=1.55.0
+URL=http://downloads.sf.net/project/boost/boost/1.55.0/boost_1_55_0.tar.bz2
+ARCHIVE_ROOT=boost_1_55_0
+LICENSE=CUSTOM:LICENSE_1_0.txt
+DEPENDS=(glibc-compat zlib bzip2)
+BUILD_OS=linux
+# ICE in glibc/arm toolchain:
+# https://code.google.com/p/nativeclient/issues/detail?id=3205
+DISABLED_TOOLCHAIN=(emscripten glibc/arm)
+SHA1=cef9a0cc7084b1d639e06cd3bc34e4251524c840

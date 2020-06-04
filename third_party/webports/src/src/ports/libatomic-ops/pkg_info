@@ -1,0 +1,9 @@
+NAME=libatomic-ops
+VERSION=7.4.0
+URL=http://www.hpl.hp.com/research/linux/atomic_ops/download/libatomic_ops-7.4.0.tar.gz
+LICENSE=GPL
+ARCHIVE_ROOT=libatomic_ops-7.4.0
+DEPENDS=(glibc-compat)
+DISABLED_ARCH=(pnacl)
+SHA1=3397c2b2a02be3c27af6ed603332e81464447653
+DISABLED_TOOLCHAIN=(emscripten)

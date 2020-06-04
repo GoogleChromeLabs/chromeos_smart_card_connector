@@ -1,0 +1,191 @@
+diff --git a/config.h.in b/config.h.in
+--- a/config.h.in
++++ b/config.h.in
+@@ -27,6 +27,9 @@
+ /* Define to 1 if you have the `getline' function. */
+ #undef HAVE_GETLINE
+ 
++/* Define to 1 if you have the `__getline' function. */
++#undef HAVE___GETLINE
++
+ /* Define to 1 if you have the <inttypes.h> header file. */
+ #undef HAVE_INTTYPES_H
+ 
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -13017,7 +13030,7 @@ int
+ main ()
+ {
+ extern char *__progname;
+-	                   const char *p = __progname;
++return (int)__progname;
+   ;
+   return 0;
+ }
+@@ -13035,7 +13048,7 @@ fi
+ rm -f core conftest.err conftest.$ac_objext \
+     conftest$ac_exeext conftest.$ac_ext
+ 
+-for ac_func in clearenv dirfd fopencookie __fpurge getexecname getline sysconf
++for ac_func in clearenv dirfd fopencookie __fpurge getexecname ${getline:-getline} sysconf
+ do :
+   as_ac_var=`$as_echo "ac_cv_func_$ac_func" | $as_tr_sh`
+ ac_fn_c_check_func "$LINENO" "$ac_func" "$as_ac_var"
+diff --git a/include/bsd/libutil.h b/include/bsd/libutil.h
+--- a/include/bsd/libutil.h
++++ b/include/bsd/libutil.h
+@@ -39,7 +39,11 @@
+ #ifndef _LIBUTIL_H_
+ #define _LIBUTIL_H_
+ 
++#ifdef _NEWLIB_VERSION
++#include <sys/features.h>
++#else
+ #include <features.h>
++#endif
+ #include <sys/cdefs.h>
+ #include <sys/types.h>
+ #include <stdint.h>
+diff --git a/include/bsd/stdio.h b/include/bsd/stdio.h
+--- a/include/bsd/stdio.h
++++ b/include/bsd/stdio.h
+@@ -54,6 +54,7 @@ char *fgetln(FILE *fp, size_t *lenp);
+  * as the code has to be modified anyway, we might just as well use the
+  * correct declaration here.
+  */
++#ifndef _NEWLIB_VERSION
+ FILE *funopen(const void *cookie,
+               int (*readfn)(void *cookie, char *buf, int size),
+               int (*writefn)(void *cookie, const char *buf, int size),
+@@ -62,6 +63,7 @@ FILE *funopen(const void *cookie,
+ 
+ #define fropen(cookie, fn) funopen(cookie, fn, NULL, NULL, NULL)
+ #define fwopen(cookie, fn) funopen(cookie, NULL, fn, NULL, NULL)
++#endif
+ 
+ int fpurge(FILE *fp);
+ __END_DECLS
+diff --git a/src/err.c b/src/err.c
+--- a/src/err.c
++++ b/src/err.c
+@@ -24,22 +24,11 @@
+  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+-
+ #include <err.h>
+ #include <errno.h>
+ #include <stdarg.h>
+ 
+ void
+-warnc(int code, const char *format, ...)
+-{
+-	va_list ap;
+-
+-	va_start(ap, format);
+-	vwarnc(code, format, ap);
+-	va_end(ap);
+-}
+-
+-void
+ vwarnc(int code, const char *format, va_list ap)
+ {
+ 	int tmp = errno;
+@@ -50,12 +39,12 @@ vwarnc(int code, const char *format, va_list ap)
+ }
+ 
+ void
+-errc(int status, int code, const char *format, ...)
++warnc(int code, const char *format, ...)
+ {
+ 	va_list ap;
+ 
+ 	va_start(ap, format);
+-	verrc(status, code, format, ap);
++	vwarnc(code, format, ap);
+ 	va_end(ap);
+ }
+ 
+@@ -65,3 +54,13 @@ verrc(int status, int code, const char *format, va_list ap)
+ 	errno = code;
+ 	verr(status, format, ap);
+ }
++
++void
++errc(int status, int code, const char *format, ...)
++{
++	va_list ap;
++
++	va_start(ap, format);
++	verrc(status, code, format, ap);
++	va_end(ap);
++}
+diff --git a/src/fgetln.c b/src/fgetln.c
+--- a/src/fgetln.c
++++ b/src/fgetln.c
+@@ -30,7 +30,7 @@
+ #include <sys/types.h>
+ #include <string.h>
+ 
+-#ifdef HAVE_GETLINE
++#if defined HAVE_GETLINE || defined (HAVE___GETLINE)
+ struct filebuf {
+ 	FILE *fp;
+ 	char *buf;
+@@ -58,7 +58,11 @@ fgetln(FILE *stream, size_t *len)
+ 	}
+ 	fb->fp = stream;
+ 
++#ifdef HAVE___GETLINE
++  nread = __getline(&fb->buf, &fb->len, stream);
++#else
+ 	nread = getline(&fb->buf, &fb->len, stream);
++#endif
+ 	/* Note: the getdelim/getline API ensures nread != 0. */
+ 	if (nread == -1) {
+ 		*len = 0;
+diff --git a/src/funopen.c b/src/funopen.c
+--- a/src/funopen.c
++++ b/src/funopen.c
+@@ -30,6 +30,7 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ 
++#ifndef _NEWLIB_VERSION
+ #ifdef HAVE_FOPENCOOKIE
+ struct funopen_cookie {
+ 	void *orig_cookie;
+@@ -140,3 +141,4 @@ funopen(const void *cookie,
+ #else
+ #error "Function funopen() needs to be ported."
+ #endif
++#endif
+diff --git a/src/getpeereid.c b/src/getpeereid.c
+--- a/src/getpeereid.c
++++ b/src/getpeereid.c
+@@ -40,7 +40,7 @@ int
+ getpeereid(int s, uid_t *euid, gid_t *egid)
+ {
+ /* XXX: This should be autodetected at build time instead. */
+-#if defined(__linux__)
++#if defined(__linux__) || defined(__native_client__)
+ 	struct ucred cred;
+ #elif defined(__OpenBSD__)
+ 	struct sockpeercred cred;
+diff --git a/src/nlist.c b/src/nlist.c
+--- a/src/nlist.c
++++ b/src/nlist.c
+@@ -27,6 +27,7 @@
+  * SUCH DAMAGE.
+  */
+ 
++#ifndef __native_client__
+ #if defined(LIBC_SCCS) && !defined(lint)
+ static char sccsid[] = "@(#)nlist.c	8.1 (Berkeley) 6/4/93";
+ #endif /* LIBC_SCCS and not lint */
+@@ -421,3 +422,4 @@ elf_sym_to_nlist(nl, s, shdr, shnum)
+ 		nl->n_type |= N_EXT;
+ }
+ #endif /* _NLIST_DO_ELF */
++#endif /* not __native_client__*/

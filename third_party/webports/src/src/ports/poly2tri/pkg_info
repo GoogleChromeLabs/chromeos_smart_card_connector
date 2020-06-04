@@ -1,0 +1,7 @@
+NAME=poly2tri
+VERSION=26242d0aa7b8
+URL=https://poly2tri.googlecode.com/archive/26242d0aa7b85fe3bf8c64a343dbe8a88055de37.tar.gz
+ARCHIVE_ROOT=poly2tri-26242d0aa7b8
+LICENSE="New BSD License"
+SHA1=31e191e2ea1bc69a6cf7da456fd77d1ee87596ac
+DISABLED_TOOLCHAIN=(emscripten)

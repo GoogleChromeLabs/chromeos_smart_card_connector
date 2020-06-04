@@ -1,0 +1,13 @@
+NAME=binutils-2.25
+VERSION=2.25
+URL=http://ftp.gnu.org/gnu/binutils/binutils-2.25.tar.bz2
+LICENSE=GPL
+DEPENDS=(nacl-spawn)
+DISABLED_LIBC=(bionic)
+DISABLED_ARCH=(pnacl)
+BUILD_OS=linux
+SHA1=b46cc90ebaba7ffcf6c6d996d60738881b14e50d
+ARCHIVE_ROOT=binutils-2.25
+# arm-nacl-clang asserts in llvm::ARMInstPrinter::printInstruction:
+# https://code.google.com/p/nativeclient/issues/detail?id=4114
+DISABLED_TOOLCHAIN=(clang-newlib/arm emscripten)

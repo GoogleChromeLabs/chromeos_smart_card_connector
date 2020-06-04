@@ -1,0 +1,7 @@
+NAME=tinyxml
+VERSION=2.6.2
+ARCHIVE_ROOT=tinyxml
+URL=http://download.sf.net/tinyxml/tinyxml/2.6.2/tinyxml_2_6_2.tar.gz
+LICENSE=CUSTOM:readme.txt
+SHA1=cba3f50dd657cb1434674a03b21394df9913d764
+DISABLED_TOOLCHAIN=(emscripten)

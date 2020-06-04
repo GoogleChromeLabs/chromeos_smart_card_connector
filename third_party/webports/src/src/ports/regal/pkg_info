@@ -1,0 +1,8 @@
+NAME=regal
+VERSION=5e14ae7
+URL=https://github.com/p3/regal/archive/5e14ae7/Regal-5e14ae7.tar.gz
+ARCHIVE_ROOT=regal-5e14ae7d62a1dcc673744a9709b4a68d27c674ba
+DEPENDS=(libpng)
+# bionic: issue with log2 macro
+DISABLED_TOOLCHAIN=(emscripten bionic)
+SHA1=8e4d95615591f9ade4613fac5ea34a4a098aed1b

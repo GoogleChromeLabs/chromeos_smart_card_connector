@@ -1,0 +1,10 @@
+NAME=ffmpeg
+VERSION=2.6.1
+URL=http://ffmpeg.org/releases/ffmpeg-2.6.1.tar.bz2
+LICENSE=GPL,LGPL
+CONFLICTS=(libav)
+# Disabled on arm due to non-optional arm in .S files.
+DISABLED_ARCH=(arm)
+DEPENDS=(lame libvorbis libtheora glibc-compat)
+SHA1=dfcd13e7c3e65a59cbe4cab85718ae84da824c5b
+DISABLED_TOOLCHAIN=(emscripten)

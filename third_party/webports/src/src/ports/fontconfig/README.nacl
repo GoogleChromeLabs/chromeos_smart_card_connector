@@ -1,0 +1,4 @@
+Fontconfig
+==========
+
+fonts/fonts.conf is a config file to make the fonts look better on nacl.

@@ -1,0 +1,115 @@
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -18677,12 +18677,12 @@ _ACEOF
+   HAVE_POSIX_SPAWNATTR_T=1;
+   HAVE_POSIX_SPAWN_FILE_ACTIONS_T=1;
+ 
+-  REPLACE_POSIX_SPAWN=0;
+-  REPLACE_POSIX_SPAWN_FILE_ACTIONS_ADDCLOSE=0;
++  REPLACE_POSIX_SPAWN=1;
++  REPLACE_POSIX_SPAWN_FILE_ACTIONS_ADDCLOSE=1;
+ 
+-  REPLACE_POSIX_SPAWN_FILE_ACTIONS_ADDDUP2=0;
++  REPLACE_POSIX_SPAWN_FILE_ACTIONS_ADDDUP2=1;
+ 
+-  REPLACE_POSIX_SPAWN_FILE_ACTIONS_ADDOPEN=0;
++  REPLACE_POSIX_SPAWN_FILE_ACTIONS_ADDOPEN=1;
+ 
+ 
+ 
+diff --git a/lib/fpending.c b/lib/fpending.c
+--- a/lib/fpending.c
++++ b/lib/fpending.c
+@@ -23,8 +23,10 @@
+ 
+ /* Return the number of pending (aka buffered, unflushed)
+    bytes on the stream, FP, that is open for writing.  */
++#if !defined(__native_client__)
+ size_t
+ __fpending (FILE *fp)
+ {
+   return PENDING_OUTPUT_N_BYTES;
+ }
++#endif
+diff --git a/lib/sigaction.c b/lib/sigaction.c
+--- a/lib/sigaction.c
++++ b/lib/sigaction.c
+@@ -51,7 +51,7 @@
+    with this module should stick with only sigaction().  */
+ 
+ /* Check some of our assumptions.  */
+-#if defined SIGCHLD || defined HAVE_SIGALTSTACK || defined HAVE_SIGINTERRUPT
++#if !defined(__native_client__) && (defined SIGCHLD || defined HAVE_SIGALTSTACK || defined HAVE_SIGINTERRUPT)
+ # error "Revisit the assumptions made in the sigaction module"
+ #endif
+ 
+@@ -103,10 +103,13 @@ sigaction_handler (int sig)
+      asynchronous instance of the same signal occurring before we
+      reinstall the handler will trigger the default handler; oh
+      well.  */
++
++#if !defined(__native_client__) || !defined(_NEWLIB_VERSION)
+   handler = action_array[sig].sa_handler;
+   if ((action_array[sig].sa_flags & SA_RESETHAND) == 0)
+     signal (sig, sigaction_handler);
+   else
++#endif
+     action_array[sig].sa_handler = NULL;
+ 
+   /* Block appropriate signals.  */
+@@ -171,7 +174,11 @@ sigaction (int sig, const struct sigaction *restrict act,
+           if (oact->sa_handler == SIG_ERR)
+             goto failure;
+           signal (sig, oact->sa_handler);
++#if defined(__native_client__) && defined(_NEWLIB_VERSION)
++          oact->sa_flags = SA_NODEFER;
++#else
+           oact->sa_flags = SA_RESETHAND | SA_NODEFER;
++#endif
+           sigemptyset (&oact->sa_mask);
+         }
+     }
+diff --git a/lib/spawni.c b/lib/spawni.c
+--- a/lib/spawni.c
++++ b/lib/spawni.c
+@@ -80,6 +80,9 @@
+ # define internal_function /* empty */
+ #endif
+ 
++#if defined(__native_client__)
++#include <spawn.h>
++#endif
+ 
+ /* The Unix standard contains a long explanation of the way to signal
+    an error after the fork() was successful.  Since no new wait status
+@@ -141,6 +144,13 @@ __spawni (pid_t *pid, const char *file,
+           const posix_spawnattr_t *attrp, char *const argv[],
+           char *const envp[], int use_path)
+ {
++#if defined(__native_client__)
++  *pid = spawnve(P_NOWAIT, argv[0], argv, envp);
++  if (*pid < 0) {
++    return errno;
++  }
++  return 0;
++#else
+   pid_t new_pid;
+   char *path, *p, *name;
+   size_t len;
+@@ -203,7 +213,6 @@ __spawni (pid_t *pid, const char *file,
+         if (sigismember (&attrp->_sd, sig) != 0
+             && sigaction (sig, &sa, NULL) != 0)
+           _exit (SPAWN_ERROR);
+-
+     }
+ 
+ #if (_LIBC ? defined _POSIX_PRIORITY_SCHEDULING : HAVE_SCHED_SETPARAM && HAVE_SCHED_SETSCHEDULER)
+@@ -369,6 +378,7 @@ __spawni (pid_t *pid, const char *file,
+ 
+   /* Return with an error.  */
+   _exit (SPAWN_ERROR);
++#endif
+ }
+ 
+ #endif

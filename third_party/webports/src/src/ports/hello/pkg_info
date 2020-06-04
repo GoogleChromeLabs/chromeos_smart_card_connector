@@ -1,0 +1,5 @@
+NAME=hello
+VERSION=2.10
+URL=http://ftp.gnu.org/gnu/hello/hello-2.10.tar.gz
+LICENSE=GPL3
+SHA1=f7bebf6f9c62a2295e889f66e05ce9bfaed9ace3

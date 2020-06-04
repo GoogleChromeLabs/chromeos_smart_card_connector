@@ -1,0 +1,49 @@
+{
+  "name": "Gimp",
+  "description": "Gimp (Gnu Image Manipulation Program) in an app running using NativeClient",
+  "version": "2.8.14",
+  "manifest_version": 2,
+  "minimum_chrome_version": "30",
+  "icons": {
+    "48": "gimp-logo_48.png",
+    "64": "gimp-logo_64.png",
+    "128": "gimp-logo_128.png"
+  },
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "file_handlers": {
+    "edit": {
+      "types": [
+        "text/*"
+      ],
+      "extensions": [
+        "json",
+        "txt",
+        "js",
+        "html",
+        "h",
+        "c",
+        "cc",
+        "cpp",
+        "java"
+      ]
+    }
+  },
+  "permissions": [
+    "fileSystem",
+    "storage",
+    "unlimitedStorage",
+    {
+      "socket": [
+        "tcp-listen:*:*",
+        "tcp-connect",
+        "resolve-host",
+        "udp-bind:*:*",
+        "udp-send-to:*:*"
+      ]
+    }
+  ]
+}

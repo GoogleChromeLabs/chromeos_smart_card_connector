@@ -1,0 +1,7 @@
+NAME=libbsd
+VERSION=0.7.0
+URL=http://libbsd.freedesktop.org/releases/libbsd-0.7.0.tar.xz
+LICENSE=BSD
+DEPENDS=(glibc-compat)
+SHA1=3039eb71dc72fd892c6ac7ef0eedbd288f8d5e25
+DISABLED_TOOLCHAIN=(emscripten bionic)

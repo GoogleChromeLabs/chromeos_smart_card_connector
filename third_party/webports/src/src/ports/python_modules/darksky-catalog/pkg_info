@@ -1,0 +1,8 @@
+NAME=darksky-catalog
+VERSION=0.1.3
+ARCHIVE_ROOT=darksky_catalog-0.1.3
+URL=https://pypi.python.org/packages/source/d/darksky_catalog/darksky_catalog-0.1.3.tar.gz
+LICENSE=BSD
+DEPENDS=(python-host yt thingking)
+SHA1=ab3310cb160a08ac6b1bca20364d08e1dcdb46c2
+DISABLED_TOOLCHAIN=(emscripten)

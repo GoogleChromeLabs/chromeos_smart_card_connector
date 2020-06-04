@@ -1,0 +1,12 @@
+NAME=libxpm
+ARCHIVE_ROOT=libXpm-3.5.10
+VERSION=3.5.10
+URL=http://www.x.org/releases/X11R7.7/src/everything/libXpm-3.5.10.tar.bz2
+LICENSE=GPL
+# creat() + other undefined symbols
+DISABLED_LIBC=(bionic)
+# libxt isn't really a hard dependency, but more things are built when it's
+# present, so making sure we hit that path.
+DEPENDS=(glibc-compat xproto libx11 libxt libxext)
+SHA1=eca9dbfa6253f7d6cc7d593dc83110c6c4876d7c
+DISABLED_TOOLCHAIN=(emscripten)

@@ -1,0 +1,4 @@
+NAME=openal-ogg-demo
+VERSION=0.1
+DEPENDS=(openal-soft libvorbis)
+DISABLED_TOOLCHAIN=(emscripten)

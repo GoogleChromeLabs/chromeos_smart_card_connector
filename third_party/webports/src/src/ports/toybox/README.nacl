@@ -1,0 +1,7 @@
+This is a simple port of ToyBox.  Many commands have been disabled.
+
+Additionally, where toysh would normally fork itself when running
+internal commands, here it will utilize a setjmp trampoline.  This can
+result in loss of memory if there are persistent errors.
+
+To spawn a shell, append ?arg1=sh to the URL.

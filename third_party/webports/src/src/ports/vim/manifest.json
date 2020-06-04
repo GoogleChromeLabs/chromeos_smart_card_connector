@@ -1,0 +1,42 @@
+{
+  "name": "Vim",
+  "description": "Vim console application running using NativeClient",
+  "version": "7.4.0.%(version)s",
+  "manifest_version": 2,
+  "icons": {
+    "16": "icon_16.png",
+    "48": "icon_48.png",
+    "128": "icon_128.png"
+  },
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "file_handlers": {
+    "edit": {
+      "types": [
+        "text/*"
+      ],
+      "extensions": [
+        "json",
+        "txt",
+        "js",
+        "html",
+        "h",
+        "c",
+        "cc",
+        "cpp",
+        "java"
+      ],
+      "title": "Edit with Vim"
+    }
+  },
+  "permissions": [
+    {"fileSystem": ["write"]},
+    "clipboardRead",
+    "clipboardWrite",
+    "storage",
+    "unlimitedStorage"
+  ]
+}

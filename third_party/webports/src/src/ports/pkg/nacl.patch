@@ -1,0 +1,2174 @@
+diff --git a/compat/Makefile.am b/compat/Makefile.am
+--- a/compat/Makefile.am
++++ b/compat/Makefile.am
+@@ -1,8 +1,7 @@
+-noinst_LTLIBRARIES=	libbsd_compat.la
+ noinst_HEADERS=		bsd_compat.h endian_util.h \
+ 			humanize_number.h
+ 
+-libbsd_compat_la_SOURCES=	basename.c \
++sources=	basename.c \
+ 				closefrom.c \
+ 				dirname.c \
+ 				file_at.c \
+@@ -11,4 +10,14 @@ libbsd_compat_la_SOURCES=	basename.c \
+ 				strnstr.c \
+ 				funopen.c
+ 
++libbsd_compat_la_SOURCES=	$(sources)
+ libbsd_compat_la_CFLAGS=	$(pkg_common_cflags) -shared
++libbsd_compat_static_la_SOURCES=	$(sources)
++libbsd_compat_static_la_CFLAGS=	$(pkg_common_cflags) -static
++libbsd_compat_static_la_LDFLAGS= -all-static
++
++noinst_LTLIBRARIES=	libbsd_compat_static.la
++
++if DYNAMIC
++noinst_LTLIBRARIES+= libbsd_compat.la
++endif
+diff --git a/compat/bsd_compat.h b/compat/bsd_compat.h
+--- a/compat/bsd_compat.h
++++ b/compat/bsd_compat.h
+@@ -57,6 +57,10 @@
+ #include <bsd/libutil.h>
+ #endif
+ 
++#ifdef __native_client__
++#include <stdio.h>
++#endif
++
+ #include <sys/stat.h>
+ #include "endian_util.h"
+ 
+diff --git a/configure.ac b/configure.ac
+--- a/configure.ac
++++ b/configure.ac
+@@ -244,28 +244,12 @@ AC_SUBST([GIT_HEAD])
+ AC_DEFINE_UNQUOTED([GIT_HEAD], $GIT_HEAD)
+ AC_DEFINE([PKG_API], [api_ver])
+ 
+-AC_RUN_IFELSE(
+-  [AC_LANG_SOURCE(
+-    [[
+-    #include <sys/types.h>
+-    #include <sys/socket.h>
+-    int main() { return socket(AF_LOCAL, SOCK_SEQPACKET, 0) == -1 ? -1 : 0; }
+-    ]]
+-  )],
+-  [AC_DEFINE([HAVE_SEQPACKET], 1, [Define to 1 if you have SOCK_SEQPACKET working])]
+-)
+-
++AC_DEFINE([HAVE_SEQPACKET], 1, [Define to 1 if you have SOCK_SEQPACKET working])
+ AC_SUBST([HAVE_SEQPACKET])
+ 
+-AC_SEARCH_LIBS([lzma_version_string], [lzma], [], [
+-  AC_MSG_ERROR([unable to find the liblzma])
+-])
+-AC_SEARCH_LIBS([BZ2_bzReadOpen], [bz2], [], [
+-  AC_MSG_ERROR([unable to find the libbz2])
+-])
+-AC_SEARCH_LIBS([zlibVersion], [z], [], [
+-  AC_MSG_ERROR([unable to find the zlib])
+-])
++AC_SEARCH_LIBS([lzma_version_string], [lzma], [], [])
++AC_SEARCH_LIBS([BZ2_bzReadOpen], [bz2], [], [])
++AC_SEARCH_LIBS([zlibVersion], [z], [], [])
+ AC_SEARCH_LIBS([archive_read_open], [archive], [], [
+   AC_MSG_ERROR([unable to find the archive_read() function])
+ ])
+@@ -411,7 +395,7 @@ else
+ 	AC_MSG_RESULT([no])
+ fi
+ 
+-AM_CONDITIONAL(DYNAMIC, test "$with_staticonly" != "no")
++AM_CONDITIONAL(DYNAMIC, test "$with_staticonly" != "yes")
+ 
+ dnl Select appropriate ABI
+ AS_CASE(
+diff --git a/external/blake2/Makefile.am b/external/blake2/Makefile.am
+--- a/external/blake2/Makefile.am
++++ b/external/blake2/Makefile.am
+@@ -1,11 +1,16 @@
+ noinst_HEADERS=	blake2.h \
+ 				blake2-impl.h
+ 
+-noinst_LTLIBRARIES=	libblake2.la libblake2_static.la
++noinst_LTLIBRARIES=	libblake2_static.la
+ 
+-blake2_common_cflags=	-I$(top_srcdir)/compat -O3
+ libblake2_la_SOURCES=	blake2b-ref.c
+ libblake2_la_CFLAGS=	$(blake2_common_cflags) -shared
++
++if DYNAMIC
++noinst_LTLIBRARIES+= libblake2.la
++endif
++
++blake2_common_cflags=	-I$(top_srcdir)/compat -O3
+ libblake2_static_la_SOURCES=	$(libblake2_la_SOURCES)
+ libblake2_static_la_CFLAGS=	$(blake2_common_cflags) -static
+-libblake2_static_la_LDFLAGS=	-all-static
+\ No newline at end of file
++libblake2_static_la_LDFLAGS=	-all-static
+diff --git a/external/libelf/_elftc.h b/external/libelf/_elftc.h
+--- a/external/libelf/_elftc.h
++++ b/external/libelf/_elftc.h
+@@ -216,8 +216,8 @@ struct name {							\
+ #define	ELFTC_VCSID(ID)		__FBSDID(ID)
+ #endif
+ 
+-#if defined(__linux__) || defined(__GNU__) || defined(__GLIBC__) || defined(__APPLE__)
+-#if defined(__GNUC__)
++#if defined(__linux__) || defined(__GNU__) || defined(__GLIBC__) || defined(__APPLE__) || defined(__native_client__)
++#if defined(__GNUC__) && !defined(__pnacl__)
+ #define	ELFTC_VCSID(ID)		__asm__(".ident\t\"" ID "\"")
+ #else
+ #define	ELFTC_VCSID(ID)		/**/
+diff --git a/external/libelf/_libelf.h b/external/libelf/_libelf.h
+--- a/external/libelf/_libelf.h
++++ b/external/libelf/_libelf.h
+@@ -35,6 +35,13 @@
+ 
+ #include "_elftc.h"
+ 
++#ifndef roundup2
++#define roundup2(x, y)	(((x)+((y)-1))&(~((y)-1))) /* if y is powers of two */
++#endif
++#ifndef roundup
++#define roundup(x, y)   ((((x)+((y)-1))/(y))*(y))  /* to any y */
++#endif
++
+ /*
+  * Library-private data structures.
+  */
+diff --git a/external/libelf/_libelf_config.h b/external/libelf/_libelf_config.h
+--- a/external/libelf/_libelf_config.h
++++ b/external/libelf/_libelf_config.h
+@@ -40,7 +40,7 @@
+ 
+ #endif	/* __DragonFly__ */
+ 
+-#ifdef __FreeBSD__
++#if defined (__FreeBSD__) || defined(__native_client__)
+ 
+ /*
+  * Define LIBELF_{ARCH,BYTEORDER,CLASS} based on the machine architecture.
+@@ -103,6 +103,13 @@
+ #define	LIBELF_BYTEORDER	ELFDATA2MSB
+ #define	LIBELF_CLASS		ELFCLASS64
+ 
++#elif defined(__pnacl__)
++
++// Some junk data filling to let it pass through
++#define LIBELF_ARCH EM_386
++#define LIBELF_BYTEORDER ELFDATA2LSB
++#define LIBELF_CLASS ELFCLASS32
++
+ #else
+ #error	Unknown FreeBSD architecture.
+ #endif
+diff --git a/external/libelf/libelf.h b/external/libelf/libelf.h
+--- a/external/libelf/libelf.h
++++ b/external/libelf/libelf.h
+@@ -32,6 +32,9 @@
+ #include <sys/types.h>
+ 
+ #include <elfdefinitions.h>
++#ifdef _NEWLIB_VERSION
++#include <sys/cdefs.h>
++#endif
+ 
+ /* Library private data structures */
+ typedef struct _Elf Elf;
+diff --git a/external/libfetch/fetch.h b/external/libfetch/fetch.h
+--- a/external/libfetch/fetch.h
++++ b/external/libfetch/fetch.h
+@@ -37,6 +37,10 @@
+ #define URL_USERLEN 256
+ #define URL_PWDLEN 256
+ 
++#ifndef MAXHOSTNAMELEN
++#define MAXHOSTNAMELEN 64
++#endif
++
+ struct url {
+ 	char		 scheme[URL_SCHEMELEN+1];
+ 	char		 user[URL_USERLEN+1];
+diff --git a/external/libsbuf/subr_sbuf.c b/external/libsbuf/subr_sbuf.c
+--- a/external/libsbuf/subr_sbuf.c
++++ b/external/libsbuf/subr_sbuf.c
+@@ -33,6 +33,9 @@
+ #ifndef roundup2
+ #define        roundup2(x, y)  (((x)+((y)-1))&(~((y)-1))) /* if y is powers of two */
+ #endif
++#ifndef roundup
++#define roundup(x, y)   ((((x)+((y)-1))/(y))*(y))  /* to any y */
++#endif
+ 
+ #ifdef _KERNEL
+ #include <sys/ctype.h>
+diff --git a/external/libucl/src/ucl_parser.c b/external/libucl/src/ucl_parser.c
+--- a/external/libucl/src/ucl_parser.c
++++ b/external/libucl/src/ucl_parser.c
+@@ -694,12 +694,21 @@ ucl_maybe_parse_number (ucl_object_t *obj,
+ 		dv = strtod (c, &endptr);
+ 	}
+ 	else {
++#ifdef _NEWLIB_VERSION
++		if (is_hex) {
++			lv = strtol (c, &endptr, 16);
++		}
++		else {
++			lv = strtol (c, &endptr, 10);
++		}
++#else
+ 		if (is_hex) {
+ 			lv = strtoimax (c, &endptr, 16);
+ 		}
+ 		else {
+ 			lv = strtoimax (c, &endptr, 10);
+ 		}
++#endif
+ 	}
+ 	if (errno == ERANGE) {
+ 		*pos = start;
+diff --git a/external/sqlite/sqlite3.c b/external/sqlite/sqlite3.c
+--- a/external/sqlite/sqlite3.c
++++ b/external/sqlite/sqlite3.c
+@@ -19857,6 +19857,9 @@ SQLITE_PRIVATE sqlite3_mutex_methods const *sqlite3DefaultMutex(void){
+ ** processor and returns that value.  This can be used for high-res
+ ** profiling.
+ */
++#ifdef __pnacl__
++SQLITE_PRIVATE   sqlite_uint64 sqlite3Hwtime(void){ return ((sqlite_uint64)0); }
++#else
+ #if (defined(__GNUC__) || defined(_MSC_VER)) && \
+       (defined(i386) || defined(__i386__) || defined(_M_IX86))
+ 
+@@ -19916,6 +19919,8 @@ SQLITE_PRIVATE sqlite3_mutex_methods const *sqlite3DefaultMutex(void){
+ SQLITE_PRIVATE   sqlite_uint64 sqlite3Hwtime(void){ return ((sqlite_uint64)0); }
+ 
+ #endif
++#endif /* defined(__pnacl__) */
++
+ 
+ #endif /* !defined(_HWTIME_H_) */
+ 
+@@ -25702,7 +25707,7 @@ static int posixOpen(const char *zFile, int flags, int mode){
+ ** we are not running as root.
+ */
+ static int posixFchown(int fd, uid_t uid, gid_t gid){
+-#if OS_VXWORKS
++#if OS_VXWORKS || defined (__native_client__)
+   return 0;
+ #else
+   return geteuid() ? 0 : fchown(fd,uid,gid);
+@@ -25762,14 +25767,14 @@ static struct unix_syscall {
+   { "read",         (sqlite3_syscall_ptr)read,       0  },
+ #define osRead      ((ssize_t(*)(int,void*,size_t))aSyscall[8].pCurrent)
+ 
+-#if defined(USE_PREAD) || SQLITE_ENABLE_LOCKING_STYLE
++#if defined(USE_PREAD) || SQLITE_ENABLE_LOCKING_STYLE && !defined(__native_client__)
+   { "pread",        (sqlite3_syscall_ptr)pread,      0  },
+ #else
+   { "pread",        (sqlite3_syscall_ptr)0,          0  },
+ #endif
+ #define osPread     ((ssize_t(*)(int,void*,size_t,off_t))aSyscall[9].pCurrent)
+ 
+-#if defined(USE_PREAD64)
++#if defined(USE_PREAD64) && !defined(__native_client__)
+   { "pread64",      (sqlite3_syscall_ptr)pread64,    0  },
+ #else
+   { "pread64",      (sqlite3_syscall_ptr)0,          0  },
+@@ -25779,7 +25784,7 @@ static struct unix_syscall {
+   { "write",        (sqlite3_syscall_ptr)write,      0  },
+ #define osWrite     ((ssize_t(*)(int,const void*,size_t))aSyscall[11].pCurrent)
+ 
+-#if defined(USE_PREAD) || SQLITE_ENABLE_LOCKING_STYLE
++#if defined(USE_PREAD) || SQLITE_ENABLE_LOCKING_STYLE && !defined(__native_client__)
+   { "pwrite",       (sqlite3_syscall_ptr)pwrite,     0  },
+ #else
+   { "pwrite",       (sqlite3_syscall_ptr)0,          0  },
+@@ -25787,7 +25792,7 @@ static struct unix_syscall {
+ #define osPwrite    ((ssize_t(*)(int,const void*,size_t,off_t))\
+                     aSyscall[12].pCurrent)
+ 
+-#if defined(USE_PREAD64)
++#if defined(USE_PREAD64) && !defined(__native_client__)
+   { "pwrite64",     (sqlite3_syscall_ptr)pwrite64,   0  },
+ #else
+   { "pwrite64",     (sqlite3_syscall_ptr)0,          0  },
+@@ -28512,7 +28517,7 @@ static int nfsUnlock(sqlite3_file *id, int eFileLock){
+ static int seekAndRead(unixFile *id, sqlite3_int64 offset, void *pBuf, int cnt){
+   int got;
+   int prior = 0;
+-#if (!defined(USE_PREAD) && !defined(USE_PREAD64))
++#if (!defined(USE_PREAD) && !defined(USE_PREAD64)) || defined(__native_client__)
+   i64 newOffset;
+ #endif
+   TIMER_START;
+@@ -28520,10 +28525,10 @@ static int seekAndRead(unixFile *id, sqlite3_int64 offset, void *pBuf, int cnt){
+   assert( id->h>2 );
+   cnt &= 0x1ffff;
+   do{
+-#if defined(USE_PREAD)
++#if defined(USE_PREAD) && !defined (__native_client__)
+     got = osPread(id->h, pBuf, cnt, offset);
+     SimulateIOError( got = -1 );
+-#elif defined(USE_PREAD64)
++#elif defined(USE_PREAD64) && !defined (__native_client__)
+     got = osPread64(id->h, pBuf, cnt, offset);
+     SimulateIOError( got = -1 );
+ #else
+@@ -28636,9 +28641,9 @@ static int seekAndWriteFd(
+   nBuf &= 0x1ffff;
+   TIMER_START;
+ 
+-#if defined(USE_PREAD)
++#if defined(USE_PREAD) && !defined(__native_client__)
+   do{ rc = (int)osPwrite(fd, pBuf, nBuf, iOff); }while( rc<0 && errno==EINTR );
+-#elif defined(USE_PREAD64)
++#elif defined(USE_PREAD64) && !defined(__native_client__)
+   do{ rc = (int)osPwrite64(fd, pBuf, nBuf, iOff);}while( rc<0 && errno==EINTR);
+ #else
+   do{
+diff --git a/libpkg/Makefile.am b/libpkg/Makefile.am
+--- a/libpkg/Makefile.am
++++ b/libpkg/Makefile.am
+@@ -75,6 +75,7 @@ libpkg_la_SOURCES+=	pkg_macho.c
+ pkg_common_cflags+=	-I$(top_srcdir)/external/libmachista
+ endif
+ 
++if DYNAMIC
+ libpkg_la_CFLAGS=	@OS_CFLAGS@ $(pkg_common_cflags) -shared
+ libpkg_la_LIBADD=	$(top_builddir)/compat/libbsd_compat.la \
+ 			$(top_builddir)/external/libucl.la \
+@@ -112,6 +113,7 @@ if HAVE_LD_VERSION_SCRIPT
+ libpkg_la_LDFLAGS+=	-version-info @LIBPKG_SO_VERSION@ -Wl,--version-script=$(srcdir)/libpkg.ver
+ EXTRA_libpkg_la_DEPENDENCIES+=	libpkg.ver
+ endif
++endif
+ 
+ DYNLIBS=		libpkg.la
+ lib_LTLIBRARIES=	libpkg_static.la
+diff --git a/libpkg/elfhints.c b/libpkg/elfhints.c
+--- a/libpkg/elfhints.c
++++ b/libpkg/elfhints.c
+@@ -228,9 +228,11 @@ scan_dirs_for_shlibs(struct shlib_list **shlib_list, int numdirs,
+ 			/* Only regular files and sym-links. On some
+ 			   filesystems d_type is not set, on these the d_type
+ 			   field will be DT_UNKNOWN. */
++#ifndef __native_client__
+ 			if (dp->d_type != DT_REG && dp->d_type != DT_LNK &&
+ 			    dp->d_type != DT_UNKNOWN)
+ 				continue;
++#endif
+ 
+ 			len = strlen(dp->d_name);
+ 			if (strictnames) {
+diff --git a/libpkg/fetch.c b/libpkg/fetch.c
+--- a/libpkg/fetch.c
++++ b/libpkg/fetch.c
+@@ -43,6 +43,11 @@
+ 
+ #include <bsd_compat.h>
+ 
++#ifdef __native_client__
++#include <spawn.h>
++#include <sys/uio.h>
++#endif
++
+ #include "pkg.h"
+ #include "private/event.h"
+ #include "private/pkg.h"
+@@ -60,7 +65,11 @@ gethttpmirrors(struct pkg_repo *repo, const char *url) {
+ 	if ((f = fetchGetURL(url, "")) == NULL)
+ 		return;
+ 
++#ifdef _NEWLIB_VERSION
++	while ((linelen = __getline(&line, &linecap, f)) > 0) {
++#else
+ 	while ((linelen = getline(&line, &linecap, f)) > 0) {
++#endif
+ 		if (strncmp(line, "URL:", 4) == 0) {
+ 			/* trim '\n' */
+ 			if (line[linelen - 1] == '\n')
+@@ -346,7 +355,11 @@ start_ssh(struct pkg_repo *repo, struct url *u, off_t *sz)
+ 		    socketpair(AF_UNIX, SOCK_STREAM, 0, sshout) < 0)
+ 			return(EPKG_FATAL);
+ 
++#ifdef __native_client__
++		repo->sshio.pid = vfork();
++#else
+ 		repo->sshio.pid = fork();
++#endif
+ 		if (repo->sshio.pid == -1) {
+ 			pkg_emit_errno("Cannot fork", "start_ssh");
+ 			return (EPKG_FATAL);
+@@ -358,7 +371,11 @@ start_ssh(struct pkg_repo *repo, struct url *u, off_t *sz)
+ 			    close(sshout[0]) < 0 ||
+ 			    dup2(sshout[1], STDOUT_FILENO) < 0) {
+ 				pkg_emit_errno("Cannot prepare pipes", "start_ssh");
++#ifdef __native_client__
++				_exit (EPKG_FATAL);
++#else
+ 				return (EPKG_FATAL);
++#endif
+ 			}
+ 
+ 			cmd = sbuf_new_auto();
+@@ -407,8 +424,12 @@ start_ssh(struct pkg_repo *repo, struct url *u, off_t *sz)
+ 			return (EPKG_FATAL);
+ 		}
+ 
++#ifdef _NEWLIB_VERSION
++		if (__getline(&line, &linecap, repo->ssh) > 0) {
++#else
+ 		if (getline(&line, &linecap, repo->ssh) > 0) {
+-			if (strncmp(line, "ok:", 3) != 0) {
++#endif
++		if (strncmp(line, "ok:", 3) != 0) {
+ 				pkg_debug(1, "SSH> server rejected, got: %s", line);
+ 				fclose(repo->ssh);
+ 				free(line);
+@@ -423,7 +444,11 @@ start_ssh(struct pkg_repo *repo, struct url *u, off_t *sz)
+ 	}
+ 	pkg_debug(1, "SSH> get %s %" PRIdMAX "", u->doc, (intmax_t)u->ims_time);
+ 	fprintf(repo->ssh, "get %s %" PRIdMAX "\n", u->doc, (intmax_t)u->ims_time);
++#ifdef _NEWLIB_VERSION
++	if ((linelen = __getline(&line, &linecap, repo->ssh)) > 0) {
++#else
+ 	if ((linelen = getline(&line, &linecap, repo->ssh)) > 0) {
++#endif
+ 		if (line[linelen -1 ] == '\n')
+ 			line[linelen -1 ] = '\0';
+ 
+diff --git a/libpkg/pkg_add.c b/libpkg/pkg_add.c
+--- a/libpkg/pkg_add.c
++++ b/libpkg/pkg_add.c
+@@ -360,7 +360,11 @@ pkg_globmatch(char *pattern, const char *name)
+ 	char *buf, *buf2;
+ 	char *path = NULL;
+ 
++#ifdef GLOB_NOMATCH
+ 	if (glob(pattern, 0, NULL, &g) == GLOB_NOMATCH) {
++#else
++	if (glob(pattern, 0, NULL, &g) < 0) {
++#endif
+ 		globfree(&g);
+ 
+ 		return (NULL);
+diff --git a/libpkg/pkg_config.c b/libpkg/pkg_config.c
+--- a/libpkg/pkg_config.c
++++ b/libpkg/pkg_config.c
+@@ -34,7 +34,11 @@
+ #include <sys/un.h>
+ #include <ctype.h>
+ #include <dirent.h>
++#ifdef _NEWLIB_VERSION
++#include <sys/dirent.h>
++#else
+ #include <dlfcn.h>
++#endif
+ #include <errno.h>
+ #include <fcntl.h>
+ #ifdef HAVE_OSRELDATE_H
+@@ -181,12 +185,21 @@ static struct config_entry c[] = {
+ 		PREFIX"/lib/pkg/",
+ 		"Directory which pkg(8) will load plugins from",
+ 	},
++#ifdef _NEWLIB_VERSION
++  {
++		PKG_BOOL,
++		"PKG_ENABLE_PLUGINS",
++		"NO",
++		"Newlib-build pkg does not support plugins",
++	},
++#else
+ 	{
+ 		PKG_BOOL,
+ 		"PKG_ENABLE_PLUGINS",
+ 		"YES",
+ 		"Activate plugin support",
+ 	},
++#endif
+ 	{
+ 		PKG_ARRAY,
+ 		"PLUGINS",
+@@ -458,7 +471,8 @@ pkg_config_dump(void)
+ static void
+ disable_plugins_if_static(void)
+ {
+-	void *dlh;
++#ifndef _NEWLIB_VERSION
++	void *dlh = NULL;
+ 
+ 	dlh = dlopen(0, RTLD_NOW);
+ 
+@@ -467,8 +481,7 @@ disable_plugins_if_static(void)
+ 		ucl_object_replace_key(config, ucl_object_frombool(false), "PKG_ENABLE_PLUGINS", 18, false);
+ 	else
+ 		dlclose(dlh);
+-
+-	return;
++#endif
+ }
+ 
+ static void
+@@ -710,8 +723,25 @@ load_repo_files(const char *repodir, pkg_init_flags flags)
+ 
+ 	pkg_debug(1, "PkgConfig: loading repositories in %s", repodir);
+ 
++#if defined(__native_client__) && defined(_NEWLIB_VERSION)
++	/*
++	 * scandir is currnetly broken with newlib and nacl_io
++	 * TODO(sbc): remove this once the fix lands:
++	 * https://codereview.chromium.org/1304983004/
++	 */
++	nents = 1;
++	ent = malloc(sizeof(void*));
++	i = 0;
++	DIR* dir = opendir(repodir);
++	if (!dir)
++		return;
++	while (ent[i] = readdir(dir)) {
++		if (ent[i]->d_name[0] == '.')
++			continue;
++#else
+ 	nents = scandir(repodir, &ent, nodots, alphasort);
+ 	for (i = 0; i < nents; i++) {
++#endif
+ 		if ((n = strlen(ent[i]->d_name)) <= 5)
+ 			continue;
+ 		p = &ent[i]->d_name[n - 5];
+@@ -722,10 +752,15 @@ load_repo_files(const char *repodir, pkg_init_flags flags)
+ 			    ent[i]->d_name);
+ 			load_repo_file(path, flags);
+ 		}
++#if !(defined(__native_client__) && defined(_NEWLIB_VERSION))
+ 		free(ent[i]);
++#endif
+ 	}
+ 	if (nents >= 0)
+ 		free(ent);
++#if defined(__native_client__) && defined(_NEWLIB_VERSION)
++	closedir(dir);
++#endif
+ }
+ 
+ static void
+@@ -1065,7 +1100,10 @@ pkg_ini(const char *path, const char *reposdir, pkg_init_flags flags)
+ 	if (evpipe != NULL)
+ 		connect_evpipe(evpipe);
+ 
+-	debug_level = pkg_object_int(pkg_config_get("DEBUG_LEVEL"));
++	/* Only set debug level if it was not already set (e.g. by the cmd line) */
++	if (debug_level == 0) {
++		debug_level = pkg_object_int(pkg_config_get("DEBUG_LEVEL"));
++	}
+ 	developer_mode = pkg_object_bool(pkg_config_get("DEVELOPER_MODE"));
+ 
+ 	it = NULL;
+diff --git a/libpkg/pkg_cudf.c b/libpkg/pkg_cudf.c
+--- a/libpkg/pkg_cudf.c
++++ b/libpkg/pkg_cudf.c
+@@ -443,7 +443,11 @@ pkg_jobs_cudf_parse_output(struct pkg_jobs *j, FILE *f)
+ 
+ 	memset(&cur_pkg, 0, sizeof(cur_pkg));
+ 
++#ifdef _NEWLIB_VERSION
++	while ((linelen = __getline(&line, &linecap, f)) > 0) {
++#else
+ 	while ((linelen = getline(&line, &linecap, f)) > 0) {
++#endif
+ 		/* Split line, cut spaces */
+ 		begin = line;
+ 		param = strsep(&begin, ": \t");
+diff --git a/libpkg/pkg_delete.c b/libpkg/pkg_delete.c
+--- a/libpkg/pkg_delete.c
++++ b/libpkg/pkg_delete.c
+@@ -53,6 +53,75 @@
+ #define NOCHANGESFLAGS	(UF_IMMUTABLE | UF_APPEND | SF_IMMUTABLE | SF_APPEND)
+ #endif
+ 
++#if defined (__native_client__) && defined(__GLIBC__)
++// xgetcwd is pulled from toybox lib/xwrap.c
++char *xgetcwd(void) {
++	char *buf = (char*)malloc(sizeof(char) * (PATH_MAX+1));
++	if (buf == NULL) {
++		fprintf(stderr, "malloc failed\n");
++		exit(1);
++	}
++	buf = getcwd(buf, PATH_MAX+1);
++	if (!buf) {
++		perror("xgetcwd");
++		exit(1);
++	}
++	return buf;
++}
++
++// The following functions are pulled from toybox nacl.patch
++#define _AT_WRAP_START(A)                             \
++	int fchdir_err = 0;                           \
++	char *save = xgetcwd();                       \
++	if (!save) {                                  \
++		perror("fd_wrapper_"A);               \
++		exit(1);                              \
++	}                                             \
++	if (dirfd != AT_FDCWD) {                      \
++		fchdir_err = fchdir(dirfd);           \
++		if (fchdir_err == -1)                 \
++			perror("fchdir");             \
++	}
++
++#define _AT_WRAP_END(A)                               \
++	if (dirfd != AT_FDCWD) chdir(save);           \
++	free(save);
++
++int fstatat(int dirfd, const char *pathname, struct stat *buf, int flags) {
++	// We are going to ignore flags here.
++	//if (flags) perror_exit("fstatat_flags");
++	_AT_WRAP_START("fstatat")
++	int result;
++	if (flags & AT_SYMLINK_NOFOLLOW)
++		result = lstat(pathname, buf);
++	else
++		result = stat(pathname, buf);
++	_AT_WRAP_END("fstatat")
++	return result;
++}
++
++int openat(int dirfd, const char *pathname, int flags, ...) {
++	_AT_WRAP_START("openat")
++	int fd = open(pathname, flags);
++	_AT_WRAP_END("openat")
++	return fd;
++}
++
++int unlinkat(int dirfd, const char *pathname, int flags) {
++	// We are going to ignore flags here.
++	//if (flags) perror_exit("unlinkat_flags");
++	_AT_WRAP_START("unlinkat")
++	int result;
++	if(flags & AT_REMOVEDIR) {
++		result = rmdir(pathname);
++	} else {
++		result = unlink(pathname);
++	}
++	_AT_WRAP_END("unlinkat")
++	return result;
++}
++#endif
++
+ int
+ pkg_delete(struct pkg *pkg, struct pkgdb *db, unsigned flags)
+ {
+@@ -242,7 +311,15 @@ rmdir_p(struct pkgdb *db, struct pkg *pkg, char *dir, const char *prefix_r)
+ #endif
+ 
+ 	if (unlinkat(pkg->rootfd, dir, AT_REMOVEDIR) == -1) {
++#ifdef __native_client__
++		/*
++		 * TODO(sbc): nacl_io generates EPERM rather than ENOTEMPTY.  We should
++		 * fix nacl_io and remove this patch: http://crbug.com/522169
++		 */
++		if (errno != ENOTEMPTY && errno != EBUSY && errno != EPERM)
++#else
+ 		if (errno != ENOTEMPTY && errno != EBUSY)
++#endif
+ 			pkg_emit_errno("unlinkat", dir);
+ 		/* If the directory was already removed by a bogus script, continue removing parents */
+ 		if (errno != ENOENT)
+diff --git a/libpkg/pkg_elf.c b/libpkg/pkg_elf.c
+--- a/libpkg/pkg_elf.c
++++ b/libpkg/pkg_elf.c
+@@ -29,6 +29,7 @@
+ #include "pkg_config.h"
+ #endif
+ 
++#include <sys/types.h>
+ #ifdef HAVE_SYS_ENDIAN_H
+ #include <sys/endian.h>
+ #elif HAVE_ENDIAN_H
+@@ -36,7 +37,6 @@
+ #elif HAVE_MACHINE_ENDIAN_H
+ #include <machine/endian.h>
+ #endif
+-#include <sys/types.h>
+ #if defined(HAVE_SYS_ELF_COMMON_H) && !defined(__DragonFly__)
+ #include <sys/elf_common.h>
+ #endif
+@@ -44,7 +44,9 @@
+ 
+ #include <assert.h>
+ #include <ctype.h>
++#ifndef _NEWLIB_VERSION
+ #include <dlfcn.h>
++#endif
+ #include <fcntl.h>
+ #include <gelf.h>
+ #include <libgen.h>
+@@ -457,10 +459,12 @@ pkg_analyse_files(struct pkgdb *db, struct pkg *pkg, const char *stage)
+ 
+ 	shlib_list_init();
+ 
++#ifndef __native_client__
+ 	ret = shlib_list_from_elf_hints(_PATH_ELF_HINTS);
+ 	if (ret != EPKG_OK)
+ 		goto cleanup;
+-
++#endif
++  
+ 	/* Assume no architecture dependence, for contradiction */
+ 	if (developer_mode)
+ 		pkg->flags &= ~(PKG_CONTAINS_ELF_OBJECTS |
+@@ -938,6 +942,7 @@ pkg_arch_to_legacy(const char *arch, char *dest, size_t sz)
+ 	return (0);
+ }
+ 
++#ifndef __native_client__
+ int
+ pkg_get_myarch_legacy(char *dest, size_t sz)
+ {
+@@ -952,8 +957,9 @@ pkg_get_myarch_legacy(char *dest, size_t sz)
+ 
+ 	return (0);
+ }
++#endif
+ 
+-#ifndef __DragonFly__
++#if !defined(__DragonFly__) && !defined(__native_client__)
+ int
+ pkg_get_myarch(char *dest, size_t sz)
+ {
+@@ -987,3 +993,49 @@ pkg_get_myarch(char *dest, size_t sz)
+ }
+ #endif
+ 
++#ifdef __native_client__
++int
++pkg_get_myarch_legacy(char *dest, size_t sz)
++{
++	char current[sz];
++	int ret;
++
++	if ((ret = pkg_get_myarch(current, sizeof(current))) != EPKG_OK)
++		return ret;
++
++	return pkg_arch_to_legacy(current, dest, sz);
++}
++
++int
++pkg_get_myarch(char *dest, size_t sz)
++{
++	char * os_name = "nacl";
++#ifdef __arm__
++	const char* cpu_name = "arm";
++#elif defined __i386__
++	const char* cpu_name = "i686";
++#elif defined __x86_64__
++	const char* cpu_name = "x86_64";
++#elif defined __pnacl__
++	const char* cpu_name = "pnacl";
++#else
++#error "Unknown architecture"
++#endif
++	long long major_version = 0; 
++	char *spec = NULL;
++	int ret = EPKG_OK;
++
++	asprintf(&spec, "%s:%lld:%s", os_name, major_version, cpu_name);
++	if (spec == NULL) {
++		pkg_emit_error("asprintf() failed to allocate output string");
++		ret = EPKG_FATAL;
++		goto cleanup;
++	}
++	strlcpy(dest, spec, sz);
++
++cleanup:
++	free(spec);
++	return ret;
++
++}
++#endif
+diff --git a/libpkg/pkg_event.c b/libpkg/pkg_event.c
+--- a/libpkg/pkg_event.c
++++ b/libpkg/pkg_event.c
+@@ -304,6 +304,7 @@ pipeevent(struct pkg_event *ev)
+ 		    ev->e_file_mismatch.pkg,
+ 		    sbuf_json_escape(buf, ev->e_file_mismatch.file->path));
+ 		break;
++#ifndef _NEWLIB_VERSION
+ 	case PKG_EVENT_PLUGIN_ERRNO:
+ 		sbuf_printf(msg, "{ \"type\": \"ERROR_PLUGIN\", "
+ 		    "\"data\": {"
+@@ -335,6 +336,7 @@ pipeevent(struct pkg_event *ev)
+ 		    pkg_plugin_get(ev->e_plugin_info.plugin, PKG_PLUGIN_NAME),
+ 		    sbuf_json_escape(buf, ev->e_plugin_info.msg));
+ 		break;
++#endif
+ 	case PKG_EVENT_INCREMENTAL_UPDATE:
+ 		sbuf_printf(msg, "{ \"type\": \"INFO_INCREMENTAL_UPDATE\", "
+ 		    "\"data\": {"
+diff --git a/libpkg/pkg_jobs.c b/libpkg/pkg_jobs.c
+--- a/libpkg/pkg_jobs.c
++++ b/libpkg/pkg_jobs.c
+@@ -1384,7 +1384,8 @@ jobs_solve_autoremove(struct pkg_jobs *j)
+ 			pkg_emit_locked(pkg);
+ 		}
+ 		else if (pkg_jobs_test_automatic(j, pkg)) {
+-			assert(pkg_jobs_add_req(j, pkg));
++			struct pkg_job_request_item* ret = pkg_jobs_add_req(j, pkg);
++			assert(ret);
+ 		}
+ 
+ 		pkg = NULL;
+@@ -2131,6 +2132,8 @@ pkg_jobs_fetch(struct pkg_jobs *j)
+ 	if (dlsize == 0)
+ 		return (EPKG_OK);
+ 
++// No statvfs or statfs in NaCl
++#ifndef __native_client__
+ #ifdef HAVE_STATFS
+ 	struct statfs fs;
+ 	while (statfs(cachedir, &fs) == -1) {
+@@ -2156,6 +2159,7 @@ pkg_jobs_fetch(struct pkg_jobs *j)
+ 	}
+ 	fs_avail = fs.f_bsize * (int64_t)fs.f_bavail;
+ #endif
++#endif
+ 
+ 	if (fs_avail != -1 && dlsize > fs_avail) {
+ 		char dlsz[9], fsz[9];
+diff --git a/libpkg/pkg_old.c b/libpkg/pkg_old.c
+--- a/libpkg/pkg_old.c
++++ b/libpkg/pkg_old.c
+@@ -25,6 +25,9 @@
+  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+  */
+ 
++// TODO: Remove sys/types.h once this bug is fixed
++// BUG=https://code.google.com/p/nativeclient/issues/detail?id=4264
++#include <sys/types.h>
+ #include <regex.h>
+ 
+ #include <pkg.h>
+diff --git a/libpkg/pkg_ports.c b/libpkg/pkg_ports.c
+--- a/libpkg/pkg_ports.c
++++ b/libpkg/pkg_ports.c
+@@ -1287,7 +1287,11 @@ ports_parse_plist(struct pkg *pkg, const char *plist, const char *stage)
+ 		return (EPKG_FATAL);
+ 	}
+ 
+-	while ((linelen = getline(&line, &linecap, plist_f)) > 0) {
++#ifdef _NEWLIB_VERSION
++  while ((linelen = __getline(&line, &linecap, plist_f)) > 0) {
++#else
++  while ((linelen = getline(&line, &linecap, plist_f)) > 0) {
++#endif
+ 		if (line[linelen - 1] == '\n')
+ 			line[linelen - 1] = '\0';
+ 		ret = plist_parse_line(pplist, line);
+diff --git a/libpkg/pkg_repo.c b/libpkg/pkg_repo.c
+--- a/libpkg/pkg_repo.c
++++ b/libpkg/pkg_repo.c
+@@ -31,12 +31,10 @@
+ 
+ #include <sys/types.h>
+ #include <sys/stat.h>
+-#include <sys/sysctl.h>
+ #include <sys/uio.h>
+ 
+ #include <archive_entry.h>
+ #include <assert.h>
+-#include <fts.h>
+ #include <libgen.h>
+ #include <sqlite3.h>
+ #include <string.h>
+@@ -56,6 +54,10 @@
+ #include "private/pkg.h"
+ #include "private/pkgdb.h"
+ 
++#ifdef __native_client__
++#include <spawn.h>
++#endif
++
+ struct sig_cert {
+ 	char name[MAXPATHLEN];
+ 	char *sig;
+@@ -67,12 +69,23 @@ struct sig_cert {
+ 	bool trusted;
+ };
+ 
++#ifdef __native_client__
++static int
++pkg_repo_fetch_remote_tmp(struct pkg_repo *repo,
++		const char *filename, const char *extension, time_t *t, int *rc,
++                char** tmp_file)
++#else
+ static int
+ pkg_repo_fetch_remote_tmp(struct pkg_repo *repo,
+ 		const char *filename, const char *extension, time_t *t, int *rc)
++#endif
+ {
+ 	char url[MAXPATHLEN];
++#ifdef __native_client__
++	char * tmp = (char *) calloc(MAXPATHLEN, sizeof(char));
++#else
+ 	char tmp[MAXPATHLEN];
++#endif
+ 	int fd;
+ 	const char *tmpdir, *dot;
+ 
+@@ -81,7 +94,11 @@ pkg_repo_fetch_remote_tmp(struct pkg_repo *repo,
+ 	 */
+ 	dot = strrchr(filename, '.');
+ 	if (dot != NULL) {
++#ifdef __native_client__
++		snprintf(tmp, MIN(MAXPATHLEN, dot - filename + 1), "%s", filename);
++#else
+ 		snprintf(tmp, MIN(sizeof(tmp), dot - filename + 1), "%s", filename);
++#endif
+ 		snprintf(url, sizeof(url), "%s/%s.%s", pkg_repo_url(repo), tmp,
+ 				extension);
+ 	}
+@@ -94,8 +111,41 @@ pkg_repo_fetch_remote_tmp(struct pkg_repo *repo,
+ 	if (tmpdir == NULL)
+ 		tmpdir = "/tmp";
+ 	mkdirs(tmpdir);
++#ifdef __native_client__
++	snprintf(tmp, MAXPATHLEN, "%s/%s.%s.XXXXXX", tmpdir, filename, extension);
++#else
+ 	snprintf(tmp, sizeof(tmp), "%s/%s.%s.XXXXXX", tmpdir, filename, extension);
++#endif
+ 
++#ifdef __native_client__
++	int pid = vfork();
++	if (pid == -1) {
++		rc = EPKG_FATAL;
++		free(tmp);
++		return (rc);
++	} else if (pid == 0) {
++		char* geturl_argv[4];
++		geturl_argv[0] = "geturl";
++		geturl_argv[1] = url;
++		geturl_argv[2] = tmp;
++		geturl_argv[3] = NULL;
++		execvp("geturl", geturl_argv);
++		// error when execvp returns
++		free(tmp);
++		*rc = EPKG_FATAL;
++		_exit(-1);
++	} else {
++		int status;
++		waitpid(pid, &status, 0);
++		if (WEXITSTATUS(status) != 0) {
++			*rc = EPKG_FATAL;
++			free(tmp);
++			return (-1);
++		}
++	}
++	*tmp_file = tmp;
++	fd = open(tmp, O_RDONLY);
++#else
+ 	fd = mkstemp(tmp);
+ 	if (fd == -1) {
+ 		pkg_emit_error("Could not create temporary file %s, "
+@@ -109,7 +159,7 @@ pkg_repo_fetch_remote_tmp(struct pkg_repo *repo,
+ 		close(fd);
+ 		fd = -1;
+ 	}
+-
++#endif
+ 	return (fd);
+ }
+ 
+@@ -535,6 +585,67 @@ pkg_repo_parse_sigkeys(const char *in, int inlen, struct sig_cert **sc)
+ 	return (rc);
+ }
+ 
++#ifdef __native_client__
++static int
++pkg_repo_meta_extract_signature_pubkey_nacl(int fd, void *ud)
++{
++	struct archive *a = NULL;
++	struct archive_entry *ae = NULL;
++	struct pkg_extract_cbdata *cb = ud;
++	int siglen;
++	void *sig;
++	int rc = EPKG_FATAL;
++
++	pkg_debug(1, "PkgRepo: extracting signature of repo in a sandbox");
++
++	a = archive_read_new();
++	archive_read_support_filter_all(a);
++	archive_read_support_format_tar(a);
++
++	archive_read_open_fd(a, cb->afd, 4096);
++	while (archive_read_next_header(a, &ae) == ARCHIVE_OK) {
++		if (cb->need_sig && strcmp(archive_entry_pathname(ae), "signature") == 0) {
++			siglen = archive_entry_size(ae);
++			sig = malloc(siglen);
++			if (sig == NULL) {
++				pkg_emit_errno("pkg_repo_meta_extract_signature",
++						"malloc failed");
++				return (EPKG_FATAL);
++			}
++			if (archive_read_data(a, sig, siglen) == -1) {
++				pkg_emit_errno("pkg_repo_meta_extract_signature",
++						"archive_read_data failed");
++				free(sig);
++				return (EPKG_FATAL);
++			}
++			if (write(fd, sig, siglen) == -1) {
++				pkg_emit_errno("pkg_repo_meta_extract_signature",
++						"write failed");
++				free(sig);
++				return (EPKG_FATAL);
++			}
++			free(sig);
++			rc = EPKG_OK;
++		}
++		else if (strcmp(archive_entry_pathname(ae), cb->fname) == 0) {
++			if (archive_read_data_into_fd(a, cb->tfd) != 0) {
++				pkg_emit_errno("archive_read_extract", "extract error");
++				rc = EPKG_FATAL;
++				break;
++			}
++			else if (!cb->need_sig) {
++				rc = EPKG_OK;
++			}
++		}
++	}
++	if (a != NULL) {
++		archive_read_close(a);
++		archive_read_free(a);
++	}
++	return (rc);
++}
++#endif
++
+ static int
+ pkg_repo_archive_extract_archive(int fd, const char *file,
+     const char *dest, struct pkg_repo *repo, int dest_fd,
+@@ -609,6 +720,13 @@ pkg_repo_archive_extract_archive(int fd, const char *file,
+ 	}
+ 	else {
+ 		cbdata.need_sig = false;
++// Socketpair is broken in NaCl
++// Don't check pubkey now.
++#ifdef __native_client__
++		// Pass in a invalide fd now
++		// Not using the signature part of code
++		pkg_repo_meta_extract_signature_pubkey_nacl(-1, &cbdata);
++#else
+ 		if (pkg_emit_sandbox_get_string(pkg_repo_meta_extract_signature_pubkey,
+ 			&cbdata, (char **)&sig, &siglen) == EPKG_OK) {
+ 			free(sig);
+@@ -617,6 +735,7 @@ pkg_repo_archive_extract_archive(int fd, const char *file,
+ 			pkg_emit_error("Repo extraction failed");
+ 			return (EPKG_FATAL);
+ 		}
++#endif
+ 	}
+ 	(void)lseek(fd, 0, SEEK_SET);
+ 	if (dest_fd != -1)
+@@ -705,23 +824,43 @@ cleanup:
+ 	return rc;
+ }
+ 
++#ifdef __native_client__
++static int
++pkg_repo_fetch_remote_extract_fd(struct pkg_repo *repo, const char *filename,
++    time_t *t, int *rc, char** tmp_dest_file)
++#else
+ static int
+ pkg_repo_fetch_remote_extract_fd(struct pkg_repo *repo, const char *filename,
+     time_t *t, int *rc)
++#endif
+ {
+ 	int fd, dest_fd;
+ 	const char *tmpdir;
++#ifdef __native_client__
++	char* tmp = (char*)malloc(MAXPATHLEN*sizeof(char));
++#else
+ 	char tmp[MAXPATHLEN];
+-
++#endif
++#ifdef __native_client__
++	char* tmp_file;
++	fd = pkg_repo_fetch_remote_tmp(repo, filename,
++			packing_format_to_string(repo->meta->packing_format), t, rc,
++			&tmp_file);
++#else
+ 	fd = pkg_repo_fetch_remote_tmp(repo, filename,
+ 			packing_format_to_string(repo->meta->packing_format), t, rc);
++#endif
+ 	if (fd == -1)
+ 		return (-1);
+ 
+ 	tmpdir = getenv("TMPDIR");
+ 	if (tmpdir == NULL)
+ 		tmpdir = "/tmp";
++#ifdef __native_client__
++        snprintf(tmp, MAXPATHLEN, "%s/%s.XXXXXX", tmpdir, filename);
++#else
+ 	snprintf(tmp, sizeof(tmp), "%s/%s.XXXXXX", tmpdir, filename);
++#endif
+ 
+ 	dest_fd = mkstemp(tmp);
+ 	if (dest_fd == -1) {
+@@ -731,8 +870,10 @@ pkg_repo_fetch_remote_extract_fd(struct pkg_repo *repo, const char *filename,
+ 		*rc = EPKG_FATAL;
+ 		return (-1);
+ 	}
+-
++// POSIX semantics does not apply here
++#ifndef __native_client__
+ 	(void)unlink(tmp);
++#endif
+ 	if (pkg_repo_archive_extract_check_archive(fd, filename, NULL, repo, dest_fd)
+ 			!= EPKG_OK) {
+ 		*rc = EPKG_FATAL;
+@@ -743,7 +884,11 @@ pkg_repo_fetch_remote_extract_fd(struct pkg_repo *repo, const char *filename,
+ 
+ 	/* Thus removing archived file as well */
+ 	close(fd);
+-
++#ifdef __native_client__
++	(void)unlink(tmp_file);
++	free(tmp_file);
++	*tmp_dest_file = tmp;
++#endif
+ 	return (dest_fd);
+ }
+ 
+@@ -755,7 +900,12 @@ pkg_repo_fetch_remote_extract_mmap(struct pkg_repo *repo, const char *filename,
+ 	struct stat st;
+ 	unsigned char *map;
+ 
++#ifdef __native_client__
++	char* tmp_file;
++	fd = pkg_repo_fetch_remote_extract_fd(repo, filename, t, rc, &tmp_file);
++#else
+ 	fd = pkg_repo_fetch_remote_extract_fd(repo, filename, t, rc);
++#endif
+ 	if (fd == -1) {
+ 		return (NULL);
+ 	}
+@@ -774,6 +924,10 @@ pkg_repo_fetch_remote_extract_mmap(struct pkg_repo *repo, const char *filename,
+ 
+ 	map = mmap(NULL, st.st_size, PROT_READ, MAP_SHARED, fd, 0);
+ 	close(fd);
++#ifdef __native_client__
++	(void)unlink(tmp_file);
++	free(tmp_file);
++#endif
+ 	if (map == MAP_FAILED) {
+ 		pkg_emit_errno("pkg_repo_fetch_remote_mmap", "cannot mmap fetched");
+ 		*rc = EPKG_FATAL;
+@@ -789,8 +943,12 @@ pkg_repo_fetch_remote_extract_tmp(struct pkg_repo *repo, const char *filename,
+ {
+ 	int dest_fd;
+ 	FILE *res;
+-
++#ifdef __native_client__
++	char * tmp_file;
++	dest_fd = pkg_repo_fetch_remote_extract_fd(repo, filename, t, rc, &tmp_file);
++#else
+ 	dest_fd = pkg_repo_fetch_remote_extract_fd(repo, filename, t, rc);
++#endif
+ 	if (dest_fd == -1) {
+ 		*rc = EPKG_FATAL;
+ 		return (NULL);
+@@ -804,6 +962,10 @@ pkg_repo_fetch_remote_extract_tmp(struct pkg_repo *repo, const char *filename,
+ 		return (NULL);
+ 	}
+ 
++#ifdef __native_client__
++	(void)unlink(tmp_file);
++	free(tmp_file);
++#endif
+ 	*rc = EPKG_OK;
+ 	return (res);
+ }
+@@ -890,9 +1052,21 @@ pkg_repo_fetch_meta(struct pkg_repo *repo, time_t *t)
+ 
+ 	dbdir = pkg_object_string(pkg_config_get("PKG_DBDIR"));
+ 
++#ifdef __native_client__
++	char* tmp_file;
++	fd = pkg_repo_fetch_remote_tmp(repo, "meta", "txz", t, &rc, &tmp_file);
++#else
+ 	fd = pkg_repo_fetch_remote_tmp(repo, "meta", "txz", t, &rc);
+-	if (fd == -1)
+-		return (rc);
++#endif
++	if (fd == -1) {
++#ifdef __native_client__
++		fd = pkg_repo_fetch_remote_tmp(repo, "meta", "tbz", t, &rc, &tmp_file);
++#else
++		fd = pkg_repo_fetch_remote_tmp(repo, "meta", "tbz", t, &rc);
++#endif
++		if (fd == -1)
++			return (rc);
++	}
+ 
+ 	snprintf(filepath, sizeof(filepath), "%s/%s.meta", dbdir, pkg_repo_name(repo));
+ 
+@@ -922,12 +1096,18 @@ pkg_repo_fetch_meta(struct pkg_repo *repo, time_t *t)
+ 	}
+ 
+ 	close(fd);
++#ifdef __native_client__
++	(void)unlink(tmp_file);
++	free(tmp_file);
++#endif
+ 
+ 	if (repo->signature_type == SIG_FINGERPRINT && repo->trusted_fp == NULL) {
+ 		if (pkg_repo_load_fingerprints(repo) != EPKG_OK)
+ 			return (EPKG_FATAL);
+ 	}
+ 
++  // No pubkey or fingerprint for nacl repo now.
++#ifndef __native_client__
+ 	/* Map meta file for extracting pubkeys from it */
+ 	if (stat(filepath, &st) == -1) {
+ 		pkg_emit_errno("pkg_repo_fetch_meta", "cannot stat meta fetched");
+@@ -947,6 +1127,7 @@ pkg_repo_fetch_meta(struct pkg_repo *repo, time_t *t)
+ 		rc = EPKG_FATAL;
+ 		goto cleanup;
+ 	}
++#endif
+ 
+ 	if (repo->signature_type == SIG_FINGERPRINT) {
+ 		cbdata.len = st.st_size;
+diff --git a/libpkg/pkg_repo_create.c b/libpkg/pkg_repo_create.c
+--- a/libpkg/pkg_repo_create.c
++++ b/libpkg/pkg_repo_create.c
+@@ -32,7 +32,12 @@
+ 
+ #include <sys/types.h>
+ #include <sys/stat.h>
++#if defined(_NEWLIB_VERSION)
++#include <fcntl.h>
++#endif
++#if defined(HAVE_SYSCTLBYNAME)
+ #include <sys/sysctl.h>
++#endif
+ #include <sys/wait.h>
+ #include <sys/socket.h>
+ #include <sys/file.h>
+@@ -313,7 +318,11 @@ pkg_create_repo_worker(struct pkg_fts_item *start, size_t nelts,
+ 		}
+ 	}
+ 
++#ifdef __native_client__
++	pid = vfork();
++#else
+ 	pid = fork();
++#endif
+ 	switch(pid) {
+ 	case -1:
+ 		pkg_emit_errno("pkg_create_repo_worker", "fork");
+@@ -452,7 +461,11 @@ cleanup:
+ 	free(mdigest);
+ 
+ 	pkg_debug(1, "worker done");
++#ifdef __native_client__
++	_exit(ret);
++#else
+ 	exit(ret);
++#endif
+ }
+ 
+ static int
+@@ -614,7 +627,7 @@ pkg_create_repo(char *path, const char *output_dir, bool filelist,
+ 	num_workers = pkg_object_int(pkg_config_get("WORKERS_COUNT"));
+ 	if (num_workers <= 0) {
+ 		len = sizeof(num_workers);
+-#ifdef HAVE_SYSCTLBYNAME
++#if defined (HAVE_SYSCTLBYNAME) && !defined(_NEWLIB_VERSION)
+ 		if (sysctlbyname("hw.ncpu", &num_workers, &len, NULL, 0) == -1)
+ 			num_workers = 6;
+ #else
+@@ -886,8 +899,12 @@ pkg_repo_sign(char *path, char **argv, int argc, struct sbuf **sig, struct sbuf
+ 	if (*cert == NULL)
+ 		*cert = sbuf_new_auto();
+ 
++#ifdef _NEWLIB_VERSION
++  while ((linelen = __getline(&line, &linecap, fp)) > 0 ) {
++#else
+ 	while ((linelen = getline(&line, &linecap, fp)) > 0 ) {
+-		if (strcmp(line, "SIGNATURE\n") == 0) {
++#endif
++    if (strcmp(line, "SIGNATURE\n") == 0) {
+ 			buf = *sig;
+ 			continue;
+ 		} else if (strcmp(line, "CERT\n") == 0) {
+@@ -1032,9 +1049,6 @@ pkg_finish_repo(const char *output_dir, pem_password_cb *password_cb,
+ 			rsa_free(rsa);
+ 			return (EPKG_FATAL);
+ 		}
+-		else {
+-			meta = pkg_repo_meta_default();
+-		}
+ 		if (pkg_repo_pack_db(repo_meta_file, repo_path, repo_path, rsa, meta,
+ 			argv, argc) != EPKG_OK) {
+ 			ret = EPKG_FATAL;
+diff --git a/libpkg/pkg_solve.c b/libpkg/pkg_solve.c
+--- a/libpkg/pkg_solve.c
++++ b/libpkg/pkg_solve.c
+@@ -1435,8 +1435,12 @@ pkg_solve_parse_sat_output(FILE *f, struct pkg_solve_problem *problem)
+ 		HASH_ADD_INT(ordered_variables, order, nord);
+ 	}
+ 
+-	while ((linelen = getline(&line, &linecap, f)) > 0) {
+-		if (strncmp(line, "SAT", 3) == 0) {
++#ifdef _NEWLIB_VERSION
++	while ((linelen = __getline(&line, &linecap, f)) > 0) {
++#else
++  while ((linelen = getline(&line, &linecap, f)) > 0) {
++#endif
++    if (strncmp(line, "SAT", 3) == 0) {
+ 			got_sat = true;
+ 		}
+ 		else if (got_sat) {
+diff --git a/libpkg/pkgdb.c b/libpkg/pkgdb.c
+--- a/libpkg/pkgdb.c
++++ b/libpkg/pkgdb.c
+@@ -73,6 +73,11 @@
+ 
+ #include "private/db_upgrades.h"
+ 
++#ifdef __native_client__
++// Adapt the same fix as ruby
++#define eaccess access
++#endif
++
+ /* An application using a libpkg() DBVERSION is assumed to be compatible
+    with:
+ 
+@@ -731,8 +736,15 @@ pkgdb_is_insecure_mode(const char *path, bool install_as_user)
+ 	struct stat	sb;
+ 
+ 	if (install_as_user) {
++		// No check for nacl
++		// Turn back on when geteuid and getegid are available
++#ifdef __native_client_
++		fileowner = 0;
++		filegroup = 0;
++#else
+ 		fileowner = geteuid();
+ 		filegroup = getegid();
++#endif
+ 	} else {
+ 		fileowner = 0;
+ 		filegroup = 0;
+@@ -747,6 +759,8 @@ pkgdb_is_insecure_mode(const char *path, bool install_as_user)
+ 			return (EPKG_FATAL);
+ 	}
+ 
++	// No check in devenv. Cannot change permission. Everything is 777. 
++#ifndef __native_client__
+ 	/* if fileowner == 0, root ownership and no group or other
+ 	   read access.  if fileowner != 0, require no other read
+ 	   access and group read access IFF the group ownership ==
+@@ -777,7 +791,7 @@ pkgdb_is_insecure_mode(const char *path, bool install_as_user)
+ 			       path, fileowner, filegroup, sb.st_uid, sb.st_gid);
+ 		return (EPKG_INSECURE);
+ 	}
+-
++#endif
+ 	return (EPKG_OK);
+ }
+ 
+@@ -1025,7 +1039,9 @@ pkgdb_open_all(struct pkgdb **db_p, pkgdb_t type, const char *reponame)
+ 		/*
+ 		 * Fall back on unix-dotfile locking strategy if on a network filesystem
+ 		 */
+-#if defined(HAVE_SYS_STATVFS_H) && defined(ST_LOCAL)
++#ifdef __native_client__
++		sqlite3_vfs_register(sqlite3_vfs_find("unix-dotfile"), 1);
++#elif defined(HAVE_SYS_STATVFS_H) && defined(ST_LOCAL)
+ 		struct statvfs stfs;
+ 
+ 		if (statvfs(dbdir, &stfs) == 0) {
+diff --git a/libpkg/pkgdb_iterator.c b/libpkg/pkgdb_iterator.c
+--- a/libpkg/pkgdb_iterator.c
++++ b/libpkg/pkgdb_iterator.c
+@@ -38,6 +38,9 @@
+ 
+ #include <assert.h>
+ #include <errno.h>
++// TODO: Remove sys/types.h once this bug is fixed
++// BUG=https://code.google.com/p/nativeclient/issues/detail?id=4264
++#include <sys/types.h>
+ #include <regex.h>
+ #include <grp.h>
+ #ifdef HAVE_LIBUTIL_H
+diff --git a/libpkg/pkgdb_query.c b/libpkg/pkgdb_query.c
+--- a/libpkg/pkgdb_query.c
++++ b/libpkg/pkgdb_query.c
+@@ -38,6 +38,9 @@
+ 
+ #include <assert.h>
+ #include <errno.h>
++// TODO: Remove sys/types.h once this bug is fixed
++// BUG=https://code.google.com/p/nativeclient/issues/detail?id=4264
++#include <sys/types.h>
+ #include <regex.h>
+ #include <grp.h>
+ #ifdef HAVE_LIBUTIL_H
+diff --git a/libpkg/plugins.c b/libpkg/plugins.c
+--- a/libpkg/plugins.c
++++ b/libpkg/plugins.c
+@@ -31,9 +31,10 @@
+ 
+ #include <ctype.h>
+ #include <errno.h>
+-#include <fts.h>
+ #include <fcntl.h>
++#ifndef _NEWLIB_VERSION
+ #include <dlfcn.h>
++#endif
+ #include <stdbool.h>
+ #include <string.h>
+ #include <assert.h>
+@@ -67,11 +68,13 @@ static int pkg_plugin_free(void);
+ static int pkg_plugin_hook_free(struct pkg_plugin *p);
+ static int pkg_plugin_hook_exec(struct pkg_plugin *p, pkg_plugin_hook_t hook, void *data, struct pkgdb *db);
+ 
++#ifndef _NEWLIB_VERSION
+ void *
+ pkg_plugin_func(struct pkg_plugin *p, const char *func)
+ {
+ 	return (dlsym(p->lh, func));
+ }
++#endif
+ 
+ static int
+ pkg_plugin_hook_free(struct pkg_plugin *p)
+@@ -267,6 +270,7 @@ pkg_plugins(struct pkg_plugin **plugin)
+ 		return (EPKG_OK);
+ }
+ 
++#ifndef _NEWLIB_VERSION
+ int
+ pkg_plugins_init(void)
+ {
+@@ -323,6 +327,7 @@ pkg_plugins_init(void)
+ 
+ 	return (EPKG_OK);
+ }
++#endif
+ 
+ int
+ pkg_plugin_parse(struct pkg_plugin *p)
+@@ -379,6 +384,7 @@ pkg_plugin_parse(struct pkg_plugin *p)
+ 	return (EPKG_OK);
+ }
+ 
++#ifndef _NEWLIB_VERSION
+ void
+ pkg_plugins_shutdown(void)
+ {
+@@ -402,6 +408,7 @@ pkg_plugins_shutdown(void)
+ 
+ 	return;
+ }
++#endif
+ 
+ const pkg_object *
+ pkg_plugin_conf(struct pkg_plugin *p)
+diff --git a/libpkg/private/utils.h b/libpkg/private/utils.h
+--- a/libpkg/private/utils.h
++++ b/libpkg/private/utils.h
+@@ -39,6 +39,10 @@
+ #include <openssl/pem.h>
+ #include <openssl/rsa.h>
+ 
++#ifndef MAXHOSTNAMELEN
++#define MAXHOSTNAMELEN 64
++#endif
++
+ #define STARTS_WITH(string, needle) (strncasecmp(string, needle, strlen(needle)) == 0)
+ 
+ #define ERROR_SQLITE(db, query) do { \
+diff --git a/libpkg/repo/binary/fetch.c b/libpkg/repo/binary/fetch.c
+--- a/libpkg/repo/binary/fetch.c
++++ b/libpkg/repo/binary/fetch.c
+@@ -42,6 +42,11 @@
+ #include <limits.h>
+ 
+ #include <libgen.h>
++#ifdef __native_client__
++#include <sys/types.h>
++#include <sys/wait.h>
++#include <spawn.h>
++#endif
+ 
+ #include "pkg.h"
+ #include "private/event.h"
+@@ -110,6 +115,9 @@ pkg_repo_binary_create_symlink(struct pkg *pkg, const char *fname,
+ 	/* Trim the path to just the filename. */
+ 	if ((dest_fname = strrchr(fname, '/')) != NULL)
+ 		++dest_fname;
++
++// Symlink does not work in devenv
++#ifndef __native_client__
+ 	if (symlink(dest_fname, link_dest_tmp) == -1) {
+ 		pkg_emit_errno("symlink", link_dest);
+ 		return (EPKG_FATAL);
+@@ -120,7 +128,7 @@ pkg_repo_binary_create_symlink(struct pkg *pkg, const char *fname,
+ 		unlink(link_dest_tmp);
+ 		return (EPKG_FATAL);
+ 	}
+-
++#endif
+ 	return (EPKG_OK);
+ }
+ 
+@@ -200,7 +208,29 @@ pkg_repo_binary_try_fetch(struct pkg_repo *repo, struct pkg *pkg,
+ 		return (EPKG_OK);
+ 	}
+ 
++#ifdef __native_client__
++	int pid = vfork();
++        if (pid == -1) {
++		retcode = EPKG_FATAL;
++        } else if (pid == 0) {
++                char* geturl_argv[4];
++		geturl_argv[0] = "geturl";
++		geturl_argv[1] = url;
++		geturl_argv[2] = dest;
++		geturl_argv[3] = NULL;
++		execvp("geturl", geturl_argv);
++		// execvp returns when there is error
++		retcode = EPKG_FATAL;
++	} else {
++		int status;
++		waitpid(pid, &status, 0);
++		if (WEXITSTATUS(status) != 0) {
++			retcode = EPKG_FATAL;
++		}
++	}
++#else
+ 	retcode = pkg_fetch_file(repo, url, dest, 0, offset, pkg->pkgsize);
++#endif
+ 	fetched = true;
+ 
+ 	if (retcode != EPKG_OK)
+diff --git a/libpkg/repo/binary/init.c b/libpkg/repo/binary/init.c
+--- a/libpkg/repo/binary/init.c
++++ b/libpkg/repo/binary/init.c
+@@ -26,6 +26,9 @@
+ 
+ #include <assert.h>
+ #include <errno.h>
++// TODO: Remove <sys/types.h> once this bug is fixed
++// BUG=https://code.google.com/p/nativeclient/issues/detail?id=4264
++#include <sys/types.h>
+ #include <regex.h>
+ #include <grp.h>
+ #include <stdlib.h>
+@@ -316,7 +319,9 @@ pkg_repo_binary_open(struct pkg_repo *repo, unsigned mode)
+ 	/*
+ 	 * Fall back on unix-dotfile locking strategy if on a network filesystem
+ 	 */
+-#if defined(HAVE_SYS_STATVFS_H) && defined(ST_LOCAL)
++#ifdef __native_client__
++	sqlite3_vfs_register(sqlite3_vfs_find("unix-dotfile"), 1);
++#elif defined(HAVE_SYS_STATVFS_H) && defined(ST_LOCAL)
+ 	struct statvfs stfs;
+ 
+ 	if (statvfs(dbdir, &stfs) == 0) {
+@@ -349,8 +354,13 @@ pkg_repo_binary_open(struct pkg_repo *repo, unsigned mode)
+ 		return (EPKG_ENOACCESS);
+ 
+ 	flags = (mode & W_OK) != 0 ? SQLITE_OPEN_READWRITE : SQLITE_OPEN_READONLY;
++#ifdef __native_client__
++	if (sqlite3_open_v2(filepath, &sqlite, flags, "unix-dotfile") != SQLITE_OK)
++		return (EPKG_FATAL);
++#else
+ 	if (sqlite3_open_v2(filepath, &sqlite, flags, NULL) != SQLITE_OK)
+ 		return (EPKG_FATAL);
++#endif
+ 
+ 	/* Sanitise sqlite database */
+ 	if (get_pragma(sqlite, "SELECT count(name) FROM sqlite_master "
+@@ -434,7 +444,9 @@ pkg_repo_binary_create(struct pkg_repo *repo)
+ 	/*
+ 	 * Fall back on unix-dotfile locking strategy if on a network filesystem
+ 	 */
+-#if defined(HAVE_SYS_STATVFS_H) && defined(ST_LOCAL)
++#ifdef __native_client__
++	sqlite3_vfs_register(sqlite3_vfs_find("unix-dotfile"), 1);
++#elif defined(HAVE_SYS_STATVFS_H) && defined(ST_LOCAL)
+ 	struct statvfs stfs;
+ 
+ 	if (statvfs(dbdir, &stfs) == 0) {
+diff --git a/libpkg/repo/binary/query.c b/libpkg/repo/binary/query.c
+--- a/libpkg/repo/binary/query.c
++++ b/libpkg/repo/binary/query.c
+@@ -23,6 +23,9 @@
+ 
+ #include <assert.h>
+ #include <errno.h>
++// TODO: Remove sys/types.h once this bug is fixed
++// BUG=https://code.google.com/p/nativeclient/issues/detail?id=4264
++#include <sys/types.h>
+ #include <regex.h>
+ #include <grp.h>
+ #include <stdlib.h>
+diff --git a/libpkg/scripts.c b/libpkg/scripts.c
+--- a/libpkg/scripts.c
++++ b/libpkg/scripts.c
+@@ -127,7 +127,11 @@ pkg_script_run(struct pkg * const pkg, pkg_script type)
+ 			   if a pipe is required to /bin/sh -s. Similar to
+ 			   find(1) determination */
+ 			if ((argmax = sysconf(_SC_ARG_MAX)) == -1)
+-				argmax = _POSIX_ARG_MAX;
++#ifdef _NEWLIB_VERSION
++        argmax = ARG_MAX;
++#else
++        argmax = _POSIX_ARG_MAX;
++#endif
+ 			argmax -= 1024;
+ 			for (ep = environ; *ep != NULL; ep++)
+ 				argmax -= strlen(*ep) + 1 + sizeof(*ep);
+@@ -228,4 +232,3 @@ cleanup:
+ 
+ 	return (ret);
+ }
+-
+diff --git a/libpkg/ssh.c b/libpkg/ssh.c
+--- a/libpkg/ssh.c
++++ b/libpkg/ssh.c
+@@ -68,7 +68,11 @@ pkg_sshserve(int fd)
+ 
+ 	printf("ok: pkg "PKGVERSION"\n");
+ 	for (;;) {
++#ifdef _NEWLIB_VERSION
++		if ((linelen = __getline(&line, &linecap, stdin)) < 0)
++#else
+ 		if ((linelen = getline(&line, &linecap, stdin)) < 0)
++#endif
+ 			break;
+ 
+ 		if (linelen == 0)
+diff --git a/libpkg/utils.c b/libpkg/utils.c
+--- a/libpkg/utils.c
++++ b/libpkg/utils.c
+@@ -475,7 +475,11 @@ process_spawn_pipe(FILE *inout[2], const char *command)
+ 	argv[2] = __DECONST(char *, command);
+ 	argv[3] = NULL;
+ 
++#ifdef __native_client__
++	pid = vfork();
++#else
+ 	pid = fork();
++#endif
+ 	if (pid > 0) {
+ 		/* Parent process */
+ 		inout[0] = fdopen(pipes[0], "r");
+@@ -502,7 +506,11 @@ process_spawn_pipe(FILE *inout[2], const char *command)
+ 
+ 		execve(_PATH_BSHELL, argv, environ);
+ 
++#ifdef __native_client__
++		_exit(127);
++#else
+ 		exit(127);
++#endif
+ 	}
+ 
+ 	return (-1); /* ? */
+diff --git a/src/Makefile.am b/src/Makefile.am
+--- a/src/Makefile.am
++++ b/src/Makefile.am
+@@ -55,7 +55,7 @@ pkg_CFLAGS=	 @OS_CFLAGS@ \
+ pkg_static_SOURCES=
+ pkg_static_LDADD= @OS_LDFLAGS@ \
+ 			$(top_builddir)/libpkg/libpkg_static.la \
+-			$(top_builddir)/compat/libbsd_compat.la \
++			$(top_builddir)/compat/libbsd_compat_static.la \
+ 			$(top_builddir)/external/libsbuf_static.la \
+ 			$(pkg_OBJECTS) \
+ 			@LIBJAIL_LIB@ \
+@@ -63,7 +63,6 @@ pkg_static_LDADD= @OS_LDFLAGS@ \
+ 			@OS_LIBS@ \
+ 			-larchive \
+ 			-lz \
+-			-lutil \
+ 			-lbz2 \
+ 			-llzma \
+ 			-lssl \
+diff --git a/src/add.c b/src/add.c
+--- a/src/add.c
++++ b/src/add.c
+@@ -36,6 +36,10 @@
+ #include <sysexits.h>
+ #include <unistd.h>
+ #include <getopt.h>
++#ifdef __native_client__
++#include <sys/wait.h>
++#include <spawn.h>
++#endif
+ 
+ #include <pkg.h>
+ 
+@@ -146,9 +150,32 @@ exec_add(int argc, char **argv)
+ 		if (is_url(argv[i]) == EPKG_OK) {
+ 			snprintf(path, sizeof(path), "%s/%s.XXXXX",
+ 			    getenv("TMPDIR") != NULL ? getenv("TMPDIR") : "/tmp", basename(argv[i]));
++#ifdef __native_client__
++			int pid = vfork();
++			if (pid == -1) {
++				retcode = EPKG_FATAL;
++				break;
++			} else if (pid == 0) {
++				char* geturl_argv[4];
++				geturl_argv[0] = "geturl";
++				geturl_argv[1] = argv[i];
++				geturl_argv[2] = path;
++				geturl_argv[3] = NULL;
++				execvp("geturl", geturl_argv);
++				// execvp returns when there is error.
++				_exit(1);
++			} else {
++				int status;
++				waitpid(pid, &status, 0);
++				if (WEXITSTATUS(status) != 0) {
++					retcode = EPKG_FATAL;
++					break;
++				}
++			}
++#else
+ 			if ((retcode = pkg_fetch_file(NULL, argv[i], path, 0, 0, 0)) != EPKG_OK)
+ 				break;
+-
++#endif
+ 			file = path;
+ 		} else {
+ 			file = argv[i];
+diff --git a/src/event.c b/src/event.c
+--- a/src/event.c
++++ b/src/event.c
+@@ -34,7 +34,9 @@
+ #endif
+ 
+ #include <sys/types.h>
++#if defined (HAVE_SYSCTLBYNAME) && !defined(_NEWLIB_VERSION)
+ #include <sys/sysctl.h>
++#endif
+ #include <sys/wait.h>
+ #include <sys/socket.h>
+ 
+@@ -51,9 +53,15 @@
+ #include <libutil.h>
+ #endif
+ 
++#ifdef __native_client__
++#include <spawn.h>
++#endif
++
+ #include <bsd_compat.h>
+ 
+ #include "pkg.h"
++int nbdone;
++int nbactions;
+ #include "pkgcli.h"
+ 
+ #define STALL_TIME 5
+@@ -165,9 +173,13 @@ job_status_begin(struct sbuf *msg)
+ 
+ 	if (jailed == -1) {
+ 		intlen = sizeof(jailed);
++#if defined (HAVE_SYSCTLBYNAME) && !defined(_NEWLIB_VERSION)
+ 		if (sysctlbyname("security.jail.jailed", &jailed, &intlen,
+ 		    NULL, 0) == -1)
+ 			jailed = 0;
++#else
++		jailed = 0;
++#endif
+ 	}
+ 
+ 	if (jailed == 1) {
+@@ -202,7 +214,11 @@ event_sandboxed_call(pkg_sandbox_cb func, int fd, void *ud)
+ 	int status, ret;
+ 
+ 	ret = -1;
++#ifdef __native_client__
++	pid = vfork();
++#else
+ 	pid = fork();
++#endif
+ 
+ 	switch(pid) {
+ 	case -1:
+@@ -237,7 +253,11 @@ event_sandboxed_call(pkg_sandbox_cb func, int fd, void *ud)
+ #ifdef HAVE_CAPSICUM
+ 	if (cap_enter() < 0 && errno != ENOSYS) {
+ 		warn("cap_enter() failed");
++#ifdef __native_client__
++    		_exit (EPKG_FATAL);
++#else
+ 		return (EPKG_FATAL);
++#endif
+ 	}
+ #endif
+ 
+@@ -264,8 +284,11 @@ event_sandboxed_get_string(pkg_sandbox_cb func, char **result, int64_t *len,
+ 		return (EPKG_FATAL);
+ 	}
+ 
++#ifdef __native_client__
++  	pid = vfork();
++#else
+ 	pid = fork();
+-
++#endif
+ 	switch(pid) {
+ 	case -1:
+ 		warn("fork failed");
+@@ -341,7 +364,11 @@ event_sandboxed_get_string(pkg_sandbox_cb func, char **result, int64_t *len,
+ #ifdef HAVE_CAPSICUM
+ 	if (cap_enter() < 0 && errno != ENOSYS) {
+ 		warn("cap_enter() failed");
++#ifdef __native_client__
++		_exit (EPKG_FATAL);
++#else
+ 		return (EPKG_FATAL);
++#endif
+ 	}
+ #endif
+ 
+diff --git a/src/main.c b/src/main.c
+--- a/src/main.c
++++ b/src/main.c
+@@ -60,6 +60,10 @@
+ 
+ #include <pkg.h>
+ 
++#ifdef __native_client__
++#include <spawn.h>
++#endif
++
+ #include "pkgcli.h"
+ 
+ /* Used to define why do we show usage message to a user */
+@@ -97,7 +101,9 @@ static struct commands {
+ 	{ "info", "Displays information about installed packages", exec_info, usage_info},
+ 	{ "install", "Installs packages from remote package repositories and local archives", exec_install, usage_install},
+ 	{ "lock", "Locks package against modifications or deletion", exec_lock, usage_lock},
++#ifndef _NEWLIB_VERSION
+ 	{ "plugins", "Manages plugins and displays information about plugins", exec_plugins, usage_plugins},
++#endif
+ 	{ "query", "Queries information about installed packages", exec_query, usage_query},
+ 	{ "register", "Registers a package into the local database", exec_register, usage_register},
+ 	{ "remove", "Deletes packages from the database and the system", exec_delete, usage_delete},
+@@ -196,6 +202,7 @@ usage(const char *conffile, const char *reposdir, FILE *out, enum pkg_usage_reas
+ 
+ 		plugins_enabled = pkg_object_bool(pkg_config_get("PKG_ENABLE_PLUGINS"));
+ 
++#ifndef _NEWLIB_VERSION
+ 		if (plugins_enabled) {
+ 			if (pkg_plugins_init() != EPKG_OK)
+ 				errx(EX_SOFTWARE, "Plugins cannot be loaded");
+@@ -205,6 +212,7 @@ usage(const char *conffile, const char *reposdir, FILE *out, enum pkg_usage_reas
+ 			STAILQ_FOREACH(c, &plugins, next)
+ 			fprintf(out, "\t%-15s%s\n", c->name, c->desc);
+ 		}
++#endif
+ 		fprintf(out, "\nFor more information on the different commands"
+ 					" see 'pkg help <command>'.\n");
+ 		exit(EXIT_SUCCESS);
+@@ -251,6 +259,7 @@ exec_help(int argc, char **argv)
+ 
+ 	plugins_enabled = pkg_object_bool(pkg_config_get("PKG_ENABLE_PLUGINS"));
+ 
++#ifndef _NEWLIB_VERSION 
+ 	if (plugins_enabled) {
+ 		STAILQ_FOREACH(c, &plugins, next) {
+ 			if (strcmp(c->name, argv[1]) == 0) {
+@@ -264,6 +273,7 @@ exec_help(int argc, char **argv)
+ 			}
+ 		}
+ 	}
++#endif
+ 
+ 	if (strcmp(argv[1], "pkg") == 0) {
+ 		system("/usr/bin/man 8 pkg");
+@@ -290,6 +300,7 @@ exec_help(int argc, char **argv)
+ 	return (EX_USAGE);
+ }
+ 
++#ifndef _NEWLIB_VERSION
+ static void
+ show_plugin_info(void)
+ {
+@@ -304,6 +315,7 @@ show_plugin_info(void)
+ 		printf("%s\n", pkg_object_dump(conf));
+ 	}
+ }
++#endif
+ 
+ static void
+ show_repository_info(void)
+@@ -377,7 +389,9 @@ show_version_info(int version)
+ 		exit(EX_OK);
+ 
+ 	printf("%s\n", pkg_config_dump());
+-	show_plugin_info();
++#ifndef _NEWLIB_VERSION
++  show_plugin_info();
++#endif
+ 	show_repository_info();
+ 
+ 	exit(EX_OK);
+@@ -438,9 +452,12 @@ export_arg_option (char *arg)
+ 	}
+ }
+ 
++#ifndef __native_client__
++/* The use of fork here is not compatible with NaCl, which only has vfork() */
+ static void
+ start_process_worker(char *const *save_argv)
+ {
++  fprintf(stderr, "start_process_worker %s %s\n", getprogname(), save_argv[0]);
+ 	int	ret = EX_OK;
+ 	int	status;
+ 	pid_t	child_pid;
+@@ -463,7 +480,7 @@ start_process_worker(char *const *save_argv)
+ 		} else {
+ 			if (child_pid == -1)
+ 				err(EX_OSERR, "Failed to fork worker process");
+-
++			
+ 			while (waitpid(child_pid, &status, 0) == -1) {
+ 				if (errno != EINTR)
+ 					err(EX_OSERR, "Child process pid=%d", (int)child_pid);
+@@ -486,6 +503,7 @@ start_process_worker(char *const *save_argv)
+ 	exit(ret);
+ 	/* NOTREACHED */
+ }
++#endif
+ 
+ static int
+ expand_aliases(int argc, char ***argv)
+@@ -580,7 +598,9 @@ main(int argc, char **argv)
+ #ifdef HAVE_LIBJAIL
+ 		{ "jail",		required_argument,	NULL,	'j' },
+ #endif
++#ifndef _NEWLIB_VERSION
+ 		{ "chroot",		required_argument,	NULL,	'c' },
++#endif
+ 		{ "config",		required_argument,	NULL,	'C' },
+ 		{ "repo-conf-dir",	required_argument,	NULL,	'R' },
+ 		{ "rootdir",		required_argument,	NULL,	'r' },
+@@ -622,9 +642,11 @@ main(int argc, char **argv)
+ 		case 'd':
+ 			debug++;
+ 			break;
++#ifndef _NEWLIB_VERSION
+ 		case 'c':
+ 			chroot_path = optarg;
+ 			break;
++#endif
+ 		case 'C':
+ 			conffile = optarg;
+ 			break;
+@@ -684,8 +706,10 @@ main(int argc, char **argv)
+ 	optreset = 1;
+ 	optind = 1;
+ 
++#ifndef __native_client__
+ 	if (debug == 0 && version == 0)
+ 		start_process_worker(save_argv);
++#endif
+ 
+ #ifdef HAVE_ARC4RANDOM
+ 	/* Ensure that random is stirred after a possible fork */
+@@ -699,11 +723,13 @@ main(int argc, char **argv)
+ 		    "-j, -c and/or -r cannot be used at the same time!\n");
+ 	}
+ 
++#ifndef _NEWLIB_VERSION
+ 	if (chroot_path != NULL) {
+ 		if (chroot(chroot_path) == -1) {
+ 			err(EX_SOFTWARE, "chroot failed");
+ 		}
+ 	}
++#endif
+ 
+ #ifdef HAVE_LIBJAIL
+ 	if (jail_str != NULL) {
+@@ -729,9 +755,6 @@ main(int argc, char **argv)
+ 	if (pkg_ini(conffile, reposdir, init_flags) != EPKG_OK)
+ 		errx(EX_SOFTWARE, "Cannot parse configuration file!");
+ 
+-	if (debug > 0)
+-		pkg_set_debug_level(debug);
+-
+ 	if (atexit(&pkg_shutdown) != 0)
+ 		errx(EX_SOFTWARE, "register pkg_shutdown() to run at exit");
+ 
+@@ -742,6 +765,7 @@ main(int argc, char **argv)
+ 
+ 	plugins_enabled = pkg_object_bool(pkg_config_get("PKG_ENABLE_PLUGINS"));
+ 
++#ifndef _NEWLIB_VERSION
+ 	if (plugins_enabled) {
+ 		struct pkg_plugin	*p = NULL;
+ 
+@@ -768,6 +792,7 @@ main(int argc, char **argv)
+ 			}
+ 		}
+ 	}
++#endif
+ 
+ 	if (version > 1)
+ 		show_version_info(version);
+diff --git a/src/pkgcli.h b/src/pkgcli.h
+--- a/src/pkgcli.h
++++ b/src/pkgcli.h
+@@ -35,10 +35,8 @@
+ 
+ extern bool quiet;
+ extern int nbactions;
+-int nbactions;
+ extern int nbdone;
+ extern bool newpkgversion;
+-int nbdone;
+ 
+ /* pkg add */
+ int exec_add(int, char **);
+@@ -89,9 +87,11 @@ void usage_info(void);
+ int exec_install(int, char **);
+ void usage_install(void);
+ 
++#ifndef _NEWLIB_VERSION
+ /* pkg plugins */
+ int exec_plugins(int, char **);
+ void usage_plugins(void);
++#endif
+ 
+ /* pkg lock */
+ int exec_lock(int, char **);
+diff --git a/src/plugins.c b/src/plugins.c
+--- a/src/plugins.c
++++ b/src/plugins.c
+@@ -35,6 +35,7 @@
+ 
+ #include "pkgcli.h"
+ 
++#ifndef _NEWLIB_VERSION
+ void
+ usage_plugins(void)
+ {
+@@ -81,3 +82,4 @@ exec_plugins(int argc, char **argv)
+ 
+ 	return (EX_OK);
+ }
++#endif
+diff --git a/src/updating.c b/src/updating.c
+--- a/src/updating.c
++++ b/src/updating.c
+@@ -177,7 +177,11 @@ exec_updating(int argc, char **argv)
+ 		}
+ 	}
+ 
+-	while ((linelen = getline(&line, &linecap, fd)) > 0) {
++#ifdef _NEWLIB_VERSION
++  while ((linelen = __getline(&line, &linecap, fd)) > 0) {
++#else
++  while ((linelen = getline(&line, &linecap, fd)) > 0) {
++#endif
+ 		if (strspn(line, "0123456789:") == 9) {
+ 			dateline = strdup(line);
+ 			found = 0;
+diff --git a/src/utils.c b/src/utils.c
+--- a/src/utils.c
++++ b/src/utils.c
+@@ -140,7 +140,11 @@ vquery_yesno(bool deft, const char *msg, va_list ap)
+ 	printf("%s", out);
+ 
+ 	for (;;) {
+-		if ((linelen = getline(&line, &linecap, stdin)) != -1) {
++#ifdef _NEWLIB_VERSION
++    if ((linelen = __getline(&line, &linecap, stdin)) != -1) {
++#else
++    if ((linelen = getline(&line, &linecap, stdin)) != -1) {
++#endif
+ 
+ 			if (linelen == 1 && line[0] == '\n') {
+ 				if (default_yes)
+@@ -223,7 +227,11 @@ query_select(const char *msg, const char **opts, int ncnt, int deft)
+ 	}
+ 
+ 	i = deft;
+-	while (getline(&str, &n, stdin) == -1) {
++#ifdef _NEWLIB_VERSION
++  while (__getline(&str, &n, stdin) == -1) {
++#else
++  while (getline(&str, &n, stdin) == -1) {
++#endif
+ 		if (errno == EINTR)
+ 			continue;
+ 		else
+diff --git a/src/version.c b/src/version.c
+--- a/src/version.c
++++ b/src/version.c
+@@ -206,7 +206,11 @@ do_testpattern(unsigned int opt, int argc, char ** restrict argv)
+ 	if (!pattern_from_stdin && !pkgname_from_stdin)
+ 		return (fnmatch(argv[1], argv[0], 0));
+ 
++#ifdef _NEWLIB_VERSION
++	while ((linelen = __getline(&line, &linecap, stdin)) > 0) {
++#else
+ 	while ((linelen = getline(&line, &linecap, stdin)) > 0) {
++#endif
+ 		line[linelen - 1] = '\0'; /* Strip trailing newline */
+ 
+ 		if ((pattern_from_stdin && (fnmatch(argv[1], line, 0) == 0)) ||
+@@ -301,7 +305,11 @@ hash_indexfile(const char *indexfilename)
+ 	if (!indexfile)
+ 		err(EX_NOINPUT, "Unable to open %s", indexfilename);
+ 
++#ifdef _NEWLIB_VERSION
++  while (__getline(&line, &linecap, indexfile) > 0) {
++#else
+ 	while (getline(&line, &linecap, indexfile) > 0) {
++#endif
+ 		/* line is pkgname|portdir|... */
+ 
+ 		l = line;
+diff --git a/tests/Makefile.am b/tests/Makefile.am
+--- a/tests/Makefile.am
++++ b/tests/Makefile.am
+@@ -2,19 +2,23 @@ AUTOMAKE_OPTIONS=	subdir-objects
+ 
+ GENERIC_LDADD=	$(top_builddir)/libpkg/libpkg_static.la \
+ 		$(top_builddir)/external/libsbuf_static.la \
+-		$(top_builddir)/compat/libbsd_compat.la \
+ 		$(top_builddir)/external/libfetch_static.la \
+ 		@LDNS_LIBS@ \
+ 		@LIBJAIL_LIB@ \
+ 		@OS_LIBS@ \
+ 		-larchive \
+-		-lutil \
+ 		-lm \
+ 		-lssl \
+ 		-lcrypto \
+ 		-L/usr/local/lib \
+ 		-latf-c
+ 
++if DYNAMIC
++	GENERIC_LDADD+= $(top_builddir)/compat/libbsd_compat.la -lutil
++else
++	GENERIC_LDADD+= $(top_builddir)/compat/libbsd_compat_static.la
++endif
++
+ if HAVE_ELF_ABI
+ if LIBELF_BUNDLED
+ GENERIC_LDADD+=	$(top_builddir)/external/libelf_static.la

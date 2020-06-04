@@ -1,0 +1,8 @@
+NAME=harfbuzz
+VERSION=0.9.41
+URL=http://www.freedesktop.org/software/harfbuzz/release/harfbuzz-0.9.41.tar.bz2
+LICENSE="OLD MIT"
+DEPENDS=(freetype glib)
+DISABLED_LIBC=(bionic)
+SHA1=a77d5d061e91322c1196ab23afeeb8c7e4bf62bb
+DISABLED_TOOLCHAIN=(emscripten)

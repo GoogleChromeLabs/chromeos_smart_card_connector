@@ -1,0 +1,78 @@
+diff --git a/simd-support/sse2.c b/simd-support/sse2.c
+--- a/simd-support/sse2.c
++++ b/simd-support/sse2.c
+@@ -52,6 +52,11 @@
+ 
+   static int sse2_works(void)
+   {
++#ifdef __native_client__
++       /* NaCl doesn't support signal() to test whether SSE2 works, so we
++        * just trust cpuid when it says that SSE2 is supported */
++       return 1;
++#else
+        void (*oldsig)(int);
+        oldsig = signal(SIGILL, sighandler);
+        if (setjmp(jb)) {
+@@ -68,6 +73,7 @@
+ 	    signal(SIGILL, oldsig);
+ 	    return 1;
+        }
++#endif
+   }
+ 
+   extern void X(check_alignment_of_sse2_pm)(void);
+diff --git a/simd-support/x86-cpuid.h b/simd-support/x86-cpuid.h
+--- a/simd-support/x86-cpuid.h
++++ b/simd-support/x86-cpuid.h
+@@ -29,6 +29,13 @@
+ 
+ static inline int is_386() 
+ {
++#ifdef __native_client__
++  /* NaCl is not supported on 386 or any system that does not have the cpuid
++   instruction. Furthermore, pushf/popf are illegal instructions. So we
++   short-circuit these functions, returning false for is_386 and true for
++   has_cpuid */
++  return 0;
++#else
+ #ifdef _MSC_VER
+     unsigned int result,tst;
+     _asm {
+@@ -63,10 +70,14 @@ static inline int is_386()
+     );
+ #endif
+     return (result == tst);
++#endif
+ }
+ 
+ static inline int has_cpuid() 
+ {
++#ifdef __native_client__
++    return 1;
++#else
+ #ifdef _MSC_VER
+     unsigned int result,tst;
+     _asm {
+@@ -101,6 +112,7 @@ static inline int has_cpuid()
+     );
+ #endif
+     return (result != tst);
++#endif
+ }
+ 
+ static inline int cpuid_edx(int op)
+diff --git a/threads/threads.c b/threads/threads.c
+--- a/threads/threads.c
++++ b/threads/threads.c
+@@ -137,7 +137,11 @@ static void os_create_thread(FFTW_WORKER (*worker)(void *arg),
+      pthread_t tid;
+ 
+      pthread_attr_init(&attr);
++#if !defined(__native_client__) || defined(__GLIBC__)
++     // NaCl newlib doesn't define PTHREAD_SCOPE_SYSTEM.
++     // See https://code.google.com/p/nativeclient/issues/detail?id=3721
+      pthread_attr_setscope(&attr, PTHREAD_SCOPE_SYSTEM); 
++#endif
+      pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+ 
+      pthread_create(&tid, &attr, worker, (void *)arg);

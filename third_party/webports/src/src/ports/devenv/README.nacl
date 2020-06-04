@@ -1,0 +1,9 @@
+NaCl Development Environment
+=============================
+
+An in-browser command line development environment for Native
+Client with support for various editor, compilers and scripting
+languages.
+
+The included `which` script was taken from the debianutils
+package which in Ubuntu.

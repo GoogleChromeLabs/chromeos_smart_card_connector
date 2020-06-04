@@ -1,0 +1,16 @@
+diff --git a/srclib/stdio.in.h b/srclib/stdio.in.h
+--- a/srclib/stdio.in.h
++++ b/srclib/stdio.in.h
+@@ -692,10 +692,12 @@ _GL_CXXALIAS_SYS (gets, char *, (char *s));
+ #  undef gets
+ # endif
+ _GL_CXXALIASWARN (gets);
++# if HAVE_RAW_DECL_GETS
+ /* It is very rare that the developer ever has full control of stdin,
+    so any use of gets warrants an unconditional warning.  Assume it is
+    always declared, since it is required by C89.  */
+ _GL_WARN_ON_USE (gets, "gets is a security hole - use fgets instead");
++# endif
+ #endif
+ 
+ 

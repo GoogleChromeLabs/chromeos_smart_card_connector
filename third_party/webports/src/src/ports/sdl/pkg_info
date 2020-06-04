@@ -1,0 +1,7 @@
+NAME=sdl
+VERSION=1.2.15
+URL=https://github.com/sbc100/SDL-mirror.git@1c6f2d0
+LICENSE=LGPL2
+DEPENDS=(nacl-spawn regal)
+SHA1=0c5f193ced810b0d7ce3ab06d808cbb5eef03a2c
+DISABLED_TOOLCHAIN=(emscripten)

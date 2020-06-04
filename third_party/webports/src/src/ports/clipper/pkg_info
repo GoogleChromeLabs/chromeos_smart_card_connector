@@ -1,0 +1,7 @@
+NAME=clipper
+VERSION=6.2.1
+URL=http://download.sf.net/polyclipping/files/clipper_ver6.2.1.zip
+ARCHIVE_ROOT=cpp
+LICENSE=Boost Software License
+SHA1=0555254020aee67f4f9643962b8c5e994e07e85a
+DISABLED_TOOLCHAIN=(emscripten)

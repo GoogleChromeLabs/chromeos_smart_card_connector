@@ -1,0 +1,31 @@
+{
+  "name": "Ruby (IRB)",
+  "description": "Ruby IRB interactive shell built with Native Client",
+  "version": "2.0.0.%(version)s",
+  "manifest_version": 2,
+  "minimum_chrome_version": "30",
+  "icons": {
+    "16": "icon_16.png",
+    "48": "icon_48.png",
+    "128": "icon_128.png"
+  },
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "permissions": [
+    "clipboardRead",
+    "clipboardWrite",
+    "storage",
+    "unlimitedStorage",
+    { "socket": [
+        "tcp-listen:*:*",
+        "tcp-connect",
+        "resolve-host",
+        "udp-bind:*:*",
+        "udp-send-to:*:*"
+      ]
+    }
+  ]
+}

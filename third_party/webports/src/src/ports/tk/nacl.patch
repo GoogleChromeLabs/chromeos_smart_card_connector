@@ -1,0 +1,14 @@
+diff --git a/unix/tkAppInit.c b/unix/tkAppInit.c
+--- a/unix/tkAppInit.c
++++ b/unix/tkAppInit.c
+@@ -26,6 +26,10 @@ extern Tcl_PackageInitProc Tktest_Init;
+  * #if checks for that #define and uses Tcl_AppInit if it doesn't exist.
+  */
+ 
++#if defined(__native_client__) && defined(__GLIBC__)
++#define MODULE_SCOPE extern __attribute__ ((visibility ("default")))
++#endif
++
+ #ifndef TK_LOCAL_APPINIT
+ #define TK_LOCAL_APPINIT Tcl_AppInit
+ #endif

@@ -1,0 +1,56 @@
+diff --git a/src/Initialize.c b/src/Initialize.c
+--- a/src/Initialize.c
++++ b/src/Initialize.c
+@@ -314,10 +314,12 @@ String _XtGetUserName(
+ 	(void) strncpy (dest, ptr, len-1);
+ 	dest[len-1] = '\0';
+     } else {
++# if !defined(__native_client__) || defined(__GLIBC__)
+ 	if ((pw = _XGetpwuid(getuid(),pwparams)) != NULL) {
+ 	    (void) strncpy (dest, pw->pw_name, len-1);
+ 	    dest[len-1] = '\0';
+ 	} else
++#endif
+ 	    *dest = '\0';
+     }
+ #endif
+@@ -361,6 +363,7 @@ static String GetRootDirName(
+ 	(void) strncpy (dest, ptr, len-1);
+ 	dest[len-1] = '\0';
+     } else {
++# if !defined(__native_client__) || defined(__GLIBC__)
+ 	if ((ptr = getenv("USER")))
+ 	    pw = _XGetpwnam(ptr,pwparams);
+ 	else
+@@ -369,6 +372,7 @@ static String GetRootDirName(
+ 	    (void) strncpy (dest, pw->pw_dir, len-1);
+ 	    dest[len-1] = '\0';
+ 	} else
++#endif
+ 	    *dest = '\0';
+     }
+ #endif
+diff --git a/src/Makefile.in b/src/Makefile.in
+--- a/src/Makefile.in
++++ b/src/Makefile.in
+@@ -736,7 +736,7 @@ all-local: $(BUILT_FILES)
+ $(BUILT_HEADER): $(BUILT_SOURCE)
+ 
+ $(BUILT_SOURCE):
+-	$(AM_V_GEN)$(top_builddir)/util/makestrs -i $(top_srcdir) $(STRINGSABIOPTIONS) < $(STRING_LIST) > StringDefs.c
++	$(AM_V_GEN)$(top_builddir)/util/makestrs$(EXEEXT) -i $(top_srcdir) $(STRINGSABIOPTIONS) < $(STRING_LIST) > StringDefs.c
+ 	$(AM_V_at)mkdir -p $(top_builddir)/src
+ 	$(AM_V_at)mkdir -p $(top_builddir)/include/X11
+ 	$(AM_V_at)cp StringDefs.h $(top_builddir)/include/X11
+diff --git a/util/Makefile.in b/util/Makefile.in
+--- a/util/Makefile.in
++++ b/util/Makefile.in
+@@ -311,7 +311,7 @@ distclean-compile:
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/makestrs.Po@am__quote@
+ 
+ .c.o:
+-@am__fastdepCC_TRUE@	$(AM_V_CC)$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
++@am__fastdepCC_TRUE@	gcc -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
+ @am__fastdepCC_TRUE@	$(AM_V_at)$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
+ @am__fastdepCC_FALSE@	$(AM_V_CC) @AM_BACKSLASH@
+ @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@

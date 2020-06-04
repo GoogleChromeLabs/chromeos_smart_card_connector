@@ -1,0 +1,57 @@
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -36,10 +36,10 @@ RM= rm -f
+ # == END OF USER SETTINGS -- NO NEED TO CHANGE ANYTHING BELOW THIS LINE =======
+ 
+ # Convenience platforms targets.
+-PLATS= aix bsd c89 freebsd generic linux macosx mingw posix solaris
++PLATS= aix bsd c89 freebsd generic linux macosx mingw posix solaris nacl-newlib nacl-glibc
+ 
+ # What to install.
+-TO_BIN= lua luac
++TO_BIN= lua$(EXEEXT) luac$(EXEEXT)
+ TO_INC= lua.h luaconf.h lualib.h lauxlib.h lua.hpp
+ TO_LIB= liblua.a
+ TO_MAN= lua.1 luac.1
+diff --git a/src/Makefile b/src/Makefile
+--- a/src/Makefile
++++ b/src/Makefile
+@@ -36,10 +36,10 @@ LIB_O=	lauxlib.o lbaselib.o lbitlib.o lcorolib.o ldblib.o liolib.o \
+ 	lmathlib.o loslib.o lstrlib.o ltablib.o lutf8lib.o loadlib.o linit.o
+ BASE_O= $(CORE_O) $(LIB_O) $(MYOBJS)
+ 
+-LUA_T=	lua
++LUA_T=	lua$(EXEEXT)
+ LUA_O=	lua.o
+ 
+-LUAC_T=	luac
++LUAC_T=	luac$(EXEEXT)
+ LUAC_O=	luac.o
+ 
+ ALL_O= $(BASE_O) $(LUA_O) $(LUAC_O)
+@@ -106,6 +106,12 @@ freebsd:
+ 
+ generic: $(ALL)
+ 
++nacl-newlib:
++	$(MAKE) all SYSCFLAGS="-DLUA_USE_POSIX -DLUA_USE_READLINE" SYSLIBS="-lreadline -lhistory -lncurses -lglibc-compat"
++
++nacl-glibc:
++	$(MAKE) all SYSCFLAGS="-DLUA_USE_LINUX" SYSLIBS="-Wl,-E -ldl -lreadline -lhistory -lncurses"
++
+ linux:
+ 	$(MAKE) $(ALL) SYSCFLAGS="-DLUA_USE_LINUX" SYSLIBS="-Wl,-E -ldl -lreadline"
+ 
+diff --git a/src/liolib.c b/src/liolib.c
+--- a/src/liolib.c
++++ b/src/liolib.c
+@@ -75,7 +75,7 @@
+ 
+ #if !defined(l_getc)		/* { */
+ 
+-#if defined(LUA_USE_POSIX)
++#if defined(LUA_USE_POSIX) && !defined(__native_client__)
+ #define l_getc(f)		getc_unlocked(f)
+ #define l_lockfile(f)		flockfile(f)
+ #define l_unlockfile(f)		funlockfile(f)

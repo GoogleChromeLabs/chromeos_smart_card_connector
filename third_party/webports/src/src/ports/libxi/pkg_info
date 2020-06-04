@@ -1,0 +1,8 @@
+NAME=libxi
+ARCHIVE_ROOT=libXi-1.6.1
+VERSION=1.6.1
+URL=http://www.x.org/releases/X11R7.7/src/everything/libXi-1.6.1.tar.bz2
+LICENSE=GPL
+DEPENDS=(xproto libx11 xextproto libxext inputproto)
+SHA1=4b53b41fdaa3acc86606c696c68d5eed11454612
+DISABLED_TOOLCHAIN=(emscripten)

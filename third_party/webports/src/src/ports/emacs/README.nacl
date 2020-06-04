@@ -1,0 +1,37 @@
+This is a port of emacs to NaCl.
+
+This is a work in progress, and builds but has not been tested yet.  We are
+using it to share progress on getting emacs up and running.
+
+Current issues with this patch:
+
+While compiling ECDIT.el, we run out of memory on an attempted realloc.
+It may be that using gnu alloc is wrong, we should try system_malloc=yes in the
+configure file.  If that works, we can recomment in the compile-main target in
+leim/Makefile.in.
+
+file-writable-p, file-exectuable-p, and others are failing because sel-ldr is
+not yet implemented.  There is a changelist to fix this, but it is still going
+through review.  Once that is fixed, we should remove the workarounds for
+file-writable-p and friends.
+
+All NaCl executables use the .nexe extension.  The Emacs makefiles sometimes use
+a ${EXEEXT} variable to name their executables, and sometimes they don't.  I've
+added it if a few places, we should upstream this change back to the emacs
+maintainers.
+
+NaCl's getenv call seems to return "" instead of NULL if an environment variable
+is not set, but emacs exepcts a NULL, so I have patched the code in one place to
+accept "" instead while the NaCl team investigates.
+
+We are currently building with TOOLCHAIN=glibc make emacs to use glibc.  We
+should eventually move to newlib so this will work with pNaCl.
+
+We have to build twice, the first build sometimes fails but makes something
+that the second build needs.  The build script is set up to do the double build
+already, but we should remove this.
+
+While looking for the leim files, the code was trying to recursively expand
+".".  To eliminate the infinite recursion, I added a check for "." and ".."
+before allowing the code to recurse.  We should also consider upstreaming this
+change.

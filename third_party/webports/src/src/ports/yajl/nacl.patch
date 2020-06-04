@@ -1,0 +1,61 @@
+diff --git a/src/CMakeLists.txt b/src/CMakeLists.txt
+--- a/src/CMakeLists.txt
++++ b/src/CMakeLists.txt
+@@ -37,20 +37,22 @@ SET(LIBRARY_OUTPUT_PATH ${libDir})
+ 
+ ADD_LIBRARY(yajl_s STATIC ${SRCS} ${HDRS} ${PUB_HDRS})
+ 
+-ADD_LIBRARY(yajl SHARED ${SRCS} ${HDRS} ${PUB_HDRS})
++IF(BUILD_SHARED)
++  ADD_LIBRARY(yajl SHARED ${SRCS} ${HDRS} ${PUB_HDRS})
+ 
+-#### setup shared library version number
+-SET_TARGET_PROPERTIES(yajl PROPERTIES
+-                      DEFINE_SYMBOL YAJL_SHARED
+-                      SOVERSION ${YAJL_MAJOR}
+-                      VERSION ${YAJL_MAJOR}.${YAJL_MINOR}.${YAJL_MICRO})
+-
+-#### ensure a .dylib has correct absolute installation paths upon installation
+-IF(APPLE)
+-  MESSAGE("INSTALL_NAME_DIR: ${CMAKE_INSTALL_PREFIX}/lib")
++  #### setup shared library version number
+   SET_TARGET_PROPERTIES(yajl PROPERTIES
+-                        INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
+-ENDIF(APPLE)
++                        DEFINE_SYMBOL YAJL_SHARED
++                        SOVERSION ${YAJL_MAJOR}
++                        VERSION ${YAJL_MAJOR}.${YAJL_MINOR}.${YAJL_MICRO})
++
++  #### ensure a .dylib has correct absolute installation paths upon installation
++  IF(APPLE)
++    MESSAGE("INSTALL_NAME_DIR: ${CMAKE_INSTALL_PREFIX}/lib")
++    SET_TARGET_PROPERTIES(yajl PROPERTIES
++                          INSTALL_NAME_DIR "${CMAKE_INSTALL_PREFIX}/lib")
++  ENDIF(APPLE)
++ENDIF(BUILD_SHARED)
+ 
+ #### build up an sdk as a post build step
+ 
+@@ -78,7 +80,9 @@ INCLUDE_DIRECTORIES(${incDir}/..)
+ IF(NOT WIN32)
+   # at build time you may specify the cmake variable LIB_SUFFIX to handle
+   # 64-bit systems which use 'lib64'
+-  INSTALL(TARGETS yajl LIBRARY DESTINATION lib${LIB_SUFFIX})
++  IF(BUILD_SHARED)
++    INSTALL(TARGETS yajl LIBRARY DESTINATION lib${LIB_SUFFIX})
++  ENDIF(BUILD_SHARED)
+   INSTALL(TARGETS yajl_s ARCHIVE DESTINATION lib${LIB_SUFFIX})
+   INSTALL(FILES ${PUB_HDRS} DESTINATION include/yajl)
+   INSTALL(FILES ${incDir}/yajl_version.h DESTINATION include/yajl)
+diff --git a/test/run_tests.sh b/test/run_tests.sh
+--- a/test/run_tests.sh
++++ b/test/run_tests.sh
+@@ -68,6 +68,8 @@ for file in cases/*.json ; do
+   # parse with a read buffer size ranging from 1-31 to stress stream parsing
+   while [ $iter -lt 32  ] && [ $success = "SUCCESS" ] ; do
+     $testBin $allowPartials $allowComments $allowGarbage $allowMultiple -b $iter < $file > ${file}.test  2>&1
++    # sel_ldr poops out extra text to stderr.
++    sed -i.bak -e"/^DEBUG MODE ENABLED/d" ${file}.test
+     diff ${DIFF_FLAGS} ${file}.gold ${file}.test > ${file}.out
+     if [ $? -eq 0 ] ; then
+       if [ $iter -eq 31 ] ; then : $(( testsSucceeded += 1)) ; fi

@@ -1,0 +1,228 @@
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -2602,8 +2602,8 @@ cat >>confdefs.h <<\_ACEOF
+ #define HAVE_STRLCPY 1
+ _ACEOF
+ 
+-else
+-  LIBOBJS="$LIBOBJS strlcpy.$ac_objext"
++#else
++#  LIBOBJS="$LIBOBJS strlcpy.$ac_objext"
+ 
+ fi
+ 
+@@ -6236,7 +6236,8 @@ else
+ See \`config.log' for more details." >&5
+ echo "$as_me: error: cannot run test program while cross compiling
+ See \`config.log' for more details." >&2;}
+-   { (exit 1); exit 1; }; }
++#   { (exit 1); exit 1; }; }
++}
+ else
+   cat >conftest.$ac_ext <<_ACEOF
+ 
+diff --git a/lib/decode.c b/lib/decode.c
+--- a/lib/decode.c
++++ b/lib/decode.c
+@@ -46,6 +46,10 @@ th_get_pathname(TAR *t)
+ uid_t
+ th_get_uid(TAR *t)
+ {
++#ifdef __native_client__
++        /* Since we can't actually get a uid, we return a bogus value */
++        return 1001;
++#else
+ 	int uid;
+ 	struct passwd *pw;
+ 
+@@ -56,12 +60,17 @@ th_get_uid(TAR *t)
+ 	/* if the password entry doesn't exist */
+ 	sscanf(t->th_buf.uid, "%o", &uid);
+ 	return uid;
++#endif
+ }
+ 
+ 
+ gid_t
+ th_get_gid(TAR *t)
+ {
++#ifdef __native_client__
++        /* Since we can't actually get a gid, we return a bogus value */
++        return 1002;
++#else
+ 	int gid;
+ 	struct group *gr;
+ 
+@@ -72,6 +81,7 @@ th_get_gid(TAR *t)
+ 	/* if the group entry doesn't exist */
+ 	sscanf(t->th_buf.gid, "%o", &gid);
+ 	return gid;
++#endif
+ }
+ 
+ 
+diff --git a/lib/encode.c b/lib/encode.c
+--- a/lib/encode.c
++++ b/lib/encode.c
+@@ -155,6 +155,7 @@ th_set_device(TAR *t, dev_t device)
+ void
+ th_set_user(TAR *t, uid_t uid)
+ {
++#if !defined(__BIONIC__)
+ 	struct passwd *pw;
+ 
+ 	pw = getpwuid(uid);
+@@ -162,6 +163,7 @@ th_set_user(TAR *t, uid_t uid)
+ 		strlcpy(t->th_buf.uname, pw->pw_name, sizeof(t->th_buf.uname));
+ 
+ 	int_to_oct(uid, t->th_buf.uid, 8);
++#endif
+ }
+ 
+ 
+@@ -169,6 +171,7 @@ th_set_user(TAR *t, uid_t uid)
+ void
+ th_set_group(TAR *t, gid_t gid)
+ {
++#if !defined(__BIONIC__)
+ 	struct group *gr;
+ 
+ 	gr = getgrgid(gid);
+@@ -176,6 +179,7 @@ th_set_group(TAR *t, gid_t gid)
+ 		strlcpy(t->th_buf.gname, gr->gr_name, sizeof(t->th_buf.gname));
+ 
+ 	int_to_oct(gid, t->th_buf.gid, 8);
++#endif
+ }
+ 
+ 
+diff --git a/lib/extract.c b/lib/extract.c
+--- a/lib/extract.c
++++ b/lib/extract.c
+@@ -28,6 +28,22 @@
+ #endif
+ 
+ 
++#if defined(__native_client__) && defined(_NEWLIB_VERSION)
++struct group *getgrgid(gid_t gid) {
++  errno = ENOSYS;
++  return NULL;
++}
++
++int major(dev_t dev) {
++  return 0;
++}
++
++int minor(dev_t dev) {
++  return 0;
++}
++#endif
++
++
+ struct linkname
+ {
+ 	char ln_save[MAXPATHLEN];
+@@ -74,10 +90,17 @@ tar_set_file_perms(TAR *t, char *realname)
+ 	/* change access/modification time */
+ 	if (!TH_ISSYM(t) && utime(filename, &ut) == -1)
+ 	{
++          /* TODO(bradnelson): Remove this when all mounts support utime. */
++#if defined(__native_client__)
++          if (errno != ENOSYS && errno != EINVAL) {
++#endif
+ #ifdef DEBUG
+ 		perror("utime()");
+ #endif
+ 		return -1;
++#if defined(__native_client__)
++          }
++#endif
+ 	}
+ 
+ 	/* change permissions */
+@@ -117,6 +140,7 @@ tar_extract_file(TAR *t, char *realname)
+ 		if (i == 1)
+ 			i = 0;
+ 	}
++#ifndef __native_client__
+ 	else if (TH_ISLNK(t))
+ 		i = tar_extract_hardlink(t, realname);
+ 	else if (TH_ISSYM(t))
+@@ -127,6 +151,7 @@ tar_extract_file(TAR *t, char *realname)
+ 		i = tar_extract_blockdev(t, realname);
+ 	else if (TH_ISFIFO(t))
+ 		i = tar_extract_fifo(t, realname);
++#endif
+ 	else /* if (TH_ISREG(t)) */
+ 		i = tar_extract_regfile(t, realname);
+ 
+@@ -282,6 +307,7 @@ tar_skip_regfile(TAR *t)
+ }
+ 
+ 
++#ifndef __native_client__
+ /* hardlink */
+ int
+ tar_extract_hardlink(TAR * t, char *realname)
+@@ -436,6 +462,7 @@ tar_extract_blockdev(TAR *t, char *realname)
+ 
+ 	return 0;
+ }
++#endif
+ 
+ 
+ /* directory */
+@@ -493,6 +520,7 @@ tar_extract_dir(TAR *t, char *realname)
+ }
+ 
+ 
++#ifndef __native_client__
+ /* FIFO */
+ int
+ tar_extract_fifo(TAR *t, char *realname)
+@@ -525,5 +553,6 @@ tar_extract_fifo(TAR *t, char *realname)
+ 
+ 	return 0;
+ }
++#endif
+ 
+ 
+diff --git a/lib/output.c b/lib/output.c
+--- a/lib/output.c
++++ b/lib/output.c
+@@ -82,14 +82,22 @@ th_print_long_ls(TAR *t)
+ #endif
+ 
+ 	uid = th_get_uid(t);
++#if defined(__BIONIC__)
++        pw = NULL;
++#else
+ 	pw = getpwuid(uid);
++#endif
+ 	if (pw == NULL)
+ 		snprintf(username, sizeof(username), "%d", uid);
+ 	else
+ 		strlcpy(username, pw->pw_name, sizeof(username));
+ 
+ 	gid = th_get_gid(t);
++#if defined(__BIONIC__)
++	gr = NULL;
++#else
+ 	gr = getgrgid(gid);
++#endif
+ 	if (gr == NULL)
+ 		snprintf(groupname, sizeof(groupname), "%d", gid);
+ 	else
+diff --git a/libtar/Makefile.in b/libtar/Makefile.in
+--- a/libtar/Makefile.in
++++ b/libtar/Makefile.in
+@@ -16,7 +16,7 @@ PACKAGE_VERSION	= @PACKAGE_VERSION@
+ 
+ ### Installation programs and flags
+ INSTALL		= @INSTALL@
+-INSTALL_PROGRAM	= @INSTALL_PROGRAM@ -s
++INSTALL_PROGRAM	= @INSTALL_PROGRAM@
+ INSTALL_DATA	= @INSTALL_DATA@
+ LN_S		= @LN_S@
+ MKDIR		= @MKDIR@

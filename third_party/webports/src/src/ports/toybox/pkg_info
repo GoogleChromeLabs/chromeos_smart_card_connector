@@ -1,0 +1,12 @@
+NAME=toybox
+VERSION=0.4.7
+URL=http://www.landley.net/toybox/downloads/toybox-0.4.7.tar.bz2
+LICENSE=BSD
+DEPENDS=(glibc-compat nacl-spawn)
+DISABLED_LIBC=(bionic)
+# Doesn't currently build on mac due to sed errors script/make.sh
+BUILD_OS=linux
+SHA1=c5e7b31a81dde474d17455535b76957ab48f2bbb
+# glibc/arm: missing IUCLC (termio.h)
+# https://code.google.com/p/nativeclient/issues/detail?id=4235
+DISABLED_TOOLCHAIN=(emscripten glibc/arm)

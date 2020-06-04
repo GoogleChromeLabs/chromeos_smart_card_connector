@@ -1,0 +1,24 @@
+{
+  "name": "libgit2-demo",
+  "description": "Demo of libgit2 running in nacl",
+  "version": "0.0.0.1",
+  "manifest_version": 2,
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    { "fileSystem": ["write", "directory", "retainEntries"] },
+    { "socket": [
+        "tcp-listen:*:*",
+        "tcp-connect",
+        "resolve-host",
+        "udp-bind:*:*",
+        "udp-send-to:*:*"
+      ]
+    }
+  ]
+}

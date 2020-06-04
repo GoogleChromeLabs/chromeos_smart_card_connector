@@ -1,0 +1,9 @@
+NAME=mongoose
+VERSION=3.8
+ARCHIVE_ROOT=mongoose
+URL=https://mongoose.googlecode.com/files/mongoose-3.8.tgz
+LICENSE=MIT
+DEPENDS=(nacl-spawn)
+LIBC=glibc
+SHA1=a25a1a00c51bb8bc86283ef15fc69254292dd0fc
+DISABLED_TOOLCHAIN=(emscripten)

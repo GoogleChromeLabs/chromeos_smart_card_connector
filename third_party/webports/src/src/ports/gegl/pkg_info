@@ -1,0 +1,8 @@
+NAME=gegl
+VERSION=0.2.0
+URL=http://download.gimp.org/pub/gegl/0.2/gegl-0.2.0.tar.bz2
+LICENSE=GPL
+DEPENDS=(babl gtk+ jsoncpp json-glib sdl)
+SHA1=764cc66cb3c7b261b8fc18a6268a0e264a91d573
+DISABLED_TOOLCHAIN=(emscripten)
+DISABLED_LIBC=(bionic)

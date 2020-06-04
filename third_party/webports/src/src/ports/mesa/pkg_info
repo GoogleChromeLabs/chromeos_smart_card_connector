@@ -1,0 +1,7 @@
+NAME=mesa
+VERSION=7.6
+ARCHIVE_ROOT=Mesa-7.6
+URL=http://www.sfr-fresh.com/unix/misc/MesaLib-7.6.tar.gz
+LICENSE=CUSTOM:docs/COPYING
+SHA1=a2b178bc05692f47e628570191b5ed2172d01012
+DISABLED_TOOLCHAIN=(emscripten)

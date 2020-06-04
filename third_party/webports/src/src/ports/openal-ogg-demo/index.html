@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<!-- Copyright 2012 Google Inc.  All rights reserved. -->
+<head>
+  <META HTTP-EQUIV="Pragma" CONTENT="no-cache" />
+  <META HTTP-EQUIV="Expires" CONTENT="-1" />
+  <title>Native Client OpenAL / Ogg Vorbis</title>
+</head>
+
+<body>
+
+<h1>Native Client OpenAL / Ogg Vorbis demo</h1>
+
+<p>The Ogg sample playing ("Arpeggio") was composed by <a href="http://en.wikipedia.org/wiki/User:Mysid">Mysid</a>.</p>
+
+<p>It was downloaded from <a href="http://commons.wikimedia.org/wiki/File:Arpeggio.ogg">http://commons.wikimedia.org/wiki/File:Arpeggio.ogg</a> and modified to reduce silent sections and to minimize pops when looped.  The original file, as well as the resulting <a href="sample.ogg">sample.ogg</a>, are licensed under the <a href="http://creativecommons.org/licenses/by-sa/2.5/deed.en">Creative Commons Attribution-Share Alike 2.5 Generic</a> license (CC BY-SA 2.5).</p>
+
+Gain:<br>
+<input type="range" min="0" max="1" value="1" step=".01" onchange="valueChanged('gain', this.value)" />
+<span id="gain">1</span><br>
+Pitch:<br>
+<input type="range" min="0" max="3" value="1" step=".01" onchange="valueChanged('pitch', this.value)" />
+<span id="pitch">1</span><br>
+Source Location:
+<div id="source_pos"></div>
+Source Velocity:
+<div id="source_vel"></div>
+Listener Location:
+<div id="listener_pos"></div>
+Listener Velocity:
+<div id="listener_vel"></div>
+
+<script type="text/javascript">
+
+function addSliders(divid, min, max, value, step, prefix) {
+  elem = document.getElementById(divid);
+  elem.innerHTML = '<input type="range" min="'+min+'" max="'+max+'" value="'+value+'" step="'+step+'" onchange="valueChanged(\''+prefix+'_x\', this.value)" /> X: <span id="'+prefix+'_x">'+value+'</span><br>';
+  elem.innerHTML += '<input type="range" min="'+min+'" max="'+max+'" value="'+value+'" step="'+step+'" onchange="valueChanged(\''+prefix+'_y\', this.value)" /> Y: <span id="'+prefix+'_y">'+value+'</span><br>';
+  elem.innerHTML += '<input type="range" min="'+min+'" max="'+max+'" value="'+value+'" step="'+step+'" onchange="valueChanged(\''+prefix+'_z\', this.value)" /> Z: <span id="'+prefix+'_z">'+value+'</span><br>';
+}
+
+function valueChanged(name, value) {
+  document.getElementById(name).innerHTML = value;
+  var plugin = document.getElementById("openal_ogg_nexe");
+  if (plugin != null)
+    plugin.postMessage(name + " = " + value);
+}
+
+addSliders("source_pos", "-20", "20", "1", ".1", "source_pos");
+addSliders("source_vel", "-200", "200", "0", "1", "source_vel");
+addSliders("listener_pos", "-20", "20", "0", ".1", "listener_pos");
+addSliders("listener_vel", "-200", "200", "0", "1", "listener_vel");
+
+</script>
+
+<embed name="nacl_module"
+       id="openal_ogg_nexe"
+       src="openal-ogg-demo.nmf"
+       type="application/x-nacl">
+
+
+</body>
+</html>
+

@@ -1,0 +1,8 @@
+NAME=lcms
+VERSION=2.4
+ARCHIVE_ROOT=lcms2-2.4
+URL=http://downloads.sf.net/project/lcms/lcms/2.4/lcms2-2.4.tar.gz
+LICENSE=MIT:COPYING
+DEPENDS=(zlib jpeg8d tiff)
+DISABLED_TOOLCHAIN=(emscripten)
+SHA1=9944902864283af49e4e21a1ca456db4e04ea7c2

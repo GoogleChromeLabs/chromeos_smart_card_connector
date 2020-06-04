@@ -1,0 +1,8 @@
+NAME=sqlite
+VERSION=3071601
+ARCHIVE_ROOT=sqlite-autoconf-3071601
+URL=http://www.sqlite.org/2013/sqlite-autoconf-3071601.tar.gz
+DEPENDS=(readline nacl-spawn)
+DISABLED_LIBC=(bionic)
+SHA1=b0d9b3e2ca3c50f72e5921e9532130787871b7ae
+DISABLED_TOOLCHAIN=(emscripten)

@@ -1,0 +1,21 @@
+This directory contains headers and stubs needed to compile libraries with
+extensive dependencies on Glibc, which couldn't be directly compiled with 
+newlib headers.
+
+Code here is mostly taken from the newlib CVS (trunk from Sep 5 2012), see
+http://sourceware.org/newlib/download.html
+and is BSD-licensed, so could be linked statically into differently
+licensed programs. Some simple placeholders were written from scratch, and also
+BSD-style licensed.
+
+elf*.h is taken from the native_client/src/include
+directory of Native Client with revisions to:
+- Reduce unneeded dependencies
+- Change top-relative includes to file-relative includes
+- Add the Elf32_Dyn, Elf64_Dyn, and DT_* definitions
+
+Some more contents are added to elf*.h from freebsd source tree
+https://svnweb.freebsd.org/base/release/10.1.0/
+
+flock.c, fts.h, fts.c, err.h, err.c and timegm are pulled from freebsd 10.1 with
+some modifications.

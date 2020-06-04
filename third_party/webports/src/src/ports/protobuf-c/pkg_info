@@ -1,0 +1,6 @@
+NAME=protobuf-c
+VERSION=1.0.2
+URL=http://github.com/protobuf-c/protobuf-c/releases/download/v1.0.2/protobuf-c-1.0.2.tar.gz
+LICENSE=BSD
+SHA1=f831f98a1142fdd3072b329fdc3b30533be67f48
+DISABLED_TOOLCHAIN=(emscripten)

@@ -1,0 +1,10 @@
+{
+  "name": "Ping Test Extension",
+  "description": "Replies to a ping",
+  "version": "0.0.0.0",
+  "manifest_version": 2,
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  }
+}

@@ -1,0 +1,8 @@
+NAME=requests
+VERSION=2.3.0
+URL=https://pypi.python.org/packages/source/r/requests/requests-2.3.0.tar.gz
+LICENSE=Apache
+DEPENDS=(python-host openssl)
+DISABLED_LIBC=(bionic)
+SHA1=f57bc125d35ec01a81afe89f97dc75913a927e65
+DISABLED_TOOLCHAIN=(emscripten)

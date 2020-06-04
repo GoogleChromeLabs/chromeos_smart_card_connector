@@ -1,0 +1,25 @@
+{
+  "name": "Chrome Testing Extension",
+  "description": "Extension used to make testing with Chrome easier",
+  "version": "0.0.0.0",
+  "manifest_version": 2,
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+  "permissions": [
+    "*://*/*",
+    "management",
+    "processes"
+  ],
+  "externally_connectable": {
+    "ids": [
+      "*"
+    ],
+    "matches": [
+      "*://localhost/*",
+      "*://127.0.0.1/*",
+      "*://0.0.0.0/*"
+    ]
+  }
+}

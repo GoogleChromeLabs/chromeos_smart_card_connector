@@ -1,0 +1,3 @@
+NAME=glibc-compat
+DEPENDS=(corelibs)
+VERSION=0.1

@@ -1,0 +1,6 @@
+OpenSSH for Native Client
+=========================
+
+This port is a work in progress.  It currently builds only
+under GLIBC and has a memory corruption crash just after
+connecting.

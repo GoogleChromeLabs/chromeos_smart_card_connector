@@ -1,0 +1,12 @@
+diff --git a/ebml/EbmlBinary.h b/ebml/EbmlBinary.h
+index d617c98..5263a85 100644
+--- a/ebml/EbmlBinary.h
++++ b/ebml/EbmlBinary.h
+@@ -38,6 +38,7 @@
+ #define LIBEBML_BINARY_H
+ 
+ #include <cstring>
++#include <stdlib.h>
+ 
+ #include "EbmlTypes.h"
+ #include "EbmlElement.h"

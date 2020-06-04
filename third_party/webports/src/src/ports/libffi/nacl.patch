@@ -1,0 +1,56 @@
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -17074,6 +17099,10 @@ fi
+ TARGETDIR="unknown"
+ HAVE_LONG_DOUBLE_VARIANT=0
+ case "$host" in
++  *nacl*)
++	TARGET=NACL; TARGETDIR=x86
++	;;
++
+   aarch64*-*-*)
+ 	TARGET=AARCH64; TARGETDIR=aarch64
+ 	;;
+diff --git a/src/types.c b/src/types.c
+--- a/src/types.c
++++ b/src/types.c
+@@ -33,6 +33,38 @@
+ 
+ /* Type definitions */
+ 
++#ifdef __native_client__
++/*
++ * Dummy implementation of libffi functions.  This may be an incomplete
++ * list.  It was intented to be enough to allow glib to be built.
++ * TODO(sbc): Remove this once we fix libffi:
++ * https://code.google.com/p/naclports/issues/detail?id=183
++ */
++void ffi_call(ffi_cif *cif, void (*fn)(void), void *rvalue, void **avalue) {
++  abort();
++}
++
++ffi_status ffi_prep_cif_machdep(ffi_cif *cif) {
++  abort();
++  return FFI_BAD_ABI;
++}
++
++ffi_status ffi_prep_closure_loc(ffi_closure *closure, ffi_cif* cif,
++    void (*fun)(ffi_cif*,void*,void**,void*), void *user_data, void *codeloc)
++{
++  abort();
++  return FFI_BAD_ABI;
++}
++
++ffi_status ffi_prep_raw_closure_loc(ffi_raw_closure *closure, ffi_cif *cif,
++    void (*fun)(ffi_cif*,void*,ffi_raw*,void*), void *user_data,
++    void *codeloc) {
++  abort();
++  return FFI_BAD_ABI;
++}
++#endif
++
++
+ #define FFI_TYPEDEF(name, type, id, maybe_const)\
+ struct struct_align_##name {			\
+   char c;					\

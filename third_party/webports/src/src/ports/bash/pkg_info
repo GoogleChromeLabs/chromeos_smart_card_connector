@@ -1,0 +1,8 @@
+NAME=bash
+VERSION=4.3
+URL=http://ftp.gnu.org/gnu/bash/bash-4.3.tar.gz
+LICENSE=GPL
+DEPENDS=(nacl-spawn readline)
+DISABLED_LIBC=(bionic)
+SHA1=45ac3c5727e7262334f4dfadecdf601b39434e84
+DISABLED_TOOLCHAIN=(emscripten)

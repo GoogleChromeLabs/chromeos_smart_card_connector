@@ -1,0 +1,4 @@
+NAME=ruby-ppapi
+VERSION=0.1
+DEPENDS=(ruby libtar glibc-compat nacl-spawn)
+DISABLED_TOOLCHAIN=(emscripten)

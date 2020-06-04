@@ -1,0 +1,14 @@
+Python Interative Shell for Chrome
+==================================
+
+This is package of the Python interactive shell built to run
+under Native Client within chrome/chromium.
+
+The logo files here are derived from the SVG logo available at
+http://www.python.org/community/logos/
+
+Run ./nacl-python_ppapi.sh to build Python for use directly within
+chrome (requires the --enable-nacl flag) or via the chome web
+store.  The chrome webstore version is published here:
+
+https://chrome.google.com/webstore/detail/python/nodpmmidbgeganfponihbgmfcoiibffi

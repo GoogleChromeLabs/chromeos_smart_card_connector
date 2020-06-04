@@ -1,0 +1,14 @@
+# Python's configure can't detect these two options when cross
+# compiling so we pre-seed it with the answers.
+ac_cv_file__dev_ptmx=no
+ac_cv_file__dev_ptc=no
+
+# These seem to be detected even though not there.
+ac_cv_func_sched_setparam=no
+ac_cv_func_sched_setscheduler=no
+
+# Force python's configure to think that _POSIX_THREADS is defined
+# in unistd.h even though under newlib it is not.
+# TODO(sbc): Remove this once newlib is fixed:
+# https://code.google.com/p/nativeclient/issues/detail?id=3551
+ac_cv_pthread=yes

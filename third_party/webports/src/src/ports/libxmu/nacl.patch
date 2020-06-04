@@ -1,0 +1,17 @@
+diff --git a/src/EditresCom.c b/src/EditresCom.c
+--- a/src/EditresCom.c
++++ b/src/EditresCom.c
+@@ -2196,11 +2196,13 @@ _XEditresGetStringValues(Widget w, Arg *warg, int numargs)
+ 	    case sizeof(int):
+ 		XmuSnprintf(buffer, sizeof(buffer), "0x%08x", (int)value);
+ 		break;
++#if !defined(__native_client__)
+ #ifdef LONG64
+ 	    case sizeof(long):
+ 		XmuSnprintf(buffer, sizeof(buffer), "0x%016lx", value);
+ 		break;
+ #endif
++#endif
+ 	    }
+ 	}
+     }

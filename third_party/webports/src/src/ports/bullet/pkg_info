@@ -1,0 +1,9 @@
+NAME=bullet
+VERSION=2.81-rev2613
+URL=https://bullet.googlecode.com/files/bullet-2.81-rev2613.zip
+# bionic build fails with undefined symbol:
+# https://code.google.com/p/nativeclient/issues/detail?id=3938
+DISABLED_LIBC=(bionic)
+LICENSE=CUSTOM:COPYING
+SHA1=da04abea176cd0986108181582e29e725e58c69c
+DISABLED_TOOLCHAIN=(emscripten)

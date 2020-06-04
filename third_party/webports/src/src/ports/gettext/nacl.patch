@@ -1,0 +1,126 @@
+diff --git a/gettext-runtime/gnulib-lib/stdint.in.h b/gettext-runtime/gnulib-lib/stdint.in.h
+--- a/gettext-runtime/gnulib-lib/stdint.in.h
++++ b/gettext-runtime/gnulib-lib/stdint.in.h
+@@ -85,7 +85,7 @@
+    Mac OS X 10.4.6 <sys/types.h> includes <stdint.h> (which is us), but
+    relies on the system <stdint.h> definitions, so include
+    <sys/types.h> after @NEXT_STDINT_H@.  */
+-#if @HAVE_SYS_TYPES_H@ && ! defined _AIX
++#if @HAVE_SYS_TYPES_H@ && ! defined _AIX && ! defined __native_client__
+ # include <sys/types.h>
+ #endif
+ 
+diff --git a/gettext-tools/configure b/gettext-tools/configure
+--- a/gettext-tools/configure
++++ b/gettext-tools/configure
+@@ -3041,16 +3041,16 @@ $4
+ int
+ main ()
+ {
+-if (sizeof (($2)))
++if (sizeof ($2))
+ 	    return 0;
+   ;
+   return 0;
+ }
+ _ACEOF
+-if ac_fn_c_try_compile "$LINENO"; then :
+-
+-else
++if ac_fn_c_try_compile "$LINENO"; then
+   eval "$3=yes"
++else
++  :
+ fi
+ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+ fi
+@@ -20938,7 +20938,7 @@ fi
+ 
+               case "$host_os" in
+     hpux*) LTLIBC="" ;;
+-    *)     LTLIBC="-lc" ;;
++    *)     LTLIBC="" ;;
+   esac
+ 
+ 
+diff --git a/gettext-tools/gnulib-lib/stdint.in.h b/gettext-tools/gnulib-lib/stdint.in.h
+--- a/gettext-tools/gnulib-lib/stdint.in.h
++++ b/gettext-tools/gnulib-lib/stdint.in.h
+@@ -82,10 +82,11 @@
+ /* <sys/types.h> defines some of the stdint.h types as well, on glibc,
+    IRIX 6.5, and OpenBSD 3.8 (via <machine/types.h>).
+    AIX 5.2 <sys/types.h> isn't needed and causes troubles.
++   NaCl <sys/types.h> isn't needed and causes troubles.
+    Mac OS X 10.4.6 <sys/types.h> includes <stdint.h> (which is us), but
+    relies on the system <stdint.h> definitions, so include
+    <sys/types.h> after @NEXT_STDINT_H@.  */
+-#if @HAVE_SYS_TYPES_H@ && ! defined _AIX
++#if @HAVE_SYS_TYPES_H@ && ! defined _AIX && ! defined __native_client__
+ # include <sys/types.h>
+ #endif
+ 
+diff --git a/gettext-tools/libgettextpo/stdint.in.h b/gettext-tools/libgettextpo/stdint.in.h
+--- a/gettext-tools/libgettextpo/stdint.in.h
++++ b/gettext-tools/libgettextpo/stdint.in.h
+@@ -82,10 +82,11 @@
+ /* <sys/types.h> defines some of the stdint.h types as well, on glibc,
+    IRIX 6.5, and OpenBSD 3.8 (via <machine/types.h>).
+    AIX 5.2 <sys/types.h> isn't needed and causes troubles.
++   NaCl <sys/types.h> isn't needed and causes troubles.
+    Mac OS X 10.4.6 <sys/types.h> includes <stdint.h> (which is us), but
+    relies on the system <stdint.h> definitions, so include
+    <sys/types.h> after @NEXT_STDINT_H@.  */
+-#if @HAVE_SYS_TYPES_H@ && ! defined _AIX
++#if @HAVE_SYS_TYPES_H@ && ! defined _AIX && !defined __native_client__
+ # include <sys/types.h>
+ #endif
+ 
+diff --git a/gettext-tools/src/Makefile.am b/gettext-tools/src/Makefile.am
+--- a/gettext-tools/src/Makefile.am
++++ b/gettext-tools/src/Makefile.am
+@@ -247,7 +247,7 @@ urlget_SOURCES = urlget.c
+ # use iconv().
+ libgettextsrc_la_LDFLAGS = \
+   -release @VERSION@ \
+-  ../gnulib-lib/libgettextlib.la $(LTLIBUNISTRING) @LTLIBINTL@ @LTLIBICONV@ -lc -no-undefined
++  ../gnulib-lib/libgettextlib.la $(LTLIBUNISTRING) @LTLIBINTL@ @LTLIBICONV@ -no-undefined
+ 
+ libgettextsrc_la_CPPFLAGS = $(AM_CPPFLAGS)
+ 
+diff --git a/gettext-tools/src/Makefile.in b/gettext-tools/src/Makefile.in
+--- a/gettext-tools/src/Makefile.in
++++ b/gettext-tools/src/Makefile.in
+@@ -2006,7 +2006,7 @@ urlget_SOURCES = urlget.c
+ # use iconv().
+ libgettextsrc_la_LDFLAGS = -release @VERSION@ \
+ 	../gnulib-lib/libgettextlib.la $(LTLIBUNISTRING) @LTLIBINTL@ \
+-	@LTLIBICONV@ -lc -no-undefined $(am__append_2)
++	@LTLIBICONV@ -no-undefined $(am__append_2)
+ libgettextsrc_la_CPPFLAGS = $(AM_CPPFLAGS) $(am__append_3)
+ 
+ # Compile-time flags for particular source files.
+diff --git a/gettext-tools/tests/setlocale.c b/gettext-tools/tests/setlocale.c
+--- a/gettext-tools/tests/setlocale.c
++++ b/gettext-tools/tests/setlocale.c
+@@ -22,6 +22,15 @@
+ #include <locale.h>
+ #include <string.h>
+ 
++/*
++ * It not possible of override just the setlocale symbol with newlib
++ * as its in the same object file as a lot of other symbols that are
++ * also needed at link time.
++ * TODO(sbc): fix newlib upstream by moving setlocale to its own
++ * compilation unit.
++ */
++#ifndef _NEWLIB_VERSION
++
+ /* Return string representation of locale CATEGORY.  */
+ static const char *
+ category_to_name (int category)
+@@ -161,3 +170,5 @@ setlocale (int category, SETLOCALE_CONST char *locale)
+     }
+   return retval;
+ }
++
++#endif

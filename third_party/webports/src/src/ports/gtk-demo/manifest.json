@@ -1,0 +1,49 @@
+{
+  "name": "%(TITLE)s",
+  "description": "The gtk+ demo running using NativeClient",
+  "version": "0.0.0.%(version)s",
+  "manifest_version": 2,
+  "minimum_chrome_version": "30",
+  "icons": {
+    "16": "icon_16.png",
+    "48": "icon_48.png",
+    "128": "icon_128.png"
+  },
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "file_handlers": {
+    "edit": {
+      "types": [
+        "text/*"
+      ],
+      "extensions": [
+        "json",
+        "txt",
+        "js",
+        "html",
+        "h",
+        "c",
+        "cc",
+        "cpp",
+        "java"
+      ]
+    }
+  },
+  "permissions": [
+    "fileSystem",
+    "storage",
+    "unlimitedStorage",
+    {
+      "socket": [
+        "tcp-listen:*:*",
+        "tcp-connect",
+        "resolve-host",
+        "udp-bind:*:*",
+        "udp-send-to:*:*"
+      ]
+    }
+  ]
+}

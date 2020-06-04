@@ -1,0 +1,473 @@
+diff --git a/.gitignore b/.gitignore
+--- a/.gitignore
++++ b/.gitignore
+@@ -50,7 +50,6 @@ y.tab.c
+ /config.h.in
+ /config.status
+ /config.status.lineno
+-/configure
+ /doc/capi
+ /enc.mk
+ /encdb.h
+diff --git a/Makefile.in b/Makefile.in
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -199,7 +199,7 @@ miniruby$(EXEEXT):
+ $(PROGRAM):
+ 		@$(RM) $@
+ 		$(ECHO) linking $@
+-		$(Q) $(PURIFY) $(CC) $(LDFLAGS) $(XLDFLAGS) $(MAINOBJ) $(EXTOBJS) $(LIBRUBYARG) $(MAINLIBS) $(LIBS) $(EXTLIBS) $(OUTFLAG)$@
++		$(Q) $(PURIFY) $(CC) $(LDFLAGS) $(XLDFLAGS) $(MAINOBJ) $(EXTOBJS) $(LIBRUBYARG) $(MAINLIBS) $(EXTLIBS) $(LIBS) $(OUTFLAG)$@
+ 		$(Q) $(POSTLINK)
+ 
+ # We must `rm' the library each time this rule is invoked because "updating" a
+diff --git a/configure b/configure
+--- a/configure
++++ b/configure
+@@ -3160,11 +3160,13 @@ esac
+ fi
+ 
+ 
+-  case "$build_cpu" in #(
++  case "$target_cpu" in #(
+   x86_64|i?86) :
+     nacl_cv_cpu_nick=x86 ;; #(
++  le32) :
++    nacl_cv_cpu_nick=pnacl; ac_cv_exeext=.pexe ;; #(
+   *) :
+-    nacl_cv_cpu_nick=$build_cpu ;;
++    nacl_cv_cpu_nick=$target_cpu ;;
+ esac
+   case "$build_os" in #(
+   linux*) :
+@@ -3185,6 +3187,9 @@ $as_echo_n "checking NativeClient toolchain... " >&6; }
+   if test -d \
+     "${NACL_SDK_ROOT}/toolchain/${nacl_cv_os_nick}_${nacl_cv_cpu_nick}_${nacl_cv_build_variant}"; then
+     NACL_TOOLCHAIN="${nacl_cv_os_nick}_${nacl_cv_cpu_nick}_${nacl_cv_build_variant}"
++  elif test -d \
++    "${NACL_SDK_ROOT}/toolchain/${nacl_cv_os_nick}_x86_${nacl_cv_cpu_nick}/${nacl_cv_build_variant}"; then
++    NACL_TOOLCHAIN="${nacl_cv_os_nick}_x86_${nacl_cv_cpu_nick}/${nacl_cv_build_variant}"
+   else
+     case "${nacl_cv_build_variant}" in #(
+   glibc) :
+@@ -8272,15 +8277,6 @@ esac
+   *) :
+      CPPFLAGS="$CPPFLAGS -DNACL_NEWLIB" ;;
+ esac
+-    # RUBY_APPEND_OPTION(LIBS, '-lnosys')
+-	case " ${LIBS-} " in #(
+-  *' '-lnosys' '*) :
+-     ;; #(
+-  '  ') :
+-     LIBS="'-lnosys'" ;; #(
+-  *) :
+-     LIBS="$LIBS '-lnosys'" ;;
+-esac
+   else
+     # RUBY_APPEND_OPTION(XCFLAGS, -fPIC)
+ 	case " ${XCFLAGS-} " in #(
+@@ -8292,8 +8288,6 @@ esac
+      XCFLAGS="$XCFLAGS -fPIC" ;;
+ esac
+   fi
+-  ac_cv_func_shutdown=no
+-  ac_cv_func_fcntl=no
+    ;; #(
+   *) :
+     	LIBS="-lm $LIBS" ;;
+diff --git a/configure.in b/configure.in
+--- a/configure.in
++++ b/configure.in
+@@ -90,8 +90,11 @@ AC_DEFUN([RUBY_NACL],
+                        [no], [nacl_cv_build_variant=glibc],
+                        [yes], [nacl_cv_build_variant=newlib])])
+ 
+-  AS_CASE(["$build_cpu"],
+-          [x86_64|i?86], [nacl_cv_cpu_nick=x86], [nacl_cv_cpu_nick=$build_cpu])
++  AS_CASE(["$target_cpu"],
++          [x86_64|i?86], [nacl_cv_cpu_nick=x86],
++          [le32], [nacl_cv_cpu_nick=pnacl
++                   ac_cv_exeext=.pexe],
++          [nacl_cv_cpu_nick=$target_cpu])
+   AS_CASE(["$build_os"],
+           [linux*], [nacl_cv_os_nick=linux],
+           [darwin*], [nacl_cv_os_nick=mac],
+@@ -105,6 +108,9 @@ AC_DEFUN([RUBY_NACL],
+   if test -d \
+     "${NACL_SDK_ROOT}/toolchain/${nacl_cv_os_nick}_${nacl_cv_cpu_nick}_${nacl_cv_build_variant}"; then
+     NACL_TOOLCHAIN="${nacl_cv_os_nick}_${nacl_cv_cpu_nick}_${nacl_cv_build_variant}"
++  elif test -d \
++    "${NACL_SDK_ROOT}/toolchain/${nacl_cv_os_nick}_x86_${nacl_cv_cpu_nick}/${nacl_cv_build_variant}"; then
++    NACL_TOOLCHAIN="${nacl_cv_os_nick}_x86_${nacl_cv_cpu_nick}/${nacl_cv_build_variant}"
+   else
+     AS_CASE(
+       ["${nacl_cv_build_variant}"],
+@@ -950,12 +956,9 @@ $POSTLINK"
+   LIBS="-lm $LIBS"
+   if test "${nacl_cv_build_variant}" = "newlib"; then
+     RUBY_APPEND_OPTION(CPPFLAGS, -DNACL_NEWLIB)
+-    RUBY_APPEND_OPTION(LIBS, '-lnosys')
+   else
+     RUBY_APPEND_OPTION(XCFLAGS, -fPIC)
+   fi
+-  ac_cv_func_shutdown=no
+-  ac_cv_func_fcntl=no
+   ],
+ [	LIBS="-lm $LIBS"])
+ 
+diff --git a/dln.c b/dln.c
+--- a/dln.c
++++ b/dln.c
+@@ -1318,28 +1318,13 @@ dln_load(const char *file)
+ # define RTLD_GLOBAL 0
+ #endif
+ 
+-#ifdef __native_client__
+-	char* p, *orig;
+-        if (file[0] == '.' && file[1] == '/') file+=2;
+-	orig = strdup(file);
+-	for (p = file; *p; ++p) {
+-	    if (*p == '/') *p = '_';
+-	}
+-#endif
+ 	/* Load file */
+ 	if ((handle = (void*)dlopen(file, RTLD_LAZY|RTLD_GLOBAL)) == NULL) {
+-#ifdef __native_client__
+-            free(orig);
+-#endif
+ 	    error = dln_strerror();
+ 	    goto failed;
+ 	}
+ 
+ 	init_fct = (void(*)())(VALUE)dlsym(handle, buf);
+-#ifdef __native_client__
+-	strcpy(file, orig);
+-	free(orig);
+-#endif
+ #if defined __SYMBIAN32__
+ 	if (init_fct == NULL) {
+ 	    init_fct = (void(*)())dlsym(handle, "1"); /* Some Symbian versions do not support symbol table in DLL, ordinal numbers only */
+diff --git a/ext/readline/readline.c b/ext/readline/readline.c
+--- a/ext/readline/readline.c
++++ b/ext/readline/readline.c
+@@ -1883,7 +1883,7 @@ Init_readline()
+ 
+     rl_attempted_completion_function = readline_attempted_completion_function;
+ #if defined(HAVE_RL_PRE_INPUT_HOOK)
+-    rl_pre_input_hook = (Function *)readline_pre_input_hook;
++    rl_pre_input_hook = readline_pre_input_hook;
+ #endif
+ #ifdef HAVE_RL_CATCH_SIGNALS
+     rl_catch_signals = 0;
+diff --git a/ext/socket/addrinfo.h b/ext/socket/addrinfo.h
+--- a/ext/socket/addrinfo.h
++++ b/ext/socket/addrinfo.h
+@@ -140,6 +140,25 @@ struct addrinfo {
+ };
+ #endif
+ 
++#ifdef __native_client__
++/*
++ * nacl_io does not yet support getaddrinfo() but it
++ * exists as a stub and so ruby thinks it does.
++ * TODO(sbc): remove once this gets fixed: http://crbug.com/315197
++ */
++#undef HAVE_GETADDRINFO
++#undef HAVE_GETNAMEINFO
++#undef HAVE_FREEHOSTENT
++#undef HAVE_FREEADDRINFO
++
++#ifndef __GLIBC__
++/*
++ * TODO(sbc): Remove once this gets fixed: http://crbug.com/315196
++ */
++typedef uint32_t u_int32_t;
++#endif
++#endif
++
+ #ifndef HAVE_GETADDRINFO
+ #undef getaddrinfo
+ #define getaddrinfo getaddrinfo__compat
+diff --git a/ext/socket/extconf.rb b/ext/socket/extconf.rb
+--- a/ext/socket/extconf.rb
++++ b/ext/socket/extconf.rb
+@@ -423,7 +423,7 @@ $objs = [
+ ]
+ 
+ if getaddr_info_ok == :wide or
+-    !have_func("getnameinfo", headers) or !have_func("getaddrinfo", headers)
++    !have_func("getnameinfo", headers) or !have_func("getaddrinfo", headers) or RUBY_PLATFORM =~ /nacl/
+   if have_struct_member("struct in6_addr", "s6_addr8", headers)
+     $defs[-1] = "s6_addr=s6_addr8"
+   end
+diff --git a/ext/socket/rubysocket.h b/ext/socket/rubysocket.h
+--- a/ext/socket/rubysocket.h
++++ b/ext/socket/rubysocket.h
+@@ -90,6 +90,18 @@
+ #define EWOULDBLOCK EAGAIN
+ #endif
+ 
++#ifdef __native_client__
++/*
++ * nacl_io does not yet support getaddrinfo() but it
++ * exists as a stub and so ruby thinks it does.
++ * TODO(sbc): remove once getaddrinfo is added to nacl_io.
++ */
++#undef HAVE_GETADDRINFO
++#undef HAVE_GETNAMEINFO
++#undef HAVE_FREEHOSTENT
++#undef HAVE_FREEADDRINFO
++#endif
++
+ /*
+  * workaround for NetBSD, OpenBSD and etc.
+  * The problem is since 4.4BSD-Lite.
+diff --git a/file.c b/file.c
+--- a/file.c
++++ b/file.c
+@@ -1074,6 +1074,14 @@ rb_group_member(GETGROUPS_T gid)
+ #define USE_GETEUID 1
+ #endif
+ 
++#ifdef __native_client__
++// Although the NaCl toolchain contain eaccess() is it not yet
++// overridden by nacl_io.
++// TODO(sbc): Remove this once eaccess() is wired up correctly
++// in NaCl.
++#define eaccess access
++#endif
++
+ #ifndef HAVE_EACCESS
+ int
+ eaccess(const char *path, int mode)
+@@ -5254,7 +5262,7 @@ rb_path_check(const char *path)
+ 
+ #ifndef _WIN32
+ #ifdef __native_client__
+-__attribute__((noinline))
++__attribute__((noinline,weak))
+ #endif
+ int
+ rb_file_load_ok(const char *path)
+diff --git a/io.c b/io.c
+--- a/io.c
++++ b/io.c
+@@ -31,9 +31,7 @@
+ #if defined HAVE_NET_SOCKET_H
+ # include <net/socket.h>
+ #elif defined HAVE_SYS_SOCKET_H
+-# ifndef __native_client__
+-#  include <sys/socket.h>
+-# endif
++# include <sys/socket.h>
+ #endif
+ 
+ #if defined(__BOW__) || defined(__CYGWIN__) || defined(_WIN32) || defined(__EMX__) || defined(__BEOS__) || defined(__HAIKU__)
+@@ -52,9 +50,6 @@
+ #if defined(HAVE_SYS_IOCTL_H) && !defined(_WIN32)
+ #include <sys/ioctl.h>
+ #endif
+-#if defined(__native_client__) && defined(NACL_NEWLIB)
+-# include "nacl/ioctl.h"
+-#endif
+ #if defined(HAVE_FCNTL_H) || defined(_WIN32)
+ #include <fcntl.h>
+ #elif defined(HAVE_SYS_FCNTL_H)
+@@ -8534,6 +8529,14 @@ typedef long fcntl_arg_t;
+ typedef int fcntl_arg_t;
+ #endif
+ 
++#if defined __native_client__ && !defined __GLIBC__
++// struct flock is currently missing the NaCl newlib headers
++// TODO(sbc): remove this once it gets added.
++#undef F_GETLK
++#undef F_SETLK
++#undef F_SETLKW
++#endif
++
+ static long
+ fcntl_narg_len(int cmd)
+ {
+diff --git a/nacl/GNUmakefile.in b/nacl/GNUmakefile.in
+--- a/nacl/GNUmakefile.in
++++ b/nacl/GNUmakefile.in
+@@ -4,48 +4,59 @@
+ include Makefile
+ -include uncommon.mk
+ 
++# Remove the default -D_FORTIFY_SOURCE=2 from CFLAGS. Without this
++# NaCl's glibc build generates undefined references to __memset_chk.
++# TODO(sbc): Remove this once NaCl's glibc is fixed.
++XCFLAGS := $(filter-out -D_FORTIFY_SOURCE=2,$(XCFLAGS))
++
+ NACL_SDK_ROOT=@NACL_SDK_ROOT@
+ NACL_TOOLCHAIN=@NACL_TOOLCHAIN@
+ NACL_TOOLCHAIN_DIR=$(NACL_SDK_ROOT)/toolchain/$(NACL_TOOLCHAIN)
++
++# Don't override CC/LD/etc if they are already set to absolute
++# paths (this is the case when building in the naclports tree).
++ifeq ($(dir $(CC)),./)
+ CC:=$(NACL_TOOLCHAIN_DIR)/bin/$(CC)
++endif
++ifeq ($(dir $(LD)),./)
+ LD:=$(NACL_TOOLCHAIN_DIR)/bin/$(LD)
++endif
++ifeq ($(dir $(NM)),./)
+ NM:=$(NACL_TOOLCHAIN_DIR)/bin/$(NM)
++endif
++ifeq ($(dir $(AR)),./)
+ AR:=$(NACL_TOOLCHAIN_DIR)/bin/$(AR)
++endif
++ifeq ($(dir $(AS)),./)
+ AS:=$(NACL_TOOLCHAIN_DIR)/bin/$(AS)
++endif
++ifeq ($(dir $(RANLIB)),./)
+ RANLIB:=$(NACL_TOOLCHAIN_DIR)/bin/$(RANLIB)
+-OBJDUMP:=$(NACL_TOOLCHAIN_DIR)/bin/$(OBJDUMP)
++endif
++ifeq ($(dir $(OBJCOPY)),./)
+ OBJCOPY:=$(NACL_TOOLCHAIN_DIR)/bin/$(OBJCOPY)
++endif
+ PYTHON=@PYTHON@
+ 
+ PPROGRAM=pepper-$(PROGRAM)
+ PEPPER_LIBS=-lppapi
+-PROGRAM_NMF=$(PROGRAM:.nexe=.nmf)
+-PPROGRAM_NMF=$(PPROGRAM:.nexe=.nmf)
++PROGRAM_NMF=$(PROGRAM:$(EXEEXT)=.nmf)
++PPROGRAM_NMF=$(PPROGRAM:$(EXEEXT)=.nmf)
+ 
+ GNUmakefile: $(srcdir)/nacl/GNUmakefile.in
+ $(PPROGRAM): $(PROGRAM) pepper_main.$(OBJEXT)
+ 	$(Q)$(MAKE) $(MFLAGS) PROGRAM=$(PPROGRAM) MAINOBJ="pepper_main.$(OBJEXT)" LIBS="$(LIBS) $(PEPPER_LIBS)" program
+-$(PROGRAM_NMF) $(PPROGRAM_NMF): $(@:.nmf=.nexe) nacl/create_nmf.rb
++$(PROGRAM_NMF) $(PPROGRAM_NMF): $(@:.nmf=$(EXEEXT)) nacl/create_nmf.rb
+ 
+ .PHONY: pprogram package show_naclflags
+-.SUFFIXES: .nexe .nmf
+-.nexe.nmf:
++.SUFFIXES: $(EXEEXT) .nmf
++$(EXEEXT).nmf:
+ 	$(ECHO) generating manifest $@
+-	$(Q)$(MINIRUBY) $(srcdir)/nacl/create_nmf.rb --verbose=$(V) $(@:.nmf=.nexe) $@
++	$(Q)$(MINIRUBY) $(srcdir)/nacl/create_nmf.rb --verbose=$(V) $(@:.nmf=$(EXEEXT)) $@
+ 
+ pepper_main.$(OBJEXT): $(srcdir)/nacl/pepper_main.c
+ 	@$(ECHO) compiling nacl/pepper_main.c
+ 	$(Q) $(CC) $(CFLAGS) $(XCFLAGS) $(CPPFLAGS) $(COUTFLAG)$@ -c $(srcdir)/nacl/pepper_main.c
+-ruby.$(OBJEXT):
+-	@$(ECHO) compiling $<
+-	$(Q) $(CC) $(CFLAGS) $(XCFLAGS) $(CPPFLAGS) $(COUTFLAG)$@.tmp -c $<
+-	$(Q) $(OBJCOPY) --weaken-symbol=rb_load_file $@.tmp $@
+-	@-$(RM) $@.tmp
+-file.$(OBJEXT):
+-	@$(ECHO) compiling $<
+-	$(Q) $(CC) $(CFLAGS) $(XCFLAGS) $(CPPFLAGS) $(COUTFLAG)$@.tmp -c $<
+-	$(Q) $(OBJCOPY) --weaken-symbol=rb_file_load_ok $@.tmp $@
+-	@-$(RM) $@.tmp
+ 
+ .rbconfig.time:
+ 	@$(MAKE) .rbconfig.raw.time RBCONFIG=.rbconfig.raw.time
+@@ -56,7 +67,6 @@ file.$(OBJEXT):
+ 	  -e 's!CONFIG\["AR"\] = .*!CONFIG\["AR"\] = "$(AR)"!' \
+ 	  -e 's!CONFIG\["AS"\] = .*!CONFIG\["AS"\] = "$(AS)"!' \
+ 	  -e 's!CONFIG\["RANLIB"\] = .*!CONFIG\["RANLIB"\] = "$(RANLIB)"!' \
+-	  -e 's!CONFIG\["OBJDUMP"\] = .*!CONFIG\["OBJDUMP"\] = "$(OBJDUMP)"!' \
+ 	  -e 's!CONFIG\["OBJCOPY"\] = .*!CONFIG\["OBJCOPY"\] = "$(OBJCOPY)"!' \
+ 	-i.bak rbconfig.rb
+ 	@touch .rbconfig.time
+@@ -80,7 +90,6 @@ show_naclflags:
+ 	@echo "        AR = $(AR)"
+ 	@echo "        AS = $(AS)"
+ 	@echo "        RANLIB = $(RANLIB)"
+-	@echo "        OBJDUMP = $(OBJDUMP)"
+ 	@echo "        OBJCOPY = $(OBJCOPY)"
+ 
+ clean-local::
+diff --git a/nacl/create_nmf.rb b/nacl/create_nmf.rb
+--- a/nacl/create_nmf.rb
++++ b/nacl/create_nmf.rb
+@@ -19,7 +19,6 @@ def create_dynamically_linked(nmf, exe)
+   cmd = [
+     PYTHON, CREATE_NMF,
+     '-o', nmf,
+-    '-D', OBJDUMP,
+     '-L', HOST_LIB,
+     exe
+   ]
+diff --git a/nacl/nacl-config.rb b/nacl/nacl-config.rb
+--- a/nacl/nacl-config.rb
++++ b/nacl/nacl-config.rb
+@@ -16,7 +16,6 @@ module NaClConfig
+ 
+   lib_suffix = config['host_cpu'][/i.86/] ? '32' : ''
+   PYTHON = config['PYTHON']
+-  OBJDUMP = config['OBJDUMP']
+   SDK_ROOT = config['NACL_SDK_ROOT']
+   CREATE_NMF = [
+     File.join(SDK_ROOT, 'build_tools', 'nacl_sdk_scons', 'site_tools', 'create_nmf.py'),
+@@ -27,14 +26,13 @@ module NaClConfig
+   INSTALL_PROGRAM = config['INSTALL_PROGRAM']
+   INSTALL_LIBRARY = config['INSTALL_DATA']
+ 
+-  SEL_LDR = [
+-    File.join(SDK_ROOT, 'toolchain', config['NACL_TOOLCHAIN'], 'bin', "sel_ldr_#{cpu_nick}"),
+-    File.join(SDK_ROOT, 'tools', "sel_ldr_#{cpu_nick}")
+-  ].find{|path| File.executable?(path)} or raise "No sel_ldr found"
+-  IRT_CORE = [
+-    File.join(SDK_ROOT, 'toolchain', config['NACL_TOOLCHAIN'], 'bin', "irt_core_#{cpu_nick}.nexe"),
+-    File.join(SDK_ROOT, 'tools', "irt_core_#{cpu_nick}.nexe")
+-  ].find{|path| File.executable?(path)} or raise "No irt_core found"
++  if cpu_nick == 'x86_64' or cpu_nick == 'x86_32'
++    SEL_LDR = File.join(SDK_ROOT, 'tools', "sel_ldr_#{cpu_nick}")
++    IRT_CORE = File.join(SDK_ROOT, 'tools', "irt_core_#{cpu_nick}.nexe")
++    raise "No sel_ldr found" if not File.executable?(SEL_LDR)
++    raise "No irt_core found" if not File.exists?(IRT_CORE)
++  end
++
+   RUNNABLE_LD = File.join(HOST_LIB, 'runnable-ld.so')
+ 
+   module_function
+diff --git a/nacl/pepper_main.c b/nacl/pepper_main.c
+--- a/nacl/pepper_main.c
++++ b/nacl/pepper_main.c
+@@ -210,7 +210,7 @@ pruby_async_return_value(void* data, VALUE value)
+ static struct PP_Var
+ pruby_cstr_to_var(const char* str)
+ {
+-#ifdef PPB_VAR_INTERFACE_1_0
++#ifndef PPB_VAR_INTERFACE_1_1
+   if (var_interface != NULL)
+     return var_interface->VarFromUtf8(module_id, str, strlen(str));
+   return PP_MakeUndefined();
+@@ -252,7 +252,7 @@ pruby_str_to_var(volatile VALUE str)
+     fprintf(stderr, "[BUG] Unexpected object type: %x\n", TYPE(str));
+     exit(EXIT_FAILURE);
+   }
+-#ifdef PPB_VAR_INTERFACE_1_0
++#ifndef PPB_VAR_INTERFACE_1_1
+   if (var_interface != NULL) {
+     return var_interface->VarFromUtf8(module_id, RSTRING_PTR(str), RSTRING_LEN(str));
+   }
+@@ -517,7 +517,7 @@ static void Instance_DidDestroy(PP_Instance instance) {
+  *     the top left of the plugin's coordinate system (not the page).  If the
+  *     plugin is invisible, @a clip will be (0, 0, 0, 0).
+  */
+-#ifdef PPP_INSTANCE_INTERFACE_1_0
++#ifndef PPP_INSTANCE_INTERFACE_1_1
+ static void
+ Instance_DidChangeView(PP_Instance instance,
+                        const struct PP_Rect* position,
+diff --git a/ruby.c b/ruby.c
+--- a/ruby.c
++++ b/ruby.c
+@@ -1747,6 +1747,9 @@ load_file(VALUE parser, VALUE fname, int script, struct cmdline_options *opt)
+     return (NODE *)rb_ensure(load_file_internal, (VALUE)&arg, restore_lineno, rb_gv_get("$."));
+ }
+ 
++#ifdef __native_client__
++__attribute__((weak))
++#endif
+ void *
+ rb_load_file(const char *fname)
+ {

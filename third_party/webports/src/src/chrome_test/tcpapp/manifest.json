@@ -1,0 +1,27 @@
+{
+  "name": "TCP Interface",
+  "description": "Exposes a TCP API to web pages used in Chrome tests.",
+  "version": "0.1",
+  "manifest_version": 2,
+  "sockets": {
+    "tcp" : {
+      "connect": ["127.0.0.1:*"]
+    }
+  },
+  "externally_connectable": {
+    "ids": ["*"],
+    "matches": [
+      "*://naclports.storage.googleapis.com/*",
+      "*://nacltools.storage.googleapis.com/*",
+      "*://*.chrome.com/*",
+      "*://localhost/*",
+      "*://127.0.0.1/*",
+      "*://0.0.0.0/*"
+    ]
+  },
+  "app": {
+    "background": {
+      "scripts": ["tcp.js"]
+    }
+  }
+}

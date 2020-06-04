@@ -1,0 +1,174 @@
+base/cond.t .. ok
+base/if.t .. ok
+base/lex.t .. ok
+base/num.t .. ok
+base/pat.t .. ok
+base/rs.t .. ok
+base/while.t .. ok
+cmd/elsif.t .. ok
+cmd/for.t .. ok
+cmd/mod.t .. ok
+cmd/subval.t .. ok
+cmd/switch.t .. ok
+comp/bproto.t .. ok
+comp/cmdopt.t .. ok
+comp/decl.t .. ok
+comp/final_line_num.t .. ok
+comp/fold.t .. not ok
+comp/form_scope.t .. ok
+comp/line_debug.t .. ok
+comp/our.t .. ok
+comp/package_block.t .. ok
+comp/package.t .. ok
+comp/parser.t .. ok
+comp/proto.t .. ok
+comp/redef.t .. ok
+comp/retainedlines.t .. ok
+comp/term.t .. ok
+comp/uproto.t .. ok
+comp/use.t .. ok
+comp/utf.t .. ok
+io/argv.t .. not ok
+io/crlf.t .. ok
+io/defout.t .. ok
+io/eintr_print.t .. ok
+io/eintr.t .. not ok
+io/errnosig.t .. ok
+io/errno.t .. not ok
+io/iofile.t .. ok
+io/layers.t .. ok
+io/nargv.t .. ok
+io/open.t .. not ok
+io/perlio_fail.t .. ok
+io/perlio_open.t .. ok
+io/perlio.t .. ok
+io/print.t .. not ok
+io/sem.t .. ok
+io/socket.t .. ok
+io/tell.t .. ok
+io/utf8.t .. ok
+lib/commonsense.t .. ok
+lib/cygwin.t .. ok
+op/append.t .. ok
+op/args.t .. ok
+op/array.t .. not ok
+op/attrproto.t .. ok
+op/auto.t .. ok
+op/avhv.t .. ok
+op/bless.t .. ok
+op/bop.t .. ok
+op/chars.t .. ok
+op/chop.t .. ok
+op/chr.t .. ok
+op/context.t .. ok
+op/cproto.t .. ok
+op/crypt.t .. ok
+op/current_sub.t .. ok
+op/dbm.t .. not ok
+op/defins.t .. ok
+op/delete.t .. ok
+op/die.t .. ok
+op/dor.t .. ok
+op/do.t .. not ok
+op/each_array.t .. ok
+op/each.t .. ok
+op/evalbytes.t .. ok
+op/eval.t .. not ok
+op/exp.t .. ok
+op/fh.t .. ok
+op/filetest_stack_ok.t .. ok
+op/filetest.t .. not ok
+op/grent.t .. ok
+op/grep.t .. ok
+op/hashassign.t .. ok
+op/hash.t .. not ok
+op/hashwarn.t .. ok
+op/inccode.t .. not ok
+op/incfilter.t .. ok
+op/inc.t .. not ok
+op/index.t .. ok
+op/int.t .. ok
+op/join.t .. ok
+op/kvaslice.t .. ok
+op/kvhslice.t .. ok
+op/lc.t .. not ok
+op/length.t .. ok
+op/list.t .. ok
+op/localref.t .. ok
+op/local.t .. not ok
+op/lock.t .. ok
+op/lop.t .. ok
+op/magic.t .. not ok
+op/negate.t .. ok
+op/not.t .. ok
+op/ord.t .. ok
+op/or.t .. not ok
+op/overload_integer.t .. ok
+op/pos.t .. ok
+op/postfixderef.t .. ok
+op/pow.t .. ok
+op/print.t .. not ok
+op/protowarn.t .. ok
+op/push.t .. ok
+op/pwent.t .. ok
+op/quotemeta.t .. ok
+op/rand.t .. ok
+op/range.t .. ok
+op/read.t .. ok
+op/ref.t .. not ok
+op/reverse.t .. ok
+op/rt119311.t .. ok
+op/select.t .. ok
+op/signatures.t .. ok
+op/sleep.t .. ok
+op/smartmatch.t .. ok
+op/sprintf.t .. ok
+op/state.t .. ok
+op/stat.t .. not ok
+op/study.t .. ok
+op/studytied.t .. ok
+op/sub_lval.t .. not ok
+op/sub.t .. not ok
+op/svleak.t .. not ok
+op/switch.t .. ok
+op/symbolcache.t .. ok
+op/sysio.t .. ok
+op/tiearray.t .. ok
+op/tie_fetch_count.t .. ok
+op/tiehandle.t .. ok
+op/tie.t .. not ok
+op/tr.t .. not ok
+op/undef.t .. ok
+op/unlink.t .. ok
+op/upgrade.t .. ok
+op/utf8magic.t .. ok
+op/utfhash.t .. ok
+op/vec.t .. ok
+op/ver.t .. ok
+op/waitpid.t .. ok
+op/wantarray.t .. ok
+op/warn.t .. not ok
+op/yadayada.t .. ok
+opbasic/arith.t .. ok
+opbasic/cmp.t .. ok
+opbasic/concat.t .. ok
+opbasic/qq.t .. ok
+re/charset.t .. not ok
+re/no_utf8_pm.t .. ok
+re/pat.t .. not ok
+re/qr_gc.t .. ok
+re/qrstack.t .. ok
+re/qr.t .. ok
+re/regexp_noamp.t .. ok
+re/regexp_notrie.t .. ok
+re/regexp_qr_embed.t .. ok
+re/regexp_qr.t .. ok
+re/regexp.t .. ok
+re/regexp_trielist.t .. ok
+re/regex_sets_compat.t .. ok
+re/regex_sets.t .. not ok
+re/reg_nc_tie.t .. ok
+re/reg_pmod.t .. ok
+re/rxcode.t .. ok
+Scheduled 172 tests, passed 142 successfully.
+82% okay.

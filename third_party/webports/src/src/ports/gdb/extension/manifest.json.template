@@ -1,0 +1,30 @@
+{
+  "name": "Native Client Debugger",
+  "short_name": "NaCl Debug",
+  "description": "Debugger for Native Client Modules",
+  "version": "7.7.0.%(version)s",
+  "manifest_version": 2,
+  "icons": {
+    "16": "ladybug_gear_16.png",
+    "48": "ladybug_gear_48.png",
+    "128": "ladybug_gear_128.png"
+  },
+  "devtools_page": "devtools.html",
+  "background": {
+    "scripts": ["background.js"],
+    "persistent": true
+  },
+  "externally_connectable": {
+    "ids": ["*"],
+    "matches": [
+      "*://nacltools.storage.googleapis.com/*",
+      "*://*.chrome.com/*",
+      "*://localhost/*",
+      "*://127.0.0.1/*",
+      "*://0.0.0.0/*"
+    ]
+  },
+  "permissions": [
+    "processes"
+  ]
+}

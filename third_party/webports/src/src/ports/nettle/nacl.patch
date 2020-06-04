@@ -1,0 +1,24 @@
+diff --git a/Makefile.in b/Makefile.in
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -16,7 +16,7 @@ MKDIR_P = @MKDIR_P@
+ 
+ OPT_ASM_SOURCES = @OPT_ASM_SOURCES@
+ 
+-SUBDIRS = tools testsuite examples
++SUBDIRS = tools testsuite
+ 
+ include config.make
+ 
+diff --git a/tools/Makefile.in b/tools/Makefile.in
+--- a/tools/Makefile.in
++++ b/tools/Makefile.in
+@@ -23,7 +23,7 @@ TARGETS = sexp-conv$(EXEEXT) nettle-hash$(EXEEXT) nettle-lfib-stream$(EXEEXT) \
+ 
+ all: $(TARGETS)
+ 
+-getopt_OBJS = ../getopt.$(OBJEXT) ../getopt1.$(OBJEXT)
++getopt_OBJS =
+ 
+ sexp_conv_SOURCES = sexp-conv.c input.c output.c parse.c misc.c
+ pkcs1_conv_SOURCES = pkcs1-conv.c misc.c

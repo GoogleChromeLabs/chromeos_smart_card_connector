@@ -1,0 +1,30 @@
+/*
+ * Copyright (c) 2014 The Native Client Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+/* This provides styles for the demo of devenvwidget.js. */
+
+#source {
+  height: 300px;
+  width: 800px;
+}
+
+#run {
+  margin-left: 100px;
+  width: 600px;
+}
+
+#status {
+  font-style: italic;
+}
+
+#output {
+  border: 1px solid #ccc;
+  font-family: monospace;
+  height: 300px;
+  padding: 10px;
+  white-space: pre;
+  width: 780px;
+}

@@ -1,0 +1,13 @@
+quakespasm for Native Client
+============================
+
+This port of quake is based on SDL and OpenGL.  By utilising
+the SDL port to NaCl and Regal for OpenGL support these are
+almost no changes needed to build this game for Native Client.
+
+To run this you need to extract a set of data files into the
+directory alongside the executable. The simplest way to get
+acquire a data set is to download the shareware episode from
+libsdl.org::
+
+  http://www.libsdl.org/projects/quake/data/quakesw-1.0.6.zip

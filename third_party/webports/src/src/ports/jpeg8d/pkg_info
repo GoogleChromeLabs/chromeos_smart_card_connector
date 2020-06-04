@@ -1,0 +1,8 @@
+NAME=jpeg8d
+VERSION=8d
+ARCHIVE_ROOT=jpeg-8d
+URL=http://www.ijg.org/files/jpegsrc.v8d.tar.gz
+LICENSE=CUSTOM:README
+SHA1=f080b2fffc7581f7d19b968092ba9ebc234556ff
+CONFLICTS=(jpeg6b)
+DISABLED_TOOLCHAIN=(emscripten)

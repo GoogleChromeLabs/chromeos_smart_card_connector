@@ -1,0 +1,7 @@
+NAME=libtar
+VERSION=1.2.11
+URL=ftp://ftp.feep.net/pub/software/libtar/libtar-1.2.11.tar.gz
+LICENSE=CUSTOM
+DEPENDS=(zlib)
+SHA1=9611f23024b0e89aad1cfea301122186b3c160f8
+DISABLED_TOOLCHAIN=(emscripten)

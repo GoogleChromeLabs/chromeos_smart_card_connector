@@ -1,0 +1,17 @@
+This patch fixes the build for case insensitive filesystems.
+Since there is a Wchar.h file in BackEndLib, we never want to
+add it to the include path, otherwise the system headers will
+see it when searching for <wchar.h>
+
+diff --git a/Caravel/Master/Linux/Makefile b/Caravel/Master/Linux/Makefile
+--- a/Caravel/Master/Linux/Makefile
++++ b/Caravel/Master/Linux/Makefile
+@@ -77,7 +77,7 @@ SOURCES = $(shell $(GREP) "SOURCE=.*\.cpp" $(MODSDIR)/$(MODULE).dsp |\
+ #endif
+ OBJECTS = $(SOURCES:$(MODSDIR)/%.cpp=$(MODODIR)/%.o)
+ DEPFILES = $(OBJECTS:%.o=%.dep)
+-INCLUDE = -I$(MODSDIR) -I$(SRCDIR) $(INCLUDE_$(MODULE))
++INCLUDE = -I$(SRCDIR) $(INCLUDE_$(MODULE))
+ endif
+ 
+ DRODLIBS = $(TOBJDIR)/DROD/NaClMain.o $(TLIBDIR)/DROD.a \

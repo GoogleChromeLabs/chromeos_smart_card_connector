@@ -1,0 +1,8 @@
+NAME=devenv-latest
+VERSION=0.1
+# Currently only builds on linux (due to dependency on openssl)
+BUILD_OS=linux
+DEPENDS=(grep corelibs devenv coreutils git make python curl nano vim findutils less)
+# Disabled for bionic due to bash.
+# TODO(sbc): re-enable PNaCl toolchain
+DISABLED_TOOLCHAIN=(emscripten bionic pnacl)

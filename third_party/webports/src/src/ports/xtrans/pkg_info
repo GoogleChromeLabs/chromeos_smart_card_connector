@@ -1,0 +1,9 @@
+NAME=xtrans
+VERSION=1.2.7
+URL=http://www.x.org/releases/X11R7.7/src/everything/xtrans-1.2.7.tar.bz2
+LICENSE=GPL
+DEPENDS=(glibc-compat)
+SHA1=b6ed421edf577816f6e641e1846dc0bff337676c
+# glibc/arm: FIONREAD missing:
+# https://code.google.com/p/nativeclient/issues/detail?id=4233
+DISABLED_TOOLCHAIN=(emscripten glibc/arm)

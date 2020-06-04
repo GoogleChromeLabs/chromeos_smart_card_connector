@@ -1,0 +1,26 @@
+diff --git a/xkbcomp.c b/xkbcomp.c
+--- a/xkbcomp.c
++++ b/xkbcomp.c
+@@ -873,6 +873,10 @@ GetDisplay(char *program, char *dpyName)
+ extern int yydebug;
+ #endif
+ 
++#if defined(__native_client__)
++# include "nacl_main.h"
++#endif
++
+ int
+ main(int argc, char *argv[])
+ {
+@@ -883,6 +887,11 @@ main(int argc, char *argv[])
+     XkbFileInfo result;
+     Status status;
+ 
++#if defined(__native_client__)
++    /* Attempt to untar xorg stuff if available. */
++    nacl_startup_untar(argv[0], "xorg-xkb.tar", "/");
++#endif
++
+     yyin = stdin;
+     uSetEntryFile(NullString);
+     uSetDebugFile(NullString);

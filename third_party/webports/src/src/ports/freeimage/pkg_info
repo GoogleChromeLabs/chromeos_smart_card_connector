@@ -1,0 +1,7 @@
+NAME=freeimage
+VERSION=3.17.0
+URL=http://downloads.sf.net/freeimage/FreeImage3170.zip
+ARCHIVE_ROOT=FreeImage
+LICENSE=CUSTOM
+SHA1=6752c83798c2f81dee71a2e8bb11657068672669
+DISABLED_TOOLCHAIN=(emscripten)

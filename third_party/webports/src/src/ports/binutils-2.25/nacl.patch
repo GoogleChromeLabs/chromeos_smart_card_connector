@@ -1,0 +1,63 @@
+diff --git a/binutils/Makefile.in b/binutils/Makefile.in
+--- a/binutils/Makefile.in
++++ b/binutils/Makefile.in
+@@ -333,7 +333,7 @@ LIBICONV = @LIBICONV@
+ LIBINTL = @LIBINTL@
+ LIBINTL_DEP = @LIBINTL_DEP@
+ LIBOBJS = @LIBOBJS@
+-LIBS = @LIBS@
++LIBS = @LIBS@ $(EXTRA_LIBS)
+ LIBTOOL = @LIBTOOL@
+ LIPO = @LIPO@
+ LN_S = @LN_S@
+@@ -485,7 +485,7 @@ AM_CPPFLAGS = -I. -I$(srcdir) -I../bfd -I$(BFDDIR) -I$(INCDIR) \
+ 	 @HDEFINES@ \
+ 	 @INCINTL@ \
+ 	 -DLOCALEDIR="\"$(datadir)/locale\"" \
+-	 -Dbin_dummy_emulation=$(EMULATION_VECTOR)
++	 -Dbin_dummy_emulation=$(EMULATION_VECTOR) $(EXTRA_AM_CPPFLAGS)
+ 
+ HFILES = \
+ 	arsup.h binemul.h bucomm.h budbg.h \
+diff --git a/gas/Makefile.in b/gas/Makefile.in
+--- a/gas/Makefile.in
++++ b/gas/Makefile.in
+@@ -197,7 +197,7 @@ LIBINTL = @LIBINTL@
+ LIBINTL_DEP = @LIBINTL_DEP@
+ LIBM = @LIBM@
+ LIBOBJS = @LIBOBJS@
+-LIBS = @LIBS@
++LIBS = @LIBS@ $(EXTRA_LIBS)
+ LIBTOOL = @LIBTOOL@
+ LIPO = @LIPO@
+ LN_S = @LN_S@
+@@ -642,7 +642,7 @@ INCDIR = $(BASEDIR)/include
+ # subdirectory rather than in the source directory.
+ AM_CPPFLAGS = -I. -I$(srcdir) -I../bfd -I$(srcdir)/config \
+ 	-I$(INCDIR) -I$(srcdir)/.. -I$(BFDDIR) @INCINTL@ \
+-	-DLOCALEDIR="\"$(datadir)/locale\""
++	-DLOCALEDIR="\"$(datadir)/locale\"" $(EXTRA_AM_CPPFLAGS)
+ 
+ 
+ # How to link with both our special library facilities
+diff --git a/ld/Makefile.in b/ld/Makefile.in
+--- a/ld/Makefile.in
++++ b/ld/Makefile.in
+@@ -450,7 +450,7 @@ TEXI2DVI = texi2dvi -I $(srcdir) -I $(BFDDIR)/doc -I ../bfd/doc \
+ 
+ AM_CPPFLAGS = -I. -I$(srcdir) -I../bfd -I$(BFDDIR) -I$(INCDIR) \
+ 	@INCINTL@ $(HDEFINES) $(CFLAGS) $(PLUGIN_CFLAGS) \
+-	-DLOCALEDIR="\"$(datadir)/locale\""
++	-DLOCALEDIR="\"$(datadir)/locale\"" $(EXTRA_AM_CPPFLAGS)
+ 
+ BFDLIB = ../bfd/libbfd.la
+ LIBIBERTY = ../libiberty/libiberty.a
+@@ -851,7 +851,7 @@ ld_new_SOURCES = ldgram.y ldlex-wrapper.c lexsup.c ldlang.c mri.c ldctor.c ldmai
+ ld_new_DEPENDENCIES = $(EMULATION_OFILES) $(EMUL_EXTRA_OFILES) \
+ 		      $(BFDLIB) $(LIBIBERTY) $(LIBINTL_DEP)
+ 
+-ld_new_LDADD = $(EMULATION_OFILES) $(EMUL_EXTRA_OFILES) $(BFDLIB) $(LIBIBERTY) $(LIBINTL)
++ld_new_LDADD = $(EMULATION_OFILES) $(EMUL_EXTRA_OFILES) $(BFDLIB) $(LIBIBERTY) $(LIBINTL) $(EXTRA_LIBS)
+ 
+ # A test program for C++ constructors and destructors.
+ # This test is now in the testsuite.

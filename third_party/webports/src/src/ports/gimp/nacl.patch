@@ -1,0 +1,24 @@
+diff --git a/app/main.c b/app/main.c
+--- a/app/main.c
++++ b/app/main.c
+@@ -288,6 +288,8 @@ main (int    argc,
+   gchar          *basename;
+   gint            i;
+ 
++  if (nacl_startup_untar(argv[0], "gimp.tar", "/"))
++    return -1;
+ #if defined (__GNUC__) && defined (_WIN64)
+   /* mingw-w64, at least the unstable build from late July 2008,
+    * starts subsystem:windows programs in main(), but passes them
+diff --git a/app/signals.c b/app/signals.c
+--- a/app/signals.c
++++ b/app/signals.c
+@@ -37,7 +37,7 @@ static void  gimp_sigfatal_handler (gint sig_num) G_GNUC_NORETURN;
+ void
+ gimp_init_signal_handlers (GimpStackTraceMode stack_trace_mode)
+ {
+-#ifndef G_OS_WIN32
++#if !defined(G_OS_WIN32) && !defined(__native_client__)
+   /* No use catching these on Win32, the user won't get any stack
+    * trace from glib anyhow. It's better to let Windows inform about
+    * the program error, and offer debugging (if the user has installed

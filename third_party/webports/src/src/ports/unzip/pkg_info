@@ -1,0 +1,8 @@
+NAME=unzip
+VERSION=6.0
+URL=http://download.sf.net/project/infozip/UnZip%206.x%20%28latest%29/UnZip%206.0/unzip60.zip
+ARCHIVE_ROOT=unzip60
+DEPENDS=(nacl-spawn)
+LICENSE=CUSTOM:LICENSE
+SHA1=7736e6306f1bb8e51f894ca4670e94181a0f6de3
+DISABLED_TOOLCHAIN=(emscripten)

@@ -1,0 +1,6 @@
+NAME=libhangul
+VERSION=0.1.0
+URL=http://libhangul.googlecode.com/files/libhangul-0.1.0.tar.gz
+SHA1=9c6f3a82f2d4068771215f1b9f13a0d4bdbbfc77
+DISABLED_LIBC=(bionic)
+DISABLED_TOOLCHAIN=(emscripten)

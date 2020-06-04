@@ -1,0 +1,68 @@
+diff --git a/Makefile.am b/Makefile.am
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -2,7 +2,7 @@
+ include $(top_srcdir)/Makefile.decl
+ 
+ SRC_SUBDIRS = gdk gtk modules demos tests perf
+-SUBDIRS = po po-properties $(SRC_SUBDIRS) docs m4macros build
++SUBDIRS = po po-properties $(SRC_SUBDIRS) m4macros build
+ 
+ # require automake 1.4
+ AUTOMAKE_OPTIONS = 1.7
+diff --git a/Makefile.in b/Makefile.in
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -564,7 +564,7 @@ XVFB_START = \
+ 	&& DISPLAY=:$$XID && export DISPLAY
+ 
+ SRC_SUBDIRS = gdk gtk modules demos tests perf
+-SUBDIRS = po po-properties $(SRC_SUBDIRS) docs m4macros build
++SUBDIRS = po po-properties $(SRC_SUBDIRS) m4macros build
+ 
+ # require automake 1.4
+ AUTOMAKE_OPTIONS = 1.7
+diff --git a/demos/gtk-demo/main.c b/demos/gtk-demo/main.c
+--- a/demos/gtk-demo/main.c
++++ b/demos/gtk-demo/main.c
+@@ -934,6 +934,9 @@ main (int argc, char **argv)
+   GtkWidget *tree;
+   GtkTextTag *tag;
+ 
++  if (nacl_startup_untar(argv[0], "gtk-demo.tar", "/"))
++    return -1;
++
+   /* Most code in gtk-demo is intended to be exemplary, but not
+    * these few lines, which are just a hack so gtk-demo will work
+    * in the GTK tree without installing it.
+diff --git a/perf/marshalers.c b/perf/marshalers.c
+--- a/perf/marshalers.c
++++ b/perf/marshalers.c
+@@ -50,6 +50,7 @@
+ 
+ 
+ /* OBJECT:VOID (./marshalers.list:1) */
++#ifndef __native_client__
+ void
+ _gtk_marshal_OBJECT__VOID (GClosure     *closure,
+                            GValue       *return_value G_GNUC_UNUSED,
+@@ -85,6 +86,7 @@ _gtk_marshal_OBJECT__VOID (GClosure     *closure,
+ 
+   g_value_take_object (return_value, v_return);
+ }
++#endif
+ 
+ /* VOID:ENUM,OBJECT,DOUBLE (./marshalers.list:2) */
+ void
+diff --git a/tests/autotestkeywords.cc b/tests/autotestkeywords.cc
+--- a/tests/autotestkeywords.cc
++++ b/tests/autotestkeywords.cc
+@@ -36,4 +36,8 @@
+ #undef GDK_ROOT_WINDOW
+ #endif
+ 
++#ifdef __native_client__
++extern "C" int nacl_main();
++#endif
++
+ int main() { return 0; }

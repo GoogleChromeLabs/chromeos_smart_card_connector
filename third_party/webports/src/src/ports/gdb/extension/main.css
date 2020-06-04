@@ -1,0 +1,74 @@
+/*
+ * Copyright (c) 2014 The Native Client Authors. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE file.
+ */
+
+body {
+  padding: 0;
+  margin: 0;
+  border: 0;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  overflow: hidden;
+}
+
+#terminal {
+  position: relative;
+  height: 100%;
+}
+
+fieldset {
+  border: 0;
+  margin: 1em 0;
+  display: inline-block;
+}
+
+.vertical {
+  display: block;
+}
+
+legend {
+  border: none;
+  font-weight: bold;
+}
+
+select {
+  width: 100%;
+  display: block;
+}
+
+form {
+  height: 100%;
+}
+
+.sizer {
+  width: 10px;
+  background-color: #eee;
+  border-style: none;
+  border-right: 1px solid #999;
+  cursor: ew-resize;
+  display: table-cell;
+}
+
+.options {
+  background-color: #eee;
+  display: table-cell;
+  height: 100%;
+}
+
+.table {
+  display: table;
+  height: 100%;
+}
+
+.row {
+  display: table-row;
+  height: 100%;
+}
+
+.cell {
+  display: table-cell;
+  height: 100%;
+}

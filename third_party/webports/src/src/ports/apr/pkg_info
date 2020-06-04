@@ -1,0 +1,10 @@
+NAME=apr
+VERSION=1.5.0
+URL=http://apache.mirrors.pair.com/apr/apr-1.5.0.tar.bz2
+LICENSE=APACHE
+DEPENDS=(glibc-compat)
+DISABLED_LIBC=(bionic)
+SHA1=cae122be79070645a7ab36a53148487c84ce8bf0
+# missing MCAST_JOIN_SOURCE_GROUP in netinet/in.h
+# https://code.google.com/p/nativeclient/issues/detail?id=4245
+DISABLED_TOOLCHAIN=(emscripten glibc/arm)

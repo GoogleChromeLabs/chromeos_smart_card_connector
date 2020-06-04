@@ -1,0 +1,7 @@
+NAME=libpciaccess
+VERSION=0.13.1
+URL=http://www.x.org/releases/X11R7.7/src/everything/libpciaccess-0.13.1.tar.bz2
+LICENSE=GPL
+DEPENDS=(glibc-compat)
+SHA1=ae4dcf27a1b52c6a1fd90b21165fbaecae34e8ac
+DISABLED_TOOLCHAIN=(emscripten)

@@ -1,0 +1,6 @@
+NAME=id3lib
+VERSION=3.8.3
+URL=http://downloads.sf.net/id3lib/3.8.3/id3lib-3.8.3.tar.gz
+LICENSE=GPL
+SHA1=c92c880da41d1ec0b242745a901702ae87970838
+DISABLED_TOOLCHAIN=(emscripten)

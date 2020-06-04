@@ -1,0 +1,7 @@
+NAME=curl
+VERSION=7.44.0
+URL=http://curl.haxx.se/download/curl-7.44.0.tar.bz2
+LICENSE=CUSTOM:README
+SHA1=879a186944e7b06e619a2eb07cef729b5702345c
+DEPENDS=(openssl nacl-spawn)
+DISABLED_TOOLCHAIN=(emscripten)

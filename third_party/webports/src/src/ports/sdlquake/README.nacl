@@ -1,0 +1,13 @@
+sdlquake for Native Client
+==========================
+
+This is a build of sdlquake from libsdl.org::
+
+  http://www.libsdl.org/projects/quake/
+
+To run this you need to extract a set of data files into the
+directory alongside the executable. The simplest way to get
+acquire a data set is to download the shareware episode from
+libsdl.org::
+
+  http://www.libsdl.org/projects/quake/data/quakesw-1.0.6.zip

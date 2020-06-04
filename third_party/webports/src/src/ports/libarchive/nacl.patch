@@ -1,0 +1,18 @@
+diff --git a/configure b/configure
+index 4b5a965..50c4f14 100755
+--- a/configure
++++ b/configure
+@@ -14617,8 +14617,8 @@ fi
+ 
+ 
+   if test "x$XML2_CONFIG" != "x"; then
+-    CPPFLAGS="${CPPFLAGS} `${XML2_CONFIG} --cflags`"
+-    LIBS="${LIBS} `${XML2_CONFIG} --libs`"
++    CPPFLAGS="${CPPFLAGS} `${XML2_CONFIG} ${XML2_CONFIG_PREFIX} --cflags`"
++    LIBS="${LIBS} `${XML2_CONFIG} ${XML2_CONFIG_PREFIX} --libs`"
+     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for xmlInitParser in -lxml2" >&5
+ $as_echo_n "checking for xmlInitParser in -lxml2... " >&6; }
+ if ${ac_cv_lib_xml2_xmlInitParser+:} false; then :
+-- 
+2.0.0.526.g5318336
+

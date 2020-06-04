@@ -1,0 +1,4 @@
+NAME=nacl-spawn
+VERSION=0.1
+DEPENDS=(corelibs glibc-compat libtar)
+DISABLED_TOOLCHAIN=(emscripten)

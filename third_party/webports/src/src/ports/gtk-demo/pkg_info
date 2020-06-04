@@ -1,0 +1,6 @@
+NAME=gtk-demo
+VERSION=0.1
+# Currently only builds on linux (due to x11)
+BUILD_OS=linux
+DEPENDS=(xorg-server gtk+ twm)
+DISABLED_TOOLCHAIN=(emscripten)

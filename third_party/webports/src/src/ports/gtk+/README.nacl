@@ -1,0 +1,14 @@
+gtk+ port to Native Client
+==========================
+
+The easiest way to run the demo from within Chrome is to install gtk-demo and
+run the gtk+ demo as an app. If you want to run it stand alone, install the
+xorg-server app and run that. Then you can run the gtk-demo in a tab ("make run"
+from the naclports directory to launch a web server and then simply navigate to
+the gtk-demo.html page on localhost) and the demo will launch on the x-server.
+It is also recommended that you use a window manager (there is none packaged
+with the demo, which does involve creating various new windows). The x-server
+and gtk-demo by default use DISPLAY=:42 so point your favorite window manager
+at :42 ex: "DISPLAY=:42 twm" and you should be able to see the gtk-demo.
+
+WARNING: this port currently only runs when built with the glibc toolchain.

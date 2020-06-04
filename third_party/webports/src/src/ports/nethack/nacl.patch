@@ -1,0 +1,304 @@
+--- nethack-3.4.3-orig/win/tty/termcap.c	2003-12-07 15:39:13.000000000 -0800
++++ nethack-3.4.3/win/tty/termcap.c	2011-09-27 13:38:17.000000000 -0700
+@@ -836,10 +836,6 @@
+ 
+ #include <curses.h>
+ 
+-#ifndef LINUX
+-extern char *tparm();
+-#endif
+-
+ #  ifdef COLOR_BLACK	/* trust include file */
+ #undef COLOR_BLACK
+ #  elsediff -Naur nethack-3.4.3-orig/include/config.h nethack-3.4.3/include/config.h
+--- nethack-3.4.3-orig/include/config.h	2003-12-07 15:39:13.000000000 -0800
++++ nethack-3.4.3/include/config.h	2011-09-27 13:38:17.000000000 -0700
+@@ -169,7 +169,7 @@
+ 
+ #ifdef UNIX
+ /* path and file name extension for compression program */
+-#define COMPRESS "/usr/bin/compress"	/* Lempel-Ziv compression */
++/*#define COMPRESS "/usr/bin/compress"*/	/* Lempel-Ziv compression */
+ #define COMPRESS_EXTENSION ".Z"		/* compress's extension */
+ /* An example of one alternative you might want to use: */
+ /* #define COMPRESS "/usr/local/bin/gzip" */	/* FSF gzip compression */
+diff --git a/include/config1.h b/include/config1.h
+--- a/include/config1.h
++++ b/include/config1.h
+@@ -144,7 +144,7 @@
+ #  else
+ #   define NHSTDC
+ #   define USE_STDARG
+-#   define POSIX_TYPES
++//#   define POSIX_TYPES
+ #   define _DECC_V4_SOURCE	/* avoid some incompatible V5.x changes */
+ #  endif
+ #  undef __HIDE_FORBIDDEN_NAMES /* need non-ANSI library support functions */
+diff -Naur nethack-3.4.3-orig/include/system.h nethack-3.4.3/include/system.h
+--- nethack-3.4.3-orig/include/system.h	2003-12-07 15:39:13.000000000 -0800
++++ nethack-3.4.3/include/system.h	2011-09-27 13:38:17.000000000 -0700
+@@ -422,7 +422,7 @@
+ E unsigned int	FDECL(strlen, (char *));
+ #  else
+ #   if !(defined(ULTRIX_PROTO) && defined(__GNUC__))
+-E int	FDECL(strlen, (const char *));
++E size_t	FDECL(strlen, (const char *));
+ #   endif
+ #  endif /* HPUX */
+ # endif /* MICRO */
+diff --git a/include/unixconf.h b/include/unixconf.h
+--- a/include/unixconf.h
++++ b/include/unixconf.h
+@@ -95,8 +95,8 @@
+  *		Ralf Brown, 7/26/89 (from v2.3 hack of 10/10/88)
+  */
+ 
+-/* #define NO_FILE_LINKS */	/* if no hard links */
+-/* #define LOCKDIR "/usr/games/lib/nethackdir" */	/* where to put locks */
++#define NO_FILE_LINKS	/* if no hard links */
++#define LOCKDIR "/usr/games/lib/nethackdir"	/* where to put locks */
+ 
+ /*
+  * If you want the static parts of your playground on a read-only file
+@@ -132,7 +132,8 @@
+  * "extra output" method is used, but not all systems provide access to
+  * a fine-grained timer.
+  */
+-/* #define TIMED_DELAY */	/* usleep() */
++#define TIMED_DELAY	/* usleep() */
++#define msleep(k) sleep((k)/1000)
+ #endif
+ 
+ /*
+@@ -143,7 +144,7 @@
+  * A stat system call is done on the mailbox every MAILCKFREQ moves.
+  */
+ 
+-#define MAIL			/* Deliver mail during the game */
++/* #define MAIL */			/* Deliver mail during the game */
+ 
+ /* The Andrew Message System does mail a little differently from normal
+  * UNIX.  Mail is deposited in the user's own directory in ~/Mailbox
+@@ -270,7 +271,7 @@
+ #endif
+ #define tgetch getchar
+ 
+-#define SHELL		/* do not delete the '!' command */
++/* #define SHELL */		/* do not delete the '!' command */
+ 
+ #include "system.h"
+
+diff -Naur nethack-3.4.3-orig/sys/share/unixtty.c nethack-3.4.3/sys/share/unixtty.c
+--- nethack-3.4.3-orig/sys/share/unixtty.c	2003-12-07 15:39:13.000000000 -0800
++++ nethack-3.4.3/sys/share/unixtty.c	2011-09-27 13:38:17.000000000 -0700
+@@ -54,7 +54,7 @@
+ # define CBRKMASK	ICANON
+ # define CBRKON		! /* reverse condition */
+ # ifdef POSIX_TYPES
+-#  define OSPEED(x)	(speednum(cfgetospeed(&x)))
++#  define OSPEED(x)	0
+ # else
+ #  ifndef CBAUD
+ #   define CBAUD	_CBAUD /* for POSIX nitpickers (like RS/6000 cc) */
+@@ -82,7 +82,7 @@
+ #  if defined(BSD) && !defined(__DGUX__)
+ #   define nonesuch	_POSIX_VDISABLE
+ #  else
+-#   define nonesuch	(fpathconf(0, _PC_VDISABLE))
++#   define nonesuch	0
+ #  endif
+ # else
+ #  define nonesuch	0
+@@ -377,7 +377,7 @@ init_sco_cons()
+ 
+ 
+ #ifdef __linux__		/* via Jesse Thilo and Ben Gertzfield */
+-# include <sys/vt.h>
++//# include <sys/vt.h>
+ 
+ int linux_flag_console = 0;
+ 
+@@ -409,11 +409,13 @@ linux_mapoff()
+ void
+ check_linux_console()
+ {
++#if 0
+ 	struct vt_mode vtm;
+ 
+ 	if (isatty(0) && ioctl(0,VT_GETMODE,&vtm) >= 0) {
+ 		linux_flag_console = 1;
+ 	}
++#endif
+ }
+ 
+ void
+diff -Naur nethack-3.4.3-orig/sys/unix/Makefile.src nethack-3.4.3/sys/unix/Makefile.src
+--- nethack-3.4.3-orig/sys/unix/Makefile.src	2003-12-07 15:39:13.000000000 -0800
++++ nethack-3.4.3/sys/unix/Makefile.src	2011-09-27 13:44:30.000000000 -0700
+@@ -36,7 +36,7 @@
+ # SHELL=E:/GEMINI2/MUPFEL.TTP
+ 
+ # Normally, the C compiler driver is used for linking:
+-LINK=$(CC)
++LINK=$(CC)
+ 
+ # Pick the SYSSRC and SYSOBJ lines corresponding to your desired operating
+ # system.
+@@ -151,14 +151,14 @@
+ # flags for debugging:
+ # CFLAGS = -g -I../include
+ 
+-CFLAGS = -O -I../include
+-LFLAGS = 
++CFLAGS := $(NACL_CCFLAGS) -I../include
++LFLAGS = $(NACL_LDFLAGS)
+ 
+ # The Qt and Be window systems are written in C++, while the rest of
+ # NetHack is standard C.  If using Qt, uncomment the LINK line here to get
+ # the C++ libraries linked in.
+ CXXFLAGS = $(CFLAGS) -I. -I$(QTDIR)/include
+-CXX=g++
++CXX=g++
+ #LINK=g++
+ #	For cross-compiling, eg. with gcc on Linux (see also CC further up):
+ #CXX=arm-linux-g++
+@@ -171,8 +206,10 @@
+ #
+ # files for a straight tty port using no native windowing system
+ WINTTYSRC = ../win/tty/getline.c ../win/tty/termcap.c ../win/tty/topl.c \
+-	../win/tty/wintty.c
+-WINTTYOBJ = getline.o termcap.o topl.o wintty.o
++	../win/tty/wintty.c \
++        nethack_pepper.c
++WINTTYOBJ = getline.o termcap.o topl.o wintty.o \
++        nethack_pepper.o
+ #
+ # files for an X11 port
+ # (tile.c is a generated source file)
+@@ -231,7 +233,8 @@ WINOBJ = $(WINTTYOBJ)
+ # WINTTYLIB = -lcurses
+ # WINTTYLIB = -lcurses16
+ # WINTTYLIB = -lncurses
+-WINTTYLIB = -ltermlib
++
++
+ #
+ # libraries for X11
+ # If USE_XPM is defined in config.h, you will also need -lXpm here.
+diff --git a/sys/unix/Makefile.top b/sys/unix/Makefile.top
+--- a/sys/unix/Makefile.top
++++ b/sys/unix/Makefile.top
+@@ -14,7 +14,7 @@
+ # MAKE = make
+ 
+ # make NetHack
+-PREFIX	 = /usr
++PREFIX	 = ${PWD}/out
+ GAME     = nethack
+ # GAME     = nethack.prg
+ GAMEUID  = games
+@@ -64,8 +64,8 @@ VARDAT = $(VARDATD) $(VARDATND)
+ # other permission-related reasons.  If that happens, you may want to set the
+ # command to "true", which is a no-op. Note that disabling chown or chgrp
+ # will only work if setuid (or setgid) behavior is not desired or required.
+-CHOWN = chown
+-CHGRP = chgrp
++CHOWN = echo
++CHGRP = echo
+ 
+ #
+ # end of configuration
+diff --git a/sys/unix/Makefile.utl b/sys/unix/Makefile.utl
+--- a/sys/unix/Makefile.utl
++++ b/sys/unix/Makefile.utl
+@@ -15,7 +15,7 @@
+ 
+ # if you are using gcc as your compiler,
+ #	uncomment the CC definition below if it's not in your environment
+-# CC = gcc
++CC = gcc
+ #
+ #	For Bull DPX/2 systems at B.O.S. 2.0 or higher use the following:
+ #
+@@ -89,23 +89,24 @@
+ # flags for debugging:
+ # CFLAGS = -g -I../include
+ 
+-CFLAGS = -O -I../include
+-LFLAGS =
++CFLAGS = -O -I../include -DSTRCMPI -DSTRNCMPI -m32
++LFLAGS = -m32
++CPPFLAGS =
+ 
+ LIBS =
+  
+ # If you are cross-compiling, you must use this:
+-#OBJDIR = .
++OBJDIR = .
+ # otherwise, you can save a little bit of disk space with this:
+-OBJDIR = ../src
++#OBJDIR = ../src
+ 
+ # yacc/lex programs to use to generate *_comp.h, *_lex.c, and *_yacc.c.
+ # if, instead of yacc/lex you have bison/flex, comment/uncomment the following.
+-YACC     = yacc
+-LEX      = lex
+-# YACC     = bison -y
++#YACC     = yacc
++#LEX      = lex
++YACC     = bison -y
+ # YACC     = byacc
+-# LEX      = flex
++LEX      = flex
+  
+ # these are the names of the output files from YACC/LEX. Under MS-DOS
+ # and similar systems, they may differ
+diff --git a/sys/unix/unixmain.c b/sys/unix/unixmain.c
+--- a/sys/unix/unixmain.c
++++ b/sys/unix/unixmain.c
+@@ -45,7 +45,7 @@ static boolean wiz_error_flag = FALSE;
+ #endif
+ 
+ int
+-main(argc,argv)
++nethack_main(argc,argv)
+ int argc;
+ char *argv[];
+ {
+diff --git a/win/tty/termcap.c b/win/tty/termcap.c
+--- a/win/tty/termcap.c
++++ b/win/tty/termcap.c
+@@ -108,6 +108,7 @@ int *wid, *hgt;
+ # if defined(TOS) && defined(__GNUC__)
+ 	if (!term)
+ 		term = "builtin";		/* library has a default */
++}
+ # endif
+ 	if (!term)
+ #endif
+
+diff --git a/include/extern.h b/include/extern.h
+index 4e2314d..75c874c 100644
+--- nethack-3.4.3-orig/include/extern.h
++++ nethack-3.4.3/include/extern.h
+@@ -733,7 +733,7 @@ E int FDECL(distmin, (int,int,int,int));
+ E boolean FDECL(online2, (int,int,int,int));
+ E boolean FDECL(pmatch, (const char *,const char *));
+ #ifndef STRNCMPI
+-E int FDECL(strncmpi, (const char *,const char *,int));
++//E int FDECL(strncmpi, (const char *,const char *,int));
+ #endif
+ #ifndef STRSTRI
+ E char *FDECL(strstri, (const char *,const char *));
+diff --git a/src/hacklib.c b/src/hacklib.c
+index 0d08270..9e4902a 100644
+--- nethack-3.4.3-orig/src/hacklib.c
++++ nethack-3.4.3/src/hacklib.c
+@@ -356,6 +356,6 @@ pmatch_top:
+ int
+ strncmpi(s1, s2, n)	/* case insensitive counted string comparison */
+     register const char *s1, *s2;
+-    register int n; /*(should probably be size_t, which is usually unsigned)*/
++    register size_t n; /*(should probably be size_t, which is usually unsigned)*/
+ {					/*{ aka strncasecmp }*/
+     register char t1, t2;

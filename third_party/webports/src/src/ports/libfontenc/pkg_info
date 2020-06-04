@@ -1,0 +1,7 @@
+NAME=libfontenc
+VERSION=1.1.1
+URL=http://www.x.org/releases/X11R7.7/src/everything/libfontenc-1.1.1.tar.bz2
+LICENSE=GPL
+DEPENDS=(zlib xproto)
+SHA1=90bdd53d75585dd0f06ad7bc23faccd8a01bb733
+DISABLED_TOOLCHAIN=(emscripten)

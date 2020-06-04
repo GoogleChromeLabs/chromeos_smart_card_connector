@@ -1,0 +1,9 @@
+NAME=drod
+VERSION=213fa47
+URL=https://github.com/binji/drod/archive/213fa47/drod-213fa47.tar.gz
+ARCHIVE_ROOT=drod-213fa477000429fb9a5f4a77673394d47cadbfac
+LICENSE=MPL
+DEPENDS=(sdl sdl-mixer sdl-ttf zlib metakit libtar libpng expat)
+SHA1=33b465c4d8fcb09523b97d14833591e1eb5343f2
+# Generates abigous references at compile time
+DISABLED_TOOLCHAIN=(emscripten pnacl clang-newlib)

@@ -1,0 +1,11 @@
+NAME=binutils
+VERSION=7dc2f2590
+URL=https://chromium.googlesource.com/native_client/nacl-binutils.git@7dc2f2590
+LICENSE=GPL
+DEPENDS=(nacl-spawn)
+DISABLED_LIBC=(bionic)
+DISABLED_ARCH=(pnacl)
+# arm-nacl-clang asserts in llvm::ARMInstPrinter::printInstruction:
+# https://code.google.com/p/nativeclient/issues/detail?id=4114
+DISABLED_TOOLCHAIN=(clang-newlib/arm emscripten)
+TOOLCHAIN_INSTALL=0

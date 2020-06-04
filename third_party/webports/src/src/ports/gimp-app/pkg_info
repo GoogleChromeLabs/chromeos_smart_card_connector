@@ -1,0 +1,4 @@
+NAME=gimp-app
+VERSION=0.1
+DEPENDS=(xorg-server gimp twm)
+DISABLED_TOOLCHAIN=(emscripten)

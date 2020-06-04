@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>DROD</title>
+    <META HTTP-EQUIV="Pragma" CONTENT="no-cache" />
+    <META HTTP-EQUIV="Expires" CONTENT="-1" />
+    <script>
+      function createModule() {
+        var listenerEl = document.getElementById('listener');
+        listenerEl.addEventListener('load', function() {
+          document.getElementById('message').hidden = true;
+        }, true);
+
+        var embedEl = document.createElement('embed');
+        embedEl.setAttribute('type', 'application/x-nacl');
+        embedEl.setAttribute('src', 'drod.nmf');
+        embedEl.setAttribute('width', '800');
+        embedEl.setAttribute('height', '600');
+        listenerEl.appendChild(embedEl);
+      }
+
+      function requestQuota(size, onSuccess, onError) {
+        if (navigator.webkitPersistentStorage) {
+          return navigator.webkitPersistentStorage.requestQuota(
+              size, onSuccess, onError);
+        } else {
+          return window.webkitStorageInfo.requestQuota(
+              window.PERSISTENT, size, onSuccess, onError);
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', function() {
+        var onSuccess = function(size) {
+          if (size == 0) {
+            onError();
+            return;
+          }
+
+          createModule();
+        };
+
+        var onError = function() {
+          document.getElementById('message').textContent = 'Cancelled by user'
+        };
+
+        requestQuota(5*1024*1024, onSuccess, onError);
+      });
+    </script>
+  </head>
+  <body>
+    <h1>DROD</h1>
+    <div id="message">Loading...</div>
+    <div id="listener"></div>
+  </body>
+</html>
+

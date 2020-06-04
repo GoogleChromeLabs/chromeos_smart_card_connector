@@ -1,0 +1,7 @@
+NAME=libssh2
+VERSION=1.4.3
+URL=http://www.libssh2.org/download/libssh2-1.4.3.tar.gz
+LICENSE=BSD
+DEPENDS=(openssl glibc-compat)
+SHA1=c27ca83e1ffeeac03be98b6eef54448701e044b0
+DISABLED_TOOLCHAIN=(emscripten)

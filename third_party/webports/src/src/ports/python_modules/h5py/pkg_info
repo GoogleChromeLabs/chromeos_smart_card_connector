@@ -1,0 +1,7 @@
+NAME=h5py
+VERSION=2.2.1
+URL=http://h5py.googlecode.com/files/h5py-2.2.1.tar.gz
+LICENSE=BSD
+DEPENDS=(hdf5 python-host cython numpy)
+SHA1=4b511ed7aa28ac4c61188a121d42f17f3096c15a
+DISABLED_TOOLCHAIN=(emscripten)

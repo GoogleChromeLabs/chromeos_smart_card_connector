@@ -1,0 +1,7 @@
+NAME=babl
+VERSION=0.1.12
+URL=http://download.gimp.org/pub/babl/0.1/babl-0.1.12.tar.bz2
+LICENSE=GPL
+DEPENDS=(glibc-compat tar)
+SHA1=b9a811d9d05717d66bc107a18447fbd74cff7eea
+LIBC=glibc

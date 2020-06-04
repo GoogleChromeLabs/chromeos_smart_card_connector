@@ -1,0 +1,44 @@
+diff --git a/doc/Makefile b/doc/Makefile
+--- a/doc/Makefile
++++ b/doc/Makefile
+@@ -29,7 +29,7 @@ $(GENTEXI): doc/avoptions_%.texi: doc/print_options
+ doc/%.html: TAG = HTML
+ doc/%.html: doc/%.texi $(SRC_PATH)/doc/t2h.init $(GENTEXI)
+ 	$(Q)$(TEXIDEP)
+-	$(M)texi2html -I doc -monolithic --init-file $(SRC_PATH)/doc/t2h.init --output $@ $<
++	$(M)texi2html -I doc -monolithic --init_file $(SRC_PATH)/doc/t2h.init --output $@ $<
+ 
+ doc/%.pod: TAG = POD
+ doc/%.pod: doc/%.texi $(GENTEXI)
+diff --git a/libavutil/mem.c b/libavutil/mem.c
+--- a/libavutil/mem.c
++++ b/libavutil/mem.c
+@@ -48,11 +48,11 @@
+ 
+ void *malloc(size_t size);
+ void *memalign(size_t align, size_t size);
+-int   posix_memalign(void **ptr, size_t align, size_t size);
+ void *realloc(void *ptr, size_t size);
+ void  free(void *ptr);
+ 
+ #endif /* MALLOC_PREFIX */
++int   posix_memalign(void **ptr, size_t align, size_t size);
+ 
+ /* You can redefine av_malloc and av_free in your project to use your
+  * memory allocator. You do not need to suppress this file because the
+diff --git a/libavutil/x86/cpu.c b/libavutil/x86/cpu.c
+--- a/libavutil/x86/cpu.c
++++ b/libavutil/x86/cpu.c
+@@ -85,6 +85,12 @@ static int cpuid_test(void)
+ }
+ #endif
+ 
++#ifdef __native_client__
++#include "cpuid.h"
++#define cpuid __cpuid
++#define cpuid_test() 1
++#endif  /* __native_client__ */
++
+ /* Function to test if multimedia instructions are supported...  */
+ int ff_get_cpu_flags_x86(void)
+ {

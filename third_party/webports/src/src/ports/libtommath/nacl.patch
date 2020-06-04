@@ -1,0 +1,82 @@
+diff --git a/makefile b/makefile
+--- a/makefile
++++ b/makefile
+@@ -11,6 +11,8 @@ ifndef MAKE
+    MAKE=make
+ endif
+ 
++RANLIB ?= ranlib
++
+ ifndef IGNORE_SPEED
+ 
+ #for speed 
+@@ -87,7 +89,7 @@ bn_mp_to_signed_bin_n.o bn_mp_to_unsigned_bin_n.o
+ 
+ $(LIBNAME):  $(OBJECTS)
+ 	$(AR) $(ARFLAGS) $@ $(OBJECTS)
+-	ranlib $@
++	$(RANLIB) $@
+ 
+ #make a profiled library (takes a while!!!)
+ #
+@@ -97,17 +99,17 @@ $(LIBNAME):  $(OBJECTS)
+ # So far I've seen improvements in the MP math
+ profiled:
+ 	make CFLAGS="$(CFLAGS) -fprofile-arcs -DTESTING" timing
+-	./ltmtest
+-	rm -f *.a *.o ltmtest
++	./ltmtest$(EXEEXT)
++	rm -f *.a *.o ltmtest$(EXEEXT)
+ 	make CFLAGS="$(CFLAGS) -fbranch-probabilities"
+ 
+ #make a single object profiled library 
+ profiled_single:
+ 	perl gen.pl
+ 	$(CC) $(CFLAGS) -fprofile-arcs -DTESTING -c mpi.c -o mpi.o
+-	$(CC) $(CFLAGS) -DTESTING -DTIMER demo/timing.c mpi.o -o ltmtest
+-	./ltmtest
+-	rm -f *.o ltmtest
++	$(CC) $(CFLAGS) -DTESTING -DTIMER demo/timing.c mpi.o -o ltmtest$(EXEEXT)
++	./ltmtest$(EXEEXT)
++	rm -f *.o ltmtest$(EXEEXT)
+ 	$(CC) $(CFLAGS) -fbranch-probabilities -DTESTING -c mpi.c -o mpi.o
+ 	$(AR) $(ARFLAGS) $(LIBNAME) mpi.o
+ 	ranlib $(LIBNAME)	
+@@ -119,13 +121,13 @@ install: $(LIBNAME)
+ 	install -g $(GROUP) -o $(USER) $(HEADERS) $(DESTDIR)$(INCPATH)
+ 
+ test: $(LIBNAME) demo/demo.o
+-	$(CC) $(CFLAGS) demo/demo.o $(LIBNAME) -o test
++	$(CC) $(CFLAGS) demo/demo.o $(LIBNAME) -o test$(EXEEXT)
+ 	
+ mtest: test	
+-	cd mtest ; $(CC) $(CFLAGS) mtest.c -o mtest
++	cd mtest ; $(CC) $(CFLAGS) mtest.c -o mtest$(EXEEXT)
+         
+ timing: $(LIBNAME)
+-	$(CC) $(CFLAGS) -DTIMER demo/timing.c $(LIBNAME) -o ltmtest
++	$(CC) $(CFLAGS) -DTIMER demo/timing.c $(LIBNAME) -o ltmtest$(EXEEXT)
+ 
+ # makes the LTM book DVI file, requires tetex, perl and makeindex [part of tetex I think]
+ docdvi: tommath.src
+@@ -165,7 +167,7 @@ pretty:
+ 	perl pretty.build
+ 
+ clean:
+-	rm -f *.bat *.pdf *.o *.a *.obj *.lib *.exe *.dll etclib/*.o demo/demo.o test ltmtest mpitest mtest/mtest mtest/mtest.exe \
++	rm -f *.bat *.pdf *.o *.a *.obj *.lib *.exe *.dll etclib/*.o demo/demo.o test$(EXEEXT) ltmtest$(EXEEXT) mpitest$(EXEEXT) mtest/mtest$(EXEEXT) \
+         *.idx *.toc *.log *.aux *.dvi *.lof *.ind *.ilg *.ps *.log *.s mpi.c *.da *.dyn *.dpi tommath.tex `find . -type f | grep [~] | xargs` *.lo *.la
+ 	rm -rf .libs
+ 	cd etc ; MAKE=${MAKE} ${MAKE} clean
+diff --git a/tommath.h b/tommath.h
+--- a/tommath.h
++++ b/tommath.h
+@@ -46,7 +46,7 @@ extern "C" {
+ 
+ 
+ /* detect 64-bit mode if possible */
+-#if defined(__x86_64__) 
++#if defined(__x86_64__) && !defined(__native_client__)
+    #if !(defined(MP_64BIT) && defined(MP_16BIT) && defined(MP_8BIT))
+       #define MP_64BIT
+    #endif

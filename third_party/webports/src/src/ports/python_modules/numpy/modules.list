@@ -1,0 +1,11 @@
+_capi
+scalarmath
+multiarray
+multiarray_tests
+umath
+_umath_linalg
+umath_tests
+_compiled_base
+lapack_lite
+fftpack_lite
+mtrand

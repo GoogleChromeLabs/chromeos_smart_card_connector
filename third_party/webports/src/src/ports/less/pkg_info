@@ -1,0 +1,8 @@
+NAME=less
+VERSION=451
+URL=http://ftp.gnu.org/gnu/less/less-451.tar.gz
+DEPENDS=(ncurses nacl-spawn)
+# missing 'mblen' and 'sysinfo'
+DISABLED_LIBC=(bionic)
+SHA1=ee95be670e8fcc97ac87d02dd1980209130423d0
+DISABLED_TOOLCHAIN=(emscripten)

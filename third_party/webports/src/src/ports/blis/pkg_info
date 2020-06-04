@@ -1,0 +1,7 @@
+NAME=blis
+VERSION=0.1.5
+URL=http://github.com/flame/blis/archive/0.1.5/blis-0.1.5.tar.gz
+LICENSE=BSD:LICENSE
+ARCH=pnacl
+SHA1=b11010ece9f1fdd1625b6e62edd2c927fa8a265c
+DISABLED_TOOLCHAIN=(emscripten)

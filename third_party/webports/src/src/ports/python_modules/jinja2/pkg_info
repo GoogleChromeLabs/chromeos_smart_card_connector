@@ -1,0 +1,7 @@
+NAME=jinja2
+VERSION=2.7.2
+URL=https://pypi.python.org/packages/source/J/Jinja2/Jinja2-2.7.2.tar.gz
+ARCHIVE_ROOT=Jinja2-2.7.2
+LICENSE=BSD
+DEPENDS=(python-host setuptools markupsafe)
+SHA1=1ce4c8bc722444ec3e77ef9db76faebbd17a40d8

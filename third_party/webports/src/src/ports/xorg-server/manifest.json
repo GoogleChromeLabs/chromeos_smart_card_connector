@@ -1,0 +1,30 @@
+{
+  "name": "xorg-server",
+  "description": "xorg-server on top of SDL",
+  "version": "0.0.0.1",
+  "manifest_version": 2,
+  "app": {
+    "background": {
+      "scripts": ["background.js"]
+    }
+  },
+  "icons": {
+    "16": "xorg_16.png",
+    "48": "xorg_48.png",
+    "128": "xorg_128.png"
+  },
+  "permissions": [
+    "storage",
+    "unlimitedStorage",
+    "*://naclports.storage.googleapis.com/*",
+    {
+      "socket": [
+        "tcp-listen:*:*",
+        "tcp-connect",
+        "resolve-host",
+        "udp-bind:*:*",
+        "udp-send-to:*:*"
+      ]
+    }
+  ]
+}

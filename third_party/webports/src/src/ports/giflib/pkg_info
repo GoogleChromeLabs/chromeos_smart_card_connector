@@ -1,0 +1,7 @@
+NAME=giflib
+VERSION=4.2.1
+URL=http://downloads.sf.net/project/giflib/giflib-4.x/giflib-4.2.1.tar.bz2
+LICENSE=CUSTOM:COPYING
+DEPENDS=(nacl-spawn)
+SHA1=82d5db53cf2cd19f09f511d40ff45ce80ab3ba8f
+DISABLED_TOOLCHAIN=(emscripten)

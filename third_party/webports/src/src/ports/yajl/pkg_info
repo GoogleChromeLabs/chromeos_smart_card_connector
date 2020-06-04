@@ -1,0 +1,8 @@
+NAME=yajl
+VERSION=2.0.4
+URL=http://github.com/lloyd/yajl/archive/2.0.4/yajl-2.0.4.zip
+LICENSE=BSD
+# undefined __isinf
+DISABLED_LIBC=(bionic)
+SHA1=7751068e7b6b1859aeb7e6e2f5c534e84a9610f6
+DISABLED_TOOLCHAIN=(emscripten)

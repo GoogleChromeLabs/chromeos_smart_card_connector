@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Lua Interpreter</title>
+    <META HTTP-EQUIV="Pragma" CONTENT="no-cache" />
+    <META HTTP-EQUIV="Expires" CONTENT="-1" />
+    <script type="text/javascript" src="hterm.concat.js"></script>
+    <script type="text/javascript" src="pipeserver.js"></script>
+    <script type="text/javascript" src="naclprocess.js"></script>
+    <script type="text/javascript" src="naclterm.js"></script>
+    <script type="text/javascript" src="lua.js"></script>
+
+    <style type="text/css">
+      #terminal {
+        position: relative;
+        display: block;
+        width: 95%;
+        height: 400px;
+      }
+    </style>
+  </head>
+  <body>
+    <p><b>Lua Interpreter</b></p>
+    <p>This example shoes the Lua interpreter running in Native Client.  By
+    default it runs the an interactive REPL (Run Eval Print Loop), but can also
+    run Lua files from its virtual file system.</p>
+    The filesystem is pre-populated with the Lua unit test suite as well as
+    a couple of Lua benchmarks. For can run these by passing the arguments to
+    the Lua executable on as URL parameters.  For example, you can run the 
+    <a href="index.html?pwd=/mnt/http/lua-5.3.0-tests&arg1=-e_U%3dtrue&arg2=all.lua">unit tests</a> or
+    the <a href="index.html?arg1=/mnt/http/scimark.lua">SciMark</a> or <a
+    href="index.html?arg1=/mnt/http/binarytrees.lua">binarytrees</a>
+    benchmarks. You can also write your own files the virtual filesystem using
+    the button below. These files will be written to the HTML5 persistent
+    filesystem which is mounted at '/mnt/html5' within Lua's virtual
+    filesystem.</p>
+    <input type="file" id="upload" multiple="multiple" onchange="uploadFiles" />
+    <div id="log"></div>
+    <div id="terminal"></div>
+  </body>
+</html>

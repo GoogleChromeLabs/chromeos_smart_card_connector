@@ -1,0 +1,81 @@
+diff --git a/unix/configure b/unix/configure
+--- a/unix/configure
++++ b/unix/configure
+@@ -10916,7 +10916,10 @@ _ACEOF
+ fi
+ 
+ 
+-if test "`uname -s`" = "Darwin" && test "${TCL_THREADS}" = 1 && \
++# NOTE: Switching `uname -s` = "Darwin" to notDarwin here and several other
++# locations. Use of this check for the system type causes a cross compile done
++# on an osx system to try to include osx specific features in the target build.
++if test "`uname -s`" = "notDarwin" && test "${TCL_THREADS}" = 1 && \
+ 	test "`uname -r | awk -F. '{print $1}'`" -lt 7; then
+     # prior to Darwin 7, realpath is not threadsafe, so don't
+     # use it when threads are enabled, c.f. bug # 711232
+@@ -12522,7 +12525,7 @@ _ACEOF
+ 
+ fi
+ 
+-    if test "`uname -s`" = "Darwin" && \
++    if test "`uname -s`" = "notDarwin" && \
+ 	    test "`uname -r | awk -F. '{print $1}'`" -gt 5; then
+ 	# Starting with Darwin 6 (Mac OSX 10.2), gethostbyX
+ 	# are actually MT-safe as they always return pointers
+@@ -17347,7 +17350,7 @@ fi
+ # Darwin specific API checks and defines
+ #--------------------------------------------------------------------
+ 
+-if test "`uname -s`" = "Darwin" ; then
++if test "`uname -s`" = "notDarwin" ; then
+ 
+ for ac_func in getattrlist
+ do
+@@ -19023,7 +19026,7 @@ _ACEOF
+ 
+     DTRACE_SRC="\${DTRACE_SRC}"
+     DTRACE_HDR="\${DTRACE_HDR}"
+-    if test "`uname -s`" != "Darwin" ; then
++    if test "`uname -s`" != "notDarwin" ; then
+ 	DTRACE_OBJ="\${DTRACE_OBJ}"
+ 	if test "`uname -s`" = "SunOS" -a "$SHARED_BUILD" = "0" ; then
+ 	    # Need to create an intermediate object file to ensure tclDTrace.o
+@@ -19139,9 +19142,9 @@ HTML_DIR='$(DISTDIR)/html'
+ # AIX remembers this path and will attempt to use it at run-time to look
+ # up the Tcl library.
+ 
+-if test "`uname -s`" = "Darwin" ; then
++if test "`uname -s`" = "notDarwin" ; then
+ 
+-    if test "`uname -s`" = "Darwin" ; then
++    if test "`uname -s`" = "notDarwin" ; then
+ 	echo "$as_me:$LINENO: checking how to package libraries" >&5
+ echo $ECHO_N "checking how to package libraries... $ECHO_C" >&6
+ 	# Check whether --enable-framework or --disable-framework was given.
+diff --git a/unix/tclAppInit.c b/unix/tclAppInit.c
+--- a/unix/tclAppInit.c
++++ b/unix/tclAppInit.c
+@@ -32,6 +32,10 @@ extern Tcl_PackageInitProc Tclxttest_Init;
+  * #if checks for that #define and uses Tcl_AppInit if it does not exist.
+  */
+ 
++#if defined(__native_client__) && defined(__GLIBC__)
++#define MODULE_SCOPE extern __attribute__ ((visibility ("default")))
++#endif
++
+ #ifndef TCL_LOCAL_APPINIT
+ #define TCL_LOCAL_APPINIT Tcl_AppInit
+ #endif
+diff --git a/unix/tclUnixCompat.c b/unix/tclUnixCompat.c
+--- a/unix/tclUnixCompat.c
++++ b/unix/tclUnixCompat.c
+@@ -99,7 +99,8 @@ static Tcl_Mutex compatLock;
+ #undef NEED_COPYPWD
+ #undef NEED_COPYSTRING
+ 
+-#if !defined(HAVE_GETGRNAM_R_5) && !defined(HAVE_GETGRNAM_R_4)
++#if (!defined(HAVE_GETGRNAM_R_5) && !defined(HAVE_GETGRNAM_R_4)) \
++  || (!defined(HAVE_GETGRGID_R_5) && !defined(HAVE_GETGRGID_R_4))
+ #define NEED_COPYGRP 1
+ static int		CopyGrp(struct group *tgtPtr, char *buf, int buflen);
+ #endif

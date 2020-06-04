@@ -1,0 +1,7 @@
+NAME=texinfo
+VERSION=6.0
+URL=http://ftp.gnu.org/gnu/texinfo/texinfo-6.0.tar.gz
+LICENSE="GPL v3"
+DEPENDS=(libtar nacl-spawn glibc-compat)
+SHA1=110d45256c4219c88dc2fdb8c9c1a20749e4e7c5
+DISABLED_TOOLCHAIN=(emscripten bionic)

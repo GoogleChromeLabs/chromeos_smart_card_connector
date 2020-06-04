@@ -1,0 +1,12 @@
+_zerror
+__zversion
+__zdevice
+_zconstants
+_zstopwatch
+__zpoll
+_zmessage
+_zcontext
+_zsocket
+_zrebuffer
+_zinitthreads
+_zmonitoredqueue 

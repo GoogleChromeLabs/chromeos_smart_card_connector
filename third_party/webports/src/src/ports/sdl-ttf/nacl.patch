@@ -1,0 +1,11 @@
+diff --git a/Makefile.in b/Makefile.in
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -39,7 +39,6 @@ PRE_UNINSTALL = :
+ POST_UNINSTALL = :
+ build_triplet = @build@
+ host_triplet = @host@
+-noinst_PROGRAMS = showfont$(EXEEXT) glfont$(EXEEXT)
+ subdir = .
+ DIST_COMMON = README $(am__configure_deps) \
+ 	$(libSDL_ttfinclude_HEADERS) $(srcdir)/Makefile.am \

@@ -1,0 +1,34 @@
+				pico_thread
+
+			      bsy@cs.ucsd.edu
+				 Mar, 1996
+
+This is a portable, machine independent coroutine threads package.  It
+was written in 1994 while I was a graduate student at Carnegie Mellon.
+In 1996, I added the pico_select interface to integrate in I/O
+operations because I wanted to build a coroutine based Web server.
+
+The portability of this coroutine package stems from its design around
+the ubiquitious setjmp/longjmp primitives, which suffices for the
+basic context-switching needed by coroutine threads.  The only machine
+(operating system, really) dependency is whether POSIX style signals
+are supported, or whether pre-4.4 Berkeley style signals are provided;
+and whether POSIX style setjmp (vs sigsetjmp) are provided, or whether
+Berkeley _setjmp (vs setjmp) are to be used.  Knowledge about signals
+is needed since pico_thread blocks signals while it is doing its
+bookkeeping and while it is context switching between threads to hide
+the threading details from user-supplied signal handlers.
+
+TO DO
+
+A complete, transparent, and stackable syscall emulation library (as
+an separate layer, not integrated into pico_thread since it may not be
+desired) to make writing coroutine threads easier.
+
+Preemption via interval timer clocks.
+
+Stack usage estimates; stack overflow panics.
+
+Complete the pico_io interface to provide stdio-like I/O which uses
+pico_select internally to permit threads to perform (disjoint) I/O
+operations.

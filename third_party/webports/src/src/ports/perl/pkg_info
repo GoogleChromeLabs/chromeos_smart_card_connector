@@ -1,0 +1,13 @@
+NAME=perl
+VERSION=5.20.2
+URL=http://www.cpan.org/src/5.0/perl-5.20.2.tar.gz
+LICENSE=GPL
+DEPENDS=(glibc-compat libtar nacl-spawn)
+# build broken under mac
+# TODO(agaurav77) remove this after the issue is resolved
+# issue at http://code.google.com/p/naclports/issues/detail?id=220
+BUILD_OS=linux
+SHA1=07263da0703d97733a4d51bf77192039462d4a5a
+# glibc/arm: missing sys/prctl.h
+# https://code.google.com/p/nativeclient/issues/detail?id=4250
+DISABLED_TOOLCHAIN=(bionic glibc/arm)

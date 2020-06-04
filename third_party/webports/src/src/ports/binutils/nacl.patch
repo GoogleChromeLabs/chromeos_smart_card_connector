@@ -1,0 +1,99 @@
+diff --git a/bfd/elf32-i386.c b/bfd/elf32-i386.c
+--- a/bfd/elf32-i386.c
++++ b/bfd/elf32-i386.c
+@@ -3807,7 +3807,7 @@ elf_i386_relocate_section (bfd *output_bfd,
+ 	      if (ELF32_R_TYPE (rel->r_info) == R_386_TLS_GD)
+ 		{
+ 		  unsigned int type;
+-		  bfd_vma roff;
++		  bfd_vma roff = 0;
+ 
+ 		  /* GD->LE transition.  */
+ 		  type = bfd_get_8 (input_bfd, contents + rel->r_offset - 2);
+@@ -4163,7 +4163,7 @@ elf_i386_relocate_section (bfd *output_bfd,
+ 	  else if (ELF32_R_TYPE (rel->r_info) == R_386_TLS_GD)
+ 	    {
+ 	      unsigned int val, type;
+-	      bfd_vma roff;
++	      bfd_vma roff = 0;
+ 
+ 	      /* GD->IE transition.  */
+ 	      type = bfd_get_8 (input_bfd, contents + rel->r_offset - 2);
+diff --git a/binutils/Makefile.in b/binutils/Makefile.in
+--- a/binutils/Makefile.in
++++ b/binutils/Makefile.in
+@@ -332,7 +332,7 @@ LIBICONV = @LIBICONV@
+ LIBINTL = @LIBINTL@
+ LIBINTL_DEP = @LIBINTL_DEP@
+ LIBOBJS = @LIBOBJS@
+-LIBS = @LIBS@
++LIBS = @LIBS@ $(EXTRA_LIBS)
+ LIBTOOL = @LIBTOOL@
+ LIPO = @LIPO@
+ LN_S = @LN_S@
+@@ -484,7 +484,8 @@ AM_CPPFLAGS = -I. -I$(srcdir) -I../bfd -I$(BFDDIR) -I$(INCDIR) \
+ 	 @HDEFINES@ \
+ 	 @INCINTL@ \
+ 	 -DLOCALEDIR="\"$(datadir)/locale\"" \
+-	 -Dbin_dummy_emulation=$(EMULATION_VECTOR)
++	 -Dbin_dummy_emulation=$(EMULATION_VECTOR) \
++	 -Dmain=nacl_main
+ 
+ HFILES = \
+ 	arsup.h binemul.h bucomm.h budbg.h \
+diff --git a/gas/Makefile.in b/gas/Makefile.in
+--- a/gas/Makefile.in
++++ b/gas/Makefile.in
+@@ -197,7 +197,7 @@ LIBINTL = @LIBINTL@
+ LIBINTL_DEP = @LIBINTL_DEP@
+ LIBM = @LIBM@
+ LIBOBJS = @LIBOBJS@
+-LIBS = @LIBS@
++LIBS = @LIBS@ $(EXTRA_LIBS)
+ LIBTOOL = @LIBTOOL@
+ LIPO = @LIPO@
+ LN_S = @LN_S@
+@@ -640,7 +640,8 @@ INCDIR = $(BASEDIR)/include
+ # subdirectory rather than in the source directory.
+ AM_CPPFLAGS = -I. -I$(srcdir) -I../bfd -I$(srcdir)/config \
+ 	-I$(INCDIR) -I$(srcdir)/.. -I$(BFDDIR) @INCINTL@ \
+-	-DLOCALEDIR="\"$(datadir)/locale\""
++	-DLOCALEDIR="\"$(datadir)/locale\"" \
++	-Dmain=nacl_main
+ 
+ 
+ # How to link with both our special library facilities
+diff --git a/ld/Makefile.in b/ld/Makefile.in
+--- a/ld/Makefile.in
++++ b/ld/Makefile.in
+@@ -448,7 +448,8 @@ TEXI2DVI = texi2dvi -I $(srcdir) -I $(BFDDIR)/doc -I ../bfd/doc \
+ 
+ AM_CPPFLAGS = -I. -I$(srcdir) -I../bfd -I$(BFDDIR) -I$(INCDIR) \
+ 	@INCINTL@ $(HDEFINES) $(CFLAGS) $(PLUGIN_CFLAGS) \
+-	-DLOCALEDIR="\"$(datadir)/locale\""
++	-DLOCALEDIR="\"$(datadir)/locale\"" \
++	-Dmain=nacl_main
+ 
+ BFDLIB = ../bfd/libbfd.la
+ LIBIBERTY = ../libiberty/libiberty.a
+@@ -890,7 +891,7 @@ ld_new_SOURCES = ldgram.y ldlex-wrapper.c lexsup.c ldlang.c mri.c ldctor.c ldmai
+ 	ldwrite.c ldexp.c ldemul.c ldver.c ldmisc.c ldfile.c ldcref.c $(PLUGIN_C)
+ 
+ ld_new_DEPENDENCIES = $(EMULATION_OFILES) $(EMUL_EXTRA_OFILES) $(BFDLIB) $(LIBIBERTY) $(LIBINTL_DEP)
+-ld_new_LDADD = $(EMULATION_OFILES) $(EMUL_EXTRA_OFILES) $(BFDLIB) $(LIBIBERTY) $(LIBINTL)
++ld_new_LDADD = $(EMULATION_OFILES) $(EMUL_EXTRA_OFILES) $(BFDLIB) $(LIBIBERTY) $(LIBINTL) $(EXTRA_LIBS)
+ 
+ # A test program for C++ constructors and destructors.
+ # This test is now in the testsuite.
+@@ -1072,7 +1073,10 @@ deffilep.h: deffilep.c
+ 	else :; fi
+ ld-new$(EXEEXT): $(ld_new_OBJECTS) $(ld_new_DEPENDENCIES) 
+ 	@rm -f ld-new$(EXEEXT)
+-	$(LINK) $(ld_new_OBJECTS) $(ld_new_LDADD) $(LIBS)
++	# ./ldscripts/* will be read during this link and it messes up the
++	# link result because ./ldscripts contains the linker script for
++	# statically linked binaries. So, we temporary rename it.
++	mv ldscripts ldscripts.tmp && ($(LINK) $(ld_new_OBJECTS) $(ld_new_LDADD) $(LIBS) || (mv bar foo && false)) && mv ldscripts.tmp ldscripts
+ 
+ mostlyclean-compile:
+ 	-rm -f *.$(OBJEXT)

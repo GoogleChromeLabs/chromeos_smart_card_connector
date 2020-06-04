@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>curl</title>
+    <META HTTP-EQUIV="Pragma" CONTENT="no-cache" />
+    <META HTTP-EQUIV="Expires" CONTENT="-1" />
+    <script type="text/javascript" src="hterm.concat.js"></script>
+    <script type="text/javascript" src="pipeserver.js"></script>
+    <script type="text/javascript" src="naclprocess.js"></script>
+    <script type="text/javascript" src="naclterm.js"></script>
+    <script type="text/javascript" src="curl.js"></script>
+
+    <style type="text/css">
+      #terminal {
+        width: 90%;
+        height: 500px;
+        position: relative;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>curl example application</h1>
+    <p>This page embeds the curl executable (command line interface to libcurl)
+    built with NaCl.  Because it needs to use the chrome socket API, chrome
+    must be lunched with --allow-nacl-socket-api=localhost (or whatever host
+    you are loading this page from).</p>
+    Arguments can be passed to curl using the following form, or by adding
+    "arg1", "arg2", etc to the URL query paramaters.
+    <form>
+      Arg1: <input type="text" name="arg1" value="--verbose">
+      Arg2: <input type="text" name="arg2" value="--insecure">
+      Arg4: <input type="text" name="arg3" value="https://www.google.com">
+      <input type="submit" value="Run">
+    </form>
+    <p>The terminal window below shows the output of curl.</p>
+    <div id="terminal"></div>
+  </body>
+</html>

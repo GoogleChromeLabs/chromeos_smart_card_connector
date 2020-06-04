@@ -1,0 +1,9 @@
+NAME=lua
+VERSION=5.3.0
+ARCHIVE_ROOT=lua-5.3.0
+URL=http://www.lua.org/ftp/lua-5.3.0.tar.gz
+LICENSE=MIT
+DEPENDS=(readline nacl-spawn glibc-compat)
+DISABLED_LIBC=(bionic)
+SHA1=1c46d1c78c44039939e820126b86a6ae12dadfba
+DISABLED_TOOLCHAIN=(emscripten)

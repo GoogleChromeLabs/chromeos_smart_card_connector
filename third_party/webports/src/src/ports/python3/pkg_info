@@ -1,0 +1,11 @@
+NAME=python3
+VERSION=3.4.2
+ARCHIVE_ROOT=Python-3.4.2
+URL=http://python.org/ftp/python/3.4.2/Python-3.4.2.tar.xz
+LICENSE=CUSTOM:LICENSE
+# missing decimal_point member in lconv struct lconv.
+DISABLED_LIBC=(bionic)
+BUILD_OS=linux
+DEPENDS=(readline zlib bzip2 gettext)
+SHA1=0727d8a8498733baabe6f51632b9bab0cbaa9ada
+DISABLED_TOOLCHAIN=(emscripten)

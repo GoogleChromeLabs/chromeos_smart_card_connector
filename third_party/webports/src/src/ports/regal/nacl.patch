@@ -1,0 +1,609 @@
+diff --git a/.travis.yml b/.travis.yml
+--- a/.travis.yml
++++ b/.travis.yml
+@@ -19,10 +19,14 @@ install:
+  - "if [ \"$SYSTEM\" = linux ]; then sudo apt-get install libxmu-dev libxi-dev; fi"
+ env:
+  - SYSTEM=linux
+- - SYSTEM=nacl-i686
++ - SYSTEM=nacl-x86_64 TOOLCHAIN=clang-newlib
++ - SYSTEM=nacl-x86_64 TOOLCHAIN=glibc
+  - SYSTEM=nacl-x86_64
++ - SYSTEM=nacl-i686
+  - SYSTEM=nacl-arm
++ - SYSTEM=nacl-pnacl
+  - MODE=debug SYSTEM=linux
+- - MODE=debug SYSTEM=nacl-i686
+  - MODE=debug SYSTEM=nacl-x86_64
++ - MODE=debug SYSTEM=nacl-i686
+  - MODE=debug SYSTEM=nacl-arm
++ - MODE=debug SYSTEM=nacl-pnacl
+diff --git a/Makefile.glu b/Makefile.glu
+--- a/Makefile.glu
++++ b/Makefile.glu
+@@ -36,7 +36,6 @@ GLU.OBJS       := $(GLU.OBJS:.c=.o) $(GLU.OBJS:.cc=.o)
+ GLU.OBJS       := $(filter %.o,$(GLU.OBJS))
+ GLU.DEPS       := $(GLU.OBJS:.o=.d)
+ GLU.LIBS       := -Llib/$(SYSTEM) -lRegal
+-GLU.LIBS       += -lstdc++
+ GLU.LIBS       += -pthread -lm
+ 
+ -include $(GLU.DEPS)
+diff --git a/Makefile.nacl b/Makefile.nacl
+--- a/Makefile.nacl
++++ b/Makefile.nacl
+@@ -37,9 +37,8 @@ NACL.SRCS.NAMES := $(notdir $(NACL.SRCS))
+ NACL.OBJS       := $(addprefix tmp/$(SYSTEM)/nacl/static/,$(NACL.SRCS.NAMES))
+ NACL.OBJS       := $(NACL.OBJS:.c=.o)
+ NACL.CFLAGS     := -Iinclude
+-NACL.CFLAGS     += -DREGAL_NAMESPACE=1
+-NACL.LIBS       += -Llib/$(SYSTEM) -lRegallib -lglslopt -lpnglib -lzlib
+-NACL.LIBS       += -lm -pthread -lppapi -lppapi_gles2 -lstdc++
++NACL.LIBS       += -Llib/$(SYSTEM) -lRegal -lglslopt -lpnglib -lzlib
++NACL.LIBS       += -lm -pthread -lppapi -lppapi_gles2
+ 
+ -include $(NACL.DEPS)
+ 
+diff --git a/Makefile.regal b/Makefile.regal
+--- a/Makefile.regal
++++ b/Makefile.regal
+@@ -18,11 +18,17 @@ include build/regal.inc
+ export:
+ 	python scripts/Export.py --api gl 4.5 --api wgl 4.5 --api glx 4.5 --api cgl 1.4 --api egl 1.0 --outdir .
+ 
+-# Shared library target not currently supported for NaCL or emscripten
++# Shared library target not currently supported for emscripten
+ 
+-ifneq ($(filter nacl% emscripten%,$(SYSTEM)),)
++ifneq ($(filter emscripten%,$(SYSTEM)),)
++REGAL.SHARED :=
++endif
++
++ifneq ($(filter nacl%,$(SYSTEM)),)
++ifneq ($(filter pnacl% newlib% clang-newlib%,$(TOOLCHAIN)),)
+ REGAL.SHARED :=
+ endif
++endif
+ 
+ ifdef REGAL.STATIC
+ 
+@@ -37,13 +43,7 @@ clean:: regal.clean
+ 
+ framework:: regal.framework
+ 
+-REGAL.LDFLAGS        := 
+-
+-ifeq ($(filter nacl%,$(SYSTEM)),)
+-REGAL.LDFLAGS        += -lstdc++
+-endif
+-
+-REGAL.LDFLAGS        += -pthread -lm
++REGAL.LDFLAGS        := -pthread -lm
+ REGAL.LIBS           :=
+ 
+ ifeq ($(filter nacl%,$(SYSTEM)),)
+@@ -114,22 +114,12 @@ endif
+ # NaCL options
+ 
+ ifneq ($(filter nacl%,$(SYSTEM)),)
+-REGAL.CFLAGS  += -DREGAL_SYS_ES2=1
+-REGAL.CFLAGS  += -DREGAL_HTTP=0 
++REGAL.CFLAGS  += -DREGAL_HTTP=0
+ REGAL.CFLAGS  += -DREGAL_STATISTICS=0
+-REGAL.CFLAGS  += -Wno-constant-logical-operand
+ REGAL.CFLAGS  += -DREGAL_PLUGIN=0
+ REGAL.CFLAGS  += -DREGAL_TRACE=0
+-REGAL.CFLAGS  += -DREGAL_NAMESPACE=1 -DREGAL_STATIC_ES2
+ REGAL_LOG    = 0
+ REGAL_NO_TLS = 1
+-
+-# Enabling this requires the library to be built with it, as well as all code
+-# that uses it.  Defining this means that Regal will link statically to GL
+-# and EGL, and code will have to #include <GL/Regal.h> before any GL
+-# includes to pull in a bunch of #defines (e.g. #define glGetError rglGetError)
+-#LIB.CFLAGS  += -DREGAL_SYS_EMSCRIPTEN_STATIC=1
+-
+ endif
+ 
+ #
+@@ -152,8 +142,6 @@ REGAL_DEBUG   := 0
+ REGAL_NO_TLS  := 1
+ endif
+ 
+-#
+-
+ ifneq ($(REGAL_LOG),)
+ REGAL.CFLAGS         += -DREGAL_LOG=$(REGAL_LOG)
+ endif
+@@ -204,12 +192,14 @@ REGAL.SDEPS          := $(LIBS.SOBJS:.o=.d)
+ 
+ REGAL.LIBS           += $(LDFLAGS.X11)
+ 
+-ifneq ($(filter linux%,$(SYSTEM)),)
++ifneq ($(filter nacl% linux%,$(SYSTEM)),)
++ifeq ($(filter newlib% pnacl% clang-newlib%,$(TOOLCHAIN)),)
+ REGAL.SONAME     := lib$(NAME).so.$(SO_MAJOR)
+ REGAL.DEVLNK     := lib$(NAME).so
+ REGAL.SHARED     := lib$(NAME).so.$(SO_VERSION)
+ REGAL.LDFLAGS.SO := $(LDFLAGS.SO) $(LDFLAGS.DYNAMIC) -Wl,-soname=$(REGAL.SONAME)
+ endif
++endif
+ 
+ ifneq ($(filter darwin%,$(SYSTEM)),)
+ OPENGL_NAME      := OpenGL
+@@ -264,12 +254,6 @@ ifdef APITRACE.STATIC
+ lib/$(SYSTEM)/$(REGAL.STATIC): lib/$(SYSTEM)/$(APITRACE.STATIC) lib/$(SYSTEM)/$(SNAPPY.STATIC)
+ endif
+ 
+-ifneq ($(filter nacl%,$(SYSTEM)),)
+-ifeq ($(NACL_LIBC),glibc)
+-regal.lib: lib/$(SYSTEM)/$(REGAL.SHARED)
+-endif
+-endif
+-
+ lib/$(SYSTEM)/$(REGAL.STATIC): lib/$(SYSTEM)/$(GLSLOPT.STATIC) lib/$(SYSTEM)/$(PCRE.STATIC) lib/$(SYSTEM)/$(LIBPNG.STATIC) lib/$(SYSTEM)/$(ZLIB.STATIC) $(REGAL.OBJS)
+ 	@mkdir -p $(dir $@)
+ 	$(LOG_AR)$(CCACHE) $(AR) cr $@ $(REGAL.OBJS)
+diff --git a/Makefile.regaltest b/Makefile.regaltest
+--- a/Makefile.regaltest
++++ b/Makefile.regaltest
+@@ -7,7 +7,7 @@ include build/common.inc
+ 
+ # Not supported for Emscripten - Revisit
+ 
+-ifeq ($(filter emscripten% nacl-pnacl,$(SYSTEM)),)
++ifeq ($(filter emscripten%,$(SYSTEM)),)
+ 
+ include build/regaltest.inc
+ 
+@@ -58,15 +58,24 @@ tmp/$(SYSTEM)/regaltest/static/%.o: tests/%.cpp
+ 	@mkdir -p $(dir $@)
+ 	$(LOG_CXX)$(CCACHE) $(CXX) $(REGAL.CFLAGS) $(REGALTEST.CFLAGS) $(CFLAGS) $(CFLAGS.SO) -o $@ -c $<
+ 
++ifeq ($(NACL_ARCH),pnacl)
++LINK_OUTPUT_EXT=.bc
++else
++LINK_OUTPUT_EXT=$(BIN_EXTENSION)
++endif
++
+ bin/$(SYSTEM)/regaltest$(BIN_EXTENSION): $(REGALTEST.OBJS) lib/$(SYSTEM)/$(GTEST.STATIC) lib/$(SYSTEM)/$(REGAL.STATIC) lib/$(SYSTEM)/$(PCRE.STATIC) $(REGAL.SHARED.DEPEND)
+ 	@mkdir -p $(dir $@)
+ ifdef APITRACE.STATIC
+ 	$(LOG_LD)$(CCACHE) $(LD) $(LDFLAGS.EXTRA) -o $@ $(REGALTEST.OBJS) $(LDFLAGS.STARTGROUP) lib/$(SYSTEM)/$(REGAL.STATIC) lib/$(SYSTEM)/$(APITRACE.STATIC) $(LDFLAGS.ENDGROUP) $(REGAL.SHARED.DEPEND) $(REGAL.LIBS) $(REGALTEST.LIBS) lib/$(SYSTEM)/$(PCRE.STATIC) lib/$(SYSTEM)/$(GTEST.STATIC) $(REGAL.LDFLAGS)
+ else
+-	$(LOG_LD)$(CCACHE) $(LD) $(LDFLAGS.EXTRA) -o $@ $(REGALTEST.OBJS) lib/$(SYSTEM)/$(REGAL.STATIC) lib/$(SYSTEM)/$(PCRE.STATIC) $(REGAL.SHARED.DEPEND) $(REGAL.LIBS) $(REGALTEST.LIBS) lib/$(SYSTEM)/$(GTEST.STATIC) $(REGAL.LDFLAGS)
++	$(LOG_LD)$(CCACHE) $(LD) $(LDFLAGS.EXTRA) -o $(@:$(BIN_EXTENSION)=$(LINK_OUTPUT_EXT)) $(REGALTEST.OBJS) lib/$(SYSTEM)/$(REGAL.STATIC) lib/$(SYSTEM)/$(PCRE.STATIC) $(REGAL.SHARED.DEPEND) $(REGAL.LIBS) $(REGALTEST.LIBS) lib/$(SYSTEM)/$(GTEST.STATIC) $(REGAL.LDFLAGS)
+ endif
+ ifneq ($(STRIP),)
+-	$(LOG_STRIP)$(STRIP) -x $@
++	$(LOG_STRIP)$(STRIP) $(@:$(BIN_EXTENSION)=$(LINK_OUTPUT_EXT))
++endif
++ifeq ($(NACL_ARCH),pnacl)
++	$(LOG_FINALIZE)$(FINALIZE) -o $@ $(@:$(BIN_EXTENSION)=$(LINK_OUTPUT_EXT))
+ endif
+ 
+ ifneq ($(NACL_ARCH),arm)
+@@ -75,7 +84,10 @@ test: bin/$(SYSTEM)/regaltest$(BIN_EXTENSION)
+ ifeq ($(filter nacl%,$(SYSTEM)),)
+ 	$^
+ else
+-	"$(NACL_SDK_ROOT)/tools/sel_ldr.py" $^
++ifeq ($(NACL_ARCH),pnacl)
++	$(LOG_FINALIZE)$(TRANSLATE) -arch x86-64 -o $(^:.pexe=.nexe) $^
++endif
++	"$(NACL_SDK_ROOT)/tools/sel_ldr.py" $(^:.pexe=.nexe)
+ endif
+ endif
+ 
+diff --git a/Makefile.regalw b/Makefile.regalw
+--- a/Makefile.regalw
++++ b/Makefile.regalw
+@@ -12,18 +12,23 @@ include build/regal.inc
+ #
+ 
+ REGALW.STATIC    ?= libRegalW.a
+-REGALW.SHARED    ?= libRegal.so
++REGALW.SHARED    ?= libRegalW.so
+ 
+ # Static library target not yet supported
+ 
+ REGALW.STATIC :=
+ 
+-# Shared library target not currently supported for NaCL or emscripten
++# Shared library target not currently supported for emscripten
+ 
+-ifneq ($(filter nacl% emscripten%,$(SYSTEM)),)
++ifneq ($(filter emscripten%,$(SYSTEM)),)
+ REGALW.SHARED :=
+ endif
+ 
++ifneq ($(filter nacl%,$(SYSTEM)),)
++ifneq ($(filter pnacl% newlib% clang-newlib%,$(TOOLCHAIN)),)
++REGALW.SHARED :=
++endif
++endif
+ 
+ ifdef REGALW.SHARED
+ 
+@@ -31,7 +36,7 @@ all:: regalw.lib
+ 
+ clean:: regalw.clean
+ 
+-REGALW.LDFLAGS        := -lstdc++ -pthread -lm
++REGALW.LDFLAGS        := -pthread -lm
+ REGALW.LIBS           :=
+ 
+ REGALW.SRCS           := $(REGAL.CXX)
+@@ -78,7 +83,7 @@ REGALW.SDEPS          := $(LIBS.SOBJS:.o=.d)
+ 
+ REGALW.LIBS           += $(LDFLAGS.X11)
+ 
+-ifneq ($(filter linux%,$(SYSTEM)),)
++ifneq ($(filter linux% nacl%,$(SYSTEM)),)
+ REGALW.SONAME     := libRegalW.so.$(SO_MAJOR)
+ REGALW.DEVLNK     := libRegalW.so
+ REGALW.SHARED     := libRegalW.so.$(SO_VERSION)
+diff --git a/README.rst b/README.rst
+--- a/README.rst
++++ b/README.rst
+@@ -380,7 +380,8 @@ PPAPI and NaCl
+ 
+ * NACL_SDK_ROOT needs to be set
+ 
+-* NACL_LIBC=newlib is the default, specify glibc or pnacl as alternatives
++* TOOLCHAIN=newlib is the default, specify glibc/pnacl/clang-newlib as
++  alternatives
+ 
+ Questions and Answers
+ =====================
+diff --git a/build/glu.inc b/build/glu.inc
+--- a/build/glu.inc
++++ b/build/glu.inc
+@@ -102,9 +102,10 @@ GLU.CXX += src/glu/libnurbs/nurbtess/searchTree.cc
+ GLU.CFLAGS     := -Isrc/glu/include -Isrc/glu/libnurbs/interface -Isrc/glu/libnurbs/internals -Isrc/glu/libnurbs/nurbtess
+ GLU.CFLAGS     += -DLIBRARYBUILD
+ 
+-GLU.SHARED     := libRegalGLU.so
+-GLU.STATIC     := libRegalGLUlib.a
++GLU.STATIC     := libRegalGLU.a
+ 
+ ifneq ($(filter darwin%,$(SYSTEM)),)
+ GLU.SHARED     := libRegalGLU.dylib
++else
++GLU.SHARED     := libRegalGLU.so
+ endif
+diff --git a/build/regal.inc b/build/regal.inc
+--- a/build/regal.inc
++++ b/build/regal.inc
+@@ -153,5 +153,5 @@ ifeq ($(PROFILE_OS),Windows)
+ REGAL.INCLUDE   += -Isrc/glsl/include/c99
+ endif
+ 
+-REGAL.STATIC    ?= libRegallib.a
++REGAL.STATIC    ?= libRegal.a
+ REGAL.SHARED    ?= libRegal.so
+diff --git a/config/Makefile.linux b/config/Makefile.linux
+--- a/config/Makefile.linux
++++ b/config/Makefile.linux
+@@ -1,7 +1,7 @@
+ NAME = $(REGAL_NAME)
+ CC = cc
+ CXX = c++
+-LD = cc
++LD = c++
+ RANLIB :=
+ # don't use abi-dumper by default
+ # ABIDUMP = abi-dumper -bin-only -lver HEAD
+diff --git a/config/Makefile.linux-32 b/config/Makefile.linux-32
+--- a/config/Makefile.linux-32
++++ b/config/Makefile.linux-32
+@@ -1,7 +1,7 @@
+ NAME = $(REGAL_NAME)
+ CC = cc
+ CXX = c++
+-LD = cc
++LD = c++
+ RANLIB :=
+ EXT.DYNAMIC = so
+ PICFLAG = -fPIC
+diff --git a/config/Makefile.linux-64 b/config/Makefile.linux-64
+--- a/config/Makefile.linux-64
++++ b/config/Makefile.linux-64
+@@ -1,7 +1,7 @@
+ NAME = $(REGAL_NAME)
+ CC = cc
+ CXX = c++
+-LD = cc
++LD = c++
+ RANLIB :=
+ EXT.DYNAMIC = so
+ PICFLAG = -fPIC
+diff --git a/config/Makefile.nacl-arm b/config/Makefile.nacl-arm
+--- a/config/Makefile.nacl-arm
++++ b/config/Makefile.nacl-arm
+@@ -2,26 +2,36 @@ NACL_ARCH := arm
+ 
+ include config/nacl.inc
+ 
+-NACL_TOOLCHAIN := $(NACL_SDK_ROOT)/toolchain/$(NACL_OS)_arm_$(NACL_LIBC)
+-
++ifeq ($(TOOLCHAIN),clang-newlib)
++CC     := $(NACL_TOOLCHAIN)/bin/arm-nacl-clang
++CXX    := $(NACL_TOOLCHAIN)/bin/arm-nacl-clang++
++LD     := $(NACL_TOOLCHAIN)/bin/arm-nacl-clang++
++AR     := $(NACL_TOOLCHAIN)/bin/arm-nacl-ar
++OBJDUMP:= $(NACL_TOOLCHAIN)/bin/arm-nacl-objdump
++else
++NACL_TOOLCHAIN := $(NACL_SDK_ROOT)/toolchain/$(NACL_OS)_arm_$(TOOLCHAIN)
+ CC     := $(NACL_TOOLCHAIN)/bin/arm-nacl-gcc
+ CXX    := $(NACL_TOOLCHAIN)/bin/arm-nacl-g++
+ LD     := $(NACL_TOOLCHAIN)/bin/arm-nacl-g++
+ AR     := $(NACL_TOOLCHAIN)/bin/arm-nacl-ar
+ OBJDUMP:= $(NACL_TOOLCHAIN)/bin/arm-nacl-objdump
++endif
+ RANLIB :=
+ STRIP  ?=
+ 
+-#WARN += -Wno-unused-but-set-variable -Wno-maybe-uninitialized
+ BIN_EXTENSION = _arm.nexe
+ EXT.DYNAMIC = so
+ LIBDIR =
++CFLAGS.EXTRA += -Wno-sizeof-pointer-memaccess
++CFLAGS.EXTRA += -mfpu=vfp
+ LDFLAGS.GL =
+ LDFLAGS.GLU = -lRegalGLU
+ LDFLAGS.GLUT = -lRegalGLUT
+ LDFLAGS.STATIC =
++LDFLAGS.DYNAMIC = -shared
+ BIN.SUFFIX =
+ LIB.SONAME = lib$(NAME).so.$(SO_MAJOR)
+ LIB.DEVLNK = lib$(NAME).so
+ LIB.SHARED = lib$(NAME).so.$(SO_VERSION)
+ LIB.STATIC = lib$(NAME).a
++LDFLAGS.SO = $(LDFLAGS.DYNAMIC) -Wl,-soname=$(LIB.SONAME)
+diff --git a/config/Makefile.nacl-i686 b/config/Makefile.nacl-i686
+--- a/config/Makefile.nacl-i686
++++ b/config/Makefile.nacl-i686
+@@ -2,15 +2,21 @@ NACL_ARCH := i686
+ 
+ include config/nacl.inc
+ 
+-NACL_TOOLCHAIN := $(NACL_SDK_ROOT)/toolchain/$(NACL_OS)_x86_$(NACL_LIBC)
+-NACL_SEL_LDR   := $(NACL_SDK_ROOT)/tools/sel_ldr_x86_32
+-NACL_IRT       := $(NACL_SDK_ROOT)/tools/irt_core_x86_32.nexe
+-
++ifeq ($(TOOLCHAIN),clang-newlib)
++CC     := $(NACL_TOOLCHAIN)/bin/i686-nacl-clang
++CXX    := $(NACL_TOOLCHAIN)/bin/i686-nacl-clang++
++LD     := $(NACL_TOOLCHAIN)/bin/i686-nacl-clang++
++AR     := $(NACL_TOOLCHAIN)/bin/i686-nacl-ar
++OBJDUMP:= $(NACL_TOOLCHAIN)/bin/i686-nacl-objdump
++else
++NACL_TOOLCHAIN := $(NACL_SDK_ROOT)/toolchain/$(NACL_OS)_x86_$(TOOLCHAIN)
+ CC     := $(NACL_TOOLCHAIN)/bin/i686-nacl-gcc
+ CXX    := $(NACL_TOOLCHAIN)/bin/i686-nacl-g++
+ LD     := $(NACL_TOOLCHAIN)/bin/i686-nacl-g++
+ AR     := $(NACL_TOOLCHAIN)/bin/i686-nacl-ar
+ OBJDUMP:= $(NACL_TOOLCHAIN)/bin/i686-nacl-objdump
++endif
++
+ RANLIB :=
+ STRIP  ?=
+ 
+diff --git a/config/Makefile.nacl-pnacl b/config/Makefile.nacl-pnacl
+--- a/config/Makefile.nacl-pnacl
++++ b/config/Makefile.nacl-pnacl
+@@ -1,29 +1,26 @@
+ NACL_ARCH := pnacl
++TOOLCHAIN := pnacl
+ 
+ include config/nacl.inc
+ 
+ NACL_TOOLCHAIN := $(NACL_SDK_ROOT)/toolchain/$(NACL_OS)_pnacl
+ 
+-CC     := $(NACL_TOOLCHAIN)/bin/pnacl-clang
+-CXX    := $(NACL_TOOLCHAIN)/bin/pnacl-clang++
+-LD     := $(NACL_TOOLCHAIN)/bin/pnacl-clang++
+-AR     := $(NACL_TOOLCHAIN)/bin/pnacl-ar
+-RANLIB :=
+-STRIP  ?=
++CC        := $(NACL_TOOLCHAIN)/bin/pnacl-clang
++CXX       := $(NACL_TOOLCHAIN)/bin/pnacl-clang++
++LD        := $(NACL_TOOLCHAIN)/bin/pnacl-clang++
++AR        := $(NACL_TOOLCHAIN)/bin/pnacl-ar
++FINALIZE  := $(NACL_TOOLCHAIN)/bin/pnacl-finalize
++TRANSLATE := $(NACL_TOOLCHAIN)/bin/pnacl-translate
++RANLIB    := $(NACL_TOOLCHAIN)/bin/pnacl-ranlib
++STRIP     ?=
+ 
+ BIN_EXTENSION = .pexe
+-EXT.DYNAMIC = so
+ LIBDIR =
+-CFLAGS.EXTRA +=
++CFLAGS.EXTRA += -Wno-tautological-undefined-compare -Wno-unused-function
+ LDFLAGS.EXTRA +=
+ LDFLAGS.GL =
+ LDFLAGS.GLU = -lRegalGLU
+ LDFLAGS.GLUT = -lRegalGLUT
+ LDFLAGS.STATIC =
+-LDFLAGS.DYNAMIC = -shared
+ BIN.SUFFIX =
+-LIB.SONAME = lib$(NAME).so.$(SO_MAJOR)
+-LIB.DEVLNK = lib$(NAME).so
+-LIB.SHARED = lib$(NAME).so.$(SO_VERSION)
+ LIB.STATIC = lib$(NAME).a
+-LDFLAGS.SO = $(LDFLAGS.DYNAMIC) -Wl,-soname=$(LIB.SONAME)
+diff --git a/config/Makefile.nacl-x86_64 b/config/Makefile.nacl-x86_64
+--- a/config/Makefile.nacl-x86_64
++++ b/config/Makefile.nacl-x86_64
+@@ -2,15 +2,21 @@ NACL_ARCH := x86_64
+ 
+ include config/nacl.inc
+ 
+-NACL_TOOLCHAIN := $(NACL_SDK_ROOT)/toolchain/$(NACL_OS)_x86_$(NACL_LIBC)
+-NACL_SEL_LDR   := $(NACL_SDK_ROOT)/tools/sel_ldr_x86_64
+-NACL_IRT       := $(NACL_SDK_ROOT)/tools/irt_core_x86_64.nexe
+-
++ifeq ($(TOOLCHAIN),clang-newlib)
++CC     := $(NACL_TOOLCHAIN)/bin/x86_64-nacl-clang
++CXX    := $(NACL_TOOLCHAIN)/bin/x86_64-nacl-clang++
++LD     := $(NACL_TOOLCHAIN)/bin/x86_64-nacl-clang++
++AR     := $(NACL_TOOLCHAIN)/bin/x86_64-nacl-ar
++OBJDUMP:= $(NACL_TOOLCHAIN)/bin/x86_64-nacl-objdump
++else
++NACL_TOOLCHAIN := $(NACL_SDK_ROOT)/toolchain/$(NACL_OS)_x86_$(TOOLCHAIN)
+ CC     := $(NACL_TOOLCHAIN)/bin/x86_64-nacl-gcc
+ CXX    := $(NACL_TOOLCHAIN)/bin/x86_64-nacl-g++
+ LD     := $(NACL_TOOLCHAIN)/bin/x86_64-nacl-g++
+ AR     := $(NACL_TOOLCHAIN)/bin/x86_64-nacl-ar
+ OBJDUMP:= $(NACL_TOOLCHAIN)/bin/x86_64-nacl-objdump
++endif
++
+ RANLIB :=
+ STRIP  ?=
+ 
+diff --git a/config/nacl.inc b/config/nacl.inc
+--- a/config/nacl.inc
++++ b/config/nacl.inc
+@@ -6,13 +6,13 @@ endif
+ 
+ #
+ # Specify on the command-line:
+-#    NACL_LIBC=newlib
+-# or NACL_LIBC=glibc
++#    TOOLCHAIN=newlib
++# or TOOLCHAIN=glibc
+ #
+ 
+-NACL_LIBC ?= newlib
++TOOLCHAIN ?= newlib
+ 
+-ifeq ($(NACL_LIBC),glibc)
++ifeq ($(TOOLCHAIN),glibc)
+ PICFLAG = -fPIC
+ endif
+ 
+@@ -32,6 +32,10 @@ else
+   endif
+ endif
+ 
++ifeq ($(TOOLCHAIN),clang-newlib)
++NACL_TOOLCHAIN := $(NACL_SDK_ROOT)/toolchain/$(NACL_OS)_pnacl
++endif
++
+ # ccache by default hashes the compiler’s mtime and size, but this
+ # is insufficient for distinguising between glibc and newlib NaCl
+ # variants
+@@ -40,18 +44,18 @@ endif
+ # -rwxr-xr-x  2 user  user  384 Oct  1 09:21 pepper_25/toolchain/mac_x86_glibc/bin/i686-nacl-g++
+ # -rwxr-xr-x  2 user  user  384 Oct  1 09:21 pepper_25/toolchain/mac_x86_newlib/bin/i686-nacl-g++
+ #
+-# We catenate the SYSTEM variable, NACL_LIBC and NACL_SDK_ROOT for keeping
++# We catenate the SYSTEM variable, TOOLCHAIN and NACL_SDK_ROOT for keeping
+ # the glibc and newlib outputs separate, and per-sdk-version separate.
+ 
+-export CCACHE_COMPILERCHECK=echo $(SYSTEM)$(NACL_LIBC)$(NACL_SDK_ROOT)
++export CCACHE_COMPILERCHECK=echo $(SYSTEM)$(TOOLCHAIN)$(NACL_SDK_ROOT)
+ 
+ ifeq ($(NACL_ARCH),i686)
+-NACL_LIBTYPE=$(NACL_LIBC)_x86_32
++NACL_LIBTYPE=$(TOOLCHAIN)_x86_32
+ else
+ ifeq ($(NACL_ARCH),pnacl)
+ NACL_LIBTYPE=$(NACL_ARCH)
+ else
+-NACL_LIBTYPE=$(NACL_LIBC)_$(NACL_ARCH)
++NACL_LIBTYPE=$(TOOLCHAIN)_$(NACL_ARCH)
+ endif
+ endif
+ 
+@@ -68,6 +72,6 @@ NMF_FLAGS += -L$(NACL_SDK_ROOT)/lib/$(NACL_LIBTYPE)/Release
+ 
+ CFLAGS.EXTRA += -I$(NACL_SDK_ROOT)/include -MMD
+ WARN = -Wall -Wno-unused-parameter -Wno-char-subscripts -Wno-strict-aliasing
+-# WARN += -Werror
++#WARN += -Werror
+ CFLAGS.DEBUG = -g
+ CFLAGS.RELEASE = -O2
+diff --git a/nacl-regal.sh b/nacl-regal.sh
+--- a/nacl-regal.sh
++++ b/nacl-regal.sh
+@@ -10,22 +10,24 @@
+ #   - Pepper 25 is needed for the ARM build.
+ #   - Makefile needs to be specified for branches that have GNUmakefiles
+ #   - MODE=debug for debug-mode build
+-#   - NACL_LIBC=glibc on the command-line for glibc rather than newlib
++#   - TOOLCHAIN=glibc or clang-newlib to use and alternative to the default
++#     newlib toolchain.
+ #   - CCACHE=ccache is supported (and recommended)
+ 
+ set -e
+ 
+ echo "Building x86_64"
+ make -f Makefile SYSTEM=nacl-x86_64 $*
++make -f Makefile SYSTEM=nacl-x86_64 $* test
+ 
+ echo "Building i686"
+ make -f Makefile SYSTEM=nacl-i686 $*
++make -f Makefile SYSTEM=nacl-i686 $* test
+ 
+-if [ "$NACL_LIBC" != "glibc" ]; then
+-    # No glibc support as yet on ARM
+-    echo "Building ARM"
+-    make -f Makefile SYSTEM=nacl-arm $*
+-fi
++echo "Building ARM"
++make -f Makefile SYSTEM=nacl-arm $*
++make -f Makefile SYSTEM=nacl-arm $* test
+ 
+ echo "Building pnacl"
+ make -f Makefile SYSTEM=nacl-pnacl $*
++make -f Makefile SYSTEM=nacl-pnacl $* test
+diff --git a/src/apitrace/common/os_posix.cpp b/src/apitrace/common/os_posix.cpp
+--- a/src/apitrace/common/os_posix.cpp
++++ b/src/apitrace/common/os_posix.cpp
+@@ -123,7 +123,7 @@ getCurrentDir(void)
+     size_t size = PATH_MAX;
+     char *buf = path.buf(size);
+ 
+-    getcwd(buf, size);
++    buf = getcwd(buf, size);
+     buf[size - 1] = 0;
+     
+     path.truncate();
+diff --git a/src/regal/RegalContext.cpp b/src/regal/RegalContext.cpp
+--- a/src/regal/RegalContext.cpp
++++ b/src/regal/RegalContext.cpp
+@@ -698,7 +698,7 @@ void RegalContext::parkContext( DispatchTableGlobal & tbl )
+   //<> # error "Implement me!"
+   #endif
+ #if REGAL_SYS_PPAPI
+-  Init::makeCurrent(NULL,NULL);
++  Init::makeCurrent(0,NULL);
+ #else
+   Init::makeCurrent(NULL);
+ #endif
+diff --git a/src/regal/RegalShader.cpp b/src/regal/RegalShader.cpp
+--- a/src/regal/RegalShader.cpp
++++ b/src/regal/RegalShader.cpp
+@@ -233,7 +233,7 @@ namespace Shader {
+     bool	status;
+   };
+ 
+-  static inline void debug_print_ir (const char* name, exec_list* ir, _mesa_glsl_parse_state* state, void* memctx)
++  static inline void REGAL_UNUSED debug_print_ir (const char* name, exec_list* ir, _mesa_glsl_parse_state* state, void* memctx)
+   {
+     //_mesa_print_ir (ir, state);
+     Error( "GLSLOptimize debug **** ", name, ":",
+diff --git a/src/regal/RegalUtil.h b/src/regal/RegalUtil.h
+--- a/src/regal/RegalUtil.h
++++ b/src/regal/RegalUtil.h
+@@ -56,7 +56,7 @@
+ #endif
+ 
+ #ifndef REGAL_UNUSED
+-#if defined(__GNUC__) && !defined(__clang__)
++#if defined(__GNUC__)
+ #define REGAL_UNUSED __attribute__((unused))
+ #else
+ #define REGAL_UNUSED

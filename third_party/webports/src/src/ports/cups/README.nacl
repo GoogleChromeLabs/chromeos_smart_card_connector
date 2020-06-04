@@ -1,0 +1,3 @@
+This is only a partial port of cups. Its goal is to provide libcups and
+libcups-image libraries that printer drivers can link against. Network
+functionality is untested. The cups spooler is explicitly not part of this port.

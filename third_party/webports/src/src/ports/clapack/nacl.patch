@@ -1,0 +1,143 @@
+diff --git a/F2CLIBS/libf2c/Makefile b/F2CLIBS/libf2c/Makefile
+--- a/F2CLIBS/libf2c/Makefile
++++ b/F2CLIBS/libf2c/Makefile
+@@ -20,7 +20,7 @@ include $(TOPDIR)/make.inc
+ # compile, then strip unnecessary symbols
+ .c.o:
+ 	$(CC) -c -DSkip_f2c_Undefs $(CFLAGS) $*.c
+-	ld -r -x -o $*.xxx $*.o
++	$(LOADER) ${LDEMULATION} -r -o $*.xxx $*.o
+ 	mv $*.xxx $*.o
+ ## Under Solaris (and other systems that do not understand ld -x),
+ ## omit -x in the ld line above.
+@@ -72,8 +72,8 @@ OFILES = $(MISC) $(POW) $(CX) $(DCX) $(REAL) $(DBL) $(INT) \
+ all: f2c.h signal1.h sysdep1.h libf2c.a clapack_install
+ 
+ libf2c.a: $(OFILES)
+-	ar r libf2c.a $?
+-	-ranlib libf2c.a
++	$(ARCH) r libf2c.a $?
++	-$(RANLIB) libf2c.a
+ 
+ ## Shared-library variant: the following rule works on Linux
+ ## systems.  Details are system-dependent.  Under Linux, -fPIC
+@@ -119,7 +119,7 @@ sysdep1.h: sysdep1.h0
+ 
+ install: libf2c.a
+ 	cp libf2c.a $(LIBDIR)
+-	-ranlib $(LIBDIR)/libf2c.a
++	-$(RANLIB) $(LIBDIR)/libf2c.a
+ 
+ clapack_install: libf2c.a
+ 	mv libf2c.a ..
+@@ -181,9 +181,11 @@ xwsne.o:	fio.h
+ xwsne.o:	lio.h
+ xwsne.o:	fmt.h
+ 
++BUILD_CC ?= $(CC)
++
+ arith.h: arithchk.c
+-	$(CC) $(CFLAGS) -DNO_FPINIT arithchk.c -lm ||\
+-	 $(CC) -DNO_LONG_LONG $(CFLAGS) -DNO_FPINIT arithchk.c -lm
++	$(BUILD_CC) $(BUILD_CFLAGS) -DNO_FPINIT arithchk.c -lm ||\
++	$(BUILD_CC) -DNO_LONG_LONG $(BUILD_CFLAGS) -DNO_FPINIT arithchk.c -lm
+ 	./a.out >arith.h
+ 	rm -f a.out arithchk.o
+ 
+diff --git a/Makefile b/Makefile
+--- a/Makefile
++++ b/Makefile
+@@ -16,8 +16,8 @@ lib: f2clib blaslib variants lapacklib tmglib
+ clean: cleanlib cleantesting cleanblas_testing 
+ 
+ lapack_install:
+-	( cd INSTALL; $(MAKE); ./testlsame; ./testslamch; \
+-	  ./testdlamch; ./testsecond; ./testdsecnd; ./testversion )
++	# only build it here, test binaries are executed from build.sh
++	( cd INSTALL; $(MAKE) )
+ 
+ blaslib:
+ 	( cd BLAS/SRC; $(MAKE) )
+diff --git a/make.inc b/make.inc
+new file mode 100644
+--- /dev/null
++++ b/make.inc
+@@ -0,0 +1,78 @@
++# -*- Makefile -*-
++####################################################################
++#  LAPACK make include file.                                       #
++#  LAPACK, Version 3.2.1                                           #
++#  June 2009		                                               #
++####################################################################
++#
++# See the INSTALL/ directory for more examples.
++#
++SHELL = /bin/sh
++#
++#  The machine (platform) identifier to append to the library names
++#
++PLAT = 
++#  
++#  Modify the FORTRAN and OPTS definitions to refer to the
++#  compiler and desired compiler options for your machine.  NOOPT
++#  refers to the compiler options desired when NO OPTIMIZATION is
++#  selected.  Define LOADER and LOADOPTS to refer to the loader
++#  and desired load options for your machine.
++#
++#######################################################
++# This is used to compile C libary
++#CC        = gcc
++# if no wrapping of the blas library is needed, uncomment next line
++CC        = ${NACLCC} -DNO_BLAS_WRAP
++CFLAGS    += -O3 -I$(TOPDIR)/INCLUDE
++LOADER    = ${NACLLD}
++LOADOPTS  =
++NOOPT     = -O0 -I$(TOPDIR)/INCLUDE
++DRVCFLAGS = $(CFLAGS)
++F2CCFLAGS = $(CFLAGS)
++#######################################################################
++
++#
++# Timer for the SECOND and DSECND routines
++#
++# Default : SECOND and DSECND will use a call to the EXTERNAL FUNCTION ETIME
++# TIMER    = EXT_ETIME
++# For RS6K : SECOND and DSECND will use a call to the EXTERNAL FUNCTION ETIME_
++# TIMER    = EXT_ETIME_
++# For gfortran compiler: SECOND and DSECND will use a call to the INTERNAL FUNCTION ETIME
++# TIMER    = INT_ETIME
++# If your Fortran compiler does not provide etime (like Nag Fortran Compiler, etc...)
++# SECOND and DSECND will use a call to the Fortran standard INTERNAL FUNCTION CPU_TIME 
++TIMER    = INT_CPU_TIME
++# If neither of this works...you can use the NONE value... In that case, SECOND and DSECND will always return 0
++# TIMER     = NONE
++#
++#  The archiver and the flag(s) to use when building archive (library)
++#  If you system has no ranlib, set RANLIB = echo.
++#
++ARCH     = ${NACLAR}
++ARCHFLAGS= cr
++RANLIB   = ${NACLRANLIB}
++#
++#  The location of BLAS library for linking the testing programs.
++#  The target's machine-specific, optimized BLAS library should be
++#  used whenever possible.
++#
++BLASLIB      = ../../libblas$(PLAT).a
++#
++#  Location of the extended-precision BLAS (XBLAS) Fortran library
++#  used for building and testing extended-precision routines.  The
++#  relevant routines will be compiled and XBLAS will be linked only if
++#  USEXBLAS is defined.
++#
++# USEXBLAS    = Yes
++XBLASLIB     =
++# XBLASLIB    = -lxblas
++#
++#  Names of generated libraries.
++#
++LAPACKLIB    = liblapack$(PLAT).a
++F2CLIB       = ../../F2CLIBS/libf2c.a
++TMGLIB       = tmglib$(PLAT).a
++EIGSRCLIB    = eigsrc$(PLAT).a
++LINSRCLIB    = linsrc$(PLAT).a

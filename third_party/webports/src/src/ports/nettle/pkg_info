@@ -1,0 +1,6 @@
+NAME=nettle
+VERSION=2.7
+URL=ftp://ftp.gnu.org/gnu/nettle/nettle-2.7.tar.gz
+DEPENDS=(gmp)
+LICENSE=LGPL
+SHA1=e17de3678b987841e88a724b7d2f6856d97ab139

@@ -1,0 +1,7 @@
+NAME=gdk-pixbuf
+VERSION=2.30.8
+URL=https://download.gnome.org/sources/gdk-pixbuf/2.30/gdk-pixbuf-2.30.8.tar.xz
+LICENSE=GPL
+DEPENDS=(glib jpeg8d tiff libpng tar libx11)
+SHA1=6277b4e5b5e334b3669f15ae0376e184be9e8cd8
+DISABLED_TOOLCHAIN=(emscripten)

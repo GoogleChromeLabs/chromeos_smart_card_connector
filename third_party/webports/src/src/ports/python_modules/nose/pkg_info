@@ -1,0 +1,6 @@
+NAME=nose
+VERSION=1.3.0
+URL=https://pypi.python.org/packages/source/n/nose/nose-1.3.0.tar.gz
+LICENSE=LGPL
+DEPENDS=(python-host)
+SHA1=bd1bb889e421948ca57595e9e8d52246cb308294

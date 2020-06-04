@@ -1,0 +1,6 @@
+NAME=libebml
+VERSION=1.3.1
+URL=http://dl.matroska.org/downloads/libebml/libebml-1.3.1.tar.bz2
+SHA1=3b49d15b6744ab4e53b624e3fd529e1f5717b523
+LICENSE=LGPL2.1
+DISABLED_TOOLCHAIN=(emscripten)
