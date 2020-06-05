@@ -253,11 +253,3 @@ endif
 #
 
 $(foreach toolchain,$(VALID_TOOLCHAINS),$(eval $(call CLEAN_RULE,$(toolchain))))
-
-
-#
-# Use a common Chrome profile directory, in order to avoid repeatedly going
-# through trouble of setting up a new profile on every run.
-#
-
-CHROME_ARGS += --user-data-dir=$(ROOT_PATH)/env/chrome_launcher_user_data_dir
