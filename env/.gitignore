@@ -1,4 +1,5 @@
 /activate
+/chrome_launcher_user_data_dir/
 /depot_tools/
 /nacl_sdk/
 /webports/
