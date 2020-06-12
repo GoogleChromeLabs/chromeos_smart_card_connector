@@ -249,7 +249,8 @@ Apps:
 *   The following tools should be present in the system: **bash**,
     **make**, **curl**, **sed**, **mktemp**, **realpath**, **xxd**.
 
-*   **Python 2.7**, including the dev package.
+*   **Python 2.7**, including the dev package and the **python-six**
+    module.
 
     Python 3.x is not supported yet.
 
