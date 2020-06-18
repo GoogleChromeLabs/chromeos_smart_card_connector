@@ -24,6 +24,7 @@
     "alwaysOnTopWindows",
     "loginState",
     "usb",
+    "browser",
     {
       "usbDevices": [
 ${usb_devices}
