@@ -69,7 +69,7 @@
   },
   "openHelp": {
     "message": "Help",
-    "description": "Title of the link that can be used to open the Help Articley page"
+    "description": "Title of the link that can be used to open the Help Article"
   },
   "exportLogs": {
     "message": "Export logs",
