@@ -67,6 +67,10 @@
     "message": "About",
     "description": "Title of the link that can be used to open the App's About page"
   },
+  "openHelp": {
+    "message": "Help",
+    "description": "Title of the link that can be used to open the Help Article page"
+  },
   "exportLogs": {
     "message": "Export logs",
     "description": "Title of the link that can be used to copy the logs into the clipboard"
