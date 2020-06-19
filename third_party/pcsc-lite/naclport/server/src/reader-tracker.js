@@ -27,17 +27,13 @@ goog.provide('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingCommon');
-goog.require('GoogleSmartCard.PcscLiteClient.API');
-goog.require('GoogleSmartCard.PcscLiteClient.Context');
 goog.require('GoogleSmartCard.PcscLiteClient.ReaderTrackerThroughPcscApi');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Promise');
 goog.require('goog.Timer');
 goog.require('goog.array');
-goog.require('goog.iter');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
-goog.require('goog.object');
 goog.require('goog.promise.Resolver');
 
 goog.scope(function() {

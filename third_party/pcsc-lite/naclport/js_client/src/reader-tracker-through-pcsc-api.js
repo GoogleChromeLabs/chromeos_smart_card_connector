@@ -60,9 +60,8 @@ const GSC = GoogleSmartCard;
 const API = GSC.PcscLiteClient.API;
 
 /**
- * This class tracks the readers, basing on the information from the PC/SC API
- * (i.e. on the public API, which is also provided to the external
- * applications).
+ * Starts tracking readers, which will work until an error occurs. Tracking is
+ * based on the information provided via the PC/SC API.
  *
  * First, this allows to obtain exactly the same information that is exposed to
  * the external applications.
@@ -128,6 +127,62 @@ ReaderTrackerThroughPcscApi.prototype.startStatusTracking_ = function(
 };
 
 /**
+ * Makes a promise of PC/SC client API instance.
+ * @param {!goog.messaging.AbstractChannel} pcscContextMessageChannel
+ * @return {!goog.Promise.<!API>}
+ * @private
+ */
+ReaderTrackerThroughPcscApi.prototype.makeApiPromise_ = function(
+    pcscContextMessageChannel) {
+  /** @type {!goog.promise.Resolver.<!API>} */
+  const promiseResolver = goog.Promise.withResolver();
+
+  const context = new GSC.PcscLiteClient.Context(
+      'internal reader tracker', null);
+  context.addOnInitializedCallback(
+      promiseResolver.resolve.bind(promiseResolver));
+  context.addOnDisposeCallback(function() {
+    promiseResolver.reject(new Error(
+        'Failed to obtain the client API instance: The PC/SC client context ' +
+        'was disposed'));
+  });
+  context.initialize(pcscContextMessageChannel);
+
+  return promiseResolver.promise;
+};
+
+/**
+ * Makes a promise of the established PC/SC context.
+ * @param {!API} api
+ * @return {!goog.Promise.<!API.SCARDCONTEXT>}
+ * @private
+ */
+ReaderTrackerThroughPcscApi.prototype.makeSCardContextPromise_ = function(api) {
+  /** @type {!goog.promise.Resolver.<!API.SCARDCONTEXT>} */
+  const promiseResolver = goog.Promise.withResolver();
+
+  api.SCardEstablishContext(
+      API.SCARD_SCOPE_SYSTEM,
+      /*opt_reserved_1=*/null,
+      /*opt_reserved_2=*/null).then(
+          function(result) {
+            result.get(
+                promiseResolver.resolve.bind(promiseResolver),
+                function(errorCode) {
+                  promiseResolver.reject(new Error(
+                      'Failed to establish a PC/SC context with error code ' +
+                      GSC.DebugDump.dump(errorCode)));
+                });
+          },
+          function(error) {
+            promiseResolver.reject(new Error(
+                'Failed to establish a PC/SC context: ' + error));
+          });
+
+  return promiseResolver.promise;
+};
+
+/**
  * Starts the tracking, given the PC/SC client API instance.
  * @param {!API} api
  * @private
@@ -175,13 +230,11 @@ ReaderTrackerThroughPcscApi.prototype.runStatusTrackingLoop_ = function(
     // If an intermittent error was returned from the previous request, then
     // just sleep for some time and repeat the tracking loop body; otherwise -
     // block on waiting for a notification from PC/SC that something is changed.
-    if (readerStates === null) {
+    if (readerStates === null)
       return goog.Timer.promise(READER_STATUS_FAILED_QUERY_DELAY_MILLISECONDS);
-    } else {
-      this.updateResultFromReaderStates_(readerStates);
-      return this.makeReaderStatesChangePromise_(
-          api, sCardContext, readerStates);
-    }
+    this.updateResultFromReaderStates_(readerStates);
+    return this.makeReaderStatesChangePromise_(
+        api, sCardContext, readerStates);
   }, null, this).then(function() {
     this.runStatusTrackingLoop_(api, sCardContext);
   }, null, this);
@@ -189,60 +242,7 @@ ReaderTrackerThroughPcscApi.prototype.runStatusTrackingLoop_ = function(
 };
 
 /**
- * Makes a promise of PC/SC client API instance.
- * @param {!goog.messaging.AbstractChannel} pcscContextMessageChannel
- * @return {!goog.Promise.<!API>}
- * @private
- */
-ReaderTrackerThroughPcscApi.prototype.makeApiPromise_ = function(
-    pcscContextMessageChannel) {
-  /** @type {!goog.promise.Resolver.<!API>} */
-  const promiseResolver = goog.Promise.withResolver();
-
-  const context = new GSC.PcscLiteClient.Context(
-      'internal reader tracker', null);
-  context.addOnInitializedCallback(
-      promiseResolver.resolve.bind(promiseResolver));
-  context.addOnDisposeCallback(function() {
-    promiseResolver.reject(new Error(
-        'Failed to obtain the client API instance: The PC/SC client context ' +
-        'was disposed'));
-  });
-  context.initialize(pcscContextMessageChannel);
-
-  return promiseResolver.promise;
-};
-
-/**
- * Makes a promise of the established PC/SC context.
- * @param {!API} api
- * @return {!goog.Promise.<!API.SCARDCONTEXT>}
- * @private
- */
-ReaderTrackerThroughPcscApi.prototype.makeSCardContextPromise_ = function(api) {
-  /** @type {!goog.promise.Resolver.<!API.SCARDCONTEXT>} */
-  const promiseResolver = goog.Promise.withResolver();
-
-  api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM, null, null).then(
-      function(result) {
-        result.get(
-            promiseResolver.resolve.bind(promiseResolver),
-            function(errorCode) {
-              promiseResolver.reject(new Error(
-                  'Failed to establish a PC/SC context with error code ' +
-                  GSC.DebugDump.dump(errorCode)));
-            });
-      },
-      function(error) {
-        promiseResolver.reject(new Error(
-            'Failed to establish a PC/SC context: ' + error));
-      });
-
-  return promiseResolver.promise;
-};
-
-/**
- * Makes a promise of reader names that are reported currently by PC/SC.
+ * Makes a promise of reader names that are currently reported by PC/SC.
  * @param {!API} api
  * @param {!API.SCARDCONTEXT} sCardContext
  * @return {!goog.Promise.<!Array.<string>>}
@@ -274,7 +274,7 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderNamesPromise_ = function(
 };
 
 /**
- * Makes a promise of reader states that are reported currently by PC/SC.
+ * Makes a promise of reader states that are currently reported by PC/SC.
  * @param {!API} api
  * @param {!API.SCARDCONTEXT} sCardContext
  * @param {!Array.<string>} readerNames
@@ -318,6 +318,22 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesPromise_ = function(
 };
 
 /**
+ * Updates the result reported by this instance, given the reader states
+ * obtained from a call to the SCardGetStatusChange function.
+ * @param {!Array.<!API.SCARD_READERSTATE_OUT>} readerStates
+ * @private
+ */
+ReaderTrackerThroughPcscApi.prototype.updateResultFromReaderStates_ = function(
+    readerStates) {
+  this.updateResult_(goog.array.map(readerStates, function(readerState) {
+    return {
+      name: readerState['reader_name'],
+      isCardPresent: (readerState['event_state'] & API.SCARD_STATE_PRESENT) != 0
+    };
+  }));
+};
+
+/**
  * Makes a promise that will be resolved once some change with the specified
  * state is detected, or when the timeout passes.
  *
@@ -326,10 +342,6 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesPromise_ = function(
  * SCardGetStatusChange function would notify only about those reader
  * adding/removing events that occurred during its call. So the reader
  * adding/removing may happen.
- *
- * FIXME(emaxx): Think whether it makes sense to make the implementation more
- * robust (even though it's completely unclear how to make it completely
- * race-free).
  * @param {!API} api
  * @param {!API.SCARDCONTEXT} sCardContext
  * @param {!Array.<!API.SCARD_READERSTATE_OUT>} previousReaderStatesOut
@@ -393,22 +405,6 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesChangePromise_ = function(
 };
 
 /**
- * Updates the result reported by this instance, given the reader states
- * obtained from a call to the SCardGetStatusChange function.
- * @param {!Array.<!API.SCARD_READERSTATE_OUT>} readerStates
- * @private
- */
-ReaderTrackerThroughPcscApi.prototype.updateResultFromReaderStates_ = function(
-    readerStates) {
-  this.updateResult_(goog.array.map(readerStates, function(readerState) {
-    return {
-      name: readerState['reader_name'],
-      isCardPresent: (readerState['event_state'] & API.SCARD_STATE_PRESENT) != 0
-    };
-  }));
-};
-
-/**
  * Updates the result reported by this instance, and fires the update listener
  * when necessary.
  * @param {!Array.<{name: string, isCardPresent: boolean}>} result
@@ -417,19 +413,20 @@ ReaderTrackerThroughPcscApi.prototype.updateResultFromReaderStates_ = function(
 ReaderTrackerThroughPcscApi.prototype.updateResult_ = function(result) {
   const isSame = goog.array.equals(
       result, this.result_, goog.object.equals.bind(goog.object));
-  if (!isSame) {
-    const dumpedResults = goog.array.map(result, function(readerInfo) {
-      return '"' + readerInfo.name + '"' +
-             (readerInfo.isCardPresent ? ' (with inserted card)' : '');
-    });
-    this.logger_.info(
-        'Information about readers returned by PC/SC: ' +
-        (dumpedResults.length ?
-             goog.iter.join(dumpedResults, ', ') : 'no readers'));
+  if (isSame)
+    return;
 
-    this.result_ = result;
-    this.updateListener_();
-  }
+  const dumpedResults = goog.array.map(result, function(readerInfo) {
+    return '"' + readerInfo.name + '"' +
+           (readerInfo.isCardPresent ? ' (with inserted card)' : '');
+  });
+  this.logger_.info(
+      'Information about readers returned by PC/SC: ' +
+      (dumpedResults.length ?
+           goog.iter.join(dumpedResults, ', ') : 'no readers'));
+
+  this.result_ = result;
+  this.updateListener_();
 };
 
 });  // goog.scope
