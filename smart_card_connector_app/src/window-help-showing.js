@@ -1,5 +1,5 @@
 /** @license
- * Copyright 2016 Google Inc. All Rights Reserved.
+ * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,25 +26,18 @@ goog.require('goog.events.EventType');
 
 goog.scope(function() {
 
-/** @const */
-var HELP_WINDOW_URL = 'https://support.google.com/chrome/a/answer/7014689';
+const HELP_WINDOW_URL = 'https://support.google.com/chrome/a/answer/7014689';
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/**
- * @type {!Element}
- * @const
- */
-var openHelpElement = /** @type {!Element} */ (goog.dom.getElement(
+const openHelpElement = /** @type {!Element} */ (goog.dom.getElement(
     'open-help'));
 
 /**
- * @param {!Event} e
+ * @param {!Event} event
  */
-function openHelpClickListener(e) {
-  e.preventDefault();
-  
+function openHelpClickListener(event) {
+  event.preventDefault();
   chrome.browser.openTab({url: HELP_WINDOW_URL});
 }
 
@@ -54,12 +47,3 @@ GSC.ConnectorApp.Window.HelpShowing.initialize = function() {
 };
 
 });  // goog.scope
-
-
-
-
-
-
-
-
-
