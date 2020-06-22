@@ -137,16 +137,26 @@ function getUserSelectedDevicesCallback(devices) {
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
-  var readerTrackerSubscriber =
+  /**
+   * Points to the "addOnUpdateListener" method of the ReaderTracker instance
+   * that is owned by the background page.
+   */
+  const readerTrackerSubscriber =
       /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
       (GSC.ObjectHelpers.extractKey(
            GSC.PopupWindow.Client.getData(), 'readerTrackerSubscriber'));
+  // Start tracking the current list of readers.
   readerTrackerSubscriber(displayReaderList);
 
-  var readerTrackerUnsubscriber =
+  /**
+   * Points to the "removeOnUpdateListener" method of the ReaderTracker instance
+   * that is owned by the background page.
+   */
+  const readerTrackerUnsubscriber =
       /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
       (GSC.ObjectHelpers.extractKey(
            GSC.PopupWindow.Client.getData(), 'readerTrackerUnsubscriber'));
+  // Stop tracking the current list of readers when our window gets closed.
   chrome.app.window.current().onClosed.addListener(function() {
     readerTrackerUnsubscriber(displayReaderList);
   });
