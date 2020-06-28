@@ -35,6 +35,10 @@
     "message": "ADD READER",
     "description": "Title of the button that can be used to open a dialog for adding a new Smart Card reader"
   },
+  "addAnotherDevice": {
+    "message": "ADD ANOTHER READER",
+    "description": "Title of the button that can be used to open a dialog for adding another Smart Card reader"
+  },
   "appListHeader": {
     "message": "Connected Apps",
     "description": "The header displayed in front of the application list"

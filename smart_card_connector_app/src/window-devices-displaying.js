@@ -22,11 +22,13 @@
 goog.provide('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.I18n');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.ObjectHelpers');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('goog.asserts');
 goog.require('goog.dom');
+goog.require('goog.dom.dataset');
 goog.require('goog.events.EventType');
 goog.require('goog.log.Logger');
 goog.scope(function() {
@@ -83,24 +85,25 @@ function displayReaderList(readers) {
   for (let reader of readers) {
     GSC.Logging.checkWithLogger(logger, readersListElement !== null);
     goog.asserts.assert(readersListElement);
-
+    
     var indicatorClasses = 'reader-state-indicator reader-state-indicator-' +
-                           reader['status'];
+    reader['status'];
     if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.SUCCESS &&
-        reader['isCardPresent']) {
+    reader['isCardPresent']) {
       indicatorClasses = 'reader-card-present-indicator';
     }
     var indicator = goog.dom.createDom('span', indicatorClasses);
-
+    
     var indicatorContainer = goog.dom.createDom(
-        'span', 'reader-indicator-container', indicator);
-
-    var text = makeReaderNameForDisplaying(reader['name']) +
-        (reader['error'] ? ' (Error ' + reader['error'] + ')' : '');
-
-    var element = goog.dom.createDom('li', undefined, indicatorContainer, text);
-    goog.dom.append(readersListElement, element);
-  }
+      'span', 'reader-indicator-container', indicator);
+      
+      var text = makeReaderNameForDisplaying(reader['name']) +
+      (reader['error'] ? ' (Error ' + reader['error'] + ')' : '');
+      
+      var element = goog.dom.createDom('li', undefined, indicatorContainer, text);
+      goog.dom.append(readersListElement, element);
+    }
+    updateAddDeviceButtonText(readers.length);
 }
 
 function makeReaderNameForDisplaying(readerName) {
@@ -116,6 +119,15 @@ function makeReaderNameForDisplaying(readerName) {
   return readerName;
 }
 
+function updateAddDeviceButtonText(readersCount){
+  if(readersCount == 0){
+    addDeviceElement.dataset.i18n = 'addDevice';
+  }
+  else{
+    addDeviceElement.dataset.i18n = 'addAnotherDevice';
+  }
+  GSC.I18n.adjustElementsTranslation();
+}
 /**
  * @param {!Event} e
  */
