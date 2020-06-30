@@ -74,6 +74,11 @@ var readersListElement = /** @type {!Element} */ (goog.dom.getElement(
 var addDeviceElement = /** @type {!Element} */ (goog.dom.getElement(
     'add-device'));
 
+function onReadersChanged(readers) {
+  displayReaderList(readers);
+  updateAddDeviceButtonText(readers.length);
+}
+
 /**
  * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers
  */
@@ -85,25 +90,24 @@ function displayReaderList(readers) {
   for (let reader of readers) {
     GSC.Logging.checkWithLogger(logger, readersListElement !== null);
     goog.asserts.assert(readersListElement);
-    
+
     var indicatorClasses = 'reader-state-indicator reader-state-indicator-' +
-    reader['status'];
+                            reader['status'];
     if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.SUCCESS &&
-    reader['isCardPresent']) {
+        reader['isCardPresent']) {
       indicatorClasses = 'reader-card-present-indicator';
     }
     var indicator = goog.dom.createDom('span', indicatorClasses);
-    
+
     var indicatorContainer = goog.dom.createDom(
       'span', 'reader-indicator-container', indicator);
-      
-      var text = makeReaderNameForDisplaying(reader['name']) +
+
+    var text = makeReaderNameForDisplaying(reader['name']) +
       (reader['error'] ? ' (Error ' + reader['error'] + ')' : '');
-      
-      var element = goog.dom.createDom('li', undefined, indicatorContainer, text);
+
+    var element = goog.dom.createDom('li', undefined, indicatorContainer, text);
       goog.dom.append(readersListElement, element);
-    }
-    updateAddDeviceButtonText(readers.length);
+  }
 }
 
 function makeReaderNameForDisplaying(readerName) {
@@ -120,14 +124,14 @@ function makeReaderNameForDisplaying(readerName) {
 }
 
 function updateAddDeviceButtonText(readersCount){
-  if(readersCount == 0){
+  if (readersCount == 0) {
     addDeviceElement.dataset.i18n = 'addDevice';
-  }
-  else{
+  } else {
     addDeviceElement.dataset.i18n = 'addAnotherDevice';
   }
-  GSC.I18n.adjustElementsTranslation();
+  GSC.I18n.adjustElementTranslation(addDeviceElement);
 }
+
 /**
  * @param {!Event} e
  */
@@ -158,7 +162,7 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
       (GSC.ObjectHelpers.extractKey(
            GSC.PopupWindow.Client.getData(), 'readerTrackerSubscriber'));
   // Start tracking the current list of readers.
-  readerTrackerSubscriber(displayReaderList);
+  readerTrackerSubscriber(onReadersChanged);
 
   /**
    * Points to the "removeOnUpdateListener" method of the ReaderTracker instance
@@ -170,7 +174,7 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
            GSC.PopupWindow.Client.getData(), 'readerTrackerUnsubscriber'));
   // Stop tracking the current list of readers when our window gets closed.
   chrome.app.window.current().onClosed.addListener(function() {
-    readerTrackerUnsubscriber(displayReaderList);
+    readerTrackerUnsubscriber(onReadersChanged);
   });
 
   goog.events.listen(

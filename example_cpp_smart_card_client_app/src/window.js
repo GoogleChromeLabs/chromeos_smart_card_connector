@@ -48,7 +48,7 @@ const naclModuleMessageChannel =
          GSC.PopupWindow.Client.getData(), 'naclModuleMessageChannel'));
 
 // Load the localized strings into the HTML elements.
-GSC.I18n.adjustElementsTranslation();
+GSC.I18n.adjustAllElementsTranslation();
 
 // Called when the "close" button is clicked. Closes the window.
 function onCloseWindowClicked(e) {
