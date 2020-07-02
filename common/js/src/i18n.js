@@ -22,7 +22,6 @@
 goog.provide('GoogleSmartCard.I18n');
 
 goog.require('GoogleSmartCard.Logging');
-goog.require('goog.dom');
 goog.require('goog.log.Logger');
 
 goog.scope(function() {
