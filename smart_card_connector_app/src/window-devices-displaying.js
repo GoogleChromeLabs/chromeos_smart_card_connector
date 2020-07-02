@@ -74,6 +74,9 @@ var readersListElement = /** @type {!Element} */ (goog.dom.getElement(
 var addDeviceElement = /** @type {!Element} */ (goog.dom.getElement(
     'add-device'));
 
+/**
+ * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers 
+ */
 function onReadersChanged(readers) {
   displayReaderList(readers);
   updateAddDeviceButtonText(readers.length);
@@ -92,7 +95,7 @@ function displayReaderList(readers) {
     goog.asserts.assert(readersListElement);
 
     var indicatorClasses = 'reader-state-indicator reader-state-indicator-' +
-                            reader['status'];
+                           reader['status'];
     if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.SUCCESS &&
         reader['isCardPresent']) {
       indicatorClasses = 'reader-card-present-indicator';
@@ -100,13 +103,13 @@ function displayReaderList(readers) {
     var indicator = goog.dom.createDom('span', indicatorClasses);
 
     var indicatorContainer = goog.dom.createDom(
-      'span', 'reader-indicator-container', indicator);
+        'span', 'reader-indicator-container', indicator);
 
     var text = makeReaderNameForDisplaying(reader['name']) +
-      (reader['error'] ? ' (Error ' + reader['error'] + ')' : '');
+        (reader['error'] ? ' (Error ' + reader['error'] + ')' : '');
 
     var element = goog.dom.createDom('li', undefined, indicatorContainer, text);
-      goog.dom.append(readersListElement, element);
+    goog.dom.append(readersListElement, element);
   }
 }
 
@@ -123,7 +126,10 @@ function makeReaderNameForDisplaying(readerName) {
   return readerName;
 }
 
-function updateAddDeviceButtonText(readersCount){
+/**
+ * @param {number} readersCount 
+ */
+function updateAddDeviceButtonText(readersCount) {
   if (readersCount == 0) {
     addDeviceElement.dataset.i18n = 'addDevice';
   } else {

@@ -75,52 +75,55 @@ function transformAllElements(attribute, transformFunction) {
   }
 }
 
-function transformFunctionI18nDataAttribute(element, translatedText) {
+/**
+ * @param {!Element} element 
+ * @param {string} translatedText 
+ */
+function applyTranslation(element, translatedText) {
   logger.fine('Translating element.textContent [' + element.outerHTML +
               '] to "' + translatedText + '"');
   element.textContent = translatedText;
 }
 
-function transformFunctionI18nDataAriaLabelAttribute(element, translatedText) {
+/**
+ * @param {!Element} element 
+ * @param {string} translatedText 
+ */
+function applyAriaLabelTranslation(element, translatedText) {
   logger.fine('Translating element.aria-label [' + element.outerHTML +
               '] to "' + translatedText + '"');
   element.setAttribute('aria-label', translatedText);
 }
 
 /** 
- * Takes the single element passed, replacing element.textContent with translation
- * if it conatins I18N_DATA_ATTRIBUTE, and setting aria-label to translation
- * if it contains I18N_DATA_ARIA_LABEL_ATTRIBUTE.
-*/
+ * Takes the element passed, replacing element.textContent with 
+ * translation if it contains I18N_DATA_ATTRIBUTE, and setting aria-label to 
+ * translation if it contains I18N_DATA_ARIA_LABEL_ATTRIBUTE.
+ * @param {!Element} element
+ */
 GSC.I18n.adjustElementTranslation = function(element) {
-  if (goog.dom.dataset.has(element, 'i18n')) {
+  if (element.hasAttribute(I18N_DATA_ATTRIBUTE)) {
     transformElement(
-      element, I18N_DATA_ATTRIBUTE, 
-      transformFunctionI18nDataAttribute);
+        element, I18N_DATA_ATTRIBUTE, applyTranslation);
   }
 
-  if(goog.dom.dataset.has(element, 'i18nAriaLabel')) {
+  if (element.hasAttribute(I18N_DATA_ARIA_LABEL_ATTRIBUTE)) {
     transformElement(
-      element, I18N_DATA_ARIA_LABEL_ATTRIBUTE, 
-      transformFunctionI18nDataAriaLabelAttribute);
+        element, I18N_DATA_ARIA_LABEL_ATTRIBUTE, applyAriaLabelTranslation);
   }
 };
 
 /**
- * Goes through all the HTML elements in the current window, replacing
- * element.textContent with translation for elements containing attribute
- * I18N_DATA_ATTRIBUTE, and setting attribute aria-label to translation for
- * elements containing attribute I18N_DATA_ARIA_LABEL_ATTRIBUTE. Used for
- * translation that plays nice with Chromevox (accessibility tool).
+ * Applies adjustElementTranslation() to all HTML elements in the current 
+ * document. Used for translation that plays nice with Chromevox (accessibility
+ * tool).
  */
 GSC.I18n.adjustAllElementsTranslation = function() {
   transformAllElements(
-      I18N_DATA_ATTRIBUTE,
-      transformFunctionI18nDataAttribute);
+      I18N_DATA_ATTRIBUTE, applyTranslation);
 
   transformAllElements(
-      I18N_DATA_ARIA_LABEL_ATTRIBUTE,
-      transformFunctionI18nDataAriaLabelAttribute);
+      I18N_DATA_ARIA_LABEL_ATTRIBUTE, applyAriaLabelTranslation);
 };
 
 });  // goog.scope
