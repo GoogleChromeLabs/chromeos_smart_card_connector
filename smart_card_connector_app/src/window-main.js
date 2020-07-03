@@ -58,7 +58,7 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize();
 GSC.ConnectorApp.Window.HelpShowing.initialize();
 GSC.ConnectorApp.Window.LogsExporting.initialize();
 
-GSC.I18n.adjustElementsTranslation();
+GSC.I18n.adjustAllElementsTranslation();
 
 GSC.PopupWindow.Client.showWindow();
 

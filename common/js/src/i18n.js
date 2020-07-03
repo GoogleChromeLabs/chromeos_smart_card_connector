@@ -75,26 +75,54 @@ function transformAllElements(attribute, transformFunction) {
 }
 
 /**
- * Goes through all the HTML elements in the current window, replacing
- * element.textContent with translation for elements containing attribute
- * I18N_DATA_ATTRIBUTE, and setting attribute aria-label to translation for
- * elements containing attribute I18N_DATA_ARIA_LABEL_ATTRIBUTE. Used for
- * translation that plays nice with Chromevox (accessibility tool).
+ * @param {!Element} element 
+ * @param {string} translatedText 
  */
-GSC.I18n.adjustElementsTranslation = function() {
+function applyTranslation(element, translatedText) {
+  logger.fine('Translating element.textContent [' + element.outerHTML +
+              '] to "' + translatedText + '"');
+  element.textContent = translatedText;
+}
+
+/**
+ * @param {!Element} element 
+ * @param {string} translatedText 
+ */
+function applyAriaLabelTranslation(element, translatedText) {
+  logger.fine('Translating element.aria-label [' + element.outerHTML +
+              '] to "' + translatedText + '"');
+  element.setAttribute('aria-label', translatedText);
+}
+
+/** 
+ * Takes the element passed, replacing element.textContent with 
+ * translation if it contains I18N_DATA_ATTRIBUTE, and setting aria-label to 
+ * translation if it contains I18N_DATA_ARIA_LABEL_ATTRIBUTE.
+ * @param {!Element} element
+ */
+GSC.I18n.adjustElementTranslation = function(element) {
+  if (element.hasAttribute(I18N_DATA_ATTRIBUTE)) {
+    transformElement(
+        element, I18N_DATA_ATTRIBUTE, applyTranslation);
+  }
+
+  if (element.hasAttribute(I18N_DATA_ARIA_LABEL_ATTRIBUTE)) {
+    transformElement(
+        element, I18N_DATA_ARIA_LABEL_ATTRIBUTE, applyAriaLabelTranslation);
+  }
+};
+
+/**
+ * Applies adjustElementTranslation() to all HTML elements in the current 
+ * document. Used for translation that plays nice with Chromevox (accessibility
+ * tool).
+ */
+GSC.I18n.adjustAllElementsTranslation = function() {
   transformAllElements(
-      I18N_DATA_ATTRIBUTE, function(element, translatedText) {
-    logger.fine('Translating element.textContent [' + element.outerHTML +
-                '] to "' + translatedText + '"');
-    element.textContent = translatedText;
-  });
+      I18N_DATA_ATTRIBUTE, applyTranslation);
 
   transformAllElements(
-      I18N_DATA_ARIA_LABEL_ATTRIBUTE, function(element, translatedText) {
-    logger.fine('Translating element.aria-label [' + element.outerHTML +
-                '] to "' + translatedText + '"');
-    element.setAttribute('aria-label', translatedText);
-  });
+      I18N_DATA_ARIA_LABEL_ATTRIBUTE, applyAriaLabelTranslation);
 };
 
 });  // goog.scope

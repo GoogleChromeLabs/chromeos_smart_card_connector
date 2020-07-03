@@ -22,11 +22,13 @@
 goog.provide('GoogleSmartCard.ConnectorApp.Window.DevicesDisplaying');
 
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.I18n');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.ObjectHelpers');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('goog.asserts');
 goog.require('goog.dom');
+goog.require('goog.dom.dataset');
 goog.require('goog.events.EventType');
 goog.require('goog.log.Logger');
 goog.scope(function() {
@@ -73,6 +75,14 @@ var addDeviceElement = /** @type {!Element} */ (goog.dom.getElement(
     'add-device'));
 
 /**
+ * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers 
+ */
+function onReadersChanged(readers) {
+  displayReaderList(readers);
+  updateAddDeviceButtonText(readers.length);
+}
+
+/**
  * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers
  */
 function displayReaderList(readers) {
@@ -117,6 +127,18 @@ function makeReaderNameForDisplaying(readerName) {
 }
 
 /**
+ * @param {number} readersCount 
+ */
+function updateAddDeviceButtonText(readersCount) {
+  if (readersCount == 0) {
+    addDeviceElement.dataset.i18n = 'addDevice';
+  } else {
+    addDeviceElement.dataset.i18n = 'addAnotherDevice';
+  }
+  GSC.I18n.adjustElementTranslation(addDeviceElement);
+}
+
+/**
  * @param {!Event} e
  */
 function addDeviceClickListener(e) {
@@ -146,7 +168,7 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
       (GSC.ObjectHelpers.extractKey(
            GSC.PopupWindow.Client.getData(), 'readerTrackerSubscriber'));
   // Start tracking the current list of readers.
-  readerTrackerSubscriber(displayReaderList);
+  readerTrackerSubscriber(onReadersChanged);
 
   /**
    * Points to the "removeOnUpdateListener" method of the ReaderTracker instance
@@ -158,7 +180,7 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
            GSC.PopupWindow.Client.getData(), 'readerTrackerUnsubscriber'));
   // Stop tracking the current list of readers when our window gets closed.
   chrome.app.window.current().onClosed.addListener(function() {
-    readerTrackerUnsubscriber(displayReaderList);
+    readerTrackerUnsubscriber(onReadersChanged);
   });
 
   goog.events.listen(

@@ -181,7 +181,7 @@ function externalMessageListener(message, sender) {
 }
 
 /**
- * Returns an single message based channel instance that talks to the specified
+ * Returns a single message based channel instance that talks to the specified
  * extension - either returns an existing instance if there's one, or creates a
  * new one otherwise. May return null if the channel becomes immediately
  * disposed of due to some error.

@@ -33,7 +33,11 @@
   },
   "addDevice": {
     "message": "ADD READER",
-    "description": "Title of the button that can be used to open a dialog for adding a new Smart Card reader"
+    "description": "Title of the button that can be used to open a dialog for adding a new Smart Card reader when the list is still empty"
+  },
+  "addAnotherDevice": {
+    "message": "ADD ANOTHER READER",
+    "description": "Title of the button that can be used to open a dialog for adding another Smart Card reader when the list has one or more readers already connected"
   },
   "appListHeader": {
     "message": "Connected Apps",
