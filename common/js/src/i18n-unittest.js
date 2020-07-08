@@ -27,9 +27,9 @@ const GSC = GoogleSmartCard;
 
 const propertyReplacer = new goog.testing.PropertyReplacer;
 /** @type {Element?} */
-let pNode;
+let pNode1;
 /** @type {Element?} */
-let p2Node;
+let pNode2;
 /** @type {Element?} */
 let divNode;
 /** @type {Element?} */
@@ -53,11 +53,11 @@ function stubChromeI18nGetMessage(messageName) {
 }
 
 function createTestElements() {
-  pNode = document.createElement('p');
-  document.body.appendChild(pNode);
+  pNode1 = document.createElement('p');
+  document.body.appendChild(pNode1);
 
-  p2Node = document.createElement('p');
-  document.body.appendChild(p2Node);
+  pNode2 = document.createElement('p');
+  document.body.appendChild(pNode2);
 
   divNode = document.createElement('div');
   document.body.appendChild(divNode);
@@ -67,7 +67,7 @@ function createTestElements() {
 }
 
 function removeTestElements() {
-  for (const element of [pNode, p2Node, divNode, spanNode])
+  for (const element of [pNode1, pNode2, divNode, spanNode])
     goog.dom.removeNode(element);
 }
 
@@ -84,17 +84,17 @@ goog.exportSymbol('testI18n', {
   },
 
   testBulkTranslation: function() {
-    pNode.dataset.i18n = 'someString';
-    pNode.dataset.i18nAriaLabel = 'anotherString';
-    p2Node.dataset.i18nAriaLabel = 'someString';
+    pNode1.dataset.i18n = 'someString';
+    pNode1.dataset.i18nAriaLabel = 'anotherString';
+    pNode2.dataset.i18nAriaLabel = 'someString';
     spanNode.dataset.i18n = 'anotherString';
 
     GSC.I18n.adjustAllElementsTranslation();
 
-    assertEquals(pNode.textContent, 'Some string.');
-    assertEquals(pNode.getAttribute('aria-label'), 'Another string.');
-    assertEquals(p2Node.textContent, '');
-    assertEquals(p2Node.getAttribute('aria-label'), 'Some string.');
+    assertEquals(pNode1.textContent, 'Some string.');
+    assertEquals(pNode1.getAttribute('aria-label'), 'Another string.');
+    assertEquals(pNode2.textContent, '');
+    assertEquals(pNode2.getAttribute('aria-label'), 'Some string.');
     assertEquals(spanNode.textContent, 'Another string.');
     assertFalse(spanNode.hasAttribute('aria-label'));
   },
