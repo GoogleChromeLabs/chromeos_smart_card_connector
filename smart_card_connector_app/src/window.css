@@ -175,3 +175,34 @@ body {
   top: -2px;
   width: 20px;
 }
+
+.tool-tip {
+  background: rgb(30, 30, 30);
+  border-radius: 1px;
+  color: white;
+  display: inline-block;
+  font-size: 12px;
+  height: 15px;
+  padding: 2px 5px 0px 5px;
+  position: absolute;
+  top: 150%;
+  text-align: center;
+  visibility: hidden;
+  width: max-content;
+}
+
+.tool-tip-init::after {
+  content: "Initializing card...";
+}
+
+.tool-tip-failure::after {
+  content: "Failed to connect card!";
+}
+
+.tool-tip-success::after {
+  content: "Successful card insertion!";
+}
+
+.reader-indicator-container:hover .tool-tip{
+  visibility: visible;
+}

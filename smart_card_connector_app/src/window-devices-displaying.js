@@ -105,6 +105,13 @@ function displayReaderList(readers) {
     var indicatorContainer = goog.dom.createDom(
         'span', 'reader-indicator-container', indicator);
 
+    if(reader['status'] != GSC.PcscLiteServer.ReaderStatus.INIT) {
+      var toolTip = goog.dom.createDom(
+          'span', 'tool-tip tool-tip-' + reader['status']);
+
+      goog.dom.append(indicatorContainer, toolTip);
+    }
+
     var text = makeReaderNameForDisplaying(reader['name']) +
         (reader['error'] ? ' (Error ' + reader['error'] + ')' : '');
 
