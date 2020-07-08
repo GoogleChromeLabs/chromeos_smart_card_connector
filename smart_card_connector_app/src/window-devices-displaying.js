@@ -105,12 +105,16 @@ function displayReaderList(readers) {
     var indicatorContainer = goog.dom.createDom(
         'span', 'reader-indicator-container', indicator);
 
-    if(reader['status'] != GSC.PcscLiteServer.ReaderStatus.INIT) {
-      var toolTip = goog.dom.createDom(
-          'span', 'tool-tip tool-tip-' + reader['status']);
-
-      goog.dom.append(indicatorContainer, toolTip);
+    var toolTipText = '';
+    if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.INIT) {
+      toolTipText = 'Initializing card...';
+    } else if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.SUCCESS) {
+      toolTipText = 'Successful card insertion!';
+    } else if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.FAILURE) {
+      toolTipText = 'Failed to connect card!';
     }
+
+    indicatorContainer.setAttribute('title', toolTipText);
 
     var text = makeReaderNameForDisplaying(reader['name']) +
         (reader['error'] ? ' (Error ' + reader['error'] + ')' : '');
