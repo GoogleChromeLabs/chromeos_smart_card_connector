@@ -105,16 +105,8 @@ function displayReaderList(readers) {
     var indicatorContainer = goog.dom.createDom(
         'span', 'reader-indicator-container', indicator);
 
-    var toolTipText = '';
-    if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.INIT) {
-      toolTipText = 'Initializing card...';
-    } else if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.SUCCESS) {
-      toolTipText = 'Successful card insertion!';
-    } else if (reader['status'] == GSC.PcscLiteServer.ReaderStatus.FAILURE) {
-      toolTipText = 'Failed to connect card!';
-    }
-
-    indicatorContainer.setAttribute('title', toolTipText);
+    indicatorContainer.setAttribute('title', getTooltipText(reader));
+    GSC.I18n.adjustElementTranslation(indicatorContainer);
 
     var text = makeReaderNameForDisplaying(reader['name']) +
         (reader['error'] ? ' (Error ' + reader['error'] + ')' : '');
@@ -135,6 +127,31 @@ function makeReaderNameForDisplaying(readerName) {
     }
   }
   return readerName;
+}
+
+/**
+ * @param {!GSC.PcscLiteServer.ReaderInfo} reader 
+ * @return {string}
+ */
+function getTooltipText(reader) {
+  let toolTipText;
+  switch (reader['status']) {
+    case GSC.PcscLiteServer.ReaderStatus.INIT:
+      toolTipText = 'initReaderTooltip';
+      break;
+    case GSC.PcscLiteServer.ReaderStatus.SUCCESS:
+      toolTipText = 'successReaderTooltip';
+      break;
+    case GSC.PcscLiteServer.ReaderStatus.FAILURE:
+      toolTipText = 'failureReaderTooltip';
+      break;
+    default:
+      toolTipText = '';
+  }
+  if (reader['isCardPresent']) {
+    toolTipText = 'successCardTooltip';
+  }
+  return toolTipText;
 }
 
 /**
