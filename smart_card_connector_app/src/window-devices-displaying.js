@@ -105,7 +105,7 @@ function displayReaderList(readers) {
     var indicatorContainer = goog.dom.createDom(
         'span', 'reader-indicator-container', indicator);
 
-    indicatorContainer.setAttribute('data-title', getTooltipText(reader));
+    indicatorContainer.dataset.title = getTooltipText(reader);
     GSC.I18n.adjustElementTranslation(indicatorContainer);
 
     var text = makeReaderNameForDisplaying(reader['name']) +
