@@ -105,7 +105,7 @@ function displayReaderList(readers) {
     var indicatorContainer = goog.dom.createDom(
         'span', 'reader-indicator-container', indicator);
 
-    indicatorContainer.setAttribute('title', getTooltipText(reader));
+    indicatorContainer.setAttribute('data-title', getTooltipText(reader));
     GSC.I18n.adjustElementTranslation(indicatorContainer);
 
     var text = makeReaderNameForDisplaying(reader['name']) +
@@ -134,24 +134,18 @@ function makeReaderNameForDisplaying(readerName) {
  * @return {string}
  */
 function getTooltipText(reader) {
-  let toolTipText;
   switch (reader['status']) {
     case GSC.PcscLiteServer.ReaderStatus.INIT:
-      toolTipText = 'initReaderTooltip';
-      break;
+      return 'initReaderTooltip';
     case GSC.PcscLiteServer.ReaderStatus.SUCCESS:
-      toolTipText = 'successReaderTooltip';
-      break;
+      if (reader['isCardPresent']) return 'successCardTooltip';
+      return 'successReaderTooltip';
     case GSC.PcscLiteServer.ReaderStatus.FAILURE:
-      toolTipText = 'failureReaderTooltip';
-      break;
+      return 'failureReaderTooltip';
     default:
-      toolTipText = '';
+      GSC.Logging.failWithLogger(logger);
+      return '';
   }
-  if (reader['isCardPresent']) {
-    toolTipText = 'successCardTooltip';
-  }
-  return toolTipText;
 }
 
 /**
