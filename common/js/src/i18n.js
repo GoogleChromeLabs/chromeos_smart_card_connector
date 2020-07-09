@@ -42,7 +42,7 @@ var I18N_DATA_ATTRIBUTE = 'data-i18n';
 var I18N_DATA_ARIA_LABEL_ATTRIBUTE = 'data-i18n-aria-label';
 
 /** @const */
-var I18N_TITLE_ATTRIBUTE = 'title';
+var I18N_TITLE_ATTRIBUTE = 'data-title';
 
 /**
  * @param {!Element} element
