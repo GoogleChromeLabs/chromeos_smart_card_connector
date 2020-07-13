@@ -52,12 +52,10 @@ const logBufferForwarderToNaclModule = new GSC.LogBufferForwarder(
     GSC.Logging.getLogBuffer(), JS_LOGS_HANDLER_MESSAGE_TYPE);
 
 const extensionManifest = chrome.runtime.getManifest();
-const formattedStartupTime = (new Date()).toLocaleString();
 logger.info(
     `The Smart Card Connector app (id "${chrome.runtime.id}", version ` +
     `${extensionManifest.version}) background script started. Browser ` +
-    `version: "${window.navigator.appVersion}". System time: ` +
-    `"${formattedStartupTime}"`);
+    `version: "${window.navigator.appVersion}".`);
 
 var naclModule = new GSC.NaclModule(
     'nacl_module.nmf', GSC.NaclModule.Type.PNACL);
