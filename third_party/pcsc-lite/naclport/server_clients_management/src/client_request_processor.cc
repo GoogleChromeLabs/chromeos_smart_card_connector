@@ -76,12 +76,13 @@ void CancelRunningRequests(
   for (SCARDCONTEXT s_card_context : s_card_contexts) {
     GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << "Performing forced " <<
         "cleanup: canceling all pending blocking requests for left " <<
-        "SCARDCONTEXT " << DebugDumpSCardContext(s_card_context);
+        "context " << DebugDumpSCardContext(s_card_context);
 
     const LONG error_code = ::SCardCancel(s_card_context);
     if (error_code != SCARD_S_SUCCESS) {
       GOOGLE_SMART_CARD_LOG(error_log_severity) << logging_prefix <<
-          "Forced cancellation of the blocking requests was unsuccessful: " <<
+          "Forced cancellation of the blocking requests for context " <<
+          DebugDumpSCardContext(s_card_context) << " was unsuccessful: " <<
           pcsc_stringify_error(error_code);
     }
   }
@@ -92,13 +93,17 @@ void CloseLeftHandles(
     const std::vector<SCARDCONTEXT>& s_card_contexts) {
   for (SCARDCONTEXT s_card_context : s_card_contexts) {
     GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << "Performing forced " <<
-        "cleanup: releasing the left SCARDCONTEXT " <<
+        "cleanup: releasing the left context " <<
         DebugDumpSCardContext(s_card_context);
 
     const LONG error_code = ::SCardReleaseContext(s_card_context);
-    if (error_code != SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced context " <<
-          "releasing was unsuccessful: " << pcsc_stringify_error(error_code);
+    if (error_code == SCARD_S_SUCCESS) {
+      GOOGLE_SMART_CARD_LOG_INFO << logging_prefix << "Force released " <<
+          "context " << DebugDumpSCardContext(s_card_context);
+    } else {
+      GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced releasing " <<
+          "of context " << DebugDumpSCardContext(s_card_context) <<
+          " was unsuccessful: " << pcsc_stringify_error(error_code);
     }
   }
 }
