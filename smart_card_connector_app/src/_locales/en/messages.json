@@ -40,7 +40,7 @@
     "description": "Tooltip indicating that the reader is initialized successfully"
   },
   "failureReaderTooltip": {
-    "message": "Failed to connect reader.",
+    "message": "Failed to connect the reader.",
     "description": "Tooltip indicating that the reader has failed to connect"
   },
   "successCardTooltip": {
