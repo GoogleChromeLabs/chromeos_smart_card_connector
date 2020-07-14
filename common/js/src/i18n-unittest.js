@@ -42,10 +42,12 @@ let spanNode;
  */
 function stubChromeI18nGetMessage(messageName) {
   switch (messageName) {
-    case 'someString':
-      return 'Some string.';
-    case 'anotherString':
-      return 'Another string.';
+    case 'firstString':
+      return 'First string.';
+    case 'secondString':
+      return 'Second string.';
+    case 'thirdString':
+      return 'Third string.';
     default:
       fail(`Unexpected messageName=${messageName}`);
       return '';
@@ -71,6 +73,30 @@ function removeTestElements() {
     goog.dom.removeNode(element);
 }
 
+function checkPNode1Translated() {
+  assertEquals(pNode1.textContent, 'First string.');
+  assertEquals(pNode1.getAttribute('aria-label'), 'Second string.');
+  assertFalse(pNode1.hasAttribute('title'));
+}
+
+function checkPNode2Translated() {
+  assertEquals(pNode2.textContent, '');
+  assertEquals(pNode2.getAttribute('aria-label'), 'Second string.');
+  assertEquals(pNode2.getAttribute('title'), 'Third string.');
+}
+
+function checkSpanNodeTranslated() {
+  assertEquals(spanNode.textContent, 'First string.');
+  assertFalse(spanNode.hasAttribute('aria-label'));
+  assertEquals(spanNode.getAttribute('title'), 'Third string.');
+}
+
+function checkNodeNotTranslated(element) {
+  assertEquals(element.textContent, '');
+  assertFalse(element.hasAttribute('aria-label'));
+  assertFalse(element.hasAttribute('title'));
+}
+
 goog.exportSymbol('testI18n', {
   setUp: function() {
     createTestElements();
@@ -84,19 +110,45 @@ goog.exportSymbol('testI18n', {
   },
 
   testBulkTranslation: function() {
-    pNode1.dataset.i18n = 'someString';
-    pNode1.dataset.i18nAriaLabel = 'anotherString';
-    pNode2.dataset.i18nAriaLabel = 'someString';
-    spanNode.dataset.i18n = 'anotherString';
+    pNode1.dataset.i18n = 'firstString';
+    pNode1.dataset.i18nAriaLabel = 'secondString';
+    pNode2.dataset.i18nAriaLabel = 'secondString';
+    pNode2.dataset.title = 'thirdString';
+    spanNode.dataset.i18n = 'firstString';
+    spanNode.dataset.title = 'thirdString';
 
     GSC.I18n.adjustAllElementsTranslation();
 
-    assertEquals(pNode1.textContent, 'Some string.');
-    assertEquals(pNode1.getAttribute('aria-label'), 'Another string.');
-    assertEquals(pNode2.textContent, '');
-    assertEquals(pNode2.getAttribute('aria-label'), 'Some string.');
-    assertEquals(spanNode.textContent, 'Another string.');
-    assertFalse(spanNode.hasAttribute('aria-label'));
+    checkPNode1Translated();
+    checkPNode2Translated();
+    checkSpanNodeTranslated();
+  },
+
+  testElementTranslation: function() {
+    pNode1.dataset.i18n = 'firstString';
+    pNode1.dataset.i18nAriaLabel = 'secondString';
+    pNode2.dataset.i18nAriaLabel = 'secondString';
+    pNode2.dataset.title = 'thirdString';
+    spanNode.dataset.i18n = 'firstString';
+    spanNode.dataset.title = 'thirdString';
+
+    GSC.I18n.adjustElementTranslation(pNode1);
+
+    checkPNode1Translated();
+    checkNodeNotTranslated(pNode2);
+    checkNodeNotTranslated(spanNode);
+
+    GSC.I18n.adjustElementTranslation(pNode2);
+
+    checkPNode1Translated();
+    checkPNode2Translated();
+    checkNodeNotTranslated(spanNode);
+
+    GSC.I18n.adjustElementTranslation(spanNode);
+
+    checkPNode1Translated();
+    checkPNode2Translated();
+    checkSpanNodeTranslated();
   },
 });
 

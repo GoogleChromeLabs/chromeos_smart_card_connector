@@ -105,6 +105,9 @@ function displayReaderList(readers) {
     var indicatorContainer = goog.dom.createDom(
         'span', 'reader-indicator-container', indicator);
 
+    indicatorContainer.dataset.title = getTooltipText(reader);
+    GSC.I18n.adjustElementTranslation(indicatorContainer);
+
     var text = makeReaderNameForDisplaying(reader['name']) +
         (reader['error'] ? ' (Error ' + reader['error'] + ')' : '');
 
@@ -124,6 +127,25 @@ function makeReaderNameForDisplaying(readerName) {
     }
   }
   return readerName;
+}
+
+/**
+ * @param {!GSC.PcscLiteServer.ReaderInfo} reader 
+ * @return {string}
+ */
+function getTooltipText(reader) {
+  switch (reader['status']) {
+    case GSC.PcscLiteServer.ReaderStatus.INIT:
+      return 'initReaderTooltip';
+    case GSC.PcscLiteServer.ReaderStatus.SUCCESS:
+      if (reader['isCardPresent']) return 'successCardTooltip';
+      return 'successReaderTooltip';
+    case GSC.PcscLiteServer.ReaderStatus.FAILURE:
+      return 'failureReaderTooltip';
+    default:
+      GSC.Logging.failWithLogger(logger);
+      return '';
+  }
 }
 
 /**

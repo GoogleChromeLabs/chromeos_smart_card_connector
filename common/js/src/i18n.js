@@ -41,6 +41,9 @@ var I18N_DATA_ATTRIBUTE = 'data-i18n';
 /** @const */
 var I18N_DATA_ARIA_LABEL_ATTRIBUTE = 'data-i18n-aria-label';
 
+/** @const */
+var I18N_TITLE_ATTRIBUTE = 'data-title';
+
 /**
  * @param {!Element} element
  * @param {string} attribute
@@ -78,7 +81,7 @@ function transformAllElements(attribute, transformFunction) {
  * @param {!Element} element 
  * @param {string} translatedText 
  */
-function applyTranslation(element, translatedText) {
+function applyContentTranslation(element, translatedText) {
   logger.fine('Translating element.textContent [' + element.outerHTML +
               '] to "' + translatedText + '"');
   element.textContent = translatedText;
@@ -94,21 +97,37 @@ function applyAriaLabelTranslation(element, translatedText) {
   element.setAttribute('aria-label', translatedText);
 }
 
+/**
+ * @param {!Element} element 
+ * @param {string} translatedText 
+ */
+function applyTitleTranslation(element, translatedText) {
+  logger.fine('Translating element.title [' + element.outerHTML +
+              '] to "' + translatedText + '"');
+  element.setAttribute('title', translatedText);
+}
+
 /** 
  * Takes the element passed, replacing element.textContent with 
- * translation if it contains I18N_DATA_ATTRIBUTE, and setting aria-label to 
- * translation if it contains I18N_DATA_ARIA_LABEL_ATTRIBUTE.
+ * translation if it contains I18N_DATA_ATTRIBUTE, setting aria-label to 
+ * translation if it contains I18N_DATA_ARIA_LABEL_ATTRIBUTE, and setting
+ * title to translation if it contains I18N_TITLE_ATTRIBUTE.
  * @param {!Element} element
  */
 GSC.I18n.adjustElementTranslation = function(element) {
   if (element.hasAttribute(I18N_DATA_ATTRIBUTE)) {
     transformElement(
-        element, I18N_DATA_ATTRIBUTE, applyTranslation);
+        element, I18N_DATA_ATTRIBUTE, applyContentTranslation);
   }
 
   if (element.hasAttribute(I18N_DATA_ARIA_LABEL_ATTRIBUTE)) {
     transformElement(
         element, I18N_DATA_ARIA_LABEL_ATTRIBUTE, applyAriaLabelTranslation);
+  }
+
+  if (element.hasAttribute(I18N_TITLE_ATTRIBUTE)) {
+    transformElement(
+        element, I18N_TITLE_ATTRIBUTE, applyTitleTranslation);
   }
 };
 
@@ -119,10 +138,13 @@ GSC.I18n.adjustElementTranslation = function(element) {
  */
 GSC.I18n.adjustAllElementsTranslation = function() {
   transformAllElements(
-      I18N_DATA_ATTRIBUTE, applyTranslation);
+      I18N_DATA_ATTRIBUTE, applyContentTranslation);
 
   transformAllElements(
       I18N_DATA_ARIA_LABEL_ATTRIBUTE, applyAriaLabelTranslation);
+
+  transformAllElements(
+      I18N_TITLE_ATTRIBUTE, applyTitleTranslation);
 };
 
 });  // goog.scope
