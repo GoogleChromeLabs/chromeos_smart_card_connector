@@ -112,6 +112,20 @@ generate_out: $(OUT_DIR_PATH)/manifest.json
 
 
 #
+# Rules for creating the human readable list of supported readers.
+#
+
+.PHONY: package
+
+package: human_readable_supported_readers.txt
+
+human_readable_supported_readers.txt: $(SOURCES_PATH)/create_human_readable_supported_readers.py $(CCID_SUPPORTED_READERS_CONFIG_PATH)
+	$(SOURCES_PATH)/create_human_readable_supported_readers.py \
+		--ccid-supported-readers-config-path="$(CCID_SUPPORTED_READERS_CONFIG_PATH)" \
+		--target-file-path=human_readable_supported_readers.txt
+
+
+#
 # Rules for copying the static resources files into the app's out directory.
 #
 
