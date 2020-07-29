@@ -61,12 +61,13 @@ def load_usb_devices(ccid_supported_readers_file):
   COMMENT_PREFIX = '#'
 
   usb_devices = []
+  ignored_usb_devices = []
   current_section = None
-  ignored_usb_device_count = 0
   for line in ccid_supported_readers_file:
     if not line.strip():
       # Ignore empty line
       continue
+    line = line.strip('\n')
     if line.startswith(SECTION_HEADER_PREFIX):
       # Parse section title line
       current_section = line[len(SECTION_HEADER_PREFIX):].strip()
@@ -83,13 +84,15 @@ def load_usb_devices(ccid_supported_readers_file):
       raise RuntimeError('Failed to parse the reader description from the CCID '
                          'supported readers config: "{0}"'.format(line))
     name = parts[2]
+    if (name in usb_devices) or (name in ignored_usb_devices):
+      continue
     if current_section is None:
       raise RuntimeError('Unexpected reader definition met in the CCID '
                          'supported readers config before any section title')
     if current_section in CCID_SUPPORTED_READERS_CONFIG_SECTIONS_TO_PICK:
       usb_devices.append(name)
     else:
-      ignored_usb_device_count += 1
+      ignored_usb_devices.append(name)
 
   if not usb_devices:
     raise RuntimeError('No supported USB devices were extracted from the CCID '
@@ -97,19 +100,17 @@ def load_usb_devices(ccid_supported_readers_file):
   print >>sys.stderr, ('Extracted {0} supported USB devices from the CCID '
                        'supported readers config, and ignored {1} '
                        'items.'.format(
-                           len(usb_devices), ignored_usb_device_count))
+                           len(usb_devices), len(ignored_usb_devices)))
 
   return usb_devices
 
 def create_readers_list(ccid_supported_readers_file):
   usb_devices = load_usb_devices(ccid_supported_readers_file)
-  formatted_usb_devices = '\n'.join(sorted(usb_devices))
-
-  return formatted_usb_devices
+  return '\n'.join(sorted(usb_devices))
 
 def main():
   args_parser = argparse.ArgumentParser(
-      description="Creates a human readable file with the list of readers 
+      description="Creates a human readable file with the list of readers "
       "supported by the Connector App.")
   args_parser.add_argument(
       '--ccid-supported-readers-config-path',
