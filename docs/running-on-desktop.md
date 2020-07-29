@@ -24,13 +24,15 @@ desktop OS'es as well (i.e., Linux, Windows, etc.).
 
   For example, under Ubuntu this can be done with the following command:
 
-  ```sudo service pcscd stop
+  ```shell
+  sudo service pcscd stop
   ```
 
   On macOS systems (since at least El Capitan, 10.11) the pcscd daemon has been
   replaced by a daemon called com.apple.ifdreader. You can stop it using:
 
-  ```sudo pkill -HUP com.apple.ifdreader
+  ```shell
+  sudo pkill -HUP com.apple.ifdreader
   ```
 
 * **On \*nix systems, the USB device file permissions may prevent Chrome from
@@ -44,13 +46,15 @@ desktop OS'es as well (i.e., Linux, Windows, etc.).
 
   * One quick option is to add the permissions manually:
 
-    ```sudo chmod 666 /dev/bus/usb/<BUS>/<DEVICE>
+    ```shell
+    sudo chmod 666 /dev/bus/usb/<BUS>/<DEVICE>
     ```
 
     Where `<BUS>` and `<DEVICE>` numbers can be taken, for example, from the
     output of the lsusb tool:
 
-    ```lsusb
+    ```shell
+    lsusb
     ```
 
   * Another, more robust, option is to add a udev rule (see, for example, the

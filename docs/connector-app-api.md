@@ -12,49 +12,51 @@ Due to various privacy and security concerns, the following decisions
 were made:
 
 1. When an Extension/App tries to talk to the Connector App, a **user prompt
-  dialog** is generally shown, asking whether to allow or to block this
-  Extension/App.
+   dialog** is generally shown, asking whether to allow or to block this
+   Extension/App.
 
-  If the user decides to allow the Extension/App, the decision is remembered in
-  the Connector App's local storage, and the requests made by the Extension/App
-  start being actually executed by the Connector App. Otherwise, all the
-  requests made by the middleware App are refused.
+   If the user decides to allow the Extension/App, the decision is remembered in
+   the Connector App's local storage, and the requests made by the Extension/App
+   start being actually executed by the Connector App. Otherwise, all the
+   requests made by the middleware App are refused.
 
-  Note: this system has nothing to do with the Chrome App permissions model (see
-  [https://developer.chrome.com/apps/declare_permissions](https://developer.chrome.com/apps/declare_permissions)),
-  as Chrome allows to use the messaging API without any additional permissions.
-  This intent is to close the hole left open by cross-app messaging between Apps
-  with different permissions.
+   Note: this system has nothing to do with the Chrome App permissions model
+   (see
+   [https://developer.chrome.com/apps/declare_permissions](https://developer.chrome.com/apps/declare_permissions)),
+   as Chrome allows to use the messaging API without any additional permissions.
+   This intent is to close the hole left open by cross-app messaging between
+   Apps with different permissions.
 
 2. The Connector App is **bundled with a whitelist of known Extension/App
-  identifiers** (and a mapping to their display names). For all Extensions/Apps
-  not from this list, the user prompt will contain a big scary warning message.
+   identifiers** (and a mapping to their display names). For all Extensions/Apps
+   not from this list, the user prompt will contain a big scary warning message.
 
-  (Note: This behavior was introduced in the Smart Card Connector app version
-  1.2.7.0. Before this version, all requests from unknown apps were silently
-  ignored.)
+   (Note: This behavior was introduced in the Smart Card Connector app version
+   1.2.7.0. Before this version, all requests from unknown apps were silently
+   ignored.)
 
 3. For the **enterprise** cases, it's possible to configure the Connector App
-  through an **admin policy** (see
-  [https://www.chromium.org/administrators/configuring-policy-for-extensions](https://www.chromium.org/administrators/configuring-policy-for-extensions)).
+   through an **admin policy** (see
+   [https://www.chromium.org/administrators/configuring-policy-for-extensions](https://www.chromium.org/administrators/configuring-policy-for-extensions)).
 
-  The policy can specify which Extensions/Apps are **force allowed to talk to
-  the Connector App** without checking against whitelist or prompting the user.
-  The policy-configured permission always has the higher priority than the
-  user's selections that could have been already made.
+   The policy can specify which Extensions/Apps are **force allowed to talk to
+   the Connector App** without checking against whitelist or prompting the user.
+   The policy-configured permission always has the higher priority than the
+   user's selections that could have been already made.
 
-  The corresponding policy name is `force_allowed_client_app_ids`. Its value
-  should be an array of strings representing the App identifiers. This is an
-  example of the policy JSON blob:
+   The corresponding policy name is `force_allowed_client_app_ids`. Its value
+   should be an array of strings representing the App identifiers. This is an
+   example of the policy JSON blob:
 
-  ```{
-    "force_allowed_client_app_ids": {
-      "Value": [
-        "this_is_middleware_client_app_id",
-        "this_is_some_other_client_app_id"]
-    }
-  }
-  ```
+   ```json
+   {
+     "force_allowed_client_app_ids": {
+       "Value": [
+         "this_is_middleware_client_app_id",
+         "this_is_some_other_client_app_id"]
+     }
+   }
+   ```
 
 
 ## Protocol for making PC/SC API calls to the Smart Card Connector App
@@ -66,7 +68,8 @@ functionality (see
 The **PC/SC-Lite API function call** is represented by a message sent to the
 Connector App. The message should have the following format:
 
-```{
+```
+{
   "type": "pcsc_lite_function_call::request",
   "data": {
     "request_id": <requestId>,
@@ -90,7 +93,8 @@ by a message sent back from the Connector App to the middleware App.
 If the request was processed **successfully** (i.e. the PC/SC-Lite function was
 recognized and called), then the message will have the following format:
 
-```{
+```
+{
   "type": "pcsc_lite_function_call::response",
   "data": {
     "request_id": <requestId>,
@@ -107,7 +111,8 @@ If the request **failed** with some error (note: this is *not* the case when the
 PC/SC-Lite function returns non-zero error code), then the message will have the
 following format:
 
-```{
+```
+{
   "type": "pcsc_lite_function_call::response",
   "data": {
     "request_id": <requestId>,
@@ -122,7 +127,8 @@ where `<requestId>` is the number taken from the request message, and
 Additionally, Apps on both sides of the communication channel can send **ping**
 messages to each other:
 
-```{
+```json
+{
   "type": "ping",
   "data": {}
 }
@@ -131,7 +137,8 @@ messages to each other:
 The other end should response with a **pong** message having the following
 format:
 
-```{
+```
+{
   "type": "pong",
   "data": {
     "channel_id": <channelId>

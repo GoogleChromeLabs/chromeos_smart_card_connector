@@ -35,6 +35,11 @@ library, which is redirecting all requests to the **chrome.usb** API (see
 [https://developer.chrome.com/apps/usb](https://developer.chrome.com/apps/usb)).
 
 
+## Building the code
+
+See [docs/building.md](building.md).
+
+
 ## Potential future enhancements
 
 * **Pluggable smart card reader drivers.**

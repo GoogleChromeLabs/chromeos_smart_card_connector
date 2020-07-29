@@ -67,37 +67,41 @@ Follow these steps for performing the *initial build*:
 
 1. Execute:
 
-  ```env/initialize.sh
-  ```
+   ```shell
+   env/initialize.sh
+   ```
 
-  It's enough to execute this command only once, after you have cloned the whole
-  repository (unless you would like to update to the latest tools versions).
+   It's enough to execute this command only once, after you have cloned the
+   whole repository (unless you would like to update to the latest tools
+   versions).
 
-  This will download and install locally the following dependencies required for
-  building the Apps:
+   This will download and install locally the following dependencies required
+   for building the Apps:
 
-  * *depot_tools* (see
-    [https://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools.html](https://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools.html))
-  * *NaCl SDK* (see
-    [https://developer.chrome.com/native-client/sdk/download](https://developer.chrome.com/native-client/sdk/download))
-  * *webports* (see
-    [https://chromium.googlesource.com/webports/](https://chromium.googlesource.com/webports/))
+   * *depot_tools* (see
+     [https://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools.html](https://commondatastorage.googleapis.com/chrome-infra-docs/flat/depot_tools/docs/html/depot_tools.html))
+   * *NaCl SDK* (see
+     [https://developer.chrome.com/native-client/sdk/download](https://developer.chrome.com/native-client/sdk/download))
+   * *webports* (see
+     [https://chromium.googlesource.com/webports/](https://chromium.googlesource.com/webports/))
 
 2. Execute:
 
-  ```source env/activate
-  ```
+   ```shell
+   source env/activate
+   ```
 
-  This command sets the environment variables required for enabling the use of
-  the tools downloaded at step 1.
+   This command sets the environment variables required for enabling the use of
+   the tools downloaded at step 1.
 
 3. Execute:
 
-  ```./make-all.sh
-  ```
+   ```shell
+   ./make-all.sh
+   ```
 
-  This builds the Connector App, the C++ Example App and the JS Example App and
-  all the libraries shared between them.
+   This builds the Connector App, the C++ Example App and the JS Example App and
+   all the libraries shared between them.
 
 After that, you can *perform incremental building* of either all of the Apps (by
 running the command from step 3.) or of the single App you work on (by following
@@ -117,7 +121,8 @@ Switching to the **Debug** building mode can be performed by adjusting the
 `CONFIG` environment variable, i.e. by executing the following shell command
 before building the Apps::
 
-```export CONFIG=Debug
+```shell
+export CONFIG=Debug
 ```
 
 This triggers a number of things, basically (for some additional details
@@ -142,10 +147,12 @@ log messages may contain sensitive data.
 The Release mode is the default building mode; you can switch to it back from
 the Debug build by adjusting the `CONFIG` environment variable, for example:
 
-```export CONFIG=Release
+```shell
+export CONFIG=Release
 ```
 
 or simply:
 
-```unset CONFIG
+```shell
+unset CONFIG
 ```
