@@ -35,7 +35,6 @@ BINARY_ARCHIVE_BASE_FILE_NAME = 'binaries'
 # archives under the same relative path.
 BINARY_CONTENTS_RELATIVES_PATHS = [
   'LICENSE',
-  'README.rst',
   'built_app_packages/',
   'example_js_standalone_smart_card_client_library/README.rst',
   'example_js_standalone_smart_card_client_library/js_build/',
