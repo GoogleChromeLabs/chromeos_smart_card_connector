@@ -47,3 +47,9 @@ See [docs/building.md](building.md).
   Currently, there's only the CCID Free Software Driver supported. We might want
   to extend this in the future, by exposing a new API that would allow separate
   Chrome OS extensions/apps to implement drivers for other devices.
+
+
+## Maintenance tasks
+
+* Updating the used version of the CCID Free Software Driver:
+  [docs/updating-ccid.md](updating-ccid.md).

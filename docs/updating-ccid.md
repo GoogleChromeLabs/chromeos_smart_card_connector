@@ -3,6 +3,7 @@
 Note: This page is mainly intended for the Chrome OS Smart Card Connector
 project maintainers.
 
+
 ## Background
 
 The Chrome OS Smart Card Connector app is shipped with a specific (pinned)
@@ -21,6 +22,7 @@ Reasons for pinning to a specific version of the driver:
 However, this approach also implies some amount of maintenance work to update
 the driver (say, every few months). It also means that the users typically get a
 somewhat outdated version of the driver.
+
 
 ## Update procedure
 
@@ -50,7 +52,11 @@ somewhat outdated version of the driver.
 6. Bump the file timestamps for the newly created files, in order to enforce the
    `make` to recompile the CCID (otherwise, `make` will skip the files that have
    old timestamps taken from the downloaded archive). To do this, run this in
-   the terminal: `find third_party/ccid -exec touch {} \;`
+   the terminal:
+
+   ```shell
+   find third_party/ccid -exec touch {} \;
+   ```
 
 7. Compile the Smart Card Connector app and all other targets, by running the
    `make-all.sh` script.
@@ -67,11 +73,25 @@ somewhat outdated version of the driver.
     version of the driver (it should be a string like
     `init_driver() Driver version: 1.4.30`).
 
+11. Generate a new version of the
+    `//smart_card_connector_app/build/human_readable_supported_readers.txt` file
+    (by running `make package` in the `//smart_card_connector/build/`
+    directory).
+
 11. If everything is OK, prepare a commit / a Pull Request with all these
     changes.
 
-100. Later, when rolling out a new version of the Smart Card Connector app via
-     Web Store, please don't forget to mention the update of the CCID driver at
-     the Release's description on GitHub. It's also nice to add a link to the
-     CCID release notes (which are typically published at
-     [https://ludovicrousseau.blogspot.com/](https://ludovicrousseau.blogspot.com/)).
+Additional tasks to be performed later, when rolling out a new version of the
+Smart Card Connector app via Web Store:
+
+1. Mention the update of the CCID driver at the Release's description on GitHub.
+   It's also nice to add a link to the CCID release notes (which are typically
+   published at
+   [https://ludovicrousseau.blogspot.com/](https://ludovicrousseau.blogspot.com/)).
+
+2. File an internal bug to update the
+   [https://support.google.com/chrome/a/answer/7014689](https://support.google.com/chrome/a/answer/7014689)
+   Help Center article to include the new information from the
+   `//smart_card_connector_app/build/human_readable_supported_readers.txt` file.
+   Please make sure that the newly added readers are annotated with the current
+   version, like `(from version 1.23.45)`.
