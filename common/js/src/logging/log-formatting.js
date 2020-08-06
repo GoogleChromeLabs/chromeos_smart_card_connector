@@ -43,16 +43,16 @@ textFormatter.showSeverityLevel = true;
  */
 function getFormattedDocumentLocation(documentLocation, isCompact) {
   if (!isCompact)
-    return documentLocation;
+    return `<${documentLocation}>`;
   let uri;
   try {
     uri = goog.Uri.parse(documentLocation);
   } catch (URIError) {
-    return documentLocation;
+    return `<${documentLocation}>`;
   }
   if (uri.getPath() == '/_generated_background_page.html')
-    return 'background page';
-  return uri.getPath();
+    return '';
+  return `<${uri.getPath()}>`;
 }
 
 /**
@@ -62,13 +62,14 @@ function getFormattedDocumentLocation(documentLocation, isCompact) {
  * @return {!goog.log.LogRecord}
  */
 function prefixLogRecord(documentLocation, logRecord, isCompact) {
+  const loggerNameParts = [];
   const formattedDocumentLocation = getFormattedDocumentLocation(
       documentLocation, isCompact);
-  var loggerNameParts = [];
-  loggerNameParts.push('<' + formattedDocumentLocation + '>');
+  if (formattedDocumentLocation)
+    loggerNameParts.push(formattedDocumentLocation);
   if (logRecord.getLoggerName())
     loggerNameParts.push(logRecord.getLoggerName());
-  var prefixedLoggerName = loggerNameParts.join('.');
+  const prefixedLoggerName = loggerNameParts.join('.');
 
   return new goog.log.LogRecord(
       logRecord.getLevel(),
@@ -95,7 +96,7 @@ GSC.LogFormatting.formatLogRecord = function(documentLocation, logRecord) {
  * given document.
  *
  * The compact representation omits detailed context information, e.g. the
- * extension ID.
+ * extension ID and the background page label.
  * @param {string} documentLocation
  * @param {!goog.log.LogRecord} logRecord
  * @return {string}
