@@ -11,6 +11,8 @@ ACS APG8201 PINhandy 1
 ACS APG8201 USB Reader
 ACS CryptoMate (T2)
 ACS CryptoMate64
+AF Care One
+AF Care Two
 AK910 CKey
 AK910 IDONE
 ANCUD CCID USB Reader & RNG
@@ -22,6 +24,8 @@ ATMEL AT91SO CCID Smart Card Reader
 ATMEL AT98SC032CT-USB
 ATMEL VaultIC420 Smart Object
 ATMEL VaultIC440
+Access IS ATR210
+Access IS ATR220
 Access IS NFC Smart Module
 Access IS ePassport Reader
 ActivIdentity Activkey_Sim
@@ -84,6 +88,7 @@ COVADIS Auriga
 COVADIS VEGA-ALPHA
 Certgate GmbH AirID 2 USB
 Certgate GmbH ONEKEY ID 2 USB
+Cherry GmbH CHERRY SECURE BOARD 1.0
 Cherry GmbH SmartBoard XX1X
 Cherry GmbH SmartBoard XX33
 Cherry GmbH SmartBoard XX44
@@ -108,6 +113,7 @@ DUALi DE-620 Combi
 DUALi DRAGON NFC READER
 Dell Dell Smart Card Reader Keyboard
 Dell keyboard SK-3106
+Doctolib SR
 ESMART Token GOST
 Elatec TWN4 SmartCard NFC
 Elatec TWN4/B1.06/CPF3.05/S1SC1.32/P (Beta 3)
@@ -115,6 +121,7 @@ Eutron Card Reader
 Eutron CryptoIdentity CCID
 Eutron Digipass 860
 Eutron Smart Pocket
+F-Secure Foundry USB Armory Mk II
 FEITIAN bR301
 FEITIAN iR301
 FT CCID
@@ -154,6 +161,7 @@ Gemalto PC Twin Reader
 Gemalto PDT
 Gemalto Prox Dual USB PC Link Reader
 Gemalto Prox SU USB PC LinkReader
+Gemalto RF CR5400
 Gemalto SA .NET Dual
 Gemalto Smart Enterprise Guardian Secure USB Device
 Gemalto USB GemPCPinpad SmartCard Reader
@@ -249,6 +257,7 @@ Kapsch TrafficCom USB SAM reader
 KeyXentic Inc. KX906 Smart Card Reader
 Kingtrust Multi-Reader
 Ledger Nano S
+Ledger Nano X
 Lenovo Integrated Smart Card Reader
 Lenovo Lenovo USB Smartcard Keyboard
 Liteon HP SC Keyboard - Apollo (Liteon)
@@ -294,6 +303,7 @@ Philips Semiconductors JCOP41V221
 Philips Semiconductors SmartMX Sample
 Planeta RC700-NFC CCID
 Precise Biometrics Sense MC
+Purism, SPC Librem Key
 REINER SCT cyberJack RFID basis
 REINER SCT cyberJack go
 REINER SCT cyberJack one
@@ -320,6 +330,9 @@ SCM Microsystems Inc. SCR33x USB Smart Card Reader
 SCM Microsystems Inc. SDI010 Smart Card Reader
 SCM Microsystems Inc. SDI011 Contactless Reader
 SCM Microsystems Inc. SPR 532
+SPECINFOSYSTEMS DIAMOND HSM
+SPECINFOSYSTEMS DIAMOND PLUS token
+SPECINFOSYSTEMS DIAMOND PRO token
 SPECINFOSYSTEMS DIAMOND token
 SYNNIX STD200
 SafeNet eToken 5100
@@ -335,16 +348,23 @@ SpringCard CSB6 Basic
 SpringCard CSB6 Secure
 SpringCard CSB6 Ultimate
 SpringCard CrazyWriter
+SpringCard E518
 SpringCard EasyFinger Standard
 SpringCard EasyFinger Ultimate
 SpringCard H512 Series
+SpringCard H518
 SpringCard H663 Series
 SpringCard NFC'Roll
 SpringCard Prox'N'Roll
+SpringCard Puck
+SpringCard SpringCore
 Spyrus Inc PocketVault P-3X
 Spyrus Inc Rosetta USB
 Spyrus Inc WorkSafe Pro
+Swissbit Secure USB PU-50n SE/PE
+Sysking MII136C
 THURSBY SOFTWARE TSS-PK1
+TOPPAN FORMS CO.,LTD TC63CUT021
 Teridian Semiconductors TSC12xxFV.09
 TianYu CCID Key TianYu CCID SmartKey
 Tianyu Smart Card Reader
