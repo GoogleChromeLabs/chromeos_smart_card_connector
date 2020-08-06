@@ -51,5 +51,7 @@ See [docs/building.md](building.md).
 
 ## Maintenance tasks
 
+* Updating the used version of the PC/SC-Lite Daemon:
+  [docs/updating-pcsc-lite.md](updating-pcsc-lite.md).
 * Updating the used version of the CCID Free Software Driver:
   [docs/updating-ccid.md](updating-ccid.md).
