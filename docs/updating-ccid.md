@@ -35,28 +35,26 @@ somewhat outdated version of the driver.
 1. Download a new release of the CCID free software drivers from the official
    project page: [https://ccid.apdu.fr/](https://ccid.apdu.fr/).
 
-2. Delete all files of the previous version from `//third_party/ccid/src/`, and
+2. Clean the compilation artifacts from the old version of the CCID driver by
+   running this command in the `//third_party/ccid/naclport/build/` directory:
+   
+   ```shell
+   CONFIG=Debug make clean && CONFIG=Release make clean
+   ```
+
+3. Delete all files of the previous version from `//third_party/ccid/src/`, and
    unpack the new files from the downloaded archive into this directory. (Hint:
    Pay attention to the directory structure; e.g., you should have the `AUTHORS`
    file located at `//third_party/ccid/src/AUTHORS` in the end.)
 
-3. Apply the patches from the `//third_party/ccid/patches/` directory to the
+4. Apply the patches from the `//third_party/ccid/patches/` directory to the
    files unpacked at the previous step. (Hint: We only have a single tiny patch
    currently, so probably it's the simplest to just manually apply the
    modification shown in that patch file.)
 
-4. Edit the URL and the version in the `//third_party/ccid/README.google` file.
+5. Edit the URL and the version in the `//third_party/ccid/README.google` file.
 
-5. Edit the version in the `//third_party/ccid/naclport/include.mk` file.
-
-6. Bump the file timestamps for the newly created files, in order to enforce the
-   `make` to recompile the CCID (otherwise, `make` will skip the files that have
-   old timestamps taken from the downloaded archive). To do this, run this in
-   the terminal:
-
-   ```shell
-   find third_party/ccid -exec touch {} \;
-   ```
+6. Edit the version in the `//third_party/ccid/naclport/include.mk` file.
 
 7. Compile the Smart Card Connector app and all other targets, by running the
    `make-all.sh` script.
@@ -72,13 +70,17 @@ somewhat outdated version of the driver.
 10. Check the logs from the App and double-check that they mention the correct
     version of the driver (it should be a string like
     `init_driver() Driver version: 1.4.30`).
+    
+    Troubleshooting: in case a wrong version is still mentioned somewhere, or
+    some other correction was needed, you can force the CCID recompilation by
+    repeating the step #2.
 
 11. Generate a new version of the
     `//smart_card_connector_app/build/human_readable_supported_readers.txt` file
     (by running `make package` in the `//smart_card_connector/build/`
     directory).
 
-11. If everything is OK, prepare a commit / a Pull Request with all these
+12. If everything is OK, prepare a commit / a Pull Request with all these
     changes.
 
 Additional tasks to be performed later, when rolling out a new version of the
