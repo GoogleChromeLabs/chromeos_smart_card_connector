@@ -33,33 +33,122 @@ chrome.certificateProvider = {};
 
 
 /**
- * @typedef {string}
+ * @enum {string}
  */
-chrome.certificateProvider.Hash;
+chrome.certificateProvider.Algorithm = {
+  RSASSA_PKCS1_v1_5_MD5_SHA1: 'RSASSA_PKCS1_v1_5_MD5_SHA1',
+  RSASSA_PKCS1_v1_5_SHA1: 'RSASSA_PKCS1_v1_5_SHA1',
+  RSASSA_PKCS1_v1_5_SHA256: 'RSASSA_PKCS1_v1_5_SHA256',
+  RSASSA_PKCS1_v1_5_SHA384: 'RSASSA_PKCS1_v1_5_SHA384',
+  RSASSA_PKCS1_v1_5_SHA512: 'RSASSA_PKCS1_v1_5_SHA512',
+};
+
+
+/**
+ * @enum {string}
+ */
+chrome.certificateProvider.Error = {
+  GENERAL_ERROR: 'GENERAL_ERROR',
+};
+
+
+/**
+ * @enum {string}
+ */
+chrome.certificateProvider.Hash = {
+  MD5_SHA1: 'MD5_SHA1',
+  SHA1: 'SHA1',
+  SHA256: 'SHA256',
+  SHA384: 'SHA384',
+  SHA512: 'SHA512',
+};
+
+
+/**
+ * @typedef {{
+ *   certificateChain: !Array<!ArrayBuffer>,
+ *   supportedAlgorithms: !Array<!chrome.certificateProvider.Algorithm>
+ * }}
+ */
+chrome.certificateProvider.ClientCertificateInfo;
+
+
+/**
+ * @typedef {{
+ *   certificatesRequestId: number,
+ *   error: (!chrome.certificateProvider.Error|undefined),
+ *   clientCertificates: !Array<!chrome.certificateProvider.ClientCertificateInfo>
+ * }}
+ */
+chrome.certificateProvider.SetCertificatesDetails;
 
 
 /**
  * @constructor
  */
-chrome.certificateProvider.CertificateInfo = function() {};
+chrome.certificateProvider.CertificatesUpdateRequest = function() {};
 
+/**
+ * @type {number}
+ */
+chrome.certificateProvider.CertificatesUpdateRequest.prototype.certificatesRequestId;
+
+
+/**
+ * @constructor
+ */
+chrome.certificateProvider.SignatureRequest = function() {};
+
+/**
+ * @type {number}
+ */
+chrome.certificateProvider.SignatureRequest.prototype.signRequestId;
 
 /**
  * @type {!ArrayBuffer}
  */
-chrome.certificateProvider.CertificateInfo.prototype.certificate;
+chrome.certificateProvider.SignatureRequest.prototype.input;
+
+/**
+ * @type {!chrome.certificateProvider.Algorithm}
+ */
+chrome.certificateProvider.SignatureRequest.prototype.algorithm;
+
+/**
+ * @type {!ArrayBuffer}
+ */
+chrome.certificateProvider.SignatureRequest.prototype.certificate;
 
 
 /**
- * @type {!Array.<chrome.certificateProvider.Hash>}
+ * @typedef {{
+ *   signRequestId: number,
+ *   error: (!chrome.certificateProvider.Error|undefined),
+ *   signature: (!ArrayBuffer|undefined)
+ * }}
  */
-chrome.certificateProvider.CertificateInfo.prototype.supportedHashes;
+chrome.certificateProvider.ReportSignatureDetails;
+
+
+/**
+ * @typedef {{
+ *   certificate: !ArrayBuffer,
+ *   supportedHashes: !Array.<chrome.certificateProvider.Hash>
+ * }}
+ */
+chrome.certificateProvider.CertificateInfo;
 
 
 /**
  * @constructor
  */
 chrome.certificateProvider.SignRequest = function() {};
+
+
+/**
+ * @type {number}
+ */
+chrome.certificateProvider.SignRequest.prototype.signRequestId;
 
 
 /**
@@ -78,6 +167,48 @@ chrome.certificateProvider.SignRequest.prototype.hash;
  * @type {!ArrayBuffer}
  */
 chrome.certificateProvider.SignRequest.prototype.certificate;
+
+
+/**
+ * @constructor
+ */
+chrome.certificateProvider.CertificatesUpdateRequestEvent = function() {};
+
+/**
+ * @param {function(!chrome.certificateProvider.CertificatesUpdateRequest)} callback
+ */
+chrome.certificateProvider.CertificatesUpdateRequestEvent.prototype.addListener = function(callback) {};
+
+/**
+ * @param {function(!chrome.certificateProvider.CertificatesUpdateRequest)} callback
+ */
+chrome.certificateProvider.CertificatesUpdateRequestEvent.prototype.removeListener = function(callback) {};
+
+/**
+ * @type {!chrome.certificateProvider.CertificatesUpdateRequestEvent}
+ */
+chrome.certificateProvider.onCertificatesUpdateRequested;
+
+
+/**
+ * @constructor
+ */
+chrome.certificateProvider.SignatureRequestEvent = function() {};
+
+/**
+ * @param {function(!chrome.certificateProvider.SignatureRequest)} callback
+ */
+chrome.certificateProvider.SignatureRequestEvent.prototype.addListener = function(callback) {};
+
+/**
+ * @param {function(!chrome.certificateProvider.SignatureRequest)} callback
+ */
+chrome.certificateProvider.SignatureRequestEvent.prototype.removeListener = function(callback) {};
+
+/**
+ * @type {!chrome.certificateProvider.SignatureRequestEvent}
+ */
+chrome.certificateProvider.onSignatureRequested;
 
 
 /**
@@ -126,6 +257,19 @@ chrome.certificateProvider.SignDigestRequestEvent.prototype.removeListener = fun
  * @type {!chrome.certificateProvider.SignDigestRequestEvent}
  */
 chrome.certificateProvider.onSignDigestRequested;
+
+/**
+ * @param {!chrome.certificateProvider.SetCertificatesDetails} details
+ * @param {function()=} callback
+ */
+chrome.certificateProvider.setCertificates = function(details, callback) {};
+
+/**
+ * @param {!chrome.certificateProvider.ReportSignatureDetails} details
+ * @param {function()=} callback
+ */
+chrome.certificateProvider.reportSignature = function(details, callback) {};
+
 
 /**
  * @const

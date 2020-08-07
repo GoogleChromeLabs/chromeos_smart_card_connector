@@ -41,14 +41,65 @@ var NACL_INCOMING_REQUESTER_NAME = 'certificate_provider_nacl_incoming';
 /** @const */
 var NACL_OUTGOING_REQUESTER_NAME = 'certificate_provider_nacl_outgoing';
 
-/** @const */
+/**
+ * @const Function called in the NaCl module when handling
+ * onCertificatesUpdateRequested/onCertificatesRequested events.
+ */
 var HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME = 'HandleCertificatesRequest';
 
-/** @const */
-var HANDLE_SIGN_DIGEST_REQUEST_FUNCTION_NAME = 'HandleSignDigestRequest';
+/**
+ * @const Function called in the NaCl module when handling
+ * onSignatureRequested/onSignDigestRequested events.
+ */
+var HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME = 'HandleSignatureRequest';
 
 /** @const */
 var GSC = GoogleSmartCard;
+
+/**
+ * Mapping from the |Hash| enum values to the |Algorithm| ones.
+ * @type {!Map<!chrome.certificateProvider.Hash,
+ *             !chrome.certificateProvider.Algorithm>}
+ */
+const HASH_TO_ALGORITHM_MAPPING = new Map([
+  [chrome.certificateProvider.Hash.MD5_SHA1,
+      chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_MD5_SHA1],
+  [chrome.certificateProvider.Hash.SHA1,
+      chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_SHA1],
+  [chrome.certificateProvider.Hash.SHA256,
+      chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_SHA256],
+  [chrome.certificateProvider.Hash.SHA384,
+      chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_SHA384],
+  [chrome.certificateProvider.Hash.SHA512,
+      chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_SHA512],
+]);
+
+/**
+ * Certificate information returned by the NaCl module in response to the
+ * |HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME| call.
+ * @typedef {{
+ *   certificate: !Array<number>,
+ *   supportedAlgorithms: !Array<!chrome.certificateProvider.Algorithm>
+ * }}
+ */
+let NaclCertificateInfo;
+
+/**
+ * Information about the onSignatureRequested/onSignDigestRequested event sent
+ * to the NaCl module.
+ *
+ * Note that only one of the fields |input| and |digest| is used; the unused
+ * field is empty (note: |undefined| is not used in order to simplify the
+ * handling on the NaCl side).
+ * @typedef {{
+ *   signRequestId: number,
+ *   input: !ArrayBuffer,
+ *   digest: !ArrayBuffer,
+ *   algorithm: !chrome.certificateProvider.Algorithm,
+ *   certificate: !ArrayBuffer
+ * }}
+ */
+let NaclSignatureRequest;
 
 /**
  * JavaScript-side backend for the bridge between JavaScript
@@ -79,6 +130,15 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(naclModule) {
       'SmartCardClientApp.CertificateProviderBridge.Backend<"' +
       naclModule.naclModulePath + '">');
 
+  /** @private {?function(!chrome.certificateProvider.CertificatesUpdateRequest)} */
+  this.certificatesUpdateRequestListener_ = null;
+  /** @private {?function(!chrome.certificateProvider.SignatureRequest)} */
+  this.signatureRequestListener_ = null;
+  /** @private {?function(function((!Array.<!chrome.certificateProvider.CertificateInfo>),function(!Array.<!chrome.certificateProvider.CertificateInfo>)))} */
+  this.certificatesRequestListener_ = null;
+  /** @private {?function(!chrome.certificateProvider.SignRequest, function(!ArrayBuffer=))} */
+  this.signDigestRequestListener_ = null;
+
   /** @private */
   this.requester_ = new GSC.Requester(
       NACL_INCOMING_REQUESTER_NAME, naclModule.messageChannel);
@@ -90,12 +150,6 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(naclModule) {
       naclModule.messageChannel,
       this.handleRequest_.bind(this));
 
-  /** @private */
-  this.boundCertificatesRequestListener_ =
-      this.certificatesRequestListener_.bind(this);
-  /** @private */
-  this.boundSignDigestRequestListener_ =
-      this.signDigestRequestListener_.bind(this);
   // Start listening for the chrome.certificateProvider API events straight
   // away.
   this.setupApiListeners_();
@@ -123,7 +177,7 @@ if (goog.DEBUG) {
    * reportCallback
    */
   Backend.prototype.dispatchCertificatesRequest = function(reportCallback) {
-    this.certificatesRequestListener_(reportCallback);
+    this.onCertificatesRequested_(reportCallback);
   };
 
   /**
@@ -135,17 +189,31 @@ if (goog.DEBUG) {
    * @param {function(!ArrayBuffer=)} reportCallback
    */
   Backend.prototype.dispatchSignRequest = function(request, reportCallback) {
-    this.signDigestRequestListener_(request, reportCallback);
+    this.onSignDigestRequested_(request, reportCallback);
   };
 }
 
 /** @override */
 Backend.prototype.disposeInternal = function() {
-  if (chrome.certificateProvider) {
+  if (this.signDigestRequestListener_) {
     chrome.certificateProvider.onSignDigestRequested.removeListener(
-        this.boundSignDigestRequestListener_);
+        this.signDigestRequestListener_);
+    this.signDigestRequestListener_ = null;
+  }
+  if (this.certificatesRequestListener_) {
     chrome.certificateProvider.onCertificatesRequested.removeListener(
-        this.boundCertificatesRequestListener_);
+        this.certificatesRequestListener_);
+    this.certificatesRequestListener_ = null;
+  }
+  if (this.signatureRequestListener_) {
+    chrome.certificateProvider.onSignatureRequested.removeListener(
+        this.signatureRequestListener_);
+    this.signatureRequestListener_ = null;
+  }
+  if (this.certificatesUpdateRequestListener_) {
+    chrome.certificateProvider.onCertificatesUpdateRequested.removeListener(
+        this.certificatesUpdateRequestListener_);
+    this.certificatesUpdateRequestListener_ = null;
   }
 
   this.requester_.dispose();
@@ -231,20 +299,58 @@ Backend.prototype.setupApiListeners_ = function() {
     return;
   }
 
-  chrome.certificateProvider.onCertificatesRequested.addListener(
-      this.boundCertificatesRequestListener_);
-  chrome.certificateProvider.onSignDigestRequested.addListener(
-      this.boundSignDigestRequestListener_);
+  if (chrome.certificateProvider.onCertificatesUpdateRequested &&
+      chrome.certificateProvider.onSignatureRequested &&
+      chrome.certificateProvider.setCertificates) {
+    this.certificatesUpdateRequestListener_ =
+        this.onCertificatesUpdateRequested_.bind(this);
+    chrome.certificateProvider.onCertificatesUpdateRequested.addListener(
+        this.certificatesUpdateRequestListener_);
+    this.signatureRequestListener_ = this.onSignatureRequested_.bind(this);
+    chrome.certificateProvider.onSignatureRequested.addListener(
+        this.signatureRequestListener_);
+  } else {
+    // TODO: Remove this branch after support of Chrome OS <=85 is dropped.
+    this.logger.info(
+        'Proactively notifying Chrome about certificate changes will not be ' +
+        'possible: chrome.certificateProvider API version is too old.');
+    this.certificatesRequestListener_ =
+        this.onCertificatesRequested_.bind(this);
+    chrome.certificateProvider.onCertificatesRequested.addListener(
+        this.certificatesRequestListener_);
+    this.signDigestRequestListener_ = this.onSignDigestRequested_.bind(this);
+    chrome.certificateProvider.onSignDigestRequested.addListener(
+        this.signDigestRequestListener_);
+  }
+
   this.logger.fine(
       'Started listening for chrome.certificateProvider API events');
+};
+
+/**
+ * @param {!chrome.certificateProvider.CertificatesUpdateRequest} request
+ * @private
+ */
+Backend.prototype.onCertificatesUpdateRequested_ = function(request) {
+  this.deferredProcessor_.addJob(this.processCertificatesUpdateRequest_.bind(
+      this, request));
+};
+
+/**
+ * @param {!chrome.certificateProvider.SignatureRequest} request
+ * @private
+ */
+Backend.prototype.onSignatureRequested_ = function(request) {
+  this.deferredProcessor_.addJob(this.processSignatureRequest_.bind(
+      this, request));
 };
 
 /**
  * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>),function(!Array.<!chrome.certificateProvider.CertificateInfo>))} reportCallback
  * @private
  */
-Backend.prototype.certificatesRequestListener_ = function(reportCallback) {
-  this.deferredProcessor_.addJob(this.startCertificatesRequest_.bind(
+Backend.prototype.onCertificatesRequested_ = function(reportCallback) {
+  this.deferredProcessor_.addJob(this.processCertificatesRequest_.bind(
       this, reportCallback));
 };
 
@@ -253,17 +359,88 @@ Backend.prototype.certificatesRequestListener_ = function(reportCallback) {
  * @param {function(!ArrayBuffer=)} reportCallback
  * @private
  */
-Backend.prototype.signDigestRequestListener_ = function(
+Backend.prototype.onSignDigestRequested_ = function(
     request, reportCallback) {
-  this.deferredProcessor_.addJob(this.startSignDigestRequest_.bind(
+  this.deferredProcessor_.addJob(this.processSignDigestRequest_.bind(
       this, request, reportCallback));
+};
+
+/**
+ * @param {!chrome.certificateProvider.CertificatesUpdateRequest} request
+ * @private
+ */
+Backend.prototype.processCertificatesUpdateRequest_ = function(request) {
+  this.logger.info('Started handling certificates update request');
+  var remoteCallMessage = new GSC.RemoteCallMessage(
+      HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
+  var promise = this.requester_.postRequest(
+      remoteCallMessage.makeRequestPayload());
+  promise.then(function(results) {
+    GSC.Logging.checkWithLogger(this.logger, results.length == 1);
+    var certificates = goog.array.map(results[0], createClientCertificateInfo);
+    this.logger.info(
+        'Setting the certificate list with ' + certificates.length +
+        ' certificates: ' + GSC.DebugDump.debugDump(certificates));
+    chrome.certificateProvider.setCertificates({
+      certificatesRequestId: request.certificatesRequestId,
+      clientCertificates: certificates
+    });
+  }, function() {
+    this.logger.info('Setting empty certificates list and an error');
+    chrome.certificateProvider.setCertificates({
+      certificatesRequestId: request.certificatesRequestId,
+      clientCertificates: [],
+      error: chrome.certificateProvider.Error.GENERAL_ERROR
+    });
+  }, this);
+};
+
+/**
+ * @param {!chrome.certificateProvider.SignatureRequest} request
+ * @private
+ */
+Backend.prototype.processSignatureRequest_ = function(request) {
+  this.logger.info(
+      'Started handling signature request. The request contents are: ' +
+      'algorithm is "' + request.algorithm + '", input is ' +
+      GSC.DebugDump.debugDump(request.input) + ', certificate is ' +
+      GSC.DebugDump.debugDump(request.certificate));
+  /** @type {!NaclSignatureRequest} */
+  const naclRequest = {
+    signRequestId: request.signRequestId,
+    input: request.input,
+    digest: new ArrayBuffer(/*length=*/0),
+    algorithm: request.algorithm,
+    certificate: request.certificate,
+  };
+  var remoteCallMessage = new GSC.RemoteCallMessage(
+      HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME, [naclRequest]);
+  var promise = this.requester_.postRequest(
+      remoteCallMessage.makeRequestPayload());
+  promise.then(function(results) {
+    GSC.Logging.checkWithLogger(this.logger, results.length == 1);
+    var signature = normalizeSignature(results[0]);
+    this.logger.info(
+        'Responding to the signature request with the created signature: ' +
+        GSC.DebugDump.debugDump(signature));
+    chrome.certificateProvider.reportSignature({
+      signRequestId: request.signRequestId,
+      signature: signature
+    });
+  }, function() {
+    this.logger.info('Responding to the signature request with an error');
+    chrome.certificateProvider.reportSignature({
+      signRequestId: request.signRequestId,
+      error: chrome.certificateProvider.Error.GENERAL_ERROR
+    });
+  }, this);
 };
 
 /**
  * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>),function(!Array.<!chrome.certificateProvider.CertificateInfo>))} reportCallback
  * @private
  */
-Backend.prototype.startCertificatesRequest_ = function(reportCallback) {
+Backend.prototype.processCertificatesRequest_ = function(reportCallback) {
   this.logger.info('Started handling certificates request');
   var remoteCallMessage = new GSC.RemoteCallMessage(
       HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
@@ -271,7 +448,7 @@ Backend.prototype.startCertificatesRequest_ = function(reportCallback) {
       remoteCallMessage.makeRequestPayload());
   promise.then(function(results) {
     GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-    var certificates = goog.array.map(results[0], normalizeCertificateInfo);
+    var certificates = goog.array.map(results[0], createCertificateInfo);
     this.logger.info(
         'Responding to the certificates request with ' + certificates.length +
         ' certificates: ' + GSC.DebugDump.debugDump(certificates));
@@ -287,14 +464,23 @@ Backend.prototype.startCertificatesRequest_ = function(reportCallback) {
  * @param {function(!ArrayBuffer=)} reportCallback
  * @private
  */
-Backend.prototype.startSignDigestRequest_ = function(request, reportCallback) {
+Backend.prototype.processSignDigestRequest_ = function(
+    request, reportCallback) {
   this.logger.info(
       'Started handling digest signing request. The request contents are: ' +
       'hash is "' + request.hash + '", digest is ' +
       GSC.DebugDump.debugDump(request.digest) + ', certificate is ' +
       GSC.DebugDump.debugDump(request.certificate));
+  /** @type {!NaclSignatureRequest} */
+  const naclRequest = {
+    signRequestId: request.signRequestId,
+    input: new ArrayBuffer(/*length=*/0),
+    digest: request.digest,
+    algorithm: getAlgorithmFromHash(request.hash),
+    certificate: request.certificate,
+  };
   var remoteCallMessage = new GSC.RemoteCallMessage(
-      HANDLE_SIGN_DIGEST_REQUEST_FUNCTION_NAME, [request]);
+      HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME, [naclRequest]);
   var promise = this.requester_.postRequest(
       remoteCallMessage.makeRequestPayload());
   promise.then(function(results) {
@@ -325,13 +511,51 @@ Backend.prototype.rejectedCertificatesCallback_ = function(
 };
 
 /**
- * @param {!chrome.certificateProvider.CertificateInfo} certificateInfo
+ * @param {!NaclCertificateInfo} naclCertificateInfo
+ * @return {!chrome.certificateProvider.ClientCertificateInfo}
+ */
+function createClientCertificateInfo(naclCertificateInfo) {
+  return {
+    certificateChain: [
+        (new Uint8Array(naclCertificateInfo['certificate'])).buffer],
+    supportedAlgorithms: naclCertificateInfo['supportedAlgorithms']
+  };
+}
+
+/**
+ * @param {!NaclCertificateInfo} naclCertificateInfo
  * @return {!chrome.certificateProvider.CertificateInfo}
  */
-function normalizeCertificateInfo(certificateInfo) {
-  certificateInfo.certificate = (new Uint8Array(
-      certificateInfo.certificate)).buffer;
-  return certificateInfo;
+function createCertificateInfo(naclCertificateInfo) {
+  return {
+    certificate: (new Uint8Array(naclCertificateInfo['certificate'])).buffer,
+    supportedHashes: goog.array.map(
+      naclCertificateInfo['supportedAlgorithms'], getHashFromAlgorithm)
+  };
+}
+
+/**
+ * @param {!chrome.certificateProvider.Hash} hash
+ * @return {!chrome.certificateProvider.Algorithm}
+ */
+function getAlgorithmFromHash(hash) {
+  if (HASH_TO_ALGORITHM_MAPPING.has(hash))
+    return HASH_TO_ALGORITHM_MAPPING.get(hash);
+  GSC.Logging.fail(`Unknown hash ${hash}`);
+  return chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_SHA1;
+}
+
+/**
+ * @param {!chrome.certificateProvider.Algorithm} algorithm
+ * @return {!chrome.certificateProvider.Hash}
+ */
+function getHashFromAlgorithm(algorithm) {
+  for (const hash of HASH_TO_ALGORITHM_MAPPING.keys()) {
+    if (HASH_TO_ALGORITHM_MAPPING.get(hash) === algorithm)
+      return hash;
+  }
+  GSC.Logging.fail(`Unknown algorithm ${algorithm}`);
+  return chrome.certificateProvider.Hash.SHA1;
 }
 
 /**

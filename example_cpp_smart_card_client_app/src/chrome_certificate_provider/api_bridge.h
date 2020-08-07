@@ -47,24 +47,28 @@ namespace chrome_certificate_provider {
 // Handler of the certificates listing request.
 //
 // For the related original JavaScript definition, refer to:
-// <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesRequested>
+// <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesUpdateRequested>
+// and
+// <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesRequested>.
 class CertificatesRequestHandler {
  public:
   virtual ~CertificatesRequestHandler() = default;
 
-  virtual bool HandleRequest(std::vector<CertificateInfo>* result) = 0;
+  virtual bool HandleRequest(std::vector<ClientCertificateInfo>* result) = 0;
 };
 
-// Handler of the digest signing request.
+// Handler of the signature request.
 //
 // For the related original JavaScript definition, refer to:
-// <https://developer.chrome.com/extensions/certificateProvider#event-onSignDigestRequested>
-class SignDigestRequestHandler {
+// <https://developer.chrome.com/extensions/certificateProvider#event-onSignatureRequested>
+// and
+// <https://developer.chrome.com/extensions/certificateProvider#event-onSignDigestRequested>.
+class SignatureRequestHandler {
  public:
-  virtual ~SignDigestRequestHandler() = default;
+  virtual ~SignatureRequestHandler() = default;
 
-  virtual bool HandleRequest(
-      const SignRequest& sign_request, std::vector<uint8_t>* result) = 0;
+  virtual bool HandleRequest(const SignatureRequest& signature_request,
+                             std::vector<uint8_t>* result) = 0;
 };
 
 // This class provides a C++ bridge to the chrome.certificateProvider JavaScript
@@ -102,9 +106,14 @@ class ApiBridge final : public google_smart_card::RequestHandler {
       std::weak_ptr<CertificatesRequestHandler> handler);
   void RemoveCertificatesRequestHandler();
 
-  void SetSignDigestRequestHandler(
-      std::weak_ptr<SignDigestRequestHandler> handler);
-  void RemoveSignDigestRequestHandler();
+  void SetSignatureRequestHandler(
+      std::weak_ptr<SignatureRequestHandler> handler);
+  void RemoveSignatureRequestHandler();
+
+  // Sends the current list of certificates in Chrome. The should be called
+  // after initialization and on every change in the set of currently available
+  // certificates.
+  void SetCertificates(const std::vector<ClientCertificateInfo>& certificates);
 
   // Sends a PIN request and waits for the response being received.
   //
@@ -136,7 +145,7 @@ class ApiBridge final : public google_smart_card::RequestHandler {
   void HandleCertificatesRequest(
       const pp::VarArray& arguments,
       google_smart_card::RequestReceiver::ResultCallback result_callback);
-  void HandleSignDigestRequest(
+  void HandleSignatureRequest(
       const pp::VarArray& arguments,
       google_smart_card::RequestReceiver::ResultCallback result_callback);
 
@@ -151,7 +160,7 @@ class ApiBridge final : public google_smart_card::RequestHandler {
 
   std::shared_ptr<google_smart_card::JsRequestReceiver> request_receiver_;
   std::weak_ptr<CertificatesRequestHandler> certificates_request_handler_;
-  std::weak_ptr<SignDigestRequestHandler> sign_digest_request_handler_;
+  std::weak_ptr<SignatureRequestHandler> signature_request_handler_;
 };
 
 }  // namespace chrome_certificate_provider
