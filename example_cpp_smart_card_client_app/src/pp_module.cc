@@ -108,14 +108,14 @@ class PpInstance final : public pp::Instance {
         ui_bridge_(new UiBridge(
             &typed_message_router_, this, request_handling_mutex_)),
         certificates_request_handler_(new ClientCertificatesRequestHandler),
-        sign_digest_request_handler_(new ClientSignDigestRequestHandler(
+        signature_request_handler_(new ClientSignatureRequestHandler(
             chrome_certificate_provider_api_bridge_)),
         message_from_ui_handler_(new ClientMessageFromUiHandler(
             ui_bridge_, built_in_pin_dialog_server_)) {
     chrome_certificate_provider_api_bridge_->SetCertificatesRequestHandler(
         certificates_request_handler_);
-    chrome_certificate_provider_api_bridge_->SetSignDigestRequestHandler(
-        sign_digest_request_handler_);
+    chrome_certificate_provider_api_bridge_->SetSignatureRequestHandler(
+        signature_request_handler_);
     ui_bridge_->SetHandler(message_from_ui_handler_);
     StartWorkInBackgroundThread();
   }
@@ -172,8 +172,11 @@ class PpInstance final : public pp::Instance {
   }
 
  private:
-  // This class is the implementation of the onCertificatesRequested request
-  // from the chrome.certificateProvider JavaScript API (see
+  // This class is the implementation of the
+  // onCertificatesUpdateRequested/onCertificatesRequested requests from the
+  // chrome.certificateProvider JavaScript API (see
+  // <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesUpdateRequested>
+  // and
   // <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesRequested>).
   class ClientCertificatesRequestHandler final
       : public ccp::CertificatesRequestHandler {
@@ -188,7 +191,7 @@ class PpInstance final : public pp::Instance {
     // chrome_certificate_provider::ApiBridge object on a separate background
     // thread. Multiple requests can be executed simultaneously (they will run
     // in different background threads).
-    bool HandleRequest(std::vector<ccp::CertificateInfo>* result) override {
+    bool HandleRequest(std::vector<ccp::ClientCertificateInfo>* result) override {
       //
       // CHANGE HERE:
       // Place your custom code here:
@@ -197,11 +200,13 @@ class PpInstance final : public pp::Instance {
       // Note: the bytes "1, 2, 3" and the signature algorithms below are just
       // an example. In the real application, replace them with the bytes of the
       // DER encoding of a X.509 certificate and the supported algorithms.
-      ccp::CertificateInfo certificate_info_1;
+      ccp::ClientCertificateInfo certificate_info_1;
       certificate_info_1.certificate.assign({1, 2, 3});
-      certificate_info_1.supported_hashes.push_back(ccp::Hash::kMd5Sha1);
-      ccp::CertificateInfo certificate_info_2;
-      certificate_info_2.supported_hashes.push_back(ccp::Hash::kSha512);
+      certificate_info_1.supported_algorithms.push_back(
+          ccp::Algorithm::kRsassaPkcs1v15Sha1);
+      ccp::ClientCertificateInfo certificate_info_2;
+      certificate_info_2.supported_algorithms.push_back(
+          ccp::Algorithm::kRsassaPkcs1v15Sha512);
       result->push_back(certificate_info_1);
       result->push_back(certificate_info_2);
 
@@ -209,19 +214,22 @@ class PpInstance final : public pp::Instance {
     }
   };
 
-  // This class is the implementation of the onSignDigestRequested request
-  // from the chrome.certificateProvider JavaScript API (see
+  // This class is the implementation of the
+  // onSignatureRequested/onSignDigestRequested requests from the
+  // chrome.certificateProvider JavaScript API (see
+  // <https://developer.chrome.com/extensions/certificateProvider#event-onSignatureRequested>
+  // and
   // <https://developer.chrome.com/extensions/certificateProvider#event-onSignDigestRequested>).
-  class ClientSignDigestRequestHandler final
-      : public ccp::SignDigestRequestHandler {
+  class ClientSignatureRequestHandler final
+      : public ccp::SignatureRequestHandler {
    public:
-    explicit ClientSignDigestRequestHandler(
+    explicit ClientSignatureRequestHandler(
         std::weak_ptr<ccp::ApiBridge> chrome_certificate_provider_api_bridge)
         : chrome_certificate_provider_api_bridge_(
               chrome_certificate_provider_api_bridge) {}
 
-    // Handles the received sign digest request (the request data is passed
-    // through the |sign_request| argument).
+    // Handles the received signature request (the request data is passed
+    // through the |signature_request| argument).
     //
     // Returns whether the operation finished successfully. In case of success,
     // the resulting signature should be returned through the |result| output
@@ -232,7 +240,7 @@ class PpInstance final : public pp::Instance {
     // thread. Multiple requests can be executed simultaneously (they will run
     // in different background threads).
     bool HandleRequest(
-        const ccp::SignRequest& sign_request,
+        const ccp::SignatureRequest& signature_request,
         std::vector<uint8_t>* result) override {
       //
       // CHANGE HERE:
@@ -251,7 +259,7 @@ class PpInstance final : public pp::Instance {
       GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Running PIN dialog " <<
           "demo...";
       ccp::RequestPinOptions request_pin_options;
-      request_pin_options.sign_request_id = sign_request.sign_request_id;
+      request_pin_options.sign_request_id = signature_request.sign_request_id;
       std::string pin;
       if (!locked_chrome_certificate_provider_api_bridge->RequestPin(
                request_pin_options, &pin)) {
@@ -261,7 +269,8 @@ class PpInstance final : public pp::Instance {
       }
 
       ccp::StopPinRequestOptions stop_pin_request_options;
-      stop_pin_request_options.sign_request_id = sign_request.sign_request_id;
+      stop_pin_request_options.sign_request_id =
+          signature_request.sign_request_id;
       locked_chrome_certificate_provider_api_bridge->StopPinRequest(
           stop_pin_request_options);
 
@@ -396,16 +405,20 @@ class PpInstance final : public pp::Instance {
   std::shared_ptr<ccp::ApiBridge> chrome_certificate_provider_api_bridge_;
   // Object that sends/receives messages to/from the UI.
   const std::shared_ptr<UiBridge> ui_bridge_;
-  // Handler of the onCertificatesRequested request
-  // from the chrome.certificateProvider JavaScript API (see
+  // Handler of the onCertificateUpdatesRequested/onCertificatesRequested
+  // requests from the chrome.certificateProvider JavaScript API (see
+  // <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesUpdateRequested>
+  // and
   // <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesRequested>).
   const std::shared_ptr<ClientCertificatesRequestHandler>
   certificates_request_handler_;
-  // Handler of the onSignDigestRequested request
+  // Handler of the onSignatureRequested/onSignDigestRequested requests
   // from the chrome.certificateProvider JavaScript API (see
+  // <https://developer.chrome.com/extensions/certificateProvider#event-onSignatureRequested>
+  // and
   // <https://developer.chrome.com/extensions/certificateProvider#event-onSignDigestRequested>).
-  const std::shared_ptr<ClientSignDigestRequestHandler>
-  sign_digest_request_handler_;
+  const std::shared_ptr<ClientSignatureRequestHandler>
+  signature_request_handler_;
   // Handler of messages from UI.
   const std::shared_ptr<ClientMessageFromUiHandler> message_from_ui_handler_;
 };

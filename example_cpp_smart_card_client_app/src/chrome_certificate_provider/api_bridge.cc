@@ -30,8 +30,8 @@ const char kRequesterName[] = "certificate_provider_nacl_outgoing";
 const char kRequestReceiverName[] = "certificate_provider_nacl_incoming";
 const char kHandleCertificatesRequestFunctionName[] =
     "HandleCertificatesRequest";
-const char kHandleSignDigestRequestFunctionName[] =
-    "HandleSignDigestRequest";
+const char kHandleSignatureRequestFunctionName[] =
+    "HandleSignatureRequest";
 const char kFunctionCallLoggingPrefix[] = "chrome.certificateProvider.";
 
 namespace scc = smart_card_client;
@@ -53,7 +53,7 @@ void ProcessCertificatesRequest(
     lock = std::unique_lock<std::mutex>(*request_handling_mutex);
 
   GOOGLE_SMART_CARD_LOG_DEBUG << "Processing certificates request...";
-  std::vector<CertificateInfo> certificates;
+  std::vector<ClientCertificateInfo> certificates;
   const std::shared_ptr<CertificatesRequestHandler>
   locked_certificates_request_handler = certificates_request_handler.lock();
   GOOGLE_SMART_CARD_CHECK(locked_certificates_request_handler);
@@ -65,9 +65,9 @@ void ProcessCertificatesRequest(
   }
 }
 
-void ProcessSignDigestRequest(
-    std::weak_ptr<SignDigestRequestHandler> sign_digest_request_handler,
-    const SignRequest& sign_request,
+void ProcessSignatureRequest(
+    std::weak_ptr<SignatureRequestHandler> signature_request_handler,
+    const SignatureRequest& signature_request,
     std::shared_ptr<std::mutex> request_handling_mutex,
     gsc::RequestReceiver::ResultCallback result_callback) {
   std::unique_lock<std::mutex> lock;
@@ -76,11 +76,11 @@ void ProcessSignDigestRequest(
 
   GOOGLE_SMART_CARD_LOG_DEBUG << "Processing sign digest request...";
   std::vector<uint8_t> signature;
-  const std::shared_ptr<SignDigestRequestHandler>
-  locked_sign_digest_request_handler = sign_digest_request_handler.lock();
-  GOOGLE_SMART_CARD_CHECK(locked_sign_digest_request_handler);
-  if (locked_sign_digest_request_handler->HandleRequest(
-          sign_request, &signature)) {
+  const std::shared_ptr<SignatureRequestHandler>
+      locked_signature_request_handler = signature_request_handler.lock();
+  GOOGLE_SMART_CARD_CHECK(locked_signature_request_handler);
+  if (locked_signature_request_handler->HandleRequest(
+          signature_request, &signature)) {
     result_callback(gsc::GenericRequestResult::CreateSuccessful(
         gsc::MakeVarArray(signature)));
   } else {
@@ -123,13 +123,20 @@ void ApiBridge::RemoveCertificatesRequestHandler() {
   certificates_request_handler_.reset();
 }
 
-void ApiBridge::SetSignDigestRequestHandler(
-    std::weak_ptr<SignDigestRequestHandler> handler) {
-  sign_digest_request_handler_ = handler;
+void ApiBridge::SetSignatureRequestHandler(
+    std::weak_ptr<SignatureRequestHandler> handler) {
+  signature_request_handler_ = handler;
 }
 
-void ApiBridge::RemoveSignDigestRequestHandler() {
-  sign_digest_request_handler_.reset();
+void ApiBridge::RemoveSignatureRequestHandler() {
+  signature_request_handler_.reset();
+}
+
+void ApiBridge::SetCertificates(
+    const std::vector<ClientCertificateInfo>& certificates) {
+  SetCertificatesDetails details;
+  details.client_certificates = certificates;
+  remote_call_adaptor_.SyncCall("setCertificates", details);
 }
 
 bool ApiBridge::RequestPin(const RequestPinOptions& options, std::string* pin) {
@@ -200,8 +207,8 @@ void ApiBridge::HandleRequest(
       payload, &function_name, &arguments));
   if (function_name == kHandleCertificatesRequestFunctionName) {
     HandleCertificatesRequest(arguments, result_callback);
-  } else if (function_name == kHandleSignDigestRequestFunctionName) {
-    HandleSignDigestRequest(arguments, result_callback);
+  } else if (function_name == kHandleSignatureRequestFunctionName) {
+    HandleSignatureRequest(arguments, result_callback);
   } else {
     GOOGLE_SMART_CARD_LOG_FATAL << "Unknown chrome_certificate_provider " <<
         "ApiBridge function requested: \"" << function_name << "\"";
@@ -219,15 +226,15 @@ void ApiBridge::HandleCertificatesRequest(
       result_callback).detach();
 }
 
-void ApiBridge::HandleSignDigestRequest(
+void ApiBridge::HandleSignatureRequest(
     const pp::VarArray& arguments,
     gsc::RequestReceiver::ResultCallback result_callback) {
-  SignRequest sign_request;
-  gsc::GetVarArrayItems(arguments, &sign_request);
+  SignatureRequest signature_request;
+  gsc::GetVarArrayItems(arguments, &signature_request);
   std::thread(
-      &ProcessSignDigestRequest,
-      sign_digest_request_handler_,
-      sign_request,
+      &ProcessSignatureRequest,
+      signature_request_handler_,
+      signature_request,
       request_handling_mutex_,
       result_callback).detach();
 }

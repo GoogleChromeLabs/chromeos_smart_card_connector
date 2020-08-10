@@ -42,13 +42,21 @@ namespace chrome_certificate_provider {
 // Enumerate that corresponds to different hash algorithms.
 //
 // For the corresponding original JavaScript definition, refer to:
-// <https://developer.chrome.com/extensions/certificateProvider#type-Hash>.
-enum class Hash {
-  kMd5Sha1,
-  kSha1,
-  kSha256,
-  kSha384,
-  kSha512,
+// <https://developer.chrome.com/extensions/certificateProvider#type-Algorithm>.
+enum class Algorithm {
+  kRsassaPkcs1v15Md5Sha1,
+  kRsassaPkcs1v15Sha1,
+  kRsassaPkcs1v15Sha384,
+  kRsassaPkcs1v15Sha256,
+  kRsassaPkcs1v15Sha512,
+};
+
+// Enumerate that corresponds to types of errors that the extension can report.
+//
+// For the corresponding original JavaScript definition, refer to:
+// <https://developer.chrome.com/extensions/certificateProvider#type-Error>.
+enum class Error {
+  kGeneral,
 };
 
 // Enumerate that corresponds to the type of the PIN dialog.
@@ -76,20 +84,37 @@ enum class PinRequestErrorType {
 // Structure containing a certificate description.
 //
 // For the corresponding original JavaScript definition, refer to:
-// <https://developer.chrome.com/extensions/certificateProvider#type-CertificateInfo>.
-struct CertificateInfo {
+// <https://developer.chrome.com/extensions/certificateProvider#type-ClientCertificateInfo>.
+struct ClientCertificateInfo {
   std::vector<uint8_t> certificate;
-  std::vector<Hash> supported_hashes;
+  std::vector<Algorithm> supported_algorithms;
 };
 
-// Structure containing the data of the digest signing request.
+// Structure containing the parameters for the
+// chrome.certificateProvider.setCertificates() function.
 //
 // For the corresponding original JavaScript definition, refer to:
-// <https://developer.chrome.com/extensions/certificateProvider#type-SignRequest>.
-struct SignRequest {
+// <https://developer.chrome.com/extensions/certificateProvider#method-setCertificates>.
+struct SetCertificatesDetails {
+  google_smart_card::optional<int> certificates_request_id;
+  google_smart_card::optional<Error> error;
+  std::vector<ClientCertificateInfo> client_certificates;
+};
+
+// Structure containing the data of the signature request.
+//
+// Note that either |input| or |digest| will be set (but not both
+// simultaneously).
+//
+// For the corresponding original JavaScript definition, refer to:
+// <https://developer.chrome.com/extensions/certificateProvider#event-onSignatureRequested>
+// and
+// <https://developer.chrome.com/extensions/certificateProvider#event-onSignDigestRequested>.
+struct SignatureRequest {
   int sign_request_id;
-  std::vector<uint8_t> digest;
-  Hash hash;
+  std::vector<uint8_t> input;
+  std::vector<uint8_t> digest;  // only used with the legacy API
+  Algorithm algorithm;
   std::vector<uint8_t> certificate;
 };
 
@@ -124,8 +149,11 @@ struct StopPinRequestOptions {
   google_smart_card::optional<PinRequestErrorType> error_type;
 };
 
-bool VarAs(const pp::Var& var, Hash* result, std::string* error_message);
-pp::Var MakeVar(Hash value);
+bool VarAs(const pp::Var& var, Algorithm* result, std::string* error_message);
+pp::Var MakeVar(Algorithm value);
+
+bool VarAs(const pp::Var& var, Error* result, std::string* error_message);
+pp::Var MakeVar(Error value);
 
 bool VarAs(const pp::Var& var, PinRequestType* result,
            std::string* error_message);
@@ -135,12 +163,17 @@ bool VarAs(const pp::Var& var, PinRequestErrorType* result,
            std::string* error_message);
 pp::Var MakeVar(PinRequestErrorType value);
 
-bool VarAs(
-    const pp::Var& var, CertificateInfo* result, std::string* error_message);
-pp::Var MakeVar(const CertificateInfo& value);
+bool VarAs(const pp::Var& var, ClientCertificateInfo* result,
+           std::string* error_message);
+pp::Var MakeVar(const ClientCertificateInfo& value);
 
-bool VarAs(const pp::Var& var, SignRequest* result, std::string* error_message);
-pp::Var MakeVar(const SignRequest& value);
+bool VarAs(const pp::Var& var, SetCertificatesDetails* result,
+           std::string* error_message);
+pp::Var MakeVar(const SetCertificatesDetails& value);
+
+bool VarAs(const pp::Var& var, SignatureRequest* result,
+           std::string* error_message);
+pp::Var MakeVar(const SignatureRequest& value);
 
 bool VarAs(const pp::Var& var, RequestPinOptions* result,
            std::string* error_message);

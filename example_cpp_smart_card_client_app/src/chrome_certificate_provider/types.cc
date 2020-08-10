@@ -23,31 +23,49 @@ namespace gsc = google_smart_card;
 
 namespace google_smart_card {
 
-using HashConverter = EnumConverter<ccp::Hash, std::string>;
+using AlgorithmConverter = EnumConverter<ccp::Algorithm, std::string>;
+using ErrorConverter = EnumConverter<ccp::Error, std::string>;
 using PinRequestTypeConverter = EnumConverter<ccp::PinRequestType, std::string>;
 using PinRequestErrorTypeConverter = EnumConverter<
     ccp::PinRequestErrorType, std::string>;
-using CertificateInfoConverter = StructConverter<ccp::CertificateInfo>;
-using SignRequestConverter = StructConverter<ccp::SignRequest>;
+using ClientCertificateInfoConverter = StructConverter<
+    ccp::ClientCertificateInfo>;
+using SetCertificatesDetailsConverter = StructConverter<
+    ccp::SetCertificatesDetails>;
+using SignatureRequestConverter = StructConverter<ccp::SignatureRequest>;
 using RequestPinOptionsConverter = StructConverter<ccp::RequestPinOptions>;
 using RequestPinResultsConverter = StructConverter<ccp::RequestPinResults>;
 using StopPinRequestOptionsConverter = StructConverter<ccp::StopPinRequestOptions>;
 
 // static
 template <>
-constexpr const char* HashConverter::GetEnumTypeName() {
-  return "chrome_certificate_provider::Hash";
+constexpr const char* AlgorithmConverter::GetEnumTypeName() {
+  return "chrome_certificate_provider::Algorithm";
 }
 
 // static
 template <>
 template <typename Callback>
-void HashConverter::VisitCorrespondingPairs(Callback callback) {
-  callback(ccp::Hash::kMd5Sha1, "MD5_SHA1");
-  callback(ccp::Hash::kSha1, "SHA1");
-  callback(ccp::Hash::kSha256, "SHA256");
-  callback(ccp::Hash::kSha384, "SHA384");
-  callback(ccp::Hash::kSha512, "SHA512");
+void AlgorithmConverter::VisitCorrespondingPairs(Callback callback) {
+  callback(ccp::Algorithm::kRsassaPkcs1v15Md5Sha1,
+           "RSASSA_PKCS1_v1_5_MD5_SHA1");
+  callback(ccp::Algorithm::kRsassaPkcs1v15Sha1, "RSASSA_PKCS1_v1_5_SHA1");
+  callback(ccp::Algorithm::kRsassaPkcs1v15Sha256, "RSASSA_PKCS1_v1_5_SHA256");
+  callback(ccp::Algorithm::kRsassaPkcs1v15Sha384, "RSASSA_PKCS1_v1_5_SHA384");
+  callback(ccp::Algorithm::kRsassaPkcs1v15Sha512, "RSASSA_PKCS1_v1_5_SHA512");
+}
+
+// static
+template <>
+constexpr const char* ErrorConverter::GetEnumTypeName() {
+  return "chrome_certificate_provider::Error";
+}
+
+// static
+template <>
+template <typename Callback>
+void ErrorConverter::VisitCorrespondingPairs(Callback callback) {
+  callback(ccp::Error::kGeneral, "GENERAL_ERROR");
 }
 
 // static
@@ -82,33 +100,50 @@ void PinRequestErrorTypeConverter::VisitCorrespondingPairs(Callback callback) {
 
 // static
 template <>
-constexpr const char* CertificateInfoConverter::GetStructTypeName() {
-  return "chrome_certificate_provider::CertificateInfo";
+constexpr const char* ClientCertificateInfoConverter::GetStructTypeName() {
+  return "chrome_certificate_provider::ClientCertificateInfo";
 }
 
 // static
 template <>
 template <typename Callback>
-void CertificateInfoConverter::VisitFields(
-    const ccp::CertificateInfo& value, Callback callback) {
+void ClientCertificateInfoConverter::VisitFields(
+    const ccp::ClientCertificateInfo& value, Callback callback) {
   callback(&value.certificate, "certificate");
-  callback(&value.supported_hashes, "supportedHashes");
+  callback(&value.supported_algorithms, "supportedAlgorithms");
 }
 
 // static
 template <>
-constexpr const char* SignRequestConverter::GetStructTypeName() {
-  return "chrome_certificate_provider::SignRequest";
+constexpr const char* SetCertificatesDetailsConverter::GetStructTypeName() {
+  return "chrome_certificate_provider::SetCertificatesDetails";
 }
 
 // static
 template <>
 template <typename Callback>
-void SignRequestConverter::VisitFields(
-    const ccp::SignRequest& value, Callback callback) {
+void SetCertificatesDetailsConverter::VisitFields(
+    const ccp::SetCertificatesDetails& value, Callback callback) {
+  callback(&value.certificates_request_id, "certificatesRequestId");
+  callback(&value.error, "error");
+  callback(&value.client_certificates, "clientCertificates");
+}
+
+// static
+template <>
+constexpr const char* SignatureRequestConverter::GetStructTypeName() {
+  return "chrome_certificate_provider::SignatureRequest";
+}
+
+// static
+template <>
+template <typename Callback>
+void SignatureRequestConverter::VisitFields(
+    const ccp::SignatureRequest& value, Callback callback) {
   callback(&value.sign_request_id, "signRequestId");
+  callback(&value.input, "input");
   callback(&value.digest, "digest");
-  callback(&value.hash, "hash");
+  callback(&value.algorithm, "algorithm");
   callback(&value.certificate, "certificate");
 }
 
@@ -164,12 +199,20 @@ namespace smart_card_client {
 
 namespace chrome_certificate_provider {
 
-bool VarAs(const pp::Var& var, Hash* result, std::string* error_message) {
-  return gsc::HashConverter::ConvertFromVar(var, result, error_message);
+bool VarAs(const pp::Var& var, Algorithm* result, std::string* error_message) {
+  return gsc::AlgorithmConverter::ConvertFromVar(var, result, error_message);
 }
 
-pp::Var MakeVar(Hash value) {
-  return gsc::HashConverter::ConvertToVar(value);
+pp::Var MakeVar(Algorithm value) {
+  return gsc::AlgorithmConverter::ConvertToVar(value);
+}
+
+bool VarAs(const pp::Var& var, Error* result, std::string* error_message) {
+  return gsc::ErrorConverter::ConvertFromVar(var, result, error_message);
+}
+
+pp::Var MakeVar(Error value) {
+  return gsc::ErrorConverter::ConvertToVar(value);
 }
 
 bool VarAs(const pp::Var& var, PinRequestType* result,
@@ -192,23 +235,34 @@ pp::Var MakeVar(PinRequestErrorType value) {
   return gsc::PinRequestErrorTypeConverter::ConvertToVar(value);
 }
 
-bool VarAs(
-    const pp::Var& var, CertificateInfo* result, std::string* error_message) {
-  return gsc::CertificateInfoConverter::ConvertFromVar(
+bool VarAs(const pp::Var& var, ClientCertificateInfo* result,
+           std::string* error_message) {
+  return gsc::ClientCertificateInfoConverter::ConvertFromVar(
       var, result, error_message);
 }
 
-pp::Var MakeVar(const CertificateInfo& value) {
-  return gsc::CertificateInfoConverter::ConvertToVar(value);
+pp::Var MakeVar(const ClientCertificateInfo& value) {
+  return gsc::ClientCertificateInfoConverter::ConvertToVar(value);
 }
 
-bool VarAs(
-    const pp::Var& var, SignRequest* result, std::string* error_message) {
-  return gsc::SignRequestConverter::ConvertFromVar(var, result, error_message);
+bool VarAs(const pp::Var& var, SetCertificatesDetails* result,
+           std::string* error_message) {
+  return gsc::SetCertificatesDetailsConverter::ConvertFromVar(
+      var, result, error_message);
 }
 
-pp::Var MakeVar(const SignRequest& value) {
-  return gsc::SignRequestConverter::ConvertToVar(value);
+pp::Var MakeVar(const SetCertificatesDetails& value) {
+  return gsc::SetCertificatesDetailsConverter::ConvertToVar(value);
+}
+
+bool VarAs(const pp::Var& var, SignatureRequest* result,
+           std::string* error_message) {
+  return gsc::SignatureRequestConverter::ConvertFromVar(
+      var, result, error_message);
+}
+
+pp::Var MakeVar(const SignatureRequest& value) {
+  return gsc::SignatureRequestConverter::ConvertToVar(value);
 }
 
 bool VarAs(const pp::Var& var, RequestPinOptions* result,
