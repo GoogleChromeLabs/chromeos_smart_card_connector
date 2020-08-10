@@ -35,43 +35,40 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var NACL_INCOMING_REQUESTER_NAME = 'certificate_provider_nacl_incoming';
+const NACL_INCOMING_REQUESTER_NAME = 'certificate_provider_nacl_incoming';
 
-/** @const */
-var NACL_OUTGOING_REQUESTER_NAME = 'certificate_provider_nacl_outgoing';
+const NACL_OUTGOING_REQUESTER_NAME = 'certificate_provider_nacl_outgoing';
 
 /**
- * @const Function called in the NaCl module when handling
+ * Function called in the NaCl module when handling
  * onCertificatesUpdateRequested/onCertificatesRequested events.
  */
-var HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME = 'HandleCertificatesRequest';
+const HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME = 'HandleCertificatesRequest';
 
 /**
- * @const Function called in the NaCl module when handling
+ * Function called in the NaCl module when handling
  * onSignatureRequested/onSignDigestRequested events.
  */
-var HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME = 'HandleSignatureRequest';
+const HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME = 'HandleSignatureRequest';
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
- * Mapping from the |Hash| enum values to the |Algorithm| ones.
- * @type {!Map<!chrome.certificateProvider.Hash,
- *             !chrome.certificateProvider.Algorithm>}
+ * Mapping from the |chrome.certificateProvider.Hash| enum values to the
+ * |chrome.certificateProvider.Algorithm| ones.
+ *
+ * Note: The actual string values are hardcoded below, instead of references to
+ * |chrome.certificateProvider|, since the latter will break when run with the
+ * API version that doesn't have these (on Chrome OS <=85 or on some future
+ * Chrome OS that has the legacy Hash enum deleted from the API).
+ * @type {!Map<string,string>}
  */
 const HASH_TO_ALGORITHM_MAPPING = new Map([
-  [chrome.certificateProvider.Hash.MD5_SHA1,
-      chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_MD5_SHA1],
-  [chrome.certificateProvider.Hash.SHA1,
-      chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_SHA1],
-  [chrome.certificateProvider.Hash.SHA256,
-      chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_SHA256],
-  [chrome.certificateProvider.Hash.SHA384,
-      chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_SHA384],
-  [chrome.certificateProvider.Hash.SHA512,
-      chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_SHA512],
+  ['MD5_SHA1', 'RSASSA_PKCS1_v1_5_MD5_SHA1'],
+  ['SHA1', 'RSASSA_PKCS1_v1_5_SHA1'],
+  ['SHA256', 'RSASSA_PKCS1_v1_5_SHA256'],
+  ['SHA384', 'RSASSA_PKCS1_v1_5_SHA384'],
+  ['SHA512', 'RSASSA_PKCS1_v1_5_SHA512'],
 ]);
 
 /**
@@ -134,7 +131,7 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(naclModule) {
   this.certificatesUpdateRequestListener_ = null;
   /** @private {?function(!chrome.certificateProvider.SignatureRequest)} */
   this.signatureRequestListener_ = null;
-  /** @private {?function(function((!Array.<!chrome.certificateProvider.CertificateInfo>),function(!Array.<!chrome.certificateProvider.CertificateInfo>)))} */
+  /** @private {?function(function((!Array.<!chrome.certificateProvider.CertificateInfo>), function(!Array.<!chrome.certificateProvider.CertificateInfo>)))} */
   this.certificatesRequestListener_ = null;
   /** @private {?function(!chrome.certificateProvider.SignRequest, function(!ArrayBuffer=))} */
   this.signDigestRequestListener_ = null;
@@ -162,8 +159,7 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(naclModule) {
   this.logger.fine('Constructed');
 };
 
-/** @const */
-var Backend = SmartCardClientApp.CertificateProviderBridge.Backend;
+const Backend = SmartCardClientApp.CertificateProviderBridge.Backend;
 
 goog.inherits(Backend, goog.Disposable);
 
@@ -233,7 +229,7 @@ Backend.prototype.disposeInternal = function() {
  * @private
  */
 Backend.prototype.handleRequest_ = function(payload) {
-  var remoteCallMessage = GSC.RemoteCallMessage.parseRequestPayload(payload);
+  const remoteCallMessage = GSC.RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {
     GSC.Logging.failWithLogger(
         this.logger,
@@ -241,13 +237,14 @@ Backend.prototype.handleRequest_ = function(payload) {
         GSC.DebugDump.debugDump(payload));
   }
 
-  var debugRepresentation = 'chrome.certificateProvider.' +
-                            remoteCallMessage.getDebugRepresentation();
+  const debugRepresentation = 'chrome.certificateProvider.' +
+                              remoteCallMessage.getDebugRepresentation();
   this.logger.fine('Received a remote call request: ' + debugRepresentation);
 
-  var promiseResolver = goog.Promise.withResolver();
+  const promiseResolver = goog.Promise.withResolver();
 
-  var apiFunction = chrome.certificateProvider[remoteCallMessage.functionName];
+  const apiFunction = chrome.certificateProvider[
+      remoteCallMessage.functionName];
   if (apiFunction) {
     /** @preserveTry */
     try {
@@ -311,6 +308,9 @@ Backend.prototype.setupApiListeners_ = function() {
         this.signatureRequestListener_);
   } else {
     // TODO: Remove this branch after support of Chrome OS <=85 is dropped.
+    // (There's no specific timeline - a conservative approach would be to wait
+    // until all devices released with Chrome OS <=85 reach the auto-update
+    // expiration date, which will be roughly in year 2028.)
     this.logger.info(
         'Proactively notifying Chrome about certificate changes will not be ' +
         'possible: chrome.certificateProvider API version is too old.');
@@ -346,7 +346,7 @@ Backend.prototype.onSignatureRequested_ = function(request) {
 };
 
 /**
- * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>),function(!Array.<!chrome.certificateProvider.CertificateInfo>))} reportCallback
+ * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>), function(!Array.<!chrome.certificateProvider.CertificateInfo>))} reportCallback
  * @private
  */
 Backend.prototype.onCertificatesRequested_ = function(reportCallback) {
@@ -371,13 +371,13 @@ Backend.prototype.onSignDigestRequested_ = function(
  */
 Backend.prototype.processCertificatesUpdateRequest_ = function(request) {
   this.logger.info('Started handling certificates update request');
-  var remoteCallMessage = new GSC.RemoteCallMessage(
+  const remoteCallMessage = new GSC.RemoteCallMessage(
       HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
-  var promise = this.requester_.postRequest(
+  const promise = this.requester_.postRequest(
       remoteCallMessage.makeRequestPayload());
   promise.then(function(results) {
     GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-    var certificates = goog.array.map(results[0], createClientCertificateInfo);
+    const certificates = goog.array.map(results[0], createClientCertificateInfo);
     this.logger.info(
         'Setting the certificate list with ' + certificates.length +
         ' certificates: ' + GSC.DebugDump.debugDump(certificates));
@@ -413,13 +413,13 @@ Backend.prototype.processSignatureRequest_ = function(request) {
     algorithm: request.algorithm,
     certificate: request.certificate,
   };
-  var remoteCallMessage = new GSC.RemoteCallMessage(
+  const remoteCallMessage = new GSC.RemoteCallMessage(
       HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME, [naclRequest]);
-  var promise = this.requester_.postRequest(
+  const promise = this.requester_.postRequest(
       remoteCallMessage.makeRequestPayload());
   promise.then(function(results) {
     GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-    var signature = normalizeSignature(results[0]);
+    const signature = normalizeSignature(results[0]);
     this.logger.info(
         'Responding to the signature request with the created signature: ' +
         GSC.DebugDump.debugDump(signature));
@@ -437,18 +437,18 @@ Backend.prototype.processSignatureRequest_ = function(request) {
 };
 
 /**
- * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>),function(!Array.<!chrome.certificateProvider.CertificateInfo>))} reportCallback
+ * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>), function(!Array.<!chrome.certificateProvider.CertificateInfo>))} reportCallback
  * @private
  */
 Backend.prototype.processCertificatesRequest_ = function(reportCallback) {
   this.logger.info('Started handling certificates request');
-  var remoteCallMessage = new GSC.RemoteCallMessage(
+  const remoteCallMessage = new GSC.RemoteCallMessage(
       HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
-  var promise = this.requester_.postRequest(
+  const promise = this.requester_.postRequest(
       remoteCallMessage.makeRequestPayload());
   promise.then(function(results) {
     GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-    var certificates = goog.array.map(results[0], createCertificateInfo);
+    const certificates = goog.array.map(results[0], createCertificateInfo);
     this.logger.info(
         'Responding to the certificates request with ' + certificates.length +
         ' certificates: ' + GSC.DebugDump.debugDump(certificates));
@@ -479,13 +479,13 @@ Backend.prototype.processSignDigestRequest_ = function(
     algorithm: getAlgorithmFromHash(request.hash),
     certificate: request.certificate,
   };
-  var remoteCallMessage = new GSC.RemoteCallMessage(
+  const remoteCallMessage = new GSC.RemoteCallMessage(
       HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME, [naclRequest]);
-  var promise = this.requester_.postRequest(
+  const promise = this.requester_.postRequest(
       remoteCallMessage.makeRequestPayload());
   promise.then(function(results) {
     GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-    var signature = normalizeSignature(results[0]);
+    const signature = normalizeSignature(results[0]);
     this.logger.info(
         'Responding to the digest sign request with the created signature: ' +
         GSC.DebugDump.debugDump(signature));
@@ -539,8 +539,10 @@ function createCertificateInfo(naclCertificateInfo) {
  * @return {!chrome.certificateProvider.Algorithm}
  */
 function getAlgorithmFromHash(hash) {
-  if (HASH_TO_ALGORITHM_MAPPING.has(hash))
-    return HASH_TO_ALGORITHM_MAPPING.get(hash);
+  if (HASH_TO_ALGORITHM_MAPPING.has(hash)) {
+    return /** @type {!chrome.certificateProvider.Algorithm} */ (
+        HASH_TO_ALGORITHM_MAPPING.get(hash));
+  }
   GSC.Logging.fail(`Unknown hash ${hash}`);
   return chrome.certificateProvider.Algorithm.RSASSA_PKCS1_v1_5_SHA1;
 }
@@ -552,7 +554,7 @@ function getAlgorithmFromHash(hash) {
 function getHashFromAlgorithm(algorithm) {
   for (const hash of HASH_TO_ALGORITHM_MAPPING.keys()) {
     if (HASH_TO_ALGORITHM_MAPPING.get(hash) === algorithm)
-      return hash;
+      return /** @type {!chrome.certificateProvider.Hash} */ (hash);
   }
   GSC.Logging.fail(`Unknown algorithm ${algorithm}`);
   return chrome.certificateProvider.Hash.SHA1;

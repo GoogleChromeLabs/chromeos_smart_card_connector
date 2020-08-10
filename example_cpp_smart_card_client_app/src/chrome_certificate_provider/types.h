@@ -113,7 +113,7 @@ struct SetCertificatesDetails {
 struct SignatureRequest {
   int sign_request_id;
   std::vector<uint8_t> input;
-  std::vector<uint8_t> digest;
+  std::vector<uint8_t> digest;  // only used with the legacy API
   Algorithm algorithm;
   std::vector<uint8_t> certificate;
 };

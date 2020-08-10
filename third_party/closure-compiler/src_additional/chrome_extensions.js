@@ -75,7 +75,7 @@ chrome.certificateProvider.ClientCertificateInfo;
 
 /**
  * @typedef {{
- *   certificatesRequestId: number,
+ *   certificatesRequestId: (number|undefined),
  *   error: (!chrome.certificateProvider.Error|undefined),
  *   clientCertificates: !Array<!chrome.certificateProvider.ClientCertificateInfo>
  * }}
