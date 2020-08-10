@@ -49,6 +49,26 @@ goog.require('goog.log.Logger');
 goog.scope(function() {
 
 /** @const */
+var GSC = GoogleSmartCard;
+
+/**
+ * @define {boolean} Whether to make every logger created via this library a
+ * child of the |LOGGER_SCOPE|.
+
+ * Overriding it to false allows to reduce the boilerplate printed in every
+ * logged message; the default true value, on the other hand, allows to avoid
+ * clashes in case the extension creates and manages its own Closure Library
+ * loggers.
+ */
+GSC.Logging.USE_SCOPED_LOGGERS =
+    goog.define('GoogleSmartCard.Logging.USE_SCOPED_LOGGERS', true);
+
+/**
+ * Every logger created via this library is created as a child of this logger,
+ * as long as the |USE_SCOPED_LOGGERS| constant is true. Ignored when that
+ * constant is false.
+ * @const
+ */
 var LOGGER_SCOPE = 'GoogleSmartCard';
 
 /**
@@ -70,9 +90,6 @@ var ROOT_LOGGER_LEVEL = goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO;
  */
 var LOG_BUFFER_CAPACITY = goog.DEBUG ? 10 * 1000 : 1000;
 
-/** @const */
-var GSC = GoogleSmartCard;
-
 /**
  * @type {!goog.log.Logger}
  * @const
@@ -84,7 +101,8 @@ var rootLogger = goog.asserts.assert(goog.log.getLogger(
  * @type {!goog.log.Logger}
  * @const
  */
-var logger = goog.asserts.assert(goog.log.getLogger(LOGGER_SCOPE));
+var logger = GSC.Logging.USE_SCOPED_LOGGERS ?
+    goog.asserts.assert(goog.log.getLogger(LOGGER_SCOPE)) : rootLogger;
 
 /** @type {boolean} */
 var wasLoggingSetUp = false;
@@ -140,9 +158,13 @@ GSC.Logging.getLogger = function(name, opt_level) {
  * @return {!goog.log.Logger}
  */
 GSC.Logging.getScopedLogger = function(name, opt_level) {
-  var fullName = LOGGER_SCOPE;
-  if (name)
-    fullName += '.' + name;
+  let fullName;
+  if (GSC.Logging.USE_SCOPED_LOGGERS && name)
+    fullName = `${LOGGER_SCOPE}.${name}`;
+  else if (GSC.Logging.USE_SCOPED_LOGGERS)
+    fullName = LOGGER_SCOPE;
+  else
+    fullName = name;
   return GSC.Logging.getLogger(fullName, opt_level);
 };
 
