@@ -179,11 +179,10 @@ GSC.Logging.setLoggerVerbosityAtMost = function(logger, boundaryLevel) {
  * @template T
  * @param {T} condition The condition to check.
  * @param {string=} opt_message Error message in case of failure.
- * @param {...*} var_args The items to substitute into the failure message.
  */
-GSC.Logging.check = function(condition, opt_message, var_args) {
+GSC.Logging.check = function(condition, opt_message) {
   if (!condition)
-    GSC.Logging.fail(opt_message, Array.prototype.slice.call(arguments, 2));
+    GSC.Logging.fail(opt_message);
 };
 
 /**
@@ -194,31 +193,28 @@ GSC.Logging.check = function(condition, opt_message, var_args) {
  * to the error message.
  * @param {T} condition The condition to check.
  * @param {string=} opt_message Error message in case of failure.
- * @param {...*} var_args The items to substitute into the failure message.
  */
 GSC.Logging.checkWithLogger = function(
-    logger, condition, opt_message, var_args) {
+    logger, condition, opt_message) {
   if (!condition)
-    GSC.Logging.failWithLogger(logger, opt_message, var_args);
+    GSC.Logging.failWithLogger(logger, opt_message);
 };
 
 /**
  * Fails with the specified message.
- *
+  *
  * In the debug mode, this function effectively throws an instance of
  * goog.asserts.AssertionError.
  *
  * In the release mode, this function emits severe log message and initiates the
  * App reload.
  * @param {string=} opt_message Error message in case of failure.
- * @param {...*} var_args The items to substitute into the failure message.
  */
-GSC.Logging.fail = function(opt_message, var_args) {
+GSC.Logging.fail = function(opt_message) {
   if (goog.DEBUG) {
-    throwAssertionError(opt_message, var_args);
+    throwAssertionError(opt_message);
   } else {
-    var messageAndArgs = Array.prototype.slice.call(arguments);
-    rootLogger.severe.apply(rootLogger, messageAndArgs);
+    rootLogger.severe(opt_message ? opt_message : 'Failure');
     rootLogger.info('Reloading the App due to the fatal error...');
     reloadApp();
   }
@@ -229,15 +225,12 @@ GSC.Logging.fail = function(opt_message, var_args) {
  * @param {!goog.log.Logger} logger The logger which name is to be prepended
  * to the error message.
  * @param {string=} opt_message Error message in case of failure.
- * @param {...*} var_args The items to substitute into the failure message.
  */
-GSC.Logging.failWithLogger = function(logger, opt_message, var_args) {
+GSC.Logging.failWithLogger = function(logger, opt_message) {
   var messagePrefix = 'Failure in ' + logger.getName();
   if (opt_message !== undefined) {
     var transformedMessage = messagePrefix + ': ' + opt_message;
-    var args = Array.prototype.slice.call(arguments, 2);
-    GSC.Logging.fail.apply(
-        GSC.Logging, goog.array.concat(transformedMessage, args));
+    GSC.Logging.fail(transformedMessage);
   } else {
     GSC.Logging.fail(messagePrefix);
   }
@@ -258,12 +251,10 @@ GSC.Logging.getLogBuffer = function() {
 
 /**
  * @param {string=} opt_message Error message in case of failure.
- * @param {...*} var_args The items to substitute into the failure message.
  */
-function throwAssertionError(opt_message, var_args) {
+function throwAssertionError(opt_message) {
   if (goog.asserts.ENABLE_ASSERTS) {
-    var messageAndArgs = Array.prototype.slice.call(arguments);
-    goog.asserts.fail.apply(null, messageAndArgs);
+    goog.asserts.fail(opt_message);
   } else {
     // This branch is the last resort, and should generally never happen
     // (unless the goog.asserts.ENABLE_ASSERTS constant was changed from its
