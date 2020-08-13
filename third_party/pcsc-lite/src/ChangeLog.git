@@ -1,4 +1,669 @@
-commit efc56971cb8f8bf9cb44090bb3851d8c1d2a00f7 (HEAD -> master, tag: pcsc-1.8.25, origin/master, origin/HEAD)
+commit e796a0f12fbefa459bff0d25e27089615fa91f21 (HEAD -> master, zotac/master, origin/master, origin/HEAD)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jun 14 15:26:31 2020 +0200
+
+    Release 1.9.0
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ ChangeLog    | 9 +++++++++
+ configure.ac | 2 +-
+ 2 files changed, 10 insertions(+), 1 deletion(-)
+
+commit 047789c4f1a05be3023e1fc842520b506c14b79b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 13 18:54:42 2020 +0200
+
+    hotplug_macosx: handle UTF-8 in ifdFriendlyName
+    
+    If CFStringGetCStringPtr() fails then we try to copy the sting using
+    kCFStringEncodingUTF8 encoding.
+    
+    This allows to get reader friendly name like "SoloKeys Solo 🐝".
+
+ src/hotplug_macosx.c | 12 ++++++++++--
+ 1 file changed, 10 insertions(+), 2 deletions(-)
+
+commit 6d0b16784ac226746c79ca4bd2c6fb5e31c6b114
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 13 18:29:20 2020 +0200
+
+    hotplug_macosx: parse PCSCLITE_HP_DROPDIR only once
+    
+    No need to re-parse PCSCLITE_HP_DROPDIR (driver directory) for each
+    reader connected or disconnected.
+    Reading the Info.plist at startup is enough.
+
+ src/hotplug_macosx.c | 37 ++++++++++++++-----------------------
+ 1 file changed, 14 insertions(+), 23 deletions(-)
+
+commit 8d19fb00a6a93f0c7c579f26eb19f3863d8d8808
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 13 18:31:26 2020 +0200
+
+    hotplug_macos: ignore invalid Info.plist entries
+    
+    If an entry can't be parsed then ignore it instead of crashing.
+    
+    It can be the case if the driver Info.plist contains non-ASCII characters in ifdFriendlyName for example.
+    
+    See "Unicode in USB Product string not supported."
+    https://salsa.debian.org/rousseau/PCSC/-/issues/18
+
+ src/hotplug_macosx.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+commit 434f75ec42a9c170bda7cb676cad5313aed52f0b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 16 11:20:49 2020 +0200
+
+    tokenparser: accept any Unicode character in a reader name
+    
+    A reader name is no more limited to a subset of ASCII characters.
+    It is now possible to use emoticons or non-latin alphabets.
+    
+    Fixes Salsa issue "Unicode in USB Product string not supported."
+    https://salsa.debian.org/rousseau/PCSC/-/issues/18
+
+ src/tokenparser.l | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 4452a074bd98432ff79174d675e23cf1ab5ecc65
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 16 10:40:15 2020 +0200
+
+    Fix compiler warning
+    
+    configfile.l: In function ‘evaluatetoken’:
+    configfile.l:229:14: warning: passing argument 1 of ‘tok_error’ discards ‘const’ qualifier from pointer target type [-Wdiscarded-qualifiers]
+        tok_error("No Memory");
+                  ^~~~~~~~~~~
+    configfile.l:61:22: note: expected ‘char *’ but argument is of type ‘const char *’
+     void tok_error(char *pcToken_error);
+                    ~~~~~~^~~~~~~~~~~~~
+
+ src/configfile.l | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 8630b0539541e5d2d724a1f9619ff82b20df247e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 16 10:37:39 2020 +0200
+
+    Remove now useless variable
+    
+    winscard_clnt.c: In function ‘SCardEndTransaction’:
+    winscard_clnt.c:1251:6: warning: unused variable ‘randnum’ [-Wunused-variable]
+      int randnum;
+          ^~~~~~~
+
+ src/winscard_clnt.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit f86ca45bb4b861484b889a664517aee886e92c81
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat May 16 10:35:57 2020 +0200
+
+    c.sh: use configuration for a Debian amd64 system
+
+ c.sh | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+commit 05d48e5c13305d3772d147a95a5f73cc10079147
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 8 16:41:53 2020 +0200
+
+    SCardEndTransaction(): greatly improve performances
+    
+    Remove a (hopfully) useless delay.
+    
+    The function is now orders of magnitude faster (x300 to x600 on
+    average).
+    
+    Fixes https://salsa.debian.org/rousseau/PCSC/-/issues/17
+    " SYS_USleep in SCardEndTransaction in winscard_clnt.c causing slowness
+    in Firefox "
+
+ src/winscard_clnt.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+commit 4e8d758b4c0f9a28db096b4785391fb47278690d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Apr 16 14:07:43 2020 +0200
+
+    getAttrib.py: port to Python3
+
+ UnitaryTests/SCardGetAttrib.py | 4 ++--
+ UnitaryTests/getAttrib.py      | 4 ++--
+ 2 files changed, 4 insertions(+), 4 deletions(-)
+
+commit 1600021b8e5f72bfad11937e6c7fd118524726b2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Apr 15 14:10:49 2020 +0200
+
+    SCardGetAttrib: SCARD_ATTR_CHANNEL_ID returns the port, not address
+
+ UnitaryTests/SCardGetAttrib.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit dcdd4f81fa12690f3910f57eeb1b8456c7f746e9 (github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Apr 14 15:28:24 2020 +0200
+
+    SCardGetAttrib: add test for SCARD_ATTR_CHANNEL_ID
+
+ UnitaryTests/SCardGetAttrib.py | 13 ++++++++++++-
+ 1 file changed, 12 insertions(+), 1 deletion(-)
+
+commit 92d71207048563eee3033a4280eef95d30b4f7eb
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 17 21:42:13 2020 +0100
+
+    Fix a memory leak from a polkit call
+    
+    The value returned by polkit_authority_check_authorization_sync() was
+    not deallocated.
+    
+    Thanks to Lionel Victor for the bug report.
+
+ src/auth.c | 3 +++
+ 1 file changed, 3 insertions(+)
+
+commit 562ef23bc7eab3d5cc49c38f7ac0c6341ade1130
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Jan 8 22:29:49 2020 +0100
+
+    Use /run instead of /var/run by default
+    
+    From https://en.wikipedia.org/wiki/Filesystem_Hierarchy_Standard :
+    " In FHS 3.0, /var/run is replaced by /run; a system should either
+    continue to provide a /var/run directory, or provide a symbolic link
+    from /var/run to /run, for backwards compatibility. "
+
+ configure.ac | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit b0c2f30c2bfe7f22fe1b985e647c6cb61cc66275 (tag: pcsc-1.8.26)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 3 17:29:44 2020 +0100
+
+    Release 1.8.26
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ ChangeLog    | 19 +++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 20 insertions(+), 1 deletion(-)
+
+commit 1015741a8360c5655652764f052521a3308ef53b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Jan 3 15:36:50 2020 +0100
+
+    Enable reader filtering by default
+    
+    The reader filtering feature is described in "Remove and/or customize
+    PC/SC reader names"
+    https://ludovicrousseau.blogspot.com/2015/12/remove-andor-customize-pcsc-reader-names.html
+    
+    This feature is requested in packages by some users.
+    In Debian bug #947883 " Enable reader name filter in pcscd "
+    https://bugs.debian.org/947883
+    
+    In Arch Linux bug 51912 " [pcsclite] Enable 'filter' support "
+    https://bugs.archlinux.org/task/51912
+    
+    And also in Ubuntu bug 1857118 " Build pcscd with --enable-filter option "
+    https://bugs.launchpad.net/bugs/1857118
+    
+    To avoid that each GNU/Linux distribution change the packaging
+    configuration to enable the feature I decided to enable the feature by
+    default in the upstream project.
+    
+    This change should not have any bad side effect. Only root can modify
+    the configuration file /etc/default/pcscd or the systemd file
+    /etc/systemd/system/pcscd.service.d/override.conf
+    
+    For systemd use: "sudo systemctl edit pcscd" to add something like:
+    [Service]
+    Environment=PCSCLITE_FILTER_IGNORE_READER_NAMES=Nitrokey
+    
+    You can get the previous behavior by using ./configure --disable-filter
+
+ configure.ac | 6 +++---
+ 1 file changed, 3 insertions(+), 3 deletions(-)
+
+commit 1da5eb1874a49c1e7de993aaff23b92bbcc572f5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Dec 14 15:10:40 2019 +0100
+
+    reader.h: add URL for wLangId documentation
+
+ src/PCSC/reader.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 20385efba2075d4c13acfea43d0abc8c38d8c106
+Author: Gabriele Svelto <gsvelto@mozilla.com>
+Date:   Mon Oct 28 14:29:07 2019 +0100
+
+    Use poll() instead of select()
+    
+    From [Pcsclite-muscle] select()-induced crashes (and attached tentative fix)
+    http://lists.infradead.org/pipermail/pcsclite-muscle/2019-November/001199.html
+    
+    " Hello all,
+    we tracked down some crashes in Firefox [1] to the use of select() and
+    its related macros in the libpcslite library. Recent versions of glibc
+    added checks to ensure that the values of the file descriptors passed to
+    the FD_SET(), FD_CLR() and FD_ISSET() macros have values lower than the
+    FD_SETSIZE constant. If the file descriptor value is found to be higher
+    than FD_SETSIZE then abort() gets called which is ultimately what we're
+    seeing in Firefox.
+    
+    I have attached a patch that replaces the select() calls with poll()
+    which does not suffer from this problem. Unfortunately I don't have a
+    smartcard reader on hand so I can't test the patch myself.
+    
+    Cheers,
+    
+     Gabriele Svelto
+    
+    [1] select() crashes in libpcslite
+        https://bugzilla.mozilla.org/show_bug.cgi?id=1591876
+    "
+    
+    Fixes github issue https://github.com/LudovicRousseau/PCSC/issues/51
+    "Using 'select' in libpcsclite can be problematic for application opening a large number of file descriptors #51"
+
+ src/winscard_msg.c | 61 +++++++++++++++++++++++++++---------------------------
+ 1 file changed, 31 insertions(+), 30 deletions(-)
+
+commit 864f955fb5fa785d664ba1fad1570ee1fcafdae8
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 1 18:08:58 2019 +0200
+
+    Doxygen: fix SCardGetAttrib() documentation
+    
+    PCSC/src/winscard_clnt.c:2415: warning: return value 'SCARD_E_INSUFFICIENT_BUFFER' of SCardGetAttrib has multiple documentation sections
+    PCSC/src/winscard_clnt.c:2415: warning: return value 'SCARD_E_NOT_TRANSACTED' of SCardGetAttrib has multiple documentation sections
+
+ src/winscard_clnt.c | 10 ++++++----
+ 1 file changed, 6 insertions(+), 4 deletions(-)
+
+commit 92b0f88c380c54f8109bd43e13144ab5c98bbf77
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 1 18:04:00 2019 +0200
+
+    Doxygen: fix InitializeSocket() documentation
+    
+    PCSC/src/winscard_msg_srv.c:122: warning: return value '-1' of InitializeSocket has multiple documentation sections
+    PCSC/src/winscard_msg_srv.c:122: warning: return value '-1' of InitializeSocket has multiple documentation sections
+
+ src/winscard_msg_srv.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+commit aa6a701fe771ce740f7e906b7f41ba4f26bc5564
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 1 18:02:42 2019 +0200
+
+    Doxygen: fix MessageSend() documentation
+    
+    PCSC/src/winscard_msg.c:354: warning: return value 'SCARD_F_COMM_ERROR' of MessageSend has multiple documentation sections
+
+ src/winscard_msg.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit 025c941759ffbc5aeca6919cced4c308a8baca2a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 1 18:01:26 2019 +0200
+
+    Doxygen: fix MessageReceiveTimeout() documentation
+    
+    PCSC/src/winscard_msg.c:194: warning: return value 'SCARD_F_COMM_ERROR' of MessageReceiveTimeout has multiple documentation sections
+
+ src/winscard_msg.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit e231920500490ce9d9b896917c1992efd383444c
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 1 18:00:29 2019 +0200
+
+    Doxygen: fix MessageReceive() documentation
+    
+    PCSC/src/winscard_msg.c:453: warning: return value 'SCARD_F_COMM_ERROR' of MessageReceive has multiple documentation sections
+
+ src/winscard_msg.c | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+commit 4c12b456e4973dad5550fdfd4adffeced9e39cb2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 1 17:58:14 2019 +0200
+
+    Doxygen: fix ClientSetupSession() documentation
+    
+    PCSC/src/winscard_msg.c:119: warning: return value '-1' of ClientSetupSession has multiple documentation sections
+    PCSC/src/winscard_msg.c:119: warning: return value '-1' of ClientSetupSession has multiple documentation sections
+
+ src/winscard_msg.c | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+commit 63da545834167e50dbc55a9172a686886162b599
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 1 17:55:36 2019 +0200
+
+    Doxygen: fix ClientSetupSession() documentation
+    
+    PCSC/src/winscard_msg.c:174: warning: documented empty return type of  ClientCloseSession
+
+ src/winscard_msg.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit f4643c3809f9fcf05847041e82753c407cd7e834
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 1 17:54:17 2019 +0200
+
+    Doxygen: fix SCardRemoveContext documentation
+    
+    PCSC/src/winscard_clnt.c:3351: warning: documented empty return type of  SCardRemoveContext
+
+ src/winscard_clnt.c | 3 ---
+ 1 file changed, 3 deletions(-)
+
+commit 98f4aa682a3778f9f0b44b4d289aab0d25521cdd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 1 17:50:40 2019 +0200
+
+    Doxygen: update config file from version 1.8.7 to 1.8.16
+
+ doc/doxygen.conf.in | 546 ++++++++++++++++++++++++++++++++++------------------
+ 1 file changed, 359 insertions(+), 187 deletions(-)
+
+commit e8abd1c1375b4f6d86a1a8718351f499eae5b1e2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Oct 1 17:38:37 2019 +0200
+
+    Doxygen: fix doc of IFDHSetCapabilities()
+    
+    IFDHSetCapabilities() is not called from SCardGetAttrib() but from
+    SCardSetAttrib().
+
+ src/PCSC/ifdhandler.h | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 3896019ce7cbc8899d7150544dde6b0d619eeb27
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Sep 11 15:44:16 2019 +0200
+
+    Exit with EXIT_SUCCESS on shutdown to please systemd
+    
+    From Jakub Jelen nice bug report:
+    " The pcscd daemon exits with exit code 1 when it is killed by systemd,
+    which confuses system thinking that there was some failure on the exit:
+    
+    Sep 11 13:22:54 workstation-uefi pcscd[8750]: 08450216 pcscdaemon.c:193:signal_thread() Received signal: 15
+    Sep 11 13:22:54 workstation-uefi pcscd[8750]: 00000015 pcscdaemon.c:213:signal_thread() Direct suicide
+    Sep 11 13:22:54 workstation-uefi pcscd[8750]: 00000004 pcscdaemon.c:786:at_exit() cleaning /var/run/pcscd
+    Sep 11 13:22:54 workstation-uefi systemd[1]: Stopping PC/SC Smart Card Daemon...
+    Sep 11 13:22:54 workstation-uefi systemd[1]: pcscd.service: Main process exited, code=exited, status=1/FAILURE
+    Sep 11 13:22:54 workstation-uefi systemd[1]: pcscd.service: Failed with result 'exit-code'.
+    Sep 11 13:22:54 workstation-uefi systemd[1]: Stopped PC/SC Smart Card Daemon.
+    
+    Reading through the code, it looks like it exits always with 1 (except
+    for the alarm) so I think we should either
+    
+    - modify the shipped systemd service file to mark the exit code 1 as a
+      successful exit code using SuccessExitStatus or - sign in front of
+      ExecStart.
+    - modify the pcscd to exit "cleanly" in case of termination by systemd.
+    
+    I do not have any strong opinions which way is more correct, nor the
+    systemd maintainers do so this is merely cosmetic issue avoiding bogus
+    error messages filling log files on every reboot.
+    
+    Initially filled as a Fedora bug:
+    https://bugzilla.redhat.com/show_bug.cgi?id=1751153 "
+    
+    I implemented the second solution.
+    
+    Fixes https://github.com/LudovicRousseau/PCSC/issues/70
+    "Unclean exit when the pcscd is killed by systemd (for example on reboot)"
+
+ src/pcscdaemon.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 142bc175a209b97853ec4b543177d426718dce98
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Sep 1 14:35:05 2019 +0200
+
+    spy: fix minor warning
+    
+    Use %08lX for rv codes (LONG)
+    
+    Thanks to Coverity:
+    CID 1453383 (#1 of 1): Invalid type in argument to printf format specifier (PRINTF_ARGS)
+    invalid_type: Argument rv to format specifier %08X was expected to have type unsigned int but has type long.
+
+ src/spy/libpcscspy.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 9500c617f6e32b366b37c08ec893c29389cdc3d5
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Sep 1 14:25:43 2019 +0200
+
+    spy: fix year-2038 issue by using long instead of int
+    
+    .tv_sec and .tv_usec in struct timeval may be long (and should be) to
+    avoid the year-2038 problem.
+    
+    Thanks to Coverity:
+    CID 1453385 (#1 of 1): Invalid type in argument to printf format specifier (PRINTF_ARGS)
+    invalid_type: Argument profile_time.tv_usec to format specifier %d was expected to have type int but has type long.
+    
+    CID 1453384 (#1 of 1): Invalid type in argument to printf format specifier (PRINTF_ARGS)
+    invalid_type: Argument profile_time.tv_sec to format specifier %d was expected to have type int but has type long.
+
+ src/spy/libpcscspy.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 62e1fb077e9017f6320b5d933498af764a61739e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 21 22:34:43 2019 +0200
+
+    polkit: log the error message if polkit_authority_get_sync() fails
+    
+    If ever polkit_authority_get_sync() should fail we should log the
+    error message returned by the function to help debug.
+
+ src/auth.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+commit c07cf7de43607720fd3954977672f39ae9f13249
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 21 14:47:53 2019 +0200
+
+    pcscd: log an explicit message if client/server protocol mismatch
+    
+    If the libpcsclite (client) and pcscd (server) use different
+    communication protocols then a more explicit critical log message is
+    emitted:
+    winscard_svc.c:383:ContextThread() Communication protocol mismatch!
+    
+    We still get the protocol version for debug:
+    winscard_svc.c:385:ContextThread() Client protocol is 4:5
+    winscard_svc.c:387:ContextThread() Server protocol is 4:5
+
+ src/winscard_svc.c | 6 ++++--
+ 1 file changed, 4 insertions(+), 2 deletions(-)
+
+commit e1d4e1b9fc93cf222ae952ae01228c978924ad22
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 21 14:42:32 2019 +0200
+
+    SCardEstablishContext() returns SCARD_E_SERVICE_STOPPED
+    
+    If the client and server uses 2 different communication protocol
+    version then SCardEstablishContext() now returns
+    SCARD_E_SERVICE_STOPPED instead of SCARD_E_NO_SERVICE.
+    
+    The idea is to differentiate 2 cases:
+    - pcscd is not running => SCARD_E_NO_SERVICE
+    - protocol mismatch => SCARD_E_SERVICE_STOPPED
+    
+    It is "common" that users re-install pcsc-lite on a system but with a
+    different version and in a different place.
+
+ src/winscard_svc.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 03f2134db460737a0797cf30ccf54b898210901d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 21 14:34:39 2019 +0200
+
+    UnitaryTests: add definition of CPPFLAGS for C++ code
+    
+    Samples written in C++ uses CPPFLAGS to find the pcsc-lite headers and
+    library.
+
+ UnitaryTests/Makefile | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 3afbec34c6deeff29a45c94cdef375e03b93c19b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 20 09:08:27 2019 +0200
+
+    Guard definition of PCSC_API: Fix compiler warning
+    
+    When compiling CCID on macOS I got:
+    In file included from ccid_usb.c:34:
+    ./misc.h:47:9: warning: 'PCSC_API' macro redefined [-Wmacro-redefined]
+            ^
+    /Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.14.sdk/System/Library/Frameworks/PCSC.framework/Headers/pcsclite.h:51:9: note:
+          previous definition is here
+            ^
+
+ src/misc.h | 2 ++
+ 1 file changed, 2 insertions(+)
+
+commit 836872f97ef0e8775a8bc538e32eeb6449908ddd
+Author: Raphaël Jakse <raphael.gitlab@jakse.fr>
+Date:   Sun Jun 16 20:00:56 2019 +0200
+
+    Guard NDEBUG behind an ifdef in tokenparser
+    
+    Needed for Android as NDEBUG is already defined.
+
+ src/tokenparser.l | 2 ++
+ 1 file changed, 2 insertions(+)
+
+commit 285007c02dfac88cbabf2b056aa181190c4324d1
+Author: Raphaël Jakse <raphael.gitlab@jakse.fr>
+Date:   Sun Jun 16 17:37:35 2019 +0200
+
+    Guard NDEBUG behind an ifdef
+    
+    Needed for Android as NDEBUG is already defined.
+
+ src/simclist.c | 2 ++
+ 1 file changed, 2 insertions(+)
+
+commit e6aae093c063ce3cde4a6c4997d8d547e2dd62b3
+Author: Raphaël Jakse <raphael.gitlab@jakse.fr>
+Date:   Sun Jun 16 17:37:23 2019 +0200
+
+    Add casts to fix unmatched signs in integer comparisons
+    
+    Android compilation failed with:
+    external/pcsc-lite/src/simclist.c:1342:17: error: comparison of integers of different signs: 'ssize_t' (aka 'int') and 'uint32_t' (aka 'unsigned int') [-Werror,-Wsign-compare]
+                    READ_ERRCHECK(fd, buf, header.elemlen);
+
+ src/simclist.c | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+commit c3f6b132ca1050123896e4d6a8be2372ec63d5cf
+Author: Raphaël Jakse <raphael.gitlab@jakse.fr>
+Date:   Sun Jun 16 17:19:39 2019 +0200
+
+    Fix buffsize size
+    
+    Android compilation failed with:
+    external/pcsc-lite/src/simclist.c:1225:21: error: in call to 'write', 'count' bytes overflows the given object
+                        WRITE_ERRCHECK(fd, & bufsize, sizeof(size_t));
+
+ src/simclist.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 7256a30482b5ae6b62b1f018a4bfb1010873497f
+Author: David Ward <david.ward@ll.mit.edu>
+Date:   Sun Jun 2 23:20:29 2019 -0400
+
+    pcsc-spy: Reformat 4 spaces to 1 tab
+
+ src/spy/libpcscspy.c | 264 +++++++++++++++++++++++++--------------------------
+ 1 file changed, 132 insertions(+), 132 deletions(-)
+
+commit 9e905fcad63d7884c1252f5fbeeec0332e98a5ea
+Author: David Ward <david.ward@ll.mit.edu>
+Date:   Sun Jun 2 22:46:37 2019 -0400
+
+    pcsc-spy: Adjust code to handle autoallocated buffers
+    
+    No functional change. This is intended to improve understanding of
+    the code when comparing it with the relevant API documentation.
+
+ src/spy/libpcscspy.c | 20 +++++++++++---------
+ 1 file changed, 11 insertions(+), 9 deletions(-)
+
+commit cf0d3b127376d45ea5b75d7ca2a0badd24fc6291
+Author: David Ward <david.ward@ll.mit.edu>
+Date:   Sat May 25 22:41:32 2019 -0400
+
+    pcsc-spy: Do not read output buffer after error
+    
+    If either SCardListReaderGroups() or SCardListReaders() returns an
+    error, the output buffer is not valid and should not be read.
+
+ src/spy/libpcscspy.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+commit f759792e0855281c38f5efd45952701d85048c5a
+Author: Jakub Jelen <jjelen@redhat.com>
+Date:   Thu May 30 09:58:23 2019 +0200
+
+    configfile: Avoid memory leaks in case of realloc failure (cppcheck warning)
+    
+    The original patch was written by Bob Relyea for RHEL package, but I tweaked it
+    a bit to make sure it builds without warnings.
+    
+    Signed-off-by: Jakub Jelen <jjelen@redhat.com>
+
+ src/configfile.l | 11 ++++++++++-
+ 1 file changed, 10 insertions(+), 1 deletion(-)
+
+commit 4369771cf1a9e68c67a311eb6b52c1650d5de3aa
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 17 19:03:11 2019 +0200
+
+    Doxygen: fix a reference
+    
+    PCSC/src/winscard_clnt.c:2332: warning: unable to resolve reference to `SCARD_ATTR_DEVICE_FRIENDLY_NAME\n' for \ref command
+
+ src/winscard_clnt.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit 5345cf56907768d71ec443347ed94e9ef92f32fa
+Author: Fabrice Fontaine <fontaine.fabrice@gmail.com>
+Date:   Fri May 17 15:48:35 2019 +0200
+
+    Add --disable-documentation option
+    
+    This option allows the user to disable man pages which can be useful if
+    podman is not available
+    
+    Signed-off-by: Fabrice Fontaine <fontaine.fabrice@gmail.com>
+
+ configure.ac        | 7 +++++++
+ src/spy/Makefile.am | 2 ++
+ 2 files changed, 9 insertions(+)
+
+commit efc56971cb8f8bf9cb44090bb3851d8c1d2a00f7 (tag: pcsc-1.8.25)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Mar 25 20:56:43 2019 +0100
 
@@ -8,7 +673,7 @@ Date:   Mon Mar 25 20:56:43 2019 +0100
  configure.ac | 2 +-
  2 files changed, 10 insertions(+), 1 deletion(-)
 
-commit d627aee864c3e9ce40e375fcc0e34a7855b6f0f1 (zotac/master, github/master)
+commit d627aee864c3e9ce40e375fcc0e34a7855b6f0f1
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Mar 24 14:51:41 2019 +0100
 
@@ -20,7 +685,7 @@ Date:   Sun Mar 24 14:51:41 2019 +0100
  etc/pcscd.socket.in | 1 +
  1 file changed, 1 insertion(+)
 
-commit b9e6fe054c2ce883ce6070d4a5761d9d1e1da1bc (zmaster)
+commit b9e6fe054c2ce883ce6070d4a5761d9d1e1da1bc
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Mar 22 10:39:14 2019 +0100
 

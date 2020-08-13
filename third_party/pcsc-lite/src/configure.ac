@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 
-AC_INIT([pcsc-lite],[1.8.25])
+AC_INIT([pcsc-lite],[1.9.0])
 AC_CONFIG_SRCDIR(src/pcscdaemon.c)
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip)
 AC_CONFIG_HEADERS([config.h])
@@ -143,6 +143,12 @@ SunOS)
 esac
 AC_DEFINE_UNQUOTED(PCSC_ARCH, "$PCSC_ARCH", [PC/SC target architecture])
 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} $PCSC_ARCH $host"
+
+# --disable-documentation
+AC_ARG_ENABLE(documentation,
+	AS_HELP_STRING([--disable-documentation],[do not build documentation]),
+	[ enable_doc="${enableval}" ], [ enable_doc="yes" ] )
+AM_CONDITIONAL(ENABLE_DOC, test "$enable_doc" != "no")
 
 # See if socket() is found from libsocket
 AC_CHECK_LIB(socket, socket, [LIBS="$LIBS -lsocket"])
@@ -366,11 +372,11 @@ fi
 # --enable-ipcdir=DIR
 AC_ARG_ENABLE(ipcdir,
   AS_HELP_STRING([--enable-ipcdir=DIR],[directory containing IPC files
-				  (default /var/run/pcscd)]),
+				  (default /run/pcscd)]),
 [ipcdir="${enableval}"], [ipcdir=false])
 
 if test x${ipcdir} = xfalse ; then
-	ipcdir="/var/run/pcscd"
+	ipcdir="/run/pcscd"
 fi
 AC_DEFINE_UNQUOTED(USE_IPCDIR, "$ipcdir", [directory containing IPC files])
 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} ipcdir=${ipcdir}"
@@ -383,11 +389,11 @@ AS_HELP_STRING([--enable-confdir=DIR],[directory containing reader configuration
 	[confdir="${enableval}"],
 	[confdir="${sysconfdir}/reader.conf.d"])
 
-# --enable-filter
+# --disable-filter
 AC_ARG_ENABLE(filter,
-  AS_HELP_STRING([--enable-filter],[allow to filter readers using
+  AS_HELP_STRING([--disable-filter],[disable reader filtering using
 				  PCSCLITE_FILTER_IGNORE_READER_NAMES and PCSCLITE_FILTER_EXTEND_READER_NAMES]),
-  [ use_filter="${enableval}" ], [ use_filter="no" ])
+  [ use_filter="${enableval}" ], [ use_filter="yes" ])
 
 if test x$use_filter = xyes; then
   AC_DEFINE(FILTER_NAMES, 1, [Filter reader names])
@@ -446,6 +452,7 @@ use libsystemd:         ${use_libsystemd}
 systemd unit directory: ${with_systemdsystemunitdir}
 serial config dir.:     ${confdir_exp}
 filter:                 ${use_filter}
+documentation:          ${enable_doc}
 
 PCSCLITE_FEATURES:      ${PCSCLITE_FEATURES}
 

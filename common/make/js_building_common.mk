@@ -74,6 +74,7 @@ endif
 
 JS_BUILD_COMPILATION_FLAGS += \
 	--compilation_level=SIMPLE \
+	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
 	--dependency_mode=STRICT \
 	--jscomp_error=accessControls \
 	--jscomp_error=ambiguousFunctionDecl \
