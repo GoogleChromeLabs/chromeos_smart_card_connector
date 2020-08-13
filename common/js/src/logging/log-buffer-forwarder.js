@@ -143,7 +143,7 @@ LogBufferForwarder.prototype.sendLogRecord_ = function(formattedLogRecord) {
   this.logCapturingEnabled_ = false;
 
   GSC.Logging.check(this.messageChannel_);
-  const message = {formatted_log_message: formattedLogRecord};
+  const message = {'formatted_log_message': formattedLogRecord};
   this.messageChannel_.send(this.messageChannelServiceName_, message);
   GSC.Logging.check(!this.logCapturingEnabled_);
 

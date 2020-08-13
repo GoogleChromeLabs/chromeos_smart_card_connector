@@ -47,8 +47,6 @@ somewhat outdated version of the PC/SC-Lite daemon.
    * `//third_party/pcsc-lite/naclport/common/build/`
    * `//third_party/pcsc-lite/naclport/cpp_client/build/`
    * `//third_party/pcsc-lite/naclport/cpp_demo/build/`
-   * `//third_party/pcsc-lite/naclport/js_client/build/`
-   * `//third_party/pcsc-lite/naclport/js_demo/build/`
    * `//third_party/pcsc-lite/naclport/server/build/`
    * `//third_party/pcsc-lite/naclport/server_clients_management/build/`
 

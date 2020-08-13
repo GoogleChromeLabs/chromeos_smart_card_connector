@@ -3,6 +3,8 @@
 
 Supported readers:
 
+Access IS ATR210
+Access IS ATR220
 Access IS ePassport Reader
 Access IS NFC Smart Module
 ACS ACR 38U-CCID
@@ -20,6 +22,8 @@ ACS CryptoMate (T2)
 ACS CryptoMate64
 ActivIdentity Activkey_Sim
 ActivIdentity USB Reader V3
+AF Care One
+AF Care Two
 AK910 CKey
 AK910 IDONE
 Aktiv Co., ProgramPark Rutoken Magistra
@@ -90,6 +94,7 @@ CCB eSafeLD
 Certgate GmbH AirID 2 USB
 Certgate GmbH ONEKEY ID 2 USB
 charismathics plug'n'crypt CCID token
+Cherry GmbH CHERRY SECURE BOARD 1.0
 Cherry GmbH SmartBoard XX1X
 Cherry GmbH SmartBoard XX33
 Cherry GmbH SmartBoard XX44
@@ -115,6 +120,7 @@ COVADIS VEGA-ALPHA
 DC.Ltd DC4 5CCID READER
 Dell Dell Smart Card Reader Keyboard
 Dell keyboard SK-3106
+Doctolib SR
 DUALi DE-620 Combi
 DUALi DRAGON NFC READER
 eID_R6 001 X8
@@ -125,6 +131,7 @@ Eutron Card Reader
 Eutron CryptoIdentity CCID
 Eutron Digipass 860
 Eutron Smart Pocket
+F-Secure Foundry USB Armory Mk II
 Feitian 502-CL
 FEITIAN bR301
 Feitian bR301
@@ -163,6 +170,7 @@ Gemalto PC Twin Reader
 Gemalto PDT
 Gemalto Prox Dual USB PC Link Reader
 Gemalto Prox SU USB PC LinkReader
+Gemalto RF CR5400
 Gemalto SA .NET Dual
 Gemalto Smart Enterprise Guardian Secure USB Device
 Gemalto USB GemPCPinpad SmartCard Reader
@@ -261,6 +269,7 @@ KOBIL Systems Smart Token
 KRONEGGER Micro Core Platform
 KRONEGGER NFC blue Reader Platform
 Ledger Nano S
+Ledger Nano X
 Lenovo Integrated Smart Card Reader
 Lenovo Lenovo USB Smartcard Keyboard
 Liteon HP SC Keyboard - Apollo (Liteon)
@@ -307,6 +316,7 @@ Philips Semiconductors SmartMX Sample
 PIVKey T800
 Planeta RC700-NFC CCID
 Precise Biometrics Sense MC
+Purism, SPC Librem Key
 Raritan D2CIM-DVUSB VM/CCID
 Regula RFID Reader
 REINER SCT cyberJack go
@@ -342,27 +352,37 @@ Secure Device Solutions DOMINO-Key TWIN
 SecuTech SecuTech Token
 Sitecom Sitecom USB simcard reader MD-010
 Softforum Co., Ltd XecureHSM
+SPECINFOSYSTEMS DIAMOND HSM
+SPECINFOSYSTEMS DIAMOND PLUS token
+SPECINFOSYSTEMS DIAMOND PRO token
 SPECINFOSYSTEMS DIAMOND token
 SpringCard CrazyWriter
 SpringCard CSB6 Basic
 SpringCard CSB6 Secure
 SpringCard CSB6 Ultimate
+SpringCard E518
 SpringCard EasyFinger Standard
 SpringCard EasyFinger Ultimate
 SpringCard H512 Series
+SpringCard H518
 SpringCard H663 Series
 SpringCard NFC'Roll
 SpringCard Prox'N'Roll
+SpringCard Puck
+SpringCard SpringCore
 Spyrus Inc PocketVault P-3X
 Spyrus Inc Rosetta USB
 Spyrus Inc WorkSafe Pro
+Swissbit Secure USB PU-50n SE/PE
 SYNNIX STD200
+Sysking MII136C
 Teridian Semiconductors TSC12xxFV.09
 THURSBY SOFTWARE TSS-PK1
 TianYu CCID Key TianYu CCID SmartKey
 Tianyu Smart Card Reader
 Todos Argos Mini II
 Todos CX00
+TOPPAN FORMS CO.,LTD TC63CUT021
 ubisys 13.56MHz RFID (CCID)
 udea MILKO V1.
 Unicept GmbH AirID USB
