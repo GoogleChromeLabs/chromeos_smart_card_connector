@@ -54,7 +54,7 @@ let crashing = false;
  */
 GSC.Logging.CrashLoopDetection.handleImminentCrash = function() {
   if (crashing)
-    return Promise.reject('Already crashing');
+    return Promise.reject(new Error('Already crashing'));
   crashing = true;
 
   return loadRecentCrashTimestamps().then(recentCrashTimestamps => {
@@ -64,6 +64,15 @@ GSC.Logging.CrashLoopDetection.handleImminentCrash = function() {
         newCrashTimestamps.length >= CRASH_LOOP_THRESHOLD_COUNT;
     return Promise.resolve(isInCrashLoop);
   });
+};
+
+/**
+ * Resets the in-memory state, allowing to call handleImminentCrash() multiple
+ * times across different tests.
+ * @package
+ */
+GSC.Logging.CrashLoopDetection.resetForTesting = function() {
+  crashing = false;
 };
 
 /**
