@@ -202,7 +202,7 @@ GSC.Logging.checkWithLogger = function(
 
 /**
  * Fails with the specified message.
-  *
+ *
  * In the debug mode, this function effectively throws an instance of
  * goog.asserts.AssertionError.
  *
