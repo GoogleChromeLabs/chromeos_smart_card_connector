@@ -44,7 +44,9 @@
 
 /* disable asserts */
 #ifndef SIMCLIST_DEBUG
+#ifndef NDEBUG
 #define NDEBUG
+#endif
 #endif
 
 #include <assert.h>
@@ -1222,7 +1224,7 @@ int list_dump_filedescriptor(const list_t *restrict l, int fd, size_t *restrict 
                     /* speculation confirmed */
                     WRITE_ERRCHECK(fd, ser_buf, bufsize);
                 } else {                        /* speculation found broken */
-                    WRITE_ERRCHECK(fd, & bufsize, sizeof(size_t));
+                    WRITE_ERRCHECK(fd, &bufsize, sizeof(bufsize));
                     WRITE_ERRCHECK(fd, ser_buf, bufsize);
                 }
                 free(ser_buf);
@@ -1245,7 +1247,7 @@ int list_dump_filedescriptor(const list_t *restrict l, int fd, size_t *restrict 
                     }
                     WRITE_ERRCHECK(fd, x->data, bufsize);
                 } else {
-                    WRITE_ERRCHECK(fd, &bufsize, sizeof(size_t));
+                    WRITE_ERRCHECK(fd, &bufsize, sizeof(bufsize));
                     WRITE_ERRCHECK(fd, x->data, bufsize);
                 }
             }
@@ -1337,7 +1339,7 @@ int list_restore_filedescriptor(list_t *restrict l, int fd, size_t *restrict len
             if (NULL == buf)
                 return -1;
             for (cnt = 0; cnt < header.numels; cnt++) {
-                READ_ERRCHECK(fd, buf, header.elemlen);
+                READ_ERRCHECK(fd, buf, (ssize_t) header.elemlen);
                 list_append(l, l->attrs.unserializer(buf, & elsize));
                 totmemorylen += elsize;
             }
@@ -1347,7 +1349,7 @@ int list_restore_filedescriptor(list_t *restrict l, int fd, size_t *restrict len
                 buf = malloc(header.elemlen);
                 if (NULL == buf)
                     return -1;
-                READ_ERRCHECK(fd, buf, header.elemlen);
+                READ_ERRCHECK(fd, buf, (ssize_t) header.elemlen);
                 list_append(l, buf);
             }
             totmemorylen = header.numels * header.elemlen;
@@ -1362,7 +1364,7 @@ int list_restore_filedescriptor(list_t *restrict l, int fd, size_t *restrict len
                 buf = malloc((size_t)elsize);
                 if (NULL == buf)
                     return -1;
-                READ_ERRCHECK(fd, buf, elsize);
+                READ_ERRCHECK(fd, buf, (ssize_t) elsize);
                 totreadlen += elsize;
                 list_append(l, l->attrs.unserializer(buf, & elsize));
                 totmemorylen += elsize;
@@ -1374,7 +1376,7 @@ int list_restore_filedescriptor(list_t *restrict l, int fd, size_t *restrict len
                 buf = malloc(elsize);
                 if (NULL == buf)
                     return -1;
-                READ_ERRCHECK(fd, buf, elsize);
+                READ_ERRCHECK(fd, buf, (ssize_t) elsize);
                 totreadlen += elsize;
                 list_append(l, buf);
             }
