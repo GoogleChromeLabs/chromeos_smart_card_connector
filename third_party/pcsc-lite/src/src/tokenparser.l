@@ -44,7 +44,9 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#ifndef NDEBUG
 #define NDEBUG
+#endif
 #include <assert.h>
 
 #include "simclist.h"
@@ -70,7 +72,7 @@ static list_t *ListValues;
 "\n"                                            {}
 \<key\>([A-Z]|[a-z]|[0-9]|[ \t])+\<\/key\>      { eval_key(yytext, ListKeys); }
 [ \t]                                           {}
-\<string\>([A-Z]|[a-z]|[0-9]|[ \t]|[!@#$%^&*()\-+/_\:?.,=~'";\[\]])+\<\/string\> { eval_value(yytext, ListValues); }
+\<string\>.+\<\/string\> { eval_value(yytext, ListValues); }
 .                                               { tperrorCheck(yytext); }
 %%
 

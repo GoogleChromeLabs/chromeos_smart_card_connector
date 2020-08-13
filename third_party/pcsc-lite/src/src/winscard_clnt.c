@@ -1248,7 +1248,6 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
 {
 	LONG rv;
 	struct end_struct scEndStruct;
-	int randnum;
 	SCONTEXTMAP * currentContextMap;
 	CHANNEL_MAP * pChannelMap;
 
@@ -1283,11 +1282,6 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
 	if (rv != SCARD_S_SUCCESS)
 		goto end;
 
-	/*
-	 * This helps prevent starvation
-	 */
-	randnum = SYS_RandomInt(1000, 10000);
-	(void)SYS_USleep(randnum);
 	rv = scEndStruct.rv;
 
 end:
@@ -2329,7 +2323,7 @@ end:
  * - \ref SCARD_ATTR_CURRENT_W
  * - \ref SCARD_ATTR_DEFAULT_CLK
  * - \ref SCARD_ATTR_DEFAULT_DATA_RATE
- * - \ref SCARD_ATTR_DEVICE_FRIENDLY_NAME\n
+ * - \ref SCARD_ATTR_DEVICE_FRIENDLY_NAME
  *   Implemented by pcsc-lite if the IFD Handler (driver) returns \ref
  *   IFD_ERROR_TAG.  pcsc-lite then returns the same reader name as
  *   returned by \ref SCardListReaders().
@@ -2366,14 +2360,16 @@ end:
  * @return Error code.
  * @retval SCARD_S_SUCCESS Successful (\ref SCARD_S_SUCCESS)
  * @retval SCARD_E_UNSUPPORTED_FEATURE the \p dwAttrId attribute is not supported by the driver (\ref SCARD_E_UNSUPPORTED_FEATURE)
- * @retval SCARD_E_NOT_TRANSACTED the driver returned an error (\ref SCARD_E_NOT_TRANSACTED)
- * @retval SCARD_E_INSUFFICIENT_BUFFER \p cbAttrLen is too big (\ref SCARD_E_INSUFFICIENT_BUFFER)
- * @retval SCARD_E_INSUFFICIENT_BUFFER \p pbAttr buffer not large enough. In that case the expected buffer size is indicated in \p *pcbAttrLen (\ref SCARD_E_INSUFFICIENT_BUFFER)
+ * @retval SCARD_E_NOT_TRANSACTED
+ * - the driver returned an error (\ref SCARD_E_NOT_TRANSACTED)
+ * - Data exchange not successful (\ref SCARD_E_NOT_TRANSACTED)
+ * @retval SCARD_E_INSUFFICIENT_BUFFER
+ * - \p cbAttrLen is too big (\ref SCARD_E_INSUFFICIENT_BUFFER)
+ * - \p pbAttr buffer not large enough. In that case the expected buffer size is indicated in \p *pcbAttrLen (\ref SCARD_E_INSUFFICIENT_BUFFER)
  * @retval SCARD_E_INVALID_HANDLE Invalid \p hCard handle (\ref SCARD_E_INVALID_HANDLE)
  * @retval SCARD_E_INVALID_PARAMETER A parameter is NULL and should not (\ref SCARD_E_INVALID_PARAMETER)
  * @retval SCARD_E_NO_MEMORY Memory allocation failed (\ref SCARD_E_NO_MEMORY)
  * @retval SCARD_E_NO_SERVICE The server is not running (\ref SCARD_E_NO_SERVICE)
- * @retval SCARD_E_NOT_TRANSACTED Data exchange not successful (\ref SCARD_E_NOT_TRANSACTED)
  * @retval SCARD_E_READER_UNAVAILABLE The reader has been removed (\ref SCARD_E_READER_UNAVAILABLE)
  * @retval SCARD_F_COMM_ERROR An internal communications error has been detected (\ref SCARD_F_COMM_ERROR)
  *
@@ -3336,9 +3332,6 @@ static SCONTEXTMAP * SCardGetContextTH(SCARDCONTEXT hContext)
  *
  * @param[in] hContext Application Context to be removed.
  *
- * @return Error code.
- * @retval SCARD_S_SUCCESS Success (\ref SCARD_S_SUCCESS)
- * @retval SCARD_E_INVALID_HANDLE The context \p hContext was not found (\ref SCARD_E_INVALID_HANDLE)
  */
 static void SCardRemoveContext(SCARDCONTEXT hContext)
 {
