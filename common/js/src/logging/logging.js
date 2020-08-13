@@ -205,7 +205,7 @@ GSC.Logging.checkWithLogger = function(
  * Throws an exception and emits severe log with the specified message.
  *
  * In the release mode, this additionally asynchronously initiates the App
- * reload, unless the crash-and-reload loop is detected.
+ * reload, unless a crash-and-reload loop is detected.
  * @param {string=} opt_message Error message in case of failure.
  */
 GSC.Logging.fail = function(opt_message) {

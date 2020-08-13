@@ -37,14 +37,21 @@ const CRASH_LOOP_WINDOW_MILLISECONDS = 60 * 1000;
 // |CRASH_LOOP_WINDOW_MILLISECONDS| time window, then it's considered to be a
 // crash loop.
 //
-// Note that these two constants have to be chosen to be stricter than the
-// Chrome's Extensions system restrictions, which are "5 reloads, each within 10
-// seconds after the launch" (as of 2020-08-13).
+// Note that |CRASH_LOOP_WINDOW_MILLISECONDS| and |CRASH_LOOP_THRESHOLD_COUNT|
+// have to be chosen to be stricter than the Chrome's Extensions system
+// restrictions, which are "5 reloads, each within 10 seconds after the launch"
+// (as of 2020-08-13).
 const CRASH_LOOP_THRESHOLD_COUNT = 4;
 
 /** @type {boolean} */
 let crashing = false;
 
+/**
+ * Acknowledges that the extension is about to crash. Asynchronously returns the
+ * boolean reporting whether a crash loop is detected. The returned promise is
+ * rejected if this function was already called during the current run.
+ * @return {!Promise<boolean>}
+ */
 GSC.Logging.CrashLoopDetection.handleImminentCrash = function() {
   if (crashing)
     return Promise.reject('Already crashing');
@@ -69,7 +76,7 @@ function loadRecentCrashTimestamps() {
   // error.
   if (!chrome || !chrome.storage || !chrome.storage.local) {
     // Cannot load any data without access to the chrome.storage API (most
-    // likely, due to a missing permission).
+    // likely due to a missing permission).
     return Promise.resolve([]);
   }
   return new Promise(resolve => {
@@ -112,8 +119,10 @@ function storeNewCrashTimestamps(recentCrashTimestamps) {
     // Cannot store any data without access to the chrome.storage API.
     return Promise.resolve(newCrashTimestamps);
   }
+  const dataToStore = {};
+  dataToStore[STORAGE_KEY] = newCrashTimestamps;
   return new Promise(resolve => {
-    chrome.storage.local.set({[STORAGE_KEY]: newCrashTimestamps}, function() {
+    chrome.storage.local.set(dataToStore, function() {
       if (chrome.runtime.lastError) {
         // Ignore the errors (note that we still need this branch, since Chrome
         // would otherwise generate an error about unchecked lastError).
