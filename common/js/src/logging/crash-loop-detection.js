@@ -96,9 +96,16 @@ function loadRecentCrashTimestamps() {
 function storeNewCrashTimestamps(recentCrashTimestamps) {
   const currentTimestamp = Date.now();
   const minTimestampToKeep = currentTimestamp - CRASH_LOOP_WINDOW_MILLISECONDS;
-  const newCrashTimestamps = recentCrashTimestamps.filter(crashTimestamp => {
-    return crashTimestamp >= minTimestampToKeep;
+  let newCrashTimestamps = recentCrashTimestamps.filter(crashTimestamp => {
+    return minTimestampToKeep <= crashTimestamp &&
+           crashTimestamp <= currentTimestamp;
   });
+  // Sanitization: Drop extra items beyond the |CRASH_LOOP_THRESHOLD_COUNT-1|
+  // ones, in order to avoid any risk of the storage growing beyond all bounds.
+  if (newCrashTimestamps.length >= CRASH_LOOP_THRESHOLD_COUNT) {
+    newCrashTimestamps = newCrashTimestamps.slice(
+        -CRASH_LOOP_THRESHOLD_COUNT + 1);
+  }
   newCrashTimestamps.push(currentTimestamp);
 
   if (!chrome || !chrome.storage || !chrome.storage.local) {
