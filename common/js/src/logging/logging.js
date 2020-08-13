@@ -48,17 +48,14 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var LOGGER_SCOPE = 'GoogleSmartCard';
+const LOGGER_SCOPE = 'GoogleSmartCard';
 
 /**
  * The logging level that will be applied to the root logger (and therefore
  * would be effective for all loggers unless the ones that have an explicitly
  * set level).
- * @type {!goog.log.Level}
- * @const
  */
-var ROOT_LOGGER_LEVEL = goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO;
+const ROOT_LOGGER_LEVEL = goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO;
 
 /**
  * The capacity of the buffer that stores the emitted log messages.
@@ -66,28 +63,24 @@ var ROOT_LOGGER_LEVEL = goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO;
  * When the number of log messages exceeds this capacity, the messages from the
  * middle will be removed (so only some first and some last messages will be
  * kept at any given moment of time).
- * @const
  */
-var LOG_BUFFER_CAPACITY = goog.DEBUG ? 10 * 1000 : 1000;
+const LOG_BUFFER_CAPACITY = goog.DEBUG ? 10 * 1000 : 1000;
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * @type {!goog.log.Logger}
- * @const
  */
-var rootLogger = goog.asserts.assert(goog.log.getLogger(
+const rootLogger = goog.asserts.assert(goog.log.getLogger(
     goog.log.ROOT_LOGGER_NAME));
 
 /**
  * @type {!goog.log.Logger}
- * @const
  */
-var logger = goog.asserts.assert(goog.log.getLogger(LOGGER_SCOPE));
+const logger = goog.asserts.assert(goog.log.getLogger(LOGGER_SCOPE));
 
 /** @type {boolean} */
-var wasLoggingSetUp = false;
+let wasLoggingSetUp = false;
 
 /**
  * This constant specifies the name of the special window attribute, that should
@@ -127,7 +120,7 @@ GSC.Logging.setupLogging = function() {
  * @return {!goog.log.Logger}
  */
 GSC.Logging.getLogger = function(name, opt_level) {
-  var logger = goog.log.getLogger(name, opt_level);
+  const logger = goog.log.getLogger(name, opt_level);
   GSC.Logging.check(logger);
   goog.asserts.assert(logger);
   return logger;
@@ -140,7 +133,7 @@ GSC.Logging.getLogger = function(name, opt_level) {
  * @return {!goog.log.Logger}
  */
 GSC.Logging.getScopedLogger = function(name, opt_level) {
-  var fullName = LOGGER_SCOPE;
+  let fullName = LOGGER_SCOPE;
   if (name)
     fullName += '.' + name;
   return GSC.Logging.getLogger(fullName, opt_level);
@@ -166,7 +159,7 @@ GSC.Logging.getChildLogger = function(
  * @param {!goog.log.Level} boundaryLevel
  */
 GSC.Logging.setLoggerVerbosityAtMost = function(logger, boundaryLevel) {
-  var effectiveLevel = logger.getEffectiveLevel();
+  const effectiveLevel = logger.getEffectiveLevel();
   if (!effectiveLevel || effectiveLevel.value < boundaryLevel.value)
     logger.setLevel(boundaryLevel);
 };
@@ -217,7 +210,7 @@ GSC.Logging.fail = function(opt_message, var_args) {
   if (goog.DEBUG) {
     throwAssertionError(opt_message, var_args);
   } else {
-    var messageAndArgs = Array.prototype.slice.call(arguments);
+    const messageAndArgs = Array.prototype.slice.call(arguments);
     rootLogger.severe.apply(rootLogger, messageAndArgs);
     rootLogger.info('Reloading the App due to the fatal error...');
     reloadApp();
@@ -232,10 +225,10 @@ GSC.Logging.fail = function(opt_message, var_args) {
  * @param {...*} var_args The items to substitute into the failure message.
  */
 GSC.Logging.failWithLogger = function(logger, opt_message, var_args) {
-  var messagePrefix = 'Failure in ' + logger.getName();
+  const messagePrefix = 'Failure in ' + logger.getName();
   if (opt_message !== undefined) {
-    var transformedMessage = messagePrefix + ': ' + opt_message;
-    var args = Array.prototype.slice.call(arguments, 2);
+    const transformedMessage = messagePrefix + ': ' + opt_message;
+    const args = Array.prototype.slice.call(arguments, 2);
     GSC.Logging.fail.apply(
         GSC.Logging, goog.array.concat(transformedMessage, args));
   } else {
@@ -262,7 +255,7 @@ GSC.Logging.getLogBuffer = function() {
  */
 function throwAssertionError(opt_message, var_args) {
   if (goog.asserts.ENABLE_ASSERTS) {
-    var messageAndArgs = Array.prototype.slice.call(arguments);
+    const messageAndArgs = Array.prototype.slice.call(arguments);
     goog.asserts.fail.apply(null, messageAndArgs);
   } else {
     // This branch is the last resort, and should generally never happen
@@ -281,7 +274,7 @@ function reloadApp() {
 }
 
 function setupConsoleLogging() {
-  var console = new goog.debug.Console;
+  const console = new goog.debug.Console;
   console.getFormatter().showAbsoluteTime = true;
   console.setCapturing(true);
 }
@@ -292,7 +285,7 @@ function setupRootLoggerLevel() {
 
 function setupLogBuffer() {
   /** @type {!GSC.LogBuffer} */
-  var logBuffer;
+  let logBuffer;
   if (goog.object.containsKey(
           window, GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME)) {
     logBuffer = window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME];
