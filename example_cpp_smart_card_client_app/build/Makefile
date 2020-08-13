@@ -42,9 +42,15 @@ JS_COMPILER_INPUT_PATHS := \
 	$(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
 	$(SOURCES_PATH) \
 
-$(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BackgroundMain))
-$(eval $(call BUILD_JS_SCRIPT,window.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.WindowMain))
-$(eval $(call BUILD_JS_SCRIPT,built-in-pin-dialog.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BuiltInPinDialog.Main))
+# Note: Change the USE_SCOPED_LOGGERS's value to "true" in case the JavaScript
+# code you added creates its own loggers whose names clash with the existing
+# ones.
+JS_COMPILER_FLAGS := \
+	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
+
+$(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BackgroundMain,$(JS_COMPILER_FLAGS)))
+$(eval $(call BUILD_JS_SCRIPT,window.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.WindowMain,$(JS_COMPILER_FLAGS)))
+$(eval $(call BUILD_JS_SCRIPT,built-in-pin-dialog.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BuiltInPinDialog.Main,$(JS_COMPILER_FLAGS)))
 
 
 # Rules for invoking recursive make files that build the app's NaCl module
