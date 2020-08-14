@@ -42,10 +42,13 @@ JS_COMPILER_INPUT_PATHS := \
 	$(PCSC_LITE_JS_CLIENT_COMPILER_INPUT_DIR_PATHS) \
 	$(SOURCES_PATH) \
 
-# Note: Change the USE_SCOPED_LOGGERS's value to "true" in case the JavaScript
+# Note: Change the SELF_RELOAD_ON_FATAL_ERROR's value to "false" in case you
+# need to suppress the automatic self-reload of the extension on fatal failures.
+# Change the USE_SCOPED_LOGGERS's value to "true" in case the JavaScript
 # code you added creates its own loggers whose names clash with the existing
 # ones.
 JS_COMPILER_FLAGS := \
+	--define='GoogleSmartCard.Logging.SELF_RELOAD_ON_FATAL_ERROR=true' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
 
 $(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BackgroundMain,$(JS_COMPILER_FLAGS)))

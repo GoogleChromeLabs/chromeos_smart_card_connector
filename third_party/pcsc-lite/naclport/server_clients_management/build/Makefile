@@ -75,7 +75,10 @@ JS_COMPILER_INPUT_PATHS := \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_JS_COMPILER_INPUT_DIR_PATHS) \
 
-$(eval $(call BUILD_JS_SCRIPT,pcsc_lite_server_clients_management/user-prompt-dialog.js,$(JS_COMPILER_INPUT_PATHS),GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.Main))
+JS_COMPILER_FLAGS := \
+	--define='GoogleSmartCard.Logging.SELF_RELOAD_ON_FATAL_ERROR=true' \
+
+$(eval $(call BUILD_JS_SCRIPT,pcsc_lite_server_clients_management/user-prompt-dialog.js,$(JS_COMPILER_INPUT_PATHS),GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.Main,$(JS_COMPILER_FLAGS)))
 
 
 INSTALLED_HEADERS_DIR_NAME := \

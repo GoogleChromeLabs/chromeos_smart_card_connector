@@ -64,6 +64,13 @@ GSC.Logging.USE_SCOPED_LOGGERS =
     goog.define('GoogleSmartCard.Logging.USE_SCOPED_LOGGERS', true);
 
 /**
+ * @define {boolean} Whether to trigger the extension reload in case a fatal
+ * error occurs in Release mode.
+ */
+GSC.Logging.SELF_RELOAD_ON_FATAL_ERROR =
+    goog.define('GoogleSmartCard.Logging.SELF_RELOAD_ON_FATAL_ERROR', false);
+
+/**
  * Every logger created via this library is created as a child of this logger,
  * as long as the |USE_SCOPED_LOGGERS| constant is true. Ignored when that
  * constant is false.
@@ -226,8 +233,7 @@ GSC.Logging.checkWithLogger = function(
 GSC.Logging.fail = function(opt_message) {
   const message = opt_message ? opt_message : 'Failure';
   rootLogger.severe(message);
-  if (!goog.DEBUG)
-    scheduleAppReloadIfAllowed();
+  scheduleAppReloadIfAllowed();
   throw new Error(message);
 };
 
@@ -261,6 +267,8 @@ GSC.Logging.getLogBuffer = function() {
 };
 
 function scheduleAppReloadIfAllowed() {
+  if (goog.DEBUG || !GSC.Logging.SELF_RELOAD_ON_FATAL_ERROR)
+    return;
   GSC.Logging.CrashLoopDetection.handleImminentCrash().then(
       function(isInCrashLoop) {
         if (isInCrashLoop) {
