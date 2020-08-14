@@ -24,6 +24,7 @@ goog.provide('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModuleLogMessagesReceiver');
 goog.require('GoogleSmartCard.NaclModuleMessageChannel');
+goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
@@ -76,6 +77,8 @@ GSC.NaclModule = function(naclModulePath, type) {
 
   /** @private */
   this.loadPromiseResolver_ = goog.Promise.withResolver();
+  GSC.PromiseHelpers.suppressUnhandledRejectionError(
+      this.loadPromiseResolver_.promise);
 
   /**
    * @type {!Element}
