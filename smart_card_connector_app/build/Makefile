@@ -57,7 +57,6 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/inc
 
 SOURCES_PATH := ../src
 
-
 JS_COMPILER_FLAGS := \
 	--define='GoogleSmartCard.Logging.SELF_RELOAD_ON_FATAL_ERROR=true' \
 
