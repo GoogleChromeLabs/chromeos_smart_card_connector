@@ -151,7 +151,7 @@ goog.exportSymbol('testCrashLoopDetection', {
   // Test the crash loop scenario, where the storage contains information about
   // a big number of recent crashes that were happening every millisecond.
   testCrashLoop: function() {
-    const RECENT_CRASH_COUNT = 20;
+    const RECENT_CRASH_COUNT = 5;
     const recentCrashTimestamps = [];
     for (let delta = -RECENT_CRASH_COUNT; delta < 0; ++delta)
       recentCrashTimestamps.push(SOME_DATE.getTime() + delta);

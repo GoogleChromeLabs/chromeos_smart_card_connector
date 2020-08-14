@@ -38,9 +38,10 @@ const CRASH_LOOP_WINDOW_MILLISECONDS = 60 * 1000;
 // crash loop.
 //
 // Note that |CRASH_LOOP_WINDOW_MILLISECONDS| and |CRASH_LOOP_THRESHOLD_COUNT|
-// have to be chosen to be stricter than the Chrome's Extensions system
-// restrictions, which are "5 reloads, each within 10 seconds after the launch"
-// (as of 2020-08-13).
+// have to be chosen in a way that the crash loop is detected earlier than the
+// Chrome's Extension system decides to disable the extension due to too many
+// reloads, which is triggered by the "5 reloads, each within 10 seconds after
+// the launch" condition (as of 2020-08-13).
 const CRASH_LOOP_THRESHOLD_COUNT = 4;
 
 /** @type {boolean} */
