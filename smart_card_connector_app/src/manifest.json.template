@@ -1,5 +1,4 @@
 {
-"key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlc6hy5++uljMusXcpXspmA3UH5t9ppVHj3FfxvVMPOFX0RLrDvXtfH3f/TkdyPsAzk1QDDQ1++lDatRa3xc4rOGa2ynXljOR9y6rWoqB5wwMOjB42AWSVZWNwpccRsYkMhML5s7uur+B4SERWeMasXuJUhTPweS48Mz0mvp9wZMQB9+xPNm93iUeUZvVtB63ksibx5B3UJUCBz1wSUXLnEoTjy6TR9XsQ+boZlRsk/jY79A+iMQZw72QBBXvWSfJRaeDj266Dz+Jyp0h4lxZJjg/pnL0Rp5s0zlhlSNm6zyrQ6lWMzagjP/2G95LWMNvLTE95oKqhP4hNaxYrI/pUQIDAQAB",
   "manifest_version": 2,
   "name": "__MSG_appName__",
   "short_name": "__MSG_appShortName__",
