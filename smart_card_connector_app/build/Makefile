@@ -58,6 +58,10 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/inc
 SOURCES_PATH := ../src
 
 
+JS_COMPILER_FLAGS := \
+	--define='GoogleSmartCard.Logging.SELF_RELOAD_ON_FATAL_ERROR=true' \
+
+
 #
 # Constants and rules for compiling the background.js file.
 #
@@ -71,7 +75,7 @@ JS_COMPILER_BACKGROUND_INPUT_PATHS := \
 	$(PCSC_LITE_SERVER_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 
-$(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_BACKGROUND_INPUT_PATHS),GoogleSmartCard.ConnectorApp.BackgroundMain))
+$(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_BACKGROUND_INPUT_PATHS),GoogleSmartCard.ConnectorApp.BackgroundMain,$(JS_COMPILER_FLAGS)))
 
 
 #
@@ -86,7 +90,7 @@ JS_COMPILER_WINDOW_INPUT_PATHS := \
 	$(PCSC_LITE_SERVER_JS_COMPILER_INPUT_DIR_PATHS) \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 
-$(eval $(call BUILD_JS_SCRIPT,window.js,$(JS_COMPILER_WINDOW_INPUT_PATHS),GoogleSmartCard.ConnectorApp.Window.Main))
+$(eval $(call BUILD_JS_SCRIPT,window.js,$(JS_COMPILER_WINDOW_INPUT_PATHS),GoogleSmartCard.ConnectorApp.Window.Main,$(JS_COMPILER_FLAGS)))
 
 
 #

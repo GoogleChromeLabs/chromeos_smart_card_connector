@@ -38,9 +38,14 @@ JS_COMPILER_INPUT_PATHS := \
 	$(PCSC_LITE_JS_DEMO_COMPILER_INPUTS) \
 	$(JS_COMMON_JS_COMPILER_INPUT_DIR_PATHS) \
 
-$(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BackgroundMain))
+# Note: Change the SELF_RELOAD_ON_FATAL_ERROR's value to "false" in case you
+# need to suppress the automatic self-reload of the extension on fatal failures.
+JS_COMPILER_FLAGS := \
+	--define='GoogleSmartCard.Logging.SELF_RELOAD_ON_FATAL_ERROR=true' \
 
-$(eval $(call BUILD_JS_SCRIPT,pin-dialog.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.PinDialog.Main))
+$(eval $(call BUILD_JS_SCRIPT,background.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BackgroundMain,$(JS_COMPILER_FLAGS)))
+
+$(eval $(call BUILD_JS_SCRIPT,pin-dialog.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.PinDialog.Main,$(JS_COMPILER_FLAGS)))
 
 $(eval $(JS_COMMON_BACKGROUND_PAGE_UNLOAD_PREVENTING_IFRAME_RULE))
 
