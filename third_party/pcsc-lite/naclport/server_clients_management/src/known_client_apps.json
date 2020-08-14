@@ -3,13 +3,13 @@
     "name": "Charismathics Smart Card Middleware"
   },
   "haeblkpifdemlfnkogkipmghfcbonief": {
-    "name": "Charismathics Smart Card Middleware"
+    "name": "CSSI Smart Card Middleware"
   },
   "omlchkeefdkmmdndbpbhaapnnemfkobc": {
     "name": "Charismathics Smart Card Middleware"
   },
   "haiffjcadagjlijoggckpgfnoeiflnem": {
-    "name": "Citrix Receiver"
+    "name": "Citrix Workspace"
   },
   "pckbpdplfajmgaipljfamclkinbjdnma": {
     "name": "VMware Horizon Client"
@@ -18,10 +18,10 @@
     "name": "CACKey"
   },
   "lbfgjakkeeccemhonnolnmglmfmccaag": {
-    "name": "Citrix Receiver - EAR"
+    "name": "Citrix Workspace - EAR"
   },
   "kdndmepchimlohdcdkokdddpbnniijoa": {
-    "name": "Citrix Receiver - Internal Build"
+    "name": "Citrix Workspace - Internal Build"
   },
   "djkkpfimmenglkapoanbonjbpgbkckag": {
     "name": "BAIMobile Sample Access PKCS11"
@@ -39,7 +39,7 @@
     "name": "VMware Horizon Client - Internal"
   },
   "fdlpibjfnlhnmeckjjhfiejfdghkmkdm": {
-    "name": "Xtralogic Remote Desktop Client"
+    "name": "Xtralogic RDP Client"
   },
   "hlbkkfgplamgidcmijjcglabmiekfech": {
     "name": "smart-pass"
