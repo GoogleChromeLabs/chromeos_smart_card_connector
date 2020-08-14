@@ -38,6 +38,7 @@
 goog.provide('GoogleSmartCard.Logging');
 
 goog.require('GoogleSmartCard.LogBuffer');
+goog.require('GoogleSmartCard.Logging.CrashLoopDetection');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.debug');
@@ -216,23 +217,18 @@ GSC.Logging.checkWithLogger = function(
 };
 
 /**
- * Fails with the specified message.
+ * Throws an exception and emits severe log with the specified message.
  *
- * In the debug mode, this function effectively throws an instance of
- * goog.asserts.AssertionError.
- *
- * In the release mode, this function emits severe log message and initiates the
- * App reload.
+ * In the release mode, this additionally asynchronously initiates the App
+ * reload, unless a crash-and-reload loop is detected.
  * @param {string=} opt_message Error message in case of failure.
  */
 GSC.Logging.fail = function(opt_message) {
-  if (goog.DEBUG) {
-    throwAssertionError(opt_message);
-  } else {
-    rootLogger.severe(opt_message ? opt_message : 'Failure');
-    rootLogger.info('Reloading the App due to the fatal error...');
-    reloadApp();
-  }
+  const message = opt_message ? opt_message : 'Failure';
+  rootLogger.severe(message);
+  if (!goog.DEBUG)
+    scheduleAppReloadIfAllowed();
+  throw new Error(message);
 };
 
 /**
@@ -264,18 +260,20 @@ GSC.Logging.getLogBuffer = function() {
   return window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME];
 };
 
-/**
- * @param {string=} opt_message Error message in case of failure.
- */
-function throwAssertionError(opt_message) {
-  if (goog.asserts.ENABLE_ASSERTS) {
-    goog.asserts.fail(opt_message);
-  } else {
-    // This branch is the last resort, and should generally never happen
-    // (unless the goog.asserts.ENABLE_ASSERTS constant was changed from its
-    // default value for some reason).
-    throw new Error('Assertion failure');
-  }
+function scheduleAppReloadIfAllowed() {
+  GSC.Logging.CrashLoopDetection.handleImminentCrash().then(
+      function(isInCrashLoop) {
+        if (isInCrashLoop) {
+          rootLogger.info(
+              'Crash loop detected. The application is defunct, but the ' +
+              'execution state is kept in order to retain the failure logs.');
+          return;
+        }
+        rootLogger.info('Reloading the application due to the fatal error...');
+        reloadApp();
+      }).catch(function() {
+        // Don't do anything for repeated crashes within a single run.
+      });
 }
 
 function reloadApp() {
