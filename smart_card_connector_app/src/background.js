@@ -70,7 +70,7 @@ naclModule.getLoadPromise().then(() => {
   // Start forwarding all future log messages collected on the JS side, but also
   // immediately post the messages that have been accumulated so far.
   logBufferForwarderToNaclModule.startForwarding(naclModule.messageChannel);
-});
+}, () => {});
 
 var libusbChromeUsbBackend = new GSC.Libusb.ChromeUsbBackend(
     naclModule.messageChannel);
