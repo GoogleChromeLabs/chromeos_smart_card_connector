@@ -279,11 +279,13 @@ function throwAssertionError(opt_message) {
 }
 
 function reloadApp() {
-  // This method works only in kiosk mode, and does nothing otherwise.
-  chrome.runtime.restart();
-
-  // This method works only in non-kiosk mode.
+  // This method works only in non-kiosk mode. Since this is a much more common
+  // case and as this function doesn't generate errors in any case, this method
+  // is called first.
   chrome.runtime.reload();
+
+  // This method works only in kiosk mode.
+  chrome.runtime.restart();
 }
 
 function setupConsoleLogging() {
