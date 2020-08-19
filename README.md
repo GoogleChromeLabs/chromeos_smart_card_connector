@@ -48,7 +48,8 @@ Yubikey devices (see
 
 You only need this in case you have a smart card (or a device that emulates it)
 and need to use it on your Chrome OS device for authenticating at web pages,
-remote desktop applications, log into Chrome OS in enterprise deployments, etc.
+remote desktop applications, logging into Chrome OS in enterprise deployments,
+etc.
 
 ### Can I use it with my memory card (microSD, etc.)?
 
