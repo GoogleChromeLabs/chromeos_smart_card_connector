@@ -373,6 +373,7 @@ SpringCard SpringCore
 Spyrus Inc PocketVault P-3X
 Spyrus Inc Rosetta USB
 Spyrus Inc WorkSafe Pro
+Sunrex HP USB Business Slim Smartcard CCID Keyboard
 Swissbit Secure USB PU-50n SE/PE
 SYNNIX STD200
 Sysking MII136C
