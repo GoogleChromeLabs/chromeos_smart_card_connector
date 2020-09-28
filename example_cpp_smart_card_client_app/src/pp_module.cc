@@ -200,8 +200,11 @@ class PpInstance final : public pp::Instance {
       // Note: the bytes "1, 2, 3" and the signature algorithms below are just
       // an example. In the real application, replace them with the bytes of the
       // DER encoding of a X.509 certificate and the supported algorithms.
+      ccp::Certificate certificate;
+      certificate.certificate.assign({1, 2, 3});
       ccp::ClientCertificateInfo certificate_info_1;
-      certificate_info_1.certificate.assign({1, 2, 3});
+      certificate_info_1.certificate_chain.push_back(
+          certificate);
       certificate_info_1.supported_algorithms.push_back(
           ccp::Algorithm::kRsassaPkcs1v15Sha1);
       ccp::ClientCertificateInfo certificate_info_2;

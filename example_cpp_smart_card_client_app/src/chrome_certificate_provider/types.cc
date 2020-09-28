@@ -28,6 +28,7 @@ using ErrorConverter = EnumConverter<ccp::Error, std::string>;
 using PinRequestTypeConverter = EnumConverter<ccp::PinRequestType, std::string>;
 using PinRequestErrorTypeConverter = EnumConverter<
     ccp::PinRequestErrorType, std::string>;
+using CertificateConverter = StructConverter<ccp::Certificate>;
 using ClientCertificateInfoConverter = StructConverter<
     ccp::ClientCertificateInfo>;
 using SetCertificatesDetailsConverter = StructConverter<
@@ -100,6 +101,20 @@ void PinRequestErrorTypeConverter::VisitCorrespondingPairs(Callback callback) {
 
 // static
 template <>
+constexpr const char* CertificateConverter::GetStructTypeName() {
+  return "chrome_certificate_provider::Certificate";
+}
+
+// static
+template <>
+template <typename Callback>
+void CertificateConverter::VisitFields(
+    const ccp::Certificate& value, Callback callback) {
+  callback(&value.certificate, "certificate");
+}
+
+// static
+template <>
 constexpr const char* ClientCertificateInfoConverter::GetStructTypeName() {
   return "chrome_certificate_provider::ClientCertificateInfo";
 }
@@ -109,7 +124,7 @@ template <>
 template <typename Callback>
 void ClientCertificateInfoConverter::VisitFields(
     const ccp::ClientCertificateInfo& value, Callback callback) {
-  callback(&value.certificate, "certificate");
+  callback(&value.certificate_chain, "certificateChain");
   callback(&value.supported_algorithms, "supportedAlgorithms");
 }
 
@@ -233,6 +248,16 @@ bool VarAs(const pp::Var& var, PinRequestErrorType* result,
 
 pp::Var MakeVar(PinRequestErrorType value) {
   return gsc::PinRequestErrorTypeConverter::ConvertToVar(value);
+}
+
+bool VarAs(const pp::Var& var, Certificate* result,
+           std::string* error_message) {
+  return gsc::CertificateConverter::ConvertFromVar(
+      var, result, error_message);
+}
+
+pp::Var MakeVar(const Certificate& value) {
+  return gsc::CertificateConverter::ConvertToVar(value);
 }
 
 bool VarAs(const pp::Var& var, ClientCertificateInfo* result,

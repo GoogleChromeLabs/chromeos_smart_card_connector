@@ -81,12 +81,18 @@ enum class PinRequestErrorType {
   kUnknownError,
 };
 
+// Helper structure for ClientCertificateInfo.
+struct Certificate {
+  std::vector<uint8_t> certificate;
+};
+
 // Structure containing a certificate description.
 //
 // For the corresponding original JavaScript definition, refer to:
 // <https://developer.chrome.com/extensions/certificateProvider#type-ClientCertificateInfo>.
 struct ClientCertificateInfo {
-  std::vector<uint8_t> certificate;
+  // Note that certificate_chain must not contain more than one Certificate.
+  std::vector<Certificate> certificate_chain;
   std::vector<Algorithm> supported_algorithms;
 };
 
