@@ -85,6 +85,11 @@ enum class PinRequestErrorType {
 //
 // For the corresponding original JavaScript definition, refer to:
 // <https://developer.chrome.com/extensions/certificateProvider#type-ClientCertificateInfo>.
+// Note that this does not perfectly match the JavaScript definition, but will
+// be transformed into the correct form by bridge-backend.js. The reason is that
+// on the JavaScript side, there are multiple similar but different forms,
+// and it depends on the Chrome version which one is required. The C++ side does
+// not need be concerned with those details and can always use this struct.
 struct ClientCertificateInfo {
   std::vector<uint8_t> certificate;
   std::vector<Algorithm> supported_algorithms;

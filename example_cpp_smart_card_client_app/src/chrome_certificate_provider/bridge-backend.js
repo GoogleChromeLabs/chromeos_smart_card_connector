@@ -246,6 +246,16 @@ Backend.prototype.handleRequest_ = function(payload) {
   const apiFunction = chrome.certificateProvider[
       remoteCallMessage.functionName];
   if (apiFunction) {
+    if (remoteCallMessage.functionName == 'setCertificates') {
+      // The arguments need to be transformed in order to be recognized by the
+      // API.
+      const certificates = goog.array.map(
+          remoteCallMessage.functionArguments[0]["clientCertificates"],
+          createClientCertificateInfo);
+      remoteCallMessage.functionArguments[0]["clientCertificates"] =
+          certificates;
+    }
+
     /** @preserveTry */
     try {
       remoteCallMessage.functionArguments.push(function() {

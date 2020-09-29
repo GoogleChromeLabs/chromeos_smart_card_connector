@@ -54,6 +54,56 @@ namespace smart_card_client {
 
 namespace {
 
+// Collects all currently available certificates.
+// Returns whether the operation finished successfully. In case of success,
+// the resulting certificates information should be returned through the
+// |certificates| output argument.
+bool GetCertificates(std::vector<ccp::ClientCertificateInfo>* certificates) {
+  //
+  // CHANGE HERE:
+  // Place your custom code here:
+  //
+
+  // Note: the bytes "1, 2, 3" and the signature algorithms below are just
+  // an example. In the real application, replace them with the bytes of the
+  // DER encoding of a X.509 certificate and the supported algorithms.
+  ccp::ClientCertificateInfo certificate_info_1;
+  certificate_info_1.certificate.assign({1, 2, 3});
+  certificate_info_1.supported_algorithms.push_back(
+      ccp::Algorithm::kRsassaPkcs1v15Sha1);
+  ccp::ClientCertificateInfo certificate_info_2;
+  certificate_info_2.supported_algorithms.push_back(
+      ccp::Algorithm::kRsassaPkcs1v15Sha512);
+  certificates->push_back(certificate_info_1);
+  certificates->push_back(certificate_info_2);
+  return true;
+}
+
+// Reports all currently available certificates to Chrome via the
+// chrome.certificateProvider.setCertificates API. Returns false if this failed.
+bool ReportAvailableCertificates(
+    std::weak_ptr<ccp::ApiBridge> chrome_certificate_provider_api_bridge) {
+  const std::shared_ptr<ccp::ApiBridge>
+      locked_chrome_certificate_provider_api_bridge =
+          chrome_certificate_provider_api_bridge.lock();
+  if (!locked_chrome_certificate_provider_api_bridge) {
+    GOOGLE_SMART_CARD_LOG_INFO << "Cannot provide certificates: The " <<
+        "shutdown process has started";
+    return false;
+  }
+
+  std::vector<ccp::ClientCertificateInfo> certificates;
+  if (GetCertificates(&certificates)) {
+    locked_chrome_certificate_provider_api_bridge
+        ->SetCertificates(certificates);
+    return true;
+  }
+
+  GOOGLE_SMART_CARD_LOG_INFO << "Cannot provide certificates: " <<
+      "Certificates are unavailable";
+  return false;
+}
+
 // This class contains the actual NaCl module implementation.
 //
 // The implementation presented here is a skeleton that initializes all pieces
@@ -192,25 +242,7 @@ class PpInstance final : public pp::Instance {
     // thread. Multiple requests can be executed simultaneously (they will run
     // in different background threads).
     bool HandleRequest(std::vector<ccp::ClientCertificateInfo>* result) override {
-      //
-      // CHANGE HERE:
-      // Place your custom code here:
-      //
-
-      // Note: the bytes "1, 2, 3" and the signature algorithms below are just
-      // an example. In the real application, replace them with the bytes of the
-      // DER encoding of a X.509 certificate and the supported algorithms.
-      ccp::ClientCertificateInfo certificate_info_1;
-      certificate_info_1.certificate.assign({1, 2, 3});
-      certificate_info_1.supported_algorithms.push_back(
-          ccp::Algorithm::kRsassaPkcs1v15Sha1);
-      ccp::ClientCertificateInfo certificate_info_2;
-      certificate_info_2.supported_algorithms.push_back(
-          ccp::Algorithm::kRsassaPkcs1v15Sha512);
-      result->push_back(certificate_info_1);
-      result->push_back(certificate_info_2);
-
-      return true;
+      return GetCertificates(result);
     }
   };
 
@@ -372,16 +404,19 @@ class PpInstance final : public pp::Instance {
   // This method is called by the constructor once all of the initialization
   // steps finish.
   void StartWorkInBackgroundThread() {
-    std::thread(&PpInstance::Work).detach();
+    std::thread(&PpInstance::Work, chrome_certificate_provider_api_bridge_)
+        .detach();
   }
 
   // This method is executed on a background thread after all of the
   // initialization steps finish.
-  static void Work() {
+  static void Work(
+      std::weak_ptr<ccp::ApiBridge> chrome_certificate_provider_api_bridge) {
     //
     // CHANGE HERE:
     // Place your custom initialization code here:
     //
+    ReportAvailableCertificates(chrome_certificate_provider_api_bridge);
   }
 
   // Mutex that enforces that all requests are handled sequentially.
