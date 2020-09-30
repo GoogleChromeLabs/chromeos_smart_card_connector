@@ -526,6 +526,13 @@ function transformFunctionArguments(functionName, functionArguments) {
         functionArguments[0]["clientCertificates"],
         createClientCertificateInfo);
     transformedArguments[0] = {"clientCertificates": certificates};
+
+    if ("certificatesRequestId" in functionArguments[0])
+      transformedArguments[0]["certificatesRequestId"] =
+          functionArguments[0]["certificatesRequestId"];
+
+    if ("error" in functionArguments[0])
+      transformedArguments[0]["error"] = functionArguments[0]["error"];
   }
   return transformedArguments;
 }
