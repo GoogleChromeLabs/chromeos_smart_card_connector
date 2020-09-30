@@ -54,11 +54,9 @@ namespace smart_card_client {
 
 namespace {
 
-// Collects all currently available certificates.
-// Returns whether the operation finished successfully. In case of success,
-// the resulting certificates information should be returned through the
+// Collects all currently available certificates and returns them through the
 // |certificates| output argument.
-bool GetCertificates(std::vector<ccp::ClientCertificateInfo>* certificates) {
+void GetCertificates(std::vector<ccp::ClientCertificateInfo>* certificates) {
   //
   // CHANGE HERE:
   // Place your custom code here:
@@ -76,7 +74,6 @@ bool GetCertificates(std::vector<ccp::ClientCertificateInfo>* certificates) {
       ccp::Algorithm::kRsassaPkcs1v15Sha512);
   certificates->push_back(certificate_info_1);
   certificates->push_back(certificate_info_2);
-  return true;
 }
 
 // Reports all currently available certificates to Chrome via the
@@ -93,15 +90,9 @@ bool ReportAvailableCertificates(
   }
 
   std::vector<ccp::ClientCertificateInfo> certificates;
-  if (GetCertificates(&certificates)) {
-    locked_chrome_certificate_provider_api_bridge
-        ->SetCertificates(certificates);
-    return true;
-  }
-
-  GOOGLE_SMART_CARD_LOG_INFO << "Cannot provide certificates: " <<
-      "Certificates are unavailable";
-  return false;
+  GetCertificates(&certificates);
+  locked_chrome_certificate_provider_api_bridge->SetCertificates(certificates);
+  return true;
 }
 
 // This class contains the actual NaCl module implementation.
@@ -242,7 +233,8 @@ class PpInstance final : public pp::Instance {
     // thread. Multiple requests can be executed simultaneously (they will run
     // in different background threads).
     bool HandleRequest(std::vector<ccp::ClientCertificateInfo>* result) override {
-      return GetCertificates(result);
+      GetCertificates(result);
+      return true;
     }
   };
 
@@ -416,6 +408,11 @@ class PpInstance final : public pp::Instance {
     // CHANGE HERE:
     // Place your custom initialization code here:
     //
+
+    // Report the currently available list of certificates after the
+    // initialization is done and all available certificates are known,
+    // as per the requirements imposed by Chrome - see
+    // <https://developer.chrome.com/extensions/certificateProvider#method-setCertificates>.
     ReportAvailableCertificates(chrome_certificate_provider_api_bridge);
   }
 
