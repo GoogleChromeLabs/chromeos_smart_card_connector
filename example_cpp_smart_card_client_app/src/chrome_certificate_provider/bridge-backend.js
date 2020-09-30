@@ -32,6 +32,7 @@ goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
 goog.require('goog.array');
 goog.require('goog.log.Logger');
+goog.require('goog.object');
 
 goog.scope(function() {
 
@@ -246,9 +247,11 @@ Backend.prototype.handleRequest_ = function(payload) {
   const apiFunction = chrome.certificateProvider[
       remoteCallMessage.functionName];
   if (apiFunction) {
+    const transformedFunctionArguments = transformFunctionArguments(
+        remoteCallMessage.functionName, remoteCallMessage.functionArguments);
     /** @preserveTry */
     try {
-      remoteCallMessage.functionArguments.push(function() {
+      transformedFunctionArguments.push(function() {
         if (chrome.runtime.lastError) {
           promiseResolver.reject(new Error(goog.object.get(
               chrome.runtime.lastError, 'message', 'Unknown error')));
@@ -256,7 +259,7 @@ Backend.prototype.handleRequest_ = function(payload) {
         }
         promiseResolver.resolve(Array.prototype.slice.call(arguments));
       });
-      apiFunction.apply(null, remoteCallMessage.functionArguments);
+      apiFunction.apply(null, transformedFunctionArguments);
     } catch (exc) {
       promiseResolver.reject(exc);
     }
@@ -509,6 +512,26 @@ Backend.prototype.rejectedCertificatesCallback_ = function(
       'chrome.certificateProvider API rejected ' + rejectedCertificates.length +
       ' certificates: ' + GSC.DebugDump.debugDump(rejectedCertificates));
 };
+
+/**
+ * @param {string} functionName
+ * @param {!Array.<*>} functionArguments
+ * @return {!Array.<*>}
+ */
+function transformFunctionArguments(functionName, functionArguments) {
+  const transformedArguments = functionArguments.slice();
+  if (functionName === 'setCertificates') {
+    // The certificates need to be transformed in order to be recognized by the
+    // API.
+    transformedArguments[0] =
+        goog.object.clone(/** @type {!Object<?,?>} */(functionArguments[0]));
+    const certificates = goog.array.map(
+        functionArguments[0]["clientCertificates"],
+        createClientCertificateInfo);
+    transformedArguments[0]["clientCertificates"] = certificates;
+  }
+  return transformedArguments;
+}
 
 /**
  * @param {!NaclCertificateInfo} naclCertificateInfo
