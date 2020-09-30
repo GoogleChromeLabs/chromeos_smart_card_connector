@@ -32,6 +32,7 @@ goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
 goog.require('goog.array');
 goog.require('goog.log.Logger');
+goog.require('goog.object');
 
 goog.scope(function() {
 
@@ -522,17 +523,12 @@ function transformFunctionArguments(functionName, functionArguments) {
   if (functionName === 'setCertificates') {
     // The certificates need to be transformed in order to be recognized by the
     // API.
+    transformedArguments[0] =
+        goog.object.clone(/** @type {!Object<?,?>} */(functionArguments[0]));
     const certificates = goog.array.map(
         functionArguments[0]["clientCertificates"],
         createClientCertificateInfo);
-    transformedArguments[0] = {"clientCertificates": certificates};
-
-    if ("certificatesRequestId" in functionArguments[0])
-      transformedArguments[0]["certificatesRequestId"] =
-          functionArguments[0]["certificatesRequestId"];
-
-    if ("error" in functionArguments[0])
-      transformedArguments[0]["error"] = functionArguments[0]["error"];
+    transformedArguments[0]["clientCertificates"] = certificates;
   }
   return transformedArguments;
 }
