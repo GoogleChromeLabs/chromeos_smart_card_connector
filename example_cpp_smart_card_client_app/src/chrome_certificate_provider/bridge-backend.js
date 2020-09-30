@@ -523,9 +523,9 @@ function transformFunctionArguments(functionName, functionArguments) {
     // The certificates need to be transformed in order to be recognized by the
     // API.
     const certificates = goog.array.map(
-        transformedArguments[0]["clientCertificates"],
+        functionArguments[0]["clientCertificates"],
         createClientCertificateInfo);
-    transformedArguments[0]["clientCertificates"] = certificates;
+    transformedArguments[0] = {"clientCertificates": certificates};
   }
   return transformedArguments;
 }
