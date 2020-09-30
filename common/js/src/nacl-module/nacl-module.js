@@ -37,6 +37,8 @@ goog.scope(function() {
 /** @const */
 var GSC = GoogleSmartCard;
 
+const LOGGER_TITLE = 'Wrapper';
+
 /**
  * NaCl/PNaCl module element wrapper.
  *
@@ -50,18 +52,23 @@ var GSC = GoogleSmartCard;
  * @param {string} naclModulePath URL of the NaCl module manifest (.NMF file).
  * @param {!NaclModule.Type} type Type of the NaCl module (@code
  * {NaclModule.Type}).
+ * @param {boolean=} logModulePath Whether the logger scope should include the
+ * NaCl module path.
  * @constructor
  * @extends goog.Disposable
  */
-GSC.NaclModule = function(naclModulePath, type) {
+GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
   NaclModule.base(this, 'constructor');
 
+  const loggerScope = 'NaclModule' +
+                      (logModulePath ? `<"${naclModulePath}">` : '');
+  const messagesReceiverLogger = GSC.Logging.getScopedLogger(loggerScope);
   /**
    * @type {!goog.log.Logger}
    * @const
    */
-  this.logger = GSC.Logging.getScopedLogger(
-      'NaclModule<"' + naclModulePath + '">');
+  this.logger = GSC.Logging.getChildLogger(
+      messagesReceiverLogger, LOGGER_TITLE);
 
   /**
    * @type {string}
@@ -95,7 +102,7 @@ GSC.NaclModule = function(naclModulePath, type) {
 
   /** @type {!GSC.NaclModuleLogMessagesReceiver} */
   this.logMessagesReceiver = new GSC.NaclModuleLogMessagesReceiver(
-      this.messageChannel, this.logger);
+      this.messageChannel, messagesReceiverLogger);
 
   this.addStatusEventListeners_();
 };
