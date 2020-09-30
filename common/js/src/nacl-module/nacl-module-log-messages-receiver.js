@@ -39,9 +39,6 @@ var GSC = GoogleSmartCard;
 var SERVICE_NAME = 'log_message';
 
 /** @const */
-var LOGGER_TITLE = 'NaCl';
-
-/** @const */
 var LOG_LEVEL_MESSAGE_KEY = 'log_level';
 /** @const */
 var TEXT_MESSAGE_KEY = 'text';
@@ -52,13 +49,12 @@ var TEXT_MESSAGE_KEY = 'text';
  *
  * The NaCl module sends the emitted log messages as messages of some special
  * structure. This class handles these messages, extracts their fields and
- * transforms them into emitting log messages through a child logger of the
- * specified logger.
+ * transforms them into emitting log messages into the given logger.
  * @param {!goog.messaging.AbstractChannel} messageChannel
- * @param {!goog.log.Logger} parentLogger
+ * @param {!goog.log.Logger} logger
  * @constructor
  */
-GSC.NaclModuleLogMessagesReceiver = function(messageChannel, parentLogger) {
+GSC.NaclModuleLogMessagesReceiver = function(messageChannel, logger) {
   messageChannel.registerService(
       SERVICE_NAME, this.onMessageReceived_.bind(this), true);
 
@@ -66,7 +62,7 @@ GSC.NaclModuleLogMessagesReceiver = function(messageChannel, parentLogger) {
    * @type {!goog.log.Logger}
    * @const
    */
-  this.logger = GSC.Logging.getChildLogger(parentLogger, LOGGER_TITLE);
+  this.logger = logger;
 };
 
 /** @const */
