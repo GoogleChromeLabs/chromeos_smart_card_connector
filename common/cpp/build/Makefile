@@ -53,6 +53,9 @@ SOURCES := \
 	$(SOURCES_PATH)/requesting/request_receiver.cc \
 	$(SOURCES_PATH)/requesting/request_result.cc \
 
+TEST_SUPPORT_SOURCES := \
+	$(SOURCES_PATH)/integration_testing/integration_test_service.cc \
+
 CXXFLAGS := \
 	-I$(ROOT_SOURCES_PATH)/ \
 	-Wextra \
