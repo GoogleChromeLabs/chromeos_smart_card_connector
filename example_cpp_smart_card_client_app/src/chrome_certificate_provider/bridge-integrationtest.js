@@ -40,6 +40,7 @@ let setCertificatesApiExpectation;
  * Sets up stub implementation of the chrome.certificateProvider API.
  */
 function setUpApiStubs() {
+  setCertificatesApiExpectation = goog.Promise.withResolver();
   testController.propertyReplacer.set(chrome, 'certificateProvider', {
     'setCertificates': stubSetCertificatesApi,
   });
@@ -67,7 +68,6 @@ function stubSetCertificatesApi(details, callback) {
 goog.exportSymbol('testChromeCertificateProviderApiBridge', {
   setUp: function() {
     testController = new GSC.IntegrationTestController();
-    setCertificatesApiExpectation = goog.Promise.withResolver();
     return testController.initAsync().then(() => {
       bridgeBackend = new CertificateProviderBridge.Backend(
           testController.naclModule);
