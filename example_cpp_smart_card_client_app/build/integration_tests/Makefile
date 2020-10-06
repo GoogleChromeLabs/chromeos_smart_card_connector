@@ -36,6 +36,7 @@ SOURCE_DIR := ../../src/
 
 CPP_SOURCES := \
 	$(SOURCE_DIR)/chrome_certificate_provider/api_bridge.cc \
+	$(SOURCE_DIR)/chrome_certificate_provider/api_bridge_integration_test_helper.cc \
 	$(SOURCE_DIR)/chrome_certificate_provider/types.cc \
 
 JS_COMPILER_INPUT_PATHS := \
