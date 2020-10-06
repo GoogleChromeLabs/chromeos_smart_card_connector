@@ -75,8 +75,9 @@ class ApiBridgeIntegrationTestHelper final : public gsc::IntegrationTestHelper {
   std::shared_ptr<ApiBridge> api_bridge_;
 };
 
-const auto g_foo_helper = gsc::IntegrationTestService::RegisterHelper(
-    gsc::MakeUnique<ApiBridgeIntegrationTestHelper>());
+const auto g_api_bridge_integration_test_helper =
+    gsc::IntegrationTestService::RegisterHelper(
+        gsc::MakeUnique<ApiBridgeIntegrationTestHelper>());
 
 std::string ApiBridgeIntegrationTestHelper::GetName() const {
   return "ChromeCertificateProviderApiBridge";
