@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <stdint.h>
+
 #include <memory>
 #include <string>
 #include <thread>
@@ -32,6 +34,7 @@
 #include <google_smart_card_integration_testing/integration_test_service.h>
 
 #include "chrome_certificate_provider/api_bridge.h"
+#include "chrome_certificate_provider/types.h"
 
 namespace gsc = google_smart_card;
 
@@ -39,6 +42,29 @@ namespace smart_card_client {
 namespace chrome_certificate_provider {
 
 namespace {
+
+constexpr uint8_t kFakeCert1Der[] = {1, 2, 3};
+constexpr Algorithm kFakeCert1Algorithms[] = {Algorithm::kRsassaPkcs1v15Sha256};
+constexpr uint8_t kFakeCert2Der[] = {4};
+constexpr Algorithm kFakeCert2Algorithms[] = {
+  Algorithm::kRsassaPkcs1v15Sha512, Algorithm::kRsassaPkcs1v15Sha1
+};
+
+ClientCertificateInfo GetFakeCert1() {
+  ClientCertificateInfo info;
+  info.certificate.assign(std::begin(kFakeCert1Der), std::end(kFakeCert1Der));
+  info.supported_algorithms.assign(
+      std::begin(kFakeCert1Algorithms), std::end(kFakeCert1Algorithms));
+  return info;
+}
+
+ClientCertificateInfo GetFakeCert2() {
+  ClientCertificateInfo info;
+  info.certificate.assign(std::begin(kFakeCert2Der), std::end(kFakeCert2Der));
+  info.supported_algorithms.assign(
+      std::begin(kFakeCert2Algorithms), std::end(kFakeCert2Algorithms));
+  return info;
+}
 
 void SetCertificatesOnBackgroundThread(
     std::weak_ptr<ApiBridge> api_bridge,
@@ -109,6 +135,9 @@ void ApiBridgeIntegrationTestHelper::OnMessageFromJs(
     GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected message " << gsc::DumpVar(data);
   if (command == "setCertificates_empty") {
     ScheduleSetCertificatesCall(/*certificates=*/{}, result_callback);
+  } else if (command == "setCertificates_fakeCerts") {
+    ScheduleSetCertificatesCall(
+        {GetFakeCert1(), GetFakeCert2()}, result_callback);
   } else {
     GOOGLE_SMART_CARD_LOG_FATAL << "Unknown command " << command;
   }
