@@ -70,3 +70,14 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/window.html))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/window.css))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/built_in_pin_dialog/built-in-pin-dialog.css))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/built_in_pin_dialog/built-in-pin-dialog.html))
+
+
+# Rules for building and running tests and for cleaning test build files.
+
+test::
+	+$(MAKE) --directory integration_tests run
+
+tests_clean::
+	+$(MAKE) --directory integration_tests clean
+
+clean: tests_clean
