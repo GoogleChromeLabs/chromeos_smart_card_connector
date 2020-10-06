@@ -119,7 +119,7 @@ Requester.prototype.postRequest = function(payload) {
   if (this.isDisposed()) {
     // FIXME(emaxx): Probably add the disposal reason information into the
     // message?
-    this.rejectRequest_(requestId, 'The requester is already disposed');
+    promiseResolver.reject(new Error('The requester is already disposed'));
     return promiseResolver.promise;
   }
 
