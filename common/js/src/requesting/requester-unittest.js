@@ -153,4 +153,25 @@ goog.exportSymbol('testRequester', function() {
   return request0CompletionPromise;
 });
 
+goog.exportSymbol('testRequester_disposed', function() {
+  const REQUESTER_NAME = 'test-requester';
+
+  const mockControl = new goog.testing.MockControl;
+  const mockMessageChannel = new goog.testing.messaging.MockMessageChannel(
+      mockControl);
+  /** @type {?} */ mockMessageChannel.send;
+
+  const requester = new GSC.Requester(REQUESTER_NAME, mockMessageChannel);
+  requester.dispose();
+
+  const requestPromise = requester.postRequest({});
+  // No message should be sent.
+  mockMessageChannel.send.$verify();
+
+  return requestPromise.then(() => {
+    fail('Unexpected success');
+  }, () => {
+  });
+});
+
 });  // goog.scope
