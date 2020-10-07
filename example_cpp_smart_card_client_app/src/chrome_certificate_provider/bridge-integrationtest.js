@@ -29,6 +29,14 @@ goog.scope(function() {
 const GSC = GoogleSmartCard;
 const CertificateProviderBridge = SmartCardClientApp.CertificateProviderBridge;
 
+// Note: These constants have to be kept in sync with
+// api_bridge_integration_test_helper.cc.
+const FAKE_CERT_1_DER = new Uint8Array([1, 2, 3]);
+const FAKE_CERT_1_ALGORITHMS = ['RSASSA_PKCS1_v1_5_SHA256'];
+const FAKE_CERT_2_DER = new Uint8Array([4]);
+const FAKE_CERT_2_ALGORITHMS = [
+    'RSASSA_PKCS1_v1_5_SHA512', 'RSASSA_PKCS1_v1_5_SHA1'];
+
 /** @type {GSC.IntegrationTestController?} */
 let testController;
 /** @type {CertificateProviderBridge.Backend?} */
@@ -98,6 +106,22 @@ goog.exportSymbol('testChromeCertificateProviderApiBridge', {
     return testController.sendMessageToCppHelper(
         'ChromeCertificateProviderApiBridge',
         /*messageForHelper=*/'setCertificates_empty');
+  },
+
+  testSetCertificates_fakeCerts: function() {
+    setUpApiStubs();
+    testController.sendMessageToCppHelper(
+        'ChromeCertificateProviderApiBridge',
+        /*messageForHelper=*/'setCertificates_fakeCerts');
+    return setCertificatesApiExpectation.promise.then((details) => {
+      assertObjectEquals(details, {'clientCertificates': [{
+        'certificateChain': [FAKE_CERT_1_DER.buffer],
+        'supportedAlgorithms': FAKE_CERT_1_ALGORITHMS
+      }, {
+        'certificateChain': [FAKE_CERT_2_DER.buffer],
+        'supportedAlgorithms': FAKE_CERT_2_ALGORITHMS
+      }]});
+    });
   },
 });
 
