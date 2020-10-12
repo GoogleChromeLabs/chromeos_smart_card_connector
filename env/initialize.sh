@@ -39,6 +39,20 @@ log_error_message() {
   echo -e "\033[33;31m${message}\033[0m"
 }
 
+initialize_emscripten() {
+  if [ -d ./emsdk -a "${force_reinitialization}" -eq "0" ]; then
+    log_message "Emscripten already present, skipping."
+    return
+  fi
+  log_message "Installing Emscripten..."
+  rm -rf ./emsdk
+  git clone "${EMSCRIPTEN_SDK_REPOSITORY_URL}" emsdk
+  PATH="${SCRIPTPATH}/emsdk:${PATH}"
+  ./emsdk/emsdk install "${EMSCRIPTEN_VERSION}"
+  ./emsdk/emsdk activate "${EMSCRIPTEN_VERSION}"
+  log_message "Emscripten was installed successfully."
+}
+
 initialize_depot_tools() {
   if [ -d ./depot_tools -a "${force_reinitialization}" -eq "0" ]; then
     log_message "depot_tools already present, skipping."
@@ -92,7 +106,9 @@ initialize_webports() {
 
 create_activate_script() {
   log_message "Creating \"activate\" script..."
-  echo "export NACL_SDK_ROOT=${NACL_SDK_ROOT}" > activate
+  echo > activate
+  echo "export NACL_SDK_ROOT=${NACL_SDK_ROOT}" >> activate
+  echo "source ${SCRIPTPATH}/emsdk/emsdk_env.sh" >> activate
   log_message "\"activate\" script was created successfully. Run \"source $(dirname ${0})/activate\" in order to trigger all necessary environment definitions."
 }
 
@@ -114,6 +130,7 @@ while getopts ":f" opt; do
   esac
 done
 
+initialize_emscripten
 initialize_depot_tools
 initialize_nacl_sdk
 initialize_webports
