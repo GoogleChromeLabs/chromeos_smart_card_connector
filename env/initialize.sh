@@ -24,7 +24,7 @@
 
 set -eu
 
-is_forced=0
+force_reinitialization=0
 
 
 log_message() {
@@ -40,7 +40,7 @@ log_error_message() {
 }
 
 initialize_depot_tools() {
-  if [ -d ./depot_tools -a "${is_forced}" -eq "0" ]; then
+  if [ -d ./depot_tools -a "${force_reinitialization}" -eq "0" ]; then
     log_message "depot_tools already present, skipping."
     return
   fi
@@ -52,7 +52,7 @@ initialize_depot_tools() {
 }
 
 initialize_nacl_sdk() {
-  if [ -d ./nacl_sdk -a "${is_forced}" -eq "0" ]; then
+  if [ -d ./nacl_sdk -a "${force_reinitialization}" -eq "0" ]; then
     log_message "Native Client SDK already present, skipping."
     return
   fi
@@ -65,7 +65,7 @@ initialize_nacl_sdk() {
 }
 
 initialize_webports() {
-  if [ -d ./webports -a "${is_forced}" -eq "0" ]; then
+  if [ -d ./webports -a "${force_reinitialization}" -eq "0" ]; then
     log_message "webports already present, skipping."
     return
   fi
@@ -105,7 +105,7 @@ cd ${SCRIPTPATH}
 while getopts ":f" opt; do
   case $opt in
     f)
-      is_forced=1
+      force_reinitialization=1
       ;;
     \?)
       echo "Invalid option: -$OPTARG" >&2
