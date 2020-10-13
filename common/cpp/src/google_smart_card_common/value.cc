@@ -1,0 +1,205 @@
+// Copyright 2020 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+#include <google_smart_card_common/value.h>
+
+#include <string>
+#include <utility>
+
+#include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/unique_ptr_utils.h>
+
+namespace google_smart_card {
+
+Value::Value() {
+  // Note: Cannot use "= default", because the inner union's default constructor
+  // is deleted.
+}
+
+Value::Value(Type type) : type_(type) {
+  // Default-initialize the corresponding field.
+  switch (type_) {
+    case Type::kNull:
+      break;
+    case Type::kBoolean:
+      boolean_value_ = false;
+      break;
+    case Type::kInteger:
+      integer_value_ = 0;
+      break;
+    case Type::kFloat:
+      float_value_ = 0;
+      break;
+    case Type::kString:
+      new (&string_value_) std::string();
+      break;
+    case Type::kBinary:
+      new (&binary_value_) BinaryStorage();
+      break;
+    case Type::kDictionary:
+      new (&dictionary_value_) DictionaryStorage();
+      break;
+    case Type::kArray:
+      new (&array_value_) ArrayStorage();
+      break;
+  }
+}
+
+Value::Value(bool boolean_value)
+    : type_(Type::kBoolean), boolean_value_(boolean_value) {}
+
+Value::Value(int integer_value)
+    : type_(Type::kInteger), integer_value_(integer_value) {}
+
+Value::Value(int64_t integer_value)
+    : type_(Type::kInteger), integer_value_(integer_value) {}
+
+Value::Value(double float_value)
+    : type_(Type::kFloat), float_value_(float_value) {}
+
+Value::Value(const char* string_value)
+    : type_(Type::kString), string_value_(string_value) {}
+
+Value::Value(std::string string_value)
+    : type_(Type::kString), string_value_(std::move(string_value)) {}
+
+Value::Value(BinaryStorage binary_value)
+    : type_(Type::kBinary), binary_value_(std::move(binary_value)) {}
+
+Value::Value(DictionaryStorage dictionary_value)
+    : type_(Type::kDictionary),
+      dictionary_value_(std::move(dictionary_value)) {}
+
+Value::Value(ArrayStorage array_value)
+    : type_(Type::kArray), array_value_(std::move(array_value)) {}
+
+Value::Value(Value&& other) { MoveConstructFrom(std::move(other)); }
+
+Value& Value::operator=(Value&& other) {
+  if (this != &other) {
+    Destroy();
+    MoveConstructFrom(std::move(other));
+  }
+  return *this;
+}
+
+Value::~Value() { Destroy(); }
+
+bool Value::GetBoolean() const {
+  GOOGLE_SMART_CARD_CHECK(is_boolean());
+  return boolean_value_;
+}
+
+int64_t Value::GetInteger() const {
+  GOOGLE_SMART_CARD_CHECK(is_integer());
+  return integer_value_;
+}
+
+double Value::GetFloat() const {
+  GOOGLE_SMART_CARD_CHECK(is_integer() || is_float());
+  return is_float() ? float_value_ : integer_value_;
+}
+
+const std::string& Value::GetString() const {
+  GOOGLE_SMART_CARD_CHECK(is_string());
+  return string_value_;
+}
+
+const Value::BinaryStorage& Value::GetBinary() const {
+  GOOGLE_SMART_CARD_CHECK(is_binary());
+  return binary_value_;
+}
+
+const Value::DictionaryStorage& Value::GetDictionaryItems() const {
+  GOOGLE_SMART_CARD_CHECK(is_dictionary());
+  return dictionary_value_;
+}
+
+const Value::ArrayStorage& Value::GetArrayItems() const {
+  GOOGLE_SMART_CARD_CHECK(is_array());
+  return array_value_;
+}
+
+const Value* Value::GetDictionaryItem(const std::string& key) const {
+  GOOGLE_SMART_CARD_CHECK(is_dictionary());
+  auto iter = dictionary_value_.find(key);
+  if (iter == dictionary_value_.end()) return nullptr;
+  return iter->second.get();
+}
+
+void Value::SetDictionaryItem(std::string key, Value value) {
+  GOOGLE_SMART_CARD_CHECK(is_dictionary());
+  auto iter = dictionary_value_.find(key);
+  if (iter != dictionary_value_.end()) {
+    *iter->second = std::move(value);
+    return;
+  }
+  dictionary_value_.insert(
+      iter,
+      std::make_pair(std::move(key), MakeUnique<Value>(std::move(value))));
+}
+
+void Value::MoveConstructFrom(Value&& other) {
+  type_ = other.type_;
+  switch (type_) {
+    case Type::kNull:
+      break;
+    case Type::kBoolean:
+      boolean_value_ = other.boolean_value_;
+      break;
+    case Type::kInteger:
+      integer_value_ = other.integer_value_;
+      break;
+    case Type::kFloat:
+      float_value_ = other.float_value_;
+      break;
+    case Type::kString:
+      new (&string_value_) std::string(std::move(other.string_value_));
+      break;
+    case Type::kBinary:
+      new (&binary_value_) BinaryStorage(std::move(other.binary_value_));
+      break;
+    case Type::kDictionary:
+      new (&dictionary_value_)
+          DictionaryStorage(std::move(other.dictionary_value_));
+      break;
+    case Type::kArray:
+      new (&array_value_) ArrayStorage(std::move(other.array_value_));
+      break;
+  }
+}
+
+void Value::Destroy() {
+  switch (type_) {
+    case Type::kNull:
+    case Type::kBoolean:
+    case Type::kInteger:
+    case Type::kFloat:
+      break;
+    case Type::kString:
+      string_value_.~basic_string();
+      break;
+    case Type::kBinary:
+      binary_value_.~BinaryStorage();
+      break;
+    case Type::kDictionary:
+      dictionary_value_.~DictionaryStorage();
+      break;
+    case Type::kArray:
+      array_value_.~ArrayStorage();
+      break;
+  }
+}
+
+}  // namespace google_smart_card

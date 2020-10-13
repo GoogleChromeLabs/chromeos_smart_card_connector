@@ -52,6 +52,7 @@ SOURCES := \
 	$(SOURCES_PATH)/requesting/requester_message.cc \
 	$(SOURCES_PATH)/requesting/request_receiver.cc \
 	$(SOURCES_PATH)/requesting/request_result.cc \
+	$(SOURCES_PATH)/value.cc \
 
 TEST_SUPPORT_SOURCES := \
 	$(SOURCES_PATH)/integration_testing/integration_test_service.cc \
@@ -105,6 +106,7 @@ INSTALLING_HEADERS := \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):thread_safe_unique_ptr.h \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):tuple_unpacking.h \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):unique_ptr_utils.h \
+	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value.h \
 
 $(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
 
