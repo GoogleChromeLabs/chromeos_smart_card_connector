@@ -1,0 +1,6 @@
+URL: https://github.com/google/googletest/archive/release-1.10.0.tar.gz
+Version: 1.10.0
+License: BSD
+License File: LICENSE
+Description:
+Google's C++ test framework.
