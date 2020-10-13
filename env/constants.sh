@@ -18,9 +18,8 @@
 DEPOT_TOOLS_REPOSITORY_URL="https://chromium.googlesource.com/chromium/tools/depot_tools.git"
 
 EMSCRIPTEN_SDK_REPOSITORY_URL="https://github.com/emscripten-core/emsdk.git"
+EMSCRIPTEN_VERSION="2.0.6"
 
 NACL_SDK_VERSION="47"
 
 WEBPORTS_TARGETS="glibc-compat openssl"
-
-EMSCRIPTEN_VERSION="2.0.6"

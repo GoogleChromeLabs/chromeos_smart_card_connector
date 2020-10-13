@@ -47,7 +47,6 @@ initialize_emscripten() {
   log_message "Installing Emscripten..."
   rm -rf ./emsdk
   git clone "${EMSCRIPTEN_SDK_REPOSITORY_URL}" emsdk
-  PATH="${SCRIPTPATH}/emsdk:${PATH}"
   ./emsdk/emsdk install "${EMSCRIPTEN_VERSION}"
   ./emsdk/emsdk activate "${EMSCRIPTEN_VERSION}"
   log_message "Emscripten was installed successfully."
@@ -130,8 +129,13 @@ while getopts ":f" opt; do
   esac
 done
 
-initialize_emscripten
 initialize_depot_tools
+
+initialize_emscripten
+
+# Depends on depot_tools.
 initialize_nacl_sdk
+# Depends on nacl_sdk.
 initialize_webports
+
 create_activate_script
