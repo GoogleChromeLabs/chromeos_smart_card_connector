@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 
+#include <limits>
 #include <map>
 #include <memory>
 #include <vector>
@@ -64,6 +65,36 @@ TEST(ValueTest, Integer) {
   EXPECT_DOUBLE_EQ(value.GetFloat(), 123);
 }
 
+TEST(ValueTest, Integer64BitMax) {
+  const int64_t integer_value = std::numeric_limits<int64_t>::max();
+  const Value value(integer_value);
+  EXPECT_EQ(value.type(), Value::Type::kInteger);
+  EXPECT_FALSE(value.is_null());
+  EXPECT_TRUE(value.is_integer());
+  EXPECT_FALSE(value.is_float());
+  EXPECT_FALSE(value.is_string());
+  EXPECT_FALSE(value.is_binary());
+  EXPECT_FALSE(value.is_dictionary());
+  EXPECT_FALSE(value.is_array());
+  EXPECT_EQ(value.GetInteger(), integer_value);
+  EXPECT_DOUBLE_EQ(value.GetFloat(), integer_value);
+}
+
+TEST(ValueTest, Integer64BitMin) {
+  const int64_t integer_value = std::numeric_limits<int64_t>::min();
+  const Value value(integer_value);
+  EXPECT_EQ(value.type(), Value::Type::kInteger);
+  EXPECT_FALSE(value.is_null());
+  EXPECT_TRUE(value.is_integer());
+  EXPECT_FALSE(value.is_float());
+  EXPECT_FALSE(value.is_string());
+  EXPECT_FALSE(value.is_binary());
+  EXPECT_FALSE(value.is_dictionary());
+  EXPECT_FALSE(value.is_array());
+  EXPECT_EQ(value.GetInteger(), integer_value);
+  EXPECT_DOUBLE_EQ(value.GetFloat(), integer_value);
+}
+
 TEST(ValueTest, IntegerDefault) {
   const Value value(Value::Type::kInteger);
   EXPECT_EQ(value.type(), Value::Type::kInteger);
@@ -105,7 +136,8 @@ TEST(ValueTest, FloatDefault) {
 }
 
 TEST(ValueTest, String) {
-  const Value value("foo");
+  const std::string kString = "foo";
+  const Value value(kString);
   EXPECT_EQ(value.type(), Value::Type::kString);
   EXPECT_FALSE(value.is_null());
   EXPECT_FALSE(value.is_integer());
@@ -114,7 +146,21 @@ TEST(ValueTest, String) {
   EXPECT_FALSE(value.is_binary());
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
-  EXPECT_EQ(value.GetString(), "foo");
+  EXPECT_EQ(value.GetString(), kString);
+}
+
+TEST(ValueTest, StringFromChars) {
+  constexpr char kString[] = "foo";
+  const Value value(kString);
+  EXPECT_EQ(value.type(), Value::Type::kString);
+  EXPECT_FALSE(value.is_null());
+  EXPECT_FALSE(value.is_integer());
+  EXPECT_FALSE(value.is_float());
+  EXPECT_TRUE(value.is_string());
+  EXPECT_FALSE(value.is_binary());
+  EXPECT_FALSE(value.is_dictionary());
+  EXPECT_FALSE(value.is_array());
+  EXPECT_EQ(value.GetString(), kString);
 }
 
 TEST(ValueTest, StringDefault) {
@@ -171,7 +217,7 @@ TEST(ValueTest, Dictionary) {
   EXPECT_FALSE(value.is_binary());
   EXPECT_TRUE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
-  EXPECT_EQ(value.GetDictionaryItems().size(), 2U);
+  EXPECT_EQ(value.GetDictionary().size(), 2U);
   const Value* const item_foo = value.GetDictionaryItem("foo");
   ASSERT_TRUE(item_foo);
   EXPECT_TRUE(item_foo->is_null());
@@ -193,7 +239,7 @@ TEST(ValueTest, DictionaryDefault) {
   EXPECT_FALSE(value.is_binary());
   EXPECT_TRUE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
-  EXPECT_TRUE(value.GetDictionaryItems().empty());
+  EXPECT_TRUE(value.GetDictionary().empty());
   const Value* const item_foo = value.GetDictionaryItem("foo");
   EXPECT_FALSE(item_foo);
 }
@@ -211,11 +257,11 @@ TEST(ValueTest, Array) {
   EXPECT_FALSE(value.is_binary());
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_TRUE(value.is_array());
-  ASSERT_EQ(value.GetArrayItems().size(), 2U);
-  const Value* item0 = value.GetArrayItems()[0].get();
+  ASSERT_EQ(value.GetArray().size(), 2U);
+  const Value* item0 = value.GetArray()[0].get();
   ASSERT_TRUE(item0);
   EXPECT_TRUE(item0->is_null());
-  const Value* item1 = value.GetArrayItems()[1].get();
+  const Value* item1 = value.GetArray()[1].get();
   ASSERT_TRUE(item1);
   ASSERT_TRUE(item1->is_integer());
   EXPECT_EQ(item1->GetInteger(), 123);
@@ -231,7 +277,7 @@ TEST(ValueTest, ArrayDefault) {
   EXPECT_FALSE(value.is_binary());
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_TRUE(value.is_array());
-  EXPECT_TRUE(value.GetArrayItems().empty());
+  EXPECT_TRUE(value.GetArray().empty());
 }
 
 TEST(ValueTest, MoveConstruction) {
@@ -288,7 +334,7 @@ TEST(ValueTest, MoveAssignment) {
     Value value2("bar");
     value2 = std::move(value1);
     ASSERT_TRUE(value2.is_array());
-    EXPECT_EQ(value2.GetArrayItems().size(), 1U);
+    EXPECT_EQ(value2.GetArray().size(), 1U);
   }
 }
 
@@ -303,7 +349,7 @@ TEST(ValueTest, DictionaryModification) {
   Value value(Value::Type::kDictionary);
 
   value.SetDictionaryItem("foo", 123);
-  EXPECT_EQ(value.GetDictionaryItems().size(), 1U);
+  EXPECT_EQ(value.GetDictionary().size(), 1U);
   {
     const Value* const item_foo = value.GetDictionaryItem("foo");
     ASSERT_TRUE(item_foo);
@@ -312,7 +358,7 @@ TEST(ValueTest, DictionaryModification) {
   }
 
   value.SetDictionaryItem("bar", Value());
-  EXPECT_EQ(value.GetDictionaryItems().size(), 2U);
+  EXPECT_EQ(value.GetDictionary().size(), 2U);
   {
     const Value* const item_foo = value.GetDictionaryItem("foo");
     ASSERT_TRUE(item_foo);
@@ -320,11 +366,11 @@ TEST(ValueTest, DictionaryModification) {
     EXPECT_EQ(item_foo->GetInteger(), 123);
     const Value* const item_bar = value.GetDictionaryItem("bar");
     ASSERT_TRUE(item_bar);
-    ASSERT_TRUE(item_bar->is_null());
+    EXPECT_TRUE(item_bar->is_null());
   }
 
   value.SetDictionaryItem("foo", "text");
-  EXPECT_EQ(value.GetDictionaryItems().size(), 2U);
+  EXPECT_EQ(value.GetDictionary().size(), 2U);
   {
     const Value* const item_foo = value.GetDictionaryItem("foo");
     ASSERT_TRUE(item_foo);
@@ -332,7 +378,7 @@ TEST(ValueTest, DictionaryModification) {
     EXPECT_EQ(item_foo->GetString(), "text");
     const Value* const item_bar = value.GetDictionaryItem("bar");
     ASSERT_TRUE(item_bar);
-    ASSERT_TRUE(item_bar->is_null());
+    EXPECT_TRUE(item_bar->is_null());
   }
 }
 

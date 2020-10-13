@@ -25,7 +25,7 @@
 
 namespace google_smart_card {
 
-// A variadic data type that approximately corresponds to JSONifiable types.
+// A variant data type that approximately corresponds to JSONifiable types.
 //
 // Is intended to be used in generic interfaces related to message exchanging
 // with remote callers/receivers, for instance, for sending/receiving messages
@@ -82,9 +82,10 @@ class Value final {
   double GetFloat() const;
   const std::string& GetString() const;
   const BinaryStorage& GetBinary() const;
-  const DictionaryStorage& GetDictionaryItems() const;
-  const ArrayStorage& GetArrayItems() const;
+  const DictionaryStorage& GetDictionary() const;
+  const ArrayStorage& GetArray() const;
 
+  // Returns null when the key isn't present.
   const Value* GetDictionaryItem(const std::string& key) const;
 
   void SetDictionaryItem(std::string key, Value value);

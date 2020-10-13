@@ -69,7 +69,7 @@ Value::Value(double float_value)
     : type_(Type::kFloat), float_value_(float_value) {}
 
 Value::Value(const char* string_value)
-    : type_(Type::kString), string_value_(string_value) {}
+    : Value(std::string(string_value)) {}
 
 Value::Value(std::string string_value)
     : type_(Type::kString), string_value_(std::move(string_value)) {}
@@ -121,12 +121,12 @@ const Value::BinaryStorage& Value::GetBinary() const {
   return binary_value_;
 }
 
-const Value::DictionaryStorage& Value::GetDictionaryItems() const {
+const Value::DictionaryStorage& Value::GetDictionary() const {
   GOOGLE_SMART_CARD_CHECK(is_dictionary());
   return dictionary_value_;
 }
 
-const Value::ArrayStorage& Value::GetArrayItems() const {
+const Value::ArrayStorage& Value::GetArray() const {
   GOOGLE_SMART_CARD_CHECK(is_array());
   return array_value_;
 }
