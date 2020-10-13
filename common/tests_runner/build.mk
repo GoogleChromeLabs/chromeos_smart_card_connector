@@ -131,7 +131,7 @@ $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS))))
 # Add the rules for building the NaCl module with the C++ tests.
 #
 
-$(eval $(call NACL_MODULE_BUILD_RULE,$(SOURCES),$(LIBS),$(DEPS)))
+$(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES),$(LIBS),$(DEPS)))
 
 
 #
