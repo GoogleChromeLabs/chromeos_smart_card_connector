@@ -167,6 +167,6 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,Info.plist,pcsc/drivers/ifd-ccid.bundle/Conte
 
 
 # Rules for linking of the compiled object files and installing the resulting
-# static library into the NaCl SDK libraries directory
+# static library into the shared libraries directory.
 
-$(eval $(call NACL_LIBRARY_BUILD_RULE,$(SOURCES)))
+$(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))

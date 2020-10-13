@@ -226,7 +226,7 @@ $(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(
 # Rules for linking of the compiled object files and installing the resulting
 # static library into the NaCl SDK libraries directory
 
-$(eval $(call NACL_LIBRARY_BUILD_RULE,$(SOURCES)))
+$(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
 
 
 # Rules for putting the fake local socket file into the resulting out directory

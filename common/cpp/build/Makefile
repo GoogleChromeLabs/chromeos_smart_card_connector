@@ -64,7 +64,7 @@ CXXFLAGS := \
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
 
-$(eval $(call NACL_LIBRARY_BUILD_RULE,$(SOURCES)))
+$(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
 
 
 INSTALLING_HEADERS := \

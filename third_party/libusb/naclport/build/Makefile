@@ -67,7 +67,7 @@ $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS) $(CXX
 $(foreach src,$(CXX_SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(CPP_COMMON_HEADERS_INSTALLATION_STAMP_FILE))))
 
 
-$(eval $(call NACL_LIBRARY_BUILD_RULE,$(SOURCES)))
+$(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
 
 
 INSTALLING_HEADERS := \
