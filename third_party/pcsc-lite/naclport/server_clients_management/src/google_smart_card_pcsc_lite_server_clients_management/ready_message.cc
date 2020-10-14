@@ -24,6 +24,7 @@
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <google_smart_card_pcsc_lite_server_clients_management/ready_message.h>
+
 #include <ppapi/cpp/var_dictionary.h>
 
 namespace google_smart_card {

@@ -27,11 +27,14 @@
 // PC/SC-Lite internal implementation.
 
 #include <google_smart_card_pcsc_lite_server/global.h>
+
 #include <wintypes.h>
 
 extern "C" {
 #include "readerfactory.h"
+}
 
+extern "C" {
 LONG RFAddReaderOriginal(const char* reader_name, int port, const char* library,
                          const char* device);
 LONG RFRemoveReaderOriginal(const char* reader_name, int port);
