@@ -86,24 +86,6 @@ endef
 
 
 #
-# Macro rule that adds rules for building the resulting NaCl library file.
-#
-# Note that the library is automatically installed into the NaCl SDK libraries
-# directory, so the consumer applications can just link against it without
-# specifying any additional search paths.
-#
-# Arguments:
-#    $1: Source file paths.
-#
-
-define NACL_LIBRARY_BUILD_RULE
-
-$(eval $(call LIB_RULE,$(TARGET),$(1)))
-
-endef
-
-
-#
 # Target directory for installing the library header files.
 #
 # This directory is under the NaCl SDK libraries directory, so after installing

@@ -63,7 +63,7 @@ $(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(
 $(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(PCSC_LITE_SERVER_HEADERS_INSTALLATION_STAMP_FILE))))
 
 
-$(eval $(call NACL_LIBRARY_BUILD_RULE,$(SOURCES)))
+$(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
 
 
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/known_client_apps.json,pcsc_lite_server_clients_management))
