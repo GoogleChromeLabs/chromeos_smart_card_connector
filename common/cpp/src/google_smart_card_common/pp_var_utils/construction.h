@@ -68,8 +68,7 @@ pp::Var MakeVar(const std::string& value);
 
 template <typename T>
 inline pp::Var MakeVar(const optional<T>& value) {
-  if (!value)
-    return pp::Var();
+  if (!value) return pp::Var();
   return MakeVar(*value);
 }
 
@@ -96,15 +95,12 @@ pp::VarArrayBuffer MakeVarArrayBuffer(const void* data, size_t size);
 
 namespace internal {
 
-inline void FillVarArray(
-    pp::VarArray* /*var*/, uint32_t /*current_item_index*/) {}
+inline void FillVarArray(pp::VarArray* /*var*/,
+                         uint32_t /*current_item_index*/) {}
 
-template <typename Arg, typename ... Args>
-inline void FillVarArray(
-    pp::VarArray* var,
-    uint32_t current_item_index,
-    const Arg& arg,
-    const Args& ... args) {
+template <typename Arg, typename... Args>
+inline void FillVarArray(pp::VarArray* var, uint32_t current_item_index,
+                         const Arg& arg, const Args&... args) {
   GOOGLE_SMART_CARD_CHECK(var->Set(current_item_index, MakeVar(arg)));
   FillVarArray(var, current_item_index + 1, args...);
 }
@@ -112,8 +108,8 @@ inline void FillVarArray(
 }  // namespace internal
 
 // Constructs a Pepper array from the list of values of any supported type.
-template <typename ... Args>
-inline pp::VarArray MakeVarArray(const Args& ... args) {
+template <typename... Args>
+inline pp::VarArray MakeVarArray(const Args&... args) {
   pp::VarArray result;
   internal::FillVarArray(&result, 0, args...);
   return result;
@@ -128,8 +124,10 @@ inline pp::VarArray MakeVarArray(const Args& ... args) {
 //        .Result();
 class VarDictBuilder final {
  public:
-  VarDictBuilder() = default;
+  VarDictBuilder();
   VarDictBuilder(const VarDictBuilder&) = delete;
+  VarDictBuilder& operator=(const VarDictBuilder&) = delete;
+  ~VarDictBuilder();
 
   template <typename T>
   VarDictBuilder& Add(const std::string& key, const T& value) {
@@ -138,9 +136,7 @@ class VarDictBuilder final {
     return *this;
   }
 
-  pp::VarDictionary Result() const {
-    return dict_;
-  }
+  pp::VarDictionary Result() const { return dict_; }
 
  private:
   pp::VarDictionary dict_;

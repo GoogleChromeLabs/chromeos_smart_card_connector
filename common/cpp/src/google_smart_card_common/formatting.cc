@@ -17,9 +17,13 @@
 #include <cstdio>
 #include <vector>
 
-const size_t kInitialPrintfBufferSize = 100;
-
 namespace google_smart_card {
+
+namespace {
+
+constexpr size_t kInitialPrintfBufferSize = 100;
+
+}  // namespace
 
 std::string FormatPrintfTemplate(const char* format, ...) {
   va_list var_args;
@@ -34,8 +38,8 @@ std::string FormatPrintfTemplate(const char* format, va_list var_args) {
   for (;;) {
     va_list var_args_copy;
     va_copy(var_args_copy, var_args);
-    const int result = std::vsnprintf(
-        &buffer[0], buffer.size(), format, var_args_copy);
+    const int result =
+        std::vsnprintf(&buffer[0], buffer.size(), format, var_args_copy);
     va_end(var_args_copy);
     if (0 <= result && result < static_cast<int>(buffer.size()))
       return std::string(buffer.begin(), buffer.begin() + result);

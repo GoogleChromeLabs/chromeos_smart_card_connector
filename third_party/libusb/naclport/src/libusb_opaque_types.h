@@ -130,7 +130,7 @@ struct libusb_context final
   // <http://libusb.org/static/api-1.0/mtasync.html>.
   void WaitAndProcessAsyncTransferReceivedResults(
       const std::chrono::time_point<std::chrono::high_resolution_clock>&
-      timeout_time_point,
+          timeout_time_point,
       int* completed);
 
   // Tries to cancel the specified asynchronous transfer.
@@ -158,10 +158,9 @@ struct libusb_context final
       TransferRequestResult result);
 
  private:
-  void AddTransferInFlight(
-      TransferAsyncRequestStatePtr async_request_state,
-      const UsbTransferDestination& transfer_destination,
-      libusb_transfer* transfer);
+  void AddTransferInFlight(TransferAsyncRequestStatePtr async_request_state,
+                           const UsbTransferDestination& transfer_destination,
+                           libusb_transfer* transfer);
 
   void RemoveTransferInFlight(
       const TransferAsyncRequestState* async_request_state);
@@ -183,9 +182,8 @@ struct libusb_context final
       const UsbTransferDestination& transfer_destination,
       TransferRequestResult* result);
 
-  void SetTransferResult(
-      TransferAsyncRequestState* async_request_state,
-      TransferRequestResult result);
+  void SetTransferResult(TransferAsyncRequestState* async_request_state,
+                         TransferRequestResult result);
 
   mutable std::mutex mutex_;
   std::condition_variable condition_;
@@ -202,11 +200,11 @@ struct libusb_context final
   // Each transfers group is stored in a queue, which allows to preserve the
   // relative order in which they where received.
   std::map<UsbTransferDestination, std::queue<TransferRequestResult>>
-  received_input_transfer_result_map_;
+      received_input_transfer_result_map_;
   // This member stores the received data for the finished output transfer
   // requests.
   std::map<TransferAsyncRequestStatePtr, TransferRequestResult>
-  received_output_transfer_result_map_;
+      received_output_transfer_result_map_;
   // This set stores pointers to the transfers for which the cancellation was
   // requests.
   std::set<libusb_transfer*> transfers_to_cancel_;
@@ -217,9 +215,8 @@ struct libusb_context final
 // The structure corresponds to the Device structure in chrome.usb interface.
 struct libusb_device final {
   // Creates a new structure with the reference counter equal to 1.
-  libusb_device(
-      libusb_context* context,
-      const google_smart_card::chrome_usb::Device& chrome_usb_device);
+  libusb_device(libusb_context* context,
+                const google_smart_card::chrome_usb::Device& chrome_usb_device);
 
   ~libusb_device();
 
@@ -235,7 +232,7 @@ struct libusb_device final {
  private:
   libusb_context* context_;
   google_smart_card::chrome_usb::Device chrome_usb_device_;
-  std::atomic_int reference_count_;
+  std::atomic_int reference_count_{1};
 };
 
 // Definition of the libusb_device_handle type declared in the libusb headers.
@@ -245,10 +242,9 @@ struct libusb_device final {
 struct libusb_device_handle final {
   // Constructs the structure and increments the reference counter of the
   // specified libusb_device instance.
-  libusb_device_handle(
-      libusb_device* device,
-      const google_smart_card::chrome_usb::ConnectionHandle&
-          chrome_usb_connection_handle);
+  libusb_device_handle(libusb_device* device,
+                       const google_smart_card::chrome_usb::ConnectionHandle&
+                           chrome_usb_connection_handle);
 
   // Destructs the structure and decrements the reference counter of the
   // specified libusb_device instance.

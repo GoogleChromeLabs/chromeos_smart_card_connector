@@ -24,19 +24,14 @@
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <google_smart_card_pcsc_lite_server_clients_management/ready_message.h>
-
 #include <ppapi/cpp/var_dictionary.h>
-
-const char kMessageType[] = "pcsc_lite_ready";
 
 namespace google_smart_card {
 
-std::string GetPcscLiteServerReadyMessageType() {
-  return kMessageType;
-}
+constexpr char kMessageType[] = "pcsc_lite_ready";
 
-pp::Var MakePcscLiteServerReadyMessageData() {
-  return pp::VarDictionary();
-}
+std::string GetPcscLiteServerReadyMessageType() { return kMessageType; }
+
+pp::Var MakePcscLiteServerReadyMessageData() { return pp::VarDictionary(); }
 
 }  // namespace google_smart_card

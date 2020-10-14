@@ -49,23 +49,22 @@ pp::Var MakeRequestMessageData(RequestId request_id, const pp::Var& payload);
 //
 // Note that the if the response has the RequestResultStatus::kCanceled state,
 // then for simplicity reasons it will be serialized as a failed response.
-pp::Var MakeResponseMessageData(
-    RequestId request_id, const GenericRequestResult& request_result);
+pp::Var MakeResponseMessageData(RequestId request_id,
+                                const GenericRequestResult& request_result);
 
 // Parses the request message data, extracting the request identifier and the
 // request data from it.
-bool ParseRequestMessageData(
-    const pp::Var& message_data, RequestId* request_id, pp::Var* payload);
+bool ParseRequestMessageData(const pp::Var& message_data, RequestId* request_id,
+                             pp::Var* payload);
 
 // Parses the request response message data, extracting the request identifier
 // and the request result information from it.
 //
 // Note that the only possible result states returned are
 // RequestResultStatus::kSucceeded and RequestResultStatus::kFailed.
-bool ParseResponseMessageData(
-    const pp::Var& message_data,
-    RequestId* request_id,
-    GenericRequestResult* request_result);
+bool ParseResponseMessageData(const pp::Var& message_data,
+                              RequestId* request_id,
+                              GenericRequestResult* request_result);
 
 }  // namespace google_smart_card
 

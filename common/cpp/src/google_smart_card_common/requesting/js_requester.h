@@ -60,6 +60,9 @@ class JsRequester final : public Requester, public TypedMessageListener {
   class PpDelegateImpl final : public PpDelegate {
    public:
     PpDelegateImpl(pp::Instance* pp_instance, pp::Core* pp_core);
+    PpDelegateImpl(const PpDelegateImpl&) = delete;
+    PpDelegateImpl& operator=(const PpDelegateImpl&) = delete;
+    ~PpDelegateImpl();
 
     void PostMessage(const pp::Var& message) override;
     bool IsMainThread() override;
@@ -77,21 +80,19 @@ class JsRequester final : public Requester, public TypedMessageListener {
   // Note that the passed TypedMessageRouter is allowed to be destroyed earlier
   // than the JsRequester object - but the Detach() method must be called before
   // destroying it.
-  JsRequester(
-      const std::string& name,
-      TypedMessageRouter* typed_message_router,
-      std::unique_ptr<PpDelegate> pp_delegate);
+  JsRequester(const std::string& name, TypedMessageRouter* typed_message_router,
+              std::unique_ptr<PpDelegate> pp_delegate);
 
   JsRequester(const JsRequester&) = delete;
+  JsRequester& operator=(const JsRequester&) = delete;
 
   ~JsRequester() override;
 
   // Requester implementation
   void Detach() override;
-  void StartAsyncRequest(
-      const pp::Var& payload,
-      GenericAsyncRequestCallback callback,
-      GenericAsyncRequest* async_request) override;
+  void StartAsyncRequest(const pp::Var& payload,
+                         GenericAsyncRequestCallback callback,
+                         GenericAsyncRequest* async_request) override;
   // Requester implementation override
   //
   // Note that it is asserted that this method is called not from the main

@@ -45,23 +45,25 @@ bool PcscLiteClientHandlesRegistry::ContainsContext(
 void PcscLiteClientHandlesRegistry::AddContext(SCARDCONTEXT s_card_context) {
   const std::unique_lock<std::mutex> lock(mutex_);
 
-  GOOGLE_SMART_CARD_CHECK(context_to_handles_map_.emplace(
-      s_card_context, std::unordered_set<SCARDHANDLE>()).second);
+  GOOGLE_SMART_CARD_CHECK(
+      context_to_handles_map_
+          .emplace(s_card_context, std::unordered_set<SCARDHANDLE>())
+          .second);
 }
 
 void PcscLiteClientHandlesRegistry::RemoveContext(SCARDCONTEXT s_card_context) {
   const std::unique_lock<std::mutex> lock(mutex_);
 
-  const auto context_to_handles_iter = context_to_handles_map_.find(
-      s_card_context);
-  GOOGLE_SMART_CARD_CHECK(
-      context_to_handles_iter != context_to_handles_map_.end());
+  const auto context_to_handles_iter =
+      context_to_handles_map_.find(s_card_context);
+  GOOGLE_SMART_CARD_CHECK(context_to_handles_iter !=
+                          context_to_handles_map_.end());
 
   for (SCARDHANDLE s_card_handle : context_to_handles_iter->second) {
-    const auto handle_to_context_iter = handle_to_context_map_.find(
-        s_card_handle);
-    GOOGLE_SMART_CARD_CHECK(
-        handle_to_context_iter != handle_to_context_map_.end());
+    const auto handle_to_context_iter =
+        handle_to_context_map_.find(s_card_handle);
+    GOOGLE_SMART_CARD_CHECK(handle_to_context_iter !=
+                            handle_to_context_map_.end());
     GOOGLE_SMART_CARD_CHECK(handle_to_context_iter->second == s_card_context);
     handle_to_context_map_.erase(handle_to_context_iter);
   }
@@ -101,37 +103,37 @@ bool PcscLiteClientHandlesRegistry::ContainsHandle(
   return handle_to_context_map_.count(s_card_handle);
 }
 
-void PcscLiteClientHandlesRegistry::AddHandle(
-    SCARDCONTEXT s_card_context, SCARDHANDLE s_card_handle) {
+void PcscLiteClientHandlesRegistry::AddHandle(SCARDCONTEXT s_card_context,
+                                              SCARDHANDLE s_card_handle) {
   const std::unique_lock<std::mutex> lock(mutex_);
 
   GOOGLE_SMART_CARD_CHECK(!handle_to_context_map_.count(s_card_handle));
 
-  const auto context_to_handles_iter = context_to_handles_map_.find(
-      s_card_context);
+  const auto context_to_handles_iter =
+      context_to_handles_map_.find(s_card_context);
+  GOOGLE_SMART_CARD_CHECK(context_to_handles_iter !=
+                          context_to_handles_map_.end());
   GOOGLE_SMART_CARD_CHECK(
-      context_to_handles_iter != context_to_handles_map_.end());
-  GOOGLE_SMART_CARD_CHECK(context_to_handles_iter->second.insert(
-      s_card_handle).second);
+      context_to_handles_iter->second.insert(s_card_handle).second);
 
-  GOOGLE_SMART_CARD_CHECK(handle_to_context_map_.emplace(
-      s_card_handle, s_card_context).second);
+  GOOGLE_SMART_CARD_CHECK(
+      handle_to_context_map_.emplace(s_card_handle, s_card_context).second);
 }
 
 void PcscLiteClientHandlesRegistry::RemoveHandle(SCARDHANDLE s_card_handle) {
   const std::unique_lock<std::mutex> lock(mutex_);
 
-  const auto handle_to_context_iter = handle_to_context_map_.find(
-      s_card_handle);
-  GOOGLE_SMART_CARD_CHECK(
-      handle_to_context_iter != handle_to_context_map_.end());
+  const auto handle_to_context_iter =
+      handle_to_context_map_.find(s_card_handle);
+  GOOGLE_SMART_CARD_CHECK(handle_to_context_iter !=
+                          handle_to_context_map_.end());
   const SCARDCONTEXT s_card_context = handle_to_context_iter->second;
   handle_to_context_map_.erase(handle_to_context_iter);
 
-  const auto context_to_handles_iter = context_to_handles_map_.find(
-      s_card_context);
-  GOOGLE_SMART_CARD_CHECK(
-      context_to_handles_iter != context_to_handles_map_.end());
+  const auto context_to_handles_iter =
+      context_to_handles_map_.find(s_card_context);
+  GOOGLE_SMART_CARD_CHECK(context_to_handles_iter !=
+                          context_to_handles_map_.end());
   GOOGLE_SMART_CARD_CHECK(context_to_handles_iter->second.erase(s_card_handle));
 }
 

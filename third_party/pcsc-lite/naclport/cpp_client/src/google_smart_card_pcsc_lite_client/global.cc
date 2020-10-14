@@ -28,6 +28,11 @@
 #include <string>
 #include <utility>
 
+#include <pcsclite.h>
+#include <reader.h>
+#include <winscard.h>
+#include <wintypes.h>
+
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/requesting/js_requester.h>
 #include <google_smart_card_common/requesting/requester.h>
@@ -35,16 +40,11 @@
 #include <google_smart_card_pcsc_lite_common/pcsc_lite.h>
 #include <google_smart_card_pcsc_lite_common/pcsc_lite_tracing_wrapper.h>
 
-#include <pcsclite.h>
-#include <reader.h>
-#include <winscard.h>
-#include <wintypes.h>
-
 #include "pcsc_lite_over_requester.h"
 
-const char kLoggingPrefix[] = "[PC/SC-Lite client] ";
-
 namespace {
+
+constexpr char kLoggingPrefix[] = "[PC/SC-Lite client] ";
 
 // A unique global pointer to an implementation of PcscLite interface that is
 // used by the implementation of global PC/SC-Lite API functions in this
@@ -62,38 +62,31 @@ namespace google_smart_card {
 
 class PcscLiteOverRequesterGlobal::Impl final {
  public:
-  Impl(
-      TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
-      pp::Core* pp_core)
-      : pcsc_lite_over_requester_(MakeRequester(
-            typed_message_router, pp_instance, pp_core)) {
+  Impl(TypedMessageRouter* typed_message_router, pp::Instance* pp_instance,
+       pp::Core* pp_core)
+      : pcsc_lite_over_requester_(
+            MakeRequester(typed_message_router, pp_instance, pp_core)) {
 #ifndef NDEBUG
-    pcsc_lite_tracing_wrapper_.reset(new PcscLiteTracingWrapper(
-        &pcsc_lite_over_requester_, kLoggingPrefix));
+    pcsc_lite_tracing_wrapper_.reset(
+        new PcscLiteTracingWrapper(&pcsc_lite_over_requester_, kLoggingPrefix));
 #endif  // NDEBUG
   }
 
   Impl(const Impl&) = delete;
 
-  void Detach() {
-    pcsc_lite_over_requester_.Detach();
-  }
+  void Detach() { pcsc_lite_over_requester_.Detach(); }
 
   PcscLite* pcsc_lite() {
-    if (pcsc_lite_tracing_wrapper_)
-      return pcsc_lite_tracing_wrapper_.get();
+    if (pcsc_lite_tracing_wrapper_) return pcsc_lite_tracing_wrapper_.get();
     return &pcsc_lite_over_requester_;
   }
 
  private:
   static std::unique_ptr<Requester> MakeRequester(
-      TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
+      TypedMessageRouter* typed_message_router, pp::Instance* pp_instance,
       pp::Core* pp_core) {
     return std::unique_ptr<Requester>(new JsRequester(
-        kPcscLiteRequesterName,
-        typed_message_router,
+        kPcscLiteRequesterName, typed_message_router,
         MakeUnique<JsRequester::PpDelegateImpl>(pp_instance, pp_core)));
   }
 
@@ -102,8 +95,7 @@ class PcscLiteOverRequesterGlobal::Impl final {
 };
 
 PcscLiteOverRequesterGlobal::PcscLiteOverRequesterGlobal(
-    TypedMessageRouter* typed_message_router,
-    pp::Instance* pp_instance,
+    TypedMessageRouter* typed_message_router, pp::Instance* pp_instance,
     pp::Core* pp_core)
     : impl_(new Impl(typed_message_router, pp_instance, pp_core)) {
   GOOGLE_SMART_CARD_CHECK(!g_pcsc_lite);
@@ -115,61 +107,42 @@ PcscLiteOverRequesterGlobal::~PcscLiteOverRequesterGlobal() {
   g_pcsc_lite = nullptr;
 }
 
-void PcscLiteOverRequesterGlobal::Detach() {
-  impl_->Detach();
-}
+void PcscLiteOverRequesterGlobal::Detach() { impl_->Detach(); }
 
 }  // namespace google_smart_card
 
 // These three variables are the global PC/SC-Lite API constants, defined in the
 // pcsclite.h header.
-const SCARD_IO_REQUEST g_rgSCardT0Pci = {
-    SCARD_PROTOCOL_T0, sizeof(SCARD_IO_REQUEST)};
-const SCARD_IO_REQUEST g_rgSCardT1Pci = {
-    SCARD_PROTOCOL_T1, sizeof(SCARD_IO_REQUEST)};
-const SCARD_IO_REQUEST g_rgSCardRawPci = {
-    SCARD_PROTOCOL_RAW, sizeof(SCARD_IO_REQUEST)};
+const SCARD_IO_REQUEST g_rgSCardT0Pci = {SCARD_PROTOCOL_T0,
+                                         sizeof(SCARD_IO_REQUEST)};
+const SCARD_IO_REQUEST g_rgSCardT1Pci = {SCARD_PROTOCOL_T1,
+                                         sizeof(SCARD_IO_REQUEST)};
+const SCARD_IO_REQUEST g_rgSCardRawPci = {SCARD_PROTOCOL_RAW,
+                                          sizeof(SCARD_IO_REQUEST)};
 
-LONG SCardEstablishContext(
-    DWORD dwScope,
-    LPCVOID pvReserved1,
-    LPCVOID pvReserved2,
-    LPSCARDCONTEXT phContext) {
-  return GetGlobalPcscLite()->SCardEstablishContext(
-      dwScope, pvReserved1, pvReserved2, phContext);
+LONG SCardEstablishContext(DWORD dwScope, LPCVOID pvReserved1,
+                           LPCVOID pvReserved2, LPSCARDCONTEXT phContext) {
+  return GetGlobalPcscLite()->SCardEstablishContext(dwScope, pvReserved1,
+                                                    pvReserved2, phContext);
 }
 
 LONG SCardReleaseContext(SCARDCONTEXT hContext) {
   return GetGlobalPcscLite()->SCardReleaseContext(hContext);
 }
 
-LONG SCardConnect(
-    SCARDCONTEXT hContext,
-    LPCSTR szReader,
-    DWORD dwShareMode,
-    DWORD dwPreferredProtocols,
-    LPSCARDHANDLE phCard,
-    LPDWORD pdwActiveProtocol) {
-  return GetGlobalPcscLite()->SCardConnect(
-      hContext,
-      szReader,
-      dwShareMode,
-      dwPreferredProtocols,
-      phCard,
-      pdwActiveProtocol);
+LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader, DWORD dwShareMode,
+                  DWORD dwPreferredProtocols, LPSCARDHANDLE phCard,
+                  LPDWORD pdwActiveProtocol) {
+  return GetGlobalPcscLite()->SCardConnect(hContext, szReader, dwShareMode,
+                                           dwPreferredProtocols, phCard,
+                                           pdwActiveProtocol);
 }
 
-LONG SCardReconnect(
-    SCARDHANDLE hCard,
-    DWORD dwShareMode,
-    DWORD dwPreferredProtocols,
-    DWORD dwInitialization,
-    LPDWORD pdwActiveProtocol) {
+LONG SCardReconnect(SCARDHANDLE hCard, DWORD dwShareMode,
+                    DWORD dwPreferredProtocols, DWORD dwInitialization,
+                    LPDWORD pdwActiveProtocol) {
   return GetGlobalPcscLite()->SCardReconnect(
-      hCard,
-      dwShareMode,
-      dwPreferredProtocols,
-      dwInitialization,
+      hCard, dwShareMode, dwPreferredProtocols, dwInitialization,
       pdwActiveProtocol);
 }
 
@@ -185,104 +158,63 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition) {
   return GetGlobalPcscLite()->SCardEndTransaction(hCard, dwDisposition);
 }
 
-LONG SCardStatus(
-    SCARDHANDLE hCard,
-    LPSTR szReaderName,
-    LPDWORD pcchReaderLen,
-    LPDWORD pdwState,
-    LPDWORD pdwProtocol,
-    LPBYTE pbAtr,
-    LPDWORD pcbAtrLen) {
-  return GetGlobalPcscLite()->SCardStatus(
-      hCard,
-      szReaderName,
-      pcchReaderLen,
-      pdwState,
-      pdwProtocol,
-      pbAtr,
-      pcbAtrLen);
+LONG SCardStatus(SCARDHANDLE hCard, LPSTR szReaderName, LPDWORD pcchReaderLen,
+                 LPDWORD pdwState, LPDWORD pdwProtocol, LPBYTE pbAtr,
+                 LPDWORD pcbAtrLen) {
+  return GetGlobalPcscLite()->SCardStatus(hCard, szReaderName, pcchReaderLen,
+                                          pdwState, pdwProtocol, pbAtr,
+                                          pcbAtrLen);
 }
 
-LONG SCardGetStatusChange(
-    SCARDCONTEXT hContext,
-    DWORD dwTimeout,
-    SCARD_READERSTATE* rgReaderStates,
-    DWORD cReaders) {
-  return GetGlobalPcscLite()->SCardGetStatusChange(
-      hContext, dwTimeout, rgReaderStates, cReaders);
+LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
+                          SCARD_READERSTATE* rgReaderStates, DWORD cReaders) {
+  return GetGlobalPcscLite()->SCardGetStatusChange(hContext, dwTimeout,
+                                                   rgReaderStates, cReaders);
 }
 
-LONG SCardControl(
-    SCARDHANDLE hCard,
-    DWORD dwControlCode,
-    LPCVOID pbSendBuffer,
-    DWORD cbSendLength,
-    LPVOID pbRecvBuffer,
-    DWORD cbRecvLength,
-    LPDWORD lpBytesReturned) {
-  return GetGlobalPcscLite()->SCardControl(
-      hCard,
-      dwControlCode,
-      pbSendBuffer,
-      cbSendLength,
-      pbRecvBuffer,
-      cbRecvLength,
-      lpBytesReturned);
+LONG SCardControl(SCARDHANDLE hCard, DWORD dwControlCode, LPCVOID pbSendBuffer,
+                  DWORD cbSendLength, LPVOID pbRecvBuffer, DWORD cbRecvLength,
+                  LPDWORD lpBytesReturned) {
+  return GetGlobalPcscLite()->SCardControl(hCard, dwControlCode, pbSendBuffer,
+                                           cbSendLength, pbRecvBuffer,
+                                           cbRecvLength, lpBytesReturned);
 }
 
-LONG SCardGetAttrib(
-    SCARDHANDLE hCard,
-    DWORD dwAttrId,
-    LPBYTE pbAttr,
-    LPDWORD pcbAttrLen) {
-  return GetGlobalPcscLite()->SCardGetAttrib(
-      hCard, dwAttrId, pbAttr, pcbAttrLen);
+LONG SCardGetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPBYTE pbAttr,
+                    LPDWORD pcbAttrLen) {
+  return GetGlobalPcscLite()->SCardGetAttrib(hCard, dwAttrId, pbAttr,
+                                             pcbAttrLen);
 }
 
-LONG SCardSetAttrib(
-    SCARDHANDLE hCard,
-    DWORD dwAttrId,
-    LPCBYTE pbAttr,
-    DWORD cbAttrLen) {
-  return GetGlobalPcscLite()->SCardSetAttrib(
-      hCard, dwAttrId, pbAttr, cbAttrLen);
+LONG SCardSetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPCBYTE pbAttr,
+                    DWORD cbAttrLen) {
+  return GetGlobalPcscLite()->SCardSetAttrib(hCard, dwAttrId, pbAttr,
+                                             cbAttrLen);
 }
 
-LONG SCardTransmit(
-    SCARDHANDLE hCard,
-    const SCARD_IO_REQUEST* pioSendPci,
-    LPCBYTE pbSendBuffer,
-    DWORD cbSendLength,
-    SCARD_IO_REQUEST* pioRecvPci,
-    LPBYTE pbRecvBuffer,
-    LPDWORD pcbRecvLength) {
-  return GetGlobalPcscLite()->SCardTransmit(
-      hCard,
-      pioSendPci,
-      pbSendBuffer,
-      cbSendLength,
-      pioRecvPci,
-      pbRecvBuffer,
-      pcbRecvLength);
+LONG SCardTransmit(SCARDHANDLE hCard, const SCARD_IO_REQUEST* pioSendPci,
+                   LPCBYTE pbSendBuffer, DWORD cbSendLength,
+                   SCARD_IO_REQUEST* pioRecvPci, LPBYTE pbRecvBuffer,
+                   LPDWORD pcbRecvLength) {
+  return GetGlobalPcscLite()->SCardTransmit(hCard, pioSendPci, pbSendBuffer,
+                                            cbSendLength, pioRecvPci,
+                                            pbRecvBuffer, pcbRecvLength);
 }
 
-LONG SCardListReaders(
-    SCARDCONTEXT hContext,
-    LPCSTR mszGroups,
-    LPSTR mszReaders,
-    LPDWORD pcchReaders) {
-  return GetGlobalPcscLite()->SCardListReaders(
-      hContext, mszGroups, mszReaders, pcchReaders);
+LONG SCardListReaders(SCARDCONTEXT hContext, LPCSTR mszGroups, LPSTR mszReaders,
+                      LPDWORD pcchReaders) {
+  return GetGlobalPcscLite()->SCardListReaders(hContext, mszGroups, mszReaders,
+                                               pcchReaders);
 }
 
 LONG SCardFreeMemory(SCARDCONTEXT hContext, LPCVOID pvMem) {
   return GetGlobalPcscLite()->SCardFreeMemory(hContext, pvMem);
 }
 
-LONG SCardListReaderGroups(
-    SCARDCONTEXT hContext, LPSTR mszGroups, LPDWORD pcchGroups) {
-  return GetGlobalPcscLite()->SCardListReaderGroups(
-      hContext, mszGroups, pcchGroups);
+LONG SCardListReaderGroups(SCARDCONTEXT hContext, LPSTR mszGroups,
+                           LPDWORD pcchGroups) {
+  return GetGlobalPcscLite()->SCardListReaderGroups(hContext, mszGroups,
+                                                    pcchGroups);
 }
 
 LONG SCardCancel(SCARDCONTEXT hContext) {

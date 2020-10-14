@@ -26,6 +26,7 @@
 #include "clients_manager.h"
 
 #include <inttypes.h>
+
 #include <sstream>
 #include <utility>
 
@@ -37,13 +38,13 @@
 
 #include "client_request_processor.h"
 
-const char kCreateHandlerMessageType[] = "pcsc_lite_create_client_handler";
-const char kDeleteHandlerMessageType[] = "pcsc_lite_delete_client_handler";
-const char kLoggingPrefix[] = "[PC/SC-Lite clients manager] ";
-
 namespace google_smart_card {
 
 namespace {
+
+constexpr char kCreateHandlerMessageType[] = "pcsc_lite_create_client_handler";
+constexpr char kDeleteHandlerMessageType[] = "pcsc_lite_delete_client_handler";
+constexpr char kLoggingPrefix[] = "[PC/SC-Lite clients manager] ";
 
 // The structure represents the message data contents for the client handler
 // creation message.
@@ -100,9 +101,7 @@ PcscLiteServerClientsManager::PcscLiteServerClientsManager(
   typed_message_router_->AddRoute(&delete_handler_message_listener_);
 }
 
-PcscLiteServerClientsManager::~PcscLiteServerClientsManager() {
-  Detach();
-}
+PcscLiteServerClientsManager::~PcscLiteServerClientsManager() { Detach(); }
 
 void PcscLiteServerClientsManager::Detach() {
   GOOGLE_SMART_CARD_CHECK(typed_message_router_);
@@ -114,48 +113,50 @@ void PcscLiteServerClientsManager::Detach() {
 }
 
 PcscLiteServerClientsManager::CreateHandlerMessageListener::
-CreateHandlerMessageListener(PcscLiteServerClientsManager* clients_manager)
+    CreateHandlerMessageListener(PcscLiteServerClientsManager* clients_manager)
     : clients_manager_(clients_manager) {}
 
 std::string PcscLiteServerClientsManager::CreateHandlerMessageListener::
-GetListenedMessageType() const {
+    GetListenedMessageType() const {
   return kCreateHandlerMessageType;
 }
 
 bool PcscLiteServerClientsManager::CreateHandlerMessageListener::
-OnTypedMessageReceived(const pp::Var& data) {
+    OnTypedMessageReceived(const pp::Var& data) {
   CreateHandlerMessageData message_data;
   std::string error_message;
   if (!StructConverter<CreateHandlerMessageData>::ConvertFromVar(
-           data, &message_data, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << kLoggingPrefix << "Failed to parse " <<
-        "client handler creation message: " << error_message;
+          data, &message_data, &error_message)) {
+    GOOGLE_SMART_CARD_LOG_FATAL
+        << kLoggingPrefix << "Failed to parse "
+        << "client handler creation message: " << error_message;
   }
-  GOOGLE_SMART_CARD_CHECK(
-      !message_data.client_app_id || !message_data.client_app_id->empty());
+  GOOGLE_SMART_CARD_CHECK(!message_data.client_app_id ||
+                          !message_data.client_app_id->empty());
 
-  clients_manager_->CreateHandler(
-      message_data.handler_id, message_data.client_app_id);
+  clients_manager_->CreateHandler(message_data.handler_id,
+                                  message_data.client_app_id);
   return true;
 }
 
-PcscLiteServerClientsManager::DeleteHandlerMessageListener
-::DeleteHandlerMessageListener(PcscLiteServerClientsManager* clients_manager)
+PcscLiteServerClientsManager::DeleteHandlerMessageListener ::
+    DeleteHandlerMessageListener(PcscLiteServerClientsManager* clients_manager)
     : clients_manager_(clients_manager) {}
 
-std::string PcscLiteServerClientsManager::DeleteHandlerMessageListener
-::GetListenedMessageType() const {
+std::string PcscLiteServerClientsManager::DeleteHandlerMessageListener ::
+    GetListenedMessageType() const {
   return kDeleteHandlerMessageType;
 }
 
-bool PcscLiteServerClientsManager::DeleteHandlerMessageListener
-::OnTypedMessageReceived(const pp::Var& data) {
+bool PcscLiteServerClientsManager::DeleteHandlerMessageListener ::
+    OnTypedMessageReceived(const pp::Var& data) {
   DeleteHandlerMessageData message_data;
   std::string error_message;
   if (!StructConverter<DeleteHandlerMessageData>::ConvertFromVar(
-           data, &message_data, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << kLoggingPrefix << "Failed to parse " <<
-        "client handler deletion message: " << error_message;
+          data, &message_data, &error_message)) {
+    GOOGLE_SMART_CARD_LOG_FATAL
+        << kLoggingPrefix << "Failed to parse "
+        << "client handler deletion message: " << error_message;
   }
 
   clients_manager_->DeleteHandler(message_data.handler_id);
@@ -163,19 +164,16 @@ bool PcscLiteServerClientsManager::DeleteHandlerMessageListener
 }
 
 PcscLiteServerClientsManager::Handler::Handler(
-    int64_t handler_id,
-    const optional<std::string>& client_app_id,
-    pp::Instance* pp_instance,
-    TypedMessageRouter* typed_message_router)
+    int64_t handler_id, const optional<std::string>& client_app_id,
+    pp::Instance* pp_instance, TypedMessageRouter* typed_message_router)
     : handler_id_(handler_id),
       client_app_id_(client_app_id),
-      request_processor_(new PcscLiteClientRequestProcessor(
-          handler_id, client_app_id_)),
+      request_processor_(
+          new PcscLiteClientRequestProcessor(handler_id, client_app_id_)),
       request_receiver_(new JsRequestReceiver(
           FormatPrintfTemplate(
               "pcsc_lite_client_handler_%" PRId64 "_call_function", handler_id),
-          this,
-          typed_message_router,
+          this, typed_message_router,
           MakeUnique<JsRequestReceiver::PpDelegateImpl>(pp_instance))) {}
 
 PcscLiteServerClientsManager::Handler::~Handler() {
@@ -211,35 +209,39 @@ void PcscLiteServerClientsManager::CreateHandler(
   std::unique_ptr<Handler> handler(new Handler(
       handler_id, client_app_id, pp_instance_, typed_message_router_));
   if (!handler_map_.emplace(handler_id, std::move(handler)).second) {
-    GOOGLE_SMART_CARD_LOG_FATAL << kLoggingPrefix << "Failed to create a " <<
-        "new client handler with id " << handler_id << ": handler with this " <<
-        "id already exists";
+    GOOGLE_SMART_CARD_LOG_FATAL << kLoggingPrefix << "Failed to create a "
+                                << "new client handler with id " << handler_id
+                                << ": handler with this "
+                                << "id already exists";
   }
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Created a new client " <<
-      "handler for " <<
-      (client_app_id ? "\"" + *client_app_id + "\"" : "own app") <<
-      " (handler id " << handler_id << ")";
+  GOOGLE_SMART_CARD_LOG_DEBUG
+      << kLoggingPrefix << "Created a new client "
+      << "handler for "
+      << (client_app_id ? "\"" + *client_app_id + "\"" : "own app")
+      << " (handler id " << handler_id << ")";
 }
 
 void PcscLiteServerClientsManager::DeleteHandler(int64_t handler_id) {
   const auto handler_map_iter = handler_map_.find(handler_id);
   if (handler_map_iter == handler_map_.end()) {
-    GOOGLE_SMART_CARD_LOG_FATAL << kLoggingPrefix << "Trying to delete " <<
-        "a non-existing client handler with id " << handler_id;
+    GOOGLE_SMART_CARD_LOG_FATAL << kLoggingPrefix << "Trying to delete "
+                                << "a non-existing client handler with id "
+                                << handler_id;
   }
   const Handler* const handler = handler_map_iter->second.get();
   const optional<std::string> client_app_id = handler->client_app_id();
   handler_map_.erase(handler_map_iter);
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Deleted client handler " <<
-      "for " << (client_app_id ? "\"" + *client_app_id + "\"" : "own app") <<
-      " (handler id was " << handler_id << ")";
+  GOOGLE_SMART_CARD_LOG_DEBUG
+      << kLoggingPrefix << "Deleted client handler "
+      << "for " << (client_app_id ? "\"" + *client_app_id + "\"" : "own app")
+      << " (handler id was " << handler_id << ")";
 }
 
 void PcscLiteServerClientsManager::DeleteAllHandlers() {
   if (!handler_map_.empty()) {
     handler_map_.clear();
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Deleted all " <<
-        handler_map_.size() << " client handlers";
+    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Deleted all "
+                                << handler_map_.size() << " client handlers";
   }
 }
 

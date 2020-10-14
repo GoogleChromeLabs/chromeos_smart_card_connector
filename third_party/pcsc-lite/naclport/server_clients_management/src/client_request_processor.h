@@ -34,13 +34,13 @@
 #include <unordered_map>
 #include <vector>
 
-#include <ppapi/cpp/var.h>
-#include <ppapi/cpp/var_array.h>
-
 #include <pcsclite.h>
 #include <reader.h>
 #include <winscard.h>
 #include <wintypes.h>
+
+#include <ppapi/cpp/var.h>
+#include <ppapi/cpp/var_array.h>
 
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
@@ -94,13 +94,15 @@ namespace google_smart_card {
 //
 // FIXME(emaxx): Add assertions that the methods are called on the right
 // threads.
-class PcscLiteClientRequestProcessor final :
-    public std::enable_shared_from_this<PcscLiteClientRequestProcessor> {
+class PcscLiteClientRequestProcessor final
+    : public std::enable_shared_from_this<PcscLiteClientRequestProcessor> {
  public:
-  PcscLiteClientRequestProcessor(
-      int64_t client_handler_id, const optional<std::string>& client_app_id);
+  PcscLiteClientRequestProcessor(int64_t client_handler_id,
+                                 const optional<std::string>& client_app_id);
   PcscLiteClientRequestProcessor(const PcscLiteClientRequestProcessor&) =
       delete;
+  PcscLiteClientRequestProcessor& operator=(
+      const PcscLiteClientRequestProcessor&) = delete;
 
   ~PcscLiteClientRequestProcessor();
 
@@ -120,16 +122,14 @@ class PcscLiteClientRequestProcessor final :
   //
   // This method is safe to be called from any thread, except the main Pepper
   // thread (which could lead to a deadlock).
-  void ProcessRequest(
-      const std::string& function_name,
-      const pp::VarArray& arguments,
-      RequestReceiver::ResultCallback result_callback);
+  void ProcessRequest(const std::string& function_name,
+                      const pp::VarArray& arguments,
+                      RequestReceiver::ResultCallback result_callback);
 
   // Start processing the given PC/SC-Lite request in a background thread.
   static void AsyncProcessRequest(
       std::shared_ptr<PcscLiteClientRequestProcessor> request_processor,
-      const std::string& function_name,
-      const pp::VarArray& arguments,
+      const std::string& function_name, const pp::VarArray& arguments,
       RequestReceiver::ResultCallback result_callback);
 
  private:
@@ -139,62 +139,58 @@ class PcscLiteClientRequestProcessor final :
 
   void BuildHandlerMap();
 
-  template <typename ... Args>
+  template <typename... Args>
   void AddHandlerToHandlerMap(
       const std::string& name,
-      GenericRequestResult(PcscLiteClientRequestProcessor::*handler)(
-          Args ... args));
+      GenericRequestResult (PcscLiteClientRequestProcessor::*handler)(
+          Args... args));
 
-  template <typename ArgsTuple, typename F, size_t ... arg_indexes>
+  template <typename ArgsTuple, typename F, size_t... arg_indexes>
   Handler WrapHandler(F handler, ArgIndexes<arg_indexes...> /*unused*/);
 
-  GenericRequestResult FindHandlerAndCall(
-      const std::string& function_name, const pp::VarArray& arguments);
+  GenericRequestResult FindHandlerAndCall(const std::string& function_name,
+                                          const pp::VarArray& arguments);
 
   void ScheduleHandlesCleanup();
 
   GenericRequestResult PcscLiteVersionNumber();
   GenericRequestResult PcscStringifyError(LONG error);
-  GenericRequestResult SCardEstablishContext(
-      DWORD scope, pp::Var::Null reserved_1, pp::Var::Null reserved_2);
+  GenericRequestResult SCardEstablishContext(DWORD scope,
+                                             pp::Var::Null reserved_1,
+                                             pp::Var::Null reserved_2);
   GenericRequestResult SCardReleaseContext(SCARDCONTEXT s_card_context);
-  GenericRequestResult SCardConnect(
-      SCARDCONTEXT s_card_context,
-      const std::string& reader_name,
-      DWORD share_mode,
-      DWORD preferred_protocols);
-  GenericRequestResult SCardReconnect(
-      SCARDHANDLE s_card_handle,
-      DWORD share_mode,
-      DWORD preferred_protocols,
-      DWORD initialization_action);
-  GenericRequestResult SCardDisconnect(
-      SCARDHANDLE s_card_handle, DWORD disposition_action);
+  GenericRequestResult SCardConnect(SCARDCONTEXT s_card_context,
+                                    const std::string& reader_name,
+                                    DWORD share_mode,
+                                    DWORD preferred_protocols);
+  GenericRequestResult SCardReconnect(SCARDHANDLE s_card_handle,
+                                      DWORD share_mode,
+                                      DWORD preferred_protocols,
+                                      DWORD initialization_action);
+  GenericRequestResult SCardDisconnect(SCARDHANDLE s_card_handle,
+                                       DWORD disposition_action);
   GenericRequestResult SCardBeginTransaction(SCARDHANDLE s_card_handle);
-  GenericRequestResult SCardEndTransaction(
-      SCARDHANDLE s_card_handle, DWORD disposition_action);
+  GenericRequestResult SCardEndTransaction(SCARDHANDLE s_card_handle,
+                                           DWORD disposition_action);
   GenericRequestResult SCardStatus(SCARDHANDLE s_card_handle);
   GenericRequestResult SCardGetStatusChange(
-      SCARDCONTEXT s_card_context,
-      DWORD timeout,
+      SCARDCONTEXT s_card_context, DWORD timeout,
       const std::vector<InboundSCardReaderState>& reader_states);
-  GenericRequestResult SCardControl(
-      SCARDHANDLE s_card_handle,
-      DWORD control_code,
-      const std::vector<uint8_t>& data_to_send);
-  GenericRequestResult SCardGetAttrib(
-      SCARDHANDLE s_card_handle, DWORD attribute_id);
-  GenericRequestResult SCardSetAttrib(
-      SCARDHANDLE s_card_handle,
-      DWORD attribute_id,
-      const std::vector<uint8_t>& attribute);
+  GenericRequestResult SCardControl(SCARDHANDLE s_card_handle,
+                                    DWORD control_code,
+                                    const std::vector<uint8_t>& data_to_send);
+  GenericRequestResult SCardGetAttrib(SCARDHANDLE s_card_handle,
+                                      DWORD attribute_id);
+  GenericRequestResult SCardSetAttrib(SCARDHANDLE s_card_handle,
+                                      DWORD attribute_id,
+                                      const std::vector<uint8_t>& attribute);
   GenericRequestResult SCardTransmit(
       SCARDHANDLE s_card_handle,
       const SCardIoRequest& send_protocol_information,
       const std::vector<uint8_t>& data_to_send,
       const optional<SCardIoRequest>& response_protocol_information);
-  GenericRequestResult SCardListReaders(
-      SCARDCONTEXT s_card_context, pp::Var::Null groups);
+  GenericRequestResult SCardListReaders(SCARDCONTEXT s_card_context,
+                                        pp::Var::Null groups);
   GenericRequestResult SCardListReaderGroups(SCARDCONTEXT s_card_context);
   GenericRequestResult SCardCancel(SCARDCONTEXT s_card_context);
   GenericRequestResult SCardIsValidContext(SCARDCONTEXT s_card_context);

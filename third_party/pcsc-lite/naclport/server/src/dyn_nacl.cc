@@ -51,43 +51,35 @@ extern "C" {
 
 #include <google_smart_card_common/logging/logging.h>
 
+namespace {
+
 // This is a fake value that we supply instead of the dynamically loaded library
 // handles which are used by pcsc-lite normally.
-const char kFakeLHandle[] = "fake_pcsclite_lhandle";
-
-namespace {
+constexpr char kFakeLHandle[] = "fake_pcsclite_lhandle";
 
 struct FunctionNameAndAddress {
   const char* name;
   void* address;
 };
 
-}  // namespace
-
 // Fake export table of the driver functions (the function pointers here point
 // directly to the statically linked driver functions).
 const FunctionNameAndAddress kDriverIfdhandlerFunctions[] = {
-  {"IFDHCreateChannelByName",
-   reinterpret_cast<void*>(&IFDHCreateChannelByName)},
-  {"IFDHCreateChannel",
-   reinterpret_cast<void*>(&IFDHCreateChannel)},
-  {"IFDHCloseChannel",
-   reinterpret_cast<void*>(&IFDHCloseChannel)},
-  {"IFDHGetCapabilities",
-   reinterpret_cast<void*>(&IFDHGetCapabilities)},
-  {"IFDHSetCapabilities",
-   reinterpret_cast<void*>(&IFDHSetCapabilities)},
-  {"IFDHSetProtocolParameters",
-   reinterpret_cast<void*>(&IFDHSetProtocolParameters)},
-  {"IFDHPowerICC",
-   reinterpret_cast<void*>(&IFDHPowerICC)},
-  {"IFDHTransmitToICC",
-   reinterpret_cast<void*>(&IFDHTransmitToICC)},
-  {"IFDHControl",
-   reinterpret_cast<void*>(&IFDHControl)},
-  {"IFDHICCPresence",
-   reinterpret_cast<void*>(&IFDHICCPresence)},
+    {"IFDHCreateChannelByName",
+     reinterpret_cast<void*>(&IFDHCreateChannelByName)},
+    {"IFDHCreateChannel", reinterpret_cast<void*>(&IFDHCreateChannel)},
+    {"IFDHCloseChannel", reinterpret_cast<void*>(&IFDHCloseChannel)},
+    {"IFDHGetCapabilities", reinterpret_cast<void*>(&IFDHGetCapabilities)},
+    {"IFDHSetCapabilities", reinterpret_cast<void*>(&IFDHSetCapabilities)},
+    {"IFDHSetProtocolParameters",
+     reinterpret_cast<void*>(&IFDHSetProtocolParameters)},
+    {"IFDHPowerICC", reinterpret_cast<void*>(&IFDHPowerICC)},
+    {"IFDHTransmitToICC", reinterpret_cast<void*>(&IFDHTransmitToICC)},
+    {"IFDHControl", reinterpret_cast<void*>(&IFDHControl)},
+    {"IFDHICCPresence", reinterpret_cast<void*>(&IFDHICCPresence)},
 };
+
+}  // namespace
 
 INTERNAL LONG DYN_LoadLibrary(void** pvLHandle, char* pcLibrary) {
   *pvLHandle = static_cast<void*>(const_cast<char*>(kFakeLHandle));
@@ -100,16 +92,13 @@ INTERNAL LONG DYN_CloseLibrary(void** pvLHandle) {
   return SCARD_S_SUCCESS;
 }
 
-INTERNAL LONG DYN_GetAddress(
-    void* pvLHandle,
-    void** pvFHandle,
-    const char* pcFunction,
-    int /*mayfail*/) {
+INTERNAL LONG DYN_GetAddress(void* pvLHandle, void** pvFHandle,
+                             const char* pcFunction, int /*mayfail*/) {
   GOOGLE_SMART_CARD_CHECK(pvLHandle == kFakeLHandle);
 
   std::string function = pcFunction;
-  for (const FunctionNameAndAddress& driver_ifdhandler_function
-       : kDriverIfdhandlerFunctions) {
+  for (const FunctionNameAndAddress& driver_ifdhandler_function :
+       kDriverIfdhandlerFunctions) {
     if (function == driver_ifdhandler_function.name) {
       *pvFHandle = driver_ifdhandler_function.address;
       return SCARD_S_SUCCESS;

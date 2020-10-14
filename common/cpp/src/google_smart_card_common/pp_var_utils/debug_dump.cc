@@ -39,36 +39,23 @@ const char kRealJsTypeTitle[] = "Real";
 const char kArrayBufferJsTypeTitle[] = "ArrayBuffer";
 
 std::string GetVarTypeTitle(const pp::Var& var) {
-  if (var.is_undefined())
-    return kUndefinedJsTypeTitle;
-  if (var.is_null())
-    return kNullJsTypeTitle;
-  if (var.is_bool())
-    return kBooleanJsTypeTitle;
-  if (var.is_string())
-    return kStringJsTypeTitle;
-  if (var.is_object())
-    return kObjectJsTypeTitle;
-  if (var.is_array())
-    return kArrayJsTypeTitle;
-  if (var.is_dictionary())
-    return kDictionaryJsTypeTitle;
-  if (var.is_resource())
-    return kResourceJsTypeTitle;
-  if (var.is_int())
-    return kIntegerJsTypeTitle;
-  if (var.is_double())
-    return kRealJsTypeTitle;
-  if (var.is_array_buffer())
-    return kArrayBufferJsTypeTitle;
+  if (var.is_undefined()) return kUndefinedJsTypeTitle;
+  if (var.is_null()) return kNullJsTypeTitle;
+  if (var.is_bool()) return kBooleanJsTypeTitle;
+  if (var.is_string()) return kStringJsTypeTitle;
+  if (var.is_object()) return kObjectJsTypeTitle;
+  if (var.is_array()) return kArrayJsTypeTitle;
+  if (var.is_dictionary()) return kDictionaryJsTypeTitle;
+  if (var.is_resource()) return kResourceJsTypeTitle;
+  if (var.is_int()) return kIntegerJsTypeTitle;
+  if (var.is_double()) return kRealJsTypeTitle;
+  if (var.is_array_buffer()) return kArrayBufferJsTypeTitle;
   GOOGLE_SMART_CARD_NOTREACHED;
 }
 
 namespace {
 
-std::string DumpBoolValue(bool value) {
-  return value ? "true" : "false";
-}
+std::string DumpBoolValue(bool value) { return value ? "true" : "false"; }
 
 std::string DumpStringValue(const std::string& value) {
   return '"' + value + '"';
@@ -77,8 +64,7 @@ std::string DumpStringValue(const std::string& value) {
 std::string DumpVarArrayValue(const pp::VarArray& var) {
   std::string result = "[";
   for (uint32_t index = 0; index < var.GetLength(); ++index) {
-    if (index > 0)
-      result += ", ";
+    if (index > 0) result += ", ";
     result += DumpVar(var.Get(index));
   }
   result += "]";
@@ -89,8 +75,7 @@ std::string DumpVarDictValue(const pp::VarDictionary& var) {
   std::string result = "{";
   const pp::VarArray keys = var.GetKeys();
   for (uint32_t index = 0; index < keys.GetLength(); ++index) {
-    if (index > 0)
-      result += ", ";
+    if (index > 0) result += ", ";
     const pp::Var key = keys.Get(index);
     GOOGLE_SMART_CARD_CHECK(key.is_string());
     result += DumpStringValue(key.AsString()) + ": " + DumpVar(var.Get(key));
@@ -103,8 +88,7 @@ std::string DumpVarArrayBufferValue(pp::VarArrayBuffer var) {
   const uint8_t* const data = static_cast<const uint8_t*>(var.Map());
   std::string result = std::string(kArrayBufferJsTypeTitle) + "[";
   for (uint32_t offset = 0; offset < var.ByteLength(); ++offset) {
-    if (offset > 0)
-      result += ", ";
+    if (offset > 0) result += ", ";
     result += HexDumpByte(data[offset]);
   }
   result += "]";
@@ -123,26 +107,17 @@ std::string DebugDumpVar(const pp::Var& var) {
 }
 
 std::string DumpVar(const pp::Var& var) {
-  if (var.is_undefined())
-    return kUndefinedJsTypeTitle;
-  if (var.is_null())
-    return kNullJsTypeTitle;
-  if (var.is_bool())
-    return DumpBoolValue(var.AsBool());
-  if (var.is_string())
-    return DumpStringValue(var.AsString());
-  if (var.is_object())
-    return std::string(kObjectJsTypeTitle) + "<...>";
-  if (var.is_array())
-    return DumpVarArrayValue(pp::VarArray(var));
-  if (var.is_dictionary())
-    return DumpVarDictValue(pp::VarDictionary(var));
-  if (var.is_resource())
-    return std::string(kResourceJsTypeTitle) + "<...>";
+  if (var.is_undefined()) return kUndefinedJsTypeTitle;
+  if (var.is_null()) return kNullJsTypeTitle;
+  if (var.is_bool()) return DumpBoolValue(var.AsBool());
+  if (var.is_string()) return DumpStringValue(var.AsString());
+  if (var.is_object()) return std::string(kObjectJsTypeTitle) + "<...>";
+  if (var.is_array()) return DumpVarArrayValue(pp::VarArray(var));
+  if (var.is_dictionary()) return DumpVarDictValue(pp::VarDictionary(var));
+  if (var.is_resource()) return std::string(kResourceJsTypeTitle) + "<...>";
   if (var.is_int())
     return HexDumpUnknownSizeInteger(static_cast<int64_t>(var.AsInt()));
-  if (var.is_double())
-    return std::to_string(var.AsDouble());
+  if (var.is_double()) return std::to_string(var.AsDouble());
   if (var.is_array_buffer())
     return DumpVarArrayBufferValue(pp::VarArrayBuffer(var));
   GOOGLE_SMART_CARD_NOTREACHED;

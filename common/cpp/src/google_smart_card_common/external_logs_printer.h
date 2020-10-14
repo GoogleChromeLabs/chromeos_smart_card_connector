@@ -26,7 +26,7 @@ namespace google_smart_card {
 
 class ExternalLogsPrinter final : public TypedMessageListener {
  public:
-  ExternalLogsPrinter(const std::string& listened_message_type);
+  explicit ExternalLogsPrinter(const std::string& listened_message_type);
   ExternalLogsPrinter(const ExternalLogsPrinter&) = delete;
   ExternalLogsPrinter& operator=(const ExternalLogsPrinter&) = delete;
   ~ExternalLogsPrinter() override;

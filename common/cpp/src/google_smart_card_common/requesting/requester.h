@@ -50,9 +50,7 @@ class Requester {
   // immediately.
   virtual ~Requester();
 
-  std::string name() const {
-    return name_;
-  }
+  std::string name() const { return name_; }
 
   // Detaches the requester, which may prevent it from sending new requests (new
   // requests may immediately finish with the RequestResultStatus::kFailed
@@ -71,8 +69,8 @@ class Requester {
   // Note: It's also possible that the callback is executed synchronously during
   // this method call (e.g. when a fatal error occurred that prevents the
   // implementation from starting the asynchronous request).
-  GenericAsyncRequest StartAsyncRequest(
-      const pp::Var& payload, GenericAsyncRequestCallback callback);
+  GenericAsyncRequest StartAsyncRequest(const pp::Var& payload,
+                                        GenericAsyncRequestCallback callback);
 
   // Starts an asynchronous request with the given payload and the given
   // callback, which will be executed once the request finishes (either
@@ -89,10 +87,9 @@ class Requester {
   // Note: It's also possible that the callback is executed synchronously during
   // this method call (e.g. when a fatal error occurred that prevents the
   // implementation from starting the asynchronous request).
-  virtual void StartAsyncRequest(
-      const pp::Var& payload,
-      GenericAsyncRequestCallback callback,
-      GenericAsyncRequest* async_request) = 0;
+  virtual void StartAsyncRequest(const pp::Var& payload,
+                                 GenericAsyncRequestCallback callback,
+                                 GenericAsyncRequest* async_request) = 0;
 
   // Performs a synchronous request, blocking current thread until the result is
   // received.
@@ -105,10 +102,9 @@ class Requester {
   // Creates and stores internally a new asynchronous request state, returning
   // its public proxy object (GenericAsyncRequest object) and its generated
   // request identifier.
-  GenericAsyncRequest CreateAsyncRequest(
-      const pp::Var& payload,
-      GenericAsyncRequestCallback callback,
-      RequestId* request_id);
+  GenericAsyncRequest CreateAsyncRequest(const pp::Var& payload,
+                                         GenericAsyncRequestCallback callback,
+                                         RequestId* request_id);
 
   // Finds the request state by the specified request identifier and sets its
   // result (which, in turn, runs the callback if it has not been executed yet).
@@ -117,8 +113,8 @@ class Requester {
   // requester anymore.
   //
   // Returns whether the request with the specified identifier was found.
-  bool SetAsyncRequestResult(
-      RequestId request_id, GenericRequestResult request_result);
+  bool SetAsyncRequestResult(RequestId request_id,
+                             GenericRequestResult request_result);
 
  private:
   const std::string name_;

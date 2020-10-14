@@ -20,8 +20,11 @@
 
 namespace google_smart_card {
 
-UsbTransfersParametersStorage::Item::Item()
-    : transfer(nullptr) {}
+UsbTransfersParametersStorage::UsbTransfersParametersStorage() = default;
+
+UsbTransfersParametersStorage::~UsbTransfersParametersStorage() = default;
+
+UsbTransfersParametersStorage::Item::Item() : transfer(nullptr) {}
 
 UsbTransfersParametersStorage::Item::Item(
     TransferAsyncRequestStatePtr async_request_state,
@@ -34,15 +37,17 @@ UsbTransfersParametersStorage::Item::Item(
 void UsbTransfersParametersStorage::Add(const Item& item) {
   const std::unique_lock<std::mutex> lock(mutex_);
 
-  GOOGLE_SMART_CARD_CHECK(async_request_state_mapping_.emplace(
-      item.async_request_state.get(), item).second);
+  GOOGLE_SMART_CARD_CHECK(
+      async_request_state_mapping_.emplace(item.async_request_state.get(), item)
+          .second);
 
   if (item.transfer) {
-    GOOGLE_SMART_CARD_CHECK(async_libusb_transfer_mapping_.emplace(
-        item.transfer, item).second);
     GOOGLE_SMART_CARD_CHECK(
-        async_destination_mapping_[item.transfer_destination].insert(
-            item.async_request_state.get()).second);
+        async_libusb_transfer_mapping_.emplace(item.transfer, item).second);
+    GOOGLE_SMART_CARD_CHECK(
+        async_destination_mapping_[item.transfer_destination]
+            .insert(item.async_request_state.get())
+            .second);
   }
 }
 
@@ -80,8 +85,8 @@ UsbTransfersParametersStorage::GetByAsyncRequestState(
   const std::unique_lock<std::mutex> lock(mutex_);
 
   Item result;
-  GOOGLE_SMART_CARD_CHECK(FindByAsyncRequestState(
-      async_request_state, &result));
+  GOOGLE_SMART_CARD_CHECK(
+      FindByAsyncRequestState(async_request_state, &result));
   return result;
 }
 
@@ -91,8 +96,8 @@ UsbTransfersParametersStorage::GetAsyncByDestination(
   const std::unique_lock<std::mutex> lock(mutex_);
 
   Item result;
-  GOOGLE_SMART_CARD_CHECK(FindAsyncByDestination(
-      transfer_destination, &result));
+  GOOGLE_SMART_CARD_CHECK(
+      FindAsyncByDestination(transfer_destination, &result));
   return result;
 }
 
@@ -109,19 +114,19 @@ UsbTransfersParametersStorage::GetAsyncByLibusbTransfer(
 void UsbTransfersParametersStorage::Remove(const Item& item) {
   const std::unique_lock<std::mutex> lock(mutex_);
 
-  GOOGLE_SMART_CARD_CHECK(async_request_state_mapping_.erase(
-      item.async_request_state.get()));
+  GOOGLE_SMART_CARD_CHECK(
+      async_request_state_mapping_.erase(item.async_request_state.get()));
 
   if (item.transfer) {
-    GOOGLE_SMART_CARD_CHECK(async_libusb_transfer_mapping_.erase(
-        item.transfer));
+    GOOGLE_SMART_CARD_CHECK(
+        async_libusb_transfer_mapping_.erase(item.transfer));
 
-    const auto sync_destination_mapping_iter = async_destination_mapping_.find(
-        item.transfer_destination);
+    const auto sync_destination_mapping_iter =
+        async_destination_mapping_.find(item.transfer_destination);
     std::set<const TransferAsyncRequestState*>* const
-    transfers_by_sync_destination = &sync_destination_mapping_iter->second;
-    GOOGLE_SMART_CARD_CHECK(transfers_by_sync_destination->erase(
-        item.async_request_state.get()));
+        transfers_by_sync_destination = &sync_destination_mapping_iter->second;
+    GOOGLE_SMART_CARD_CHECK(
+        transfers_by_sync_destination->erase(item.async_request_state.get()));
     if (transfers_by_sync_destination->empty())
       async_destination_mapping_.erase(sync_destination_mapping_iter);
   }
@@ -138,21 +143,17 @@ void UsbTransfersParametersStorage::RemoveByLibusbTransfer(
 }
 
 bool UsbTransfersParametersStorage::FindByAsyncRequestState(
-    const TransferAsyncRequestState* async_request_state,
-    Item* result) const {
+    const TransferAsyncRequestState* async_request_state, Item* result) const {
   const auto iter = async_request_state_mapping_.find(async_request_state);
-  if (iter == async_request_state_mapping_.end())
-    return false;
-  if (result)
-    *result = iter->second;
+  if (iter == async_request_state_mapping_.end()) return false;
+  if (result) *result = iter->second;
   return true;
 }
 
 bool UsbTransfersParametersStorage::FindAsyncByDestination(
     const UsbTransferDestination& transfer_destination, Item* result) const {
   const auto iter = async_destination_mapping_.find(transfer_destination);
-  if (iter == async_destination_mapping_.end())
-    return false;
+  if (iter == async_destination_mapping_.end()) return false;
   const std::set<const TransferAsyncRequestState*>& transfers = iter->second;
   GOOGLE_SMART_CARD_CHECK(!transfers.empty());
   GOOGLE_SMART_CARD_CHECK(FindByAsyncRequestState(*transfers.begin(), result));
@@ -163,10 +164,8 @@ bool UsbTransfersParametersStorage::FindAsyncByLibusbTransfer(
     const libusb_transfer* transfer, Item* result) const {
   GOOGLE_SMART_CARD_CHECK(transfer);
   const auto iter = async_libusb_transfer_mapping_.find(transfer);
-  if (iter == async_libusb_transfer_mapping_.end())
-    return false;
-  if (result)
-    *result = iter->second;
+  if (iter == async_libusb_transfer_mapping_.end()) return false;
+  if (result) *result = iter->second;
   return true;
 }
 

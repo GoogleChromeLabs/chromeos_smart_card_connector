@@ -16,63 +16,59 @@
 
 namespace google_smart_card {
 
-const LogSeverity kDefaultLogSeverity = LogSeverity::kDebug;
-
-FunctionCallTracer::FunctionCallTracer(
-    const std::string& function_name,
-    const std::string& logging_prefix,
-    LogSeverity log_severity)
+FunctionCallTracer::FunctionCallTracer(const std::string& function_name,
+                                       const std::string& logging_prefix,
+                                       LogSeverity log_severity)
     : function_name_(function_name),
       logging_prefix_(logging_prefix),
       log_severity_(log_severity) {}
 
-void FunctionCallTracer::AddPassedArg(
-    const std::string& name, const std::string& dumped_value) {
+FunctionCallTracer::~FunctionCallTracer() = default;
+
+void FunctionCallTracer::AddPassedArg(const std::string& name,
+                                      const std::string& dumped_value) {
   passed_args_.emplace_back(name, dumped_value);
 }
 
-void FunctionCallTracer::AddReturnValue(
-    const std::string& dumped_value) {
+void FunctionCallTracer::AddReturnValue(const std::string& dumped_value) {
   GOOGLE_SMART_CARD_CHECK(!dumped_return_value_);
   dumped_return_value_ = dumped_value;
 }
 
-void FunctionCallTracer::AddReturnedArg(
-    const std::string& name, const std::string& dumped_value) {
+void FunctionCallTracer::AddReturnedArg(const std::string& name,
+                                        const std::string& dumped_value) {
   returned_args_.emplace_back(name, dumped_value);
 }
 
 void FunctionCallTracer::LogEntrance() const {
-  GOOGLE_SMART_CARD_LOG(log_severity_) << logging_prefix_ << function_name_ <<
-      "(" << DumpArgs(passed_args_) << "): called...";
+  GOOGLE_SMART_CARD_LOG(log_severity_)
+      << logging_prefix_ << function_name_ << "(" << DumpArgs(passed_args_)
+      << "): called...";
 }
 
 void FunctionCallTracer::LogExit() const {
   std::string results_part;
-  if (dumped_return_value_)
-    results_part = *dumped_return_value_;
+  if (dumped_return_value_) results_part = *dumped_return_value_;
   if (!returned_args_.empty()) {
-    if (!results_part.empty())
-      results_part += ", ";
+    if (!results_part.empty()) results_part += ", ";
     results_part += DumpArgs(returned_args_);
   }
 
-  GOOGLE_SMART_CARD_LOG(log_severity_) << logging_prefix_ << function_name_ <<
-      ": returning" << (results_part.empty() ? "" : " ") << results_part;
+  GOOGLE_SMART_CARD_LOG(log_severity_)
+      << logging_prefix_ << function_name_ << ": returning"
+      << (results_part.empty() ? "" : " ") << results_part;
 }
 
 FunctionCallTracer::ArgNameWithValue::ArgNameWithValue(
     const std::string& name, const std::string& dumped_value)
-    : name(name),
-      dumped_value(dumped_value) {}
+    : name(name), dumped_value(dumped_value) {}
 
 // static
 std::string FunctionCallTracer::DumpArgs(
     const std::vector<ArgNameWithValue>& args) {
   std::string result;
   for (const auto& arg : args) {
-    if (!result.empty())
-      result += ", ";
+    if (!result.empty()) result += ", ";
     result += arg.name;
     result += "=";
     result += arg.dumped_value;

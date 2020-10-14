@@ -34,13 +34,7 @@ namespace google_smart_card {
 // This enumerate contains all supported logging severity levels.
 //
 // The levels are listed in the increasing order of severity.
-enum class LogSeverity {
-  kDebug,
-  kInfo,
-  kWarning,
-  kError,
-  kFatal
-};
+enum class LogSeverity { kDebug, kInfo, kWarning, kError, kFatal };
 
 namespace internal {
 
@@ -48,6 +42,7 @@ class LogMessage final {
  public:
   explicit LogMessage(LogSeverity severity);
   LogMessage(const LogMessage&) = delete;
+  LogMessage& operator=(const LogMessage&) = delete;
   ~LogMessage();
 
   std::ostringstream& stream();
@@ -57,20 +52,17 @@ class LogMessage final {
   std::ostringstream stream_;
 };
 
-std::string MakeCheckFailedMessage(
-    const std::string& stringified_condition,
-    const std::string& file,
-    int line,
-    const std::string& function);
+std::string MakeCheckFailedMessage(const std::string& stringified_condition,
+                                   const std::string& file, int line,
+                                   const std::string& function);
 
-std::string MakeNotreachedHitMessage(
-    const std::string& file, int line, const std::string& function);
+std::string MakeNotreachedHitMessage(const std::string& file, int line,
+                                     const std::string& function);
 
 #define GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY(severity) \
-    ::google_smart_card::internal::LogMessage(severity).stream()
+  ::google_smart_card::internal::LogMessage(severity).stream()
 
-#define GOOGLE_SMART_CARD_INTERNAL_LOG_DISABLING \
-    while (false)
+#define GOOGLE_SMART_CARD_INTERNAL_LOG_DISABLING while (false)
 
 }  // namespace internal
 
@@ -82,7 +74,7 @@ std::string MakeNotreachedHitMessage(
 //
 // Logging a message at the FATAL severity level causes the program termination.
 #define GOOGLE_SMART_CARD_LOG(severity) \
-    GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY(severity)
+  GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY(severity)
 
 //
 // Series of the definitions for printing log messages with different severity
@@ -105,46 +97,46 @@ std::string MakeNotreachedHitMessage(
 //
 
 #ifdef NDEBUG
-#define GOOGLE_SMART_CARD_LOG_DEBUG \
-    GOOGLE_SMART_CARD_INTERNAL_LOG_DISABLING \
-    GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::LogSeverity::kDebug)
+#define GOOGLE_SMART_CARD_LOG_DEBUG                 \
+  GOOGLE_SMART_CARD_INTERNAL_LOG_DISABLING          \
+  GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
+      ::google_smart_card::LogSeverity::kDebug)
 #else
-#define GOOGLE_SMART_CARD_LOG_DEBUG \
-    GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::LogSeverity::kDebug)
+#define GOOGLE_SMART_CARD_LOG_DEBUG                 \
+  GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
+      ::google_smart_card::LogSeverity::kDebug)
 #endif
 
-#define GOOGLE_SMART_CARD_LOG_INFO \
-    GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::LogSeverity::kInfo)
+#define GOOGLE_SMART_CARD_LOG_INFO                  \
+  GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
+      ::google_smart_card::LogSeverity::kInfo)
 
-#define GOOGLE_SMART_CARD_LOG_WARNING \
-    GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::LogSeverity::kWarning)
+#define GOOGLE_SMART_CARD_LOG_WARNING               \
+  GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
+      ::google_smart_card::LogSeverity::kWarning)
 
-#define GOOGLE_SMART_CARD_LOG_ERROR \
-    GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::LogSeverity::kError)
+#define GOOGLE_SMART_CARD_LOG_ERROR                 \
+  GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
+      ::google_smart_card::LogSeverity::kError)
 
-#define GOOGLE_SMART_CARD_LOG_FATAL \
-    GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
-        ::google_smart_card::LogSeverity::kFatal)
+#define GOOGLE_SMART_CARD_LOG_FATAL                 \
+  GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY( \
+      ::google_smart_card::LogSeverity::kFatal)
 
 // Evaluates the specified condition and, if it has a falsy value, then emits a
 // FATAL message (containing the stringified condition).
 //
 // Usage example:
 //    GOOGLE_SMART_CARD_CHECK(number >= 0);
-#define GOOGLE_SMART_CARD_CHECK(condition) \
-    do { \
-      if (!(condition)) { \
-        GOOGLE_SMART_CARD_LOG_FATAL << \
-            ::google_smart_card::internal::MakeCheckFailedMessage( \
-                #condition, __FILE__, __LINE__, __func__); \
-        std::abort(); \
-      } \
-    } while (false)
+#define GOOGLE_SMART_CARD_CHECK(condition)                          \
+  do {                                                              \
+    if (!(condition)) {                                             \
+      GOOGLE_SMART_CARD_LOG_FATAL                                   \
+          << ::google_smart_card::internal::MakeCheckFailedMessage( \
+                 #condition, __FILE__, __LINE__, __func__);         \
+      std::abort();                                                 \
+    }                                                               \
+  } while (false)
 
 // Emits a FATAL message with the special message.
 //
@@ -158,13 +150,13 @@ std::string MakeNotreachedHitMessage(
 //    if (number % 2 == 1)
 //      return 1;
 //    GOOGLE_SMART_CARD_NOTREACHED;
-#define GOOGLE_SMART_CARD_NOTREACHED \
-    do { \
-      GOOGLE_SMART_CARD_LOG_FATAL << \
-          ::google_smart_card::internal::MakeNotreachedHitMessage( \
-              __FILE__, __LINE__, __func__); \
-      std::abort(); \
-    } while (false)
+#define GOOGLE_SMART_CARD_NOTREACHED                                \
+  do {                                                              \
+    GOOGLE_SMART_CARD_LOG_FATAL                                     \
+        << ::google_smart_card::internal::MakeNotreachedHitMessage( \
+               __FILE__, __LINE__, __func__);                       \
+    std::abort();                                                   \
+  } while (false)
 
 }  // namespace google_smart_card
 

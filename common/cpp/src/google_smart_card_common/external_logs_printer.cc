@@ -55,7 +55,7 @@ void StructConverter<ExternalLogMessageData>::VisitFields(
 
 ExternalLogsPrinter::ExternalLogsPrinter(
     const std::string& listened_message_type)
-  : listened_message_type_(listened_message_type) {}
+    : listened_message_type_(listened_message_type) {}
 
 ExternalLogsPrinter::~ExternalLogsPrinter() = default;
 
@@ -67,9 +67,9 @@ bool ExternalLogsPrinter::OnTypedMessageReceived(const pp::Var& data) {
   ExternalLogMessageData message_data;
   std::string error_message;
   if (!StructConverter<ExternalLogMessageData>::ConvertFromVar(
-           data, &message_data, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to parse external log message: " <<
-        error_message;
+          data, &message_data, &error_message)) {
+    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to parse external log message: "
+                                << error_message;
   }
   PrintExternalLogMessage(message_data);
   return true;

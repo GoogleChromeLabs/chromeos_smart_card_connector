@@ -36,7 +36,11 @@
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
 
-const char kLoggingPrefix[] = "[syslog] ";
+namespace {
+
+constexpr char kLoggingPrefix[] = "[syslog] ";
+
+}  // namespace
 
 void syslog(int priority, const char* format, ...) {
   va_list var_args;

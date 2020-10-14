@@ -71,11 +71,11 @@ std::string DebugDumpSCardIoRequest(const SCARD_IO_REQUEST& value);
 std::string DebugDumpSCardIoRequest(const SCARD_IO_REQUEST* value);
 
 std::string DebugDumpSCardInputReaderState(const SCARD_READERSTATE& value);
-std::string DebugDumpSCardInputReaderStates(
-    const SCARD_READERSTATE* begin, DWORD count);
+std::string DebugDumpSCardInputReaderStates(const SCARD_READERSTATE* begin,
+                                            DWORD count);
 std::string DebugDumpSCardOutputReaderState(const SCARD_READERSTATE& value);
-std::string DebugDumpSCardOutputReaderStates(
-    const SCARD_READERSTATE* begin, DWORD count);
+std::string DebugDumpSCardOutputReaderStates(const SCARD_READERSTATE* begin,
+                                             DWORD count);
 
 std::string DebugDumpSCardBufferContents(const void* buffer, DWORD buffer_size);
 std::string DebugDumpSCardBufferContents(const std::vector<uint8_t>& buffer);
@@ -84,15 +84,16 @@ std::string DebugDumpSCardInputBuffer(const void* buffer, DWORD buffer_size);
 
 std::string DebugDumpSCardBufferSizeInputPointer(const DWORD* buffer_size);
 
-std::string DebugDumpSCardOutputBuffer(
-    const void* buffer, const DWORD* buffer_size, bool is_autoallocated);
+std::string DebugDumpSCardOutputBuffer(const void* buffer,
+                                       const DWORD* buffer_size,
+                                       bool is_autoallocated);
 std::string DebugDumpSCardOutputBuffer(const void* buffer, DWORD buffer_size);
 
-std::string DebugDumpSCardOutputCStringBuffer(
-    LPCSTR buffer, bool is_autoallocated);
+std::string DebugDumpSCardOutputCStringBuffer(LPCSTR buffer,
+                                              bool is_autoallocated);
 
-std::string DebugDumpSCardOutputMultiStringBuffer(
-    LPCSTR buffer, bool is_autoallocated);
+std::string DebugDumpSCardOutputMultiStringBuffer(LPCSTR buffer,
+                                                  bool is_autoallocated);
 
 }  // namespace google_smart_card
 

@@ -21,26 +21,26 @@
 
 namespace google_smart_card {
 
-RequestReceiver::RequestReceiver(
-    const std::string& name, RequestHandler* handler)
-    : name_(name),
-      handler_(handler) {
+RequestReceiver::RequestReceiver(const std::string& name,
+                                 RequestHandler* handler)
+    : name_(name), handler_(handler) {
   GOOGLE_SMART_CARD_CHECK(handler_);
 }
 
-std::string RequestReceiver::name() const {
-  return name_;
-}
+RequestReceiver::~RequestReceiver() = default;
 
-void RequestReceiver::HandleRequest(
-    RequestId request_id, const pp::Var& payload) {
+std::string RequestReceiver::name() const { return name_; }
+
+void RequestReceiver::HandleRequest(RequestId request_id,
+                                    const pp::Var& payload) {
   handler_->HandleRequest(payload, MakeResultCallback(request_id));
 }
 
 RequestReceiver::ResultCallbackImpl::ResultCallbackImpl(
     RequestId request_id, std::weak_ptr<RequestReceiver> request_receiver)
-    : request_id_(request_id),
-      request_receiver_(request_receiver) {}
+    : request_id_(request_id), request_receiver_(request_receiver) {}
+
+RequestReceiver::ResultCallbackImpl::~ResultCallbackImpl() = default;
 
 void RequestReceiver::ResultCallbackImpl::operator()(
     GenericRequestResult request_result) {
@@ -52,8 +52,8 @@ void RequestReceiver::ResultCallbackImpl::operator()(
 
 RequestReceiver::ResultCallback RequestReceiver::MakeResultCallback(
     RequestId request_id) {
-  return ResultCallbackImpl(
-      request_id, std::weak_ptr<RequestReceiver>(shared_from_this()));
+  return ResultCallbackImpl(request_id,
+                            std::weak_ptr<RequestReceiver>(shared_from_this()));
 }
 
 }  // namespace google_smart_card

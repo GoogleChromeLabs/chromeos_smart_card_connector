@@ -39,40 +39,35 @@ class RemoteCallAdaptor final {
  public:
   explicit RemoteCallAdaptor(Requester* requester);
   RemoteCallAdaptor(const RemoteCallAdaptor&) = delete;
+  RemoteCallAdaptor& operator=(const RemoteCallAdaptor&) = delete;
+  ~RemoteCallAdaptor();
 
-  template <typename ... Args>
-  GenericRequestResult SyncCall(
-      const std::string& function_name, const Args& ... args) {
+  template <typename... Args>
+  GenericRequestResult SyncCall(const std::string& function_name,
+                                const Args&... args) {
     return PerformSyncRequest(function_name, ConvertRequestArguments(args...));
   }
 
-  template <typename ... Args>
-  GenericAsyncRequest AsyncCall(
-      GenericAsyncRequestCallback callback,
-      const std::string& function_name,
-      const Args& ... args) {
-    return StartAsyncRequest(
-        function_name, ConvertRequestArguments(args...), callback);
+  template <typename... Args>
+  GenericAsyncRequest AsyncCall(GenericAsyncRequestCallback callback,
+                                const std::string& function_name,
+                                const Args&... args) {
+    return StartAsyncRequest(function_name, ConvertRequestArguments(args...),
+                             callback);
   }
 
-  template <typename ... Args>
-  void AsyncCall(
-      GenericAsyncRequest* async_request,
-      GenericAsyncRequestCallback callback,
-      const std::string& function_name,
-      const Args& ... args) {
-    StartAsyncRequest(
-        function_name,
-        ConvertRequestArguments(args...),
-        callback,
-        async_request);
+  template <typename... Args>
+  void AsyncCall(GenericAsyncRequest* async_request,
+                 GenericAsyncRequestCallback callback,
+                 const std::string& function_name, const Args&... args) {
+    StartAsyncRequest(function_name, ConvertRequestArguments(args...), callback,
+                      async_request);
   }
 
-  template <typename ... PayloadFields>
+  template <typename... PayloadFields>
   static bool ExtractResultPayload(
       const GenericRequestResult& generic_request_result,
-      std::string* error_message,
-      PayloadFields* ... payload_fields) {
+      std::string* error_message, PayloadFields*... payload_fields) {
     // TODO(emaxx): Probably add details about the function call into the error
     // messages?
     if (!generic_request_result.is_successful()) {
@@ -81,24 +76,24 @@ class RemoteCallAdaptor final {
     }
     pp::VarArray var_array;
     if (!VarAs(generic_request_result.payload(), &var_array, error_message)) {
-      GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-          "payload items: " << *error_message;
+      GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response "
+                                  << "payload items: " << *error_message;
     }
     if (!TryGetVarArrayItems(var_array, error_message, payload_fields...)) {
-      GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response " <<
-          "payload items: " << *error_message;
+      GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response "
+                                  << "payload items: " << *error_message;
     }
     return true;
   }
 
-  template <typename PayloadType, typename ... PayloadFields>
+  template <typename PayloadType, typename... PayloadFields>
   static RequestResult<PayloadType> ConvertResultPayload(
       const GenericRequestResult& generic_request_result,
       PayloadType* payload_in_case_of_success,
-      PayloadFields* ... payload_fields) {
+      PayloadFields*... payload_fields) {
     std::string error_message;
-    if (!ExtractResultPayload(
-             generic_request_result, &error_message, payload_fields...)) {
+    if (!ExtractResultPayload(generic_request_result, &error_message,
+                              payload_fields...)) {
       return RequestResult<PayloadType>::CreateFailed(error_message);
     }
     return RequestResult<PayloadType>::CreateSuccessful(
@@ -106,8 +101,8 @@ class RemoteCallAdaptor final {
   }
 
  private:
-  template <typename ... Args>
-  static pp::VarArray ConvertRequestArguments(const Args& ... args) {
+  template <typename... Args>
+  static pp::VarArray ConvertRequestArguments(const Args&... args) {
     return MakeVarArray(args...);
   }
 
@@ -115,16 +110,14 @@ class RemoteCallAdaptor final {
       const std::string& function_name,
       const pp::VarArray& converted_arguments);
 
-  GenericAsyncRequest StartAsyncRequest(
-      const std::string& function_name,
-      const pp::VarArray& converted_arguments,
-      GenericAsyncRequestCallback callback);
+  GenericAsyncRequest StartAsyncRequest(const std::string& function_name,
+                                        const pp::VarArray& converted_arguments,
+                                        GenericAsyncRequestCallback callback);
 
-  void StartAsyncRequest(
-      const std::string& function_name,
-      const pp::VarArray& converted_arguments,
-      GenericAsyncRequestCallback callback,
-      GenericAsyncRequest* async_request);
+  void StartAsyncRequest(const std::string& function_name,
+                         const pp::VarArray& converted_arguments,
+                         GenericAsyncRequestCallback callback,
+                         GenericAsyncRequest* async_request);
 
   Requester* const requester_;
 };

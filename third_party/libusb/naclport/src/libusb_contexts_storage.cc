@@ -18,6 +18,10 @@
 
 namespace google_smart_card {
 
+LibusbContextsStorage::LibusbContextsStorage() = default;
+
+LibusbContextsStorage::~LibusbContextsStorage() = default;
+
 std::shared_ptr<libusb_context> LibusbContextsStorage::CreateContext() {
   const std::unique_lock<std::mutex> lock(mutex_);
 

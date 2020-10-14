@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <google_smart_card_common/requesting/async_request.h>
+
 #include <chrono>
 #include <functional>
 #include <thread>
@@ -21,7 +23,6 @@
 #include <gtest/gtest.h>
 
 #include <google_smart_card_common/pp_var_utils/extraction.h>
-#include <google_smart_card_common/requesting/async_request.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
 namespace google_smart_card {
@@ -35,13 +36,9 @@ class TestAsyncRequestCallback {
     ++call_count_;
   }
 
-  int call_count() const {
-    return call_count_;
-  }
+  int call_count() const { return call_count_; }
 
-  const GenericRequestResult& request_result() const {
-    return request_result_;
-  }
+  const GenericRequestResult& request_result() const { return request_result_; }
 
  private:
   int call_count_ = 0;
@@ -60,8 +57,8 @@ TEST(RequestingAsyncRequestTest, AsyncRequestStateBasic) {
 
   // The first set of the request result is successful and triggers the callback
   const int kValue = 123;
-  ASSERT_TRUE(request_state.SetResult(GenericRequestResult::CreateSuccessful(
-      kValue)));
+  ASSERT_TRUE(
+      request_state.SetResult(GenericRequestResult::CreateSuccessful(kValue)));
   ASSERT_EQ(1, callback.call_count());
   EXPECT_EQ(kValue, VarAs<int>(callback.request_result().payload()));
 
@@ -82,8 +79,8 @@ TEST(RequestingAsyncRequestTest, AsyncRequestStateMultiThreading) {
     std::vector<TestAsyncRequestCallback> callbacks(kStateCount);
     std::vector<std::unique_ptr<GenericAsyncRequestState>> states;
     for (int index = 0; index < kStateCount; ++index) {
-      states.emplace_back(new GenericAsyncRequestState(std::ref(
-          callbacks[index])));
+      states.emplace_back(
+          new GenericAsyncRequestState(std::ref(callbacks[index])));
     }
 
     std::vector<std::thread> threads;
@@ -108,8 +105,8 @@ TEST(RequestingAsyncRequestTest, AsyncRequestBasic) {
   TestAsyncRequestCallback callback;
 
   // Initially the request is constructed with an empty request state
-  const auto request_state = std::make_shared<GenericAsyncRequestState>(
-      std::ref(callback));
+  const auto request_state =
+      std::make_shared<GenericAsyncRequestState>(std::ref(callback));
   GenericAsyncRequest request(request_state);
   ASSERT_EQ(0, callback.call_count());
 
@@ -126,8 +123,8 @@ TEST(RequestingAsyncRequestTest, AsyncRequestCancellation) {
   TestAsyncRequestCallback callback;
 
   // Initially the request is constructed with an empty request state
-  const auto request_state = std::make_shared<GenericAsyncRequestState>(
-      std::ref(callback));
+  const auto request_state =
+      std::make_shared<GenericAsyncRequestState>(std::ref(callback));
   GenericAsyncRequest request(request_state);
   ASSERT_EQ(0, callback.call_count());
 

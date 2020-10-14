@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <google_smart_card_common/numeric_conversions.h>
+
 #include <stdint.h>
 
 #include <limits>
@@ -19,8 +21,6 @@
 #include <vector>
 
 #include <gtest/gtest.h>
-
-#include <google_smart_card_common/numeric_conversions.h>
 
 namespace google_smart_card {
 
@@ -34,16 +34,16 @@ class NumericConversionsDoubleCastingTest : public ::testing::Test {
     std::string error_message;
 
     double double_value = 0;
-    ASSERT_TRUE(CastIntegerToDouble(value, &double_value, &error_message)) <<
-        "Failed to convert integer value " << value << " into double: " <<
-        error_message;
+    ASSERT_TRUE(CastIntegerToDouble(value, &double_value, &error_message))
+        << "Failed to convert integer value " << value
+        << " into double: " << error_message;
     ASSERT_EQ(value, static_cast<NumericType>(double_value));
 
     int64_t int64_value = 0;
-    ASSERT_TRUE(CastDoubleToInt64(
-        double_value, &int64_value, &error_message)) << "Failed to convert " <<
-        "double value " << double_value << " into 64-bit integer: " <<
-        error_message;
+    ASSERT_TRUE(CastDoubleToInt64(double_value, &int64_value, &error_message))
+        << "Failed to convert "
+        << "double value " << double_value
+        << " into 64-bit integer: " << error_message;
     EXPECT_EQ(static_cast<int64_t>(value), int64_value);
   }
 
@@ -52,16 +52,16 @@ class NumericConversionsDoubleCastingTest : public ::testing::Test {
     std::string error_message;
 
     double double_value = 0;
-    EXPECT_FALSE(CastIntegerToDouble(value, &double_value, &error_message)) <<
-        "Unexpectedly successful conversion from integer " << value <<
-        " into double";
+    EXPECT_FALSE(CastIntegerToDouble(value, &double_value, &error_message))
+        << "Unexpectedly successful conversion from integer " << value
+        << " into double";
 
     double_value = static_cast<double>(value);
     int64_t int64_value = 0;
-    EXPECT_FALSE(CastDoubleToInt64(
-        double_value, &int64_value, &error_message)) << "Unexpectedly " <<
-        "successful conversion from double value " << double_value << " into" <<
-        " 64-bit integer";
+    EXPECT_FALSE(CastDoubleToInt64(double_value, &int64_value, &error_message))
+        << "Unexpectedly "
+        << "successful conversion from double value " << double_value << " into"
+        << " 64-bit integer";
   }
 };
 
@@ -93,18 +93,16 @@ TEST_F(NumericConversionsDoubleCastingTest, ValuesOutsideDoubleExactRange) {
 class NumericConversionsInt64ToIntegerCastingTest : public ::testing::Test {
  protected:
   template <typename TargetIntegerType>
-  void TestCasting(
-      int64_t value,
-      const std::string& type_name,
-      bool expected_success) const {
+  void TestCasting(int64_t value, const std::string& type_name,
+                   bool expected_success) const {
     TargetIntegerType result_value;
     std::string error_message;
     ASSERT_EQ(
         expected_success,
-        CastInt64ToInteger(value, type_name, &result_value, &error_message)) <<
-        "Conversion of " << value << " into " << type_name << " type " <<
-        "finished unexpectedly: expected " <<
-        (expected_success ? "successful" : "unsuccessful") << " conversion";
+        CastInt64ToInteger(value, type_name, &result_value, &error_message))
+        << "Conversion of " << value << " into " << type_name << " type "
+        << "finished unexpectedly: expected "
+        << (expected_success ? "successful" : "unsuccessful") << " conversion";
   }
 };
 

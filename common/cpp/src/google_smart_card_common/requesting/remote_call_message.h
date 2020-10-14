@@ -24,19 +24,18 @@ namespace google_smart_card {
 
 // Constructs the message data payload of the remote call request, containing
 // the specified function name and the array of the function arguments.
-pp::Var MakeRemoteCallRequestPayload(
-    const std::string& function_name, const pp::VarArray& arguments);
+pp::Var MakeRemoteCallRequestPayload(const std::string& function_name,
+                                     const pp::VarArray& arguments);
 
 // Parses the message data payload of the remote call request, extracting the
 // function name and the array of the function arguments.
-bool ParseRemoteCallRequestPayload(
-    const pp::Var& request_payload,
-    std::string* function_name,
-    pp::VarArray* arguments);
+bool ParseRemoteCallRequestPayload(const pp::Var& request_payload,
+                                   std::string* function_name,
+                                   pp::VarArray* arguments);
 
 // Generates a human-readable debug dump of the remote call request.
-std::string DebugDumpRemoteCallRequest(
-    const std::string& function_name, const pp::VarArray& arguments);
+std::string DebugDumpRemoteCallRequest(const std::string& function_name,
+                                       const pp::VarArray& arguments);
 
 }  // namespace google_smart_card
 

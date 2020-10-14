@@ -44,11 +44,15 @@
 #include <google_smart_card_common/multi_string.h>
 #include <google_smart_card_pcsc_lite_common/scard_debug_dump.h>
 
-const int kWaitingTimeoutSeconds = 10;
+namespace google_smart_card {
 
-const char kSpecialReaderName[] = "\\\\?PnP?\\Notification";
+namespace {
 
-const DWORD kAttrIds[] = {
+constexpr int kWaitingTimeoutSeconds = 10;
+
+constexpr char kSpecialReaderName[] = "\\\\?PnP?\\Notification";
+
+constexpr DWORD kAttrIds[] = {
     SCARD_ATTR_ASYNC_PROTOCOL_TYPES,
     SCARD_ATTR_ATR_STRING,
     SCARD_ATTR_CHANNEL_ID,
@@ -93,17 +97,13 @@ const DWORD kAttrIds[] = {
     SCARD_ATTR_VENDOR_NAME,
 };
 
-const char kLoggingPrefix[] = "[PC/SC-Lite DEMO]";
-
-namespace google_smart_card {
-
-namespace {
+constexpr char kLoggingPrefix[] = "[PC/SC-Lite DEMO]";
 
 std::string FormatSCardErrorMessage(LONG return_code) {
   GOOGLE_SMART_CARD_CHECK(return_code != SCARD_S_SUCCESS);
   std::ostringstream stream;
-  stream << "failed with the following error: " <<
-      DebugDumpSCardReturnCode(return_code) << ".";
+  stream << "failed with the following error: "
+         << DebugDumpSCardReturnCode(return_code) << ".";
   return stream.str();
 }
 
@@ -111,39 +111,38 @@ size_t GetMultiStringLength(LPSTR multi_string) {
   size_t result = 0;
   for (const std::string& item : ExtractMultiStringElements(multi_string))
     result += item.length() + 1;
-  if (!result)
-    return 2;
+  if (!result) return 2;
   return result + 1;
 }
 
 bool DoPcscLiteContextEstablishing(SCARDCONTEXT* s_card_context) {
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardEstablishContext()...";
-  const LONG return_code = SCardEstablishContext(
-      SCARD_SCOPE_SYSTEM, nullptr, nullptr, s_card_context);
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardEstablishContext()...";
+  const LONG return_code = SCardEstablishContext(SCARD_SCOPE_SYSTEM, nullptr,
+                                                 nullptr, s_card_context);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
   if (!s_card_context) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "zero context.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "zero context.";
     return false;
   }
 
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned context=" <<
-      DebugDumpSCardContext(*s_card_context) << ".";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned context="
+                             << DebugDumpSCardContext(*s_card_context) << ".";
   return true;
 }
 
 bool DoPcscLiteContextValidation(SCARDCONTEXT s_card_context) {
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardIsValidContext()...";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardIsValidContext()...";
   const LONG return_code = SCardIsValidContext(s_card_context);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
   GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    success.";
@@ -151,13 +150,13 @@ bool DoPcscLiteContextValidation(SCARDCONTEXT s_card_context) {
 }
 
 bool DoPcscLiteInvalidContextValidation(SCARDCONTEXT s_card_context) {
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardIsValidContext() with invalid context...";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardIsValidContext() with invalid context...";
   const LONG return_code = SCardIsValidContext(s_card_context + 1);
   if (return_code != SCARD_E_INVALID_HANDLE) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: instead " <<
-        "of \"invalid context\" error, returned " <<
-        DebugDumpSCardReturnCode(return_code) << ".";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: instead "
+                                << "of \"invalid context\" error, returned "
+                                << DebugDumpSCardReturnCode(return_code) << ".";
     return false;
   }
   GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    successfully rejected.";
@@ -171,42 +170,44 @@ bool DoPcscLiteReadersChangeWaiting(SCARDCONTEXT s_card_context) {
   std::memset(&reader_states, 0, sizeof reader_states);
   reader_states[0].szReader = kSpecialReaderName;
   reader_states[0].pvUserData = kUserData;  // NOLINT
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardGetStatusChange() for waiting for readers change for " <<
-      kWaitingTimeoutSeconds << " seconds...";
+  GOOGLE_SMART_CARD_LOG_INFO
+      << kLoggingPrefix << "  Calling "
+      << "SCardGetStatusChange() for waiting for readers change for "
+      << kWaitingTimeoutSeconds << " seconds...";
   const LONG return_code = SCardGetStatusChange(
       s_card_context, kWaitingTimeoutSeconds * 1000, reader_states, 1);
   if (return_code == SCARD_E_TIMEOUT) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    no readers change " <<
-        "events were caught.";
+    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    no readers change "
+                               << "events were caught.";
     return true;
   }
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
   if (std::string(reader_states[0].szReader) != kSpecialReaderName) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "wrong reader name.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "wrong reader name.";
     return false;
   }
   if (reader_states[0].pvUserData != kUserData) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "wrong user data.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "wrong user data.";
     return false;
   }
   if (!(reader_states[0].dwEventState & SCARD_STATE_CHANGED)) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "current state mask (" <<
-        DebugDumpSCardEventState(reader_states[0].dwEventState) << ") " <<
-        "without SCARD_STATE_CHANGED bit.";
+    GOOGLE_SMART_CARD_LOG_ERROR
+        << kLoggingPrefix << "    failed: returned "
+        << "current state mask ("
+        << DebugDumpSCardEventState(reader_states[0].dwEventState) << ") "
+        << "without SCARD_STATE_CHANGED bit.";
     return false;
   }
 
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    caught readers " <<
-      "change event.";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    caught readers "
+                             << "change event.";
 
   return true;
 }
@@ -214,196 +215,199 @@ bool DoPcscLiteReadersChangeWaiting(SCARDCONTEXT s_card_context) {
 bool DoPcscLiteReaderGroupsListing(SCARDCONTEXT s_card_context) {
   LONG return_code;
 
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardListReaderGroups()...";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardListReaderGroups()...";
   LPSTR groups = nullptr;
   DWORD groups_buffer_length = SCARD_AUTOALLOCATE;
   return_code = SCardListReaderGroups(
-      s_card_context,
-      reinterpret_cast<LPSTR>(&groups),
-      &groups_buffer_length);
+      s_card_context, reinterpret_cast<LPSTR>(&groups), &groups_buffer_length);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
   bool result = true;
 
   if (result && !groups) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "null groups multi string.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "null groups multi string.";
     result = false;
   }
   if (result && groups_buffer_length == SCARD_AUTOALLOCATE) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "no groups multi string length.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "no groups multi string length.";
     result = false;
   }
   if (result && GetMultiStringLength(groups) != groups_buffer_length) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "wrong multi string length: " << groups_buffer_length << ", while " <<
-        "multi string itself has length " << GetMultiStringLength(groups) <<
-        ".";
+    GOOGLE_SMART_CARD_LOG_ERROR
+        << kLoggingPrefix << "    failed: returned "
+        << "wrong multi string length: " << groups_buffer_length << ", while "
+        << "multi string itself has length " << GetMultiStringLength(groups)
+        << ".";
     result = false;
   }
   if (result && !*groups) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: no reader " <<
-        "groups were returned.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: no reader "
+                                << "groups were returned.";
     result = false;
   }
 
   if (result) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned reader " <<
-        "groups: " << DebugDumpSCardMultiString(groups) << ".";
+    GOOGLE_SMART_CARD_LOG_INFO
+        << kLoggingPrefix << "    returned reader "
+        << "groups: " << DebugDumpSCardMultiString(groups) << ".";
   }
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling " <<
-      "SCardFreeMemory()...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling "
+                              << "SCardFreeMemory()...";
   return_code = SCardFreeMemory(s_card_context, groups);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called " <<
-        "SCardFreeMemory()...";
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called "
+                               << "SCardFreeMemory()...";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     result = false;
   }
 
   return result;
 }
 
-bool DoPcscLiteReadersListing(
-    SCARDCONTEXT s_card_context, std::string* reader_name) {
+bool DoPcscLiteReadersListing(SCARDCONTEXT s_card_context,
+                              std::string* reader_name) {
   LONG return_code;
 
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardListReaders()...";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardListReaders()...";
   LPSTR readers = nullptr;
   DWORD readers_buffer_length = SCARD_AUTOALLOCATE;
-  return_code = SCardListReaders(
-      s_card_context,
-      nullptr,
-      reinterpret_cast<LPSTR>(&readers),
-      &readers_buffer_length);
+  return_code = SCardListReaders(s_card_context, nullptr,
+                                 reinterpret_cast<LPSTR>(&readers),
+                                 &readers_buffer_length);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
   bool result = true;
 
   if (result && !readers) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "null readers multi string.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "null readers multi string.";
     result = false;
   }
   if (result && readers_buffer_length == SCARD_AUTOALLOCATE) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "no readers multi string length.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "no readers multi string length.";
     result = false;
   }
   if (result && GetMultiStringLength(readers) != readers_buffer_length) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "wrong multi string length: " << readers_buffer_length << ", while " <<
-        "multi string itself has length " << GetMultiStringLength(readers) <<
-        ".";
+    GOOGLE_SMART_CARD_LOG_ERROR
+        << kLoggingPrefix << "    failed: returned "
+        << "wrong multi string length: " << readers_buffer_length << ", while "
+        << "multi string itself has length " << GetMultiStringLength(readers)
+        << ".";
     result = false;
   }
   if (result && !*readers) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: no " <<
-        "readers were returned.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: no "
+                                << "readers were returned.";
     result = false;
   }
 
   if (result) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned readers: " <<
-        DebugDumpSCardMultiString(readers) << ".";
+    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned readers: "
+                               << DebugDumpSCardMultiString(readers) << ".";
     *reader_name = readers;
   }
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling " <<
-      "SCardFreeMemory()...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling "
+                              << "SCardFreeMemory()...";
   return_code = SCardFreeMemory(s_card_context, readers);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called " <<
-        "SCardFreeMemory()...";
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called "
+                               << "SCardFreeMemory()...";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     result = false;
   }
 
   return result;
 }
 
-bool DoPcscLiteCardRemovalWaiting(
-    SCARDCONTEXT s_card_context, const std::string& reader_name) {
+bool DoPcscLiteCardRemovalWaiting(SCARDCONTEXT s_card_context,
+                                  const std::string& reader_name) {
   SCARD_READERSTATE reader_states[1];
   std::memset(&reader_states, 0, sizeof reader_states);
   reader_states[0].szReader = reader_name.c_str();
   reader_states[0].dwCurrentState = SCARD_STATE_PRESENT;
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardGetStatusChange() for waiting for card removal for " <<
-      kWaitingTimeoutSeconds << " seconds...";
+  GOOGLE_SMART_CARD_LOG_INFO
+      << kLoggingPrefix << "  Calling "
+      << "SCardGetStatusChange() for waiting for card removal for "
+      << kWaitingTimeoutSeconds << " seconds...";
   const LONG return_code = SCardGetStatusChange(
       s_card_context, kWaitingTimeoutSeconds * 1000, reader_states, 1);
   if (return_code == SCARD_E_TIMEOUT) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    no card removal " <<
-        "events were caught.";
+    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    no card removal "
+                               << "events were caught.";
     return true;
   }
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
   if (!(reader_states[0].dwEventState & SCARD_STATE_EMPTY)) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "event state mask (" <<
-        DebugDumpSCardEventState(reader_states[0].dwEventState) << ") " <<
-        "without SCARD_STATE_EMPTY bit.";
+    GOOGLE_SMART_CARD_LOG_ERROR
+        << kLoggingPrefix << "    failed: returned "
+        << "event state mask ("
+        << DebugDumpSCardEventState(reader_states[0].dwEventState) << ") "
+        << "without SCARD_STATE_EMPTY bit.";
     return false;
   }
 
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    caught card removal " <<
-      "event";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    caught card removal "
+                             << "event";
 
   return true;
 }
 
-bool DoPcscLiteCardInsertionWaiting(
-    SCARDCONTEXT s_card_context, const std::string& reader_name) {
+bool DoPcscLiteCardInsertionWaiting(SCARDCONTEXT s_card_context,
+                                    const std::string& reader_name) {
   SCARD_READERSTATE reader_states[1];
   std::memset(&reader_states, 0, sizeof reader_states);
   reader_states[0].szReader = reader_name.c_str();
   reader_states[0].dwCurrentState = SCARD_STATE_EMPTY;
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardGetStatusChange() for waiting for card insertion for " <<
-      kWaitingTimeoutSeconds << " seconds...";
+  GOOGLE_SMART_CARD_LOG_INFO
+      << kLoggingPrefix << "  Calling "
+      << "SCardGetStatusChange() for waiting for card insertion for "
+      << kWaitingTimeoutSeconds << " seconds...";
   const LONG return_code = SCardGetStatusChange(
       s_card_context, kWaitingTimeoutSeconds * 1000, reader_states, 1);
   if (return_code == SCARD_E_TIMEOUT) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    no card insertion " <<
-        "events were caught.";
+    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    no card insertion "
+                               << "events were caught.";
     return true;
   }
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
   if (!(reader_states[0].dwEventState & SCARD_STATE_PRESENT)) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "event state mask (" <<
-        DebugDumpSCardEventState(reader_states[0].dwEventState) << ") " <<
-        "without SCARD_STATE_PRESENT bit.";
+    GOOGLE_SMART_CARD_LOG_ERROR
+        << kLoggingPrefix << "    failed: returned "
+        << "event state mask ("
+        << DebugDumpSCardEventState(reader_states[0].dwEventState) << ") "
+        << "without SCARD_STATE_PRESENT bit.";
     return false;
   }
 
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    caught card " <<
-      "insertion event.";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    caught card "
+                             << "insertion event.";
 
   return true;
 }
@@ -412,87 +416,83 @@ bool DoPcscLiteWaitingAndCancellation(SCARDCONTEXT s_card_context) {
   std::thread([s_card_context] {
     // Wait until SCardGetStatusChange in parallel thread is called. This is not
     // a 100%-correct solution, but should work fine enough for demo purposes.
-    std::this_thread::sleep_for(std::chrono::milliseconds(
-        kWaitingTimeoutSeconds * 1000 / 10));
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(kWaitingTimeoutSeconds * 1000 / 10));
 
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-        "SCardCancel()...";
+    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                               << "SCardCancel()...";
     const LONG return_code = SCardCancel(s_card_context);
     if (return_code == SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    successfully " <<
-          "canceled";
+      GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    successfully "
+                                 << "canceled";
     } else {
-      GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned " <<
-          DebugDumpSCardReturnCode(return_code) << ".";
+      GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned "
+                                 << DebugDumpSCardReturnCode(return_code)
+                                 << ".";
     }
   }).detach();
 
   SCARD_READERSTATE reader_states[1];
   std::memset(&reader_states, 0, sizeof reader_states);
   reader_states[0].szReader = kSpecialReaderName;
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardGetStatusChange()...";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardGetStatusChange()...";
 
   const LONG return_code = SCardGetStatusChange(
       s_card_context, kWaitingTimeoutSeconds * 1000, reader_states, 1);
 
   // Wait until the parallel thread with SCardCancel() (hopefully) finishes -
   // just for having the fancy log messages order.
-  std::this_thread::sleep_for(std::chrono::milliseconds(
-      kWaitingTimeoutSeconds * 1000 / 10));
+  std::this_thread::sleep_for(
+      std::chrono::milliseconds(kWaitingTimeoutSeconds * 1000 / 10));
 
   if (return_code != SCARD_E_CANCELLED) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    failed: expected " <<
-        "the waiting to return with \"cancelled\" state, instead returned " <<
-        "with " << DebugDumpSCardReturnCode(return_code) << ".";
+    GOOGLE_SMART_CARD_LOG_INFO
+        << kLoggingPrefix << "    failed: expected "
+        << "the waiting to return with \"cancelled\" state, instead returned "
+        << "with " << DebugDumpSCardReturnCode(return_code) << ".";
     return true;
   }
 
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    caught waiting " <<
-      "cancellation.";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    caught waiting "
+                             << "cancellation.";
 
   return true;
 }
 
-bool DoPcscLiteConnect(
-    SCARDCONTEXT s_card_context,
-    const std::string& reader_name,
-    SCARDHANDLE* s_card_handle,
-    DWORD* active_protocol) {
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling SCardConnect() " <<
-      "for connecting to the \"" << reader_name << "\" reader...";
-  const LONG return_code = SCardConnect(
-      s_card_context,
-      reader_name.c_str(),
-      SCARD_SHARE_SHARED,
-      SCARD_PROTOCOL_ANY,
-      s_card_handle,
-      active_protocol);
+bool DoPcscLiteConnect(SCARDCONTEXT s_card_context,
+                       const std::string& reader_name,
+                       SCARDHANDLE* s_card_handle, DWORD* active_protocol) {
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling SCardConnect() "
+                             << "for connecting to the \"" << reader_name
+                             << "\" reader...";
+  const LONG return_code =
+      SCardConnect(s_card_context, reader_name.c_str(), SCARD_SHARE_SHARED,
+                   SCARD_PROTOCOL_ANY, s_card_handle, active_protocol);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned card_handle=" <<
-      HexDumpInteger(*s_card_handle) << ", active_protocol=" <<
-      DebugDumpSCardProtocol(*active_protocol) << ".";
+  GOOGLE_SMART_CARD_LOG_INFO
+      << kLoggingPrefix
+      << "    returned card_handle=" << HexDumpInteger(*s_card_handle)
+      << ", active_protocol=" << DebugDumpSCardProtocol(*active_protocol)
+      << ".";
   return true;
 }
 
 bool DoPcscLiteReconnect(SCARDHANDLE s_card_handle) {
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardReconnect()...";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardReconnect()...";
   DWORD active_protocol;
-  const LONG return_code = SCardReconnect(
-      s_card_handle,
-      SCARD_SHARE_SHARED,
-      SCARD_PROTOCOL_ANY,
-      SCARD_LEAVE_CARD,
-      &active_protocol);
+  const LONG return_code =
+      SCardReconnect(s_card_handle, SCARD_SHARE_SHARED, SCARD_PROTOCOL_ANY,
+                     SCARD_LEAVE_CARD, &active_protocol);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
@@ -500,8 +500,8 @@ bool DoPcscLiteReconnect(SCARDHANDLE s_card_handle) {
   return true;
 }
 
-bool DoPcscLiteGetStatus(
-    SCARDCONTEXT s_card_context, SCARDHANDLE s_card_handle) {
+bool DoPcscLiteGetStatus(SCARDCONTEXT s_card_context,
+                         SCARDHANDLE s_card_handle) {
   LONG return_code;
 
   GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling SCardStatus()...";
@@ -511,115 +511,111 @@ bool DoPcscLiteGetStatus(
   DWORD protocol = 0;
   LPBYTE atr = nullptr;
   DWORD atr_len = SCARD_AUTOALLOCATE;
-  return_code = SCardStatus(
-      s_card_handle,
-      reinterpret_cast<LPSTR>(&reader),
-      &reader_buffer_length,
-      &state,
-      &protocol,
-      reinterpret_cast<LPBYTE>(&atr),
-      &atr_len);
+  return_code = SCardStatus(s_card_handle, reinterpret_cast<LPSTR>(&reader),
+                            &reader_buffer_length, &state, &protocol,
+                            reinterpret_cast<LPBYTE>(&atr), &atr_len);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
   bool result = true;
 
   if (result && !reader) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "null reader string.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "null reader string.";
     result = false;
   }
   if (result && reader_buffer_length == SCARD_AUTOALLOCATE) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "no reader string length.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "no reader string length.";
     result = false;
   }
   if (result && reader_buffer_length != std::strlen(reader) + 1) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "wrong reader string length.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "wrong reader string length.";
     result = false;
   }
   if (result && !atr) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "null atr buffer.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "null atr buffer.";
     result = false;
   }
   if (result && atr_len == SCARD_AUTOALLOCATE) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned " <<
-        "no atr buffer length.";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: returned "
+                                << "no atr buffer length.";
     result = false;
   }
 
   if (result) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned name=\"" <<
-        reader << "\", state=" << DebugDumpSCardState(state) << ", protocol=" <<
-        DebugDumpSCardProtocol(protocol) << ".";
+    GOOGLE_SMART_CARD_LOG_INFO
+        << kLoggingPrefix << "    returned name=\"" << reader
+        << "\", state=" << DebugDumpSCardState(state)
+        << ", protocol=" << DebugDumpSCardProtocol(protocol) << ".";
   }
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling " <<
-      "SCardFreeMemory()...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling "
+                              << "SCardFreeMemory()...";
   return_code = SCardFreeMemory(s_card_context, reader);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called " <<
-        "SCardFreeMemory()...";
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called "
+                               << "SCardFreeMemory()...";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     result = false;
   }
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling " <<
-      "SCardFreeMemory()...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling "
+                              << "SCardFreeMemory()...";
   return_code = SCardFreeMemory(s_card_context, atr);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called " <<
-        "SCardFreeMemory()...";
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called "
+                               << "SCardFreeMemory()...";
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     result = false;
   }
 
   return result;
 }
 
-bool DoPcscLiteGetAttrs(
-    SCARDCONTEXT s_card_context, SCARDHANDLE s_card_handle) {
+bool DoPcscLiteGetAttrs(SCARDCONTEXT s_card_context,
+                        SCARDHANDLE s_card_handle) {
   LONG return_code;
 
   for (DWORD attr_id : kAttrIds) {
     LPBYTE value = nullptr;
     DWORD value_length = SCARD_AUTOALLOCATE;
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling " <<
-        "SCardGetAttrib() for attribute \"" <<
-        DebugDumpSCardAttributeId(attr_id) << "\"...";
-    return_code = SCardGetAttrib(
-        s_card_handle,
-        attr_id,
-        reinterpret_cast<LPBYTE>(&value),
-        &value_length);
+    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling "
+                                << "SCardGetAttrib() for attribute \""
+                                << DebugDumpSCardAttributeId(attr_id)
+                                << "\"...";
+    return_code =
+        SCardGetAttrib(s_card_handle, attr_id, reinterpret_cast<LPBYTE>(&value),
+                       &value_length);
     if (return_code == SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called " <<
-          "SCardGetAttrib() for attribute \"" <<
-          DebugDumpSCardAttributeId(attr_id) << "\"...";
+      GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called "
+                                 << "SCardGetAttrib() for attribute \""
+                                 << DebugDumpSCardAttributeId(attr_id)
+                                 << "\"...";
 
       if (!value) {
-        GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: " <<
-            "returned null value";
+        GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    failed: "
+                                    << "returned null value";
         return false;
       }
 
-      GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned <" <<
-          HexDumpBytes(value, value_length) << ">.";
+      GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned <"
+                                 << HexDumpBytes(value, value_length) << ">.";
 
-      GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling " <<
-          "SCardFreeMemory()...";
+      GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "  Calling "
+                                  << "SCardFreeMemory()...";
       return_code = SCardFreeMemory(s_card_context, value);
       if (return_code != SCARD_S_SUCCESS) {
-        GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called " <<
-            "SCardFreeMemory()...";
-        GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-            FormatSCardErrorMessage(return_code);
+        GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Called "
+                                   << "SCardFreeMemory()...";
+        GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                    << FormatSCardErrorMessage(return_code);
         return false;
       }
     }
@@ -629,16 +625,16 @@ bool DoPcscLiteGetAttrs(
 
 bool DoPcscLiteSetAttr(SCARDHANDLE s_card_handle) {
   const std::string kValue = "Test";
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardSetAttrib() for attrib \"SCARD_ATTR_DEVICE_FRIENDLY_NAME_A\"...";
+  GOOGLE_SMART_CARD_LOG_INFO
+      << kLoggingPrefix << "  Calling "
+      << "SCardSetAttrib() for attrib \"SCARD_ATTR_DEVICE_FRIENDLY_NAME_A\"...";
   LONG return_code = SCardSetAttrib(
-      s_card_handle,
-      SCARD_ATTR_DEVICE_FRIENDLY_NAME_A,
-      reinterpret_cast<LPCBYTE>(kValue.c_str()),
-      kValue.length());
+      s_card_handle, SCARD_ATTR_DEVICE_FRIENDLY_NAME_A,
+      reinterpret_cast<LPCBYTE>(kValue.c_str()), kValue.length());
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    set unsuccessfully " <<
-        "with error " << DebugDumpSCardReturnCode(return_code) << ".";
+    GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    set unsuccessfully "
+                               << "with error "
+                               << DebugDumpSCardReturnCode(return_code) << ".";
     return true;
   }
 
@@ -647,12 +643,12 @@ bool DoPcscLiteSetAttr(SCARDHANDLE s_card_handle) {
 }
 
 bool DoPcscLiteBeginTransaction(SCARDHANDLE s_card_handle) {
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardBeginTransaction()...";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardBeginTransaction()...";
   LONG return_code = SCardBeginTransaction(s_card_handle);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
@@ -661,36 +657,31 @@ bool DoPcscLiteBeginTransaction(SCARDHANDLE s_card_handle) {
 }
 
 bool DoPcscLiteSendControlCommand(SCARDHANDLE s_card_handle) {
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling SCardControl() " <<
-      "with CM_IOCTL_GET_FEATURE_REQUEST command...";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling SCardControl() "
+                             << "with CM_IOCTL_GET_FEATURE_REQUEST command...";
   unsigned char buffer[MAX_BUFFER_SIZE_EXTENDED];
   DWORD bytes_returned = 0;
-  LONG return_code = SCardControl(
-      s_card_handle,
-      CM_IOCTL_GET_FEATURE_REQUEST,
-      nullptr,
-      0,
-      buffer,
-      MAX_BUFFER_SIZE_EXTENDED,
-      &bytes_returned);
+  LONG return_code =
+      SCardControl(s_card_handle, CM_IOCTL_GET_FEATURE_REQUEST, nullptr, 0,
+                   buffer, MAX_BUFFER_SIZE_EXTENDED, &bytes_returned);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned <" <<
-      HexDumpBytes(buffer, bytes_returned) << ">.";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned <"
+                             << HexDumpBytes(buffer, bytes_returned) << ">.";
   return true;
 }
 
-bool DoPcscLiteSendTransmitCommand(
-    SCARDHANDLE s_card_handle, DWORD active_protocol) {
-  const std::vector<uint8_t> kListDirApdu{
-      0x00, 0xA4, 0x00, 0x00, 0x02, 0x3F, 0x00, 0x00};
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardTransmit() with \"list dir\" APDU <" <<
-      HexDumpBytes(kListDirApdu) << ">...";
+bool DoPcscLiteSendTransmitCommand(SCARDHANDLE s_card_handle,
+                                   DWORD active_protocol) {
+  const std::vector<uint8_t> kListDirApdu{0x00, 0xA4, 0x00, 0x00,
+                                          0x02, 0x3F, 0x00, 0x00};
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardTransmit() with \"list dir\" APDU <"
+                             << HexDumpBytes(kListDirApdu) << ">...";
   SCARD_IO_REQUEST received_protocol;
   received_protocol.dwProtocol = SCARD_PROTOCOL_ANY;
   received_protocol.cbPciLength = sizeof(SCARD_IO_REQUEST);
@@ -699,29 +690,26 @@ bool DoPcscLiteSendTransmitCommand(
   LONG return_code = SCardTransmit(
       s_card_handle,
       active_protocol == SCARD_PROTOCOL_T0 ? SCARD_PCI_T0 : SCARD_PCI_T1,
-      &kListDirApdu[0],
-      kListDirApdu.size(),
-      &received_protocol,
-      buffer,
+      &kListDirApdu[0], kListDirApdu.size(), &received_protocol, buffer,
       &bytes_returned);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned <" <<
-      HexDumpBytes(buffer, bytes_returned) << ">.";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    returned <"
+                             << HexDumpBytes(buffer, bytes_returned) << ">.";
   return true;
 }
 
 bool DoPcscLiteEndTransaction(SCARDHANDLE s_card_handle) {
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardEndTransaction()...";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardEndTransaction()...";
   LONG return_code = SCardEndTransaction(s_card_handle, SCARD_LEAVE_CARD);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
@@ -730,12 +718,12 @@ bool DoPcscLiteEndTransaction(SCARDHANDLE s_card_handle) {
 }
 
 bool DoPcscLiteDisconnect(SCARDHANDLE s_card_handle) {
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardDisconnect()...";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardDisconnect()...";
   LONG return_code = SCardDisconnect(s_card_handle, SCARD_LEAVE_CARD);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
 
@@ -744,12 +732,12 @@ bool DoPcscLiteDisconnect(SCARDHANDLE s_card_handle) {
 }
 
 bool DoPcscLiteContextReleasing(SCARDCONTEXT s_card_context) {
-  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling " <<
-      "SCardReleaseContext()...";
+  GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling "
+                             << "SCardReleaseContext()...";
   LONG return_code = SCardReleaseContext(s_card_context);
   if (return_code != SCARD_S_SUCCESS) {
-    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    " <<
-        FormatSCardErrorMessage(return_code);
+    GOOGLE_SMART_CARD_LOG_ERROR << kLoggingPrefix << "    "
+                                << FormatSCardErrorMessage(return_code);
     return false;
   }
   GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "    succeeded.";
@@ -772,16 +760,16 @@ bool ExecutePcscLiteCppDemo() {
     std::string reader_name;
     result = result && DoPcscLiteReadersListing(s_card_context, &reader_name);
     if (result) {
-      result = result && DoPcscLiteCardRemovalWaiting(
-          s_card_context, reader_name);
-      result = result && DoPcscLiteCardInsertionWaiting(
-          s_card_context, reader_name);
+      result =
+          result && DoPcscLiteCardRemovalWaiting(s_card_context, reader_name);
+      result =
+          result && DoPcscLiteCardInsertionWaiting(s_card_context, reader_name);
       result = result && DoPcscLiteWaitingAndCancellation(s_card_context);
 
       SCARDHANDLE s_card_handle;
       DWORD active_protocol;
-      result = result && DoPcscLiteConnect(
-          s_card_context, reader_name, &s_card_handle, &active_protocol);
+      result = result && DoPcscLiteConnect(s_card_context, reader_name,
+                                           &s_card_handle, &active_protocol);
       if (result) {
         result = result && DoPcscLiteReconnect(s_card_handle);
         result = result && DoPcscLiteGetStatus(s_card_context, s_card_handle);
@@ -790,8 +778,8 @@ bool ExecutePcscLiteCppDemo() {
         result = result && DoPcscLiteBeginTransaction(s_card_handle);
         if (result) {
           result = result && DoPcscLiteSendControlCommand(s_card_handle);
-          result = result && DoPcscLiteSendTransmitCommand(
-              s_card_handle, active_protocol);
+          result = result && DoPcscLiteSendTransmitCommand(s_card_handle,
+                                                           active_protocol);
 
           result = DoPcscLiteEndTransaction(s_card_handle) && result;
         }

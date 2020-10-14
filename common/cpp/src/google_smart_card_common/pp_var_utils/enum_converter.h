@@ -47,6 +47,8 @@ class EnumConverter final {
  public:
   EnumConverter() = delete;
   EnumConverter(const EnumConverter&) = delete;
+  EnumConverter& operator=(const EnumConverter&) = delete;
+  ~EnumConverter() = default;
 
   // Converts C/C++ enum value into Pepper value.
   //
@@ -54,17 +56,19 @@ class EnumConverter final {
   static pp::Var ConvertToVar(EnumType enum_value) {
     bool succeeded = false;
     pp::Var result;
-    VisitCorrespondingPairs([&enum_value, &succeeded, &result](
-        EnumType candidate_value, const VarValueType& candidate_var_value) {
-      if (enum_value == candidate_value) {
-        GOOGLE_SMART_CARD_CHECK(!succeeded);
-        succeeded = true;
-        result = candidate_var_value;
-      }
-    });
+    VisitCorrespondingPairs(
+        [&enum_value, &succeeded, &result](
+            EnumType candidate_value, const VarValueType& candidate_var_value) {
+          if (enum_value == candidate_value) {
+            GOOGLE_SMART_CARD_CHECK(!succeeded);
+            succeeded = true;
+            result = candidate_var_value;
+          }
+        });
     if (!succeeded) {
       GOOGLE_SMART_CARD_LOG_FATAL << "Failed to convert " << GetEnumTypeName()
-          << " enum value " << static_cast<int64_t>(enum_value);
+                                  << " enum value "
+                                  << static_cast<int64_t>(enum_value);
     }
     return result;
   }
@@ -73,8 +77,8 @@ class EnumConverter final {
   //
   // Fails if the Pepper value has unexpected type, or if the value is not
   // corresponding to any C/C++ enum value.
-  static bool ConvertFromVar(
-      const pp::Var& var, EnumType* result, std::string* error_message) {
+  static bool ConvertFromVar(const pp::Var& var, EnumType* result,
+                             std::string* error_message) {
     GOOGLE_SMART_CARD_CHECK(result);
     GOOGLE_SMART_CARD_CHECK(error_message);
 
@@ -82,25 +86,24 @@ class EnumConverter final {
     if (!VarAs(var, &var_value, error_message)) {
       *error_message = FormatPrintfTemplate(
           "Failed to parse %s enum value: value of unexpected type got: %s",
-          GetEnumTypeName(),
-          DebugDumpVar(var).c_str());
+          GetEnumTypeName(), DebugDumpVar(var).c_str());
       return false;
     }
 
     bool succeeded = false;
-    VisitCorrespondingPairs([&var_value, &succeeded, &result](
-        EnumType candidate_value, const VarValueType& candidate_var_value) {
-      if (var_value == candidate_var_value) {
-        GOOGLE_SMART_CARD_CHECK(!succeeded);
-        succeeded = true;
-        *result = candidate_value;
-      }
-    });
+    VisitCorrespondingPairs(
+        [&var_value, &succeeded, &result](
+            EnumType candidate_value, const VarValueType& candidate_var_value) {
+          if (var_value == candidate_var_value) {
+            GOOGLE_SMART_CARD_CHECK(!succeeded);
+            succeeded = true;
+            *result = candidate_value;
+          }
+        });
     if (!succeeded) {
       *error_message = FormatPrintfTemplate(
           "Failed to parse %s enum value: unknown value got: %s",
-          GetEnumTypeName(),
-          DebugDumpVar(var).c_str());
+          GetEnumTypeName(), DebugDumpVar(var).c_str());
     }
     return succeeded;
   }

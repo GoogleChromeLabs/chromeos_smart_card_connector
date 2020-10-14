@@ -21,14 +21,18 @@
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/pp_var_utils/operations.h>
 
-const char kRequestMessageTypeSuffix[] = "::request";
-const char kResponseMessageTypeSuffix[] = "::response";
-const char kRequestIdMessageKey[] = "request_id";
-const char kPayloadMessageKey[] = "payload";
-const char kErrorMessageKey[] = "error";
-const char kCanceledErrorMessage[] = "The request was canceled";
-
 namespace google_smart_card {
+
+namespace {
+
+constexpr char kRequestMessageTypeSuffix[] = "::request";
+constexpr char kResponseMessageTypeSuffix[] = "::response";
+constexpr char kRequestIdMessageKey[] = "request_id";
+constexpr char kPayloadMessageKey[] = "payload";
+constexpr char kErrorMessageKey[] = "error";
+constexpr char kCanceledErrorMessage[] = "The request was canceled";
+
+}  // namespace
 
 std::string GetRequestMessageType(const std::string& name) {
   return name + kRequestMessageTypeSuffix;
@@ -50,8 +54,7 @@ pp::VarDictionary MakeMessageDataWithRequestId(
 
 }  // namespace
 
-pp::Var MakeRequestMessageData(
-    RequestId request_id, const pp::Var& payload) {
+pp::Var MakeRequestMessageData(RequestId request_id, const pp::Var& payload) {
   pp::VarDictionary message_data;
   AddVarDictValue(&message_data, kPayloadMessageKey, payload);
   return MakeMessageDataWithRequestId(message_data, request_id);
@@ -59,15 +62,15 @@ pp::Var MakeRequestMessageData(
 
 namespace {
 
-pp::Var MakeSucceededResponseMessageData(
-    RequestId request_id, const pp::Var& response_payload) {
+pp::Var MakeSucceededResponseMessageData(RequestId request_id,
+                                         const pp::Var& response_payload) {
   pp::VarDictionary message_data;
   AddVarDictValue(&message_data, kPayloadMessageKey, response_payload);
   return MakeMessageDataWithRequestId(message_data, request_id);
 }
 
-pp::Var MakeFailedResponseMessageData(
-    RequestId request_id, const std::string& error_message) {
+pp::Var MakeFailedResponseMessageData(RequestId request_id,
+                                      const std::string& error_message) {
   pp::VarDictionary message_data;
   AddVarDictValue(&message_data, kErrorMessageKey, error_message);
   return MakeMessageDataWithRequestId(message_data, request_id);
@@ -79,15 +82,15 @@ pp::Var MakeCanceledResponseMessageData(RequestId request_id) {
 
 }  // namespace
 
-pp::Var MakeResponseMessageData(
-    RequestId request_id, const GenericRequestResult& request_result) {
+pp::Var MakeResponseMessageData(RequestId request_id,
+                                const GenericRequestResult& request_result) {
   switch (request_result.status()) {
     case RequestResultStatus::kSucceeded:
-      return MakeSucceededResponseMessageData(
-          request_id, request_result.payload());
+      return MakeSucceededResponseMessageData(request_id,
+                                              request_result.payload());
     case RequestResultStatus::kFailed:
-      return MakeFailedResponseMessageData(
-          request_id, request_result.error_message());
+      return MakeFailedResponseMessageData(request_id,
+                                           request_result.error_message());
     case RequestResultStatus::kCanceled:
       return MakeCanceledResponseMessageData(request_id);
     default:
@@ -95,54 +98,42 @@ pp::Var MakeResponseMessageData(
   }
 }
 
-bool ParseRequestMessageData(
-    const pp::Var& message_data, RequestId* request_id, pp::Var* payload) {
+bool ParseRequestMessageData(const pp::Var& message_data, RequestId* request_id,
+                             pp::Var* payload) {
   std::string error_message;
   pp::VarDictionary message_data_dict;
-  if (!VarAs(message_data, &message_data_dict, &error_message))
-    return false;
+  if (!VarAs(message_data, &message_data_dict, &error_message)) return false;
   return VarDictValuesExtractor(message_data_dict)
       .Extract(kRequestIdMessageKey, request_id)
       .Extract(kPayloadMessageKey, payload)
       .GetSuccessWithNoExtraKeysAllowed(&error_message);
 }
 
-bool ParseResponseMessageData(
-    const pp::Var& message_data,
-    RequestId* request_id,
-    GenericRequestResult* request_result) {
+bool ParseResponseMessageData(const pp::Var& message_data,
+                              RequestId* request_id,
+                              GenericRequestResult* request_result) {
   std::string error_message;
   pp::VarDictionary message_data_dict;
-  if (!VarAs(message_data, &message_data_dict, &error_message))
-    return false;
+  if (!VarAs(message_data, &message_data_dict, &error_message)) return false;
   if (GetVarDictSize(message_data_dict) != 2) {
     // There are some missing or some extra keys.
     return false;
   }
-  if (!GetVarDictValueAs(
-           message_data_dict,
-           kRequestIdMessageKey,
-           request_id,
-           &error_message)) {
+  if (!GetVarDictValueAs(message_data_dict, kRequestIdMessageKey, request_id,
+                         &error_message)) {
     return false;
   }
   pp::Var response_payload;
-  if (GetVarDictValueAs(
-          message_data_dict,
-          kPayloadMessageKey,
-          &response_payload,
-          &error_message)) {
+  if (GetVarDictValueAs(message_data_dict, kPayloadMessageKey,
+                        &response_payload, &error_message)) {
     *request_result = GenericRequestResult::CreateSuccessful(response_payload);
     return true;
   }
   std::string response_error_message;
-  if (GetVarDictValueAs(
-          message_data_dict,
-          kErrorMessageKey,
-          &response_error_message,
-          &error_message)) {
-    *request_result = GenericRequestResult::CreateFailed(
-        response_error_message);
+  if (GetVarDictValueAs(message_data_dict, kErrorMessageKey,
+                        &response_error_message, &error_message)) {
+    *request_result =
+        GenericRequestResult::CreateFailed(response_error_message);
     return true;
   }
   return false;

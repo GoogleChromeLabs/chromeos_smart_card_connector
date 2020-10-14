@@ -61,6 +61,9 @@ class JsRequestReceiver final : public RequestReceiver,
   class PpDelegateImpl final : public PpDelegate {
    public:
     explicit PpDelegateImpl(pp::Instance* pp_instance);
+    PpDelegateImpl(const PpDelegateImpl&) = delete;
+    PpDelegateImpl& operator=(const PpDelegateImpl&) = delete;
+    ~PpDelegateImpl();
 
     // PpDelegate:
     void PostMessage(const pp::Var& message) override;
@@ -73,13 +76,12 @@ class JsRequestReceiver final : public RequestReceiver,
   //
   // Adds a new route into the passed TypedMessageRouter for receiving the
   // requests messages.
-  JsRequestReceiver(
-      const std::string& name,
-      RequestHandler* request_handler,
-      TypedMessageRouter* typed_message_router,
-      std::unique_ptr<PpDelegate> pp_delegate);
+  JsRequestReceiver(const std::string& name, RequestHandler* request_handler,
+                    TypedMessageRouter* typed_message_router,
+                    std::unique_ptr<PpDelegate> pp_delegate);
 
   JsRequestReceiver(const JsRequestReceiver&) = delete;
+  JsRequestReceiver& operator=(const JsRequestReceiver&) = delete;
 
   ~JsRequestReceiver() override;
 
@@ -92,8 +94,8 @@ class JsRequestReceiver final : public RequestReceiver,
 
  private:
   // RequestReceiver:
-  void PostResult(
-      RequestId request_id, GenericRequestResult request_result) override;
+  void PostResult(RequestId request_id,
+                  GenericRequestResult request_result) override;
 
   // TypedMessageListener:
   std::string GetListenedMessageType() const override;

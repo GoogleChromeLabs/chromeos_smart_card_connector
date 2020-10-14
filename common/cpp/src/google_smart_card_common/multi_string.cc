@@ -35,8 +35,7 @@ std::vector<std::string> ExtractMultiStringElements(
 
 }  // namespace
 
-std::string CreateMultiString(
-    const std::vector<std::string>& elements) {
+std::string CreateMultiString(const std::vector<std::string>& elements) {
   std::string result;
   for (const auto& element : elements) {
     GOOGLE_SMART_CARD_CHECK(element.find('\0') == std::string::npos);
@@ -52,15 +51,14 @@ std::vector<std::string> ExtractMultiStringElements(
   GOOGLE_SMART_CARD_CHECK(multi_string.length());
   GOOGLE_SMART_CARD_CHECK(multi_string.back() == '\0');
   const char* multi_string_end;
-  const std::vector<std::string> result = ExtractMultiStringElements(
-      multi_string.c_str(), &multi_string_end);
-  GOOGLE_SMART_CARD_CHECK(
-      multi_string_end == multi_string.c_str() + multi_string.length());
+  const std::vector<std::string> result =
+      ExtractMultiStringElements(multi_string.c_str(), &multi_string_end);
+  GOOGLE_SMART_CARD_CHECK(multi_string_end ==
+                          multi_string.c_str() + multi_string.length());
   return result;
 }
 
-std::vector<std::string> ExtractMultiStringElements(
-    const char* multi_string) {
+std::vector<std::string> ExtractMultiStringElements(const char* multi_string) {
   const char* multi_string_end;
   return ExtractMultiStringElements(multi_string, &multi_string_end);
 }

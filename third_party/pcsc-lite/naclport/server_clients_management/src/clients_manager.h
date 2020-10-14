@@ -84,10 +84,12 @@ namespace google_smart_card {
 // the same thread.
 class PcscLiteServerClientsManager final {
  public:
-  PcscLiteServerClientsManager(
-      pp::Instance* pp_instance, TypedMessageRouter* typed_message_router);
+  PcscLiteServerClientsManager(pp::Instance* pp_instance,
+                               TypedMessageRouter* typed_message_router);
 
   PcscLiteServerClientsManager(const PcscLiteServerClientsManager&) = delete;
+  PcscLiteServerClientsManager& operator=(const PcscLiteServerClientsManager&) =
+      delete;
 
   ~PcscLiteServerClientsManager();
 
@@ -134,11 +136,9 @@ class PcscLiteServerClientsManager final {
   // a client (and delivered here by the JavaScript side).
   class Handler final : public RequestHandler {
    public:
-    Handler(
-        int64_t handler_id,
-        const optional<std::string>& client_app_id,
-        pp::Instance* pp_instance,
-        TypedMessageRouter* typed_message_router);
+    Handler(int64_t handler_id, const optional<std::string>& client_app_id,
+            pp::Instance* pp_instance,
+            TypedMessageRouter* typed_message_router);
     Handler(const Handler&) = delete;
 
     ~Handler() override;
@@ -158,8 +158,8 @@ class PcscLiteServerClientsManager final {
     std::shared_ptr<JsRequestReceiver> request_receiver_;
   };
 
-  void CreateHandler(
-      int64_t handler_id, const optional<std::string>& client_app_id);
+  void CreateHandler(int64_t handler_id,
+                     const optional<std::string>& client_app_id);
   void DeleteHandler(int64_t client_handler_id);
   void DeleteAllHandlers();
 

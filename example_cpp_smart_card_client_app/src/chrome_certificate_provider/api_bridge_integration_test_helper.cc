@@ -46,23 +46,22 @@ namespace {
 constexpr uint8_t kFakeCert1Der[] = {1, 2, 3};
 constexpr Algorithm kFakeCert1Algorithms[] = {Algorithm::kRsassaPkcs1v15Sha256};
 constexpr uint8_t kFakeCert2Der[] = {4};
-constexpr Algorithm kFakeCert2Algorithms[] = {
-  Algorithm::kRsassaPkcs1v15Sha512, Algorithm::kRsassaPkcs1v15Sha1
-};
+constexpr Algorithm kFakeCert2Algorithms[] = {Algorithm::kRsassaPkcs1v15Sha512,
+                                              Algorithm::kRsassaPkcs1v15Sha1};
 
 ClientCertificateInfo GetFakeCert1() {
   ClientCertificateInfo info;
   info.certificate.assign(std::begin(kFakeCert1Der), std::end(kFakeCert1Der));
-  info.supported_algorithms.assign(
-      std::begin(kFakeCert1Algorithms), std::end(kFakeCert1Algorithms));
+  info.supported_algorithms.assign(std::begin(kFakeCert1Algorithms),
+                                   std::end(kFakeCert1Algorithms));
   return info;
 }
 
 ClientCertificateInfo GetFakeCert2() {
   ClientCertificateInfo info;
   info.certificate.assign(std::begin(kFakeCert2Der), std::end(kFakeCert2Der));
-  info.supported_algorithms.assign(
-      std::begin(kFakeCert2Algorithms), std::end(kFakeCert2Algorithms));
+  info.supported_algorithms.assign(std::begin(kFakeCert2Algorithms),
+                                   std::end(kFakeCert2Algorithms));
   return info;
 }
 
@@ -83,11 +82,9 @@ class ApiBridgeIntegrationTestHelper final : public gsc::IntegrationTestHelper {
  public:
   // IntegrationTestHelper:
   std::string GetName() const override;
-  void SetUp(
-      pp::Instance* pp_instance,
-      pp::Core* pp_core,
-      gsc::TypedMessageRouter* typed_message_router,
-      const pp::Var& data) override;
+  void SetUp(pp::Instance* pp_instance, pp::Core* pp_core,
+             gsc::TypedMessageRouter* typed_message_router,
+             const pp::Var& data) override;
   void TearDown() override;
   void OnMessageFromJs(
       const pp::Var& data,
@@ -110,15 +107,11 @@ std::string ApiBridgeIntegrationTestHelper::GetName() const {
 }
 
 void ApiBridgeIntegrationTestHelper::SetUp(
-    pp::Instance* pp_instance,
-    pp::Core* pp_core,
-    gsc::TypedMessageRouter* typed_message_router,
-    const pp::Var& /*data*/) {
-  api_bridge_ = std::make_shared<ApiBridge>(
-      typed_message_router,
-      pp_instance,
-      pp_core,
-      /*request_handling_mutex=*/nullptr);
+    pp::Instance* pp_instance, pp::Core* pp_core,
+    gsc::TypedMessageRouter* typed_message_router, const pp::Var& /*data*/) {
+  api_bridge_ =
+      std::make_shared<ApiBridge>(typed_message_router, pp_instance, pp_core,
+                                  /*request_handling_mutex=*/nullptr);
 }
 
 void ApiBridgeIntegrationTestHelper::TearDown() {
@@ -127,8 +120,7 @@ void ApiBridgeIntegrationTestHelper::TearDown() {
 }
 
 void ApiBridgeIntegrationTestHelper::OnMessageFromJs(
-    const pp::Var& data,
-    gsc::RequestReceiver::ResultCallback result_callback) {
+    const pp::Var& data, gsc::RequestReceiver::ResultCallback result_callback) {
   std::string command;
   std::string error_message;
   if (!gsc::VarAs(data, &command, &error_message))
@@ -136,8 +128,8 @@ void ApiBridgeIntegrationTestHelper::OnMessageFromJs(
   if (command == "setCertificates_empty") {
     ScheduleSetCertificatesCall(/*certificates=*/{}, result_callback);
   } else if (command == "setCertificates_fakeCerts") {
-    ScheduleSetCertificatesCall(
-        {GetFakeCert1(), GetFakeCert2()}, result_callback);
+    ScheduleSetCertificatesCall({GetFakeCert1(), GetFakeCert2()},
+                                result_callback);
   } else {
     GOOGLE_SMART_CARD_LOG_FATAL << "Unknown command " << command;
   }
@@ -148,11 +140,9 @@ void ApiBridgeIntegrationTestHelper::ScheduleSetCertificatesCall(
     gsc::RequestReceiver::ResultCallback result_callback) {
   // Post to a background thread, since the main thread isn't allowed to perform
   // blocking calls, which SetCertificates() is.
-  std::thread(
-      &SetCertificatesOnBackgroundThread,
-      api_bridge_,
-      certificates,
-      result_callback).detach();
+  std::thread(&SetCertificatesOnBackgroundThread, api_bridge_, certificates,
+              result_callback)
+      .detach();
 }
 
 }  // namespace chrome_certificate_provider

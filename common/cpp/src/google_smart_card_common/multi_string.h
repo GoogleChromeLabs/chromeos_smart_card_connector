@@ -30,8 +30,7 @@ std::string CreateMultiString(const std::vector<std::string>& elements);
 std::vector<std::string> ExtractMultiStringElements(
     const std::string& multi_string);
 
-std::vector<std::string> ExtractMultiStringElements(
-    const char* multi_string);
+std::vector<std::string> ExtractMultiStringElements(const char* multi_string);
 
 }  // namespace google_smart_card
 

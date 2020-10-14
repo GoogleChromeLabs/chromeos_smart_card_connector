@@ -35,8 +35,7 @@ namespace {
 
 std::vector<uint8_t> GetSCardReaderStateAtr(
     const SCARD_READERSTATE& s_card_reader_state) {
-  if (!s_card_reader_state.cbAtr)
-    return {};
+  if (!s_card_reader_state.cbAtr) return {};
   GOOGLE_SMART_CARD_CHECK(s_card_reader_state.cbAtr <= MAX_ATR_SIZE);
   return std::vector<uint8_t>(
       s_card_reader_state.rgbAtr,
@@ -83,16 +82,15 @@ void StructConverter<OutboundSCardReaderState>::VisitFields(
 
 // static
 template <>
-constexpr const char*
-StructConverter<SCardIoRequest>::GetStructTypeName() {
+constexpr const char* StructConverter<SCardIoRequest>::GetStructTypeName() {
   return "SCARD_IO_REQUEST";
 }
 
 // static
 template <>
 template <typename Callback>
-void StructConverter<SCardIoRequest>::VisitFields(
-    const SCardIoRequest& value, Callback callback) {
+void StructConverter<SCardIoRequest>::VisitFields(const SCardIoRequest& value,
+                                                  Callback callback) {
   callback(&value.protocol, "protocol");
 }
 
@@ -102,8 +100,8 @@ InboundSCardReaderState InboundSCardReaderState::FromSCardReaderState(
   GOOGLE_SMART_CARD_CHECK(value.szReader);
   return InboundSCardReaderState(
       value.szReader,
-      value.pvUserData ?
-          reinterpret_cast<uintptr_t>(value.pvUserData) : optional<uintptr_t>(),
+      value.pvUserData ? reinterpret_cast<uintptr_t>(value.pvUserData)
+                       : optional<uintptr_t>(),
       value.dwCurrentState);
 }
 
@@ -113,11 +111,9 @@ OutboundSCardReaderState OutboundSCardReaderState::FromSCardReaderState(
   GOOGLE_SMART_CARD_CHECK(value.szReader);
   return OutboundSCardReaderState(
       value.szReader,
-      value.pvUserData ?
-          reinterpret_cast<uintptr_t>(value.pvUserData) : optional<uintptr_t>(),
-      value.dwCurrentState,
-      value.dwEventState,
-      GetSCardReaderStateAtr(value));
+      value.pvUserData ? reinterpret_cast<uintptr_t>(value.pvUserData)
+                       : optional<uintptr_t>(),
+      value.dwCurrentState, value.dwEventState, GetSCardReaderStateAtr(value));
 }
 
 SCARD_IO_REQUEST SCardIoRequest::AsSCardIoRequest() const {
@@ -139,8 +135,8 @@ pp::Var MakeVar(const SCARD_READERSTATE& value) {
   GOOGLE_SMART_CARD_CHECK(value.szReader);
   result_builder.Add("reader_name", value.szReader);
   if (value.pvUserData) {
-    result_builder.Add(
-        "user_data", reinterpret_cast<uintptr_t>(value.pvUserData));
+    result_builder.Add("user_data",
+                       reinterpret_cast<uintptr_t>(value.pvUserData));
   }
   result_builder.Add("current_state", value.dwCurrentState);
   result_builder.Add("event_state", value.dwEventState);
@@ -151,10 +147,8 @@ pp::Var MakeVar(const SCARD_READERSTATE& value) {
   return result_builder.Result();
 }
 
-bool VarAs(
-    const pp::Var& var,
-    InboundSCardReaderState* result,
-    std::string* error_message) {
+bool VarAs(const pp::Var& var, InboundSCardReaderState* result,
+           std::string* error_message) {
   return StructConverter<InboundSCardReaderState>::ConvertFromVar(
       var, result, error_message);
 }
@@ -164,10 +158,8 @@ pp::Var MakeVar(const InboundSCardReaderState& value) {
   return StructConverter<InboundSCardReaderState>::ConvertToVar(value);
 }
 
-bool VarAs(
-    const pp::Var& var,
-    OutboundSCardReaderState* result,
-    std::string* error_message) {
+bool VarAs(const pp::Var& var, OutboundSCardReaderState* result,
+           std::string* error_message) {
   return StructConverter<OutboundSCardReaderState>::ConvertFromVar(
       var, result, error_message);
 }
@@ -177,10 +169,10 @@ pp::Var MakeVar(const OutboundSCardReaderState& value) {
   return StructConverter<OutboundSCardReaderState>::ConvertToVar(value);
 }
 
-bool VarAs(
-    const pp::Var& var, SCardIoRequest* result, std::string* error_message) {
-  return StructConverter<SCardIoRequest>::ConvertFromVar(
-      var, result, error_message);
+bool VarAs(const pp::Var& var, SCardIoRequest* result,
+           std::string* error_message) {
+  return StructConverter<SCardIoRequest>::ConvertFromVar(var, result,
+                                                         error_message);
 }
 
 template <>

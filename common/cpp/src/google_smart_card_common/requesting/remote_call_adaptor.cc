@@ -27,15 +27,16 @@ RemoteCallAdaptor::RemoteCallAdaptor(Requester* requester)
   GOOGLE_SMART_CARD_CHECK(requester_);
 }
 
+RemoteCallAdaptor::~RemoteCallAdaptor() = default;
+
 GenericRequestResult RemoteCallAdaptor::PerformSyncRequest(
     const std::string& function_name, const pp::VarArray& converted_arguments) {
-  return requester_->PerformSyncRequest(MakeRemoteCallRequestPayload(
-      function_name, converted_arguments));
+  return requester_->PerformSyncRequest(
+      MakeRemoteCallRequestPayload(function_name, converted_arguments));
 }
 
 GenericAsyncRequest RemoteCallAdaptor::StartAsyncRequest(
-    const std::string& function_name,
-    const pp::VarArray& converted_arguments,
+    const std::string& function_name, const pp::VarArray& converted_arguments,
     GenericAsyncRequestCallback callback) {
   return requester_->StartAsyncRequest(
       MakeRemoteCallRequestPayload(function_name, converted_arguments),
@@ -43,14 +44,11 @@ GenericAsyncRequest RemoteCallAdaptor::StartAsyncRequest(
 }
 
 void RemoteCallAdaptor::StartAsyncRequest(
-    const std::string& function_name,
-    const pp::VarArray& converted_arguments,
-    GenericAsyncRequestCallback callback,
-    GenericAsyncRequest* async_request) {
+    const std::string& function_name, const pp::VarArray& converted_arguments,
+    GenericAsyncRequestCallback callback, GenericAsyncRequest* async_request) {
   requester_->StartAsyncRequest(
       MakeRemoteCallRequestPayload(function_name, converted_arguments),
-      callback,
-      async_request);
+      callback, async_request);
 }
 
 }  // namespace google_smart_card

@@ -68,8 +68,8 @@ class PpInstance final : public pp::Instance {
 
   void HandleMessage(const pp::Var& message) override {
     if (!typed_message_router_.OnMessageReceived(message)) {
-      GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected message received: " <<
-          DebugDumpVar(message);
+      GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected message received: "
+                                  << DebugDumpVar(message);
     }
   }
 
@@ -85,14 +85,13 @@ class PpInstance final : public pp::Instance {
     pcsc_lite_server_global_->InitializeAndRunDaemonThread();
 
     pcsc_lite_server_clients_management_backend_.reset(
-        new PcscLiteServerClientsManagementBackend(
-            this, &typed_message_router_));
+        new PcscLiteServerClientsManagementBackend(this,
+                                                   &typed_message_router_));
 
-    GOOGLE_SMART_CARD_LOG_DEBUG << "All services are successfully " <<
-        "initialized, posting ready message...";
-    PostMessage(MakeTypedMessage(
-        GetPcscLiteServerReadyMessageType(),
-        MakePcscLiteServerReadyMessageData()));
+    GOOGLE_SMART_CARD_LOG_DEBUG << "All services are successfully "
+                                << "initialized, posting ready message...";
+    PostMessage(MakeTypedMessage(GetPcscLiteServerReadyMessageType(),
+                                 MakePcscLiteServerReadyMessageData()));
   }
 
   TypedMessageRouter typed_message_router_;
@@ -116,8 +115,6 @@ class PpModule final : public pp::Module {
 
 namespace pp {
 
-Module* CreateModule() {
-  return new google_smart_card::PpModule;
-}
+Module* CreateModule() { return new google_smart_card::PpModule; }
 
 }  // namespace pp

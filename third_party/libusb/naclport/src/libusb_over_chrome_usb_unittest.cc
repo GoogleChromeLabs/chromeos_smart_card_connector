@@ -14,6 +14,8 @@
 // License along with this library; if not, write to the Free Software
 // Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
+#include "libusb_over_chrome_usb.h"
+
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -36,7 +38,6 @@
 
 #include "chrome_usb/api_bridge_interface.h"
 #include "chrome_usb/types.h"
-#include "libusb_over_chrome_usb.h"
 
 // Google Mock doesn't provide the C++11 "override" specifier for the mock
 // method definitions
@@ -55,90 +56,73 @@ using testing::MockFunction;
 using testing::ResultOf;
 using testing::Return;
 
-const char kBoolValues[] = {false, true};
-
 namespace google_smart_card {
 
 namespace {
 
+constexpr char kBoolValues[] = {false, true};
+
 class MockChromeUsbApiBridge final : public chrome_usb::ApiBridgeInterface {
  public:
-  MOCK_METHOD1(
-      GetDevices,
-      RequestResult<chrome_usb::GetDevicesResult>(
-          const chrome_usb::GetDevicesOptions& options));
+  MOCK_METHOD1(GetDevices, RequestResult<chrome_usb::GetDevicesResult>(
+                               const chrome_usb::GetDevicesOptions& options));
 
-  MOCK_METHOD1(
-      GetUserSelectedDevices,
-      RequestResult<chrome_usb::GetUserSelectedDevicesResult>(
-          const chrome_usb::GetUserSelectedDevicesOptions& options));
+  MOCK_METHOD1(GetUserSelectedDevices,
+               RequestResult<chrome_usb::GetUserSelectedDevicesResult>(
+                   const chrome_usb::GetUserSelectedDevicesOptions& options));
 
-  MOCK_METHOD1(
-      GetConfigurations,
-      RequestResult<chrome_usb::GetConfigurationsResult>(
-          const chrome_usb::Device& device));
+  MOCK_METHOD1(GetConfigurations,
+               RequestResult<chrome_usb::GetConfigurationsResult>(
+                   const chrome_usb::Device& device));
 
-  MOCK_METHOD1(
-      OpenDevice,
-      RequestResult<chrome_usb::OpenDeviceResult>(
-          const chrome_usb::Device& device));
+  MOCK_METHOD1(OpenDevice, RequestResult<chrome_usb::OpenDeviceResult>(
+                               const chrome_usb::Device& device));
 
-  MOCK_METHOD1(CloseDevice, RequestResult<chrome_usb::CloseDeviceResult>(
-      const chrome_usb::ConnectionHandle& connection_handle));
+  MOCK_METHOD1(CloseDevice,
+               RequestResult<chrome_usb::CloseDeviceResult>(
+                   const chrome_usb::ConnectionHandle& connection_handle));
 
-  MOCK_METHOD2(
-      SetConfiguration,
-      RequestResult<chrome_usb::SetConfigurationResult>(
-          const chrome_usb::ConnectionHandle& connection_handle,
-          int64_t configuration_value));
+  MOCK_METHOD2(SetConfiguration,
+               RequestResult<chrome_usb::SetConfigurationResult>(
+                   const chrome_usb::ConnectionHandle& connection_handle,
+                   int64_t configuration_value));
 
-  MOCK_METHOD1(
-      GetConfiguration,
-      RequestResult<chrome_usb::GetConfigurationResult>(
-          const chrome_usb::ConnectionHandle& connection_handle));
+  MOCK_METHOD1(GetConfiguration,
+               RequestResult<chrome_usb::GetConfigurationResult>(
+                   const chrome_usb::ConnectionHandle& connection_handle));
 
-  MOCK_METHOD1(
-      ListInterfaces,
-      RequestResult<chrome_usb::ListInterfacesResult>(
-          const chrome_usb::ConnectionHandle& connection_handle));
+  MOCK_METHOD1(ListInterfaces,
+               RequestResult<chrome_usb::ListInterfacesResult>(
+                   const chrome_usb::ConnectionHandle& connection_handle));
 
-  MOCK_METHOD2(
-      ClaimInterface,
-      RequestResult<chrome_usb::ClaimInterfaceResult>(
-          const chrome_usb::ConnectionHandle& connection_handle,
-          int64_t interface_number));
+  MOCK_METHOD2(ClaimInterface,
+               RequestResult<chrome_usb::ClaimInterfaceResult>(
+                   const chrome_usb::ConnectionHandle& connection_handle,
+                   int64_t interface_number));
 
-  MOCK_METHOD2(
-      ReleaseInterface,
-      RequestResult<chrome_usb::ReleaseInterfaceResult>(
-          const chrome_usb::ConnectionHandle& connection_handle,
-          int64_t interface_number));
+  MOCK_METHOD2(ReleaseInterface,
+               RequestResult<chrome_usb::ReleaseInterfaceResult>(
+                   const chrome_usb::ConnectionHandle& connection_handle,
+                   int64_t interface_number));
 
-  MOCK_METHOD3(
-      AsyncControlTransfer,
-      void(
-          const chrome_usb::ConnectionHandle& connection_handle,
-          const chrome_usb::ControlTransferInfo& transfer_info,
-          chrome_usb::AsyncTransferCallback callback));
+  MOCK_METHOD3(AsyncControlTransfer,
+               void(const chrome_usb::ConnectionHandle& connection_handle,
+                    const chrome_usb::ControlTransferInfo& transfer_info,
+                    chrome_usb::AsyncTransferCallback callback));
 
-  MOCK_METHOD3(
-      AsyncBulkTransfer,
-      void(
-          const chrome_usb::ConnectionHandle& connection_handle,
-          const chrome_usb::GenericTransferInfo& transfer_info,
-          chrome_usb::AsyncTransferCallback callback));
+  MOCK_METHOD3(AsyncBulkTransfer,
+               void(const chrome_usb::ConnectionHandle& connection_handle,
+                    const chrome_usb::GenericTransferInfo& transfer_info,
+                    chrome_usb::AsyncTransferCallback callback));
 
-  MOCK_METHOD3(
-      AsyncInterruptTransfer,
-      void(
-          const chrome_usb::ConnectionHandle& connection_handle,
-          const chrome_usb::GenericTransferInfo& transfer_info,
-          chrome_usb::AsyncTransferCallback callback));
+  MOCK_METHOD3(AsyncInterruptTransfer,
+               void(const chrome_usb::ConnectionHandle& connection_handle,
+                    const chrome_usb::GenericTransferInfo& transfer_info,
+                    chrome_usb::AsyncTransferCallback callback));
 
-  MOCK_METHOD1(
-      ResetDevice,
-      RequestResult<chrome_usb::ResetDeviceResult>(
-          const chrome_usb::ConnectionHandle& connection_handle));
+  MOCK_METHOD1(ResetDevice,
+               RequestResult<chrome_usb::ResetDeviceResult>(
+                   const chrome_usb::ConnectionHandle& connection_handle));
 };
 
 class LibusbOverChromeUsbTest : public ::testing::Test {
@@ -147,8 +131,8 @@ class LibusbOverChromeUsbTest : public ::testing::Test {
     ::testing::Test::SetUp();
 
     chrome_usb_api_bridge.reset(new MockChromeUsbApiBridge);
-    libusb_over_chrome_usb.reset(new LibusbOverChromeUsb(
-        chrome_usb_api_bridge.get()));
+    libusb_over_chrome_usb.reset(
+        new LibusbOverChromeUsb(chrome_usb_api_bridge.get()));
   }
 
   void TearDown() override {
@@ -185,25 +169,26 @@ TEST_F(LibusbOverChromeUsbTest, ContextsCreation) {
 }
 
 TEST_F(LibusbOverChromeUsbTest, DevicesListingWithFailure) {
-  EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_)).WillOnce(Return(
-      RequestResult<chrome_usb::GetDevicesResult>::CreateFailed(
-          "fake failure")));
+  EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
+      .WillOnce(
+          Return(RequestResult<chrome_usb::GetDevicesResult>::CreateFailed(
+              "fake failure")));
 
   libusb_device** device_list;
-  ASSERT_EQ(
-      LIBUSB_ERROR_OTHER,
-      libusb_over_chrome_usb->LibusbGetDeviceList(nullptr, &device_list));
+  ASSERT_EQ(LIBUSB_ERROR_OTHER,
+            libusb_over_chrome_usb->LibusbGetDeviceList(nullptr, &device_list));
 }
 
 TEST_F(LibusbOverChromeUsbTest, DevicesListingWithNoItems) {
   chrome_usb::GetDevicesResult chrome_usb_get_devices_result;
-  EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_)).WillOnce(Return(
-      RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
-          chrome_usb_get_devices_result)));
+  EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
+      .WillOnce(
+          Return(RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
+              chrome_usb_get_devices_result)));
 
   libusb_device** device_list = nullptr;
-  ASSERT_EQ(
-      0, libusb_over_chrome_usb->LibusbGetDeviceList(nullptr, &device_list));
+  ASSERT_EQ(0,
+            libusb_over_chrome_usb->LibusbGetDeviceList(nullptr, &device_list));
   ASSERT_TRUE(device_list);
   ASSERT_FALSE(device_list[0]);
 
@@ -222,13 +207,14 @@ TEST_F(LibusbOverChromeUsbTest, DevicesListingWithTwoItems) {
   chrome_usb_device_2.vendor_id = 0;
   chrome_usb_device_2.product_id = 0;
   chrome_usb_get_devices_result.devices.push_back(chrome_usb_device_2);
-  EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_)).WillOnce(Return(
-      RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
-          chrome_usb_get_devices_result)));
+  EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
+      .WillOnce(
+          Return(RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
+              chrome_usb_get_devices_result)));
 
   libusb_device** device_list = nullptr;
-  ASSERT_EQ(
-      2, libusb_over_chrome_usb->LibusbGetDeviceList(nullptr, &device_list));
+  ASSERT_EQ(2,
+            libusb_over_chrome_usb->LibusbGetDeviceList(nullptr, &device_list));
   ASSERT_TRUE(device_list);
   ASSERT_TRUE(device_list[0]);
   ASSERT_TRUE(device_list[1]);
@@ -248,8 +234,7 @@ namespace {
 class LibusbOverChromeUsbWithFakeDeviceTest : public LibusbOverChromeUsbTest {
  public:
   LibusbOverChromeUsbWithFakeDeviceTest()
-      : device(nullptr),
-        device_handle(nullptr) {
+      : device(nullptr), device_handle(nullptr) {
     chrome_usb_device.device = 1;
     chrome_usb_device.vendor_id = 2;
     chrome_usb_device.product_id = 3;
@@ -293,23 +278,26 @@ class LibusbOverChromeUsbWithFakeDeviceTest : public LibusbOverChromeUsbTest {
     chrome_usb::GetDevicesResult chrome_usb_get_devices_result;
     chrome_usb_get_devices_result.devices.push_back(chrome_usb_device);
     // TODO(emaxx): Add testing of the GetDevices method arguments
-    EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_)).WillRepeatedly(Return(
-        RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
-            chrome_usb_get_devices_result)));
+    EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
+        .WillRepeatedly(Return(
+            RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
+                chrome_usb_get_devices_result)));
 
     chrome_usb::OpenDeviceResult chrome_usb_open_device_result;
     chrome_usb_open_device_result.connection_handle =
         chrome_usb_connection_handle;
-    EXPECT_CALL(*chrome_usb_api_bridge, OpenDevice(chrome_usb_device)).WillOnce(
-        Return(RequestResult<chrome_usb::OpenDeviceResult>::CreateSuccessful(
-            chrome_usb_open_device_result)));
+    EXPECT_CALL(*chrome_usb_api_bridge, OpenDevice(chrome_usb_device))
+        .WillOnce(Return(
+            RequestResult<chrome_usb::OpenDeviceResult>::CreateSuccessful(
+                chrome_usb_open_device_result)));
 
     // TODO(emaxx): Add testing that calls of methods OpenDevice and CloseDevice
     // form a valid bracket sequence
     EXPECT_CALL(*chrome_usb_api_bridge,
-                CloseDevice(chrome_usb_connection_handle)).WillOnce(
-        Return(RequestResult<chrome_usb::CloseDeviceResult>::CreateSuccessful(
-            chrome_usb::CloseDeviceResult())));
+                CloseDevice(chrome_usb_connection_handle))
+        .WillOnce(Return(
+            RequestResult<chrome_usb::CloseDeviceResult>::CreateSuccessful(
+                chrome_usb::CloseDeviceResult())));
   }
 
   void ObtainLibusbDevice() {
@@ -323,9 +311,8 @@ class LibusbOverChromeUsbWithFakeDeviceTest : public LibusbOverChromeUsbTest {
   }
 
   void ObtainLibusbDeviceHandle() {
-    EXPECT_EQ(
-        LIBUSB_SUCCESS,
-        libusb_over_chrome_usb->LibusbOpen(device, &device_handle));
+    EXPECT_EQ(LIBUSB_SUCCESS,
+              libusb_over_chrome_usb->LibusbOpen(device, &device_handle));
     EXPECT_TRUE(device_handle);
   }
 };
@@ -337,31 +324,31 @@ class LibusbOverChromeUsbTransfersTest
     EXPECT_CALL(*chrome_usb_api_bridge,
                 AsyncControlTransfer(
                     chrome_usb_connection_handle,
-                    GenerateControlTransferInfo(transfer_index, is_output),
-                    _)).WillOnce(
-        InvokeArgument<2>(GenerateTransferRequestResult(
-            transfer_index, is_output)));
+                    GenerateControlTransferInfo(transfer_index, is_output), _))
+        .WillOnce(InvokeArgument<2>(
+            GenerateTransferRequestResult(transfer_index, is_output)));
   }
 
-  std::function<void()> SetUpMockForAsyncControlTransfer(
-      size_t transfer_index, bool is_output) {
+  std::function<void()> SetUpMockForAsyncControlTransfer(size_t transfer_index,
+                                                         bool is_output) {
     auto callback_holder =
         std::make_shared<chrome_usb::AsyncTransferCallback>();
-    EXPECT_CALL(
-        *chrome_usb_api_bridge,
-        AsyncControlTransfer(
-            chrome_usb_connection_handle,
-            GenerateControlTransferInfo(transfer_index, is_output),
-            _)).WillOnce(Invoke([callback_holder](
-                const chrome_usb::ConnectionHandle&,
-                const chrome_usb::ControlTransferInfo&,
-                chrome_usb::AsyncTransferCallback callback) mutable {
+    EXPECT_CALL(*chrome_usb_api_bridge,
+                AsyncControlTransfer(
+                    chrome_usb_connection_handle,
+                    GenerateControlTransferInfo(transfer_index, is_output), _))
+        .WillOnce(
+            Invoke([callback_holder](
+                       const chrome_usb::ConnectionHandle&,
+                       const chrome_usb::ControlTransferInfo&,
+                       chrome_usb::AsyncTransferCallback callback) mutable {
               *callback_holder = callback;
-            })).RetiresOnSaturation();
+            }))
+        .RetiresOnSaturation();
     return [this, transfer_index, is_output, callback_holder]() {
       GOOGLE_SMART_CARD_CHECK(callback_holder);
-      (*callback_holder)(GenerateTransferRequestResult(
-          transfer_index, is_output));
+      (*callback_holder)(
+          GenerateTransferRequestResult(transfer_index, is_output));
     };
   }
 
@@ -376,12 +363,8 @@ class LibusbOverChromeUsbTransfersTest
         device_handle,
         LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
             (is_output ? LIBUSB_ENDPOINT_OUT : LIBUSB_ENDPOINT_IN),
-        kTransferRequestField,
-        kTransferValueField,
-        transfer_index,
-        data.empty() ? nullptr : &data[0],
-        data.size(),
-        kTransferTimeout);
+        kTransferRequestField, kTransferValueField, transfer_index,
+        data.empty() ? nullptr : &data[0], data.size(), kTransferTimeout);
 
     if (IsTransferToFail(transfer_index) ||
         IsTransferToFinishUnsuccessfully(transfer_index)) {
@@ -394,67 +377,54 @@ class LibusbOverChromeUsbTransfersTest
   }
 
   libusb_transfer* StartAsyncControlTransfer(
-      size_t transfer_index,
-      bool is_output,
+      size_t transfer_index, bool is_output,
       MockFunction<void(libusb_transfer_status)>* transfer_callback) {
-    const std::vector<uint8_t> actual_data = GenerateTransferData(
-        transfer_index, is_output);
+    const std::vector<uint8_t> actual_data =
+        GenerateTransferData(transfer_index, is_output);
     const size_t buffer_size = LIBUSB_CONTROL_SETUP_SIZE + actual_data.size();
     uint8_t* const buffer = static_cast<uint8_t*>(::malloc(buffer_size));
     if (is_output) {
-      std::copy(
-          actual_data.begin(),
-          actual_data.end(),
-          buffer + LIBUSB_CONTROL_SETUP_SIZE);
+      std::copy(actual_data.begin(), actual_data.end(),
+                buffer + LIBUSB_CONTROL_SETUP_SIZE);
     }
     libusb_fill_control_setup(
         buffer,
         LIBUSB_RECIPIENT_ENDPOINT | LIBUSB_REQUEST_TYPE_STANDARD |
             (is_output ? LIBUSB_ENDPOINT_OUT : LIBUSB_ENDPOINT_IN),
-        kTransferRequestField,
-        kTransferValueField,
-        transfer_index,
+        kTransferRequestField, kTransferValueField, transfer_index,
         actual_data.size());
 
     libusb_transfer* const transfer =
         libusb_over_chrome_usb->LibusbAllocTransfer(0);
     libusb_fill_control_transfer(
-        transfer,
-        device_handle,
-        buffer,
+        transfer, device_handle, buffer,
         &AsyncTransferCallbackWrapper::Callback,
-        new AsyncTransferCallbackWrapper(
-            this, transfer_index, is_output, transfer_callback),
+        new AsyncTransferCallbackWrapper(this, transfer_index, is_output,
+                                         transfer_callback),
         kTransferTimeout);
     transfer->flags =
         LIBUSB_TRANSFER_FREE_TRANSFER | LIBUSB_TRANSFER_FREE_BUFFER;
 
-    EXPECT_EQ(
-        LIBUSB_SUCCESS, libusb_over_chrome_usb->LibusbSubmitTransfer(transfer));
+    EXPECT_EQ(LIBUSB_SUCCESS,
+              libusb_over_chrome_usb->LibusbSubmitTransfer(transfer));
 
     return transfer;
   }
 
   void SetUpTransferCallbackMockExpectations(
-      size_t transfer_index,
-      bool /*is_output*/,
-      bool is_canceled,
+      size_t transfer_index, bool /*is_output*/, bool is_canceled,
       MockFunction<void(libusb_transfer_status)>* transfer_callback) {
-    EXPECT_CALL(
-        *transfer_callback,
-        Call(GetExpectedTransferStatus(transfer_index, is_canceled)));
+    EXPECT_CALL(*transfer_callback,
+                Call(GetExpectedTransferStatus(transfer_index, is_canceled)));
   }
 
   void SetUpTransferCallbackMockExpectations(
-      size_t transfer_index,
-      bool /*is_output*/,
-      bool is_canceled,
+      size_t transfer_index, bool /*is_output*/, bool is_canceled,
       MockFunction<void(libusb_transfer_status)>* transfer_callback,
       int* completed) {
-    EXPECT_CALL(
-        *transfer_callback,
-        Call(GetExpectedTransferStatus(transfer_index, is_canceled))).WillOnce(
-            Assign(completed, 1));
+    EXPECT_CALL(*transfer_callback,
+                Call(GetExpectedTransferStatus(transfer_index, is_canceled)))
+        .WillOnce(Assign(completed, 1));
   }
 
   static bool IsTransferToFail(size_t transfer_index) {
@@ -465,7 +435,7 @@ class LibusbOverChromeUsbTransfersTest
     return !IsTransferToFail(transfer_index) && transfer_index % 5 == 0;
   }
 
-private:
+ private:
   const uint8_t kTransferRequestField = 1;
   const uint16_t kTransferValueField = 2;
   const unsigned kTransferTimeout = 3;
@@ -473,8 +443,7 @@ private:
   class AsyncTransferCallbackWrapper {
    public:
     AsyncTransferCallbackWrapper(
-        LibusbOverChromeUsbTransfersTest* test_instance,
-        size_t transfer_index,
+        LibusbOverChromeUsbTransfersTest* test_instance, size_t transfer_index,
         bool is_output,
         MockFunction<void(libusb_transfer_status)>* transfer_callback)
         : test_instance_(test_instance),
@@ -510,8 +479,8 @@ private:
   chrome_usb::ControlTransferInfo GenerateControlTransferInfo(
       size_t transfer_index, bool is_output) {
     chrome_usb::ControlTransferInfo transfer_info;
-    transfer_info.direction = is_output ?
-        chrome_usb::Direction::kOut : chrome_usb::Direction::kIn;
+    transfer_info.direction =
+        is_output ? chrome_usb::Direction::kOut : chrome_usb::Direction::kIn;
     transfer_info.recipient =
         chrome_usb::ControlTransferInfoRecipient::kEndpoint;
     transfer_info.request_type =
@@ -519,8 +488,8 @@ private:
     transfer_info.request = kTransferRequestField;
     transfer_info.value = kTransferValueField;
     transfer_info.index = transfer_index;
-    const std::vector<uint8_t> data = GenerateTransferData(
-        transfer_index, is_output);
+    const std::vector<uint8_t> data =
+        GenerateTransferData(transfer_index, is_output);
     if (is_output)
       transfer_info.data = MakeVarArrayBuffer(data);
     else
@@ -529,8 +498,8 @@ private:
     return transfer_info;
   }
 
-  std::vector<uint8_t> GenerateTransferData(
-      size_t transfer_index, bool is_output) {
+  std::vector<uint8_t> GenerateTransferData(size_t transfer_index,
+                                            bool is_output) {
     std::vector<uint8_t> result;
     result.push_back(is_output);
     while (transfer_index) {
@@ -552,46 +521,42 @@ private:
       result.result_info.result_code =
           chrome_usb::kTransferResultInfoSuccessResultCode;
       if (!is_output) {
-        result.result_info.data = MakeVarArrayBuffer(GenerateTransferData(
-            transfer_index, false));
+        result.result_info.data =
+            MakeVarArrayBuffer(GenerateTransferData(transfer_index, false));
       }
     }
     return RequestResult<chrome_usb::TransferResult>::CreateSuccessful(result);
   }
 
   void OnAsyncControlTransferFinished(
-      libusb_transfer* transfer,
-      size_t transfer_index,
-      bool is_output,
+      libusb_transfer* transfer, size_t transfer_index, bool is_output,
       MockFunction<void(libusb_transfer_status)>* transfer_callback) {
     if (transfer->status != LIBUSB_TRANSFER_CANCELLED) {
-      EXPECT_EQ(
-          GetExpectedTransferStatus(transfer_index, false), transfer->status);
+      EXPECT_EQ(GetExpectedTransferStatus(transfer_index, false),
+                transfer->status);
     }
 
     if (transfer->status == LIBUSB_TRANSFER_COMPLETED) {
-      const std::vector<uint8_t> expected_data = GenerateTransferData(
-          transfer_index, is_output);
-      EXPECT_EQ(
-          static_cast<int>(expected_data.size()), transfer->actual_length);
+      const std::vector<uint8_t> expected_data =
+          GenerateTransferData(transfer_index, is_output);
+      EXPECT_EQ(static_cast<int>(expected_data.size()),
+                transfer->actual_length);
       if (!is_output) {
-        const uint8_t* data = transfer->type == LIBUSB_TRANSFER_TYPE_CONTROL ?
-            libusb_control_transfer_get_data(transfer) : transfer->buffer;
-        EXPECT_EQ(
-            expected_data,
-            std::vector<uint8_t>(data, data + transfer->actual_length));
+        const uint8_t* data = transfer->type == LIBUSB_TRANSFER_TYPE_CONTROL
+                                  ? libusb_control_transfer_get_data(transfer)
+                                  : transfer->buffer;
+        EXPECT_EQ(expected_data,
+                  std::vector<uint8_t>(data, data + transfer->actual_length));
       }
     }
 
     transfer_callback->Call(transfer->status);
   }
 
-  static libusb_transfer_status GetExpectedTransferStatus(
-      size_t transfer_index, bool is_canceled) {
-    if (is_canceled)
-      return LIBUSB_TRANSFER_CANCELLED;
-    if (IsTransferToFail(transfer_index))
-      return LIBUSB_TRANSFER_ERROR;
+  static libusb_transfer_status GetExpectedTransferStatus(size_t transfer_index,
+                                                          bool is_canceled) {
+    if (is_canceled) return LIBUSB_TRANSFER_CANCELLED;
+    if (IsTransferToFail(transfer_index)) return LIBUSB_TRANSFER_ERROR;
     if (IsTransferToFinishUnsuccessfully(transfer_index))
       return LIBUSB_TRANSFER_ERROR;
     return LIBUSB_TRANSFER_COMPLETED;
@@ -599,8 +564,8 @@ private:
 };
 
 struct LibusbOverChromeUsbSingleTransferTestParam {
-  LibusbOverChromeUsbSingleTransferTestParam(
-      size_t transfer_index, bool is_transfer_output)
+  LibusbOverChromeUsbSingleTransferTestParam(size_t transfer_index,
+                                             bool is_transfer_output)
       : transfer_index(transfer_index),
         is_transfer_output(is_transfer_output) {}
 
@@ -642,10 +607,10 @@ class LibusbOverChromeUsbSingleTransferTest
 // The transfer request is resolved immediately on the same thread that
 // initiated the transfer.
 TEST_P(LibusbOverChromeUsbSingleTransferTest, SyncControlTransfer) {
-  SetUpMockForSyncControlTransfer(
-      GetParam().transfer_index, GetParam().is_transfer_output);
-  TestSyncControlTransfer(
-      GetParam().transfer_index, GetParam().is_transfer_output);
+  SetUpMockForSyncControlTransfer(GetParam().transfer_index,
+                                  GetParam().is_transfer_output);
+  TestSyncControlTransfer(GetParam().transfer_index,
+                          GetParam().is_transfer_output);
 }
 
 // Test a simple asynchronous control transfer.
@@ -654,23 +619,19 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest, SyncControlTransfer) {
 // transfer, before the libusb events handling starts.
 TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncControlTransfer) {
   const std::function<void()> chrome_usb_transfer_resolver =
-      SetUpMockForAsyncControlTransfer(
-            GetParam().transfer_index, GetParam().is_transfer_output);
+      SetUpMockForAsyncControlTransfer(GetParam().transfer_index,
+                                       GetParam().is_transfer_output);
 
   MockFunction<void(libusb_transfer_status)> transfer_callback;
-  StartAsyncControlTransfer(
-      GetParam().transfer_index,
-      GetParam().is_transfer_output,
-      &transfer_callback);
+  StartAsyncControlTransfer(GetParam().transfer_index,
+                            GetParam().is_transfer_output, &transfer_callback);
 
   chrome_usb_transfer_resolver();
 
   ASSERT_TRUE(Mock::VerifyAndClearExpectations(&transfer_callback));
-  SetUpTransferCallbackMockExpectations(
-      GetParam().transfer_index,
-      GetParam().is_transfer_output,
-      false,
-      &transfer_callback);
+  SetUpTransferCallbackMockExpectations(GetParam().transfer_index,
+                                        GetParam().is_transfer_output, false,
+                                        &transfer_callback);
   libusb_over_chrome_usb->LibusbHandleEvents(nullptr);
 }
 
@@ -679,29 +640,28 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncControlTransfer) {
 // Note that output control transfers cancellation never succeeds.
 TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncTransferCancellation) {
   const std::function<void()> chrome_usb_transfer_resolver =
-      SetUpMockForAsyncControlTransfer(
-            GetParam().transfer_index, GetParam().is_transfer_output);
+      SetUpMockForAsyncControlTransfer(GetParam().transfer_index,
+                                       GetParam().is_transfer_output);
 
   MockFunction<void(libusb_transfer_status)> transfer_callback;
   libusb_transfer* const transfer = StartAsyncControlTransfer(
-      GetParam().transfer_index,
-      GetParam().is_transfer_output,
+      GetParam().transfer_index, GetParam().is_transfer_output,
       &transfer_callback);
 
   // Output transfer cancellation is never successfull
   const bool is_cancellation_successful = !GetParam().is_transfer_output;
 
   if (is_cancellation_successful) {
-    EXPECT_EQ(
-        LIBUSB_SUCCESS, libusb_over_chrome_usb->LibusbCancelTransfer(transfer));
+    EXPECT_EQ(LIBUSB_SUCCESS,
+              libusb_over_chrome_usb->LibusbCancelTransfer(transfer));
   } else {
-    EXPECT_NE(
-        LIBUSB_SUCCESS, libusb_over_chrome_usb->LibusbCancelTransfer(transfer));
+    EXPECT_NE(LIBUSB_SUCCESS,
+              libusb_over_chrome_usb->LibusbCancelTransfer(transfer));
   }
 
   // Second attempt to cancel a transfer is never successful
-  EXPECT_NE(
-      LIBUSB_SUCCESS, libusb_over_chrome_usb->LibusbCancelTransfer(transfer));
+  EXPECT_NE(LIBUSB_SUCCESS,
+            libusb_over_chrome_usb->LibusbCancelTransfer(transfer));
 
   if (!is_cancellation_successful) {
     // Resolve the chrome.usb transfer if the transfer was an output transfer,
@@ -711,10 +671,8 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncTransferCancellation) {
 
   ASSERT_TRUE(Mock::VerifyAndClearExpectations(&transfer_callback));
   SetUpTransferCallbackMockExpectations(
-      GetParam().transfer_index,
-      GetParam().is_transfer_output,
-      is_cancellation_successful,
-      &transfer_callback);
+      GetParam().transfer_index, GetParam().is_transfer_output,
+      is_cancellation_successful, &transfer_callback);
   libusb_over_chrome_usb->LibusbHandleEvents(nullptr);
 }
 
@@ -729,49 +687,41 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest,
   }
 
   const std::function<void()> first_chrome_usb_transfer_resolver =
-      SetUpMockForAsyncControlTransfer(
-            GetParam().transfer_index, GetParam().is_transfer_output);
+      SetUpMockForAsyncControlTransfer(GetParam().transfer_index,
+                                       GetParam().is_transfer_output);
   const std::function<void()> second_chrome_usb_transfer_resolver =
-      SetUpMockForAsyncControlTransfer(
-            GetParam().transfer_index, GetParam().is_transfer_output);
+      SetUpMockForAsyncControlTransfer(GetParam().transfer_index,
+                                       GetParam().is_transfer_output);
 
   MockFunction<void(libusb_transfer_status)> first_transfer_callback;
   libusb_transfer* const first_transfer = StartAsyncControlTransfer(
-      GetParam().transfer_index,
-      GetParam().is_transfer_output,
+      GetParam().transfer_index, GetParam().is_transfer_output,
       &first_transfer_callback);
 
   MockFunction<void(libusb_transfer_status)> second_transfer_callback;
-  StartAsyncControlTransfer(
-      GetParam().transfer_index,
-      GetParam().is_transfer_output,
-      &second_transfer_callback);
+  StartAsyncControlTransfer(GetParam().transfer_index,
+                            GetParam().is_transfer_output,
+                            &second_transfer_callback);
 
-  EXPECT_EQ(
-      LIBUSB_SUCCESS,
-      libusb_over_chrome_usb->LibusbCancelTransfer(first_transfer));
+  EXPECT_EQ(LIBUSB_SUCCESS,
+            libusb_over_chrome_usb->LibusbCancelTransfer(first_transfer));
 
   first_chrome_usb_transfer_resolver();
 
   ASSERT_TRUE(Mock::VerifyAndClearExpectations(&first_transfer_callback));
   ASSERT_TRUE(Mock::VerifyAndClearExpectations(&second_transfer_callback));
-  SetUpTransferCallbackMockExpectations(
-      GetParam().transfer_index,
-      GetParam().is_transfer_output,
-      true,
-      &first_transfer_callback);
-  SetUpTransferCallbackMockExpectations(
-      GetParam().transfer_index,
-      GetParam().is_transfer_output,
-      false,
-      &second_transfer_callback);
+  SetUpTransferCallbackMockExpectations(GetParam().transfer_index,
+                                        GetParam().is_transfer_output, true,
+                                        &first_transfer_callback);
+  SetUpTransferCallbackMockExpectations(GetParam().transfer_index,
+                                        GetParam().is_transfer_output, false,
+                                        &second_transfer_callback);
   libusb_over_chrome_usb->LibusbHandleEvents(nullptr);
   libusb_over_chrome_usb->LibusbHandleEvents(nullptr);
 }
 
 INSTANTIATE_TEST_CASE_P(
-    InputTransferTest,
-    LibusbOverChromeUsbSingleTransferTest,
+    InputTransferTest, LibusbOverChromeUsbSingleTransferTest,
     ::testing::Values(
         LibusbOverChromeUsbSingleTransferTestParam(
             LibusbOverChromeUsbSingleTransferTest::GetTransferIndexToSucceed(),
@@ -781,12 +731,11 @@ INSTANTIATE_TEST_CASE_P(
             false),
         LibusbOverChromeUsbSingleTransferTestParam(
             LibusbOverChromeUsbSingleTransferTest::
-            GetTransferIndexToFinishUnsuccessful(),
+                GetTransferIndexToFinishUnsuccessful(),
             false)));
 
 INSTANTIATE_TEST_CASE_P(
-    OutputTransferTest,
-    LibusbOverChromeUsbSingleTransferTest,
+    OutputTransferTest, LibusbOverChromeUsbSingleTransferTest,
     ::testing::Values(
         LibusbOverChromeUsbSingleTransferTestParam(
             LibusbOverChromeUsbSingleTransferTest::GetTransferIndexToSucceed(),
@@ -796,7 +745,7 @@ INSTANTIATE_TEST_CASE_P(
             true),
         LibusbOverChromeUsbSingleTransferTestParam(
             LibusbOverChromeUsbSingleTransferTest::
-            GetTransferIndexToFinishUnsuccessful(),
+                GetTransferIndexToFinishUnsuccessful(),
             true)));
 
 // Test the correctness of work of multiple threads issuing a sequence of
@@ -862,8 +811,7 @@ class LibusbOverChromeUsbAsyncTransfersMultiThreadingTest
   }
 
   bool WaitAndGetTransferInFlight(
-      size_t* transfer_index,
-      bool* is_transfer_output,
+      size_t* transfer_index, bool* is_transfer_output,
       std::function<void()>* chrome_usb_transfer_resolver) {
     std::unique_lock<std::mutex> lock(mutex_);
     for (;;) {
@@ -879,8 +827,7 @@ class LibusbOverChromeUsbAsyncTransfersMultiThreadingTest
         return true;
       }
 
-      if (chrome_usb_transfer_resolvers_.empty())
-        return false;
+      if (chrome_usb_transfer_resolvers_.empty()) return false;
 
       condition_.wait(lock);
     }
@@ -892,7 +839,7 @@ class LibusbOverChromeUsbAsyncTransfersMultiThreadingTest
   mutable std::mutex mutex_;
   std::condition_variable condition_;
   std::map<TransferIndexAndIsOutput, std::function<void()>>
-  chrome_usb_transfer_resolvers_;
+      chrome_usb_transfer_resolvers_;
   std::vector<TransferIndexAndIsOutput> transfers_in_flight_;
 };
 
@@ -912,19 +859,15 @@ TEST_F(LibusbOverChromeUsbAsyncTransfersMultiThreadingTest, ControlTransfers) {
            transfer_index <= kMaxTransferIndex;
            transfer_index += kThreadCount) {
         MockFunction<void(libusb_transfer_status)> transfer_callback[2];
-        int transfer_completed[2] = { 0 };
+        int transfer_completed[2] = {0};
 
         for (bool is_transfer_output : kBoolValues) {
           SetUpTransferCallbackMockExpectations(
-              transfer_index,
-              is_transfer_output,
-              false,
+              transfer_index, is_transfer_output, false,
               &transfer_callback[is_transfer_output],
               &transfer_completed[is_transfer_output]);
-          StartAsyncControlTransfer(
-              transfer_index,
-              is_transfer_output,
-              &transfer_callback[is_transfer_output]);
+          StartAsyncControlTransfer(transfer_index, is_transfer_output,
+                                    &transfer_callback[is_transfer_output]);
           AddTransferInFlight(transfer_index, is_transfer_output);
         }
 
@@ -942,10 +885,8 @@ TEST_F(LibusbOverChromeUsbAsyncTransfersMultiThreadingTest, ControlTransfers) {
     size_t transfer_index;
     bool is_transfer_output;
     std::function<void()> chrome_usb_transfer_resolver;
-    if (!WaitAndGetTransferInFlight(
-             &transfer_index,
-             &is_transfer_output,
-             &chrome_usb_transfer_resolver)) {
+    if (!WaitAndGetTransferInFlight(&transfer_index, &is_transfer_output,
+                                    &chrome_usb_transfer_resolver)) {
       break;
     }
     chrome_usb_transfer_resolver();

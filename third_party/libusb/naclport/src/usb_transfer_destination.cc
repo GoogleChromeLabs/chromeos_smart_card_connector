@@ -28,19 +28,18 @@
 
 namespace google_smart_card {
 
+UsbTransferDestination::UsbTransferDestination() = default;
+
+UsbTransferDestination::~UsbTransferDestination() = default;
+
 // static
 UsbTransferDestination
 UsbTransferDestination::CreateFromChromeUsbControlTransfer(
     const chrome_usb::ConnectionHandle& connection_handle,
     const chrome_usb::ControlTransferInfo& transfer_info) {
   return UsbTransferDestination(
-      connection_handle,
-      transfer_info.direction,
-      {},
-      transfer_info.recipient,
-      transfer_info.request_type,
-      transfer_info.request,
-      transfer_info.value,
+      connection_handle, transfer_info.direction, {}, transfer_info.recipient,
+      transfer_info.request_type, transfer_info.request, transfer_info.value,
       transfer_info.index);
 }
 
@@ -49,15 +48,8 @@ UsbTransferDestination
 UsbTransferDestination::CreateFromChromeUsbGenericTransfer(
     const chrome_usb::ConnectionHandle& connection_handle,
     const chrome_usb::GenericTransferInfo& transfer_info) {
-  return UsbTransferDestination(
-      connection_handle,
-      transfer_info.direction,
-      transfer_info.endpoint,
-      {},
-      {},
-      {},
-      {},
-      {});
+  return UsbTransferDestination(connection_handle, transfer_info.direction,
+                                transfer_info.endpoint, {}, {}, {}, {}, {});
 }
 
 bool UsbTransferDestination::IsInputDirection() const {
@@ -81,12 +73,11 @@ bool UsbTransferDestination::operator==(
 
 UsbTransferDestination::UsbTransferDestination(
     const chrome_usb::ConnectionHandle& connection_handle,
-    const chrome_usb::Direction& direction,
-    optional<int64_t> endpoint,
+    const chrome_usb::Direction& direction, optional<int64_t> endpoint,
     optional<chrome_usb::ControlTransferInfoRecipient>
-    control_transfer_recipient,
+        control_transfer_recipient,
     optional<chrome_usb::ControlTransferInfoRequestType>
-    control_transfer_request_type,
+        control_transfer_request_type,
     optional<int64_t> control_transfer_request,
     optional<int64_t> control_transfer_value,
     optional<int64_t> control_transfer_index)
@@ -103,10 +94,8 @@ namespace {
 
 template <typename T>
 int CompareValues(const T& lhs, const T& rhs) {
-  if (lhs < rhs)
-    return -1;
-  if (lhs > rhs)
-    return 1;
+  if (lhs < rhs) return -1;
+  if (lhs > rhs) return 1;
   return 0;
 }
 
@@ -114,28 +103,17 @@ int CompareValues(const T& lhs, const T& rhs) {
 
 int UsbTransferDestination::Compare(const UsbTransferDestination& other) const {
   return CompareValues(
+      std::tie(connection_handle_.handle, connection_handle_.vendor_id,
+               connection_handle_.product_id, direction_, endpoint_,
+               control_transfer_recipient_, control_transfer_request_type_,
+               control_transfer_request_, control_transfer_value_,
+               control_transfer_index_),
       std::tie(
-          connection_handle_.handle,
-          connection_handle_.vendor_id,
-          connection_handle_.product_id,
-          direction_,
-          endpoint_,
-          control_transfer_recipient_,
-          control_transfer_request_type_,
-          control_transfer_request_,
-          control_transfer_value_,
-          control_transfer_index_),
-      std::tie(
-          other.connection_handle_.handle,
-          other.connection_handle_.vendor_id,
-          other.connection_handle_.product_id,
-          other.direction_,
-          other.endpoint_,
-          other.control_transfer_recipient_,
-          other.control_transfer_request_type_,
-          other.control_transfer_request_,
-          other.control_transfer_value_,
-          other.control_transfer_index_));
+          other.connection_handle_.handle, other.connection_handle_.vendor_id,
+          other.connection_handle_.product_id, other.direction_,
+          other.endpoint_, other.control_transfer_recipient_,
+          other.control_transfer_request_type_, other.control_transfer_request_,
+          other.control_transfer_value_, other.control_transfer_index_));
 }
 
 }  // namespace google_smart_card

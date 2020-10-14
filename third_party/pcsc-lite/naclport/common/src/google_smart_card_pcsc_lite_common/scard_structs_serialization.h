@@ -45,12 +45,12 @@
 #include <string>
 #include <vector>
 
-#include <ppapi/cpp/var.h>
-
 #include <pcsclite.h>
 #include <reader.h>
 #include <winscard.h>
 #include <wintypes.h>
+
+#include <ppapi/cpp/var.h>
 
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
@@ -68,10 +68,8 @@ namespace google_smart_card {
 struct InboundSCardReaderState {
   InboundSCardReaderState() = default;
 
-  InboundSCardReaderState(
-      const std::string& reader_name,
-      optional<uintptr_t> user_data,
-      DWORD current_state)
+  InboundSCardReaderState(const std::string& reader_name,
+                          optional<uintptr_t> user_data, DWORD current_state)
       : reader_name(reader_name),
         user_data(user_data),
         current_state(current_state) {}
@@ -95,12 +93,9 @@ struct InboundSCardReaderState {
 struct OutboundSCardReaderState {
   OutboundSCardReaderState() = default;
 
-  OutboundSCardReaderState(
-      const std::string& reader_name,
-      optional<uintptr_t> user_data,
-      DWORD current_state,
-      DWORD event_state,
-      const std::vector<uint8_t>& atr)
+  OutboundSCardReaderState(const std::string& reader_name,
+                           optional<uintptr_t> user_data, DWORD current_state,
+                           DWORD event_state, const std::vector<uint8_t>& atr)
       : reader_name(reader_name),
         user_data(user_data),
         current_state(current_state),
@@ -121,8 +116,7 @@ struct OutboundSCardReaderState {
 struct SCardIoRequest {
   SCardIoRequest() = default;
 
-  explicit SCardIoRequest(DWORD protocol)
-      : protocol(protocol) {}
+  explicit SCardIoRequest(DWORD protocol) : protocol(protocol) {}
 
   SCARD_IO_REQUEST AsSCardIoRequest() const;
 
@@ -131,24 +125,20 @@ struct SCardIoRequest {
   DWORD protocol;
 };
 
-bool VarAs(
-    const pp::Var& var,
-    InboundSCardReaderState* result,
-    std::string* error_message);
+bool VarAs(const pp::Var& var, InboundSCardReaderState* result,
+           std::string* error_message);
 
 template <>
 pp::Var MakeVar(const InboundSCardReaderState& value);
 
-bool VarAs(
-    const pp::Var& var,
-    OutboundSCardReaderState* result,
-    std::string* error_message);
+bool VarAs(const pp::Var& var, OutboundSCardReaderState* result,
+           std::string* error_message);
 
 template <>
 pp::Var MakeVar(const OutboundSCardReaderState& value);
 
-bool VarAs(
-    const pp::Var& var, SCardIoRequest* result, std::string* error_message);
+bool VarAs(const pp::Var& var, SCardIoRequest* result,
+           std::string* error_message);
 
 template <>
 pp::Var MakeVar(const SCardIoRequest& value);

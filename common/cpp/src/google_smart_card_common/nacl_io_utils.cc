@@ -32,15 +32,16 @@ void InitializeNaclIo(const pp::Instance& pp_instance) {
 
   GOOGLE_SMART_CARD_CHECK(!pp_module->core()->IsMainThread());
 
-  GOOGLE_SMART_CARD_CHECK(::nacl_io_init_ppapi(
-      pp_instance.pp_instance(), pp_module->get_browser_interface()) == 0);
+  GOOGLE_SMART_CARD_CHECK(
+      ::nacl_io_init_ppapi(pp_instance.pp_instance(),
+                           pp_module->get_browser_interface()) == 0);
 
   GOOGLE_SMART_CARD_CHECK(::umount("/") == 0);
 
   GOOGLE_SMART_CARD_CHECK(::mount("", "/tmp", "memfs", 0, "") == 0);
 
-  GOOGLE_SMART_CARD_CHECK(::mount(
-      "/", "/crx", "httpfs", 0, "manifest=/nacl_io_manifest.txt") == 0);
+  GOOGLE_SMART_CARD_CHECK(
+      ::mount("/", "/crx", "httpfs", 0, "manifest=/nacl_io_manifest.txt") == 0);
 
   GOOGLE_SMART_CARD_LOG_DEBUG << "[nacl_io] successfully initialized";
 }
