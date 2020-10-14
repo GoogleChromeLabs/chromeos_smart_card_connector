@@ -72,7 +72,7 @@ DEFAULT_NACL_LIBS := \
 #    $4: (optional) Linker command-line switches.
 #
 
-define NACL_MODULE_BUILD_RULE
+define LINK_EXECUTABLE_RULE
 
 $(eval $(call NACL_MODULE_LINK_INTERNAL_RULE,$(1),$(2),$(3),$(4)))
 

@@ -71,7 +71,7 @@ CXXFLAGS := \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
-$(eval $(call NACL_MODULE_BUILD_RULE,$(SOURCES),$(LIBS),$(DEPS)))
+$(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES),$(LIBS),$(DEPS)))
 
 
 $(eval $(call COLLECT_DEPENDENCY_OUT,$(CCID_OUT)))
