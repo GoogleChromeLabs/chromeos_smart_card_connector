@@ -21,6 +21,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -40,10 +41,19 @@ TEST(ValueNaclPpVarConversion, NullValue) {
 }
 
 TEST(ValueNaclPpVarConversion, BooleanValue) {
-  const bool kBoolean = 123;
-  const pp::Var var = ConvertValueToPpVar(Value(kBoolean));
-  ASSERT_TRUE(var.is_bool());
-  EXPECT_EQ(var.AsBool(), kBoolean);
+  {
+    const bool kBoolean = false;
+    const pp::Var var = ConvertValueToPpVar(Value(kBoolean));
+    ASSERT_TRUE(var.is_bool());
+    EXPECT_EQ(var.AsBool(), kBoolean);
+  }
+
+  {
+    const bool kBoolean = true;
+    const pp::Var var = ConvertValueToPpVar(Value(kBoolean));
+    ASSERT_TRUE(var.is_bool());
+    EXPECT_EQ(var.AsBool(), kBoolean);
+  }
 }
 
 TEST(ValueNaclPpVarConversion, IntegerValue) {
@@ -75,68 +85,105 @@ TEST(ValueNaclPpVarConversion, FloatValue) {
 }
 
 TEST(ValueNaclPpVarConversion, StringValue) {
-  const char kString[] = "foo";
-  const pp::Var var = ConvertValueToPpVar(Value(kString));
-  ASSERT_TRUE(var.is_string());
-  EXPECT_EQ(var.AsString(), kString);
+  {
+    const pp::Var var = ConvertValueToPpVar(Value(Value::Type::kString));
+    ASSERT_TRUE(var.is_string());
+    EXPECT_EQ(var.AsString(), "");
+  }
+
+  {
+    const char kString[] = "foo";
+    const pp::Var var = ConvertValueToPpVar(Value(kString));
+    ASSERT_TRUE(var.is_string());
+    EXPECT_EQ(var.AsString(), kString);
+  }
 }
 
 TEST(ValueNaclPpVarConversion, BinaryValue) {
-  const std::vector<uint8_t> kBinary = {1, 2, 3};
-  const pp::Var var = ConvertValueToPpVar(Value(kBinary));
-  ASSERT_TRUE(var.is_array_buffer());
-  pp::VarArrayBuffer var_array_buffer(var);
-  EXPECT_EQ(var_array_buffer.ByteLength(), kBinary.size());
-  const void* const buffer_contents = var_array_buffer.Map();
-  EXPECT_EQ(std::memcmp(buffer_contents, &kBinary.front(), kBinary.size()), 0);
+  {
+    const pp::Var var = ConvertValueToPpVar(Value(Value::Type::kBinary));
+    ASSERT_TRUE(var.is_array_buffer());
+    pp::VarArrayBuffer var_array_buffer(var);
+    EXPECT_EQ(var_array_buffer.ByteLength(), 0U);
+  }
+
+  {
+    const std::vector<uint8_t> kBinary = {1, 2, 3};
+    const pp::Var var = ConvertValueToPpVar(Value(kBinary));
+    ASSERT_TRUE(var.is_array_buffer());
+    pp::VarArrayBuffer var_array_buffer(var);
+    EXPECT_EQ(var_array_buffer.ByteLength(), kBinary.size());
+    const void* const buffer_contents = var_array_buffer.Map();
+    EXPECT_EQ(std::memcmp(buffer_contents, &kBinary.front(), kBinary.size()),
+              0);
+    var_array_buffer.Unmap();
+  }
 }
 
 TEST(ValueNaclPpVarConversion, DictionaryValue) {
-  // The test data is: {"xyz": {"foo": null, "bar": 123}}.
-  std::map<std::string, std::unique_ptr<Value>> inner_items;
-  inner_items["foo"] = MakeUnique<Value>();
-  inner_items["bar"] = MakeUnique<Value>(123);
-  std::map<std::string, std::unique_ptr<Value>> items;
-  items["xyz"] = MakeUnique<Value>(std::move(inner_items));
-  const Value value(std::move(items));
+  {
+    const pp::Var var = ConvertValueToPpVar(Value(Value::Type::kDictionary));
+    ASSERT_TRUE(var.is_dictionary());
+    const pp::VarDictionary var_dict(var);
+    EXPECT_EQ(var_dict.GetKeys().GetLength(), 0U);
+  }
 
-  const pp::Var var = ConvertValueToPpVar(value);
-  ASSERT_TRUE(var.is_dictionary());
-  const pp::VarDictionary var_dict(var);
-  EXPECT_EQ(var_dict.GetKeys().GetLength(), 1U);
-  const pp::Var item_xyz = var_dict.Get("xyz");
-  ASSERT_TRUE(item_xyz.is_dictionary());
-  const pp::VarDictionary inner_dict(item_xyz);
-  EXPECT_EQ(inner_dict.GetKeys().GetLength(), 2U);
-  const pp::Var inner_item_foo = inner_dict.Get("foo");
-  EXPECT_TRUE(inner_item_foo.is_null());
-  const pp::Var inner_item_bar = inner_dict.Get("bar");
-  ASSERT_TRUE(inner_item_bar.is_int());
-  EXPECT_EQ(inner_item_bar.AsInt(), 123);
+  {
+    // The test data is: {"xyz": {"foo": null, "bar": 123}}.
+    std::map<std::string, std::unique_ptr<Value>> inner_items;
+    inner_items["foo"] = MakeUnique<Value>();
+    inner_items["bar"] = MakeUnique<Value>(123);
+    std::map<std::string, std::unique_ptr<Value>> items;
+    items["xyz"] = MakeUnique<Value>(std::move(inner_items));
+    const Value value(std::move(items));
+
+    const pp::Var var = ConvertValueToPpVar(value);
+    ASSERT_TRUE(var.is_dictionary());
+    const pp::VarDictionary var_dict(var);
+    EXPECT_EQ(var_dict.GetKeys().GetLength(), 1U);
+    const pp::Var item_xyz = var_dict.Get("xyz");
+    ASSERT_TRUE(item_xyz.is_dictionary());
+    const pp::VarDictionary inner_dict(item_xyz);
+    EXPECT_EQ(inner_dict.GetKeys().GetLength(), 2U);
+    const pp::Var inner_item_foo = inner_dict.Get("foo");
+    EXPECT_TRUE(inner_item_foo.is_null());
+    const pp::Var inner_item_bar = inner_dict.Get("bar");
+    ASSERT_TRUE(inner_item_bar.is_int());
+    EXPECT_EQ(inner_item_bar.AsInt(), 123);
+  }
 }
 
 TEST(ValueNaclPpVarConversion, ArrayValue) {
-  // The test data is: [[null, 123]].
-  std::vector<std::unique_ptr<Value>> inner_items;
-  inner_items.push_back(MakeUnique<Value>());
-  inner_items.push_back(MakeUnique<Value>(123));
-  std::vector<std::unique_ptr<Value>> items;
-  items.push_back(MakeUnique<Value>(std::move(inner_items)));
-  const Value value(std::move(items));
+  {
+    const pp::Var var = ConvertValueToPpVar(Value(Value::Type::kArray));
+    ASSERT_TRUE(var.is_array());
+    const pp::VarArray var_array(var);
+    ASSERT_EQ(var_array.GetLength(), 0U);
+  }
 
-  const pp::Var var = ConvertValueToPpVar(value);
-  ASSERT_TRUE(var.is_array());
-  const pp::VarArray var_array(var);
-  ASSERT_EQ(var_array.GetLength(), 1U);
-  const pp::Var item0 = var_array.Get(0);
-  ASSERT_TRUE(item0.is_array());
-  const pp::VarArray inner_array(item0);
-  ASSERT_EQ(inner_array.GetLength(), 2U);
-  const pp::Var inner_item0 = inner_array.Get(0);
-  EXPECT_TRUE(inner_item0.is_null());
-  const pp::Var inner_item1 = inner_array.Get(1);
-  ASSERT_TRUE(inner_item1.is_int());
-  EXPECT_EQ(inner_item1.AsInt(), 123);
+  {
+    // The test data is: [[null, 123]].
+    std::vector<std::unique_ptr<Value>> inner_items;
+    inner_items.push_back(MakeUnique<Value>());
+    inner_items.push_back(MakeUnique<Value>(123));
+    std::vector<std::unique_ptr<Value>> items;
+    items.push_back(MakeUnique<Value>(std::move(inner_items)));
+    const Value value(std::move(items));
+
+    const pp::Var var = ConvertValueToPpVar(value);
+    ASSERT_TRUE(var.is_array());
+    const pp::VarArray var_array(var);
+    ASSERT_EQ(var_array.GetLength(), 1U);
+    const pp::Var item0 = var_array.Get(0);
+    ASSERT_TRUE(item0.is_array());
+    const pp::VarArray inner_array(item0);
+    ASSERT_EQ(inner_array.GetLength(), 2U);
+    const pp::Var inner_item0 = inner_array.Get(0);
+    EXPECT_TRUE(inner_item0.is_null());
+    const pp::Var inner_item1 = inner_array.Get(1);
+    ASSERT_TRUE(inner_item1.is_int());
+    EXPECT_EQ(inner_item1.AsInt(), 123);
+  }
 }
 
 }  // namespace google_smart_card

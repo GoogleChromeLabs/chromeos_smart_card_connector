@@ -49,31 +49,29 @@ pp::VarArrayBuffer CreateVarArrayBuffer(
   if (!binary_storage.empty()) {
     std::memcpy(var_array_buffer.Map(), &binary_storage.front(),
                 binary_storage.size());
+    var_array_buffer.Unmap();
   }
-  var_array_buffer.Unmap();
   return var_array_buffer;
 }
 
-pp::VarDictionary CreateVarDictionary(const Value& value) {
-  GOOGLE_SMART_CARD_CHECK(value.is_dictionary());
+pp::VarDictionary CreateVarDictionary(
+    const Value::DictionaryStorage& dictionary_storage) {
   pp::VarDictionary var_dictionary;
-  for (auto& item: value.GetDictionary()) {
+  for (const auto& item : dictionary_storage) {
     const std::string& item_key = item.first;
     const std::unique_ptr<Value>& item_value = item.second;
-    var_dictionary.Set(item_key, ConvertValueToPpVar(*item_value));
+    GOOGLE_SMART_CARD_CHECK(
+        var_dictionary.Set(item_key, ConvertValueToPpVar(*item_value)));
   }
   return var_dictionary;
 }
 
-pp::VarArray CreateVarArray(const Value& value) {
-  GOOGLE_SMART_CARD_CHECK(value.is_array());
-  const Value::ArrayStorage& array_storage = value.GetArray();
+pp::VarArray CreateVarArray(const Value::ArrayStorage& array_storage) {
   pp::VarArray var_array;
-  var_array.SetLength(array_storage.size());
+  GOOGLE_SMART_CARD_CHECK(var_array.SetLength(array_storage.size()));
   for (size_t index = 0; index < array_storage.size(); ++index) {
     const std::unique_ptr<Value>& item = array_storage[index];
-    GOOGLE_SMART_CARD_CHECK(var_array.Set(
-        index, ConvertValueToPpVar(*item)));
+    GOOGLE_SMART_CARD_CHECK(var_array.Set(index, ConvertValueToPpVar(*item)));
   }
   return var_array;
 }
@@ -95,9 +93,9 @@ pp::Var ConvertValueToPpVar(const Value& value) {
     case Value::Type::kBinary:
       return CreateVarArrayBuffer(value.GetBinary());
     case Value::Type::kDictionary:
-      return CreateVarDictionary(value);
+      return CreateVarDictionary(value.GetDictionary());
     case Value::Type::kArray:
-      return CreateVarArray(value);
+      return CreateVarArray(value.GetArray());
   }
   GOOGLE_SMART_CARD_NOTREACHED;
 }
