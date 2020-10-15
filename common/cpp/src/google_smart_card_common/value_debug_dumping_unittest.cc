@@ -88,7 +88,7 @@ TEST(ValueDebugDumpingTest, Float) {
 #ifdef NDEBUG
   EXPECT_EQ(sanitized_float, Value::kFloatTypeTitle);
 #else
-  EXPECT_DOUBLE_EQ(std::stod(sanitized_float, kFloat));
+  EXPECT_DOUBLE_EQ(std::stod(sanitized_float), kFloat);
 #endif
 }
 
