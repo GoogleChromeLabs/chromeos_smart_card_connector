@@ -26,6 +26,7 @@
 #include <ppapi/cpp/var_array_buffer.h>
 #include <ppapi/cpp/var_dictionary.h>
 
+#include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
@@ -33,6 +34,9 @@
 namespace google_smart_card {
 
 namespace {
+
+constexpr char kUnsupportedPpVarTypeError[] =
+    "Error converting: unsupported type \"%s\"";
 
 pp::Var CreateIntegerVar(int64_t integer_value) {
   // `pp::Var` can only hold 32-bit integers. Larger numbers need to be
@@ -76,6 +80,56 @@ pp::VarArray CreateVarArray(const Value::ArrayStorage& array_storage) {
   return var_array;
 }
 
+optional<Value> CreateValueFromPpVarArray(const pp::VarArray& var,
+                                          std::string* error_message) {
+  Value::ArrayStorage array_storage;
+  for (uint32_t index = 0; index < var.GetLength(); ++index) {
+    optional<Value> converted_item =
+        ConvertPpVarToValue(var.Get(index), error_message);
+    if (!converted_item) {
+      if (error_message) {
+        *error_message = FormatPrintfTemplate(
+            "Error converting array item #%d: %s", static_cast<int>(index),
+            error_message->c_str());
+      }
+      return {};
+    }
+    array_storage.push_back(MakeUnique<Value>(std::move(*converted_item)));
+  }
+  return Value(std::move(array_storage));
+}
+
+optional<Value> CreateValueFromPpVarDictionary(const pp::VarDictionary& var,
+                                               std::string* error_message) {
+  Value value(Value::Type::kDictionary);
+  const pp::VarArray keys = var.GetKeys();
+  for (uint32_t index = 0; index < keys.GetLength(); ++index) {
+    const pp::Var item_key = keys.Get(index);
+    const pp::Var item_value = var.Get(item_key);
+    GOOGLE_SMART_CARD_CHECK(item_key.is_string());
+    optional<Value> converted_item_value =
+        ConvertPpVarToValue(item_value, error_message);
+    if (!converted_item_value) {
+      if (error_message) {
+        *error_message = FormatPrintfTemplate(
+            "Error converting dictionary item \"%s\": %s",
+            item_key.AsString().c_str(), error_message->c_str());
+      }
+      return {};
+    }
+    value.SetDictionaryItem(item_key.AsString(),
+                            std::move(*converted_item_value));
+  }
+  return std::move(value);
+}
+
+Value CreateValueFromVarArrayBuffer(pp::VarArrayBuffer var) {
+  const uint8_t* const data = static_cast<const uint8_t*>(var.Map());
+  Value value(Value::BinaryStorage(data, data + var.ByteLength()));
+  var.Unmap();
+  return value;
+}
+
 }  // namespace
 
 pp::Var ConvertValueToPpVar(const Value& value) {
@@ -97,6 +151,39 @@ pp::Var ConvertValueToPpVar(const Value& value) {
     case Value::Type::kArray:
       return CreateVarArray(value.GetArray());
   }
+  GOOGLE_SMART_CARD_NOTREACHED;
+}
+
+optional<Value> ConvertPpVarToValue(const pp::Var& var,
+                                    std::string* error_message) {
+  if (var.is_undefined()) return Value();
+  if (var.is_null()) return Value();
+  if (var.is_bool()) return Value(var.AsBool());
+  if (var.is_string()) return Value(var.AsString());
+  if (var.is_object()) {
+    if (error_message) {
+      *error_message =
+          FormatPrintfTemplate(kUnsupportedPpVarTypeError, "object");
+    }
+    return {};
+  }
+  if (var.is_array())
+    return CreateValueFromPpVarArray(pp::VarArray(var), error_message);
+  if (var.is_dictionary()) {
+    return CreateValueFromPpVarDictionary(pp::VarDictionary(var),
+                                          error_message);
+  }
+  if (var.is_resource()) {
+    if (error_message) {
+      *error_message =
+          FormatPrintfTemplate(kUnsupportedPpVarTypeError, "resource");
+    }
+    return {};
+  }
+  if (var.is_int()) return Value(var.AsInt());
+  if (var.is_double()) return Value(var.AsDouble());
+  if (var.is_array_buffer())
+    return CreateValueFromVarArrayBuffer(pp::VarArrayBuffer(var));
   GOOGLE_SMART_CARD_NOTREACHED;
 }
 

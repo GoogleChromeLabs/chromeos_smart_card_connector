@@ -24,7 +24,9 @@
 #include <utility>
 #include <vector>
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
+#include <ppapi/cpp/resource.h>
 #include <ppapi/cpp/var.h>
 #include <ppapi/cpp/var_array.h>
 #include <ppapi/cpp/var_array_buffer.h>
@@ -183,6 +185,271 @@ TEST(ValueNaclPpVarConversion, ArrayValue) {
     const pp::Var inner_item1 = inner_array.Get(1);
     ASSERT_TRUE(inner_item1.is_int());
     EXPECT_EQ(inner_item1.AsInt(), 123);
+  }
+}
+
+TEST(ValueNaclPpVarConversion, UndefinedPpVar) {
+  std::string error_message;
+  const optional<Value> value = ConvertPpVarToValue(pp::Var(), &error_message);
+  EXPECT_TRUE(error_message.empty());
+  ASSERT_TRUE(value);
+  EXPECT_TRUE(value->is_null());
+}
+
+TEST(ValueNaclPpVarConversion, NullPpVar) {
+  std::string error_message;
+  const optional<Value> value =
+      ConvertPpVarToValue(pp::Var(pp::Var::Null()), &error_message);
+  EXPECT_TRUE(error_message.empty());
+  ASSERT_TRUE(value);
+  EXPECT_TRUE(value->is_null());
+}
+
+TEST(ValueNaclPpVarConversion, BooleanPpVar) {
+  {
+    constexpr bool kBoolean = false;
+    std::string error_message;
+    const optional<Value> value =
+        ConvertPpVarToValue(pp::Var(kBoolean), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_boolean());
+    EXPECT_EQ(value->GetBoolean(), kBoolean);
+  }
+
+  {
+    constexpr bool kBoolean = true;
+    std::string error_message;
+    const optional<Value> value =
+        ConvertPpVarToValue(pp::Var(kBoolean), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_boolean());
+    EXPECT_EQ(value->GetBoolean(), kBoolean);
+  }
+}
+
+TEST(ValueNaclPpVarConversion, IntegerPpVar) {
+  constexpr int kInteger = 123;
+  std::string error_message;
+  const optional<Value> value =
+      ConvertPpVarToValue(pp::Var(kInteger), &error_message);
+  EXPECT_TRUE(error_message.empty());
+  ASSERT_TRUE(value);
+  ASSERT_TRUE(value->is_integer());
+  EXPECT_EQ(value->GetInteger(), kInteger);
+}
+
+TEST(ValueNaclPpVarConversion, FloatPpVar) {
+  constexpr double kFloat = 123.456;
+  std::string error_message;
+  const optional<Value> value =
+      ConvertPpVarToValue(pp::Var(kFloat), &error_message);
+  EXPECT_TRUE(error_message.empty());
+  ASSERT_TRUE(value);
+  ASSERT_TRUE(value->is_float());
+  EXPECT_DOUBLE_EQ(value->GetFloat(), kFloat);
+}
+
+TEST(ValueNaclPpVarConversion, StringPpVar) {
+  constexpr char kString[] = "foo";
+  std::string error_message;
+  const optional<Value> value =
+      ConvertPpVarToValue(pp::Var(pp::Var(kString)), &error_message);
+  EXPECT_TRUE(error_message.empty());
+  ASSERT_TRUE(value);
+  ASSERT_TRUE(value->is_string());
+  EXPECT_EQ(value->GetString(), kString);
+}
+
+TEST(ValueNaclPpVarConversion, ResourcePpVar) {
+  {
+    const optional<Value> value = ConvertPpVarToValue(pp::Var(pp::Resource()));
+    EXPECT_FALSE(value);
+  }
+
+  {
+    std::string error_message;
+    const optional<Value> value =
+        ConvertPpVarToValue(pp::Var(pp::Resource()), &error_message);
+    EXPECT_THAT(error_message, ::testing::HasSubstr("resource"));
+    EXPECT_FALSE(value);
+  }
+}
+
+TEST(ValueNaclPpVarConversion, PpVarArrayBuffer) {
+  {
+    std::string error_message;
+    const optional<Value> value =
+        ConvertPpVarToValue(pp::VarArrayBuffer(), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_binary());
+    EXPECT_TRUE(value->GetBinary().empty());
+  }
+
+  {
+    const std::vector<uint8_t> kBytes = {1, 2, 3};
+    pp::VarArrayBuffer var_array_buffer(kBytes.size());
+    std::memcpy(var_array_buffer.Map(), &kBytes.front(), kBytes.size());
+    var_array_buffer.Unmap();
+
+    std::string error_message;
+    const optional<Value> value =
+        ConvertPpVarToValue(var_array_buffer, &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_binary());
+    EXPECT_EQ(value->GetBinary(), kBytes);
+  }
+}
+
+TEST(ValueNaclPpVarConversion, PpVarDictionary) {
+  {
+    std::string error_message;
+    const optional<Value> value =
+        ConvertPpVarToValue(pp::VarDictionary(), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_dictionary());
+    EXPECT_TRUE(value->GetDictionary().empty());
+  }
+
+  {
+    // The test data is: {"xyz": {"foo": null, "bar": 123}}.
+    pp::VarDictionary inner_var_dict;
+    ASSERT_TRUE(inner_var_dict.Set("foo", pp::Var(pp::Var::Null())));
+    ASSERT_TRUE(inner_var_dict.Set("bar", pp::Var(123)));
+    pp::VarDictionary var_dict;
+    ASSERT_TRUE(var_dict.Set("xyz", inner_var_dict));
+
+    std::string error_message;
+    const optional<Value> value = ConvertPpVarToValue(var_dict, &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_dictionary());
+    EXPECT_EQ(value->GetDictionary().size(), 1U);
+    const auto xyz_iter = value->GetDictionary().find("xyz");
+    ASSERT_NE(xyz_iter, value->GetDictionary().end());
+    const Value& inner_value = *xyz_iter->second;
+    ASSERT_TRUE(inner_value.is_dictionary());
+    EXPECT_EQ(inner_value.GetDictionary().size(), 2U);
+    const auto foo_iter = inner_value.GetDictionary().find("foo");
+    ASSERT_NE(foo_iter, inner_value.GetDictionary().end());
+    const Value& foo_item_value = *foo_iter->second;
+    EXPECT_TRUE(foo_item_value.is_null());
+    const auto bar_iter = inner_value.GetDictionary().find("bar");
+    ASSERT_NE(bar_iter, inner_value.GetDictionary().end());
+    const Value& bar_item_value = *bar_iter->second;
+    ASSERT_TRUE(bar_item_value.is_integer());
+    EXPECT_EQ(bar_item_value.GetInteger(), 123);
+  }
+}
+
+TEST(ValueNaclPpVarConversion, PpVarDictionaryWithBadItem) {
+  pp::VarDictionary inner_var_dict;  // {"someInnerKey": <resource>}
+  ASSERT_TRUE(inner_var_dict.Set("someInnerKey", pp::Var(pp::Resource())));
+  pp::VarDictionary var_dict;  // {"someKey": {"someInnerKey": <resource>}}
+  ASSERT_TRUE(var_dict.Set("someKey", inner_var_dict));
+
+  {
+    const optional<Value> value = ConvertPpVarToValue(inner_var_dict);
+    EXPECT_FALSE(value);
+  }
+
+  {
+    const optional<Value> value = ConvertPpVarToValue(var_dict);
+    EXPECT_FALSE(value);
+  }
+
+  {
+    std::string error_message;
+    const optional<Value> value =
+        ConvertPpVarToValue(inner_var_dict, &error_message);
+    EXPECT_THAT(error_message, ::testing::HasSubstr("someInnerKey"));
+    EXPECT_THAT(error_message, ::testing::HasSubstr("resource"));
+    EXPECT_FALSE(value);
+  }
+
+  {
+    std::string error_message;
+    const optional<Value> value = ConvertPpVarToValue(var_dict, &error_message);
+    EXPECT_THAT(error_message, ::testing::HasSubstr("someKey"));
+    EXPECT_THAT(error_message, ::testing::HasSubstr("someInnerKey"));
+    EXPECT_THAT(error_message, ::testing::HasSubstr("resource"));
+    EXPECT_FALSE(value);
+  }
+}
+
+TEST(ValueNaclPpVarConversion, PpVarArray) {
+  {
+    std::string error_message;
+    const optional<Value> value =
+        ConvertPpVarToValue(pp::VarArray(), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_array());
+    EXPECT_TRUE(value->GetArray().empty());
+  }
+
+  {
+    // The test data is: [[null, 123]].
+    pp::VarArray inner_var_array;
+    ASSERT_TRUE(inner_var_array.Set(0, pp::Var(pp::Var::Null())));
+    ASSERT_TRUE(inner_var_array.Set(1, pp::Var(123)));
+    pp::VarArray var_array;
+    ASSERT_TRUE(var_array.Set(0, inner_var_array));
+
+    std::string error_message;
+    const optional<Value> value =
+        ConvertPpVarToValue(var_array, &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_array());
+    ASSERT_EQ(value->GetArray().size(), 1U);
+    const Value& inner_value = *value->GetArray()[0];
+    ASSERT_TRUE(inner_value.is_array());
+    ASSERT_EQ(inner_value.GetArray().size(), 2U);
+    EXPECT_TRUE(inner_value.GetArray()[0]->is_null());
+    ASSERT_TRUE(inner_value.GetArray()[1]->is_integer());
+    EXPECT_EQ(inner_value.GetArray()[1]->GetInteger(), 123);
+  }
+}
+
+TEST(ValueNaclPpVarConversion, PpVarArrayWithBadItem) {
+  pp::VarArray inner_var_array;  // [<resource>]
+  ASSERT_TRUE(inner_var_array.Set(0, pp::Var(pp::Resource())));
+  pp::VarArray var_array;  // [null, [<resource>]]
+  ASSERT_TRUE(var_array.Set(0, pp::Var()));
+  ASSERT_TRUE(var_array.Set(1, inner_var_array));
+
+  {
+    const optional<Value> value = ConvertPpVarToValue(inner_var_array);
+    EXPECT_FALSE(value);
+  }
+
+  {
+    const optional<Value> value = ConvertPpVarToValue(var_array);
+    EXPECT_FALSE(value);
+  }
+
+  {
+    std::string error_message;
+    const optional<Value> value =
+        ConvertPpVarToValue(inner_var_array, &error_message);
+    EXPECT_THAT(error_message, ::testing::HasSubstr("#0"));
+    EXPECT_THAT(error_message, ::testing::HasSubstr("resource"));
+    EXPECT_FALSE(value);
+  }
+
+  {
+    std::string error_message;
+    const optional<Value> value =
+        ConvertPpVarToValue(var_array, &error_message);
+    EXPECT_THAT(error_message, ::testing::HasSubstr("#0"));
+    EXPECT_THAT(error_message, ::testing::HasSubstr("#1"));
+    EXPECT_THAT(error_message, ::testing::HasSubstr("resource"));
+    EXPECT_FALSE(value);
   }
 }
 

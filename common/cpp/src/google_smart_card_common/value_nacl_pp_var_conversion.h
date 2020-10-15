@@ -18,14 +18,25 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_VALUE_NACL_PP_VAR_CONVERSION_H_
 #define GOOGLE_SMART_CARD_COMMON_VALUE_NACL_PP_VAR_CONVERSION_H_
 
+#include <string>
+
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
 // Converts the given `Value` into a `pp::Var`.
 pp::Var ConvertValueToPpVar(const Value& value);
+
+// Converts the given `pp::Var` into a `Value`.
+//
+// When the conversion isn't possible (e.g., when the passed variable contains a
+// Pepper Resource object), returns a null optional and, if provided, sets
+// `*error_message`.
+optional<Value> ConvertPpVarToValue(const pp::Var& var,
+                                    std::string* error_message = nullptr);
 
 }  // namespace google_smart_card
 
