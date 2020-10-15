@@ -61,6 +61,7 @@ CPPFLAGS := \
 	-I$(SOURCE_DIR) \
 	-pedantic \
 	-std=gnu++11 \
+	-Wall \
 	-Wextra \
 	-Wno-zero-length-array \
 

@@ -46,7 +46,10 @@ SOURCES := \
 CXXFLAGS := \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(SOURCES_PATH) \
+	-pedantic \
+	-Wall \
 	-Wextra \
+	-Wno-zero-length-array \
 	-std=gnu++11 \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))

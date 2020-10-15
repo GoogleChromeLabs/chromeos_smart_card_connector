@@ -96,6 +96,7 @@ LIBS := \
 CPPFLAGS := \
 	-pedantic \
 	-std=gnu++11 \
+	-Wall \
 	-Wextra \
 	-Wno-zero-length-array \
 	$(ADDITIONAL_TEST_CPPFLAGS)
