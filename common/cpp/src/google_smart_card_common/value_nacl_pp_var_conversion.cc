@@ -18,6 +18,7 @@
 
 #include <cstring>
 #include <limits>
+#include <memory>
 #include <string>
 #include <utility>
 
@@ -28,15 +29,24 @@
 
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
-namespace {
+namespace internal {
 
-constexpr char kUnsupportedPpVarTypeError[] =
+const char kUnsupportedPpVarTypeConversionError[] =
     "Error converting: unsupported type \"%s\"";
+const char kPpVarDictionaryItemConversionError[] =
+    "Error converting dictionary item \"%s\": %s";
+const char kPpVarArrayItemConversionError[] =
+    "Error converting array item #%d: %s";
+
+}  // namespace internal
+
+namespace {
 
 pp::Var CreateIntegerVar(int64_t integer_value) {
   // `pp::Var` can only hold 32-bit integers. Larger numbers need to be
@@ -89,7 +99,7 @@ optional<Value> CreateValueFromPpVarArray(const pp::VarArray& var,
     if (!converted_item) {
       if (error_message) {
         *error_message = FormatPrintfTemplate(
-            "Error converting array item #%d: %s", static_cast<int>(index),
+            internal::kPpVarArrayItemConversionError, static_cast<int>(index),
             error_message->c_str());
       }
       return {};
@@ -112,7 +122,7 @@ optional<Value> CreateValueFromPpVarDictionary(const pp::VarDictionary& var,
     if (!converted_item_value) {
       if (error_message) {
         *error_message = FormatPrintfTemplate(
-            "Error converting dictionary item \"%s\": %s",
+            internal::kPpVarDictionaryItemConversionError,
             item_key.AsString().c_str(), error_message->c_str());
       }
       return {};
@@ -156,14 +166,14 @@ pp::Var ConvertValueToPpVar(const Value& value) {
 
 optional<Value> ConvertPpVarToValue(const pp::Var& var,
                                     std::string* error_message) {
-  if (var.is_undefined()) return Value();
-  if (var.is_null()) return Value();
+  if (var.is_undefined() || var.is_null()) return Value();
   if (var.is_bool()) return Value(var.AsBool());
   if (var.is_string()) return Value(var.AsString());
-  if (var.is_object()) {
+  if (var.is_object() || var.is_resource()) {
     if (error_message) {
       *error_message =
-          FormatPrintfTemplate(kUnsupportedPpVarTypeError, "object");
+          FormatPrintfTemplate(internal::kUnsupportedPpVarTypeConversionError,
+                               var.is_object() ? "object" : "resource");
     }
     return {};
   }
@@ -172,13 +182,6 @@ optional<Value> ConvertPpVarToValue(const pp::Var& var,
   if (var.is_dictionary()) {
     return CreateValueFromPpVarDictionary(pp::VarDictionary(var),
                                           error_message);
-  }
-  if (var.is_resource()) {
-    if (error_message) {
-      *error_message =
-          FormatPrintfTemplate(kUnsupportedPpVarTypeError, "resource");
-    }
-    return {};
   }
   if (var.is_int()) return Value(var.AsInt());
   if (var.is_double()) return Value(var.AsDouble());

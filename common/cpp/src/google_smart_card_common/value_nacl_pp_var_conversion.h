@@ -27,13 +27,19 @@
 
 namespace google_smart_card {
 
+namespace internal {
+extern const char kUnsupportedPpVarTypeConversionError[];
+extern const char kPpVarDictionaryItemConversionError[];
+extern const char kPpVarArrayItemConversionError[];
+}  // namespace internal
+
 // Converts the given `Value` into a `pp::Var`.
 pp::Var ConvertValueToPpVar(const Value& value);
 
 // Converts the given `pp::Var` into a `Value`.
 //
 // When the conversion isn't possible (e.g., when the passed variable contains a
-// Pepper Resource object), returns a null optional and, if provided, sets
+// `pp::Resource` object), returns a null optional and, if provided, sets
 // `*error_message`.
 optional<Value> ConvertPpVarToValue(const pp::Var& var,
                                     std::string* error_message = nullptr);

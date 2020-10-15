@@ -65,18 +65,25 @@ TEST(ValueNaclPpVarConversion, IntegerValue) {
   EXPECT_EQ(var.AsInt(), kInteger);
 }
 
+TEST(ValueNaclPpVarConversion, IntegerNon32BitValue) {
+  const int64_t k40Bit = 1LL << 40;
+  const pp::Var var = ConvertValueToPpVar(Value(k40Bit));
+  ASSERT_TRUE(var.is_double());
+  EXPECT_DOUBLE_EQ(var.AsDouble(), static_cast<double>(k40Bit));
+}
+
 TEST(ValueNaclPpVarConversion, Integer64BitMaxValue) {
   const int64_t k64BitMax = std::numeric_limits<int64_t>::max();
   const pp::Var var = ConvertValueToPpVar(Value(k64BitMax));
   ASSERT_TRUE(var.is_double());
-  EXPECT_DOUBLE_EQ(var.AsDouble(), k64BitMax);
+  EXPECT_DOUBLE_EQ(var.AsDouble(), static_cast<double>(k64BitMax));
 }
 
 TEST(ValueNaclPpVarConversion, Integer64BitMinValue) {
   const int64_t k64BitMin = std::numeric_limits<int64_t>::min();
   const pp::Var var = ConvertValueToPpVar(Value(k64BitMin));
   ASSERT_TRUE(var.is_double());
-  EXPECT_DOUBLE_EQ(var.AsDouble(), k64BitMin);
+  EXPECT_DOUBLE_EQ(var.AsDouble(), static_cast<double>(k64BitMin));
 }
 
 TEST(ValueNaclPpVarConversion, FloatValue) {
@@ -272,7 +279,9 @@ TEST(ValueNaclPpVarConversion, ResourcePpVar) {
     std::string error_message;
     const optional<Value> value =
         ConvertPpVarToValue(pp::Var(pp::Resource()), &error_message);
-    EXPECT_THAT(error_message, ::testing::HasSubstr("resource"));
+    EXPECT_EQ(error_message,
+              FormatPrintfTemplate(
+                  internal::kUnsupportedPpVarTypeConversionError, "resource"));
     EXPECT_FALSE(value);
   }
 }
@@ -366,17 +375,29 @@ TEST(ValueNaclPpVarConversion, PpVarDictionaryWithBadItem) {
     std::string error_message;
     const optional<Value> value =
         ConvertPpVarToValue(inner_var_dict, &error_message);
-    EXPECT_THAT(error_message, ::testing::HasSubstr("someInnerKey"));
-    EXPECT_THAT(error_message, ::testing::HasSubstr("resource"));
+    EXPECT_EQ(
+        error_message,
+        FormatPrintfTemplate(
+            internal::kPpVarDictionaryItemConversionError, "someInnerKey",
+            FormatPrintfTemplate(internal::kUnsupportedPpVarTypeConversionError,
+                                 "resource")
+                .c_str()));
     EXPECT_FALSE(value);
   }
 
   {
     std::string error_message;
     const optional<Value> value = ConvertPpVarToValue(var_dict, &error_message);
-    EXPECT_THAT(error_message, ::testing::HasSubstr("someKey"));
-    EXPECT_THAT(error_message, ::testing::HasSubstr("someInnerKey"));
-    EXPECT_THAT(error_message, ::testing::HasSubstr("resource"));
+    EXPECT_EQ(
+        error_message,
+        FormatPrintfTemplate(
+            internal::kPpVarDictionaryItemConversionError, "someKey",
+            FormatPrintfTemplate(
+                internal::kPpVarDictionaryItemConversionError, "someInnerKey",
+                FormatPrintfTemplate(
+                    internal::kUnsupportedPpVarTypeConversionError, "resource")
+                    .c_str())
+                .c_str()));
     EXPECT_FALSE(value);
   }
 }
@@ -437,8 +458,13 @@ TEST(ValueNaclPpVarConversion, PpVarArrayWithBadItem) {
     std::string error_message;
     const optional<Value> value =
         ConvertPpVarToValue(inner_var_array, &error_message);
-    EXPECT_THAT(error_message, ::testing::HasSubstr("#0"));
-    EXPECT_THAT(error_message, ::testing::HasSubstr("resource"));
+    EXPECT_EQ(
+        error_message,
+        FormatPrintfTemplate(
+            internal::kPpVarArrayItemConversionError, 0,
+            FormatPrintfTemplate(internal::kUnsupportedPpVarTypeConversionError,
+                                 "resource")
+                .c_str()));
     EXPECT_FALSE(value);
   }
 
@@ -446,9 +472,16 @@ TEST(ValueNaclPpVarConversion, PpVarArrayWithBadItem) {
     std::string error_message;
     const optional<Value> value =
         ConvertPpVarToValue(var_array, &error_message);
-    EXPECT_THAT(error_message, ::testing::HasSubstr("#0"));
-    EXPECT_THAT(error_message, ::testing::HasSubstr("#1"));
-    EXPECT_THAT(error_message, ::testing::HasSubstr("resource"));
+    EXPECT_EQ(
+        error_message,
+        FormatPrintfTemplate(
+            internal::kPpVarArrayItemConversionError, 1,
+            FormatPrintfTemplate(
+                internal::kPpVarArrayItemConversionError, 0,
+                FormatPrintfTemplate(
+                    internal::kUnsupportedPpVarTypeConversionError, "resource")
+                    .c_str())
+                .c_str()));
     EXPECT_FALSE(value);
   }
 }
