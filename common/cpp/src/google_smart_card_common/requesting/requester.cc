@@ -21,19 +21,23 @@
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
 
-const char kRequesterDestroyedErrorMessage[] = "The requester was destroyed";
-
 namespace google_smart_card {
 
-Requester::Requester(const std::string& name)
-    : name_(name) {}
+namespace {
+
+constexpr char kRequesterDestroyedErrorMessage[] =
+    "The requester was destroyed";
+
+}  // namespace
+
+Requester::Requester(const std::string& name) : name_(name) {}
 
 Requester::~Requester() {
   const std::vector<std::shared_ptr<GenericAsyncRequestState>> request_states =
       async_requests_storage_.PopAll();
   for (const auto& request_state : request_states) {
-    request_state->SetResult(GenericRequestResult::CreateFailed(
-        kRequesterDestroyedErrorMessage));
+    request_state->SetResult(
+        GenericRequestResult::CreateFailed(kRequesterDestroyedErrorMessage));
   }
 }
 
@@ -49,44 +53,39 @@ GenericRequestResult Requester::PerformSyncRequest(const pp::Var& payload) {
   std::condition_variable condition;
   optional<GenericRequestResult> result;
 
-  StartAsyncRequest(
-    payload,
-    [&mutex, &condition, &result](GenericRequestResult async_result) {
-      GOOGLE_SMART_CARD_CHECK(!result);
-      std::unique_lock<std::mutex> lock(mutex);
-      result = std::move(async_result);
-      condition.notify_one();
-    });
+  StartAsyncRequest(payload, [&mutex, &condition,
+                              &result](GenericRequestResult async_result) {
+    GOOGLE_SMART_CARD_CHECK(!result);
+    std::unique_lock<std::mutex> lock(mutex);
+    result = std::move(async_result);
+    condition.notify_one();
+  });
 
   std::unique_lock<std::mutex> lock(mutex);
-  condition.wait(lock, [&result] {
-    return !!result;
-  });
+  condition.wait(lock, [&result] { return !!result; });
 
   GOOGLE_SMART_CARD_CHECK(result->status() != RequestResultStatus::kCanceled);
   return std::move(*result);
 }
 
 GenericAsyncRequest Requester::CreateAsyncRequest(
-    const pp::Var& /*payload*/,
-    GenericAsyncRequestCallback callback,
+    const pp::Var& /*payload*/, GenericAsyncRequestCallback callback,
     RequestId* request_id) {
   // TODO(emaxx): The payload argument is ignored for now, but it can be
   // utilized for creating some more informative logging at the place where the
   // requests results are handled.
 
-  const auto async_request_state = std::make_shared<GenericAsyncRequestState>(
-      callback);
+  const auto async_request_state =
+      std::make_shared<GenericAsyncRequestState>(callback);
   *request_id = async_requests_storage_.Push(async_request_state);
   return GenericAsyncRequest(async_request_state);
 }
 
-bool Requester::SetAsyncRequestResult(
-    RequestId request_id, GenericRequestResult request_result) {
+bool Requester::SetAsyncRequestResult(RequestId request_id,
+                                      GenericRequestResult request_result) {
   const std::shared_ptr<GenericAsyncRequestState> async_request_state =
       async_requests_storage_.Pop(request_id);
-  if (!async_request_state)
-    return false;
+  if (!async_request_state) return false;
   async_request_state->SetResult(std::move(request_result));
   return true;
 }

@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <google_smart_card_common/pp_var_utils/struct_converter.h>
+
 #include <string>
 
 #include <gtest/gtest.h>
-
 #include <ppapi/cpp/var.h>
 #include <ppapi/cpp/var_dictionary.h>
 
-#include <google_smart_card_common/pp_var_utils/struct_converter.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 
 namespace google_smart_card {
@@ -46,8 +46,8 @@ constexpr const char* TestStructConverter::GetStructTypeName() {
 // static
 template <>
 template <typename Callback>
-void TestStructConverter::VisitFields(
-    const TestStruct& value, Callback callback) {
+void TestStructConverter::VisitFields(const TestStruct& value,
+                                      Callback callback) {
   callback(&value.int_field, "int_field");
   callback(&value.string_field, "string_field");
   callback(&value.optional_field_1, "optional_field_1");
@@ -66,25 +66,22 @@ TEST(PpVarUtilsStructConverterTest, SampleStructConversion) {
   pp::VarDictionary var_dict;
   ASSERT_TRUE(VarAs(var, &var_dict, &error_message));
   int converted_int_field;
-  ASSERT_TRUE(GetVarDictValueAs(
-      var_dict, "int_field", &converted_int_field, &error_message));
+  ASSERT_TRUE(GetVarDictValueAs(var_dict, "int_field", &converted_int_field,
+                                &error_message));
   EXPECT_EQ(123, converted_int_field);
   std::string converted_string_field;
-  ASSERT_TRUE(GetVarDictValueAs(
-      var_dict, "string_field", &converted_string_field, &error_message));
+  ASSERT_TRUE(GetVarDictValueAs(var_dict, "string_field",
+                                &converted_string_field, &error_message));
   EXPECT_EQ("foo", converted_string_field);
   int converted_optional_field_1;
-  ASSERT_TRUE(GetVarDictValueAs(
-      var_dict,
-      "optional_field_1",
-      &converted_optional_field_1,
-      &error_message));
+  ASSERT_TRUE(GetVarDictValueAs(var_dict, "optional_field_1",
+                                &converted_optional_field_1, &error_message));
   EXPECT_EQ(456, converted_optional_field_1);
   EXPECT_EQ(3, GetVarDictSize(var_dict));
 
   TestStruct back_converted_value;
-  ASSERT_TRUE(TestStructConverter::ConvertFromVar(
-      var, &back_converted_value, &error_message));
+  ASSERT_TRUE(TestStructConverter::ConvertFromVar(var, &back_converted_value,
+                                                  &error_message));
   EXPECT_EQ(value.int_field, back_converted_value.int_field);
   EXPECT_EQ(value.string_field, back_converted_value.string_field);
   EXPECT_TRUE(back_converted_value.optional_field_1);

@@ -20,12 +20,10 @@
 #include <cstdarg>
 #include <string>
 
-#include <google_smart_card_common/logging/logging.h>
-
 namespace google_smart_card {
 
 std::string FormatPrintfTemplate(const char* format, ...)
-  __attribute__((format(__printf__, 1, 2)));
+    __attribute__((format(__printf__, 1, 2)));
 
 std::string FormatPrintfTemplate(const char* format, va_list var_args);
 

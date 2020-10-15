@@ -63,20 +63,17 @@ class ApiBridgeInterface {
   virtual RequestResult<ReleaseInterfaceResult> ReleaseInterface(
       const ConnectionHandle& connection_handle, int64_t interface_number) = 0;
 
-  virtual void AsyncControlTransfer(
-      const ConnectionHandle& connection_handle,
-      const ControlTransferInfo& transfer_info,
-      AsyncTransferCallback callback) = 0;
+  virtual void AsyncControlTransfer(const ConnectionHandle& connection_handle,
+                                    const ControlTransferInfo& transfer_info,
+                                    AsyncTransferCallback callback) = 0;
 
-  virtual void AsyncBulkTransfer(
-      const ConnectionHandle& connection_handle,
-      const GenericTransferInfo& transfer_info,
-      AsyncTransferCallback callback) = 0;
+  virtual void AsyncBulkTransfer(const ConnectionHandle& connection_handle,
+                                 const GenericTransferInfo& transfer_info,
+                                 AsyncTransferCallback callback) = 0;
 
-  virtual void AsyncInterruptTransfer(
-      const ConnectionHandle& connection_handle,
-      const GenericTransferInfo& transfer_info,
-      AsyncTransferCallback callback) = 0;
+  virtual void AsyncInterruptTransfer(const ConnectionHandle& connection_handle,
+                                      const GenericTransferInfo& transfer_info,
+                                      AsyncTransferCallback callback) = 0;
 
   virtual RequestResult<ResetDeviceResult> ResetDevice(
       const ConnectionHandle& connection_handle) = 0;

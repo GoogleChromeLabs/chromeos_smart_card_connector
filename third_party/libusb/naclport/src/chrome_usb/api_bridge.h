@@ -22,8 +22,8 @@
 #include <memory>
 
 #include <google_smart_card_common/requesting/remote_call_adaptor.h>
-#include <google_smart_card_common/requesting/requester.h>
 #include <google_smart_card_common/requesting/request_result.h>
+#include <google_smart_card_common/requesting/requester.h>
 
 #include "chrome_usb/api_bridge_interface.h"
 #include "chrome_usb/types.h"
@@ -45,6 +45,8 @@ class ApiBridge final : public ApiBridgeInterface {
  public:
   explicit ApiBridge(std::unique_ptr<Requester> requester);
   ApiBridge(const ApiBridge&) = delete;
+  ApiBridge& operator=(const ApiBridge&) = delete;
+  ~ApiBridge();
 
   void Detach();
 
@@ -71,18 +73,15 @@ class ApiBridge final : public ApiBridgeInterface {
   RequestResult<ReleaseInterfaceResult> ReleaseInterface(
       const ConnectionHandle& connection_handle,
       int64_t interface_number) override;
-  void AsyncControlTransfer(
-      const ConnectionHandle& connection_handle,
-      const ControlTransferInfo& transfer_info,
-      AsyncTransferCallback callback) override;
-  void AsyncBulkTransfer(
-      const ConnectionHandle& connection_handle,
-      const GenericTransferInfo& transfer_info,
-      AsyncTransferCallback callback) override;
-  void AsyncInterruptTransfer(
-      const ConnectionHandle& connection_handle,
-      const GenericTransferInfo& transfer_info,
-      AsyncTransferCallback callback) override;
+  void AsyncControlTransfer(const ConnectionHandle& connection_handle,
+                            const ControlTransferInfo& transfer_info,
+                            AsyncTransferCallback callback) override;
+  void AsyncBulkTransfer(const ConnectionHandle& connection_handle,
+                         const GenericTransferInfo& transfer_info,
+                         AsyncTransferCallback callback) override;
+  void AsyncInterruptTransfer(const ConnectionHandle& connection_handle,
+                              const GenericTransferInfo& transfer_info,
+                              AsyncTransferCallback callback) override;
   RequestResult<ResetDeviceResult> ResetDevice(
       const ConnectionHandle& connection_handle) override;
 

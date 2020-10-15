@@ -26,22 +26,21 @@ namespace google_smart_card {
 namespace chrome_usb {
 
 ApiBridge::ApiBridge(std::unique_ptr<Requester> requester)
-    : requester_(std::move(requester)),
-      remote_call_adaptor_(requester_.get()) {
+    : requester_(std::move(requester)), remote_call_adaptor_(requester_.get()) {
   GOOGLE_SMART_CARD_CHECK(requester_);
 }
 
-void ApiBridge::Detach() {
-  requester_->Detach();
-}
+ApiBridge::~ApiBridge() = default;
+
+void ApiBridge::Detach() { requester_->Detach(); }
 
 RequestResult<GetDevicesResult> ApiBridge::GetDevices(
     const GetDevicesOptions& options) {
   const GenericRequestResult generic_request_result =
       remote_call_adaptor_.SyncCall("getDevices", options);
   GetDevicesResult result;
-  return RemoteCallAdaptor::ConvertResultPayload(
-      generic_request_result, &result, &result.devices);
+  return RemoteCallAdaptor::ConvertResultPayload(generic_request_result,
+                                                 &result, &result.devices);
 }
 
 RequestResult<GetUserSelectedDevicesResult> ApiBridge::GetUserSelectedDevices(
@@ -49,8 +48,8 @@ RequestResult<GetUserSelectedDevicesResult> ApiBridge::GetUserSelectedDevices(
   const GenericRequestResult generic_request_result =
       remote_call_adaptor_.SyncCall("getUserSelectedDevices", options);
   GetUserSelectedDevicesResult result;
-  return RemoteCallAdaptor::ConvertResultPayload(
-      generic_request_result, &result, &result.devices);
+  return RemoteCallAdaptor::ConvertResultPayload(generic_request_result,
+                                                 &result, &result.devices);
 }
 
 RequestResult<GetConfigurationsResult> ApiBridge::GetConfigurations(
@@ -75,18 +74,18 @@ RequestResult<CloseDeviceResult> ApiBridge::CloseDevice(
   const GenericRequestResult generic_request_result =
       remote_call_adaptor_.SyncCall("closeDevice", connection_handle);
   CloseDeviceResult result;
-  return RemoteCallAdaptor::ConvertResultPayload(
-      generic_request_result, &result);
+  return RemoteCallAdaptor::ConvertResultPayload(generic_request_result,
+                                                 &result);
 }
 
 RequestResult<SetConfigurationResult> ApiBridge::SetConfiguration(
     const ConnectionHandle& connection_handle, int64_t configuration_value) {
   const GenericRequestResult generic_request_result =
-      remote_call_adaptor_.SyncCall(
-          "setConfiguration", connection_handle, configuration_value);
+      remote_call_adaptor_.SyncCall("setConfiguration", connection_handle,
+                                    configuration_value);
   SetConfigurationResult result;
-  return RemoteCallAdaptor::ConvertResultPayload(
-      generic_request_result, &result);
+  return RemoteCallAdaptor::ConvertResultPayload(generic_request_result,
+                                                 &result);
 }
 
 RequestResult<GetConfigurationResult> ApiBridge::GetConfiguration(
@@ -103,33 +102,34 @@ RequestResult<ListInterfacesResult> ApiBridge::ListInterfaces(
   const GenericRequestResult generic_request_result =
       remote_call_adaptor_.SyncCall("listInterfaces", connection_handle);
   ListInterfacesResult result;
-  return RemoteCallAdaptor::ConvertResultPayload(
-      generic_request_result, &result, &result.descriptors);
+  return RemoteCallAdaptor::ConvertResultPayload(generic_request_result,
+                                                 &result, &result.descriptors);
 }
 
 RequestResult<ClaimInterfaceResult> ApiBridge::ClaimInterface(
     const ConnectionHandle& connection_handle, int64_t interface_number) {
   const GenericRequestResult generic_request_result =
-      remote_call_adaptor_.SyncCall(
-          "claimInterface", connection_handle, interface_number);
+      remote_call_adaptor_.SyncCall("claimInterface", connection_handle,
+                                    interface_number);
   ClaimInterfaceResult result;
-  return RemoteCallAdaptor::ConvertResultPayload(
-      generic_request_result, &result);
+  return RemoteCallAdaptor::ConvertResultPayload(generic_request_result,
+                                                 &result);
 }
 
 RequestResult<ReleaseInterfaceResult> ApiBridge::ReleaseInterface(
     const ConnectionHandle& connection_handle, int64_t interface_number) {
   const GenericRequestResult generic_request_result =
-      remote_call_adaptor_.SyncCall(
-          "releaseInterface", connection_handle, interface_number);
+      remote_call_adaptor_.SyncCall("releaseInterface", connection_handle,
+                                    interface_number);
   ReleaseInterfaceResult result;
-  return RemoteCallAdaptor::ConvertResultPayload(
-      generic_request_result, &result);
+  return RemoteCallAdaptor::ConvertResultPayload(generic_request_result,
+                                                 &result);
 }
 
 namespace {
 
-GenericAsyncRequestCallback WrapAsyncTransferCallback(AsyncTransferCallback callback) {
+GenericAsyncRequestCallback WrapAsyncTransferCallback(
+    AsyncTransferCallback callback) {
   return [callback](GenericRequestResult generic_request_result) {
     TransferResult result;
     return callback(RemoteCallAdaptor::ConvertResultPayload(
@@ -139,37 +139,28 @@ GenericAsyncRequestCallback WrapAsyncTransferCallback(AsyncTransferCallback call
 
 }  // namespace
 
-void ApiBridge::AsyncControlTransfer(
-    const ConnectionHandle& connection_handle,
-    const ControlTransferInfo& transfer_info,
-    AsyncTransferCallback callback) {
-  remote_call_adaptor_.AsyncCall(
-      WrapAsyncTransferCallback(callback),
-      "controlTransfer",
-      connection_handle,
-      transfer_info);
+void ApiBridge::AsyncControlTransfer(const ConnectionHandle& connection_handle,
+                                     const ControlTransferInfo& transfer_info,
+                                     AsyncTransferCallback callback) {
+  remote_call_adaptor_.AsyncCall(WrapAsyncTransferCallback(callback),
+                                 "controlTransfer", connection_handle,
+                                 transfer_info);
 }
 
-void ApiBridge::AsyncBulkTransfer(
-    const ConnectionHandle& connection_handle,
-    const GenericTransferInfo& transfer_info,
-    AsyncTransferCallback callback) {
-  remote_call_adaptor_.AsyncCall(
-      WrapAsyncTransferCallback(callback),
-      "bulkTransfer",
-      connection_handle,
-      transfer_info);
+void ApiBridge::AsyncBulkTransfer(const ConnectionHandle& connection_handle,
+                                  const GenericTransferInfo& transfer_info,
+                                  AsyncTransferCallback callback) {
+  remote_call_adaptor_.AsyncCall(WrapAsyncTransferCallback(callback),
+                                 "bulkTransfer", connection_handle,
+                                 transfer_info);
 }
 
 void ApiBridge::AsyncInterruptTransfer(
     const ConnectionHandle& connection_handle,
-    const GenericTransferInfo& transfer_info,
-    AsyncTransferCallback callback) {
-  remote_call_adaptor_.AsyncCall(
-      WrapAsyncTransferCallback(callback),
-      "interruptTransfer",
-      connection_handle,
-      transfer_info);
+    const GenericTransferInfo& transfer_info, AsyncTransferCallback callback) {
+  remote_call_adaptor_.AsyncCall(WrapAsyncTransferCallback(callback),
+                                 "interruptTransfer", connection_handle,
+                                 transfer_info);
 }
 
 RequestResult<ResetDeviceResult> ApiBridge::ResetDevice(

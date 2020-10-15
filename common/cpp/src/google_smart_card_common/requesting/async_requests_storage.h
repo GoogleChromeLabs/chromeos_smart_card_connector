@@ -35,10 +35,12 @@ namespace google_smart_card {
 template <typename PayloadType>
 class AsyncRequestsStorage final {
  public:
-  AsyncRequestsStorage()
-      : next_free_request_id_(0) {}
+  AsyncRequestsStorage() = default;
 
   AsyncRequestsStorage(const AsyncRequestsStorage&) = delete;
+  AsyncRequestsStorage& operator=(const AsyncRequestsStorage&) = delete;
+
+  ~AsyncRequestsStorage() = default;
 
   // Adds a new asynchronous request state under a unique identifier and returns
   // this identifier.
@@ -49,8 +51,8 @@ class AsyncRequestsStorage final {
     const RequestId request_id = next_free_request_id_;
     ++next_free_request_id_;
 
-    const bool is_new_state_added = state_map_.emplace(
-        request_id, async_request_state).second;
+    const bool is_new_state_added =
+        state_map_.emplace(request_id, async_request_state).second;
     GOOGLE_SMART_CARD_CHECK(is_new_state_added);
 
     return request_id;
@@ -64,8 +66,7 @@ class AsyncRequestsStorage final {
     const std::unique_lock<std::mutex> lock(mutex_);
 
     const auto state_map_iter = state_map_.find(request_id);
-    if (state_map_iter == state_map_.end())
-      return nullptr;
+    if (state_map_iter == state_map_.end()) return nullptr;
     const std::shared_ptr<AsyncRequestState<PayloadType>> result =
         state_map_iter->second;
     state_map_.erase(state_map_iter);
@@ -87,10 +88,10 @@ class AsyncRequestsStorage final {
 
  private:
   std::mutex mutex_;
-  RequestId next_free_request_id_;
-  std::unordered_map<
-      RequestId, const std::shared_ptr<AsyncRequestState<PayloadType>>>
-  state_map_;
+  RequestId next_free_request_id_ = 0;
+  std::unordered_map<RequestId,
+                     const std::shared_ptr<AsyncRequestState<PayloadType>>>
+      state_map_;
 };
 
 using GenericAsyncRequestsStorage = AsyncRequestsStorage<pp::Var>;

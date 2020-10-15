@@ -55,14 +55,16 @@ void PcscLiteServerSocketsManager::Push(int server_socket_file_descriptor) {
 
 int PcscLiteServerSocketsManager::WaitAndPop() {
   std::unique_lock<std::mutex> lock(mutex_);
-  condition_.wait(
-      lock,
-      [this]() {
-        return !server_socket_file_descriptors_queue_.empty();
-      });
+  condition_.wait(lock, [this]() {
+    return !server_socket_file_descriptors_queue_.empty();
+  });
   int result = server_socket_file_descriptors_queue_.front();
   server_socket_file_descriptors_queue_.pop();
   return result;
 }
+
+PcscLiteServerSocketsManager::PcscLiteServerSocketsManager() = default;
+
+PcscLiteServerSocketsManager::~PcscLiteServerSocketsManager() = default;
 
 }  // namespace google_smart_card

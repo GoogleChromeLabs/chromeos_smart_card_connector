@@ -50,16 +50,18 @@ class UsbTransfersParametersStorage final {
   using TransferAsyncRequestStatePtr =
       std::shared_ptr<TransferAsyncRequestState>;
 
-  UsbTransfersParametersStorage() = default;
+  UsbTransfersParametersStorage();
   UsbTransfersParametersStorage(const UsbTransfersParametersStorage&) = delete;
+  UsbTransfersParametersStorage& operator=(
+      const UsbTransfersParametersStorage&) = delete;
+  ~UsbTransfersParametersStorage();
 
   struct Item {
     Item();
 
-    Item(
-        TransferAsyncRequestStatePtr async_request_state,
-        const UsbTransferDestination& transfer_destination,
-        libusb_transfer* transfer);
+    Item(TransferAsyncRequestStatePtr async_request_state,
+         const UsbTransferDestination& transfer_destination,
+         libusb_transfer* transfer);
 
     TransferAsyncRequestStatePtr async_request_state;
     UsbTransferDestination transfer_destination;
@@ -68,10 +70,9 @@ class UsbTransfersParametersStorage final {
 
   void Add(const Item& item);
 
-  void Add(
-      TransferAsyncRequestStatePtr async_request_state,
-      const UsbTransferDestination& transfer_destination,
-      libusb_transfer* transfer);
+  void Add(TransferAsyncRequestStatePtr async_request_state,
+           const UsbTransferDestination& transfer_destination,
+           libusb_transfer* transfer);
 
   bool ContainsWithAsyncRequestState(
       const TransferAsyncRequestState* async_request_state) const;
@@ -98,17 +99,16 @@ class UsbTransfersParametersStorage final {
 
  private:
   bool FindByAsyncRequestState(
-      const TransferAsyncRequestState* async_request_state,
-      Item* result) const;
+      const TransferAsyncRequestState* async_request_state, Item* result) const;
   bool FindAsyncByDestination(
       const UsbTransferDestination& transfer_destination, Item* result) const;
-  bool FindAsyncByLibusbTransfer(
-      const libusb_transfer* transfer, Item* result) const;
+  bool FindAsyncByLibusbTransfer(const libusb_transfer* transfer,
+                                 Item* result) const;
 
   mutable std::mutex mutex_;
   std::map<const TransferAsyncRequestState*, Item> async_request_state_mapping_;
   std::map<UsbTransferDestination, std::set<const TransferAsyncRequestState*>>
-  async_destination_mapping_;
+      async_destination_mapping_;
   std::map<const libusb_transfer*, Item> async_libusb_transfer_mapping_;
 };
 

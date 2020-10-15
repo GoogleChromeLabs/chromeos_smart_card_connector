@@ -32,17 +32,21 @@
 #include <winscard.h>
 #include <wintypes.h>
 
-#include <google_smart_card_common/requesting/requester.h>
-#include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/requesting/remote_call_adaptor.h>
+#include <google_smart_card_common/requesting/request_result.h>
+#include <google_smart_card_common/requesting/requester.h>
 #include <google_smart_card_pcsc_lite_common/pcsc_lite.h>
 
 namespace google_smart_card {
+
+namespace {
 
 // The name of the requester that should be used for the requests made by the
 // PcscLiteOverRequester class (see also the
 // google_smart_card_common/requesting/requester.h header).
 constexpr char kPcscLiteRequesterName[] = "pcsc_lite";
+
+}  // namespace
 
 // This class provides an implementation for the PC/SC-Lite client API that
 // forwards all calls through the passed requester to its counterpart library
@@ -62,6 +66,9 @@ class PcscLiteOverRequester final : public PcscLite {
   explicit PcscLiteOverRequester(std::unique_ptr<Requester> requester);
 
   PcscLiteOverRequester(const PcscLiteOverRequester&) = delete;
+  PcscLiteOverRequester& operator=(const PcscLiteOverRequester&) = delete;
+
+  ~PcscLiteOverRequester();
 
   // Detaches the linked requester, which prevents making any further requests
   // through it and prevents waiting for the responses of the already started
@@ -81,76 +88,48 @@ class PcscLiteOverRequester final : public PcscLite {
   void Detach();
 
   // PcscLite:
-  LONG SCardEstablishContext(
-      DWORD scope,
-      LPCVOID reserved_1,
-      LPCVOID reserved_2,
-      LPSCARDCONTEXT s_card_context) override;
+  LONG SCardEstablishContext(DWORD scope, LPCVOID reserved_1,
+                             LPCVOID reserved_2,
+                             LPSCARDCONTEXT s_card_context) override;
   LONG SCardReleaseContext(SCARDCONTEXT s_card_context) override;
-  LONG SCardConnect(
-      SCARDCONTEXT s_card_context,
-      LPCSTR reader_name,
-      DWORD share_mode,
-      DWORD preferred_protocols,
-      LPSCARDHANDLE s_card_handle,
-      LPDWORD active_protocol) override;
-  LONG SCardReconnect(
-      SCARDHANDLE s_card_handle,
-      DWORD share_mode,
-      DWORD preferred_protocols,
-      DWORD initialization_action,
-      LPDWORD active_protocol) override;
+  LONG SCardConnect(SCARDCONTEXT s_card_context, LPCSTR reader_name,
+                    DWORD share_mode, DWORD preferred_protocols,
+                    LPSCARDHANDLE s_card_handle,
+                    LPDWORD active_protocol) override;
+  LONG SCardReconnect(SCARDHANDLE s_card_handle, DWORD share_mode,
+                      DWORD preferred_protocols, DWORD initialization_action,
+                      LPDWORD active_protocol) override;
   LONG SCardDisconnect(SCARDHANDLE s_card_handle, DWORD disposition) override;
   LONG SCardBeginTransaction(SCARDHANDLE s_card_handle) override;
-  LONG SCardEndTransaction(
-      SCARDHANDLE s_card_handle, DWORD disposition_action) override;
-  LONG SCardStatus(
-      SCARDHANDLE s_card_handle,
-      LPSTR reader_name,
-      LPDWORD reader_name_length,
-      LPDWORD state,
-      LPDWORD protocol,
-      LPBYTE atr,
-      LPDWORD atr_length) override;
-  LONG SCardGetStatusChange(
-      SCARDCONTEXT s_card_context,
-      DWORD timeout,
-      SCARD_READERSTATE* reader_states,
-      DWORD reader_states_size) override;
-  LONG SCardControl(
-      SCARDHANDLE s_card_handle,
-      DWORD control_code,
-      LPCVOID send_buffer,
-      DWORD send_buffer_length,
-      LPVOID receive_buffer,
-      DWORD receive_buffer_length,
-      LPDWORD bytes_returned) override;
-  LONG SCardGetAttrib(
-      SCARDHANDLE s_card_handle,
-      DWORD attribute_id,
-      LPBYTE attribute_buffer,
-      LPDWORD attribute_buffer_length) override;
-  LONG SCardSetAttrib(
-      SCARDHANDLE s_card_handle,
-      DWORD attribute_id,
-      LPCBYTE attribute_buffer,
-      DWORD attribute_buffer_length) override;
-  LONG SCardTransmit(
-      SCARDHANDLE s_card_handle,
-      const SCARD_IO_REQUEST* send_protocol_information,
-      LPCBYTE send_buffer,
-      DWORD send_buffer_length,
-      SCARD_IO_REQUEST* receive_protocol_information,
-      LPBYTE receive_buffer,
-      LPDWORD receive_buffer_length) override;
-  LONG SCardListReaders(
-      SCARDCONTEXT s_card_context,
-      LPCSTR groups,
-      LPSTR readers,
-      LPDWORD readers_size) override;
+  LONG SCardEndTransaction(SCARDHANDLE s_card_handle,
+                           DWORD disposition_action) override;
+  LONG SCardStatus(SCARDHANDLE s_card_handle, LPSTR reader_name,
+                   LPDWORD reader_name_length, LPDWORD state, LPDWORD protocol,
+                   LPBYTE atr, LPDWORD atr_length) override;
+  LONG SCardGetStatusChange(SCARDCONTEXT s_card_context, DWORD timeout,
+                            SCARD_READERSTATE* reader_states,
+                            DWORD reader_states_size) override;
+  LONG SCardControl(SCARDHANDLE s_card_handle, DWORD control_code,
+                    LPCVOID send_buffer, DWORD send_buffer_length,
+                    LPVOID receive_buffer, DWORD receive_buffer_length,
+                    LPDWORD bytes_returned) override;
+  LONG SCardGetAttrib(SCARDHANDLE s_card_handle, DWORD attribute_id,
+                      LPBYTE attribute_buffer,
+                      LPDWORD attribute_buffer_length) override;
+  LONG SCardSetAttrib(SCARDHANDLE s_card_handle, DWORD attribute_id,
+                      LPCBYTE attribute_buffer,
+                      DWORD attribute_buffer_length) override;
+  LONG SCardTransmit(SCARDHANDLE s_card_handle,
+                     const SCARD_IO_REQUEST* send_protocol_information,
+                     LPCBYTE send_buffer, DWORD send_buffer_length,
+                     SCARD_IO_REQUEST* receive_protocol_information,
+                     LPBYTE receive_buffer,
+                     LPDWORD receive_buffer_length) override;
+  LONG SCardListReaders(SCARDCONTEXT s_card_context, LPCSTR groups,
+                        LPSTR readers, LPDWORD readers_size) override;
   LONG SCardFreeMemory(SCARDCONTEXT s_card_context, LPCVOID memory) override;
-  LONG SCardListReaderGroups(
-      SCARDCONTEXT s_card_context, LPSTR groups, LPDWORD groups_size) override;
+  LONG SCardListReaderGroups(SCARDCONTEXT s_card_context, LPSTR groups,
+                             LPDWORD groups_size) override;
   LONG SCardCancel(SCARDCONTEXT s_card_context) override;
   LONG SCardIsValidContext(SCARDCONTEXT s_card_context) override;
 

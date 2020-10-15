@@ -12,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <google_smart_card_common/requesting/js_request_receiver.h>
+
 #include <utility>
 
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
-#include <google_smart_card_common/requesting/js_request_receiver.h>
 #include <google_smart_card_common/requesting/requester_message.h>
 
 namespace google_smart_card {
@@ -26,15 +27,16 @@ JsRequestReceiver::PpDelegateImpl::PpDelegateImpl(pp::Instance* pp_instance)
   GOOGLE_SMART_CARD_CHECK(pp_instance);
 }
 
+JsRequestReceiver::PpDelegateImpl::~PpDelegateImpl() = default;
+
 void JsRequestReceiver::PpDelegateImpl::PostMessage(const pp::Var& message) {
   pp_instance_->PostMessage(message);
 }
 
-JsRequestReceiver::JsRequestReceiver(
-    const std::string& name,
-    RequestHandler* request_handler,
-    TypedMessageRouter* typed_message_router,
-    std::unique_ptr<PpDelegate> pp_delegate)
+JsRequestReceiver::JsRequestReceiver(const std::string& name,
+                                     RequestHandler* request_handler,
+                                     TypedMessageRouter* typed_message_router,
+                                     std::unique_ptr<PpDelegate> pp_delegate)
     : RequestReceiver(name, request_handler),
       typed_message_router_(typed_message_router),
       pp_delegate_(std::move(pp_delegate)) {
@@ -43,21 +45,18 @@ JsRequestReceiver::JsRequestReceiver(
   typed_message_router->AddRoute(this);
 }
 
-JsRequestReceiver::~JsRequestReceiver() {
-  Detach();
-}
+JsRequestReceiver::~JsRequestReceiver() { Detach(); }
 
 void JsRequestReceiver::Detach() {
   TypedMessageRouter* const typed_message_router =
       typed_message_router_.exchange(nullptr);
-  if (typed_message_router)
-    typed_message_router->RemoveRoute(this);
+  if (typed_message_router) typed_message_router->RemoveRoute(this);
 
   pp_delegate_.Reset();
 }
 
-void JsRequestReceiver::PostResult(
-    RequestId request_id, GenericRequestResult request_result) {
+void JsRequestReceiver::PostResult(RequestId request_id,
+                                   GenericRequestResult request_result) {
   PostResultMessage(MakeTypedMessage(
       GetResponseMessageType(name()),
       MakeResponseMessageData(request_id, std::move(request_result))));

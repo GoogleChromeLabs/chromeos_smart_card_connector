@@ -44,7 +44,8 @@ pp::VarArrayBuffer CopyVarArrayBuffer(pp::VarArrayBuffer var) {
   return result;
 }
 
-pp::VarDictionary CopyVarDictUpToDepth(const pp::VarDictionary& var, int depth) {
+pp::VarDictionary CopyVarDictUpToDepth(const pp::VarDictionary& var,
+                                       int depth) {
   GOOGLE_SMART_CARD_CHECK(depth > 0);
   const pp::VarArray keys = var.GetKeys();
   pp::VarDictionary result;
@@ -58,38 +59,27 @@ pp::VarDictionary CopyVarDictUpToDepth(const pp::VarDictionary& var, int depth) 
 
 pp::Var CopyVarUpToDepth(const pp::Var& var, int depth) {
   GOOGLE_SMART_CARD_CHECK(depth >= 0);
-  if (!depth)
-    return var;
-  if (var.is_undefined())
-    return pp::Var();
-  if (var.is_null())
-    return pp::Var::Null();
-  if (var.is_bool())
-    return var.AsBool();
-  if (var.is_string())
-    return var.AsString();
+  if (!depth) return var;
+  if (var.is_undefined()) return pp::Var();
+  if (var.is_null()) return pp::Var::Null();
+  if (var.is_bool()) return var.AsBool();
+  if (var.is_string()) return var.AsString();
   if (var.is_object())
     GOOGLE_SMART_CARD_LOG_FATAL << "Cannot copy object Pepper value";
-  if (var.is_array())
-    return CopyVarArrayUpToDepth(pp::VarArray(var), depth);
+  if (var.is_array()) return CopyVarArrayUpToDepth(pp::VarArray(var), depth);
   if (var.is_dictionary())
     return CopyVarDictUpToDepth(pp::VarDictionary(var), depth);
   if (var.is_resource())
     GOOGLE_SMART_CARD_LOG_FATAL << "Cannot copy resource Pepper value";
-  if (var.is_int())
-    return var.AsInt();
-  if (var.is_double())
-    return var.AsDouble();
-  if (var.is_array_buffer())
-    return CopyVarArrayBuffer(pp::VarArrayBuffer(var));
+  if (var.is_int()) return var.AsInt();
+  if (var.is_double()) return var.AsDouble();
+  if (var.is_array_buffer()) return CopyVarArrayBuffer(pp::VarArrayBuffer(var));
   GOOGLE_SMART_CARD_NOTREACHED;
 }
 
 }  // namespace
 
-pp::Var ShallowCopyVar(const pp::Var& var) {
-  return CopyVarUpToDepth(var, 1);
-}
+pp::Var ShallowCopyVar(const pp::Var& var) { return CopyVarUpToDepth(var, 1); }
 
 pp::VarArray ShallowCopyVar(const pp::VarArray& var) {
   return CopyVarArrayUpToDepth(var, 1);

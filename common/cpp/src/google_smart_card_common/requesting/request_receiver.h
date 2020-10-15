@@ -64,8 +64,9 @@ class RequestReceiver : public std::enable_shared_from_this<RequestReceiver> {
   RequestReceiver(const std::string& name, RequestHandler* handler);
 
   RequestReceiver(const RequestReceiver&) = delete;
+  RequestReceiver& operator=(const RequestReceiver&) = delete;
 
-  virtual ~RequestReceiver() = default;
+  virtual ~RequestReceiver();
 
   std::string name() const;
 
@@ -73,8 +74,8 @@ class RequestReceiver : public std::enable_shared_from_this<RequestReceiver> {
   // Posts the request result back to the request sender.
   //
   // The implementation must be thread-safe.
-  virtual void PostResult(
-      RequestId request_id, GenericRequestResult request_result) = 0;
+  virtual void PostResult(RequestId request_id,
+                          GenericRequestResult request_result) = 0;
 
   // Runs the associated request handler with the specified request and with
   // created ResultCallback functor.
@@ -83,8 +84,11 @@ class RequestReceiver : public std::enable_shared_from_this<RequestReceiver> {
  private:
   class ResultCallbackImpl final {
    public:
-    ResultCallbackImpl(
-        RequestId request_id, std::weak_ptr<RequestReceiver> request_receiver);
+    ResultCallbackImpl(RequestId request_id,
+                       std::weak_ptr<RequestReceiver> request_receiver);
+    ResultCallbackImpl(const ResultCallbackImpl&) = default;
+    ResultCallbackImpl& operator=(const ResultCallbackImpl&) = delete;
+    ~ResultCallbackImpl();
 
     void operator()(GenericRequestResult request_result);
 

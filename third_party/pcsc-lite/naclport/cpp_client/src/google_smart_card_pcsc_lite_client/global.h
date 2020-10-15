@@ -48,12 +48,12 @@ namespace google_smart_card {
 // concurrent PC/SC-Lite client API function calls.
 class PcscLiteOverRequesterGlobal final {
  public:
-  PcscLiteOverRequesterGlobal(
-      TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
-      pp::Core* pp_core);
+  PcscLiteOverRequesterGlobal(TypedMessageRouter* typed_message_router,
+                              pp::Instance* pp_instance, pp::Core* pp_core);
 
   PcscLiteOverRequesterGlobal(const PcscLiteOverRequesterGlobal&) = delete;
+  PcscLiteOverRequesterGlobal& operator=(const PcscLiteOverRequesterGlobal&) =
+      delete;
 
   // Destroys the self instance and the owned PcscLiteOverRequester instance.
   //

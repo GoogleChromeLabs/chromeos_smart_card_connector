@@ -51,25 +51,15 @@ bool IsStringValidForVar(const std::string& string) {
 
 }  // namespace
 
-pp::Var MakeVar(unsigned value) {
-  return MakeVarFromInteger(value);
-}
+pp::Var MakeVar(unsigned value) { return MakeVarFromInteger(value); }
 
-pp::Var MakeVar(long value) {
-  return MakeVarFromInteger(value);
-}
+pp::Var MakeVar(long value) { return MakeVarFromInteger(value); }
 
-pp::Var MakeVar(unsigned long value) {
-  return MakeVarFromInteger(value);
-}
+pp::Var MakeVar(unsigned long value) { return MakeVarFromInteger(value); }
 
-pp::Var MakeVar(int64_t value) {
-  return MakeVarFromInteger(value);
-}
+pp::Var MakeVar(int64_t value) { return MakeVarFromInteger(value); }
 
-pp::Var MakeVar(uint64_t value) {
-  return MakeVarFromInteger(value);
-}
+pp::Var MakeVar(uint64_t value) { return MakeVarFromInteger(value); }
 
 pp::Var MakeVar(const std::string& value) {
   GOOGLE_SMART_CARD_CHECK(IsStringValidForVar(value));
@@ -79,17 +69,13 @@ pp::Var MakeVar(const std::string& value) {
 std::string CleanupStringForVar(const std::string& string) {
   const char kPlaceholder = '_';
   std::string result = string;
-  std::replace_if(
-      result.begin(),
-      result.end(),
-      std::not1(std::ptr_fun(IsCharValidForVar)),
-      kPlaceholder);
+  std::replace_if(result.begin(), result.end(),
+                  std::not1(std::ptr_fun(IsCharValidForVar)), kPlaceholder);
   return result;
 }
 
 pp::VarArrayBuffer MakeVarArrayBuffer(const std::vector<uint8_t>& data) {
-  if (data.empty())
-    return pp::VarArrayBuffer();
+  if (data.empty()) return pp::VarArrayBuffer();
   return MakeVarArrayBuffer(&data[0], data.size());
 }
 
@@ -99,5 +85,9 @@ pp::VarArrayBuffer MakeVarArrayBuffer(const void* data, size_t size) {
   result.Unmap();
   return result;
 }
+
+VarDictBuilder::VarDictBuilder() = default;
+
+VarDictBuilder::~VarDictBuilder() = default;
 
 }  // namespace google_smart_card

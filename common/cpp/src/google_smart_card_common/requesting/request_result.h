@@ -54,13 +54,9 @@ template <typename PayloadType>
 class RequestResult final {
  public:
   RequestResult() = default;
-
-  RequestResult& operator=(const RequestResult& other) {
-    status_ = other.status_;
-    error_message_ = other.error_message_;
-    payload_ = other.payload_;
-    return *this;
-  }
+  RequestResult(const RequestResult&) = default;
+  RequestResult& operator=(const RequestResult&) = default;
+  ~RequestResult() = default;
 
   static RequestResult CreateSuccessful(PayloadType payload) {
     return RequestResult(PayloadType(std::move(payload)));
@@ -71,12 +67,12 @@ class RequestResult final {
   }
 
   static RequestResult CreateCanceled() {
-    return CreateUnsuccessful(
-        RequestResultStatus::kCanceled, internal::kRequestCanceledErrorMessage);
+    return CreateUnsuccessful(RequestResultStatus::kCanceled,
+                              internal::kRequestCanceledErrorMessage);
   }
 
-  static RequestResult CreateUnsuccessful(
-      RequestResultStatus status, const std::string& error_message) {
+  static RequestResult CreateUnsuccessful(RequestResultStatus status,
+                                          const std::string& error_message) {
     return RequestResult(status, error_message);
   }
 
@@ -107,19 +103,17 @@ class RequestResult final {
 
  private:
   explicit RequestResult(PayloadType payload)
-      : status_(RequestResultStatus::kSucceeded),
-        payload_(payload) {}
+      : status_(RequestResultStatus::kSucceeded), payload_(payload) {}
 
   RequestResult(RequestResultStatus status, const std::string& error_message)
-      : status_(status),
-        error_message_(error_message) {
+      : status_(status), error_message_(error_message) {
     GOOGLE_SMART_CARD_CHECK(status != RequestResultStatus::kSucceeded);
   }
 
   void CheckInitialized() const {
     if (!status_) {
-      GOOGLE_SMART_CARD_LOG_FATAL << "Trying to access an uninitialized " <<
-          "request result";
+      GOOGLE_SMART_CARD_LOG_FATAL << "Trying to access an uninitialized "
+                                  << "request result";
     }
   }
 

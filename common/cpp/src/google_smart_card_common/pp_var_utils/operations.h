@@ -43,8 +43,8 @@ inline void SetVarArrayItem(pp::VarArray* var, size_t index, const T& value) {
 // Returns a sub-array of the given Pepper array.
 //
 // Asserts the validity of the specified indices.
-pp::VarArray SliceVarArray(
-  const pp::VarArray& var, uint32_t begin_index, uint32_t count);
+pp::VarArray SliceVarArray(const pp::VarArray& var, uint32_t begin_index,
+                           uint32_t count);
 
 // Adds or updates the Pepper dictionary item.
 //
@@ -52,8 +52,8 @@ pp::VarArray SliceVarArray(
 // conversion of the passed value into the Pepper value (using the MakeVar
 // function in construction.h file).
 template <typename T>
-inline void SetVarDictValue(
-    pp::VarDictionary* var, const std::string& key, const T& value) {
+inline void SetVarDictValue(pp::VarDictionary* var, const std::string& key,
+                            const T& value) {
   GOOGLE_SMART_CARD_CHECK(var->Set(key, MakeVar(value)));
 }
 
@@ -64,8 +64,8 @@ inline void SetVarDictValue(
 // conversion of the passed value into the Pepper value (using the MakeVar
 // function in construction.h file).
 template <typename T>
-inline void AddVarDictValue(
-    pp::VarDictionary* var, const std::string& key, const T& value) {
+inline void AddVarDictValue(pp::VarDictionary* var, const std::string& key,
+                            const T& value) {
   GOOGLE_SMART_CARD_CHECK(!var->HasKey(key));
   SetVarDictValue(var, key, value);
 }

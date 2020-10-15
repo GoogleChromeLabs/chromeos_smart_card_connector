@@ -36,10 +36,10 @@ class LibusbInterface {
   virtual int LibusbInit(libusb_context** ctx) = 0;
   virtual void LibusbExit(libusb_context* ctx) = 0;
 
-  virtual ssize_t LibusbGetDeviceList(
-      libusb_context* ctx, libusb_device*** list) = 0;
-  virtual void LibusbFreeDeviceList(
-      libusb_device** list, int unref_devices) = 0;
+  virtual ssize_t LibusbGetDeviceList(libusb_context* ctx,
+                                      libusb_device*** list) = 0;
+  virtual void LibusbFreeDeviceList(libusb_device** list,
+                                    int unref_devices) = 0;
 
   virtual libusb_device* LibusbRefDevice(libusb_device* dev) = 0;
   virtual void LibusbUnrefDevice(libusb_device* dev) = 0;
@@ -48,8 +48,8 @@ class LibusbInterface {
       libusb_device* dev, libusb_config_descriptor** config) = 0;
   virtual void LibusbFreeConfigDescriptor(libusb_config_descriptor* config) = 0;
 
-  virtual int LibusbGetDeviceDescriptor(
-      libusb_device* dev, libusb_device_descriptor* desc) = 0;
+  virtual int LibusbGetDeviceDescriptor(libusb_device* dev,
+                                        libusb_device_descriptor* desc) = 0;
 
   virtual uint8_t LibusbGetBusNumber(libusb_device* dev) = 0;
   virtual uint8_t LibusbGetDeviceAddress(libusb_device* dev) = 0;
@@ -57,10 +57,10 @@ class LibusbInterface {
   virtual int LibusbOpen(libusb_device* dev, libusb_device_handle** handle) = 0;
   virtual void LibusbClose(libusb_device_handle* handle) = 0;
 
-  virtual int LibusbClaimInterface(
-      libusb_device_handle* dev, int interface_number) = 0;
-  virtual int LibusbReleaseInterface(
-      libusb_device_handle* dev, int interface_number) = 0;
+  virtual int LibusbClaimInterface(libusb_device_handle* dev,
+                                   int interface_number) = 0;
+  virtual int LibusbReleaseInterface(libusb_device_handle* dev,
+                                     int interface_number) = 0;
 
   virtual int LibusbResetDevice(libusb_device_handle* dev) = 0;
 
@@ -69,33 +69,23 @@ class LibusbInterface {
   virtual int LibusbCancelTransfer(libusb_transfer* transfer) = 0;
   virtual void LibusbFreeTransfer(libusb_transfer* transfer) = 0;
 
-  virtual int LibusbControlTransfer(
-      libusb_device_handle* dev,
-      uint8_t bmRequestType,
-      uint8_t bRequest,
-      uint16_t wValue,
-      uint16_t wIndex,
-      unsigned char* data,
-      uint16_t wLength,
-      unsigned timeout) = 0;
-  virtual int LibusbBulkTransfer(
-      libusb_device_handle* dev,
-      unsigned char endpoint,
-      unsigned char* data,
-      int length,
-      int* actual_length,
-      unsigned timeout) = 0;
-  virtual int LibusbInterruptTransfer(
-      libusb_device_handle* dev,
-      unsigned char endpoint,
-      unsigned char* data,
-      int length,
-      int* actual_length,
-      unsigned timeout) = 0;
+  virtual int LibusbControlTransfer(libusb_device_handle* dev,
+                                    uint8_t bmRequestType, uint8_t bRequest,
+                                    uint16_t wValue, uint16_t wIndex,
+                                    unsigned char* data, uint16_t wLength,
+                                    unsigned timeout) = 0;
+  virtual int LibusbBulkTransfer(libusb_device_handle* dev,
+                                 unsigned char endpoint, unsigned char* data,
+                                 int length, int* actual_length,
+                                 unsigned timeout) = 0;
+  virtual int LibusbInterruptTransfer(libusb_device_handle* dev,
+                                      unsigned char endpoint,
+                                      unsigned char* data, int length,
+                                      int* actual_length, unsigned timeout) = 0;
 
   virtual int LibusbHandleEvents(libusb_context* ctx) = 0;
-  virtual int LibusbHandleEventsCompleted(
-      libusb_context* ctx, int* completed) = 0;
+  virtual int LibusbHandleEventsCompleted(libusb_context* ctx,
+                                          int* completed) = 0;
 };
 
 }  // namespace google_smart_card

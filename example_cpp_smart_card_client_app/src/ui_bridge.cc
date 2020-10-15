@@ -28,14 +28,14 @@
 #include <google_smart_card_common/thread_safe_unique_ptr.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 
-constexpr char kIncomingMessageType[] = "ui_backend";
-constexpr char kOutgoingMessageType[] = "ui";
-
 namespace gsc = google_smart_card;
 
 namespace smart_card_client {
 
 namespace {
+
+constexpr char kIncomingMessageType[] = "ui_backend";
+constexpr char kOutgoingMessageType[] = "ui";
 
 void ProcessMessageFromUi(
     const pp::Var& data,
@@ -45,13 +45,13 @@ void ProcessMessageFromUi(
   if (request_handling_mutex)
     lock = std::unique_lock<std::mutex>(*request_handling_mutex);
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << "Processing message from UI: " <<
-      gsc::DebugDumpVar(data);
+  GOOGLE_SMART_CARD_LOG_DEBUG << "Processing message from UI: "
+                              << gsc::DebugDumpVar(data);
   std::shared_ptr<MessageFromUiHandler> locked_handler =
       message_from_ui_handler.lock();
   if (!locked_handler) {
-    GOOGLE_SMART_CARD_LOG_WARNING <<
-        "Ignoring message from UI: module shut down";
+    GOOGLE_SMART_CARD_LOG_WARNING
+        << "Ignoring message from UI: module shut down";
     return;
   }
   locked_handler->HandleMessageFromUi(data);
@@ -59,26 +59,22 @@ void ProcessMessageFromUi(
 
 }  // namespace
 
-UiBridge::UiBridge(
-    gsc::TypedMessageRouter* typed_message_router,
-    pp::Instance* pp_instance,
-    std::shared_ptr<std::mutex> request_handling_mutex)
-    : attached_state_(gsc::MakeUnique<AttachedState>(
-          pp_instance, typed_message_router)),
+UiBridge::UiBridge(gsc::TypedMessageRouter* typed_message_router,
+                   pp::Instance* pp_instance,
+                   std::shared_ptr<std::mutex> request_handling_mutex)
+    : attached_state_(
+          gsc::MakeUnique<AttachedState>(pp_instance, typed_message_router)),
       request_handling_mutex_(request_handling_mutex) {
   typed_message_router->AddRoute(this);
 }
 
-UiBridge::~UiBridge() {
-  Detach();
-}
+UiBridge::~UiBridge() { Detach(); }
 
 void UiBridge::Detach() {
   {
     const gsc::ThreadSafeUniquePtr<AttachedState>::Locked locked_state =
         attached_state_.Lock();
-    if (locked_state)
-      locked_state->typed_message_router->RemoveRoute(this);
+    if (locked_state) locked_state->typed_message_router->RemoveRoute(this);
   }
   attached_state_.Reset();
 }
@@ -87,17 +83,14 @@ void UiBridge::SetHandler(std::weak_ptr<MessageFromUiHandler> handler) {
   message_from_ui_handler_ = handler;
 }
 
-void UiBridge::RemoveHandler() {
-  message_from_ui_handler_.reset();
-}
+void UiBridge::RemoveHandler() { message_from_ui_handler_.reset(); }
 
 void UiBridge::SendMessageToUi(const pp::Var& message) {
-  const pp::Var typed_message = gsc::MakeTypedMessage(
-      kOutgoingMessageType, message);
+  const pp::Var typed_message =
+      gsc::MakeTypedMessage(kOutgoingMessageType, message);
   const gsc::ThreadSafeUniquePtr<AttachedState>::Locked locked_state =
       attached_state_.Lock();
-  if (locked_state)
-    locked_state->pp_instance->PostMessage(typed_message);
+  if (locked_state) locked_state->pp_instance->PostMessage(typed_message);
 }
 
 std::string UiBridge::GetListenedMessageType() const {
@@ -105,11 +98,9 @@ std::string UiBridge::GetListenedMessageType() const {
 }
 
 bool UiBridge::OnTypedMessageReceived(const pp::Var& data) {
-  std::thread(
-      &ProcessMessageFromUi,
-      data,
-      message_from_ui_handler_,
-      request_handling_mutex_).detach();
+  std::thread(&ProcessMessageFromUi, data, message_from_ui_handler_,
+              request_handling_mutex_)
+      .detach();
   return true;
 }
 

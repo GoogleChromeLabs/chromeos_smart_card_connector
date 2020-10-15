@@ -84,8 +84,8 @@ bool ReportAvailableCertificates(
       locked_chrome_certificate_provider_api_bridge =
           chrome_certificate_provider_api_bridge.lock();
   if (!locked_chrome_certificate_provider_api_bridge) {
-    GOOGLE_SMART_CARD_LOG_INFO << "Cannot provide certificates: The " <<
-        "shutdown process has started";
+    GOOGLE_SMART_CARD_LOG_INFO << "Cannot provide certificates: The "
+                               << "shutdown process has started";
     return false;
   }
 
@@ -135,19 +135,15 @@ class PpInstance final : public pp::Instance {
   explicit PpInstance(PP_Instance instance)
       : pp::Instance(instance),
         request_handling_mutex_(std::make_shared<std::mutex>()),
-        pcsc_lite_over_requester_global_(
-            new gsc::PcscLiteOverRequesterGlobal(
-                &typed_message_router_, this, pp::Module::Get()->core())),
+        pcsc_lite_over_requester_global_(new gsc::PcscLiteOverRequesterGlobal(
+            &typed_message_router_, this, pp::Module::Get()->core())),
         built_in_pin_dialog_server_(new BuiltInPinDialogServer(
             &typed_message_router_, this, pp::Module::Get()->core())),
-        chrome_certificate_provider_api_bridge_(
-            new ccp::ApiBridge(
-                &typed_message_router_,
-                this,
-                pp::Module::Get()->core(),
-                request_handling_mutex_)),
-        ui_bridge_(new UiBridge(
-            &typed_message_router_, this, request_handling_mutex_)),
+        chrome_certificate_provider_api_bridge_(new ccp::ApiBridge(
+            &typed_message_router_, this, pp::Module::Get()->core(),
+            request_handling_mutex_)),
+        ui_bridge_(new UiBridge(&typed_message_router_, this,
+                                request_handling_mutex_)),
         certificates_request_handler_(new ClientCertificatesRequestHandler),
         signature_request_handler_(new ClientSignatureRequestHandler(
             chrome_certificate_provider_api_bridge_)),
@@ -207,8 +203,8 @@ class PpInstance final : public pp::Instance {
   // <https://developer.chrome.com/native-client/devguide/coding/message-system>).
   void HandleMessage(const pp::Var& message) override {
     if (!typed_message_router_.OnMessageReceived(message)) {
-      GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected message received: " <<
-          gsc::DebugDumpVar(message);
+      GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected message received: "
+                                  << gsc::DebugDumpVar(message);
     }
   }
 
@@ -232,7 +228,8 @@ class PpInstance final : public pp::Instance {
     // chrome_certificate_provider::ApiBridge object on a separate background
     // thread. Multiple requests can be executed simultaneously (they will run
     // in different background threads).
-    bool HandleRequest(std::vector<ccp::ClientCertificateInfo>* result) override {
+    bool HandleRequest(
+        std::vector<ccp::ClientCertificateInfo>* result) override {
       GetCertificates(result);
       return true;
     }
@@ -263,9 +260,8 @@ class PpInstance final : public pp::Instance {
     // chrome_certificate_provider::ApiBridge object on a separate background
     // thread. Multiple requests can be executed simultaneously (they will run
     // in different background threads).
-    bool HandleRequest(
-        const ccp::SignatureRequest& signature_request,
-        std::vector<uint8_t>* result) override {
+    bool HandleRequest(const ccp::SignatureRequest& signature_request,
+                       std::vector<uint8_t>* result) override {
       //
       // CHANGE HERE:
       // Place your custom code here:
@@ -275,20 +271,20 @@ class PpInstance final : public pp::Instance {
           locked_chrome_certificate_provider_api_bridge =
               chrome_certificate_provider_api_bridge_.lock();
       if (!locked_chrome_certificate_provider_api_bridge) {
-        GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Skipped PIN dialog " <<
-            "demo: the shutdown process has started";
+        GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Skipped PIN dialog "
+                                   << "demo: the shutdown process has started";
         return false;
       }
 
-      GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Running PIN dialog " <<
-          "demo...";
+      GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Running PIN dialog "
+                                 << "demo...";
       ccp::RequestPinOptions request_pin_options;
       request_pin_options.sign_request_id = signature_request.sign_request_id;
       std::string pin;
       if (!locked_chrome_certificate_provider_api_bridge->RequestPin(
-               request_pin_options, &pin)) {
-        GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] demo finished: " <<
-            "dialog was canceled.";
+              request_pin_options, &pin)) {
+        GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] demo finished: "
+                                   << "dialog was canceled.";
         return false;
       }
 
@@ -298,8 +294,9 @@ class PpInstance final : public pp::Instance {
       locked_chrome_certificate_provider_api_bridge->StopPinRequest(
           stop_pin_request_options);
 
-      GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] demo finished: " <<
-          "received PIN of length " << pin.length() << " entered by the user.";
+      GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] demo finished: "
+                                 << "received PIN of length " << pin.length()
+                                 << " entered by the user.";
 
       // Note: these bytes "4, 5, 6" below are just an example. In the real
       // application, replace them with the bytes of the real signature
@@ -318,8 +315,8 @@ class PpInstance final : public pp::Instance {
     explicit ClientMessageFromUiHandler(
         std::weak_ptr<UiBridge> ui_bridge,
         std::weak_ptr<BuiltInPinDialogServer> built_in_pin_dialog_server)
-      : ui_bridge_(ui_bridge),
-        built_in_pin_dialog_server_(built_in_pin_dialog_server) {}
+        : ui_bridge_(ui_bridge),
+          built_in_pin_dialog_server_(built_in_pin_dialog_server) {}
 
     void HandleMessageFromUi(const pp::Var& message) override {
       //
@@ -332,13 +329,13 @@ class PpInstance final : public pp::Instance {
       std::string error_message;
       if (gsc::VarAs(message, &message_dict, &error_message) &&
           gsc::GetVarDictValueAs(message_dict, /*key=*/"command", &command,
-                                  &error_message) &&
+                                 &error_message) &&
           command == "run_test") {
         OnRunTestCommandReceived();
         return;
       }
-      GOOGLE_SMART_CARD_LOG_ERROR << "Unexpected message from UI: " <<
-          gsc::DebugDumpVar(message);
+      GOOGLE_SMART_CARD_LOG_ERROR << "Unexpected message from UI: "
+                                  << gsc::DebugDumpVar(message);
     }
 
    private:
@@ -350,30 +347,31 @@ class PpInstance final : public pp::Instance {
       // for those the locked_chrome_certificate_provider_api_bridge's
       // RequestPin() should be used instead (see the example in HandleRequest()
       // above).
-      GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Running built-in PIN " <<
-          "dialog demo...";
+      GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Running built-in PIN "
+                                 << "dialog demo...";
       const std::shared_ptr<BuiltInPinDialogServer> locked_pin_dialog_server =
           built_in_pin_dialog_server_.lock();
       if (!locked_pin_dialog_server) {
-        GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Skipped PIN dialog " <<
-            "demo: the shutdown process has started";
+        GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] Skipped PIN dialog "
+                                   << "demo: the shutdown process has started";
         return;
       }
       std::string pin;
       if (locked_pin_dialog_server->RequestPin(&pin)) {
-        GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] received PIN of " <<
-            "length " << pin.length() << " entered by the user.";
+        GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] received PIN of "
+                                   << "length " << pin.length()
+                                   << " entered by the user.";
       } else {
-        GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] PIN dialog was " <<
-            "canceled.";
+        GOOGLE_SMART_CARD_LOG_INFO << "[PIN Dialog DEMO] PIN dialog was "
+                                   << "canceled.";
       }
 
-      GOOGLE_SMART_CARD_LOG_INFO << "[PC/SC-Lite DEMO] Starting PC/SC-Lite " <<
-          "demo...";
+      GOOGLE_SMART_CARD_LOG_INFO << "[PC/SC-Lite DEMO] Starting PC/SC-Lite "
+                                 << "demo...";
       SendOutputMessageToUi("Starting demo...");
       if (gsc::ExecutePcscLiteCppDemo()) {
-        GOOGLE_SMART_CARD_LOG_INFO << "[PC/SC-Lite DEMO] demo finished " <<
-            "successfully.";
+        GOOGLE_SMART_CARD_LOG_INFO << "[PC/SC-Lite DEMO] demo finished "
+                                   << "successfully.";
         SendOutputMessageToUi("Demo finished successfully.");
       } else {
         GOOGLE_SMART_CARD_LOG_ERROR << "[PC/SC-Lite DEMO] demo failed.";
@@ -383,8 +381,7 @@ class PpInstance final : public pp::Instance {
 
     void SendOutputMessageToUi(const std::string& text) {
       std::shared_ptr<UiBridge> locked_ui_bridge = ui_bridge_.lock();
-      if (!locked_ui_bridge)
-        return;
+      if (!locked_ui_bridge) return;
       locked_ui_bridge->SendMessageToUi(
           gsc::VarDictBuilder().Add("output_message", text).Result());
     }
@@ -428,7 +425,7 @@ class PpInstance final : public pp::Instance {
   // The stored pointer is leaked intentionally in the class destructor - see
   // its comment for the justification.
   std::unique_ptr<gsc::PcscLiteOverRequesterGlobal>
-  pcsc_lite_over_requester_global_;
+      pcsc_lite_over_requester_global_;
   // Object that allows to perform built-in PIN dialog requests.
   std::shared_ptr<BuiltInPinDialogServer> built_in_pin_dialog_server_;
   // Object that allows to make calls to and receive events from the
@@ -443,14 +440,14 @@ class PpInstance final : public pp::Instance {
   // and
   // <https://developer.chrome.com/extensions/certificateProvider#event-onCertificatesRequested>).
   const std::shared_ptr<ClientCertificatesRequestHandler>
-  certificates_request_handler_;
+      certificates_request_handler_;
   // Handler of the onSignatureRequested/onSignDigestRequested requests
   // from the chrome.certificateProvider JavaScript API (see
   // <https://developer.chrome.com/extensions/certificateProvider#event-onSignatureRequested>
   // and
   // <https://developer.chrome.com/extensions/certificateProvider#event-onSignDigestRequested>).
   const std::shared_ptr<ClientSignatureRequestHandler>
-  signature_request_handler_;
+      signature_request_handler_;
   // Handler of messages from UI.
   const std::shared_ptr<ClientMessageFromUiHandler> message_from_ui_handler_;
 };
@@ -476,8 +473,6 @@ namespace pp {
 
 // Entry point of the NaCl module, that is called by the NaCl framework when the
 // module is being loaded.
-Module* CreateModule() {
-  return new scc::PpModule;
-}
+Module* CreateModule() { return new scc::PpModule; }
 
 }  // namespace pp

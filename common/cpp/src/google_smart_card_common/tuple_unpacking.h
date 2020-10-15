@@ -19,16 +19,16 @@ namespace google_smart_card {
 
 // Helper template class that holds a compile-time integer sequence as its
 // template parameter pack.
-template <size_t ... Sequence>
+template <size_t... Sequence>
 struct ArgIndexes {};
 
 namespace internal {
 
-template <size_t ArgCounter, size_t ... Sequence>
+template <size_t ArgCounter, size_t... Sequence>
 struct ArgIndexesGenerator
     : ArgIndexesGenerator<ArgCounter - 1, ArgCounter - 1, Sequence...> {};
 
-template <size_t ... Sequence>
+template <size_t... Sequence>
 struct ArgIndexesGenerator<0, Sequence...> {
   using result = ArgIndexes<Sequence...>;
 };

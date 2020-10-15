@@ -16,8 +16,8 @@
 
 namespace google_smart_card {
 
-pp::VarArray SliceVarArray(
-    const pp::VarArray& var, uint32_t begin_index, uint32_t count) {
+pp::VarArray SliceVarArray(const pp::VarArray& var, uint32_t begin_index,
+                           uint32_t count) {
   GOOGLE_SMART_CARD_CHECK(begin_index + count <= var.GetLength());
   pp::VarArray result;
   result.SetLength(count);

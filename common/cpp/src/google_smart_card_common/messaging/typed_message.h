@@ -33,8 +33,8 @@ namespace google_smart_card {
 
 // Parses the typed message, splitting it into two components: the message type
 // and the message data.
-bool ParseTypedMessage(
-    const pp::Var& message, std::string* type, pp::Var* data);
+bool ParseTypedMessage(const pp::Var& message, std::string* type,
+                       pp::Var* data);
 
 // Creates a typed message having the specified message type and message data.
 pp::Var MakeTypedMessage(const std::string& type, const pp::Var& data);

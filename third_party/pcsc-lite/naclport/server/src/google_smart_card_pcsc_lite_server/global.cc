@@ -31,10 +31,6 @@
 
 #include <thread>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/messaging/typed_message.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
-
 extern "C" {
 #include "winscard.h"
 #include "debuglog.h"
@@ -43,6 +39,10 @@ extern "C" {
 #include "sys_generic.h"
 #include "winscard_svc.h"
 }
+
+#include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/messaging/typed_message.h>
+#include <google_smart_card_common/pp_var_utils/construction.h>
 
 #include "server_sockets_manager.h"
 #include "socketpair_emulation.h"
@@ -53,26 +53,27 @@ namespace {
 
 PcscLiteServerGlobal* g_pcsc_lite_server = nullptr;
 
-const char kLoggingPrefix[] = "[PC/SC-Lite NaCl port] ";
+constexpr char kLoggingPrefix[] = "[PC/SC-Lite NaCl port] ";
 
-const char kReaderInitAddMessageType[] = "reader_init_add";
-const char kReaderFinishAddMessageType[] = "reader_finish_add";
-const char kReaderRemoveMessageType[] = "reader_remove";
-const char kNameMessageKey[] = "readerName";
-const char kPortMessageKey[] = "port";
-const char kDeviceMessageKey[] = "device";
-const char kReturnCodeMessageKey[] = "returnCode";
+constexpr char kReaderInitAddMessageType[] = "reader_init_add";
+constexpr char kReaderFinishAddMessageType[] = "reader_finish_add";
+constexpr char kReaderRemoveMessageType[] = "reader_remove";
+constexpr char kNameMessageKey[] = "readerName";
+constexpr char kPortMessageKey[] = "port";
+constexpr char kDeviceMessageKey[] = "device";
+constexpr char kReturnCodeMessageKey[] = "returnCode";
 
 void PcscLiteServerDaemonThreadMain() {
   // TODO(emaxx): Stop the event loop during pp::Instance destruction.
   while (true) {
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "[daemon thread] " <<
-        "Waiting for the new connected clients...";
+    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "[daemon thread] "
+                                << "Waiting for the new connected clients...";
     uint32_t server_socket_file_descriptor = static_cast<uint32_t>(
         PcscLiteServerSocketsManager::GetInstance()->WaitAndPop());
 
-    GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "[daemon thread] A new " <<
-        "client was connected, starting a handler thread...";
+    GOOGLE_SMART_CARD_LOG_DEBUG
+        << kLoggingPrefix << "[daemon thread] A new "
+        << "client was connected, starting a handler thread...";
     // Note: even though the CreateContextThread function accepts its
     // server_socket_file_descriptor argument by pointer, it doesn't store the
     // pointer itself anywhere - so it's safe to use a local variable here.
@@ -82,14 +83,14 @@ void PcscLiteServerDaemonThreadMain() {
     // applied to all clients.
     GOOGLE_SMART_CARD_CHECK(
         ::CreateContextThread(&server_socket_file_descriptor) ==
-            SCARD_S_SUCCESS);
+        SCARD_S_SUCCESS);
   }
 }
 
 }  // namespace
 
 PcscLiteServerGlobal::PcscLiteServerGlobal(pp::Instance* pp_instance)
-      : pp_instance_(pp_instance) {
+    : pp_instance_(pp_instance) {
   GOOGLE_SMART_CARD_CHECK(!g_pcsc_lite_server);
   g_pcsc_lite_server = this;
 }
@@ -118,8 +119,8 @@ void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
 
   ::SYS_InitRandom();
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Setting up PC/SC-Lite " <<
-      "logging...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Setting up PC/SC-Lite "
+                              << "logging...";
   ::DebugLogSetLogType(DEBUGLOG_SYSLOG_DEBUG);
 #ifdef NDEBUG
   ::DebugLogSetLevel(PCSC_LOG_ERROR);
@@ -127,29 +128,31 @@ void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
   ::DebugLogSetLevel(PCSC_LOG_DEBUG);
   ::DebugLogSetCategory(DEBUG_CATEGORY_APDU | DEBUG_CATEGORY_SW);
 #endif
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "PC/SC-Lite logging was " <<
-      "set up.";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "PC/SC-Lite logging was "
+                              << "set up.";
 
   LONG return_code;
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Allocating reader " <<
-      "structures...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Allocating reader "
+                              << "structures...";
   return_code = ::RFAllocateReaderSpace(0);
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Reader structures " <<
-      "allocation finished with the following result: \"" <<
-      ::pcsc_stringify_error(return_code) << "\".";
+  GOOGLE_SMART_CARD_LOG_DEBUG
+      << kLoggingPrefix << "Reader structures "
+      << "allocation finished with the following result: \""
+      << ::pcsc_stringify_error(return_code) << "\".";
   GOOGLE_SMART_CARD_CHECK(return_code == SCARD_S_SUCCESS);
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Performing initial hot " <<
-      "plug drivers search...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Performing initial hot "
+                              << "plug drivers search...";
   return_code = ::HPSearchHotPluggables();
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initial hot plug " <<
-      "drivers search finished with the following result code: " <<
-      return_code << ".";
+  GOOGLE_SMART_CARD_LOG_DEBUG
+      << kLoggingPrefix << "Initial hot plug "
+      << "drivers search finished with the following result code: "
+      << return_code << ".";
   GOOGLE_SMART_CARD_CHECK(return_code == 0);
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Registering for hot " <<
-      "plug events...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Registering for hot "
+                              << "plug events...";
   // FIXME(emaxx): Currently this ends up on polling the libusb each second, as
   // it doesn't provide any way to subscribe for the device list change. But
   // it's possible to optimize this onto publisher-pattern-style implementation,
@@ -158,55 +161,67 @@ void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
   // replacement implementation of the currently used original hotplug_libusb.c
   // source file.
   return_code = ::HPRegisterForHotplugEvents();
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Registering for hot " <<
-      "plug events finished with the following result code: " << return_code <<
-      ".";
+  GOOGLE_SMART_CARD_LOG_DEBUG
+      << kLoggingPrefix << "Registering for hot "
+      << "plug events finished with the following result code: " << return_code
+      << ".";
   GOOGLE_SMART_CARD_CHECK(return_code == 0);
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Allocating client " <<
-      "structures...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Allocating client "
+                              << "structures...";
   return_code = ::ContextsInitialize(0, 0);
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Client structures " <<
-      "allocation finished with the following result code: " << return_code <<
-      "...";
+  GOOGLE_SMART_CARD_LOG_DEBUG
+      << kLoggingPrefix << "Client structures "
+      << "allocation finished with the following result code: " << return_code
+      << "...";
   GOOGLE_SMART_CARD_CHECK(return_code == 1);
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Waiting for the readers " <<
-      "initialization...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Waiting for the readers "
+                              << "initialization...";
   ::RFWaitForReaderInit();
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Waiting for the readers " <<
-      "initialization finished.";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Waiting for the readers "
+                              << "initialization finished.";
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Starting PC/SC-Lite " <<
-      "daemon thread...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Starting PC/SC-Lite "
+                              << "daemon thread...";
   std::thread daemon_thread(PcscLiteServerDaemonThreadMain);
   daemon_thread.detach();
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "PC/SC-Lite daemon " <<
-      "thread has started.";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "PC/SC-Lite daemon "
+                              << "thread has started.";
 
-  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initialization " <<
-      "successfully finished.";
+  GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initialization "
+                              << "successfully finished.";
 }
 
 void PcscLiteServerGlobal::PostReaderInitAddMessage(const char* reader_name,
-    int port, const char* device) const {
+                                                    int port,
+                                                    const char* device) const {
   PostMessage(kReaderInitAddMessageType, VarDictBuilder()
-      .Add(kNameMessageKey, reader_name).Add(kPortMessageKey, port)
-      .Add(kDeviceMessageKey, device).Result());
+                                             .Add(kNameMessageKey, reader_name)
+                                             .Add(kPortMessageKey, port)
+                                             .Add(kDeviceMessageKey, device)
+                                             .Result());
 }
 
 void PcscLiteServerGlobal::PostReaderFinishAddMessage(const char* reader_name,
-    int port, const char* device, long return_code) const {
-  PostMessage(kReaderFinishAddMessageType, VarDictBuilder()
-      .Add(kNameMessageKey, reader_name).Add(kPortMessageKey, port)
-      .Add(kDeviceMessageKey, device).Add(kReturnCodeMessageKey, return_code)
-      .Result());
+                                                      int port,
+                                                      const char* device,
+                                                      long return_code) const {
+  PostMessage(kReaderFinishAddMessageType,
+              VarDictBuilder()
+                  .Add(kNameMessageKey, reader_name)
+                  .Add(kPortMessageKey, port)
+                  .Add(kDeviceMessageKey, device)
+                  .Add(kReturnCodeMessageKey, return_code)
+                  .Result());
 }
 
 void PcscLiteServerGlobal::PostReaderRemoveMessage(const char* reader_name,
-    int port) const {
+                                                   int port) const {
   PostMessage(kReaderRemoveMessageType, VarDictBuilder()
-      .Add(kNameMessageKey, reader_name).Add(kPortMessageKey, port).Result());
+                                            .Add(kNameMessageKey, reader_name)
+                                            .Add(kPortMessageKey, port)
+                                            .Result());
 }
 
 void PcscLiteServerGlobal::PostMessage(

@@ -30,8 +30,8 @@ extern "C" {
 #include "auth.h"
 }
 
-unsigned IsClientAuthorized(
-    int socket, const char* action, const char* reader) {
+unsigned IsClientAuthorized(int socket, const char* action,
+                            const char* reader) {
   // This naclport of pcsc-lite library doesn't have a polkit authorization of
   // clients, so just allowing arbitrary client connections here.
   return 1;

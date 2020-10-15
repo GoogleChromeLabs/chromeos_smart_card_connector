@@ -45,10 +45,12 @@ class BuiltInPinDialogServer final {
   // into the specified TypedMessageRouter for receiving the request responses.
   BuiltInPinDialogServer(
       google_smart_card::TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
-      pp::Core* pp_core);
+      pp::Instance* pp_instance, pp::Core* pp_core);
 
   BuiltInPinDialogServer(const BuiltInPinDialogServer&) = delete;
+  BuiltInPinDialogServer& operator=(const BuiltInPinDialogServer&) = delete;
+
+  ~BuiltInPinDialogServer();
 
   // Detaches from the Pepper module and the typed message router, which
   // prevents any further requests and waiting for the request responses.

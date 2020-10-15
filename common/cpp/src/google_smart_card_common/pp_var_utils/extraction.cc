@@ -18,19 +18,16 @@
 
 #include <google_smart_card_common/numeric_conversions.h>
 
-const char kErrorWrongType[] =
-    "Expected a value of type \"%s\", instead got: %s";
-
 namespace google_smart_card {
 
 namespace {
 
+constexpr char kErrorWrongType[] =
+    "Expected a value of type \"%s\", instead got: %s";
+
 template <typename T>
-bool VarAsInteger(
-    const pp::Var& var,
-    const std::string& type_name,
-    T* result,
-    std::string* error_message) {
+bool VarAsInteger(const pp::Var& var, const std::string& type_name, T* result,
+                  std::string* error_message) {
   int64_t integer;
   if (var.is_int()) {
     integer = var.AsInt();
@@ -38,8 +35,8 @@ bool VarAsInteger(
     if (!CastDoubleToInt64(var.AsDouble(), &integer, error_message))
       return false;
   } else {
-    *error_message = FormatPrintfTemplate(
-        kErrorWrongType, kIntegerJsTypeTitle, DebugDumpVar(var).c_str());
+    *error_message = FormatPrintfTemplate(kErrorWrongType, kIntegerJsTypeTitle,
+                                          DebugDumpVar(var).c_str());
     return false;
   }
   return CastInt64ToInteger(integer, type_name, result, error_message);
@@ -83,23 +80,22 @@ bool VarAs(const pp::Var& var, long* result, std::string* error_message) {
   return VarAsInteger(var, "long", result, error_message);
 }
 
-bool VarAs(
-    const pp::Var& var, unsigned long* result, std::string* error_message) {
+bool VarAs(const pp::Var& var, unsigned long* result,
+           std::string* error_message) {
   return VarAsInteger(var, "unsigned long", result, error_message);
 }
 
 bool VarAs(const pp::Var& var, float* result, std::string* error_message) {
   double double_value;
-  if (!VarAs(var, &double_value, error_message))
-    return false;
+  if (!VarAs(var, &double_value, error_message)) return false;
   *result = static_cast<float>(double_value);
   return true;
 }
 
 bool VarAs(const pp::Var& var, double* result, std::string* error_message) {
   if (!var.is_number()) {
-    *error_message = FormatPrintfTemplate(
-        kErrorWrongType, kIntegerJsTypeTitle, DebugDumpVar(var).c_str());
+    *error_message = FormatPrintfTemplate(kErrorWrongType, kIntegerJsTypeTitle,
+                                          DebugDumpVar(var).c_str());
     return false;
   }
   *result = var.AsDouble();
@@ -108,46 +104,44 @@ bool VarAs(const pp::Var& var, double* result, std::string* error_message) {
 
 bool VarAs(const pp::Var& var, bool* result, std::string* error_message) {
   if (!var.is_bool()) {
-    *error_message = FormatPrintfTemplate(
-        kErrorWrongType, kBooleanJsTypeTitle, DebugDumpVar(var).c_str());
+    *error_message = FormatPrintfTemplate(kErrorWrongType, kBooleanJsTypeTitle,
+                                          DebugDumpVar(var).c_str());
     return false;
   }
   *result = var.AsBool();
   return true;
 }
 
-bool VarAs(
-    const pp::Var& var, std::string* result, std::string* error_message) {
+bool VarAs(const pp::Var& var, std::string* result,
+           std::string* error_message) {
   if (!var.is_string()) {
-    *error_message = FormatPrintfTemplate(
-        kErrorWrongType, kStringJsTypeTitle, DebugDumpVar(var).c_str());
+    *error_message = FormatPrintfTemplate(kErrorWrongType, kStringJsTypeTitle,
+                                          DebugDumpVar(var).c_str());
     return false;
   }
   *result = var.AsString();
   return true;
 }
 
-bool VarAs(
-    const pp::Var& var, pp::Var* result, std::string* /*error_message*/) {
+bool VarAs(const pp::Var& var, pp::Var* result,
+           std::string* /*error_message*/) {
   *result = var;
   return true;
 }
 
-bool VarAs(
-    const pp::Var& var, pp::VarArray* result, std::string* error_message) {
+bool VarAs(const pp::Var& var, pp::VarArray* result,
+           std::string* error_message) {
   if (!var.is_array()) {
-    *error_message = FormatPrintfTemplate(
-        kErrorWrongType, kArrayJsTypeTitle, DebugDumpVar(var).c_str());
+    *error_message = FormatPrintfTemplate(kErrorWrongType, kArrayJsTypeTitle,
+                                          DebugDumpVar(var).c_str());
     return false;
   }
   *result = pp::VarArray(var);
   return true;
 }
 
-bool VarAs(
-    const pp::Var& var,
-    pp::VarArrayBuffer* result,
-    std::string* error_message) {
+bool VarAs(const pp::Var& var, pp::VarArrayBuffer* result,
+           std::string* error_message) {
   if (!var.is_array_buffer()) {
     *error_message = FormatPrintfTemplate(
         kErrorWrongType, kArrayBufferJsTypeTitle, DebugDumpVar(var).c_str());
@@ -157,8 +151,8 @@ bool VarAs(
   return true;
 }
 
-bool VarAs(
-    const pp::Var& var, pp::VarDictionary* result, std::string* error_message) {
+bool VarAs(const pp::Var& var, pp::VarDictionary* result,
+           std::string* error_message) {
   if (!var.is_dictionary()) {
     *error_message = FormatPrintfTemplate(
         kErrorWrongType, kDictionaryJsTypeTitle, DebugDumpVar(var).c_str());
@@ -168,11 +162,11 @@ bool VarAs(
   return true;
 }
 
-bool VarAs(
-    const pp::Var& var, pp::Var::Null* /*result*/, std::string* error_message) {
+bool VarAs(const pp::Var& var, pp::Var::Null* /*result*/,
+           std::string* error_message) {
   if (!var.is_null()) {
-    *error_message = FormatPrintfTemplate(
-        kErrorWrongType, kNullJsTypeTitle, DebugDumpVar(var).c_str());
+    *error_message = FormatPrintfTemplate(kErrorWrongType, kNullJsTypeTitle,
+                                          DebugDumpVar(var).c_str());
     return false;
   }
   return true;
@@ -199,14 +193,11 @@ int GetVarArraySize(const pp::VarArray& var) {
   return static_cast<int>(var.GetLength());
 }
 
-bool GetVarDictValue(
-    const pp::VarDictionary& var,
-    const std::string& key,
-    pp::Var* result,
-    std::string* error_message) {
+bool GetVarDictValue(const pp::VarDictionary& var, const std::string& key,
+                     pp::Var* result, std::string* error_message) {
   if (!var.HasKey(key)) {
-    *error_message = FormatPrintfTemplate(
-        "The dictionary has no key \"%s\"", key.c_str());
+    *error_message =
+        FormatPrintfTemplate("The dictionary has no key \"%s\"", key.c_str());
     return false;
   }
   *result = var.Get(key);
@@ -222,10 +213,9 @@ pp::Var GetVarDictValue(const pp::VarDictionary& var, const std::string& key) {
 }
 
 VarDictValuesExtractor::VarDictValuesExtractor(const pp::VarDictionary& var)
-    : var_(var),
-      failed_(false) {
-  const std::vector<std::string> keys = VarAs<std::vector<std::string>>(
-      var_.GetKeys());
+    : var_(var) {
+  const std::vector<std::string> keys =
+      VarAs<std::vector<std::string>>(var_.GetKeys());
   not_requested_keys_.insert(keys.begin(), keys.end());
 }
 
@@ -239,18 +229,16 @@ bool VarDictValuesExtractor::GetSuccess(std::string* error_message) const {
 
 bool VarDictValuesExtractor::GetSuccessWithNoExtraKeysAllowed(
     std::string* error_message) const {
-  if (!GetSuccess(error_message))
-    return false;
+  if (!GetSuccess(error_message)) return false;
   if (!not_requested_keys_.empty()) {
     std::string unexpected_keys_dump;
     for (const std::string& key : not_requested_keys_) {
-      if (!unexpected_keys_dump.empty())
-        unexpected_keys_dump += ", ";
+      if (!unexpected_keys_dump.empty()) unexpected_keys_dump += ", ";
       unexpected_keys_dump += '"' + key + '"';
     }
-    *error_message = FormatPrintfTemplate(
-        "The dictionary contains unexpected keys: %s",
-        unexpected_keys_dump.c_str());
+    *error_message =
+        FormatPrintfTemplate("The dictionary contains unexpected keys: %s",
+                             unexpected_keys_dump.c_str());
     return false;
   }
   return true;
@@ -258,8 +246,7 @@ bool VarDictValuesExtractor::GetSuccessWithNoExtraKeysAllowed(
 
 void VarDictValuesExtractor::CheckSuccess() const {
   std::string error_message;
-  if (!GetSuccess(&error_message))
-    GOOGLE_SMART_CARD_LOG_FATAL << error_message;
+  if (!GetSuccess(&error_message)) GOOGLE_SMART_CARD_LOG_FATAL << error_message;
 }
 
 void VarDictValuesExtractor::CheckSuccessWithNoExtraKeysAllowed() const {
@@ -280,8 +267,7 @@ void VarDictValuesExtractor::ProcessFailedExtraction(
     return;
   }
   error_message_ = FormatPrintfTemplate(
-      "Failed to extract the dictionary value with key \"%s\": %s",
-      key.c_str(),
+      "Failed to extract the dictionary value with key \"%s\": %s", key.c_str(),
       extraction_error_message.c_str());
   failed_ = true;
 }

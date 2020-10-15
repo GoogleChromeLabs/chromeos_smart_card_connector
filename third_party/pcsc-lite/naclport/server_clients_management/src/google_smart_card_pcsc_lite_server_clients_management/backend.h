@@ -48,6 +48,11 @@ class PcscLiteServerClientsManagementBackend final {
   PcscLiteServerClientsManagementBackend(
       pp::Instance* pp_instance, TypedMessageRouter* typed_message_router);
 
+  PcscLiteServerClientsManagementBackend(
+      const PcscLiteServerClientsManagementBackend&) = delete;
+  PcscLiteServerClientsManagementBackend& operator=(
+      const PcscLiteServerClientsManagementBackend&) = delete;
+
   ~PcscLiteServerClientsManagementBackend();
 
  private:

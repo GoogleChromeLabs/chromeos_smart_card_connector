@@ -46,19 +46,19 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <errno.h>
 
-#include <cstdlib>
 #include <chrono>
-
-#include <google_smart_card_common/logging/logging.h>
+#include <cstdlib>
 
 extern "C" {
-#include "pcsclite.h"
 #include "misc.h"
+#include "pcsclite.h"
 #include "winscard_msg.h"
 
 // "misc.h" defines a "min" macro which is incompatible with C++.
 #undef min
 }
+
+#include <google_smart_card_common/logging/logging.h>
 
 #include "server_sockets_manager.h"
 #include "socketpair_emulation.h"
@@ -107,8 +107,8 @@ INTERNAL void ClientCloseSession(uint32_t dwClientID) {
   //
   // Note that the other end of the socket pair, owned by the daemon, is also
   // switched into the "closed" internal state.
-  google_smart_card::socketpair_emulation::Close(
-      static_cast<int>(dwClientID), &is_failure);
+  google_smart_card::socketpair_emulation::Close(static_cast<int>(dwClientID),
+                                                 &is_failure);
   // Discard the possible error - there is no way to return it from this
   // function, and the error is not a fatal.
 }
@@ -133,12 +133,9 @@ extern "C" int ServerCloseSession(int fd) {
 // (which is actually an emulated socket).
 //
 // This function may be called both by the client library and by the daemon.
-INTERNAL LONG MessageReceiveTimeout(
-    uint32_t /*command*/,
-    void* buffer_void,
-    uint64_t buffer_size,
-    int32_t filedes,
-    long timeOut) {
+INTERNAL LONG MessageReceiveTimeout(uint32_t /*command*/, void* buffer_void,
+                                    uint64_t buffer_size, int32_t filedes,
+                                    long timeOut) {
   GOOGLE_SMART_CARD_CHECK(buffer_void);
 
   const auto start_time_point = std::chrono::high_resolution_clock::now();
@@ -148,20 +145,20 @@ INTERNAL LONG MessageReceiveTimeout(
     const auto current_time_point = std::chrono::high_resolution_clock::now();
     const int64_t milliseconds_passed =
         std::chrono::duration_cast<std::chrono::milliseconds>(
-            current_time_point - start_time_point).count();
-    if (milliseconds_passed > timeOut)
-      return SCARD_E_TIMEOUT;
+            current_time_point - start_time_point)
+            .count();
+    if (milliseconds_passed > timeOut) return SCARD_E_TIMEOUT;
 
     bool is_failure = false;
 
     if (!google_smart_card::socketpair_emulation::SelectForReading(
-             filedes, timeOut - milliseconds_passed, &is_failure)) {
+            filedes, timeOut - milliseconds_passed, &is_failure)) {
       return is_failure ? SCARD_F_COMM_ERROR : SCARD_E_TIMEOUT;
     }
 
     int64_t read_size = left_size;
     if (!google_smart_card::socketpair_emulation::Read(
-             filedes, current_buffer_begin, &read_size, &is_failure)) {
+            filedes, current_buffer_begin, &read_size, &is_failure)) {
       return SCARD_F_COMM_ERROR;
     }
     left_size -= read_size;
@@ -175,8 +172,8 @@ INTERNAL LONG MessageReceiveTimeout(
 // (which is actually an emulated socket).
 //
 // This function may be called both by the client library and by the daemon.
-INTERNAL LONG MessageSendWithHeader(
-    uint32_t command, uint32_t dwClientID, uint64_t size, void* data_void) {
+INTERNAL LONG MessageSendWithHeader(uint32_t command, uint32_t dwClientID,
+                                    uint64_t size, void* data_void) {
   struct rxHeader header;
   LONG ret;
 
@@ -185,8 +182,7 @@ INTERNAL LONG MessageSendWithHeader(
   ret = MessageSend(&header, sizeof(header), dwClientID);
 
   if (ret == SCARD_S_SUCCESS) {
-    if (size > 0)
-      ret = MessageSend(data_void, size, dwClientID);
+    if (size > 0) ret = MessageSend(data_void, size, dwClientID);
   }
 
   return ret;
@@ -196,8 +192,8 @@ INTERNAL LONG MessageSendWithHeader(
 // (which is actually an emulated socket).
 //
 // This function may be called both by the client library and by the daemon.
-INTERNAL LONG MessageSend(
-    void* buffer_void, uint64_t buffer_size, int32_t filedes) {
+INTERNAL LONG MessageSend(void* buffer_void, uint64_t buffer_size,
+                          int32_t filedes) {
   bool is_failure = false;
   google_smart_card::socketpair_emulation::Write(
       filedes, static_cast<uint8_t*>(buffer_void), buffer_size, &is_failure);
@@ -208,8 +204,8 @@ INTERNAL LONG MessageSend(
 // (which is actually an emulated socket).
 //
 // This function may be called both by the client library and by the daemon.
-INTERNAL LONG MessageReceive(
-    void* buffer_void, uint64_t buffer_size, int32_t filedes) {
+INTERNAL LONG MessageReceive(void* buffer_void, uint64_t buffer_size,
+                             int32_t filedes) {
   GOOGLE_SMART_CARD_CHECK(buffer_void);
 
   uint8_t* current_buffer_begin = static_cast<uint8_t*>(buffer_void);
@@ -217,14 +213,13 @@ INTERNAL LONG MessageReceive(
   while (left_size > 0) {
     bool is_failure = false;
 
-    google_smart_card::socketpair_emulation::SelectForReading(
-        filedes, &is_failure);
-    if (is_failure)
-      return SCARD_F_COMM_ERROR;
+    google_smart_card::socketpair_emulation::SelectForReading(filedes,
+                                                              &is_failure);
+    if (is_failure) return SCARD_F_COMM_ERROR;
 
     int64_t read_size = left_size;
     if (!google_smart_card::socketpair_emulation::Read(
-             filedes, current_buffer_begin, &read_size, &is_failure)) {
+            filedes, current_buffer_begin, &read_size, &is_failure)) {
       return SCARD_F_COMM_ERROR;
     }
     left_size -= read_size;

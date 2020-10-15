@@ -92,13 +92,14 @@ class ApiBridge final : public google_smart_card::RequestHandler {
   // The |request_handling_mutex| parameter, when non-null, allows to avoid
   // simultaneous execution of multiple requests: each next request will be
   // executed only once the previous one finishes.
-  ApiBridge(
-      google_smart_card::TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
-      pp::Core* pp_core,
-      std::shared_ptr<std::mutex> request_handling_mutex);
+  ApiBridge(google_smart_card::TypedMessageRouter* typed_message_router,
+            pp::Instance* pp_instance, pp::Core* pp_core,
+            std::shared_ptr<std::mutex> request_handling_mutex);
 
   ApiBridge(const ApiBridge&) = delete;
+  ApiBridge& operator=(const ApiBridge&) = delete;
+
+  ~ApiBridge();
 
   void Detach();
 
@@ -137,10 +138,9 @@ class ApiBridge final : public google_smart_card::RequestHandler {
 
  private:
   // google_smart_card::RequestHandler:
-  void HandleRequest(
-      const pp::Var& payload,
-      google_smart_card::RequestReceiver::ResultCallback result_callback)
-  override;
+  void HandleRequest(const pp::Var& payload,
+                     google_smart_card::RequestReceiver::ResultCallback
+                         result_callback) override;
 
   void HandleCertificatesRequest(
       const pp::VarArray& arguments,

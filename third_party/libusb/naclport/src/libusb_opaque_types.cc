@@ -96,7 +96,7 @@ void libusb_context::WaitAndProcessOutputSyncTransferReceivedResult(
 
 void libusb_context::WaitAndProcessAsyncTransferReceivedResults(
     const std::chrono::time_point<std::chrono::high_resolution_clock>&
-    timeout_time_point,
+        timeout_time_point,
     int* completed) {
   TransferAsyncRequestStatePtr async_request_state;
   TransferRequestResult result;
@@ -179,8 +179,9 @@ void libusb_context::OnOutputTransferResultReceived(
   GOOGLE_SMART_CARD_CHECK(transfers_in_flight_.ContainsWithAsyncRequestState(
       async_request_state.get()));
 
-  GOOGLE_SMART_CARD_CHECK(received_output_transfer_result_map_.emplace(
-      async_request_state, result).second);
+  GOOGLE_SMART_CARD_CHECK(
+      received_output_transfer_result_map_.emplace(async_request_state, result)
+          .second);
 
   condition_.notify_all();
 }
@@ -211,8 +212,8 @@ void libusb_context::RemoveTransferInFlight(
   // Note that the check is correct because cancellation of output transfers
   // never happens (this is guaranteed by the implementation of the
   // CancelTransfer method).
-  GOOGLE_SMART_CARD_CHECK(!received_output_transfer_result_map_.count(
-      async_request_state_ptr));
+  GOOGLE_SMART_CARD_CHECK(
+      !received_output_transfer_result_map_.count(async_request_state_ptr));
 
   if (transfer) {
     // Note that this assertion relies on the fact that transfer cancellation
@@ -230,24 +231,23 @@ bool libusb_context::ExtractAsyncTransferStateUpdate(
   // other options, because the cancellation of the transfer, if accepted,
   // should have precedence over receiving of results for the transfer (and this
   // is asserted in method RemoveTransferInFlight).
-  return
-      ExtractAsyncTransferStateCancellationUpdate(async_request_state, result) ||
-      ExtractOutputAsyncTransferStateUpdate(async_request_state, result) ||
-      ExtractInputAsyncTransferStateUpdate(async_request_state, result);
+  return ExtractAsyncTransferStateCancellationUpdate(async_request_state,
+                                                     result) ||
+         ExtractOutputAsyncTransferStateUpdate(async_request_state, result) ||
+         ExtractInputAsyncTransferStateUpdate(async_request_state, result);
 }
 
 bool libusb_context::ExtractAsyncTransferStateCancellationUpdate(
     TransferAsyncRequestStatePtr* async_request_state,
     TransferRequestResult* result) {
-  if (transfers_to_cancel_.empty())
-    return false;
+  if (transfers_to_cancel_.empty()) return false;
 
   const auto iter = transfers_to_cancel_.begin();
   libusb_transfer* const transfer = *iter;
   transfers_to_cancel_.erase(iter);
 
-  *async_request_state = transfers_in_flight_.GetAsyncByLibusbTransfer(
-      transfer).async_request_state;
+  *async_request_state = transfers_in_flight_.GetAsyncByLibusbTransfer(transfer)
+                             .async_request_state;
   *result = TransferRequestResult::CreateCanceled();
   return true;
 }
@@ -259,16 +259,16 @@ bool libusb_context::ExtractOutputAsyncTransferStateUpdate(
     const TransferAsyncRequestStatePtr& stored_async_request =
         results_map_item.first;
 
-    if (!transfers_in_flight_.GetByAsyncRequestState(
-             stored_async_request.get()).transfer) {
+    if (!transfers_in_flight_.GetByAsyncRequestState(stored_async_request.get())
+             .transfer) {
       // Skip this transfer as it's a synchronous one.
       continue;
     }
 
     *async_request_state = stored_async_request;
     *result = std::move(results_map_item.second);
-    GOOGLE_SMART_CARD_CHECK(received_output_transfer_result_map_.erase(
-        *async_request_state));
+    GOOGLE_SMART_CARD_CHECK(
+        received_output_transfer_result_map_.erase(*async_request_state));
     return true;
   }
 
@@ -285,14 +285,15 @@ bool libusb_context::ExtractInputAsyncTransferStateUpdate(
 
     if (transfers_in_flight_.ContainsAsyncWithDestination(
             transfer_destination)) {
-      *async_request_state = transfers_in_flight_.GetAsyncByDestination(
-          transfer_destination).async_request_state;
+      *async_request_state =
+          transfers_in_flight_.GetAsyncByDestination(transfer_destination)
+              .async_request_state;
 
       *result = stored_results->front();
       stored_results->pop();
       if (stored_results->empty()) {
-        GOOGLE_SMART_CARD_CHECK(received_input_transfer_result_map_.erase(
-            transfer_destination));
+        GOOGLE_SMART_CARD_CHECK(
+            received_input_transfer_result_map_.erase(transfer_destination));
       }
 
       return true;
@@ -305,18 +306,16 @@ bool libusb_context::ExtractInputAsyncTransferStateUpdate(
 bool libusb_context::ExtractMatchingInputTransferResult(
     const UsbTransferDestination& transfer_destination,
     TransferRequestResult* result) {
-  const auto iter = received_input_transfer_result_map_.find(
-      transfer_destination);
-  if (iter == received_input_transfer_result_map_.end())
-    return false;
+  const auto iter =
+      received_input_transfer_result_map_.find(transfer_destination);
+  if (iter == received_input_transfer_result_map_.end()) return false;
   std::queue<TransferRequestResult>* results_queue = &iter->second;
 
   GOOGLE_SMART_CARD_CHECK(!results_queue->empty());
   *result = results_queue->front();
   results_queue->pop();
 
-  if (results_queue->empty())
-    received_input_transfer_result_map_.erase(iter);
+  if (results_queue->empty()) received_input_transfer_result_map_.erase(iter);
 
   return true;
 }
@@ -343,21 +342,16 @@ libusb_device::libusb_device(
     libusb_context* context,
     const google_smart_card::chrome_usb::Device& chrome_usb_device)
     : context_(context),
-      chrome_usb_device_(chrome_usb_device),
-      reference_count_(1) {
+      chrome_usb_device_(chrome_usb_device) {
   GOOGLE_SMART_CARD_CHECK(context);
 }
 
-libusb_device::~libusb_device() {
-  GOOGLE_SMART_CARD_CHECK(!reference_count_);
-}
+libusb_device::~libusb_device() { GOOGLE_SMART_CARD_CHECK(!reference_count_); }
 
-libusb_context* libusb_device::context() const {
-  return context_;
-}
+libusb_context* libusb_device::context() const { return context_; }
 
-const google_smart_card::chrome_usb::Device&
-libusb_device::chrome_usb_device() const {
+const google_smart_card::chrome_usb::Device& libusb_device::chrome_usb_device()
+    const {
   return chrome_usb_device_;
 }
 
@@ -369,8 +363,7 @@ void libusb_device::AddReference() {
 void libusb_device::RemoveReference() {
   const int new_reference_count = --reference_count_;
   GOOGLE_SMART_CARD_CHECK(new_reference_count >= 0);
-  if (!new_reference_count)
-    delete this;
+  if (!new_reference_count) delete this;
 }
 
 libusb_device_handle::libusb_device_handle(
@@ -383,13 +376,9 @@ libusb_device_handle::libusb_device_handle(
   device_->AddReference();
 }
 
-libusb_device_handle::~libusb_device_handle() {
-  device_->RemoveReference();
-}
+libusb_device_handle::~libusb_device_handle() { device_->RemoveReference(); }
 
-libusb_device* libusb_device_handle::device() const {
-  return device_;
-}
+libusb_device* libusb_device_handle::device() const { return device_; }
 
 libusb_context* libusb_device_handle::context() const {
   return device_->context();

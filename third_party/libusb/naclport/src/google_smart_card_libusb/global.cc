@@ -45,39 +45,32 @@ namespace google_smart_card {
 
 class LibusbOverChromeUsbGlobal::Impl final {
  public:
-  Impl(
-      TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
-      pp::Core* pp_core)
-      : chrome_usb_api_bridge_(MakeRequester(
-            typed_message_router, pp_instance, pp_core)),
+  Impl(TypedMessageRouter* typed_message_router, pp::Instance* pp_instance,
+       pp::Core* pp_core)
+      : chrome_usb_api_bridge_(
+            MakeRequester(typed_message_router, pp_instance, pp_core)),
         libusb_over_chrome_usb_(&chrome_usb_api_bridge_) {
 #ifndef NDEBUG
-    libusb_tracing_wrapper_.reset(new LibusbTracingWrapper(
-        &libusb_over_chrome_usb_));
+    libusb_tracing_wrapper_.reset(
+        new LibusbTracingWrapper(&libusb_over_chrome_usb_));
 #endif  // NDEBUG
   }
 
   Impl(const Impl&) = delete;
 
-  void Detach() {
-    chrome_usb_api_bridge_.Detach();
-  }
+  void Detach() { chrome_usb_api_bridge_.Detach(); }
 
   LibusbInterface* libusb() {
-    if (libusb_tracing_wrapper_)
-      return libusb_tracing_wrapper_.get();
+    if (libusb_tracing_wrapper_) return libusb_tracing_wrapper_.get();
     return &libusb_over_chrome_usb_;
   }
 
  private:
   static std::unique_ptr<Requester> MakeRequester(
-      TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
+      TypedMessageRouter* typed_message_router, pp::Instance* pp_instance,
       pp::Core* pp_core) {
     return std::unique_ptr<Requester>(new JsRequester(
-        chrome_usb::kApiBridgeRequesterName,
-        typed_message_router,
+        chrome_usb::kApiBridgeRequesterName, typed_message_router,
         MakeUnique<JsRequester::PpDelegateImpl>(pp_instance, pp_core)));
   }
 
@@ -87,8 +80,7 @@ class LibusbOverChromeUsbGlobal::Impl final {
 };
 
 LibusbOverChromeUsbGlobal::LibusbOverChromeUsbGlobal(
-    TypedMessageRouter* typed_message_router,
-    pp::Instance* pp_instance,
+    TypedMessageRouter* typed_message_router, pp::Instance* pp_instance,
     pp::Core* pp_core)
     : impl_(new Impl(typed_message_router, pp_instance, pp_core)) {
   GOOGLE_SMART_CARD_CHECK(!g_libusb);
@@ -100,9 +92,7 @@ LibusbOverChromeUsbGlobal::~LibusbOverChromeUsbGlobal() {
   g_libusb = nullptr;
 }
 
-void LibusbOverChromeUsbGlobal::Detach() {
-  impl_->Detach();
-}
+void LibusbOverChromeUsbGlobal::Detach() { impl_->Detach(); }
 
 }  // namespace google_smart_card
 
@@ -114,13 +104,13 @@ void LIBUSB_CALL libusb_exit(libusb_context* ctx) {
   GetGlobalLibusb()->LibusbExit(ctx);
 }
 
-ssize_t LIBUSB_CALL libusb_get_device_list(
-    libusb_context* ctx, libusb_device*** list) {
+ssize_t LIBUSB_CALL libusb_get_device_list(libusb_context* ctx,
+                                           libusb_device*** list) {
   return GetGlobalLibusb()->LibusbGetDeviceList(ctx, list);
 }
 
-void LIBUSB_CALL libusb_free_device_list(
-    libusb_device** list, int unref_devices) {
+void LIBUSB_CALL libusb_free_device_list(libusb_device** list,
+                                         int unref_devices) {
   GetGlobalLibusb()->LibusbFreeDeviceList(list, unref_devices);
 }
 
@@ -137,13 +127,13 @@ int LIBUSB_CALL libusb_get_active_config_descriptor(
   return GetGlobalLibusb()->LibusbGetActiveConfigDescriptor(dev, config);
 }
 
-void LIBUSB_CALL libusb_free_config_descriptor(
-    libusb_config_descriptor* config) {
+void LIBUSB_CALL
+libusb_free_config_descriptor(libusb_config_descriptor* config) {
   return GetGlobalLibusb()->LibusbFreeConfigDescriptor(config);
 }
 
-int LIBUSB_CALL libusb_get_device_descriptor(
-    libusb_device* dev, libusb_device_descriptor* desc) {
+int LIBUSB_CALL libusb_get_device_descriptor(libusb_device* dev,
+                                             libusb_device_descriptor* desc) {
   return GetGlobalLibusb()->LibusbGetDeviceDescriptor(dev, desc);
 }
 
@@ -163,13 +153,13 @@ void LIBUSB_CALL libusb_close(libusb_device_handle* dev_handle) {
   return GetGlobalLibusb()->LibusbClose(dev_handle);
 }
 
-int LIBUSB_CALL libusb_claim_interface(
-    libusb_device_handle* dev, int interface_number) {
+int LIBUSB_CALL libusb_claim_interface(libusb_device_handle* dev,
+                                       int interface_number) {
   return GetGlobalLibusb()->LibusbClaimInterface(dev, interface_number);
 }
 
-int LIBUSB_CALL libusb_release_interface(
-    libusb_device_handle* dev, int interface_number) {
+int LIBUSB_CALL libusb_release_interface(libusb_device_handle* dev,
+                                         int interface_number) {
   return GetGlobalLibusb()->LibusbReleaseInterface(dev, interface_number);
 }
 
@@ -193,44 +183,29 @@ int LIBUSB_CALL libusb_reset_device(libusb_device_handle* dev) {
   return GetGlobalLibusb()->LibusbResetDevice(dev);
 }
 
-int LIBUSB_CALL libusb_control_transfer(
-    libusb_device_handle* dev_handle,
-    uint8_t request_type,
-    uint8_t bRequest,
-    uint16_t wValue,
-    uint16_t wIndex,
-    unsigned char* data,
-    uint16_t wLength,
-    unsigned int timeout) {
-  return GetGlobalLibusb()->LibusbControlTransfer(
-      dev_handle,
-      request_type,
-      bRequest,
-      wValue,
-      wIndex,
-      data,
-      wLength,
-      timeout);
+int LIBUSB_CALL libusb_control_transfer(libusb_device_handle* dev_handle,
+                                        uint8_t request_type, uint8_t bRequest,
+                                        uint16_t wValue, uint16_t wIndex,
+                                        unsigned char* data, uint16_t wLength,
+                                        unsigned int timeout) {
+  return GetGlobalLibusb()->LibusbControlTransfer(dev_handle, request_type,
+                                                  bRequest, wValue, wIndex,
+                                                  data, wLength, timeout);
 }
 
-int LIBUSB_CALL libusb_bulk_transfer(
-    libusb_device_handle* dev_handle,
-    unsigned char endpoint,
-    unsigned char* data,
-    int length,
-    int* actual_length,
-    unsigned int timeout) {
-  return GetGlobalLibusb()->LibusbBulkTransfer(
-      dev_handle, endpoint, data, length, actual_length, timeout);
+int LIBUSB_CALL libusb_bulk_transfer(libusb_device_handle* dev_handle,
+                                     unsigned char endpoint,
+                                     unsigned char* data, int length,
+                                     int* actual_length, unsigned int timeout) {
+  return GetGlobalLibusb()->LibusbBulkTransfer(dev_handle, endpoint, data,
+                                               length, actual_length, timeout);
 }
 
-int LIBUSB_CALL libusb_interrupt_transfer(
-    libusb_device_handle* dev_handle,
-    unsigned char endpoint,
-    unsigned char* data,
-    int length,
-    int* actual_length,
-    unsigned int timeout) {
+int LIBUSB_CALL libusb_interrupt_transfer(libusb_device_handle* dev_handle,
+                                          unsigned char endpoint,
+                                          unsigned char* data, int length,
+                                          int* actual_length,
+                                          unsigned int timeout) {
   return GetGlobalLibusb()->LibusbInterruptTransfer(
       dev_handle, endpoint, data, length, actual_length, timeout);
 }
@@ -239,7 +214,7 @@ int LIBUSB_CALL libusb_handle_events(libusb_context* ctx) {
   return GetGlobalLibusb()->LibusbHandleEvents(ctx);
 }
 
-int LIBUSB_CALL libusb_handle_events_completed(
-    libusb_context* ctx, int* completed) {
+int LIBUSB_CALL libusb_handle_events_completed(libusb_context* ctx,
+                                               int* completed) {
   return GetGlobalLibusb()->LibusbHandleEventsCompleted(ctx, completed);
 }

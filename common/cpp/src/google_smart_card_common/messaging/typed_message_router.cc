@@ -21,19 +21,23 @@
 
 namespace google_smart_card {
 
+TypedMessageRouter::TypedMessageRouter() = default;
+
+TypedMessageRouter::~TypedMessageRouter() = default;
+
 void TypedMessageRouter::AddRoute(TypedMessageListener* listener) {
   const std::unique_lock<std::mutex> lock(mutex_);
 
-  const bool is_new_route_added = route_map_.emplace(
-      listener->GetListenedMessageType(), listener).second;
+  const bool is_new_route_added =
+      route_map_.emplace(listener->GetListenedMessageType(), listener).second;
   GOOGLE_SMART_CARD_CHECK(is_new_route_added);
 }
 
 void TypedMessageRouter::RemoveRoute(TypedMessageListener* listener) {
   const std::unique_lock<std::mutex> lock(mutex_);
 
-  const auto route_map_iter = route_map_.find(
-      listener->GetListenedMessageType());
+  const auto route_map_iter =
+      route_map_.find(listener->GetListenedMessageType());
   GOOGLE_SMART_CARD_CHECK(route_map_iter != route_map_.end());
   GOOGLE_SMART_CARD_CHECK(route_map_iter->second == listener);
   route_map_.erase(route_map_iter);
@@ -42,12 +46,10 @@ void TypedMessageRouter::RemoveRoute(TypedMessageListener* listener) {
 bool TypedMessageRouter::OnMessageReceived(const pp::Var& message) {
   std::string type;
   pp::Var data;
-  if (!ParseTypedMessage(message, &type, &data))
-    return false;
+  if (!ParseTypedMessage(message, &type, &data)) return false;
 
   TypedMessageListener* const listener = FindListenerByType(type);
-  if (!listener)
-    return false;
+  if (!listener) return false;
 
   return listener->OnTypedMessageReceived(data);
 }
@@ -57,8 +59,7 @@ TypedMessageListener* TypedMessageRouter::FindListenerByType(
   const std::unique_lock<std::mutex> lock(mutex_);
 
   const auto route_map_iter = route_map_.find(message_type);
-  if (route_map_iter == route_map_.end())
-    return nullptr;
+  if (route_map_iter == route_map_.end()) return nullptr;
   return route_map_iter->second;
 }
 

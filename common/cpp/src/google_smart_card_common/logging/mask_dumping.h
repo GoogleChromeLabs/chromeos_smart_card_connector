@@ -27,32 +27,27 @@ namespace google_smart_card {
 template <typename T>
 struct MaskOptionValueWithName {
   MaskOptionValueWithName(T value, const std::string& name)
-      : value(value),
-        name(name) {}
+      : value(value), name(name) {}
 
   T value;
   std::string name;
 };
 
-template <typename T, typename ... Args>
+template <typename T, typename... Args>
 inline std::string DumpMask(
     T value, const std::vector<MaskOptionValueWithName<T>>& options) {
   std::string result;
   for (const auto& option : options) {
-    if (!(value & option.value))
-      continue;
-    if (!result.empty())
-      result += '|';
+    if (!(value & option.value)) continue;
+    if (!result.empty()) result += '|';
     result += option.name;
     value &= ~option.value;
   }
   if (value) {
-    if (!result.empty())
-      result += '|';
+    if (!result.empty()) result += '|';
     result += HexDumpInteger(value);
   }
-  if (result.empty())
-    return "0";
+  if (result.empty()) return "0";
   return result;
 }
 

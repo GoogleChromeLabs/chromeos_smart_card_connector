@@ -37,9 +37,7 @@ class PcscLiteServerClientsManagementBackend::Impl final {
 
   Impl(const Impl&) = delete;
 
-  ~Impl() {
-    clients_manager_.Detach();
-  }
+  ~Impl() { clients_manager_.Detach(); }
 
  private:
   TypedMessageRouter* typed_message_router_;
@@ -51,6 +49,6 @@ PcscLiteServerClientsManagementBackend::PcscLiteServerClientsManagementBackend(
     : impl_(new Impl(pp_instance, typed_message_router)) {}
 
 PcscLiteServerClientsManagementBackend::
-~PcscLiteServerClientsManagementBackend() {}
+    ~PcscLiteServerClientsManagementBackend() {}
 
 }  // namespace google_smart_card

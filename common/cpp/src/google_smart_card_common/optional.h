@@ -52,9 +52,7 @@ class optional final {
   optional(T&& value)  // NOLINT
       : storage_(new T(std::move(value))) {}
 
-  optional& operator=(const optional& other) {
-    return *this = optional(other);
-  }
+  optional& operator=(const optional& other) { return *this = optional(other); }
 
   optional& operator=(optional&& other) = default;
 
@@ -68,47 +66,29 @@ class optional final {
     return storage_.get();
   }
 
-  const T& operator*() const& {
-    return *(operator->());
-  }
+  const T& operator*() const& { return *(operator->()); }
 
-  T& operator*() & {
-    return *(operator->());
-  }
+  T& operator*() & { return *(operator->()); }
 
-  T&& operator*() && {
-    return std::move(operator*());
-  }
+  T&& operator*() && { return std::move(operator*()); }
 
-  explicit operator bool() const {
-    return !!storage_;
-  }
+  explicit operator bool() const { return !!storage_; }
 
-  T& value() & {
-    return operator*();
-  }
+  T& value() & { return operator*(); }
 
-  const T& value() const& {
-    return operator*();
-  }
+  const T& value() const& { return operator*(); }
 
-  T&& value() && {
-    return operator*();
-  }
+  T&& value() && { return operator*(); }
 
   bool operator<(const optional& other) const {
-    if (!*this || !other)
-      return !*this && other;
+    if (!*this || !other) return !*this && other;
     return value() < other.value();
   }
 
-  bool operator>(const optional& other) const {
-    return other < *this;
-  }
+  bool operator>(const optional& other) const { return other < *this; }
 
   bool operator==(const optional& other) const {
-    if (!*this || !other)
-      return !*this == !other;
+    if (!*this || !other) return !*this == !other;
     return value() == other.value();
   }
 

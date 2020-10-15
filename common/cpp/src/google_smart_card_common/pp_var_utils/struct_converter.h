@@ -59,13 +59,12 @@ class StructConverter final {
   // Fails if the Pepper value is not a dictionary, or if it contains some
   // unexpected extra keys, or if at least one key corresponding to a
   // non-optional field is missing.
-  static bool ConvertFromVar(
-      const pp::Var& var, StructType* result, std::string* error_message) {
+  static bool ConvertFromVar(const pp::Var& var, StructType* result,
+                             std::string* error_message) {
     GOOGLE_SMART_CARD_CHECK(result);
     GOOGLE_SMART_CARD_CHECK(error_message);
     pp::VarDictionary var_dict;
-    if (!VarAs(var, &var_dict, error_message))
-      return false;
+    if (!VarAs(var, &var_dict, error_message)) return false;
     VarDictValuesExtractor extractor(var_dict);
     VisitFields(*result, FromVarConversionCallback(&extractor));
     return extractor.GetSuccessWithNoExtraKeysAllowed(error_message);
@@ -99,6 +98,11 @@ class StructConverter final {
         : target_var_(target_var) {
       GOOGLE_SMART_CARD_CHECK(target_var_);
     }
+    ToVarConversionCallback(const ToVarConversionCallback&) = delete;
+    ToVarConversionCallback& operator=(const ToVarConversionCallback&) = delete;
+    ToVarConversionCallback(ToVarConversionCallback&&) = default;
+    ToVarConversionCallback& operator=(ToVarConversionCallback&&) = default;
+    ~ToVarConversionCallback() = default;
 
     template <typename FieldType>
     void operator()(const FieldType* field, const std::string& field_name) {
@@ -107,15 +111,14 @@ class StructConverter final {
     }
 
     template <typename FieldType>
-    void operator()(
-        const optional<FieldType>* field, const std::string& field_name) {
+    void operator()(const optional<FieldType>* field,
+                    const std::string& field_name) {
       GOOGLE_SMART_CARD_CHECK(field);
-      if (*field)
-        SetVarDictValue(target_var_, field_name, **field);
+      if (*field) SetVarDictValue(target_var_, field_name, **field);
     }
 
    private:
-    pp::VarDictionary* target_var_;
+    pp::VarDictionary* const target_var_;
   };
 
   // The functor that is passed to the VisitFields method when the conversion
@@ -124,6 +127,12 @@ class StructConverter final {
    public:
     explicit FromVarConversionCallback(VarDictValuesExtractor* extractor)
         : extractor_(extractor) {}
+    FromVarConversionCallback(const FromVarConversionCallback&) = delete;
+    FromVarConversionCallback& operator=(const FromVarConversionCallback&) =
+        delete;
+    FromVarConversionCallback(FromVarConversionCallback&&) = default;
+    FromVarConversionCallback& operator=(FromVarConversionCallback&&) = default;
+    ~FromVarConversionCallback() = default;
 
     template <typename FieldType>
     void operator()(const FieldType* field, const std::string& field_name) {
@@ -141,8 +150,8 @@ class StructConverter final {
     }
 
     template <typename FieldType>
-    void ProcessField(
-        optional<FieldType>* field, const std::string& field_name) {
+    void ProcessField(optional<FieldType>* field,
+                      const std::string& field_name) {
       extractor_->TryExtractOptional(field_name, field);
     }
 

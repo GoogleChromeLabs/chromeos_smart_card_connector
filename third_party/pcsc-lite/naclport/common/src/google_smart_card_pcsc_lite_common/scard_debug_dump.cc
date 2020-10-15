@@ -41,7 +41,7 @@ struct DwordValueAndName {
   const char* name;
 };
 
-const DwordValueAndName kAttributeIdNames[] = {
+constexpr DwordValueAndName kAttributeIdNames[] = {
     {SCARD_ATTR_ASYNC_PROTOCOL_TYPES, "SCARD_ATTR_ASYNC_PROTOCOL_TYPES"},
     {SCARD_ATTR_ATR_STRING, "SCARD_ATTR_ATR_STRING"},
     {SCARD_ATTR_CHANNEL_ID, "SCARD_ATTR_CHANNEL_ID"},
@@ -87,16 +87,15 @@ const DwordValueAndName kAttributeIdNames[] = {
     {SCARD_ATTR_VENDOR_NAME, "SCARD_ATTR_VENDOR_NAME"},
 };
 
-const DwordValueAndName kControlCodeNames[] = {
+constexpr DwordValueAndName kControlCodeNames[] = {
     {CM_IOCTL_GET_FEATURE_REQUEST, "CM_IOCTL_GET_FEATURE_REQUEST"},
 };
 
 template <size_t size>
-std::string GetDwordValueName(
-    DWORD value, const DwordValueAndName(& options)[size]) {
+std::string GetDwordValueName(DWORD value,
+                              const DwordValueAndName (&options)[size]) {
   for (const auto& option : options) {
-    if (value == option.value)
-      return option.name;
+    if (value == option.value) return option.name;
   }
   return HexDumpInteger(value);
 }
@@ -109,18 +108,15 @@ std::string DebugDumpSCardReturnCode(LONG return_code) {
 }
 
 std::string DebugDumpSCardCString(const char* value) {
-  if (!value)
-    return "<NULL string>";
+  if (!value) return "<NULL string>";
   return std::string("\"") + value + "\"";
 }
 
 std::string DebugDumpSCardMultiString(const char* value) {
-  if (!value)
-    return "<NULL multi-string>";
+  if (!value) return "<NULL multi-string>";
   std::string result;
   for (const std::string& item : ExtractMultiStringElements(value)) {
-    if (!result.empty())
-      result += ", ";
+    if (!result.empty()) result += ", ";
     result += "\"" + item + "\"";
   }
   return "MultiString[" + result + "]";
@@ -178,11 +174,10 @@ std::string DebugDumpSCardProtocol(DWORD protocol) {
 }
 
 std::string DebugDumpSCardProtocols(DWORD protocols) {
-  return DumpMask(protocols, {
-      {SCARD_PROTOCOL_T0, "SCARD_PROTOCOL_T0"},
-      {SCARD_PROTOCOL_T1, "SCARD_PROTOCOL_T1"},
-      {SCARD_PROTOCOL_RAW, "SCARD_PROTOCOL_RAW"},
-      {SCARD_PROTOCOL_T15, "SCARD_PROTOCOL_T15"}});
+  return DumpMask(protocols, {{SCARD_PROTOCOL_T0, "SCARD_PROTOCOL_T0"},
+                              {SCARD_PROTOCOL_T1, "SCARD_PROTOCOL_T1"},
+                              {SCARD_PROTOCOL_RAW, "SCARD_PROTOCOL_RAW"},
+                              {SCARD_PROTOCOL_T15, "SCARD_PROTOCOL_T15"}});
 }
 
 std::string DebugDumpSCardDisposition(DWORD disposition) {
@@ -206,16 +201,15 @@ std::string DebugDumpSCardState(DWORD state) {
   const int kEventCountMaskShift = 16;
   const DWORD event_count = (state & kEventCountMask) >> kEventCountMaskShift;
   state &= ~kEventCountMask;
-  if (event_count)
-    suffix = " with eventCount=" + std::to_string(event_count);
+  if (event_count) suffix = " with eventCount=" + std::to_string(event_count);
 
-  return DumpMask(state, {
-      {SCARD_ABSENT, "SCARD_ABSENT"},
-      {SCARD_PRESENT, "SCARD_PRESENT"},
-      {SCARD_SWALLOWED, "SCARD_SWALLOWED"},
-      {SCARD_POWERED, "SCARD_POWERED"},
-      {SCARD_NEGOTIABLE, "SCARD_NEGOTIABLE"},
-      {SCARD_SPECIFIC, "SCARD_SPECIFIC"}}) + suffix;
+  return DumpMask(state, {{SCARD_ABSENT, "SCARD_ABSENT"},
+                          {SCARD_PRESENT, "SCARD_PRESENT"},
+                          {SCARD_SWALLOWED, "SCARD_SWALLOWED"},
+                          {SCARD_POWERED, "SCARD_POWERED"},
+                          {SCARD_NEGOTIABLE, "SCARD_NEGOTIABLE"},
+                          {SCARD_SPECIFIC, "SCARD_SPECIFIC"}}) +
+         suffix;
 }
 
 std::string DebugDumpSCardEventState(DWORD event_state) {
@@ -225,23 +219,22 @@ std::string DebugDumpSCardEventState(DWORD event_state) {
   const DWORD event_count =
       (event_state & kEventCountMask) >> kEventCountMaskShift;
   event_state &= ~kEventCountMask;
-  if (event_count)
-    suffix = " with eventCount=" + std::to_string(event_count);
+  if (event_count) suffix = " with eventCount=" + std::to_string(event_count);
 
-  if (!event_state)
-    return "SCARD_STATE_UNAWARE" + suffix;
-  return DumpMask(event_state, {
-      {SCARD_STATE_IGNORE, "SCARD_STATE_IGNORE"},
-      {SCARD_STATE_CHANGED, "SCARD_STATE_CHANGED"},
-      {SCARD_STATE_UNKNOWN, "SCARD_STATE_UNKNOWN"},
-      {SCARD_STATE_UNAVAILABLE, "SCARD_STATE_UNAVAILABLE"},
-      {SCARD_STATE_EMPTY, "SCARD_STATE_EMPTY"},
-      {SCARD_STATE_PRESENT, "SCARD_STATE_PRESENT"},
-      {SCARD_STATE_ATRMATCH, "SCARD_STATE_ATRMATCH"},
-      {SCARD_STATE_EXCLUSIVE, "SCARD_STATE_EXCLUSIVE"},
-      {SCARD_STATE_INUSE, "SCARD_STATE_INUSE"},
-      {SCARD_STATE_MUTE, "SCARD_STATE_MUTE"},
-      {SCARD_STATE_UNPOWERED, "SCARD_STATE_UNPOWERED"}}) + suffix;
+  if (!event_state) return "SCARD_STATE_UNAWARE" + suffix;
+  return DumpMask(event_state,
+                  {{SCARD_STATE_IGNORE, "SCARD_STATE_IGNORE"},
+                   {SCARD_STATE_CHANGED, "SCARD_STATE_CHANGED"},
+                   {SCARD_STATE_UNKNOWN, "SCARD_STATE_UNKNOWN"},
+                   {SCARD_STATE_UNAVAILABLE, "SCARD_STATE_UNAVAILABLE"},
+                   {SCARD_STATE_EMPTY, "SCARD_STATE_EMPTY"},
+                   {SCARD_STATE_PRESENT, "SCARD_STATE_PRESENT"},
+                   {SCARD_STATE_ATRMATCH, "SCARD_STATE_ATRMATCH"},
+                   {SCARD_STATE_EXCLUSIVE, "SCARD_STATE_EXCLUSIVE"},
+                   {SCARD_STATE_INUSE, "SCARD_STATE_INUSE"},
+                   {SCARD_STATE_MUTE, "SCARD_STATE_MUTE"},
+                   {SCARD_STATE_UNPOWERED, "SCARD_STATE_UNPOWERED"}}) +
+         suffix;
 }
 
 std::string DebugDumpSCardAttributeId(DWORD attribute_id) {
@@ -253,36 +246,31 @@ std::string DebugDumpSCardControlCode(DWORD control_code) {
 }
 
 std::string DebugDumpSCardIoRequest(const SCARD_IO_REQUEST& value) {
-  if (&value == SCARD_PCI_T0)
-    return "SCARD_PCI_T0";
-  if (&value == SCARD_PCI_T1)
-    return "SCARD_PCI_T1";
-  if (&value == SCARD_PCI_RAW)
-    return "SCARD_PCI_RAW";
+  if (&value == SCARD_PCI_T0) return "SCARD_PCI_T0";
+  if (&value == SCARD_PCI_T1) return "SCARD_PCI_T1";
+  if (&value == SCARD_PCI_RAW) return "SCARD_PCI_RAW";
   return "SCARD_IO_REQUEST(dwProtocol=" +
          DebugDumpSCardProtocol(value.dwProtocol) + ")";
 }
 
 std::string DebugDumpSCardIoRequest(const SCARD_IO_REQUEST* value) {
-  if (!value)
-    return "NULL";
+  if (!value) return "NULL";
   return HexDumpPointer(value) + "(" + DebugDumpSCardIoRequest(*value) + ")";
 }
 
 std::string DebugDumpSCardInputReaderState(const SCARD_READERSTATE& value) {
   return "SCARD_READERSTATE(szReader=" + DebugDumpSCardCString(value.szReader) +
-      ", pvUserData=" + HexDumpPointer(value.pvUserData) + ", dwCurrentState=" +
-      DebugDumpSCardEventState(value.dwCurrentState) + ")";
+         ", pvUserData=" + HexDumpPointer(value.pvUserData) +
+         ", dwCurrentState=" + DebugDumpSCardEventState(value.dwCurrentState) +
+         ")";
 }
 
-std::string DebugDumpSCardInputReaderStates(
-    const SCARD_READERSTATE* begin, DWORD count) {
-  if (!begin)
-    return "NULL";
+std::string DebugDumpSCardInputReaderStates(const SCARD_READERSTATE* begin,
+                                            DWORD count) {
+  if (!begin) return "NULL";
   std::string result;
   for (DWORD index = 0; index < count; ++index) {
-    if (!result.empty())
-      result += ", ";
+    if (!result.empty()) result += ", ";
     result += DebugDumpSCardInputReaderState(begin[index]);
   }
   return HexDumpPointer(begin) + "([" + result + "])";
@@ -290,30 +278,27 @@ std::string DebugDumpSCardInputReaderStates(
 
 std::string DebugDumpSCardOutputReaderState(const SCARD_READERSTATE& value) {
   return "SCARD_READERSTATE(szReader=" + DebugDumpSCardCString(value.szReader) +
-      ", pvUserData=" + HexDumpPointer(value.pvUserData) + ", dwCurrentState=" +
-      DebugDumpSCardEventState(value.dwCurrentState) + ", dwEventState=" +
-      DebugDumpSCardEventState(value.dwEventState) + ", cbAtr=" +
-      std::to_string(value.cbAtr) + ", rgbAtr=<" +
-      HexDumpBytes(value.rgbAtr, value.cbAtr) + ">)";
+         ", pvUserData=" + HexDumpPointer(value.pvUserData) +
+         ", dwCurrentState=" + DebugDumpSCardEventState(value.dwCurrentState) +
+         ", dwEventState=" + DebugDumpSCardEventState(value.dwEventState) +
+         ", cbAtr=" + std::to_string(value.cbAtr) + ", rgbAtr=<" +
+         HexDumpBytes(value.rgbAtr, value.cbAtr) + ">)";
 }
 
-std::string DebugDumpSCardOutputReaderStates(
-    const SCARD_READERSTATE* begin, DWORD count) {
-  if (!begin)
-    return "NULL";
+std::string DebugDumpSCardOutputReaderStates(const SCARD_READERSTATE* begin,
+                                             DWORD count) {
+  if (!begin) return "NULL";
   std::string result;
   for (DWORD index = 0; index < count; ++index) {
-    if (!result.empty())
-      result += ", ";
+    if (!result.empty()) result += ", ";
     result += DebugDumpSCardOutputReaderState(begin[index]);
   }
   return HexDumpPointer(begin) + "([" + result + "])";
 }
 
-std::string DebugDumpSCardBufferContents(
-    const void* buffer, DWORD buffer_size) {
-  if (buffer_size)
-    GOOGLE_SMART_CARD_CHECK(buffer);
+std::string DebugDumpSCardBufferContents(const void* buffer,
+                                         DWORD buffer_size) {
+  if (buffer_size) GOOGLE_SMART_CARD_CHECK(buffer);
 #ifdef NDEBUG
   return "stripped data of length " + std::to_string(buffer_size);
 #else
@@ -322,58 +307,61 @@ std::string DebugDumpSCardBufferContents(
 }
 
 std::string DebugDumpSCardBufferContents(const std::vector<uint8_t>& buffer) {
-  return DebugDumpSCardBufferContents(
-      buffer.empty() ? nullptr : &buffer[0], buffer.size());
+  return DebugDumpSCardBufferContents(buffer.empty() ? nullptr : &buffer[0],
+                                      buffer.size());
 }
 
 std::string DebugDumpSCardInputBuffer(const void* buffer, DWORD buffer_size) {
-  if (!buffer)
-    return "NULL";
+  if (!buffer) return "NULL";
   return HexDumpPointer(buffer) + "(<" +
          DebugDumpSCardBufferContents(buffer, buffer_size) + ">)";
 }
 
 std::string DebugDumpSCardBufferSizeInputPointer(const DWORD* buffer_size) {
-  if (!buffer_size)
-    return "NULL";
-  const std::string dumped_value = *buffer_size == SCARD_AUTOALLOCATE ?
-      "SCARD_AUTOALLOCATE" : std::to_string(*buffer_size);
+  if (!buffer_size) return "NULL";
+  const std::string dumped_value = *buffer_size == SCARD_AUTOALLOCATE
+                                       ? "SCARD_AUTOALLOCATE"
+                                       : std::to_string(*buffer_size);
   return HexDumpPointer(buffer_size) + "(" + dumped_value + ")";
 }
 
-std::string DebugDumpSCardOutputBuffer(
-    const void* buffer, const DWORD* buffer_size, bool is_autoallocated) {
-  const void* const contents = is_autoallocated ?
-      *reinterpret_cast<const void* const*>(buffer) : buffer;
-  const std::string dumped_value = "<" +
-      (buffer_size ? DebugDumpSCardBufferContents(contents, *buffer_size) :
-           "DATA OF UNKNOWN LENGTH") + ">";
-  return is_autoallocated ? HexDumpPointer(buffer) + "(" + dumped_value + ")" :
-      dumped_value;
+std::string DebugDumpSCardOutputBuffer(const void* buffer,
+                                       const DWORD* buffer_size,
+                                       bool is_autoallocated) {
+  const void* const contents =
+      is_autoallocated ? *reinterpret_cast<const void* const*>(buffer) : buffer;
+  const std::string dumped_value =
+      "<" +
+      (buffer_size ? DebugDumpSCardBufferContents(contents, *buffer_size)
+                   : "DATA OF UNKNOWN LENGTH") +
+      ">";
+  return is_autoallocated ? HexDumpPointer(buffer) + "(" + dumped_value + ")"
+                          : dumped_value;
 }
 
 std::string DebugDumpSCardOutputBuffer(const void* buffer, DWORD buffer_size) {
   return "<" + DebugDumpSCardBufferContents(buffer, buffer_size) + ">";
 }
 
-std::string DebugDumpSCardOutputCStringBuffer(
-    LPCSTR buffer, bool is_autoallocated) {
-  const LPCSTR string_value = is_autoallocated ?
-      *reinterpret_cast<const LPCSTR*>(buffer) : buffer;
+std::string DebugDumpSCardOutputCStringBuffer(LPCSTR buffer,
+                                              bool is_autoallocated) {
+  const LPCSTR string_value =
+      is_autoallocated ? *reinterpret_cast<const LPCSTR*>(buffer) : buffer;
   const std::string dumped_value = DebugDumpSCardCString(string_value);
-  return is_autoallocated ?
-      HexDumpPointer(string_value) + "(" + dumped_value + ")" : dumped_value;
+  return is_autoallocated
+             ? HexDumpPointer(string_value) + "(" + dumped_value + ")"
+             : dumped_value;
 }
 
-std::string DebugDumpSCardOutputMultiStringBuffer(
-    LPCSTR buffer, bool is_autoallocated) {
-  const LPCSTR multi_string_value = is_autoallocated ?
-      *reinterpret_cast<const LPCSTR*>(buffer) : buffer;
-  const std::string dumped_value = DebugDumpSCardMultiString(
-      multi_string_value);
-  return is_autoallocated ?
-      HexDumpPointer(multi_string_value) + "(" + dumped_value + ")" :
-      dumped_value;
+std::string DebugDumpSCardOutputMultiStringBuffer(LPCSTR buffer,
+                                                  bool is_autoallocated) {
+  const LPCSTR multi_string_value =
+      is_autoallocated ? *reinterpret_cast<const LPCSTR*>(buffer) : buffer;
+  const std::string dumped_value =
+      DebugDumpSCardMultiString(multi_string_value);
+  return is_autoallocated
+             ? HexDumpPointer(multi_string_value) + "(" + dumped_value + ")"
+             : dumped_value;
 }
 
 }  // namespace google_smart_card

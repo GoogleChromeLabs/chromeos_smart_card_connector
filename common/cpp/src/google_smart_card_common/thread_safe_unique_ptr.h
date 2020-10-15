@@ -77,16 +77,13 @@ class ThreadSafeUniquePtr final {
       return object_;
     }
 
-    explicit operator bool() const {
-      return object_;
-    }
+    explicit operator bool() const { return object_; }
 
    private:
     friend class ThreadSafeUniquePtr;
 
     Locked(T* object, std::unique_lock<std::mutex> lock)
-        : object_(object),
-          lock_(std::move(lock)) {
+        : object_(object), lock_(std::move(lock)) {
       GOOGLE_SMART_CARD_CHECK(lock_);
     }
 
@@ -96,9 +93,12 @@ class ThreadSafeUniquePtr final {
 
   ThreadSafeUniquePtr() = default;
   ThreadSafeUniquePtr(const ThreadSafeUniquePtr&) = delete;
+  ThreadSafeUniquePtr& operator=(const ThreadSafeUniquePtr&) = delete;
 
   explicit ThreadSafeUniquePtr(std::unique_ptr<T> value)
       : object_(std::move(value)) {}
+
+  ~ThreadSafeUniquePtr() = default;
 
   void Reset() {
     const std::unique_lock<std::mutex> lock(mutex_);

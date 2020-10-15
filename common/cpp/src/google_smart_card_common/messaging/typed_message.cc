@@ -19,17 +19,20 @@
 #include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 
-const char kTypeMessageKey[] = "type";
-const char kDataMessageKey[] = "data";
-
 namespace google_smart_card {
 
-bool ParseTypedMessage(
-    const pp::Var& message, std::string* type, pp::Var* data) {
+namespace {
+
+constexpr char kTypeMessageKey[] = "type";
+constexpr char kDataMessageKey[] = "data";
+
+}  // namespace
+
+bool ParseTypedMessage(const pp::Var& message, std::string* type,
+                       pp::Var* data) {
   std::string error_message;
   pp::VarDictionary message_dict;
-  if (!VarAs(message, &message_dict, &error_message))
-    return false;
+  if (!VarAs(message, &message_dict, &error_message)) return false;
   return VarDictValuesExtractor(message_dict)
       .Extract(kTypeMessageKey, type)
       .Extract(kDataMessageKey, data)
@@ -38,7 +41,9 @@ bool ParseTypedMessage(
 
 pp::Var MakeTypedMessage(const std::string& type, const pp::Var& data) {
   return VarDictBuilder()
-      .Add(kTypeMessageKey, type).Add(kDataMessageKey, data).Result();
+      .Add(kTypeMessageKey, type)
+      .Add(kDataMessageKey, data)
+      .Result();
 }
 
 }  // namespace google_smart_card

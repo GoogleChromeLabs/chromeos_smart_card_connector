@@ -31,19 +31,18 @@ namespace google_smart_card {
 // methods are called in a valid order and valid number of times).
 class FunctionCallTracer final {
  public:
-  explicit FunctionCallTracer(
-      const std::string& function_name,
-      const std::string& logging_prefix = "",
-      LogSeverity log_severity = LogSeverity::kDebug);
+  explicit FunctionCallTracer(const std::string& function_name,
+                              const std::string& logging_prefix = "",
+                              LogSeverity log_severity = LogSeverity::kDebug);
   FunctionCallTracer(const FunctionCallTracer&) = delete;
+  FunctionCallTracer& operator=(const FunctionCallTracer&) = delete;
+  ~FunctionCallTracer();
 
-  void AddPassedArg(
-      const std::string& name, const std::string& dumped_value);
+  void AddPassedArg(const std::string& name, const std::string& dumped_value);
 
   void AddReturnValue(const std::string& dumped_value);
 
-  void AddReturnedArg(
-      const std::string& name, const std::string& dumped_value);
+  void AddReturnedArg(const std::string& name, const std::string& dumped_value);
 
   void LogEntrance() const;
   void LogEntrance(const std::string& logging_prefix) const;

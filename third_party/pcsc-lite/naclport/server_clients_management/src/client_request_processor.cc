@@ -27,6 +27,7 @@
 
 #include <inttypes.h>
 #include <stdlib.h>
+
 #include <cstring>
 #include <thread>
 #include <tuple>
@@ -35,18 +36,18 @@
 #include <google_smart_card_common/logging/function_call_tracer.h>
 #include <google_smart_card_common/logging/hex_dumping.h>
 #include <google_smart_card_common/multi_string.h>
-#include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/debug_dump.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
+#include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_pcsc_lite_common/scard_debug_dump.h>
 
 namespace google_smart_card {
 
 namespace {
 
-template <typename ... Args>
-GenericRequestResult ReturnValues(const Args& ... args) {
+template <typename... Args>
+GenericRequestResult ReturnValues(const Args&... args) {
   return GenericRequestResult::CreateSuccessful(MakeVarArray(args...));
 }
 
@@ -69,48 +70,49 @@ pp::Var MakeDumpedArrayBuffer(const void* data, size_t size) {
   return MakeVar(std::vector<uint8_t>(casted_data, casted_data + size));
 }
 
-void CancelRunningRequests(
-    const std::string& logging_prefix,
-    LogSeverity error_log_severity,
-    const std::vector<SCARDCONTEXT>& s_card_contexts) {
+void CancelRunningRequests(const std::string& logging_prefix,
+                           LogSeverity error_log_severity,
+                           const std::vector<SCARDCONTEXT>& s_card_contexts) {
   for (SCARDCONTEXT s_card_context : s_card_contexts) {
-    GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << "Performing forced " <<
-        "cleanup: canceling all pending blocking requests for left " <<
-        "context " << DebugDumpSCardContext(s_card_context);
+    GOOGLE_SMART_CARD_LOG_DEBUG
+        << logging_prefix << "Performing forced "
+        << "cleanup: canceling all pending blocking requests for left "
+        << "context " << DebugDumpSCardContext(s_card_context);
 
     const LONG error_code = ::SCardCancel(s_card_context);
     if (error_code != SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_LOG(error_log_severity) << logging_prefix <<
-          "Forced cancellation of the blocking requests for context " <<
-          DebugDumpSCardContext(s_card_context) << " was unsuccessful: " <<
-          pcsc_stringify_error(error_code);
+      GOOGLE_SMART_CARD_LOG(error_log_severity)
+          << logging_prefix
+          << "Forced cancellation of the blocking requests for context "
+          << DebugDumpSCardContext(s_card_context)
+          << " was unsuccessful: " << pcsc_stringify_error(error_code);
     }
   }
 }
 
-void CloseLeftHandles(
-    const std::string& logging_prefix,
-    const std::vector<SCARDCONTEXT>& s_card_contexts) {
+void CloseLeftHandles(const std::string& logging_prefix,
+                      const std::vector<SCARDCONTEXT>& s_card_contexts) {
   for (SCARDCONTEXT s_card_context : s_card_contexts) {
-    GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << "Performing forced " <<
-        "cleanup: releasing the left context " <<
-        DebugDumpSCardContext(s_card_context);
+    GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix << "Performing forced "
+                                << "cleanup: releasing the left context "
+                                << DebugDumpSCardContext(s_card_context);
 
     const LONG error_code = ::SCardReleaseContext(s_card_context);
     if (error_code == SCARD_S_SUCCESS) {
-      GOOGLE_SMART_CARD_LOG_INFO << logging_prefix << "Force released " <<
-          "context " << DebugDumpSCardContext(s_card_context);
+      GOOGLE_SMART_CARD_LOG_INFO << logging_prefix << "Force released "
+                                 << "context "
+                                 << DebugDumpSCardContext(s_card_context);
     } else {
-      GOOGLE_SMART_CARD_LOG_WARNING << logging_prefix << "Forced releasing " <<
-          "of context " << DebugDumpSCardContext(s_card_context) <<
-          " was unsuccessful: " << pcsc_stringify_error(error_code);
+      GOOGLE_SMART_CARD_LOG_WARNING
+          << logging_prefix << "Forced releasing "
+          << "of context " << DebugDumpSCardContext(s_card_context)
+          << " was unsuccessful: " << pcsc_stringify_error(error_code);
     }
   }
 }
 
-void CleanupHandles(
-    const std::string& logging_prefix,
-    const std::vector<SCARDCONTEXT>& s_card_contexts) {
+void CleanupHandles(const std::string& logging_prefix,
+                    const std::vector<SCARDCONTEXT>& s_card_contexts) {
   CancelRunningRequests(logging_prefix, LogSeverity::kWarning, s_card_contexts);
   CloseLeftHandles(logging_prefix, s_card_contexts);
 }
@@ -121,8 +123,8 @@ PcscLiteClientRequestProcessor::PcscLiteClientRequestProcessor(
     int64_t client_handler_id, const optional<std::string>& client_app_id)
     : client_handler_id_(client_handler_id),
       client_app_id_(client_app_id),
-      status_log_severity_(
-          client_app_id ? LogSeverity::kInfo : LogSeverity::kDebug),
+      status_log_severity_(client_app_id ? LogSeverity::kInfo
+                                         : LogSeverity::kDebug),
       logging_prefix_(FormatPrintfTemplate(
           "[PC/SC-Lite client handler for %s (id %" PRId64 ")] ",
           client_app_id ? ("\"" + *client_app_id + "\"").c_str() : "own app",
@@ -153,32 +155,32 @@ void PcscLiteClientRequestProcessor::ScheduleRunningRequestsCancellation() {
   // level, because this asynchronous call may happen after the context is
   // already released due to the asynchronous job scheduled by the class
   // destructor.
-  std::thread(
-      &CancelRunningRequests,
-      logging_prefix_,
-      LogSeverity::kInfo,
-      s_card_contexts).detach();
+  std::thread(&CancelRunningRequests, logging_prefix_, LogSeverity::kInfo,
+              s_card_contexts)
+      .detach();
 }
 
 void PcscLiteClientRequestProcessor::ProcessRequest(
-    const std::string& function_name,
-    const pp::VarArray& arguments,
+    const std::string& function_name, const pp::VarArray& arguments,
     RequestReceiver::ResultCallback result_callback) {
-  GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix_ << "Started processing " <<
-      "request " << DebugDumpRemoteCallRequest(function_name, arguments) <<
-      "...";
+  GOOGLE_SMART_CARD_LOG_DEBUG
+      << logging_prefix_ << "Started processing "
+      << "request " << DebugDumpRemoteCallRequest(function_name, arguments)
+      << "...";
 
-  const GenericRequestResult result = FindHandlerAndCall(
-      function_name, arguments);
+  const GenericRequestResult result =
+      FindHandlerAndCall(function_name, arguments);
 
   if (result.is_successful()) {
-    GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix_ << "Request " <<
-        function_name << " finished successfully with the following " <<
-        "results: " << DebugDumpVar(result.payload());
+    GOOGLE_SMART_CARD_LOG_DEBUG
+        << logging_prefix_ << "Request " << function_name
+        << " finished successfully with the following "
+        << "results: " << DebugDumpVar(result.payload());
   } else {
-    GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix_ << "Request " <<
-        function_name << " failed with the following error: \"" <<
-        result.error_message() << "\"";
+    GOOGLE_SMART_CARD_LOG_DEBUG
+        << logging_prefix_ << "Request " << function_name
+        << " failed with the following error: \"" << result.error_message()
+        << "\"";
   }
 
   result_callback(result);
@@ -187,95 +189,84 @@ void PcscLiteClientRequestProcessor::ProcessRequest(
 // static
 void PcscLiteClientRequestProcessor::AsyncProcessRequest(
     std::shared_ptr<PcscLiteClientRequestProcessor> request_processor,
-    const std::string& function_name,
-    const pp::VarArray& arguments,
+    const std::string& function_name, const pp::VarArray& arguments,
     RequestReceiver::ResultCallback result_callback) {
-  std::thread(
-      &PcscLiteClientRequestProcessor::ProcessRequest,
-      request_processor,
-      function_name,
-      arguments,
-      result_callback).detach();
+  std::thread(&PcscLiteClientRequestProcessor::ProcessRequest,
+              request_processor, function_name, arguments, result_callback)
+      .detach();
 }
 
 void PcscLiteClientRequestProcessor::BuildHandlerMap() {
   AddHandlerToHandlerMap(
       "pcsc_lite_version_number",
       &PcscLiteClientRequestProcessor::PcscLiteVersionNumber);
-  AddHandlerToHandlerMap(
-      "pcsc_stringify_error",
-      &PcscLiteClientRequestProcessor::PcscStringifyError);
+  AddHandlerToHandlerMap("pcsc_stringify_error",
+                         &PcscLiteClientRequestProcessor::PcscStringifyError);
   AddHandlerToHandlerMap(
       "SCardEstablishContext",
       &PcscLiteClientRequestProcessor::SCardEstablishContext);
-  AddHandlerToHandlerMap(
-      "SCardReleaseContext",
-      &PcscLiteClientRequestProcessor::SCardReleaseContext);
-  AddHandlerToHandlerMap(
-      "SCardConnect", &PcscLiteClientRequestProcessor::SCardConnect);
-  AddHandlerToHandlerMap(
-      "SCardReconnect", &PcscLiteClientRequestProcessor::SCardReconnect);
-  AddHandlerToHandlerMap(
-      "SCardDisconnect", &PcscLiteClientRequestProcessor::SCardDisconnect);
+  AddHandlerToHandlerMap("SCardReleaseContext",
+                         &PcscLiteClientRequestProcessor::SCardReleaseContext);
+  AddHandlerToHandlerMap("SCardConnect",
+                         &PcscLiteClientRequestProcessor::SCardConnect);
+  AddHandlerToHandlerMap("SCardReconnect",
+                         &PcscLiteClientRequestProcessor::SCardReconnect);
+  AddHandlerToHandlerMap("SCardDisconnect",
+                         &PcscLiteClientRequestProcessor::SCardDisconnect);
   AddHandlerToHandlerMap(
       "SCardBeginTransaction",
       &PcscLiteClientRequestProcessor::SCardBeginTransaction);
-  AddHandlerToHandlerMap(
-      "SCardEndTransaction",
-      &PcscLiteClientRequestProcessor::SCardEndTransaction);
-  AddHandlerToHandlerMap(
-      "SCardStatus", &PcscLiteClientRequestProcessor::SCardStatus);
-  AddHandlerToHandlerMap(
-      "SCardGetStatusChange",
-      &PcscLiteClientRequestProcessor::SCardGetStatusChange);
-  AddHandlerToHandlerMap(
-      "SCardControl", &PcscLiteClientRequestProcessor::SCardControl);
-  AddHandlerToHandlerMap(
-      "SCardGetAttrib", &PcscLiteClientRequestProcessor::SCardGetAttrib);
-  AddHandlerToHandlerMap(
-      "SCardSetAttrib", &PcscLiteClientRequestProcessor::SCardSetAttrib);
-  AddHandlerToHandlerMap(
-      "SCardTransmit", &PcscLiteClientRequestProcessor::SCardTransmit);
-  AddHandlerToHandlerMap(
-      "SCardListReaders", &PcscLiteClientRequestProcessor::SCardListReaders);
+  AddHandlerToHandlerMap("SCardEndTransaction",
+                         &PcscLiteClientRequestProcessor::SCardEndTransaction);
+  AddHandlerToHandlerMap("SCardStatus",
+                         &PcscLiteClientRequestProcessor::SCardStatus);
+  AddHandlerToHandlerMap("SCardGetStatusChange",
+                         &PcscLiteClientRequestProcessor::SCardGetStatusChange);
+  AddHandlerToHandlerMap("SCardControl",
+                         &PcscLiteClientRequestProcessor::SCardControl);
+  AddHandlerToHandlerMap("SCardGetAttrib",
+                         &PcscLiteClientRequestProcessor::SCardGetAttrib);
+  AddHandlerToHandlerMap("SCardSetAttrib",
+                         &PcscLiteClientRequestProcessor::SCardSetAttrib);
+  AddHandlerToHandlerMap("SCardTransmit",
+                         &PcscLiteClientRequestProcessor::SCardTransmit);
+  AddHandlerToHandlerMap("SCardListReaders",
+                         &PcscLiteClientRequestProcessor::SCardListReaders);
   AddHandlerToHandlerMap(
       "SCardListReaderGroups",
       &PcscLiteClientRequestProcessor::SCardListReaderGroups);
-  AddHandlerToHandlerMap(
-      "SCardCancel", &PcscLiteClientRequestProcessor::SCardCancel);
-  AddHandlerToHandlerMap(
-      "SCardIsValidContext",
-      &PcscLiteClientRequestProcessor::SCardIsValidContext);
+  AddHandlerToHandlerMap("SCardCancel",
+                         &PcscLiteClientRequestProcessor::SCardCancel);
+  AddHandlerToHandlerMap("SCardIsValidContext",
+                         &PcscLiteClientRequestProcessor::SCardIsValidContext);
 }
 
-template <typename ... Args>
+template <typename... Args>
 void PcscLiteClientRequestProcessor::AddHandlerToHandlerMap(
     const std::string& name,
-    GenericRequestResult(PcscLiteClientRequestProcessor::*handler)(
-        Args ... args)) {
+    GenericRequestResult (PcscLiteClientRequestProcessor::*handler)(
+        Args... args)) {
   const Handler wrapped_handler =
       WrapHandler<std::tuple<typename std::decay<Args>::type...>>(
           handler, MakeArgIndexes<sizeof...(Args)>());
   GOOGLE_SMART_CARD_CHECK(handler_map_.emplace(name, wrapped_handler).second);
 }
 
-template <typename ArgsTuple, typename F, size_t ... arg_indexes>
+template <typename ArgsTuple, typename F, size_t... arg_indexes>
 PcscLiteClientRequestProcessor::Handler
 PcscLiteClientRequestProcessor::WrapHandler(
     F handler, ArgIndexes<arg_indexes...> /*unused*/) {
-  return [this, handler](
-      const pp::VarArray& arguments) -> GenericRequestResult {
-    ArgsTuple args_tuple;
-    std::string error_message;
-    if (!TryGetVarArrayItems(
-             arguments,
-             &error_message,
-             &std::get<arg_indexes>(args_tuple)...)) {
-      return ReturnFailure(FormatPrintfTemplate(
-          "Failed to extract arguments: %s", error_message.c_str()));
-    }
-    return (this->*handler)(std::get<arg_indexes>(args_tuple)...);
-  };
+  return
+      [this, handler](const pp::VarArray& arguments) -> GenericRequestResult {
+        ArgsTuple args_tuple;
+        std::string error_message;
+        if (!TryGetVarArrayItems(arguments, &error_message,
+                                 &std::get<arg_indexes>(args_tuple)...)) {
+          return ReturnFailure(FormatPrintfTemplate(
+              "Failed to extract arguments: %s", error_message.c_str()));
+        }
+        return (this->*handler)(std::get<arg_indexes>(args_tuple)...);
+      };
 }
 
 void PcscLiteClientRequestProcessor::ScheduleHandlesCleanup() {
@@ -291,27 +282,26 @@ void PcscLiteClientRequestProcessor::ScheduleHandlesCleanup() {
 
 GenericRequestResult PcscLiteClientRequestProcessor::FindHandlerAndCall(
     const std::string& function_name, const pp::VarArray& arguments) {
-  const HandlerMap::const_iterator handler_map_iter = handler_map_.find(
-      function_name);
+  const HandlerMap::const_iterator handler_map_iter =
+      handler_map_.find(function_name);
   if (handler_map_iter == handler_map_.end()) {
-    return ReturnFailure(FormatPrintfTemplate(
-        "Unknown function \"%s\"", function_name.c_str()));
+    return ReturnFailure(
+        FormatPrintfTemplate("Unknown function \"%s\"", function_name.c_str()));
   }
   const Handler& handler = handler_map_iter->second;
 
   const GenericRequestResult result = handler(arguments);
   if (!result.is_successful()) {
     return ReturnFailure(FormatPrintfTemplate(
-        "Error while processing the \"%s\" request: %s",
-        function_name.c_str(),
+        "Error while processing the \"%s\" request: %s", function_name.c_str(),
         result.error_message().c_str()));
   }
   return result;
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::PcscLiteVersionNumber() {
-  FunctionCallTracer tracer(
-      "PCSCLITE_VERSION_NUMBER", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("PCSCLITE_VERSION_NUMBER", logging_prefix_,
+                            status_log_severity_);
   tracer.LogEntrance();
 
   tracer.AddReturnValue(DebugDumpSCardCString(PCSCLITE_VERSION_NUMBER));
@@ -322,8 +312,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::PcscLiteVersionNumber() {
 
 GenericRequestResult PcscLiteClientRequestProcessor::PcscStringifyError(
     LONG error) {
-  FunctionCallTracer tracer(
-      "pcsc_stringify_error", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("pcsc_stringify_error", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("pcscError", DebugDumpSCardReturnCode(error));
   tracer.LogEntrance();
 
@@ -337,32 +327,31 @@ GenericRequestResult PcscLiteClientRequestProcessor::PcscStringifyError(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardEstablishContext(
     DWORD scope, pp::Var::Null reserved_1, pp::Var::Null reserved_2) {
-  FunctionCallTracer tracer(
-      "SCardEstablishContext", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardEstablishContext", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("dwScope", DebugDumpSCardScope(scope));
   tracer.AddPassedArg("pvReserved1", kNullJsTypeTitle);
   tracer.AddPassedArg("pvReserved2", kNullJsTypeTitle);
   tracer.LogEntrance();
 
   SCARDCONTEXT s_card_context;
-  const LONG return_code = ::SCardEstablishContext(
-      scope, nullptr, nullptr, &s_card_context);
+  const LONG return_code =
+      ::SCardEstablishContext(scope, nullptr, nullptr, &s_card_context);
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   if (return_code == SCARD_S_SUCCESS)
     tracer.AddReturnedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS)
-    return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
   s_card_handles_registry_.AddContext(s_card_context);
   return ReturnValues(return_code, s_card_context);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardReleaseContext(
     SCARDCONTEXT s_card_context) {
-  FunctionCallTracer tracer(
-      "SCardReleaseContext", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardReleaseContext", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.LogEntrance();
 
@@ -382,17 +371,15 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReleaseContext(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
-    SCARDCONTEXT s_card_context,
-    const std::string& reader_name,
-    DWORD share_mode,
-    DWORD preferred_protocols) {
-  FunctionCallTracer tracer(
-      "SCardConnect", logging_prefix_, status_log_severity_);
+    SCARDCONTEXT s_card_context, const std::string& reader_name,
+    DWORD share_mode, DWORD preferred_protocols) {
+  FunctionCallTracer tracer("SCardConnect", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.AddPassedArg("szReader", '"' + reader_name + '"');
   tracer.AddPassedArg("dwShareMode", DebugDumpSCardShareMode(share_mode));
-  tracer.AddPassedArg(
-      "dwPreferredProtocols", DebugDumpSCardProtocols(preferred_protocols));
+  tracer.AddPassedArg("dwPreferredProtocols",
+                      DebugDumpSCardProtocols(preferred_protocols));
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
@@ -402,42 +389,35 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
   SCARDHANDLE s_card_handle;
   DWORD active_protocol;
   if (return_code == SCARD_S_SUCCESS) {
-    return_code = ::SCardConnect(
-        s_card_context,
-        reader_name.c_str(),
-        share_mode,
-        preferred_protocols,
-        &s_card_handle,
-        &active_protocol);
+    return_code =
+        ::SCardConnect(s_card_context, reader_name.c_str(), share_mode,
+                       preferred_protocols, &s_card_handle, &active_protocol);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   if (return_code == SCARD_S_SUCCESS) {
     tracer.AddReturnedArg("hCard", DebugDumpSCardHandle(s_card_handle));
-    tracer.AddReturnedArg(
-        "dwActiveProtocol", DebugDumpSCardProtocol(active_protocol));
+    tracer.AddReturnedArg("dwActiveProtocol",
+                          DebugDumpSCardProtocol(active_protocol));
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS)
-    return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
   s_card_handles_registry_.AddHandle(s_card_context, s_card_handle);
   return ReturnValues(return_code, s_card_handle, active_protocol);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardReconnect(
-    SCARDHANDLE s_card_handle,
-    DWORD share_mode,
-    DWORD preferred_protocols,
+    SCARDHANDLE s_card_handle, DWORD share_mode, DWORD preferred_protocols,
     DWORD initialization_action) {
-  FunctionCallTracer tracer(
-      "SCardReconnect", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardReconnect", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
   tracer.AddPassedArg("dwShareMode", DebugDumpSCardShareMode(share_mode));
-  tracer.AddPassedArg(
-      "dwPreferredProtocols", DebugDumpSCardProtocols(preferred_protocols));
-  tracer.AddPassedArg(
-      "dwInitialization", DebugDumpSCardDisposition(initialization_action));
+  tracer.AddPassedArg("dwPreferredProtocols",
+                      DebugDumpSCardProtocols(preferred_protocols));
+  tracer.AddPassedArg("dwInitialization",
+                      DebugDumpSCardDisposition(initialization_action));
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
@@ -446,33 +426,29 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReconnect(
 
   DWORD active_protocol;
   if (return_code == SCARD_S_SUCCESS) {
-    return_code = ::SCardReconnect(
-        s_card_handle,
-        share_mode,
-        preferred_protocols,
-        initialization_action,
-        &active_protocol);
+    return_code =
+        ::SCardReconnect(s_card_handle, share_mode, preferred_protocols,
+                         initialization_action, &active_protocol);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   if (return_code == SCARD_S_SUCCESS) {
-    tracer.AddReturnedArg(
-        "dwActiveProtocol", DebugDumpSCardProtocol(active_protocol));
+    tracer.AddReturnedArg("dwActiveProtocol",
+                          DebugDumpSCardProtocol(active_protocol));
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS)
-    return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
   return ReturnValues(return_code, active_protocol);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
     SCARDHANDLE s_card_handle, DWORD disposition_action) {
-  FunctionCallTracer tracer(
-      "SCardDisconnect", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardDisconnect", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
-  tracer.AddPassedArg(
-      "dwDisposition", DebugDumpSCardDisposition(disposition_action));
+  tracer.AddPassedArg("dwDisposition",
+                      DebugDumpSCardDisposition(disposition_action));
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
@@ -492,8 +468,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardBeginTransaction(
     SCARDHANDLE s_card_handle) {
-  FunctionCallTracer tracer(
-      "SCardBeginTransaction", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardBeginTransaction", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
   tracer.LogEntrance();
 
@@ -512,11 +488,11 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardBeginTransaction(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardEndTransaction(
     SCARDHANDLE s_card_handle, DWORD disposition_action) {
-  FunctionCallTracer tracer(
-      "SCardEndTransaction", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardEndTransaction", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
-  tracer.AddPassedArg(
-      "dwDisposition", DebugDumpSCardDisposition(disposition_action));
+  tracer.AddPassedArg("dwDisposition",
+                      DebugDumpSCardDisposition(disposition_action));
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
@@ -534,8 +510,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardEndTransaction(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
     SCARDHANDLE s_card_handle) {
-  FunctionCallTracer tracer(
-      "SCardStatus", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardStatus", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
   tracer.LogEntrance();
 
@@ -550,14 +526,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
   LPBYTE atr;
   DWORD atr_length = SCARD_AUTOALLOCATE;
   if (return_code == SCARD_S_SUCCESS) {
-    return_code = ::SCardStatus(
-        s_card_handle,
-        reinterpret_cast<LPSTR>(&reader_name),
-        &reader_name_length,
-        &state,
-        &protocol,
-        reinterpret_cast<LPBYTE>(&atr),
-        &atr_length);
+    return_code =
+        ::SCardStatus(s_card_handle, reinterpret_cast<LPSTR>(&reader_name),
+                      &reader_name_length, &state, &protocol,
+                      reinterpret_cast<LPBYTE>(&atr), &atr_length);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -569,8 +541,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS)
-    return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
   const std::string reader_name_copy = reader_name;
   FreeSCardMemory(reader_name);
   const pp::Var atr_var = MakeDumpedArrayBuffer(atr, atr_length);
@@ -579,8 +550,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
-    SCARDCONTEXT s_card_context,
-    DWORD timeout,
+    SCARDCONTEXT s_card_context, DWORD timeout,
     const std::vector<InboundSCardReaderState>& reader_states) {
   std::vector<SCARD_READERSTATE> pcsc_lite_reader_states;
   for (const InboundSCardReaderState& reader_state : reader_states) {
@@ -594,8 +564,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
 
     if (reader_state.user_data) {
       GOOGLE_SMART_CARD_CHECK(*reader_state.user_data);
-      current_item.pvUserData = reinterpret_cast<void*>(
-          *reader_state.user_data);
+      current_item.pvUserData =
+          reinterpret_cast<void*>(*reader_state.user_data);
     }
 
     current_item.dwCurrentState = reader_state.current_state;
@@ -603,16 +573,15 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
     pcsc_lite_reader_states.push_back(current_item);
   }
 
-  FunctionCallTracer tracer(
-      "SCardGetStatusChange", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardGetStatusChange", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.AddPassedArg("dwTimeout", std::to_string(timeout));
-  tracer.AddPassedArg(
-      "rgReaderStates",
-      DebugDumpSCardInputReaderStates(
-          pcsc_lite_reader_states.empty() ?
-              nullptr : &pcsc_lite_reader_states[0],
-          pcsc_lite_reader_states.size()));
+  tracer.AddPassedArg("rgReaderStates", DebugDumpSCardInputReaderStates(
+                                            pcsc_lite_reader_states.empty()
+                                                ? nullptr
+                                                : &pcsc_lite_reader_states[0],
+                                            pcsc_lite_reader_states.size()));
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
@@ -621,8 +590,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
 
   if (return_code == SCARD_S_SUCCESS) {
     return_code = ::SCardGetStatusChange(
-        s_card_context,
-        timeout,
+        s_card_context, timeout,
         pcsc_lite_reader_states.empty() ? nullptr : &pcsc_lite_reader_states[0],
         pcsc_lite_reader_states.size());
   }
@@ -631,15 +599,14 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
   if (return_code == SCARD_S_SUCCESS) {
     tracer.AddReturnedArg(
         "rgReaderStates",
-        DebugDumpSCardOutputReaderStates(
-            pcsc_lite_reader_states.empty() ?
-                nullptr : &pcsc_lite_reader_states[0],
-            pcsc_lite_reader_states.size()));
+        DebugDumpSCardOutputReaderStates(pcsc_lite_reader_states.empty()
+                                             ? nullptr
+                                             : &pcsc_lite_reader_states[0],
+                                         pcsc_lite_reader_states.size()));
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS)
-    return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
 
   std::vector<OutboundSCardReaderState> result_reader_states;
   for (const SCARD_READERSTATE& reader_state : pcsc_lite_reader_states) {
@@ -650,16 +617,14 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardControl(
-    SCARDHANDLE s_card_handle,
-    DWORD control_code,
+    SCARDHANDLE s_card_handle, DWORD control_code,
     const std::vector<uint8_t>& data_to_send) {
-  FunctionCallTracer tracer(
-      "SCardControl", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardControl", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
-  tracer.AddPassedArg(
-      "dwControlCode", DebugDumpSCardControlCode(control_code));
-  tracer.AddPassedArg(
-      "bSendBuffer", "<" + DebugDumpSCardBufferContents(data_to_send) + ">");
+  tracer.AddPassedArg("dwControlCode", DebugDumpSCardControlCode(control_code));
+  tracer.AddPassedArg("bSendBuffer",
+                      "<" + DebugDumpSCardBufferContents(data_to_send) + ">");
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
@@ -669,14 +634,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardControl(
   DWORD bytes_received;
   std::vector<uint8_t> buffer(MAX_BUFFER_SIZE_EXTENDED);
   if (return_code == SCARD_S_SUCCESS) {
-    return_code = ::SCardControl(
-        s_card_handle,
-        control_code,
-        &data_to_send[0],
-        data_to_send.size(),
-        &buffer[0],
-        buffer.size(),
-        &bytes_received);
+    return_code = ::SCardControl(s_card_handle, control_code, &data_to_send[0],
+                                 data_to_send.size(), &buffer[0], buffer.size(),
+                                 &bytes_received);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -687,16 +647,15 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardControl(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS)
-    return ReturnValues(return_code);
-  return ReturnValues(
-      return_code, MakeDumpedArrayBuffer(&buffer[0], bytes_received));
+  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  return ReturnValues(return_code,
+                      MakeDumpedArrayBuffer(&buffer[0], bytes_received));
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
     SCARDHANDLE s_card_handle, DWORD attribute_id) {
-  FunctionCallTracer tracer(
-      "SCardGetAttrib", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardGetAttrib", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
   tracer.AddPassedArg("dwAttrId", DebugDumpSCardAttributeId(attribute_id));
   tracer.LogEntrance();
@@ -708,11 +667,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
   LPBYTE attribute;
   DWORD attribute_length = SCARD_AUTOALLOCATE;
   if (return_code == SCARD_S_SUCCESS) {
-    return_code = ::SCardGetAttrib(
-        s_card_handle,
-        attribute_id,
-        reinterpret_cast<LPBYTE>(&attribute),
-        &attribute_length);
+    return_code = ::SCardGetAttrib(s_card_handle, attribute_id,
+                                   reinterpret_cast<LPBYTE>(&attribute),
+                                   &attribute_length);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -722,20 +679,18 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS)
-    return ReturnValues(return_code);
-  const pp::Var attribute_var = MakeDumpedArrayBuffer(
-      attribute, attribute_length);
+  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  const pp::Var attribute_var =
+      MakeDumpedArrayBuffer(attribute, attribute_length);
   FreeSCardMemory(attribute);
   return ReturnValues(return_code, attribute_var);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardSetAttrib(
-    SCARDHANDLE s_card_handle,
-    DWORD attribute_id,
+    SCARDHANDLE s_card_handle, DWORD attribute_id,
     const std::vector<uint8_t>& attribute) {
-  FunctionCallTracer tracer(
-      "SCardSetAttrib", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardSetAttrib", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
   tracer.AddPassedArg("dwAttrId", DebugDumpSCardAttributeId(attribute_id));
   tracer.AddPassedArg("pbAttr", "<" + HexDumpBytes(attribute) + ">");
@@ -746,11 +701,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardSetAttrib(
     return_code = SCARD_E_INVALID_HANDLE;
 
   if (return_code == SCARD_S_SUCCESS) {
-    return_code = ::SCardSetAttrib(
-        s_card_handle,
-        attribute_id,
-        attribute.empty() ? nullptr : &attribute[0],
-        attribute.size());
+    return_code = ::SCardSetAttrib(s_card_handle, attribute_id,
+                                   attribute.empty() ? nullptr : &attribute[0],
+                                   attribute.size());
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -760,8 +713,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardSetAttrib(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
-    SCARDHANDLE s_card_handle,
-    const SCardIoRequest& send_protocol_information,
+    SCARDHANDLE s_card_handle, const SCardIoRequest& send_protocol_information,
     const std::vector<uint8_t>& data_to_send,
     const optional<SCardIoRequest>& response_protocol_information) {
   const SCARD_IO_REQUEST scard_send_protocol_information =
@@ -775,17 +727,16 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
     scard_response_protocol_information.cbPciLength = sizeof(SCARD_IO_REQUEST);
   }
 
-  FunctionCallTracer tracer(
-      "SCardTransmit", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardTransmit", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
-  tracer.AddPassedArg(
-      "ioSendPci", DebugDumpSCardIoRequest(scard_send_protocol_information));
-  tracer.AddPassedArg(
-      "pbSendBuffer", "<" + DebugDumpSCardBufferContents(data_to_send) + ">");
+  tracer.AddPassedArg("ioSendPci",
+                      DebugDumpSCardIoRequest(scard_send_protocol_information));
+  tracer.AddPassedArg("pbSendBuffer",
+                      "<" + DebugDumpSCardBufferContents(data_to_send) + ">");
   if (response_protocol_information) {
-    tracer.AddPassedArg(
-        "ioRecvPci",
-        DebugDumpSCardIoRequest(scard_response_protocol_information));
+    tracer.AddPassedArg("ioRecvPci", DebugDumpSCardIoRequest(
+                                         scard_response_protocol_information));
   }
   tracer.LogEntrance();
 
@@ -797,13 +748,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
   DWORD response_length = buffer.size();
   if (return_code == SCARD_S_SUCCESS) {
     return_code = ::SCardTransmit(
-        s_card_handle,
-        &scard_send_protocol_information,
-        data_to_send.empty() ? nullptr : &data_to_send[0],
-        data_to_send.size(),
-        &scard_response_protocol_information,
-        &buffer[0],
-        &response_length);
+        s_card_handle, &scard_send_protocol_information,
+        data_to_send.empty() ? nullptr : &data_to_send[0], data_to_send.size(),
+        &scard_response_protocol_information, &buffer[0], &response_length);
   }
 
   if (!response_protocol_information &&
@@ -837,8 +784,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS)
-    return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
   return ReturnValues(
       return_code,
       SCardIoRequest::FromSCardIoRequest(scard_response_protocol_information),
@@ -847,8 +793,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
     SCARDCONTEXT s_card_context, pp::Var::Null groups) {
-  FunctionCallTracer tracer(
-      "SCardListReaders", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardListReaders", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.AddPassedArg("mszGroups", kNullJsTypeTitle);
   tracer.LogEntrance();
@@ -860,11 +806,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
   LPSTR readers;
   DWORD readers_length = SCARD_AUTOALLOCATE;
   if (return_code == SCARD_S_SUCCESS) {
-    return_code = ::SCardListReaders(
-        s_card_context,
-        nullptr,
-        reinterpret_cast<LPSTR>(&readers),
-        &readers_length);
+    return_code =
+        ::SCardListReaders(s_card_context, nullptr,
+                           reinterpret_cast<LPSTR>(&readers), &readers_length);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
@@ -872,8 +816,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
     tracer.AddReturnedArg("mszReaders", DebugDumpSCardMultiString(readers));
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS)
-    return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
   const std::vector<std::string> readers_list =
       ExtractMultiStringElements(readers);
   FreeSCardMemory(readers);
@@ -882,8 +825,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaderGroups(
     SCARDCONTEXT s_card_context) {
-  FunctionCallTracer tracer(
-      "SCardListReaderGroups", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardListReaderGroups", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.LogEntrance();
 
@@ -895,20 +838,18 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaderGroups(
   DWORD reader_groups_length = SCARD_AUTOALLOCATE;
   if (return_code == SCARD_S_SUCCESS) {
     return_code = ::SCardListReaderGroups(
-        s_card_context,
-        reinterpret_cast<LPSTR>(&reader_groups),
+        s_card_context, reinterpret_cast<LPSTR>(&reader_groups),
         &reader_groups_length);
   }
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   if (return_code == SCARD_S_SUCCESS) {
-    tracer.AddReturnedArg(
-        "*mszGroups", DebugDumpSCardMultiString(reader_groups));
+    tracer.AddReturnedArg("*mszGroups",
+                          DebugDumpSCardMultiString(reader_groups));
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS)
-    return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
   const std::vector<std::string> reader_groups_list =
       ExtractMultiStringElements(reader_groups);
   FreeSCardMemory(reader_groups);
@@ -917,8 +858,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaderGroups(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardCancel(
     SCARDCONTEXT s_card_context) {
-  FunctionCallTracer tracer(
-      "SCardCancel", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardCancel", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.LogEntrance();
 
@@ -937,8 +878,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardCancel(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardIsValidContext(
     SCARDCONTEXT s_card_context) {
-  FunctionCallTracer tracer(
-      "SCardIsValidContext", logging_prefix_, status_log_severity_);
+  FunctionCallTracer tracer("SCardIsValidContext", logging_prefix_,
+                            status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.LogEntrance();
 

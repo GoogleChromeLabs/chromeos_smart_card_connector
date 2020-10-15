@@ -12,13 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <google_smart_card_common/pp_var_utils/construction.h>
+
 #include <string>
 
 #include <gtest/gtest.h>
-
 #include <ppapi/cpp/var.h>
-
-#include <google_smart_card_common/pp_var_utils/construction.h>
 
 namespace google_smart_card {
 

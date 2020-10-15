@@ -47,6 +47,7 @@ class PcscLiteServerGlobal final {
  public:
   explicit PcscLiteServerGlobal(pp::Instance* pp_instance);
   PcscLiteServerGlobal(const PcscLiteServerGlobal&) = delete;
+  PcscLiteServerGlobal& operator=(const PcscLiteServerGlobal&) = delete;
   ~PcscLiteServerGlobal();
 
   // Detaches from the Pepper instance which prevents making any further
@@ -83,8 +84,8 @@ class PcscLiteServerGlobal final {
   void PostReaderRemoveMessage(const char* reader_name, int port) const;
 
  private:
-  void PostMessage(
-      const char* type, const pp::VarDictionary& message_data) const;
+  void PostMessage(const char* type,
+                   const pp::VarDictionary& message_data) const;
 
   mutable std::mutex mutex_;
   pp::Instance* pp_instance_;

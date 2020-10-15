@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <google_smart_card_common/requesting/async_requests_storage.h>
+
 #include <memory>
 #include <thread>
 #include <vector>
@@ -19,7 +21,6 @@
 #include <gtest/gtest.h>
 
 #include <google_smart_card_common/requesting/async_request.h>
-#include <google_smart_card_common/requesting/async_requests_storage.h>
 #include <google_smart_card_common/requesting/request_id.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
@@ -76,9 +77,9 @@ TEST(RequestingAsyncRequestsStorageTest, Basic) {
   const std::vector<std::shared_ptr<GenericAsyncRequestState>> requests =
       storage.PopAll();
   ASSERT_EQ(static_cast<size_t>(2), requests.size());
-  EXPECT_TRUE(
-      requests[0] == request_3_state && requests[1] == request_4_state ||
-      requests[0] == request_4_state && requests[1] == request_3_state);
+  EXPECT_TRUE(requests[0] == request_3_state &&
+                  requests[1] == request_4_state ||
+              requests[0] == request_4_state && requests[1] == request_3_state);
   EXPECT_TRUE(storage.PopAll().empty());
   EXPECT_FALSE(storage.Pop(request_3_id));
   EXPECT_FALSE(storage.Pop(request_4_id));
@@ -95,13 +96,12 @@ TEST(RequestingAsyncRequestsStorageTest, MultiThreading) {
     threads.emplace_back([&storage, thread_index] {
       std::vector<RequestId> request_ids;
       for (int iteration = 0; iteration < kIterationCount; ++iteration) {
-        request_ids.push_back(storage.Push(
-            std::make_shared<GenericAsyncRequestState>(
+        request_ids.push_back(
+            storage.Push(std::make_shared<GenericAsyncRequestState>(
                 TestAsyncRequestCallback())));
       }
       if (thread_index % 2 == 0) {
-        for (auto request_id : request_ids)
-          storage.Pop(request_id);
+        for (auto request_id : request_ids) storage.Pop(request_id);
       } else {
         storage.PopAll();
       }

@@ -39,12 +39,12 @@ namespace google_smart_card {
 // concurrent libusb_* function calls.
 class LibusbOverChromeUsbGlobal final {
  public:
-  LibusbOverChromeUsbGlobal(
-      TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
-      pp::Core* pp_core);
+  LibusbOverChromeUsbGlobal(TypedMessageRouter* typed_message_router,
+                            pp::Instance* pp_instance, pp::Core* pp_core);
 
   LibusbOverChromeUsbGlobal(const LibusbOverChromeUsbGlobal&) = delete;
+  LibusbOverChromeUsbGlobal& operator=(const LibusbOverChromeUsbGlobal&) =
+      delete;
 
   // Destroys the self instance and the owned LibusbOverChromeUsb instance.
   //

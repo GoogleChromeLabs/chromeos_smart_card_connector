@@ -22,21 +22,21 @@
 #include <utility>
 
 #ifdef __native_client__
-#include <ppapi/cpp/var.h>
-#include <ppapi/cpp/var_dictionary.h>
 #include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/module.h>
+#include <ppapi/cpp/var.h>
+#include <ppapi/cpp/var_dictionary.h>
 #endif  // __native_client__
-
-const char kTypeMessageKey[] = "type";
-const char kMessageType[] = "log_message";
-const char kDataMessageKey[] = "data";
-const char kDataLogLevelMessageKey[] = "log_level";
-const char kDataTextMessageKey[] = "text";
 
 namespace google_smart_card {
 
 namespace {
+
+constexpr char kTypeMessageKey[] = "type";
+constexpr char kMessageType[] = "log_message";
+constexpr char kDataMessageKey[] = "data";
+constexpr char kDataLogLevelMessageKey[] = "log_level";
+constexpr char kDataTextMessageKey[] = "text";
 
 bool ShouldLogWithSeverity(LogSeverity severity) {
 #ifdef NDEBUG
@@ -66,13 +66,13 @@ std::string StringifyLogSeverity(LogSeverity severity) {
   }
 }
 
-void EmitLogMessageToStderr(
-    LogSeverity severity, const std::string& message_text) {
+void EmitLogMessageToStderr(LogSeverity severity,
+                            const std::string& message_text) {
   // Prepare the whole message in advance, so that we don't mess with other
   // threads writing to std::cerr too.
   std::ostringstream stream;
-  stream << "[NaCl module " << StringifyLogSeverity(severity) << "] " <<
-      message_text << std::endl;
+  stream << "[NaCl module " << StringifyLogSeverity(severity) << "] "
+         << message_text << std::endl;
 
   std::cerr << stream.str();
   std::cerr.flush();
@@ -106,22 +106,19 @@ std::string CleanupLogMessageTextForVar(const std::string& message_text) {
   const char kPlaceholder = '_';
   std::string result = message_text;
   std::replace_if(
-      result.begin(),
-      result.end(),
-      [](char c) {
-        return !std::isprint(static_cast<unsigned char>(c));
-      },
+      result.begin(), result.end(),
+      [](char c) { return !std::isprint(static_cast<unsigned char>(c)); },
       kPlaceholder);
   return result;
 }
 
-void EmitLogMessageToJavaScript(
-    LogSeverity severity, const std::string& message_text) {
+void EmitLogMessageToJavaScript(LogSeverity severity,
+                                const std::string& message_text) {
   pp::VarDictionary message_data;
-  message_data.Set(
-      kDataLogLevelMessageKey, GetGoogLogLevelByLogSeverity(severity));
-  message_data.Set(
-      kDataTextMessageKey, CleanupLogMessageTextForVar(message_text));
+  message_data.Set(kDataLogLevelMessageKey,
+                   GetGoogLogLevelByLogSeverity(severity));
+  message_data.Set(kDataTextMessageKey,
+                   CleanupLogMessageTextForVar(message_text));
   pp::VarDictionary message;
   message.Set(kTypeMessageKey, kMessageType);
   message.Set(kDataMessageKey, message_data);
@@ -133,8 +130,7 @@ void EmitLogMessageToJavaScript(
     for (const std::pair<PP_Instance, pp::Instance*>& instance_map_item :
          pp_instance_map) {
       pp::Instance* const instance = instance_map_item.second;
-      if (instance)
-        instance->PostMessage(message);
+      if (instance) instance->PostMessage(message);
     }
   }
 }
@@ -152,8 +148,7 @@ void EmitLogMessage(LogSeverity severity, const std::string& message_text) {
 
 namespace internal {
 
-LogMessage::LogMessage(LogSeverity severity)
-    : severity_(severity) {}
+LogMessage::LogMessage(LogSeverity severity) : severity_(severity) {}
 
 LogMessage::~LogMessage() {
   if (ShouldLogWithSeverity(severity_)) {
@@ -169,26 +164,22 @@ LogMessage::~LogMessage() {
   }
 }
 
-std::ostringstream& LogMessage::stream() {
-  return stream_;
-}
+std::ostringstream& LogMessage::stream() { return stream_; }
 
-std::string MakeCheckFailedMessage(
-    const std::string& stringified_condition,
-    const std::string& file,
-    int line,
-    const std::string& function) {
+std::string MakeCheckFailedMessage(const std::string& stringified_condition,
+                                   const std::string& file, int line,
+                                   const std::string& function) {
   std::ostringstream stream;
-  stream << "Check \"" << stringified_condition << "\" failed. File \"" <<
-      file << "\", line " << line << ", function \"" << function << "\"";
+  stream << "Check \"" << stringified_condition << "\" failed. File \"" << file
+         << "\", line " << line << ", function \"" << function << "\"";
   return stream.str();
 }
 
-std::string MakeNotreachedHitMessage(
-    const std::string& file, int line, const std::string& function) {
+std::string MakeNotreachedHitMessage(const std::string& file, int line,
+                                     const std::string& function) {
   std::ostringstream stream;
-  stream << "NOTREACHED hit at file \"" << file << "\", line " << line <<
-      ", function \"" << function << "\"";
+  stream << "NOTREACHED hit at file \"" << file << "\", line " << line
+         << ", function \"" << function << "\"";
   return stream.str();
 }
 

@@ -12,28 +12,33 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <google_smart_card_common/messaging/typed_message.h>
+
 #include <string>
 
 #include <gtest/gtest.h>
 #include <ppapi/cpp/var.h>
 #include <ppapi/cpp/var_dictionary.h>
 
-#include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 
-const char kTypeMessageKey[] = "type";
-const char kDataMessageKey[] = "data";
-const char kSampleType[] = "sample type";
-const char kSampleData[] = "sample value";
-
 namespace google_smart_card {
+
+namespace {
+
+constexpr char kTypeMessageKey[] = "type";
+constexpr char kDataMessageKey[] = "data";
+constexpr char kSampleType[] = "sample type";
+constexpr char kSampleData[] = "sample value";
+
+}  // namespace
 
 TEST(MessagingTypedMessageTest, CorrectTypedMessageParsing) {
   const pp::VarDictionary var = VarDictBuilder()
-      .Add(kTypeMessageKey, kSampleType)
-      .Add(kDataMessageKey, kSampleData)
-      .Result();
+                                    .Add(kTypeMessageKey, kSampleType)
+                                    .Add(kDataMessageKey, kSampleData)
+                                    .Result();
 
   std::string type;
   pp::Var data;
@@ -48,19 +53,16 @@ TEST(MessagingTypedMessageTest, BadTypedMessageParsing) {
   EXPECT_FALSE(ParseTypedMessage(pp::Var(), &type, &data));
   EXPECT_FALSE(ParseTypedMessage(pp::VarDictionary(), &type, &data));
   EXPECT_FALSE(ParseTypedMessage(
-      VarDictBuilder().Add(kTypeMessageKey, kSampleType).Result(),
-      &type,
+      VarDictBuilder().Add(kTypeMessageKey, kSampleType).Result(), &type,
       &data));
   EXPECT_FALSE(ParseTypedMessage(
-      VarDictBuilder().Add(kDataMessageKey, kSampleData).Result(),
-      &type,
+      VarDictBuilder().Add(kDataMessageKey, kSampleData).Result(), &type,
       &data));
-  EXPECT_FALSE(ParseTypedMessage(
-      VarDictBuilder()
-          .Add(kTypeMessageKey, 123)
-          .Add(kDataMessageKey, kSampleData)
-          .Result(),
-      &type, &data));
+  EXPECT_FALSE(ParseTypedMessage(VarDictBuilder()
+                                     .Add(kTypeMessageKey, 123)
+                                     .Add(kDataMessageKey, kSampleData)
+                                     .Result(),
+                                 &type, &data));
 }
 
 TEST(MessagingTypedMessageTest, TypedMessageMaking) {

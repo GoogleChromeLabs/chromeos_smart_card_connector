@@ -68,8 +68,7 @@ Value::Value(int64_t integer_value)
 Value::Value(double float_value)
     : type_(Type::kFloat), float_value_(float_value) {}
 
-Value::Value(const char* string_value)
-    : Value(std::string(string_value)) {}
+Value::Value(const char* string_value) : Value(std::string(string_value)) {}
 
 Value::Value(std::string string_value)
     : type_(Type::kString), string_value_(std::move(string_value)) {}

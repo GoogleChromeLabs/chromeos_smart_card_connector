@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <google_smart_card_common/pp_var_utils/enum_converter.h>
+
 #include <string>
 
 #include <gtest/gtest.h>
-
 #include <ppapi/cpp/var.h>
 
-#include <google_smart_card_common/pp_var_utils/enum_converter.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 
 namespace google_smart_card {
@@ -49,14 +49,12 @@ void TestEnumStringConverter::VisitCorrespondingPairs(Callback callback) {
 }
 
 TEST(PpVarUtilsEnumConverterTest, EnumToStringConversion) {
-  EXPECT_EQ(
-      "test_value_1",
-      VarAs<std::string>(TestEnumStringConverter::ConvertToVar(
-          TestEnum::kTestValue1)));
-  EXPECT_EQ(
-      "test_value_2",
-      VarAs<std::string>(TestEnumStringConverter::ConvertToVar(
-          TestEnum::kTestValue2)));
+  EXPECT_EQ("test_value_1",
+            VarAs<std::string>(
+                TestEnumStringConverter::ConvertToVar(TestEnum::kTestValue1)));
+  EXPECT_EQ("test_value_2",
+            VarAs<std::string>(
+                TestEnumStringConverter::ConvertToVar(TestEnum::kTestValue2)));
 }
 
 TEST(PpVarUtilsEnumConverterTest, EnumFromStringConversion) {

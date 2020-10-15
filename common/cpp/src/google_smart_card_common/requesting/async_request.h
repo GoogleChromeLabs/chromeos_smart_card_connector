@@ -37,8 +37,8 @@ namespace google_smart_card {
 //
 
 template <typename PayloadType>
-using AsyncRequestCallback = std::function<
-    void(RequestResult<PayloadType> request_result)>;
+using AsyncRequestCallback =
+    std::function<void(RequestResult<PayloadType> request_result)>;
 
 using GenericAsyncRequestCallback = AsyncRequestCallback<pp::Var>;
 
@@ -54,6 +54,8 @@ class AsyncRequestState final {
     GOOGLE_SMART_CARD_CHECK(callback_);
   }
   AsyncRequestState(const AsyncRequestState&) = delete;
+  AsyncRequestState& operator=(const AsyncRequestState&) = delete;
+  ~AsyncRequestState() = default;
 
   // Sets the result of the request, unless it was already set before.
   //
@@ -89,6 +91,7 @@ class AsyncRequest final {
  public:
   AsyncRequest() = default;
   AsyncRequest(const AsyncRequest&) = default;
+  ~AsyncRequest() = default;
 
   explicit AsyncRequest(std::shared_ptr<AsyncRequestState<PayloadType>> state)
       : state_(state) {

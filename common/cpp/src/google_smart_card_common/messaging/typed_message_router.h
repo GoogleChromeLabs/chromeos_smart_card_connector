@@ -43,8 +43,10 @@ namespace google_smart_card {
 // called).
 class TypedMessageRouter final : public MessageListener {
  public:
-  TypedMessageRouter() = default;
+  TypedMessageRouter();
   TypedMessageRouter(const TypedMessageRouter&) = delete;
+  TypedMessageRouter& operator=(const TypedMessageRouter&) = delete;
+  ~TypedMessageRouter();
 
   // Adds a new listener, which will handle all messages having the type equal
   // to the GetListenedMessageType return value.

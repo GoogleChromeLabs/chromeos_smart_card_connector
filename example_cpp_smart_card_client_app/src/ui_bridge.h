@@ -47,10 +47,9 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
   // The |request_handling_mutex| parameter, when non-null, allows to avoid
   // simultaneous execution of multiple requests: each next request will be
   // executed only once the previous one finishes.
-  UiBridge(
-      google_smart_card::TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
-      std::shared_ptr<std::mutex> request_handling_mutex);
+  UiBridge(google_smart_card::TypedMessageRouter* typed_message_router,
+           pp::Instance* pp_instance,
+           std::shared_ptr<std::mutex> request_handling_mutex);
 
   UiBridge(const UiBridge&) = delete;
   UiBridge& operator=(const UiBridge&) = delete;
@@ -75,8 +74,8 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
   struct AttachedState {
     AttachedState(pp::Instance* pp_instance,
                   google_smart_card::TypedMessageRouter* typed_message_router)
-      : pp_instance(pp_instance),
-        typed_message_router(typed_message_router) {}
+        : pp_instance(pp_instance),
+          typed_message_router(typed_message_router) {}
 
     pp::Instance* const pp_instance;
     google_smart_card::TypedMessageRouter* const typed_message_router;

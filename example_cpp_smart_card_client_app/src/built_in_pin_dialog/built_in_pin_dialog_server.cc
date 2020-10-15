@@ -16,18 +16,18 @@
 
 #include <ppapi/cpp/var_dictionary.h>
 
-#include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
+#include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
-
-// Note: These parameters should stay in sync with the JS side
-// (pin-dialog-backend.js).
-const char kRequesterName[] = "built_in_pin_dialog";
-const char kPinMessageKey[] = "pin";
 
 namespace smart_card_client {
 
 namespace {
+
+// Note: These parameters should stay in sync with the JS side
+// (pin-dialog-backend.js).
+constexpr char kRequesterName[] = "built_in_pin_dialog";
+constexpr char kPinMessageKey[] = "pin";
 
 void ExtractPinRequestResult(
     const google_smart_card::GenericRequestResult& request_result,
@@ -44,24 +44,20 @@ void ExtractPinRequestResult(
 
 BuiltInPinDialogServer::BuiltInPinDialogServer(
     google_smart_card::TypedMessageRouter* typed_message_router,
-    pp::Instance* pp_instance,
-    pp::Core* pp_core)
-    : js_requester_(
-          kRequesterName,
-          typed_message_router,
-          google_smart_card::MakeUnique<
-              google_smart_card::JsRequester::PpDelegateImpl>(
-                  pp_instance, pp_core)) {}
+    pp::Instance* pp_instance, pp::Core* pp_core)
+    : js_requester_(kRequesterName, typed_message_router,
+                    google_smart_card::MakeUnique<
+                        google_smart_card::JsRequester::PpDelegateImpl>(
+                        pp_instance, pp_core)) {}
 
-void BuiltInPinDialogServer::Detach() {
-  js_requester_.Detach();
-}
+BuiltInPinDialogServer::~BuiltInPinDialogServer() = default;
+
+void BuiltInPinDialogServer::Detach() { js_requester_.Detach(); }
 
 bool BuiltInPinDialogServer::RequestPin(std::string* pin) {
   const google_smart_card::GenericRequestResult request_result =
       js_requester_.PerformSyncRequest(pp::VarDictionary());
-  if (!request_result.is_successful())
-    return false;
+  if (!request_result.is_successful()) return false;
   ExtractPinRequestResult(request_result, pin);
   return true;
 }
