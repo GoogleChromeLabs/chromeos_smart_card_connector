@@ -50,6 +50,17 @@ class Value final {
   using DictionaryStorage = std::map<std::string, std::unique_ptr<Value>>;
   using ArrayStorage = std::vector<std::unique_ptr<Value>>;
 
+  // String representation of the `Type` enum item. Intended to be used for
+  // logging purposes.
+  static const char* const kNullTypeTitle;
+  static const char* const kBooleanTypeTitle;
+  static const char* const kIntegerTypeTitle;
+  static const char* const kFloatTypeTitle;
+  static const char* const kStringTypeTitle;
+  static const char* const kBinaryTypeTitle;
+  static const char* const kDictionaryTypeTitle;
+  static const char* const kArrayTypeTitle;
+
   Value();
   explicit Value(Type type);
   explicit Value(bool boolean_value);

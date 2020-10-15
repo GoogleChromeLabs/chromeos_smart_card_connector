@@ -48,6 +48,7 @@ TEST_SOURCES := \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/pp_var_utils/struct_converter_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/requesting/async_request_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/requesting/async_requests_storage_unittest.cc \
+	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_debug_dumping_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_nacl_pp_var_conversion_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_unittest.cc \
 

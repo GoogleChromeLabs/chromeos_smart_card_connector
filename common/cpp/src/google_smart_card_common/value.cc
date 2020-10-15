@@ -22,6 +22,15 @@
 
 namespace google_smart_card {
 
+const char* const Value::kNullTypeTitle = "null";
+const char* const Value::kBooleanTypeTitle = "boolean";
+const char* const Value::kIntegerTypeTitle = "integer";
+const char* const Value::kFloatTypeTitle = "float";
+const char* const Value::kStringTypeTitle = "string";
+const char* const Value::kBinaryTypeTitle = "binary";
+const char* const Value::kDictionaryTypeTitle = "dictionary";
+const char* const Value::kArrayTypeTitle = "array";
+
 Value::Value() {
   // Note: Cannot use "= default", because the inner union's default constructor
   // is deleted.
