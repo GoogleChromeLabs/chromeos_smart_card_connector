@@ -80,6 +80,10 @@ std::string DebugDumpDictionary(
 }
 
 std::string DebugDumpBinary(const Value::BinaryStorage& binary_value) {
+  // Put the type title in front of the dump, so that it can be distinguished
+  // from a dump of an array value. We don't put the title in all other cases,
+  // since all of them can be unambiguously interpreted based on their format,
+  // and for the sake of keeping the dumps easy to read.
   std::string result = std::string(Value::kBinaryTypeTitle) + "[";
   for (size_t offset = 0; offset < binary_value.size(); ++offset) {
     if (offset > 0) result += ", ";

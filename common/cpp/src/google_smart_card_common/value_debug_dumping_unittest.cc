@@ -23,8 +23,6 @@
 
 #include <gtest/gtest.h>
 
-#include <google_smart_card_common/formatting.h>
-#include <google_smart_card_common/logging/hex_dumping.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 
@@ -60,9 +58,9 @@ TEST(ValueDebugDumpingTest, Integer) {
   const std::string full_int = DebugDumpValueFull(Value(kInteger));
   const std::string full_max = DebugDumpValueFull(Value(kMax));
   const std::string full_min = DebugDumpValueFull(Value(kMin));
-  EXPECT_EQ(full_int, HexDumpUnknownSizeInteger(kInteger));
-  EXPECT_EQ(full_max, HexDumpUnknownSizeInteger(kMax));
-  EXPECT_EQ(full_min, HexDumpUnknownSizeInteger(kMin));
+  EXPECT_EQ(full_int, "0x7B");
+  EXPECT_EQ(full_max, "0x7FFFFFFFFFFFFFFF");
+  EXPECT_EQ(full_min, "0x8000000000000000");
 
   const std::string sanitized_int = DebugDumpValueSanitized(Value(kInteger));
   const std::string sanitized_max = DebugDumpValueSanitized(Value(kMax));
@@ -120,11 +118,8 @@ TEST(ValueDebugDumpingTest, Binary) {
 
   const std::string full_blank = DebugDumpValueFull(kBlank);
   const std::string full_blob = DebugDumpValueFull(kBlob);
-  EXPECT_EQ(full_blank, FormatPrintfTemplate("%s[]", Value::kBinaryTypeTitle));
-  EXPECT_EQ(full_blob,
-            FormatPrintfTemplate("%s[%s, %s]", Value::kBinaryTypeTitle,
-                                 HexDumpByte(kBlobBytes[0]).c_str(),
-                                 HexDumpByte(kBlobBytes[1]).c_str()));
+  EXPECT_EQ(full_blank, "binary[]");
+  EXPECT_EQ(full_blob, "binary[0x00, 0xFF]");
 
   const std::string sanitized_blank = DebugDumpValueSanitized(kBlank);
   const std::string sanitized_blob = DebugDumpValueSanitized(kBlob);
@@ -148,9 +143,7 @@ TEST(ValueDebugDumpingTest, Dictionary) {
   const std::string full_blank = DebugDumpValueFull(kBlank);
   const std::string full_dict = DebugDumpValueFull(dict);
   EXPECT_EQ(full_blank, "{}");
-  EXPECT_EQ(full_dict, FormatPrintfTemplate(
-                           "{\"bar\": %s, \"foo\": %s}", Value::kNullTypeTitle,
-                           HexDumpUnknownSizeInteger(kInteger).c_str()));
+  EXPECT_EQ(full_dict, "{\"bar\": null, \"foo\": 0x7B}");
 
   const std::string sanitized_blank = DebugDumpValueSanitized(kBlank);
   const std::string sanitized_dict = DebugDumpValueSanitized(dict);
@@ -175,9 +168,7 @@ TEST(ValueDebugDumpingTest, Array) {
   const std::string full_blank = DebugDumpValueFull(kBlank);
   const std::string full_array = DebugDumpValueFull(kArray);
   EXPECT_EQ(full_blank, "[]");
-  EXPECT_EQ(full_array,
-            FormatPrintfTemplate("[%s, %s]", Value::kNullTypeTitle,
-                                 HexDumpUnknownSizeInteger(kInteger).c_str()));
+  EXPECT_EQ(full_array, "[null, 0x7B]");
 
   const std::string sanitized_blank = DebugDumpValueSanitized(kBlank);
   const std::string sanitized_array = DebugDumpValueSanitized(kArray);
