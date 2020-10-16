@@ -45,7 +45,7 @@ namespace google_smart_card {
 //   type = "log_message"
 //   data = {"log-level": ..., "text": ...}
 // This typed message is then packed into a single variable that is sent to
-// JavaScript code:
+// the JavaScript code:
 //   {"type": "log_message", "data": {"log-level": ..., "text": ...}}
 // On the JavaScript side, the message channel listener extracts the value of
 // the "type" property, finds the handler (service) that has been registered for
