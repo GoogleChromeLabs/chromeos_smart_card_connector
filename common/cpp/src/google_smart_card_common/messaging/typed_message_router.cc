@@ -44,14 +44,14 @@ void TypedMessageRouter::RemoveRoute(TypedMessageListener* listener) {
 }
 
 bool TypedMessageRouter::OnMessageReceived(const pp::Var& message) {
-  std::string type;
-  pp::Var data;
-  if (!ParseTypedMessage(message, &type, &data)) return false;
+  std::string error_message;
+  TypedMessage typed_message;
+  if (!VarAs(message, &typed_message, &error_message)) return false;
 
-  TypedMessageListener* const listener = FindListenerByType(type);
+  TypedMessageListener* const listener = FindListenerByType(typed_message.type);
   if (!listener) return false;
 
-  return listener->OnTypedMessageReceived(data);
+  return listener->OnTypedMessageReceived(typed_message.data);
 }
 
 TypedMessageListener* TypedMessageRouter::FindListenerByType(
