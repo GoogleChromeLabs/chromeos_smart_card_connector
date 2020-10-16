@@ -56,6 +56,7 @@ DEPS := \
 CPPFLAGS := \
 	-I$(SOURCES_DIR) \
 	-I$(PCSC_LITE_CLIENT_INCLUDE_PATH) \
+	-Wall \
 	-Wextra \
 	-Wno-zero-length-array \
 	-pedantic \
