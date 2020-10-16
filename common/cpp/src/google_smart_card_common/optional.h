@@ -80,6 +80,8 @@ class optional final {
 
   T&& value() && { return operator*(); }
 
+  void reset() { storage_.reset(); }
+
   bool operator<(const optional& other) const {
     if (!*this || !other) return !*this && other;
     return value() < other.value();

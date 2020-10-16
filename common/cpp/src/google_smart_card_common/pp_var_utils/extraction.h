@@ -105,7 +105,7 @@ template <typename T>
 inline bool VarAs(const pp::Var& var, optional<T>* result,
                   std::string* error_message) {
   if (var.is_undefined() || var.is_null()) {
-    *result = optional<T>();
+    result->reset();
     return true;
   }
   T result_value;
@@ -340,7 +340,7 @@ class VarDictValuesExtractor final {
     std::string extraction_error_message;
     pp::Var var_value;
     if (!GetVarDictValue(var_, key, &var_value, &extraction_error_message)) {
-      *result = optional<T>();
+      result->reset();
     } else {
       *result = T();
       if (!VarAs(var_value, &result->value(), &extraction_error_message))
