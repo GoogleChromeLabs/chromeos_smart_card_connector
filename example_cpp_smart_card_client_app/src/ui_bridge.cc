@@ -86,11 +86,13 @@ void UiBridge::SetHandler(std::weak_ptr<MessageFromUiHandler> handler) {
 void UiBridge::RemoveHandler() { message_from_ui_handler_.reset(); }
 
 void UiBridge::SendMessageToUi(const pp::Var& message) {
-  const pp::Var typed_message =
-      gsc::MakeTypedMessage(kOutgoingMessageType, message);
+  gsc::TypedMessage typed_message;
+  typed_message.type = kOutgoingMessageType;
+  typed_message.data = message;
+  const pp::Var typed_message_var = gsc::MakeVar(typed_message);
   const gsc::ThreadSafeUniquePtr<AttachedState>::Locked locked_state =
       attached_state_.Lock();
-  if (locked_state) locked_state->pp_instance->PostMessage(typed_message);
+  if (locked_state) locked_state->pp_instance->PostMessage(typed_message_var);
 }
 
 std::string UiBridge::GetListenedMessageType() const {
