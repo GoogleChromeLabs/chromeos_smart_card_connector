@@ -27,12 +27,6 @@
 
 namespace google_smart_card {
 
-namespace internal {
-extern const char kUnsupportedPpVarTypeConversionError[];
-extern const char kPpVarDictionaryItemConversionError[];
-extern const char kPpVarArrayItemConversionError[];
-}  // namespace internal
-
 // Converts the given `Value` into a `pp::Var`.
 pp::Var ConvertValueToPpVar(const Value& value);
 

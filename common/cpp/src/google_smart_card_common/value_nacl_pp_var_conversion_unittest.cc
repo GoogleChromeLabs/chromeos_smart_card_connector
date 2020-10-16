@@ -279,9 +279,7 @@ TEST(ValueNaclPpVarConversion, ResourcePpVar) {
     std::string error_message;
     const optional<Value> value =
         ConvertPpVarToValue(pp::Var(pp::Resource()), &error_message);
-    EXPECT_EQ(error_message,
-              FormatPrintfTemplate(
-                  internal::kUnsupportedPpVarTypeConversionError, "resource"));
+    EXPECT_EQ(error_message, "Error converting: unsupported type \"resource\"");
     EXPECT_FALSE(value);
   }
 }
@@ -375,29 +373,19 @@ TEST(ValueNaclPpVarConversion, PpVarDictionaryWithBadItem) {
     std::string error_message;
     const optional<Value> value =
         ConvertPpVarToValue(inner_var_dict, &error_message);
-    EXPECT_EQ(
-        error_message,
-        FormatPrintfTemplate(
-            internal::kPpVarDictionaryItemConversionError, "someInnerKey",
-            FormatPrintfTemplate(internal::kUnsupportedPpVarTypeConversionError,
-                                 "resource")
-                .c_str()));
+    EXPECT_EQ(error_message,
+              "Error converting dictionary item \"someInnerKey\": Error "
+              "converting: unsupported type \"resource\"");
     EXPECT_FALSE(value);
   }
 
   {
     std::string error_message;
     const optional<Value> value = ConvertPpVarToValue(var_dict, &error_message);
-    EXPECT_EQ(
-        error_message,
-        FormatPrintfTemplate(
-            internal::kPpVarDictionaryItemConversionError, "someKey",
-            FormatPrintfTemplate(
-                internal::kPpVarDictionaryItemConversionError, "someInnerKey",
-                FormatPrintfTemplate(
-                    internal::kUnsupportedPpVarTypeConversionError, "resource")
-                    .c_str())
-                .c_str()));
+    EXPECT_EQ(error_message,
+              "Error converting dictionary item \"someKey\": Error converting "
+              "dictionary item \"someInnerKey\": Error converting: unsupported "
+              "type \"resource\"");
     EXPECT_FALSE(value);
   }
 }
@@ -458,13 +446,9 @@ TEST(ValueNaclPpVarConversion, PpVarArrayWithBadItem) {
     std::string error_message;
     const optional<Value> value =
         ConvertPpVarToValue(inner_var_array, &error_message);
-    EXPECT_EQ(
-        error_message,
-        FormatPrintfTemplate(
-            internal::kPpVarArrayItemConversionError, 0,
-            FormatPrintfTemplate(internal::kUnsupportedPpVarTypeConversionError,
-                                 "resource")
-                .c_str()));
+    EXPECT_EQ(error_message,
+              "Error converting array item #0: Error converting: unsupported "
+              "type \"resource\"");
     EXPECT_FALSE(value);
   }
 
@@ -472,16 +456,9 @@ TEST(ValueNaclPpVarConversion, PpVarArrayWithBadItem) {
     std::string error_message;
     const optional<Value> value =
         ConvertPpVarToValue(var_array, &error_message);
-    EXPECT_EQ(
-        error_message,
-        FormatPrintfTemplate(
-            internal::kPpVarArrayItemConversionError, 1,
-            FormatPrintfTemplate(
-                internal::kPpVarArrayItemConversionError, 0,
-                FormatPrintfTemplate(
-                    internal::kUnsupportedPpVarTypeConversionError, "resource")
-                    .c_str())
-                .c_str()));
+    EXPECT_EQ(error_message,
+              "Error converting array item #1: Error converting array item #0: "
+              "Error converting: unsupported type \"resource\"");
     EXPECT_FALSE(value);
   }
 }

@@ -35,17 +35,6 @@
 
 namespace google_smart_card {
 
-namespace internal {
-
-const char kUnsupportedPpVarTypeConversionError[] =
-    "Error converting: unsupported type \"%s\"";
-const char kPpVarDictionaryItemConversionError[] =
-    "Error converting dictionary item \"%s\": %s";
-const char kPpVarArrayItemConversionError[] =
-    "Error converting array item #%d: %s";
-
-}  // namespace internal
-
 namespace {
 
 pp::Var CreateIntegerVar(int64_t integer_value) {
@@ -99,7 +88,7 @@ optional<Value> CreateValueFromPpVarArray(const pp::VarArray& var,
     if (!converted_item) {
       if (error_message) {
         *error_message = FormatPrintfTemplate(
-            internal::kPpVarArrayItemConversionError, static_cast<int>(index),
+            "Error converting array item #%d: %s", static_cast<int>(index),
             error_message->c_str());
       }
       return {};
@@ -122,7 +111,7 @@ optional<Value> CreateValueFromPpVarDictionary(const pp::VarDictionary& var,
     if (!converted_item_value) {
       if (error_message) {
         *error_message = FormatPrintfTemplate(
-            internal::kPpVarDictionaryItemConversionError,
+            "Error converting dictionary item \"%s\": %s",
             item_key.AsString().c_str(), error_message->c_str());
       }
       return {};
@@ -172,7 +161,7 @@ optional<Value> ConvertPpVarToValue(const pp::Var& var,
   if (var.is_object() || var.is_resource()) {
     if (error_message) {
       *error_message =
-          FormatPrintfTemplate(internal::kUnsupportedPpVarTypeConversionError,
+          FormatPrintfTemplate("Error converting: unsupported type \"%s\"",
                                var.is_object() ? "object" : "resource");
     }
     return {};
