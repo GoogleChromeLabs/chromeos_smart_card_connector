@@ -26,7 +26,7 @@ constexpr char kErrorWrongType[] =
     "Expected a value of type \"%s\", instead got: %s";
 
 template <typename T>
-bool VarAsInteger(const pp::Var& var, const std::string& type_name, T* result,
+bool VarAsInteger(const pp::Var& var, const char* type_name, T* result,
                   std::string* error_message) {
   int64_t integer;
   if (var.is_int()) {
@@ -39,7 +39,7 @@ bool VarAsInteger(const pp::Var& var, const std::string& type_name, T* result,
                                           DebugDumpVar(var).c_str());
     return false;
   }
-  return CastInt64ToInteger(integer, type_name, result, error_message);
+  return CastInteger(integer, type_name, result, error_message);
 }
 
 }  // namespace

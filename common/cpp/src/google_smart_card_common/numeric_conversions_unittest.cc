@@ -90,23 +90,22 @@ TEST_F(NumericConversionsDoubleCastingTest, ValuesOutsideDoubleExactRange) {
   TestValueOutsideDoubleExactRange(std::numeric_limits<uint64_t>::max());
 }
 
-class NumericConversionsInt64ToIntegerCastingTest : public ::testing::Test {
+class NumericConversionsIntegerCastingTest : public ::testing::Test {
  protected:
   template <typename TargetIntegerType>
-  void TestCasting(int64_t value, const std::string& type_name,
+  void TestCasting(int64_t value, const char* type_name,
                    bool expected_success) const {
     TargetIntegerType result_value;
     std::string error_message;
-    ASSERT_EQ(
-        expected_success,
-        CastInt64ToInteger(value, type_name, &result_value, &error_message))
+    ASSERT_EQ(expected_success,
+              CastInteger(value, type_name, &result_value, &error_message))
         << "Conversion of " << value << " into " << type_name << " type "
         << "finished unexpectedly: expected "
         << (expected_success ? "successful" : "unsuccessful") << " conversion";
   }
 };
 
-TEST_F(NumericConversionsInt64ToIntegerCastingTest, Int64ToIntegerCasting) {
+TEST_F(NumericConversionsIntegerCastingTest, Int64ToIntegerCasting) {
   TestCasting<int8_t>(0, "int8_t", true);
   TestCasting<int8_t>(127, "int8_t", true);
   TestCasting<int8_t>(128, "int8_t", false);

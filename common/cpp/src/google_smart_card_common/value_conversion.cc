@@ -52,30 +52,42 @@ bool ConvertIntegerFromValue(Value value, const char* type_name, T* number,
     }
     return false;
   }
-  return CastInt64ToInteger(int64_number, type_name, number, error_message);
+  return CastInteger(int64_number, type_name, number, error_message);
 }
 
 }  // namespace
 
-Value ConvertToValue(unsigned number) {
-  // The Standard doesn't give an upper bound on the `unsigned` size, so be on
-  // the safe side (despite that a typical implementation has it <=4 bytes).
-  GOOGLE_SMART_CARD_CHECK(
-      CompareIntegers(number, std::numeric_limits<int64_t>::max()) <= 0);
-  return Value(static_cast<int64_t>(number));
+bool ConvertToValue(unsigned number, Value* value, std::string* error_message) {
+  int64_t int64_number;
+  if (!CastInteger(number, /*target_type_name=*/"int64_t", &int64_number,
+                   error_message)) {
+    // The number is too big - this is possible in case `unsigned` is an 8-byte
+    // type (which is theoretically possible according to the Standard, although
+    // practically non-existing in real-world implementations).
+    return false;
+  }
+  *value = Value(int64_number);
+  return true;
 }
 
-Value ConvertToValue(unsigned long number) {
-  // In case `unsigned long` is an 8-byte type, it's not possible to convert
-  // some of it value (extremely huge ones).
-  GOOGLE_SMART_CARD_CHECK(
-      CompareIntegers(number, std::numeric_limits<int64_t>::max()) <= 0);
-  return Value(static_cast<int64_t>(number));
+bool ConvertToValue(unsigned long number, Value* value,
+                    std::string* error_message) {
+  int64_t int64_number;
+  if (!CastInteger(number, /*target_type_name=*/"int64_t", &int64_number,
+                   error_message)) {
+    // The number is too big - this is possible in case `unsigned long` is an
+    // 8-byte type.
+    return false;
+  }
+  *value = Value(int64_number);
+  return true;
 }
 
-Value ConvertToValue(const char* characters) {
+bool ConvertToValue(const char* characters, Value* value,
+                    std::string* /*error_message*/) {
   GOOGLE_SMART_CARD_CHECK(characters);
-  return Value(characters);
+  *value = Value(characters);
+  return true;
 }
 
 bool ConvertFromValue(Value value, bool* boolean, std::string* error_message) {
@@ -126,7 +138,9 @@ bool ConvertFromValue(Value value, int64_t* number,
 }
 
 bool ConvertFromValue(Value value, double* number, std::string* error_message) {
-  if (value.is_integer() || value.is_float()) {
+  if (value.is_integer())
+    return CastIntegerToDouble(value.GetInteger(), number, error_message);
+  if (value.is_float()) {
     *number = value.GetFloat();
     return true;
   }

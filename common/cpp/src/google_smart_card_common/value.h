@@ -74,7 +74,7 @@ class Value final {
   explicit Value(ArrayStorage array_value);
   // Forbid construction from pointers other than `const char*`. Without this
   // deleted overload, the `bool`-argument version would be silently picked up.
-  explicit Value(void*) = delete;
+  explicit Value(const void*) = delete;
 
   Value(Value&& other);
   Value& operator=(Value&& other);

@@ -62,6 +62,10 @@ inline int GetIntegerSign(T value) {
 // the second one.
 template <typename T1, typename T2>
 inline int CompareIntegers(T1 value_1, T2 value_2) {
+  static_assert(std::is_integral<T1>::value,
+                "CompareIntegers should be used with integral types");
+  static_assert(std::is_integral<T2>::value,
+                "CompareIntegers should be used with integral types");
   // We have to perform the comparisons carefully due to the C++ promotion
   // rules: if comparing a signed and an unsigned value, the signed value will
   // be converted into an unsigned, leading to unexpected behavior for negative
@@ -76,26 +80,30 @@ inline int CompareIntegers(T1 value_1, T2 value_2) {
   return promoted_value_1 < promoted_value_2 ? -1 : +1;
 }
 
-// Performs safe cast of 64-bit integer value into another one integer value,
-// possibly of different type (fails if the value is outside the target type
-// range).
-template <typename T>
-inline bool CastInt64ToInteger(int64_t value, const std::string& type_name,
-                               T* result,
-                               std::string* error_message = nullptr) {
-  if (CompareIntegers(std::numeric_limits<T>::min(), value) <= 0 &&
-      CompareIntegers(std::numeric_limits<T>::max(), value) >= 0) {
-    *result = static_cast<T>(value);
+// Performs safe cast of an integer value into another integer value, possibly
+// of different type (fails if the value is outside the target type range).
+template <typename SourceType, typename TargetType>
+inline bool CastInteger(SourceType source_value, const char* target_type_name,
+                        TargetType* target_value,
+                        std::string* error_message = nullptr) {
+  static_assert(std::is_integral<SourceType>::value,
+                "CastInteger should be used with integral types");
+  static_assert(std::is_integral<TargetType>::value,
+                "CastInteger should be used with integral types");
+  if (CompareIntegers(std::numeric_limits<TargetType>::min(), source_value) <=
+          0 &&
+      CompareIntegers(std::numeric_limits<TargetType>::max(), source_value) >=
+          0) {
+    *target_value = static_cast<TargetType>(source_value);
     return true;
   }
   if (error_message) {
     *error_message = FormatPrintfTemplate(
-        "The integer value is outside the range of type \"%s\": %" PRId64
-        " not "
-        "in [%" PRIdMAX "; %" PRIuMAX "] range",
-        type_name.c_str(), value,
-        static_cast<intmax_t>(std::numeric_limits<T>::min()),
-        static_cast<uintmax_t>(std::numeric_limits<T>::max()));
+        "The integer value is outside the range of type \"%s\": %s not in [%s; "
+        "%s] range",
+        target_type_name, std::to_string(source_value).c_str(),
+        std::to_string(std::numeric_limits<TargetType>::min()).c_str(),
+        std::to_string(std::numeric_limits<TargetType>::max()).c_str());
   }
   return false;
 }
@@ -111,20 +119,14 @@ inline bool CastIntegerToDouble(T value, double* result,
     *result = static_cast<double>(value);
     return true;
   }
-  std::string formatted_value;
-  if (value >= 0) {
-    formatted_value =
-        FormatPrintfTemplate("%" PRIuMAX, static_cast<uintmax_t>(value));
-  } else {
-    formatted_value =
-        FormatPrintfTemplate("%" PRIdMAX, static_cast<intmax_t>(value));
+  if (error_message) {
+    *error_message = FormatPrintfTemplate(
+        "The integer %s cannot be converted into a floating-point double value "
+        "without loss of precision: it is outside [%" PRId64 "; %" PRId64
+        "] range",
+        std::to_string(value).c_str(), internal::kDoubleExactRangeMin,
+        internal::kDoubleExactRangeMax);
   }
-  *error_message = FormatPrintfTemplate(
-      "The integer %s cannot be converted into a floating-point double value "
-      "without loss of precision: it is outside [%" PRId64 "; %" PRId64
-      "] range",
-      formatted_value.c_str(), internal::kDoubleExactRangeMin,
-      internal::kDoubleExactRangeMax);
   return false;
 }
 

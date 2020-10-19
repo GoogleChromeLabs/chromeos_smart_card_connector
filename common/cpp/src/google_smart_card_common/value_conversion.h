@@ -14,17 +14,16 @@
 
 // Helpers for converting between `Value` instances and usual non-variant C++
 // types:
-// * "Value ConvertToValue(T object)";
+// * "bool ConvertToValue(T object, Value* value,
+//                        std::string* error_message = nullptr)";
 // * "bool ConvertFromValue(Value value, T* object,
-//                          std::string* error_message = nullptr)";
-// * "optional<T> ConvertFromValue(Value value,
-//                                 std::string* error_message = nullptr)".
+//                          std::string* error_message = nullptr)".
 //
 // These helpers are implemented for many standard types:
 // * `bool`;
 // * `int`, `int64_t` and other similar integer types (note: there's also a
 //   special case that an integer can be converted from a floating-point
-//   `Value`, in case it lies within the range of precisely representable);
+//   `Value`, in case it's within the range of precisely representable numbers);
 // * `double`;
 // * `std::string`.
 //
@@ -39,7 +38,6 @@
 #include <utility>
 
 #include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
@@ -53,23 +51,63 @@ namespace google_smart_card {
 // since the first two are handled via a generic `std::vector` overload below,
 // and the last one isn't useful in this context (as helpers in this file are
 // about converting between a `Value` and a non-`Value` object).
-inline Value ConvertToValue(bool boolean) { return Value(boolean); }
-inline Value ConvertToValue(int number) { return Value(number); }
-Value ConvertToValue(unsigned number);
-inline Value ConvertToValue(long number) {
-  return Value(static_cast<int64_t>(number));
+
+inline bool ConvertToValue(bool boolean, Value* value,
+                           std::string* /*error_message*/ = nullptr) {
+  *value = Value(boolean);
+  return true;
 }
-Value ConvertToValue(unsigned long number);
-inline Value ConvertToValue(uint8_t number) { return Value(number); }
-inline Value ConvertToValue(int64_t number) { return Value(number); }
-inline Value ConvertToValue(double number) { return Value(number); }
-Value ConvertToValue(const char* characters);
-inline Value ConvertToValue(std::string characters) {
-  return Value(std::move(characters));
+
+inline bool ConvertToValue(int number, Value* value,
+                           std::string* /*error_message*/ = nullptr) {
+  *value = Value(number);
+  return true;
 }
+
+bool ConvertToValue(unsigned number, Value* value,
+                    std::string* error_message = nullptr);
+
+inline bool ConvertToValue(long number, Value* value,
+                           std::string* /*error_message*/ = nullptr) {
+  *value = Value(static_cast<int64_t>(number));
+  return true;
+}
+
+bool ConvertToValue(unsigned long number, Value* value,
+                    std::string* error_message = nullptr);
+
+inline bool ConvertToValue(uint8_t number, Value* value,
+                           std::string* /*error_message*/ = nullptr) {
+  *value = Value(number);
+  return true;
+}
+
+inline bool ConvertToValue(int64_t number, Value* value,
+                           std::string* /*error_message*/ = nullptr) {
+  *value = Value(number);
+  return true;
+}
+
+inline bool ConvertToValue(double number, Value* value,
+                           std::string* /*error_message*/ = nullptr) {
+  *value = Value(number);
+  return true;
+}
+
+// Note: `characters` must be non-null.
+bool ConvertToValue(const char* characters, Value* value,
+                    std::string* error_message = nullptr);
+
+inline bool ConvertToValue(std::string characters, Value* value,
+                           std::string* /*error_message*/ = nullptr) {
+  *value = Value(std::move(characters));
+  return true;
+}
+
 // Forbid conversion of pointers other than `const char*`. Without this deleted
 // overload, the `bool`-argument overload would be silently picked up.
-Value ConvertToValue(void* pointer_value) = delete;
+Value ConvertToValue(const void* pointer_value, Value* value,
+                     std::string* error_message = nullptr) = delete;
 
 ///////////// ConvertFromValue ///////////////
 
@@ -92,16 +130,6 @@ bool ConvertFromValue(Value value, double* number,
                       std::string* error_message = nullptr);
 bool ConvertFromValue(Value value, std::string* characters,
                       std::string* error_message = nullptr);
-
-// Equivalent to other `ConvertFromValue()` functions, but returns result via
-// an optional.
-template <typename T>
-inline optional<T> ConvertFromValue(Value value,
-                                    std::string* error_message = nullptr) {
-  T object;
-  if (!ConvertFromValue(std::move(value), &object, error_message)) return {};
-  return std::move(object);
-}
 
 }  // namespace google_smart_card
 
