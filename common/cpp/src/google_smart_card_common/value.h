@@ -72,10 +72,15 @@ class Value final {
   explicit Value(BinaryStorage binary_value);
   explicit Value(DictionaryStorage dictionary_value);
   explicit Value(ArrayStorage array_value);
+  // Forbid construction from pointers other than `const char*`. Without this
+  // deleted overload, the `bool`-argument version would be silently picked up.
+  explicit Value(const void*) = delete;
+
   Value(Value&& other);
   Value& operator=(Value&& other);
   Value(const Value&) = delete;
   Value& operator=(const Value&) = delete;
+
   ~Value();
 
   Type type() const { return type_; }
