@@ -53,6 +53,7 @@ SOURCES := \
 	$(SOURCES_PATH)/requesting/request_receiver.cc \
 	$(SOURCES_PATH)/requesting/request_result.cc \
 	$(SOURCES_PATH)/value.cc \
+	$(SOURCES_PATH)/value_conversion.cc \
 	$(SOURCES_PATH)/value_debug_dumping.cc \
 	$(SOURCES_PATH)/value_nacl_pp_var_conversion.cc \
 

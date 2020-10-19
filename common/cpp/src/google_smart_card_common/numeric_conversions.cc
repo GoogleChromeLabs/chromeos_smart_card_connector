@@ -21,8 +21,8 @@ namespace google_smart_card {
 namespace internal {
 
 // Definitions of the constants declared in the header file
-constexpr int64_t kDoubleExactRangeMax =
-    1LL << std::numeric_limits<double>::digits;
+constexpr int64_t kDoubleExactRangeMax = 1LL
+                                         << std::numeric_limits<double>::digits;
 constexpr int64_t kDoubleExactRangeMin =
     -(1LL << std::numeric_limits<double>::digits);
 
@@ -32,10 +32,14 @@ bool CastDoubleToInt64(double value, int64_t* result,
                        std::string* error_message) {
   if (!(internal::kDoubleExactRangeMin <= value &&
         value <= internal::kDoubleExactRangeMax)) {
-    *error_message = FormatPrintfTemplate(
-        "The real value is outside the exact integer representation range: %f "
-        "not in [%" PRId64 "; %" PRId64 "]",
-        value, internal::kDoubleExactRangeMin, internal::kDoubleExactRangeMax);
+    if (error_message) {
+      *error_message = FormatPrintfTemplate(
+          "The real value is outside the exact integer representation range: "
+          "%f "
+          "not in [%" PRId64 "; %" PRId64 "]",
+          value, internal::kDoubleExactRangeMin,
+          internal::kDoubleExactRangeMax);
+    }
     return false;
   }
   *result = static_cast<int64_t>(value);

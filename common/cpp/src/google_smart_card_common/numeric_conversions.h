@@ -45,7 +45,7 @@ extern const int64_t kDoubleExactRangeMin;
 // value is outside the range of integers that can be represented by the double
 // type exactly).
 bool CastDoubleToInt64(double value, int64_t* result,
-                       std::string* error_message);
+                       std::string* error_message = nullptr);
 
 namespace internal {
 
@@ -81,19 +81,22 @@ inline int CompareIntegers(T1 value_1, T2 value_2) {
 // range).
 template <typename T>
 inline bool CastInt64ToInteger(int64_t value, const std::string& type_name,
-                               T* result, std::string* error_message) {
+                               T* result,
+                               std::string* error_message = nullptr) {
   if (CompareIntegers(std::numeric_limits<T>::min(), value) <= 0 &&
       CompareIntegers(std::numeric_limits<T>::max(), value) >= 0) {
     *result = static_cast<T>(value);
     return true;
   }
-  *error_message = FormatPrintfTemplate(
-      "The integer value is outside the range of type \"%s\": %" PRId64
-      " not "
-      "in [%" PRIdMAX "; %" PRIuMAX "] range",
-      type_name.c_str(), value,
-      static_cast<intmax_t>(std::numeric_limits<T>::min()),
-      static_cast<uintmax_t>(std::numeric_limits<T>::max()));
+  if (error_message) {
+    *error_message = FormatPrintfTemplate(
+        "The integer value is outside the range of type \"%s\": %" PRId64
+        " not "
+        "in [%" PRIdMAX "; %" PRIuMAX "] range",
+        type_name.c_str(), value,
+        static_cast<intmax_t>(std::numeric_limits<T>::min()),
+        static_cast<uintmax_t>(std::numeric_limits<T>::max()));
+  }
   return false;
 }
 
