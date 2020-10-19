@@ -24,7 +24,7 @@ namespace google_smart_card {
 
 namespace {
 
-std::string GetValueTypeTitle(const Value& value) {
+__attribute__((unused)) std::string GetValueTypeTitle(const Value& value) {
   switch (value.type()) {
     case Value::Type::kNull:
       return Value::kNullTypeTitle;
