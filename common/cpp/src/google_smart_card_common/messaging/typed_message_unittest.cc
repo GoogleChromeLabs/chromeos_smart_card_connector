@@ -40,33 +40,56 @@ TEST(MessagingTypedMessageTest, CorrectTypedMessageParsing) {
                                     .Add(kDataMessageKey, kSampleData)
                                     .Result();
 
-  std::string type;
-  pp::Var data;
-  ASSERT_TRUE(ParseTypedMessage(var, &type, &data));
-  EXPECT_EQ(kSampleType, type);
-  EXPECT_EQ(kSampleData, VarAs<std::string>(data));
+  TypedMessage typed_message;
+  std::string error_message;
+  ASSERT_TRUE(VarAs(var, &typed_message, &error_message));
+  EXPECT_TRUE(error_message.empty());
+  EXPECT_EQ(kSampleType, typed_message.type);
+  EXPECT_EQ(kSampleData, VarAs<std::string>(typed_message.data));
 }
 
 TEST(MessagingTypedMessageTest, BadTypedMessageParsing) {
-  std::string type;
-  pp::Var data;
-  EXPECT_FALSE(ParseTypedMessage(pp::Var(), &type, &data));
-  EXPECT_FALSE(ParseTypedMessage(pp::VarDictionary(), &type, &data));
-  EXPECT_FALSE(ParseTypedMessage(
-      VarDictBuilder().Add(kTypeMessageKey, kSampleType).Result(), &type,
-      &data));
-  EXPECT_FALSE(ParseTypedMessage(
-      VarDictBuilder().Add(kDataMessageKey, kSampleData).Result(), &type,
-      &data));
-  EXPECT_FALSE(ParseTypedMessage(VarDictBuilder()
-                                     .Add(kTypeMessageKey, 123)
-                                     .Add(kDataMessageKey, kSampleData)
-                                     .Result(),
-                                 &type, &data));
+  TypedMessage typed_message;
+  {
+    std::string error_message;
+    EXPECT_FALSE(VarAs(pp::Var(), &typed_message, &error_message));
+    EXPECT_FALSE(error_message.empty());
+  }
+  {
+    std::string error_message;
+    EXPECT_FALSE(VarAs(pp::VarDictionary(), &typed_message, &error_message));
+    EXPECT_FALSE(error_message.empty());
+  }
+  {
+    std::string error_message;
+    EXPECT_FALSE(
+        VarAs(VarDictBuilder().Add(kTypeMessageKey, kSampleType).Result(),
+              &typed_message, &error_message));
+    EXPECT_FALSE(error_message.empty());
+  }
+  {
+    std::string error_message;
+    EXPECT_FALSE(
+        VarAs(VarDictBuilder().Add(kDataMessageKey, kSampleData).Result(),
+              &typed_message, &error_message));
+    EXPECT_FALSE(error_message.empty());
+  }
+  {
+    std::string error_message;
+    EXPECT_FALSE(VarAs(VarDictBuilder()
+                           .Add(kTypeMessageKey, 123)
+                           .Add(kDataMessageKey, kSampleData)
+                           .Result(),
+                       &typed_message, &error_message));
+    EXPECT_FALSE(error_message.empty());
+  }
 }
 
 TEST(MessagingTypedMessageTest, TypedMessageMaking) {
-  const pp::Var var = MakeTypedMessage(kSampleType, kSampleData);
+  TypedMessage typed_message;
+  typed_message.type = kSampleType;
+  typed_message.data = kSampleData;
+  const pp::Var var = MakeVar(typed_message);
 
   const pp::VarDictionary var_dict = VarAs<pp::VarDictionary>(var);
   EXPECT_EQ(kSampleType,

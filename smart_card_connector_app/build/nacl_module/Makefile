@@ -64,6 +64,7 @@ $(eval $(call DEPEND_RULE,nacl_io))
 
 CXXFLAGS := \
 	-I$(PCSC_LITE_SERVER_INCLUDE_PATH) \
+	-Wall \
 	-Wextra \
 	-Wno-zero-length-array \
 	-pedantic \

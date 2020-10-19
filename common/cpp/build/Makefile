@@ -62,6 +62,8 @@ TEST_SUPPORT_SOURCES := \
 
 CXXFLAGS := \
 	-I$(ROOT_SOURCES_PATH)/ \
+	-pedantic \
+	-Wall \
 	-Wextra \
 	-std=gnu++11 \
 

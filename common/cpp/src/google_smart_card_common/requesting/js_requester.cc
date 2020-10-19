@@ -76,10 +76,10 @@ void JsRequester::StartAsyncRequest(const pp::Var& payload,
   RequestId request_id;
   *async_request = CreateAsyncRequest(payload, callback, &request_id);
 
-  const pp::Var request_message_data =
-      MakeRequestMessageData(request_id, payload);
-  const pp::Var request_message =
-      MakeTypedMessage(GetRequestMessageType(name()), request_message_data);
+  TypedMessage typed_message;
+  typed_message.type = GetRequestMessageType(name());
+  typed_message.data = MakeRequestMessageData(request_id, payload);
+  const pp::Var request_message = MakeVar(typed_message);
 
   if (!PostPpMessage(request_message)) {
     SetAsyncRequestResult(request_id, GenericRequestResult::CreateFailed(

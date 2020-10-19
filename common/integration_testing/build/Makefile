@@ -31,6 +31,8 @@ SOURCES := \
 
 CXXFLAGS := \
 	-I$(SOURCES_PATH) \
+	-pedantic \
+	-Wall \
 	-Wextra \
 	-std=gnu++11 \
 

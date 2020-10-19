@@ -57,9 +57,10 @@ void JsRequestReceiver::Detach() {
 
 void JsRequestReceiver::PostResult(RequestId request_id,
                                    GenericRequestResult request_result) {
-  PostResultMessage(MakeTypedMessage(
-      GetResponseMessageType(name()),
-      MakeResponseMessageData(request_id, std::move(request_result))));
+  TypedMessage message;
+  message.type = GetResponseMessageType(name());
+  message.data = MakeResponseMessageData(request_id, std::move(request_result));
+  PostResultMessage(MakeVar(message));
 }
 
 std::string JsRequestReceiver::GetListenedMessageType() const {

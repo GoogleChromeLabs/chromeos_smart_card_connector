@@ -14,36 +14,37 @@
 
 #include <google_smart_card_common/messaging/typed_message.h>
 
-#include <ppapi/cpp/var_dictionary.h>
+#include <string>
 
-#include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
+#include <ppapi/cpp/var.h>
+
+#include <google_smart_card_common/pp_var_utils/struct_converter.h>
 
 namespace google_smart_card {
 
-namespace {
-
-constexpr char kTypeMessageKey[] = "type";
-constexpr char kDataMessageKey[] = "data";
-
-}  // namespace
-
-bool ParseTypedMessage(const pp::Var& message, std::string* type,
-                       pp::Var* data) {
-  std::string error_message;
-  pp::VarDictionary message_dict;
-  if (!VarAs(message, &message_dict, &error_message)) return false;
-  return VarDictValuesExtractor(message_dict)
-      .Extract(kTypeMessageKey, type)
-      .Extract(kDataMessageKey, data)
-      .GetSuccessWithNoExtraKeysAllowed(&error_message);
+// static
+template <>
+constexpr const char* StructConverter<TypedMessage>::GetStructTypeName() {
+  return "TypedMessage";
 }
 
-pp::Var MakeTypedMessage(const std::string& type, const pp::Var& data) {
-  return VarDictBuilder()
-      .Add(kTypeMessageKey, type)
-      .Add(kDataMessageKey, data)
-      .Result();
+// static
+template <>
+template <typename Callback>
+void StructConverter<TypedMessage>::VisitFields(const TypedMessage& value,
+                                                Callback callback) {
+  callback(&value.type, "type");
+  callback(&value.data, "data");
+}
+
+bool VarAs(const pp::Var& var, TypedMessage* result,
+           std::string* error_message) {
+  return StructConverter<TypedMessage>::ConvertFromVar(var, result,
+                                                       error_message);
+}
+
+pp::Var MakeVar(const TypedMessage& value) {
+  return StructConverter<TypedMessage>::ConvertToVar(value);
 }
 
 }  // namespace google_smart_card

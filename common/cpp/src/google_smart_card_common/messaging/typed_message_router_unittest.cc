@@ -72,9 +72,9 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
 
   // Initially, the router contains no route, so no listeners are invoked
   EXPECT_FALSE(router.OnMessageReceived(
-      MakeTypedMessage(kSampleType1, MakeSampleData(1))));
+      MakeVar(TypedMessage{kSampleType1, MakeSampleData(1)})));
   EXPECT_FALSE(router.OnMessageReceived(
-      MakeTypedMessage(kSampleType2, MakeSampleData(2))));
+      MakeVar(TypedMessage{kSampleType2, MakeSampleData(2)})));
 
   // After the first listener is registered, it is invoked by the router on the
   // corresponding message receival
@@ -83,16 +83,16 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
                               GetMessageDataString, Eq(MakeSampleData(3)))))
       .WillOnce(Return(true));
   EXPECT_TRUE(router.OnMessageReceived(
-      MakeTypedMessage(kSampleType1, MakeSampleData(3))));
+      MakeVar(TypedMessage{kSampleType1, MakeSampleData(3)})));
   EXPECT_FALSE(router.OnMessageReceived(
-      MakeTypedMessage(kSampleType2, MakeSampleData(4))));
+      MakeVar(TypedMessage{kSampleType2, MakeSampleData(4)})));
 
   // When the listener returns false, the router returns false too
   EXPECT_CALL(listener_1, OnTypedMessageReceived(ResultOf(
                               GetMessageDataString, Eq(MakeSampleData(5)))))
       .WillOnce(Return(false));
   EXPECT_FALSE(router.OnMessageReceived(
-      MakeTypedMessage(kSampleType1, MakeSampleData(5))));
+      MakeVar(TypedMessage{kSampleType1, MakeSampleData(5)})));
 
   // After the second listener is registered, it is invoked by the router on the
   // corresponding message receival
@@ -101,12 +101,12 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
                               GetMessageDataString, Eq(MakeSampleData(6)))))
       .WillOnce(Return(true));
   EXPECT_TRUE(router.OnMessageReceived(
-      MakeTypedMessage(kSampleType2, MakeSampleData(6))));
+      MakeVar(TypedMessage{kSampleType2, MakeSampleData(6)})));
 
   // After the first listener is removed, it is no more invoked by the router
   router.RemoveRoute(&listener_1);
   EXPECT_FALSE(router.OnMessageReceived(
-      MakeTypedMessage(kSampleType1, MakeSampleData(7))));
+      MakeVar(TypedMessage{kSampleType1, MakeSampleData(7)})));
 }
 
 TEST(MessagingTypedMessageRouterTest, MultiThreading) {
@@ -134,8 +134,8 @@ TEST(MessagingTypedMessageRouterTest, MultiThreading) {
     }
   });
   std::thread message_pushing_thread([&router] {
-    const pp::Var message_1 = MakeTypedMessage(kSampleType1, MakeSampleData(0));
-    const pp::Var message_2 = MakeTypedMessage(kSampleType2, MakeSampleData(0));
+    const pp::Var message_1 = MakeVar(TypedMessage{kSampleType1, MakeSampleData(0)});
+    const pp::Var message_2 = MakeVar(TypedMessage{kSampleType2, MakeSampleData(0)});
     for (int iteration = 0; iteration < kIterationCount; ++iteration) {
       router.OnMessageReceived(message_1);
       router.OnMessageReceived(message_2);

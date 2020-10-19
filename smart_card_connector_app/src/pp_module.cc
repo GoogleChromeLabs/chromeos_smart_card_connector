@@ -90,8 +90,10 @@ class PpInstance final : public pp::Instance {
 
     GOOGLE_SMART_CARD_LOG_DEBUG << "All services are successfully "
                                 << "initialized, posting ready message...";
-    PostMessage(MakeTypedMessage(GetPcscLiteServerReadyMessageType(),
-                                 MakePcscLiteServerReadyMessageData()));
+    TypedMessage ready_message;
+    ready_message.type = GetPcscLiteServerReadyMessageType();
+    ready_message.data = MakePcscLiteServerReadyMessageData();
+    PostMessage(MakeVar(ready_message));
   }
 
   TypedMessageRouter typed_message_router_;

@@ -54,6 +54,7 @@ SOURCES := \
 CPPFLAGS := \
 	-I$(LIBUSB_NACL_SOURCES_PATH) \
 	-I$(LIBUSB_SOURCES_PATH)/libusb \
+	-Wall \
 	-Wextra \
 	-Wno-sign-compare \
 
