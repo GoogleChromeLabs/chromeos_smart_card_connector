@@ -14,6 +14,7 @@
 
 #include <google_smart_card_common/value_conversion.h>
 
+#include <inttypes.h>
 #include <stdint.h>
 
 #include <limits>
@@ -56,6 +57,65 @@ bool ConvertIntegerFromValue(Value value, const char* type_name, T* number,
 }
 
 }  // namespace
+
+namespace internal {
+
+EnumToValueConverter::EnumToValueConverter(int64_t enum_to_convert)
+    : enum_to_convert_(enum_to_convert) {}
+
+EnumToValueConverter::~EnumToValueConverter() = default;
+
+void EnumToValueConverter::HandleItem(int64_t enum_item,
+                                      const char* enum_item_name) {
+  if (converted_value_ || enum_to_convert_ != enum_item) return;
+  converted_value_ = Value(enum_item_name);
+}
+
+bool EnumToValueConverter::TakeConvertedValue(const char* type_name,
+                                              Value* converted_value,
+                                              std::string* error_message) {
+  if (converted_value_) {
+    *converted_value = std::move(*converted_value_);
+    return true;
+  }
+  if (error_message) {
+    *error_message = FormatPrintfTemplate(
+        "Cannot convert enum %s to value: unknown integer value %" PRId64,
+        type_name, enum_to_convert_);
+  }
+  return false;
+}
+
+EnumFromValueConverter::EnumFromValueConverter(Value value_to_convert)
+    : value_to_convert_(std::move(value_to_convert)) {}
+
+EnumFromValueConverter::~EnumFromValueConverter() = default;
+
+void EnumFromValueConverter::HandleItem(int64_t enum_item,
+                                        const char* enum_item_name) {
+  if (converted_enum_ || !value_to_convert_.is_string() ||
+      value_to_convert_.GetString() != enum_item_name)
+    return;
+  converted_enum_ = enum_item;
+}
+
+bool EnumFromValueConverter::GetConvertedEnum(
+    const char* type_name, int64_t* converted_enum,
+    std::string* error_message) const {
+  if (converted_enum_) {
+    *converted_enum = *converted_enum_;
+    return true;
+  }
+  if (error_message) {
+    *error_message = FormatPrintfTemplate(
+        "Cannot convert value %s to enum %s: %s",
+        DebugDumpValueSanitized(value_to_convert_).c_str(), type_name,
+        value_to_convert_.is_string() ? "wrong type" : "unknown value");
+  }
+  return false;
+}
+
+}  // namespace internal
 
 bool ConvertToValue(unsigned number, Value* value, std::string* error_message) {
   int64_t int64_number;
