@@ -805,8 +805,6 @@ TEST(ValueConversion, FloatValueToInt64) {
 }
 
 TEST(ValueConversion, ValueToInt64Error) {
-  constexpr int64_t kInt64Max = std::numeric_limits<int64_t>::max();
-  constexpr int64_t kInt64Min = std::numeric_limits<int64_t>::min();
   int64_t converted;
 
   {
