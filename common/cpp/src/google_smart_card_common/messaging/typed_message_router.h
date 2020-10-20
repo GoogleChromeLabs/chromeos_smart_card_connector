@@ -19,10 +19,9 @@
 #include <string>
 #include <unordered_map>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/messaging/message_listener.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -60,7 +59,8 @@ class TypedMessageRouter final : public MessageListener {
   void RemoveRoute(TypedMessageListener* listener);
 
   // MessageListener:
-  bool OnMessageReceived(const pp::Var& message) override;
+  bool OnMessageReceived(Value message,
+                         std::string* error_message = nullptr) override;
 
  private:
   TypedMessageListener* FindListenerByType(
