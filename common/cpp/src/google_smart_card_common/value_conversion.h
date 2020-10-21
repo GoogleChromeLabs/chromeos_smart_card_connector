@@ -131,8 +131,8 @@ class EnumValueDescriptor {
     const char* type_name() const { return type_name_; }
 
     // Adds the given item into the enum's description: |enum_item_name| is the
-    // Value representation of |enum_item|.
-    // Returns a rvalue reference to |this and uses the "&&" ref-qualifier, so
+    // `Value` representation of |enum_item|.
+    // Returns a rvalue reference to |this| and uses the "&&" ref-qualifier, so
     // that the method calls can be easily chained and the final result can be
     // returned without an explicit std::move() boilerplate.
     Description&& WithItem(T enum_item, const char* enum_item_name) && {
