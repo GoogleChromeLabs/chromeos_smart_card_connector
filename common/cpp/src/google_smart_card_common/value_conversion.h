@@ -27,7 +27,11 @@
 // * `double`;
 // * `std::string`.
 //
-// TODO: Add support for std::vector, enum, struct.
+// The same helpers can also be enabled for custom types:
+// * a custom struct can be registered via the `StructValueDescriptor` class for
+//   conversion to/from a dictionary `Value`.
+//
+// TODO: Add support for std::vector, enum.
 
 #ifndef GOOGLE_SMART_CARD_COMMON_VALUE_CONVERSION_H_
 #define GOOGLE_SMART_CARD_COMMON_VALUE_CONVERSION_H_
@@ -35,14 +39,238 @@
 #include <stdint.h>
 
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
-///////////// ConvertToValue /////////////////
+///////////// Internal helpers ///////////////////
+
+namespace internal {
+
+// Base class for all `StructToValueConverter`s. Contains code that doesn't
+// depend on the type of the struct and can therefore be shared between all
+// child classes.
+class StructToValueConverterBase {
+ protected:
+  StructToValueConverterBase();
+  StructToValueConverterBase(const StructToValueConverterBase&) = delete;
+  StructToValueConverterBase& operator=(const StructToValueConverterBase&) =
+      delete;
+  ~StructToValueConverterBase();
+
+  void HandleFieldConversionError(const char* dictionary_key_name);
+  bool FinishConversion(const char* type_name,
+                        std::string* error_message) const;
+
+  bool succeeded_ = true;
+  std::string inner_error_message_;
+  Value converted_value_{Value::Type::kDictionary};
+};
+
+// Visitor of struct type's fields that converts a C++ struct into a dictionary
+// `Value`.
+template <typename T>
+class StructToValueConverter final : public StructToValueConverterBase {
+ public:
+  explicit StructToValueConverter(T object_to_convert)
+      : object_to_convert_(std::move(object_to_convert)) {}
+  StructToValueConverter(const StructToValueConverter&) = delete;
+  StructToValueConverter& operator=(const StructToValueConverter&) = delete;
+  ~StructToValueConverter() = default;
+
+  template <typename FieldT>
+  void HandleField(FieldT T::*field_ptr, const char* dictionary_key_name) {
+    FieldT& field = object_to_convert_.*field_ptr;
+    ConvertFieldToValue(std::move(field), dictionary_key_name);
+  }
+
+  template <typename FieldT>
+  void HandleField(optional<FieldT> T::*field_ptr,
+                   const char* dictionary_key_name) {
+    optional<FieldT>& field = object_to_convert_.*field_ptr;
+    if (!field) {
+      // The optional field is null - skip it from the conversion.
+      return;
+    }
+    ConvertFieldToValue(std::move(*field), dictionary_key_name);
+  }
+
+  bool TakeConvertedValue(const char* type_name, Value* converted_value,
+                          std::string* error_message = nullptr) {
+    if (!FinishConversion(type_name, error_message)) return false;
+    *converted_value = std::move(converted_value_);
+    return true;
+  }
+
+ private:
+  template <typename FieldT>
+  void ConvertFieldToValue(FieldT field_value, const char* dictionary_key_name);
+
+  T object_to_convert_;
+};
+
+// Base class for all `StructFromValueConverter`s. Contains code that doesn't
+// depend on the type of the struct and can therefore be shared between all
+// child classes.
+class StructFromValueConverterBase {
+ protected:
+  StructFromValueConverterBase(Value value_to_convert);
+  StructFromValueConverterBase(const StructFromValueConverterBase&) = delete;
+  StructFromValueConverterBase& operator=(const StructFromValueConverterBase&) =
+      delete;
+  ~StructFromValueConverterBase();
+
+  bool ExtractKey(const char* dictionary_key_name, bool is_required,
+                  Value* item_value);
+  void HandleFieldConversionError(const char* dictionary_key_name);
+  bool FinishConversion(const char* type_name,
+                        std::string* error_message = nullptr);
+
+  Value value_to_convert_;
+  bool succeeded_ = true;
+  std::string inner_error_message_;
+};
+
+// Visitor of struct type's fields that converts a dictionary `Value` into a C++
+// struct into.
+template <typename T>
+class StructFromValueConverter final : public StructFromValueConverterBase {
+ public:
+  explicit StructFromValueConverter(Value value_to_convert)
+      : StructFromValueConverterBase(std::move(value_to_convert)) {}
+  StructFromValueConverter(const StructFromValueConverter&) = delete;
+  StructFromValueConverter& operator=(const StructFromValueConverter&) = delete;
+  ~StructFromValueConverter() = default;
+
+  template <typename FieldT>
+  void HandleField(FieldT T::*field_ptr, const char* dictionary_key_name) {
+    Value item_value;
+    if (!ExtractKey(dictionary_key_name, /*is_required=*/true, &item_value))
+      return;
+    FieldT& field = converted_object_.*field_ptr;
+    ConvertFieldFromValue(dictionary_key_name, std::move(item_value), &field);
+  }
+
+  template <typename FieldT>
+  void HandleField(optional<FieldT> T::*field_ptr,
+                   const char* dictionary_key_name) {
+    Value item_value;
+    if (!ExtractKey(dictionary_key_name, /*is_required=*/false, &item_value))
+      return;
+    optional<FieldT>& field = converted_object_.*field_ptr;
+    field = FieldT();
+    ConvertFieldFromValue(dictionary_key_name, std::move(item_value),
+                          &field.value());
+  }
+
+  bool TakeConvertedObject(const char* type_name, T* converted_object,
+                           std::string* error_message = nullptr) {
+    if (!FinishConversion(type_name, error_message)) return false;
+    *converted_object = std::move(converted_object_);
+    return true;
+  }
+
+ private:
+  template <typename FieldT>
+  void ConvertFieldFromValue(const char* dictionary_key_name, Value item_value,
+                             FieldT* converted_field);
+
+  T converted_object_;
+};
+
+}  // namespace internal
+
+///////////// StructValueDescriptor //////////////
+
+// Class that allows to describe a struct's fields and their corresponding
+// string names. Can be used in order to automatically implement conversion of a
+// C++ struct to/from a dictionary `Value` object (provided by the global
+// template functions `ConvertToValue()` and `ConvertFromValue()` defined
+// below).
+//
+// Example usage:
+//   struct Foo { int x; std::string y; };
+//   template <> StructValueDescriptor<Tp>::Description
+//   StructValueDescriptor<Tp>::GetDescription() {
+//     return Describe("Foo").WithField(&Foo::x, "x").WithField(&Foo::y, "y");
+//   }
+//   ...
+//   ConvertToValue(Foo{123, ""}, ...);
+//   ConvertFromValue(Value(...), &foo, ...);
+template <typename T>
+class StructValueDescriptor {
+ public:
+  static_assert(std::is_class<T>::value,
+                "The StructValueDescriptor parameter must be a class");
+
+  // Class that should be used for describing items of the enum type. Should be
+  // instantiated via the `Describe()` method.
+  class Description final {
+   public:
+    Description(const char* type_name,
+                internal::StructToValueConverter<T>* to_value_converter,
+                internal::StructFromValueConverter<T>* from_value_converter)
+        : type_name_(type_name),
+          to_value_converter_(to_value_converter),
+          from_value_converter_(from_value_converter) {}
+    Description(Description&&) = default;
+    Description& operator=(Description&&) = default;
+    ~Description() = default;
+
+    const char* type_name() const { return type_name_; }
+
+    // Adds the given field into the struct's description: |dictionary_key_name|
+    // is the key in the dictionary `Value` representation of |field_ptr|.
+    // Returns a rvalue reference to |this| and uses the "&&" ref-qualifier, so
+    // that the method calls can be easily chained and the final result can be
+    // returned without an explicit std::move() boilerplate.
+    template <typename FieldT>
+    Description&& WithField(FieldT T::*field_ptr,
+                            const char* dictionary_key_name) && {
+      if (to_value_converter_)
+        to_value_converter_->HandleField(field_ptr, dictionary_key_name);
+      else
+        from_value_converter_->HandleField(field_ptr, dictionary_key_name);
+      return std::move(*this);
+    }
+
+   private:
+    const char* const type_name_;
+    internal::StructToValueConverter<T>* const to_value_converter_;
+    internal::StructFromValueConverter<T>* const from_value_converter_;
+  };
+
+  StructValueDescriptor(
+      internal::StructToValueConverter<T>* to_value_converter,
+      internal::StructFromValueConverter<T>* from_value_converter)
+      : to_value_converter_(to_value_converter),
+        from_value_converter_(from_value_converter) {}
+  StructValueDescriptor(const StructValueDescriptor&) = delete;
+  StructValueDescriptor& operator=(const StructValueDescriptor&) = delete;
+  ~StructValueDescriptor() = default;
+
+  // Not implemented in the template class; its implementation has to be
+  // provided for every `T` by the consumer of this class.
+  Description GetDescription();
+
+ private:
+  // Creates the `Description` object; intended to be used by the
+  // `GetDescription()` implementation in order to describe all fields of the
+  // struct type via this object.
+  Description Describe(const char* type_name) {
+    return Description(type_name, to_value_converter_, from_value_converter_);
+  }
+
+  internal::StructToValueConverter<T>* const to_value_converter_;
+  internal::StructFromValueConverter<T>* const from_value_converter_;
+};
+
+///////////// ConvertToValue /////////////////////
 
 // Group of overloads that perform trivial conversions to `Value`.
 //
@@ -109,7 +337,24 @@ inline bool ConvertToValue(std::string characters, Value* value,
 Value ConvertToValue(const void* pointer_value, Value* value,
                      std::string* error_message = nullptr) = delete;
 
-///////////// ConvertFromValue ///////////////
+// Converts from a struct into a dictionary `Value`. The struct type has to be
+// registered via the `StructValueDescriptor` class.
+// Note: The |typename enable_if<...>::type| part boils down to |bool| for all
+// |T| that are class/struct; for all other |T| this removes this template from
+// overload resolution, so that unrelated types will use other functions
+// declared in this file.
+template <typename T>
+typename std::enable_if<std::is_class<T>::value, bool>::type ConvertToValue(
+    T object, Value* value, std::string* error_message = nullptr) {
+  internal::StructToValueConverter<T> converter(std::move(object));
+  const auto& description =
+      StructValueDescriptor<T>(&converter, /*from_value_converter=*/nullptr)
+          .GetDescription();
+  return converter.TakeConvertedValue(description.type_name(), value,
+                                      error_message);
+}
+
+///////////// ConvertFromValue ///////////////////
 
 // Group of overloads that perform trivial conversions from `Value`.
 bool ConvertFromValue(Value value, bool* boolean,
@@ -130,6 +375,57 @@ bool ConvertFromValue(Value value, double* number,
                       std::string* error_message = nullptr);
 bool ConvertFromValue(Value value, std::string* characters,
                       std::string* error_message = nullptr);
+
+// Converts from a dictionary `Value` into a struct. The struct type has to be
+// registered via the `StructValueDescriptor` class.
+// Note: The |typename enable_if<...>::type| part boils down to |bool| for all
+// |T| that are class/struct; for all other |T| this removes this template from
+// overload resolution, so that unrelated types will use other functions
+// declared in this file.
+template <typename T>
+typename std::enable_if<std::is_class<T>::value, bool>::type ConvertFromValue(
+    Value value, T* object, std::string* error_message = nullptr) {
+  internal::StructFromValueConverter<T> converter(std::move(value));
+  const auto& description =
+      StructValueDescriptor<T>(/*to_value_converter=*/nullptr, &converter)
+          .GetDescription();
+  return converter.TakeConvertedObject(description.type_name(), object,
+                                       error_message);
+}
+
+///////////// Internal helpers implementation ////
+
+// Note: These helpers are implemented here at the end of the file, so that they
+// can call into other helpers declared above.
+
+namespace internal {
+
+template <typename T>
+template <typename FieldT>
+void StructToValueConverter<T>::ConvertFieldToValue(
+    FieldT field_value, const char* dictionary_key_name) {
+  if (!succeeded_) return;
+  Value converted_field;
+  if (ConvertToValue(std::move(field_value), &converted_field,
+                     &inner_error_message_)) {
+    converted_value_.SetDictionaryItem(dictionary_key_name,
+                                       std::move(converted_field));
+  } else {
+    HandleFieldConversionError(dictionary_key_name);
+  }
+}
+
+template <typename T>
+template <typename FieldT>
+void StructFromValueConverter<T>::ConvertFieldFromValue(
+    const char* dictionary_key_name, Value item_value,
+    FieldT* converted_field) {
+  if (!ConvertFromValue(std::move(item_value), converted_field,
+                        &inner_error_message_))
+    HandleFieldConversionError(dictionary_key_name);
+}
+
+}  // namespace internal
 
 }  // namespace google_smart_card
 
