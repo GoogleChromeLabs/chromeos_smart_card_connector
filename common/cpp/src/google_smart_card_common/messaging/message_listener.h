@@ -28,7 +28,7 @@ class MessageListener {
 
   // Called when a message is received.
   //
-  // Returns whether the message was handled; in case it was not, the error is
+  // Returns whether the message was handled; in case it was not, an error is
   // returned via `error_message`.
   virtual bool OnMessageReceived(Value message,
                                  std::string* error_message = nullptr) = 0;
