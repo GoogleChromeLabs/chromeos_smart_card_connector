@@ -110,7 +110,8 @@ bool EnumFromValueConverter::GetConvertedEnum(
     *error_message = FormatPrintfTemplate(
         "Cannot convert value %s to enum %s: %s",
         DebugDumpValueSanitized(value_to_convert_).c_str(), type_name,
-        value_to_convert_.is_string() ? "wrong type" : "unknown value");
+        value_to_convert_.is_string() ? "unknown enum value"
+                                      : "value is not a string");
   }
   return false;
 }

@@ -816,8 +816,6 @@ TEST(ValueConversion, FloatValueToInt64) {
 }
 
 TEST(ValueConversion, ValueToInt64Error) {
-  constexpr int64_t kInt64Max = std::numeric_limits<int64_t>::max();
-  constexpr int64_t kInt64Min = std::numeric_limits<int64_t>::min();
   int64_t converted;
 
   {
@@ -1082,8 +1080,9 @@ TEST(ValueConversion, ValueToEnumError) {
   {
     std::string error_message;
     EXPECT_FALSE(ConvertFromValue(Value(), &converted, &error_message));
-    EXPECT_EQ(error_message,
-              "Cannot convert value null to enum SomeEnum: unknown value");
+    EXPECT_EQ(
+        error_message,
+        "Cannot convert value null to enum SomeEnum: value is not a string");
   }
 
   {
@@ -1091,12 +1090,13 @@ TEST(ValueConversion, ValueToEnumError) {
     EXPECT_FALSE(
         ConvertFromValue(Value("nonExisting"), &converted, &error_message));
 #ifdef NDEBUG
-    EXPECT_EQ(error_message,
-              "Cannot convert value string to enum SomeEnum: wrong type");
-#else
     EXPECT_EQ(
         error_message,
-        "Cannot convert value \"nonExisting\" to enum SomeEnum: wrong type");
+        "Cannot convert value string to enum SomeEnum: unknown enum value");
+#else
+    EXPECT_EQ(error_message,
+              "Cannot convert value \"nonExisting\" to enum SomeEnum: unknown "
+              "enum value");
 #endif
   }
 

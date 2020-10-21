@@ -48,7 +48,7 @@
 
 namespace google_smart_card {
 
-///////////// internal helpers ///////////////
+///////////// Internal helpers ///////////////
 
 namespace internal {
 
@@ -100,14 +100,14 @@ class EnumFromValueConverter final {
 // functions `ConvertToValue()` and `ConvertFromValue()` defined below).
 //
 // Example usage:
-//   enum class Tp { kA, kECar };
+//   enum class Tp { kA, kB };
 //   template <> EnumValueDescriptor<Tp>::Description
 //   EnumValueDescriptor<Tp>::GetDescription() {
-//     return Describe("Tp").WithItem(Tp::kA, "a").WithItem(Tp::kECar, "eCar");
+//     return Describe("Tp").WithItem(Tp::kA, "a").WithItem(Tp::kB, "b");
 //   }
 //   ...
 //   ConvertToValue(Tp::kA, ...);
-//   ConvertFromValue<Tp>(Value("eCar"), ...);
+//   ConvertFromValue(Value("b"), ...);
 template <typename T>
 class EnumValueDescriptor {
  public:
@@ -130,6 +130,11 @@ class EnumValueDescriptor {
 
     const char* type_name() const { return type_name_; }
 
+    // Adds the given item into the enum's description: |enum_item_name| is the
+    // Value representation of |enum_item|.
+    // Returns a rvalue reference to |this and uses the "&&" ref-qualifier, so
+    // that the method calls can be easily chained and the final result can be
+    // returned without an explicit std::move() boilerplate.
     Description&& WithItem(T enum_item, const char* enum_item_name) && {
       const int64_t enum_item_number = static_cast<int64_t>(enum_item);
       if (to_value_converter_)
@@ -238,6 +243,10 @@ bool ConvertToValue(const void* pointer_value, Value* value,
 
 // Converts from an enum into a string `Value`. The enum type has to be
 // registered via the `EnumValueDescriptor` class.
+// Note: The |typename enable_if<...>::type| part boils down to |bool| for all
+// |T| that are enums; for all other |T| this removes this template from
+// overload resolution, so that non-enum types will use other functions declared
+// in this file.
 template <typename T>
 typename std::enable_if<std::is_enum<T>::value, bool>::type ConvertToValue(
     T enum_value, Value* value, std::string* error_message = nullptr) {
@@ -273,6 +282,10 @@ bool ConvertFromValue(Value value, std::string* characters,
 
 // Converts from a string `Value` into an enum. The enum type has to be
 // registered via the `EnumValueDescriptor` class.
+// Note: The |typename enable_if<...>::type| part boils down to |bool| for all
+// |T| that are enums; for all other |T| this removes this template from
+// overload resolution, so that non-enum types will use other functions declared
+// in this file.
 template <typename T>
 typename std::enable_if<std::is_enum<T>::value, bool>::type ConvertFromValue(
     Value value, T* enum_value, std::string* error_message = nullptr) {
