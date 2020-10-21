@@ -15,6 +15,7 @@
 #include <google_smart_card_common/formatting.h>
 
 #include <cstdio>
+#include <utility>
 #include <vector>
 
 namespace google_smart_card {
