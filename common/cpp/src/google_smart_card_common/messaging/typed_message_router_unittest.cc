@@ -25,6 +25,8 @@
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 // Google Mock doesn't provide the C++11 "override" specifier for the mock
 // method definitions
@@ -63,6 +65,11 @@ std::string GetMessageDataString(const pp::Var& data) {
   return VarAs<std::string>(data);
 }
 
+Value MakeTypedMessageValue(const TypedMessage& typed_message) {
+  // TODO: Create `Value` directly, without going through `pp::Var`.
+  return *ConvertPpVarToValue(MakeVar(typed_message));
+}
+
 }  // namespace
 
 TEST(MessagingTypedMessageRouterTest, Basic) {
@@ -72,9 +79,9 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
 
   // Initially, the router contains no route, so no listeners are invoked
   EXPECT_FALSE(router.OnMessageReceived(
-      MakeVar(TypedMessage{kSampleType1, MakeSampleData(1)})));
+      MakeTypedMessageValue(TypedMessage{kSampleType1, MakeSampleData(1)})));
   EXPECT_FALSE(router.OnMessageReceived(
-      MakeVar(TypedMessage{kSampleType2, MakeSampleData(2)})));
+      MakeTypedMessageValue(TypedMessage{kSampleType2, MakeSampleData(2)})));
 
   // After the first listener is registered, it is invoked by the router on the
   // corresponding message receival
@@ -83,16 +90,16 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
                               GetMessageDataString, Eq(MakeSampleData(3)))))
       .WillOnce(Return(true));
   EXPECT_TRUE(router.OnMessageReceived(
-      MakeVar(TypedMessage{kSampleType1, MakeSampleData(3)})));
+      MakeTypedMessageValue(TypedMessage{kSampleType1, MakeSampleData(3)})));
   EXPECT_FALSE(router.OnMessageReceived(
-      MakeVar(TypedMessage{kSampleType2, MakeSampleData(4)})));
+      MakeTypedMessageValue(TypedMessage{kSampleType2, MakeSampleData(4)})));
 
   // When the listener returns false, the router returns false too
   EXPECT_CALL(listener_1, OnTypedMessageReceived(ResultOf(
                               GetMessageDataString, Eq(MakeSampleData(5)))))
       .WillOnce(Return(false));
   EXPECT_FALSE(router.OnMessageReceived(
-      MakeVar(TypedMessage{kSampleType1, MakeSampleData(5)})));
+      MakeTypedMessageValue(TypedMessage{kSampleType1, MakeSampleData(5)})));
 
   // After the second listener is registered, it is invoked by the router on the
   // corresponding message receival
@@ -101,12 +108,12 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
                               GetMessageDataString, Eq(MakeSampleData(6)))))
       .WillOnce(Return(true));
   EXPECT_TRUE(router.OnMessageReceived(
-      MakeVar(TypedMessage{kSampleType2, MakeSampleData(6)})));
+      MakeTypedMessageValue(TypedMessage{kSampleType2, MakeSampleData(6)})));
 
   // After the first listener is removed, it is no more invoked by the router
   router.RemoveRoute(&listener_1);
   EXPECT_FALSE(router.OnMessageReceived(
-      MakeVar(TypedMessage{kSampleType1, MakeSampleData(7)})));
+      MakeTypedMessageValue(TypedMessage{kSampleType1, MakeSampleData(7)})));
 }
 
 TEST(MessagingTypedMessageRouterTest, MultiThreading) {
@@ -134,11 +141,13 @@ TEST(MessagingTypedMessageRouterTest, MultiThreading) {
     }
   });
   std::thread message_pushing_thread([&router] {
-    const pp::Var message_1 = MakeVar(TypedMessage{kSampleType1, MakeSampleData(0)});
-    const pp::Var message_2 = MakeVar(TypedMessage{kSampleType2, MakeSampleData(0)});
     for (int iteration = 0; iteration < kIterationCount; ++iteration) {
-      router.OnMessageReceived(message_1);
-      router.OnMessageReceived(message_2);
+      Value message_1 =
+          MakeTypedMessageValue(TypedMessage{kSampleType1, MakeSampleData(0)});
+      Value message_2 =
+          MakeTypedMessageValue(TypedMessage{kSampleType2, MakeSampleData(0)});
+      router.OnMessageReceived(std::move(message_1));
+      router.OnMessageReceived(std::move(message_2));
     }
   });
 

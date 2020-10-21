@@ -15,6 +15,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <utility>
 
 #include <ppapi/c/ppb_instance.h>
 #include <ppapi/cpp/core.h>
@@ -27,7 +28,10 @@
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/nacl_io_utils.h>
+#include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/pp_var_utils/debug_dump.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 #include <google_smart_card_libusb/global.h>
 #include <google_smart_card_pcsc_lite_server/global.h>
 #include <google_smart_card_pcsc_lite_server_clients_management/backend.h>
@@ -67,9 +71,17 @@ class PpInstance final : public pp::Instance {
   }
 
   void HandleMessage(const pp::Var& message) override {
-    if (!typed_message_router_.OnMessageReceived(message)) {
-      GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected message received: "
-                                  << DebugDumpVar(message);
+    std::string error_message;
+    optional<Value> message_value =
+        ConvertPpVarToValue(message, &error_message);
+    if (!message_value) {
+      GOOGLE_SMART_CARD_LOG_FATAL
+          << "Unexpected JS message received - cannot parse: " << error_message;
+    }
+    if (!typed_message_router_.OnMessageReceived(std::move(*message_value),
+                                                 &error_message)) {
+      GOOGLE_SMART_CARD_LOG_FATAL << "Failure while handling JS message: "
+                                  << error_message;
     }
   }
 
