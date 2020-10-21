@@ -48,4 +48,15 @@ std::string FormatPrintfTemplate(const char* format, va_list var_args) {
   }
 }
 
+void FormatPrintfTemplateAndSet(std::string* output_string, const char* format,
+                                ...) {
+  va_list var_args;
+  va_start(var_args, format);
+  std::string formatted = FormatPrintfTemplate(format, var_args);
+  va_end(var_args);
+  // Note: It's incorrect to move this check to the beginning of the function,
+  // since we need to read the variable arguments off the stack in any case.
+  if (output_string) *output_string = std::move(formatted);
+}
+
 }  // namespace google_smart_card

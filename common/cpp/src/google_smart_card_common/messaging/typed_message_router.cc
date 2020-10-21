@@ -57,19 +57,16 @@ bool TypedMessageRouter::OnMessageReceived(Value message,
   // TODO: Delete `local_error_message` in favor of (optional) `error_message`.
   std::string local_error_message;
   if (!VarAs(pp_message, &typed_message, &local_error_message)) {
-    if (error_message) {
-      *error_message = FormatPrintfTemplate("Cannot parse typed message: %s",
-                                            local_error_message.c_str());
-    }
+    FormatPrintfTemplateAndSet(error_message, "Cannot parse typed message: %s",
+                               local_error_message.c_str());
+
     return false;
   }
 
   TypedMessageListener* const listener = FindListenerByType(typed_message.type);
   if (!listener) {
-    if (error_message) {
-      *error_message = FormatPrintfTemplate("Cannot find listener for %s",
-                                            typed_message.type.c_str());
-    }
+    FormatPrintfTemplateAndSet(error_message, "Cannot find listener for %s",
+                               typed_message.type.c_str());
     return false;
   }
 
