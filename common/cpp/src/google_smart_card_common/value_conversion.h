@@ -208,8 +208,8 @@ class StructValueDescriptor {
   static_assert(std::is_class<T>::value,
                 "The StructValueDescriptor parameter must be a class");
 
-  // Class that should be used for describing items of the enum type. Should be
-  // instantiated via the `Describe()` method.
+  // Class that should be used for describing fields of the struct type. Should
+  // be instantiated via the `Describe()` method.
   class Description final {
    public:
     Description(const char* type_name,
