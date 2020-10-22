@@ -31,6 +31,17 @@ using testing::StartsWith;
 
 namespace google_smart_card {
 
+enum class SomeEnum { kFirst, kSecond = 222, kSomeThird = 3, kForgotten = 456 };
+
+template <>
+EnumValueDescriptor<SomeEnum>::Description
+EnumValueDescriptor<SomeEnum>::GetDescription() {
+  return Describe("SomeEnum")
+      .WithItem(SomeEnum::kFirst, "first")
+      .WithItem(SomeEnum::kSecond, "second")
+      .WithItem(SomeEnum::kSomeThird, "someThird");
+}
+
 TEST(ValueConversion, BoolToValue) {
   {
     std::string error_message;
@@ -1000,6 +1011,98 @@ TEST(ValueConversion, ValueToStringError) {
   EXPECT_FALSE(ConvertFromValue(Value(false), &converted));
 
   EXPECT_FALSE(ConvertFromValue(Value(123), &converted));
+}
+
+TEST(ValueConversion, EnumToValue) {
+  {
+    std::string error_message;
+    Value value;
+    EXPECT_TRUE(ConvertToValue(SomeEnum::kFirst, &value, &error_message));
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value.is_string());
+    EXPECT_EQ(value.GetString(), "first");
+  }
+
+  {
+    Value value;
+    EXPECT_TRUE(ConvertToValue(SomeEnum::kSecond, &value));
+    ASSERT_TRUE(value.is_string());
+    EXPECT_EQ(value.GetString(), "second");
+  }
+
+  {
+    Value value;
+    EXPECT_TRUE(ConvertToValue(SomeEnum::kSomeThird, &value));
+    ASSERT_TRUE(value.is_string());
+    EXPECT_EQ(value.GetString(), "someThird");
+  }
+}
+
+TEST(ValueConversion, EnumToValueError) {
+  Value value;
+
+  {
+    std::string error_message;
+    EXPECT_FALSE(ConvertToValue(SomeEnum::kForgotten, &value, &error_message));
+    EXPECT_EQ(
+        error_message,
+        "Cannot convert enum SomeEnum to value: unknown integer value 456");
+  }
+
+  EXPECT_FALSE(ConvertToValue(SomeEnum::kForgotten, &value));
+}
+
+TEST(ValueConversion, ValueToEnum) {
+  {
+    std::string error_message;
+    SomeEnum converted = SomeEnum::kSecond;
+    EXPECT_TRUE(ConvertFromValue(Value("first"), &converted, &error_message));
+    EXPECT_TRUE(error_message.empty());
+    EXPECT_EQ(converted, SomeEnum::kFirst);
+  }
+
+  {
+    SomeEnum converted = SomeEnum::kFirst;
+    EXPECT_TRUE(ConvertFromValue(Value("second"), &converted));
+    EXPECT_EQ(converted, SomeEnum::kSecond);
+  }
+
+  {
+    SomeEnum converted = SomeEnum::kFirst;
+    EXPECT_TRUE(ConvertFromValue(Value("someThird"), &converted));
+    EXPECT_EQ(converted, SomeEnum::kSomeThird);
+  }
+}
+
+TEST(ValueConversion, ValueToEnumError) {
+  SomeEnum converted;
+
+  {
+    std::string error_message;
+    EXPECT_FALSE(ConvertFromValue(Value(), &converted, &error_message));
+    EXPECT_EQ(
+        error_message,
+        "Cannot convert value null to enum SomeEnum: value is not a string");
+  }
+
+  {
+    std::string error_message;
+    EXPECT_FALSE(
+        ConvertFromValue(Value("nonExisting"), &converted, &error_message));
+#ifdef NDEBUG
+    EXPECT_EQ(
+        error_message,
+        "Cannot convert value string to enum SomeEnum: unknown enum value");
+#else
+    EXPECT_EQ(error_message,
+              "Cannot convert value \"nonExisting\" to enum SomeEnum: unknown "
+              "enum value");
+#endif
+  }
+
+  EXPECT_FALSE(ConvertFromValue(Value(0), &converted));
+
+  EXPECT_FALSE(ConvertFromValue(Value(Value::Type::kDictionary), &converted));
 }
 
 }  // namespace google_smart_card
