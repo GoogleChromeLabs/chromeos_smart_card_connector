@@ -81,7 +81,7 @@ void JsRequester::StartAsyncRequest(const pp::Var& payload,
 
   TypedMessage typed_message;
   typed_message.type = GetRequestMessageType(name());
-  // TODO(#185): Directly construct `Value` |data| instead of `pp::Var`.
+  // TODO(#185): Directly construct `Value` `data` instead of `pp::Var`.
   typed_message.data =
       ConvertPpVarToValueOrDie(MakeRequestMessageData(request_id, payload));
   Value typed_message_value = ConvertToValueOrDie(std::move(typed_message));

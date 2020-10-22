@@ -62,7 +62,7 @@ void JsRequestReceiver::PostResult(RequestId request_id,
                                    GenericRequestResult request_result) {
   TypedMessage message;
   message.type = GetResponseMessageType(name());
-  // TODO(#185): Directly construct `Value` |data| instead of `pp::Var`.
+  // TODO(#185): Directly construct `Value` `data` instead of `pp::Var`.
   message.data = ConvertPpVarToValueOrDie(
       MakeResponseMessageData(request_id, std::move(request_result)));
   Value message_value = ConvertToValueOrDie(std::move(message));
