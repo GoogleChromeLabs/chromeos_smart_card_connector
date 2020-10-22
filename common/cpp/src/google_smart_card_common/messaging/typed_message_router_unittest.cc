@@ -67,7 +67,7 @@ std::string GetMessageDataString(const pp::Var& data) {
 
 Value MakeTypedMessageValue(const TypedMessage& typed_message) {
   // TODO: Create `Value` directly, without going through `pp::Var`.
-  return *ConvertPpVarToValue(MakeVar(typed_message));
+  return ConvertPpVarToValueOrDie(MakeVar(typed_message));
 }
 
 }  // namespace

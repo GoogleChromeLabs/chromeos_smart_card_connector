@@ -1138,4 +1138,45 @@ TEST(ValueConversion, ValueToEnumError) {
   EXPECT_FALSE(ConvertFromValue(Value(Value::Type::kDictionary), &converted));
 }
 
+// Test that `ConvertToValueOrDie()` succeeds on supported inputs. As death
+// tests aren't supported, we don't test failure scenarios.
+TEST(ValueConversion, ToValueOrDie) {
+  {
+    const Value value = ConvertToValueOrDie(false);
+    ASSERT_TRUE(value.is_boolean());
+    EXPECT_EQ(value.GetBoolean(), false);
+  }
+
+  {
+    const Value value = ConvertToValueOrDie(123);
+    ASSERT_TRUE(value.is_integer());
+    EXPECT_EQ(value.GetInteger(), 123);
+  }
+
+  {
+    const Value value = ConvertToValueOrDie(SomeEnum::kFirst);
+    ASSERT_TRUE(value.is_string());
+    EXPECT_EQ(value.GetString(), "first");
+  }
+}
+
+// Test that `ConvertFromValueOrDie()` succeeds on supported inputs. As death
+// tests aren't supported, we don't test failure scenarios.
+TEST(ValueConversion, FromValueOrDie) {
+  {
+    const bool converted = ConvertFromValueOrDie<bool>(Value(true));
+    EXPECT_EQ(converted, true);
+  }
+
+  {
+    const int converted = ConvertFromValueOrDie<int>(Value(-1));
+    EXPECT_EQ(converted, -1);
+  }
+
+  {
+    const SomeEnum converted = ConvertFromValueOrDie<SomeEnum>(Value("second"));
+    EXPECT_EQ(converted, SomeEnum::kSecond);
+  }
+}
+
 }  // namespace google_smart_card
