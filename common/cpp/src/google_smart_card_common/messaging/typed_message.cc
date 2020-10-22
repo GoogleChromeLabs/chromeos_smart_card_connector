@@ -14,37 +14,25 @@
 
 #include <google_smart_card_common/messaging/typed_message.h>
 
-#include <string>
-
-#include <ppapi/cpp/var.h>
-
-#include <google_smart_card_common/pp_var_utils/struct_converter.h>
+#include <google_smart_card_common/value_conversion.h>
 
 namespace google_smart_card {
 
-// static
+// Register `TypedMessage` for conversions to/from `Value`.
 template <>
-constexpr const char* StructConverter<TypedMessage>::GetStructTypeName() {
-  return "TypedMessage";
+StructValueDescriptor<TypedMessage>::Description
+StructValueDescriptor<TypedMessage>::GetDescription() {
+  return Describe("TypedMessage")
+      .WithField(&TypedMessage::type, "type")
+      .WithField(&TypedMessage::data, "data");
 }
 
-// static
-template <>
-template <typename Callback>
-void StructConverter<TypedMessage>::VisitFields(const TypedMessage& value,
-                                                Callback callback) {
-  callback(&value.type, "type");
-  callback(&value.data, "data");
-}
+TypedMessage::TypedMessage() = default;
 
-bool VarAs(const pp::Var& var, TypedMessage* result,
-           std::string* error_message) {
-  return StructConverter<TypedMessage>::ConvertFromVar(var, result,
-                                                       error_message);
-}
+TypedMessage::TypedMessage(TypedMessage&&) = default;
 
-pp::Var MakeVar(const TypedMessage& value) {
-  return StructConverter<TypedMessage>::ConvertToVar(value);
-}
+TypedMessage& TypedMessage::operator=(TypedMessage&&) = default;
+
+TypedMessage::~TypedMessage() = default;
 
 }  // namespace google_smart_card

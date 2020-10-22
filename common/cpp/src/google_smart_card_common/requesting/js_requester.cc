@@ -20,6 +20,9 @@
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/requesting/request_id.h>
 #include <google_smart_card_common/requesting/request_result.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -78,10 +81,14 @@ void JsRequester::StartAsyncRequest(const pp::Var& payload,
 
   TypedMessage typed_message;
   typed_message.type = GetRequestMessageType(name());
-  typed_message.data = MakeRequestMessageData(request_id, payload);
-  const pp::Var request_message = MakeVar(typed_message);
+  // TODO(#185): Directly construct `Value` |data| instead of `pp::Var`.
+  typed_message.data =
+      ConvertPpVarToValueOrDie(MakeRequestMessageData(request_id, payload));
+  Value typed_message_value = ConvertToValueOrDie(std::move(typed_message));
+  // TODO(#185): Directly send `Value` instead of `pp::Var`.
+  const pp::Var typed_message_pp_var = ConvertValueToPpVar(typed_message_value);
 
-  if (!PostPpMessage(request_message)) {
+  if (!PostPpMessage(typed_message_pp_var)) {
     SetAsyncRequestResult(request_id, GenericRequestResult::CreateFailed(
                                           kRequesterIsDetachedErrorMessage));
   }
