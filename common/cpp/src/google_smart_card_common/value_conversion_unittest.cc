@@ -71,6 +71,39 @@ StructValueDescriptor<OuterStruct>::GetDescription() {
       .WithField(&OuterStruct::some_field, "someField");
 }
 
+TEST(ValueConversion, ValueToValue) {
+  {
+    std::string error_message;
+    Value converted;
+    EXPECT_TRUE(ConvertToValue(Value(123), &converted, &error_message));
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(converted.is_integer());
+    EXPECT_EQ(converted.GetInteger(), 123);
+  }
+
+  {
+    Value converted;
+    EXPECT_TRUE(ConvertToValue(Value(), &converted));
+    EXPECT_TRUE(converted.is_null());
+  }
+
+  {
+    std::string error_message;
+    Value converted;
+    EXPECT_TRUE(ConvertFromValue(Value("foo"), &converted, &error_message));
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(converted.is_string());
+    EXPECT_EQ(converted.GetString(), "foo");
+  }
+
+  {
+    Value converted;
+    EXPECT_TRUE(ConvertFromValue(Value(Value::Type::kDictionary), &converted));
+    ASSERT_TRUE(converted.is_dictionary());
+    EXPECT_TRUE(converted.GetDictionary().empty());
+  }
+}
+
 TEST(ValueConversion, BoolToValue) {
   {
     std::string error_message;
@@ -1313,6 +1346,47 @@ TEST(ValueConversion, ValueToNestedStructError) {
               "Cannot convert value to struct OuterStruct: Error in property "
               "\"someField\": Cannot convert value to struct SomeStruct: Value "
               "is not a dictionary");
+  }
+}
+
+// Test that `ConvertToValueOrDie()` succeeds on supported inputs. As death
+// tests aren't supported, we don't test failure scenarios.
+TEST(ValueConversion, ToValueOrDie) {
+  {
+    const Value value = ConvertToValueOrDie(false);
+    ASSERT_TRUE(value.is_boolean());
+    EXPECT_EQ(value.GetBoolean(), false);
+  }
+
+  {
+    const Value value = ConvertToValueOrDie(123);
+    ASSERT_TRUE(value.is_integer());
+    EXPECT_EQ(value.GetInteger(), 123);
+  }
+
+  {
+    const Value value = ConvertToValueOrDie(SomeEnum::kFirst);
+    ASSERT_TRUE(value.is_string());
+    EXPECT_EQ(value.GetString(), "first");
+  }
+}
+
+// Test that `ConvertFromValueOrDie()` succeeds on supported inputs. As death
+// tests aren't supported, we don't test failure scenarios.
+TEST(ValueConversion, FromValueOrDie) {
+  {
+    const bool converted = ConvertFromValueOrDie<bool>(Value(true));
+    EXPECT_EQ(converted, true);
+  }
+
+  {
+    const int converted = ConvertFromValueOrDie<int>(Value(-1));
+    EXPECT_EQ(converted, -1);
+  }
+
+  {
+    const SomeEnum converted = ConvertFromValueOrDie<SomeEnum>(Value("second"));
+    EXPECT_EQ(converted, SomeEnum::kSecond);
   }
 }
 

@@ -463,4 +463,33 @@ TEST(ValueNaclPpVarConversion, PpVarArrayWithBadItem) {
   }
 }
 
+// Test that `ConvertPpVarToValueOrDie()` succeeds on supported inputs. As death
+// tests aren't supported, we don't test failure scenarios.
+TEST(ValueNaclPpVarConversion, PpVarOrDie) {
+  {
+    constexpr bool kBoolean = false;
+    const Value value = ConvertPpVarToValueOrDie(pp::Var(kBoolean));
+    ASSERT_TRUE(value.is_boolean());
+    EXPECT_EQ(value.GetBoolean(), kBoolean);
+  }
+
+  {
+    const int kInteger = 123;
+    const Value value = ConvertPpVarToValueOrDie(pp::Var(kInteger));
+    ASSERT_TRUE(value.is_integer());
+    EXPECT_EQ(value.GetInteger(), kInteger);
+  }
+
+  {
+    pp::VarDictionary var_dict;
+    ASSERT_TRUE(var_dict.Set("foo", pp::Var(pp::Var::Null())));
+    const Value value = ConvertPpVarToValueOrDie(var_dict);
+    ASSERT_TRUE(value.is_dictionary());
+    EXPECT_EQ(value.GetDictionary().size(), 1U);
+    const Value* foo_value = value.GetDictionaryItem("foo");
+    ASSERT_TRUE(foo_value);
+    EXPECT_TRUE(foo_value->is_null());
+  }
+}
+
 }  // namespace google_smart_card
