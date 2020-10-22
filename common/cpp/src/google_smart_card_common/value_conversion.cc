@@ -76,11 +76,10 @@ bool EnumToValueConverter::TakeConvertedValue(const char* type_name,
     *converted_value = std::move(*converted_value_);
     return true;
   }
-  if (error_message) {
-    *error_message = FormatPrintfTemplate(
-        "Cannot convert enum %s to value: unknown integer value %" PRId64,
-        type_name, enum_to_convert_);
-  }
+  FormatPrintfTemplateAndSet(
+      error_message,
+      "Cannot convert enum %s to value: unknown integer value %" PRId64,
+      type_name, enum_to_convert_);
   return false;
 }
 
@@ -104,13 +103,11 @@ bool EnumFromValueConverter::GetConvertedEnum(
     *converted_enum = *converted_enum_;
     return true;
   }
-  if (error_message) {
-    *error_message = FormatPrintfTemplate(
-        "Cannot convert value %s to enum %s: %s",
-        DebugDumpValueSanitized(value_to_convert_).c_str(), type_name,
-        value_to_convert_.is_string() ? "unknown enum value"
-                                      : "value is not a string");
-  }
+  FormatPrintfTemplateAndSet(
+      error_message, "Cannot convert value %s to enum %s: %s",
+      DebugDumpValueSanitized(value_to_convert_).c_str(), type_name,
+      value_to_convert_.is_string() ? "unknown enum value"
+                                    : "value is not a string");
   return false;
 }
 
