@@ -97,14 +97,14 @@ inline bool CastInteger(SourceType source_value, const char* target_type_name,
     *target_value = static_cast<TargetType>(source_value);
     return true;
   }
-  if (error_message) {
-    *error_message = FormatPrintfTemplate(
-        "The integer value is outside the range of type \"%s\": %s not in [%s; "
-        "%s] range",
-        target_type_name, std::to_string(source_value).c_str(),
-        std::to_string(std::numeric_limits<TargetType>::min()).c_str(),
-        std::to_string(std::numeric_limits<TargetType>::max()).c_str());
-  }
+  FormatPrintfTemplateAndSet(
+      error_message,
+      "The integer value is outside the range of type \"%s\": %s not in [%s; "
+      "%s] range",
+      target_type_name, std::to_string(source_value).c_str(),
+      std::to_string(std::numeric_limits<TargetType>::min()).c_str(),
+      std::to_string(std::numeric_limits<TargetType>::max()).c_str());
+
   return false;
 }
 
@@ -119,14 +119,13 @@ inline bool CastIntegerToDouble(T value, double* result,
     *result = static_cast<double>(value);
     return true;
   }
-  if (error_message) {
-    *error_message = FormatPrintfTemplate(
-        "The integer %s cannot be converted into a floating-point double value "
-        "without loss of precision: it is outside [%" PRId64 "; %" PRId64
-        "] range",
-        std::to_string(value).c_str(), internal::kDoubleExactRangeMin,
-        internal::kDoubleExactRangeMax);
-  }
+  FormatPrintfTemplateAndSet(
+      error_message,
+      "The integer %s cannot be converted into a floating-point double value "
+      "without loss of precision: it is outside [%" PRId64 "; %" PRId64
+      "] range",
+      std::to_string(value).c_str(), internal::kDoubleExactRangeMin,
+      internal::kDoubleExactRangeMax);
   return false;
 }
 

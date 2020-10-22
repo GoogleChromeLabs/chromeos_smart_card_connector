@@ -14,6 +14,7 @@
 
 #include <google_smart_card_common/value_conversion.h>
 
+#include <inttypes.h>
 #include <stdint.h>
 
 #include <limits>
@@ -45,11 +46,9 @@ bool ConvertIntegerFromValue(Value value, const char* type_name, T* number,
     if (!CastDoubleToInt64(value.GetFloat(), &int64_number, error_message))
       return false;
   } else {
-    if (error_message) {
-      *error_message =
-          FormatPrintfTemplate(kErrorWrongType, Value::kIntegerTypeTitle,
+    FormatPrintfTemplateAndSet(error_message, kErrorWrongType,
+                               Value::kIntegerTypeTitle,
                                DebugDumpValueSanitized(value).c_str());
-    }
     return false;
   }
   return CastInteger(int64_number, type_name, number, error_message);
@@ -58,6 +57,59 @@ bool ConvertIntegerFromValue(Value value, const char* type_name, T* number,
 }  // namespace
 
 namespace internal {
+
+EnumToValueConverter::EnumToValueConverter(int64_t enum_to_convert)
+    : enum_to_convert_(enum_to_convert) {}
+
+EnumToValueConverter::~EnumToValueConverter() = default;
+
+void EnumToValueConverter::HandleItem(int64_t enum_item,
+                                      const char* enum_item_name) {
+  if (converted_value_ || enum_to_convert_ != enum_item) return;
+  converted_value_ = Value(enum_item_name);
+}
+
+bool EnumToValueConverter::TakeConvertedValue(const char* type_name,
+                                              Value* converted_value,
+                                              std::string* error_message) {
+  if (converted_value_) {
+    *converted_value = std::move(*converted_value_);
+    return true;
+  }
+  FormatPrintfTemplateAndSet(
+      error_message,
+      "Cannot convert enum %s to value: unknown integer value %" PRId64,
+      type_name, enum_to_convert_);
+  return false;
+}
+
+EnumFromValueConverter::EnumFromValueConverter(Value value_to_convert)
+    : value_to_convert_(std::move(value_to_convert)) {}
+
+EnumFromValueConverter::~EnumFromValueConverter() = default;
+
+void EnumFromValueConverter::HandleItem(int64_t enum_item,
+                                        const char* enum_item_name) {
+  if (converted_enum_ || !value_to_convert_.is_string() ||
+      value_to_convert_.GetString() != enum_item_name)
+    return;
+  converted_enum_ = enum_item;
+}
+
+bool EnumFromValueConverter::GetConvertedEnum(
+    const char* type_name, int64_t* converted_enum,
+    std::string* error_message) const {
+  if (converted_enum_) {
+    *converted_enum = *converted_enum_;
+    return true;
+  }
+  FormatPrintfTemplateAndSet(
+      error_message, "Cannot convert value %s to enum %s: %s",
+      DebugDumpValueSanitized(value_to_convert_).c_str(), type_name,
+      value_to_convert_.is_string() ? "unknown enum value"
+                                    : "value is not a string");
+  return false;
+}
 
 StructToValueConverterBase::StructToValueConverterBase() = default;
 
@@ -180,11 +232,9 @@ bool ConvertFromValue(Value value, bool* boolean, std::string* error_message) {
     *boolean = value.GetBoolean();
     return true;
   }
-  if (error_message) {
-    *error_message =
-        FormatPrintfTemplate(kErrorWrongType, Value::kBooleanTypeTitle,
+  FormatPrintfTemplateAndSet(error_message, kErrorWrongType,
+                             Value::kBooleanTypeTitle,
                              DebugDumpValueSanitized(value).c_str());
-  }
   return false;
 }
 
@@ -229,14 +279,12 @@ bool ConvertFromValue(Value value, double* number, std::string* error_message) {
     *number = value.GetFloat();
     return true;
   }
-  if (error_message) {
-    *error_message = FormatPrintfTemplate(
-        kErrorWrongType,
-        FormatPrintfTemplate("%s or %s", Value::kIntegerTypeTitle,
-                             Value::kFloatTypeTitle)
-            .c_str(),
-        DebugDumpValueSanitized(value).c_str());
-  }
+  FormatPrintfTemplateAndSet(
+      error_message, kErrorWrongType,
+      FormatPrintfTemplate("%s or %s", Value::kIntegerTypeTitle,
+                           Value::kFloatTypeTitle)
+          .c_str(),
+      DebugDumpValueSanitized(value).c_str());
   return false;
 }
 
@@ -246,11 +294,9 @@ bool ConvertFromValue(Value value, std::string* characters,
     *characters = value.GetString();
     return true;
   }
-  if (error_message) {
-    *error_message =
-        FormatPrintfTemplate(kErrorWrongType, Value::kStringTypeTitle,
+  FormatPrintfTemplateAndSet(error_message, kErrorWrongType,
+                             Value::kStringTypeTitle,
                              DebugDumpValueSanitized(value).c_str());
-  }
   return false;
 }
 

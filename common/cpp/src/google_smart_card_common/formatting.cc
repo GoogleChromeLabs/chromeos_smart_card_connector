@@ -15,6 +15,7 @@
 #include <google_smart_card_common/formatting.h>
 
 #include <cstdio>
+#include <utility>
 #include <vector>
 
 namespace google_smart_card {
@@ -46,6 +47,15 @@ std::string FormatPrintfTemplate(const char* format, va_list var_args) {
     const size_t new_size = result > 0 ? result + 1 : buffer.size() * 2;
     buffer.resize(new_size);
   }
+}
+
+void FormatPrintfTemplateAndSet(std::string* output_string, const char* format,
+                                ...) {
+  if (!output_string) return;
+  va_list var_args;
+  va_start(var_args, format);
+  *output_string = FormatPrintfTemplate(format, var_args);
+  va_end(var_args);
 }
 
 }  // namespace google_smart_card
