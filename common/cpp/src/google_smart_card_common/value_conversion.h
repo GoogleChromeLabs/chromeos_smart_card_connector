@@ -184,6 +184,12 @@ class EnumValueDescriptor {
 // and the last one isn't useful in this context (as helpers in this file are
 // about converting between a `Value` and a non-`Value` object).
 
+inline bool ConvertToValue(Value source_value, Value* target_value,
+                           std::string* /*error_message*/ = nullptr) {
+  *target_value = std::move(source_value);
+  return true;
+}
+
 inline bool ConvertToValue(bool boolean, Value* value,
                            std::string* /*error_message*/ = nullptr) {
   *value = Value(boolean);
@@ -261,6 +267,13 @@ typename std::enable_if<std::is_enum<T>::value, bool>::type ConvertToValue(
 ///////////// ConvertFromValue ///////////////
 
 // Group of overloads that perform trivial conversions from `Value`.
+
+inline bool ConvertFromValue(Value source_value, Value* target_value,
+                             std::string* /*error_message*/ = nullptr) {
+  *target_value = std::move(source_value);
+  return true;
+}
+
 bool ConvertFromValue(Value value, bool* boolean,
                       std::string* error_message = nullptr);
 bool ConvertFromValue(Value value, int* number,
