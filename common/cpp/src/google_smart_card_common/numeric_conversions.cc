@@ -32,14 +32,11 @@ bool CastDoubleToInt64(double value, int64_t* result,
                        std::string* error_message) {
   if (!(internal::kDoubleExactRangeMin <= value &&
         value <= internal::kDoubleExactRangeMax)) {
-    if (error_message) {
-      *error_message = FormatPrintfTemplate(
-          "The real value is outside the exact integer representation range: "
-          "%f "
-          "not in [%" PRId64 "; %" PRId64 "]",
-          value, internal::kDoubleExactRangeMin,
-          internal::kDoubleExactRangeMax);
-    }
+    FormatPrintfTemplateAndSet(
+        error_message,
+        "The real value is outside the exact integer representation range: %f "
+        "not in [%" PRId64 "; %" PRId64 "]",
+        value, internal::kDoubleExactRangeMin, internal::kDoubleExactRangeMax);
     return false;
   }
   *result = static_cast<int64_t>(value);

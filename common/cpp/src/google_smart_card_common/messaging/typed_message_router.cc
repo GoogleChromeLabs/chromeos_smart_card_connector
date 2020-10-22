@@ -15,9 +15,14 @@
 #include <google_smart_card_common/messaging/typed_message_router.h>
 
 #include <algorithm>
+#include <string>
 
+#include <ppapi/cpp/var.h>
+
+#include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -43,15 +48,33 @@ void TypedMessageRouter::RemoveRoute(TypedMessageListener* listener) {
   route_map_.erase(route_map_iter);
 }
 
-bool TypedMessageRouter::OnMessageReceived(const pp::Var& message) {
-  std::string error_message;
+bool TypedMessageRouter::OnMessageReceived(Value message,
+                                           std::string* error_message) {
+  // TODO: Remove this conversion and use `Value` directly.
+  const pp::Var pp_message = ConvertValueToPpVar(message);
+
   TypedMessage typed_message;
-  if (!VarAs(message, &typed_message, &error_message)) return false;
+  // TODO: Delete `local_error_message` in favor of (optional) `error_message`.
+  std::string local_error_message;
+  if (!VarAs(pp_message, &typed_message, &local_error_message)) {
+    FormatPrintfTemplateAndSet(error_message, "Cannot parse typed message: %s",
+                               local_error_message.c_str());
+
+    return false;
+  }
 
   TypedMessageListener* const listener = FindListenerByType(typed_message.type);
-  if (!listener) return false;
+  if (!listener) {
+    FormatPrintfTemplateAndSet(error_message, "Cannot find listener for %s",
+                               typed_message.type.c_str());
+    return false;
+  }
 
-  return listener->OnTypedMessageReceived(typed_message.data);
+  if (!listener->OnTypedMessageReceived(typed_message.data)) {
+    // TODO: Receive `error_message` from the listener.
+    return false;
+  }
+  return true;
 }
 
 TypedMessageListener* TypedMessageRouter::FindListenerByType(

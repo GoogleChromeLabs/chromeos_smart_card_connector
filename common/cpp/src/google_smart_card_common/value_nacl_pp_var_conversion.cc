@@ -81,16 +81,15 @@ pp::VarArray CreateVarArray(const Value::ArrayStorage& array_storage) {
 
 optional<Value> CreateValueFromPpVarArray(const pp::VarArray& var,
                                           std::string* error_message) {
+  std::string local_error_message;
   Value::ArrayStorage array_storage;
   for (uint32_t index = 0; index < var.GetLength(); ++index) {
     optional<Value> converted_item =
-        ConvertPpVarToValue(var.Get(index), error_message);
+        ConvertPpVarToValue(var.Get(index), &local_error_message);
     if (!converted_item) {
-      if (error_message) {
-        *error_message = FormatPrintfTemplate(
-            "Error converting array item #%d: %s", static_cast<int>(index),
-            error_message->c_str());
-      }
+      FormatPrintfTemplateAndSet(
+          error_message, "Error converting array item #%d: %s",
+          static_cast<int>(index), local_error_message.c_str());
       return {};
     }
     array_storage.push_back(MakeUnique<Value>(std::move(*converted_item)));
@@ -100,6 +99,7 @@ optional<Value> CreateValueFromPpVarArray(const pp::VarArray& var,
 
 optional<Value> CreateValueFromPpVarDictionary(const pp::VarDictionary& var,
                                                std::string* error_message) {
+  std::string local_error_message;
   Value value(Value::Type::kDictionary);
   const pp::VarArray keys = var.GetKeys();
   for (uint32_t index = 0; index < keys.GetLength(); ++index) {
@@ -107,13 +107,11 @@ optional<Value> CreateValueFromPpVarDictionary(const pp::VarDictionary& var,
     const pp::Var item_value = var.Get(item_key);
     GOOGLE_SMART_CARD_CHECK(item_key.is_string());
     optional<Value> converted_item_value =
-        ConvertPpVarToValue(item_value, error_message);
+        ConvertPpVarToValue(item_value, &local_error_message);
     if (!converted_item_value) {
-      if (error_message) {
-        *error_message = FormatPrintfTemplate(
-            "Error converting dictionary item \"%s\": %s",
-            item_key.AsString().c_str(), error_message->c_str());
-      }
+      FormatPrintfTemplateAndSet(
+          error_message, "Error converting dictionary item \"%s\": %s",
+          item_key.AsString().c_str(), local_error_message.c_str());
       return {};
     }
     value.SetDictionaryItem(item_key.AsString(),
@@ -159,11 +157,9 @@ optional<Value> ConvertPpVarToValue(const pp::Var& var,
   if (var.is_bool()) return Value(var.AsBool());
   if (var.is_string()) return Value(var.AsString());
   if (var.is_object() || var.is_resource()) {
-    if (error_message) {
-      *error_message =
-          FormatPrintfTemplate("Error converting: unsupported type \"%s\"",
+    FormatPrintfTemplateAndSet(error_message,
+                               "Error converting: unsupported type \"%s\"",
                                var.is_object() ? "object" : "resource");
-    }
     return {};
   }
   if (var.is_array())

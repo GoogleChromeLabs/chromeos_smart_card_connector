@@ -15,7 +15,9 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_MESSAGING_MESSAGE_LISTENER_H_
 #define GOOGLE_SMART_CARD_COMMON_MESSAGING_MESSAGE_LISTENER_H_
 
-#include <ppapi/cpp/var.h>
+#include <string>
+
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -26,8 +28,10 @@ class MessageListener {
 
   // Called when a message is received.
   //
-  // Returns whether the message was handled.
-  virtual bool OnMessageReceived(const pp::Var& message) = 0;
+  // Returns whether the message was handled; in case it was not, an error is
+  // returned via `error_message`.
+  virtual bool OnMessageReceived(Value message,
+                                 std::string* error_message = nullptr) = 0;
 };
 
 }  // namespace google_smart_card

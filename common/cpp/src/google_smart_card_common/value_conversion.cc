@@ -46,11 +46,9 @@ bool ConvertIntegerFromValue(Value value, const char* type_name, T* number,
     if (!CastDoubleToInt64(value.GetFloat(), &int64_number, error_message))
       return false;
   } else {
-    if (error_message) {
-      *error_message =
-          FormatPrintfTemplate(kErrorWrongType, Value::kIntegerTypeTitle,
+    FormatPrintfTemplateAndSet(error_message, kErrorWrongType,
+                               Value::kIntegerTypeTitle,
                                DebugDumpValueSanitized(value).c_str());
-    }
     return false;
   }
   return CastInteger(int64_number, type_name, number, error_message);
@@ -156,11 +154,9 @@ bool ConvertFromValue(Value value, bool* boolean, std::string* error_message) {
     *boolean = value.GetBoolean();
     return true;
   }
-  if (error_message) {
-    *error_message =
-        FormatPrintfTemplate(kErrorWrongType, Value::kBooleanTypeTitle,
+  FormatPrintfTemplateAndSet(error_message, kErrorWrongType,
+                             Value::kBooleanTypeTitle,
                              DebugDumpValueSanitized(value).c_str());
-  }
   return false;
 }
 
@@ -205,14 +201,12 @@ bool ConvertFromValue(Value value, double* number, std::string* error_message) {
     *number = value.GetFloat();
     return true;
   }
-  if (error_message) {
-    *error_message = FormatPrintfTemplate(
-        kErrorWrongType,
-        FormatPrintfTemplate("%s or %s", Value::kIntegerTypeTitle,
-                             Value::kFloatTypeTitle)
-            .c_str(),
-        DebugDumpValueSanitized(value).c_str());
-  }
+  FormatPrintfTemplateAndSet(
+      error_message, kErrorWrongType,
+      FormatPrintfTemplate("%s or %s", Value::kIntegerTypeTitle,
+                           Value::kFloatTypeTitle)
+          .c_str(),
+      DebugDumpValueSanitized(value).c_str());
   return false;
 }
 
@@ -222,11 +216,9 @@ bool ConvertFromValue(Value value, std::string* characters,
     *characters = value.GetString();
     return true;
   }
-  if (error_message) {
-    *error_message =
-        FormatPrintfTemplate(kErrorWrongType, Value::kStringTypeTitle,
+  FormatPrintfTemplateAndSet(error_message, kErrorWrongType,
+                             Value::kStringTypeTitle,
                              DebugDumpValueSanitized(value).c_str());
-  }
   return false;
 }
 
