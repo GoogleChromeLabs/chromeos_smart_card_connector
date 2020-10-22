@@ -1200,7 +1200,7 @@ TEST(ValueConversion, ValueToStructError) {
     EXPECT_FALSE(ConvertFromValue(Value(), &converted, &error_message));
     EXPECT_EQ(
         error_message,
-        "Cannot convert value to struct SomeStruct: value is not a dictionary");
+        "Cannot convert value to struct SomeStruct: Value is not a dictionary");
   }
 
   {
@@ -1208,7 +1208,7 @@ TEST(ValueConversion, ValueToStructError) {
     EXPECT_FALSE(ConvertFromValue(Value(Value::Type::kDictionary), &converted,
                                   &error_message));
     EXPECT_EQ(error_message,
-              "Cannot convert value to struct SomeStruct: missing key "
+              "Cannot convert value to struct SomeStruct: Missing key "
               "\"intField\"");
   }
 
@@ -1221,7 +1221,7 @@ TEST(ValueConversion, ValueToStructError) {
         ConvertFromValue(std::move(value), &converted, &error_message));
     EXPECT_EQ(
         error_message,
-        "Cannot convert value to struct SomeStruct: error in property "
+        "Cannot convert value to struct SomeStruct: Error in property "
         "\"intField\": Expected value of type integer, instead got: null");
   }
 
@@ -1235,7 +1235,7 @@ TEST(ValueConversion, ValueToStructError) {
         ConvertFromValue(std::move(value), &converted, &error_message));
     EXPECT_EQ(
         error_message,
-        "Cannot convert value to struct SomeStruct: error in property "
+        "Cannot convert value to struct SomeStruct: Error in property "
         "\"stringField\": Expected value of type string, instead got: null");
   }
 
@@ -1248,7 +1248,7 @@ TEST(ValueConversion, ValueToStructError) {
     EXPECT_FALSE(
         ConvertFromValue(std::move(value), &converted, &error_message));
     EXPECT_EQ(error_message,
-              "Cannot convert value to struct SomeStruct: unexpected key "
+              "Cannot convert value to struct SomeStruct: Unexpected key "
               "\"nonExisting\"");
   }
 }
@@ -1297,9 +1297,9 @@ TEST(ValueConversion, ValueToNestedStructError) {
     EXPECT_FALSE(
         ConvertFromValue(std::move(value), &converted, &error_message));
     EXPECT_EQ(error_message,
-              "Cannot convert value to struct OuterStruct: error in property "
+              "Cannot convert value to struct OuterStruct: Error in property "
               "\"someField\": Cannot convert value to struct SomeStruct: "
-              "missing key \"intField\"");
+              "Missing key \"intField\"");
   }
 
   {
@@ -1310,8 +1310,8 @@ TEST(ValueConversion, ValueToNestedStructError) {
     EXPECT_FALSE(
         ConvertFromValue(std::move(value), &converted, &error_message));
     EXPECT_EQ(error_message,
-              "Cannot convert value to struct OuterStruct: error in property "
-              "\"someField\": Cannot convert value to struct SomeStruct: value "
+              "Cannot convert value to struct OuterStruct: Error in property "
+              "\"someField\": Cannot convert value to struct SomeStruct: Value "
               "is not a dictionary");
   }
 }
