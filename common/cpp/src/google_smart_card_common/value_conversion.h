@@ -29,7 +29,7 @@
 //
 // The same helpers can also be enabled for custom types:
 // * a custom enum can be registered via the `EnumValueDescriptor` class for
-//   conversion to/from a string `Value`.
+//   conversion to/from a string `Value`;
 // * a custom struct can be registered via the `StructValueDescriptor` class for
 //   conversion to/from a dictionary `Value`.
 //
