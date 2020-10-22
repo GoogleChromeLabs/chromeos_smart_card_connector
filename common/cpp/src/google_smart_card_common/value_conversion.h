@@ -132,14 +132,14 @@ class EnumValueDescriptor {
 
     // Adds the given item into the enum's description: |enum_item_name| is the
     // `Value` representation of |enum_item|.
-    // Returns a rvalue reference to |this| and uses the "&&" ref-qualifier, so
+    // Returns an rvalue reference to |this| and uses the "&&" ref-qualifier, so
     // that the method calls can be easily chained and the final result can be
     // returned without an explicit std::move() boilerplate.
     Description&& WithItem(T enum_item, const char* enum_item_name) && {
       const int64_t enum_item_number = static_cast<int64_t>(enum_item);
       if (to_value_converter_)
         to_value_converter_->HandleItem(enum_item_number, enum_item_name);
-      else
+      if (from_value_converter_)
         from_value_converter_->HandleItem(enum_item_number, enum_item_name);
       return std::move(*this);
     }
