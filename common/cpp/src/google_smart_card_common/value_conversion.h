@@ -258,6 +258,17 @@ typename std::enable_if<std::is_enum<T>::value, bool>::type ConvertToValue(
                                       error_message);
 }
 
+// Synonym to other `ConvertToValue()` overloads, but immediately crashes the
+// program if the conversion fails.
+template <typename T>
+Value ConvertToValueOrDie(T object) {
+  Value value;
+  std::string error_message;
+  if (!ConvertToValue(std::move(object), &value, &error_message))
+    GOOGLE_SMART_CARD_LOG_FATAL << error_message;
+  return value;
+}
+
 ///////////// ConvertFromValue ///////////////
 
 // Group of overloads that perform trivial conversions from `Value`.
@@ -300,6 +311,17 @@ typename std::enable_if<std::is_enum<T>::value, bool>::type ConvertFromValue(
   }
   *enum_value = static_cast<T>(converted_enum_number);
   return true;
+}
+
+// Synonym to other `ConvertFromValue()` overloads, but immediately crashes the
+// program if the conversion fails.
+template <typename T>
+T ConvertFromValueOrDie(Value value) {
+  T object;
+  std::string error_message;
+  if (!ConvertFromValue(std::move(value), &object, &error_message))
+    GOOGLE_SMART_CARD_LOG_FATAL << error_message;
+  return object;
 }
 
 }  // namespace google_smart_card

@@ -175,4 +175,11 @@ optional<Value> ConvertPpVarToValue(const pp::Var& var,
   GOOGLE_SMART_CARD_NOTREACHED;
 }
 
+Value ConvertPpVarToValueOrDie(const pp::Var& var) {
+  std::string error_message;
+  optional<Value> value = ConvertPpVarToValue(var, &error_message);
+  if (!value) GOOGLE_SMART_CARD_LOG_FATAL << error_message;
+  return std::move(*value);
+}
+
 }  // namespace google_smart_card

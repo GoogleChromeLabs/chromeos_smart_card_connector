@@ -38,6 +38,10 @@ pp::Var ConvertValueToPpVar(const Value& value);
 optional<Value> ConvertPpVarToValue(const pp::Var& var,
                                     std::string* error_message = nullptr);
 
+// Same as `ConvertPpVarToValue()`, but immediately crashes the program if the
+// conversion fails.
+Value ConvertPpVarToValueOrDie(const pp::Var& var);
+
 }  // namespace google_smart_card
 
 #endif  // GOOGLE_SMART_CARD_COMMON_VALUE_NACL_PP_VAR_CONVERSION_H_
