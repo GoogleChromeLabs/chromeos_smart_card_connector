@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script formats via clang-format the modified C++ files according to the
+# This script formats the modified C++ files via clang-format according to the
 # Google C++ Style Guide.
-# Considered are only files that are known to Git and belonging to the diff to
-# the "master" branch.
+# Only files that are known to Git and belong to the diff of the "master" branch
+# are considered.
 #
 # Note: Sorting of #include's is currently disabled, since the standard
 # algorithm reorders them incorrectly (e.g., it puts includes within our project
@@ -29,10 +29,11 @@ set -eu
 cd $(dirname $(realpath ${0}))
 
 # Find all relevant touched files. Bail out if nothing is found.
+# Note: "d" in --diff-filter means excluding deleted files - otherwise
+# clang-format fails on these non-existing files.
 FILES=$(git diff --name-only --diff-filter=d master -- "*.cc" "*.h")
 [ "${FILES}" ] || exit 0
 
-# Note: "d" in --diff-filter means excluding deleted files - otherwise
-# clang-format would fail on these non-existing files.
+# Run clang-format on every found file.
 echo "${FILES}" | \
   xargs clang-format -i --style=Google --sort-includes=false
