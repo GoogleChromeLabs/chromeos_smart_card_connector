@@ -31,6 +31,7 @@
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/pp_var_utils/debug_dump.h>
 #include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 #include <google_smart_card_libusb/global.h>
 #include <google_smart_card_pcsc_lite_server/global.h>
@@ -104,8 +105,12 @@ class PpInstance final : public pp::Instance {
                                 << "initialized, posting ready message...";
     TypedMessage ready_message;
     ready_message.type = GetPcscLiteServerReadyMessageType();
-    ready_message.data = MakePcscLiteServerReadyMessageData();
-    PostMessage(MakeVar(ready_message));
+    // TODO: Directly create `Value` instead of transforming from `pp::Var`.
+    ready_message.data =
+        ConvertPpVarToValueOrDie(MakePcscLiteServerReadyMessageData());
+    Value ready_message_value = ConvertToValueOrDie(std::move(ready_message));
+    // TODO: Directly post `Value` instead of `pp::Var`.
+    PostMessage(ConvertValueToPpVar(ready_message_value));
   }
 
   TypedMessageRouter typed_message_router_;

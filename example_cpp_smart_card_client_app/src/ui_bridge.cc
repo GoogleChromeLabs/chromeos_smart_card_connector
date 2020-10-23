@@ -27,6 +27,9 @@
 #include <google_smart_card_common/pp_var_utils/debug_dump.h>
 #include <google_smart_card_common/thread_safe_unique_ptr.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace gsc = google_smart_card;
 
@@ -88,8 +91,13 @@ void UiBridge::RemoveHandler() { message_from_ui_handler_.reset(); }
 void UiBridge::SendMessageToUi(const pp::Var& message) {
   gsc::TypedMessage typed_message;
   typed_message.type = kOutgoingMessageType;
-  typed_message.data = message;
-  const pp::Var typed_message_var = gsc::MakeVar(typed_message);
+  // TODO: Receive `Value` instead of transforming from `pp::Var`.
+  typed_message.data = gsc::ConvertPpVarToValueOrDie(message);
+  gsc::Value typed_message_value =
+      gsc::ConvertToValueOrDie(std::move(typed_message));
+  // TODO: Directly post `Value` instead of `pp::Var`.
+  const pp::Var typed_message_var =
+      gsc::ConvertValueToPpVar(typed_message_value);
   const gsc::ThreadSafeUniquePtr<AttachedState>::Locked locked_state =
       attached_state_.Lock();
   if (locked_state) locked_state->pp_instance->PostMessage(typed_message_var);
