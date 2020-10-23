@@ -111,6 +111,83 @@ bool EnumFromValueConverter::GetConvertedEnum(
   return false;
 }
 
+StructToValueConverterBase::StructToValueConverterBase() = default;
+
+StructToValueConverterBase::~StructToValueConverterBase() = default;
+
+void StructToValueConverterBase::HandleFieldConversionError(
+    const char* dictionary_key_name) {
+  succeeded_ = false;
+  inner_error_message_ =
+      FormatPrintfTemplate("Error creating property %s: %s",
+                           dictionary_key_name, inner_error_message_.c_str());
+}
+
+bool StructToValueConverterBase::FinishConversion(
+    const char* type_name, std::string* error_message) const {
+  if (succeeded_) return true;
+  FormatPrintfTemplateAndSet(error_message,
+                             "Cannot convert struct %s to value: %s", type_name,
+                             inner_error_message_.c_str());
+  return false;
+}
+
+StructFromValueConverterBase::StructFromValueConverterBase(
+    Value value_to_convert)
+    : value_to_convert_(std::move(value_to_convert)) {
+  if (!value_to_convert_.is_dictionary()) {
+    succeeded_ = false;
+    inner_error_message_ = "Value is not a dictionary";
+  }
+}
+
+StructFromValueConverterBase::~StructFromValueConverterBase() = default;
+
+bool StructFromValueConverterBase::ExtractKey(const char* dictionary_key_name,
+                                              bool is_required,
+                                              Value* item_value) {
+  if (!succeeded_) return false;
+  Value::DictionaryStorage& dict = value_to_convert_.GetDictionary();
+  auto iter = dict.find(dictionary_key_name);
+  if (iter != dict.end()) {
+    *item_value = std::move(*iter->second);
+    dict.erase(iter);
+    return true;
+  }
+  if (!is_required) {
+    // The optional field is missing from the dictionary - just skip it.
+    return false;
+  }
+  succeeded_ = false;
+  inner_error_message_ =
+      FormatPrintfTemplate("Missing key \"%s\"", dictionary_key_name);
+  return false;
+}
+
+void StructFromValueConverterBase::HandleFieldConversionError(
+    const char* dictionary_key_name) {
+  succeeded_ = false;
+  inner_error_message_ =
+      FormatPrintfTemplate("Error in property \"%s\": %s", dictionary_key_name,
+                           inner_error_message_.c_str());
+}
+
+bool StructFromValueConverterBase::FinishConversion(
+    const char* type_name, std::string* error_message) {
+  if (succeeded_ && !value_to_convert_.GetDictionary().empty()) {
+    succeeded_ = false;
+    const std::string& first_unexpected_key =
+        value_to_convert_.GetDictionary().begin()->first;
+    inner_error_message_ = FormatPrintfTemplate("Unexpected key \"%s\"",
+                                                first_unexpected_key.c_str());
+  }
+  if (succeeded_) return true;
+  FormatPrintfTemplateAndSet(error_message,
+                             "Cannot convert value to struct %s: %s", type_name,
+                             inner_error_message_.c_str());
+  return false;
+}
+
 }  // namespace internal
 
 bool ConvertToValue(unsigned number, Value* value, std::string* error_message) {

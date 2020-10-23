@@ -134,6 +134,11 @@ const Value::DictionaryStorage& Value::GetDictionary() const {
   return dictionary_value_;
 }
 
+Value::DictionaryStorage& Value::GetDictionary() {
+  GOOGLE_SMART_CARD_CHECK(is_dictionary());
+  return dictionary_value_;
+}
+
 const Value::ArrayStorage& Value::GetArray() const {
   GOOGLE_SMART_CARD_CHECK(is_array());
   return array_value_;

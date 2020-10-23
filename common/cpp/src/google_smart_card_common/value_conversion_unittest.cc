@@ -24,6 +24,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/value.h>
 
 using testing::MatchesRegex;
@@ -31,7 +32,20 @@ using testing::StartsWith;
 
 namespace google_smart_card {
 
+namespace {
+
 enum class SomeEnum { kFirst, kSecond = 222, kSomeThird = 3, kForgotten = 456 };
+
+struct SomeStruct {
+  int int_field;
+  optional<std::string> string_field;
+};
+
+struct OuterStruct {
+  SomeStruct some_field;
+};
+
+}  // namespace
 
 template <>
 EnumValueDescriptor<SomeEnum>::Description
@@ -40,6 +54,21 @@ EnumValueDescriptor<SomeEnum>::GetDescription() {
       .WithItem(SomeEnum::kFirst, "first")
       .WithItem(SomeEnum::kSecond, "second")
       .WithItem(SomeEnum::kSomeThird, "someThird");
+}
+
+template <>
+StructValueDescriptor<SomeStruct>::Description
+StructValueDescriptor<SomeStruct>::GetDescription() {
+  return Describe("SomeStruct")
+      .WithField(&SomeStruct::int_field, "intField")
+      .WithField(&SomeStruct::string_field, "stringField");
+}
+
+template <>
+StructValueDescriptor<OuterStruct>::Description
+StructValueDescriptor<OuterStruct>::GetDescription() {
+  return Describe("OuterStruct")
+      .WithField(&OuterStruct::some_field, "someField");
 }
 
 TEST(ValueConversion, ValueToValue) {
@@ -1136,6 +1165,188 @@ TEST(ValueConversion, ValueToEnumError) {
   EXPECT_FALSE(ConvertFromValue(Value(0), &converted));
 
   EXPECT_FALSE(ConvertFromValue(Value(Value::Type::kDictionary), &converted));
+}
+
+TEST(ValueConversion, StructToValue) {
+  {
+    const SomeStruct kSome = {123, std::string("foo")};
+    Value value;
+    EXPECT_TRUE(ConvertToValue(kSome, &value));
+    ASSERT_TRUE(value.is_dictionary());
+    EXPECT_EQ(value.GetDictionary().size(), 2U);
+    const Value* int_field = value.GetDictionaryItem("intField");
+    ASSERT_TRUE(int_field);
+    ASSERT_TRUE(int_field->is_integer());
+    EXPECT_EQ(int_field->GetInteger(), 123);
+    const Value* string_field = value.GetDictionaryItem("stringField");
+    ASSERT_TRUE(string_field);
+    ASSERT_TRUE(string_field->is_string());
+    EXPECT_EQ(string_field->GetString(), "foo");
+  }
+
+  {
+    const SomeStruct kSome = {123, {}};
+    Value value;
+    EXPECT_TRUE(ConvertToValue(kSome, &value));
+    ASSERT_TRUE(value.is_dictionary());
+    EXPECT_EQ(value.GetDictionary().size(), 1U);
+    const Value* int_field = value.GetDictionaryItem("intField");
+    ASSERT_TRUE(int_field);
+    ASSERT_TRUE(int_field->is_integer());
+    EXPECT_EQ(int_field->GetInteger(), 123);
+  }
+}
+
+TEST(ValueConversion, ValueToStruct) {
+  {
+    Value value(Value::Type::kDictionary);
+    value.SetDictionaryItem("intField", Value(123));
+    value.SetDictionaryItem("stringField", Value("foo"));
+
+    std::string error_message;
+    SomeStruct converted = {};
+    EXPECT_TRUE(ConvertFromValue(std::move(value), &converted, &error_message));
+    EXPECT_TRUE(error_message.empty());
+    EXPECT_EQ(converted.int_field, 123);
+    ASSERT_TRUE(converted.string_field);
+    EXPECT_EQ(*converted.string_field, "foo");
+  }
+
+  {
+    Value value(Value::Type::kDictionary);
+    value.SetDictionaryItem("intField", Value(123));
+
+    std::string error_message;
+    SomeStruct converted = {};
+    EXPECT_TRUE(ConvertFromValue(std::move(value), &converted, &error_message));
+    EXPECT_TRUE(error_message.empty());
+    EXPECT_EQ(converted.int_field, 123);
+    EXPECT_FALSE(converted.string_field);
+  }
+}
+
+TEST(ValueConversion, ValueToStructError) {
+  SomeStruct converted;
+
+  {
+    std::string error_message;
+    EXPECT_FALSE(ConvertFromValue(Value(), &converted, &error_message));
+    EXPECT_EQ(
+        error_message,
+        "Cannot convert value to struct SomeStruct: Value is not a dictionary");
+  }
+
+  {
+    std::string error_message;
+    EXPECT_FALSE(ConvertFromValue(Value(Value::Type::kDictionary), &converted,
+                                  &error_message));
+    EXPECT_EQ(error_message,
+              "Cannot convert value to struct SomeStruct: Missing key "
+              "\"intField\"");
+  }
+
+  {
+    Value value(Value::Type::kDictionary);
+    value.SetDictionaryItem("intField", Value());
+
+    std::string error_message;
+    EXPECT_FALSE(
+        ConvertFromValue(std::move(value), &converted, &error_message));
+    EXPECT_EQ(
+        error_message,
+        "Cannot convert value to struct SomeStruct: Error in property "
+        "\"intField\": Expected value of type integer, instead got: null");
+  }
+
+  {
+    Value value(Value::Type::kDictionary);
+    value.SetDictionaryItem("intField", Value(123));
+    value.SetDictionaryItem("stringField", Value());
+
+    std::string error_message;
+    EXPECT_FALSE(
+        ConvertFromValue(std::move(value), &converted, &error_message));
+    EXPECT_EQ(
+        error_message,
+        "Cannot convert value to struct SomeStruct: Error in property "
+        "\"stringField\": Expected value of type string, instead got: null");
+  }
+
+  {
+    Value value(Value::Type::kDictionary);
+    value.SetDictionaryItem("intField", Value(123));
+    value.SetDictionaryItem("nonExisting", Value());
+
+    std::string error_message;
+    EXPECT_FALSE(
+        ConvertFromValue(std::move(value), &converted, &error_message));
+    EXPECT_EQ(error_message,
+              "Cannot convert value to struct SomeStruct: Unexpected key "
+              "\"nonExisting\"");
+  }
+}
+
+TEST(ValueConversion, NestedStructToValue) {
+  const SomeStruct kSome = {123, {}};
+  const OuterStruct kOuter = {kSome};
+  Value value;
+  EXPECT_TRUE(ConvertToValue(kOuter, &value));
+  ASSERT_TRUE(value.is_dictionary());
+  EXPECT_EQ(value.GetDictionary().size(), 1U);
+  const Value* some_field = value.GetDictionaryItem("someField");
+  ASSERT_TRUE(some_field);
+  ASSERT_TRUE(some_field->is_dictionary());
+  EXPECT_EQ(some_field->GetDictionary().size(), 1U);
+  const Value* int_field = some_field->GetDictionaryItem("intField");
+  ASSERT_TRUE(int_field);
+  ASSERT_TRUE(int_field->is_integer());
+  EXPECT_EQ(int_field->GetInteger(), 123);
+}
+
+TEST(ValueConversion, ValueToNestedStruct) {
+  Value inner_value(Value::Type::kDictionary);
+  inner_value.SetDictionaryItem("intField", Value(123));
+  inner_value.SetDictionaryItem("stringField", Value("foo"));
+  Value value(Value::Type::kDictionary);
+  value.SetDictionaryItem("someField", std::move(inner_value));
+
+  std::string error_message;
+  OuterStruct converted = {};
+  EXPECT_TRUE(ConvertFromValue(std::move(value), &converted, &error_message));
+  EXPECT_TRUE(error_message.empty());
+  EXPECT_EQ(converted.some_field.int_field, 123);
+  ASSERT_TRUE(converted.some_field.string_field);
+  EXPECT_EQ(*converted.some_field.string_field, "foo");
+}
+
+TEST(ValueConversion, ValueToNestedStructError) {
+  OuterStruct converted = {};
+
+  {
+    Value value(Value::Type::kDictionary);
+    value.SetDictionaryItem("someField", Value(Value::Type::kDictionary));
+
+    std::string error_message;
+    EXPECT_FALSE(
+        ConvertFromValue(std::move(value), &converted, &error_message));
+    EXPECT_EQ(error_message,
+              "Cannot convert value to struct OuterStruct: Error in property "
+              "\"someField\": Cannot convert value to struct SomeStruct: "
+              "Missing key \"intField\"");
+  }
+
+  {
+    Value value(Value::Type::kDictionary);
+    value.SetDictionaryItem("someField", Value());
+
+    std::string error_message;
+    EXPECT_FALSE(
+        ConvertFromValue(std::move(value), &converted, &error_message));
+    EXPECT_EQ(error_message,
+              "Cannot convert value to struct OuterStruct: Error in property "
+              "\"someField\": Cannot convert value to struct SomeStruct: Value "
+              "is not a dictionary");
+  }
 }
 
 // Test that `ConvertToValueOrDie()` succeeds on supported inputs. As death

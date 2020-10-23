@@ -99,6 +99,7 @@ class Value final {
   const std::string& GetString() const;
   const BinaryStorage& GetBinary() const;
   const DictionaryStorage& GetDictionary() const;
+  DictionaryStorage& GetDictionary();
   const ArrayStorage& GetArray() const;
 
   // Returns null when the key isn't present.
