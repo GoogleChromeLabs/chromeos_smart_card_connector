@@ -348,7 +348,7 @@ class StructValueDescriptor {
 
     // Adds the given field into the struct's description: |dictionary_key_name|
     // is the key in the dictionary `Value` representation of |field_ptr|.
-    // Returns a rvalue reference to |this| and uses the "&&" ref-qualifier, so
+    // Returns an rvalue reference to |this| and uses the "&&" ref-qualifier, so
     // that the method calls can be easily chained and the final result can be
     // returned without an explicit std::move() boilerplate.
     template <typename FieldT>
