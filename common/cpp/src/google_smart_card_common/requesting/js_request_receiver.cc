@@ -19,6 +19,9 @@
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/requesting/requester_message.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -59,8 +62,12 @@ void JsRequestReceiver::PostResult(RequestId request_id,
                                    GenericRequestResult request_result) {
   TypedMessage message;
   message.type = GetResponseMessageType(name());
-  message.data = MakeResponseMessageData(request_id, std::move(request_result));
-  PostResultMessage(MakeVar(message));
+  // TODO(#185): Directly construct `Value` `data` instead of `pp::Var`.
+  message.data = ConvertPpVarToValueOrDie(
+      MakeResponseMessageData(request_id, std::move(request_result)));
+  Value message_value = ConvertToValueOrDie(std::move(message));
+  // TODO(#185): Directly post `Value` instead of `pp::Var`.
+  PostResultMessage(ConvertValueToPpVar(message_value));
 }
 
 std::string JsRequestReceiver::GetListenedMessageType() const {

@@ -22,6 +22,7 @@
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
+#include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
@@ -50,16 +51,12 @@ void TypedMessageRouter::RemoveRoute(TypedMessageListener* listener) {
 
 bool TypedMessageRouter::OnMessageReceived(Value message,
                                            std::string* error_message) {
-  // TODO: Remove this conversion and use `Value` directly.
-  const pp::Var pp_message = ConvertValueToPpVar(message);
-
   TypedMessage typed_message;
-  // TODO: Delete `local_error_message` in favor of (optional) `error_message`.
   std::string local_error_message;
-  if (!VarAs(pp_message, &typed_message, &local_error_message)) {
+  if (!ConvertFromValue(std::move(message), &typed_message,
+                        &local_error_message)) {
     FormatPrintfTemplateAndSet(error_message, "Cannot parse typed message: %s",
                                local_error_message.c_str());
-
     return false;
   }
 
@@ -70,7 +67,9 @@ bool TypedMessageRouter::OnMessageReceived(Value message,
     return false;
   }
 
-  if (!listener->OnTypedMessageReceived(typed_message.data)) {
+  // TODO(#185): Pass `Value` instead of transforming into `pp::Var`.
+  if (!listener->OnTypedMessageReceived(
+          ConvertValueToPpVar(typed_message.data))) {
     // TODO: Receive `error_message` from the listener.
     return false;
   }

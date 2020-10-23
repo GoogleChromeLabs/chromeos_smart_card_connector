@@ -41,7 +41,6 @@ TEST_SOURCES_SUBDIR := google_smart_card_common
 TEST_SOURCES := \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/formatting_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/logging/hex_dumping_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/messaging/typed_message_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/messaging/typed_message_router_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/numeric_conversions_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/pp_var_utils/construction_unittest.cc \

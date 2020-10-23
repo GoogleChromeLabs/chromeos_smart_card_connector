@@ -26,10 +26,7 @@
 
 #include <string>
 
-#include <ppapi/cpp/var.h>
-
-#include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -52,13 +49,14 @@ namespace google_smart_card {
 // the "log_message" type, and passes the "data" property to it. The latter does
 // the intended operation, after parsing the "log-level" and "text" properties.
 struct TypedMessage {
-  std::string type;
-  pp::Var data;
-};
+  TypedMessage();
+  TypedMessage(TypedMessage&&);
+  TypedMessage& operator=(TypedMessage&&);
+  ~TypedMessage();
 
-bool VarAs(const pp::Var& var, TypedMessage* result,
-           std::string* error_message);
-pp::Var MakeVar(const TypedMessage& value);
+  std::string type;
+  Value data;
+};
 
 }  // namespace google_smart_card
 
