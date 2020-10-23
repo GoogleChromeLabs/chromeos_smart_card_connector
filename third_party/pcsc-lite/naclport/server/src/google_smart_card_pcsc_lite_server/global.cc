@@ -43,6 +43,9 @@ extern "C" {
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 #include "server_sockets_manager.h"
 #include "socketpair_emulation.h"
@@ -230,8 +233,11 @@ void PcscLiteServerGlobal::PostMessage(
   if (pp_instance_) {
     TypedMessage typed_message;
     typed_message.type = type;
-    typed_message.data = message_data;
-    pp_instance_->PostMessage(MakeVar(typed_message));
+    // TODO: Directly receive `Value` instead of transforming from `pp::Var`.
+    typed_message.data = ConvertPpVarToValueOrDie(message_data);
+    Value typed_message_value = ConvertToValueOrDie(std::move(typed_message));
+    // TODO: Directly post `Value` instead of `pp::Var`.
+    pp_instance_->PostMessage(ConvertValueToPpVar(typed_message_value));
   }
 }
 
