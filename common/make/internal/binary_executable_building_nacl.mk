@@ -15,7 +15,7 @@
 
 #
 # This file contains the implementation of the ../binary_executable_building.mk
-# that builds using Chrome Native Client.
+# interface that builds using Chrome Native Client.
 #
 # common.mk must be included before including this file.
 #
@@ -63,10 +63,15 @@ DEFAULT_NACL_LIBS := \
 #
 
 define LINK_EXECUTABLE_RULE
+
 $(eval $(call NACL_MODULE_LINK_INTERNAL_RULE,$(1),$(2),$(3),$(4)))
+
 $(eval $(call NACL_MODULE_COPY_BINARIES_INTERNAL_RULE))
+
 $(eval $(call NMF_RULE,$(TARGET),--pnacl-optlevel=0 --pnacl-debug-optlevel=0))
+
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(OUTDIR)/$(TARGET).nmf))
+
 endef
 
 
@@ -139,7 +144,7 @@ endef
 # NaCl, only produce a stripped binary in Release builds.
 #
 
-ifneq (,$(or $(findstring pnacl,$(TOOLCHAIN)),$(and $(findstring nacl,$(TOOLCHAIN), $(findstring Release,$(CONFIG))))))
+ifneq (,$(or $(findstring pnacl,$(TOOLCHAIN)),$(findstring Release,$(CONFIG))))
 
 define NACL_MODULE_LINK_INTERNAL_RULE
 $(eval $(call LINK_RULE,$(TARGET)_unstripped,$(1),$(2),$(3),$(4)))
