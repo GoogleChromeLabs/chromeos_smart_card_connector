@@ -28,7 +28,7 @@
 # Including of this file creates a NaCl module building dependency on this
 # library.
 #
-# /common/make/common.mk, /common/make/nacl_module_building_common.mk and
+# /common/make/common.mk, /common/make/binary_executable_building.mk and
 # include.mk must be included before including this file.
 #
 

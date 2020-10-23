@@ -16,7 +16,7 @@ TARGET := google_smart_card_integration_testing
 
 include ../../make/common.mk
 
-include $(COMMON_DIR_PATH)/make/nacl_module_building_common.mk
+include $(COMMON_DIR_PATH)/make/binary_executable_building.mk
 
 include ../include.mk
 

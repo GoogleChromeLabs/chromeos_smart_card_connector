@@ -14,8 +14,8 @@
 
 
 #
-# This file contains some helper definitions for building Chrome Native Client
-# modules and libraries.
+# This file contains the implementation of the ../binary_executable_building.mk
+# that builds using Chrome Native Client.
 #
 # common.mk must be included before including this file.
 #
@@ -36,8 +36,6 @@ endif
 #
 
 VALID_TOOLCHAINS ?= pnacl
-
-TOOLCHAIN ?= pnacl
 
 
 #
@@ -61,36 +59,19 @@ DEFAULT_NACL_LIBS := \
 
 
 #
-# Macro rule that adds various rules for building the resulting NaCl module in
-# the out directory. It is only assumed that the compilation rules (COMPILE_RULE
-# from the NaCl SDK definitions) are already invoked.
-#
-# Arguments:
-#    $1: Source file paths,
-#    $2: LIBS,
-#    $3: DEPS,
-#    $4: (optional) Linker command-line switches.
+# Documented at ../binary_executable_building.mk.
 #
 
 define LINK_EXECUTABLE_RULE
-
 $(eval $(call NACL_MODULE_LINK_INTERNAL_RULE,$(1),$(2),$(3),$(4)))
-
 $(eval $(call NACL_MODULE_COPY_BINARIES_INTERNAL_RULE))
-
 $(eval $(call NMF_RULE,$(TARGET),--pnacl-optlevel=0 --pnacl-debug-optlevel=0))
-
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(OUTDIR)/$(TARGET).nmf))
-
 endef
 
 
 #
-# Target directory for installing the library header files.
-#
-# This directory is under the NaCl SDK libraries directory, so after installing
-# into it the consumer applications can just compile with the library headers
-# without specifying any additional search paths.
+# Documented at ../binary_executable_building.mk.
 #
 
 NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH := \
@@ -105,22 +86,7 @@ NACL_LIBRARY_HEADERS_INSTALLATION_STAMP_FILE_NAME := headers_installed.stamp
 
 
 #
-# Macro rule that adds rule for the headers installation.
-#
-# The headers are installed into subdirectories of
-# $NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH. It is assumed that no two
-# libraries share the same destination directory.
-#
-# Arguments:
-#    $1: List of header descriptions, where each list item should contain
-#        colon-separated destination directory (relative to
-#        NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH), source directory and
-#        source file path (relative to the source directory). Example:
-#        "foolib:../src:a.h foolib:../src:b/c.h", which denotes installation of
-#        file ../src/a.h into
-#        $NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH/libfoo/a.h and of file
-#        ../src/b/c.h into
-#        $NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH/libfoo/b/c.h.
+# Documented at ../binary_executable_building.mk.
 #
 
 define NACL_LIBRARY_HEADERS_INSTALLATION_RULE
@@ -142,13 +108,7 @@ endef
 
 
 #
-# Macro rule that adds the specified library as a prerequisite for compilation
-# rule of the specified file.
-#
-# Arguments:
-#    $1: Source (C/C++) file path.
-#    $2: Name of the target representing the headers installation of the
-#        library.
+# Documented at ../binary_executable_building.mk.
 #
 
 define DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS
@@ -159,12 +119,7 @@ endef
 
 
 #
-# Macro rule that defines the target for the library headers installation and
-# the variable containing the target name.
-#
-# Arguments:
-#    $1: Name of the variable to contain the headers installation target name.
-#    $2: Path to the library's build directory.
+# Documented at ../binary_executable_building.mk.
 #
 
 define DEFINE_NACL_LIBRARY_HEADERS_INSTALLATION_TARGET
@@ -184,7 +139,7 @@ endef
 # NaCl, only produce a stripped binary in Release builds.
 #
 
-ifneq (,$(or $(findstring pnacl,$(TOOLCHAIN)),$(findstring Release,$(CONFIG))))
+ifneq (,$(or $(findstring pnacl,$(TOOLCHAIN)),$(and $(findstring nacl,$(TOOLCHAIN), $(findstring Release,$(CONFIG))))))
 
 define NACL_MODULE_LINK_INTERNAL_RULE
 $(eval $(call LINK_RULE,$(TARGET)_unstripped,$(1),$(2),$(3),$(4)))
