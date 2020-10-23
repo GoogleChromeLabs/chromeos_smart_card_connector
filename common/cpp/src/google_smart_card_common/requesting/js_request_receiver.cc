@@ -16,6 +16,8 @@
 
 #include <utility>
 
+#include <ppapi/cpp/var.h>
+
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/requesting/requester_message.h>
@@ -74,10 +76,13 @@ std::string JsRequestReceiver::GetListenedMessageType() const {
   return GetRequestMessageType(name());
 }
 
-bool JsRequestReceiver::OnTypedMessageReceived(const pp::Var& data) {
+bool JsRequestReceiver::OnTypedMessageReceived(Value data) {
+  // TODO(#185): Parse `Value` directly instead of transforming into `pp::Var`.
+  const pp::Var data_var = ConvertValueToPpVar(data);
   RequestId request_id;
   pp::Var payload;
-  GOOGLE_SMART_CARD_CHECK(ParseRequestMessageData(data, &request_id, &payload));
+  GOOGLE_SMART_CARD_CHECK(
+      ParseRequestMessageData(data_var, &request_id, &payload));
   HandleRequest(request_id, payload);
   return true;
 }

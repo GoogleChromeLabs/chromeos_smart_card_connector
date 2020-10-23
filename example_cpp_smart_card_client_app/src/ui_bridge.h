@@ -24,6 +24,7 @@
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/thread_safe_unique_ptr.h>
+#include <google_smart_card_common/value.h>
 
 namespace smart_card_client {
 
@@ -68,7 +69,7 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
 
   // google_smart_card::TypedMessageListener:
   std::string GetListenedMessageType() const override;
-  bool OnTypedMessageReceived(const pp::Var& data) override;
+  bool OnTypedMessageReceived(google_smart_card::Value data) override;
 
  private:
   struct AttachedState {

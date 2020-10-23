@@ -107,8 +107,10 @@ std::string UiBridge::GetListenedMessageType() const {
   return kIncomingMessageType;
 }
 
-bool UiBridge::OnTypedMessageReceived(const pp::Var& data) {
-  std::thread(&ProcessMessageFromUi, data, message_from_ui_handler_,
+bool UiBridge::OnTypedMessageReceived(gsc::Value data) {
+  // TODO: Use `Value` directly instead of transforming into `pp::Var`.
+  const pp::Var data_var = gsc::ConvertValueToPpVar(data);
+  std::thread(&ProcessMessageFromUi, data_var, message_from_ui_handler_,
               request_handling_mutex_)
       .detach();
   return true;

@@ -20,7 +20,6 @@
 
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
-#include <ppapi/cpp/var.h>
 
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/messaging/typed_message.h>
@@ -52,7 +51,14 @@ class MockTypedMessageListener final : public TypedMessageListener {
 
   std::string GetListenedMessageType() const override { return message_type_; }
 
-  MOCK_METHOD1(OnTypedMessageReceived, bool(const pp::Var&));
+  bool OnTypedMessageReceived(Value value) override {
+    return OnTypedMessageReceivedImpl(value);
+  }
+
+  // Mock a method that takes the value as const-ref, since the currently used
+  // version of Googletest doesn't support mocking functions with move-only
+  // arguments.
+  MOCK_METHOD1(OnTypedMessageReceivedImpl, bool(const Value&));
 
  private:
   std::string message_type_;
@@ -62,8 +68,12 @@ std::string MakeSampleData(int index) {
   return FormatPrintfTemplate("sample value #%d", index);
 }
 
-std::string GetMessageDataString(const pp::Var& data) {
-  return VarAs<std::string>(data);
+std::string GetMessageDataString(const Value& data) {
+  if (!data.is_string()) {
+    ADD_FAILURE() << "Value is not a string";
+    return "";
+  }
+  return data.GetString();
 }
 
 Value MakeTypedMessageValue(const std::string& type, const std::string& data) {
@@ -91,7 +101,7 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
   // After the first listener is registered, it is invoked by the router on the
   // corresponding message receival
   router.AddRoute(&listener_1);
-  EXPECT_CALL(listener_1, OnTypedMessageReceived(ResultOf(
+  EXPECT_CALL(listener_1, OnTypedMessageReceivedImpl(ResultOf(
                               GetMessageDataString, Eq(MakeSampleData(3)))))
       .WillOnce(Return(true));
   EXPECT_TRUE(router.OnMessageReceived(
@@ -100,7 +110,7 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
       MakeTypedMessageValue(kSampleType2, MakeSampleData(4))));
 
   // When the listener returns false, the router returns false too
-  EXPECT_CALL(listener_1, OnTypedMessageReceived(ResultOf(
+  EXPECT_CALL(listener_1, OnTypedMessageReceivedImpl(ResultOf(
                               GetMessageDataString, Eq(MakeSampleData(5)))))
       .WillOnce(Return(false));
   EXPECT_FALSE(router.OnMessageReceived(
@@ -109,7 +119,7 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
   // After the second listener is registered, it is invoked by the router on the
   // corresponding message receival
   router.AddRoute(&listener_2);
-  EXPECT_CALL(listener_2, OnTypedMessageReceived(ResultOf(
+  EXPECT_CALL(listener_2, OnTypedMessageReceivedImpl(ResultOf(
                               GetMessageDataString, Eq(MakeSampleData(6)))))
       .WillOnce(Return(true));
   EXPECT_TRUE(router.OnMessageReceived(
@@ -127,10 +137,10 @@ TEST(MessagingTypedMessageRouterTest, MultiThreading) {
   TypedMessageRouter router;
 
   MockTypedMessageListener listener_1(kSampleType1);
-  EXPECT_CALL(listener_1, OnTypedMessageReceived(_))
+  EXPECT_CALL(listener_1, OnTypedMessageReceivedImpl(_))
       .WillRepeatedly(Return(true));
   MockTypedMessageListener listener_2(kSampleType2);
-  EXPECT_CALL(listener_2, OnTypedMessageReceived(_))
+  EXPECT_CALL(listener_2, OnTypedMessageReceivedImpl(_))
       .WillRepeatedly(Return(true));
 
   std::thread route_1_operating_thread([&router, &listener_1] {

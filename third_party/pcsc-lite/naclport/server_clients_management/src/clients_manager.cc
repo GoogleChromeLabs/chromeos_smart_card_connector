@@ -35,6 +35,8 @@
 #include <google_smart_card_common/pp_var_utils/struct_converter.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 #include "client_request_processor.h"
 
@@ -122,11 +124,13 @@ std::string PcscLiteServerClientsManager::CreateHandlerMessageListener::
 }
 
 bool PcscLiteServerClientsManager::CreateHandlerMessageListener::
-    OnTypedMessageReceived(const pp::Var& data) {
+    OnTypedMessageReceived(Value data) {
+  // TODO: Parse `Value` directly instead of transforming into `pp::Var`.
+  const pp::Var data_var = ConvertValueToPpVar(data);
   CreateHandlerMessageData message_data;
   std::string error_message;
   if (!StructConverter<CreateHandlerMessageData>::ConvertFromVar(
-          data, &message_data, &error_message)) {
+          data_var, &message_data, &error_message)) {
     GOOGLE_SMART_CARD_LOG_FATAL
         << kLoggingPrefix << "Failed to parse "
         << "client handler creation message: " << error_message;
@@ -149,11 +153,13 @@ std::string PcscLiteServerClientsManager::DeleteHandlerMessageListener ::
 }
 
 bool PcscLiteServerClientsManager::DeleteHandlerMessageListener ::
-    OnTypedMessageReceived(const pp::Var& data) {
+    OnTypedMessageReceived(Value data) {
+  // TODO: Parse `Value` directly instead of transforming into `pp::Var`.
+  const pp::Var data_var = ConvertValueToPpVar(data);
   DeleteHandlerMessageData message_data;
   std::string error_message;
   if (!StructConverter<DeleteHandlerMessageData>::ConvertFromVar(
-          data, &message_data, &error_message)) {
+          data_var, &message_data, &error_message)) {
     GOOGLE_SMART_CARD_LOG_FATAL
         << kLoggingPrefix << "Failed to parse "
         << "client handler deletion message: " << error_message;

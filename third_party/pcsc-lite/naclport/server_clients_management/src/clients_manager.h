@@ -40,6 +40,7 @@
 #include <google_smart_card_common/requesting/js_request_receiver.h>
 #include <google_smart_card_common/requesting/request_handler.h>
 #include <google_smart_card_common/requesting/request_receiver.h>
+#include <google_smart_card_common/value.h>
 
 #include "client_request_processor.h"
 
@@ -108,7 +109,7 @@ class PcscLiteServerClientsManager final {
 
     // TypedMessageListener:
     std::string GetListenedMessageType() const override;
-    bool OnTypedMessageReceived(const pp::Var& data) override;
+    bool OnTypedMessageReceived(Value data) override;
 
    private:
     PcscLiteServerClientsManager* clients_manager_;
@@ -126,7 +127,7 @@ class PcscLiteServerClientsManager final {
 
     // TypedMessageListener:
     std::string GetListenedMessageType() const override;
-    bool OnTypedMessageReceived(const pp::Var& data) override;
+    bool OnTypedMessageReceived(Value data) override;
 
    private:
     PcscLiteServerClientsManager* clients_manager_;

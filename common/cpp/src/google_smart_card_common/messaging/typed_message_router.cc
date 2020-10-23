@@ -17,13 +17,10 @@
 #include <algorithm>
 #include <string>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -67,9 +64,7 @@ bool TypedMessageRouter::OnMessageReceived(Value message,
     return false;
   }
 
-  // TODO(#185): Pass `Value` instead of transforming into `pp::Var`.
-  if (!listener->OnTypedMessageReceived(
-          ConvertValueToPpVar(typed_message.data))) {
+  if (!listener->OnTypedMessageReceived(std::move(typed_message.data))) {
     // TODO: Receive `error_message` from the listener.
     return false;
   }

@@ -17,7 +17,7 @@
 
 #include <string>
 
-#include <ppapi/cpp/var.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -39,7 +39,7 @@ class TypedMessageListener {
   // please refer to the typed_message.h file).
   //
   // Returns whether the message was handled.
-  virtual bool OnTypedMessageReceived(const pp::Var& data) = 0;
+  virtual bool OnTypedMessageReceived(Value data) = 0;
 };
 
 }  // namespace google_smart_card
