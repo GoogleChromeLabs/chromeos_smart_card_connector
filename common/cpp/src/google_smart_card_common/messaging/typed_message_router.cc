@@ -52,12 +52,11 @@ void TypedMessageRouter::RemoveRoute(TypedMessageListener* listener) {
 bool TypedMessageRouter::OnMessageReceived(Value message,
                                            std::string* error_message) {
   TypedMessage typed_message;
-  if (!ConvertFromValue(std::move(message), &typed_message, error_message)) {
-    if (error_message) {
-      FormatPrintfTemplateAndSet(error_message,
-                                 "Cannot parse typed message: %s",
-                                 error_message->c_str());
-    }
+  std::string local_error_message;
+  if (!ConvertFromValue(std::move(message), &typed_message,
+                        &local_error_message)) {
+    FormatPrintfTemplateAndSet(error_message, "Cannot parse typed message: %s",
+                               local_error_message.c_str());
     return false;
   }
 
