@@ -19,6 +19,10 @@
 #
 # common.mk must be included before including this file.
 #
+# Troubleshooting notes:
+# * Set the "EMCC_DEBUG" environment variable to 1 in order to enable more
+#   verbose output from Emscripten's tools.
+#
 
 
 # Sanity-check that the environment is set up.
