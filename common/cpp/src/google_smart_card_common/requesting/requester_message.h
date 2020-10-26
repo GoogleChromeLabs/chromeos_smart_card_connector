@@ -67,7 +67,7 @@ struct RequestMessageData {
   // messages (see `ResponseMessageData`) with the requests.
   //
   // Note that this field must be unique among all requests with the same
-  // `name`; in general, requests with different `name` can use overlapping IDs.
+  // `name`. Requests with different `name` can use overlapping IDs.
   RequestId request_id;
   // The request payload, represented as a generic `Value` object. Contents of
   // this field are specific to a particular type of request.
