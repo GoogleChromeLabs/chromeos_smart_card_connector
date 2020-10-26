@@ -14,12 +14,11 @@
 
 #include <google_smart_card_common/requesting/requester_message.h>
 
-#include <ppapi/cpp/var_dictionary.h>
+#include <string>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/pp_var_utils/copying.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
-#include <google_smart_card_common/pp_var_utils/operations.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -27,9 +26,6 @@ namespace {
 
 constexpr char kRequestMessageTypeSuffix[] = "::request";
 constexpr char kResponseMessageTypeSuffix[] = "::response";
-constexpr char kRequestIdMessageKey[] = "request_id";
-constexpr char kPayloadMessageKey[] = "payload";
-constexpr char kErrorMessageKey[] = "error";
 constexpr char kCanceledErrorMessage[] = "The request was canceled";
 
 }  // namespace
@@ -42,100 +38,60 @@ std::string GetResponseMessageType(const std::string& name) {
   return name + kResponseMessageTypeSuffix;
 }
 
-namespace {
+// Register the structs for conversions to/from `Value`.
 
-pp::VarDictionary MakeMessageDataWithRequestId(
-    const pp::VarDictionary& message_data, RequestId request_id) {
-  GOOGLE_SMART_CARD_CHECK(!message_data.HasKey(kRequestIdMessageKey));
-  pp::VarDictionary result = ShallowCopyVar(message_data);
-  AddVarDictValue(&result, kRequestIdMessageKey, request_id);
-  return result;
+template <>
+StructValueDescriptor<RequestMessageData>::Description
+StructValueDescriptor<RequestMessageData>::GetDescription() {
+  return Describe("RequestMessageData")
+      .WithField(&RequestMessageData::request_id, "request_id")
+      .WithField(&RequestMessageData::payload, "payload");
 }
 
-}  // namespace
-
-pp::Var MakeRequestMessageData(RequestId request_id, const pp::Var& payload) {
-  pp::VarDictionary message_data;
-  AddVarDictValue(&message_data, kPayloadMessageKey, payload);
-  return MakeMessageDataWithRequestId(message_data, request_id);
+template <>
+StructValueDescriptor<ResponseMessageData>::Description
+StructValueDescriptor<ResponseMessageData>::GetDescription() {
+  return Describe("ResponseMessageData")
+      .WithField(&ResponseMessageData::request_id, "request_id")
+      .WithField(&ResponseMessageData::payload, "payload")
+      .WithField(&ResponseMessageData::error_message, "error");
 }
 
-namespace {
-
-pp::Var MakeSucceededResponseMessageData(RequestId request_id,
-                                         const pp::Var& response_payload) {
-  pp::VarDictionary message_data;
-  AddVarDictValue(&message_data, kPayloadMessageKey, response_payload);
-  return MakeMessageDataWithRequestId(message_data, request_id);
-}
-
-pp::Var MakeFailedResponseMessageData(RequestId request_id,
-                                      const std::string& error_message) {
-  pp::VarDictionary message_data;
-  AddVarDictValue(&message_data, kErrorMessageKey, error_message);
-  return MakeMessageDataWithRequestId(message_data, request_id);
-}
-
-pp::Var MakeCanceledResponseMessageData(RequestId request_id) {
-  return MakeFailedResponseMessageData(request_id, kCanceledErrorMessage);
-}
-
-}  // namespace
-
-pp::Var MakeResponseMessageData(RequestId request_id,
-                                const GenericRequestResult& request_result) {
+// static
+ResponseMessageData ResponseMessageData::CreateFromRequestResult(
+    RequestId request_id, GenericRequestResult request_result) {
+  ResponseMessageData message_data;
+  message_data.request_id = request_id;
   switch (request_result.status()) {
     case RequestResultStatus::kSucceeded:
-      return MakeSucceededResponseMessageData(request_id,
-                                              request_result.payload());
+      // TODO(#185): Directly store `Value` in `GenericRequestResult`, rather
+      // than convert it from `pp::Var`.
+      message_data.payload = ConvertPpVarToValueOrDie(request_result.payload());
+      break;
     case RequestResultStatus::kFailed:
-      return MakeFailedResponseMessageData(request_id,
-                                           request_result.error_message());
+      message_data.error_message = request_result.error_message();
+      break;
     case RequestResultStatus::kCanceled:
-      return MakeCanceledResponseMessageData(request_id);
-    default:
-      GOOGLE_SMART_CARD_NOTREACHED;
+      message_data.error_message = std::string(kCanceledErrorMessage);
+      break;
   }
+  return message_data;
 }
 
-bool ParseRequestMessageData(const pp::Var& message_data, RequestId* request_id,
-                             pp::Var* payload) {
-  std::string error_message;
-  pp::VarDictionary message_data_dict;
-  if (!VarAs(message_data, &message_data_dict, &error_message)) return false;
-  return VarDictValuesExtractor(message_data_dict)
-      .Extract(kRequestIdMessageKey, request_id)
-      .Extract(kPayloadMessageKey, payload)
-      .GetSuccessWithNoExtraKeysAllowed(&error_message);
-}
-
-bool ParseResponseMessageData(const pp::Var& message_data,
-                              RequestId* request_id,
-                              GenericRequestResult* request_result) {
-  std::string error_message;
-  pp::VarDictionary message_data_dict;
-  if (!VarAs(message_data, &message_data_dict, &error_message)) return false;
-  if (GetVarDictSize(message_data_dict) != 2) {
-    // There are some missing or some extra keys.
-    return false;
-  }
-  if (!GetVarDictValueAs(message_data_dict, kRequestIdMessageKey, request_id,
-                         &error_message)) {
-    return false;
-  }
-  pp::Var response_payload;
-  if (GetVarDictValueAs(message_data_dict, kPayloadMessageKey,
-                        &response_payload, &error_message)) {
-    *request_result = GenericRequestResult::CreateSuccessful(response_payload);
-    return true;
-  }
-  std::string response_error_message;
-  if (GetVarDictValueAs(message_data_dict, kErrorMessageKey,
-                        &response_error_message, &error_message)) {
+bool ResponseMessageData::ExtractRequestResult(
+    GenericRequestResult* request_result) {
+  if (payload && !error_message) {
+    // TODO(#185): Directly store `Value` in `GenericRequestResult`, rather than
+    // convert it into `pp::Var`.
     *request_result =
-        GenericRequestResult::CreateFailed(response_error_message);
+        GenericRequestResult::CreateSuccessful(ConvertValueToPpVar(*payload));
     return true;
   }
+  if (error_message && !payload) {
+    *request_result = GenericRequestResult::CreateFailed(*error_message);
+    return true;
+  }
+  // Only one of (`error_message`, `payload`) should be provided.
   return false;
 }
 

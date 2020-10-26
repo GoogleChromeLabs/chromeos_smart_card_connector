@@ -64,9 +64,9 @@ void JsRequestReceiver::PostResult(RequestId request_id,
                                    GenericRequestResult request_result) {
   TypedMessage message;
   message.type = GetResponseMessageType(name());
-  // TODO(#185): Directly construct `Value` `data` instead of `pp::Var`.
-  message.data = ConvertPpVarToValueOrDie(
-      MakeResponseMessageData(request_id, std::move(request_result)));
+  message.data =
+      ConvertToValueOrDie(ResponseMessageData::CreateFromRequestResult(
+          request_id, std::move(request_result)));
   Value message_value = ConvertToValueOrDie(std::move(message));
   // TODO(#185): Directly post `Value` instead of `pp::Var`.
   PostResultMessage(ConvertValueToPpVar(message_value));
@@ -77,13 +77,11 @@ std::string JsRequestReceiver::GetListenedMessageType() const {
 }
 
 bool JsRequestReceiver::OnTypedMessageReceived(Value data) {
-  // TODO(#185): Parse `Value` directly instead of transforming into `pp::Var`.
-  const pp::Var data_var = ConvertValueToPpVar(data);
-  RequestId request_id;
-  pp::Var payload;
-  GOOGLE_SMART_CARD_CHECK(
-      ParseRequestMessageData(data_var, &request_id, &payload));
-  HandleRequest(request_id, payload);
+  const RequestMessageData message_data =
+      ConvertFromValueOrDie<RequestMessageData>(std::move(data));
+  // TODO(#185): Directly pass `Value` instead of `pp::Var`.
+  HandleRequest(message_data.request_id,
+                ConvertValueToPpVar(message_data.payload));
   return true;
 }
 

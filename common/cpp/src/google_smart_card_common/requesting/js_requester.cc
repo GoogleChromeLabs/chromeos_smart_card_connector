@@ -81,11 +81,12 @@ void JsRequester::StartAsyncRequest(const pp::Var& payload,
   RequestId request_id;
   *async_request = CreateAsyncRequest(payload, callback, &request_id);
 
+  RequestMessageData message_data;
+  message_data.request_id = request_id;
+  message_data.payload = ConvertPpVarToValueOrDie(payload);
   TypedMessage typed_message;
   typed_message.type = GetRequestMessageType(name());
-  // TODO(#185): Directly construct `Value` `data` instead of `pp::Var`.
-  typed_message.data =
-      ConvertPpVarToValueOrDie(MakeRequestMessageData(request_id, payload));
+  typed_message.data = ConvertToValueOrDie(std::move(message_data));
   Value typed_message_value = ConvertToValueOrDie(std::move(typed_message));
   // TODO(#185): Directly send `Value` instead of `pp::Var`.
   const pp::Var typed_message_pp_var = ConvertValueToPpVar(typed_message_value);
@@ -106,14 +107,12 @@ std::string JsRequester::GetListenedMessageType() const {
 }
 
 bool JsRequester::OnTypedMessageReceived(Value data) {
-  // TODO(#185): Parse `Value` directly instead of transforming into `pp::Var`.
-  const pp::Var data_var = ConvertValueToPpVar(data);
-  RequestId request_id;
+  ResponseMessageData message_data =
+      ConvertFromValueOrDie<ResponseMessageData>(std::move(data));
   GenericRequestResult request_result;
-  GOOGLE_SMART_CARD_CHECK(
-      ParseResponseMessageData(data_var, &request_id, &request_result));
-  GOOGLE_SMART_CARD_CHECK(
-      SetAsyncRequestResult(request_id, std::move(request_result)));
+  GOOGLE_SMART_CARD_CHECK(message_data.ExtractRequestResult(&request_result));
+  GOOGLE_SMART_CARD_CHECK(SetAsyncRequestResult(message_data.request_id,
+                                                std::move(request_result)));
   return true;
 }
 
