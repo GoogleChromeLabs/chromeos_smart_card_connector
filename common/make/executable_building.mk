@@ -51,10 +51,12 @@ TOOLCHAIN ?= pnacl
 #   $4 ("LDFLAGS", optional): Linker flags.
 #
 # * NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH variable:
+#   TODO(#177): Rename to a toolchain-independent name.
 #   Path where library headers are installed by the
 #   NACL_LIBRARY_HEADERS_INSTALLATION_RULE macro.
 #
 # * NACL_LIBRARY_HEADERS_INSTALLATION_RULE macro:
+#   TODO(#177): Rename to a toolchain-independent name.
 #   Installs specified headers into $NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH.
 #   Arguments:
 #   $1 ("INSTALLING_HEADERS"): List of header descriptions, where each list item
@@ -68,6 +70,7 @@ TOOLCHAIN ?= pnacl
 #     $NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH/libfoo/b/c.h.
 #
 # * DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS macro:
+#   TODO(#177): Rename to a toolchain-independent name.
 #   Adds the specified library as a prerequisite for compilation rule of the
 #   the specified file.
 #   Arguments:
@@ -76,6 +79,7 @@ TOOLCHAIN ?= pnacl
 #     the DEFINE_NACL_LIBRARY_HEADERS_INSTALLATION_TARGET rule.
 #
 # * DEFINE_NACL_LIBRARY_HEADERS_INSTALLATION_TARGET macro:
+#   TODO(#177): Rename to a toolchain-independent name.
 #   Defines the target for the library headers installation and sets the
 #   variable containing the target name.
 #   Arguments:
@@ -84,7 +88,7 @@ TOOLCHAIN ?= pnacl
 
 # Load the toolchain-specific file.
 ifeq ($(TOOLCHAIN),pnacl)
-include $(COMMON_DIR_PATH)/make/internal/binary_executable_building_nacl.mk
+include $(COMMON_DIR_PATH)/make/internal/executable_building_nacl.mk
 else
 $(error Unknown TOOLCHAIN "$(TOOLCHAIN)".)
 endif

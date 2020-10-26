@@ -14,7 +14,7 @@
 
 
 #
-# This file contains the implementation of the ../binary_executable_building.mk
+# This file contains the implementation of the ../executable_building.mk
 # interface that builds using Chrome Native Client.
 #
 # common.mk must be included before including this file.

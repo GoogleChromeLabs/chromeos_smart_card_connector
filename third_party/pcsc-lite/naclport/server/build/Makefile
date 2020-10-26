@@ -34,7 +34,7 @@ TARGET := google_smart_card_pcsc_lite_server
 
 include ../../../../../common/make/common.mk
 
-include $(COMMON_DIR_PATH)/make/binary_executable_building.mk
+include $(COMMON_DIR_PATH)/make/executable_building.mk
 
 include $(COMMON_DIR_PATH)/cpp/include.mk
 

@@ -16,7 +16,7 @@ TARGET := google_smart_card_common
 
 include ../../make/common.mk
 
-include $(COMMON_DIR_PATH)/make/binary_executable_building.mk
+include $(COMMON_DIR_PATH)/make/executable_building.mk
 
 include ../include.mk
 
