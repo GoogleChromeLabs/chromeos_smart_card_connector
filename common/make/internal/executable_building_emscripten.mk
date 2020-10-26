@@ -60,7 +60,7 @@ endef
 # pthread: Enables Pthreads support (for C/C++ multi-threading, etc.).
 # MODULARIZE: Puts Emscripten module JavaScript loading code into a factory
 #   function, in order to control its loading from other JS code and to avoid
-#   avoid name conflicts with unrelated code.
+#   name conflicts with unrelated code.
 # EXPORT_NAME: Name of the JavaScript function that loads the Emscripten module.
 # DYNAMIC_EXECUTION: Disable dynamic code execution in Emscripten JavaScript
 #   code (not doing this will cause "unsafe-eval" Content Security Policy
@@ -79,7 +79,7 @@ ifeq ($(CONFIG),Release)
 # Explanation:
 # O3: Enable advanced optimizations.
 EMSCRIPTEN_FLAGS += \
-	-O3 \
+  -O3 \
 
 else ifeq ($(CONFIG),Debug)
 
@@ -89,8 +89,8 @@ else ifeq ($(CONFIG),Debug)
 # O0: Disable optimizations.
 # g: Preserve debug information.
 EMSCRIPTEN_FLAGS += \
-	-O0 \
-	-g \
+  -O0 \
+  -g \
 
 else
 
@@ -109,7 +109,7 @@ endif
 # * The target is added as a dependency to the "all" target, so that it's built
 #   by default when no target is specified explicitly in the command line.
 #
-# TODO(#185): Trigger recompilation on changes in included .h files.
+# TODO(#177): Trigger recompilation on changes in included .h files.
 #
 # Explanation of parameters to emcc:
 # o: Path to store the output .o file.
