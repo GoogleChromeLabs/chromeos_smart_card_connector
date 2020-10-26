@@ -21,6 +21,7 @@
 #include <string>
 
 #include <google_smart_card_common/messaging/typed_message_listener.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -33,7 +34,7 @@ class ExternalLogsPrinter final : public TypedMessageListener {
 
   // TypedMessageListener:
   std::string GetListenedMessageType() const override;
-  bool OnTypedMessageReceived(const pp::Var& data) override;
+  bool OnTypedMessageReceived(Value data) override;
 
  private:
   const std::string listened_message_type_;

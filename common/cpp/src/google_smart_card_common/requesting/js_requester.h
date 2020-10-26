@@ -28,6 +28,7 @@
 #include <google_smart_card_common/requesting/requester.h>
 #include <google_smart_card_common/requesting/requester_message.h>
 #include <google_smart_card_common/thread_safe_unique_ptr.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -103,7 +104,7 @@ class JsRequester final : public Requester, public TypedMessageListener {
  private:
   // TypedMessageListener implementation
   std::string GetListenedMessageType() const override;
-  bool OnTypedMessageReceived(const pp::Var& data) override;
+  bool OnTypedMessageReceived(Value data) override;
 
   bool PostPpMessage(const pp::Var& message);
   bool IsMainPpThread() const;

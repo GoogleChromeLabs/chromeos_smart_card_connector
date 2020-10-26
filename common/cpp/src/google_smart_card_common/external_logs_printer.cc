@@ -17,9 +17,13 @@
 #include <iostream>
 #include <string>
 
+#include <ppapi/cpp/var.h>
+
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/pp_var_utils/struct_converter.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -63,11 +67,13 @@ std::string ExternalLogsPrinter::GetListenedMessageType() const {
   return listened_message_type_;
 }
 
-bool ExternalLogsPrinter::OnTypedMessageReceived(const pp::Var& data) {
+bool ExternalLogsPrinter::OnTypedMessageReceived(Value data) {
+  // TODO(#185): Parse `Value` directly instead of transforming into `pp::Var`.
+  pp::Var data_var = ConvertValueToPpVar(data);
   ExternalLogMessageData message_data;
   std::string error_message;
   if (!StructConverter<ExternalLogMessageData>::ConvertFromVar(
-          data, &message_data, &error_message)) {
+          data_var, &message_data, &error_message)) {
     GOOGLE_SMART_CARD_LOG_FATAL << "Failed to parse external log message: "
                                 << error_message;
   }
