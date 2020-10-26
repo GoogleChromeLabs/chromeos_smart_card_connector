@@ -31,7 +31,7 @@ include $(TESTS_RUNNER_DIR)/../make/common.mk
 
 PAGE := $(OUT_DIR_PATH)/index.html
 
-include $(COMMON_DIR_PATH)/make/binary_executable_building.mk
+include $(COMMON_DIR_PATH)/make/executable_building.mk
 
 
 #
