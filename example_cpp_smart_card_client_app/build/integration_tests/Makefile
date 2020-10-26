@@ -24,7 +24,7 @@ include ../../../common/make/common.mk
 PAGE := $(OUT_DIR_PATH)/index.html
 
 include $(COMMON_DIR_PATH)/make/js_building_common.mk
-include $(COMMON_DIR_PATH)/make/nacl_module_building_common.mk
+include $(COMMON_DIR_PATH)/make/executable_building.mk
 include $(COMMON_DIR_PATH)/cpp/include.mk
 include $(COMMON_DIR_PATH)/cpp/dependency.mk
 include $(COMMON_DIR_PATH)/js/include.mk

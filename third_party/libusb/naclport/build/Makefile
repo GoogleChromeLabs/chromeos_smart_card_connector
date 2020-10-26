@@ -19,7 +19,7 @@ TARGET := google_smart_card_libusb
 
 include ../../../../common/make/common.mk
 
-include $(COMMON_DIR_PATH)/make/nacl_module_building_common.mk
+include $(COMMON_DIR_PATH)/make/executable_building.mk
 
 include $(COMMON_DIR_PATH)/cpp/include.mk
 

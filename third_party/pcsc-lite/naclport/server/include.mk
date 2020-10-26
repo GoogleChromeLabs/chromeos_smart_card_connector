@@ -27,7 +27,7 @@
 #
 # This file contains helper definitions for using this library.
 #
-# /common/make/common.mk and /common/make/nacl_module_building_common.mk must be
+# /common/make/common.mk and /common/make/executable_building.mk must be
 # included before including this file.
 #
 

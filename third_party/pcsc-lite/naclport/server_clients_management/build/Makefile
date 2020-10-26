@@ -27,7 +27,7 @@ TARGET := google_smart_card_pcsc_lite_server_clients_management
 
 include ../../../../../common/make/common.mk
 
-include $(COMMON_DIR_PATH)/make/nacl_module_building_common.mk
+include $(COMMON_DIR_PATH)/make/executable_building.mk
 
 include $(COMMON_DIR_PATH)/make/js_building_common.mk
 
