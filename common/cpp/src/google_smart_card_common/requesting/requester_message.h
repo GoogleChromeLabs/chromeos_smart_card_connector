@@ -45,18 +45,23 @@ std::string GetResponseMessageType(const std::string& name);
 // messages.
 //
 // Example usage scenario: Suppose the C++ code wants to make a "say_hello"
-// request to the JavaScript side. In that case, the C++ code would generate a
-// typed message with the following contents:
-//   type = "say_hello::request"
-//   data = serialized RequestMessageData structure with the following fields:
-//     request_id = 123
-//     payload = "Hello request from C++"
-// This typed message would then be sent to the JS side, which, would respond
-// with a typed message like this:
-//   type = "say_hello::response"
-//   data = serialized ResponseMessageData structure with the following fields:
-//     request_id = 123
-//     payload = "Hello response from JS"
+// request to the JavaScript side. The simplified code would look like this:
+//   RequestMessageData message_data;
+//   message_data.request_id = 123;
+//   message_data.payload = Valie("Hello request from C++");
+//   TypedMessage typed_message;
+//   typed_message.type = GetRequestMessageType("say_hello");
+//   typed_message.data = ConvertToValueOrDie(std::move(message_data));
+//   SendMessageToJs(typed_message);
+// The received response would be a typed message that is equivalent to the one
+// produced by this sample code:
+//   ResponseMessageData response_message_data;
+//   response_message_data.request_id = 123;
+//   response_message_data.payload = Valie("Hello response from JS");
+//   TypedMessage response_typed_message;
+//   response_typed_message.type = GetResponseMessageType("say_hello");
+//   response_typed_message.data = ConvertToValueOrDie(
+//       std::move(response_message_data));
 struct RequestMessageData {
   // Unique identifier of the request; is used in order to correlate response
   // messages (see `ResponseMessageData`) with the requests.
@@ -87,11 +92,11 @@ struct ResponseMessageData {
   // Identifier of the request. Should be equal to the
   // `RequestMessageData::request_id` field of the correspond request.
   RequestId request_id = -1;
-  // The response payload, represented as a generic `Value` object, or a null in
+  // The response payload, represented as a generic `Value` object, or null in
   // case the request failed. Contents of the value stored here are specific to
   // a particular type of request.
   optional<Value> payload;
-  // The error message, in case the request failed, or a null otherwise.
+  // The error message, in case the request failed, or null otherwise.
   optional<std::string> error_message;
 };
 
