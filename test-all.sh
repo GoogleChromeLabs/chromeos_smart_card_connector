@@ -29,6 +29,7 @@ set -eu
 TEST_DIRS="
   common/cpp/build
   common/js/build
+  example_cpp_smart_card_client_app/build
   third_party/libusb/naclport/build
   third_party/pcsc-lite/naclport/server_clients_management/build"
 

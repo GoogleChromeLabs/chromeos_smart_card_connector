@@ -113,6 +113,7 @@ INSTALLING_HEADERS := \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):unique_ptr_utils.h \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value.h \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value_conversion.h \
+	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value_debug_dumping.h \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value_nacl_pp_var_conversion.h \
 
 $(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
