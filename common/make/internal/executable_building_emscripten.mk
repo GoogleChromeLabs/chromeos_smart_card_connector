@@ -1,4 +1,4 @@
-# Copyright 2016 Google Inc. All Rights Reserved.
+# Copyright 2020 Google Inc. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -66,7 +66,7 @@ endef
 #   code (not doing this will cause "unsafe-eval" Content Security Policy
 #   violations when running this code inside Chrome Apps/Extensions).
 EMSCRIPTEN_FLAGS := \
-	--bind \
+  --bind \
   -pthread \
   -s MODULARIZE=1 \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
