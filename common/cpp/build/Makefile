@@ -57,6 +57,13 @@ SOURCES := \
 	$(SOURCES_PATH)/value_debug_dumping.cc \
 	$(SOURCES_PATH)/value_nacl_pp_var_conversion.cc \
 
+ifeq ($(TOOLCHAIN),emscripten)
+
+SOURCES += \
+	$(SOURCES_PATH)/value_emscripten_val_conversion.cc \
+
+endif
+
 TEST_SUPPORT_SOURCES := \
 	$(SOURCES_PATH)/integration_testing/integration_test_service.cc \
 
@@ -115,6 +122,13 @@ INSTALLING_HEADERS := \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value_conversion.h \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value_debug_dumping.h \
 	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value_nacl_pp_var_conversion.h \
+
+ifeq ($(TOOLCHAIN),emscripten)
+
+INSTALLING_HEADERS += \
+	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value_emscripten_val_conversion.h \
+
+endif
 
 $(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
 
