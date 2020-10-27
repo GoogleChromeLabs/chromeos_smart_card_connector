@@ -51,6 +51,7 @@
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_debug_dumping.h>
 
 namespace google_smart_card {
 
@@ -58,6 +59,8 @@ namespace google_smart_card {
 
 namespace internal {
 
+extern const char kErrorWrongTypeValueConversion[];
+extern const char kErrorFromArrayValueConversion[];
 extern const char kErrorToArrayValueConversion[];
 
 // Visitor of enum type's items that converts a C++ enum value into a string
@@ -603,6 +606,36 @@ typename std::enable_if<std::is_class<T>::value, bool>::type ConvertFromValue(
   return converter.TakeConvertedObject(description.type_name(), object,
                                        error_message);
 }
+
+// Converts from an array `Value` into a vector of items of a supported type.
+template <typename T>
+bool ConvertFromValue(Value value, std::vector<T>* objects,
+                      std::string* error_message = nullptr) {
+  if (!value.is_array()) {
+    FormatPrintfTemplateAndSet(
+        error_message, internal::kErrorWrongTypeValueConversion,
+        Value::kArrayTypeTitle, DebugDumpValueSanitized(value).c_str());
+    return false;
+  }
+  Value::ArrayStorage& array = value.GetArray();
+  objects->resize(array.size());
+  std::string local_error_message;
+  for (size_t i = 0; i < array.size(); ++i) {
+    if (!ConvertFromValue(std::move(*array[i]), &(*objects)[i],
+                          &local_error_message)) {
+      FormatPrintfTemplateAndSet(
+          error_message, internal::kErrorFromArrayValueConversion,
+          static_cast<int>(i), local_error_message.c_str());
+      return false;
+    }
+  }
+  return true;
+}
+
+// Converts from an array or binary `Value` into a vector of bytes. (Note: The
+// difference to the template version above is the support of binary `Value`.)
+bool ConvertFromValue(Value value, std::vector<uint8_t>* bytes,
+                      std::string* error_message = nullptr);
 
 // Synonym to other `ConvertFromValue()` overloads, but immediately crashes the
 // program if the conversion fails.

@@ -1439,6 +1439,169 @@ TEST(ValueConversion, VectorToValueError) {
             "value: unknown integer value 456");
 }
 
+TEST(ValueConversion, ValueToVector) {
+  {
+    Value value(Value::Type::kArray);
+
+    std::string error_message;
+    std::vector<int> converted;
+    EXPECT_TRUE(ConvertFromValue(std::move(value), &converted, &error_message));
+    EXPECT_TRUE(error_message.empty());
+    EXPECT_TRUE(converted.empty());
+  }
+
+  {
+    const std::vector<int> kNumbers = {123, -1, 1024};
+    std::vector<std::unique_ptr<Value>> items;
+    for (int number : kNumbers) items.push_back(MakeUnique<Value>(number));
+    Value value(std::move(items));
+
+    std::vector<int> converted;
+    EXPECT_TRUE(ConvertFromValue(std::move(value), &converted));
+    EXPECT_EQ(converted, kNumbers);
+  }
+
+  {
+    const std::vector<uint8_t> kBytes = {1, 2, 255};
+    std::vector<std::unique_ptr<Value>> items;
+    for (uint8_t byte : kBytes) items.push_back(MakeUnique<Value>(byte));
+    Value value(std::move(items));
+
+    std::vector<uint8_t> converted;
+    EXPECT_TRUE(ConvertFromValue(std::move(value), &converted));
+    EXPECT_EQ(converted, kBytes);
+  }
+
+  {
+    const std::vector<uint8_t> kBytes = {1, 2, 255};
+    Value value(kBytes);
+
+    std::vector<uint8_t> converted;
+    EXPECT_TRUE(ConvertFromValue(std::move(value), &converted));
+    EXPECT_EQ(converted, kBytes);
+  }
+
+  {
+    std::vector<std::unique_ptr<Value>> items;
+    items.push_back(MakeUnique<Value>("second"));
+    items.push_back(MakeUnique<Value>("first"));
+    Value value(std::move(items));
+
+    std::vector<SomeEnum> converted;
+    EXPECT_TRUE(ConvertFromValue(std::move(value), &converted));
+    EXPECT_EQ(converted,
+              std::vector<SomeEnum>({SomeEnum::kSecond, SomeEnum::kFirst}));
+  }
+
+  {
+    std::unique_ptr<Value> dict_value =
+        MakeUnique<Value>(Value::Type::kDictionary);
+    dict_value->SetDictionaryItem("intField", 123);
+    std::vector<std::unique_ptr<Value>> items;
+    items.push_back(std::move(dict_value));
+    Value value(std::move(items));
+
+    std::vector<SomeStruct> converted;
+    EXPECT_TRUE(ConvertFromValue(std::move(value), &converted));
+    ASSERT_EQ(converted.size(), 1U);
+    EXPECT_EQ(converted[0].int_field, 123);
+    EXPECT_FALSE(converted[0].string_field);
+  }
+
+  {
+    std::vector<std::unique_ptr<Value>> nested_items0;
+    nested_items0.push_back(MakeUnique<Value>(1));
+    nested_items0.push_back(MakeUnique<Value>(2));
+    std::vector<std::unique_ptr<Value>> nested_items1;
+    nested_items1.push_back(MakeUnique<Value>(1LL << 40));
+    std::vector<std::unique_ptr<Value>> items;
+    items.push_back(MakeUnique<Value>(std::move(nested_items0)));
+    items.push_back(MakeUnique<Value>(std::move(nested_items1)));
+    Value value(std::move(items));
+
+    std::vector<std::vector<int64_t>> converted;
+    EXPECT_TRUE(ConvertFromValue(std::move(value), &converted));
+    ASSERT_EQ(converted.size(), 2U);
+    ASSERT_EQ(converted[0].size(), 2U);
+    EXPECT_EQ(converted[0][0], 1);
+    EXPECT_EQ(converted[0][1], 2);
+    ASSERT_EQ(converted[1].size(), 1U);
+    EXPECT_EQ(converted[1][0], 1LL << 40);
+  }
+}
+
+TEST(ValueConversion, VectorFromValueError) {
+  {
+    std::string error_message;
+    std::vector<int> converted;
+    EXPECT_FALSE(ConvertFromValue(Value(), &converted, &error_message));
+    EXPECT_EQ(error_message, "Expected value of type array, instead got: null");
+  }
+
+  {
+    std::string error_message;
+    std::vector<uint8_t> converted;
+    EXPECT_FALSE(ConvertFromValue(Value(), &converted, &error_message));
+    EXPECT_EQ(error_message,
+              "Expected value of type array or binary, instead got: null");
+  }
+
+  {
+    std::vector<std::unique_ptr<Value>> items;
+    items.push_back(MakeUnique<Value>(256));
+    Value value(std::move(items));
+
+    std::string error_message;
+    std::vector<uint8_t> converted;
+    EXPECT_FALSE(
+        ConvertFromValue(std::move(value), &converted, &error_message));
+    EXPECT_EQ(error_message,
+              "Cannot convert item #0 from value: The integer value is outside "
+              "the range of type \"uint8_t\": 256 not in [0; 255] range");
+  }
+
+  {
+    std::vector<std::unique_ptr<Value>> items;
+    items.push_back(MakeUnique<Value>("foo"));
+    Value value(std::move(items));
+
+    std::string error_message;
+    std::vector<int> converted;
+    EXPECT_FALSE(
+        ConvertFromValue(std::move(value), &converted, &error_message));
+#ifdef NDEBUG
+    EXPECT_EQ(error_message,
+              "Cannot convert item #0 from value: Expected value of type "
+              "integer, instead got: string");
+#else
+    EXPECT_EQ(error_message,
+              "Cannot convert item #0 from value: Expected value of type "
+              "integer, instead got: \"foo\"");
+#endif
+  }
+
+  {
+    std::vector<std::unique_ptr<Value>> items;
+    items.push_back(MakeUnique<Value>("second"));
+    items.push_back(MakeUnique<Value>("nonExisting"));
+    Value value(std::move(items));
+
+    std::string error_message;
+    std::vector<SomeEnum> converted;
+    EXPECT_FALSE(
+        ConvertFromValue(std::move(value), &converted, &error_message));
+#ifdef NDEBUG
+    EXPECT_EQ(error_message,
+              "Cannot convert item #1 from value: Cannot convert value string "
+              "to enum SomeEnum: unknown enum value");
+#else
+    EXPECT_EQ(error_message,
+              "Cannot convert item #1 from value: Cannot convert value "
+              "\"nonExisting\" to enum SomeEnum: unknown enum value");
+#endif
+  }
+}
+
 // Test that `ConvertToValueOrDie()` succeeds on supported inputs. As death
 // tests aren't supported, we don't test failure scenarios.
 TEST(ValueConversion, ToValueOrDie) {
