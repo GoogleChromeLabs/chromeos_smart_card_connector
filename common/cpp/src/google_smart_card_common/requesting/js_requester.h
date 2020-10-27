@@ -91,15 +91,14 @@ class JsRequester final : public Requester, public TypedMessageListener {
 
   // Requester implementation
   void Detach() override;
-  void StartAsyncRequest(const pp::Var& payload,
-                         GenericAsyncRequestCallback callback,
+  void StartAsyncRequest(Value payload, GenericAsyncRequestCallback callback,
                          GenericAsyncRequest* async_request) override;
   // Requester implementation override
   //
   // Note that it is asserted that this method is called not from the main
   // Pepper thread (as in that case waiting would block the message loop and
   // result in deadlock).
-  GenericRequestResult PerformSyncRequest(const pp::Var& payload) override;
+  GenericRequestResult PerformSyncRequest(Value payload) override;
 
  private:
   // TypedMessageListener implementation

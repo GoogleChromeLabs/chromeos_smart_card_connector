@@ -20,6 +20,7 @@
 
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -42,19 +43,19 @@ Requester::~Requester() {
 }
 
 GenericAsyncRequest Requester::StartAsyncRequest(
-    const pp::Var& payload, GenericAsyncRequestCallback callback) {
+    Value payload, GenericAsyncRequestCallback callback) {
   GenericAsyncRequest async_result;
-  StartAsyncRequest(payload, callback, &async_result);
+  StartAsyncRequest(std::move(payload), callback, &async_result);
   return async_result;
 }
 
-GenericRequestResult Requester::PerformSyncRequest(const pp::Var& payload) {
+GenericRequestResult Requester::PerformSyncRequest(Value payload) {
   std::mutex mutex;
   std::condition_variable condition;
   optional<GenericRequestResult> result;
 
-  StartAsyncRequest(payload, [&mutex, &condition,
-                              &result](GenericRequestResult async_result) {
+  StartAsyncRequest(std::move(payload), [&mutex, &condition, &result](
+                                            GenericRequestResult async_result) {
     GOOGLE_SMART_CARD_CHECK(!result);
     std::unique_lock<std::mutex> lock(mutex);
     result = std::move(async_result);
@@ -69,12 +70,7 @@ GenericRequestResult Requester::PerformSyncRequest(const pp::Var& payload) {
 }
 
 GenericAsyncRequest Requester::CreateAsyncRequest(
-    const pp::Var& /*payload*/, GenericAsyncRequestCallback callback,
-    RequestId* request_id) {
-  // TODO(emaxx): The payload argument is ignored for now, but it can be
-  // utilized for creating some more informative logging at the place where the
-  // requests results are handled.
-
+    GenericAsyncRequestCallback callback, RequestId* request_id) {
   const auto async_request_state =
       std::make_shared<GenericAsyncRequestState>(callback);
   *request_id = async_requests_storage_.Push(async_request_state);

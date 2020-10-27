@@ -19,6 +19,7 @@
 #include <ppapi/cpp/var_dictionary.h>
 
 #include <google_smart_card_common/requesting/remote_call_message.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -31,23 +32,28 @@ RemoteCallAdaptor::~RemoteCallAdaptor() = default;
 
 GenericRequestResult RemoteCallAdaptor::PerformSyncRequest(
     const std::string& function_name, const pp::VarArray& converted_arguments) {
-  return requester_->PerformSyncRequest(
-      MakeRemoteCallRequestPayload(function_name, converted_arguments));
+  // TODO(#185): Create `Value` directly, without converting from `pp::Var`.
+  return requester_->PerformSyncRequest(ConvertPpVarToValueOrDie(
+      MakeRemoteCallRequestPayload(function_name, converted_arguments)));
 }
 
 GenericAsyncRequest RemoteCallAdaptor::StartAsyncRequest(
     const std::string& function_name, const pp::VarArray& converted_arguments,
     GenericAsyncRequestCallback callback) {
+  // TODO(#185): Create `Value` directly, without converting from `pp::Var`.
   return requester_->StartAsyncRequest(
-      MakeRemoteCallRequestPayload(function_name, converted_arguments),
+      ConvertPpVarToValueOrDie(
+          MakeRemoteCallRequestPayload(function_name, converted_arguments)),
       callback);
 }
 
 void RemoteCallAdaptor::StartAsyncRequest(
     const std::string& function_name, const pp::VarArray& converted_arguments,
     GenericAsyncRequestCallback callback, GenericAsyncRequest* async_request) {
+  // TODO(#185): Create `Value` directly, without converting from `pp::Var`.
   requester_->StartAsyncRequest(
-      MakeRemoteCallRequestPayload(function_name, converted_arguments),
+      ConvertPpVarToValueOrDie(
+          MakeRemoteCallRequestPayload(function_name, converted_arguments)),
       callback, async_request);
 }
 
