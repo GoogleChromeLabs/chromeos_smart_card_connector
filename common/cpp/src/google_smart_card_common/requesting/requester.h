@@ -17,12 +17,11 @@
 
 #include <string>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/requesting/async_request.h>
 #include <google_smart_card_common/requesting/async_requests_storage.h>
 #include <google_smart_card_common/requesting/request_id.h>
 #include <google_smart_card_common/requesting/request_result.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -69,7 +68,7 @@ class Requester {
   // Note: It's also possible that the callback is executed synchronously during
   // this method call (e.g. when a fatal error occurred that prevents the
   // implementation from starting the asynchronous request).
-  GenericAsyncRequest StartAsyncRequest(const pp::Var& payload,
+  GenericAsyncRequest StartAsyncRequest(Value payload,
                                         GenericAsyncRequestCallback callback);
 
   // Starts an asynchronous request with the given payload and the given
@@ -87,7 +86,7 @@ class Requester {
   // Note: It's also possible that the callback is executed synchronously during
   // this method call (e.g. when a fatal error occurred that prevents the
   // implementation from starting the asynchronous request).
-  virtual void StartAsyncRequest(const pp::Var& payload,
+  virtual void StartAsyncRequest(Value payload,
                                  GenericAsyncRequestCallback callback,
                                  GenericAsyncRequest* async_request) = 0;
 
@@ -96,14 +95,13 @@ class Requester {
   //
   // It's guaranteed that the returned result cannot have the
   // RequestResultStatus::kCanceled state.
-  virtual GenericRequestResult PerformSyncRequest(const pp::Var& payload);
+  virtual GenericRequestResult PerformSyncRequest(Value payload);
 
  protected:
   // Creates and stores internally a new asynchronous request state, returning
   // its public proxy object (GenericAsyncRequest object) and its generated
   // request identifier.
-  GenericAsyncRequest CreateAsyncRequest(const pp::Var& payload,
-                                         GenericAsyncRequestCallback callback,
+  GenericAsyncRequest CreateAsyncRequest(GenericAsyncRequestCallback callback,
                                          RequestId* request_id);
 
   // Finds the request state by the specified request identifier and sets its

@@ -19,6 +19,7 @@
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
+#include <google_smart_card_common/value.h>
 
 namespace smart_card_client {
 
@@ -56,7 +57,7 @@ void BuiltInPinDialogServer::Detach() { js_requester_.Detach(); }
 
 bool BuiltInPinDialogServer::RequestPin(std::string* pin) {
   const google_smart_card::GenericRequestResult request_result =
-      js_requester_.PerformSyncRequest(pp::VarDictionary());
+      js_requester_.PerformSyncRequest(/*payload=*/google_smart_card::Value());
   if (!request_result.is_successful()) return false;
   ExtractPinRequestResult(request_result, pin);
   return true;

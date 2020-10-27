@@ -75,15 +75,15 @@ void JsRequester::Detach() {
   Requester::Detach();
 }
 
-void JsRequester::StartAsyncRequest(const pp::Var& payload,
+void JsRequester::StartAsyncRequest(Value payload,
                                     GenericAsyncRequestCallback callback,
                                     GenericAsyncRequest* async_request) {
   RequestId request_id;
-  *async_request = CreateAsyncRequest(payload, callback, &request_id);
+  *async_request = CreateAsyncRequest(callback, &request_id);
 
   RequestMessageData message_data;
   message_data.request_id = request_id;
-  message_data.payload = ConvertPpVarToValueOrDie(payload);
+  message_data.payload = std::move(payload);
   TypedMessage typed_message;
   typed_message.type = GetRequestMessageType(name());
   typed_message.data = ConvertToValueOrDie(std::move(message_data));
@@ -97,9 +97,9 @@ void JsRequester::StartAsyncRequest(const pp::Var& payload,
   }
 }
 
-GenericRequestResult JsRequester::PerformSyncRequest(const pp::Var& payload) {
+GenericRequestResult JsRequester::PerformSyncRequest(Value payload) {
   GOOGLE_SMART_CARD_CHECK(!IsMainPpThread());
-  return Requester::PerformSyncRequest(payload);
+  return Requester::PerformSyncRequest(std::move(payload));
 }
 
 std::string JsRequester::GetListenedMessageType() const {
