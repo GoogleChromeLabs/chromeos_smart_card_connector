@@ -87,7 +87,9 @@ TOOLCHAIN ?= pnacl
 #   $2 ("LIB_DIR"): Path to the library's build directory.
 
 # Load the toolchain-specific file.
-ifeq ($(TOOLCHAIN),pnacl)
+ifeq ($(TOOLCHAIN),emscripten)
+include $(COMMON_DIR_PATH)/make/internal/executable_building_emscripten.mk
+else ifeq ($(TOOLCHAIN),pnacl)
 include $(COMMON_DIR_PATH)/make/internal/executable_building_nacl.mk
 else
 $(error Unknown TOOLCHAIN "$(TOOLCHAIN)".)
