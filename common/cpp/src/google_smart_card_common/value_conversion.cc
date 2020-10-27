@@ -58,6 +58,9 @@ bool ConvertIntegerFromValue(Value value, const char* type_name, T* number,
 
 namespace internal {
 
+const char kErrorToArrayValueConversion[] =
+    "Cannot convert item #%d to value: %s";
+
 EnumToValueConverter::EnumToValueConverter(int64_t enum_to_convert)
     : enum_to_convert_(enum_to_convert) {}
 
