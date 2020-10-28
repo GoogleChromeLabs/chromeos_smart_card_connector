@@ -46,6 +46,7 @@ SOURCES := \
 CXXFLAGS := \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(SOURCES_PATH) \
+	-I$(ROOT_PATH)/common/cpp/src \
 	-pedantic \
 	-Wall \
 	-Wextra \
@@ -53,8 +54,6 @@ CXXFLAGS := \
 	-std=gnu++11 \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
-
-$(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(CPP_COMMON_HEADERS_INSTALLATION_STAMP_FILE))))
 
 
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
