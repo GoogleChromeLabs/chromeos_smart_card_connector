@@ -45,6 +45,7 @@ TEST_SOURCES := \
 ADDITIONAL_TEST_CPPFLAGS = \
 	-I$(TEST_SOURCES_PATH) \
 	-I$(NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH)/google_smart_card_libusb/libusb-1.0 \
+	-I$(ROOT_PATH)/common/cpp/src \
 
 
 include ../../../../../common/tests_runner/build.mk

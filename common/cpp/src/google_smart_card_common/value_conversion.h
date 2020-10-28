@@ -25,34 +25,43 @@
 //   special case that an integer can be converted from a floating-point
 //   `Value`, in case it's within the range of precisely representable numbers);
 // * `double`;
-// * `std::string`.
+// * `std::string`;
+// * `std::vector` of any supported type (note: there's also a special case that
+//    `std::vector<uint8_t>` can be converted from a binary value).
 //
 // The same helpers can also be enabled for custom types:
 // * a custom enum can be registered via the `EnumValueDescriptor` class for
 //   conversion to/from a string `Value`;
 // * a custom struct can be registered via the `StructValueDescriptor` class for
 //   conversion to/from a dictionary `Value`.
-//
-// TODO: Add support for std::vector.
 
 #ifndef GOOGLE_SMART_CARD_COMMON_VALUE_CONVERSION_H_
 #define GOOGLE_SMART_CARD_COMMON_VALUE_CONVERSION_H_
 
 #include <stdint.h>
 
+#include <memory>
 #include <string>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
+#include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
+#include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_debug_dumping.h>
 
 namespace google_smart_card {
 
 ///////////// Internal helpers ///////////////////
 
 namespace internal {
+
+extern const char kErrorWrongTypeValueConversion[];
+extern const char kErrorFromArrayValueConversion[];
+extern const char kErrorToArrayValueConversion[];
 
 // Visitor of enum type's items that converts a C++ enum value into a string
 // `Value`, by finding the corresponding item among visited ones. This is a
@@ -499,6 +508,26 @@ typename std::enable_if<std::is_class<T>::value, bool>::type ConvertToValue(
                                       error_message);
 }
 
+// Converts from a vector of items of a supported type into an array `Value`.
+template <typename T>
+bool ConvertToValue(std::vector<T> objects, Value* value,
+                    std::string* error_message = nullptr) {
+  std::vector<std::unique_ptr<Value>> converted_items(objects.size());
+  std::string local_error_message;
+  for (size_t i = 0; i < objects.size(); ++i) {
+    converted_items[i] = MakeUnique<Value>();
+    if (!ConvertToValue(std::move(objects[i]), converted_items[i].get(),
+                        &local_error_message)) {
+      FormatPrintfTemplateAndSet(
+          error_message, internal::kErrorToArrayValueConversion,
+          static_cast<int>(i), local_error_message.c_str());
+      return false;
+    }
+  }
+  *value = Value(std::move(converted_items));
+  return true;
+}
+
 // Synonym to other `ConvertToValue()` overloads, but immediately crashes the
 // program if the conversion fails.
 template <typename T>
@@ -577,6 +606,36 @@ typename std::enable_if<std::is_class<T>::value, bool>::type ConvertFromValue(
   return converter.TakeConvertedObject(description.type_name(), object,
                                        error_message);
 }
+
+// Converts from an array `Value` into a vector of items of a supported type.
+template <typename T>
+bool ConvertFromValue(Value value, std::vector<T>* objects,
+                      std::string* error_message = nullptr) {
+  if (!value.is_array()) {
+    FormatPrintfTemplateAndSet(
+        error_message, internal::kErrorWrongTypeValueConversion,
+        Value::kArrayTypeTitle, DebugDumpValueSanitized(value).c_str());
+    return false;
+  }
+  Value::ArrayStorage& array = value.GetArray();
+  objects->resize(array.size());
+  std::string local_error_message;
+  for (size_t i = 0; i < array.size(); ++i) {
+    if (!ConvertFromValue(std::move(*array[i]), &(*objects)[i],
+                          &local_error_message)) {
+      FormatPrintfTemplateAndSet(
+          error_message, internal::kErrorFromArrayValueConversion,
+          static_cast<int>(i), local_error_message.c_str());
+      return false;
+    }
+  }
+  return true;
+}
+
+// Converts from an array or binary `Value` into a vector of bytes. (Note: The
+// difference to the template version above is the support of binary `Value`.)
+bool ConvertFromValue(Value value, std::vector<uint8_t>* bytes,
+                      std::string* error_message = nullptr);
 
 // Synonym to other `ConvertFromValue()` overloads, but immediately crashes the
 // program if the conversion fails.

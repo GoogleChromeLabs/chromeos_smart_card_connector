@@ -31,8 +31,6 @@ namespace google_smart_card {
 
 namespace {
 
-constexpr char kErrorWrongType[] = "Expected value of type %s, instead got: %s";
-
 template <typename T>
 bool ConvertIntegerFromValue(Value value, const char* type_name, T* number,
                              std::string* error_message) {
@@ -46,9 +44,9 @@ bool ConvertIntegerFromValue(Value value, const char* type_name, T* number,
     if (!CastDoubleToInt64(value.GetFloat(), &int64_number, error_message))
       return false;
   } else {
-    FormatPrintfTemplateAndSet(error_message, kErrorWrongType,
-                               Value::kIntegerTypeTitle,
-                               DebugDumpValueSanitized(value).c_str());
+    FormatPrintfTemplateAndSet(
+        error_message, internal::kErrorWrongTypeValueConversion,
+        Value::kIntegerTypeTitle, DebugDumpValueSanitized(value).c_str());
     return false;
   }
   return CastInteger(int64_number, type_name, number, error_message);
@@ -57,6 +55,13 @@ bool ConvertIntegerFromValue(Value value, const char* type_name, T* number,
 }  // namespace
 
 namespace internal {
+
+const char kErrorWrongTypeValueConversion[] =
+    "Expected value of type %s, instead got: %s";
+const char kErrorFromArrayValueConversion[] =
+    "Cannot convert item #%d from value: %s";
+const char kErrorToArrayValueConversion[] =
+    "Cannot convert item #%d to value: %s";
 
 EnumToValueConverter::EnumToValueConverter(int64_t enum_to_convert)
     : enum_to_convert_(enum_to_convert) {}
@@ -228,9 +233,9 @@ bool ConvertFromValue(Value value, bool* boolean, std::string* error_message) {
     *boolean = value.GetBoolean();
     return true;
   }
-  FormatPrintfTemplateAndSet(error_message, kErrorWrongType,
-                             Value::kBooleanTypeTitle,
-                             DebugDumpValueSanitized(value).c_str());
+  FormatPrintfTemplateAndSet(
+      error_message, internal::kErrorWrongTypeValueConversion,
+      Value::kBooleanTypeTitle, DebugDumpValueSanitized(value).c_str());
   return false;
 }
 
@@ -276,7 +281,7 @@ bool ConvertFromValue(Value value, double* number, std::string* error_message) {
     return true;
   }
   FormatPrintfTemplateAndSet(
-      error_message, kErrorWrongType,
+      error_message, internal::kErrorWrongTypeValueConversion,
       FormatPrintfTemplate("%s or %s", Value::kIntegerTypeTitle,
                            Value::kFloatTypeTitle)
           .c_str(),
@@ -290,10 +295,34 @@ bool ConvertFromValue(Value value, std::string* characters,
     *characters = value.GetString();
     return true;
   }
-  FormatPrintfTemplateAndSet(error_message, kErrorWrongType,
-                             Value::kStringTypeTitle,
-                             DebugDumpValueSanitized(value).c_str());
+  FormatPrintfTemplateAndSet(
+      error_message, internal::kErrorWrongTypeValueConversion,
+      Value::kStringTypeTitle, DebugDumpValueSanitized(value).c_str());
   return false;
+}
+
+bool ConvertFromValue(Value value, std::vector<uint8_t>* bytes,
+                      std::string* error_message) {
+  if (value.is_binary()) {
+    // This is a special case that is the reason why the standard
+    // array-to-vector template is overloaded by this function.
+    *bytes = std::move(value.GetBinary());
+    return true;
+  }
+  if (!value.is_array()) {
+    // Note: We're creating the error message here rather than letting the
+    // template call below do that, because we want to mention that the binary
+    // value type would be allowed as well.
+    FormatPrintfTemplateAndSet(
+        error_message, internal::kErrorWrongTypeValueConversion,
+        FormatPrintfTemplate("%s or %s", Value::kArrayTypeTitle,
+                             Value::kBinaryTypeTitle)
+            .c_str(),
+        DebugDumpValueSanitized(value).c_str());
+    return false;
+  }
+  // Delegate to the standard array-to-vector template implementation.
+  return ConvertFromValue<uint8_t>(std::move(value), bytes, error_message);
 }
 
 }  // namespace google_smart_card

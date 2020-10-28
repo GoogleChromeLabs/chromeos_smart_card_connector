@@ -18,6 +18,10 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_PP_VAR_UTILS_CONSTRUCTION_H_
 #define GOOGLE_SMART_CARD_COMMON_PP_VAR_UTILS_CONSTRUCTION_H_
 
+#ifndef __native_client__
+#error "This file should only be used in Native Client builds"
+#endif  // __native_client__
+
 #include <stdint.h>
 
 #include <string>

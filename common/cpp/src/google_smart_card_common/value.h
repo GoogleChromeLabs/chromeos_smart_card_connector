@@ -98,9 +98,11 @@ class Value final {
   double GetFloat() const;
   const std::string& GetString() const;
   const BinaryStorage& GetBinary() const;
+  BinaryStorage& GetBinary();
   const DictionaryStorage& GetDictionary() const;
   DictionaryStorage& GetDictionary();
   const ArrayStorage& GetArray() const;
+  ArrayStorage& GetArray();
 
   // Returns null when the key isn't present.
   const Value* GetDictionaryItem(const std::string& key) const;

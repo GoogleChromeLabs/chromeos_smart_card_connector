@@ -129,6 +129,11 @@ const Value::BinaryStorage& Value::GetBinary() const {
   return binary_value_;
 }
 
+Value::BinaryStorage& Value::GetBinary() {
+  GOOGLE_SMART_CARD_CHECK(is_binary());
+  return binary_value_;
+}
+
 const Value::DictionaryStorage& Value::GetDictionary() const {
   GOOGLE_SMART_CARD_CHECK(is_dictionary());
   return dictionary_value_;
@@ -140,6 +145,11 @@ Value::DictionaryStorage& Value::GetDictionary() {
 }
 
 const Value::ArrayStorage& Value::GetArray() const {
+  GOOGLE_SMART_CARD_CHECK(is_array());
+  return array_value_;
+}
+
+Value::ArrayStorage& Value::GetArray() {
   GOOGLE_SMART_CARD_CHECK(is_array());
   return array_value_;
 }

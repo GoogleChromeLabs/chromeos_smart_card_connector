@@ -32,11 +32,13 @@ namespace google_smart_card {
 
 namespace {
 
+#ifdef __native_client__
 constexpr char kTypeMessageKey[] = "type";
 constexpr char kMessageType[] = "log_message";
 constexpr char kDataMessageKey[] = "data";
 constexpr char kDataLogLevelMessageKey[] = "log_level";
 constexpr char kDataTextMessageKey[] = "text";
+#endif  // __native_client__
 
 bool ShouldLogWithSeverity(LogSeverity severity) {
 #ifdef NDEBUG

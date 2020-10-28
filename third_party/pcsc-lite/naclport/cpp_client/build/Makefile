@@ -43,6 +43,7 @@ SOURCES_PATH := ../src
 COMMON_CPPFLAGS := \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(SOURCES_PATH) \
+	-I$(ROOT_PATH)/common/cpp/src \
 
 CXX_SOURCES := \
 	$(SOURCES_PATH)/google_smart_card_pcsc_lite_client/global.cc \
@@ -66,7 +67,6 @@ SOURCES := \
 	$(CXX_SOURCES) \
 	$(C_SOURCES) \
 
-$(foreach src,$(CXX_SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(CPP_COMMON_HEADERS_INSTALLATION_STAMP_FILE))))
 $(foreach src,$(CXX_SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(PCSC_LITE_COMMON_HEADERS_INSTALLATION_STAMP_FILE))))
 
 

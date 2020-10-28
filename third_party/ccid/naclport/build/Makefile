@@ -54,6 +54,7 @@ COMMON_CPPFLAGS := \
 	-DPCSCLITE_HP_DROPDIR='"/crx/pcsc/drivers"' \
 	-I$(CCID_SOURCES_PATH) \
 	-I$(LIBUSB_INCLUDE_PATH) \
+	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \
 
 CCID_SOURCES := \
@@ -83,8 +84,8 @@ CCID_CPPFLAGS := \
 	-DVERSION='"$(CCID_VERSION)"' \
 	-D__linux \
 	-I$(CCID_NACL_SOURCES_PATH) \
-	-I$(COMMON_SYSLOG_INCLUDE_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
+	-I$(ROOT_PATH)/common/cpp/src/google_smart_card_common/logging/syslog \
 	-Wno-macro-redefined \
 
 $(foreach src,$(CCID_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_CPPFLAGS))))
@@ -144,7 +145,6 @@ SOURCES := \
 # Rules for adding a dependency on the installation of the separate libraries'
 # headers
 
-$(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(CPP_COMMON_HEADERS_INSTALLATION_STAMP_FILE))))
 $(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(LIBUSB_HEADERS_INSTALLATION_STAMP_FILE))))
 
 

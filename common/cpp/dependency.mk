@@ -22,4 +22,4 @@
 #
 
 
-$(eval $(call DEPEND_RULE,$(CPP_COMMON_LIB),$(CPP_COMMON_DIR_PATH)/build))
+$(eval $(call DEPEND_RULE,$(CPP_COMMON_LIB),$(ROOT_PATH)/common/cpp/build))

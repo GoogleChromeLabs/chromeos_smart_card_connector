@@ -24,7 +24,6 @@
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
 
