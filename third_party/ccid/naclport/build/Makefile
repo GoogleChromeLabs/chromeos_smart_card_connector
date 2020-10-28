@@ -142,6 +142,12 @@ SOURCES := \
 	$(CCID_TOWITOKO_SOURCES) \
 
 
+# Rules for adding a dependency on the installation of the separate libraries'
+# headers
+
+$(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(LIBUSB_HEADERS_INSTALLATION_STAMP_FILE))))
+
+
 # Rules for building the driver config file and putting it into the resulting
 # out directory under the PC/SC-Lite server driver configs directory
 
