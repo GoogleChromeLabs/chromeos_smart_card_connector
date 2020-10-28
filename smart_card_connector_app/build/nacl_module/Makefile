@@ -64,6 +64,7 @@ $(eval $(call DEPEND_RULE,nacl_io))
 
 CXXFLAGS := \
 	-I$(PCSC_LITE_SERVER_INCLUDE_PATH) \
+	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \
 	-Wextra \
 	-Wno-zero-length-array \

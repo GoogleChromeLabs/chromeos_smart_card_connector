@@ -22,20 +22,3 @@
 
 
 CPP_COMMON_LIB := google_smart_card_common
-
-
-CPP_COMMON_DIR_PATH := $(COMMON_DIR_PATH)/cpp
-
-
-COMMON_SYSLOG_INCLUDE_PATH := \
-	$(NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH)/google_smart_card_common/logging/syslog
-
-
-
-#
-# Helper target that installs the library headers.
-#
-# This target can be used in dependant libraries.
-#
-
-$(eval $(call DEFINE_NACL_LIBRARY_HEADERS_INSTALLATION_TARGET,CPP_COMMON_HEADERS_INSTALLATION_STAMP_FILE,$(CPP_COMMON_DIR_PATH)/build))

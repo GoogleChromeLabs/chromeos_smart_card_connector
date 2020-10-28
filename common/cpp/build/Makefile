@@ -57,9 +57,6 @@ SOURCES := \
 	$(SOURCES_PATH)/value_debug_dumping.cc \
 	$(SOURCES_PATH)/value_nacl_pp_var_conversion.cc \
 
-TEST_SUPPORT_SOURCES := \
-	$(SOURCES_PATH)/integration_testing/integration_test_service.cc \
-
 CXXFLAGS := \
 	-I$(ROOT_SOURCES_PATH)/ \
 	-pedantic \
@@ -71,52 +68,6 @@ $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
 
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
-
-
-INSTALLING_HEADERS := \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):external_logs_printer.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):formatting.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):logging/function_call_tracer.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):logging/hex_dumping.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):logging/logging.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):logging/mask_dumping.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):logging/syslog/syslog.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):messaging/message_listener.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):messaging/typed_message.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):messaging/typed_message_listener.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):messaging/typed_message_router.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):multi_string.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):nacl_io_utils.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):numeric_conversions.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):optional.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):pp_var_utils/construction.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):pp_var_utils/copying.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):pp_var_utils/debug_dump.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):pp_var_utils/enum_converter.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):pp_var_utils/extraction.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):pp_var_utils/operations.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):pp_var_utils/struct_converter.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/async_request.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/async_requests_storage.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/js_requester.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/js_request_receiver.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/remote_call_adaptor.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/remote_call_message.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/requester.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/requester_message.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/request_handler.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/request_id.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/request_receiver.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):requesting/request_result.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):thread_safe_unique_ptr.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):tuple_unpacking.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):unique_ptr_utils.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value_conversion.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value_debug_dumping.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):value_nacl_pp_var_conversion.h \
-
-$(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
 
 
 test::

@@ -54,6 +54,7 @@ SOURCES := \
 CPPFLAGS := \
 	-I$(LIBUSB_NACL_SOURCES_PATH) \
 	-I$(LIBUSB_SOURCES_PATH)/libusb \
+	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \
 	-Wextra \
 	-Wno-sign-compare \
@@ -64,8 +65,6 @@ CXXFLAGS := \
 $(foreach src,$(C_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS))))
 
 $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS) $(CXXFLAGS))))
-
-$(foreach src,$(CXX_SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(CPP_COMMON_HEADERS_INSTALLATION_STAMP_FILE))))
 
 
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
