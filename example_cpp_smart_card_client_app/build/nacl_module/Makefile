@@ -58,6 +58,7 @@ CPPFLAGS := \
 	-I$(PCSC_LITE_CLIENT_INCLUDE_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \
+	-Werror \
 	-Wextra \
 	-Wno-zero-length-array \
 	-pedantic \

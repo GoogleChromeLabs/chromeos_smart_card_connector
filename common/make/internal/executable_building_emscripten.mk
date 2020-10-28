@@ -82,8 +82,10 @@ ifeq ($(CONFIG),Release)
 #
 # Explanation:
 # O3: Enable advanced optimizations.
+# NDEBUG: Disable debug-only functionality (assertions, etc.).
 EMSCRIPTEN_FLAGS += \
   -O3 \
+  -DNDEBUG \
 
 else ifeq ($(CONFIG),Debug)
 

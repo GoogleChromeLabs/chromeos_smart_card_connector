@@ -49,6 +49,7 @@ CXXFLAGS := \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-pedantic \
 	-Wall \
+	-Werror \
 	-Wextra \
 	-Wno-zero-length-array \
 	-std=gnu++11 \

@@ -63,6 +63,7 @@ CPPFLAGS := \
 	-pedantic \
 	-std=gnu++11 \
 	-Wall \
+	-Werror \
 	-Wextra \
 	-Wno-zero-length-array \
 

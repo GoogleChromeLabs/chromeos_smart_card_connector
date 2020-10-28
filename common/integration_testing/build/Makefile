@@ -34,6 +34,7 @@ CXXFLAGS := \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-pedantic \
 	-Wall \
+	-Werror \
 	-Wextra \
 	-std=gnu++11 \
 
