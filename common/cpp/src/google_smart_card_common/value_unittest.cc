@@ -77,7 +77,7 @@ TEST(ValueTest, Integer64BitMax) {
   EXPECT_FALSE(value.is_dictionary());
   EXPECT_FALSE(value.is_array());
   EXPECT_EQ(value.GetInteger(), integer_value);
-  EXPECT_DOUBLE_EQ(value.GetFloat(), integer_value);
+  EXPECT_DOUBLE_EQ(value.GetFloat(), static_cast<double>(integer_value));
 }
 
 TEST(ValueTest, Integer64BitMin) {

@@ -70,6 +70,7 @@ CXXFLAGS := \
 	-I$(ROOT_SOURCES_PATH)/ \
 	-pedantic \
 	-Wall \
+	-Werror \
 	-Wextra \
 	-std=gnu++11 \
 

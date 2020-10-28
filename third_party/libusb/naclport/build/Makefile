@@ -56,6 +56,7 @@ CPPFLAGS := \
 	-I$(LIBUSB_SOURCES_PATH)/libusb \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \
+	-Werror \
 	-Wextra \
 	-Wno-sign-compare \
 
