@@ -123,7 +123,10 @@ TEST(ValueEmscriptenValConversion, BinaryValue) {
   {
     const emscripten::val converted =
         ConvertValueToEmscriptenVal(Value(Value::Type::kBinary));
-    ASSERT_TRUE(converted.instanceof (emscripten::val::global("ArrayBuffer")));
+    // clang-format incorrectly adds a space after "instanceof".
+    // clang-format off
+    ASSERT_TRUE(converted.instanceof(emscripten::val::global("ArrayBuffer")));
+    // clang-format on
     EXPECT_EQ(converted["byteLength"].as<int>(), 0);
   }
 
@@ -131,7 +134,10 @@ TEST(ValueEmscriptenValConversion, BinaryValue) {
     const std::vector<uint8_t> kBinary = {1, 2, 3};
     const emscripten::val converted =
         ConvertValueToEmscriptenVal(Value(kBinary));
-    ASSERT_TRUE(converted.instanceof (emscripten::val::global("ArrayBuffer")));
+    // clang-format incorrectly adds a space after "instanceof".
+    // clang-format off
+    ASSERT_TRUE(converted.instanceof(emscripten::val::global("ArrayBuffer")));
+    // clang-format on
     const emscripten::val uint8_array =
         emscripten::val::global("Uint8Array").new_(converted);
     ASSERT_EQ(uint8_array["length"].as<size_t>(), kBinary.size());
