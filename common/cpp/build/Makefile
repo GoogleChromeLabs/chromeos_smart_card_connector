@@ -64,6 +64,11 @@ SOURCES += \
 	$(SOURCES_PATH)/requesting/requester.cc \
 	$(SOURCES_PATH)/requesting/requester_message.cc \
 
+else ifeq ($(TOOLCHAIN),emscripten)
+
+SOURCES += \
+	$(SOURCES_PATH)/value_emscripten_val_conversion.cc \
+
 endif
 
 CXXFLAGS := \
