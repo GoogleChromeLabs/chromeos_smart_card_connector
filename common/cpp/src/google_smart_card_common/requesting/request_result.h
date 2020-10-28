@@ -20,10 +20,9 @@
 #include <string>
 #include <utility>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -54,8 +53,8 @@ template <typename PayloadType>
 class RequestResult final {
  public:
   RequestResult() = default;
-  RequestResult(const RequestResult&) = default;
-  RequestResult& operator=(const RequestResult&) = default;
+  RequestResult(RequestResult&&) = default;
+  RequestResult& operator=(RequestResult&&) = default;
   ~RequestResult() = default;
 
   static RequestResult CreateSuccessful(PayloadType payload) {
@@ -101,9 +100,23 @@ class RequestResult final {
     return *payload_;
   }
 
+  // Extracts and returns the payload.
+  // Uses the "&&" ref-qualifier, so that it's only possible to use it like:
+  //   std::move(request_result).TakePayload()
+  // This form explicitly says that the request result isn't usable after this
+  // point; some tools like clang-tidy also catch bugs if the variable will be
+  // used again after this point.
+  PayloadType TakePayload() && {
+    CheckInitialized();
+    GOOGLE_SMART_CARD_CHECK(*status_ == RequestResultStatus::kSucceeded);
+    GOOGLE_SMART_CARD_CHECK(payload_);
+    return std::move(*payload_);
+  }
+
  private:
   explicit RequestResult(PayloadType payload)
-      : status_(RequestResultStatus::kSucceeded), payload_(payload) {}
+      : status_(RequestResultStatus::kSucceeded),
+        payload_(std::move(payload)) {}
 
   RequestResult(RequestResultStatus status, const std::string& error_message)
       : status_(status), error_message_(error_message) {
@@ -122,7 +135,7 @@ class RequestResult final {
   optional<PayloadType> payload_;
 };
 
-using GenericRequestResult = RequestResult<pp::Var>;
+using GenericRequestResult = RequestResult<Value>;
 
 }  // namespace google_smart_card
 

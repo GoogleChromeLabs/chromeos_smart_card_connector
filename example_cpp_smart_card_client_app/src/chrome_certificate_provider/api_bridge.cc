@@ -17,6 +17,8 @@
 #include <thread>
 #include <utility>
 
+#include <ppapi/cpp/var.h>
+
 #include <google_smart_card_common/logging/function_call_tracer.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
@@ -25,6 +27,7 @@
 #include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace scc = smart_card_client;
 namespace ccp = scc::chrome_certificate_provider;
@@ -57,8 +60,9 @@ void ProcessCertificatesRequest(
       locked_certificates_request_handler = certificates_request_handler.lock();
   GOOGLE_SMART_CARD_CHECK(locked_certificates_request_handler);
   if (locked_certificates_request_handler->HandleRequest(&certificates)) {
+    // TODO: Build `Value` directly, without converting from `pp::Var`.
     result_callback(gsc::GenericRequestResult::CreateSuccessful(
-        gsc::MakeVarArray(certificates)));
+        gsc::ConvertPpVarToValueOrDie(gsc::MakeVarArray(certificates))));
   } else {
     result_callback(gsc::GenericRequestResult::CreateFailed("Failure"));
   }
@@ -80,8 +84,9 @@ void ProcessSignatureRequest(
   GOOGLE_SMART_CARD_CHECK(locked_signature_request_handler);
   if (locked_signature_request_handler->HandleRequest(signature_request,
                                                       &signature)) {
+    // TODO: Build `Value` directly, without converting from `pp::Var`.
     result_callback(gsc::GenericRequestResult::CreateSuccessful(
-        gsc::MakeVarArray(signature)));
+        gsc::ConvertPpVarToValueOrDie(gsc::MakeVarArray(signature))));
   } else {
     result_callback(gsc::GenericRequestResult::CreateFailed("Failure"));
   }
@@ -148,13 +153,15 @@ bool ApiBridge::RequestPin(const RequestPinOptions& options, std::string* pin) {
     tracer.LogExit();
     return false;
   }
+  // TODO: Parse `Value` directly, rather than convert into `pp::Var`.
+  const pp::Var payload_var =
+      gsc::ConvertValueToPpVar(generic_request_result.payload());
   // Note: Cannot use RemoteCallAdaptor::ExtractResultPayload(), since the API
   // result value is defined as optional, so that the length of the array we
   // parse here isn't fixed.
   pp::VarArray var_array;
   std::string error_message;
-  if (!gsc::VarAs(generic_request_result.payload(), &var_array,
-                  &error_message)) {
+  if (!gsc::VarAs(payload_var, &var_array, &error_message)) {
     GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the PIN response "
                                 << "payload items: " << error_message;
   }

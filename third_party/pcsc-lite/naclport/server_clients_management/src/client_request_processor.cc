@@ -37,9 +37,10 @@
 #include <google_smart_card_common/logging/hex_dumping.h>
 #include <google_smart_card_common/multi_string.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/debug_dump.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
+#include <google_smart_card_common/value_debug_dumping.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 #include <google_smart_card_pcsc_lite_common/scard_debug_dump.h>
 
 namespace google_smart_card {
@@ -48,7 +49,9 @@ namespace {
 
 template <typename... Args>
 GenericRequestResult ReturnValues(const Args&... args) {
-  return GenericRequestResult::CreateSuccessful(MakeVarArray(args...));
+  // TODO: Build `Value` directly, without converting from `pp::Var`.
+  return GenericRequestResult::CreateSuccessful(
+      ConvertPpVarToValueOrDie(MakeVarArray(args...)));
 }
 
 GenericRequestResult ReturnFailure(const std::string& error_message) {
@@ -168,14 +171,13 @@ void PcscLiteClientRequestProcessor::ProcessRequest(
       << "request " << DebugDumpRemoteCallRequest(function_name, arguments)
       << "...";
 
-  const GenericRequestResult result =
-      FindHandlerAndCall(function_name, arguments);
+  GenericRequestResult result = FindHandlerAndCall(function_name, arguments);
 
   if (result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_DEBUG
         << logging_prefix_ << "Request " << function_name
         << " finished successfully with the following "
-        << "results: " << DebugDumpVar(result.payload());
+        << "results: " << DebugDumpValueSanitized(result.payload());
   } else {
     GOOGLE_SMART_CARD_LOG_DEBUG
         << logging_prefix_ << "Request " << function_name
@@ -183,7 +185,7 @@ void PcscLiteClientRequestProcessor::ProcessRequest(
         << "\"";
   }
 
-  result_callback(result);
+  result_callback(std::move(result));
 }
 
 // static
@@ -290,7 +292,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::FindHandlerAndCall(
   }
   const Handler& handler = handler_map_iter->second;
 
-  const GenericRequestResult result = handler(arguments);
+  GenericRequestResult result = handler(arguments);
   if (!result.is_successful()) {
     return ReturnFailure(FormatPrintfTemplate(
         "Error while processing the \"%s\" request: %s", function_name.c_str(),

@@ -163,7 +163,8 @@ void libusb_context::OnInputTransferResultReceived(
     TransferRequestResult result) {
   const std::unique_lock<std::mutex> lock(mutex_);
 
-  received_input_transfer_result_map_[transfer_destination].push(result);
+  received_input_transfer_result_map_[transfer_destination].push(
+      std::move(result));
 
   condition_.notify_all();
 }
@@ -179,9 +180,9 @@ void libusb_context::OnOutputTransferResultReceived(
   GOOGLE_SMART_CARD_CHECK(transfers_in_flight_.ContainsWithAsyncRequestState(
       async_request_state.get()));
 
-  GOOGLE_SMART_CARD_CHECK(
-      received_output_transfer_result_map_.emplace(async_request_state, result)
-          .second);
+  GOOGLE_SMART_CARD_CHECK(received_output_transfer_result_map_
+                              .emplace(async_request_state, std::move(result))
+                              .second);
 
   condition_.notify_all();
 }
@@ -289,7 +290,7 @@ bool libusb_context::ExtractInputAsyncTransferStateUpdate(
           transfers_in_flight_.GetAsyncByDestination(transfer_destination)
               .async_request_state;
 
-      *result = stored_results->front();
+      *result = std::move(stored_results->front());
       stored_results->pop();
       if (stored_results->empty()) {
         GOOGLE_SMART_CARD_CHECK(
@@ -312,7 +313,7 @@ bool libusb_context::ExtractMatchingInputTransferResult(
   std::queue<TransferRequestResult>* results_queue = &iter->second;
 
   GOOGLE_SMART_CARD_CHECK(!results_queue->empty());
-  *result = results_queue->front();
+  *result = std::move(results_queue->front());
   results_queue->pop();
 
   if (results_queue->empty()) received_input_transfer_result_map_.erase(iter);
@@ -341,8 +342,7 @@ void libusb_context::SetTransferResult(
 libusb_device::libusb_device(
     libusb_context* context,
     const google_smart_card::chrome_usb::Device& chrome_usb_device)
-    : context_(context),
-      chrome_usb_device_(chrome_usb_device) {
+    : context_(context), chrome_usb_device_(chrome_usb_device) {
   GOOGLE_SMART_CARD_CHECK(context);
 }
 

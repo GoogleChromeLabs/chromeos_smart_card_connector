@@ -22,8 +22,8 @@
 
 #include <gtest/gtest.h>
 
-#include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/request_result.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -57,16 +57,18 @@ TEST(RequestingAsyncRequestTest, AsyncRequestStateBasic) {
 
   // The first set of the request result is successful and triggers the callback
   const int kValue = 123;
-  ASSERT_TRUE(
-      request_state.SetResult(GenericRequestResult::CreateSuccessful(kValue)));
+  ASSERT_TRUE(request_state.SetResult(
+      GenericRequestResult::CreateSuccessful(Value(kValue))));
   ASSERT_EQ(1, callback.call_count());
-  EXPECT_EQ(kValue, VarAs<int>(callback.request_result().payload()));
+  ASSERT_TRUE(callback.request_result().payload().is_integer());
+  EXPECT_EQ(callback.request_result().payload().GetInteger(), kValue);
 
   // The subsequent set of the request result does not change the stored value
   // and does not trigger the callback
   ASSERT_FALSE(request_state.SetResult(GenericRequestResult::CreateFailed("")));
   ASSERT_EQ(1, callback.call_count());
-  EXPECT_EQ(kValue, VarAs<int>(callback.request_result().payload()));
+  ASSERT_TRUE(callback.request_result().payload().is_integer());
+  EXPECT_EQ(callback.request_result().payload().GetInteger(), kValue);
 }
 
 TEST(RequestingAsyncRequestTest, AsyncRequestStateMultiThreading) {
