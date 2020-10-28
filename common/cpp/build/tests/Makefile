@@ -43,15 +43,24 @@ TEST_SOURCES := \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/logging/hex_dumping_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/messaging/typed_message_router_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/numeric_conversions_unittest.cc \
+	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_conversion_unittest.cc \
+	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_debug_dumping_unittest.cc \
+	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_unittest.cc \
+
+ifeq ($(TOOLCHAIN),pnacl)
+
+TEST_SOURCES += \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/pp_var_utils/construction_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/pp_var_utils/enum_converter_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/pp_var_utils/struct_converter_unittest.cc \
+	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_nacl_pp_var_conversion_unittest.cc \
+
+# TODO(#185): Migrate these to support the Emscripten toolchain as well.
+TEST_SOURCES += \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/requesting/async_request_unittest.cc \
 	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/requesting/async_requests_storage_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_conversion_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_debug_dumping_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_nacl_pp_var_conversion_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_unittest.cc \
+
+endif
 
 ADDITIONAL_TEST_CPPFLAGS := \
 	-I$(TEST_SOURCES_PATH) \

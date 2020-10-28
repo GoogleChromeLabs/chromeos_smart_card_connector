@@ -28,7 +28,6 @@ ROOT_SOURCES_SUBDIR := google_smart_card_common
 SOURCES_PATH := $(ROOT_SOURCES_PATH)/$(ROOT_SOURCES_SUBDIR)
 
 SOURCES := \
-	$(SOURCES_PATH)/external_logs_printer.cc \
 	$(SOURCES_PATH)/formatting.cc \
 	$(SOURCES_PATH)/logging/function_call_tracer.cc \
 	$(SOURCES_PATH)/logging/hex_dumping.cc \
@@ -37,25 +36,35 @@ SOURCES := \
 	$(SOURCES_PATH)/messaging/typed_message.cc \
 	$(SOURCES_PATH)/messaging/typed_message_router.cc \
 	$(SOURCES_PATH)/multi_string.cc \
-	$(SOURCES_PATH)/nacl_io_utils.cc \
 	$(SOURCES_PATH)/numeric_conversions.cc \
+	$(SOURCES_PATH)/value.cc \
+	$(SOURCES_PATH)/value_conversion.cc \
+	$(SOURCES_PATH)/value_debug_dumping.cc \
+
+ifeq ($(TOOLCHAIN),pnacl)
+
+SOURCES += \
+	$(SOURCES_PATH)/nacl_io_utils.cc \
 	$(SOURCES_PATH)/pp_var_utils/construction.cc \
 	$(SOURCES_PATH)/pp_var_utils/copying.cc \
 	$(SOURCES_PATH)/pp_var_utils/debug_dump.cc \
 	$(SOURCES_PATH)/pp_var_utils/extraction.cc \
 	$(SOURCES_PATH)/pp_var_utils/operations.cc \
-	$(SOURCES_PATH)/requesting/js_requester.cc \
+	$(SOURCES_PATH)/value_nacl_pp_var_conversion.cc \
+
+# TODO(#185): Migrate these to support the Emscripten toolchain as well.
+SOURCES += \
+	$(SOURCES_PATH)/external_logs_printer.cc \
 	$(SOURCES_PATH)/requesting/js_request_receiver.cc \
+	$(SOURCES_PATH)/requesting/js_requester.cc \
 	$(SOURCES_PATH)/requesting/remote_call_adaptor.cc \
 	$(SOURCES_PATH)/requesting/remote_call_message.cc \
-	$(SOURCES_PATH)/requesting/requester.cc \
-	$(SOURCES_PATH)/requesting/requester_message.cc \
 	$(SOURCES_PATH)/requesting/request_receiver.cc \
 	$(SOURCES_PATH)/requesting/request_result.cc \
-	$(SOURCES_PATH)/value.cc \
-	$(SOURCES_PATH)/value_conversion.cc \
-	$(SOURCES_PATH)/value_debug_dumping.cc \
-	$(SOURCES_PATH)/value_nacl_pp_var_conversion.cc \
+	$(SOURCES_PATH)/requesting/requester.cc \
+	$(SOURCES_PATH)/requesting/requester_message.cc \
+
+endif
 
 CXXFLAGS := \
 	-I$(ROOT_SOURCES_PATH)/ \
