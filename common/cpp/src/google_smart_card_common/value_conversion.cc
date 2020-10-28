@@ -305,7 +305,7 @@ bool ConvertFromValue(Value value, std::vector<uint8_t>* bytes,
                       std::string* error_message) {
   if (value.is_binary()) {
     // This is a special case that is the reason why the standard
-    // array-to-vector template is overloaded by our function.
+    // array-to-vector template is overloaded by this function.
     *bytes = std::move(value.GetBinary());
     return true;
   }
