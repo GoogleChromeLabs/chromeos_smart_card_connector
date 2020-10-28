@@ -22,6 +22,10 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_PP_VAR_UTILS_EXTRACTION_H_
 #define GOOGLE_SMART_CARD_COMMON_PP_VAR_UTILS_EXTRACTION_H_
 
+#ifndef __native_client__
+#error "This file should only be used in Native Client builds"
+#endif  // __native_client__
+
 #include <inttypes.h>
 #include <stdint.h>
 

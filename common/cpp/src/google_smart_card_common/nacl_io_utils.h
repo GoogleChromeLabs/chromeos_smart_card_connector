@@ -15,6 +15,10 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_NACL_IO_UTILS_H_
 #define GOOGLE_SMART_CARD_COMMON_NACL_IO_UTILS_H_
 
+#ifndef __native_client__
+#error "This file should only be used in Native Client builds"
+#endif  // __native_client__
+
 #include <ppapi/cpp/instance.h>
 
 namespace google_smart_card {
