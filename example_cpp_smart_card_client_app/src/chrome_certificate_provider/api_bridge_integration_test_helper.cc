@@ -30,6 +30,7 @@
 #include <google_smart_card_common/requesting/request_receiver.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
+#include <google_smart_card_common/value.h>
 #include <google_smart_card_integration_testing/integration_test_helper.h>
 #include <google_smart_card_integration_testing/integration_test_service.h>
 
@@ -73,7 +74,7 @@ void SetCertificatesOnBackgroundThread(
   if (!locked_api_bridge)
     GOOGLE_SMART_CARD_LOG_FATAL << "ApiBridge already destroyed";
   locked_api_bridge->SetCertificates(certificates);
-  result_callback(gsc::GenericRequestResult::CreateSuccessful(pp::Var()));
+  result_callback(gsc::GenericRequestResult::CreateSuccessful(gsc::Value()));
 }
 
 }  // namespace

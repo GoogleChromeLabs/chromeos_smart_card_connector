@@ -26,6 +26,7 @@
 #include <google_smart_card_common/requesting/async_request.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/requesting/requester.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -74,8 +75,10 @@ class RemoteCallAdaptor final {
       *error_message = generic_request_result.error_message();
       return false;
     }
+    // TODO(#185): Parse `Value` diectly, without converting to `pp::Var`.
+    pp::Var payload_var = ConvertValueToPpVar(generic_request_result.payload());
     pp::VarArray var_array;
-    if (!VarAs(generic_request_result.payload(), &var_array, error_message)) {
+    if (!VarAs(payload_var, &var_array, error_message)) {
       GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response "
                                   << "payload items: " << *error_message;
     }

@@ -41,6 +41,7 @@
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/multi_string.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 #include <google_smart_card_pcsc_lite_common/scard_structs_serialization.h>
 
 namespace google_smart_card {
@@ -148,9 +149,12 @@ LONG ExtractRequestResultsAndCode(
     return SCARD_F_INTERNAL_ERROR;
   }
 
+  // TODO(#220): Parse `Value` directly, instead of converting to `pp::Var`.
+  pp::Var payload_var = ConvertValueToPpVar(generic_request_result.payload());
+
   std::string error_message;
   pp::VarArray var_array;
-  if (!VarAs(generic_request_result.payload(), &var_array, &error_message)) {
+  if (!VarAs(payload_var, &var_array, &error_message)) {
     GOOGLE_SMART_CARD_LOG_FATAL << logging_prefix << "Failed to extract the "
                                 << "response payload items: " << error_message;
   }

@@ -1070,7 +1070,7 @@ LibusbOverChromeUsb::SyncTransferHelper::WaitForCompletion() {
     context_->WaitAndProcessOutputSyncTransferReceivedResult(
         async_request_state_);
   }
-  return result_;
+  return std::move(result_);
 }
 
 libusb_context* LibusbOverChromeUsb::SubstituteDefaultContextIfNull(

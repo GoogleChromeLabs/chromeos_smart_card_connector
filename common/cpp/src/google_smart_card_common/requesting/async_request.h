@@ -24,10 +24,9 @@
 #include <string>
 #include <utility>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/requesting/request_result.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -40,7 +39,7 @@ template <typename PayloadType>
 using AsyncRequestCallback =
     std::function<void(RequestResult<PayloadType> request_result)>;
 
-using GenericAsyncRequestCallback = AsyncRequestCallback<pp::Var>;
+using GenericAsyncRequestCallback = AsyncRequestCallback<Value>;
 
 // This class contains the internal state of an asynchronous request.
 //
@@ -78,7 +77,7 @@ class AsyncRequestState final {
   std::atomic_flag is_callback_call_started_ = ATOMIC_FLAG_INIT;
 };
 
-using GenericAsyncRequestState = AsyncRequestState<pp::Var>;
+using GenericAsyncRequestState = AsyncRequestState<Value>;
 
 // This class contains the interface of an asynchronous request that is exposed
 // to consumers.
@@ -120,7 +119,7 @@ class AsyncRequest final {
   std::shared_ptr<AsyncRequestState<PayloadType>> state_;
 };
 
-using GenericAsyncRequest = AsyncRequest<pp::Var>;
+using GenericAsyncRequest = AsyncRequest<Value>;
 
 }  // namespace google_smart_card
 

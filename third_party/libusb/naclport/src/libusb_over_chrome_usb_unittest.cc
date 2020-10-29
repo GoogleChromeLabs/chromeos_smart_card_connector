@@ -50,11 +50,10 @@ using testing::_;
 using testing::Assign;
 using testing::Eq;
 using testing::Invoke;
-using testing::InvokeArgument;
+using testing::InvokeWithoutArgs;
 using testing::Mock;
 using testing::MockFunction;
-using testing::ResultOf;
-using testing::Return;
+using testing::WithArgs;
 
 namespace google_smart_card {
 
@@ -170,9 +169,10 @@ TEST_F(LibusbOverChromeUsbTest, ContextsCreation) {
 
 TEST_F(LibusbOverChromeUsbTest, DevicesListingWithFailure) {
   EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
-      .WillOnce(
-          Return(RequestResult<chrome_usb::GetDevicesResult>::CreateFailed(
-              "fake failure")));
+      .WillOnce(InvokeWithoutArgs([]() {
+        return RequestResult<chrome_usb::GetDevicesResult>::CreateFailed(
+            "fake failure");
+      }));
 
   libusb_device** device_list;
   ASSERT_EQ(LIBUSB_ERROR_OTHER,
@@ -180,11 +180,11 @@ TEST_F(LibusbOverChromeUsbTest, DevicesListingWithFailure) {
 }
 
 TEST_F(LibusbOverChromeUsbTest, DevicesListingWithNoItems) {
-  chrome_usb::GetDevicesResult chrome_usb_get_devices_result;
   EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
-      .WillOnce(
-          Return(RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
-              chrome_usb_get_devices_result)));
+      .WillOnce(InvokeWithoutArgs([]() {
+        return RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
+            chrome_usb::GetDevicesResult());
+      }));
 
   libusb_device** device_list = nullptr;
   ASSERT_EQ(0,
@@ -208,9 +208,10 @@ TEST_F(LibusbOverChromeUsbTest, DevicesListingWithTwoItems) {
   chrome_usb_device_2.product_id = 0;
   chrome_usb_get_devices_result.devices.push_back(chrome_usb_device_2);
   EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
-      .WillOnce(
-          Return(RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
-              chrome_usb_get_devices_result)));
+      .WillOnce(InvokeWithoutArgs([&]() {
+        return RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
+            chrome_usb_get_devices_result);
+      }));
 
   libusb_device** device_list = nullptr;
   ASSERT_EQ(2,
@@ -279,25 +280,28 @@ class LibusbOverChromeUsbWithFakeDeviceTest : public LibusbOverChromeUsbTest {
     chrome_usb_get_devices_result.devices.push_back(chrome_usb_device);
     // TODO(emaxx): Add testing of the GetDevices method arguments
     EXPECT_CALL(*chrome_usb_api_bridge, GetDevices(_))
-        .WillRepeatedly(Return(
-            RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
-                chrome_usb_get_devices_result)));
+        .WillRepeatedly(InvokeWithoutArgs([=]() {
+          return RequestResult<chrome_usb::GetDevicesResult>::CreateSuccessful(
+              chrome_usb_get_devices_result);
+        }));
 
     chrome_usb::OpenDeviceResult chrome_usb_open_device_result;
     chrome_usb_open_device_result.connection_handle =
         chrome_usb_connection_handle;
     EXPECT_CALL(*chrome_usb_api_bridge, OpenDevice(chrome_usb_device))
-        .WillOnce(Return(
-            RequestResult<chrome_usb::OpenDeviceResult>::CreateSuccessful(
-                chrome_usb_open_device_result)));
+        .WillOnce(InvokeWithoutArgs([=]() {
+          return RequestResult<chrome_usb::OpenDeviceResult>::CreateSuccessful(
+              chrome_usb_open_device_result);
+        }));
 
     // TODO(emaxx): Add testing that calls of methods OpenDevice and CloseDevice
     // form a valid bracket sequence
     EXPECT_CALL(*chrome_usb_api_bridge,
                 CloseDevice(chrome_usb_connection_handle))
-        .WillOnce(Return(
-            RequestResult<chrome_usb::CloseDeviceResult>::CreateSuccessful(
-                chrome_usb::CloseDeviceResult())));
+        .WillOnce(InvokeWithoutArgs([]() {
+          return RequestResult<chrome_usb::CloseDeviceResult>::CreateSuccessful(
+              chrome_usb::CloseDeviceResult());
+        }));
   }
 
   void ObtainLibusbDevice() {
@@ -325,8 +329,11 @@ class LibusbOverChromeUsbTransfersTest
                 AsyncControlTransfer(
                     chrome_usb_connection_handle,
                     GenerateControlTransferInfo(transfer_index, is_output), _))
-        .WillOnce(InvokeArgument<2>(
-            GenerateTransferRequestResult(transfer_index, is_output)));
+        .WillOnce(
+            WithArgs<2>(Invoke([=](chrome_usb::AsyncTransferCallback callback) {
+              callback(
+                  GenerateTransferRequestResult(transfer_index, is_output));
+            })));
   }
 
   std::function<void()> SetUpMockForAsyncControlTransfer(size_t transfer_index,

@@ -32,6 +32,7 @@
 #include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
+#include <google_smart_card_common/value.h>
 #include <google_smart_card_integration_testing/integration_test_helper.h>
 
 namespace google_smart_card {
@@ -57,8 +58,7 @@ IntegrationTestHelper* IntegrationTestService::RegisterHelper(
 }
 
 void IntegrationTestService::Activate(
-    pp::Instance* pp_instance,
-    pp::Core* pp_core,
+    pp::Instance* pp_instance, pp::Core* pp_core,
     TypedMessageRouter* typed_message_router) {
   GOOGLE_SMART_CARD_CHECK(pp_instance);
   GOOGLE_SMART_CARD_CHECK(pp_core);
@@ -72,8 +72,7 @@ void IntegrationTestService::Activate(
   typed_message_router_ = typed_message_router;
   js_request_receiver_ = std::make_shared<JsRequestReceiver>(
       kIntegrationTestServiceRequesterName,
-      /*request_handler=*/this,
-      typed_message_router_,
+      /*request_handler=*/this, typed_message_router_,
       MakeUnique<JsRequestReceiver::PpDelegateImpl>(pp_instance_));
 }
 
@@ -87,27 +86,26 @@ void IntegrationTestService::Deactivate() {
 }
 
 void IntegrationTestService::HandleRequest(
-    const pp::Var& payload,
-    RequestReceiver::ResultCallback result_callback) {
+    const pp::Var& payload, RequestReceiver::ResultCallback result_callback) {
   std::string method_name;
   pp::VarArray method_arguments;
-  if (!ParseRemoteCallRequestPayload(
-           payload, &method_name, &method_arguments)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Cannot parse call parameters from " <<
-        DumpVar(payload);
+  if (!ParseRemoteCallRequestPayload(payload, &method_name,
+                                     &method_arguments)) {
+    GOOGLE_SMART_CARD_LOG_FATAL << "Cannot parse call parameters from "
+                                << DumpVar(payload);
   }
   if (method_name == "SetUp") {
     std::string helper_name;
     pp::Var data_for_helper;
     GetVarArrayItems(method_arguments, &helper_name, &data_for_helper);
     SetUpHelper(helper_name, data_for_helper);
-    result_callback(GenericRequestResult::CreateSuccessful(pp::Var()));
+    result_callback(GenericRequestResult::CreateSuccessful(Value()));
     return;
   }
   if (method_name == "TearDownAll") {
     GOOGLE_SMART_CARD_CHECK(method_arguments.GetLength() == 0);
     TearDownAllHelpers();
-    result_callback(GenericRequestResult::CreateSuccessful(pp::Var()));
+    result_callback(GenericRequestResult::CreateSuccessful(Value()));
     return;
   }
   if (method_name == "HandleMessage") {
@@ -127,35 +125,30 @@ IntegrationTestService::~IntegrationTestService() = default;
 IntegrationTestHelper* IntegrationTestService::FindHelperByName(
     const std::string& name) {
   for (const auto& helper : helpers_) {
-    if (helper->GetName() == name)
-      return helper.get();
+    if (helper->GetName() == name) return helper.get();
   }
   return nullptr;
 }
 
-void IntegrationTestService::SetUpHelper(
-    const std::string& helper_name, const pp::Var& data_for_helper) {
+void IntegrationTestService::SetUpHelper(const std::string& helper_name,
+                                         const pp::Var& data_for_helper) {
   IntegrationTestHelper* helper = FindHelperByName(helper_name);
-  if (!helper)
-    GOOGLE_SMART_CARD_LOG_FATAL << "Unknown helper " << helper_name;
+  if (!helper) GOOGLE_SMART_CARD_LOG_FATAL << "Unknown helper " << helper_name;
   GOOGLE_SMART_CARD_CHECK(!set_up_helpers_.count(helper));
   set_up_helpers_.insert(helper);
   helper->SetUp(pp_instance_, pp_core_, typed_message_router_, data_for_helper);
 }
 
 void IntegrationTestService::TearDownAllHelpers() {
-  for (auto* helper : set_up_helpers_)
-    helper->TearDown();
+  for (auto* helper : set_up_helpers_) helper->TearDown();
   set_up_helpers_.clear();
 }
 
 void IntegrationTestService::SendMessageToHelper(
-    const std::string& helper_name,
-    const pp::Var& message_for_helper,
+    const std::string& helper_name, const pp::Var& message_for_helper,
     RequestReceiver::ResultCallback result_callback) {
   IntegrationTestHelper* helper = FindHelperByName(helper_name);
-  if (!helper)
-    GOOGLE_SMART_CARD_LOG_FATAL << "Unknown helper " << helper_name;
+  if (!helper) GOOGLE_SMART_CARD_LOG_FATAL << "Unknown helper " << helper_name;
   GOOGLE_SMART_CARD_CHECK(set_up_helpers_.count(helper));
   helper->OnMessageFromJs(message_for_helper, result_callback);
 }

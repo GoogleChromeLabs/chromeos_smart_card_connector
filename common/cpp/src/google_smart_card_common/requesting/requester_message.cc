@@ -15,10 +15,10 @@
 #include <google_smart_card_common/requesting/requester_message.h>
 
 #include <string>
+#include <utility>
 
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -64,9 +64,7 @@ ResponseMessageData ResponseMessageData::CreateFromRequestResult(
   message_data.request_id = request_id;
   switch (request_result.status()) {
     case RequestResultStatus::kSucceeded:
-      // TODO(#185): Directly store `Value` in `GenericRequestResult`, rather
-      // than convert it from `pp::Var`.
-      message_data.payload = ConvertPpVarToValueOrDie(request_result.payload());
+      message_data.payload = std::move(request_result).TakePayload();
       break;
     case RequestResultStatus::kFailed:
       message_data.error_message = request_result.error_message();
@@ -81,10 +79,8 @@ ResponseMessageData ResponseMessageData::CreateFromRequestResult(
 bool ResponseMessageData::ExtractRequestResult(
     GenericRequestResult* request_result) {
   if (payload && !error_message) {
-    // TODO(#185): Directly store `Value` in `GenericRequestResult`, rather than
-    // convert it into `pp::Var`.
     *request_result =
-        GenericRequestResult::CreateSuccessful(ConvertValueToPpVar(*payload));
+        GenericRequestResult::CreateSuccessful(std::move(*payload));
     return true;
   }
   if (error_message && !payload) {

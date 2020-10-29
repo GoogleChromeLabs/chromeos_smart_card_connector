@@ -20,11 +20,10 @@
 #include <unordered_map>
 #include <vector>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/requesting/async_request.h>
 #include <google_smart_card_common/requesting/request_id.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -94,7 +93,7 @@ class AsyncRequestsStorage final {
       state_map_;
 };
 
-using GenericAsyncRequestsStorage = AsyncRequestsStorage<pp::Var>;
+using GenericAsyncRequestsStorage = AsyncRequestsStorage<Value>;
 
 }  // namespace google_smart_card
 
