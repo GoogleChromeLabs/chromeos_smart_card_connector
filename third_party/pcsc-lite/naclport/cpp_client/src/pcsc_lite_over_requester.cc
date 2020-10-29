@@ -149,7 +149,7 @@ LONG ExtractRequestResultsAndCode(
     return SCARD_F_INTERNAL_ERROR;
   }
 
-  // TODO: Parse `Value` directly, instead of converting to `pp::Var`.
+  // TODO(#220): Parse `Value` directly, instead of converting to `pp::Var`.
   pp::Var payload_var = ConvertValueToPpVar(generic_request_result.payload());
 
   std::string error_message;

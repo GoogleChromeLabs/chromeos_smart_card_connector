@@ -34,7 +34,7 @@ constexpr char kPinMessageKey[] = "pin";
 void ExtractPinRequestResult(
     const google_smart_card::GenericRequestResult& request_result,
     std::string* pin) {
-  // TODO: Parse `Value` directly, without converting into `pp::Var`.
+  // TODO(#220): Parse `Value` directly, without converting into `pp::Var`.
   const pp::VarDictionary result_var =
       google_smart_card::VarAs<pp::VarDictionary>(
           google_smart_card::ConvertValueToPpVar(request_result.payload()));

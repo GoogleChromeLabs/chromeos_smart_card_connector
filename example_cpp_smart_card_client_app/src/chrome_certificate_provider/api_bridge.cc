@@ -60,7 +60,7 @@ void ProcessCertificatesRequest(
       locked_certificates_request_handler = certificates_request_handler.lock();
   GOOGLE_SMART_CARD_CHECK(locked_certificates_request_handler);
   if (locked_certificates_request_handler->HandleRequest(&certificates)) {
-    // TODO: Build `Value` directly, without converting from `pp::Var`.
+    // TODO(#220): Build `Value` directly, without converting from `pp::Var`.
     result_callback(gsc::GenericRequestResult::CreateSuccessful(
         gsc::ConvertPpVarToValueOrDie(gsc::MakeVarArray(certificates))));
   } else {
@@ -84,7 +84,7 @@ void ProcessSignatureRequest(
   GOOGLE_SMART_CARD_CHECK(locked_signature_request_handler);
   if (locked_signature_request_handler->HandleRequest(signature_request,
                                                       &signature)) {
-    // TODO: Build `Value` directly, without converting from `pp::Var`.
+    // TODO(#220): Build `Value` directly, without converting from `pp::Var`.
     result_callback(gsc::GenericRequestResult::CreateSuccessful(
         gsc::ConvertPpVarToValueOrDie(gsc::MakeVarArray(signature))));
   } else {
@@ -153,7 +153,7 @@ bool ApiBridge::RequestPin(const RequestPinOptions& options, std::string* pin) {
     tracer.LogExit();
     return false;
   }
-  // TODO: Parse `Value` directly, rather than convert into `pp::Var`.
+  // TODO(#220): Parse `Value` directly, rather than convert into `pp::Var`.
   const pp::Var payload_var =
       gsc::ConvertValueToPpVar(generic_request_result.payload());
   // Note: Cannot use RemoteCallAdaptor::ExtractResultPayload(), since the API
