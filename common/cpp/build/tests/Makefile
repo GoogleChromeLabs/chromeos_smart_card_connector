@@ -30,6 +30,7 @@ SOURCES := \
 	$(SOURCES_PATH)/numeric_conversions_unittest.cc \
 	$(SOURCES_PATH)/requesting/async_request_unittest.cc \
 	$(SOURCES_PATH)/requesting/async_requests_storage_unittest.cc \
+	$(SOURCES_PATH)/requesting/remote_call_arguments_conversion_unittest.cc \
 	$(SOURCES_PATH)/value_conversion_unittest.cc \
 	$(SOURCES_PATH)/value_debug_dumping_unittest.cc \
 	$(SOURCES_PATH)/value_unittest.cc \

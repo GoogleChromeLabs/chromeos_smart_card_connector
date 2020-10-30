@@ -16,14 +16,16 @@
 #define GOOGLE_SMART_CARD_COMMON_REQUESTING_REMOTE_CALL_ADAPTOR_H_
 
 #include <string>
+#include <utility>
 
 #include <ppapi/cpp/var.h>
 #include <ppapi/cpp/var_array.h>
 
 #include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/async_request.h>
+#include <google_smart_card_common/requesting/remote_call_arguments_conversion.h>
+#include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/requesting/requester.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
@@ -44,25 +46,28 @@ class RemoteCallAdaptor final {
   ~RemoteCallAdaptor();
 
   template <typename... Args>
-  GenericRequestResult SyncCall(const std::string& function_name,
-                                const Args&... args) {
-    return PerformSyncRequest(function_name, ConvertRequestArguments(args...));
+  GenericRequestResult SyncCall(std::string function_name, Args&&... args) {
+    return PerformSyncRequest(ConvertToRemoteCallRequestPayloadOrDie(
+        std::move(function_name), std::forward<Args>(args)...));
   }
 
   template <typename... Args>
   GenericAsyncRequest AsyncCall(GenericAsyncRequestCallback callback,
-                                const std::string& function_name,
-                                const Args&... args) {
-    return StartAsyncRequest(function_name, ConvertRequestArguments(args...),
-                             callback);
+                                std::string function_name, Args&&... args) {
+    return StartAsyncRequest(
+        ConvertToRemoteCallRequestPayloadOrDie(std::move(function_name),
+                                               std::forward<Args>(args)...),
+        callback);
   }
 
   template <typename... Args>
   void AsyncCall(GenericAsyncRequest* async_request,
                  GenericAsyncRequestCallback callback,
-                 const std::string& function_name, const Args&... args) {
-    StartAsyncRequest(function_name, ConvertRequestArguments(args...), callback,
-                      async_request);
+                 std::string function_name, Args&&... args) {
+    StartAsyncRequest(
+        ConvertToRemoteCallRequestPayloadOrDie(std::move(function_name),
+                                               std::forward<Args>(args)...),
+        callback, async_request);
   }
 
   template <typename... PayloadFields>
@@ -104,21 +109,12 @@ class RemoteCallAdaptor final {
   }
 
  private:
-  template <typename... Args>
-  static pp::VarArray ConvertRequestArguments(const Args&... args) {
-    return MakeVarArray(args...);
-  }
+  GenericRequestResult PerformSyncRequest(RemoteCallRequestPayload payload);
 
-  GenericRequestResult PerformSyncRequest(
-      const std::string& function_name,
-      const pp::VarArray& converted_arguments);
-
-  GenericAsyncRequest StartAsyncRequest(const std::string& function_name,
-                                        const pp::VarArray& converted_arguments,
+  GenericAsyncRequest StartAsyncRequest(RemoteCallRequestPayload payload,
                                         GenericAsyncRequestCallback callback);
 
-  void StartAsyncRequest(const std::string& function_name,
-                         const pp::VarArray& converted_arguments,
+  void StartAsyncRequest(RemoteCallRequestPayload payload,
                          GenericAsyncRequestCallback callback,
                          GenericAsyncRequest* async_request);
 

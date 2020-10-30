@@ -39,6 +39,8 @@
 #include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_debug_dumping.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 #include <google_smart_card_pcsc_lite_common/scard_debug_dump.h>
@@ -164,23 +166,26 @@ void PcscLiteClientRequestProcessor::ScheduleRunningRequestsCancellation() {
 }
 
 void PcscLiteClientRequestProcessor::ProcessRequest(
-    const std::string& function_name, const pp::VarArray& arguments,
+    RemoteCallRequestPayload request,
     RequestReceiver::ResultCallback result_callback) {
-  GOOGLE_SMART_CARD_LOG_DEBUG
-      << logging_prefix_ << "Started processing "
-      << "request " << DebugDumpRemoteCallRequest(function_name, arguments)
-      << "...";
+  GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix_ << "Started processing "
+                              << "request " << request.DebugDumpSanitized()
+                              << "...";
 
-  GenericRequestResult result = FindHandlerAndCall(function_name, arguments);
+  // TODO(#233): Pass `Value`s, instead of converting into `pp::VarArray`.
+  pp::VarArray arguments_var(
+      ConvertValueToPpVar(ConvertToValueOrDie(std::move(request.arguments))));
+  GenericRequestResult result =
+      FindHandlerAndCall(request.function_name, arguments_var);
 
   if (result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_DEBUG
-        << logging_prefix_ << "Request " << function_name
+        << logging_prefix_ << "Request " << request.function_name
         << " finished successfully with the following "
         << "results: " << DebugDumpValueSanitized(result.payload());
   } else {
     GOOGLE_SMART_CARD_LOG_DEBUG
-        << logging_prefix_ << "Request " << function_name
+        << logging_prefix_ << "Request " << request.function_name
         << " failed with the following error: \"" << result.error_message()
         << "\"";
   }
@@ -191,10 +196,10 @@ void PcscLiteClientRequestProcessor::ProcessRequest(
 // static
 void PcscLiteClientRequestProcessor::AsyncProcessRequest(
     std::shared_ptr<PcscLiteClientRequestProcessor> request_processor,
-    const std::string& function_name, const pp::VarArray& arguments,
+    RemoteCallRequestPayload request,
     RequestReceiver::ResultCallback result_callback) {
   std::thread(&PcscLiteClientRequestProcessor::ProcessRequest,
-              request_processor, function_name, arguments, result_callback)
+              request_processor, std::move(request), result_callback)
       .detach();
 }
 

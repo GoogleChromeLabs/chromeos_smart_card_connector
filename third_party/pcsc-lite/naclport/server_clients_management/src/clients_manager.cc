@@ -28,6 +28,7 @@
 #include <inttypes.h>
 
 #include <sstream>
+#include <string>
 #include <utility>
 
 #include <ppapi/cpp/var.h>
@@ -145,7 +146,7 @@ std::string PcscLiteServerClientsManager::CreateHandlerMessageListener::
 
 bool PcscLiteServerClientsManager::CreateHandlerMessageListener::
     OnTypedMessageReceived(Value data) {
-  // TODO: Parse `Value` directly instead of transforming into `pp::Var`.
+  // TODO(#233): Parse `Value` directly instead of transforming into `pp::Var`.
   const pp::Var data_var = ConvertValueToPpVar(data);
   CreateHandlerMessageData message_data;
   std::string error_message;
@@ -174,7 +175,7 @@ std::string PcscLiteServerClientsManager::DeleteHandlerMessageListener ::
 
 bool PcscLiteServerClientsManager::DeleteHandlerMessageListener ::
     OnTypedMessageReceived(Value data) {
-  // TODO: Parse `Value` directly instead of transforming into `pp::Var`.
+  // TODO(#233): Parse `Value` directly instead of transforming into `pp::Var`.
   const pp::Var data_var = ConvertValueToPpVar(data);
   DeleteHandlerMessageData message_data;
   std::string error_message;
@@ -218,18 +219,17 @@ PcscLiteServerClientsManager::Handler::~Handler() {
 
 void PcscLiteServerClientsManager::Handler::HandleRequest(
     Value payload, RequestReceiver::ResultCallback result_callback) {
-  // TODO: Parse `Value` directly instead of transforming into `pp::Var`.
-  const pp::Var payload_var = ConvertValueToPpVar(payload);
-  std::string function_name;
-  pp::VarArray arguments;
-  if (!ParseRemoteCallRequestPayload(payload_var, &function_name, &arguments)) {
+  RemoteCallRequestPayload remote_call_request;
+  std::string error_message;
+  if (!ConvertFromValue(std::move(payload), &remote_call_request,
+                        &error_message)) {
     result_callback(GenericRequestResult::CreateFailed(
-        "Failed to parse remote call request payload"));
+        "Failed to parse remote call request payload: " + error_message));
     return;
   }
 
   PcscLiteClientRequestProcessor::AsyncProcessRequest(
-      request_processor_, function_name, arguments, result_callback);
+      request_processor_, std::move(remote_call_request), result_callback);
 }
 
 void PcscLiteServerClientsManager::CreateHandler(

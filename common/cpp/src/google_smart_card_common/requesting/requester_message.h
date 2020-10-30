@@ -48,7 +48,7 @@ std::string GetResponseMessageType(const std::string& name);
 // request to the JavaScript side. The simplified code would look like this:
 //   RequestMessageData message_data;
 //   message_data.request_id = 123;
-//   message_data.payload = Valie("Hello request from C++");
+//   message_data.payload = Value("Hello request from C++");
 //   TypedMessage typed_message;
 //   typed_message.type = GetRequestMessageType("say_hello");
 //   typed_message.data = ConvertToValueOrDie(std::move(message_data));
@@ -57,7 +57,7 @@ std::string GetResponseMessageType(const std::string& name);
 // produced by this sample code:
 //   ResponseMessageData response_message_data;
 //   response_message_data.request_id = 123;
-//   response_message_data.payload = Valie("Hello response from JS");
+//   response_message_data.payload = Value("Hello response from JS");
 //   TypedMessage response_typed_message;
 //   response_typed_message.type = GetResponseMessageType("say_hello");
 //   response_typed_message.data = ConvertToValueOrDie(

@@ -14,52 +14,33 @@
 
 #include <google_smart_card_common/requesting/remote_call_message.h>
 
-#include <ppapi/cpp/var_dictionary.h>
+#include <string>
 
-#include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/debug_dump.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
+#include <google_smart_card_common/value_conversion.h>
+#include <google_smart_card_common/value_debug_dumping.h>
 
 namespace google_smart_card {
 
-namespace {
-
-constexpr char kFunctionNameMessageField[] = "function_name";
-constexpr char kFunctionArgumentsMessageField[] = "arguments";
-
-}  // namespace
-
-pp::Var MakeRemoteCallRequestPayload(const std::string& function_name,
-                                     const pp::VarArray& arguments) {
-  return VarDictBuilder()
-      .Add(kFunctionNameMessageField, function_name)
-      .Add(kFunctionArgumentsMessageField, arguments)
-      .Result();
+// Register the struct for conversions to/from `Value`.
+template <>
+StructValueDescriptor<RemoteCallRequestPayload>::Description
+StructValueDescriptor<RemoteCallRequestPayload>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the keys in
+  // //common/js/src/requesting/remote-call-message.js.
+  return Describe("RemoteCallRequestPayload")
+      .WithField(&RemoteCallRequestPayload::function_name, "function_name")
+      .WithField(&RemoteCallRequestPayload::arguments, "arguments");
 }
 
-bool ParseRemoteCallRequestPayload(const pp::Var& request_payload,
-                                   std::string* function_name,
-                                   pp::VarArray* arguments) {
-  std::string error_message;
-  pp::VarDictionary request_payload_dict;
-  if (!VarAs(request_payload, &request_payload_dict, &error_message))
-    return false;
-  return VarDictValuesExtractor(request_payload_dict)
-      .Extract(kFunctionNameMessageField, function_name)
-      .Extract(kFunctionArgumentsMessageField, arguments)
-      .GetSuccessWithNoExtraKeysAllowed(&error_message);
-}
-
-std::string DebugDumpRemoteCallRequest(const std::string& function_name,
-                                       const pp::VarArray& arguments) {
-  std::string dumped_arguments = DebugDumpVar(arguments);
-  GOOGLE_SMART_CARD_CHECK(!dumped_arguments.empty());
-  GOOGLE_SMART_CARD_CHECK(dumped_arguments.front() == '[');
-  GOOGLE_SMART_CARD_CHECK(dumped_arguments.back() == ']');
-  dumped_arguments.front() = '(';
-  dumped_arguments.back() = ')';
-  return function_name + dumped_arguments;
+std::string RemoteCallRequestPayload::DebugDumpSanitized() const {
+  std::string debug_dump = function_name;
+  debug_dump += '(';
+  for (size_t i = 0; i < arguments.size(); ++i) {
+    if (i > 0) debug_dump += ',';
+    debug_dump += DebugDumpValueSanitized(arguments[i]);
+  }
+  debug_dump += ')';
+  return debug_dump;
 }
 
 }  // namespace google_smart_card

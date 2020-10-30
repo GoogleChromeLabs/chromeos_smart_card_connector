@@ -16,26 +16,43 @@
 #define GOOGLE_SMART_CARD_COMMON_REQUESTING_REMOTE_CALL_MESSAGE_H_
 
 #include <string>
+#include <vector>
 
-#include <ppapi/cpp/var.h>
-#include <ppapi/cpp/var_array.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
-// Constructs the message data payload of the remote call request, containing
-// the specified function name and the array of the function arguments.
-pp::Var MakeRemoteCallRequestPayload(const std::string& function_name,
-                                     const pp::VarArray& arguments);
+// Represents the contents of the `RequestMessageData::payload` field for
+// "remote call" requests.
+//
+// Example usage scenario: Suppose the C++ code wants to make a "promptUser"
+// remote call request to the JavaScript side. The simplified code would look
+// like this:
+//   RemoteCallRequestPayload payload;
+//   payload.function_name = "promptUser";
+//   payload.arguments.emplace_back("Please enter foo");
+//   RequestMessageData message_data;
+//   message_data.request_id = 123;
+//   message_data.payload = ConvertToValueOrDie(std::move(payload));
+//   TypedMessage typed_message;
+//   typed_message.type = GetRequestMessageType("promptUser");
+//   typed_message.data = ConvertToValueOrDie(std::move(message_data));
+//   SendMessageToJs(typed_message);
+// The received response would be a typed message that is similar to the one
+// produced by this sample code:
+//   ResponseMessageData response_message_data;
+//   response_message_data.request_id = 123;
+//   response_message_data.payload = Value("foo");
+//   TypedMessage response_typed_message;
+//   response_typed_message.type = GetResponseMessageType("promptUser");
+//   response_typed_message.data = ConvertToValueOrDie(
+//       std::move(response_message_data));
+struct RemoteCallRequestPayload {
+  std::string DebugDumpSanitized() const;
 
-// Parses the message data payload of the remote call request, extracting the
-// function name and the array of the function arguments.
-bool ParseRemoteCallRequestPayload(const pp::Var& request_payload,
-                                   std::string* function_name,
-                                   pp::VarArray* arguments);
-
-// Generates a human-readable debug dump of the remote call request.
-std::string DebugDumpRemoteCallRequest(const std::string& function_name,
-                                       const pp::VarArray& arguments);
+  std::string function_name;
+  std::vector<Value> arguments;
+};
 
 }  // namespace google_smart_card
 

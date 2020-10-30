@@ -16,10 +16,8 @@
 
 #include <utility>
 
-#include <ppapi/cpp/var_dictionary.h>
-
 #include <google_smart_card_common/requesting/remote_call_message.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
+#include <google_smart_card_common/value_conversion.h>
 
 namespace google_smart_card {
 
@@ -31,30 +29,22 @@ RemoteCallAdaptor::RemoteCallAdaptor(Requester* requester)
 RemoteCallAdaptor::~RemoteCallAdaptor() = default;
 
 GenericRequestResult RemoteCallAdaptor::PerformSyncRequest(
-    const std::string& function_name, const pp::VarArray& converted_arguments) {
-  // TODO(#185): Create `Value` directly, without converting from `pp::Var`.
-  return requester_->PerformSyncRequest(ConvertPpVarToValueOrDie(
-      MakeRemoteCallRequestPayload(function_name, converted_arguments)));
+    RemoteCallRequestPayload payload) {
+  return requester_->PerformSyncRequest(
+      ConvertToValueOrDie(std::move(payload)));
 }
 
 GenericAsyncRequest RemoteCallAdaptor::StartAsyncRequest(
-    const std::string& function_name, const pp::VarArray& converted_arguments,
-    GenericAsyncRequestCallback callback) {
-  // TODO(#185): Create `Value` directly, without converting from `pp::Var`.
-  return requester_->StartAsyncRequest(
-      ConvertPpVarToValueOrDie(
-          MakeRemoteCallRequestPayload(function_name, converted_arguments)),
-      callback);
+    RemoteCallRequestPayload payload, GenericAsyncRequestCallback callback) {
+  return requester_->StartAsyncRequest(ConvertToValueOrDie(std::move(payload)),
+                                       callback);
 }
 
-void RemoteCallAdaptor::StartAsyncRequest(
-    const std::string& function_name, const pp::VarArray& converted_arguments,
-    GenericAsyncRequestCallback callback, GenericAsyncRequest* async_request) {
-  // TODO(#185): Create `Value` directly, without converting from `pp::Var`.
-  requester_->StartAsyncRequest(
-      ConvertPpVarToValueOrDie(
-          MakeRemoteCallRequestPayload(function_name, converted_arguments)),
-      callback, async_request);
+void RemoteCallAdaptor::StartAsyncRequest(RemoteCallRequestPayload payload,
+                                          GenericAsyncRequestCallback callback,
+                                          GenericAsyncRequest* async_request) {
+  requester_->StartAsyncRequest(ConvertToValueOrDie(std::move(payload)),
+                                callback, async_request);
 }
 
 }  // namespace google_smart_card

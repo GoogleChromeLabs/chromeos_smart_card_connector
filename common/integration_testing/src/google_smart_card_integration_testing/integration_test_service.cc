@@ -33,6 +33,7 @@
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 #include <google_smart_card_integration_testing/integration_test_helper.h>
 
@@ -88,37 +89,33 @@ void IntegrationTestService::Deactivate() {
 
 void IntegrationTestService::HandleRequest(
     Value payload, RequestReceiver::ResultCallback result_callback) {
-  // TODO(#185): Parse `Value` directly, instead of converting into `pp::Var`.
-  const pp::Var payload_var = ConvertValueToPpVar(payload);
-  std::string method_name;
-  pp::VarArray method_arguments;
-  if (!ParseRemoteCallRequestPayload(payload_var, &method_name,
-                                     &method_arguments)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Cannot parse call parameters from "
-                                << DumpVar(payload_var);
-  }
-  if (method_name == "SetUp") {
+  RemoteCallRequestPayload request =
+      ConvertFromValueOrDie<RemoteCallRequestPayload>(std::move(payload));
+  // TODO(#185): Pass `Value`s, instead of converting into `pp::VarArray`.
+  pp::VarArray arguments_var(
+      ConvertValueToPpVar(ConvertToValueOrDie(std::move(request.arguments))));
+  if (request.function_name == "SetUp") {
     std::string helper_name;
     pp::Var data_for_helper;
-    GetVarArrayItems(method_arguments, &helper_name, &data_for_helper);
+    GetVarArrayItems(arguments_var, &helper_name, &data_for_helper);
     SetUpHelper(helper_name, data_for_helper);
     result_callback(GenericRequestResult::CreateSuccessful(Value()));
     return;
   }
-  if (method_name == "TearDownAll") {
-    GOOGLE_SMART_CARD_CHECK(method_arguments.GetLength() == 0);
+  if (request.function_name == "TearDownAll") {
+    GOOGLE_SMART_CARD_CHECK(arguments_var.GetLength() == 0);
     TearDownAllHelpers();
     result_callback(GenericRequestResult::CreateSuccessful(Value()));
     return;
   }
-  if (method_name == "HandleMessage") {
+  if (request.function_name == "HandleMessage") {
     std::string helper_name;
     pp::Var message_for_helper;
-    GetVarArrayItems(method_arguments, &helper_name, &message_for_helper);
+    GetVarArrayItems(arguments_var, &helper_name, &message_for_helper);
     SendMessageToHelper(helper_name, message_for_helper, result_callback);
     return;
   }
-  GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected method " << method_name;
+  GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected method " << request.function_name;
 }
 
 IntegrationTestService::IntegrationTestService() = default;

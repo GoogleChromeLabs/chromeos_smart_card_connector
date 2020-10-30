@@ -44,6 +44,7 @@
 
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
+#include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/requesting/request_receiver.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/tuple_unpacking.h>
@@ -122,14 +123,13 @@ class PcscLiteClientRequestProcessor final
   //
   // This method is safe to be called from any thread, except the main Pepper
   // thread (which could lead to a deadlock).
-  void ProcessRequest(const std::string& function_name,
-                      const pp::VarArray& arguments,
+  void ProcessRequest(RemoteCallRequestPayload request,
                       RequestReceiver::ResultCallback result_callback);
 
   // Start processing the given PC/SC-Lite request in a background thread.
   static void AsyncProcessRequest(
       std::shared_ptr<PcscLiteClientRequestProcessor> request_processor,
-      const std::string& function_name, const pp::VarArray& arguments,
+      RemoteCallRequestPayload request,
       RequestReceiver::ResultCallback result_callback);
 
  private:
