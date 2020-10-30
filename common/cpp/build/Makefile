@@ -47,6 +47,7 @@ SOURCES := \
 ifeq ($(TOOLCHAIN),pnacl)
 
 SOURCES += \
+	$(SOURCES_PATH)/global_context_impl_nacl.cc \
 	$(SOURCES_PATH)/nacl_io_utils.cc \
 	$(SOURCES_PATH)/pp_var_utils/construction.cc \
 	$(SOURCES_PATH)/pp_var_utils/copying.cc \
@@ -67,6 +68,7 @@ SOURCES += \
 else ifeq ($(TOOLCHAIN),emscripten)
 
 SOURCES += \
+	$(SOURCES_PATH)/global_context_impl_emscripten.cc \
 	$(SOURCES_PATH)/value_emscripten_val_conversion.cc \
 
 endif
