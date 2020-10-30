@@ -208,4 +208,360 @@ TEST(ValueEmscriptenValConversion, ArrayValue) {
   }
 }
 
+TEST(ValueEmscriptenValConversion, UndefinedEmscriptenVal) {
+  std::string error_message;
+  const optional<Value> value =
+      ConvertEmscriptenValToValue(emscripten::val::undefined(), &error_message);
+  EXPECT_TRUE(error_message.empty());
+  ASSERT_TRUE(value);
+  EXPECT_TRUE(value->is_null());
+}
+
+TEST(ValueEmscriptenValConversion, NullEmscriptenVal) {
+  std::string error_message;
+  const optional<Value> value =
+      ConvertEmscriptenValToValue(emscripten::val::null(), &error_message);
+  EXPECT_TRUE(error_message.empty());
+  ASSERT_TRUE(value);
+  EXPECT_TRUE(value->is_null());
+}
+
+TEST(ValueEmscriptenValConversion, BooleanEmscriptenVal) {
+  {
+    constexpr bool kBoolean = false;
+    std::string error_message;
+    const optional<Value> value =
+        ConvertEmscriptenValToValue(emscripten::val(kBoolean), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_boolean());
+    EXPECT_EQ(value->GetBoolean(), kBoolean);
+  }
+
+  {
+    constexpr bool kBoolean = true;
+    std::string error_message;
+    const optional<Value> value =
+        ConvertEmscriptenValToValue(emscripten::val(kBoolean), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_boolean());
+    EXPECT_EQ(value->GetBoolean(), kBoolean);
+  }
+}
+
+TEST(ValueEmscriptenValConversion, IntegerNumberEmscriptenVal) {
+  {
+    constexpr int kNumber = 123;
+    std::string error_message;
+    const optional<Value> value =
+        ConvertEmscriptenValToValue(emscripten::val(kNumber), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_integer());
+    EXPECT_EQ(value->GetInteger(), kNumber);
+  }
+
+  {
+    // This is a big number that is guaranteed to fit into `int` and into the
+    // range of precisely representable JavaScript numbers.
+    constexpr int kBig =
+        sizeof(int) < 4 ? std::numeric_limits<int>::max() : (1 << 30);
+    const optional<Value> value =
+        ConvertEmscriptenValToValue(emscripten::val(kBig));
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_integer());
+    EXPECT_EQ(value->GetInteger(), kBig);
+  }
+
+  {
+    constexpr int64_t kInt64Max = std::numeric_limits<int64_t>::max();
+    const optional<Value> value = ConvertEmscriptenValToValue(
+        emscripten::val(static_cast<double>(kInt64Max)));
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_float());
+    EXPECT_DOUBLE_EQ(value->GetFloat(), static_cast<double>(kInt64Max));
+  }
+}
+
+TEST(ValueEmscriptenValConversion, FloatNumberEmscriptenVal) {
+  {
+    constexpr double kFractional = 123.456;
+    std::string error_message;
+    const optional<Value> value = ConvertEmscriptenValToValue(
+        emscripten::val(kFractional), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_float());
+    EXPECT_DOUBLE_EQ(value->GetFloat(), kFractional);
+  }
+
+  {
+    constexpr double kHuge = 1E100;
+    const optional<Value> value =
+        ConvertEmscriptenValToValue(emscripten::val(kHuge));
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_float());
+    EXPECT_DOUBLE_EQ(value->GetFloat(), kHuge);
+  }
+}
+
+TEST(ValueEmscriptenValConversion, StringEmscriptenVal) {
+  {
+    constexpr char kEmpty[] = "";
+    std::string error_message;
+    const optional<Value> value =
+        ConvertEmscriptenValToValue(emscripten::val(kEmpty), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_string());
+    EXPECT_EQ(value->GetString(), kEmpty);
+  }
+
+  {
+    constexpr char kFoo[] = "foo";
+    const optional<Value> value =
+        ConvertEmscriptenValToValue(emscripten::val(kFoo));
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_string());
+    EXPECT_EQ(value->GetString(), kFoo);
+  }
+}
+
+TEST(ValueEmscriptenValConversion, ArrayBufferEmscriptenVal) {
+  {
+    std::string error_message;
+    const optional<Value> value = ConvertEmscriptenValToValue(
+        emscripten::val::global("ArrayBuffer").new_(), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_binary());
+    EXPECT_TRUE(value->GetBinary().empty());
+  }
+
+  {
+    const std::vector<uint8_t> kBytes = {1, 2, 3};
+    const emscripten::val uint8_array_val =
+        emscripten::val::global("Uint8Array")
+            .call<emscripten::val>("from", emscripten::val::array(kBytes));
+    emscripten::val array_buffer_val = uint8_array_val["buffer"];
+
+    const optional<Value> value = ConvertEmscriptenValToValue(array_buffer_val);
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_binary());
+    EXPECT_EQ(value->GetBinary(), kBytes);
+  }
+}
+
+TEST(ValueEmscriptenValConversion, FunctionEmscriptenVal) {
+  {
+    emscripten::val val = emscripten::val::global("String");
+    std::string error_message;
+    EXPECT_FALSE(ConvertEmscriptenValToValue(val, &error_message));
+    EXPECT_EQ(error_message, "Conversion error: unsupported type \"function\"");
+  }
+
+  {
+    emscripten::val val = emscripten::val::global("parseInt");
+    EXPECT_FALSE(ConvertEmscriptenValToValue(val));
+  }
+}
+
+TEST(ValueEmscriptenValConversion, ArrayEmscriptenVal) {
+  {
+    std::string error_message;
+    const optional<Value> value =
+        ConvertEmscriptenValToValue(emscripten::val::array(), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_array());
+    EXPECT_TRUE(value->GetArray().empty());
+  }
+
+  {
+    emscripten::val val = emscripten::val::global("JSON").call<emscripten::val>(
+        "parse", std::string("[[null, 123]]"));
+
+    std::string error_message;
+    const optional<Value> value =
+        ConvertEmscriptenValToValue(val, &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_array());
+    ASSERT_EQ(value->GetArray().size(), 1U);
+    const Value& inner_value = *value->GetArray()[0];
+    ASSERT_TRUE(inner_value.is_array());
+    ASSERT_EQ(inner_value.GetArray().size(), 2U);
+    EXPECT_TRUE(inner_value.GetArray()[0]->is_null());
+    ASSERT_TRUE(inner_value.GetArray()[1]->is_integer());
+    EXPECT_EQ(inner_value.GetArray()[1]->GetInteger(), 123);
+  }
+}
+
+TEST(ValueEmscriptenValConversion, ArrayEmscriptenValWithBadItem) {
+  emscripten::val inner_array_val = emscripten::val::array();  // [<function>]
+  inner_array_val.set(0, emscripten::val::global("parseInt"));
+  emscripten::val array_val = emscripten::val::array();  // [null, [<function>]]
+  array_val.set(0, emscripten::val::null());
+  array_val.set(1, inner_array_val);
+
+  EXPECT_FALSE(ConvertEmscriptenValToValue(inner_array_val));
+  EXPECT_FALSE(ConvertEmscriptenValToValue(array_val));
+
+  {
+    std::string error_message;
+    EXPECT_FALSE(ConvertEmscriptenValToValue(inner_array_val, &error_message));
+    EXPECT_EQ(error_message,
+              "Error converting array item #0: Conversion error: unsupported "
+              "type \"function\"");
+  }
+
+  {
+    std::string error_message;
+    EXPECT_FALSE(ConvertEmscriptenValToValue(array_val, &error_message));
+    EXPECT_EQ(error_message,
+              "Error converting array item #1: Error converting array item #0: "
+              "Conversion error: unsupported type \"function\"");
+  }
+}
+
+TEST(ValueEmscriptenValConversion, Uint8ArrayEmscriptenVal) {
+  {
+    std::string error_message;
+    const optional<Value> value = ConvertEmscriptenValToValue(
+        emscripten::val::global("Uint8Array").new_(), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_array());
+    EXPECT_TRUE(value->GetArray().empty());
+  }
+
+  {
+    const std::vector<uint8_t> kBytes = {1, 2, 255};
+    emscripten::val val = emscripten::val::global("Uint8Array")
+                              .new_(emscripten::val::array(kBytes));
+
+    const optional<Value> value = ConvertEmscriptenValToValue(val);
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_array());
+    ASSERT_EQ(value->GetArray().size(), kBytes.size());
+    for (size_t i = 0; i < kBytes.size(); ++i) {
+      const Value& item = *value->GetArray()[i];
+      ASSERT_TRUE(item.is_integer());
+      EXPECT_EQ(item.GetInteger(), kBytes[i]);
+    }
+  }
+}
+
+TEST(ValueEmscriptenValConversion, DataViewEmscriptenVal) {
+  const emscripten::val val =
+      emscripten::val::global("DataView")
+          .new_(emscripten::val::global("ArrayBuffer").new_());
+
+  EXPECT_FALSE(ConvertEmscriptenValToValue(val));
+
+  {
+    std::string error_message;
+    EXPECT_FALSE(ConvertEmscriptenValToValue(val, &error_message));
+    EXPECT_EQ(error_message, "Conversion error: unsupported type \"DataView\"");
+  }
+}
+
+TEST(ValueEmscriptenValConversion, ObjectEmscriptenVal) {
+  {
+    std::string error_message;
+    const optional<Value> value =
+        ConvertEmscriptenValToValue(emscripten::val::object(), &error_message);
+    EXPECT_TRUE(error_message.empty());
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_dictionary());
+    EXPECT_TRUE(value->GetDictionary().empty());
+  }
+
+  {
+    emscripten::val val = emscripten::val::global("JSON").call<emscripten::val>(
+        "parse", std::string(R"({"xyz": {"foo": null, "bar": 123}})"));
+
+    const optional<Value> value = ConvertEmscriptenValToValue(val);
+    ASSERT_TRUE(value);
+    ASSERT_TRUE(value->is_dictionary());
+    EXPECT_EQ(value->GetDictionary().size(), 1U);
+    const auto xyz_iter = value->GetDictionary().find("xyz");
+    ASSERT_NE(xyz_iter, value->GetDictionary().end());
+    const Value& inner_value = *xyz_iter->second;
+    ASSERT_TRUE(inner_value.is_dictionary());
+    EXPECT_EQ(inner_value.GetDictionary().size(), 2U);
+    const auto foo_iter = inner_value.GetDictionary().find("foo");
+    ASSERT_NE(foo_iter, inner_value.GetDictionary().end());
+    const Value& foo_item_value = *foo_iter->second;
+    EXPECT_TRUE(foo_item_value.is_null());
+    const auto bar_iter = inner_value.GetDictionary().find("bar");
+    ASSERT_NE(bar_iter, inner_value.GetDictionary().end());
+    const Value& bar_item_value = *bar_iter->second;
+    ASSERT_TRUE(bar_item_value.is_integer());
+    EXPECT_EQ(bar_item_value.GetInteger(), 123);
+  }
+}
+
+TEST(ValueEmscriptenValConversion, ObjectEmscriptenValWithBadItem) {
+  emscripten::val inner_object_val =
+      emscripten::val::object();  // {"someInnerKey": <function>}
+  inner_object_val.set("someInnerKey", emscripten::val::global("parseInt"));
+  emscripten::val object_val =
+      emscripten::val::object();  // {"someKey": {"someInnerKey": <function>}}
+  object_val.set("someKey", inner_object_val);
+
+  EXPECT_FALSE(ConvertEmscriptenValToValue(inner_object_val));
+  EXPECT_FALSE(ConvertEmscriptenValToValue(object_val));
+
+  {
+    std::string error_message;
+    EXPECT_FALSE(ConvertEmscriptenValToValue(inner_object_val, &error_message));
+    EXPECT_EQ(error_message,
+              "Error converting object property \"someInnerKey\": Conversion "
+              "error: unsupported type \"function\"");
+  }
+
+  {
+    std::string error_message;
+    EXPECT_FALSE(ConvertEmscriptenValToValue(object_val, &error_message));
+    EXPECT_EQ(error_message,
+              "Error converting object property \"someKey\": Error converting "
+              "object property \"someInnerKey\": Conversion error: unsupported "
+              "type \"function\"");
+  }
+}
+
+// Test that `ConvertEmscriptenValToValueOrDie()` succeeds on supported inputs.
+// As death tests aren't supported, we don't test failure scenarios.
+TEST(ValueEmscriptenValConversion, EmscriptenValOrDie) {
+  {
+    constexpr bool kBoolean = false;
+    const Value value =
+        ConvertEmscriptenValToValueOrDie(emscripten::val(kBoolean));
+    ASSERT_TRUE(value.is_boolean());
+    EXPECT_EQ(value.GetBoolean(), kBoolean);
+  }
+
+  {
+    const int kInteger = 123;
+    const Value value =
+        ConvertEmscriptenValToValueOrDie(emscripten::val(kInteger));
+    ASSERT_TRUE(value.is_integer());
+    EXPECT_EQ(value.GetInteger(), kInteger);
+  }
+
+  {
+    emscripten::val object_val = emscripten::val::object();
+    object_val.set("foo", emscripten::val::null());
+
+    const Value value = ConvertEmscriptenValToValueOrDie(object_val);
+    ASSERT_TRUE(value.is_dictionary());
+    EXPECT_EQ(value.GetDictionary().size(), 1U);
+    const Value* foo_value = value.GetDictionaryItem("foo");
+    ASSERT_TRUE(foo_value);
+    EXPECT_TRUE(foo_value->is_null());
+  }
+}
+
 }  // namespace google_smart_card
