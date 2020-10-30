@@ -46,7 +46,7 @@ body {
 }
 
 #cancel::after {
-  content: "__MSG_pbuiltInPinDialogCancel__";
+  content: "__MSG_builtInPinDialogCancel__";
 }
 
 
