@@ -422,7 +422,7 @@ Backend.prototype.processSignatureRequest_ = function(request) {
       remoteCallMessage.makeRequestPayload());
   promise.then(function(results) {
     GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-    const signature = normalizeSignature(results[0]);
+    const signature = results[0];
     this.logger.info(
         'Responding to the signature request with the created signature: ' +
         GSC.DebugDump.debugDump(signature));
@@ -488,7 +488,7 @@ Backend.prototype.processSignDigestRequest_ = function(
       remoteCallMessage.makeRequestPayload());
   promise.then(function(results) {
     GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-    const signature = normalizeSignature(results[0]);
+    const signature = results[0];
     this.logger.info(
         'Responding to the digest sign request with the created signature: ' +
         GSC.DebugDump.debugDump(signature));
@@ -539,8 +539,7 @@ function transformFunctionArguments(functionName, functionArguments) {
  */
 function createClientCertificateInfo(naclCertificateInfo) {
   return {
-    certificateChain: [
-        (new Uint8Array(naclCertificateInfo['certificate'])).buffer],
+    certificateChain: [naclCertificateInfo['certificate']],
     supportedAlgorithms: naclCertificateInfo['supportedAlgorithms']
   };
 }
@@ -551,7 +550,7 @@ function createClientCertificateInfo(naclCertificateInfo) {
  */
 function createCertificateInfo(naclCertificateInfo) {
   return {
-    certificate: (new Uint8Array(naclCertificateInfo['certificate'])).buffer,
+    certificate: naclCertificateInfo['certificate'],
     supportedHashes: goog.array.map(
       naclCertificateInfo['supportedAlgorithms'], getHashFromAlgorithm)
   };
@@ -581,14 +580,6 @@ function getHashFromAlgorithm(algorithm) {
   }
   GSC.Logging.fail(`Unknown algorithm ${algorithm}`);
   return chrome.certificateProvider.Hash.SHA1;
-}
-
-/**
- * @param {!Array.<number>} signature
- * @return !ArrayBuffer
- */
-function normalizeSignature(signature) {
-  return (new Uint8Array(signature)).buffer;
 }
 
 });  // goog.scope

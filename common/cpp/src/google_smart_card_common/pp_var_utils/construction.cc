@@ -66,6 +66,10 @@ pp::Var MakeVar(const std::string& value) {
   return value;
 }
 
+pp::Var MakeVar(const std::vector<uint8_t>& value) {
+  return MakeVarArrayBuffer(value);
+}
+
 std::string CleanupStringForVar(const std::string& string) {
   const char kPlaceholder = '_';
   std::string result = string;
