@@ -60,7 +60,8 @@ void BuiltInPinDialogServer::Detach() { js_requester_.Detach(); }
 
 bool BuiltInPinDialogServer::RequestPin(std::string* pin) {
   const google_smart_card::GenericRequestResult request_result =
-      js_requester_.PerformSyncRequest(/*payload=*/google_smart_card::Value());
+      js_requester_.PerformSyncRequest(/*payload=*/google_smart_card::Value(
+          google_smart_card::Value::Type::kDictionary));
   if (!request_result.is_successful()) return false;
   ExtractPinRequestResult(request_result, pin);
   return true;
