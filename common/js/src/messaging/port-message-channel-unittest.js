@@ -169,7 +169,6 @@ goog.exportSymbol('testPortMessageChannelMessageSending', function() {
   return testCasePromiseResolver.promise;
 });
 
-
 // Test that array buffers in sent messages are substituted with byte arrays.
 goog.exportSymbol('testPortMessageChannelArrayBufferSending', function() {
   const MESSAGE_TYPE = 'foo';
