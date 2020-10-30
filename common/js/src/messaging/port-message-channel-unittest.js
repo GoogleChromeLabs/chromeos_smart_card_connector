@@ -169,6 +169,28 @@ goog.exportSymbol('testPortMessageChannelMessageSending', function() {
   return testCasePromiseResolver.promise;
 });
 
+
+// Test that array buffers in sent messages are substituted with byte arrays.
+goog.exportSymbol('testPortMessageChannelArrayBufferSending', function() {
+  const MESSAGE_TYPE = 'foo';
+  const MESSAGE_DATA = {x: (new Uint8Array([1, 255])).buffer};
+  const EXPECTED_TRANSMITTED_DATA = {x: [1, 255]};
+  const EXPECTED_TRANSMITTED_MESSAGE = new TypedMessage(
+      MESSAGE_TYPE, EXPECTED_TRANSMITTED_DATA);
+
+  const mockPort = new GSC.MockPort('mock port');
+  mockPort.postMessage(new goog.testing.mockmatchers.ObjectEquals(
+      EXPECTED_TRANSMITTED_MESSAGE.makeMessage())).$once();
+  mockPort.postMessage.$replay();
+
+  const portMessageChannel = new GSC.PortMessageChannel(
+      mockPort.getFakePort());
+  portMessageChannel.send(MESSAGE_TYPE, MESSAGE_DATA);
+  mockPort.postMessage.$verify();
+
+  mockPort.dispose();
+});
+
 // Test that the port message channel passes the messages received from the port
 // to the correct services with preserving the relative order.
 goog.exportSymbol('testPortMessageChannelMessageReceiving', function() {
