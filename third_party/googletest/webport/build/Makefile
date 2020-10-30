@@ -78,7 +78,13 @@ endif
 #   the compilation according to prepared scripts.
 #
 # Explanation of parameters to cmake:
-# B: build directory.
+# E env: Wraps the further second cmake call into the "env" tool that allows to
+#   specify environment variables.
+# CXXFLAGS: Enables Emscripten Pthreads support (despite that it's not used by
+#   GoogleTest itself due to the other parameter below, Emscripten requires this
+#   flag to be set if a library is linked later with other files that have it).
+# LDFLAGS: Enables Emscripten Pthreads support.
+# B: Build directory.
 # CMAKE_BUILD_TYPE: Specify debug/release build.
 # gtest_disable_pthreads: Disables pthreads-based functionality in GoogleTest
 #   that doesn't behave well under Emscripten (it deadlocks on startup).
@@ -86,6 +92,10 @@ $(ARTIFACTS_LIBS) &:
 	rm -rf out-artifacts
 	mkdir out-artifacts
 	emcmake \
+		cmake \
+		-E env \
+		CXXFLAGS="-pthread" \
+		LDFLAGS="-pthread" \
 		cmake \
 		../../src \
 		-B out-artifacts \
