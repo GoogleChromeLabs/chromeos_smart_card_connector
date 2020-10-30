@@ -18,6 +18,7 @@
 
 #include <ppapi/cpp/core.h>
 #include <ppapi/cpp/instance.h>
+#include <ppapi/cpp/var.h>
 
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
@@ -36,9 +37,13 @@ void GlobalContextImplNacl::DetachFromPpInstance() {
 }
 
 bool GlobalContextImplNacl::PostMessageToJs(const Value& message) {
+  // Converting the value before entering the mutex, in order to minimize the
+  // time spent under the lock.
+  const pp::Var var = ConvertValueToPpVar(message);
+
   const std::unique_lock<std::mutex> lock(mutex_);
   if (!pp_instance_) return false;
-  pp_instance_->PostMessage(ConvertValueToPpVar(message));
+  pp_instance_->PostMessage(var);
   return true;
 }
 

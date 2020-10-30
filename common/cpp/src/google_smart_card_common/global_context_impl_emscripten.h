@@ -52,6 +52,8 @@ class GlobalContextImplEmscripten final : public GlobalContext {
 
  private:
   const std::thread::id main_thread_id_;
+
+  // The mutex that protects access to `post_message_callback_`.
   std::mutex mutex_;
   emscripten::val post_message_callback_;
 };

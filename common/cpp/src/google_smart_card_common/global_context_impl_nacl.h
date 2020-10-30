@@ -48,6 +48,8 @@ class GlobalContextImplNacl final : public GlobalContext {
 
  private:
   pp::Core* const pp_core_;
+
+  // The mutex that protects access to `pp_instance_`.
   std::mutex mutex_;
   pp::Instance* pp_instance_;
 };

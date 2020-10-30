@@ -37,9 +37,13 @@ void GlobalContextImplEmscripten::DetachFromPostMessage() {
 }
 
 bool GlobalContextImplEmscripten::PostMessageToJs(const Value& message) {
+  // Converting the value before entering the mutex, in order to minimize the
+  // time spent under the lock.
+  const emscripten::val val = ConvertValueToEmscriptenVal(message);
+
   const std::unique_lock<std::mutex> lock(mutex_);
   if (post_message_callback_.isUndefined()) return false;
-  post_message_callback_(ConvertValueToEmscriptenVal(message));
+  post_message_callback_(val);
   return true;
 }
 
