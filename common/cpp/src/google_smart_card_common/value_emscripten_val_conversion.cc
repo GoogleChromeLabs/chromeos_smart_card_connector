@@ -35,7 +35,7 @@ namespace google_smart_card {
 
 namespace {
 
-constexpr char kErrorWrongType[] = "Error converting: unsupported type \"%s\"";
+constexpr char kErrorWrongType[] = "Conversion error: unsupported type \"%s\"";
 
 emscripten::val CreateIntegerVal(int64_t integer) {
   // `emscripten::val` doesn't support direct conversion from `int64_t`, so

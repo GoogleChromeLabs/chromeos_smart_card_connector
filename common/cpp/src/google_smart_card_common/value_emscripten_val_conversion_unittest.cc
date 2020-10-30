@@ -358,7 +358,7 @@ TEST(ValueEmscriptenValConversion, FunctionEmscriptenVal) {
     emscripten::val val = emscripten::val::global("String");
     std::string error_message;
     EXPECT_FALSE(ConvertEmscriptenValToValue(val, &error_message));
-    EXPECT_EQ(error_message, "Error converting: unsupported type \"function\"");
+    EXPECT_EQ(error_message, "Conversion error: unsupported type \"function\"");
   }
 
   {
@@ -412,7 +412,7 @@ TEST(ValueEmscriptenValConversion, ArrayEmscriptenValWithBadItem) {
     std::string error_message;
     EXPECT_FALSE(ConvertEmscriptenValToValue(inner_array_val, &error_message));
     EXPECT_EQ(error_message,
-              "Error converting array item #0: Error converting: unsupported "
+              "Error converting array item #0: Conversion error: unsupported "
               "type \"function\"");
   }
 
@@ -421,7 +421,7 @@ TEST(ValueEmscriptenValConversion, ArrayEmscriptenValWithBadItem) {
     EXPECT_FALSE(ConvertEmscriptenValToValue(array_val, &error_message));
     EXPECT_EQ(error_message,
               "Error converting array item #1: Error converting array item #0: "
-              "Error converting: unsupported type \"function\"");
+              "Conversion error: unsupported type \"function\"");
   }
 }
 
@@ -463,7 +463,7 @@ TEST(ValueEmscriptenValConversion, DataViewEmscriptenVal) {
   {
     std::string error_message;
     EXPECT_FALSE(ConvertEmscriptenValToValue(val, &error_message));
-    EXPECT_EQ(error_message, "Error converting: unsupported type \"DataView\"");
+    EXPECT_EQ(error_message, "Conversion error: unsupported type \"DataView\"");
   }
 }
 
@@ -518,8 +518,8 @@ TEST(ValueEmscriptenValConversion, ObjectEmscriptenValWithBadItem) {
     std::string error_message;
     EXPECT_FALSE(ConvertEmscriptenValToValue(inner_object_val, &error_message));
     EXPECT_EQ(error_message,
-              "Error converting object property \"someInnerKey\": Error "
-              "converting: unsupported type \"function\"");
+              "Error converting object property \"someInnerKey\": Conversion "
+              "error: unsupported type \"function\"");
   }
 
   {
@@ -527,7 +527,7 @@ TEST(ValueEmscriptenValConversion, ObjectEmscriptenValWithBadItem) {
     EXPECT_FALSE(ConvertEmscriptenValToValue(object_val, &error_message));
     EXPECT_EQ(error_message,
               "Error converting object property \"someKey\": Error converting "
-              "object property \"someInnerKey\": Error converting: unsupported "
+              "object property \"someInnerKey\": Conversion error: unsupported "
               "type \"function\"");
   }
 }
