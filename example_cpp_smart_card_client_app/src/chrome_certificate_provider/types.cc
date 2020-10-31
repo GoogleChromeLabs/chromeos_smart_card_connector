@@ -16,6 +16,7 @@
 
 #include <google_smart_card_common/pp_var_utils/enum_converter.h>
 #include <google_smart_card_common/pp_var_utils/struct_converter.h>
+#include <google_smart_card_common/value_conversion.h>
 
 namespace scc = smart_card_client;
 namespace ccp = scc::chrome_certificate_provider;
@@ -38,6 +39,21 @@ using RequestPinResultsConverter = StructConverter<ccp::RequestPinResults>;
 using StopPinRequestOptionsConverter =
     StructConverter<ccp::StopPinRequestOptions>;
 
+template <>
+EnumValueDescriptor<ccp::Algorithm>::Description
+EnumValueDescriptor<ccp::Algorithm>::GetDescription() {
+  return Describe("chrome_certificate_provider::Algorithm")
+      .WithItem(ccp::Algorithm::kRsassaPkcs1v15Md5Sha1,
+                "RSASSA_PKCS1_v1_5_MD5_SHA1")
+      .WithItem(ccp::Algorithm::kRsassaPkcs1v15Sha1, "RSASSA_PKCS1_v1_5_SHA1")
+      .WithItem(ccp::Algorithm::kRsassaPkcs1v15Sha256,
+                "RSASSA_PKCS1_v1_5_SHA256")
+      .WithItem(ccp::Algorithm::kRsassaPkcs1v15Sha384,
+                "RSASSA_PKCS1_v1_5_SHA384")
+      .WithItem(ccp::Algorithm::kRsassaPkcs1v15Sha512,
+                "RSASSA_PKCS1_v1_5_SHA512");
+}
+
 // static
 template <>
 constexpr const char* AlgorithmConverter::GetEnumTypeName() {
@@ -56,6 +72,13 @@ void AlgorithmConverter::VisitCorrespondingPairs(Callback callback) {
   callback(ccp::Algorithm::kRsassaPkcs1v15Sha512, "RSASSA_PKCS1_v1_5_SHA512");
 }
 
+template <>
+EnumValueDescriptor<ccp::Error>::Description
+EnumValueDescriptor<ccp::Error>::GetDescription() {
+  return Describe("chrome_certificate_provider::Error")
+      .WithItem(ccp::Error::kGeneral, "GENERAL_ERROR");
+}
+
 // static
 template <>
 constexpr const char* ErrorConverter::GetEnumTypeName() {
@@ -67,6 +90,14 @@ template <>
 template <typename Callback>
 void ErrorConverter::VisitCorrespondingPairs(Callback callback) {
   callback(ccp::Error::kGeneral, "GENERAL_ERROR");
+}
+
+template <>
+EnumValueDescriptor<ccp::PinRequestType>::Description
+EnumValueDescriptor<ccp::PinRequestType>::GetDescription() {
+  return Describe("chrome_certificate_provider::PinRequestType")
+      .WithItem(ccp::PinRequestType::kPin, "PIN")
+      .WithItem(ccp::PinRequestType::kPuk, "PUK");
 }
 
 // static
@@ -81,6 +112,17 @@ template <typename Callback>
 void PinRequestTypeConverter::VisitCorrespondingPairs(Callback callback) {
   callback(ccp::PinRequestType::kPin, "PIN");
   callback(ccp::PinRequestType::kPuk, "PUK");
+}
+
+template <>
+EnumValueDescriptor<ccp::PinRequestErrorType>::Description
+EnumValueDescriptor<ccp::PinRequestErrorType>::GetDescription() {
+  return Describe("chrome_certificate_provider::PinRequestErrorType")
+      .WithItem(ccp::PinRequestErrorType::kInvalidPin, "INVALID_PIN")
+      .WithItem(ccp::PinRequestErrorType::kInvalidPuk, "INVALID_PUK")
+      .WithItem(ccp::PinRequestErrorType::kMaxAttemptsExceeded,
+                "MAX_ATTEMPTS_EXCEEDED")
+      .WithItem(ccp::PinRequestErrorType::kUnknownError, "UNKNOWN_ERROR");
 }
 
 // static
@@ -100,6 +142,15 @@ void PinRequestErrorTypeConverter::VisitCorrespondingPairs(Callback callback) {
   callback(ccp::PinRequestErrorType::kUnknownError, "UNKNOWN_ERROR");
 }
 
+template <>
+StructValueDescriptor<ccp::ClientCertificateInfo>::Description
+StructValueDescriptor<ccp::ClientCertificateInfo>::GetDescription() {
+  return Describe("chrome_certificate_provider::ClientCertificateInfo")
+      .WithField(&ccp::ClientCertificateInfo::certificate, "certificate")
+      .WithField(&ccp::ClientCertificateInfo::supported_algorithms,
+                 "supportedAlgorithms");
+}
+
 // static
 template <>
 constexpr const char* ClientCertificateInfoConverter::GetStructTypeName() {
@@ -113,6 +164,17 @@ void ClientCertificateInfoConverter::VisitFields(
     const ccp::ClientCertificateInfo& value, Callback callback) {
   callback(&value.certificate, "certificate");
   callback(&value.supported_algorithms, "supportedAlgorithms");
+}
+
+template <>
+StructValueDescriptor<ccp::SetCertificatesDetails>::Description
+StructValueDescriptor<ccp::SetCertificatesDetails>::GetDescription() {
+  return Describe("chrome_certificate_provider::SetCertificatesDetails")
+      .WithField(&ccp::SetCertificatesDetails::certificates_request_id,
+                 "certificatesRequestId")
+      .WithField(&ccp::SetCertificatesDetails::error, "error")
+      .WithField(&ccp::SetCertificatesDetails::client_certificates,
+                 "clientCertificates");
 }
 
 // static
@@ -129,6 +191,17 @@ void SetCertificatesDetailsConverter::VisitFields(
   callback(&value.certificates_request_id, "certificatesRequestId");
   callback(&value.error, "error");
   callback(&value.client_certificates, "clientCertificates");
+}
+
+template <>
+StructValueDescriptor<ccp::SignatureRequest>::Description
+StructValueDescriptor<ccp::SignatureRequest>::GetDescription() {
+  return Describe("chrome_certificate_provider::SignatureRequest")
+      .WithField(&ccp::SignatureRequest::sign_request_id, "signRequestId")
+      .WithField(&ccp::SignatureRequest::input, "input")
+      .WithField(&ccp::SignatureRequest::digest, "digest")
+      .WithField(&ccp::SignatureRequest::algorithm, "algorithm")
+      .WithField(&ccp::SignatureRequest::certificate, "certificate");
 }
 
 // static
@@ -149,6 +222,16 @@ void SignatureRequestConverter::VisitFields(const ccp::SignatureRequest& value,
   callback(&value.certificate, "certificate");
 }
 
+template <>
+StructValueDescriptor<ccp::RequestPinOptions>::Description
+StructValueDescriptor<ccp::RequestPinOptions>::GetDescription() {
+  return Describe("chrome_certificate_provider::RequestPinOptions")
+      .WithField(&ccp::RequestPinOptions::sign_request_id, "signRequestId")
+      .WithField(&ccp::RequestPinOptions::request_type, "requestType")
+      .WithField(&ccp::RequestPinOptions::error_type, "errorType")
+      .WithField(&ccp::RequestPinOptions::attempts_left, "attemptsLeft");
+}
+
 // static
 template <>
 constexpr const char* RequestPinOptionsConverter::GetStructTypeName() {
@@ -166,6 +249,13 @@ void RequestPinOptionsConverter::VisitFields(
   callback(&value.attempts_left, "attemptsLeft");
 }
 
+template <>
+StructValueDescriptor<ccp::RequestPinResults>::Description
+StructValueDescriptor<ccp::RequestPinResults>::GetDescription() {
+  return Describe("chrome_certificate_provider::RequestPinResults")
+      .WithField(&ccp::RequestPinResults::user_input, "userInput");
+}
+
 // static
 template <>
 constexpr const char* RequestPinResultsConverter::GetStructTypeName() {
@@ -178,6 +268,14 @@ template <typename Callback>
 void RequestPinResultsConverter::VisitFields(
     const ccp::RequestPinResults& value, Callback callback) {
   callback(&value.user_input, "userInput");
+}
+
+template <>
+StructValueDescriptor<ccp::StopPinRequestOptions>::Description
+StructValueDescriptor<ccp::StopPinRequestOptions>::GetDescription() {
+  return Describe("chrome_certificate_provider::StopPinRequestOptions")
+      .WithField(&ccp::StopPinRequestOptions::sign_request_id, "signRequestId")
+      .WithField(&ccp::StopPinRequestOptions::error_type, "errorType");
 }
 
 // static

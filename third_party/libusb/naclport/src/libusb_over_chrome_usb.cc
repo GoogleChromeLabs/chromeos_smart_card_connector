@@ -92,16 +92,15 @@ constexpr int kLibusbRequestTypeMask =
     LIBUSB_REQUEST_TYPE_STANDARD | LIBUSB_REQUEST_TYPE_CLASS |
     LIBUSB_REQUEST_TYPE_VENDOR | LIBUSB_REQUEST_TYPE_RESERVED;
 
-std::unique_ptr<uint8_t> CopyRawData(const uint8_t* data, size_t byte_count) {
-  std::unique_ptr<uint8_t> result(new uint8_t[byte_count]);
+std::unique_ptr<uint8_t[]> CopyRawData(const uint8_t* data, size_t byte_count) {
+  std::unique_ptr<uint8_t[]> result(new uint8_t[byte_count]);
   std::copy(data, data + byte_count, result.get());
   return result;
 }
 
-std::unique_ptr<uint8_t> CopyRawData(const pp::VarArrayBuffer& data) {
-  const std::vector<uint8_t> data_vector = VarAs<std::vector<uint8_t>>(data);
-  if (data_vector.empty()) return nullptr;
-  return CopyRawData(&data_vector[0], data_vector.size());
+std::unique_ptr<uint8_t[]> CopyRawData(const std::vector<uint8_t>& data) {
+  if (data.empty()) return nullptr;
+  return CopyRawData(&data[0], data.size());
 }
 
 }  // namespace
@@ -258,7 +257,7 @@ void FillLibusbEndpointDescriptor(
 
   result->extra = CopyRawData(chrome_usb_descriptor.extra_data).release();
 
-  result->extra_length = chrome_usb_descriptor.extra_data.ByteLength();
+  result->extra_length = chrome_usb_descriptor.extra_data.size();
 }
 
 void FillLibusbInterfaceDescriptor(
@@ -293,7 +292,7 @@ void FillLibusbInterfaceDescriptor(
 
   result->extra = CopyRawData(chrome_usb_descriptor.extra_data).release();
 
-  result->extra_length = chrome_usb_descriptor.extra_data.ByteLength();
+  result->extra_length = chrome_usb_descriptor.extra_data.size();
 }
 
 void FillLibusbInterface(
@@ -344,7 +343,7 @@ void FillLibusbConfigDescriptor(
 
   result->extra = CopyRawData(chrome_usb_descriptor.extra_data).release();
 
-  result->extra_length = chrome_usb_descriptor.extra_data.ByteLength();
+  result->extra_length = chrome_usb_descriptor.extra_data.size();
 }
 
 }  // namespace
@@ -670,7 +669,7 @@ bool CreateChromeUsbControlTransferInfo(
 
   if (result->direction == chrome_usb::Direction::kOut) {
     GOOGLE_SMART_CARD_CHECK(data);
-    result->data = MakeVarArrayBuffer(data, length);
+    result->data = std::vector<uint8_t>(data, data + length);
   }
 
   result->timeout = timeout;
@@ -732,7 +731,7 @@ void CreateChromeUsbGenericTransferInfo(
 
   if (result->direction == chrome_usb::Direction::kOut) {
     GOOGLE_SMART_CARD_CHECK(data);
-    result->data = MakeVarArrayBuffer(data, length);
+    result->data = std::vector<uint8_t>(data, data + length);
   }
 
   result->timeout = timeout;
@@ -891,11 +890,10 @@ libusb_transfer_status FillLibusbTransferResult(
   int actual_length_value;
   if (transfer_result_info.data) {
     actual_length_value = std::min(
-        static_cast<int>(transfer_result_info.data->ByteLength()), data_length);
+        static_cast<int>(transfer_result_info.data->size()), data_length);
     if (actual_length_value) {
-      const std::vector<uint8_t> data_vector =
-          VarAs<std::vector<uint8_t>>(*transfer_result_info.data);
-      std::copy_n(data_vector.begin(), actual_length_value, data_buffer);
+      std::copy_n(transfer_result_info.data->begin(), actual_length_value,
+                  data_buffer);
     }
   } else {
     actual_length_value = data_length;

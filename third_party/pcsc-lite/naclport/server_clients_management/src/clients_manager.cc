@@ -36,6 +36,7 @@
 #include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 #include "client_request_processor.h"
@@ -64,6 +65,14 @@ struct DeleteHandlerMessageData {
 }  // namespace
 
 template <>
+StructValueDescriptor<CreateHandlerMessageData>::Description
+StructValueDescriptor<CreateHandlerMessageData>::GetDescription() {
+  return Describe("CreateHandlerMessageData")
+      .WithField(&CreateHandlerMessageData::handler_id, "handler_id")
+      .WithField(&CreateHandlerMessageData::client_app_id, "client_app_id");
+}
+
+template <>
 constexpr const char*
 StructConverter<CreateHandlerMessageData>::GetStructTypeName() {
   return "CreateHandlerMessageData";
@@ -75,6 +84,13 @@ void StructConverter<CreateHandlerMessageData>::VisitFields(
     const CreateHandlerMessageData& value, Callback callback) {
   callback(&value.handler_id, "handler_id");
   callback(&value.client_app_id, "client_app_id");
+}
+
+template <>
+StructValueDescriptor<DeleteHandlerMessageData>::Description
+StructValueDescriptor<DeleteHandlerMessageData>::GetDescription() {
+  return Describe("DeleteHandlerMessageData")
+      .WithField(&DeleteHandlerMessageData::handler_id, "handler_id");
 }
 
 template <>

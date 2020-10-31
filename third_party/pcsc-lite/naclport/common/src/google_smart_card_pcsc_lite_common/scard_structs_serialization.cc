@@ -28,6 +28,7 @@
 #include <cstring>
 
 #include <google_smart_card_common/pp_var_utils/struct_converter.h>
+#include <google_smart_card_common/value_conversion.h>
 
 namespace google_smart_card {
 
@@ -44,6 +45,15 @@ std::vector<uint8_t> GetSCardReaderStateAtr(
 
 }  // namespace
 
+template <>
+StructValueDescriptor<InboundSCardReaderState>::Description
+StructValueDescriptor<InboundSCardReaderState>::GetDescription() {
+  return Describe("SCARD_READERSTATE_inbound")
+      .WithField(&InboundSCardReaderState::reader_name, "reader_name")
+      .WithField(&InboundSCardReaderState::user_data, "user_data")
+      .WithField(&InboundSCardReaderState::current_state, "current_state");
+}
+
 // static
 template <>
 constexpr const char*
@@ -59,6 +69,17 @@ void StructConverter<InboundSCardReaderState>::VisitFields(
   callback(&value.reader_name, "reader_name");
   callback(&value.user_data, "user_data");
   callback(&value.current_state, "current_state");
+}
+
+template <>
+StructValueDescriptor<OutboundSCardReaderState>::Description
+StructValueDescriptor<OutboundSCardReaderState>::GetDescription() {
+  return Describe("SCARD_READERSTATE_outbound")
+      .WithField(&OutboundSCardReaderState::reader_name, "reader_name")
+      .WithField(&OutboundSCardReaderState::user_data, "user_data")
+      .WithField(&OutboundSCardReaderState::current_state, "current_state")
+      .WithField(&OutboundSCardReaderState::event_state, "event_state")
+      .WithField(&OutboundSCardReaderState::atr, "atr");
 }
 
 // static
@@ -78,6 +99,13 @@ void StructConverter<OutboundSCardReaderState>::VisitFields(
   callback(&value.current_state, "current_state");
   callback(&value.event_state, "event_state");
   callback(&value.atr, "atr");
+}
+
+template <>
+StructValueDescriptor<SCardIoRequest>::Description
+StructValueDescriptor<SCardIoRequest>::GetDescription() {
+  return Describe("SCARD_IO_REQUEST")
+      .WithField(&SCardIoRequest::protocol, "protocol");
 }
 
 // static

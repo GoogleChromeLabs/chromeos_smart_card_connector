@@ -26,6 +26,7 @@
 #include <map>
 #include <memory>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <gmock/gmock.h>
@@ -33,7 +34,6 @@
 #include <libusb.h>
 
 #include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
 #include "chrome_usb/api_bridge_interface.h"
@@ -495,10 +495,9 @@ class LibusbOverChromeUsbTransfersTest
     transfer_info.request = kTransferRequestField;
     transfer_info.value = kTransferValueField;
     transfer_info.index = transfer_index;
-    const std::vector<uint8_t> data =
-        GenerateTransferData(transfer_index, is_output);
+    std::vector<uint8_t> data = GenerateTransferData(transfer_index, is_output);
     if (is_output)
-      transfer_info.data = MakeVarArrayBuffer(data);
+      transfer_info.data = std::move(data);
     else
       transfer_info.length = data.size();
     transfer_info.timeout = kTransferTimeout;
@@ -527,10 +526,8 @@ class LibusbOverChromeUsbTransfersTest
     if (!IsTransferToFinishUnsuccessfully(transfer_index)) {
       result.result_info.result_code =
           chrome_usb::kTransferResultInfoSuccessResultCode;
-      if (!is_output) {
-        result.result_info.data =
-            MakeVarArrayBuffer(GenerateTransferData(transfer_index, false));
-      }
+      if (!is_output)
+        result.result_info.data = GenerateTransferData(transfer_index, false);
     }
     return RequestResult<chrome_usb::TransferResult>::CreateSuccessful(result);
   }
