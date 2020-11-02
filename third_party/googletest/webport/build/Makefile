@@ -78,7 +78,7 @@ endif
 #   the compilation according to prepared scripts.
 #
 # Explanation of parameters to cmake:
-# E env: Wraps the further second cmake call into the "env" tool that allows to
+# E env: Wraps the succeeding cmake call into the "env" tool that allows to
 #   specify environment variables.
 # CXXFLAGS: Enables Emscripten Pthreads support (despite that it's not used by
 #   GoogleTest itself due to the other parameter below, Emscripten requires this
