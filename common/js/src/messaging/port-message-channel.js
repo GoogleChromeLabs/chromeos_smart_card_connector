@@ -23,6 +23,7 @@
 
 goog.provide('GoogleSmartCard.PortMessageChannel');
 
+goog.require('GoogleSmartCard.ContainerHelpers');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessageChannelPinging.PingResponder');
@@ -106,8 +107,11 @@ PortMessageChannel.prototype.send = function(serviceName, payload) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(payload));
   goog.asserts.assertObject(payload);
 
-  var typedMessage = new GSC.TypedMessage(serviceName, payload);
-  var message = typedMessage.makeMessage();
+  const normalizedPayload =
+      GSC.ContainerHelpers.substituteArrayBuffersRecursively(payload);
+
+  const typedMessage = new GSC.TypedMessage(serviceName, normalizedPayload);
+  const message = typedMessage.makeMessage();
   this.logger.finest('Posting a message: ' + GSC.DebugDump.debugDump(message));
 
   if (this.isDisposed()) {

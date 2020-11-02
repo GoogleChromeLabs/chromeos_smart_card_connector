@@ -17,6 +17,7 @@
 goog.provide('GoogleSmartCard.ContainerHelpers');
 
 goog.require('GoogleSmartCard.Logging');
+goog.require('goog.object');
 
 goog.scope(function() {
 
@@ -38,6 +39,31 @@ GSC.ContainerHelpers.buildObjectFromMap = function(map) {
     obj[key] = value;
   }
   return obj;
+};
+
+/**
+ * Recursively visits the given value and replaces all ArrayBuffer objects with
+ * their Array views of bytes. Returns the resulting value after substitutions.
+ * @param {?} value
+ * @return {?}
+ */
+GSC.ContainerHelpers.substituteArrayBuffersRecursively = function(value) {
+  const substituteArrayBuffersRecursively =
+      GSC.ContainerHelpers.substituteArrayBuffersRecursively;
+  if (value instanceof ArrayBuffer) {
+    // Convert the array buffer into an array of bytes.
+    return Array.from(new Uint8Array(value));
+  }
+  if (goog.isArray(value)) {
+    // Recursively process array items.
+    return value.map(substituteArrayBuffersRecursively);
+  }
+  if (goog.isObject(value) && !goog.isFunction(value) &&
+      !ArrayBuffer.isView(value)) {
+    // This is a dictionary-like object; process it recursively.
+    return goog.object.map(value, substituteArrayBuffersRecursively);
+  }
+  return value;
 };
 
 });  // goog.scope
