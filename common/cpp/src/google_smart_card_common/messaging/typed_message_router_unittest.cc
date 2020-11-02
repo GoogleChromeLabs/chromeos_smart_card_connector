@@ -130,7 +130,13 @@ TEST(MessagingTypedMessageRouterTest, Basic) {
       MakeTypedMessageValue(kSampleType1, MakeSampleData(7))));
 }
 
-TEST(MessagingTypedMessageRouterTest, MultiThreading) {
+#ifdef __EMSCRIPTEN__
+// TODO(#185): Crashes in Emscripten due to out-of-memory.
+#define MAYBE_MultiThreading DISABLED_MultiThreading
+#else
+#define MAYBE_MultiThreading MultiThreading
+#endif
+TEST(MessagingTypedMessageRouterTest, MAYBE_MultiThreading) {
   const int kIterationCount = 100 * 1000;
 
   TypedMessageRouter router;
