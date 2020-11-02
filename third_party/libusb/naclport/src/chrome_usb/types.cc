@@ -18,6 +18,7 @@
 
 #include <google_smart_card_common/pp_var_utils/enum_converter.h>
 #include <google_smart_card_common/pp_var_utils/struct_converter.h>
+#include <google_smart_card_common/value_conversion.h>
 
 namespace google_smart_card {
 
@@ -79,16 +80,6 @@ using GetDevicesOptionsConverter = StructConverter<GetDevicesOptions>;
 using GetUserSelectedDevicesOptionsConverter =
     StructConverter<GetUserSelectedDevicesOptions>;
 
-namespace {
-
-bool IsSameOptionalArrayBuffer(const optional<pp::VarArrayBuffer>& lhs,
-                               const optional<pp::VarArrayBuffer>& rhs) {
-  if (!lhs || !rhs) return lhs == rhs;
-  return VarAs<std::vector<uint8_t>>(*lhs) == VarAs<std::vector<uint8_t>>(*rhs);
-}
-
-}  // namespace
-
 bool Device::operator==(const Device& other) const {
   return device == other.device && vendor_id == other.vendor_id &&
          product_id == other.product_id && version == other.version &&
@@ -106,9 +97,18 @@ bool ControlTransferInfo::operator==(const ControlTransferInfo& other) const {
   return direction == other.direction && recipient == other.recipient &&
          request_type == other.request_type && request == other.request &&
          value == other.value && index == other.index &&
-         length == other.length &&
-         IsSameOptionalArrayBuffer(data, other.data) &&
+         length == other.length && data == other.data &&
          timeout == other.timeout;
+}
+
+template <>
+EnumValueDescriptor<Direction>::Description
+EnumValueDescriptor<Direction>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the enum names in the
+  // chrome.usb API.
+  return Describe("chrome_usb::Direction")
+      .WithItem(Direction::kIn, "in")
+      .WithItem(Direction::kOut, "out");
 }
 
 // static
@@ -123,6 +123,21 @@ template <typename Callback>
 void DirectionConverter::VisitCorrespondingPairs(Callback callback) {
   callback(Direction::kIn, "in");
   callback(Direction::kOut, "out");
+}
+
+template <>
+StructValueDescriptor<Device>::Description
+StructValueDescriptor<Device>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.usb API.
+  return Describe("chrome_usb::Device")
+      .WithField(&Device::device, "device")
+      .WithField(&Device::vendor_id, "vendorId")
+      .WithField(&Device::product_id, "productId")
+      .WithField(&Device::version, "version")
+      .WithField(&Device::product_name, "productName")
+      .WithField(&Device::manufacturer_name, "manufacturerName")
+      .WithField(&Device::serial_number, "serialNumber");
 }
 
 // static
@@ -144,6 +159,17 @@ void DeviceConverter::VisitFields(const Device& value, Callback callback) {
   callback(&value.serial_number, "serialNumber");
 }
 
+template <>
+StructValueDescriptor<ConnectionHandle>::Description
+StructValueDescriptor<ConnectionHandle>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.usb API.
+  return Describe("chrome_usb::ConnectionHandle")
+      .WithField(&ConnectionHandle::handle, "handle")
+      .WithField(&ConnectionHandle::vendor_id, "vendorId")
+      .WithField(&ConnectionHandle::product_id, "productId");
+}
+
 // static
 template <>
 constexpr const char* ConnectionHandleConverter::GetStructTypeName() {
@@ -158,6 +184,18 @@ void ConnectionHandleConverter::VisitFields(const ConnectionHandle& value,
   callback(&value.handle, "handle");
   callback(&value.vendor_id, "vendorId");
   callback(&value.product_id, "productId");
+}
+
+template <>
+EnumValueDescriptor<EndpointDescriptorType>::Description
+EnumValueDescriptor<EndpointDescriptorType>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the enum names in the
+  // chrome.usb API.
+  return Describe("chrome_usb::EndpointDescriptorType")
+      .WithItem(EndpointDescriptorType::kControl, "control")
+      .WithItem(EndpointDescriptorType::kInterrupt, "interrupt")
+      .WithItem(EndpointDescriptorType::kIsochronous, "isochronous")
+      .WithItem(EndpointDescriptorType::kBulk, "bulk");
 }
 
 // static
@@ -177,6 +215,18 @@ void EndpointDescriptorTypeConverter::VisitCorrespondingPairs(
   callback(EndpointDescriptorType::kBulk, "bulk");
 }
 
+template <>
+EnumValueDescriptor<EndpointDescriptorSynchronization>::Description
+EnumValueDescriptor<EndpointDescriptorSynchronization>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the enum names in the
+  // chrome.usb API.
+  return Describe("chrome_usb::EndpointDescriptorSynchronization")
+      .WithItem(EndpointDescriptorSynchronization::kAsynchronous,
+                "asynchronous")
+      .WithItem(EndpointDescriptorSynchronization::kAdaptive, "adaptive")
+      .WithItem(EndpointDescriptorSynchronization::kSynchronous, "synchronous");
+}
+
 // static
 template <>
 constexpr const char*
@@ -192,6 +242,19 @@ void EndpointDescriptorSynchronizationConverter::VisitCorrespondingPairs(
   callback(EndpointDescriptorSynchronization::kAsynchronous, "asynchronous");
   callback(EndpointDescriptorSynchronization::kAdaptive, "adaptive");
   callback(EndpointDescriptorSynchronization::kSynchronous, "synchronous");
+}
+
+template <>
+EnumValueDescriptor<EndpointDescriptorUsage>::Description
+EnumValueDescriptor<EndpointDescriptorUsage>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the enum names in the
+  // chrome.usb API.
+  return Describe("chrome_usb::EndpointDescriptorUsage")
+      .WithItem(EndpointDescriptorUsage::kData, "data")
+      .WithItem(EndpointDescriptorUsage::kFeedback, "feedback")
+      .WithItem(EndpointDescriptorUsage::kExplicitFeedback, "explicitFeedback")
+      .WithItem(EndpointDescriptorUsage::kPeriodic, "periodic")
+      .WithItem(EndpointDescriptorUsage::kNotification, "notification");
 }
 
 // static
@@ -210,6 +273,22 @@ void EndpointDescriptorUsageConverter::VisitCorrespondingPairs(
   callback(EndpointDescriptorUsage::kExplicitFeedback, "explicitFeedback");
   callback(EndpointDescriptorUsage::kPeriodic, "periodic");
   callback(EndpointDescriptorUsage::kNotification, "notification");
+}
+
+template <>
+StructValueDescriptor<EndpointDescriptor>::Description
+StructValueDescriptor<EndpointDescriptor>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.usb API.
+  return Describe("chrome_usb::EndpointDescriptor")
+      .WithField(&EndpointDescriptor::address, "address")
+      .WithField(&EndpointDescriptor::type, "type")
+      .WithField(&EndpointDescriptor::direction, "direction")
+      .WithField(&EndpointDescriptor::maximum_packet_size, "maximumPacketSize")
+      .WithField(&EndpointDescriptor::synchronization, "synchronization")
+      .WithField(&EndpointDescriptor::usage, "usage")
+      .WithField(&EndpointDescriptor::polling_interval, "pollingInterval")
+      .WithField(&EndpointDescriptor::extra_data, "extra_data");
 }
 
 // static
@@ -233,6 +312,22 @@ void EndpointDescriptorConverter::VisitFields(const EndpointDescriptor& value,
   callback(&value.extra_data, "extra_data");
 }
 
+template <>
+StructValueDescriptor<InterfaceDescriptor>::Description
+StructValueDescriptor<InterfaceDescriptor>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.usb API.
+  return Describe("chrome_usb::InterfaceDescriptor")
+      .WithField(&InterfaceDescriptor::interface_number, "interfaceNumber")
+      .WithField(&InterfaceDescriptor::alternate_setting, "alternateSetting")
+      .WithField(&InterfaceDescriptor::interface_class, "interfaceClass")
+      .WithField(&InterfaceDescriptor::interface_subclass, "interfaceSubclass")
+      .WithField(&InterfaceDescriptor::interface_protocol, "interfaceProtocol")
+      .WithField(&InterfaceDescriptor::description, "description")
+      .WithField(&InterfaceDescriptor::endpoints, "endpoints")
+      .WithField(&InterfaceDescriptor::extra_data, "extra_data");
+}
+
 // static
 template <>
 constexpr const char* InterfaceDescriptorConverter::GetStructTypeName() {
@@ -252,6 +347,22 @@ void InterfaceDescriptorConverter::VisitFields(const InterfaceDescriptor& value,
   callback(&value.description, "description");
   callback(&value.endpoints, "endpoints");
   callback(&value.extra_data, "extra_data");
+}
+
+template <>
+StructValueDescriptor<ConfigDescriptor>::Description
+StructValueDescriptor<ConfigDescriptor>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.usb API.
+  return Describe("chrome_usb::ConfigDescriptor")
+      .WithField(&ConfigDescriptor::active, "active")
+      .WithField(&ConfigDescriptor::configuration_value, "configurationValue")
+      .WithField(&ConfigDescriptor::description, "description")
+      .WithField(&ConfigDescriptor::self_powered, "selfPowered")
+      .WithField(&ConfigDescriptor::remote_wakeup, "remoteWakeup")
+      .WithField(&ConfigDescriptor::max_power, "maxPower")
+      .WithField(&ConfigDescriptor::interfaces, "interfaces")
+      .WithField(&ConfigDescriptor::extra_data, "extra_data");
 }
 
 // static
@@ -275,6 +386,19 @@ void ConfigDescriptorConverter::VisitFields(const ConfigDescriptor& value,
   callback(&value.extra_data, "extra_data");
 }
 
+template <>
+StructValueDescriptor<GenericTransferInfo>::Description
+StructValueDescriptor<GenericTransferInfo>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.usb API.
+  return Describe("chrome_usb::GenericTransferInfo")
+      .WithField(&GenericTransferInfo::direction, "direction")
+      .WithField(&GenericTransferInfo::endpoint, "endpoint")
+      .WithField(&GenericTransferInfo::length, "length")
+      .WithField(&GenericTransferInfo::data, "data")
+      .WithField(&GenericTransferInfo::timeout, "timeout");
+}
+
 // static
 template <>
 constexpr const char* GenericTransferInfoConverter::GetStructTypeName() {
@@ -291,6 +415,18 @@ void GenericTransferInfoConverter::VisitFields(const GenericTransferInfo& value,
   callback(&value.length, "length");
   callback(&value.data, "data");
   callback(&value.timeout, "timeout");
+}
+
+template <>
+EnumValueDescriptor<ControlTransferInfoRecipient>::Description
+EnumValueDescriptor<ControlTransferInfoRecipient>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the enum names in the
+  // chrome.usb API.
+  return Describe("chrome_usb::ControlTransferInfoRecipient")
+      .WithItem(ControlTransferInfoRecipient::kDevice, "device")
+      .WithItem(ControlTransferInfoRecipient::kInterface, "interface")
+      .WithItem(ControlTransferInfoRecipient::kEndpoint, "endpoint")
+      .WithItem(ControlTransferInfoRecipient::kOther, "other");
 }
 
 // static
@@ -310,6 +446,18 @@ void ControlTransferInfoRecipientConverter::VisitCorrespondingPairs(
   callback(ControlTransferInfoRecipient::kOther, "other");
 }
 
+template <>
+EnumValueDescriptor<ControlTransferInfoRequestType>::Description
+EnumValueDescriptor<ControlTransferInfoRequestType>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the enum names in the
+  // chrome.usb API.
+  return Describe("chrome_usb::ControlTransferInfoRequestType")
+      .WithItem(ControlTransferInfoRequestType::kStandard, "standard")
+      .WithItem(ControlTransferInfoRequestType::kClass, "class")
+      .WithItem(ControlTransferInfoRequestType::kVendor, "vendor")
+      .WithItem(ControlTransferInfoRequestType::kReserved, "reserved");
+}
+
 // static
 template <>
 constexpr const char*
@@ -326,6 +474,23 @@ void ControlTransferInfoRequestTypeConverter::VisitCorrespondingPairs(
   callback(ControlTransferInfoRequestType::kClass, "class");
   callback(ControlTransferInfoRequestType::kVendor, "vendor");
   callback(ControlTransferInfoRequestType::kReserved, "reserved");
+}
+
+template <>
+StructValueDescriptor<ControlTransferInfo>::Description
+StructValueDescriptor<ControlTransferInfo>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.usb API.
+  return Describe("chrome_usb::ControlTransferInfo")
+      .WithField(&ControlTransferInfo::direction, "direction")
+      .WithField(&ControlTransferInfo::recipient, "recipient")
+      .WithField(&ControlTransferInfo::request_type, "requestType")
+      .WithField(&ControlTransferInfo::request, "request")
+      .WithField(&ControlTransferInfo::value, "value")
+      .WithField(&ControlTransferInfo::index, "index")
+      .WithField(&ControlTransferInfo::length, "length")
+      .WithField(&ControlTransferInfo::data, "data")
+      .WithField(&ControlTransferInfo::timeout, "timeout");
 }
 
 // static
@@ -350,6 +515,16 @@ void ControlTransferInfoConverter::VisitFields(const ControlTransferInfo& value,
   callback(&value.timeout, "timeout");
 }
 
+template <>
+StructValueDescriptor<TransferResultInfo>::Description
+StructValueDescriptor<TransferResultInfo>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.usb API.
+  return Describe("chrome_usb::TransferResultInfo")
+      .WithField(&TransferResultInfo::result_code, "resultCode")
+      .WithField(&TransferResultInfo::data, "data");
+}
+
 // static
 template <>
 constexpr const char* TransferResultInfoConverter::GetStructTypeName() {
@@ -363,6 +538,19 @@ void TransferResultInfoConverter::VisitFields(const TransferResultInfo& value,
                                               Callback callback) {
   callback(&value.result_code, "resultCode");
   callback(&value.data, "data");
+}
+
+template <>
+StructValueDescriptor<DeviceFilter>::Description
+StructValueDescriptor<DeviceFilter>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.usb API.
+  return Describe("chrome_usb::DeviceFilter")
+      .WithField(&DeviceFilter::vendor_id, "vendorId")
+      .WithField(&DeviceFilter::product_id, "productId")
+      .WithField(&DeviceFilter::interface_class, "interfaceClass")
+      .WithField(&DeviceFilter::interface_subclass, "interfaceSubclass")
+      .WithField(&DeviceFilter::interface_protocol, "interfaceProtocol");
 }
 
 // static
@@ -383,6 +571,15 @@ void DeviceFilterConverter::VisitFields(const DeviceFilter& value,
   callback(&value.interface_protocol, "interfaceProtocol");
 }
 
+template <>
+StructValueDescriptor<GetDevicesOptions>::Description
+StructValueDescriptor<GetDevicesOptions>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.usb API.
+  return Describe("chrome_usb::GetDevicesOptions")
+      .WithField(&GetDevicesOptions::filters, "filters");
+}
+
 // static
 template <>
 constexpr const char* GetDevicesOptionsConverter::GetStructTypeName() {
@@ -395,6 +592,15 @@ template <typename Callback>
 void GetDevicesOptionsConverter::VisitFields(const GetDevicesOptions& value,
                                              Callback callback) {
   callback(&value.filters, "filters");
+}
+
+template <>
+StructValueDescriptor<GetUserSelectedDevicesOptions>::Description
+StructValueDescriptor<GetUserSelectedDevicesOptions>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.usb API.
+  return Describe("chrome_usb::GetUserSelectedDevicesOptions")
+      .WithField(&GetUserSelectedDevicesOptions::filters, "filters");
 }
 
 // static

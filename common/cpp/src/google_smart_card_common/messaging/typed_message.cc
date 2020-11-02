@@ -22,6 +22,8 @@ namespace google_smart_card {
 template <>
 StructValueDescriptor<TypedMessage>::Description
 StructValueDescriptor<TypedMessage>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the keys in
+  // //common/js/src/messaging/typed-message.js.
   return Describe("TypedMessage")
       .WithField(&TypedMessage::type, "type")
       .WithField(&TypedMessage::data, "data");

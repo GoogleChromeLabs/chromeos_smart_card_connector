@@ -23,6 +23,7 @@
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/pp_var_utils/struct_converter.h>
 #include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
@@ -43,6 +44,16 @@ void PrintExternalLogMessage(const ExternalLogMessageData& message_data) {
 }
 
 }  // namespace
+
+template <>
+StructValueDescriptor<ExternalLogMessageData>::Description
+StructValueDescriptor<ExternalLogMessageData>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // //common/js/src/logging/log-buffer-forwarder.js.
+  return Describe("ExternalLogMessageData")
+      .WithField(&ExternalLogMessageData::formatted_log_message,
+                 "formatted_log_message");
+}
 
 template <>
 constexpr const char*

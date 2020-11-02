@@ -40,7 +40,6 @@
 #include <vector>
 
 #include <ppapi/cpp/var.h>
-#include <ppapi/cpp/var_array_buffer.h>
 
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
@@ -111,7 +110,7 @@ struct EndpointDescriptor {
   optional<EndpointDescriptorSynchronization> synchronization;
   optional<EndpointDescriptorUsage> usage;
   optional<int64_t> polling_interval;
-  pp::VarArrayBuffer extra_data;
+  std::vector<uint8_t> extra_data;
 };
 
 struct InterfaceDescriptor {
@@ -122,7 +121,7 @@ struct InterfaceDescriptor {
   int64_t interface_protocol;
   optional<std::string> description;
   std::vector<EndpointDescriptor> endpoints;
-  pp::VarArrayBuffer extra_data;
+  std::vector<uint8_t> extra_data;
 };
 
 struct ConfigDescriptor {
@@ -133,14 +132,14 @@ struct ConfigDescriptor {
   bool remote_wakeup;
   int64_t max_power;
   std::vector<InterfaceDescriptor> interfaces;
-  pp::VarArrayBuffer extra_data;
+  std::vector<uint8_t> extra_data;
 };
 
 struct GenericTransferInfo {
   Direction direction;
   int64_t endpoint;
   optional<int64_t> length;
-  optional<pp::VarArrayBuffer> data;
+  optional<std::vector<uint8_t>> data;
   optional<int64_t> timeout;
 };
 
@@ -168,13 +167,13 @@ struct ControlTransferInfo {
   int64_t value;
   int64_t index;
   optional<int64_t> length;
-  optional<pp::VarArrayBuffer> data;
+  optional<std::vector<uint8_t>> data;
   optional<int64_t> timeout;
 };
 
 struct TransferResultInfo {
   optional<int64_t> result_code;
-  optional<pp::VarArrayBuffer> data;
+  optional<std::vector<uint8_t>> data;
 };
 
 constexpr int64_t kTransferResultInfoSuccessResultCode = 0;
