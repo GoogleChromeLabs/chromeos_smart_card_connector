@@ -1375,6 +1375,14 @@ TEST(ValueConversion, VectorToValue) {
   }
 
   {
+    const std::vector<uint8_t> kBytes = {1, 2, 255};
+    Value value;
+    EXPECT_TRUE(ConvertToValue(kBytes, &value));
+    ASSERT_TRUE(value.is_binary());
+    EXPECT_EQ(value.GetBinary(), kBytes);
+  }
+
+  {
     const std::vector<SomeEnum> kEnums = {SomeEnum::kSecond, SomeEnum::kFirst};
     Value value;
     EXPECT_TRUE(ConvertToValue(kEnums, &value));

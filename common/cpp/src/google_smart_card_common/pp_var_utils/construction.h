@@ -85,6 +85,9 @@ inline pp::Var MakeVar(const std::vector<T>& value) {
   return result;
 }
 
+// Creates an array buffer.
+pp::Var MakeVar(const std::vector<uint8_t>& value);
+
 // Returns a string in which all characters that cannot be represented in a
 // Pepper value are replaced with a placeholder.
 std::string CleanupStringForVar(const std::string& string);

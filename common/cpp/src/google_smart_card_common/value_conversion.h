@@ -27,7 +27,8 @@
 // * `double`;
 // * `std::string`;
 // * `std::vector` of any supported type (note: there's also a special case that
-//    `std::vector<uint8_t>` can be converted from a binary value).
+//    `std::vector<uint8_t>` is converted to/from a binary `Value` and can
+//    additionally be converted from an array `Value`).
 //
 // The same helpers can also be enabled for custom types:
 // * a custom enum can be registered via the `EnumValueDescriptor` class for
@@ -527,6 +528,11 @@ bool ConvertToValue(std::vector<T> objects, Value* value,
   *value = Value(std::move(converted_items));
   return true;
 }
+
+// Converts a vector of bytes into a binary `Value`. (Note: This is unlike all
+// other types of `std::vector`, which are converted to an array `Value`.)
+bool ConvertToValue(std::vector<uint8_t> bytes, Value* value,
+                    std::string* error_message = nullptr);
 
 // Synonym to other `ConvertToValue()` overloads, but immediately crashes the
 // program if the conversion fails.

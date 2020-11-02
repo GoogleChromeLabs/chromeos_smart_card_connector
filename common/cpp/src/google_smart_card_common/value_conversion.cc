@@ -228,6 +228,12 @@ bool ConvertToValue(const char* characters, Value* value,
   return true;
 }
 
+bool ConvertToValue(std::vector<uint8_t> bytes, Value* value,
+                    std::string* /*error_message*/) {
+  *value = Value(std::move(bytes));
+  return true;
+}
+
 bool ConvertFromValue(Value value, bool* boolean, std::string* error_message) {
   if (value.is_boolean()) {
     *boolean = value.GetBoolean();

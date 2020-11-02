@@ -86,7 +86,7 @@ void ProcessSignatureRequest(
                                                       &signature)) {
     // TODO(#220): Build `Value` directly, without converting from `pp::Var`.
     result_callback(gsc::GenericRequestResult::CreateSuccessful(
-        gsc::ConvertPpVarToValueOrDie(gsc::MakeVarArray(signature))));
+        gsc::ConvertPpVarToValueOrDie(gsc::MakeVarArrayBuffer(signature))));
   } else {
     result_callback(gsc::GenericRequestResult::CreateFailed("Failure"));
   }
