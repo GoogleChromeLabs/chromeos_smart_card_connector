@@ -201,12 +201,13 @@ void ApiBridge::StopPinRequest(const StopPinRequestOptions& options) {
 }
 
 void ApiBridge::HandleRequest(
-    const pp::Var& payload,
-    gsc::RequestReceiver::ResultCallback result_callback) {
+    gsc::Value payload, gsc::RequestReceiver::ResultCallback result_callback) {
+  // TODO: Parse `Value` directly instead of transforming into `pp::Var`.
+  const pp::Var payload_var = gsc::ConvertValueToPpVar(payload);
   std::string function_name;
   pp::VarArray arguments;
-  GOOGLE_SMART_CARD_CHECK(
-      gsc::ParseRemoteCallRequestPayload(payload, &function_name, &arguments));
+  GOOGLE_SMART_CARD_CHECK(gsc::ParseRemoteCallRequestPayload(
+      payload_var, &function_name, &arguments));
   if (function_name == kHandleCertificatesRequestFunctionName) {
     HandleCertificatesRequest(arguments, result_callback);
   } else if (function_name == kHandleSignatureRequestFunctionName) {

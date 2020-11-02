@@ -138,7 +138,7 @@ class ApiBridge final : public google_smart_card::RequestHandler {
 
  private:
   // google_smart_card::RequestHandler:
-  void HandleRequest(const pp::Var& payload,
+  void HandleRequest(google_smart_card::Value payload,
                      google_smart_card::RequestReceiver::ResultCallback
                          result_callback) override;
 
