@@ -110,8 +110,8 @@ PortMessageChannel.prototype.send = function(serviceName, payload) {
   const normalizedPayload =
       GSC.ContainerHelpers.substituteArrayBuffersRecursively(payload);
 
-  var typedMessage = new GSC.TypedMessage(serviceName, normalizedPayload);
-  var message = typedMessage.makeMessage();
+  const typedMessage = new GSC.TypedMessage(serviceName, normalizedPayload);
+  const message = typedMessage.makeMessage();
   this.logger.finest('Posting a message: ' + GSC.DebugDump.debugDump(message));
 
   if (this.isDisposed()) {
