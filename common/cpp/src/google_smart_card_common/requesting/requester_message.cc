@@ -43,6 +43,8 @@ std::string GetResponseMessageType(const std::string& name) {
 template <>
 StructValueDescriptor<RequestMessageData>::Description
 StructValueDescriptor<RequestMessageData>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the keys in
+  // //common/js/src/requesting/requester-message.js.
   return Describe("RequestMessageData")
       .WithField(&RequestMessageData::request_id, "request_id")
       .WithField(&RequestMessageData::payload, "payload");
@@ -51,6 +53,8 @@ StructValueDescriptor<RequestMessageData>::GetDescription() {
 template <>
 StructValueDescriptor<ResponseMessageData>::Description
 StructValueDescriptor<ResponseMessageData>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the keys in
+  // //common/js/src/requesting/requester-message.js.
   return Describe("ResponseMessageData")
       .WithField(&ResponseMessageData::request_id, "request_id")
       .WithField(&ResponseMessageData::payload, "payload")

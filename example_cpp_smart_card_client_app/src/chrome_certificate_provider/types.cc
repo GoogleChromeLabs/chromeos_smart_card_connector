@@ -42,6 +42,8 @@ using StopPinRequestOptionsConverter =
 template <>
 EnumValueDescriptor<ccp::Algorithm>::Description
 EnumValueDescriptor<ccp::Algorithm>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the enum names in the
+  // chrome.certificateProvider API.
   return Describe("chrome_certificate_provider::Algorithm")
       .WithItem(ccp::Algorithm::kRsassaPkcs1v15Md5Sha1,
                 "RSASSA_PKCS1_v1_5_MD5_SHA1")
@@ -75,6 +77,8 @@ void AlgorithmConverter::VisitCorrespondingPairs(Callback callback) {
 template <>
 EnumValueDescriptor<ccp::Error>::Description
 EnumValueDescriptor<ccp::Error>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the enum names in the
+  // chrome.certificateProvider API.
   return Describe("chrome_certificate_provider::Error")
       .WithItem(ccp::Error::kGeneral, "GENERAL_ERROR");
 }
@@ -95,6 +99,8 @@ void ErrorConverter::VisitCorrespondingPairs(Callback callback) {
 template <>
 EnumValueDescriptor<ccp::PinRequestType>::Description
 EnumValueDescriptor<ccp::PinRequestType>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the enum names in the
+  // chrome.certificateProvider API.
   return Describe("chrome_certificate_provider::PinRequestType")
       .WithItem(ccp::PinRequestType::kPin, "PIN")
       .WithItem(ccp::PinRequestType::kPuk, "PUK");
@@ -117,6 +123,8 @@ void PinRequestTypeConverter::VisitCorrespondingPairs(Callback callback) {
 template <>
 EnumValueDescriptor<ccp::PinRequestErrorType>::Description
 EnumValueDescriptor<ccp::PinRequestErrorType>::GetDescription() {
+  // Note: Strings passed to WithItem() below must match the enum names in the
+  // chrome.certificateProvider API.
   return Describe("chrome_certificate_provider::PinRequestErrorType")
       .WithItem(ccp::PinRequestErrorType::kInvalidPin, "INVALID_PIN")
       .WithItem(ccp::PinRequestErrorType::kInvalidPuk, "INVALID_PUK")
@@ -145,6 +153,8 @@ void PinRequestErrorTypeConverter::VisitCorrespondingPairs(Callback callback) {
 template <>
 StructValueDescriptor<ccp::ClientCertificateInfo>::Description
 StructValueDescriptor<ccp::ClientCertificateInfo>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // bridge-backend.js.
   return Describe("chrome_certificate_provider::ClientCertificateInfo")
       .WithField(&ccp::ClientCertificateInfo::certificate, "certificate")
       .WithField(&ccp::ClientCertificateInfo::supported_algorithms,
@@ -169,6 +179,8 @@ void ClientCertificateInfoConverter::VisitFields(
 template <>
 StructValueDescriptor<ccp::SetCertificatesDetails>::Description
 StructValueDescriptor<ccp::SetCertificatesDetails>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.certificateProvider API.
   return Describe("chrome_certificate_provider::SetCertificatesDetails")
       .WithField(&ccp::SetCertificatesDetails::certificates_request_id,
                  "certificatesRequestId")
@@ -196,6 +208,8 @@ void SetCertificatesDetailsConverter::VisitFields(
 template <>
 StructValueDescriptor<ccp::SignatureRequest>::Description
 StructValueDescriptor<ccp::SignatureRequest>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.certificateProvider API.
   return Describe("chrome_certificate_provider::SignatureRequest")
       .WithField(&ccp::SignatureRequest::sign_request_id, "signRequestId")
       .WithField(&ccp::SignatureRequest::input, "input")
@@ -225,6 +239,8 @@ void SignatureRequestConverter::VisitFields(const ccp::SignatureRequest& value,
 template <>
 StructValueDescriptor<ccp::RequestPinOptions>::Description
 StructValueDescriptor<ccp::RequestPinOptions>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.certificateProvider API.
   return Describe("chrome_certificate_provider::RequestPinOptions")
       .WithField(&ccp::RequestPinOptions::sign_request_id, "signRequestId")
       .WithField(&ccp::RequestPinOptions::request_type, "requestType")
@@ -252,6 +268,8 @@ void RequestPinOptionsConverter::VisitFields(
 template <>
 StructValueDescriptor<ccp::RequestPinResults>::Description
 StructValueDescriptor<ccp::RequestPinResults>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.certificateProvider API.
   return Describe("chrome_certificate_provider::RequestPinResults")
       .WithField(&ccp::RequestPinResults::user_input, "userInput");
 }
@@ -273,6 +291,8 @@ void RequestPinResultsConverter::VisitFields(
 template <>
 StructValueDescriptor<ccp::StopPinRequestOptions>::Description
 StructValueDescriptor<ccp::StopPinRequestOptions>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // the chrome.certificateProvider API.
   return Describe("chrome_certificate_provider::StopPinRequestOptions")
       .WithField(&ccp::StopPinRequestOptions::sign_request_id, "signRequestId")
       .WithField(&ccp::StopPinRequestOptions::error_type, "errorType");

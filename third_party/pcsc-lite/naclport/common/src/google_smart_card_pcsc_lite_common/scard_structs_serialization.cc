@@ -48,6 +48,9 @@ std::vector<uint8_t> GetSCardReaderStateAtr(
 template <>
 StructValueDescriptor<InboundSCardReaderState>::Description
 StructValueDescriptor<InboundSCardReaderState>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names of
+  // SCARD_READERSTATE_IN in
+  // //third_party/pcsc-lite/naclport/js_client/src/api.js.
   return Describe("SCARD_READERSTATE_inbound")
       .WithField(&InboundSCardReaderState::reader_name, "reader_name")
       .WithField(&InboundSCardReaderState::user_data, "user_data")
@@ -74,6 +77,9 @@ void StructConverter<InboundSCardReaderState>::VisitFields(
 template <>
 StructValueDescriptor<OutboundSCardReaderState>::Description
 StructValueDescriptor<OutboundSCardReaderState>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names of
+  // SCARD_READERSTATE_OUT in
+  // //third_party/pcsc-lite/naclport/js_client/src/api.js.
   return Describe("SCARD_READERSTATE_outbound")
       .WithField(&OutboundSCardReaderState::reader_name, "reader_name")
       .WithField(&OutboundSCardReaderState::user_data, "user_data")
@@ -104,6 +110,8 @@ void StructConverter<OutboundSCardReaderState>::VisitFields(
 template <>
 StructValueDescriptor<SCardIoRequest>::Description
 StructValueDescriptor<SCardIoRequest>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names of
+  // SCARD_IO_REQUEST in //third_party/pcsc-lite/naclport/js_client/src/api.js.
   return Describe("SCARD_IO_REQUEST")
       .WithField(&SCardIoRequest::protocol, "protocol");
 }

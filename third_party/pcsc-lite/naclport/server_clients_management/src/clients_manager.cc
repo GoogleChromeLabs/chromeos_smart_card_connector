@@ -67,6 +67,8 @@ struct DeleteHandlerMessageData {
 template <>
 StructValueDescriptor<CreateHandlerMessageData>::Description
 StructValueDescriptor<CreateHandlerMessageData>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the keys in
+  // //third_party/pcsc-lite/naclport/server_clients_management/src/client-handler.js.
   return Describe("CreateHandlerMessageData")
       .WithField(&CreateHandlerMessageData::handler_id, "handler_id")
       .WithField(&CreateHandlerMessageData::client_app_id, "client_app_id");

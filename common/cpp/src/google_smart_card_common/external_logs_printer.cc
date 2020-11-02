@@ -48,6 +48,8 @@ void PrintExternalLogMessage(const ExternalLogMessageData& message_data) {
 template <>
 StructValueDescriptor<ExternalLogMessageData>::Description
 StructValueDescriptor<ExternalLogMessageData>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // //common/js/src/logging/log-buffer-forwarder.js.
   return Describe("ExternalLogMessageData")
       .WithField(&ExternalLogMessageData::formatted_log_message,
                  "formatted_log_message");
