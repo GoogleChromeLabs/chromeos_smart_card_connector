@@ -14,38 +14,35 @@
 # License along with this library; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 
-
-#
 # Makefile for the libusb NaCl port library tests.
 #
-# The tests are executed through the separate tests runner, and therefore its
-# makefile has to be used - with our specific options plugged into it through a
-# bunch of make variables.
-#
+# The makefile is based on the helper definitions provided by
+# "cpp_unit_test_runner".
 
+include ../../../../../common/cpp_unit_test_runner/include.mk
 
-ADDITIONAL_TEST_LIBS_PREFIX := \
+SOURCES_PATH := ../../src
+
+SOURCES := \
+	$(SOURCES_PATH)/libusb_over_chrome_usb_unittest.cc \
+
+CXXFLAGS := \
+	-I$(SOURCES_PATH) \
+	-I$(NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH)/google_smart_card_libusb/libusb-1.0 \
+	-I$(ROOT_PATH)/common/cpp/src \
+	-pedantic \
+	-Wall \
+	-Werror \
+	-Wextra \
+	-Wno-zero-length-array \
+	-std=gnu++11 \
+	$(TEST_ADDITIONAL_CXXFLAGS) \
+
+LIBS := \
 	google_smart_card_libusb \
 	google_smart_card_common \
 
-ADDITIONAL_TEST_LIBS_SUFFIX := \
-	nacl_io \
+$(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
-
-ADDITIONAL_TEST_DEPS = \
-	nacl_io \
-	google_smart_card_libusb:.. \
-
-
-TEST_SOURCES_PATH := ../../src
-
-TEST_SOURCES := \
-	$(TEST_SOURCES_PATH)/libusb_over_chrome_usb_unittest.cc \
-
-ADDITIONAL_TEST_CPPFLAGS = \
-	-I$(TEST_SOURCES_PATH) \
-	-I$(NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH)/google_smart_card_libusb/libusb-1.0 \
-	-I$(ROOT_PATH)/common/cpp/src \
-
-
-include ../../../../../common/tests_runner/build.mk
+$(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES) $(TEST_RUNNER_SOURCES),\
+	$(LIBS) $(TEST_RUNNER_LIBS),$(TEST_RUNNER_DEPS),$(TEST_ADDITIONAL_LDFLAGS)))
