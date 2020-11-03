@@ -28,6 +28,9 @@ include $(ROOT_PATH)/common/make/executable_building.mk
 # * TEST_ADDITIONAL_CXXFLAGS:
 #   Additional flags to be specified when compiling test files.
 #
+# * TEST_ADDITIONAL_LDFLAGS:
+#   Additional flags to be specified when linking the resulting executable.
+#
 # * TEST_RUNNER_SOURCES:
 #   Test runner's own C/C++ sources to be linked into the resulting executable.
 #
