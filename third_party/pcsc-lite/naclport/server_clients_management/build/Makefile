@@ -92,7 +92,7 @@ $(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
 
 
 test::
-	+$(MAKE) --directory js_unittests run
+	+$(MAKE) --directory js_unittests run_test
 
 tests_clean::
 	+$(MAKE) --directory js_unittests clean

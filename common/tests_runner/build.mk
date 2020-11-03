@@ -18,8 +18,7 @@
 # through the Google Test framework (including the support of NaCl-specific
 # code) and JavaScript tests (FIXME(emaxx): TBD).
 #
-# The tests are run by the "make run" command (this target is provided by the
-# NaCl SDK build scripts).
+# The tests are run by the "make run_test" command.
 #
 
 
@@ -28,9 +27,6 @@ TARGET := tests_runner
 TESTS_RUNNER_DIR := $(dir $(lastword $(MAKEFILE_LIST)))
 
 include $(TESTS_RUNNER_DIR)/../make/common.mk
-
-PAGE := $(OUT_DIR_PATH)/index.html
-
 include $(COMMON_DIR_PATH)/make/executable_building.mk
 
 
@@ -147,12 +143,19 @@ TESTS_RUNNER_STATIC_FILES := \
 $(foreach static_file,$(TESTS_RUNNER_STATIC_FILES),$(eval $(call COPY_TO_OUT_DIR_RULE,$(static_file))))
 
 
+# Target that executes the tests by starting a Chrome instance with the test
+# runner's HTML page. A web server is additionally started that serves the page
+# and the NaCl module's files. The user-data-dir, which is passed to Chrome for
+# storing data, is cleared before each run to prevent state leakage.
 #
-# Hack: change CURDIR to the out directory, so that the "run" target starts
-# Chrome with the correct working directory, and re-adjust path to the loaded
-# page accordingly.
-#
-
-CURDIR := $(OUT_DIR_PATH)
-
-PAGE := index.html
+# Note: The recipe uses variables that are defined by the NaCl's makefiles.
+run_test: all
+	rm -rf user-data-dir
+	$(RUN_PY) \
+		-C $(OUT_DIR_PATH) \
+		-P "index.html?tc=$(TOOLCHAIN)&config=$(CONFIG)" \
+	  $(addprefix -E ,$(CHROME_ENV)) \
+	  -- \
+	  "$(CHROME_PATH)" \
+	  $(CHROME_ARGS) \
+	  --register-pepper-plugins="$(PPAPI_DEBUG),$(PPAPI_RELEASE)" \

@@ -232,7 +232,7 @@ endef
 #
 # Macro rule that compiles the resulting JavaScript file with unit tests (see
 # also the BUILD_TESTING_JS_SCRIPT macro rule), creates HTML file with unit
-# tests runner, and adds run target that executes the unit tests.
+# tests runner, and adds run_test target that executes the unit tests.
 #
 # Arguments:
 #    $1: Paths to the directories with the source JavaScript files (it should
@@ -249,7 +249,7 @@ $(OUT_DIR_PATH)/index.html: $(OUT_DIR_PATH)
 
 generate_out: $(OUT_DIR_PATH)/index.html
 
-run: all
+run_test: all
 	$(CHROME_ENV) $(CHROME_PATH) $(OUT_DIR_PATH)/index.html $(CHROME_ARGS) \
 		--user-data-dir=$(OUT_DIR_ROOT_PATH)/temp_chrome_profile
 

@@ -21,8 +21,6 @@ TARGET := integration_tests
 
 include ../../../common/make/common.mk
 
-PAGE := $(OUT_DIR_PATH)/index.html
-
 include $(COMMON_DIR_PATH)/make/js_building_common.mk
 include $(COMMON_DIR_PATH)/make/executable_building.mk
 include $(COMMON_DIR_PATH)/cpp/include.mk
@@ -76,14 +74,21 @@ $(eval $(call BUILD_TESTING_JS_SCRIPT,tests.js,$(JS_COMPILER_INPUT_PATHS)))
 
 $(OUT_DIR_PATH)/index.html: $(OUT_DIR_PATH)
 	@echo "<script src='tests.js'></script>" > $(OUT_DIR_PATH)/index.html
+all: $(OUT_DIR_PATH)/index.html
 
-
+# Target that executes the tests by starting a Chrome instance with the test
+# runner's HTML page. A web server is additionally started that serves the page
+# and the NaCl module's files. The user-data-dir, which is passed to Chrome for
+# storing data, is cleared before each run to prevent state leakage.
 #
-# Hack: change CURDIR to the out directory, so that the "run" target starts
-# Chrome with the correct working directory, and re-adjust path to the loaded
-# page accordingly.
-#
-
-CURDIR := $(OUT_DIR_PATH)
-
-PAGE := index.html
+# Note: The recipe uses variables that are defined by the NaCl's makefiles.
+run_test: all
+	rm -rf user-data-dir
+	$(RUN_PY) \
+		-C $(OUT_DIR_PATH) \
+		-P "index.html?tc=$(TOOLCHAIN)&config=$(CONFIG)" \
+	  $(addprefix -E ,$(CHROME_ENV)) \
+	  -- \
+	  "$(CHROME_PATH)" \
+	  $(CHROME_ARGS) \
+	  --register-pepper-plugins="$(PPAPI_DEBUG),$(PPAPI_RELEASE)" \
