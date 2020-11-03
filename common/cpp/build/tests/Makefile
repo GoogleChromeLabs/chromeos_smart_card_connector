@@ -12,55 +12,51 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-#
 # Makefile for the C++ library tests.
 #
-# The tests are executed through the separate tests runner, and therefore its
-# makefile has to be used - with our specific options plugged into it through a
-# bunch of make variables.
-#
+# The makefile is based on the helper definitions provided by
+# "cpp_unit_test_runner".
 
+include ../../../cpp_unit_test_runner/include.mk
 
-ADDITIONAL_TEST_LIBS_PREFIX := \
-	google_smart_card_common \
+ROOT_SOURCES_PATH := ../../src
+ROOT_SOURCES_SUBDIR := google_smart_card_common
+SOURCES_PATH := $(ROOT_SOURCES_PATH)/$(ROOT_SOURCES_SUBDIR)
 
-ADDITIONAL_TEST_LIBS_SUFFIX := \
-	nacl_io \
-
-
-ADDITIONAL_TEST_DEPS = \
-	nacl_io \
-	google_smart_card_common:.. \
-
-
-TEST_SOURCES_PATH := ../../src
-
-TEST_SOURCES_SUBDIR := google_smart_card_common
-
-TEST_SOURCES := \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/formatting_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/logging/hex_dumping_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/messaging/typed_message_router_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/numeric_conversions_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/requesting/async_request_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/requesting/async_requests_storage_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_conversion_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_debug_dumping_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_unittest.cc \
+SOURCES := \
+	$(SOURCES_PATH)/formatting_unittest.cc \
+	$(SOURCES_PATH)/logging/hex_dumping_unittest.cc \
+	$(SOURCES_PATH)/messaging/typed_message_router_unittest.cc \
+	$(SOURCES_PATH)/numeric_conversions_unittest.cc \
+	$(SOURCES_PATH)/requesting/async_request_unittest.cc \
+	$(SOURCES_PATH)/requesting/async_requests_storage_unittest.cc \
+	$(SOURCES_PATH)/value_conversion_unittest.cc \
+	$(SOURCES_PATH)/value_debug_dumping_unittest.cc \
+	$(SOURCES_PATH)/value_unittest.cc \
 
 ifeq ($(TOOLCHAIN),pnacl)
 
-TEST_SOURCES += \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/pp_var_utils/construction_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/pp_var_utils/enum_converter_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/pp_var_utils/struct_converter_unittest.cc \
-	$(TEST_SOURCES_PATH)/$(TEST_SOURCES_SUBDIR)/value_nacl_pp_var_conversion_unittest.cc \
+SOURCES += \
+	$(SOURCES_PATH)/pp_var_utils/construction_unittest.cc \
+	$(SOURCES_PATH)/pp_var_utils/enum_converter_unittest.cc \
+	$(SOURCES_PATH)/pp_var_utils/struct_converter_unittest.cc \
+	$(SOURCES_PATH)/value_nacl_pp_var_conversion_unittest.cc \
 
 endif
 
-ADDITIONAL_TEST_CPPFLAGS := \
-	-I$(TEST_SOURCES_PATH) \
+CXXFLAGS := \
+	-I$(ROOT_SOURCES_PATH)/ \
+	-pedantic \
+	-Wall \
+	-Werror \
+	-Wextra \
+	-std=gnu++11 \
+	$(TEST_ADDITIONAL_CXXFLAGS) \
 
+LIBS := \
+	google_smart_card_common \
 
-include ../../../tests_runner/build.mk
+$(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
+
+$(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES) $(TEST_RUNNER_SOURCES),\
+	$(LIBS) $(TEST_RUNNER_LIBS),$(TEST_RUNNER_DEPS),$(TEST_ADDITIONAL_LDFLAGS)))

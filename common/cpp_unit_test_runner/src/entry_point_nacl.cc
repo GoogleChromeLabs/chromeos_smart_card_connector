@@ -65,8 +65,7 @@ class GTestEventListener final : public testing::EmptyTestEventListener {
     message.Set("ok", !test_info.result()->Failed());
     PostMessage(message);
 
-    if (test_info.result()->Failed())
-      ++failed_test_count_;
+    if (test_info.result()->Failed()) ++failed_test_count_;
     current_test_case_name_.clear();
     current_test_name_.clear();
   }
