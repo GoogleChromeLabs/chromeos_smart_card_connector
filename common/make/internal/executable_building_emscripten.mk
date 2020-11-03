@@ -186,16 +186,16 @@ endef
 # L: Add the specified directory into the .a library search paths.
 # l: Link the specified .a library.
 define LINK_EXECUTABLE_RULE
-$(BUILD_DIR)/$(1).js $(BUILD_DIR)/$(1).wasm $(BUILD_DIR)/$(1).worker.js &: $(foreach src,$(2),$(call OBJ_FILE_NAME,$(src))) | $(BUILD_DIR)/dir.stamp
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js &: $(foreach src,$(1),$(call OBJ_FILE_NAME,$(src))) | $(BUILD_DIR)/dir.stamp
 	emcc \
-		-o $(BUILD_DIR)/$(1).js \
+		-o $(BUILD_DIR)/$(TARGET).js \
 		-L$(LIB_DIR) \
-		$(foreach src,$(2),$(call OBJ_FILE_NAME,$(src))) \
-		$(foreach lib,$(3),-l$(lib)) \
+		$(foreach src,$(1),$(call OBJ_FILE_NAME,$(src))) \
+		$(foreach lib,$(2),-l$(lib)) \
 		$(EMSCRIPTEN_FLAGS) \
-		$(5)
-all: $(BUILD_DIR)/$(1).js $(BUILD_DIR)/$(1).wasm $(BUILD_DIR)/$(1).worker.js
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(1).js))
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(1).wasm))
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(1).worker.js))
+		$(4)
+all: $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).js))
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).wasm))
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).worker.js))
 endef
