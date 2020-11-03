@@ -33,7 +33,6 @@
 #include <unordered_map>
 
 #include <ppapi/cpp/instance.h>
-#include <ppapi/cpp/var.h>
 
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
@@ -149,7 +148,7 @@ class PcscLiteServerClientsManager final {
 
     // RequestHandler:
     void HandleRequest(
-        const pp::Var& payload,
+        Value payload,
         RequestReceiver::ResultCallback result_callback) override;
 
    private:

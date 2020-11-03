@@ -26,6 +26,7 @@
 
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/requesting/js_request_receiver.h>
+#include <google_smart_card_common/value.h>
 #include <google_smart_card_integration_testing/integration_test_helper.h>
 
 namespace google_smart_card {
@@ -45,31 +46,27 @@ class IntegrationTestService final : public RequestHandler {
 
   // Starts listening for incoming requests and translating them into commands
   // for test helpers.
-  void Activate(
-      pp::Instance* pp_instance,
-      pp::Core* pp_core,
-      TypedMessageRouter* typed_message_router);
+  void Activate(pp::Instance* pp_instance, pp::Core* pp_core,
+                TypedMessageRouter* typed_message_router);
   // Tears down all previously set up helpers and stops listening for incoming
   // requests.
   void Deactivate();
 
   // RequestHandler:
-  void HandleRequest(
-      const pp::Var& payload,
-      RequestReceiver::ResultCallback result_callback) override;
+  void HandleRequest(Value payload,
+                     RequestReceiver::ResultCallback result_callback) override;
 
  private:
   IntegrationTestService();
   ~IntegrationTestService();
 
   IntegrationTestHelper* FindHelperByName(const std::string& name);
-  void SetUpHelper(
-      const std::string& helper_name, const pp::Var& data_for_helper);
+  void SetUpHelper(const std::string& helper_name,
+                   const pp::Var& data_for_helper);
   void TearDownAllHelpers();
-  void SendMessageToHelper(
-      const std::string& helper_name,
-      const pp::Var& message_for_helper,
-      RequestReceiver::ResultCallback result_callback);
+  void SendMessageToHelper(const std::string& helper_name,
+                           const pp::Var& message_for_helper,
+                           RequestReceiver::ResultCallback result_callback);
 
   pp::Instance* pp_instance_ = nullptr;
   pp::Core* pp_core_ = nullptr;

@@ -30,6 +30,8 @@
 #include <sstream>
 #include <utility>
 
+#include <ppapi/cpp/var.h>
+
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/pp_var_utils/struct_converter.h>
@@ -215,10 +217,12 @@ PcscLiteServerClientsManager::Handler::~Handler() {
 }
 
 void PcscLiteServerClientsManager::Handler::HandleRequest(
-    const pp::Var& payload, RequestReceiver::ResultCallback result_callback) {
+    Value payload, RequestReceiver::ResultCallback result_callback) {
+  // TODO: Parse `Value` directly instead of transforming into `pp::Var`.
+  const pp::Var payload_var = ConvertValueToPpVar(payload);
   std::string function_name;
   pp::VarArray arguments;
-  if (!ParseRemoteCallRequestPayload(payload, &function_name, &arguments)) {
+  if (!ParseRemoteCallRequestPayload(payload_var, &function_name, &arguments)) {
     result_callback(GenericRequestResult::CreateFailed(
         "Failed to parse remote call request payload"));
     return;

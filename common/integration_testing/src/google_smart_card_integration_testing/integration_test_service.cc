@@ -33,6 +33,7 @@
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 #include <google_smart_card_integration_testing/integration_test_helper.h>
 
 namespace google_smart_card {
@@ -86,13 +87,15 @@ void IntegrationTestService::Deactivate() {
 }
 
 void IntegrationTestService::HandleRequest(
-    const pp::Var& payload, RequestReceiver::ResultCallback result_callback) {
+    Value payload, RequestReceiver::ResultCallback result_callback) {
+  // TODO(#185): Parse `Value` directly, instead of converting into `pp::Var`.
+  const pp::Var payload_var = ConvertValueToPpVar(payload);
   std::string method_name;
   pp::VarArray method_arguments;
-  if (!ParseRemoteCallRequestPayload(payload, &method_name,
+  if (!ParseRemoteCallRequestPayload(payload_var, &method_name,
                                      &method_arguments)) {
     GOOGLE_SMART_CARD_LOG_FATAL << "Cannot parse call parameters from "
-                                << DumpVar(payload);
+                                << DumpVar(payload_var);
   }
   if (method_name == "SetUp") {
     std::string helper_name;

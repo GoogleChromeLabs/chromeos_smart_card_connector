@@ -15,9 +15,8 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUEST_HANDLER_H_
 #define GOOGLE_SMART_CARD_COMMON_REQUESTING_REQUEST_HANDLER_H_
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/requesting/request_receiver.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -36,13 +35,12 @@ class RequestHandler {
   // callback that can be used to send the request results back.
   //
   // Note that, generally speaking, this function should not block for a very
-  // long periods of time (and probably not do any waiting on the incoming
+  // long period of time (and probably not do any waiting on the incoming
   // Pepper messages at all), as the request receiver calls this method
   // synchronously and, depending on the type of channel it uses, may lead to
   // freezes and deadlocks.
   virtual void HandleRequest(
-      const pp::Var& payload,
-      RequestReceiver::ResultCallback result_callback) = 0;
+      Value payload, RequestReceiver::ResultCallback result_callback) = 0;
 };
 
 }  // namespace google_smart_card
