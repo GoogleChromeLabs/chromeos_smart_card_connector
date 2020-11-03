@@ -86,7 +86,7 @@ $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
 
 
 test::
-	+$(MAKE) --directory tests run
+	+$(MAKE) --directory tests run_test
 
 tests_clean::
 	+$(MAKE) --directory tests clean

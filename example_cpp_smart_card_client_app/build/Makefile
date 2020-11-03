@@ -75,7 +75,7 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/built_in_pin_dialog/built-in-
 # Rules for building and running tests and for cleaning test build files.
 
 test::
-	+$(MAKE) --directory integration_tests run
+	+$(MAKE) --directory integration_tests run_test
 
 tests_clean::
 	+$(MAKE) --directory integration_tests clean

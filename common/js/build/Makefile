@@ -17,7 +17,7 @@ all:
 
 
 test::
-	+$(MAKE) --directory unittests run
+	+$(MAKE) --directory unittests run_test
 
 tests_clean::
 	+$(MAKE) --directory unittests clean

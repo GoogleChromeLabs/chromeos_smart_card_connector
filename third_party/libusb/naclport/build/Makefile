@@ -79,8 +79,8 @@ $(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
 
 
 test::
-	+$(MAKE) --directory tests run
-	+$(MAKE) --directory js_unittests run
+	+$(MAKE) --directory tests run_test
+	+$(MAKE) --directory js_unittests run_test
 
 tests_clean::
 	+$(MAKE) --directory tests clean
