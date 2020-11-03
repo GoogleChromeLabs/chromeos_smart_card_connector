@@ -87,8 +87,8 @@ run_test: all
 	$(RUN_PY) \
 		-C $(OUT_DIR_PATH) \
 		-P "index.html?tc=$(TOOLCHAIN)&config=$(CONFIG)" \
-	  $(addprefix -E ,$(CHROME_ENV)) \
-	  -- \
-	  "$(CHROME_PATH)" \
-	  $(CHROME_ARGS) \
-	  --register-pepper-plugins="$(PPAPI_DEBUG),$(PPAPI_RELEASE)" \
+		$(addprefix -E ,$(CHROME_ENV)) \
+		-- \
+		"$(CHROME_PATH)" \
+		$(CHROME_ARGS) \
+		--register-pepper-plugins="$(PPAPI_DEBUG),$(PPAPI_RELEASE)" \
