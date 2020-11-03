@@ -81,7 +81,7 @@ all: $(OUT_DIR_PATH)/index.html
 # and the NaCl module's files. The user-data-dir, which is passed to Chrome for
 # storing data, is cleared before each run to prevent state leakage.
 #
-# Note: The recipe uses variables that are defined by the NaCl's makefiles.
+# Note: The recipe uses variables that are defined by NaCl's makefiles.
 run_test: all
 	rm -rf user-data-dir
 	$(RUN_PY) \
