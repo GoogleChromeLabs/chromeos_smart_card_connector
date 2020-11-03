@@ -42,13 +42,10 @@ class GlobalContextImplEmscripten final : public GlobalContext {
       delete;
   ~GlobalContextImplEmscripten() override;
 
-  // Disables posting new messages to JS. All calls to `PostMessageToJs()` after
-  // this point will return `false`.
-  void DetachFromPostMessage();
-
   // GlobalContext:
   bool PostMessageToJs(const Value& message) override;
   bool IsMainEventLoopThread() const override;
+  void DisableJsCommunication() override;
 
  private:
   const std::thread::id main_thread_id_;

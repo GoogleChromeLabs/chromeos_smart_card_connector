@@ -38,13 +38,10 @@ class GlobalContextImplNacl final : public GlobalContext {
   GlobalContextImplNacl& operator=(const GlobalContextImplNacl&) = delete;
   ~GlobalContextImplNacl() override;
 
-  // Disables posting new messages to JS. All calls to `PostMessageToJs()` after
-  // this point will return `false`.
-  void DetachFromPpInstance();
-
   // GlobalContext:
   bool PostMessageToJs(const Value& message) override;
   bool IsMainEventLoopThread() const override;
+  void DisableJsCommunication() override;
 
  private:
   pp::Core* const pp_core_;

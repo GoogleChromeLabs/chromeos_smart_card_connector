@@ -31,11 +31,6 @@ GlobalContextImplEmscripten::GlobalContextImplEmscripten(
 
 GlobalContextImplEmscripten::~GlobalContextImplEmscripten() = default;
 
-void GlobalContextImplEmscripten::DetachFromPostMessage() {
-  const std::unique_lock<std::mutex> lock(mutex_);
-  post_message_callback_ = emscripten::val::undefined();
-}
-
 bool GlobalContextImplEmscripten::PostMessageToJs(const Value& message) {
   // Converting the value before entering the mutex, in order to minimize the
   // time spent under the lock.
@@ -49,6 +44,11 @@ bool GlobalContextImplEmscripten::PostMessageToJs(const Value& message) {
 
 bool GlobalContextImplEmscripten::IsMainEventLoopThread() const {
   return std::this_thread::get_id() == main_thread_id_;
+}
+
+void GlobalContextImplEmscripten::DisableJsCommunication() {
+  const std::unique_lock<std::mutex> lock(mutex_);
+  post_message_callback_ = emscripten::val::undefined();
 }
 
 }  // namespace google_smart_card

@@ -31,11 +31,6 @@ GlobalContextImplNacl::GlobalContextImplNacl(pp::Core* pp_core,
 
 GlobalContextImplNacl::~GlobalContextImplNacl() = default;
 
-void GlobalContextImplNacl::DetachFromPpInstance() {
-  const std::unique_lock<std::mutex> lock(mutex_);
-  pp_instance_ = nullptr;
-}
-
 bool GlobalContextImplNacl::PostMessageToJs(const Value& message) {
   // Converting the value before entering the mutex, in order to minimize the
   // time spent under the lock.
@@ -49,6 +44,11 @@ bool GlobalContextImplNacl::PostMessageToJs(const Value& message) {
 
 bool GlobalContextImplNacl::IsMainEventLoopThread() const {
   return pp_core_->IsMainThread();
+}
+
+void GlobalContextImplNacl::DisableJsCommunication() {
+  const std::unique_lock<std::mutex> lock(mutex_);
+  pp_instance_ = nullptr;
 }
 
 }  // namespace google_smart_card

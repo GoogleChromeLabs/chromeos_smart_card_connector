@@ -35,6 +35,10 @@ class GlobalContext {
   // Returns whether the current thread is the main event loop thread. Is
   // intended to be used to avoid blocking/deadlocking the main thread.
   virtual bool IsMainEventLoopThread() const = 0;
+
+  // Disables communication with the JavaScript side. All calls to
+  // `PostMessageToJs()` after this point will return `false`.
+  virtual void DisableJsCommunication() = 0;
 };
 
 }  // namespace google_smart_card
