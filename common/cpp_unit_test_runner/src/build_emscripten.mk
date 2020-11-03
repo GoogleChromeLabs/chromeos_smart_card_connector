@@ -24,26 +24,26 @@
 TEST_ADDITIONAL_EMSCRIPTEN_FLAGS := \
 	-s MODULARIZE=0 \
 
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 TEST_ADDITIONAL_CXXFLAGS := \
 	$(TEST_ADDITIONAL_EMSCRIPTEN_FLAGS) \
 	-I$(ROOT_PATH)/third_party/googletest/src/googlemock/include \
 	-I$(ROOT_PATH)/third_party/googletest/src/googletest/include \
 
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 TEST_ADDITIONAL_LDFLAGS := \
 	$(TEST_ADDITIONAL_EMSCRIPTEN_FLAGS) \
 
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 TEST_RUNNER_SOURCES :=
 
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 TEST_RUNNER_LIBS := \
 	gtest_main \
 	gmock \
 	gtest \
 
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 TEST_RUNNER_DEPS := \
 
 # Rules for building GoogleTest static libraries.
@@ -57,7 +57,7 @@ GOOGLETEST_LIBS := \
 $(GOOGLETEST_LIBS) &:
 	$(MAKE) -C $(ROOT_PATH)/third_party/googletest/webport/build
 
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 #
 # Implementation notes:
 # The execution is performed via Node.js.

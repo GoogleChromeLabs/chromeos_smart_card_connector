@@ -15,14 +15,14 @@
 # This file contains the implementation of the ../include.mk interface that
 # builds the C++ unit test runner using the Native Client toolchain.
 
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 TEST_ADDITIONAL_CXXFLAGS :=
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 TEST_ADDITIONAL_LDFLAGS :=
 
 # Path to the test runner's own source files.
 TEST_RUNNER_SOURCES_DIR := $(ROOT_PATH)/common/cpp_unit_test_runner/src
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 TEST_RUNNER_SOURCES := \
 	$(TEST_RUNNER_SOURCES_DIR)/entry_point_nacl.cc \
 
@@ -38,7 +38,7 @@ TEST_RUNNER_CXXFLAGS := \
 $(foreach src,$(TEST_RUNNER_SOURCES),\
 	$(eval $(call COMPILE_RULE,$(src),$(TEST_RUNNER_CXXFLAGS))))
 
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 TEST_RUNNER_LIBS := \
 	gmock \
 	gtest \
@@ -46,7 +46,7 @@ TEST_RUNNER_LIBS := \
 	$(DEFAULT_NACL_LIBS) \
 	nacl_io \
 
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 TEST_RUNNER_DEPS := \
 	ppapi_simple_cpp \
 	nacl_io \
@@ -64,7 +64,7 @@ TEST_RUNNER_STATIC_FILES := \
 $(foreach static_file,$(TEST_RUNNER_STATIC_FILES),\
 	$(eval $(call COPY_TO_OUT_DIR_RULE,$(static_file))))
 
-# Documented at ../include.mk.
+# Documented in ../include.mk.
 #
 # Implementation notes:
 # The tests are executed by starting a Chrome instance with the test runner's

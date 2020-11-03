@@ -12,13 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#
 # Makefile for the C++ library tests.
 #
-# The tests are executed through the separate tests runner, and therefore its
-# makefile has to be used - with our specific options plugged into it through a
-# bunch of make variables.
-#
+# The makefile is based on the helper definitions provided by
+# "cpp_unit_test_runner".
 
 include ../../../cpp_unit_test_runner/include.mk
 
