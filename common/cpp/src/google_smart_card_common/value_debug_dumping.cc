@@ -46,7 +46,9 @@ __attribute__((unused)) std::string GetValueTypeTitle(const Value& value) {
   GOOGLE_SMART_CARD_NOTREACHED;
 }
 
-std::string DebugDumpBoolean(bool value) { return value ? "true" : "false"; }
+std::string DebugDumpBoolean(bool value) {
+  return value ? "true" : "false";
+}
 
 std::string DebugDumpString(const std::string& value) {
   return '"' + value + '"';
@@ -55,7 +57,8 @@ std::string DebugDumpString(const std::string& value) {
 std::string DebugDumpArray(const Value::ArrayStorage& array_value) {
   std::string result = "[";
   for (size_t index = 0; index < array_value.size(); ++index) {
-    if (index > 0) result += ", ";
+    if (index > 0)
+      result += ", ";
     result += DebugDumpValueFull(*array_value[index]);
   }
   result += "]";
@@ -69,7 +72,8 @@ std::string DebugDumpDictionary(
   for (const auto& item : dictionary_value) {
     const std::string& item_key = item.first;
     const Value& item_value = *item.second;
-    if (!is_first_item) result += ", ";
+    if (!is_first_item)
+      result += ", ";
     is_first_item = false;
     result += DebugDumpString(item_key);
     result += ": ";
@@ -86,7 +90,8 @@ std::string DebugDumpBinary(const Value::BinaryStorage& binary_value) {
   // and for the sake of keeping the dumps easy to read.
   std::string result = std::string(Value::kBinaryTypeTitle) + "[";
   for (size_t offset = 0; offset < binary_value.size(); ++offset) {
-    if (offset > 0) result += ", ";
+    if (offset > 0)
+      result += ", ";
     result += HexDumpByte(binary_value[offset]);
   }
   result += "]";

@@ -76,7 +76,8 @@ TypedMessageListener* TypedMessageRouter::FindListenerByType(
   const std::unique_lock<std::mutex> lock(mutex_);
 
   const auto route_map_iter = route_map_.find(message_type);
-  if (route_map_iter == route_map_.end()) return nullptr;
+  if (route_map_iter == route_map_.end())
+    return nullptr;
   return route_map_iter->second;
 }
 

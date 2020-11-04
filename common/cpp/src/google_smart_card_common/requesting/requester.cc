@@ -43,7 +43,8 @@ Requester::~Requester() {
 }
 
 GenericAsyncRequest Requester::StartAsyncRequest(
-    Value payload, GenericAsyncRequestCallback callback) {
+    Value payload,
+    GenericAsyncRequestCallback callback) {
   GenericAsyncRequest async_result;
   StartAsyncRequest(std::move(payload), callback, &async_result);
   return async_result;
@@ -70,7 +71,8 @@ GenericRequestResult Requester::PerformSyncRequest(Value payload) {
 }
 
 GenericAsyncRequest Requester::CreateAsyncRequest(
-    GenericAsyncRequestCallback callback, RequestId* request_id) {
+    GenericAsyncRequestCallback callback,
+    RequestId* request_id) {
   const auto async_request_state =
       std::make_shared<GenericAsyncRequestState>(callback);
   *request_id = async_requests_storage_.Push(async_request_state);
@@ -81,7 +83,8 @@ bool Requester::SetAsyncRequestResult(RequestId request_id,
                                       GenericRequestResult request_result) {
   const std::shared_ptr<GenericAsyncRequestState> async_request_state =
       async_requests_storage_.Pop(request_id);
-  if (!async_request_state) return false;
+  if (!async_request_state)
+    return false;
   async_request_state->SetResult(std::move(request_result));
   return true;
 }

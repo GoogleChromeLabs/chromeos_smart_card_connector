@@ -63,12 +63,15 @@ JsRequester::JsRequester(const std::string& name,
   typed_message_router->AddRoute(this);
 }
 
-JsRequester::~JsRequester() { Detach(); }
+JsRequester::~JsRequester() {
+  Detach();
+}
 
 void JsRequester::Detach() {
   TypedMessageRouter* const typed_message_router =
       typed_message_router_.exchange(nullptr);
-  if (typed_message_router) typed_message_router->RemoveRoute(this);
+  if (typed_message_router)
+    typed_message_router->RemoveRoute(this);
 
   pp_delegate_.Reset();
 
@@ -119,7 +122,8 @@ bool JsRequester::OnTypedMessageReceived(Value data) {
 bool JsRequester::PostPpMessage(const pp::Var& message) {
   const ThreadSafeUniquePtr<PpDelegate>::Locked pp_delegate =
       pp_delegate_.Lock();
-  if (!pp_delegate) return false;
+  if (!pp_delegate)
+    return false;
   pp_delegate->PostMessage(message);
   return true;
 }

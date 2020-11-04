@@ -44,14 +44,16 @@ extern const int64_t kDoubleExactRangeMin;
 // Performs safe cast of double value into a 64-bit integer value (fails if the
 // value is outside the range of integers that can be represented by the double
 // type exactly).
-bool CastDoubleToInt64(double value, int64_t* result,
+bool CastDoubleToInt64(double value,
+                       int64_t* result,
                        std::string* error_message = nullptr);
 
 namespace internal {
 
 template <typename T>
 inline int GetIntegerSign(T value) {
-  if (!value) return 0;
+  if (!value)
+    return 0;
   return value > 0 ? +1 : -1;
 }
 
@@ -72,18 +74,21 @@ inline int CompareIntegers(T1 value_1, T2 value_2) {
   // numbers.
   const int sign_1 = internal::GetIntegerSign(value_1);
   const int sign_2 = internal::GetIntegerSign(value_2);
-  if (sign_1 != sign_2) return sign_1 < sign_2 ? -1 : +1;
+  if (sign_1 != sign_2)
+    return sign_1 < sign_2 ? -1 : +1;
   using CommonType = typename std::common_type<T1, T2>::type;
   const CommonType promoted_value_1 = static_cast<CommonType>(value_1);
   const CommonType promoted_value_2 = static_cast<CommonType>(value_2);
-  if (promoted_value_1 == promoted_value_2) return 0;
+  if (promoted_value_1 == promoted_value_2)
+    return 0;
   return promoted_value_1 < promoted_value_2 ? -1 : +1;
 }
 
 // Performs safe cast of an integer value into another integer value, possibly
 // of different type (fails if the value is outside the target type range).
 template <typename SourceType, typename TargetType>
-inline bool CastInteger(SourceType source_value, const char* target_type_name,
+inline bool CastInteger(SourceType source_value,
+                        const char* target_type_name,
                         TargetType* target_value,
                         std::string* error_message = nullptr) {
   static_assert(std::is_integral<SourceType>::value,
@@ -112,7 +117,8 @@ inline bool CastInteger(SourceType source_value, const char* target_type_name,
 // is outside the range of integers that can be represented by the double type
 // exactly).
 template <typename T>
-inline bool CastIntegerToDouble(T value, double* result,
+inline bool CastIntegerToDouble(T value,
+                                double* result,
                                 std::string* error_message) {
   if (CompareIntegers(internal::kDoubleExactRangeMin, value) <= 0 &&
       CompareIntegers(internal::kDoubleExactRangeMax, value) >= 0) {

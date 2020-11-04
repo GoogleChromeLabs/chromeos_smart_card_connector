@@ -64,7 +64,8 @@ StructConverter<ExternalLogMessageData>::GetStructTypeName() {
 template <>
 template <typename Callback>
 void StructConverter<ExternalLogMessageData>::VisitFields(
-    const ExternalLogMessageData& value, Callback callback) {
+    const ExternalLogMessageData& value,
+    Callback callback) {
   callback(&value.formatted_log_message, "formatted_log_message");
 }
 

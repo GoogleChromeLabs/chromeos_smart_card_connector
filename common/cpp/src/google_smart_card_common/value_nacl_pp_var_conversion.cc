@@ -153,9 +153,12 @@ pp::Var ConvertValueToPpVar(const Value& value) {
 
 optional<Value> ConvertPpVarToValue(const pp::Var& var,
                                     std::string* error_message) {
-  if (var.is_undefined() || var.is_null()) return Value();
-  if (var.is_bool()) return Value(var.AsBool());
-  if (var.is_string()) return Value(var.AsString());
+  if (var.is_undefined() || var.is_null())
+    return Value();
+  if (var.is_bool())
+    return Value(var.AsBool());
+  if (var.is_string())
+    return Value(var.AsString());
   if (var.is_object() || var.is_resource()) {
     FormatPrintfTemplateAndSet(error_message,
                                "Error converting: unsupported type \"%s\"",
@@ -168,8 +171,10 @@ optional<Value> ConvertPpVarToValue(const pp::Var& var,
     return CreateValueFromPpVarDictionary(pp::VarDictionary(var),
                                           error_message);
   }
-  if (var.is_int()) return Value(var.AsInt());
-  if (var.is_double()) return Value(var.AsDouble());
+  if (var.is_int())
+    return Value(var.AsInt());
+  if (var.is_double())
+    return Value(var.AsDouble());
   if (var.is_array_buffer())
     return CreateValueFromVarArrayBuffer(pp::VarArrayBuffer(var));
   GOOGLE_SMART_CARD_NOTREACHED;
@@ -178,7 +183,8 @@ optional<Value> ConvertPpVarToValue(const pp::Var& var,
 Value ConvertPpVarToValueOrDie(const pp::Var& var) {
   std::string error_message;
   optional<Value> value = ConvertPpVarToValue(var, &error_message);
-  if (!value) GOOGLE_SMART_CARD_LOG_FATAL << error_message;
+  if (!value)
+    GOOGLE_SMART_CARD_LOG_FATAL << error_message;
   return std::move(*value);
 }
 

@@ -129,7 +129,8 @@ class PcscLiteClientRequestProcessor final
   // Start processing the given PC/SC-Lite request in a background thread.
   static void AsyncProcessRequest(
       std::shared_ptr<PcscLiteClientRequestProcessor> request_processor,
-      const std::string& function_name, const pp::VarArray& arguments,
+      const std::string& function_name,
+      const pp::VarArray& arguments,
       RequestReceiver::ResultCallback result_callback);
 
  private:
@@ -174,7 +175,8 @@ class PcscLiteClientRequestProcessor final
                                            DWORD disposition_action);
   GenericRequestResult SCardStatus(SCARDHANDLE s_card_handle);
   GenericRequestResult SCardGetStatusChange(
-      SCARDCONTEXT s_card_context, DWORD timeout,
+      SCARDCONTEXT s_card_context,
+      DWORD timeout,
       const std::vector<InboundSCardReaderState>& reader_states);
   GenericRequestResult SCardControl(SCARDHANDLE s_card_handle,
                                     DWORD control_code,

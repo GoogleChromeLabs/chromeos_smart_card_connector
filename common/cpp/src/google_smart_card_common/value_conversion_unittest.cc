@@ -1461,7 +1461,8 @@ TEST(ValueConversion, ValueToVector) {
   {
     const std::vector<int> kNumbers = {123, -1, 1024};
     std::vector<std::unique_ptr<Value>> items;
-    for (int number : kNumbers) items.push_back(MakeUnique<Value>(number));
+    for (int number : kNumbers)
+      items.push_back(MakeUnique<Value>(number));
     Value value(std::move(items));
 
     std::vector<int> converted;
@@ -1472,7 +1473,8 @@ TEST(ValueConversion, ValueToVector) {
   {
     const std::vector<uint8_t> kBytes = {1, 2, 255};
     std::vector<std::unique_ptr<Value>> items;
-    for (uint8_t byte : kBytes) items.push_back(MakeUnique<Value>(byte));
+    for (uint8_t byte : kBytes)
+      items.push_back(MakeUnique<Value>(byte));
     Value value(std::move(items));
 
     std::vector<uint8_t> converted;

@@ -42,48 +42,73 @@ namespace google_smart_card {
 class PcscLiteTracingWrapper final : public PcscLite {
  public:
   explicit PcscLiteTracingWrapper(
-      PcscLite* pcsc_lite, const std::string& logging_prefix = "",
+      PcscLite* pcsc_lite,
+      const std::string& logging_prefix = "",
       LogSeverity log_severity = LogSeverity::kDebug);
   PcscLiteTracingWrapper(const PcscLiteTracingWrapper&) = delete;
   PcscLiteTracingWrapper& operator=(const PcscLiteTracingWrapper&) = delete;
   ~PcscLiteTracingWrapper();
 
   // PcscLite:
-  LONG SCardEstablishContext(DWORD dwScope, LPCVOID pvReserved1,
+  LONG SCardEstablishContext(DWORD dwScope,
+                             LPCVOID pvReserved1,
                              LPCVOID pvReserved2,
                              LPSCARDCONTEXT phContext) override;
   LONG SCardReleaseContext(SCARDCONTEXT hContext) override;
-  LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader, DWORD dwShareMode,
-                    DWORD dwPreferredProtocols, LPSCARDHANDLE phCard,
+  LONG SCardConnect(SCARDCONTEXT hContext,
+                    LPCSTR szReader,
+                    DWORD dwShareMode,
+                    DWORD dwPreferredProtocols,
+                    LPSCARDHANDLE phCard,
                     LPDWORD pdwActiveProtocol) override;
-  LONG SCardReconnect(SCARDHANDLE hCard, DWORD dwShareMode,
-                      DWORD dwPreferredProtocols, DWORD dwInitialization,
+  LONG SCardReconnect(SCARDHANDLE hCard,
+                      DWORD dwShareMode,
+                      DWORD dwPreferredProtocols,
+                      DWORD dwInitialization,
                       LPDWORD pdwActiveProtocol) override;
   LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition) override;
   LONG SCardBeginTransaction(SCARDHANDLE hCard) override;
   LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition) override;
-  LONG SCardStatus(SCARDHANDLE hCard, LPSTR szReaderName, LPDWORD pcchReaderLen,
-                   LPDWORD pdwState, LPDWORD pdwProtocol, LPBYTE pbAtr,
+  LONG SCardStatus(SCARDHANDLE hCard,
+                   LPSTR szReaderName,
+                   LPDWORD pcchReaderLen,
+                   LPDWORD pdwState,
+                   LPDWORD pdwProtocol,
+                   LPBYTE pbAtr,
                    LPDWORD pcbAtrLen) override;
-  LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
+  LONG SCardGetStatusChange(SCARDCONTEXT hContext,
+                            DWORD dwTimeout,
                             SCARD_READERSTATE* rgReaderStates,
                             DWORD cReaders) override;
-  LONG SCardControl(SCARDHANDLE hCard, DWORD dwControlCode,
-                    LPCVOID pbSendBuffer, DWORD cbSendLength,
-                    LPVOID pbRecvBuffer, DWORD cbRecvLength,
+  LONG SCardControl(SCARDHANDLE hCard,
+                    DWORD dwControlCode,
+                    LPCVOID pbSendBuffer,
+                    DWORD cbSendLength,
+                    LPVOID pbRecvBuffer,
+                    DWORD cbRecvLength,
                     LPDWORD lpBytesReturned) override;
-  LONG SCardGetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPBYTE pbAttr,
+  LONG SCardGetAttrib(SCARDHANDLE hCard,
+                      DWORD dwAttrId,
+                      LPBYTE pbAttr,
                       LPDWORD pcbAttrLen) override;
-  LONG SCardSetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPCBYTE pbAttr,
+  LONG SCardSetAttrib(SCARDHANDLE hCard,
+                      DWORD dwAttrId,
+                      LPCBYTE pbAttr,
                       DWORD cbAttrLen) override;
-  LONG SCardTransmit(SCARDHANDLE hCard, const SCARD_IO_REQUEST* pioSendPci,
-                     LPCBYTE pbSendBuffer, DWORD cbSendLength,
-                     SCARD_IO_REQUEST* pioRecvPci, LPBYTE pbRecvBuffer,
+  LONG SCardTransmit(SCARDHANDLE hCard,
+                     const SCARD_IO_REQUEST* pioSendPci,
+                     LPCBYTE pbSendBuffer,
+                     DWORD cbSendLength,
+                     SCARD_IO_REQUEST* pioRecvPci,
+                     LPBYTE pbRecvBuffer,
                      LPDWORD pcbRecvLength) override;
-  LONG SCardListReaders(SCARDCONTEXT hContext, LPCSTR mszGroups,
-                        LPSTR mszReaders, LPDWORD pcchReaders) override;
+  LONG SCardListReaders(SCARDCONTEXT hContext,
+                        LPCSTR mszGroups,
+                        LPSTR mszReaders,
+                        LPDWORD pcchReaders) override;
   LONG SCardFreeMemory(SCARDCONTEXT hContext, LPCVOID pvMem) override;
-  LONG SCardListReaderGroups(SCARDCONTEXT hContext, LPSTR mszGroups,
+  LONG SCardListReaderGroups(SCARDCONTEXT hContext,
+                             LPSTR mszGroups,
                              LPDWORD pcchGroups) override;
   LONG SCardCancel(SCARDCONTEXT hContext) override;
   LONG SCardIsValidContext(SCARDCONTEXT hContext) override;

@@ -45,7 +45,8 @@ class PcscLiteServerClientsManagementBackend::Impl final {
 };
 
 PcscLiteServerClientsManagementBackend::PcscLiteServerClientsManagementBackend(
-    pp::Instance* pp_instance, TypedMessageRouter* typed_message_router)
+    pp::Instance* pp_instance,
+    TypedMessageRouter* typed_message_router)
     : impl_(new Impl(pp_instance, typed_message_router)) {}
 
 PcscLiteServerClientsManagementBackend::

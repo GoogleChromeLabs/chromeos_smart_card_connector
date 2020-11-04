@@ -46,7 +46,8 @@ class LibusbTracingWrapper : public LibusbInterface {
   libusb_device* LibusbRefDevice(libusb_device* dev) override;
   void LibusbUnrefDevice(libusb_device* dev) override;
   int LibusbGetActiveConfigDescriptor(
-      libusb_device* dev, libusb_config_descriptor** config) override;
+      libusb_device* dev,
+      libusb_config_descriptor** config) override;
   void LibusbFreeConfigDescriptor(libusb_config_descriptor* config) override;
   int LibusbGetDeviceDescriptor(libusb_device* dev,
                                 libusb_device_descriptor* desc) override;
@@ -63,16 +64,26 @@ class LibusbTracingWrapper : public LibusbInterface {
   int LibusbSubmitTransfer(libusb_transfer* transfer) override;
   int LibusbCancelTransfer(libusb_transfer* transfer) override;
   void LibusbFreeTransfer(libusb_transfer* transfer) override;
-  int LibusbControlTransfer(libusb_device_handle* dev, uint8_t bmRequestType,
-                            uint8_t bRequest, uint16_t wValue, uint16_t wIndex,
-                            unsigned char* data, uint16_t wLength,
+  int LibusbControlTransfer(libusb_device_handle* dev,
+                            uint8_t bmRequestType,
+                            uint8_t bRequest,
+                            uint16_t wValue,
+                            uint16_t wIndex,
+                            unsigned char* data,
+                            uint16_t wLength,
                             unsigned timeout) override;
-  int LibusbBulkTransfer(libusb_device_handle* dev, unsigned char endpoint,
-                         unsigned char* data, int length, int* actual_length,
+  int LibusbBulkTransfer(libusb_device_handle* dev,
+                         unsigned char endpoint,
+                         unsigned char* data,
+                         int length,
+                         int* actual_length,
                          unsigned timeout) override;
-  int LibusbInterruptTransfer(libusb_device_handle* dev, unsigned char endpoint,
-                              unsigned char* data, int length,
-                              int* actual_length, unsigned timeout) override;
+  int LibusbInterruptTransfer(libusb_device_handle* dev,
+                              unsigned char endpoint,
+                              unsigned char* data,
+                              int length,
+                              int* actual_length,
+                              unsigned timeout) override;
   int LibusbHandleEvents(libusb_context* ctx) override;
   int LibusbHandleEventsCompleted(libusb_context* ctx, int* completed) override;
 

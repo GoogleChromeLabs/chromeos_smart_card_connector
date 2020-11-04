@@ -80,7 +80,8 @@ bool VarAs(const pp::Var& var, uint64_t* result, std::string* error_message);
 
 bool VarAs(const pp::Var& var, long* result, std::string* error_message);
 
-bool VarAs(const pp::Var& var, unsigned long* result,
+bool VarAs(const pp::Var& var,
+           unsigned long* result,
            std::string* error_message);
 
 bool VarAs(const pp::Var& var, float* result, std::string* error_message);
@@ -93,27 +94,33 @@ bool VarAs(const pp::Var& var, std::string* result, std::string* error_message);
 
 bool VarAs(const pp::Var& var, pp::Var* result, std::string* error_message);
 
-bool VarAs(const pp::Var& var, pp::VarArray* result,
+bool VarAs(const pp::Var& var,
+           pp::VarArray* result,
            std::string* error_message);
 
-bool VarAs(const pp::Var& var, pp::VarArrayBuffer* result,
+bool VarAs(const pp::Var& var,
+           pp::VarArrayBuffer* result,
            std::string* error_message);
 
-bool VarAs(const pp::Var& var, pp::VarDictionary* result,
+bool VarAs(const pp::Var& var,
+           pp::VarDictionary* result,
            std::string* error_message);
 
-bool VarAs(const pp::Var& var, pp::Var::Null* result,
+bool VarAs(const pp::Var& var,
+           pp::Var::Null* result,
            std::string* error_message);
 
 template <typename T>
-inline bool VarAs(const pp::Var& var, optional<T>* result,
+inline bool VarAs(const pp::Var& var,
+                  optional<T>* result,
                   std::string* error_message) {
   if (var.is_undefined() || var.is_null()) {
     result->reset();
     return true;
   }
   T result_value;
-  if (!VarAs(var, &result_value, error_message)) return false;
+  if (!VarAs(var, &result_value, error_message))
+    return false;
   *result = result_value;
   return true;
 }
@@ -137,10 +144,12 @@ inline bool GetVarArrayItemsVector(const pp::VarArray& var,
 }
 
 template <typename T>
-inline bool VarAsVarArrayAsVector(const pp::Var& var, std::vector<T>* result,
+inline bool VarAsVarArrayAsVector(const pp::Var& var,
+                                  std::vector<T>* result,
                                   std::string* error_message) {
   pp::VarArray var_array;
-  if (!VarAs(var, &var_array, error_message)) return false;
+  if (!VarAs(var, &var_array, error_message))
+    return false;
   return GetVarArrayItemsVector(var_array, result, error_message);
 }
 
@@ -163,13 +172,15 @@ inline bool VarAsVarArrayBufferAsUint8Vector(const pp::Var& var,
 }  // namespace internal
 
 template <typename T>
-inline bool VarAs(const pp::Var& var, std::vector<T>* result,
+inline bool VarAs(const pp::Var& var,
+                  std::vector<T>* result,
                   std::string* error_message) {
   return internal::VarAsVarArrayAsVector(var, result, error_message);
 }
 
 template <>
-inline bool VarAs(const pp::Var& var, std::vector<uint8_t>* result,
+inline bool VarAs(const pp::Var& var,
+                  std::vector<uint8_t>* result,
                   std::string* error_message) {
   return internal::VarAsVarArrayAsVector(var, result, error_message) ||
          internal::VarAsVarArrayBufferAsUint8Vector(var, result, error_message);
@@ -197,8 +208,10 @@ int GetVarArraySize(const pp::VarArray& var);
 // Extracts the value from the Pepper dictionary by the given key.
 //
 // Returns false (and sets error_message) if the requested key is not present.
-bool GetVarDictValue(const pp::VarDictionary& var, const std::string& key,
-                     pp::Var* result, std::string* error_message);
+bool GetVarDictValue(const pp::VarDictionary& var,
+                     const std::string& key,
+                     pp::Var* result,
+                     std::string* error_message);
 
 // Extracts the value from the dictionary by the given key.
 //
@@ -214,7 +227,8 @@ pp::Var GetVarDictValue(const pp::VarDictionary& var, const std::string& key);
 // if the value conversion didn't succeed.
 template <typename T>
 inline bool GetVarDictValueAs(const pp::VarDictionary& var,
-                              const std::string& key, T* result,
+                              const std::string& key,
+                              T* result,
                               std::string* error_message) {
   pp::Var value_var;
   if (!GetVarDictValue(var, key, &value_var, error_message)) {
@@ -245,7 +259,8 @@ inline T GetVarDictValueAs(const pp::VarDictionary& var,
 
 namespace internal {
 
-inline bool IsVarArraySizeValid(const pp::VarArray& var, size_t expected_size,
+inline bool IsVarArraySizeValid(const pp::VarArray& var,
+                                size_t expected_size,
                                 std::string* error_message) {
   if (var.GetLength() != expected_size) {
     *error_message = FormatPrintfTemplate(
@@ -267,7 +282,8 @@ inline bool TryGetVarArrayItemsInternal(const pp::VarArray& /*var*/,
 template <typename Arg, typename... Args>
 inline bool TryGetVarArrayItemsInternal(const pp::VarArray& var,
                                         uint32_t current_item_index,
-                                        std::string* error_message, Arg* arg,
+                                        std::string* error_message,
+                                        Arg* arg,
                                         Args*... args) {
   if (!VarAs(var.Get(current_item_index), arg, error_message)) {
     *error_message = FormatPrintfTemplate(
@@ -285,7 +301,8 @@ inline bool TryGetVarArrayItemsInternal(const pp::VarArray& var,
 // if some value conversion didn't succeed.
 template <typename... Args>
 inline bool TryGetVarArrayItems(const pp::VarArray& var,
-                                std::string* error_message, Args*... args) {
+                                std::string* error_message,
+                                Args*... args) {
   return internal::IsVarArraySizeValid(var, sizeof...(Args), error_message) &&
          TryGetVarArrayItemsInternal(var, 0, error_message, args...);
 }

@@ -81,7 +81,8 @@ class JsRequester final : public Requester, public TypedMessageListener {
   // Note that the passed TypedMessageRouter is allowed to be destroyed earlier
   // than the JsRequester object - but the Detach() method must be called before
   // destroying it.
-  JsRequester(const std::string& name, TypedMessageRouter* typed_message_router,
+  JsRequester(const std::string& name,
+              TypedMessageRouter* typed_message_router,
               std::unique_ptr<PpDelegate> pp_delegate);
 
   JsRequester(const JsRequester&) = delete;
@@ -91,7 +92,8 @@ class JsRequester final : public Requester, public TypedMessageListener {
 
   // Requester implementation
   void Detach() override;
-  void StartAsyncRequest(Value payload, GenericAsyncRequestCallback callback,
+  void StartAsyncRequest(Value payload,
+                         GenericAsyncRequestCallback callback,
                          GenericAsyncRequest* async_request) override;
   // Requester implementation override
   //

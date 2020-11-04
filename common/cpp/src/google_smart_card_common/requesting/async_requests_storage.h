@@ -65,7 +65,8 @@ class AsyncRequestsStorage final {
     const std::unique_lock<std::mutex> lock(mutex_);
 
     const auto state_map_iter = state_map_.find(request_id);
-    if (state_map_iter == state_map_.end()) return nullptr;
+    if (state_map_iter == state_map_.end())
+      return nullptr;
     const std::shared_ptr<AsyncRequestState<PayloadType>> result =
         state_map_iter->second;
     state_map_.erase(state_map_iter);

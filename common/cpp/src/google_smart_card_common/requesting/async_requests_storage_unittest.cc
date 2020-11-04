@@ -107,7 +107,8 @@ TEST(RequestingAsyncRequestsStorageTest, MAYBE_MultiThreading) {
                 TestAsyncRequestCallback())));
       }
       if (thread_index % 2 == 0) {
-        for (auto request_id : request_ids) storage.Pop(request_id);
+        for (auto request_id : request_ids)
+          storage.Pop(request_id);
       } else {
         storage.PopAll();
       }

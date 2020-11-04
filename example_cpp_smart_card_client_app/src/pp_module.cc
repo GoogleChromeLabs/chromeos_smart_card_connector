@@ -139,20 +139,28 @@ class PpInstance final : public pp::Instance {
   explicit PpInstance(PP_Instance instance)
       : pp::Instance(instance),
         request_handling_mutex_(std::make_shared<std::mutex>()),
-        pcsc_lite_over_requester_global_(new gsc::PcscLiteOverRequesterGlobal(
-            &typed_message_router_, this, pp::Module::Get()->core())),
-        built_in_pin_dialog_server_(new BuiltInPinDialogServer(
-            &typed_message_router_, this, pp::Module::Get()->core())),
-        chrome_certificate_provider_api_bridge_(new ccp::ApiBridge(
-            &typed_message_router_, this, pp::Module::Get()->core(),
-            request_handling_mutex_)),
-        ui_bridge_(new UiBridge(&typed_message_router_, this,
+        pcsc_lite_over_requester_global_(
+            new gsc::PcscLiteOverRequesterGlobal(&typed_message_router_,
+                                                 this,
+                                                 pp::Module::Get()->core())),
+        built_in_pin_dialog_server_(
+            new BuiltInPinDialogServer(&typed_message_router_,
+                                       this,
+                                       pp::Module::Get()->core())),
+        chrome_certificate_provider_api_bridge_(
+            new ccp::ApiBridge(&typed_message_router_,
+                               this,
+                               pp::Module::Get()->core(),
+                               request_handling_mutex_)),
+        ui_bridge_(new UiBridge(&typed_message_router_,
+                                this,
                                 request_handling_mutex_)),
         certificates_request_handler_(new ClientCertificatesRequestHandler),
         signature_request_handler_(new ClientSignatureRequestHandler(
             chrome_certificate_provider_api_bridge_)),
-        message_from_ui_handler_(new ClientMessageFromUiHandler(
-            ui_bridge_, built_in_pin_dialog_server_)) {
+        message_from_ui_handler_(
+            new ClientMessageFromUiHandler(ui_bridge_,
+                                           built_in_pin_dialog_server_)) {
     chrome_certificate_provider_api_bridge_->SetCertificatesRequestHandler(
         certificates_request_handler_);
     chrome_certificate_provider_api_bridge_->SetSignatureRequestHandler(
@@ -393,7 +401,8 @@ class PpInstance final : public pp::Instance {
 
     void SendOutputMessageToUi(const std::string& text) {
       std::shared_ptr<UiBridge> locked_ui_bridge = ui_bridge_.lock();
-      if (!locked_ui_bridge) return;
+      if (!locked_ui_bridge)
+        return;
       locked_ui_bridge->SendMessageToUi(
           gsc::VarDictBuilder().Add("output_message", text).Result());
     }
@@ -485,6 +494,8 @@ namespace pp {
 
 // Entry point of the NaCl module, that is called by the NaCl framework when the
 // module is being loaded.
-Module* CreateModule() { return new scc::PpModule; }
+Module* CreateModule() {
+  return new scc::PpModule;
+}
 
 }  // namespace pp

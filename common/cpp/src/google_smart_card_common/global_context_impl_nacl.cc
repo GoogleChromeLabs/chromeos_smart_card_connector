@@ -37,7 +37,8 @@ bool GlobalContextImplNacl::PostMessageToJs(const Value& message) {
   const pp::Var var = ConvertValueToPpVar(message);
 
   const std::unique_lock<std::mutex> lock(mutex_);
-  if (!pp_instance_) return false;
+  if (!pp_instance_)
+    return false;
   pp_instance_->PostMessage(var);
   return true;
 }

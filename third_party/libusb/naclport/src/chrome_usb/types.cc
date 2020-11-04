@@ -614,7 +614,8 @@ GetUserSelectedDevicesOptionsConverter::GetStructTypeName() {
 template <>
 template <typename Callback>
 void GetUserSelectedDevicesOptionsConverter::VisitFields(
-    const GetUserSelectedDevicesOptions& value, Callback callback) {
+    const GetUserSelectedDevicesOptions& value,
+    Callback callback) {
   callback(&value.filters, "filters");
 }
 
@@ -636,7 +637,8 @@ pp::Var MakeVar(const Device& value) {
   return DeviceConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, ConnectionHandle* result,
+bool VarAs(const pp::Var& var,
+           ConnectionHandle* result,
            std::string* error_message) {
   return ConnectionHandleConverter::ConvertFromVar(var, result, error_message);
 }
@@ -645,7 +647,8 @@ pp::Var MakeVar(const ConnectionHandle& value) {
   return ConnectionHandleConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, EndpointDescriptorType* result,
+bool VarAs(const pp::Var& var,
+           EndpointDescriptorType* result,
            std::string* error_message) {
   return EndpointDescriptorTypeConverter::ConvertFromVar(var, result,
                                                          error_message);
@@ -655,7 +658,8 @@ pp::Var MakeVar(EndpointDescriptorType value) {
   return EndpointDescriptorTypeConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, EndpointDescriptorSynchronization* result,
+bool VarAs(const pp::Var& var,
+           EndpointDescriptorSynchronization* result,
            std::string* error_message) {
   return EndpointDescriptorSynchronizationConverter::ConvertFromVar(
       var, result, error_message);
@@ -665,7 +669,8 @@ pp::Var MakeVar(EndpointDescriptorSynchronization value) {
   return EndpointDescriptorSynchronizationConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, EndpointDescriptorUsage* result,
+bool VarAs(const pp::Var& var,
+           EndpointDescriptorUsage* result,
            std::string* error_message) {
   return EndpointDescriptorUsageConverter::ConvertFromVar(var, result,
                                                           error_message);
@@ -675,19 +680,22 @@ pp::Var MakeVar(EndpointDescriptorUsage value) {
   return EndpointDescriptorUsageConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, EndpointDescriptor* result,
+bool VarAs(const pp::Var& var,
+           EndpointDescriptor* result,
            std::string* error_message) {
   return EndpointDescriptorConverter::ConvertFromVar(var, result,
                                                      error_message);
 }
 
-bool VarAs(const pp::Var& var, InterfaceDescriptor* result,
+bool VarAs(const pp::Var& var,
+           InterfaceDescriptor* result,
            std::string* error_message) {
   return InterfaceDescriptorConverter::ConvertFromVar(var, result,
                                                       error_message);
 }
 
-bool VarAs(const pp::Var& var, ConfigDescriptor* result,
+bool VarAs(const pp::Var& var,
+           ConfigDescriptor* result,
            std::string* error_message) {
   return ConfigDescriptorConverter::ConvertFromVar(var, result, error_message);
 }
@@ -708,7 +716,8 @@ pp::Var MakeVar(const ControlTransferInfo& value) {
   return ControlTransferInfoConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, TransferResultInfo* result,
+bool VarAs(const pp::Var& var,
+           TransferResultInfo* result,
            std::string* error_message) {
   return TransferResultInfoConverter::ConvertFromVar(var, result,
                                                      error_message);

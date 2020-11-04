@@ -75,7 +75,8 @@ class EnumToValueConverter final {
   ~EnumToValueConverter();
 
   void HandleItem(int64_t enum_item, const char* enum_item_name);
-  bool TakeConvertedValue(const char* type_name, Value* converted_value,
+  bool TakeConvertedValue(const char* type_name,
+                          Value* converted_value,
                           std::string* error_message = nullptr);
 
  private:
@@ -94,7 +95,8 @@ class EnumFromValueConverter final {
   ~EnumFromValueConverter();
 
   void HandleItem(int64_t enum_item, const char* enum_item_name);
-  bool GetConvertedEnum(const char* type_name, int64_t* converted_enum,
+  bool GetConvertedEnum(const char* type_name,
+                        int64_t* converted_enum,
                         std::string* error_message) const;
 
  private:
@@ -150,9 +152,11 @@ class StructToValueConverter final : public StructToValueConverterBase {
     ConvertFieldToValue(std::move(*field), dictionary_key_name);
   }
 
-  bool TakeConvertedValue(const char* type_name, Value* converted_value,
+  bool TakeConvertedValue(const char* type_name,
+                          Value* converted_value,
                           std::string* error_message = nullptr) {
-    if (!FinishConversion(type_name, error_message)) return false;
+    if (!FinishConversion(type_name, error_message))
+      return false;
     *converted_value = std::move(converted_value_);
     return true;
   }
@@ -175,7 +179,8 @@ class StructFromValueConverterBase {
       delete;
   ~StructFromValueConverterBase();
 
-  bool ExtractKey(const char* dictionary_key_name, bool is_required,
+  bool ExtractKey(const char* dictionary_key_name,
+                  bool is_required,
                   Value* item_value);
   void HandleFieldConversionError(const char* dictionary_key_name);
   bool FinishConversion(const char* type_name,
@@ -218,16 +223,19 @@ class StructFromValueConverter final : public StructFromValueConverterBase {
                           &field.value());
   }
 
-  bool TakeConvertedObject(const char* type_name, T* converted_object,
+  bool TakeConvertedObject(const char* type_name,
+                           T* converted_object,
                            std::string* error_message = nullptr) {
-    if (!FinishConversion(type_name, error_message)) return false;
+    if (!FinishConversion(type_name, error_message))
+      return false;
     *converted_object = std::move(converted_object_);
     return true;
   }
 
  private:
   template <typename FieldT>
-  void ConvertFieldFromValue(const char* dictionary_key_name, Value item_value,
+  void ConvertFieldFromValue(const char* dictionary_key_name,
+                             Value item_value,
                              FieldT* converted_field);
 
   T converted_object_;
@@ -412,59 +420,70 @@ class StructValueDescriptor {
 // and the last one isn't useful in this context (as helpers in this file are
 // about converting between a `Value` and a non-`Value` object).
 
-inline bool ConvertToValue(Value source_value, Value* target_value,
+inline bool ConvertToValue(Value source_value,
+                           Value* target_value,
                            std::string* /*error_message*/ = nullptr) {
   *target_value = std::move(source_value);
   return true;
 }
 
-inline bool ConvertToValue(bool boolean, Value* value,
+inline bool ConvertToValue(bool boolean,
+                           Value* value,
                            std::string* /*error_message*/ = nullptr) {
   *value = Value(boolean);
   return true;
 }
 
-inline bool ConvertToValue(int number, Value* value,
+inline bool ConvertToValue(int number,
+                           Value* value,
                            std::string* /*error_message*/ = nullptr) {
   *value = Value(number);
   return true;
 }
 
-bool ConvertToValue(unsigned number, Value* value,
+bool ConvertToValue(unsigned number,
+                    Value* value,
                     std::string* error_message = nullptr);
 
-inline bool ConvertToValue(long number, Value* value,
+inline bool ConvertToValue(long number,
+                           Value* value,
                            std::string* /*error_message*/ = nullptr) {
   *value = Value(static_cast<int64_t>(number));
   return true;
 }
 
-bool ConvertToValue(unsigned long number, Value* value,
+bool ConvertToValue(unsigned long number,
+                    Value* value,
                     std::string* error_message = nullptr);
 
-inline bool ConvertToValue(uint8_t number, Value* value,
+inline bool ConvertToValue(uint8_t number,
+                           Value* value,
                            std::string* /*error_message*/ = nullptr) {
   *value = Value(number);
   return true;
 }
 
-inline bool ConvertToValue(int64_t number, Value* value,
+inline bool ConvertToValue(int64_t number,
+                           Value* value,
                            std::string* /*error_message*/ = nullptr) {
   *value = Value(number);
   return true;
 }
 
-inline bool ConvertToValue(double number, Value* value,
+inline bool ConvertToValue(double number,
+                           Value* value,
                            std::string* /*error_message*/ = nullptr) {
   *value = Value(number);
   return true;
 }
 
 // Note: `characters` must be non-null.
-bool ConvertToValue(const char* characters, Value* value,
+bool ConvertToValue(const char* characters,
+                    Value* value,
                     std::string* error_message = nullptr);
 
-inline bool ConvertToValue(std::string characters, Value* value,
+inline bool ConvertToValue(std::string characters,
+                           Value* value,
                            std::string* /*error_message*/ = nullptr) {
   *value = Value(std::move(characters));
   return true;
@@ -472,7 +491,8 @@ inline bool ConvertToValue(std::string characters, Value* value,
 
 // Forbid conversion of pointers other than `const char*`. Without this deleted
 // overload, the `bool`-argument overload would be silently picked up.
-bool ConvertToValue(const void* pointer_value, Value* value,
+bool ConvertToValue(const void* pointer_value,
+                    Value* value,
                     std::string* error_message = nullptr) = delete;
 
 // Converts from an enum into a string `Value`. The enum type has to be
@@ -483,7 +503,9 @@ bool ConvertToValue(const void* pointer_value, Value* value,
 // in this file.
 template <typename T>
 typename std::enable_if<std::is_enum<T>::value, bool>::type ConvertToValue(
-    T enum_value, Value* value, std::string* error_message = nullptr) {
+    T enum_value,
+    Value* value,
+    std::string* error_message = nullptr) {
   internal::EnumToValueConverter converter(static_cast<int64_t>(enum_value));
   const auto& description =
       EnumValueDescriptor<T>(&converter, /*from_value_converter=*/nullptr)
@@ -499,8 +521,8 @@ typename std::enable_if<std::is_enum<T>::value, bool>::type ConvertToValue(
 // overload resolution, so that unrelated types will use other functions
 // declared in this file.
 template <typename T>
-typename std::enable_if<std::is_class<T>::value, bool>::type ConvertToValue(
-    T object, Value* value, std::string* error_message = nullptr) {
+typename std::enable_if<std::is_class<T>::value, bool>::type
+ConvertToValue(T object, Value* value, std::string* error_message = nullptr) {
   internal::StructToValueConverter<T> converter(std::move(object));
   const auto& description =
       StructValueDescriptor<T>(&converter, /*from_value_converter=*/nullptr)
@@ -511,7 +533,8 @@ typename std::enable_if<std::is_class<T>::value, bool>::type ConvertToValue(
 
 // Converts from a vector of items of a supported type into an array `Value`.
 template <typename T>
-bool ConvertToValue(std::vector<T> objects, Value* value,
+bool ConvertToValue(std::vector<T> objects,
+                    Value* value,
                     std::string* error_message = nullptr) {
   std::vector<std::unique_ptr<Value>> converted_items(objects.size());
   std::string local_error_message;
@@ -531,7 +554,8 @@ bool ConvertToValue(std::vector<T> objects, Value* value,
 
 // Converts a vector of bytes into a binary `Value`. (Note: This is unlike all
 // other types of `std::vector`, which are converted to an array `Value`.)
-bool ConvertToValue(std::vector<uint8_t> bytes, Value* value,
+bool ConvertToValue(std::vector<uint8_t> bytes,
+                    Value* value,
                     std::string* error_message = nullptr);
 
 // Synonym to other `ConvertToValue()` overloads, but immediately crashes the
@@ -549,29 +573,39 @@ Value ConvertToValueOrDie(T object) {
 
 // Group of overloads that perform trivial conversions from `Value`.
 
-inline bool ConvertFromValue(Value source_value, Value* target_value,
+inline bool ConvertFromValue(Value source_value,
+                             Value* target_value,
                              std::string* /*error_message*/ = nullptr) {
   *target_value = std::move(source_value);
   return true;
 }
 
-bool ConvertFromValue(Value value, bool* boolean,
+bool ConvertFromValue(Value value,
+                      bool* boolean,
                       std::string* error_message = nullptr);
-bool ConvertFromValue(Value value, int* number,
+bool ConvertFromValue(Value value,
+                      int* number,
                       std::string* error_message = nullptr);
-bool ConvertFromValue(Value value, unsigned* number,
+bool ConvertFromValue(Value value,
+                      unsigned* number,
                       std::string* error_message = nullptr);
-bool ConvertFromValue(Value value, long* number,
+bool ConvertFromValue(Value value,
+                      long* number,
                       std::string* error_message = nullptr);
-bool ConvertFromValue(Value value, unsigned long* number,
+bool ConvertFromValue(Value value,
+                      unsigned long* number,
                       std::string* error_message = nullptr);
-bool ConvertFromValue(Value value, uint8_t* number,
+bool ConvertFromValue(Value value,
+                      uint8_t* number,
                       std::string* error_message = nullptr);
-bool ConvertFromValue(Value value, int64_t* number,
+bool ConvertFromValue(Value value,
+                      int64_t* number,
                       std::string* error_message = nullptr);
-bool ConvertFromValue(Value value, double* number,
+bool ConvertFromValue(Value value,
+                      double* number,
                       std::string* error_message = nullptr);
-bool ConvertFromValue(Value value, std::string* characters,
+bool ConvertFromValue(Value value,
+                      std::string* characters,
                       std::string* error_message = nullptr);
 
 // Converts from a string `Value` into an enum. The enum type has to be
@@ -582,7 +616,9 @@ bool ConvertFromValue(Value value, std::string* characters,
 // in this file.
 template <typename T>
 typename std::enable_if<std::is_enum<T>::value, bool>::type ConvertFromValue(
-    Value value, T* enum_value, std::string* error_message = nullptr) {
+    Value value,
+    T* enum_value,
+    std::string* error_message = nullptr) {
   internal::EnumFromValueConverter converter(std::move(value));
   const auto& description =
       EnumValueDescriptor<T>(/*from_value_converter=*/nullptr, &converter)
@@ -603,8 +639,8 @@ typename std::enable_if<std::is_enum<T>::value, bool>::type ConvertFromValue(
 // overload resolution, so that unrelated types will use other functions
 // declared in this file.
 template <typename T>
-typename std::enable_if<std::is_class<T>::value, bool>::type ConvertFromValue(
-    Value value, T* object, std::string* error_message = nullptr) {
+typename std::enable_if<std::is_class<T>::value, bool>::type
+ConvertFromValue(Value value, T* object, std::string* error_message = nullptr) {
   internal::StructFromValueConverter<T> converter(std::move(value));
   const auto& description =
       StructValueDescriptor<T>(/*to_value_converter=*/nullptr, &converter)
@@ -615,7 +651,8 @@ typename std::enable_if<std::is_class<T>::value, bool>::type ConvertFromValue(
 
 // Converts from an array `Value` into a vector of items of a supported type.
 template <typename T>
-bool ConvertFromValue(Value value, std::vector<T>* objects,
+bool ConvertFromValue(Value value,
+                      std::vector<T>* objects,
                       std::string* error_message = nullptr) {
   if (!value.is_array()) {
     FormatPrintfTemplateAndSet(
@@ -640,7 +677,8 @@ bool ConvertFromValue(Value value, std::vector<T>* objects,
 
 // Converts from an array or binary `Value` into a vector of bytes. (Note: The
 // difference to the template version above is the support of binary `Value`.)
-bool ConvertFromValue(Value value, std::vector<uint8_t>* bytes,
+bool ConvertFromValue(Value value,
+                      std::vector<uint8_t>* bytes,
                       std::string* error_message = nullptr);
 
 // Synonym to other `ConvertFromValue()` overloads, but immediately crashes the
@@ -664,8 +702,10 @@ namespace internal {
 template <typename T>
 template <typename FieldT>
 void StructToValueConverter<T>::ConvertFieldToValue(
-    FieldT field_value, const char* dictionary_key_name) {
-  if (!succeeded_) return;
+    FieldT field_value,
+    const char* dictionary_key_name) {
+  if (!succeeded_)
+    return;
   Value converted_field;
   if (ConvertToValue(std::move(field_value), &converted_field,
                      &inner_error_message_)) {
@@ -679,7 +719,8 @@ void StructToValueConverter<T>::ConvertFieldToValue(
 template <typename T>
 template <typename FieldT>
 void StructFromValueConverter<T>::ConvertFieldFromValue(
-    const char* dictionary_key_name, Value item_value,
+    const char* dictionary_key_name,
+    Value item_value,
     FieldT* converted_field) {
   if (!ConvertFromValue(std::move(item_value), converted_field,
                         &inner_error_message_))

@@ -39,7 +39,8 @@ emscripten::val ConvertValueToEmscriptenVal(const Value& value);
 // When the conversion isn't possible (e.g., when the passed variable is a
 // function), returns a null optional and, if provided, sets `*error_message`.
 optional<Value> ConvertEmscriptenValToValue(
-    const emscripten::val& val, std::string* error_message = nullptr);
+    const emscripten::val& val,
+    std::string* error_message = nullptr);
 
 // Same as `ConvertEmscriptenValToValue()`, but immediately crashes the program
 // if the conversion fails.

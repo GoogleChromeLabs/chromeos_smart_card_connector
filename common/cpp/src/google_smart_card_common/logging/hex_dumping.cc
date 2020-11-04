@@ -37,7 +37,8 @@ std::string HexDumpIntegerWithExactBitLength(T value, int bit_length) {
   // representation), and then the adjustment of the negative numbers is made
   // when necessary (if the original bit length was smaller than 64).
   uint64_t value_to_dump = static_cast<uint64_t>(value);
-  if (value < 0 && bit_length < 64) value_to_dump += 1ULL << bit_length;
+  if (value < 0 && bit_length < 64)
+    value_to_dump += 1ULL << bit_length;
 
   std::ostringstream stream;
   stream.setf(std::ios::uppercase);
@@ -96,7 +97,8 @@ std::string HexDumpOctlet(uint64_t value) {
 }
 
 std::string HexDumpPointer(const void* value) {
-  if (!value) return "NULL";
+  if (!value)
+    return "NULL";
   return HexDumpInteger(reinterpret_cast<uintptr_t>(value));
 }
 
@@ -109,18 +111,21 @@ std::string HexDumpUnknownSizeInteger(uint64_t value) {
 }
 
 std::string HexDumpBytes(const void* begin, int64_t size) {
-  if (size) GOOGLE_SMART_CARD_CHECK(begin);
+  if (size)
+    GOOGLE_SMART_CARD_CHECK(begin);
   const uint8_t* const begin_casted = static_cast<const uint8_t*>(begin);
   std::string result;
   for (int64_t index = 0; index < size; ++index) {
-    if (index) result += ' ';
+    if (index)
+      result += ' ';
     result += HexDumpByte(begin_casted[index]);
   }
   return result;
 }
 
 std::string HexDumpBytes(const std::vector<uint8_t>& bytes) {
-  if (bytes.empty()) return "";
+  if (bytes.empty())
+    return "";
   return HexDumpBytes(&bytes[0], bytes.size());
 }
 

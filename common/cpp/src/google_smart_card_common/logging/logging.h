@@ -53,10 +53,12 @@ class LogMessage final {
 };
 
 std::string MakeCheckFailedMessage(const std::string& stringified_condition,
-                                   const std::string& file, int line,
+                                   const std::string& file,
+                                   int line,
                                    const std::string& function);
 
-std::string MakeNotreachedHitMessage(const std::string& file, int line,
+std::string MakeNotreachedHitMessage(const std::string& file,
+                                     int line,
                                      const std::string& function);
 
 #define GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY(severity) \

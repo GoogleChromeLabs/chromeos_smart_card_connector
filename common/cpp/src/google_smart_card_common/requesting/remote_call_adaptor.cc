@@ -31,14 +31,16 @@ RemoteCallAdaptor::RemoteCallAdaptor(Requester* requester)
 RemoteCallAdaptor::~RemoteCallAdaptor() = default;
 
 GenericRequestResult RemoteCallAdaptor::PerformSyncRequest(
-    const std::string& function_name, const pp::VarArray& converted_arguments) {
+    const std::string& function_name,
+    const pp::VarArray& converted_arguments) {
   // TODO(#185): Create `Value` directly, without converting from `pp::Var`.
   return requester_->PerformSyncRequest(ConvertPpVarToValueOrDie(
       MakeRemoteCallRequestPayload(function_name, converted_arguments)));
 }
 
 GenericAsyncRequest RemoteCallAdaptor::StartAsyncRequest(
-    const std::string& function_name, const pp::VarArray& converted_arguments,
+    const std::string& function_name,
+    const pp::VarArray& converted_arguments,
     GenericAsyncRequestCallback callback) {
   // TODO(#185): Create `Value` directly, without converting from `pp::Var`.
   return requester_->StartAsyncRequest(
@@ -48,8 +50,10 @@ GenericAsyncRequest RemoteCallAdaptor::StartAsyncRequest(
 }
 
 void RemoteCallAdaptor::StartAsyncRequest(
-    const std::string& function_name, const pp::VarArray& converted_arguments,
-    GenericAsyncRequestCallback callback, GenericAsyncRequest* async_request) {
+    const std::string& function_name,
+    const pp::VarArray& converted_arguments,
+    GenericAsyncRequestCallback callback,
+    GenericAsyncRequest* async_request) {
   // TODO(#185): Create `Value` directly, without converting from `pp::Var`.
   requester_->StartAsyncRequest(
       ConvertPpVarToValueOrDie(
