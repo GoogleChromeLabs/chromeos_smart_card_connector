@@ -24,6 +24,7 @@
 #include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/requesting/js_request_receiver.h>
 #include <google_smart_card_common/value.h>
@@ -46,7 +47,8 @@ class IntegrationTestService final : public RequestHandler {
 
   // Starts listening for incoming requests and translating them into commands
   // for test helpers.
-  void Activate(pp::Instance* pp_instance,
+  void Activate(GlobalContext* global_context,
+                pp::Instance* pp_instance,
                 pp::Core* pp_core,
                 TypedMessageRouter* typed_message_router);
   // Tears down all previously set up helpers and stops listening for incoming
@@ -69,6 +71,7 @@ class IntegrationTestService final : public RequestHandler {
                            const pp::Var& message_for_helper,
                            RequestReceiver::ResultCallback result_callback);
 
+  GlobalContext* global_context_ = nullptr;
   pp::Instance* pp_instance_ = nullptr;
   pp::Core* pp_core_ = nullptr;
   TypedMessageRouter* typed_message_router_ = nullptr;

@@ -16,15 +16,13 @@
 
 #include <utility>
 
-#include <ppapi/cpp/var.h>
-
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/requesting/request_id.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -35,31 +33,14 @@ constexpr char kRequesterIsDetachedErrorMessage[] =
 
 }  // namespace
 
-JsRequester::PpDelegateImpl::PpDelegateImpl(pp::Instance* pp_instance,
-                                            pp::Core* pp_core)
-    : pp_instance_(pp_instance), pp_core_(pp_core) {
-  GOOGLE_SMART_CARD_CHECK(pp_instance);
-  GOOGLE_SMART_CARD_CHECK(pp_core);
-}
-
-JsRequester::PpDelegateImpl::~PpDelegateImpl() = default;
-
-void JsRequester::PpDelegateImpl::PostMessage(const pp::Var& message) {
-  pp_instance_->PostMessage(message);
-}
-
-bool JsRequester::PpDelegateImpl::IsMainThread() {
-  return pp_core_->IsMainThread();
-}
-
 JsRequester::JsRequester(const std::string& name,
-                         TypedMessageRouter* typed_message_router,
-                         std::unique_ptr<PpDelegate> pp_delegate)
+                         GlobalContext* global_context,
+                         TypedMessageRouter* typed_message_router)
     : Requester(name),
-      typed_message_router_(typed_message_router),
-      pp_delegate_(std::move(pp_delegate)) {
-  GOOGLE_SMART_CARD_CHECK(typed_message_router);
-  GOOGLE_SMART_CARD_CHECK(pp_delegate_);
+      global_context_(global_context),
+      typed_message_router_(typed_message_router) {
+  GOOGLE_SMART_CARD_CHECK(global_context_);
+  GOOGLE_SMART_CARD_CHECK(typed_message_router_);
   typed_message_router->AddRoute(this);
 }
 
@@ -72,8 +53,6 @@ void JsRequester::Detach() {
       typed_message_router_.exchange(nullptr);
   if (typed_message_router)
     typed_message_router->RemoveRoute(this);
-
-  pp_delegate_.Reset();
 
   Requester::Detach();
 }
@@ -90,18 +69,20 @@ void JsRequester::StartAsyncRequest(Value payload,
   TypedMessage typed_message;
   typed_message.type = GetRequestMessageType(name());
   typed_message.data = ConvertToValueOrDie(std::move(message_data));
-  Value typed_message_value = ConvertToValueOrDie(std::move(typed_message));
-  // TODO(#185): Directly send `Value` instead of `pp::Var`.
-  const pp::Var typed_message_pp_var = ConvertValueToPpVar(typed_message_value);
+  const Value typed_message_value =
+      ConvertToValueOrDie(std::move(typed_message));
 
-  if (!PostPpMessage(typed_message_pp_var)) {
+  if (!global_context_->PostMessageToJs(typed_message_value)) {
     SetAsyncRequestResult(request_id, GenericRequestResult::CreateFailed(
                                           kRequesterIsDetachedErrorMessage));
   }
 }
 
 GenericRequestResult JsRequester::PerformSyncRequest(Value payload) {
-  GOOGLE_SMART_CARD_CHECK(!IsMainPpThread());
+  // Synchronous requests aren't allowed on the main event loop thread, since
+  // it'll be deadlocked otherwise (as response messages won't arrive).
+  GOOGLE_SMART_CARD_CHECK(!global_context_->IsMainEventLoopThread());
+
   return Requester::PerformSyncRequest(std::move(payload));
 }
 
@@ -117,27 +98,6 @@ bool JsRequester::OnTypedMessageReceived(Value data) {
   GOOGLE_SMART_CARD_CHECK(SetAsyncRequestResult(message_data.request_id,
                                                 std::move(request_result)));
   return true;
-}
-
-bool JsRequester::PostPpMessage(const pp::Var& message) {
-  const ThreadSafeUniquePtr<PpDelegate>::Locked pp_delegate =
-      pp_delegate_.Lock();
-  if (!pp_delegate)
-    return false;
-  pp_delegate->PostMessage(message);
-  return true;
-}
-
-bool JsRequester::IsMainPpThread() const {
-  const ThreadSafeUniquePtr<PpDelegate>::Locked pp_delegate =
-      pp_delegate_.Lock();
-  if (!pp_delegate) {
-    // Note that returning false in this case may actually be wrong, but this
-    // method is used only before starting a new request - that will fail
-    // immediately in this case anyway.
-    return false;
-  }
-  return pp_delegate->IsMainThread();
 }
 
 }  // namespace google_smart_card

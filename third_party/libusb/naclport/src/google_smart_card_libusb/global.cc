@@ -45,11 +45,11 @@ namespace google_smart_card {
 
 class LibusbOverChromeUsbGlobal::Impl final {
  public:
-  Impl(TypedMessageRouter* typed_message_router,
-       pp::Instance* pp_instance,
-       pp::Core* pp_core)
+  Impl(GlobalContext* global_context, TypedMessageRouter* typed_message_router)
       : chrome_usb_api_bridge_(
-            MakeRequester(typed_message_router, pp_instance, pp_core)),
+            MakeUnique<JsRequester>(chrome_usb::kApiBridgeRequesterName,
+                                    global_context,
+                                    typed_message_router)),
         libusb_over_chrome_usb_(&chrome_usb_api_bridge_) {
 #ifndef NDEBUG
     libusb_tracing_wrapper_.reset(
@@ -58,6 +58,8 @@ class LibusbOverChromeUsbGlobal::Impl final {
   }
 
   Impl(const Impl&) = delete;
+  Impl& operator=(const Impl&) = delete;
+  ~Impl() = default;
 
   void Detach() { chrome_usb_api_bridge_.Detach(); }
 
@@ -68,25 +70,15 @@ class LibusbOverChromeUsbGlobal::Impl final {
   }
 
  private:
-  static std::unique_ptr<Requester> MakeRequester(
-      TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
-      pp::Core* pp_core) {
-    return std::unique_ptr<Requester>(new JsRequester(
-        chrome_usb::kApiBridgeRequesterName, typed_message_router,
-        MakeUnique<JsRequester::PpDelegateImpl>(pp_instance, pp_core)));
-  }
-
   chrome_usb::ApiBridge chrome_usb_api_bridge_;
   LibusbOverChromeUsb libusb_over_chrome_usb_;
   std::unique_ptr<LibusbTracingWrapper> libusb_tracing_wrapper_;
 };
 
 LibusbOverChromeUsbGlobal::LibusbOverChromeUsbGlobal(
-    TypedMessageRouter* typed_message_router,
-    pp::Instance* pp_instance,
-    pp::Core* pp_core)
-    : impl_(new Impl(typed_message_router, pp_instance, pp_core)) {
+    GlobalContext* global_context,
+    TypedMessageRouter* typed_message_router)
+    : impl_(MakeUnique<Impl>(global_context, typed_message_router)) {
   GOOGLE_SMART_CARD_CHECK(!g_libusb);
   g_libusb = impl_->libusb();
 }

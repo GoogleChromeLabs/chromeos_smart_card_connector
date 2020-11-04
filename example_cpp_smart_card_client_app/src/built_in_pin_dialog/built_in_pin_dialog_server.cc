@@ -16,9 +16,9 @@
 
 #include <ppapi/cpp/var_dictionary.h>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/request_result.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
@@ -47,15 +47,9 @@ void ExtractPinRequestResult(
 }  // namespace
 
 BuiltInPinDialogServer::BuiltInPinDialogServer(
-    google_smart_card::TypedMessageRouter* typed_message_router,
-    pp::Instance* pp_instance,
-    pp::Core* pp_core)
-    : js_requester_(
-          kRequesterName,
-          typed_message_router,
-          google_smart_card::MakeUnique<
-              google_smart_card::JsRequester::PpDelegateImpl>(pp_instance,
-                                                              pp_core)) {}
+    google_smart_card::GlobalContext* global_context,
+    google_smart_card::TypedMessageRouter* typed_message_router)
+    : js_requester_(kRequesterName, global_context, typed_message_router) {}
 
 BuiltInPinDialogServer::~BuiltInPinDialogServer() = default;
 

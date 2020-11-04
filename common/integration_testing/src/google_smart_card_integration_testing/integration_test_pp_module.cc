@@ -22,6 +22,7 @@
 #include <ppapi/cpp/module.h>
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/global_context_impl_nacl.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/optional.h>
@@ -39,9 +40,11 @@ namespace {
 class IntegrationTestPpInstance final : public pp::Instance {
  public:
   explicit IntegrationTestPpInstance(PP_Instance instance)
-      : pp::Instance(instance) {
-    IntegrationTestService::GetInstance()->Activate(
-        this, pp::Module::Get()->core(), &typed_message_router_);
+      : pp::Instance(instance),
+        global_context_(pp::Module::Get()->core(), this) {
+    IntegrationTestService::GetInstance()->Activate(&global_context_, this,
+                                                    pp::Module::Get()->core(),
+                                                    &typed_message_router_);
   }
 
   ~IntegrationTestPpInstance() override {
@@ -64,6 +67,7 @@ class IntegrationTestPpInstance final : public pp::Instance {
   }
 
  private:
+  GlobalContextImplNacl global_context_;
   TypedMessageRouter typed_message_router_;
 };
 

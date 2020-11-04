@@ -17,9 +17,7 @@
 
 #include <string>
 
-#include <ppapi/cpp/core.h>
-#include <ppapi/cpp/instance.h>
-
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/js_requester.h>
 
@@ -43,24 +41,24 @@ class BuiltInPinDialogServer final {
  public:
   // Creates the object and an internal JsRequester object, which adds a route
   // into the specified TypedMessageRouter for receiving the request responses.
+  // `global_context` - must outlive `this`.
   BuiltInPinDialogServer(
-      google_smart_card::TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
-      pp::Core* pp_core);
+      google_smart_card::GlobalContext* global_context,
+      google_smart_card::TypedMessageRouter* typed_message_router);
 
   BuiltInPinDialogServer(const BuiltInPinDialogServer&) = delete;
   BuiltInPinDialogServer& operator=(const BuiltInPinDialogServer&) = delete;
 
   ~BuiltInPinDialogServer();
 
-  // Detaches from the Pepper module and the typed message router, which
-  // prevents any further requests and waiting for the request responses.
+  // Detaches from the typed message router and the JavaScript side, which
+  // prevents making any further requests and prevents waiting for the responses
+  // of the already started requests.
   //
-  // This function is primarily intended to be used during the Pepper module
+  // This function is primarily intended to be used during the executable
   // shutdown process, for preventing the situations when some other threads
-  // currently issuing PIN requests or waiting for the finish of the already
-  // started requests try to access the destroyed pp::Instance object or some
-  // other associated objects.
+  // currently executing PIN requests would trigger accesses to already
+  // destroyed objects.
   //
   // This function is safe to be called from any thread.
   void Detach();
