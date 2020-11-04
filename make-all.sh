@@ -40,6 +40,15 @@ LIBRARY_DIRS="
 	third_party/pcsc-lite/naclport/cpp_client/build
 	example_js_standalone_smart_card_client_library"
 
+TEST_DIRS="
+	common/cpp/build/tests
+	common/integration_testing/build
+	common/js/build/unittests
+	third_party/libusb/naclport/build/tests
+	third_party/libusb/naclport/build/js_unittests
+	third_party/pcsc-lite/naclport/server_clients_management/build/js_unittests
+	example_cpp_smart_card_client_app/build/integration_tests"
+
 APP_DIRS="
 	smart_card_connector_app/build
 	example_js_smart_card_client_app/build
@@ -107,6 +116,16 @@ build_app() {
 	log_message "App \"${dir}\" was built successfully."
 }
 
+build_tests() {
+	local dir=${1}
+
+	log_message "Building tests \"${dir}\"..."
+	for config in ${CONFIGS}; do
+		make_with_config ${dir} all ${config}
+	done
+	log_message "Tests \"${dir}\" were built successfully."
+}
+
 
 SCRIPTPATH=$(dirname $(realpath ${0}))
 cd ${SCRIPTPATH}
@@ -117,4 +136,7 @@ done
 prepare_built_app_packages_dir
 for dir in ${APP_DIRS}; do
 	build_app ${dir}
+done
+for dir in ${TEST_DIRS}; do
+	build_tests ${dir}
 done
