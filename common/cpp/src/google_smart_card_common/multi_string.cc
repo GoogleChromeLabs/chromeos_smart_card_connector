@@ -21,7 +21,8 @@ namespace google_smart_card {
 namespace {
 
 std::vector<std::string> ExtractMultiStringElements(
-    const char* multi_string, const char** multi_string_end) {
+    const char* multi_string,
+    const char** multi_string_end) {
   std::vector<std::string> result;
   const char* current_begin = multi_string;
   while (*current_begin != '\0') {

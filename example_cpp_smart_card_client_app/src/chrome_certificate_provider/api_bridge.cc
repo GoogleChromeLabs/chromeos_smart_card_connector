@@ -95,15 +95,19 @@ void ProcessSignatureRequest(
 }  // namespace
 
 ApiBridge::ApiBridge(gsc::TypedMessageRouter* typed_message_router,
-                     pp::Instance* pp_instance, pp::Core* pp_core,
+                     pp::Instance* pp_instance,
+                     pp::Core* pp_core,
                      std::shared_ptr<std::mutex> request_handling_mutex)
     : request_handling_mutex_(request_handling_mutex),
-      requester_(kRequesterName, typed_message_router,
+      requester_(kRequesterName,
+                 typed_message_router,
                  gsc::MakeUnique<gsc::JsRequester::PpDelegateImpl>(pp_instance,
                                                                    pp_core)),
       remote_call_adaptor_(&requester_),
       request_receiver_(new gsc::JsRequestReceiver(
-          kRequestReceiverName, this, typed_message_router,
+          kRequestReceiverName,
+          this,
+          typed_message_router,
           gsc::MakeUnique<gsc::JsRequestReceiver::PpDelegateImpl>(
               pp_instance))) {}
 
@@ -201,7 +205,8 @@ void ApiBridge::StopPinRequest(const StopPinRequestOptions& options) {
 }
 
 void ApiBridge::HandleRequest(
-    gsc::Value payload, gsc::RequestReceiver::ResultCallback result_callback) {
+    gsc::Value payload,
+    gsc::RequestReceiver::ResultCallback result_callback) {
   gsc::RemoteCallRequestPayload request =
       gsc::ConvertFromValueOrDie<gsc::RemoteCallRequestPayload>(
           std::move(payload));

@@ -45,7 +45,8 @@ namespace google_smart_card {
 
 class LibusbOverChromeUsbGlobal::Impl final {
  public:
-  Impl(TypedMessageRouter* typed_message_router, pp::Instance* pp_instance,
+  Impl(TypedMessageRouter* typed_message_router,
+       pp::Instance* pp_instance,
        pp::Core* pp_core)
       : chrome_usb_api_bridge_(
             MakeRequester(typed_message_router, pp_instance, pp_core)),
@@ -61,13 +62,15 @@ class LibusbOverChromeUsbGlobal::Impl final {
   void Detach() { chrome_usb_api_bridge_.Detach(); }
 
   LibusbInterface* libusb() {
-    if (libusb_tracing_wrapper_) return libusb_tracing_wrapper_.get();
+    if (libusb_tracing_wrapper_)
+      return libusb_tracing_wrapper_.get();
     return &libusb_over_chrome_usb_;
   }
 
  private:
   static std::unique_ptr<Requester> MakeRequester(
-      TypedMessageRouter* typed_message_router, pp::Instance* pp_instance,
+      TypedMessageRouter* typed_message_router,
+      pp::Instance* pp_instance,
       pp::Core* pp_core) {
     return std::unique_ptr<Requester>(new JsRequester(
         chrome_usb::kApiBridgeRequesterName, typed_message_router,
@@ -80,7 +83,8 @@ class LibusbOverChromeUsbGlobal::Impl final {
 };
 
 LibusbOverChromeUsbGlobal::LibusbOverChromeUsbGlobal(
-    TypedMessageRouter* typed_message_router, pp::Instance* pp_instance,
+    TypedMessageRouter* typed_message_router,
+    pp::Instance* pp_instance,
     pp::Core* pp_core)
     : impl_(new Impl(typed_message_router, pp_instance, pp_core)) {
   GOOGLE_SMART_CARD_CHECK(!g_libusb);
@@ -92,7 +96,9 @@ LibusbOverChromeUsbGlobal::~LibusbOverChromeUsbGlobal() {
   g_libusb = nullptr;
 }
 
-void LibusbOverChromeUsbGlobal::Detach() { impl_->Detach(); }
+void LibusbOverChromeUsbGlobal::Detach() {
+  impl_->Detach();
+}
 
 }  // namespace google_smart_card
 
@@ -122,8 +128,9 @@ void LIBUSB_CALL libusb_unref_device(libusb_device* dev) {
   GetGlobalLibusb()->LibusbUnrefDevice(dev);
 }
 
-int LIBUSB_CALL libusb_get_active_config_descriptor(
-    libusb_device* dev, libusb_config_descriptor** config) {
+int LIBUSB_CALL
+libusb_get_active_config_descriptor(libusb_device* dev,
+                                    libusb_config_descriptor** config) {
   return GetGlobalLibusb()->LibusbGetActiveConfigDescriptor(dev, config);
 }
 
@@ -184,9 +191,12 @@ int LIBUSB_CALL libusb_reset_device(libusb_device_handle* dev) {
 }
 
 int LIBUSB_CALL libusb_control_transfer(libusb_device_handle* dev_handle,
-                                        uint8_t request_type, uint8_t bRequest,
-                                        uint16_t wValue, uint16_t wIndex,
-                                        unsigned char* data, uint16_t wLength,
+                                        uint8_t request_type,
+                                        uint8_t bRequest,
+                                        uint16_t wValue,
+                                        uint16_t wIndex,
+                                        unsigned char* data,
+                                        uint16_t wLength,
                                         unsigned int timeout) {
   return GetGlobalLibusb()->LibusbControlTransfer(dev_handle, request_type,
                                                   bRequest, wValue, wIndex,
@@ -195,15 +205,18 @@ int LIBUSB_CALL libusb_control_transfer(libusb_device_handle* dev_handle,
 
 int LIBUSB_CALL libusb_bulk_transfer(libusb_device_handle* dev_handle,
                                      unsigned char endpoint,
-                                     unsigned char* data, int length,
-                                     int* actual_length, unsigned int timeout) {
+                                     unsigned char* data,
+                                     int length,
+                                     int* actual_length,
+                                     unsigned int timeout) {
   return GetGlobalLibusb()->LibusbBulkTransfer(dev_handle, endpoint, data,
                                                length, actual_length, timeout);
 }
 
 int LIBUSB_CALL libusb_interrupt_transfer(libusb_device_handle* dev_handle,
                                           unsigned char endpoint,
-                                          unsigned char* data, int length,
+                                          unsigned char* data,
+                                          int length,
                                           int* actual_length,
                                           unsigned int timeout) {
   return GetGlobalLibusb()->LibusbInterruptTransfer(

@@ -35,7 +35,8 @@ GenericRequestResult RemoteCallAdaptor::PerformSyncRequest(
 }
 
 GenericAsyncRequest RemoteCallAdaptor::StartAsyncRequest(
-    RemoteCallRequestPayload payload, GenericAsyncRequestCallback callback) {
+    RemoteCallRequestPayload payload,
+    GenericAsyncRequestCallback callback) {
   return requester_->StartAsyncRequest(ConvertToValueOrDie(std::move(payload)),
                                        callback);
 }

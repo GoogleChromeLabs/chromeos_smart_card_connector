@@ -228,7 +228,8 @@ void PcscLiteServerGlobal::PostReaderRemoveMessage(const char* reader_name,
 }
 
 void PcscLiteServerGlobal::PostMessage(
-    const char* type, const pp::VarDictionary& message_data) const {
+    const char* type,
+    const pp::VarDictionary& message_data) const {
   const std::unique_lock<std::mutex> lock(mutex_);
   if (pp_instance_) {
     TypedMessage typed_message;

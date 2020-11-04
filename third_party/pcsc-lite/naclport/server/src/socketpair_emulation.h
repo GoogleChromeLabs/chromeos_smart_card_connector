@@ -83,7 +83,9 @@ class SocketpairEmulationManager final {
   //
   // If the specified file descriptor is unknown (or already closed), the error
   // is reported through the is_failure argument.
-  void Write(int file_descriptor, const uint8_t* data, int64_t size,
+  void Write(int file_descriptor,
+             const uint8_t* data,
+             int64_t size,
              bool* is_failure);
 
   // Blocks until any data becomes available at the specified end of the socket
@@ -100,7 +102,8 @@ class SocketpairEmulationManager final {
   //
   // If the specified file descriptor is unknown (or already closed), the error
   // is reported through the is_failure argument.
-  bool SelectForReading(int file_descriptor, int64_t timeout_milliseconds,
+  bool SelectForReading(int file_descriptor,
+                        int64_t timeout_milliseconds,
                         bool* is_failure);
 
   // Reads specified number of bytes from the specified end of the socket pair.
@@ -113,7 +116,9 @@ class SocketpairEmulationManager final {
   //
   // If the specified file descriptor is unknown (or already closed), the error
   // is reported through the is_failure argument.
-  bool Read(int file_descriptor, uint8_t* buffer, int64_t* in_out_size,
+  bool Read(int file_descriptor,
+            uint8_t* buffer,
+            int64_t* in_out_size,
             bool* is_failure);
 
  private:
@@ -151,14 +156,19 @@ void Create(int* file_descriptor_1, int* file_descriptor_2);
 
 void Close(int file_descriptor, bool* is_failure);
 
-void Write(int file_descriptor, const uint8_t* data, int64_t size,
+void Write(int file_descriptor,
+           const uint8_t* data,
+           int64_t size,
            bool* is_failure);
 
 void SelectForReading(int file_descriptor, bool* is_failure);
-bool SelectForReading(int file_descriptor, int64_t timeout_milliseconds,
+bool SelectForReading(int file_descriptor,
+                      int64_t timeout_milliseconds,
                       bool* is_failure);
 
-bool Read(int file_descriptor, uint8_t* buffer, int64_t* in_out_size,
+bool Read(int file_descriptor,
+          uint8_t* buffer,
+          int64_t* in_out_size,
           bool* is_failure);
 
 }  // namespace socketpair_emulation

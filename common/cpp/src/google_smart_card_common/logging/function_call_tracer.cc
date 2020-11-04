@@ -48,9 +48,11 @@ void FunctionCallTracer::LogEntrance() const {
 
 void FunctionCallTracer::LogExit() const {
   std::string results_part;
-  if (dumped_return_value_) results_part = *dumped_return_value_;
+  if (dumped_return_value_)
+    results_part = *dumped_return_value_;
   if (!returned_args_.empty()) {
-    if (!results_part.empty()) results_part += ", ";
+    if (!results_part.empty())
+      results_part += ", ";
     results_part += DumpArgs(returned_args_);
   }
 
@@ -60,7 +62,8 @@ void FunctionCallTracer::LogExit() const {
 }
 
 FunctionCallTracer::ArgNameWithValue::ArgNameWithValue(
-    const std::string& name, const std::string& dumped_value)
+    const std::string& name,
+    const std::string& dumped_value)
     : name(name), dumped_value(dumped_value) {}
 
 // static
@@ -68,7 +71,8 @@ std::string FunctionCallTracer::DumpArgs(
     const std::vector<ArgNameWithValue>& args) {
   std::string result;
   for (const auto& arg : args) {
-    if (!result.empty()) result += ", ";
+    if (!result.empty())
+      result += ", ";
     result += arg.name;
     result += "=";
     result += arg.dumped_value;

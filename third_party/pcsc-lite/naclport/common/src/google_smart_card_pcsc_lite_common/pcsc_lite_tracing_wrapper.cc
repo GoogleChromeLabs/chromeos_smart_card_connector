@@ -34,7 +34,8 @@
 namespace google_smart_card {
 
 PcscLiteTracingWrapper::PcscLiteTracingWrapper(
-    PcscLite* pcsc_lite, const std::string& logging_prefix,
+    PcscLite* pcsc_lite,
+    const std::string& logging_prefix,
     LogSeverity log_severity)
     : pcsc_lite_(pcsc_lite),
       logging_prefix_(logging_prefix),
@@ -85,7 +86,8 @@ LONG PcscLiteTracingWrapper::SCardReleaseContext(SCARDCONTEXT hContext) {
 }
 
 LONG PcscLiteTracingWrapper::SCardConnect(SCARDCONTEXT hContext,
-                                          LPCSTR szReader, DWORD dwShareMode,
+                                          LPCSTR szReader,
+                                          DWORD dwShareMode,
                                           DWORD dwPreferredProtocols,
                                           LPSCARDHANDLE phCard,
                                           LPDWORD pdwActiveProtocol) {
@@ -105,7 +107,8 @@ LONG PcscLiteTracingWrapper::SCardConnect(SCARDCONTEXT hContext,
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   if (return_code == SCARD_S_SUCCESS) {
-    if (phCard) tracer.AddReturnedArg("*phCard", DebugDumpSCardHandle(*phCard));
+    if (phCard)
+      tracer.AddReturnedArg("*phCard", DebugDumpSCardHandle(*phCard));
     if (pdwActiveProtocol) {
       tracer.AddReturnedArg("*pdwActiveProtocol",
                             DebugDumpSCardProtocol(*pdwActiveProtocol));
@@ -195,10 +198,13 @@ LONG PcscLiteTracingWrapper::SCardEndTransaction(SCARDHANDLE hCard,
   return return_code;
 }
 
-LONG PcscLiteTracingWrapper::SCardStatus(SCARDHANDLE hCard, LPSTR szReaderName,
+LONG PcscLiteTracingWrapper::SCardStatus(SCARDHANDLE hCard,
+                                         LPSTR szReaderName,
                                          LPDWORD pcchReaderLen,
-                                         LPDWORD pdwState, LPDWORD pdwProtocol,
-                                         LPBYTE pbAtr, LPDWORD pcbAtrLen) {
+                                         LPDWORD pdwState,
+                                         LPDWORD pdwProtocol,
+                                         LPBYTE pbAtr,
+                                         LPDWORD pcbAtrLen) {
   FunctionCallTracer tracer("SCardStatus", logging_prefix_, log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(hCard));
   tracer.AddPassedArg("szReaderName", HexDumpPointer(szReaderName));
@@ -249,7 +255,9 @@ LONG PcscLiteTracingWrapper::SCardStatus(SCARDHANDLE hCard, LPSTR szReaderName,
 }
 
 LONG PcscLiteTracingWrapper::SCardGetStatusChange(
-    SCARDCONTEXT hContext, DWORD dwTimeout, SCARD_READERSTATE* rgReaderStates,
+    SCARDCONTEXT hContext,
+    DWORD dwTimeout,
+    SCARD_READERSTATE* rgReaderStates,
     DWORD cReaders) {
   FunctionCallTracer tracer("SCardGetStatusChange", logging_prefix_,
                             log_severity_);
@@ -273,10 +281,13 @@ LONG PcscLiteTracingWrapper::SCardGetStatusChange(
   return return_code;
 }
 
-LONG PcscLiteTracingWrapper::SCardControl(
-    SCARDHANDLE hCard, DWORD dwControlCode, LPCVOID pbSendBuffer,
-    DWORD cbSendLength, LPVOID pbRecvBuffer, DWORD cbRecvLength,
-    LPDWORD lpBytesReturned) {
+LONG PcscLiteTracingWrapper::SCardControl(SCARDHANDLE hCard,
+                                          DWORD dwControlCode,
+                                          LPCVOID pbSendBuffer,
+                                          DWORD cbSendLength,
+                                          LPVOID pbRecvBuffer,
+                                          DWORD cbRecvLength,
+                                          LPDWORD lpBytesReturned) {
   FunctionCallTracer tracer("SCardControl", logging_prefix_, log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(hCard));
   tracer.AddPassedArg("dwControlCode",
@@ -313,8 +324,10 @@ LONG PcscLiteTracingWrapper::SCardControl(
   return return_code;
 }
 
-LONG PcscLiteTracingWrapper::SCardGetAttrib(SCARDHANDLE hCard, DWORD dwAttrId,
-                                            LPBYTE pbAttr, LPDWORD pcbAttrLen) {
+LONG PcscLiteTracingWrapper::SCardGetAttrib(SCARDHANDLE hCard,
+                                            DWORD dwAttrId,
+                                            LPBYTE pbAttr,
+                                            LPDWORD pcbAttrLen) {
   FunctionCallTracer tracer("SCardGetAttrib", logging_prefix_, log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(hCard));
   tracer.AddPassedArg("dwAttrId", DebugDumpSCardAttributeId(dwAttrId));
@@ -344,8 +357,10 @@ LONG PcscLiteTracingWrapper::SCardGetAttrib(SCARDHANDLE hCard, DWORD dwAttrId,
   return return_code;
 }
 
-LONG PcscLiteTracingWrapper::SCardSetAttrib(SCARDHANDLE hCard, DWORD dwAttrId,
-                                            LPCBYTE pbAttr, DWORD cbAttrLen) {
+LONG PcscLiteTracingWrapper::SCardSetAttrib(SCARDHANDLE hCard,
+                                            DWORD dwAttrId,
+                                            LPCBYTE pbAttr,
+                                            DWORD cbAttrLen) {
   FunctionCallTracer tracer("SCardSetAttrib", logging_prefix_, log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(hCard));
   tracer.AddPassedArg("dwAttrId", DebugDumpSCardAttributeId(dwAttrId));
@@ -362,10 +377,13 @@ LONG PcscLiteTracingWrapper::SCardSetAttrib(SCARDHANDLE hCard, DWORD dwAttrId,
   return return_code;
 }
 
-LONG PcscLiteTracingWrapper::SCardTransmit(
-    SCARDHANDLE hCard, const SCARD_IO_REQUEST* pioSendPci, LPCBYTE pbSendBuffer,
-    DWORD cbSendLength, SCARD_IO_REQUEST* pioRecvPci, LPBYTE pbRecvBuffer,
-    LPDWORD pcbRecvLength) {
+LONG PcscLiteTracingWrapper::SCardTransmit(SCARDHANDLE hCard,
+                                           const SCARD_IO_REQUEST* pioSendPci,
+                                           LPCBYTE pbSendBuffer,
+                                           DWORD cbSendLength,
+                                           SCARD_IO_REQUEST* pioRecvPci,
+                                           LPBYTE pbRecvBuffer,
+                                           LPDWORD pcbRecvLength) {
   FunctionCallTracer tracer("SCardTransmit", logging_prefix_, log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(hCard));
   tracer.AddPassedArg("pioSendPci", DebugDumpSCardIoRequest(pioSendPci));

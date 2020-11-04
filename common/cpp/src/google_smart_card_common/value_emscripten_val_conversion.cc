@@ -181,12 +181,18 @@ emscripten::val ConvertValueToEmscriptenVal(const Value& value) {
 
 optional<Value> ConvertEmscriptenValToValue(const emscripten::val& val,
                                             std::string* error_message) {
-  if (val.isUndefined() || val.isNull()) return Value();
-  if (val.isTrue()) return Value(true);
-  if (val.isFalse()) return Value(false);
-  if (val.isNumber()) return CreateValueFromNumberVal(val);
-  if (val.isString()) return Value(val.as<std::string>());
-  if (val.isArray()) return CreateValueFromArrayLikeVal(val, error_message);
+  if (val.isUndefined() || val.isNull())
+    return Value();
+  if (val.isTrue())
+    return Value(true);
+  if (val.isFalse())
+    return Value(false);
+  if (val.isNumber())
+    return CreateValueFromNumberVal(val);
+  if (val.isString())
+    return Value(val.as<std::string>());
+  if (val.isArray())
+    return CreateValueFromArrayLikeVal(val, error_message);
   if (IsEmcriptenValInstanceof(val, "DataView")) {
     FormatPrintfTemplateAndSet(error_message, kErrorWrongType, "DataView");
     return {};
@@ -213,7 +219,8 @@ optional<Value> ConvertEmscriptenValToValue(const emscripten::val& val,
 Value ConvertEmscriptenValToValueOrDie(const emscripten::val& val) {
   std::string error_message;
   optional<Value> value = ConvertEmscriptenValToValue(val, &error_message);
-  if (!value) GOOGLE_SMART_CARD_LOG_FATAL << error_message;
+  if (!value)
+    GOOGLE_SMART_CARD_LOG_FATAL << error_message;
   return std::move(*value);
 }
 

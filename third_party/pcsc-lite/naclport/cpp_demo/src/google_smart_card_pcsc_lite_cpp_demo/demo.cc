@@ -111,7 +111,8 @@ size_t GetMultiStringLength(LPSTR multi_string) {
   size_t result = 0;
   for (const std::string& item : ExtractMultiStringElements(multi_string))
     result += item.length() + 1;
-  if (!result) return 2;
+  if (!result)
+    return 2;
   return result + 1;
 }
 
@@ -462,7 +463,8 @@ bool DoPcscLiteWaitingAndCancellation(SCARDCONTEXT s_card_context) {
 
 bool DoPcscLiteConnect(SCARDCONTEXT s_card_context,
                        const std::string& reader_name,
-                       SCARDHANDLE* s_card_handle, DWORD* active_protocol) {
+                       SCARDHANDLE* s_card_handle,
+                       DWORD* active_protocol) {
   GOOGLE_SMART_CARD_LOG_INFO << kLoggingPrefix << "  Calling SCardConnect() "
                              << "for connecting to the \"" << reader_name
                              << "\" reader...";

@@ -53,7 +53,8 @@ class RemoteCallAdaptor final {
 
   template <typename... Args>
   GenericAsyncRequest AsyncCall(GenericAsyncRequestCallback callback,
-                                std::string function_name, Args&&... args) {
+                                std::string function_name,
+                                Args&&... args) {
     return StartAsyncRequest(
         ConvertToRemoteCallRequestPayloadOrDie(std::move(function_name),
                                                std::forward<Args>(args)...),
@@ -63,7 +64,8 @@ class RemoteCallAdaptor final {
   template <typename... Args>
   void AsyncCall(GenericAsyncRequest* async_request,
                  GenericAsyncRequestCallback callback,
-                 std::string function_name, Args&&... args) {
+                 std::string function_name,
+                 Args&&... args) {
     StartAsyncRequest(
         ConvertToRemoteCallRequestPayloadOrDie(std::move(function_name),
                                                std::forward<Args>(args)...),
@@ -73,7 +75,8 @@ class RemoteCallAdaptor final {
   template <typename... PayloadFields>
   static bool ExtractResultPayload(
       const GenericRequestResult& generic_request_result,
-      std::string* error_message, PayloadFields*... payload_fields) {
+      std::string* error_message,
+      PayloadFields*... payload_fields) {
     // TODO(emaxx): Probably add details about the function call into the error
     // messages?
     if (!generic_request_result.is_successful()) {

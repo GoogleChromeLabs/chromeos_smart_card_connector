@@ -31,8 +31,12 @@ namespace google_smart_card {
 
 constexpr char kMessageType[] = "pcsc_lite_ready";
 
-std::string GetPcscLiteServerReadyMessageType() { return kMessageType; }
+std::string GetPcscLiteServerReadyMessageType() {
+  return kMessageType;
+}
 
-pp::Var MakePcscLiteServerReadyMessageData() { return pp::VarDictionary(); }
+pp::Var MakePcscLiteServerReadyMessageData() {
+  return pp::VarDictionary();
+}
 
 }  // namespace google_smart_card

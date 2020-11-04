@@ -46,7 +46,8 @@ class IntegrationTestService final : public RequestHandler {
 
   // Starts listening for incoming requests and translating them into commands
   // for test helpers.
-  void Activate(pp::Instance* pp_instance, pp::Core* pp_core,
+  void Activate(pp::Instance* pp_instance,
+                pp::Core* pp_core,
                 TypedMessageRouter* typed_message_router);
   // Tears down all previously set up helpers and stops listening for incoming
   // requests.

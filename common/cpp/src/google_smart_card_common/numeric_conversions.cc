@@ -28,7 +28,8 @@ constexpr int64_t kDoubleExactRangeMin =
 
 }  // namespace internal
 
-bool CastDoubleToInt64(double value, int64_t* result,
+bool CastDoubleToInt64(double value,
+                       int64_t* result,
                        std::string* error_message) {
   if (!(internal::kDoubleExactRangeMin <= value &&
         value <= internal::kDoubleExactRangeMax)) {

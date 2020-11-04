@@ -45,7 +45,8 @@ class LibusbInterface {
   virtual void LibusbUnrefDevice(libusb_device* dev) = 0;
 
   virtual int LibusbGetActiveConfigDescriptor(
-      libusb_device* dev, libusb_config_descriptor** config) = 0;
+      libusb_device* dev,
+      libusb_config_descriptor** config) = 0;
   virtual void LibusbFreeConfigDescriptor(libusb_config_descriptor* config) = 0;
 
   virtual int LibusbGetDeviceDescriptor(libusb_device* dev,
@@ -70,18 +71,25 @@ class LibusbInterface {
   virtual void LibusbFreeTransfer(libusb_transfer* transfer) = 0;
 
   virtual int LibusbControlTransfer(libusb_device_handle* dev,
-                                    uint8_t bmRequestType, uint8_t bRequest,
-                                    uint16_t wValue, uint16_t wIndex,
-                                    unsigned char* data, uint16_t wLength,
+                                    uint8_t bmRequestType,
+                                    uint8_t bRequest,
+                                    uint16_t wValue,
+                                    uint16_t wIndex,
+                                    unsigned char* data,
+                                    uint16_t wLength,
                                     unsigned timeout) = 0;
   virtual int LibusbBulkTransfer(libusb_device_handle* dev,
-                                 unsigned char endpoint, unsigned char* data,
-                                 int length, int* actual_length,
+                                 unsigned char endpoint,
+                                 unsigned char* data,
+                                 int length,
+                                 int* actual_length,
                                  unsigned timeout) = 0;
   virtual int LibusbInterruptTransfer(libusb_device_handle* dev,
                                       unsigned char endpoint,
-                                      unsigned char* data, int length,
-                                      int* actual_length, unsigned timeout) = 0;
+                                      unsigned char* data,
+                                      int length,
+                                      int* actual_length,
+                                      unsigned timeout) = 0;
 
   virtual int LibusbHandleEvents(libusb_context* ctx) = 0;
   virtual int LibusbHandleEventsCompleted(libusb_context* ctx,

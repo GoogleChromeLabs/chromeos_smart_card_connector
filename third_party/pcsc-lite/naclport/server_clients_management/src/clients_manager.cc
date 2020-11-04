@@ -86,7 +86,8 @@ StructConverter<CreateHandlerMessageData>::GetStructTypeName() {
 template <>
 template <typename Callback>
 void StructConverter<CreateHandlerMessageData>::VisitFields(
-    const CreateHandlerMessageData& value, Callback callback) {
+    const CreateHandlerMessageData& value,
+    Callback callback) {
   callback(&value.handler_id, "handler_id");
   callback(&value.client_app_id, "client_app_id");
 }
@@ -107,12 +108,14 @@ StructConverter<DeleteHandlerMessageData>::GetStructTypeName() {
 template <>
 template <typename Callback>
 void StructConverter<DeleteHandlerMessageData>::VisitFields(
-    const DeleteHandlerMessageData& value, Callback callback) {
+    const DeleteHandlerMessageData& value,
+    Callback callback) {
   callback(&value.handler_id, "handler_id");
 }
 
 PcscLiteServerClientsManager::PcscLiteServerClientsManager(
-    pp::Instance* pp_instance, TypedMessageRouter* typed_message_router)
+    pp::Instance* pp_instance,
+    TypedMessageRouter* typed_message_router)
     : pp_instance_(pp_instance),
       typed_message_router_(typed_message_router),
       create_handler_message_listener_(this),
@@ -124,7 +127,9 @@ PcscLiteServerClientsManager::PcscLiteServerClientsManager(
   typed_message_router_->AddRoute(&delete_handler_message_listener_);
 }
 
-PcscLiteServerClientsManager::~PcscLiteServerClientsManager() { Detach(); }
+PcscLiteServerClientsManager::~PcscLiteServerClientsManager() {
+  Detach();
+}
 
 void PcscLiteServerClientsManager::Detach() {
   GOOGLE_SMART_CARD_CHECK(typed_message_router_);
@@ -191,16 +196,20 @@ bool PcscLiteServerClientsManager::DeleteHandlerMessageListener ::
 }
 
 PcscLiteServerClientsManager::Handler::Handler(
-    int64_t handler_id, const optional<std::string>& client_app_id,
-    pp::Instance* pp_instance, TypedMessageRouter* typed_message_router)
+    int64_t handler_id,
+    const optional<std::string>& client_app_id,
+    pp::Instance* pp_instance,
+    TypedMessageRouter* typed_message_router)
     : handler_id_(handler_id),
       client_app_id_(client_app_id),
       request_processor_(
           new PcscLiteClientRequestProcessor(handler_id, client_app_id_)),
       request_receiver_(new JsRequestReceiver(
-          FormatPrintfTemplate(
-              "pcsc_lite_client_handler_%" PRId64 "_call_function", handler_id),
-          this, typed_message_router,
+          FormatPrintfTemplate("pcsc_lite_client_handler_%" PRId64
+                               "_call_function",
+                               handler_id),
+          this,
+          typed_message_router,
           MakeUnique<JsRequestReceiver::PpDelegateImpl>(pp_instance))) {}
 
 PcscLiteServerClientsManager::Handler::~Handler() {
@@ -218,7 +227,8 @@ PcscLiteServerClientsManager::Handler::~Handler() {
 }
 
 void PcscLiteServerClientsManager::Handler::HandleRequest(
-    Value payload, RequestReceiver::ResultCallback result_callback) {
+    Value payload,
+    RequestReceiver::ResultCallback result_callback) {
   RemoteCallRequestPayload remote_call_request;
   std::string error_message;
   if (!ConvertFromValue(std::move(payload), &remote_call_request,
@@ -233,7 +243,8 @@ void PcscLiteServerClientsManager::Handler::HandleRequest(
 }
 
 void PcscLiteServerClientsManager::CreateHandler(
-    int64_t handler_id, const optional<std::string>& client_app_id) {
+    int64_t handler_id,
+    const optional<std::string>& client_app_id) {
   std::unique_ptr<Handler> handler(new Handler(
       handler_id, client_app_id, pp_instance_, typed_message_router_));
   if (!handler_map_.emplace(handler_id, std::move(handler)).second) {

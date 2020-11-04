@@ -72,7 +72,8 @@ pp::Var MakeVar(const std::string& value);
 
 template <typename T>
 inline pp::Var MakeVar(const optional<T>& value) {
-  if (!value) return pp::Var();
+  if (!value)
+    return pp::Var();
   return MakeVar(*value);
 }
 
@@ -106,8 +107,10 @@ inline void FillVarArray(pp::VarArray* /*var*/,
                          uint32_t /*current_item_index*/) {}
 
 template <typename Arg, typename... Args>
-inline void FillVarArray(pp::VarArray* var, uint32_t current_item_index,
-                         const Arg& arg, const Args&... args) {
+inline void FillVarArray(pp::VarArray* var,
+                         uint32_t current_item_index,
+                         const Arg& arg,
+                         const Args&... args) {
   GOOGLE_SMART_CARD_CHECK(var->Set(current_item_index, MakeVar(arg)));
   FillVarArray(var, current_item_index + 1, args...);
 }

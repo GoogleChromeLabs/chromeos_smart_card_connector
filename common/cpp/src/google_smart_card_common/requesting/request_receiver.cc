@@ -30,7 +30,9 @@ RequestReceiver::RequestReceiver(const std::string& name,
 
 RequestReceiver::~RequestReceiver() = default;
 
-std::string RequestReceiver::name() const { return name_; }
+std::string RequestReceiver::name() const {
+  return name_;
+}
 
 void RequestReceiver::HandleRequest(RequestId request_id,
                                     const pp::Var& payload) {
@@ -40,7 +42,8 @@ void RequestReceiver::HandleRequest(RequestId request_id,
 }
 
 RequestReceiver::ResultCallbackImpl::ResultCallbackImpl(
-    RequestId request_id, std::weak_ptr<RequestReceiver> request_receiver)
+    RequestId request_id,
+    std::weak_ptr<RequestReceiver> request_receiver)
     : request_id_(request_id), request_receiver_(request_receiver) {}
 
 RequestReceiver::ResultCallbackImpl::~ResultCallbackImpl() = default;

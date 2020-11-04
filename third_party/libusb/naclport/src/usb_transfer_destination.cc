@@ -73,7 +73,8 @@ bool UsbTransferDestination::operator==(
 
 UsbTransferDestination::UsbTransferDestination(
     const chrome_usb::ConnectionHandle& connection_handle,
-    const chrome_usb::Direction& direction, optional<int64_t> endpoint,
+    const chrome_usb::Direction& direction,
+    optional<int64_t> endpoint,
     optional<chrome_usb::ControlTransferInfoRecipient>
         control_transfer_recipient,
     optional<chrome_usb::ControlTransferInfoRequestType>
@@ -94,8 +95,10 @@ namespace {
 
 template <typename T>
 int CompareValues(const T& lhs, const T& rhs) {
-  if (lhs < rhs) return -1;
-  if (lhs > rhs) return 1;
+  if (lhs < rhs)
+    return -1;
+  if (lhs > rhs)
+    return 1;
   return 0;
 }
 

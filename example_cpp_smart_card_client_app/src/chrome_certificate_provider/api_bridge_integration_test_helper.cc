@@ -83,7 +83,8 @@ class ApiBridgeIntegrationTestHelper final : public gsc::IntegrationTestHelper {
  public:
   // IntegrationTestHelper:
   std::string GetName() const override;
-  void SetUp(pp::Instance* pp_instance, pp::Core* pp_core,
+  void SetUp(pp::Instance* pp_instance,
+             pp::Core* pp_core,
              gsc::TypedMessageRouter* typed_message_router,
              const pp::Var& data) override;
   void TearDown() override;
@@ -108,8 +109,10 @@ std::string ApiBridgeIntegrationTestHelper::GetName() const {
 }
 
 void ApiBridgeIntegrationTestHelper::SetUp(
-    pp::Instance* pp_instance, pp::Core* pp_core,
-    gsc::TypedMessageRouter* typed_message_router, const pp::Var& /*data*/) {
+    pp::Instance* pp_instance,
+    pp::Core* pp_core,
+    gsc::TypedMessageRouter* typed_message_router,
+    const pp::Var& /*data*/) {
   api_bridge_ =
       std::make_shared<ApiBridge>(typed_message_router, pp_instance, pp_core,
                                   /*request_handling_mutex=*/nullptr);
@@ -121,7 +124,8 @@ void ApiBridgeIntegrationTestHelper::TearDown() {
 }
 
 void ApiBridgeIntegrationTestHelper::OnMessageFromJs(
-    const pp::Var& data, gsc::RequestReceiver::ResultCallback result_callback) {
+    const pp::Var& data,
+    gsc::RequestReceiver::ResultCallback result_callback) {
   std::string command;
   std::string error_message;
   if (!gsc::VarAs(data, &command, &error_message))

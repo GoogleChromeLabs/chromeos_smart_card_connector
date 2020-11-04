@@ -50,12 +50,15 @@ JsRequestReceiver::JsRequestReceiver(const std::string& name,
   typed_message_router->AddRoute(this);
 }
 
-JsRequestReceiver::~JsRequestReceiver() { Detach(); }
+JsRequestReceiver::~JsRequestReceiver() {
+  Detach();
+}
 
 void JsRequestReceiver::Detach() {
   TypedMessageRouter* const typed_message_router =
       typed_message_router_.exchange(nullptr);
-  if (typed_message_router) typed_message_router->RemoveRoute(this);
+  if (typed_message_router)
+    typed_message_router->RemoveRoute(this);
 
   pp_delegate_.Reset();
 }

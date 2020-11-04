@@ -45,8 +45,7 @@ SocketpairEmulationManager* g_socketpair_emulation_manager = nullptr;
 
 class SocketpairEmulationManager::Socket final {
  public:
-  explicit Socket(int file_descriptor)
-      : file_descriptor_(file_descriptor) {
+  explicit Socket(int file_descriptor) : file_descriptor_(file_descriptor) {
     GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "A socket "
                                 << file_descriptor << " is created";
   }
@@ -75,13 +74,15 @@ class SocketpairEmulationManager::Socket final {
   void Close() {
     if (SetIsClosed()) {
       const std::shared_ptr<Socket> locked_other_end = other_end_.lock();
-      if (locked_other_end) locked_other_end->SetIsClosed();
+      if (locked_other_end)
+        locked_other_end->SetIsClosed();
     }
   }
 
   void Write(const uint8_t* data, int64_t size, bool* is_failure) {
     GOOGLE_SMART_CARD_CHECK(size >= 0);
-    if (!size) return;
+    if (!size)
+      return;
     GOOGLE_SMART_CARD_CHECK(data);
     const std::shared_ptr<Socket> locked_other_end = other_end_.lock();
     if (!locked_other_end) {
@@ -137,7 +138,8 @@ class SocketpairEmulationManager::Socket final {
                                   << "already been closed";
       return false;
     }
-    if (read_buffer_.empty()) return false;
+    if (read_buffer_.empty())
+      return false;
     *in_out_size =
         std::min(*in_out_size, static_cast<int64_t>(read_buffer_.size()));
     std::copy(read_buffer_.begin(), read_buffer_.begin() + *in_out_size,
@@ -150,7 +152,8 @@ class SocketpairEmulationManager::Socket final {
  private:
   bool SetIsClosed() {
     const std::unique_lock<std::mutex> lock(mutex_);
-    if (is_closed_) return false;
+    if (is_closed_)
+      return false;
     is_closed_ = true;
     GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "The socket "
                                 << file_descriptor() << " is closed";
@@ -221,8 +224,10 @@ void SocketpairEmulationManager::Close(int file_descriptor, bool* is_failure) {
   socket_map_.erase(socket_map_iter);
 }
 
-void SocketpairEmulationManager::Write(int file_descriptor, const uint8_t* data,
-                                       int64_t size, bool* is_failure) {
+void SocketpairEmulationManager::Write(int file_descriptor,
+                                       const uint8_t* data,
+                                       int64_t size,
+                                       bool* is_failure) {
   const std::shared_ptr<Socket> socket =
       FindSocketByFileDescriptor(file_descriptor);
   if (!socket) {
@@ -267,8 +272,10 @@ bool SocketpairEmulationManager::SelectForReading(int file_descriptor,
   return socket->SelectForReading(timeout_milliseconds, is_failure);
 }
 
-bool SocketpairEmulationManager::Read(int file_descriptor, uint8_t* buffer,
-                                      int64_t* in_out_size, bool* is_failure) {
+bool SocketpairEmulationManager::Read(int file_descriptor,
+                                      uint8_t* buffer,
+                                      int64_t* in_out_size,
+                                      bool* is_failure) {
   const std::shared_ptr<Socket> socket =
       FindSocketByFileDescriptor(file_descriptor);
   if (!socket) {
@@ -279,7 +286,8 @@ bool SocketpairEmulationManager::Read(int file_descriptor, uint8_t* buffer,
                                 << "already destroyed or never existed";
     return false;
   }
-  if (!socket->Read(buffer, in_out_size, is_failure)) return false;
+  if (!socket->Read(buffer, in_out_size, is_failure))
+    return false;
   GOOGLE_SMART_CARD_CHECK(*in_out_size > 0);
   return true;
 }
@@ -309,7 +317,8 @@ SocketpairEmulationManager::FindSocketByFileDescriptor(
     int file_descriptor) const {
   const std::unique_lock<std::mutex> lock(mutex_);
   const auto socket_map_iter = socket_map_.find(file_descriptor);
-  if (socket_map_iter == socket_map_.end()) return {};
+  if (socket_map_iter == socket_map_.end())
+    return {};
   return socket_map_iter->second;
 }
 
@@ -324,7 +333,9 @@ void Close(int file_descriptor, bool* is_failure) {
   SocketpairEmulationManager::GetInstance()->Close(file_descriptor, is_failure);
 }
 
-void Write(int file_descriptor, const uint8_t* data, int64_t size,
+void Write(int file_descriptor,
+           const uint8_t* data,
+           int64_t size,
            bool* is_failure) {
   SocketpairEmulationManager::GetInstance()->Write(file_descriptor, data, size,
                                                    is_failure);
@@ -335,13 +346,16 @@ void SelectForReading(int file_descriptor, bool* is_failure) {
                                                               is_failure);
 }
 
-bool SelectForReading(int file_descriptor, int64_t timeout_milliseconds,
+bool SelectForReading(int file_descriptor,
+                      int64_t timeout_milliseconds,
                       bool* is_failure) {
   return SocketpairEmulationManager::GetInstance()->SelectForReading(
       file_descriptor, timeout_milliseconds, is_failure);
 }
 
-bool Read(int file_descriptor, uint8_t* buffer, int64_t* in_out_size,
+bool Read(int file_descriptor,
+          uint8_t* buffer,
+          int64_t* in_out_size,
           bool* is_failure) {
   return SocketpairEmulationManager::GetInstance()->Read(
       file_descriptor, buffer, in_out_size, is_failure);

@@ -89,7 +89,8 @@ inline void FillRemoteCallRequestArgs(RemoteCallRequestPayload* /*payload*/) {}
 
 template <typename FirstArg, typename... Args>
 void FillRemoteCallRequestArgs(RemoteCallRequestPayload* payload,
-                               FirstArg&& first_arg, Args&&... args) {
+                               FirstArg&& first_arg,
+                               Args&&... args) {
   // Convert the first argument.
   ConvertAndAppendRemoteCallArg(payload, std::forward<FirstArg>(first_arg));
   // Recursively process the subsequent arguments.
@@ -105,7 +106,8 @@ void FillRemoteCallRequestArgs(RemoteCallRequestPayload* payload,
 // Note: null `optional` arguments are converted into null `Value`s.
 template <typename... Args>
 RemoteCallRequestPayload ConvertToRemoteCallRequestPayloadOrDie(
-    std::string function_name, Args&&... args) {
+    std::string function_name,
+    Args&&... args) {
   RemoteCallRequestPayload payload;
   payload.function_name = std::move(function_name);
   internal::FillRemoteCallRequestArgs(&payload, std::forward<Args>(args)...);

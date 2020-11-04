@@ -125,7 +125,8 @@ void CleanupHandles(const std::string& logging_prefix,
 }  // namespace
 
 PcscLiteClientRequestProcessor::PcscLiteClientRequestProcessor(
-    int64_t client_handler_id, const optional<std::string>& client_app_id)
+    int64_t client_handler_id,
+    const optional<std::string>& client_app_id)
     : client_handler_id_(client_handler_id),
       client_app_id_(client_app_id),
       status_log_severity_(client_app_id ? LogSeverity::kInfo
@@ -262,7 +263,8 @@ void PcscLiteClientRequestProcessor::AddHandlerToHandlerMap(
 template <typename ArgsTuple, typename F, size_t... arg_indexes>
 PcscLiteClientRequestProcessor::Handler
 PcscLiteClientRequestProcessor::WrapHandler(
-    F handler, ArgIndexes<arg_indexes...> /*unused*/) {
+    F handler,
+    ArgIndexes<arg_indexes...> /*unused*/) {
   return
       [this, handler](const pp::VarArray& arguments) -> GenericRequestResult {
         ArgsTuple args_tuple;
@@ -288,7 +290,8 @@ void PcscLiteClientRequestProcessor::ScheduleHandlesCleanup() {
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::FindHandlerAndCall(
-    const std::string& function_name, const pp::VarArray& arguments) {
+    const std::string& function_name,
+    const pp::VarArray& arguments) {
   const HandlerMap::const_iterator handler_map_iter =
       handler_map_.find(function_name);
   if (handler_map_iter == handler_map_.end()) {
@@ -333,7 +336,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::PcscStringifyError(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardEstablishContext(
-    DWORD scope, pp::Var::Null reserved_1, pp::Var::Null reserved_2) {
+    DWORD scope,
+    pp::Var::Null reserved_1,
+    pp::Var::Null reserved_2) {
   FunctionCallTracer tracer("SCardEstablishContext", logging_prefix_,
                             status_log_severity_);
   tracer.AddPassedArg("dwScope", DebugDumpSCardScope(scope));
@@ -350,7 +355,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardEstablishContext(
     tracer.AddReturnedArg("hContext", DebugDumpSCardContext(s_card_context));
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS)
+    return ReturnValues(return_code);
   s_card_handles_registry_.AddContext(s_card_context);
   return ReturnValues(return_code, s_card_context);
 }
@@ -378,8 +384,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReleaseContext(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
-    SCARDCONTEXT s_card_context, const std::string& reader_name,
-    DWORD share_mode, DWORD preferred_protocols) {
+    SCARDCONTEXT s_card_context,
+    const std::string& reader_name,
+    DWORD share_mode,
+    DWORD preferred_protocols) {
   FunctionCallTracer tracer("SCardConnect", logging_prefix_,
                             status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
@@ -409,13 +417,16 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardConnect(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS)
+    return ReturnValues(return_code);
   s_card_handles_registry_.AddHandle(s_card_context, s_card_handle);
   return ReturnValues(return_code, s_card_handle, active_protocol);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardReconnect(
-    SCARDHANDLE s_card_handle, DWORD share_mode, DWORD preferred_protocols,
+    SCARDHANDLE s_card_handle,
+    DWORD share_mode,
+    DWORD preferred_protocols,
     DWORD initialization_action) {
   FunctionCallTracer tracer("SCardReconnect", logging_prefix_,
                             status_log_severity_);
@@ -445,12 +456,14 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardReconnect(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS)
+    return ReturnValues(return_code);
   return ReturnValues(return_code, active_protocol);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardDisconnect(
-    SCARDHANDLE s_card_handle, DWORD disposition_action) {
+    SCARDHANDLE s_card_handle,
+    DWORD disposition_action) {
   FunctionCallTracer tracer("SCardDisconnect", logging_prefix_,
                             status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
@@ -494,7 +507,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardBeginTransaction(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardEndTransaction(
-    SCARDHANDLE s_card_handle, DWORD disposition_action) {
+    SCARDHANDLE s_card_handle,
+    DWORD disposition_action) {
   FunctionCallTracer tracer("SCardEndTransaction", logging_prefix_,
                             status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
@@ -548,7 +562,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS)
+    return ReturnValues(return_code);
   const std::string reader_name_copy = reader_name;
   FreeSCardMemory(reader_name);
   const pp::Var atr_var = MakeDumpedArrayBuffer(atr, atr_length);
@@ -557,7 +572,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
-    SCARDCONTEXT s_card_context, DWORD timeout,
+    SCARDCONTEXT s_card_context,
+    DWORD timeout,
     const std::vector<InboundSCardReaderState>& reader_states) {
   std::vector<SCARD_READERSTATE> pcsc_lite_reader_states;
   for (const InboundSCardReaderState& reader_state : reader_states) {
@@ -613,7 +629,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS)
+    return ReturnValues(return_code);
 
   std::vector<OutboundSCardReaderState> result_reader_states;
   for (const SCARD_READERSTATE& reader_state : pcsc_lite_reader_states) {
@@ -624,7 +641,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardControl(
-    SCARDHANDLE s_card_handle, DWORD control_code,
+    SCARDHANDLE s_card_handle,
+    DWORD control_code,
     const std::vector<uint8_t>& data_to_send) {
   FunctionCallTracer tracer("SCardControl", logging_prefix_,
                             status_log_severity_);
@@ -654,13 +672,15 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardControl(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS)
+    return ReturnValues(return_code);
   return ReturnValues(return_code,
                       MakeDumpedArrayBuffer(&buffer[0], bytes_received));
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
-    SCARDHANDLE s_card_handle, DWORD attribute_id) {
+    SCARDHANDLE s_card_handle,
+    DWORD attribute_id) {
   FunctionCallTracer tracer("SCardGetAttrib", logging_prefix_,
                             status_log_severity_);
   tracer.AddPassedArg("hCard", DebugDumpSCardHandle(s_card_handle));
@@ -686,7 +706,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS)
+    return ReturnValues(return_code);
   const pp::Var attribute_var =
       MakeDumpedArrayBuffer(attribute, attribute_length);
   FreeSCardMemory(attribute);
@@ -694,7 +715,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardSetAttrib(
-    SCARDHANDLE s_card_handle, DWORD attribute_id,
+    SCARDHANDLE s_card_handle,
+    DWORD attribute_id,
     const std::vector<uint8_t>& attribute) {
   FunctionCallTracer tracer("SCardSetAttrib", logging_prefix_,
                             status_log_severity_);
@@ -720,7 +742,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardSetAttrib(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
-    SCARDHANDLE s_card_handle, const SCardIoRequest& send_protocol_information,
+    SCARDHANDLE s_card_handle,
+    const SCardIoRequest& send_protocol_information,
     const std::vector<uint8_t>& data_to_send,
     const optional<SCardIoRequest>& response_protocol_information) {
   const SCARD_IO_REQUEST scard_send_protocol_information =
@@ -791,7 +814,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS)
+    return ReturnValues(return_code);
   return ReturnValues(
       return_code,
       SCardIoRequest::FromSCardIoRequest(scard_response_protocol_information),
@@ -799,7 +823,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
-    SCARDCONTEXT s_card_context, pp::Var::Null groups) {
+    SCARDCONTEXT s_card_context,
+    pp::Var::Null groups) {
   FunctionCallTracer tracer("SCardListReaders", logging_prefix_,
                             status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
@@ -823,7 +848,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
     tracer.AddReturnedArg("mszReaders", DebugDumpSCardMultiString(readers));
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS)
+    return ReturnValues(return_code);
   const std::vector<std::string> readers_list =
       ExtractMultiStringElements(readers);
   FreeSCardMemory(readers);
@@ -856,7 +882,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaderGroups(
   }
   tracer.LogExit();
 
-  if (return_code != SCARD_S_SUCCESS) return ReturnValues(return_code);
+  if (return_code != SCARD_S_SUCCESS)
+    return ReturnValues(return_code);
   const std::vector<std::string> reader_groups_list =
       ExtractMultiStringElements(reader_groups);
   FreeSCardMemory(reader_groups);

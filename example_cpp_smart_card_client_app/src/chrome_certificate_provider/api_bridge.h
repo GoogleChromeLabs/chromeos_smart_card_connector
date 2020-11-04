@@ -93,7 +93,8 @@ class ApiBridge final : public google_smart_card::RequestHandler {
   // simultaneous execution of multiple requests: each next request will be
   // executed only once the previous one finishes.
   ApiBridge(google_smart_card::TypedMessageRouter* typed_message_router,
-            pp::Instance* pp_instance, pp::Core* pp_core,
+            pp::Instance* pp_instance,
+            pp::Core* pp_core,
             std::shared_ptr<std::mutex> request_handling_mutex);
 
   ApiBridge(const ApiBridge&) = delete;

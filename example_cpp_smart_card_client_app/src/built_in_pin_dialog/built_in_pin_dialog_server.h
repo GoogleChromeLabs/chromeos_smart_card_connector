@@ -45,7 +45,8 @@ class BuiltInPinDialogServer final {
   // into the specified TypedMessageRouter for receiving the request responses.
   BuiltInPinDialogServer(
       google_smart_card::TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance, pp::Core* pp_core);
+      pp::Instance* pp_instance,
+      pp::Core* pp_core);
 
   BuiltInPinDialogServer(const BuiltInPinDialogServer&) = delete;
   BuiltInPinDialogServer& operator=(const BuiltInPinDialogServer&) = delete;

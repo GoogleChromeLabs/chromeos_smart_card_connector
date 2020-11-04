@@ -36,7 +36,8 @@ std::string RemoteCallRequestPayload::DebugDumpSanitized() const {
   std::string debug_dump = function_name;
   debug_dump += '(';
   for (size_t i = 0; i < arguments.size(); ++i) {
-    if (i > 0) debug_dump += ',';
+    if (i > 0)
+      debug_dump += ',';
     debug_dump += DebugDumpValueSanitized(arguments[i]);
   }
   debug_dump += ')';

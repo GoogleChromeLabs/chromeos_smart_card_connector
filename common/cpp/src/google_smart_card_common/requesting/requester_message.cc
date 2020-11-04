@@ -63,7 +63,8 @@ StructValueDescriptor<ResponseMessageData>::GetDescription() {
 
 // static
 ResponseMessageData ResponseMessageData::CreateFromRequestResult(
-    RequestId request_id, GenericRequestResult request_result) {
+    RequestId request_id,
+    GenericRequestResult request_result) {
   ResponseMessageData message_data;
   message_data.request_id = request_id;
   switch (request_result.status()) {

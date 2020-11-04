@@ -46,7 +46,8 @@ namespace google_smart_card {
 class PcscLiteServerClientsManagementBackend final {
  public:
   PcscLiteServerClientsManagementBackend(
-      pp::Instance* pp_instance, TypedMessageRouter* typed_message_router);
+      pp::Instance* pp_instance,
+      TypedMessageRouter* typed_message_router);
 
   PcscLiteServerClientsManagementBackend(
       const PcscLiteServerClientsManagementBackend&) = delete;

@@ -51,15 +51,25 @@ bool IsStringValidForVar(const std::string& string) {
 
 }  // namespace
 
-pp::Var MakeVar(unsigned value) { return MakeVarFromInteger(value); }
+pp::Var MakeVar(unsigned value) {
+  return MakeVarFromInteger(value);
+}
 
-pp::Var MakeVar(long value) { return MakeVarFromInteger(value); }
+pp::Var MakeVar(long value) {
+  return MakeVarFromInteger(value);
+}
 
-pp::Var MakeVar(unsigned long value) { return MakeVarFromInteger(value); }
+pp::Var MakeVar(unsigned long value) {
+  return MakeVarFromInteger(value);
+}
 
-pp::Var MakeVar(int64_t value) { return MakeVarFromInteger(value); }
+pp::Var MakeVar(int64_t value) {
+  return MakeVarFromInteger(value);
+}
 
-pp::Var MakeVar(uint64_t value) { return MakeVarFromInteger(value); }
+pp::Var MakeVar(uint64_t value) {
+  return MakeVarFromInteger(value);
+}
 
 pp::Var MakeVar(const std::string& value) {
   GOOGLE_SMART_CARD_CHECK(IsStringValidForVar(value));
@@ -79,7 +89,8 @@ std::string CleanupStringForVar(const std::string& string) {
 }
 
 pp::VarArrayBuffer MakeVarArrayBuffer(const std::vector<uint8_t>& data) {
-  if (data.empty()) return pp::VarArrayBuffer();
+  if (data.empty())
+    return pp::VarArrayBuffer();
   return MakeVarArrayBuffer(&data[0], data.size());
 }
 

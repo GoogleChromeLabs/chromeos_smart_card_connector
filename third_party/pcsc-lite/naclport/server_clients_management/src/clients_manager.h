@@ -136,7 +136,8 @@ class PcscLiteServerClientsManager final {
   // a client (and delivered here by the JavaScript side).
   class Handler final : public RequestHandler {
    public:
-    Handler(int64_t handler_id, const optional<std::string>& client_app_id,
+    Handler(int64_t handler_id,
+            const optional<std::string>& client_app_id,
             pp::Instance* pp_instance,
             TypedMessageRouter* typed_message_router);
     Handler(const Handler&) = delete;

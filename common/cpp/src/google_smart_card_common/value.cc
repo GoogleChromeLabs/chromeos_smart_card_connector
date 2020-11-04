@@ -92,7 +92,9 @@ Value::Value(DictionaryStorage dictionary_value)
 Value::Value(ArrayStorage array_value)
     : type_(Type::kArray), array_value_(std::move(array_value)) {}
 
-Value::Value(Value&& other) { MoveConstructFrom(std::move(other)); }
+Value::Value(Value&& other) {
+  MoveConstructFrom(std::move(other));
+}
 
 Value& Value::operator=(Value&& other) {
   if (this != &other) {
@@ -102,7 +104,9 @@ Value& Value::operator=(Value&& other) {
   return *this;
 }
 
-Value::~Value() { Destroy(); }
+Value::~Value() {
+  Destroy();
+}
 
 bool Value::GetBoolean() const {
   GOOGLE_SMART_CARD_CHECK(is_boolean());
@@ -157,7 +161,8 @@ Value::ArrayStorage& Value::GetArray() {
 const Value* Value::GetDictionaryItem(const std::string& key) const {
   GOOGLE_SMART_CARD_CHECK(is_dictionary());
   auto iter = dictionary_value_.find(key);
-  if (iter == dictionary_value_.end()) return nullptr;
+  if (iter == dictionary_value_.end())
+    return nullptr;
   return iter->second.get();
 }
 

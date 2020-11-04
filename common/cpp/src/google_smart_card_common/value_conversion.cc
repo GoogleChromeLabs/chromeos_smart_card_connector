@@ -32,7 +32,9 @@ namespace google_smart_card {
 namespace {
 
 template <typename T>
-bool ConvertIntegerFromValue(Value value, const char* type_name, T* number,
+bool ConvertIntegerFromValue(Value value,
+                             const char* type_name,
+                             T* number,
                              std::string* error_message) {
   int64_t int64_number;
   if (value.is_integer()) {
@@ -70,7 +72,8 @@ EnumToValueConverter::~EnumToValueConverter() = default;
 
 void EnumToValueConverter::HandleItem(int64_t enum_item,
                                       const char* enum_item_name) {
-  if (converted_value_ || enum_to_convert_ != enum_item) return;
+  if (converted_value_ || enum_to_convert_ != enum_item)
+    return;
   converted_value_ = Value(enum_item_name);
 }
 
@@ -102,7 +105,8 @@ void EnumFromValueConverter::HandleItem(int64_t enum_item,
 }
 
 bool EnumFromValueConverter::GetConvertedEnum(
-    const char* type_name, int64_t* converted_enum,
+    const char* type_name,
+    int64_t* converted_enum,
     std::string* error_message) const {
   if (converted_enum_) {
     *converted_enum = *converted_enum_;
@@ -129,8 +133,10 @@ void StructToValueConverterBase::HandleFieldConversionError(
 }
 
 bool StructToValueConverterBase::FinishConversion(
-    const char* type_name, std::string* error_message) const {
-  if (succeeded_) return true;
+    const char* type_name,
+    std::string* error_message) const {
+  if (succeeded_)
+    return true;
   FormatPrintfTemplateAndSet(error_message,
                              "Cannot convert struct %s to value: %s", type_name,
                              inner_error_message_.c_str());
@@ -151,7 +157,8 @@ StructFromValueConverterBase::~StructFromValueConverterBase() = default;
 bool StructFromValueConverterBase::ExtractKey(const char* dictionary_key_name,
                                               bool is_required,
                                               Value* item_value) {
-  if (!succeeded_) return false;
+  if (!succeeded_)
+    return false;
   Value::DictionaryStorage& dict = value_to_convert_.GetDictionary();
   auto iter = dict.find(dictionary_key_name);
   if (iter != dict.end()) {
@@ -178,7 +185,8 @@ void StructFromValueConverterBase::HandleFieldConversionError(
 }
 
 bool StructFromValueConverterBase::FinishConversion(
-    const char* type_name, std::string* error_message) {
+    const char* type_name,
+    std::string* error_message) {
   if (succeeded_ && !value_to_convert_.GetDictionary().empty()) {
     succeeded_ = false;
     const std::string& first_unexpected_key =
@@ -186,7 +194,8 @@ bool StructFromValueConverterBase::FinishConversion(
     inner_error_message_ = FormatPrintfTemplate("Unexpected key \"%s\"",
                                                 first_unexpected_key.c_str());
   }
-  if (succeeded_) return true;
+  if (succeeded_)
+    return true;
   FormatPrintfTemplateAndSet(error_message,
                              "Cannot convert value to struct %s: %s", type_name,
                              inner_error_message_.c_str());
@@ -208,7 +217,8 @@ bool ConvertToValue(unsigned number, Value* value, std::string* error_message) {
   return true;
 }
 
-bool ConvertToValue(unsigned long number, Value* value,
+bool ConvertToValue(unsigned long number,
+                    Value* value,
                     std::string* error_message) {
   int64_t int64_number;
   if (!CastInteger(number, /*target_type_name=*/"int64_t", &int64_number,
@@ -221,14 +231,16 @@ bool ConvertToValue(unsigned long number, Value* value,
   return true;
 }
 
-bool ConvertToValue(const char* characters, Value* value,
+bool ConvertToValue(const char* characters,
+                    Value* value,
                     std::string* /*error_message*/) {
   GOOGLE_SMART_CARD_CHECK(characters);
   *value = Value(characters);
   return true;
 }
 
-bool ConvertToValue(std::vector<uint8_t> bytes, Value* value,
+bool ConvertToValue(std::vector<uint8_t> bytes,
+                    Value* value,
                     std::string* /*error_message*/) {
   *value = Value(std::move(bytes));
   return true;
@@ -250,7 +262,8 @@ bool ConvertFromValue(Value value, int* number, std::string* error_message) {
                                  error_message);
 }
 
-bool ConvertFromValue(Value value, unsigned* number,
+bool ConvertFromValue(Value value,
+                      unsigned* number,
                       std::string* error_message) {
   return ConvertIntegerFromValue(std::move(value), "unsigned", number,
                                  error_message);
@@ -261,19 +274,22 @@ bool ConvertFromValue(Value value, long* number, std::string* error_message) {
                                  error_message);
 }
 
-bool ConvertFromValue(Value value, unsigned long* number,
+bool ConvertFromValue(Value value,
+                      unsigned long* number,
                       std::string* error_message) {
   return ConvertIntegerFromValue(std::move(value), "unsigned long", number,
                                  error_message);
 }
 
-bool ConvertFromValue(Value value, uint8_t* number,
+bool ConvertFromValue(Value value,
+                      uint8_t* number,
                       std::string* error_message) {
   return ConvertIntegerFromValue(std::move(value), "uint8_t", number,
                                  error_message);
 }
 
-bool ConvertFromValue(Value value, int64_t* number,
+bool ConvertFromValue(Value value,
+                      int64_t* number,
                       std::string* error_message) {
   return ConvertIntegerFromValue(std::move(value), "int64_t", number,
                                  error_message);
@@ -295,7 +311,8 @@ bool ConvertFromValue(Value value, double* number, std::string* error_message) {
   return false;
 }
 
-bool ConvertFromValue(Value value, std::string* characters,
+bool ConvertFromValue(Value value,
+                      std::string* characters,
                       std::string* error_message) {
   if (value.is_string()) {
     *characters = value.GetString();
@@ -307,7 +324,8 @@ bool ConvertFromValue(Value value, std::string* characters,
   return false;
 }
 
-bool ConvertFromValue(Value value, std::vector<uint8_t>* bytes,
+bool ConvertFromValue(Value value,
+                      std::vector<uint8_t>* bytes,
                       std::string* error_message) {
   if (value.is_binary()) {
     // This is a special case that is the reason why the standard

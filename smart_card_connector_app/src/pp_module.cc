@@ -50,8 +50,10 @@ class PpInstance final : public pp::Instance {
  public:
   explicit PpInstance(PP_Instance instance)
       : pp::Instance(instance),
-        libusb_over_chrome_usb_global_(new LibusbOverChromeUsbGlobal(
-            &typed_message_router_, this, pp::Module::Get()->core())),
+        libusb_over_chrome_usb_global_(
+            new LibusbOverChromeUsbGlobal(&typed_message_router_,
+                                          this,
+                                          pp::Module::Get()->core())),
         pcsc_lite_server_global_(new PcscLiteServerGlobal(this)) {
     typed_message_router_.AddRoute(&external_logs_printer_);
 
@@ -134,6 +136,8 @@ class PpModule final : public pp::Module {
 
 namespace pp {
 
-Module* CreateModule() { return new google_smart_card::PpModule; }
+Module* CreateModule() {
+  return new google_smart_card::PpModule;
+}
 
 }  // namespace pp

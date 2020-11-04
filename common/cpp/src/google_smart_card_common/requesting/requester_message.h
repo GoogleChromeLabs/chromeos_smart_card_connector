@@ -81,7 +81,8 @@ struct RequestMessageData {
 struct ResponseMessageData {
   // Converts the `GenericRequestResult` object into `ResponseMessageData`.
   static ResponseMessageData CreateFromRequestResult(
-      RequestId request_id, GenericRequestResult request_result);
+      RequestId request_id,
+      GenericRequestResult request_result);
   // Creates a `GenericRequestResult` object from the `payload`/`error_message`
   // fields. Returns false in case |this| is invalid (it's expected that exactly
   // one of {`payload`, `error_message`} are non-empty).

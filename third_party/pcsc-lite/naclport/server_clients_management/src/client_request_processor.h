@@ -174,7 +174,8 @@ class PcscLiteClientRequestProcessor final
                                            DWORD disposition_action);
   GenericRequestResult SCardStatus(SCARDHANDLE s_card_handle);
   GenericRequestResult SCardGetStatusChange(
-      SCARDCONTEXT s_card_context, DWORD timeout,
+      SCARDCONTEXT s_card_context,
+      DWORD timeout,
       const std::vector<InboundSCardReaderState>& reader_states);
   GenericRequestResult SCardControl(SCARDHANDLE s_card_handle,
                                     DWORD control_code,

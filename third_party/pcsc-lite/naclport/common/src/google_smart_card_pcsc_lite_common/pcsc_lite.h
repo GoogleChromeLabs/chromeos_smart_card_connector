@@ -46,18 +46,22 @@ class PcscLite {
  public:
   virtual ~PcscLite() = default;
 
-  virtual LONG SCardEstablishContext(DWORD dwScope, LPCVOID pvReserved1,
+  virtual LONG SCardEstablishContext(DWORD dwScope,
+                                     LPCVOID pvReserved1,
                                      LPCVOID pvReserved2,
                                      LPSCARDCONTEXT phContext) = 0;
 
   virtual LONG SCardReleaseContext(SCARDCONTEXT hContext) = 0;
 
-  virtual LONG SCardConnect(SCARDCONTEXT hContext, LPCSTR szReader,
-                            DWORD dwShareMode, DWORD dwPreferredProtocols,
+  virtual LONG SCardConnect(SCARDCONTEXT hContext,
+                            LPCSTR szReader,
+                            DWORD dwShareMode,
+                            DWORD dwPreferredProtocols,
                             LPSCARDHANDLE phCard,
                             LPDWORD pdwActiveProtocol) = 0;
 
-  virtual LONG SCardReconnect(SCARDHANDLE hCard, DWORD dwShareMode,
+  virtual LONG SCardReconnect(SCARDHANDLE hCard,
+                              DWORD dwShareMode,
                               DWORD dwPreferredProtocols,
                               DWORD dwInitialization,
                               LPDWORD pdwActiveProtocol) = 0;
@@ -68,38 +72,54 @@ class PcscLite {
 
   virtual LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition) = 0;
 
-  virtual LONG SCardStatus(SCARDHANDLE hCard, LPSTR szReaderName,
-                           LPDWORD pcchReaderLen, LPDWORD pdwState,
-                           LPDWORD pdwProtocol, LPBYTE pbAtr,
+  virtual LONG SCardStatus(SCARDHANDLE hCard,
+                           LPSTR szReaderName,
+                           LPDWORD pcchReaderLen,
+                           LPDWORD pdwState,
+                           LPDWORD pdwProtocol,
+                           LPBYTE pbAtr,
                            LPDWORD pcbAtrLen) = 0;
 
-  virtual LONG SCardGetStatusChange(SCARDCONTEXT hContext, DWORD dwTimeout,
+  virtual LONG SCardGetStatusChange(SCARDCONTEXT hContext,
+                                    DWORD dwTimeout,
                                     SCARD_READERSTATE* rgReaderStates,
                                     DWORD cReaders) = 0;
 
-  virtual LONG SCardControl(SCARDHANDLE hCard, DWORD dwControlCode,
-                            LPCVOID pbSendBuffer, DWORD cbSendLength,
-                            LPVOID pbRecvBuffer, DWORD cbRecvLength,
+  virtual LONG SCardControl(SCARDHANDLE hCard,
+                            DWORD dwControlCode,
+                            LPCVOID pbSendBuffer,
+                            DWORD cbSendLength,
+                            LPVOID pbRecvBuffer,
+                            DWORD cbRecvLength,
                             LPDWORD lpBytesReturned) = 0;
 
-  virtual LONG SCardGetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPBYTE pbAttr,
+  virtual LONG SCardGetAttrib(SCARDHANDLE hCard,
+                              DWORD dwAttrId,
+                              LPBYTE pbAttr,
                               LPDWORD pcbAttrLen) = 0;
 
-  virtual LONG SCardSetAttrib(SCARDHANDLE hCard, DWORD dwAttrId, LPCBYTE pbAttr,
+  virtual LONG SCardSetAttrib(SCARDHANDLE hCard,
+                              DWORD dwAttrId,
+                              LPCBYTE pbAttr,
                               DWORD cbAttrLen) = 0;
 
   virtual LONG SCardTransmit(SCARDHANDLE hCard,
                              const SCARD_IO_REQUEST* pioSendPci,
-                             LPCBYTE pbSendBuffer, DWORD cbSendLength,
-                             SCARD_IO_REQUEST* pioRecvPci, LPBYTE pbRecvBuffer,
+                             LPCBYTE pbSendBuffer,
+                             DWORD cbSendLength,
+                             SCARD_IO_REQUEST* pioRecvPci,
+                             LPBYTE pbRecvBuffer,
                              LPDWORD pcbRecvLength) = 0;
 
-  virtual LONG SCardListReaders(SCARDCONTEXT hContext, LPCSTR mszGroups,
-                                LPSTR mszReaders, LPDWORD pcchReaders) = 0;
+  virtual LONG SCardListReaders(SCARDCONTEXT hContext,
+                                LPCSTR mszGroups,
+                                LPSTR mszReaders,
+                                LPDWORD pcchReaders) = 0;
 
   virtual LONG SCardFreeMemory(SCARDCONTEXT hContext, LPCVOID pvMem) = 0;
 
-  virtual LONG SCardListReaderGroups(SCARDCONTEXT hContext, LPSTR mszGroups,
+  virtual LONG SCardListReaderGroups(SCARDCONTEXT hContext,
+                                     LPSTR mszGroups,
                                      LPDWORD pcchGroups) = 0;
 
   virtual LONG SCardCancel(SCARDCONTEXT hContext) = 0;

@@ -58,10 +58,12 @@ class ApiBridgeInterface {
       const ConnectionHandle& connection_handle) = 0;
 
   virtual RequestResult<ClaimInterfaceResult> ClaimInterface(
-      const ConnectionHandle& connection_handle, int64_t interface_number) = 0;
+      const ConnectionHandle& connection_handle,
+      int64_t interface_number) = 0;
 
   virtual RequestResult<ReleaseInterfaceResult> ReleaseInterface(
-      const ConnectionHandle& connection_handle, int64_t interface_number) = 0;
+      const ConnectionHandle& connection_handle,
+      int64_t interface_number) = 0;
 
   virtual void AsyncControlTransfer(const ConnectionHandle& connection_handle,
                                     const ControlTransferInfo& transfer_info,

@@ -160,35 +160,43 @@ pp::Var MakeVar(Algorithm value);
 bool VarAs(const pp::Var& var, Error* result, std::string* error_message);
 pp::Var MakeVar(Error value);
 
-bool VarAs(const pp::Var& var, PinRequestType* result,
+bool VarAs(const pp::Var& var,
+           PinRequestType* result,
            std::string* error_message);
 pp::Var MakeVar(PinRequestType value);
 
-bool VarAs(const pp::Var& var, PinRequestErrorType* result,
+bool VarAs(const pp::Var& var,
+           PinRequestErrorType* result,
            std::string* error_message);
 pp::Var MakeVar(PinRequestErrorType value);
 
-bool VarAs(const pp::Var& var, ClientCertificateInfo* result,
+bool VarAs(const pp::Var& var,
+           ClientCertificateInfo* result,
            std::string* error_message);
 pp::Var MakeVar(const ClientCertificateInfo& value);
 
-bool VarAs(const pp::Var& var, SetCertificatesDetails* result,
+bool VarAs(const pp::Var& var,
+           SetCertificatesDetails* result,
            std::string* error_message);
 pp::Var MakeVar(const SetCertificatesDetails& value);
 
-bool VarAs(const pp::Var& var, SignatureRequest* result,
+bool VarAs(const pp::Var& var,
+           SignatureRequest* result,
            std::string* error_message);
 pp::Var MakeVar(const SignatureRequest& value);
 
-bool VarAs(const pp::Var& var, RequestPinOptions* result,
+bool VarAs(const pp::Var& var,
+           RequestPinOptions* result,
            std::string* error_message);
 pp::Var MakeVar(const RequestPinOptions& value);
 
-bool VarAs(const pp::Var& var, RequestPinResults* result,
+bool VarAs(const pp::Var& var,
+           RequestPinResults* result,
            std::string* error_message);
 pp::Var MakeVar(const RequestPinResults& value);
 
-bool VarAs(const pp::Var& var, StopPinRequestOptions* result,
+bool VarAs(const pp::Var& var,
+           StopPinRequestOptions* result,
            std::string* error_message);
 pp::Var MakeVar(const StopPinRequestOptions& value);
 

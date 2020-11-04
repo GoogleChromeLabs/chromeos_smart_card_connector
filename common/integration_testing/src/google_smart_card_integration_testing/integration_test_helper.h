@@ -48,11 +48,10 @@ class IntegrationTestHelper {
   virtual ~IntegrationTestHelper() = default;
 
   virtual std::string GetName() const = 0;
-  virtual void SetUp(
-      pp::Instance* /*pp_instance*/,
-      pp::Core* /*pp_core*/,
-      TypedMessageRouter* /*typed_message_router*/,
-      const pp::Var& /*data*/) {}
+  virtual void SetUp(pp::Instance* /*pp_instance*/,
+                     pp::Core* /*pp_core*/,
+                     TypedMessageRouter* /*typed_message_router*/,
+                     const pp::Var& /*data*/) {}
   virtual void TearDown() {}
   virtual void OnMessageFromJs(
       const pp::Var& data,
