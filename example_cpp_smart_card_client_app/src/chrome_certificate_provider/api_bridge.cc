@@ -207,20 +207,20 @@ void ApiBridge::StopPinRequest(const StopPinRequestOptions& options) {
 void ApiBridge::HandleRequest(
     gsc::Value payload,
     gsc::RequestReceiver::ResultCallback result_callback) {
-  // TODO: Parse `Value` directly instead of transforming into `pp::Var`.
-  const pp::Var payload_var = gsc::ConvertValueToPpVar(payload);
-  std::string function_name;
-  pp::VarArray arguments;
-  GOOGLE_SMART_CARD_CHECK(gsc::ParseRemoteCallRequestPayload(
-      payload_var, &function_name, &arguments));
-  if (function_name == kHandleCertificatesRequestFunctionName) {
-    HandleCertificatesRequest(arguments, result_callback);
-  } else if (function_name == kHandleSignatureRequestFunctionName) {
-    HandleSignatureRequest(arguments, result_callback);
+  gsc::RemoteCallRequestPayload request =
+      gsc::ConvertFromValueOrDie<gsc::RemoteCallRequestPayload>(
+          std::move(payload));
+  // TODO(#220): Pass `Value`s, instead of converting into `pp::VarArray`.
+  pp::VarArray arguments_var(gsc::ConvertValueToPpVar(
+      gsc::ConvertToValueOrDie(std::move(request.arguments))));
+  if (request.function_name == kHandleCertificatesRequestFunctionName) {
+    HandleCertificatesRequest(arguments_var, result_callback);
+  } else if (request.function_name == kHandleSignatureRequestFunctionName) {
+    HandleSignatureRequest(arguments_var, result_callback);
   } else {
     GOOGLE_SMART_CARD_LOG_FATAL << "Unknown chrome_certificate_provider "
                                 << "ApiBridge function requested: \""
-                                << function_name << "\"";
+                                << request.function_name << "\"";
   }
 }
 

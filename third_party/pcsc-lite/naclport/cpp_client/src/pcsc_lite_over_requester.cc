@@ -223,8 +223,8 @@ LONG PcscLiteOverRequester::SCardEstablishContext(
 
   return ExtractRequestResultsAndCode(
       "SCardEstablishContext",
-      remote_call_adaptor_.SyncCall("SCardEstablishContext", scope,
-                                    pp::Var::Null(), pp::Var::Null()),
+      remote_call_adaptor_.SyncCall("SCardEstablishContext", scope, Value(),
+                                    Value()),
       s_card_context);
 }
 
@@ -533,7 +533,7 @@ LONG PcscLiteOverRequester::SCardListReaders(SCARDCONTEXT s_card_context,
   const LONG result_code = ExtractRequestResultsAndCode(
       "SCardListReaders",
       remote_call_adaptor_.SyncCall("SCardListReaders", s_card_context,
-                                    pp::Var::Null()),
+                                    Value()),
       &readers_vector);
   GOOGLE_SMART_CARD_CHECK(result_code != SCARD_E_INSUFFICIENT_BUFFER);
   if (result_code != SCARD_S_SUCCESS)
