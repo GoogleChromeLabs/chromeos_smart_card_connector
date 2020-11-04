@@ -15,6 +15,7 @@
 #include <google_smart_card_common/requesting/remote_call_arguments_conversion.h>
 
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
