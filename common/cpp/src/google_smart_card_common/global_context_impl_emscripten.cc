@@ -25,7 +25,8 @@
 namespace google_smart_card {
 
 GlobalContextImplEmscripten::GlobalContextImplEmscripten(
-    std::thread::id main_thread_id, emscripten::val post_message_callback)
+    std::thread::id main_thread_id,
+    emscripten::val post_message_callback)
     : main_thread_id_(main_thread_id),
       post_message_callback_(post_message_callback) {}
 
@@ -37,7 +38,8 @@ bool GlobalContextImplEmscripten::PostMessageToJs(const Value& message) {
   const emscripten::val val = ConvertValueToEmscriptenVal(message);
 
   const std::unique_lock<std::mutex> lock(mutex_);
-  if (post_message_callback_.isUndefined()) return false;
+  if (post_message_callback_.isUndefined())
+    return false;
   post_message_callback_(val);
   return true;
 }

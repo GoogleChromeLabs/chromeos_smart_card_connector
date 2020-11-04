@@ -77,7 +77,8 @@ class EnumConverter final {
   //
   // Fails if the Pepper value has unexpected type, or if the value is not
   // corresponding to any C/C++ enum value.
-  static bool ConvertFromVar(const pp::Var& var, EnumType* result,
+  static bool ConvertFromVar(const pp::Var& var,
+                             EnumType* result,
                              std::string* error_message) {
     GOOGLE_SMART_CARD_CHECK(result);
     GOOGLE_SMART_CARD_CHECK(error_message);

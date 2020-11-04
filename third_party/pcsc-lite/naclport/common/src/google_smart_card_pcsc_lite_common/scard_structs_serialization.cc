@@ -36,7 +36,8 @@ namespace {
 
 std::vector<uint8_t> GetSCardReaderStateAtr(
     const SCARD_READERSTATE& s_card_reader_state) {
-  if (!s_card_reader_state.cbAtr) return {};
+  if (!s_card_reader_state.cbAtr)
+    return {};
   GOOGLE_SMART_CARD_CHECK(s_card_reader_state.cbAtr <= MAX_ATR_SIZE);
   return std::vector<uint8_t>(
       s_card_reader_state.rgbAtr,
@@ -68,7 +69,8 @@ StructConverter<InboundSCardReaderState>::GetStructTypeName() {
 template <>
 template <typename Callback>
 void StructConverter<InboundSCardReaderState>::VisitFields(
-    const InboundSCardReaderState& value, Callback callback) {
+    const InboundSCardReaderState& value,
+    Callback callback) {
   callback(&value.reader_name, "reader_name");
   callback(&value.user_data, "user_data");
   callback(&value.current_state, "current_state");
@@ -99,7 +101,8 @@ StructConverter<OutboundSCardReaderState>::GetStructTypeName() {
 template <>
 template <typename Callback>
 void StructConverter<OutboundSCardReaderState>::VisitFields(
-    const OutboundSCardReaderState& value, Callback callback) {
+    const OutboundSCardReaderState& value,
+    Callback callback) {
   callback(&value.reader_name, "reader_name");
   callback(&value.user_data, "user_data");
   callback(&value.current_state, "current_state");
@@ -183,7 +186,8 @@ pp::Var MakeVar(const SCARD_READERSTATE& value) {
   return result_builder.Result();
 }
 
-bool VarAs(const pp::Var& var, InboundSCardReaderState* result,
+bool VarAs(const pp::Var& var,
+           InboundSCardReaderState* result,
            std::string* error_message) {
   return StructConverter<InboundSCardReaderState>::ConvertFromVar(
       var, result, error_message);
@@ -194,7 +198,8 @@ pp::Var MakeVar(const InboundSCardReaderState& value) {
   return StructConverter<InboundSCardReaderState>::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, OutboundSCardReaderState* result,
+bool VarAs(const pp::Var& var,
+           OutboundSCardReaderState* result,
            std::string* error_message) {
   return StructConverter<OutboundSCardReaderState>::ConvertFromVar(
       var, result, error_message);
@@ -205,7 +210,8 @@ pp::Var MakeVar(const OutboundSCardReaderState& value) {
   return StructConverter<OutboundSCardReaderState>::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, SCardIoRequest* result,
+bool VarAs(const pp::Var& var,
+           SCardIoRequest* result,
            std::string* error_message) {
   return StructConverter<SCardIoRequest>::ConvertFromVar(var, result,
                                                          error_message);

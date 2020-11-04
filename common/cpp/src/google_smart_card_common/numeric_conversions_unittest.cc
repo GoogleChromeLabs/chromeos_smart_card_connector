@@ -93,7 +93,8 @@ TEST_F(NumericConversionsDoubleCastingTest, ValuesOutsideDoubleExactRange) {
 class NumericConversionsIntegerCastingTest : public ::testing::Test {
  protected:
   template <typename TargetIntegerType>
-  void TestCasting(int64_t value, const char* type_name,
+  void TestCasting(int64_t value,
+                   const char* type_name,
                    bool expected_success) const {
     TargetIntegerType result_value;
     std::string error_message;

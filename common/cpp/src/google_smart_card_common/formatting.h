@@ -29,7 +29,8 @@ std::string FormatPrintfTemplate(const char* format, va_list var_args);
 
 // Same as `FormatPrintfTemplate()`, but stores the result in `output_string`.
 // Does nothing if `output_string` is null.
-void FormatPrintfTemplateAndSet(std::string* output_string, const char* format,
+void FormatPrintfTemplateAndSet(std::string* output_string,
+                                const char* format,
                                 ...) __attribute__((format(__printf__, 2, 3)));
 
 }  // namespace google_smart_card

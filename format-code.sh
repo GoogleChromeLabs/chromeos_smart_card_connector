@@ -15,7 +15,7 @@
 # limitations under the License.
 
 # This script formats the modified C++ files via clang-format according to the
-# Google C++ Style Guide.
+# Chromium C++ Style Guide.
 # Only files that are known to Git and belong to the diff of the "master" branch
 # are considered.
 #
@@ -36,4 +36,4 @@ FILES=$(git diff --name-only --diff-filter=d master -- "*.cc" "*.h")
 
 # Run clang-format on every found file.
 echo "${FILES}" | \
-  xargs clang-format -i --style=Google --sort-includes=false
+  xargs clang-format -i --style=Chromium --sort-includes=false

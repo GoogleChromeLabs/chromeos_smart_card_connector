@@ -48,21 +48,27 @@ void ExtractPinRequestResult(
 
 BuiltInPinDialogServer::BuiltInPinDialogServer(
     google_smart_card::TypedMessageRouter* typed_message_router,
-    pp::Instance* pp_instance, pp::Core* pp_core)
-    : js_requester_(kRequesterName, typed_message_router,
-                    google_smart_card::MakeUnique<
-                        google_smart_card::JsRequester::PpDelegateImpl>(
-                        pp_instance, pp_core)) {}
+    pp::Instance* pp_instance,
+    pp::Core* pp_core)
+    : js_requester_(
+          kRequesterName,
+          typed_message_router,
+          google_smart_card::MakeUnique<
+              google_smart_card::JsRequester::PpDelegateImpl>(pp_instance,
+                                                              pp_core)) {}
 
 BuiltInPinDialogServer::~BuiltInPinDialogServer() = default;
 
-void BuiltInPinDialogServer::Detach() { js_requester_.Detach(); }
+void BuiltInPinDialogServer::Detach() {
+  js_requester_.Detach();
+}
 
 bool BuiltInPinDialogServer::RequestPin(std::string* pin) {
   const google_smart_card::GenericRequestResult request_result =
       js_requester_.PerformSyncRequest(/*payload=*/google_smart_card::Value(
           google_smart_card::Value::Type::kDictionary));
-  if (!request_result.is_successful()) return false;
+  if (!request_result.is_successful())
+    return false;
   ExtractPinRequestResult(request_result, pin);
   return true;
 }

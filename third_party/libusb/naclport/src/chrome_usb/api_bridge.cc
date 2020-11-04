@@ -32,7 +32,9 @@ ApiBridge::ApiBridge(std::unique_ptr<Requester> requester)
 
 ApiBridge::~ApiBridge() = default;
 
-void ApiBridge::Detach() { requester_->Detach(); }
+void ApiBridge::Detach() {
+  requester_->Detach();
+}
 
 RequestResult<GetDevicesResult> ApiBridge::GetDevices(
     const GetDevicesOptions& options) {
@@ -79,7 +81,8 @@ RequestResult<CloseDeviceResult> ApiBridge::CloseDevice(
 }
 
 RequestResult<SetConfigurationResult> ApiBridge::SetConfiguration(
-    const ConnectionHandle& connection_handle, int64_t configuration_value) {
+    const ConnectionHandle& connection_handle,
+    int64_t configuration_value) {
   const GenericRequestResult generic_request_result =
       remote_call_adaptor_.SyncCall("setConfiguration", connection_handle,
                                     configuration_value);
@@ -107,7 +110,8 @@ RequestResult<ListInterfacesResult> ApiBridge::ListInterfaces(
 }
 
 RequestResult<ClaimInterfaceResult> ApiBridge::ClaimInterface(
-    const ConnectionHandle& connection_handle, int64_t interface_number) {
+    const ConnectionHandle& connection_handle,
+    int64_t interface_number) {
   const GenericRequestResult generic_request_result =
       remote_call_adaptor_.SyncCall("claimInterface", connection_handle,
                                     interface_number);
@@ -117,7 +121,8 @@ RequestResult<ClaimInterfaceResult> ApiBridge::ClaimInterface(
 }
 
 RequestResult<ReleaseInterfaceResult> ApiBridge::ReleaseInterface(
-    const ConnectionHandle& connection_handle, int64_t interface_number) {
+    const ConnectionHandle& connection_handle,
+    int64_t interface_number) {
   const GenericRequestResult generic_request_result =
       remote_call_adaptor_.SyncCall("releaseInterface", connection_handle,
                                     interface_number);
@@ -157,7 +162,8 @@ void ApiBridge::AsyncBulkTransfer(const ConnectionHandle& connection_handle,
 
 void ApiBridge::AsyncInterruptTransfer(
     const ConnectionHandle& connection_handle,
-    const GenericTransferInfo& transfer_info, AsyncTransferCallback callback) {
+    const GenericTransferInfo& transfer_info,
+    AsyncTransferCallback callback) {
   remote_call_adaptor_.AsyncCall(WrapAsyncTransferCallback(callback),
                                  "interruptTransfer", connection_handle,
                                  transfer_info);

@@ -77,7 +77,8 @@ class JsRequestReceiver final : public RequestReceiver,
   //
   // Adds a new route into the passed TypedMessageRouter for receiving the
   // requests messages.
-  JsRequestReceiver(const std::string& name, RequestHandler* request_handler,
+  JsRequestReceiver(const std::string& name,
+                    RequestHandler* request_handler,
                     TypedMessageRouter* typed_message_router,
                     std::unique_ptr<PpDelegate> pp_delegate);
 

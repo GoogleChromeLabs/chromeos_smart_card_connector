@@ -49,9 +49,11 @@ std::string FormatPrintfTemplate(const char* format, va_list var_args) {
   }
 }
 
-void FormatPrintfTemplateAndSet(std::string* output_string, const char* format,
+void FormatPrintfTemplateAndSet(std::string* output_string,
+                                const char* format,
                                 ...) {
-  if (!output_string) return;
+  if (!output_string)
+    return;
   va_list var_args;
   va_start(var_args, format);
   *output_string = FormatPrintfTemplate(format, var_args);

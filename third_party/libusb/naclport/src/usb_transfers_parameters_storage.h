@@ -99,9 +99,11 @@ class UsbTransfersParametersStorage final {
 
  private:
   bool FindByAsyncRequestState(
-      const TransferAsyncRequestState* async_request_state, Item* result) const;
+      const TransferAsyncRequestState* async_request_state,
+      Item* result) const;
   bool FindAsyncByDestination(
-      const UsbTransferDestination& transfer_destination, Item* result) const;
+      const UsbTransferDestination& transfer_destination,
+      Item* result) const;
   bool FindAsyncByLibusbTransfer(const libusb_transfer* transfer,
                                  Item* result) const;
 

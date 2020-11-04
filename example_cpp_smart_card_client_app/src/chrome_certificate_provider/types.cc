@@ -171,7 +171,8 @@ constexpr const char* ClientCertificateInfoConverter::GetStructTypeName() {
 template <>
 template <typename Callback>
 void ClientCertificateInfoConverter::VisitFields(
-    const ccp::ClientCertificateInfo& value, Callback callback) {
+    const ccp::ClientCertificateInfo& value,
+    Callback callback) {
   callback(&value.certificate, "certificate");
   callback(&value.supported_algorithms, "supportedAlgorithms");
 }
@@ -199,7 +200,8 @@ constexpr const char* SetCertificatesDetailsConverter::GetStructTypeName() {
 template <>
 template <typename Callback>
 void SetCertificatesDetailsConverter::VisitFields(
-    const ccp::SetCertificatesDetails& value, Callback callback) {
+    const ccp::SetCertificatesDetails& value,
+    Callback callback) {
   callback(&value.certificates_request_id, "certificatesRequestId");
   callback(&value.error, "error");
   callback(&value.client_certificates, "clientCertificates");
@@ -258,7 +260,8 @@ constexpr const char* RequestPinOptionsConverter::GetStructTypeName() {
 template <>
 template <typename Callback>
 void RequestPinOptionsConverter::VisitFields(
-    const ccp::RequestPinOptions& value, Callback callback) {
+    const ccp::RequestPinOptions& value,
+    Callback callback) {
   callback(&value.sign_request_id, "signRequestId");
   callback(&value.request_type, "requestType");
   callback(&value.error_type, "errorType");
@@ -284,7 +287,8 @@ constexpr const char* RequestPinResultsConverter::GetStructTypeName() {
 template <>
 template <typename Callback>
 void RequestPinResultsConverter::VisitFields(
-    const ccp::RequestPinResults& value, Callback callback) {
+    const ccp::RequestPinResults& value,
+    Callback callback) {
   callback(&value.user_input, "userInput");
 }
 
@@ -308,7 +312,8 @@ constexpr const char* StopPinRequestOptionsConverter::GetStructTypeName() {
 template <>
 template <typename Callback>
 void StopPinRequestOptionsConverter::VisitFields(
-    const ccp::StopPinRequestOptions& value, Callback callback) {
+    const ccp::StopPinRequestOptions& value,
+    Callback callback) {
   callback(&value.sign_request_id, "signRequestId");
   callback(&value.error_type, "errorType");
 }
@@ -335,7 +340,8 @@ pp::Var MakeVar(Error value) {
   return gsc::ErrorConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, PinRequestType* result,
+bool VarAs(const pp::Var& var,
+           PinRequestType* result,
            std::string* error_message) {
   return gsc::PinRequestTypeConverter::ConvertFromVar(var, result,
                                                       error_message);
@@ -345,7 +351,8 @@ pp::Var MakeVar(PinRequestType value) {
   return gsc::PinRequestTypeConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, PinRequestErrorType* result,
+bool VarAs(const pp::Var& var,
+           PinRequestErrorType* result,
            std::string* error_message) {
   return gsc::PinRequestErrorTypeConverter::ConvertFromVar(var, result,
                                                            error_message);
@@ -355,7 +362,8 @@ pp::Var MakeVar(PinRequestErrorType value) {
   return gsc::PinRequestErrorTypeConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, ClientCertificateInfo* result,
+bool VarAs(const pp::Var& var,
+           ClientCertificateInfo* result,
            std::string* error_message) {
   return gsc::ClientCertificateInfoConverter::ConvertFromVar(var, result,
                                                              error_message);
@@ -365,7 +373,8 @@ pp::Var MakeVar(const ClientCertificateInfo& value) {
   return gsc::ClientCertificateInfoConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, SetCertificatesDetails* result,
+bool VarAs(const pp::Var& var,
+           SetCertificatesDetails* result,
            std::string* error_message) {
   return gsc::SetCertificatesDetailsConverter::ConvertFromVar(var, result,
                                                               error_message);
@@ -375,7 +384,8 @@ pp::Var MakeVar(const SetCertificatesDetails& value) {
   return gsc::SetCertificatesDetailsConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, SignatureRequest* result,
+bool VarAs(const pp::Var& var,
+           SignatureRequest* result,
            std::string* error_message) {
   return gsc::SignatureRequestConverter::ConvertFromVar(var, result,
                                                         error_message);
@@ -385,7 +395,8 @@ pp::Var MakeVar(const SignatureRequest& value) {
   return gsc::SignatureRequestConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, RequestPinOptions* result,
+bool VarAs(const pp::Var& var,
+           RequestPinOptions* result,
            std::string* error_message) {
   return gsc::RequestPinOptionsConverter::ConvertFromVar(var, result,
                                                          error_message);
@@ -395,7 +406,8 @@ pp::Var MakeVar(const RequestPinOptions& value) {
   return gsc::RequestPinOptionsConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, RequestPinResults* result,
+bool VarAs(const pp::Var& var,
+           RequestPinResults* result,
            std::string* error_message) {
   return gsc::RequestPinResultsConverter::ConvertFromVar(var, result,
                                                          error_message);
@@ -405,7 +417,8 @@ pp::Var MakeVar(const RequestPinResults& value) {
   return gsc::RequestPinResultsConverter::ConvertToVar(value);
 }
 
-bool VarAs(const pp::Var& var, StopPinRequestOptions* result,
+bool VarAs(const pp::Var& var,
+           StopPinRequestOptions* result,
            std::string* error_message) {
   return gsc::StopPinRequestOptionsConverter::ConvertFromVar(var, result,
                                                              error_message);

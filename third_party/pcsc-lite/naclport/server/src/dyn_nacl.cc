@@ -92,8 +92,10 @@ INTERNAL LONG DYN_CloseLibrary(void** pvLHandle) {
   return SCARD_S_SUCCESS;
 }
 
-INTERNAL LONG DYN_GetAddress(void* pvLHandle, void** pvFHandle,
-                             const char* pcFunction, int /*mayfail*/) {
+INTERNAL LONG DYN_GetAddress(void* pvLHandle,
+                             void** pvFHandle,
+                             const char* pcFunction,
+                             int /*mayfail*/) {
   GOOGLE_SMART_CARD_CHECK(pvLHandle == kFakeLHandle);
 
   std::string function = pcFunction;

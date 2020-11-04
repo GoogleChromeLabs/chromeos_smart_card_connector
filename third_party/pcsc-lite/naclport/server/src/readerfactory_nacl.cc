@@ -35,12 +35,16 @@ extern "C" {
 }
 
 extern "C" {
-LONG RFAddReaderOriginal(const char* reader_name, int port, const char* library,
+LONG RFAddReaderOriginal(const char* reader_name,
+                         int port,
+                         const char* library,
                          const char* device);
 LONG RFRemoveReaderOriginal(const char* reader_name, int port);
 }
 
-LONG RFAddReader(const char* reader_name, int port, const char* library,
+LONG RFAddReader(const char* reader_name,
+                 int port,
+                 const char* library,
                  const char* device) {
   google_smart_card::PcscLiteServerGlobal::GetInstance()
       ->PostReaderInitAddMessage(reader_name, port, device);

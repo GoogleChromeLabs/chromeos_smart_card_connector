@@ -71,13 +71,16 @@ UiBridge::UiBridge(gsc::TypedMessageRouter* typed_message_router,
   typed_message_router->AddRoute(this);
 }
 
-UiBridge::~UiBridge() { Detach(); }
+UiBridge::~UiBridge() {
+  Detach();
+}
 
 void UiBridge::Detach() {
   {
     const gsc::ThreadSafeUniquePtr<AttachedState>::Locked locked_state =
         attached_state_.Lock();
-    if (locked_state) locked_state->typed_message_router->RemoveRoute(this);
+    if (locked_state)
+      locked_state->typed_message_router->RemoveRoute(this);
   }
   attached_state_.Reset();
 }
@@ -86,7 +89,9 @@ void UiBridge::SetHandler(std::weak_ptr<MessageFromUiHandler> handler) {
   message_from_ui_handler_ = handler;
 }
 
-void UiBridge::RemoveHandler() { message_from_ui_handler_.reset(); }
+void UiBridge::RemoveHandler() {
+  message_from_ui_handler_.reset();
+}
 
 void UiBridge::SendMessageToUi(const pp::Var& message) {
   gsc::TypedMessage typed_message;
@@ -100,7 +105,8 @@ void UiBridge::SendMessageToUi(const pp::Var& message) {
       gsc::ConvertValueToPpVar(typed_message_value);
   const gsc::ThreadSafeUniquePtr<AttachedState>::Locked locked_state =
       attached_state_.Lock();
-  if (locked_state) locked_state->pp_instance->PostMessage(typed_message_var);
+  if (locked_state)
+    locked_state->pp_instance->PostMessage(typed_message_var);
 }
 
 std::string UiBridge::GetListenedMessageType() const {

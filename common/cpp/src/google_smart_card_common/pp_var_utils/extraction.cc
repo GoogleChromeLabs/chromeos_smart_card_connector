@@ -26,7 +26,9 @@ constexpr char kErrorWrongType[] =
     "Expected a value of type \"%s\", instead got: %s";
 
 template <typename T>
-bool VarAsInteger(const pp::Var& var, const char* type_name, T* result,
+bool VarAsInteger(const pp::Var& var,
+                  const char* type_name,
+                  T* result,
                   std::string* error_message) {
   int64_t integer;
   if (var.is_int()) {
@@ -80,14 +82,16 @@ bool VarAs(const pp::Var& var, long* result, std::string* error_message) {
   return VarAsInteger(var, "long", result, error_message);
 }
 
-bool VarAs(const pp::Var& var, unsigned long* result,
+bool VarAs(const pp::Var& var,
+           unsigned long* result,
            std::string* error_message) {
   return VarAsInteger(var, "unsigned long", result, error_message);
 }
 
 bool VarAs(const pp::Var& var, float* result, std::string* error_message) {
   double double_value;
-  if (!VarAs(var, &double_value, error_message)) return false;
+  if (!VarAs(var, &double_value, error_message))
+    return false;
   *result = static_cast<float>(double_value);
   return true;
 }
@@ -112,7 +116,8 @@ bool VarAs(const pp::Var& var, bool* result, std::string* error_message) {
   return true;
 }
 
-bool VarAs(const pp::Var& var, std::string* result,
+bool VarAs(const pp::Var& var,
+           std::string* result,
            std::string* error_message) {
   if (!var.is_string()) {
     *error_message = FormatPrintfTemplate(kErrorWrongType, kStringJsTypeTitle,
@@ -123,13 +128,15 @@ bool VarAs(const pp::Var& var, std::string* result,
   return true;
 }
 
-bool VarAs(const pp::Var& var, pp::Var* result,
+bool VarAs(const pp::Var& var,
+           pp::Var* result,
            std::string* /*error_message*/) {
   *result = var;
   return true;
 }
 
-bool VarAs(const pp::Var& var, pp::VarArray* result,
+bool VarAs(const pp::Var& var,
+           pp::VarArray* result,
            std::string* error_message) {
   if (!var.is_array()) {
     *error_message = FormatPrintfTemplate(kErrorWrongType, kArrayJsTypeTitle,
@@ -140,7 +147,8 @@ bool VarAs(const pp::Var& var, pp::VarArray* result,
   return true;
 }
 
-bool VarAs(const pp::Var& var, pp::VarArrayBuffer* result,
+bool VarAs(const pp::Var& var,
+           pp::VarArrayBuffer* result,
            std::string* error_message) {
   if (!var.is_array_buffer()) {
     *error_message = FormatPrintfTemplate(
@@ -151,7 +159,8 @@ bool VarAs(const pp::Var& var, pp::VarArrayBuffer* result,
   return true;
 }
 
-bool VarAs(const pp::Var& var, pp::VarDictionary* result,
+bool VarAs(const pp::Var& var,
+           pp::VarDictionary* result,
            std::string* error_message) {
   if (!var.is_dictionary()) {
     *error_message = FormatPrintfTemplate(
@@ -162,7 +171,8 @@ bool VarAs(const pp::Var& var, pp::VarDictionary* result,
   return true;
 }
 
-bool VarAs(const pp::Var& var, pp::Var::Null* /*result*/,
+bool VarAs(const pp::Var& var,
+           pp::Var::Null* /*result*/,
            std::string* error_message) {
   if (!var.is_null()) {
     *error_message = FormatPrintfTemplate(kErrorWrongType, kNullJsTypeTitle,
@@ -193,8 +203,10 @@ int GetVarArraySize(const pp::VarArray& var) {
   return static_cast<int>(var.GetLength());
 }
 
-bool GetVarDictValue(const pp::VarDictionary& var, const std::string& key,
-                     pp::Var* result, std::string* error_message) {
+bool GetVarDictValue(const pp::VarDictionary& var,
+                     const std::string& key,
+                     pp::Var* result,
+                     std::string* error_message) {
   if (!var.HasKey(key)) {
     *error_message =
         FormatPrintfTemplate("The dictionary has no key \"%s\"", key.c_str());
@@ -229,11 +241,13 @@ bool VarDictValuesExtractor::GetSuccess(std::string* error_message) const {
 
 bool VarDictValuesExtractor::GetSuccessWithNoExtraKeysAllowed(
     std::string* error_message) const {
-  if (!GetSuccess(error_message)) return false;
+  if (!GetSuccess(error_message))
+    return false;
   if (!not_requested_keys_.empty()) {
     std::string unexpected_keys_dump;
     for (const std::string& key : not_requested_keys_) {
-      if (!unexpected_keys_dump.empty()) unexpected_keys_dump += ", ";
+      if (!unexpected_keys_dump.empty())
+        unexpected_keys_dump += ", ";
       unexpected_keys_dump += '"' + key + '"';
     }
     *error_message =
@@ -246,7 +260,8 @@ bool VarDictValuesExtractor::GetSuccessWithNoExtraKeysAllowed(
 
 void VarDictValuesExtractor::CheckSuccess() const {
   std::string error_message;
-  if (!GetSuccess(&error_message)) GOOGLE_SMART_CARD_LOG_FATAL << error_message;
+  if (!GetSuccess(&error_message))
+    GOOGLE_SMART_CARD_LOG_FATAL << error_message;
 }
 
 void VarDictValuesExtractor::CheckSuccessWithNoExtraKeysAllowed() const {
@@ -260,7 +275,8 @@ void VarDictValuesExtractor::AddRequestedKey(const std::string& key) {
 }
 
 void VarDictValuesExtractor::ProcessFailedExtraction(
-    const std::string& key, const std::string& extraction_error_message) {
+    const std::string& key,
+    const std::string& extraction_error_message) {
   if (failed_) {
     // We could concatenate all occurred errors, but storing of the first error
     // only should be enough.

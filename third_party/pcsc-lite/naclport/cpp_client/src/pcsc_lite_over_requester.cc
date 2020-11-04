@@ -80,7 +80,9 @@ SCardUniquePtr<T> CreateSCardUniquePtr() {
 // PC/SC-Lite client API, refer, for instance, to
 // <https://pcsclite.alioth.debian.org/api/group__API.html#gaacfec51917255b7a25b94c5104961602>.
 template <typename IterT, typename T>
-LONG FillOutputBufferArguments(IterT input_begin, IterT input_end, T* output,
+LONG FillOutputBufferArguments(IterT input_begin,
+                               IterT input_end,
+                               T* output,
                                LPDWORD output_size,
                                SCardUniquePtr<T>* allocated_buffer_holder) {
   const size_t input_size = std::distance(input_begin, input_end);
@@ -102,7 +104,8 @@ LONG FillOutputBufferArguments(IterT input_begin, IterT input_end, T* output,
       // output argument is actually a T** in that case, and it will receive
       // pointer to the allocated buffer (so this argument is checked to be
       // non-null).
-      if (!output) return SCARD_E_INVALID_PARAMETER;
+      if (!output)
+        return SCARD_E_INVALID_PARAMETER;
       target_buffer_begin = reinterpret_cast<T*>(std::malloc(input_size));
       GOOGLE_SMART_CARD_CHECK(target_buffer_begin);
       allocated_buffer_holder->reset(target_buffer_begin);
@@ -138,7 +141,8 @@ LONG FillOutputBufferArguments(IterT input_begin, IterT input_end, T* output,
 template <typename... Results>
 LONG ExtractRequestResultsAndCode(
     const std::string& function_name,
-    const GenericRequestResult& generic_request_result, Results*... results) {
+    const GenericRequestResult& generic_request_result,
+    Results*... results) {
   const std::string logging_prefix =
       kLoggingPrefix + function_name + " function call: ";
 
@@ -199,12 +203,17 @@ PcscLiteOverRequester::PcscLiteOverRequester(
 
 PcscLiteOverRequester::~PcscLiteOverRequester() = default;
 
-void PcscLiteOverRequester::Detach() { requester_->Detach(); }
+void PcscLiteOverRequester::Detach() {
+  requester_->Detach();
+}
 
 LONG PcscLiteOverRequester::SCardEstablishContext(
-    DWORD scope, LPCVOID reserved_1, LPCVOID reserved_2,
+    DWORD scope,
+    LPCVOID reserved_1,
+    LPCVOID reserved_2,
     LPSCARDCONTEXT s_card_context) {
-  if (!s_card_context) return SCARD_E_INVALID_PARAMETER;
+  if (!s_card_context)
+    return SCARD_E_INVALID_PARAMETER;
   if (reserved_1 || reserved_2) {
     // Only the NULL values of these parameters are supported by this PC/SC-Lite
     // client implementation. Anyway, PC/SC-Lite API states that these
@@ -226,12 +235,15 @@ LONG PcscLiteOverRequester::SCardReleaseContext(SCARDCONTEXT s_card_context) {
 }
 
 LONG PcscLiteOverRequester::SCardConnect(SCARDCONTEXT s_card_context,
-                                         LPCSTR reader_name, DWORD share_mode,
+                                         LPCSTR reader_name,
+                                         DWORD share_mode,
                                          DWORD preferred_protocols,
                                          LPSCARDHANDLE s_card_handle,
                                          LPDWORD active_protocol) {
-  if (!s_card_handle || !active_protocol) return SCARD_E_INVALID_PARAMETER;
-  if (!reader_name) return SCARD_E_UNKNOWN_READER;
+  if (!s_card_handle || !active_protocol)
+    return SCARD_E_INVALID_PARAMETER;
+  if (!reader_name)
+    return SCARD_E_UNKNOWN_READER;
 
   return ExtractRequestResultsAndCode(
       "SCardConnect",
@@ -245,7 +257,8 @@ LONG PcscLiteOverRequester::SCardReconnect(SCARDHANDLE s_card_handle,
                                            DWORD preferred_protocols,
                                            DWORD initialization_action,
                                            LPDWORD active_protocol) {
-  if (!active_protocol) return SCARD_E_INVALID_PARAMETER;
+  if (!active_protocol)
+    return SCARD_E_INVALID_PARAMETER;
 
   return ExtractRequestResultsAndCode(
       "SCardReconnect",
@@ -278,8 +291,10 @@ LONG PcscLiteOverRequester::SCardEndTransaction(SCARDHANDLE s_card_handle,
 LONG PcscLiteOverRequester::SCardStatus(SCARDHANDLE s_card_handle,
                                         LPSTR reader_name,
                                         LPDWORD reader_name_length,
-                                        LPDWORD state, LPDWORD protocol,
-                                        LPBYTE atr, LPDWORD atr_length) {
+                                        LPDWORD state,
+                                        LPDWORD protocol,
+                                        LPBYTE atr,
+                                        LPDWORD atr_length) {
   std::string reader_name_string;
   DWORD state_copy;
   DWORD protocol_copy;
@@ -289,7 +304,8 @@ LONG PcscLiteOverRequester::SCardStatus(SCARDHANDLE s_card_handle,
       remote_call_adaptor_.SyncCall("SCardStatus", s_card_handle),
       &reader_name_string, &state_copy, &protocol_copy, &atr_vector);
   GOOGLE_SMART_CARD_CHECK(result_code != SCARD_E_INSUFFICIENT_BUFFER);
-  if (result_code != SCARD_S_SUCCESS) return result_code;
+  if (result_code != SCARD_S_SUCCESS)
+    return result_code;
 
   SCardUniquePtr<char> reader_name_buffer_holder = CreateSCardUniquePtr<char>();
   const LONG reader_name_filling_result_code = FillOutputBufferArguments(
@@ -297,9 +313,11 @@ LONG PcscLiteOverRequester::SCardStatus(SCARDHANDLE s_card_handle,
       reader_name_string.c_str() + reader_name_string.length() + 1, reader_name,
       reader_name_length, &reader_name_buffer_holder);
 
-  if (state) *state = state_copy;
+  if (state)
+    *state = state_copy;
 
-  if (protocol) *protocol = protocol_copy;
+  if (protocol)
+    *protocol = protocol_copy;
 
   SCardUniquePtr<BYTE> atr_buffer_holder = CreateSCardUniquePtr<BYTE>();
   const LONG atr_filling_result_code =
@@ -316,9 +334,12 @@ LONG PcscLiteOverRequester::SCardStatus(SCARDHANDLE s_card_handle,
 }
 
 LONG PcscLiteOverRequester::SCardGetStatusChange(
-    SCARDCONTEXT s_card_context, DWORD timeout,
-    SCARD_READERSTATE* reader_states, DWORD reader_states_size) {
-  if (!reader_states && reader_states_size) return SCARD_E_INVALID_PARAMETER;
+    SCARDCONTEXT s_card_context,
+    DWORD timeout,
+    SCARD_READERSTATE* reader_states,
+    DWORD reader_states_size) {
+  if (!reader_states && reader_states_size)
+    return SCARD_E_INVALID_PARAMETER;
 
   std::vector<InboundSCardReaderState> reader_states_vector;
   for (DWORD index = 0; index < reader_states_size; ++index) {
@@ -332,7 +353,8 @@ LONG PcscLiteOverRequester::SCardGetStatusChange(
       remote_call_adaptor_.SyncCall("SCardGetStatusChange", s_card_context,
                                     timeout, reader_states_vector),
       &returned_reader_states_vector);
-  if (result_code != SCARD_S_SUCCESS) return result_code;
+  if (result_code != SCARD_S_SUCCESS)
+    return result_code;
 
   GOOGLE_SMART_CARD_CHECK(returned_reader_states_vector.size() ==
                           reader_states_size);
@@ -359,11 +381,15 @@ LONG PcscLiteOverRequester::SCardGetStatusChange(
   return SCARD_S_SUCCESS;
 }
 
-LONG PcscLiteOverRequester::SCardControl(
-    SCARDHANDLE s_card_handle, DWORD control_code, LPCVOID send_buffer,
-    DWORD send_buffer_length, LPVOID receive_buffer,
-    DWORD receive_buffer_length, LPDWORD bytes_returned) {
-  if (send_buffer_length) GOOGLE_SMART_CARD_CHECK(send_buffer);
+LONG PcscLiteOverRequester::SCardControl(SCARDHANDLE s_card_handle,
+                                         DWORD control_code,
+                                         LPCVOID send_buffer,
+                                         DWORD send_buffer_length,
+                                         LPVOID receive_buffer,
+                                         DWORD receive_buffer_length,
+                                         LPDWORD bytes_returned) {
+  if (send_buffer_length)
+    GOOGLE_SMART_CARD_CHECK(send_buffer);
   GOOGLE_SMART_CARD_CHECK(receive_buffer);
 
   std::vector<uint8_t> send_buffer_vector;
@@ -384,7 +410,8 @@ LONG PcscLiteOverRequester::SCardControl(
     // reported in case of any error.
     *bytes_returned = 0;
   }
-  if (result_code != SCARD_S_SUCCESS) return result_code;
+  if (result_code != SCARD_S_SUCCESS)
+    return result_code;
 
   if (received_buffer_vector.size() > receive_buffer_length)
     return SCARD_E_INSUFFICIENT_BUFFER;
@@ -392,12 +419,14 @@ LONG PcscLiteOverRequester::SCardControl(
     std::memcpy(receive_buffer, &received_buffer_vector[0],
                 received_buffer_vector.size());
   }
-  if (bytes_returned) *bytes_returned = received_buffer_vector.size();
+  if (bytes_returned)
+    *bytes_returned = received_buffer_vector.size();
   return SCARD_S_SUCCESS;
 }
 
 LONG PcscLiteOverRequester::SCardGetAttrib(SCARDHANDLE s_card_handle,
-                                           DWORD attribute_id, LPBYTE attribute,
+                                           DWORD attribute_id,
+                                           LPBYTE attribute,
                                            LPDWORD attribute_length) {
   std::vector<uint8_t> attribute_vector;
   const LONG result_code = ExtractRequestResultsAndCode(
@@ -406,7 +435,8 @@ LONG PcscLiteOverRequester::SCardGetAttrib(SCARDHANDLE s_card_handle,
                                     attribute_id),
       &attribute_vector);
   GOOGLE_SMART_CARD_CHECK(result_code != SCARD_E_INSUFFICIENT_BUFFER);
-  if (result_code != SCARD_S_SUCCESS) return result_code;
+  if (result_code != SCARD_S_SUCCESS)
+    return result_code;
 
   SCardUniquePtr<BYTE> attribute_buffer_holder = CreateSCardUniquePtr<BYTE>();
   const LONG attribute_filling_result_code = FillOutputBufferArguments(
@@ -437,9 +467,12 @@ LONG PcscLiteOverRequester::SCardSetAttrib(SCARDHANDLE s_card_handle,
 
 LONG PcscLiteOverRequester::SCardTransmit(
     SCARDHANDLE s_card_handle,
-    const SCARD_IO_REQUEST* send_protocol_information, LPCBYTE send_buffer,
-    DWORD send_buffer_length, SCARD_IO_REQUEST* receive_protocol_information,
-    LPBYTE receive_buffer, LPDWORD receive_buffer_length) {
+    const SCARD_IO_REQUEST* send_protocol_information,
+    LPCBYTE send_buffer,
+    DWORD send_buffer_length,
+    SCARD_IO_REQUEST* receive_protocol_information,
+    LPBYTE receive_buffer,
+    LPDWORD receive_buffer_length) {
   if (!send_protocol_information || !send_buffer || !receive_buffer ||
       !receive_buffer_length) {
     return SCARD_E_INVALID_PARAMETER;
@@ -465,7 +498,8 @@ LONG PcscLiteOverRequester::SCardTransmit(
           SCardIoRequest::FromSCardIoRequest(*send_protocol_information),
           send_buffer_vector, input_receive_protocol_information),
       &receive_protocol_information_copy, &received_buffer_vector);
-  if (result_code != SCARD_S_SUCCESS) return result_code;
+  if (result_code != SCARD_S_SUCCESS)
+    return result_code;
 
   if (receive_protocol_information) {
     *receive_protocol_information =
@@ -482,7 +516,8 @@ LONG PcscLiteOverRequester::SCardTransmit(
 }
 
 LONG PcscLiteOverRequester::SCardListReaders(SCARDCONTEXT s_card_context,
-                                             LPCSTR groups, LPSTR readers,
+                                             LPCSTR groups,
+                                             LPSTR readers,
                                              LPDWORD readers_size) {
   if (groups) {
     // Only the NULL value of this parameter is supported by this PC/SC-Lite
@@ -490,7 +525,8 @@ LONG PcscLiteOverRequester::SCardListReaders(SCARDCONTEXT s_card_context,
     // parameter is not used now, so it doesn't harm much limiting to NULL.
     return SCARD_E_INVALID_PARAMETER;
   }
-  if (!readers_size) return SCARD_E_INVALID_PARAMETER;
+  if (!readers_size)
+    return SCARD_E_INVALID_PARAMETER;
   GOOGLE_SMART_CARD_CHECK(readers_size);
 
   std::vector<std::string> readers_vector;
@@ -500,7 +536,8 @@ LONG PcscLiteOverRequester::SCardListReaders(SCARDCONTEXT s_card_context,
                                     pp::Var::Null()),
       &readers_vector);
   GOOGLE_SMART_CARD_CHECK(result_code != SCARD_E_INSUFFICIENT_BUFFER);
-  if (result_code != SCARD_S_SUCCESS) return result_code;
+  if (result_code != SCARD_S_SUCCESS)
+    return result_code;
 
   const std::string dumped_readers = CreateMultiString(readers_vector);
 
@@ -529,7 +566,8 @@ LONG PcscLiteOverRequester::SCardListReaderGroups(SCARDCONTEXT s_card_context,
       remote_call_adaptor_.SyncCall("SCardListReaderGroups", s_card_context),
       &groups_vector);
   GOOGLE_SMART_CARD_CHECK(result_code != SCARD_E_INSUFFICIENT_BUFFER);
-  if (result_code != SCARD_S_SUCCESS) return result_code;
+  if (result_code != SCARD_S_SUCCESS)
+    return result_code;
 
   const std::string dumped_groups = CreateMultiString(groups_vector);
 

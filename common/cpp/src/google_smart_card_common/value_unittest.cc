@@ -342,7 +342,7 @@ TEST(ValueTest, MoveAssignmentToItself) {
   Value value("foo");
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wself-move"
-   value = std::move(value);
+  value = std::move(value);
 #pragma clang diagnostic pop
   ASSERT_TRUE(value.is_string());
   EXPECT_EQ(value.GetString(), "foo");

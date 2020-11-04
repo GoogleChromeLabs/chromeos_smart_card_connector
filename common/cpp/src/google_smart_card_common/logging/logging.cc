@@ -132,7 +132,8 @@ void EmitLogMessageToJavaScript(LogSeverity severity,
     for (const std::pair<PP_Instance, pp::Instance*>& instance_map_item :
          pp_instance_map) {
       pp::Instance* const instance = instance_map_item.second;
-      if (instance) instance->PostMessage(message);
+      if (instance)
+        instance->PostMessage(message);
     }
   }
 }
@@ -166,10 +167,13 @@ LogMessage::~LogMessage() {
   }
 }
 
-std::ostringstream& LogMessage::stream() { return stream_; }
+std::ostringstream& LogMessage::stream() {
+  return stream_;
+}
 
 std::string MakeCheckFailedMessage(const std::string& stringified_condition,
-                                   const std::string& file, int line,
+                                   const std::string& file,
+                                   int line,
                                    const std::string& function) {
   std::ostringstream stream;
   stream << "Check \"" << stringified_condition << "\" failed. File \"" << file
@@ -177,7 +181,8 @@ std::string MakeCheckFailedMessage(const std::string& stringified_condition,
   return stream.str();
 }
 
-std::string MakeNotreachedHitMessage(const std::string& file, int line,
+std::string MakeNotreachedHitMessage(const std::string& file,
+                                     int line,
                                      const std::string& function) {
   std::ostringstream stream;
   stream << "NOTREACHED hit at file \"" << file << "\", line " << line

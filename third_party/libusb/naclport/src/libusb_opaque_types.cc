@@ -241,7 +241,8 @@ bool libusb_context::ExtractAsyncTransferStateUpdate(
 bool libusb_context::ExtractAsyncTransferStateCancellationUpdate(
     TransferAsyncRequestStatePtr* async_request_state,
     TransferRequestResult* result) {
-  if (transfers_to_cancel_.empty()) return false;
+  if (transfers_to_cancel_.empty())
+    return false;
 
   const auto iter = transfers_to_cancel_.begin();
   libusb_transfer* const transfer = *iter;
@@ -309,14 +310,16 @@ bool libusb_context::ExtractMatchingInputTransferResult(
     TransferRequestResult* result) {
   const auto iter =
       received_input_transfer_result_map_.find(transfer_destination);
-  if (iter == received_input_transfer_result_map_.end()) return false;
+  if (iter == received_input_transfer_result_map_.end())
+    return false;
   std::queue<TransferRequestResult>* results_queue = &iter->second;
 
   GOOGLE_SMART_CARD_CHECK(!results_queue->empty());
   *result = std::move(results_queue->front());
   results_queue->pop();
 
-  if (results_queue->empty()) received_input_transfer_result_map_.erase(iter);
+  if (results_queue->empty())
+    received_input_transfer_result_map_.erase(iter);
 
   return true;
 }
@@ -346,9 +349,13 @@ libusb_device::libusb_device(
   GOOGLE_SMART_CARD_CHECK(context);
 }
 
-libusb_device::~libusb_device() { GOOGLE_SMART_CARD_CHECK(!reference_count_); }
+libusb_device::~libusb_device() {
+  GOOGLE_SMART_CARD_CHECK(!reference_count_);
+}
 
-libusb_context* libusb_device::context() const { return context_; }
+libusb_context* libusb_device::context() const {
+  return context_;
+}
 
 const google_smart_card::chrome_usb::Device& libusb_device::chrome_usb_device()
     const {
@@ -363,7 +370,8 @@ void libusb_device::AddReference() {
 void libusb_device::RemoveReference() {
   const int new_reference_count = --reference_count_;
   GOOGLE_SMART_CARD_CHECK(new_reference_count >= 0);
-  if (!new_reference_count) delete this;
+  if (!new_reference_count)
+    delete this;
 }
 
 libusb_device_handle::libusb_device_handle(
@@ -376,9 +384,13 @@ libusb_device_handle::libusb_device_handle(
   device_->AddReference();
 }
 
-libusb_device_handle::~libusb_device_handle() { device_->RemoveReference(); }
+libusb_device_handle::~libusb_device_handle() {
+  device_->RemoveReference();
+}
 
-libusb_device* libusb_device_handle::device() const { return device_; }
+libusb_device* libusb_device_handle::device() const {
+  return device_;
+}
 
 libusb_context* libusb_device_handle::context() const {
   return device_->context();

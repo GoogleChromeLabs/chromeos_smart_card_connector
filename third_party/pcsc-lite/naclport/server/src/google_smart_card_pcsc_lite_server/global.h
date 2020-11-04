@@ -77,10 +77,13 @@ class PcscLiteServerGlobal final {
   // already been initialized.
   void InitializeAndRunDaemonThread();
 
-  void PostReaderInitAddMessage(const char* reader_name, int port,
+  void PostReaderInitAddMessage(const char* reader_name,
+                                int port,
                                 const char* device) const;
-  void PostReaderFinishAddMessage(const char* reader_name, int port,
-                                  const char* device, long return_code) const;
+  void PostReaderFinishAddMessage(const char* reader_name,
+                                  int port,
+                                  const char* device,
+                                  long return_code) const;
   void PostReaderRemoveMessage(const char* reader_name, int port) const;
 
  private:

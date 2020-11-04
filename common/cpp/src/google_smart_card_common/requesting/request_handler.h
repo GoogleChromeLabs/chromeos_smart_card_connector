@@ -40,7 +40,8 @@ class RequestHandler {
   // synchronously and, depending on the type of channel it uses, may lead to
   // freezes and deadlocks.
   virtual void HandleRequest(
-      Value payload, RequestReceiver::ResultCallback result_callback) = 0;
+      Value payload,
+      RequestReceiver::ResultCallback result_callback) = 0;
 };
 
 }  // namespace google_smart_card

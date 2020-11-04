@@ -49,7 +49,8 @@ namespace google_smart_card {
 class PcscLiteOverRequesterGlobal final {
  public:
   PcscLiteOverRequesterGlobal(TypedMessageRouter* typed_message_router,
-                              pp::Instance* pp_instance, pp::Core* pp_core);
+                              pp::Instance* pp_instance,
+                              pp::Core* pp_core);
 
   PcscLiteOverRequesterGlobal(const PcscLiteOverRequesterGlobal&) = delete;
   PcscLiteOverRequesterGlobal& operator=(const PcscLiteOverRequesterGlobal&) =

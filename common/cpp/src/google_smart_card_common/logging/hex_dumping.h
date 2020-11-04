@@ -69,8 +69,9 @@ std::string HexDumpPointer(const void* value);
 //
 
 template <typename T>
-inline typename std::enable_if<
-    sizeof(T) == sizeof(int8_t) && std::is_signed<T>::value, std::string>::type
+inline typename std::enable_if<sizeof(T) == sizeof(int8_t) &&
+                                   std::is_signed<T>::value,
+                               std::string>::type
 HexDumpInteger(T value) {
   return HexDumpByte(static_cast<int8_t>(value));
 }
@@ -84,8 +85,9 @@ HexDumpInteger(T value) {
 }
 
 template <typename T>
-inline typename std::enable_if<
-    sizeof(T) == sizeof(int16_t) && std::is_signed<T>::value, std::string>::type
+inline typename std::enable_if<sizeof(T) == sizeof(int16_t) &&
+                                   std::is_signed<T>::value,
+                               std::string>::type
 HexDumpInteger(T value) {
   return HexDumpDoublet(static_cast<int16_t>(value));
 }
@@ -99,8 +101,9 @@ HexDumpInteger(T value) {
 }
 
 template <typename T>
-inline typename std::enable_if<
-    sizeof(T) == sizeof(int32_t) && std::is_signed<T>::value, std::string>::type
+inline typename std::enable_if<sizeof(T) == sizeof(int32_t) &&
+                                   std::is_signed<T>::value,
+                               std::string>::type
 HexDumpInteger(T value) {
   return HexDumpQuadlet(static_cast<int32_t>(value));
 }
@@ -114,8 +117,9 @@ HexDumpInteger(T value) {
 }
 
 template <typename T>
-inline typename std::enable_if<
-    sizeof(T) == sizeof(int64_t) && std::is_signed<T>::value, std::string>::type
+inline typename std::enable_if<sizeof(T) == sizeof(int64_t) &&
+                                   std::is_signed<T>::value,
+                               std::string>::type
 HexDumpInteger(T value) {
   return HexDumpOctlet(static_cast<int64_t>(value));
 }

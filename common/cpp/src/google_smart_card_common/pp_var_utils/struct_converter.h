@@ -59,12 +59,14 @@ class StructConverter final {
   // Fails if the Pepper value is not a dictionary, or if it contains some
   // unexpected extra keys, or if at least one key corresponding to a
   // non-optional field is missing.
-  static bool ConvertFromVar(const pp::Var& var, StructType* result,
+  static bool ConvertFromVar(const pp::Var& var,
+                             StructType* result,
                              std::string* error_message) {
     GOOGLE_SMART_CARD_CHECK(result);
     GOOGLE_SMART_CARD_CHECK(error_message);
     pp::VarDictionary var_dict;
-    if (!VarAs(var, &var_dict, error_message)) return false;
+    if (!VarAs(var, &var_dict, error_message))
+      return false;
     VarDictValuesExtractor extractor(var_dict);
     VisitFields(*result, FromVarConversionCallback(&extractor));
     return extractor.GetSuccessWithNoExtraKeysAllowed(error_message);
@@ -114,7 +116,8 @@ class StructConverter final {
     void operator()(const optional<FieldType>* field,
                     const std::string& field_name) {
       GOOGLE_SMART_CARD_CHECK(field);
-      if (*field) SetVarDictValue(target_var_, field_name, **field);
+      if (*field)
+        SetVarDictValue(target_var_, field_name, **field);
     }
 
    private:
