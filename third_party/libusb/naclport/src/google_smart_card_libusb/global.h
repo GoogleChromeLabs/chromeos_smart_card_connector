@@ -19,9 +19,7 @@
 
 #include <memory>
 
-#include <ppapi/cpp/core.h>
-#include <ppapi/cpp/instance.h>
-
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 
 namespace google_smart_card {
@@ -39,9 +37,8 @@ namespace google_smart_card {
 // concurrent libusb_* function calls.
 class LibusbOverChromeUsbGlobal final {
  public:
-  LibusbOverChromeUsbGlobal(TypedMessageRouter* typed_message_router,
-                            pp::Instance* pp_instance,
-                            pp::Core* pp_core);
+  LibusbOverChromeUsbGlobal(GlobalContext* global_context,
+                            TypedMessageRouter* typed_message_router);
 
   LibusbOverChromeUsbGlobal(const LibusbOverChromeUsbGlobal&) = delete;
   LibusbOverChromeUsbGlobal& operator=(const LibusbOverChromeUsbGlobal&) =
@@ -54,19 +51,18 @@ class LibusbOverChromeUsbGlobal final {
   // behavior).
   ~LibusbOverChromeUsbGlobal();
 
-  // Detaches from the Pepper module and the typed message router, which
-  // prevents making any further requests through them and prevents waiting for
-  // the responses of the already started requests.
+  // Detaches from the typed message router and the JavaScript side, which
+  // prevents making any further requests and prevents waiting for the responses
+  // of the already started requests.
   //
   // After this function call, the global libusb_* functions are still allowed
   // to be called, but they will return errors instead of performing the real
   // requests.
   //
-  // This function is primarily intended to be used during the Pepper module
+  // This function is primarily intended to be used during the executable
   // shutdown process, for preventing the situations when some other threads
-  // currently calling global libusb_* functions or waiting for the finish of
-  // the already called functions try to access the destroyed pp::Instance
-  // object or some other associated objects.
+  // currently executing global libusb_* functions would trigger accesses to
+  // already destroyed objects.
   //
   // This function is safe to be called from any thread.
   void Detach();

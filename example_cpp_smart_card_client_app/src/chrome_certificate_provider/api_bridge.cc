@@ -19,6 +19,7 @@
 
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/function_call_tracer.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
@@ -94,15 +95,12 @@ void ProcessSignatureRequest(
 
 }  // namespace
 
-ApiBridge::ApiBridge(gsc::TypedMessageRouter* typed_message_router,
+ApiBridge::ApiBridge(gsc::GlobalContext* global_context,
+                     gsc::TypedMessageRouter* typed_message_router,
                      pp::Instance* pp_instance,
-                     pp::Core* pp_core,
                      std::shared_ptr<std::mutex> request_handling_mutex)
     : request_handling_mutex_(request_handling_mutex),
-      requester_(kRequesterName,
-                 typed_message_router,
-                 gsc::MakeUnique<gsc::JsRequester::PpDelegateImpl>(pp_instance,
-                                                                   pp_core)),
+      requester_(kRequesterName, global_context, typed_message_router),
       remote_call_adaptor_(&requester_),
       request_receiver_(new gsc::JsRequestReceiver(
           kRequestReceiverName,

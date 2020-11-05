@@ -33,6 +33,7 @@
 #include <ppapi/cpp/module.h>
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/global_context_impl_nacl.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
@@ -138,19 +139,19 @@ class PpInstance final : public pp::Instance {
   //   chrome.certificateProvider.requestPin() API cannot be used).
   explicit PpInstance(PP_Instance instance)
       : pp::Instance(instance),
+        global_context_(
+            new gsc::GlobalContextImplNacl(pp::Module::Get()->core(), this)),
         request_handling_mutex_(std::make_shared<std::mutex>()),
         pcsc_lite_over_requester_global_(
-            new gsc::PcscLiteOverRequesterGlobal(&typed_message_router_,
-                                                 this,
-                                                 pp::Module::Get()->core())),
+            new gsc::PcscLiteOverRequesterGlobal(global_context_.get(),
+                                                 &typed_message_router_)),
         built_in_pin_dialog_server_(
-            new BuiltInPinDialogServer(&typed_message_router_,
-                                       this,
-                                       pp::Module::Get()->core())),
+            new BuiltInPinDialogServer(global_context_.get(),
+                                       &typed_message_router_)),
         chrome_certificate_provider_api_bridge_(
-            new ccp::ApiBridge(&typed_message_router_,
+            new ccp::ApiBridge(global_context_.get(),
+                               &typed_message_router_,
                                this,
-                               pp::Module::Get()->core(),
                                request_handling_mutex_)),
         ui_bridge_(new UiBridge(&typed_message_router_,
                                 this,
@@ -173,16 +174,13 @@ class PpInstance final : public pp::Instance {
   // the NaCl module (though, actually, it's not guaranteed to be executed at
   // all - the NaCl module can be just shut down by the browser).
   //
-  // The implementation presented here essentially leaves the previously
-  // allocated google_smart_card::PcscLiteOverRequesterGlobal not destroyed
-  // (i.e. leaves it as a leaked pointer). This is done intentionally: there may
-  // be still PC/SC-Lite API function calls being executed, and they are using
-  // the common state provided by this
-  // google_smart_card::PcscLiteOverRequesterGlobal object. So, instead of
-  // deleting it (which may lead to undefined behavior), the Detach method of
-  // this class is called - which prevents it from using pointer to this
-  // instance of PpInstance class.
+  // The implementation presented here intentionally leaks `global_context_` and
+  // `pcsc_lite_over_requester_global_` without destroying them, because there
+  // might still be background threads that access these objects.
   ~PpInstance() override {
+    global_context_->DisableJsCommunication();
+    global_context_.release();
+
     pcsc_lite_over_requester_global_->Detach();
     pcsc_lite_over_requester_global_.release();
 
@@ -434,6 +432,11 @@ class PpInstance final : public pp::Instance {
     ReportAvailableCertificates(chrome_certificate_provider_api_bridge);
   }
 
+  // Global context that proxies webport-specific operations.
+  //
+  // The stored pointer is leaked intentionally in the class destructor - see
+  // its comment for the justification.
+  std::unique_ptr<gsc::GlobalContextImplNacl> global_context_;
   // Mutex that enforces that all requests are handled sequentially.
   const std::shared_ptr<std::mutex> request_handling_mutex_;
   // Router of the incoming typed messages that passes incoming messages to the

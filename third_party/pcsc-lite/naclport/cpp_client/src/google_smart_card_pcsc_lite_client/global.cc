@@ -62,11 +62,11 @@ namespace google_smart_card {
 
 class PcscLiteOverRequesterGlobal::Impl final {
  public:
-  Impl(TypedMessageRouter* typed_message_router,
-       pp::Instance* pp_instance,
-       pp::Core* pp_core)
+  Impl(GlobalContext* global_context, TypedMessageRouter* typed_message_router)
       : pcsc_lite_over_requester_(
-            MakeRequester(typed_message_router, pp_instance, pp_core)) {
+            MakeUnique<JsRequester>(kPcscLiteRequesterName,
+                                    global_context,
+                                    typed_message_router)) {
 #ifndef NDEBUG
     pcsc_lite_tracing_wrapper_.reset(
         new PcscLiteTracingWrapper(&pcsc_lite_over_requester_, kLoggingPrefix));
@@ -74,6 +74,8 @@ class PcscLiteOverRequesterGlobal::Impl final {
   }
 
   Impl(const Impl&) = delete;
+  Impl& operator=(const Impl&) = delete;
+  ~Impl() = default;
 
   void Detach() { pcsc_lite_over_requester_.Detach(); }
 
@@ -84,24 +86,14 @@ class PcscLiteOverRequesterGlobal::Impl final {
   }
 
  private:
-  static std::unique_ptr<Requester> MakeRequester(
-      TypedMessageRouter* typed_message_router,
-      pp::Instance* pp_instance,
-      pp::Core* pp_core) {
-    return std::unique_ptr<Requester>(new JsRequester(
-        kPcscLiteRequesterName, typed_message_router,
-        MakeUnique<JsRequester::PpDelegateImpl>(pp_instance, pp_core)));
-  }
-
   PcscLiteOverRequester pcsc_lite_over_requester_;
   std::unique_ptr<PcscLiteTracingWrapper> pcsc_lite_tracing_wrapper_;
 };
 
 PcscLiteOverRequesterGlobal::PcscLiteOverRequesterGlobal(
-    TypedMessageRouter* typed_message_router,
-    pp::Instance* pp_instance,
-    pp::Core* pp_core)
-    : impl_(new Impl(typed_message_router, pp_instance, pp_core)) {
+    GlobalContext* global_context,
+    TypedMessageRouter* typed_message_router)
+    : impl_(MakeUnique<Impl>(global_context, typed_message_router)) {
   GOOGLE_SMART_CARD_CHECK(!g_pcsc_lite);
   g_pcsc_lite = impl_->pcsc_lite();
 }
