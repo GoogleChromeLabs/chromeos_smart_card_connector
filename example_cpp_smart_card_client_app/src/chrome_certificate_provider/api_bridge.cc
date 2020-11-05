@@ -97,17 +97,14 @@ void ProcessSignatureRequest(
 
 ApiBridge::ApiBridge(gsc::GlobalContext* global_context,
                      gsc::TypedMessageRouter* typed_message_router,
-                     pp::Instance* pp_instance,
                      std::shared_ptr<std::mutex> request_handling_mutex)
     : request_handling_mutex_(request_handling_mutex),
       requester_(kRequesterName, global_context, typed_message_router),
       remote_call_adaptor_(&requester_),
-      request_receiver_(new gsc::JsRequestReceiver(
-          kRequestReceiverName,
-          this,
-          typed_message_router,
-          gsc::MakeUnique<gsc::JsRequestReceiver::PpDelegateImpl>(
-              pp_instance))) {}
+      request_receiver_(new gsc::JsRequestReceiver(kRequestReceiverName,
+                                                   this,
+                                                   global_context,
+                                                   typed_message_router)) {}
 
 ApiBridge::~ApiBridge() = default;
 

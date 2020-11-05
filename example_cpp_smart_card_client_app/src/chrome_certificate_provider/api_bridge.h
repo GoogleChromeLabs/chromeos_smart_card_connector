@@ -26,7 +26,6 @@
 #include <string>
 #include <vector>
 
-#include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/var.h>
 #include <ppapi/cpp/var_array.h>
 
@@ -95,7 +94,6 @@ class ApiBridge final : public google_smart_card::RequestHandler {
   // executed only once the previous one finishes.
   ApiBridge(google_smart_card::GlobalContext* global_context,
             google_smart_card::TypedMessageRouter* typed_message_router,
-            pp::Instance* pp_instance,
             std::shared_ptr<std::mutex> request_handling_mutex);
 
   ApiBridge(const ApiBridge&) = delete;
