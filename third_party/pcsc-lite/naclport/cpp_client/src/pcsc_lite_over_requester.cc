@@ -35,13 +35,9 @@
 #include <utility>
 #include <vector>
 
-#include <ppapi/cpp/var.h>
-#include <ppapi/cpp/var_array.h>
-
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/multi_string.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
+#include <google_smart_card_common/requesting/remote_call_arguments_conversion.h>
 #include <google_smart_card_pcsc_lite_common/scard_structs_serialization.h>
 
 namespace google_smart_card {
@@ -139,58 +135,24 @@ LONG FillOutputBufferArguments(IterT input_begin,
 // <https://pcsclite.alioth.debian.org/api/group__ErrorCodes.html>) and the
 // function output arguments as the following array items.
 template <typename... Results>
-LONG ExtractRequestResultsAndCode(
-    const std::string& function_name,
-    const GenericRequestResult& generic_request_result,
-    Results*... results) {
-  const std::string logging_prefix =
-      kLoggingPrefix + function_name + " function call: ";
-
+LONG ExtractRequestResultsAndCode(const std::string& function_name,
+                                  GenericRequestResult generic_request_result,
+                                  Results*... results) {
   if (!generic_request_result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_WARNING
-        << logging_prefix
-        << "Failed: " << generic_request_result.error_message();
+        << kLoggingPrefix + function_name + "() failed: "
+        << generic_request_result.error_message();
     return SCARD_F_INTERNAL_ERROR;
   }
-
-  // TODO(#220): Parse `Value` directly, instead of converting to `pp::Var`.
-  pp::Var payload_var = ConvertValueToPpVar(generic_request_result.payload());
-
-  std::string error_message;
-  pp::VarArray var_array;
-  if (!VarAs(payload_var, &var_array, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << logging_prefix << "Failed to extract the "
-                                << "response payload items: " << error_message;
-  }
-
-  if (!GetVarArraySize(var_array)) {
-    GOOGLE_SMART_CARD_LOG_FATAL
-        << logging_prefix << "Failed to extract the "
-        << "response payload items: the response is an empty array";
-  }
-
-  LONG result_code;
-  if (!VarAs(var_array.Get(0), &result_code, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL
-        << logging_prefix << "Failed to extract the "
-        << "response payload items: Error while extracting result code: "
-        << error_message;
-  }
-  if (result_code != SCARD_S_SUCCESS) {
-    if (GetVarArraySize(var_array) != 1) {
-      GOOGLE_SMART_CARD_LOG_FATAL
-          << logging_prefix << "Failed to extract "
-          << "the response payload items: Extra data is supplied along with an "
-          << "erroneous result code";
-    }
-    return result_code;
-  }
-
-  if (!TryGetVarArrayItems(var_array, &error_message, &result_code,
-                           results...)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << logging_prefix << "Failed to extract the "
-                                << "response payload items: " << error_message;
-  }
+  RemoteCallArgumentsExtractor extractor(
+      "result of " + function_name,
+      std::move(generic_request_result).TakePayload());
+  LONG result_code = SCARD_F_INTERNAL_ERROR;
+  extractor.Extract(&result_code);
+  if (result_code == SCARD_S_SUCCESS)
+    extractor.Extract(results...);
+  if (!extractor.Finish())
+    GOOGLE_SMART_CARD_LOG_FATAL << extractor.error_message();
   return result_code;
 }
 

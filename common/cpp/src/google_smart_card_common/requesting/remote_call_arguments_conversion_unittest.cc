@@ -21,6 +21,7 @@
 
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
+#include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
 
@@ -30,7 +31,7 @@ namespace {
 
 constexpr char kSomeFunc[] = "someFunc";
 
-enum class SomeEnum { kFirst };
+enum class SomeEnum { kUnknown, kFirst };
 
 struct SomeStruct {
   int foo;
@@ -244,6 +245,265 @@ TEST(ToRemoteCallRequestConversion, StructArgument) {
   ASSERT_TRUE(item_foo);
   ASSERT_TRUE(item_foo->is_integer());
   EXPECT_EQ(item_foo->GetInteger(), 123);
+}
+
+TEST(RemoteCallArgumentsExtractor, NoArgumentsExpected) {
+  {
+    std::vector<Value> values;
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+    EXPECT_TRUE(extractor.success());
+    EXPECT_TRUE(extractor.Finish());
+    EXPECT_TRUE(extractor.error_message().empty());
+  }
+
+  {
+    RemoteCallArgumentsExtractor extractor(kSomeFunc,
+                                           Value(Value::Type::kArray));
+    extractor.Extract();
+    EXPECT_TRUE(extractor.Finish());
+  }
+}
+
+TEST(RemoteCallArgumentsExtractor, NoArgumentsExpectedError) {
+  {
+    std::vector<Value> values;
+    values.emplace_back(123);
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+    EXPECT_FALSE(extractor.Finish());
+    EXPECT_FALSE(extractor.success());
+#ifdef NDEBUG
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert arguments for someFunc(): expected exactly 0 "
+              "arguments, received 1; first extra argument: integer");
+#else
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert arguments for someFunc(): expected exactly 0 "
+              "arguments, received 1; first extra argument: 0x7B");
+#endif
+  }
+
+  {
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, Value());
+    EXPECT_FALSE(extractor.Finish());
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert arguments for someFunc(): Expected value of "
+              "type array, instead got: null");
+  }
+}
+
+TEST(RemoteCallArgumentsExtractor, BasicArgumentExpected) {
+  {
+    std::vector<Value> values;
+    values.emplace_back(false);
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    bool bool_argument = true;
+    extractor.Extract(&bool_argument);
+    EXPECT_TRUE(extractor.Finish());
+    EXPECT_FALSE(bool_argument);
+  }
+
+  {
+    Value value(Value::Type::kArray);
+    value.GetArray().push_back(MakeUnique<Value>(123));
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(value));
+
+    int int_argument = 0;
+    extractor.Extract(&int_argument);
+    EXPECT_TRUE(extractor.Finish());
+    EXPECT_EQ(int_argument, 123);
+  }
+
+  {
+    std::vector<Value> values;
+    values.emplace_back("foo");
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    std::string string_argument;
+    extractor.Extract(&string_argument);
+    EXPECT_TRUE(extractor.Finish());
+    EXPECT_EQ(string_argument, "foo");
+  }
+}
+
+TEST(RemoteCallArgumentsExtractor, BasicArgumentExpectedError) {
+  {
+    std::vector<Value> values;
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    bool bool_argument;
+    extractor.Extract(&bool_argument);
+    EXPECT_FALSE(extractor.success());
+    EXPECT_FALSE(extractor.Finish());
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert arguments for someFunc(): expected at least 1 "
+              "argument(s), received only 0");
+  }
+
+  {
+    std::vector<Value> values;
+    values.emplace_back(false);
+    values.emplace_back();
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    // Extraction of the argument from the first value succeeds.
+    bool bool_argument = true;
+    extractor.Extract(&bool_argument);
+    EXPECT_TRUE(extractor.success());
+    EXPECT_FALSE(bool_argument);
+
+    // Finishing at this point triggers an error due to an extra value.
+    EXPECT_FALSE(extractor.Finish());
+    EXPECT_FALSE(extractor.success());
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert arguments for someFunc(): expected exactly 1 "
+              "arguments, received 2; first extra argument: null");
+  }
+
+  {
+    std::vector<Value> values;
+    values.emplace_back(123);
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    bool bool_argument;
+    extractor.Extract(&bool_argument);
+    EXPECT_FALSE(extractor.Finish());
+#ifdef NDEBUG
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert argument #0 for someFunc(): Expected value of "
+              "type boolean, instead got: integer");
+#else
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert argument #0 for someFunc(): Expected value of "
+              "type boolean, instead got: 0x7B");
+#endif
+  }
+}
+
+TEST(RemoteCallArgumentsExtractor, MultipleArgumentsExpected) {
+  {
+    std::vector<Value> values;
+    values.emplace_back(true);
+    values.emplace_back("foo");
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    bool bool_argument = false;
+    std::string string_argument;
+    extractor.Extract(&bool_argument, &string_argument);
+    EXPECT_TRUE(extractor.Finish());
+    EXPECT_TRUE(bool_argument);
+    EXPECT_EQ(string_argument, "foo");
+  }
+
+  {
+    std::vector<Value> values;
+    values.emplace_back(true);
+    values.emplace_back("foo");
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    bool bool_argument = false;
+    extractor.Extract(&bool_argument);
+    EXPECT_TRUE(extractor.success());
+    EXPECT_TRUE(bool_argument);
+
+    std::string string_argument;
+    extractor.Extract(&string_argument);
+    EXPECT_TRUE(extractor.Finish());
+    EXPECT_EQ(string_argument, "foo");
+  }
+}
+
+TEST(RemoteCallArgumentsExtractor, MultipleArgumentsExpectedError) {
+  {
+    RemoteCallArgumentsExtractor extractor(kSomeFunc,
+                                           Value(Value::Type::kArray));
+
+    bool bool_argument;
+    std::string string_argument;
+    extractor.Extract(&bool_argument, &string_argument);
+    EXPECT_FALSE(extractor.success());
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert arguments for someFunc(): expected at least 2 "
+              "argument(s), received only 0");
+  }
+
+  {
+    std::vector<Value> values;
+    values.emplace_back(true);
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    bool bool_argument;
+    std::string string_argument;
+    extractor.Extract(&bool_argument, &string_argument);
+    EXPECT_FALSE(extractor.success());
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert arguments for someFunc(): expected at least 2 "
+              "argument(s), received only 1");
+  }
+
+  {
+    std::vector<Value> values;
+    values.emplace_back(true);
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    bool bool_argument = false;
+    extractor.Extract(&bool_argument);
+    EXPECT_TRUE(extractor.success());
+    EXPECT_TRUE(bool_argument);
+
+    std::string string_argument;
+    extractor.Extract(&string_argument);
+    EXPECT_FALSE(extractor.success());
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert arguments for someFunc(): expected at least 2 "
+              "argument(s), received only 1");
+  }
+
+  {
+    std::vector<Value> values;
+    values.emplace_back(true);
+    values.emplace_back();
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    bool bool_argument;
+    std::string string_argument;
+    extractor.Extract(&bool_argument, &string_argument);
+    EXPECT_FALSE(extractor.success());
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert argument #1 for someFunc(): Expected value of "
+              "type string, instead got: null");
+  }
+
+  {
+    std::vector<Value> values;
+    values.emplace_back(true);
+    values.emplace_back("foo");
+    values.emplace_back();
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    bool bool_argument = false;
+    std::string string_argument;
+    extractor.Extract(&bool_argument, &string_argument);
+    EXPECT_TRUE(extractor.success());
+    EXPECT_TRUE(bool_argument);
+    EXPECT_EQ(string_argument, "foo");
+
+    EXPECT_FALSE(extractor.Finish());
+    EXPECT_EQ(extractor.error_message(),
+              "Failed to convert arguments for someFunc(): expected exactly 2 "
+              "arguments, received 3; first extra argument: null");
+  }
+}
+
+TEST(RemoteCallArgumentsExtractor, EnumArgumentExpected) {
+  std::vector<Value> values;
+  values.emplace_back("first");
+  RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+  SomeEnum enum_argument = SomeEnum::kUnknown;
+  extractor.Extract(&enum_argument);
+  EXPECT_TRUE(extractor.Finish());
+  EXPECT_EQ(enum_argument, SomeEnum::kFirst);
 }
 
 }  // namespace google_smart_card

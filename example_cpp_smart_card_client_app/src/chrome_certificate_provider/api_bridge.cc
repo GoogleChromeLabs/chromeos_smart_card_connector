@@ -149,7 +149,7 @@ bool ApiBridge::RequestPin(const RequestPinOptions& options, std::string* pin) {
   tracer.AddPassedArg("options", gsc::DumpVar(MakeVar(options)));
   tracer.LogEntrance();
 
-  const gsc::GenericRequestResult generic_request_result =
+  gsc::GenericRequestResult generic_request_result =
       remote_call_adaptor_.SyncCall("requestPin", options);
   if (!generic_request_result.is_successful()) {
     tracer.AddReturnValue(
@@ -157,24 +157,14 @@ bool ApiBridge::RequestPin(const RequestPinOptions& options, std::string* pin) {
     tracer.LogExit();
     return false;
   }
-  // TODO(#220): Parse `Value` directly, rather than convert into `pp::Var`.
-  const pp::Var payload_var =
-      gsc::ConvertValueToPpVar(generic_request_result.payload());
-  // Note: Cannot use RemoteCallAdaptor::ExtractResultPayload(), since the API
-  // result value is defined as optional, so that the length of the array we
-  // parse here isn't fixed.
-  pp::VarArray var_array;
-  std::string error_message;
-  if (!gsc::VarAs(payload_var, &var_array, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the PIN response "
-                                << "payload items: " << error_message;
-  }
   RequestPinResults results;
-  if (gsc::GetVarArraySize(var_array) &&
-      !gsc::TryGetVarArrayItems(var_array, &error_message, &results)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the PIN response "
-                                << "payload items: " << error_message;
-  }
+  gsc::RemoteCallArgumentsExtractor extractor(
+      "result of requestPin", std::move(generic_request_result).TakePayload());
+  // The Chrome API can omit the result object.
+  if (extractor.argument_count() > 0)
+    extractor.Extract(&results);
+  if (!extractor.Finish())
+    GOOGLE_SMART_CARD_LOG_FATAL << extractor.error_message();
   if (!results.user_input || results.user_input->empty()) {
     tracer.AddReturnValue("false (empty PIN)");
     tracer.LogExit();

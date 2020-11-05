@@ -17,6 +17,7 @@
 
 #include <string>
 #include <utility>
+#include <vector>
 
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
@@ -113,6 +114,67 @@ RemoteCallRequestPayload ConvertToRemoteCallRequestPayloadOrDie(
   internal::FillRemoteCallRequestArgs(&payload, std::forward<Args>(args)...);
   return payload;
 }
+
+// Helper that allows to convert the given array of `Value` arguments into C++
+// objects.
+class RemoteCallArgumentsExtractor final {
+ public:
+  RemoteCallArgumentsExtractor(std::string title,
+                               std::vector<Value> argument_values);
+  // Same as above, but attempts to convert the given `Value` into `vector`.
+  RemoteCallArgumentsExtractor(std::string title, Value arguments_as_value);
+  RemoteCallArgumentsExtractor(RemoteCallArgumentsExtractor&) = delete;
+  RemoteCallArgumentsExtractor& operator=(const RemoteCallArgumentsExtractor&) =
+      delete;
+  ~RemoteCallArgumentsExtractor();
+
+  size_t argument_count() const { return argument_values_.size(); }
+  bool success() const { return success_; }
+  const std::string& error_message() const { return error_message_; }
+
+  // Two overloads that implement a variadic template that extracts and converts
+  // `Value`s into the given C++ objects (passed by pointers).
+  template <typename FirstArgPtr, typename... ArgPtrs>
+  void Extract(FirstArgPtr first_arg_ptr, ArgPtrs... arg_ptrs) {
+    // Note: The check is performed here with the overall number of arguments,
+    // rather than in `ExtractArgument()`, in order to put the real number into
+    // the error log.
+    VerifySufficientCount(sizeof...(arg_ptrs) + 1);
+    ExtractArgument(first_arg_ptr);
+    Extract(arg_ptrs...);
+  }
+  void Extract();
+
+  // Finishes the conversion by checking that no unconverted argument is left.
+  // Returns the result of `success()`.
+  bool Finish();
+
+ private:
+  template <typename Arg>
+  void ExtractArgument(Arg* arg) {
+    if (!success_)
+      return;
+    if (ConvertFromValue(std::move(argument_values_[current_argument_index_]),
+                         arg, &error_message_)) {
+      ++current_argument_index_;
+      return;
+    }
+    success_ = false;
+    error_message_ =
+        FormatPrintfTemplate(internal::kRemoteCallArgumentConversionError,
+                             static_cast<int>(current_argument_index_),
+                             title_.c_str(), error_message_.c_str());
+  }
+
+  void VerifySufficientCount(int arguments_to_convert);
+  void VerifyNothingLeft();
+
+  const std::string title_;
+  std::vector<Value> argument_values_;
+  size_t current_argument_index_ = 0;
+  bool success_ = true;
+  std::string error_message_;
+};
 
 }  // namespace google_smart_card
 
