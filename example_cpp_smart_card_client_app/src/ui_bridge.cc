@@ -18,14 +18,13 @@
 #include <thread>
 #include <utility>
 
-#include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/pp_var_utils/debug_dump.h>
-#include <google_smart_card_common/thread_safe_unique_ptr.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
@@ -62,12 +61,14 @@ void ProcessMessageFromUi(
 
 }  // namespace
 
-UiBridge::UiBridge(gsc::TypedMessageRouter* typed_message_router,
-                   pp::Instance* pp_instance,
+UiBridge::UiBridge(gsc::GlobalContext* global_context,
+                   gsc::TypedMessageRouter* typed_message_router,
                    std::shared_ptr<std::mutex> request_handling_mutex)
-    : attached_state_(
-          gsc::MakeUnique<AttachedState>(pp_instance, typed_message_router)),
+    : global_context_(global_context),
+      typed_message_router_(typed_message_router),
       request_handling_mutex_(request_handling_mutex) {
+  GOOGLE_SMART_CARD_CHECK(global_context_);
+  GOOGLE_SMART_CARD_CHECK(typed_message_router_);
   typed_message_router->AddRoute(this);
 }
 
@@ -76,13 +77,10 @@ UiBridge::~UiBridge() {
 }
 
 void UiBridge::Detach() {
-  {
-    const gsc::ThreadSafeUniquePtr<AttachedState>::Locked locked_state =
-        attached_state_.Lock();
-    if (locked_state)
-      locked_state->typed_message_router->RemoveRoute(this);
-  }
-  attached_state_.Reset();
+  gsc::TypedMessageRouter* const typed_message_router =
+      typed_message_router_.exchange(nullptr);
+  if (typed_message_router)
+    typed_message_router->RemoveRoute(this);
 }
 
 void UiBridge::SetHandler(std::weak_ptr<MessageFromUiHandler> handler) {
@@ -100,13 +98,7 @@ void UiBridge::SendMessageToUi(const pp::Var& message) {
   typed_message.data = gsc::ConvertPpVarToValueOrDie(message);
   gsc::Value typed_message_value =
       gsc::ConvertToValueOrDie(std::move(typed_message));
-  // TODO: Directly post `Value` instead of `pp::Var`.
-  const pp::Var typed_message_var =
-      gsc::ConvertValueToPpVar(typed_message_value);
-  const gsc::ThreadSafeUniquePtr<AttachedState>::Locked locked_state =
-      attached_state_.Lock();
-  if (locked_state)
-    locked_state->pp_instance->PostMessage(typed_message_var);
+  global_context_->PostMessageToJs(typed_message_value);
 }
 
 std::string UiBridge::GetListenedMessageType() const {

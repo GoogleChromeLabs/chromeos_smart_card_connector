@@ -153,8 +153,8 @@ class PpInstance final : public pp::Instance {
                                &typed_message_router_,
                                this,
                                request_handling_mutex_)),
-        ui_bridge_(new UiBridge(&typed_message_router_,
-                                this,
+        ui_bridge_(new UiBridge(global_context_.get(),
+                                &typed_message_router_,
                                 request_handling_mutex_)),
         certificates_request_handler_(new ClientCertificatesRequestHandler),
         signature_request_handler_(new ClientSignatureRequestHandler(
