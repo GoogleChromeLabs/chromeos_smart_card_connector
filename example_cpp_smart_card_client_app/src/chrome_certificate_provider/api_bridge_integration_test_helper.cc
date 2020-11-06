@@ -121,7 +121,8 @@ void ApiBridgeIntegrationTestHelper::TearDown() {
 void ApiBridgeIntegrationTestHelper::OnMessageFromJs(
     gsc::Value data,
     gsc::RequestReceiver::ResultCallback result_callback) {
-  const std::string command = gsc::ConvertFromValueOrDie<std::string>(std::move(data));
+  const std::string command =
+      gsc::ConvertFromValueOrDie<std::string>(std::move(data));
   if (command == "setCertificates_empty") {
     ScheduleSetCertificatesCall(/*certificates=*/{}, result_callback);
   } else if (command == "setCertificates_fakeCerts") {
