@@ -27,27 +27,27 @@
 
 #include "clients_manager.h"
 
+#include <google_smart_card_common/global_context.h>
+
 namespace google_smart_card {
 
 class PcscLiteServerClientsManagementBackend::Impl final {
  public:
-  Impl(pp::Instance* pp_instance, TypedMessageRouter* typed_message_router)
-      : typed_message_router_(typed_message_router),
-        clients_manager_(pp_instance, typed_message_router_) {}
+  Impl(GlobalContext* global_context, TypedMessageRouter* typed_message_router)
+      : clients_manager_(global_context, typed_message_router) {}
 
   Impl(const Impl&) = delete;
 
   ~Impl() { clients_manager_.Detach(); }
 
  private:
-  TypedMessageRouter* typed_message_router_;
   PcscLiteServerClientsManager clients_manager_;
 };
 
 PcscLiteServerClientsManagementBackend::PcscLiteServerClientsManagementBackend(
-    pp::Instance* pp_instance,
+    GlobalContext* global_context,
     TypedMessageRouter* typed_message_router)
-    : impl_(new Impl(pp_instance, typed_message_router)) {}
+    : impl_(new Impl(global_context, typed_message_router)) {}
 
 PcscLiteServerClientsManagementBackend::
     ~PcscLiteServerClientsManagementBackend() {}

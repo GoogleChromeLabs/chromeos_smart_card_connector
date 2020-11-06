@@ -18,12 +18,11 @@
 #ifndef SMART_CARD_CLIENT_UI_BRIDGE_H_
 #define SMART_CARD_CLIENT_UI_BRIDGE_H_
 
-#include <ppapi/cpp/instance.h>
-#include <ppapi/cpp/var.h>
+#include <atomic>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/thread_safe_unique_ptr.h>
 #include <google_smart_card_common/value.h>
 
 namespace smart_card_client {
@@ -33,7 +32,7 @@ class MessageFromUiHandler {
  public:
   virtual ~MessageFromUiHandler() = default;
 
-  virtual void HandleMessageFromUi(const pp::Var& message) = 0;
+  virtual void HandleMessageFromUi(google_smart_card::Value message) = 0;
 };
 
 // This class provides a C++ bridge for sending/receiving messages to/from the
@@ -48,8 +47,8 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
   // The |request_handling_mutex| parameter, when non-null, allows to avoid
   // simultaneous execution of multiple requests: each next request will be
   // executed only once the previous one finishes.
-  UiBridge(google_smart_card::TypedMessageRouter* typed_message_router,
-           pp::Instance* pp_instance,
+  UiBridge(google_smart_card::GlobalContext* global_context,
+           google_smart_card::TypedMessageRouter* typed_message_router,
            std::shared_ptr<std::mutex> request_handling_mutex);
 
   UiBridge(const UiBridge&) = delete;
@@ -65,26 +64,15 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
   // Sends a message to UI.
   //
   // Note that if the UI is currently closed, the message is silently discarded.
-  void SendMessageToUi(const pp::Var& message);
+  void SendMessageToUi(google_smart_card::Value message);
 
   // google_smart_card::TypedMessageListener:
   std::string GetListenedMessageType() const override;
   bool OnTypedMessageReceived(google_smart_card::Value data) override;
 
  private:
-  struct AttachedState {
-    AttachedState(pp::Instance* pp_instance,
-                  google_smart_card::TypedMessageRouter* typed_message_router)
-        : pp_instance(pp_instance),
-          typed_message_router(typed_message_router) {}
-
-    pp::Instance* const pp_instance;
-    google_smart_card::TypedMessageRouter* const typed_message_router;
-  };
-
-  // State associated with the attached configuration. Null after Detach() is
-  // called.
-  google_smart_card::ThreadSafeUniquePtr<AttachedState> attached_state_;
+  google_smart_card::GlobalContext* const global_context_;
+  std::atomic<google_smart_card::TypedMessageRouter*> typed_message_router_;
 
   std::shared_ptr<std::mutex> request_handling_mutex_;
 

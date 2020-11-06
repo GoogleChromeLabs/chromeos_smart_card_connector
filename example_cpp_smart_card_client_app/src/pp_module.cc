@@ -33,14 +33,13 @@
 #include <ppapi/cpp/module.h>
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/global_context_impl_nacl.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/debug_dump.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_debug_dumping.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 #include <google_smart_card_pcsc_lite_client/global.h>
 #include <google_smart_card_pcsc_lite_cpp_demo/demo.h>
@@ -138,22 +137,21 @@ class PpInstance final : public pp::Instance {
   //   chrome.certificateProvider.requestPin() API cannot be used).
   explicit PpInstance(PP_Instance instance)
       : pp::Instance(instance),
+        global_context_(
+            new gsc::GlobalContextImplNacl(pp::Module::Get()->core(), this)),
         request_handling_mutex_(std::make_shared<std::mutex>()),
         pcsc_lite_over_requester_global_(
-            new gsc::PcscLiteOverRequesterGlobal(&typed_message_router_,
-                                                 this,
-                                                 pp::Module::Get()->core())),
+            new gsc::PcscLiteOverRequesterGlobal(global_context_.get(),
+                                                 &typed_message_router_)),
         built_in_pin_dialog_server_(
-            new BuiltInPinDialogServer(&typed_message_router_,
-                                       this,
-                                       pp::Module::Get()->core())),
+            new BuiltInPinDialogServer(global_context_.get(),
+                                       &typed_message_router_)),
         chrome_certificate_provider_api_bridge_(
-            new ccp::ApiBridge(&typed_message_router_,
-                               this,
-                               pp::Module::Get()->core(),
+            new ccp::ApiBridge(global_context_.get(),
+                               &typed_message_router_,
                                request_handling_mutex_)),
-        ui_bridge_(new UiBridge(&typed_message_router_,
-                                this,
+        ui_bridge_(new UiBridge(global_context_.get(),
+                                &typed_message_router_,
                                 request_handling_mutex_)),
         certificates_request_handler_(new ClientCertificatesRequestHandler),
         signature_request_handler_(new ClientSignatureRequestHandler(
@@ -173,16 +171,13 @@ class PpInstance final : public pp::Instance {
   // the NaCl module (though, actually, it's not guaranteed to be executed at
   // all - the NaCl module can be just shut down by the browser).
   //
-  // The implementation presented here essentially leaves the previously
-  // allocated google_smart_card::PcscLiteOverRequesterGlobal not destroyed
-  // (i.e. leaves it as a leaked pointer). This is done intentionally: there may
-  // be still PC/SC-Lite API function calls being executed, and they are using
-  // the common state provided by this
-  // google_smart_card::PcscLiteOverRequesterGlobal object. So, instead of
-  // deleting it (which may lead to undefined behavior), the Detach method of
-  // this class is called - which prevents it from using pointer to this
-  // instance of PpInstance class.
+  // The implementation presented here intentionally leaks `global_context_` and
+  // `pcsc_lite_over_requester_global_` without destroying them, because there
+  // might still be background threads that access these objects.
   ~PpInstance() override {
+    global_context_->DisableJsCommunication();
+    global_context_.release();
+
     pcsc_lite_over_requester_global_->Detach();
     pcsc_lite_over_requester_global_.release();
 
@@ -338,24 +333,25 @@ class PpInstance final : public pp::Instance {
         : ui_bridge_(ui_bridge),
           built_in_pin_dialog_server_(built_in_pin_dialog_server) {}
 
-    void HandleMessageFromUi(const pp::Var& message) override {
+    void HandleMessageFromUi(gsc::Value message) override {
       //
       // CHANGE HERE:
       // Place your custom code here:
       //
 
-      pp::VarDictionary message_dict;
-      std::string command;
-      std::string error_message;
-      if (gsc::VarAs(message, &message_dict, &error_message) &&
-          gsc::GetVarDictValueAs(message_dict, /*key=*/"command", &command,
-                                 &error_message) &&
-          command == "run_test") {
-        OnRunTestCommandReceived();
-        return;
+      if (message.is_dictionary()) {
+        const gsc::Value* const command_value =
+            message.GetDictionaryItem("command");
+        if (command_value && command_value->is_string()) {
+          const std::string& command = command_value->GetString();
+          if (command == "run_test") {
+            OnRunTestCommandReceived();
+            return;
+          }
+        }
       }
       GOOGLE_SMART_CARD_LOG_ERROR << "Unexpected message from UI: "
-                                  << gsc::DebugDumpVar(message);
+                                  << gsc::DebugDumpValueSanitized(message);
     }
 
    private:
@@ -403,8 +399,9 @@ class PpInstance final : public pp::Instance {
       std::shared_ptr<UiBridge> locked_ui_bridge = ui_bridge_.lock();
       if (!locked_ui_bridge)
         return;
-      locked_ui_bridge->SendMessageToUi(
-          gsc::VarDictBuilder().Add("output_message", text).Result());
+      gsc::Value message(gsc::Value::Type::kDictionary);
+      message.SetDictionaryItem("output_message", text);
+      locked_ui_bridge->SendMessageToUi(std::move(message));
     }
 
     std::weak_ptr<UiBridge> ui_bridge_;
@@ -434,6 +431,11 @@ class PpInstance final : public pp::Instance {
     ReportAvailableCertificates(chrome_certificate_provider_api_bridge);
   }
 
+  // Global context that proxies webport-specific operations.
+  //
+  // The stored pointer is leaked intentionally in the class destructor - see
+  // its comment for the justification.
+  std::unique_ptr<gsc::GlobalContextImplNacl> global_context_;
   // Mutex that enforces that all requests are handled sequentially.
   const std::shared_ptr<std::mutex> request_handling_mutex_;
   // Router of the incoming typed messages that passes incoming messages to the

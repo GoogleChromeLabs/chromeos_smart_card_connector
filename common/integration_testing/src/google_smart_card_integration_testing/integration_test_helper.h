@@ -17,10 +17,9 @@
 
 #include <string>
 
-#include <ppapi/cpp/core.h>
-#include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/request_receiver.h>
 
@@ -48,8 +47,7 @@ class IntegrationTestHelper {
   virtual ~IntegrationTestHelper() = default;
 
   virtual std::string GetName() const = 0;
-  virtual void SetUp(pp::Instance* /*pp_instance*/,
-                     pp::Core* /*pp_core*/,
+  virtual void SetUp(GlobalContext* /*global_context*/,
                      TypedMessageRouter* /*typed_message_router*/,
                      const pp::Var& /*data*/) {}
   virtual void TearDown() {}

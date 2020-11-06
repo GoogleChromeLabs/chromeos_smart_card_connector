@@ -28,8 +28,7 @@
 
 #include <memory>
 
-#include <ppapi/cpp/instance.h>
-
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 
 namespace google_smart_card {
@@ -46,7 +45,7 @@ namespace google_smart_card {
 class PcscLiteServerClientsManagementBackend final {
  public:
   PcscLiteServerClientsManagementBackend(
-      pp::Instance* pp_instance,
+      GlobalContext* global_context,
       TypedMessageRouter* typed_message_router);
 
   PcscLiteServerClientsManagementBackend(

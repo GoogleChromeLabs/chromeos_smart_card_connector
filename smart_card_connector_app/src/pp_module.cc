@@ -24,12 +24,14 @@
 #include <ppapi/cpp/var.h>
 
 #include <google_smart_card_common/external_logs_printer.h>
+#include <google_smart_card_common/global_context_impl_nacl.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/nacl_io_utils.h>
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/pp_var_utils/debug_dump.h>
+#include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
@@ -50,10 +52,11 @@ class PpInstance final : public pp::Instance {
  public:
   explicit PpInstance(PP_Instance instance)
       : pp::Instance(instance),
+        global_context_(
+            MakeUnique<GlobalContextImplNacl>(pp::Module::Get()->core(), this)),
         libusb_over_chrome_usb_global_(
-            new LibusbOverChromeUsbGlobal(&typed_message_router_,
-                                          this,
-                                          pp::Module::Get()->core())),
+            MakeUnique<LibusbOverChromeUsbGlobal>(global_context_.get(),
+                                                  &typed_message_router_)),
         pcsc_lite_server_global_(new PcscLiteServerGlobal(this)) {
     typed_message_router_.AddRoute(&external_logs_printer_);
 
@@ -63,12 +66,12 @@ class PpInstance final : public pp::Instance {
   ~PpInstance() override {
     typed_message_router_.RemoveRoute(&external_logs_printer_);
 
-    // Detach the LibusbNaclGlobal and leak it intentionally, so that any
-    // concurrent libusb_* function calls still don't result in UB.
+    // Intentionally leak objects that might still be used by background
+    // threads. Only detach them from `this` and the JavaScript side.
+    global_context_->DisableJsCommunication();
+    global_context_.release();
     libusb_over_chrome_usb_global_->Detach();
     libusb_over_chrome_usb_global_.release();
-    // Detach the PcscLiteServerGlobal and leak it intentionally to allow
-    // graceful shutdown (because of possible concurrent calls).
     pcsc_lite_server_global_->Detach();
     pcsc_lite_server_global_.release();
   }
@@ -100,7 +103,7 @@ class PpInstance final : public pp::Instance {
     pcsc_lite_server_global_->InitializeAndRunDaemonThread();
 
     pcsc_lite_server_clients_management_backend_.reset(
-        new PcscLiteServerClientsManagementBackend(this,
+        new PcscLiteServerClientsManagementBackend(global_context_.get(),
                                                    &typed_message_router_));
 
     GOOGLE_SMART_CARD_LOG_DEBUG << "All services are successfully "
@@ -115,6 +118,7 @@ class PpInstance final : public pp::Instance {
     PostMessage(ConvertValueToPpVar(ready_message_value));
   }
 
+  std::unique_ptr<GlobalContextImplNacl> global_context_;
   TypedMessageRouter typed_message_router_;
   ExternalLogsPrinter external_logs_printer_{kJsLogsHandlerMessageType};
   std::unique_ptr<LibusbOverChromeUsbGlobal> libusb_over_chrome_usb_global_;

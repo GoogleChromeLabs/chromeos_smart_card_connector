@@ -32,8 +32,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <ppapi/cpp/instance.h>
-
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/js_request_receiver.h>
@@ -84,7 +83,7 @@ namespace google_smart_card {
 // the same thread.
 class PcscLiteServerClientsManager final {
  public:
-  PcscLiteServerClientsManager(pp::Instance* pp_instance,
+  PcscLiteServerClientsManager(GlobalContext* global_context,
                                TypedMessageRouter* typed_message_router);
 
   PcscLiteServerClientsManager(const PcscLiteServerClientsManager&) = delete;
@@ -138,7 +137,7 @@ class PcscLiteServerClientsManager final {
    public:
     Handler(int64_t handler_id,
             const optional<std::string>& client_app_id,
-            pp::Instance* pp_instance,
+            GlobalContext* global_context,
             TypedMessageRouter* typed_message_router);
     Handler(const Handler&) = delete;
 
@@ -164,7 +163,7 @@ class PcscLiteServerClientsManager final {
   void DeleteHandler(int64_t client_handler_id);
   void DeleteAllHandlers();
 
-  pp::Instance* pp_instance_;
+  GlobalContext* const global_context_;
   TypedMessageRouter* typed_message_router_;
   CreateHandlerMessageListener create_handler_message_listener_;
   DeleteHandlerMessageListener delete_handler_message_listener_;

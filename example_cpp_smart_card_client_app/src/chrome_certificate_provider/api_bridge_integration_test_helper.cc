@@ -23,6 +23,7 @@
 #include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/pp_var_utils/debug_dump.h>
@@ -83,8 +84,7 @@ class ApiBridgeIntegrationTestHelper final : public gsc::IntegrationTestHelper {
  public:
   // IntegrationTestHelper:
   std::string GetName() const override;
-  void SetUp(pp::Instance* pp_instance,
-             pp::Core* pp_core,
+  void SetUp(gsc::GlobalContext* global_context,
              gsc::TypedMessageRouter* typed_message_router,
              const pp::Var& data) override;
   void TearDown() override;
@@ -109,12 +109,11 @@ std::string ApiBridgeIntegrationTestHelper::GetName() const {
 }
 
 void ApiBridgeIntegrationTestHelper::SetUp(
-    pp::Instance* pp_instance,
-    pp::Core* pp_core,
+    gsc::GlobalContext* global_context,
     gsc::TypedMessageRouter* typed_message_router,
     const pp::Var& /*data*/) {
   api_bridge_ =
-      std::make_shared<ApiBridge>(typed_message_router, pp_instance, pp_core,
+      std::make_shared<ApiBridge>(global_context, typed_message_router,
                                   /*request_handling_mutex=*/nullptr);
 }
 

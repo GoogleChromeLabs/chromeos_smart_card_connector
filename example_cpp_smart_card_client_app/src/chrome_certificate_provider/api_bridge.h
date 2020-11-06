@@ -26,11 +26,10 @@
 #include <string>
 #include <vector>
 
-#include <ppapi/cpp/core.h>
-#include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/var.h>
 #include <ppapi/cpp/var_array.h>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/js_request_receiver.h>
 #include <google_smart_card_common/requesting/js_requester.h>
@@ -89,12 +88,12 @@ class ApiBridge final : public google_smart_card::RequestHandler {
   // messages through the supplied TypedMessageRouter typed_message_router
   // instance.
   //
+  // |global_context| - must outlive |this|.
   // The |request_handling_mutex| parameter, when non-null, allows to avoid
   // simultaneous execution of multiple requests: each next request will be
   // executed only once the previous one finishes.
-  ApiBridge(google_smart_card::TypedMessageRouter* typed_message_router,
-            pp::Instance* pp_instance,
-            pp::Core* pp_core,
+  ApiBridge(google_smart_card::GlobalContext* global_context,
+            google_smart_card::TypedMessageRouter* typed_message_router,
             std::shared_ptr<std::mutex> request_handling_mutex);
 
   ApiBridge(const ApiBridge&) = delete;

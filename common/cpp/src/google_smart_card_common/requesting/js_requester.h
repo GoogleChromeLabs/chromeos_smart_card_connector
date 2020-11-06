@@ -19,15 +19,11 @@
 #include <memory>
 #include <string>
 
-#include <ppapi/cpp/core.h>
-#include <ppapi/cpp/instance.h>
-#include <ppapi/cpp/var.h>
-
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/requester.h>
 #include <google_smart_card_common/requesting/requester_message.h>
-#include <google_smart_card_common/thread_safe_unique_ptr.h>
 #include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
@@ -44,46 +40,18 @@ namespace google_smart_card {
 // instance.
 class JsRequester final : public Requester, public TypedMessageListener {
  public:
-  // Delegate that is used for interactions with the Pepper APIs that are tied
-  // to Pepper modules and instances.
-  //
-  // The main reason for existence of this class is testing purposes.
-  class PpDelegate {
-   public:
-    virtual ~PpDelegate() = default;
-
-    virtual void PostMessage(const pp::Var& message) = 0;
-    virtual bool IsMainThread() = 0;
-  };
-
-  // Implementation of the delegate that talks to the real Pepper core and
-  // instance objects.
-  class PpDelegateImpl final : public PpDelegate {
-   public:
-    PpDelegateImpl(pp::Instance* pp_instance, pp::Core* pp_core);
-    PpDelegateImpl(const PpDelegateImpl&) = delete;
-    PpDelegateImpl& operator=(const PpDelegateImpl&) = delete;
-    ~PpDelegateImpl();
-
-    void PostMessage(const pp::Var& message) override;
-    bool IsMainThread() override;
-
-   private:
-    pp::Instance* const pp_instance_;
-    pp::Core* const pp_core_;
-  };
-
   // Creates a new requester.
   //
   // Adds a new route into the passed TypedMessageRouter for receiving the
   // responses messages.
   //
+  // `global_context` - must outlive `this`.
   // Note that the passed TypedMessageRouter is allowed to be destroyed earlier
   // than the JsRequester object - but the Detach() method must be called before
   // destroying it.
   JsRequester(const std::string& name,
-              TypedMessageRouter* typed_message_router,
-              std::unique_ptr<PpDelegate> pp_delegate);
+              GlobalContext* global_context,
+              TypedMessageRouter* typed_message_router);
 
   JsRequester(const JsRequester&) = delete;
   JsRequester& operator=(const JsRequester&) = delete;
@@ -107,11 +75,8 @@ class JsRequester final : public Requester, public TypedMessageListener {
   std::string GetListenedMessageType() const override;
   bool OnTypedMessageReceived(Value data) override;
 
-  bool PostPpMessage(const pp::Var& message);
-  bool IsMainPpThread() const;
-
+  GlobalContext* const global_context_;
   std::atomic<TypedMessageRouter*> typed_message_router_;
-  ThreadSafeUniquePtr<PpDelegate> pp_delegate_;
 };
 
 }  // namespace google_smart_card

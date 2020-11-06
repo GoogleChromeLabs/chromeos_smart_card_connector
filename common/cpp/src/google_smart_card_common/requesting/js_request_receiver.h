@@ -19,16 +19,13 @@
 #include <memory>
 #include <string>
 
-#include <ppapi/cpp/instance.h>
-#include <ppapi/cpp/var.h>
-
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/request_handler.h>
 #include <google_smart_card_common/requesting/request_id.h>
 #include <google_smart_card_common/requesting/request_receiver.h>
 #include <google_smart_card_common/requesting/request_result.h>
-#include <google_smart_card_common/thread_safe_unique_ptr.h>
 #include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
@@ -46,41 +43,14 @@ namespace google_smart_card {
 class JsRequestReceiver final : public RequestReceiver,
                                 public TypedMessageListener {
  public:
-  // Delegate that is used for interactions with the Pepper APIs that are tied
-  // to Pepper modules and instances.
-  //
-  // The main reason for existence of this class is testing purposes.
-  class PpDelegate {
-   public:
-    virtual ~PpDelegate() = default;
-
-    virtual void PostMessage(const pp::Var& message) = 0;
-  };
-
-  // Implementation of the delegate that talks to the real Pepper instance
-  // object.
-  class PpDelegateImpl final : public PpDelegate {
-   public:
-    explicit PpDelegateImpl(pp::Instance* pp_instance);
-    PpDelegateImpl(const PpDelegateImpl&) = delete;
-    PpDelegateImpl& operator=(const PpDelegateImpl&) = delete;
-    ~PpDelegateImpl();
-
-    // PpDelegate:
-    void PostMessage(const pp::Var& message) override;
-
-   private:
-    pp::Instance* const pp_instance_;
-  };
-
   // Creates a new request receiver.
   //
   // Adds a new route into the passed TypedMessageRouter for receiving the
   // requests messages.
   JsRequestReceiver(const std::string& name,
                     RequestHandler* request_handler,
-                    TypedMessageRouter* typed_message_router,
-                    std::unique_ptr<PpDelegate> pp_delegate);
+                    GlobalContext* global_context,
+                    TypedMessageRouter* typed_message_router);
 
   JsRequestReceiver(const JsRequestReceiver&) = delete;
   JsRequestReceiver& operator=(const JsRequestReceiver&) = delete;
@@ -103,10 +73,8 @@ class JsRequestReceiver final : public RequestReceiver,
   std::string GetListenedMessageType() const override;
   bool OnTypedMessageReceived(Value data) override;
 
-  void PostResultMessage(const pp::Var& message);
-
+  GlobalContext* const global_context_;
   std::atomic<TypedMessageRouter*> typed_message_router_;
-  ThreadSafeUniquePtr<PpDelegate> pp_delegate_;
 };
 
 }  // namespace google_smart_card
