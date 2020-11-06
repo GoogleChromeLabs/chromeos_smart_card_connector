@@ -16,15 +16,12 @@
 
 #include <utility>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/requesting/requester_message.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -67,11 +64,9 @@ std::string JsRequestReceiver::GetListenedMessageType() const {
 }
 
 bool JsRequestReceiver::OnTypedMessageReceived(Value data) {
-  const RequestMessageData message_data =
+  RequestMessageData message_data =
       ConvertFromValueOrDie<RequestMessageData>(std::move(data));
-  // TODO(#185): Directly pass `Value` instead of `pp::Var`.
-  HandleRequest(message_data.request_id,
-                ConvertValueToPpVar(message_data.payload));
+  HandleRequest(message_data.request_id, std::move(message_data.payload));
   return true;
 }
 
