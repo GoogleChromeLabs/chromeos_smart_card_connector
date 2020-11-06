@@ -18,17 +18,14 @@
 #include <thread>
 #include <utility>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/pp_var_utils/debug_dump.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
+#include <google_smart_card_common/value_debug_dumping.h>
 
 namespace gsc = google_smart_card;
 
@@ -40,7 +37,7 @@ constexpr char kIncomingMessageType[] = "ui_backend";
 constexpr char kOutgoingMessageType[] = "ui";
 
 void ProcessMessageFromUi(
-    const pp::Var& data,
+    gsc::Value data,
     std::weak_ptr<MessageFromUiHandler> message_from_ui_handler,
     std::shared_ptr<std::mutex> request_handling_mutex) {
   std::unique_lock<std::mutex> lock;
@@ -48,7 +45,7 @@ void ProcessMessageFromUi(
     lock = std::unique_lock<std::mutex>(*request_handling_mutex);
 
   GOOGLE_SMART_CARD_LOG_DEBUG << "Processing message from UI: "
-                              << gsc::DebugDumpVar(data);
+                              << gsc::DebugDumpValueSanitized(data);
   std::shared_ptr<MessageFromUiHandler> locked_handler =
       message_from_ui_handler.lock();
   if (!locked_handler) {
@@ -56,7 +53,7 @@ void ProcessMessageFromUi(
         << "Ignoring message from UI: module shut down";
     return;
   }
-  locked_handler->HandleMessageFromUi(data);
+  locked_handler->HandleMessageFromUi(std::move(data));
 }
 
 }  // namespace
@@ -91,11 +88,10 @@ void UiBridge::RemoveHandler() {
   message_from_ui_handler_.reset();
 }
 
-void UiBridge::SendMessageToUi(const pp::Var& message) {
+void UiBridge::SendMessageToUi(gsc::Value message) {
   gsc::TypedMessage typed_message;
   typed_message.type = kOutgoingMessageType;
-  // TODO: Receive `Value` instead of transforming from `pp::Var`.
-  typed_message.data = gsc::ConvertPpVarToValueOrDie(message);
+  typed_message.data = std::move(message);
   gsc::Value typed_message_value =
       gsc::ConvertToValueOrDie(std::move(typed_message));
   global_context_->PostMessageToJs(typed_message_value);
@@ -106,9 +102,7 @@ std::string UiBridge::GetListenedMessageType() const {
 }
 
 bool UiBridge::OnTypedMessageReceived(gsc::Value data) {
-  // TODO: Use `Value` directly instead of transforming into `pp::Var`.
-  const pp::Var data_var = gsc::ConvertValueToPpVar(data);
-  std::thread(&ProcessMessageFromUi, data_var, message_from_ui_handler_,
+  std::thread(&ProcessMessageFromUi, std::move(data), message_from_ui_handler_,
               request_handling_mutex_)
       .detach();
   return true;

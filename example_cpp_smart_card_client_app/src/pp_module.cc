@@ -38,10 +38,8 @@
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/debug_dump.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_debug_dumping.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 #include <google_smart_card_pcsc_lite_client/global.h>
 #include <google_smart_card_pcsc_lite_cpp_demo/demo.h>
@@ -335,24 +333,25 @@ class PpInstance final : public pp::Instance {
         : ui_bridge_(ui_bridge),
           built_in_pin_dialog_server_(built_in_pin_dialog_server) {}
 
-    void HandleMessageFromUi(const pp::Var& message) override {
+    void HandleMessageFromUi(gsc::Value message) override {
       //
       // CHANGE HERE:
       // Place your custom code here:
       //
 
-      pp::VarDictionary message_dict;
-      std::string command;
-      std::string error_message;
-      if (gsc::VarAs(message, &message_dict, &error_message) &&
-          gsc::GetVarDictValueAs(message_dict, /*key=*/"command", &command,
-                                 &error_message) &&
-          command == "run_test") {
-        OnRunTestCommandReceived();
-        return;
+      if (message.is_dictionary()) {
+        const gsc::Value* const command_value =
+            message.GetDictionaryItem("command");
+        if (command_value && command_value->is_string()) {
+          const std::string& command = command_value->GetString();
+          if (command == "run_test") {
+            OnRunTestCommandReceived();
+            return;
+          }
+        }
       }
       GOOGLE_SMART_CARD_LOG_ERROR << "Unexpected message from UI: "
-                                  << gsc::DebugDumpVar(message);
+                                  << gsc::DebugDumpValueSanitized(message);
     }
 
    private:
@@ -400,8 +399,9 @@ class PpInstance final : public pp::Instance {
       std::shared_ptr<UiBridge> locked_ui_bridge = ui_bridge_.lock();
       if (!locked_ui_bridge)
         return;
-      locked_ui_bridge->SendMessageToUi(
-          gsc::VarDictBuilder().Add("output_message", text).Result());
+      gsc::Value message(gsc::Value::Type::kDictionary);
+      message.SetDictionaryItem("output_message", text);
+      locked_ui_bridge->SendMessageToUi(std::move(message));
     }
 
     std::weak_ptr<UiBridge> ui_bridge_;

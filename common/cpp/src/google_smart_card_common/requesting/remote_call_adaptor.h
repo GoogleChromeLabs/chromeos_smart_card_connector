@@ -18,17 +18,12 @@
 #include <string>
 #include <utility>
 
-#include <ppapi/cpp/var.h>
-#include <ppapi/cpp/var_array.h>
-
 #include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/async_request.h>
 #include <google_smart_card_common/requesting/remote_call_arguments_conversion.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/requesting/requester.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -73,37 +68,30 @@ class RemoteCallAdaptor final {
   }
 
   template <typename... PayloadFields>
-  static bool ExtractResultPayload(
-      const GenericRequestResult& generic_request_result,
-      std::string* error_message,
-      PayloadFields*... payload_fields) {
-    // TODO(emaxx): Probably add details about the function call into the error
-    // messages?
+  static bool ExtractResultPayload(GenericRequestResult generic_request_result,
+                                   std::string* error_message,
+                                   PayloadFields*... payload_fields) {
+    // TODO(#233): Receive the function name as a parameter, and use it in both
+    // `error_message` here and in `RemoteCallArgumentsExtractor` below.
     if (!generic_request_result.is_successful()) {
       *error_message = generic_request_result.error_message();
       return false;
     }
-    // TODO(#185): Parse `Value` diectly, without converting to `pp::Var`.
-    pp::Var payload_var = ConvertValueToPpVar(generic_request_result.payload());
-    pp::VarArray var_array;
-    if (!VarAs(payload_var, &var_array, error_message)) {
-      GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response "
-                                  << "payload items: " << *error_message;
-    }
-    if (!TryGetVarArrayItems(var_array, error_message, payload_fields...)) {
-      GOOGLE_SMART_CARD_LOG_FATAL << "Failed to extract the response "
-                                  << "payload items: " << *error_message;
-    }
-    return true;
+    RemoteCallArgumentsExtractor extractor(
+        "unknown_function", std::move(generic_request_result).TakePayload());
+    extractor.Extract(payload_fields...);
+    if (!extractor.success() && error_message)
+      *error_message = extractor.error_message();
+    return extractor.success();
   }
 
   template <typename PayloadType, typename... PayloadFields>
   static RequestResult<PayloadType> ConvertResultPayload(
-      const GenericRequestResult& generic_request_result,
+      GenericRequestResult generic_request_result,
       PayloadType* payload_in_case_of_success,
       PayloadFields*... payload_fields) {
     std::string error_message;
-    if (!ExtractResultPayload(generic_request_result, &error_message,
+    if (!ExtractResultPayload(std::move(generic_request_result), &error_message,
                               payload_fields...)) {
       return RequestResult<PayloadType>::CreateFailed(error_message);
     }

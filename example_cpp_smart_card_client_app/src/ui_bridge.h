@@ -20,8 +20,6 @@
 
 #include <atomic>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
@@ -34,7 +32,7 @@ class MessageFromUiHandler {
  public:
   virtual ~MessageFromUiHandler() = default;
 
-  virtual void HandleMessageFromUi(const pp::Var& message) = 0;
+  virtual void HandleMessageFromUi(google_smart_card::Value message) = 0;
 };
 
 // This class provides a C++ bridge for sending/receiving messages to/from the
@@ -66,7 +64,7 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
   // Sends a message to UI.
   //
   // Note that if the UI is currently closed, the message is silently discarded.
-  void SendMessageToUi(const pp::Var& message);
+  void SendMessageToUi(google_smart_card::Value message);
 
   // google_smart_card::TypedMessageListener:
   std::string GetListenedMessageType() const override;
