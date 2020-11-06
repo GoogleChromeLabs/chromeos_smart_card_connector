@@ -20,7 +20,6 @@
 #include <utility>
 #include <vector>
 
-#include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/var.h>
 #include <ppapi/cpp/var_array.h>
 
@@ -62,26 +61,17 @@ IntegrationTestHelper* IntegrationTestService::RegisterHelper(
 
 void IntegrationTestService::Activate(
     GlobalContext* global_context,
-    pp::Instance* pp_instance,
-    pp::Core* pp_core,
     TypedMessageRouter* typed_message_router) {
   GOOGLE_SMART_CARD_CHECK(global_context);
-  GOOGLE_SMART_CARD_CHECK(pp_instance);
-  GOOGLE_SMART_CARD_CHECK(pp_core);
   GOOGLE_SMART_CARD_CHECK(typed_message_router);
   GOOGLE_SMART_CARD_CHECK(!global_context_);
-  GOOGLE_SMART_CARD_CHECK(!pp_instance_);
-  GOOGLE_SMART_CARD_CHECK(!pp_core_);
   GOOGLE_SMART_CARD_CHECK(!typed_message_router_);
   GOOGLE_SMART_CARD_CHECK(!js_request_receiver_);
   global_context_ = global_context;
-  pp_instance_ = pp_instance;
-  pp_core_ = pp_core;
   typed_message_router_ = typed_message_router;
   js_request_receiver_ = std::make_shared<JsRequestReceiver>(
       kIntegrationTestServiceRequesterName,
-      /*request_handler=*/this, typed_message_router_,
-      MakeUnique<JsRequestReceiver::PpDelegateImpl>(pp_instance_));
+      /*request_handler=*/this, global_context_, typed_message_router_);
 }
 
 void IntegrationTestService::Deactivate() {
@@ -89,8 +79,6 @@ void IntegrationTestService::Deactivate() {
   TearDownAllHelpers();
   js_request_receiver_.reset();
   typed_message_router_ = nullptr;
-  pp_core_ = nullptr;
-  pp_instance_ = nullptr;
 }
 
 void IntegrationTestService::HandleRequest(
@@ -145,8 +133,7 @@ void IntegrationTestService::SetUpHelper(const std::string& helper_name,
     GOOGLE_SMART_CARD_LOG_FATAL << "Unknown helper " << helper_name;
   GOOGLE_SMART_CARD_CHECK(!set_up_helpers_.count(helper));
   set_up_helpers_.insert(helper);
-  helper->SetUp(global_context_, pp_instance_, pp_core_, typed_message_router_,
-                data_for_helper);
+  helper->SetUp(global_context_, typed_message_router_, data_for_helper);
 }
 
 void IntegrationTestService::TearDownAllHelpers() {

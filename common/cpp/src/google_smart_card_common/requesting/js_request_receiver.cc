@@ -18,6 +18,7 @@
 
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/requesting/requester_message.h>
@@ -27,26 +28,15 @@
 
 namespace google_smart_card {
 
-JsRequestReceiver::PpDelegateImpl::PpDelegateImpl(pp::Instance* pp_instance)
-    : pp_instance_(pp_instance) {
-  GOOGLE_SMART_CARD_CHECK(pp_instance);
-}
-
-JsRequestReceiver::PpDelegateImpl::~PpDelegateImpl() = default;
-
-void JsRequestReceiver::PpDelegateImpl::PostMessage(const pp::Var& message) {
-  pp_instance_->PostMessage(message);
-}
-
 JsRequestReceiver::JsRequestReceiver(const std::string& name,
                                      RequestHandler* request_handler,
-                                     TypedMessageRouter* typed_message_router,
-                                     std::unique_ptr<PpDelegate> pp_delegate)
+                                     GlobalContext* global_context,
+                                     TypedMessageRouter* typed_message_router)
     : RequestReceiver(name, request_handler),
-      typed_message_router_(typed_message_router),
-      pp_delegate_(std::move(pp_delegate)) {
-  GOOGLE_SMART_CARD_CHECK(typed_message_router);
-  GOOGLE_SMART_CARD_CHECK(pp_delegate_);
+      global_context_(global_context),
+      typed_message_router_(typed_message_router) {
+  GOOGLE_SMART_CARD_CHECK(global_context_);
+  GOOGLE_SMART_CARD_CHECK(typed_message_router_);
   typed_message_router->AddRoute(this);
 }
 
@@ -59,8 +49,6 @@ void JsRequestReceiver::Detach() {
       typed_message_router_.exchange(nullptr);
   if (typed_message_router)
     typed_message_router->RemoveRoute(this);
-
-  pp_delegate_.Reset();
 }
 
 void JsRequestReceiver::PostResult(RequestId request_id,
@@ -70,9 +58,8 @@ void JsRequestReceiver::PostResult(RequestId request_id,
   message.data =
       ConvertToValueOrDie(ResponseMessageData::CreateFromRequestResult(
           request_id, std::move(request_result)));
-  Value message_value = ConvertToValueOrDie(std::move(message));
-  // TODO(#185): Directly post `Value` instead of `pp::Var`.
-  PostResultMessage(ConvertValueToPpVar(message_value));
+  const Value message_value = ConvertToValueOrDie(std::move(message));
+  global_context_->PostMessageToJs(message_value);
 }
 
 std::string JsRequestReceiver::GetListenedMessageType() const {
@@ -86,16 +73,6 @@ bool JsRequestReceiver::OnTypedMessageReceived(Value data) {
   HandleRequest(message_data.request_id,
                 ConvertValueToPpVar(message_data.payload));
   return true;
-}
-
-void JsRequestReceiver::PostResultMessage(const pp::Var& message) {
-  const ThreadSafeUniquePtr<PpDelegate>::Locked pp_delegate =
-      pp_delegate_.Lock();
-  if (!pp_delegate) {
-    // TODO(emaxx): Add some logging?..
-    return;
-  }
-  pp_delegate->PostMessage(message);
 }
 
 }  // namespace google_smart_card

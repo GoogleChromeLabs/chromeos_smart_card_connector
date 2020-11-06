@@ -151,7 +151,6 @@ class PpInstance final : public pp::Instance {
         chrome_certificate_provider_api_bridge_(
             new ccp::ApiBridge(global_context_.get(),
                                &typed_message_router_,
-                               this,
                                request_handling_mutex_)),
         ui_bridge_(new UiBridge(&typed_message_router_,
                                 this,

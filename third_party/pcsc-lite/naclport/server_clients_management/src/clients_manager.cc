@@ -34,6 +34,7 @@
 #include <ppapi/cpp/var.h>
 
 #include <google_smart_card_common/formatting.h>
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/pp_var_utils/struct_converter.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
@@ -114,14 +115,14 @@ void StructConverter<DeleteHandlerMessageData>::VisitFields(
 }
 
 PcscLiteServerClientsManager::PcscLiteServerClientsManager(
-    pp::Instance* pp_instance,
+    GlobalContext* global_context,
     TypedMessageRouter* typed_message_router)
-    : pp_instance_(pp_instance),
+    : global_context_(global_context),
       typed_message_router_(typed_message_router),
       create_handler_message_listener_(this),
       delete_handler_message_listener_(this) {
-  GOOGLE_SMART_CARD_CHECK(pp_instance);
-  GOOGLE_SMART_CARD_CHECK(typed_message_router);
+  GOOGLE_SMART_CARD_CHECK(global_context_);
+  GOOGLE_SMART_CARD_CHECK(typed_message_router_);
 
   typed_message_router_->AddRoute(&create_handler_message_listener_);
   typed_message_router_->AddRoute(&delete_handler_message_listener_);
@@ -136,7 +137,6 @@ void PcscLiteServerClientsManager::Detach() {
   typed_message_router_->RemoveRoute(&create_handler_message_listener_);
   typed_message_router_->RemoveRoute(&delete_handler_message_listener_);
   DeleteAllHandlers();
-  pp_instance_ = nullptr;
   typed_message_router_ = nullptr;
 }
 
@@ -198,7 +198,7 @@ bool PcscLiteServerClientsManager::DeleteHandlerMessageListener ::
 PcscLiteServerClientsManager::Handler::Handler(
     int64_t handler_id,
     const optional<std::string>& client_app_id,
-    pp::Instance* pp_instance,
+    GlobalContext* global_context,
     TypedMessageRouter* typed_message_router)
     : handler_id_(handler_id),
       client_app_id_(client_app_id),
@@ -209,8 +209,8 @@ PcscLiteServerClientsManager::Handler::Handler(
                                "_call_function",
                                handler_id),
           this,
-          typed_message_router,
-          MakeUnique<JsRequestReceiver::PpDelegateImpl>(pp_instance))) {}
+          global_context,
+          typed_message_router)) {}
 
 PcscLiteServerClientsManager::Handler::~Handler() {
   // Cancel long-running PC/SC-Lite requests that are currently processed by
@@ -246,7 +246,7 @@ void PcscLiteServerClientsManager::CreateHandler(
     int64_t handler_id,
     const optional<std::string>& client_app_id) {
   std::unique_ptr<Handler> handler(new Handler(
-      handler_id, client_app_id, pp_instance_, typed_message_router_));
+      handler_id, client_app_id, global_context_, typed_message_router_));
   if (!handler_map_.emplace(handler_id, std::move(handler)).second) {
     GOOGLE_SMART_CARD_LOG_FATAL << kLoggingPrefix << "Failed to create a "
                                 << "new client handler with id " << handler_id

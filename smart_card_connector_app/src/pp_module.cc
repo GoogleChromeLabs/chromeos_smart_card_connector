@@ -103,7 +103,7 @@ class PpInstance final : public pp::Instance {
     pcsc_lite_server_global_->InitializeAndRunDaemonThread();
 
     pcsc_lite_server_clients_management_backend_.reset(
-        new PcscLiteServerClientsManagementBackend(this,
+        new PcscLiteServerClientsManagementBackend(global_context_.get(),
                                                    &typed_message_router_));
 
     GOOGLE_SMART_CARD_LOG_DEBUG << "All services are successfully "

@@ -42,8 +42,7 @@ class IntegrationTestPpInstance final : public pp::Instance {
   explicit IntegrationTestPpInstance(PP_Instance instance)
       : pp::Instance(instance),
         global_context_(pp::Module::Get()->core(), this) {
-    IntegrationTestService::GetInstance()->Activate(&global_context_, this,
-                                                    pp::Module::Get()->core(),
+    IntegrationTestService::GetInstance()->Activate(&global_context_,
                                                     &typed_message_router_);
   }
 
