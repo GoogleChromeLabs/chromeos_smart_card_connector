@@ -18,12 +18,13 @@
 #ifndef SMART_CARD_CLIENT_UI_BRIDGE_H_
 #define SMART_CARD_CLIENT_UI_BRIDGE_H_
 
-#include <ppapi/cpp/instance.h>
+#include <atomic>
+
 #include <ppapi/cpp/var.h>
 
+#include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/thread_safe_unique_ptr.h>
 #include <google_smart_card_common/value.h>
 
 namespace smart_card_client {
@@ -48,8 +49,8 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
   // The |request_handling_mutex| parameter, when non-null, allows to avoid
   // simultaneous execution of multiple requests: each next request will be
   // executed only once the previous one finishes.
-  UiBridge(google_smart_card::TypedMessageRouter* typed_message_router,
-           pp::Instance* pp_instance,
+  UiBridge(google_smart_card::GlobalContext* global_context,
+           google_smart_card::TypedMessageRouter* typed_message_router,
            std::shared_ptr<std::mutex> request_handling_mutex);
 
   UiBridge(const UiBridge&) = delete;
@@ -72,19 +73,8 @@ class UiBridge final : public google_smart_card::TypedMessageListener {
   bool OnTypedMessageReceived(google_smart_card::Value data) override;
 
  private:
-  struct AttachedState {
-    AttachedState(pp::Instance* pp_instance,
-                  google_smart_card::TypedMessageRouter* typed_message_router)
-        : pp_instance(pp_instance),
-          typed_message_router(typed_message_router) {}
-
-    pp::Instance* const pp_instance;
-    google_smart_card::TypedMessageRouter* const typed_message_router;
-  };
-
-  // State associated with the attached configuration. Null after Detach() is
-  // called.
-  google_smart_card::ThreadSafeUniquePtr<AttachedState> attached_state_;
+  google_smart_card::GlobalContext* const global_context_;
+  std::atomic<google_smart_card::TypedMessageRouter*> typed_message_router_;
 
   std::shared_ptr<std::mutex> request_handling_mutex_;
 
