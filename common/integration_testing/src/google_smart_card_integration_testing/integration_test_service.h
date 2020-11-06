@@ -20,8 +20,6 @@
 #include <string>
 #include <vector>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
 #include <google_smart_card_common/requesting/js_request_receiver.h>
@@ -60,11 +58,10 @@ class IntegrationTestService final : public RequestHandler {
   ~IntegrationTestService();
 
   IntegrationTestHelper* FindHelperByName(const std::string& name);
-  void SetUpHelper(const std::string& helper_name,
-                   const pp::Var& data_for_helper);
+  void SetUpHelper(const std::string& helper_name, Value data_for_helper);
   void TearDownAllHelpers();
   void SendMessageToHelper(const std::string& helper_name,
-                           const pp::Var& message_for_helper,
+                           Value message_for_helper,
                            RequestReceiver::ResultCallback result_callback);
 
   GlobalContext* global_context_ = nullptr;

@@ -20,21 +20,16 @@
 #include <utility>
 #include <vector>
 
-#include <ppapi/cpp/var.h>
-#include <ppapi/cpp/var_array.h>
-
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/pp_var_utils/debug_dump.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/js_request_receiver.h>
+#include <google_smart_card_common/requesting/remote_call_arguments_conversion.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 #include <google_smart_card_integration_testing/integration_test_helper.h>
 
 namespace google_smart_card {
@@ -86,28 +81,31 @@ void IntegrationTestService::HandleRequest(
     RequestReceiver::ResultCallback result_callback) {
   RemoteCallRequestPayload request =
       ConvertFromValueOrDie<RemoteCallRequestPayload>(std::move(payload));
-  // TODO(#185): Pass `Value`s, instead of converting into `pp::VarArray`.
-  pp::VarArray arguments_var(
-      ConvertValueToPpVar(ConvertToValueOrDie(std::move(request.arguments))));
   if (request.function_name == "SetUp") {
     std::string helper_name;
-    pp::Var data_for_helper;
-    GetVarArrayItems(arguments_var, &helper_name, &data_for_helper);
-    SetUpHelper(helper_name, data_for_helper);
+    Value data_for_helper;
+    ExtractRemoteCallArgumentsOrDie(std::move(request.function_name),
+                                    std::move(request.arguments), &helper_name,
+                                    &data_for_helper);
+    SetUpHelper(helper_name, std::move(data_for_helper));
     result_callback(GenericRequestResult::CreateSuccessful(Value()));
     return;
   }
   if (request.function_name == "TearDownAll") {
-    GOOGLE_SMART_CARD_CHECK(arguments_var.GetLength() == 0);
+    ExtractRemoteCallArgumentsOrDie(std::move(request.function_name),
+                                    std::move(request.arguments));
     TearDownAllHelpers();
     result_callback(GenericRequestResult::CreateSuccessful(Value()));
     return;
   }
   if (request.function_name == "HandleMessage") {
     std::string helper_name;
-    pp::Var message_for_helper;
-    GetVarArrayItems(arguments_var, &helper_name, &message_for_helper);
-    SendMessageToHelper(helper_name, message_for_helper, result_callback);
+    Value message_for_helper;
+    ExtractRemoteCallArgumentsOrDie(std::move(request.function_name),
+                                    std::move(request.arguments), &helper_name,
+                                    &message_for_helper);
+    SendMessageToHelper(helper_name, std::move(message_for_helper),
+                        result_callback);
     return;
   }
   GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected method " << request.function_name;
@@ -127,13 +125,14 @@ IntegrationTestHelper* IntegrationTestService::FindHelperByName(
 }
 
 void IntegrationTestService::SetUpHelper(const std::string& helper_name,
-                                         const pp::Var& data_for_helper) {
+                                         Value data_for_helper) {
   IntegrationTestHelper* helper = FindHelperByName(helper_name);
   if (!helper)
     GOOGLE_SMART_CARD_LOG_FATAL << "Unknown helper " << helper_name;
   GOOGLE_SMART_CARD_CHECK(!set_up_helpers_.count(helper));
   set_up_helpers_.insert(helper);
-  helper->SetUp(global_context_, typed_message_router_, data_for_helper);
+  helper->SetUp(global_context_, typed_message_router_,
+                std::move(data_for_helper));
 }
 
 void IntegrationTestService::TearDownAllHelpers() {
@@ -144,13 +143,13 @@ void IntegrationTestService::TearDownAllHelpers() {
 
 void IntegrationTestService::SendMessageToHelper(
     const std::string& helper_name,
-    const pp::Var& message_for_helper,
+    Value message_for_helper,
     RequestReceiver::ResultCallback result_callback) {
   IntegrationTestHelper* helper = FindHelperByName(helper_name);
   if (!helper)
     GOOGLE_SMART_CARD_LOG_FATAL << "Unknown helper " << helper_name;
   GOOGLE_SMART_CARD_CHECK(set_up_helpers_.count(helper));
-  helper->OnMessageFromJs(message_for_helper, result_callback);
+  helper->OnMessageFromJs(std::move(message_for_helper), result_callback);
 }
 
 }  // namespace google_smart_card

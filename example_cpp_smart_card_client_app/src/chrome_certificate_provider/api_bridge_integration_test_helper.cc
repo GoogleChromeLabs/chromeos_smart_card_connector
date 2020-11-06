@@ -17,21 +17,17 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
-
-#include <ppapi/cpp/core.h>
-#include <ppapi/cpp/instance.h>
-#include <ppapi/cpp/var.h>
 
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/pp_var_utils/debug_dump.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/request_receiver.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_integration_testing/integration_test_helper.h>
 #include <google_smart_card_integration_testing/integration_test_service.h>
 
@@ -86,10 +82,10 @@ class ApiBridgeIntegrationTestHelper final : public gsc::IntegrationTestHelper {
   std::string GetName() const override;
   void SetUp(gsc::GlobalContext* global_context,
              gsc::TypedMessageRouter* typed_message_router,
-             const pp::Var& data) override;
+             gsc::Value data) override;
   void TearDown() override;
   void OnMessageFromJs(
-      const pp::Var& data,
+      gsc::Value data,
       gsc::RequestReceiver::ResultCallback result_callback) override;
 
  private:
@@ -111,7 +107,7 @@ std::string ApiBridgeIntegrationTestHelper::GetName() const {
 void ApiBridgeIntegrationTestHelper::SetUp(
     gsc::GlobalContext* global_context,
     gsc::TypedMessageRouter* typed_message_router,
-    const pp::Var& /*data*/) {
+    gsc::Value /*data*/) {
   api_bridge_ =
       std::make_shared<ApiBridge>(global_context, typed_message_router,
                                   /*request_handling_mutex=*/nullptr);
@@ -123,12 +119,9 @@ void ApiBridgeIntegrationTestHelper::TearDown() {
 }
 
 void ApiBridgeIntegrationTestHelper::OnMessageFromJs(
-    const pp::Var& data,
+    gsc::Value data,
     gsc::RequestReceiver::ResultCallback result_callback) {
-  std::string command;
-  std::string error_message;
-  if (!gsc::VarAs(data, &command, &error_message))
-    GOOGLE_SMART_CARD_LOG_FATAL << "Unexpected message " << gsc::DumpVar(data);
+  const std::string command = gsc::ConvertFromValueOrDie<std::string>(std::move(data));
   if (command == "setCertificates_empty") {
     ScheduleSetCertificatesCall(/*certificates=*/{}, result_callback);
   } else if (command == "setCertificates_fakeCerts") {

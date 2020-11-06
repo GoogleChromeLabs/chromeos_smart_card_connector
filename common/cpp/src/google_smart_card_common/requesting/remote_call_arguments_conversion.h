@@ -176,6 +176,37 @@ class RemoteCallArgumentsExtractor final {
   std::string error_message_;
 };
 
+// Shortcut method for converting the given list of arguments via
+// `RemoteCallArgumentsExtractor`.
+template <typename... Args>
+bool ExtractRemoteCallArguments(std::string function_name,
+                                std::vector<Value> argument_values,
+                                std::string* error_message,
+                                Args... args) {
+  RemoteCallArgumentsExtractor extractor(std::move(function_name),
+                                         std::move(argument_values));
+  extractor.Extract(args...);
+  if (extractor.Finish())
+    return true;
+  if (error_message)
+    *error_message = extractor.error_message();
+  return false;
+}
+
+// Shortcut method for converting the given list of arguments via
+// `RemoteCallArgumentsExtractor`, with immediately crashing the program on
+// failures.
+template <typename... Args>
+void ExtractRemoteCallArgumentsOrDie(std::string function_name,
+                                     std::vector<Value> argument_values,
+                                     Args... args) {
+  std::string error_message;
+  if (!ExtractRemoteCallArguments(std::move(function_name),
+                                  std::move(argument_values), &error_message,
+                                  args...))
+    GOOGLE_SMART_CARD_LOG_FATAL << error_message;
+}
+
 }  // namespace google_smart_card
 
 #endif  // GOOGLE_SMART_CARD_COMMON_REQUESTING_REMOTE_CALL_ARGUMENTS_CONVERSION_H_
