@@ -38,6 +38,7 @@ SOURCES := \
 	$(SOURCES_PATH)/multi_string.cc \
 	$(SOURCES_PATH)/numeric_conversions.cc \
 	$(SOURCES_PATH)/requesting/js_requester.cc \
+	$(SOURCES_PATH)/requesting/remote_call_adaptor.cc \
 	$(SOURCES_PATH)/requesting/remote_call_arguments_conversion.cc \
 	$(SOURCES_PATH)/requesting/remote_call_message.cc \
 	$(SOURCES_PATH)/requesting/request_result.cc \
@@ -63,7 +64,6 @@ SOURCES += \
 SOURCES += \
 	$(SOURCES_PATH)/external_logs_printer.cc \
 	$(SOURCES_PATH)/requesting/js_request_receiver.cc \
-	$(SOURCES_PATH)/requesting/remote_call_adaptor.cc \
 	$(SOURCES_PATH)/requesting/request_receiver.cc \
 
 else ifeq ($(TOOLCHAIN),emscripten)
