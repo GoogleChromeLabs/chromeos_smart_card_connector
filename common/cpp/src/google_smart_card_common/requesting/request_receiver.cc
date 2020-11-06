@@ -18,7 +18,7 @@
 
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/requesting/request_handler.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -34,11 +34,8 @@ std::string RequestReceiver::name() const {
   return name_;
 }
 
-void RequestReceiver::HandleRequest(RequestId request_id,
-                                    const pp::Var& payload) {
-  // TODO(#185): Directly receive `Value` instead of converting from `pp::Var`.
-  handler_->HandleRequest(ConvertPpVarToValueOrDie(payload),
-                          MakeResultCallback(request_id));
+void RequestReceiver::HandleRequest(RequestId request_id, Value payload) {
+  handler_->HandleRequest(std::move(payload), MakeResultCallback(request_id));
 }
 
 RequestReceiver::ResultCallbackImpl::ResultCallbackImpl(

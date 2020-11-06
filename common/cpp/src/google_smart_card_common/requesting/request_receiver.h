@@ -19,10 +19,9 @@
 #include <memory>
 #include <string>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/requesting/request_id.h>
 #include <google_smart_card_common/requesting/request_result.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -79,7 +78,7 @@ class RequestReceiver : public std::enable_shared_from_this<RequestReceiver> {
 
   // Runs the associated request handler with the specified request and with
   // created ResultCallback functor.
-  void HandleRequest(RequestId request_id, const pp::Var& payload);
+  void HandleRequest(RequestId request_id, Value payload);
 
  private:
   class ResultCallbackImpl final {
