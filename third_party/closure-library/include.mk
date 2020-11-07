@@ -40,6 +40,9 @@ CLOSURE_LIBRARY_SOURCES_AND_DIRS := \
 # Function for obtaining the input list for the Closure Compiler that correspond
 # to the Closure Library.
 #
+# The "third_party/closure" directory is additionally included, since it
+# contains the deferred.js file.
+#
 # Test and perf files are excluded from compilation, because some of them may
 # contain duplicate symbols and some not correspond to some strict validation
 # rules.
@@ -47,6 +50,7 @@ CLOSURE_LIBRARY_SOURCES_AND_DIRS := \
 
 CLOSURE_LIBRARY_COMPILER_INPUTS = \
 	$(call RELATIVE_PATH,$(CURDIR)/$(CLOSURE_LIBRARY_DIR_PATH),$(ROOT_PATH))/closure \
+	$(call RELATIVE_PATH,$(CURDIR)/$(CLOSURE_LIBRARY_DIR_PATH),$(ROOT_PATH))/third_party/closure \
 	!$(call RELATIVE_PATH,$(CURDIR)/$(CLOSURE_LIBRARY_DIR_PATH),$(ROOT_PATH))/**_test.js \
 	!$(call RELATIVE_PATH,$(CURDIR)/$(CLOSURE_LIBRARY_DIR_PATH),$(ROOT_PATH))/**_perf.js \
 	!$(call RELATIVE_PATH,$(CURDIR)/$(CLOSURE_LIBRARY_DIR_PATH),$(ROOT_PATH))/closure/bin/**.js \
