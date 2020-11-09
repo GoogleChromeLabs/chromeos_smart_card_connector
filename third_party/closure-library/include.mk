@@ -40,8 +40,8 @@ CLOSURE_LIBRARY_SOURCES_AND_DIRS := \
 # Function for obtaining the input list for the Closure Compiler that correspond
 # to the Closure Library.
 #
-# The "third_party/closure" directory is additionally included, since it
-# contains the deferred.js file.
+# The "third_party/closure" directory is included since it contains the
+# deferred.js file.
 #
 # Test and perf files are excluded from compilation, because some of them may
 # contain duplicate symbols and some not correspond to some strict validation
