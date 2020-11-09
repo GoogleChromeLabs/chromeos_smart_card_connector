@@ -55,6 +55,7 @@ CXXFLAGS := \
 	-I$(PCSC_LITE_SERVER_INCLUDE_PATH) \
 	-I$(SOURCES_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/common/src \
 	-std=gnu++11 \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))

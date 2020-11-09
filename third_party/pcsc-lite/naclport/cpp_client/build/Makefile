@@ -44,6 +44,7 @@ COMMON_CPPFLAGS := \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(SOURCES_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/common/src \
 
 CXX_SOURCES := \
 	$(SOURCES_PATH)/google_smart_card_pcsc_lite_client/global.cc \
