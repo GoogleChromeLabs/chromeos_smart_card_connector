@@ -14,41 +14,35 @@
 
 #include "built_in_pin_dialog/built_in_pin_dialog_server.h"
 
-#include <ppapi/cpp/var_dictionary.h>
+#include <string>
+#include <utility>
 
 #include <google_smart_card_common/global_context.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
+#include <google_smart_card_common/value_conversion.h>
+
+namespace gsc = google_smart_card;
+namespace scc = smart_card_client;
 
 namespace smart_card_client {
 
 namespace {
 
-// Note: These parameters should stay in sync with the JS side
+// Note: This parameter should stay in sync with the JS side
 // (pin-dialog-backend.js).
 constexpr char kRequesterName[] = "built_in_pin_dialog";
-constexpr char kPinMessageKey[] = "pin";
 
-void ExtractPinRequestResult(
-    const google_smart_card::GenericRequestResult& request_result,
-    std::string* pin) {
-  // TODO(#220): Parse `Value` directly, without converting into `pp::Var`.
-  const pp::VarDictionary result_var =
-      google_smart_card::VarAs<pp::VarDictionary>(
-          google_smart_card::ConvertValueToPpVar(request_result.payload()));
-
-  google_smart_card::VarDictValuesExtractor extractor(result_var);
-  extractor.Extract(kPinMessageKey, pin);
-  extractor.CheckSuccessWithNoExtraKeysAllowed();
-}
+// This structure that holds the result of the built-in PIN dialog.
+struct BuiltInPinDialogResponse {
+  std::string pin;
+};
 
 }  // namespace
 
 BuiltInPinDialogServer::BuiltInPinDialogServer(
-    google_smart_card::GlobalContext* global_context,
-    google_smart_card::TypedMessageRouter* typed_message_router)
+    gsc::GlobalContext* global_context,
+    gsc::TypedMessageRouter* typed_message_router)
     : js_requester_(kRequesterName, global_context, typed_message_router) {}
 
 BuiltInPinDialogServer::~BuiltInPinDialogServer() = default;
@@ -58,13 +52,29 @@ void BuiltInPinDialogServer::Detach() {
 }
 
 bool BuiltInPinDialogServer::RequestPin(std::string* pin) {
-  const google_smart_card::GenericRequestResult request_result =
-      js_requester_.PerformSyncRequest(/*payload=*/google_smart_card::Value(
-          google_smart_card::Value::Type::kDictionary));
+  gsc::GenericRequestResult request_result = js_requester_.PerformSyncRequest(
+      /*payload=*/gsc::Value(gsc::Value::Type::kDictionary));
   if (!request_result.is_successful())
     return false;
-  ExtractPinRequestResult(request_result, pin);
+  BuiltInPinDialogResponse response =
+      gsc::ConvertFromValueOrDie<BuiltInPinDialogResponse>(
+          std::move(request_result).TakePayload());
+  *pin = std::move(response.pin);
   return true;
 }
 
 }  // namespace smart_card_client
+
+namespace google_smart_card {
+
+// Register `scc::BuiltInPinDialogResponse` for conversions to/from `Value`.
+template <>
+StructValueDescriptor<scc::BuiltInPinDialogResponse>::Description
+StructValueDescriptor<scc::BuiltInPinDialogResponse>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // pin-dialog-backend.js.
+  return Describe("BuiltInPinDialogResponse")
+      .WithField(&scc::BuiltInPinDialogResponse::pin, "pin");
+}
+
+}  // namespace google_smart_card
