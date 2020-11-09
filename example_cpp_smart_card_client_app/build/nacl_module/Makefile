@@ -62,8 +62,9 @@ DEPS := \
 
 CPPFLAGS := \
 	-I$(SOURCES_DIR) \
-	-I$(PCSC_LITE_CLIENT_INCLUDE_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/cpp_client/src \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/src/src/PCSC \
 	-Wall \
 	-Werror \
 	-Wextra \
