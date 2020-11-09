@@ -54,7 +54,7 @@ class PpInstance final : public pp::Instance {
   //
   // The implementation presented here does the following:
   // * creates a `google_smart_card::GlobalContextImplNacl` class instance that
-  //   is used by the Application class to perform operations that has to be
+  //   is used by the Application class to perform operations that have to be
   //   done differently for Emscripten/WebAssembly and Native Client builds;
   // * creates a `google_smart_card::TypedMessageRouter` class instance that is
   //   used for handling messages received from the JavaScript side (see the
