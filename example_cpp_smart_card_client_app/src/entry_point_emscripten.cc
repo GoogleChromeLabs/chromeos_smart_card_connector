@@ -12,6 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This file contains implementation of the Emscripten module entry point - the
+// GoogleSmartCardModule class that is created by the JavaScript code via the
+// Emscripten's Embind functionality.
+
+#ifndef __EMSCRIPTEN__
+#error "This file should only be used in Emscripten builds"
+#endif  // __EMSCRIPTEN__
+
 #include <memory>
 #include <string>
 #include <thread>

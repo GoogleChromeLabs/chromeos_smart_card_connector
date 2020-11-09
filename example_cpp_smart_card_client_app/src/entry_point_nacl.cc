@@ -18,6 +18,10 @@
 // <https://developer.chrome.com/native-client/devguide/coding/application-structure#native-client-modules-a-closer-look>
 // for reference).
 
+#ifndef __native_client__
+#error "This file should only be used in Native Client builds"
+#endif  // __native_client__
+
 #include <string>
 #include <utility>
 

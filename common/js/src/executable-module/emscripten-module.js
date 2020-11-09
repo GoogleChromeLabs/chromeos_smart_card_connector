@@ -53,8 +53,9 @@ GSC.EmscriptenModule = function(moduleName) {
   this.logger = GSC.Logging.getChildLogger(
       this.fromModuleMessagesLogger_, WRAPPER_SUBLOGGER_SCOPE);
   // Object that is an entry point on the C++ side and is used for exchanging
-  // messages with it. Untyped, since the class is defined within the Emscripten
-  // module and therefore isn't known to Closure Compiler.
+  // messages with it. Untyped, since the class "GoogleSmartCardModule" is
+  // defined within the Emscripten module (using Embind) and therefore isn't
+  // known to Closure Compiler.
   this.googleSmartCardModule_ = null;
 };
 
