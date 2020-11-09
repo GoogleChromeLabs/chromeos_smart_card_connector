@@ -33,11 +33,18 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/cpp_demo/dependency.mk
 SOURCES_DIR := ../../src
 
 SOURCES := \
+	$(SOURCES_DIR)/application.cc \
 	$(SOURCES_DIR)/built_in_pin_dialog/built_in_pin_dialog_server.cc \
 	$(SOURCES_DIR)/chrome_certificate_provider/api_bridge.cc \
 	$(SOURCES_DIR)/chrome_certificate_provider/types.cc \
-	$(SOURCES_DIR)/pp_module.cc \
 	$(SOURCES_DIR)/ui_bridge.cc \
+
+ifeq ($(TOOLCHAIN),pnacl)
+
+SOURCES += \
+	$(SOURCES_DIR)/entry_point_nacl.cc \
+
+endif
 
 LIBS := \
 	$(PCSC_LITE_CPP_DEMO_LIB) \
