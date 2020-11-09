@@ -27,8 +27,11 @@
 
 #include <cstring>
 
-#include <google_smart_card_common/pp_var_utils/struct_converter.h>
 #include <google_smart_card_common/value_conversion.h>
+
+#ifdef __native_client__
+#include <google_smart_card_common/pp_var_utils/struct_converter.h>
+#endif  // __native_client__
 
 namespace google_smart_card {
 
@@ -58,6 +61,8 @@ StructValueDescriptor<InboundSCardReaderState>::GetDescription() {
       .WithField(&InboundSCardReaderState::current_state, "current_state");
 }
 
+#ifdef __native_client__
+
 // static
 template <>
 constexpr const char*
@@ -76,6 +81,8 @@ void StructConverter<InboundSCardReaderState>::VisitFields(
   callback(&value.current_state, "current_state");
 }
 
+#endif  // __native_client__
+
 template <>
 StructValueDescriptor<OutboundSCardReaderState>::Description
 StructValueDescriptor<OutboundSCardReaderState>::GetDescription() {
@@ -89,6 +96,8 @@ StructValueDescriptor<OutboundSCardReaderState>::GetDescription() {
       .WithField(&OutboundSCardReaderState::event_state, "event_state")
       .WithField(&OutboundSCardReaderState::atr, "atr");
 }
+
+#ifdef __native_client__
 
 // static
 template <>
@@ -110,6 +119,8 @@ void StructConverter<OutboundSCardReaderState>::VisitFields(
   callback(&value.atr, "atr");
 }
 
+#endif  // __native_client__
+
 template <>
 StructValueDescriptor<SCardIoRequest>::Description
 StructValueDescriptor<SCardIoRequest>::GetDescription() {
@@ -118,6 +129,8 @@ StructValueDescriptor<SCardIoRequest>::GetDescription() {
   return Describe("SCARD_IO_REQUEST")
       .WithField(&SCardIoRequest::protocol, "protocol");
 }
+
+#ifdef __native_client__
 
 // static
 template <>
@@ -132,6 +145,8 @@ void StructConverter<SCardIoRequest>::VisitFields(const SCardIoRequest& value,
                                                   Callback callback) {
   callback(&value.protocol, "protocol");
 }
+
+#endif  // __native_client__
 
 // static
 InboundSCardReaderState InboundSCardReaderState::FromSCardReaderState(
@@ -167,6 +182,8 @@ SCardIoRequest SCardIoRequest::FromSCardIoRequest(
     const SCARD_IO_REQUEST& value) {
   return SCardIoRequest(value.dwProtocol);
 }
+
+#ifdef __native_client__
 
 template <>
 pp::Var MakeVar(const SCARD_READERSTATE& value) {
@@ -221,5 +238,7 @@ template <>
 pp::Var MakeVar(const SCardIoRequest& value) {
   return StructConverter<SCardIoRequest>::ConvertToVar(value);
 }
+
+#endif  // __native_client__
 
 }  // namespace google_smart_card

@@ -24,18 +24,14 @@
 // THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // This file contains structure and function definitions that help to perform
-// (de)serialization of PC/SC-Lite API structures from/to Pepper values.
+// (de)serialization of PC/SC-Lite API structures from/to `Value`s.
 //
-// One of the reasons of defining separate intermediate structures is that the
-// original PC/SC API functions do not belong to the google_smart_card
-// namespace, which in some situations makes the corresponding VarAs/MakeVar
-// functions overloads unavailable. Another reason is difficulties with memory
-// management when passing data between the C structures from the PC/SC-Lite API
-// and the C++ variables.
-//
-// Overloads of the VarAs function and specializations of the MakeVar function
-// brings the support of the defined structures into these tools for converting
-// from/to Pepper values.
+// The main reason for why this file defines separate intermediate structures is
+// memory management: the C structures from the PC/SC-Lite API use raw pointers
+// (some of which are owned and some unowned), have separate fields for storing
+// the size of the referenced pointer, etc. Instead of writing custom
+// (de)serialization code, we convert those C structures into C++ intermediate
+// structures that have clear memory management.
 
 #ifndef GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_SCARD_STRUCTS_SERIALIZATION_H_
 #define GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_COMMON_SCARD_STRUCTS_SERIALIZATION_H_
@@ -50,11 +46,13 @@
 #include <winscard.h>
 #include <wintypes.h>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/optional.h>
+
+#ifdef __native_client__
+#include <ppapi/cpp/var.h>
 #include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/pp_var_utils/extraction.h>
+#endif  // __native_client__
 
 namespace google_smart_card {
 
@@ -128,6 +126,8 @@ struct SCardIoRequest {
   DWORD protocol;
 };
 
+#ifdef __native_client__
+
 bool VarAs(const pp::Var& var,
            InboundSCardReaderState* result,
            std::string* error_message);
@@ -148,6 +148,8 @@ bool VarAs(const pp::Var& var,
 
 template <>
 pp::Var MakeVar(const SCardIoRequest& value);
+
+#endif  // __native_client__
 
 }  // namespace google_smart_card
 
