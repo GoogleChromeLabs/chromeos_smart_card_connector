@@ -105,7 +105,7 @@ EmscriptenModule.prototype.load_ = async function() {
   const emscriptenApiModule = await factoryFunction();
 
   // Third step: Create the object that serves as an entry point on the C++
-  // side and is used for exchanging messages with in. By convention (see the
+  // side and is used for exchanging messages with it. By convention (see the
   // entry_point_emscripten.cc files), the class is named GoogleSmartCardModule.
   const GoogleSmartCardModule = emscriptenApiModule['GoogleSmartCardModule'];
   GSC.Logging.checkWithLogger(this.logger, GoogleSmartCardModule,
