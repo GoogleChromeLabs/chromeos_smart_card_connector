@@ -39,7 +39,12 @@ SOURCES := \
 	$(SOURCES_DIR)/chrome_certificate_provider/types.cc \
 	$(SOURCES_DIR)/ui_bridge.cc \
 
-ifeq ($(TOOLCHAIN),pnacl)
+ifeq ($(TOOLCHAIN),emscripten)
+
+SOURCES += \
+	$(SOURCES_DIR)/entry_point_emscripten.cc \
+
+else ifeq ($(TOOLCHAIN),pnacl)
 
 SOURCES += \
 	$(SOURCES_DIR)/entry_point_nacl.cc \
