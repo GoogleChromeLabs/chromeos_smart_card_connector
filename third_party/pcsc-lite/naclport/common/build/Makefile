@@ -37,7 +37,6 @@ include ../include.mk
 
 SOURCES_PATH := ../src
 
-
 SOURCES := \
 	$(SOURCES_PATH)/google_smart_card_pcsc_lite_common/pcsc_lite_tracing_wrapper.cc \
 	$(SOURCES_PATH)/google_smart_card_pcsc_lite_common/scard_debug_dump.cc \
@@ -56,14 +55,4 @@ CXXFLAGS := \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
-
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
-
-
-INSTALLING_HEADERS := \
-	google_smart_card_pcsc_lite_common:$(SOURCES_PATH)/google_smart_card_pcsc_lite_common:pcsc_lite.h \
-	google_smart_card_pcsc_lite_common:$(SOURCES_PATH)/google_smart_card_pcsc_lite_common:pcsc_lite_tracing_wrapper.h \
-	google_smart_card_pcsc_lite_common:$(SOURCES_PATH)/google_smart_card_pcsc_lite_common:scard_debug_dump.h \
-	google_smart_card_pcsc_lite_common:$(SOURCES_PATH)/google_smart_card_pcsc_lite_common:scard_structs_serialization.h \
-
-$(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))

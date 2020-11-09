@@ -220,7 +220,6 @@ SOURCES := \
 # headers
 
 $(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(LIBUSB_HEADERS_INSTALLATION_STAMP_FILE))))
-$(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(PCSC_LITE_COMMON_HEADERS_INSTALLATION_STAMP_FILE))))
 
 
 # Rules for linking of the compiled object files and installing the resulting

@@ -26,9 +26,6 @@
 #include <string>
 #include <vector>
 
-#include <ppapi/cpp/var.h>
-#include <ppapi/cpp/var_array.h>
-
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/requesting/js_request_receiver.h>
@@ -36,6 +33,7 @@
 #include <google_smart_card_common/requesting/remote_call_adaptor.h>
 #include <google_smart_card_common/requesting/request_handler.h>
 #include <google_smart_card_common/requesting/request_receiver.h>
+#include <google_smart_card_common/value.h>
 
 #include "chrome_certificate_provider/types.h"
 
@@ -143,10 +141,9 @@ class ApiBridge final : public google_smart_card::RequestHandler {
                          result_callback) override;
 
   void HandleCertificatesRequest(
-      const pp::VarArray& arguments,
       google_smart_card::RequestReceiver::ResultCallback result_callback);
   void HandleSignatureRequest(
-      const pp::VarArray& arguments,
+      SignatureRequest signature_request,
       google_smart_card::RequestReceiver::ResultCallback result_callback);
 
   std::shared_ptr<std::mutex> request_handling_mutex_;
