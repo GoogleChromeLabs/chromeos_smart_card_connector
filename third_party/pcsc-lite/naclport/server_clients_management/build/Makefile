@@ -55,11 +55,11 @@ CXXFLAGS := \
 	-I$(PCSC_LITE_SERVER_INCLUDE_PATH) \
 	-I$(SOURCES_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/common/src \
 	-std=gnu++11 \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
-$(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(PCSC_LITE_COMMON_HEADERS_INSTALLATION_STAMP_FILE))))
 $(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(PCSC_LITE_SERVER_HEADERS_INSTALLATION_STAMP_FILE))))
 
 

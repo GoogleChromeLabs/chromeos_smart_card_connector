@@ -45,12 +45,3 @@ PCSC_LITE_COMMON_DIR_PATH := $(PCSC_LITE_DIR_PATH)/naclport/common
 
 PCSC_LITE_COMMON_JS_COMPILER_INPUT_DIR_PATHS := \
 	$(PCSC_LITE_COMMON_DIR_PATH)/src
-
-
-#
-# Helper target that installs the library headers.
-#
-# This target can be used in dependant libraries.
-#
-
-$(eval $(call DEFINE_NACL_LIBRARY_HEADERS_INSTALLATION_TARGET,PCSC_LITE_COMMON_HEADERS_INSTALLATION_STAMP_FILE,$(PCSC_LITE_COMMON_DIR_PATH)/build))

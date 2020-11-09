@@ -46,6 +46,7 @@ SOURCES := \
 CXXFLAGS := \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/common/src \
 	-I$(SOURCES_PATH) \
 	-std=gnu++11 \
 
