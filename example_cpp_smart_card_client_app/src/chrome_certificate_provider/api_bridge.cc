@@ -17,18 +17,15 @@
 #include <thread>
 #include <utility>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/function_call_tracer.h>
 #include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/debug_dump.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
+#include <google_smart_card_common/requesting/remote_call_arguments_conversion.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
+#include <google_smart_card_common/value.h>
+#include <google_smart_card_common/value_conversion.h>
 
 namespace scc = smart_card_client;
 namespace ccp = scc::chrome_certificate_provider;
@@ -61,9 +58,11 @@ void ProcessCertificatesRequest(
       locked_certificates_request_handler = certificates_request_handler.lock();
   GOOGLE_SMART_CARD_CHECK(locked_certificates_request_handler);
   if (locked_certificates_request_handler->HandleRequest(&certificates)) {
-    // TODO(#220): Build `Value` directly, without converting from `pp::Var`.
-    result_callback(gsc::GenericRequestResult::CreateSuccessful(
-        gsc::ConvertPpVarToValueOrDie(gsc::MakeVarArray(certificates))));
+    gsc::Value response(gsc::Value::Type::kArray);
+    response.GetArray().push_back(gsc::MakeUnique<gsc::Value>(
+        gsc::ConvertToValueOrDie(std::move(certificates))));
+    result_callback(
+        gsc::GenericRequestResult::CreateSuccessful(std::move(response)));
   } else {
     result_callback(gsc::GenericRequestResult::CreateFailed("Failure"));
   }
@@ -85,9 +84,11 @@ void ProcessSignatureRequest(
   GOOGLE_SMART_CARD_CHECK(locked_signature_request_handler);
   if (locked_signature_request_handler->HandleRequest(signature_request,
                                                       &signature)) {
-    // TODO(#220): Build `Value` directly, without converting from `pp::Var`.
-    result_callback(gsc::GenericRequestResult::CreateSuccessful(
-        gsc::ConvertPpVarToValueOrDie(gsc::MakeVarArrayBuffer(signature))));
+    gsc::Value response(gsc::Value::Type::kArray);
+    response.GetArray().push_back(gsc::MakeUnique<gsc::Value>(
+        gsc::ConvertToValueOrDie(std::move(signature))));
+    result_callback(
+        gsc::GenericRequestResult::CreateSuccessful(std::move(response)));
   } else {
     result_callback(gsc::GenericRequestResult::CreateFailed("Failure"));
   }
@@ -139,13 +140,15 @@ void ApiBridge::SetCertificates(
 }
 
 bool ApiBridge::RequestPin(const RequestPinOptions& options, std::string* pin) {
+  gsc::Value options_value = gsc::ConvertToValueOrDie(options);
+
   gsc::FunctionCallTracer tracer("requestPin", kFunctionCallLoggingPrefix,
                                  gsc::LogSeverity::kInfo);
-  tracer.AddPassedArg("options", gsc::DumpVar(MakeVar(options)));
+  tracer.AddPassedArg("options", gsc::DebugDumpValueFull(options_value));
   tracer.LogEntrance();
 
   gsc::GenericRequestResult generic_request_result =
-      remote_call_adaptor_.SyncCall("requestPin", options);
+      remote_call_adaptor_.SyncCall("requestPin", std::move(options_value));
   if (!generic_request_result.is_successful()) {
     tracer.AddReturnValue(
         "false (error: " + generic_request_result.error_message() + ")");
@@ -172,13 +175,15 @@ bool ApiBridge::RequestPin(const RequestPinOptions& options, std::string* pin) {
 }
 
 void ApiBridge::StopPinRequest(const StopPinRequestOptions& options) {
+  gsc::Value options_value = gsc::ConvertToValueOrDie(options);
+
   gsc::FunctionCallTracer tracer("stopPinRequest", kFunctionCallLoggingPrefix,
                                  gsc::LogSeverity::kInfo);
-  tracer.AddPassedArg("options", gsc::DumpVar(MakeVar(options)));
+  tracer.AddPassedArg("options", gsc::DebugDumpValueFull(options_value));
   tracer.LogEntrance();
 
   const gsc::GenericRequestResult generic_request_result =
-      remote_call_adaptor_.SyncCall("stopPinRequest", options);
+      remote_call_adaptor_.SyncCall("stopPinRequest", std::move(options_value));
   if (!generic_request_result.is_successful()) {
     tracer.AddReturnValue("error (" + generic_request_result.error_message() +
                           ")");
@@ -195,13 +200,16 @@ void ApiBridge::HandleRequest(
   gsc::RemoteCallRequestPayload request =
       gsc::ConvertFromValueOrDie<gsc::RemoteCallRequestPayload>(
           std::move(payload));
-  // TODO(#220): Pass `Value`s, instead of converting into `pp::VarArray`.
-  pp::VarArray arguments_var(gsc::ConvertValueToPpVar(
-      gsc::ConvertToValueOrDie(std::move(request.arguments))));
   if (request.function_name == kHandleCertificatesRequestFunctionName) {
-    HandleCertificatesRequest(arguments_var, result_callback);
+    gsc::ExtractRemoteCallArgumentsOrDie(std::move(request.function_name),
+                                         std::move(request.arguments));
+    HandleCertificatesRequest(result_callback);
   } else if (request.function_name == kHandleSignatureRequestFunctionName) {
-    HandleSignatureRequest(arguments_var, result_callback);
+    SignatureRequest signature_request;
+    gsc::ExtractRemoteCallArgumentsOrDie(std::move(request.function_name),
+                                         std::move(request.arguments),
+                                         &signature_request);
+    HandleSignatureRequest(std::move(signature_request), result_callback);
   } else {
     GOOGLE_SMART_CARD_LOG_FATAL << "Unknown chrome_certificate_provider "
                                 << "ApiBridge function requested: \""
@@ -210,21 +218,18 @@ void ApiBridge::HandleRequest(
 }
 
 void ApiBridge::HandleCertificatesRequest(
-    const pp::VarArray& arguments,
     gsc::RequestReceiver::ResultCallback result_callback) {
-  gsc::GetVarArrayItems(arguments);
   std::thread(&ProcessCertificatesRequest, certificates_request_handler_,
               request_handling_mutex_, result_callback)
       .detach();
 }
 
 void ApiBridge::HandleSignatureRequest(
-    const pp::VarArray& arguments,
+    SignatureRequest signature_request,
     gsc::RequestReceiver::ResultCallback result_callback) {
-  SignatureRequest signature_request;
-  gsc::GetVarArrayItems(arguments, &signature_request);
   std::thread(&ProcessSignatureRequest, signature_request_handler_,
-              signature_request, request_handling_mutex_, result_callback)
+              std::move(signature_request), request_handling_mutex_,
+              result_callback)
       .detach();
 }
 
