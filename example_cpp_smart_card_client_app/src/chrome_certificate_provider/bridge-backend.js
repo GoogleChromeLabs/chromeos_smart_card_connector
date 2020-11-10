@@ -244,8 +244,9 @@ Backend.prototype.handleRequest_ = function(payload) {
 
   const promiseResolver = goog.Promise.withResolver();
 
-  const apiFunction = chrome.certificateProvider[
-      remoteCallMessage.functionName];
+  // Check whether the API and the method are available.
+  const apiFunction = chrome.certificateProvider ?
+      chrome.certificateProvider[remoteCallMessage.functionName] : undefined;
   if (apiFunction) {
     const transformedFunctionArguments = transformFunctionArguments(
         remoteCallMessage.functionName, remoteCallMessage.functionArguments);

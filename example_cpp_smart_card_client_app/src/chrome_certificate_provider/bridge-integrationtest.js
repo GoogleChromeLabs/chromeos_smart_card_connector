@@ -123,6 +123,14 @@ goog.exportSymbol('testChromeCertificateProviderApiBridge', {
       }]});
     });
   },
+
+  testSetCertificates_noApi: function() {
+    // Note the missing setUpApiStubs() call.
+    // Just verify that no crash happens.
+    return testController.sendMessageToCppHelper(
+        'ChromeCertificateProviderApiBridge',
+        /*messageForHelper=*/'setCertificates_empty');
+  },
 });
 
 });  // goog.scope
