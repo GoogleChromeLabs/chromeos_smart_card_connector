@@ -80,6 +80,7 @@ EmscriptenModule.prototype.startLoading = function() {
 EmscriptenModule.prototype.disposeInternal = function() {
   this.logger.fine('Disposed');
   delete this.googleSmartCardModule_;
+  this.messageChannel.dispose();
   EmscriptenModule.base(this, 'disposeInternal');
 };
 
