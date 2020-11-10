@@ -22,13 +22,12 @@
 
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_debug_dumping.h>
 #include <google_smart_card_common/value_emscripten_val_conversion.h>
 
 namespace google_smart_card {
 
 static_assert(
-    sizeof(int) == sizeof(void*),
+    sizeof(int) >= sizeof(void*),
     "|int| is too small - cannot fit |void*| to pass data across threads");
 
 GlobalContextImplEmscripten::GlobalContextImplEmscripten(
@@ -55,8 +54,8 @@ void GlobalContextImplEmscripten::PostMessageToJs(Value message) {
   //    sufficiently big in order to fit the pointers.
   // 3. `EM_FUNC_SIG_VII` means "the scheduled function has the void(int, int)
   //    signature".
-  // 4. In order to address the case when `this` might get destroyed before the,
-  //    job gets executed, we pass a `std::weak_ptr` to it.
+  // 4. In order to address the case when `this` might get destroyed before the
+  //    async job gets executed, we pass an `std::weak_ptr` to it.
   // 5. It's crucial to send `Value`, as opposed to constructing
   //    `emscripten::val` here on the background thread, in order to avoid
   //    internal Emscripten errors:
@@ -77,6 +76,7 @@ bool GlobalContextImplEmscripten::IsMainEventLoopThread() const {
 }
 
 void GlobalContextImplEmscripten::DisableJsCommunication() {
+  GOOGLE_SMART_CARD_CHECK(IsMainEventLoopThread());
   post_message_callback_ = emscripten::val::undefined();
 }
 
@@ -96,7 +96,7 @@ void GlobalContextImplEmscripten::PostMessageOnMainThreadTrampoline(
 
   SelfSharedPtr this_shared_ptr = this_weak_ptr->lock();
   if (!this_shared_ptr) {
-    // `this` got already destroyed before the asynchronous job got run.
+    // `this` got already destroyed before the asynchronous job was started.
     return;
   }
   this_shared_ptr->PostMessageOnMainThread(std::move(*message));
