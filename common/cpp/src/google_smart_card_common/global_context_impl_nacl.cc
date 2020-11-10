@@ -31,16 +31,14 @@ GlobalContextImplNacl::GlobalContextImplNacl(pp::Core* pp_core,
 
 GlobalContextImplNacl::~GlobalContextImplNacl() = default;
 
-bool GlobalContextImplNacl::PostMessageToJs(const Value& message) {
+void GlobalContextImplNacl::PostMessageToJs(Value message) {
   // Converting the value before entering the mutex, in order to minimize the
   // time spent under the lock.
   const pp::Var var = ConvertValueToPpVar(message);
 
   const std::unique_lock<std::mutex> lock(mutex_);
-  if (!pp_instance_)
-    return false;
-  pp_instance_->PostMessage(var);
-  return true;
+  if (pp_instance_)
+    pp_instance_->PostMessage(var);
 }
 
 bool GlobalContextImplNacl::IsMainEventLoopThread() const {

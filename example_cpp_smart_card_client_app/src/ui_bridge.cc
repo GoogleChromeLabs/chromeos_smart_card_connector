@@ -94,7 +94,7 @@ void UiBridge::SendMessageToUi(gsc::Value message) {
   typed_message.data = std::move(message);
   gsc::Value typed_message_value =
       gsc::ConvertToValueOrDie(std::move(typed_message));
-  global_context_->PostMessageToJs(typed_message_value);
+  global_context_->PostMessageToJs(std::move(typed_message_value));
 }
 
 std::string UiBridge::GetListenedMessageType() const {

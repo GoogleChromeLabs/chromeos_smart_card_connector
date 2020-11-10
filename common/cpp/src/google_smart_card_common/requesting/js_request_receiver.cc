@@ -55,8 +55,8 @@ void JsRequestReceiver::PostResult(RequestId request_id,
   message.data =
       ConvertToValueOrDie(ResponseMessageData::CreateFromRequestResult(
           request_id, std::move(request_result)));
-  const Value message_value = ConvertToValueOrDie(std::move(message));
-  global_context_->PostMessageToJs(message_value);
+  Value message_value = ConvertToValueOrDie(std::move(message));
+  global_context_->PostMessageToJs(std::move(message_value));
 }
 
 std::string JsRequestReceiver::GetListenedMessageType() const {
