@@ -14,15 +14,21 @@
 
 #include <google_smart_card_common/global_context_impl_emscripten.h>
 
-#include <mutex>
+#include <memory>
 #include <thread>
 
+#include <emscripten/threading.h>
 #include <emscripten/val.h>
 
+#include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_emscripten_val_conversion.h>
 
 namespace google_smart_card {
+
+static_assert(
+    sizeof(int) >= sizeof(void*),
+    "|int| is too small - cannot fit |void*| to pass data across threads");
 
 GlobalContextImplEmscripten::GlobalContextImplEmscripten(
     std::thread::id main_thread_id,
@@ -33,13 +39,36 @@ GlobalContextImplEmscripten::GlobalContextImplEmscripten(
 GlobalContextImplEmscripten::~GlobalContextImplEmscripten() = default;
 
 void GlobalContextImplEmscripten::PostMessageToJs(Value message) {
-  // Converting the value before entering the mutex, in order to minimize the
-  // time spent under the lock.
-  const emscripten::val val = ConvertValueToEmscriptenVal(message);
-
-  const std::unique_lock<std::mutex> lock(mutex_);
-  if (!post_message_callback_.isUndefined())
-    post_message_callback_(val);
+  // Post a task to the main thread, since all other threads are running in Web
+  // Workers that don't have access to DOM, and aren't allowed to execute
+  // `post_message_callback_`.
+  // Implementation-wise, we have to use the Emscripten's
+  // `emscripten_async_run_in_main_runtime_thread()` function, which has a very
+  // low-level interface. Some notes:
+  // 1. Only a static function is supported, therefore we schedule the
+  //    "trampoline" function that redirects to the normal class method.
+  // 2. Only very few primitive argument types are supported, therefore we do
+  //    reinterpret_cast on all arguments. This is not a portable code to cast
+  //    pointers to integers and back, but this works in Emscripten. The
+  //    static_assert above makes sure that the `int` type is at least
+  //    sufficiently big in order to fit the pointers.
+  // 3. `EM_FUNC_SIG_VII` means "the scheduled function has the void(int, int)
+  //    signature".
+  // 4. In order to address the case when `this` might get destroyed before the
+  //    async job gets executed, we pass an `std::weak_ptr` to it.
+  // 5. It's crucial to send `Value`, as opposed to constructing
+  //    `emscripten::val` here on the background thread, in order to avoid
+  //    internal Emscripten errors:
+  //    <https://github.com/emscripten-core/emscripten/issues/12749>.
+  using SelfWeakPtr = std::weak_ptr<GlobalContextImplEmscripten>;
+  std::unique_ptr<SelfWeakPtr> this_weak_ptr =
+      MakeUnique<SelfWeakPtr>(shared_from_this());
+  std::unique_ptr<Value> message_ptr = MakeUnique<Value>(std::move(message));
+  emscripten_async_run_in_main_runtime_thread(
+      EM_FUNC_SIG_VII,
+      &GlobalContextImplEmscripten::PostMessageOnMainThreadTrampoline,
+      reinterpret_cast<int>(this_weak_ptr.release()),
+      reinterpret_cast<int>(message_ptr.release()));
 }
 
 bool GlobalContextImplEmscripten::IsMainEventLoopThread() const {
@@ -47,8 +76,38 @@ bool GlobalContextImplEmscripten::IsMainEventLoopThread() const {
 }
 
 void GlobalContextImplEmscripten::DisableJsCommunication() {
-  const std::unique_lock<std::mutex> lock(mutex_);
+  GOOGLE_SMART_CARD_CHECK(IsMainEventLoopThread());
   post_message_callback_ = emscripten::val::undefined();
+}
+
+// static
+void GlobalContextImplEmscripten::PostMessageOnMainThreadTrampoline(
+    int raw_this_weak_ptr,
+    int raw_value_ptr) {
+  using SelfWeakPtr = std::weak_ptr<GlobalContextImplEmscripten>;
+  using SelfSharedPtr = std::shared_ptr<GlobalContextImplEmscripten>;
+  // Note: These `unique_ptr`s must be constructed before any returning from the
+  // function, in order to not leak the memory.
+  // Correctness of these reinterpret_cast's is discussed in
+  // `PostMessageToJs()`.
+  std::unique_ptr<SelfWeakPtr> this_weak_ptr(
+      reinterpret_cast<SelfWeakPtr*>(raw_this_weak_ptr));
+  std::unique_ptr<Value> message(reinterpret_cast<Value*>(raw_value_ptr));
+
+  SelfSharedPtr this_shared_ptr = this_weak_ptr->lock();
+  if (!this_shared_ptr) {
+    // `this` got already destroyed before the asynchronous job was started.
+    return;
+  }
+  this_shared_ptr->PostMessageOnMainThread(std::move(*message));
+}
+
+void GlobalContextImplEmscripten::PostMessageOnMainThread(Value message) {
+  GOOGLE_SMART_CARD_CHECK(IsMainEventLoopThread());
+  // Note: No mutexes are needed, since this code is guaranteed to run on the
+  // main thread.
+  if (!post_message_callback_.isUndefined())
+    post_message_callback_(ConvertValueToEmscriptenVal(message));
 }
 
 }  // namespace google_smart_card

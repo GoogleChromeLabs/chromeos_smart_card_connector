@@ -19,7 +19,7 @@
 #error "This file should only be used in Emscripten builds"
 #endif  // __EMSCRIPTEN__
 
-#include <mutex>
+#include <memory>
 #include <thread>
 
 #include <emscripten/val.h>
@@ -31,7 +31,13 @@ namespace google_smart_card {
 
 // Implementation of the GlobalContext interface for the Emscripten
 // (WebAssembly) environment.
-class GlobalContextImplEmscripten final : public GlobalContext {
+//
+// Note: The class must be stored in `std::shared_ptr`. Internally, this allows
+// the class to obtain `std::weak_ptr` and use it in asynchronous operations
+// without violating the lifetime.
+class GlobalContextImplEmscripten final
+    : public GlobalContext,
+      public std::enable_shared_from_this<GlobalContextImplEmscripten> {
  public:
   // `post_message_callback` - JavaScript callback that will be called for
   // posting a message.
@@ -48,10 +54,11 @@ class GlobalContextImplEmscripten final : public GlobalContext {
   void DisableJsCommunication() override;
 
  private:
-  const std::thread::id main_thread_id_;
+  static void PostMessageOnMainThreadTrampoline(int raw_this_weak_ptr,
+                                                int raw_value_ptr);
+  void PostMessageOnMainThread(Value message);
 
-  // The mutex that protects access to `post_message_callback_`.
-  std::mutex mutex_;
+  const std::thread::id main_thread_id_;
   emscripten::val post_message_callback_;
 };
 

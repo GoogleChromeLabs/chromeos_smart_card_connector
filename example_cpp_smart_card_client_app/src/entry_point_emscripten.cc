@@ -31,7 +31,6 @@
 #include <google_smart_card_common/global_context_impl_emscripten.h>
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
-#include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_debug_dumping.h>
 #include <google_smart_card_common/value_emscripten_val_conversion.h>
@@ -49,7 +48,7 @@ namespace {
 class GoogleSmartCardModule final {
  public:
   explicit GoogleSmartCardModule(emscripten::val post_message_callback)
-      : global_context_(gsc::MakeUnique<gsc::GlobalContextImplEmscripten>(
+      : global_context_(std::make_shared<gsc::GlobalContextImplEmscripten>(
             std::this_thread::get_id(),
             post_message_callback)),
         application_(global_context_.get(), &typed_message_router_) {}
@@ -61,7 +60,7 @@ class GoogleSmartCardModule final {
     // Intentionally leak `global_context_` without destroying it, because there
     // might still be background threads that access it.
     global_context_->DisableJsCommunication();
-    global_context_.release();
+    new std::shared_ptr<gsc::GlobalContextImplEmscripten>(global_context_);
   }
 
   void OnMessageReceivedFromJs(emscripten::val message) {
@@ -84,7 +83,7 @@ class GoogleSmartCardModule final {
   //
   // The stored pointer is leaked intentionally in the class destructor - see
   // its comment for the justification.
-  std::unique_ptr<gsc::GlobalContextImplEmscripten> global_context_;
+  std::shared_ptr<gsc::GlobalContextImplEmscripten> global_context_;
   // Router of the incoming typed messages that passes incoming messages to the
   // appropriate handlers according the the special type field of the message
   // (see common/cpp/src/google_smart_card_common/messaging/typed_message.h).
