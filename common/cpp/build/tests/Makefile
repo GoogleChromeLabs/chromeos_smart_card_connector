@@ -35,7 +35,12 @@ SOURCES := \
 	$(SOURCES_PATH)/value_debug_dumping_unittest.cc \
 	$(SOURCES_PATH)/value_unittest.cc \
 
-ifeq ($(TOOLCHAIN),pnacl)
+ifeq ($(TOOLCHAIN),emscripten)
+
+SOURCES += \
+	$(SOURCES_PATH)/value_emscripten_val_conversion_unittest.cc \
+
+else ifeq ($(TOOLCHAIN),pnacl)
 
 SOURCES += \
 	$(SOURCES_PATH)/pp_var_utils/construction_unittest.cc \
