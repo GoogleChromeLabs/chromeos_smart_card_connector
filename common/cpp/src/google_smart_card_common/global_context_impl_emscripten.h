@@ -43,7 +43,7 @@ class GlobalContextImplEmscripten final : public GlobalContext {
   ~GlobalContextImplEmscripten() override;
 
   // GlobalContext:
-  bool PostMessageToJs(const Value& message) override;
+  void PostMessageToJs(Value message) override;
   bool IsMainEventLoopThread() const override;
   void DisableJsCommunication() override;
 

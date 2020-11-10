@@ -27,10 +27,9 @@ class GlobalContext {
  public:
   virtual ~GlobalContext() = default;
 
-  // Sends the given message to the JavaScript side. Returns whether the message
-  // was sent successfully (note that the status doesn't tell anything about the
-  // result of the message handling on the JS side).
-  virtual bool PostMessageToJs(const Value& message) = 0;
+  // Sends the given message to the JavaScript side. Note: The delivery isn't
+  // guaranteed, in case the executable's shutdown process started.
+  virtual void PostMessageToJs(Value message) = 0;
 
   // Returns whether the current thread is the main event loop thread. Is
   // intended to be used to avoid blocking/deadlocking the main thread.

@@ -26,13 +26,6 @@
 
 namespace google_smart_card {
 
-namespace {
-
-constexpr char kRequesterIsDetachedErrorMessage[] =
-    "The requester is in the detached state";
-
-}  // namespace
-
 JsRequester::JsRequester(const std::string& name,
                          GlobalContext* global_context,
                          TypedMessageRouter* typed_message_router)
@@ -69,13 +62,12 @@ void JsRequester::StartAsyncRequest(Value payload,
   TypedMessage typed_message;
   typed_message.type = GetRequestMessageType(name());
   typed_message.data = ConvertToValueOrDie(std::move(message_data));
-  const Value typed_message_value =
-      ConvertToValueOrDie(std::move(typed_message));
+  Value typed_message_value = ConvertToValueOrDie(std::move(typed_message));
 
-  if (!global_context_->PostMessageToJs(typed_message_value)) {
-    SetAsyncRequestResult(request_id, GenericRequestResult::CreateFailed(
-                                          kRequesterIsDetachedErrorMessage));
-  }
+  // Note: This message won't arrive to the JS side in case the shutdown process
+  // started; it's not a concern, since it means that new requests just won't
+  // complete.
+  global_context_->PostMessageToJs(std::move(typed_message_value));
 }
 
 GenericRequestResult JsRequester::PerformSyncRequest(Value payload) {

@@ -32,16 +32,14 @@ GlobalContextImplEmscripten::GlobalContextImplEmscripten(
 
 GlobalContextImplEmscripten::~GlobalContextImplEmscripten() = default;
 
-bool GlobalContextImplEmscripten::PostMessageToJs(const Value& message) {
+void GlobalContextImplEmscripten::PostMessageToJs(Value message) {
   // Converting the value before entering the mutex, in order to minimize the
   // time spent under the lock.
   const emscripten::val val = ConvertValueToEmscriptenVal(message);
 
   const std::unique_lock<std::mutex> lock(mutex_);
-  if (post_message_callback_.isUndefined())
-    return false;
-  post_message_callback_(val);
-  return true;
+  if (!post_message_callback_.isUndefined())
+    post_message_callback_(val);
 }
 
 bool GlobalContextImplEmscripten::IsMainEventLoopThread() const {
