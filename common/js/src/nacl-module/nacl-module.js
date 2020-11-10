@@ -25,6 +25,7 @@ goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModuleLogMessagesReceiver');
 goog.require('GoogleSmartCard.NaclModuleMessageChannel');
+goog.require('GoogleSmartCard.Promise');
 goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.dom');
