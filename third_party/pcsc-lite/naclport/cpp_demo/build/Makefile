@@ -39,7 +39,6 @@ include ../include.mk
 
 SOURCES_PATH := ../src
 
-
 SOURCES := \
 	$(SOURCES_PATH)/google_smart_card_pcsc_lite_cpp_demo/demo.cc \
 
@@ -52,11 +51,4 @@ CXXFLAGS := \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
-
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
-
-
-INSTALLING_HEADERS := \
-	google_smart_card_pcsc_lite_cpp_demo:$(SOURCES_PATH)/google_smart_card_pcsc_lite_cpp_demo:demo.h \
-
-$(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
