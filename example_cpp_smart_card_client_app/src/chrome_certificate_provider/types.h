@@ -29,11 +29,7 @@
 #include <string>
 #include <vector>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
 
 namespace smart_card_client {
 
@@ -153,52 +149,6 @@ struct StopPinRequestOptions {
   int sign_request_id;
   google_smart_card::optional<PinRequestErrorType> error_type;
 };
-
-bool VarAs(const pp::Var& var, Algorithm* result, std::string* error_message);
-pp::Var MakeVar(Algorithm value);
-
-bool VarAs(const pp::Var& var, Error* result, std::string* error_message);
-pp::Var MakeVar(Error value);
-
-bool VarAs(const pp::Var& var,
-           PinRequestType* result,
-           std::string* error_message);
-pp::Var MakeVar(PinRequestType value);
-
-bool VarAs(const pp::Var& var,
-           PinRequestErrorType* result,
-           std::string* error_message);
-pp::Var MakeVar(PinRequestErrorType value);
-
-bool VarAs(const pp::Var& var,
-           ClientCertificateInfo* result,
-           std::string* error_message);
-pp::Var MakeVar(const ClientCertificateInfo& value);
-
-bool VarAs(const pp::Var& var,
-           SetCertificatesDetails* result,
-           std::string* error_message);
-pp::Var MakeVar(const SetCertificatesDetails& value);
-
-bool VarAs(const pp::Var& var,
-           SignatureRequest* result,
-           std::string* error_message);
-pp::Var MakeVar(const SignatureRequest& value);
-
-bool VarAs(const pp::Var& var,
-           RequestPinOptions* result,
-           std::string* error_message);
-pp::Var MakeVar(const RequestPinOptions& value);
-
-bool VarAs(const pp::Var& var,
-           RequestPinResults* result,
-           std::string* error_message);
-pp::Var MakeVar(const RequestPinResults& value);
-
-bool VarAs(const pp::Var& var,
-           StopPinRequestOptions* result,
-           std::string* error_message);
-pp::Var MakeVar(const StopPinRequestOptions& value);
 
 }  // namespace chrome_certificate_provider
 
