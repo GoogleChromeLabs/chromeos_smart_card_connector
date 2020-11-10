@@ -24,8 +24,8 @@
 goog.provide('SmartCardClientApp.CertificateProviderBridge.Backend');
 
 goog.require('GoogleSmartCard.DeferredProcessor');
+goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('GoogleSmartCard.Requester');
@@ -84,7 +84,7 @@ let NaclCertificateInfo;
 
 /**
  * Information about the onSignatureRequested/onSignDigestRequested event sent
- * to the NaCl module.
+ * to the C++ executable module.
  *
  * Note that only one of the fields |input| and |digest| is used; the unused
  * field is empty (note: |undefined| is not used in order to simplify the
@@ -115,18 +115,17 @@ let NaclSignatureRequest;
  * API listeners are set up straight away. This allows to handle the
  * chrome.certificateProvider API events correctly even if they were received
  * too early.
- * @param {!GSC.NaclModule} naclModule
+ * @param {!GSC.ExecutableModule} executableModule
  * @extends goog.Disposable
  * @constructor
  */
-SmartCardClientApp.CertificateProviderBridge.Backend = function(naclModule) {
+SmartCardClientApp.CertificateProviderBridge.Backend = function(executableModule) {
   /**
    * @type {!goog.log.Logger}
    * @const
    */
   this.logger = GSC.Logging.getLogger(
-      'SmartCardClientApp.CertificateProviderBridge.Backend<"' +
-      naclModule.naclModulePath + '">');
+      'SmartCardClientApp.CertificateProviderBridge.Backend');
 
   /** @private {?function(!chrome.certificateProvider.CertificatesUpdateRequest)} */
   this.certificatesUpdateRequestListener_ = null;
@@ -139,13 +138,13 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(naclModule) {
 
   /** @private */
   this.requester_ = new GSC.Requester(
-      NACL_INCOMING_REQUESTER_NAME, naclModule.messageChannel);
+      NACL_INCOMING_REQUESTER_NAME, executableModule.getMessageChannel());
 
   // Note: the request receiver instance is not stored anywhere, as it makes
   // itself being owned by the message channel.
   new GSC.RequestReceiver(
       NACL_OUTGOING_REQUESTER_NAME,
-      naclModule.messageChannel,
+      executableModule.getMessageChannel(),
       this.handleRequest_.bind(this));
 
   // Start listening for the chrome.certificateProvider API events straight
@@ -154,8 +153,9 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(naclModule) {
 
   /** @private */
   this.deferredProcessor_ = new GSC.DeferredProcessor(
-      naclModule.getLoadPromise());
-  naclModule.addOnDisposeCallback(this.naclModuleDisposedListener_.bind(this));
+      executableModule.getLoadPromise());
+  executableModule.addOnDisposeCallback(
+      this.executableModuleDisposedListener_.bind(this));
 
   this.logger.fine('Constructed');
 };
@@ -275,8 +275,8 @@ Backend.prototype.handleRequest_ = function(payload) {
 };
 
 /** @private */
-Backend.prototype.naclModuleDisposedListener_ = function() {
-  this.logger.fine('NaCl module was disposed, disposing...');
+Backend.prototype.executableModuleDisposedListener_ = function() {
+  this.logger.fine('Executable module was disposed, disposing...');
   this.dispose();
 };
 

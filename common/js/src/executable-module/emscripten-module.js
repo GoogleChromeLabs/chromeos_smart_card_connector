@@ -24,6 +24,7 @@ goog.provide('GoogleSmartCard.EmscriptenModule');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Disposable');
+goog.require('goog.Promise');
 goog.require('goog.html.TrustedResourceUrl');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');

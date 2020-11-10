@@ -69,11 +69,12 @@ naclModule.getLoadPromise().then(() => {
       naclModule.logMessagesReceiver.logger.getName());
   // Start forwarding all future log messages collected on the JS side, but also
   // immediately post the messages that have been accumulated so far.
-  logBufferForwarderToNaclModule.startForwarding(naclModule.messageChannel);
+  logBufferForwarderToNaclModule.startForwarding(
+      naclModule.getMessageChannel());
 }, () => {});
 
 var libusbChromeUsbBackend = new GSC.Libusb.ChromeUsbBackend(
-    naclModule.messageChannel);
+    naclModule.getMessageChannel());
 var chromeLoginStateHook = new GSC.Libusb.ChromeLoginStateHook();
 libusbChromeUsbBackend.addRequestSuccessHook(
     chromeLoginStateHook.getRequestSuccessHook());
@@ -83,15 +84,15 @@ chromeLoginStateHook.getHookReadyPromise().then(() => {}, () => {}).then(
 
 var pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
-        naclModule.messageChannel);
+        naclModule.getMessageChannel());
 var messageChannelPool = new GSC.MessageChannelPool;
 
 var readerTrackerMessageChannelPair = new GSC.MessageChannelPair;
 createClientHandler(readerTrackerMessageChannelPair.getFirst(), undefined);
 var readerTracker = new GSC.PcscLiteServer.ReaderTracker(
-    naclModule.messageChannel,
+    naclModule.getMessageChannel(),
     readerTrackerMessageChannelPair.getSecond(),
-    naclModule.logger);
+    naclModule.getLogger());
 
 naclModule.startLoading();
 
@@ -215,7 +216,7 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
   var clientTitleForLog = clientExtensionId !== undefined ?
       'app "' + clientExtensionId + '"' : 'own app';
 
-  if (naclModule.isDisposed() || naclModule.messageChannel.isDisposed()) {
+  if (naclModule.isDisposed() || naclModule.getMessageChannel().isDisposed()) {
     logger.warning(
         'Could not create PC/SC-Lite client handler for ' + clientTitleForLog +
         ' as the server is disposed. Disposing of the client message ' +
@@ -228,7 +229,7 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
   // because it manages its lifetime itself, based on the lifetimes of the
   // passed message channels.
   var clientHandler = new GSC.PcscLiteServerClientsManagement.ClientHandler(
-      naclModule.messageChannel,
+      naclModule.getMessageChannel(),
       pcscLiteReadinessTracker,
       clientMessageChannel,
       clientExtensionId);

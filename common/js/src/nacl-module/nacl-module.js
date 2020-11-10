@@ -21,13 +21,12 @@
 
 goog.provide('GoogleSmartCard.NaclModule');
 
+goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModuleLogMessagesReceiver');
 goog.require('GoogleSmartCard.NaclModuleMessageChannel');
 goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('GoogleSmartCard.TypedMessage');
-goog.require('goog.Disposable');
-goog.require('goog.Promise');
 goog.require('goog.dom');
 goog.require('goog.events');
 goog.require('goog.log.Logger');
@@ -55,7 +54,7 @@ const LOGGER_TITLE = 'Wrapper';
  * @param {boolean=} logModulePath Whether the logger scope should include the
  * NaCl module path.
  * @constructor
- * @extends goog.Disposable
+ * @extends GSC.ExecutableModule
  */
 GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
   NaclModule.base(this, 'constructor');
@@ -67,7 +66,7 @@ GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
    * @type {!goog.log.Logger}
    * @const
    */
-  this.logger = GSC.Logging.getChildLogger(
+  this.logger_ = GSC.Logging.getChildLogger(
       messagesReceiverLogger, LOGGER_TITLE);
 
   /**
@@ -97,12 +96,12 @@ GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
    * Message channel that can be used to exchange messages with the NaCl module.
    * @type {!GSC.NaclModuleMessageChannel}
    */
-  this.messageChannel = new GSC.NaclModuleMessageChannel(
-      this.element_, this.logger);
+  this.messageChannel_ = new GSC.NaclModuleMessageChannel(
+      this.element_, this.logger_);
 
   /** @type {!GSC.NaclModuleLogMessagesReceiver} */
   this.logMessagesReceiver = new GSC.NaclModuleLogMessagesReceiver(
-      this.messageChannel, messagesReceiverLogger);
+      this.messageChannel_, messagesReceiverLogger);
 
   this.addStatusEventListeners_();
 };
@@ -110,7 +109,7 @@ GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
 /** @const */
 var NaclModule = GSC.NaclModule;
 
-goog.inherits(NaclModule, goog.Disposable);
+goog.inherits(NaclModule, GSC.ExecutableModule);
 
 /**
  * Type of the NaCl module to be loaded.
@@ -121,42 +120,36 @@ NaclModule.Type = {
   PNACL: 1
 };
 
-/**
- * Adds the NaCl DOM element into the page DOM tree, which triggers NaCl module
- * loading and execution.
- */
+/** @override */
+NaclModule.prototype.getLogger = function() {
+  return this.logger_;
+};
+
+/** @override */
 NaclModule.prototype.startLoading = function() {
-  this.logger.info('Loading NaCl module...');
-  GSC.Logging.checkWithLogger(this.logger, !this.element_.parentNode);
-  GSC.Logging.checkWithLogger(this.logger, document.body);
+  this.logger_.info('Loading NaCl module...');
+  GSC.Logging.checkWithLogger(this.logger_, !this.element_.parentNode);
+  GSC.Logging.checkWithLogger(this.logger_, document.body);
   document.body.appendChild(this.element_);
   this.forceElementLoading_();
 };
 
-/**
- * Adds a listener to be called once the NaCl module is successfully loaded and
- * started.
- * @param {function()} listener
- */
-NaclModule.prototype.addLoadEventListener = function(listener) {
-  this.addEventListener_('load', listener);
-};
-
-/**
- * Returns a promise which will be fulfilled once the NaCl module is loaded, or
- * rejected if the module failed to load.
- * @return {!goog.Promise.<undefined>}
- */
+/** @override */
 NaclModule.prototype.getLoadPromise = function() {
   return this.loadPromiseResolver_.promise;
+};
+
+/** @override */
+NaclModule.prototype.getMessageChannel = function() {
+  return this.messageChannel_;
 };
 
 /** @override */
 NaclModule.prototype.disposeInternal = function() {
   delete this.logMessagesReceiver;
 
-  this.messageChannel.dispose();
-  delete this.messageChannel;
+  this.messageChannel_.dispose();
+  delete this.messageChannel_;
 
   goog.dom.removeNode(this.element_);
   goog.events.removeAll(this.element_);
@@ -164,7 +157,7 @@ NaclModule.prototype.disposeInternal = function() {
 
   this.loadPromiseResolver_.reject(new Error('Disposed'));
 
-  this.logger.fine('Disposed');
+  this.logger_.fine('Disposed');
 
   NaclModule.base(this, 'disposeInternal');
 };
@@ -175,7 +168,7 @@ NaclModule.prototype.disposeInternal = function() {
  */
 NaclModule.prototype.createElement_ = function() {
   var mimeType = this.getMimeType_();
-  this.logger.fine('Preparing NaCl embed (MIME type: "' + mimeType + '")...');
+  this.logger_.fine('Preparing NaCl embed (MIME type: "' + mimeType + '")...');
   return goog.dom.createDom('embed', {
     'type': mimeType,
     'width': 0,
@@ -196,7 +189,7 @@ NaclModule.prototype.getMimeType_ = function() {
       return 'application/x-pnacl';
     default:
       GSC.Logging.failWithLogger(
-          this.logger, 'Unexpected NaclModule type: ' + this.type);
+          this.logger_, 'Unexpected NaclModule type: ' + this.type);
       return '';
   }
 };
@@ -222,7 +215,7 @@ NaclModule.prototype.addStatusEventListeners_ = function() {
 NaclModule.prototype.loadEventListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.info('Successfully loaded NaCl module');
+  this.logger_.info('Successfully loaded NaCl module');
   this.loadPromiseResolver_.resolve();
 };
 
@@ -230,8 +223,8 @@ NaclModule.prototype.loadEventListener_ = function() {
 NaclModule.prototype.abortEventListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.severe('NaCl module load was aborted with the following ' +
-                     'message: ' + this.element_['lastError']);
+  this.logger_.severe('NaCl module load was aborted with the following ' +
+                      'message: ' + this.element_['lastError']);
   this.dispose();
 };
 
@@ -239,8 +232,8 @@ NaclModule.prototype.abortEventListener_ = function() {
 NaclModule.prototype.errorEventListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.severe('Failed to load NaCl module with the following message: ' +
-                     this.element_['lastError']);
+  this.logger_.severe('Failed to load NaCl module with the following ' +
+                      'message: ' + this.element_['lastError']);
   this.dispose();
 };
 
@@ -248,7 +241,7 @@ NaclModule.prototype.errorEventListener_ = function() {
 NaclModule.prototype.crashEventListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.severe('The NaCl module has crashed');
+  this.logger_.severe('The NaCl module has crashed');
   this.dispose();
 };
 
