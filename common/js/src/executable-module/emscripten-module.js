@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Disposable');
 goog.require('goog.html.TrustedResourceUrl');
 goog.require('goog.log.Logger');
+goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.net.jsloader');
 goog.require('goog.string.Const');
 
@@ -45,17 +46,20 @@ const WRAPPER_SUBLOGGER_SCOPE = 'Wrapper';
 GSC.EmscriptenModule = function(moduleName) {
   EmscriptenModule.base(this, 'constructor');
 
-  /** @type {string} @const */
+  /** @type {string} @const @private */
   this.moduleName_ = moduleName;
-  /** @type {!goog.log.Logger} @const */
+  /** @type {!goog.log.Logger} @const @private */
   this.fromModuleMessagesLogger_ = GSC.Logging.getScopedLogger(LOGGER_SCOPE);
   /** @type {!goog.log.Logger} @const */
   this.logger = GSC.Logging.getChildLogger(
       this.fromModuleMessagesLogger_, WRAPPER_SUBLOGGER_SCOPE);
+  /** @type {!EmscriptenModuleMessageChannel} @const */
+  this.messageChannel = new EmscriptenModuleMessageChannel;
   // Object that is an entry point on the C++ side and is used for exchanging
   // messages with it. Untyped, since the class "GoogleSmartCardModule" is
   // defined within the Emscripten module (using Embind) and therefore isn't
   // known to Closure Compiler.
+  /** @private */
   this.googleSmartCardModule_ = null;
 };
 
@@ -112,8 +116,90 @@ EmscriptenModule.prototype.load_ = async function() {
   GSC.Logging.checkWithLogger(this.logger, GoogleSmartCardModule,
                               'GoogleSmartCardModule class not defined');
   this.googleSmartCardModule_ = new GoogleSmartCardModule((message) => {
-    // TODO(#220): Implement handling of messages received from the module.
+    this.messageChannel.onMessageFromModule(message);
   });
+
+  // Wire up outgoing messages with the module.
+  this.messageChannel.onModuleCreated(this.googleSmartCardModule_);
+};
+
+/**
+ * @constructor
+ * @extends goog.messaging.AbstractChannel
+ * @package
+ */
+function EmscriptenModuleMessageChannel() {
+  goog.messaging.AbstractChannel.call(this);
+  /** @type {!Array<!Object>} @private */
+  this.pendingOutgoingMessages_ = [];
+  // Instance of the "GoogleSmartCardModule" class that is defined via Embind.
+  /** @private */
+  this.googleSmartCardModule_ = null;
+}
+
+goog.inherits(EmscriptenModuleMessageChannel, goog.messaging.AbstractChannel);
+
+/** @override */
+EmscriptenModuleMessageChannel.prototype.send = function(serviceName, payload) {
+  GSC.Logging.check(goog.isObject(payload));
+  goog.asserts.assertObject(payload);
+  const typedMessage = new GSC.TypedMessage(serviceName, payload);
+  const message = typedMessage.makeMessage();
+  if (this.isDisposed())
+    return;
+  if (!this.googleSmartCardModule_ || this.pendingOutgoingMessages_.length) {
+    // Enqueue the message: either the module isn't fully loaded yet or we're
+    // still sending the previously enqueued messages to it.
+    this.pendingOutgoingMessages_.push(message);
+    return;
+  }
+  this.sendNow_(message);
+};
+
+/** @override */
+EmscriptenModuleMessageChannel.prototype.disposeInternal = function() {
+  delete this.googleSmartCardModule_;
+  EmscriptenModuleMessageChannel.base(this, 'disposeInternal');
+};
+
+/**
+ * @param {?} googleSmartCardModule
+ * @package
+ */
+EmscriptenModuleMessageChannel.prototype.onModuleCreated =
+    function(googleSmartCardModule) {
+  this.googleSmartCardModule_ = googleSmartCardModule;
+  // Send all previously enqueued messages. Note that, in theory, new items
+  // might be added to the array while we're iterating over it, which should be
+  // fine as the for-of loop will visit all of them.
+  for (const message of this.pendingOutgoingMessages_)
+    this.sendNow_(message);
+  this.pendingOutgoingMessages_ = [];
+};
+
+/**
+ * @param {?} message
+ * @package
+ */
+EmscriptenModuleMessageChannel.prototype.onMessageFromModule =
+    function(message) {
+  const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
+  if (!typedMessage) {
+    GSC.Logging.fail(
+        'Failed to parse message received from Emscripten module: ' +
+        GSC.DebugDump.debugDump(message));
+  }
+  this.deliver(typedMessage.type, typedMessage.data);
+};
+
+/**
+ * @param {!Object} message
+ * @private
+ */
+EmscriptenModuleMessageChannel.prototype.sendNow_ = function(message) {
+  // Note: The method name must match the string in the GoogleSmartCardModule
+  // Embind class definition in the entry_point_emscripten.cc files.
+  this.googleSmartCardModule_['postMessage'](message);
 };
 
 });  // goog.scope
