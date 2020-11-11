@@ -92,7 +92,7 @@ example_cpp_smart_card_client_app/build/integration_tests: common/cpp/build
 example_cpp_smart_card_client_app/build/integration_tests: common/integration_testing/build
 example_cpp_smart_card_client_app/build/integration_tests: example_cpp_smart_card_client_app/build
 third_party/libusb/naclport/build/tests: common/cpp/build
-third_party/libusb/naclport/build/tests: third_party/ccid/naclport/build
+third_party/libusb/naclport/build/tests: third_party/libusb/naclport/build
 
 else
 
