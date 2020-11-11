@@ -186,10 +186,15 @@ endef
 # L: Add the specified directory into the .a library search paths.
 # l: Link the specified .a library.
 define LINK_EXECUTABLE_RULE
+# Dependency on the input object files:
 $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(foreach src,$(1),$(call OBJ_FILE_NAME,$(src)))
+# Dependency on the input static libraries:
 $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(foreach lib,$(2),$(LIB_DIR)/lib$(lib).a)
+# Dependency on additionally specified targets:
 $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(3)
+# Order-only dependency on the destination directory stamp:
 $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: | $(BUILD_DIR)/dir.stamp
+# The recipe that performs the linking and creates the resulting files:
 $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js &:
 	emcc \
 		-o $(BUILD_DIR)/$(TARGET).js \
@@ -198,7 +203,9 @@ $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).wor
 		$(foreach lib,$(2),-l$(lib)) \
 		$(EMSCRIPTEN_FLAGS) \
 		$(4)
+# Add linking into the default "all" target's prerequisite:
 all: $(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js
+# Copy the resulting files into the out directory:
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).js))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).wasm))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).worker.js))
