@@ -113,15 +113,22 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_error=undefinedNames \
 	--jscomp_error=undefinedVars \
 	--jscomp_error=underscore \
-	--jscomp_error=unknownDefines \
 	--jscomp_error=unusedLocalVariables \
 	--jscomp_error=unusedPrivateMembers \
 	--jscomp_error=uselessCode \
 	--jscomp_error=useOfGoogBase \
 	--jscomp_error=visibility \
 	--jscomp_off reportUnknownTypes \
+	--jscomp_off unknownDefines \
 	--use_types_for_optimization=false \
 	--warning_level=VERBOSE \
+
+ifneq ($(TOOLCHAIN),)
+
+JS_BUILD_COMPILATION_FLAGS += \
+	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
+
+endif
 
 
 #

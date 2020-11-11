@@ -22,6 +22,7 @@
 
 goog.provide('GoogleSmartCard.ExecutableModule');
 
+goog.require('GoogleSmartCard.Logging');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.Disposable');
@@ -42,6 +43,32 @@ GSC.ExecutableModule = function() {};
 
 const ExecutableModule = GSC.ExecutableModule;
 goog.inherits(ExecutableModule, goog.Disposable);
+
+/**
+ * Type of the toolchain used for building the binary executable module.
+ * @enum {string}
+ */
+ExecutableModule.Toolchain = {
+  EMSCRIPTEN: 'emscripten',
+  PNACL: 'pnacl',
+};
+
+/** @define {string} */
+const TOOLCHAIN = goog.define(
+    'GoogleSmartCard.ExecutableModule.TOOLCHAIN', 'pnacl');
+GSC.Logging.check(
+    Object.values(GSC.ExecutableModule.Toolchain).includes(TOOLCHAIN),
+    'Unexpected value of GoogleSmartCard.ExecutableModule.TOOLCHAIN: ' +
+    '`${TOOLCHAIN}`');
+/**
+ * The toolchain that is used for building the executable module. This constant
+ * is coming from the build scripts, which take it from the "TOOLCHAIN"
+ * environment variable.
+ * @type {!ExecutableModule.Toolchain}
+ * @const
+ */
+ExecutableModule.TOOLCHAIN = /** @type {!ExecutableModule.Toolchain} */ (
+    TOOLCHAIN);
 
 /**
  * @abstract
