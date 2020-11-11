@@ -133,6 +133,6 @@ endef
 # "make test" will compile and execute all unit and integration tests.
 # Implementation note: A single rule with a sequence of commands in the recipe
 # is used, so that tests don't run in parallel (otherwise they might break).
+.PHONY: test
 test: all
 	$(foreach target,$(TEST_TARGETS),$(call DO_RUN_TEST,$(target)))
-.PHONY: test
