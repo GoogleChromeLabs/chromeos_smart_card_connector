@@ -44,7 +44,7 @@ GSC.IntegrationTestController = function() {
   /** @type {!GSC.Requester} @private */
   this.naclModuleRequester_ = new GSC.Requester(
       INTEGRATION_TEST_NACL_MODULE_REQUESTER_NAME,
-      this.naclModule.messageChannel);
+      this.naclModule.getMessageChannel());
 };
 
 /**

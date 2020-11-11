@@ -157,7 +157,7 @@ naclModule.addOnDisposeCallback(naclModuleDisposedListener);
  * @const
  */
 var pcscLiteNaclClientBackend = new GSC.PcscLiteClient.NaclClientBackend(
-    naclModule.messageChannel, CLIENT_TITLE, SERVER_APP_ID);
+    naclModule.getMessageChannel(), CLIENT_TITLE, SERVER_APP_ID);
 
 /**
  * Translator of the events from the chrome.certificateProvider API (see
@@ -170,7 +170,7 @@ var certificateProviderBridgeBackend =
 
 // Ignore messages sent from the NaCl module to the main window when the latter
 // is not opened.
-naclModule.messageChannel.registerService('ui', () => {});
+naclModule.getMessageChannel().registerService('ui', () => {});
 
 /**
  * Object that handles the built-in PIN dialog requests received from the NaCl
@@ -181,7 +181,7 @@ naclModule.messageChannel.registerService('ui', () => {});
  * chrome.certificateProvider.requestPin() method should be used.
  */
 const builtInPinDialogBackend = new SmartCardClientApp.BuiltInPinDialog.Backend(
-    naclModule.messageChannel);
+    naclModule.getMessageChannel());
 
 // Starts the NaCl module loading. Up to this point, the module was not actually
 // loading yet, which allowed to add all the necessary event listeners in
@@ -191,7 +191,7 @@ naclModule.startLoading();
 // Open the UI window when the user launches the app.
 chrome.app.runtime.onLaunched.addListener(() => {
   GSC.PopupWindow.Server.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS, {
-    naclModuleMessageChannel: naclModule.messageChannel,
+    naclModuleMessageChannel: naclModule.getMessageChannel(),
   });
 });
 
