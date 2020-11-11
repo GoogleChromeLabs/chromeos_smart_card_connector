@@ -186,7 +186,11 @@ endef
 # L: Add the specified directory into the .a library search paths.
 # l: Link the specified .a library.
 define LINK_EXECUTABLE_RULE
-$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js &: $(foreach src,$(1),$(call OBJ_FILE_NAME,$(src))) | $(BUILD_DIR)/dir.stamp
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(foreach src,$(1),$(call OBJ_FILE_NAME,$(src)))
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(foreach lib,$(2),$(LIB_DIR)/lib$(lib).a)
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: $(3)
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js: | $(BUILD_DIR)/dir.stamp
+$(BUILD_DIR)/$(TARGET).js $(BUILD_DIR)/$(TARGET).wasm $(BUILD_DIR)/$(TARGET).worker.js &:
 	emcc \
 		-o $(BUILD_DIR)/$(TARGET).js \
 		-L$(LIB_DIR) \

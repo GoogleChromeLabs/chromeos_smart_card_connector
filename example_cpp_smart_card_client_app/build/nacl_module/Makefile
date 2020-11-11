@@ -59,12 +59,6 @@ LIBS := \
 	$(CPP_COMMON_LIB) \
 	$(DEFAULT_NACL_LIBS) \
 
-DEPS := \
-	$(CPP_COMMON_LIB) \
-	$(PCSC_LITE_CLIENT_LIB) \
-	$(PCSC_LITE_COMMON_LIB) \
-	$(PCSC_LITE_CPP_DEMO_LIB) \
-
 CPPFLAGS := \
 	-I$(SOURCES_DIR) \
 	-I$(ROOT_PATH)/common/cpp/src \
@@ -80,4 +74,4 @@ CPPFLAGS := \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS))))
 
-$(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES),$(LIBS),$(DEPS)))
+$(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES),$(LIBS)))
