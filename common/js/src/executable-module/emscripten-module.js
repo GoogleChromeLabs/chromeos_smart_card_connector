@@ -21,9 +21,11 @@
 
 goog.provide('GoogleSmartCard.EmscriptenModule');
 
+goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('GoogleSmartCard.TypedMessage');
-goog.require('goog.Disposable');
+goog.require('goog.Promise');
 goog.require('goog.html.TrustedResourceUrl');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
@@ -41,7 +43,7 @@ const WRAPPER_SUBLOGGER_SCOPE = 'Wrapper';
  * Class that allows to load and run the Emscripten module with the given name
  * and exchange messages with it.
  * @constructor
- * @extends goog.Disposable
+ * @extends GSC.ExecutableModule
  */
 GSC.EmscriptenModule = function(moduleName) {
   EmscriptenModule.base(this, 'constructor');
@@ -50,11 +52,15 @@ GSC.EmscriptenModule = function(moduleName) {
   this.moduleName_ = moduleName;
   /** @type {!goog.log.Logger} @const @private */
   this.fromModuleMessagesLogger_ = GSC.Logging.getScopedLogger(LOGGER_SCOPE);
-  /** @type {!goog.log.Logger} @const */
-  this.logger = GSC.Logging.getChildLogger(
+  /** @type {!goog.log.Logger} @const @private */
+  this.logger_ = GSC.Logging.getChildLogger(
       this.fromModuleMessagesLogger_, WRAPPER_SUBLOGGER_SCOPE);
-  /** @type {!EmscriptenModuleMessageChannel} @const */
-  this.messageChannel = new EmscriptenModuleMessageChannel;
+  /** @type {!goog.promise.Resolver<void>} @const @private */
+  this.loadPromiseResolver_ = goog.Promise.withResolver();
+  GSC.PromiseHelpers.suppressUnhandledRejectionError(
+      this.loadPromiseResolver_.promise);
+  /** @type {!EmscriptenModuleMessageChannel} @const @private */
+  this.messageChannel_ = new EmscriptenModuleMessageChannel;
   // Object that is an entry point on the C++ side and is used for exchanging
   // messages with it. Untyped, since the class "GoogleSmartCardModule" is
   // defined within the Emscripten module (using Embind) and therefore isn't
@@ -64,23 +70,39 @@ GSC.EmscriptenModule = function(moduleName) {
 };
 
 const EmscriptenModule = GSC.EmscriptenModule;
-goog.inherits(EmscriptenModule, goog.Disposable);
+goog.inherits(EmscriptenModule, GSC.ExecutableModule);
 
-/**
- * Starts loading the Emscripten module.
- */
+/** @override */
+EmscriptenModule.prototype.getLogger = function() {
+  return this.logger_;
+};
+
+/** @override */
 EmscriptenModule.prototype.startLoading = function() {
-  this.load_().catch((e) => {
-    this.logger.warning('Failed to load the Emscripten module: ' + e);
+  this.load_().then(() => {
+    this.loadPromiseResolver_.resolve();
+  }, (e) => {
+    this.logger_.warning('Failed to load the Emscripten module: ' + e);
     this.dispose();
+    this.loadPromiseResolver_.reject(e);
   });
 };
 
 /** @override */
+EmscriptenModule.prototype.getLoadPromise = function() {
+  return this.loadPromiseResolver_.promise;
+};
+
+/** @override */
+EmscriptenModule.prototype.getMessageChannel = function() {
+  return this.messageChannel_;
+};
+
+/** @override */
 EmscriptenModule.prototype.disposeInternal = function() {
-  this.logger.fine('Disposed');
+  this.logger_.fine('Disposed');
   delete this.googleSmartCardModule_;
-  this.messageChannel.dispose();
+  this.messageChannel_.dispose();
   EmscriptenModule.base(this, 'disposeInternal');
 };
 
@@ -105,7 +127,7 @@ EmscriptenModule.prototype.load_ = async function() {
   // a specific name based on the module name.
   const factoryFunction = goog.global[
       `loadEmscriptenModule_${this.moduleName_}`];
-  GSC.Logging.checkWithLogger(this.logger, factoryFunction,
+  GSC.Logging.checkWithLogger(this.logger_, factoryFunction,
                               'Emscripten factory function not defined');
   // TODO(#220): Handle module crashes.
   const emscriptenApiModule = await factoryFunction();
@@ -114,14 +136,14 @@ EmscriptenModule.prototype.load_ = async function() {
   // side and is used for exchanging messages with it. By convention (see the
   // entry_point_emscripten.cc files), the class is named GoogleSmartCardModule.
   const GoogleSmartCardModule = emscriptenApiModule['GoogleSmartCardModule'];
-  GSC.Logging.checkWithLogger(this.logger, GoogleSmartCardModule,
+  GSC.Logging.checkWithLogger(this.logger_, GoogleSmartCardModule,
                               'GoogleSmartCardModule class not defined');
   this.googleSmartCardModule_ = new GoogleSmartCardModule((message) => {
-    this.messageChannel.onMessageFromModule(message);
+    this.messageChannel_.onMessageFromModule(message);
   });
 
   // Wire up outgoing messages with the module.
-  this.messageChannel.onModuleCreated(this.googleSmartCardModule_);
+  this.messageChannel_.onModuleCreated(this.googleSmartCardModule_);
 };
 
 /**
