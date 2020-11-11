@@ -34,7 +34,7 @@ const GSC = GoogleSmartCard;
 /**
  * An interface that can be used for loading and interacting with a binary
  * executable module.
- * The object gets disposed of when the module fails to load or crashes later.
+ * The object gets disposed of when the module fails to load or crashes.
  * @abstract @constructor
  * @extends goog.Disposable
  */

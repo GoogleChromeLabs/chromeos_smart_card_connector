@@ -65,7 +65,7 @@ GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
   const messagesReceiverLogger = GSC.Logging.getScopedLogger(loggerScope);
   /**
    * @type {!goog.log.Logger}
-   * @const
+   * @const @private
    */
   this.logger_ = GSC.Logging.getChildLogger(
       messagesReceiverLogger, LOGGER_TITLE);
@@ -96,6 +96,7 @@ GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
   /**
    * Message channel that can be used to exchange messages with the NaCl module.
    * @type {!GSC.NaclModuleMessageChannel}
+   * @private
    */
   this.messageChannel_ = new GSC.NaclModuleMessageChannel(
       this.element_, this.logger_);
