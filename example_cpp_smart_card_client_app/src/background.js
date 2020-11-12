@@ -45,6 +45,8 @@ goog.provide('SmartCardClientApp.BackgroundMain');
 
 goog.require('GoogleSmartCard.AppUtils');
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.EmscriptenModule');
+goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
@@ -128,27 +130,42 @@ logger.info(
     `"${formattedStartupTime}"`);
 
 /**
- * Holder of the NaCl module containing the actual smart card client code.
- * @const
+ * Loads the binary executable module depending on the toolchain configuration.
+ * @return {!GSC.ExecutableModule}
  */
-var naclModule = new GSC.NaclModule(
-    'nacl_module.nmf', GSC.NaclModule.Type.PNACL);
+function createExecutableModule() {
+  switch (GSC.ExecutableModule.TOOLCHAIN) {
+    case GSC.ExecutableModule.Toolchain.PNACL:
+      return new GSC.NaclModule('nacl_module.nmf', GSC.NaclModule.Type.PNACL);
+    case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
+      return new GSC.EmscriptenModule('nacl_module');
+  }
+  GSC.Logging.fail(`Cannot load executable module: unknown toolchain ` +
+                   `${GSC.ExecutableModule.TOOLCHAIN}`);
+  goog.asserts.fail();
+}
 
 /**
- * Called when the NaCl module is disposed of.
+ * The binary executable module that contains the actual smart card client code.
+ * @type {!GSC.ExecutableModule}
  */
-function naclModuleDisposedListener() {
+const executableModule = createExecutableModule();
+
+/**
+ * Called when the executable module is disposed of.
+ */
+function executableModuleDisposedListener() {
   if (!goog.DEBUG) {
     // Trigger the fatal error in the Release mode, which will emit an error
     // message and cause the app reload (see the GSC.Logging.fail() function
     // implementation in //common/js/src/logging/logging.js).
-    GSC.Logging.failWithLogger(logger, 'NaCl module was disposed of');
+    GSC.Logging.failWithLogger(logger, 'Executable module was disposed of');
   }
 }
 
 // Reload our app when the NaCl module is disposed of (e.g., due to a crash) and
 // we're in the Release mode.
-naclModule.addOnDisposeCallback(naclModuleDisposedListener);
+executableModule.addOnDisposeCallback(executableModuleDisposedListener);
 
 /**
  * Translator of all PC/SC-Lite client API requests received from the NaCl
@@ -157,7 +174,7 @@ naclModule.addOnDisposeCallback(naclModuleDisposedListener);
  * @const
  */
 var pcscLiteNaclClientBackend = new GSC.PcscLiteClient.NaclClientBackend(
-    naclModule.getMessageChannel(), CLIENT_TITLE, SERVER_APP_ID);
+    executableModule.getMessageChannel(), CLIENT_TITLE, SERVER_APP_ID);
 
 /**
  * Translator of the events from the chrome.certificateProvider API (see
@@ -166,11 +183,11 @@ var pcscLiteNaclClientBackend = new GSC.PcscLiteClient.NaclClientBackend(
  * @const
  */
 var certificateProviderBridgeBackend =
-    new SmartCardClientApp.CertificateProviderBridge.Backend(naclModule);
+    new SmartCardClientApp.CertificateProviderBridge.Backend(executableModule);
 
 // Ignore messages sent from the NaCl module to the main window when the latter
 // is not opened.
-naclModule.getMessageChannel().registerService('ui', () => {});
+executableModule.getMessageChannel().registerService('ui', () => {});
 
 /**
  * Object that handles the built-in PIN dialog requests received from the NaCl
@@ -181,17 +198,17 @@ naclModule.getMessageChannel().registerService('ui', () => {});
  * chrome.certificateProvider.requestPin() method should be used.
  */
 const builtInPinDialogBackend = new SmartCardClientApp.BuiltInPinDialog.Backend(
-    naclModule.getMessageChannel());
+    executableModule.getMessageChannel());
 
 // Starts the NaCl module loading. Up to this point, the module was not actually
 // loading yet, which allowed to add all the necessary event listeners in
 // advance.
-naclModule.startLoading();
+executableModule.startLoading();
 
 // Open the UI window when the user launches the app.
 chrome.app.runtime.onLaunched.addListener(() => {
   GSC.PopupWindow.Server.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS, {
-    naclModuleMessageChannel: naclModule.getMessageChannel(),
+    naclModuleMessageChannel: executableModule.getMessageChannel(),
   });
 });
 
