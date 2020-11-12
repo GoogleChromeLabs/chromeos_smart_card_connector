@@ -36,7 +36,7 @@ CXXFLAGS := \
 	-Wall \
 	-Werror \
 	-Wextra \
-	-std=gnu++11 \
+	-std=$(CXX_DIALECT) \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 

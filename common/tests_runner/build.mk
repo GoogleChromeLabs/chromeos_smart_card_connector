@@ -91,7 +91,7 @@ LIBS := \
 
 CPPFLAGS := \
 	-pedantic \
-	-std=gnu++11 \
+	-std=$(CXX_DIALECT) \
 	-Wall \
 	-Werror \
 	-Wextra \

@@ -51,7 +51,7 @@ CXX_SOURCES := \
 
 CXXFLAGS := \
 	$(COMMON_CPPFLAGS) \
-	-std=gnu++11 \
+	-std=$(CXX_DIALECT) \
 
 $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 

@@ -47,7 +47,7 @@ CXXFLAGS := \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/common/src \
 	-I$(SOURCES_PATH) \
-	-std=gnu++11 \
+	-std=$(CXX_DIALECT) \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 

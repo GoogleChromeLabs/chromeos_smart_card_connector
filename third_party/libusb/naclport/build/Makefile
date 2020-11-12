@@ -61,7 +61,7 @@ CPPFLAGS := \
 	-Wno-sign-compare \
 
 CXXFLAGS := \
-	-std=gnu++11 \
+	-std=$(CXX_DIALECT) \
 
 $(foreach src,$(C_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS))))
 

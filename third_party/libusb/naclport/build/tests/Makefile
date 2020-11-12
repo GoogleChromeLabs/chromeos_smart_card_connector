@@ -35,7 +35,7 @@ CXXFLAGS := \
 	-Werror \
 	-Wextra \
 	-Wno-zero-length-array \
-	-std=gnu++11 \
+	-std=$(CXX_DIALECT) \
 	$(TEST_ADDITIONAL_CXXFLAGS) \
 
 LIBS := \

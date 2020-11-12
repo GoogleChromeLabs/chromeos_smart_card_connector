@@ -32,7 +32,7 @@ TEST_RUNNER_CXXFLAGS := \
 	-Wall \
 	-Werror \
 	-Wextra \
-	-std=gnu++11 \
+	-std=$(CXX_DIALECT) \
 
 # Add rules for compiling the test runner's own C++ source files.
 $(foreach src,$(TEST_RUNNER_SOURCES),\
