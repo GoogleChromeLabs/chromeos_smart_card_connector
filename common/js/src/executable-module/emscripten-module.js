@@ -129,8 +129,8 @@ EmscriptenModule.prototype.load_ = async function() {
       `loadEmscriptenModule_${this.moduleName_}`];
   GSC.Logging.checkWithLogger(this.logger_, factoryFunction,
                               'Emscripten factory function not defined');
-  // TODO(#220): Handle module crashes.
-  const emscriptenApiModule = await factoryFunction();
+  const emscriptenApiModule = await factoryFunction(
+      this.getEmscriptenApiModuleSettings_());
 
   // Third step: Create the object that serves as an entry point on the C++
   // side and is used for exchanging messages with it. By convention (see the
@@ -144,6 +144,56 @@ EmscriptenModule.prototype.load_ = async function() {
 
   // Wire up outgoing messages with the module.
   this.messageChannel_.onModuleCreated(this.googleSmartCardModule_);
+};
+
+/**
+ * Constructs the settings object for the Emscripten module instance.
+ * @return {!Object}
+ * @private
+ */
+EmscriptenModule.prototype.getEmscriptenApiModuleSettings_ = function() {
+  return {
+    'onAbort': () => {
+      this.onModuleCrashed_();
+    },
+    'print': (message) => {
+      this.onModuleStdoutReceived_(message);
+    },
+    'printErr': (message) => {
+      this.onModuleStderrReceived_(message);
+    },
+  };
+};
+
+/**
+ * Handles the Emscripten module's crash.
+ * @private
+ */
+EmscriptenModule.prototype.onModuleCrashed_ = function() {
+  this.logger_.severe('The Emscripten module crashed');
+  this.dispose();
+};
+
+/**
+ * Handles an stdout message received from the Emscripten module.
+ * @param {string} message
+ * @private
+ */
+EmscriptenModule.prototype.onModuleStdoutReceived_ = function(message) {
+  // TODO(#185): Consider downgrading to the "fine" level once structured log
+  // messages are received from the module.
+  this.fromModuleMessagesLogger_.info(message);
+};
+
+/**
+ * Handles an stderr message received from the Emscripten module.
+ * @param {string} message
+ * @private
+ */
+EmscriptenModule.prototype.onModuleStderrReceived_ = function(message) {
+  // TODO(#185): Consider downgrading to the "fine" level once structured log
+  // messages are received from the module.
+  this.fromModuleMessagesLogger_.info(message);
 };
 
 /**
