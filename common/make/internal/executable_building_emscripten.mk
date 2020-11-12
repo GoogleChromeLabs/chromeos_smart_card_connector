@@ -169,14 +169,20 @@ endef
 #    link operations.
 define LIB_RULE
 $(LIB_DIR)/lib$(1).a: $(foreach src,$(2),$(call OBJ_FILE_NAME,$(src)))
-	mkdir -p $(LIB_DIR)
-	rm -f $(LIB_DIR)/lib$(1).a
+	@mkdir -p $(LIB_DIR)
+	@rm -f $(LIB_DIR)/lib$(1).a
 	emar \
 		crs \
 		$(LIB_DIR)/lib$(1).a \
 		$(foreach src,$(2),$(call OBJ_FILE_NAME,$(src))) \
 		$(3)
 all: $(LIB_DIR)/lib$(1).a
+
+# Rules for cleaning the library files when requested:
+.PHONY: clean_lib$(1)
+clean_lib$(1):
+	@rm -f $(LIB_DIR)/lib$(1).a
+clean: clean_lib$(1)
 endef
 
 # Documented at ../executable_building.mk.
@@ -228,3 +234,9 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).js))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).wasm))
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).worker.js))
 endef
+
+# Rules for cleaning build files when requested.
+.PHONY: clean_out_artifacts_emscripten
+clean_out_artifacts_emscripten:
+	@rm -rf out-artifacts-emscripten
+clean: clean_out_artifacts_emscripten
