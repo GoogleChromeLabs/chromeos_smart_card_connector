@@ -101,6 +101,9 @@ EmscriptenModule.prototype.getMessageChannel = function() {
 /** @override */
 EmscriptenModule.prototype.disposeInternal = function() {
   this.logger_.fine('Disposed');
+  // Call `delete()` on the C++ object before dropping the reference on it, in
+  // order to make the C++ destructor called.
+  this.googleSmartCardModule_.delete();
   delete this.googleSmartCardModule_;
   this.messageChannel_.dispose();
   EmscriptenModule.base(this, 'disposeInternal');
