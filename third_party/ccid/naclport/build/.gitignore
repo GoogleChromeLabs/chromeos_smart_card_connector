@@ -2,4 +2,5 @@
 /app_manifest_usb_devices.json
 /headers_installed.stamp
 /out/
+/out-artifacts-emscripten/
 /pnacl/
