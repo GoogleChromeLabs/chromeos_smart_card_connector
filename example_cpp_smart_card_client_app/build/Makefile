@@ -56,10 +56,10 @@ $(eval $(call BUILD_JS_SCRIPT,window.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClie
 $(eval $(call BUILD_JS_SCRIPT,built-in-pin-dialog.js,$(JS_COMPILER_INPUT_PATHS),SmartCardClientApp.BuiltInPinDialog.Main,$(JS_COMPILER_FLAGS)))
 
 
-# Rules for invoking recursive make files that build the app's NaCl module
-# (the actual recursive rules can be found at ./nacl_module/Makefile).
+# Rules for invoking recursive make files that build the app's binary executable
+# module (build rules for it can be found at ./executable_module/Makefile).
 
-$(eval $(call ADD-NACL-MODULE-DEPENDENCY,nacl_module))
+$(eval $(call ADD-NACL-MODULE-DEPENDENCY,executable_module))
 
 
 # Rules for copying the static resources files into the app's out directory.

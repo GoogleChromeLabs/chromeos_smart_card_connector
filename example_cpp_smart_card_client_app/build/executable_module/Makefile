@@ -13,7 +13,9 @@
 # limitations under the License.
 
 
-TARGET := nacl_module
+# Base name of the resulting binary. For example, in Emscripten/WebAssembly
+# builds the resulting binary file will be called "executable_module.wasm".
+TARGET := executable_module
 
 include ../../../common/make/common.mk
 

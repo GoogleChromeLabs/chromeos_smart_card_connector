@@ -66,6 +66,7 @@ var GSC = GoogleSmartCard;
  * received from the NaCl module) and implements them through the instances of
  * GoogleSmartCard.PcscLiteClient.Context and GoogleSmartCard.PcscLiteClient.API
  * classes.
+ * TODO(#220): Get rid of hardcoded references to NaCl.
  * @param {!goog.messaging.AbstractChannel} naclModuleMessageChannel
  * @param {string} clientTitle Client title for the connection. Currently this
  * is only used for the debug logs produced by the server app.

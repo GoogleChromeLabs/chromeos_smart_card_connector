@@ -19,18 +19,21 @@
  * <https://developer.chrome.com/apps/event_pages>).
  *
  * The main pieces performed here are the following:
- * * NaCl module containing the actual client implementation is created and
- *   loaded (being attached as an <embed> to the App background page);
+ * * The executable module containing the actual client implementation is
+ *   created and loaded (using a method that is needed for either
+ *   Emscripten/WebAssembly or Native Client, depending on the build
+ *   configuration);
  * * A GoogleSmartCard.PcscLiteClient.NaclClientBackend object is created, that
- *   translates all PC/SC-Lite client API requests received from the NaCl module
- *   into the JavaScript PC/SC-Lite client API method calls (see the
+ *   translates all PC/SC-Lite client API requests received from the executable
+ *   module into the JavaScript PC/SC-Lite client API method calls (see the
  *   GoogleSmartCard.PcscLiteClient.API class).
  * * A SmartCardClientApp.CertificateProviderBridge.Backend object is created,
  *   that translates between requests to/from the chrome.certificateProvider API
  *   (see <https://developer.chrome.com/extensions/certificateProvider>) into
- *   from/to the NaCl module.
+ *   requests from/to the executable module.
  * * A SmartCardClientApp.BuiltInPinDialog.Backend object is created, that
- *   handles the built-in PIN dialog requests received from the NaCl module.
+ *   handles the built-in PIN dialog requests received from the executable
+ *   module.
  * * Subscribing to a special Chrome Extensions API event that makes the App
  *   auto-loading.
  *
@@ -39,6 +42,7 @@
  * <https://developer.chrome.com/apps/event_pages#lifetime>), because having an
  * attached NaCl module disables this unloading mechanism (see
  * <http://crbug.com/472532>).
+ * TODO(#220): Figure out the story with the Emscripten/WebAssembly builds.
  */
 
 goog.provide('SmartCardClientApp.BackgroundMain');
@@ -136,9 +140,10 @@ logger.info(
 function createExecutableModule() {
   switch (GSC.ExecutableModule.TOOLCHAIN) {
     case GSC.ExecutableModule.Toolchain.PNACL:
-      return new GSC.NaclModule('nacl_module.nmf', GSC.NaclModule.Type.PNACL);
+      return new GSC.NaclModule(
+          'executable_module.nmf', GSC.NaclModule.Type.PNACL);
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
-      return new GSC.EmscriptenModule('nacl_module');
+      return new GSC.EmscriptenModule('executable_module');
   }
   GSC.Logging.fail(`Cannot load executable module: unknown toolchain ` +
                    `${GSC.ExecutableModule.TOOLCHAIN}`);
@@ -163,12 +168,12 @@ function executableModuleDisposedListener() {
   }
 }
 
-// Reload our app when the NaCl module is disposed of (e.g., due to a crash) and
-// we're in the Release mode.
+// Reload our app when the executable module is disposed of (e.g., due to a
+// crash) and we're in the Release mode.
 executableModule.addOnDisposeCallback(executableModuleDisposedListener);
 
 /**
- * Translator of all PC/SC-Lite client API requests received from the NaCl
+ * Translator of all PC/SC-Lite client API requests received from the executable
  * module into the JavaScript PC/SC-Lite client API method calls (see the
  * GoogleSmartCard.PcscLiteClient.API class).
  * @const
@@ -179,19 +184,19 @@ var pcscLiteNaclClientBackend = new GSC.PcscLiteClient.NaclClientBackend(
 /**
  * Translator of the events from the chrome.certificateProvider API (see
  * <https://developer.chrome.com/extensions/certificateProvider#events>) into
- * requests sent to the NaCl module.
+ * requests sent to the executable module.
  * @const
  */
 var certificateProviderBridgeBackend =
     new SmartCardClientApp.CertificateProviderBridge.Backend(executableModule);
 
-// Ignore messages sent from the NaCl module to the main window when the latter
-// is not opened.
+// Ignore messages sent from the executable module to the main window when the
+// latter is not opened.
 executableModule.getMessageChannel().registerService('ui', () => {});
 
 /**
- * Object that handles the built-in PIN dialog requests received from the NaCl
- * module.
+ * Object that handles the built-in PIN dialog requests received from the
+ * executable module.
  *
  * NOTE: This should only be used for the PIN requests that aren't associated
  * with signature requests made by Chrome, since for those the
@@ -200,15 +205,15 @@ executableModule.getMessageChannel().registerService('ui', () => {});
 const builtInPinDialogBackend = new SmartCardClientApp.BuiltInPinDialog.Backend(
     executableModule.getMessageChannel());
 
-// Starts the NaCl module loading. Up to this point, the module was not actually
-// loading yet, which allowed to add all the necessary event listeners in
-// advance.
+// Starts the executable module loading. Up to this point, the module was not
+// actually loading yet, which allowed to add all the necessary event listeners
+// in advance.
 executableModule.startLoading();
 
 // Open the UI window when the user launches the app.
 chrome.app.runtime.onLaunched.addListener(() => {
   GSC.PopupWindow.Server.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS, {
-    naclModuleMessageChannel: executableModule.getMessageChannel(),
+    executableModuleMessageChannel: executableModule.getMessageChannel(),
   });
 });
 

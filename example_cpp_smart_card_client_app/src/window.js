@@ -40,12 +40,12 @@ const logger = GSC.Logging.getLogger(
 
 logger.info('The main window is created');
 
-// Obtain the message channel that is used for communication with the NaCl
+// Obtain the message channel that is used for communication with the executable
 // module.
-const naclModuleMessageChannel =
+const executableModuleMessageChannel =
     /** @type {!goog.messaging.MessageChannel} */
     (GSC.ObjectHelpers.extractKey(
-         GSC.PopupWindow.Client.getData(), 'naclModuleMessageChannel'));
+         GSC.PopupWindow.Client.getData(), 'executableModuleMessageChannel'));
 
 // Load the localized strings into the HTML elements.
 GSC.I18n.adjustAllElementsTranslation();
@@ -56,15 +56,15 @@ function onCloseWindowClicked(e) {
   chrome.app.window.current().close();
 }
 
-// Called when the "run test" button is clicked. Sends a command to the NaCl
-// module to start the test.
+// Called when the "run test" button is clicked. Sends a command to the
+// executable module to start the test.
 function onRunTestClicked(e) {
   e.preventDefault();
-  naclModuleMessageChannel.send('ui_backend', {command: 'run_test'});
+  executableModuleMessageChannel.send('ui_backend', {command: 'run_test'});
 }
 
-// Called when a "output_message" message is received from the NaCl module. Adds
-// a line into the "output" <pre> element in the UI.
+// Called when a "output_message" message is received from the executable
+// module. Adds a line into the "output" <pre> element in the UI.
 function displayOutputMessage(text) {
   const outputElem = goog.dom.getElement('output');
   outputElem.innerHTML = outputElem.innerHTML + text + '\n';
@@ -80,8 +80,8 @@ goog.events.listen(
     goog.events.EventType.CLICK,
     onRunTestClicked);
 
-// Handle messages from the NaCl module.
-naclModuleMessageChannel.registerService('ui', (payload) => {
+// Handle messages from the executable module.
+executableModuleMessageChannel.registerService('ui', (payload) => {
   //
   // CHANGE HERE:
   // Place your custom code here:
@@ -91,9 +91,9 @@ naclModuleMessageChannel.registerService('ui', (payload) => {
     displayOutputMessage(payload['output_message']);
 }, /*opt_objectPayload=*/true);
 
-// Unregister from receiving NaCl module messages when our window is closed.
+// Unregister from receiving messages from the module when our window is closed.
 chrome.app.window.current().onClosed.addListener(() => {
-  naclModuleMessageChannel.registerService('ui', () => {});
+  executableModuleMessageChannel.registerService('ui', () => {});
 });
 
 // Show the window, after all the initialization above has been done.
