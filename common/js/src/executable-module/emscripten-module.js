@@ -65,7 +65,7 @@ GSC.EmscriptenModule = function(moduleName) {
   // messages with it. Untyped, since the class "GoogleSmartCardModule" is
   // defined within the Emscripten module (using Embind) and therefore isn't
   // known to Closure Compiler.
-  /** @private */
+  /** @type {?} @private */
   this.googleSmartCardModule_ = null;
 };
 
@@ -211,7 +211,7 @@ function EmscriptenModuleMessageChannel() {
   /** @type {!Array<!Object>} @private */
   this.pendingOutgoingMessages_ = [];
   // Instance of the "GoogleSmartCardModule" class that is defined via Embind.
-  /** @private */
+  /** @type {?} @private */
   this.googleSmartCardModule_ = null;
 }
 
