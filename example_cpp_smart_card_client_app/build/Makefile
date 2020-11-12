@@ -57,7 +57,7 @@ $(eval $(call BUILD_JS_SCRIPT,built-in-pin-dialog.js,$(JS_COMPILER_INPUT_PATHS),
 
 
 # Rules for invoking recursive make files that build the app's binary executable
-# module (build rules for which can be found at ./executable_module/Makefile).
+# module (build rules for it can be found at ./executable_module/Makefile).
 
 $(eval $(call ADD-NACL-MODULE-DEPENDENCY,executable_module))
 
