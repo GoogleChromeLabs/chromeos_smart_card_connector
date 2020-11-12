@@ -180,6 +180,8 @@ EmscriptenModule.prototype.onModuleCrashed_ = function() {
  * @private
  */
 EmscriptenModule.prototype.onModuleStdoutReceived_ = function(message) {
+  // TODO(#185): Consider downgrading to the "fine" level once structured log
+  // messages are received from the module.
   this.fromModuleMessagesLogger_.info(message);
 };
 
@@ -189,6 +191,8 @@ EmscriptenModule.prototype.onModuleStdoutReceived_ = function(message) {
  * @private
  */
 EmscriptenModule.prototype.onModuleStderrReceived_ = function(message) {
+  // TODO(#185): Consider downgrading to the "fine" level once structured log
+  // messages are received from the module.
   this.fromModuleMessagesLogger_.info(message);
 };
 
