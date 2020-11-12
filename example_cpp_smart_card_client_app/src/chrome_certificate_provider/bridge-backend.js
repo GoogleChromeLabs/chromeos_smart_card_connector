@@ -19,6 +19,7 @@
  * chrome.certificateProvider API (see
  * <https://developer.chrome.com/extensions/certificateProvider>) and the NaCl
  * module handlers.
+ * TODO(#220): Get rid of hardcoded references to NaCl.
  */
 
 goog.provide('SmartCardClientApp.CertificateProviderBridge.Backend');

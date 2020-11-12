@@ -16,6 +16,7 @@
 #
 # This file contains some helper definitions for including the Chrome Native
 # Client modules in Chrome Apps.
+# TODO(#177): Generalize the file to support Emscripten as well.
 #
 # common.mk must be included before including this file.
 #
