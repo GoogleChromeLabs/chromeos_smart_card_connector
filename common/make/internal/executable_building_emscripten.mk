@@ -39,7 +39,7 @@ CONFIG ?= Release
 # as an order-only prerequisite - for example:
 #   some_target: some_prerequisite | some_dir/dir.stamp
 %dir.stamp :
-	mkdir -p $(dir $@)
+	@mkdir -p $(dir $@)
 	@echo Stamp > $@
 
 # Directory where temporary build artifacts (like .o object files) are stored.
