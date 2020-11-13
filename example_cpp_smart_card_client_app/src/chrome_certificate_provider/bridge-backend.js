@@ -17,9 +17,8 @@
 /**
  * @fileoverview JavaScript-side backend for the bridge between JavaScript
  * chrome.certificateProvider API (see
- * <https://developer.chrome.com/extensions/certificateProvider>) and the NaCl
- * module handlers.
- * TODO(#220): Get rid of hardcoded references to NaCl.
+ * <https://developer.chrome.com/extensions/certificateProvider>) and the
+ * executable module handlers.
  */
 
 goog.provide('SmartCardClientApp.CertificateProviderBridge.Backend');
@@ -37,18 +36,23 @@ goog.require('goog.object');
 
 goog.scope(function() {
 
-const NACL_INCOMING_REQUESTER_NAME = 'certificate_provider_nacl_incoming';
+// Note: The following string constants must match the ones in the
+// api_bridge.cc.
 
-const NACL_OUTGOING_REQUESTER_NAME = 'certificate_provider_nacl_outgoing';
+const TO_EXECUTABLE_REQUESTER_NAME =
+    'certificate_provider_request_to_executable';
+
+const FROM_EXECUTABLE_REQUESTER_NAME =
+    'certificate_provider_request_from_executable';
 
 /**
- * Function called in the NaCl module when handling
+ * Function called in the executable module when handling
  * onCertificatesUpdateRequested/onCertificatesRequested events.
  */
 const HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME = 'HandleCertificatesRequest';
 
 /**
- * Function called in the NaCl module when handling
+ * Function called in the executable module when handling
  * onSignatureRequested/onSignDigestRequested events.
  */
 const HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME = 'HandleSignatureRequest';
@@ -74,14 +78,14 @@ const HASH_TO_ALGORITHM_MAPPING = new Map([
 ]);
 
 /**
- * Certificate information returned by the NaCl module in response to the
+ * Certificate information returned by the executable module in response to the
  * |HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME| call.
  * @typedef {{
  *   certificate: !Array<number>,
  *   supportedAlgorithms: !Array<!chrome.certificateProvider.Algorithm>
  * }}
  */
-let NaclCertificateInfo;
+let ExecutableModuleCertificateInfo;
 
 /**
  * Information about the onSignatureRequested/onSignDigestRequested event sent
@@ -89,7 +93,7 @@ let NaclCertificateInfo;
  *
  * Note that only one of the fields |input| and |digest| is used; the unused
  * field is empty (note: |undefined| is not used in order to simplify the
- * handling on the NaCl side).
+ * handling on the executable module side).
  * @typedef {{
  *   signRequestId: number,
  *   input: !ArrayBuffer,
@@ -98,22 +102,22 @@ let NaclCertificateInfo;
  *   certificate: !ArrayBuffer
  * }}
  */
-let NaclSignatureRequest;
+let ExecutableModuleSignatureRequest;
 
 /**
  * JavaScript-side backend for the bridge between JavaScript
  * chrome.certificateProvider API (see
- * <https://developer.chrome.com/extensions/certificateProvider>) and the NaCl
- * module handlers.
+ * <https://developer.chrome.com/extensions/certificateProvider>) and the
+ * executable module handlers.
  *
  * This object subscribes itself for listening the chrome.certificateProvider
- * API events and translates them into requests sent to the NaCl module as
- * messages. The response messages from the NaCl module, once they are received,
- * trigger the corresponding callbacks provided by the
+ * API events and translates them into requests sent to the executable module as
+ * messages. The response messages from the executable module, once they are
+ * received, trigger the corresponding callbacks provided by the
  * chrome.certificateProvider API.
  *
- * Note that the requests to the NaCl module are delayed until it loads, but the
- * API listeners are set up straight away. This allows to handle the
+ * Note that the requests to the executable module are delayed until it loads,
+ * but the API listeners are set up straight away. This allows to handle the
  * chrome.certificateProvider API events correctly even if they were received
  * too early.
  * @param {!GSC.ExecutableModule} executableModule
@@ -139,12 +143,12 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(executableModule
 
   /** @private */
   this.requester_ = new GSC.Requester(
-      NACL_INCOMING_REQUESTER_NAME, executableModule.getMessageChannel());
+      TO_EXECUTABLE_REQUESTER_NAME, executableModule.getMessageChannel());
 
   // Note: the request receiver instance is not stored anywhere, as it makes
   // itself being owned by the message channel.
   new GSC.RequestReceiver(
-      NACL_OUTGOING_REQUESTER_NAME,
+      FROM_EXECUTABLE_REQUESTER_NAME,
       executableModule.getMessageChannel(),
       this.handleRequest_.bind(this));
 
@@ -225,7 +229,7 @@ Backend.prototype.disposeInternal = function() {
 };
 
 /**
- * Handles a remote call request received from the NaCl module.
+ * Handles a remote call request received from the executable module.
  * @param {!Object} payload
  * @return {!goog.Promise}
  * @private
@@ -410,8 +414,8 @@ Backend.prototype.processSignatureRequest_ = function(request) {
       'algorithm is "' + request.algorithm + '", input is ' +
       GSC.DebugDump.debugDump(request.input) + ', certificate is ' +
       GSC.DebugDump.debugDump(request.certificate));
-  /** @type {!NaclSignatureRequest} */
-  const naclRequest = {
+  /** @type {!ExecutableModuleSignatureRequest} */
+  const executableRequest = {
     signRequestId: request.signRequestId,
     input: request.input,
     digest: new ArrayBuffer(/*length=*/0),
@@ -419,7 +423,7 @@ Backend.prototype.processSignatureRequest_ = function(request) {
     certificate: request.certificate,
   };
   const remoteCallMessage = new GSC.RemoteCallMessage(
-      HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME, [naclRequest]);
+      HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME, [executableRequest]);
   const promise = this.requester_.postRequest(
       remoteCallMessage.makeRequestPayload());
   promise.then(function(results) {
@@ -476,8 +480,8 @@ Backend.prototype.processSignDigestRequest_ = function(
       'hash is "' + request.hash + '", digest is ' +
       GSC.DebugDump.debugDump(request.digest) + ', certificate is ' +
       GSC.DebugDump.debugDump(request.certificate));
-  /** @type {!NaclSignatureRequest} */
-  const naclRequest = {
+  /** @type {!ExecutableModuleSignatureRequest} */
+  const executableRequest = {
     signRequestId: request.signRequestId,
     input: new ArrayBuffer(/*length=*/0),
     digest: request.digest,
@@ -485,7 +489,7 @@ Backend.prototype.processSignDigestRequest_ = function(
     certificate: request.certificate,
   };
   const remoteCallMessage = new GSC.RemoteCallMessage(
-      HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME, [naclRequest]);
+      HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME, [executableRequest]);
   const promise = this.requester_.postRequest(
       remoteCallMessage.makeRequestPayload());
   promise.then(function(results) {
@@ -536,25 +540,26 @@ function transformFunctionArguments(functionName, functionArguments) {
 }
 
 /**
- * @param {!NaclCertificateInfo} naclCertificateInfo
+ * @param {!ExecutableModuleCertificateInfo} executableModuleCertificateInfo
  * @return {!chrome.certificateProvider.ClientCertificateInfo}
  */
-function createClientCertificateInfo(naclCertificateInfo) {
+function createClientCertificateInfo(executableModuleCertificateInfo) {
   return {
-    certificateChain: [naclCertificateInfo['certificate']],
-    supportedAlgorithms: naclCertificateInfo['supportedAlgorithms']
+    certificateChain: [executableModuleCertificateInfo['certificate']],
+    supportedAlgorithms: executableModuleCertificateInfo['supportedAlgorithms']
   };
 }
 
 /**
- * @param {!NaclCertificateInfo} naclCertificateInfo
+ * @param {!ExecutableModuleCertificateInfo} executableModuleCertificateInfo
  * @return {!chrome.certificateProvider.CertificateInfo}
  */
-function createCertificateInfo(naclCertificateInfo) {
+function createCertificateInfo(executableModuleCertificateInfo) {
   return {
-    certificate: naclCertificateInfo['certificate'],
+    certificate: executableModuleCertificateInfo['certificate'],
     supportedHashes: goog.array.map(
-      naclCertificateInfo['supportedAlgorithms'], getHashFromAlgorithm)
+        executableModuleCertificateInfo['supportedAlgorithms'],
+        getHashFromAlgorithm)
   };
 }
 

@@ -16,7 +16,7 @@
 
 /**
  * @fileoverview Backend that handles built-in PIN dialog requests received from
- * the NaCl module.
+ * the executable module.
  *
  * NOTE: This should only be used for the PIN requests that aren't associated
  * with signature requests made by Chrome, since for those the
@@ -56,8 +56,8 @@ const GSC = GoogleSmartCard;
 const logger = GSC.Logging.getLogger('SmartCardClientApp.BuiltInPinDialog');
 
 /**
- * Backend that handles built-in PIN dialog requests received from the NaCl
- * module.
+ * Backend that handles built-in PIN dialog requests received from the
+ * executable module.
  *
  * On construction, subscribes at the passed message channel for receiving
  * messages of the special type representing PIN requests.
@@ -65,17 +65,15 @@ const logger = GSC.Logging.getLogger('SmartCardClientApp.BuiltInPinDialog');
  * Once the message with the PIN request is received, opens the built-in PIN
  * dialog and, once it finishes, sends its result as a message through the
  * message channel.
- *
- * TODO(#220): Get rid of hardcoded references to NaCl.
- * @param {!goog.messaging.AbstractChannel} naclModuleMessageChannel
+ * @param {!goog.messaging.AbstractChannel} executableModuleMessageChannel
  * @constructor
  */
 SmartCardClientApp.BuiltInPinDialog.Backend = function(
-    naclModuleMessageChannel) {
+    executableModuleMessageChannel) {
   // Note: the request receiver instance is not stored anywhere, as it makes
   // itself being owned by the message channel.
   new GSC.RequestReceiver(
-      REQUESTER_NAME, naclModuleMessageChannel, handleRequest);
+      REQUESTER_NAME, executableModuleMessageChannel, handleRequest);
 };
 
 const Backend = SmartCardClientApp.BuiltInPinDialog.Backend;

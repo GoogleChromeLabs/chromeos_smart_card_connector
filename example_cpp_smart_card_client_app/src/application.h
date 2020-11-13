@@ -37,10 +37,9 @@ namespace smart_card_client {
 // or PIN requests) should be never executed on the main event loop thread. This
 // is because all communication with the JavaScript side works through
 // exchanging of messages between the executable module and JavaScript side, and
-// the incoming messages are received and routed on the main thread (see
-// <https://developer.chrome.com/native-client/devguide/coding/message-system>).
-// Actually, most of the blocking operations implemented in this code contain
-// assertions that they are not called on the main thread.
+// the incoming messages are received and routed on the main thread. Actually,
+// most of the blocking operations implemented in this code contain assertions
+// that they are not called on the main thread.
 class Application final {
  public:
   // Initializes and starts the application. The `typed_message_router` argument

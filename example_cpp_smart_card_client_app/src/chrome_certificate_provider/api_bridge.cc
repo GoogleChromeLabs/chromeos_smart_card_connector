@@ -37,11 +37,15 @@ namespace chrome_certificate_provider {
 
 namespace {
 
-constexpr char kRequesterName[] = "certificate_provider_nacl_outgoing";
-constexpr char kRequestReceiverName[] = "certificate_provider_nacl_incoming";
+// These constants must match the ones in bridge-backend.js.
+constexpr char kRequesterName[] =
+    "certificate_provider_request_from_executable";
+constexpr char kRequestReceiverName[] =
+    "certificate_provider_request_to_executable";
 constexpr char kHandleCertificatesRequestFunctionName[] =
     "HandleCertificatesRequest";
 constexpr char kHandleSignatureRequestFunctionName[] = "HandleSignatureRequest";
+
 constexpr char kFunctionCallLoggingPrefix[] = "chrome.certificateProvider.";
 
 void ProcessCertificatesRequest(
