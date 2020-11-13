@@ -29,12 +29,3 @@ INTEGRATION_TESTING_DIR_PATH := $(COMMON_DIR_PATH)/integration_testing
 # compiling the code using this library.
 INTEGRATION_TESTING_JS_COMPILER_INPUT_DIR_PATHS := \
 	$(INTEGRATION_TESTING_DIR_PATH) \
-
-
-#
-# Helper target that installs the library headers.
-#
-# This target can be used in dependant libraries.
-#
-
-$(eval $(call DEFINE_NACL_LIBRARY_HEADERS_INSTALLATION_TARGET,INTEGRATION_TESTING_HEADERS_INSTALLATION_STAMP_FILE,$(INTEGRATION_TESTING_DIR_PATH)/build))

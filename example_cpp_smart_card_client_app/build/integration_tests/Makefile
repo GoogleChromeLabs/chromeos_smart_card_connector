@@ -58,6 +58,7 @@ DEPS := \
 CPPFLAGS := \
 	-I$(SOURCE_DIR) \
 	-I$(ROOT_PATH)/common/cpp/src \
+	-I$(ROOT_PATH)/common/integration_testing/src \
 	-pedantic \
 	-std=$(CXX_DIALECT) \
 	-Wall \
@@ -67,8 +68,6 @@ CPPFLAGS := \
 
 $(foreach src,$(CPP_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS))))
 $(eval $(call LINK_EXECUTABLE_RULE,$(CPP_SOURCES),$(LIBS),$(DEPS)))
-
-$(foreach src,$(CPP_SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(INTEGRATION_TESTING_HEADERS_INSTALLATION_STAMP_FILE))))
 
 $(eval $(call BUILD_TESTING_JS_SCRIPT,tests.js,$(JS_COMPILER_INPUT_PATHS)))
 
