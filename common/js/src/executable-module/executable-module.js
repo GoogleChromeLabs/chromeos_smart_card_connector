@@ -54,8 +54,7 @@ ExecutableModule.Toolchain = {
 };
 
 /** @define {string} */
-const TOOLCHAIN = goog.define(
-    'GoogleSmartCard.ExecutableModule.TOOLCHAIN', 'pnacl');
+const TOOLCHAIN = goog.define('GoogleSmartCard.ExecutableModule.TOOLCHAIN', '');
 GSC.Logging.check(
     Object.values(GSC.ExecutableModule.Toolchain).includes(TOOLCHAIN),
     'Unexpected value of GoogleSmartCard.ExecutableModule.TOOLCHAIN: ' +
