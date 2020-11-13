@@ -27,10 +27,14 @@ endif
 
 
 #
-# Determine build configuration. By default, use Release mode.
+# Determine build configuration.
 #
 
+# Supported values: "Release" (default), "Debug".
 CONFIG ?= Release
+# Supported values: "pnacl" (Portable Native Client; default), "emscripten"
+# (Emscripten/WebAssembly).
+TOOLCHAIN ?= pnacl
 
 
 #

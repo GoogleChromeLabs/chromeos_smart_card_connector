@@ -38,10 +38,13 @@ include $(THIRD_PARTY_DIR_PATH)/closure-library/include.mk
 # copying to the out directory (this is separate from the out directory, because
 # the latter is cleared on each rebuild).
 #
+# Note that the directory depends on both TOOLCHAIN and CONFIG variables, so
+# that JavaScript files from different build configurations aren't mixed up.
+#
 
 JS_BUILD_DIR_ROOT_PATH := js_build
 
-JS_BUILD_DIR_PATH := $(JS_BUILD_DIR_ROOT_PATH)/$(CONFIG)
+JS_BUILD_DIR_PATH := $(JS_BUILD_DIR_ROOT_PATH)/$(TOOLCHAIN)_$(CONFIG)
 
 $(JS_BUILD_DIR_PATH):
 	@mkdir -p $(JS_BUILD_DIR_PATH)
@@ -74,6 +77,7 @@ endif
 
 JS_BUILD_COMPILATION_FLAGS += \
 	--compilation_level=SIMPLE \
+	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
 	--dependency_mode=STRICT \
 	--jscomp_error=accessControls \
@@ -122,13 +126,6 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_off unknownDefines \
 	--use_types_for_optimization=false \
 	--warning_level=VERBOSE \
-
-ifneq ($(TOOLCHAIN),)
-
-JS_BUILD_COMPILATION_FLAGS += \
-	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
-
-endif
 
 
 #

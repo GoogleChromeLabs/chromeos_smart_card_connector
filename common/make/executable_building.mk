@@ -16,13 +16,8 @@
 # can be run in web-based applications.
 #
 # The actually used technology depends on the TOOLCHAIN environment variable.
-# Currently, the only supported value is "pnacl", which corresponds to the
-# Google Native Client technology.
 #
 # common.mk must be included before including this file.
-
-# Default to using the "pnacl" toolchain.
-TOOLCHAIN ?= pnacl
 
 # Common documentation for definitions provided by this file (they are
 # implemented in toolchain-specific .mk files, but share the same interface):
