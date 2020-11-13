@@ -27,6 +27,9 @@ TOOLCHAIN ?= pnacl
 # Common documentation for definitions provided by this file (they are
 # implemented in toolchain-specific .mk files, but share the same interface):
 #
+# * CXX_DIALECT variable:
+#   The value to be used for the "-std=" flag for C++ files.
+#
 # * COMPILE_RULE macro:
 #   Generates object files from the given C/C++ files.
 #   Arguments:

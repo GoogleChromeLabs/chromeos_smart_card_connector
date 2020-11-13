@@ -114,6 +114,9 @@ $(error Unsupported CONFIG=$(CONFIG) value.)
 endif
 
 # Documented at ../executable_building.mk.
+CXX_DIALECT := c++11
+
+# Documented at ../executable_building.mk.
 #
 # Implementation notes:
 # * The target for the .o file depends on the source file, so that modification

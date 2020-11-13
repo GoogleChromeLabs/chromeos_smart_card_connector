@@ -59,7 +59,7 @@ CPPFLAGS := \
 	-I$(SOURCE_DIR) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-pedantic \
-	-std=gnu++11 \
+	-std=$(CXX_DIALECT) \
 	-Wall \
 	-Werror \
 	-Wextra \

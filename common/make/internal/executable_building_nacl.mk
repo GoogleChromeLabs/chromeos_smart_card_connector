@@ -58,6 +58,13 @@ DEFAULT_NACL_LIBS := \
 	pthread \
 
 
+# Documented at ../executable_building.mk.
+#
+# Note: "c++11" is not used, since it lacks some features in PNaCl, like the
+# `isascii()` standard library function.
+CXX_DIALECT := gnu++11
+
+
 #
 # Documented at ../binary_executable_building.mk.
 #
