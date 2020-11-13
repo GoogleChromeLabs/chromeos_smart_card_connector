@@ -41,9 +41,3 @@ CXXFLAGS := \
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
-
-INSTALLING_HEADERS := \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):integration_test_helper.h \
-	$(ROOT_SOURCES_SUBDIR):$(SOURCES_PATH):integration_test_service.h \
-
-$(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
