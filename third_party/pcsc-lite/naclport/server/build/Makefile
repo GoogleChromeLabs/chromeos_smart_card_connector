@@ -216,11 +216,6 @@ SOURCES := \
 	$(PCSC_LITE_SERVER_NACL_SOURCES) \
 	$(PCSC_LITE_SERVER_READERFACTORY_SOURCES) \
 
-# Rules for adding a dependency on the installation of the separate libraries'
-# headers
-
-$(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(LIBUSB_HEADERS_INSTALLATION_STAMP_FILE))))
-
 
 # Rules for linking of the compiled object files and installing the resulting
 # static library into the NaCl SDK libraries directory
