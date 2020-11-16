@@ -87,8 +87,8 @@ PCSC_LITE_COMMON_CPPFLAGS := \
 	-DPCSCLITE_HP_DROPDIR='"/crx/pcsc/drivers"' \
 	-DUSE_IPCDIR='"IPCDIR_is_not_expected_to_be_used"' \
 	-DUSE_USB \
-	-I$(LIBUSB_INCLUDE_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src/google_smart_card_common/logging/syslog \
+	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
 
 # Part of the list of the original PC/SC-Lite daemon source files to be
 # compiled (see also PCSC_LITE_SERVER_SVC_SOURCES,
