@@ -87,8 +87,8 @@ PCSC_LITE_COMMON_CPPFLAGS := \
 	-DPCSCLITE_HP_DROPDIR='"/crx/pcsc/drivers"' \
 	-DUSE_IPCDIR='"IPCDIR_is_not_expected_to_be_used"' \
 	-DUSE_USB \
-	-I$(LIBUSB_INCLUDE_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src/google_smart_card_common/logging/syslog \
+	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
 
 # Part of the list of the original PC/SC-Lite daemon source files to be
 # compiled (see also PCSC_LITE_SERVER_SVC_SOURCES,
@@ -216,11 +216,6 @@ SOURCES := \
 	$(PCSC_LITE_SERVER_NACL_SOURCES) \
 	$(PCSC_LITE_SERVER_READERFACTORY_SOURCES) \
 
-# Rules for adding a dependency on the installation of the separate libraries'
-# headers
-
-$(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(LIBUSB_HEADERS_INSTALLATION_STAMP_FILE))))
-
 
 # Rules for linking of the compiled object files and installing the resulting
 # static library into the NaCl SDK libraries directory
@@ -231,17 +226,3 @@ $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
 # Rules for putting the fake local socket file into the resulting out directory
 
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/fake_socket_file,pcsc))
-
-
-# Rules for installation of the public library headers
-
-INSTALLING_HEADERS := \
-	$(PCSC_LITE_SERVER_INSTALLED_HEADERS_DIR_NAME)/PCSC:$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH):debuglog.h \
-	$(PCSC_LITE_SERVER_INSTALLED_HEADERS_DIR_NAME)/PCSC:$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH):ifdhandler.h \
-	$(PCSC_LITE_SERVER_INSTALLED_HEADERS_DIR_NAME)/PCSC:$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH):pcsclite.h \
-	$(PCSC_LITE_SERVER_INSTALLED_HEADERS_DIR_NAME)/PCSC:$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH):reader.h \
-	$(PCSC_LITE_SERVER_INSTALLED_HEADERS_DIR_NAME)/PCSC:$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH):winscard.h \
-	$(PCSC_LITE_SERVER_INSTALLED_HEADERS_DIR_NAME)/PCSC:$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH):wintypes.h \
-	$(PCSC_LITE_SERVER_INSTALLED_HEADERS_DIR_NAME):$(SOURCES_PATH)/google_smart_card_pcsc_lite_server:global.h \
-
-$(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))

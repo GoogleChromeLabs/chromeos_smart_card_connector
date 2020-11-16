@@ -30,18 +30,3 @@ LIBUSB_DIR_PATH := $(THIRD_PARTY_DIR_PATH)/libusb
 
 
 LIBUSB_JS_COMPILER_INPUT_DIR_PATHS := $(LIBUSB_DIR_PATH)/naclport/src
-
-
-LIBUSB_INSTALLED_HEADER_DIR_NAME := google_smart_card_libusb/libusb-1.0
-
-LIBUSB_INCLUDE_PATH := \
-	$(NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH)/$(LIBUSB_INSTALLED_HEADER_DIR_NAME)
-
-
-#
-# Helper target that installs the library headers.
-#
-# This target can be used in dependant libraries.
-#
-
-$(eval $(call DEFINE_NACL_LIBRARY_HEADERS_INSTALLATION_TARGET,LIBUSB_HEADERS_INSTALLATION_STAMP_FILE,$(LIBUSB_DIR_PATH)/naclport/build))
