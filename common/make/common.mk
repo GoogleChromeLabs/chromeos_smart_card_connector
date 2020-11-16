@@ -304,20 +304,3 @@ UNIQUE = $(shell echo $(1) | xargs -n1 | sort -u)
 #
 
 JOIN_WITH_DELIMITER = $(subst $(SPACE),$(2),$(1))
-
-
-#
-# Returns the item with the required index from the passed colon-separated list.
-#
-# Note: the items of the list should not contain spaces between non-space
-# characters.
-#
-# Arguments:
-#    $1: Input list of colon-separated items.
-#
-
-GET_COLON_SEPARATED_FIRST = $(word 1,$(subst :, ,$(1)))
-
-GET_COLON_SEPARATED_SECOND = $(word 2,$(subst :, ,$(1)))
-
-GET_COLON_SEPARATED_THIRD = $(word 3,$(subst :, ,$(1)))

@@ -83,68 +83,6 @@ endef
 
 
 #
-# Documented at ../binary_executable_building.mk.
-#
-
-NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH := \
-	$(NACL_SDK_ROOT)/include/$(TOOLCHAIN)
-
-
-#
-# File name of the stamp file produced by the headers installation rule.
-#
-
-NACL_LIBRARY_HEADERS_INSTALLATION_STAMP_FILE_NAME := headers_installed.stamp
-
-
-#
-# Documented at ../binary_executable_building.mk.
-#
-
-define NACL_LIBRARY_HEADERS_INSTALLATION_RULE
-
-$(NACL_LIBRARY_HEADERS_INSTALLATION_STAMP_FILE_NAME): $(foreach item,$(1),$(call GET_COLON_SEPARATED_SECOND,$(item))/$(call GET_COLON_SEPARATED_THIRD,$(item)))
-	@rm -f $(NACL_LIBRARY_HEADERS_INSTALLATION_STAMP_FILE_NAME)
-	@$(foreach item,$(1),rm -rf $(NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH)/$(call GET_COLON_SEPARATED_FIRST,$(item));)
-	@$(foreach item,$(1),$(call RACE_FREE_CP,$(call GET_COLON_SEPARATED_SECOND,$(item))/$(call GET_COLON_SEPARATED_THIRD,$(item)),$(NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH)/$(call GET_COLON_SEPARATED_FIRST,$(item))/$(call GET_COLON_SEPARATED_THIRD,$(item)),true);)
-	@echo Headers installation stamp > $(NACL_LIBRARY_HEADERS_INSTALLATION_STAMP_FILE_NAME)
-	@echo Headers installed into $(call JOIN_WITH_DELIMITER,$(call UNIQUE,$(foreach item,$(1),$(NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH)/$(call GET_COLON_SEPARATED_FIRST,$(item)) )), and ).
-
-all: $(NACL_LIBRARY_HEADERS_INSTALLATION_STAMP_FILE_NAME)
-
-$(STAMPDIR)/$(TARGET).stamp: $(NACL_LIBRARY_HEADERS_INSTALLATION_STAMP_FILE_NAME)
-
-$(eval $(call CLEAN_RULE,$(NACL_LIBRARY_HEADERS_INSTALLATION_STAMP_FILE_NAME)))
-
-endef
-
-
-#
-# Documented at ../binary_executable_building.mk.
-#
-
-define DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS
-
-$(call SRC_TO_OBJ,$(1)): $(2)
-
-endef
-
-
-#
-# Documented at ../binary_executable_building.mk.
-#
-
-define DEFINE_NACL_LIBRARY_HEADERS_INSTALLATION_TARGET
-
-$(1) := $(2)/$(NACL_LIBRARY_HEADERS_INSTALLATION_STAMP_FILE_NAME)
-
-$(2)/$(NACL_LIBRARY_HEADERS_INSTALLATION_STAMP_FILE_NAME)::
-	+$(MAKE) -C $(2) $(NACL_LIBRARY_HEADERS_INSTALLATION_STAMP_FILE_NAME)
-
-endef
-
-
-#
 # Auxiliary macro rule that adds rules for linking the resulting NaCl binaries.
 #
 # The PNaCl workflow uses both an unstripped and finalized/stripped binary; on

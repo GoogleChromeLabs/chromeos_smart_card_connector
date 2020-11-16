@@ -30,7 +30,7 @@ SOURCES := \
 	$(SOURCES_PATH)/integration_test_service.cc \
 
 CXXFLAGS := \
-	-I$(SOURCES_PATH) \
+	-I$(ROOT_SOURCES_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-pedantic \
 	-Wall \
