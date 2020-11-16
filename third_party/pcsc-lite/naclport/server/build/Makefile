@@ -87,8 +87,8 @@ PCSC_LITE_COMMON_CPPFLAGS := \
 	-DPCSCLITE_HP_DROPDIR='"/crx/pcsc/drivers"' \
 	-DUSE_IPCDIR='"IPCDIR_is_not_expected_to_be_used"' \
 	-DUSE_USB \
-	-I$(LIBUSB_INCLUDE_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src/google_smart_card_common/logging/syslog \
+	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
 
 # Part of the list of the original PC/SC-Lite daemon source files to be
 # compiled (see also PCSC_LITE_SERVER_SVC_SOURCES,
@@ -215,11 +215,6 @@ SOURCES := \
 	$(PCSC_LITE_CLIENT_SOURCES) \
 	$(PCSC_LITE_SERVER_NACL_SOURCES) \
 	$(PCSC_LITE_SERVER_READERFACTORY_SOURCES) \
-
-# Rules for adding a dependency on the installation of the separate libraries'
-# headers
-
-$(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(LIBUSB_HEADERS_INSTALLATION_STAMP_FILE))))
 
 
 # Rules for linking of the compiled object files and installing the resulting

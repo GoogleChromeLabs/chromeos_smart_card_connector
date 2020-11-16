@@ -64,6 +64,7 @@ $(eval $(call DEPEND_RULE,nacl_io))
 
 CXXFLAGS := \
 	-I$(ROOT_PATH)/common/cpp/src \
+	-I$(ROOT_PATH)/third_party/libusb/naclport/src \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src \
 	-Wall \
 	-Werror \

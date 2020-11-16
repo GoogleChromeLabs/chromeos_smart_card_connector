@@ -71,13 +71,6 @@ $(foreach src,$(CXX_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CPPFLAGS) $(CXX
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
 
 
-INSTALLING_HEADERS := \
-	$(LIBUSB_INSTALLED_HEADER_DIR_NAME):$(LIBUSB_SOURCES_PATH)/libusb:libusb.h \
-	google_smart_card_libusb:$(LIBUSB_NACL_SOURCES_PATH)/google_smart_card_libusb:global.h \
-
-$(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
-
-
 test::
 	+$(MAKE) --directory tests run_test
 	+$(MAKE) --directory js_unittests run_test

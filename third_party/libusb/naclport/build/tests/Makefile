@@ -28,8 +28,8 @@ SOURCES := \
 
 CXXFLAGS := \
 	-I$(SOURCES_PATH) \
-	-I$(NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH)/google_smart_card_libusb/libusb-1.0 \
 	-I$(ROOT_PATH)/common/cpp/src \
+	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
 	-pedantic \
 	-Wall \
 	-Werror \
