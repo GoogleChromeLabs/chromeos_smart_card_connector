@@ -53,7 +53,6 @@ COMMON_CPPFLAGS := \
 	-Dlog_xxd=ccid_log_xxd \
 	-DPCSCLITE_HP_DROPDIR='"/crx/pcsc/drivers"' \
 	-I$(CCID_SOURCES_PATH) \
-	-I$(LIBUSB_INCLUDE_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \
 
@@ -86,6 +85,7 @@ CCID_CPPFLAGS := \
 	-I$(CCID_NACL_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src/google_smart_card_common/logging/syslog \
+	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
 	-Wno-macro-redefined \
 
 $(foreach src,$(CCID_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_CPPFLAGS))))
@@ -128,6 +128,7 @@ CCID_TOWITOKO_CPPFLAGS := \
 	$(COMMON_CPPFLAGS) \
 	-I$(CCID_NACL_SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
+	-I$(ROOT_PATH)/third_party/libusb/src/libusb \
 
 $(foreach src,$(CCID_TOWITOKO_SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CCID_TOWITOKO_CPPFLAGS))))
 
@@ -140,12 +141,6 @@ SOURCES := \
 	$(CCID_OPENCT_SOURCES) \
 	$(CCID_SIMCLIST_SOURCES) \
 	$(CCID_TOWITOKO_SOURCES) \
-
-
-# Rules for adding a dependency on the installation of the separate libraries'
-# headers
-
-$(foreach src,$(SOURCES),$(eval $(call DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS,$(src),$(LIBUSB_HEADERS_INSTALLATION_STAMP_FILE))))
 
 
 # Rules for building the driver config file and putting it into the resulting
