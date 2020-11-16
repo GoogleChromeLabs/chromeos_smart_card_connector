@@ -52,10 +52,10 @@ SOURCES := \
 	$(SOURCES_PATH)/google_smart_card_pcsc_lite_server_clients_management/ready_message.cc \
 
 CXXFLAGS := \
-	-I$(PCSC_LITE_SERVER_INCLUDE_PATH) \
 	-I$(SOURCES_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/common/src \
+	-I$(ROOT_PATH)/third_party/pcsc-lite/src/src/PCSC \
 	-std=$(CXX_DIALECT) \
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
