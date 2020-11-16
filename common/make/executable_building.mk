@@ -47,42 +47,6 @@
 #   $3 ("DEPS", optional): Libraries whose building will be added as
 #     dependencies of this target.
 #   $4 ("LDFLAGS", optional): Linker flags.
-#
-# * NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH variable:
-#   TODO(#177): Rename to a toolchain-independent name.
-#   Path where library headers are installed by the
-#   NACL_LIBRARY_HEADERS_INSTALLATION_RULE macro.
-#
-# * NACL_LIBRARY_HEADERS_INSTALLATION_RULE macro:
-#   TODO(#177): Rename to a toolchain-independent name.
-#   Installs specified headers into $NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH.
-#   Arguments:
-#   $1 ("INSTALLING_HEADERS"): List of header descriptions, where each list item
-#     should contain colon-separated destination directory (relative to
-#     NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH), source directory and source
-#     file path (relative to the source directory). Example:
-#     "foolib:../src:a.h foolib:../src:b/c.h", which denotes installation of
-#     file ../src/a.h into
-#     $NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH/libfoo/a.h and of file
-#     ../src/b/c.h into
-#     $NACL_LIBRARY_HEADERS_INSTALLATION_DIR_PATH/libfoo/b/c.h.
-#
-# * DEPEND_COMPILE_ON_NACL_LIBRARY_HEADERS macro:
-#   TODO(#177): Rename to a toolchain-independent name.
-#   Adds the specified library as a prerequisite for compilation rule of the
-#   the specified file.
-#   Arguments:
-#   $1 ("SOURCES"): Source file paths,
-#   $2 ("STAMP_FILE"): The library's header installation stamp file, defined via
-#     the DEFINE_NACL_LIBRARY_HEADERS_INSTALLATION_TARGET rule.
-#
-# * DEFINE_NACL_LIBRARY_HEADERS_INSTALLATION_TARGET macro:
-#   TODO(#177): Rename to a toolchain-independent name.
-#   Defines the target for the library headers installation and sets the
-#   variable containing the target name.
-#   Arguments:
-#   $1 ("STAMP_FILE_VAR"): Variable to be set to the stamp file name.
-#   $2 ("LIB_DIR"): Path to the library's build directory.
 
 # Load the toolchain-specific file.
 ifeq ($(TOOLCHAIN),emscripten)
