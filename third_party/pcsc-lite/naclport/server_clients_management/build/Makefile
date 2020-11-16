@@ -81,16 +81,6 @@ JS_COMPILER_FLAGS := \
 $(eval $(call BUILD_JS_SCRIPT,pcsc_lite_server_clients_management/user-prompt-dialog.js,$(JS_COMPILER_INPUT_PATHS),GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.Main,$(JS_COMPILER_FLAGS)))
 
 
-INSTALLED_HEADERS_DIR_NAME := \
-	google_smart_card_pcsc_lite_server_clients_management
-
-INSTALLING_HEADERS := \
-	$(INSTALLED_HEADERS_DIR_NAME):$(SOURCES_PATH)/google_smart_card_pcsc_lite_server_clients_management:backend.h \
-	$(INSTALLED_HEADERS_DIR_NAME):$(SOURCES_PATH)/google_smart_card_pcsc_lite_server_clients_management:ready_message.h \
-
-$(eval $(call NACL_LIBRARY_HEADERS_INSTALLATION_RULE,$(INSTALLING_HEADERS)))
-
-
 test::
 	+$(MAKE) --directory js_unittests run_test
 
