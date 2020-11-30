@@ -26,15 +26,12 @@
 #ifndef GOOGLE_SMART_CARD_PCSC_LITE_SERVER_GLOBAL_H_
 #define GOOGLE_SMART_CARD_PCSC_LITE_SERVER_GLOBAL_H_
 
-#include <mutex>
-
-#include <ppapi/cpp/instance.h>
-#include <ppapi/cpp/var_dictionary.h>
+#include <google_smart_card_common/global_context.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
-// This class contains a pointer to the pp::Instance which enables it to provide
-// some specific Post*Message functionality.
+// This class runs the functionality of the PC/SC-Lite daemon.
 //
 // At most one instance of this class can exist at any given moment.
 //
@@ -45,36 +42,22 @@ namespace google_smart_card {
 //       concurrent to class construction or destruction are not thread safe.
 class PcscLiteServerGlobal final {
  public:
-  explicit PcscLiteServerGlobal(pp::Instance* pp_instance);
+  explicit PcscLiteServerGlobal(GlobalContext* global_context);
   PcscLiteServerGlobal(const PcscLiteServerGlobal&) = delete;
   PcscLiteServerGlobal& operator=(const PcscLiteServerGlobal&) = delete;
   ~PcscLiteServerGlobal();
 
-  // Detaches from the Pepper instance which prevents making any further
-  // requests through it.
-  //
-  // After this function call, the PcscLiteServerGlobal::PostReader*Message
-  // functions are still allowed to be called, but they will do nothing instead
-  // of performing the real requests.
-  //
-  // This function is primarily intended to be used during the Pepper instance
-  // shutdown process, for preventing the situations when some other threads
-  // currently calling PcscLiteServerGlobal::PostReader*Message functions try to
-  // access the destroyed pp::Instance object or some other associated objects.
-  //
-  // This function is safe to be called from any thread.
-  void Detach();
-
   static const PcscLiteServerGlobal* GetInstance();
 
-  // Performs all necessary PC/SC-Lite NaCl port initialization steps and starts
-  // the PC/SC-Lite daemon.
+  // Performs all necessary PC/SC-Lite daemon initialization steps and starts
+  // the daemon.
   //
   // The daemon thread never finishes. Therefore, it's not allowed to call this
   // function twice in a single process.
   //
-  // Note that it is assumed that nacl_io and libusb NaCl port libraries have
-  // already been initialized.
+  // Note that it is assumed that the libusb webport library and, in case of
+  // compiling under Native Client, the nacl_io library have already been
+  // initialized.
   void InitializeAndRunDaemonThread();
 
   void PostReaderInitAddMessage(const char* reader_name,
@@ -87,11 +70,9 @@ class PcscLiteServerGlobal final {
   void PostReaderRemoveMessage(const char* reader_name, int port) const;
 
  private:
-  void PostMessage(const char* type,
-                   const pp::VarDictionary& message_data) const;
+  void PostMessage(const char* type, Value message_data) const;
 
-  mutable std::mutex mutex_;
-  pp::Instance* pp_instance_;
+  GlobalContext* const global_context_;
 };
 
 }  // namespace google_smart_card

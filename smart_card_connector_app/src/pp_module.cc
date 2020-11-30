@@ -57,7 +57,8 @@ class PpInstance final : public pp::Instance {
         libusb_over_chrome_usb_global_(
             MakeUnique<LibusbOverChromeUsbGlobal>(global_context_.get(),
                                                   &typed_message_router_)),
-        pcsc_lite_server_global_(new PcscLiteServerGlobal(this)) {
+        pcsc_lite_server_global_(
+            MakeUnique<PcscLiteServerGlobal>(global_context_.get())) {
     typed_message_router_.AddRoute(&external_logs_printer_);
 
     StartServicesInitialization();
@@ -72,7 +73,6 @@ class PpInstance final : public pp::Instance {
     global_context_.release();
     libusb_over_chrome_usb_global_->Detach();
     libusb_over_chrome_usb_global_.release();
-    pcsc_lite_server_global_->Detach();
     pcsc_lite_server_global_.release();
   }
 

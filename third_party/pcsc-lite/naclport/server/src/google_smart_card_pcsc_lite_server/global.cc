@@ -29,7 +29,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <string>
 #include <thread>
+#include <utility>
 
 extern "C" {
 #include "winscard.h"
@@ -42,10 +44,8 @@ extern "C" {
 
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 #include "server_sockets_manager.h"
 #include "socketpair_emulation.h"
@@ -58,13 +58,35 @@ PcscLiteServerGlobal* g_pcsc_lite_server = nullptr;
 
 constexpr char kLoggingPrefix[] = "[PC/SC-Lite NaCl port] ";
 
+// Constants for message types that are sent to the JavaScript side. These
+// strings must match the ones in reader-tracker.js.
 constexpr char kReaderInitAddMessageType[] = "reader_init_add";
 constexpr char kReaderFinishAddMessageType[] = "reader_finish_add";
 constexpr char kReaderRemoveMessageType[] = "reader_remove";
-constexpr char kNameMessageKey[] = "readerName";
-constexpr char kPortMessageKey[] = "port";
-constexpr char kDeviceMessageKey[] = "device";
-constexpr char kReturnCodeMessageKey[] = "returnCode";
+
+// Message data for the message that notifies the JavaScript side that a reader
+// is being added by the PC/SC-Lite daemon.
+struct ReaderInitAddMessageData {
+  std::string reader_name;
+  int port;
+  std::string device;
+};
+
+// Message data for the message that notifies the JavaScript side that a reader
+// is completely added by the PC/SC-Lite daemon.
+struct ReaderFinishAddMessageData {
+  std::string reader_name;
+  int port;
+  std::string device;
+  long return_code;
+};
+
+// Message data for the message that notifies the JavaScript side that a reader
+// is removed by the PC/SC-Lite daemon.
+struct ReaderRemoveMessageData {
+  std::string reader_name;
+  int port;
+};
 
 void PcscLiteServerDaemonThreadMain() {
   // TODO(emaxx): Stop the event loop during pp::Instance destruction.
@@ -92,8 +114,41 @@ void PcscLiteServerDaemonThreadMain() {
 
 }  // namespace
 
-PcscLiteServerGlobal::PcscLiteServerGlobal(pp::Instance* pp_instance)
-    : pp_instance_(pp_instance) {
+template <>
+StructValueDescriptor<ReaderInitAddMessageData>::Description
+StructValueDescriptor<ReaderInitAddMessageData>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // reader-tracker.js.
+  return Describe("ReaderInitAddMessageData")
+      .WithField(&ReaderInitAddMessageData::reader_name, "readerName")
+      .WithField(&ReaderInitAddMessageData::port, "port")
+      .WithField(&ReaderInitAddMessageData::device, "device");
+}
+
+template <>
+StructValueDescriptor<ReaderFinishAddMessageData>::Description
+StructValueDescriptor<ReaderFinishAddMessageData>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // reader-tracker.js.
+  return Describe("ReaderFinishAddMessageData")
+      .WithField(&ReaderFinishAddMessageData::reader_name, "readerName")
+      .WithField(&ReaderFinishAddMessageData::port, "port")
+      .WithField(&ReaderFinishAddMessageData::device, "device")
+      .WithField(&ReaderFinishAddMessageData::return_code, "returnCode");
+}
+
+template <>
+StructValueDescriptor<ReaderRemoveMessageData>::Description
+StructValueDescriptor<ReaderRemoveMessageData>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the property names in
+  // reader-tracker.js.
+  return Describe("ReaderRemoveMessageData")
+      .WithField(&ReaderRemoveMessageData::reader_name, "readerName")
+      .WithField(&ReaderRemoveMessageData::port, "port");
+}
+
+PcscLiteServerGlobal::PcscLiteServerGlobal(GlobalContext* global_context)
+    : global_context_(global_context) {
   GOOGLE_SMART_CARD_CHECK(!g_pcsc_lite_server);
   g_pcsc_lite_server = this;
 }
@@ -101,11 +156,6 @@ PcscLiteServerGlobal::PcscLiteServerGlobal(pp::Instance* pp_instance)
 PcscLiteServerGlobal::~PcscLiteServerGlobal() {
   GOOGLE_SMART_CARD_CHECK(g_pcsc_lite_server == this);
   g_pcsc_lite_server = nullptr;
-}
-
-void PcscLiteServerGlobal::Detach() {
-  const std::unique_lock<std::mutex> lock(mutex_);
-  pp_instance_ = nullptr;
 }
 
 // static
@@ -199,47 +249,43 @@ void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
 void PcscLiteServerGlobal::PostReaderInitAddMessage(const char* reader_name,
                                                     int port,
                                                     const char* device) const {
-  PostMessage(kReaderInitAddMessageType, VarDictBuilder()
-                                             .Add(kNameMessageKey, reader_name)
-                                             .Add(kPortMessageKey, port)
-                                             .Add(kDeviceMessageKey, device)
-                                             .Result());
+  ReaderInitAddMessageData message_data;
+  message_data.reader_name = reader_name;
+  message_data.port = port;
+  message_data.device = device;
+  PostMessage(kReaderInitAddMessageType,
+              ConvertToValueOrDie(std::move(message_data)));
 }
 
 void PcscLiteServerGlobal::PostReaderFinishAddMessage(const char* reader_name,
                                                       int port,
                                                       const char* device,
                                                       long return_code) const {
+  ReaderFinishAddMessageData message_data;
+  message_data.reader_name = reader_name;
+  message_data.port = port;
+  message_data.device = device;
+  message_data.return_code = return_code;
   PostMessage(kReaderFinishAddMessageType,
-              VarDictBuilder()
-                  .Add(kNameMessageKey, reader_name)
-                  .Add(kPortMessageKey, port)
-                  .Add(kDeviceMessageKey, device)
-                  .Add(kReturnCodeMessageKey, return_code)
-                  .Result());
+              ConvertToValueOrDie(std::move(message_data)));
 }
 
 void PcscLiteServerGlobal::PostReaderRemoveMessage(const char* reader_name,
                                                    int port) const {
-  PostMessage(kReaderRemoveMessageType, VarDictBuilder()
-                                            .Add(kNameMessageKey, reader_name)
-                                            .Add(kPortMessageKey, port)
-                                            .Result());
+  ReaderRemoveMessageData message_data;
+  message_data.reader_name = reader_name;
+  message_data.port = port;
+  PostMessage(kReaderRemoveMessageType,
+              ConvertToValueOrDie(std::move(message_data)));
 }
 
-void PcscLiteServerGlobal::PostMessage(
-    const char* type,
-    const pp::VarDictionary& message_data) const {
-  const std::unique_lock<std::mutex> lock(mutex_);
-  if (pp_instance_) {
-    TypedMessage typed_message;
-    typed_message.type = type;
-    // TODO: Directly receive `Value` instead of transforming from `pp::Var`.
-    typed_message.data = ConvertPpVarToValueOrDie(message_data);
-    Value typed_message_value = ConvertToValueOrDie(std::move(typed_message));
-    // TODO: Directly post `Value` instead of `pp::Var`.
-    pp_instance_->PostMessage(ConvertValueToPpVar(typed_message_value));
-  }
+void PcscLiteServerGlobal::PostMessage(const char* type,
+                                       Value message_data) const {
+  TypedMessage typed_message;
+  typed_message.type = type;
+  typed_message.data = std::move(message_data);
+  global_context_->PostMessageToJs(
+      ConvertToValueOrDie(std::move(typed_message)));
 }
 
 }  // namespace google_smart_card
