@@ -39,17 +39,17 @@
 #include "chrome_usb/api_bridge_interface.h"
 #include "chrome_usb/types.h"
 
-#ifndef __EMSCRIPTEN__
+#ifdef __native_client__
 // Native Client's version of Google Test uses a different name of the macro for
 // parameterized tests.
 #define INSTANTIATE_TEST_SUITE_P INSTANTIATE_TEST_CASE_P
 // Native Client's version of Google Mock doesn't provide the C++11 "override"
 // specifier for the mock method definitions.
 #pragma GCC diagnostic ignored "-Winconsistent-missing-override"
-// Native Client's version of Google Test macro INSTANTIATE_TEST_SUITE_P
+// Native Client's version of Google Test macro INSTANTIATE_TEST_CASE_P
 // produces this warning when being used without test generator parameters.
 #pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
-#endif  // __EMSCRIPTEN__
+#endif  // __native_client__
 
 using testing::_;
 using testing::Assign;
