@@ -19,7 +19,6 @@
 #include <utility>
 
 #include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
 
 namespace google_smart_card {
 

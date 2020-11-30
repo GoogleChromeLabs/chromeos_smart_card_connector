@@ -39,11 +39,7 @@
 #include <string>
 #include <vector>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
 #include <google_smart_card_common/requesting/request_result.h>
 
 namespace google_smart_card {
@@ -194,74 +190,6 @@ struct GetUserSelectedDevicesOptions {
   optional<bool> multiple;
   optional<std::vector<DeviceFilter>> filters;
 };
-
-//
-// Following are the function overloads that can be used to perform the
-// conversion between values of these types and Pepper values (which correspond
-// to the JavaScript values used with chrome.usb API).
-//
-
-bool VarAs(const pp::Var& var, Direction* result, std::string* error_message);
-
-pp::Var MakeVar(Direction value);
-
-bool VarAs(const pp::Var& var, Device* result, std::string* error_message);
-
-pp::Var MakeVar(const Device& value);
-
-bool VarAs(const pp::Var& var,
-           ConnectionHandle* result,
-           std::string* error_message);
-
-pp::Var MakeVar(const ConnectionHandle& value);
-
-bool VarAs(const pp::Var& var,
-           EndpointDescriptorType* result,
-           std::string* error_message);
-
-pp::Var MakeVar(EndpointDescriptorType value);
-
-bool VarAs(const pp::Var& var,
-           EndpointDescriptorSynchronization* result,
-           std::string* error_message);
-
-pp::Var MakeVar(EndpointDescriptorSynchronization value);
-
-bool VarAs(const pp::Var& var,
-           EndpointDescriptorUsage* result,
-           std::string* error_message);
-
-pp::Var MakeVar(EndpointDescriptorUsage value);
-
-bool VarAs(const pp::Var& var,
-           EndpointDescriptor* result,
-           std::string* error_message);
-
-bool VarAs(const pp::Var& var,
-           InterfaceDescriptor* result,
-           std::string* error_message);
-
-bool VarAs(const pp::Var& var,
-           ConfigDescriptor* result,
-           std::string* error_message);
-
-pp::Var MakeVar(const GenericTransferInfo& value);
-
-pp::Var MakeVar(ControlTransferInfoRecipient value);
-
-pp::Var MakeVar(ControlTransferInfoRequestType value);
-
-pp::Var MakeVar(const ControlTransferInfo& value);
-
-bool VarAs(const pp::Var& var,
-           TransferResultInfo* result,
-           std::string* error_message);
-
-pp::Var MakeVar(const DeviceFilter& value);
-
-pp::Var MakeVar(const GetDevicesOptions& value);
-
-pp::Var MakeVar(const GetUserSelectedDevicesOptions& value);
 
 //
 // Following are the definitions of structures representing the results returned

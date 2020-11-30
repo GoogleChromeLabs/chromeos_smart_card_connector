@@ -39,12 +39,17 @@
 #include "chrome_usb/api_bridge_interface.h"
 #include "chrome_usb/types.h"
 
-// Google Mock doesn't provide the C++11 "override" specifier for the mock
-// method definitions
+#ifdef __native_client__
+// Native Client's version of Google Test uses a different name of the macro for
+// parameterized tests.
+#define INSTANTIATE_TEST_SUITE_P INSTANTIATE_TEST_CASE_P
+// Native Client's version of Google Mock doesn't provide the C++11 "override"
+// specifier for the mock method definitions.
 #pragma GCC diagnostic ignored "-Winconsistent-missing-override"
-// Google Test macro INSTANTIATE_TEST_CASE_P produces this warning when being
-// used without test generator parameters
+// Native Client's version of Google Test macro INSTANTIATE_TEST_CASE_P
+// produces this warning when being used without test generator parameters.
 #pragma GCC diagnostic ignored "-Wgnu-zero-variadic-macro-arguments"
+#endif  // __native_client__
 
 using testing::_;
 using testing::Assign;
@@ -738,7 +743,7 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest,
   libusb_over_chrome_usb->LibusbHandleEvents(nullptr);
 }
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     InputTransferTest,
     LibusbOverChromeUsbSingleTransferTest,
     ::testing::Values(
@@ -753,7 +758,7 @@ INSTANTIATE_TEST_CASE_P(
                 GetTransferIndexToFinishUnsuccessful(),
             false)));
 
-INSTANTIATE_TEST_CASE_P(
+INSTANTIATE_TEST_SUITE_P(
     OutputTransferTest,
     LibusbOverChromeUsbSingleTransferTest,
     ::testing::Values(
@@ -768,13 +773,21 @@ INSTANTIATE_TEST_CASE_P(
                 GetTransferIndexToFinishUnsuccessful(),
             true)));
 
+#ifdef __EMSCRIPTEN__
+// TODO(#185): Crashes in Emscripten due to out-of-memory.
+#define MAYBE_SyncControlTransfersWithMultiThreading \
+  DISABLED_SyncControlTransfersWithMultiThreading
+#else
+#define MAYBE_SyncControlTransfersWithMultiThreading \
+  SyncControlTransfersWithMultiThreading
+#endif
 // Test the correctness of work of multiple threads issuing a sequence of
 // synchronous transfer requests.
 //
 // Each transfer request is resolved immediately on the same thread that
 // initiated the transfer.
 TEST_F(LibusbOverChromeUsbTransfersTest,
-       SyncControlTransfersWithMultiThreading) {
+       MAYBE_SyncControlTransfersWithMultiThreading) {
   const size_t kMaxTransferIndex = 1000;
   const size_t kThreadCount = 10;
 
@@ -867,11 +880,18 @@ class LibusbOverChromeUsbAsyncTransfersMultiThreadingTest
 
 }  // namespace
 
+#ifdef __EMSCRIPTEN__
+// TODO(#185): Crashes in Emscripten due to out-of-memory.
+#define MAYBE_ControlTransfers DISABLED_ControlTransfers
+#else
+#define MAYBE_ControlTransfers ControlTransfers
+#endif
 // Test the correctness of work of multiple threads issuing a sequence of
 // asynchronous transfer requests and running libusb event loops.
 //
 // The requests are resolved asynchronously from the main thread.
-TEST_F(LibusbOverChromeUsbAsyncTransfersMultiThreadingTest, ControlTransfers) {
+TEST_F(LibusbOverChromeUsbAsyncTransfersMultiThreadingTest,
+       MAYBE_ControlTransfers) {
   const size_t kThreadCount = 10;
 
   std::vector<std::thread> threads;

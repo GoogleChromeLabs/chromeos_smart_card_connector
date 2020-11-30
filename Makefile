@@ -32,6 +32,7 @@ TARGETS := \
 	example_cpp_smart_card_client_app/build \
 	example_js_smart_card_client_app/build \
 	example_js_standalone_smart_card_client_library \
+	third_party/libusb/naclport/build \
 	third_party/pcsc-lite/naclport/common/build \
 	third_party/pcsc-lite/naclport/cpp_client/build \
 	third_party/pcsc-lite/naclport/cpp_demo/build \
@@ -45,9 +46,12 @@ TEST_TARGETS := \
 	common/cpp/build/tests \
 	common/js/build/unittests \
 	third_party/libusb/naclport/build/js_unittests \
+	third_party/libusb/naclport/build/tests \
 	third_party/pcsc-lite/naclport/server_clients_management/build/js_unittests \
 
 common/cpp/build/tests: common/cpp/build
+third_party/libusb/naclport/build/tests: common/cpp/build
+third_party/libusb/naclport/build/tests: third_party/libusb/naclport/build
 
 # Toolchain related definitions #################
 
@@ -69,7 +73,6 @@ else ifeq ($(TOOLCHAIN),pnacl)
 TARGETS += \
 	smart_card_connector_app/build \
 	third_party/ccid/naclport/build \
-	third_party/libusb/naclport/build \
 	third_party/pcsc-lite/naclport/server/build \
 	third_party/pcsc-lite/naclport/server_clients_management/build \
 
@@ -86,13 +89,10 @@ third_party/pcsc-lite/naclport/server_clients_management/build: third_party/pcsc
 TEST_TARGETS += \
 	common/integration_testing/build \
 	example_cpp_smart_card_client_app/build/integration_tests \
-	third_party/libusb/naclport/build/tests \
 
 example_cpp_smart_card_client_app/build/integration_tests: common/cpp/build
 example_cpp_smart_card_client_app/build/integration_tests: common/integration_testing/build
 example_cpp_smart_card_client_app/build/integration_tests: example_cpp_smart_card_client_app/build
-third_party/libusb/naclport/build/tests: common/cpp/build
-third_party/libusb/naclport/build/tests: third_party/libusb/naclport/build
 
 else
 
