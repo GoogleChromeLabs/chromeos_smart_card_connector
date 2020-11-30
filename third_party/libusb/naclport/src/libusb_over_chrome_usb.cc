@@ -26,11 +26,7 @@
 #include <utility>
 #include <vector>
 
-#include <ppapi/cpp/var_array_buffer.h>
-
 #include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
 
 namespace google_smart_card {
 
