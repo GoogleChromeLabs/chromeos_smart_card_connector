@@ -72,7 +72,6 @@ class PpInstance final : public pp::Instance {
     global_context_.release();
     libusb_over_chrome_usb_global_->Detach();
     libusb_over_chrome_usb_global_.release();
-    pcsc_lite_server_global_->Detach();
     pcsc_lite_server_global_.release();
   }
 
