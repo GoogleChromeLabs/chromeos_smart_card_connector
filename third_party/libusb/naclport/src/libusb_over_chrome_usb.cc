@@ -1134,10 +1134,8 @@ LibusbOverChromeUsb::TransferAsyncRequestCallback
 LibusbOverChromeUsb::WrapLibusbTransferCallback(libusb_transfer* transfer) {
   GOOGLE_SMART_CARD_CHECK(transfer);
 
-  libusb_context* const context = GetLibusbTransferContextChecked(transfer);
-
-  return [this, transfer,
-          context](RequestResult<chrome_usb::TransferResult> request_result) {
+  return [this,
+          transfer](RequestResult<chrome_usb::TransferResult> request_result) {
     if (request_result.is_successful()) {
       //
       // Note that the control transfers have a special libusb_control_setup
