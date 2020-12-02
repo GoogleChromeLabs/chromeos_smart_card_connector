@@ -102,10 +102,18 @@ else ifeq ($(CONFIG),Debug)
 #
 # Explanation:
 # O0: Disable optimizations.
-# g: Preserve debug information.
+# g4: Preserve maximum debug information, including source maps.
+# ASSERTIONS: Enable runtime checks, like for memory allocation errors.
+# DEMANGLE_SUPPORT: Demangle C++ function names in stack traces.
+# EXCEPTION_DEBUG: Enables printing exceptions coming from the executable.
+# SAFE_HEAP: Enable memory access checks.
 EMSCRIPTEN_FLAGS += \
   -O0 \
-  -g \
+  -g4 \
+  -s ASSERTIONS=2 \
+  -s DEMANGLE_SUPPORT=1 \
+  -s EXCEPTION_DEBUG=1 \
+  -s SAFE_HEAP=1 \
 
 else
 
