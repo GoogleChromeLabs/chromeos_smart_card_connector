@@ -24,23 +24,9 @@
 set -eu
 
 
-DIRS="
-	common/cpp/build
-	third_party/libusb/naclport/build
-	third_party/ccid/naclport/build
-	third_party/pcsc-lite/naclport/common/build
-	third_party/pcsc-lite/naclport/server/build
-	third_party/pcsc-lite/naclport/server_clients_management/build
-	third_party/pcsc-lite/naclport/cpp_demo/build
-	smart_card_connector_app/build
-	example_js_smart_card_client_app/build
-	third_party/pcsc-lite/naclport/cpp_client/build
-	example_cpp_smart_card_client_app/build
-	example_js_standalone_smart_card_client_library"
-
 BUILT_APP_PACKAGES_DIR="built_app_packages"
-
 CONFIGS="Release Debug"
+TOOLCHAINS="emscripten pnacl"
 
 
 log_message() {
@@ -49,13 +35,12 @@ log_message() {
 	echo -e "\033[33;32m${message}\033[0m"
 }
 
-clean_dir_with_all_configs() {
-	local dir=${1}
+clean_dir_with_toolchain_and_config() {
+	local toolchain=${1}
+	local config=${2}
 
-	log_message "Cleaning \"${dir}\"..."
-	for config in ${CONFIGS}; do
-		CONFIG=${config} make -C ${dir} clean || true
-	done
+	log_message "Cleaning \"${toolchain}\" \"${config}\"..."
+	TOOLCHAIN=${toolchain} CONFIG=${config} make clean || true
 }
 
 clean_built_app_packages() {
@@ -72,8 +57,10 @@ clean_env() {
 SCRIPTPATH=$(dirname $(realpath ${0}))
 cd ${SCRIPTPATH}
 
-for dir in ${DIRS}; do
-	clean_dir_with_all_configs ${dir}
+for toolchain in ${TOOLCHAINS}; do
+	for config in ${CONFIGS}; do
+		clean_dir_with_toolchain_and_config ${toolchain} ${config}
+	done
 done
 clean_built_app_packages
 clean_env
