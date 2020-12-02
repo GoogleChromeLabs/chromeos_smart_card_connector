@@ -325,7 +325,7 @@ bool ConvertFromValue(Value value,
 }
 
 bool ConvertFromValue(Value value,
-                      nullptr_t* /*null*/,
+                      std::nullptr_t* /*null*/,
                       std::string* error_message) {
   if (value.is_null()) {
     // No data needs to be written into `*null`.

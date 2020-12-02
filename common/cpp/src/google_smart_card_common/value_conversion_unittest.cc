@@ -1086,19 +1086,19 @@ TEST(ValueConversion, NullptrToValue) {
 TEST(ValueConversion, ValueToNullptr) {
   {
     std::string error_message;
-    nullptr_t converted;
+    std::nullptr_t converted;
     EXPECT_TRUE(ConvertFromValue(Value(), &converted, &error_message));
     EXPECT_TRUE(error_message.empty());
   }
 
   {
-    nullptr_t converted;
+    std::nullptr_t converted;
     EXPECT_TRUE(ConvertFromValue(Value(), &converted));
   }
 }
 
 TEST(ValueConversion, ValueToNullptrError) {
-  nullptr_t converted;
+  std::nullptr_t converted;
 
   {
     std::string error_message;

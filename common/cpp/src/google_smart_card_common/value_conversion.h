@@ -489,8 +489,8 @@ inline bool ConvertToValue(std::string characters,
   return true;
 }
 
-// Converts `nullptr_t` into a null `Value`.
-inline bool ConvertToValue(nullptr_t /*null*/,
+// Converts `std::nullptr_t` into a null `Value`.
+inline bool ConvertToValue(std::nullptr_t /*null*/,
                            Value* value,
                            std::string* /*error_message*/ = nullptr) {
   *value = Value();
@@ -618,7 +618,7 @@ bool ConvertFromValue(Value value,
 
 // Verifies that the `value` is null.
 bool ConvertFromValue(Value value,
-                      nullptr_t* null,
+                      std::nullptr_t* null,
                       std::string* error_message = nullptr);
 
 // Converts from a string `Value` into an enum. The enum type has to be
