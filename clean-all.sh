@@ -72,10 +72,25 @@ clean_env() {
 SCRIPTPATH=$(dirname $(realpath ${0}))
 cd ${SCRIPTPATH}
 
+force_env_clean=0
+while getopts ":f" opt; do
+  case $opt in
+    f)
+      force_env_clean=1
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+  esac
+done
+
 for dir in ${DIRS}; do
 	clean_dir_with_all_configs ${dir}
 done
 clean_built_app_packages
-clean_env
+if [ "${force_env_clean}" -eq "1" ]; then
+	clean_env
+fi
 
 log_message "Cleaning finished."
