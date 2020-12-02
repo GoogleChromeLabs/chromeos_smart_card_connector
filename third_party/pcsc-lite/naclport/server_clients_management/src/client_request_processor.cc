@@ -570,7 +570,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
     return ReturnValues(return_code);
   const std::string reader_name_copy = reader_name;
   FreeSCardMemory(reader_name);
-  std::vector<uint8_t> atr_copy(atr, atr + atr_length);
+  const std::vector<uint8_t> atr_copy(atr, atr + atr_length);
   FreeSCardMemory(atr);
   return ReturnValues(return_code, reader_name_copy, state, protocol, atr_copy);
 }
