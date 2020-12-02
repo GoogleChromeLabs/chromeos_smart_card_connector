@@ -31,17 +31,13 @@
 #include <string>
 #include <utility>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/global_context.h>
 #include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/pp_var_utils/struct_converter.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 #include "client_request_processor.h"
 
@@ -79,39 +75,12 @@ StructValueDescriptor<CreateHandlerMessageData>::GetDescription() {
 }
 
 template <>
-constexpr const char*
-StructConverter<CreateHandlerMessageData>::GetStructTypeName() {
-  return "CreateHandlerMessageData";
-}
-
-template <>
-template <typename Callback>
-void StructConverter<CreateHandlerMessageData>::VisitFields(
-    const CreateHandlerMessageData& value,
-    Callback callback) {
-  callback(&value.handler_id, "handler_id");
-  callback(&value.client_app_id, "client_app_id");
-}
-
-template <>
 StructValueDescriptor<DeleteHandlerMessageData>::Description
 StructValueDescriptor<DeleteHandlerMessageData>::GetDescription() {
+  // Note: Strings passed to WithField() below must match the keys in
+  // //third_party/pcsc-lite/naclport/server_clients_management/src/client-handler.js.
   return Describe("DeleteHandlerMessageData")
       .WithField(&DeleteHandlerMessageData::handler_id, "handler_id");
-}
-
-template <>
-constexpr const char*
-StructConverter<DeleteHandlerMessageData>::GetStructTypeName() {
-  return "DeleteHandlerMessageData";
-}
-
-template <>
-template <typename Callback>
-void StructConverter<DeleteHandlerMessageData>::VisitFields(
-    const DeleteHandlerMessageData& value,
-    Callback callback) {
-  callback(&value.handler_id, "handler_id");
 }
 
 PcscLiteServerClientsManager::PcscLiteServerClientsManager(
@@ -151,19 +120,10 @@ std::string PcscLiteServerClientsManager::CreateHandlerMessageListener::
 
 bool PcscLiteServerClientsManager::CreateHandlerMessageListener::
     OnTypedMessageReceived(Value data) {
-  // TODO(#233): Parse `Value` directly instead of transforming into `pp::Var`.
-  const pp::Var data_var = ConvertValueToPpVar(data);
-  CreateHandlerMessageData message_data;
-  std::string error_message;
-  if (!StructConverter<CreateHandlerMessageData>::ConvertFromVar(
-          data_var, &message_data, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL
-        << kLoggingPrefix << "Failed to parse "
-        << "client handler creation message: " << error_message;
-  }
+  const CreateHandlerMessageData message_data =
+      ConvertFromValueOrDie<CreateHandlerMessageData>(std::move(data));
   GOOGLE_SMART_CARD_CHECK(!message_data.client_app_id ||
                           !message_data.client_app_id->empty());
-
   clients_manager_->CreateHandler(message_data.handler_id,
                                   message_data.client_app_id);
   return true;
@@ -180,17 +140,8 @@ std::string PcscLiteServerClientsManager::DeleteHandlerMessageListener ::
 
 bool PcscLiteServerClientsManager::DeleteHandlerMessageListener ::
     OnTypedMessageReceived(Value data) {
-  // TODO(#233): Parse `Value` directly instead of transforming into `pp::Var`.
-  const pp::Var data_var = ConvertValueToPpVar(data);
-  DeleteHandlerMessageData message_data;
-  std::string error_message;
-  if (!StructConverter<DeleteHandlerMessageData>::ConvertFromVar(
-          data_var, &message_data, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL
-        << kLoggingPrefix << "Failed to parse "
-        << "client handler deletion message: " << error_message;
-  }
-
+  const DeleteHandlerMessageData message_data =
+      ConvertFromValueOrDie<DeleteHandlerMessageData>(std::move(data));
   clients_manager_->DeleteHandler(message_data.handler_id);
   return true;
 }
