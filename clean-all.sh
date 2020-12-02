@@ -15,7 +15,8 @@
 # limitations under the License.
 
 # This script removes the temporary files and output files produced by building
-# of the libraries and Apps of this project, and clears the env.
+# of the libraries and Apps of this project. Optionally, if the "-f" flag is
+# specified, it clears the SDKs stored under //env/ as well.
 #
 # Note: the env/activate file must be source'd into the shell before this script
 # execution.
