@@ -17,6 +17,7 @@
 #include <inttypes.h>
 #include <stdint.h>
 
+#include <cstddef>
 #include <limits>
 #include <string>
 #include <utility>

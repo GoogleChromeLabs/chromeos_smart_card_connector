@@ -26,6 +26,7 @@
 //   `Value`, in case it's within the range of precisely representable numbers);
 // * `double`;
 // * `std::string`;
+// * `std::nullptr_t` (converts to/from a null `Value`);
 // * `std::vector` of any supported type (note: there's also a special case that
 //    `std::vector<uint8_t>` is converted to/from a binary `Value` and can
 //    additionally be converted from an array `Value`).
@@ -41,6 +42,7 @@
 
 #include <stdint.h>
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <type_traits>
