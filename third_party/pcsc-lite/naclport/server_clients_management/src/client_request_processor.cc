@@ -28,32 +28,47 @@
 #include <inttypes.h>
 #include <stdlib.h>
 
+#include <cstddef>
 #include <cstring>
+#include <memory>
 #include <thread>
 #include <tuple>
+#include <vector>
 
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/function_call_tracer.h>
 #include <google_smart_card_common/logging/hex_dumping.h>
 #include <google_smart_card_common/multi_string.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
+#include <google_smart_card_common/requesting/remote_call_arguments_conversion.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
+#include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_debug_dumping.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 #include <google_smart_card_pcsc_lite_common/scard_debug_dump.h>
 
 namespace google_smart_card {
 
 namespace {
 
+void ConvertToValueVectorOrDie(
+    std::vector<std::unique_ptr<Value>>* value_vector) {}
+
+template <typename FirstArg, typename... Args>
+void ConvertToValueVectorOrDie(
+    std::vector<std::unique_ptr<Value>>* value_vector,
+    const FirstArg& first_arg,
+    const Args&... args) {
+  value_vector->push_back(MakeUnique<Value>(ConvertToValueOrDie(first_arg)));
+  ConvertToValueVectorOrDie(value_vector, args...);
+}
+
 template <typename... Args>
 GenericRequestResult ReturnValues(const Args&... args) {
-  // TODO(#220): Build `Value` directly, without converting from `pp::Var`.
+  std::vector<std::unique_ptr<Value>> converted_args;
+  ConvertToValueVectorOrDie(&converted_args, args...);
   return GenericRequestResult::CreateSuccessful(
-      ConvertPpVarToValueOrDie(MakeVarArray(args...)));
+      Value(std::move(converted_args)));
 }
 
 GenericRequestResult ReturnFailure(const std::string& error_message) {
@@ -65,14 +80,6 @@ GenericRequestResult ReturnFailure(const std::string& error_message) {
 void FreeSCardMemory(void* memory) {
   GOOGLE_SMART_CARD_CHECK(memory);
   ::free(memory);
-}
-
-pp::Var MakeDumpedArrayBuffer(const void* data, size_t size) {
-  // Chrome Extensions API does not allow sending ArrayBuffers in message
-  // fields, so instead of pp::VarArrayBuffer an pp::VarArray with the bytes as
-  // its element is constructed.
-  const uint8_t* const casted_data = static_cast<const uint8_t*>(data);
-  return MakeVar(std::vector<uint8_t>(casted_data, casted_data + size));
 }
 
 void CancelRunningRequests(const std::string& logging_prefix,
@@ -173,11 +180,8 @@ void PcscLiteClientRequestProcessor::ProcessRequest(
                               << "request " << request.DebugDumpSanitized()
                               << "...";
 
-  // TODO(#233): Pass `Value`s, instead of converting into `pp::VarArray`.
-  pp::VarArray arguments_var(
-      ConvertValueToPpVar(ConvertToValueOrDie(std::move(request.arguments))));
   GenericRequestResult result =
-      FindHandlerAndCall(request.function_name, arguments_var);
+      FindHandlerAndCall(request.function_name, std::move(request.arguments));
 
   if (result.is_successful()) {
     GOOGLE_SMART_CARD_LOG_DEBUG
@@ -256,26 +260,26 @@ void PcscLiteClientRequestProcessor::AddHandlerToHandlerMap(
         Args... args)) {
   const Handler wrapped_handler =
       WrapHandler<std::tuple<typename std::decay<Args>::type...>>(
-          handler, MakeArgIndexes<sizeof...(Args)>());
+          name, handler, MakeArgIndexes<sizeof...(Args)>());
   GOOGLE_SMART_CARD_CHECK(handler_map_.emplace(name, wrapped_handler).second);
 }
 
 template <typename ArgsTuple, typename F, size_t... arg_indexes>
 PcscLiteClientRequestProcessor::Handler
 PcscLiteClientRequestProcessor::WrapHandler(
+    const std::string& name,
     F handler,
     ArgIndexes<arg_indexes...> /*unused*/) {
-  return
-      [this, handler](const pp::VarArray& arguments) -> GenericRequestResult {
-        ArgsTuple args_tuple;
-        std::string error_message;
-        if (!TryGetVarArrayItems(arguments, &error_message,
-                                 &std::get<arg_indexes>(args_tuple)...)) {
-          return ReturnFailure(FormatPrintfTemplate(
-              "Failed to extract arguments: %s", error_message.c_str()));
-        }
-        return (this->*handler)(std::get<arg_indexes>(args_tuple)...);
-      };
+  return [this, name,
+          handler](std::vector<Value> arguments) -> GenericRequestResult {
+    ArgsTuple args_tuple;
+    std::string error_message;
+    RemoteCallArgumentsExtractor extractor(name, std::move(arguments));
+    extractor.Extract(&std::get<arg_indexes>(args_tuple)...);
+    if (!extractor.Finish())
+      return ReturnFailure(extractor.error_message());
+    return (this->*handler)(std::get<arg_indexes>(args_tuple)...);
+  };
 }
 
 void PcscLiteClientRequestProcessor::ScheduleHandlesCleanup() {
@@ -291,7 +295,7 @@ void PcscLiteClientRequestProcessor::ScheduleHandlesCleanup() {
 
 GenericRequestResult PcscLiteClientRequestProcessor::FindHandlerAndCall(
     const std::string& function_name,
-    const pp::VarArray& arguments) {
+    std::vector<Value> arguments) {
   const HandlerMap::const_iterator handler_map_iter =
       handler_map_.find(function_name);
   if (handler_map_iter == handler_map_.end()) {
@@ -300,7 +304,7 @@ GenericRequestResult PcscLiteClientRequestProcessor::FindHandlerAndCall(
   }
   const Handler& handler = handler_map_iter->second;
 
-  GenericRequestResult result = handler(arguments);
+  GenericRequestResult result = handler(std::move(arguments));
   if (!result.is_successful()) {
     return ReturnFailure(FormatPrintfTemplate(
         "Error while processing the \"%s\" request: %s", function_name.c_str(),
@@ -337,13 +341,13 @@ GenericRequestResult PcscLiteClientRequestProcessor::PcscStringifyError(
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardEstablishContext(
     DWORD scope,
-    pp::Var::Null reserved_1,
-    pp::Var::Null reserved_2) {
+    std::nullptr_t reserved_1,
+    std::nullptr_t reserved_2) {
   FunctionCallTracer tracer("SCardEstablishContext", logging_prefix_,
                             status_log_severity_);
   tracer.AddPassedArg("dwScope", DebugDumpSCardScope(scope));
-  tracer.AddPassedArg("pvReserved1", kNullJsTypeTitle);
-  tracer.AddPassedArg("pvReserved2", kNullJsTypeTitle);
+  tracer.AddPassedArg("pvReserved1", Value::kNullTypeTitle);
+  tracer.AddPassedArg("pvReserved2", Value::kNullTypeTitle);
   tracer.LogEntrance();
 
   SCARDCONTEXT s_card_context;
@@ -566,9 +570,9 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardStatus(
     return ReturnValues(return_code);
   const std::string reader_name_copy = reader_name;
   FreeSCardMemory(reader_name);
-  const pp::Var atr_var = MakeDumpedArrayBuffer(atr, atr_length);
+  std::vector<uint8_t> atr_copy(atr, atr + atr_length);
   FreeSCardMemory(atr);
-  return ReturnValues(return_code, reader_name_copy, state, protocol, atr_var);
+  return ReturnValues(return_code, reader_name_copy, state, protocol, atr_copy);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardGetStatusChange(
@@ -663,19 +667,21 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardControl(
                                  data_to_send.size(), &buffer[0], buffer.size(),
                                  &bytes_received);
   }
+  if (return_code == SCARD_S_SUCCESS)
+    buffer.resize(bytes_received);
 
   tracer.AddReturnValue(DebugDumpSCardReturnCode(return_code));
   if (return_code == SCARD_S_SUCCESS) {
     tracer.AddReturnedArg(
         "bRecvBuffer",
-        "<" + DebugDumpSCardBufferContents(&buffer[0], bytes_received) + ">");
+        "<" + DebugDumpSCardBufferContents(buffer.data(), bytes_received) +
+            ">");
   }
   tracer.LogExit();
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
-  return ReturnValues(return_code,
-                      MakeDumpedArrayBuffer(&buffer[0], bytes_received));
+  return ReturnValues(return_code, buffer);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
@@ -708,10 +714,10 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardGetAttrib(
 
   if (return_code != SCARD_S_SUCCESS)
     return ReturnValues(return_code);
-  const pp::Var attribute_var =
-      MakeDumpedArrayBuffer(attribute, attribute_length);
+  const std::vector<uint8_t> attribute_copy(attribute,
+                                            attribute + attribute_length);
   FreeSCardMemory(attribute);
-  return ReturnValues(return_code, attribute_var);
+  return ReturnValues(return_code, attribute_copy);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardSetAttrib(
@@ -782,6 +788,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
         data_to_send.empty() ? nullptr : &data_to_send[0], data_to_send.size(),
         &scard_response_protocol_information, &buffer[0], &response_length);
   }
+  if (return_code == SCARD_S_SUCCESS)
+    buffer.resize(response_length);
 
   if (!response_protocol_information &&
       scard_response_protocol_information.dwProtocol == SCARD_PROTOCOL_ANY) {
@@ -810,7 +818,8 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
         DebugDumpSCardIoRequest(scard_response_protocol_information));
     tracer.AddReturnedArg(
         "bRecvBuffer",
-        "<" + DebugDumpSCardBufferContents(&buffer[0], response_length) + ">");
+        "<" + DebugDumpSCardBufferContents(buffer.data(), response_length) +
+            ">");
   }
   tracer.LogExit();
 
@@ -819,16 +828,16 @@ GenericRequestResult PcscLiteClientRequestProcessor::SCardTransmit(
   return ReturnValues(
       return_code,
       SCardIoRequest::FromSCardIoRequest(scard_response_protocol_information),
-      MakeDumpedArrayBuffer(&buffer[0], response_length));
+      buffer);
 }
 
 GenericRequestResult PcscLiteClientRequestProcessor::SCardListReaders(
     SCARDCONTEXT s_card_context,
-    pp::Var::Null groups) {
+    std::nullptr_t groups) {
   FunctionCallTracer tracer("SCardListReaders", logging_prefix_,
                             status_log_severity_);
   tracer.AddPassedArg("hContext", DebugDumpSCardContext(s_card_context));
-  tracer.AddPassedArg("mszGroups", kNullJsTypeTitle);
+  tracer.AddPassedArg("mszGroups", Value::kNullTypeTitle);
   tracer.LogEntrance();
 
   LONG return_code = SCARD_S_SUCCESS;
