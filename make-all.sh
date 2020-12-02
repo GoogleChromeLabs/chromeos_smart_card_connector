@@ -29,64 +29,28 @@
 set -eu
 
 
-LIBRARY_DIRS="
-	common/cpp/build
-	third_party/libusb/naclport/build
-	third_party/ccid/naclport/build
-	third_party/pcsc-lite/naclport/common/build
-	third_party/pcsc-lite/naclport/server/build
-	third_party/pcsc-lite/naclport/server_clients_management/build
-	third_party/pcsc-lite/naclport/cpp_demo/build
-	third_party/pcsc-lite/naclport/cpp_client/build
-	example_js_standalone_smart_card_client_library"
-
-TEST_DIRS="
-	common/cpp/build/tests
-	common/integration_testing/build
-	common/js/build/unittests
-	third_party/libusb/naclport/build/tests
-	third_party/libusb/naclport/build/js_unittests
-	third_party/pcsc-lite/naclport/server_clients_management/build/js_unittests
-	example_cpp_smart_card_client_app/build/integration_tests"
-
 APP_DIRS="
 	smart_card_connector_app/build
 	example_js_smart_card_client_app/build
 	example_cpp_smart_card_client_app/build"
-
 BUILT_APP_PACKAGES_DIR="built_app_packages"
-
 CONFIGS="Release Debug"
+TOOLCHAINS="emscripten pnacl"
 
 
 log_message() {
 	local message=${1}
 
-	echo -e "\033[33;32m${message}\033[0m"
+	echo -e "\033[33;32m******* ${message} *******\033[0m"
 }
 
-make_with_config() {
+make_with_toolchain_and_config() {
 	local build_dir=${1}
 	local targets=${2-}
-	local config=${3-}
+	local toolchain=${3-}
+	local config=${4-}
 
-	local command="make -C ${build_dir} ${targets} -j20"
-	if [[ ${config} ]]; then
-		CONFIG=${config} ${command}
-	else
-		${command}
-	fi
-}
-
-build_library() {
-	local dir=${1}
-
-	log_message "Building library \"${dir}\"..."
-	for config in ${CONFIGS}; do
-		make_with_config ${dir} all ${config}
-	done
-	make_with_config ${dir} all
-	log_message "Library \"${dir}\" was built successfully."
+	TOOLCHAIN=${toolchain} CONFIG=${config} make -C ${build_dir} ${targets} -j10
 }
 
 prepare_built_app_packages_dir() {
@@ -104,39 +68,32 @@ copy_app_packages() {
 	cp -p ${dir}/*.zip ${BUILT_APP_PACKAGES_DIR}/${config}/
 }
 
-build_app() {
+build_app_package() {
 	local dir=${1}
+	# TODO(#177): Build app packages in Emscripten mode as well.
+	local toolchain=pnacl
 
-	log_message "Building App \"${dir}\"..."
 	for config in ${CONFIGS}; do
-		make_with_config ${dir} package ${config}
+		make_with_toolchain_and_config ${dir} package ${toolchain} ${config}
 		copy_app_packages ${dir} ${config}
 	done
-	make_with_config ${dir} package
-	log_message "App \"${dir}\" was built successfully."
-}
-
-build_tests() {
-	local dir=${1}
-
-	log_message "Building tests \"${dir}\"..."
-	for config in ${CONFIGS}; do
-		make_with_config ${dir} all ${config}
-	done
-	log_message "Tests \"${dir}\" were built successfully."
 }
 
 
 SCRIPTPATH=$(dirname $(realpath ${0}))
 cd ${SCRIPTPATH}
 
-for dir in ${LIBRARY_DIRS}; do
-	build_library ${dir}
+for toolchain in ${TOOLCHAINS}; do
+	for config in ${CONFIGS}; do
+		log_message "Building in mode \"${toolchain}\" \"${config}\"..."
+		make_with_toolchain_and_config . all ${toolchain} ${config}
+		log_message "Successfully built in mode \"${toolchain}\" \"${config}\"."
+	done
 done
+
+log_message "Building app packages..."
 prepare_built_app_packages_dir
 for dir in ${APP_DIRS}; do
-	build_app ${dir}
+	build_app_package ${dir}
 done
-for dir in ${TEST_DIRS}; do
-	build_tests ${dir}
-done
+log_message "Successfully built app packages."
