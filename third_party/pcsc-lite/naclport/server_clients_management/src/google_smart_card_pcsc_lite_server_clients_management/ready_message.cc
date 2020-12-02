@@ -25,7 +25,9 @@
 
 #include <google_smart_card_pcsc_lite_server_clients_management/ready_message.h>
 
-#include <ppapi/cpp/var_dictionary.h>
+#include <string>
+
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -35,8 +37,8 @@ std::string GetPcscLiteServerReadyMessageType() {
   return kMessageType;
 }
 
-pp::Var MakePcscLiteServerReadyMessageData() {
-  return pp::VarDictionary();
+Value MakePcscLiteServerReadyMessageData() {
+  return Value(Value::Type::kDictionary);
 }
 
 }  // namespace google_smart_card

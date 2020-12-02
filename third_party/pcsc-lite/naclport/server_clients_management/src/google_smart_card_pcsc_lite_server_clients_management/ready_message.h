@@ -34,7 +34,7 @@
 
 #include <string>
 
-#include <ppapi/cpp/var.h>
+#include <google_smart_card_common/value.h>
 
 namespace google_smart_card {
 
@@ -43,7 +43,7 @@ std::string GetPcscLiteServerReadyMessageType();
 
 // Constructs the "PC/SC-Lite ready" message data (it's actually an empty
 // dictionary, but the function is here for the uniformity purpose).
-pp::Var MakePcscLiteServerReadyMessageData();
+Value MakePcscLiteServerReadyMessageData();
 
 }  // namespace google_smart_card
 
