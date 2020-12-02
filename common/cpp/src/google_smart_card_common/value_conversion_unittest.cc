@@ -1075,6 +1075,47 @@ TEST(ValueConversion, ValueToStringError) {
   EXPECT_FALSE(ConvertFromValue(Value(123), &converted));
 }
 
+TEST(ValueConversion, NullptrToValue) {
+  std::string error_message;
+  Value value;
+  EXPECT_TRUE(ConvertToValue(nullptr, &value, &error_message));
+  EXPECT_TRUE(error_message.empty());
+  EXPECT_TRUE(value.is_null());
+}
+
+TEST(ValueConversion, ValueToNullptr) {
+  {
+    std::string error_message;
+    nullptr_t converted;
+    EXPECT_TRUE(ConvertFromValue(Value(), &converted, &error_message));
+    EXPECT_TRUE(error_message.empty());
+  }
+
+  {
+    nullptr_t converted;
+    EXPECT_TRUE(ConvertFromValue(Value(), &converted));
+  }
+}
+
+TEST(ValueConversion, ValueToNullptrError) {
+  nullptr_t converted;
+
+  {
+    std::string error_message;
+    EXPECT_FALSE(ConvertFromValue(Value(false), &converted, &error_message));
+#ifdef NDEBUG
+    EXPECT_EQ(error_message,
+              "Expected value of type null, instead got: boolean");
+#else
+    EXPECT_EQ(error_message, "Expected value of type null, instead got: false");
+#endif
+  }
+
+  EXPECT_FALSE(ConvertFromValue(Value(123), &converted));
+
+  EXPECT_FALSE(ConvertFromValue(Value("foo"), &converted));
+}
+
 TEST(ValueConversion, EnumToValue) {
   {
     std::string error_message;

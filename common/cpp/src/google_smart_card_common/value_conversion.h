@@ -489,6 +489,14 @@ inline bool ConvertToValue(std::string characters,
   return true;
 }
 
+// Converts `nullptr_t` into a null `Value`.
+inline bool ConvertToValue(nullptr_t /*null*/,
+                           Value* value,
+                           std::string* /*error_message*/ = nullptr) {
+  *value = Value();
+  return true;
+}
+
 // Forbid conversion of pointers other than `const char*`. Without this deleted
 // overload, the `bool`-argument overload would be silently picked up.
 bool ConvertToValue(const void* pointer_value,
@@ -606,6 +614,11 @@ bool ConvertFromValue(Value value,
                       std::string* error_message = nullptr);
 bool ConvertFromValue(Value value,
                       std::string* characters,
+                      std::string* error_message = nullptr);
+
+// Verifies that the `value` is null.
+bool ConvertFromValue(Value value,
+                      nullptr_t* null,
                       std::string* error_message = nullptr);
 
 // Converts from a string `Value` into an enum. The enum type has to be
