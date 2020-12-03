@@ -506,6 +506,64 @@ TEST(RemoteCallArgumentsExtractor, EnumArgumentExpected) {
   EXPECT_EQ(enum_argument, SomeEnum::kFirst);
 }
 
+TEST(RemoteCallArgumentsExtractor, OptionalArgument) {
+  {
+    std::vector<Value> values;
+    values.emplace_back(false);
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    optional<bool> bool_argument;
+    extractor.Extract(&bool_argument);
+    EXPECT_TRUE(extractor.Finish());
+    ASSERT_TRUE(bool_argument);
+    EXPECT_FALSE(*bool_argument);
+  }
+
+  {
+    std::vector<Value> values;
+    values.emplace_back();
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    optional<bool> bool_argument;
+    extractor.Extract(&bool_argument);
+    EXPECT_TRUE(extractor.Finish());
+    EXPECT_FALSE(bool_argument);
+  }
+
+  {
+    std::vector<Value> values;
+    values.emplace_back("foo");
+    values.emplace_back(123);
+    RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+
+    optional<std::string> string_argument;
+    int int_argument = 0;
+    extractor.Extract(&string_argument, &int_argument);
+    EXPECT_TRUE(extractor.Finish());
+    ASSERT_TRUE(string_argument);
+    EXPECT_EQ(*string_argument, "foo");
+    EXPECT_EQ(int_argument, 123);
+  }
+}
+
+TEST(RemoteCallArgumentsExtractor, OptionalArgumentError) {
+  std::vector<Value> values;
+  values.emplace_back(false);
+  RemoteCallArgumentsExtractor extractor(kSomeFunc, std::move(values));
+  optional<std::string> string_argument;
+  extractor.Extract(&string_argument);
+  EXPECT_FALSE(extractor.success());
+#ifdef NDEBUG
+  EXPECT_EQ(extractor.error_message(),
+            "Failed to convert argument #0 for someFunc(): Expected value of "
+            "type string, instead got: boolean");
+#else
+  EXPECT_EQ(extractor.error_message(),
+            "Failed to convert argument #0 for someFunc(): Expected value of "
+            "type string, instead got: false");
+#endif
+}
+
 TEST(ExtractRemoteCallArguments, Basic) {
   std::vector<Value> values;
   values.emplace_back(123);
