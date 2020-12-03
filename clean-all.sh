@@ -15,7 +15,8 @@
 # limitations under the License.
 
 # This script removes the temporary files and output files produced by building
-# of the libraries and Apps of this project, and clears the env.
+# of the libraries and Apps of this project. Optionally, if the "-f" flag is
+# specified, it clears the SDKs stored under //env/ as well.
 #
 # Note: the env/activate file must be source'd into the shell before this script
 # execution.
@@ -57,12 +58,27 @@ clean_env() {
 SCRIPTPATH=$(dirname $(realpath ${0}))
 cd ${SCRIPTPATH}
 
+force_env_clean=0
+while getopts ":f" opt; do
+  case $opt in
+    f)
+      force_env_clean=1
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG" >&2
+      exit 1
+      ;;
+  esac
+done
+
 for toolchain in ${TOOLCHAINS}; do
 	for config in ${CONFIGS}; do
 		clean_dir_with_toolchain_and_config ${toolchain} ${config}
 	done
 done
 clean_built_app_packages
-clean_env
+if [ "${force_env_clean}" -eq "1" ]; then
+	clean_env
+fi
 
 log_message "Cleaning finished."
