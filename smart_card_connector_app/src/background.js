@@ -17,6 +17,8 @@
 goog.provide('GoogleSmartCard.ConnectorApp.BackgroundMain');
 
 goog.require('GoogleSmartCard.ConnectorApp.Background.MainWindowManaging');
+goog.require('GoogleSmartCard.EmscriptenModule');
+goog.require('GoogleSmartCard.ExecutableModule');
 goog.require('GoogleSmartCard.Libusb.ChromeLoginStateHook');
 goog.require('GoogleSmartCard.Libusb.ChromeUsbBackend');
 goog.require('GoogleSmartCard.LogBufferForwarder');
@@ -44,12 +46,14 @@ const JS_LOGS_HANDLER_MESSAGE_TYPE = 'js_logs_handler';
  */
 var logger = GSC.Logging.getScopedLogger('ConnectorApp.BackgroundMain');
 
-// Used to forward logs collected on the JS side to the NaCl module's stdout, in
-// order to simplify accessing them in some configurations.
-// Note that this object needs to be created as early as possible, in order to
-// not miss any important log.
-const logBufferForwarderToNaclModule = new GSC.LogBufferForwarder(
-    GSC.Logging.getLogBuffer(), JS_LOGS_HANDLER_MESSAGE_TYPE);
+if (GSC.ExecutableModule.TOOLCHAIN === GSC.ExecutableModule.Toolchain.PNACL) {
+  // Used to forward logs collected on the JS side to the NaCl module's stdout,
+  // in order to simplify accessing them in some configurations.
+  // Note that this object needs to be created as early as possible, in order to
+  // not miss any important log.
+  var logBufferForwarderToNaclModule = new GSC.LogBufferForwarder(
+      GSC.Logging.getLogBuffer(), JS_LOGS_HANDLER_MESSAGE_TYPE);
+}
 
 const extensionManifest = chrome.runtime.getManifest();
 logger.info(
@@ -57,24 +61,46 @@ logger.info(
     `${extensionManifest.version}) background script started. Browser ` +
     `version: "${window.navigator.appVersion}".`);
 
-var naclModule = new GSC.NaclModule(
-    'nacl_module.nmf', GSC.NaclModule.Type.PNACL);
-naclModule.addOnDisposeCallback(naclModuleDisposedListener);
+/**
+ * Loads the binary executable module depending on the toolchain configuration.
+ * @return {!GSC.ExecutableModule}
+ */
+function createExecutableModule() {
+  switch (GSC.ExecutableModule.TOOLCHAIN) {
+    case GSC.ExecutableModule.Toolchain.PNACL:
+      return new GSC.NaclModule(
+          'nacl_module.nmf', GSC.NaclModule.Type.PNACL);
+    case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
+      return new GSC.EmscriptenModule('nacl_module');
+  }
+  GSC.Logging.fail(`Cannot load executable module: unknown toolchain ` +
+                   `${GSC.ExecutableModule.TOOLCHAIN}`);
+  goog.asserts.fail();
+}
 
-naclModule.getLoadPromise().then(() => {
-  // Skip forwarding logs that were received from the NaCl module or generated
-  // while sending messages to it, in order to avoid duplication and/or infinite
-  // recursion.
-  logBufferForwarderToNaclModule.ignoreLogger(
-      naclModule.logMessagesReceiver.logger.getName());
-  // Start forwarding all future log messages collected on the JS side, but also
-  // immediately post the messages that have been accumulated so far.
-  logBufferForwarderToNaclModule.startForwarding(
-      naclModule.getMessageChannel());
-}, () => {});
+/**
+ * The binary executable module that contains the actual smart card client code.
+ * @type {!GSC.ExecutableModule}
+ */
+const executableModule = createExecutableModule();
+executableModule.addOnDisposeCallback(naclModuleDisposedListener);
+
+if (logBufferForwarderToNaclModule) {
+  executableModule.getLoadPromise().then(() => {
+    // Skip forwarding logs that were received from the NaCl module or generated
+    // while sending messages to it, in order to avoid duplication and/or
+    // infinite recursion.
+    logBufferForwarderToNaclModule.ignoreLogger(
+        executableModule.logMessagesReceiver.logger.getName());
+    // Start forwarding all future log messages collected on the JS side, but
+    // also immediately post the messages that have been accumulated so far.
+    logBufferForwarderToNaclModule.startForwarding(
+        executableModule.getMessageChannel());
+  }, () => {});
+}
 
 var libusbChromeUsbBackend = new GSC.Libusb.ChromeUsbBackend(
-    naclModule.getMessageChannel());
+    executableModule.getMessageChannel());
 var chromeLoginStateHook = new GSC.Libusb.ChromeLoginStateHook();
 libusbChromeUsbBackend.addRequestSuccessHook(
     chromeLoginStateHook.getRequestSuccessHook());
@@ -84,17 +110,17 @@ chromeLoginStateHook.getHookReadyPromise().then(() => {}, () => {}).then(
 
 var pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
-        naclModule.getMessageChannel());
+        executableModule.getMessageChannel());
 var messageChannelPool = new GSC.MessageChannelPool;
 
 var readerTrackerMessageChannelPair = new GSC.MessageChannelPair;
 createClientHandler(readerTrackerMessageChannelPair.getFirst(), undefined);
 var readerTracker = new GSC.PcscLiteServer.ReaderTracker(
-    naclModule.getMessageChannel(),
+    executableModule.getMessageChannel(),
     readerTrackerMessageChannelPair.getSecond(),
-    naclModule.getLogger());
+    executableModule.getLogger());
 
-naclModule.startLoading();
+executableModule.startLoading();
 
 chrome.app.runtime.onLaunched.addListener(launchedListener);
 
@@ -216,7 +242,8 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
   var clientTitleForLog = clientExtensionId !== undefined ?
       'app "' + clientExtensionId + '"' : 'own app';
 
-  if (naclModule.isDisposed() || naclModule.getMessageChannel().isDisposed()) {
+  if (executableModule.isDisposed() ||
+      executableModule.getMessageChannel().isDisposed()) {
     logger.warning(
         'Could not create PC/SC-Lite client handler for ' + clientTitleForLog +
         ' as the server is disposed. Disposing of the client message ' +
@@ -229,7 +256,7 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
   // because it manages its lifetime itself, based on the lifetimes of the
   // passed message channels.
   var clientHandler = new GSC.PcscLiteServerClientsManagement.ClientHandler(
-      naclModule.getMessageChannel(),
+      executableModule.getMessageChannel(),
       pcscLiteReadinessTracker,
       clientMessageChannel,
       clientExtensionId);
