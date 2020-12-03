@@ -38,6 +38,7 @@ TARGETS := \
 	third_party/pcsc-lite/naclport/cpp_client/build \
 	third_party/pcsc-lite/naclport/cpp_demo/build \
 	third_party/pcsc-lite/naclport/server/build \
+	third_party/pcsc-lite/naclport/server_clients_management/build \
 
 example_cpp_smart_card_client_app/build: common/cpp/build
 example_cpp_smart_card_client_app/build: third_party/pcsc-lite/naclport/common/build
@@ -75,7 +76,6 @@ else ifeq ($(TOOLCHAIN),pnacl)
 
 TARGETS += \
 	smart_card_connector_app/build \
-	third_party/pcsc-lite/naclport/server_clients_management/build \
 
 smart_card_connector_app/build: common/cpp/build
 smart_card_connector_app/build: third_party/ccid/naclport/build
@@ -83,7 +83,6 @@ smart_card_connector_app/build: third_party/libusb/naclport/build
 smart_card_connector_app/build: third_party/pcsc-lite/naclport/common/build
 smart_card_connector_app/build: third_party/pcsc-lite/naclport/server/build
 smart_card_connector_app/build: third_party/pcsc-lite/naclport/server_clients_management/build
-third_party/pcsc-lite/naclport/server_clients_management/build: third_party/pcsc-lite/naclport/server/build
 
 TEST_TARGETS += \
 	common/integration_testing/build \
