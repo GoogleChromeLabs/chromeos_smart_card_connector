@@ -150,6 +150,7 @@ class RemoteCallArgumentsExtractor final {
   bool Finish();
 
  private:
+  // Attempts to convert the value with the current index into the given `arg`.
   template <typename Arg>
   void ExtractArgument(Arg* arg) {
     if (!success_)
@@ -164,6 +165,21 @@ class RemoteCallArgumentsExtractor final {
         FormatPrintfTemplate(internal::kRemoteCallArgumentConversionError,
                              static_cast<int>(current_argument_index_),
                              title_.c_str(), error_message_.c_str());
+  }
+
+  // Specialized version of the overload above that supports converting a null
+  // `Value` into a null `optional`.
+  template <typename Arg>
+  void ExtractArgument(optional<Arg>* arg) {
+    if (!success_)
+      return;
+    if (argument_values_[current_argument_index_].is_null()) {
+      arg->reset();
+      ++current_argument_index_;
+      return;
+    }
+    *arg = Arg();
+    ExtractArgument(&arg->value());
   }
 
   void VerifySufficientCount(int arguments_to_convert);
