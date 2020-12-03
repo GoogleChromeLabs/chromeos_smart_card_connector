@@ -17,6 +17,10 @@
 // the Application class, which implements the actual functionality of the
 // PC/SC-Lite daemon.
 
+#ifndef __native_client__
+#error "This file should only be used in Native Client builds"
+#endif  // __native_client__
+
 #include <functional>
 #include <memory>
 #include <string>
