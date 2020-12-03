@@ -26,6 +26,7 @@
 //   `Value`, in case it's within the range of precisely representable numbers);
 // * `double`;
 // * `std::string`;
+// * `std::nullptr_t` (converts to/from a null `Value`);
 // * `std::vector` of any supported type (note: there's also a special case that
 //    `std::vector<uint8_t>` is converted to/from a binary `Value` and can
 //    additionally be converted from an array `Value`).
@@ -41,6 +42,7 @@
 
 #include <stdint.h>
 
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -489,6 +491,14 @@ inline bool ConvertToValue(std::string characters,
   return true;
 }
 
+// Converts `std::nullptr_t` into a null `Value`.
+inline bool ConvertToValue(std::nullptr_t /*null*/,
+                           Value* value,
+                           std::string* /*error_message*/ = nullptr) {
+  *value = Value();
+  return true;
+}
+
 // Forbid conversion of pointers other than `const char*`. Without this deleted
 // overload, the `bool`-argument overload would be silently picked up.
 bool ConvertToValue(const void* pointer_value,
@@ -606,6 +616,11 @@ bool ConvertFromValue(Value value,
                       std::string* error_message = nullptr);
 bool ConvertFromValue(Value value,
                       std::string* characters,
+                      std::string* error_message = nullptr);
+
+// Verifies that the `value` is null.
+bool ConvertFromValue(Value value,
+                      std::nullptr_t* null,
                       std::string* error_message = nullptr);
 
 // Converts from a string `Value` into an enum. The enum type has to be

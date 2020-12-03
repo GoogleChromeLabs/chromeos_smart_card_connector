@@ -17,6 +17,7 @@
 #include <inttypes.h>
 #include <stdint.h>
 
+#include <cstddef>
 #include <limits>
 #include <string>
 #include <utility>
@@ -321,6 +322,19 @@ bool ConvertFromValue(Value value,
   FormatPrintfTemplateAndSet(
       error_message, internal::kErrorWrongTypeValueConversion,
       Value::kStringTypeTitle, DebugDumpValueSanitized(value).c_str());
+  return false;
+}
+
+bool ConvertFromValue(Value value,
+                      std::nullptr_t* /*null*/,
+                      std::string* error_message) {
+  if (value.is_null()) {
+    // No data needs to be written into `*null`.
+    return true;
+  }
+  FormatPrintfTemplateAndSet(
+      error_message, internal::kErrorWrongTypeValueConversion,
+      Value::kNullTypeTitle, DebugDumpValueSanitized(value).c_str());
   return false;
 }
 
