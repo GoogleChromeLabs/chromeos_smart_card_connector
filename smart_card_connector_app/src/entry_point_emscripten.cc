@@ -78,7 +78,8 @@ class GoogleSmartCardModule final {
  private:
   std::shared_ptr<GlobalContextImplEmscripten> global_context_;
   TypedMessageRouter typed_message_router_;
-  Application application_{global_context_.get(), &typed_message_router_, /*background_initialization_callback=*/{}};
+  Application application_{global_context_.get(), &typed_message_router_,
+                           /*background_initialization_callback=*/{}};
 };
 
 }  // namespace
