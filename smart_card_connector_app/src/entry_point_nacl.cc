@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This file contains the application's entry point that is used in Native
+// Client builds. It performs the necessary initialization and then instantiates
+// the Application class, which implements the actual functionality of the
+// PC/SC-Lite daemon.
+
+#include <functional>
 #include <memory>
 #include <string>
-#include <thread>
 #include <utility>
 
 #include <ppapi/c/ppb_instance.h>
-#include <ppapi/cpp/core.h>
 #include <ppapi/cpp/instance.h>
 #include <ppapi/cpp/module.h>
 #include <ppapi/cpp/var.h>
@@ -26,19 +30,14 @@
 #include <google_smart_card_common/external_logs_printer.h>
 #include <google_smart_card_common/global_context_impl_nacl.h>
 #include <google_smart_card_common/logging/logging.h>
-#include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/messaging/typed_message_router.h>
 #include <google_smart_card_common/nacl_io_utils.h>
 #include <google_smart_card_common/optional.h>
-#include <google_smart_card_common/pp_var_utils/debug_dump.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
-#include <google_smart_card_common/value_conversion.h>
 #include <google_smart_card_common/value_nacl_pp_var_conversion.h>
-#include <google_smart_card_libusb/global.h>
-#include <google_smart_card_pcsc_lite_server/global.h>
-#include <google_smart_card_pcsc_lite_server_clients_management/backend.h>
-#include <google_smart_card_pcsc_lite_server_clients_management/ready_message.h>
+
+#include "application.h"
 
 namespace google_smart_card {
 
@@ -53,27 +52,18 @@ class PpInstance final : public pp::Instance {
   explicit PpInstance(PP_Instance instance)
       : pp::Instance(instance),
         global_context_(
-            MakeUnique<GlobalContextImplNacl>(pp::Module::Get()->core(), this)),
-        libusb_over_chrome_usb_global_(
-            MakeUnique<LibusbOverChromeUsbGlobal>(global_context_.get(),
-                                                  &typed_message_router_)),
-        pcsc_lite_server_global_(
-            MakeUnique<PcscLiteServerGlobal>(global_context_.get())) {
+            MakeUnique<GlobalContextImplNacl>(pp::Module::Get()->core(),
+                                              this)) {
     typed_message_router_.AddRoute(&external_logs_printer_);
-
-    StartServicesInitialization();
   }
 
   ~PpInstance() override {
     typed_message_router_.RemoveRoute(&external_logs_printer_);
 
-    // Intentionally leak objects that might still be used by background
-    // threads. Only detach them from `this` and the JavaScript side.
+    // Intentionally leak the global context as it might still be used by
+    // background threads. Only detach it from the JavaScript side.
     global_context_->DisableJsCommunication();
     global_context_.release();
-    libusb_over_chrome_usb_global_->Detach();
-    libusb_over_chrome_usb_global_.release();
-    pcsc_lite_server_global_.release();
   }
 
   void HandleMessage(const pp::Var& message) override {
@@ -92,37 +82,14 @@ class PpInstance final : public pp::Instance {
   }
 
  private:
-  void StartServicesInitialization() {
-    std::thread(&PpInstance::InitializeServices, this).detach();
-  }
-
-  void InitializeServices() {
-    GOOGLE_SMART_CARD_LOG_DEBUG << "Performing services initialization...";
-
-    InitializeNaclIo(*this);
-    pcsc_lite_server_global_->InitializeAndRunDaemonThread();
-
-    pcsc_lite_server_clients_management_backend_.reset(
-        new PcscLiteServerClientsManagementBackend(global_context_.get(),
-                                                   &typed_message_router_));
-
-    GOOGLE_SMART_CARD_LOG_DEBUG << "All services are successfully "
-                                << "initialized, posting ready message...";
-    TypedMessage ready_message;
-    ready_message.type = GetPcscLiteServerReadyMessageType();
-    ready_message.data = MakePcscLiteServerReadyMessageData();
-    Value ready_message_value = ConvertToValueOrDie(std::move(ready_message));
-    // TODO: Directly post `Value` instead of `pp::Var`.
-    PostMessage(ConvertValueToPpVar(ready_message_value));
-  }
+  void InitializeOnBackgroundThread() { InitializeNaclIo(*this); }
 
   std::unique_ptr<GlobalContextImplNacl> global_context_;
   TypedMessageRouter typed_message_router_;
   ExternalLogsPrinter external_logs_printer_{kJsLogsHandlerMessageType};
-  std::unique_ptr<LibusbOverChromeUsbGlobal> libusb_over_chrome_usb_global_;
-  std::unique_ptr<PcscLiteServerClientsManagementBackend>
-      pcsc_lite_server_clients_management_backend_;
-  std::unique_ptr<PcscLiteServerGlobal> pcsc_lite_server_global_;
+  Application application_{
+      global_context_.get(), &typed_message_router_,
+      std::bind(&PpInstance::InitializeOnBackgroundThread, this)};
 };
 
 class PpModule final : public pp::Module {
