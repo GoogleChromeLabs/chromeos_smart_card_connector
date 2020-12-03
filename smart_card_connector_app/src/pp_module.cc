@@ -110,9 +110,7 @@ class PpInstance final : public pp::Instance {
                                 << "initialized, posting ready message...";
     TypedMessage ready_message;
     ready_message.type = GetPcscLiteServerReadyMessageType();
-    // TODO: Directly create `Value` instead of transforming from `pp::Var`.
-    ready_message.data =
-        ConvertPpVarToValueOrDie(MakePcscLiteServerReadyMessageData());
+    ready_message.data = MakePcscLiteServerReadyMessageData();
     Value ready_message_value = ConvertToValueOrDie(std::move(ready_message));
     // TODO: Directly post `Value` instead of `pp::Var`.
     PostMessage(ConvertValueToPpVar(ready_message_value));
