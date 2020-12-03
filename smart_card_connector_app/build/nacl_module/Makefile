@@ -36,10 +36,12 @@ include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/inc
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/server_clients_management/dependency.mk
 
 
+# Common build definitions:
+
 SOURCES_DIR := ../../src
 
 SOURCES := \
-	$(SOURCES_DIR)/pp_module.cc \
+	$(SOURCES_DIR)/application.cc \
 
 LIBS := \
 	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_LIB) \
@@ -49,18 +51,8 @@ LIBS := \
 	$(LIBUSB_LIB) \
 	$(CPP_COMMON_LIB) \
 	$(DEFAULT_NACL_LIBS) \
-	nacl_io \
 
-DEPS := \
-	$(CCID_LIB) \
-	$(CPP_COMMON_LIB) \
-	$(LIBUSB_LIB) \
-	$(PCSC_LITE_COMMON_LIB) \
-	$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_LIB) \
-	$(PCSC_LITE_SERVER_LIB) \
-	nacl_io \
-
-$(eval $(call DEPEND_RULE,nacl_io))
+DEPS :=
 
 CXXFLAGS := \
 	-I$(ROOT_PATH)/common/cpp/src \
@@ -73,6 +65,26 @@ CXXFLAGS := \
 	-Wno-zero-length-array \
 	-pedantic \
 	-std=$(CXX_DIALECT) \
+
+ifeq ($(TOOLCHAIN),pnacl)
+
+# Native Client specific build definitions:
+
+SOURCES += \
+	$(SOURCES_DIR)/entry_point_nacl.cc \
+
+LIBS += \
+	nacl_io \
+
+DEPS += \
+	nacl_io \
+
+$(eval $(call DEPEND_RULE,nacl_io))
+
+endif
+
+
+# Common build rules:
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
