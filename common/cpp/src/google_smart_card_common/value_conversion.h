@@ -412,6 +412,12 @@ class StructValueDescriptor {
   internal::StructFromValueConverter<T>* const from_value_converter_;
 };
 
+// Explicitly forbid instantiating this class with unwanted types. Without doing
+// this, the errors will appear only at the linking stage and without mentioning
+// the place in the code that misuses this class.
+template <typename T>
+class StructValueDescriptor<optional<T>>;
+
 ///////////// ConvertToValue /////////////////////
 
 // Group of overloads that perform trivial conversions to `Value`.
