@@ -28,6 +28,7 @@
 
 #include <stdint.h>
 
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <string>
@@ -39,15 +40,13 @@
 #include <winscard.h>
 #include <wintypes.h>
 
-#include <ppapi/cpp/var.h>
-#include <ppapi/cpp/var_array.h>
-
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/requesting/remote_call_message.h>
 #include <google_smart_card_common/requesting/request_receiver.h>
 #include <google_smart_card_common/requesting/request_result.h>
 #include <google_smart_card_common/tuple_unpacking.h>
+#include <google_smart_card_common/value.h>
 #include <google_smart_card_pcsc_lite_common/scard_structs_serialization.h>
 
 #include "client_handles_registry.h"
@@ -134,7 +133,7 @@ class PcscLiteClientRequestProcessor final
 
  private:
   using Handler =
-      std::function<GenericRequestResult(const pp::VarArray& arguments)>;
+      std::function<GenericRequestResult(std::vector<Value> arguments)>;
   using HandlerMap = std::unordered_map<std::string, Handler>;
 
   void BuildHandlerMap();
@@ -146,18 +145,20 @@ class PcscLiteClientRequestProcessor final
           Args... args));
 
   template <typename ArgsTuple, typename F, size_t... arg_indexes>
-  Handler WrapHandler(F handler, ArgIndexes<arg_indexes...> /*unused*/);
+  Handler WrapHandler(const std::string& name,
+                      F handler,
+                      ArgIndexes<arg_indexes...> /*unused*/);
 
   GenericRequestResult FindHandlerAndCall(const std::string& function_name,
-                                          const pp::VarArray& arguments);
+                                          std::vector<Value> arguments);
 
   void ScheduleHandlesCleanup();
 
   GenericRequestResult PcscLiteVersionNumber();
   GenericRequestResult PcscStringifyError(LONG error);
   GenericRequestResult SCardEstablishContext(DWORD scope,
-                                             pp::Var::Null reserved_1,
-                                             pp::Var::Null reserved_2);
+                                             std::nullptr_t reserved_1,
+                                             std::nullptr_t reserved_2);
   GenericRequestResult SCardReleaseContext(SCARDCONTEXT s_card_context);
   GenericRequestResult SCardConnect(SCARDCONTEXT s_card_context,
                                     const std::string& reader_name,
@@ -191,7 +192,7 @@ class PcscLiteClientRequestProcessor final
       const std::vector<uint8_t>& data_to_send,
       const optional<SCardIoRequest>& response_protocol_information);
   GenericRequestResult SCardListReaders(SCARDCONTEXT s_card_context,
-                                        pp::Var::Null groups);
+                                        std::nullptr_t groups);
   GenericRequestResult SCardListReaderGroups(SCARDCONTEXT s_card_context);
   GenericRequestResult SCardCancel(SCARDCONTEXT s_card_context);
   GenericRequestResult SCardIsValidContext(SCARDCONTEXT s_card_context);
