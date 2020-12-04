@@ -66,7 +66,14 @@ CXXFLAGS := \
 	-pedantic \
 	-std=$(CXX_DIALECT) \
 
-ifeq ($(TOOLCHAIN),pnacl)
+ifeq ($(TOOLCHAIN),emscripten)
+
+# Emscripten specific build definitions:
+
+SOURCES += \
+	$(SOURCES_DIR)/entry_point_emscripten.cc \
+
+else ifeq ($(TOOLCHAIN),pnacl)
 
 # Native Client specific build definitions:
 
