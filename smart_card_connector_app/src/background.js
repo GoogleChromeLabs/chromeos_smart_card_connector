@@ -83,7 +83,7 @@ function createExecutableModule() {
  * @type {!GSC.ExecutableModule}
  */
 const executableModule = createExecutableModule();
-executableModule.addOnDisposeCallback(naclModuleDisposedListener);
+executableModule.addOnDisposeCallback(executableModuleDisposedListener);
 
 if (logBufferForwarderToNaclModule) {
   executableModule.getLoadPromise().then(() => {
@@ -129,13 +129,13 @@ chrome.runtime.onConnectExternal.addListener(externalConnectionListener);
 chrome.runtime.onMessageExternal.addListener(externalMessageListener);
 
 /**
- * Called when the NaCl module is disposed of.
+ * Called when the executable module is disposed of.
  */
-function naclModuleDisposedListener() {
+function executableModuleDisposedListener() {
   if (!goog.DEBUG) {
     // Trigger the fatal error in the Release mode, that will emit an error
     // message and trigger the app reload.
-    GSC.Logging.failWithLogger(logger, 'Server NaCl module was disposed of');
+    GSC.Logging.failWithLogger(logger, 'Executable module was disposed of');
   }
 }
 
