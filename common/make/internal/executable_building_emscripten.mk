@@ -105,6 +105,7 @@ else ifeq ($(CONFIG),Debug)
 # g4: Preserve maximum debug information, including source maps.
 # ASSERTIONS: Enable runtime checks, like for memory allocation errors.
 # DEMANGLE_SUPPORT: Demangle C++ function names in stack traces.
+# DISABLE_EXCEPTION_CATCHING: Enable support for C++ exceptions.
 # EXCEPTION_DEBUG: Enables printing exceptions coming from the executable.
 # SAFE_HEAP: Enable memory access checks.
 EMSCRIPTEN_FLAGS += \
@@ -112,6 +113,7 @@ EMSCRIPTEN_FLAGS += \
   -g4 \
   -s ASSERTIONS=2 \
   -s DEMANGLE_SUPPORT=1 \
+  -s DISABLE_EXCEPTION_CATCHING=0 \
   -s EXCEPTION_DEBUG=1 \
   -s SAFE_HEAP=1 \
 
