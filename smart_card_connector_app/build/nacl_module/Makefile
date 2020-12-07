@@ -127,7 +127,7 @@ else ifeq ($(TOOLCHAIN),pnacl)
 
 # On Native Client, the files that need to be exposed to the executable module
 # have to be copied into the resulting extension/app as-is. The nacl_io
-# library's "https" file system is used by the C++ initialization code in order
+# library's "httpfs" file system is used by the C++ initialization code in order
 # to set up access to these files at runtime.
 
 # Add rules for copying the files into the out directory.
@@ -135,7 +135,7 @@ $(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/third_party/pcsc-lite/naclport/s
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/third_party/ccid/naclport/build/Info.plist,executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/))
 
 # Create the manifest file that is used by the nacl_io library in order to
-# support operations like listing directories in the "https" file system.
+# support operations like listing directories in the "httpfs" file system.
 #
 # Implementation note: The Python script's output is first redirected into a
 # temporary ".build" file, so that a failure in the script leaves the manifest
