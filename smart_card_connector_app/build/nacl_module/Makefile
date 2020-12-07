@@ -101,8 +101,8 @@ ifeq ($(TOOLCHAIN),emscripten)
 # to be packaged ("preloaded") into a .data file.
 
 # Add a flag to the Emscripten linker to package the specified directory into a
-# .data file. The "@" character is used to strip the "out-" prefix from file
-# paths inside the archive.
+# .data file. The "@" character is used in order to specify the paths inside the
+# archive.
 LDFLAGS += \
 	--preload-file \
 	$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file@/executable-module-filesystem/pcsc/fake_socket_file \
