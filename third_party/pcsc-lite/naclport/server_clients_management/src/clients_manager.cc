@@ -102,7 +102,8 @@ PcscLiteServerClientsManager::~PcscLiteServerClientsManager() {
 }
 
 void PcscLiteServerClientsManager::Detach() {
-  GOOGLE_SMART_CARD_CHECK(typed_message_router_);
+  if (!typed_message_router_)
+    return;
   typed_message_router_->RemoveRoute(&create_handler_message_listener_);
   typed_message_router_->RemoveRoute(&delete_handler_message_listener_);
   DeleteAllHandlers();
