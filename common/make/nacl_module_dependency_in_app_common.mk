@@ -54,20 +54,3 @@ generate_out_nacl_module_$(1): $(OUT_DIR_PATH) $(1)
 generate_out: generate_out_nacl_module_$(1)
 
 endef
-
-
-#
-# In order to mount App resources as an "httpfs" file system in NaCl module and
-# support all usual file system operations with it (like listing directories
-# contents), a special manifest listing all the files has to be created.
-#
-
-NACL_IO_MANIFEST_PATH := $(OUT_DIR_PATH)/nacl_io_manifest.txt
-
-$(NACL_IO_MANIFEST_PATH): generate_out
-	$(NACL_SDK_ROOT)/tools/genhttpfs.py --srcdir "$(OUT_DIR_PATH)" --recursive . > nacl_io_manifest.txt.build
-	@mv nacl_io_manifest.txt.build $(NACL_IO_MANIFEST_PATH)
-
-$(eval $(call CLEAN_RULE,nacl_io_manifest.txt.build))
-
-all: $(NACL_IO_MANIFEST_PATH)

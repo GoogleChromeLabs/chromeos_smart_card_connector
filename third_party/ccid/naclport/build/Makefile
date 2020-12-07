@@ -51,7 +51,7 @@ COMMON_CPPFLAGS := \
 	-DHAVE_PTHREAD=1 \
 	-Dlog_msg=ccid_log_msg \
 	-Dlog_xxd=ccid_log_xxd \
-	-DPCSCLITE_HP_DROPDIR='"/crx/pcsc/drivers"' \
+	-DPCSCLITE_HP_DROPDIR='"/executable-module-filesystem/pcsc/drivers"' \
 	-I$(CCID_SOURCES_PATH) \
 	-I$(ROOT_PATH)/common/cpp/src \
 	-Wall \
@@ -157,8 +157,6 @@ Info.plist: $(CCID_SOURCES_PATH)/create_Info_plist.pl $(CCID_SUPPORTED_READERS_C
 
 $(eval $(call CLEAN_RULE,Info.plist.build))
 $(eval $(call CLEAN_RULE,Info.plist))
-
-$(eval $(call COPY_TO_OUT_DIR_RULE,Info.plist,pcsc/drivers/ifd-ccid.bundle/Contents))
 
 
 # Rules for linking of the compiled object files and installing the resulting

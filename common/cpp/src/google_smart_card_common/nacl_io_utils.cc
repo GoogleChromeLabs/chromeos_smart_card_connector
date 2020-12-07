@@ -38,10 +38,10 @@ void InitializeNaclIo(const pp::Instance& pp_instance) {
 
   GOOGLE_SMART_CARD_CHECK(::umount("/") == 0);
 
-  GOOGLE_SMART_CARD_CHECK(::mount("", "/tmp", "memfs", 0, "") == 0);
-
   GOOGLE_SMART_CARD_CHECK(
-      ::mount("/", "/crx", "httpfs", 0, "manifest=/nacl_io_manifest.txt") == 0);
+      ::mount("/", "/", "httpfs", 0, "manifest=/nacl_io_manifest.txt") == 0);
+
+  GOOGLE_SMART_CARD_CHECK(::mount("", "/tmp", "memfs", 0, "") == 0);
 
   GOOGLE_SMART_CARD_LOG_DEBUG << "[nacl_io] successfully initialized";
 }
