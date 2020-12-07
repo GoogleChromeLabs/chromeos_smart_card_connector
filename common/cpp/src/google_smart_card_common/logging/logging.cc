@@ -73,8 +73,11 @@ void EmitLogMessageToStderr(LogSeverity severity,
   // Prepare the whole message in advance, so that we don't mess with other
   // threads writing to std::cerr too.
   std::ostringstream stream;
-  stream << "[NaCl module " << StringifyLogSeverity(severity) << "] "
-         << message_text << std::endl;
+  stream << "[";
+#ifdef __native_client__
+  stream << "NaCl module ";
+#endif  // __native_client__
+  stream << StringifyLogSeverity(severity) << "] " << message_text << std::endl;
 
   std::cerr << stream.str();
   std::cerr.flush();
