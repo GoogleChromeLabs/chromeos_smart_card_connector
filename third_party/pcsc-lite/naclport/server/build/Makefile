@@ -57,7 +57,7 @@ PCSC_LITE_SOURCES_PATH := $(PCSC_LITE_DIR_PATH)/src/src
 #   calls stat() for this file - for the details see file
 #   src/winscard_msg_nacl.cc).
 COMMON_CPPFLAGS := \
-	-DFAKE_PCSC_NACL_SOCKET_FILE_NAME='"/crx/pcsc/fake_socket_file"' \
+	-DFAKE_PCSC_NACL_SOCKET_FILE_NAME='"/executable-module-filesystem/pcsc/fake_socket_file"' \
 	-I$(SOURCES_PATH) \
 	-I$(PCSC_LITE_ORIGINAL_HEADERS_DIR_PATH) \
 	-I$(PCSC_LITE_SOURCES_PATH) \
@@ -84,7 +84,7 @@ PCSC_LITE_COMMON_CPPFLAGS := \
 	-DHAVE_LIBUSB \
 	-DHAVE_SYSLOG_H \
 	-DPCSC_ARCH='"Linux"' \
-	-DPCSCLITE_HP_DROPDIR='"/crx/pcsc/drivers"' \
+	-DPCSCLITE_HP_DROPDIR='"/executable-module-filesystem/pcsc/drivers"' \
 	-DUSE_IPCDIR='"IPCDIR_is_not_expected_to_be_used"' \
 	-DUSE_USB \
 	-I$(ROOT_PATH)/common/cpp/src/google_smart_card_common/logging/syslog \
@@ -221,8 +221,3 @@ SOURCES := \
 # static library into the NaCl SDK libraries directory
 
 $(eval $(call LIB_RULE,$(TARGET),$(SOURCES)))
-
-
-# Rules for putting the fake local socket file into the resulting out directory
-
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(SOURCES_PATH)/fake_socket_file,pcsc))

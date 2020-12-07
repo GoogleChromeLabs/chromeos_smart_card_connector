@@ -66,6 +66,8 @@ CXXFLAGS := \
 	-pedantic \
 	-std=$(CXX_DIALECT) \
 
+LDFLAGS :=
+
 ifeq ($(TOOLCHAIN),emscripten)
 
 # Emscripten specific build definitions:
@@ -91,13 +93,71 @@ $(eval $(call DEPEND_RULE,nacl_io))
 endif
 
 
+# Preparation of static files for the executable module file system:
+
+ifeq ($(TOOLCHAIN),emscripten)
+
+# On Emscripten, the files that need to be exposed to the executable module have
+# to be packaged ("preloaded") into a .data file.
+
+# Add a flag to the Emscripten linker to package the specified directory into a
+# .data file. The "@" character is used in order to specify the paths inside the
+# archive.
+LDFLAGS += \
+	--preload-file \
+	$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file@/executable-module-filesystem/pcsc/fake_socket_file \
+	--preload-file \
+	$(ROOT_PATH)/third_party/ccid/naclport/build/Info.plist@/executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist \
+
+# Make sure the changes in the packaged files trigger re-linking.
+DEPS += \
+	$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file \
+	$(ROOT_PATH)/third_party/ccid/naclport/build/Info.plist \
+
+# Declare the target for the .data file to depend on the .wasm file, so that
+# targets that depend on the .data file only run after the file gets created by
+# the linker.
+$(BUILD_DIR)/$(TARGET).data: $(BUILD_DIR)/$(TARGET).wasm
+
+# Copy the .data file into the out directory, so that it's put into the
+# resulting app directory by the parent makefile.
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(BUILD_DIR)/$(TARGET).data))
+
+else ifeq ($(TOOLCHAIN),pnacl)
+
+# On Native Client, the files that need to be exposed to the executable module
+# have to be copied into the resulting extension/app as-is. The nacl_io
+# library's "httpfs" file system is used by the C++ initialization code in order
+# to set up access to these files at runtime.
+
+# Add rules for copying the files into the out directory.
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file,executable-module-filesystem/pcsc/))
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/third_party/ccid/naclport/build/Info.plist,executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/))
+
+# Create the manifest file that is used by the nacl_io library in order to
+# support operations like listing directories in the "httpfs" file system.
+#
+# Implementation note: The Python script's output is first redirected into a
+# temporary ".build" file, so that a failure in the script leaves the manifest
+# file not existing or not modified (so that next invocations of make don't skip
+# it).
+$(OUT_DIR_PATH)/nacl_io_manifest.txt: generate_out
+	$(NACL_SDK_ROOT)/tools/genhttpfs.py \
+		--srcdir "$(OUT_DIR_PATH)" \
+		--recursive . \
+		> nacl_io_manifest.txt.build
+	@mv nacl_io_manifest.txt.build $(OUT_DIR_PATH)/nacl_io_manifest.txt
+$(eval $(call CLEAN_RULE,nacl_io_manifest.txt.build))
+all: $(OUT_DIR_PATH)/nacl_io_manifest.txt
+
+endif
+
+
 # Common build rules:
 
 $(foreach src,$(SOURCES),$(eval $(call COMPILE_RULE,$(src),$(CXXFLAGS))))
 
-$(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES),$(LIBS),$(DEPS)))
+$(eval $(call LINK_EXECUTABLE_RULE,$(SOURCES),$(LIBS),$(DEPS),$(LDFLAGS)))
 
 
-$(eval $(call COLLECT_DEPENDENCY_OUT,$(CCID_OUT)))
 $(eval $(call COLLECT_DEPENDENCY_OUT,$(PCSC_LITE_SERVER_CLIENTS_MANAGEMENT_OUT)))
-$(eval $(call COLLECT_DEPENDENCY_OUT,$(PCSC_LITE_SERVER_OUT)))
