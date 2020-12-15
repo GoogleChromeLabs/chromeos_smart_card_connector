@@ -74,6 +74,7 @@ endef
 # MODULARIZE: Puts Emscripten module JavaScript loading code into a factory
 #   function, in order to control its loading from other JS code and to avoid
 #   name conflicts with unrelated code.
+# DISABLE_EXCEPTION_CATCHING: Enable support for C++ exceptions.
 # EXPORT_NAME: Name of the JavaScript function that loads the Emscripten module.
 # DYNAMIC_EXECUTION: Disable dynamic code execution in Emscripten JavaScript
 #   code (not doing this will cause "unsafe-eval" Content Security Policy
@@ -82,6 +83,7 @@ EMSCRIPTEN_FLAGS := \
   --bind \
   -pthread \
   -s MODULARIZE=1 \
+  -s DISABLE_EXCEPTION_CATCHING=0 \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
   -s DYNAMIC_EXECUTION=0 \
 
@@ -105,7 +107,6 @@ else ifeq ($(CONFIG),Debug)
 # g4: Preserve maximum debug information, including source maps.
 # ASSERTIONS: Enable runtime checks, like for memory allocation errors.
 # DEMANGLE_SUPPORT: Demangle C++ function names in stack traces.
-# DISABLE_EXCEPTION_CATCHING: Enable support for C++ exceptions.
 # EXCEPTION_DEBUG: Enables printing exceptions coming from the executable.
 # SAFE_HEAP: Enable memory access checks.
 EMSCRIPTEN_FLAGS += \
@@ -113,7 +114,6 @@ EMSCRIPTEN_FLAGS += \
   -g4 \
   -s ASSERTIONS=2 \
   -s DEMANGLE_SUPPORT=1 \
-  -s DISABLE_EXCEPTION_CATCHING=0 \
   -s EXCEPTION_DEBUG=1 \
   -s SAFE_HEAP=1 \
 
