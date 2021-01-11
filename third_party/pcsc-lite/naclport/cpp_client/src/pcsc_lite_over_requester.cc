@@ -290,8 +290,8 @@ LONG PcscLiteOverRequester::SCardStatus(SCARDHANDLE s_card_handle,
     return reader_name_filling_result_code;
   if (atr_filling_result_code != SCARD_S_SUCCESS)
     return atr_filling_result_code;
-  reader_name_buffer_holder.release();
-  atr_buffer_holder.release();
+  (void)reader_name_buffer_holder.release();
+  (void)atr_buffer_holder.release();
   return SCARD_S_SUCCESS;
 }
 
@@ -406,7 +406,7 @@ LONG PcscLiteOverRequester::SCardGetAttrib(SCARDHANDLE s_card_handle,
       attribute_length, &attribute_buffer_holder);
   if (attribute_filling_result_code != SCARD_S_SUCCESS)
     return attribute_filling_result_code;
-  attribute_buffer_holder.release();
+  (void)attribute_buffer_holder.release();
   return SCARD_S_SUCCESS;
 }
 
@@ -509,7 +509,7 @@ LONG PcscLiteOverRequester::SCardListReaders(SCARDCONTEXT s_card_context,
                                 readers, readers_size, &readers_buffer_holder);
   if (readers_filling_result_code != SCARD_S_SUCCESS)
     return readers_filling_result_code;
-  readers_buffer_holder.release();
+  (void)readers_buffer_holder.release();
   return SCARD_S_SUCCESS;
 }
 
@@ -539,7 +539,7 @@ LONG PcscLiteOverRequester::SCardListReaderGroups(SCARDCONTEXT s_card_context,
                                 groups, groups_size, &groups_buffer_holder);
   if (groups_filling_result_code != SCARD_S_SUCCESS)
     return groups_filling_result_code;
-  groups_buffer_holder.release();
+  (void)groups_buffer_holder.release();
   return SCARD_S_SUCCESS;
 }
 

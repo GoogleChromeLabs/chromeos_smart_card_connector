@@ -310,7 +310,7 @@ Application::~Application() {
   // Intentionally leak `pcsc_lite_over_requester_global_` without destroying
   // it, because there might still be background threads that access it.
   pcsc_lite_over_requester_global_->Detach();
-  pcsc_lite_over_requester_global_.release();
+  (void)pcsc_lite_over_requester_global_.release();
 
   built_in_pin_dialog_server_->Detach();
   chrome_certificate_provider_api_bridge_->Detach();

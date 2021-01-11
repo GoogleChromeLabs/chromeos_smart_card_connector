@@ -67,7 +67,7 @@ class PpInstance final : public pp::Instance {
     // Intentionally leak the global context as it might still be used by
     // background threads. Only detach it from the JavaScript side.
     global_context_->DisableJsCommunication();
-    global_context_.release();
+    (void)global_context_.release();
   }
 
   void HandleMessage(const pp::Var& message) override {
