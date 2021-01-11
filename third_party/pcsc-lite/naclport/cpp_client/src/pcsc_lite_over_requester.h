@@ -39,14 +39,10 @@
 
 namespace google_smart_card {
 
-namespace {
-
 // The name of the requester that should be used for the requests made by the
 // PcscLiteOverRequester class (see also the
 // google_smart_card_common/requesting/requester.h header).
-constexpr char kPcscLiteRequesterName[] = "pcsc_lite";
-
-}  // namespace
+extern const char kPcscLiteRequesterName[];
 
 // This class provides an implementation for the PC/SC-Lite client API that
 // forwards all calls through the passed requester to its counterpart library

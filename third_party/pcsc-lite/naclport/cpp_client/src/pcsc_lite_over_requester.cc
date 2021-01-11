@@ -42,6 +42,9 @@
 
 namespace google_smart_card {
 
+// Definitions of constants declared in the .h file:
+const char kPcscLiteRequesterName[] = "pcsc_lite";
+
 namespace {
 
 constexpr char kLoggingPrefix[] = "[PC/SC-Lite over requester] ";
