@@ -426,7 +426,7 @@ class LibusbOverChromeUsbTransfersTest
     return transfer;
   }
 
-  void SetUpTransferCallbackMockExpectations(
+  static void SetUpTransferCallbackMockExpectations(
       size_t transfer_index,
       bool /*is_output*/,
       bool is_canceled,
@@ -435,7 +435,7 @@ class LibusbOverChromeUsbTransfersTest
                 Call(GetExpectedTransferStatus(transfer_index, is_canceled)));
   }
 
-  void SetUpTransferCallbackMockExpectations(
+  static void SetUpTransferCallbackMockExpectations(
       size_t transfer_index,
       bool /*is_output*/,
       bool is_canceled,
@@ -518,8 +518,8 @@ class LibusbOverChromeUsbTransfersTest
     return transfer_info;
   }
 
-  std::vector<uint8_t> GenerateTransferData(size_t transfer_index,
-                                            bool is_output) {
+  static std::vector<uint8_t> GenerateTransferData(size_t transfer_index,
+                                                   bool is_output) {
     std::vector<uint8_t> result;
     result.push_back(is_output);
     while (transfer_index) {

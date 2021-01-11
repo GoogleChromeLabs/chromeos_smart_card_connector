@@ -100,6 +100,24 @@ std::unique_ptr<uint8_t[]> CopyRawData(const std::vector<uint8_t>& data) {
   return CopyRawData(&data[0], data.size());
 }
 
+libusb_context* GetLibusbTransferContext(const libusb_transfer* transfer) {
+  if (!transfer)
+    return nullptr;
+  libusb_device_handle* const device_handle = transfer->dev_handle;
+  if (!device_handle)
+    return nullptr;
+  return device_handle->context();
+}
+
+libusb_context* GetLibusbTransferContextChecked(
+    const libusb_transfer* transfer) {
+  GOOGLE_SMART_CARD_CHECK(transfer);
+
+  libusb_context* const result = GetLibusbTransferContext(transfer);
+  GOOGLE_SMART_CARD_CHECK(result);
+  return result;
+}
+
 }  // namespace
 
 LibusbOverChromeUsb::LibusbOverChromeUsb(
@@ -1105,25 +1123,6 @@ libusb_context* LibusbOverChromeUsb::SubstituteDefaultContextIfNull(
   if (context_or_nullptr)
     return context_or_nullptr;
   return default_context_.get();
-}
-
-libusb_context* LibusbOverChromeUsb::GetLibusbTransferContext(
-    const libusb_transfer* transfer) const {
-  if (!transfer)
-    return nullptr;
-  libusb_device_handle* const device_handle = transfer->dev_handle;
-  if (!device_handle)
-    return nullptr;
-  return device_handle->context();
-}
-
-libusb_context* LibusbOverChromeUsb::GetLibusbTransferContextChecked(
-    const libusb_transfer* transfer) const {
-  GOOGLE_SMART_CARD_CHECK(transfer);
-
-  libusb_context* const result = GetLibusbTransferContext(transfer);
-  GOOGLE_SMART_CARD_CHECK(result);
-  return result;
 }
 
 LibusbOverChromeUsb::TransferAsyncRequestCallback
