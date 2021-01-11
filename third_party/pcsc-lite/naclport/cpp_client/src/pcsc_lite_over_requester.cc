@@ -388,8 +388,8 @@ LONG PcscLiteOverRequester::SCardControl(SCARDHANDLE s_card_handle,
 
 LONG PcscLiteOverRequester::SCardGetAttrib(SCARDHANDLE s_card_handle,
                                            DWORD attribute_id,
-                                           LPBYTE attribute,
-                                           LPDWORD attribute_length) {
+                                           LPBYTE attribute_buffer,
+                                           LPDWORD attribute_buffer_length) {
   std::vector<uint8_t> attribute_vector;
   const LONG result_code = ExtractRequestResultsAndCode(
       "SCardGetAttrib",
@@ -402,8 +402,8 @@ LONG PcscLiteOverRequester::SCardGetAttrib(SCARDHANDLE s_card_handle,
 
   SCardUniquePtr<BYTE> attribute_buffer_holder = CreateSCardUniquePtr<BYTE>();
   const LONG attribute_filling_result_code = FillOutputBufferArguments(
-      attribute_vector.begin(), attribute_vector.end(), attribute,
-      attribute_length, &attribute_buffer_holder);
+      attribute_vector.begin(), attribute_vector.end(), attribute_buffer,
+      attribute_buffer_length, &attribute_buffer_holder);
   if (attribute_filling_result_code != SCARD_S_SUCCESS)
     return attribute_filling_result_code;
   attribute_buffer_holder.release();
