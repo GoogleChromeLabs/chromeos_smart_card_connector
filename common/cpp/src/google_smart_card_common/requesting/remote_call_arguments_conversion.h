@@ -123,7 +123,7 @@ class RemoteCallArgumentsExtractor final {
                                std::vector<Value> argument_values);
   // Same as above, but attempts to convert the given `Value` into `vector`.
   RemoteCallArgumentsExtractor(std::string title, Value arguments_as_value);
-  RemoteCallArgumentsExtractor(RemoteCallArgumentsExtractor&) = delete;
+  RemoteCallArgumentsExtractor(const RemoteCallArgumentsExtractor&) = delete;
   RemoteCallArgumentsExtractor& operator=(const RemoteCallArgumentsExtractor&) =
       delete;
   ~RemoteCallArgumentsExtractor();
