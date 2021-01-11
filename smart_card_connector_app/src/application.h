@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef SMART_CARD_CONNECTOR_APP_APPLICATION_H_
+#define SMART_CARD_CONNECTOR_APP_APPLICATION_H_
+
 #include <functional>
 #include <memory>
 
@@ -63,3 +66,5 @@ class Application final {
 };
 
 }  // namespace google_smart_card
+
+#endif  // SMART_CARD_CONNECTOR_APP_APPLICATION_H_
