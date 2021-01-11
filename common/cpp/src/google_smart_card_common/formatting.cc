@@ -29,7 +29,7 @@ constexpr size_t kInitialPrintfBufferSize = 100;
 std::string FormatPrintfTemplate(const char* format, ...) {
   va_list var_args;
   va_start(var_args, format);
-  const std::string result = FormatPrintfTemplate(format, var_args);
+  std::string result = FormatPrintfTemplate(format, var_args);
   va_end(var_args);
   return result;
 }
