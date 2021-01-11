@@ -308,8 +308,9 @@ void SocketpairEmulationManager::AddSocket(std::shared_ptr<Socket> socket) {
   GOOGLE_SMART_CARD_CHECK(socket);
   GOOGLE_SMART_CARD_CHECK(socket.unique());
   const std::unique_lock<std::mutex> lock(mutex_);
+  const int file_descriptor = socket->file_descriptor();
   GOOGLE_SMART_CARD_CHECK(
-      socket_map_.emplace(socket->file_descriptor(), std::move(socket)).second);
+      socket_map_.emplace(file_descriptor, std::move(socket)).second);
 }
 
 std::shared_ptr<SocketpairEmulationManager::Socket>
