@@ -53,7 +53,6 @@
 
 using testing::_;
 using testing::Assign;
-using testing::Eq;
 using testing::Invoke;
 using testing::InvokeWithoutArgs;
 using testing::Mock;
