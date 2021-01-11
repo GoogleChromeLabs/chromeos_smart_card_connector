@@ -155,6 +155,7 @@ Info.plist: $(CCID_SOURCES_PATH)/create_Info_plist.pl $(CCID_SUPPORTED_READERS_C
 		--version=$(CCID_VERSION) > Info.plist.build
 	@mv Info.plist.build Info.plist
 
+all: Info.plist
 $(eval $(call CLEAN_RULE,Info.plist.build))
 $(eval $(call CLEAN_RULE,Info.plist))
 
