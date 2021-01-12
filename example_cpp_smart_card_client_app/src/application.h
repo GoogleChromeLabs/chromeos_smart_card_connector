@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef SMART_CARD_CLIENT_APPLICATION_H_
+#define SMART_CARD_CLIENT_APPLICATION_H_
+
 #include <memory>
 #include <mutex>
 
@@ -100,3 +103,5 @@ class Application final {
 };
 
 }  // namespace smart_card_client
+
+#endif  // SMART_CARD_CLIENT_APPLICATION_H_
