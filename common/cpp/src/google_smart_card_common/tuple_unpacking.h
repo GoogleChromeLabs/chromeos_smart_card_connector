@@ -15,6 +15,8 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_TUPLE_UNPACKING_H_
 #define GOOGLE_SMART_CARD_COMMON_TUPLE_UNPACKING_H_
 
+#include <stddef.h>
+
 namespace google_smart_card {
 
 // Helper template class that holds a compile-time integer sequence as its
