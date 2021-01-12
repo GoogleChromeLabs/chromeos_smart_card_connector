@@ -35,7 +35,7 @@ class LibusbTracingWrapper : public LibusbInterface {
   explicit LibusbTracingWrapper(LibusbInterface* wrapped_libusb);
   LibusbTracingWrapper(const LibusbTracingWrapper&) = delete;
   LibusbTracingWrapper& operator=(const LibusbTracingWrapper&) = delete;
-  ~LibusbTracingWrapper();
+  ~LibusbTracingWrapper() override;
 
   // LibusbInterface:
   int LibusbInit(libusb_context** ctx) override;
