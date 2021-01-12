@@ -51,8 +51,8 @@ Application::~Application() {
   // Intentionally leak objects that might still be used by background threads.
   // Only detach them from `this` and the JavaScript side.
   libusb_over_chrome_usb_global_->Detach();
-  libusb_over_chrome_usb_global_.release();
-  pcsc_lite_server_global_.release();
+  (void)libusb_over_chrome_usb_global_.release();
+  (void)pcsc_lite_server_global_.release();
 }
 
 void Application::ScheduleServicesInitialization() {

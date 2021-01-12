@@ -79,7 +79,7 @@ class PpInstance final : public pp::Instance {
     // Intentionally leak `global_context_` without destroying it, because there
     // might still be background threads that access it.
     global_context_->DisableJsCommunication();
-    global_context_.release();
+    (void)global_context_.release();
   }
 
   // This method is called with each message received by the NaCl module from
