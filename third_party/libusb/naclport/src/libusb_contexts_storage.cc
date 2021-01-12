@@ -25,7 +25,7 @@ LibusbContextsStorage::~LibusbContextsStorage() = default;
 std::shared_ptr<libusb_context> LibusbContextsStorage::CreateContext() {
   const std::unique_lock<std::mutex> lock(mutex_);
 
-  const auto result = std::make_shared<libusb_context>();
+  auto result = std::make_shared<libusb_context>();
   GOOGLE_SMART_CARD_CHECK(mapping_.emplace(result.get(), result).second);
   return result;
 }

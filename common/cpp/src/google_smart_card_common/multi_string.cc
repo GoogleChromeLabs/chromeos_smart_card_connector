@@ -52,7 +52,7 @@ std::vector<std::string> ExtractMultiStringElements(
   GOOGLE_SMART_CARD_CHECK(multi_string.length());
   GOOGLE_SMART_CARD_CHECK(multi_string.back() == '\0');
   const char* multi_string_end;
-  const std::vector<std::string> result =
+  std::vector<std::string> result =
       ExtractMultiStringElements(multi_string.c_str(), &multi_string_end);
   GOOGLE_SMART_CARD_CHECK(multi_string_end ==
                           multi_string.c_str() + multi_string.length());
