@@ -175,7 +175,7 @@ class StructToValueConverter final : public StructToValueConverterBase {
 // child classes.
 class StructFromValueConverterBase {
  protected:
-  StructFromValueConverterBase(Value value_to_convert);
+  explicit StructFromValueConverterBase(Value value_to_convert);
   StructFromValueConverterBase(const StructFromValueConverterBase&) = delete;
   StructFromValueConverterBase& operator=(const StructFromValueConverterBase&) =
       delete;
