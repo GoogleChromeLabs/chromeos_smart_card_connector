@@ -28,7 +28,6 @@
 #include <google_smart_card_common/value_conversion.h>
 
 namespace scc = smart_card_client;
-namespace ccp = scc::chrome_certificate_provider;
 namespace gsc = google_smart_card;
 
 namespace smart_card_client {
