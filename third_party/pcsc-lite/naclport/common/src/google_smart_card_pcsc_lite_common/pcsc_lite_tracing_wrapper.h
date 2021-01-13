@@ -47,7 +47,7 @@ class PcscLiteTracingWrapper final : public PcscLite {
       LogSeverity log_severity = LogSeverity::kDebug);
   PcscLiteTracingWrapper(const PcscLiteTracingWrapper&) = delete;
   PcscLiteTracingWrapper& operator=(const PcscLiteTracingWrapper&) = delete;
-  ~PcscLiteTracingWrapper();
+  ~PcscLiteTracingWrapper() override;
 
   // PcscLite:
   LONG SCardEstablishContext(DWORD dwScope,

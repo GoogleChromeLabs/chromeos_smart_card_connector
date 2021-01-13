@@ -54,7 +54,7 @@ class LibusbOverChromeUsb final : public LibusbInterface {
       chrome_usb::ApiBridgeInterface* chrome_usb_api_bridge);
   LibusbOverChromeUsb(const LibusbOverChromeUsb&) = delete;
   LibusbOverChromeUsb& operator=(const LibusbOverChromeUsb&) = delete;
-  ~LibusbOverChromeUsb();
+  ~LibusbOverChromeUsb() override;
 
   // LibusbInterface:
   int LibusbInit(libusb_context** ctx) override;

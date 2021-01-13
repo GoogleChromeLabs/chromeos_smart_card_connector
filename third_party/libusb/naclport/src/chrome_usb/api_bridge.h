@@ -46,7 +46,7 @@ class ApiBridge final : public ApiBridgeInterface {
   explicit ApiBridge(std::unique_ptr<Requester> requester);
   ApiBridge(const ApiBridge&) = delete;
   ApiBridge& operator=(const ApiBridge&) = delete;
-  ~ApiBridge();
+  ~ApiBridge() override;
 
   void Detach();
 

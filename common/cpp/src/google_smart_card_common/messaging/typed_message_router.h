@@ -45,7 +45,7 @@ class TypedMessageRouter final : public MessageListener {
   TypedMessageRouter();
   TypedMessageRouter(const TypedMessageRouter&) = delete;
   TypedMessageRouter& operator=(const TypedMessageRouter&) = delete;
-  ~TypedMessageRouter();
+  ~TypedMessageRouter() override;
 
   // Adds a new listener, which will handle all messages having the type equal
   // to the GetListenedMessageType return value.

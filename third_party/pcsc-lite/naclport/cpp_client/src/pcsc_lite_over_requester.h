@@ -64,7 +64,7 @@ class PcscLiteOverRequester final : public PcscLite {
   PcscLiteOverRequester(const PcscLiteOverRequester&) = delete;
   PcscLiteOverRequester& operator=(const PcscLiteOverRequester&) = delete;
 
-  ~PcscLiteOverRequester();
+  ~PcscLiteOverRequester() override;
 
   // Detaches the linked requester, which prevents making any further requests
   // through it and prevents waiting for the responses of the already started

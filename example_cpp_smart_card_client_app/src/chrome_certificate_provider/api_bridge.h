@@ -97,7 +97,7 @@ class ApiBridge final : public google_smart_card::RequestHandler {
   ApiBridge(const ApiBridge&) = delete;
   ApiBridge& operator=(const ApiBridge&) = delete;
 
-  ~ApiBridge();
+  ~ApiBridge() override;
 
   void Detach();
 
