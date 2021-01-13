@@ -131,10 +131,6 @@ class LibusbOverChromeUsb final : public LibusbInterface {
 
   libusb_context* SubstituteDefaultContextIfNull(
       libusb_context* context_or_nullptr) const;
-  libusb_context* GetLibusbTransferContext(
-      const libusb_transfer* transfer) const;
-  libusb_context* GetLibusbTransferContextChecked(
-      const libusb_transfer* transfer) const;
   TransferAsyncRequestCallback WrapLibusbTransferCallback(
       libusb_transfer* transfer);
   int LibusbHandleEventsWithTimeout(libusb_context* context,

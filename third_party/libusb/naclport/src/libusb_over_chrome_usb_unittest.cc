@@ -425,18 +425,16 @@ class LibusbOverChromeUsbTransfersTest
     return transfer;
   }
 
-  void SetUpTransferCallbackMockExpectations(
+  static void SetUpTransferCallbackMockExpectations(
       size_t transfer_index,
-      bool /*is_output*/,
       bool is_canceled,
       MockFunction<void(libusb_transfer_status)>* transfer_callback) {
     EXPECT_CALL(*transfer_callback,
                 Call(GetExpectedTransferStatus(transfer_index, is_canceled)));
   }
 
-  void SetUpTransferCallbackMockExpectations(
+  static void SetUpTransferCallbackMockExpectations(
       size_t transfer_index,
-      bool /*is_output*/,
       bool is_canceled,
       MockFunction<void(libusb_transfer_status)>* transfer_callback,
       int* completed) {
@@ -517,8 +515,8 @@ class LibusbOverChromeUsbTransfersTest
     return transfer_info;
   }
 
-  std::vector<uint8_t> GenerateTransferData(size_t transfer_index,
-                                            bool is_output) {
+  static std::vector<uint8_t> GenerateTransferData(size_t transfer_index,
+                                                   bool is_output) {
     std::vector<uint8_t> result;
     result.push_back(is_output);
     while (transfer_index) {
@@ -651,8 +649,7 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncControlTransfer) {
   chrome_usb_transfer_resolver();
 
   ASSERT_TRUE(Mock::VerifyAndClearExpectations(&transfer_callback));
-  SetUpTransferCallbackMockExpectations(GetParam().transfer_index,
-                                        GetParam().is_transfer_output, false,
+  SetUpTransferCallbackMockExpectations(GetParam().transfer_index, false,
                                         &transfer_callback);
   libusb_over_chrome_usb->LibusbHandleEvents(nullptr);
 }
@@ -692,9 +689,9 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest, AsyncTransferCancellation) {
   }
 
   ASSERT_TRUE(Mock::VerifyAndClearExpectations(&transfer_callback));
-  SetUpTransferCallbackMockExpectations(
-      GetParam().transfer_index, GetParam().is_transfer_output,
-      is_cancellation_successful, &transfer_callback);
+  SetUpTransferCallbackMockExpectations(GetParam().transfer_index,
+                                        is_cancellation_successful,
+                                        &transfer_callback);
   libusb_over_chrome_usb->LibusbHandleEvents(nullptr);
 }
 
@@ -732,11 +729,9 @@ TEST_P(LibusbOverChromeUsbSingleTransferTest,
 
   ASSERT_TRUE(Mock::VerifyAndClearExpectations(&first_transfer_callback));
   ASSERT_TRUE(Mock::VerifyAndClearExpectations(&second_transfer_callback));
-  SetUpTransferCallbackMockExpectations(GetParam().transfer_index,
-                                        GetParam().is_transfer_output, true,
+  SetUpTransferCallbackMockExpectations(GetParam().transfer_index, true,
                                         &first_transfer_callback);
-  SetUpTransferCallbackMockExpectations(GetParam().transfer_index,
-                                        GetParam().is_transfer_output, false,
+  SetUpTransferCallbackMockExpectations(GetParam().transfer_index, false,
                                         &second_transfer_callback);
   libusb_over_chrome_usb->LibusbHandleEvents(nullptr);
   libusb_over_chrome_usb->LibusbHandleEvents(nullptr);
@@ -904,8 +899,7 @@ TEST_F(LibusbOverChromeUsbAsyncTransfersMultiThreadingTest,
 
         for (bool is_transfer_output : kBoolValues) {
           SetUpTransferCallbackMockExpectations(
-              transfer_index, is_transfer_output, false,
-              &transfer_callback[is_transfer_output],
+              transfer_index, false, &transfer_callback[is_transfer_output],
               &transfer_completed[is_transfer_output]);
           StartAsyncControlTransfer(transfer_index, is_transfer_output,
                                     &transfer_callback[is_transfer_output]);
