@@ -27,7 +27,7 @@ were made:
    This intent is to close the hole left open by cross-app messaging between
    apps with different permissions.
 
-   Additionally, the Connector App is **bundled with a whitelist of known
+   Additionally, the Connector App is **bundled with an allowlist of known
    extension/app identifiers** (and a mapping to their display names). For all
    extensions/apps not from this list, the user prompt will contain a big scary
    warning message. (Note: This behavior was introduced in the Smart Card
@@ -39,8 +39,8 @@ were made:
    [https://www.chromium.org/administrators/configuring-policy-for-extensions](https://www.chromium.org/administrators/configuring-policy-for-extensions)).
 
    The policy can specify which extensions/apps are **force allowed to talk to
-   the Connector App** without checking against whitelist or prompting the user.
-   The policy-configured permission always has the higher priority than the
+   the Connector App** without checking against the allowlist or prompting the
+   user. The policy-configured permission always has the higher priority than the
    user's selections that could have been already made.
 
    The corresponding policy name is `force_allowed_client_app_ids`. Its value
