@@ -41,7 +41,7 @@ clean_dir_with_toolchain_and_config() {
 	local config=${2}
 
 	log_message "Cleaning \"${toolchain}\" \"${config}\"..."
-	TOOLCHAIN=${toolchain} CONFIG=${config} make clean || true
+	TOOLCHAIN=${toolchain} CONFIG=${config} make clean -j10 || true
 }
 
 clean_built_app_packages() {
