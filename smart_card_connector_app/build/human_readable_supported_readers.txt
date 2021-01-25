@@ -20,6 +20,7 @@ ACS ACR39U ICC Reader
 ACS APG8201 PINhandy 1
 ACS APG8201 USB Reader
 ACS CryptoMate (T2)
+ACS CryptoMate EVO
 ACS CryptoMate64
 ActivIdentity Activkey_Sim
 ActivIdentity USB Reader V3
@@ -33,6 +34,7 @@ Aktiv PINPad In
 Aktiv Rutoken ECP
 Aktiv Rutoken lite
 Aktiv Rutoken PINPad 2
+Aktiv Rutoken SCR 3001 Reader
 Aladdin R.D. JaCarta
 Aladdin R.D. JaCarta Flash
 Aladdin R.D. JaCarta LT
@@ -43,7 +45,6 @@ Aladdin R.D. JCR-770
 Alcor Link AK9563
 Alcor Micro AU9520
 Alcor Micro AU9522
-Alcor Micro AU9560
 ANCUD CCID USB Reader & RNG
 appidkey GmbH ID100L-USB-SC-Reader
 appidkey GmbH ID50 -USB
@@ -62,7 +63,9 @@ ATMEL AT98SC032CT-USB
 ATMEL VaultIC420 Smart Object
 ATMEL VaultIC440
 AvestUA AvestKey
+Avtor KP-375BLE
 Avtor SC Reader 371
+Avtor SC Reader KP382
 Avtor SecureToken
 Axalto Reflex USB v3
 BIFIT ANGARA
@@ -77,8 +80,10 @@ Bit4id Digital-DNA Key BT
 Bit4id iAM
 Bit4id miniLector
 Bit4id miniLector AIR EVO
+BIT4ID miniLector AIR NFC v3
 Bit4id miniLector Blue
 Bit4id miniLector-s
+BIT4ID mLector AIR DI V3
 Bit4id TokenME EVO v2
 Bit4id tokenME FIPS v3
 Bluink Ltd. Bluink CCID
@@ -90,6 +95,7 @@ C3PO LTC31 v2
 C3PO LTC32
 C3PO LTC36
 C3PO TLTC2USB
+Canokeys Canokey
 CASTLES EZCCID Smart Card Reader
 CCB eSafeLD
 Certgate GmbH AirID 2 USB
@@ -121,6 +127,8 @@ COVADIS VEGA-ALPHA
 DC.Ltd DC4 5CCID READER
 Dell Dell Smart Card Reader Keyboard
 Dell keyboard SK-3106
+DESKO GmbH IDenty chrom
+DESKO GmbH PENTA Scanner
 Doctolib SR
 DUALi DE-620 Combi
 DUALi DRAGON NFC READER
@@ -133,17 +141,21 @@ Eutron CryptoIdentity CCID
 Eutron Digipass 860
 Eutron Smart Pocket
 F-Secure Foundry USB Armory Mk II
-Feitian 502-CL
+Feitian BLE CCID Dongle
 FEITIAN bR301
-Feitian bR301
 Feitian bR500
 Feitian eJAVA Token
 Feitian ePass2003
 FEITIAN iR301
 Feitian R502
+Feitian R805
 Feitian Technologies FT SCR310
 Feitian VR504 VHBR Contactless & Contact Card Reader
 Free Software Initiative of Japan Gnuk
+FT Biopass CCID
+FT Biopass FIDO2
+FT Biopass KB CCID
+FT Biopass KB FIDO CCID
 FT CCID
 FT CCID KB
 FT ePass2003Auto
@@ -189,6 +201,7 @@ Giesecke & Devrient GmbH StarSign Crypto USB Token
 Giesecke & Devrient GmbH StarSign CUT S
 GIS Ltd SmartMouse USB
 GoldKey Security PIV Token
+GoTrust Idem Key
 HDZB uKeyCI800-K18
 Hewlett Packard HP USB Smartcard CCID Keyboard
 Hewlett Packard MFP Smart Card Reader
@@ -226,6 +239,7 @@ Identiv uTrust 3512 SAM slot Token
 Identiv uTrust 3522 embd SE RFID Token
 Identiv uTrust 3700 F CL Reader
 Identiv uTrust 3701 F CL Reader
+Identiv uTrust 3720 Contactless Reader
 Identive CLOUD 2700 F Smart Card Reader
 Identive CLOUD 2700 R Smart Card Reader
 Identive Identive CLOUD 4000 F DTC
@@ -378,6 +392,7 @@ Sunrex HP USB Business Slim Smartcard CCID Keyboard
 Swissbit Secure USB PU-50n SE/PE
 SYNNIX STD200
 Sysking MII136C
+sysmocom - s.f.m.c. GmbH sysmoOCTSIM
 Teridian Semiconductors TSC12xxFV.09
 THURSBY SOFTWARE TSS-PK1
 TianYu CCID Key TianYu CCID SmartKey
