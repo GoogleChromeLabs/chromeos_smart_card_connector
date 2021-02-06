@@ -65,6 +65,7 @@ initialize_depot_tools() {
 }
 
 initialize_nacl_sdk() {
+  export NACL_SDK_ROOT="${SCRIPTPATH}/nacl_sdk/pepper_${NACL_SDK_VERSION}"
   if [ -d ./nacl_sdk -a "${force_reinitialization}" -eq "0" ]; then
     log_message "Native Client SDK already present, skipping."
     return
@@ -73,7 +74,6 @@ initialize_nacl_sdk() {
   rm -rf nacl_sdk
   cp -r ../third_party/nacl_sdk/nacl_sdk .
   python nacl_sdk/sdk_tools/sdk_update_main.py install pepper_${NACL_SDK_VERSION}
-  export NACL_SDK_ROOT="${SCRIPTPATH}/nacl_sdk/pepper_${NACL_SDK_VERSION}"
   log_message "Native Client SDK was installed successfully."
 }
 
