@@ -12,31 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
-#
-# This file contains some helper definitions for including the Chrome Native
-# Client modules in Chrome Apps.
-# TODO(#177): Generalize the file to support Emscripten as well.
+# This file contains provides helper definitions for performing recursive make
+# builds of executable modules (which are themselves built via
+# executable_building.mk).
 #
 # common.mk must be included before including this file.
+
+# Macro rule that builds the specified executable module (as a recursive make
+# invocation) and copies the latter's resulting build artifacts into the "out"
+# directory.
 #
+# Arguments:
+# $1 ("MODULE_NAME"): The executable module's name (note that, by convention,
+#   it's both the name of the module's build directory name and the value of the
+#   TARGET variable inside the module's makefile).
 
-
-ifeq (,$(NACL_SDK_ROOT))
-$(error You must specify the NACL_SDK_ROOT environment variable with a path to \
-		a downloaded NaCl SDK directory)
-endif
-
-
-#
-# Macro rule that adds some auxiliary rules for depending on the specified
-# Native Client module.
-#
-# These rules provide automatic re-building of the Native Client module when
-# necessary, copying its built binaries into the out directory.
-#
-
-define ADD-NACL-MODULE-DEPENDENCY
+define RECURSIVELY_BUILD_EXECUTABLE_MODULE
 
 .PHONY: $(1)
 
@@ -46,11 +37,11 @@ $(1):
 clean:
 	+$(MAKE) --directory $(1) clean
 
-.PHONY: generate_out_nacl_module_$(1)
+.PHONY: generate_out_executable_module_$(1)
 
-generate_out_nacl_module_$(1): $(OUT_DIR_PATH) $(1)
+generate_out_executable_module_$(1): $(OUT_DIR_PATH) $(1)
 	@cp -pr $(1)/out/$(1)/* $(OUT_DIR_PATH)
 
-generate_out: generate_out_nacl_module_$(1)
+generate_out: generate_out_executable_module_$(1)
 
 endef
