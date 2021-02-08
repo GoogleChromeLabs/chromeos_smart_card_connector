@@ -99,7 +99,7 @@ EMSCRIPTEN_LINKER_FLAGS := \
 
 ifeq ($(CONFIG),Release)
 
-# Add compiler/linker flags specific to release builds.
+# Add compiler and linker flags specific to release builds.
 #
 # Explanation:
 # O3: Enable advanced optimizations.
@@ -115,7 +115,7 @@ EMSCRIPTEN_COMPILER_FLAGS += \
 
 else ifeq ($(CONFIG),Debug)
 
-# Add compiler/linker flags specific to debug builds.
+# Add compiler and linker flags specific to debug builds.
 #
 # Explanation:
 # O0: Disable optimizations.
