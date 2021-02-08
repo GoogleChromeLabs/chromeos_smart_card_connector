@@ -69,9 +69,9 @@ function createExecutableModule() {
   switch (GSC.ExecutableModule.TOOLCHAIN) {
     case GSC.ExecutableModule.Toolchain.PNACL:
       return new GSC.NaclModule(
-          'nacl_module.nmf', GSC.NaclModule.Type.PNACL);
+          'executable_module.nmf', GSC.NaclModule.Type.PNACL);
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
-      return new GSC.EmscriptenModule('nacl_module');
+      return new GSC.EmscriptenModule('executable_module');
   }
   GSC.Logging.fail(`Cannot load executable module: unknown toolchain ` +
                    `${GSC.ExecutableModule.TOOLCHAIN}`);

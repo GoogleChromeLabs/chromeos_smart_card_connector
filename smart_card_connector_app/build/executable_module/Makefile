@@ -13,7 +13,7 @@
 # limitations under the License.
 
 
-TARGET := nacl_module
+TARGET := executable_module
 
 include ../../../common/make/common.mk
 
