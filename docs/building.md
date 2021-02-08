@@ -30,6 +30,8 @@ Connector App and examples of how programs can communicate with the app.
 
 * **Java Runtime Environment 7**.
 
+* **CMake** (needed only in Emscripten builds).
+
 In order to **run** the built apps, you will need *either* of these:
 
 * a **Chromebook** with Chrome OS >= 48.
