@@ -12,9 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This file contains provides helper definitions for performing recursive make
-# builds of executable modules (which are themselves built via
-# executable_building.mk).
+# This file contains helper definitions for performing recursive make builds of
+# executable modules (which are themselves built via executable_building.mk).
 #
 # common.mk must be included before including this file.
 
