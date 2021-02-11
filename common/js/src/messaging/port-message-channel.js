@@ -174,8 +174,10 @@ PortMessageChannel.prototype.getPortExtensionId_ = function(port) {
 /** @private */
 PortMessageChannel.prototype.disconnectEventHandler_ = function() {
   let reason = '';
-  if (chrome.runtime.lastError && chrome.runtime.lastError.message)
+  if (chrome.runtime && chrome.runtime.lastError &&
+      chrome.runtime.lastError.message) {
     reason = ` due to '${chrome.runtime.lastError.message}'`;
+  }
   this.logger.info(`Message port was disconnected${reason}, disposing...`);
   this.dispose();
 };
