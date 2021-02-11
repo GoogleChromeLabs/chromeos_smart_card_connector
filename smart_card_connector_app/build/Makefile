@@ -44,7 +44,7 @@ include $(COMMON_DIR_PATH)/js/include.mk
 
 include $(COMMON_DIR_PATH)/make/app_building_common.mk
 
-include $(COMMON_DIR_PATH)/make/nacl_module_dependency_in_app_common.mk
+include $(COMMON_DIR_PATH)/make/executable_module_recursive_build.mk
 
 include $(THIRD_PARTY_DIR_PATH)/libusb/naclport/include.mk
 include $(THIRD_PARTY_DIR_PATH)/ccid/naclport/include.mk
@@ -97,7 +97,7 @@ $(eval $(call BUILD_JS_SCRIPT,window.js,$(JS_COMPILER_WINDOW_INPUT_PATHS),Google
 # (the actual recursive rules can be found at ./executable_module/Makefile).
 #
 
-$(eval $(call ADD-NACL-MODULE-DEPENDENCY,executable_module))
+$(eval $(call RECURSIVELY_BUILD_EXECUTABLE_MODULE,executable_module))
 
 
 #
