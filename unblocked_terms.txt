@@ -1,6 +1,0 @@
-agnostic
-master
-primitive
-Sanity-check
-sanity_check
-terminate

@@ -55,5 +55,3 @@ See [docs/building.md](building.md).
   [docs/updating-pcsc-lite.md](updating-pcsc-lite.md).
 * Updating the used version of the CCID Free Software Driver:
   [docs/updating-ccid.md](updating-ccid.md).
-* Removing non-inclusive language from this repository:
-  [docs/coil.md](coil.md)
