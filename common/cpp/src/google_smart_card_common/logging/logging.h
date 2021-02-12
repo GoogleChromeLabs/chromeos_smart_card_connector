@@ -152,12 +152,12 @@ std::string MakeNotreachedMessage(const std::string& file,
 //    if (number % 2 == 1)
 //      return 1;
 //    GOOGLE_SMART_CARD_NOTREACHED;
-#define GOOGLE_SMART_CARD_NOTREACHED                                \
-  do {                                                              \
-    GOOGLE_SMART_CARD_LOG_FATAL                                     \
-        << ::google_smart_card::internal::MakeNotreachedMessage(    \
-               __FILE__, __LINE__, __func__);                       \
-    std::abort();                                                   \
+#define GOOGLE_SMART_CARD_NOTREACHED                             \
+  do {                                                           \
+    GOOGLE_SMART_CARD_LOG_FATAL                                  \
+        << ::google_smart_card::internal::MakeNotreachedMessage( \
+               __FILE__, __LINE__, __func__);                    \
+    std::abort();                                                \
   } while (false)
 
 }  // namespace google_smart_card
