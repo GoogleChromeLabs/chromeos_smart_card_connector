@@ -56,7 +56,7 @@ class Application final {
   Application& operator=(const Application&) = delete;
 
   // Note that the destructor is not guaranteed to be called, as the framework
-  // using for running the executable may terminate it instantly.
+  // used to run the executable may end it instantly.
   ~Application();
 
  private:

@@ -57,9 +57,9 @@ std::string MakeCheckFailedMessage(const std::string& stringified_condition,
                                    int line,
                                    const std::string& function);
 
-std::string MakeNotreachedHitMessage(const std::string& file,
-                                     int line,
-                                     const std::string& function);
+std::string MakeNotreachedMessage(const std::string& file,
+                                  int line,
+                                  const std::string& function);
 
 #define GOOGLE_SMART_CARD_INTERNAL_LOGGING_WITH_SEVERITY(severity) \
   ::google_smart_card::internal::LogMessage(severity).stream()
@@ -94,7 +94,7 @@ std::string MakeNotreachedHitMessage(const std::string& file,
 // Usage examples:
 //    GOOGLE_SMART_CARD_LOG_DEBUG << "This is logged only in Debug build";
 //    GOOGLE_SMART_CARD_LOG_ERROR << "This error is always logged";
-//    if (!sanity_check)
+//    if (!check)
 //      GOOGLE_SMART_CARD_LOG_FATAL << "Fatal error, terminating...";
 //
 
@@ -152,12 +152,12 @@ std::string MakeNotreachedHitMessage(const std::string& file,
 //    if (number % 2 == 1)
 //      return 1;
 //    GOOGLE_SMART_CARD_NOTREACHED;
-#define GOOGLE_SMART_CARD_NOTREACHED                                \
-  do {                                                              \
-    GOOGLE_SMART_CARD_LOG_FATAL                                     \
-        << ::google_smart_card::internal::MakeNotreachedHitMessage( \
-               __FILE__, __LINE__, __func__);                       \
-    std::abort();                                                   \
+#define GOOGLE_SMART_CARD_NOTREACHED                             \
+  do {                                                           \
+    GOOGLE_SMART_CARD_LOG_FATAL                                  \
+        << ::google_smart_card::internal::MakeNotreachedMessage( \
+               __FILE__, __LINE__, __func__);                    \
+    std::abort();                                                \
   } while (false)
 
 }  // namespace google_smart_card

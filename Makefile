@@ -25,7 +25,7 @@ all:
 .PHONY: all
 
 
-# Toolchain-agnostic targets ####################
+# Toolchain-independent targets ####################
 
 TARGETS := \
 	common/cpp/build \

@@ -184,11 +184,11 @@ std::string MakeCheckFailedMessage(const std::string& stringified_condition,
   return stream.str();
 }
 
-std::string MakeNotreachedHitMessage(const std::string& file,
-                                     int line,
-                                     const std::string& function) {
+std::string MakeNotreachedMessage(const std::string& file,
+                                  int line,
+                                  const std::string& function) {
   std::ostringstream stream;
-  stream << "NOTREACHED hit at file \"" << file << "\", line " << line
+  stream << "NOTREACHED reached in file \"" << file << "\", line " << line
          << ", function \"" << function << "\"";
   return stream.str();
 }
