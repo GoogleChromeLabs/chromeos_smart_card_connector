@@ -75,14 +75,14 @@ short ATRDecodeAtr(int *availableProtocols, int *currentProtocol,
 		LogXxd(PCSC_LOG_DEBUG, "ATR: ", pucAtr, dwLength);
 #endif
 
-	if (dwLength < 2)
-		return 0;	/** @retval 0 Atr must have TS and T0 */
-
 	/*
 	 * Zero out the bitmasks
 	 */
 	*availableProtocols = SCARD_PROTOCOL_UNDEFINED;
 	*currentProtocol = SCARD_PROTOCOL_UNDEFINED;
+
+	if (dwLength < 2)
+		return 0;	/** @retval 0 Atr must have TS and T0 */
 
 	/*
 	 * Decode the TS byte
@@ -218,8 +218,8 @@ short ATRDecodeAtr(int *availableProtocols, int *currentProtocol,
 	}
 
 #ifdef ATR_DEBUG
-	Log3(PCSC_LOG_DEBUG, "CurrentProtocol: %d, AvailableProtocols: %d",
-		*currentProtocol, *availableProtocols);
+	Log3(PCSC_LOG_DEBUG, "CurrentProtocol: T=%d, AvailableProtocols: %d",
+		*currentProtocol - SCARD_PROTOCOL_T0, *availableProtocols);
 #endif
 
 	return 1; /** @retval 1 Success */

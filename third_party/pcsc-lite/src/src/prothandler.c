@@ -65,7 +65,7 @@ DWORD PHSetProtocol(struct ReaderContext * rContext,
 	UCHAR ucChosen;
 
 	/* App has specified no protocol */
-	if (dwPreferred == 0)
+	if (dwPreferred == SCARD_PROTOCOL_UNDEFINED)
 		return SET_PROTOCOL_WRONG_ARGUMENT;
 
 	/* requested protocol is not available */
@@ -108,27 +108,38 @@ DWORD PHSetProtocol(struct ReaderContext * rContext,
 		(SCARD_PROTOCOL_T0 == ucChosen ? 0 : 1));
 	rv = IFDSetPTS(rContext, ucChosen, 0x00, 0x00, 0x00, 0x00);
 
-	if (IFD_SUCCESS == rv)
-		protocol = ucChosen;
-	else
-		if (IFD_NOT_SUPPORTED == rv)
-			Log2(PCSC_LOG_INFO, "PTS not supported by driver, using T=%d",
-				(SCARD_PROTOCOL_T0 == protocol) ? 0 : 1);
-		else
-			if (IFD_PROTOCOL_NOT_SUPPORTED == rv)
-				Log2(PCSC_LOG_INFO, "PTS protocol not supported, using T=%d",
+	switch(rv)
+	{
+		case IFD_SUCCESS:
+			protocol = ucChosen;
+			break;
+
+		case IFD_NOT_SUPPORTED:
+		case IFD_PROTOCOL_NOT_SUPPORTED:
+		case IFD_ERROR_NOT_SUPPORTED:
+			if (protocol != dwPreferred)
+			{
+				Log3(PCSC_LOG_INFO,
+					"Set PTS failed (%ld). Using T=%d", rv,
 					(SCARD_PROTOCOL_T0 == protocol) ? 0 : 1);
+			}
 			else
 			{
-				Log3(PCSC_LOG_INFO, "PTS failed (%ld), using T=%d", rv,
-					(SCARD_PROTOCOL_T0 == protocol) ? 0 : 1);
-
-				/* ISO 7816-3:1997 ch. 7.2 PPS protocol page 14
-				 * - If the PPS exchange is unsuccessful, then the interface device
-				 *   shall either reset or reject the card.
-				 */
-				return SET_PROTOCOL_PPS_FAILED;
+				/* no other protocol to use */
+				Log2(PCSC_LOG_INFO, "PTS protocol failed (%ld)", rv);
+				protocol = SET_PROTOCOL_PPS_FAILED;
 			}
+			break;
+
+		default:
+			Log2(PCSC_LOG_INFO, "Set PTS failed (%ld)", rv);
+
+			/* ISO 7816-3:1997 ch. 7.2 PPS protocol page 14
+			 * - If the PPS exchange is unsuccessful, then the interface
+			 *   device shall either reset or reject the card.
+			 */
+			protocol = SET_PROTOCOL_PPS_FAILED;
+	}
 
 	return protocol;
 }
