@@ -98,8 +98,8 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 #   function, in order to control its loading from other JS code and to avoid
 #   name conflicts with unrelated code.
 EMSCRIPTEN_LINKER_FLAGS := \
-	-s ABORTING_MALLOC=1 \
-	-s ALLOW_MEMORY_GROWTH=1 \
+  -s ABORTING_MALLOC=1 \
+  -s ALLOW_MEMORY_GROWTH=1 \
   -s DYNAMIC_EXECUTION=0 \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
   -s MODULARIZE=1 \
