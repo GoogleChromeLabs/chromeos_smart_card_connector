@@ -119,7 +119,7 @@ else ifeq ($(CONFIG),Debug)
 #
 # Explanation:
 # O0: Disable optimizations.
-# g3: Preserve debug information, including DWARF data.
+# g: Preserve debug information, including DWARF data.
 EMSCRIPTEN_COMMON_FLAGS += \
   -O0 \
   -g \
