@@ -27,7 +27,7 @@
 
 # Check that the environment is set up.
 ifeq (,$(EMSDK))
-$(error You must run "source env/activate" in the repository root directory at
+$(error You must run "source env/activate" in the repository root directory at \
 		least once before running "make".)
 endif
 
