@@ -45,6 +45,9 @@ char AutoExit = 0;
 // Adding device serial numbers into reader names is enabled.
 char Add_Serial_In_Name = 1;
 
+// Adding interface numbers into reader names is disabled.
+char Add_Interface_In_Name = 0;
+
 // Don't force periodic readers polling (unless any of the loaded reader drivers
 // requires the polling).
 int HPForceReaderPolling = 0;

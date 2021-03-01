@@ -42,14 +42,14 @@
 #define SCARD_INSERTED			0x0002	/**< Card was inserted */
 #define SCARD_REMOVED			0x0004	/**< Card was removed */
 
-#define PCSCLITE_CONFIG_DIR		"/usr/local/etc/reader.conf.d"
+#define PCSCLITE_CONFIG_DIR		"/etc/reader.conf.d"
 
 #define PCSCLITE_IPC_DIR		USE_IPCDIR
 #define PCSCLITE_RUN_PID		PCSCLITE_IPC_DIR "/pcscd.pid"
 
 #define PCSCLITE_CSOCK_NAME		PCSCLITE_IPC_DIR "/pcscd.comm"
 
-#define PCSCLITE_VERSION_NUMBER		"1.9.0"	/**< Current version */
+#define PCSCLITE_VERSION_NUMBER		"1.9.1"	/**< Current version */
 #define PCSCLITE_STATUS_POLL_RATE	400000		/**< Status polling rate */
 #define PCSCLITE_LOCK_POLL_RATE		100000		/**< Lock polling rate */
 

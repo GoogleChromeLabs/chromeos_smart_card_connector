@@ -600,7 +600,7 @@ LONG SCardReconnect(SCARDHANDLE hCard, DWORD dwShareMode,
 		/*
 		 * Set up the status bit masks on readerState
 		 */
-		if (rv == SCARD_S_SUCCESS)
+		if (rv == IFD_SUCCESS)
 		{
 			rContext->readerState->cardAtrLength = dwAtrLen;
 			rContext->readerState->readerState =
@@ -907,7 +907,7 @@ LONG SCardDisconnect(SCARDHANDLE hCard, DWORD dwDisposition)
 		/* the protocol is unset after a power on */
 		rContext->readerState->cardProtocol = SCARD_PROTOCOL_UNDEFINED;
 
-		if (rv == SCARD_S_SUCCESS)
+		if (rv == IFD_SUCCESS)
 		{
 			if (SCARD_UNPOWER_CARD == dwDisposition)
 				rContext->readerState->readerState = SCARD_PRESENT;
@@ -1156,7 +1156,7 @@ LONG SCardEndTransaction(SCARDHANDLE hCard, DWORD dwDisposition)
 		/*
 		 * Set up the status bit masks on readerState
 		 */
-		if (rv == SCARD_S_SUCCESS)
+		if (rv == IFD_SUCCESS)
 		{
 			rContext->readerState->cardAtrLength = dwAtrLen;
 			rContext->readerState->readerState =
@@ -1580,7 +1580,7 @@ LONG SCardTransmit(SCARDHANDLE hCard, const SCARD_IO_REQUEST *pioSendPci,
 		unsigned long i;
 		unsigned long prot = rContext->readerState->cardProtocol;
 
-		for (i = 0 ; prot != 1 ; i++)
+		for (i = 0 ; prot != 1 && i < 16; i++)
 			prot >>= 1;
 
 		sSendPci.Protocol = i;
@@ -1618,6 +1618,14 @@ LONG SCardTransmit(SCARDHANDLE hCard, const SCARD_IO_REQUEST *pioSendPci,
 	{
 		*pcbRecvLength = 0;
 		Log2(PCSC_LOG_ERROR, "Card not transacted: 0x%08lX", rv);
+
+        if (SCARD_E_NO_SMARTCARD == rv)
+        {
+            rContext->readerState->cardAtrLength = 0;
+            rContext->readerState->cardProtocol = SCARD_PROTOCOL_UNDEFINED;
+            rContext->readerState->readerState = SCARD_ABSENT;
+        }
+
 		goto exit;
 	}
 
