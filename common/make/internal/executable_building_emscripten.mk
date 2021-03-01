@@ -85,6 +85,11 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 # `EMSCRIPTEN_COMMON_FLAGS`.
 #
 # Explanation:
+# ABORTING_MALLOC: Immediately abort on memory allocation failures (instead of
+#   letting malloc and similar return null, which is the default behavior with
+#   ALLOW_MEMORY_GROWTH=1).
+# ALLOW_MEMORY_GROWTH: Increase the amount of available memory dynamically at
+#   runtime (as opposed to be capped by the default limit of 16 MiB).
 # DYNAMIC_EXECUTION: Disable dynamic code execution in Emscripten JavaScript
 #   code (not doing this will cause "unsafe-eval" Content Security Policy
 #   violations when running this code inside Chrome Apps/Extensions).
@@ -93,6 +98,8 @@ EMSCRIPTEN_COMPILER_FLAGS := \
 #   function, in order to control its loading from other JS code and to avoid
 #   name conflicts with unrelated code.
 EMSCRIPTEN_LINKER_FLAGS := \
+  -s ABORTING_MALLOC=1 \
+  -s ALLOW_MEMORY_GROWTH=1 \
   -s DYNAMIC_EXECUTION=0 \
   -s 'EXPORT_NAME="loadEmscriptenModule_$(TARGET)"' \
   -s MODULARIZE=1 \
