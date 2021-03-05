@@ -126,10 +126,10 @@ else ifeq ($(CONFIG),Debug)
 #
 # Explanation:
 # O0: Disable optimizations.
-# g4: Preserve maximum debug information, including source maps.
+# g: Preserve debug information, including DWARF data.
 EMSCRIPTEN_COMMON_FLAGS += \
   -O0 \
-  -g4 \
+  -g \
 
 # Add linker flags specific to debug builds.
 #
