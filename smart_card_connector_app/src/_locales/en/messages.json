@@ -134,7 +134,7 @@
     }
   },
   "pcscClientHandlingUserPromptDialogMessageSuffix": {
-    "message": "is trying to access the Smart Card Connector. Would like to grant this App permission to access Smart card readers?",
+    "message": "is trying to access the Smart Card Connector. Would you like to grant this app permission to access Smart card readers?",
     "description": "The suffix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is in the bundled list of the known Apps"
   },
   "pcscClientHandlingUserPromptDialogWarningMessageForUnknownApp": {
