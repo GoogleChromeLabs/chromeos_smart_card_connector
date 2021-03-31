@@ -139,7 +139,7 @@ PcscLiteClientRequestProcessor::PcscLiteClientRequestProcessor(
       status_log_severity_(client_app_id ? LogSeverity::kInfo
                                          : LogSeverity::kDebug),
       logging_prefix_(FormatPrintfTemplate(
-          "[PC/SC-Lite client handler for %s (id %" PRId64 ")] ",
+          "[PC/SC from %s (id %" PRId64 ")] ",
           client_app_id ? ("\"" + *client_app_id + "\"").c_str() : "own app",
           client_handler_id)) {
   BuildHandlerMap();
