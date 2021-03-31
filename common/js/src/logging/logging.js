@@ -296,7 +296,9 @@ function reloadApp() {
 
 function setupConsoleLogging() {
   const console = new goog.debug.Console;
-  console.getFormatter().showAbsoluteTime = true;
+  const formatter = console.getFormatter();
+  formatter.showAbsoluteTime = true;
+  formatter.showRelativeTime = false;
   console.setCapturing(true);
 }
 

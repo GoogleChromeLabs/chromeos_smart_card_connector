@@ -34,6 +34,7 @@ const GSC = GoogleSmartCard;
  */
 const textFormatter = new goog.debug.TextFormatter();
 textFormatter.showAbsoluteTime = true;
+textFormatter.showRelativeTime = false;
 textFormatter.showSeverityLevel = true;
 
 /**
