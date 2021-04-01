@@ -123,7 +123,7 @@ std::string DebugDumpSCardMultiString(const char* value) {
       result += ", ";
     result += "\"" + item + "\"";
   }
-  return "MultiString[" + result + "]";
+  return "[" + result + "]";
 }
 
 std::string DebugDumpSCardContext(SCARDCONTEXT s_card_context) {
