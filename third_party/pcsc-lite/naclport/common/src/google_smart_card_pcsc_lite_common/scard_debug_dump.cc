@@ -259,21 +259,26 @@ std::string DebugDumpSCardIoRequest(const SCARD_IO_REQUEST& value) {
     return "SCARD_PCI_T1";
   if (&value == SCARD_PCI_RAW)
     return "SCARD_PCI_RAW";
-  return "SCARD_IO_REQUEST(dwProtocol=" +
-         DebugDumpSCardProtocol(value.dwProtocol) + ")";
+  return "{dwProtocol=" + DebugDumpSCardProtocol(value.dwProtocol) + "}";
 }
 
 std::string DebugDumpSCardIoRequest(const SCARD_IO_REQUEST* value) {
   if (!value)
     return "NULL";
-  return HexDumpPointer(value) + "(" + DebugDumpSCardIoRequest(*value) + ")";
+  std::string dumped_contents = DebugDumpSCardIoRequest(*value);
+  if (!dumped_contents.empty() && dumped_contents[0] != '{') {
+    // Put the contents into braces only if it's not done yet, to improve
+    // readability.
+    dumped_contents = "{" + dumped_contents + "}";
+  }
+  return HexDumpPointer(value) + dumped_contents;
 }
 
 std::string DebugDumpSCardInputReaderState(const SCARD_READERSTATE& value) {
-  return "SCARD_READERSTATE(szReader=" + DebugDumpSCardCString(value.szReader) +
+  return "{szReader=" + DebugDumpSCardCString(value.szReader) +
          ", pvUserData=" + HexDumpPointer(value.pvUserData) +
          ", dwCurrentState=" + DebugDumpSCardEventState(value.dwCurrentState) +
-         ")";
+         "}";
 }
 
 std::string DebugDumpSCardInputReaderStates(const SCARD_READERSTATE* begin,
@@ -286,16 +291,16 @@ std::string DebugDumpSCardInputReaderStates(const SCARD_READERSTATE* begin,
       result += ", ";
     result += DebugDumpSCardInputReaderState(begin[index]);
   }
-  return HexDumpPointer(begin) + "([" + result + "])";
+  return HexDumpPointer(begin) + "[" + result + "]";
 }
 
 std::string DebugDumpSCardOutputReaderState(const SCARD_READERSTATE& value) {
-  return "SCARD_READERSTATE(szReader=" + DebugDumpSCardCString(value.szReader) +
+  return "{szReader=" + DebugDumpSCardCString(value.szReader) +
          ", pvUserData=" + HexDumpPointer(value.pvUserData) +
          ", dwCurrentState=" + DebugDumpSCardEventState(value.dwCurrentState) +
          ", dwEventState=" + DebugDumpSCardEventState(value.dwEventState) +
          ", cbAtr=" + std::to_string(value.cbAtr) + ", rgbAtr=<" +
-         HexDumpBytes(value.rgbAtr, value.cbAtr) + ">)";
+         HexDumpBytes(value.rgbAtr, value.cbAtr) + ">}";
 }
 
 std::string DebugDumpSCardOutputReaderStates(const SCARD_READERSTATE* begin,
@@ -308,7 +313,7 @@ std::string DebugDumpSCardOutputReaderStates(const SCARD_READERSTATE* begin,
       result += ", ";
     result += DebugDumpSCardOutputReaderState(begin[index]);
   }
-  return HexDumpPointer(begin) + "([" + result + "])";
+  return HexDumpPointer(begin) + "[" + result + "]";
 }
 
 std::string DebugDumpSCardBufferContents(const void* buffer,
@@ -330,8 +335,8 @@ std::string DebugDumpSCardBufferContents(const std::vector<uint8_t>& buffer) {
 std::string DebugDumpSCardInputBuffer(const void* buffer, DWORD buffer_size) {
   if (!buffer)
     return "NULL";
-  return HexDumpPointer(buffer) + "(<" +
-         DebugDumpSCardBufferContents(buffer, buffer_size) + ">)";
+  return HexDumpPointer(buffer) + "<" +
+         DebugDumpSCardBufferContents(buffer, buffer_size) + ">";
 }
 
 std::string DebugDumpSCardBufferSizeInputPointer(const DWORD* buffer_size) {
@@ -353,7 +358,7 @@ std::string DebugDumpSCardOutputBuffer(const void* buffer,
       (buffer_size ? DebugDumpSCardBufferContents(contents, *buffer_size)
                    : "DATA OF UNKNOWN LENGTH") +
       ">";
-  return is_autoallocated ? HexDumpPointer(buffer) + "(" + dumped_value + ")"
+  return is_autoallocated ? HexDumpPointer(buffer) + dumped_value
                           : dumped_value;
 }
 
@@ -377,9 +382,8 @@ std::string DebugDumpSCardOutputMultiStringBuffer(LPCSTR buffer,
       is_autoallocated ? *reinterpret_cast<const LPCSTR*>(buffer) : buffer;
   const std::string dumped_value =
       DebugDumpSCardMultiString(multi_string_value);
-  return is_autoallocated
-             ? HexDumpPointer(multi_string_value) + "(" + dumped_value + ")"
-             : dumped_value;
+  return (is_autoallocated ? HexDumpPointer(multi_string_value) : "") +
+         dumped_value;
 }
 
 }  // namespace google_smart_card
