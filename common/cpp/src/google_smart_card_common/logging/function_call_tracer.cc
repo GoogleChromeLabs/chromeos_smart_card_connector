@@ -14,12 +14,25 @@
 
 #include <google_smart_card_common/logging/function_call_tracer.h>
 
+#include <atomic>
+#include <cstdint>
+
 namespace google_smart_card {
+
+namespace {
+
+int64_t GenerateFunctionCallId() {
+  static std::atomic<int64_t> next_function_call_id;
+  return ++next_function_call_id;
+}
+
+}  // namespace
 
 FunctionCallTracer::FunctionCallTracer(const std::string& function_name,
                                        const std::string& logging_prefix,
                                        LogSeverity log_severity)
-    : function_name_(function_name),
+    : function_call_id_(GenerateFunctionCallId()),
+      function_name_(function_name),
       logging_prefix_(logging_prefix),
       log_severity_(log_severity) {}
 
@@ -42,8 +55,8 @@ void FunctionCallTracer::AddReturnedArg(const std::string& name,
 
 void FunctionCallTracer::LogEntrance() const {
   GOOGLE_SMART_CARD_LOG(log_severity_)
-      << logging_prefix_ << function_name_ << "(" << DumpArgs(passed_args_)
-      << "): called...";
+      << logging_prefix_ << function_name_ << "#" << function_call_id_ << "("
+      << DumpArgs(passed_args_) << "): called...";
 }
 
 void FunctionCallTracer::LogExit() const {
@@ -57,8 +70,8 @@ void FunctionCallTracer::LogExit() const {
   }
 
   GOOGLE_SMART_CARD_LOG(log_severity_)
-      << logging_prefix_ << function_name_ << ": returning"
-      << (results_part.empty() ? "" : " ") << results_part;
+      << logging_prefix_ << function_name_ << "#" << function_call_id_
+      << ": returning" << (results_part.empty() ? "" : " ") << results_part;
 }
 
 FunctionCallTracer::ArgNameWithValue::ArgNameWithValue(

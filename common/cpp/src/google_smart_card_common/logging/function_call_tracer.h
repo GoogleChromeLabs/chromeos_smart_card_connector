@@ -15,6 +15,7 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_LOGGING_FUNCTION_CALL_TRACER_H_
 #define GOOGLE_SMART_CARD_COMMON_LOGGING_FUNCTION_CALL_TRACER_H_
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -60,6 +61,7 @@ class FunctionCallTracer final {
 
   static std::string DumpArgs(const std::vector<ArgNameWithValue>& args);
 
+  const int64_t function_call_id_;
   const std::string function_name_;
   const std::string logging_prefix_;
   const LogSeverity log_severity_;
