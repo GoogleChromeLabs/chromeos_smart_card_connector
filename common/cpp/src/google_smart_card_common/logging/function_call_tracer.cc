@@ -14,6 +14,8 @@
 
 #include <google_smart_card_common/logging/function_call_tracer.h>
 
+#include <stdint.h>
+
 #include <atomic>
 #include <cstdint>
 

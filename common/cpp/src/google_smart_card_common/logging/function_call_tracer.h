@@ -15,7 +15,8 @@
 #ifndef GOOGLE_SMART_CARD_COMMON_LOGGING_FUNCTION_CALL_TRACER_H_
 #define GOOGLE_SMART_CARD_COMMON_LOGGING_FUNCTION_CALL_TRACER_H_
 
-#include <cstdint>
+#include <stdint.h>
+
 #include <string>
 #include <vector>
 
