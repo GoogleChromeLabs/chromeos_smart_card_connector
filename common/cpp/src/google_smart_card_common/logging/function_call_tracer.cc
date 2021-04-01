@@ -23,7 +23,7 @@ namespace google_smart_card {
 namespace {
 
 int64_t GenerateFunctionCallId() {
-  static std::atomic<int64_t> next_function_call_id;
+  static std::atomic<int64_t> next_function_call_id(0);
   return ++next_function_call_id;
 }
 
