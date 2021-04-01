@@ -17,7 +17,6 @@
 #include <stdint.h>
 
 #include <atomic>
-#include <cstdint>
 
 namespace google_smart_card {
 
