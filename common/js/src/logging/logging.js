@@ -91,7 +91,7 @@ const ROOT_LOGGER_LEVEL = goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO
  * middle will be removed (so only some first and some last messages will be
  * kept at any given moment of time).
  */
-const LOG_BUFFER_CAPACITY = goog.DEBUG ? 10 * 1000 : 1000;
+const LOG_BUFFER_CAPACITY = goog.DEBUG ? 20 * 1000 : 2000;
 
 /**
  * @type {!goog.log.Logger}
