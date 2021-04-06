@@ -47,7 +47,7 @@ include $(COMMON_DIR_PATH)/make/app_building_common.mk
 include $(COMMON_DIR_PATH)/make/executable_module_recursive_build.mk
 
 include $(THIRD_PARTY_DIR_PATH)/libusb/naclport/include.mk
-include $(THIRD_PARTY_DIR_PATH)/ccid/naclport/include.mk
+include $(THIRD_PARTY_DIR_PATH)/ccid/webport/include.mk
 
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/js_client/include.mk
