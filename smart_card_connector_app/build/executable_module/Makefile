@@ -22,8 +22,8 @@ include $(COMMON_DIR_PATH)/make/executable_building.mk
 include $(COMMON_DIR_PATH)/cpp/include.mk
 include $(COMMON_DIR_PATH)/cpp/dependency.mk
 
-include $(THIRD_PARTY_DIR_PATH)/ccid/naclport/include.mk
-include $(THIRD_PARTY_DIR_PATH)/ccid/naclport/dependency.mk
+include $(THIRD_PARTY_DIR_PATH)/ccid/webport/include.mk
+include $(THIRD_PARTY_DIR_PATH)/ccid/webport/dependency.mk
 
 include $(THIRD_PARTY_DIR_PATH)/libusb/naclport/include.mk
 include $(THIRD_PARTY_DIR_PATH)/libusb/naclport/dependency.mk
@@ -107,12 +107,12 @@ LDFLAGS += \
 	--preload-file \
 	$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file@/executable-module-filesystem/pcsc/fake_socket_file \
 	--preload-file \
-	$(ROOT_PATH)/third_party/ccid/naclport/build/Info.plist@/executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist \
+	$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist@/executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/Info.plist \
 
 # Make sure the changes in the packaged files trigger re-linking.
 DEPS += \
 	$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file \
-	$(ROOT_PATH)/third_party/ccid/naclport/build/Info.plist \
+	$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist \
 
 # Declare the target for the .data file to depend on the .wasm file, so that
 # targets that depend on the .data file only run after the file gets created by
@@ -132,7 +132,7 @@ else ifeq ($(TOOLCHAIN),pnacl)
 
 # Add rules for copying the files into the out directory.
 $(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src/fake_socket_file,executable-module-filesystem/pcsc/))
-$(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/third_party/ccid/naclport/build/Info.plist,executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/))
+$(eval $(call COPY_TO_OUT_DIR_RULE,$(ROOT_PATH)/third_party/ccid/webport/build/Info.plist,executable-module-filesystem/pcsc/drivers/ifd-ccid.bundle/Contents/))
 
 # Create the manifest file that is used by the nacl_io library in order to
 # support operations like listing directories in the "httpfs" file system.

@@ -15,8 +15,8 @@ Reasons for pinning to a specific version of the driver:
 
 * Potentially, adjustments in our code or in the building scripts might be
   required after updating to new versions (note that we don't run the driver
-  verbatim, but instead port it under the Native Client technology to run inside
-  the JavaScript-based App);
+  verbatim, but instead port it under the WebAssembly and Native Client
+  technologies to run inside the JavaScript-based App);
 * We can test the driver version and assure its quality on Chrome OS.
 
 However, this approach also implies some amount of maintenance work to update
@@ -36,7 +36,7 @@ somewhat outdated version of the driver.
    project page: [https://ccid.apdu.fr/](https://ccid.apdu.fr/).
 
 2. Clean the compilation artifacts from the old version of the CCID driver by
-   running this command in the `//third_party/ccid/naclport/build/` directory:
+   running this command in the `//third_party/ccid/webport/build/` directory:
    
    ```shell
    CONFIG=Debug make clean && CONFIG=Release make clean
@@ -54,14 +54,14 @@ somewhat outdated version of the driver.
 
 5. Edit the URL and the version in the `//third_party/ccid/README.google` file.
 
-6. Edit the version in the `//third_party/ccid/naclport/include.mk` file.
+6. Edit the version in the `//third_party/ccid/webport/include.mk` file.
 
 7. Compile the Smart Card Connector app and all other targets, by running the
    `make-all.sh` script.
 
 8. In case of any errors discovered at the previous step, investigate and fix
    them. (Hint: In case a new file was created in the driver, you have to add it
-   into `//third_party/ccid/naclport/build/Makefile` into one of the sections.)
+   into `//third_party/ccid/webport/build/Makefile` into one of the sections.)
 
 9. Start the just-built Smart Card Connector app (e.g., by running `make run` in
    the `//smart_card_connector/build/` directory) and perform some manual QA

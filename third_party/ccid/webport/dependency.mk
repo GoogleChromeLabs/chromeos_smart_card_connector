@@ -24,4 +24,4 @@
 #
 
 
-$(eval $(call DEPEND_RULE,$(CCID_LIB),$(CCID_DIR_PATH)/naclport/build))
+$(eval $(call DEPEND_RULE,$(CCID_LIB),$(CCID_DIR_PATH)/webport/build))
