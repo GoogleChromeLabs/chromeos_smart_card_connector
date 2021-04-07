@@ -232,8 +232,16 @@ CHROME_ENV ?=
 #
 # This is intended to be customized by the user in case of some special needs.
 #
+# Explanation of arguments:
+# no-first-run: Suppress first-run dialogs, like about making Chrome the default
+#   browser.
+# password-store: Disable using the system-wide encryption storage backend, to
+#   avoid notifications about system backend initialization issues.
+#
 
-CHROME_ARGS ?= --password-store=basic
+CHROME_ARGS ?= \
+	--no-first-run \
+	--password-store=basic \
 
 
 #
