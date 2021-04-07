@@ -7,5 +7,6 @@ libusb is a C library that provides generic access to USB devices.
 Local Modifications:
 LICENSE file has been created for compliance purposes. Not included in original
 distribution.
-The library interface was reimplemented under Google Native Client, basing on
-the chrome.usb JavaScript Extensions API.
+The library was reimplemented under Emscripten and Google Native Client, using
+the chrome.usb JavaScript Extensions API as the backend, while preserving the
+original C interface.

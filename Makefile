@@ -34,7 +34,7 @@ TARGETS := \
 	example_js_standalone_smart_card_client_library \
 	smart_card_connector_app/build \
 	third_party/ccid/webport/build \
-	third_party/libusb/naclport/build \
+	third_party/libusb/webport/build \
 	third_party/pcsc-lite/naclport/common/build \
 	third_party/pcsc-lite/naclport/cpp_client/build \
 	third_party/pcsc-lite/naclport/cpp_demo/build \
@@ -47,7 +47,7 @@ example_cpp_smart_card_client_app/build: third_party/pcsc-lite/naclport/cpp_clie
 example_cpp_smart_card_client_app/build: third_party/pcsc-lite/naclport/cpp_demo/build
 smart_card_connector_app/build: common/cpp/build
 smart_card_connector_app/build: third_party/ccid/webport/build
-smart_card_connector_app/build: third_party/libusb/naclport/build
+smart_card_connector_app/build: third_party/libusb/webport/build
 smart_card_connector_app/build: third_party/pcsc-lite/naclport/common/build
 smart_card_connector_app/build: third_party/pcsc-lite/naclport/server/build
 smart_card_connector_app/build: third_party/pcsc-lite/naclport/server_clients_management/build
@@ -55,13 +55,13 @@ smart_card_connector_app/build: third_party/pcsc-lite/naclport/server_clients_ma
 TEST_TARGETS := \
 	common/cpp/build/tests \
 	common/js/build/unittests \
-	third_party/libusb/naclport/build/js_unittests \
-	third_party/libusb/naclport/build/tests \
+	third_party/libusb/webport/build/js_unittests \
+	third_party/libusb/webport/build/tests \
 	third_party/pcsc-lite/naclport/server_clients_management/build/js_unittests \
 
 common/cpp/build/tests: common/cpp/build
-third_party/libusb/naclport/build/tests: common/cpp/build
-third_party/libusb/naclport/build/tests: third_party/libusb/naclport/build
+third_party/libusb/webport/build/tests: common/cpp/build
+third_party/libusb/webport/build/tests: third_party/libusb/webport/build
 
 # Toolchain related definitions #################
 
@@ -75,7 +75,7 @@ TARGETS += \
 	third_party/googletest/webport/build \
 
 common/cpp/build/tests: third_party/googletest/webport/build
-third_party/libusb/naclport/build/tests: third_party/googletest/webport/build
+third_party/libusb/webport/build/tests: third_party/googletest/webport/build
 
 else ifeq ($(TOOLCHAIN),pnacl)
 

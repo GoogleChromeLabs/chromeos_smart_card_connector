@@ -25,8 +25,8 @@ include $(COMMON_DIR_PATH)/cpp/dependency.mk
 include $(THIRD_PARTY_DIR_PATH)/ccid/webport/include.mk
 include $(THIRD_PARTY_DIR_PATH)/ccid/webport/dependency.mk
 
-include $(THIRD_PARTY_DIR_PATH)/libusb/naclport/include.mk
-include $(THIRD_PARTY_DIR_PATH)/libusb/naclport/dependency.mk
+include $(THIRD_PARTY_DIR_PATH)/libusb/webport/include.mk
+include $(THIRD_PARTY_DIR_PATH)/libusb/webport/dependency.mk
 
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/common/dependency.mk
@@ -56,7 +56,7 @@ DEPS :=
 
 CXXFLAGS := \
 	-I$(ROOT_PATH)/common/cpp/src \
-	-I$(ROOT_PATH)/third_party/libusb/naclport/src \
+	-I$(ROOT_PATH)/third_party/libusb/webport/src \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server/src \
 	-I$(ROOT_PATH)/third_party/pcsc-lite/naclport/server_clients_management/src \
 	-Wall \

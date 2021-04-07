@@ -14,7 +14,7 @@
 
 
 #
-# This makefile builds and runs JavaScript unit tests for the libusb naclport.
+# This makefile builds and runs JavaScript unit tests for the libusb webport.
 #
 
 
