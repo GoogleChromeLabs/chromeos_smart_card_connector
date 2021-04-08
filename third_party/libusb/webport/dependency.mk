@@ -24,4 +24,4 @@
 #
 
 
-$(eval $(call DEPEND_RULE,$(LIBUSB_LIB),$(LIBUSB_DIR_PATH)/naclport/build))
+$(eval $(call DEPEND_RULE,$(LIBUSB_LIB),$(LIBUSB_DIR_PATH)/webport/build))
