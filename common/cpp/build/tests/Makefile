@@ -43,9 +43,6 @@ SOURCES += \
 else ifeq ($(TOOLCHAIN),pnacl)
 
 SOURCES += \
-	$(SOURCES_PATH)/pp_var_utils/construction_unittest.cc \
-	$(SOURCES_PATH)/pp_var_utils/enum_converter_unittest.cc \
-	$(SOURCES_PATH)/pp_var_utils/struct_converter_unittest.cc \
 	$(SOURCES_PATH)/value_nacl_pp_var_conversion_unittest.cc \
 
 endif
