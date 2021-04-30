@@ -17,14 +17,10 @@
 #include <iostream>
 #include <string>
 
-#include <ppapi/cpp/var.h>
-
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message_listener.h>
-#include <google_smart_card_common/pp_var_utils/struct_converter.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
-#include <google_smart_card_common/value_nacl_pp_var_conversion.h>
 
 namespace google_smart_card {
 
@@ -55,20 +51,6 @@ StructValueDescriptor<ExternalLogMessageData>::GetDescription() {
                  "formatted_log_message");
 }
 
-template <>
-constexpr const char*
-StructConverter<ExternalLogMessageData>::GetStructTypeName() {
-  return "ExternalLogMessageData";
-}
-
-template <>
-template <typename Callback>
-void StructConverter<ExternalLogMessageData>::VisitFields(
-    const ExternalLogMessageData& value,
-    Callback callback) {
-  callback(&value.formatted_log_message, "formatted_log_message");
-}
-
 ExternalLogsPrinter::ExternalLogsPrinter(
     const std::string& listened_message_type)
     : listened_message_type_(listened_message_type) {}
@@ -80,16 +62,8 @@ std::string ExternalLogsPrinter::GetListenedMessageType() const {
 }
 
 bool ExternalLogsPrinter::OnTypedMessageReceived(Value data) {
-  // TODO(#185): Parse `Value` directly instead of transforming into `pp::Var`.
-  pp::Var data_var = ConvertValueToPpVar(data);
-  ExternalLogMessageData message_data;
-  std::string error_message;
-  if (!StructConverter<ExternalLogMessageData>::ConvertFromVar(
-          data_var, &message_data, &error_message)) {
-    GOOGLE_SMART_CARD_LOG_FATAL << "Failed to parse external log message: "
-                                << error_message;
-  }
-  PrintExternalLogMessage(message_data);
+  PrintExternalLogMessage(
+      ConvertFromValueOrDie<ExternalLogMessageData>(std::move(data)));
   return true;
 }
 
