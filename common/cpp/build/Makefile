@@ -55,11 +55,6 @@ ifeq ($(TOOLCHAIN),pnacl)
 SOURCES += \
 	$(SOURCES_PATH)/global_context_impl_nacl.cc \
 	$(SOURCES_PATH)/nacl_io_utils.cc \
-	$(SOURCES_PATH)/pp_var_utils/construction.cc \
-	$(SOURCES_PATH)/pp_var_utils/copying.cc \
-	$(SOURCES_PATH)/pp_var_utils/debug_dump.cc \
-	$(SOURCES_PATH)/pp_var_utils/extraction.cc \
-	$(SOURCES_PATH)/pp_var_utils/operations.cc \
 	$(SOURCES_PATH)/value_nacl_pp_var_conversion.cc \
 
 # TODO(#185): Migrate these to support the Emscripten toolchain as well.
