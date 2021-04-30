@@ -27,6 +27,7 @@
 
 #include <google_smart_card_common/formatting.h>
 #include <google_smart_card_common/logging/logging.h>
+#include <google_smart_card_common/numeric_conversions.h>
 #include <google_smart_card_common/optional.h>
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
@@ -35,17 +36,24 @@ namespace google_smart_card {
 
 namespace {
 
+constexpr char kErrorToObjectValConversion[] =
+    "Cannot convert dictionary item %s to Emscripten val: %s";
+constexpr char kErrorToArrayValConversion[] =
+    "Cannot convert array item #%d to Emscripten val: %s";
 constexpr char kErrorWrongType[] = "Conversion error: unsupported type \"%s\"";
 
-emscripten::val CreateIntegerVal(int64_t integer) {
+optional<emscripten::val> CreateIntegerVal(int64_t integer,
+                                           std::string* error_message) {
   // `emscripten::val` doesn't support direct conversion from `int64_t`, so
   // convert via `int` or `double` depending on the amount.
   if (std::numeric_limits<int>::min() <= integer &&
       integer <= std::numeric_limits<int>::max()) {
     return emscripten::val(static_cast<int>(integer));
   }
-  // TODO(#217): Forbid conversions that lose precision.
-  return emscripten::val(static_cast<double>(integer));
+  double integer_as_double;
+  if (!CastIntegerToDouble(integer, &integer_as_double, error_message))
+    return {};
+  return emscripten::val(integer_as_double);
 }
 
 emscripten::val CreateArrayBufferVal(const Value::BinaryStorage& binary) {
@@ -57,20 +65,42 @@ emscripten::val CreateArrayBufferVal(const Value::BinaryStorage& binary) {
   return uint8_array["buffer"];
 }
 
-emscripten::val CreateObjectVal(const Value::DictionaryStorage& dictionary) {
+optional<emscripten::val> CreateObjectVal(
+    const Value::DictionaryStorage& dictionary,
+    std::string* error_message) {
   emscripten::val object = emscripten::val::object();
+  std::string local_error_message;
   for (const auto& item : dictionary) {
     const std::string& item_key = item.first;
     const std::unique_ptr<Value>& item_value = item.second;
-    object.set(item_key, ConvertValueToEmscriptenVal(*item_value));
+    optional<emscripten::val> converted_item_value =
+        ConvertValueToEmscriptenVal(*item_value, &local_error_message);
+    if (!converted_item_value) {
+      FormatPrintfTemplateAndSet(error_message, kErrorToObjectValConversion,
+                                 item_key.c_str(), local_error_message.c_str());
+      return {};
+    }
+    object.set(item_key, *converted_item_value);
   }
   return object;
 }
 
-emscripten::val CreateArrayVal(const Value::ArrayStorage& array) {
+optional<emscripten::val> CreateArrayVal(const Value::ArrayStorage& array,
+                                         std::string* error_message) {
   std::vector<emscripten::val> converted_items;
-  for (const auto& item : array)
-    converted_items.push_back(ConvertValueToEmscriptenVal(*item));
+  std::string local_error_message;
+  for (size_t i = 0; i < array.size(); ++i) {
+    const Value& item = *array[i];
+    optional<emscripten::val> converted_item =
+        ConvertValueToEmscriptenVal(item, &local_error_message);
+    if (!converted_item) {
+      FormatPrintfTemplateAndSet(error_message, kErrorToArrayValConversion,
+                                 static_cast<int>(i),
+                                 local_error_message.c_str());
+      return {};
+    }
+    converted_items.push_back(std::move(*converted_item));
+  }
   return emscripten::val::array(converted_items);
 }
 
@@ -157,14 +187,16 @@ optional<Value> CreateValueFromObjectVal(const emscripten::val& val,
 
 }  // namespace
 
-emscripten::val ConvertValueToEmscriptenVal(const Value& value) {
+optional<emscripten::val> ConvertValueToEmscriptenVal(
+    const Value& value,
+    std::string* error_message) {
   switch (value.type()) {
     case Value::Type::kNull:
       return emscripten::val::null();
     case Value::Type::kBoolean:
       return emscripten::val(value.GetBoolean());
     case Value::Type::kInteger:
-      return CreateIntegerVal(value.GetInteger());
+      return CreateIntegerVal(value.GetInteger(), error_message);
     case Value::Type::kFloat:
       return emscripten::val(value.GetFloat());
     case Value::Type::kString:
@@ -172,11 +204,20 @@ emscripten::val ConvertValueToEmscriptenVal(const Value& value) {
     case Value::Type::kBinary:
       return CreateArrayBufferVal(value.GetBinary());
     case Value::Type::kDictionary:
-      return CreateObjectVal(value.GetDictionary());
+      return CreateObjectVal(value.GetDictionary(), error_message);
     case Value::Type::kArray:
-      return CreateArrayVal(value.GetArray());
+      return CreateArrayVal(value.GetArray(), error_message);
   }
   GOOGLE_SMART_CARD_NOTREACHED;
+}
+
+emscripten::val ConvertValueToEmscriptenValOrDie(const Value& value) {
+  std::string error_message;
+  optional<emscripten::val> converted =
+      ConvertValueToEmscriptenVal(value, &error_message);
+  if (!converted)
+    GOOGLE_SMART_CARD_LOG_FATAL << error_message;
+  return std::move(*converted);
 }
 
 optional<Value> ConvertEmscriptenValToValue(const emscripten::val& val,
