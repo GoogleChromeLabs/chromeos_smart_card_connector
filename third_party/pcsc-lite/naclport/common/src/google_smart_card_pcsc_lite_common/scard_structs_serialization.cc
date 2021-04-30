@@ -29,10 +29,6 @@
 
 #include <google_smart_card_common/value_conversion.h>
 
-#ifdef __native_client__
-#include <google_smart_card_common/pp_var_utils/struct_converter.h>
-#endif  // __native_client__
-
 namespace google_smart_card {
 
 namespace {
@@ -61,28 +57,6 @@ StructValueDescriptor<InboundSCardReaderState>::GetDescription() {
       .WithField(&InboundSCardReaderState::current_state, "current_state");
 }
 
-#ifdef __native_client__
-
-// static
-template <>
-constexpr const char*
-StructConverter<InboundSCardReaderState>::GetStructTypeName() {
-  return "SCARD_READERSTATE_inbound";
-}
-
-// static
-template <>
-template <typename Callback>
-void StructConverter<InboundSCardReaderState>::VisitFields(
-    const InboundSCardReaderState& value,
-    Callback callback) {
-  callback(&value.reader_name, "reader_name");
-  callback(&value.user_data, "user_data");
-  callback(&value.current_state, "current_state");
-}
-
-#endif  // __native_client__
-
 template <>
 StructValueDescriptor<OutboundSCardReaderState>::Description
 StructValueDescriptor<OutboundSCardReaderState>::GetDescription() {
@@ -97,30 +71,6 @@ StructValueDescriptor<OutboundSCardReaderState>::GetDescription() {
       .WithField(&OutboundSCardReaderState::atr, "atr");
 }
 
-#ifdef __native_client__
-
-// static
-template <>
-constexpr const char*
-StructConverter<OutboundSCardReaderState>::GetStructTypeName() {
-  return "SCARD_READERSTATE_outbound";
-}
-
-// static
-template <>
-template <typename Callback>
-void StructConverter<OutboundSCardReaderState>::VisitFields(
-    const OutboundSCardReaderState& value,
-    Callback callback) {
-  callback(&value.reader_name, "reader_name");
-  callback(&value.user_data, "user_data");
-  callback(&value.current_state, "current_state");
-  callback(&value.event_state, "event_state");
-  callback(&value.atr, "atr");
-}
-
-#endif  // __native_client__
-
 template <>
 StructValueDescriptor<SCardIoRequest>::Description
 StructValueDescriptor<SCardIoRequest>::GetDescription() {
@@ -129,24 +79,6 @@ StructValueDescriptor<SCardIoRequest>::GetDescription() {
   return Describe("SCARD_IO_REQUEST")
       .WithField(&SCardIoRequest::protocol, "protocol");
 }
-
-#ifdef __native_client__
-
-// static
-template <>
-constexpr const char* StructConverter<SCardIoRequest>::GetStructTypeName() {
-  return "SCARD_IO_REQUEST";
-}
-
-// static
-template <>
-template <typename Callback>
-void StructConverter<SCardIoRequest>::VisitFields(const SCardIoRequest& value,
-                                                  Callback callback) {
-  callback(&value.protocol, "protocol");
-}
-
-#endif  // __native_client__
 
 // static
 InboundSCardReaderState InboundSCardReaderState::FromSCardReaderState(
@@ -182,63 +114,5 @@ SCardIoRequest SCardIoRequest::FromSCardIoRequest(
     const SCARD_IO_REQUEST& value) {
   return SCardIoRequest(value.dwProtocol);
 }
-
-#ifdef __native_client__
-
-template <>
-pp::Var MakeVar(const SCARD_READERSTATE& value) {
-  VarDictBuilder result_builder;
-  GOOGLE_SMART_CARD_CHECK(value.szReader);
-  result_builder.Add("reader_name", value.szReader);
-  if (value.pvUserData) {
-    result_builder.Add("user_data",
-                       reinterpret_cast<uintptr_t>(value.pvUserData));
-  }
-  result_builder.Add("current_state", value.dwCurrentState);
-  result_builder.Add("event_state", value.dwEventState);
-  // Chrome Extensions API does not allow sending ArrayBuffers in message
-  // fields, so instead of pp::VarArrayBuffer a pp::VarArray with the bytes as
-  // its element is constructed.
-  result_builder.Add("atr", MakeVar(GetSCardReaderStateAtr(value)));
-  return result_builder.Result();
-}
-
-bool VarAs(const pp::Var& var,
-           InboundSCardReaderState* result,
-           std::string* error_message) {
-  return StructConverter<InboundSCardReaderState>::ConvertFromVar(
-      var, result, error_message);
-}
-
-template <>
-pp::Var MakeVar(const InboundSCardReaderState& value) {
-  return StructConverter<InboundSCardReaderState>::ConvertToVar(value);
-}
-
-bool VarAs(const pp::Var& var,
-           OutboundSCardReaderState* result,
-           std::string* error_message) {
-  return StructConverter<OutboundSCardReaderState>::ConvertFromVar(
-      var, result, error_message);
-}
-
-template <>
-pp::Var MakeVar(const OutboundSCardReaderState& value) {
-  return StructConverter<OutboundSCardReaderState>::ConvertToVar(value);
-}
-
-bool VarAs(const pp::Var& var,
-           SCardIoRequest* result,
-           std::string* error_message) {
-  return StructConverter<SCardIoRequest>::ConvertFromVar(var, result,
-                                                         error_message);
-}
-
-template <>
-pp::Var MakeVar(const SCardIoRequest& value) {
-  return StructConverter<SCardIoRequest>::ConvertToVar(value);
-}
-
-#endif  // __native_client__
 
 }  // namespace google_smart_card

@@ -48,12 +48,6 @@
 
 #include <google_smart_card_common/optional.h>
 
-#ifdef __native_client__
-#include <ppapi/cpp/var.h>
-#include <google_smart_card_common/pp_var_utils/construction.h>
-#include <google_smart_card_common/pp_var_utils/extraction.h>
-#endif  // __native_client__
-
 namespace google_smart_card {
 
 // Replacement of the SCARD_READERSTATE PC/SC-Lite structure that should be used
@@ -125,31 +119,6 @@ struct SCardIoRequest {
 
   DWORD protocol;
 };
-
-#ifdef __native_client__
-
-bool VarAs(const pp::Var& var,
-           InboundSCardReaderState* result,
-           std::string* error_message);
-
-template <>
-pp::Var MakeVar(const InboundSCardReaderState& value);
-
-bool VarAs(const pp::Var& var,
-           OutboundSCardReaderState* result,
-           std::string* error_message);
-
-template <>
-pp::Var MakeVar(const OutboundSCardReaderState& value);
-
-bool VarAs(const pp::Var& var,
-           SCardIoRequest* result,
-           std::string* error_message);
-
-template <>
-pp::Var MakeVar(const SCardIoRequest& value);
-
-#endif  // __native_client__
 
 }  // namespace google_smart_card
 
