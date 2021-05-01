@@ -48,10 +48,9 @@ void GlobalContextImplEmscripten::PostMessageToJs(Value message) {
   // 1. Only a static function is supported, therefore we schedule the
   //    "trampoline" function that redirects to the normal class method.
   // 2. Only very few primitive argument types are supported, therefore we do
-  //    reinterpret_cast on all arguments. This is not a portable code to cast
-  //    pointers to integers and back, but this works in Emscripten. The
-  //    static_assert above makes sure that the `int` type is at least
-  //    sufficiently big in order to fit the pointers.
+  //    reinterpret_cast on all arguments. Pointers are casted to int (the
+  //    static_assert above makes sure that the `int` type is of sufficient
+  //    size); later, the trampoline function casts them back to pointers.
   // 3. `EM_FUNC_SIG_VII` means "the scheduled function has the void(int, int)
   //    signature".
   // 4. In order to address the case when `this` might get destroyed before the
