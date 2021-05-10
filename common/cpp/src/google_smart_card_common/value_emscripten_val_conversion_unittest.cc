@@ -24,10 +24,13 @@
 #include <vector>
 
 #include <emscripten/val.h>
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include <google_smart_card_common/unique_ptr_utils.h>
 #include <google_smart_card_common/value.h>
+
+using testing::MatchesRegex;
 
 namespace google_smart_card {
 
@@ -42,104 +45,127 @@ int GetEmscriptenObjectValSize(const emscripten::val& val) {
 }  // namespace
 
 TEST(ValueEmscriptenValConversion, NullValue) {
-  const emscripten::val converted = ConvertValueToEmscriptenVal(Value());
-  EXPECT_TRUE(converted.isNull());
+  const optional<emscripten::val> converted =
+      ConvertValueToEmscriptenVal(Value());
+  ASSERT_TRUE(converted);
+  EXPECT_TRUE(converted->isNull());
 }
 
 TEST(ValueEmscriptenValConversion, BooleanValue) {
   {
     constexpr bool kBoolean = false;
-    const emscripten::val converted =
+    const optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(kBoolean));
-    ASSERT_EQ(converted.typeOf().as<std::string>(), "boolean");
-    EXPECT_EQ(converted.as<bool>(), kBoolean);
+    ASSERT_TRUE(converted);
+    ASSERT_EQ(converted->typeOf().as<std::string>(), "boolean");
+    EXPECT_EQ(converted->as<bool>(), kBoolean);
   }
 
   {
     constexpr bool kBoolean = true;
-    const emscripten::val converted =
+    const optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(kBoolean));
-    ASSERT_EQ(converted.typeOf().as<std::string>(), "boolean");
-    EXPECT_EQ(converted.as<bool>(), kBoolean);
+    ASSERT_TRUE(converted);
+    ASSERT_EQ(converted->typeOf().as<std::string>(), "boolean");
+    EXPECT_EQ(converted->as<bool>(), kBoolean);
   }
 }
 
 TEST(ValueEmscriptenValConversion, IntegerValue) {
   constexpr int kNumber = 123;
-  const emscripten::val converted = ConvertValueToEmscriptenVal(Value(kNumber));
-  ASSERT_TRUE(converted.isNumber());
-  EXPECT_EQ(converted.as<int>(), kNumber);
+  const optional<emscripten::val> converted =
+      ConvertValueToEmscriptenVal(Value(kNumber));
+  ASSERT_TRUE(converted);
+  ASSERT_TRUE(converted->isNumber());
+  EXPECT_EQ(converted->as<int>(), kNumber);
 }
 
 TEST(ValueEmscriptenValConversion, IntegerNon32BitValue) {
   constexpr int64_t k40Bit = 1LL << 40;
-  const emscripten::val converted = ConvertValueToEmscriptenVal(Value(k40Bit));
-  ASSERT_TRUE(converted.isNumber());
+  const optional<emscripten::val> converted =
+      ConvertValueToEmscriptenVal(Value(k40Bit));
+  ASSERT_TRUE(converted);
+  ASSERT_TRUE(converted->isNumber());
   // `emscripten::val` doesn't provide a direct way to transform into a
   // non-32-bit integer, so compare string representations.
-  EXPECT_EQ(converted.call<std::string>("toString"), std::to_string(k40Bit));
+  EXPECT_EQ(converted->call<std::string>("toString"), std::to_string(k40Bit));
 }
 
-TEST(ValueEmscriptenValConversion, Integer64BitMaxValue) {
-  constexpr int64_t k64BitMax = std::numeric_limits<int64_t>::max();
-  const emscripten::val converted =
-      ConvertValueToEmscriptenVal(Value(k64BitMax));
-  ASSERT_TRUE(converted.isNumber());
-  EXPECT_DOUBLE_EQ(converted.as<double>(), static_cast<double>(k64BitMax));
-}
+// Test that conversion of huge integers fails (as JavaScript numbers cannot
+// store them precisely).
+TEST(ValueEmscriptenValConversion, IntegerValueError) {
+  {
+    constexpr int64_t k64BitMax = std::numeric_limits<int64_t>::max();
+    const optional<emscripten::val> converted =
+        ConvertValueToEmscriptenVal(Value(k64BitMax));
+    EXPECT_FALSE(converted);
+  }
 
-TEST(ValueEmscriptenValConversion, Integer64BitMinValue) {
-  constexpr int64_t k64BitMin = std::numeric_limits<int64_t>::min();
-  const emscripten::val converted =
-      ConvertValueToEmscriptenVal(Value(k64BitMin));
-  ASSERT_TRUE(converted.isNumber());
-  EXPECT_DOUBLE_EQ(converted.as<double>(), static_cast<double>(k64BitMin));
+  {
+    constexpr int64_t k64BitMin = std::numeric_limits<int64_t>::min();
+    std::string error_message;
+    const optional<emscripten::val> converted =
+        ConvertValueToEmscriptenVal(Value(k64BitMin), &error_message);
+    EXPECT_FALSE(converted);
+    EXPECT_THAT(
+        error_message,
+        MatchesRegex("The integer -9223372036854775808 cannot be converted "
+                     "into a floating-point double value without loss of "
+                     "precision: it is outside .* range"));
+  }
 }
 
 TEST(ValueEmscriptenValConversion, FloatValue) {
   constexpr double kFloat = 123.456;
-  const emscripten::val converted = ConvertValueToEmscriptenVal(Value(kFloat));
-  ASSERT_TRUE(converted.isNumber());
-  EXPECT_DOUBLE_EQ(converted.as<double>(), static_cast<double>(kFloat));
+  const optional<emscripten::val> converted =
+      ConvertValueToEmscriptenVal(Value(kFloat));
+  ASSERT_TRUE(converted);
+  ASSERT_TRUE(converted->isNumber());
+  EXPECT_DOUBLE_EQ(converted->as<double>(), static_cast<double>(kFloat));
 }
 
 TEST(ValueEmscriptenValConversion, StringValue) {
   {
-    const emscripten::val converted =
+    const optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(Value::Type::kString));
-    ASSERT_TRUE(converted.isString());
-    EXPECT_EQ(converted.as<std::string>(), "");
+    ASSERT_TRUE(converted);
+    ASSERT_TRUE(converted->isString());
+    EXPECT_EQ(converted->as<std::string>(), "");
   }
 
   {
     const char kFoo[] = "foo";
-    const emscripten::val converted = ConvertValueToEmscriptenVal(Value(kFoo));
-    ASSERT_TRUE(converted.isString());
-    EXPECT_EQ(converted.as<std::string>(), kFoo);
+    const optional<emscripten::val> converted =
+        ConvertValueToEmscriptenVal(Value(kFoo));
+    ASSERT_TRUE(converted);
+    ASSERT_TRUE(converted->isString());
+    EXPECT_EQ(converted->as<std::string>(), kFoo);
   }
 }
 
 TEST(ValueEmscriptenValConversion, BinaryValue) {
   {
-    const emscripten::val converted =
+    const optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(Value::Type::kBinary));
+    ASSERT_TRUE(converted);
     // clang-format incorrectly adds a space after "instanceof".
     // clang-format off
-    ASSERT_TRUE(converted.instanceof(emscripten::val::global("ArrayBuffer")));
+    ASSERT_TRUE(converted->instanceof(emscripten::val::global("ArrayBuffer")));
     // clang-format on
-    EXPECT_EQ(converted["byteLength"].as<int>(), 0);
+    EXPECT_EQ((*converted)["byteLength"].as<int>(), 0);
   }
 
   {
     const std::vector<uint8_t> kBinary = {1, 2, 3};
-    const emscripten::val converted =
+    const optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(kBinary));
+    ASSERT_TRUE(converted);
     // clang-format incorrectly adds a space after "instanceof".
     // clang-format off
-    ASSERT_TRUE(converted.instanceof(emscripten::val::global("ArrayBuffer")));
+    ASSERT_TRUE(converted->instanceof(emscripten::val::global("ArrayBuffer")));
     // clang-format on
     const emscripten::val uint8_array =
-        emscripten::val::global("Uint8Array").new_(converted);
+        emscripten::val::global("Uint8Array").new_(*converted);
     ASSERT_EQ(uint8_array["length"].as<size_t>(), kBinary.size());
     for (size_t i = 0; i < kBinary.size(); ++i)
       EXPECT_EQ(uint8_array[i].as<int>(), kBinary[i]);
@@ -148,10 +174,11 @@ TEST(ValueEmscriptenValConversion, BinaryValue) {
 
 TEST(ValueEmscriptenValConversion, DictionaryValue) {
   {
-    const emscripten::val converted =
+    const optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(Value::Type::kDictionary));
-    ASSERT_EQ(converted.typeOf().as<std::string>(), "object");
-    EXPECT_EQ(GetEmscriptenObjectValSize(converted), 0);
+    ASSERT_TRUE(converted);
+    ASSERT_EQ(converted->typeOf().as<std::string>(), "object");
+    EXPECT_EQ(GetEmscriptenObjectValSize(*converted), 0);
   }
 
   {
@@ -163,10 +190,12 @@ TEST(ValueEmscriptenValConversion, DictionaryValue) {
     items["xyz"] = MakeUnique<Value>(std::move(inner_items));
     const Value value(std::move(items));
 
-    const emscripten::val converted = ConvertValueToEmscriptenVal(value);
-    ASSERT_EQ(converted.typeOf().as<std::string>(), "object");
-    EXPECT_EQ(GetEmscriptenObjectValSize(converted), 1);
-    const emscripten::val inner_dict = converted["xyz"];
+    const optional<emscripten::val> converted =
+        ConvertValueToEmscriptenVal(value);
+    ASSERT_TRUE(converted);
+    ASSERT_EQ(converted->typeOf().as<std::string>(), "object");
+    EXPECT_EQ(GetEmscriptenObjectValSize(*converted), 1);
+    const emscripten::val inner_dict = (*converted)["xyz"];
     ASSERT_EQ(inner_dict.typeOf().as<std::string>(), "object");
     EXPECT_EQ(GetEmscriptenObjectValSize(inner_dict), 2);
     const emscripten::val inner_item_foo = inner_dict["foo"];
@@ -177,12 +206,45 @@ TEST(ValueEmscriptenValConversion, DictionaryValue) {
   }
 }
 
+TEST(ValueEmscriptenValConversion, DictionaryValueError) {
+  {
+    constexpr int64_t k64BitMax = std::numeric_limits<int64_t>::max();
+    std::map<std::string, std::unique_ptr<Value>> items;
+    items["foo"] = MakeUnique<Value>(k64BitMax);
+    const Value value(std::move(items));
+
+    const optional<emscripten::val> converted =
+        ConvertValueToEmscriptenVal(value);
+    EXPECT_FALSE(converted);
+  }
+
+  {
+    constexpr int64_t k64BitMin = std::numeric_limits<int64_t>::min();
+    std::map<std::string, std::unique_ptr<Value>> items;
+    items["abc"] = MakeUnique<Value>();
+    items["def"] = MakeUnique<Value>(k64BitMin);
+    const Value value(std::move(items));
+
+    std::string error_message;
+    const optional<emscripten::val> converted =
+        ConvertValueToEmscriptenVal(value, &error_message);
+    EXPECT_FALSE(converted);
+    EXPECT_THAT(
+        error_message,
+        MatchesRegex(
+            "Cannot convert dictionary item def to Emscripten val: The integer "
+            "-9223372036854775808 cannot be converted into a floating-point "
+            "double value without loss of precision: it is outside .* range"));
+  }
+}
+
 TEST(ValueEmscriptenValConversion, ArrayValue) {
   {
-    const emscripten::val converted =
+    const optional<emscripten::val> converted =
         ConvertValueToEmscriptenVal(Value(Value::Type::kArray));
-    ASSERT_TRUE(converted.isArray());
-    EXPECT_EQ(converted["length"].as<int>(), 0);
+    ASSERT_TRUE(converted);
+    ASSERT_TRUE(converted->isArray());
+    EXPECT_EQ((*converted)["length"].as<int>(), 0);
   }
 
   {
@@ -194,10 +256,12 @@ TEST(ValueEmscriptenValConversion, ArrayValue) {
     items.push_back(MakeUnique<Value>(std::move(inner_items)));
     const Value value(std::move(items));
 
-    const emscripten::val converted = ConvertValueToEmscriptenVal(value);
-    ASSERT_TRUE(converted.isArray());
-    ASSERT_EQ(converted["length"].as<int>(), 1);
-    const emscripten::val item0 = converted[0];
+    const optional<emscripten::val> converted =
+        ConvertValueToEmscriptenVal(value);
+    ASSERT_TRUE(converted);
+    ASSERT_TRUE(converted->isArray());
+    ASSERT_EQ((*converted)["length"].as<int>(), 1);
+    const emscripten::val item0 = (*converted)[0];
     ASSERT_TRUE(item0.isArray());
     ASSERT_EQ(item0["length"].as<int>(), 2);
     const emscripten::val inner_item0 = item0[0];
@@ -205,6 +269,38 @@ TEST(ValueEmscriptenValConversion, ArrayValue) {
     const emscripten::val inner_item1 = item0[1];
     ASSERT_TRUE(inner_item1.isNumber());
     EXPECT_EQ(inner_item1.as<int>(), 123);
+  }
+}
+
+TEST(ValueEmscriptenValConversion, ArrayValueError) {
+  {
+    constexpr int64_t k64BitMax = std::numeric_limits<int64_t>::max();
+    std::vector<std::unique_ptr<Value>> items;
+    items.push_back(MakeUnique<Value>(k64BitMax));
+    const Value value(std::move(items));
+
+    const optional<emscripten::val> converted =
+        ConvertValueToEmscriptenVal(value);
+    EXPECT_FALSE(converted);
+  }
+
+  {
+    constexpr int64_t k64BitMin = std::numeric_limits<int64_t>::min();
+    std::vector<std::unique_ptr<Value>> items;
+    items.push_back(MakeUnique<Value>());
+    items.push_back(MakeUnique<Value>(k64BitMin));
+    const Value value(std::move(items));
+
+    std::string error_message;
+    const optional<emscripten::val> converted =
+        ConvertValueToEmscriptenVal(value, &error_message);
+    EXPECT_FALSE(converted);
+    EXPECT_THAT(
+        error_message,
+        MatchesRegex(
+            "Cannot convert array item #1 to Emscripten val: The integer "
+            "-9223372036854775808 cannot be converted into a floating-point "
+            "double value without loss of precision: it is outside .* range"));
   }
 }
 

@@ -32,7 +32,17 @@
 namespace google_smart_card {
 
 // Converts the given `Value` into a `emscripten::val`.
-emscripten::val ConvertValueToEmscriptenVal(const Value& value);
+//
+// When the conversion isn't possible (e.g., when the passed value is a huge
+// integer that can't be precisely represented as a JavaScript number), returns
+// a null optional and, if provided, sets `*error_message`.
+optional<emscripten::val> ConvertValueToEmscriptenVal(
+    const Value& value,
+    std::string* error_message = nullptr);
+
+// Same as `ConvertValueToEmscriptenVal()`, but immediately crashes the program
+// if the conversion fails.
+emscripten::val ConvertValueToEmscriptenValOrDie(const Value& value);
 
 // Converts the given `emscripten::val` into a `Value`.
 //

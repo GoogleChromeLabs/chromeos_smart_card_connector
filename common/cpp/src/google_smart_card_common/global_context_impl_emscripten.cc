@@ -107,7 +107,7 @@ void GlobalContextImplEmscripten::PostMessageOnMainThread(Value message) {
   // Note: No mutexes are needed, since this code is guaranteed to run on the
   // main thread.
   if (!post_message_callback_.isUndefined())
-    post_message_callback_(ConvertValueToEmscriptenVal(message));
+    post_message_callback_(ConvertValueToEmscriptenValOrDie(message));
 }
 
 }  // namespace google_smart_card
