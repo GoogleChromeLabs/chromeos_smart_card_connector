@@ -181,6 +181,25 @@ goog.exportSymbol('testCrashLoopDetection', {
     });
   },
 
+  // Test that the crash loop is detected before Chrome decides to disable the
+  // NaCl module due to too many crashes. Unlike the "testCrashLoop" test, this
+  // test simulates slower timing that corresponds to the restrictions hardcoded
+  // in Chrome (which, as of 2021-06-07, are "3 crashes within 120 seconds").
+  testCrashLoopNotHitsNaClThreshold: function() {
+    const TOTAL_CRASH_COUNT = 3;
+    const CRASH_INTERVAL = 30 * 1000;
+    const recentCrashTimestamps = [];
+    for (let crashIndex = 0; crashIndex < TOTAL_CRASH_COUNT - 1; ++crashIndex) {
+      const intervalsAgoCount = TOTAL_CRASH_COUNT - 1 - crashIndex;
+      recentCrashTimestamps.push(
+          SOME_DATE.getTime() - CRASH_INTERVAL * intervalsAgoCount);
+    }
+    currentStorage = {'crash_timestamps': recentCrashTimestamps};
+    return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
+      assertTrue(isInCrashLoop);
+    });
+  },
+
   // Test the case when the chrome.storage API is not available (e.g., due to a
   // missing permission) - the implementation should still not break in this
   // case (although no crash loop detection is possible).
