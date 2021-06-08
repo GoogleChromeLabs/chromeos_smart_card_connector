@@ -46,10 +46,12 @@ const CRASH_LOOP_WINDOW_MILLISECONDS = 60 * 1000;
 // follows:
 // 1. Chrome's Extension system disables the extension when it reloads too
 //    frequently, with the criteria currently being "5 reloads, each within 10
-//    seconds after the launch".
+//    seconds after the launch":
+//    <https://source.chromium.org/chromium/chromium/src/+/main:chrome/browser/extensions/api/runtime/chrome_runtime_api_delegate.cc;l=172-173;drc=d17745f350d4956a07cb1113ee19e9cbc4be699f>.
 // 2. Chrome's Native Client system disables the module when it crashes too
-//    requently, with the criteria currently being "3 crashes within 2 minutes":
-//    https://source.chromium.org/chromium/chromium/src/+/main:components/nacl/browser/nacl_browser.cc;l=113-114;drc=d17745f350d4956a07cb1113ee19e9cbc4be699f
+//    frequently, with the criteria currently being "3 crashes within 2
+//    minutes":
+//    <https://source.chromium.org/chromium/chromium/src/+/main:components/nacl/browser/nacl_browser.cc;l=113-114;drc=d17745f350d4956a07cb1113ee19e9cbc4be699f>.
 const CRASH_LOOP_THRESHOLD_COUNT = 3;
 
 /** @type {boolean} */
