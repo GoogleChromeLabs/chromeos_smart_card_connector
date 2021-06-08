@@ -43,11 +43,11 @@ BINARY_CONTENTS_RELATIVES_PATHS = [
 # Paths to the files and directories to be copied into the resulting binary
 # archives, accompanied with the relative target file paths.
 PATHS_TO_COPY = [
-  ['example_js_standalone_smart_card_client_library/js_build/Debug/'
-   'google-smart-card-client-library.js',
+  ['example_js_standalone_smart_card_client_library/js_build/'
+   'emscripten_Debug/google-smart-card-client-library.js',
    'google-smart-card-client-library.debug.js'],
-  ['example_js_standalone_smart_card_client_library/js_build/Release/'
-   'google-smart-card-client-library.js',
+  ['example_js_standalone_smart_card_client_library/js_build/'
+   'emscripten_Release/google-smart-card-client-library.js',
    'google-smart-card-client-library.js'],
 ]
 
