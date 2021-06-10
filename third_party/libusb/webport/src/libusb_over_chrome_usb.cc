@@ -395,7 +395,7 @@ int LibusbOverChromeUsb::LibusbGetActiveConfigDescriptor(
         GOOGLE_SMART_CARD_LOG_WARNING
             << "Unexpected result from the chrome.usb.getConfigurations() API: "
                "received multiple active configurations";
-        continue;
+        break;
       }
 
       *config = new libusb_config_descriptor;
