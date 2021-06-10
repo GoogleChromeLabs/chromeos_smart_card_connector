@@ -388,7 +388,7 @@ int LibusbOverChromeUsb::LibusbGetActiveConfigDescriptor(
   for (const auto& chrome_usb_config : chrome_usb_configs) {
     if (chrome_usb_config.active) {
       if (*config) {
-        // Normally there should be only one active coniguration, but the
+        // Normally there should be only one active configuration, but the
         // chrome.usb API implementation misbehaves on some devices: see
         // <https://crbug.com/1218141>. As a workaround, proceed with the first
         // received configuration that's marked as active.
