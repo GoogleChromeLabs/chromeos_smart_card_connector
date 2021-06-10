@@ -387,9 +387,16 @@ int LibusbOverChromeUsb::LibusbGetActiveConfigDescriptor(
   *config = nullptr;
   for (const auto& chrome_usb_config : chrome_usb_configs) {
     if (chrome_usb_config.active) {
-      // Only one active configuration is expected to be returned by chrome.usb
-      // API.
-      GOOGLE_SMART_CARD_CHECK(!*config);
+      if (*config) {
+        // Normally there should be only one active configuration, but the
+        // chrome.usb API implementation misbehaves on some devices: see
+        // <https://crbug.com/1218141>. As a workaround, proceed with the first
+        // received configuration that's marked as active.
+        GOOGLE_SMART_CARD_LOG_WARNING
+            << "Unexpected result from the chrome.usb.getConfigurations() API: "
+               "received multiple active configurations";
+        break;
+      }
 
       *config = new libusb_config_descriptor;
       FillLibusbConfigDescriptor(chrome_usb_config, *config);
