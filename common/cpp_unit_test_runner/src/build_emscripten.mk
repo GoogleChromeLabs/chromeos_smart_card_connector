@@ -15,24 +15,19 @@
 # This file contains the implementation of the ../include.mk interface that
 # builds the C++ unit test runner using the Emscripten toolchain.
 
-# Flags passed to the Emscripten compiler/linker tools in test builds.
+# Documented in ../include.mk.
+TEST_ADDITIONAL_CXXFLAGS := \
+	-I$(ROOT_PATH)/third_party/googletest/src/googlemock/include \
+	-I$(ROOT_PATH)/third_party/googletest/src/googletest/include \
+
+# Documented in ../include.mk.
 #
 # Explanation:
 # MODULARIZE: Disable putting the Emscripten module JavaScript loading code into
 #   a factory function, so that the test runner module is loaded automatically
 #   on startup.
-TEST_ADDITIONAL_EMSCRIPTEN_FLAGS := \
-	-s MODULARIZE=0 \
-
-# Documented in ../include.mk.
-TEST_ADDITIONAL_CXXFLAGS := \
-	$(TEST_ADDITIONAL_EMSCRIPTEN_FLAGS) \
-	-I$(ROOT_PATH)/third_party/googletest/src/googlemock/include \
-	-I$(ROOT_PATH)/third_party/googletest/src/googletest/include \
-
-# Documented in ../include.mk.
 TEST_ADDITIONAL_LDFLAGS := \
-	$(TEST_ADDITIONAL_EMSCRIPTEN_FLAGS) \
+	-s MODULARIZE=0 \
 
 # Documented in ../include.mk.
 TEST_RUNNER_SOURCES :=
