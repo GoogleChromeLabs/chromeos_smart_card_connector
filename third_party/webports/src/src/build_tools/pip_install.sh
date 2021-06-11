@@ -24,7 +24,7 @@ if [ ! -f "$pip_bin" ]; then
   echo "Installing pip.."
   # Use local file rather than pipeline so we can detect failure of the curl
   # command.
-  curl --silent --show-error https://bootstrap.pypa.io/get-pip.py > get-pip.py
+  curl --silent --show-error https://bootstrap.pypa.io/pip/2.7/get-pip.py > get-pip.py
   python get-pip.py --force-reinstall --user
   rm -f get-pip.py
   hash -r
