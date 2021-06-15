@@ -7,3 +7,4 @@ pylint==1.4.0
 rednose==0.4.1
 termcolor==1.1.0
 yapf==0.1.8
+astroid<2.0
