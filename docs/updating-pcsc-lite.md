@@ -55,22 +55,27 @@ somewhat outdated version of the PC/SC-Lite daemon.
    (Hint: Pay attention to the directory structure; e.g., you should have the
    `AUTHORS` file located at `//third_party/pcsc-lite/src/AUTHORS` in the end.)
 
-4. Edit the URL and the version in the `//third_party/pcsc-lite/README.google`
+4. Apply the patches from the `//third_party/pcsc-lite/patches/` directory to
+   the files unpacked at the previous step. (Hint: We only have a single tiny
+   patch currently, so probably it's the simplest to just manually apply the
+   modification shown in that patch file.)
+
+5. Edit the URL and the version in the `//third_party/pcsc-lite/README.google`
    file.
 
-5. Compile the Smart Card Connector app and all other targets, by running the
+6. Compile the Smart Card Connector app and all other targets, by running the
    `make-all.sh` script.
 
-6. In case of any errors discovered at the previous step, investigate and fix
+7. In case of any errors discovered at the previous step, investigate and fix
    them. (Hint: In case a new file was created in the daemon, you have to add it
    into `//third_party/pcsc-lite/naclport/server/build/Makefile` into one of the
    sections.)
 
-7. Start the just-built Smart Card Connector app (e.g., by running `make run` in
+8. Start the just-built Smart Card Connector app (e.g., by running `make run` in
    the `//smart_card_connector/build/` directory) and perform some manual QA
    testing using physical reader(s).
 
-8. If everything is OK, prepare a commit / a Pull Request with all these
+9. If everything is OK, prepare a commit / a Pull Request with all these
    changes.
 
 Additional tasks to be performed later, when rolling out a new version of the
