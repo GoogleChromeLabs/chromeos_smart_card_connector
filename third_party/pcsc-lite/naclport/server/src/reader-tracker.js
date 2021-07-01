@@ -355,7 +355,7 @@ TrackerThroughPcscServerHook.prototype.shouldHideFailedReader_ = function(
   // talk to from the reader whose name contains interface equal to zero.
   // Therefore it makes sense to just hide from UI these items as they don't
   // actually signal about any error.
-  return /:libhal:.*serialnotneeded_if[1-9][0-9]*$/.test(device);
+  return /:[1-9][0-9]*$/.test(device);
 };
 
 });  // goog.scope
