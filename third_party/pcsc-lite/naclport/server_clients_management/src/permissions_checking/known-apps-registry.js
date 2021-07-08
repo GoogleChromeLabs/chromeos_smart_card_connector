@@ -168,14 +168,15 @@ KnownAppsRegistry.prototype.jsonLoadedCallback_ = function(e) {
   /** @type {!goog.net.XhrIo} */
   var xhrio = e.target;
 
-  if (!xhrio.isSuccess()) {
+  if (!xhrio.isSuccess() || !xhrio.getResponseText()) {
     this.promiseResolver_.reject(new Error(
         'Failed to load the known Apps registry'));
+    var errorReason = !xhrio.isSuccess() ?
+        xhrio.getLastError() : 'the request completed with no data';
     GSC.Logging.failWithLogger(
         this.logger,
         'Failed to load the known Apps registry from JSON file (URL: "' +
-        KNOWN_CLIENT_APPS_JSON_URL + '") with the following error: ' +
-        xhrio.getLastError());
+        KNOWN_CLIENT_APPS_JSON_URL + '"): ' + errorReason);
   }
 
   // Note: not using the xhrio.getResponseJson method as it breaks in the Chrome
