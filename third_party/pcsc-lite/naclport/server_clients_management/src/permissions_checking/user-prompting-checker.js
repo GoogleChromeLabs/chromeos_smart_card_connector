@@ -278,39 +278,35 @@ UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
  */
 UserPromptingChecker.prototype.runPromptDialog_ = function(
     clientAppId, userPromptDialogData, promiseResolver) {
-  const dialogPromise = GSC.PopupWindow.Server.runModalDialog(
-      USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
-      userPromptDialogData);
-  dialogPromise.then(
-      function(dialogResult) {
-        if (dialogResult) {
-          goog.log.info(
-              this.logger,
-              'Granted permission to client App with id "' + clientAppId +
-                  '" based on the "grant" user selection');
-          this.storeUserSelection_(clientAppId, true);
-          promiseResolver.resolve();
-        } else {
-          goog.log.info(
-              this.logger,
-              'Rejected permission to client App with id "' + clientAppId +
-                  '" based on the "reject" user selection');
-          this.storeUserSelection_(clientAppId, false);
-          promiseResolver.reject(new Error(
-              'Reject permission based on the "reject" user selection'));
-        }
-      },
-      function() {
-        goog.log.info(
-            this.logger,
-            'Rejected permission to client App with id "' + clientAppId +
-                '" because of the user cancellation of the prompt dialog');
-        this.storeUserSelection_(clientAppId, false);
-        promiseResolver.reject(new Error(
-            'Rejected permission because of the user cancellation of the prompt ' +
-            'dialog'));
-      },
-      this);
+  
+  chrome.windows.create({url: USER_PROMPT_DIALOG_URL, width: 300, height: 150, type: "popup"});
+
+  // var dialogPromise = GSC.PopupWindow.Server.runModalDialog(
+  //     USER_PROMPT_DIALOG_URL,
+  //     USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
+  //     userPromptDialogData);
+  // dialogPromise.then(function(dialogResult) {
+  //   if (dialogResult) {
+  //     this.logger.info('Granted permission to client App with id "' +
+  //                      clientAppId + '" based on the "grant" user selection');
+  //     this.storeUserSelection_(clientAppId, true);
+  //     promiseResolver.resolve();
+  //   } else {
+  //     this.logger.info('Rejected permission to client App with id "' +
+  //                      clientAppId + '" based on the "reject" user selection');
+  //     this.storeUserSelection_(clientAppId, false);
+  //     promiseResolver.reject(new Error(
+  //         'Reject permission based on the "reject" user selection'));
+  //   }
+  // }, function() {
+  //   this.logger.info(
+  //       'Rejected permission to client App with id "' + clientAppId +
+  //       '" because of the user cancellation of the prompt dialog');
+  //   this.storeUserSelection_(clientAppId, false);
+  //   promiseResolver.reject(new Error(
+  //       'Rejected permission because of the user cancellation of the prompt ' +
+  //       'dialog'));
+  // }, this);
 };
 
 /**
