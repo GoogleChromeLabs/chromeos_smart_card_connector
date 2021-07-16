@@ -279,8 +279,9 @@ UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
 UserPromptingChecker.prototype.runPromptDialog_ = function(
     clientAppId, userPromptDialogData, promiseResolver) {
   
-  chrome.windows.create({url: USER_PROMPT_DIALOG_URL, width: 300, height: 150, type: "popup"});
+  chrome.windows.create({url: USER_PROMPT_DIALOG_URL, width: 300, height: 180, type: "popup"});
 
+  // #toclean
   // var dialogPromise = GSC.PopupWindow.Server.runModalDialog(
   //     USER_PROMPT_DIALOG_URL,
   //     USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
