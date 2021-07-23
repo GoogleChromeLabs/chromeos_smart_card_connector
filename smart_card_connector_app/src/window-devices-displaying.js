@@ -29,8 +29,11 @@ goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.dataset');
+goog.require('goog.events');
 goog.require('goog.events.EventType');
 goog.require('goog.log.Logger');
+goog.require('goog.string');
+
 goog.scope(function() {
 
 /**

@@ -58,6 +58,7 @@ goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('SmartCardClientApp.BuiltInPinDialog.Backend');
 goog.require('SmartCardClientApp.CertificateProviderBridge.Backend');
+goog.require('goog.asserts');
 goog.require('goog.log.Level');
 goog.require('goog.log.Logger');
 

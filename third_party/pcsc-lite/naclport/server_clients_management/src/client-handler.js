@@ -44,6 +44,7 @@ goog.require('goog.iter.Iterator');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
+goog.require('goog.string');
 
 goog.scope(function() {
 

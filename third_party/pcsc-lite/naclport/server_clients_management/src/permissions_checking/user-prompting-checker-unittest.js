@@ -22,6 +22,7 @@ goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('goog.Promise');
 goog.require('goog.testing');
 goog.require('goog.testing.MockControl');
+goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.mockmatchers');
 

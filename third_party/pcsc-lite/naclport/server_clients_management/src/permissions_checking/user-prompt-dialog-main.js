@@ -42,10 +42,12 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PopupWindow.Client');
+goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.classlist');
 goog.require('goog.events');
 goog.require('goog.log.Logger');
+goog.require('goog.string');
 
 goog.scope(function() {
 

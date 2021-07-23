@@ -19,6 +19,7 @@ goog.provide('GoogleSmartCard.IntegrationTestController');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.Requester');
+goog.require('goog.Promise');
 goog.require('goog.testing.PropertyReplacer');
 
 goog.setTestOnly();

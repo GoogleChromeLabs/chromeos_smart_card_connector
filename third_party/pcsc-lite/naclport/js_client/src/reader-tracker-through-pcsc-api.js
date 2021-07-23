@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteClient.API');
 goog.require('GoogleSmartCard.PcscLiteClient.Context');
 goog.require('goog.array');
+goog.require('goog.async.nextTick');
 goog.require('goog.iter');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');

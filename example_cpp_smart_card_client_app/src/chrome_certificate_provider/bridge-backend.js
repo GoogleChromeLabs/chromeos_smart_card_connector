@@ -30,6 +30,7 @@ goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
+goog.require('goog.Promise');
 goog.require('goog.array');
 goog.require('goog.log.Logger');
 goog.require('goog.object');

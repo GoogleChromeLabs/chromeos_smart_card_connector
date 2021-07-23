@@ -25,6 +25,10 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.ObjectHelpers');
 goog.require('GoogleSmartCard.PopupWindow.Client');
 goog.require('goog.dom');
+goog.require('goog.events');
+goog.require('goog.events.EventType');
+goog.require('goog.log.Level');
+goog.require('goog.log.Logger');
 goog.require('goog.messaging.MessageChannel');
 
 goog.scope(function() {

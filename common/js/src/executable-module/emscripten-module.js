@@ -26,10 +26,12 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Promise');
+goog.require('goog.asserts');
 goog.require('goog.html.TrustedResourceUrl');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.net.jsloader');
+goog.require('goog.promise.Resolver');
 goog.require('goog.string.Const');
 
 goog.scope(function() {
