@@ -30,11 +30,9 @@ goog.require('goog.structs.Queue');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var suppressUnhandledRejectionError =
+const suppressUnhandledRejectionError =
     GSC.PromiseHelpers.suppressUnhandledRejectionError;
 
 /**
@@ -90,8 +88,7 @@ GSC.DeferredProcessor = function(awaitedPromise) {
       this.promiseRejectedListener_.bind(this));
 };
 
-/** @const */
-var DeferredProcessor = GSC.DeferredProcessor;
+const DeferredProcessor = GSC.DeferredProcessor;
 
 goog.inherits(DeferredProcessor, goog.Disposable);
 
@@ -126,7 +123,7 @@ function Job(jobFunction, promiseResolver) {
 DeferredProcessor.prototype.addJob = function(jobFunction) {
   // Enqueue the job regardless of the state. This allows to deal nicely with
   // the nested cases.
-  var promiseResolver = goog.Promise.withResolver();
+  const promiseResolver = goog.Promise.withResolver();
   suppressUnhandledRejectionError(promiseResolver.promise);
   this.jobsQueue_.enqueue(new Job(jobFunction, promiseResolver));
   if (this.isSettled_)
@@ -177,7 +174,7 @@ DeferredProcessor.prototype.flushEnqueuedJobs_ = function() {
   this.isCurrentlyFlushingJobs_ = true;
 
   while (!this.jobsQueue_.isEmpty()) {
-    var job = this.jobsQueue_.dequeue();
+    const job = this.jobsQueue_.dequeue();
     // Note that it's crucial to check isDisposed() on each loop iteration, as
     // the disposal may happen any time during a job execution.
     if (this.isDisposed()) {

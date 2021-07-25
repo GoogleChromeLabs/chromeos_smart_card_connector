@@ -21,18 +21,13 @@ goog.require('goog.Promise');
 
 goog.scope(function() {
 
-/** @const */
-var PIN_DIALOG_URL = 'pin-dialog.html';
+const PIN_DIALOG_URL = 'pin-dialog.html';
 
-/** @const */
-var PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
-  'innerBounds': {
-    'width': 230
-  }
+const PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
+  'innerBounds': {'width': 230}
 };
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * @return {!goog.Promise.<string>}

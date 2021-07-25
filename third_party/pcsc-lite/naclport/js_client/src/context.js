@@ -40,8 +40,7 @@ goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * Context for using the PC/SC-Lite client API.
@@ -98,8 +97,7 @@ GSC.PcscLiteClient.Context = function(clientTitle, opt_serverAppId) {
   this.logger.fine('Constructed');
 };
 
-/** @const */
-var Context = GSC.PcscLiteClient.Context;
+const Context = GSC.PcscLiteClient.Context;
 
 goog.inherits(Context, goog.Disposable);
 
@@ -134,11 +132,12 @@ Context.prototype.initialize = function(opt_messageChannel) {
              '(extension id is "' + this.serverAppId_ + '")' :
              '(which is the own app)') +
         '...');
-    var connectInfo = {'name': this.clientTitle};
+    const connectInfo = {'name': this.clientTitle};
+    let port;
     if (this.serverAppId_ !== undefined) {
-      var port = chrome.runtime.connect(this.serverAppId_, connectInfo);
+      port = chrome.runtime.connect(this.serverAppId_, connectInfo);
     } else {
-      var port = chrome.runtime.connect(connectInfo);
+      port = chrome.runtime.connect(connectInfo);
     }
     this.channel_ = new GSC.PortMessageChannel(
         port, this.messageChannelEstablishedListener_.bind(this));
@@ -219,7 +218,7 @@ Context.prototype.messageChannelEstablishedListener_ = function() {
   GSC.Logging.checkWithLogger(this.logger, this.api === null);
   GSC.Logging.checkWithLogger(this.logger, this.channel_ !== null);
   goog.asserts.assert(this.channel_);
-  var api = new GSC.PcscLiteClient.API(this.channel_);
+  const api = new GSC.PcscLiteClient.API(this.channel_);
   this.api = api;
 
   goog.array.forEach(this.onInitializedCallbacks_, function(callback) {

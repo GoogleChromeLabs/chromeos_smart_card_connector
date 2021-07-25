@@ -22,11 +22,8 @@ goog.setTestOnly();
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
-
-/** @const */
-var castToInt32 = GSC.FixedSizeInteger.castToInt32;
+const GSC = GoogleSmartCard;
+const castToInt32 = GSC.FixedSizeInteger.castToInt32;
 
 goog.exportSymbol('testCastToInt32', function() {
   assertEquals(0, castToInt32(0));

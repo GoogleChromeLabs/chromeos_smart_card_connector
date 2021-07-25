@@ -44,32 +44,24 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
-
-/** @const */
-var Constants = GSC.PcscLiteCommon.Constants;
+const GSC = GoogleSmartCard;
+const Constants = GSC.PcscLiteCommon.Constants;
 
 /**
  * Client title for the connection to the server App.
  *
  * Currently this is only used for the debug logs produced by the server App.
- * @const
  */
-var CLIENT_TITLE = 'example_js_client_app';
+const CLIENT_TITLE = 'example_js_client_app';
 
-/**
- * Identifier of the server App.
- * @const
- */
-var SERVER_APP_ID = Constants.SERVER_OFFICIAL_APP_ID;
+/** Identifier of the server App. */
+const SERVER_APP_ID = Constants.SERVER_OFFICIAL_APP_ID;
 
 /**
  * Logger that should be used for logging the App log messages.
  * @type {!goog.log.Logger}
- * @const
  */
-var logger = GSC.Logging.getLogger(
+const logger = GSC.Logging.getLogger(
     'SmartCardClientApp',
     goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO);
 
@@ -82,7 +74,7 @@ var logger = GSC.Logging.getLogger(
  * requests.
  * @type {GSC.PcscLiteClient.Context?}
  */
-var context = null;
+let context = null;
 
 /**
  * Initiates the PC/SC-Lite client API context initialization.
@@ -145,12 +137,14 @@ function work(api) {
 
   function runPinDialogDemo() {
     logger.info('Starting PIN dialog demo...');
-    var pinPromise = SmartCardClientApp.PinDialog.Server.requestPin();
-    pinPromise.then(function(pin) {
-      logger.info('PIN dialog demo finished: received PIN "' + pin + '"');
-    }, function(error) {
-      logger.info('PIN dialog demo finished: ' + error);
-    });
+    const pinPromise = SmartCardClientApp.PinDialog.Server.requestPin();
+    pinPromise.then(
+        function(pin) {
+          logger.info('PIN dialog demo finished: received PIN "' + pin + '"');
+        },
+        function(error) {
+          logger.info('PIN dialog demo finished: ' + error);
+        });
   }
 
   runPcscLiteDemo(runPinDialogDemo);

@@ -33,11 +33,10 @@ goog.require('goog.events');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 function okClickListener() {
-  var pin = goog.dom.forms.getValue(goog.dom.getElement('input'));
+  const pin = goog.dom.forms.getValue(goog.dom.getElement('input'));
   GSC.PopupWindow.Client.resolveModalDialog(pin);
 }
 

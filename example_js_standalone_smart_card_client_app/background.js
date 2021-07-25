@@ -23,29 +23,28 @@
  * Client title for the connection to the server App.
  *
  * Currently this is only used for the debug logs produced by the server App.
- * @const
  */
-var CLIENT_TITLE = 'example_js_client_app';
+const CLIENT_TITLE = 'example_js_client_app';
 
 /**
  * Context for talking to the Smart Card Connector app for making PC/SC API
  * requests.
  * @type {GoogleSmartCard.PcscLiteClient.Context}
  */
-var apiContext = null;
+let apiContext = null;
 
 /**
  * Object that allows to make PC/SC API requests to the Smart Card Connector
  * app.
  * @type {GoogleSmartCard.PcscLiteClient.API}
  */
-var api = null;
+let api = null;
 
 /**
  * PC/SC-Lite SCard context.
  * @type {int}
  */
-var sCardContext = null;
+let sCardContext = null;
 
 function initialize() {
   console.log('Establishing connection to the Connector app...');

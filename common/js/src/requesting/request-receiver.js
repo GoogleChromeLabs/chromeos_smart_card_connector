@@ -33,15 +33,11 @@ goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var RequesterMessage = GSC.RequesterMessage;
-/** @const */
-var RequestMessageData = RequesterMessage.RequestMessageData;
-/** @const */
-var ResponseMessageData = RequesterMessage.ResponseMessageData;
+const RequesterMessage = GSC.RequesterMessage;
+const RequestMessageData = RequesterMessage.RequestMessageData;
+const ResponseMessageData = RequesterMessage.ResponseMessageData;
 
 /**
  * This class is a request receiver, that receives and handles request messages
@@ -81,8 +77,7 @@ GSC.RequestReceiver = function(name, messageChannel, requestHandler) {
   this.registerRequestMessagesService_();
 };
 
-/** @const */
-var RequestReceiver = GSC.RequestReceiver;
+const RequestReceiver = GSC.RequestReceiver;
 
 /**
  * Sets whether the message channel should be disposed when an invalid message
@@ -99,7 +94,7 @@ RequestReceiver.prototype.setShouldDisposeOnInvalidMessage = function(
 
 /** @private */
 RequestReceiver.prototype.registerRequestMessagesService_ = function() {
-  var serviceName = RequesterMessage.getRequestMessageType(this.name_);
+  const serviceName = RequesterMessage.getRequestMessageType(this.name_);
   this.messageChannel_.registerService(
       serviceName, this.requestMessageReceivedListener_.bind(this), true);
 };
@@ -113,7 +108,7 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
   goog.asserts.assertObject(messageData);
 
-  var requestMessageData = RequestMessageData.parseMessageData(messageData);
+  const requestMessageData = RequestMessageData.parseMessageData(messageData);
   if (requestMessageData === null) {
     if (this.shouldDisposeOnInvalidMessage_) {
       this.logger.warning(
@@ -135,9 +130,10 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
       ', the payload is: ' +
       GSC.DebugDump.debugDump(requestMessageData.payload));
 
-  var promise = this.requestHandler_(requestMessageData.payload);
-  promise.then(this.responseResolvedListener_.bind(this, requestMessageData),
-               this.responseRejectedListener_.bind(this, requestMessageData));
+  const promise = this.requestHandler_(requestMessageData.payload);
+  promise.then(
+      this.responseResolvedListener_.bind(this, requestMessageData),
+      this.responseRejectedListener_.bind(this, requestMessageData));
 };
 
 /**
@@ -178,7 +174,7 @@ RequestReceiver.prototype.responseRejectedListener_ = function(
     return;
   }
 
-  var stringifiedError = String(error);
+  const stringifiedError = String(error);
   this.logger.fine(
       'Sending the failure response for the request with identifier ' +
       requestMessageData.requestId + ', the error is: ' + stringifiedError);
@@ -193,9 +189,8 @@ RequestReceiver.prototype.responseRejectedListener_ = function(
 RequestReceiver.prototype.sendResponse_ = function(responseMessageData) {
   GSC.Logging.checkWithLogger(this.logger, !this.messageChannel_.isDisposed());
 
-  var messageData = responseMessageData.makeMessageData();
-  var serviceName = RequesterMessage.getResponseMessageType(this.name_);
+  const messageData = responseMessageData.makeMessageData();
+  const serviceName = RequesterMessage.getResponseMessageType(this.name_);
   this.messageChannel_.send(serviceName, messageData);
 };
-
 });  // goog.scope

@@ -26,20 +26,16 @@ goog.require('GoogleSmartCard.PopupWindow.Server');
 
 goog.scope(function() {
 
-/** @const */
-var WINDOW_URL = 'window.html';
-
-/** @const */
-var WINDOW_ID = 'main-window';
+const WINDOW_URL = 'window.html';
+const WINDOW_ID = 'main-window';
 
 /**
  * Note: the bounds of the window were carefully adjusted in order to fit the
  * USB device selector dialog (as shown by the chrome.usb.getUserSelectedDevices
  * method: refer to
  * <https://developer.chrome.com/apps/usb#method-getUserSelectedDevices>).
- * @const
  */
-var WINDOW_OPTIONS = {
+const WINDOW_OPTIONS = {
   'frame': 'none',
   'hidden': true,
   'id': WINDOW_ID,
@@ -51,8 +47,7 @@ var WINDOW_OPTIONS = {
 };
 
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * Opens the main window due to user request. Does nothing if the window is

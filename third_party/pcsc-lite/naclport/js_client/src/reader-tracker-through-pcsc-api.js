@@ -52,7 +52,6 @@ const READER_STATUS_QUERY_TIMEOUT_MILLISECONDS = 60 * 1000;
 /**
  * The delay that is used when updating of the reader states failed with an
  * intermittent error.
- * @const
  */
 const READER_STATUS_FAILED_QUERY_DELAY_MILLISECONDS = 500;
 

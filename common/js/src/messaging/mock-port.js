@@ -25,8 +25,7 @@ goog.setTestOnly();
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * Mock of the Port class.
@@ -53,8 +52,7 @@ GSC.MockPort = function(opt_name) {
   this.fakePort_ = this.createFakePort_();
 };
 
-/** @const */
-var MockPort = GSC.MockPort;
+const MockPort = GSC.MockPort;
 
 goog.inherits(MockPort, goog.Disposable);
 
@@ -95,8 +93,7 @@ MockPort.prototype.getFakePort = function() {
  * @private
  */
 MockPort.prototype.createFakePort_ = function() {
-  /** @const */
-  var self = this;
+  const self = this;
 
   // Return the value that pretends to be a Port (the type checking was
   // suppressed to allow such, technically invalid, cast).
@@ -158,12 +155,11 @@ MockPort.prototype.removeListener_ = function(type, callback) {
  * @private
  */
 MockPort.prototype.getListeners_ = function(type) {
-  var result = [];
+  const result = [];
   for (let listenerKey of this.listenerMap_.getListeners(type, false)) {
     if (goog.isFunction(listenerKey.listener))
       result.push(listenerKey.listener);
   }
   return result;
 };
-
 });  // goog.scope

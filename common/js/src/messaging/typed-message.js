@@ -28,13 +28,10 @@ goog.require('goog.object');
 
 goog.scope(function() {
 
-/** @const */
-var TYPE_MESSAGE_KEY = 'type';
-/** @const */
-var DATA_MESSAGE_KEY = 'data';
+const TYPE_MESSAGE_KEY = 'type';
+const DATA_MESSAGE_KEY = 'data';
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * The structure that can be used to store the fields of the typed message.
@@ -49,8 +46,7 @@ GSC.TypedMessage = function(type, data) {
   this.data = data;
 };
 
-/** @const */
-var TypedMessage = GSC.TypedMessage;
+const TypedMessage = GSC.TypedMessage;
 
 /**
  * Parses the specified message into the typed message fields (type and data).

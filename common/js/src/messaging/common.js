@@ -29,20 +29,16 @@ goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var LOGGER = GSC.Logging.getScopedLogger('MessagingCommon');
+/** @type {!goog.log.Logger} */
+const LOGGER = GSC.Logging.getScopedLogger('MessagingCommon');
 
 /**
  * @param {!goog.messaging.AbstractChannel} channel
  */
 GSC.MessagingCommon.setNonFatalDefaultServiceCallback = function(channel) {
-  var boundCallback = nonFatalDefaultServiceCallback.bind(null, channel);
+  const boundCallback = nonFatalDefaultServiceCallback.bind(null, channel);
   channel.registerDefaultService(boundCallback);
 };
 

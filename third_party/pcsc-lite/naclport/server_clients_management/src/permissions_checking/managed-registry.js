@@ -36,14 +36,10 @@ goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
-/** @const */
-var MANAGED_STORAGE_KEY = 'force_allowed_client_app_ids';
+const MANAGED_STORAGE_KEY = 'force_allowed_client_app_ids';
 
-/** @const */
-var GSC = GoogleSmartCard;
-
-/** @const */
-var PermissionsChecking =
+const GSC = GoogleSmartCard;
+const PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
@@ -67,8 +63,7 @@ PermissionsChecking.ManagedRegistry = function() {
   this.listenForStorageChanging_();
 };
 
-/** @const */
-var ManagedRegistry = PermissionsChecking.ManagedRegistry;
+const ManagedRegistry = PermissionsChecking.ManagedRegistry;
 
 /**
  * @type {!goog.log.Logger}
@@ -87,7 +82,7 @@ ManagedRegistry.prototype.logger = GSC.Logging.getScopedLogger(
  * @return {!goog.Promise}
  */
 ManagedRegistry.prototype.getById = function(clientAppId) {
-  var promiseResolver = goog.Promise.withResolver();
+  const promiseResolver = goog.Promise.withResolver();
 
   this.managedStoragePromiseResolver_.promise.then(
       function() {
@@ -181,9 +176,9 @@ ManagedRegistry.prototype.setAllowedClientAppIdsFromStorageData_ = function(
     return false;
   }
 
-  var newAllowedClientAppIds = new Set;
-  var success = true;
-  goog.array.forEach(storageData, function(item) {
+  const newAllowedClientAppIds = new Set;
+  let success = true;
+  goog.array.forEach(/** @type {!Array} */ (storageData), function(item) {
     if (typeof item !== 'string') {
       this.logger.warning(
           'Failed to load the allowed client App id from the managed ' +

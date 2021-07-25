@@ -29,8 +29,7 @@ goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * This class is a pool which keeps track of Closure-style AbstractChannel's.
@@ -61,8 +60,7 @@ GSC.MessageChannelPool = function() {
   this.logger.fine('Initialized successfully');
 };
 
-/** @const */
-var MessageChannelPool = GSC.MessageChannelPool;
+const MessageChannelPool = GSC.MessageChannelPool;
 
 /**
  * @param {string} extensionId

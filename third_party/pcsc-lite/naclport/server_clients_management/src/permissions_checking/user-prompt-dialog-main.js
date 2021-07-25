@@ -51,35 +51,28 @@ goog.require('goog.string');
 
 goog.scope(function() {
 
-/** @const */
-var APP_LINK_TEMPLATE = 'https://chrome.google.com/webstore/detail/%s';
+const APP_LINK_TEMPLATE = 'https://chrome.google.com/webstore/detail/%s';
+const UNTRUSTED_CLASS = 'untrusted';
 
-/** @const */
-var UNTRUSTED_CLASS = 'untrusted';
+const GSC = GoogleSmartCard;
 
-/** @const */
-var GSC = GoogleSmartCard;
-
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var logger = GSC.Logging.getScopedLogger(
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.' +
     'Main');
 
 function prepareMessage() {
-  var data = GSC.PopupWindow.Client.getData();
+  const data = GSC.PopupWindow.Client.getData();
 
-  var isClientKnown = data['is_client_known'];
+  const isClientKnown = data['is_client_known'];
   GSC.Logging.checkWithLogger(logger, typeof isClientKnown === 'boolean');
   goog.asserts.assertBoolean(isClientKnown);
 
-  var clientAppId = data['client_app_id'];
+  const clientAppId = data['client_app_id'];
   GSC.Logging.checkWithLogger(logger, typeof clientAppId === 'string');
   goog.asserts.assertString(clientAppId);
 
-  var clientAppName = data['client_app_name'];
+  const clientAppName = data['client_app_name'];
   if (isClientKnown) {
     GSC.Logging.checkWithLogger(logger, typeof clientAppName === 'string');
     goog.asserts.assertString(clientAppName);
@@ -91,7 +84,7 @@ function prepareMessage() {
         clientAppName === undefined || typeof clientAppName === 'string');
   }
 
-  var linkTitle;
+  let linkTitle;
   if (isClientKnown) {
     linkTitle = chrome.i18n.getMessage(
         'pcscClientHandlingUserPromptDialogMessageAppNamePart', clientAppName);
@@ -101,9 +94,9 @@ function prepareMessage() {
         clientAppId);
   }
 
-  var linkHref = goog.string.subs(APP_LINK_TEMPLATE, clientAppId);
+  const linkHref = goog.string.subs(APP_LINK_TEMPLATE, clientAppId);
 
-  var linkElement = goog.dom.getElement('message-app-link');
+  const linkElement = goog.dom.getElement('message-app-link');
   goog.dom.setTextContent(linkElement, linkTitle);
   linkElement["href"] = linkHref;
 

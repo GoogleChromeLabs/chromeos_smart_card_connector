@@ -42,25 +42,20 @@ goog.require('goog.object');
 
 goog.scope(function() {
 
-var TIMEOUT_SECONDS = 10;
-var SPECIAL_READER_NAME = '\\\\?PnP?\\Notification';
+const TIMEOUT_SECONDS = 10;
+const SPECIAL_READER_NAME = '\\\\?PnP?\\Notification';
 
-/** @const */
-var GSC = GoogleSmartCard;
-/** @const */
-var Demo = GSC.PcscLiteClient.Demo;
-/** @const */
-var API = GoogleSmartCard.PcscLiteClient.API;
-/** @const */
-var dump = GSC.DebugDump.dump;
+const GSC = GoogleSmartCard;
+const Demo = GSC.PcscLiteClient.Demo;
+const API = GoogleSmartCard.PcscLiteClient.API;
+const dump = GSC.DebugDump.dump;
 
 /**
  * @type {!goog.log.Logger}
  * @const
  */
 Demo.logger = GSC.Logging.getScopedLogger('PcscLiteClient.Demo');
-/** @const */
-var logger = Demo.logger;
+const logger = Demo.logger;
 
 /**
  * @param {!API} pcscLiteClientApi
@@ -479,7 +474,7 @@ function getAttrs(
     sCardHandle,
     protocol,
     attrIndex) {
-  var attrNames = getPcscLiteAttrNames();
+  const attrNames = getPcscLiteAttrNames();
   if (attrIndex == attrNames.length) {
     onAttrsGot(
         api,
@@ -490,7 +485,7 @@ function getAttrs(
         protocol);
     return;
   }
-  var attrName = attrNames[attrIndex];
+  const attrName = attrNames[attrIndex];
   logger.fine('Requesting the ' + dump(attrName) + ' attribute...');
   api.SCardGetAttrib(
       sCardHandle, API[attrName]).then(function(result) {
@@ -526,12 +521,12 @@ function onAttrsGot(
 
 function setAttr(
     api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol) {
-  var ATTR_NAME = 'SCARD_ATTR_DEVICE_FRIENDLY_NAME_A';
-  var ATTR_VALUE = [0x54, 0x65, 0x73, 0x74];
-  logger.info('Setting the ' + dump(ATTR_NAME) + ' attribute to ' +
-              dump(ATTR_VALUE));
-  api.SCardSetAttrib(
-      sCardHandle, API[ATTR_NAME], ATTR_VALUE).then(function(result) {
+  const ATTR_NAME = 'SCARD_ATTR_DEVICE_FRIENDLY_NAME_A';
+  const ATTR_VALUE = [0x54, 0x65, 0x73, 0x74];
+  logger.info(
+      'Setting the ' + dump(ATTR_NAME) + ' attribute to ' + dump(ATTR_VALUE));
+  api.SCardSetAttrib(sCardHandle, API[ATTR_NAME], ATTR_VALUE)
+      .then(function(result) {
         result.get(
             onAttrSet.bind(
                 null,
@@ -633,9 +628,10 @@ function onControlCommandSent(
 
 function sendTransmitCommand(
     api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol) {
-  var LIST_DIR_APDU = [0x00, 0xA4, 0x00, 0x00, 0x02, 0x3F, 0x00, 0x00];
-  logger.info('Sending the transmit command with "list dir" APDU ' +
-              dump(LIST_DIR_APDU) + '...');
+  const LIST_DIR_APDU = [0x00, 0xA4, 0x00, 0x00, 0x02, 0x3F, 0x00, 0x00];
+  logger.info(
+      'Sending the transmit command with "list dir" APDU ' +
+      dump(LIST_DIR_APDU) + '...');
   api.SCardTransmit(
       sCardHandle,
       protocol == API.SCARD_PROTOCOL_T0 ?

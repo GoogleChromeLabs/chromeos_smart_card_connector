@@ -31,35 +31,22 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var EXPORT_LOGS_EXPORTED_TIMEOUT_MILLISECONDS = 5000;
+const EXPORT_LOGS_EXPORTED_TIMEOUT_MILLISECONDS = 5000;
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var EXPORT_LOGS_ELEMENT_TEXT_ID = 'exportLogs';
+const EXPORT_LOGS_ELEMENT_TEXT_ID = 'exportLogs';
+const EXPORT_LOGS_ELEMENT_EXPORTING_TEXT_ID = 'exportLogsExporting';
+const EXPORT_LOGS_ELEMENT_EXPORTED_TEXT_ID = 'exportLogsExported';
 
-/** @const */
-var EXPORT_LOGS_ELEMENT_EXPORTING_TEXT_ID = 'exportLogsExporting';
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
-/** @const */
-var EXPORT_LOGS_ELEMENT_EXPORTED_TEXT_ID = 'exportLogsExported';
+/** @type {!Element} */
+const exportLogsElement =
+    /** @type {!Element} */ (goog.dom.getElement('export-logs'));
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
-
-/**
- * @type {!Element}
- * @const
- */
-var exportLogsElement = /** @type {!Element} */ (goog.dom.getElement(
-    'export-logs'));
-
-var isExportLogsAvailable = true;
+let isExportLogsAvailable = true;
 
 /**
  * @param {!Event} e
@@ -78,13 +65,13 @@ function exportLogsClickListener(e) {
 }
 
 function exportLogs() {
-  var logBufferState = GSC.Logging.getLogBuffer().getState();
-  var dumpedLogs = logBufferState.getAsText();
+  const logBufferState = GSC.Logging.getLogBuffer().getState();
+  const dumpedLogs = logBufferState.getAsText();
   logger.fine(
       'Prepared a (possibly truncated) dump of ' + logBufferState['logCount'] +
       ' log messages from the log buffer, the dump size is ' +
       dumpedLogs.length + ' characters');
-  var copyingSuccess = GSC.Clipboard.copyToClipboard(dumpedLogs);
+  const copyingSuccess = GSC.Clipboard.copyToClipboard(dumpedLogs);
 
   if (copyingSuccess) {
     exportLogsElement.textContent =

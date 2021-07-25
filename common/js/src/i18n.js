@@ -26,23 +26,14 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var logger = GSC.Logging.getScopedLogger('I18n');
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('I18n');
 
-/** @const */
-var I18N_DATA_ATTRIBUTE = 'data-i18n';
-
-/** @const */
-var I18N_DATA_ARIA_LABEL_ATTRIBUTE = 'data-i18n-aria-label';
-
-/** @const */
-var I18N_TITLE_ATTRIBUTE = 'data-title';
+const I18N_DATA_ATTRIBUTE = 'data-i18n';
+const I18N_DATA_ARIA_LABEL_ATTRIBUTE = 'data-i18n-aria-label';
+const I18N_TITLE_ATTRIBUTE = 'data-title';
 
 /**
  * @param {!Element} element
@@ -50,14 +41,14 @@ var I18N_TITLE_ATTRIBUTE = 'data-title';
  * @param {function(!Element,string)} transformFunction
  */
 function transformElement(element, attribute, transformFunction) {
-  var i18nId = element.getAttribute(attribute);
+  const i18nId = element.getAttribute(attribute);
   GSC.Logging.checkWithLogger(
       logger,
       i18nId,
       'Failed to get attribute [' + attribute +
       '] for element: ' + element.outerHTML);
 
-  var translatedText = chrome.i18n.getMessage(i18nId);
+  const translatedText = chrome.i18n.getMessage(i18nId);
   GSC.Logging.checkWithLogger(
       logger,
       translatedText,
@@ -71,7 +62,7 @@ function transformElement(element, attribute, transformFunction) {
  * @param {function(!Element,string)} transformFunction
  */
 function transformAllElements(attribute, transformFunction) {
-  var selector = '[' + attribute + ']';
+  const selector = '[' + attribute + ']';
   for (let element of document.querySelectorAll(selector)) {
     transformElement(element, attribute, transformFunction);
   }

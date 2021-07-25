@@ -35,7 +35,6 @@ goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
-/** @const */
 const GSC = GoogleSmartCard;
 
 /**
@@ -71,7 +70,6 @@ GSC.Libusb.ChromeLoginStateHook = function() {
   }
 };
 
-/** @const */
 const ChromeLoginStateHook = GSC.Libusb.ChromeLoginStateHook;
 
 goog.inherits(ChromeLoginStateHook, goog.Disposable);

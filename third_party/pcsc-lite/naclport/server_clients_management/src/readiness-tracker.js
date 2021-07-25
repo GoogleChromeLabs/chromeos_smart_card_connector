@@ -37,11 +37,9 @@ goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
-/** @const */
-var SERVICE_NAME = 'pcsc_lite_ready';
+const SERVICE_NAME = 'pcsc_lite_ready';
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * Tracker of the readiness state of the PC/SC-Lite server.
@@ -94,8 +92,7 @@ GSC.PcscLiteServerClientsManagement.ReadinessTracker = function(
                     'NaCl module...');
 };
 
-/** @const */
-var ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
+const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
 
 goog.inherits(ReadinessTracker, goog.Disposable);
 

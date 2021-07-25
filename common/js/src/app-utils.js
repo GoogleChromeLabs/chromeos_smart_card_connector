@@ -20,8 +20,7 @@ goog.require('goog.functions');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * Adds a listener for the special Chrome Extensions API event, that makes the

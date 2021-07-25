@@ -25,8 +25,7 @@ goog.require('goog.Promise');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * Disables for the specified promise throwing of an error when it's rejected

@@ -31,28 +31,20 @@ goog.setTestOnly();
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var PortMessageChannel = GSC.PortMessageChannel;
+const PortMessageChannel = GSC.PortMessageChannel;
 
-/** @const */
-var Pinger = GSC.MessageChannelPinging.Pinger;
+const Pinger = GSC.MessageChannelPinging.Pinger;
 
-/** @const */
-var PingResponder = GSC.MessageChannelPinging.PingResponder;
+const PingResponder = GSC.MessageChannelPinging.PingResponder;
 
-/** @const */
-var TypedMessage = GSC.TypedMessage;
+const TypedMessage = GSC.TypedMessage;
 
-/**
- * Mock matcher that matches only the ping messages.
- * @const
- */
-var isPingMessageMockMatcher = new goog.testing.mockmatchers.ArgumentMatcher(
-    function(value) {
-      var typedMessage = TypedMessage.parseTypedMessage(value);
+/** Mock matcher that matches only the ping messages. */
+const isPingMessageMockMatcher =
+    new goog.testing.mockmatchers.ArgumentMatcher(function(value) {
+      const typedMessage = TypedMessage.parseTypedMessage(value);
       return typedMessage && typedMessage.type == Pinger.SERVICE_NAME;
     }, 'isPingMessage');
 
@@ -61,15 +53,18 @@ var isPingMessageMockMatcher = new goog.testing.mockmatchers.ArgumentMatcher(
  * @param {!GSC.MockPort} mockPort
  */
 function setUpPingRespondingForMockPort(mockPort) {
-  var channelId = PingResponder.generateChannelId();
-  mockPort.postMessage(isPingMessageMockMatcher).$atLeastOnce().$does(
-      function(message) {
-        var typedMessage = TypedMessage.parseTypedMessage(message);
+  const channelId = PingResponder.generateChannelId();
+  mockPort.postMessage(isPingMessageMockMatcher)
+      .$atLeastOnce()
+      .$does(function(message) {
+        const typedMessage = TypedMessage.parseTypedMessage(message);
         GSC.Logging.check(
             typedMessage && typedMessage.type == Pinger.SERVICE_NAME);
-        var pingResponseMessage = new TypedMessage(
-            PingResponder.SERVICE_NAME,
-            PingResponder.createMessageData(channelId)).makeMessage();
+        const pingResponseMessage =
+            new TypedMessage(
+                PingResponder.SERVICE_NAME,
+                PingResponder.createMessageData(channelId))
+                .makeMessage();
         mockPort.fireOnMessage(pingResponseMessage);
       });
 }
@@ -77,9 +72,9 @@ function setUpPingRespondingForMockPort(mockPort) {
 // Test that the channel is successfully established once a response to the ping
 // request is received.
 goog.exportSymbol('testPortMessageChannelEstablishing', function() {
-  var testCasePromiseResolver = goog.Promise.withResolver();
+  const testCasePromiseResolver = goog.Promise.withResolver();
 
-  var mockPort = new GSC.MockPort('mock port');
+  const mockPort = new GSC.MockPort('mock port');
   setUpPingRespondingForMockPort(mockPort);
   mockPort.postMessage.$replay();
 
@@ -93,7 +88,7 @@ goog.exportSymbol('testPortMessageChannelEstablishing', function() {
     testCasePromiseResolver.reject();
   }
 
-  var portMessageChannel = new GSC.PortMessageChannel(
+  const portMessageChannel = new GSC.PortMessageChannel(
       mockPort.getFakePort(), onPortMessageChannelEstablished);
   portMessageChannel.addOnDisposeCallback(onPortMessageChannelDisposed);
 
@@ -103,13 +98,13 @@ goog.exportSymbol('testPortMessageChannelEstablishing', function() {
 // Test that the channel is not established and is disposed of when there are no
 // responses to the ping requests received.
 goog.exportSymbol('testPortMessageChannelFailureToEstablish', function() {
-  var testCasePromiseResolver = goog.Promise.withResolver();
+  const testCasePromiseResolver = goog.Promise.withResolver();
 
-  var mockPort = new GSC.MockPort('mock port');
+  const mockPort = new GSC.MockPort('mock port');
   mockPort.postMessage(goog.testing.mockmatchers.isObject).$anyTimes();
   mockPort.postMessage.$replay();
 
-  var propertyReplacer = new goog.testing.PropertyReplacer;
+  const propertyReplacer = new goog.testing.PropertyReplacer;
   propertyReplacer.set(Pinger, 'TIMEOUT_MILLISECONDS', 400);
   propertyReplacer.set(Pinger, 'INTERVAL_MILLISECONDS', 200);
   testCasePromiseResolver.promise.thenAlways(
@@ -125,7 +120,7 @@ goog.exportSymbol('testPortMessageChannelFailureToEstablish', function() {
     mockPort.dispose();
   }
 
-  var portMessageChannel = new GSC.PortMessageChannel(
+  const portMessageChannel = new GSC.PortMessageChannel(
       mockPort.getFakePort(), onPortMessageChannelEstablished);
   portMessageChannel.addOnDisposeCallback(onPortMessageChannelDisposed);
 
@@ -135,14 +130,15 @@ goog.exportSymbol('testPortMessageChannelFailureToEstablish', function() {
 // Test that the messages sent through the port message channel are posted
 // through the port with preserving the relative order.
 goog.exportSymbol('testPortMessageChannelMessageSending', function() {
-  var testCasePromiseResolver = goog.Promise.withResolver();
+  const testCasePromiseResolver = goog.Promise.withResolver();
 
-  var TEST_MESSAGES = [
-      new TypedMessage('service x', {}),
-      new TypedMessage('service x', {some_data: 1}),
-      new TypedMessage('service y', {})];
+  const TEST_MESSAGES = [
+    new TypedMessage('service x', {}),
+    new TypedMessage('service x', {some_data: 1}),
+    new TypedMessage('service y', {})
+  ];
 
-  var mockPort = new GSC.MockPort('mock port');
+  const mockPort = new GSC.MockPort('mock port');
   setUpPingRespondingForMockPort(mockPort);
   for (let testMessage of TEST_MESSAGES) {
     mockPort.postMessage(new goog.testing.mockmatchers.ObjectEquals(
@@ -163,7 +159,7 @@ goog.exportSymbol('testPortMessageChannelMessageSending', function() {
     testCasePromiseResolver.reject();
   }
 
-  var portMessageChannel = new GSC.PortMessageChannel(
+  const portMessageChannel = new GSC.PortMessageChannel(
       mockPort.getFakePort(), onPortMessageChannelEstablished);
   portMessageChannel.addOnDisposeCallback(onPortMessageChannelDisposed);
 
@@ -175,16 +171,15 @@ goog.exportSymbol('testPortMessageChannelArrayBufferSending', function() {
   const MESSAGE_TYPE = 'foo';
   const MESSAGE_DATA = {x: (new Uint8Array([1, 255])).buffer};
   const EXPECTED_TRANSMITTED_DATA = {x: [1, 255]};
-  const EXPECTED_TRANSMITTED_MESSAGE = new TypedMessage(
-      MESSAGE_TYPE, EXPECTED_TRANSMITTED_DATA);
+  const EXPECTED_TRANSMITTED_MESSAGE =
+      new TypedMessage(MESSAGE_TYPE, EXPECTED_TRANSMITTED_DATA);
 
   const mockPort = new GSC.MockPort('mock port');
   mockPort.postMessage(new goog.testing.mockmatchers.ObjectEquals(
       EXPECTED_TRANSMITTED_MESSAGE.makeMessage())).$once();
   mockPort.postMessage.$replay();
 
-  const portMessageChannel = new GSC.PortMessageChannel(
-      mockPort.getFakePort());
+  const portMessageChannel = new GSC.PortMessageChannel(mockPort.getFakePort());
   portMessageChannel.send(MESSAGE_TYPE, MESSAGE_DATA);
   mockPort.postMessage.$verify();
 
@@ -194,19 +189,20 @@ goog.exportSymbol('testPortMessageChannelArrayBufferSending', function() {
 // Test that the port message channel passes the messages received from the port
 // to the correct services with preserving the relative order.
 goog.exportSymbol('testPortMessageChannelMessageReceiving', function() {
-  var testCasePromiseResolver = goog.Promise.withResolver();
+  const testCasePromiseResolver = goog.Promise.withResolver();
 
-  var TEST_MESSAGES = [
-      new TypedMessage('service x', {}),
-      new TypedMessage('service x', {some_data: 1}),
-      new TypedMessage('service y', {})];
+  const TEST_MESSAGES = [
+    new TypedMessage('service x', {}),
+    new TypedMessage('service x', {some_data: 1}),
+    new TypedMessage('service y', {})
+  ];
 
-  var mockPort = new GSC.MockPort('mock port');
+  const mockPort = new GSC.MockPort('mock port');
   setUpPingRespondingForMockPort(mockPort);
   mockPort.postMessage.$replay();
 
   function onPortMessageChannelEstablished() {
-    var receivedMessages = [];
+    const receivedMessages = [];
 
     for (let testMessage of TEST_MESSAGES) {
       portMessageChannel.registerService(
@@ -234,7 +230,7 @@ goog.exportSymbol('testPortMessageChannelMessageReceiving', function() {
     testCasePromiseResolver.reject();
   }
 
-  var portMessageChannel = new GSC.PortMessageChannel(
+  const portMessageChannel = new GSC.PortMessageChannel(
       mockPort.getFakePort(), onPortMessageChannelEstablished);
   portMessageChannel.addOnDisposeCallback(onPortMessageChannelDisposed);
 
@@ -244,9 +240,9 @@ goog.exportSymbol('testPortMessageChannelMessageReceiving', function() {
 // Test that the port message channel is disposed of when the port gets
 // disconnected.
 goog.exportSymbol('testPortMessageChannelDisconnection', function() {
-  var testCasePromiseResolver = goog.Promise.withResolver();
+  const testCasePromiseResolver = goog.Promise.withResolver();
 
-  var mockPort = new GSC.MockPort('mock port');
+  const mockPort = new GSC.MockPort('mock port');
   setUpPingRespondingForMockPort(mockPort);
   mockPort.postMessage.$replay();
 
@@ -263,10 +259,9 @@ goog.exportSymbol('testPortMessageChannelDisconnection', function() {
     mockPort.dispose();
   }
 
-  var portMessageChannel = new GSC.PortMessageChannel(
+  const portMessageChannel = new GSC.PortMessageChannel(
       mockPort.getFakePort(), onPortMessageChannelEstablished);
 
   return testCasePromiseResolver.promise;
 });
-
 });  // goog.scope

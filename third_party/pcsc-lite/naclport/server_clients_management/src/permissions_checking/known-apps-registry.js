@@ -40,18 +40,14 @@ goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
-/** @const */
-var KNOWN_CLIENT_APPS_JSON_URL =
+const KNOWN_CLIENT_APPS_JSON_URL =
     'pcsc_lite_server_clients_management/known_client_apps.json';
 
-/** @const */
-var KNOWN_CLIENT_APP_NAME_FIELD = 'name';
+const KNOWN_CLIENT_APP_NAME_FIELD = 'name';
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var PermissionsChecking =
+const PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
@@ -65,8 +61,7 @@ PermissionsChecking.KnownApp = function(id, name) {
   this.name = name;
 };
 
-/** @const */
-var KnownApp = PermissionsChecking.KnownApp;
+const KnownApp = PermissionsChecking.KnownApp;
 
 /**
  * This class provides an interface for querying the information about the known
@@ -85,8 +80,7 @@ PermissionsChecking.KnownAppsRegistry = function() {
   this.startLoadingJson_();
 };
 
-/** @const */
-var KnownAppsRegistry = PermissionsChecking.KnownAppsRegistry;
+const KnownAppsRegistry = PermissionsChecking.KnownAppsRegistry;
 
 /**
  * @type {!goog.log.Logger}
@@ -105,11 +99,11 @@ KnownAppsRegistry.prototype.logger = GSC.Logging.getScopedLogger(
  * @return {!goog.Promise.<!KnownApp>}
  */
 KnownAppsRegistry.prototype.getById = function(id) {
-  var promiseResolver = goog.Promise.withResolver();
+  const promiseResolver = goog.Promise.withResolver();
 
   this.tryGetByIds([id]).then(
       function(knownApps) {
-        var knownApp = knownApps[0];
+        const knownApp = knownApps[0];
         if (knownApp) {
           promiseResolver.resolve(knownApp);
         } else {
@@ -136,13 +130,13 @@ KnownAppsRegistry.prototype.getById = function(id) {
  * @return {!goog.Promise.<!Array.<?KnownApp>>}
  */
 KnownAppsRegistry.prototype.tryGetByIds = function(idList) {
-  var promiseResolver = goog.Promise.withResolver();
+  const promiseResolver = goog.Promise.withResolver();
 
   this.promiseResolver_.promise.then(
       function(knownAppsMap) {
-        var knownApps = [];
+        const knownApps = [];
         for (let id of idList) {
-          var knownApp = knownAppsMap.get(id);
+          const knownApp = knownAppsMap.get(id);
           knownApps.push(knownApp !== undefined ? knownApp : null);
         }
         promiseResolver.resolve(knownApps);
@@ -166,7 +160,7 @@ KnownAppsRegistry.prototype.startLoadingJson_ = function() {
 /** @private */
 KnownAppsRegistry.prototype.jsonLoadedCallback_ = function(e) {
   /** @type {!goog.net.XhrIo} */
-  var xhrio = e.target;
+  const xhrio = e.target;
 
   if (!xhrio.isSuccess()) {
     this.promiseResolver_.reject(new Error(
@@ -204,10 +198,10 @@ KnownAppsRegistry.prototype.jsonLoadedCallback_ = function(e) {
  */
 KnownAppsRegistry.prototype.parseJsonAndApply_ = function(json) {
   /** @type {!Map.<string, !KnownApp>} */
-  var knownClientApps = new Map;
-  var success = true;
+  const knownClientApps = new Map;
+  let success = true;
   goog.object.forEach(json, function(value, key) {
-    var knownApp = this.tryParseKnownAppJson_(key, value);
+    const knownApp = this.tryParseKnownAppJson_(key, value);
     if (knownApp) {
       knownClientApps.set(knownApp.id, knownApp);
     } else {
@@ -245,11 +239,10 @@ KnownAppsRegistry.prototype.tryParseKnownAppJson_ = function(key, value) {
 
   if (!goog.object.containsKey(value, KNOWN_CLIENT_APP_NAME_FIELD))
     return null;
-  var nameField = value[KNOWN_CLIENT_APP_NAME_FIELD];
+  const nameField = value[KNOWN_CLIENT_APP_NAME_FIELD];
   if (typeof nameField !== 'string')
     return null;
 
   return new KnownApp(key, nameField);
 };
-
 });  // goog.scope

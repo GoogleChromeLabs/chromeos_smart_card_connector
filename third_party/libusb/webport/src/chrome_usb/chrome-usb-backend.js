@@ -34,15 +34,10 @@ goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
-/** @const */
 const REQUESTER_NAME = 'libusb_chrome_usb';
 
-/** @const */
 const GSC = GoogleSmartCard;
-
-/** @const */
 const debugDump = GSC.DebugDump.debugDump;
-/** @const */
 const RemoteCallMessage = GSC.RemoteCallMessage;
 
 /**
@@ -83,7 +78,6 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
       this.setupDonePromiseResolver_.promise);
 };
 
-/** @const */
 const ChromeUsbBackend = GSC.Libusb.ChromeUsbBackend;
 
 /**
@@ -178,22 +172,22 @@ ChromeUsbBackend.prototype.handleRequest_ = function(payload) {
  * @private
  */
 ChromeUsbBackend.prototype.processRequest_ = function(payload) {
-  var remoteCallMessage = RemoteCallMessage.parseRequestPayload(payload);
+  const remoteCallMessage = RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {
     GSC.Logging.failWithLogger(
         this.logger,
         'Failed to parse the remote call message: ' + debugDump(payload));
   }
 
-  var debugRepresentation =
+  const debugRepresentation =
       'chrome.usb.' + remoteCallMessage.getDebugRepresentation();
   this.logger.fine('Received a remote call request: ' + debugRepresentation);
 
-  var promiseResolver = goog.Promise.withResolver();
+  const promiseResolver = goog.Promise.withResolver();
 
-  var chromeUsbFunction = this.getChromeUsbFunction_(
-      remoteCallMessage.functionName);
-  var chromeUsbFunctionArgs = goog.array.concat(
+  const chromeUsbFunction =
+      this.getChromeUsbFunction_(remoteCallMessage.functionName);
+  const chromeUsbFunctionArgs = goog.array.concat(
       remoteCallMessage.functionArguments,
       this.chromeUsbApiGenericCallback_.bind(
           this,
@@ -235,7 +229,7 @@ ChromeUsbBackend.prototype.getChromeUsbFunction_ = function(functionName) {
  */
 ChromeUsbBackend.prototype.chromeUsbApiGenericCallback_ = function(
     debugRepresentation, functionName, promiseResolver, var_args) {
-  var lastError = chrome.runtime.lastError;
+  const lastError = chrome.runtime.lastError;
   if (lastError !== undefined) {
     // FIXME(emaxx): Looks like the USB transfer timeouts also raise this
     // lastError flag, that is not suitable for us as we want to distinguish
