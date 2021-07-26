@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.RequesterMessage');
 goog.require('GoogleSmartCard.RequesterMessage.RequestMessageData');
 goog.require('GoogleSmartCard.RequesterMessage.ResponseMessageData');
+goog.require('goog.Promise');
 goog.require('goog.asserts');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');

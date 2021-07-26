@@ -25,6 +25,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.promise.Resolver');
 goog.require('goog.structs.Queue');
 
 goog.scope(function() {

@@ -22,6 +22,7 @@
 goog.provide('GoogleSmartCard.ConnectorApp.Window.AboutShowing');
 
 goog.require('goog.dom');
+goog.require('goog.events');
 goog.require('goog.events.EventType');
 
 goog.scope(function() {

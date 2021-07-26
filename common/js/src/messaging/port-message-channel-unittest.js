@@ -22,6 +22,7 @@ goog.require('GoogleSmartCard.MockPort');
 goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Promise');
+goog.require('goog.asserts');
 goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.mockmatchers');

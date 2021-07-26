@@ -28,6 +28,7 @@ goog.provide('SmartCardClientApp.BuiltInPinDialog.Backend');
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
+goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
 goog.require('goog.promise.Resolver');

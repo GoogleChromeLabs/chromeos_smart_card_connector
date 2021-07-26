@@ -32,6 +32,9 @@ goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
 goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
+goog.require('goog.asserts');
+goog.require('goog.log.Logger');
+goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 

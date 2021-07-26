@@ -32,6 +32,7 @@ goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.asserts');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
+goog.require('goog.object');
 
 goog.scope(function() {
 

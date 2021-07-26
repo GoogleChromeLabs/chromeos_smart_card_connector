@@ -21,9 +21,11 @@ goog.require('GoogleSmartCard.Requester');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 goog.require('goog.Promise');
+goog.require('goog.array');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.testing');
 goog.require('goog.testing.MockControl');
+goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.jsunit');
 goog.require('goog.testing.mockmatchers');
 

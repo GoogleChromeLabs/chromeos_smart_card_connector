@@ -30,6 +30,7 @@
 goog.provide('GoogleSmartCard.BackgroundPageUnloadPreventing.IFrameMain');
 
 goog.require('GoogleSmartCard.Logging');
+goog.require('goog.log.Logger');
 
 goog.scope(function() {
 

@@ -34,6 +34,7 @@ goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('goog.Disposable');
 goog.require('goog.array');
 goog.require('goog.asserts');
+goog.require('goog.async.nextTick');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 

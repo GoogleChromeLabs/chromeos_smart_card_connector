@@ -46,6 +46,7 @@ goog.require('goog.debug.Console');
 goog.require('goog.log');
 goog.require('goog.log.Level');
 goog.require('goog.log.Logger');
+goog.require('goog.object');
 
 goog.scope(function() {
 

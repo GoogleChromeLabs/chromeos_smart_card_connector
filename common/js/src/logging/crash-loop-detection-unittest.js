@@ -15,6 +15,7 @@
  */
 
 goog.require('GoogleSmartCard.Logging.CrashLoopDetection');
+goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.jsunit');
 
 goog.setTestOnly();

@@ -29,7 +29,9 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.Promise');
+goog.require('goog.array');
 goog.require('goog.log.Logger');
+goog.require('goog.object');
 goog.require('goog.promise.Resolver');
 
 goog.scope(function() {

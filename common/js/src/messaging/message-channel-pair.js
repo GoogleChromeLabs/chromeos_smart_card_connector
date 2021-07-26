@@ -27,6 +27,7 @@ goog.provide('GoogleSmartCard.MessageChannelPair');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.Disposable');
 goog.require('goog.async.nextTick');
+goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
