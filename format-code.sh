@@ -14,12 +14,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script formats the modified C++ files via clang-format according to the
-# Chromium C++ Style Guide.
+# This script formats the modified C++/JS files via clang-format according to
+# the Chromium Style Guides.
 # Only files that are known to Git and belong to the diff of the "master" branch
 # are considered.
 #
-# Note: Sorting of #include's is currently disabled, since the standard
+# Note: Sorting of C/C++ #include's is currently disabled, since the standard
 # algorithm reorders them incorrectly (e.g., it puts includes within our project
 # into the same group as C system headers).
 
@@ -31,7 +31,7 @@ cd $(dirname $(realpath ${0}))
 # Find all relevant touched files. Bail out if nothing is found.
 # Note: "d" in --diff-filter means excluding deleted files - otherwise
 # clang-format fails on these non-existing files.
-FILES=$(git diff --name-only --diff-filter=d master -- "*.cc" "*.h")
+FILES=$(git diff --name-only --diff-filter=d master -- "*.cc" "*.h" "*.js")
 [ "${FILES}" ] || exit 0
 
 # Run clang-format on every found file.
