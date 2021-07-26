@@ -16,8 +16,8 @@
 
 goog.require('GoogleSmartCard.I18n');
 goog.require('goog.dom');
-goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing');
+goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.jsunit');
 
 goog.setTestOnly();

@@ -30,9 +30,9 @@ goog.require('GoogleSmartCard.MessageChannelPinging.PingResponder');
 goog.require('GoogleSmartCard.MessageChannelPinging.Pinger');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.asserts');
-goog.require('goog.object');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
+goog.require('goog.object');
 
 goog.scope(function() {
 
