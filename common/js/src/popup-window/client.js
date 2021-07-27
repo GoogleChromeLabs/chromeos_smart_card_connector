@@ -31,6 +31,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
 goog.require('goog.events.KeyCodes');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
 
@@ -53,7 +54,7 @@ GSC.PopupWindow.Client.getData = function() {
  * Shows the window.
  */
 GSC.PopupWindow.Client.showWindow = function() {
-  logger.fine('Showing the window...');
+  goog.log.fine(logger, 'Showing the window...');
   chrome.app.window.current().show();
 };
 
@@ -66,9 +67,10 @@ GSC.PopupWindow.Client.showWindow = function() {
 GSC.PopupWindow.Client.resolveModalDialog = function(result) {
   const callback = GSC.PopupWindow.Client.getData()['resolveModalDialog'];
   GSC.Logging.checkWithLogger(logger, callback);
-  logger.fine(
+  goog.log.fine(
+      logger,
       'The modal dialog is resolved with the following result: ' +
-      GSC.DebugDump.debugDump(result));
+          GSC.DebugDump.debugDump(result));
   callback(result);
   closeWindow();
 };
@@ -82,7 +84,8 @@ GSC.PopupWindow.Client.resolveModalDialog = function(result) {
 GSC.PopupWindow.Client.rejectModalDialog = function(error) {
   const callback = GSC.PopupWindow.Client.getData()['rejectModalDialog'];
   GSC.Logging.checkWithLogger(logger, callback);
-  logger.fine(
+  goog.log.fine(
+      logger,
       'The modal dialog is rejected with the following error: ' + error);
   callback(error);
   closeWindow();
@@ -110,7 +113,8 @@ GSC.PopupWindow.Client.setWindowHeightToFitContent = function() {
       logger,
       wholeContentHeight !== undefined &&
           typeof wholeContentHeight === 'number');
-  logger.fine('Resizing the window size to ' + wholeContentHeight + 'px');
+  goog.log.fine(
+      logger, 'Resizing the window size to ' + wholeContentHeight + 'px');
   chrome.app.window.current().innerBounds.height = wholeContentHeight;
 };
 
@@ -123,7 +127,7 @@ GSC.PopupWindow.Client.setupClosingOnEscape = function() {
   goog.events.listen(
       document, goog.events.EventType.KEYDOWN,
       documentClosingOnEscapeKeyDownListener);
-  logger.fine('ESC key press handler was set up');
+  goog.log.fine(logger, 'ESC key press handler was set up');
 };
 
 /**
@@ -137,13 +141,13 @@ GSC.PopupWindow.Client.setupRejectionOnWindowClose = function() {
 };
 
 function closeWindow() {
-  logger.fine('Closing the window...');
+  goog.log.fine(logger, 'Closing the window...');
   chrome.app.window.current().close();
 }
 
 function documentClosingOnEscapeKeyDownListener(event) {
   if (event.keyCode == goog.events.KeyCodes.ESC) {
-    logger.fine('ESC key press received, the window will be closed');
+    goog.log.fine(logger, 'ESC key press received, the window will be closed');
     closeWindow();
   }
 }

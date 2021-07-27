@@ -29,6 +29,7 @@ goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Promise');
 goog.require('goog.asserts');
 goog.require('goog.html.TrustedResourceUrl');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.net.jsloader');
@@ -87,7 +88,8 @@ EmscriptenModule.prototype.startLoading = function() {
         this.loadPromiseResolver_.resolve();
       },
       (e) => {
-        this.logger_.warning('Failed to load the Emscripten module: ' + e);
+        goog.log.warning(
+            this.logger_, 'Failed to load the Emscripten module: ' + e);
         this.dispose();
         this.loadPromiseResolver_.reject(e);
       });
@@ -105,7 +107,7 @@ EmscriptenModule.prototype.getMessageChannel = function() {
 
 /** @override */
 EmscriptenModule.prototype.disposeInternal = function() {
-  this.logger_.fine('Disposed');
+  goog.log.fine(this.logger_, 'Disposed');
   // Call `delete()` on the C++ object before dropping the reference on it, in
   // order to make the C++ destructor called.
   // Note: The method is accessed using the square bracket notation, to make
@@ -182,7 +184,7 @@ EmscriptenModule.prototype.getEmscriptenApiModuleSettings_ = function() {
  * @private
  */
 EmscriptenModule.prototype.onModuleCrashed_ = function() {
-  this.logger_.severe('The Emscripten module crashed');
+  goog.log.error(this.logger_, 'The Emscripten module crashed');
   this.dispose();
 };
 
@@ -194,7 +196,7 @@ EmscriptenModule.prototype.onModuleCrashed_ = function() {
 EmscriptenModule.prototype.onModuleStdoutReceived_ = function(message) {
   // TODO(#185): Consider downgrading to the "fine" level once structured log
   // messages are received from the module.
-  this.fromModuleMessagesLogger_.info(message);
+  goog.log.info(this.fromModuleMessagesLogger_, message);
 };
 
 /**
@@ -205,7 +207,7 @@ EmscriptenModule.prototype.onModuleStdoutReceived_ = function(message) {
 EmscriptenModule.prototype.onModuleStderrReceived_ = function(message) {
   // TODO(#185): Consider downgrading to the "fine" level once structured log
   // messages are received from the module.
-  this.fromModuleMessagesLogger_.info(message);
+  goog.log.info(this.fromModuleMessagesLogger_, message);
 };
 
 /**

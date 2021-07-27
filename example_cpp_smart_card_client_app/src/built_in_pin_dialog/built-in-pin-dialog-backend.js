@@ -29,6 +29,7 @@ goog.provide('SmartCardClientApp.BuiltInPinDialog.Backend');
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
@@ -83,7 +84,7 @@ const Backend = SmartCardClientApp.BuiltInPinDialog.Backend;
  * @return {!goog.Promise}
  */
 function handleRequest(payload) {
-  logger.info('Starting PIN dialog...');
+  goog.log.info(logger, 'Starting PIN dialog...');
 
   const pinPromise = GSC.PopupWindow.Server.runModalDialog(
       PIN_DIALOG_URL, PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES);
@@ -92,11 +93,11 @@ function handleRequest(payload) {
 
   pinPromise.then(
       function(pin) {
-        logger.info('PIN dialog finished successfully');
+        goog.log.info(logger, 'PIN dialog finished successfully');
         promiseResolver.resolve(createResponseMessagePayload(pin));
       },
       function(error) {
-        logger.info('PIN dialog finished with error: ' + error);
+        goog.log.info(logger, 'PIN dialog finished with error: ' + error);
         promiseResolver.reject(error);
       });
 

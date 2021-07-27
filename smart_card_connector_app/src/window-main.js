@@ -33,6 +33,7 @@ goog.require('goog.dom');
 goog.require('goog.dom.classlist');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 
 goog.scope(function() {
@@ -42,7 +43,7 @@ const GSC = GoogleSmartCard;
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
-logger.info('The main window is created');
+goog.log.info(logger, 'The main window is created');
 
 goog.events.listen(
     goog.dom.getElement('close-window'), goog.events.EventType.CLICK,
@@ -69,9 +70,10 @@ function displayNonChromeOsWarningIfNeeded() {
     /** @type {string} */
     const os = platformInfo['os'];
     if (os != 'cros') {
-      logger.info(
+      goog.log.info(
+          logger,
           'Displaying the warning regarding non-Chrome OS system ' +
-          '(the current OS is "' + os + '")');
+              '(the current OS is "' + os + '")');
       goog.dom.classlist.remove(
           goog.dom.getElement('non-chrome-os-warning'), 'hidden');
     }

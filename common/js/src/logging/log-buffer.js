@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.LogFormatting');
 goog.require('goog.Disposable');
 goog.require('goog.array');
 goog.require('goog.iter');
+goog.require('goog.log');
 goog.require('goog.log.LogRecord');
 goog.require('goog.log.Logger');
 goog.require('goog.structs.CircularBuffer');
@@ -104,7 +105,8 @@ goog.exportProperty(
  * @param {string} documentLocation
  */
 LogBuffer.prototype.attachToLogger = function(logger, documentLocation) {
-  logger.addHandler(this.onLogRecordObserved_.bind(this, documentLocation));
+  goog.log.addHandler(
+      logger, this.onLogRecordObserved_.bind(this, documentLocation));
 };
 
 goog.exportProperty(

@@ -28,6 +28,7 @@ goog.require('GoogleSmartCard.PopupWindow.Client');
 goog.require('goog.dom');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
+goog.require('goog.log');
 goog.require('goog.log.Level');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.MessageChannel');
@@ -43,7 +44,7 @@ const logger = GSC.Logging.getLogger(
     'SmartCardClientAppWindow',
     goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO);
 
-logger.info('The main window is created');
+goog.log.info(logger, 'The main window is created');
 
 // Obtain the message channel that is used for communication with the executable
 // module.

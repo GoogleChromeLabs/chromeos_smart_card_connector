@@ -25,6 +25,7 @@ goog.provide('GoogleSmartCard.PopupWindow.Server');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.Promise');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
 
@@ -60,10 +61,11 @@ GSC.PopupWindow.Server.createWindow = function(
   if (opt_data !== undefined)
     createdWindowExtends['passedData'] = opt_data;
 
-  logger.fine(
+  goog.log.fine(
+      logger,
       'Creating a popup window with url="' + url +
-      '", options=' + GSC.DebugDump.debugDump(createWindowOptions) +
-      ', data=' + GSC.DebugDump.debugDump(opt_data));
+          '", options=' + GSC.DebugDump.debugDump(createWindowOptions) +
+          ', data=' + GSC.DebugDump.debugDump(opt_data));
 
   /** @preserveTry */
   try {
@@ -128,10 +130,11 @@ function createWindowCallback(createdWindowExtends, createdWindow) {
 
   const createdWindowScope = createdWindow['contentWindow'];
 
-  logger.finer(
+  goog.log.log(
+      logger, goog.log.Level.FINER,
       'The popup window callback is executed, injecting the following data ' +
-      'into the created window: ' +
-      GSC.DebugDump.debugDump(createdWindowExtends));
+          'into the created window: ' +
+          GSC.DebugDump.debugDump(createdWindowExtends));
   Object.assign(createdWindowScope, createdWindowExtends);
 }
 });  // goog.scope

@@ -25,6 +25,7 @@ goog.provide('GoogleSmartCard.MessageChannelPool');
 
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.labs.structs.Multimap');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
@@ -58,7 +59,7 @@ GSC.MessageChannelPool = function() {
    */
   this.onUpdateListeners_ = [];
 
-  this.logger.fine('Initialized successfully');
+  goog.log.fine(this.logger, 'Initialized successfully');
 };
 
 const MessageChannelPool = GSC.MessageChannelPool;
@@ -90,7 +91,8 @@ MessageChannelPool.prototype.addChannel = function(
     GSC.Logging.failWithLogger(
         this.logger, 'Tried to add a channel that was already present');
   }
-  this.logger.fine('Added a new channel, extension id = ' + extensionId);
+  goog.log.fine(
+      this.logger, 'Added a new channel, extension id = ' + extensionId);
   this.channels_.add(extensionId, messageChannel);
   messageChannel.addOnDisposeCallback(
       this.handleChannelDisposed_.bind(this, extensionId, messageChannel));
@@ -103,7 +105,7 @@ MessageChannelPool.prototype.addChannel = function(
  */
 MessageChannelPool.prototype.addOnUpdateListener = function(
     listener, opt_scope) {
-  this.logger.fine('Added an OnUpdateListener');
+  goog.log.fine(this.logger, 'Added an OnUpdateListener');
   this.onUpdateListeners_.push(
       opt_scope !== undefined ? goog.bind(listener, opt_scope) : listener);
   // Fire it once immediately to update.
@@ -114,7 +116,7 @@ MessageChannelPool.prototype.addOnUpdateListener = function(
  * @private
  */
 MessageChannelPool.prototype.fireOnUpdateListeners_ = function() {
-  this.logger.fine('Firing channel update listeners');
+  goog.log.fine(this.logger, 'Firing channel update listeners');
   for (let listener of this.onUpdateListeners_) {
     listener(this.getExtensionIds());
   }
@@ -127,7 +129,8 @@ MessageChannelPool.prototype.fireOnUpdateListeners_ = function() {
  */
 MessageChannelPool.prototype.handleChannelDisposed_ = function(
     extensionId, messageChannel) {
-  this.logger.fine('Disposed of channel, extension id = ' + extensionId);
+  goog.log.fine(
+      this.logger, 'Disposed of channel, extension id = ' + extensionId);
   if (!this.channels_.remove(extensionId, messageChannel)) {
     GSC.Logging.failWithLogger(
         this.logger, 'Tried to dispose of non-existing channel');

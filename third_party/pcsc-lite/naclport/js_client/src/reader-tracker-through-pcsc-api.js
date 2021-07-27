@@ -29,6 +29,7 @@ goog.require('GoogleSmartCard.PcscLiteClient.Context');
 goog.require('goog.array');
 goog.require('goog.async.nextTick');
 goog.require('goog.iter');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
@@ -118,7 +119,7 @@ ReaderTrackerThroughPcscApi.prototype.getReaders = function() {
  */
 ReaderTrackerThroughPcscApi.prototype.startStatusTracking_ = function(
     pcscContextMessageChannel) {
-  this.logger_.fine('Started tracking through PC/SC API');
+  goog.log.fine(this.logger_, 'Started tracking through PC/SC API');
 
   const promise =
       this.makeApiPromise_(pcscContextMessageChannel).then(function(api) {
@@ -206,9 +207,10 @@ ReaderTrackerThroughPcscApi.prototype.startStatusTrackingWithApi_ = function(
 ReaderTrackerThroughPcscApi.prototype.addPromiseErrorHandler_ = function(
     promise) {
   promise.thenCatch(function(error) {
-    this.logger_.warning(
+    goog.log.warning(
+        this.logger_,
         'Stopped tracking through PC/SC API: ' +
-        (/** @type {{message:string}} */ (error)).message);
+            (/** @type {{message:string}} */ (error)).message);
     this.updateResult_([]);
   }, this);
 };
@@ -315,10 +317,11 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesPromise_ = function(
                 promiseResolver.resolve.bind(promiseResolver),
                 function(errorCode) {
                   if (errorCode == API.SCARD_E_UNKNOWN_READER) {
-                    this.logger_.warning(
+                    goog.log.warning(
+                        this.logger_,
                         'Getting the statuses of the readers from PC/SC finished ' +
-                        'unsuccessfully due to removal of the tracked reader. A ' +
-                        'retry will be attempted after some delay');
+                            'unsuccessfully due to removal of the tracked reader. A ' +
+                            'retry will be attempted after some delay');
                     promiseResolver.resolve(null);
                   } else {
                     promiseResolver.reject(new Error(
@@ -386,9 +389,10 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesChangePromise_ = function(
   readerStatesIn.push(new API.SCARD_READERSTATE_IN(
       '\\\\?PnP?\\Notification', API.SCARD_STATE_UNAWARE));
 
-  this.logger_.fine(
+  goog.log.fine(
+      this.logger_,
       'Waiting for the reader statuses change from PC/SC with the following ' +
-      'data: ' + GSC.DebugDump.dump(readerStatesIn) + '...');
+          'data: ' + GSC.DebugDump.dump(readerStatesIn) + '...');
 
   api.SCardGetStatusChange(
          sCardContext, READER_STATUS_QUERY_TIMEOUT_MILLISECONDS, readerStatesIn)
@@ -396,21 +400,24 @@ ReaderTrackerThroughPcscApi.prototype.makeReaderStatesChangePromise_ = function(
           function(result) {
             result.get(
                 function(readerStatesOut) {
-                  this.logger_.fine(
+                  goog.log.fine(
+                      this.logger_,
                       'Received a reader statuses change event from PC/SC: ' +
-                      GSC.DebugDump.dump(readerStatesOut));
+                          GSC.DebugDump.dump(readerStatesOut));
                   promiseResolver.resolve();
                 },
                 function(errorCode) {
                   if (errorCode == API.SCARD_E_TIMEOUT) {
-                    this.logger_.fine(
+                    goog.log.fine(
+                        this.logger_,
                         'No reader statuses changes were reported by PC/SC ' +
-                        'within the timeout');
+                            'within the timeout');
                     promiseResolver.resolve();
                   } else if (errorCode == API.SCARD_E_UNKNOWN_READER) {
-                    this.logger_.warning(
+                    goog.log.warning(
+                        this.logger_,
                         'Waiting for the reader statuses changes from PC/SC finished ' +
-                        'unsuccessfully due to removal of the tracked reader');
+                            'unsuccessfully due to removal of the tracked reader');
                     promiseResolver.resolve();
                   } else {
                     promiseResolver.reject(new Error(
@@ -445,10 +452,11 @@ ReaderTrackerThroughPcscApi.prototype.updateResult_ = function(result) {
     return '"' + readerInfo.name + '"' +
         (readerInfo.isCardPresent ? ' (with inserted card)' : '');
   });
-  this.logger_.info(
+  goog.log.info(
+      this.logger_,
       'Information about readers returned by PC/SC: ' +
-      (dumpedResults.length ? goog.iter.join(dumpedResults, ', ') :
-                              'no readers'));
+          (dumpedResults.length ? goog.iter.join(dumpedResults, ', ') :
+                                  'no readers'));
 
   this.result_ = result;
   this.updateListener_();

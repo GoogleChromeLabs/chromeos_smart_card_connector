@@ -35,6 +35,7 @@ goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('goog.Promise');
 goog.require('goog.iter');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
 goog.require('goog.promise.Resolver');
@@ -98,20 +99,23 @@ UserPromptingChecker.prototype.logger = GSC.Logging.getScopedLogger(
  * @return {!goog.Promise}
  */
 UserPromptingChecker.prototype.check = function(clientAppId) {
-  this.logger.finest(
+  goog.log.log(
+      this.logger, goog.log.Level.FINEST,
       'Checking permissions for client App with id "' + clientAppId + '"...');
 
   const existingPromise = this.checkPromiseMap_.get(clientAppId);
   if (existingPromise !== undefined) {
-    this.logger.finest(
+    goog.log.log(
+        this.logger, goog.log.Level.FINEST,
         'Found the existing promise for the permission checking of the ' +
-        'client App with id "' + clientAppId + '", returning it');
+            'client App with id "' + clientAppId + '", returning it');
     return existingPromise;
   }
 
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Checking permissions for client App with id "' + clientAppId + '": no ' +
-      'existing promise was found, performing the actual check...');
+          'existing promise was found, performing the actual check...');
 
   const promiseResolver = goog.Promise.withResolver();
   this.checkPromiseMap_.set(clientAppId, promiseResolver.promise);
@@ -121,22 +125,25 @@ UserPromptingChecker.prototype.check = function(clientAppId) {
         if (storedUserSelections.has(clientAppId)) {
           const userSelection = storedUserSelections.get(clientAppId);
           if (userSelection) {
-            this.logger.info(
+            goog.log.info(
+                this.logger,
                 'Granted permission to client App with id "' + clientAppId +
-                '" due to the stored user selection');
+                    '" due to the stored user selection');
             promiseResolver.resolve();
           } else {
-            this.logger.info(
+            goog.log.info(
+                this.logger,
                 'Rejected permission to client App with id "' + clientAppId +
-                '" due to the stored user selection');
+                    '" due to the stored user selection');
             this.notifyAboutRejectionByStoredSelection_(clientAppId);
             promiseResolver.reject(new Error(
                 'Rejected permission due to the stored user selection'));
           }
         } else {
-          this.logger.fine(
+          goog.log.fine(
+              this.logger,
               'No stored user selection was found for the client App with id ' +
-              '"' + clientAppId + '", going to show the user prompt...');
+                  '"' + clientAppId + '", going to show the user prompt...');
           this.promptUser_(clientAppId, promiseResolver);
         }
       },
@@ -150,9 +157,10 @@ UserPromptingChecker.prototype.check = function(clientAppId) {
 
 /** @private */
 UserPromptingChecker.prototype.loadLocalStorage_ = function() {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Loading local storage data with the stored user selections (the key ' +
-      'is "' + LOCAL_STORAGE_KEY + '")...');
+          'is "' + LOCAL_STORAGE_KEY + '")...');
   chrome.storage.local.get(
       LOCAL_STORAGE_KEY, this.localStorageLoadedCallback_.bind(this));
 };
@@ -162,9 +170,10 @@ UserPromptingChecker.prototype.loadLocalStorage_ = function() {
  * @private
  */
 UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
-  this.logger.finer(
+  goog.log.log(
+      this.logger, goog.log.Level.FINER,
       'Loaded the following data from the local storage: ' +
-      GSC.DebugDump.dump(items));
+          GSC.DebugDump.dump(items));
   const storedUserSelections = this.parseLocalStorageUserSelections_(items);
   const itemsForLog = [];
   storedUserSelections.forEach(function(userSelection, extensionId) {
@@ -172,9 +181,10 @@ UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
         (userSelection ? 'allow' : 'deny') + ' for extension "' + extensionId +
         '"');
   });
-  this.logger.info(
+  goog.log.info(
+      this.logger,
       'Loaded local storage data with the stored user selections: ' +
-      (itemsForLog.length ? goog.iter.join(itemsForLog, ', ') : 'no data'));
+          (itemsForLog.length ? goog.iter.join(itemsForLog, ', ') : 'no data'));
 
   this.localStoragePromiseResolver_.resolve(storedUserSelections);
 };
@@ -192,16 +202,18 @@ UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
     return storedUserSelections;
   const contents = localStorageItems[LOCAL_STORAGE_KEY];
   if (!goog.isObject(contents)) {
-    this.logger.warning(
+    goog.log.warning(
+        this.logger,
         'Corrupted local storage data - expected an object, received: ' +
-        GSC.DebugDump.dump(contents));
+            GSC.DebugDump.dump(contents));
     return storedUserSelections;
   }
   goog.object.forEach(contents, function(userSelection, appId) {
     if (typeof userSelection !== 'boolean') {
-      this.logger.warning(
+      goog.log.warning(
+          this.logger,
           'Corrupted local storage entry - expected the object value to ' +
-          'be a boolean, received: ' + GSC.DebugDump.dump(userSelection));
+              'be a boolean, received: ' + GSC.DebugDump.dump(userSelection));
       return;
     }
     storedUserSelections.set(appId, userSelection);
@@ -235,9 +247,10 @@ UserPromptingChecker.prototype.promptUser_ = function(
  */
 UserPromptingChecker.prototype.promptUserForKnownApp_ = function(
     clientAppId, knownApp, promiseResolver) {
-  this.logger.info(
+  goog.log.info(
+      this.logger,
       'Showing the user prompt for the known client App with id "' +
-      clientAppId + '" and name "' + knownApp.name + '"...');
+          clientAppId + '" and name "' + knownApp.name + '"...');
   this.runPromptDialog_(
       clientAppId, {
         'is_client_known': true,
@@ -254,9 +267,10 @@ UserPromptingChecker.prototype.promptUserForKnownApp_ = function(
  */
 UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
     clientAppId, promiseResolver) {
-  this.logger.info(
+  goog.log.info(
+      this.logger,
       'Showing the warning user prompt for the unknown client App with id "' +
-      clientAppId + '"...');
+          clientAppId + '"...');
   this.runPromptDialog_(
       clientAppId, {'is_client_known': false, 'client_app_id': clientAppId},
       promiseResolver);
@@ -276,24 +290,27 @@ UserPromptingChecker.prototype.runPromptDialog_ = function(
   dialogPromise.then(
       function(dialogResult) {
         if (dialogResult) {
-          this.logger.info(
+          goog.log.info(
+              this.logger,
               'Granted permission to client App with id "' + clientAppId +
-              '" based on the "grant" user selection');
+                  '" based on the "grant" user selection');
           this.storeUserSelection_(clientAppId, true);
           promiseResolver.resolve();
         } else {
-          this.logger.info(
+          goog.log.info(
+              this.logger,
               'Rejected permission to client App with id "' + clientAppId +
-              '" based on the "reject" user selection');
+                  '" based on the "reject" user selection');
           this.storeUserSelection_(clientAppId, false);
           promiseResolver.reject(new Error(
               'Reject permission based on the "reject" user selection'));
         }
       },
       function() {
-        this.logger.info(
+        goog.log.info(
+            this.logger,
             'Rejected permission to client App with id "' + clientAppId +
-            '" because of the user cancellation of the prompt dialog');
+                '" because of the user cancellation of the prompt dialog');
         this.storeUserSelection_(clientAppId, false);
         promiseResolver.reject(new Error(
             'Rejected permission because of the user cancellation of the prompt ' +
@@ -312,24 +329,28 @@ UserPromptingChecker.prototype.storeUserSelection_ = function(
   if (!userSelection)
     return;
 
-  this.logger.info(
+  goog.log.info(
+      this.logger,
       'Storing user selection of the ' +
-      (userSelection ? 'granted' : 'rejected') + ' permission to client App ' +
-      'with id "' + clientAppId + '"');
+          (userSelection ? 'granted' : 'rejected') +
+          ' permission to client App ' +
+          'with id "' + clientAppId + '"');
 
   this.localStoragePromiseResolver_.promise.then(
       function(/** !Map */ storedUserSelections) {
         storedUserSelections.set(clientAppId, userSelection);
         const dumpedValue =
             GSC.ContainerHelpers.buildObjectFromMap(storedUserSelections);
-        this.logger.finer(
+        goog.log.log(
+            this.logger, goog.log.Level.FINER,
             'Storing the following data in the local storage: ' +
-            GSC.DebugDump.dump(dumpedValue));
+                GSC.DebugDump.dump(dumpedValue));
         chrome.storage.local.set(
             goog.object.create(LOCAL_STORAGE_KEY, dumpedValue));
       },
       function() {
-        this.logger.warning(
+        goog.log.warning(
+            this.logger,
             'Failed to store the user selection in the local storage');
       },
       this);

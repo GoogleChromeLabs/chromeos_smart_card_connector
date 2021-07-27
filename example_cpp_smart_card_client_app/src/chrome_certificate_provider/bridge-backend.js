@@ -33,6 +33,7 @@ goog.require('GoogleSmartCard.Requester');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
 goog.require('goog.array');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
 
@@ -172,7 +173,7 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(
   executableModule.addOnDisposeCallback(
       this.executableModuleDisposedListener_.bind(this));
 
-  this.logger.fine('Constructed');
+  goog.log.fine(this.logger, 'Constructed');
 };
 
 const Backend = SmartCardClientApp.CertificateProviderBridge.Backend;
@@ -233,7 +234,7 @@ Backend.prototype.disposeInternal = function() {
 
   this.requestReceiver_ = null;
 
-  this.logger.fine('Disposed');
+  goog.log.fine(this.logger, 'Disposed');
 
   Backend.base(this, 'disposeInternal');
 };
@@ -255,7 +256,8 @@ Backend.prototype.handleRequest_ = function(payload) {
 
   const debugRepresentation = 'chrome.certificateProvider.' +
       remoteCallMessage.getDebugRepresentation();
-  this.logger.fine('Received a remote call request: ' + debugRepresentation);
+  goog.log.fine(
+      this.logger, 'Received a remote call request: ' + debugRepresentation);
 
   const promiseResolver = goog.Promise.withResolver();
 
@@ -292,7 +294,7 @@ Backend.prototype.handleRequest_ = function(payload) {
 
 /** @private */
 Backend.prototype.executableModuleDisposedListener_ = function() {
-  this.logger.fine('Executable module was disposed, disposing...');
+  goog.log.fine(this.logger, 'Executable module was disposed, disposing...');
   this.dispose();
 };
 
@@ -302,16 +304,18 @@ Backend.prototype.setupApiListeners_ = function() {
 
   if (!chrome.certificateProvider) {
     if (goog.DEBUG) {
-      this.logger.warning(
+      goog.log.warning(
+          this.logger,
           'chrome.certificateProvider API is not available. Providing ' +
-          'certificates to the Chrome browser will be impossible. This is ' +
-          'just a warning in the Debug build (in order to make some testing ' +
-          'on non-Chrome OS systems possible), but this will be a fatal ' +
-          'error in the Release build');
+              'certificates to the Chrome browser will be impossible. This is ' +
+              'just a warning in the Debug build (in order to make some testing ' +
+              'on non-Chrome OS systems possible), but this will be a fatal ' +
+              'error in the Release build');
     } else {
-      this.logger.severe(
+      goog.log.error(
+          this.logger,
           'chrome.certificateProvider API is not available. Providing ' +
-          'certificates to the Chrome browser will be impossible');
+              'certificates to the Chrome browser will be impossible');
     }
     return;
   }
@@ -331,9 +335,10 @@ Backend.prototype.setupApiListeners_ = function() {
     // (There's no specific timeline - a conservative approach would be to wait
     // until all devices released with Chrome OS <=85 reach the auto-update
     // expiration date, which will be roughly in year 2028.)
-    this.logger.info(
+    goog.log.info(
+        this.logger,
         'Proactively notifying Chrome about certificate changes will not be ' +
-        'possible: chrome.certificateProvider API version is too old.');
+            'possible: chrome.certificateProvider API version is too old.');
     this.certificatesRequestListener_ =
         this.onCertificatesRequested_.bind(this);
     chrome.certificateProvider.onCertificatesRequested.addListener(
@@ -343,7 +348,8 @@ Backend.prototype.setupApiListeners_ = function() {
         this.signDigestRequestListener_);
   }
 
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Started listening for chrome.certificateProvider API events');
 };
 
@@ -391,7 +397,7 @@ Backend.prototype.onSignDigestRequested_ = function(request, reportCallback) {
  * @private
  */
 Backend.prototype.processCertificatesUpdateRequest_ = function(request) {
-  this.logger.info('Started handling certificates update request');
+  goog.log.info(this.logger, 'Started handling certificates update request');
   const remoteCallMessage =
       new GSC.RemoteCallMessage(HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
   const promise =
@@ -401,16 +407,18 @@ Backend.prototype.processCertificatesUpdateRequest_ = function(request) {
         GSC.Logging.checkWithLogger(this.logger, results.length == 1);
         const certificates =
             goog.array.map(results[0], createClientCertificateInfo);
-        this.logger.info(
+        goog.log.info(
+            this.logger,
             'Setting the certificate list with ' + certificates.length +
-            ' certificates: ' + GSC.DebugDump.debugDump(certificates));
+                ' certificates: ' + GSC.DebugDump.debugDump(certificates));
         chrome.certificateProvider.setCertificates({
           certificatesRequestId: request.certificatesRequestId,
           clientCertificates: certificates
         });
       },
       function() {
-        this.logger.info('Setting empty certificates list and an error');
+        goog.log.info(
+            this.logger, 'Setting empty certificates list and an error');
         chrome.certificateProvider.setCertificates({
           certificatesRequestId: request.certificatesRequestId,
           clientCertificates: [],
@@ -425,11 +433,12 @@ Backend.prototype.processCertificatesUpdateRequest_ = function(request) {
  * @private
  */
 Backend.prototype.processSignatureRequest_ = function(request) {
-  this.logger.info(
+  goog.log.info(
+      this.logger,
       'Started handling signature request. The request contents are: ' +
-      'algorithm is "' + request.algorithm + '", input is ' +
-      GSC.DebugDump.debugDump(request.input) + ', certificate is ' +
-      GSC.DebugDump.debugDump(request.certificate));
+          'algorithm is "' + request.algorithm + '", input is ' +
+          GSC.DebugDump.debugDump(request.input) + ', certificate is ' +
+          GSC.DebugDump.debugDump(request.certificate));
   /** @type {!ExecutableModuleSignatureRequest} */
   const executableRequest = {
     signRequestId: request.signRequestId,
@@ -446,14 +455,16 @@ Backend.prototype.processSignatureRequest_ = function(request) {
       function(results) {
         GSC.Logging.checkWithLogger(this.logger, results.length == 1);
         const signature = results[0];
-        this.logger.info(
+        goog.log.info(
+            this.logger,
             'Responding to the signature request with the created signature: ' +
-            GSC.DebugDump.debugDump(signature));
+                GSC.DebugDump.debugDump(signature));
         chrome.certificateProvider.reportSignature(
             {signRequestId: request.signRequestId, signature: signature});
       },
       function() {
-        this.logger.info('Responding to the signature request with an error');
+        goog.log.info(
+            this.logger, 'Responding to the signature request with an error');
         chrome.certificateProvider.reportSignature({
           signRequestId: request.signRequestId,
           error: chrome.certificateProvider.Error.GENERAL_ERROR
@@ -469,7 +480,7 @@ Backend.prototype.processSignatureRequest_ = function(request) {
  * @private
  */
 Backend.prototype.processCertificatesRequest_ = function(reportCallback) {
-  this.logger.info('Started handling certificates request');
+  goog.log.info(this.logger, 'Started handling certificates request');
   const remoteCallMessage =
       new GSC.RemoteCallMessage(HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
   const promise =
@@ -478,15 +489,17 @@ Backend.prototype.processCertificatesRequest_ = function(reportCallback) {
       function(results) {
         GSC.Logging.checkWithLogger(this.logger, results.length == 1);
         const certificates = goog.array.map(results[0], createCertificateInfo);
-        this.logger.info(
+        goog.log.info(
+            this.logger,
             'Responding to the certificates request with ' +
-            certificates.length +
-            ' certificates: ' + GSC.DebugDump.debugDump(certificates));
+                certificates.length +
+                ' certificates: ' + GSC.DebugDump.debugDump(certificates));
         reportCallback(
             certificates, this.rejectedCertificatesCallback_.bind(this));
       },
       function() {
-        this.logger.info(
+        goog.log.info(
+            this.logger,
             'Responding to the certificates request with an error');
         reportCallback([], this.rejectedCertificatesCallback_.bind(this));
       },
@@ -500,11 +513,12 @@ Backend.prototype.processCertificatesRequest_ = function(reportCallback) {
  */
 Backend.prototype.processSignDigestRequest_ = function(
     request, reportCallback) {
-  this.logger.info(
+  goog.log.info(
+      this.logger,
       'Started handling digest signing request. The request contents are: ' +
-      'hash is "' + request.hash + '", digest is ' +
-      GSC.DebugDump.debugDump(request.digest) + ', certificate is ' +
-      GSC.DebugDump.debugDump(request.certificate));
+          'hash is "' + request.hash + '", digest is ' +
+          GSC.DebugDump.debugDump(request.digest) + ', certificate is ' +
+          GSC.DebugDump.debugDump(request.certificate));
   /** @type {!ExecutableModuleSignatureRequest} */
   const executableRequest = {
     signRequestId: request.signRequestId,
@@ -521,13 +535,15 @@ Backend.prototype.processSignDigestRequest_ = function(
       function(results) {
         GSC.Logging.checkWithLogger(this.logger, results.length == 1);
         const signature = results[0];
-        this.logger.info(
+        goog.log.info(
+            this.logger,
             'Responding to the digest sign request with the created signature: ' +
-            GSC.DebugDump.debugDump(signature));
+                GSC.DebugDump.debugDump(signature));
         reportCallback(signature);
       },
       function() {
-        this.logger.info('Responding to the digest sign request with an error');
+        goog.log.info(
+            this.logger, 'Responding to the digest sign request with an error');
         reportCallback(undefined);
       },
       this);
@@ -542,9 +558,10 @@ Backend.prototype.rejectedCertificatesCallback_ = function(
     rejectedCertificates) {
   if (!rejectedCertificates.length)
     return;
-  this.logger.warning(
+  goog.log.warning(
+      this.logger,
       'chrome.certificateProvider API rejected ' + rejectedCertificates.length +
-      ' certificates: ' + GSC.DebugDump.debugDump(rejectedCertificates));
+          ' certificates: ' + GSC.DebugDump.debugDump(rejectedCertificates));
 };
 
 /**

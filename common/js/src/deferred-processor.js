@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.log');
 goog.require('goog.promise.Resolver');
 goog.require('goog.structs.Queue');
 
@@ -137,7 +138,7 @@ DeferredProcessor.prototype.disposeInternal = function() {
   this.isSettled_ = true;
   this.flushEnqueuedJobs_();
 
-  this.logger.fine('Disposed');
+  goog.log.fine(this.logger, 'Disposed');
 
   DeferredProcessor.base(this, 'disposeInternal');
 };
@@ -149,7 +150,7 @@ DeferredProcessor.prototype.promiseResolvedListener_ = function() {
   if (this.isSettled_)
     return;
   this.isSettled_ = true;
-  this.logger.fine('The awaited promise was resolved');
+  goog.log.fine(this.logger, 'The awaited promise was resolved');
   this.flushEnqueuedJobs_();
 };
 
@@ -157,7 +158,7 @@ DeferredProcessor.prototype.promiseResolvedListener_ = function() {
 DeferredProcessor.prototype.promiseRejectedListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.fine('The awaited promise was rejected, disposing...');
+  goog.log.fine(this.logger, 'The awaited promise was rejected, disposing...');
   this.dispose();
 };
 

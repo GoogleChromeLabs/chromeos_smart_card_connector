@@ -32,6 +32,7 @@ goog.require('goog.dom');
 goog.require('goog.dom.dataset');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.string');
 
@@ -78,9 +79,10 @@ function onReadersChanged(readers) {
  * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers
  */
 function displayReaderList(readers) {
-  logger.info(
+  goog.log.info(
+      logger,
       'Displaying ' + readers.length +
-      ' card reader(s): ' + GSC.DebugDump.dump(readers));
+          ' card reader(s): ' + GSC.DebugDump.dump(readers));
   goog.dom.removeChildren(readersListElement);
 
   for (let reader of readers) {
@@ -115,9 +117,10 @@ function makeReaderNameForDisplaying(readerName) {
     if (goog.string.endsWith(readerName, suffixToRemove)) {
       const newReaderName =
           readerName.substr(0, readerName.length - suffixToRemove.length);
-      logger.fine(
+      goog.log.fine(
+          logger,
           'Transformed reader name "' + readerName + '" into "' +
-          newReaderName + '"');
+              newReaderName + '"');
       return newReaderName;
     }
   }
@@ -162,7 +165,7 @@ function updateAddDeviceButtonText(readersCount) {
 function addDeviceClickListener(e) {
   e.preventDefault();
 
-  logger.fine('Running USB devices selection dialog...');
+  goog.log.fine(logger, 'Running USB devices selection dialog...');
   chrome.usb.getUserSelectedDevices(
       {'multiple': true, 'filters': USB_DEVICE_FILTERS},
       getUserSelectedDevicesCallback);
@@ -172,9 +175,10 @@ function addDeviceClickListener(e) {
  * @param {!Array.<!chrome.usb.Device>} devices
  */
 function getUserSelectedDevicesCallback(devices) {
-  logger.fine(
+  goog.log.fine(
+      logger,
       'USB selection dialog finished, ' + devices.length + ' devices ' +
-      'were chosen');
+          'were chosen');
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {

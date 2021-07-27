@@ -33,6 +33,7 @@ goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Promise');
 goog.require('goog.Timer');
 goog.require('goog.array');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.promise.Resolver');
@@ -111,7 +112,7 @@ GSC.PcscLiteServer.ReaderTracker = function(
           this.logger_, pcscContextMessageChannel,
           this.fireOnUpdateListeners_.bind(this));
 
-  this.logger_.fine('Initialized');
+  goog.log.fine(this.logger_, 'Initialized');
 };
 
 const ReaderTracker = GSC.PcscLiteServer.ReaderTracker;
@@ -126,7 +127,7 @@ const ReaderTracker = GSC.PcscLiteServer.ReaderTracker;
  */
 ReaderTracker.prototype.addOnUpdateListener = function(listener) {
   this.updateListeners_.push(listener);
-  this.logger_.fine('Added an update listener');
+  goog.log.fine(this.logger_, 'Added an update listener');
 
   listener(this.getReaders());
 };
@@ -137,11 +138,12 @@ ReaderTracker.prototype.addOnUpdateListener = function(listener) {
  */
 ReaderTracker.prototype.removeOnUpdateListener = function(listener) {
   if (goog.array.remove(this.updateListeners_, listener)) {
-    this.logger_.fine('Removed an update listener');
+    goog.log.fine(this.logger_, 'Removed an update listener');
   } else {
-    this.logger_.warning(
+    goog.log.warning(
+        this.logger_,
         'Failed to remove an update listener: the passed ' +
-        'function was not found');
+            'function was not found');
   }
 };
 
@@ -179,9 +181,10 @@ ReaderTracker.prototype.getReaders = function() {
  */
 ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
   const readers = this.getReaders();
-  this.logger_.fine(
+  goog.log.fine(
+      this.logger_,
       'Firing readers updated listeners with data ' +
-      GSC.DebugDump.dump(readers));
+          GSC.DebugDump.dump(readers));
   for (let listener of this.updateListeners_) {
     listener(readers);
   }
@@ -253,9 +256,10 @@ TrackerThroughPcscServerHook.prototype.readerInitAddListener_ = function(
   /** @type {string} */
   const device = GSC.MessagingCommon.extractKey(message, 'device');
 
-  this.logger_.info(
+  goog.log.info(
+      this.logger_,
       'A new reader "' + name + '" (port ' + port + ', device "' + device +
-      '") is being initialized...');
+          '") is being initialized...');
 
   GSC.Logging.checkWithLogger(
       this.logger_, !this.portToReaderInfoMap_.has(port),
@@ -286,19 +290,22 @@ TrackerThroughPcscServerHook.prototype.readerFinishAddListener_ = function(
   const readerTitleForLog =
       '"' + name + '" (port ' + port + ', device "' + device + '")';
   if (returnCode === 0) {
-    this.logger_.info(
+    goog.log.info(
+        this.logger_,
         'The reader ' + readerTitleForLog + ' was successfully ' +
-        'initialized');
+            'initialized');
     readerInfo = new ReaderInfo(name, ReaderStatus.SUCCESS);
   } else if (this.shouldHideFailedReader_(device)) {
-    this.logger_.info(
+    goog.log.info(
+        this.logger_,
         'Silent error while initializing the reader ' + readerTitleForLog +
-        ': error code ' + returnCodeHex +
-        '. This reader will be hidden from UI.');
+            ': error code ' + returnCodeHex +
+            '. This reader will be hidden from UI.');
   } else {
-    this.logger_.warning(
+    goog.log.warning(
+        this.logger_,
         'Failure while initializing the reader ' + readerTitleForLog +
-        ': error code ' + returnCodeHex);
+            ': error code ' + returnCodeHex);
     readerInfo = new ReaderInfo(name, ReaderStatus.FAILURE, returnCodeHex);
   }
 
@@ -324,7 +331,8 @@ TrackerThroughPcscServerHook.prototype.readerRemoveListener_ = function(
   /** @type {number} */
   const port = GSC.MessagingCommon.extractKey(message, 'port');
 
-  this.logger_.info(
+  goog.log.info(
+      this.logger_,
       'The reader "' + name + '" (port ' + port + ') was removed');
 
   GSC.Logging.checkWithLogger(

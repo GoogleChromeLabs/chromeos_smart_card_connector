@@ -29,6 +29,7 @@ goog.require('goog.asserts');
 goog.require('goog.array');
 goog.require('goog.Disposable');
 goog.require('goog.iter');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
@@ -64,9 +65,10 @@ GSC.Libusb.ChromeLoginStateHook = function() {
   if (chrome.loginState) {
     chrome.loginState.getProfileType(this.onGotProfileType_.bind(this));
   } else {
-    this.logger.warning(
+    goog.log.warning(
+        this.logger,
         'chrome.loginState API is not available. This app might require a ' +
-        'newer version of Chrome.');
+            'newer version of Chrome.');
     this.hookIsReadyResolver_.reject();
   }
 };
@@ -89,7 +91,7 @@ ChromeLoginStateHook.prototype.disposeInternal = function() {
         this.boundOnGotSessionState_);
   }
 
-  this.logger.fine('Disposed');
+  goog.log.fine(this.logger, 'Disposed');
 
   ChromeLoginStateHook.base(this, 'disposeInternal');
 };
@@ -133,12 +135,12 @@ ChromeLoginStateHook.prototype.onGotSessionState_ = function(sessionState) {
   goog.asserts.assert(chrome.loginState);
   if (sessionState === chrome.loginState.SessionState.IN_LOCK_SCREEN &&
       !this.simulateDevicesAbsent_) {
-    this.logger.info('No longer showing USB devices.');
+    goog.log.info(this.logger, 'No longer showing USB devices.');
     this.simulateDevicesAbsent_ = true;
   } else if (
       sessionState !== chrome.loginState.SessionState.IN_LOCK_SCREEN &&
       this.simulateDevicesAbsent_) {
-    this.logger.info('Showing USB devices.');
+    goog.log.info(this.logger, 'Showing USB devices.');
     this.simulateDevicesAbsent_ = false;
   }
   // All calls after the first one to resolve() will be ignored.

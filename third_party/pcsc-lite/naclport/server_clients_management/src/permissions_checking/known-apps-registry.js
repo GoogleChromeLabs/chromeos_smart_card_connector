@@ -34,6 +34,7 @@ goog.require('GoogleSmartCard.Json');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.Promise');
 goog.require('goog.asserts');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.net.XhrIo');
 goog.require('goog.object');
@@ -152,9 +153,10 @@ KnownAppsRegistry.prototype.tryGetByIds = function(idList) {
 
 /** @private */
 KnownAppsRegistry.prototype.startLoadingJson_ = function() {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Loading registry from JSON file (URL: "' + KNOWN_CLIENT_APPS_JSON_URL +
-      '")...');
+          '")...');
   goog.net.XhrIo.send(
       KNOWN_CLIENT_APPS_JSON_URL, this.jsonLoadedCallback_.bind(this));
 };
@@ -209,17 +211,19 @@ KnownAppsRegistry.prototype.parseJsonAndApply_ = function(json) {
     if (knownApp) {
       knownClientApps.set(knownApp.id, knownApp);
     } else {
-      this.logger.warning(
+      goog.log.warning(
+          this.logger,
           'Failed to parse the following known Apps registry JSON item: key="' +
-          key + '", value=' + GSC.DebugDump.dump(value));
+              key + '", value=' + GSC.DebugDump.dump(value));
       success = false;
     }
   }, this);
 
   if (success) {
-    this.logger.fine(
+    goog.log.fine(
+        this.logger,
         'Successfully loaded registry from JSON file: ' +
-        GSC.DebugDump.dump(knownClientApps));
+            GSC.DebugDump.dump(knownClientApps));
     this.promiseResolver_.resolve(knownClientApps);
   } else {
     this.promiseResolver_.reject(

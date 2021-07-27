@@ -31,6 +31,7 @@ goog.require('GoogleSmartCard.MessageChannelPinging.PingResponder');
 goog.require('GoogleSmartCard.MessageChannelPinging.Pinger');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.asserts');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
@@ -93,7 +94,7 @@ GSC.PortMessageChannel = function(port, opt_onEstablished) {
   /** @private */
   this.pinger_ = new Pinger(this, this.logger, opt_onEstablished);
 
-  this.logger.fine('Initialized successfully');
+  goog.log.fine(this.logger, 'Initialized successfully');
 };
 
 const PortMessageChannel = GSC.PortMessageChannel;
@@ -110,7 +111,9 @@ PortMessageChannel.prototype.send = function(serviceName, payload) {
 
   const typedMessage = new GSC.TypedMessage(serviceName, normalizedPayload);
   const message = typedMessage.makeMessage();
-  this.logger.finest('Posting a message: ' + GSC.DebugDump.debugDump(message));
+  goog.log.log(
+      this.logger, goog.log.Level.FINEST,
+      'Posting a message: ' + GSC.DebugDump.debugDump(message));
 
   if (this.isDisposed()) {
     GSC.Logging.failWithLogger(
@@ -143,7 +146,7 @@ PortMessageChannel.prototype.disposeInternal = function() {
   this.port_.disconnect();
   this.port_ = null;
 
-  this.logger.fine('Disposed');
+  goog.log.fine(this.logger, 'Disposed');
 
   PortMessageChannel.base(this, 'disposeInternal');
 };
@@ -176,7 +179,8 @@ PortMessageChannel.prototype.disconnectEventHandler_ = function() {
       chrome.runtime.lastError.message) {
     reason = ` due to '${chrome.runtime.lastError.message}'`;
   }
-  this.logger.info(`Message port was disconnected${reason}, disposing...`);
+  goog.log.info(
+      this.logger, `Message port was disconnected${reason}, disposing...`);
   this.dispose();
 };
 
@@ -185,7 +189,9 @@ PortMessageChannel.prototype.disconnectEventHandler_ = function() {
  * @private
  */
 PortMessageChannel.prototype.messageEventHandler_ = function(message) {
-  this.logger.finest('Received a message: ' + GSC.DebugDump.debugDump(message));
+  goog.log.log(
+      this.logger, goog.log.Level.FINEST,
+      'Received a message: ' + GSC.DebugDump.debugDump(message));
 
   const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
   if (!typedMessage) {

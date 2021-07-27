@@ -29,6 +29,7 @@ goog.require('goog.asserts');
 goog.require('goog.array');
 goog.require('goog.functions');
 goog.require('goog.iter');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
@@ -129,7 +130,8 @@ ChromeUsbBackend.prototype.startObservingDevices_ = function() {
  * @private
  */
 ChromeUsbBackend.prototype.deviceAddedListener_ = function(device) {
-  this.logger.fine('A USB device was added: ' + GSC.DebugDump.dump(device));
+  goog.log.fine(
+      this.logger, 'A USB device was added: ' + GSC.DebugDump.dump(device));
   this.logCurrentDevices_();
 };
 
@@ -138,7 +140,8 @@ ChromeUsbBackend.prototype.deviceAddedListener_ = function(device) {
  * @private
  */
 ChromeUsbBackend.prototype.deviceRemovedListener_ = function(device) {
-  this.logger.fine('A USB device was removed: ' + GSC.DebugDump.dump(device));
+  goog.log.fine(
+      this.logger, 'A USB device was removed: ' + GSC.DebugDump.dump(device));
   this.logCurrentDevices_();
 };
 
@@ -155,9 +158,10 @@ ChromeUsbBackend.prototype.logDevices_ = function(devices) {
   goog.array.sortByKey(devices, function(device) {
     return device.device;
   });
-  this.logger.info(
+  goog.log.info(
+      this.logger,
       devices.length +
-      ' USB device(s) available: ' + GSC.DebugDump.dump(devices));
+          ' USB device(s) available: ' + GSC.DebugDump.dump(devices));
 };
 
 /**
@@ -185,7 +189,8 @@ ChromeUsbBackend.prototype.processRequest_ = function(payload) {
 
   const debugRepresentation =
       'chrome.usb.' + remoteCallMessage.getDebugRepresentation();
-  this.logger.fine('Received a remote call request: ' + debugRepresentation);
+  goog.log.fine(
+      this.logger, 'Received a remote call request: ' + debugRepresentation);
 
   const promiseResolver = goog.Promise.withResolver();
 
@@ -254,9 +259,10 @@ ChromeUsbBackend.prototype.chromeUsbApiGenericCallback_ = function(
  */
 ChromeUsbBackend.prototype.reportRequestException_ = function(
     debugRepresentation, promiseResolver, exc) {
-  this.logger.warning(
+  goog.log.warning(
+      this.logger,
       'JavaScript exception was thrown while calling ' + debugRepresentation +
-      ': ' + exc);
+          ': ' + exc);
   promiseResolver.reject(exc);
 };
 
@@ -272,11 +278,12 @@ ChromeUsbBackend.prototype.reportRequestError_ = function(
     // FIXME(emaxx): Remove this special branch here once the USB transfer
     // timeouts support is implemented. This branch is useful before this is
     // done, as it suppresses the useless warning messages.
-    this.logger.info('Transfer timed out: ' + debugRepresentation);
+    goog.log.info(this.logger, 'Transfer timed out: ' + debugRepresentation);
   } else {
-    this.logger.warning(
+    goog.log.warning(
+        this.logger,
         'API error occurred while calling ' + debugRepresentation + ': ' +
-        errorMessage);
+            errorMessage);
   }
   promiseResolver.reject(new Error(errorMessage));
 };
@@ -293,9 +300,10 @@ ChromeUsbBackend.prototype.reportRequestSuccess_ = function(
   this.requestSuccessHooks_.forEach(function(hook) {
     resultArgs = hook(functionName, resultArgs);
   });
-  this.logger.fine(
-      'Results returned by the ' + debugRepresentation +
-      ' call: ' + goog.iter.join(goog.iter.map(resultArgs, debugDump), ', '));
+  goog.log.fine(
+      this.logger,
+      'Results returned by the ' + debugRepresentation + ' call: ' +
+          goog.iter.join(goog.iter.map(resultArgs, debugDump), ', '));
   promiseResolver.resolve(resultArgs);
 };
 });  // goog.scope

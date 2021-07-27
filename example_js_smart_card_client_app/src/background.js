@@ -95,7 +95,7 @@ function initializeContext() {
  * client API requests.
  */
 function contextInitializedListener(api) {
-  logger.info('Successfully connected to the server app');
+  goog.log.info(logger, 'Successfully connected to the server app');
   work(api);
 }
 
@@ -107,7 +107,7 @@ function contextInitializedListener(api) {
  * becomes disposed at this point (if not disposed yet).
  */
 function contextDisposedListener() {
-  logger.warning('Connection to the server app was shut down');
+  goog.log.warning(logger, 'Connection to the server app was shut down');
   context = null;
   stopWork();
 }
@@ -125,29 +125,30 @@ function work(api) {
   //
 
   function runPcscLiteDemo(callback) {
-    logger.info('Starting PC/SC-Lite demo...');
-    GSC.PcscLiteClient.Demo.logger.setLevel(goog.log.Level.FINE);
+    goog.log.info(logger, 'Starting PC/SC-Lite demo...');
+    goog.log.setLevel(logger, goog.log.Level.FINE);
     GSC.PcscLiteClient.Demo.run(
         api,
         function() {
-          logger.info('PC/SC-Lite demo successfully finished');
+          goog.log.info(logger, 'PC/SC-Lite demo successfully finished');
           callback();
         },
         function() {
-          logger.warning('PC/SC-Lite demo failed');
+          goog.log.warning(logger, 'PC/SC-Lite demo failed');
           callback();
         });
   }
 
   function runPinDialogDemo() {
-    logger.info('Starting PIN dialog demo...');
+    goog.log.info(logger, 'Starting PIN dialog demo...');
     const pinPromise = SmartCardClientApp.PinDialog.Server.requestPin();
     pinPromise.then(
         function(pin) {
-          logger.info('PIN dialog demo finished: received PIN "' + pin + '"');
+          goog.log.info(
+              logger, 'PIN dialog demo finished: received PIN "' + pin + '"');
         },
         function(error) {
-          logger.info('PIN dialog demo finished: ' + error);
+          goog.log.info(logger, 'PIN dialog demo finished: ' + error);
         });
   }
 

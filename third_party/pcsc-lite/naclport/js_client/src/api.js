@@ -60,6 +60,7 @@ goog.require('goog.Promise');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.async.nextTick');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
@@ -110,7 +111,7 @@ GSC.PcscLiteClient.API = function(messageChannel) {
   this.requester_ =
       new GSC.Requester(Constants.REQUESTER_TITLE, this.messageChannel_);
 
-  this.logger.fine('Initialized');
+  goog.log.fine(this.logger, 'Initialized');
 };
 
 const API = GSC.PcscLiteClient.API;
@@ -3504,7 +3505,7 @@ API.prototype.disposeInternal = function() {
 
   this.messageChannel_ = null;
 
-  this.logger.fine('Disposed');
+  goog.log.fine(this.logger, 'Disposed');
 
   API.base(this, 'disposeInternal');
 };
@@ -3513,7 +3514,7 @@ API.prototype.disposeInternal = function() {
 API.prototype.messageChannelDisposedListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.info('Message channel was disposed, disposing...');
+  goog.log.info(this.logger, 'Message channel was disposed, disposing...');
   this.dispose();
 };
 

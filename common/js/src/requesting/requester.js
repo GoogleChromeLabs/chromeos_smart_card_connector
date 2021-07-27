@@ -33,6 +33,7 @@ goog.require('goog.Promise');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.iter');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.promise.Resolver');
@@ -106,9 +107,10 @@ goog.inherits(Requester, goog.Disposable);
 Requester.prototype.postRequest = function(payload) {
   const requestId = this.requestIdGenerator_.next();
 
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Starting a request with identifier ' + requestId +
-      ', the payload is: ' + GSC.DebugDump.debugDump(payload));
+          ', the payload is: ' + GSC.DebugDump.debugDump(payload));
 
   const promiseResolver = goog.Promise.withResolver();
 
@@ -146,7 +148,7 @@ Requester.prototype.disposeInternal = function() {
 
   this.messageChannel_ = null;
 
-  this.logger.fine('Disposed');
+  goog.log.fine(this.logger, 'Disposed');
 
   Requester.base(this, 'disposeInternal');
 };
@@ -168,7 +170,7 @@ Requester.prototype.addChannelDisposedListener_ = function() {
 Requester.prototype.channelDisposedListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.info('Message channel was disposed, disposing...');
+  goog.log.info(this.logger, 'Message channel was disposed, disposing...');
   this.dispose();
 };
 
@@ -212,9 +214,10 @@ Requester.prototype.responseMessageReceivedListener_ = function(messageData) {
  * @private
  */
 Requester.prototype.resolveRequest_ = function(requestId, payload) {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'The request with identifier ' + requestId + ' succeeded with the ' +
-      'following result: ' + GSC.DebugDump.debugDump(payload));
+          'following result: ' + GSC.DebugDump.debugDump(payload));
   this.popRequestPromiseResolver_(requestId).resolve(payload);
 };
 
@@ -224,7 +227,8 @@ Requester.prototype.resolveRequest_ = function(requestId, payload) {
  * @private
  */
 Requester.prototype.rejectRequest_ = function(requestId, errorMessage) {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'The request with identifier ' + requestId + ' failed: ' + errorMessage);
   this.popRequestPromiseResolver_(requestId).reject(new Error(errorMessage));
 };

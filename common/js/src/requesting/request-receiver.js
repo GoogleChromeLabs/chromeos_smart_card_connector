@@ -29,6 +29,7 @@ goog.require('GoogleSmartCard.RequesterMessage.RequestMessageData');
 goog.require('GoogleSmartCard.RequesterMessage.ResponseMessageData');
 goog.require('goog.Promise');
 goog.require('goog.asserts');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
@@ -112,10 +113,12 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
   const requestMessageData = RequestMessageData.parseMessageData(messageData);
   if (requestMessageData === null) {
     if (this.shouldDisposeOnInvalidMessage_) {
-      this.logger.warning(
+      goog.log.warning(
+          this.logger,
           'Failed to parse the received request message: ' +
-          GSC.DebugDump.debugDump(messageData) + ', disposing of the message ' +
-          'channel...');
+              GSC.DebugDump.debugDump(messageData) +
+              ', disposing of the message ' +
+              'channel...');
       this.messageChannel_.dispose();
       return;
     } else {
@@ -126,10 +129,11 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
     }
   }
 
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Received a request with identifier ' + requestMessageData.requestId +
-      ', the payload is: ' +
-      GSC.DebugDump.debugDump(requestMessageData.payload));
+          ', the payload is: ' +
+          GSC.DebugDump.debugDump(requestMessageData.payload));
 
   const promise = this.requestHandler_(requestMessageData.payload);
   promise.then(
@@ -145,17 +149,20 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
 RequestReceiver.prototype.responseResolvedListener_ = function(
     requestMessageData, payload) {
   if (this.messageChannel_.isDisposed()) {
-    this.logger.warning(
+    goog.log.warning(
+        this.logger,
         'Ignoring the successful response for the request with identifier ' +
-        requestMessageData.requestId + ' due to the disposal of the message ' +
-        'channel');
+            requestMessageData.requestId +
+            ' due to the disposal of the message ' +
+            'channel');
     return;
   }
 
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Sending the successful response for the request with identifier ' +
-      requestMessageData.requestId +
-      ', the response is: ' + GSC.DebugDump.debugDump(payload));
+          requestMessageData.requestId +
+          ', the response is: ' + GSC.DebugDump.debugDump(payload));
   this.sendResponse_(
       new ResponseMessageData(requestMessageData.requestId, payload));
 };
@@ -168,17 +175,20 @@ RequestReceiver.prototype.responseResolvedListener_ = function(
 RequestReceiver.prototype.responseRejectedListener_ = function(
     requestMessageData, error) {
   if (this.messageChannel_.isDisposed()) {
-    this.logger.warning(
+    goog.log.warning(
+        this.logger,
         'Ignoring the failure response for the request with identifier ' +
-        requestMessageData.requestId + ' due to the disposal of the message ' +
-        'channel');
+            requestMessageData.requestId +
+            ' due to the disposal of the message ' +
+            'channel');
     return;
   }
 
   const stringifiedError = String(error);
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Sending the failure response for the request with identifier ' +
-      requestMessageData.requestId + ', the error is: ' + stringifiedError);
+          requestMessageData.requestId + ', the error is: ' + stringifiedError);
   this.sendResponse_(new ResponseMessageData(
       requestMessageData.requestId, undefined, stringifiedError));
 };

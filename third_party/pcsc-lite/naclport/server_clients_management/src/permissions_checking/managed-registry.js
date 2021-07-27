@@ -31,6 +31,7 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.Promise');
 goog.require('goog.array');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.object');
 goog.require('goog.promise.Resolver');
@@ -107,9 +108,10 @@ ManagedRegistry.prototype.getById = function(clientAppId) {
 
 /** @private */
 ManagedRegistry.prototype.loadManagedStorage_ = function() {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Loading managed storage data with the allowed client App ids (the key ' +
-      'is "' + MANAGED_STORAGE_KEY + '")...');
+          'is "' + MANAGED_STORAGE_KEY + '")...');
   chrome.storage.managed.get(
       MANAGED_STORAGE_KEY, this.managedStorageLoadedCallback_.bind(this));
 };
@@ -119,15 +121,17 @@ ManagedRegistry.prototype.loadManagedStorage_ = function() {
  * @private
  */
 ManagedRegistry.prototype.managedStorageLoadedCallback_ = function(items) {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Loaded the following data from the managed storage: ' +
-      GSC.DebugDump.dump(items));
+          GSC.DebugDump.dump(items));
 
   if (this.setAllowedClientAppIdsFromStorageData_(
           goog.object.get(items, MANAGED_STORAGE_KEY, []))) {
-    this.logger.info(
+    goog.log.info(
+        this.logger,
         'Loaded managed storage data with the allowed client App ids: ' +
-        GSC.DebugDump.dump(this.allowedClientAppIds_));
+            GSC.DebugDump.dump(this.allowedClientAppIds_));
     this.managedStoragePromiseResolver_.resolve();
   } else {
     this.managedStoragePromiseResolver_.reject(new Error(
@@ -150,16 +154,18 @@ ManagedRegistry.prototype.storageChangedListener_ = function(
     changes, areaName) {
   if (areaName != 'managed')
     return;
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Received the managed storage update event: ' +
-      GSC.DebugDump.dump(changes));
+          GSC.DebugDump.dump(changes));
 
   if (changes[MANAGED_STORAGE_KEY]) {
     if (this.setAllowedClientAppIdsFromStorageData_(
             goog.object.get(changes[MANAGED_STORAGE_KEY], 'newValue', []))) {
-      this.logger.info(
+      goog.log.info(
+          this.logger,
           'Loaded the updated managed storage data with the allowed client ' +
-          'App ids: ' + GSC.DebugDump.dump(this.allowedClientAppIds_));
+              'App ids: ' + GSC.DebugDump.dump(this.allowedClientAppIds_));
     }
   }
 };
@@ -172,10 +178,11 @@ ManagedRegistry.prototype.storageChangedListener_ = function(
 ManagedRegistry.prototype.setAllowedClientAppIdsFromStorageData_ = function(
     storageData) {
   if (!Array.isArray(storageData)) {
-    this.logger.warning(
+    goog.log.warning(
+        this.logger,
         'Failed to load the allowed client App ids data from the managed ' +
-        'storage: expected an array, instead got: ' +
-        GSC.DebugDump.dump(storageData));
+            'storage: expected an array, instead got: ' +
+            GSC.DebugDump.dump(storageData));
     return false;
   }
 
@@ -183,10 +190,11 @@ ManagedRegistry.prototype.setAllowedClientAppIdsFromStorageData_ = function(
   let success = true;
   goog.array.forEach(/** @type {!Array} */ (storageData), function(item) {
     if (typeof item !== 'string') {
-      this.logger.warning(
+      goog.log.warning(
+          this.logger,
           'Failed to load the allowed client App id from the managed ' +
-          'storage item: expected a string, instead got: ' +
-          GSC.DebugDump.dump(item));
+              'storage item: expected a string, instead got: ' +
+              GSC.DebugDump.dump(item));
       success = false;
       return;
     }

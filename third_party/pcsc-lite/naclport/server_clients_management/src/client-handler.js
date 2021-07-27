@@ -42,6 +42,7 @@ goog.require('goog.Promise');
 goog.require('goog.asserts');
 goog.require('goog.iter');
 goog.require('goog.iter.Iterator');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
@@ -219,7 +220,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
 
   this.addChannelDisposedListeners_();
 
-  this.logger.fine('Initialized');
+  goog.log.fine(this.logger, 'Initialized');
 };
 
 const ClientHandler = GSC.PcscLiteServerClientsManagement.ClientHandler;
@@ -285,7 +286,7 @@ ClientHandler.prototype.disposeInternal = function() {
 
   this.requestReceiver_ = null;
 
-  this.logger.fine('Disposed');
+  goog.log.fine(this.logger, 'Disposed');
 
   ClientHandler.base(this, 'disposeInternal');
 };
@@ -304,16 +305,18 @@ ClientHandler.prototype.handleRequest_ = function(payload) {
 
   const remoteCallMessage = RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {
-    this.logger.warning(
+    goog.log.warning(
+        this.logger,
         'Failed to parse the received request payload: ' +
-        GSC.DebugDump.debugDump(payload));
+            GSC.DebugDump.debugDump(payload));
     return goog.Promise.reject(
         new Error('Failed to parse the received request payload'));
   }
 
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Received a remote call request: ' +
-      remoteCallMessage.getDebugRepresentation());
+          remoteCallMessage.getDebugRepresentation());
 
   return this.deferredProcessor_.addJob(
       this.postRequestToServer_.bind(this, remoteCallMessage));
@@ -330,12 +333,14 @@ ClientHandler.prototype.getPermissionsCheckPromise_ = function() {
       .then(
           function() {
             if (this.clientAppId_ !== null) {
-              this.logger.info(
+              goog.log.info(
+                  this.logger,
                   'Client was granted permissions to issue PC/SC requests');
             }
           },
           function(error) {
-            this.logger.warning(
+            goog.log.warning(
+                this.logger,
                 'Client permission denied. All PC/SC requests will be rejected');
             throw error;
           },
@@ -364,7 +369,8 @@ ClientHandler.prototype.addChannelDisposedListeners_ = function() {
 ClientHandler.prototype.serverMessageChannelDisposedListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.warning('Server message channel was disposed, disposing...');
+  goog.log.warning(
+      this.logger, 'Server message channel was disposed, disposing...');
 
   // Note: this assignment is important because it prevents from sending of any
   // messages through the server message channel, which is normally happening
@@ -386,9 +392,9 @@ ClientHandler.prototype.clientMessageChannelDisposedListener_ = function() {
     return;
   const logMessage = 'Client message channel was disposed, disposing...';
   if (this.clientAppId_ === null)
-    this.logger.fine(logMessage);
+    goog.log.fine(this.logger, logMessage);
   else
-    this.logger.info(logMessage);
+    goog.log.info(this.logger, logMessage);
   this.dispose();
 };
 
@@ -402,9 +408,10 @@ ClientHandler.prototype.clientMessageChannelDisposedListener_ = function() {
  * @private
  */
 ClientHandler.prototype.postRequestToServer_ = function(remoteCallMessage) {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Started processing the remote call request: ' +
-      remoteCallMessage.getDebugRepresentation());
+          remoteCallMessage.getDebugRepresentation());
 
   this.createServerRequesterIfNeed_();
 
@@ -412,21 +419,23 @@ ClientHandler.prototype.postRequestToServer_ = function(remoteCallMessage) {
       .postRequest(remoteCallMessage.makeRequestPayload())
       .then(
           function(result) {
-            this.logger.fine(
+            goog.log.fine(
+                this.logger,
                 'The remote call request ' +
-                remoteCallMessage.getDebugRepresentation() +
-                ' finished successfully' +
-                (goog.DEBUG ? ' with the following result: ' +
-                         GSC.DebugDump.debugDump(result) :
-                              ''));
+                    remoteCallMessage.getDebugRepresentation() +
+                    ' finished successfully' +
+                    (goog.DEBUG ? ' with the following result: ' +
+                             GSC.DebugDump.debugDump(result) :
+                                  ''));
             return result;
           },
           function(error) {
-            this.logger.warning(
+            goog.log.warning(
+                this.logger,
                 'The remote call request ' +
-                remoteCallMessage.getDebugRepresentation() +
-                ' failed with the ' +
-                'following error: ' + error);
+                    remoteCallMessage.getDebugRepresentation() +
+                    ' failed with the ' +
+                    'following error: ' + error);
             throw error;
           },
           this);

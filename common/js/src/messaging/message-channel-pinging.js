@@ -147,7 +147,7 @@ Pinger.createMessageData = function() {
 Pinger.prototype.postPingMessage = function() {
   if (this.isDisposed())
     return;
-  this.logger.finest('Sending a ping request...');
+  goog.log.log(this.logger, goog.log.Level.FINEST, 'Sending a ping request...');
 
   this.messageChannel_.send(Pinger.SERVICE_NAME, Pinger.createMessageData());
 };
@@ -160,7 +160,7 @@ Pinger.prototype.disposeInternal = function() {
 
   this.messageChannel_ = null;
 
-  this.logger.fine('Disposed');
+  goog.log.fine(this.logger, 'Disposed');
 
   Pinger.base(this, 'disposeInternal');
 };
@@ -177,48 +177,53 @@ Pinger.prototype.serviceCallback_ = function(messageData) {
     return;
 
   if (!goog.object.containsKey(messageData, CHANNEL_ID_MESSAGE_KEY)) {
-    this.logger.warning(
+    goog.log.warning(
+        this.logger,
         'Received pong message has wrong format: no "' +
-        CHANNEL_ID_MESSAGE_KEY + '" field is present. Disposing...');
+            CHANNEL_ID_MESSAGE_KEY + '" field is present. Disposing...');
     this.disposeChannelAndSelf_();
     return;
   }
   const channelId = messageData[CHANNEL_ID_MESSAGE_KEY];
   if (typeof channelId !== 'number') {
-    this.logger.warning(
+    goog.log.warning(
+        this.logger,
         'Received pong message has wrong format: channel id ' +
-        'is not a number. Disposing...');
+            'is not a number. Disposing...');
     this.disposeChannelAndSelf_();
     return;
   }
 
   if (this.previousRemoteEndChannelId_ === null) {
-    this.logger.fine(
+    goog.log.fine(
+        this.logger,
         'Received the first pong response (remote channel id is ' + channelId +
-        '). The message channel is considered established');
+            '). The message channel is considered established');
     this.previousRemoteEndChannelId_ = channelId;
     if (this.onEstablished_) {
       this.onEstablished_();
       this.onEstablished_ = null;
     }
   } else if (this.previousRemoteEndChannelId_ == channelId) {
-    this.logger.finest(
+    goog.log.log(
+        this.logger, goog.log.Level.FINEST,
         'Received a pong response with the correct channel ' +
-        'id, so the remote end considered alive');
+            'id, so the remote end considered alive');
     this.clearTimeoutTimer_();
     this.scheduleTimeoutTimer_();
   } else {
-    this.logger.warning(
+    goog.log.warning(
+        this.logger,
         'Received a pong response with a channel id different from the ' +
-        'expected one (expected ' + this.previousRemoteEndChannelId_ +
-        ', received ' + channelId + '). Disposing...');
+            'expected one (expected ' + this.previousRemoteEndChannelId_ +
+            ', received ' + channelId + '). Disposing...');
     this.disposeChannelAndSelf_();
   }
 };
 
 /** @private */
 Pinger.prototype.disposeChannelAndSelf_ = function() {
-  this.logger.fine('Disposing the message channel and self');
+  goog.log.fine(this.logger, 'Disposing the message channel and self');
   this.messageChannel_.dispose();
   this.dispose();
 };
@@ -256,9 +261,10 @@ Pinger.prototype.clearTimeoutTimer_ = function() {
 Pinger.prototype.timeoutCallback_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.warning(
+  goog.log.warning(
+      this.logger,
       'No pong response received in time, the remote end is ' +
-      'dead. Disposing...');
+          'dead. Disposing...');
   this.disposeChannelAndSelf_();
 };
 
@@ -294,7 +300,8 @@ GSC.MessageChannelPinging.PingResponder = function(
   /** @private */
   this.onPingReceivedListener_ = opt_onPingReceived;
 
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Initialized (generated channel id is ' + PingResponder.CHANNEL_ID + ')');
 };
 
@@ -328,7 +335,9 @@ PingResponder.prototype.serviceCallback_ = function() {
   if (this.isDisposed())
     return;
 
-  this.logger.finest('Received a ping request, sending pong response...');
+  goog.log.log(
+      this.logger, goog.log.Level.FINEST,
+      'Received a ping request, sending pong response...');
 
   this.messageChannel_.send(
       PingResponder.SERVICE_NAME,
@@ -344,7 +353,7 @@ PingResponder.prototype.disposeInternal = function() {
 
   this.onPingReceivedListener_ = null;
 
-  this.logger.fine('Disposed');
+  goog.log.fine(this.logger, 'Disposed');
 
   PingResponder.base(this, 'disposeInternal');
 };
