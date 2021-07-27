@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -73,8 +74,7 @@ MockPort.prototype.disposeInternal = function() {
  */
 MockPort.prototype.fireOnMessage = function(message) {
   GSC.Logging.checkWithLogger(
-      this.logger,
-      !this.isDisposed() && this.isConnected_,
+      this.logger, !this.isDisposed() && this.isConnected_,
       'Trying to fire onMessage for closed mock port');
   for (let listener of this.getListeners_('onMessage'))
     listener(message);

@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -98,7 +99,7 @@ function prepareMessage() {
 
   const linkElement = goog.dom.getElement('message-app-link');
   goog.dom.setTextContent(linkElement, linkTitle);
-  linkElement["href"] = linkHref;
+  linkElement['href'] = linkHref;
 
   if (!isClientKnown) {
     goog.dom.classlist.add(
@@ -130,5 +131,4 @@ goog.events.listen(
     goog.dom.getElement('close-window'), 'click', closeWindowClickListener);
 
 GSC.PopupWindow.Client.prepareAndShowAsModalDialog();
-
 });  // goog.scope

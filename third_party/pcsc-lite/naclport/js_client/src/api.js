@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -106,8 +107,8 @@ GSC.PcscLiteClient.API = function(messageChannel) {
       this.messageChannelDisposedListener_.bind(this));
 
   /** @private */
-  this.requester_ = new GSC.Requester(
-      Constants.REQUESTER_TITLE, this.messageChannel_);
+  this.requester_ =
+      new GSC.Requester(Constants.REQUESTER_TITLE, this.messageChannel_);
 
   this.logger.fine('Initialized');
 };
@@ -584,8 +585,7 @@ goog.exportProperty(
 API.SCARD_E_CERTIFICATE_UNAVAILABLE = castToInt32(0x8010002D);
 
 goog.exportProperty(
-    API,
-    'SCARD_E_CERTIFICATE_UNAVAILABLE',
+    API, 'SCARD_E_CERTIFICATE_UNAVAILABLE',
     API.SCARD_E_CERTIFICATE_UNAVAILABLE);
 
 /**
@@ -1124,8 +1124,8 @@ goog.exportProperty(
     API, 'MAX_BUFFER_SIZE_EXTENDED', API.MAX_BUFFER_SIZE_EXTENDED);
 
 /*
-* Tags for requesting card and reader attributes
-*/
+ * Tags for requesting card and reader attributes
+ */
 
 /**
  * @param {number} class_
@@ -1227,8 +1227,8 @@ goog.exportProperty(API, 'SCARD_CLASS_SYSTEM', API.SCARD_CLASS_SYSTEM);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_VENDOR_NAME = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_VENDOR_INFO, 0x0100);
+API.SCARD_ATTR_VENDOR_NAME =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_VENDOR_INFO, 0x0100);
 
 goog.exportProperty(API, 'SCARD_ATTR_VENDOR_NAME', API.SCARD_ATTR_VENDOR_NAME);
 
@@ -1237,8 +1237,8 @@ goog.exportProperty(API, 'SCARD_ATTR_VENDOR_NAME', API.SCARD_ATTR_VENDOR_NAME);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_VENDOR_IFD_TYPE = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_VENDOR_INFO, 0x0101);
+API.SCARD_ATTR_VENDOR_IFD_TYPE =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_VENDOR_INFO, 0x0101);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_VENDOR_IFD_TYPE', API.SCARD_ATTR_VENDOR_IFD_TYPE);
@@ -1249,8 +1249,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_VENDOR_IFD_VERSION = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_VENDOR_INFO, 0x0102);
+API.SCARD_ATTR_VENDOR_IFD_VERSION =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_VENDOR_INFO, 0x0102);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_VENDOR_IFD_VERSION', API.SCARD_ATTR_VENDOR_IFD_VERSION);
@@ -1260,12 +1260,11 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_VENDOR_IFD_SERIAL_NO = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_VENDOR_INFO, 0x0103);
+API.SCARD_ATTR_VENDOR_IFD_SERIAL_NO =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_VENDOR_INFO, 0x0103);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_VENDOR_IFD_SERIAL_NO',
+    API, 'SCARD_ATTR_VENDOR_IFD_SERIAL_NO',
     API.SCARD_ATTR_VENDOR_IFD_SERIAL_NO);
 
 /**
@@ -1274,8 +1273,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CHANNEL_ID = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_COMMUNICATIONS, 0x0110);
+API.SCARD_ATTR_CHANNEL_ID =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_COMMUNICATIONS, 0x0110);
 
 goog.exportProperty(API, 'SCARD_ATTR_CHANNEL_ID', API.SCARD_ATTR_CHANNEL_ID);
 
@@ -1284,12 +1283,11 @@ goog.exportProperty(API, 'SCARD_ATTR_CHANNEL_ID', API.SCARD_ATTR_CHANNEL_ID);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_ASYNC_PROTOCOL_TYPES = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_PROTOCOL, 0x0120);
+API.SCARD_ATTR_ASYNC_PROTOCOL_TYPES =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_PROTOCOL, 0x0120);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_ASYNC_PROTOCOL_TYPES',
+    API, 'SCARD_ATTR_ASYNC_PROTOCOL_TYPES',
     API.SCARD_ATTR_ASYNC_PROTOCOL_TYPES);
 
 /**
@@ -1297,8 +1295,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_DEFAULT_CLK = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_PROTOCOL, 0x0121);
+API.SCARD_ATTR_DEFAULT_CLK =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_PROTOCOL, 0x0121);
 
 goog.exportProperty(API, 'SCARD_ATTR_DEFAULT_CLK', API.SCARD_ATTR_DEFAULT_CLK);
 
@@ -1307,8 +1305,7 @@ goog.exportProperty(API, 'SCARD_ATTR_DEFAULT_CLK', API.SCARD_ATTR_DEFAULT_CLK);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_MAX_CLK = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_PROTOCOL, 0x0122);
+API.SCARD_ATTR_MAX_CLK = API.SCARD_ATTR_VALUE(API.SCARD_CLASS_PROTOCOL, 0x0122);
 
 goog.exportProperty(API, 'SCARD_ATTR_MAX_CLK', API.SCARD_ATTR_MAX_CLK);
 
@@ -1317,8 +1314,8 @@ goog.exportProperty(API, 'SCARD_ATTR_MAX_CLK', API.SCARD_ATTR_MAX_CLK);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_DEFAULT_DATA_RATE = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_PROTOCOL, 0x0123);
+API.SCARD_ATTR_DEFAULT_DATA_RATE =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_PROTOCOL, 0x0123);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_DEFAULT_DATA_RATE', API.SCARD_ATTR_DEFAULT_DATA_RATE);
@@ -1328,8 +1325,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_MAX_DATA_RATE = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_PROTOCOL, 0x0124);
+API.SCARD_ATTR_MAX_DATA_RATE =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_PROTOCOL, 0x0124);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_MAX_DATA_RATE', API.SCARD_ATTR_MAX_DATA_RATE);
@@ -1339,8 +1336,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_MAX_IFSD = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_PROTOCOL, 0x0125);
+API.SCARD_ATTR_MAX_IFSD =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_PROTOCOL, 0x0125);
 
 goog.exportProperty(API, 'SCARD_ATTR_MAX_IFSD', API.SCARD_ATTR_MAX_IFSD);
 
@@ -1349,8 +1346,8 @@ goog.exportProperty(API, 'SCARD_ATTR_MAX_IFSD', API.SCARD_ATTR_MAX_IFSD);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_SYNC_PROTOCOL_TYPES = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_PROTOCOL, 0x0126);
+API.SCARD_ATTR_SYNC_PROTOCOL_TYPES =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_PROTOCOL, 0x0126);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_SYNC_PROTOCOL_TYPES', API.SCARD_ATTR_SYNC_PROTOCOL_TYPES);
@@ -1361,8 +1358,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_POWER_MGMT_SUPPORT = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_POWER_MGMT, 0x0131);
+API.SCARD_ATTR_POWER_MGMT_SUPPORT =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_POWER_MGMT, 0x0131);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_POWER_MGMT_SUPPORT', API.SCARD_ATTR_POWER_MGMT_SUPPORT);
@@ -1372,12 +1369,11 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_USER_TO_CARD_AUTH_DEVICE = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_SECURITY, 0x0140);
+API.SCARD_ATTR_USER_TO_CARD_AUTH_DEVICE =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_SECURITY, 0x0140);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_USER_TO_CARD_AUTH_DEVICE',
+    API, 'SCARD_ATTR_USER_TO_CARD_AUTH_DEVICE',
     API.SCARD_ATTR_USER_TO_CARD_AUTH_DEVICE);
 
 /**
@@ -1385,12 +1381,11 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_USER_AUTH_INPUT_DEVICE = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_SECURITY, 0x0142);
+API.SCARD_ATTR_USER_AUTH_INPUT_DEVICE =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_SECURITY, 0x0142);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_USER_AUTH_INPUT_DEVICE',
+    API, 'SCARD_ATTR_USER_AUTH_INPUT_DEVICE',
     API.SCARD_ATTR_USER_AUTH_INPUT_DEVICE);
 
 /**
@@ -1399,8 +1394,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CHARACTERISTICS = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_MECHANICAL, 0x0150);
+API.SCARD_ATTR_CHARACTERISTICS =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_MECHANICAL, 0x0150);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_CHARACTERISTICS', API.SCARD_ATTR_CHARACTERISTICS);
@@ -1410,12 +1405,11 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_PROTOCOL_TYPE = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x0201);
+API.SCARD_ATTR_CURRENT_PROTOCOL_TYPE =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x0201);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_CURRENT_PROTOCOL_TYPE',
+    API, 'SCARD_ATTR_CURRENT_PROTOCOL_TYPE',
     API.SCARD_ATTR_CURRENT_PROTOCOL_TYPE);
 
 /**
@@ -1423,8 +1417,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_CLK = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x0202);
+API.SCARD_ATTR_CURRENT_CLK =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x0202);
 
 goog.exportProperty(API, 'SCARD_ATTR_CURRENT_CLK', API.SCARD_ATTR_CURRENT_CLK);
 
@@ -1433,8 +1427,8 @@ goog.exportProperty(API, 'SCARD_ATTR_CURRENT_CLK', API.SCARD_ATTR_CURRENT_CLK);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_F = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x0203);
+API.SCARD_ATTR_CURRENT_F =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x0203);
 
 goog.exportProperty(API, 'SCARD_ATTR_CURRENT_F', API.SCARD_ATTR_CURRENT_F);
 
@@ -1443,8 +1437,8 @@ goog.exportProperty(API, 'SCARD_ATTR_CURRENT_F', API.SCARD_ATTR_CURRENT_F);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_D = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x0204);
+API.SCARD_ATTR_CURRENT_D =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x0204);
 
 goog.exportProperty(API, 'SCARD_ATTR_CURRENT_D', API.SCARD_ATTR_CURRENT_D);
 
@@ -1453,8 +1447,8 @@ goog.exportProperty(API, 'SCARD_ATTR_CURRENT_D', API.SCARD_ATTR_CURRENT_D);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_N = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x0205);
+API.SCARD_ATTR_CURRENT_N =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x0205);
 
 goog.exportProperty(API, 'SCARD_ATTR_CURRENT_N', API.SCARD_ATTR_CURRENT_N);
 
@@ -1463,8 +1457,8 @@ goog.exportProperty(API, 'SCARD_ATTR_CURRENT_N', API.SCARD_ATTR_CURRENT_N);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_W = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x0206);
+API.SCARD_ATTR_CURRENT_W =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x0206);
 
 goog.exportProperty(API, 'SCARD_ATTR_CURRENT_W', API.SCARD_ATTR_CURRENT_W);
 
@@ -1473,8 +1467,8 @@ goog.exportProperty(API, 'SCARD_ATTR_CURRENT_W', API.SCARD_ATTR_CURRENT_W);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_IFSC = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x0207);
+API.SCARD_ATTR_CURRENT_IFSC =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x0207);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_CURRENT_IFSC', API.SCARD_ATTR_CURRENT_IFSC);
@@ -1484,8 +1478,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_IFSD = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x0208);
+API.SCARD_ATTR_CURRENT_IFSD =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x0208);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_CURRENT_IFSD', API.SCARD_ATTR_CURRENT_IFSD);
@@ -1495,8 +1489,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_BWT = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x0209);
+API.SCARD_ATTR_CURRENT_BWT =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x0209);
 
 goog.exportProperty(API, 'SCARD_ATTR_CURRENT_BWT', API.SCARD_ATTR_CURRENT_BWT);
 
@@ -1505,8 +1499,8 @@ goog.exportProperty(API, 'SCARD_ATTR_CURRENT_BWT', API.SCARD_ATTR_CURRENT_BWT);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_CWT = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x020a);
+API.SCARD_ATTR_CURRENT_CWT =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x020a);
 
 goog.exportProperty(API, 'SCARD_ATTR_CURRENT_CWT', API.SCARD_ATTR_CURRENT_CWT);
 
@@ -1515,12 +1509,11 @@ goog.exportProperty(API, 'SCARD_ATTR_CURRENT_CWT', API.SCARD_ATTR_CURRENT_CWT);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_EBC_ENCODING = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x020b);
+API.SCARD_ATTR_CURRENT_EBC_ENCODING =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x020b);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_CURRENT_EBC_ENCODING',
+    API, 'SCARD_ATTR_CURRENT_EBC_ENCODING',
     API.SCARD_ATTR_CURRENT_EBC_ENCODING);
 
 /**
@@ -1528,8 +1521,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_EXTENDED_BWT = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_IFD_PROTOCOL, 0x020c);
+API.SCARD_ATTR_EXTENDED_BWT =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_IFD_PROTOCOL, 0x020c);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_EXTENDED_BWT', API.SCARD_ATTR_EXTENDED_BWT);
@@ -1539,8 +1532,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_ICC_PRESENCE = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_ICC_STATE, 0x0300);
+API.SCARD_ATTR_ICC_PRESENCE =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_ICC_STATE, 0x0300);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_ICC_PRESENCE', API.SCARD_ATTR_ICC_PRESENCE);
@@ -1551,12 +1544,11 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_ICC_INTERFACE_STATUS = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_ICC_STATE, 0x0301);
+API.SCARD_ATTR_ICC_INTERFACE_STATUS =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_ICC_STATE, 0x0301);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_ICC_INTERFACE_STATUS',
+    API, 'SCARD_ATTR_ICC_INTERFACE_STATUS',
     API.SCARD_ATTR_ICC_INTERFACE_STATUS);
 
 /**
@@ -1564,8 +1556,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_CURRENT_IO_STATE = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_ICC_STATE, 0x0302);
+API.SCARD_ATTR_CURRENT_IO_STATE =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_ICC_STATE, 0x0302);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_CURRENT_IO_STATE', API.SCARD_ATTR_CURRENT_IO_STATE);
@@ -1575,8 +1567,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_ATR_STRING = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_ICC_STATE, 0x0303);
+API.SCARD_ATTR_ATR_STRING =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_ICC_STATE, 0x0303);
 
 goog.exportProperty(API, 'SCARD_ATTR_ATR_STRING', API.SCARD_ATTR_ATR_STRING);
 
@@ -1585,8 +1577,8 @@ goog.exportProperty(API, 'SCARD_ATTR_ATR_STRING', API.SCARD_ATTR_ATR_STRING);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_ICC_TYPE_PER_ATR = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_ICC_STATE, 0x0304);
+API.SCARD_ATTR_ICC_TYPE_PER_ATR =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_ICC_STATE, 0x0304);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_ICC_TYPE_PER_ATR', API.SCARD_ATTR_ICC_TYPE_PER_ATR);
@@ -1596,8 +1588,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_ESC_RESET = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_VENDOR_DEFINED, 0xA000);
+API.SCARD_ATTR_ESC_RESET =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_VENDOR_DEFINED, 0xA000);
 
 goog.exportProperty(API, 'SCARD_ATTR_ESC_RESET', API.SCARD_ATTR_ESC_RESET);
 
@@ -1606,8 +1598,8 @@ goog.exportProperty(API, 'SCARD_ATTR_ESC_RESET', API.SCARD_ATTR_ESC_RESET);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_ESC_CANCEL = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_VENDOR_DEFINED, 0xA003);
+API.SCARD_ATTR_ESC_CANCEL =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_VENDOR_DEFINED, 0xA003);
 
 goog.exportProperty(API, 'SCARD_ATTR_ESC_CANCEL', API.SCARD_ATTR_ESC_CANCEL);
 
@@ -1616,8 +1608,8 @@ goog.exportProperty(API, 'SCARD_ATTR_ESC_CANCEL', API.SCARD_ATTR_ESC_CANCEL);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_ESC_AUTHREQUEST = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_VENDOR_DEFINED, 0xA005);
+API.SCARD_ATTR_ESC_AUTHREQUEST =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_VENDOR_DEFINED, 0xA005);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_ESC_AUTHREQUEST', API.SCARD_ATTR_ESC_AUTHREQUEST);
@@ -1627,8 +1619,8 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_MAXINPUT = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_VENDOR_DEFINED, 0xA007);
+API.SCARD_ATTR_MAXINPUT =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_VENDOR_DEFINED, 0xA007);
 
 goog.exportProperty(API, 'SCARD_ATTR_MAXINPUT', API.SCARD_ATTR_MAXINPUT);
 
@@ -1640,8 +1632,8 @@ goog.exportProperty(API, 'SCARD_ATTR_MAXINPUT', API.SCARD_ATTR_MAXINPUT);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_DEVICE_UNIT = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_SYSTEM, 0x0001);
+API.SCARD_ATTR_DEVICE_UNIT =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_SYSTEM, 0x0001);
 
 goog.exportProperty(API, 'SCARD_ATTR_DEVICE_UNIT', API.SCARD_ATTR_DEVICE_UNIT);
 
@@ -1650,8 +1642,8 @@ goog.exportProperty(API, 'SCARD_ATTR_DEVICE_UNIT', API.SCARD_ATTR_DEVICE_UNIT);
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_DEVICE_IN_USE = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_SYSTEM, 0x0002);
+API.SCARD_ATTR_DEVICE_IN_USE =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_SYSTEM, 0x0002);
 
 goog.exportProperty(
     API, 'SCARD_ATTR_DEVICE_IN_USE', API.SCARD_ATTR_DEVICE_IN_USE);
@@ -1660,48 +1652,44 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_DEVICE_FRIENDLY_NAME_A = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_SYSTEM, 0x0003);
+API.SCARD_ATTR_DEVICE_FRIENDLY_NAME_A =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_SYSTEM, 0x0003);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_DEVICE_FRIENDLY_NAME_A',
+    API, 'SCARD_ATTR_DEVICE_FRIENDLY_NAME_A',
     API.SCARD_ATTR_DEVICE_FRIENDLY_NAME_A);
 
 /**
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_DEVICE_SYSTEM_NAME_A = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_SYSTEM, 0x0004);
+API.SCARD_ATTR_DEVICE_SYSTEM_NAME_A =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_SYSTEM, 0x0004);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_DEVICE_SYSTEM_NAME_A',
+    API, 'SCARD_ATTR_DEVICE_SYSTEM_NAME_A',
     API.SCARD_ATTR_DEVICE_SYSTEM_NAME_A);
 
 /**
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_DEVICE_FRIENDLY_NAME_W = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_SYSTEM, 0x0005);
+API.SCARD_ATTR_DEVICE_FRIENDLY_NAME_W =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_SYSTEM, 0x0005);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_DEVICE_FRIENDLY_NAME_W',
+    API, 'SCARD_ATTR_DEVICE_FRIENDLY_NAME_W',
     API.SCARD_ATTR_DEVICE_FRIENDLY_NAME_W);
 
 /**
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_DEVICE_SYSTEM_NAME_W = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_SYSTEM, 0x0006);
+API.SCARD_ATTR_DEVICE_SYSTEM_NAME_W =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_SYSTEM, 0x0006);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_DEVICE_SYSTEM_NAME_W',
+    API, 'SCARD_ATTR_DEVICE_SYSTEM_NAME_W',
     API.SCARD_ATTR_DEVICE_SYSTEM_NAME_W);
 
 /**
@@ -1709,12 +1697,11 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_SUPRESS_T1_IFS_REQUEST = API.SCARD_ATTR_VALUE(
-    API.SCARD_CLASS_SYSTEM, 0x0007);
+API.SCARD_ATTR_SUPRESS_T1_IFS_REQUEST =
+    API.SCARD_ATTR_VALUE(API.SCARD_CLASS_SYSTEM, 0x0007);
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_SUPRESS_T1_IFS_REQUEST',
+    API, 'SCARD_ATTR_SUPRESS_T1_IFS_REQUEST',
     API.SCARD_ATTR_SUPRESS_T1_IFS_REQUEST);
 
 /**
@@ -1722,12 +1709,10 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_DEVICE_FRIENDLY_NAME =
-    API.SCARD_ATTR_DEVICE_FRIENDLY_NAME_W;
+API.SCARD_ATTR_DEVICE_FRIENDLY_NAME = API.SCARD_ATTR_DEVICE_FRIENDLY_NAME_W;
 
 goog.exportProperty(
-    API,
-    'SCARD_ATTR_DEVICE_FRIENDLY_NAME',
+    API, 'SCARD_ATTR_DEVICE_FRIENDLY_NAME',
     API.SCARD_ATTR_DEVICE_FRIENDLY_NAME);
 
 /**
@@ -1735,8 +1720,7 @@ goog.exportProperty(
  * @type {number}
  * @const
  */
-API.SCARD_ATTR_DEVICE_SYSTEM_NAME =
-    API.SCARD_ATTR_DEVICE_SYSTEM_NAME_W;
+API.SCARD_ATTR_DEVICE_SYSTEM_NAME = API.SCARD_ATTR_DEVICE_SYSTEM_NAME_W;
 
 goog.exportProperty(
     API, 'SCARD_ATTR_DEVICE_SYSTEM_NAME', API.SCARD_ATTR_DEVICE_SYSTEM_NAME);
@@ -1848,16 +1832,14 @@ goog.exportProperty(
 API.FEATURE_VERIFY_PIN_DIRECT_APP_ID = 0x0D;
 
 goog.exportProperty(
-    API,
-    'FEATURE_VERIFY_PIN_DIRECT_APP_ID',
+    API, 'FEATURE_VERIFY_PIN_DIRECT_APP_ID',
     API.FEATURE_VERIFY_PIN_DIRECT_APP_ID);
 
 /** @const */
 API.FEATURE_MODIFY_PIN_DIRECT_APP_ID = 0x0E;
 
 goog.exportProperty(
-    API,
-    'FEATURE_MODIFY_PIN_DIRECT_APP_ID',
+    API, 'FEATURE_MODIFY_PIN_DIRECT_APP_ID',
     API.FEATURE_MODIFY_PIN_DIRECT_APP_ID);
 
 /** @const */
@@ -1899,96 +1881,84 @@ goog.exportProperty(API, 'FEATURE_EXECUTE_PACE', API.FEATURE_EXECUTE_PACE);
 API.PCSCv2_PART10_PROPERTY_wLcdLayout = 1;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_wLcdLayout',
+    API, 'PCSCv2_PART10_PROPERTY_wLcdLayout',
     API.PCSCv2_PART10_PROPERTY_wLcdLayout);
 
 /** @const */
 API.PCSCv2_PART10_PROPERTY_bEntryValidationCondition = 2;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_bEntryValidationCondition',
+    API, 'PCSCv2_PART10_PROPERTY_bEntryValidationCondition',
     API.PCSCv2_PART10_PROPERTY_bEntryValidationCondition);
 
 /** @const */
 API.PCSCv2_PART10_PROPERTY_bTimeOut2 = 3;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_bTimeOut2',
+    API, 'PCSCv2_PART10_PROPERTY_bTimeOut2',
     API.PCSCv2_PART10_PROPERTY_bTimeOut2);
 
 /** @const */
 API.PCSCv2_PART10_PROPERTY_wLcdMaxCharacters = 4;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_wLcdMaxCharacters',
+    API, 'PCSCv2_PART10_PROPERTY_wLcdMaxCharacters',
     API.PCSCv2_PART10_PROPERTY_wLcdMaxCharacters);
 
 /** @const */
 API.PCSCv2_PART10_PROPERTY_wLcdMaxLines = 5;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_wLcdMaxLines',
+    API, 'PCSCv2_PART10_PROPERTY_wLcdMaxLines',
     API.PCSCv2_PART10_PROPERTY_wLcdMaxLines);
 
 /** @const */
 API.PCSCv2_PART10_PROPERTY_bMinPINSize = 6;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_bMinPINSize',
+    API, 'PCSCv2_PART10_PROPERTY_bMinPINSize',
     API.PCSCv2_PART10_PROPERTY_bMinPINSize);
 
 /** @const */
 API.PCSCv2_PART10_PROPERTY_bMaxPINSize = 7;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_bMaxPINSize',
+    API, 'PCSCv2_PART10_PROPERTY_bMaxPINSize',
     API.PCSCv2_PART10_PROPERTY_bMaxPINSize);
 
 /** @const */
 API.PCSCv2_PART10_PROPERTY_sFirmwareID = 8;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_sFirmwareID',
+    API, 'PCSCv2_PART10_PROPERTY_sFirmwareID',
     API.PCSCv2_PART10_PROPERTY_sFirmwareID);
 
 /** @const */
 API.PCSCv2_PART10_PROPERTY_bPPDUSupport = 9;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_bPPDUSupport',
+    API, 'PCSCv2_PART10_PROPERTY_bPPDUSupport',
     API.PCSCv2_PART10_PROPERTY_bPPDUSupport);
 
 /** @const */
 API.PCSCv2_PART10_PROPERTY_dwMaxAPDUDataSize = 10;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_dwMaxAPDUDataSize',
+    API, 'PCSCv2_PART10_PROPERTY_dwMaxAPDUDataSize',
     API.PCSCv2_PART10_PROPERTY_dwMaxAPDUDataSize);
 
 /** @const */
 API.PCSCv2_PART10_PROPERTY_wIdVendor = 11;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_wIdVendor',
+    API, 'PCSCv2_PART10_PROPERTY_wIdVendor',
     API.PCSCv2_PART10_PROPERTY_wIdVendor);
 
 /** @const */
 API.PCSCv2_PART10_PROPERTY_wIdProduct = 12;
 
 goog.exportProperty(
-    API,
-    'PCSCv2_PART10_PROPERTY_wIdProduct',
+    API, 'PCSCv2_PART10_PROPERTY_wIdProduct',
     API.PCSCv2_PART10_PROPERTY_wIdProduct);
 
 /**
@@ -2151,8 +2121,8 @@ goog.exportProperty(API, 'ResultOrErrorCode', API.ResultOrErrorCode);
  * @type {!goog.log.Logger}
  * @const
  */
-API.ResultOrErrorCode.prototype.logger = GSC.Logging.getScopedLogger(
-    'PcscLiteClient.API.ResultOrErrorCode');
+API.ResultOrErrorCode.prototype.logger =
+    GSC.Logging.getScopedLogger('PcscLiteClient.API.ResultOrErrorCode');
 
 /**
  * @param {number} successfulResultItemCount
@@ -2174,8 +2144,7 @@ API.ResultOrErrorCode.prototype.getBase = function(
 };
 
 goog.exportProperty(
-    API.ResultOrErrorCode.prototype,
-    'getBase',
+    API.ResultOrErrorCode.prototype, 'getBase',
     API.ResultOrErrorCode.prototype.getBase);
 
 /**
@@ -2186,8 +2155,7 @@ API.ResultOrErrorCode.prototype.isSuccessful = function() {
 };
 
 goog.exportProperty(
-    API.ResultOrErrorCode.prototype,
-    'isSuccessful',
+    API.ResultOrErrorCode.prototype, 'isSuccessful',
     API.ResultOrErrorCode.prototype.isSuccessful);
 
 /**
@@ -2201,8 +2169,7 @@ API.ResultOrErrorCode.prototype.getResult = function() {
 };
 
 goog.exportProperty(
-    API.ResultOrErrorCode.prototype,
-    'getResult',
+    API.ResultOrErrorCode.prototype, 'getResult',
     API.ResultOrErrorCode.prototype.getResult);
 
 /**
@@ -2221,7 +2188,8 @@ API.ResultOrErrorCode.prototype.getDebugRepresentation = function() {
     // digital signature). The debugDump() function dumps the values only when
     // goog.DEBUG is true, and otherwise shows only the number of values.
     const dumpedItems = this.resultItems && this.resultItems.length ?
-        ' ' + GSC.DebugDump.debugDump(this.resultItems) : '';
+        ' ' + GSC.DebugDump.debugDump(this.resultItems) :
+        '';
     return 'SCARD_S_SUCCESS' + dumpedItems;
   }
   // Dump the error code regardless of whether the mode is Debug or Release,
@@ -2230,8 +2198,7 @@ API.ResultOrErrorCode.prototype.getDebugRepresentation = function() {
 };
 
 goog.exportProperty(
-    API.ResultOrErrorCode.prototype,
-    'getDebugRepresentation',
+    API.ResultOrErrorCode.prototype, 'getDebugRepresentation',
     API.ResultOrErrorCode.prototype.getDebugRepresentation);
 
 
@@ -2245,9 +2212,7 @@ goog.exportProperty(
 API.prototype.pcsc_stringify_error = function(errorCode) {
   const logger = this.logger;
   return this.postRequest_(
-      'pcsc_stringify_error',
-      [errorCode],
-      function(responseItems) {
+      'pcsc_stringify_error', [errorCode], function(responseItems) {
         GSC.Logging.checkWithLogger(logger, responseItems.length == 1);
         GSC.Logging.checkWithLogger(
             logger, typeof responseItems[0] === 'string');
@@ -2256,9 +2221,7 @@ API.prototype.pcsc_stringify_error = function(errorCode) {
 };
 
 goog.exportProperty(
-    API.prototype,
-    'pcsc_stringify_error',
-    API.prototype.pcsc_stringify_error);
+    API.prototype, 'pcsc_stringify_error', API.prototype.pcsc_stringify_error);
 
 /**
  * Creates an Application Context to the PC/SC Resource Manager.
@@ -2296,16 +2259,14 @@ API.prototype.SCardEstablishContext = function(
   if (opt_reserved_2 === undefined)
     opt_reserved_2 = null;
   return this.postRequest_(
-      'SCardEstablishContext',
-      [scope, opt_reserved_1, opt_reserved_2],
+      'SCardEstablishContext', [scope, opt_reserved_1, opt_reserved_2],
       function(responseItems) {
         return new API.SCardEstablishContextResult(responseItems);
       });
 };
 
 goog.exportProperty(
-    API.prototype,
-    'SCardEstablishContext',
+    API.prototype, 'SCardEstablishContext',
     API.prototype.SCardEstablishContext);
 
 /**
@@ -2336,8 +2297,7 @@ API.SCardEstablishContextResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardEstablishContextResult.prototype,
-    'get',
+    API.SCardEstablishContextResult.prototype, 'get',
     API.SCardEstablishContextResult.prototype.get);
 
 /**
@@ -2356,17 +2316,13 @@ goog.exportProperty(
  */
 API.prototype.SCardReleaseContext = function(sCardContext) {
   return this.postRequest_(
-      'SCardReleaseContext',
-      [sCardContext],
-      function(responseItems) {
+      'SCardReleaseContext', [sCardContext], function(responseItems) {
         return new API.SCardReleaseContextResult(responseItems);
       });
 };
 
 goog.exportProperty(
-    API.prototype,
-    'SCardReleaseContext',
-    API.prototype.SCardReleaseContext);
+    API.prototype, 'SCardReleaseContext', API.prototype.SCardReleaseContext);
 
 /**
  * Type representing the result of the SCardReleaseContext function call.
@@ -2395,8 +2351,7 @@ API.SCardReleaseContextResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardReleaseContextResult.prototype,
-    'get',
+    API.SCardReleaseContextResult.prototype, 'get',
     API.SCardReleaseContextResult.prototype.get);
 
 /**
@@ -2452,8 +2407,7 @@ goog.exportProperty(
 API.prototype.SCardConnect = function(
     sCardContext, reader, shareMode, preferredProtocols) {
   return this.postRequest_(
-      'SCardConnect',
-      [sCardContext, reader, shareMode, preferredProtocols],
+      'SCardConnect', [sCardContext, reader, shareMode, preferredProtocols],
       function(responseItems) {
         return new API.SCardConnectResult(responseItems);
       });
@@ -2488,8 +2442,7 @@ API.SCardConnectResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardConnectResult.prototype,
-    'get',
+    API.SCardConnectResult.prototype, 'get',
     API.SCardConnectResult.prototype.get);
 
 /**
@@ -2585,8 +2538,7 @@ API.SCardReconnectResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardReconnectResult.prototype,
-    'get',
+    API.SCardReconnectResult.prototype, 'get',
     API.SCardReconnectResult.prototype.get);
 
 /**
@@ -2645,8 +2597,7 @@ API.SCardDisconnectResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardDisconnectResult.prototype,
-    'get',
+    API.SCardDisconnectResult.prototype, 'get',
     API.SCardDisconnectResult.prototype.get);
 
 /**
@@ -2679,8 +2630,7 @@ API.prototype.SCardBeginTransaction = function(sCardHandle) {
 };
 
 goog.exportProperty(
-    API.prototype,
-    'SCardBeginTransaction',
+    API.prototype, 'SCardBeginTransaction',
     API.prototype.SCardBeginTransaction);
 
 /**
@@ -2710,8 +2660,7 @@ API.SCardBeginTransactionResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardBeginTransactionResult.prototype,
-    'get',
+    API.SCardBeginTransactionResult.prototype, 'get',
     API.SCardBeginTransactionResult.prototype.get);
 
 /**
@@ -2740,8 +2689,7 @@ goog.exportProperty(
  */
 API.prototype.SCardEndTransaction = function(sCardHandle, disposition) {
   return this.postRequest_(
-      'SCardEndTransaction',
-      [sCardHandle, disposition],
+      'SCardEndTransaction', [sCardHandle, disposition],
       function(responseItems) {
         return new API.SCardEndTransactionResult(responseItems);
       });
@@ -2777,8 +2725,7 @@ API.SCardEndTransactionResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardEndTransactionResult.prototype,
-    'get',
+    API.SCardEndTransactionResult.prototype, 'get',
     API.SCardEndTransactionResult.prototype.get);
 
 /**
@@ -2847,8 +2794,7 @@ API.SCardStatusResult = function(responseItems) {
   API.SCardStatusResult.base(this, 'constructor', responseItems);
 };
 
-goog.exportProperty(
-    API, 'SCardStatusResult', API.SCardStatusResult);
+goog.exportProperty(API, 'SCardStatusResult', API.SCardStatusResult);
 
 goog.inherits(API.SCardStatusResult, API.ResultOrErrorCode);
 
@@ -2865,8 +2811,7 @@ API.SCardStatusResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardStatusResult.prototype,
-    'get',
+    API.SCardStatusResult.prototype, 'get',
     API.SCardStatusResult.prototype.get);
 
 /**
@@ -2942,8 +2887,7 @@ goog.exportProperty(
 API.prototype.SCardGetStatusChange = function(
     sCardContext, timeout, readerStates) {
   return this.postRequest_(
-      'SCardGetStatusChange',
-      [sCardContext, timeout, readerStates],
+      'SCardGetStatusChange', [sCardContext, timeout, readerStates],
       function(responseItems) {
         return new API.SCardGetStatusChangeResult(responseItems);
       });
@@ -2970,7 +2914,8 @@ goog.inherits(API.SCardGetStatusChangeResult, API.ResultOrErrorCode);
 /**
  * @param {function(!Array.<!API.SCARD_READERSTATE_OUT>)=} opt_onSucceeded
  * callback: function(readerStates)
- * @param {function(!API.ERROR_CODE)=} opt_onFailed callback: function(errorCode)
+ * @param {function(!API.ERROR_CODE)=} opt_onFailed callback:
+ *     function(errorCode)
  * @param {*=} opt_context
  */
 API.SCardGetStatusChangeResult.prototype.get = function(
@@ -2979,8 +2924,7 @@ API.SCardGetStatusChangeResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardGetStatusChangeResult.prototype,
-    'get',
+    API.SCardGetStatusChangeResult.prototype, 'get',
     API.SCardGetStatusChangeResult.prototype.get);
 
 /**
@@ -3019,8 +2963,7 @@ goog.exportProperty(
  */
 API.prototype.SCardControl = function(sCardHandle, controlCode, dataToSend) {
   return this.postRequest_(
-      'SCardControl',
-      [sCardHandle, controlCode, dataToSend],
+      'SCardControl', [sCardHandle, controlCode, dataToSend],
       function(responseItems) {
         return new API.SCardControlResult(responseItems);
       });
@@ -3055,8 +2998,7 @@ API.SCardControlResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardControlResult.prototype,
-    'get',
+    API.SCardControlResult.prototype, 'get',
     API.SCardControlResult.prototype.get);
 
 /**
@@ -3136,9 +3078,7 @@ goog.exportProperty(
  */
 API.prototype.SCardGetAttrib = function(sCardHandle, attrId) {
   return this.postRequest_(
-      'SCardGetAttrib',
-      [sCardHandle, attrId],
-      function(responseItems) {
+      'SCardGetAttrib', [sCardHandle, attrId], function(responseItems) {
         return new API.SCardGetAttribResult(responseItems);
       });
 };
@@ -3172,8 +3112,7 @@ API.SCardGetAttribResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardGetAttribResult.prototype,
-    'get',
+    API.SCardGetAttribResult.prototype, 'get',
     API.SCardGetAttribResult.prototype.get);
 
 /**
@@ -3200,9 +3139,7 @@ goog.exportProperty(
  */
 API.prototype.SCardSetAttrib = function(sCardHandle, attrId, attr) {
   return this.postRequest_(
-      'SCardSetAttrib',
-      [sCardHandle, attrId, attr],
-      function(responseItems) {
+      'SCardSetAttrib', [sCardHandle, attrId, attr], function(responseItems) {
         return new API.SCardSetAttribResult(responseItems);
       });
 };
@@ -3236,8 +3173,7 @@ API.SCardSetAttribResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardSetAttribResult.prototype,
-    'get',
+    API.SCardSetAttribResult.prototype, 'get',
     API.SCardSetAttribResult.prototype.get);
 
 /**
@@ -3280,16 +3216,14 @@ goog.exportProperty(
  * @return {!goog.Promise.<!API.SCardTransmitResult>}
  */
 API.prototype.SCardTransmit = function(
-    sCardHandle,
-    sendProtocolInformation,
-    dataToSend,
+    sCardHandle, sendProtocolInformation, dataToSend,
     opt_receiveProtocolInformation) {
   return this.postRequest_(
       'SCardTransmit',
-      [sCardHandle,
-       sendProtocolInformation,
-       dataToSend,
-       opt_receiveProtocolInformation],
+      [
+        sCardHandle, sendProtocolInformation, dataToSend,
+        opt_receiveProtocolInformation
+      ],
       function(responseItems) {
         return new API.SCardTransmitResult(responseItems);
       });
@@ -3325,8 +3259,7 @@ API.SCardTransmitResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardTransmitResult.prototype,
-    'get',
+    API.SCardTransmitResult.prototype, 'get',
     API.SCardTransmitResult.prototype.get);
 
 /**
@@ -3389,8 +3322,7 @@ API.SCardListReadersResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardListReadersResult.prototype,
-    'get',
+    API.SCardListReadersResult.prototype, 'get',
     API.SCardListReadersResult.prototype.get);
 
 /**
@@ -3421,8 +3353,7 @@ API.prototype.SCardListReaderGroups = function(sCardContext) {
 };
 
 goog.exportProperty(
-    API.prototype,
-    'SCardListReaderGroups',
+    API.prototype, 'SCardListReaderGroups',
     API.prototype.SCardListReaderGroups);
 
 /**
@@ -3453,8 +3384,7 @@ API.SCardListReaderGroupsResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardListReaderGroupsResult.prototype,
-    'get',
+    API.SCardListReaderGroupsResult.prototype, 'get',
     API.SCardListReaderGroupsResult.prototype.get);
 
 /**
@@ -3490,8 +3420,7 @@ API.SCardCancelResult = function(responseItems) {
   API.SCardCancelResult.base(this, 'constructor', responseItems);
 };
 
-goog.exportProperty(
-    API, 'SCardCancelResult', API.SCardCancelResult);
+goog.exportProperty(API, 'SCardCancelResult', API.SCardCancelResult);
 
 goog.inherits(API.SCardCancelResult, API.ResultOrErrorCode);
 
@@ -3507,8 +3436,7 @@ API.SCardCancelResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardCancelResult.prototype,
-    'get',
+    API.SCardCancelResult.prototype, 'get',
     API.SCardCancelResult.prototype.get);
 
 /**
@@ -3565,8 +3493,7 @@ API.SCardIsValidContextResult.prototype.get = function(
 };
 
 goog.exportProperty(
-    API.SCardIsValidContextResult.prototype,
-    'get',
+    API.SCardIsValidContextResult.prototype, 'get',
     API.SCardIsValidContextResult.prototype.get);
 
 
@@ -3600,8 +3527,8 @@ API.prototype.messageChannelDisposedListener_ = function() {
 API.prototype.postRequest_ = function(
     functionName, functionArguments, successfulResultTransformer) {
   if (this.isDisposed()) {
-    return goog.Promise.reject(new Error(
-        'The API instance is already disposed'));
+    return goog.Promise.reject(
+        new Error('The API instance is already disposed'));
   }
   const remoteCallMessage =
       new GSC.RemoteCallMessage(functionName, functionArguments);
@@ -3609,5 +3536,4 @@ API.prototype.postRequest_ = function(
   const promise = this.requester_.postRequest(payload);
   return promise.then(successfulResultTransformer);
 };
-
 });  // goog.scope

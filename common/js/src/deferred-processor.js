@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -92,8 +93,8 @@ const DeferredProcessor = GSC.DeferredProcessor;
 
 goog.inherits(DeferredProcessor, goog.Disposable);
 
-DeferredProcessor.prototype.logger = GSC.Logging.getScopedLogger(
-    'DeferredProcessor');
+DeferredProcessor.prototype.logger =
+    GSC.Logging.getScopedLogger('DeferredProcessor');
 
 /**
  * This structure is used to store the jobs in a queue.
@@ -196,5 +197,4 @@ DeferredProcessor.prototype.flushEnqueuedJobs_ = function() {
   GSC.Logging.checkWithLogger(this.logger, this.isCurrentlyFlushingJobs_);
   this.isCurrentlyFlushingJobs_ = false;
 };
-
 });  // goog.scope

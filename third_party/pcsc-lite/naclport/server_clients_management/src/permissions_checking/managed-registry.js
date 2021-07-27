@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -118,11 +119,12 @@ ManagedRegistry.prototype.loadManagedStorage_ = function() {
  * @private
  */
 ManagedRegistry.prototype.managedStorageLoadedCallback_ = function(items) {
-  this.logger.fine('Loaded the following data from the managed storage: ' +
-                   GSC.DebugDump.dump(items));
+  this.logger.fine(
+      'Loaded the following data from the managed storage: ' +
+      GSC.DebugDump.dump(items));
 
-  if (this.setAllowedClientAppIdsFromStorageData_(goog.object.get(
-          items, MANAGED_STORAGE_KEY, []))) {
+  if (this.setAllowedClientAppIdsFromStorageData_(
+          goog.object.get(items, MANAGED_STORAGE_KEY, []))) {
     this.logger.info(
         'Loaded managed storage data with the allowed client App ids: ' +
         GSC.DebugDump.dump(this.allowedClientAppIds_));
@@ -148,8 +150,9 @@ ManagedRegistry.prototype.storageChangedListener_ = function(
     changes, areaName) {
   if (areaName != 'managed')
     return;
-  this.logger.fine('Received the managed storage update event: ' +
-                   GSC.DebugDump.dump(changes));
+  this.logger.fine(
+      'Received the managed storage update event: ' +
+      GSC.DebugDump.dump(changes));
 
   if (changes[MANAGED_STORAGE_KEY]) {
     if (this.setAllowedClientAppIdsFromStorageData_(
@@ -195,5 +198,4 @@ ManagedRegistry.prototype.setAllowedClientAppIdsFromStorageData_ = function(
   this.allowedClientAppIds_ = newAllowedClientAppIds;
   return true;
 };
-
 });  // goog.scope

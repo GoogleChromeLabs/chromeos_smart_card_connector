@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -58,9 +59,8 @@ GSC.BackgroundPageUnloadPreventing.enable = function() {
 };
 
 function createIFrameElement() {
-  const iframe = goog.dom.createDom('iframe', {
-    'src': 'background-page-unload-preventing-iframe.html'
-  });
+  const iframe = goog.dom.createDom(
+      'iframe', {'src': 'background-page-unload-preventing-iframe.html'});
   GSC.Logging.checkWithLogger(logger, document.body);
   document.body.appendChild(iframe);
 }
@@ -81,7 +81,7 @@ function connectListener(port) {
       GSC.Logging.failWithLogger(
           logger,
           'Unexpectedly received a message from the message port from the ' +
-          'iframe');
+              'iframe');
     });
   }
 }
@@ -89,5 +89,4 @@ function connectListener(port) {
 function suspendListener() {
   GSC.Logging.failWithLogger(logger, 'Suspend event was received');
 }
-
 });  // goog.scope

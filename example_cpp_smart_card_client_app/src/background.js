@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -141,8 +142,9 @@ function createExecutableModule() {
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
       return new GSC.EmscriptenModule('executable_module');
   }
-  GSC.Logging.fail(`Cannot load executable module: unknown toolchain ` +
-                   `${GSC.ExecutableModule.TOOLCHAIN}`);
+  GSC.Logging.fail(
+      `Cannot load executable module: unknown toolchain ` +
+      `${GSC.ExecutableModule.TOOLCHAIN}`);
   goog.asserts.fail();
 }
 
@@ -213,5 +215,4 @@ chrome.app.runtime.onLaunched.addListener(() => {
 
 // Automatically load the App (in the background) with Chrome startup.
 GSC.AppUtils.enableSelfAutoLoading();
-
 });  // goog.scope

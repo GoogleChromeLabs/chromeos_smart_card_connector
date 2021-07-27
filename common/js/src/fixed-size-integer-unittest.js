@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -35,5 +36,4 @@ goog.exportSymbol('testCastToInt32', function() {
   assertEquals(-0x80000000, castToInt32(-0x80000000));
   assertEquals(-0x7FFFFFFF, castToInt32(0x80000001));
 });
-
 });  // goog.scope

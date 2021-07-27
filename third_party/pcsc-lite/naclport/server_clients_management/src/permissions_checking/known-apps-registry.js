@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -111,7 +112,7 @@ KnownAppsRegistry.prototype.getById = function(id) {
               'The specified App id is not in the known Apps registry'));
         }
       },
-      function (error) {
+      function(error) {
         promiseResolver.reject(error);
       });
 
@@ -142,8 +143,8 @@ KnownAppsRegistry.prototype.tryGetByIds = function(idList) {
         promiseResolver.resolve(knownApps);
       },
       function() {
-        promiseResolver.reject(new Error(
-            'Failed to load the known Apps registry'));
+        promiseResolver.reject(
+            new Error('Failed to load the known Apps registry'));
       });
 
   return promiseResolver.promise;
@@ -151,8 +152,9 @@ KnownAppsRegistry.prototype.tryGetByIds = function(idList) {
 
 /** @private */
 KnownAppsRegistry.prototype.startLoadingJson_ = function() {
-  this.logger.fine('Loading registry from JSON file (URL: "' +
-                   KNOWN_CLIENT_APPS_JSON_URL + '")...');
+  this.logger.fine(
+      'Loading registry from JSON file (URL: "' + KNOWN_CLIENT_APPS_JSON_URL +
+      '")...');
   goog.net.XhrIo.send(
       KNOWN_CLIENT_APPS_JSON_URL, this.jsonLoadedCallback_.bind(this));
 };
@@ -163,33 +165,35 @@ KnownAppsRegistry.prototype.jsonLoadedCallback_ = function(e) {
   const xhrio = e.target;
 
   if (!xhrio.isSuccess()) {
-    this.promiseResolver_.reject(new Error(
-        'Failed to load the known Apps registry'));
+    this.promiseResolver_.reject(
+        new Error('Failed to load the known Apps registry'));
     GSC.Logging.failWithLogger(
         this.logger,
         'Failed to load the known Apps registry from JSON file (URL: "' +
-        KNOWN_CLIENT_APPS_JSON_URL + '") with the following error: ' +
-        xhrio.getLastError());
+            KNOWN_CLIENT_APPS_JSON_URL +
+            '") with the following error: ' + xhrio.getLastError());
   }
 
   // Note: not using the xhrio.getResponseJson method as it breaks in the Chrome
   // App environment (for details, see the GSC.Json.parse method).
-  GSC.Json.parse(xhrio.getResponseText()).then(
-      function(json) {
-        GSC.Logging.checkWithLogger(this.logger, goog.isObject(json));
-        goog.asserts.assertObject(json);
-        this.parseJsonAndApply_(json);
-      },
-      function(exc) {
-        this.promiseResolver_.reject(new Error(
-            'Failed to load the known Apps registry'));
-        GSC.Logging.failWithLogger(
-            this.logger,
-            'Failed to load the known Apps registry from JSON file (URL: "' +
-            KNOWN_CLIENT_APPS_JSON_URL + '"): parsing failed with the ' +
-            'following error: ' + exc);
-      },
-      this);
+  GSC.Json.parse(xhrio.getResponseText())
+      .then(
+          function(json) {
+            GSC.Logging.checkWithLogger(this.logger, goog.isObject(json));
+            goog.asserts.assertObject(json);
+            this.parseJsonAndApply_(json);
+          },
+          function(exc) {
+            this.promiseResolver_.reject(
+                new Error('Failed to load the known Apps registry'));
+            GSC.Logging.failWithLogger(
+                this.logger,
+                'Failed to load the known Apps registry from JSON file (URL: "' +
+                    KNOWN_CLIENT_APPS_JSON_URL +
+                    '"): parsing failed with the ' +
+                    'following error: ' + exc);
+          },
+          this);
 };
 
 /**
@@ -213,17 +217,18 @@ KnownAppsRegistry.prototype.parseJsonAndApply_ = function(json) {
   }, this);
 
   if (success) {
-    this.logger.fine('Successfully loaded registry from JSON file: ' +
-                     GSC.DebugDump.dump(knownClientApps));
+    this.logger.fine(
+        'Successfully loaded registry from JSON file: ' +
+        GSC.DebugDump.dump(knownClientApps));
     this.promiseResolver_.resolve(knownClientApps);
   } else {
-    this.promiseResolver_.reject(new Error(
-        'Failed to load the known Apps registry'));
+    this.promiseResolver_.reject(
+        new Error('Failed to load the known Apps registry'));
     GSC.Logging.failWithLogger(
         this.logger,
         'Failed to load the known Apps registry from JSON file (URL: "' +
-        KNOWN_CLIENT_APPS_JSON_URL + '"): parsing of some of the items ' +
-        'finished with errors');
+            KNOWN_CLIENT_APPS_JSON_URL + '"): parsing of some of the items ' +
+            'finished with errors');
   }
 };
 

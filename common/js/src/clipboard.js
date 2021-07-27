@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,5 +55,4 @@ GSC.Clipboard.copyToClipboard = function(text) {
   logger.fine('Copied text of length ' + text.length + ' to clipboard');
   return true;
 };
-
 });  // goog.scope

@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,8 +67,8 @@ GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
    * @type {!goog.log.Logger}
    * @const @private
    */
-  this.logger_ = GSC.Logging.getChildLogger(
-      messagesReceiverLogger, LOGGER_TITLE);
+  this.logger_ =
+      GSC.Logging.getChildLogger(messagesReceiverLogger, LOGGER_TITLE);
 
   /**
    * @type {string}
@@ -97,8 +98,8 @@ GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
    * @type {!GSC.NaclModuleMessageChannel}
    * @private
    */
-  this.messageChannel_ = new GSC.NaclModuleMessageChannel(
-      this.element_, this.logger_);
+  this.messageChannel_ =
+      new GSC.NaclModuleMessageChannel(this.element_, this.logger_);
 
   /** @type {!GSC.NaclModuleLogMessagesReceiver} */
   this.logMessagesReceiver = new GSC.NaclModuleLogMessagesReceiver(
@@ -169,12 +170,9 @@ NaclModule.prototype.disposeInternal = function() {
 NaclModule.prototype.createElement_ = function() {
   const mimeType = this.getMimeType_();
   this.logger_.fine('Preparing NaCl embed (MIME type: "' + mimeType + '")...');
-  return goog.dom.createDom('embed', {
-    'type': mimeType,
-    'width': 0,
-    'height': 0,
-    'src': this.naclModulePath
-  });
+  return goog.dom.createDom(
+      'embed',
+      {'type': mimeType, 'width': 0, 'height': 0, 'src': this.naclModulePath});
 };
 
 /**
@@ -223,8 +221,9 @@ NaclModule.prototype.loadEventListener_ = function() {
 NaclModule.prototype.abortEventListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger_.severe('NaCl module load was aborted with the following ' +
-                      'message: ' + this.element_['lastError']);
+  this.logger_.severe(
+      'NaCl module load was aborted with the following ' +
+      'message: ' + this.element_['lastError']);
   this.dispose();
 };
 
@@ -232,8 +231,9 @@ NaclModule.prototype.abortEventListener_ = function() {
 NaclModule.prototype.errorEventListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger_.severe('Failed to load NaCl module with the following ' +
-                      'message: ' + this.element_['lastError']);
+  this.logger_.severe(
+      'Failed to load NaCl module with the following ' +
+      'message: ' + this.element_['lastError']);
   this.dispose();
 };
 
@@ -252,5 +252,4 @@ NaclModule.prototype.forceElementLoading_ = function() {
   // crbug.com/350445).
   this.element_.offsetTop = this.element_.offsetTop;
 };
-
 });  // goog.scope

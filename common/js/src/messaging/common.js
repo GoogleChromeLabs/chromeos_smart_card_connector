@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -67,5 +68,4 @@ GSC.MessagingCommon.extractKey = function(object, key) {
 
   return GSC.ObjectHelpers.extractKey(object, key);
 };
-
 });  // goog.scope

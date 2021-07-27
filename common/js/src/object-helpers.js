@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,10 +45,9 @@ GSC.ObjectHelpers.extractKey = function(object, key) {
     GSC.Logging.failWithLogger(
         LOGGER,
         'Key "' + key + '" not present in object ' +
-        GSC.DebugDump.debugDump(object));
+            GSC.DebugDump.debugDump(object));
   }
 
   return object[key];
 };
-
 });  // goog.scope

@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -66,7 +67,7 @@ const addDeviceElement =
     /** @type {!Element} */ (goog.dom.getElement('add-device'));
 
 /**
- * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers 
+ * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers
  */
 function onReadersChanged(readers) {
   displayReaderList(readers);
@@ -77,8 +78,9 @@ function onReadersChanged(readers) {
  * @param {!Array.<!GSC.PcscLiteServer.ReaderInfo>} readers
  */
 function displayReaderList(readers) {
-  logger.info('Displaying ' + readers.length + ' card reader(s): ' +
-              GSC.DebugDump.dump(readers));
+  logger.info(
+      'Displaying ' + readers.length +
+      ' card reader(s): ' + GSC.DebugDump.dump(readers));
   goog.dom.removeChildren(readersListElement);
 
   for (let reader of readers) {
@@ -123,7 +125,7 @@ function makeReaderNameForDisplaying(readerName) {
 }
 
 /**
- * @param {!GSC.PcscLiteServer.ReaderInfo} reader 
+ * @param {!GSC.PcscLiteServer.ReaderInfo} reader
  * @return {string}
  */
 function getTooltipText(reader) {
@@ -131,7 +133,8 @@ function getTooltipText(reader) {
     case GSC.PcscLiteServer.ReaderStatus.INIT:
       return 'initReaderTooltip';
     case GSC.PcscLiteServer.ReaderStatus.SUCCESS:
-      if (reader['isCardPresent']) return 'successCardTooltip';
+      if (reader['isCardPresent'])
+        return 'successCardTooltip';
       return 'successReaderTooltip';
     case GSC.PcscLiteServer.ReaderStatus.FAILURE:
       return 'failureReaderTooltip';
@@ -142,7 +145,7 @@ function getTooltipText(reader) {
 }
 
 /**
- * @param {number} readersCount 
+ * @param {number} readersCount
  */
 function updateAddDeviceButtonText(readersCount) {
   if (readersCount == 0) {
@@ -169,8 +172,9 @@ function addDeviceClickListener(e) {
  * @param {!Array.<!chrome.usb.Device>} devices
  */
 function getUserSelectedDevicesCallback(devices) {
-  logger.fine('USB selection dialog finished, ' + devices.length + ' devices ' +
-              'were chosen');
+  logger.fine(
+      'USB selection dialog finished, ' + devices.length + ' devices ' +
+      'were chosen');
 }
 
 GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
@@ -181,7 +185,7 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
   const readerTrackerSubscriber =
       /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
       (GSC.ObjectHelpers.extractKey(
-           GSC.PopupWindow.Client.getData(), 'readerTrackerSubscriber'));
+          GSC.PopupWindow.Client.getData(), 'readerTrackerSubscriber'));
   // Start tracking the current list of readers.
   readerTrackerSubscriber(onReadersChanged);
 
@@ -192,7 +196,7 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
   const readerTrackerUnsubscriber =
       /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
       (GSC.ObjectHelpers.extractKey(
-           GSC.PopupWindow.Client.getData(), 'readerTrackerUnsubscriber'));
+          GSC.PopupWindow.Client.getData(), 'readerTrackerUnsubscriber'));
   // Stop tracking the current list of readers when our window gets closed.
   chrome.app.window.current().onClosed.addListener(function() {
     readerTrackerUnsubscriber(onReadersChanged);
@@ -201,5 +205,4 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
   goog.events.listen(
       addDeviceElement, goog.events.EventType.CLICK, addDeviceClickListener);
 };
-
 });  // goog.scope

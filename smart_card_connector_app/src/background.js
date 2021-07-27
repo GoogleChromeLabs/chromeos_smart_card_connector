@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -80,8 +81,9 @@ function createExecutableModule() {
     case GSC.ExecutableModule.Toolchain.EMSCRIPTEN:
       return new GSC.EmscriptenModule('executable_module');
   }
-  GSC.Logging.fail(`Cannot load executable module: unknown toolchain ` +
-                   `${GSC.ExecutableModule.TOOLCHAIN}`);
+  GSC.Logging.fail(
+      `Cannot load executable module: unknown toolchain ` +
+      `${GSC.ExecutableModule.TOOLCHAIN}`);
   goog.asserts.fail();
 }
 
@@ -112,8 +114,11 @@ const chromeLoginStateHook = new GSC.Libusb.ChromeLoginStateHook();
 libusbChromeUsbBackend.addRequestSuccessHook(
     chromeLoginStateHook.getRequestSuccessHook());
 // Start the backend regardless of whether the hook initialization succeeded.
-chromeLoginStateHook.getHookReadyPromise().then(() => {}, () => {}).then(
-    function() { libusbChromeUsbBackend.startProcessingEvents(); });
+chromeLoginStateHook.getHookReadyPromise()
+    .then(() => {}, () => {})
+    .then(function() {
+      libusbChromeUsbBackend.startProcessingEvents();
+    });
 
 const pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
@@ -124,8 +129,7 @@ const readerTrackerMessageChannelPair = new GSC.MessageChannelPair;
 createClientHandler(readerTrackerMessageChannelPair.getFirst(), undefined);
 const readerTracker = new GSC.PcscLiteServer.ReaderTracker(
     executableModule.getMessageChannel(),
-    readerTrackerMessageChannelPair.getSecond(),
-    executableModule.getLogger());
+    readerTrackerMessageChannelPair.getSecond(), executableModule.getLogger());
 
 executableModule.startLoading();
 
@@ -174,8 +178,9 @@ function externalConnectionListener(port) {
   logger.fine('Received onConnectExternal event');
   const portMessageChannel = new GSC.PortMessageChannel(port);
   if (portMessageChannel.extensionId === null) {
-    logger.warning('Ignoring the external connection as there is no sender ' +
-                   'extension id specified');
+    logger.warning(
+        'Ignoring the external connection as there is no sender ' +
+        'extension id specified');
     return;
   }
   messageChannelPool.addChannel(
@@ -192,8 +197,9 @@ function externalConnectionListener(port) {
 function externalMessageListener(message, sender) {
   logger.fine('Received onMessageExternal event');
   if (sender.id === undefined) {
-    logger.warning('Ignoring the external message as there is no sender ' +
-                   'extension id specified');
+    logger.warning(
+        'Ignoring the external message as there is no sender ' +
+        'extension id specified');
     return;
   }
   let channel = getOrCreateSingleMessageBasedChannel(sender.id);
@@ -286,7 +292,7 @@ function makeDataForMainWindow() {
     'readerTrackerSubscriber':
         readerTracker.addOnUpdateListener.bind(readerTracker),
     'readerTrackerUnsubscriber':
-        readerTracker.removeOnUpdateListener.bind(readerTracker)};
+        readerTracker.removeOnUpdateListener.bind(readerTracker)
+  };
 }
-
 });  // goog.scope

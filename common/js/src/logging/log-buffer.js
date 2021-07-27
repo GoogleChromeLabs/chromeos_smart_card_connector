@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -78,8 +79,8 @@ GSC.LogBuffer = function(capacity) {
    * @type {!goog.structs.CircularBuffer.<string>}
    * @private
    */
-  this.formattedLogsSuffix_ = new goog.structs.CircularBuffer(
-      capacity - this.logsPrefixCapacity_);
+  this.formattedLogsSuffix_ =
+      new goog.structs.CircularBuffer(capacity - this.logsPrefixCapacity_);
 };
 
 const LogBuffer = GSC.LogBuffer;
@@ -147,8 +148,7 @@ LogBuffer.State.prototype.getAsText = function() {
 };
 
 goog.exportProperty(
-    LogBuffer.State.prototype,
-    'getAsText',
+    LogBuffer.State.prototype, 'getAsText',
     LogBuffer.State.prototype.getAsText);
 
 /**
@@ -162,8 +162,7 @@ goog.exportProperty(
  */
 LogBuffer.prototype.getState = function() {
   return new LogBuffer.State(
-      this.size_,
-      goog.array.clone(this.formattedLogsPrefix_),
+      this.size_, goog.array.clone(this.formattedLogsPrefix_),
       this.size_ - this.formattedLogsPrefix_.length -
           this.formattedLogsSuffix_.getCount(),
       this.formattedLogsSuffix_.getValues());
@@ -208,5 +207,4 @@ LogBuffer.prototype.onLogRecordObserved_ = function(
     this.formattedLogsSuffix_.add(formattedLogRecord);
   ++this.size_;
 };
-
 });  // goog.scope

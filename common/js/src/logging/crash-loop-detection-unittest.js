@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -26,8 +27,8 @@ const GSC = GoogleSmartCard;
 const CrashLoopDetection = GSC.Logging.CrashLoopDetection;
 
 const SOME_DATE = new Date(
-    /*year=*/2001, /*monthIndex=*/2, /*day=*/3, /*hours=*/4, /*minutes=*/5,
-    /*seconds=*/6, /*milliseconds=*/7);
+    /*year=*/ 2001, /*monthIndex=*/ 2, /*day=*/ 3, /*hours=*/ 4, /*minutes=*/ 5,
+    /*seconds=*/ 6, /*milliseconds=*/ 7);
 
 const propertyReplacer = new goog.testing.PropertyReplacer;
 
@@ -56,9 +57,8 @@ function stubDateNow() {
  */
 function stubChromeStorageLocalGet(key, callback) {
   if (simulateStorageGetFailure) {
-    propertyReplacer.set(chrome, 'runtime', {
-      'lastError': {'message': 'Error'}
-    });
+    propertyReplacer.set(
+        chrome, 'runtime', {'lastError': {'message': 'Error'}});
     callback();
     propertyReplacer.set(chrome, 'runtime', {'lastError': undefined});
     return;
@@ -76,9 +76,8 @@ function stubChromeStorageLocalGet(key, callback) {
  */
 function stubChromeStorageLocalSet(items, callback) {
   if (simulateStorageSetFailure) {
-    propertyReplacer.set(chrome, 'runtime', {
-      'lastError': {'message': 'Error'}
-    });
+    propertyReplacer.set(
+        chrome, 'runtime', {'lastError': {'message': 'Error'}});
     callback();
     propertyReplacer.set(chrome, 'runtime', {'lastError': undefined});
     return;
@@ -94,10 +93,10 @@ goog.exportSymbol('testCrashLoopDetection', {
     currentDate = SOME_DATE;
     currentStorage = {};
     propertyReplacer.set(Date, 'now', stubDateNow);
-    propertyReplacer.set(chrome, 'storage', {'local': {
-      'get': stubChromeStorageLocalGet,
-      'set': stubChromeStorageLocalSet
-    }});
+    propertyReplacer.set(chrome, 'storage', {
+      'local':
+          {'get': stubChromeStorageLocalGet, 'set': stubChromeStorageLocalSet}
+    });
     propertyReplacer.set(chrome, 'runtime', {'lastError': undefined});
   },
 
@@ -110,8 +109,8 @@ goog.exportSymbol('testCrashLoopDetection', {
   testSingleCrash: function() {
     return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
       assertFalse(isInCrashLoop);
-      assertObjectEquals({'crash_timestamps': [SOME_DATE.getTime()]},
-                         currentStorage);
+      assertObjectEquals(
+          {'crash_timestamps': [SOME_DATE.getTime()]}, currentStorage);
     });
   },
 
@@ -131,8 +130,8 @@ goog.exportSymbol('testCrashLoopDetection', {
     currentStorage = {'crash_timestamps': [ONE_HOUR_AGO]};
     return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
       assertFalse(isInCrashLoop);
-      assertObjectEquals({'crash_timestamps': [SOME_DATE.getTime()]},
-                         currentStorage);
+      assertObjectEquals(
+          {'crash_timestamps': [SOME_DATE.getTime()]}, currentStorage);
     });
   },
 
@@ -143,9 +142,9 @@ goog.exportSymbol('testCrashLoopDetection', {
     currentStorage = {'crash_timestamps': [ONE_SECOND_AGO]};
     return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
       assertFalse(isInCrashLoop);
-      assertObjectEquals({
-        'crash_timestamps': [ONE_SECOND_AGO, SOME_DATE.getTime()]
-      }, currentStorage);
+      assertObjectEquals(
+          {'crash_timestamps': [ONE_SECOND_AGO, SOME_DATE.getTime()]},
+          currentStorage);
     });
   },
 
@@ -218,8 +217,8 @@ goog.exportSymbol('testCrashLoopDetection', {
     return CrashLoopDetection.handleImminentCrash().then((isInCrashLoop) => {
       assertFalse(isInCrashLoop);
       // Bad data got overwritten in the storage.
-      assertObjectEquals({'crash_timestamps': [SOME_DATE.getTime()]},
-                         currentStorage);
+      assertObjectEquals(
+          {'crash_timestamps': [SOME_DATE.getTime()]}, currentStorage);
     });
   },
 
@@ -241,5 +240,4 @@ goog.exportSymbol('testCrashLoopDetection', {
     });
   },
 });
-
 });  // goog.scope

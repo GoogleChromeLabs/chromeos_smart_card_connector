@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,8 +45,7 @@ const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 logger.info('The main window is created');
 
 goog.events.listen(
-    goog.dom.getElement('close-window'),
-    goog.events.EventType.CLICK,
+    goog.dom.getElement('close-window'), goog.events.EventType.CLICK,
     closeWindowClickListener);
 
 GSC.ConnectorApp.Window.AboutShowing.initialize();
@@ -69,12 +69,12 @@ function displayNonChromeOsWarningIfNeeded() {
     /** @type {string} */
     const os = platformInfo['os'];
     if (os != 'cros') {
-      logger.info('Displaying the warning regarding non-Chrome OS system ' +
-                  '(the current OS is "' + os + '")');
+      logger.info(
+          'Displaying the warning regarding non-Chrome OS system ' +
+          '(the current OS is "' + os + '")');
       goog.dom.classlist.remove(
           goog.dom.getElement('non-chrome-os-warning'), 'hidden');
     }
   });
 }
-
 });  // goog.scope

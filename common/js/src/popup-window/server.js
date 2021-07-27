@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -60,21 +61,21 @@ GSC.PopupWindow.Server.createWindow = function(
     createdWindowExtends['passedData'] = opt_data;
 
   logger.fine(
-      'Creating a popup window with url="' + url + '", options=' +
-      GSC.DebugDump.debugDump(createWindowOptions) + ', data=' +
-      GSC.DebugDump.debugDump(opt_data));
+      'Creating a popup window with url="' + url +
+      '", options=' + GSC.DebugDump.debugDump(createWindowOptions) +
+      ', data=' + GSC.DebugDump.debugDump(opt_data));
 
   /** @preserveTry */
   try {
     chrome.app.window.create(
-        url,
-        createWindowOptions,
+        url, createWindowOptions,
         createWindowCallback.bind(null, createdWindowExtends));
   } catch (exc) {
     GSC.Logging.failWithLogger(
         logger,
         'Failed to create the popup window with URL "' + url + '" and ' +
-        'options ' + GSC.DebugDump.debugDump(createWindowOptions) + ': ' + exc);
+            'options ' + GSC.DebugDump.debugDump(createWindowOptions) + ': ' +
+            exc);
   }
 };
 
@@ -96,7 +97,7 @@ GSC.PopupWindow.Server.runModalDialog = function(
         logger,
         !goog.object.containsKey(opt_createWindowOptionsOverrides, 'id'),
         '"id" window option is disallowed for the modal dialogs (as this ' +
-        'option may result in not creating the new modal dialog)');
+            'option may result in not creating the new modal dialog)');
     Object.assign(createWindowOptions, opt_createWindowOptionsOverrides);
   }
 
@@ -133,5 +134,4 @@ function createWindowCallback(createdWindowExtends, createdWindow) {
       GSC.DebugDump.debugDump(createdWindowExtends));
   Object.assign(createdWindowScope, createdWindowExtends);
 }
-
 });  // goog.scope

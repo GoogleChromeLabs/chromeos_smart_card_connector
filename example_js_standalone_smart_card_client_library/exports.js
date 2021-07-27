@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,48 +40,37 @@ goog.exportSymbol('goog.log.LogRecord', goog.log.LogRecord);
 goog.exportProperty(
     goog.log.LogRecord.prototype, 'reset', goog.log.LogRecord.prototype.reset);
 goog.exportProperty(
-    goog.log.LogRecord.prototype,
-    'getLoggerName',
+    goog.log.LogRecord.prototype, 'getLoggerName',
     goog.log.LogRecord.prototype.getLoggerName);
 goog.exportProperty(
-    goog.log.LogRecord.prototype,
-    'getException',
+    goog.log.LogRecord.prototype, 'getException',
     goog.log.LogRecord.prototype.getException);
 goog.exportProperty(
-    goog.log.LogRecord.prototype,
-    'setException',
+    goog.log.LogRecord.prototype, 'setException',
     goog.log.LogRecord.prototype.setException);
 goog.exportProperty(
-    goog.log.LogRecord.prototype,
-    'setLoggerName',
+    goog.log.LogRecord.prototype, 'setLoggerName',
     goog.log.LogRecord.prototype.setLoggerName);
 goog.exportProperty(
-    goog.log.LogRecord.prototype,
-    'getLevel',
+    goog.log.LogRecord.prototype, 'getLevel',
     goog.log.LogRecord.prototype.getLevel);
 goog.exportProperty(
-    goog.log.LogRecord.prototype,
-    'setLevel',
+    goog.log.LogRecord.prototype, 'setLevel',
     goog.log.LogRecord.prototype.setLevel);
 goog.exportProperty(
-    goog.log.LogRecord.prototype,
-    'getMessage',
+    goog.log.LogRecord.prototype, 'getMessage',
     goog.log.LogRecord.prototype.getMessage);
 goog.exportProperty(
-    goog.log.LogRecord.prototype,
-    'setMessage',
+    goog.log.LogRecord.prototype, 'setMessage',
     goog.log.LogRecord.prototype.setMessage);
 goog.exportProperty(
-    goog.log.LogRecord.prototype,
-    'getMillis',
+    goog.log.LogRecord.prototype, 'getMillis',
     goog.log.LogRecord.prototype.getMillis);
 goog.exportProperty(
-    goog.log.LogRecord.prototype,
-    'setMillis',
+    goog.log.LogRecord.prototype, 'setMillis',
     goog.log.LogRecord.prototype.setMillis);
 goog.exportProperty(
-    goog.log.LogRecord.prototype,
-    'getSequenceNumber',
+    goog.log.LogRecord.prototype, 'getSequenceNumber',
     goog.log.LogRecord.prototype.getSequenceNumber);
 
 goog.exportSymbol('goog.log.Level', goog.log.Level);
@@ -99,8 +89,7 @@ goog.exportProperty(
 goog.exportProperty(
     goog.log.Level, 'getPredefinedLevel', goog.log.Level.getPredefinedLevel);
 goog.exportProperty(
-    goog.log.Level,
-    'getPredefinedLevelByValue',
+    goog.log.Level, 'getPredefinedLevelByValue',
     goog.log.Level.getPredefinedLevelByValue);
 goog.exportProperty(
     goog.log.Level, 'getPredefinedLevel', goog.log.Level.getPredefinedLevel);
@@ -119,38 +108,31 @@ goog.exportProperty(
 goog.exportProperty(
     goog.log.Logger.prototype, 'getName', goog.log.Logger.prototype.getName);
 goog.exportProperty(
-    goog.log.Logger.prototype,
-    'addHandler',
+    goog.log.Logger.prototype, 'addHandler',
     goog.log.Logger.prototype.addHandler);
 goog.exportProperty(
-    goog.log.Logger.prototype,
-    'removeHandler',
+    goog.log.Logger.prototype, 'removeHandler',
     goog.log.Logger.prototype.removeHandler);
 goog.exportProperty(
-    goog.log.Logger.prototype,
-    'getParent',
+    goog.log.Logger.prototype, 'getParent',
     goog.log.Logger.prototype.getParent);
 goog.exportProperty(
-    goog.log.Logger.prototype,
-    'getChildren',
+    goog.log.Logger.prototype, 'getChildren',
     goog.log.Logger.prototype.getChildren);
 goog.exportProperty(
     goog.log.Logger.prototype, 'setLevel', goog.log.Logger.prototype.setLevel);
 goog.exportProperty(
     goog.log.Logger.prototype, 'getLevel', goog.log.Logger.prototype.getLevel);
 goog.exportProperty(
-    goog.log.Logger.prototype,
-    'getEffectiveLevel',
+    goog.log.Logger.prototype, 'getEffectiveLevel',
     goog.log.Logger.prototype.getEffectiveLevel);
 goog.exportProperty(
-    goog.log.Logger.prototype,
-    'isLoggable',
+    goog.log.Logger.prototype, 'isLoggable',
     goog.log.Logger.prototype.isLoggable);
 goog.exportProperty(
     goog.log.Logger.prototype, 'log', goog.log.Logger.prototype.log);
 goog.exportProperty(
-    goog.log.Logger.prototype,
-    'getLogRecord',
+    goog.log.Logger.prototype, 'getLogRecord',
     goog.log.Logger.prototype.getLogRecord);
 goog.exportProperty(
     goog.log.Logger.prototype, 'shout', goog.log.Logger.prototype.shout);
@@ -169,8 +151,7 @@ goog.exportProperty(
 goog.exportProperty(
     goog.log.Logger.prototype, 'finest', goog.log.Logger.prototype.finest);
 goog.exportProperty(
-    goog.log.Logger.prototype,
-    'logRecord',
+    goog.log.Logger.prototype, 'logRecord',
     goog.log.Logger.prototype.logRecord);
 
 goog.exportSymbol('goog.Promise', goog.Promise);
@@ -183,8 +164,7 @@ goog.exportProperty(
     goog.Promise, 'firstFulfilled', goog.Promise.firstFulfilled);
 goog.exportProperty(goog.Promise, 'withResolver', goog.Promise.withResolver);
 goog.exportProperty(
-    goog.Promise,
-    'setUnhandledRejectionHandler',
+    goog.Promise, 'setUnhandledRejectionHandler',
     goog.Promise.setUnhandledRejectionHandler);
 goog.exportProperty(
     goog.Promise, 'CancellationError', goog.Promise.CancellationError);
@@ -201,35 +181,28 @@ goog.exportProperty(
 
 goog.exportSymbol('goog.Disposable', goog.Disposable);
 goog.exportProperty(
-    goog.Disposable.prototype,
-    'isDisposed',
+    goog.Disposable.prototype, 'isDisposed',
     goog.Disposable.prototype.isDisposed);
 goog.exportProperty(
     goog.Disposable.prototype, 'dispose', goog.Disposable.prototype.dispose);
 goog.exportProperty(
-    goog.Disposable.prototype,
-    'addOnDisposeCallback',
+    goog.Disposable.prototype, 'addOnDisposeCallback',
     goog.Disposable.prototype.addOnDisposeCallback);
 
 goog.exportSymbol(
     'goog.messaging.AbstractChannel', goog.messaging.AbstractChannel);
 goog.exportProperty(
-    goog.messaging.AbstractChannel.prototype,
-    'connect',
+    goog.messaging.AbstractChannel.prototype, 'connect',
     goog.messaging.AbstractChannel.prototype.connect);
 goog.exportProperty(
-    goog.messaging.AbstractChannel.prototype,
-    'isConnected',
+    goog.messaging.AbstractChannel.prototype, 'isConnected',
     goog.messaging.AbstractChannel.prototype.isConnected);
 goog.exportProperty(
-    goog.messaging.AbstractChannel.prototype,
-    'registerService',
+    goog.messaging.AbstractChannel.prototype, 'registerService',
     goog.messaging.AbstractChannel.prototype.registerService);
 goog.exportProperty(
-    goog.messaging.AbstractChannel.prototype,
-    'registerDefaultService',
+    goog.messaging.AbstractChannel.prototype, 'registerDefaultService',
     goog.messaging.AbstractChannel.prototype.registerDefaultService);
 goog.exportProperty(
-    goog.messaging.AbstractChannel.prototype,
-    'send',
+    goog.messaging.AbstractChannel.prototype, 'send',
     goog.messaging.AbstractChannel.prototype.send);

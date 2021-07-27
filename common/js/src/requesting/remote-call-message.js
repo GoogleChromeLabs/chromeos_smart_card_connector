@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -80,9 +81,7 @@ RemoteCallMessage.parseRequestPayload = function(requestPayload) {
  */
 RemoteCallMessage.prototype.makeRequestPayload = function() {
   return goog.object.create(
-      FUNCTION_NAME_MESSAGE_KEY,
-      this.functionName,
-      ARGUMENTS_MESSAGE_KEY,
+      FUNCTION_NAME_MESSAGE_KEY, this.functionName, ARGUMENTS_MESSAGE_KEY,
       this.functionArguments);
 };
 
@@ -96,10 +95,9 @@ RemoteCallMessage.prototype.makeRequestPayload = function() {
  */
 RemoteCallMessage.prototype.getDebugRepresentation = function() {
   return goog.string.subs(
-      '%s(%s)',
-      this.functionName,
-      goog.iter.join(goog.iter.map(
-          this.functionArguments, GSC.DebugDump.debugDump), ', '));
+      '%s(%s)', this.functionName,
+      goog.iter.join(
+          goog.iter.map(this.functionArguments, GSC.DebugDump.debugDump),
+          ', '));
 };
-
 });  // goog.scope

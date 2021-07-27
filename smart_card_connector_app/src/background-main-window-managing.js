@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2018 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -39,10 +40,7 @@ const WINDOW_OPTIONS = {
   'frame': 'none',
   'hidden': true,
   'id': WINDOW_ID,
-  'innerBounds': {
-    'width': 530,
-    'height': 430
-  },
+  'innerBounds': {'width': 530, 'height': 430},
   'resizable': false
 };
 
@@ -58,5 +56,4 @@ GSC.ConnectorApp.Background.MainWindowManaging.openWindowDueToUserRequest =
     function(windowData) {
   GSC.PopupWindow.Server.createWindow(WINDOW_URL, WINDOW_OPTIONS, windowData);
 };
-
 });  // goog.scope

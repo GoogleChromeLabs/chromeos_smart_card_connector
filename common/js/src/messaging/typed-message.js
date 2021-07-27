@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -56,8 +57,7 @@ const TypedMessage = GSC.TypedMessage;
  * @return {TypedMessage?}
  */
 TypedMessage.parseTypedMessage = function(message) {
-  if (!goog.isObject(message) ||
-      goog.object.getCount(message) != 2 ||
+  if (!goog.isObject(message) || goog.object.getCount(message) != 2 ||
       !goog.object.containsKey(message, TYPE_MESSAGE_KEY) ||
       typeof message[TYPE_MESSAGE_KEY] !== 'string' ||
       !goog.object.containsKey(message, DATA_MESSAGE_KEY) ||
@@ -75,5 +75,4 @@ TypedMessage.prototype.makeMessage = function() {
   return goog.object.create(
       TYPE_MESSAGE_KEY, this.type, DATA_MESSAGE_KEY, this.data);
 };
-
 });  // goog.scope
