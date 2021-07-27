@@ -211,7 +211,7 @@ function dump(value) {
     return dumpNumber(value);
   if (typeof value === 'string')
     return dumpString(value);
-  if (goog.isArray(value))
+  if (Array.isArray(value))
     return dumpArray(value);
   if (goog.isFunction(value))
     return dumpFunction(value);

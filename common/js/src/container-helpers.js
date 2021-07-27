@@ -55,7 +55,7 @@ GSC.ContainerHelpers.substituteArrayBuffersRecursively = function(value) {
     // Convert the array buffer into an array of bytes.
     return Array.from(new Uint8Array(value));
   }
-  if (goog.isArray(value)) {
+  if (Array.isArray(value)) {
     // Recursively process array items.
     return value.map(substituteArrayBuffersRecursively);
   }
