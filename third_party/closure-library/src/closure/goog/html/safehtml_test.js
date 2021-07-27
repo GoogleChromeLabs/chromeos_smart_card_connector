@@ -62,13 +62,10 @@ testSuite({
   /** @suppress {checkTypes} */
   testUnwrap() {
     const privateFieldName = 'privateDoNotAccessOrElseSafeHtmlWrappedValue_';
-    const markerFieldName = 'SAFE_HTML_TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_';
     const propNames = googObject.getKeys(SafeHtml.htmlEscape(''));
     assertContains(privateFieldName, propNames);
-    assertContains(markerFieldName, propNames);
     const evil = {};
     evil[privateFieldName] = '<script>evil()</script';
-    evil[markerFieldName] = {};
 
     const exception = assertThrows(() => {
       SafeHtml.unwrap(evil);
@@ -76,15 +73,22 @@ testSuite({
     assertContains('expected object of type SafeHtml', exception.message);
   },
 
-  testUnwrapTrustedHTML() {
-    let safeValue = SafeHtml.htmlEscape('HTML');
-    let trustedValue = SafeHtml.unwrapTrustedHTML(safeValue);
+  testUnwrapTrustedHTML_policyIsNull() {
+    stubs.set(trustedtypes, 'getPolicyPrivateDoNotAccessOrElse', function() {
+      return null;
+    });
+    const safeValue = SafeHtml.htmlEscape('HTML');
+    const trustedValue = SafeHtml.unwrapTrustedHTML(safeValue);
+    assertEquals('string', typeof trustedValue);
     assertEquals(safeValue.getTypedStringValue(), trustedValue);
+  },
+
+  testUnwrapTrustedHTML_policyIsSet() {
     stubs.set(trustedtypes, 'getPolicyPrivateDoNotAccessOrElse', function() {
       return policy;
     });
-    safeValue = SafeHtml.htmlEscape('HTML');
-    trustedValue = SafeHtml.unwrapTrustedHTML(safeValue);
+    const safeValue = SafeHtml.htmlEscape('HTML');
+    const trustedValue = SafeHtml.unwrapTrustedHTML(safeValue);
     assertEquals(safeValue.getTypedStringValue(), trustedValue.toString());
     assertTrue(
         goog.global.TrustedHTML ? trustedValue instanceof TrustedHTML :

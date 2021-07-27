@@ -48,9 +48,11 @@ goog.i18n.uChar.LocalNameFetcher.prototype.prefetch = function(character) {};
 /** @override */
 goog.i18n.uChar.LocalNameFetcher.prototype.getName = function(
     character, callback) {
+  'use strict';
   var localName = goog.i18n.uCharNames.toName(character);
   if (!localName) {
-    goog.i18n.uChar.LocalNameFetcher.logger_.warning(
+    goog.log.warning(
+        goog.i18n.uChar.LocalNameFetcher.logger_,
         'No local name defined for character ' + character);
   }
   callback(localName);
@@ -60,5 +62,6 @@ goog.i18n.uChar.LocalNameFetcher.prototype.getName = function(
 /** @override */
 goog.i18n.uChar.LocalNameFetcher.prototype.isNameAvailable = function(
     character) {
+  'use strict';
   return !!goog.i18n.uCharNames.toName(character);
 };

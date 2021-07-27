@@ -361,15 +361,11 @@ testSuite({
   testUnwrap() {
     const privateFieldName =
         'privateDoNotAccessOrElseTrustedResourceUrlWrappedValue_';
-    const markerFieldName =
-        'TRUSTED_RESOURCE_URL_TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_';
     const propNames =
         googObject.getKeys(TrustedResourceUrl.fromConstant(Const.from('')));
     assertContains(privateFieldName, propNames);
-    assertContains(markerFieldName, propNames);
     const evil = {};
     evil[privateFieldName] = 'http://example.com/evil.js';
-    evil[markerFieldName] = {};
 
     const exception = assertThrows(() => {
       TrustedResourceUrl.unwrap(evil);
@@ -378,17 +374,24 @@ testSuite({
         'expected object of type TrustedResourceUrl', exception.message);
   },
 
-  testUnwrapTrustedScriptURL() {
-    let safeValue =
+  testUnwrapTrustedScriptURL_policyIsNull() {
+    stubs.set(trustedtypes, 'getPolicyPrivateDoNotAccessOrElse', function() {
+      return null;
+    });
+    const safeValue =
         TrustedResourceUrl.fromConstant(Const.from('https://example.com/'));
-    let trustedValue = TrustedResourceUrl.unwrapTrustedScriptURL(safeValue);
+    const trustedValue = TrustedResourceUrl.unwrapTrustedScriptURL(safeValue);
+    assertEquals('string', typeof trustedValue);
     assertEquals(safeValue.getTypedStringValue(), trustedValue);
+  },
+
+  testUnwrapTrustedScriptURL_policyIsSet() {
     stubs.set(trustedtypes, 'getPolicyPrivateDoNotAccessOrElse', function() {
       return policy;
     });
-    safeValue =
+    const safeValue =
         TrustedResourceUrl.fromConstant(Const.from('https://example.com/'));
-    trustedValue = TrustedResourceUrl.unwrapTrustedScriptURL(safeValue);
+    const trustedValue = TrustedResourceUrl.unwrapTrustedScriptURL(safeValue);
     assertEquals(safeValue.getTypedStringValue(), trustedValue.toString());
     assertTrue(
         goog.global.TrustedScriptURL ?

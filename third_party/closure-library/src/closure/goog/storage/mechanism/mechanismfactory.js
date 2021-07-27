@@ -15,6 +15,7 @@ goog.require('goog.storage.mechanism.HTML5LocalStorage');
 goog.require('goog.storage.mechanism.HTML5SessionStorage');
 goog.require('goog.storage.mechanism.IEUserData');
 goog.require('goog.storage.mechanism.PrefixedMechanism');
+goog.requireType('goog.storage.mechanism.IterableMechanism');
 
 
 /**
@@ -36,6 +37,7 @@ goog.storage.mechanism.mechanismfactory.USER_DATA_SHARED_KEY =
  * @return {goog.storage.mechanism.IterableMechanism} Created mechanism or null.
  */
 goog.storage.mechanism.mechanismfactory.create = function(opt_namespace) {
+  'use strict';
   return goog.storage.mechanism.mechanismfactory.createHTML5LocalStorage(
              opt_namespace) ||
       goog.storage.mechanism.mechanismfactory.createIEUserData(opt_namespace);
@@ -54,6 +56,7 @@ goog.storage.mechanism.mechanismfactory.create = function(opt_namespace) {
  */
 goog.storage.mechanism.mechanismfactory.createHTML5LocalStorage = function(
     opt_namespace) {
+  'use strict';
   var storage = new goog.storage.mechanism.HTML5LocalStorage();
   if (storage.isAvailable()) {
     return opt_namespace ?
@@ -76,6 +79,7 @@ goog.storage.mechanism.mechanismfactory.createHTML5LocalStorage = function(
  */
 goog.storage.mechanism.mechanismfactory.createHTML5SessionStorage = function(
     opt_namespace) {
+  'use strict';
   var storage = new goog.storage.mechanism.HTML5SessionStorage();
   if (storage.isAvailable()) {
     return opt_namespace ?
@@ -96,6 +100,7 @@ goog.storage.mechanism.mechanismfactory.createHTML5SessionStorage = function(
  */
 goog.storage.mechanism.mechanismfactory.createIEUserData = function(
     opt_namespace) {
+  'use strict';
   var storage = new goog.storage.mechanism.IEUserData(
       opt_namespace ||
       goog.storage.mechanism.mechanismfactory.USER_DATA_SHARED_KEY);

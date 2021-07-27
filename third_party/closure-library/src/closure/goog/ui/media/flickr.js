@@ -60,6 +60,8 @@ goog.require('goog.ui.media.FlashObject');
 goog.require('goog.ui.media.Media');
 goog.require('goog.ui.media.MediaModel');
 goog.require('goog.ui.media.MediaRenderer');
+goog.requireType('goog.dom.DomHelper');
+goog.requireType('goog.ui.Control');
 
 
 
@@ -86,6 +88,7 @@ goog.require('goog.ui.media.MediaRenderer');
  * @final
  */
 goog.ui.media.FlickrSet = function() {
+  'use strict';
   goog.ui.media.MediaRenderer.call(this);
 };
 goog.inherits(goog.ui.media.FlickrSet, goog.ui.media.MediaRenderer);
@@ -128,6 +131,7 @@ goog.ui.media.FlickrSet.flashUrl_ = goog.html.TrustedResourceUrl.fromConstant(
  * TODO(goto): use {@link goog.ui.media.MediaModel} once it is checked in.
  */
 goog.ui.media.FlickrSet.newControl = function(dataModel, opt_domHelper) {
+  'use strict';
   var control = new goog.ui.media.Media(
       dataModel, goog.ui.media.FlickrSet.getInstance(), opt_domHelper);
   control.setSelected(true);
@@ -143,6 +147,7 @@ goog.ui.media.FlickrSet.newControl = function(dataModel, opt_domHelper) {
  *     player.
  */
 goog.ui.media.FlickrSet.setFlashUrl = function(flashUrl) {
+  'use strict';
   goog.ui.media.FlickrSet.flashUrl_ = flashUrl;
 };
 
@@ -156,6 +161,7 @@ goog.ui.media.FlickrSet.setFlashUrl = function(flashUrl) {
  * @override
  */
 goog.ui.media.FlickrSet.prototype.createDom = function(c) {
+  'use strict';
   var control = /** @type {goog.ui.media.Media} */ (c);
   var div = goog.ui.media.FlickrSet.superClass_.createDom.call(this, control);
 
@@ -180,6 +186,7 @@ goog.ui.media.FlickrSet.prototype.createDom = function(c) {
  * @override
  */
 goog.ui.media.FlickrSet.prototype.getCssClass = function() {
+  'use strict';
   return goog.ui.media.FlickrSet.CSS_CLASS;
 };
 
@@ -200,6 +207,7 @@ goog.ui.media.FlickrSet.prototype.getCssClass = function() {
  */
 goog.ui.media.FlickrSetModel = function(
     userId, setId, opt_caption, opt_description) {
+  'use strict';
   goog.ui.media.MediaModel.call(
       this, goog.ui.media.FlickrSetModel.buildUrl(userId, setId), opt_caption,
       opt_description, goog.ui.media.MediaModel.MimeType.FLASH);
@@ -260,6 +268,7 @@ goog.ui.media.FlickrSetModel.MATCHER_ =
  */
 goog.ui.media.FlickrSetModel.newInstance = function(
     flickrSetUrl, opt_caption, opt_description) {
+  'use strict';
   if (goog.ui.media.FlickrSetModel.MATCHER_.test(flickrSetUrl)) {
     var data = goog.ui.media.FlickrSetModel.MATCHER_.exec(flickrSetUrl);
     return new goog.ui.media.FlickrSetModel(
@@ -277,6 +286,7 @@ goog.ui.media.FlickrSetModel.newInstance = function(
  * @return {string} The URL of the set.
  */
 goog.ui.media.FlickrSetModel.buildUrl = function(userId, setId) {
+  'use strict';
   return 'http://flickr.com/photos/' + userId + '/sets/' + setId;
 };
 
@@ -286,6 +296,7 @@ goog.ui.media.FlickrSetModel.buildUrl = function(userId, setId) {
  * @return {string} The Flickr user id.
  */
 goog.ui.media.FlickrSetModel.prototype.getUserId = function() {
+  'use strict';
   return this.userId_;
 };
 
@@ -295,5 +306,6 @@ goog.ui.media.FlickrSetModel.prototype.getUserId = function() {
  * @return {string} The Flickr set id.
  */
 goog.ui.media.FlickrSetModel.prototype.getSetId = function() {
+  'use strict';
   return this.setId_;
 };

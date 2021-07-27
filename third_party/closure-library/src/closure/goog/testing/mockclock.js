@@ -19,6 +19,7 @@ goog.require('goog.Disposable');
 /** @suppress {extraRequire} */
 goog.require('goog.Promise');
 goog.require('goog.Thenable');
+goog.require('goog.asserts');
 goog.require('goog.async.run');
 goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.events');
@@ -73,7 +74,7 @@ goog.testing.MockClock = function(opt_autoInstall) {
    * turn comes up.  The keys are the timeout keys that are cancelled, each
    * mapping to true.
    *
-   * @private {Object<number, boolean>}
+   * @private {?Object<number, boolean>}
    */
   this.deletedKeys_ = {};
 
@@ -93,7 +94,7 @@ goog.inherits(goog.testing.MockClock, goog.Disposable);
 /**
  * @typedef {{
  *    timeoutKey: number, millis: number,
- *    runAtMillis: number, funcToCall: Function, recurring: boolean}}
+ *    runAtMillis: number, funcToCall: !Function, recurring: boolean}}
  */
 goog.testing.MockClock.QueueObjType_;
 
@@ -454,34 +455,112 @@ goog.testing.MockClock.prototype.isTimeoutSet = function(timeoutKey) {
  * @private
  */
 goog.testing.MockClock.prototype.runFunctionsWithinRange_ = function(endTime) {
-  var adjustedEndTime = endTime - this.timeoutDelay_;
+  // Repeatedly pop off the last item since the queue is always sorted.
+  while (this.hasQueuedEntriesBefore_(endTime)) {
+    this.runNextQueuedTimeout_();
+  }
+};
+
+
+/**
+ * Increments the MockClock's time by a given number of milliseconds, running
+ * any functions that are now overdue.
+ * @param {number=} millis Number of milliseconds to increment the counter.
+ *     If not specified, clock ticks 1 millisecond.
+ * @return {!Promise<number>} Current mock time in milliseconds.
+ */
+goog.testing.MockClock.prototype.tickAsync = async function(millis = 1) {
+  if (millis < 0) {
+    throw new Error(`Time cannot go backwards (cannot tick by ${millis})`);
+  }
+  const endTime = this.nowMillis_ + millis;
+  await this.runFunctionsWithinRangeAsync_(endTime);
+  this.nowMillis_ = Math.max(this.nowMillis_, endTime);
+  return endTime;
+};
+
+
+/**
+ * Like runFunctionsWithinRange, but pauses to allow native promise callbacks to
+ * run correctly.
+ * @param {number} endTime The latest time in the range, in milliseconds.
+ * @private
+ */
+goog.testing.MockClock.prototype.runFunctionsWithinRangeAsync_ =
+    async function(endTime) {
+  // Let native promises set timers before we start ticking.
+  await goog.testing.MockClock.flushMicroTasks_();
 
   // Repeatedly pop off the last item since the queue is always sorted.
-  while (this.queue_ && this.queue_.length &&
-         this.queue_[this.queue_.length - 1].runAtMillis <= adjustedEndTime) {
-    var timeout = this.queue_.pop();
-
-    if (!(timeout.timeoutKey in this.deletedKeys_)) {
-      // Only move time forwards.
-      this.nowMillis_ =
-          Math.max(this.nowMillis_, timeout.runAtMillis + this.timeoutDelay_);
-      // Call timeout in global scope and pass the timeout key as the argument.
-      this.callbacksTriggered_++;
-      timeout.funcToCall.call(goog.global, timeout.timeoutKey);
-      // In case the interval was cleared in the funcToCall
-      if (timeout.recurring) {
-        this.scheduleFunction_(
-            timeout.timeoutKey, timeout.funcToCall, timeout.millis, true);
-      }
+  while (this.hasQueuedEntriesBefore_(endTime)) {
+    if (this.runNextQueuedTimeout_()) {
+      await goog.testing.MockClock.flushMicroTasks_();
     }
   }
 };
 
 
 /**
+ * Pauses asynchronously to run all promise callbacks in the microtask queue.
+ *
+ * This is optimized to be correct, but to also not be too slow in IE.  It waits
+ * for up to 50 chained `then()` callbacks at once. Microtasks callbacks are run
+ * in batches, so a series of `then()` callbacks scheduled at the same time will
+ * run at once.  The loop is only necessary for to run very deep promise chains.
+ *
+ * Using `setTimeout()`, `setImmediate()`, or a polyfill would make this better,
+ * but also makes it 15x slower in IE.  Without IE, setImmediate and polyfill is
+ * best option.
+ * @private
+ */
+goog.testing.MockClock.flushMicroTasks_ = async function() {
+  for (var i = 0; i < 50; i++) {
+    await Promise.resolve();
+  }
+};
+
+
+/**
+ * @param {number} endTime The latest time in the range, in milliseconds.
+ * @return {boolean}
+ * @private
+ */
+goog.testing.MockClock.prototype.hasQueuedEntriesBefore_ = function(endTime) {
+  var adjustedEndTime = endTime - this.timeoutDelay_;
+  return !!this.queue_ && !!this.queue_.length &&
+      this.queue_[this.queue_.length - 1].runAtMillis <= adjustedEndTime;
+};
+
+
+/**
+ * Runs the next timeout in the queue, advancing the clock.
+ * @return {boolean} False if the timeout was cancelled (and nothing happened).
+ * @private
+ */
+goog.testing.MockClock.prototype.runNextQueuedTimeout_ = function() {
+  var timeout = this.queue_.pop();
+
+  if (timeout.timeoutKey in this.deletedKeys_) return false;
+
+  // Only move time forwards.
+  this.nowMillis_ =
+      Math.max(this.nowMillis_, timeout.runAtMillis + this.timeoutDelay_);
+  // Call timeout in global scope and pass the timeout key as the argument.
+  this.callbacksTriggered_++;
+  timeout.funcToCall.call(goog.global, timeout.timeoutKey);
+  // In case the interval was cleared in the funcToCall
+  if (timeout.recurring) {
+    this.scheduleFunction_(
+        timeout.timeoutKey, timeout.funcToCall, timeout.millis, true);
+  }
+  return true;
+};
+
+
+/**
  * Schedules a function to be run at a certain time.
  * @param {number} timeoutKey The timeout key.
- * @param {Function} funcToCall The function to call.
+ * @param {!Function} funcToCall The function to call.
  * @param {number} millis The number of milliseconds to call it in.
  * @param {boolean} recurring Whether to function call should recur.
  * @private
@@ -502,7 +581,7 @@ goog.testing.MockClock.prototype.scheduleFunction_ = function(
     millis: millis
   };
 
-  goog.testing.MockClock.insert_(timeout, this.queue_);
+  goog.testing.MockClock.insert_(timeout, goog.asserts.assert(this.queue_));
 };
 
 
@@ -512,9 +591,9 @@ goog.testing.MockClock.prototype.scheduleFunction_ = function(
  * Later-inserted duplicates appear at lower indices.  For example, the
  * asterisk in (5,4,*,3,2,1) would be the insertion point for 3.
  *
- * @param {goog.testing.MockClock.QueueObjType_} timeout The timeout to insert,
+ * @param {!goog.testing.MockClock.QueueObjType_} timeout The timeout to insert,
  *     with numerical runAtMillis property.
- * @param {Array<!goog.testing.MockClock.QueueObjType_>} queue The queue to
+ * @param {!Array<!goog.testing.MockClock.QueueObjType_>} queue The queue to
  *     insert into, with each element having a numerical runAtMillis property.
  * @private
  */
@@ -555,7 +634,7 @@ goog.testing.MockClock.MAX_INT_ = 2147483647;
 /**
  * Schedules a function to be called after `millis` milliseconds.
  * Mock implementation for setTimeout.
- * @param {Function} funcToCall The function to call.
+ * @param {!Function} funcToCall The function to call.
  * @param {number=} opt_millis The number of milliseconds to call it after.
  * @return {number} The number of timeouts created.
  * @private
@@ -579,7 +658,7 @@ goog.testing.MockClock.prototype.setTimeout_ = function(
 /**
  * Schedules a function to be called every `millis` milliseconds.
  * Mock implementation for setInterval.
- * @param {Function} funcToCall The function to call.
+ * @param {!Function} funcToCall The function to call.
  * @param {number=} opt_millis The number of milliseconds between calls.
  * @return {number} The number of timeouts created.
  * @private
@@ -597,7 +676,7 @@ goog.testing.MockClock.prototype.setInterval_ = function(
 /**
  * Schedules a function to be called when an animation frame is triggered.
  * Mock implementation for requestAnimationFrame.
- * @param {Function} funcToCall The function to call.
+ * @param {!Function} funcToCall The function to call.
  * @return {number} The number of timeouts created.
  * @private
  */
@@ -618,7 +697,7 @@ goog.testing.MockClock.prototype.requestAnimationFrame_ = function(funcToCall) {
  * Schedules a function to be called immediately after the current JS
  * execution.
  * Mock implementation for setImmediate.
- * @param {Function} funcToCall The function to call.
+ * @param {!Function} funcToCall The function to call.
  * @return {number} The number of timeouts created.
  * @private
  */

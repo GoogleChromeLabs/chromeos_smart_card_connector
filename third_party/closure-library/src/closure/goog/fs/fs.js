@@ -18,7 +18,6 @@ goog.provide('goog.fs');
 
 goog.require('goog.async.Deferred');
 goog.require('goog.fs.Error');
-goog.require('goog.fs.FileReader');
 goog.require('goog.fs.FileSystemImpl');
 goog.require('goog.fs.url');
 
@@ -33,6 +32,7 @@ goog.require('goog.fs.url');
  * @private
  */
 goog.fs.get_ = function(type, size) {
+  'use strict';
   var requestFileSystem =
       goog.global.requestFileSystem || goog.global.webkitRequestFileSystem;
 
@@ -42,8 +42,13 @@ goog.fs.get_ = function(type, size) {
 
   var d = new goog.async.Deferred();
   requestFileSystem(
-      type, size, function(fs) { d.callback(new goog.fs.FileSystemImpl(fs)); },
+      type, size,
+      function(fs) {
+        'use strict';
+        d.callback(new goog.fs.FileSystemImpl(fs));
+      },
       function(err) {
+        'use strict';
         d.errback(new goog.fs.Error(err, 'requesting filesystem'));
       });
   return d;
@@ -78,6 +83,7 @@ goog.fs.FileSystemType_ = {
  *     error occurs, the errback is called with a {@link goog.fs.Error}.
  */
 goog.fs.getTemporary = function(size) {
+  'use strict';
   return goog.fs.get_(goog.fs.FileSystemType_.TEMPORARY, size);
 };
 
@@ -91,6 +97,7 @@ goog.fs.getTemporary = function(size) {
  *     error occurs, the errback is called with a {@link goog.fs.Error}.
  */
 goog.fs.getPersistent = function(size) {
+  'use strict';
   return goog.fs.get_(goog.fs.FileSystemType_.PERSISTENT, size);
 };
 
@@ -106,6 +113,7 @@ goog.fs.getPersistent = function(size) {
  * @return {string} The URL for the object.
  */
 goog.fs.createObjectUrl = function(blob) {
+  'use strict';
   return goog.fs.url.createObjectUrl(blob);
 };
 
@@ -120,6 +128,7 @@ goog.fs.createObjectUrl = function(blob) {
  * @param {string} url The URL to revoke.
  */
 goog.fs.revokeObjectUrl = function(url) {
+  'use strict';
   goog.fs.url.revokeObjectUrl(url);
 };
 
@@ -134,22 +143,8 @@ goog.fs.revokeObjectUrl = function(url) {
  * @return {boolean} True if this browser supports Object Urls.
  */
 goog.fs.browserSupportsObjectUrls = function() {
+  'use strict';
   return goog.fs.url.browserSupportsObjectUrls();
-};
-
-
-/**
- * Converts a Blob or a File into a string. This should only be used when the
- * blob is known to be small.
- *
- * @param {!Blob} blob The blob to convert.
- * @param {string=} opt_encoding The name of the encoding to use.
- * @return {!goog.async.Deferred} The deferred string. If an error occurrs, the
- *     errback is called with a {@link goog.fs.Error}.
- * @deprecated Use {@link goog.fs.FileReader.readAsText} instead.
- */
-goog.fs.blobToString = function(blob, opt_encoding) {
-  return goog.fs.FileReader.readAsText(blob, opt_encoding);
 };
 
 
@@ -166,6 +161,7 @@ goog.fs.blobToString = function(blob, opt_encoding) {
  * @return {Blob} The blob slice or null if not supported.
  */
 goog.fs.sliceBlob = function(blob, start, opt_end) {
+  'use strict';
   if (opt_end === undefined) {
     opt_end = blob.size;
   }

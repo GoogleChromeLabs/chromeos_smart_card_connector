@@ -20,6 +20,7 @@ goog.require('goog.labs.userAgent.platform');
 goog.require('goog.string');
 goog.require('goog.string.Const');
 goog.require('goog.userAgent');
+goog.requireType('goog.string.TypedString');
 
 
 /**
@@ -49,6 +50,7 @@ goog.window.DEFAULT_POPUP_TARGET = 'google_popup';
  * @private
  */
 goog.window.createFakeWindow_ = function() {
+  'use strict';
   return /** @type {!Window} */ ({});
 };
 
@@ -92,6 +94,7 @@ goog.window.createFakeWindow_ = function() {
  *                  a cross-origin window has been opened.
  */
 goog.window.open = function(linkRef, opt_options, opt_parentWin) {
+  'use strict';
   if (!opt_options) {
     opt_options = {};
   }
@@ -274,6 +277,7 @@ goog.window.open = function(linkRef, opt_options, opt_parentWin) {
  *                  opened.
  */
 goog.window.openBlank = function(opt_message, opt_options, opt_parentWin) {
+  'use strict';
   // Open up a window with the loading message and nothing else.
   // This will be interpreted as HTML content type with a missing doctype
   // and html/body tags, but is otherwise acceptable.
@@ -326,6 +330,7 @@ goog.window.openBlank = function(opt_message, opt_options, opt_parentWin) {
  * @return {boolean} true if the window was not popped up, false if it was.
  */
 goog.window.popup = function(linkRef, opt_options) {
+  'use strict';
   if (!opt_options) {
     opt_options = {};
   }

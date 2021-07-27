@@ -47,9 +47,10 @@ goog.require('goog.string.internal');
  *
  * Instances of this type must be created via the factory methods
  * (`goog.html.SafeHtml.create`, `goog.html.SafeHtml.htmlEscape`),
- * etc and not by invoking its constructor.  The constructor intentionally
- * takes no parameters and the type is immutable; hence only a default instance
- * corresponding to the empty string can be obtained via constructor invocation.
+ * etc and not by invoking its constructor. The constructor intentionally takes
+ * an extra parameter that cannot be constructed outside of this file and the
+ * type is immutable; hence only a default instance corresponding to the empty
+ * string can be obtained via constructor invocation.
  *
  * Creating SafeHtml objects HAS SIDE-EFFECTS due to calling Trusted Types Web
  * API.
@@ -69,35 +70,33 @@ goog.require('goog.string.internal');
  *
  * @see goog.html.SafeHtml.create
  * @see goog.html.SafeHtml.htmlEscape
- * @constructor
  * @final
  * @struct
  * @implements {goog.i18n.bidi.DirectionalString}
  * @implements {goog.string.TypedString}
  */
-goog.html.SafeHtml = function() {
+goog.html.SafeHtml = class {
   /**
-   * The contained value of this SafeHtml.  The field has a purposely ugly
-   * name to make (non-compiled) code that attempts to directly access this
-   * field stand out.
-   * @private {!TrustedHTML|string}
+   * @param {!TrustedHTML|string} value
+   * @param {?goog.i18n.bidi.Dir} dir
+   * @param {!Object} token package-internal implementation detail.
    */
-  this.privateDoNotAccessOrElseSafeHtmlWrappedValue_ = '';
+  constructor(value, dir, token) {
+    /**
+     * The contained value of this SafeHtml.  The field has a purposely ugly
+     * name to make (non-compiled) code that attempts to directly access this
+     * field stand out.
+     * @private {!TrustedHTML|string}
+     */
+    this.privateDoNotAccessOrElseSafeHtmlWrappedValue_ =
+        (token === goog.html.SafeHtml.CONSTRUCTOR_TOKEN_PRIVATE_) ? value : '';
 
-  /**
-   * A type marker used to implement additional run-time type checking.
-   * @see goog.html.SafeHtml.unwrap
-   * @const {!Object}
-   * @private
-   */
-  this.SAFE_HTML_TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_ =
-      goog.html.SafeHtml.TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_;
-
-  /**
-   * This SafeHtml's directionality, or null if unknown.
-   * @private {?goog.i18n.bidi.Dir}
-   */
-  this.dir_ = null;
+    /**
+     * This SafeHtml's directionality, or null if unknown.
+     * @private {?goog.i18n.bidi.Dir}
+     */
+    this.dir_ = dir;
+  }
 };
 
 
@@ -208,17 +207,13 @@ goog.html.SafeHtml.unwrapTrustedHTML = function(safeHtml) {
   // Specifically, the following checks are performed:
   // 1. The object is an instance of the expected type.
   // 2. The object is not an instance of a subclass.
-  // 3. The object carries a type marker for the expected type. "Faking" an
-  // object requires a reference to the type marker, which has names intended
-  // to stand out in code reviews.
   if (safeHtml instanceof goog.html.SafeHtml &&
-      safeHtml.constructor === goog.html.SafeHtml &&
-      safeHtml.SAFE_HTML_TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_ ===
-          goog.html.SafeHtml.TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_) {
+      safeHtml.constructor === goog.html.SafeHtml) {
     return safeHtml.privateDoNotAccessOrElseSafeHtmlWrappedValue_;
   } else {
-    goog.asserts.fail('expected object of type SafeHtml, got \'' +
-        safeHtml + '\' of type ' + goog.typeOf(safeHtml));
+    goog.asserts.fail(
+        'expected object of type SafeHtml, got \'' + safeHtml + '\' of type ' +
+        goog.typeOf(safeHtml));
     return 'type_error:SafeHtml';
   }
 };
@@ -375,8 +370,8 @@ goog.html.SafeHtml.NOT_ALLOWED_TAG_NAMES_ = goog.object.createSet(
 
 
 /**
- * @typedef {string|number|goog.string.TypedString|
- *     goog.html.SafeStyle.PropertyMap|undefined}
+ * @typedef {string|number|!goog.string.TypedString|
+ *     !goog.html.SafeStyle.PropertyMap|undefined|null}
  */
 goog.html.SafeHtml.AttributeValue;
 
@@ -429,9 +424,9 @@ goog.html.SafeHtml.AttributeValue;
  *     HTML-escape and put inside the tag. This must be empty for void tags
  *     like <br>. Array elements are concatenated.
  * @return {!goog.html.SafeHtml} The SafeHtml content with the tag.
- * @throws {Error} If invalid tag name, attribute name, or attribute value is
+ * @throws {!Error} If invalid tag name, attribute name, or attribute value is
  *     provided.
- * @throws {goog.asserts.AssertionError} If content for void tag is provided.
+ * @throws {!goog.asserts.AssertionError} If content for void tag is provided.
  */
 goog.html.SafeHtml.create = function(tagName, opt_attributes, opt_content) {
   goog.html.SafeHtml.verifyTagName(String(tagName));
@@ -445,7 +440,7 @@ goog.html.SafeHtml.create = function(tagName, opt_attributes, opt_content) {
  * E.g. STRONG is fine but SCRIPT throws because it changes context. See
  * goog.html.SafeHtml.create for an explanation of allowed tags.
  * @param {string} tagName
- * @throws {Error} If invalid tag name is provided.
+ * @throws {!Error} If invalid tag name is provided.
  * @package
  */
 goog.html.SafeHtml.verifyTagName = function(tagName) {
@@ -489,7 +484,7 @@ goog.html.SafeHtml.verifyTagName = function(tagName) {
  *     !Array<!goog.html.SafeHtml.TextOrHtml_>=} opt_content Content to
  *     HTML-escape and put inside the tag. Array elements are concatenated.
  * @return {!goog.html.SafeHtml} The SafeHtml content with the tag.
- * @throws {Error} If invalid tag name, attribute name, or attribute value is
+ * @throws {!Error} If invalid tag name, attribute name, or attribute value is
  *     provided. If opt_attributes contains the src or srcdoc attributes.
  */
 goog.html.SafeHtml.createIframe = function(
@@ -539,7 +534,7 @@ goog.html.SafeHtml.createIframe = function(
  *     !Array<!goog.html.SafeHtml.TextOrHtml_>=} opt_content Content to
  *     HTML-escape and put inside the tag. Array elements are concatenated.
  * @return {!goog.html.SafeHtml} The SafeHtml content with the tag.
- * @throws {Error} If invalid tag name, attribute name, or attribute value is
+ * @throws {!Error} If invalid tag name, attribute name, or attribute value is
  *     provided. If opt_attributes contains the src, srcdoc or sandbox
  *     attributes. If browser does not support the sandbox attribute on iframe.
  */
@@ -589,7 +584,7 @@ goog.html.SafeHtml.canUseSandboxIframe = function() {
  *     consisting of [a-zA-Z0-9-] are allowed. Value of null or undefined
  *     causes the attribute to be omitted.
  * @return {!goog.html.SafeHtml} The SafeHtml content with the tag.
- * @throws {Error} If invalid attribute name or value is provided. If
+ * @throws {!Error} If invalid attribute name or value is provided. If
  *     opt_attributes contains the src attribute.
  */
 goog.html.SafeHtml.createScriptSrc = function(src, opt_attributes) {
@@ -622,7 +617,7 @@ goog.html.SafeHtml.createScriptSrc = function(src, opt_attributes) {
  *     consisting of [a-zA-Z0-9-] are allowed. Value of null or undefined causes
  *     the attribute to be omitted.
  * @return {!goog.html.SafeHtml} The SafeHtml content with the tag.
- * @throws {Error} If invalid attribute name or attribute value is provided. If
+ * @throws {!Error} If invalid attribute name or attribute value is provided. If
  *     opt_attributes contains the language, src, text or type attribute.
  */
 goog.html.SafeHtml.createScript = function(script, opt_attributes) {
@@ -666,7 +661,7 @@ goog.html.SafeHtml.createScript = function(script, opt_attributes) {
  *     consisting of [a-zA-Z0-9-] are allowed. Value of null or undefined causes
  *     the attribute to be omitted.
  * @return {!goog.html.SafeHtml} The SafeHtml content with the tag.
- * @throws {Error} If invalid attribute name or attribute value is provided. If
+ * @throws {!Error} If invalid attribute name or attribute value is provided. If
  *     opt_attributes contains the type attribute.
  */
 goog.html.SafeHtml.createStyle = function(styleSheet, opt_attributes) {
@@ -699,7 +694,6 @@ goog.html.SafeHtml.createStyle = function(styleSheet, opt_attributes) {
  * @return {!goog.html.SafeHtml} The SafeHtml content with the tag.
  */
 goog.html.SafeHtml.createMetaRefresh = function(url, opt_secs) {
-
   // Note that sanitize is a no-op on SafeUrl.
   var unwrappedUrl = goog.html.SafeUrl.unwrap(goog.html.SafeUrl.sanitize(url));
 
@@ -721,7 +715,7 @@ goog.html.SafeHtml.createMetaRefresh = function(url, opt_secs) {
     // URIs, so this could do the wrong thing, but at least it will do the wrong
     // thing in only rare cases.
     if (goog.string.internal.contains(unwrappedUrl, ';')) {
-      unwrappedUrl = "'" + unwrappedUrl.replace(/'/g, '%27') + "'";
+      unwrappedUrl = '\'' + unwrappedUrl.replace(/'/g, '%27') + '\'';
     }
   }
   var attributes = {
@@ -740,7 +734,8 @@ goog.html.SafeHtml.createMetaRefresh = function(url, opt_secs) {
  * @param {string} name The attribute name.
  * @param {!goog.html.SafeHtml.AttributeValue} value The attribute value.
  * @return {string} A "name=value" string.
- * @throws {Error} If attribute value is unsafe for the given tag and attribute.
+ * @throws {!Error} If attribute value is unsafe for the given tag and
+ *     attribute.
  * @private
  */
 goog.html.SafeHtml.getAttrNameAndValue_ = function(tagName, name, value) {
@@ -802,7 +797,7 @@ goog.html.SafeHtml.getAttrNameAndValue_ = function(tagName, name, value) {
  * @param {!goog.html.SafeHtml.AttributeValue} value It could be SafeStyle or a
  *     map which will be passed to goog.html.SafeStyle.create.
  * @return {string} Unwrapped value.
- * @throws {Error} If string value is given.
+ * @throws {!Error} If string value is given.
  * @private
  */
 goog.html.SafeHtml.getStyleValue_ = function(value) {
@@ -907,12 +902,12 @@ goog.html.SafeHtml.concatWithDir = function(dir, var_args) {
 
 
 /**
- * Type marker for the SafeHtml type, used to implement additional run-time
- * type checking.
- * @const {!Object}
- * @private
+ * Token used to ensure that object is created only from this file. No code
+ * outside of this file can access this token.
+ * @private {!Object}
+ * @const
  */
-goog.html.SafeHtml.TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_ = {};
+goog.html.SafeHtml.CONSTRUCTOR_TOKEN_PRIVATE_ = {};
 
 
 /**
@@ -926,61 +921,10 @@ goog.html.SafeHtml.TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_ = {};
  */
 goog.html.SafeHtml.createSafeHtmlSecurityPrivateDoNotAccessOrElse = function(
     html, dir) {
-  return new goog.html.SafeHtml().initSecurityPrivateDoNotAccessOrElse_(
-      html, dir);
-};
-
-/**
- * Package-internal utility method to create SafeHtml instances, skipping
- * Trusted Type policy. This method exists only so that the compiler can
- * dead code eliminate static fields (like EMPTY) when they're not accessed.
- * @param {!TrustedHTML|string} trustedHtml
- * @return {!goog.html.SafeHtml} The initialized SafeHtml object.
- * @package
- */
-goog.html.SafeHtml
-    .createSafeHtmlFromTrustedHtmlSecurityPrivateDoNotAccessOrElse = function(
-    trustedHtml) {
-  return new goog.html.SafeHtml()
-      .initSecurityFromTrustedHtmlPrivateDoNotAccessOrElse_(
-          trustedHtml, goog.i18n.bidi.Dir.NEUTRAL);
-};
-
-
-/**
- * Called from createSafeHtmlSecurityPrivateDoNotAccessOrElse(). This
- * method exists only so that the compiler can dead code eliminate static
- * fields (like EMPTY) when they're not accessed.
- * @param {string} html
- * @param {?goog.i18n.bidi.Dir} dir
- * @return {!goog.html.SafeHtml}
- * @private
- */
-goog.html.SafeHtml.prototype.initSecurityPrivateDoNotAccessOrElse_ = function(
-    html, dir) {
   const policy = goog.html.trustedtypes.getPolicyPrivateDoNotAccessOrElse();
-  this.privateDoNotAccessOrElseSafeHtmlWrappedValue_ =
-      policy ? policy.createHTML(html) : html;
-  this.dir_ = dir;
-  return this;
-};
-
-
-/**
- * Called from createSafeHtmlFromTrustedHtmlSecurityPrivateDoNotAccessOrElse().
- * This method exists only so that the compiler can dead code eliminate static
- * fields (like EMPTY) when they're not accessed.
- * @param {!TrustedHTML|string} trustedHtml
- * @param {?goog.i18n.bidi.Dir} dir
- * @return {!goog.html.SafeHtml}
- * @private
- */
-goog.html.SafeHtml.prototype
-    .initSecurityFromTrustedHtmlPrivateDoNotAccessOrElse_ = function(
-    trustedHtml, dir) {
-  this.privateDoNotAccessOrElseSafeHtmlWrappedValue_ = trustedHtml;
-  this.dir_ = dir;
-  return this;
+  const trustedHtml = policy ? policy.createHTML(html) : html;
+  return new goog.html.SafeHtml(
+      trustedHtml, dir, goog.html.SafeHtml.CONSTRUCTOR_TOKEN_PRIVATE_);
 };
 
 
@@ -992,8 +936,8 @@ goog.html.SafeHtml.prototype
  * @param {(!goog.html.SafeHtml.TextOrHtml_|
  *     !Array<!goog.html.SafeHtml.TextOrHtml_>)=} opt_content
  * @return {!goog.html.SafeHtml}
- * @throws {Error} If invalid or unsafe attribute name or value is provided.
- * @throws {goog.asserts.AssertionError} If content for void tag is provided.
+ * @throws {!Error} If invalid or unsafe attribute name or value is provided.
+ * @throws {!goog.asserts.AssertionError} If content for void tag is provided.
  * @package
  */
 goog.html.SafeHtml.createSafeHtmlTagSecurityPrivateDoNotAccessOrElse = function(
@@ -1041,7 +985,8 @@ goog.html.SafeHtml.createSafeHtmlTagSecurityPrivateDoNotAccessOrElse = function(
  * @param {?Object<string, ?goog.html.SafeHtml.AttributeValue>=} opt_attributes
  * @return {string} Returns an empty string if there are no attributes, returns
  *     a string starting with a space otherwise.
- * @throws {Error} If attribute value is unsafe for the given tag and attribute.
+ * @throws {!Error} If attribute value is unsafe for the given tag and
+ *     attribute.
  * @package
  */
 goog.html.SafeHtml.stringifyAttributes = function(tagName, opt_attributes) {
@@ -1075,7 +1020,7 @@ goog.html.SafeHtml.stringifyAttributes = function(tagName, opt_attributes) {
  * @param {?Object<string, ?goog.html.SafeHtml.AttributeValue>=} opt_attributes
  *     Optional attributes passed to create*().
  * @return {!Object<string, ?goog.html.SafeHtml.AttributeValue>}
- * @throws {Error} If opt_attributes contains an attribute with the same name
+ * @throws {!Error} If opt_attributes contains an attribute with the same name
  *     as an attribute in fixedAttributes.
  * @package
  */
@@ -1139,19 +1084,9 @@ goog.html.SafeHtml.DOCTYPE_HTML = /** @type {!goog.html.SafeHtml} */ ({
  * A SafeHtml instance corresponding to the empty string.
  * @const {!goog.html.SafeHtml}
  */
-goog.html.SafeHtml.EMPTY =
-    goog.html.SafeHtml
-        .createSafeHtmlFromTrustedHtmlSecurityPrivateDoNotAccessOrElse(
-            // NOTE: This constant uses a different builder function, that
-            // accepts TrustedHTML to avoid creating a Trusted Types policy.
-            // Using trustedTypes.emptyHTML if available, and an empty string if
-            // not. This typecast is safe - if trustedTypes are not available,
-            // policy creation would not happen anyway, and DOM sinks accept
-            // string values.
-            goog.global.trustedTypes && goog.global.trustedTypes.emptyHTML ?
-                goog.global.trustedTypes.emptyHTML :
-                '');
-
+goog.html.SafeHtml.EMPTY = new goog.html.SafeHtml(
+    (goog.global.trustedTypes && goog.global.trustedTypes.emptyHTML) || '',
+    goog.i18n.bidi.Dir.NEUTRAL, goog.html.SafeHtml.CONSTRUCTOR_TOKEN_PRIVATE_);
 
 /**
  * A SafeHtml instance corresponding to the <br> tag.

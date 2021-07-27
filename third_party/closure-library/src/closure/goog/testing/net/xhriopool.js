@@ -22,6 +22,7 @@ goog.provide('goog.testing.net.XhrIoPool');
 
 goog.require('goog.net.XhrIoPool');
 goog.require('goog.testing.net.XhrIo');
+goog.requireType('goog.net.XhrIo');
 
 
 
@@ -54,6 +55,15 @@ goog.inherits(goog.testing.net.XhrIoPool, goog.net.XhrIoPool);
 goog.testing.net.XhrIoPool.prototype.createObject = function() {
   return (/** @type {!goog.net.XhrIo} */ (this.xhr_));
 };
+
+
+/**
+ * Override adjustForMinMax to not call handleRequests because that causes
+ * problems.  See b/31041087.
+ *
+ * @override
+ */
+goog.testing.net.XhrIoPool.prototype.adjustForMinMax = function() {};
 
 
 /**

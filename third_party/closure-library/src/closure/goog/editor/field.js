@@ -42,6 +42,7 @@ goog.require('goog.events.KeyCodes');
 goog.require('goog.functions');
 goog.require('goog.html.SafeHtml');
 goog.require('goog.html.SafeStyleSheet');
+goog.require('goog.html.legacyconversions');
 goog.require('goog.log');
 goog.require('goog.log.Level');
 goog.require('goog.string');
@@ -49,6 +50,11 @@ goog.require('goog.string.Unicode');
 goog.require('goog.style');
 goog.require('goog.userAgent');
 goog.require('goog.userAgent.product');
+goog.requireType('goog.Disposable');
+goog.requireType('goog.dom.AbstractRange');
+goog.requireType('goog.dom.SavedRange');
+goog.requireType('goog.events.BrowserEvent');
+goog.requireType('goog.html.TrustedResourceUrl');
 
 
 
@@ -2150,7 +2156,7 @@ goog.editor.Field.prototype.getCleanContents = function() {
 goog.editor.Field.prototype.getFieldCopy = function() {
   var field = this.getElement();
   // Deep cloneNode strips some script tag contents in IE, so we do this.
-  var fieldCopy = /** @type {Element} */ (field.cloneNode(false));
+  var fieldCopy = /** @type {!Element} */ (field.cloneNode(false));
 
   // For some reason, when IE sets innerHtml of the cloned node, it strips
   // script tags that fall at the beginning of an element. Appending a
@@ -2159,6 +2165,8 @@ goog.editor.Field.prototype.getFieldCopy = function() {
   if (goog.userAgent.IE && html.match(/^\s*<script/i)) {
     html = goog.string.Unicode.NBSP + html;
   }
+  goog.dom.safe.setInnerHtml(
+      fieldCopy, goog.html.legacyconversions.safeHtmlFromString(html));
   fieldCopy.innerHTML = html;
   return fieldCopy;
 };
