@@ -12,6 +12,7 @@ const googArray = goog.require('goog.array');
 const googObject = goog.require('goog.object');
 const recordFunction = goog.require('goog.testing.recordFunction');
 const testSuite = goog.require('goog.testing.testSuite');
+const {assertInstanceof} = goog.require('goog.asserts');
 
 function stringifyObject(m) {
   const keys = googObject.getKeys(m);
@@ -191,6 +192,43 @@ testSuite({
     assertEquals(5, clone.e.f.h);
   },
 
+  testUnsafeCloneMapWithDeepObject() {
+    const original =
+        new Map([['a', 1], ['b', {c: 2, d: 3}], ['e', {f: {g: 4, h: 5}}]]);
+    const clone = googObject.unsafeClone(original);
+
+    assertInstanceof(clone, Map);
+    assertNotEquals(original, clone);
+    // Shallow clone, not deep
+    assertEquals(original.get('b'), clone.get('b'));
+    assertEquals(original.get('e'), clone.get('e'));
+    assertEquals(original.get('e').f, clone.get('e').f);
+    assertEquals(1, clone.get('a'));
+    assertEquals(2, clone.get('b').c);
+    assertEquals(3, clone.get('b').d);
+    assertEquals(4, clone.get('e').f.g);
+    assertEquals(5, clone.get('e').f.h);
+  },
+
+  testUnsafeCloneSetWithDeepObject() {
+    const container1 = {c: 2, d: 3};
+    const container2 = {f: {g: 4, h: 5}};
+    const original = new Set([container1, container2]);
+    const clone = googObject.unsafeClone(original);
+
+    assertInstanceof(clone, Set);
+    assertNotEquals(original, clone);
+    // Shallow clone, not deep.
+    assertTrue(clone.has(container1));
+    assertTrue(clone.has(container2));
+    const newSetValues = Array.from(clone.values());
+    assertEquals(container2.f, newSetValues[1].f);
+    assertEquals(2, newSetValues[0].c);
+    assertEquals(3, newSetValues[0].d);
+    assertEquals(4, newSetValues[1].f.g);
+    assertEquals(5, newSetValues[1].f.h);
+  },
+
   testUnsafeCloneTypedArray() {
     if (typeof ArrayBuffer !== 'function' ||
         typeof ArrayBuffer.isView !== 'function') {
@@ -359,6 +397,7 @@ testSuite({
     assertEquals('d', b[3]);
   },
 
+  /** @suppress {missingProperties} suppression added to enable type checking */
   testExtend() {
     let o = {};
     let o2 = {a: 0, b: 1};
@@ -510,7 +549,15 @@ testSuite({
     x.propA = 4;
     x.propB = 6;
     try {
+      /**
+       * @suppress {strictMissingProperties} suppression added to enable type
+       * checking
+       */
       y.propA = 5;
+      /**
+       * @suppress {strictMissingProperties} suppression added to enable type
+       * checking
+       */
       y.propB = 7;
     } catch (e) {
     }
@@ -543,9 +590,17 @@ testSuite({
     const x = {propA: 3};
     const y = googObject.createImmutableView(x);
     assertThrows(() => {
+      /**
+       * @suppress {strictMissingProperties} suppression added to enable type
+       * checking
+       */
       y.propA = 4;
     });
     assertThrows(() => {
+      /**
+       * @suppress {strictMissingProperties} suppression added to enable type
+       * checking
+       */
       y.propB = 4;
     });
   },
@@ -607,6 +662,7 @@ testSuite({
         expected, googObject.getAllPropertyNames(child.prototype));
   },
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testGetAllPropertyNames_es6ClassProperties() {
     // Create an ES6 class via eval so we can bail out if it's a syntax error in
     // browsers that don't support ES6 classes.
@@ -651,6 +707,7 @@ testSuite({
 
     // There's slightly different behavior depending on what APIs the browser
     // under test supports.
+    /** @suppress {checkTypes} suppression added to enable type checking */
     const additionalProps = !!Object.getOwnPropertyNames ?
         Object.getOwnPropertyNames(Object.prototype) :
         [];

@@ -25,6 +25,7 @@ goog.requireType('goog.net.XhrLike');
  * @return {!goog.net.XhrLike.OrNative} A new XMLHttpRequest object.
  */
 goog.net.XmlHttp = function() {
+  'use strict';
   return goog.net.XmlHttp.factory_.createInstance();
 };
 
@@ -59,6 +60,7 @@ goog.net.XmlHttpDefines.ASSUME_NATIVE_XHR =
  * @return {Object} The options.
  */
 goog.net.XmlHttp.getOptions = function() {
+  'use strict';
   return goog.net.XmlHttp.factory_.getOptions();
 };
 
@@ -131,9 +133,9 @@ goog.net.XmlHttp.factory_;
  * @deprecated Use setGlobalFactory instead.
  */
 goog.net.XmlHttp.setFactory = function(factory, optionsFactory) {
-  goog.net.XmlHttp.setGlobalFactory(
-      new goog.net.WrapperXmlHttpFactory(
-          goog.asserts.assert(factory), goog.asserts.assert(optionsFactory)));
+  'use strict';
+  goog.net.XmlHttp.setGlobalFactory(new goog.net.WrapperXmlHttpFactory(
+      goog.asserts.assert(factory), goog.asserts.assert(optionsFactory)));
 };
 
 
@@ -142,6 +144,7 @@ goog.net.XmlHttp.setFactory = function(factory, optionsFactory) {
  * @param {!goog.net.XmlHttpFactory} factory New global factory object.
  */
 goog.net.XmlHttp.setGlobalFactory = function(factory) {
+  'use strict';
   goog.net.XmlHttp.factory_ = factory;
 };
 
@@ -154,6 +157,7 @@ goog.net.XmlHttp.setGlobalFactory = function(factory) {
  * @constructor
  */
 goog.net.DefaultXmlHttpFactory = function() {
+  'use strict';
   goog.net.XmlHttpFactory.call(this);
 };
 goog.inherits(goog.net.DefaultXmlHttpFactory, goog.net.XmlHttpFactory);
@@ -161,7 +165,8 @@ goog.inherits(goog.net.DefaultXmlHttpFactory, goog.net.XmlHttpFactory);
 
 /** @override */
 goog.net.DefaultXmlHttpFactory.prototype.createInstance = function() {
-  var progId = this.getProgId_();
+  'use strict';
+  const progId = this.getProgId_();
   if (progId) {
     return new ActiveXObject(progId);
   } else {
@@ -172,8 +177,9 @@ goog.net.DefaultXmlHttpFactory.prototype.createInstance = function() {
 
 /** @override */
 goog.net.DefaultXmlHttpFactory.prototype.internalGetOptions = function() {
-  var progId = this.getProgId_();
-  var options = {};
+  'use strict';
+  const progId = this.getProgId_();
+  const options = {};
   if (progId) {
     options[goog.net.XmlHttp.OptionType.USE_NULL_FUNCTION] = true;
     options[goog.net.XmlHttp.OptionType.LOCAL_REQUEST_ERROR] = true;
@@ -196,6 +202,7 @@ goog.net.DefaultXmlHttpFactory.prototype.ieProgId_;
  * @private
  */
 goog.net.DefaultXmlHttpFactory.prototype.getProgId_ = function() {
+  'use strict';
   if (goog.net.XmlHttp.ASSUME_NATIVE_XHR ||
       goog.net.XmlHttpDefines.ASSUME_NATIVE_XHR) {
     return '';
@@ -209,14 +216,14 @@ goog.net.DefaultXmlHttpFactory.prototype.getProgId_ = function() {
   if (!this.ieProgId_ && typeof XMLHttpRequest == 'undefined' &&
       typeof ActiveXObject != 'undefined') {
     // Candidate Active X types.
-    var ACTIVE_X_IDENTS = [
+    const ACTIVE_X_IDENTS = [
       'MSXML2.XMLHTTP.6.0',
       'MSXML2.XMLHTTP.3.0',
       'MSXML2.XMLHTTP',
       'Microsoft.XMLHTTP',
     ];
-    for (var i = 0; i < ACTIVE_X_IDENTS.length; i++) {
-      var candidate = ACTIVE_X_IDENTS[i];
+    for (let i = 0; i < ACTIVE_X_IDENTS.length; i++) {
+      const candidate = ACTIVE_X_IDENTS[i];
 
       try {
         new ActiveXObject(candidate);

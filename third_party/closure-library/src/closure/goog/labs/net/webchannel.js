@@ -257,7 +257,7 @@ goog.net.WebChannel.Options.prototype.xmlHttpFactory;
 /**
  * Client-side thresholds that decide when to refresh
  * an underlying HTTP request, to limit memory consumption due to XHR buffering
- * or compression context. The client-side thresholds should be signficantly
+ * or compression context. The client-side thresholds should be significantly
  * smaller than the server-side thresholds. This allows the client to eliminate
  * any latency introduced by request refreshing, i.e. an RTT window during which
  * messages may be buffered on the server-side. Supported params include
@@ -267,11 +267,20 @@ goog.net.WebChannel.Options.prototype.xmlHttpFactory;
 goog.net.WebChannel.Options.prototype.requestRefreshThresholds;
 
 /**
+ * This is an experimental feature to use WHATWG Fetch/streams (when supported)
+ * for the backchannel. If a custom 'xmlHttpFactory' is speficied, this option
+ * will not be effective. This option defaults to false now and will eventually
+ * be turned on by default.
+ * @type {boolean|undefined}
+ */
+goog.net.WebChannel.Options.prototype.useFetchStreams;
+
+/**
  * Opt-in to enable Chrome origin trials from the WebChannel client. See
  * https://github.com/GoogleChrome/OriginTrials
  *
  * Origin trial history:
- * - fetch upload (07/2020 - 01/2021)
+ * - fetch upload (11/2020 - 07/2021)
  * https://developers.chrome.com/origintrials/#/view_trial/3524066708417413121
  *
  * Participating in the origin trials will help Chrome to release new Web
@@ -280,6 +289,8 @@ goog.net.WebChannel.Options.prototype.requestRefreshThresholds;
  *
  * Origin trials are not expected to interfere with WebChannel wire messages
  * and should not introduce any noticeable overhead.
+ *
+ * This is enabled by default with any on-going origin-trial.
  *
  * @type {boolean|undefined}
  */
@@ -391,6 +402,7 @@ goog.net.WebChannel.EventType = {
  * @extends {goog.events.Event}
  */
 goog.net.WebChannel.MessageEvent = function() {
+  'use strict';
   goog.net.WebChannel.MessageEvent.base(
       this, 'constructor', goog.net.WebChannel.EventType.MESSAGE);
 };
@@ -475,6 +487,7 @@ goog.net.WebChannel.ErrorStatus = {
  * @extends {goog.events.Event}
  */
 goog.net.WebChannel.ErrorEvent = function() {
+  'use strict';
   goog.net.WebChannel.ErrorEvent.base(
       this, 'constructor', goog.net.WebChannel.EventType.ERROR);
 };

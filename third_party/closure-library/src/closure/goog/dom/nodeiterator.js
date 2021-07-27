@@ -56,6 +56,7 @@ goog.require('goog.dom.TagIterator');
  */
 goog.dom.NodeIterator = function(
     opt_node, opt_reversed, opt_unconstrained, opt_depth) {
+  'use strict';
   goog.dom.TagIterator.call(
       this, opt_node, opt_reversed, opt_unconstrained, null, opt_depth);
 };
@@ -68,10 +69,17 @@ goog.inherits(goog.dom.NodeIterator, goog.dom.TagIterator);
  *     exception if the end of the iterator's range has been reached.
  * @override
  */
-goog.dom.NodeIterator.prototype.next = function() {
+goog.dom.NodeIterator.prototype.nextValueOrThrow = function() {
+  'use strict';
   do {
     goog.dom.NodeIterator.superClass_.next.call(this);
   } while (this.isEndTag());
 
   return this.node;
 };
+/**
+ * TODO(user): Please do not remove - this will be cleaned up centrally.
+ * @override @see {!goog.iter.Iterator}
+ */
+goog.dom.NodeIterator.prototype.next =
+    goog.dom.NodeIterator.prototype.nextValueOrThrow;

@@ -8,25 +8,33 @@
  * @fileoverview Provides a base class for custom Error objects such that the
  * stack is correctly maintained.
  *
- * You should never need to throw goog.debug.Error(msg) directly, Error(msg) is
+ * You should never need to throw DebugError(msg) directly, Error(msg) is
  * sufficient.
  */
 
-goog.provide('goog.debug.Error');
+goog.module('goog.debug.Error');
+goog.module.declareLegacyNamespace();
 
 
 
 /**
  * Base class for custom error objects.
- * @param {*=} opt_msg The message associated with the error.
+ * @param {*=} msg The message associated with the error.
+ * @param {{
+ *    message: (?|undefined),
+ *    name: (?|undefined),
+ *    lineNumber: (?|undefined),
+ *    fileName: (?|undefined),
+ *    stack: (?|undefined),
+ *    cause: (?|undefined),
+ * }=} cause The original error object to chain with.
  * @constructor
  * @extends {Error}
  */
-goog.debug.Error = function(opt_msg) {
-
+function DebugError(msg = undefined, cause = undefined) {
   // Attempt to ensure there is a stack trace.
   if (Error.captureStackTrace) {
-    Error.captureStackTrace(this, goog.debug.Error);
+    Error.captureStackTrace(this, DebugError);
   } else {
     const stack = new Error().stack;
     if (stack) {
@@ -35,9 +43,13 @@ goog.debug.Error = function(opt_msg) {
     }
   }
 
-  if (opt_msg) {
+  if (msg) {
     /** @override */
-    this.message = String(opt_msg);
+    this.message = String(msg);
+  }
+
+  if (cause) {
+    this.cause = cause;
   }
 
   /**
@@ -48,9 +60,12 @@ goog.debug.Error = function(opt_msg) {
    * @type {boolean}
    */
   this.reportErrorToServer = true;
-};
-goog.inherits(goog.debug.Error, Error);
+}
+goog.inherits(DebugError, Error);
 
 
-/** @override */
-goog.debug.Error.prototype.name = 'CustomError';
+/** @override @type {string} */
+DebugError.prototype.name = 'CustomError';
+
+
+exports = DebugError;

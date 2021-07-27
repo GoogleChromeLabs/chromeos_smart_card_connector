@@ -9,6 +9,7 @@
  */
 
 goog.module('goog.iter.es6');
+goog.module.declareLegacyNamespace();
 
 const GoogIterable = goog.require('goog.iter.Iterable');
 const GoogIterator = goog.require('goog.iter.Iterator');
@@ -148,11 +149,20 @@ class ShimGoogIterator extends GoogIterator {
   }
 
   /** @override */
-  next() {
+  nextValueOrThrow() {
     const result = this.iter_.next();
     if (result.done) throw StopIteration;
     return result.value;
   }
+  /**
+   * TODO(user): Please do not remove - this will be cleaned up
+   * centrally.
+   * @override @see {!goog.iter.Iterator}
+   */
+  next() {
+    return ShimGoogIterator.prototype.nextValueOrThrow.call(this);
+  }
+
 
   /** @override */
   toGoog() {

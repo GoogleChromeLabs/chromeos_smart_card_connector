@@ -9,7 +9,6 @@
  */
 
 
-
 // TODO(user): We're trying to migrate all ES5 subclasses of Closure
 // Library to ES6. In ES6 this cannot be referenced before super is called. This
 // file has at least one this before a super call (in ES5) and cannot be
@@ -18,29 +17,18 @@
 // constructor at all. You can run the conversion tool yourself to see what it
 // does on this file: blaze run //javascript/refactoring/es6_classes:convert.
 
-goog.provide('goog.db.DomErrorLike');
 goog.provide('goog.db.Error');
-goog.provide('goog.db.Error.ErrorCode');
-goog.provide('goog.db.Error.ErrorName');
-goog.provide('goog.db.Error.VersionChangeBlockedError');
 
 goog.require('goog.asserts');
 goog.require('goog.debug.Error');
-
-
-/** @record */
-goog.db.DOMErrorLike = function() {};
-
-/** @type {string|undefined} */
-goog.db.DOMErrorLike.prototype.name;
 
 /**
  * A database error. Since the stack trace can be unhelpful in an asynchronous
  * context, the error provides a message about where it was produced.
  *
- * @param {number|!DOMError|!goog.db.DOMErrorLike} error The DOMError instance
- *     returned by the browser for Chrome22+, or an error code for previous
- *     versions.
+ * @param {number|!DOMError|!goog.db.Error.DOMErrorLike} error The DOMError
+ *     instance returned by the browser for Chrome22+, or an error code for
+ *     previous versions.
  * @param {string} context A description of where the error occurred.
  * @param {string=} opt_message Additional message.
  * @constructor
@@ -48,6 +36,7 @@ goog.db.DOMErrorLike.prototype.name;
  * @final
  */
 goog.db.Error = function(error, context, opt_message) {
+  'use strict';
   var errorCode = null;
   var internalError = null;
   if (typeof error === 'number') {
@@ -68,7 +57,7 @@ goog.db.Error = function(error, context, opt_message) {
   /**
    * The DOMException as returned by the browser.
    *
-   * @type {!goog.db.DOMErrorLike}
+   * @type {!goog.db.Error.DOMErrorLike}
    * @private
    */
   this.error_ = internalError;
@@ -86,6 +75,7 @@ goog.inherits(goog.db.Error, goog.debug.Error);
  * @return {string} The name of the error.
  */
 goog.db.Error.prototype.getName = function() {
+  'use strict';
   return this.error_.name || '';
 };
 
@@ -101,6 +91,7 @@ goog.db.Error.prototype.getName = function() {
  * @final
  */
 goog.db.Error.VersionChangeBlockedError = function() {
+  'use strict';
   goog.db.Error.VersionChangeBlockedError.base(
       this, 'constructor', 'Version change blocked');
 };
@@ -203,6 +194,7 @@ goog.db.Error.ErrorCode = {
  * @return {string} A debug message.
  */
 goog.db.Error.getMessage = function(code) {
+  'use strict';
   switch (code) {
     case goog.db.Error.ErrorCode.UNKNOWN_ERR:
       return 'Unknown error';
@@ -236,6 +228,13 @@ goog.db.Error.getMessage = function(code) {
 };
 
 
+/** @record */
+goog.db.Error.DOMErrorLike = function() {};
+
+/** @type {string|undefined} */
+goog.db.Error.DOMErrorLike.prototype.name;
+
+
 /**
  * Names of all possible errors as returned from the browser.
  * @see http://www.w3.org/TR/IndexedDB/#exceptions
@@ -267,6 +266,7 @@ goog.db.Error.ErrorName = {
  * @return {number} The error code corresponding to the error.
  */
 goog.db.Error.getCode = function(name) {
+  'use strict';
   switch (name) {
     case goog.db.Error.ErrorName.UNKNOWN_ERR:
       return goog.db.Error.ErrorCode.UNKNOWN_ERR;
@@ -305,6 +305,7 @@ goog.db.Error.getCode = function(name) {
  * @return {!goog.db.Error.ErrorName} The corresponding name of the error.
  */
 goog.db.Error.getName = function(code) {
+  'use strict';
   switch (code) {
     case goog.db.Error.ErrorCode.UNKNOWN_ERR:
       return goog.db.Error.ErrorName.UNKNOWN_ERR;
@@ -343,6 +344,7 @@ goog.db.Error.getName = function(code) {
  * @return {!goog.db.Error} The error that caused the failure.
  */
 goog.db.Error.fromRequest = function(request, message) {
+  'use strict';
   if ('error' in request) {
     // Chrome 22+
     return new goog.db.Error(goog.asserts.assert(request.error), message);
@@ -362,6 +364,7 @@ goog.db.Error.fromRequest = function(request, message) {
  * @return {!goog.db.Error} The error that caused the failure.
  */
 goog.db.Error.fromException = function(ex, message) {
+  'use strict';
   if ('name' in ex) {
     // Chrome 22+.
     var errorMessage = message + ': ' + ex.message;

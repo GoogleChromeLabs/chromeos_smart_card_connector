@@ -74,6 +74,7 @@ function makeLoaderSynchronous(loader) {
     originalLoadImage.call(this, request, id);
 
     const event = new GoogEvent(EventType.LOAD);
+    /** @suppress {globalThis} suppression added to enable type checking */
     event.currentTarget = this.imageIdToImageMap_[id];
     loader.onNetworkEvent_(event);
   };
@@ -89,7 +90,7 @@ testSuite({
   },
 
   setUp() {
-    startTime = goog.now();
+    startTime = Date.now();
 
     loader = new ImageLoader();
 
@@ -389,6 +390,7 @@ class TestingClientImageLoader extends GoogEventTarget {
    * dispatching the COMPLETE event. This allows verification that the state of
    * the ImageLoader is clean before the original event is dispatched to any
    * clients.
+   * @private
    */
   handleImageLoaderEvent_(e) {
     switch (e.type) {
@@ -400,6 +402,7 @@ class TestingClientImageLoader extends GoogEventTarget {
         this.imagesRemaining -= 1;
     }
 
+    /** @suppress {visibility} suppression added to enable type checking */
     this.imageLoaderRemainingSize =
         googObject.getKeys(this.imageLoader_.imageIdToRequestMap_).length;
 

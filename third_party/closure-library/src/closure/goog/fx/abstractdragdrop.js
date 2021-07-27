@@ -9,6 +9,7 @@
  *
  * Provides functionality for implementing drag and drop classes. Also provides
  * support classes and events.
+ * @suppress {missingRequire} TODO(user): this shouldn't be needed
  */
 
 goog.provide('goog.fx.AbstractDragDrop');
@@ -52,6 +53,7 @@ goog.requireType('goog.fx.DragEvent');
  * @struct
  */
 goog.fx.AbstractDragDrop = function() {
+  'use strict';
   goog.fx.AbstractDragDrop.base(this, 'constructor');
 
   /**
@@ -194,6 +196,7 @@ goog.fx.AbstractDragDrop.initDragDistanceThreshold = 5;
  *     classname.
  */
 goog.fx.AbstractDragDrop.prototype.setDragClass = function(className) {
+  'use strict';
   this.dragClass_ = className;
 };
 
@@ -205,6 +208,7 @@ goog.fx.AbstractDragDrop.prototype.setDragClass = function(className) {
  *     classname.
  */
 goog.fx.AbstractDragDrop.prototype.setSourceClass = function(className) {
+  'use strict';
   this.sourceClass_ = className;
 };
 
@@ -216,6 +220,7 @@ goog.fx.AbstractDragDrop.prototype.setSourceClass = function(className) {
  *     classname.
  */
 goog.fx.AbstractDragDrop.prototype.setTargetClass = function(className) {
+  'use strict';
   this.targetClass_ = className;
 };
 
@@ -226,6 +231,7 @@ goog.fx.AbstractDragDrop.prototype.setTargetClass = function(className) {
  * @return {boolean} True if it's been initialized.
  */
 goog.fx.AbstractDragDrop.prototype.isInitialized = function() {
+  'use strict';
   return this.initialized_;
 };
 
@@ -246,6 +252,7 @@ goog.fx.AbstractDragDrop.prototype.addItem = goog.abstractMethod;
  * @param {goog.fx.AbstractDragDrop} target Target to add.
  */
 goog.fx.AbstractDragDrop.prototype.addTarget = function(target) {
+  'use strict';
   this.targets_.push(target);
   target.isTarget_ = true;
   this.isSource_ = true;
@@ -258,6 +265,7 @@ goog.fx.AbstractDragDrop.prototype.addTarget = function(target) {
  * @param {!goog.fx.AbstractDragDrop} target Target to remove.
  */
 goog.fx.AbstractDragDrop.prototype.removeTarget = function(target) {
+  'use strict';
   goog.array.remove(this.targets_, target);
   if (this.activeTarget_ && this.activeTarget_.target_ == target) {
     this.activeTarget_ = null;
@@ -272,6 +280,7 @@ goog.fx.AbstractDragDrop.prototype.removeTarget = function(target) {
  * @param {EventTarget} scrollTarget The element that dispatches SCROLL events.
  */
 goog.fx.AbstractDragDrop.prototype.setScrollTarget = function(scrollTarget) {
+  'use strict';
   this.scrollTarget_ = scrollTarget;
 };
 
@@ -282,6 +291,7 @@ goog.fx.AbstractDragDrop.prototype.setScrollTarget = function(scrollTarget) {
  * one by one.
  */
 goog.fx.AbstractDragDrop.prototype.init = function() {
+  'use strict';
   if (this.initialized_) {
     return;
   }
@@ -300,6 +310,7 @@ goog.fx.AbstractDragDrop.prototype.init = function() {
  * @protected
  */
 goog.fx.AbstractDragDrop.prototype.initItem = function(item) {
+  'use strict';
   if (this.isSource_) {
     goog.events.listen(
         item.element, goog.events.EventType.MOUSEDOWN, item.mouseDown_, false,
@@ -324,6 +335,7 @@ goog.fx.AbstractDragDrop.prototype.initItem = function(item) {
  * @protected
  */
 goog.fx.AbstractDragDrop.prototype.disposeItem = function(item) {
+  'use strict';
   if (this.isSource_) {
     goog.events.unlisten(
         item.element, goog.events.EventType.MOUSEDOWN, item.mouseDown_, false,
@@ -345,6 +357,7 @@ goog.fx.AbstractDragDrop.prototype.disposeItem = function(item) {
  * Removes all items.
  */
 goog.fx.AbstractDragDrop.prototype.removeItems = function() {
+  'use strict';
   for (var item, i = 0; item = this.items_[i]; i++) {
     this.disposeItem(item);
   }
@@ -361,6 +374,7 @@ goog.fx.AbstractDragDrop.prototype.removeItems = function() {
  * @param {goog.fx.DragDropItem} item Item that's being dragged.
  */
 goog.fx.AbstractDragDrop.prototype.maybeStartDrag = function(event, item) {
+  'use strict';
   item.maybeStartDrag_(event, item.element);
 };
 
@@ -372,7 +386,7 @@ goog.fx.AbstractDragDrop.prototype.maybeStartDrag = function(event, item) {
  * @param {goog.fx.DragDropItem} item Item that's being dragged.
  */
 goog.fx.AbstractDragDrop.prototype.startDrag = function(event, item) {
-
+  'use strict';
   // Prevent a new drag operation from being started if another one is already
   // in progress (could happen if the mouse was released outside of the
   // document).
@@ -440,6 +454,7 @@ goog.fx.AbstractDragDrop.prototype.startDrag = function(event, item) {
  * may be necessary.
  */
 goog.fx.AbstractDragDrop.prototype.recalculateDragTargets = function() {
+  'use strict';
   this.targetList_ = [];
   for (var target, i = 0; target = this.targets_[i]; i++) {
     for (var itm, j = 0; itm = target.items_[j]; j++) {
@@ -459,6 +474,7 @@ goog.fx.AbstractDragDrop.prototype.recalculateDragTargets = function() {
  */
 goog.fx.AbstractDragDrop.prototype.recalculateScrollableContainers =
     function() {
+  'use strict';
   var container, i, j, target;
   for (i = 0; container = this.scrollableContainers_[i]; i++) {
     container.containedTargets_ = [];
@@ -491,6 +507,7 @@ goog.fx.AbstractDragDrop.prototype.recalculateScrollableContainers =
  */
 goog.fx.AbstractDragDrop.prototype.createDraggerFor = function(
     sourceEl, el, event) {
+  'use strict';
   // Position the drag element.
   var pos = this.getDragElementPosition(sourceEl, el, event);
   el.style.position = 'absolute';
@@ -507,6 +524,7 @@ goog.fx.AbstractDragDrop.prototype.createDraggerFor = function(
  * @param {goog.fx.DragEvent} event Drag event.
  */
 goog.fx.AbstractDragDrop.prototype.endDrag = function(event) {
+  'use strict';
   var activeTarget = event.dragCanceled ? null : this.activeTarget_;
   if (activeTarget && activeTarget.target_) {
     var clientX = event.clientX;
@@ -563,6 +581,7 @@ goog.fx.AbstractDragDrop.prototype.endDrag = function(event) {
  * @protected
  */
 goog.fx.AbstractDragDrop.prototype.afterEndDrag = function(opt_dropTarget) {
+  'use strict';
   this.disposeDrag();
 };
 
@@ -574,6 +593,7 @@ goog.fx.AbstractDragDrop.prototype.afterEndDrag = function(opt_dropTarget) {
  * @protected
  */
 goog.fx.AbstractDragDrop.prototype.disposeDrag = function() {
+  'use strict';
   this.disposeScrollableContainerListeners_();
   this.dragger_.dispose();
 
@@ -594,6 +614,7 @@ goog.fx.AbstractDragDrop.prototype.disposeDrag = function() {
  * @private
  */
 goog.fx.AbstractDragDrop.prototype.moveDrag_ = function(event) {
+  'use strict';
   var position = this.getEventPosition(event);
   var x = position.x;
   var y = position.y;
@@ -685,6 +706,7 @@ goog.fx.AbstractDragDrop.prototype.moveDrag_ = function(event) {
  * @private
  */
 goog.fx.AbstractDragDrop.prototype.suppressSelect_ = function(event) {
+  'use strict';
   return false;
 };
 
@@ -696,6 +718,7 @@ goog.fx.AbstractDragDrop.prototype.suppressSelect_ = function(event) {
  */
 goog.fx.AbstractDragDrop.prototype.initScrollableContainerListeners_ =
     function() {
+  'use strict';
   var container, i;
   for (i = 0; container = this.scrollableContainers_[i]; i++) {
     goog.events.listen(
@@ -711,6 +734,7 @@ goog.fx.AbstractDragDrop.prototype.initScrollableContainerListeners_ =
  */
 goog.fx.AbstractDragDrop.prototype.disposeScrollableContainerListeners_ =
     function() {
+  'use strict';
   for (var i = 0, container; container = this.scrollableContainers_[i]; i++) {
     goog.events.unlisten(
         container.element_, 'scroll', this.containerScrollHandler_, false,
@@ -725,6 +749,7 @@ goog.fx.AbstractDragDrop.prototype.disposeScrollableContainerListeners_ =
  * @param {Element} element The scroll container.
  */
 goog.fx.AbstractDragDrop.prototype.addScrollableContainer = function(element) {
+  'use strict';
   this.scrollableContainers_.push(new goog.fx.ScrollableContainer_(element));
 };
 
@@ -733,6 +758,7 @@ goog.fx.AbstractDragDrop.prototype.addScrollableContainer = function(element) {
  * Removes all scrollable containers.
  */
 goog.fx.AbstractDragDrop.prototype.removeAllScrollableContainers = function() {
+  'use strict';
   this.disposeScrollableContainerListeners_();
   this.scrollableContainers_ = [];
 };
@@ -745,6 +771,7 @@ goog.fx.AbstractDragDrop.prototype.removeAllScrollableContainers = function() {
  * @private
  */
 goog.fx.AbstractDragDrop.prototype.containerScrollHandler_ = function(e) {
+  'use strict';
   for (var i = 0, container; container = this.scrollableContainers_[i]; i++) {
     if (e.target == container.element_) {
       var deltaTop = container.savedScrollTop_ - container.element_.scrollTop;
@@ -798,6 +825,7 @@ goog.fx.AbstractDragDrop.prototype.containerScrollHandler_ = function(e) {
  * @param {Function} f The new subtarget function.
  */
 goog.fx.AbstractDragDrop.prototype.setSubtargetFunction = function(f) {
+  'use strict';
   this.subtargetFunction_ = f;
 };
 
@@ -809,6 +837,7 @@ goog.fx.AbstractDragDrop.prototype.setSubtargetFunction = function(f) {
  * @return {Element} The new drag element.
  */
 goog.fx.AbstractDragDrop.prototype.createDragElement = function(sourceEl) {
+  'use strict';
   var dragEl = this.createDragElementInternal(sourceEl);
   goog.asserts.assert(dragEl);
   if (this.dragClass_) {
@@ -829,6 +858,7 @@ goog.fx.AbstractDragDrop.prototype.createDragElement = function(sourceEl) {
  */
 goog.fx.AbstractDragDrop.prototype.getDragElementPosition = function(
     el, dragEl, event) {
+  'use strict';
   var pos = goog.style.getPageOffset(el);
 
   // Subtract margin from drag element position twice, once to adjust the
@@ -848,6 +878,7 @@ goog.fx.AbstractDragDrop.prototype.getDragElementPosition = function(
  *     instance.
  */
 goog.fx.AbstractDragDrop.prototype.getDragger = function() {
+  'use strict';
   return this.dragger_;
 };
 
@@ -861,6 +892,7 @@ goog.fx.AbstractDragDrop.prototype.getDragger = function() {
  * @private
  */
 goog.fx.AbstractDragDrop.prototype.cloneNode_ = function(sourceEl) {
+  'use strict';
   return goog.fx.Dragger.cloneNode(sourceEl);
 };
 
@@ -878,6 +910,7 @@ goog.fx.AbstractDragDrop.prototype.cloneNode_ = function(sourceEl) {
  */
 goog.fx.AbstractDragDrop.prototype.createDragElementInternal = function(
     sourceEl) {
+  'use strict';
   return this.cloneNode_(sourceEl);
 };
 
@@ -890,7 +923,7 @@ goog.fx.AbstractDragDrop.prototype.createDragElementInternal = function(
  * @private
  */
 goog.fx.AbstractDragDrop.prototype.addDragTarget_ = function(target, item) {
-
+  'use strict';
   // Get all the draggable elements and add each one.
   var draggableElements = item.getDraggableElements();
   for (var i = 0; i < draggableElements.length; i++) {
@@ -918,6 +951,7 @@ goog.fx.AbstractDragDrop.prototype.addDragTarget_ = function(target, item) {
  * @protected
  */
 goog.fx.AbstractDragDrop.prototype.getElementBox = function(item, element) {
+  'use strict';
   var pos = goog.style.getPageOffset(element);
   var size = goog.style.getSize(element);
   return new goog.math.Box(
@@ -933,6 +967,7 @@ goog.fx.AbstractDragDrop.prototype.getElementBox = function(item, element) {
  * @private
  */
 goog.fx.AbstractDragDrop.prototype.calculateTargetBox_ = function(box) {
+  'use strict';
   if (this.targetList_.length == 1) {
     this.targetBox_ =
         new goog.math.Box(box.top, box.right, box.bottom, box.left);
@@ -1006,6 +1041,7 @@ goog.fx.AbstractDragDrop.prototype.calculateTargetBox_ = function(box) {
  */
 goog.fx.AbstractDragDrop.prototype.maybeCreateDummyTargetForPosition_ =
     function(x, y) {
+  'use strict';
   if (!this.dummyTarget_) {
     this.dummyTarget_ = new goog.fx.ActiveDropTarget_(this.targetBox_.clone());
   }
@@ -1105,6 +1141,7 @@ goog.fx.AbstractDragDrop.prototype.maybeCreateDummyTargetForPosition_ =
  * @private
  */
 goog.fx.AbstractDragDrop.prototype.getTargetFromPosition_ = function(position) {
+  'use strict';
   for (var target, i = 0; target = this.targetList_[i]; i++) {
     if (target.box_.contains(position)) {
       if (target.scrollableContainer_) {
@@ -1135,6 +1172,7 @@ goog.fx.AbstractDragDrop.prototype.getTargetFromPosition_ = function(position) {
  * @deprecated Use goog.math.Box.contains.
  */
 goog.fx.AbstractDragDrop.prototype.isInside = function(x, y, box) {
+  'use strict';
   return x >= box.left && x < box.right && y >= box.top && y < box.bottom;
 };
 
@@ -1146,6 +1184,7 @@ goog.fx.AbstractDragDrop.prototype.isInside = function(x, y, box) {
  * @protected
  */
 goog.fx.AbstractDragDrop.prototype.getScrollPos = function() {
+  'use strict';
   return goog.dom.getDomHelper(this.dragEl_).getDocumentScroll();
 };
 
@@ -1157,6 +1196,7 @@ goog.fx.AbstractDragDrop.prototype.getScrollPos = function() {
  * @protected
  */
 goog.fx.AbstractDragDrop.prototype.getEventPosition = function(event) {
+  'use strict';
   var scroll = this.getScrollPos();
   return new goog.math.Coordinate(
       event.clientX + scroll.x, event.clientY + scroll.y);
@@ -1168,6 +1208,7 @@ goog.fx.AbstractDragDrop.prototype.getEventPosition = function(event) {
  * @protected
  */
 goog.fx.AbstractDragDrop.prototype.disposeInternal = function() {
+  'use strict';
   goog.fx.AbstractDragDrop.base(this, 'disposeInternal');
   this.removeItems();
 };
@@ -1197,6 +1238,7 @@ goog.fx.AbstractDragDrop.prototype.disposeInternal = function() {
 goog.fx.DragDropEvent = function(
     type, source, sourceItem, opt_target, opt_targetItem, opt_targetElement,
     opt_clientX, opt_clientY, opt_x, opt_y, opt_subtarget, opt_browserEvent) {
+  'use strict';
   // TODO(eae): Get rid of all the optional parameters and have the caller set
   // the fields directly instead.
   goog.fx.DragDropEvent.base(this, 'constructor', type);
@@ -1284,6 +1326,7 @@ goog.inherits(goog.fx.DragDropEvent, goog.events.Event);
  * @struct
  */
 goog.fx.DragDropItem = function(element, opt_data) {
+  'use strict';
   goog.fx.DragDropItem.base(this, 'constructor');
 
   /**
@@ -1335,6 +1378,7 @@ goog.inherits(goog.fx.DragDropItem, goog.events.EventTarget);
  * @return {Object|null|undefined} Data associated with the source/target.
  */
 goog.fx.DragDropItem.prototype.getData = function() {
+  'use strict';
   return this.data;
 };
 
@@ -1350,6 +1394,7 @@ goog.fx.DragDropItem.prototype.getData = function() {
  *     none are draggable, this will return null.
  */
 goog.fx.DragDropItem.prototype.getDraggableElement = function(target) {
+  'use strict';
   return target;
 };
 
@@ -1360,6 +1405,7 @@ goog.fx.DragDropItem.prototype.getDraggableElement = function(target) {
  * @return {Element} The element that is currently being dragged.
  */
 goog.fx.DragDropItem.prototype.getCurrentDragElement = function() {
+  'use strict';
   return this.currentDragElement_;
 };
 
@@ -1370,6 +1416,7 @@ goog.fx.DragDropItem.prototype.getCurrentDragElement = function() {
  * @return {!Array<Element>} The draggable elements.
  */
 goog.fx.DragDropItem.prototype.getDraggableElements = function() {
+  'use strict';
   return [this.element];
 };
 
@@ -1381,6 +1428,7 @@ goog.fx.DragDropItem.prototype.getDraggableElements = function() {
  * @private
  */
 goog.fx.DragDropItem.prototype.mouseDown_ = function(event) {
+  'use strict';
   if (!event.isMouseActionButton()) {
     return;
   }
@@ -1398,6 +1446,7 @@ goog.fx.DragDropItem.prototype.mouseDown_ = function(event) {
  * @param {goog.fx.AbstractDragDrop} parent The parent dragdrop.
  */
 goog.fx.DragDropItem.prototype.setParent = function(parent) {
+  'use strict';
   this.parent_ = parent;
 };
 
@@ -1410,6 +1459,7 @@ goog.fx.DragDropItem.prototype.setParent = function(parent) {
  * @private
  */
 goog.fx.DragDropItem.prototype.maybeStartDrag_ = function(event, element) {
+  'use strict';
   var eventType = goog.events.EventType;
   this.eventHandler_
       .listen(element, eventType.MOUSEMOVE, this.mouseMove_, false)
@@ -1437,6 +1487,7 @@ goog.fx.DragDropItem.prototype.maybeStartDrag_ = function(event, element) {
  * @private
  */
 goog.fx.DragDropItem.prototype.mouseMove_ = function(event) {
+  'use strict';
   var distance = Math.abs(event.clientX - this.startPosition_.x) +
       Math.abs(event.clientY - this.startPosition_.y);
   // Fire dragStart event if the drag distance exceeds the threshold or if the
@@ -1466,6 +1517,7 @@ goog.fx.DragDropItem.prototype.mouseMove_ = function(event) {
  * @private
  */
 goog.fx.DragDropItem.prototype.mouseUp_ = function(event) {
+  'use strict';
   this.eventHandler_.removeAll();
   delete this.startPosition_;
   this.currentDragElement_ = null;
@@ -1487,7 +1539,7 @@ goog.fx.DragDropItem.prototype.mouseUp_ = function(event) {
  * @private
  */
 goog.fx.ActiveDropTarget_ = function(box, opt_target, opt_item, opt_element) {
-
+  'use strict';
   /**
    * Box describing the position and dimension of the target item
    * @type {goog.math.Box}
@@ -1532,7 +1584,7 @@ goog.fx.ActiveDropTarget_ = function(box, opt_target, opt_item, opt_element) {
  * @private
  */
 goog.fx.ScrollableContainer_ = function(element) {
-
+  'use strict';
   /**
    * The targets that lie within this container.
    * @type {Array<goog.fx.ActiveDropTarget_>}

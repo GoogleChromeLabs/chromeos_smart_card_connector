@@ -10,6 +10,7 @@
  *
  * This is a based on the webfx tree control. See file comment in
  * treecontrol.js.
+ * @suppress {missingRequire} TODO(user): this shouldn't be needed
  */
 
 goog.provide('goog.ui.tree.TreeNode');
@@ -33,6 +34,7 @@ goog.requireType('goog.html.SafeHtml');  // circular
  * @extends {goog.ui.tree.BaseNode}
  */
 goog.ui.tree.TreeNode = function(content, opt_config, opt_domHelper) {
+  'use strict';
   goog.ui.tree.BaseNode.call(this, content, opt_config, opt_domHelper);
 };
 goog.inherits(goog.ui.tree.TreeNode, goog.ui.tree.BaseNode);
@@ -44,12 +46,13 @@ goog.inherits(goog.ui.tree.TreeNode, goog.ui.tree.BaseNode);
  * @override
  */
 goog.ui.tree.TreeNode.prototype.getTree = function() {
+  'use strict';
   if (this.tree) {
     return this.tree;
   }
-  var parent = this.getParent();
+  const parent = this.getParent();
   if (parent) {
-    var tree = parent.getTree();
+    const tree = parent.getTree();
     if (tree) {
       this.setTreeInternal(tree);
       return tree;
@@ -65,18 +68,19 @@ goog.ui.tree.TreeNode.prototype.getTree = function() {
  * @override
  */
 goog.ui.tree.TreeNode.prototype.getCalculatedIconClass = function() {
-  var expanded = this.getExpanded();
-  var expandedIconClass = this.getExpandedIconClass();
+  'use strict';
+  const expanded = this.getExpanded();
+  const expandedIconClass = this.getExpandedIconClass();
   if (expanded && expandedIconClass) {
     return expandedIconClass;
   }
-  var iconClass = this.getIconClass();
+  const iconClass = this.getIconClass();
   if (!expanded && iconClass) {
     return iconClass;
   }
 
   // fall back on default icons
-  var config = this.getConfig();
+  const config = this.getConfig();
   if (this.hasChildren()) {
     if (expanded && config.cssExpandedFolderIcon) {
       return config.cssTreeIcon + ' ' + config.cssExpandedFolderIcon;

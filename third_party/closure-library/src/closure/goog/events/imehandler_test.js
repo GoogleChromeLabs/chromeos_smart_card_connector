@@ -13,7 +13,6 @@ const KeyCodes = goog.require('goog.events.KeyCodes');
 const PropertyReplacer = goog.require('goog.testing.PropertyReplacer');
 const dom = goog.require('goog.dom');
 const events = goog.require('goog.events');
-const googArray = goog.require('goog.array');
 const googObject = goog.require('goog.object');
 const googString = goog.require('goog.string');
 const googUserAgent = goog.require('goog.userAgent');
@@ -37,7 +36,7 @@ function initImeHandler() {
 }
 
 function assertEventsFired(var_args) {
-  assertArrayEquals(googArray.clone(arguments), eventsFired);
+  assertArrayEquals(Array.prototype.slice.call(arguments), eventsFired);
 }
 
 function fireInputEvent(type) {
@@ -48,6 +47,10 @@ function fireImeKeySequence() {
   return fireKeySequence(KeyCodes.WIN_IME);
 }
 
+/**
+ * @suppress {strictPrimitiveOperators} suppression added to enable type
+ * checking
+ */
 function fireKeySequence(keyCode) {
   return (
       testingEvents.fireBrowserEvent(
@@ -101,6 +104,10 @@ function setUserAgent(userAgent) {
 
 function setVersion(version) {
   googUserAgent.VERSION = version;
+  /**
+   * @suppress {visibility,checkTypes,constantProperty} suppression added to
+   * enable type checking
+   */
   googUserAgent.isVersionOrHigherCache_ = {};
 }
 

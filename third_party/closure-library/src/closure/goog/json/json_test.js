@@ -53,7 +53,7 @@ function assertSerialize(expected, obj, replacer = undefined) {
   if (obj instanceof Function) return;
 
   // goog.json.serialize doesn't use the toJSON method.
-  if (goog.isObject(obj) && goog.isFunction(obj.toJSON)) return;
+  if (goog.isObject(obj) && typeof obj.toJSON === 'function') return;
 
   if (typeof JSON != 'undefined') {
     assertEquals(
@@ -412,6 +412,7 @@ testSuite({
     function F() {}
     F.prototype = {c: 3};
 
+    /** @suppress {checkTypes} suppression added to enable type checking */
     const obj = new F;
     obj.a = 1;
     obj.b = 2;
@@ -467,7 +468,8 @@ testSuite({
   },
 
   testTryNativeJson() {
-    googJson.TRY_NATIVE_JSON = true;
+    // bypass the compiler @define check
+    googJson['TRY_NATIVE_JSON'] = true;
     let error;
     googJson.setErrorLogger((message, ex) => {
       error = message;
@@ -477,7 +479,8 @@ testSuite({
     googJson.parse('{"a":[,1]}');
     assertEquals('Invalid JSON: {"a":[,1]}', error);
 
-    googJson.TRY_NATIVE_JSON = false;
+    // bypass the compiler @define check
+    googJson['TRY_NATIVE_JSON'] = false;
     googJson.setErrorLogger(goog.nullFunction);
   },
 });

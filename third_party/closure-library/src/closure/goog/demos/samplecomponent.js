@@ -16,6 +16,7 @@ goog.require('goog.events.EventType');
 goog.require('goog.events.KeyCodes');
 goog.require('goog.events.KeyHandler');
 goog.require('goog.ui.Component');
+goog.requireType('goog.events.Event');
 
 
 
@@ -95,7 +96,7 @@ goog.demos.SampleComponent = class extends goog.ui.Component {
       this.setLabelText(this.initialLabel_);
     }
 
-    var elem = this.getElement();
+    const elem = this.getElement();
     goog.dom.classlist.add(elem, goog.getCssName('goog-sample-component'));
     elem.style.backgroundColor = this.color_;
     elem.tabIndex = 0;
@@ -152,7 +153,7 @@ goog.demos.SampleComponent = class extends goog.ui.Component {
    * @private
    */
   onKey_(event) {
-    var keyCodes = goog.events.KeyCodes;
+    const keyCodes = goog.events.KeyCodes;
     if (event.keyCode == keyCodes.SPACE || event.keyCode == keyCodes.ENTER) {
       this.changeColor_();
     }

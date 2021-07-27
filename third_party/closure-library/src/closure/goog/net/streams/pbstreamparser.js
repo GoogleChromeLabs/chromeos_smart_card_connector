@@ -60,6 +60,7 @@ goog.require('goog.net.streams.StreamParser');
  * @final
  */
 goog.net.streams.PbStreamParser = function() {
+  'use strict';
   /**
    * The current error message, if any.
    * @private {?string}
@@ -140,6 +141,7 @@ goog.net.streams.PbStreamParser.PADDING_TAG_ = 15;
  * @override
  */
 goog.net.streams.PbStreamParser.prototype.isInputValid = function() {
+  'use strict';
   return this.state_ != goog.net.streams.PbStreamParser.State_.INVALID;
 };
 
@@ -148,6 +150,7 @@ goog.net.streams.PbStreamParser.prototype.isInputValid = function() {
  * @override
  */
 goog.net.streams.PbStreamParser.prototype.getErrorMessage = function() {
+  'use strict';
   return this.errorMessage_;
 };
 
@@ -161,6 +164,7 @@ goog.net.streams.PbStreamParser.prototype.getErrorMessage = function() {
  */
 goog.net.streams.PbStreamParser.prototype.error_ = function(
     inputBytes, pos, errorMsg) {
+  'use strict';
   this.state_ = goog.net.streams.PbStreamParser.State_.INVALID;
   this.errorMessage_ = 'The stream is broken @' + this.streamPos_ + '/' + pos +
       '. ' +
@@ -169,17 +173,25 @@ goog.net.streams.PbStreamParser.prototype.error_ = function(
   throw new Error(this.errorMessage_);
 };
 
+/**
+ * @override
+ * @return {boolean}
+ */
+goog.net.streams.PbStreamParser.prototype.acceptsBinaryInput = function() {
+  return true;
+};
 
 /**
  * @throws {!Error} Throws an error message if the input is invalid.
  * @override
  */
 goog.net.streams.PbStreamParser.prototype.parse = function(input) {
+  'use strict';
   goog.asserts.assert(input instanceof Array || input instanceof ArrayBuffer);
 
-  var parser = this;
-  var inputBytes = (input instanceof Array) ? input : new Uint8Array(input);
-  var pos = 0;
+  const parser = this;
+  const inputBytes = (input instanceof Array) ? input : new Uint8Array(input);
+  let pos = 0;
 
   while (pos < inputBytes.length) {
     switch (parser.state_) {
@@ -208,7 +220,7 @@ goog.net.streams.PbStreamParser.prototype.parse = function(input) {
     pos++;
   }
 
-  var msgs = parser.result_;
+  const msgs = parser.result_;
   parser.result_ = [];
   return msgs.length > 0 ? msgs : null;
 
@@ -220,7 +232,7 @@ goog.net.streams.PbStreamParser.prototype.parse = function(input) {
       parser.error_(inputBytes, pos, 'invalid tag');
     }
 
-    var wireType = b & 0x07;
+    const wireType = b & 0x07;
     if (wireType != 2) {
       parser.error_(inputBytes, pos, 'invalid wire type');
     }
@@ -277,7 +289,7 @@ goog.net.streams.PbStreamParser.prototype.parse = function(input) {
    */
   function finishMessage() {
     if (parser.tag_ < goog.net.streams.PbStreamParser.PADDING_TAG_) {
-      var message = {};
+      const message = {};
       message[parser.tag_] = parser.messageBuffer_;
       parser.result_.push(message);
     }

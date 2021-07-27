@@ -41,13 +41,13 @@ testSuite({
     let safeHtml = testing.newSafeHtmlForTest('Hello <em>World</em>');
     assertSameHtml('Hello <em>World</em>', safeHtml);
     assertEquals('Hello <em>World</em>', SafeHtml.unwrap(safeHtml));
-    assertEquals('SafeHtml{Hello <em>World</em>}', String(safeHtml));
+    assertEquals('Hello <em>World</em>', String(safeHtml));
     assertNull(safeHtml.getDirection());
 
     safeHtml = testing.newSafeHtmlForTest('World <em>Hello</em>', Dir.RTL);
     assertSameHtml('World <em>Hello</em>', safeHtml);
     assertEquals('World <em>Hello</em>', SafeHtml.unwrap(safeHtml));
-    assertEquals('SafeHtml{World <em>Hello</em>}', String(safeHtml));
+    assertEquals('World <em>Hello</em>', String(safeHtml));
     assertEquals(Dir.RTL, safeHtml.getDirection());
 
     // Interface markers are present.
@@ -91,8 +91,8 @@ testSuite({
     const trustedValue = SafeHtml.unwrapTrustedHTML(safeValue);
     assertEquals(safeValue.getTypedStringValue(), trustedValue.toString());
     assertTrue(
-        goog.global.TrustedHTML ? trustedValue instanceof TrustedHTML :
-                                  typeof trustedValue === 'string');
+        globalThis.TrustedHTML ? trustedValue instanceof TrustedHTML :
+                                 typeof trustedValue === 'string');
   },
 
   testHtmlEscape() {
@@ -105,8 +105,7 @@ testSuite({
     assertSameHtml(
         'Hello &lt;em&gt;&quot;&#39;&amp;World&lt;/em&gt;', safeHtml);
     assertEquals(
-        'SafeHtml{Hello &lt;em&gt;&quot;&#39;&amp;World&lt;/em&gt;}',
-        String(safeHtml));
+        'Hello &lt;em&gt;&quot;&#39;&amp;World&lt;/em&gt;', String(safeHtml));
 
     // Creating from a SafeUrl escapes and retains the known direction (which is
     // fixed to RTL for URLs).
@@ -322,6 +321,7 @@ testSuite({
         SafeHtml.createIframe(null, null, {'sandbox': null}, '<'));
   },
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testSafeHtmlCreateIframe_withMonkeypatchedObjectPrototype() {
     stubs.set(Object.prototype, 'foo', 'bar');
     const url = TrustedResourceUrl.fromConstant(
@@ -387,6 +387,10 @@ testSuite({
         () => SafeHtml.createSandboxIframe(null, null, null, '<'));
   },
 
+  /**
+     @suppress {strictPrimitiveOperators} suppression added to enable type
+     checking
+   */
   testSafeHtmlCanUseIframeSandbox() {
     // We know that the IE < 10 do not support the sandbox attribute, so use
     // them as a reference.
@@ -437,6 +441,7 @@ testSuite({
     assertEquals(Dir.NEUTRAL, scriptHtml.getDirection());
   },
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testSafeHtmlCreateScript_withMonkeypatchedObjectPrototype() {
     stubs.set(Object.prototype, 'foo', 'bar');
     stubs.set(Object.prototype, 'type', 'baz');

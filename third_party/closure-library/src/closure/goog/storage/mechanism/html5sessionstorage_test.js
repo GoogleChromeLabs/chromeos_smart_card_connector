@@ -8,6 +8,7 @@ goog.module('goog.storage.mechanism.HTML5SessionStorageTest');
 goog.setTestOnly();
 
 const HTML5SessionStorage = goog.require('goog.storage.mechanism.HTML5SessionStorage');
+const iterableMechanismTester = goog.require('goog.storage.mechanism.iterableMechanismTester');
 /** @suppress {extraRequire} */
 const mechanismSeparationTester = goog.require('goog.storage.mechanism.mechanismSeparationTester');
 /** @suppress {extraRequire} */
@@ -29,24 +30,37 @@ testSuite({
   setUp() {
     const sessionStorage = new HTML5SessionStorage();
     if (sessionStorage.isAvailable()) {
+      /** @suppress {const} suppression added to enable type checking */
       mechanism = sessionStorage;
       // There should be at least 2 MiB.
+      /** @suppress {const} suppression added to enable type checking */
       minimumQuota = 2 * 1024 * 1024;
+      /** @suppress {const} suppression added to enable type checking */
       mechanism_shared = new HTML5SessionStorage();
     }
   },
 
+  /**
+     @suppress {strictMissingProperties} suppression added to enable type
+     checking
+   */
   tearDown() {
     if (!!mechanism) {
       mechanism.clear();
+      /** @suppress {const} suppression added to enable type checking */
       mechanism = null;
     }
     if (!!mechanism_shared) {
       mechanism_shared.clear();
+      /** @suppress {const} suppression added to enable type checking */
       mechanism_shared = null;
     }
   },
 
+  /**
+     @suppress {strictMissingProperties} suppression added to enable type
+     checking
+   */
   testAvailability() {
     if (userAgent.WEBKIT && userAgent.isVersionOrHigher('532.5') ||
         userAgent.GECKO && userAgent.isVersionOrHigher('1.9.1') &&
@@ -57,5 +71,31 @@ testSuite({
       assertNotNull(mechanism_shared);
       assertTrue(mechanism_shared.isAvailable());
     }
+  },
+
+  testCount() {
+    assertNotNull(mechanism);
+    iterableMechanismTester.testCount(
+        /** @type {!HTML5SessionStorage} */ (mechanism));
+  },
+  testIteratorBasics() {
+    assertNotNull(mechanism);
+    iterableMechanismTester.testIteratorBasics(
+        /** @type {!HTML5SessionStorage} */ (mechanism));
+  },
+  testIteratorWithTwoValues() {
+    assertNotNull(mechanism);
+    iterableMechanismTester.testIteratorWithTwoValues(
+        /** @type {!HTML5SessionStorage} */ (mechanism));
+  },
+  testClear() {
+    assertNotNull(mechanism);
+    iterableMechanismTester.testClear(
+        /** @type {!HTML5SessionStorage} */ (mechanism));
+  },
+  testClearClear() {
+    assertNotNull(mechanism);
+    iterableMechanismTester.testClearClear(
+        /** @type {!HTML5SessionStorage} */ (mechanism));
   },
 });

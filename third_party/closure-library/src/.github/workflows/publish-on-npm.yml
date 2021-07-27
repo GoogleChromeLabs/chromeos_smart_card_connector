@@ -1,0 +1,26 @@
+name: Publish on NPM
+
+on:
+  release:
+    types: [ published ]
+
+jobs:
+  publish-on-npm:
+    runs-on: ubuntu-latest
+    steps:
+      # This action checks out at the commit of the tagged release.
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v1
+        with:
+          registry-url: https://wombat-dressing-room.appspot.com
+      # Publish google-closure-library.
+      - run: npm install
+      - run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_GOOGLE_CLOSURE_LIBRARY }}
+      # Publish google-closure-deps. Unlike google-closure-library, we do not
+      # need to run `npm install` since there is no prepublish step.
+      - run: npm publish
+        working-directory: ./closure-deps
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN_GOOGLE_CLOSURE_DEPS }}

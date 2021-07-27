@@ -31,7 +31,6 @@ goog.provide('goog.testing.Mock');
 goog.provide('goog.testing.MockExpectation');
 
 goog.require('goog.Promise');
-goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.object');
 goog.require('goog.promise.Resolver');
@@ -48,6 +47,7 @@ goog.require('goog.testing.mockmatchers');
  * @final
  */
 goog.testing.MockExpectation = function(name) {
+  'use strict';
   /**
    * The name of the method that is expected to be called.
    * @type {string}
@@ -125,6 +125,7 @@ goog.testing.MockExpectation.prototype.toDo;
  * @param {string} message The failure message.
  */
 goog.testing.MockExpectation.prototype.addErrorMessage = function(message) {
+  'use strict';
   this.errorMessages.push(message);
 };
 
@@ -134,6 +135,7 @@ goog.testing.MockExpectation.prototype.addErrorMessage = function(message) {
  * @return {string} Error messages separated by \n.
  */
 goog.testing.MockExpectation.prototype.getErrorMessage = function() {
+  'use strict';
   return this.errorMessages.join('\n');
 };
 
@@ -143,6 +145,7 @@ goog.testing.MockExpectation.prototype.getErrorMessage = function() {
  * @return {number} Count of error messages.
  */
 goog.testing.MockExpectation.prototype.getErrorMessageCount = function() {
+  'use strict';
   return this.errorMessages.length;
 };
 
@@ -161,11 +164,12 @@ goog.testing.MockExpectation.prototype.getErrorMessageCount = function() {
  */
 goog.testing.Mock = function(
     objectToMock, opt_mockStaticMethods, opt_createProxy) {
-  if (!goog.isObject(objectToMock) && !goog.isFunction(objectToMock)) {
+  'use strict';
+  if (!goog.isObject(objectToMock) && typeof objectToMock !== 'function') {
     throw new Error('objectToMock must be an object or constructor.');
   }
   if (opt_createProxy && !opt_mockStaticMethods &&
-      goog.isFunction(objectToMock)) {
+      typeof objectToMock === 'function') {
     /**
  * @constructor
  * @final
@@ -175,13 +179,13 @@ goog.testing.Mock = function(
     this.$proxy = new tempCtor();
   } else if (
       opt_createProxy && opt_mockStaticMethods &&
-      goog.isFunction(objectToMock)) {
+      typeof objectToMock === 'function') {
     throw new Error('Cannot create a proxy when opt_mockStaticMethods is true');
-  } else if (opt_createProxy && !goog.isFunction(objectToMock)) {
+  } else if (opt_createProxy && typeof objectToMock !== 'function') {
     throw new Error('Must have a constructor to create a proxy');
   }
 
-  if (goog.isFunction(objectToMock) && !opt_mockStaticMethods) {
+  if (typeof objectToMock === 'function' && !opt_mockStaticMethods) {
     this.$initializeFunctions_(objectToMock.prototype);
   } else {
     this.$initializeFunctions_(objectToMock);
@@ -230,6 +234,7 @@ goog.testing.Mock.STRICT = 0;
  * @return {?} The same object.
  */
 goog.testing.Mock.record = function(obj) {
+  'use strict';
   goog.asserts.assert(
       obj.$recording_ !== undefined,
       '%s is not a mock.  Did you pass a real object to record()?', obj);
@@ -312,12 +317,13 @@ goog.testing.Mock.prototype.$threwException_ = null;
  * @private
  */
 goog.testing.Mock.prototype.$initializeFunctions_ = function(objectToMock) {
+  'use strict';
   // Gets the object properties.
   var enumerableProperties = goog.object.getAllPropertyNames(
       objectToMock, false /* opt_includeObjectPrototype */,
       false /* opt_includeFunctionPrototype */);
 
-  if (goog.isFunction(objectToMock)) {
+  if (typeof objectToMock === 'function') {
     for (var i = 0; i < goog.testing.Mock.FUNCTION_PROTOTYPE_FIELDS_.length;
          i++) {
       var prop = goog.testing.Mock.FUNCTION_PROTOTYPE_FIELDS_[i];
@@ -365,6 +371,7 @@ goog.testing.Mock.prototype.$initializeFunctions_ = function(objectToMock) {
  */
 goog.testing.Mock.prototype.$registerArgumentListVerifier = function(
     methodName, fn) {
+  'use strict';
   this.$argumentListVerifiers_[methodName] = fn;
   return this;
 };
@@ -377,10 +384,11 @@ goog.testing.Mock.prototype.$registerArgumentListVerifier = function(
  *    whatever the creator of the mock set as the return value.
  */
 goog.testing.Mock.prototype.$mockMethod = function(name) {
+  'use strict';
   try {
     // Shift off the name argument so that args contains the arguments to
     // the mocked method.
-    var args = goog.array.slice(arguments, 1);
+    var args = Array.prototype.slice.call(arguments, 1);
     if (this.$recording_) {
       this.$pendingExpectation = new goog.testing.MockExpectation(name);
       this.$pendingExpectation.argumentList = args;
@@ -413,6 +421,7 @@ goog.testing.Mock.prototype.$recordExpectation = function() {};
  * @protected
  */
 goog.testing.Mock.prototype.$recordCall = function(name, args) {
+  'use strict';
   return undefined;
 };
 
@@ -422,6 +431,7 @@ goog.testing.Mock.prototype.$recordCall = function(name, args) {
  * @param {goog.testing.MockExpectation} expectation The expectation.
  */
 goog.testing.Mock.prototype.$maybeThrow = function(expectation) {
+  'use strict';
   if (typeof expectation.exceptionToThrow != 'undefined') {
     throw expectation.exceptionToThrow;
   }
@@ -438,6 +448,7 @@ goog.testing.Mock.prototype.$maybeThrow = function(expectation) {
  * @return {*} The return value expected by the mock.
  */
 goog.testing.Mock.prototype.$do = function(expectation, args) {
+  'use strict';
   if (typeof expectation.toDo == 'undefined') {
     this.$maybeThrow(expectation);
     return expectation.returnValue;
@@ -453,6 +464,7 @@ goog.testing.Mock.prototype.$do = function(expectation, args) {
  * @return {!goog.testing.Mock} This mock object.
  */
 goog.testing.Mock.prototype.$returns = function(val) {
+  'use strict';
   this.$pendingExpectation.returnValue = val;
   return this;
 };
@@ -464,6 +476,7 @@ goog.testing.Mock.prototype.$returns = function(val) {
  * @return {!goog.testing.Mock} This mock object.
  */
 goog.testing.Mock.prototype.$throws = function(val) {
+  'use strict';
   this.$pendingExpectation.exceptionToThrow = val;
   return this;
 };
@@ -477,6 +490,7 @@ goog.testing.Mock.prototype.$throws = function(val) {
  * @return {!goog.testing.Mock} This mock object.
  */
 goog.testing.Mock.prototype.$does = function(func) {
+  'use strict';
   this.$pendingExpectation.toDo = func;
   return this;
 };
@@ -487,6 +501,7 @@ goog.testing.Mock.prototype.$does = function(func) {
  * @return {!goog.testing.Mock} This mock object.
  */
 goog.testing.Mock.prototype.$atMostOnce = function() {
+  'use strict';
   this.$pendingExpectation.minCalls = 0;
   this.$pendingExpectation.maxCalls = 1;
   return this;
@@ -499,6 +514,7 @@ goog.testing.Mock.prototype.$atMostOnce = function() {
  * @return {!goog.testing.Mock} This mock object.
  */
 goog.testing.Mock.prototype.$atLeastOnce = function() {
+  'use strict';
   this.$pendingExpectation.maxCalls = Infinity;
   return this;
 };
@@ -509,6 +525,7 @@ goog.testing.Mock.prototype.$atLeastOnce = function() {
  * @return {!goog.testing.Mock} This mock object.
  */
 goog.testing.Mock.prototype.$once = function() {
+  'use strict';
   this.$pendingExpectation.minCalls = 1;
   this.$pendingExpectation.maxCalls = 1;
   return this;
@@ -520,6 +537,7 @@ goog.testing.Mock.prototype.$once = function() {
  * @return {!goog.testing.Mock} This mock object.
  */
 goog.testing.Mock.prototype.$never = function() {
+  'use strict';
   this.$pendingExpectation.minCalls = 0;
   this.$pendingExpectation.maxCalls = 0;
   return this;
@@ -531,6 +549,7 @@ goog.testing.Mock.prototype.$never = function() {
  * @return {!goog.testing.Mock} This mock object.
  */
 goog.testing.Mock.prototype.$anyTimes = function() {
+  'use strict';
   this.$pendingExpectation.minCalls = 0;
   this.$pendingExpectation.maxCalls = Infinity;
   return this;
@@ -543,6 +562,7 @@ goog.testing.Mock.prototype.$anyTimes = function() {
  * @return {!goog.testing.Mock} This mock object.
  */
 goog.testing.Mock.prototype.$times = function(times) {
+  'use strict';
   this.$pendingExpectation.minCalls = times;
   this.$pendingExpectation.maxCalls = times;
   return this;
@@ -554,6 +574,7 @@ goog.testing.Mock.prototype.$times = function(times) {
  * @override
  */
 goog.testing.Mock.prototype.$replay = function() {
+  'use strict';
   this.$recording_ = false;
 };
 
@@ -564,6 +585,7 @@ goog.testing.Mock.prototype.$replay = function() {
  * @override
  */
 goog.testing.Mock.prototype.$reset = function() {
+  'use strict';
   this.$recording_ = true;
   this.$threwException_ = null;
   delete this.$pendingExpectation;
@@ -581,6 +603,7 @@ goog.testing.Mock.prototype.$reset = function() {
  * @protected
  */
 goog.testing.Mock.prototype.$throwException = function(comment, opt_message) {
+  'use strict';
   this.$recordAndThrow(new goog.testing.JsUnitException(comment, opt_message));
 };
 
@@ -596,6 +619,7 @@ goog.testing.Mock.prototype.$throwException = function(comment, opt_message) {
  * @protected
  */
 goog.testing.Mock.prototype.$recordAndThrow = function(ex, rethrow) {
+  'use strict';
   if (this.waitingForExpectations) {
     this.waitingForExpectations.resolve();
   }
@@ -627,14 +651,18 @@ goog.testing.Mock.prototype.$recordAndThrow = function(ex, rethrow) {
 
 /** @override */
 goog.testing.Mock.prototype.$waitAndVerify = function() {
+  'use strict';
   goog.asserts.assert(
       !this.$recording_,
       '$waitAndVerify should be called after recording calls.');
   this.waitingForExpectations = goog.Promise.withResolver();
   var verify = goog.bind(this.$verify, this);
   return this.waitingForExpectations.promise.then(function() {
+    'use strict';
     return new goog.Promise(function(resolve, reject) {
+      'use strict';
       setTimeout(function() {
+        'use strict';
         try {
           verify();
         } catch (e) {
@@ -653,6 +681,7 @@ goog.testing.Mock.prototype.$waitAndVerify = function() {
  * @override
  */
 goog.testing.Mock.prototype.$verify = function() {
+  'use strict';
   if (this.$threwException_) {
     throw this.$threwException_;
   }
@@ -667,6 +696,7 @@ goog.testing.Mock.prototype.$verify = function() {
  * @return {boolean} Whether the call matches the expectation.
  */
 goog.testing.Mock.prototype.$verifyCall = function(expectation, name, args) {
+  'use strict';
   if (expectation.name != name) {
     return false;
   }
@@ -686,6 +716,7 @@ goog.testing.Mock.prototype.$verifyCall = function(expectation, name, args) {
  * @return {string} Human-readable string.
  */
 goog.testing.Mock.prototype.$argumentsAsString = function(args) {
+  'use strict';
   var retVal = [];
   for (var i = 0; i < args.length; i++) {
     try {
@@ -707,6 +738,7 @@ goog.testing.Mock.prototype.$argumentsAsString = function(args) {
  */
 goog.testing.Mock.prototype.$throwCallException = function(
     name, args, opt_expectation) {
+  'use strict';
   var errorStringBuffer = [];
   var actualArgsString = this.$argumentsAsString(args);
   var expectedArgsString = opt_expectation ?

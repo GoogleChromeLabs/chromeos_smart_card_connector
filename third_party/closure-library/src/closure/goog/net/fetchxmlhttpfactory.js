@@ -17,19 +17,41 @@ goog.require('goog.net.XmlHttpFactory');
 
 
 /**
+ * @record
+ */
+goog.net.FetchXmlHttpFactoryOptions = function() {
+  /**
+   * @type {!WorkerGlobalScope|undefined} The Service Worker global scope.
+   */
+  this.worker;
+
+  /**
+   * @type {boolean|undefined} Whether to store the FetchXmlHttp response as an
+   * array of Uint8Arrays.  If this is true then the 'responseType' attribute
+   * must be empty.
+   */
+  this.streamBinaryChunks;
+};
+
+
+
+/**
  * Factory for creating Xhr objects that uses the native fetch() method.
  * https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
- * Note that this factory is intended for use in Service Worker only.
- * @param {!WorkerGlobalScope} worker The Service Worker global scope.
+ * @param {!goog.net.FetchXmlHttpFactoryOptions} opts
  * @extends {goog.net.XmlHttpFactory}
  * @struct
  * @constructor
  */
-goog.net.FetchXmlHttpFactory = function(worker) {
+goog.net.FetchXmlHttpFactory = function(opts) {
+  'use strict';
   goog.net.FetchXmlHttpFactory.base(this, 'constructor');
 
-  /** @private @final {!WorkerGlobalScope} */
-  this.worker_ = worker;
+  /** @private @final {?WorkerGlobalScope} */
+  this.worker_ = opts.worker || null;
+
+  /** @private @final {boolean} */
+  this.streamBinaryChunks_ = opts.streamBinaryChunks || false;
 
   /** @private {!RequestCredentials|undefined} */
   this.credentialsMode_ = undefined;
@@ -42,7 +64,9 @@ goog.inherits(goog.net.FetchXmlHttpFactory, goog.net.XmlHttpFactory);
 
 /** @override */
 goog.net.FetchXmlHttpFactory.prototype.createInstance = function() {
-  var instance = new goog.net.FetchXmlHttp(this.worker_);
+  'use strict';
+  const instance =
+      new goog.net.FetchXmlHttp(this.worker_, this.streamBinaryChunks_);
   if (this.credentialsMode_) {
     instance.setCredentialsMode(this.credentialsMode_);
   }
@@ -64,6 +88,7 @@ goog.net.FetchXmlHttpFactory.prototype.internalGetOptions =
  */
 goog.net.FetchXmlHttpFactory.prototype.setCredentialsMode = function(
     credentialsMode) {
+  'use strict';
   this.credentialsMode_ = credentialsMode;
 };
 
@@ -72,6 +97,7 @@ goog.net.FetchXmlHttpFactory.prototype.setCredentialsMode = function(
  * @param {!RequestCache} cacheMode The cache mode of the Service Worker fetch.
  */
 goog.net.FetchXmlHttpFactory.prototype.setCacheMode = function(cacheMode) {
+  'use strict';
   this.cacheMode_ = cacheMode;
 };
 
@@ -79,17 +105,22 @@ goog.net.FetchXmlHttpFactory.prototype.setCacheMode = function(cacheMode) {
 
 /**
  * FetchXmlHttp object constructor.
- * @param {!WorkerGlobalScope} worker
+ * @param {?WorkerGlobalScope} worker
+ * @param {boolean} streamBinaryChunks
  * @extends {goog.events.EventTarget}
  * @implements {goog.net.XhrLike}
  * @constructor
  * @struct
  */
-goog.net.FetchXmlHttp = function(worker) {
+goog.net.FetchXmlHttp = function(worker, streamBinaryChunks) {
+  'use strict';
   goog.net.FetchXmlHttp.base(this, 'constructor');
 
-  /** @private @final {!WorkerGlobalScope} */
+  /** @private @final {?WorkerGlobalScope} */
   this.worker_ = worker;
+
+  /** @private @final {boolean} */
+  this.streamBinaryChunks_ = streamBinaryChunks;
 
   /** @private {RequestCredentials|undefined} */
   this.credentialsMode_ = undefined;
@@ -117,7 +148,7 @@ goog.net.FetchXmlHttp = function(worker) {
 
   /**
    * Content of the response.
-   * @type {string|!ArrayBuffer}
+   * @type {string|!ArrayBuffer|!Array<!Uint8Array>}
    */
   this.response = '';
 
@@ -201,6 +232,7 @@ goog.net.FetchXmlHttp.RequestState = {
 
 /** @override */
 goog.net.FetchXmlHttp.prototype.open = function(method, url, opt_async) {
+  'use strict';
   goog.asserts.assert(!!opt_async, 'Only async requests are supported.');
   if (this.readyState != goog.net.FetchXmlHttp.RequestState.UNSENT) {
     this.abort();
@@ -217,13 +249,14 @@ goog.net.FetchXmlHttp.prototype.open = function(method, url, opt_async) {
 
 /** @override */
 goog.net.FetchXmlHttp.prototype.send = function(opt_data) {
+  'use strict';
   if (this.readyState != goog.net.FetchXmlHttp.RequestState.OPENED) {
     this.abort();
     throw new Error('need to call open() first. ');
   }
 
   this.inProgress_ = true;
-  var requestInit = {
+  const requestInit = {
     headers: this.requestHeaders_,
     method: this.method_,
     credentials: this.credentialsMode_,
@@ -232,7 +265,8 @@ goog.net.FetchXmlHttp.prototype.send = function(opt_data) {
   if (opt_data) {
     requestInit['body'] = opt_data;
   }
-  this.worker_
+
+  (this.worker_ || goog.global)
       .fetch(new Request(this.url_, /** @type {!RequestInit} */ (requestInit)))
       .then(
           this.handleResponse_.bind(this), this.handleSendFailure_.bind(this));
@@ -241,6 +275,7 @@ goog.net.FetchXmlHttp.prototype.send = function(opt_data) {
 
 /** @override */
 goog.net.FetchXmlHttp.prototype.abort = function() {
+  'use strict';
   this.response = this.responseText = '';
   this.requestHeaders_ = new Headers();
   this.status = 0;
@@ -266,6 +301,7 @@ goog.net.FetchXmlHttp.prototype.abort = function() {
  * @private
  */
 goog.net.FetchXmlHttp.prototype.handleResponse_ = function(response) {
+  'use strict';
   if (!this.inProgress_) {
     // The request was aborted, ignore.
     return;
@@ -301,10 +337,18 @@ goog.net.FetchXmlHttp.prototype.handleResponse_ = function(response) {
   } else if (
       typeof (goog.global.ReadableStream) !== 'undefined' &&
       'body' in response) {
-    this.response = this.responseText = '';
     this.currentReader_ =
         /** @type {!ReadableStreamDefaultReader} */ (response.body.getReader());
-    this.textDecoder_ = new TextDecoder();
+    if (this.streamBinaryChunks_) {
+      if (this.responseType) {
+        throw new Error(
+            'responseType must be empty for "streamBinaryChunks" mode responses.');
+      }
+      this.response = [];
+    } else {
+      this.response = this.responseText = '';
+      this.textDecoder_ = new TextDecoder();
+    }
     this.readInputFromFetch_();
   } else {
     response.text().then(
@@ -319,6 +363,7 @@ goog.net.FetchXmlHttp.prototype.handleResponse_ = function(response) {
  * @private
  */
 goog.net.FetchXmlHttp.prototype.readInputFromFetch_ = function() {
+  'use strict';
   this.currentReader_.read()
       .then(this.handleDataFromStream_.bind(this))
       .catch(this.handleSendFailure_.bind(this));
@@ -331,19 +376,25 @@ goog.net.FetchXmlHttp.prototype.readInputFromFetch_ = function() {
  * @private
  */
 goog.net.FetchXmlHttp.prototype.handleDataFromStream_ = function(result) {
+  'use strict';
   if (!this.inProgress_) {
     // The request was aborted, ignore.
     return;
   }
 
-  var dataPacket = result.value ? /** @type {!Uint8Array} */ (result.value) :
-                                  new Uint8Array(0);
-  var newText = this.textDecoder_.decode(dataPacket, {stream: !result.done});
-  if (newText) {
-    this.responseText += newText;
-    this.response = this.responseText;
+  if (this.streamBinaryChunks_ && result.value) {
+    this.response.push(/** @type {!Uint8Array} */ (result.value));
+  } else if (!this.streamBinaryChunks_) {
+    const dataPacket = result.value ?
+        /** @type {!Uint8Array} */ (result.value) :
+        new Uint8Array(0);
+    const newText =
+        this.textDecoder_.decode(dataPacket, {stream: !result.done});
+    if (newText) {
+      this.responseText += newText;
+      this.response = this.responseText;
+    }
   }
-
   if (result.done) {
     this.requestDone_();
   } else {
@@ -355,13 +406,13 @@ goog.net.FetchXmlHttp.prototype.handleDataFromStream_ = function(result) {
   }
 };
 
-
 /**
  * Handles the response text.
  * @param {string} responseText
  * @private
  */
 goog.net.FetchXmlHttp.prototype.handleResponseText_ = function(responseText) {
+  'use strict';
   if (!this.inProgress_) {
     // The request was aborted, ignore.
     return;
@@ -378,6 +429,7 @@ goog.net.FetchXmlHttp.prototype.handleResponseText_ = function(responseText) {
  */
 goog.net.FetchXmlHttp.prototype.handleResponseArrayBuffer_ = function(
     responseArrayBuffer) {
+  'use strict';
   if (!this.inProgress_) {
     // The request was aborted, ignore.
     return;
@@ -393,7 +445,8 @@ goog.net.FetchXmlHttp.prototype.handleResponseArrayBuffer_ = function(
  * @private
  */
 goog.net.FetchXmlHttp.prototype.handleSendFailure_ = function(error) {
-  var e = error instanceof Error ? error : Error(error);
+  'use strict';
+  const e = error instanceof Error ? error : Error(error);
   goog.log.warning(this.logger_, 'Failed to fetch url ' + this.url_, e);
   if (!this.inProgress_) {
     // The request was aborted, ignore.
@@ -408,6 +461,7 @@ goog.net.FetchXmlHttp.prototype.handleSendFailure_ = function(error) {
  * @private
  */
 goog.net.FetchXmlHttp.prototype.requestDone_ = function() {
+  'use strict';
   this.readyState = goog.net.FetchXmlHttp.RequestState.DONE;
 
   this.fetchResponse_ = null;
@@ -420,12 +474,14 @@ goog.net.FetchXmlHttp.prototype.requestDone_ = function() {
 
 /** @override */
 goog.net.FetchXmlHttp.prototype.setRequestHeader = function(header, value) {
+  'use strict';
   this.requestHeaders_.append(header, value);
 };
 
 
 /** @override */
 goog.net.FetchXmlHttp.prototype.getResponseHeader = function(header) {
+  'use strict';
   // TODO(user): This method should return null when the headers are not
   // present or the specified header is missing. The externs need to be fixed.
   if (!this.responseHeaders_) {
@@ -441,6 +497,7 @@ goog.net.FetchXmlHttp.prototype.getResponseHeader = function(header) {
 
 /** @override */
 goog.net.FetchXmlHttp.prototype.getAllResponseHeaders = function() {
+  'use strict';
   if (!this.responseHeaders_) {
     goog.log.warning(
         this.logger_,
@@ -448,11 +505,11 @@ goog.net.FetchXmlHttp.prototype.getAllResponseHeaders = function() {
             'received for url: ' + this.url_);
     return '';
   }
-  var lines = [];
-  var iter = this.responseHeaders_.entries();
-  var entry = iter.next();
+  const lines = [];
+  const iter = this.responseHeaders_.entries();
+  let entry = iter.next();
   while (!entry.done) {
-    var pair = entry.value;
+    const pair = entry.value;
     lines.push(pair[0] + ': ' + pair[1]);
     entry = iter.next();
   }
@@ -465,6 +522,7 @@ goog.net.FetchXmlHttp.prototype.getAllResponseHeaders = function() {
  *     Service Worker fetch.
  */
 goog.net.FetchXmlHttp.prototype.setCredentialsMode = function(credentialsMode) {
+  'use strict';
   this.credentialsMode_ = credentialsMode;
 };
 
@@ -473,6 +531,7 @@ goog.net.FetchXmlHttp.prototype.setCredentialsMode = function(credentialsMode) {
  *     Service Worker fetch.
  */
 goog.net.FetchXmlHttp.prototype.getCredentialsMode = function() {
+  'use strict';
   return this.credentialsMode_;
 };
 
@@ -480,6 +539,7 @@ goog.net.FetchXmlHttp.prototype.getCredentialsMode = function() {
  * @param {!RequestCache} cacheMode The cache mode of the Service Worker fetch.
  */
 goog.net.FetchXmlHttp.prototype.setCacheMode = function(cacheMode) {
+  'use strict';
   this.cacheMode_ = cacheMode;
 };
 
@@ -489,6 +549,7 @@ goog.net.FetchXmlHttp.prototype.setCacheMode = function(cacheMode) {
  * @private
  */
 goog.net.FetchXmlHttp.prototype.dispatchCallback_ = function() {
+  'use strict';
   if (this.onreadystatechange) {
     this.onreadystatechange.call(this);
   }
@@ -504,6 +565,7 @@ Object.defineProperty(goog.net.FetchXmlHttp.prototype, 'withCredentials', {
        *     requests.
        */
       function() {
+        'use strict';
         return this.getCredentialsMode() === 'include';
       },
 
@@ -514,6 +576,7 @@ Object.defineProperty(goog.net.FetchXmlHttp.prototype, 'withCredentials', {
        * @this {goog.net.FetchXmlHttp}
        **/
       function(value) {
+        'use strict';
         this.setCredentialsMode(value ? 'include' : 'same-origin');
       }
 });

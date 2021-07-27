@@ -1,4 +1,8 @@
 /**
+ * @fileoverview
+ * @suppress {missingRequire} TODO(user): this shouldn't be needed
+ */
+/**
  * @license
  * Copyright The Closure Library Authors.
  * SPDX-License-Identifier: Apache-2.0
@@ -23,7 +27,7 @@ goog.require('goog.crypt');
  * @struct
  */
 goog.crypt.Ctr = function(cipher) {
-
+  'use strict';
   /**
    * Block cipher.
    * @type {!goog.crypt.BlockCipher}
@@ -43,7 +47,7 @@ goog.crypt.Ctr = function(cipher) {
  * @return {!Array<number>} Encrypted message.
  */
 goog.crypt.Ctr.prototype.encrypt = function(plainText, initialVector) {
-
+  'use strict';
   goog.asserts.assert(
       initialVector.length == this.cipher_.BLOCK_SIZE,
       'Initial vector must be size of one block.');
@@ -91,6 +95,7 @@ goog.crypt.Ctr.prototype.decrypt = goog.crypt.Ctr.prototype.encrypt;
  * @private
  */
 goog.crypt.Ctr.incrementBigEndianCounter_ = function(counter) {
+  'use strict';
   for (var i = counter.length - 1; i >= 0; i--) {
     var currentByte = counter[i];
     currentByte = (currentByte + 1) & 0xFF;  // Allow wrapping around.

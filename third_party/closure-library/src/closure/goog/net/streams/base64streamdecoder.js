@@ -24,6 +24,7 @@ goog.require('goog.crypt.base64');
 goog.scope(function() {
 
 
+'use strict';
 /**
  * Base64 stream decoder.
  *
@@ -33,6 +34,7 @@ goog.scope(function() {
  * @package
  */
 goog.net.streams.Base64StreamDecoder = function() {
+  'use strict';
   /**
    * If the input stream is still valid.
    * @private {boolean}
@@ -54,7 +56,7 @@ goog.net.streams.Base64StreamDecoder = function() {
 };
 
 
-var Decoder = goog.net.streams.Base64StreamDecoder;
+const Decoder = goog.net.streams.Base64StreamDecoder;
 
 
 /**
@@ -63,6 +65,7 @@ var Decoder = goog.net.streams.Base64StreamDecoder;
  * @return {boolean} true if the input is still valid.
  */
 Decoder.prototype.isInputValid = function() {
+  'use strict';
   return this.isInputValid_;
 };
 
@@ -74,6 +77,7 @@ Decoder.prototype.isInputValid = function() {
  * @private
  */
 Decoder.prototype.error_ = function(input, errorMsg) {
+  'use strict';
   this.isInputValid_ = false;
   throw new Error(
       'The stream is broken @' + this.streamPos_ + '. Error: ' + errorMsg +
@@ -90,6 +94,7 @@ Decoder.prototype.error_ = function(input, errorMsg) {
  * @throws {!Error} Throws an error message if the input is invalid
  */
 Decoder.prototype.decode = function(input) {
+  'use strict';
   goog.asserts.assertString(input);
 
   if (!this.isInputValid_) {
@@ -98,13 +103,14 @@ Decoder.prototype.decode = function(input) {
 
   this.leftoverInput_ += input;
 
-  var groups = Math.floor(this.leftoverInput_.length / 4);
+  const groups = Math.floor(this.leftoverInput_.length / 4);
   if (groups == 0) {
     return null;
   }
 
+  let result;
   try {
-    var result = goog.crypt.base64.decodeStringToByteArray(
+    result = goog.crypt.base64.decodeStringToByteArray(
         this.leftoverInput_.substr(0, groups * 4));
   } catch (e) {
     this.error_(this.leftoverInput_, e.message);
@@ -114,6 +120,4 @@ Decoder.prototype.decode = function(input) {
   this.leftoverInput_ = this.leftoverInput_.substr(groups * 4);
   return result;
 };
-
-
 });  // goog.scope

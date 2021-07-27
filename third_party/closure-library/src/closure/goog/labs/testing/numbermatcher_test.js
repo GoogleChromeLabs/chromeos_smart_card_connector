@@ -7,10 +7,10 @@
 goog.module('goog.labs.testing.numberMatcherTest');
 goog.setTestOnly();
 
-/** @suppress {extraRequire} */
-const LessThanMatcher = goog.require('goog.labs.testing.LessThanMatcher');
 const MatcherError = goog.require('goog.labs.testing.MatcherError');
 const assertThat = goog.require('goog.labs.testing.assertThat');
+/** @suppress {extraRequire} */
+const matchers = goog.require('goog.labs.testing');
 const testSuite = goog.require('goog.testing.testSuite');
 
 function assertMatcherError(callable, errorString) {
@@ -18,6 +18,7 @@ function assertMatcherError(callable, errorString) {
   assertTrue(e instanceof MatcherError);
 }
 testSuite({
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testAnyNumber() {
     assertThat(0, anyNumber(3), 'typeof 0 == "number"');
     assertMatcherError(() => {

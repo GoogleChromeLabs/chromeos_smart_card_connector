@@ -11,6 +11,7 @@
  * standard schema http://www.w3.org/TR/wai-aria/.
  *
  * This is auto-generated code. Do not manually edit!
+ * @suppress {missingRequire} TODO(user): this shouldn't be needed
  */
 
 goog.provide('goog.a11y.aria.datatables');
@@ -23,7 +24,7 @@ goog.require('goog.object');
  * A map that contains mapping between an ARIA state and the default value
  * for it. Note that not all ARIA states have default values.
  *
- * @type {Object<!(goog.a11y.aria.State|string), (string|boolean|number)>}
+ * @private {?Object<!goog.a11y.aria.State|string, string|boolean|number>}
  */
 goog.a11y.aria.DefaultStateValueMap_;
 
@@ -32,10 +33,11 @@ goog.a11y.aria.DefaultStateValueMap_;
  * A method that creates a map that contains mapping between an ARIA state and
  * the default value for it. Note that not all ARIA states have default values.
  *
- * @return {!Object<!(goog.a11y.aria.State|string), (string|boolean|number)>}
+ * @return {!Object<!goog.a11y.aria.State|string, string|boolean|number>}
  *      The names for each of the notification methods.
  */
 goog.a11y.aria.datatables.getDefaultValuesMap = function() {
+  'use strict';
   if (!goog.a11y.aria.DefaultStateValueMap_) {
     goog.a11y.aria.DefaultStateValueMap_ = goog.object.create(
         goog.a11y.aria.State.ATOMIC, false, goog.a11y.aria.State.AUTOCOMPLETE,

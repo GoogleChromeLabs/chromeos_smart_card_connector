@@ -8,11 +8,9 @@ goog.module('goog.net.IpAddressTest');
 goog.setTestOnly();
 
 const Integer = goog.require('goog.math.Integer');
-const IpAddress = goog.require('goog.net.IpAddress');
-const Ipv4Address = goog.require('goog.net.Ipv4Address');
-const Ipv6Address = goog.require('goog.net.Ipv6Address');
 const googArray = goog.require('goog.array');
 const testSuite = goog.require('goog.testing.testSuite');
+const {IpAddress, Ipv4Address, Ipv6Address} = goog.require('goog.net.ipaddress');
 
 testSuite({
   testInvalidStrings() {
@@ -164,6 +162,7 @@ testSuite({
     new Ipv6Address('7::0.128.128.127');
   },
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testMappedIpv4Address() {
     const testAddresses = ['::ffff:1.2.3.4', '::FFFF:102:304'];
     const ipv4Str = '1.2.3.4';
@@ -179,6 +178,7 @@ testSuite({
     assertTrue(ipv4.equals(ip2.getMappedIpv4Address()));
   },
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testUriString() {
     const ip4Str = '192.168.1.1';
     const ip4Uri = IpAddress.fromUriString(ip4Str);

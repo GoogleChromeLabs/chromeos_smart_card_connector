@@ -1497,7 +1497,7 @@ testSuite({
       assertEquals(1, rejectionCall.getArguments().length);
       const err = rejectionCall.getArguments()[0];
       assertEquals('thenAlways throw', err.message);
-      assertEquals(goog.global, rejectionCall.getThis());
+      assertEquals(null, rejectionCall.getThis());
     });
 
     return p.thenAlways(() => {
@@ -1948,6 +1948,7 @@ testSuite({
     const err = new GoogPromise.CancellationError('cancel message');
     assertTrue(err instanceof Error);
     assertTrue(err instanceof GoogPromise.CancellationError);
+    assertFalse(err.reportErrorToServer);
     assertEquals('cancel', err.name);
     assertEquals('cancel message', err.message);
   },
@@ -2041,7 +2042,7 @@ testSuite({
     assertEquals(1, unhandledRejections.getCallCount());
     const rejectionCall = unhandledRejections.popLastCall();
     assertArrayEquals([sentinel], rejectionCall.getArguments());
-    assertEquals(goog.global, rejectionCall.getThis());
+    assertEquals(null, rejectionCall.getThis());
   },
 
   testUnhandledRejection2() {
@@ -2052,7 +2053,7 @@ testSuite({
     assertEquals(1, unhandledRejections.getCallCount());
     const rejectionCall = unhandledRejections.popLastCall();
     assertArrayEquals([sentinel], rejectionCall.getArguments());
-    assertEquals(goog.global, rejectionCall.getThis());
+    assertEquals(null, rejectionCall.getThis());
   },
 
   testThenVoidUnhandledRejection() {
@@ -2063,7 +2064,7 @@ testSuite({
     assertEquals(1, unhandledRejections.getCallCount());
     const rejectionCall = unhandledRejections.popLastCall();
     assertArrayEquals([sentinel], rejectionCall.getArguments());
-    assertEquals(goog.global, rejectionCall.getThis());
+    assertEquals(null, rejectionCall.getThis());
   },
 
   testUnhandledRejection() {
@@ -2116,7 +2117,7 @@ testSuite({
     assertEquals(1, unhandledRejections.getCallCount());
     const rejectionCall = unhandledRejections.popLastCall();
     assertArrayEquals([sentinel], rejectionCall.getArguments());
-    assertEquals(goog.global, rejectionCall.getThis());
+    assertEquals(null, rejectionCall.getThis());
   },
 
   testUnhandledRejectionAfterThenAlways() {
@@ -2129,7 +2130,7 @@ testSuite({
     assertEquals(1, unhandledRejections.getCallCount());
     const rejectionCall = unhandledRejections.popLastCall();
     assertArrayEquals([sentinel], rejectionCall.getArguments());
-    assertEquals(goog.global, rejectionCall.getThis());
+    assertEquals(null, rejectionCall.getThis());
   },
 
   testHandledBlockingRejection() {
@@ -2214,14 +2215,14 @@ testSuite({
 
     // Test COMPILED code path.
     try {
-      goog.global['COMPILED'] = true;
+      globalThis['COMPILED'] = true;
       /** @constructor */
       function C() {}
       C.prototype.then = (opt_a, opt_b, opt_c) => {};
       Thenable.addImplementation(C);
       assertTrue(Thenable.isImplementedBy(new C));
     } finally {
-      goog.global['COMPILED'] = false;
+      globalThis['COMPILED'] = false;
     }
   },
 

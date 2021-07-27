@@ -66,7 +66,7 @@ goog.html.sanitizer.CssSanitizer.SELECTOR_REGEX_ =
  * A whitelist of properties that can retain the prefix in Chrome.
  * @private @const {!Object<string,boolean>}
  */
-goog.html.sanitizer.CHROME_INCLUDE_VENDOR_PREFIX_WHITELIST_ =
+goog.html.sanitizer.CssSanitizer.CHROME_INCLUDE_VENDOR_PREFIX_WHITELIST_ =
     goog.object.createSet(
         '-webkit-border-horizontal-spacing', '-webkit-border-vertical-spacing');
 
@@ -78,6 +78,7 @@ goog.html.sanitizer.CHROME_INCLUDE_VENDOR_PREFIX_WHITELIST_ =
  * @private
  */
 goog.html.sanitizer.CssSanitizer.withoutVendorPrefix_ = function(propName) {
+  'use strict';
   // A few property names are only valid with the prefix on specific browsers.
   // The recommendation is of course to avoid them, but in specific cases a
   // non-prefixed property gets transformed into one or more prefixed
@@ -85,7 +86,8 @@ goog.html.sanitizer.CssSanitizer.withoutVendorPrefix_ = function(propName) {
   // the non-prefixed property be dropped silently is to allow the prefixed
   // property in the output.
   if (goog.userAgent.WEBKIT &&
-      propName in goog.html.sanitizer.CHROME_INCLUDE_VENDOR_PREFIX_WHITELIST_) {
+      propName in goog.html.sanitizer.CssSanitizer
+                      .CHROME_INCLUDE_VENDOR_PREFIX_WHITELIST_) {
     return propName;
   }
   // http://stackoverflow.com/a/5411098/20394 has a fairly extensive list
@@ -111,10 +113,12 @@ goog.html.sanitizer.CssSanitizer.withoutVendorPrefix_ = function(propName) {
  */
 goog.html.sanitizer.CssSanitizer.sanitizeStyleSheet_ = function(
     cssStyleSheet, containerId, uriRewriter) {
+  'use strict';
   var sanitizedRules = [];
   var cssRules = goog.html.sanitizer.CssSanitizer.getOnlyStyleRules_(
       goog.array.toArray(cssStyleSheet.cssRules));
   goog.array.forEach(cssRules, function(cssRule) {
+    'use strict';
     if (containerId && !/[a-zA-Z][\w-:\.]*/.test(containerId)) {
       // Sanity check on the element ID that will confine the new CSS rules.
       throw new Error('Invalid container id');
@@ -152,8 +156,10 @@ goog.html.sanitizer.CssSanitizer.sanitizeStyleSheet_ = function(
 // TODO(pelizzi): some of these at-rules are safe, consider adding partial
 // support for them.
 goog.html.sanitizer.CssSanitizer.getOnlyStyleRules_ = function(cssRules) {
+  'use strict';
   return /** @type {!Array<!CSSStyleRule>} */ (
       goog.array.filter(cssRules, function(cssRule) {
+        'use strict';
         return cssRule instanceof CSSStyleRule ||
             cssRule.type == CSSRule.STYLE_RULE;
       }));
@@ -176,6 +182,7 @@ goog.html.sanitizer.CssSanitizer.getOnlyStyleRules_ = function(cssRules) {
  */
 goog.html.sanitizer.CssSanitizer.sanitizeStyleSheetString = function(
     textContent, opt_containerId, opt_uriRewriter) {
+  'use strict';
   var styleTag = /** @type {?HTMLStyleElement} */
       (goog.html.sanitizer.CssSanitizer.safeParseHtmlAndGetInertElement(
           '<style>' + textContent + '</style>'));
@@ -201,6 +208,7 @@ goog.html.sanitizer.CssSanitizer.sanitizeStyleSheetString = function(
  */
 goog.html.sanitizer.CssSanitizer.safeParseHtmlAndGetInertElement = function(
     html) {
+  'use strict';
   if ((goog.userAgent.IE && !goog.userAgent.isVersionOrHigher(10)) ||
       typeof goog.global.DOMParser != 'function') {
     return null;
@@ -225,6 +233,7 @@ goog.html.sanitizer.CssSanitizer.safeParseHtmlAndGetInertElement = function(
  */
 goog.html.sanitizer.CssSanitizer.sanitizeInlineStyle = function(
     cssStyle, opt_uriRewriter) {
+  'use strict';
   if (!cssStyle) {
     return goog.html.SafeStyle.EMPTY;
   }
@@ -234,6 +243,7 @@ goog.html.sanitizer.CssSanitizer.sanitizeInlineStyle = function(
       goog.html.sanitizer.CssSanitizer.getCssPropNames_(cssStyle);
 
   goog.array.forEach(cssPropNames, function(propName) {
+    'use strict';
     var propNameWithoutPrefix =
         goog.html.sanitizer.CssSanitizer.withoutVendorPrefix_(propName);
     if (!goog.html.sanitizer.CssSanitizer.isDisallowedPropertyName_(
@@ -268,6 +278,7 @@ goog.html.sanitizer.CssSanitizer.sanitizeInlineStyle = function(
  */
 goog.html.sanitizer.CssSanitizer.sanitizeInlineStyleString = function(
     cssText, opt_uriRewriter) {
+  'use strict';
   // same check as in goog.html.sanitizer.HTML_SANITIZER_SUPPORTED_
   if (goog.userAgent.IE && document.documentMode < 10) {
     return goog.html.SafeStyle.EMPTY;
@@ -289,6 +300,7 @@ goog.html.sanitizer.CssSanitizer.sanitizeInlineStyleString = function(
  * @package
  */
 goog.html.sanitizer.CssSanitizer.inlineStyleRules = function(element) {
+  'use strict';
   // Note that Webkit used to offer the perfect function for the job:
   // getMatchedCSSRules. Unfortunately, it was never supported cross-browser and
   // is deprecated now. On the other hand, getComputedStyle cannot be used to
@@ -302,12 +314,14 @@ goog.html.sanitizer.CssSanitizer.inlineStyleRules = function(element) {
   var styleTags =
       goog.html.sanitizer.noclobber.getElementsByTagName(element, 'STYLE');
   var cssRules = goog.array.concatMap(styleTags, function(styleTag) {
+    'use strict';
     return goog.array.toArray(
         goog.html.sanitizer.noclobber.getElementStyleSheet(styleTag).cssRules);
   });
   cssRules = goog.html.sanitizer.CssSanitizer.getOnlyStyleRules_(cssRules);
   // Sort the rules by descending specificity.
   cssRules.sort(function(a, b) {
+    'use strict';
     var aSpecificity = goog.html.CssSpecificity.getSpecificity(a.selectorText);
     var bSpecificity = goog.html.CssSpecificity.getSpecificity(b.selectorText);
     return -goog.array.compare3(aSpecificity, bSpecificity);
@@ -323,6 +337,7 @@ goog.html.sanitizer.CssSanitizer.inlineStyleRules = function(element) {
   var currentElement;
   while (currentElement = /** @type {!Element} */ (subTreeWalker.nextNode())) {
     goog.array.forEach(cssRules, function(rule) {
+      'use strict';
       if (!goog.html.sanitizer.noclobber.elementMatches(
               currentElement, rule.selectorText)) {
         return;
@@ -348,12 +363,14 @@ goog.html.sanitizer.CssSanitizer.inlineStyleRules = function(element) {
  */
 goog.html.sanitizer.CssSanitizer.mergeStyleDeclarations_ = function(
     element, styleDeclaration) {
+  'use strict';
   var existingPropNames =
       goog.html.sanitizer.CssSanitizer.getCssPropNames_(element.style);
   var newPropNames =
       goog.html.sanitizer.CssSanitizer.getCssPropNames_(styleDeclaration);
 
   goog.array.forEach(newPropNames, function(propName) {
+    'use strict';
     if (existingPropNames.indexOf(propName) >= 0) {
       // This was either a property set by the style attribute or a stylesheet
       // rule with a higher priority. Leave the existing value.
@@ -374,6 +391,7 @@ goog.html.sanitizer.CssSanitizer.mergeStyleDeclarations_ = function(
  * @private
  */
 goog.html.sanitizer.CssSanitizer.createInertDocument_ = function() {
+  'use strict';
   // Documents created using window.document.implementation.createHTMLDocument()
   // use the same custom component registry as their parent document. This means
   // that parsing arbitrary HTML can result in calls to user-defined JavaScript.
@@ -395,6 +413,7 @@ goog.html.sanitizer.CssSanitizer.createInertDocument_ = function() {
  * @private
  */
 goog.html.sanitizer.CssSanitizer.getCssPropNames_ = function(cssStyle) {
+  'use strict';
   var propNames = [];
   if (goog.isArrayLike(cssStyle)) {
     // Gets property names via item().
@@ -419,6 +438,7 @@ goog.html.sanitizer.CssSanitizer.getCssPropNames_ = function(cssStyle) {
  */
 goog.html.sanitizer.CssSanitizer.isDisallowedPropertyName_ = function(
     propName) {
+  'use strict';
   // getPropertyValue doesn't deal with custom variables properly and will NOT
   // decode CSS escapes (but the browser will do so silently). Simply disallow
   // custom variables (http://www.w3.org/TR/css-variables/#defining-variables).

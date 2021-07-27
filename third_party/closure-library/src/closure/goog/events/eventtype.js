@@ -6,6 +6,7 @@
 
 /**
  * @fileoverview Event Types.
+ * @suppress {missingRequire} TODO(user): this shouldn't be needed
  */
 
 
@@ -28,6 +29,7 @@ goog.require('goog.userAgent');
  * @private
  */
 goog.events.getVendorPrefixedName_ = function(eventName) {
+  'use strict';
   return goog.userAgent.WEBKIT ?
       'webkit' + eventName :
       (goog.userAgent.OPERA ? 'o' + eventName.toLowerCase() :
@@ -304,6 +306,7 @@ goog.events.EventType = {
  */
 goog.events.getPointerFallbackEventName_ = function(
     pointerEventName, msPointerEventName, fallbackEventName) {
+  'use strict';
   if (goog.events.BrowserFeature.POINTER_EVENTS) {
     return pointerEventName;
   }

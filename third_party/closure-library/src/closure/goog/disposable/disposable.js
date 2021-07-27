@@ -5,18 +5,18 @@
  */
 
 /**
- * @fileoverview Implements the disposable interface. The dispose method is used
- * to clean up references and resources.
+ * @fileoverview Implements the disposable interface.
  */
 
-
 goog.provide('goog.Disposable');
-goog.provide('goog.dispose');
-goog.provide('goog.disposeAll');
 
 goog.require('goog.disposable.IDisposable');
-
-
+goog.require('goog.dispose');
+/**
+ * TODO(user): Remove this require.
+ * @suppress {extraRequire}
+ */
+goog.require('goog.disposeAll');
 
 /**
  * Class that provides the basic implementation for disposable objects. If your
@@ -28,6 +28,7 @@ goog.require('goog.disposable.IDisposable');
  * @implements {goog.disposable.IDisposable}
  */
 goog.Disposable = function() {
+  'use strict';
   /**
    * If monitoring the goog.Disposable instances is enabled, stores the creation
    * stack trace of the Disposable instance.
@@ -104,6 +105,7 @@ goog.Disposable.instances_ = {};
  *     haven't been disposed of.
  */
 goog.Disposable.getUndisposedObjects = function() {
+  'use strict';
   var ret = [];
   for (var id in goog.Disposable.instances_) {
     if (goog.Disposable.instances_.hasOwnProperty(id)) {
@@ -118,6 +120,7 @@ goog.Disposable.getUndisposedObjects = function() {
  * Clears the registry of undisposed objects but doesn't dispose of them.
  */
 goog.Disposable.clearUndisposedObjects = function() {
+  'use strict';
   goog.Disposable.instances_ = {};
 };
 
@@ -143,6 +146,7 @@ goog.Disposable.prototype.onDisposeCallbacks_;
  * @override
  */
 goog.Disposable.prototype.isDisposed = function() {
+  'use strict';
   return this.disposed_;
 };
 
@@ -164,6 +168,7 @@ goog.Disposable.prototype.getDisposed = goog.Disposable.prototype.isDisposed;
  * @override
  */
 goog.Disposable.prototype.dispose = function() {
+  'use strict';
   if (!this.disposed_) {
     // Set disposed_ to true first, in case during the chain of disposal this
     // gets disposed recursively.
@@ -200,6 +205,7 @@ goog.Disposable.prototype.dispose = function() {
  *     this object is disposed.
  */
 goog.Disposable.prototype.registerDisposable = function(disposable) {
+  'use strict';
   this.addOnDisposeCallback(goog.partial(goog.dispose, disposable));
 };
 
@@ -213,6 +219,7 @@ goog.Disposable.prototype.registerDisposable = function(disposable) {
  * @template T
  */
 goog.Disposable.prototype.addOnDisposeCallback = function(callback, opt_scope) {
+  'use strict';
   if (this.disposed_) {
     opt_scope !== undefined ? callback.call(opt_scope) : callback();
     return;
@@ -253,6 +260,7 @@ goog.Disposable.prototype.addOnDisposeCallback = function(callback, opt_scope) {
  * @protected
  */
 goog.Disposable.prototype.disposeInternal = function() {
+  'use strict';
   if (this.onDisposeCallbacks_) {
     while (this.onDisposeCallbacks_.length) {
       this.onDisposeCallbacks_.shift()();
@@ -269,39 +277,9 @@ goog.Disposable.prototype.disposeInternal = function() {
  * @return {boolean} True if we can verify the object is disposed.
  */
 goog.Disposable.isDisposed = function(obj) {
+  'use strict';
   if (obj && typeof obj.isDisposed == 'function') {
     return obj.isDisposed();
   }
   return false;
-};
-
-
-/**
- * Calls `dispose` on the argument if it supports it. If obj is not an
- *     object with a dispose() method, this is a no-op.
- * @param {*} obj The object to dispose of.
- */
-goog.dispose = function(obj) {
-  if (obj && typeof obj.dispose == 'function') {
-    obj.dispose();
-  }
-};
-
-
-/**
- * Calls `dispose` on each member of the list that supports it. (If the
- * member is an ArrayLike, then `goog.disposeAll()` will be called
- * recursively on each of its members.) If the member is not an object with a
- * `dispose()` method, then it is ignored.
- * @param {...*} var_args The list.
- */
-goog.disposeAll = function(var_args) {
-  for (var i = 0, len = arguments.length; i < len; ++i) {
-    var disposable = arguments[i];
-    if (goog.isArrayLike(disposable)) {
-      goog.disposeAll.apply(null, disposable);
-    } else {
-      goog.dispose(disposable);
-    }
-  }
 };

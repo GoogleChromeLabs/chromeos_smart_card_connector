@@ -15,14 +15,14 @@ const testSuite = goog.require('goog.testing.testSuite');
 
 const HTML = '<div id="testField">I am text.</div>';
 
-goog.global.FieldConstructor = ContentEditableField;
+globalThis.FieldConstructor = ContentEditableField;
 
 testSuite({
   setUp() {
     googDom.getElement('parent').innerHTML = HTML;
     assertTrue(
         'FieldConstructor should be set by the test HTML file',
-        goog.isFunction(FieldConstructor));
+        typeof FieldConstructor === 'function');
   },
 
   testNoIframeAndSameElement() {
