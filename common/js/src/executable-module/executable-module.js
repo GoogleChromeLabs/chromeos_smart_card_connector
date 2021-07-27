@@ -57,8 +57,8 @@ ExecutableModule.Toolchain = {
 const TOOLCHAIN = goog.define('GoogleSmartCard.ExecutableModule.TOOLCHAIN', '');
 GSC.Logging.check(
     Object.values(GSC.ExecutableModule.Toolchain).includes(TOOLCHAIN),
-    'Unexpected value of GoogleSmartCard.ExecutableModule.TOOLCHAIN: ' +
-    '`${TOOLCHAIN}`');
+    `Unexpected value of GoogleSmartCard.ExecutableModule.TOOLCHAIN: ${
+        TOOLCHAIN}`);
 /**
  * The toolchain that is used for building the executable module. This constant
  * is coming from the build scripts, which take it from the "TOOLCHAIN"
