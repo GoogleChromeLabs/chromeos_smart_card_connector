@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -117,8 +118,8 @@ const NaclClientBackend = GSC.PcscLiteClient.NaclClientBackend;
  * @type {!goog.log.Logger}
  * @const
  */
-NaclClientBackend.prototype.logger = GSC.Logging.getScopedLogger(
-    'PcscLiteClient.NaclClientBackend');
+NaclClientBackend.prototype.logger =
+    GSC.Logging.getScopedLogger('PcscLiteClient.NaclClientBackend');
 
 /**
  * @param {!Object} payload
@@ -131,16 +132,17 @@ NaclClientBackend.prototype.handleRequest_ = function(payload) {
     GSC.Logging.failWithLogger(
         this.logger,
         'Failed to parse the remote call message: ' +
-        GSC.DebugDump.debugDump(payload));
+            GSC.DebugDump.debugDump(payload));
   }
 
-  this.logger.fine('Received a remote call request: ' +
-                   remoteCallMessage.getDebugRepresentation());
+  this.logger.fine(
+      'Received a remote call request: ' +
+      remoteCallMessage.getDebugRepresentation());
 
   const promiseResolver = goog.Promise.withResolver();
 
-  this.bufferedRequestsQueue_.enqueue(new BufferedRequest(
-      remoteCallMessage, promiseResolver));
+  this.bufferedRequestsQueue_.enqueue(
+      new BufferedRequest(remoteCallMessage, promiseResolver));
 
   // Run the request immediately if the API is already initialized.
   if (this.api_) {
@@ -193,10 +195,10 @@ NaclClientBackend.prototype.initialize_ = function() {
 
   this.logger.fine('Initializing...');
 
-  this.context_ = new GSC.PcscLiteClient.Context(
-      this.clientTitle_, this.serverAppId_);
-  this.context_.addOnInitializedCallback(this.contextInitializedListener_.bind(
-      this));
+  this.context_ =
+      new GSC.PcscLiteClient.Context(this.clientTitle_, this.serverAppId_);
+  this.context_.addOnInitializedCallback(
+      this.contextInitializedListener_.bind(this));
   this.context_.addOnDisposeCallback(this.contextDisposedListener_.bind(this));
   this.context_.initialize();
 };
@@ -251,19 +253,18 @@ NaclClientBackend.prototype.scheduleReinitialization_ = function() {
       ' seconds if new requests will arrive...');
   this.initializationTimerId_ = goog.Timer.callOnce(
       this.reinitializationTimeoutCallback_,
-      REINITIALIZATION_INTERVAL_SECONDS * 1000,
-      this);
+      REINITIALIZATION_INTERVAL_SECONDS * 1000, this);
 };
 
 /** @private */
-NaclClientBackend.prototype.reinitializationTimeoutCallback_ =
-    function() {
+NaclClientBackend.prototype.reinitializationTimeoutCallback_ = function() {
   this.initializationTimerId_ = null;
   if (!this.bufferedRequestsQueue_.isEmpty()) {
     this.initialize_();
   } else {
-    this.logger.finer('Reinitialization timeout passed, but not initializing ' +
-                      'as no new requests arrived');
+    this.logger.finer(
+        'Reinitialization timeout passed, but not initializing ' +
+        'as no new requests arrived');
   }
 };
 
@@ -298,8 +299,9 @@ NaclClientBackend.prototype.rejectAllBufferedRequests_ = function() {
  */
 NaclClientBackend.prototype.startRequest_ = function(
     remoteCallMessage, promiseResolver) {
-  this.logger.fine('Started processing the remote call request: ' +
-                   remoteCallMessage.getDebugRepresentation());
+  this.logger.fine(
+      'Started processing the remote call request: ' +
+      remoteCallMessage.getDebugRepresentation());
 
   GSC.Logging.checkWithLogger(this.logger, this.api_);
 
@@ -323,8 +325,8 @@ NaclClientBackend.prototype.apiMethodResolvedCallback_ = function(
     remoteCallMessage, promiseResolver, apiMethodResult) {
   this.logger.fine(
       'The remote call completed: ' +
-      remoteCallMessage.getDebugRepresentation() + ' with the result: ' +
-      apiMethodResult.getDebugRepresentation());
+      remoteCallMessage.getDebugRepresentation() +
+      ' with the result: ' + apiMethodResult.getDebugRepresentation());
   promiseResolver.resolve(apiMethodResult.responseItems);
 };
 
@@ -357,5 +359,4 @@ NaclClientBackend.prototype.getApiMethod_ = function(methodName) {
   }
   return this.api_[methodName];
 };
-
 });  // goog.scope

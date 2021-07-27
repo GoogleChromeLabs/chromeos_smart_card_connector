@@ -34,7 +34,7 @@ import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
- * A root pass that container for other passes that should run on with a single call graph.
+ * A root pass that is a container for other passes that should run on with a single call graph.
  *
  * <p>Known passes include:
  *
@@ -69,7 +69,7 @@ class OptimizeCalls implements CompilerPass {
 
   static final class Builder {
     private AbstractCompiler compiler;
-    private ImmutableList.Builder<CallGraphCompilerPass> passes = ImmutableList.builder();
+    private final ImmutableList.Builder<CallGraphCompilerPass> passes = ImmutableList.builder();
     @Nullable private Boolean considerExterns; // Nullable to force users to specify a value.
 
     public Builder setCompiler(AbstractCompiler compiler) {
@@ -157,11 +157,7 @@ class OptimizeCalls implements CompilerPass {
     private final LinkedHashMap<String, ArrayList<Node>> props = new LinkedHashMap<>();
 
     private void addReference(LinkedHashMap<String, ArrayList<Node>> data, String name, Node n) {
-      ArrayList<Node> refs = data.get(name);
-      if (refs == null) {
-        refs = new ArrayList<>();
-        data.put(name, refs);
-      }
+      ArrayList<Node> refs = data.computeIfAbsent(name, (String k) -> new ArrayList<>());
       refs.add(n);
     }
 
@@ -217,7 +213,7 @@ class OptimizeCalls implements CompilerPass {
     /**
      * Collects potential definition FUNCTIONs associated with a method definition site.
      *
-     * @see {@link #getFunctionNodes()}
+     * @see {@link #getFunctionNodes}
      */
     private static ImmutableList<Node> definitionFunctionNodesFor(Node definitionSite) {
       if (definitionSite.isGetterDef() || definitionSite.isSetterDef()) {
@@ -234,6 +230,14 @@ class OptimizeCalls implements CompilerPass {
 
       ImmutableList.Builder<Node> fns = ImmutableList.builder();
       switch (parent.getToken()) {
+        case CLASS:
+          if (definitionSite.isFirstChildOf(parent)) {
+            Node constructorFnDef = NodeUtil.getEs6ClassConstructorMemberFunctionDef(parent);
+            if (constructorFnDef != null) {
+              fns.add(constructorFnDef.getOnlyChild());
+            }
+          }
+          break;
         case FUNCTION:
           fns.add(parent);
           break;
@@ -276,6 +280,14 @@ class OptimizeCalls implements CompilerPass {
     private static void addValueFunctionNodes(ImmutableList.Builder<Node> fns, Node n) {
       // TODO(johnlenz): add member definitions
       switch (n.getToken()) {
+        case CLASS:
+          {
+            Node constructorFnDef = NodeUtil.getEs6ClassConstructorMemberFunctionDef(n);
+            if (constructorFnDef != null) {
+              fns.add(constructorFnDef.getOnlyChild());
+            }
+          }
+          break;
         case FUNCTION:
           fns.add(n);
           break;
@@ -285,6 +297,7 @@ class OptimizeCalls implements CompilerPass {
           break;
         case OR:
         case AND:
+        case COALESCE:
           addValueFunctionNodes(fns, n.getFirstChild());
           addValueFunctionNodes(fns, n.getLastChild());
           break;
@@ -303,8 +316,18 @@ class OptimizeCalls implements CompilerPass {
      * Whether the provided node acts as the target function in a new or call expression including
      * .call expressions. For example, returns true for 'x' in 'x.call()'.
      */
+    // TODO(rishipal): Remove this function's usage; use
+    //  `isNormalOrOptChainCallOrNewTarget` instead.
     static boolean isCallOrNewTarget(Node n) {
       return isCallTarget(n) || isNewTarget(n);
+    }
+
+    /**
+     * Whether the provided node acts as the target function in a new or call or optional chain call
+     * expression including .call expressions. For example, returns true for 'x' in 'x?.call()'.
+     */
+    static boolean isNormalOrOptChainCallOrNewTarget(Node n) {
+      return isCallTarget(n) || isNewTarget(n) || isOptChainCallTarget(n);
     }
 
     /**
@@ -313,10 +336,32 @@ class OptimizeCalls implements CompilerPass {
      */
     static boolean isCallTarget(Node n) {
       Node parent = n.getParent();
-      return ((parent.getFirstChild() == n) && parent.isCall())
-          || (parent.isGetProp()
-              && parent.getParent().isCall()
-              && parent.getLastChild().getString().equals("call"));
+      if (parent.isCall() && n.isFirstChildOf(parent)) {
+        return true;
+      }
+
+      Node grandParent = parent.getParent();
+      return parent.isGetProp()
+          && grandParent.isCall()
+          && parent.isFirstChildOf(grandParent)
+          && parent.getString().equals("call");
+    }
+
+    /**
+     * Whether the provided node acts as the target function in an optional chain call expression
+     * including .call expressions. For example, returns true for 'x' in 'x?.call()'.
+     */
+    static boolean isOptChainCallTarget(Node n) {
+      Node parent = n.getParent();
+      if (parent.isOptChainCall() && n.isFirstChildOf(parent)) {
+        return true;
+      }
+
+      Node grandParent = parent.getParent();
+      return parent.isOptChainGetProp()
+          && grandParent.isOptChainCall()
+          && parent.isFirstChildOf(grandParent)
+          && parent.getString().equals("call");
     }
 
     /** Whether the provided node acts as the target function in a new expression. */
@@ -325,19 +370,24 @@ class OptimizeCalls implements CompilerPass {
       return parent.isNew() && parent.getFirstChild() == n;
     }
 
-    /** Finds the associated call node for a node for which isCallOrNewTarget returns true. */
+    /**
+     * Finds the associated call node for a node for which isNormalOrOptChainCallOrNewTarget returns
+     * true.
+     */
     static Node getCallOrNewNodeForTarget(Node n) {
       Node maybeCall = n.getParent();
       checkState(n.isFirstChildOf(maybeCall), "%s\n\n%s", maybeCall, n);
 
       if (NodeUtil.isCallOrNew(maybeCall)) {
+        // e.g. `n` input param is the `a` in `a()` or `a?.()`
         return maybeCall;
       } else {
+        // e.g. `n` input param is the `a` in `a.b()` or `a?.b()`.
         Node child = maybeCall;
         maybeCall = child.getParent();
 
-        checkState(child.isGetProp(), child);
-        checkState(maybeCall.isCall(), maybeCall);
+        checkState(NodeUtil.isNormalOrOptChainGetProp(child), child);
+        checkState(NodeUtil.isNormalOrOptChainCall(maybeCall), maybeCall);
         checkState(child.isFirstChildOf(maybeCall), "%s\n\n%s", maybeCall, child);
 
         return maybeCall;
@@ -346,8 +396,8 @@ class OptimizeCalls implements CompilerPass {
 
     /**
      * Finds the call argument node matching the first parameter of the called function for a node
-     * for which isCallOrNewTarget returns true. Specifically, corrects for the additional argument
-     * provided to .call expressions.
+     * for which isNormalOrOptChainCallOrNewTarget returns true. Specifically, corrects for the
+     * additional argument provided to .call expressions.
      */
     static Node getFirstArgumentForCallOrNewOrDotCall(Node n) {
       return getArgumentForCallOrNewOrDotCall(n, 0);
@@ -355,13 +405,13 @@ class OptimizeCalls implements CompilerPass {
 
     /**
      * Finds the call argument node matching the parameter at the specified index of the called
-     * function for a node for which isCallOrNewTarget returns true. Specifically, corrects for the
-     * additional argument provided to .call expressions.
+     * function for a node for which isNormalOrOptChainCallOrNewTarget returns true. Specifically,
+     * corrects for the additional argument provided to .call expressions.
      */
     static Node getArgumentForCallOrNewOrDotCall(Node n, int index) {
       int adjustedIndex = index;
       Node parent = n.getParent();
-      if (!(parent.isCall() || parent.isNew())) {
+      if (!(parent.isCall() || parent.isOptChainCall() || parent.isNew())) {
         parent = parent.getParent();
         if (NodeUtil.isFunctionObjectCall(parent)) {
           adjustedIndex++;
@@ -372,7 +422,8 @@ class OptimizeCalls implements CompilerPass {
 
     static boolean isSimpleAssignmentTarget(Node n) {
       Node parent = n.getParent();
-      return parent.isAssign() && n == parent.getFirstChild();
+      // `ref = value;`
+      return parent.isAssign() && n.isFirstChildOf(parent) && parent.getParent().isExprResult();
     }
   }
 
@@ -385,10 +436,6 @@ class OptimizeCalls implements CompilerPass {
     final ReferenceMap references;
     private Scope globalScope;
 
-    /**
-     * @param compiler
-     * @param references
-     */
     public ReferenceMapBuildingCallback(ReferenceMap references) {
       this.externProps = safeSet(compiler.getExternProperties());
       this.references = references;
@@ -398,11 +445,12 @@ class OptimizeCalls implements CompilerPass {
     public void visit(NodeTraversal t, Node n, Node unused) {
       switch (n.getToken()) {
         case NAME:
-          maybeAddNameReference(n);
+          maybeAddNameReference(n.getString(), n);
           break;
 
+        case OPTCHAIN_GETPROP:
         case GETPROP:
-          maybeAddPropReference(n.getLastChild().getString(), n);
+          maybeAddPropReference(n.getString(), n);
           break;
 
         case STRING_KEY:
@@ -415,7 +463,12 @@ class OptimizeCalls implements CompilerPass {
           }
           break;
 
+        case SUPER:
+          visitSuper(n);
+          break;
+
         case COMPUTED_PROP:
+        case OPTCHAIN_GETELEM:
         case GETELEM:
           // Ignore quoted keys.
           // TODO(johnlenz): support symbols.
@@ -428,8 +481,26 @@ class OptimizeCalls implements CompilerPass {
       }
     }
 
-    private void maybeAddNameReference(Node n) {
-      String name = n.getString();
+    private void visitSuper(Node superNode) {
+      // Determine whether this is a super() constructor call.
+      // If it is, identify the super class and record this as a reference to that.
+      Node parent = superNode.getParent();
+      if (parent.isCall() && superNode.isFirstChildOf(parent)) {
+        Node enclosingClass = checkNotNull(NodeUtil.getEnclosingClass(parent));
+        Node extendsNode = enclosingClass.getSecondChild();
+        checkState(!extendsNode.isEmpty(), "super call appears in class without extends clause");
+        if (extendsNode.isName()) {
+          maybeAddNameReference(extendsNode.getString(), superNode);
+        } else if (extendsNode.isGetProp()) {
+          // NOTE: Theoretically we could also include an optional chain getprop here, but
+          // A) it's a runtime error if the value ends up being undefined, so that's bad code
+          // B) the author is indicating uncertainty, so we should be cautious.
+          maybeAddPropReference(extendsNode.getString(), superNode);
+        } // else we cannot tell what super() is referencing (e.g. `class extends getMixin() {`)
+      }
+    }
+
+    private void maybeAddNameReference(String name, Node n) {
       // TODO(b/129503101): Why are we limiting ourselves to global names?
       Var var = globalScope.getSlot(name);
       if (var != null && (considerExterns || !var.isExtern())) {
@@ -500,13 +571,39 @@ class OptimizeCalls implements CompilerPass {
         return true;
       case GETELEM:
       case GETPROP:
+      case OPTCHAIN_GETPROP:
+      case OPTCHAIN_GETELEM:
         // Calls escape the "this" value. a.foo() aliases "a" as "this" but general
         // property references do not.
         Node grandparent = parent.getParent();
-        if (n == parent.getFirstChild() && grandparent != null && grandparent.isCall()) {
-          return false;
+        if (n == parent.getFirstChild()
+            && grandparent != null
+            && (grandparent.isCall() || grandparent.isOptChainCall())) {
+          return false; // `a.foo()` or `a?.foo()` or `a?.[foo]()`
         }
         return true;
+      case CLASS:
+        if (n.isFirstChildOf(parent)) {
+          // class Name {
+          // this is a definition, not a read reference
+          return false;
+        } else {
+          // class SubClass extends Name {
+          checkState(n.isSecondChildOf(parent), parent);
+          // find the constructor
+          if (NodeUtil.getEs6ClassConstructorMemberFunctionDef(parent) == null) {
+            // The subclass has no explicit constructor, so `new SubClass()` implicitly calls
+            // `new Name(...arguments)`. This hidden call makes it harder to safely optimize the
+            // `Name` constructor, so we won't do it.
+            return false;
+          } else {
+            // We can still optimize the constructor of the class being extended as
+            // long as all child classes have explicit constructors, so we can see the
+            // `super()` calls in them and update them.
+            return true;
+          }
+        }
+        //
       default:
         if (NodeUtil.isNameDeclaration(parent) && !n.hasChildren()) {
           // allow "let x;"

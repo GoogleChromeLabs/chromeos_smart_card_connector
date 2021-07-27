@@ -32,7 +32,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.debugging.sourcemap.FilePosition;
 import com.google.debugging.sourcemap.SourceMapGeneratorV3;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.JsMessage.Style;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.Node;
@@ -47,7 +46,6 @@ import org.junit.runners.JUnit4;
 /**
  * Test for {@link JsMessageVisitor}.
  *
- * @author anatol@google.com (Anatol Pomazau)
  */
 @RunWith(JUnit4.class)
 public final class JsMessageVisitorTest {
@@ -65,9 +63,9 @@ public final class JsMessageVisitorTest {
         n.setOriginalName(originalName);
         n.setString("some_prefix_" + originalName);
       } else if (n.isGetProp() && parent.isAssign() && n.getQualifiedName().contains(".MSG_")) {
-        String originalName = n.getLastChild().getString();
+        String originalName = n.getString();
         n.setOriginalName(originalName);
-        n.getLastChild().setString("some_prefix_" + originalName);
+        n.setString("some_prefix_" + originalName);
       }
     }
   }
@@ -96,13 +94,12 @@ public final class JsMessageVisitorTest {
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
     assertThat(msg.getDesc()).isEqualTo("Hello");
-    assertThat(msg.getSourceName()).isEqualTo("[testcode]");
+    assertThat(msg.getSourceName()).isEqualTo("[testcode]:1");
   }
 
   @Test
   public void testJsMessageOnLet() {
     compilerOptions = new CompilerOptions();
-    compilerOptions.setLanguageIn(LanguageMode.ECMASCRIPT_2015);
     extractMessagesSafely(
         "/** @desc Hello */ let MSG_HELLO = goog.getMsg('a')");
     assertThat(compiler.getWarnings()).isEmpty();
@@ -111,13 +108,12 @@ public final class JsMessageVisitorTest {
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
     assertThat(msg.getDesc()).isEqualTo("Hello");
-    assertThat(msg.getSourceName()).isEqualTo("[testcode]");
+    assertThat(msg.getSourceName()).isEqualTo("[testcode]:1");
   }
 
   @Test
   public void testJsMessageOnConst() {
     compilerOptions = new CompilerOptions();
-    compilerOptions.setLanguageIn(LanguageMode.ECMASCRIPT_2015);
     extractMessagesSafely(
         "/** @desc Hello */ const MSG_HELLO = goog.getMsg('a')");
     assertThat(compiler.getWarnings()).isEmpty();
@@ -126,7 +122,7 @@ public final class JsMessageVisitorTest {
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
     assertThat(msg.getDesc()).isEqualTo("Hello");
-    assertThat(msg.getSourceName()).isEqualTo("[testcode]");
+    assertThat(msg.getSourceName()).isEqualTo("[testcode]:1");
   }
 
   @Test
@@ -153,12 +149,12 @@ public final class JsMessageVisitorTest {
     JsMessage msg1 = messages.get(0);
     assertThat(msg1.getKey()).isEqualTo("MSG_HELLO");
     assertThat(msg1.getDesc()).isEqualTo("Hello");
-    assertThat(msg1.getSourceName()).isEqualTo("source1.html");
+    assertThat(msg1.getSourceName()).isEqualTo("source1.html:11");
 
     JsMessage msg2 = messages.get(1);
     assertThat(msg2.getKey()).isEqualTo("MSG_HI");
     assertThat(msg2.getDesc()).isEqualTo("Hi");
-    assertThat(msg2.getSourceName()).isEqualTo("source2.html");
+    assertThat(msg2.getSourceName()).isEqualTo("source2.html:11");
   }
 
   @Test
@@ -363,7 +359,6 @@ public final class JsMessageVisitorTest {
   @Test
   public void testTemplateLiteral() {
     compilerOptions = new CompilerOptions();
-    compilerOptions.setLanguageIn(LanguageMode.ECMASCRIPT_2015);
 
     extractMessages("/** @desc Hello */ var MSG_HELLO = goog.getMsg(`hello`);");
     assertThat(compiler.getErrors()).isEmpty();
@@ -378,7 +373,6 @@ public final class JsMessageVisitorTest {
   @Test
   public void testTemplateLiteralWithSubstitution() {
     compilerOptions = new CompilerOptions();
-    compilerOptions.setLanguageIn(LanguageMode.ECMASCRIPT_2015);
 
     extractMessages("/** @desc Hello */ var MSG_HELLO = goog.getMsg(`hello ${name}`);");
     assertThat(compiler.getErrors()).hasSize(1);
@@ -983,7 +977,7 @@ public final class JsMessageVisitorTest {
     JsMessage msg = messages.get(0);
     assertThat(msg.getKey()).isEqualTo("MSG_HELLO");
     assertThat(msg.getDesc()).isEqualTo("Hello");
-    assertThat(msg.getSourceName()).isEqualTo("[testcode]");
+    assertThat(msg.getSourceName()).isEqualTo("[testcode]:1");
   }
 
   @Test
@@ -1042,7 +1036,7 @@ public final class JsMessageVisitorTest {
   private class CollectMessages extends JsMessageVisitor {
 
     private CollectMessages(Compiler compiler) {
-      super(compiler, true, mode, null);
+      super(compiler, mode, null);
     }
 
     @Override
@@ -1055,7 +1049,7 @@ public final class JsMessageVisitorTest {
   private static class DummyJsVisitor extends JsMessageVisitor {
 
     private DummyJsVisitor(Style style) {
-      super(null, true, style, null);
+      super(null, style, null);
     }
 
     @Override

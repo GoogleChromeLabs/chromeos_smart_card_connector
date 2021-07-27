@@ -42,10 +42,7 @@ public final class ParsingUtilTest {
   public void testNamePatternDeclaresName() {
     assertPatternDeclaresNames("x", ImmutableSet.of("x"));
 
-    AssertionError failure =
-        assertThrows(
-            AssertionError.class, () -> assertPatternDeclaresNames("x", ImmutableSet.of("y")));
-    assertThat(failure).hasMessageThat().contains("Not true that");
+    assertThrows(AssertionError.class, () -> assertPatternDeclaresNames("x", ImmutableSet.of("y")));
   }
 
   @Test
@@ -118,7 +115,7 @@ public final class ParsingUtilTest {
   }
 
   private static Node parse(String source, String... warnings) {
-    TestErrorReporter testErrorReporter = new TestErrorReporter(null, warnings);
+    TestErrorReporter testErrorReporter = new TestErrorReporter().expectAllWarnings(warnings);
     Config config =
         ParserRunner.createConfig(
             LanguageMode.ES_NEXT,
@@ -133,8 +130,7 @@ public final class ParsingUtilTest {
             .ast;
 
     // verifying that all warnings were seen
-    testErrorReporter.assertHasEncounteredAllErrors();
-    testErrorReporter.assertHasEncounteredAllWarnings();
+    testErrorReporter.verifyHasEncounteredAllWarningsAndErrors();
 
     return script;
   }

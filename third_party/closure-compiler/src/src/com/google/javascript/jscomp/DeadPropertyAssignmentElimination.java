@@ -19,13 +19,12 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysTrue;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Iterators;
 import com.google.common.collect.PeekingIterator;
 import com.google.common.collect.Sets;
 import com.google.javascript.jscomp.NodeTraversal.Callback;
-import com.google.javascript.jscomp.NodeTraversal.ChangeScopeRootCallback;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import java.util.ArrayDeque;
@@ -59,11 +58,6 @@ public class DeadPropertyAssignmentElimination implements CompilerPass {
 
   private final AbstractCompiler compiler;
 
-  // TODO(kevinoconnor): Try to give special treatment to constructor, else remove this field
-  // and cleanup dead code.
-  @VisibleForTesting
-  static final boolean ASSUME_CONSTRUCTORS_HAVENT_ESCAPED = false;
-
   DeadPropertyAssignmentElimination(AbstractCompiler compiler) {
     this.compiler = compiler;
   }
@@ -76,37 +70,36 @@ public class DeadPropertyAssignmentElimination implements CompilerPass {
       return;
     }
 
-    Set<String> blacklistedPropNames =
+    Set<String> skiplistedPropNames =
         Sets.union(
             compiler.getAccessorSummary().getAccessors().keySet(), compiler.getExternProperties());
 
-    NodeTraversal.traverseChangedFunctions(compiler, new FunctionVisitor(blacklistedPropNames));
+    NodeTraversal.traverse(
+        compiler, compiler.getJsRoot(), new FunctionVisitor(skiplistedPropNames));
   }
 
-  private static class FunctionVisitor implements ChangeScopeRootCallback {
+  private static class FunctionVisitor extends NodeTraversal.AbstractChangedScopeCallback {
 
-    /**
-     * A set of properties names that are potentially unsafe to remove duplicate writes to.
-     */
-    private final Set<String> blacklistedPropNames;
+    /** A set of properties names that are potentially unsafe to remove duplicate writes to. */
+    private final Set<String> skiplistedPropNames;
 
-    FunctionVisitor(Set<String> blacklistedPropNames) {
-      this.blacklistedPropNames = blacklistedPropNames;
+    FunctionVisitor(Set<String> skiplistedPropNames) {
+      this.skiplistedPropNames = skiplistedPropNames;
     }
 
     @Override
-    public void enterChangeScopeRoot(AbstractCompiler compiler, Node root) {
+    public void enterChangedScopeRoot(AbstractCompiler compiler, Node root) {
       if (!root.isFunction()) {
         return;
       }
 
       Node body = NodeUtil.getFunctionBody(root);
-      if (!body.hasChildren() || NodeUtil.containsFunction(body)) {
+      if (!body.hasChildren() || NodeUtil.has(body, Node::isFunction, alwaysTrue())) {
         return;
       }
 
       FindCandidateAssignmentTraversal traversal =
-          new FindCandidateAssignmentTraversal(blacklistedPropNames, NodeUtil.isConstructor(root));
+          new FindCandidateAssignmentTraversal(skiplistedPropNames);
       NodeTraversal.traverse(compiler, body, traversal);
 
       // Any candidate property assignment can have a write removed if that write is never read
@@ -236,19 +229,11 @@ public class DeadPropertyAssignmentElimination implements CompilerPass {
      */
     Map<String, Property> propertyMap = new HashMap<>();
 
-    /**
-     * A set of properties names that are potentially unsafe to remove duplicate writes to.
-     */
-    private final Set<String> blacklistedPropNames;
+    /** A set of properties names that are potentially unsafe to remove duplicate writes to. */
+    private final Set<String> skiplistedPropNames;
 
-    /**
-     * Whether or not the function being analyzed is a constructor.
-     */
-    private final boolean isConstructor;
-
-    FindCandidateAssignmentTraversal(Set<String> blacklistedPropNames, boolean isConstructor) {
-      this.blacklistedPropNames = blacklistedPropNames;
-      this.isConstructor = isConstructor;
+    FindCandidateAssignmentTraversal(Set<String> skiplistedPropNames) {
+      this.skiplistedPropNames = skiplistedPropNames;
     }
 
     /**
@@ -262,10 +247,9 @@ public class DeadPropertyAssignmentElimination implements CompilerPass {
         return null;
       }
 
-      String propName =
-          propNode.isGetProp() ? propNode.getLastChild().getString() : propNode.getQualifiedName();
+      String propName = propNode.isGetProp() ? propNode.getString() : propNode.getQualifiedName();
 
-      Property property = propertyMap.computeIfAbsent(propName, name -> new Property(name));
+      Property property = propertyMap.computeIfAbsent(propName, Property::new);
 
       /* Using the GETPROP chain, build out the tree of children properties.
 
@@ -302,15 +286,7 @@ public class DeadPropertyAssignmentElimination implements CompilerPass {
 
       // Assume that all properties may be read when control flow leaves the function
       if (NodeUtil.isInvocation(n) || n.isYield() || n.isAwait()) {
-        if (ASSUME_CONSTRUCTORS_HAVENT_ESCAPED
-            && isConstructor
-            && !NodeUtil.referencesThis(n)
-            && NodeUtil.getEnclosingType(n, Token.TRY) == null) {
-          // this.x properties are okay.
-          markAllPropsReadExceptThisProps();
-        } else {
-          markAllPropsRead();
-        }
+        markAllPropsRead();
       }
 
       // Mark all properties as read when leaving a block since we haven't proven that the block
@@ -335,6 +311,10 @@ public class DeadPropertyAssignmentElimination implements CompilerPass {
         case AND:
         case OR:
         case HOOK:
+        case COALESCE:
+        case OPTCHAIN_CALL:
+        case OPTCHAIN_GETELEM:
+        case OPTCHAIN_GETPROP:
           return true;
         default:
           return false;
@@ -383,8 +363,7 @@ public class DeadPropertyAssignmentElimination implements CompilerPass {
       switch (n.getToken()) {
         case GETPROP:
           // Handle potential getters/setters.
-          if (n.isGetProp()
-              && blacklistedPropNames.contains(n.getLastChild().getString())) {
+          if (n.isGetProp() && skiplistedPropNames.contains(n.getString())) {
             // We treat getters/setters as if they were a call, thus we mark all properties as read.
             markAllPropsRead();
             return true;
@@ -438,20 +417,8 @@ public class DeadPropertyAssignmentElimination implements CompilerPass {
     }
 
     private void markAllPropsRead() {
-      markAllPropsReadHelper(false /* excludeThisProps*/);
-    }
-
-    private void markAllPropsReadExceptThisProps() {
-      markAllPropsReadHelper(true /* excludeThisProps */);
-    }
-
-    private void markAllPropsReadHelper(boolean excludeThisProps) {
       for (Property property : propertyMap.values()) {
         if (property.writes.isEmpty()) {
-          continue;
-        }
-
-        if (excludeThisProps && property.writes.getLast().isChildPropOf("this")) {
           continue;
         }
 

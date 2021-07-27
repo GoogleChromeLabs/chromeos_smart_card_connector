@@ -39,17 +39,16 @@
 
 package com.google.javascript.rhino.jstype;
 
-import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.Token;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterables;
+import com.google.javascript.rhino.jstype.FunctionType.Parameter;
+import java.util.ArrayList;
 
-/**
- * A builder for the Rhino Node representing Function parameters.
- * @author nicksantos@google.com (Nick Santos)
- */
+/** A builder for the list representing FunctionType Parameters */
 public class FunctionParamBuilder {
 
   private final JSTypeRegistry registry;
-  private final Node root = new Node(Token.PARAM_LIST);
+  private final ArrayList<Parameter> parameters = new ArrayList<>();
 
   public FunctionParamBuilder(JSTypeRegistry registry) {
     this.registry = registry;
@@ -65,7 +64,7 @@ public class FunctionParamBuilder {
     }
 
     for (JSType type : types) {
-      newParameter(type);
+      newParameter(type, /* isOptional= */ false, /* isVariadic= */ false);
     }
     return true;
   }
@@ -82,7 +81,8 @@ public class FunctionParamBuilder {
     }
 
     for (JSType type : types) {
-      newParameter(registry.createOptionalType(type)).setOptionalArg(true);
+      newParameter(
+          registry.createOptionalType(type), /* isOptional= */ true, /* isVariadic= */ false);
     }
     return true;
   }
@@ -96,52 +96,40 @@ public class FunctionParamBuilder {
       return false;
     }
 
-    newParameter(type).setVarArgs(true);
+    newParameter(type, /* isOptional= */ false, /* isVariadic= */ true);
     return true;
   }
 
-  /**
-   * Copies the parameter specification from the given node.
-   */
-  public Node newParameterFromNode(Node n) {
-    Node newParam = newParameter(n.getJSType());
-    newParam.setVarArgs(n.isVarArgs());
-    newParam.setOptionalArg(n.isOptionalArg());
-    return newParam;
+  /** Copies the parameter specification from the given parameter. */
+  public void newParameterFrom(FunctionType.Parameter n) {
+    newParameter(n.getJSType(), n.isOptional(), n.isVariadic());
   }
 
-  /**
-   * Copies the parameter specification from the given node,
-   * but makes sure it's optional.
-   */
-  public Node newOptionalParameterFromNode(Node n) {
-    Node newParam = newParameterFromNode(n);
-    if (!newParam.isVarArgs() && !newParam.isOptionalArg()) {
-      newParam.setOptionalArg(true);
-    }
-    return newParam;
+  /** Copies the parameter specification from the given parameter, but makes sure it's optional. */
+  public void newOptionalParameterFrom(FunctionType.Parameter p) {
+    boolean isOptional = p.isOptional() || !p.isVariadic();
+    newParameter(p.getJSType(), isOptional, p.isVariadic());
   }
 
-  // Add a parameter to the list with the given type.
-  private Node newParameter(JSType type) {
-    Node paramNode = Node.newString(Token.NAME, "");
-    paramNode.setJSType(type);
-    root.addChildToBack(paramNode);
-    return paramNode;
-  }
-
-  public Node build() {
-    return root;
+  /** Adds a parameter with the given type */
+  private void newParameter(JSType type, boolean isOptional, boolean isVariadic) {
+    Parameter parameter = Parameter.create(type, isOptional, isVariadic);
+    parameters.add(parameter);
   }
 
   private boolean hasOptionalOrVarArgs() {
-    Node lastChild = root.getLastChild();
-    return lastChild != null &&
-        (lastChild.isOptionalArg() || lastChild.isVarArgs());
+    if (parameters.isEmpty()) {
+      return false;
+    }
+    Parameter lastParam = Iterables.getLast(parameters);
+    return lastParam.isOptional() || lastParam.isVariadic();
   }
 
   public boolean hasVarArgs() {
-    Node lastChild = root.getLastChild();
-    return lastChild != null && lastChild.isVarArgs();
+    return !parameters.isEmpty() && Iterables.getLast(parameters).isVariadic();
+  }
+
+  public ImmutableList<Parameter> build() {
+    return ImmutableList.copyOf(parameters);
   }
 }

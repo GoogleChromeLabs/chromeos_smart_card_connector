@@ -23,23 +23,22 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
-import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.jstype.JSType;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
- * A set of utility functions that replaces CALL with a specified
- * FUNCTION body, replacing and aliasing function parameters as
- * necessary.
+ * A set of utility functions that replaces CALL with a specified FUNCTION body, replacing and
+ * aliasing function parameters as necessary.
  */
 class FunctionInjector {
 
@@ -50,82 +49,26 @@ class FunctionInjector {
 
   private final AbstractCompiler compiler;
   private final boolean allowDecomposition;
-  private Set<String> knownConstants = new HashSet<>();
+  private ImmutableSet<String> knownConstantFunctions = ImmutableSet.of();
   private final boolean assumeStrictThis;
   private final boolean assumeMinimumCapture;
-  private final boolean allowMethodCallDecomposing;
   private final Supplier<String> safeNameIdSupplier;
   private final Supplier<String> throwawayNameSupplier =
       new Supplier<String>() {
-    private int nextId = 0;
-    @Override
-    public String get() {
-      return String.valueOf(nextId++);
-    }
-  };
+        private int nextId = 0;
+
+        @Override
+        public String get() {
+          return String.valueOf(nextId++);
+        }
+      };
   private final FunctionArgumentInjector functionArgumentInjector;
 
   /** Cache of function node to whether it deeply contains an {@code eval} call. */
-  private final LoadingCache<Node, Boolean> containsEval =
-      CacheBuilder.newBuilder()
-          .build(
-              CacheLoader.from(
-                  node -> {
-                    checkNotNull(node);
-                    if (node.isName() && node.getString().equals("eval")) {
-                      return true;
-                    }
+  private final LinkedHashMap<Node, Boolean> referencesEvalCache = new LinkedHashMap<>();
 
-                    if (node.isFunction()) {
-                      return false;
-                    }
-
-                    for (Node c = node.getFirstChild(); c != null; c = c.getNext()) {
-                      if (FunctionInjector.this.containsEval.getUnchecked(c)) {
-                        return true;
-                      }
-                    }
-
-                    return false;
-                  }));
-
-  /**
-   * Cache of function node to any inner functions. This cache is used to determine whether a
-   * function contains only the function to be inlined. Because of this very specific case, the
-   * values in the cache are either {@link #NO_FUNCTIONS}, {@link #MULTIPLE_FUNCTIONS} or an actual
-   * function node.
-   */
-  private final LoadingCache<Node, Node> containedFns =
-      CacheBuilder.newBuilder()
-          .build(
-              CacheLoader.from(
-                  node -> {
-                    checkNotNull(node);
-                    if (node.isFunction()) {
-                      return node;
-                    }
-
-                    Node result = NO_FUNCTIONS;
-                    for (Node c = node.getFirstChild();
-                        c != null && result != MULTIPLE_FUNCTIONS;
-                        c = c.getNext()) {
-                      Node childResult = FunctionInjector.this.containedFns.getUnchecked(c);
-                      if (childResult == NO_FUNCTIONS) {
-                        continue;
-                      }
-                      // result must be NO_FUNCTIONS or a function node
-                      // childResult must be a function node or MULTIPLE_FUNCTIONS
-                      if (result == NO_FUNCTIONS) {
-                        result = childResult;
-                        continue;
-                      }
-                      // result must be a function node
-                      if (!result.equals(childResult)) {
-                        result = MULTIPLE_FUNCTIONS;
-                      }
-                    }
-                    return result;
-                  }));
+  /** Cache of function node to any inner function. */
+  private final LinkedHashMap<Node, Node> innerFunctionCache = new LinkedHashMap<>();
 
   private FunctionInjector(Builder builder) {
     this.compiler = checkNotNull(builder.compiler);
@@ -133,11 +76,7 @@ class FunctionInjector {
     this.assumeStrictThis = builder.assumeStrictThis;
     this.assumeMinimumCapture = builder.assumeMinimumCapture;
     this.allowDecomposition = builder.allowDecomposition;
-    this.allowMethodCallDecomposing = builder.allowMethodCallDecomposing;
     this.functionArgumentInjector = checkNotNull(builder.functionArgumentInjector);
-    checkState(
-        !this.allowMethodCallDecomposing || this.allowDecomposition,
-        "Cannot allow method call decomposition when decomposition in general is not allowed.");
   }
 
   static class Builder {
@@ -147,7 +86,6 @@ class FunctionInjector {
     private boolean assumeStrictThis = true;
     private boolean assumeMinimumCapture = true;
     private boolean allowDecomposition = true;
-    private boolean allowMethodCallDecomposing = true;
     private FunctionArgumentInjector functionArgumentInjector = null;
 
     Builder(AbstractCompiler compiler) {
@@ -171,17 +109,6 @@ class FunctionInjector {
      */
     Builder allowDecomposition(boolean allowDecomposition) {
       this.allowDecomposition = allowDecomposition;
-      return this;
-    }
-
-    /**
-     * Allow decomposition of method calls.
-     *
-     * <p>Default is {@code true}. May be disabled independently of decomposition in general. It's
-     * invalid to enable this when allowDecomposition is disabled.
-     */
-    Builder allowMethodCallDecomposing(boolean allowMethodCallDecomposing) {
-      this.allowMethodCallDecomposing = allowMethodCallDecomposing;
       return this;
     }
 
@@ -220,14 +147,14 @@ class FunctionInjector {
   /** The type of inlining to perform. */
   enum InliningMode {
     /**
-     * Directly replace the call expression. Only functions of meeting
-     * strict preconditions can be inlined.
+     * Directly replace the call expression. Only functions of meeting strict preconditions can be
+     * inlined.
      */
     DIRECT,
 
     /**
-     * Replaces the call expression with a block of statements. Conditions
-     * on the function are looser in mode, but stricter on the call site.
+     * Replaces the call expression with a block of statements. Conditions on the function are
+     * looser in mode, but stricter on the call site.
      */
     BLOCK
   }
@@ -236,10 +163,10 @@ class FunctionInjector {
   static class Reference {
     final Node callNode;
     final Scope scope;
-    final JSModule module;
+    final JSChunk module;
     final InliningMode mode;
 
-    Reference(Node callNode, Scope scope, JSModule module, InliningMode mode) {
+    Reference(Node callNode, Scope scope, JSChunk module, InliningMode mode) {
       this.callNode = callNode;
       this.scope = scope;
       this.module = module;
@@ -253,28 +180,23 @@ class FunctionInjector {
   }
 
   /**
-   * In order to estimate the cost of lining, we make the assumption that
-   * Identifiers are reduced 2 characters. For the call arguments, the important
-   * thing is that the cost is assumed to be the same in the call and the
-   * function, so the actual length doesn't matter in most cases.
+   * In order to estimate the cost of lining, we make the assumption that Identifiers are reduced 2
+   * characters. For the call arguments, the important thing is that the cost is assumed to be the
+   * same in the call and the function, so the actual length doesn't matter in most cases.
    */
-  private static final int NAME_COST_ESTIMATE =
-      InlineCostEstimator.ESTIMATED_IDENTIFIER_COST;
+  private static final int NAME_COST_ESTIMATE = InlineCostEstimator.ESTIMATED_IDENTIFIER_COST;
 
   /** The cost of a argument separator (a comma). */
   private static final int COMMA_COST = 1;
 
-  /** The cost of the parentheses needed to make a call.*/
+  /** The cost of the parentheses needed to make a call. */
   private static final int PAREN_COST = 2;
 
-
   /**
-   * @param fnName The name of this function. This either the name of the
-   *  variable to which the function is assigned or the name from the FUNCTION
-   *  node.
+   * @param fnName The name of this function. This either the name of the variable to which the
+   *     function is assigned or the name from the FUNCTION node.
    * @param fnNode The FUNCTION node of the function to inspect.
-   * @return Whether the function node meets the minimum requirements for
-   * inlining.
+   * @return Whether the function node meets the minimum requirements for inlining.
    */
   boolean doesFunctionMeetMinimumRequirements(final String fnName, Node fnNode) {
     Node block = NodeUtil.getFunctionBody(fnNode);
@@ -300,20 +222,17 @@ class FunctionInjector {
             block, "arguments", NodeUtil.MATCH_ANYTHING_BUT_NON_ARROW_FUNCTION);
 
     Predicate<Node> blocksInjection =
-        new Predicate<Node>() {
-          @Override
-          public boolean apply(Node n) {
-            if (n.isName()) {
-              // References "eval" or one of its names anywhere.
-              return n.getString().equals("eval")
-                  || (!fnName.isEmpty() && n.getString().equals(fnName))
-                  || (!fnRecursionName.isEmpty() && n.getString().equals(fnRecursionName));
-            } else if (n.isSuper()) {
-              // Don't inline if this function or its inner functions contains super
-              return true;
-            }
-            return false;
+        (Node n) -> {
+          if (n.isName()) {
+            // References "eval" or one of its names anywhere.
+            return n.getString().equals("eval")
+                || (!fnName.isEmpty() && n.getString().equals(fnName))
+                || (!fnRecursionName.isEmpty() && n.getString().equals(fnRecursionName));
+          } else if (n.isSuper()) {
+            // Don't inline if this function or its inner functions contains super
+            return true;
           }
+          return false;
         };
 
     return !referencesArguments && !NodeUtil.has(block, blocksInjection, Predicates.alwaysTrue());
@@ -321,16 +240,18 @@ class FunctionInjector {
 
   /**
    * @param fnNode The function to evaluate for inlining.
-   * @param needAliases A set of function parameter names that can not be
-   *     used without aliasing. Returned by getUnsafeParameterNames().
-   * @param referencesThis Whether fnNode contains references to its this
-   *     object.
+   * @param needAliases A set of function parameter names that can not be used without aliasing.
+   *     Returned by getUnsafeParameterNames().
+   * @param referencesThis Whether fnNode contains references to its this object.
    * @param containsFunctions Whether fnNode contains inner functions.
    * @return Whether the inlining can occur.
    */
   CanInlineResult canInlineReferenceToFunction(
-      Reference ref, Node fnNode, ImmutableSet<String> needAliases,
-      boolean referencesThis, boolean containsFunctions) {
+      Reference ref,
+      Node fnNode,
+      ImmutableSet<String> needAliases,
+      boolean referencesThis,
+      boolean containsFunctions) {
     // TODO(johnlenz): This function takes too many parameter, without
     // context.  Modify the API to take a structure describing the function.
 
@@ -375,6 +296,7 @@ class FunctionInjector {
 
   /**
    * Only ".call" calls and direct calls to functions are supported.
+   *
    * @param callNode The call evaluate.
    * @return Whether the call is of a type that is supported.
    */
@@ -396,7 +318,7 @@ class FunctionInjector {
   }
 
   private static boolean hasSpreadCallArgument(Node callNode) {
-    checkArgument(callNode.isCall(), callNode);
+    checkArgument(NodeUtil.isNormalOrOptChainCall(callNode), callNode);
     for (Node arg = callNode.getSecondChild(); arg != null; arg = arg.getNext()) {
       if (arg.isSpread()) {
         return true;
@@ -405,9 +327,7 @@ class FunctionInjector {
     return false;
   }
 
-  /**
-   * Inline a function into the call site.
-   */
+  /** Inline a function into the call site. */
   Node inline(Reference ref, String fnName, Node fnNode) {
     checkState(compiler.getLifeCycleStage().isNormalized());
     return internalInline(ref, fnName, fnNode);
@@ -415,7 +335,7 @@ class FunctionInjector {
 
   /**
    * Inline a function into the call site. Note that this unsafe version doesn't verify if the AST
-   * is normalized. You should use {@link inline} instead, unless you are 100% certain that the bit
+   * is normalized. You should use {@link #inline} instead, unless you are 100% certain that the bit
    * of code you're inlining is safe without being normalized first.
    */
   Node unsafeInline(Reference ref, String fnName, Node fnNode) {
@@ -434,14 +354,12 @@ class FunctionInjector {
   }
 
   /**
-   * Inline a function that fulfills the requirements of
-   * canInlineReferenceDirectly into the call site, replacing only the CALL
-   * node.
+   * Inline a function that fulfills the requirements of canInlineReferenceDirectly into the call
+   * site, replacing only the CALL node.
    */
   private Node inlineReturnValue(Reference ref, Node fnNode) {
     Node callNode = ref.callNode;
     Node block = fnNode.getLastChild();
-    Node callParentNode = callNode.getParent();
 
     // NOTE: As the normalize pass guarantees globals aren't being
     // shadowed and an expression can't introduce new names, there is
@@ -474,20 +392,22 @@ class FunctionInjector {
       newExpression.setJSTypeBeforeCast(typeBeforeCast);
       newExpression.setJSType(callNode.getJSType());
     }
-    callParentNode.replaceChild(callNode, newExpression);
+    // If the new expression has no color or the UNKNOWN color, attach the color the call node. It
+    // may be more accurate if the call node was in a cast (we don't track information about casts,
+    // though)
+    if (callNode.getColor() != null && callNode.isColorFromTypeCast()) {
+      newExpression.setColor(callNode.getColor());
+      newExpression.setColorFromTypeCast();
+    }
+    callNode.replaceWith(newExpression);
     NodeUtil.markFunctionsDeleted(callNode, compiler);
     return newExpression;
   }
 
-  /**
-   * Supported call site types.
-   */
+  /** Supported call site types. */
   private static enum CallSiteType {
 
-    /**
-     * Used for a call site for which there does not exist a method
-     * to inline it.
-     */
+    /** Used for a call site for which there does not exist a method to inline it. */
     UNSUPPORTED() {
       @Override
       public void prepare(FunctionInjector injector, Reference ref) {
@@ -495,11 +415,7 @@ class FunctionInjector {
       }
     },
 
-    /**
-     * A call as a statement. For example: "foo();".
-     *   EXPR_RESULT
-     *     CALL
-     */
+    /** A call as a statement. For example: "foo();". EXPR_RESULT CALL */
     SIMPLE_CALL() {
       @Override
       public void prepare(FunctionInjector injector, Reference ref) {
@@ -508,12 +424,8 @@ class FunctionInjector {
     },
 
     /**
-     * An assignment, where the result of the call is assigned to a simple
-     * name. For example: "a = foo();".
-     *   EXPR_RESULT
-     *     NAME A
-     *     CALL
-     *       FOO
+     * An assignment, where the result of the call is assigned to a simple name. For example: "a =
+     * foo();". EXPR_RESULT NAME A CALL FOO
      */
     SIMPLE_ASSIGNMENT() {
       @Override
@@ -523,13 +435,8 @@ class FunctionInjector {
     },
 
     /**
-     * An var declaration and initialization, where the result of the call is
-     * assigned to the declared name
-     * name. For example: "var a = foo();".
-     *   VAR
-     *     NAME A
-     *       CALL
-     *         FOO
+     * An var declaration and initialization, where the result of the call is assigned to the
+     * declared name name. For example: "var a = foo();". VAR NAME A CALL FOO
      */
     VAR_DECL_SIMPLE_ASSIGNMENT() {
       @Override
@@ -539,17 +446,11 @@ class FunctionInjector {
     },
 
     /**
-     * An arbitrary expression, the root of which is a EXPR_RESULT, IF,
-     * RETURN, SWITCH or VAR.  The call must be the first side-effect in
-     * the expression.
+     * An arbitrary expression, the root of which is a EXPR_RESULT, IF, RETURN, SWITCH or VAR. The
+     * call must be the first side-effect in the expression.
      *
-     * Examples include:
-     *   "if (foo()) {..."
-     *   "return foo();"
-     *   "var a = 1 + foo();"
-     *   "a = 1 + foo()"
-     *   "foo() ? 1:0"
-     *   "foo() && x"
+     * <p>Examples include: "if (foo()) {..." "return foo();" "var a = 1 + foo();" "a = 1 + foo()"
+     * "foo() ? 1:0" "foo() && x"
      */
     EXPRESSION() {
       @Override
@@ -565,9 +466,8 @@ class FunctionInjector {
     },
 
     /**
-     * An arbitrary expression, the root of which is a EXPR_RESULT, IF,
-     * RETURN, SWITCH or VAR.  Where the call is not the first side-effect in
-     * the expression.
+     * An arbitrary expression, the root of which is a EXPR_RESULT, IF, RETURN, SWITCH or VAR. Where
+     * the call is not the first side-effect in the expression.
      */
     DECOMPOSABLE_EXPRESSION() {
       @Override
@@ -588,10 +488,9 @@ class FunctionInjector {
   /**
    * Determine which, if any, of the supported types the call site is.
    *
-   * Constant vars are treated differently so that we don't break their
-   * const-ness when we decompose the expression. Once the CONSTANT_VAR
-   * annotation is used everywhere instead of coding conventions, we should just
-   * teach this pass how to remove the annotation.
+   * <p>Constant vars are treated differently so that we don't break their const-ness when we
+   * decompose the expression. Once the CONSTANT_VAR annotation is used everywhere instead of coding
+   * conventions, we should just teach this pass how to remove the annotation.
    */
   private CallSiteType classifyCallSite(Reference ref) {
     Node callNode = ref.callNode;
@@ -636,12 +535,12 @@ class FunctionInjector {
   }
 
   private ExpressionDecomposer getDecomposer(Scope scope) {
-    return new ExpressionDecomposer(
-        compiler, safeNameIdSupplier, knownConstants, scope, allowMethodCallDecomposing);
+    return compiler.createExpressionDecomposer(safeNameIdSupplier, knownConstantFunctions, scope);
   }
 
   /**
    * If required, rewrite the statement containing the call expression.
+   *
    * @see ExpressionDecomposer#canExposeExpression
    */
   void maybePrepareCall(Reference ref) {
@@ -650,9 +549,8 @@ class FunctionInjector {
   }
 
   /**
-   * Inline a function which fulfills the requirements of
-   * canInlineReferenceAsStatementBlock into the call site, replacing the
-   * parent expression.
+   * Inline a function which fulfills the requirements of canInlineReferenceAsStatementBlock into
+   * the call site, replacing the parent expression.
    */
   private Node inlineFunction(Reference ref, Node fnNode, String fnName) {
     Node callNode = ref.callNode;
@@ -681,13 +579,12 @@ class FunctionInjector {
         break;
 
       case SIMPLE_CALL:
-        resultName = null;  // "foo()" doesn't need a result.
+        resultName = null; // "foo()" doesn't need a result.
         needsDefaultReturnResult = false;
         break;
 
       case EXPRESSION:
-        throw new IllegalStateException(
-            "Movable expressions must be moved before inlining.");
+        throw new IllegalStateException("Movable expressions must be moved before inlining.");
 
       case DECOMPOSABLE_EXPRESSION:
         throw new IllegalStateException(
@@ -700,37 +597,36 @@ class FunctionInjector {
     FunctionToBlockMutator mutator = new FunctionToBlockMutator(compiler, this.safeNameIdSupplier);
 
     boolean isCallInLoop = NodeUtil.isWithinLoop(callNode);
-    Node newBlock = mutator.mutate(
-        fnName, fnNode, callNode, resultName,
-        needsDefaultReturnResult, isCallInLoop);
+    Node newBlock =
+        mutator.mutate(
+            fnName, fnNode, callNode, resultName, needsDefaultReturnResult, isCallInLoop);
     NodeUtil.markNewScopesChanged(newBlock, compiler);
 
     // TODO(nicksantos): Create a common mutation function that
     // can replace either a VAR name assignment, assignment expression or
     // a EXPR_RESULT.
-    Node greatGrandParent = grandParent.getParent();
     switch (callSiteType) {
       case VAR_DECL_SIMPLE_ASSIGNMENT:
         // Remove the call from the name node.
         Node firstChild = parent.removeFirstChild();
         NodeUtil.markFunctionsDeleted(firstChild, compiler);
-        Preconditions.checkState(parent.getFirstChild() == null);
+        Preconditions.checkState(!parent.hasChildren());
         // Add the call, after the VAR.
-        greatGrandParent.addChildAfter(newBlock, grandParent);
+        newBlock.insertAfter(grandParent);
         break;
 
       case SIMPLE_ASSIGNMENT:
         // The assignment is now part of the inline function so
         // replace it completely.
         Preconditions.checkState(grandParent.isExprResult());
-        greatGrandParent.replaceChild(grandParent, newBlock);
+        grandParent.replaceWith(newBlock);
         NodeUtil.markFunctionsDeleted(grandParent, compiler);
         break;
 
       case SIMPLE_CALL:
         // If nothing is looking at the result just replace the call.
         Preconditions.checkState(parent.isExprResult());
-        grandParent.replaceChild(parent, newBlock);
+        parent.replaceWith(newBlock);
         NodeUtil.markFunctionsDeleted(parent, compiler);
         break;
 
@@ -754,8 +650,8 @@ class FunctionInjector {
   }
 
   /**
-   * Checks if the given function matches the criteria for an inlinable
-   * function, and if so, adds it to our set of inlinable functions.
+   * Checks if the given function matches the criteria for an inlinable function, and if so, adds it
+   * to our set of inlinable functions.
    */
   static boolean isDirectCallNodeReplacementPossible(Node fnNode) {
     // Only inline single-statement functions
@@ -768,8 +664,7 @@ class FunctionInjector {
       return true;
     } else if (block.hasOneChild()) {
       // Only inline functions that return something.
-      if (block.getFirstChild().isReturn()
-          && block.getFirstFirstChild() != null) {
+      if (block.getFirstChild().isReturn() && block.getFirstFirstChild() != null) {
         return true;
       }
     }
@@ -784,10 +679,10 @@ class FunctionInjector {
   }
 
   /**
-   * Determines whether a function can be inlined at a particular call site.
-   * There are several criteria that the function and reference must hold in
-   * order for the functions to be inlined:
-   * - It must be a simple call, or assignment, or var initialization.
+   * Determines whether a function can be inlined at a particular call site. There are several
+   * criteria that the function and reference must hold in order for the functions to be inlined: -
+   * It must be a simple call, or assignment, or var initialization.
+   *
    * <pre>
    *    f();
    *    a = foo();
@@ -820,18 +715,68 @@ class FunctionInjector {
   }
 
   /**
-   * Returns whether or not {@code node} deeply contains an {@code eval} call. Results are cached to
-   * make subsequent calls faster.
+   * Returns whether or not {@code fn} includes a call to `eval` in its scope.
+   *
+   * <p>Results are cached to make subsequent calls faster.
    */
-  private boolean containsEval(Node node) {
-    return containsEval.getUnchecked(node);
+  private boolean referencesEval(Node fn) {
+    checkState(fn.isFunction());
+
+    @Nullable Boolean cached = this.referencesEvalCache.get(fn);
+    if (cached != null) {
+      return cached;
+    }
+
+    boolean result =
+        NodeUtil.has(
+            fn, //
+            (n) -> n.isName() && n.getString().equals("eval"), // Match predicate
+            (n) -> !n.isFunction() || n.equals(fn)); // Explore node predicate
+    this.referencesEvalCache.put(fn, result);
+    return result;
   }
 
-  /** Returns {@code true} iff {@code caller} defines at most {@code candidate}. */
-  private boolean containsAtMostFn(Node caller, Node candidate) {
-    checkNotNull(candidate);
-    Node node = containedFns.getUnchecked(caller);
-    return node == NO_FUNCTIONS || candidate.equals(node);
+  /**
+   * Returns any inner function of {@code containerFn}.
+   *
+   * <p>If there are no inner functions, or multilple inner functions, the sentinel values {@link
+   * #NO_FUNCTIONS}, {@link #MULTIPLE_FUNCTIONS} are returned respectively.
+   */
+  private Node innerFunctionOf(Node containerFn) {
+    checkState(containerFn.isFunction());
+
+    @Nullable Node cached = this.innerFunctionCache.get(containerFn);
+    if (cached != null) {
+      return cached;
+    }
+
+    ArrayList<Node> innerFns = new ArrayList<>();
+    NodeUtil.visitPreOrder(
+        containerFn,
+        (n) -> {
+          if (n.equals(containerFn)) {
+            return;
+          }
+
+          if (n.isFunction()) {
+            innerFns.add(n);
+          }
+        });
+
+    switch (innerFns.size()) {
+      case 0:
+        cached = NO_FUNCTIONS;
+        break;
+      case 1:
+        cached = innerFns.get(0);
+        break;
+      default:
+        cached = MULTIPLE_FUNCTIONS;
+        break;
+    }
+
+    this.innerFunctionCache.put(containerFn, cached);
+    return cached;
   }
 
   /**
@@ -839,7 +784,7 @@ class FunctionInjector {
    * calling function contains an inner function and inlining would introduce new globals.
    */
   private boolean callMeetsBlockInliningRequirements(
-      Reference ref, final Node fnNode, ImmutableSet<String> namesToAlias) {
+      Reference callRef, final Node calleeFn, ImmutableSet<String> namesToAlias) {
     // Note: functions that contain function definitions are filtered out
     // in isCandidateFunction.
 
@@ -847,29 +792,34 @@ class FunctionInjector {
     // or if the caller contains inner functions accounts for 20% of the
     // run-time cost of this pass.
     //
-    // Note that as of 2019-10-11, "eval" and function checking are optimized, so this may be less
+    // Note that as of 2019-10-11, "eval" and function checking are cached so this may be less
     // of an issue.
 
     // Don't inline functions with var declarations into a scope with inner
     // functions as the new vars would leak into the inner function and
     // cause memory leaks.
-    boolean fnContainsVars =
+    boolean calleeContainsVars =
         NodeUtil.has(
-            NodeUtil.getFunctionBody(fnNode),
+            NodeUtil.getFunctionBody(calleeFn),
             new NodeUtil.MatchDeclaration(),
             new NodeUtil.MatchShallowStatement());
+
     boolean forbidTemps = false;
-    if (!ref.scope.getClosestHoistScope().isGlobal()) {
-      Node fnCallerBody = ref.scope.getClosestHoistScope().getRootNode();
+    if (!callRef.scope.getClosestHoistScope().isGlobal()) {
+      Node callerFn = callRef.scope.getClosestHoistScope().getRootNode().getParent();
 
       // Don't allow any new vars into a scope that contains eval or one
       // that contains functions (excluding the function being inlined).
-      forbidTemps =
-          containsEval(fnCallerBody)
-              || (!assumeMinimumCapture && !containsAtMostFn(fnCallerBody, fnNode));
+      if (this.referencesEval(callerFn)) {
+        forbidTemps = true;
+      } else if (!this.assumeMinimumCapture) {
+        Node innerFn = this.innerFunctionOf(callerFn);
+        boolean calleeIsOnlyInnerFn = innerFn.equals(NO_FUNCTIONS) || innerFn.equals(calleeFn);
+        forbidTemps = !calleeIsOnlyInnerFn;
+      }
     }
 
-    if (fnContainsVars && forbidTemps) {
+    if (calleeContainsVars && forbidTemps) {
       return false;
     }
 
@@ -878,13 +828,13 @@ class FunctionInjector {
     if (forbidTemps) {
       ImmutableMap<String, Node> args =
           functionArgumentInjector.getFunctionCallParameterMap(
-              fnNode, ref.callNode, this.safeNameIdSupplier);
+              calleeFn, callRef.callNode, this.safeNameIdSupplier);
       boolean hasArgs = !args.isEmpty();
       if (hasArgs) {
         // Limit the inlining
         Set<String> allNamesToAlias = new HashSet<>(namesToAlias);
         functionArgumentInjector.maybeAddTempsForCallArguments(
-            compiler, fnNode, args, allNamesToAlias, compiler.getCodingConvention());
+            compiler, calleeFn, args, allNamesToAlias, compiler.getCodingConvention());
         if (!allNamesToAlias.isEmpty()) {
           return false;
         }
@@ -895,12 +845,11 @@ class FunctionInjector {
   }
 
   /**
-   * Determines whether a function can be inlined at a particular call site.
-   * There are several criteria that the function and reference must hold in
-   * order for the functions to be inlined:
-   * 1) If a call's arguments have side effects,
-   * the corresponding argument in the function must only be referenced once.
-   * For instance, this will not be inlined:
+   * Determines whether a function can be inlined at a particular call site. There are several
+   * criteria that the function and reference must hold in order for the functions to be inlined: 1)
+   * If a call's arguments have side effects, the corresponding argument in the function must only
+   * be referenced once. For instance, this will not be inlined:
+   *
    * <pre>
    *     function foo(a) { return a + a }
    *     x = foo(i++);
@@ -949,13 +898,14 @@ class FunctionInjector {
     return CanInlineResult.YES;
   }
 
-  /**
-   * Determine if inlining the function is likely to reduce the code size.
-   * @param namesToAlias
-   */
+  /** Determine if inlining the function is likely to reduce the code size. */
   boolean inliningLowersCost(
-      JSModule fnModule, Node fnNode, Collection<? extends Reference> refs,
-      Set<String> namesToAlias, boolean isRemovable, boolean referencesThis) {
+      JSChunk fnModule,
+      Node fnNode,
+      Collection<? extends Reference> refs,
+      Set<String> namesToAlias,
+      boolean isRemovable,
+      boolean referencesThis) {
     int referenceCount = refs.size();
     if (referenceCount == 0) {
       return true;
@@ -964,7 +914,7 @@ class FunctionInjector {
     int referencesUsingBlockInlining = 0;
 
     boolean checkModules = isRemovable && fnModule != null;
-    JSModuleGraph moduleGraph = compiler.getModuleGraph();
+    JSChunkGraph moduleGraph = compiler.getModuleGraph();
 
     for (Reference ref : refs) {
       if (ref.mode == InliningMode.BLOCK) {
@@ -977,7 +927,7 @@ class FunctionInjector {
           // Calculate the cost as if the function were non-removable,
           // if it still lowers the cost inline it.
           isRemovable = false;
-          checkModules = false;  // no need to check additional modules.
+          checkModules = false; // no need to check additional modules.
         }
       }
     }
@@ -1000,19 +950,24 @@ class FunctionInjector {
     int costDeltaDirect = inlineCostDelta(fnNode, namesToAlias, InliningMode.DIRECT);
     int costDeltaBlock = inlineCostDelta(fnNode, namesToAlias, InliningMode.BLOCK);
 
-    return doesLowerCost(fnNode, overallCallCost,
-        referencesUsingDirectInlining, costDeltaDirect,
-        referencesUsingBlockInlining, costDeltaBlock,
+    return doesLowerCost(
+        fnNode,
+        overallCallCost,
+        referencesUsingDirectInlining,
+        costDeltaDirect,
+        referencesUsingBlockInlining,
+        costDeltaBlock,
         isRemovable);
   }
 
-  /**
-   * @return Whether inlining will lower cost.
-   */
+  /** @return Whether inlining will lower cost. */
   private static boolean doesLowerCost(
-      Node fnNode, int callCost,
-      int directInlines, int costDeltaDirect,
-      int blockInlines, int costDeltaBlock,
+      Node fnNode,
+      int callCost,
+      int directInlines,
+      int costDeltaDirect,
+      int blockInlines,
+      int costDeltaBlock,
       boolean removable) {
 
     // Determine the threshold value for this inequality:
@@ -1036,8 +991,9 @@ class FunctionInjector {
   }
 
   /**
-   * Gets an estimate of the cost in characters of making the function call:
-   * the sum of the identifiers and the separators.
+   * Gets an estimate of the cost in characters of making the function call: the sum of the
+   * identifiers and the separators.
+   *
    * @param referencesThis
    */
   private static int estimateCallCost(Node fnNode, boolean referencesThis) {
@@ -1054,18 +1010,14 @@ class FunctionInjector {
       // other functions that reference this.
       // The only functions that reference this that are currently inlined
       // are those that are called via ".call" with an explicit "this".
-      callCost += 5 + 5;  // ".call" + "this,"
+      callCost += 5 + 5; // ".call" + "this,"
     }
 
     return callCost;
   }
 
-  /**
-   * @return The difference between the function definition cost and
-   *     inline cost.
-   */
-  private static int inlineCostDelta(
-      Node fnNode, Set<String> namesToAlias, InliningMode mode) {
+  /** @return The difference between the function definition cost and inline cost. */
+  private static int inlineCostDelta(Node fnNode, Set<String> namesToAlias, InliningMode mode) {
     // The part of the function that is never inlined:
     //    "function xx(xx,xx){}" (15 + (param count * 3) -1;
     int paramCount = NodeUtil.getFunctionParameters(fnNode).getChildCount();
@@ -1096,34 +1048,33 @@ class FunctionInjector {
       // as some parameters are aliased because of the parameters used.
       // Perhaps we should just assume all parameters will be aliased?
       final int inlineBlockOverhead = 4; // "X:{}"
-      final int perReturnOverhead = 2;   // "return" --> "break X"
+      final int perReturnOverhead = 2; // "return" --> "break X"
       final int perReturnResultOverhead = 3; // "XX="
       final int perAliasOverhead = 3; // "XX="
 
       // TODO(johnlenz): Counting the number of returns is relatively expensive.
       //   This information should be determined during the traversal and cached.
-      int returnCount = NodeUtil.getNodeTypeReferenceCount(
-          block, Token.RETURN, new NodeUtil.MatchShallowStatement());
+      int returnCount =
+          NodeUtil.getNodeTypeReferenceCount(
+              block, Token.RETURN, new NodeUtil.MatchShallowStatement());
       int resultCount = (returnCount > 0) ? returnCount - 1 : 0;
       int baseOverhead = (returnCount > 0) ? inlineBlockOverhead : 0;
 
-      int overhead = baseOverhead
-          + returnCount * perReturnOverhead
-          + resultCount * perReturnResultOverhead
-          + aliasCount * perAliasOverhead;
+      int overhead =
+          baseOverhead
+              + returnCount * perReturnOverhead
+              + resultCount * perReturnResultOverhead
+              + aliasCount * perAliasOverhead;
 
       return (overhead - costDeltaFunctionOverhead);
     }
   }
 
-  /**
-   * Store the names of known constants to be used when classifying call-sites
-   * in expressions.
-   */
-  public void setKnownConstants(Set<String> knownConstants) {
+  /** Store the names of known constants to be used when classifying call-sites in expressions. */
+  public void setKnownConstantFunctions(ImmutableSet<String> knownConstantFunctions) {
     // This is only expected to be set once. The same set should be used
     // when evaluating call-sites and inlining calls.
-    checkState(this.knownConstants.isEmpty());
-    this.knownConstants = knownConstants;
+    checkState(this.knownConstantFunctions.isEmpty());
+    this.knownConstantFunctions = knownConstantFunctions;
   }
 }

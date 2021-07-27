@@ -37,18 +37,13 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSourceFile;
 import java.util.HashSet;
 import java.util.List;
-import java.util.ResourceBundle;
 import java.util.Set;
 import javax.annotation.Nullable;
 
 /** parser runner */
 public final class ParserRunner {
 
-  private static final String CONFIG_RESOURCE =
-      "com.google.javascript.jscomp.parsing.ParserConfig";
-
   private static Set<String> annotationNames = null;
-
   private static Set<String> suppressionNames = null;
   private static Set<String> reservedVars = null;
   private static Set<String> closurePrimitiveNames = null;
@@ -110,11 +105,10 @@ public final class ParserRunner {
       return;
     }
 
-    ResourceBundle config = ResourceBundle.getBundle(CONFIG_RESOURCE);
-    annotationNames = extractList(config.getString("jsdoc.annotations"));
-    suppressionNames = extractList(config.getString("jsdoc.suppressions"));
-    closurePrimitiveNames = extractList(config.getString("jsdoc.primitives"));
-    reservedVars = extractList(config.getString("compiler.reserved.vars"));
+    annotationNames = extractList(ParserConfiguration.getString("jsdoc.annotations"));
+    suppressionNames = extractList(ParserConfiguration.getString("jsdoc.suppressions"));
+    closurePrimitiveNames = extractList(ParserConfiguration.getString("jsdoc.primitives"));
+    reservedVars = extractList(ParserConfiguration.getString("compiler.reserved.vars"));
   }
 
   private static ImmutableSet<String> extractList(String configProp) {
@@ -162,10 +156,6 @@ public final class ParserRunner {
     boolean isStrictMode = config.strictMode().isStrict();
     Mode parserConfigLanguageMode = null;
     switch (languageMode) {
-      case TYPESCRIPT:
-        parserConfigLanguageMode = Mode.TYPESCRIPT;
-        break;
-
       case ECMASCRIPT3:
         parserConfigLanguageMode = Mode.ES3;
         break;
@@ -174,20 +164,18 @@ public final class ParserRunner {
         parserConfigLanguageMode = Mode.ES5;
         break;
 
-      case ECMASCRIPT6:
-      case ECMASCRIPT7:
+      case ECMASCRIPT_2015:
+      case ECMASCRIPT_2016:
         parserConfigLanguageMode = Mode.ES6_OR_ES7;
         break;
-      case ECMASCRIPT8:
+      case ECMASCRIPT_2017:
       case ECMASCRIPT_2018:
       case ECMASCRIPT_2019:
-        parserConfigLanguageMode = Mode.ES8_OR_GREATER;
-        break;
+      case ECMASCRIPT_2020:
       case ES_NEXT:
-        parserConfigLanguageMode = Mode.ES_NEXT;
-        break;
+      case ES_NEXT_IN:
       case UNSUPPORTED:
-        parserConfigLanguageMode = Mode.UNSUPPORTED;
+        parserConfigLanguageMode = Mode.ES8_OR_GREATER;
         break;
     }
     return new com.google.javascript.jscomp.parsing.parser.Parser.Config(

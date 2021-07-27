@@ -18,20 +18,26 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.javascript.jscomp.CompilerTestCase.lines;
 import static com.google.javascript.jscomp.DiagnosticGroups.ES5_STRICT;
 import static com.google.javascript.rhino.Token.ADD;
 import static com.google.javascript.rhino.Token.ARRAYLIT;
+import static com.google.javascript.rhino.Token.ARRAY_PATTERN;
 import static com.google.javascript.rhino.Token.ASSIGN;
 import static com.google.javascript.rhino.Token.ASSIGN_ADD;
 import static com.google.javascript.rhino.Token.AWAIT;
+import static com.google.javascript.rhino.Token.BIGINT;
 import static com.google.javascript.rhino.Token.BITOR;
 import static com.google.javascript.rhino.Token.CALL;
 import static com.google.javascript.rhino.Token.CLASS;
+import static com.google.javascript.rhino.Token.COALESCE;
 import static com.google.javascript.rhino.Token.COMMA;
 import static com.google.javascript.rhino.Token.COMPUTED_PROP;
 import static com.google.javascript.rhino.Token.DEC;
 import static com.google.javascript.rhino.Token.DEFAULT_VALUE;
 import static com.google.javascript.rhino.Token.DELPROP;
+import static com.google.javascript.rhino.Token.DESTRUCTURING_LHS;
+import static com.google.javascript.rhino.Token.DYNAMIC_IMPORT;
 import static com.google.javascript.rhino.Token.FOR_AWAIT_OF;
 import static com.google.javascript.rhino.Token.FOR_IN;
 import static com.google.javascript.rhino.Token.FOR_OF;
@@ -49,12 +55,15 @@ import static com.google.javascript.rhino.Token.NAME;
 import static com.google.javascript.rhino.Token.NEW;
 import static com.google.javascript.rhino.Token.NUMBER;
 import static com.google.javascript.rhino.Token.OBJECTLIT;
+import static com.google.javascript.rhino.Token.OBJECT_PATTERN;
 import static com.google.javascript.rhino.Token.OBJECT_REST;
 import static com.google.javascript.rhino.Token.OBJECT_SPREAD;
+import static com.google.javascript.rhino.Token.OPTCHAIN_CALL;
+import static com.google.javascript.rhino.Token.OPTCHAIN_GETELEM;
+import static com.google.javascript.rhino.Token.OPTCHAIN_GETPROP;
 import static com.google.javascript.rhino.Token.OR;
 import static com.google.javascript.rhino.Token.REGEXP;
 import static com.google.javascript.rhino.Token.SETTER_DEF;
-import static com.google.javascript.rhino.Token.STRING;
 import static com.google.javascript.rhino.Token.STRING_KEY;
 import static com.google.javascript.rhino.Token.SUB;
 import static com.google.javascript.rhino.Token.SUPER;
@@ -67,10 +76,12 @@ import static com.google.javascript.rhino.Token.YIELD;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.AccessorSummary.PropertyAccessKind;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import com.google.javascript.jscomp.colors.ColorRegistry;
+import com.google.javascript.jscomp.colors.StandardColors;
 import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
+import com.google.javascript.rhino.jstype.JSTypeNative;
 import java.util.ArrayDeque;
 import java.util.Optional;
 import org.junit.Test;
@@ -139,7 +150,6 @@ public final class AstAnalyzerTest {
 
     private void resetCompiler() {
       CompilerOptions options = new CompilerOptions();
-      options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
 
       // To allow octal literals such as 0123 to be parsed.
       options.setStrictModeInput(false);
@@ -153,6 +163,7 @@ public final class AstAnalyzerTest {
               ImmutableMap.of(
                   "getter", PropertyAccessKind.GETTER_ONLY, //
                   "setter", PropertyAccessKind.SETTER_ONLY)));
+      compiler.setColorRegistry(ColorRegistry.builder().setDefaultNativeColorsForTesting().build());
     }
 
     private Node parseInternal(String js) {
@@ -221,15 +232,18 @@ public final class AstAnalyzerTest {
           kase().js("i=3").token(ASSIGN).expect(true),
           kase().js("[0, i=3]").token(ARRAYLIT).expect(true),
           kase().js("b()").token(CALL).expect(true),
+          kase().js("b?.()").token(OPTCHAIN_CALL).expect(true),
           kase().js("void b()").token(VOID).expect(true),
           kase().js("[1, b()]").token(ARRAYLIT).expect(true),
           kase().js("b.b=4").token(ASSIGN).expect(true),
           kase().js("b.b--").token(DEC).expect(true),
           kase().js("i--").token(DEC).expect(true),
           kase().js("a[0][i=4]").token(GETELEM).expect(true),
+          kase().js("a?.[0][i=4]").token(OPTCHAIN_GETELEM).expect(true),
           kase().js("a += 3").token(ASSIGN_ADD).expect(true),
           kase().js("a, b, z += 4").token(COMMA).expect(true),
           kase().js("a ? c : d++").token(HOOK).expect(true),
+          kase().js("a ?? b++").token(COALESCE).expect(true),
           kase().js("a + c++").token(ADD).expect(true),
           kase().js("a + c - d()").token(SUB).expect(true),
           kase().js("function foo() {}").token(FUNCTION).expect(true),
@@ -245,17 +259,20 @@ public final class AstAnalyzerTest {
           // Note: RegExp objects are not immutable, for instance, the exec
           // method maintains state for "global" searches.
           kase().js("/abc/gi").token(REGEXP).expect(true),
-          kase().js("'a'").token(STRING).expect(false),
+          kase().js("'a'").token(Token.STRINGLIT).expect(false),
           kase().js("0").token(NUMBER).expect(false),
+          kase().js("1n").token(BIGINT).expect(false),
           kase().js("a + c").token(ADD).expect(false),
           kase().js("'c' + a[0]").token(ADD).expect(false),
           kase().js("a[0][1]").token(GETELEM).expect(false),
+          kase().js("a?.[0][1]").token(OPTCHAIN_GETELEM).expect(false),
           kase().js("'a' + c").token(ADD).expect(false),
           kase().js("'a' + a.name").token(ADD).expect(false),
           kase().js("1, 2, 3").token(COMMA).expect(false),
           kase().js("a, b, 3").token(COMMA).expect(false),
           kase().js("(function(a, b) {  })").token(FUNCTION).expect(true),
           kase().js("a ? c : d").token(HOOK).expect(false),
+          kase().js("a ?? b").token(COALESCE).expect(false),
           kase().js("'1' + navigator.userAgent").token(ADD).expect(false),
           kase().js("new RegExp('foobar', 'i')").token(NEW).expect(true),
           kase().js("new RegExp(SomethingWacky(), 'i')").token(NEW).expect(true),
@@ -281,11 +298,17 @@ public final class AstAnalyzerTest {
           kase().js("({...f().x});").token(OBJECT_SPREAD).assumeGettersArePure(true).expect(true),
           kase().js("({...f().x} = y);").token(OBJECT_REST).assumeGettersArePure(true).expect(true),
 
+          // the presence of `a` affects what gets put into `x`
+          kase().js("({a, ...x} = y);").token(STRING_KEY).assumeGettersArePure(true).expect(true),
+
           // Getters and setters
           kase().js("x.getter;").token(GETPROP).expect(true),
+          kase().js("x?.getter;").token(OPTCHAIN_GETPROP).expect(true),
           // Overapproximation to avoid inspecting the parent.
           kase().js("x.setter;").token(GETPROP).expect(true),
+          kase().js("x?.setter;").token(OPTCHAIN_GETPROP).expect(true),
           kase().js("x.normal;").token(GETPROP).expect(false),
+          kase().js("x?.normal;").token(OPTCHAIN_GETPROP).expect(false),
           kase().js("const {getter} = x;").token(STRING_KEY).expect(true),
           // Overapproximation to avoid inspecting the parent.
           kase().js("const {setter} = x;").token(STRING_KEY).expect(false),
@@ -297,7 +320,10 @@ public final class AstAnalyzerTest {
           // Default values delegates to children.
           kase().js("({x = 0} = y);").token(DEFAULT_VALUE).expect(false),
           kase().js("([x = 0] = y);").token(DEFAULT_VALUE).expect(false),
-          kase().js("function f(x = 0) { };").token(DEFAULT_VALUE).expect(false));
+          kase().js("function f(x = 0) { };").token(DEFAULT_VALUE).expect(false),
+
+          // Dynamic import can mutate global state
+          kase().js("import('./module.js')").token(DYNAMIC_IMPORT).expect(true));
     }
 
     @Test
@@ -341,6 +367,7 @@ public final class AstAnalyzerTest {
           kase().expect(true).js("a += 3"),
           kase().expect(true).js("a, b, z += 4"),
           kase().expect(true).js("a ? c : d++"),
+          kase().expect(true).js("a ?? b++"),
           kase().expect(true).js("a + c++"),
           kase().expect(true).js("a + c - d()"),
           kase().expect(true).js("a + c - d()"),
@@ -376,6 +403,7 @@ public final class AstAnalyzerTest {
           kase().expect(false).js("a, b, 3"),
           kase().expect(false).js("(function(a, b) {  })"),
           kase().expect(false).js("a ? c : d"),
+          kase().expect(false).js("a ?? b"),
           kase().expect(false).js("'1' + navigator.userAgent"),
           kase().expect(false).js("`template`"),
           kase().expect(false).js("`template${name}`"),
@@ -470,6 +498,8 @@ public final class AstAnalyzerTest {
           // OBJECT_REST
           // This could invoke getters.
           kase().expect(true).token(OBJECT_REST).js("({...x} = something)"),
+          // the presence of `a` affects what goes into `x`
+          kase().expect(true).token(STRING_KEY).js("({a, ...x} = something)"),
 
           // ITER_REST
           // We currently assume all iterable-rests are side-effectful.
@@ -519,9 +549,12 @@ public final class AstAnalyzerTest {
 
           // Getter use
           kase().expect(true).token(GETPROP).js("x.getter;"),
+          kase().expect(true).token(OPTCHAIN_GETPROP).js("x?.getter;"),
           // Overapproximation because to avoid inspecting the parent.
           kase().expect(true).token(GETPROP).js("x.setter;"),
+          kase().expect(true).token(OPTCHAIN_GETPROP).js("x?.setter;"),
           kase().expect(false).token(GETPROP).js("x.normal;"),
+          kase().expect(false).token(OPTCHAIN_GETPROP).js("x?.normal;"),
           kase().expect(true).token(STRING_KEY).js("({getter} = foo());"),
           kase().expect(false).token(STRING_KEY).js("({setter} = foo());"),
           kase().expect(false).token(STRING_KEY).js("({normal} = foo());"),
@@ -592,7 +625,10 @@ public final class AstAnalyzerTest {
           kase().expect(true).js("''.match(a)").globalRegExp(true),
           kase().expect(true).js("''.match(a)").globalRegExp(false),
           kase().expect(true).js("'a'.replace(/a/, function (s) {alert(s)})").globalRegExp(false),
-          kase().expect(false).js("'a'.replace(/a/, 'x')").globalRegExp(false));
+          kase().expect(false).js("'a'.replace(/a/, 'x')").globalRegExp(false),
+
+          // Dynamic import changes global state
+          kase().expect(true).token(DYNAMIC_IMPORT).js("import('./module.js')"));
     }
   }
 
@@ -619,15 +655,26 @@ public final class AstAnalyzerTest {
           kase().js("var x;").token(NAME).expect(false),
           kase().js("let x;").token(NAME).expect(false),
 
+          // destructuring declarations and assignments are always considered side effectful even
+          // when empty
+          kase().js("var {x} = {};").token(DESTRUCTURING_LHS).expect(true),
+          kase().js("var {} = {};").token(DESTRUCTURING_LHS).expect(true),
+          kase().js("var [x] = [];").token(DESTRUCTURING_LHS).expect(true),
+          kase().js("var {y: [x]} = {};").token(OBJECT_PATTERN).expect(false),
+          kase().js("var {y: [x]} = {};").token(ARRAY_PATTERN).expect(false),
+          kase().js("[x] = arr;").token(ASSIGN).expect(true),
+
           // NOTE: CALL and NEW nodes are delegated to functionCallHasSideEffects() and
           // constructorCallHasSideEffects(), respectively. The cases below are just a few
           // representative examples that are convenient to test here.
           //
           // in general function and constructor calls are assumed to have side effects
           kase().js("foo();").token(CALL).expect(true),
+          kase().js("foo?.();").token(OPTCHAIN_CALL).expect(true),
           kase().js("new Foo();").token(NEW).expect(true),
           // Object() is known not to have side-effects, though
           kase().js("Object();").token(CALL).expect(false),
+          kase().js("Object?.();").token(OPTCHAIN_CALL).expect(false),
           kase().js("new Object();").token(NEW).expect(false),
           // TAGGED_TEMPLATELIT is just a special syntax for a CALL.
           kase().js("foo`template`;").token(TAGGED_TEMPLATELIT).expect(true),
@@ -652,19 +699,26 @@ public final class AstAnalyzerTest {
           kase().js("x + y").token(ADD).expect(false),
           kase().js("x || y").token(OR).expect(false),
           kase().js("x | y").token(BITOR).expect(false),
+          kase().js("x ?? y").token(COALESCE).expect(false),
 
           // Getters and setters
           kase().js("({...x});").token(OBJECT_SPREAD).expect(true),
           kase().js("const {...x} = y;").token(OBJECT_REST).expect(true),
           kase().js("y.getter;").token(GETPROP).expect(true),
+          kase().js("y?.getter;").token(OPTCHAIN_GETPROP).expect(true),
           kase().js("y.setter;").token(GETPROP).expect(true),
+          kase().js("y?.setter;").token(OPTCHAIN_GETPROP).expect(true),
           kase().js("y.normal;").token(GETPROP).expect(false),
+          kase().js("y?.normal;").token(OPTCHAIN_GETPROP).expect(false),
           kase().js("const {getter} = y;").token(STRING_KEY).expect(true),
           kase().js("const {setter} = y;").token(STRING_KEY).expect(false),
           kase().js("const {normal} = y;").token(STRING_KEY).expect(false),
           kase().js("y.getter = 0;").token(GETPROP).expect(true),
           kase().js("y.setter = 0;").token(GETPROP).expect(true),
-          kase().js("y.normal = 0;").token(GETPROP).expect(false));
+          kase().js("y.normal = 0;").token(GETPROP).expect(false),
+
+          // Dynamic import causes side effects
+          kase().js("import('./module.js')").token(DYNAMIC_IMPORT).expect(true));
     }
 
     @Test
@@ -696,7 +750,8 @@ public final class AstAnalyzerTest {
       flags.clearAllFlags();
       newXDotMethodCall.setSideEffectFlags(flags);
 
-      assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isTrue();
+      // Cannot determine this evaluates to a local value (even though it does in practice).
+      assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isFalse();
       assertThat(astAnalyzer.functionCallHasSideEffects(newXDotMethodCall)).isFalse();
       assertThat(astAnalyzer.mayHaveSideEffects(newXDotMethodCall)).isFalse();
 
@@ -707,7 +762,7 @@ public final class AstAnalyzerTest {
       flags.setMutatesThis();
       newXDotMethodCall.setSideEffectFlags(flags);
 
-      assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isTrue();
+      assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isFalse();
       assertThat(astAnalyzer.functionCallHasSideEffects(newXDotMethodCall)).isFalse();
       assertThat(astAnalyzer.mayHaveSideEffects(newXDotMethodCall)).isFalse();
 
@@ -716,7 +771,6 @@ public final class AstAnalyzerTest {
       newExpr.setSideEffectFlags(flags);
       flags.clearAllFlags();
       flags.setMutatesThis();
-      flags.setReturnsTainted();
       newXDotMethodCall.setSideEffectFlags(flags);
 
       assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isFalse();
@@ -727,14 +781,13 @@ public final class AstAnalyzerTest {
       flags.clearAllFlags();
       newExpr.setSideEffectFlags(flags);
       flags.clearAllFlags();
-      flags.setReturnsTainted();
       newXDotMethodCall.setSideEffectFlags(flags);
 
       assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isFalse();
       assertThat(astAnalyzer.functionCallHasSideEffects(newXDotMethodCall)).isFalse();
       assertThat(astAnalyzer.mayHaveSideEffects(newXDotMethodCall)).isFalse();
 
-      // The new modifies global state, no side-effect call, non-local result
+      // The new modifies global state, no side-effect call
       // This call could be removed, but not the new.
       flags.clearAllFlags();
       flags.setMutatesGlobalState();
@@ -742,9 +795,62 @@ public final class AstAnalyzerTest {
       flags.clearAllFlags();
       newXDotMethodCall.setSideEffectFlags(flags);
 
-      assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isTrue();
+      // This does evaluate to a local value but NodeUtil does not know that
+      assertThat(NodeUtil.evaluatesToLocalValue(newXDotMethodCall)).isFalse();
       assertThat(astAnalyzer.functionCallHasSideEffects(newXDotMethodCall)).isFalse();
       assertThat(astAnalyzer.mayHaveSideEffects(newXDotMethodCall)).isTrue();
+    }
+
+    @Test
+    public void testTypeBasedStringMethodCallSideEffects() {
+      ParseHelper helper = new ParseHelper();
+
+      Node xDotReplaceCall = helper.parseFirst(CALL, lines("x.replace(/xyz/g, '');"));
+      AstAnalyzer astAnalyzer = helper.getAstAnalyzer();
+      assertThat(astAnalyzer.functionCallHasSideEffects(xDotReplaceCall)).isTrue();
+
+      helper.compiler.setHasRegExpGlobalReferences(false);
+      assertThat(astAnalyzer.functionCallHasSideEffects(xDotReplaceCall)).isTrue();
+
+      Node xNode = xDotReplaceCall.getFirstFirstChild();
+      xNode.setJSType(helper.compiler.getTypeRegistry().getNativeType(JSTypeNative.STRING_TYPE));
+      assertThat(astAnalyzer.functionCallHasSideEffects(xDotReplaceCall)).isTrue();
+
+      helper.compiler.getOptions().setUseTypesForLocalOptimization(true);
+      assertThat(astAnalyzer.functionCallHasSideEffects(xDotReplaceCall)).isFalse();
+
+      xNode.setJSType(null);
+      xNode.setColor(StandardColors.STRING);
+      assertThat(astAnalyzer.functionCallHasSideEffects(xDotReplaceCall)).isFalse();
+    }
+  }
+
+  @RunWith(Parameterized.class)
+  public static class BuiltInFunctionWithoutSideEffects {
+
+    @Parameter(0)
+    public String functionName;
+
+    @Parameters(name = "#{index} {0}")
+    public static final ImmutableList<Object[]> cases() {
+      return ImmutableList.copyOf(
+          new Object[][] {
+            {"Object"},
+            {"Array"},
+            {"String"},
+            {"Number"},
+            {"BigInt"},
+            {"Boolean"},
+            {"RegExp"},
+            {"Error"}
+          });
+    }
+
+    @Test
+    public void test() {
+      ParseHelper parseHelper = new ParseHelper();
+      Node func = parseHelper.parseFirst(CALL, SimpleFormat.format("%s(1);", functionName));
+      assertThat(parseHelper.getAstAnalyzer().functionCallHasSideEffects(func)).isFalse();
     }
   }
 

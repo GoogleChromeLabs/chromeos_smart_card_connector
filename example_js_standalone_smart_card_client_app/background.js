@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2017 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -63,8 +64,8 @@ function onInitializationSucceeded(constructedApi) {
 function establishContext() {
   console.log('Establishing PC/SC-Lite context...');
   api.SCardEstablishContext(
-      GoogleSmartCard.PcscLiteClient.API.SCARD_SCOPE_SYSTEM, null, null).then(
-      function(result) {
+         GoogleSmartCard.PcscLiteClient.API.SCARD_SCOPE_SYSTEM, null, null)
+      .then(function(result) {
         result.get(onContextEstablished, onPcscLiteError);
       }, onRequestFailed);
 }
@@ -102,8 +103,8 @@ function onPcscLiteError(errorCode) {
 
 /** @param {*} error The exception that happened during the request. */
 function onRequestFailed(error) {
-  console.warn('Failed to perform request to the Smart Card Connector app: ' +
-               error);
+  console.warn(
+      'Failed to perform request to the Smart Card Connector app: ' + error);
 }
 
 initialize();

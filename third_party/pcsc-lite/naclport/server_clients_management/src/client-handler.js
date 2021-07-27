@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -166,9 +167,7 @@ const PermissionsChecking =
  * @extends goog.Disposable
  */
 GSC.PcscLiteServerClientsManagement.ClientHandler = function(
-    serverMessageChannel,
-    serverReadinessTracker,
-    clientMessageChannel,
+    serverMessageChannel, serverReadinessTracker, clientMessageChannel,
     clientAppId) {
   ClientHandler.base(this, 'constructor');
 
@@ -184,14 +183,12 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
    */
   this.logger = GSC.Logging.getScopedLogger(
       'PcscLiteServerClientsManagement.ClientHandler<' +
-      (this.clientAppId_ === null ?
-           'own app' : '"' + this.clientAppId_ + '"') +
+      (this.clientAppId_ === null ? 'own app' : '"' + this.clientAppId_ + '"') +
       ', id=' + this.id + '>');
 
   /** @private */
   this.requestReceiver_ = new GSC.RequestReceiver(
-      GSC.PcscLiteCommon.Constants.REQUESTER_TITLE,
-      clientMessageChannel,
+      GSC.PcscLiteCommon.Constants.REQUESTER_TITLE, clientMessageChannel,
       this.handleRequest_.bind(this));
   this.requestReceiver_.setShouldDisposeOnInvalidMessage(true);
 
@@ -217,8 +214,8 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
   // established and the permission check is resolved.
   /** @private */
   this.deferredProcessor_ = new DeferredProcessor(goog.Promise.all([
-      this.serverReadinessTracker_.promise,
-      this.getPermissionsCheckPromise_()]));
+    this.serverReadinessTracker_.promise, this.getPermissionsCheckPromise_()
+  ]));
 
   this.addChannelDisposedListeners_();
 
@@ -301,20 +298,22 @@ ClientHandler.prototype.disposeInternal = function() {
  */
 ClientHandler.prototype.handleRequest_ = function(payload) {
   if (this.isDisposed()) {
-    return goog.Promise.reject(new Error(
-        'The client handler is already disposed'));
+    return goog.Promise.reject(
+        new Error('The client handler is already disposed'));
   }
 
   const remoteCallMessage = RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {
-    this.logger.warning('Failed to parse the received request payload: ' +
-                        GSC.DebugDump.debugDump(payload));
-    return goog.Promise.reject(new Error(
-        'Failed to parse the received request payload'));
+    this.logger.warning(
+        'Failed to parse the received request payload: ' +
+        GSC.DebugDump.debugDump(payload));
+    return goog.Promise.reject(
+        new Error('Failed to parse the received request payload'));
   }
 
-  this.logger.fine('Received a remote call request: ' +
-                   remoteCallMessage.getDebugRepresentation());
+  this.logger.fine(
+      'Received a remote call request: ' +
+      remoteCallMessage.getDebugRepresentation());
 
   return this.deferredProcessor_.addJob(
       this.postRequestToServer_.bind(this, remoteCallMessage));
@@ -327,16 +326,20 @@ ClientHandler.prototype.handleRequest_ = function(payload) {
  * @private
  */
 ClientHandler.prototype.getPermissionsCheckPromise_ = function() {
-  return permissionsChecker.check(this.clientAppId_).then(function() {
-    if (this.clientAppId_ !== null) {
-      this.logger.info(
-          'Client was granted permissions to issue PC/SC requests');
-    }
-  }, function(error) {
-    this.logger.warning(
-        'Client permission denied. All PC/SC requests will be rejected');
-    throw error;
-  }, this);
+  return permissionsChecker.check(this.clientAppId_)
+      .then(
+          function() {
+            if (this.clientAppId_ !== null) {
+              this.logger.info(
+                  'Client was granted permissions to issue PC/SC requests');
+            }
+          },
+          function(error) {
+            this.logger.warning(
+                'Client permission denied. All PC/SC requests will be rejected');
+            throw error;
+          },
+          this);
 };
 
 /**
@@ -399,27 +402,34 @@ ClientHandler.prototype.clientMessageChannelDisposedListener_ = function() {
  * @private
  */
 ClientHandler.prototype.postRequestToServer_ = function(remoteCallMessage) {
-  this.logger.fine('Started processing the remote call request: ' +
-                   remoteCallMessage.getDebugRepresentation());
+  this.logger.fine(
+      'Started processing the remote call request: ' +
+      remoteCallMessage.getDebugRepresentation());
 
   this.createServerRequesterIfNeed_();
 
-  return this.serverRequester_.postRequest(
-      remoteCallMessage.makeRequestPayload()).then(function(result) {
-    this.logger.fine(
-        'The remote call request ' +
-        remoteCallMessage.getDebugRepresentation() + ' finished successfully' +
-        (goog.DEBUG ?
-             ' with the following result: ' + GSC.DebugDump.debugDump(result) :
-             ''));
-    return result;
-  }, function(error) {
-    this.logger.warning(
-        'The remote call request ' +
-        remoteCallMessage.getDebugRepresentation() + ' failed with the ' +
-        'following error: ' + error);
-    throw error;
-  }, this);
+  return this.serverRequester_
+      .postRequest(remoteCallMessage.makeRequestPayload())
+      .then(
+          function(result) {
+            this.logger.fine(
+                'The remote call request ' +
+                remoteCallMessage.getDebugRepresentation() +
+                ' finished successfully' +
+                (goog.DEBUG ? ' with the following result: ' +
+                         GSC.DebugDump.debugDump(result) :
+                              ''));
+            return result;
+          },
+          function(error) {
+            this.logger.warning(
+                'The remote call request ' +
+                remoteCallMessage.getDebugRepresentation() +
+                ' failed with the ' +
+                'following error: ' + error);
+            throw error;
+          },
+          this);
 };
 
 /**
@@ -435,8 +445,7 @@ ClientHandler.prototype.createServerRequesterIfNeed_ = function() {
     return;
 
   this.sendServerCreateHandlerMessage_();
-  GSC.Logging.checkWithLogger(
-      this.logger, this.serverMessageChannel_ !== null);
+  GSC.Logging.checkWithLogger(this.logger, this.serverMessageChannel_ !== null);
   goog.asserts.assert(this.serverMessageChannel_);
 
   const requesterTitle =

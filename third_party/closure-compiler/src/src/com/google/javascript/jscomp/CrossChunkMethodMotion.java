@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.javascript.jscomp.AnalyzePrototypeProperties.ClassMemberFunction;
 import com.google.javascript.jscomp.AnalyzePrototypeProperties.NameInfo;
 import com.google.javascript.jscomp.AnalyzePrototypeProperties.Property;
@@ -29,10 +30,8 @@ import com.google.javascript.rhino.Node;
 import java.util.Collection;
 import java.util.Iterator;
 
-/**
- * Move prototype methods into later chunks.
- */
-class CrossChunkMethodMotion implements CompilerPass {
+/** Move prototype methods into later chunks. */
+public class CrossChunkMethodMotion implements CompilerPass {
 
   // Internal errors
   static final DiagnosticType NULL_COMMON_MODULE_ERROR = DiagnosticType.error(
@@ -42,27 +41,27 @@ class CrossChunkMethodMotion implements CompilerPass {
   private final AbstractCompiler compiler;
   private final IdGenerator idGenerator;
   private final AnalyzePrototypeProperties analyzer;
-  private final JSModuleGraph moduleGraph;
+  private final JSChunkGraph moduleGraph;
   private final boolean noStubFunctions;
   private final AstFactory astFactory;
 
   static final String STUB_METHOD_NAME = "JSCompiler_stubMethod";
   static final String UNSTUB_METHOD_NAME = "JSCompiler_unstubMethod";
 
-  // Visible for testing
-  static final String STUB_DECLARATIONS =
-      "var JSCompiler_stubMap = [];" +
-      "function JSCompiler_stubMethod(JSCompiler_stubMethod_id) {" +
-      "  return function() {" +
-      "    return JSCompiler_stubMap[JSCompiler_stubMethod_id].apply(" +
-      "        this, arguments);" +
-      "  };" +
-      "}" +
-      "function JSCompiler_unstubMethod(" +
-      "    JSCompiler_unstubMethod_id, JSCompiler_unstubMethod_body) {" +
-      "  return JSCompiler_stubMap[JSCompiler_unstubMethod_id] = " +
-      "      JSCompiler_unstubMethod_body;" +
-      "}";
+  @VisibleForTesting
+  public static final String STUB_DECLARATIONS =
+      "var JSCompiler_stubMap = [];"
+          + "function JSCompiler_stubMethod(JSCompiler_stubMethod_id) {"
+          + "  return function() {"
+          + "    return JSCompiler_stubMap[JSCompiler_stubMethod_id].apply("
+          + "        this, arguments);"
+          + "  };"
+          + "}"
+          + "function JSCompiler_unstubMethod("
+          + "    JSCompiler_unstubMethod_id, JSCompiler_unstubMethod_body) {"
+          + "  return JSCompiler_stubMap[JSCompiler_unstubMethod_id] = "
+          + "      JSCompiler_unstubMethod_body;"
+          + "}";
 
   /**
    * Creates a new pass for moving prototype properties.
@@ -86,7 +85,7 @@ class CrossChunkMethodMotion implements CompilerPass {
         new AnalyzePrototypeProperties(
             compiler, moduleGraph, canModifyExterns, false /* anchorUnusedVars */, noStubFunctions);
     this.noStubFunctions = noStubFunctions;
-    this.astFactory = compiler.createAstFactory();
+    this.astFactory = compiler.createAstFactoryWithoutTypes();
   }
 
   @Override
@@ -116,7 +115,7 @@ class CrossChunkMethodMotion implements CompilerPass {
         continue;
       }
 
-      JSModule deepestCommonModuleRef = nameInfo.getDeepestCommonModuleRef();
+      JSChunk deepestCommonModuleRef = nameInfo.getDeepestCommonModuleRef();
       if (deepestCommonModuleRef == null) {
         compiler.report(JSError.make(NULL_COMMON_MODULE_ERROR));
         continue;
@@ -146,13 +145,14 @@ class CrossChunkMethodMotion implements CompilerPass {
   }
 
   private void tryToMovePrototypeMethod(
-      NameInfo nameInfo, JSModule deepestCommonModuleRef, PrototypeProperty prop) {
+      NameInfo nameInfo, JSChunk deepestCommonModuleRef, PrototypeProperty prop) {
 
     // We should only move a property across chunks if:
     // 1) We can move it deeper in the chunk graph, and
     // 2) it's a function, and
     // 3) it is not a GETTER_DEF or a SETTER_DEF, and
-    // 4) the class is available in the global scope.
+    // 4) it does not refer to `super`
+    // 5) the class is available in the global scope.
     //
     // #1 should be obvious. #2 is more subtle. It's possible
     // to copy off of a prototype, as in the code:
@@ -165,6 +165,11 @@ class CrossChunkMethodMotion implements CompilerPass {
     // replace it with a stub function so that it preserves its original
     // behavior.
     if (prop.getRootVar() == null || !prop.getRootVar().isGlobal()) {
+      return;
+    }
+
+    if (nameInfo.referencesSuper()) {
+      // It is illegal to move `super` outside of a member function def.
       return;
     }
 
@@ -220,7 +225,7 @@ class CrossChunkMethodMotion implements CompilerPass {
     Node ownerDotPrototypeNode = assignNode.getFirstChild();
     checkState(
         ownerDotPrototypeNode.isQualifiedName()
-            && ownerDotPrototypeNode.getLastChild().getString().equals("prototype"),
+            && ownerDotPrototypeNode.getString().equals("prototype"),
         ownerDotPrototypeNode);
 
     if (noStubFunctions) {
@@ -236,7 +241,7 @@ class CrossChunkMethodMotion implements CompilerPass {
       Node definitionStatement =
           astFactory
               .createAssignStatement(ownerDotPrototypeDotPropName, functionNode)
-              .useSourceInfoIfMissingFromForTree(stringKey);
+              .srcrefTreeIfMissing(stringKey);
       destParent.addChildToFront(definitionStatement);
       compiler.reportChangeToEnclosingScope(destParent);
     } else {
@@ -254,7 +259,7 @@ class CrossChunkMethodMotion implements CompilerPass {
       Node definitionStatement =
           astFactory
               .createAssignStatement(ownerDotPrototypeDotPropName, unstubCall)
-              .useSourceInfoIfMissingFromForTree(stringKey);
+              .srcrefTreeIfMissing(stringKey);
       destParent.addChildToFront(definitionStatement);
       compiler.reportChangeToEnclosingScope(destParent);
     }
@@ -332,7 +337,7 @@ class CrossChunkMethodMotion implements CompilerPass {
     Node ownerDotPrototypeNode = assignNode.getFirstChild();
     checkState(
         ownerDotPrototypeNode.isQualifiedName()
-            && ownerDotPrototypeNode.getLastChild().getString().equals("prototype"),
+            && ownerDotPrototypeNode.getString().equals("prototype"),
         ownerDotPrototypeNode);
 
     if (noStubFunctions) {
@@ -347,7 +352,7 @@ class CrossChunkMethodMotion implements CompilerPass {
       Node definitionStatement =
           astFactory
               .createAssignStatement(ownerDotPrototypeDotPropName, functionNode.detach())
-              .useSourceInfoIfMissingFromForTree(memberFunctionDef);
+              .srcrefTreeIfMissing(memberFunctionDef);
       destParent.addChildToFront(definitionStatement);
       compiler.reportChangeToEnclosingScope(destParent);
     } else {
@@ -365,7 +370,7 @@ class CrossChunkMethodMotion implements CompilerPass {
       Node definitionStatement =
           astFactory
               .createAssignStatement(ownerDotPrototypeDotPropName, unstubCall)
-              .useSourceInfoIfMissingFromForTree(memberFunctionDef);
+              .srcrefTreeIfMissing(memberFunctionDef);
       destParent.addChildToFront(definitionStatement);
       compiler.reportChangeToEnclosingScope(destParent);
     }
@@ -384,7 +389,7 @@ class CrossChunkMethodMotion implements CompilerPass {
             // We can't look up the type of the stub creating method, because we add its
             // definition after type checking.
             astFactory.createNameWithUnknownType(STUB_METHOD_NAME), astFactory.createNumber(stubId))
-        .useSourceInfoIfMissingFromForTree(originalDefinition);
+        .srcrefTreeIfMissing(originalDefinition);
   }
 
   /**
@@ -402,7 +407,7 @@ class CrossChunkMethodMotion implements CompilerPass {
             astFactory.createNameWithUnknownType(UNSTUB_METHOD_NAME),
             astFactory.createNumber(stubId),
             functionNode)
-        .useSourceInfoIfMissingFromForTree(functionNode);
+        .srcrefTreeIfMissing(functionNode);
   }
 
   /**
@@ -415,12 +420,14 @@ class CrossChunkMethodMotion implements CompilerPass {
    * @param classMemberFunction definition of the method within its class body
    */
   private void tryToMoveMemberFunction(
-      NameInfo nameInfo, JSModule deepestCommonModuleRef, ClassMemberFunction classMemberFunction) {
+      NameInfo nameInfo, JSChunk deepestCommonModuleRef, ClassMemberFunction classMemberFunction) {
 
     // We should only move a property across chunks if:
     // 1) We can move it deeper in the chunk graph,
-    // 2) and it's a normal member function, and not a GETTER_DEF or a SETTER_DEF,
-    // 3) and the class is available in the global scope.
+    // 2) and it's a normal member function, and not a GETTER_DEF or a SETTER_DEF, or
+    //    or the class constructor.
+    // 3) and it does not refer to `super`, which would be invalid outside of the class.
+    // 4) and the class is available in the global scope.
     Var rootVar = classMemberFunction.getRootVar();
     if (rootVar == null || !rootVar.isGlobal()) {
       return;
@@ -431,6 +438,17 @@ class CrossChunkMethodMotion implements CompilerPass {
     // Only attempt to move normal member functions.
     // A getter or setter cannot be as easily defined outside of the class to which it belongs.
     if (!definitionNode.isMemberFunctionDef()) {
+      return;
+    }
+
+    if (NodeUtil.isEs6ConstructorMemberFunctionDef(definitionNode)) {
+      // Constructor functions cannot be moved.
+      return;
+    }
+
+    if (nameInfo.referencesSuper()) {
+      // Do not move methods containing `super`, because it doesn't work outside of a
+      // class method or object literal method.
       return;
     }
 
@@ -472,7 +490,7 @@ class CrossChunkMethodMotion implements CompilerPass {
     Node definitionStatementNode =
         astFactory
             .createAssignStatement(classNameDotPrototypeDotPropName, functionNode)
-            .useSourceInfoIfMissingFromForTree(methodDefinition);
+            .srcrefTreeIfMissing(methodDefinition);
     destinationParent.addChildToFront(definitionStatementNode);
     compiler.reportChangeToEnclosingScope(destinationParent);
   }
@@ -498,11 +516,9 @@ class CrossChunkMethodMotion implements CompilerPass {
     Node stubDefinitionStatement =
         astFactory
             .createAssignStatement(classNameDotPrototypeDotPropName, stubCall)
-            .useSourceInfoIfMissingFromForTree(methodDefinition);
+            .srcrefTreeIfMissing(methodDefinition);
     Node classDefiningStatement = NodeUtil.getEnclosingStatement(classMembers);
-    classDefiningStatement
-        .getParent()
-        .addChildAfter(stubDefinitionStatement, classDefiningStatement);
+    stubDefinitionStatement.insertAfter(classDefiningStatement);
 
     // remove the definition from the class
     methodDefinition.detach();
@@ -518,7 +534,7 @@ class CrossChunkMethodMotion implements CompilerPass {
     Node statementNode =
         astFactory
             .createAssignStatement(classNameDotPrototypeDotPropName2, unstubCall)
-            .useSourceInfoIfMissingFromForTree(methodDefinition);
+            .srcrefTreeIfMissing(methodDefinition);
     destinationParent.addChildToFront(statementNode);
     compiler.reportChangeToEnclosingScope(destinationParent);
   }

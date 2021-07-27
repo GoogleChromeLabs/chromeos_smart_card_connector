@@ -59,12 +59,18 @@ import com.google.javascript.rhino.Node;
  * @see <a href="http://en.wikipedia.org/wiki/Bottom_type">Bottom types</a>
  */
 public class NoObjectType extends FunctionType {
-  private static final long serialVersionUID = 1L;
-
   NoObjectType(JSTypeRegistry registry) {
-    super(FunctionType.builder(registry).forConstructor().forNativeType());
-    getInternalArrowType().returnType = this;
-    this.setInstanceType(this);
+    super(
+        FunctionType.builder(registry)
+            .withKind(FunctionType.Kind.NONE)
+            .withReturnsOwnInstanceType()
+            .forNativeType());
+    this.eagerlyResolveToSelf();
+  }
+
+  @Override
+  JSTypeClass getTypeClass() {
+    return JSTypeClass.NO_OBJECT;
   }
 
   @Override
@@ -75,11 +81,6 @@ public class NoObjectType extends FunctionType {
   @Override
   public boolean isNoObjectType() {
     return true;
-  }
-
-  @Override
-  public final boolean isConstructor() {
-    return false;
   }
 
   @Override
@@ -143,8 +144,8 @@ public class NoObjectType extends FunctionType {
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    return sb.append(forAnnotations ? "?" : "NoObject");
+  void appendTo(TypeStringBuilder sb) {
+    sb.append(sb.isForAnnotations() ? "?" : "NoObject");
   }
 
   @Override
@@ -154,6 +155,6 @@ public class NoObjectType extends FunctionType {
 
   @Override
   final JSType resolveInternal(ErrorReporter reporter) {
-    return this;
+    throw new AssertionError();
   }
 }

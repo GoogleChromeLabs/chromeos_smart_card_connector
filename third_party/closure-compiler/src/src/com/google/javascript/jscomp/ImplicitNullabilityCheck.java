@@ -16,10 +16,12 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Lists.transform;
 
-import com.google.common.base.Function;
 import com.google.common.base.Predicates;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
@@ -29,9 +31,7 @@ import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import java.util.List;
 
-/**
- * Warn about types in JSDoc that are implicitly nullable.
- */
+/** Warn about types in JSDoc that are implicitly nullable. */
 public final class ImplicitNullabilityCheck extends AbstractPostOrderCallback
     implements CompilerPass {
 
@@ -40,6 +40,25 @@ public final class ImplicitNullabilityCheck extends AbstractPostOrderCallback
         "JSC_IMPLICITLY_NULLABLE_JSDOC",
         "Name {0} in JSDoc is implicitly nullable, and is discouraged by the style guide.\n"
         + "Please add a '!' to make it non-nullable, or a '?' to make it explicitly nullable.");
+
+  public static final DiagnosticType IMPLICITLY_NONNULL_JSDOC =
+      DiagnosticType.disabled(
+          "JSC_IMPLICITLY_NONNULL_JSDOC",
+          "Name {0} in JSDoc is implicitly non-null, and is discouraged by the style guide.\n"
+              + "Please add a '!' to make it explicit.");
+
+  private static final ImmutableSet<String> NULLABILITY_OMITTED_TYPES =
+      ImmutableSet.of(
+          "*", //
+          "?",
+          "bigint",
+          "boolean",
+          "null",
+          "number",
+          "string",
+          "symbol",
+          "undefined",
+          "void");
 
   private final AbstractCompiler compiler;
 
@@ -53,35 +72,65 @@ public final class ImplicitNullabilityCheck extends AbstractPostOrderCallback
   }
 
   /**
-   * Crawls the JSDoc of the given node to find any names in JSDoc
-   * that are implicitly null.
+   * Represents the types of implicit nullability errors caught by this pass: a) implicitly nonnull
+   * (missing a "!"), and b) implicitly nullable (missing a "?").
    */
-  @Override
-  public void visit(final NodeTraversal t, final Node n, final Node p) {
-    final JSDocInfo info = n.getJSDocInfo();
-    if (info == null) {
-      return;
+  public enum Nullability {
+    NONNULL,
+    NULLABLE;
+
+    public boolean isNullable() {
+      return this == Nullability.NULLABLE;
     }
-    final JSTypeRegistry registry = compiler.getTypeRegistry();
+  }
 
-    final List<Node> thrownTypes =
-        transform(
-            info.getThrownTypes(),
-            new Function<JSTypeExpression, Node>() {
-              @Override
-              public Node apply(JSTypeExpression expr) {
-                return expr.getRoot();
-              }
-            });
+  /**
+   * Information to represent a single "implicit nullability result", including the JSDoc string
+   * node that needs a "!" or "?" to be explicit, as well as an enum indicating which of the two
+   * nullability cases were found ("!" or "?").
+   */
+  public static class Result {
+    final Node node;
+    final Nullability nullability;
 
-    final Scope scope = t.getScope();
+    private Result(Node node, Nullability nullability) {
+      checkArgument(node.isStringLit());
+      this.node = node;
+      this.nullability = nullability;
+    }
+
+    static Result create(Node node, Nullability nullability) {
+      return new Result(node, nullability);
+    }
+
+    public Nullability getNullability() {
+      return nullability;
+    }
+
+    public Node getNode() {
+      return node;
+    }
+  }
+
+  /**
+   * Finds and returns all the JSDoc nodes inside the given JSDoc object whose nullability is not
+   * explict, using the NodeTraversal the necessary state (current scope, etc.)
+   */
+  public static ImmutableList<Result> findImplicitNullabilityResults(
+      final JSDocInfo info, final NodeTraversal t) {
+    if (info == null) {
+      return ImmutableList.of();
+    }
+    final List<Node> thrownTypes = transform(info.getThrownTypes(), JSTypeExpression::getRoot);
+
+    final ImmutableList.Builder<Result> builder = ImmutableList.builder();
     for (Node typeRoot : info.getTypeNodes()) {
       NodeUtil.visitPreOrder(
           typeRoot,
           new NodeUtil.Visitor() {
             @Override
             public void visit(Node node) {
-              if (!node.isString()) {
+              if (!node.isStringLit()) {
                 return;
               }
               if (thrownTypes.contains(node)) {
@@ -102,8 +151,10 @@ public final class ImplicitNullabilityCheck extends AbstractPostOrderCallback
                       if (gp != null && gp.getToken() == Token.QMARK) {
                         return; // Inside an explicitly nullable union
                       }
-                      for (Node child : parent.children()) {
-                        if ((child.isString() && child.getString().equals("null"))
+                      for (Node child = parent.getFirstChild();
+                          child != null;
+                          child = child.getNext()) {
+                        if ((child.isStringLit() && child.getString().equals("null"))
                             || child.getToken() == Token.QMARK) {
                           return; // Inside a union that contains null or nullable type
                         }
@@ -115,16 +166,33 @@ public final class ImplicitNullabilityCheck extends AbstractPostOrderCallback
                 }
               }
               String typeName = node.getString();
-              if (typeName.equals("null") || registry.getType(scope, typeName) == null) {
+              if (NULLABILITY_OMITTED_TYPES.contains(typeName)) {
+                return;
+              }
+              JSTypeRegistry registry = t.getCompiler().getTypeRegistry();
+              if (registry.getType(t.getScope(), typeName) == null) {
                 return;
               }
               JSType type = registry.createTypeFromCommentNode(node);
-              if (type.isNullable()) {
-                compiler.report(JSError.make(node, IMPLICITLY_NULLABLE_JSDOC, typeName));
-              }
+              Nullability nullability =
+                  type.isNullable() ? Nullability.NULLABLE : Nullability.NONNULL;
+              builder.add(Result.create(node, nullability));
             }
           },
           Predicates.alwaysTrue());
+    }
+    return builder.build();
+  }
+
+  /** Crawls the JSDoc of the given node to find any names in JSDoc that are implicitly null. */
+  @Override
+  public void visit(final NodeTraversal t, final Node n, final Node p) {
+    final JSDocInfo info = n.getJSDocInfo();
+    for (Result r : findImplicitNullabilityResults(info, t)) {
+      Node stringNode = r.getNode();
+      DiagnosticType dt =
+          r.getNullability().isNullable() ? IMPLICITLY_NULLABLE_JSDOC : IMPLICITLY_NONNULL_JSDOC;
+      compiler.report(JSError.make(stringNode, dt, stringNode.getString()));
     }
   }
 }

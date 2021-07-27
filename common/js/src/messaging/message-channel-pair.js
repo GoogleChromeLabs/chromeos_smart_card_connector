@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -54,7 +55,8 @@ GSC.MessageChannelPair = function() {
    * @private
    */
   this.items_ = [
-      new MessageChannelPairItem(this, 0), new MessageChannelPairItem(this, 1)];
+    new MessageChannelPairItem(this, 0), new MessageChannelPairItem(this, 1)
+  ];
 };
 
 const MessageChannelPair = GSC.MessageChannelPair;
@@ -104,8 +106,8 @@ MessageChannelPair.prototype.sendFrom_ = function(
   const targetItem = this.items_[1 - fromItemIndex];
   // Deliver the message to the target message channel asynchronously, because
   // that's how the real message channels usually work.
-  goog.async.nextTick(targetItem.deliver_.bind(
-      targetItem, serviceName, payload));
+  goog.async.nextTick(
+      targetItem.deliver_.bind(targetItem, serviceName, payload));
 };
 
 /**
@@ -146,5 +148,4 @@ MessageChannelPairItem.prototype.disposeInternal = function() {
 MessageChannelPairItem.prototype.deliver_ = function(serviceName, payload) {
   this.deliver(serviceName, payload);
 };
-
 });  // goog.scope

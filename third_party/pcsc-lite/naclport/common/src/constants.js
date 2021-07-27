@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -47,5 +48,4 @@ goog.exportSymbol(
 
 /** @const */
 Constants.REQUESTER_TITLE = 'pcsc_lite_function_call';
-
 });  // goog.scope

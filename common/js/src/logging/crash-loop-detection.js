@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -73,13 +74,15 @@ GSC.Logging.CrashLoopDetection.handleImminentCrash = function() {
     return Promise.reject(new Error('Already crashing'));
   crashing = true;
 
-  return loadRecentCrashTimestamps().then(recentCrashTimestamps => {
-    return storeNewCrashTimestamps(recentCrashTimestamps);
-  }).then(newCrashTimestamps => {
-    const isInCrashLoop =
-        newCrashTimestamps.length >= CRASH_LOOP_THRESHOLD_COUNT;
-    return Promise.resolve(isInCrashLoop);
-  });
+  return loadRecentCrashTimestamps()
+      .then(recentCrashTimestamps => {
+        return storeNewCrashTimestamps(recentCrashTimestamps);
+      })
+      .then(newCrashTimestamps => {
+        const isInCrashLoop =
+            newCrashTimestamps.length >= CRASH_LOOP_THRESHOLD_COUNT;
+        return Promise.resolve(isInCrashLoop);
+      });
 };
 
 /**
@@ -130,13 +133,13 @@ function storeNewCrashTimestamps(recentCrashTimestamps) {
   const minTimestampToKeep = currentTimestamp - CRASH_LOOP_WINDOW_MILLISECONDS;
   let newCrashTimestamps = recentCrashTimestamps.filter(crashTimestamp => {
     return minTimestampToKeep <= crashTimestamp &&
-           crashTimestamp <= currentTimestamp;
+        crashTimestamp <= currentTimestamp;
   });
   // Sanitization: Drop extra items beyond the |CRASH_LOOP_THRESHOLD_COUNT-1|
   // ones, in order to avoid any risk of the storage growing beyond all bounds.
   if (newCrashTimestamps.length >= CRASH_LOOP_THRESHOLD_COUNT) {
-    newCrashTimestamps = newCrashTimestamps.slice(
-        -CRASH_LOOP_THRESHOLD_COUNT + 1);
+    newCrashTimestamps =
+        newCrashTimestamps.slice(-CRASH_LOOP_THRESHOLD_COUNT + 1);
   }
   newCrashTimestamps.push(currentTimestamp);
 
@@ -162,5 +165,4 @@ function storeNewCrashTimestamps(recentCrashTimestamps) {
 }
 
 function ignoreChromeRuntimeLastError() {}
-
 });  // goog.scope

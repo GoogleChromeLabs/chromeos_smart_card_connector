@@ -2940,12 +2940,18 @@ WebGLContextAttributes.prototype.preserveDrawingBuffer;
 /**
  * @type {boolean}
  */
-WebGLContextAttributes.prototype.preferLowPowerToHighPerformance;
+WebGLContextAttributes.prototype.desynchronized;
 
 /**
  * @type {boolean}
  */
 WebGLContextAttributes.prototype.failIfMajorPerformanceCaveat;
+
+/**
+ * Possible values: 'default', 'low-power', 'high-performance'
+ * @type {string}
+ */
+WebGLContextAttributes.prototype.powerPreference;
 
 /**
  * @param {string} eventType

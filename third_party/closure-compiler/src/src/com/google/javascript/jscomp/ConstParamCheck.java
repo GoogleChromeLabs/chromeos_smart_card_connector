@@ -107,6 +107,7 @@ class ConstParamCheck extends AbstractPostOrderCallback implements CompilerPass 
    *
    * <ol>
    *   <li>The argument is a constant variable assigned from a string literal, or
+   *   <li>The argument is a template into which only string literals are inserted, or
    *   <li>The argument is an expression that is a string literal, or
    *   <li>The argument is a ternary expression choosing between string literals, or
    *   <li>The argument is a concatenation of the above.
@@ -117,6 +118,17 @@ class ConstParamCheck extends AbstractPostOrderCallback implements CompilerPass 
    */
   private boolean isSafeValue(Scope scope, Node argument) {
     if (NodeUtil.isSomeCompileTimeConstStringValue(argument)) {
+      return true;
+    } else if (argument.isTemplateLit()) {
+      // Each templateLit child is either a TemplateLitString, or has children which are substituted
+      for (Node sub = argument.getFirstChild(); sub != null; sub = sub.getNext()) {
+        if (sub.isTemplateLitString()) {
+          continue;
+        }
+        if (!isSafeValue(scope, sub.getOnlyChild())) {
+          return false;
+        }
+      }
       return true;
     } else if (argument.isAdd()) {
       Node left = argument.getFirstChild();

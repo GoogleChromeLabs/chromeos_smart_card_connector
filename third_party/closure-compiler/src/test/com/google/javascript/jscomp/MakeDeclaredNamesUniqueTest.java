@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.MakeDeclaredNamesUnique.InlineRenamer;
 import com.google.javascript.rhino.Node;
 import org.junit.Before;
@@ -77,7 +76,6 @@ public final class MakeDeclaredNamesUniqueTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2017);
     removeConst = false;
     invert = false;
     useDefaultRenamer = false;
@@ -117,6 +115,16 @@ public final class MakeDeclaredNamesUniqueTest extends CompilerTestCase {
 
   private void testInFunction(String original, String expected) {
     test(wrapInFunction(original), wrapInFunction(expected));
+  }
+
+  @Test
+  public void testMakeDeclaredNamesUniqueNullishCoalesce() {
+    this.useDefaultRenamer = true;
+
+    test(
+        "var foo; var x = function foo(){var foo = false ?? {};}",
+        "var foo; var x = function foo$jscomp$1(){var foo$jscomp$2 = false ?? {}}");
+    testSameWithInversion("var a = b ?? c;");
   }
 
   @Test
@@ -307,6 +315,28 @@ public final class MakeDeclaredNamesUniqueTest extends CompilerTestCase {
     this.useDefaultRenamer = true;
     testSame("function f(){} function f(){}");
     testSame("var x = function() {function f(){} function f(){}};");
+  }
+
+  @Test
+  public void testMakeFunctionsUniqueWithContext1() {
+    this.useDefaultRenamer = true;
+    test(
+        "if (1) { function f(){} } else { function f(){} }",
+        "if (1) { function f(){} } else { function f$jscomp$1(){} }");
+  }
+
+  @Test
+  public void testMakeFunctionsUniqueWithContext2() {
+    this.useDefaultRenamer = true;
+    testSame("if (1) { function f(){} function f(){} }");
+  }
+
+  @Test
+  public void testMakeFunctionsUniqueWithContext3() {
+    this.useDefaultRenamer = true;
+    test(
+        "function f() {} if (1) { function f(){} function f(){} }",
+        "function f() {} if (1) { function f$jscomp$1(){} function f$jscomp$1(){} }");
   }
 
   @Test

@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,7 +16,7 @@
  */
 
 /**
- * @fileoverview This script implements showing the Help Article in a browser 
+ * @fileoverview This script implements showing the Help Article in a browser
  * window.
  */
 
@@ -44,7 +45,6 @@ function openHelpClickListener(event) {
 
 GSC.ConnectorApp.Window.HelpShowing.initialize = function() {
   goog.events.listen(
-      openHelpElement, goog.events.EventType.CLICK, openHelpClickListener);  
+      openHelpElement, goog.events.EventType.CLICK, openHelpClickListener);
 };
-
 });  // goog.scope

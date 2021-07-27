@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -110,9 +111,7 @@ RequestMessageData.parseMessageData = function(messageData) {
  */
 RequestMessageData.prototype.makeMessageData = function() {
   return goog.object.create(
-      REQUEST_ID_MESSAGE_KEY,
-      this.requestId,
-      PAYLOAD_MESSAGE_KEY,
+      REQUEST_ID_MESSAGE_KEY, this.requestId, PAYLOAD_MESSAGE_KEY,
       this.payload);
 };
 
@@ -142,8 +141,8 @@ const ResponseMessageData = RequesterMessage.ResponseMessageData;
  * @type {!goog.log.Logger}
  * @const
  */
-ResponseMessageData.prototype.logger = GSC.Logging.getScopedLogger(
-    'RequesterMessage.ResponseMessageData');
+ResponseMessageData.prototype.logger =
+    GSC.Logging.getScopedLogger('RequesterMessage.ResponseMessageData');
 
 /**
  * @return {boolean}
@@ -211,5 +210,4 @@ ResponseMessageData.prototype.makeMessageData = function() {
   }
   return goog.object.create(args);
 };
-
 });  // goog.scope

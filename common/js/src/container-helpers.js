@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2018 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -33,8 +34,9 @@ const GSC = GoogleSmartCard;
 GSC.ContainerHelpers.buildObjectFromMap = function(map) {
   let obj = {};
   for (let [key, value] of map) {
-    GSC.Logging.check(typeof key === 'string' || typeof key === 'number',
-                      'Invalid type for object key');
+    GSC.Logging.check(
+        typeof key === 'string' || typeof key === 'number',
+        'Invalid type for object key');
     obj[key] = value;
   }
   return obj;
@@ -64,5 +66,4 @@ GSC.ContainerHelpers.substituteArrayBuffersRecursively = function(value) {
   }
   return value;
 };
-
 });  // goog.scope

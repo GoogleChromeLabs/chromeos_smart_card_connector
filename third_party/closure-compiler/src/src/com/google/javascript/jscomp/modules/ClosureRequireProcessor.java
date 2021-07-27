@@ -97,7 +97,7 @@ final class ClosureRequireProcessor {
     if (value == null
         || !value.isCall()
         || !value.hasTwoChildren()
-        || !value.getSecondChild().isString()) {
+        || !value.getSecondChild().isStringLit()) {
       return null;
     }
     Node callee = value.getFirstChild();
@@ -108,7 +108,7 @@ final class ClosureRequireProcessor {
     if (!owner.isName() || !owner.getString().equals("goog")) {
       return null;
     }
-    return GOOG_DEPENDENCY_CALLS.get(callee.getSecondChild().getString());
+    return GOOG_DEPENDENCY_CALLS.get(callee.getString());
   }
 
   /** Returns a new list of all required names in {@link #nameDeclaration} */
@@ -149,7 +149,7 @@ final class ClosureRequireProcessor {
   private ImmutableList<Require> getAllRequiresFromDestructuring(
       Node objectPattern, String namespace) {
     ImmutableList.Builder<Require> requireBuilder = ImmutableList.builder();
-    for (Node key : objectPattern.children()) {
+    for (Node key = objectPattern.getFirstChild(); key != null; key = key.getNext()) {
       if (!key.isStringKey()) {
         // Bad code, just ignore. We warn elsewhere.
         continue;

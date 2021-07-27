@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -72,11 +73,10 @@ function startDemo(api, onDemoSucceeded, onDemoFailed) {
 
 function establishContext(api, onDemoSucceeded, onDemoFailed) {
   logger.info('Establishing a context...');
-  api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM, null, null).then(
-      function(result) {
+  api.SCardEstablishContext(API.SCARD_SCOPE_SYSTEM, null, null)
+      .then(function(result) {
         result.get(
-            onContextEstablished.bind(
-                null, api, onDemoSucceeded, onDemoFailed),
+            onContextEstablished.bind(null, api, onDemoSucceeded, onDemoFailed),
             onPcscLiteError.bind(null, api, onDemoFailed));
       }, onFailure.bind(null, onDemoFailed));
 }
@@ -130,25 +130,16 @@ function waitForReadersChange(
     api, onDemoSucceeded, onDemoFailed, sCardContext) {
   logger.info('Waiting ' + TIMEOUT_SECONDS + ' seconds for readers change...');
   api.SCardGetStatusChange(
-      sCardContext,
-      TIMEOUT_SECONDS * 1000,
-      [API.createSCardReaderStateIn(
-           SPECIAL_READER_NAME, API.SCARD_STATE_UNAWARE, 0xDEADBEEF)]).then(
-          function(result) {
-            result.get(
-                onReadersChanged.bind(
-                    null,
-                    api,
-                    onDemoSucceeded,
-                    onDemoFailed,
-                    sCardContext),
-                onReadersChangeWaitingFailed.bind(
-                    null,
-                    api,
-                    onDemoSucceeded,
-                    onDemoFailed,
-                    sCardContext));
-          }, onFailure.bind(null, onDemoFailed));
+         sCardContext, TIMEOUT_SECONDS * 1000,
+         [API.createSCardReaderStateIn(
+             SPECIAL_READER_NAME, API.SCARD_STATE_UNAWARE, 0xDEADBEEF)])
+      .then(function(result) {
+        result.get(
+            onReadersChanged.bind(
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext),
+            onReadersChangeWaitingFailed.bind(
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onReadersChanged(
@@ -200,8 +191,9 @@ function listReaderGroups(api, onDemoSucceeded, onDemoFailed, sCardContext) {
 
 function onReaderGroupsListed(
     api, onDemoSucceeded, onDemoFailed, sCardContext, readerGroups) {
-  logger.info('Listed reader groups: ' +
-              goog.iter.join(goog.iter.map(readerGroups, dump), ', '));
+  logger.info(
+      'Listed reader groups: ' +
+      goog.iter.join(goog.iter.map(readerGroups, dump), ', '));
   if (!readerGroups) {
     logger.warning('failed: no reader groups found');
     onDemoFailed();
@@ -222,8 +214,8 @@ function listReaders(api, onDemoSucceeded, onDemoFailed, sCardContext) {
 
 function onReadersListed(
     api, onDemoSucceeded, onDemoFailed, sCardContext, readers) {
-  logger.info('Listed readers: ' +
-              goog.iter.join(goog.iter.map(readers, dump), ', '));
+  logger.info(
+      'Listed readers: ' + goog.iter.join(goog.iter.map(readers, dump), ', '));
   if (!readers) {
     logger.warning('failed: no readers found');
     onDemoFailed();
@@ -235,37 +227,25 @@ function onReadersListed(
 
 function waitForCardRemoval(
     api, onDemoSucceeded, onDemoFailed, sCardContext, readerName) {
-  logger.info('Waiting ' + TIMEOUT_SECONDS + ' seconds for card removal ' +
-              'from ' + dump(readerName) + ' reader...');
+  logger.info(
+      'Waiting ' + TIMEOUT_SECONDS + ' seconds for card removal ' +
+      'from ' + dump(readerName) + ' reader...');
   api.SCardGetStatusChange(
-      sCardContext,
-      TIMEOUT_SECONDS * 1000,
-      [API.createSCardReaderStateIn(readerName, API.SCARD_STATE_PRESENT)]).then(
-          function(result) {
-            result.get(
-                onCardRemoved.bind(
-                    null,
-                    api,
-                    onDemoSucceeded,
-                    onDemoFailed,
-                    sCardContext,
-                    readerName),
-                onCardRemovalWaitingFailed.bind(
-                    null,
-                    api,
-                    onDemoSucceeded,
-                    onDemoFailed,
-                    sCardContext,
-                    readerName));
-          }, onFailure.bind(null, onDemoFailed));
+         sCardContext, TIMEOUT_SECONDS * 1000,
+         [API.createSCardReaderStateIn(readerName, API.SCARD_STATE_PRESENT)])
+      .then(function(result) {
+        result.get(
+            onCardRemoved.bind(
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext,
+                readerName),
+            onCardRemovalWaitingFailed.bind(
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext,
+                readerName));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onCardRemoved(
-    api,
-    onDemoSucceeded,
-    onDemoFailed,
-    sCardContext,
-    readerName,
+    api, onDemoSucceeded, onDemoFailed, sCardContext, readerName,
     readerStates) {
   logger.info('Caught card removal: ' + dump(readerStates));
   waitForCardInsertion(
@@ -285,31 +265,23 @@ function onCardRemovalWaitingFailed(
 
 function waitForCardInsertion(
     api, onDemoSucceeded, onDemoFailed, sCardContext, readerName) {
-  logger.info('Waiting ' + TIMEOUT_SECONDS + ' seconds for card insertion ' +
-              'into ' + dump(readerName) + ' reader...');
+  logger.info(
+      'Waiting ' + TIMEOUT_SECONDS + ' seconds for card insertion ' +
+      'into ' + dump(readerName) + ' reader...');
   api.SCardGetStatusChange(
-      sCardContext,
-      TIMEOUT_SECONDS * 1000,
-      [API.createSCardReaderStateIn(readerName, API.SCARD_STATE_EMPTY)]).then(
-          function(result) {
-            result.get(
-                onCardInserted.bind(
-                    null,
-                    api,
-                    onDemoSucceeded,
-                    onDemoFailed,
-                    sCardContext,
-                    readerName),
-                onPcscLiteError.bind(null, api, onDemoFailed));
-          }, onFailure.bind(null, onDemoFailed));
+         sCardContext, TIMEOUT_SECONDS * 1000,
+         [API.createSCardReaderStateIn(readerName, API.SCARD_STATE_EMPTY)])
+      .then(function(result) {
+        result.get(
+            onCardInserted.bind(
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext,
+                readerName),
+            onPcscLiteError.bind(null, api, onDemoFailed));
+      }, onFailure.bind(null, onDemoFailed));
 }
 
 function onCardInserted(
-    api,
-    onDemoSucceeded,
-    onDemoFailed,
-    sCardContext,
-    readerName,
+    api, onDemoSucceeded, onDemoFailed, sCardContext, readerName,
     readerStates) {
   logger.info('Caught card insertion: ' + dump(readerStates));
   waitAndCancel(api, onDemoSucceeded, onDemoFailed, sCardContext, readerName);
@@ -317,31 +289,22 @@ function onCardInserted(
 
 function waitAndCancel(
     api, onDemoSucceeded, onDemoFailed, sCardContext, readerName) {
-  logger.info('Started waiting for card removal from ' + dump(readerName) +
-              ' reader...');
+  logger.info(
+      'Started waiting for card removal from ' + dump(readerName) +
+      ' reader...');
   api.SCardGetStatusChange(
-      sCardContext,
-      TIMEOUT_SECONDS * 1000,
-      [goog.object.create(
-           'reader_name',
-           readerName,
-           'current_state',
-           API.SCARD_STATE_PRESENT)]).then(
-          function(result) {
-            result.get(
-                onCancelingWaitingFinished.bind(
-                    null,
-                    api,
-                    onDemoSucceeded,
-                    onDemoFailed),
-                onCancelingWaitingFailed.bind(
-                    null,
-                    api,
-                    onDemoSucceeded,
-                    onDemoFailed,
-                    sCardContext,
-                    readerName));
-          }, onFailure.bind(null, onDemoFailed));
+         sCardContext, TIMEOUT_SECONDS * 1000,
+         [goog.object.create(
+             'reader_name', readerName, 'current_state',
+             API.SCARD_STATE_PRESENT)])
+      .then(function(result) {
+        result.get(
+            onCancelingWaitingFinished.bind(
+                null, api, onDemoSucceeded, onDemoFailed),
+            onCancelingWaitingFailed.bind(
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext,
+                readerName));
+      }, onFailure.bind(null, onDemoFailed));
   logger.info('Cancelling the waiting...');
   api.SCardCancel(sCardContext).then(function(result) {
     result.get(
@@ -350,12 +313,7 @@ function waitAndCancel(
 }
 
 function onCancelingWaitingFailed(
-    api,
-    onDemoSucceeded,
-    onDemoFailed,
-    sCardContext,
-    readerName,
-    errorCode) {
+    api, onDemoSucceeded, onDemoFailed, sCardContext, readerName, errorCode) {
   if (errorCode != API.SCARD_E_CANCELLED) {
     onPcscLiteError(api, onDemoFailed, errorCode);
     return;
@@ -376,10 +334,9 @@ function onCancelSucceeded() {
 function connect(api, onDemoSucceeded, onDemoFailed, sCardContext, readerName) {
   logger.info('Connecting to the reader ' + dump(readerName) + '...');
   api.SCardConnect(
-      sCardContext,
-      readerName,
-      API.SCARD_SHARE_SHARED,
-      API.SCARD_PROTOCOL_ANY).then(function(result) {
+         sCardContext, readerName, API.SCARD_SHARE_SHARED,
+         API.SCARD_PROTOCOL_ANY)
+      .then(function(result) {
         result.get(
             onConnected.bind(
                 null, api, onDemoSucceeded, onDemoFailed, sCardContext),
@@ -388,15 +345,12 @@ function connect(api, onDemoSucceeded, onDemoFailed, sCardContext, readerName) {
 }
 
 function onConnected(
-    api,
-    onDemoSucceeded,
-    onDemoFailed,
-    sCardContext,
-    sCardHandle,
+    api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle,
     activeProtocol) {
-  logger.info('Successfully connected, handle is: ' + dump(sCardHandle) +
-               ', active protocol is: ' +
-               getProtocolDebugRepresentation(activeProtocol));
+  logger.info(
+      'Successfully connected, handle is: ' + dump(sCardHandle) +
+      ', active protocol is: ' +
+      getProtocolDebugRepresentation(activeProtocol));
   reconnect(api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle);
 }
 
@@ -404,17 +358,12 @@ function reconnect(
     api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle) {
   logger.info('Reconnecting to the card...');
   api.SCardReconnect(
-      sCardHandle,
-      API.SCARD_SHARE_SHARED,
-      API.SCARD_PROTOCOL_ANY,
-      API.SCARD_LEAVE_CARD).then(function(result) {
+         sCardHandle, API.SCARD_SHARE_SHARED, API.SCARD_PROTOCOL_ANY,
+         API.SCARD_LEAVE_CARD)
+      .then(function(result) {
         result.get(
             onReconnected.bind(
-                null,
-                api,
-                onDemoSucceeded,
-                onDemoFailed,
-                sCardContext,
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext,
                 sCardHandle),
             onPcscLiteError.bind(null, api, onDemoFailed));
       }, onFailure.bind(null, onDemoFailed));
@@ -432,85 +381,52 @@ function getStatus(
   api.SCardStatus(sCardHandle).then(function(result) {
     result.get(
         onStatusGot.bind(
-            null,
-            api,
-            onDemoSucceeded,
-            onDemoFailed,
-            sCardContext,
+            null, api, onDemoSucceeded, onDemoFailed, sCardContext,
             sCardHandle),
         onPcscLiteError.bind(null, api, onDemoFailed));
   }, onFailure.bind(null, onDemoFailed));
 }
 
 function onStatusGot(
-    api,
-    onDemoSucceeded,
-    onDemoFailed,
-    sCardContext,
-    sCardHandle,
-    readerName,
-    state,
-    protocol,
-    atr) {
-  logger.info('Card status obtained: reader name is ' + dump(readerName) +
-               ', ' + 'state is ' + dump(state) + ', protocol is ' +
-               getProtocolDebugRepresentation(protocol) + ', atr is ' +
-               dump(atr));
+    api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, readerName,
+    state, protocol, atr) {
+  logger.info(
+      'Card status obtained: reader name is ' + dump(readerName) + ', ' +
+      'state is ' + dump(state) + ', protocol is ' +
+      getProtocolDebugRepresentation(protocol) + ', atr is ' + dump(atr));
   getAttrs(
-      api,
-      onDemoSucceeded,
-      onDemoFailed,
-      sCardContext,
-      sCardHandle,
-      protocol,
+      api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol,
       0);
 }
 
 function getAttrs(
-    api,
-    onDemoSucceeded,
-    onDemoFailed,
-    sCardContext,
-    sCardHandle,
-    protocol,
+    api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol,
     attrIndex) {
   const attrNames = getPcscLiteAttrNames();
   if (attrIndex == attrNames.length) {
     onAttrsGot(
-        api,
-        onDemoSucceeded,
-        onDemoFailed,
-        sCardContext,
-        sCardHandle,
+        api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle,
         protocol);
     return;
   }
   const attrName = attrNames[attrIndex];
   logger.fine('Requesting the ' + dump(attrName) + ' attribute...');
-  api.SCardGetAttrib(
-      sCardHandle, API[attrName]).then(function(result) {
-        result.get(function(attrValue) {
-          logger.info('The ' + dump(attrName) + ' attribute value is: ' +
-                     dump(attrValue));
+  api.SCardGetAttrib(sCardHandle, API[attrName]).then(function(result) {
+    result.get(
+        function(attrValue) {
+          logger.info(
+              'The ' + dump(attrName) +
+              ' attribute value is: ' + dump(attrValue));
           getAttrs(
-              api,
-              onDemoSucceeded,
-              onDemoFailed,
-              sCardContext,
-              sCardHandle,
-              protocol,
-              attrIndex + 1);
-        }, function(error) {
+              api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle,
+              protocol, attrIndex + 1);
+        },
+        function(error) {
           getAttrs(
-              api,
-              onDemoSucceeded,
-              onDemoFailed,
-              sCardContext,
-              sCardHandle,
-              protocol,
-              attrIndex + 1);
+              api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle,
+              protocol, attrIndex + 1);
         });
-      }, onFailure.bind(null, onDemoFailed));
+  }, onFailure.bind(null, onDemoFailed));
 }
 
 function onAttrsGot(
@@ -529,21 +445,11 @@ function setAttr(
       .then(function(result) {
         result.get(
             onAttrSet.bind(
-                null,
-                api,
-                onDemoSucceeded,
-                onDemoFailed,
-                sCardContext,
-                sCardHandle,
-                protocol),
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext,
+                sCardHandle, protocol),
             onAttrSetFailed.bind(
-                null,
-                api,
-                onDemoSucceeded,
-                onDemoFailed,
-                sCardContext,
-                sCardHandle,
-                protocol));
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext,
+                sCardHandle, protocol));
       }, onFailure.bind(null, onDemoFailed));
 }
 
@@ -555,15 +461,11 @@ function onAttrSet(
 }
 
 function onAttrSetFailed(
-    api,
-    onDemoSucceeded,
-    onDemoFailed,
-    sCardContext,
-    sCardHandle,
-    protocol,
+    api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol,
     errorCode) {
-  logger.info('The attribute set was unsuccessful (error code: ' +
-              dump(errorCode) + ')');
+  logger.info(
+      'The attribute set was unsuccessful (error code: ' + dump(errorCode) +
+      ')');
   beginTransaction(
       api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol);
 }
@@ -574,12 +476,7 @@ function beginTransaction(
   api.SCardBeginTransaction(sCardHandle).then(function(result) {
     result.get(
         onTransactionBegun.bind(
-            null,
-            api,
-            onDemoSucceeded,
-            onDemoFailed,
-            sCardContext,
-            sCardHandle,
+            null, api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle,
             protocol),
         onPcscLiteError.bind(null, api, onDemoFailed));
   }, onFailure.bind(null, onDemoFailed));
@@ -595,33 +492,22 @@ function onTransactionBegun(
 function sendControlCommand(
     api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol) {
   logger.info('Sending the CM_IOCTL_GET_FEATURE_REQUEST control command...');
-  api.SCardControl(
-      sCardHandle,
-      API.CM_IOCTL_GET_FEATURE_REQUEST,
-      []).then(function(result) {
+  api.SCardControl(sCardHandle, API.CM_IOCTL_GET_FEATURE_REQUEST, [])
+      .then(function(result) {
         result.get(
             onControlCommandSent.bind(
-                null,
-                api,
-                onDemoSucceeded,
-                onDemoFailed,
-                sCardContext,
-                sCardHandle,
-                protocol),
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext,
+                sCardHandle, protocol),
             onPcscLiteError.bind(null, api, onDemoFailed));
       }, onFailure.bind(null, onDemoFailed));
 }
 
 function onControlCommandSent(
-    api,
-    onDemoSucceeded,
-    onDemoFailed,
-    sCardContext,
-    sCardHandle,
-    protocol,
+    api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol,
     responseData) {
-  logger.info('The CM_IOCTL_GET_FEATURE_REQUEST control command returned: ' +
-              dump(responseData));
+  logger.info(
+      'The CM_IOCTL_GET_FEATURE_REQUEST control command returned: ' +
+      dump(responseData));
   sendTransmitCommand(
       api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol);
 }
@@ -633,33 +519,22 @@ function sendTransmitCommand(
       'Sending the transmit command with "list dir" APDU ' +
       dump(LIST_DIR_APDU) + '...');
   api.SCardTransmit(
-      sCardHandle,
-      protocol == API.SCARD_PROTOCOL_T0 ?
-          API.SCARD_PCI_T0 :
-          API.SCARD_PCI_T1,
-      LIST_DIR_APDU).then(function(result) {
+         sCardHandle,
+         protocol == API.SCARD_PROTOCOL_T0 ? API.SCARD_PCI_T0 :
+                                             API.SCARD_PCI_T1,
+         LIST_DIR_APDU)
+      .then(function(result) {
         result.get(
             onTransmitCommandSent.bind(
-                null,
-                api,
-                onDemoSucceeded,
-                onDemoFailed,
-                sCardContext,
-                sCardHandle,
-                protocol),
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext,
+                sCardHandle, protocol),
             onPcscLiteError.bind(null, api, onDemoFailed));
       }, onFailure.bind(null, onDemoFailed));
 }
 
 function onTransmitCommandSent(
-    api,
-    onDemoSucceeded,
-    onDemoFailed,
-    sCardContext,
-    sCardHandle,
-    protocol,
-    responseProtocolInformation,
-    responseData) {
+    api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle, protocol,
+    responseProtocolInformation, responseData) {
   logger.info(
       'The transmit command returned: ' + dump(responseData) + ', the ' +
       'response protocol information is: ' + dump(responseProtocolInformation));
@@ -669,16 +544,11 @@ function onTransmitCommandSent(
 function endTransaction(
     api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle) {
   logger.info('Ending the transaction...');
-  api.SCardEndTransaction(
-      sCardHandle,
-      API.SCARD_LEAVE_CARD).then(function(result) {
+  api.SCardEndTransaction(sCardHandle, API.SCARD_LEAVE_CARD)
+      .then(function(result) {
         result.get(
             onTransactionEnded.bind(
-                null,
-                api,
-                onDemoSucceeded,
-                onDemoFailed,
-                sCardContext,
+                null, api, onDemoSucceeded, onDemoFailed, sCardContext,
                 sCardHandle),
             onPcscLiteError.bind(null, api, onDemoFailed));
       }, onFailure.bind(null, onDemoFailed));
@@ -693,14 +563,12 @@ function onTransactionEnded(
 function disconnect(
     api, onDemoSucceeded, onDemoFailed, sCardContext, sCardHandle) {
   logger.info('Disconnecting from the reader...');
-  api.SCardDisconnect(
-      sCardHandle,
-      API.SCARD_LEAVE_CARD).then(function(result) {
-        result.get(
-            onDisconnected.bind(
-                null, api, onDemoSucceeded, onDemoFailed, sCardContext),
-            onPcscLiteError.bind(null, api, onDemoFailed));
-      }, onFailure.bind(null, onDemoFailed));
+  api.SCardDisconnect(sCardHandle, API.SCARD_LEAVE_CARD).then(function(result) {
+    result.get(
+        onDisconnected.bind(
+            null, api, onDemoSucceeded, onDemoFailed, sCardContext),
+        onPcscLiteError.bind(null, api, onDemoFailed));
+  }, onFailure.bind(null, onDemoFailed));
 }
 
 function onDisconnected(api, onDemoSucceeded, onDemoFailed, sCardContext) {
@@ -724,12 +592,14 @@ function onContextReleased(api, onDemoSucceeded, onDemoFailed) {
 
 function onPcscLiteError(api, onDemoFailed, errorCode) {
   logger.warning('failed: PC/SC-Lite error: ' + dump(errorCode));
-  api.pcsc_stringify_error(errorCode).then(function(errorText) {
-    logger.warning('PC/SC-Lite error text: ' + errorText);
-    onDemoFailed();
-  }, function() {
-    onDemoFailed();
-  });
+  api.pcsc_stringify_error(errorCode).then(
+      function(errorText) {
+        logger.warning('PC/SC-Lite error text: ' + errorText);
+        onDemoFailed();
+      },
+      function() {
+        onDemoFailed();
+      });
 }
 
 function onFailure(onDemoFailed, error) {
@@ -738,11 +608,9 @@ function onFailure(onDemoFailed, error) {
 }
 
 function getPcscLiteAttrNames() {
-  return goog.array.filter(
-      goog.object.getKeys(API),
-      function(key) {
-        return key.startsWith('SCARD_ATTR_') && key != 'SCARD_ATTR_VALUE';
-      });
+  return goog.array.filter(goog.object.getKeys(API), function(key) {
+    return key.startsWith('SCARD_ATTR_') && key != 'SCARD_ATTR_VALUE';
+  });
 }
 
 function getProtocolDebugRepresentation(protocol) {
@@ -753,5 +621,4 @@ function getProtocolDebugRepresentation(protocol) {
   GSC.Logging.failWithLogger(
       logger, 'Unknown protocol value: ' + dump(protocol));
 }
-
 });  // goog.scope

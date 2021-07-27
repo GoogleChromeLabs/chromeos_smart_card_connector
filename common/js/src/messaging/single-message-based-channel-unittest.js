@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -123,8 +124,8 @@ goog.exportSymbol('testSingleMessageBasedChannelEstablishing', function() {
     testCasePromiseResolver.reject();
   }
 
-  globalChannel = new GSC.SingleMessageBasedChannel(
-      EXTENSION_ID, onChannelEstablished);
+  globalChannel =
+      new GSC.SingleMessageBasedChannel(EXTENSION_ID, onChannelEstablished);
   globalChannel.addOnDisposeCallback(onChannelDisposed);
 
   return testCasePromiseResolver.promise;
@@ -176,8 +177,8 @@ goog.exportSymbol('testSingleMessageBasedChannelSending', function() {
 
   for (const testMessage of TEST_MESSAGES) {
     chrome.runtime.sendMessage(
-        verifyChannelIdMatcher, new goog.testing.mockmatchers.ObjectEquals(
-            testMessage.makeMessage()));
+        verifyChannelIdMatcher,
+        new goog.testing.mockmatchers.ObjectEquals(testMessage.makeMessage()));
     mockedSendMessage.$once();
   }
 
@@ -197,8 +198,8 @@ goog.exportSymbol('testSingleMessageBasedChannelSending', function() {
     testCasePromiseResolver.reject();
   }
 
-  globalChannel = new GSC.SingleMessageBasedChannel(
-      EXTENSION_ID, onChannelEstablished);
+  globalChannel =
+      new GSC.SingleMessageBasedChannel(EXTENSION_ID, onChannelEstablished);
   globalChannel.addOnDisposeCallback(onChannelDisposed);
 
   return testCasePromiseResolver.promise;
@@ -220,15 +221,11 @@ goog.exportSymbol('testSingleMessageBasedChannelReceiving', function() {
     const receivedMessages = [];
 
     for (let testMessage of TEST_MESSAGES) {
-      globalChannel.registerService(
-          testMessage.type,
-          function(messageData) {
-            GSC.Logging.check(goog.isObject(messageData));
-            goog.asserts.assert(goog.isObject(messageData));
-            receivedMessages.push(new TypedMessage(
-                testMessage.type, messageData));
-          },
-          true);
+      globalChannel.registerService(testMessage.type, function(messageData) {
+        GSC.Logging.check(goog.isObject(messageData));
+        goog.asserts.assert(goog.isObject(messageData));
+        receivedMessages.push(new TypedMessage(testMessage.type, messageData));
+      }, true);
     }
 
     for (let testMessage of TEST_MESSAGES) {
@@ -244,8 +241,8 @@ goog.exportSymbol('testSingleMessageBasedChannelReceiving', function() {
     testCasePromiseResolver.reject();
   }
 
-  globalChannel = new GSC.SingleMessageBasedChannel(
-      EXTENSION_ID, onChannelEstablished);
+  globalChannel =
+      new GSC.SingleMessageBasedChannel(EXTENSION_ID, onChannelEstablished);
   globalChannel.addOnDisposeCallback(onChannelDisposed);
 
   return testCasePromiseResolver.promise;
@@ -279,8 +276,9 @@ goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
   }
 
   function onChannelDisposed() {
-    assert('Channel wasn\'t successfully established prior to failure',
-           channelEstablished);
+    assert(
+        'Channel wasn\'t successfully established prior to failure',
+        channelEstablished);
     assert(globalChannel.isDisposed());
 
     assertThrows(function() {
@@ -292,11 +290,10 @@ goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
     globalChannel.dispose();
   }
 
-  globalChannel = new GSC.SingleMessageBasedChannel(
-      EXTENSION_ID, onChannelEstablished);
+  globalChannel =
+      new GSC.SingleMessageBasedChannel(EXTENSION_ID, onChannelEstablished);
   globalChannel.addOnDisposeCallback(onChannelDisposed);
 
   return testCasePromiseResolver.promise;
 });
-
 });  // goog.scope

@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -59,15 +60,16 @@ GSC.Logging.check(
     Object.values(GSC.ExecutableModule.Toolchain).includes(TOOLCHAIN),
     `Unexpected value of GoogleSmartCard.ExecutableModule.TOOLCHAIN: ${
         TOOLCHAIN}`);
-/**
+
+  /**
  * The toolchain that is used for building the executable module. This constant
  * is coming from the build scripts, which take it from the "TOOLCHAIN"
  * environment variable.
  * @type {!ExecutableModule.Toolchain}
  * @const
  */
-ExecutableModule.TOOLCHAIN = /** @type {!ExecutableModule.Toolchain} */ (
-    TOOLCHAIN);
+ExecutableModule.TOOLCHAIN =
+    /** @type {!ExecutableModule.Toolchain} */ (TOOLCHAIN);
 
 /**
  * @abstract
@@ -99,5 +101,4 @@ ExecutableModule.prototype.getLoadPromise = function() {};
  * @return {!goog.messaging.AbstractChannel}
  */
 ExecutableModule.prototype.getMessageChannel = function() {};
-
 });  // goog.scope

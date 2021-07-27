@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -93,8 +94,8 @@ GSC.MessageChannelPinging.Pinger = function(
       PingResponder.SERVICE_NAME, this.serviceCallback_.bind(this), true);
 
   /** @private */
-  this.onEstablished_ = opt_onEstablished !== undefined ?
-      opt_onEstablished : null;
+  this.onEstablished_ =
+      opt_onEstablished !== undefined ? opt_onEstablished : null;
 
   /**
    * @type {number|null}
@@ -184,8 +185,9 @@ Pinger.prototype.serviceCallback_ = function(messageData) {
   }
   const channelId = messageData[CHANNEL_ID_MESSAGE_KEY];
   if (typeof channelId !== 'number') {
-    this.logger.warning('Received pong message has wrong format: channel id ' +
-                        'is not a number. Disposing...');
+    this.logger.warning(
+        'Received pong message has wrong format: channel id ' +
+        'is not a number. Disposing...');
     this.disposeChannelAndSelf_();
     return;
   }
@@ -200,8 +202,9 @@ Pinger.prototype.serviceCallback_ = function(messageData) {
       this.onEstablished_ = null;
     }
   } else if (this.previousRemoteEndChannelId_ == channelId) {
-    this.logger.finest('Received a pong response with the correct channel ' +
-                       'id, so the remote end considered alive');
+    this.logger.finest(
+        'Received a pong response with the correct channel ' +
+        'id, so the remote end considered alive');
     this.clearTimeoutTimer_();
     this.scheduleTimeoutTimer_();
   } else {
@@ -238,9 +241,7 @@ Pinger.prototype.schedulePostingPingMessage_ = function() {
 Pinger.prototype.scheduleTimeoutTimer_ = function() {
   GSC.Logging.checkWithLogger(this.logger, this.timeoutTimerId_ === null);
   this.timeoutTimerId_ = goog.Timer.callOnce(
-      this.timeoutCallback_.bind(this),
-      Pinger.TIMEOUT_MILLISECONDS,
-      this);
+      this.timeoutCallback_.bind(this), Pinger.TIMEOUT_MILLISECONDS, this);
 };
 
 /** @private */
@@ -255,8 +256,9 @@ Pinger.prototype.clearTimeoutTimer_ = function() {
 Pinger.prototype.timeoutCallback_ = function() {
   if (this.isDisposed())
     return;
-  this.logger.warning('No pong response received in time, the remote end is ' +
-                      'dead. Disposing...');
+  this.logger.warning(
+      'No pong response received in time, the remote end is ' +
+      'dead. Disposing...');
   this.disposeChannelAndSelf_();
 };
 
@@ -280,8 +282,8 @@ GSC.MessageChannelPinging.PingResponder = function(
    * @type {!goog.log.Logger}
    * @const
    */
-  this.logger = GSC.Logging.getChildLogger(
-      parentLogger, PING_RESPONDER_LOGGER_TITLE);
+  this.logger =
+      GSC.Logging.getChildLogger(parentLogger, PING_RESPONDER_LOGGER_TITLE);
 
   /** @private */
   this.messageChannel_ = messageChannel;
@@ -346,5 +348,4 @@ PingResponder.prototype.disposeInternal = function() {
 
   PingResponder.base(this, 'disposeInternal');
 };
-
 });  // goog.scope

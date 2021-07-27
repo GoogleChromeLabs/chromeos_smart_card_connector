@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -83,8 +84,9 @@ function updateAppView(knownAppsPromise, appIds, knownApps) {
 function onUpdateListener(appListArg) {
   const appList = goog.array.clone(appListArg);
   goog.array.sort(appList);
-  logger.fine('Application list updated, refreshing the view. ' +
-              'New list of id\'s: ' + GSC.DebugDump.dump(appList));
+  logger.fine(
+      'Application list updated, refreshing the view. ' +
+      'New list of id\'s: ' + GSC.DebugDump.dump(appList));
 
   const knownAppsPromise = knownAppsRegistry.tryGetByIds(appList);
   lastKnownAppsPromise = knownAppsPromise;
@@ -94,7 +96,8 @@ function onUpdateListener(appListArg) {
         updateAppView(knownAppsPromise, appList, knownApps);
       },
       function(error) {
-        if (!updateAppView(knownAppsPromise, appList, null)) return;
+        if (!updateAppView(knownAppsPromise, appList, null))
+          return;
 
         logger.warning('Couldn\'t resolve appList: ' + error);
       });

@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -52,13 +51,6 @@ public final class FunctionRewriterTest extends CompilerTestCase {
     "      return JSCompiler_identityFn_value" +
     "  }" +
     "}";
-
-  @Override
-  @Before
-  public void setUp() throws Exception {
-    super.setUp();
-    disableLineNumberCheck();
-  }
 
   @Override
   protected FunctionRewriter getProcessor(Compiler compiler) {
@@ -206,6 +198,18 @@ public final class FunctionRewriterTest extends CompilerTestCase {
                     EMPTY_HELPER,
                     "var foo = JSCompiler_emptyFn()",
                     5);
+  }
+
+  @Test
+  public void testReplaceEmptyFunction4() {
+    String source = "var foo = async function() {}";
+    checkCompilesToSame(source, 10);
+  }
+
+  @Test
+  public void testReplaceEmptyFunction5() {
+    String source = "var foo = function *() {}";
+    checkCompilesToSame(source, 10);
   }
 
   @Test

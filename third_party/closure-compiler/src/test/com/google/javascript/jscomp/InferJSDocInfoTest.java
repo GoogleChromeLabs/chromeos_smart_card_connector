@@ -19,7 +19,6 @@ package com.google.javascript.jscomp;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.javascript.jscomp.parsing.Config.JsDocParsing.INCLUDE_DESCRIPTIONS_NO_WHITESPACE;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
@@ -33,7 +32,6 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for {@link InferJSDocInfo}.
  *
- * @author nicksantos@google.com (Nick Santos)
  */
 // TODO(nicksantos): A lot of this code is duplicated from
 // TypedScopeCreatorTest. We should create a common test harness for
@@ -61,8 +59,6 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
   protected CompilerOptions getOptions() {
     CompilerOptions options = super.getOptions();
     options.setParseJsDocDocumentation(INCLUDE_DESCRIPTIONS_NO_WHITESPACE);
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
-    options.setLanguageOut(LanguageMode.ECMASCRIPT_NEXT);
     return options;
   }
 
@@ -72,11 +68,9 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
       @Override
       public void process(Node externs, Node root) {
         TypedScopeCreator scopeCreator = new TypedScopeCreator(compiler);
-        TypedScope topScope = scopeCreator.createScope(root.getParent(), null);
 
-        new TypeInferencePass(
-                compiler, compiler.getReverseAbstractInterpreter(), topScope, scopeCreator)
-            .process(externs, root);
+        new TypeInferencePass(compiler, compiler.getReverseAbstractInterpreter(), scopeCreator)
+            .inferAllScopes(root.getParent());
 
         new InferJSDocInfo(compiler).process(externs, root);
       }
@@ -1189,7 +1183,7 @@ public final class InferJSDocInfoTest extends CompilerTestCase {
         return current.getJSType();
       }
 
-      for (Node child : current.children()) {
+      for (Node child = current.getFirstChild(); child != null; child = child.getNext()) {
         queue.push(child);
       }
     }

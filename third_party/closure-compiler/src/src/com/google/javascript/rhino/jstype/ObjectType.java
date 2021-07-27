@@ -39,53 +39,47 @@
 
 package com.google.javascript.rhino.jstype;
 
-import static com.google.javascript.rhino.jstype.TernaryValue.FALSE;
-import static com.google.javascript.rhino.jstype.TernaryValue.UNKNOWN;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSortedSet;
 import com.google.common.collect.Iterables;
+import com.google.javascript.jscomp.base.Tri;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.jstype.Property.OwnedProperty;
-import java.io.Serializable;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
 import javax.annotation.Nullable;
 
 /**
  * Object type.
  *
- * In JavaScript, all object types have properties, and each of those
- * properties has a type. Property types may be DECLARED, INFERRED, or
- * UNKNOWN.
+ * <p>In JavaScript, all object types have properties, and each of those properties has a type.
+ * Property types may be DECLARED, INFERRED, or UNKNOWN.
  *
- * DECLARED properties have an explicit type annotation, as in:
- * <code>
+ * <p>DECLARED properties have an explicit type annotation, as in: <code>
  * /xx @type {number} x/
  * Foo.prototype.bar = 1;
- * </code>
- * This property may only hold number values, and an assignment to any
- * other type of value is an error.
+ * </code> This property may only hold number values, and an assignment to any other type of value
+ * is an error.
  *
- * INFERRED properties do not have an explicit type annotation. Rather,
- * we try to find all the possible types that this property can hold.
- * <code>
+ * <p>INFERRED properties do not have an explicit type annotation. Rather, we try to find all the
+ * possible types that this property can hold. <code>
  * Foo.prototype.bar = 1;
- * </code>
- * If the programmer assigns other types of values to this property,
- * the property will take on the union of all these types.
+ * </code> If the programmer assigns other types of values to this property, the property will take
+ * on the union of all these types.
  *
- * UNKNOWN properties are properties on the UNKNOWN type. The UNKNOWN
- * type has all properties, but we do not know whether they are
- * declared or inferred.
+ * <p>UNKNOWN properties are properties on the UNKNOWN type. The UNKNOWN type has all properties,
+ * but we do not know whether they are declared or inferred.
  *
  */
-public abstract class ObjectType extends JSType implements Serializable {
+public abstract class ObjectType extends JSType {
   private boolean visited;
   private JSDocInfo docInfo = null;
   private boolean unknown = true;
@@ -199,7 +193,7 @@ public abstract class ObjectType extends JSType implements Serializable {
    *
    * <p>Returning an empty string means something different than returning null. An empty string may
    * indicate an anonymous constructor, which we treat differently than a literal type without a
-   * reference name. e.g. in {@link InstanceObjectType#appendTo(StringBuilder, boolean)}
+   * reference name. e.g. in {@link InstanceObjectType#appendTo(TypeStringBuilder)}
    *
    * @return the object's name or {@code null} if this is an anonymous object
    */
@@ -254,19 +248,15 @@ public abstract class ObjectType extends JSType implements Serializable {
     return "(" + suffix + ")";
   }
 
-  public boolean isAmbiguousObject() {
-    return !hasReferenceName();
-  }
-
   public final ObjectType getRawType() {
     TemplatizedType t = toMaybeTemplatizedType();
     return t == null ? this : t.getReferencedType();
   }
 
   @Override
-  public TernaryValue testForEquality(JSType that) {
+  public Tri testForEquality(JSType that) {
     // super
-    TernaryValue result = super.testForEquality(that);
+    Tri result = super.testForEquality(that);
     if (result != null) {
       return result;
     }
@@ -280,10 +270,11 @@ public abstract class ObjectType extends JSType implements Serializable {
         || that.isSubtypeOf(getNativeType(JSTypeNative.NUMBER_TYPE))
         || that.isSubtypeOf(getNativeType(JSTypeNative.STRING_TYPE))
         || that.isSubtypeOf(getNativeType(JSTypeNative.BOOLEAN_TYPE))
-        || that.isSubtypeOf(getNativeType(JSTypeNative.SYMBOL_TYPE))) {
-      return UNKNOWN;
+        || that.isSubtypeOf(getNativeType(JSTypeNative.SYMBOL_TYPE))
+        || that.isSubtypeOf(getNativeType(JSTypeNative.BIGINT_TYPE))) {
+      return Tri.UNKNOWN;
     }
-    return FALSE;
+    return Tri.FALSE;
   }
 
   /**
@@ -300,17 +291,6 @@ public abstract class ObjectType extends JSType implements Serializable {
     }
     iproto = iproto.getImplicitPrototype();
     return iproto == null ? null : iproto.getConstructor();
-  }
-
-  /**
-   * Returns the top most type that defines the property.
-   *
-   * <p>Note: if you are doing type validation, you are probably looking for the closest definition
-   * of the property which could be resolved by {@link #getClosestDefiningType}.
-   */
-  public final ObjectType getTopMostDefiningType(String propertyName) {
-    OwnedProperty property = getPropertyMap().findTopMost(propertyName);
-    return property == null ? null : property.getOwner();
   }
 
   /** Returns the closest ancestor that defines the property including this type itself. */
@@ -398,12 +378,14 @@ public abstract class ObjectType extends JSType implements Serializable {
         // We never want to hide a declared property with an inferred property.
         return true;
       }
-      JSType originalType = getPropertyType(propertyName);
-      type = originalType == null ? type : originalType.getLeastSupertype(type);
+      JSType originalType = checkNotNull(getPropertyType(propertyName));
+      type = originalType.getLeastSupertype(type);
     }
+    // TODO(b/140764208): verify that if isResolved() then type.isResolved().
+    // Defining unresolved properties on resolved types is dangerous because the property type
+    // may never be resolved.
 
-    boolean result = defineProperty(propertyName, type, true,
-        propertyNode);
+    boolean result = defineProperty(propertyName, type, true, propertyNode);
 
     // All property definitions go through this method
     // or defineDeclaredProperty. Because the properties defined an an
@@ -607,53 +589,9 @@ public abstract class ObjectType extends JSType implements Serializable {
     return getPropertyMap().getPropertiesCount();
   }
 
-  /**
-   * Check for structural equivalence with {@code that}.
-   * (e.g. two @record types with the same prototype properties)
-   */
-  final boolean checkStructuralEquivalenceHelper(
-      ObjectType otherObject, EquivalenceMethod eqMethod, EqCache eqCache) {
-    if (this.isTemplatizedType() && this.toMaybeTemplatizedType().wrapsSameRawType(otherObject)) {
-      return this.getTemplateTypeMap().checkEquivalenceHelper(
-          otherObject.getTemplateTypeMap(), eqMethod, eqCache, SubtypingMode.NORMAL);
-    }
-
-    MatchStatus result = eqCache.checkCache(this, otherObject);
-    if (result != null) {
-      return result.subtypeValue();
-    }
-    Set<String> keySet = getPropertyNames();
-    Set<String> otherKeySet = otherObject.getPropertyNames();
-    if (!otherKeySet.equals(keySet)) {
-      eqCache.updateCache(this, otherObject, MatchStatus.NOT_MATCH);
-      return false;
-    }
-    for (String key : keySet) {
-      if (!otherObject.getPropertyType(key).checkEquivalenceHelper(
-              getPropertyType(key), eqMethod, eqCache)) {
-        eqCache.updateCache(this, otherObject, MatchStatus.NOT_MATCH);
-        return false;
-      }
-    }
-    eqCache.updateCache(this, otherObject, MatchStatus.MATCH);
-    return true;
-  }
-
-  /**
-   * Returns a list of properties defined or inferred on this type and any of
-   * its supertypes.
-   */
-  public final Set<String> getPropertyNames() {
-    Set<String> props = new TreeSet<>();
-    collectPropertyNames(props);
-    return props;
-  }
-
-  /**
-   * Adds any properties defined on this type or its supertypes to the set.
-   */
-  final void collectPropertyNames(Set<String> props) {
-    getPropertyMap().collectPropertyNames(props);
+  /** Returns a list of properties defined or inferred on this type and any of its supertypes. */
+  public final ImmutableSortedSet<String> getPropertyNames() {
+    return getPropertyMap().keySet();
   }
 
   @Override
@@ -677,10 +615,10 @@ public abstract class ObjectType extends JSType implements Serializable {
         other != null;
         other = deeplyUnwrap(other.getImplicitPrototype())) {
       // The prototype should match exactly.
-      // NOTE: the use of "==" here rather than isEquivalentTo is deliberate.  This method
+      // NOTE: the use of "==" here rather than equals is deliberate.  This method
       // is very hot in the type checker and relying on identity improves performance of both
       // type checking/type inferrence and property disambiguation.
-      if (JSType.areIdentical(unwrappedThis, other)) {
+      if (identical(unwrappedThis, other)) {
         return true;
       }
     }

@@ -16,6 +16,7 @@
 
 package com.google.javascript.jscomp;
 
+import com.google.common.annotations.GwtIncompatible;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
@@ -52,7 +53,13 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
                     + " returnUnionType(){}",
                 "/** @constructor */ function Foo(){}",
                 "/** @type {function(this: Foo, ...*): !Foo} */ Foo.prototype.concat",
-                "var obj = new Foo();"));
+                "var obj = new Foo();",
+                "/**",
+                " * @param {...T} var_args",
+                " * @return {!Array<T>}",
+                " * @template T",
+                " */",
+                "Array.of = function(var_args) {};"));
   }
 
   @Override
@@ -62,6 +69,8 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
     late = true;
     useTypes = true;
     disableTypeCheck();
+    enableNormalize();
+    disableMultistageCompilation(); // this test runs under J2CL
   }
 
   @Override
@@ -183,7 +192,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
   public void testFoldStringSubstr() {
     fold("x = 'abcde'.substr(0,2)", "x = 'ab'");
     fold("x = 'abcde'.substr(1,2)", "x = 'bc'");
-    fold("x = 'abcde'['substr'](1,3)", "x = 'bcd'");
     fold("x = 'abcde'.substr(2)", "x = 'cde'");
 
     // we should be leaving negative indexes alone for now
@@ -201,7 +209,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
   public void testFoldStringSubstring() {
     fold("x = 'abcde'.substring(0,2)", "x = 'ab'");
     fold("x = 'abcde'.substring(1,2)", "x = 'b'");
-    fold("x = 'abcde'['substring'](1,3)", "x = 'bc'");
     fold("x = 'abcde'.substring(2)", "x = 'cde'");
 
     // we should be leaving negative, out-of-bound, and inverted indices alone for now
@@ -220,7 +227,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
   public void testFoldStringSlice() {
     fold("x = 'abcde'.slice(0,2)", "x = 'ab'");
     fold("x = 'abcde'.slice(1,2)", "x = 'b'");
-    fold("x = 'abcde'['slice'](1,3)", "x = 'bc'");
     fold("x = 'abcde'.slice(2)", "x = 'cde'");
 
     // we should be leaving negative, out-of-bound, and inverted indices alone for now
@@ -365,6 +371,28 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
     foldSame("`abc`.toUpperCase()");
     foldSame("`a ${bc}`.toUpperCase()");
+
+    /**
+     * Make sure things aren't totally broken for non-ASCII strings, non-exhaustive.
+     *
+     * <p>This includes things like:
+     *
+     * <ul>
+     *   <li>graphemes with multiple code-points
+     *   <li>graphemes represented by multiple graphemes in other cases
+     *   <li>graphemes whose case changes are not round-trippable
+     *   <li>graphemes that change case in a position sentitive way
+     * </ul>
+     */
+    fold("'\u0049'.toUpperCase()", "'\u0049'");
+    fold("'\u0069'.toUpperCase()", "'\u0049'");
+    fold("'\u0130'.toUpperCase()", "'\u0130'");
+    fold("'\u0131'.toUpperCase()", "'\u0049'");
+    fold("'\u0049\u0307'.toUpperCase()", "'\u0049\u0307'");
+    fold("'ß'.toUpperCase()", "'SS'");
+    fold("'SS'.toUpperCase()", "'SS'");
+    fold("'σ'.toUpperCase()", "'Σ'");
+    fold("'σς'.toUpperCase()", "'ΣΣ'");
   }
 
   @Test
@@ -374,12 +402,39 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
     fold("'aBcDe'.toLowerCase()", "'abcde'");
 
     foldSame("`ABC`.toLowerCase()");
-    foldSame("`A ${BC}`.toUpperCase()");
+    foldSame("`A ${BC}`.toLowerCase()");
+
+    /**
+     * Make sure things aren't totally broken for non-ASCII strings, non-exhaustive.
+     *
+     * <p>This includes things like:
+     *
+     * <ul>
+     *   <li>graphemes with multiple code-points
+     *   <li>graphemes with multiple representations
+     *   <li>graphemes represented by multiple graphemes in other cases
+     *   <li>graphemes whose case changes are not round-trippable
+     *   <li>graphemes that change case in a position sentitive way
+     * </ul>
+     */
+    fold("'\u0049'.toLowerCase()", "'\u0069'");
+    fold("'\u0069'.toLowerCase()", "'\u0069'");
+    fold("'\u0130'.toLowerCase()", "'\u0069\u0307'");
+    fold("'\u0131'.toLowerCase()", "'\u0131'");
+    fold("'\u0049\u0307'.toLowerCase()", "'\u0069\u0307'");
+    fold("'ß'.toLowerCase()", "'ß'");
+    fold("'SS'.toLowerCase()", "'ss'");
+    fold("'Σ'.toLowerCase()", "'σ'");
+    fold("'ΣΣ'.toLowerCase()", "'σς'");
+  }
+
+  @Test
+  public void testFoldMathFunctionsBug() {
+    foldSame("Math[0]()");
   }
 
   @Test
   public void testFoldMathFunctions_abs() {
-    enableNormalize();
     foldSame("Math.abs(Math.random())");
 
     fold("Math.abs('-1')", "1");
@@ -395,7 +450,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
   @Test
   public void testFoldMathFunctions_ceil() {
-    enableNormalize();
     foldSame("Math.ceil(Math.random())");
 
     fold("Math.ceil(1)", "1");
@@ -406,7 +460,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
   @Test
   public void testFoldMathFunctions_floor() {
-    enableNormalize();
     foldSame("Math.floor(Math.random())");
 
     fold("Math.floor(1)", "1");
@@ -417,16 +470,22 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
   @Test
   public void testFoldMathFunctions_fround() {
-    enableNormalize();
     foldSame("Math.fround(Math.random())");
+
     fold("Math.fround(NaN)", "NaN");
+    fold("Math.fround(Infinity)", "Infinity");
     fold("Math.fround(1)", "1");
+    fold("Math.fround(0)", "0");
+  }
+
+  @Test
+  @GwtIncompatible // TODO(b/155511629): Enable this test for J2CL
+  public void testFoldMathFunctions_fround_j2cl() {
     foldSame("Math.fround(1.2)");
   }
 
   @Test
   public void testFoldMathFunctions_round() {
-    enableNormalize();
     foldSame("Math.round(Math.random())");
     fold("Math.round(NaN)", "NaN");
     fold("Math.round(3.5)", "4");
@@ -435,7 +494,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
   @Test
   public void testFoldMathFunctions_sign() {
-    enableNormalize();
     foldSame("Math.sign(Math.random())");
     fold("Math.sign(NaN)", "NaN");
     fold("Math.sign(3.5)", "1");
@@ -444,7 +502,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
   @Test
   public void testFoldMathFunctions_trunc() {
-    enableNormalize();
     foldSame("Math.trunc(Math.random())");
     fold("Math.sign(NaN)", "NaN");
     fold("Math.trunc(3.5)", "3");
@@ -453,7 +510,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
   @Test
   public void testFoldMathFunctions_clz32() {
-    enableNormalize();
     fold("Math.clz32(0)", "32");
     int x = 1;
     for (int i = 31; i >= 0; i--) {
@@ -477,7 +533,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
   @Test
   public void testFoldMathFunctions_max() {
-    enableNormalize();
     foldSame("Math.max(Math.random(), 1)");
 
     fold("Math.max()", "-Infinity");
@@ -488,7 +543,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
   @Test
   public void testFoldMathFunctions_min() {
-    enableNormalize();
     foldSame("Math.min(Math.random(), 1)");
 
     fold("Math.min()", "Infinity");
@@ -499,8 +553,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
   @Test
   public void testFoldParseNumbers() {
-    enableNormalize();
-
     // Template Strings
     foldSame("x = parseInt(`123`)");
     foldSame("x = parseInt(` 123`)");
@@ -558,7 +610,6 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
   @Test
   public void testFoldParseOctalNumbers() {
     setAcceptedLanguage(LanguageMode.ECMASCRIPT5);
-    enableNormalize();
     setExpectParseWarningsThisTest();
 
     fold("x = parseInt(021, 8)", "x = 15");
@@ -567,6 +618,8 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
   @Test
   public void testReplaceWithCharAt() {
     enableTypeCheck();
+    replaceTypesWithColors();
+    disableCompareJsDoc();
 
     foldStringTyped("a.substring(0, 1)", "a.charAt(0)");
     foldSameStringTyped("a.substring(-4, -3)");
@@ -609,11 +662,16 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
     foldSame("function f(/** ? */ a) { a.substring(0, 1); }");
     foldSame("function f(/** ? */ a) { a.substr(0, 1); }");
-    foldSame(lines(
-        "/** @constructor */ function A() {};",
-        "A.prototype.substring = function() {};",
-        "function f(/** ? */ a) { a.substring(0, 1); }"));
-    foldSame("function f(/** ? */ a) { a.slice(0, 1); }");
+    foldSame(
+        lines(
+            "/** @constructor */ function A() {};",
+            "A.prototype.substring = function(begin, end) {};",
+            "function f(/** !A */ a) { a.substring(0, 1); }"));
+    foldSame(
+        lines(
+            "/** @constructor */ function A() {};",
+            "A.prototype.slice = function(begin, end) {};",
+            "function f(/** !A */ a) { a.slice(0, 1); }"));
 
     useTypes = false;
     foldSameStringTyped("a.substring(0, 1)");
@@ -623,21 +681,14 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
   @Test
   public void testFoldConcatChaining() {
-    enableNormalize();
     enableTypeCheck();
 
     fold("[1,2].concat(1).concat(2,['abc']).concat('abc')", "[1,2].concat(1,2,['abc'],'abc')");
     fold("[].concat(['abc']).concat(1).concat([2,3])", "['abc'].concat(1,[2,3])");
 
-    // because function returnArrayType() or returnUnionType()
-    // possibly can produce a side effects
-    // we can't fold all concatenation chaining
-    fold(
-        "returnArrayType().concat(returnArrayType()).concat(1).concat(2)",
-        "returnArrayType().concat(returnArrayType(),1,2)");
-    fold(
-        "returnArrayType().concat(returnUnionType()).concat(1).concat(2)",
-        "returnArrayType().concat(returnUnionType(),1,2)");
+    // cannot fold concat based on type information
+    foldSame("returnArrayType().concat(returnArrayType()).concat(1).concat(2)");
+    foldSame("returnArrayType().concat(returnUnionType()).concat(1).concat(2)");
     fold(
         "[1,2,1].concat(1).concat(returnArrayType()).concat(2)",
         "[1,2,1].concat(1).concat(returnArrayType(),2)");
@@ -650,26 +701,59 @@ public final class PeepholeReplaceKnownMethodsTest extends CompilerTestCase {
 
   @Test
   public void testRemoveArrayLiteralFromFrontOfConcat() {
-    enableNormalize();
     enableTypeCheck();
 
     fold("[].concat([1,2,3],1)", "[1,2,3].concat(1)");
-    fold("[].concat(returnArrayType(),1)", "returnArrayType().concat(1)");
 
     foldSame("[1,2,3].concat(returnArrayType())");
-    foldSame("returnArrayType().concat([1,2,3])");
     // Call method with the same name as Array.prototype.concat
     foldSame("obj.concat([1,2,3])");
 
     foldSame("[].concat(1,[1,2,3])");
-    foldSame("[].concat(returnUnionType())");
     foldSame("[].concat(1)");
     fold("[].concat([1])", "[1].concat()");
-    fold("[].concat(returnArrayType())", "returnArrayType().concat()");
 
     // Chained folding of empty array lit
     fold("[].concat([], [1,2,3], [4])", "[1,2,3].concat([4])");
     fold("[].concat([]).concat([1]).concat([2,3])", "[1].concat([2,3])");
+
+    // Cannot fold based on type information
+    foldSame("[].concat(returnArrayType(),1)");
+    foldSame("[].concat(returnArrayType())");
+    foldSame("[].concat(returnUnionType())");
+  }
+
+  @Test
+  public void testArrayOfSpread() {
+    fold("x = Array.of(...['a', 'b', 'c'])", "x = [...['a', 'b', 'c']]");
+    fold("x = Array.of(...['a', 'b', 'c',])", "x = [...['a', 'b', 'c']]");
+    fold("x = Array.of(...['a'], ...['b', 'c'])", "x = [...['a'], ...['b', 'c']]");
+    fold("x = Array.of('a', ...['b', 'c'])", "x = ['a', ...['b', 'c']]");
+    fold("x = Array.of('a', ...['b', 'c'])", "x = ['a', ...['b', 'c']]");
+  }
+
+  @Test
+  public void testArrayOfNoSpread() {
+    fold("x = Array.of('a', 'b', 'c')", "x = ['a', 'b', 'c']");
+    fold("x = Array.of('a', ['b', 'c'])", "x = ['a', ['b', 'c']]");
+    fold("x = Array.of('a', ['b', 'c'],)", "x = ['a', ['b', 'c']]");
+  }
+
+  @Test
+  public void testArrayOfNoArgs() {
+    fold("x = Array.of()", "x = []");
+  }
+
+  @Test
+  public void testArrayOfNoChange() {
+    foldSame("x = Array.of.apply(window, ['a', 'b', 'c'])");
+    foldSame("x = ['a', 'b', 'c']");
+    foldSame("x = [Array.of, 'a', 'b', 'c']");
+  }
+
+  @Test
+  public void testFoldArrayBug() {
+    foldSame("Array[123]()");
   }
 
   private void foldSame(String js) {

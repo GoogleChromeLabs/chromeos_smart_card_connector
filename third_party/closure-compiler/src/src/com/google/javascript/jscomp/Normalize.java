@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
 import com.google.javascript.jscomp.MakeDeclaredNamesUnique.BoilerplateRenamer;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
@@ -55,10 +56,9 @@ import java.util.Set;
  *       shadowed (note: "arguments" may require special handling).
  *   <li>Removes duplicate variable declarations.
  *   <li>Marks constants with the IS_CONSTANT_NAME annotation.
- *   <li>Finds properties marked @expose, and rewrites them in [] notation.
  *   <li>Rewrite body of arrow function as a block.
- *   <li>Take var statements out from for-loop initializer.
- *       This: for(var a = 0;a<0;a++) {} becomes: var a = 0; for(var a;a<0;a++) {}
+ *   <li>Take var statements out from for-loop initializer. This: for(var a = 0;a<0;a++) {} becomes:
+ *       var a = 0; for(a;a<0;a++) {}
  * </ol>
  */
 class Normalize implements CompilerPass {
@@ -69,13 +69,9 @@ class Normalize implements CompilerPass {
   Normalize(AbstractCompiler compiler, boolean assertOnChange) {
     this.compiler = compiler;
     this.assertOnChange = assertOnChange;
-
-    // TODO(nicksantos): assertOnChange should only be true if the tree
-    // is normalized.
   }
 
-  static void normalizeSyntheticCode(
-      AbstractCompiler compiler, Node js, String prefix) {
+  static void normalizeSyntheticCode(AbstractCompiler compiler, Node js, String prefix) {
     NodeTraversal.traverse(compiler, js,
         new Normalize.NormalizeStatements(compiler, false));
     NodeTraversal.traverse(
@@ -117,76 +113,8 @@ class Normalize implements CompilerPass {
     new PropagateConstantAnnotationsOverVars(compiler, assertOnChange)
         .process(externs, root);
 
-    FindExposeAnnotations findExposeAnnotations = new FindExposeAnnotations();
-    NodeTraversal.traverse(compiler, root, findExposeAnnotations);
-    if (!findExposeAnnotations.exposedProperties.isEmpty()) {
-      NodeTraversal.traverse(compiler, root,
-          new RewriteExposedProperties(
-              findExposeAnnotations.exposedProperties));
-    }
-
     if (!compiler.getLifeCycleStage().isNormalized()) {
       compiler.setLifeCycleStage(LifeCycleStage.NORMALIZED);
-    }
-  }
-
-  /**
-   * Find all the @expose annotations.
-   */
-  private static class FindExposeAnnotations extends AbstractPostOrderCallback {
-    private final Set<String> exposedProperties = new HashSet<>();
-
-    @Override public void visit(NodeTraversal t, Node n, Node parent) {
-      if (NodeUtil.isExprAssign(n)) {
-        Node assign = n.getFirstChild();
-        Node lhs = assign.getFirstChild();
-        if (lhs.isGetProp() && isMarkedExpose(assign)) {
-          exposedProperties.add(lhs.getLastChild().getString());
-        }
-      } else if (n.isStringKey() && isMarkedExpose(n)) {
-        exposedProperties.add(n.getString());
-      } else if (n.isGetProp() && n.getParent().isExprResult()
-                  && isMarkedExpose(n)) {
-        exposedProperties.add(n.getLastChild().getString());
-      }
-    }
-
-    private static boolean isMarkedExpose(Node n) {
-      JSDocInfo info = n.getJSDocInfo();
-      return info != null && info.isExpose();
-    }
-  }
-
-  /**
-   * Rewrite all exposed properties in [] form.
-   */
-  private class RewriteExposedProperties
-      extends AbstractPostOrderCallback {
-    private final Set<String> exposedProperties;
-
-    RewriteExposedProperties(Set<String> exposedProperties) {
-      this.exposedProperties = exposedProperties;
-    }
-
-    @Override
-    public void visit(NodeTraversal t, Node n, Node parent) {
-      if (n.isGetProp()) {
-        String propName = n.getLastChild().getString();
-        if (exposedProperties.contains(propName)) {
-          Node obj = n.removeFirstChild();
-          Node prop = n.removeFirstChild();
-          compiler.reportChangeToEnclosingScope(n);
-          n.replaceWith(IR.getelem(obj, prop));
-        }
-      } else if (n.isStringKey()) {
-        String propName = n.getString();
-        if (exposedProperties.contains(propName)) {
-          if (!n.isQuotedString()) {
-            compiler.reportChangeToEnclosingScope(n);
-            n.setQuotedString();
-          }
-        }
-      }
     }
   }
 
@@ -310,9 +238,12 @@ class Normalize implements CompilerPass {
         Boolean value = constantMap.get(name);
         if (value == null) {
           constantMap.put(name, isConst);
-        } else {
-          Preconditions.checkState(value.booleanValue() == isConst,
-              "The name %s is not consistently annotated as constant.", name);
+        } else if (value.booleanValue() != isConst) {
+          throw new IllegalStateException(
+              "The name "
+                  + name
+                  + " is not consistently annotated as constant. Expected "
+                  + ImmutableMap.copyOf(constantMap));
         }
       }
     }
@@ -360,9 +291,9 @@ class Normalize implements CompilerPass {
           Node expr = n.getFirstChild();
           n.setToken(Token.FOR);
           Node empty = IR.empty();
-          empty.useSourceInfoIfMissingFrom(n);
-          n.addChildBefore(empty, expr);
-          n.addChildAfter(empty.cloneNode(), expr);
+          empty.srcrefIfMissing(n);
+          empty.insertBefore(expr);
+          empty.cloneNode().insertAfter(expr);
           reportCodeChange("WHILE node", n);
           break;
 
@@ -377,15 +308,16 @@ class Normalize implements CompilerPass {
           break;
 
         case NAME:
-        case STRING:
+        case GETPROP:
+        case OPTCHAIN_GETPROP:
         case GETTER_DEF:
         case SETTER_DEF:
-          annotateConstantsByConvention(n, parent);
+          annotateConstantsByConvention(n);
           break;
 
         case CAST:
           compiler.reportChangeToEnclosingScope(n);
-          parent.replaceChild(n, n.removeFirstChild());
+          n.replaceWith(n.removeFirstChild());
           break;
 
         default:
@@ -393,12 +325,15 @@ class Normalize implements CompilerPass {
       }
     }
 
-    /**
-     * Mark names and properties that are constants by convention.
-     */
-    private void annotateConstantsByConvention(Node n, Node parent) {
+    /** Mark names and properties that are constants by convention. */
+    private void annotateConstantsByConvention(Node n) {
       checkState(
-          n.isName() || n.isString() || n.isStringKey() || n.isGetterDef() || n.isSetterDef());
+          n.isName()
+              || n.isOptChainGetProp()
+              || n.isGetProp()
+              || n.isStringKey()
+              || n.isGetterDef()
+              || n.isSetterDef());
 
       // Need to check that variables have not been renamed, to determine whether
       // coding conventions still apply.
@@ -407,26 +342,17 @@ class Normalize implements CompilerPass {
       }
 
       // There are only two cases where a string token
-      // may be a variable reference: The right side of a GETPROP
+      // may be a variable reference: The right side of a GETPROP (or OPTCHAIN_GETPROP)
       // or an OBJECTLIT key.
-      boolean isObjLitKey = NodeUtil.mayBeObjectLitKey(n);
-      boolean isProperty = isObjLitKey || (parent.isGetProp() && parent.getLastChild() == n);
-      if (n.isName() || isProperty) {
-        boolean isMarkedConstant = n.getBooleanProp(Node.IS_CONSTANT_NAME);
-        if (!isMarkedConstant
-            && NodeUtil.isConstantByConvention(compiler.getCodingConvention(), n)) {
-          if (assertOnChange) {
-            String name = n.getString();
-            throw new IllegalStateException(
-                "Unexpected const change.\n"
-                    + "  name: "
-                    + name
-                    + "\n"
-                    + "  parent:"
-                    + n.getParent().toStringTree());
-          }
-          n.putBooleanProp(Node.IS_CONSTANT_NAME, true);
-        }
+      boolean isGetprop = NodeUtil.isNormalOrOptChainGetProp(n);
+      if (!n.isName() && !NodeUtil.mayBeObjectLitKey(n) && !isGetprop) {
+        return;
+      }
+
+      if (!n.getBooleanProp(Node.IS_CONSTANT_NAME)
+          && NodeUtil.isConstantByConvention(compiler.getCodingConvention(), n)) {
+        checkState(!assertOnChange, "Unexpected const change: %s", n);
+        n.putBooleanProp(Node.IS_CONSTANT_NAME, true);
       }
     }
 
@@ -440,21 +366,23 @@ class Normalize implements CompilerPass {
       }
       Node c = n.getFirstChild();
       if (NodeUtil.isDeclaration(c)) {
-        n.removeChild(c);
+        c.detach();
 
         Node exportSpecs = new Node(Token.EXPORT_SPECS).srcref(n);
         n.addChildToFront(exportSpecs);
         Iterable<Node> names;
         if (c.isClass() || c.isFunction()) {
           names = Collections.singleton(c.getFirstChild());
-          n.getParent().addChildBefore(c, n);
+          c.insertBefore(n);
         } else {
           names = NodeUtil.findLhsNodesInNode(c);
           // Split up var declarations onto separate lines.
-          for (Node child : c.children()) {
-            c.removeChild(child);
+          for (Node child = c.getFirstChild(); child != null; ) {
+            final Node next = child.getNext();
+            child.detach();
             Node newDeclaration = new Node(c.getToken(), child).srcref(n);
-            n.getParent().addChildBefore(newDeclaration, n);
+            newDeclaration.insertBefore(n);
+            child = next;
           }
         }
 
@@ -486,51 +414,14 @@ class Normalize implements CompilerPass {
      */
     static boolean visitFunction(Node n, AbstractCompiler compiler) {
       checkState(n.isFunction(), n);
-      if (NodeUtil.isFunctionDeclaration(n) && !NodeUtil.isHoistedFunctionDeclaration(n)) {
-        rewriteFunctionDeclaration(n, compiler);
-        return true;
-      } else if (n.isFunction() && !NodeUtil.getFunctionBody(n).isBlock()) {
+      if (n.isFunction() && !NodeUtil.getFunctionBody(n).isBlock()) {
         Node returnValue = NodeUtil.getFunctionBody(n);
         Node body = IR.block(IR.returnNode(returnValue.detach()));
-        body.useSourceInfoIfMissingFromForTree(returnValue);
+        body.srcrefTreeIfMissing(returnValue);
         n.addChildToBack(body);
         compiler.reportChangeToEnclosingScope(body);
       }
       return false;
-    }
-
-    /**
-     * Rewrite the function declaration from:
-     *   function x() {}
-     *   FUNCTION
-     *     NAME x
-     *     PARAM_LIST
-     *     BLOCK
-     * to:
-     *   var x = function() {};
-     *   VAR
-     *     NAME x
-     *       FUNCTION
-     *         NAME (w/ empty string)
-     *         PARAM_LIST
-     *         BLOCK
-     */
-    private static void rewriteFunctionDeclaration(Node n, AbstractCompiler compiler) {
-      // Prepare a spot for the function.
-      Node oldNameNode = n.getFirstChild();
-      Node fnNameNode = oldNameNode.cloneNode();
-      Node var = IR.var(fnNameNode).srcref(n);
-
-      // Prepare the function
-      oldNameNode.setString("");
-      compiler.reportChangeToEnclosingScope(oldNameNode);
-
-      // Move the function to the front of the parent
-      Node parent = n.getParent();
-      parent.removeChild(n);
-      parent.addChildToFront(var);
-      compiler.reportChangeToEnclosingScope(var);
-      fnNameNode.addChildToFront(n);
     }
 
     /**
@@ -586,8 +477,8 @@ class Normalize implements CompilerPass {
           return;
         default:
           Node block = IR.block();
-          block.useSourceInfoIfMissingFrom(last);
-          n.replaceChild(last, block);
+          block.srcrefIfMissing(last);
+          last.replaceWith(block);
           block.addChildToFront(last);
           reportCodeChange("LABEL normalization", n);
           return;
@@ -636,12 +527,12 @@ class Normalize implements CompilerPass {
                       name);
                   Node newName = IR.name(name.getString()).srcref(name);
                   Node newVar = IR.var(newName).srcref(name);
-                  insertBeforeParent.addChildBefore(newVar, insertBefore);
+                  newVar.insertBefore(insertBefore);
                 }
 
                 // Transform for (var [a, b]... ) to for ([a, b]...
                 Node destructuringPattern = lhs.removeFirstChild();
-                c.replaceChild(first, destructuringPattern);
+                first.replaceWith(destructuringPattern);
               } else {
                 // Transform:
                 //    for (var a = 1 in b) {}
@@ -651,7 +542,7 @@ class Normalize implements CompilerPass {
                 // Clone just the node, to remove any initialization.
                 Node name = newStatement.getFirstChild().cloneNode();
                 first.replaceWith(name);
-                insertBeforeParent.addChildBefore(newStatement, insertBefore);
+                newStatement.insertBefore(insertBefore);
               }
               reportCodeChange("FOR-IN var declaration", n);
             }
@@ -661,12 +552,12 @@ class Normalize implements CompilerPass {
               Node init = c.getFirstChild();
 
               if (init.isLet() || init.isConst() || init.isClass() || init.isFunction()) {
-                return;
+                continue;
               }
 
               Node empty = IR.empty();
-              empty.useSourceInfoIfMissingFrom(c);
-              c.replaceChild(init, empty);
+              empty.srcrefIfMissing(c);
+              init.replaceWith(empty);
 
               Node newStatement;
               // Only VAR statements, and expressions are allowed,
@@ -677,7 +568,7 @@ class Normalize implements CompilerPass {
                 newStatement = NodeUtil.newExpr(init);
               }
 
-              insertBeforeParent.addChildBefore(newStatement, insertBefore);
+              newStatement.insertBefore(insertBefore);
               reportCodeChange("FOR initializer", n);
             }
             break;
@@ -705,9 +596,9 @@ class Normalize implements CompilerPass {
 
           while (c.getFirstChild() != c.getLastChild()) {
             Node name = c.getFirstChild();
-            c.removeChild(name);
+            name.detach();
             Node newVar = new Node(c.getToken(), name).srcref(n);
-            n.addChildBefore(newVar, c);
+            newVar.insertBefore(c);
             reportCodeChange("VAR with multiple children", n);
           }
         }
@@ -735,7 +626,7 @@ class Normalize implements CompilerPass {
         Node next = current.getNext();
         if (NodeUtil.isFunctionDeclaration(current)) {
           // Remove the declaration from the body.
-          functionBody.removeChild(current);
+          current.detach();
 
           // Read the function at the top of the function body (after any
           // previous declarations).
@@ -750,14 +641,12 @@ class Normalize implements CompilerPass {
       if (shorthand.getFirstChild().isName()) {
         Node name = shorthand.getFirstChild();
         shorthand.setToken(NodeUtil.getOpFromAssignmentOp(shorthand));
-        Node parent = shorthand.getParent();
         Node insertPoint = IR.empty();
-        parent.replaceChild(shorthand, insertPoint);
-        Node assign = IR.assign(name.cloneNode().useSourceInfoFrom(name), shorthand)
-            .useSourceInfoFrom(shorthand);
+        shorthand.replaceWith(insertPoint);
+        Node assign = IR.assign(name.cloneNode().srcref(name), shorthand).srcref(shorthand);
         assign.setJSDocInfo(shorthand.getJSDocInfo());
         shorthand.setJSDocInfo(null);
-        parent.replaceChild(insertPoint, assign);
+        insertPoint.replaceWith(assign);
         compiler.reportChangeToEnclosingScope(assign);
       }
     }
@@ -771,7 +660,7 @@ class Normalize implements CompilerPass {
       if (after == null) {
         parent.addChildToFront(newChild);
       } else {
-        parent.addChildAfter(newChild, after);
+        newChild.insertAfter(after);
       }
       return newChild;
     }
@@ -781,11 +670,11 @@ class Normalize implements CompilerPass {
    * Remove duplicate VAR declarations.
    */
   private void removeDuplicateDeclarations(Node externs, Node root) {
-    Callback tickler = new ScopeTicklingCallback();
-    ScopeCreator scopeCreator =
-        new SyntacticScopeCreator(compiler, new DuplicateDeclarationHandler());
-    NodeTraversal t = new NodeTraversal(compiler, tickler, scopeCreator);
-    t.traverseRoots(externs, root);
+    NodeTraversal.builder()
+        .setCompiler(compiler)
+        .setCallback(new ScopeTicklingCallback())
+        .setScopeCreator(new SyntacticScopeCreator(compiler, new DuplicateDeclarationHandler()))
+        .traverseRoots(externs, root);
   }
 
   /** ScopeCreator duplicate declaration handler. */
@@ -818,7 +707,7 @@ class Normalize implements CompilerPass {
       if (parent.isFunction()) {
         if (v.getParentNode().isVar()) {
           s.undeclare(v);
-          s.declare(name, n, v.input);
+          s.declare(name, n, v.getInput());
           replaceVarWithAssignment(v.getNameNode(), v.getParentNode(),
               v.getParentNode().getParent());
         }
@@ -848,26 +737,26 @@ class Normalize implements CompilerPass {
     private void replaceVarWithAssignment(Node n, Node parent, Node grandparent) {
       if (n.hasChildren()) {
         // The  *  is being initialize, preserve the new value.
-        parent.removeChild(n);
+        n.detach();
         // Convert "var name = value" to "name = value"
         Node value = n.getFirstChild();
-        n.removeChild(value);
+        value.detach();
         Node replacement = IR.assign(n, value);
         replacement.setJSDocInfo(parent.getJSDocInfo());
-        replacement.useSourceInfoIfMissingFrom(parent);
+        replacement.srcrefIfMissing(parent);
         Node statement = NodeUtil.newExpr(replacement);
-        grandparent.replaceChild(parent, statement);
+        parent.replaceWith(statement);
         reportCodeChange("Duplicate VAR declaration", statement);
       } else {
         // It is an empty reference remove it.
         if (NodeUtil.isStatementBlock(grandparent)) {
-          grandparent.removeChild(parent);
+          parent.detach();
         } else if (grandparent.isForIn() || grandparent.isForOf()) {
           // This is the "for (var a in b)..." case.  We don't need to worry
           // about initializers in "for (var a;;)..." as those are moved out
           // as part of the other normalizations.
-          parent.removeChild(n);
-          grandparent.replaceChild(parent, n);
+          n.detach();
+          parent.replaceWith(n);
         } else {
           // We should never get here. LABELs with a single VAR statement should
           // already have been normalized to have a BLOCK.

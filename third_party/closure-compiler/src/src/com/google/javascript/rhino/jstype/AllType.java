@@ -39,18 +39,21 @@
 
 package com.google.javascript.rhino.jstype;
 
-import static com.google.javascript.rhino.jstype.TernaryValue.UNKNOWN;
-
+import com.google.javascript.jscomp.base.Tri;
 import com.google.javascript.rhino.ErrorReporter;
 
 /**
  * All type, representing all values.
  */
 public final class AllType extends JSType {
-  private static final long serialVersionUID = 1L;
-
   AllType(JSTypeRegistry registry) {
     super(registry);
+    this.eagerlyResolveToSelf();
+  }
+
+  @Override
+  JSTypeClass getTypeClass() {
+    return JSTypeClass.ALL;
   }
 
   @Override
@@ -71,13 +74,13 @@ public final class AllType extends JSType {
   }
 
   @Override
-  public TernaryValue testForEquality(JSType that) {
-    return UNKNOWN;
+  public Tri testForEquality(JSType that) {
+    return Tri.UNKNOWN;
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    return sb.append("*");
+  void appendTo(TypeStringBuilder sb) {
+    sb.append("*");
   }
 
   @Override
@@ -105,8 +108,8 @@ public final class AllType extends JSType {
   }
 
   @Override
-  JSType resolveInternal(ErrorReporter reporter) {
-    return this;
+  final JSType resolveInternal(ErrorReporter reporter) {
+    throw new AssertionError();
   }
 
   @Override

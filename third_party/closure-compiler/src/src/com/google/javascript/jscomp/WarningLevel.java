@@ -55,7 +55,6 @@ public enum WarningLevel {
     // Allow passes that aren't going to report anything to be skipped.
 
     options.setWarningLevel(DiagnosticGroups.MISSING_PROVIDE, CheckLevel.OFF);
-    options.setCheckMissingGetCssNameLevel(CheckLevel.OFF);
     options.setCheckTypes(false);
     options.setWarningLevel(DiagnosticGroups.CHECK_TYPES, CheckLevel.OFF);
     options.setWarningLevel(DiagnosticGroups.CHECK_USELESS_CODE, CheckLevel.OFF);
@@ -65,7 +64,7 @@ public enum WarningLevel {
     options.setWarningLevel(DiagnosticGroups.CONSTANT_PROPERTY, CheckLevel.OFF);
     options.setCheckGlobalNamesLevel(CheckLevel.OFF);
     options.setCheckSuspiciousCode(false);
-    options.setCheckGlobalThisLevel(CheckLevel.OFF);
+    options.setWarningLevel(DiagnosticGroups.GLOBAL_THIS, CheckLevel.OFF);
     options.setWarningLevel(DiagnosticGroups.GLOBAL_THIS, CheckLevel.OFF);
     options.setWarningLevel(DiagnosticGroups.ES5_STRICT, CheckLevel.OFF);
 
@@ -95,7 +94,7 @@ public enum WarningLevel {
 
     // checkSuspiciousCode needs to be enabled for CheckGlobalThis to get run.
     options.setCheckSuspiciousCode(true);
-    options.setCheckGlobalThisLevel(CheckLevel.WARNING);
+    options.setWarningLevel(DiagnosticGroups.GLOBAL_THIS, CheckLevel.WARNING);
     options.setCheckSymbols(true);
 
     // checkTypes has the side-effect of asserting that the
@@ -124,8 +123,5 @@ public enum WarningLevel {
     // Kindly tell the user that they have JsDocs that we don't understand.
     options.setWarningLevel(DiagnosticGroups.NON_STANDARD_JSDOC,
         CheckLevel.WARNING);
-
-    // Transitional.
-    options.enforceAccessControlCodingConventions = true;
   }
 }

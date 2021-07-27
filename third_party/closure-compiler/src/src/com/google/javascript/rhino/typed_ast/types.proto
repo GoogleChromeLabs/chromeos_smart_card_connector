@@ -1,0 +1,122 @@
+syntax = "proto3";
+
+package jscomp;
+
+option java_package = "com.google.javascript.jscomp.serialization";
+option java_multiple_files = true;
+
+// All of these proto definitions are in flux.  Please don't depend on them.
+
+message TypePool {
+  repeated TypeProto type = 1;
+  // edges used for Closure Compiler property disambiguation/ambiguation
+  repeated SubtypingEdge disambiguation_edges = 2;
+  // Human-readable representation of where this TypePool comes from.
+  string source_name = 3;
+}
+
+// References a serialized type. Typically, any reference to a type that needs
+// to be serialized should use a TypePointer instead of a Type directly to avoid
+// the overhead of serializing a type.
+message TypePointer {
+  // required
+  // Points to either a user-defined type in a known type pool or a NativeType.
+  // If the offset is < # NativeTypes, points to the corresponding NativeType,
+  // otherwise to the type pool subtract # Native Types
+  int32 pool_offset = 1;
+}
+
+message SubtypingEdge {
+  TypePointer subtype = 1;
+  TypePointer supertype = 2;
+}
+
+message UnionTypeProto {
+  repeated TypePointer union_member = 1;
+}
+
+message ObjectTypeProto {
+  // TODO(lharker): consider storing the bool fields as a bitmask
+
+  // If true, type-based property optimizations will back off optimizations on
+  // properties related to this type.
+  bool is_invalidating = 2;
+  bytes uuid = 3;
+  // If true, type-based property optimizations will treat this type as if it
+  // were an extern and never rename its properties. Unlike "is_invalidating"
+  // types, optimizations may still rename other references to properties
+  // appearing on this type and will not completely back off optimizations.
+  bool properties_keep_original_name = 4;
+
+  // The instance types of a constructor
+  repeated TypePointer instance_type = 5;
+  // If this is a constructor, its .prototype field (not the implicit prototype)
+  repeated TypePointer prototype = 6;
+  // Whether this was declared as either a class constructor or Closure ES5-
+  // style constructor.
+  bool marked_constructor = 7;
+  // Property names declared on this object. Used for property disambiguation.
+  // Represented as offsets into a StringPool
+  repeated int32 own_property = 8;
+
+  // Identifies assertion functions with special type-system handling that
+  // should be removed when --remove_closure_asserts is enabled.
+  // TODO(b/180648361): remove this option
+  bool closure_assert = 9;
+
+  // Optional, doesn't contribute to type equality
+  DebugInfo debug_info = 15;
+  message DebugInfo {
+    string class_name = 1;
+    string filename = 2;
+  }
+}
+
+message TypeProto {
+  oneof kind {
+    ObjectTypeProto object = 2;
+    UnionTypeProto union = 4;
+  }
+}
+
+/*
+ * Types that exist a priori in the type system and have no TypeProto
+ * representation.
+ *
+ * This set includes the JS primitives (string, number) and the type-system
+ * primitives UNKNOWN_TYPE and TOP_OBJECT_TYPE.
+ *
+ * To reference a NativeType in a TypePointer, create a TypePointer whose pool
+ * offset equals the numeric value of the NativeType.
+ *
+ * IMPORTANT: to simplify the NativeType => TypePointer mapping, the compiler
+ * requires that the numeric values of this enum are sequential. Do not skip
+ * numbers. This is also checked inside jscomp.serialization.JSTypeSerializer.
+ */
+enum PrimitiveType {
+  // Type-system only type: The Closure '*' and '?', or TS 'any' and 'unknown'
+  // or the bottom type. (For the purposes of optimization, all these types may
+  // be treated identically)
+  UNKNOWN_TYPE = 0;
+
+  // JS primitive types
+  BOOLEAN_TYPE = 1;
+  STRING_TYPE = 2;
+  NUMBER_TYPE = 3;
+  // Optimizations treat null and void identically
+  NULL_OR_VOID_TYPE = 4;
+  SYMBOL_TYPE = 5;
+  BIGINT_TYPE = 6;
+
+  // Top object type (supertype of all objects and invalidating). Corresponds to
+  // the TS "{}" type. This is omitted from the NativeObjectType proto since
+  // while it is technically an "object type", it is also a type-system
+  // primitive and does not appear in the list of type protos.
+  TOP_OBJECT = 7;
+}
+
+// Used for testing only and possibly only temporary. Wraps type pools from
+// different compliations into a single message.
+message TypePoolList {
+  repeated TypePool type_pool = 1;
+}

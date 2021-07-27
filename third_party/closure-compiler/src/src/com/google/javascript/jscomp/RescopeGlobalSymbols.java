@@ -28,27 +28,29 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Finds all references to global symbols and rewrites them to be property
- * accesses to a special object with the same name as the global symbol.
+ * Finds all references to global symbols and rewrites them to be property accesses to a special
+ * object with the same name as the global symbol.
  *
- * Given the name of the global object is NS
+ * <p>Given the name of the global object is NS
+ *
  * <pre> var a = 1; function b() { return a }</pre>
+ *
  * becomes
+ *
  * <pre> NS.a = 1; NS.b = function b() { return NS.a }</pre>
  *
- * This allows splitting code into modules that depend on each other's
- * global symbols, without using polluting JavaScript's global scope with those
- * symbols. You typically define just a single global symbol, wrap each module
- * in a function wrapper, and pass the global symbol around, eg,
+ * This allows splitting code into modules that depend on each other's global symbols, without using
+ * polluting JavaScript's global scope with those symbols. You typically define just a single global
+ * symbol, wrap each module in a function wrapper, and pass the global symbol around, eg,
+ *
  * <pre> var uniqueNs = uniqueNs || {}; </pre>
+ *
  * <pre> (function (NS) { ...your module code here... })(uniqueNs); </pre>
  *
- *
- * <p>This compile step requires moveFunctionDeclarations to be turned on
- * to guarantee semantics.
+ * <p>This compile step requires rewriteGlobalDeclarationsForTryCatchWrapping to be turned on to
+ * guarantee semantics.
  *
  * <p>For lots of examples, see the unit test.
- *
  */
 final class RescopeGlobalSymbols implements CompilerPass {
 
@@ -113,7 +115,9 @@ final class RescopeGlobalSymbols implements CompilerPass {
       return false;
     }
     Var v = t.getScope().getVar(varname);
-    return v == null || v.isExtern() || (v.scope.isGlobal() && this.externNames.contains(varname));
+    return v == null
+        || v.isExtern()
+        || (v.getScope().isGlobal() && this.externNames.contains(varname));
   }
 
   private void addExternForGlobalSymbolNamespace() {
@@ -202,7 +206,7 @@ final class RescopeGlobalSymbols implements CompilerPass {
         if (prev == null) {
           parent.addChildToFront(var);
         } else {
-          parent.addChildAfter(var, prev);
+          var.insertAfter(prev);
         }
         compiler.reportChangeToEnclosingScope(parent);
       }
@@ -235,8 +239,8 @@ final class RescopeGlobalSymbols implements CompilerPass {
         }
         // Compare the module where the variable is declared to the current
         // module. If they are different, the variable is used across modules.
-        JSModule module = input.getModule();
-        if (module != t.getModule()) {
+        JSChunk module = input.getChunk();
+        if (module != t.getChunk()) {
           crossModuleNames.add(name);
         }
       }
@@ -285,9 +289,7 @@ final class RescopeGlobalSymbols implements CompilerPass {
         // a function referencing this is being assigned. Otherwise we
         // check whether the function assigned is a) an arrow function, which has a
         // lexically-scoped this, or b) a non-arrow function that does not reference this.
-        if (value == null
-            || !value.isFunction()
-            || (!value.isArrowFunction() && NodeUtil.referencesThis(value))) {
+        if (value == null || !value.isFunction() || NodeUtil.referencesOwnReceiver(value)) {
           maybeReferencesThis.add(name);
         }
       }
@@ -400,7 +402,8 @@ final class RescopeGlobalSymbols implements CompilerPass {
       //    ASSIGN
       //      NAME foo
       //      NUMBER 3
-      for (Node child : declaration.children()) {
+      for (Node child = declaration.getFirstChild(); child != null; ) {
+        final Node next = child.getNext();
         if (child.isName() && child.hasChildren()) {
           Node assign = IR.assign(child.cloneNode(), child.removeFirstChild());
           child.replaceWith(assign);
@@ -419,6 +422,7 @@ final class RescopeGlobalSymbols implements CompilerPass {
             assign.setJSDocInfo(declaration.getJSDocInfo());
           }
         }
+        child = next;
       }
       compiler.reportChangeToEnclosingScope(declaration);
     }
@@ -453,10 +457,10 @@ final class RescopeGlobalSymbols implements CompilerPass {
     /** Replaces a global cross-module name with an access on the global namespace symbol */
     private void replaceSymbol(Node node, String name) {
       Node parent = node.getParent();
-      Node replacement = IR.getprop(IR.name(globalSymbolNamespace), IR.string(name));
-      replacement.useSourceInfoFromForTree(node);
+      Node replacement = IR.getprop(IR.name(globalSymbolNamespace), name);
+      replacement.srcrefTree(node);
 
-      parent.replaceChild(node, replacement);
+      node.replaceWith(replacement);
       compiler.reportChangeToEnclosingScope(replacement);
       if (parent.isCall() && !maybeReferencesThis.contains(name)) {
         // Do not write calls like this: (0, _a)() but rather as _.a(). The
@@ -473,8 +477,7 @@ final class RescopeGlobalSymbols implements CompilerPass {
      */
     void declareModuleGlobals() {
       for (ModuleGlobal global : preDeclarations) {
-        if (global.root.getFirstChild() != null
-            && global.root.getFirstChild().isVar()) {
+        if (global.root.hasChildren() && global.root.getFirstChild().isVar()) {
           global.root.getFirstChild().addChildToBack(global.name);
         } else {
           global.root.addChildToFront(IR.var(global.name).srcref(global.name));
@@ -534,7 +537,7 @@ final class RescopeGlobalSymbols implements CompilerPass {
       // because the previous traversal in RewriteScopeCallback creates
       // them.
       boolean allNameOrDestructuring = true;
-      for (Node c : n.children()) {
+      for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
         if (!c.isName() && !c.isDestructuringLhs()) {
           allNameOrDestructuring = false;
         }
@@ -555,15 +558,15 @@ final class RescopeGlobalSymbols implements CompilerPass {
           // Var statement outside of for-loop.
           Node expr = IR.exprResult(c.cloneTree()).srcref(c);
           NodeUtil.markNewScopesChanged(expr, compiler);
-          parent.addChildBefore(expr, n);
+          expr.insertBefore(n);
         }
       }
       if (!commas.isEmpty()) {
         Node comma = joinOnComma(commas, n);
-        parent.addChildBefore(comma, n);
+        comma.insertBefore(n);
       }
       // Remove the var/const/let node.
-      parent.removeChild(n);
+      n.detach();
       NodeUtil.markFunctionsDeleted(n, compiler);
       compiler.reportChangeToEnclosingScope(parent);
     }
@@ -572,7 +575,7 @@ final class RescopeGlobalSymbols implements CompilerPass {
       Node comma = commas.get(0);
       for (int i = 1; i < commas.size(); i++) {
         Node nextComma = IR.comma(comma, commas.get(i));
-        nextComma.useSourceInfoIfMissingFrom(source);
+        nextComma.srcrefIfMissing(source);
         comma = nextComma;
       }
       return comma;

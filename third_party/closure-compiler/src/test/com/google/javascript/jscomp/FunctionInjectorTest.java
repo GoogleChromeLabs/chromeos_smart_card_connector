@@ -16,6 +16,7 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.CompilerTestCase.lines;
@@ -30,9 +31,7 @@ import com.google.javascript.jscomp.FunctionInjector.InliningMode;
 import com.google.javascript.jscomp.FunctionInjector.Reference;
 import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.rhino.Node;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -42,7 +41,6 @@ import org.junit.runners.JUnit4;
 /**
  * Inline function tests.
  *
- * @author johnlenz@google.com (John Lenz)
  */
 @RunWith(JUnit4.class)
 public final class FunctionInjectorTest {
@@ -51,13 +49,11 @@ public final class FunctionInjectorTest {
   private boolean assumeStrictThis = false;
   private final boolean assumeMinimumCapture = false;
   private boolean allowDecomposition;
-  private boolean allowMethodCallDecomposition;
 
   @Before
   public void setUp() throws Exception {
     assumeStrictThis = false;
     allowDecomposition = false;
-    allowMethodCallDecomposition = false;
   }
 
   @Test
@@ -559,19 +555,6 @@ public final class FunctionInjectorTest {
     helperCanInlineReferenceToFunction(
         CanInlineResult.AFTER_PREPARATION,
         "function foo(a){return true;}; function x() { if (foo(1)) throw 'test'; }",
-        "foo",
-        INLINE_BLOCK);
-  }
-
-  @Test
-  public void cannotInlineReferenceToFunctionInMethodCall() {
-    // Call within a method call that must be decomposed in order to inline.
-    // Ensure that inlining will not happen if method call decomposition is disabled.
-    allowDecomposition = true;
-    allowMethodCallDecomposition = false;
-    helperCanInlineReferenceToFunction(
-        CanInlineResult.NO,
-        "function foo(a){return true;}; function x() { if (obj.method(foo(1))) throw 'test'; }",
         "foo",
         INLINE_BLOCK);
   }
@@ -1872,7 +1855,6 @@ public final class FunctionInjectorTest {
     final FunctionInjector injector =
         new FunctionInjector.Builder(compiler)
             .allowDecomposition(allowDecomposition)
-            .allowMethodCallDecomposing(allowMethodCallDecomposition)
             .assumeStrictThis(assumeStrictThis)
             .assumeMinimumCapture(assumeMinimumCapture)
             .functionArgumentInjector(functionArgumentInjector)
@@ -1888,14 +1870,15 @@ public final class FunctionInjectorTest {
         new Method() {
           @Override
           public boolean call(NodeTraversal t, Node n, Node parent) {
-            Reference ref = new Reference(n, t.getScope(), t.getModule(), mode);
+            Reference ref = new Reference(n, t.getScope(), t.getChunk(), mode);
+            Node fnBody = NodeUtil.getFunctionBody(fnNode);
             CanInlineResult result =
                 injector.canInlineReferenceToFunction(
                     ref,
                     fnNode,
                     unsafe,
-                    NodeUtil.referencesThis(fnNode),
-                    NodeUtil.containsFunction(NodeUtil.getFunctionBody(fnNode)));
+                    NodeUtil.referencesOwnReceiver(fnNode),
+                    NodeUtil.has(fnBody, Node::isFunction, alwaysTrue()));
             assertThat(result).isEqualTo(expectedResult);
             return true;
           }
@@ -1935,7 +1918,6 @@ public final class FunctionInjectorTest {
     final FunctionInjector injector =
         new FunctionInjector.Builder(compiler)
             .allowDecomposition(allowDecomposition)
-            .allowMethodCallDecomposing(allowMethodCallDecomposition)
             .assumeStrictThis(assumeStrictThis)
             .assumeMinimumCapture(assumeMinimumCapture)
             .functionArgumentInjector(functionArgumentInjector)
@@ -1951,6 +1933,7 @@ public final class FunctionInjectorTest {
 
     Node mainRoot = tree;
     new Normalize(compiler, false).process(externsRoot, mainRoot);
+    GatherGetterAndSetterProperties.update(compiler, externsRoot, mainRoot);
     new PureFunctionIdentifier.Driver(compiler).process(externsRoot, mainRoot);
 
     Normalize normalize = new Normalize(compiler, false);
@@ -1968,14 +1951,15 @@ public final class FunctionInjectorTest {
         new Method() {
           @Override
           public boolean call(NodeTraversal t, Node n, Node parent) {
-            Reference ref = new Reference(n, t.getScope(), t.getModule(), mode);
+            Reference ref = new Reference(n, t.getScope(), t.getChunk(), mode);
+            Node fnBody = NodeUtil.getFunctionBody(fnNode);
             CanInlineResult canInline =
                 injector.canInlineReferenceToFunction(
                     ref,
                     fnNode,
                     unsafe,
-                    NodeUtil.referencesThis(fnNode),
-                    NodeUtil.containsFunction(NodeUtil.getFunctionBody(fnNode)));
+                    NodeUtil.referencesOwnReceiver(fnNode),
+                    NodeUtil.has(fnBody, Node::isFunction, alwaysTrue()));
             assertWithMessage("canInlineReferenceToFunction should not be CAN_NOT_INLINE")
                 .that(canInline)
                 .isNotEqualTo(CanInlineResult.NO);
@@ -1985,8 +1969,6 @@ public final class FunctionInjectorTest {
                   .that(CanInlineResult.AFTER_PREPARATION)
                   .isSameInstanceAs(canInline);
 
-              Set<String> knownConstants = new HashSet<>();
-              injector.setKnownConstants(knownConstants);
               injector.maybePrepareCall(ref);
 
               assertWithMessage("canInlineReferenceToFunction should be CAN_INLINE")
@@ -2024,7 +2006,6 @@ public final class FunctionInjectorTest {
     final FunctionInjector injector =
         new FunctionInjector.Builder(compiler)
             .allowDecomposition(allowDecomposition)
-            .allowMethodCallDecomposing(allowMethodCallDecomposition)
             .assumeStrictThis(assumeStrictThis)
             .assumeMinimumCapture(assumeMinimumCapture)
             .build();
@@ -2059,7 +2040,7 @@ public final class FunctionInjectorTest {
     public void visit(NodeTraversal t, Node n, Node parent) {
       if (n.isCall()) {
         Node callee;
-        if (NodeUtil.isGet(n.getFirstChild())) {
+        if (NodeUtil.isNormalGet(n.getFirstChild())) {
           callee = n.getFirstFirstChild();
         } else {
           callee = n.getFirstChild();
@@ -2083,7 +2064,7 @@ public final class FunctionInjectorTest {
       }
     }
 
-    for (Node c : n.children()) {
+    for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
       Node result = findFunction(c, name);
       if (result != null) {
         return result;

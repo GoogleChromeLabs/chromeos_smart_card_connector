@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -30,10 +31,7 @@ goog.scope(function() {
 const ABOUT_WINDOW_URL = 'about-window.html';
 const ABOUT_WINDOW_OPTIONS = {
   'id': 'about-window',
-  'innerBounds': {
-    'width': 700,
-    'height': 500
-  }
+  'innerBounds': {'width': 700, 'height': 500}
 };
 
 const GSC = GoogleSmartCard;
@@ -55,5 +53,4 @@ GSC.ConnectorApp.Window.AboutShowing.initialize = function() {
   goog.events.listen(
       openAboutElement, goog.events.EventType.CLICK, openAboutClickListener);
 };
-
 });  // goog.scope

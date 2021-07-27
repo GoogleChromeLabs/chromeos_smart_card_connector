@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -105,11 +106,12 @@ NaclModuleMessageChannel.prototype.messageEventListener_ = function(message) {
     GSC.Logging.failWithLogger(
         this.logger_,
         'Failed to parse message received from NaCl module: ' +
-        GSC.DebugDump.debugDump(messageData));
+            GSC.DebugDump.debugDump(messageData));
   }
 
-  this.logger_.finest('Received a message from NaCl module: ' +
-                      GSC.DebugDump.debugDump(messageData));
+  this.logger_.finest(
+      'Received a message from NaCl module: ' +
+      GSC.DebugDump.debugDump(messageData));
   this.deliver(typedMessage.type, typedMessage.data);
 };
 
@@ -119,7 +121,6 @@ NaclModuleMessageChannel.prototype.defaultServiceCallback_ = function(
   GSC.Logging.failWithLogger(
       this.logger_,
       'Unhandled message received from NaCl module: serviceName="' +
-      serviceName + '", payload=' + GSC.DebugDump.debugDump(payload));
+          serviceName + '", payload=' + GSC.DebugDump.debugDump(payload));
 };
-
 });  // goog.scope

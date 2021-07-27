@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,7 +28,6 @@ public final class CheckSideEffectsTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2017);
     enableParseTypeInfo();
     allowExternsChanges();
   }
@@ -143,6 +141,12 @@ public final class CheckSideEffectsTest extends CompilerTestCase {
     testWarning("var f = s => {key:s}", e);
     testWarning("var f = s => {key:s + 1}", e);
     testWarning("var f = s => {s}", e);
+  }
+
+  // just here to make sure import.meta doesn't break anything
+  @Test
+  public void testImportMeta() {
+    testSame("var x = import.meta");
   }
 
   @Test

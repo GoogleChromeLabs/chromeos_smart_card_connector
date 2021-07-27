@@ -17,6 +17,7 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 
 import com.google.javascript.jscomp.type.FlowScope;
 import com.google.javascript.rhino.HamtPMap;
@@ -152,7 +153,7 @@ class LinkedFlowScope implements FlowScope {
         if (declaredType == null
             || !inferredType.isSubtypeOf(declaredType)
             || declaredType.isSubtypeOf(inferredType)
-            || inferredType.isEquivalentTo(declaredType)) {
+            || inferredType.equals(declaredType)) {
           return this;
         }
       } else if (declaredType != null && !inferredType.isSubtypeOf(declaredType)) {
@@ -342,14 +343,13 @@ class LinkedFlowScope implements FlowScope {
     throw new UnsupportedOperationException();
   }
 
-  @SuppressWarnings("ReferenceEquality") // JSType comparisons are expensive, so just use identity.
   private static PMap<TypedScope, OverlayScope> join(
       LinkedFlowScope linkedA, LinkedFlowScope linkedB, TypedScope commonParent) {
     return linkedA
         .trimScopes(commonParent)
         .reconcile(
             linkedB.trimScopes(commonParent),
-            (scopeA, scopeB) -> {
+            (scopeKey, scopeA, scopeB) -> {
               PMap<String, OverlaySlot> slotsA = scopeA != null ? scopeA.slots : EMPTY_SLOTS;
               PMap<String, OverlaySlot> slotsB = scopeB != null ? scopeB.slots : EMPTY_SLOTS;
               // TODO(sdh): Simplify this logic: we want the best non-bottom scope we can get,
@@ -366,7 +366,7 @@ class LinkedFlowScope implements FlowScope {
                   bestScope,
                   slotsA.reconcile(
                       slotsB,
-                      (slotA, slotB) -> {
+                      (slotKey, slotA, slotB) -> {
                         // There are 5 different join cases:
                         // 1) The type is present in joinedScopeA, not in joinedScopeB,
                         //    and not in functionScope. Just use the one in A.
@@ -382,38 +382,38 @@ class LinkedFlowScope implements FlowScope {
                         if (slotB == null || slotB.getType() == null) {
                           TypedVar fnSlot = typedScopeB != null ? typedScopeB.getSlot(name) : null;
                           JSType fnSlotType = fnSlot != null ? fnSlot.getType() : null;
-                          if (fnSlotType != null && fnSlotType != slotA.getType()) {
-                            // Case #3
-                            JSType joinedType = slotA.getType().getLeastSupertype(fnSlotType);
-                            return joinedType != slotA.getType()
-                                ? new OverlaySlot(name, joinedType)
-                                : slotA;
-                          } else {
+                          if (fnSlotType == null || identical(fnSlotType, slotA.getType())) {
                             // Case #1
                             return slotA;
+                          } else {
+                            // Case #3
+                            JSType joinedType = slotA.getType().getLeastSupertype(fnSlotType);
+                            return identical(joinedType, slotA.getType())
+                                ? slotA
+                                : new OverlaySlot(name, joinedType);
                           }
                         } else if (slotA == null || slotA.getType() == null) {
                           TypedVar fnSlot = typedScopeA != null ? typedScopeA.getSlot(name) : null;
                           JSType fnSlotType = fnSlot != null ? fnSlot.getType() : null;
-                          if (fnSlotType != null && fnSlotType != slotB.getType()) {
-                            // Case #4
-                            JSType joinedType = slotB.getType().getLeastSupertype(fnSlotType);
-                            return joinedType != slotB.getType()
-                                ? new OverlaySlot(name, joinedType)
-                                : slotB;
-                          } else {
+                          if (fnSlotType == null || identical(fnSlotType, slotB.getType())) {
                             // Case #2
                             return slotB;
+                          } else {
+                            // Case #4
+                            JSType joinedType = slotB.getType().getLeastSupertype(fnSlotType);
+                            return identical(joinedType, slotB.getType())
+                                ? slotB
+                                : new OverlaySlot(name, joinedType);
                           }
                         }
                         // Case #5
-                        if (slotA.getType() == slotB.getType()) {
+                        if (identical(slotA.getType(), slotB.getType())) {
                           return slotA;
                         }
                         JSType joinedType = slotA.getType().getLeastSupertype(slotB.getType());
-                        return joinedType != slotA.getType()
-                            ? new OverlaySlot(name, joinedType)
-                            : slotA;
+                        return identical(joinedType, slotA.getType())
+                            ? slotA
+                            : new OverlaySlot(name, joinedType);
                       }));
             });
   }
@@ -432,11 +432,10 @@ class LinkedFlowScope implements FlowScope {
       this.slots = slots;
     }
 
-    @SuppressWarnings("ReferenceEquality") // JSType#equals is expensive, so use identity.
     OverlayScope infer(String name, JSType type) {
       // TODO(sdh): variants that do or don't clobber properties (i.e. look up and modify instead)
       OverlaySlot slot = slots.get(name);
-      if (slot != null && type == slot.type) {
+      if (slot != null && identical(type, slot.type)) {
         return this;
       }
       return new OverlayScope(scope, slots.plus(name, new OverlaySlot(name, type)));

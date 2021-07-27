@@ -62,7 +62,8 @@ public class CheckNullabilityModifiers extends AbstractPostOrderCallback impleme
 
   /** The set of primitive type names. Note that `void` is a synonym for `undefined`. */
   private static final ImmutableSet<String> PRIMITIVE_TYPE_NAMES =
-      ImmutableSet.of("boolean", "number", "string", "symbol", "undefined", "void", "null");
+      ImmutableSet.of(
+          "boolean", "number", "bigint", "string", "symbol", "undefined", "void", "null");
 
   private final AbstractCompiler compiler;
 
@@ -169,7 +170,7 @@ public class CheckNullabilityModifiers extends AbstractPostOrderCallback impleme
     // but it makes this check possible in the absence of type information. If the style guide ever
     // mandates template types (and nothing else) to be all-caps, we can use that assumption to make
     // this check more precise.
-    return !n.isString() || !templateTypeNames.contains(n.getString());
+    return !n.isStringLit() || !templateTypeNames.contains(n.getString());
   }
 
   private void visitTypeExpression(JSTypeExpression expr, boolean hasArtificialTopLevelBang) {
@@ -214,11 +215,11 @@ public class CheckNullabilityModifiers extends AbstractPostOrderCallback impleme
   }
 
   private static boolean isPrimitiveType(Node node) {
-    return node.isString() && PRIMITIVE_TYPE_NAMES.contains(node.getString());
+    return node.isStringLit() && PRIMITIVE_TYPE_NAMES.contains(node.getString());
   }
 
   private static boolean isReferenceType(Node node) {
-    return node.isString() && !PRIMITIVE_TYPE_NAMES.contains(node.getString());
+    return node.isStringLit() && !PRIMITIVE_TYPE_NAMES.contains(node.getString());
   }
 
   private static boolean isFunctionLiteral(Node node) {

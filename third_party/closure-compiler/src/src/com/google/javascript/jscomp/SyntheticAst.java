@@ -28,7 +28,6 @@ import com.google.javascript.rhino.StaticSourceFile.SourceKind;
  * An AST generated totally by the compiler.
  */
 public final class SyntheticAst implements SourceAst {
-  private static final long serialVersionUID = 1L;
 
   private final InputId inputId;
   private final SourceFile sourceFile;
@@ -36,19 +35,31 @@ public final class SyntheticAst implements SourceAst {
   private Node root;
 
   @VisibleForTesting
-  public static SyntheticAst emptyWithFileName(String sourceName) {
-    return new SyntheticAst(sourceName);
+  public static SyntheticAst emptyWithFileName(String sourceName, SourceKind kind) {
+    return new SyntheticAst(sourceName, kind);
   }
 
   SyntheticAst(String sourceName) {
-    this.inputId = new InputId(sourceName);
-    this.sourceFile = new SourceFile(sourceName, SourceKind.STRONG);
+    this(sourceName, SourceKind.STRONG);
+  }
+
+  SyntheticAst(InputId inputId) {
+    this(inputId, SourceKind.STRONG);
+  }
+
+  SyntheticAst(String sourceName, SourceKind kind) {
+    this(new InputId(sourceName), kind);
+  }
+
+  SyntheticAst(InputId inputId, SourceKind kind) {
+    this.inputId = inputId;
+    this.sourceFile = SourceFile.fromCode(inputId.getIdName(), "", kind);
     clearAst();
   }
 
   public SyntheticAst(Node root) {
     this.inputId = new InputId(root.getSourceFileName());
-    this.sourceFile = new SourceFile(root.getSourceFileName(), SourceKind.STRONG);
+    this.sourceFile = SourceFile.fromCode(root.getSourceFileName(), "", SourceKind.STRONG);
     this.root = checkNotNull(root);
   }
 
@@ -72,11 +83,5 @@ public final class SyntheticAst implements SourceAst {
   @Override
   public SourceFile getSourceFile() {
     return sourceFile;
-  }
-
-  @Override
-  public void setSourceFile(SourceFile file) {
-    throw new IllegalStateException(
-        "Cannot set a source file for a synthetic AST");
   }
 }

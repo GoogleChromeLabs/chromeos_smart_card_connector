@@ -120,11 +120,11 @@ final class ClosureCodeRemoval implements CompilerPass {
       Node last = parent;
       for (Node ancestor : assignAncestors) {
         if (ancestor.isExprResult()) {
-          lastAncestor.removeChild(ancestor);
+          ancestor.detach();
           NodeUtil.markFunctionsDeleted(ancestor, compiler);
         } else {
           rhs.detach();
-          ancestor.replaceChild(last, rhs);
+          last.replaceWith(rhs);
         }
         last = ancestor;
       }
@@ -151,7 +151,8 @@ final class ClosureCodeRemoval implements CompilerPass {
               new RemovableAssignment(n.getFirstChild(), n, t));
         } else if (n.getJSDocInfo() != null
             && n.getJSDocInfo().isAbstract()
-            && !(n.getJSDocInfo().isConstructor() || valueNode.isClass())) {
+            && NodeUtil.isEmptyFunctionExpression(valueNode)
+            && !n.getJSDocInfo().isConstructor()) {
           // @abstract
           abstractMethodAssignmentNodes.add(
               new RemovableAssignment(n.getFirstChild(), n, t));
@@ -178,7 +179,14 @@ final class ClosureCodeRemoval implements CompilerPass {
 
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
-      if (n.isCall() && assertionNames.lookupByCallee(n.getFirstChild()) != null) {
+      if (!n.isCall()) {
+        return;
+      }
+
+      Node callee = n.getFirstChild();
+
+      if (assertionNames.lookupByCallee(callee) != null // type-based
+          || (callee.getColor() != null && callee.getColor().isClosureAssert())) { // color-based
         assertionCalls.add(n);
       }
     }
@@ -217,7 +225,7 @@ final class ClosureCodeRemoval implements CompilerPass {
     for (Node memberFunction : abstractMemberFunctionNodes) {
       compiler.reportFunctionDeleted(memberFunction.getFirstChild());
       Node parent = memberFunction.getParent();
-      parent.removeChild(memberFunction);
+      memberFunction.detach();
       compiler.reportChangeToEnclosingScope(parent);
     }
 
@@ -233,11 +241,11 @@ final class ClosureCodeRemoval implements CompilerPass {
         // which is the return value of the assertion.
         Node firstArg = call.getSecondChild();
         if (firstArg == null) {
-          parent.replaceChild(call, NodeUtil.newUndefinedNode(call));
+          call.replaceWith(NodeUtil.newUndefinedNode(call));
         } else {
           Node replacement = firstArg.detach();
-          replacement.setJSType(call.getJSType());
-          parent.replaceChild(call, replacement);
+          replacement.copyTypeFrom(call);
+          call.replaceWith(replacement);
         }
         NodeUtil.markFunctionsDeleted(call, compiler);
       }

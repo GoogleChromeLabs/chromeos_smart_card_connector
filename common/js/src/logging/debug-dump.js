@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -106,7 +107,7 @@ function dumpNumber(value) {
   const hexValue = value.toString(16).toUpperCase();
   const expectedHexLength = bitLength / 4;
   return '0x' + goog.string.repeat('0', expectedHexLength - hexValue.length) +
-         hexValue;
+      hexValue;
 }
 
 /**
@@ -260,5 +261,4 @@ GSC.DebugDump.debugDump = function(value) {
   else
     return '<stripped value>';
 };
-
 });  // goog.scope

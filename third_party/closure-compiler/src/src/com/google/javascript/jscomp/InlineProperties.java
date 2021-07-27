@@ -19,13 +19,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
+import com.google.javascript.jscomp.colors.Color;
+import com.google.javascript.jscomp.colors.ColorRegistry;
+import com.google.javascript.jscomp.colors.StandardColors;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.jstype.FunctionType;
-import com.google.javascript.rhino.jstype.JSType;
-import com.google.javascript.rhino.jstype.JSTypeNative;
-import com.google.javascript.rhino.jstype.ObjectType;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 
 /**
@@ -42,13 +42,15 @@ import java.util.Map;
 final class InlineProperties implements CompilerPass {
 
   private final AbstractCompiler compiler;
+  private final ColorRegistry registry;
 
   private static class PropertyInfo {
-    PropertyInfo(JSType type, Node value) {
-      this.type = type;
+    PropertyInfo(Color color, Node value) {
+      this.color = color;
       this.value = value;
     }
-    final JSType type;
+
+    final Color color;
     final Node value;
   }
 
@@ -56,20 +58,9 @@ final class InlineProperties implements CompilerPass {
 
   private final Map<String, PropertyInfo> props = new HashMap<>();
 
-  private final InvalidatingTypes invalidatingTypes;
-
   InlineProperties(AbstractCompiler compiler) {
     this.compiler = compiler;
-    this.invalidatingTypes = new InvalidatingTypes.Builder(compiler.getTypeRegistry())
-        // TODO(sdh): consider allowing inlining properties of global this
-        // (we already reserve extern'd names, so this should be safe).
-        .disallowGlobalThis()
-        .addTypesInvalidForPropertyRenaming()
-        // NOTE: Mismatches are less important to this pass than to (dis)ambiguate properties.
-        // This pass doesn't remove values (it only inlines them when the type is known), so
-        // it isn't necessary to invalidate due to implicit interface uses.
-        .addAllTypeMismatches(compiler.getTypeMismatches())
-        .build();
+    this.registry = compiler.getColorRegistry();
     invalidateExternProperties();
   }
 
@@ -81,12 +72,13 @@ final class InlineProperties implements CompilerPass {
   }
 
   /** This method gets the JSType from the Node argument and verifies that it is present. */
-  private JSType getJSType(Node n) {
-    JSType type = n.getJSType();
-    if (type == null) {
-      return compiler.getTypeRegistry().getNativeType(JSTypeNative.UNKNOWN_TYPE);
+  private Color getColor(Node n) {
+    Color color = n.getColor();
+
+    if (color == null) {
+      return StandardColors.UNKNOWN;
     } else {
-      return type;
+      return color;
     }
   }
 
@@ -106,7 +98,7 @@ final class InlineProperties implements CompilerPass {
       final String propName;
 
       if (n.isGetProp()) {
-        propName = n.getLastChild().getString();
+        propName = n.getString();
         if (parent.isAssign()) {
           invalidatingPropRef = !maybeRecordCandidateDefinition(t, n, parent);
         } else if (NodeUtil.isLValue(n)) {
@@ -147,7 +139,7 @@ final class InlineProperties implements CompilerPass {
     private boolean maybeRecordCandidateDefinition(NodeTraversal t, Node n, Node parent) {
       checkState(n.isGetProp() && parent.isAssign(), n);
       Node src = n.getFirstChild();
-      String propName = n.getLastChild().getString();
+      String propName = n.getString();
 
       Node value = parent.getLastChild();
       if (src.isThis()) {
@@ -155,36 +147,23 @@ final class InlineProperties implements CompilerPass {
         //    this.foo = 1;
         if (inConstructor(t)) {
           // This may be a valid assignment.
-          return maybeStoreCandidateValue(getJSType(src), propName, value);
+          return maybeStoreCandidateValue(getColor(src), propName, value);
         }
         return false;
-      } else if (t.inGlobalHoistScope()
-          && src.isGetProp()
-          && src.getLastChild().getString().equals("prototype")) {
+      } else if (t.inGlobalHoistScope() && src.isGetProp() && src.getString().equals("prototype")) {
         // This is a prototype assignment like:
         //    x.prototype.foo = 1;
-        JSType instanceType = maybeGetInstanceTypeFromPrototypeRef(src);
-        if (instanceType != null) {
-          return maybeStoreCandidateValue(instanceType, propName, value);
-        }
+        Color instanceType = getColor(src);
+        return maybeStoreCandidateValue(instanceType, propName, value);
       } else if (t.inGlobalHoistScope()) {
         // This is a static assignment like:
         //    x.foo = 1;
-        JSType targetType = getJSType(src);
+        Color targetType = getColor(src);
         if (targetType != null && targetType.isConstructor()) {
           return maybeStoreCandidateValue(targetType, propName, value);
         }
       }
       return false;
-    }
-
-    private JSType maybeGetInstanceTypeFromPrototypeRef(Node src) {
-      JSType ownerType = getJSType(src.getFirstChild());
-      if (ownerType.isConstructor()) {
-        FunctionType functionType = ownerType.toMaybeFunctionType();
-        return functionType.getInstanceType();
-      }
-      return null;
     }
 
     private void invalidateProperty(String propName) {
@@ -196,13 +175,13 @@ final class InlineProperties implements CompilerPass {
      * and is not already present in the map. If the property was already present, it is
      * invalidated. Returns true if the property was successfully added.
      */
-    private boolean maybeStoreCandidateValue(JSType type, String propName, Node value) {
+    private boolean maybeStoreCandidateValue(Color color, String propName, Node value) {
       checkNotNull(value);
       if (!props.containsKey(propName)
-          && !invalidatingTypes.isInvalidating(type)
+          && !color.isInvalidating()
           && NodeUtil.isImmutableValue(value)
           && NodeUtil.isExecutedExactlyOnce(value)) {
-        props.put(propName, new PropertyInfo(type, value));
+        props.put(propName, new PropertyInfo(color, value));
         return true;
       }
       return false;
@@ -232,49 +211,59 @@ final class InlineProperties implements CompilerPass {
     public void visit(NodeTraversal t, Node n, Node parent) {
       if (n.isGetProp() && !NodeUtil.isLValue(n)) {
         Node target = n.getFirstChild();
-        String propName = n.getLastChild().getString();
+        String propName = n.getString();
         PropertyInfo info = props.get(propName);
-        if (info != null
-            && info != INVALIDATED
-            && isMatchingType(target, info.type)) {
+        if (info != null && info != INVALIDATED && isMatchingType(target, info.color)) {
           Node replacement = info.value.cloneTree();
           if (compiler.getAstAnalyzer().mayHaveSideEffects(n.getFirstChild())) {
             replacement = IR.comma(n.removeFirstChild(), replacement).srcref(n);
           }
-          parent.replaceChild(n, replacement);
+          n.replaceWith(replacement);
           compiler.reportChangeToEnclosingScope(replacement);
         }
       }
     }
 
-    private boolean isMatchingType(Node n, JSType src) {
-      src = src.restrictByNotNullOrUndefined();
-      JSType dest = getJSType(n).restrictByNotNullOrUndefined();
-      if (invalidatingTypes.isInvalidating(dest)) {
+    private boolean isMatchingType(Node n, Color src) {
+      src = removeNullAndUndefinedIfUnion(src);
+      Color dest = removeNullAndUndefinedIfUnion(getColor(n));
+      if (dest.isInvalidating()) {
         return false;
       }
-      if (dest.isConstructor() || src.isConstructor()) {
-        // instead of using .isSubtypeOf for functions, check the prototype chain, since the
-        // FunctionType subtyping semantics is not what we want.
-        // This case is for ES6 class-side inheritance
-        return hasInPrototypeChain(dest.toMaybeFunctionType(), src.toMaybeFunctionType());
+      if (dest.isUnion() || src.isUnion()) {
+        return false;
       }
-      return dest.isSubtypeOf(src);
+      return hasInSupertypesList(dest, src);
     }
 
-    @SuppressWarnings("ReferenceEquality")
-    private boolean hasInPrototypeChain(FunctionType subCtor, FunctionType superCtor) {
-      if (subCtor == null || superCtor == null) {
-        return false;
-      }
-      ObjectType proto = subCtor;
-      while (proto != null) {
-        if (proto == superCtor) {
+    private boolean hasInSupertypesList(Color subCtor, Color superCtor) {
+      try {
+        if (!this.hasInSupertypesListSeenSet.add(subCtor)) {
+          return false;
+        }
+
+        if (subCtor == null || superCtor == null) {
+          return false;
+        }
+        if (subCtor.equals(superCtor)) {
           return true;
         }
-        proto = proto.getImplicitPrototype();
+
+        for (Color immediateSupertype : registry.getDisambiguationSupertypes(subCtor)) {
+          if (!immediateSupertype.isUnion() && hasInSupertypesList(immediateSupertype, superCtor)) {
+            return true;
+          }
+        }
+        return false;
+      } finally {
+        this.hasInSupertypesListSeenSet.remove(subCtor);
       }
-      return false;
     }
+
+    private final LinkedHashSet<Color> hasInSupertypesListSeenSet = new LinkedHashSet<>();
+  }
+
+  private static Color removeNullAndUndefinedIfUnion(Color original) {
+    return original.isUnion() ? original.subtractNullOrVoid() : original;
   }
 }

@@ -19,6 +19,7 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.base.JSCompDoubles.isExactInt32;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -116,7 +117,7 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
 
     // Attempt to replace the argument access and if the AST has been change,
     // report back to the compiler.
-    tryReplaceArguments(traversal.getScope());
+    tryReplaceArguments(traversal.getScopeRoot());
 
     currentArgumentsAccesses = argumentsAccessStack.pop();
   }
@@ -147,9 +148,9 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
    *
    * @param scope scope of the function
    */
-  private void tryReplaceArguments(Scope scope) {
+  private void tryReplaceArguments(Node scopeRoot) {
     // Find the number of parameters that can be accessed without using `arguments`.
-    Node parametersList = NodeUtil.getFunctionParameters(scope.getRootNode());
+    Node parametersList = NodeUtil.getFunctionParameters(scopeRoot);
     checkState(parametersList.isParamList(), parametersList);
     int numParameters = parametersList.getChildCount();
 
@@ -185,11 +186,11 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
         return -1;
       }
 
-      Node index = ref.getNext();
+      Node indexNode = ref.getNext();
 
       // We have something like arguments[x] where x is not a constant. That
       // means at least one of the access is not known.
-      if (!index.isNumber() || index.getDouble() < 0) {
+      if (!indexNode.isNumber()) {
         // TODO(user): Its possible not to give up just yet. The type
         // inference did a 'semi value propagation'. If we know that string
         // is never a subclass of the type of the index. We'd know that
@@ -197,8 +198,9 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
         return -1; // Give up.
       }
 
-      //We want to bail out if someone tries to access arguments[0.5] for example
-      if (index.getDouble() != Math.floor(index.getDouble())){
+      // We want to bail out if someone tries to access arguments[0.5] for example
+      double index = indexNode.getDouble();
+      if (!isExactInt32(index)) {
         return -1;
       }
 
@@ -213,9 +215,9 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
 
       // Replace the highest index if we see an access that has a higher index
       // than all the one we saw before.
-      int value = (int) index.getDouble();
-      if (value > highestIndex) {
-        highestIndex = value;
+      int indexInt = (int) index;
+      if (indexInt > highestIndex) {
+        highestIndex = indexInt;
       }
     }
     return highestIndex;
@@ -232,7 +234,7 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
   private void changeMethodSignature(ImmutableSortedMap<Integer, String> argNames, Node paramList) {
     ImmutableSortedMap<Integer, String> newParams = argNames.tailMap(paramList.getChildCount());
     for (String name : newParams.values()) {
-      paramList.addChildToBack(IR.name(name).useSourceInfoIfMissingFrom(paramList));
+      paramList.addChildToBack(IR.name(name).srcrefIfMissing(paramList));
     }
     if (!newParams.isEmpty()) {
       compiler.reportChangeToEnclosingScope(paramList);
@@ -255,7 +257,7 @@ class OptimizeArgumentsArray implements CompilerPass, ScopedCallback {
         continue;
       }
 
-      Node newName = IR.name(name).useSourceInfoIfMissingFrom(parent);
+      Node newName = IR.name(name).srcrefIfMissing(parent);
       parent.replaceWith(newName);
       // TODO(nickreid): See if we can do this fewer times. The accesses may be in different scopes.
       compiler.reportChangeToEnclosingScope(newName);

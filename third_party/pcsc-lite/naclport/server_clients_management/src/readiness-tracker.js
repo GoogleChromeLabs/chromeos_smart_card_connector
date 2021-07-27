@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -88,8 +89,9 @@ GSC.PcscLiteServerClientsManagement.ReadinessTracker = function(
   naclModuleMessageChannel.addOnDisposeCallback(
       this.messageChannelDisposedListener_.bind(this));
 
-  this.logger_.fine('Waiting for the "' + SERVICE_NAME + '" message from the ' +
-                    'NaCl module...');
+  this.logger_.fine(
+      'Waiting for the "' + SERVICE_NAME + '" message from the ' +
+      'NaCl module...');
 };
 
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
@@ -99,8 +101,8 @@ goog.inherits(ReadinessTracker, goog.Disposable);
 /** @override */
 ReadinessTracker.prototype.disposeInternal = function() {
   this.isPromiseResolved_ = true;
-  this.promiseResolver_.reject(new Error(
-      'The readiness tracker is disposed of'));
+  this.promiseResolver_.reject(
+      new Error('The readiness tracker is disposed of'));
   ReadinessTracker.base(this, 'disposeInternal');
 };
 
@@ -121,9 +123,8 @@ ReadinessTracker.prototype.messageChannelDisposedListener_ = function() {
       'Failed while waiting for the PC/SC-Lite server successful start: the ' +
       'message channel was disposed of');
   this.isPromiseResolved_ = true;
-  this.promiseResolver_.reject(new Error(
-      'The NaCl module message channel was disposed'));
+  this.promiseResolver_.reject(
+      new Error('The NaCl module message channel was disposed'));
   this.dispose();
 };
-
 });  // goog.scope

@@ -28,7 +28,7 @@ import java.util.LinkedHashMap;
  *
  * <p>Used to back off certain optimizations, e.g. code removal.
  */
-final class GatherGetterAndSetterProperties implements CompilerPass {
+public final class GatherGetterAndSetterProperties implements CompilerPass {
 
   private final AbstractCompiler compiler;
 
@@ -42,7 +42,7 @@ final class GatherGetterAndSetterProperties implements CompilerPass {
   }
 
   /** Gathers all getters and setters in the AST. */
-  static void update(AbstractCompiler compiler, Node externs, Node root) {
+  public static void update(AbstractCompiler compiler, Node externs, Node root) {
     // TODO(nickreid): We probably don't need to re-gather from the externs. They don't change so
     // the first collection should be good forever.
     // For now we traverse both trees every time because there's no reason we have to treat them
@@ -108,7 +108,7 @@ final class GatherGetterAndSetterProperties implements CompilerPass {
      * }</pre>
      */
     private void visitDescriptor(String propertyName, Node descriptor) {
-      for (Node key : descriptor.children()) {
+      for (Node key = descriptor.getFirstChild(); key != null; key = key.getNext()) {
         if (key.isStringKey() || key.isMemberFunctionDef()) {
           if ("get".equals(key.getString())) {
             record(propertyName, PropertyAccessKind.GETTER_ONLY);
@@ -123,7 +123,7 @@ final class GatherGetterAndSetterProperties implements CompilerPass {
       Node propertyNameNode = definePropertyCall.getChildAtIndex(2);
       Node descriptor = definePropertyCall.getChildAtIndex(3);
 
-      if (!propertyNameNode.isString() || !descriptor.isObjectLit()) {
+      if (!propertyNameNode.isStringLit() || !descriptor.isObjectLit()) {
         return;
       }
 
@@ -138,7 +138,7 @@ final class GatherGetterAndSetterProperties implements CompilerPass {
         return;
       }
 
-      for (Node prop : props.children()) {
+      for (Node prop = props.getFirstChild(); prop != null; prop = prop.getNext()) {
         if (prop.isStringKey() && prop.hasOneChild() && prop.getFirstChild().isObjectLit()) {
           String propertyName = prop.getString();
           Node descriptor = prop.getFirstChild();

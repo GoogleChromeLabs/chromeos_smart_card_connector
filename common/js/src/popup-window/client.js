@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -65,8 +66,9 @@ GSC.PopupWindow.Client.showWindow = function() {
 GSC.PopupWindow.Client.resolveModalDialog = function(result) {
   const callback = GSC.PopupWindow.Client.getData()['resolveModalDialog'];
   GSC.Logging.checkWithLogger(logger, callback);
-  logger.fine('The modal dialog is resolved with the following result: ' +
-              GSC.DebugDump.debugDump(result));
+  logger.fine(
+      'The modal dialog is resolved with the following result: ' +
+      GSC.DebugDump.debugDump(result));
   callback(result);
   closeWindow();
 };
@@ -80,8 +82,8 @@ GSC.PopupWindow.Client.resolveModalDialog = function(result) {
 GSC.PopupWindow.Client.rejectModalDialog = function(error) {
   const callback = GSC.PopupWindow.Client.getData()['rejectModalDialog'];
   GSC.Logging.checkWithLogger(logger, callback);
-  logger.fine('The modal dialog is rejected with the following error: ' +
-              error);
+  logger.fine(
+      'The modal dialog is rejected with the following error: ' + error);
   callback(error);
   closeWindow();
 };
@@ -119,8 +121,7 @@ GSC.PopupWindow.Client.setWindowHeightToFitContent = function() {
  */
 GSC.PopupWindow.Client.setupClosingOnEscape = function() {
   goog.events.listen(
-      document,
-      goog.events.EventType.KEYDOWN,
+      document, goog.events.EventType.KEYDOWN,
       documentClosingOnEscapeKeyDownListener);
   logger.fine('ESC key press handler was set up');
 };
@@ -150,5 +151,4 @@ function documentClosingOnEscapeKeyDownListener(event) {
 function windowCloseDialogRejectionListener() {
   GSC.PopupWindow.Client.rejectModalDialog(new Error('Dialog was closed'));
 }
-
 });  // goog.scope

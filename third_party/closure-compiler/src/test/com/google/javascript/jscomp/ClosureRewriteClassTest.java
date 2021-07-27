@@ -36,7 +36,6 @@ import org.junit.runners.JUnit4;
 /**
  * Unit tests for ClosureRewriteGoogClass
  *
- * @author johnlenz@google.com (John Lenz)
  */
 @RunWith(JUnit4.class)
 public final class ClosureRewriteClassTest extends CompilerTestCase {
@@ -72,7 +71,6 @@ public final class ClosureRewriteClassTest extends CompilerTestCase {
   }
 
   private void testRewrite(String code, String expected, LanguageMode lang) {
-    setAcceptedLanguage(lang);
     test(code, expected);
   }
 
@@ -82,7 +80,6 @@ public final class ClosureRewriteClassTest extends CompilerTestCase {
   }
 
   private void testRewriteError(String js, DiagnosticType error, LanguageMode lang) {
-    setAcceptedLanguage(lang);
     testError(js, error);
   }
 
@@ -93,7 +90,6 @@ public final class ClosureRewriteClassTest extends CompilerTestCase {
 
   private void testRewriteWarning(String code, String expected,
                                   Diagnostic warning, LanguageMode lang) {
-    setAcceptedLanguage(lang);
     test(code, expected, warning);
   }
 
@@ -770,55 +766,6 @@ public final class ClosureRewriteClassTest extends CompilerTestCase {
             "  }",
             "});"),
         GOOG_CLASS_ES6_COMPUTED_PROP_NAMES_NOT_SUPPORTED,
-        LanguageMode.ECMASCRIPT_2015);
-  }
-
-  @Test
-  public void testExtendedObjLitSuperCall1() {
-    testRewrite(
-        lines(
-            "var FancyClass = goog.defineClass(null, {",
-            "  constructor: function() {},",
-            "  someMethod: function() {",
-            "    super.someMethod();",
-            "  }",
-            "});"),
-        lines(
-            "/** @constructor @struct */",
-            "  var FancyClass = function() {};",
-            "  FancyClass.prototype.someMethod = function() {",
-            "    super.someMethod();",
-            "  };"),
-        LanguageMode.ECMASCRIPT_2015);
-  }
-
-  @Test
-  public void testExtendedObjLitSuperCall2() {
-    testRewrite(
-        lines(
-            "var FancyClass = goog.defineClass(null, {",
-            "  constructor: function() {super();},",
-            "  someMethod: function() {}",
-            "});"),
-        lines(
-            "/** @constructor @struct */",
-            "  var FancyClass = function() {super();};",
-            "  FancyClass.prototype.someMethod = function() {};"),
-        LanguageMode.ECMASCRIPT_2015);
-  }
-
-  @Test
-  public void testExtendedObjLitSuperCall3() {
-    testRewrite(
-        lines(
-            "var FancyClass = goog.defineClass(null, {",
-            "  constructor: function() {},",
-            "  someMethod: function() {super();}",
-            "});"),
-        lines(
-            "/** @constructor @struct */",
-            "var FancyClass = function() {};",
-            "FancyClass.prototype.someMethod = function() {super();};"),
         LanguageMode.ECMASCRIPT_2015);
   }
 

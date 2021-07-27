@@ -115,6 +115,7 @@ class PeepholeSubstituteAlternateSyntax
       case BITOR:
       case BITXOR:
       case BITAND:
+      case COALESCE:
         return tryRotateAssociativeOperator(node);
 
       default:
@@ -130,9 +131,8 @@ class PeepholeSubstituteAlternateSyntax
       "Math");
 
   private Node tryMinimizeWindowRefs(Node node) {
-    // Normalization needs to be done to ensure there's no shadowing. The window prefix is also
-    // required if the global externs are not on the window.
-    if (!isASTNormalized() || !areDeclaredGlobalExternsOnWindow()) {
+    // Normalization needs to be done to ensure there's no shadowing.
+    if (!isASTNormalized()) {
       return node;
     }
 
@@ -140,18 +140,18 @@ class PeepholeSubstituteAlternateSyntax
 
     if (node.getFirstChild().isName()) {
       Node nameNode = node.getFirstChild();
-      Node stringNode = node.getLastChild();
 
       // Since normalization has run we know we're referring to the global window.
-      if ("window".equals(nameNode.getString())
-          && BUILTIN_EXTERNS.contains(stringNode.getString())) {
-        Node newNameNode = IR.name(stringNode.getString());
+      if ("window".equals(nameNode.getString()) && BUILTIN_EXTERNS.contains(node.getString())) {
+        Node newNameNode = IR.name(node.getString());
         Node parentNode = node.getParent();
 
-        newNameNode.useSourceInfoFrom(stringNode);
-        parentNode.replaceChild(node, newNameNode);
+        newNameNode.srcref(node);
+        node.replaceWith(newNameNode);
 
-        if (parentNode.isCall()) {
+        if (parentNode.isCall() || parentNode.isOptChainCall()) {
+          // e.g. when converting `window.Array?.()` to `Array?.()`, ensure that the
+          // OPTCHAIN_CALL gets marked as `FREE_CALL`
           parentNode.putBooleanProp(Node.FREE_CALL, true);
         }
         reportChangeToEnclosingScope(parentNode);
@@ -171,11 +171,11 @@ class PeepholeSubstituteAlternateSyntax
     Node rhs = n.getLastChild();
     if (n.getToken() == rhs.getToken()) {
       // Transform a * (b * c) to a * b * c
-      Node first = n.getFirstChild().detach();
-      Node second = rhs.getFirstChild().detach();
+      Node first = n.removeFirstChild();
+      Node second = rhs.removeFirstChild();
       Node third = rhs.getLastChild().detach();
-      Node newLhs = new Node(n.getToken(), first, second).useSourceInfoIfMissingFrom(n);
-      Node newRoot = new Node(rhs.getToken(), newLhs, third).useSourceInfoIfMissingFrom(rhs);
+      Node newLhs = new Node(n.getToken(), first, second).srcrefIfMissing(n);
+      Node newRoot = new Node(rhs.getToken(), newLhs, third).srcrefIfMissing(rhs);
       n.replaceWith(newRoot);
       reportChangeToEnclosingScope(newRoot);
       return newRoot;
@@ -189,7 +189,7 @@ class PeepholeSubstituteAlternateSyntax
       int lhsPrecedence = NodeUtil.precedence(lhs.getToken());
       int rhsPrecedence = NodeUtil.precedence(rhs.getToken());
       if (rhsPrecedence == precedence && lhsPrecedence != precedence) {
-        n.removeChild(rhs);
+        rhs.detach();
         lhs.replaceWith(rhs);
         n.addChildToBack(lhs);
         reportChangeToEnclosingScope(n);
@@ -265,7 +265,7 @@ class PeepholeSubstituteAlternateSyntax
     if (bind != null) {
       // replace the call target
       bind.target.detach();
-      n.replaceChild(callTarget, bind.target);
+      callTarget.replaceWith(bind.target);
       callTarget = bind.target;
 
       // push the parameters
@@ -274,13 +274,11 @@ class PeepholeSubstituteAlternateSyntax
       // add the this value before the parameters if necessary
       if (bind.thisValue != null && !NodeUtil.isUndefined(bind.thisValue)) {
         // rewrite from "fn(a, b)" to "fn.call(thisValue, a, b)"
-        Node newCallTarget = IR.getprop(
-            callTarget.cloneTree(),
-            IR.string("call").srcref(callTarget));
+        Node newCallTarget = IR.getprop(callTarget.cloneTree(), "call");
         markNewScopesChanged(newCallTarget);
-        n.replaceChild(callTarget, newCallTarget);
+        callTarget.replaceWith(newCallTarget);
         markFunctionsDeleted(callTarget);
-        n.addChildAfter(bind.thisValue.cloneTree(), newCallTarget);
+        bind.thisValue.cloneTree().insertAfter(newCallTarget);
         n.putBooleanProp(Node.FREE_CALL, false);
       } else {
         n.putBooleanProp(Node.FREE_CALL, true);
@@ -294,7 +292,7 @@ class PeepholeSubstituteAlternateSyntax
     if (parameterList != null) {
       // push the last parameter to the head of the list first.
       addParameterAfter(parameterList.getNext(), after);
-      after.getParent().addChildAfter(parameterList.cloneTree(), after);
+      parameterList.cloneTree().insertAfter(after);
     }
   }
 
@@ -311,14 +309,14 @@ class PeepholeSubstituteAlternateSyntax
       // split comma
       n.detachChildren();
       // Replace the original expression with the left operand.
-      parent.replaceChild(n, left);
+      n.replaceWith(left);
       // Add the right expression afterward.
       Node newStatement = IR.exprResult(right);
-      newStatement.useSourceInfoIfMissingFrom(n);
+      newStatement.srcrefIfMissing(n);
 
       // This modifies outside the subtree, which is not
       // desirable in a peephole optimization.
-      parent.getParent().addChildAfter(newStatement, parent);
+      newStatement.insertAfter(parent);
       reportChangeToEnclosingScope(parent);
       return left;
     } else {
@@ -414,7 +412,7 @@ class PeepholeSubstituteAlternateSyntax
       if ("RegExp".equals(className)) {
         // Fold "new RegExp()" to "RegExp()", but only if the argument is a string.
         // See issue 1260.
-        if (n.getSecondChild() == null || n.getSecondChild().isString()) {
+        if (n.getSecondChild() == null || n.getSecondChild().isStringLit()) {
           return true;
         }
       }
@@ -495,7 +493,7 @@ class PeepholeSubstituteAlternateSyntax
       action = FoldArrayAction.SAFE_TO_FOLD_WITH_ARGS;
     } else {
       switch (arg.getToken()) {
-        case STRING:
+        case STRINGLIT:
           // "Array('a')" --> "['a']"
           action = FoldArrayAction.SAFE_TO_FOLD_WITH_ARGS;
           break;
@@ -526,16 +524,16 @@ class PeepholeSubstituteAlternateSyntax
       return n;
     }
 
-    if (// is pattern folded
-        pattern.isString()
-        // make sure empty pattern doesn't fold to //
+    if ( // is pattern folded
+    pattern.isStringLit()
+        // make sure empty pattern doesn't fold to a comment //
         && !"".equals(pattern.getString())
-
-        && (null == flags || flags.isString())
+        // make sure empty pattern doesn't fold to a comment /*
+        && !pattern.getString().startsWith("*")
+        && (null == flags || flags.isStringLit())
         // don't escape patterns with Unicode escapes since Safari behaves badly
         // (read can't parse or crashes) on regex literals with Unicode escapes
-        && (isEcmaScript5OrGreater()
-            || !containsUnicodeEscape(pattern.getString()))) {
+        && (isEcmaScript5OrGreater() || !containsUnicodeEscape(pattern.getString()))) {
 
       // Make sure that / is escaped, so that it will fit safely in /brackets/
       // and make sure that no LineTerminatorCharacters appear literally inside
@@ -556,11 +554,11 @@ class PeepholeSubstituteAlternateSyntax
         if (!areSafeFlagsToFold(flags.getString())) {
           return n;
         }
-        n.removeChild(flags);
+        flags.detach();
         regexLiteral = IR.regexp(pattern, flags);
       }
 
-      parent.replaceChild(n, regexLiteral);
+      n.replaceWith(regexLiteral);
       reportChangeToEnclosingScope(parent);
       return regexLiteral;
     }
@@ -570,19 +568,20 @@ class PeepholeSubstituteAlternateSyntax
 
   private Node reduceSubstractionAssignment(Node n) {
     Node right = n.getLastChild();
-    if (right.isNumber()) {
-      if (right.getDouble() == 1) {
-        Node newNode = IR.dec(n.removeFirstChild(), false);
-        n.replaceWith(newNode);
-        reportChangeToEnclosingScope(newNode);
-        return newNode;
-      } else if (right.getDouble() == -1) {
-        Node newNode = IR.inc(n.removeFirstChild(), false);
-        n.replaceWith(newNode);
-        reportChangeToEnclosingScope(newNode);
-        return newNode;
-      }
+    boolean isNegative = false;
+    if (right.isNeg()) {
+      isNegative = true;
+      right = right.getOnlyChild();
     }
+
+    if (right.isNumber() && right.getDouble() == 1) {
+      Node left = n.removeFirstChild();
+      Node newNode = isNegative ? IR.inc(left, false) : IR.dec(left, false);
+      n.replaceWith(newNode);
+      reportChangeToEnclosingScope(newNode);
+      return newNode;
+    }
+
     return n;
   }
 
@@ -596,7 +595,7 @@ class PeepholeSubstituteAlternateSyntax
         case LT:
         case NE:
           Node number = IR.number(n.isTrue() ? 1 : 0);
-          n.getParent().replaceChild(n, number);
+          n.replaceWith(number);
           reportChangeToEnclosingScope(number);
           return number;
         default:
@@ -604,7 +603,7 @@ class PeepholeSubstituteAlternateSyntax
       }
 
       Node not = IR.not(IR.number(n.isTrue() ? 0 : 1));
-      not.useSourceInfoIfMissingFromForTree(n);
+      not.srcrefTreeIfMissing(n);
       n.replaceWith(not);
       reportChangeToEnclosingScope(not);
       return not;
@@ -615,7 +614,7 @@ class PeepholeSubstituteAlternateSyntax
   private Node tryMinimizeArrayLiteral(Node n) {
     boolean allStrings = true;
     for (Node cur = n.getFirstChild(); cur != null; cur = cur.getNext()) {
-      if (!cur.isString()) {
+      if (!cur.isStringLit()) {
         allStrings = false;
       }
     }
@@ -650,12 +649,8 @@ class PeepholeSubstituteAlternateSyntax
     String delimiter = pickDelimiter(strings);
     if (delimiter != null) {
       String template = Joiner.on(delimiter).join(strings);
-      Node call = IR.call(
-          IR.getprop(
-              IR.string(template),
-              IR.string("split")),
-          IR.string("" + delimiter));
-      call.useSourceInfoIfMissingFromForTree(n);
+      Node call = IR.call(IR.getprop(IR.string(template), "split"), IR.string("" + delimiter));
+      call.srcrefTreeIfMissing(n);
       n.replaceWith(call);
       reportChangeToEnclosingScope(call);
       return call;
@@ -709,13 +704,12 @@ class PeepholeSubstituteAlternateSyntax
     return delimiters[i];
   }
 
-  private static final Pattern REGEXP_FLAGS_RE = Pattern.compile("^[gmi]*$");
+  private static final Pattern REGEXP_FLAGS_RE = Pattern.compile("^[gmiuys]*$");
 
   /**
-   * are the given flags valid regular expression flags?
-   * JavaScript recognizes several suffix flags for regular expressions,
-   * 'g' - global replace, 'i' - case insensitive, 'm' - multi-line.
-   * They are case insensitive, and JavaScript does not recognize the extended
+   * are the given flags valid regular expression flags? JavaScript recognizes several suffix flags
+   * for regular expressions, 'g' - global replace, 'i' - case insensitive, 'm' - multi-line, 'u' -
+   * unicode, 'y'- sticky. They are case insensitive, and JavaScript does not recognize the extended
    * syntax mode, single-line mode, or expression replacement mode from Perl 5.
    */
   private static boolean areValidRegexpFlags(String flags) {

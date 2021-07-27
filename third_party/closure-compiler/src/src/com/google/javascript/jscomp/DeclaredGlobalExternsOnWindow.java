@@ -19,7 +19,6 @@ package com.google.javascript.jscomp;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
-import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.Node;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -63,19 +62,18 @@ class DeclaredGlobalExternsOnWindow implements CompilerPass, NodeTraversal.Callb
     JSDocInfo oldJSDocInfo = NodeUtil.getBestJSDocInfo(node);
 
     Node globalRef = defineOnWindow ? IR.name(WINDOW_NAME) : IR.thisNode();
-    Node string = IR.string(name);
-    Node getprop = IR.getprop(globalRef, string);
+    Node getprop = IR.getprop(globalRef, name);
     Node newNode = getprop;
 
     if (oldJSDocInfo != null) {
-      JSDocInfoBuilder builder;
+      JSDocInfo.Builder builder;
 
       if (oldJSDocInfo.isConstructorOrInterface()
           || oldJSDocInfo.hasEnumParameterType()) {
         Node nameNode = IR.name(name);
         newNode = IR.assign(getprop, nameNode);
 
-        builder = new JSDocInfoBuilder(false);
+        builder = JSDocInfo.builder();
         if (oldJSDocInfo.isConstructor()) {
           builder.recordConstructor();
         }
@@ -98,7 +96,7 @@ class DeclaredGlobalExternsOnWindow implements CompilerPass, NodeTraversal.Callb
             newNode = IR.assign(getprop, rhs.cloneTree());
           }
         }
-        builder = JSDocInfoBuilder.copyFrom(oldJSDocInfo);
+        builder = JSDocInfo.Builder.copyFrom(oldJSDocInfo);
       }
 
       // TODO(blickly): Remove these suppressions when all externs declarations on window are gone.
@@ -107,7 +105,7 @@ class DeclaredGlobalExternsOnWindow implements CompilerPass, NodeTraversal.Callb
       newNode.setJSDocInfo(jsDocInfo);
     }
 
-    newNode.useSourceInfoFromForTree(node);
+    newNode.srcrefTree(node);
     newNode.setOriginalName(name);
     newNode.makeNonIndexableRecursive();
     node.getGrandparent().addChildToBack(IR.exprResult(newNode));
@@ -131,7 +129,7 @@ class DeclaredGlobalExternsOnWindow implements CompilerPass, NodeTraversal.Callb
     if (n.isFunction()) {
       nodes.add(n.getFirstChild());
     } else if (n.isVar()) {
-      for (Node c : n.children()) {
+      for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
         if (c.getString().equals(WINDOW_NAME)) {
           windowInExterns = true;
           continue;

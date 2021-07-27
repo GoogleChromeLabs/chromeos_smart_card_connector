@@ -18,12 +18,9 @@ package com.google.javascript.jscomp;
 
 import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
-import java.io.Serializable;
 
-/**
- * An interface for accessing the AST root of an input.
- */
-public interface SourceAst extends Serializable {
+/** An interface for accessing the AST root of an input. */
+public interface SourceAst {
   /**
    * Gets the root node of the AST for the source file this represents. The AST
    * is lazily instantiated and cached.
@@ -43,12 +40,4 @@ public interface SourceAst extends Serializable {
 
   /** Returns the source file the generated AST represents. */
   public SourceFile getSourceFile();
-
-  /**
-   * Sets the source file the generated AST represents. This can be called after
-   * deserializing if access to the source file is needed. If a different file
-   * is provided than that with which this was created, an IllegalStateException
-   * will be thrown.
-   */
-  public void setSourceFile(SourceFile file);
 }

@@ -53,9 +53,6 @@ public abstract class PassFactory {
    */
   abstract Function<AbstractCompiler, ? extends CompilerPass> getInternalFactory();
 
-  /** Whether or not his factory produces {@link HotSwapCompilerPass}es. */
-  abstract boolean isHotSwapable();
-
   public abstract Builder toBuilder();
 
   PassFactory() {
@@ -69,44 +66,49 @@ public abstract class PassFactory {
 
     public abstract Builder setRunInFixedPointLoop(boolean b);
 
+    /**
+     * Set the features that are allowed to be in the AST when this pass runs.
+     *
+     * <p>In general client code should call either {@link #setFeatureSetForChecks()} or {@link
+     * #setFeatureSetForOptimizations()} instead. This method exists only to support those methods
+     * and special cases such as transpilation passes and tests.
+     */
     public abstract Builder setFeatureSet(FeatureSet x);
 
     public abstract Builder setInternalFactory(
         Function<AbstractCompiler, ? extends CompilerPass> x);
 
-    abstract Builder setHotSwapable(boolean x);
-
     @ForOverride
     abstract PassFactory autoBuild();
 
+    /** Record that the pass will support all of the features required for checks passes. */
+    public final Builder setFeatureSetForChecks() {
+      // ES_NEXT_IN is the set of features the compiler supports in input code.
+      return this.setFeatureSet(FeatureSet.ES_NEXT_IN);
+    }
+
+    /** Record that the pass will support all of the features required for optimization passes. */
+    public final Builder setFeatureSetForOptimizations() {
+      // ES_NEXT is the set of features the compiler supports in output code.
+      return this.setFeatureSet(FeatureSet.ES_NEXT);
+    }
+
     public final PassFactory build() {
       PassFactory result = autoBuild();
-
-      // Every pass must have a nonempty name.
       checkState(!result.getName().isEmpty());
-      if (result.isHotSwapable()) {
-        // HotSwap passes are for transpilation, not optimization, so running them in a loop
-        // makes no sense.
-        checkState(!result.isRunInFixedPointLoop());
-      }
-
       return result;
     }
   }
 
   public static Builder builder() {
-    return new AutoValue_PassFactory.Builder().setRunInFixedPointLoop(false).setHotSwapable(false);
-  }
-
-  public static Builder builderForHotSwap() {
-    return new AutoValue_PassFactory.Builder().setRunInFixedPointLoop(false).setHotSwapable(true);
+    return new AutoValue_PassFactory.Builder().setRunInFixedPointLoop(false);
   }
 
   /** Create a no-op pass that can only run once. Used to break up loops. */
   public static PassFactory createEmptyPass(String name) {
     return builder()
         .setName(name)
-        .setFeatureSet(FeatureSet.latest())
+        .setFeatureSet(FeatureSet.all())
         .setInternalFactory((c) -> (CompilerPass) (externs, root) -> {})
         .build();
   }

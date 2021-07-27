@@ -19,7 +19,8 @@ import static com.google.common.base.Strings.nullToEmpty;
 
 import com.google.common.base.Joiner;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
-import com.google.javascript.jscomp.RewritePolyfills.Polyfills;
+import com.google.javascript.jscomp.PolyfillUsageFinder.Polyfills;
+import com.google.javascript.jscomp.testing.NoninjectingCompiler;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -34,12 +35,15 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public final class RewritePolyfillsTest extends CompilerTestCase {
 
+  private static final LanguageMode ES_2020 = LanguageMode.ECMASCRIPT_2020;
   private static final LanguageMode ES6 = LanguageMode.ECMASCRIPT_2015;
   private static final LanguageMode ES5 = LanguageMode.ECMASCRIPT5_STRICT;
   private static final LanguageMode ES3 = LanguageMode.ECMASCRIPT3;
 
   private final Map<String, String> injectableLibraries = new HashMap<>();
   private final List<String> polyfillTable = new ArrayList<>();
+  private boolean isolatePolyfills = false;
+  private boolean injectPolyfills = true;
 
   private void addLibrary(String name, String from, String to, String library) {
     if (library != null) {
@@ -56,11 +60,16 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
     super.setUp();
     injectableLibraries.clear();
     polyfillTable.clear();
+    setLanguageOut(LanguageMode.ECMASCRIPT5);
   }
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new RewritePolyfills(compiler, Polyfills.fromTable(Joiner.on("\n").join(polyfillTable)));
+    return new RewritePolyfills(
+        compiler,
+        Polyfills.fromTable(Joiner.on("\n").join(polyfillTable)),
+        injectPolyfills,
+        isolatePolyfills);
   }
 
   @Override
@@ -76,18 +85,28 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
       Node lastInjected = null;
 
       @Override
-      Node ensureLibraryInjected(String library, boolean force) {
-        Node parent = getNodeForCodeInsertion(null);
-        Node ast = parseSyntheticCode(injectableLibraries.get(library));
-        Node lastChild = ast.getLastChild();
-        Node firstChild = ast.removeChildren();
-        NodeUtil.markNewScopesChanged(firstChild, this);
-        if (lastInjected == null) {
-          parent.addChildrenToFront(firstChild);
+      public Node ensureLibraryInjected(String library, boolean force) {
+        if (getInjected().contains(library)) {
+          // already injected
+          return lastInjected;
         } else {
-          parent.addChildrenAfter(firstChild, lastInjected);
+          // super method just records library in `injected`
+          super.ensureLibraryInjected(library, force);
+          Node parent = getNodeForCodeInsertion(null);
+          Node ast = parseSyntheticCode(injectableLibraries.get(library));
+          Node lastChild = ast.getLastChild();
+          Node firstChild = ast.removeChildren();
+          // Any newly added functions must be marked as changed.
+          for (Node child = firstChild; child != null; child = child.getNext()) {
+            NodeUtil.markNewScopesChanged(child, this);
+          }
+          if (lastInjected == null) {
+            parent.addChildrenToFront(firstChild);
+          } else {
+            parent.addChildrenAfter(firstChild, lastInjected);
+          }
+          return lastInjected = lastChild;
         }
-        return lastInjected = lastChild;
       }
     };
   }
@@ -175,6 +194,25 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
   }
 
   @Test
+  public void testGlobalThisInjected() {
+    addLibrary("globalThis", "es_2020", "es3", "es6/globalThis");
+    addLibrary("Map", "es6", "es5", "es6/map");
+
+    testInjects("globalThis.String", "es6/globalThis");
+    testInjects("var m = new globalThis.Map();", "es6/globalThis", "es6/map");
+  }
+
+  @Test
+  public void testGlobalThisInjectedNotInjectedGivenSufficientLanguageOut() {
+    addLibrary("globalThis", "es_2020", "es3", "es6/globalThis");
+    addLibrary("Map", "es6", "es5", "es6/map");
+
+    setLanguage(ES_2020, ES_2020);
+    testDoesNotInject("globalThis.String");
+    testDoesNotInject("var m = new globalThis.Map();");
+  }
+
+  @Test
   public void testStaticMethodsInjected() {
     addLibrary("Math.clz32", "es6", "es5", "es6/math/clz32");
     addLibrary("Array.of", "es6", "es3", "es6/array/of");
@@ -255,6 +293,17 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
   }
 
   @Test
+  public void testStaticMethodsNotInstalledIfGuardedByNullishCoalesce() {
+    setAcceptedLanguage(LanguageMode.ECMASCRIPT_NEXT_IN);
+    addLibrary("Array.of", "es_next_in", "es5", "es6/array/of");
+
+    testDoesNotInject("!Array.of ?? Array.of();");
+    // NOTE: ?? is not safe by itself.
+    setLanguage(ES_2020, ES5);
+    testInjects("Array.of ?? Array.of();", "es6/array/of");
+  }
+
+  @Test
   public void testStaticMethodsNotInstalledIfGuardedByHook() {
     addLibrary("Array.of", "es6", "es5", "es6/array/of");
 
@@ -316,6 +365,18 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
   }
 
   @Test
+  public void testPrototypeMethodsDontWarnIfInsufficientVersionNumber() {
+    addLibrary("String.prototype.normalize", "es6", "es6", null);
+    addLibrary("String.prototype.endsWith", "es6", "es5", "es6/string/endswith");
+    addLibrary("Array.prototype.fill", "es6", "es3", "es6/array/fill");
+
+    setLanguage(ES6, ES3);
+    testDoesNotInject("x.normalize();");
+    testInjects("x.endsWith();", "es6/string/endswith");
+    testInjects("x.fill(y);", "es6/array/fill");
+  }
+
+  @Test
   public void testMultiplePrototypeMethodsWithSameName() {
     addLibrary("Array.prototype.includes", "es6", "es3", "es6/array/includes");
     addLibrary("String.prototype.includes", "es5", "es3", "es5/string/includes");
@@ -341,7 +402,7 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
   // NOTE(sdh): it's not clear what makes the most sense here.  At one point we
   // took care to avoid installing these, but it may make sense to instead leave
   // this distinction to a type-based optimization.  As such, I've simplified the
-  // logic to no longer look at variables' scope and instead just blacklist known
+  // logic to no longer look at variables' scope and instead just skiplist known
   // symbols like goog.string and goog.array.
   @Test
   public void testPrototypeMethodsInstalledIfActuallyStatic() {
@@ -352,8 +413,7 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
         "var string = {}; string.endsWith = function() {}; string.endsWith('x');",
         "es6/string/endswith");
     testInjects(
-        "var string = {endsWith: function() {}}; string.endsWith('x');",
-        "es6/string/endswith");
+        "var string = {endsWith: function() {}}; string.endsWith('x');", "es6/string/endswith");
     testInjects(
         "var string = {}; string.endsWith = function() {}; "
             + "string.foo = function() { return string.endsWith('x'); };",
@@ -386,6 +446,17 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
     testInjects("x && x.endsWith;", "es6/string/endswith");
     // NOTE: || is not safe by itself.
     testInjects("String.prototype.endsWith || x.endsWith();", "es6/string/endswith");
+  }
+
+  @Test
+  public void testPrototypeMethodsNotInstalledIfGuardedByNullishCoalesce() {
+    setAcceptedLanguage(LanguageMode.ECMASCRIPT_NEXT_IN);
+    addLibrary("String.prototype.endsWith", "es_next_in", "es5", "es6/string/endswith");
+
+    testDoesNotInject("!String.prototype.endsWith ?? x.endsWith();");
+    // NOTE: ?? is not safe by itself.
+    setLanguage(ES_2020, ES5);
+    testInjects("String.prototype.endsWith ?? x.endsWith();", "es6/string/endswith");
   }
 
   @Test
@@ -424,17 +495,98 @@ public final class RewritePolyfillsTest extends CompilerTestCase {
   @Test
   public void testCleansUpUnnecessaryPolyfills() {
     // Put two polyfill statements in the same library.
-    injectableLibraries.put("es6/set",
-        "$jscomp.polyfill('Set', '', 'es6', 'es3'); $jscomp.polyfill('Map', '', 'es5', 'es3');");
+    injectableLibraries.put(
+        "es6/set",
+        lines(
+            "$jscomp.polyfill('Set', function() {}, 'es6', 'es3');",
+            "$jscomp.polyfill('Map', function() {}, 'es5', 'es3');"));
     polyfillTable.add("Set es6 es3 es6/set");
 
     setLanguage(ES6, ES5);
-    test("var set = new Set();", "$jscomp.polyfill('Set', '', 'es6', 'es3'); var set = new Set();");
+    test(
+        "var set = new Set();",
+        lines(
+            "", //
+            "$jscomp.polyfill('Set', function() {}, 'es6', 'es3');",
+            "var set = new Set();"));
 
     setLanguage(ES6, ES3);
     test(
         "var set = new Set();",
-        "$jscomp.polyfill('Set', '', 'es6', 'es3'); $jscomp.polyfill('Map', '', 'es5', 'es3');"
-            + "var set = new Set();");
+        lines(
+            "$jscomp.polyfill('Set', function() {}, 'es6', 'es3');",
+            "$jscomp.polyfill('Map', function() {}, 'es5', 'es3');",
+            "var set = new Set();",
+            ""));
+  }
+
+  @Test
+  public void testRegexFeatureSetException() {
+    // Tests the special casing done to handle the fact that Safari has lagged behind on
+    // implementation of some regex features, which messes with the way polyfills are linked
+    // with the feature set of the specification that added them.
+
+    // Promise.prototype.finally was added in ES_2018
+    addLibrary("Promise.prototype.finally", "es_2018", "es3", "es6/promise/finally");
+
+    // input is assumed to contain features from the ES_2020 spec
+    setAcceptedLanguage(ES_2020);
+
+    // The output is required to work for the latest browsers as of early 2020
+    // This will set an output `FeatureSet` that does not include some regex features that are
+    // part of ES_2018, so ES_2018 will not be "supported", and could cause a polyfill
+    // that is part of ES_2018 to be included. We have special casing to avoid this.
+    setBrowserFeaturesetYear(2020);
+
+    // the change marking check will report an error because:
+    // 1. We add the polyfill code to the SCRIPT node
+    // 2. We then strip out the polyfill
+    // 3. We mark the SCRIPT node as changed, but it ended up the same as it started.
+    disableValidateAstChangeMarking();
+
+    // The polyfill is not included even though the output feature set is not a super set of ES_2018
+    testSame("Promise.resolve(1).finally(console.log('done'));");
+  }
+
+  @Test
+  public void testCleansUpUnnecessaryPreviouslyInjectedPolyfills() {
+    // Put two polyfill statements in the same library.
+    injectableLibraries.put(
+        "es6/set",
+        lines(
+            "$jscomp.polyfill('Set', function() {}, 'es6', 'es3');",
+            // pretend Map isn't needed for ES5
+            "$jscomp.polyfill('Map', function() {}, 'es5', 'es3');"));
+    polyfillTable.add("Set es6 es3 es6/set");
+
+    // simulate injection of Map by a prior-run pass
+    ensureLibraryInjected("es6/set");
+    setLanguage(ES6, ES5);
+    test(
+        "var set = new Set();",
+        lines(
+            "", // Map gets removed even though not added by RewritePolyfills
+            "$jscomp.polyfill('Set', function() {}, 'es6', 'es3');",
+            "var set = new Set();"));
+  }
+
+  @Test
+  public void testAddsPolyfillMethodToExterns() {
+    isolatePolyfills = true;
+    addLibrary("String.prototype.endsWith", "es6", "es5", "es6/string/endswith");
+
+    testExternChanges("", "var $jscomp$lookupPolyfilledValue");
+  }
+
+  @Test
+  public void testNoCodeChangesIfInjectionDisabled() {
+    isolatePolyfills = true;
+    injectPolyfills = false;
+    addLibrary("String.prototype.endsWith", "es6", "es5", "es6/string/endswith");
+
+    testExternChanges("", "var $jscomp$lookupPolyfilledValue");
+
+    allowExternsChanges();
+    testSame("'x'.endsWith('y');");
   }
 }

@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -97,8 +98,8 @@ UserPromptingChecker.prototype.logger = GSC.Logging.getScopedLogger(
  * @return {!goog.Promise}
  */
 UserPromptingChecker.prototype.check = function(clientAppId) {
-  this.logger.finest('Checking permissions for client App with id "' +
-                     clientAppId + '"...');
+  this.logger.finest(
+      'Checking permissions for client App with id "' + clientAppId + '"...');
 
   const existingPromise = this.checkPromiseMap_.get(clientAppId);
   if (existingPromise !== undefined) {
@@ -167,8 +168,9 @@ UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
   const storedUserSelections = this.parseLocalStorageUserSelections_(items);
   const itemsForLog = [];
   storedUserSelections.forEach(function(userSelection, extensionId) {
-    itemsForLog.push((userSelection ? 'allow' : 'deny') + ' for extension "' +
-                     extensionId + '"');
+    itemsForLog.push(
+        (userSelection ? 'allow' : 'deny') + ' for extension "' + extensionId +
+        '"');
   });
   this.logger.info(
       'Loaded local storage data with the stored user selections: ' +
@@ -214,11 +216,15 @@ UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
  */
 UserPromptingChecker.prototype.promptUser_ = function(
     clientAppId, promiseResolver) {
-  this.knownAppsRegistry_.getById(clientAppId).then(function(knownApp) {
-    this.promptUserForKnownApp_(clientAppId, knownApp, promiseResolver);
-  }, function() {
-    this.promptUserForUnknownApp_(clientAppId, promiseResolver);
-  }, this);
+  this.knownAppsRegistry_.getById(clientAppId)
+      .then(
+          function(knownApp) {
+            this.promptUserForKnownApp_(clientAppId, knownApp, promiseResolver);
+          },
+          function() {
+            this.promptUserForUnknownApp_(clientAppId, promiseResolver);
+          },
+          this);
 };
 
 /**
@@ -232,11 +238,13 @@ UserPromptingChecker.prototype.promptUserForKnownApp_ = function(
   this.logger.info(
       'Showing the user prompt for the known client App with id "' +
       clientAppId + '" and name "' + knownApp.name + '"...');
-  this.runPromptDialog_(clientAppId, {
-    'is_client_known': true,
-    'client_app_id': clientAppId,
-    'client_app_name': knownApp.name
-  }, promiseResolver);
+  this.runPromptDialog_(
+      clientAppId, {
+        'is_client_known': true,
+        'client_app_id': clientAppId,
+        'client_app_name': knownApp.name
+      },
+      promiseResolver);
 };
 
 /**
@@ -250,8 +258,7 @@ UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
       'Showing the warning user prompt for the unknown client App with id "' +
       clientAppId + '"...');
   this.runPromptDialog_(
-      clientAppId,
-      {'is_client_known': false, 'client_app_id': clientAppId},
+      clientAppId, {'is_client_known': false, 'client_app_id': clientAppId},
       promiseResolver);
 };
 
@@ -266,36 +273,41 @@ UserPromptingChecker.prototype.runPromptDialog_ = function(
   const dialogPromise = GSC.PopupWindow.Server.runModalDialog(
       USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
       userPromptDialogData);
-  dialogPromise.then(function(dialogResult) {
-    if (dialogResult) {
-      this.logger.info('Granted permission to client App with id "' +
-                       clientAppId + '" based on the "grant" user selection');
-      this.storeUserSelection_(clientAppId, true);
-      promiseResolver.resolve();
-    } else {
-      this.logger.info('Rejected permission to client App with id "' +
-                       clientAppId + '" based on the "reject" user selection');
-      this.storeUserSelection_(clientAppId, false);
-      promiseResolver.reject(new Error(
-          'Reject permission based on the "reject" user selection'));
-    }
-  }, function() {
-    this.logger.info(
-        'Rejected permission to client App with id "' + clientAppId +
-        '" because of the user cancellation of the prompt dialog');
-    this.storeUserSelection_(clientAppId, false);
-    promiseResolver.reject(new Error(
-        'Rejected permission because of the user cancellation of the prompt ' +
-        'dialog'));
-  }, this);
+  dialogPromise.then(
+      function(dialogResult) {
+        if (dialogResult) {
+          this.logger.info(
+              'Granted permission to client App with id "' + clientAppId +
+              '" based on the "grant" user selection');
+          this.storeUserSelection_(clientAppId, true);
+          promiseResolver.resolve();
+        } else {
+          this.logger.info(
+              'Rejected permission to client App with id "' + clientAppId +
+              '" based on the "reject" user selection');
+          this.storeUserSelection_(clientAppId, false);
+          promiseResolver.reject(new Error(
+              'Reject permission based on the "reject" user selection'));
+        }
+      },
+      function() {
+        this.logger.info(
+            'Rejected permission to client App with id "' + clientAppId +
+            '" because of the user cancellation of the prompt dialog');
+        this.storeUserSelection_(clientAppId, false);
+        promiseResolver.reject(new Error(
+            'Rejected permission because of the user cancellation of the prompt ' +
+            'dialog'));
+      },
+      this);
 };
 
 /**
  * @param {string} clientAppId
  * @param {boolean} userSelection
  */
-UserPromptingChecker.prototype.storeUserSelection_ =
-    function(clientAppId, userSelection) {
+UserPromptingChecker.prototype.storeUserSelection_ = function(
+    clientAppId, userSelection) {
   // Don't remember negative user selections persistently.
   if (!userSelection)
     return;
@@ -338,5 +350,4 @@ UserPromptingChecker.prototype.notifyAboutRejectionOfUnknownApp_ = function(
     clientAppId) {
   // TODO: implement showing rich notifications to the user here
 };
-
 });  // goog.scope

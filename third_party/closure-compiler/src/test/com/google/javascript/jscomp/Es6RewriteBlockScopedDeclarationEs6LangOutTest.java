@@ -15,7 +15,6 @@
  */
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -26,7 +25,6 @@ import org.junit.runners.JUnit4;
  *
  * <p>Created by simranarora on 7/6/17.
  *
- * @author simranarora@google.com (Simran Arora)
  */
 @RunWith(JUnit4.class)
 public class Es6RewriteBlockScopedDeclarationEs6LangOutTest extends CompilerTestCase {
@@ -35,15 +33,7 @@ public class Es6RewriteBlockScopedDeclarationEs6LangOutTest extends CompilerTest
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2015);
     enableRunTypeCheckAfterProcessing();
-  }
-
-  @Override
-  protected CompilerOptions getOptions() {
-    CompilerOptions options = super.getOptions();
-    options.setLanguageOut(LanguageMode.ECMASCRIPT_2015);
-    return options;
   }
 
   @Override

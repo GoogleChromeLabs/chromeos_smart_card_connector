@@ -17,8 +17,11 @@
 package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.CompilerTestCase.lines;
+import static com.google.javascript.jscomp.deps.ModuleLoader.LOAD_WARNING;
 
 import com.google.javascript.jscomp.ExtractPrototypeMemberDeclarations.Pattern;
+import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
+import com.google.javascript.jscomp.testing.JSChunkGraphBuilder;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -93,6 +96,7 @@ public final class ExtractPrototypeMemberDeclarationsTest extends CompilerTestCa
   // script node.
   @Test
   public void testEs6Module() {
+    ignoreWarnings(LOAD_WARNING);
     String importStatement = "import {someValue} from './another_module.js';";
     testSame(importStatement + generatePrototypeDeclarations("x", 17));
   }
@@ -283,6 +287,48 @@ public final class ExtractPrototypeMemberDeclarationsTest extends CompilerTestCa
             + "bar();");
   }
 
+  @Test
+  public void testNotEnoughPrototypeToExtractInChunk() {
+    pattern = Pattern.USE_CHUNK_TEMP;
+    for (int i = 0; i < 7; i++) {
+      JSChunk[] modules =
+          JSChunkGraphBuilder.forStar()
+              .addChunk(generatePrototypeDeclarations("x", i))
+              .addChunk(generatePrototypeDeclarations("y", i))
+              .build();
+      testSame(modules);
+    }
+  }
+
+  @Test
+  public void testExtractingSingleClassPrototypeInChunk() {
+    pattern = Pattern.USE_CHUNK_TEMP;
+    JSChunk[] modules =
+        JSChunkGraphBuilder.forStar()
+            .addChunk(generatePrototypeDeclarations("x", 7))
+            .addChunk(generatePrototypeDeclarations("y", 7))
+            .build();
+
+    StringBuilder builderX = new StringBuilder();
+    StringBuilder builderY = new StringBuilder();
+    String xTmp = TMP + "0";
+    String yTmp = TMP + "1";
+    builderX
+        .append(SimpleFormat.format("var %s; %s = x.prototype;", xTmp, xTmp))
+        .append(generateExtractedDeclarations(7, 0));
+    builderY
+        .append(SimpleFormat.format("var %s; %s = y.prototype;", yTmp, yTmp))
+        .append(generateExtractedDeclarations(7, 1));
+
+    JSChunk[] expectedModules =
+        JSChunkGraphBuilder.forStar()
+            .addChunk(builderX.toString())
+            .addChunk(builderY.toString())
+            .build();
+
+    test(modules, expectedModules);
+  }
+
   private String loadPrototype(String qName) {
     if (pattern == Pattern.USE_GLOBAL_TEMP) {
       return TMP + " = " + qName + ".prototype;";
@@ -313,20 +359,27 @@ public final class ExtractPrototypeMemberDeclarationsTest extends CompilerTestCa
   }
 
   private String generateExtractedDeclarations(int num) {
+    return generateExtractedDeclarations(num, null);
+  }
+
+  private String generateExtractedDeclarations(int num, Integer fileIndex) {
     StringBuilder builder = new StringBuilder();
 
+    String alias = TMP;
     if (pattern == Pattern.USE_IIFE) {
       builder.append("(function(").append(TMP).append("){");
+    } else if (pattern == Pattern.USE_CHUNK_TEMP && fileIndex != null) {
+      alias += fileIndex.toString();
     }
 
     for (int i = 0; i < num; i++) {
       char member = (char) ('a' + i);
-      builder.append(generateExtractedDeclaration("" + member,  "" + member));
+      builder.append(generateExtractedDeclaration(alias, "" + member, "" + member));
     }
     return builder.toString();
   }
 
-  private String generateExtractedDeclaration(String member, String value) {
-    return TMP + "." + member + " = " + value + ";";
+  private static String generateExtractedDeclaration(String alias, String member, String value) {
+    return alias + "." + member + " = " + value + ";";
   }
 }

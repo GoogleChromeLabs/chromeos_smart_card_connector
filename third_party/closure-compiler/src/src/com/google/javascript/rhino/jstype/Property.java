@@ -39,10 +39,11 @@
 
 package com.google.javascript.rhino.jstype;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSourceFile;
-import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -50,7 +51,7 @@ import java.util.Objects;
  *
  * @author nicksantos@google.com (Nick Santos)
  */
-public final class Property implements Serializable, StaticTypedSlot, StaticTypedRef {
+public final class Property implements StaticTypedSlot, StaticTypedRef {
 
   /** A property instance associated with particular owner type. */
   public static final class OwnedProperty {
@@ -109,8 +110,8 @@ public final class Property implements Serializable, StaticTypedSlot, StaticType
 
   Property(String name, JSType type, boolean inferred,
       Node propertyNode) {
-    this.name = name;
-    this.type = type;
+    this.name = checkNotNull(name);
+    this.type = checkNotNull(type, "Null type specified for {}", name);
     this.inferred = inferred;
     this.propertyNode = propertyNode;
   }
@@ -155,7 +156,7 @@ public final class Property implements Serializable, StaticTypedSlot, StaticType
   }
 
   void setType(JSType type) {
-    this.type = type;
+    this.type = checkNotNull(type, "Null type specified for property {}", name);
   }
 
   @Override public JSDocInfo getJSDocInfo() {

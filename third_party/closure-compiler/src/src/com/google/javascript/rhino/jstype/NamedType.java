@@ -41,16 +41,15 @@ package com.google.javascript.rhino.jstype;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 
 import com.google.common.base.Predicate;
-import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.StaticScope;
 import com.google.javascript.rhino.StaticSlot;
-import com.google.javascript.rhino.jstype.JSTypeRegistry.ModuleSlot;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -88,7 +87,7 @@ import javax.annotation.Nullable;
  *
  */
 public final class NamedType extends ProxyObjectType {
-  private static final long serialVersionUID = 1L;
+  private static final JSTypeClass TYPE_CLASS = JSTypeClass.NAMED;
 
   static int nominalHashCode(ObjectType type) {
     checkState(type.hasReferenceName());
@@ -100,12 +99,19 @@ public final class NamedType extends ProxyObjectType {
   private final String sourceName;
   private final int lineno;
   private final int charno;
-  private final boolean nonNull;
+  private final ResolutionKind resolutionKind;
 
-  /**
-   * Validates the type resolution.
-   */
+  @Nullable private StaticTypedScope resolutionScope;
+
+  /** Validates the type resolution. */
   private transient Predicate<JSType> validator;
+
+  // The following instance properties (`propertyContinuations`, `templateTypes`, and
+  // `restrictByNull`) are used to indicate that some type operation should be applied to the type
+  // after resolution. This is necessary because type operations are not well-defined when applied
+  // to unresolved NamedTypes.
+  //
+  // TODO(lharker): Generalize this pattern instead of storing these arbitrary fields.
 
   /** Property-defining continuations. */
   private transient List<PropertyContinuation> propertyContinuations = null;
@@ -115,49 +121,51 @@ public final class NamedType extends ProxyObjectType {
    * ignored during resolution, for backwards compatibility with existing usage. This field is not
    * used for JSCompiler's type checking; it is only needed by Clutz.
    */
-  @Nullable private final ImmutableList<JSType> templateTypes;
+  private final ImmutableList<JSType> templateTypes;
 
-  @Nullable private StaticTypedScope resolutionScope;
+  /** Applies the "!" operator to the resolved type, which removes null and undefined */
+  private final boolean restrictByNull;
 
-  /** Create a named type based on the reference. */
-  NamedType(
-      StaticTypedScope scope,
-      JSTypeRegistry registry,
-      String reference,
-      String sourceName,
-      int lineno,
-      int charno) {
-    this(scope, registry, reference, sourceName, lineno, charno, null);
+  private NamedType(Builder builder) {
+    super(builder.registry, builder.referencedType);
+    checkNotNull(builder.referenceName);
+    checkNotNull(builder.resolutionKind);
+    checkNotNull(builder.templateTypes);
+    if (builder.resolutionKind.equals(ResolutionKind.TYPEOF)) {
+      checkState(builder.referenceName.startsWith("typeof "));
+    }
+    // TODO(lharker): enforce that the scope is not null
+
+    this.restrictByNull = builder.restrictByNull;
+    this.resolutionScope = builder.scope;
+    this.reference = builder.referenceName;
+    this.sourceName = builder.sourceName;
+    this.lineno = builder.lineno;
+    this.charno = builder.charno;
+    this.templateTypes = builder.templateTypes;
+    this.resolutionKind = builder.resolutionKind;
+
+    registry.getResolver().resolveIfClosed(this, TYPE_CLASS);
   }
 
-  NamedType(
-      StaticTypedScope scope,
-      JSTypeRegistry registry,
-      String reference,
-      String sourceName,
-      int lineno,
-      int charno,
-      ImmutableList<JSType> templateTypes) {
-    super(registry, registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE));
-    this.nonNull = reference.startsWith("!");
-    this.resolutionScope = scope;
-    this.reference = nonNull ? reference.substring(1) : reference;
-    this.sourceName = sourceName;
-    this.lineno = lineno;
-    this.charno = charno;
-    this.templateTypes = templateTypes;
+  @Override
+  JSTypeClass getTypeClass() {
+    return TYPE_CLASS;
   }
 
   /** Returns a new non-null version of this type. */
   JSType getBangType() {
-    if (nonNull) {
+    if (restrictByNull) {
       return this;
-    } else if (resolutionScope == null) {
+    } else if (isResolved()) {
       // Already resolved, just restrict.
-      return getReferencedType().restrictByNotNullOrUndefined();
+      // TODO(b/146173738): just return getReferencedType().restrictByNotNullOrUndefined() after
+      // fixing how conformance checks handle unresolved types.
+      return this.isNoResolvedType() || this.isUnknownType()
+          ? this
+          : getReferencedType().restrictByNotNullOrUndefined();
     }
-    return new NamedType(
-        resolutionScope, registry, "!" + reference, sourceName, lineno, charno, templateTypes);
+    return this.toBuilder().setRestrictByNull(true).build();
   }
 
   @Override
@@ -207,12 +215,12 @@ public final class NamedType extends ProxyObjectType {
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
+  void appendTo(TypeStringBuilder sb) {
     JSType type = this.getReferencedType();
     if (!isResolved() || type.isNoResolvedType()) {
-      return sb.append(this.reference);
+      sb.append(getReferenceName());
     } else {
-      return type.appendTo(sb, forAnnotations);
+      sb.append(type);
     }
   }
 
@@ -223,7 +231,7 @@ public final class NamedType extends ProxyObjectType {
 
   @Override
   public boolean isNominalType() {
-    return true;
+    return isResolved() ? super.isNominalType() : true;
   }
 
   @Override
@@ -238,59 +246,61 @@ public final class NamedType extends ProxyObjectType {
    */
   @Override
   JSType resolveInternal(ErrorReporter reporter) {
-    if (!getReferencedType().isUnknownType()) {
+    ImmutableList<JSType> resolvedTypeArgs =
+        JSTypeIterations.mapTypes((t) -> t.resolve(reporter), this.templateTypes);
+
+    if (resolutionKind.equals(ResolutionKind.NONE)) {
       // In some cases (e.g. typeof(ns) when the actual type is just a literal object), a NamedType
       // is created solely for the purpose of naming an already-known type. When that happens,
       // there's nothing to look up, so just resolve the referenced type.
       return super.resolveInternal(reporter);
     }
+    checkState(
+        getReferencedType().isUnknownType(),
+        "NamedTypes given a referenced type pre-resolution should have ResolutionKind.NONE");
 
-    boolean resolved = false;
-    if (reference.startsWith("typeof ")) {
-      resolveTypeof(reporter);
-      resolved = true;
+    if (resolutionScope == null) {
+      return this;
     }
 
     // TODO(user): Investigate whether it is really necessary to keep two
     // different mechanisms for resolving named types, and if so, which order
     // makes more sense.
-    // The `resolveViaClosureNamespace` mechanism can probably be deleted (or reworked) once the
-    // compiler supports type annotations via path. The `resolveViaProperties` and
-    // `resolveViaRegistry` are, unfortunately, both needed now with no migration plan.
-    resolved =
-        resolved
-            || resolveViaClosureNamespace(reporter)
-            || resolveViaRegistry(reporter);
-    if (!resolved) {
-      resolveViaProperties(reporter);
-    }
+    boolean unused = resolveTypeof(reporter) || resolveViaRegistry(reporter);
 
+    super.resolveInternal(reporter);
     if (detectInheritanceCycle()) {
       handleTypeCycle(reporter);
     }
-    super.resolveInternal(reporter);
     finishPropertyContinuations();
 
     JSType result = getReferencedType();
     if (isSuccessfullyResolved()) {
       this.resolutionScope = null;
 
-      int numKeys = result.getTemplateParamCount();
-      if (!result.isObjectType() || templateTypes == null || templateTypes.isEmpty()) {
+      ObjectType resultAsObject = result.toMaybeObjectType();
+
+      if (resultAsObject == null) {
+        // For non-object types there is no need to handle template parameters or
+        // interface aliases, so we can just return now.
         return result;
       }
 
-      ImmutableList<JSType> resolvedTypeArgs =
-          JSTypeIterations.mapTypes((t) -> t.resolve(reporter), this.templateTypes);
-      // Ignore any extraneous type args (but only after resolving them!)
-      // TODO(johnlenz): report an error
-      if (numKeys < this.templateTypes.size()) {
+      if (resolvedTypeArgs.isEmpty() || !resultAsObject.isRawTypeOfTemplatizedType()) {
+        // No template parameters need to be resolved.
+        return result;
+      }
+
+      int numKeys = result.getTemplateParamCount();
+      // TODO(b/287880204): report an error if there are too many type arguments
+      if (numKeys < resolvedTypeArgs.size()) {
         resolvedTypeArgs = resolvedTypeArgs.subList(0, numKeys);
       }
 
-      result = registry.createTemplatizedType(result.toMaybeObjectType(), resolvedTypeArgs);
+      result = registry.createTemplatizedType(resultAsObject, resolvedTypeArgs);
       setReferencedType(result.resolve(reporter));
     }
+
     return result;
   }
 
@@ -300,188 +310,55 @@ public final class NamedType extends ProxyObjectType {
    */
   private boolean resolveViaRegistry(ErrorReporter reporter) {
     JSType type = registry.getType(resolutionScope, reference);
-    if (type != null) {
-      setReferencedAndResolvedType(type, reporter);
-      return true;
+    if (type == null) {
+      handleUnresolvedType(reporter);
+      return false;
     }
-    return false;
+    setReferencedAndResolvedType(type, reporter);
+    return true;
   }
 
-  /**
-   * Resolves a named type by looking up its first component in the scope, and subsequent components
-   * as properties. The scope must have been fully parsed and a symbol table constructed.
-   */
-  private void resolveViaProperties(ErrorReporter reporter) {
-    List<String> componentNames = Splitter.on('.').splitToList(reference);
-    if (componentNames.get(0).isEmpty()) {
-      handleUnresolvedType(reporter, /* ignoreForwardReferencedTypes= */ true);
-      return;
+  private boolean resolveTypeof(ErrorReporter reporter) {
+    if (!resolutionKind.equals(ResolutionKind.TYPEOF)) {
+      return false;
     }
 
-    StaticTypedSlot slot =
-        checkNotNull(resolutionScope, "resolutionScope")
-            .getSlot(checkNotNull(componentNames, "componentNames").get(0));
-    if (slot == null) {
-      handleUnresolvedType(reporter, /* ignoreForwardReferencedTypes= */ true);
-      return;
-    }
-    Node definitionNode = slot.getDeclaration() != null ? slot.getDeclaration().getNode() : null;
-    resolveViaPropertyGivenSlot(
-        slot.getType(), definitionNode, componentNames, reporter, /* componentIndex= */ 1);
-  }
-
-  /**
-   * Resolve a type using a given StaticTypedSlot and list of properties on that type.
-   *
-   * @param slotType the JSType of teh slot, possibly null
-   * @param definitionNode If known, the Node representing the type definition.
-   * @param componentIndex the index into {@code componentNames} at which to start resolving
-   */
-  private void resolveViaPropertyGivenSlot(
-      JSType slotType,
-      Node definitionNode,
-      List<String> componentNames,
-      ErrorReporter reporter,
-      int componentIndex) {
-    if (resolveTypeFromNodeIfTypedef(definitionNode, reporter)) {
-      return;
-    }
-
-    // If the first component has a type of 'Unknown', then any type
-    // names using it should be regarded as silently 'Unknown' rather than be
-    // noisy about it.
-    if (slotType == null || slotType.isAllType() || slotType.isNoType()) {
-      handleUnresolvedType(reporter, /* ignoreForwardReferencedTypes= */ true);
-      return;
-    }
-
-    // resolving component by component
-    for (int i = componentIndex; i < componentNames.size(); i++) {
-      String component = componentNames.get(i);
-      ObjectType parentObj = ObjectType.cast(slotType);
-      if (parentObj == null || component.length() == 0) {
-        handleUnresolvedType(reporter, /* ignoreForwardReferencedTypes= */ true);
-        return;
-      }
-      if (i == componentNames.size() - 1) {
-        // Look for a typedefTypeProp on the definition node of the last component.
-        Node def = parentObj.getPropertyDefSite(component);
-        if (resolveTypeFromNodeIfTypedef(def, reporter)) {
-          return;
-        }
-      }
-      slotType = parentObj.getPropertyType(component);
-    }
-
-    // Translate "constructor" types to "instance" types.
-    if (slotType == null) {
-      handleUnresolvedType(reporter, /* ignoreForwardReferencedTypes= */ true);
-    } else if (slotType.isFunctionType() && (slotType.isConstructor() || slotType.isInterface())) {
-      setReferencedAndResolvedType(slotType.toMaybeFunctionType().getInstanceType(), reporter);
-    } else if (slotType.isNoObjectType()) {
-      setReferencedAndResolvedType(
-          registry.getNativeObjectType(JSTypeNative.NO_OBJECT_TYPE), reporter);
-    } else if (slotType instanceof EnumType) {
-      setReferencedAndResolvedType(((EnumType) slotType).getElementsType(), reporter);
-    } else {
-      // We've been running into issues where people forward-declare
-      // non-named types. (This is legitimate...our dependency management
-      // code doubles as our forward-declaration code.)
-      //
-      // So if the type does resolve to an actual value, but it's not named,
-      // then don't respect the forward declaration.
-      handleUnresolvedType(reporter, slotType.isUnknownType());
-    }
-  }
-
-  private void resolveTypeof(ErrorReporter reporter) {
-    String name = reference.substring("typeof ".length());
     // TODO(sdh): require var to be const?
-    JSType type = resolutionScope.lookupQualifiedName(QualifiedName.of(name));
+    String scopeName = reference.substring("typeof ".length());
+    JSType type = resolutionScope.lookupQualifiedName(QualifiedName.of(scopeName));
     if (type == null || type.isUnknownType()) {
-      warning(reporter, "Missing type for `typeof` value. The value must be declared and const.");
-      setReferencedAndResolvedType(registry.getNativeType(JSTypeNative.UNKNOWN_TYPE), reporter);
+      if (registry.isForwardDeclaredType(scopeName)) {
+        // Preserve the "typeof" as a `NoResolvedType`.
+        // This is depended on by Clutz so it can generate `typeof ImportedType` instead of `any`
+        // when `ImportedType` is not defined in the files it can see.
+        setReferencedType(new NoResolvedType(registry, getReferenceName(), getTemplateTypes()));
+        if (validator != null) {
+          validator.apply(getReferencedType());
+        }
+      } else {
+        warning(reporter, "Missing type for `typeof` value. The value must be declared and const.");
+        setReferencedAndResolvedType(registry.getNativeType(JSTypeNative.UNKNOWN_TYPE), reporter);
+      }
     } else {
       if (type.isLiteralObject()) {
         // Create an extra layer of wrapping so that the "typeof" name is preserved for namespaces.
         // This is depended on by Clutz to prevent infinite loops in self-referential typeof types.
         JSType objlit = type;
-        type = registry.createNamedType(resolutionScope, reference, sourceName, lineno, charno);
-        ((NamedType) type).setReferencedType(objlit);
+        type =
+            NamedType.builder(registry, getReferenceName())
+                .setResolutionKind(ResolutionKind.NONE)
+                .setReferencedType(objlit)
+                .build();
       }
       setReferencedAndResolvedType(type, reporter);
     }
-  }
 
-  /**
-   * Resolves a named type by checking for the longest prefix that matches some Closure namespace,
-   * if any, then attempting to resolve via properties based on the type of the `exports` object in
-   * that namespace.
-   */
-  private boolean resolveViaClosureNamespace(ErrorReporter reporter) {
-    List<String> componentNames = Splitter.on('.').splitToList(reference);
-    if (componentNames.get(0).isEmpty()) {
-      return false;
-    }
-
-    StaticTypedSlot slot = resolutionScope.getSlot(componentNames.get(0));
-    // Skip types whose root component is defined in a local scope (not a global scope). Those will
-    // follow the normal resolution scheme. (For legacy compatibility reasons we don't check for
-    // global names that are the same as the module root).
-    if (slot != null && slot.getScope() != null && slot.getScope().getParentScope() != null) {
-      return false;
-    }
-
-    // Find the `exports` type of the longest prefix match of this namespace, if any. Then resolve
-    // it via property.
-    String prefix = reference;
-
-    for (int remainingComponentIndex = componentNames.size();
-        remainingComponentIndex > 0;
-        remainingComponentIndex--) {
-      ModuleSlot module = registry.getModuleSlot(prefix);
-      if (module == null) {
-        int lastDot = prefix.lastIndexOf(".");
-        if (lastDot >= 0) {
-          prefix = prefix.substring(0, lastDot);
-        }
-        continue;
-      }
-
-      if (module.isLegacyModule()) {
-        // Try to resolve this name via registry or properties.
-        return false;
-      } else {
-        // Always stop resolution here whether successful or not, instead of continuing with
-        // resolution via registry or via properties, to match legacy behavior.
-        resolveViaPropertyGivenSlot(
-            module.type(),
-            module.definitionNode(),
-            componentNames,
-            reporter,
-            remainingComponentIndex);
-        return true;
-      }
-    }
-    return false; // Keep trying to resolve this name.
-  }
-
-  /** Checks the given Node for a typedef annotation, resolving to that type if existent. */
-  private boolean resolveTypeFromNodeIfTypedef(Node node, ErrorReporter reporter) {
-    if (node == null) {
-      return false;
-    }
-    JSType typedefType = node.getTypedefTypeProp();
-    if (typedefType == null) {
-      return false;
-    }
-    setReferencedAndResolvedType(typedefType, reporter);
     return true;
   }
 
   private void setReferencedAndResolvedType(
       JSType type, ErrorReporter reporter) {
-    if (nonNull) {
+    if (restrictByNull) {
       type = type.restrictByNotNullOrUndefined();
     }
     if (validator != null) {
@@ -490,36 +367,32 @@ public final class NamedType extends ProxyObjectType {
     setReferencedType(type);
     checkEnumElementCycle(reporter);
     checkProtoCycle(reporter);
-    setResolvedTypeInternal(getReferencedType());
   }
 
   private void handleTypeCycle(ErrorReporter reporter) {
     setReferencedType(
         registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE));
     warning(reporter, "Cycle detected in inheritance chain of type " + reference);
-    setResolvedTypeInternal(getReferencedType());
   }
 
   private void checkEnumElementCycle(ErrorReporter reporter) {
     JSType referencedType = getReferencedType();
     if (referencedType instanceof EnumElementType
-        && areIdentical(this, ((EnumElementType) referencedType).getPrimitiveType())) {
+        && identical(this, ((EnumElementType) referencedType).getPrimitiveType())) {
       handleTypeCycle(reporter);
     }
   }
 
   private void checkProtoCycle(ErrorReporter reporter) {
     JSType referencedType = getReferencedType();
-    if (areIdentical(referencedType, this)) {
+    if (identical(referencedType, this)) {
       handleTypeCycle(reporter);
     }
   }
 
   /** Warns about this type being unresolved iff it's not a forward-declared type name */
-  private void handleUnresolvedType(
-      ErrorReporter reporter, boolean ignoreForwardReferencedTypes) {
-    boolean isForwardDeclared =
-        ignoreForwardReferencedTypes && registry.isForwardDeclaredType(reference);
+  private void handleUnresolvedType(ErrorReporter reporter) {
+    boolean isForwardDeclared = registry.isForwardDeclaredType(reference);
     if (!isForwardDeclared) {
       String msg = "Bad type annotation. Unknown type " + reference;
       // Look for a local variable that shadows a global namespace to give a clearer message.
@@ -536,8 +409,6 @@ public final class NamedType extends ProxyObjectType {
         validator.apply(getReferencedType());
       }
     }
-
-    setResolvedTypeInternal(getReferencedType());
   }
 
   /**
@@ -547,6 +418,7 @@ public final class NamedType extends ProxyObjectType {
   private boolean localVariableShadowsGlobalNamespace(String root) {
     StaticSlot rootVar = resolutionScope.getSlot(root);
     if (rootVar != null) {
+      checkNotNull(rootVar.getScope(), rootVar);
       StaticScope parent = rootVar.getScope().getParentScope();
       if (parent != null) {
         StaticSlot globalVar = parent.getSlot(root);
@@ -608,5 +480,88 @@ public final class NamedType extends ProxyObjectType {
   @Override
   public <T> T visit(Visitor<T> visitor) {
     return visitor.caseNamedType(this);
+  }
+
+  static Builder builder(JSTypeRegistry registry, String reference) {
+    return new Builder(registry, reference);
+  }
+
+  enum ResolutionKind {
+    NONE,
+    TYPE_NAME,
+    TYPEOF
+  }
+
+  Builder toBuilder() {
+    checkState(!isResolved(), "Only call toBuilder on unresolved NamedTypes");
+    return new Builder(this.registry, this.reference)
+        .setScope(this.resolutionScope)
+        .setResolutionKind(this.resolutionKind)
+        .setErrorReportingLocation(this.sourceName, this.lineno, this.charno)
+        .setTemplateTypes(this.templateTypes)
+        .setReferencedType(getReferencedType())
+        .setRestrictByNull(this.restrictByNull);
+  }
+
+  static final class Builder {
+    private final JSTypeRegistry registry;
+    private ResolutionKind resolutionKind;
+    private final String referenceName;
+    private StaticTypedScope scope;
+    private String sourceName;
+    private int lineno;
+    private int charno;
+    private JSType referencedType;
+    private boolean restrictByNull;
+    private ImmutableList<JSType> templateTypes = ImmutableList.of();
+
+    private Builder(JSTypeRegistry registry, String referenceName) {
+      this.registry = registry;
+      this.referenceName = referenceName;
+      this.referencedType = registry.getNativeType(JSTypeNative.UNKNOWN_TYPE);
+    }
+
+    Builder setScope(StaticTypedScope scope) {
+      this.scope = scope;
+      return this;
+    }
+
+    Builder setResolutionKind(ResolutionKind resolutionKind) {
+      this.resolutionKind = resolutionKind;
+      return this;
+    }
+
+    Builder setErrorReportingLocation(String sourceName, int lineno, int charno) {
+      this.sourceName = sourceName;
+      this.lineno = lineno;
+      this.charno = charno;
+      return this;
+    }
+
+    Builder setErrorReportingLocationFrom(Node source) {
+      this.sourceName = source.getSourceFileName();
+      this.lineno = source.getLineno();
+      this.charno = source.getCharno();
+      return this;
+    }
+
+    Builder setTemplateTypes(ImmutableList<JSType> templateTypes) {
+      this.templateTypes = templateTypes;
+      return this;
+    }
+
+    Builder setReferencedType(JSType referencedType) {
+      this.referencedType = referencedType;
+      return this;
+    }
+
+    private Builder setRestrictByNull(boolean restrictByNull) {
+      this.restrictByNull = restrictByNull;
+      return this;
+    }
+
+    NamedType build() {
+      return new NamedType(this);
+    }
   }
 }

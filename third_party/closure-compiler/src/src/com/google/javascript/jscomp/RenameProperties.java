@@ -93,23 +93,16 @@ class RenameProperties implements CompilerPass {
   private final NameGenerator nameGenerator;
 
   private static final Comparator<Property> FREQUENCY_COMPARATOR =
-    new Comparator<Property>() {
-      @Override
-      public int compare(Property p1, Property p2) {
+      (Property p1, Property p2) -> {
 
-        /**
-         * First a frequently used names would always be picked first.
-         */
+        /** First a frequently used names would always be picked first. */
         if (p1.numOccurrences != p2.numOccurrences) {
           return p2.numOccurrences - p1.numOccurrences;
         }
 
-        /**
-         * Finally, for determinism, we compare them based on the old name.
-         */
+        /** Finally, for determinism, we compare them based on the old name. */
         return p1.oldName.compareTo(p2.oldName);
-       }
-    };
+      };
 
   static final DiagnosticType BAD_CALL = DiagnosticType.error(
       "JSC_BAD_RENAME_PROPERTY_FUNCTION_NAME_CALL",
@@ -237,7 +230,7 @@ class RenameProperties implements CompilerPass {
         }
         sb.append(replacement);
       }
-      parent.replaceChild(nodeEntry.getKey(), IR.string(sb.toString()));
+      nodeEntry.getKey().replaceWith(IR.string(sb.toString()));
       compiler.reportChangeToEnclosingScope(parent);
     }
 
@@ -334,15 +327,12 @@ class RenameProperties implements CompilerPass {
         case COMPUTED_PROP:
           break;
         case GETPROP:
-          Node propNode = n.getSecondChild();
-          if (propNode.isString()) {
-            if (compiler.getCodingConvention().blockRenamingForProperty(
-                propNode.getString())) {
-              externedNames.add(propNode.getString());
-              break;
+        case OPTCHAIN_GETPROP:
+          if (compiler.getCodingConvention().blockRenamingForProperty(n.getString())) {
+            externedNames.add(n.getString());
+            break;
             }
-            maybeMarkCandidate(propNode);
-          }
+          maybeMarkCandidate(n);
           break;
         case OBJECTLIT:
         case OBJECT_PATTERN:
@@ -377,11 +367,12 @@ class RenameProperties implements CompilerPass {
           }
           break;
         case GETELEM:
+        case OPTCHAIN_GETELEM:
           // If this is a quoted property access (e.g. x['myprop']), we need to
           // ensure that we never rename some other property in a way that
           // could conflict with this quoted name.
           Node child = n.getLastChild();
-          if (child != null && child.isString()) {
+          if (child != null && child.isStringLit()) {
             quotedNames.add(child.getString());
           }
           break;
@@ -441,7 +432,10 @@ class RenameProperties implements CompilerPass {
               }
             } else if (NodeUtil.isFunctionExpression(n)
                 && parent.isAssign()
-                && parent.getFirstChild().isGetProp()
+                && parent
+                    .getFirstChild()
+                    .isGetProp() // JSCompiler does not handle optional calls to property rename
+                // function
                 && compiler
                     .getCodingConvention()
                     .isPropertyRenameFunction(parent.getFirstChild().getOriginalQualifiedName())) {
@@ -486,7 +480,7 @@ class RenameProperties implements CompilerPass {
         fnName = callNode.getFirstChild().getString();
       }
       Node firstArg = callNode.getSecondChild();
-      if (!firstArg.isString()) {
+      if (!firstArg.isStringLit()) {
         t.report(callNode, BAD_CALL, fnName);
         return;
       }
@@ -508,11 +502,7 @@ class RenameProperties implements CompilerPass {
      * @param name The property name
      */
     private void countPropertyOccurrence(String name) {
-      Property prop = propertyMap.get(name);
-      if (prop == null) {
-        prop = new Property(name);
-        propertyMap.put(name, prop);
-      }
+      Property prop = propertyMap.computeIfAbsent(name, Property::new);
       prop.numOccurrences++;
     }
   }

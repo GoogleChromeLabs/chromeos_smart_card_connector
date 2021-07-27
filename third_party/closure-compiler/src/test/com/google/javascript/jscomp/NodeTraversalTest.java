@@ -22,10 +22,8 @@ import static com.google.javascript.jscomp.CompilerTestCase.lines;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.collect.ImmutableList;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallbackInterface;
-import com.google.javascript.jscomp.NodeTraversal.ChangeScopeRootCallback;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -44,6 +42,21 @@ public final class NodeTraversalTest {
   @Test
   public void testReport() {
     final List<JSError> errors = new ArrayList<>();
+    DiagnosticType dt = DiagnosticType.warning("FOO", "{0}, {1} - {2}");
+
+    NodeTraversal.Callback callback =
+        new NodeTraversal.Callback() {
+          @Override
+          public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
+            t.report(n, dt, "Foo", "Bar", "Hello");
+            return false;
+          }
+
+          @Override
+          public void visit(NodeTraversal t, Node n, Node parent) {
+            throw new AssertionError();
+          }
+        };
 
     Compiler compiler = new Compiler(new BasicErrorManager() {
 
@@ -59,10 +72,11 @@ public final class NodeTraversalTest {
     });
     compiler.initCompilerOptionsIfTesting();
 
-    NodeTraversal t = new NodeTraversal(compiler, null, new SyntacticScopeCreator(compiler));
-    DiagnosticType dt = DiagnosticType.warning("FOO", "{0}, {1} - {2}");
+    NodeTraversal.builder()
+        .setCompiler(compiler)
+        .setCallback(callback)
+        .traverse(new Node(Token.EMPTY));
 
-    t.report(new Node(Token.EMPTY), dt, "Foo", "Bar", "Hello");
     assertThat(errors).hasSize(1);
     assertThat(errors.get(0).getDescription()).isEqualTo("Foo, Bar - Hello");
   }
@@ -82,7 +96,7 @@ public final class NodeTraversalTest {
     try {
       String code = "function foo() {}";
       Node tree = parse(compiler, code);
-      NodeTraversal.traversePostOrder(compiler, tree, cb);
+      NodeTraversal.builder().setCompiler(compiler).setCallback(cb).traverse(tree);
       assertWithMessage("Expected RuntimeException").fail();
     } catch (RuntimeException e) {
       assertThat(e)
@@ -354,7 +368,11 @@ public final class NodeTraversalTest {
     Compiler compiler = new Compiler();
     ScopeCreator creator = new SyntacticScopeCreator(compiler);
     ExpectNodeOnEnterScope callback = new ExpectNodeOnEnterScope();
-    NodeTraversal t = new NodeTraversal(compiler, callback, creator);
+    NodeTraversal.Builder t =
+        NodeTraversal.builder()
+            .setCompiler(compiler)
+            .setCallback(callback)
+            .setScopeCreator(creator);
 
     String code = lines(
         "var a;",
@@ -388,11 +406,14 @@ public final class NodeTraversalTest {
   public void testTraverseAtScopeWithBlockScope() {
     Compiler compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
     compiler.initOptions(options);
     SyntacticScopeCreator creator = new SyntacticScopeCreator(compiler);
     ExpectNodeOnEnterScope callback = new ExpectNodeOnEnterScope();
-    NodeTraversal t = new NodeTraversal(compiler, callback, creator);
+    NodeTraversal.Builder t =
+        NodeTraversal.builder()
+            .setCompiler(compiler)
+            .setCallback(callback)
+            .setScopeCreator(creator);
 
     String code = lines(
         "function foo() {",
@@ -420,11 +441,14 @@ public final class NodeTraversalTest {
   public void testTraverseAtScopeWithForScope() {
     Compiler compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_2015);
     compiler.initOptions(options);
     SyntacticScopeCreator creator = new SyntacticScopeCreator(compiler);
     ExpectNodeOnEnterScope callback = new ExpectNodeOnEnterScope();
-    NodeTraversal t = new NodeTraversal(compiler, callback, creator);
+    NodeTraversal.Builder t =
+        NodeTraversal.builder()
+            .setCompiler(compiler)
+            .setCallback(callback)
+            .setScopeCreator(creator);
 
     String code =
         lines(
@@ -457,11 +481,14 @@ public final class NodeTraversalTest {
   public void testTraverseAtScopeWithSwitchScope() {
     Compiler compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_2015);
     compiler.initOptions(options);
     SyntacticScopeCreator creator = new SyntacticScopeCreator(compiler);
     ExpectNodeOnEnterScope callback = new ExpectNodeOnEnterScope();
-    NodeTraversal t = new NodeTraversal(compiler, callback, creator);
+    NodeTraversal.Builder t =
+        NodeTraversal.builder()
+            .setCompiler(compiler)
+            .setCallback(callback)
+            .setScopeCreator(creator);
 
     String code =
         lines(
@@ -493,11 +520,14 @@ public final class NodeTraversalTest {
   public void testTraverseAtScopeWithModuleScope() {
     Compiler compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_NEXT);
     compiler.initOptions(options);
     SyntacticScopeCreator creator = new SyntacticScopeCreator(compiler);
     ExpectNodeOnEnterScope callback = new ExpectNodeOnEnterScope();
-    NodeTraversal t = new NodeTraversal(compiler, callback, creator);
+    NodeTraversal.Builder t =
+        NodeTraversal.builder()
+            .setCompiler(compiler)
+            .setCallback(callback)
+            .setScopeCreator(creator);
 
     String code = lines(
         "goog.module('example.module');",
@@ -520,11 +550,14 @@ public final class NodeTraversalTest {
   public void testGetVarAccessible() {
     Compiler compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_2015);
     compiler.initOptions(options);
     SyntacticScopeCreator creator = new SyntacticScopeCreator(compiler);
     AccessibleCallback callback = new AccessibleCallback();
-    NodeTraversal t = new NodeTraversal(compiler, callback, creator);
+    NodeTraversal.Builder t =
+        NodeTraversal.builder()
+            .setCompiler(compiler)
+            .setCallback(callback)
+            .setScopeCreator(creator);
 
     // variables are hoisted to their enclosing scope
     String code =
@@ -666,37 +699,12 @@ public final class NodeTraversalTest {
   }
 
   @Test
-  public void testTraverseEs6ScopeRoots_callsEnterFunction() {
-    Compiler compiler = new Compiler();
-    EnterFunctionAccumulator callback = new EnterFunctionAccumulator();
-
-    String code = lines(
-        "function foo() {}",
-        "function bar() {}",
-        "function baz() {}");
-
-    Node tree = parse(compiler, code);
-    Node fooFunction = tree.getFirstChild();
-    Node barFunction = fooFunction.getNext();
-    Node bazFunction = barFunction.getNext();
-
-    NodeTraversal.traverseScopeRoots(
-        compiler,
-        null,
-        ImmutableList.of(fooFunction, barFunction, bazFunction),
-        callback,
-        callback, // FunctionCallback
-        false);
-    assertThat(callback.enteredFunctions).containsExactly(fooFunction, barFunction, bazFunction);
-  }
-
-  @Test
   public void testTraverseEs6ScopeRoots_callsEnterScope() {
     Compiler compiler = new Compiler();
 
     List<Node> scopesEntered = new ArrayList<>();
 
-    NodeTraversal.Callback callback = new NodeTraversal.ScopedCallback() {
+    class TestCallback implements NodeTraversal.ScopedCallback {
       @Override
       public void visit(NodeTraversal t, Node n, Node parent) {}
 
@@ -712,8 +720,7 @@ public final class NodeTraversalTest {
 
       @Override
       public void exitScope(NodeTraversal t) {}
-
-    };
+    }
 
     String code = "function foo() { {} }";
 
@@ -721,11 +728,7 @@ public final class NodeTraversalTest {
     Node fooFunction = tree.getFirstChild();
 
     NodeTraversal.traverseScopeRoots(
-        compiler,
-        null,
-        ImmutableList.of(fooFunction),
-        callback,
-        true);
+        compiler, null, ImmutableList.of(fooFunction), new TestCallback(), true);
     assertThat(scopesEntered).hasSize(3);  // Function, function's body, and the block inside it.
   }
 
@@ -737,35 +740,19 @@ public final class NodeTraversalTest {
 
     final AtomicInteger counter = new AtomicInteger(0);
     AbstractPostOrderCallbackInterface countingCallback =
-        (NodeTraversal t, Node n, Node parent) -> {
-          counter.incrementAndGet();
-        };
+        (NodeTraversal t, Node n, Node parent) -> counter.incrementAndGet();
 
-    NodeTraversal.traversePostOrder(compiler, tree, countingCallback);
+    NodeTraversal.builder().setCompiler(compiler).setCallback(countingCallback).traverse(tree);
     assertThat(counter.get()).isEqualTo(3);
 
     counter.set(0);
     Thread.currentThread().interrupt();
 
     try {
-      NodeTraversal.traversePostOrder(compiler, tree, countingCallback);
+      NodeTraversal.builder().setCompiler(compiler).setCallback(countingCallback).traverse(tree);
       assertWithMessage("Expected a RuntimeException;").fail();
     } catch (RuntimeException e) {
       assertThat(e).hasCauseThat().hasCauseThat().isInstanceOf(InterruptedException.class);
-    }
-  }
-
-  private static final class EnterFunctionAccumulator extends AbstractPostOrderCallback
-      implements ChangeScopeRootCallback {
-
-    List<Node> enteredFunctions = new ArrayList<>();
-
-    @Override
-    public void visit(NodeTraversal t, Node n, Node parent) {}
-
-    @Override
-    public void enterChangeScopeRoot(AbstractCompiler compiler, Node root) {
-      enteredFunctions.add(root);
     }
   }
 
@@ -795,7 +782,7 @@ public final class NodeTraversalTest {
 
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
-      if (n.isString()) {
+      if (n.isStringLit()) {
         strings.add(n.getString());
       }
     }
@@ -822,7 +809,7 @@ public final class NodeTraversalTest {
     public void enterScope(NodeTraversal t) {
       assertNode(t.getCurrentNode()).isEqualTo(node);
       assertNode(t.getScopeRoot()).isEqualTo(scopeRoot);
-      if (t.getScopeCreator().hasBlockScope() && (node.isForIn() || node.isForOf())) {
+      if (node.isForIn() || node.isForOf()) {
         node = node.getLastChild();
         scopeRoot = scopeRoot.getLastChild();
       }

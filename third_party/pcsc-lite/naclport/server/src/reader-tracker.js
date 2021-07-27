@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -90,8 +91,8 @@ const ReaderInfo = GSC.PcscLiteServer.ReaderInfo;
 GSC.PcscLiteServer.ReaderTracker = function(
     serverMessageChannel, pcscContextMessageChannel, parentLogger) {
   /** @private */
-  this.logger_ = GSC.Logging.getChildLogger(
-      parentLogger, READER_TRACKER_LOGGER_TITLE);
+  this.logger_ =
+      GSC.Logging.getChildLogger(parentLogger, READER_TRACKER_LOGGER_TITLE);
 
   /**
    * @type {!Array.<function(!Array.<!ReaderInfo>)>}
@@ -101,15 +102,13 @@ GSC.PcscLiteServer.ReaderTracker = function(
 
   /** @private */
   this.trackerThroughPcscServerHook_ = new TrackerThroughPcscServerHook(
-      this.logger_,
-      serverMessageChannel,
+      this.logger_, serverMessageChannel,
       this.fireOnUpdateListeners_.bind(this));
 
   /** @private */
   this.trackerThroughPcscApi_ =
       new GSC.PcscLiteClient.ReaderTrackerThroughPcscApi(
-          this.logger_,
-          pcscContextMessageChannel,
+          this.logger_, pcscContextMessageChannel,
           this.fireOnUpdateListeners_.bind(this));
 
   this.logger_.fine('Initialized');
@@ -140,8 +139,9 @@ ReaderTracker.prototype.removeOnUpdateListener = function(listener) {
   if (goog.array.remove(this.updateListeners_, listener)) {
     this.logger_.fine('Removed an update listener');
   } else {
-    this.logger_.warning('Failed to remove an update listener: the passed ' +
-                         'function was not found');
+    this.logger_.warning(
+        'Failed to remove an update listener: the passed ' +
+        'function was not found');
   }
 };
 
@@ -157,13 +157,10 @@ ReaderTracker.prototype.getReaders = function() {
   // Take the information about successfully initialized readers from the PC/SC
   // API.
   const successReaders = goog.array.map(
-      this.trackerThroughPcscApi_.getReaders(),
-      function(reader) {
+      this.trackerThroughPcscApi_.getReaders(), function(reader) {
         return new ReaderInfo(
-            reader.name,
-            ReaderStatus.SUCCESS,
-            /*error=*/undefined,
-            reader.isCardPresent);
+            reader.name, ReaderStatus.SUCCESS,
+            /*error=*/ undefined, reader.isCardPresent);
       });
 
   // Take the information about other readers (i.e. that are either under the
@@ -237,8 +234,10 @@ TrackerThroughPcscServerHook.prototype.getReaders = function() {
   const mappedReaderInfos = goog.array.map(
       ports, this.portToReaderInfoMap_.get, this.portToReaderInfoMap_);
   // Remove null entries, as they correspond to readers that should be hidden.
-  return /** @type {!Array.<!ReaderInfo>} */ (mappedReaderInfos.filter(
-      function(item) { return item !== null; }));
+  return /** @type {!Array.<!ReaderInfo>} */ (
+      mappedReaderInfos.filter(function(item) {
+        return item !== null;
+      }));
 };
 
 /**
@@ -254,12 +253,12 @@ TrackerThroughPcscServerHook.prototype.readerInitAddListener_ = function(
   /** @type {string} */
   const device = GSC.MessagingCommon.extractKey(message, 'device');
 
-  this.logger_.info('A new reader "' + name + '" (port ' + port + ', device "' +
-                    device + '") is being initialized...');
+  this.logger_.info(
+      'A new reader "' + name + '" (port ' + port + ', device "' + device +
+      '") is being initialized...');
 
   GSC.Logging.checkWithLogger(
-      this.logger_,
-      !this.portToReaderInfoMap_.has(port),
+      this.logger_, !this.portToReaderInfoMap_.has(port),
       'Initializing reader which is already present!');
   this.portToReaderInfoMap_.set(port, new ReaderInfo(name, ReaderStatus.INIT));
   this.updateListener_();
@@ -287,22 +286,24 @@ TrackerThroughPcscServerHook.prototype.readerFinishAddListener_ = function(
   const readerTitleForLog =
       '"' + name + '" (port ' + port + ', device "' + device + '")';
   if (returnCode === 0) {
-    this.logger_.info('The reader ' + readerTitleForLog + ' was successfully ' +
-                      'initialized');
+    this.logger_.info(
+        'The reader ' + readerTitleForLog + ' was successfully ' +
+        'initialized');
     readerInfo = new ReaderInfo(name, ReaderStatus.SUCCESS);
   } else if (this.shouldHideFailedReader_(device)) {
-    this.logger_.info('Silent error while initializing the reader ' +
-                      readerTitleForLog + ': error code ' + returnCodeHex +
-                      '. This reader will be hidden from UI.');
+    this.logger_.info(
+        'Silent error while initializing the reader ' + readerTitleForLog +
+        ': error code ' + returnCodeHex +
+        '. This reader will be hidden from UI.');
   } else {
-    this.logger_.warning('Failure while initializing the reader ' +
-                         readerTitleForLog + ': error code ' + returnCodeHex);
+    this.logger_.warning(
+        'Failure while initializing the reader ' + readerTitleForLog +
+        ': error code ' + returnCodeHex);
     readerInfo = new ReaderInfo(name, ReaderStatus.FAILURE, returnCodeHex);
   }
 
   GSC.Logging.checkWithLogger(
-      this.logger_,
-      this.portToReaderInfoMap_.has(port),
+      this.logger_, this.portToReaderInfoMap_.has(port),
       'Finishing initializing reader without present reader!');
 
   // Note that the inserted value may be null, which means that this reader
@@ -327,8 +328,7 @@ TrackerThroughPcscServerHook.prototype.readerRemoveListener_ = function(
       'The reader "' + name + '" (port ' + port + ') was removed');
 
   GSC.Logging.checkWithLogger(
-      this.logger_,
-      this.portToReaderInfoMap_.has(port),
+      this.logger_, this.portToReaderInfoMap_.has(port),
       'Tried removing non-existing reader!');
   this.portToReaderInfoMap_.delete(port);
   this.updateListener_();
@@ -352,5 +352,4 @@ TrackerThroughPcscServerHook.prototype.shouldHideFailedReader_ = function(
   // actually signal about any error.
   return /:[1-9][0-9]*$/.test(device);
 };
-
 });  // goog.scope

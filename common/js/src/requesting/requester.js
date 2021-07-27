@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -223,8 +224,8 @@ Requester.prototype.resolveRequest_ = function(requestId, payload) {
  * @private
  */
 Requester.prototype.rejectRequest_ = function(requestId, errorMessage) {
-  this.logger.fine('The request with identifier ' + requestId + ' failed: ' +
-                   errorMessage);
+  this.logger.fine(
+      'The request with identifier ' + requestId + ' failed: ' + errorMessage);
   this.popRequestPromiseResolver_(requestId).reject(new Error(errorMessage));
 };
 

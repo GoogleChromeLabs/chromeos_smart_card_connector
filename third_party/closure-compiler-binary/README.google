@@ -1,5 +1,5 @@
-URL: https://dl.google.com/closure-compiler/compiler-20191111.tar.gz
-Version: 20191111
+URL: https://repo1.maven.org/maven2/com/google/javascript/closure-compiler/v20210601/closure-compiler-v20210601.jar
+Version: 20210601
 License: Apache 2.0
 License File: LICENSE
 Description:

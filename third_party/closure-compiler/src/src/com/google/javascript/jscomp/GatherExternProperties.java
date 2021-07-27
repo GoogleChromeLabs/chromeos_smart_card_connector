@@ -29,22 +29,15 @@ import java.util.Set;
 /**
  * Gathers property names defined in externs.
  *
- * The collection of these property names could easily happen during
- * type checking. However, when exporting local property definitions,
- * the externs may be modified after type checking, and we want to
- * collect the new names as well.
- *
- * NOTE(dimvar): with NTI, we collect the relevant property names
- * during type checking, and we run this pass just to collect new
- * names that come from local exports. The type-visitor part is not
- * executed because getJSType returns null.
+ * <p>The collection of these property names could easily happen during type checking. However, when
+ * exporting local property definitions, the externs may be modified after type checking, and we
+ * want to collect the new names as well.
  */
-class GatherExternProperties extends AbstractPostOrderCallback
-    implements CompilerPass {
+final class GatherExternProperties extends AbstractPostOrderCallback implements CompilerPass {
   private final Set<String> externProperties;
   private final AbstractCompiler compiler;
 
-  public GatherExternProperties(AbstractCompiler compiler) {
+  GatherExternProperties(AbstractCompiler compiler) {
     this.compiler = compiler;
     this.externProperties = compiler.getExternProperties() == null
         ? new LinkedHashSet<String>()
@@ -62,10 +55,7 @@ class GatherExternProperties extends AbstractPostOrderCallback
     switch (n.getToken()) {
       case GETPROP:
         // Gathers "name" from (someObject.name).
-        Node dest = n.getSecondChild();
-        if (dest.isString()) {
-          externProperties.add(dest.getString());
-        }
+        externProperties.add(n.getString());
         break;
       case STRING_KEY:
         if (parent.isObjectLit()) {

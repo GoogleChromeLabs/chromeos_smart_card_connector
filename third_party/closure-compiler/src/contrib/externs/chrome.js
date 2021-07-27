@@ -369,7 +369,15 @@ MessageSender.prototype.url;
 
 
 /** @type {string|undefined} */
+MessageSender.prototype.nativeApplication;
+
+
+/** @type {string|undefined} */
 MessageSender.prototype.tlsChannelId;
+
+
+/** @type {string|undefined} */
+MessageSender.prototype.origin;
 
 
 /**
@@ -460,6 +468,10 @@ Tab.prototype.mutedInfo;
 // TODO: Make this field optional once dependent projects have been updated.
 /** @type {string} */
 Tab.prototype.url;
+
+
+/** @type {string|undefined} */
+Tab.prototype.pendingUrl;
 
 
 // TODO: Make this field optional once dependent projects have been updated.

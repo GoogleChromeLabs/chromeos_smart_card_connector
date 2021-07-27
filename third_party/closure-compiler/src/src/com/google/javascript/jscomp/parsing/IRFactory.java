@@ -18,24 +18,13 @@ package com.google.javascript.jscomp.parsing;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.javascript.rhino.TypeDeclarationsIR.anyType;
-import static com.google.javascript.rhino.TypeDeclarationsIR.arrayType;
-import static com.google.javascript.rhino.TypeDeclarationsIR.booleanType;
-import static com.google.javascript.rhino.TypeDeclarationsIR.functionType;
-import static com.google.javascript.rhino.TypeDeclarationsIR.namedType;
-import static com.google.javascript.rhino.TypeDeclarationsIR.numberType;
-import static com.google.javascript.rhino.TypeDeclarationsIR.parameterizedType;
-import static com.google.javascript.rhino.TypeDeclarationsIR.stringType;
-import static com.google.javascript.rhino.TypeDeclarationsIR.undefinedType;
-import static com.google.javascript.rhino.TypeDeclarationsIR.unionType;
-import static com.google.javascript.rhino.TypeDeclarationsIR.voidType;
 import static java.lang.Integer.parseInt;
+import static java.lang.Math.min;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
-import com.google.common.collect.UnmodifiableIterator;
 import com.google.javascript.jscomp.parsing.Config.JsDocParsing;
 import com.google.javascript.jscomp.parsing.Config.LanguageMode;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
@@ -44,16 +33,14 @@ import com.google.javascript.jscomp.parsing.parser.IdentifierToken;
 import com.google.javascript.jscomp.parsing.parser.LiteralToken;
 import com.google.javascript.jscomp.parsing.parser.TemplateLiteralToken;
 import com.google.javascript.jscomp.parsing.parser.TokenType;
-import com.google.javascript.jscomp.parsing.parser.trees.AmbientDeclarationTree;
+import com.google.javascript.jscomp.parsing.parser.trees.ArgumentListTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ArrayLiteralExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ArrayPatternTree;
-import com.google.javascript.jscomp.parsing.parser.trees.ArrayTypeTree;
 import com.google.javascript.jscomp.parsing.parser.trees.AwaitExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.BinaryOperatorTree;
 import com.google.javascript.jscomp.parsing.parser.trees.BlockTree;
 import com.google.javascript.jscomp.parsing.parser.trees.BreakStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.CallExpressionTree;
-import com.google.javascript.jscomp.parsing.parser.trees.CallSignatureTree;
 import com.google.javascript.jscomp.parsing.parser.trees.CaseClauseTree;
 import com.google.javascript.jscomp.parsing.parser.trees.CatchTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ClassDeclarationTree;
@@ -64,7 +51,6 @@ import com.google.javascript.jscomp.parsing.parser.trees.ComprehensionIfTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ComprehensionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ComputedPropertyDefinitionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ComputedPropertyGetterTree;
-import com.google.javascript.jscomp.parsing.parser.trees.ComputedPropertyMemberVariableTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ComputedPropertyMethodTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ComputedPropertySetterTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ConditionalExpressionTree;
@@ -75,7 +61,6 @@ import com.google.javascript.jscomp.parsing.parser.trees.DefaultParameterTree;
 import com.google.javascript.jscomp.parsing.parser.trees.DoWhileStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.DynamicImportTree;
 import com.google.javascript.jscomp.parsing.parser.trees.EmptyStatementTree;
-import com.google.javascript.jscomp.parsing.parser.trees.EnumDeclarationTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ExportDeclarationTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ExportSpecifierTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ExpressionStatementTree;
@@ -86,40 +71,33 @@ import com.google.javascript.jscomp.parsing.parser.trees.ForOfStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ForStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.FormalParameterListTree;
 import com.google.javascript.jscomp.parsing.parser.trees.FunctionDeclarationTree;
-import com.google.javascript.jscomp.parsing.parser.trees.FunctionTypeTree;
-import com.google.javascript.jscomp.parsing.parser.trees.GenericTypeListTree;
 import com.google.javascript.jscomp.parsing.parser.trees.GetAccessorTree;
 import com.google.javascript.jscomp.parsing.parser.trees.IdentifierExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.IfStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ImportDeclarationTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ImportMetaExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ImportSpecifierTree;
-import com.google.javascript.jscomp.parsing.parser.trees.IndexSignatureTree;
-import com.google.javascript.jscomp.parsing.parser.trees.InterfaceDeclarationTree;
 import com.google.javascript.jscomp.parsing.parser.trees.IterRestTree;
 import com.google.javascript.jscomp.parsing.parser.trees.IterSpreadTree;
 import com.google.javascript.jscomp.parsing.parser.trees.LabelledStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.LiteralExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.MemberExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.MemberLookupExpressionTree;
-import com.google.javascript.jscomp.parsing.parser.trees.MemberVariableTree;
 import com.google.javascript.jscomp.parsing.parser.trees.MissingPrimaryExpressionTree;
-import com.google.javascript.jscomp.parsing.parser.trees.NamespaceDeclarationTree;
-import com.google.javascript.jscomp.parsing.parser.trees.NamespaceNameTree;
 import com.google.javascript.jscomp.parsing.parser.trees.NewExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.NewTargetExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.NullTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ObjectLiteralExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ObjectPatternTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ObjectSpreadTree;
-import com.google.javascript.jscomp.parsing.parser.trees.OptionalParameterTree;
-import com.google.javascript.jscomp.parsing.parser.trees.ParameterizedTypeTree;
+import com.google.javascript.jscomp.parsing.parser.trees.OptChainCallExpressionTree;
+import com.google.javascript.jscomp.parsing.parser.trees.OptionalMemberExpressionTree;
+import com.google.javascript.jscomp.parsing.parser.trees.OptionalMemberLookupExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ParenExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ParseTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ParseTreeType;
 import com.google.javascript.jscomp.parsing.parser.trees.ProgramTree;
 import com.google.javascript.jscomp.parsing.parser.trees.PropertyNameAssignmentTree;
-import com.google.javascript.jscomp.parsing.parser.trees.RecordTypeTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ReturnStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.SetAccessorTree;
 import com.google.javascript.jscomp.parsing.parser.trees.SuperExpressionTree;
@@ -130,12 +108,7 @@ import com.google.javascript.jscomp.parsing.parser.trees.TemplateSubstitutionTre
 import com.google.javascript.jscomp.parsing.parser.trees.ThisExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.ThrowStatementTree;
 import com.google.javascript.jscomp.parsing.parser.trees.TryStatementTree;
-import com.google.javascript.jscomp.parsing.parser.trees.TypeAliasTree;
-import com.google.javascript.jscomp.parsing.parser.trees.TypeNameTree;
-import com.google.javascript.jscomp.parsing.parser.trees.TypeQueryTree;
-import com.google.javascript.jscomp.parsing.parser.trees.TypedParameterTree;
 import com.google.javascript.jscomp.parsing.parser.trees.UnaryExpressionTree;
-import com.google.javascript.jscomp.parsing.parser.trees.UnionTypeTree;
 import com.google.javascript.jscomp.parsing.parser.trees.UpdateExpressionTree;
 import com.google.javascript.jscomp.parsing.parser.trees.UpdateExpressionTree.OperatorPosition;
 import com.google.javascript.jscomp.parsing.parser.trees.VariableDeclarationListTree;
@@ -150,24 +123,20 @@ import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
-import com.google.javascript.rhino.JSDocInfo.Visibility;
-import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.Node.TypeDeclarationNode;
 import com.google.javascript.rhino.NonJSDocComment;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.TokenStream;
 import com.google.javascript.rhino.dtoa.DToA;
+import java.math.BigInteger;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 
 /**
@@ -229,11 +198,6 @@ class IRFactory {
   private final ErrorReporter errorReporter;
   private final TransformDispatcher transformDispatcher;
 
-  private static final ImmutableSet<String> USE_STRICT_ONLY = ImmutableSet.of("use strict");
-
-  private static final ImmutableSet<String> ALLOWED_DIRECTIVES =
-      USE_STRICT_ONLY;
-
   private static final ImmutableSet<String> ES5_RESERVED_KEYWORDS =
       ImmutableSet.of(
           // From Section 7.6.1.2
@@ -254,21 +218,17 @@ class IRFactory {
 
   // @license text gets appended onto the fileLevelJsDocBuilder as found,
   // and stored in JSDocInfo for placeholder node.
-  JSDocInfoBuilder fileLevelJsDocBuilder;
+  final JSDocInfo.Builder fileLevelJsDocBuilder;
   JSDocInfo fileOverviewInfo = null;
 
   // Use a template node for properties set on all nodes to minimize the
   // memory footprint associated with these.
   private final Node templateNode;
 
-  private final UnmodifiableIterator<Comment> nextCommentIter;
-  private final UnmodifiableIterator<Comment> nextNonJSDocCommentIter;
-
-  private Comment currentComment;
-  private Comment currentNonJSDocComment;
+  private final CommentTracker jsdocTracker;
+  private final CommentTracker nonJsdocTracker;
 
   private boolean currentFileIsExterns = false;
-  private boolean hasJsDocTypeAnnotations = false;
 
   private FeatureSet features = FeatureSet.BARE_MINIMUM;
   private Node resultNode;
@@ -279,16 +239,16 @@ class IRFactory {
                     ErrorReporter errorReporter,
                     ImmutableList<Comment> comments) {
     this.sourceString = sourceString;
-    this.nextCommentIter = comments.iterator();
-    this.nextNonJSDocCommentIter = comments.iterator();
-    this.currentComment = skipNonJsDoc(nextCommentIter);
-    this.currentNonJSDocComment = skipJsDocComments(nextNonJSDocCommentIter);
+    this.jsdocTracker = new CommentTracker(comments, (c) -> c.type == Comment.Type.JSDOC);
+    this.nonJsdocTracker = new CommentTracker(comments, (c) -> c.type != Comment.Type.JSDOC);
     this.sourceFile = sourceFile;
     // The template node properties are applied to all nodes in this transform.
     this.templateNode = createTemplateNode();
 
-    this.fileLevelJsDocBuilder =
-        new JSDocInfoBuilder(config.jsDocParsingMode().shouldParseDescriptions());
+    this.fileLevelJsDocBuilder = JSDocInfo.builder();
+    if (config.jsDocParsingMode().shouldParseDescriptions()) {
+      this.fileLevelJsDocBuilder.parseDocumentation();
+    }
 
     // Sometimes this will be null in tests.
     this.sourceName = sourceFile == null ? null : sourceFile.getName();
@@ -306,14 +266,38 @@ class IRFactory {
     }
   }
 
-  private static Comment skipNonJsDoc(UnmodifiableIterator<Comment> comments) {
-    while (comments.hasNext()) {
-      Comment comment = comments.next();
-      if (comment.type == Comment.Type.JSDOC) {
-        return comment;
+  private static final class CommentTracker {
+    private final ImmutableList<Comment> source;
+    private final Predicate<Comment> filter;
+    private int index = -1;
+
+    CommentTracker(ImmutableList<Comment> source, Predicate<Comment> filter) {
+      this.source = source;
+      this.filter = filter;
+
+      this.advance();
+    }
+
+    Comment current() {
+      return (this.index >= this.source.size()) ? null : this.source.get(this.index);
+    }
+
+    void advance() {
+      while (true) {
+        this.index++; // Always advance at least one element.
+
+        Comment c = this.current();
+        if (c == null || this.filter.test(c)) {
+          break;
+        }
       }
     }
-    return null;
+
+    boolean hasPendingCommentBefore(SourcePosition pos) {
+      Comment c = this.current();
+      // The line number matters for trailing comments
+      return c != null && c.location.end.line <= pos.line && c.location.end.offset <= pos.offset;
+    }
   }
 
   // Create a template node to use as a source of common attributes, this allows
@@ -553,24 +537,6 @@ class IRFactory {
     }
   }
 
-  JSDocInfo recordJsDoc(SourceRange location, JSDocInfo info) {
-    if (info != null && info.hasTypeInformation()) {
-      hasJsDocTypeAnnotations = true;
-      if (features.version().equals("ts")) {
-        errorReporter.error("Can only have JSDoc or inline type annotations, not both",
-            sourceName, lineno(location.start), charno(location.start));
-      }
-    }
-    return info;
-  }
-
-  void recordTypeSyntax(SourceRange location) {
-    if (hasJsDocTypeAnnotations) {
-      errorReporter.error("Can only have JSDoc or inline type annotations, not both",
-          sourceName, lineno(location.start), charno(location.start));
-    }
-  }
-
   private void setFileOverviewJsDoc(Node irNode) {
     // Only after we've seen all @fileoverview entries, attach the
     // last one to the root node, and copy the found license strings
@@ -581,29 +547,28 @@ class IRFactory {
     }
 
     if (fileOverviewInfo != null) {
-      if ((irNode.getJSDocInfo() != null) &&
-          (irNode.getJSDocInfo().getLicense() != null)) {
-        JSDocInfoBuilder builder = JSDocInfoBuilder.copyFrom(fileOverviewInfo);
-        builder.recordLicense(irNode.getJSDocInfo().getLicense());
+      JSDocInfo jsdoc = irNode.getJSDocInfo();
+      if (jsdoc != null && jsdoc.getLicense() != null) {
+        JSDocInfo.Builder builder = JSDocInfo.Builder.copyFrom(fileOverviewInfo);
+        builder.recordLicense(jsdoc.getLicense());
         fileOverviewInfo = builder.build();
       }
+
       irNode.setJSDocInfo(fileOverviewInfo);
     }
   }
 
   Node transformBlock(ParseTree node) {
     Node irNode = transform(node);
-    if (!irNode.isBlock()) {
-      if (irNode.isEmpty()) {
-        irNode.setToken(Token.BLOCK);
-      } else {
-        Node newBlock = newNode(Token.BLOCK, irNode);
-        setSourceInfo(newBlock, irNode);
-        irNode = newBlock;
-      }
-      irNode.setIsAddedBlock(true);
+    if (irNode.isBlock()) {
+      return irNode;
     }
-    return irNode;
+
+    Node newBlock = irNode.isEmpty() ? newNode(Token.BLOCK) : newNode(Token.BLOCK, irNode);
+    setSourceInfo(newBlock, irNode);
+    newBlock.setIsAddedBlock(true);
+
+    return newBlock;
   }
 
   /**
@@ -627,147 +592,109 @@ class IRFactory {
     handlePossibleFileOverviewJsDoc(jsDocParser);
   }
 
-  private Comment getJsDoc(SourceRange location) {
+  private Comment getJSDocCommentAt(SourcePosition pos) {
     Comment closestPreviousComment = null;
-    while (hasPendingCommentBefore(location)) {
-      closestPreviousComment = currentComment;
-      currentComment = skipNonJsDoc(nextCommentIter);
+    while (this.jsdocTracker.hasPendingCommentBefore(pos)) {
+      closestPreviousComment = this.jsdocTracker.current();
+      this.jsdocTracker.advance();
     }
 
     return closestPreviousComment;
   }
 
-  private Comment getJsDoc(ParseTree tree) {
-    return getJsDoc(tree.location);
-  }
-
-  private Comment getJsDoc(
-      com.google.javascript.jscomp.parsing.parser.Token token) {
-    return getJsDoc(token.location);
-  }
-
-  private boolean hasPendingCommentBefore(SourceRange location) {
-    return currentComment != null
-        && currentComment.location.end.offset <= location.start.offset;
-  }
-
-  private boolean hasPendingCommentBefore(ParseTree tree) {
-    return hasPendingCommentBefore(tree.location);
-  }
-
-  private JSDocInfo handleJsDoc(Comment comment) {
+  private JSDocInfo parseJSDocInfoFrom(Comment comment) {
     if (comment != null) {
       JsDocInfoParser jsDocParser = createJsDocInfoParser(comment);
       parsedComments.add(comment);
       if (!handlePossibleFileOverviewJsDoc(jsDocParser)) {
-        return recordJsDoc(comment.location,
-            jsDocParser.retrieveAndResetParsedJSDocInfo());
+        return jsDocParser.retrieveAndResetParsedJSDocInfo();
       }
     }
     return null;
   }
 
-  private JSDocInfo handleJsDoc(ParseTree node) {
-    if (!shouldAttachJSDocHere(node)) {
-      return null;
-    }
-    return handleJsDoc(getJsDoc(node));
-  }
-
-  JSDocInfo handleJsDoc(com.google.javascript.jscomp.parsing.parser.Token token) {
-    return handleJsDoc(getJsDoc(token));
-  }
-
-  private boolean shouldAttachJSDocHere(ParseTree tree) {
+  private JSDocInfo parseJSDocInfoOnTree(ParseTree tree) {
     switch (tree.type) {
       case EXPRESSION_STATEMENT:
       case LABELLED_STATEMENT:
       case EXPORT_DECLARATION:
       case TEMPLATE_SUBSTITUTION:
-        return false;
+        return null;
+
       case CALL_EXPRESSION:
       case CONDITIONAL_EXPRESSION:
       case BINARY_OPERATOR:
       case MEMBER_EXPRESSION:
       case MEMBER_LOOKUP_EXPRESSION:
       case UPDATE_EXPRESSION:
-        ParseTree nearest = findNearestNode(tree);
-        if (nearest.type == ParseTreeType.PAREN_EXPRESSION) {
-          return false;
+        {
+          ParseTree nearest = findNearestNode(tree);
+          if (nearest.type == ParseTreeType.PAREN_EXPRESSION) {
+            return null;
+          }
         }
-        return true;
+        break;
+
       default:
-        return true;
+        break;
     }
+
+    return parseJSDocInfoFrom(getJSDocCommentAt(tree.getStart()));
+  }
+
+  JSDocInfo parseJSDocInfoOnToken(com.google.javascript.jscomp.parsing.parser.Token token) {
+    return parseJSDocInfoFrom(getJSDocCommentAt(token.getStart()));
+  }
+
+  JSDocInfo parseInlineJSDocAt(SourcePosition pos) {
+    Comment comment = getJSDocCommentAt(pos);
+    return (comment != null && !comment.value.contains("@"))
+        ? parseInlineTypeDoc(comment)
+        : parseJSDocInfoFrom(comment);
   }
 
   /**
-   * Appends every comment associated with this node into one NonJSDocComment. It would be legal to
-   * replace all comments associated with this node with that one string.
+   * Creates a single NonJSDocComment from every comment associated with this node; or null if there
+   * are no such comments.
    *
-   * @param comments - list of line or block comments that are sequential in source code
-   * @return complete comment as NonJSDocComment
+   * <p>It would be legal to replace all comments associated with this node with that one string.
    */
-  private static NonJSDocComment combineCommentsIntoSingleComment(ArrayList<Comment> comments) {
-    String result = "";
-    Iterator<Comment> itr = comments.iterator();
-    int prevCommentEndLine = Integer.MAX_VALUE;
-    int completeCommentBegin = Integer.MAX_VALUE;
-    int completeCommentEnd = 0;
-    while (itr.hasNext()) {
-      Comment currComment = itr.next();
-      if (currComment.location.start.offset < completeCommentBegin) {
-        completeCommentBegin = currComment.location.start.offset;
+  @Nullable
+  private NonJSDocComment parseNonJSDocCommentAt(SourcePosition pos, boolean isInline) {
+    if (config.jsDocParsingMode() != JsDocParsing.INCLUDE_ALL_COMMENTS) {
+      return null;
+    }
+
+    if (!this.nonJsdocTracker.hasPendingCommentBefore(pos)) {
+      return null;
+    }
+
+    StringBuilder result = new StringBuilder();
+    Comment firstComment = this.nonJsdocTracker.current();
+    Comment lastComment = null;
+
+    while (this.nonJsdocTracker.hasPendingCommentBefore(pos)) {
+      Comment currentComment = this.nonJsdocTracker.current();
+
+      if (lastComment != null) {
+        for (int blankCount = currentComment.location.start.line - lastComment.location.end.line;
+            blankCount > 0;
+            blankCount--) {
+          result.append("\n");
+        }
       }
-      if (currComment.location.end.offset > completeCommentEnd) {
-        completeCommentEnd = currComment.location.end.offset;
-      }
-      while (prevCommentEndLine < currComment.location.start.line) {
-        result += "\n";
-        prevCommentEndLine++;
-      }
-      result += currComment.value;
-      if (itr.hasNext()) {
-        prevCommentEndLine = currComment.location.end.line;
-      }
+      result.append(currentComment.value);
+
+      lastComment = currentComment;
+      this.nonJsdocTracker.advance();
     }
 
     NonJSDocComment nonJSDocComment =
-        new NonJSDocComment(completeCommentBegin, completeCommentEnd, result);
+        new NonJSDocComment(
+            firstComment.location.start, lastComment.location.end, result.toString());
+    nonJSDocComment.setEndsAsLineComment(lastComment.type == Comment.Type.LINE);
+    nonJSDocComment.setIsInline(isInline);
     return nonJSDocComment;
-  }
-
-  private static Comment skipJsDocComments(UnmodifiableIterator<Comment> comments) {
-    while (comments.hasNext()) {
-      Comment comment = comments.next();
-      if (comment.type == Comment.Type.LINE || comment.type == Comment.Type.BLOCK) {
-        return comment;
-      }
-    }
-    return null;
-  }
-
-  private boolean hasPendingNonJSDocCommentBefore(SourceRange location) {
-    return currentNonJSDocComment != null
-        && currentNonJSDocComment.location.end.offset <= location.start.offset;
-  }
-
-  private ArrayList<Comment> getNonJSDocComments(SourceRange location) {
-    ArrayList<Comment> previousComments = new ArrayList<>();
-    while (hasPendingNonJSDocCommentBefore(location)) {
-      previousComments.add(currentNonJSDocComment);
-      currentNonJSDocComment = skipJsDocComments(nextNonJSDocCommentIter);
-    }
-    return previousComments;
-  }
-
-  private ArrayList<Comment> getNonJSDocComments(
-      com.google.javascript.jscomp.parsing.parser.Token token) {
-    return getNonJSDocComments(token.location);
-  }
-
-  private ArrayList<Comment> getNonJSDocComments(ParseTree tree) {
-    return getNonJSDocComments(tree.location);
   }
 
   private static ParseTree findNearestNode(ParseTree tree) {
@@ -801,25 +728,18 @@ class IRFactory {
   }
 
   Node transform(ParseTree tree) {
-    JSDocInfo info = handleJsDoc(tree);
-    NonJSDocComment associatedNonJSDocComment = null;
-    if (config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
-      ArrayList<Comment> nonJSDocComments = getNonJSDocComments(tree);
-      if (!nonJSDocComments.isEmpty()) {
-        associatedNonJSDocComment = combineCommentsIntoSingleComment(nonJSDocComments);
-      }
-    }
+    JSDocInfo info = parseJSDocInfoOnTree(tree);
+    NonJSDocComment comment = parseNonJSDocCommentAt(tree.getStart(), false);
+
     Node node = transformDispatcher.process(tree);
+
     if (info != null) {
       node = maybeInjectCastNode(tree, info, node);
       node.setJSDocInfo(info);
     }
-    if (this.config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
-      if (associatedNonJSDocComment != null) {
-        node.setNonJSDocComment(associatedNonJSDocComment);
-      }
+    if (comment != null) {
+      node.setNonJSDocComment(comment);
     }
-
     setSourceInfo(node, tree);
     return node;
   }
@@ -843,54 +763,19 @@ class IRFactory {
    *     Comments</a>
    */
   Node transformNodeWithInlineComments(ParseTree tree) {
-    JSDocInfo info = handleInlineJsDoc(tree);
-    NonJSDocComment associatedNonJSDocComment = null;
-    if (config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
-      ArrayList<Comment> nonJSDocComments = getNonJSDocComments(tree);
-      if (!nonJSDocComments.isEmpty()) {
-        associatedNonJSDocComment = combineCommentsIntoSingleComment(nonJSDocComments);
-      }
-    }
+    JSDocInfo info = parseInlineJSDocAt(tree.getStart());
+    NonJSDocComment comment = parseNonJSDocCommentAt(tree.getStart(), true);
+
     Node node = transformDispatcher.process(tree);
+
     if (info != null) {
       node.setJSDocInfo(info);
     }
-    if (this.config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
-      if (associatedNonJSDocComment != null) {
-        node.setNonJSDocComment(associatedNonJSDocComment);
-      }
+    if (comment != null) {
+      node.setNonJSDocComment(comment);
     }
     setSourceInfo(node, tree);
     return node;
-  }
-
-  JSDocInfo handleInlineJsDoc(ParseTree node) {
-    return handleInlineJsDoc(node.location);
-  }
-
-  JSDocInfo handleInlineJsDoc(
-      com.google.javascript.jscomp.parsing.parser.Token token) {
-    return handleInlineJsDoc(token.location);
-  }
-
-  JSDocInfo handleInlineJsDoc(SourceRange location) {
-    Comment comment = getJsDoc(location);
-    if (comment != null && !comment.value.contains("@")) {
-      return recordJsDoc(location, parseInlineTypeDoc(comment));
-    } else {
-      return handleJsDoc(comment);
-    }
-  }
-
-  Node transformNumberAsString(LiteralToken token) {
-    double value = normalizeNumber(token);
-    Node irNode = newStringNode(DToA.numberToString(value));
-    JSDocInfo jsDocInfo = handleJsDoc(token);
-    if (jsDocInfo != null) {
-      irNode.setJSDocInfo(jsDocInfo);
-    }
-    setSourceInfo(irNode, token);
-    return irNode;
   }
 
   static int lineno(ParseTree node) {
@@ -963,8 +848,7 @@ class IRFactory {
   }
 
   void setSourceInfo(Node node, Node ref) {
-    node.setLineno(ref.getLineno());
-    node.setCharno(ref.getCharno());
+    node.setLinenoCharno(ref.getLineno(), ref.getCharno());
     setLengthFrom(node, ref);
   }
 
@@ -985,10 +869,7 @@ class IRFactory {
       // If we didn't already set the line, then set it now. This avoids
       // cases like ParenthesizedExpression where we just return a previous
       // node, but don't want the new node to get its parent's line number.
-      int lineno = lineno(start);
-      node.setLineno(lineno);
-      int charno = charno(start);
-      node.setCharno(charno);
+      node.setLinenoCharno(lineno(start), charno(start));
       setLength(node, start, end);
     }
   }
@@ -1068,30 +949,49 @@ class IRFactory {
   private class TransformDispatcher {
 
     /**
-     * Transforms the given node and then sets its type to Token.STRING if it
-     * was Token.NAME. If its type was already Token.STRING, then quotes it.
-     * Used for properties, as the old AST uses String tokens, while the new one
-     * uses Name tokens for unquoted strings. For example, in
-     * var o = {'a' : 1, b: 2};
-     * the string 'a' is quoted, while the name b is turned into a string, but
-     * unquoted.
+     * Transforms the given object key `input` into a Node with token `output`.
+     *
+     * <p>Depending on `input`, this may add quoting, such as for numerical values. For example, in
+     * `{2: null}`, `2` will be transformed into a quoted string. This adjustment loses some
+     * accuracy about the source code, but simplifies the AST.
      */
-    private Node processObjectLitKeyAsString(
-        com.google.javascript.jscomp.parsing.parser.Token token) {
-      Node ret;
-      if (token == null) {
+    private Node processObjectLitKey(
+        com.google.javascript.jscomp.parsing.parser.Token input, Token output) {
+      if (input == null) {
         return createMissingExpressionNode();
-      } else if (token.type == TokenType.IDENTIFIER) {
-        ret = processName(token.asIdentifier(), true);
-      } else if (token.type == TokenType.NUMBER) {
-        ret = transformNumberAsString(token.asLiteral());
-        ret.putBooleanProp(Node.QUOTED_PROP, true);
-      } else {
-        ret = processString(token.asLiteral());
-        ret.putBooleanProp(Node.QUOTED_PROP, true);
       }
-      checkState(ret.isString());
-      return ret;
+
+      if (input.type == TokenType.IDENTIFIER) {
+        return processName(input.asIdentifier(), output);
+      }
+
+      LiteralToken literal = input.asLiteral();
+      JSDocInfo jsDocInfo = parseJSDocInfoOnToken(literal);
+      NonJSDocComment comment = parseNonJSDocCommentAt(literal.getStart(), true);
+
+      final Node node;
+      switch (input.type) {
+        case NUMBER:
+          node = newStringNode(output, DToA.numberToString(normalizeNumber(literal)));
+          break;
+        case BIGINT:
+          node = newStringNode(output, normalizeBigInt(literal).toString());
+          break;
+        default:
+          node = newStringNode(output, normalizeString(literal, false));
+          break;
+      }
+
+      if (jsDocInfo != null) {
+        node.setJSDocInfo(jsDocInfo);
+      }
+      if (comment != null) {
+        node.setNonJSDocComment(comment);
+      }
+
+      setSourceInfo(node, literal);
+      node.putBooleanProp(Node.QUOTED_PROP, true);
+      return node;
     }
 
     Node processComprehension(ComprehensionTree tree) {
@@ -1108,6 +1008,7 @@ class IRFactory {
 
     Node processArrayLiteral(ArrayLiteralExpressionTree tree) {
       Node node = newNode(Token.ARRAYLIT);
+      node.setTrailingComma(tree.hasTrailingComma);
       for (ParseTree child : tree.elements) {
         Node c = transform(child);
         node.addChildToBack(c);
@@ -1209,8 +1110,7 @@ class IRFactory {
      */
     private Node processObjectPatternPropertyNameAssignment(
         PropertyNameAssignmentTree propertyNameAssignment) {
-      Node key = processObjectLitKeyAsString(propertyNameAssignment.name);
-      key.setToken(Token.STRING_KEY);
+      Node key = processObjectLitKey(propertyNameAssignment.name, Token.STRING_KEY);
       ParseTree targetTree = propertyNameAssignment.value;
       final Node valueNode;
       if (targetTree == null) {
@@ -1309,41 +1209,31 @@ class IRFactory {
     /**
      * Parse the directives, encode them in the AST, and remove their nodes.
      *
-     * For information on ES5 directives, see section 14.1 of
-     * ECMA-262, Edition 5.
+     * <p>The only suported directive is "use strict".
      *
-     * It would be nice if Rhino would eventually take care of this for
-     * us, but right now their directive-processing is a one-off.
+     * <p>For information on ES5 directives, see section 14.1 of ECMA-262, Edition 5.
      */
     private void parseDirectives(Node node) {
-      // Remove all the directives, and encode them in the AST.
-      ImmutableSet.Builder<String> directives = null;
-      while (isDirective(node.getFirstChild())) {
-        String directive = node.removeFirstChild().getFirstChild().getString();
-        if (directives == null) {
-          directives = new ImmutableSet.Builder<>();
+      boolean useStrict = false;
+      while (true) {
+        Node statement = node.getFirstChild();
+        if (statement == null || !statement.isExprResult()) {
+          break;
         }
-        directives.add(directive);
+
+        Node directive = statement.getFirstChild();
+        if (!directive.isStringLit() || !directive.getString().equals("use strict")) {
+          break;
+        }
+
+        useStrict = true;
+        // TODO(nickreid): Should we also remove other directives that aren't "use strict"?
+        statement.detach();
       }
 
-      if (directives != null) {
-        ImmutableSet<String> result = directives.build();
-        if (result.size() == 1 && result.contains("use strict")) {
-          // Use a shared set.
-          result = USE_STRICT_ONLY;
-        }
-        node.setDirectives(result);
+      if (useStrict) {
+        node.setUseStrict(true);
       }
-    }
-
-    private boolean isDirective(Node n) {
-      if (n == null) {
-        return false;
-      }
-      Token nType = n.getToken();
-      return nType == Token.EXPR_RESULT &&
-          n.getFirstChild().isString() &&
-          ALLOWED_DIRECTIVES.contains(n.getFirstChild().getString());
     }
 
     Node processBlock(BlockTree blockNode) {
@@ -1398,6 +1288,17 @@ class IRFactory {
           Token.GETELEM,
           transform(getNode.operand),
           transform(getNode.memberExpression));
+    }
+
+    Node processOptChainElementGet(OptionalMemberLookupExpressionTree getNode) {
+      maybeWarnForFeature(getNode, Feature.OPTIONAL_CHAINING);
+      Node getElem =
+          newNode(
+              Token.OPTCHAIN_GETELEM,
+              transform(getNode.operand),
+              transform(getNode.memberExpression));
+      getElem.setIsOptionalChainStart(getNode.isStartOfOptionalChain);
+      return getElem;
     }
 
     /**
@@ -1465,15 +1366,105 @@ class IRFactory {
         setSourceInfo(n, parent);
         return n;
       }
-      return processName(token);
+      return processName(token, Token.NAME);
     }
 
     Node processFunctionCall(CallExpressionTree callNode) {
       Node node = newNode(Token.CALL,
                            transform(callNode.operand));
+      node.setTrailingComma(callNode.arguments.hasTrailingComma);
+      ArgumentListTree argumentsTree = callNode.arguments;
+      // For each arg, represents a location (end SourcePosition) such that all
+      // trailing comments before this location correspond to that arg.
+      List<SourcePosition> zones =
+          getEndOfArgCommentZones(
+              argumentsTree.arguments, argumentsTree.commaPositions, argumentsTree.location.end);
+      int argCount = 0;
+      for (ParseTree child : callNode.arguments.arguments) {
+        Node childNode = transform(child);
+        node.addChildToBack(childNode);
+        // The non-trailing comments are already attached to `childNode` in `transform(child)`
+        // call. Now we must attach possible trailing comments to `childNode`.
+
+        attachPossibleTrailingCommentsForArg(childNode, zones.get(argCount));
+      }
+      return node;
+    }
+
+    /**
+     * Calculates, for each arg, a location (end SourcePosition) such that all trailing comments
+     * before this location correspond to that arg. Can be used while processing both function calls
+     * (ArgsList) as well as declarations (ParamList).
+     *
+     * @param args list of arguments or formal parameters (ParseTree nodes)
+     * @param commaPositions list of SourcePositions corresponding to commas in the argsList or
+     *     formal parameter list
+     * @param argListEndPosition SourcePosition of the end of argsList or paramList
+     */
+    List<SourcePosition> getEndOfArgCommentZones(
+        ImmutableList<ParseTree> args,
+        ImmutableList<SourcePosition> commaPositions,
+        SourcePosition argListEndPosition) {
+      ImmutableList.Builder<SourcePosition> zones = ImmutableList.builder();
+      int commaCount = 0;
+      for (ParseTree arg : args) {
+        if (args.size() > commaCount + 1) {
+          // there is a next arg after this arg
+          ParseTree nextParam = args.get(commaCount + 1);
+          if (nextParam.location.start.line > arg.location.end.line) {
+            // Next arg is on a new line; all trailing comments on this line belong to this arg
+            // create a source position to represent the end of current line
+            SourcePosition tempSourcePos =
+                new SourcePosition(
+                    null,
+                    Integer.MAX_VALUE /* offset */,
+                    arg.location.end.line,
+                    Integer.MAX_VALUE /*col */);
+            zones.add(tempSourcePos);
+          } else {
+            // Next arg is on the same line; trailing comments before the comma belong to this arg
+            SourcePosition commaPosition = commaPositions.get(commaCount);
+            zones.add(commaPosition);
+          }
+        } else {
+          // last arg; trailing comments till the end of argList belong to this arg
+          zones.add(argListEndPosition);
+        }
+        commaCount++;
+      }
+      return zones.build();
+    }
+
+    /**
+     * Attaches trailing comments associated with this arg or formal param to it.
+     *
+     * @param paramNode The node to which we're attaching trailing comment
+     * @param endZone The end location until which we fetch pending comments for attachment
+     */
+    void attachPossibleTrailingCommentsForArg(Node paramNode, SourcePosition endZone) {
+      NonJSDocComment trailingComment = parseNonJSDocCommentAt(endZone, true);
+      if (trailingComment == null) {
+        return;
+      }
+
+      NonJSDocComment nonTrailingComment = paramNode.getNonJSDocComment();
+      if (nonTrailingComment != null) {
+        // This node has both trailing and non-trailing comment
+        nonTrailingComment.appendTrailingCommentToNonTrailing(trailingComment);
+      } else {
+        trailingComment.setIsTrailing(true);
+        paramNode.setNonJSDocComment(trailingComment);
+      }
+    }
+
+    Node processOptChainFunctionCall(OptChainCallExpressionTree callNode) {
+      maybeWarnForFeature(callNode, Feature.OPTIONAL_CHAINING);
+      Node node = newNode(Token.OPTCHAIN_CALL, transform(callNode.operand));
+      node.setTrailingComma(callNode.hasTrailingComma);
       for (ParseTree child : callNode.arguments.arguments) {
         node.addChildToBack(transform(child));
       }
+      node.setIsOptionalChainStart(callNode.isStartOfOptionalChain);
       return node;
     }
 
@@ -1533,9 +1524,7 @@ class IRFactory {
       }
       node.addChildToBack(newName);
 
-      maybeProcessGenerics(node.getFirstChild(), functionTree.generics);
       node.addChildToBack(transform(functionTree.formalParameterList));
-      maybeProcessType(node, functionTree.returnType);
 
       Node bodyNode = transform(functionTree.functionBody);
       if (!isArrow && !isSignature && !bodyNode.isBlock()) {
@@ -1559,8 +1548,6 @@ class IRFactory {
         Node member = newStringNode(Token.MEMBER_FUNCTION_DEF, name.value);
         member.addChildToBack(node);
         member.setStaticMember(functionTree.isStatic);
-        maybeProcessAccessibilityModifier(functionTree, member, functionTree.access);
-        node.setDeclaredTypeExpression(node.getDeclaredTypeExpression());
         // The source info should only include the identifier, not the entire function expression
         setSourceInfo(member, name);
         result = member;
@@ -1573,9 +1560,15 @@ class IRFactory {
 
     Node processFormalParameterList(FormalParameterListTree tree) {
       Node params = newNode(Token.PARAM_LIST);
-      if (!checkParameters(tree.parameters)) {
+      params.setTrailingComma(tree.hasTrailingComma);
+      if (!checkParameters(tree)) {
         return params;
       }
+
+      ImmutableList<ParseTree> parameters = tree.parameters;
+      List<SourcePosition> zones =
+          getEndOfArgCommentZones(parameters, tree.commaPositions, tree.location.end);
+      int argCount = 0;
 
       for (ParseTree param : tree.parameters) {
         final Node paramNode;
@@ -1590,6 +1583,8 @@ class IRFactory {
             break;
           default:
             paramNode = transformNodeWithInlineComments(param);
+            // Reusing the logic to attach trailing comments used from call-site argsList
+            attachPossibleTrailingCommentsForArg(paramNode, zones.get(argCount));
             break;
         }
 
@@ -1602,6 +1597,7 @@ class IRFactory {
                 || paramNode.isObjectPattern()
                 || paramNode.isDefaultValue());
         params.addChildToBack(paramNode);
+        argCount++;
       }
 
       return params;
@@ -1622,8 +1618,9 @@ class IRFactory {
         // declared with individual statements, like `/** @type {string} */ ns.a.b;`
         targetNode = transformNodeWithInlineComments(targetTree);
       }
-      Node defaultValueNode =
-          newNode(Token.DEFAULT_VALUE, targetNode, transform(tree.defaultValue));
+      final Node defaultValueExpression = transform(tree.defaultValue);
+      Node defaultValueNode = newNode(Token.DEFAULT_VALUE, targetNode, defaultValueExpression);
+      reportErrorIfYieldOrAwaitInDefaultValue(defaultValueNode);
       setSourceInfo(defaultValueNode, tree);
       return defaultValueNode;
     }
@@ -1656,10 +1653,12 @@ class IRFactory {
     }
 
     Node processBinaryExpression(BinaryOperatorTree exprNode) {
-      if (hasPendingCommentBefore(exprNode.right)) {
+      if (jsdocTracker.hasPendingCommentBefore(exprNode.right.location.start)) {
         if (exprNode.operator.type == TokenType.STAR_STAR
             || exprNode.operator.type == TokenType.STAR_STAR_EQUAL) {
           maybeWarnForFeature(exprNode, Feature.EXPONENT_OP);
+        } else if (exprNode.operator.type == TokenType.QUESTION_QUESTION) {
+          maybeWarnForFeature(exprNode, Feature.NULL_COALESCE_OP);
         }
         return newNode(
             transformBinaryTokenType(exprNode.operator.type),
@@ -1681,6 +1680,9 @@ class IRFactory {
         if (exprTree.operator.type == TokenType.STAR_STAR
             || exprTree.operator.type == TokenType.STAR_STAR_EQUAL) {
           maybeWarnForFeature(exprTree, Feature.EXPONENT_OP);
+        }
+        if (exprTree.operator.type == TokenType.QUESTION_QUESTION) {
+          maybeWarnForFeature(exprTree, Feature.NULL_COALESCE_OP);
         }
         previous = current;
         // Skip the first child but recurse normally into the right operand as typically this isn't
@@ -1750,28 +1752,25 @@ class IRFactory {
     }
 
     Node processName(IdentifierExpressionTree nameNode) {
-      return processName(nameNode, false);
+      return processName(nameNode.identifierToken, Token.NAME);
     }
 
-    Node processName(IdentifierExpressionTree nameNode, boolean asString) {
-      return processName(nameNode.identifierToken, asString);
-    }
+    Node processName(IdentifierToken identifierToken, Token output) {
+      NonJSDocComment comment = parseNonJSDocCommentAt(identifierToken.getStart(), true);
 
-    Node processName(IdentifierToken identifierToken) {
-      return processName(identifierToken, false);
-    }
+      Node node = newStringNode(output, identifierToken.value);
 
-    Node processName(IdentifierToken identifierToken, boolean asString) {
-      Node node;
-      if (asString) {
-        node = newStringNode(Token.STRING, identifierToken.value);
-      } else {
-        JSDocInfo info = handleJsDoc(identifierToken);
+      if (output == Token.NAME) {
         maybeWarnReservedKeyword(identifierToken);
-        node = newStringNode(Token.NAME, identifierToken.value);
+
+        JSDocInfo info = parseJSDocInfoOnToken(identifierToken);
         if (info != null) {
           node.setJSDocInfo(info);
         }
+      }
+
+      if (comment != null) {
+        node.setNonJSDocComment(comment);
       }
       setSourceInfo(node, identifierToken);
       return node;
@@ -1779,7 +1778,13 @@ class IRFactory {
 
     Node processString(LiteralToken token) {
       checkArgument(token.type == TokenType.STRING);
-      Node node = newStringNode(Token.STRING, normalizeString(token, false));
+      NonJSDocComment comment = parseNonJSDocCommentAt(token.getStart(), true);
+
+      Node node = newStringNode(Token.STRINGLIT, normalizeString(token, false));
+
+      if (comment != null) {
+        node.setNonJSDocComment(comment);
+      }
       setSourceInfo(node, token);
       return node;
     }
@@ -1805,35 +1810,34 @@ class IRFactory {
     }
 
     Node processNameWithInlineComments(IdentifierToken identifierToken) {
-      JSDocInfo info = handleInlineJsDoc(identifierToken);
-      NonJSDocComment associatedNonJSDocComment = null;
-      if (config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
-        ArrayList<Comment> nonJSDocComments = getNonJSDocComments(identifierToken);
-        if (!nonJSDocComments.isEmpty()) {
-          associatedNonJSDocComment = combineCommentsIntoSingleComment(nonJSDocComments);
-        }
-      }
+      JSDocInfo info = parseInlineJSDocAt(identifierToken.getStart());
+      NonJSDocComment comment = parseNonJSDocCommentAt(identifierToken.getStart(), false);
+
       maybeWarnReservedKeyword(identifierToken);
       Node node = newStringNode(Token.NAME, identifierToken.value);
+
       if (info != null) {
         node.setJSDocInfo(info);
       }
-      if (config.jsDocParsingMode() == JsDocParsing.INCLUDE_ALL_COMMENTS) {
-        if (associatedNonJSDocComment != null) {
-          node.setNonJSDocComment(associatedNonJSDocComment);
-        }
+      if (comment != null) {
+        node.setNonJSDocComment(comment);
       }
       setSourceInfo(node, identifierToken);
       return node;
     }
 
     private void maybeWarnKeywordProperty(Node node) {
-      if (TokenStream.isKeyword(node.getString())) {
-        features = features.with(Feature.KEYWORDS_AS_PROPERTIES);
-        if (config.languageMode() == LanguageMode.ECMASCRIPT3) {
-          errorReporter.warning(INVALID_ES3_PROP_NAME, sourceName,
-              node.getLineno(), node.getCharno());
-        }
+      if (currentFileIsExterns) {
+        return;
+      }
+      if (!TokenStream.isKeyword(node.getString())) {
+        return;
+      }
+
+      features = features.with(Feature.KEYWORDS_AS_PROPERTIES);
+      if (config.languageMode() == LanguageMode.ECMASCRIPT3) {
+        errorReporter.warning(
+            INVALID_ES3_PROP_NAME, sourceName, node.getLineno(), node.getCharno());
       }
     }
 
@@ -1861,6 +1865,7 @@ class IRFactory {
       Node node = newNode(
           Token.NEW,
           transform(exprNode.operand));
+      node.setTrailingComma(exprNode.hasTrailingComma);
       if (exprNode.arguments != null) {
         for (ParseTree arg : exprNode.arguments.arguments) {
           node.addChildToBack(transform(arg));
@@ -1876,8 +1881,17 @@ class IRFactory {
       return number;
     }
 
+    Node processBigIntLiteral(LiteralExpressionTree literalNode) {
+      maybeWarnForFeature(literalNode, Feature.BIGINT);
+      BigInteger value = normalizeBigInt(literalNode.literalToken.asLiteral());
+      Node bigint = newBigIntNode(value);
+      setSourceInfo(bigint, literalNode);
+      return bigint;
+    }
+
     Node processObjectLiteral(ObjectLiteralExpressionTree objTree) {
       Node node = newNode(Token.OBJECTLIT);
+      node.setTrailingComma(objTree.hasTrailingComma);
       boolean maybeWarn = false;
       for (ParseTree el : objTree.propertyNameAndValues) {
         if (el.type == ParseTreeType.DEFAULT_PARAMETER) {
@@ -1918,19 +1932,6 @@ class IRFactory {
       return newNode(Token.COMPUTED_PROP, transform(tree.property), transform(tree.value));
     }
 
-    Node processComputedPropertyMemberVariable(ComputedPropertyMemberVariableTree tree) {
-      maybeWarnForFeature(tree, Feature.COMPUTED_PROPERTIES);
-      maybeWarnTypeSyntax(tree, Feature.MEMBER_VARIABLE_IN_CLASS);
-
-      Node n = newNode(Token.COMPUTED_PROP, transform(tree.property));
-      maybeProcessType(n, tree.declaredType);
-      n.putBooleanProp(Node.COMPUTED_PROP_VARIABLE, true);
-      n.putProp(Node.ACCESS_MODIFIER, tree.access);
-      n.setStaticMember(tree.isStatic);
-      maybeProcessAccessibilityModifier(tree, n, tree.access);
-      return n;
-    }
-
     Node processComputedPropertyMethod(ComputedPropertyMethodTree tree) {
       maybeWarnForFeature(tree, Feature.COMPUTED_PROPERTIES);
 
@@ -1940,7 +1941,6 @@ class IRFactory {
       if (tree.method.asFunctionDeclaration().isStatic) {
         n.setStaticMember(true);
       }
-      maybeProcessAccessibilityModifier(tree, n, tree.access);
       return n;
     }
 
@@ -1950,7 +1950,7 @@ class IRFactory {
       Node key = transform(tree.property);
       Node body = transform(tree.body);
       Node function = IR.function(IR.name(""), IR.paramList(), body);
-      function.useSourceInfoIfMissingFromForTree(body);
+      function.srcrefTreeIfMissing(body);
       Node n = newNode(Token.COMPUTED_PROP, key, function);
       n.putBooleanProp(Node.COMPUTED_PROP_GETTER, true);
       n.putBooleanProp(Node.STATIC_MEMBER, tree.isStatic);
@@ -1968,7 +1968,7 @@ class IRFactory {
       Node body = transform(tree.body);
 
       Node function = IR.function(IR.name(""), paramList, body);
-      function.useSourceInfoIfMissingFromForTree(body);
+      function.srcrefTreeIfMissing(body);
 
       Node n = newNode(Token.COMPUTED_PROP, key, function);
       n.putBooleanProp(Node.COMPUTED_PROP_SETTER, true);
@@ -1977,8 +1977,7 @@ class IRFactory {
     }
 
     Node processGetAccessor(GetAccessorTree tree) {
-      Node key = processObjectLitKeyAsString(tree.propertyName);
-      key.setToken(Token.GETTER_DEF);
+      Node key = processObjectLitKey(tree.propertyName, Token.GETTER_DEF);
       Node body = transform(tree.body);
       Node dummyName = newStringNode(Token.NAME, "");
       setSourceInfo(dummyName, tree.body);
@@ -1987,14 +1986,12 @@ class IRFactory {
       Node value = newNode(Token.FUNCTION, dummyName, paramList, body);
       setSourceInfo(value, tree.body);
       key.addChildToFront(value);
-      maybeProcessType(value, tree.returnType);
       key.setStaticMember(tree.isStatic);
       return key;
     }
 
     Node processSetAccessor(SetAccessorTree tree) {
-      Node key = processObjectLitKeyAsString(tree.propertyName);
-      key.setToken(Token.SETTER_DEF);
+      Node key = processObjectLitKey(tree.propertyName, Token.SETTER_DEF);
 
       Node paramList = processFormalParameterList(tree.parameter);
       setSourceInfo(paramList, tree.parameter);
@@ -2013,14 +2010,12 @@ class IRFactory {
     }
 
     Node processPropertyNameAssignment(PropertyNameAssignmentTree tree) {
-      Node key = processObjectLitKeyAsString(tree.name);
-      key.setToken(Token.STRING_KEY);
+      Node key = processObjectLitKey(tree.name, Token.STRING_KEY);
       if (tree.value != null) {
         key.addChildToFront(transform(tree.value));
       } else {
-        Node value = key.cloneNode();
+        Node value = newStringNode(Token.NAME, key.getString()).srcref(key);
         key.setShorthandProperty(true);
-        value.setToken(Token.NAME);
         key.addChildToFront(value);
       }
       return key;
@@ -2042,17 +2037,40 @@ class IRFactory {
 
     Node processParenthesizedExpression(ParenExpressionTree exprNode) {
       checkParenthesizedExpression(exprNode);
-      return transform(exprNode.expression);
+      Node expr = transform(exprNode.expression);
+      expr.setIsParenthesized(true);
+      return expr;
     }
 
     Node processPropertyGet(MemberExpressionTree getNode) {
       Node leftChild = transform(getNode.operand);
-      IdentifierToken nodeProp = getNode.memberName;
-      Node rightChild = processObjectLitKeyAsString(nodeProp);
-      if (!rightChild.isQuotedString() && !currentFileIsExterns) {
-        maybeWarnKeywordProperty(rightChild);
+      IdentifierToken propName = getNode.memberName;
+      if (propName == null) {
+        return leftChild;
       }
-      return newNode(Token.GETPROP, leftChild, rightChild);
+
+      Node getProp = newStringNode(Token.GETPROP, propName.value);
+      getProp.addChildToBack(leftChild);
+      setSourceInfo(getProp, propName);
+      maybeWarnKeywordProperty(getProp);
+      return getProp;
+    }
+
+    Node processOptChainPropertyGet(OptionalMemberExpressionTree getNode) {
+      maybeWarnForFeature(getNode, Feature.OPTIONAL_CHAINING);
+
+      Node leftChild = transform(getNode.operand);
+      IdentifierToken propName = getNode.memberName;
+      if (propName == null) {
+        return leftChild;
+      }
+
+      Node getProp = newStringNode(Token.OPTCHAIN_GETPROP, propName.value);
+      getProp.addChildToBack(leftChild);
+      getProp.setIsOptionalChainStart(getNode.isStartOfOptionalChain);
+      setSourceInfo(getProp, propName);
+      maybeWarnKeywordProperty(getProp);
+      return getProp;
     }
 
     Node processRegExpLiteral(LiteralExpressionTree literalTree) {
@@ -2128,9 +2146,8 @@ class IRFactory {
         // will be encoded with a \v.
         int start = token.location.start.offset;
         int end = token.location.end.offset;
-        if (start < sourceString.length() &&
-            (sourceString.substring(
-                start, Math.min(sourceString.length(), end)).contains("\\v"))) {
+        if (start < sourceString.length()
+            && (sourceString.substring(start, min(sourceString.length(), end)).contains("\\v"))) {
           n.putBooleanProp(Node.SLASH_V, true);
         }
       }
@@ -2250,24 +2267,31 @@ class IRFactory {
     Node processUnaryExpression(UnaryExpressionTree exprNode) {
       Token type = transformUnaryTokenType(exprNode.operator.type);
       Node operand = transform(exprNode.operand);
-      if (type == Token.NEG && operand.isNumber()) {
-        operand.setDouble(-operand.getDouble());
-        return operand;
-      } else {
-        if (type == Token.DELPROP
-            && !(operand.isGetProp()
-                || operand.isGetElem()
-                || operand.isName())) {
-          String msg =
-              "Invalid delete operand. Only properties can be deleted.";
-          errorReporter.error(
-              msg,
-              sourceName,
-              operand.getLineno(), 0);
-        }
 
-        return newNode(type, operand);
+      switch (type) {
+        case DELPROP:
+          if (!(operand.isGetProp()
+              || operand.isGetElem()
+              || operand.isName()
+              || operand.isOptChainGetProp()
+              || operand.isOptChainGetElem())) {
+            String msg = "Invalid delete operand. Only properties can be deleted.";
+            errorReporter.error(msg, sourceName, operand.getLineno(), 0);
+          }
+          break;
+
+        case POS:
+          if (operand.isBigInt()) {
+            errorReporter.error(
+                "Cannot convert a BigInt value to a number", sourceName, operand.getLineno(), 0);
+          }
+          break;
+
+        default:
+          break;
       }
+
+      return newNode(type, operand);
     }
 
     Node processUpdateExpression(UpdateExpressionTree updateExpr) {
@@ -2331,7 +2355,6 @@ class IRFactory {
         lhs.addChildToBack(initializer);
         setLength(lhs, decl.location.start, decl.location.end);
       }
-      maybeProcessType(lhs, decl.declaredType);
       return lhs;
     }
 
@@ -2442,28 +2465,17 @@ class IRFactory {
       maybeWarnForFeature(tree, Feature.CLASSES);
 
       Node name = transformOrEmpty(tree.name, tree);
-      maybeProcessGenerics(name, tree.generics);
 
       Node superClass = transformOrEmpty(tree.superClass, tree);
       if (!superClass.isEmpty()) {
         features = features.with(Feature.CLASS_EXTENDS);
       }
-      Node interfaces = transformListOrEmpty(Token.IMPLEMENTS, tree.interfaces);
 
       Node body = newNode(Token.CLASS_MEMBERS);
       setSourceInfo(body, tree);
 
       boolean hasConstructor = false;
       for (ParseTree child : tree.elements) {
-        switch (child.type) {
-          case MEMBER_VARIABLE:
-          case COMPUTED_PROPERTY_MEMBER_VARIABLE:
-            maybeWarnTypeSyntax(child, Feature.MEMBER_VARIABLE_IN_CLASS);
-            break;
-          default:
-            break;
-        }
-
         switch (child.type) {
           case COMPUTED_PROPERTY_GETTER:
           case COMPUTED_PROPERTY_SETTER:
@@ -2490,12 +2502,7 @@ class IRFactory {
         body.addChildToBack(transform(child));
       }
 
-      Node classNode = newNode(Token.CLASS, name, superClass, body);
-      if (!interfaces.isEmpty()) {
-        maybeWarnTypeSyntax(tree, Feature.IMPLEMENTS);
-        classNode.putProp(Node.IMPLEMENTS, interfaces);
-      }
-      return classNode;
+      return newNode(Token.CLASS, name, superClass, body);
     }
 
     /** Returns {@code true} iff this member is a legal class constructor. */
@@ -2555,43 +2562,6 @@ class IRFactory {
       return true;
     }
 
-    Node processInterfaceDeclaration(InterfaceDeclarationTree tree) {
-      maybeWarnTypeSyntax(tree, Feature.INTERFACE);
-
-      Node name = processName(tree.name);
-      maybeProcessGenerics(name, tree.generics);
-
-      Node superInterfaces = transformListOrEmpty(Token.INTERFACE_EXTENDS, tree.superInterfaces);
-
-      Node body = newNode(Token.INTERFACE_MEMBERS);
-      setSourceInfo(body, tree);
-      for (ParseTree child : tree.elements) {
-        body.addChildToBack(transform(child));
-      }
-
-      return newNode(Token.INTERFACE, name, superInterfaces, body);
-    }
-
-    Node processEnumDeclaration(EnumDeclarationTree tree) {
-      maybeWarnTypeSyntax(tree, Feature.ENUM);
-
-      Node name = processName(tree.name);
-      Node body = newNode(Token.ENUM_MEMBERS);
-      setSourceInfo(body, tree);
-      for (ParseTree child : tree.members) {
-        Node childNode = transform(child);
-        // NOTE: we may need to "undo" the shorthand property normalization,
-        // since this syntax has a different meaning in enums.
-        if (childNode.isShorthandProperty()) {
-          childNode.removeChild(childNode.getLastChild());
-          childNode.setShorthandProperty(false);
-        }
-        body.addChildToBack(childNode);
-      }
-
-      return newNode(Token.ENUM, name, body);
-    }
-
     Node processSuper(SuperExpressionTree tree) {
       maybeWarnForFeature(tree, Feature.SUPER);
       return newNode(Token.SUPER);
@@ -2600,15 +2570,6 @@ class IRFactory {
     Node processNewTarget(NewTargetExpressionTree tree) {
       maybeWarnForFeature(tree, Feature.NEW_TARGET);
       return newNode(Token.NEW_TARGET);
-    }
-
-    Node processMemberVariable(MemberVariableTree tree) {
-      Node member = newStringNode(Token.MEMBER_VARIABLE_DEF, tree.name.value);
-      maybeProcessType(member, tree.declaredType);
-      member.setStaticMember(tree.isStatic);
-      member.putBooleanProp(Node.OPT_ES6_TYPED, tree.isOptional);
-      maybeProcessAccessibilityModifier(tree, member, tree.access);
-      return member;
     }
 
     Node processYield(YieldExpressionTree tree) {
@@ -2654,15 +2615,13 @@ class IRFactory {
     }
 
     Node processExportSpec(ExportSpecifierTree tree) {
-      Node importedName = processName(tree.importedName, true);
-      importedName.setToken(Token.NAME);
+      Node importedName = processName(tree.importedName, Token.NAME);
       Node exportSpec = newNode(Token.EXPORT_SPEC, importedName);
       if (tree.destinationName == null) {
         exportSpec.setShorthandProperty(true);
         exportSpec.addChildToBack(importedName.cloneTree());
       } else {
-        Node destinationName = processName(tree.destinationName, true);
-        destinationName.setToken(Token.NAME);
+        Node destinationName = processName(tree.destinationName, Token.NAME);
         exportSpec.addChildToBack(destinationName);
       }
       return exportSpec;
@@ -2688,14 +2647,13 @@ class IRFactory {
     }
 
     Node processImportSpec(ImportSpecifierTree tree) {
-      Node importedName = processName(tree.importedName, true);
-      importedName.setToken(Token.NAME);
+      Node importedName = processName(tree.importedName, Token.NAME);
       Node importSpec = newNode(Token.IMPORT_SPEC, importedName);
       if (tree.destinationName == null) {
         importSpec.setShorthandProperty(true);
         importSpec.addChildToBack(importedName.cloneTree());
       } else {
-        importSpec.addChildToBack(processName(tree.destinationName));
+        importSpec.addChildToBack(processName(tree.destinationName, Token.NAME));
       }
       return importSpec;
     }
@@ -2712,295 +2670,30 @@ class IRFactory {
       return newNode(Token.IMPORT_META);
     }
 
-    Node processTypeName(TypeNameTree tree) {
-      Node typeNode;
-      if (tree.segments.size() == 1) {
-        String typeName = tree.segments.get(0);
-        switch (typeName) {
-          case "any":
-            typeNode = cloneProps(anyType());
-            break;
-          case "number":
-            typeNode = cloneProps(numberType());
-            break;
-          case "boolean":
-            typeNode = cloneProps(booleanType());
-            break;
-          case "string":
-            typeNode = cloneProps(stringType());
-            break;
-          case "void":
-            typeNode = cloneProps(voidType());
-            break;
-          case "undefined":
-            typeNode = cloneProps(undefinedType());
-            break;
-          default:
-            typeNode = cloneProps(namedType(tree.segments));
-            break;
-        }
-      } else {
-        typeNode = cloneProps(namedType(tree.segments));
-      }
-      setSourceInfo(typeNode, tree);
-      return typeNode;
-    }
-
-    Node processTypedParameter(TypedParameterTree typeAnnotation) {
-      Node param = transform(typeAnnotation.param);
-      maybeProcessType(param, typeAnnotation.typeAnnotation);
-      return param;
-    }
-
-    Node processOptionalParameter(OptionalParameterTree optionalParam) {
-      maybeWarnTypeSyntax(optionalParam, Feature.OPTIONAL_PARAMETER);
-      Node param = transform(optionalParam.param);
-      param.putBooleanProp(Node.OPT_ES6_TYPED, true);
-      return param;
-    }
-
-    private void maybeProcessType(Node typeTarget, ParseTree typeTree) {
-      if (typeTree != null) {
-        recordJsDoc(typeTree.location, typeTarget.getJSDocInfo());
-        Node typeExpression = convertTypeTree(typeTree);
-        if (typeExpression.isString()) {
-          typeExpression = cloneProps(
-              new TypeDeclarationNode(Token.STRING, typeExpression.getString()));
-        }
-        typeTarget.setDeclaredTypeExpression((TypeDeclarationNode) typeExpression);
-      }
-    }
-
-    private void maybeProcessGenerics(Node n, GenericTypeListTree generics) {
-      if (generics != null) {
-        maybeWarnTypeSyntax(generics, Feature.GENERICS);
-        n.putProp(Node.GENERIC_TYPE_LIST, transform(generics));
-      }
-    }
-
-    private Node convertTypeTree(ParseTree typeTree) {
-      maybeWarnTypeSyntax(typeTree, Feature.TYPE_ANNOTATION);
-      return transform(typeTree);
-    }
-
-    Node processParameterizedType(ParameterizedTypeTree tree) {
-      ImmutableList.Builder<TypeDeclarationNode> arguments = ImmutableList.builder();
-      for (ParseTree arg : tree.typeArguments) {
-        arguments.add((TypeDeclarationNode) transform(arg));
-      }
-      TypeDeclarationNode typeName = (TypeDeclarationNode) transform(tree.typeName);
-      return cloneProps(parameterizedType(typeName, arguments.build()));
-    }
-
-    Node processArrayType(ArrayTypeTree tree) {
-      return cloneProps(arrayType(transform(tree.elementType)));
-    }
-
-    Node processRecordType(RecordTypeTree tree) {
-      TypeDeclarationNode node = new TypeDeclarationNode(Token.RECORD_TYPE);
-      for (ParseTree child : tree.members) {
-        node.addChildToBack(transform(child));
-      }
-      return cloneProps(node);
-    }
-
-    Node processUnionType(UnionTypeTree tree) {
-      ImmutableList.Builder<TypeDeclarationNode> options = ImmutableList.builder();
-      for (ParseTree option : tree.types) {
-        options.add((TypeDeclarationNode) transform(option));
-      }
-      return cloneProps(unionType(options.build()));
-    }
-
-    Node processTypeAlias(TypeAliasTree tree) {
-      maybeWarnTypeSyntax(tree, Feature.TYPE_ALIAS);
-      Node typeAlias = newStringNode(Token.TYPE_ALIAS, tree.alias.value);
-      typeAlias.addChildToFront(transform(tree.original));
-      return typeAlias;
-    }
-
-    Node processAmbientDeclaration(AmbientDeclarationTree tree) {
-      maybeWarnTypeSyntax(tree, Feature.AMBIENT_DECLARATION);
-      return newNode(Token.DECLARE, transform(tree.declaration));
-    }
-
-    Node processNamespaceDeclaration(NamespaceDeclarationTree tree) {
-      maybeWarnTypeSyntax(tree, Feature.NAMESPACE_DECLARATION);
-      Node name = processNamespaceName(tree.name);
-
-      Node body = newNode(Token.NAMESPACE_ELEMENTS);
-      setSourceInfo(body, tree);
-      for (ParseTree child : tree.elements) {
-        body.addChildToBack(transform(child));
-      }
-
-      return newNode(Token.NAMESPACE, name, body);
-    }
-
-    Node processNamespaceName(NamespaceNameTree name) {
-      ImmutableList<String> segments = name.segments;
-      if (segments.size() == 1) {
-        Node namespaceName = newStringNode(Token.NAME, segments.get(0));
-        setSourceInfo(namespaceName, name);
-        return namespaceName;
-      } else {
-        Iterator<String> segmentsIt = segments.iterator();
-        Node node = IR.name(segmentsIt.next());
-        setSourceInfo(node, name);
-        while (segmentsIt.hasNext()) {
-          Node string = newStringNode(Token.STRING, segmentsIt.next());
-          setSourceInfo(string, name);
-          node = newNode(Token.GETPROP, node, string);
-          setSourceInfo(node, name);
-        }
-        return node;
-      }
-    }
-
-    Node processIndexSignature(IndexSignatureTree tree) {
-      maybeWarnTypeSyntax(tree, Feature.INDEX_SIGNATURE);
-      Node name = transform(tree.name);
-      Node indexType = name.getDeclaredTypeExpression();
-      if (indexType.getToken() != Token.NUMBER_TYPE && indexType.getToken() != Token.STRING_TYPE) {
-        errorReporter.error(
-            "Index signature parameter type must be 'string' or 'number'",
-            sourceName,
-            lineno(tree.name),
-            charno(tree.name));
-      }
-
-      Node signature = newNode(Token.INDEX_SIGNATURE, name);
-      maybeProcessType(signature, tree.declaredType);
-      return signature;
-    }
-
-    Node processCallSignature(CallSignatureTree tree) {
-      maybeWarnTypeSyntax(
-          tree, tree.isNew ? Feature.CONSTRUCTOR_SIGNATURE : Feature.CALL_SIGNATURE);
-      Node signature = newNode(Token.CALL_SIGNATURE, transform(tree.formalParameterList));
-      maybeProcessType(signature, tree.returnType);
-      maybeProcessGenerics(signature, tree.generics);
-      signature.putBooleanProp(Node.CONSTRUCT_SIGNATURE, tree.isNew);
-      return signature;
-    }
-
-    private boolean checkParameters(ImmutableList<ParseTree> params) {
-      boolean seenOptional = false;
+    private boolean checkParameters(FormalParameterListTree tree) {
+      ImmutableList<ParseTree> params = tree.parameters;
       boolean good = true;
       for (int i = 0; i < params.size(); i++) {
         ParseTree param = params.get(i);
-        Node type = null;
-        if (param.type == ParseTreeType.TYPED_PARAMETER) {
-          TypedParameterTree typedParam = param.asTypedParameter();
-          type = transform(typedParam.typeAnnotation);
-          param = typedParam.param;
-        }
-        switch (param.type) {
-          case IDENTIFIER_EXPRESSION:
-            if (seenOptional) {
-              errorReporter.error(
-                  "A required parameter cannot follow an optional parameter.",
-                  sourceName,
-                  lineno(param),
-                  charno(param));
-              good = false;
-            }
-            break;
-          case OPTIONAL_PARAMETER:
-            seenOptional = true;
-            break;
-          case ITER_REST:
-            if (i != params.size() - 1) {
-              errorReporter.error(
-                  "A rest parameter must be last in a parameter list.",
-                  sourceName,
-                  lineno(param),
-                  charno(param));
-              good = false;
-            }
-            if (type != null && type.getToken() != Token.ARRAY_TYPE) {
-              errorReporter.error(
-                  "A rest parameter must be of an array type.",
-                  sourceName,
-                  lineno(param),
-                  charno(param));
-              good = false;
-            }
-            break;
-          default:
+        if (param.type == ParseTreeType.ITER_REST) {
+          if (i != params.size() - 1) {
+            errorReporter.error(
+                "A rest parameter must be last in a parameter list.",
+                sourceName,
+                lineno(param),
+                charno(param));
+            good = false;
+          } else if (tree.hasTrailingComma) {
+            errorReporter.error(
+                "A trailing comma must not follow a rest parameter.",
+                sourceName,
+                lineno(param),
+                charno(param));
+            good = false;
+          }
         }
       }
       return good;
-    }
-
-    Node processFunctionType(FunctionTypeTree tree) {
-      LinkedHashMap<String, TypeDeclarationNode> requiredParams = new LinkedHashMap<>();
-      LinkedHashMap<String, TypeDeclarationNode> optionalParams = new LinkedHashMap<>();
-      String restName = null;
-      TypeDeclarationNode restType = null;
-      if (checkParameters(tree.formalParameterList.parameters)) {
-        for (ParseTree param : tree.formalParameterList.parameters) {
-          TypeDeclarationNode type = null;
-          if (param.type == ParseTreeType.TYPED_PARAMETER) {
-            TypedParameterTree typedParam = param.asTypedParameter();
-            type = (TypeDeclarationNode) transform(typedParam.typeAnnotation);
-            param = typedParam.param;
-          }
-          switch (param.type) {
-            case IDENTIFIER_EXPRESSION:
-              requiredParams.put(
-                  param.asIdentifierExpression().identifierToken.value,
-                  type);
-              break;
-            case OPTIONAL_PARAMETER:
-              maybeWarnTypeSyntax(param, Feature.OPTIONAL_PARAMETER);
-              optionalParams.put(
-                  param.asOptionalParameter().param.asIdentifierExpression()
-                      .identifierToken.value,
-                  type);
-              break;
-            case ITER_REST:
-              // TypeScript doesn't allow destructuring parameters, so the assignment target must
-              // be an identifier.
-              restName =
-                  param
-                      .asIterRest()
-                      .assignmentTarget
-                      .asIdentifierExpression()
-                      .identifierToken
-                      .value;
-              restType = type;
-              break;
-            default:
-              throw new IllegalStateException("Illegal parameter type: " + param.type);
-          }
-        }
-      }
-
-      return cloneProps(functionType(transform(tree.returnType), requiredParams, optionalParams,
-          restName, restType));
-    }
-
-    Node processTypeQuery(TypeQueryTree tree) {
-      Iterator<String> segmentsIt = tree.segments.iterator();
-      Node node = newStringNode(Token.NAME, segmentsIt.next());
-      while (segmentsIt.hasNext()) {
-        node = IR.getprop(node, IR.string(segmentsIt.next()));
-      }
-      return cloneProps(new TypeDeclarationNode(Token.TYPEOF, node));
-    }
-
-    Node processGenericTypeList(GenericTypeListTree tree) {
-      Node list = newNode(Token.GENERIC_TYPE_LIST);
-      for (Map.Entry<IdentifierToken, ParseTree> generic : tree.generics.entrySet()) {
-        Node type = newStringNode(Token.GENERIC_TYPE, generic.getKey().value);
-        ParseTree bound = generic.getValue();
-        if (bound != null) {
-          type.addChildToBack(transform(bound));
-        }
-        list.addChildToBack(type);
-      }
-      return list;
     }
 
     private Node transformList(
@@ -3021,39 +2714,6 @@ class IRFactory {
       }
     }
 
-    void maybeProcessAccessibilityModifier(ParseTree parseTree, Node n, @Nullable TokenType type) {
-      if (type != null) {
-        Visibility access;
-        switch (type) {
-          case PUBLIC:
-            access = Visibility.PUBLIC;
-            break;
-          case PROTECTED:
-            access = Visibility.PROTECTED;
-            break;
-          case PRIVATE:
-            access = Visibility.PRIVATE;
-            break;
-          default:
-            throw new IllegalStateException("Unexpected access modifier type");
-        }
-        maybeWarnTypeSyntax(parseTree, Feature.ACCESSIBILITY_MODIFIER);
-        n.putProp(Node.ACCESS_MODIFIER, access);
-      }
-    }
-
-    void maybeWarnTypeSyntax(ParseTree node, Feature feature) {
-      if (config.languageMode() != LanguageMode.TYPESCRIPT) {
-        errorReporter.warning(
-            "type syntax is only supported in ES6 typed mode: " + feature,
-            sourceName,
-            lineno(node),
-            charno(node));
-      }
-      features = features.with(feature);
-      recordTypeSyntax(node.location);
-    }
-
     Node unsupportedLanguageFeature(ParseTree node, String feature) {
       errorReporter.error(
           "unsupported language feature: " + feature,
@@ -3068,6 +2728,8 @@ class IRFactory {
           return processNumberLiteral(expr);
         case STRING:
           return processStringLiteral(expr);
+        case BIGINT:
+          return processBigIntLiteral(expr);
         case FALSE:
         case TRUE:
           return processBooleanLiteral(expr);
@@ -3102,6 +2764,8 @@ class IRFactory {
           return processBreakStatement(node.asBreakStatement());
         case CALL_EXPRESSION:
           return processFunctionCall(node.asCallExpression());
+        case OPT_CHAIN__CALL_EXPRESSION:
+          return processOptChainFunctionCall(node.asOptChainCallExpression());
         case CASE_CLAUSE:
           return processSwitchCase(node.asCaseClause());
         case DEFAULT_CLAUSE:
@@ -3128,8 +2792,12 @@ class IRFactory {
           return processFunction(node.asFunctionDeclaration());
         case MEMBER_LOOKUP_EXPRESSION:
           return processElementGet(node.asMemberLookupExpression());
+        case OPT_CHAIN_MEMBER_LOOKUP_EXPRESSION:
+          return processOptChainElementGet(node.asOptionalMemberLookupExpression());
         case MEMBER_EXPRESSION:
           return processPropertyGet(node.asMemberExpression());
+        case OPT_CHAIN_MEMBER_EXPRESSION:
+          return processOptChainPropertyGet(node.asOptionalMemberExpression());
         case CONDITIONAL_EXPRESSION:
           return processConditionalExpression(node.asConditionalExpression());
         case IF_STATEMENT:
@@ -3148,8 +2816,6 @@ class IRFactory {
           return processComputedPropertyDefinition(node.asComputedPropertyDefinition());
         case COMPUTED_PROPERTY_GETTER:
           return processComputedPropertyGetter(node.asComputedPropertyGetter());
-        case COMPUTED_PROPERTY_MEMBER_VARIABLE:
-          return processComputedPropertyMemberVariable(node.asComputedPropertyMemberVariable());
         case COMPUTED_PROPERTY_METHOD:
           return processComputedPropertyMethod(node.asComputedPropertyMethod());
         case COMPUTED_PROPERTY_SETTER:
@@ -3251,47 +2917,6 @@ class IRFactory {
         case OBJECT_SPREAD:
           return processObjectSpread(node.asObjectSpread());
 
-        // ES6 Typed
-        case TYPE_NAME:
-          return processTypeName(node.asTypeName());
-        case TYPED_PARAMETER:
-          return processTypedParameter(node.asTypedParameter());
-        case OPTIONAL_PARAMETER:
-          return processOptionalParameter(node.asOptionalParameter());
-        case PARAMETERIZED_TYPE_TREE:
-          return processParameterizedType(node.asParameterizedType());
-        case ARRAY_TYPE:
-          return processArrayType(node.asArrayType());
-        case RECORD_TYPE:
-          return processRecordType(node.asRecordType());
-        case UNION_TYPE:
-          return processUnionType(node.asUnionType());
-        case FUNCTION_TYPE:
-          return processFunctionType(node.asFunctionType());
-        case TYPE_QUERY:
-          return processTypeQuery(node.asTypeQuery());
-        case GENERIC_TYPE_LIST:
-          return processGenericTypeList(node.asGenericTypeList());
-        case MEMBER_VARIABLE:
-          return processMemberVariable(node.asMemberVariable());
-
-        case INTERFACE_DECLARATION:
-          return processInterfaceDeclaration(node.asInterfaceDeclaration());
-        case ENUM_DECLARATION:
-          return processEnumDeclaration(node.asEnumDeclaration());
-
-        case TYPE_ALIAS:
-          return processTypeAlias(node.asTypeAlias());
-        case AMBIENT_DECLARATION:
-          return processAmbientDeclaration(node.asAmbientDeclaration());
-        case NAMESPACE_DECLARATION:
-          return processNamespaceDeclaration(node.asNamespaceDeclaration());
-
-        case INDEX_SIGNATURE:
-          return processIndexSignature(node.asIndexSignature());
-        case CALL_SIGNATURE:
-          return processCallSignature(node.asCallSignature());
-
         // TODO(johnlenz): handle these or remove parser support
         case ARGUMENT_LIST:
         default:
@@ -3299,6 +2924,46 @@ class IRFactory {
       }
       return processIllegalToken(node);
     }
+  }
+
+  private void reportErrorIfYieldOrAwaitInDefaultValue(Node defaultValueNode) {
+    Node yieldNode = findNodeTypeInExpression(defaultValueNode, Token.YIELD);
+    if (yieldNode != null) {
+      errorReporter.error(
+          "`yield` is illegal in parameter default value.",
+          yieldNode.getSourceFileName(),
+          yieldNode.getLineno(),
+          yieldNode.getCharno());
+    }
+    Node awaitNode = findNodeTypeInExpression(defaultValueNode, Token.AWAIT);
+    if (awaitNode != null) {
+      errorReporter.error(
+          "`await` is illegal in parameter default value.",
+          awaitNode.getSourceFileName(),
+          awaitNode.getLineno(),
+          awaitNode.getCharno());
+    }
+  }
+
+  /**
+   * Tries to find a node with the given token in the given expression. Returns the first one found
+   * in pre-order traversal or `null` if none found. Will not traverse into function or class
+   * expressions.
+   */
+  private static Node findNodeTypeInExpression(Node expressionNode, Token token) {
+    Deque<Node> worklist = new ArrayDeque<>();
+    worklist.add(expressionNode);
+    while (!worklist.isEmpty()) {
+      Node node = worklist.remove();
+      if (node.getToken() == token) {
+        return node;
+      } else if (!node.isFunction() && !node.isClass()) {
+        for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
+          worklist.add(child);
+        }
+      }
+    }
+    return null;
   }
 
   String normalizeRegex(LiteralToken token) {
@@ -3510,10 +3175,6 @@ class IRFactory {
     return config.languageMode().featureSet.has(feature);
   }
 
-  boolean isEs5OrBetterMode() {
-    return config.languageMode().featureSet.contains(FeatureSet.ES5);
-  }
-
   private boolean inStrictContext() {
     // TODO(johnlenz): in ECMASCRIPT5/6 is a "mixed" mode and we should track the context
     // that we are in, if we want to support it.
@@ -3522,6 +3183,9 @@ class IRFactory {
 
   double normalizeNumber(LiteralToken token) {
     String value = token.value;
+    if (value.contains("_")) {
+      value = removeNumericSeparators(value, token);
+    }
     SourceRange location = token.location;
     int length = value.length();
     checkState(length > 0);
@@ -3596,6 +3260,53 @@ class IRFactory {
     } else {
       return Double.parseDouble(value);
     }
+  }
+
+  BigInteger normalizeBigInt(LiteralToken token) {
+    String value = token.value;
+    value = value.substring(0, value.indexOf('n'));
+    if (value.contains("_")) {
+      value = removeNumericSeparators(value, token);
+    }
+    int length = value.length();
+    checkState(length > 0);
+    checkState(value.charAt(0) != '-' && value.charAt(0) != '+');
+    if (value.charAt(0) == '0' && length > 1) {
+      switch (value.charAt(1)) {
+        case 'b':
+        case 'B':
+          maybeWarnForFeature(token, Feature.BINARY_LITERALS);
+          return new BigInteger(value.substring(2), 2);
+        case 'o':
+        case 'O':
+          maybeWarnForFeature(token, Feature.OCTAL_LITERALS);
+          return new BigInteger(value.substring(2), 8);
+        case 'x':
+        case 'X':
+          return new BigInteger(value.substring(2), 16);
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+          throw new IllegalStateException("Nonzero BigInts can't have a leading zero");
+        default:
+          throw new IllegalStateException(
+              "Unexpected character in bigint literal: " + value.charAt(1));
+      }
+    } else {
+      return new BigInteger(value);
+    }
+  }
+
+  private String removeNumericSeparators(String value, LiteralToken token) {
+    maybeWarnForFeature(token, Feature.NUMERIC_SEPARATOR);
+    return value.replace("_", "");
   }
 
   private static int binarydigit(char c) {
@@ -3767,6 +3478,8 @@ class IRFactory {
         return Token.OR;
       case AND:
         return Token.AND;
+      case QUESTION_QUESTION:
+        return Token.COALESCE;
 
       default:
         throw new IllegalStateException(String.valueOf(token));
@@ -3806,17 +3519,7 @@ class IRFactory {
     return IR.number(value).clonePropsFrom(templateNode);
   }
 
-  /**
-   * Clone the properties from the template node recursively, skips nodes that
-   * have properties already.
-   */
-  Node cloneProps(Node n) {
-    if (!n.hasProps()) {
-      n.clonePropsFrom(templateNode);
-    }
-    for (Node child : n.children()) {
-      cloneProps(child);
-    }
-    return n;
+  Node newBigIntNode(BigInteger value) {
+    return Node.newBigInt(value).clonePropsFrom(templateNode);
   }
 }

@@ -42,28 +42,28 @@ package com.google.javascript.rhino.jstype;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 import static com.google.javascript.rhino.jstype.JSTypeNative.OBJECT_TYPE;
-import static com.google.javascript.rhino.jstype.JSTypeNative.U2U_CONSTRUCTOR_TYPE;
 
-import com.google.common.base.Preconditions;
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.javascript.rhino.ClosurePrimitive;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.Token;
-import java.io.Serializable;
+import com.google.javascript.rhino.jstype.EqualityChecker.EqMethod;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import javax.annotation.Nullable;
 
 /**
  * This derived type provides extended information about a function, including its return type and
@@ -72,15 +72,16 @@ import java.util.Set;
  * <p>Note: the parameters list is the PARAM_LIST node that is the parent of the actual NAME node
  * containing the parsed argument list (annotated with JSDOC_TYPE_PROP's for the compile-time type
  * of each argument.
- *
  */
-public class FunctionType extends PrototypeObjectType implements Serializable {
-  private static final long serialVersionUID = 1L;
+public class FunctionType extends PrototypeObjectType implements JSType.WithSourceRef {
+
+  private static final JSTypeClass TYPE_CLASS = JSTypeClass.FUNCTION;
 
   enum Kind {
     ORDINARY,
     CONSTRUCTOR,
-    INTERFACE
+    INTERFACE,
+    NONE;
   }
 
   // relevant only for constructors
@@ -97,11 +98,11 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
 
   enum ConstructorAmbiguity {
     UNKNOWN,
-    CONSTRUCTS_AMBIGUOUS_OBJECTS,
-    CONSTRUCTS_UNAMBIGUOUS_OBJECTS
+    IS_AMBIGUOUS_CONSTRUCTOR,
+    IS_UNAMBIGUOUS_CONSTRUCTOR,
   }
 
-  private ConstructorAmbiguity constructorAmbiguity = ConstructorAmbiguity.UNKNOWN;
+  private ConstructorAmbiguity constructorAmbiguity;
 
   /** {@code [[Call]]} property. */
   private ArrowType call;
@@ -128,6 +129,9 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
   /** The function node which this type represents. It may be {@code null}. */
   private Node source;
 
+  /** The ID of the goog.module in which this function was declared. */
+  @Nullable private final String googModuleId;
+
   /** if this is an interface, indicate whether or not it supports structural interface matching */
   private boolean isStructuralInterface;
 
@@ -149,20 +153,6 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
    */
   private ImmutableList<ObjectType> extendedInterfaces = ImmutableList.of();
 
-  /**
-   * The types which are subtypes of this function. It is lazily initialized and only relevant for
-   * constructors. In all other cases it is {@code null}.
-   */
-  private List<FunctionType> subTypes = null;
-
-  /**
-   * Whether this constructor was added to its superclass constructor's subtypes list, to avoid a
-   * limited amount of duplication that can happen from unresolved supertypes. This only tracks
-   * classes extending classes (no interfaces), since there is no way to duplicate interfaces via
-   * methods accessible outside this class.
-   */
-  private boolean wasAddedToExtendedConstructorSubtypes = false;
-
   /** The primitive id associated with this FunctionType, or null if none. */
   private final ClosurePrimitive closurePrimitive;
 
@@ -181,48 +171,95 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     Node source = builder.sourceNode;
     checkArgument(source == null || source.isFunction() || source.isClass());
     this.source = source;
+    this.googModuleId = builder.googModuleId;
     this.kind = builder.kind;
-    switch (kind) {
-      case CONSTRUCTOR:
-        this.propAccess = PropAccess.ANY;
-        this.typeOfThis =
-            builder.typeOfThis != null
-                ? builder.typeOfThis
-                : InstanceObjectType.builderForCtor(this).build();
-        break;
-      case ORDINARY:
-        this.typeOfThis =
-            builder.typeOfThis != null
-                ? builder.typeOfThis
-                : registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE);
-        break;
-      case INTERFACE:
-        this.typeOfThis =
-            builder.typeOfThis != null
-                ? builder.typeOfThis
-                : InstanceObjectType.builderForCtor(this).build();
-        break;
+    this.constructorAmbiguity =
+        builder.isKnownAmbiguous
+            ? ConstructorAmbiguity.IS_AMBIGUOUS_CONSTRUCTOR
+            : ConstructorAmbiguity.UNKNOWN;
+
+    if (builder.typeOfThis != null) {
+      this.typeOfThis = builder.typeOfThis;
+    } else if (this instanceof NoResolvedType) {
+      /**
+       * TODO(b/112425334): Delete this special case if NO_RESOLVED_TYPE is deleted.
+       *
+       * <p>Despite being a subclass of `NoType`, `NoResolvedType` should behave more like `?`.
+       * There's no reason to believe its properties are of its own type.
+       */
+      this.typeOfThis = this.registry.getNativeType(JSTypeNative.UNKNOWN_TYPE);
+    } else {
+      switch (kind) {
+        case CONSTRUCTOR:
+        case INTERFACE:
+          InstanceObjectType.Builder typeOfThisBuilder = InstanceObjectType.builderForCtor(this);
+
+          Set<TemplateType> ctorKeys = builder.constructorOnlyKeys;
+          if (!ctorKeys.isEmpty()) {
+            typeOfThisBuilder
+                .setTemplateTypeMap(this.templateTypeMap.copyWithoutKeys(ctorKeys))
+                .setTemplateParamCount(this.getTemplateParamCount() - ctorKeys.size());
+          }
+
+          this.typeOfThis = typeOfThisBuilder.build();
+          break;
+
+        case ORDINARY:
+          this.typeOfThis = this.registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE);
+          break;
+
+        case NONE:
+          this.typeOfThis = this;
+          break;
+      }
     }
-    this.call = builder.buildArrowType();
+
+    if (this.kind == Kind.CONSTRUCTOR) {
+      this.propAccess = PropAccess.ANY;
+    }
+
+    this.call =
+        new ArrowType(
+            this.registry,
+            builder.parameters,
+            builder.returnsOwnInstanceType ? this.typeOfThis : builder.returnType,
+            builder.returnTypeIsInferred);
+
     this.closurePrimitive = builder.primitiveId;
     this.isStructuralInterface = false;
-    this.isAbstract = builder.isAbstract();
+    this.isAbstract = builder.isAbstract;
     FunctionType canonicalRepresentation = builder.canonicalRepresentation;
     checkArgument(
         canonicalRepresentation == null || kind == Kind.CONSTRUCTOR,
         "Only constructors should have canonical representations");
     this.canonicalRepresentation = canonicalRepresentation;
+
+    if (builder.setPrototypeBasedOn != null) {
+      this.setPrototypeBasedOn(builder.setPrototypeBasedOn);
+    }
+
+    this.registry.getResolver().resolveIfClosed(this, TYPE_CLASS);
+  }
+
+  @Override
+  JSTypeClass getTypeClass() {
+    return TYPE_CLASS;
+  }
+
+  @Override
+  public FunctionType getConstructor() {
+    // Every function type, including `Function`, is constructed by `(typeof Function)`.
+    return checkNotNull(this.registry.getNativeFunctionType(JSTypeNative.FUNCTION_FUNCTION_TYPE));
   }
 
   @Override
   public final boolean isInstanceType() {
-    // The universal constructor is its own instance, bizarrely. It overrides
-    // getConstructor() appropriately when it's declared.
-    return this == registry.getNativeType(U2U_CONSTRUCTOR_TYPE);
+    // Only `Function` is both a function type and the intance type of a nominal constructor.
+    return identical(this, this.registry.getNativeType(JSTypeNative.FUNCTION_TYPE));
   }
 
   @Override
-  public boolean isConstructor() {
+  public final boolean isConstructor() {
     return kind == Kind.CONSTRUCTOR;
   }
 
@@ -319,26 +356,8 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     return false;
   }
 
-  public final Iterable<Node> getParameters() {
-    Node n = getParametersNode();
-    if (n != null) {
-      return n.children();
-    } else {
-      return Collections.emptySet();
-    }
-  }
-
-  public final Iterable<JSType> getParameterTypes() {
-    List<JSType> types = new ArrayList<>();
-    for (Node n : getParameters()) {
-      types.add(n.getJSType());
-    }
-    return types;
-  }
-
-  /** Gets a PARAM_LIST node that contains all params. */
-  public final Node getParametersNode() {
-    return call.parameters;
+  public final ImmutableList<Parameter> getParameters() {
+    return getInternalArrowType().getParameterList();
   }
 
   /** Gets the minimum number of arguments that this function requires. */
@@ -348,9 +367,9 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     // of the last required parameter.
     int i = 0;
     int min = 0;
-    for (Node n : getParameters()) {
+    for (Parameter parameter : getParameters()) {
       i++;
-      if (!n.isOptionalArg() && !n.isVarArgs()) {
+      if (!parameter.isOptional() && !parameter.isVariadic()) {
         min = i;
       }
     }
@@ -362,19 +381,20 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
    * is a variable argument function.
    */
   public final int getMaxArity() {
-    Node params = getParametersNode();
-    if (params != null) {
-      Node lastParam = params.getLastChild();
-      if (lastParam == null || !lastParam.isVarArgs()) {
-        return params.getChildCount();
-      }
+    ImmutableList<Parameter> params = getParameters();
+    if (params.isEmpty()) {
+      return 0;
+    }
+    Parameter lastParam = Iterables.getLast(params);
+    if (!lastParam.isVariadic()) {
+      return params.size();
     }
 
     return Integer.MAX_VALUE;
   }
 
   public final JSType getReturnType() {
-    return call.returnType;
+    return call.getReturnType();
   }
 
   public final boolean isReturnTypeInferred() {
@@ -452,13 +472,14 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     setPrototypeBasedOn(baseType, null);
   }
 
-  final void setPrototypeBasedOn(ObjectType baseType, Node propertyNode) {
+  private void setPrototypeBasedOn(ObjectType baseType, Node propertyNode) {
     // First handle class-side inheritance for ES6 classes, before reassigning baseType.
     if (source != null && source.isClass()) {
       FunctionType superCtor = baseType.getConstructor();
       if (superCtor != null) {
-        setImplicitPrototype(superCtor);
+        this.setImplicitPrototype(superCtor);
       }
+      maybeLoosenTypecheckingDueToForwardReferencedSupertype(baseType);
     }
     // This is a bit weird. We need to successfully handle these
     // two cases:
@@ -501,7 +522,7 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
       return false;
     }
     // getInstanceType fails if the function is not a constructor
-    if (isConstructor() && prototype == getInstanceType()) {
+    if (isConstructor() && identical(prototype, getInstanceType())) {
       return false;
     }
     return setPrototypeNoCheck(prototype, propertyNode);
@@ -520,22 +541,6 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
       // Disassociating the old prototype makes this easier to debug--
       // we don't have to worry about two prototypes running around.
       oldPrototype.setOwnerFunction(null);
-    }
-
-    if (isConstructor() || isInterface()) {
-      FunctionType superClass = getSuperClassConstructor();
-      if (superClass != null) {
-        superClass.addSubType(this);
-        wasAddedToExtendedConstructorSubtypes = true;
-      }
-
-      if (isInterface()) {
-        for (ObjectType interfaceType : getExtendedInterfaces()) {
-          if (interfaceType.getConstructor() != null) {
-            interfaceType.getConstructor().addSubType(this);
-          }
-        }
-      }
     }
 
     if (replacedPrototype) {
@@ -613,7 +618,6 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
 
     this.implementedInterfaces = ImmutableList.copyOf(implementedInterfaces);
     for (ObjectType type : implementedInterfaces) {
-      registry.registerTypeImplementingInterface(this, type);
       typeOfThis.mergeSupertypeTemplateTypes(type);
     }
   }
@@ -660,7 +664,7 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
         defineDeclaredProperty(
             name,
             builder(registry)
-                .withParamsNode(builder.build())
+                .withParameters(builder.build())
                 .withReturnType(getReturnType())
                 .withTemplateKeys(getTemplateTypeMap().getTemplateKeys())
                 .build(),
@@ -681,19 +685,19 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
         builder(registry)
             .withReturnType(getReturnType())
             .withTemplateKeys(getTemplateTypeMap().getTemplateKeys());
-    if (argsToBind >= 0) {
-      Node origParams = getParametersNode();
-      if (origParams != null) {
-        Node params = origParams.cloneTree();
-        for (int i = 1; i < argsToBind && params.getFirstChild() != null; i++) {
-          if (params.getFirstChild().isVarArgs()) {
-            break;
-          }
-          params.removeFirstChild();
-        }
-        builder.withParamsNode(params);
-      }
+    if (argsToBind < 0) {
+      return builder.build();
     }
+    ImmutableList<Parameter> origParams = call.getParameterList();
+    List<Parameter> params = new ArrayList<>(origParams);
+    for (int i = 1; i < argsToBind && !params.isEmpty(); i++) {
+      if (params.get(0).isVariadic()) {
+        break;
+      }
+      params.remove(0);
+    }
+    builder.withParameters(params);
+
     return builder.build();
   }
 
@@ -708,31 +712,38 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
             .withReturnType(isCall ? getReturnType() : getBindReturnType(-1))
             .withTemplateKeys(getTemplateTypeMap().getTemplateKeys());
 
-    Node origParams = getParametersNode();
-    if (origParams != null) {
-      Node params = origParams.cloneTree();
+    List<Parameter> origParams = getInternalArrowType().getParameterList();
 
-      Node thisTypeNode = Node.newString(Token.NAME, "thisType");
-      thisTypeNode.setJSType(registry.createOptionalNullableType(getTypeOfThis()));
-      params.addChildToFront(thisTypeNode);
+    List<Parameter> params = new ArrayList<>(origParams);
 
-      if (isBind) {
-        // The arguments of bind() are unique in that they are all
-        // optional but not undefinable.
-        for (Node current = thisTypeNode.getNext(); current != null; current = current.getNext()) {
-          current.setOptionalArg(true);
-        }
-      } else if (isCall) {
-        // The first argument of call() is optional iff all the arguments
-        // are optional. It's sufficient to check the first argument.
-        Node firstArg = thisTypeNode.getNext();
-        if (firstArg == null || firstArg.isOptionalArg() || firstArg.isVarArgs()) {
-          thisTypeNode.setOptionalArg(true);
-        }
+    Parameter thisType =
+        Parameter.create(
+            registry.createOptionalNullableType(getTypeOfThis()),
+            /* isOptional= */ false,
+            /* isVariadic= */ false);
+    params.add(0, thisType);
+
+    if (isBind) {
+      // The arguments of bind() are unique in that they are all
+      // optional but not undefinable.
+      for (int i = 1; i < params.size(); i++) {
+        Parameter current = params.get(i);
+        Parameter optionalCopy =
+            Parameter.create(current.getJSType(), /* isOptional= */ true, current.isVariadic());
+        params.set(i, optionalCopy);
       }
-
-      builder.withParamsNode(params);
+    } else if (isCall) {
+      // The first argument of call() is optional iff all the arguments
+      // are optional. It's sufficient to check the first argument.
+      Parameter firstArg = params.size() > 1 ? params.get(1) : null;
+      if (firstArg == null || firstArg.isOptional() || firstArg.isVariadic()) {
+        Parameter optionalThisType =
+            Parameter.create(thisType.getJSType(), /* isOptional= */ true, /* isVariadic= */ false);
+        params.set(0, optionalThisType);
+      }
     }
+
+    builder.withParameters(params);
 
     return builder.build();
   }
@@ -742,7 +753,7 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     if ("prototype".equals(name)) {
       ObjectType objType = type.toObjectType();
       if (objType != null) {
-        if (prototypeSlot != null && objType.isEquivalentTo(prototypeSlot.getType())) {
+        if (prototypeSlot != null && objType.equals(prototypeSlot.getType())) {
           return true;
         }
         setPrototypeBasedOn(objType, propertyNode);
@@ -782,7 +793,7 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     // inf(A, B) is always the bottom function type.
     checkNotNull(that);
 
-    if (isEquivalentTo(that)) {
+    if (equals(that)) {
       return this;
     }
 
@@ -814,10 +825,10 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
 
     // The function instance type is a special case
     // that lives above the rest of the lattice.
-    JSType functionInstance = registry.getNativeType(JSTypeNative.U2U_CONSTRUCTOR_TYPE);
-    if (functionInstance.isEquivalentTo(that)) {
+    JSType functionInstance = registry.getNativeType(JSTypeNative.FUNCTION_TYPE);
+    if (functionInstance.equals(that)) {
       return leastSuper ? that : this;
-    } else if (functionInstance.isEquivalentTo(this)) {
+    } else if (functionInstance.equals(this)) {
       return leastSuper ? this : that;
     }
 
@@ -827,16 +838,18 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     // means that all parameters register a type warning.
     //
     // Instead, we use the U2U ctor type, which has unknown type args.
-    FunctionType greatestFn = registry.getNativeFunctionType(JSTypeNative.U2U_CONSTRUCTOR_TYPE);
+    FunctionType greatestFn = registry.getNativeFunctionType(JSTypeNative.FUNCTION_TYPE);
     FunctionType leastFn = registry.getNativeFunctionType(JSTypeNative.LEAST_FUNCTION_TYPE);
     return leastSuper ? greatestFn : leastFn;
   }
 
   /** Try to get the sup/inf of two functions by looking at the piecewise components. */
   private FunctionType tryMergeFunctionPiecewise(FunctionType other, boolean leastSuper) {
-    Node newParamsNode = null;
-    if (call.hasEqualParameters(other.call, EquivalenceMethod.IDENTITY, EqCache.create())) {
-      newParamsNode = call.parameters;
+    List<Parameter> newParamsNode = null;
+    if (new EqualityChecker()
+        .setEqMethod(EqMethod.IDENTITY)
+        .checkParameters(this.call, other.call)) {
+      newParamsNode = call.getParameterList();
     } else {
       // If the parameters are not equal, don't try to merge them.
       // Someday, we should try to merge the individual params.
@@ -845,11 +858,11 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
 
     JSType newReturnType =
         leastSuper
-            ? call.returnType.getLeastSupertype(other.call.returnType)
-            : call.returnType.getGreatestSubtype(other.call.returnType);
+            ? call.getReturnType().getLeastSupertype(other.call.getReturnType())
+            : call.getReturnType().getGreatestSubtype(other.call.getReturnType());
 
     JSType newTypeOfThis = null;
-    if (isEquivalent(typeOfThis, other.typeOfThis)) {
+    if (Objects.equals(typeOfThis, other.typeOfThis)) {
       newTypeOfThis = typeOfThis;
     } else {
       JSType maybeNewTypeOfThis =
@@ -862,7 +875,7 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     boolean newReturnTypeInferred = call.returnTypeInferred || other.call.returnTypeInferred;
 
     return builder(registry)
-        .withParamsNode(newParamsNode)
+        .withParameters(newParamsNode)
         .withReturnType(newReturnType, newReturnTypeInferred)
         .withTypeOfThis(newTypeOfThis)
         .build();
@@ -882,31 +895,6 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     return maybeSuperInstanceType.getConstructor();
   }
 
-  /**
-   * Two function types are equal if their signatures match. Since they don't have signatures, two
-   * interfaces are equal if their names match.
-   */
-  final boolean checkFunctionEquivalenceHelper(
-      FunctionType that, EquivalenceMethod eqMethod, EqCache eqCache) {
-    if (this == that) {
-      return true;
-    }
-    if (kind != that.kind) {
-      return false;
-    }
-    switch (kind) {
-      case CONSTRUCTOR:
-      case INTERFACE:
-        // constructors and interfaces use identity semantics, which we checked for above.
-        return false;
-      case ORDINARY:
-        return typeOfThis.checkEquivalenceHelper(that.typeOfThis, eqMethod, eqCache)
-            && call.checkArrowEquivalenceHelper(that.call, eqMethod, eqCache);
-      default:
-        throw new AssertionError();
-    }
-  }
-
   @Override
   int recursionUnsafeHashCode() {
     int hc = kind.hashCode();
@@ -917,15 +905,17 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
       case ORDINARY:
         hc = 31 * hc + typeOfThis.hashCode();
         hc = 31 * hc + call.hashCode();
+        hc = 31 * hc + Objects.hashCode(getClosurePrimitive());
         return hc;
       default:
         throw new AssertionError();
     }
   }
 
-  public final boolean hasEqualCallType(FunctionType otherType) {
-    return this.call.checkArrowEquivalenceHelper(
-        otherType.call, EquivalenceMethod.IDENTITY, EqCache.create());
+  public final boolean hasEqualCallType(FunctionType that) {
+    return new EqualityChecker()
+        .setEqMethod(EqMethod.IDENTITY)
+        .check(this.call, that.call);
   }
 
   /**
@@ -934,25 +924,24 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
    * function expects a known type for {@code this}.
    */
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    if (!isPrettyPrint() || this == registry.getNativeType(JSTypeNative.U2U_CONSTRUCTOR_TYPE)) {
-      return sb.append(forAnnotations ? "!Function" : "Function");
+  void appendTo(TypeStringBuilder sb) {
+    if (!isPrettyPrint() || identical(this, registry.getNativeType(JSTypeNative.FUNCTION_TYPE))) {
+      sb.append(sb.isForAnnotations() ? "!Function" : "Function");
+      return;
     }
 
     if (hasInstanceType() && getSource() != null) {
       // Render function types known to be type definitions as "(typeof Foo)". This includes types
       // defined like "/** @constructor */ function Foo() { }" but not to those defined like "@param
       // {function(new:Foo)}". Only the former will have a source node.
-      sb.append("(typeof ");
-      getInstanceType().appendTo(sb, forAnnotations);
-      sb.append(")");
-      return sb;
+      sb.append("(typeof ").append(this.getInstanceType()).append(")");
+      return;
     }
 
     setPrettyPrint(false);
 
     sb.append("function(");
-    int paramNum = call.parameters.getChildCount();
+    int paramNum = call.getParameterList().size();
     boolean hasKnownTypeOfThis = !(typeOfThis instanceof UnknownType);
     if (hasKnownTypeOfThis) {
       if (isConstructor()) {
@@ -960,47 +949,45 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
       } else {
         sb.append("this:");
       }
-      typeOfThis.appendTo(sb, forAnnotations);
+      sb.append(typeOfThis);
     }
     if (paramNum > 0) {
       if (hasKnownTypeOfThis) {
         sb.append(", ");
       }
-      Node p = call.parameters.getFirstChild();
-      appendArgString(sb, p, forAnnotations);
+      Parameter p = call.getParameterList().get(0);
+      appendArgString(sb, p);
 
-      p = p.getNext();
-      while (p != null) {
+      for (int i = 1; i < paramNum; i++) {
+        p = call.getParameterList().get(i);
         sb.append(", ");
-        appendArgString(sb, p, forAnnotations);
-        p = p.getNext();
+        appendArgString(sb, p);
       }
     }
     sb.append("): ");
-    call.returnType.appendAsNonNull(sb, forAnnotations);
+    sb.appendNonNull(call.getReturnType());
 
     setPrettyPrint(true);
-    return sb;
+    return;
   }
 
-  private void appendArgString(StringBuilder sb, Node p, boolean forAnnotations) {
-    if (p.isVarArgs()) {
-      appendVarArgsString(sb, p.getJSType(), forAnnotations);
-    } else if (p.isOptionalArg()) {
-      appendOptionalArgString(sb, p.getJSType(), forAnnotations);
+  private void appendArgString(TypeStringBuilder sb, Parameter p) {
+    if (p.isVariadic()) {
+      appendVarArgsString(sb, p.getJSType());
+    } else if (p.isOptional()) {
+      appendOptionalArgString(sb, p.getJSType());
     } else {
-      p.getJSType().appendAsNonNull(sb, forAnnotations);
+      sb.appendNonNull(p.getJSType());
     }
   }
 
   /** Gets the string representation of a var args param. */
-  private void appendVarArgsString(StringBuilder sb, JSType paramType, boolean forAnnotations) {
-    sb.append("...");
-    paramType.appendAsNonNull(sb, forAnnotations);
+  private void appendVarArgsString(TypeStringBuilder sb, JSType paramType) {
+    sb.append("...").appendNonNull(paramType);
   }
 
   /** Gets the string representation of an optional param. */
-  private void appendOptionalArgString(StringBuilder sb, JSType paramType, boolean forAnnotations) {
+  private void appendOptionalArgString(TypeStringBuilder sb, JSType paramType) {
     if (paramType.isUnionType()) {
       // Remove the optionality from the var arg.
       paramType =
@@ -1008,7 +995,7 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
               .toMaybeUnionType()
               .getRestrictedUnion(registry.getNativeType(JSTypeNative.VOID_TYPE));
     }
-    paramType.appendAsNonNull(sb, forAnnotations).append("=");
+    sb.appendNonNull(paramType).append("=");
   }
 
   @Override
@@ -1022,19 +1009,16 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
   }
 
   /**
-   * Gets the type of instance of this function.
+   * Gets the type of instance of this function. May return null if the `this` type can not be
+   * converted to "ObjectType" (see JSType#toObjectType).
    *
    * @throws IllegalStateException if this function is not a constructor (see {@link
    *     #isConstructor()}).
    */
   public final ObjectType getInstanceType() {
-    Preconditions.checkState(hasInstanceType(), "Expected a constructor; got %s", this);
-    return typeOfThis.toObjectType();
-  }
+    checkState(this.hasInstanceType());
 
-  /** Sets the instance type. This should only be used for special native types. */
-  final void setInstanceType(ObjectType instanceType) {
-    typeOfThis = instanceType;
+    return typeOfThis.toObjectType();
   }
 
   /** Returns whether this function type has an instance type. */
@@ -1053,6 +1037,11 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
   /** Gets the source node or null if this is an unknown function. */
   public final Node getSource() {
     return source;
+  }
+
+  @Nullable
+  public String getGoogModuleId() {
+    return this.googModuleId;
   }
 
   /** Sets the source node. */
@@ -1075,42 +1064,12 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     this.source = source;
   }
 
-  /** Adds a type to the list of subtypes for this type. */
-  private void addSubType(FunctionType subType) {
-    if (subTypes == null) {
-      subTypes = new ArrayList<>();
-    }
-    subTypes.add(subType);
-  }
-
-  /**
-   * Restricted package-accessible version of {@link #addSubType}, which ensures subtypes are not
-   * duplicated. Generally subtypes are added internally and are guaranteed not to be duplicated,
-   * but this has the possibility of missing unresolved supertypes (typically from externs). To
-   * handle that case, {@link PrototypeObjectType} also adds subclasses after resolution. This
-   * method only adds a subclass to the list if it didn't already add itself to its superclass in
-   * the earlier pass. Ideally, "subclass" here would only refer to classes, but there's an edge
-   * case where interfaces have the {@code Object} constructor added as its "superclass".
-   */
-  final void addSubClassAfterResolution(FunctionType subClass) {
-    checkArgument(this == subClass.getSuperClassConstructor());
-    if (!subClass.wasAddedToExtendedConstructorSubtypes) {
-      addSubType(subClass);
-    }
-  }
-
   // NOTE(sdh): One might assume that immediately after calling this, hasCachedValues() should
   // always return false.  This is not the case, since hasCachedValues() will return true if
   // prototypeSlot is non-null, and this override does nothing to change that state.
   @Override
   public final void clearCachedValues() {
     super.clearCachedValues();
-
-    if (subTypes != null) {
-      for (FunctionType subType : subTypes) {
-        subType.clearCachedValues();
-      }
-    }
 
     if (!isNativeObjectType()) {
       if (hasInstanceType()) {
@@ -1123,12 +1082,6 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     }
   }
 
-  public final Iterable<FunctionType> getDirectSubTypes() {
-    return Iterables.concat(
-        subTypes != null ? subTypes : ImmutableList.<FunctionType>of(),
-        this.registry.getDirectImplementors(this));
-  }
-
   @Override
   public final boolean hasCachedValues() {
     return prototypeSlot != null || super.hasCachedValues();
@@ -1136,8 +1089,6 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
 
   @Override
   JSType resolveInternal(ErrorReporter reporter) {
-    setResolvedTypeInternal(this);
-
     call = (ArrowType) safeResolve(call, reporter);
     if (prototypeSlot != null) {
       prototypeSlot.setType(safeResolve(prototypeSlot.getType(), reporter));
@@ -1171,13 +1122,6 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
       extendedInterfaces = resolvedExtended;
     }
 
-    if (subTypes != null) {
-      for (int i = 0; i < subTypes.size(); i++) {
-        FunctionType subType = subTypes.get(i);
-        subTypes.set(i, JSType.toMaybeFunctionType(subType.resolve(reporter)));
-      }
-    }
-
     return super.resolveInternal(reporter);
   }
 
@@ -1201,50 +1145,9 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
       }
       ObjectType resolved = rt.toObjectType();
       resolvedList.add(resolved);
-      changed |= (resolved != type);
+      changed |= !identical(resolved, type);
     }
     return changed ? resolvedList.build() : null;
-  }
-
-  @Override
-  public final String toDebugHashCodeString() {
-    if (this == registry.getNativeType(JSTypeNative.U2U_CONSTRUCTOR_TYPE)) {
-      return super.toDebugHashCodeString();
-    }
-
-    StringBuilder b = new StringBuilder(32);
-    b.append("function (");
-    int paramNum = call.parameters.getChildCount();
-    boolean hasKnownTypeOfThis = !typeOfThis.isUnknownType();
-    if (hasKnownTypeOfThis) {
-      b.append("this:");
-      b.append(getDebugHashCodeStringOf(typeOfThis));
-    }
-    if (paramNum > 0) {
-      if (hasKnownTypeOfThis) {
-        b.append(", ");
-      }
-      Node p = call.parameters.getFirstChild();
-      b.append(getDebugHashCodeStringOf(p.getJSType()));
-      p = p.getNext();
-      while (p != null) {
-        b.append(", ");
-        b.append(getDebugHashCodeStringOf(p.getJSType()));
-        p = p.getNext();
-      }
-    }
-    b.append(")");
-    b.append(": ");
-    b.append(getDebugHashCodeStringOf(call.returnType));
-    return b.toString();
-  }
-
-  private String getDebugHashCodeStringOf(JSType type) {
-    if (type == this) {
-      return "me";
-    } else {
-      return type.toDebugHashCodeString();
-    }
   }
 
   @Override
@@ -1344,7 +1247,7 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
           // A -> B -> C -> D -> C, will be pruned into:
           // c -> D -> C
           path.add(superConstructor);
-          while (path.get(0) != superConstructor) {
+          while (!identical(path.get(0), superConstructor)) {
             path.remove(0);
           }
           return path;
@@ -1366,11 +1269,11 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     // NOTE(aravindpg): This code is essentially lifted from TypeCheck::visitParameterList,
     // but what small differences there are make it very painful to refactor out the shared code.
     Iterator<? extends JSType> arguments = argumentTypes.iterator();
-    Iterator<Node> parameters = this.getParameters().iterator();
-    Node parameter = null;
+    Iterator<Parameter> parameters = this.getParameters().iterator();
+    Parameter parameter = null;
     JSType argument = null;
     while (arguments.hasNext()
-        && (parameters.hasNext() || parameter != null && parameter.isVarArgs())) {
+        && (parameters.hasNext() || (parameter != null && parameter.isVariadic()))) {
       // If there are no parameters left in the list, then the while loop
       // above implies that this must be a var_args function.
       if (parameters.hasNext()) {
@@ -1405,6 +1308,14 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
   public final ImmutableList<TemplateType> getConstructorOnlyTemplateParameters() {
     checkState(this.isConstructor(), this);
 
+    /**
+     * Structural constructor types (e.g `function(new:Foo<T>)`) cannot have template params of
+     * their own.
+     */
+    if (this.source == null) {
+      return ImmutableList.of();
+    }
+
     // Within the `TemplateTypeMap` of a ctor type, the ctor only keys always appear after the
     // instance type keys.
     TemplateTypeMap map = getTemplateTypeMap();
@@ -1413,39 +1324,43 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     return map.getTemplateKeys().subList(map.size() - ctorOnlyKeyCount, map.size());
   }
 
-  boolean createsAmbiguousObjects() {
+  /**
+   * Returns true if the constructor does not come from a literal class or function in the AST, or
+   * if it extends such an ambiguous constructor
+   */
+  public final boolean isAmbiguousConstructor() {
     if (this.constructorAmbiguity == ConstructorAmbiguity.UNKNOWN) {
       constructorAmbiguity = calculateConstructorAmbiguity();
     }
-    return constructorAmbiguity == ConstructorAmbiguity.CONSTRUCTS_AMBIGUOUS_OBJECTS;
+    return constructorAmbiguity == ConstructorAmbiguity.IS_AMBIGUOUS_CONSTRUCTOR;
   }
 
   private ConstructorAmbiguity calculateConstructorAmbiguity() {
     final ConstructorAmbiguity constructorAmbiguity;
     if (isUnknownType()) {
-      constructorAmbiguity = ConstructorAmbiguity.CONSTRUCTS_AMBIGUOUS_OBJECTS;
+      constructorAmbiguity = ConstructorAmbiguity.IS_AMBIGUOUS_CONSTRUCTOR;
     } else if (isNativeObjectType()) {
       // native types other than unknown are never ambiguous
-      constructorAmbiguity = ConstructorAmbiguity.CONSTRUCTS_UNAMBIGUOUS_OBJECTS;
+      constructorAmbiguity = ConstructorAmbiguity.IS_UNAMBIGUOUS_CONSTRUCTOR;
     } else {
       FunctionType superConstructor = getSuperClassConstructor();
       if (superConstructor == null) {
         // TODO(bradfordcsmith): Why is superConstructor ever null here?
-        constructorAmbiguity = ConstructorAmbiguity.CONSTRUCTS_AMBIGUOUS_OBJECTS;
-      } else if (superConstructor.createsAmbiguousObjects()) {
+        constructorAmbiguity = ConstructorAmbiguity.IS_AMBIGUOUS_CONSTRUCTOR;
+      } else if (superConstructor.isAmbiguousConstructor()) {
         // Subclasses of ambiguous objects are also ambiguous
-        constructorAmbiguity = ConstructorAmbiguity.CONSTRUCTS_AMBIGUOUS_OBJECTS;
+        constructorAmbiguity = ConstructorAmbiguity.IS_AMBIGUOUS_CONSTRUCTOR;
       } else if (source != null) {
         // We can see the definition of the class, so we know all properties it directly declares
         // or references.
         // The same is true for its superclass (previous condition).
-        constructorAmbiguity = ConstructorAmbiguity.CONSTRUCTS_UNAMBIGUOUS_OBJECTS;
+        constructorAmbiguity = ConstructorAmbiguity.IS_UNAMBIGUOUS_CONSTRUCTOR;
       } else if (isDelegateProxy()) {
         // Type was created by the compiler as a proxy that inherits from the real type that was in
         // the code.
         // Since we've made it this far, we know the real type creates unambiguous objects.
         // Therefore, the proxy does, too.
-        constructorAmbiguity = ConstructorAmbiguity.CONSTRUCTS_UNAMBIGUOUS_OBJECTS;
+        constructorAmbiguity = ConstructorAmbiguity.IS_UNAMBIGUOUS_CONSTRUCTOR;
       } else {
         // Type was created directly from JSDoc without a function or class literal.
         // e.g.
@@ -1456,7 +1371,7 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
         //  */
         // const MyImpl = createMyImpl();
         // The actual properties on this class are hidden from us, so we must consider it ambiguous.
-        constructorAmbiguity = ConstructorAmbiguity.CONSTRUCTS_AMBIGUOUS_OBJECTS;
+        constructorAmbiguity = ConstructorAmbiguity.IS_AMBIGUOUS_CONSTRUCTOR;
       }
     }
     return constructorAmbiguity;
@@ -1480,36 +1395,56 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     return new Builder(registry);
   }
 
-  /**
-   * A builder class for function and arrow types.
-   *
-   * <p>If you need to build an interface constructor, use {@link
-   * JSTypeRegistry#createInterfaceType}.
-   *
-   * @author nicksantos@google.com (Nick Santos)
-   */
+  /** Copies all the information from another function type. */
+  public Builder toBuilder() {
+    Builder builder =
+        builder(this.registry)
+            .setGoogModuleId(this.getGoogModuleId())
+            .setName(this.getReferenceName())
+            .setNative(this.isNativeObjectType())
+            .setTemplateTypeMap(this.getTemplateTypeMap())
+            .withCanonicalRepresentation(this.getCanonicalRepresentation())
+            .setIsKnownAmbiguous(
+                this.constructorAmbiguity == ConstructorAmbiguity.IS_AMBIGUOUS_CONSTRUCTOR)
+            .withClosurePrimitiveId(this.getClosurePrimitive())
+            .withIsAbstract(this.isAbstract())
+            .withKind(this.getKind())
+            .withParameters(this.getParameters())
+            .withReturnType(this.getReturnType(), this.isReturnTypeInferred())
+            .withSourceNode(this.getSource())
+            .withTypeOfThis(this.getTypeOfThis())
+            .setTemplateParamCount(this.getTemplateParamCount());
+
+    if (this.isConstructor()) {
+      builder.withConstructorTemplateKeys(this.getConstructorOnlyTemplateParameters());
+    }
+
+    return builder;
+  }
+
+  /** A builder class for function and arrow types. */
   public static final class Builder extends PrototypeObjectType.Builder<Builder> {
 
-    // Bit masks for various boolean properties
-    private static final int IS_ABSTRACT = 0x1;
-    private static final int INFERRED_RETURN_TYPE = 0x4;
-    private static final int RETURNS_OWN_INSTANCE_TYPE = 0x8;
-
     private Node sourceNode = null;
-    private Node parametersNode = null;
+    private String googModuleId = null;
+    private List<Parameter> parameters = null;
     private JSType returnType = null;
     private JSType typeOfThis = null;
     private ObjectType setPrototypeBasedOn = null;
     private Set<TemplateType> constructorOnlyKeys = ImmutableSet.of();
     private Kind kind = Kind.ORDINARY;
-    private int properties = 0;
+    private boolean isAbstract;
+    private boolean isKnownAmbiguous = false;
+    private boolean returnTypeIsInferred;
+    private boolean returnsOwnInstanceType;
     private ClosurePrimitive primitiveId = null;
     private FunctionType canonicalRepresentation = null;
 
     private Builder(JSTypeRegistry registry) {
       super(registry);
 
-      this.setImplicitPrototype(registry.getNativeObjectType(JSTypeNative.U2U_CONSTRUCTOR_TYPE));
+      this.setImplicitPrototype(
+          checkNotNull(registry.getNativeObjectType(JSTypeNative.FUNCTION_PROTOTYPE)));
     }
 
     /** Set the name of the function type. */
@@ -1523,15 +1458,21 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
       return this;
     }
 
-    /** Set the parameters of the function type with a specially-formatted node. */
-    public Builder withParamsNode(Node parametersNode) {
-      this.parametersNode = parametersNode;
+    /** The ID of the goog.module in which this enum was declared. */
+    public Builder setGoogModuleId(String x) {
+      this.googModuleId = x;
       return this;
     }
 
-    /** Set the parameters of the function type with a specially-formatted node. */
-    Builder withEmptyParams() {
-      this.parametersNode = registry.createEmptyParams();
+    /** Set the parameters of the function type. */
+    public Builder withParameters(List<Parameter> parameters) {
+      this.parameters = parameters;
+      return this;
+    }
+
+    /** Set the function to take zero parameters. */
+    public Builder withParameters() {
+      this.parameters = ImmutableList.of();
       return this;
     }
 
@@ -1544,23 +1485,20 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     /** Set the return type and whether it's inferred. */
     public Builder withReturnType(JSType returnType, boolean inferred) {
       this.returnType = returnType;
-      this.properties =
-          inferred
-              ? this.properties | INFERRED_RETURN_TYPE
-              : this.properties & ~INFERRED_RETURN_TYPE;
+      this.returnTypeIsInferred = inferred;
       return this;
     }
 
     /** Set the return type to be a constructor's own instance type. */
     Builder withReturnsOwnInstanceType() {
-      this.properties = this.properties | RETURNS_OWN_INSTANCE_TYPE;
+      this.returnsOwnInstanceType = true;
       return this;
     }
 
     /** Sets an inferred return type. */
     public Builder withInferredReturnType(JSType returnType) {
       this.returnType = returnType;
-      this.properties = this.properties | INFERRED_RETURN_TYPE;
+      this.returnTypeIsInferred = true;
       return this;
     }
 
@@ -1572,6 +1510,10 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
 
     /** Set the template name. */
     public Builder withTemplateKeys(ImmutableList<TemplateType> templateKeys) {
+      if (templateKeys == null) {
+        templateKeys = ImmutableList.of();
+      }
+
       return this.setTemplateTypeMap(
               registry
                   .getEmptyTemplateTypeMap()
@@ -1608,7 +1550,7 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
     /** Make this an interface. */
     public Builder forInterface() {
       this.kind = Kind.INTERFACE;
-      this.parametersNode = registry.createEmptyParams();
+      this.parameters = ImmutableList.of();
       return this;
     }
 
@@ -1619,12 +1561,13 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
 
     /** Mark abstract method. */
     public Builder withIsAbstract(boolean isAbstract) {
-      this.properties = isAbstract ? this.properties | IS_ABSTRACT : this.properties & ~IS_ABSTRACT;
+      this.isAbstract = isAbstract;
       return this;
     }
 
-    private boolean isAbstract() {
-      return (this.properties & IS_ABSTRACT) != 0;
+    public Builder setIsKnownAmbiguous(boolean x) {
+      this.isKnownAmbiguous = x;
+      return this;
     }
 
     /** Set the prototype property of a constructor. */
@@ -1645,66 +1588,72 @@ public class FunctionType extends PrototypeObjectType implements Serializable {
       return this;
     }
 
-    /** Returns a new {@link ArrowType} instance each time with the given param/return types */
-    private ArrowType buildArrowType() {
-      boolean inferredReturnType = (properties & INFERRED_RETURN_TYPE) != 0;
-      return new ArrowType(registry, parametersNode, returnType, inferredReturnType);
-    }
-
-    /** Copies all the information from another function type. */
-    public Builder copyFromOtherFunction(FunctionType otherType) {
-      int isAbstract = otherType.isAbstract() ? IS_ABSTRACT : 0;
-      int inferredReturnType = otherType.isReturnTypeInferred() ? INFERRED_RETURN_TYPE : 0;
-      this.setName(otherType.getReferenceName())
-          .setNative(otherType.isNativeObjectType())
-          .setTemplateTypeMap(otherType.getTemplateTypeMap())
-          .setTemplateParamCount(otherType.getTemplateParamCount());
-      this.sourceNode = otherType.getSource();
-      this.parametersNode = otherType.getParametersNode();
-      this.returnType = otherType.getReturnType();
-      this.typeOfThis = otherType.getTypeOfThis();
-      this.kind = otherType.getKind();
-      this.properties = isAbstract | inferredReturnType;
-      this.primitiveId = otherType.getClosurePrimitive();
-      return this;
-    }
-
     /** Constructs a new function type. */
     @Override
     public FunctionType build() {
-      boolean returnsOwnInstanceType = (properties & RETURNS_OWN_INSTANCE_TYPE) != 0;
-      boolean hasConstructorOnlyKeys = !constructorOnlyKeys.isEmpty();
+      // Verify that the builder is an a sensible state before instantiating a function.
 
-      if (hasConstructorOnlyKeys) {
-        // We can't pass in the correct this type yet because it depends on the finished
-        // constructor.
-        // Instead, just pass in unknown so that it doesn't try to instantiate a new instance type.
-        this.typeOfThis = registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE);
+      switch (this.kind) {
+        case CONSTRUCTOR:
+        case INTERFACE:
+          /**
+           * These kinds have no implication on whether `returnsOwnInstanceType` is reasonable. This
+           * configuration may be intended to synthesize an instance type. The return type and
+           * instance type are independent.
+           */
+          break;
+        case NONE:
+          checkState(this.returnsOwnInstanceType);
+          break;
+        case ORDINARY:
+          checkState(!this.returnsOwnInstanceType);
+          break;
       }
 
-      FunctionType ft = new FunctionType(this);
+      if (this.returnsOwnInstanceType) {
+        // If the return type or instance type was available to set, there's no need to use
+        // `returnsOwnInstanceType`.
+        checkState(this.returnType == null);
+        checkState(this.typeOfThis == null);
+      }
 
-      if (setPrototypeBasedOn != null) {
-        ft.setPrototypeBasedOn(setPrototypeBasedOn);
+      switch (this.kind) {
+        case CONSTRUCTOR:
+        case INTERFACE:
+          break;
+        case NONE:
+        case ORDINARY:
+          checkState(this.constructorOnlyKeys.isEmpty());
+          break;
       }
-      if (returnsOwnInstanceType) {
-        ft.getInternalArrowType().returnType = ft.getInstanceType();
-      }
-      if (hasConstructorOnlyKeys) {
-        ft.setInstanceType(
-            InstanceObjectType.builderForCtor(ft)
-                .setTemplateTypeMap(ft.templateTypeMap.copyWithoutKeys(this.constructorOnlyKeys))
-                .setTemplateParamCount(ft.getTemplateParamCount() - this.constructorOnlyKeys.size())
-                .build());
-      }
-      return ft;
+
+      return new FunctionType(this);
+    }
+
+    public FunctionType buildAndResolve() {
+      return checkNotNull(build().toMaybeFunctionType());
     }
   }
 
-  @Override
-  JSType simplifyForOptimizations() {
-    return canonicalRepresentation != null
-        ? canonicalRepresentation
-        : super.simplifyForOptimizations();
+  public final FunctionType getCanonicalRepresentation() {
+    return canonicalRepresentation;
+  }
+
+  /**
+   * Models a single JavaScript parameter.
+   *
+   * <p>This parameter has a type; optionality; and may be var_args (variadic).
+   */
+  @AutoValue
+  public abstract static class Parameter {
+    public static Parameter create(JSType type, boolean isOptional, boolean isVariadic) {
+      return new AutoValue_FunctionType_Parameter(type, isOptional, isVariadic);
+    }
+
+    public abstract JSType getJSType();
+
+    public abstract boolean isOptional();
+
+    public abstract boolean isVariadic();
   }
 }

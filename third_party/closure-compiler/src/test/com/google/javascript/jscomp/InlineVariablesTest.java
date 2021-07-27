@@ -16,8 +16,8 @@
 
 package com.google.javascript.jscomp;
 
-import static com.google.javascript.jscomp.CompilerOptions.LanguageMode.ECMASCRIPT_NEXT;
 
+import com.google.javascript.jscomp.testing.JSChunkGraphBuilder;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,9 +27,7 @@ import org.junit.runners.JUnit4;
 /**
  * Verifies that valid candidates for inlining are inlined, but that no dangerous inlining occurs.
  *
- * @author kushal@google.com (Kushal Dave)
  */
-
 @RunWith(JUnit4.class)
 public final class InlineVariablesTest extends CompilerTestCase {
 
@@ -41,7 +39,7 @@ public final class InlineVariablesTest extends CompilerTestCase {
   public void setUp() throws Exception {
     super.setUp();
     enableNormalize();
-    setAcceptedLanguage(ECMASCRIPT_NEXT);
+    disableCompareJsDoc();
   }
 
   @Override
@@ -144,6 +142,13 @@ public final class InlineVariablesTest extends CompilerTestCase {
   }
 
   @Test
+  public void testDontTreatLocalVariablesAsExportedByConvention() {
+    // In the GoogleCodingConvention, globals starting with "_" are exported. (see the above two
+    // tests). Verify that we don't accidentally apply the same convention to locals.
+    test("function f() { var _x = 1; var z = _x; }", "function f() { var z = 1; }");
+  }
+
+  @Test
   public void testDoNotInlineIncrement() {
     testSame("var x = 1; x++;");
   }
@@ -238,7 +243,9 @@ public final class InlineVariablesTest extends CompilerTestCase {
   @Test
   public void testInlineAcrossModules() {
     // TODO(kushal): Make decision about overlap with CrossChunkCodeMotion
-    test(createModules("var a = 2;", "var b = a;"), new String[] {"", "var b = 2;"});
+    test(
+        JSChunkGraphBuilder.forUnordered().addChunk("var a = 2;").addChunk("var b = a;").build(),
+        new String[] {"", "var b = 2;"});
   }
 
   @Test

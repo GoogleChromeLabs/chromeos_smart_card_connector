@@ -143,8 +143,7 @@ public final class SymbolTable {
 
   /** Get the symbols in their natural ordering. Always returns a mutable list. */
   public List<Symbol> getAllSymbolsSorted() {
-    List<Symbol> sortedSymbols = getNaturalSymbolOrdering().sortedCopy(symbols.values());
-    return sortedSymbols;
+    return getNaturalSymbolOrdering().sortedCopy(symbols.values());
   }
 
   /**
@@ -299,7 +298,7 @@ public final class SymbolTable {
   /** Gets the symbol for the prototype if this is the symbol for a constructor or interface. */
   public Symbol getSymbolForInstancesOf(Symbol sym) {
     FunctionType fn = sym.getFunctionType();
-    if (fn != null && fn.isNominalConstructor()) {
+    if (fn != null && fn.isNominalConstructorOrInterface()) {
       return getSymbolForInstancesOf(fn);
     }
     return null;
@@ -366,7 +365,7 @@ public final class SymbolTable {
 
     if (type.isGlobalThisType()) {
       return globalScope.getSlot(GLOBAL_THIS);
-    } else if (type.isNominalConstructor()) {
+    } else if (type.isNominalConstructorOrInterface()) {
       return linkToCtor
           ? globalScope.getSlot("Function")
           : getSymbolDeclaredBy(type.toMaybeFunctionType());
@@ -596,7 +595,11 @@ public final class SymbolTable {
     return ref != null
         && ref.getNode() != null
         && ref.getNode().getStaticSourceFile() != null
-        && !Compiler.SYNTHETIC_EXTERNS.equals(ref.getNode().getStaticSourceFile().getName());
+        && !Compiler.SYNTHETIC_EXTERNS.equals(ref.getNode().getStaticSourceFile().getName())
+        // Typechecking assigns implicitly goog.provided names a declaration node of the expr:
+        // For example, 'some' and 'some.name' in 'goog.provide('some.name.child');' have their
+        // declaration node set to the entire call node. Use the actual declaration instead.
+        && !NodeUtil.isGoogProvideCall(ref.getNode());
   }
 
   private Symbol copySymbolTo(StaticSlot sym, SymbolScope scope) {
@@ -738,7 +741,6 @@ public final class SymbolTable {
     }
   }
 
-  @SuppressWarnings("ReferenceEquality")
   void fillPropertyScopes() {
     // Collect all object symbols.
     // All symbols that came from goog.module are collected separately because they will have to
@@ -912,7 +914,7 @@ public final class SymbolTable {
         Symbol owner = s.scope.getQualifiedSlot(currentName);
         if (owner != null
             && getType(owner) != null
-            && (getType(owner).isNominalConstructor()
+            && (getType(owner).isNominalConstructorOrInterface()
                 || getType(owner).isFunctionPrototypeType()
                 || getType(owner).isEnumType())) {
           removeSymbol(s);
@@ -1016,7 +1018,6 @@ public final class SymbolTable {
    * and weird things will happen.
    */
   // This function uses == to compare types to be exact same instances.
-  @SuppressWarnings("ReferenceEquality")
   private void createPropertyScopeFor(Symbol s) {
     // In order to build a property scope for s, we will need to build
     // a property scope for all its implicit prototypes first. This means
@@ -1341,8 +1342,7 @@ public final class SymbolTable {
     }
 
     public Reference defineReferenceAt(Node n) {
-      Reference result = references.computeIfAbsent(n, (Node k) -> new Reference(this, k));
-      return result;
+      return references.computeIfAbsent(n, (Node k) -> new Reference(this, k));
     }
 
     /** Sets the declaration node. May only be called once. */
@@ -1608,7 +1608,7 @@ public final class SymbolTable {
           sym.defineReferenceAt(n);
           return true;
         }
-      } else if (owner.isNominalConstructor()) {
+      } else if (owner.isNominalConstructorOrInterface()) {
         return maybeDefineReference(n, propName, getSymbolDeclaredBy(owner.toMaybeFunctionType()));
       } else if (owner.isEnumType()) {
         return maybeDefineReference(n, propName, getSymbolDeclaredBy(owner.toMaybeEnumType()));
@@ -1636,7 +1636,7 @@ public final class SymbolTable {
       if (n.isGetProp()) {
         JSType owner = n.getFirstChild().getJSType();
         if (owner != null) {
-          boolean defined = maybeDefineTypedReference(n, n.getLastChild().getString(), owner);
+          boolean defined = maybeDefineTypedReference(n, n.getString(), owner);
 
           if (defined) {
             tryRemoveLexicalQualifiedNameRef(n.getQualifiedName(), n);
@@ -1788,7 +1788,7 @@ public final class SymbolTable {
 
     public void visitTypeNode(
         ImmutableMap<String, JSTypeExpression> templateTypeNames, SymbolScope scope, Node n) {
-      if (n.isString()
+      if (n.isStringLit()
           && !isNativeSourcelessType(n.getString())
           && !templateTypeNames.containsKey(n.getString())) {
         Symbol symbol = lookupPossiblyDottedName(scope, n.getString());
@@ -1802,7 +1802,8 @@ public final class SymbolTable {
           if (typeString.contains(".")) {
             String lastPart = typeString.substring(typeString.lastIndexOf('.') + 1);
             Node copy = n.cloneNode();
-            copy.setCharno(copy.getCharno() + copy.getLength() - lastPart.length());
+            copy.setLinenoCharno(
+                copy.getLineno(), copy.getCharno() + copy.getLength() - lastPart.length());
             copy.setLength(lastPart.length());
             ref = copy;
           }
@@ -1901,7 +1902,7 @@ public final class SymbolTable {
     }
 
     private void visitProperty(Node getprop, Node parent) {
-      String propertyName = getprop.getLastChild().getString();
+      String propertyName = getprop.getString();
       Symbol symbol = symbols.get(getprop, propertyName);
       if (symbol == null) {
         return;
@@ -1926,7 +1927,7 @@ public final class SymbolTable {
         ObjectType referenceType = ObjectType.cast(jsType.dereference());
         Visibility v =
             AccessControlUtils.getEffectivePropertyVisibility(
-                getprop, referenceType, fileVisibilityMap, codingConvention);
+                getprop, referenceType, fileVisibilityMap);
         if (v == null) {
           return;
         }

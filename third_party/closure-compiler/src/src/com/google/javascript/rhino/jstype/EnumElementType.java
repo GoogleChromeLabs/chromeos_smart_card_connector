@@ -39,6 +39,7 @@
 
 package com.google.javascript.rhino.jstype;
 
+import com.google.javascript.jscomp.base.Tri;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.Node;
 
@@ -47,7 +48,7 @@ import com.google.javascript.rhino.Node;
  * (see {@link EnumType}).
  */
 public class EnumElementType extends ObjectType {
-  private static final long serialVersionUID = 1L;
+  private static final JSTypeClass TYPE_CLASS = JSTypeClass.ENUM_ELEMENT;
 
   /**
    * The primitive type this enum element type wraps. For instance, in
@@ -71,6 +72,13 @@ public class EnumElementType extends ObjectType {
     this.primitiveObjectType = elementType.toObjectType();
     this.name = name;
     this.enumType = enumType;
+
+    registry.getResolver().resolveIfClosed(this, TYPE_CLASS);
+  }
+
+  @Override
+  JSTypeClass getTypeClass() {
+    return TYPE_CLASS;
   }
 
   public EnumType getEnumType() {
@@ -120,7 +128,7 @@ public class EnumElementType extends ObjectType {
   }
 
   @Override
-  public TernaryValue testForEquality(JSType that) {
+  public Tri testForEquality(JSType that) {
     return primitiveType.testForEquality(that);
   }
 
@@ -142,16 +150,25 @@ public class EnumElementType extends ObjectType {
 
   @Override
   int recursionUnsafeHashCode() {
+    if (!this.hasReferenceName()) {
+      /**
+       * TODO(nickreid): Apparently this can happen if the l-value the enum is assinged to is not a
+       * qname. Fortunatly, this whole thing should become redundant once equality cannot be checked
+       * before resolution.
+       */
+      return 2;
+    }
     return NamedType.nominalHashCode(this);
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    if (forAnnotations) {
+  void appendTo(TypeStringBuilder sb) {
+    if (sb.isForAnnotations()) {
       // TODO(dimvar): this should use getReferenceName() instead of this.primitiveType
-      return sb.append(this.primitiveType);
+      sb.append(this.primitiveType);
+    } else {
+      sb.append(getReferenceName()).append("<").append(this.primitiveType).append(">");
     }
-    return sb.append(getReferenceName()).append("<").append(this.primitiveType).append(">");
   }
 
   @Override
@@ -188,8 +205,8 @@ public class EnumElementType extends ObjectType {
 
   @Override
   public FunctionType getConstructor() {
-    return primitiveObjectType == null ?
-        null : primitiveObjectType.getConstructor();
+    // TODO(b/147236174): This should always return null.
+    return primitiveObjectType == null ? null : primitiveObjectType.getConstructor();
   }
 
   @Override
@@ -236,10 +253,5 @@ public class EnumElementType extends ObjectType {
     primitiveType = primitiveType.resolve(reporter);
     primitiveObjectType = ObjectType.cast(primitiveType);
     return this;
-  }
-
-  @Override
-  JSType simplifyForOptimizations() {
-    return primitiveType.simplifyForOptimizations();
   }
 }

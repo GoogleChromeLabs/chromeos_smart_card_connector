@@ -44,8 +44,8 @@ import javax.annotation.Nullable;
  *
  * <p>This is conceptually similar to the ijar tool[1] that bazel uses to shrink jars into minimal
  * versions that can be used equivalently for compilation of downstream dependencies.
-
- * [1] https://github.com/bazelbuild/bazel/blob/master/third_party/ijar/README.txt
+ *
+ * <p>[1] https://github.com/bazelbuild/bazel/blob/master/third_party/ijar/README.txt
  */
 public class ConvertToTypedInterface implements CompilerPass {
   static final DiagnosticType CONSTANT_WITH_SUGGESTED_TYPE =
@@ -63,7 +63,7 @@ public class ConvertToTypedInterface implements CompilerPass {
       DiagnosticType.warning(
           "JSC_GOOG_SCOPE_HIDDEN_TYPE",
           "Please do not use goog.scope to hide declarations.\n"
-      + "It is preferable to either create an @private namespaced declaration, or migrate "
+              + "It is preferable to either create an @private namespaced declaration, or migrate "
               + "to goog.module.");
 
   private static final ImmutableSet<String> CALLS_TO_PRESERVE =
@@ -85,20 +85,33 @@ public class ConvertToTypedInterface implements CompilerPass {
     this.compiler = compiler;
   }
 
+  private static void maybeReport(
+      AbstractCompiler compiler, Node node, DiagnosticType diagnostic, String... fillers) {
+    String sourceName = NodeUtil.getSourceName(node);
+    if (sourceName.endsWith("_test.js") || sourceName.endsWith("_test.closure.js")) {
+      // Allow _test.js files and their tsickle generated
+      // equivalents to avoid emitting errors at .i.js generation time.
+      // We expect these files to not be consumed by any other downstream libraries.
+      return;
+    }
+    compiler.report(JSError.make(node, diagnostic, fillers));
+  }
+
   private static void maybeWarnForConstWithoutExplicitType(
       AbstractCompiler compiler, PotentialDeclaration decl) {
     if (decl.isConstToBeInferred()
         && !decl.getLhs().isFromExterns()
         && !JsdocUtil.isPrivate(decl.getJsDoc())) {
+
       Node nameNode = decl.getLhs();
       if (nameNode.getJSType() == null) {
-        compiler.report(JSError.make(nameNode, CONSTANT_WITHOUT_EXPLICIT_TYPE));
+        maybeReport(compiler, nameNode, CONSTANT_WITHOUT_EXPLICIT_TYPE);
       } else {
-        compiler.report(
-            JSError.make(
-                nameNode,
-                CONSTANT_WITH_SUGGESTED_TYPE,
-                nameNode.getJSType().toAnnotationString(Nullability.EXPLICIT)));
+        maybeReport(
+            compiler,
+            nameNode,
+            CONSTANT_WITH_SUGGESTED_TYPE,
+            nameNode.getJSType().toAnnotationString(Nullability.EXPLICIT));
       }
     }
   }
@@ -112,7 +125,8 @@ public class ConvertToTypedInterface implements CompilerPass {
 
   private void processFile(Node scriptNode) {
     checkArgument(scriptNode.isScript());
-    if (AbstractCompiler.isFillFileName(scriptNode.getSourceFileName())) {
+    String sourceFileName = scriptNode.getSourceFileName();
+    if (AbstractCompiler.isFillFileName(sourceFileName)) {
       scriptNode.detach();
       return;
     }
@@ -258,7 +272,7 @@ public class ConvertToTypedInterface implements CompilerPass {
         case FOR_AWAIT_OF:
         case IF:
         case SWITCH:
-          if (n.getParent() != null) {
+          if (n.hasParent()) {
             Node children = n.removeChildren();
             parent.addChildrenAfter(children, n);
             NodeUtil.removeChild(parent, n);
@@ -323,7 +337,7 @@ public class ConvertToTypedInterface implements CompilerPass {
         if (isExport) {
           newDeclaration = IR.export(newDeclaration).srcref(statement);
         }
-        statement.getParent().addChildAfter(newDeclaration, statement);
+        newDeclaration.insertAfter(statement);
         t.reportCodeChange();
       }
     }
@@ -407,6 +421,7 @@ public class ConvertToTypedInterface implements CompilerPass {
       removeDuplicateDeclarations();
 
       // Simplify all names in the top-level scope.
+      @SuppressWarnings("StreamToIterable")
       Iterable<String> seenNames =
           currentFile.getDeclarations().keySet().stream().sorted(SHORT_TO_LONG)::iterator;
 
@@ -433,12 +448,14 @@ public class ConvertToTypedInterface implements CompilerPass {
 
     private void processClass(Node n) {
       checkArgument(isClass(n));
-      for (Node member : n.getLastChild().children()) {
+      for (Node member = n.getLastChild().getFirstChild(); member != null; ) {
+        Node next = member.getNext();
         if (member.isEmpty()) {
           NodeUtil.deleteNode(member, compiler);
-          continue;
+        } else {
+          processFunction(member.getLastChild());
         }
-        processFunction(member.getLastChild());
+        member = next;
       }
     }
 
@@ -479,7 +496,7 @@ public class ConvertToTypedInterface implements CompilerPass {
         // and should not be depended on.
         if (decl.getRhs() != null && decl.getRhs().isClass()
             || decl.getJsDoc() != null && decl.getJsDoc().containsTypeDefinition()) {
-          compiler.report(JSError.make(decl.getLhs(), GOOG_SCOPE_HIDDEN_TYPE));
+          maybeReport(compiler, decl.getLhs(), GOOG_SCOPE_HIDDEN_TYPE);
         }
         return true;
       }
@@ -503,7 +520,5 @@ public class ConvertToTypedInterface implements CompilerPass {
       Node jsdocNode = NodeUtil.getBestJSDocInfoNode(nameNode);
       jsdocNode.setJSDocInfo(JsdocUtil.getUnusableTypeJSDoc(jsdoc));
     }
-
   }
-
 }

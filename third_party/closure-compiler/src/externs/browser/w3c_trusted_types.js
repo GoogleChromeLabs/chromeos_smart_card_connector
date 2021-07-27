@@ -16,7 +16,7 @@
 
 /**
  * @fileoverview Definitions for W3C's Trusted Types specification.
- * @see https://github.com/WICG/trusted-types
+ * @see https://w3c.github.io/webappsec-trusted-types/dist/spec/
  * @externs
  */
 
@@ -24,17 +24,17 @@
 /** @constructor */
 function TrustedHTML() {}
 
-/** @constructor */
-function TrustedScript() {}
+// function TrustedScript() was moved to `es3.js` so that is could be used by
+// `eval()`.
 
 /** @constructor */
 function TrustedScriptURL() {}
 
-/** @constructor */
-function TrustedURL() {}
 
-
-/** @constructor */
+/**
+ * @template Options
+ * @constructor
+ */
 function TrustedTypePolicy() {}
 
 /**
@@ -54,12 +54,6 @@ TrustedTypePolicy.prototype.createScript = function(s) {};
  * @return {!TrustedScriptURL}
  */
 TrustedTypePolicy.prototype.createScriptURL = function(s) {};
-
-/**
- * @param {string} s
- * @return {!TrustedURL}
- */
-TrustedTypePolicy.prototype.createURL = function(s) {};
 
 
 /** @constructor */
@@ -83,29 +77,14 @@ TrustedTypePolicyOptions.prototype.createScript;
  */
 TrustedTypePolicyOptions.prototype.createScriptURL;
 
-/**
- *  @type {(function(string, ...*): string)|undefined},
- */
-TrustedTypePolicyOptions.prototype.createURL;
 
 /**
  * @param {string} name
  * @param {!TrustedTypePolicyOptions} policy
- * @param {boolean=} opt_expose
  * @return {!TrustedTypePolicy}
  */
-TrustedTypePolicyFactory.prototype.createPolicy = function(
-    name, policy, opt_expose) {};
+TrustedTypePolicyFactory.prototype.createPolicy = function(name, policy) {};
 
-/**
- * @param {string} name
- * @return {!TrustedTypePolicy}
- * @deprecated
- */
-TrustedTypePolicyFactory.prototype.getExposedPolicy = function(name) {};
-
-/** @return {!Array<string>} */
-TrustedTypePolicyFactory.prototype.getPolicyNames = function() {};
 
 /**
  * @param {*} obj
@@ -125,21 +104,36 @@ TrustedTypePolicyFactory.prototype.isScript = function(obj) {};
  */
 TrustedTypePolicyFactory.prototype.isScriptURL = function(obj) {};
 
-/**
- * @param {*} obj
- * @return {boolean}
- * @deprecated
- */
-TrustedTypePolicyFactory.prototype.isURL = function(obj) {};
 
 /** @type {!TrustedHTML} */
 TrustedTypePolicyFactory.prototype.emptyHTML;
 
+
+/** @type {!TrustedScript} */
+TrustedTypePolicyFactory.prototype.emptyScript;
+
 /**
- * @type {!TrustedTypePolicyFactory}
- * @deprecated
+ * @param {string} tagName
+ * @param {string} attribute
+ * @param {string=} elementNs
+ * @param {string=} attrNs
+ * @return {?string}
  */
-var TrustedTypes;
+TrustedTypePolicyFactory.prototype.getAttributeType = function(
+    tagName, attribute, elementNs, attrNs) {};
+
+/**
+ * @param {string} tagName
+ * @param {string} property
+ * @param {string=} elementNs
+ * @return {?string}
+ */
+TrustedTypePolicyFactory.prototype.getPropertyType = function(
+    tagName, property, elementNs) {};
+
+/** @type {?TrustedTypePolicy} */
+TrustedTypePolicyFactory.prototype.defaultPolicy;
+
 
 /** @type {!TrustedTypePolicyFactory} */
 var trustedTypes;

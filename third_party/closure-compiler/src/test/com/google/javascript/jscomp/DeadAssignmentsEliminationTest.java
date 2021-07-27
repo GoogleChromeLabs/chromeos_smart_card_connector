@@ -16,8 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
-import com.google.javascript.rhino.Node;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,21 +40,9 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
   }
 
   @Override
-  protected CompilerOptions getOptions() {
-    CompilerOptions options = super.getOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_2018);
-    return options;
-  }
-
-  @Override
   protected CompilerPass getProcessor(final Compiler compiler) {
-    return new CompilerPass() {
-      @Override
-      public void process(Node externs, Node js) {
-        NodeTraversal.traverse(
-            compiler, js, new DeadAssignmentsElimination(compiler));
-      }
-    };
+    return (externs, js) ->
+        NodeTraversal.traverse(compiler, js, new DeadAssignmentsElimination(compiler));
   }
 
   @Test
@@ -64,10 +50,19 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
     inFunction("var a; a=1", "var a; 1");
     inFunction("var a; a=1+1", "var a; 1+1");
     inFunction("var a; a=foo();", "var a; foo()");
+    inFunction("var a; a=foo?.();", "var a; foo?.()");
     inFunction("a=1; var a; a=foo();", "1; var a; foo();");
+    inFunction("a=1; var a; a=foo?.();", "1; var a; foo?.();");
     // This should be: "var a; (function f(){})", but we don't mess with
     // functions with inner functions.
     inFunction("var a; a=function f(){}");
+  }
+
+  @Test
+  public void testPropAssignmentNotRemoved() {
+    // We only remove dead assignments when lhs is a name node.
+    inFunction("var a = {b:1}; a.b=1+1");
+    inFunction("var a = {b:1}; a.b=foo();");
   }
 
   @Test
@@ -75,7 +70,9 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
     test("function f(a){ a=1; }", "function f(a){ 1; }");
     test("function f(a){ a=1+1; }", "function f(a){ 1+1; }");
     test("function f(a){ a=foo(); }", "function f(a){ foo(); }");
+    test("function f(a){ a=foo?.(); }", "function f(a){ foo?.(); }");
     test("function f(a){ a=1; a=foo(); }", "function f(a){ 1; foo(); }");
+    test("function f(a){ a=1; a=foo?.(); }", "function f(a){ 1; foo?.(); }");
   }
 
   @Test
@@ -118,6 +115,17 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
 
     inFunction("var x,y; if( (x=1)+(y=2) > 3){}",
         "var x,y; if( 1+2 > 3){}");
+  }
+
+  @Test
+  public void nullishCoalesce() {
+    inFunction("var x; if(x=1==4??1){}", "var x; if(1==4??1) {}");
+    inFunction("var x; if(0??(x=1)){}", "var x; if(0??1){}");
+    inFunction("var x; if((x=2)??(x=1)){}", "var x; if(2??1){}");
+    inFunction("var x; x=2; if(0??(x=1)){}; x");
+    inFunction("var a, b; if ((a = 1) ?? (b = a)) {b}");
+    inFunction("var a, b; if ((b = a) ?? (a = 1)) {b}", "var a, b; if ((b = a) ?? (1)) {b}");
+    inFunction("var a; (a = 1) ?? (a = 2)", "var a; 1 ?? 2");
   }
 
   @Test
@@ -265,12 +273,14 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
   public void testAssignmentOpUsedAsLhs() {
     inFunction("var x,y; y = x += foo(); print(y)",
                "var x,y; y = x +  foo(); print(y)");
+    inFunction("var x,y; y = x += foo?.(); print(y)", "var x,y; y = x +  foo?.(); print(y)");
   }
 
   @Test
   public void testAssignmentOpUsedAsCondition() {
     inFunction("var x; if(x += foo()) {}",
                "var x; if(x +  foo()) {}");
+    inFunction("var x; if(x += foo?.()) {}", "var x; if(x +  foo?.()) {}");
 
     inFunction("var x; if((x += foo()) > 1) {}",
                "var x; if((x +  foo()) > 1) {}");
@@ -309,6 +319,16 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
                "var x; x = 100, print(x), print(x),     101;");
     inFunction("var x; x = 100, print(x), x = 0, print(x), x = 101;",
                "var x; x = 100, print(x), x = 0, print(x),     101;");
+
+    // Here, `a=C` is removed as it is dead. `X=a` is removed as it is dead.
+    inFunction(
+        "var a, C, X, S; if ((X = a) && (a = C)) {}; a = S;", //
+        "var a, C, X, S; if (a&&C) {}; S;");
+
+    // Here, `a=C` is preserved as it is NOT dead. `X=a` is removed as it is dead.
+    inFunction(
+        "var a, C, X, S; if ((a = C) && (X = a)) {}; a = S;",
+        "var a, C, X, S; if ((a = C) && a) {}; S;");
   }
 
   @Test
@@ -418,25 +438,7 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
   @Test
   public void testIdentityAssignments() {
     inFunction("var x; x=x", "var x; x");
-  }
-
-  private void inFunction(String src) {
-    inFunction(src, src);
-  }
-
-  private void inFunction(String src, String expected) {
-    test("function FUNC(param1, param2){" + src + "}",
-         "function FUNC(param1, param2){" + expected + "}");
-  }
-
-  private void inAsyncFunction(String src) {
-    inAsyncFunction(src, src);
-  }
-
-  private void inAsyncFunction(String src, String expected) {
-    test(
-        "async function FUNC(param1, param2){" + src + "}",
-        "async function FUNC(param1, param2){" + expected + "}");
+    inFunction("var x; x.y=x.y");
   }
 
   @Test
@@ -992,6 +994,10 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
 
     inFunction("let a; let b; a = foo(); b = 2; return b;",
         "let a; let b; foo(); b = 2; return b;");
+
+    inFunction(
+        "let a; let b; a = foo?.(); b = 2; return b;", //
+        "let a; let b; foo?.(); b = 2; return b;");
   }
 
   @Test
@@ -1045,5 +1051,25 @@ public final class DeadAssignmentsEliminationTest extends CompilerTestCase {
             "  1;",
             "}",
             "print(x);"));
+  }
+
+  private void inFunction(String src) {
+    inFunction(src, src);
+  }
+
+  private void inFunction(String src, String expected) {
+    test(
+        "function FUNC(param1, param2){" + src + "}",
+        "function FUNC(param1, param2){" + expected + "}");
+  }
+
+  private void inAsyncFunction(String src) {
+    inAsyncFunction(src, src);
+  }
+
+  private void inAsyncFunction(String src, String expected) {
+    test(
+        "async function FUNC(param1, param2){" + src + "}",
+        "async function FUNC(param1, param2){" + expected + "}");
   }
 }

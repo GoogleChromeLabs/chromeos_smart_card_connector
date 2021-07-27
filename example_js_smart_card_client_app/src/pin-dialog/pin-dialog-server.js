@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -36,5 +37,4 @@ SmartCardClientApp.PinDialog.Server.requestPin = function() {
   return GSC.PopupWindow.Server.runModalDialog(
       PIN_DIALOG_URL, PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES);
 };
-
 });  // goog.scope

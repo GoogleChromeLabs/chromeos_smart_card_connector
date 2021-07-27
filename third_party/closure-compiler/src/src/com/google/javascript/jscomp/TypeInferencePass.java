@@ -17,57 +17,48 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.rhino.jstype.JSTypeNative.UNKNOWN_TYPE;
 
 import com.google.javascript.jscomp.CodingConvention.AssertionFunctionLookup;
 import com.google.javascript.jscomp.NodeTraversal.AbstractScopedCallback;
 import com.google.javascript.jscomp.type.ReverseAbstractInterpreter;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.jstype.JSType;
+import com.google.javascript.rhino.jstype.JSTypeRegistry;
+import com.google.javascript.rhino.jstype.JSTypeResolver;
 
-/**
- * A compiler pass to run the type inference analysis.
- */
-class TypeInferencePass implements CompilerPass {
+/** A compiler pass to run the type inference analysis. */
+class TypeInferencePass {
 
   static final DiagnosticType DATAFLOW_ERROR = DiagnosticType.error(
       "JSC_INTERNAL_ERROR_DATAFLOW",
       "non-monotonic data-flow analysis");
 
   private final AbstractCompiler compiler;
+  private final JSTypeRegistry registry;
   private final ReverseAbstractInterpreter reverseInterpreter;
-  private final TypedScope topScope;
+  private TypedScope topScope;
   private final TypedScopeCreator scopeCreator;
   private final AssertionFunctionLookup assertionFunctionLookup;
 
   TypeInferencePass(
       AbstractCompiler compiler,
       ReverseAbstractInterpreter reverseInterpreter,
-      TypedScope topScope,
       TypedScopeCreator scopeCreator) {
     this.compiler = compiler;
+    this.registry = compiler.getTypeRegistry();
     this.reverseInterpreter = reverseInterpreter;
-    this.topScope = topScope;
     this.scopeCreator = scopeCreator;
     this.assertionFunctionLookup =
         AssertionFunctionLookup.of(compiler.getCodingConvention().getAssertionFunctions());
   }
 
   /**
-   * Main entry point for type inference when running over the whole tree.
+   * Execute type inference running over part of the scope tree.
    *
-   * @param externsRoot The root of the externs parse tree.
-   * @param jsRoot The root of the input parse tree to be checked.
+   * @return the top scope, either newly created, or patched by this inference.
    */
-  @Override
-  public void process(Node externsRoot, Node jsRoot) {
-    Node externsAndJs = jsRoot.getParent();
-    checkState(externsAndJs != null);
-    checkState(externsRoot == null || externsAndJs.hasChild(externsRoot));
-
-    inferAllScopes(externsAndJs);
-  }
-
-  /** Entry point for type inference when running over part of the tree. */
-  void inferAllScopes(Node node) {
+  TypedScope inferAllScopes(Node inferenceRoot) {
     // Type analysis happens in two major phases.
     // 1) Finding all the symbols.
     // 2) Propagating all the inferred types.
@@ -91,19 +82,39 @@ class TypeInferencePass implements CompilerPass {
     // ns.method();
     // In this code, we need to build the symbol table for the inner scope in
     // order to propagate the type of ns.method in the outer scope.
-    (new NodeTraversal(
-        compiler, new FirstScopeBuildingCallback(), scopeCreator))
-        .traverseWithScope(node, topScope);
+    try (JSTypeResolver.Closer closer = this.registry.getResolver().openForDefinition()) {
+      checkState(inferenceRoot.isRoot());
+      checkState(inferenceRoot.getParent() == null);
+      checkState(this.topScope == null);
+      this.topScope = scopeCreator.createScope(inferenceRoot, null);
 
-    scopeCreator.resolveTypes();
+      NodeTraversal.builder()
+          .setCompiler(compiler)
+          .setCallback(new FirstScopeBuildingCallback())
+          .setScopeCreator(scopeCreator)
+          .traverseWithScope(inferenceRoot, this.topScope);
+      scopeCreator.resolveWeakImportsPreResolution();
+    }
+    scopeCreator.undoTypeAliasChains();
 
-    (new NodeTraversal(
-        compiler, new SecondScopeBuildingCallback(), scopeCreator))
-        .traverseWithScope(node, topScope);
+    NodeTraversal.builder()
+        .setCompiler(compiler)
+        .setCallback(new SecondScopeBuildingCallback())
+        .setScopeCreator(scopeCreator)
+        .traverseWithScope(inferenceRoot, this.topScope);
 
-    // Resolve any new type names found during the inference.
-    // This runs for nested block scopes after infer runs on the CFG root.
-    compiler.getTypeRegistry().resolveTypes();
+    // Normalize TypedVars to have the '?' type instead of null after inference is complete. This
+    // currently cannot be done any earlier because it breaks inference of variables assigned in
+    // local scopes.
+    // TODO(b/149843534): this should be a crash instead.
+    final JSType unknownType = this.registry.getNativeType(UNKNOWN_TYPE);
+    for (TypedVar var : this.scopeCreator.getAllSymbols()) {
+      if (var.getType() == null) {
+        var.setType(unknownType);
+      }
+    }
+
+    return this.topScope;
   }
 
   private void inferScope(Node n, TypedScope scope) {

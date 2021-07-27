@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import com.google.javascript.jscomp.parsing.Config;
 import com.google.javascript.rhino.Node;
 import java.nio.charset.Charset;
 import org.junit.Before;
@@ -31,7 +32,7 @@ public abstract class CodePrinterTestBase {
   protected boolean allowWarnings = false;
   protected boolean trustedStrings = true;
   protected boolean preserveTypeAnnotations = false;
-  protected boolean useUnsupportedFeatures = false;
+  protected boolean preserveNonJSDocComments = false;
   protected LanguageMode languageMode = LanguageMode.ECMASCRIPT5;
   protected Compiler lastCompiler = null;
   protected Charset outputCharset = null;
@@ -40,10 +41,10 @@ public abstract class CodePrinterTestBase {
   public void setUp() throws Exception {
     allowWarnings = false;
     preserveTypeAnnotations = false;
+    preserveNonJSDocComments = false;
     trustedStrings = true;
     lastCompiler = null;
-    useUnsupportedFeatures = false;
-    languageMode = LanguageMode.ECMASCRIPT_NEXT;
+    languageMode = LanguageMode.UNSUPPORTED;
     outputCharset = null;
   }
 
@@ -58,12 +59,11 @@ public abstract class CodePrinterTestBase {
     options.setTrustedStrings(trustedStrings);
     options.preserveTypeAnnotations = preserveTypeAnnotations;
     options.setOutputCharset(outputCharset);
-    if (useUnsupportedFeatures) {
-      options.setLanguageInToUnsupported();
-    } else {
-      options.setLanguageIn(languageMode);
+    options.setLanguageIn(languageMode);
+    if (preserveNonJSDocComments) {
+      options.setParseJsDocDocumentation(Config.JsDocParsing.INCLUDE_ALL_COMMENTS);
+      options.setPreserveNonJSDocComments(true);
     }
-
     compiler.init(
         ImmutableList.of(SourceFile.fromCode("externs", CompilerTestCase.MINIMAL_EXTERNS)),
         ImmutableList.of(SourceFile.fromCode("testcode", js)),
@@ -75,8 +75,6 @@ public abstract class CodePrinterTestBase {
 
     if (typeChecked) {
       DefaultPassConfig passConfig = new DefaultPassConfig(null);
-      CompilerPass typeResolver = passConfig.resolveTypes.create(compiler);
-      typeResolver.process(externs, root);
       CompilerPass inferTypes = passConfig.inferTypes.create(compiler);
       inferTypes.process(externs, root);
     }
@@ -119,6 +117,7 @@ public abstract class CodePrinterTestBase {
     options.setOutputCharset(outputCharset);
     options.setTrustedStrings(trustedStrings);
     options.preserveTypeAnnotations = preserveTypeAnnotations;
+    options.setPreserveNonJSDocComments(preserveNonJSDocComments);
     options.setLanguageOut(languageMode);
     builder.setOptions(options);
     return options;
@@ -134,6 +133,19 @@ public abstract class CodePrinterTestBase {
 
   void assertPrintNode(String expectedJs, Node ast) {
     assertThat(printNode(ast)).isEqualTo(expectedJs);
+  }
+
+  String prettyPrintNode(Node n) {
+    CompilerOptions options = new CompilerOptions();
+    options.setLineLengthThreshold(CompilerOptions.DEFAULT_LINE_LENGTH_THRESHOLD);
+    options.setLanguageOut(languageMode);
+    options.setOutputCharset(outputCharset);
+    options.setPrettyPrint(true);
+    return new CodePrinter.Builder(n).setCompilerOptions(options).build();
+  }
+
+  void assertPrettyPrintNode(String expectedJs, Node ast) {
+    assertThat(prettyPrintNode(ast)).isEqualTo(expectedJs);
   }
 
   protected void assertPrint(String js, String expected) {

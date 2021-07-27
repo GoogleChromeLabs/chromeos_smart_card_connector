@@ -34,7 +34,6 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for NodeIterators.
  *
- * @author nicksantos@google.com (Nick Santos)
  */
 @RunWith(JUnit4.class)
 public final class NodeIteratorsTest {
@@ -118,8 +117,13 @@ public final class NodeIteratorsTest {
 
   @Test
   public void testHaltAtSideEffects5() {
-    testVarMotionWithCode("var A = 1, X = A, Y = 3; A = 'a';",
-        Token.NUMBER, Token.NAME, Token.VAR, Token.NAME, Token.STRING);
+    testVarMotionWithCode(
+        "var A = 1, X = A, Y = 3; A = 'a';",
+        Token.NUMBER,
+        Token.NAME,
+        Token.VAR,
+        Token.NAME,
+        Token.STRINGLIT);
   }
 
   @Test

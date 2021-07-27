@@ -71,7 +71,7 @@ final class ModuleImportResolver {
     if (value == null
         || !value.isCall()
         || !value.hasTwoChildren()
-        || !value.getSecondChild().isString()) {
+        || !value.getSecondChild().isStringLit()) {
       return false;
     }
     Node callee = value.getFirstChild();
@@ -79,10 +79,9 @@ final class ModuleImportResolver {
       return false;
     }
     Node owner = callee.getFirstChild();
-    Node property = callee.getSecondChild();
     return (owner.isName()
             && owner.getString().equals(GOOG)
-            && GOOG_DEPENDENCY_CALLS.contains(property.getString()))
+            && GOOG_DEPENDENCY_CALLS.contains(callee.getString()))
         || GOOG_MODULE_GET.matches(callee);
   }
 
@@ -254,6 +253,9 @@ final class ModuleImportResolver {
 
       TypedVar originalName = originalScope.getSlot(export.getName());
       JSType exportType = originalName.getType();
+      if (exportType == null) {
+        exportType = registry.getNativeType(JSTypeNative.NO_TYPE);
+      }
       if (originalName.isTypeInferred()) {
         // NB: this method may be either adding a new inferred property or updating the type of an
         // existing inferred property.

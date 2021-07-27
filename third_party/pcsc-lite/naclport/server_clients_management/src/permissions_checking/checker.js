@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -82,8 +83,9 @@ Checker.prototype.logger = GSC.Logging.getScopedLogger(
  * @return {!goog.Promise}
  */
 Checker.prototype.check = function(clientAppId) {
-  this.logger.finer('Checking permissions for client App with id ' +
-                    GSC.DebugDump.dump(clientAppId) + '...');
+  this.logger.finer(
+      'Checking permissions for client App with id ' +
+      GSC.DebugDump.dump(clientAppId) + '...');
 
   if (clientAppId === null) {
     this.logger.finer('Granted permissions for client with null App id');
@@ -104,21 +106,26 @@ Checker.prototype.check = function(clientAppId) {
  */
 Checker.prototype.checkByManagedRegistry_ = function(
     clientAppId, checkPromiseResolver) {
-  this.logger.finer('Checking permissions for the client App with id "' +
-                    clientAppId + '" through the managed registry...');
+  this.logger.finer(
+      'Checking permissions for the client App with id "' + clientAppId +
+      '" through the managed registry...');
 
-  this.managedRegistry_.getById(clientAppId).then(
-      function() {
-        this.logger.finer('Granted permissions for client App with id "' +
-                          clientAppId + '" through the managed registry');
-        checkPromiseResolver.resolve();
-      },
-      function() {
-        this.logger.finer('No permissions found for client App with id "' +
-                          clientAppId + '" through the managed registry');
-        this.checkByUserPromptingChecker_(clientAppId, checkPromiseResolver);
-      },
-      this);
+  this.managedRegistry_.getById(clientAppId)
+      .then(
+          function() {
+            this.logger.finer(
+                'Granted permissions for client App with id "' + clientAppId +
+                '" through the managed registry');
+            checkPromiseResolver.resolve();
+          },
+          function() {
+            this.logger.finer(
+                'No permissions found for client App with id "' + clientAppId +
+                '" through the managed registry');
+            this.checkByUserPromptingChecker_(
+                clientAppId, checkPromiseResolver);
+          },
+          this);
 };
 
 /**
@@ -128,8 +135,7 @@ Checker.prototype.checkByManagedRegistry_ = function(
  */
 Checker.prototype.checkByUserPromptingChecker_ = function(
     clientAppId, checkPromiseResolver) {
-  this.userPromptingChecker_.check(clientAppId).then(
-      checkPromiseResolver.resolve, checkPromiseResolver.reject);
+  this.userPromptingChecker_.check(clientAppId)
+      .then(checkPromiseResolver.resolve, checkPromiseResolver.reject);
 };
-
 });  // goog.scope

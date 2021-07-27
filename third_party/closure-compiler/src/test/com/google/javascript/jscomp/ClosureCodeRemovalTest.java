@@ -23,7 +23,6 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for {@link ClosureCodeRemoval}
  *
- * @author robbyw@google.com (Robby Walker)
  */
 @RunWith(JUnit4.class)
 public final class ClosureCodeRemovalTest extends CompilerTestCase {
@@ -34,7 +33,10 @@ public final class ClosureCodeRemovalTest extends CompilerTestCase {
       lines(
           "const asserts = {};",
           "/** @closurePrimitive {asserts.truthy} */",
-          "asserts.assert = function(...args) {};");
+          "asserts.assert = function(...args) {};",
+          "",
+          "/** @closurePrimitive {asserts.fail} */",
+          "asserts.fail = function(...args) {};");
 
   public ClosureCodeRemovalTest() {
     super(EXTERNS);
@@ -84,13 +86,22 @@ public final class ClosureCodeRemovalTest extends CompilerTestCase {
   }
 
   @Test
-  public void testRemoveAbstract_annotation() {
+  public void testRemoveAbstractAssignmentOfEmptyFunction() {
     test(
         lines(
             "function Foo() {};",
             "/** @abstract */",
             "Foo.prototype.doSomething = function() {};"),
         "function Foo() {};");
+  }
+
+  @Test
+  public void testDoNotRemoveAbstractAssignmentOfFunctionCall() {
+    testSame(
+        lines(
+            "function Foo() {};",
+            "/** @abstract */",
+            "Foo.prototype.doSomething = (function() { /* return something fancy */ })();"));
   }
 
   @Test
@@ -157,6 +168,30 @@ public final class ClosureCodeRemovalTest extends CompilerTestCase {
   public void testClosurePrimitiveAssertionRemoval4() {
     enableTypeCheck();
     test(ASSERTIONS + "var x = asserts.assert();", ASSERTIONS + "var x = void 0;");
+  }
+
+  @Test
+  public void testClosurePrimitiveAssertionRemoval_keepsAssertsFail() {
+    enableTypeCheck();
+    testSame(ASSERTIONS + "var x = asserts.fail();");
+  }
+
+  @Test
+  public void testClosurePrimitiveAssertionRemoval_worksWithColors() {
+    enableTypeCheck();
+    replaceTypesWithColors();
+    disableCompareJsDoc();
+
+    test(ASSERTIONS + "var x = asserts.assert(y(), 'message');", ASSERTIONS + "var x = y();");
+  }
+
+  @Test
+  public void testClosurePrimitiveAssertionRemoval_keepsAssertsFailWithColors() {
+    enableTypeCheck();
+    replaceTypesWithColors();
+    disableCompareJsDoc();
+
+    testSame(ASSERTIONS + "var x = asserts.fail();");
   }
 
   @Test

@@ -18,7 +18,6 @@ package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.CheckSuspiciousCode.SUSPICIOUS_LEFT_OPERAND_OF_LOGICAL_OPERATOR;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,8 +37,24 @@ public final class CheckSuspiciousCodeTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2018);
     enableParseTypeInfo();
+  }
+
+  @Test
+  public void suspiciousBreakingOutOfOptionalChain() {
+    final DiagnosticType e = CheckSuspiciousCode.SUSPICIOUS_BREAKING_OUT_OF_OPTIONAL_CHAIN;
+
+    testSame("a?.b.c");
+    testWarning("(a?.b).c", e);
+
+    testSame("a.b?.[c][d]");
+    testWarning("(a.b?.[c])[d]", e);
+
+    testSame("a.b?.()()");
+    testWarning("(a.b?.())()", e);
+
+    testSame("a(b?.c);");
+    testSame("a[b?.c];");
   }
 
   @Test
@@ -285,6 +300,37 @@ public final class CheckSuspiciousCodeTest extends CompilerTestCase {
     testWarning("if (x && false || y) {}", SUSPICIOUS_LEFT_OPERAND_OF_LOGICAL_OPERATOR);
     testSame("if (x || false || y) {}");
     testSame("if (x && true || y) {}");
+  }
+
+  @Test
+  public void testSuspiciousLeftArgumentOfLogicalOperator_propAccesses() {
+    enableTypeCheck();
+    // Cases that must not warn as LHS is not always falsy.
+    testNoWarning("/** @type {null|{b:string}} */ let a; if (a?.b && true) {}");
+    testNoWarning("/** @type {null|{b:string}} */ let a; if (a?.[b] && c) {}");
+    testNoWarning("/** @type {{b: (null|string)}} */ let a; if (a?.b && true) {}");
+    testNoWarning("/** @type {{b: (null|string)}} */ let a; if (a?.[b] && true) {}");
+
+    // Cases that could warn but don't, as we assume that GETPROPs and GETELEMs type information is
+    // likely wrong
+    // normal prop access
+    testNoWarning("/** @type {{b:null}} */ let a; if( a[b] && true) {}");
+    testNoWarning("/** @type {{b:null}} */ let a; if( a.b && true) {}");
+    // optChain prop access
+    testNoWarning("/** @type {{b:null}} */ let a; if( a?.[b] && true) {}");
+    testNoWarning("/** @type {{b:null}} */ let a; if( a?.b && true) {}");
+
+    // normal call
+    testWarning(
+        "let a = {}; /** @return {null} */ a.b = function() {}; if (a.b() && c) {}",
+        SUSPICIOUS_LEFT_OPERAND_OF_LOGICAL_OPERATOR);
+    // optChain calls
+    testWarning(
+        "let a = {}; /** @return {null} */ a.b = function() {}; if (a?.b() && c) {}",
+        SUSPICIOUS_LEFT_OPERAND_OF_LOGICAL_OPERATOR);
+    testWarning(
+        "/** @type {null} */ let a = null; if (a?.b() && c) {}",
+        SUSPICIOUS_LEFT_OPERAND_OF_LOGICAL_OPERATOR);
   }
 
   @Test

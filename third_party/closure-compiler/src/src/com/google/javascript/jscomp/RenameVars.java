@@ -19,6 +19,7 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
+import static java.util.Comparator.comparingInt;
 
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
@@ -123,16 +124,6 @@ final class RenameVars implements CompilerPass {
   /** Whether renaming should apply to local variables only. */
   private final boolean localRenamingOnly;
 
-  /**
-   * Whether function expression names should be preserved. Typically, for
-   * debugging purposes.
-   *
-   * @see NameAnonymousFunctions
-   */
-  private final boolean preserveFunctionExpressionNames;
-
-  private final boolean shouldShadow;
-
   private final boolean preferStableNames;
 
   /** Characters that shouldn't be used in variable names. */
@@ -149,17 +140,19 @@ final class RenameVars implements CompilerPass {
    * the instance may reset or reconfigure it, so the caller should
    * not expect any state to be preserved.
    */
-  RenameVars(AbstractCompiler compiler, String prefix,
-      boolean localRenamingOnly, boolean preserveFunctionExpressionNames,
-      boolean generatePseudoNames, boolean shouldShadow,
-      boolean preferStableNames, VariableMap prevUsedRenameMap,
+  RenameVars(
+      AbstractCompiler compiler,
+      String prefix,
+      boolean localRenamingOnly,
+      boolean generatePseudoNames,
+      boolean preferStableNames,
+      VariableMap prevUsedRenameMap,
       @Nullable char[] reservedCharacters,
       @Nullable Set<String> reservedNames,
       NameGenerator nameGenerator) {
     this.compiler = compiler;
     this.prefix = nullToEmpty(prefix);
     this.localRenamingOnly = localRenamingOnly;
-    this.preserveFunctionExpressionNames = preserveFunctionExpressionNames;
     if (generatePseudoNames) {
       this.pseudoNameMap = new HashMap<>();
     } else {
@@ -167,7 +160,6 @@ final class RenameVars implements CompilerPass {
     }
     this.prevUsedRenameMap = prevUsedRenameMap;
     this.reservedCharacters = reservedCharacters;
-    this.shouldShadow = shouldShadow;
     this.preferStableNames = preferStableNames;
     if (reservedNames == null) {
       this.reservedNames = new HashSet<>();
@@ -244,7 +236,7 @@ final class RenameVars implements CompilerPass {
       boolean local =
           var != null
               && var.isLocal()
-              && (var.scope.getParent().isLocal() || !var.isBleedingFunction());
+              && (var.getScope().getParent().isLocal() || !var.isBleedingFunction());
 
       // Never rename references to the arguments array
       if (var != null && var.isArguments()) {
@@ -254,13 +246,6 @@ final class RenameVars implements CompilerPass {
 
       // Are we renaming global variables?
       if (!local && localRenamingOnly) {
-        reservedNames.add(name);
-        return;
-      }
-
-      // Are we renaming function expression names?
-      if (preserveFunctionExpressionNames && var != null
-          && NodeUtil.isFunctionExpression(var.getParentNode())) {
         reservedNames.add(name);
         return;
       }
@@ -301,11 +286,7 @@ final class RenameVars implements CompilerPass {
 
     // Increment count of an assignment
     void incCount(String name) {
-      Assignment s = assignments.get(name);
-      if (s == null) {
-        s = new Assignment(name);
-        assignments.put(name, s);
-      }
+      Assignment s = assignments.computeIfAbsent(name, Assignment::new);
       s.count++;
     }
   }
@@ -327,17 +308,9 @@ final class RenameVars implements CompilerPass {
     }
   };
 
-  /**
-   * Sorts Assignment objects by the order the variable name first appears in
-   * the source.
-   */
+  /** Sorts Assignment objects by the order the variable name first appears in the source. */
   private static final Comparator<Assignment> ORDER_OF_OCCURRENCE_COMPARATOR =
-      new Comparator<Assignment>() {
-        @Override
-        public int compare(Assignment a1, Assignment a2) {
-          return a1.orderOfOccurrence - a2.orderOfOccurrence;
-        }
-      };
+      comparingInt((Assignment arg) -> arg.orderOfOccurrence);
 
   @Override
   public void process(Node externs, Node root) {
@@ -354,12 +327,6 @@ final class RenameVars implements CompilerPass {
     // Rename vars, sorted by frequency of occurrence to minimize code size.
     SortedSet<Assignment> varsByFrequency = new TreeSet<>(FREQUENCY_COMPARATOR);
     varsByFrequency.addAll(assignments.values());
-
-    if (shouldShadow) {
-      new ShadowVariables(
-          compiler, assignments, varsByFrequency, pseudoNameMap).process(
-              externs, root);
-    }
 
     // First try to reuse names from an earlier compilation.
     if (prevUsedRenameMap != null) {
@@ -460,22 +427,19 @@ final class RenameVars implements CompilerPass {
    * Determines which new names to substitute for the original names.
    */
   private void assignNames(SortedSet<Assignment> varsToRename) {
-    NameGenerator globalNameGenerator = null;
-    NameGenerator localNameGenerator = null;
-
-    globalNameGenerator = nameGenerator;
     nameGenerator.reset(reservedNames, prefix, reservedCharacters);
 
+    NameGenerator globalNameGenerator = nameGenerator;
     // Local variables never need a prefix.
     // Also, we need to avoid conflicts between global and local variable
     // names; we do this by having using the same generator (not two
     // instances). The case where global variables have a prefix (and
     // therefore we use two different generators) but a local variable name
     // might nevertheless conflict with a global one is not handled.
-    localNameGenerator =
+    NameGenerator localNameGenerator =
         prefix.isEmpty()
-        ? globalNameGenerator
-        : nameGenerator.clone(reservedNames, "", reservedCharacters);
+            ? globalNameGenerator
+            : nameGenerator.clone(reservedNames, "", reservedCharacters);
 
     // Generated names and the assignments for non-local vars.
     List<Assignment> pendingAssignments = new ArrayList<>();
@@ -570,8 +534,8 @@ final class RenameVars implements CompilerPass {
    * a = 0, b = 1, c = 2, d = 3
    */
   private int getLocalVarIndex(Var v) {
-    int num = v.index;
-    Scope s = v.scope.getParent();
+    int num = v.getIndex();
+    Scope s = v.getScope().getParent();
     if (s == null) {
       throw new IllegalArgumentException("Var is not local");
     }
