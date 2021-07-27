@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2019 Google Inc.
  *
  * This library is free software; you can redistribute it and/or
@@ -45,27 +46,27 @@ const GSC = GoogleSmartCard;
  * @constructor
  */
 GSC.Libusb.ChromeLoginStateHook = function() {
-  /** 
+  /**
    * @type {boolean}
-   * @private  
+   * @private
    */
   this.simulateDevicesAbsent_ = false;
-  /** 
+  /**
    * @type {!Function}
-   * @private 
+   * @private
    */
   this.boundOnGotSessionState_ = this.onGotSessionState_.bind(this);
-  /** 
+  /**
    * @type {!goog.promise.Resolver}
-   * @private 
+   * @private
    */
   this.hookIsReadyResolver_ = goog.Promise.withResolver();
   if (chrome.loginState) {
     chrome.loginState.getProfileType(this.onGotProfileType_.bind(this));
   } else {
     this.logger.warning(
-        'chrome.loginState API is not available. This app might require a '
-        + 'newer version of Chrome.');
+        'chrome.loginState API is not available. This app might require a ' +
+        'newer version of Chrome.');
     this.hookIsReadyResolver_.reject();
   }
 };
@@ -78,8 +79,8 @@ goog.inherits(ChromeLoginStateHook, goog.Disposable);
  * @type {!goog.log.Logger}
  * @const
  */
-ChromeLoginStateHook.prototype.logger = GSC.Logging.getScopedLogger(
-  'Libusb.LoginStateHook');
+ChromeLoginStateHook.prototype.logger =
+    GSC.Logging.getScopedLogger('Libusb.LoginStateHook');
 
 /** @override */
 ChromeLoginStateHook.prototype.disposeInternal = function() {
@@ -96,7 +97,7 @@ ChromeLoginStateHook.prototype.disposeInternal = function() {
 /**
  * @return {function(string, !Array): !Array}
  * @public
- */ 
+ */
 ChromeLoginStateHook.prototype.getRequestSuccessHook = function() {
   return this.requestSuccessHook_.bind(this);
 };
@@ -104,12 +105,12 @@ ChromeLoginStateHook.prototype.getRequestSuccessHook = function() {
 /**
  * @return {!goog.Promise}
  * @public
- */ 
+ */
 ChromeLoginStateHook.prototype.getHookReadyPromise = function() {
   return this.hookIsReadyResolver_.promise;
 };
 
- /**
+/**
  * @param {!chrome.loginState.ProfileType} profileType
  * @private
  */
@@ -128,16 +129,16 @@ ChromeLoginStateHook.prototype.onGotProfileType_ = function(profileType) {
  * @param {!chrome.loginState.SessionState} sessionState
  * @private
  */
-ChromeLoginStateHook.prototype.onGotSessionState_ = function(
-    sessionState) {
+ChromeLoginStateHook.prototype.onGotSessionState_ = function(sessionState) {
   goog.asserts.assert(chrome.loginState);
-  if (sessionState === chrome.loginState.SessionState.IN_LOCK_SCREEN
-      && !this.simulateDevicesAbsent_) {
-    this.logger.info("No longer showing USB devices.");
+  if (sessionState === chrome.loginState.SessionState.IN_LOCK_SCREEN &&
+      !this.simulateDevicesAbsent_) {
+    this.logger.info('No longer showing USB devices.');
     this.simulateDevicesAbsent_ = true;
-  } else if (sessionState !== chrome.loginState.SessionState.IN_LOCK_SCREEN
-             && this.simulateDevicesAbsent_) {
-    this.logger.info("Showing USB devices.");
+  } else if (
+      sessionState !== chrome.loginState.SessionState.IN_LOCK_SCREEN &&
+      this.simulateDevicesAbsent_) {
+    this.logger.info('Showing USB devices.');
     this.simulateDevicesAbsent_ = false;
   }
   // All calls after the first one to resolve() will be ignored.
@@ -157,14 +158,12 @@ ChromeLoginStateHook.prototype.onSessionStateChanged_ = function() {
  * @return {!Array} new callResults
  * @private
  */
-ChromeLoginStateHook.prototype.requestSuccessHook_ = function(functionName, 
-                                                              callResults) {
+ChromeLoginStateHook.prototype.requestSuccessHook_ = function(
+    functionName, callResults) {
   if (this.simulateDevicesAbsent_ &&
-      (functionName === 'getDevices' ||
-       functionName === 'getConfigurations')) {
+      (functionName === 'getDevices' || functionName === 'getConfigurations')) {
     return [[]];
   }
   return callResults;
 };
-
 });  // goog.scope

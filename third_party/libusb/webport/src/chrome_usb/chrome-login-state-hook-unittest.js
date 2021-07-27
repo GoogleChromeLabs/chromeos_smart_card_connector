@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -52,32 +53,30 @@ let sessionStateListeners = [];
  */
 function setUpChromeLoginStateMock(
     propertyReplacer, fakeProfileType, fakeSessionState) {
-  propertyReplacer.set(
-      chrome, 'loginState',
-      {
-        getProfileType: function(callback) { callback(fakeProfileType); },
-        getSessionState: function(callback) { callback(fakeSessionState); },
-        onSessionStateChanged: {
-          addListener: function(callback) {
-            sessionStateListeners.push(callback);
-          }
-        },
-        ProfileType: {
-          USER_PROFILE: USER_PROFILE_TYPE,
-          SIGNIN_PROFILE: SIGNIN_PROFILE_TYPE
-        },
-        SessionState: {
-          IN_SESSION: IN_SESSION_STATE,
-          IN_LOCK_SCREEN: IN_LOCK_SCREEN_STATE
-        }
-      });
+  propertyReplacer.set(chrome, 'loginState', {
+    getProfileType: function(callback) {
+      callback(fakeProfileType);
+    },
+    getSessionState: function(callback) {
+      callback(fakeSessionState);
+    },
+    onSessionStateChanged: {
+      addListener: function(callback) {
+        sessionStateListeners.push(callback);
+      }
+    },
+    ProfileType:
+        {USER_PROFILE: USER_PROFILE_TYPE, SIGNIN_PROFILE: SIGNIN_PROFILE_TYPE},
+    SessionState:
+        {IN_SESSION: IN_SESSION_STATE, IN_LOCK_SCREEN: IN_LOCK_SCREEN_STATE}
+  });
 }
 
 /**
  * Wraps the given test function, providing the necessary setup and teardown.
- * @param {string} fakeProfileType Fake data to be 
+ * @param {string} fakeProfileType Fake data to be
  * returned from chrome.loginState.getProfileType().
- * @param {string} fakeSessionState Fake data to be 
+ * @param {string} fakeSessionState Fake data to be
  * returned from chrome.loginState.getSessionState().
  * @param {function(!goog.testing.PropertyReplacer)} testCallback
  * The test function to be run after the needed setup.
@@ -91,7 +90,7 @@ function makeTest(fakeProfileType, fakeSessionState, testCallback) {
       propertyReplacer.reset();
       sessionStateListeners = [];
     }
-    
+
     setUpChromeLoginStateMock(
         propertyReplacer, fakeProfileType, fakeSessionState);
 
@@ -116,104 +115,93 @@ function makeTest(fakeProfileType, fakeSessionState, testCallback) {
  */
 function changeSessionState(fakeNewSessionState, propertyReplacer) {
   propertyReplacer.replace(
-      chrome.loginState,
-      'getSessionState', 
-      function(callback) { callback(fakeNewSessionState); });
+      chrome.loginState, 'getSessionState', function(callback) {
+        callback(fakeNewSessionState);
+      });
   goog.array.forEach(sessionStateListeners, function(listener) {
     listener(fakeNewSessionState);
   });
 }
 
+goog.exportSymbol('test_ChromeLoginStateHook_NoApi', function() {
+  const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
+  // Expect that getHookReadyPromise() gets rejected, because the
+  // chrome.loginState mock is not set up.
+  return loginStateHook.getHookReadyPromise().then(() => {
+    fail('Unexpected successful response');
+  }, () => {});
+});
+
 goog.exportSymbol(
-    'test_ChromeLoginStateHook_NoApi', function() {
+    'test_ChromeLoginStateHook_DoesNotFilterInSession',
+    makeTest(USER_PROFILE_TYPE, IN_SESSION_STATE, function() {
       const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-      // Expect that getHookReadyPromise() gets rejected, because the
-      // chrome.loginState mock is not set up.
       return loginStateHook.getHookReadyPromise().then(() => {
-        fail('Unexpected successful response');
-      }, () => {});
-    });
+        const hook = loginStateHook.getRequestSuccessHook();
+        let apiCallResult = [['fakeResult']];
+        const hookResult = hook('getDevices', apiCallResult);
+        assertObjectEquals([['fakeResult']], hookResult);
+      });
+    }));
 
 goog.exportSymbol(
-    'test_ChromeLoginStateHook_DoesNotFilterInSession', makeTest(
-      USER_PROFILE_TYPE, IN_SESSION_STATE,
-      function() {
-        const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-        return loginStateHook.getHookReadyPromise().then(() => {
-          const hook = loginStateHook.getRequestSuccessHook();
-          let apiCallResult = [['fakeResult']];
-          const hookResult = hook('getDevices', apiCallResult);
-          assertObjectEquals([['fakeResult']], hookResult);
-        });
-      }
-    ));
+    'test_ChromeLoginStateHook_FiltersInLockScreen',
+    makeTest(USER_PROFILE_TYPE, IN_LOCK_SCREEN_STATE, function() {
+      const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
+      return loginStateHook.getHookReadyPromise().then(() => {
+        const hook = loginStateHook.getRequestSuccessHook();
+
+        let apiCallResult = [['fakeResult']];
+        let hookResult = hook('getDevices', apiCallResult);
+        assertObjectEquals([[]], hookResult);
+
+        apiCallResult = [['fakeResult']];
+        hookResult = hook('getConfigurations', apiCallResult);
+        assertObjectEquals([[]], hookResult);
+
+        // only getDevices and getConfigurations should get filtered
+        apiCallResult = ['otherCallResult'];
+        hookResult = hook('listInterfaces', apiCallResult);
+        assertObjectEquals(['otherCallResult'], hookResult);
+      });
+    }));
 
 goog.exportSymbol(
-    'test_ChromeLoginStateHook_FiltersInLockScreen', makeTest(
-      USER_PROFILE_TYPE, IN_LOCK_SCREEN_STATE,
-      function() {
-        const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-        return loginStateHook.getHookReadyPromise().then(() => {
-          const hook = loginStateHook.getRequestSuccessHook();
-
-          let apiCallResult = [['fakeResult']];
-          let hookResult = hook('getDevices', apiCallResult);
-          assertObjectEquals([[]], hookResult);
-
-          apiCallResult = [['fakeResult']];
-          hookResult = hook('getConfigurations', apiCallResult);
-          assertObjectEquals([[]], hookResult);
-
-          //only getDevices and getConfigurations should get filtered
-          apiCallResult = ['otherCallResult'];
-          hookResult = hook('listInterfaces', apiCallResult);
-          assertObjectEquals(['otherCallResult'], hookResult);
-        });
-      }
-    ));
+    'test_ChromeLoginStateHook_DoesNotFilterForSignInProfile',
+    makeTest(SIGNIN_PROFILE_TYPE, IN_SESSION_STATE, function() {
+      const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
+      return loginStateHook.getHookReadyPromise().then(() => {
+        const hook = loginStateHook.getRequestSuccessHook();
+        const apiCallResult = [['fakeResult']];
+        const hookResult = hook('getDevices', apiCallResult);
+        assertObjectEquals([['fakeResult']], hookResult);
+      });
+    }));
 
 goog.exportSymbol(
-    'test_ChromeLoginStateHook_DoesNotFilterForSignInProfile', makeTest(
-      SIGNIN_PROFILE_TYPE, IN_SESSION_STATE,
-      function() {
-        const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-        return loginStateHook.getHookReadyPromise().then(() => {
-          const hook = loginStateHook.getRequestSuccessHook();
-          const apiCallResult = [['fakeResult']];
-          const hookResult = hook('getDevices', apiCallResult);
-          assertObjectEquals([['fakeResult']], hookResult);
-        });
-      }
-    ));
+    'test_ChromeLoginStateHook_ChangeToLockScreen',
+    makeTest(USER_PROFILE_TYPE, IN_SESSION_STATE, function(propertyReplacer) {
+      const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
+      return loginStateHook.getHookReadyPromise().then(() => {
+        changeSessionState(IN_LOCK_SCREEN_STATE, propertyReplacer);
+        const hook = loginStateHook.getRequestSuccessHook();
+        const apiCallResult = [['fakeResult']];
+        const hookResult = hook('getDevices', apiCallResult);
+        assertObjectEquals([[]], hookResult);
+      });
+    }));
 
 goog.exportSymbol(
-    'test_ChromeLoginStateHook_ChangeToLockScreen', makeTest(
-      USER_PROFILE_TYPE, IN_SESSION_STATE,
-      function(propertyReplacer) {
-        const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-        return loginStateHook.getHookReadyPromise().then(() => {
-          changeSessionState(IN_LOCK_SCREEN_STATE, propertyReplacer);
-          const hook = loginStateHook.getRequestSuccessHook();
-          const apiCallResult = [['fakeResult']];
-          const hookResult = hook('getDevices', apiCallResult);
-          assertObjectEquals([[]], hookResult);
-        });
-      }
-    ));
-
-goog.exportSymbol(
-    'test_ChromeLoginStateHook_ChangeToSession', makeTest(
-      USER_PROFILE_TYPE, IN_LOCK_SCREEN_STATE,
-      function(propertyReplacer) {
-        const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
-        return loginStateHook.getHookReadyPromise().then(() => {
-          changeSessionState(IN_SESSION_STATE, propertyReplacer);
-          const hook = loginStateHook.getRequestSuccessHook();
-          const apiCallResult = [['fakeResult']];
-          const hookResult = hook('getDevices', apiCallResult);
-          assertObjectEquals([['fakeResult']], hookResult);
-        });
-      }
-    ));
-
+    'test_ChromeLoginStateHook_ChangeToSession',
+    makeTest(
+        USER_PROFILE_TYPE, IN_LOCK_SCREEN_STATE, function(propertyReplacer) {
+          const loginStateHook = new GSC.Libusb.ChromeLoginStateHook();
+          return loginStateHook.getHookReadyPromise().then(() => {
+            changeSessionState(IN_SESSION_STATE, propertyReplacer);
+            const hook = loginStateHook.getRequestSuccessHook();
+            const apiCallResult = [['fakeResult']];
+            const hookResult = hook('getDevices', apiCallResult);
+            assertObjectEquals([['fakeResult']], hookResult);
+          });
+        }));
 });  // goog.scope

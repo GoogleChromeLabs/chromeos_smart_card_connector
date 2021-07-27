@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -40,8 +41,8 @@ GSC.IntegrationTestController = function() {
   /** @type {!goog.testing.PropertyReplacer} */
   this.propertyReplacer = new goog.testing.PropertyReplacer;
   /** @type {!GSC.NaclModule} */
-  this.naclModule = new GSC.NaclModule(
-      NACL_MODULE_PATH, GSC.NaclModule.Type.PNACL);
+  this.naclModule =
+      new GSC.NaclModule(NACL_MODULE_PATH, GSC.NaclModule.Type.PNACL);
   /** @type {!GSC.Requester} @private */
   this.naclModuleRequester_ = new GSC.Requester(
       INTEGRATION_TEST_NACL_MODULE_REQUESTER_NAME,
@@ -60,8 +61,8 @@ GSC.IntegrationTestController.prototype.initAsync = function() {
  * @return {!goog.Promise<void>}
  */
 GSC.IntegrationTestController.prototype.disposeAsync = function() {
-  return this.callCpp_('TearDownAll', /*functionArguments=*/[]).thenAlways(
-      () => {
+  return this.callCpp_('TearDownAll', /*functionArguments=*/[])
+      .thenAlways(() => {
         this.naclModuleRequester_.dispose();
         this.naclModule.dispose();
         this.propertyReplacer.reset();
@@ -102,10 +103,9 @@ GSC.IntegrationTestController.prototype.sendMessageToCppHelper = function(
  */
 GSC.IntegrationTestController.prototype.callCpp_ = function(
     functionName, functionArguments) {
-  const remoteCallMessage = new GSC.RemoteCallMessage(
-      functionName, functionArguments);
+  const remoteCallMessage =
+      new GSC.RemoteCallMessage(functionName, functionArguments);
   return this.naclModuleRequester_.postRequest(
       remoteCallMessage.makeRequestPayload());
 };
-
 });

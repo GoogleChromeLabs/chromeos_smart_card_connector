@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +50,7 @@ logger.info('The main window is created');
 const executableModuleMessageChannel =
     /** @type {!goog.messaging.MessageChannel} */
     (GSC.ObjectHelpers.extractKey(
-         GSC.PopupWindow.Client.getData(), 'executableModuleMessageChannel'));
+        GSC.PopupWindow.Client.getData(), 'executableModuleMessageChannel'));
 
 // Load the localized strings into the HTML elements.
 GSC.I18n.adjustAllElementsTranslation();
@@ -76,12 +77,10 @@ function displayOutputMessage(text) {
 
 // Set up UI event listeners.
 goog.events.listen(
-    goog.dom.getElement('close-window'),
-    goog.events.EventType.CLICK,
+    goog.dom.getElement('close-window'), goog.events.EventType.CLICK,
     onCloseWindowClicked);
 goog.events.listen(
-    goog.dom.getElement('run-test'),
-    goog.events.EventType.CLICK,
+    goog.dom.getElement('run-test'), goog.events.EventType.CLICK,
     onRunTestClicked);
 
 // Handle messages from the executable module.
@@ -93,7 +92,7 @@ executableModuleMessageChannel.registerService('ui', (payload) => {
 
   if (payload['output_message'])
     displayOutputMessage(payload['output_message']);
-}, /*opt_objectPayload=*/true);
+}, /*opt_objectPayload=*/ true);
 
 // Unregister from receiving messages from the module when our window is closed.
 chrome.app.window.current().onClosed.addListener(() => {
@@ -102,5 +101,4 @@ chrome.app.window.current().onClosed.addListener(() => {
 
 // Show the window, after all the initialization above has been done.
 GSC.PopupWindow.Client.showWindow();
-
 });  // goog.scope

@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -134,13 +135,21 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(
   this.logger = GSC.Logging.getLogger(
       'SmartCardClientApp.CertificateProviderBridge.Backend');
 
-  /** @private {?function(!chrome.certificateProvider.CertificatesUpdateRequest)} */
+  /**
+   * @private {?function(!chrome.certificateProvider.CertificatesUpdateRequest)}
+   */
   this.certificatesUpdateRequestListener_ = null;
   /** @private {?function(!chrome.certificateProvider.SignatureRequest)} */
   this.signatureRequestListener_ = null;
-  /** @private {?function(function((!Array.<!chrome.certificateProvider.CertificateInfo>), function(!Array.<!chrome.certificateProvider.CertificateInfo>)))} */
+  /**
+   * @private {?function(function((!Array.<!chrome.certificateProvider.CertificateInfo>),
+   *     function(!Array.<!chrome.certificateProvider.CertificateInfo>)))}
+   */
   this.certificatesRequestListener_ = null;
-  /** @private {?function(!chrome.certificateProvider.SignRequest, function(!ArrayBuffer=))} */
+  /**
+   * @private {?function(!chrome.certificateProvider.SignRequest,
+   *     function(!ArrayBuffer=))}
+   */
   this.signDigestRequestListener_ = null;
 
   /** @private */
@@ -150,8 +159,7 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(
   // Note: the request receiver instance is not stored anywhere, as it makes
   // itself being owned by the message channel.
   new GSC.RequestReceiver(
-      FROM_EXECUTABLE_REQUESTER_NAME,
-      executableModule.getMessageChannel(),
+      FROM_EXECUTABLE_REQUESTER_NAME, executableModule.getMessageChannel(),
       this.handleRequest_.bind(this));
 
   // Start listening for the chrome.certificateProvider API events straight
@@ -159,8 +167,8 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(
   this.setupApiListeners_();
 
   /** @private */
-  this.deferredProcessor_ = new GSC.DeferredProcessor(
-      executableModule.getLoadPromise());
+  this.deferredProcessor_ =
+      new GSC.DeferredProcessor(executableModule.getLoadPromise());
   executableModule.addOnDisposeCallback(
       this.executableModuleDisposedListener_.bind(this));
 
@@ -242,18 +250,19 @@ Backend.prototype.handleRequest_ = function(payload) {
     GSC.Logging.failWithLogger(
         this.logger,
         'Failed to parse the remote call message: ' +
-        GSC.DebugDump.debugDump(payload));
+            GSC.DebugDump.debugDump(payload));
   }
 
   const debugRepresentation = 'chrome.certificateProvider.' +
-                              remoteCallMessage.getDebugRepresentation();
+      remoteCallMessage.getDebugRepresentation();
   this.logger.fine('Received a remote call request: ' + debugRepresentation);
 
   const promiseResolver = goog.Promise.withResolver();
 
   // Check whether the API and the method are available.
   const apiFunction = chrome.certificateProvider ?
-      chrome.certificateProvider[remoteCallMessage.functionName] : undefined;
+      chrome.certificateProvider[remoteCallMessage.functionName] :
+      undefined;
   if (apiFunction) {
     const transformedFunctionArguments = transformFunctionArguments(
         remoteCallMessage.functionName, remoteCallMessage.functionArguments);
@@ -343,8 +352,8 @@ Backend.prototype.setupApiListeners_ = function() {
  * @private
  */
 Backend.prototype.onCertificatesUpdateRequested_ = function(request) {
-  this.deferredProcessor_.addJob(this.processCertificatesUpdateRequest_.bind(
-      this, request));
+  this.deferredProcessor_.addJob(
+      this.processCertificatesUpdateRequest_.bind(this, request));
 };
 
 /**
@@ -352,17 +361,19 @@ Backend.prototype.onCertificatesUpdateRequested_ = function(request) {
  * @private
  */
 Backend.prototype.onSignatureRequested_ = function(request) {
-  this.deferredProcessor_.addJob(this.processSignatureRequest_.bind(
-      this, request));
+  this.deferredProcessor_.addJob(
+      this.processSignatureRequest_.bind(this, request));
 };
 
 /**
- * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>), function(!Array.<!chrome.certificateProvider.CertificateInfo>))} reportCallback
+ * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>),
+ *     function(!Array.<!chrome.certificateProvider.CertificateInfo>))}
+ *     reportCallback
  * @private
  */
 Backend.prototype.onCertificatesRequested_ = function(reportCallback) {
-  this.deferredProcessor_.addJob(this.processCertificatesRequest_.bind(
-      this, reportCallback));
+  this.deferredProcessor_.addJob(
+      this.processCertificatesRequest_.bind(this, reportCallback));
 };
 
 /**
@@ -370,10 +381,9 @@ Backend.prototype.onCertificatesRequested_ = function(reportCallback) {
  * @param {function(!ArrayBuffer=)} reportCallback
  * @private
  */
-Backend.prototype.onSignDigestRequested_ = function(
-    request, reportCallback) {
-  this.deferredProcessor_.addJob(this.processSignDigestRequest_.bind(
-      this, request, reportCallback));
+Backend.prototype.onSignDigestRequested_ = function(request, reportCallback) {
+  this.deferredProcessor_.addJob(
+      this.processSignDigestRequest_.bind(this, request, reportCallback));
 };
 
 /**
@@ -382,28 +392,32 @@ Backend.prototype.onSignDigestRequested_ = function(
  */
 Backend.prototype.processCertificatesUpdateRequest_ = function(request) {
   this.logger.info('Started handling certificates update request');
-  const remoteCallMessage = new GSC.RemoteCallMessage(
-      HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
-  const promise = this.requester_.postRequest(
-      remoteCallMessage.makeRequestPayload());
-  promise.then(function(results) {
-    GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-    const certificates = goog.array.map(results[0], createClientCertificateInfo);
-    this.logger.info(
-        'Setting the certificate list with ' + certificates.length +
-        ' certificates: ' + GSC.DebugDump.debugDump(certificates));
-    chrome.certificateProvider.setCertificates({
-      certificatesRequestId: request.certificatesRequestId,
-      clientCertificates: certificates
-    });
-  }, function() {
-    this.logger.info('Setting empty certificates list and an error');
-    chrome.certificateProvider.setCertificates({
-      certificatesRequestId: request.certificatesRequestId,
-      clientCertificates: [],
-      error: chrome.certificateProvider.Error.GENERAL_ERROR
-    });
-  }, this);
+  const remoteCallMessage =
+      new GSC.RemoteCallMessage(HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
+  const promise =
+      this.requester_.postRequest(remoteCallMessage.makeRequestPayload());
+  promise.then(
+      function(results) {
+        GSC.Logging.checkWithLogger(this.logger, results.length == 1);
+        const certificates =
+            goog.array.map(results[0], createClientCertificateInfo);
+        this.logger.info(
+            'Setting the certificate list with ' + certificates.length +
+            ' certificates: ' + GSC.DebugDump.debugDump(certificates));
+        chrome.certificateProvider.setCertificates({
+          certificatesRequestId: request.certificatesRequestId,
+          clientCertificates: certificates
+        });
+      },
+      function() {
+        this.logger.info('Setting empty certificates list and an error');
+        chrome.certificateProvider.setCertificates({
+          certificatesRequestId: request.certificatesRequestId,
+          clientCertificates: [],
+          error: chrome.certificateProvider.Error.GENERAL_ERROR
+        });
+      },
+      this);
 };
 
 /**
@@ -420,54 +434,63 @@ Backend.prototype.processSignatureRequest_ = function(request) {
   const executableRequest = {
     signRequestId: request.signRequestId,
     input: request.input,
-    digest: new ArrayBuffer(/*length=*/0),
+    digest: new ArrayBuffer(/*length=*/ 0),
     algorithm: request.algorithm,
     certificate: request.certificate,
   };
   const remoteCallMessage = new GSC.RemoteCallMessage(
       HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME, [executableRequest]);
-  const promise = this.requester_.postRequest(
-      remoteCallMessage.makeRequestPayload());
-  promise.then(function(results) {
-    GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-    const signature = results[0];
-    this.logger.info(
-        'Responding to the signature request with the created signature: ' +
-        GSC.DebugDump.debugDump(signature));
-    chrome.certificateProvider.reportSignature({
-      signRequestId: request.signRequestId,
-      signature: signature
-    });
-  }, function() {
-    this.logger.info('Responding to the signature request with an error');
-    chrome.certificateProvider.reportSignature({
-      signRequestId: request.signRequestId,
-      error: chrome.certificateProvider.Error.GENERAL_ERROR
-    });
-  }, this);
+  const promise =
+      this.requester_.postRequest(remoteCallMessage.makeRequestPayload());
+  promise.then(
+      function(results) {
+        GSC.Logging.checkWithLogger(this.logger, results.length == 1);
+        const signature = results[0];
+        this.logger.info(
+            'Responding to the signature request with the created signature: ' +
+            GSC.DebugDump.debugDump(signature));
+        chrome.certificateProvider.reportSignature(
+            {signRequestId: request.signRequestId, signature: signature});
+      },
+      function() {
+        this.logger.info('Responding to the signature request with an error');
+        chrome.certificateProvider.reportSignature({
+          signRequestId: request.signRequestId,
+          error: chrome.certificateProvider.Error.GENERAL_ERROR
+        });
+      },
+      this);
 };
 
 /**
- * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>), function(!Array.<!chrome.certificateProvider.CertificateInfo>))} reportCallback
+ * @param {function((!Array.<!chrome.certificateProvider.CertificateInfo>),
+ *     function(!Array.<!chrome.certificateProvider.CertificateInfo>))}
+ *     reportCallback
  * @private
  */
 Backend.prototype.processCertificatesRequest_ = function(reportCallback) {
   this.logger.info('Started handling certificates request');
-  const remoteCallMessage = new GSC.RemoteCallMessage(
-      HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
-  const promise = this.requester_.postRequest(
-      remoteCallMessage.makeRequestPayload());
-  promise.then(function(results) {
-    GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-    const certificates = goog.array.map(results[0], createCertificateInfo);
-    this.logger.info(
-        'Responding to the certificates request with ' + certificates.length +
-        ' certificates: ' + GSC.DebugDump.debugDump(certificates));
-    reportCallback(certificates, this.rejectedCertificatesCallback_.bind(this));
-  }, function() {
-    this.logger.info('Responding to the certificates request with an error');
-    reportCallback([], this.rejectedCertificatesCallback_.bind(this));
-  }, this);
+  const remoteCallMessage =
+      new GSC.RemoteCallMessage(HANDLE_CERTIFICATES_REQUEST_FUNCTION_NAME, []);
+  const promise =
+      this.requester_.postRequest(remoteCallMessage.makeRequestPayload());
+  promise.then(
+      function(results) {
+        GSC.Logging.checkWithLogger(this.logger, results.length == 1);
+        const certificates = goog.array.map(results[0], createCertificateInfo);
+        this.logger.info(
+            'Responding to the certificates request with ' +
+            certificates.length +
+            ' certificates: ' + GSC.DebugDump.debugDump(certificates));
+        reportCallback(
+            certificates, this.rejectedCertificatesCallback_.bind(this));
+      },
+      function() {
+        this.logger.info(
+            'Responding to the certificates request with an error');
+        reportCallback([], this.rejectedCertificatesCallback_.bind(this));
+      },
+      this);
 };
 
 /**
@@ -535,11 +558,11 @@ function transformFunctionArguments(functionName, functionArguments) {
     // The certificates need to be transformed in order to be recognized by the
     // API.
     transformedArguments[0] =
-        goog.object.clone(/** @type {!Object<?,?>} */(functionArguments[0]));
+        goog.object.clone(/** @type {!Object<?,?>} */ (functionArguments[0]));
     const certificates = goog.array.map(
-        functionArguments[0]["clientCertificates"],
+        functionArguments[0]['clientCertificates'],
         createClientCertificateInfo);
-    transformedArguments[0]["clientCertificates"] = certificates;
+    transformedArguments[0]['clientCertificates'] = certificates;
   }
   return transformedArguments;
 }
@@ -593,5 +616,4 @@ function getHashFromAlgorithm(algorithm) {
   GSC.Logging.fail(`Unknown algorithm ${algorithm}`);
   return chrome.certificateProvider.Hash.SHA1;
 }
-
 });  // goog.scope

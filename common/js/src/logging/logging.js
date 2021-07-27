@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -105,7 +106,8 @@ const rootLogger =
  * @type {!goog.log.Logger}
  */
 const logger = GSC.Logging.USE_SCOPED_LOGGERS ?
-    goog.asserts.assert(goog.log.getLogger(LOGGER_SCOPE)) : rootLogger;
+    goog.asserts.assert(goog.log.getLogger(LOGGER_SCOPE)) :
+    rootLogger;
 
 /** @type {boolean} */
 let wasLoggingSetUp = false;
@@ -135,8 +137,9 @@ GSC.Logging.setupLogging = function() {
   setupConsoleLogging();
   setupRootLoggerLevel();
 
-  logger.fine('Logging was set up with level=' + ROOT_LOGGER_LEVEL.name +
-              ' and enabled logging to JS console');
+  logger.fine(
+      'Logging was set up with level=' + ROOT_LOGGER_LEVEL.name +
+      ' and enabled logging to JS console');
 
   setupLogBuffer();
 };
@@ -179,8 +182,7 @@ GSC.Logging.getScopedLogger = function(name, opt_level) {
  * @param {!goog.log.Level=} opt_level
  * @return {!goog.log.Logger}
  */
-GSC.Logging.getChildLogger = function(
-    parentLogger, relativeName, opt_level) {
+GSC.Logging.getChildLogger = function(parentLogger, relativeName, opt_level) {
   return GSC.Logging.getLogger(parentLogger.getName() + '.' + relativeName);
 };
 
@@ -219,8 +221,7 @@ GSC.Logging.check = function(condition, opt_message) {
  * @param {T} condition The condition to check.
  * @param {string=} opt_message Error message in case of failure.
  */
-GSC.Logging.checkWithLogger = function(
-    logger, condition, opt_message) {
+GSC.Logging.checkWithLogger = function(logger, condition, opt_message) {
   if (!condition)
     GSC.Logging.failWithLogger(logger, opt_message);
 };
@@ -271,8 +272,8 @@ GSC.Logging.getLogBuffer = function() {
 function scheduleAppReloadIfAllowed() {
   if (goog.DEBUG || !GSC.Logging.SELF_RELOAD_ON_FATAL_ERROR)
     return;
-  GSC.Logging.CrashLoopDetection.handleImminentCrash().then(
-      function(isInCrashLoop) {
+  GSC.Logging.CrashLoopDetection.handleImminentCrash()
+      .then(function(isInCrashLoop) {
         if (isInCrashLoop) {
           rootLogger.info(
               'Crash loop detected. The application is defunct, but the ' +
@@ -281,7 +282,8 @@ function scheduleAppReloadIfAllowed() {
         }
         rootLogger.info('Reloading the application due to the fatal error...');
         reloadApp();
-      }).catch(function() {
+      })
+      .catch(function() {
         // Don't do anything for repeated crashes within a single run.
       });
 }
@@ -314,8 +316,9 @@ function setupLogBuffer() {
   if (goog.object.containsKey(
           window, GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME)) {
     logBuffer = window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME];
-    logger.fine('Detected an existing log buffer instance, attaching it to ' +
-                'the root logger');
+    logger.fine(
+        'Detected an existing log buffer instance, attaching it to ' +
+        'the root logger');
   } else {
     logBuffer = new GSC.LogBuffer(LOG_BUFFER_CAPACITY);
     window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME] = logBuffer;
@@ -327,5 +330,4 @@ function setupLogBuffer() {
 }
 
 GSC.Logging.setupLogging();
-
 });  // goog.scope

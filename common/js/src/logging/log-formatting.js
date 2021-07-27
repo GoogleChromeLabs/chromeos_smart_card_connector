@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -64,8 +65,8 @@ function getFormattedDocumentLocation(documentLocation, isCompact) {
  */
 function prefixLogRecord(documentLocation, logRecord, isCompact) {
   const loggerNameParts = [];
-  const formattedDocumentLocation = getFormattedDocumentLocation(
-      documentLocation, isCompact);
+  const formattedDocumentLocation =
+      getFormattedDocumentLocation(documentLocation, isCompact);
   if (formattedDocumentLocation)
     loggerNameParts.push(formattedDocumentLocation);
   if (logRecord.getLoggerName())
@@ -73,11 +74,8 @@ function prefixLogRecord(documentLocation, logRecord, isCompact) {
   const prefixedLoggerName = loggerNameParts.join('.');
 
   return new goog.log.LogRecord(
-      logRecord.getLevel(),
-      logRecord.getMessage(),
-      prefixedLoggerName,
-      logRecord.getMillis(),
-      logRecord.getSequenceNumber());
+      logRecord.getLevel(), logRecord.getMessage(), prefixedLoggerName,
+      logRecord.getMillis(), logRecord.getSequenceNumber());
 }
 
 /**
@@ -88,8 +86,8 @@ function prefixLogRecord(documentLocation, logRecord, isCompact) {
  * @return {string}
  */
 GSC.LogFormatting.formatLogRecord = function(documentLocation, logRecord) {
-  return textFormatter.formatRecord(prefixLogRecord(
-      documentLocation, logRecord, /*isCompact=*/false));
+  return textFormatter.formatRecord(
+      prefixLogRecord(documentLocation, logRecord, /*isCompact=*/ false));
 };
 
 /**
@@ -104,8 +102,7 @@ GSC.LogFormatting.formatLogRecord = function(documentLocation, logRecord) {
  */
 GSC.LogFormatting.formatLogRecordCompact = function(
     documentLocation, logRecord) {
-  return textFormatter.formatRecord(prefixLogRecord(
-      documentLocation, logRecord, /*isCompact=*/true));
+  return textFormatter.formatRecord(
+      prefixLogRecord(documentLocation, logRecord, /*isCompact=*/ true));
 };
-
 });

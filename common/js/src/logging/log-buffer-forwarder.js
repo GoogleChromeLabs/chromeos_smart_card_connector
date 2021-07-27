@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -124,8 +125,8 @@ LogBufferForwarder.prototype.onLogRecordObserved_ = function(
       this.ignoredLoggerNames_.has(logRecord.getLoggerName())) {
     return;
   }
-  const formattedLogRecord = GSC.LogFormatting.formatLogRecord(
-      documentLocation, logRecord);
+  const formattedLogRecord =
+      GSC.LogFormatting.formatLogRecord(documentLocation, logRecord);
   if (!this.messageChannel_) {
     this.postponedLogRecords_.add(formattedLogRecord);
     return;
@@ -149,5 +150,4 @@ LogBufferForwarder.prototype.sendLogRecord_ = function(formattedLogRecord) {
 
   this.logCapturingEnabled_ = true;
 };
-
 });

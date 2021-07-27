@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * This library is free software; you can redistribute it and/or
@@ -54,28 +55,28 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
       REQUESTER_NAME, naclModuleMessageChannel, this.handleRequest_.bind(this));
   this.startObservingDevices_();
 
-  /** 
+  /**
    * @type {!Array<function(string, !Array): !Array>}
    * Array of hooks that are called on every successful API request.
-   * @private  
+   * @private
    */
   this.requestSuccessHooks_ = [];
 
-  /** 
+  /**
    * @type {!goog.promise.Resolver}
    * Gets resolved once setup is complete and API requests can be processed.
-   * @private  
+   * @private
    */
   this.setupDonePromiseResolver_ = goog.Promise.withResolver();
 
-  /** 
+  /**
    * @type {!GoogleSmartCard.DeferredProcessor}
    * Queue of API requests that are not yet processed because setup is still in
    * progress.
-   * @private  
+   * @private
    */
-  this.deferredProcessor_ = new GSC.DeferredProcessor(
-      this.setupDonePromiseResolver_.promise);
+  this.deferredProcessor_ =
+      new GSC.DeferredProcessor(this.setupDonePromiseResolver_.promise);
 };
 
 const ChromeUsbBackend = GSC.Libusb.ChromeUsbBackend;
@@ -84,8 +85,8 @@ const ChromeUsbBackend = GSC.Libusb.ChromeUsbBackend;
  * @type {!goog.log.Logger}
  * @const
  */
-ChromeUsbBackend.prototype.logger = GSC.Logging.getScopedLogger(
-    'Libusb.ChromeUsbBackend');
+ChromeUsbBackend.prototype.logger =
+    GSC.Logging.getScopedLogger('Libusb.ChromeUsbBackend');
 
 /**
  * Adds a function hook that is called whenever a request is resolved
@@ -102,10 +103,9 @@ ChromeUsbBackend.prototype.addRequestSuccessHook = function(hook) {
  * @param {function(string, !Array): !Array} hook
  */
 ChromeUsbBackend.prototype.removeRequestSuccessHook = function(hook) {
-  this.requestSuccessHooks_ = this.requestSuccessHooks_.filter(
-      function(value) {
-        return value !== hook; 
-      });
+  this.requestSuccessHooks_ = this.requestSuccessHooks_.filter(function(value) {
+    return value !== hook;
+  });
 };
 
 /**
@@ -151,9 +151,12 @@ ChromeUsbBackend.prototype.logCurrentDevices_ = function() {
  * @private
  */
 ChromeUsbBackend.prototype.logDevices_ = function(devices) {
-  goog.array.sortByKey(devices, function(device) { return device.device; });
-  this.logger.info(devices.length + ' USB device(s) available: ' +
-                   GSC.DebugDump.dump(devices));
+  goog.array.sortByKey(devices, function(device) {
+    return device.device;
+  });
+  this.logger.info(
+      devices.length +
+      ' USB device(s) available: ' + GSC.DebugDump.dump(devices));
 };
 
 /**
@@ -190,9 +193,7 @@ ChromeUsbBackend.prototype.processRequest_ = function(payload) {
   const chromeUsbFunctionArgs = goog.array.concat(
       remoteCallMessage.functionArguments,
       this.chromeUsbApiGenericCallback_.bind(
-          this,
-          debugRepresentation,
-          remoteCallMessage.functionName,
+          this, debugRepresentation, remoteCallMessage.functionName,
           promiseResolver));
 
   /** @preserveTry */
@@ -235,14 +236,11 @@ ChromeUsbBackend.prototype.chromeUsbApiGenericCallback_ = function(
     // lastError flag, that is not suitable for us as we want to distinguish
     // the timeouts from the fatal errors.
     this.reportRequestError_(
-        debugRepresentation,
-        promiseResolver,
+        debugRepresentation, promiseResolver,
         goog.object.get(lastError, 'message', 'Unknown error'));
   } else {
     this.reportRequestSuccess_(
-        debugRepresentation,
-        functionName,
-        promiseResolver,
+        debugRepresentation, functionName, promiseResolver,
         Array.prototype.slice.call(arguments, 3));
   }
 };
@@ -275,8 +273,9 @@ ChromeUsbBackend.prototype.reportRequestError_ = function(
     // done, as it suppresses the useless warning messages.
     this.logger.info('Transfer timed out: ' + debugRepresentation);
   } else {
-    this.logger.warning('API error occurred while calling ' +
-                        debugRepresentation + ': ' + errorMessage);
+    this.logger.warning(
+        'API error occurred while calling ' + debugRepresentation + ': ' +
+        errorMessage);
   }
   promiseResolver.reject(new Error(errorMessage));
 };
@@ -294,9 +293,8 @@ ChromeUsbBackend.prototype.reportRequestSuccess_ = function(
     resultArgs = hook(functionName, resultArgs);
   });
   this.logger.fine(
-      'Results returned by the ' + debugRepresentation + ' call: ' +
-      goog.iter.join(goog.iter.map(resultArgs, debugDump), ', '));
+      'Results returned by the ' + debugRepresentation +
+      ' call: ' + goog.iter.join(goog.iter.map(resultArgs, debugDump), ', '));
   promiseResolver.resolve(resultArgs);
 };
-
 });  // goog.scope

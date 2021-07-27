@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -141,8 +142,10 @@ goog.exportSymbol('testPortMessageChannelMessageSending', function() {
   const mockPort = new GSC.MockPort('mock port');
   setUpPingRespondingForMockPort(mockPort);
   for (let testMessage of TEST_MESSAGES) {
-    mockPort.postMessage(new goog.testing.mockmatchers.ObjectEquals(
-        testMessage.makeMessage())).$once();
+    mockPort
+        .postMessage(new goog.testing.mockmatchers.ObjectEquals(
+            testMessage.makeMessage()))
+        .$once();
   }
   mockPort.postMessage.$replay();
 
@@ -175,8 +178,10 @@ goog.exportSymbol('testPortMessageChannelArrayBufferSending', function() {
       new TypedMessage(MESSAGE_TYPE, EXPECTED_TRANSMITTED_DATA);
 
   const mockPort = new GSC.MockPort('mock port');
-  mockPort.postMessage(new goog.testing.mockmatchers.ObjectEquals(
-      EXPECTED_TRANSMITTED_MESSAGE.makeMessage())).$once();
+  mockPort
+      .postMessage(new goog.testing.mockmatchers.ObjectEquals(
+          EXPECTED_TRANSMITTED_MESSAGE.makeMessage()))
+      .$once();
   mockPort.postMessage.$replay();
 
   const portMessageChannel = new GSC.PortMessageChannel(mockPort.getFakePort());
@@ -206,14 +211,12 @@ goog.exportSymbol('testPortMessageChannelMessageReceiving', function() {
 
     for (let testMessage of TEST_MESSAGES) {
       portMessageChannel.registerService(
-          testMessage.type,
-          function(messageData) {
+          testMessage.type, function(messageData) {
             GSC.Logging.check(goog.isObject(messageData));
             goog.asserts.assert(goog.isObject(messageData));
-            receivedMessages.push(new TypedMessage(
-                testMessage.type, messageData));
-          },
-          true);
+            receivedMessages.push(
+                new TypedMessage(testMessage.type, messageData));
+          }, true);
     }
 
     for (let testMessage of TEST_MESSAGES)

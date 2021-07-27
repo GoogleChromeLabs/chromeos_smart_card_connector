@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -107,8 +108,8 @@ goog.exportSymbol('GoogleSmartCard.PcscLiteClient.Context', Context);
  * @type {!goog.log.Logger}
  * @const
  */
-Context.prototype.logger = GSC.Logging.getScopedLogger(
-    'PcscLiteClient.Context');
+Context.prototype.logger =
+    GSC.Logging.getScopedLogger('PcscLiteClient.Context');
 
 goog.exportProperty(Context.prototype, 'logger', Context.prototype.logger);
 
@@ -166,8 +167,7 @@ Context.prototype.addOnInitializedCallback = function(callback) {
 };
 
 goog.exportProperty(
-    Context.prototype,
-    'addOnInitializedCallback',
+    Context.prototype, 'addOnInitializedCallback',
     Context.prototype.addOnInitializedCallback);
 
 /**
@@ -232,5 +232,4 @@ Context.prototype.messageChannelDisposedListener_ = function() {
   this.logger.fine('Message channel was disposed, disposing...');
   this.dispose();
 };
-
 });  // goog.scope

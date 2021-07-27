@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2017 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -45,18 +46,19 @@ goog.exportSymbol('testDebugDump', function() {
 
   assertEquals('[0x01, "foo", [0x02, 0x03], []]', dump([1, 'foo', [2, 3], []]));
 
-  assertEquals('ArrayBuffer[0x01, 0xFF]',
-               dump(new Uint8Array([1, 255]).buffer));
+  assertEquals(
+      'ArrayBuffer[0x01, 0xFF]', dump(new Uint8Array([1, 255]).buffer));
 
-  assertEquals('Map{0x01: 0x02, 0x03: "foo", "bar": {}, {}: 0x04}',
-               dump(new Map([[1, 2], [3, 'foo'], ['bar', {}], [{}, 4]])));
+  assertEquals(
+      'Map{0x01: 0x02, 0x03: "foo", "bar": {}, {}: 0x04}',
+      dump(new Map([[1, 2], [3, 'foo'], ['bar', {}], [{}, 4]])));
 
   assertEquals('Set{0x01, 0x02}', dump(new Set([1, 2])));
 
   assertEquals('{}', dump({}));
   assertEquals('{"a": "b", "c": [0x01, "d"]}', dump({'a': 'b', 'c': [1, 'd']}));
 
-  assertEquals('<Function>', dump(function(){}));
+  assertEquals('<Function>', dump(function() {}));
 
   assertEquals('<Document>', dump(document));
   assertEquals('<Window>', dump(window));
@@ -64,5 +66,4 @@ goog.exportSymbol('testDebugDump', function() {
   assertEquals('<NodeList>', dump(document.body.childNodes));
   assertEquals('<HTMLCollection>', dump(document.body.children));
 });
-
 });  // goog.scope

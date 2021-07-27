@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -81,13 +82,15 @@ EmscriptenModule.prototype.getLogger = function() {
 
 /** @override */
 EmscriptenModule.prototype.startLoading = function() {
-  this.load_().then(() => {
-    this.loadPromiseResolver_.resolve();
-  }, (e) => {
-    this.logger_.warning('Failed to load the Emscripten module: ' + e);
-    this.dispose();
-    this.loadPromiseResolver_.reject(e);
-  });
+  this.load_().then(
+      () => {
+        this.loadPromiseResolver_.resolve();
+      },
+      (e) => {
+        this.logger_.warning('Failed to load the Emscripten module: ' + e);
+        this.dispose();
+        this.loadPromiseResolver_.reject(e);
+      });
 };
 
 /** @override */
@@ -144,8 +147,9 @@ EmscriptenModule.prototype.load_ = async function() {
   // side and is used for exchanging messages with it. By convention (see the
   // entry_point_emscripten.cc files), the class is named GoogleSmartCardModule.
   const GoogleSmartCardModule = emscriptenApiModule['GoogleSmartCardModule'];
-  GSC.Logging.checkWithLogger(this.logger_, GoogleSmartCardModule,
-                              'GoogleSmartCardModule class not defined');
+  GSC.Logging.checkWithLogger(
+      this.logger_, GoogleSmartCardModule,
+      'GoogleSmartCardModule class not defined');
   this.googleSmartCardModule_ = new GoogleSmartCardModule((message) => {
     this.messageChannel_.onMessageFromModule(message);
   });
@@ -247,8 +251,8 @@ EmscriptenModuleMessageChannel.prototype.disposeInternal = function() {
  * @param {?} googleSmartCardModule
  * @package
  */
-EmscriptenModuleMessageChannel.prototype.onModuleCreated =
-    function(googleSmartCardModule) {
+EmscriptenModuleMessageChannel.prototype.onModuleCreated = function(
+    googleSmartCardModule) {
   this.googleSmartCardModule_ = googleSmartCardModule;
   // Send all previously enqueued messages. Note that, in theory, new items
   // might be added to the array while we're iterating over it, which should be
@@ -262,8 +266,8 @@ EmscriptenModuleMessageChannel.prototype.onModuleCreated =
  * @param {?} message
  * @package
  */
-EmscriptenModuleMessageChannel.prototype.onMessageFromModule =
-    function(message) {
+EmscriptenModuleMessageChannel.prototype.onMessageFromModule = function(
+    message) {
   const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
   if (!typedMessage) {
     GSC.Logging.fail(
@@ -284,5 +288,4 @@ EmscriptenModuleMessageChannel.prototype.sendNow_ = function(message) {
   // Closure Compiler doesn't rename this method call.
   this.googleSmartCardModule_['postMessage'](message);
 };
-
 });  // goog.scope

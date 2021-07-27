@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -121,7 +122,7 @@ RequestReceiver.prototype.requestMessageReceivedListener_ = function(
       GSC.Logging.failWithLogger(
           this.logger,
           'Failed to parse the received request message: ' +
-          GSC.DebugDump.debugDump(messageData));
+              GSC.DebugDump.debugDump(messageData));
     }
   }
 
@@ -153,10 +154,10 @@ RequestReceiver.prototype.responseResolvedListener_ = function(
 
   this.logger.fine(
       'Sending the successful response for the request with identifier ' +
-      requestMessageData.requestId + ', the response is: ' +
-      GSC.DebugDump.debugDump(payload));
-  this.sendResponse_(new ResponseMessageData(
-      requestMessageData.requestId, payload));
+      requestMessageData.requestId +
+      ', the response is: ' + GSC.DebugDump.debugDump(payload));
+  this.sendResponse_(
+      new ResponseMessageData(requestMessageData.requestId, payload));
 };
 
 /**

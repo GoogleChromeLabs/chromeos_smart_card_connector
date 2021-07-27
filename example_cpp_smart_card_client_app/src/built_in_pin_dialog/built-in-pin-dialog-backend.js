@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2020 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -44,9 +45,7 @@ const PIN_DIALOG_URL = 'built-in-pin-dialog.html';
 
 const PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
   'alwaysOnTop': false,
-  'innerBounds': {
-    'width': 230
-  }
+  'innerBounds': {'width': 230}
 };
 
 const GSC = GoogleSmartCard;
@@ -91,13 +90,15 @@ function handleRequest(payload) {
 
   const promiseResolver = goog.Promise.withResolver();
 
-  pinPromise.then(function(pin) {
-    logger.info('PIN dialog finished successfully');
-    promiseResolver.resolve(createResponseMessagePayload(pin));
-  }, function(error) {
-    logger.info('PIN dialog finished with error: ' + error);
-    promiseResolver.reject(error);
-  });
+  pinPromise.then(
+      function(pin) {
+        logger.info('PIN dialog finished successfully');
+        promiseResolver.resolve(createResponseMessagePayload(pin));
+      },
+      function(error) {
+        logger.info('PIN dialog finished with error: ' + error);
+        promiseResolver.reject(error);
+      });
 
   return promiseResolver.promise;
 }
@@ -105,5 +106,4 @@ function handleRequest(payload) {
 function createResponseMessagePayload(pin) {
   return goog.object.create(PIN_MESSAGE_KEY, pin);
 }
-
 });  // goog.scope

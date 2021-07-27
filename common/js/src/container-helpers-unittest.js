@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2018 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -34,8 +35,7 @@ goog.exportSymbol('testBuildObjectFromMap', function() {
       buildObjectFromMap(new Map([['key1', 'value1'], ['key2', 'value2']])),
       {key1: 'value1', key2: 'value2'});
   // Test cases where keys and/or values are not strings.
-  assertObjectEquals(
-      buildObjectFromMap(new Map([['key', 123]])), {key: 123});
+  assertObjectEquals(buildObjectFromMap(new Map([['key', 123]])), {key: 123});
   assertObjectEquals(
       buildObjectFromMap(new Map([[123, 'value']])), {123: 'value'});
   assertObjectEquals(
@@ -82,5 +82,4 @@ goog.exportSymbol('testSubstituteArrayBuffersRecursively', function() {
   assertEquals(substituteArrayBuffersRecursively(parseInt), parseInt);
   assertEquals(substituteArrayBuffersRecursively(Array), Array);
 });
-
 });  // goog.scope

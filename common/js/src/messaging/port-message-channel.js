@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -184,15 +185,14 @@ PortMessageChannel.prototype.disconnectEventHandler_ = function() {
  * @private
  */
 PortMessageChannel.prototype.messageEventHandler_ = function(message) {
-  this.logger.finest('Received a message: ' +
-                     GSC.DebugDump.debugDump(message));
+  this.logger.finest('Received a message: ' + GSC.DebugDump.debugDump(message));
 
   const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
   if (!typedMessage) {
     GSC.Logging.failWithLogger(
         this.logger,
         'Failed to parse the received message: ' +
-        GSC.DebugDump.debugDump(message));
+            GSC.DebugDump.debugDump(message));
   }
 
   this.deliver(typedMessage.type, typedMessage.data);
@@ -208,7 +208,6 @@ PortMessageChannel.prototype.defaultServiceCallback_ = function(
   GSC.Logging.failWithLogger(
       this.logger,
       'Unhandled message received: serviceName="' + serviceName +
-      '", payload=' + GSC.DebugDump.debugDump(payload));
+          '", payload=' + GSC.DebugDump.debugDump(payload));
 };
-
 });  // goog.scope

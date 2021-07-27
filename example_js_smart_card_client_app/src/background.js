@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2016 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -126,13 +127,16 @@ function work(api) {
   function runPcscLiteDemo(callback) {
     logger.info('Starting PC/SC-Lite demo...');
     GSC.PcscLiteClient.Demo.logger.setLevel(goog.log.Level.FINE);
-    GSC.PcscLiteClient.Demo.run(api, function() {
-      logger.info('PC/SC-Lite demo successfully finished');
-      callback();
-    }, function() {
-      logger.warning('PC/SC-Lite demo failed');
-      callback();
-    });
+    GSC.PcscLiteClient.Demo.run(
+        api,
+        function() {
+          logger.info('PC/SC-Lite demo successfully finished');
+          callback();
+        },
+        function() {
+          logger.warning('PC/SC-Lite demo failed');
+          callback();
+        });
   }
 
   function runPinDialogDemo() {
@@ -170,5 +174,4 @@ initializeContext();
 GSC.AppUtils.enableSelfAutoLoading();
 
 GSC.BackgroundPageUnloadPreventing.enable();
-
 });  // goog.scope

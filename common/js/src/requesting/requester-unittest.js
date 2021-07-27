@@ -1,4 +1,5 @@
-/** @license
+/**
+ * @license
  * Copyright 2018 Google Inc. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -156,8 +157,6 @@ goog.exportSymbol('testRequester_disposed', function() {
 
   return requestPromise.then(() => {
     fail('Unexpected success');
-  }, () => {
-  });
+  }, () => {});
 });
-
 });  // goog.scope
