@@ -1,16 +1,8 @@
-// Copyright 2005 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Implements the disposable interface. The dispose method is used
@@ -28,9 +20,10 @@ goog.require('goog.disposable.IDisposable');
 
 /**
  * Class that provides the basic implementation for disposable objects. If your
- * class holds one or more references to COM objects, DOM nodes, or other
- * disposable objects, it should extend this class or implement the disposable
- * interface (defined in goog.disposable.IDisposable).
+ * class holds references or resources that can't be collected by standard GC,
+ * it should extend this class or implement the disposable interface (defined
+ * in goog.disposable.IDisposable). See description of
+ * goog.disposable.IDisposable for examples of cleanup.
  * @constructor
  * @implements {goog.disposable.IDisposable}
  */
@@ -164,8 +157,8 @@ goog.Disposable.prototype.getDisposed = goog.Disposable.prototype.isDisposed;
 /**
  * Disposes of the object. If the object hasn't already been disposed of, calls
  * {@link #disposeInternal}. Classes that extend `goog.Disposable` should
- * override {@link #disposeInternal} in order to delete references to COM
- * objects, DOM nodes, and other disposable objects. Reentrant.
+ * override {@link #disposeInternal} in order to cleanup references, resources
+ * and other disposable objects. Reentrant.
  *
  * @return {void} Nothing.
  * @override
@@ -234,16 +227,15 @@ goog.Disposable.prototype.addOnDisposeCallback = function(callback, opt_scope) {
 
 
 /**
- * Deletes or nulls out any references to COM objects, DOM nodes, or other
- * disposable objects. Classes that extend `goog.Disposable` should
- * override this method.
- * Not reentrant. To avoid calling it twice, it must only be called from the
- * subclass' `disposeInternal` method. Everywhere else the public
- * `dispose` method must be used.
- * For example:
+ * Performs appropriate cleanup. See description of goog.disposable.IDisposable
+ * for examples. Classes that extend `goog.Disposable` should override this
+ * method. Not reentrant. To avoid calling it twice, it must only be called from
+ * the subclass' `disposeInternal` method. Everywhere else the public `dispose`
+ * method must be used. For example:
+ *
  * <pre>
- *   mypackage.MyClass = function() {
- *     mypackage.MyClass.base(this, 'constructor');
+ * mypackage.MyClass = function() {
+ * mypackage.MyClass.base(this, 'constructor');
  *     // Constructor logic specific to MyClass.
  *     ...
  *   };
@@ -257,6 +249,7 @@ goog.Disposable.prototype.addOnDisposeCallback = function(callback, opt_scope) {
  *     mypackage.MyClass.base(this, 'disposeInternal');
  *   };
  * </pre>
+ *
  * @protected
  */
 goog.Disposable.prototype.disposeInternal = function() {

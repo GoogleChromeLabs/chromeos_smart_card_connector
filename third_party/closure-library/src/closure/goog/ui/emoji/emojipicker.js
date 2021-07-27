@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Emoji Picker implementation. This provides a UI widget for
@@ -611,7 +603,7 @@ goog.ui.emoji.EmojiPicker.prototype.enterDocument = function() {
       this.tabPane_.addPage(
           new goog.ui.TabPane.TabPage(pageElement, title, this.getDomHelper()));
     } else {
-      this.getElement().appendChild(pageElement);
+      this.getElement().appendChild(/** @type {!Node} */ (pageElement));
     }
   }
 
@@ -675,13 +667,11 @@ goog.ui.emoji.EmojiPicker.prototype.getCssClass = function() {
  * @return {goog.ui.emoji.Emoji} The currently selected emoji from this picker.
  */
 goog.ui.emoji.EmojiPicker.prototype.getSelectedEmoji = function() {
-  return this.urlPrefix_ ?
-      new goog.ui.emoji.Emoji(
-          this.urlPrefix_ + this.selectedEmoji_.getId(),
-          this.selectedEmoji_.getId()) :
-      this.selectedEmoji_;
+  return this.urlPrefix_ ? new goog.ui.emoji.Emoji(
+                               this.urlPrefix_ + this.selectedEmoji_.getUrl(),
+                               this.selectedEmoji_.getId()) :
+                           this.selectedEmoji_;
 };
-
 
 /**
  * Returns the number of emoji groups in this picker.
@@ -788,7 +778,7 @@ goog.ui.emoji.EmojiPicker.prototype.loadPage_ = function(index) {
       this.tabPane_.setSelectedIndex(index);
     } else {
       var el = this.getElement();
-      el.appendChild(pageElement);
+      el.appendChild(/** @type {!Node} */ (pageElement));
     }
     if (oldPage) {
       oldPage.dispose();

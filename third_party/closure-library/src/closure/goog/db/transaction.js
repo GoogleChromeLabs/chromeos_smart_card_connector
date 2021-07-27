@@ -1,16 +1,8 @@
-// Copyright 2011 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Wrapper for an IndexedDB transaction.
@@ -150,6 +142,23 @@ goog.db.Transaction.prototype.objectStore = function(name) {
     return new goog.db.ObjectStore(this.tx_.objectStore(name));
   } catch (ex) {
     throw goog.db.Error.fromException(ex, 'getting object store ' + name);
+  }
+};
+
+/**
+ * @param {boolean} allowNoopWhenUnsupported Whether it's fine for the method to
+ *     act like no-op if native method is not supported by the browser.
+ * @throws {!goog.db.Error} In case of error executing the commit.
+ */
+goog.db.Transaction.prototype.commit = function(allowNoopWhenUnsupported) {
+  if (!this.tx_.commit && allowNoopWhenUnsupported) {
+    // Method doesn't exist, and caller is ok with a no-op.
+    return;
+  }
+  try {
+    this.tx_.commit();
+  } catch (ex) {
+    throw goog.db.Error.fromException(ex, 'cannot commit the transaction');
   }
 };
 

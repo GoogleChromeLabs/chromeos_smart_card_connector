@@ -1,16 +1,8 @@
-// Copyright 2012 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Provides a mocking framework in Closure to make unit tests easy
@@ -188,7 +180,7 @@ goog.labs.mock.formatMethodCall_ = function(methodName, opt_args) {
       return '<function ' + funcName + '>';
     } else {
       var isObjectWithClass = goog.isObject(arg) && !goog.isFunction(arg) &&
-          !goog.isArray(arg) && arg.constructor != Object;
+          !Array.isArray(arg) && arg.constructor != Object;
 
       if (isObjectWithClass) {
         return arg.toString();
@@ -900,6 +892,13 @@ goog.labs.mock.MockFunctionManager_ = function(func) {
   this.mockedItem.$callVerifier =
       this.useMockedFunctionName_(this.verifyInvocation);
 
+  /**
+   * The call waiter is used to wait for function calls.
+   * Sets the first argument of waitForCall to the function name.
+   * @type {!Function}
+   */
+  this.mockedItem.$callWaiter = this.useMockedFunctionName_(this.waitForCall);
+
   // These have to be repeated because if they're set in the base class they
   // will be stubbed by MockObjectManager.
   this.mockedItem.$verificationModeSetter =
@@ -950,7 +949,7 @@ goog.labs.mock.StubBinder = function() {};
  * `StubBinder` then the given `func` will be used for every further
  * invocation.
  * See #when for complete examples.
- * TODO(user): Add support for the 'Answer' interface.
+ * TODO(vbhasin): Add support for the 'Answer' interface.
  *
  * @param {!Function} func The function to call.
  * @return {!goog.labs.mock.StubBinder} Returns itself for chaining.
@@ -1144,7 +1143,7 @@ goog.labs.mock.MethodBinding_.prototype.matches = function(
   var specs = isVerification ? args : this.args_;
   var calls = isVerification ? this.args_ : args;
 
-  // TODO(user): More elaborate argument matching. Think about matching
+  // TODO(vbhasin): More elaborate argument matching. Think about matching
   //    objects.
   return this.methodName_ == methodName &&
       goog.array.equals(calls, specs, function(arg, spec) {

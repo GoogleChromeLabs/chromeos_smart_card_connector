@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Functions and objects for date representation and manipulation.
@@ -19,14 +11,13 @@
 
 goog.provide('goog.date');
 goog.provide('goog.date.Date');
+goog.provide('goog.date.DateLike');
 goog.provide('goog.date.DateTime');
 goog.provide('goog.date.Interval');
 goog.provide('goog.date.month');
 goog.provide('goog.date.weekDay');
 
 goog.require('goog.asserts');
-/** @suppress {extraRequire} */
-goog.require('goog.date.DateLike');
 goog.require('goog.i18n.DateTimeSymbols');
 goog.require('goog.string');
 
@@ -782,6 +773,11 @@ goog.date.Interval.prototype.add = function(interval) {
   this.seconds += interval.seconds;
 };
 
+
+/**
+ * @typedef {(?Date|?goog.date.Date)}
+ */
+goog.date.DateLike;
 
 
 /**

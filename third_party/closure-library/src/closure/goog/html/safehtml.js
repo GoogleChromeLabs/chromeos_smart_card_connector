@@ -1,16 +1,8 @@
-// Copyright 2013 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 
 /**
@@ -58,6 +50,9 @@ goog.require('goog.string.internal');
  * etc and not by invoking its constructor.  The constructor intentionally
  * takes no parameters and the type is immutable; hence only a default instance
  * corresponding to the empty string can be obtained via constructor invocation.
+ *
+ * Creating SafeHtml objects HAS SIDE-EFFECTS due to calling Trusted Types Web
+ * API.
  *
  * Note that there is no `goog.html.SafeHtml.fromConstant`. The reason is that
  * the following code would create an unsafe HTML:
@@ -330,6 +325,22 @@ goog.html.SafeHtml.htmlEscapePreservingNewlinesAndSpaces = function(
  * @deprecated Use goog.html.SafeHtml.htmlEscape.
  */
 goog.html.SafeHtml.from = goog.html.SafeHtml.htmlEscape;
+
+
+/**
+ * Converts an arbitrary string into an HTML comment by HTML-escaping the
+ * contents and embedding the result between HTML comment markers.
+ *
+ * Escaping is needed because Internet Explorer supports conditional comments
+ * and so may render HTML markup within comments.
+ *
+ * @param {string} text
+ * @return {!goog.html.SafeHtml}
+ */
+goog.html.SafeHtml.comment = function(text) {
+  return goog.html.SafeHtml.createSafeHtmlSecurityPrivateDoNotAccessOrElse(
+      '<!--' + goog.string.internal.htmlEscape(text) + '-->', null);
+};
 
 
 /**
@@ -616,13 +627,16 @@ goog.html.SafeHtml.createScriptSrc = function(src, opt_attributes) {
  */
 goog.html.SafeHtml.createScript = function(script, opt_attributes) {
   for (var attr in opt_attributes) {
-    var attrLower = attr.toLowerCase();
-    if (attrLower == 'language' || attrLower == 'src' || attrLower == 'text' ||
-        attrLower == 'type') {
-      throw new Error(
-          goog.html.SafeHtml.ENABLE_ERROR_MESSAGES ?
-              'Cannot set "' + attrLower + '" attribute' :
-              '');
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwnProperty#Using_hasOwnProperty_as_a_property_name
+    if (Object.prototype.hasOwnProperty.call(opt_attributes, attr)) {
+      var attrLower = attr.toLowerCase();
+      if (attrLower == 'language' || attrLower == 'src' ||
+          attrLower == 'text' || attrLower == 'type') {
+        throw new Error(
+            goog.html.SafeHtml.ENABLE_ERROR_MESSAGES ?
+                'Cannot set "' + attrLower + '" attribute' :
+                '');
+      }
     }
   }
 
@@ -844,7 +858,7 @@ goog.html.SafeHtml.join = function(separator, parts) {
    *     !Array<!goog.html.SafeHtml.TextOrHtml_>} argument
    */
   var addArgument = function(argument) {
-    if (goog.isArray(argument)) {
+    if (Array.isArray(argument)) {
       goog.array.forEach(argument, addArgument);
     } else {
       var html = goog.html.SafeHtml.htmlEscape(argument);
@@ -916,6 +930,22 @@ goog.html.SafeHtml.createSafeHtmlSecurityPrivateDoNotAccessOrElse = function(
       html, dir);
 };
 
+/**
+ * Package-internal utility method to create SafeHtml instances, skipping
+ * Trusted Type policy. This method exists only so that the compiler can
+ * dead code eliminate static fields (like EMPTY) when they're not accessed.
+ * @param {!TrustedHTML|string} trustedHtml
+ * @return {!goog.html.SafeHtml} The initialized SafeHtml object.
+ * @package
+ */
+goog.html.SafeHtml
+    .createSafeHtmlFromTrustedHtmlSecurityPrivateDoNotAccessOrElse = function(
+    trustedHtml) {
+  return new goog.html.SafeHtml()
+      .initSecurityFromTrustedHtmlPrivateDoNotAccessOrElse_(
+          trustedHtml, goog.i18n.bidi.Dir.NEUTRAL);
+};
+
 
 /**
  * Called from createSafeHtmlSecurityPrivateDoNotAccessOrElse(). This
@@ -928,11 +958,27 @@ goog.html.SafeHtml.createSafeHtmlSecurityPrivateDoNotAccessOrElse = function(
  */
 goog.html.SafeHtml.prototype.initSecurityPrivateDoNotAccessOrElse_ = function(
     html, dir) {
+  const policy = goog.html.trustedtypes.getPolicyPrivateDoNotAccessOrElse();
   this.privateDoNotAccessOrElseSafeHtmlWrappedValue_ =
-      goog.html.trustedtypes.PRIVATE_DO_NOT_ACCESS_OR_ELSE_POLICY ?
-      goog.html.trustedtypes.PRIVATE_DO_NOT_ACCESS_OR_ELSE_POLICY.createHTML(
-          html) :
-      html;
+      policy ? policy.createHTML(html) : html;
+  this.dir_ = dir;
+  return this;
+};
+
+
+/**
+ * Called from createSafeHtmlFromTrustedHtmlSecurityPrivateDoNotAccessOrElse().
+ * This method exists only so that the compiler can dead code eliminate static
+ * fields (like EMPTY) when they're not accessed.
+ * @param {!TrustedHTML|string} trustedHtml
+ * @param {?goog.i18n.bidi.Dir} dir
+ * @return {!goog.html.SafeHtml}
+ * @private
+ */
+goog.html.SafeHtml.prototype
+    .initSecurityFromTrustedHtmlPrivateDoNotAccessOrElse_ = function(
+    trustedHtml, dir) {
+  this.privateDoNotAccessOrElseSafeHtmlWrappedValue_ = trustedHtml;
   this.dir_ = dir;
   return this;
 };
@@ -959,7 +1005,7 @@ goog.html.SafeHtml.createSafeHtmlTagSecurityPrivateDoNotAccessOrElse = function(
   var content = opt_content;
   if (content == null) {
     content = [];
-  } else if (!goog.isArray(content)) {
+  } else if (!Array.isArray(content)) {
     content = [content];
   }
 
@@ -1002,18 +1048,21 @@ goog.html.SafeHtml.stringifyAttributes = function(tagName, opt_attributes) {
   var result = '';
   if (opt_attributes) {
     for (var name in opt_attributes) {
-      if (!goog.html.SafeHtml.VALID_NAMES_IN_TAG_.test(name)) {
-        throw new Error(
-            goog.html.SafeHtml.ENABLE_ERROR_MESSAGES ?
-                'Invalid attribute name "' + name + '".' :
-                '');
+      // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwnProperty#Using_hasOwnProperty_as_a_property_name
+      if (Object.prototype.hasOwnProperty.call(opt_attributes, name)) {
+        if (!goog.html.SafeHtml.VALID_NAMES_IN_TAG_.test(name)) {
+          throw new Error(
+              goog.html.SafeHtml.ENABLE_ERROR_MESSAGES ?
+                  'Invalid attribute name "' + name + '".' :
+                  '');
+        }
+        var value = opt_attributes[name];
+        if (value == null) {
+          continue;
+        }
+        result +=
+            ' ' + goog.html.SafeHtml.getAttrNameAndValue_(tagName, name, value);
       }
-      var value = opt_attributes[name];
-      if (value == null) {
-        continue;
-      }
-      result +=
-          ' ' + goog.html.SafeHtml.getAttrNameAndValue_(tagName, name, value);
     }
   }
   return result;
@@ -1036,28 +1085,35 @@ goog.html.SafeHtml.combineAttributes = function(
   var name;
 
   for (name in fixedAttributes) {
-    goog.asserts.assert(name.toLowerCase() == name, 'Must be lower case');
-    combinedAttributes[name] = fixedAttributes[name];
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwnProperty#Using_hasOwnProperty_as_a_property_name
+    if (Object.prototype.hasOwnProperty.call(fixedAttributes, name)) {
+      goog.asserts.assert(name.toLowerCase() == name, 'Must be lower case');
+      combinedAttributes[name] = fixedAttributes[name];
+    }
   }
   for (name in defaultAttributes) {
-    goog.asserts.assert(name.toLowerCase() == name, 'Must be lower case');
-    combinedAttributes[name] = defaultAttributes[name];
+    if (Object.prototype.hasOwnProperty.call(defaultAttributes, name)) {
+      goog.asserts.assert(name.toLowerCase() == name, 'Must be lower case');
+      combinedAttributes[name] = defaultAttributes[name];
+    }
   }
 
   if (opt_attributes) {
     for (name in opt_attributes) {
-      var nameLower = name.toLowerCase();
-      if (nameLower in fixedAttributes) {
-        throw new Error(
-            goog.html.SafeHtml.ENABLE_ERROR_MESSAGES ?
-                'Cannot override "' + nameLower + '" attribute, got "' + name +
-                    '" with value "' + opt_attributes[name] + '"' :
-                '');
+      if (Object.prototype.hasOwnProperty.call(opt_attributes, name)) {
+        var nameLower = name.toLowerCase();
+        if (nameLower in fixedAttributes) {
+          throw new Error(
+              goog.html.SafeHtml.ENABLE_ERROR_MESSAGES ?
+                  'Cannot override "' + nameLower + '" attribute, got "' +
+                      name + '" with value "' + opt_attributes[name] + '"' :
+                  '');
+        }
+        if (nameLower in defaultAttributes) {
+          delete combinedAttributes[nameLower];
+        }
+        combinedAttributes[name] = opt_attributes[name];
       }
-      if (nameLower in defaultAttributes) {
-        delete combinedAttributes[nameLower];
-      }
-      combinedAttributes[name] = opt_attributes[name];
     }
   }
 
@@ -1069,24 +1125,44 @@ goog.html.SafeHtml.combineAttributes = function(
  * A SafeHtml instance corresponding to the HTML doctype: "<!DOCTYPE html>".
  * @const {!goog.html.SafeHtml}
  */
-goog.html.SafeHtml.DOCTYPE_HTML =
-    goog.html.SafeHtml.createSafeHtmlSecurityPrivateDoNotAccessOrElse(
+goog.html.SafeHtml.DOCTYPE_HTML = /** @type {!goog.html.SafeHtml} */ ({
+  // NOTE: this compiles to nothing, but hides the possible side effect of
+  // SafeHtml creation (due to calling trustedTypes.createPolicy) from the
+  // compiler so that the entire call can be removed if the result is not used.
+  valueOf: function() {
+    return goog.html.SafeHtml.createSafeHtmlSecurityPrivateDoNotAccessOrElse(
         '<!DOCTYPE html>', goog.i18n.bidi.Dir.NEUTRAL);
-
+  },
+}.valueOf());
 
 /**
  * A SafeHtml instance corresponding to the empty string.
  * @const {!goog.html.SafeHtml}
  */
 goog.html.SafeHtml.EMPTY =
-    goog.html.SafeHtml.createSafeHtmlSecurityPrivateDoNotAccessOrElse(
-        '', goog.i18n.bidi.Dir.NEUTRAL);
+    goog.html.SafeHtml
+        .createSafeHtmlFromTrustedHtmlSecurityPrivateDoNotAccessOrElse(
+            // NOTE: This constant uses a different builder function, that
+            // accepts TrustedHTML to avoid creating a Trusted Types policy.
+            // Using trustedTypes.emptyHTML if available, and an empty string if
+            // not. This typecast is safe - if trustedTypes are not available,
+            // policy creation would not happen anyway, and DOM sinks accept
+            // string values.
+            goog.global.trustedTypes && goog.global.trustedTypes.emptyHTML ?
+                goog.global.trustedTypes.emptyHTML :
+                '');
 
 
 /**
  * A SafeHtml instance corresponding to the <br> tag.
  * @const {!goog.html.SafeHtml}
  */
-goog.html.SafeHtml.BR =
-    goog.html.SafeHtml.createSafeHtmlSecurityPrivateDoNotAccessOrElse(
+goog.html.SafeHtml.BR = /** @type {!goog.html.SafeHtml} */ ({
+  // NOTE: this compiles to nothing, but hides the possible side effect of
+  // SafeHtml creation (due to calling trustedTypes.createPolicy) from the
+  // compiler so that the entire call can be removed if the result is not used.
+  valueOf: function() {
+    return goog.html.SafeHtml.createSafeHtmlSecurityPrivateDoNotAccessOrElse(
         '<br>', goog.i18n.bidi.Dir.NEUTRAL);
+  },
+}.valueOf());

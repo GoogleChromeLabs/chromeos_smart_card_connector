@@ -1,16 +1,8 @@
-// Copyright 2009 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview A table for showing the results of performance testing.
@@ -24,6 +16,8 @@ goog.provide('goog.testing.PerformanceTable');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.TagName');
+goog.require('goog.dom.safe');
+goog.require('goog.string.Const');
 goog.require('goog.testing.PerformanceTimer');
 
 
@@ -84,29 +78,32 @@ goog.testing.PerformanceTable.prototype.getTimer = function() {
  * @private
  */
 goog.testing.PerformanceTable.prototype.initRoot_ = function() {
-  this.root_.innerHTML = '<table class="test-results" cellspacing="1">' +
-      '  <thead>' +
-      '    <tr>' +
-      '      <th rowspan="2">Test Description</th>' +
-      '      <th rowspan="2">Runs</th>' +
-      '      <th colspan="4">Results (ms)</th>' +
-      '    </tr>' +
-      '    <tr>' +
-      '      <th>Average</th>' +
-      '      <th>Median</th>' +
-      '      <th>Std Dev</th>' +
-      '      <th>Minimum</th>' +
-      '      <th>Maximum</th>' +
-      '    </tr>' +
-      '  </thead>' +
-      '  <tbody>' +
-      '  </tbody>' +
-      '</table>';
+  goog.dom.safe.setInnerHtmlFromConstant(
+      goog.asserts.assert(this.root_),
+      goog.string.Const.from(
+          '<table class="test-results" cellspacing="1">' +
+          '  <thead>' +
+          '    <tr>' +
+          '      <th rowspan="2">Test Description</th>' +
+          '      <th rowspan="2">Runs</th>' +
+          '      <th colspan="4">Results (ms)</th>' +
+          '    </tr>' +
+          '    <tr>' +
+          '      <th>Average</th>' +
+          '      <th>Median</th>' +
+          '      <th>Std Dev</th>' +
+          '      <th>Minimum</th>' +
+          '      <th>Maximum</th>' +
+          '    </tr>' +
+          '  </thead>' +
+          '  <tbody>' +
+          '  </tbody>' +
+          '</table>'));
 };
 
 
 /**
- * @return {Element} The body of the table.
+ * @return {!Element} The body of the table.
  * @private
  */
 goog.testing.PerformanceTable.prototype.getTableBody_ = function() {

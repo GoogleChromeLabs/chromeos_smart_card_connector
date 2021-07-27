@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Interface definitions for working with ranges
@@ -22,13 +14,11 @@ goog.provide('goog.dom.AbstractRange');
 goog.provide('goog.dom.RangeIterator');
 goog.provide('goog.dom.RangeType');
 
-goog.forwardDeclare('goog.dom.TextRange');
 goog.require('goog.dom');
 goog.require('goog.dom.NodeType');
-goog.require('goog.dom.SavedCaretRange');
 goog.require('goog.dom.TagIterator');
 goog.require('goog.userAgent');
-
+goog.requireType('goog.dom.SavedRange');
 
 /**
  * Types of ranges.
@@ -46,6 +36,7 @@ goog.dom.RangeType = {
  * Creates a new selection with no properties.  Do not use this constructor -
  * use one of the goog.dom.Range.from* methods instead.
  * @constructor
+ * @abstract
  */
 goog.dom.AbstractRange = function() {};
 
@@ -86,7 +77,7 @@ goog.dom.AbstractRange.getBrowserSelectionForWindow = function(win) {
         // in a different domain, IE will throw an exception.
         return null;
       }
-      // TODO(user|robbyw) Sometimes IE 6 returns a selection instance
+      // TODO(user) Sometimes IE 6 returns a selection instance
       // when there is no selection.  This object has a 'type' property equals
       // to 'None' and a typeDetail property bound to undefined. Ideally this
       // function should not return this instance.
@@ -149,7 +140,7 @@ goog.dom.AbstractRange.prototype.getTextRangeCount = goog.abstractMethod;
  * Get the i-th text range in this range.  The behavior is undefined if
  * i >= getTextRangeCount or i < 0.
  * @param {number} i The range number to retrieve.
- * @return {goog.dom.TextRange} The i-th text range.
+ * @return {?goog.dom.AbstractRange} The i-th text range.
  */
 goog.dom.AbstractRange.prototype.getTextRange = goog.abstractMethod;
 
@@ -157,7 +148,7 @@ goog.dom.AbstractRange.prototype.getTextRange = goog.abstractMethod;
 /**
  * Gets an array of all text ranges this range is comprised of.  For non-multi
  * ranges, returns a single element array containing this.
- * @return {!Array<goog.dom.TextRange>} Array of text ranges.
+ * @return {!Array<?goog.dom.AbstractRange>} Array of text ranges.
  */
 goog.dom.AbstractRange.prototype.getTextRanges = function() {
   var output = [];
@@ -455,15 +446,12 @@ goog.dom.AbstractRange.prototype.saveUsingDom = goog.abstractMethod;
  * Saves the range using HTML carets. As long as the carets remained in the
  * HTML, the range can be restored...even when the HTML is copied across
  * documents.
- * @return {goog.dom.SavedCaretRange?} A range representation that can be
- *     restored as long as carets are not removed. Returns null if carets
+ * @return {?goog.dom.AbstractSavedCaretRange} A range representation that can
+ *     be restored as long as carets are not removed. Returns null if carets
  *     could not be created.
+ * @abstract
  */
-goog.dom.AbstractRange.prototype.saveUsingCarets = function() {
-  return (this.getStartNode() && this.getEndNode()) ?
-      new goog.dom.SavedCaretRange(this) :
-      null;
-};
+goog.dom.AbstractRange.prototype.saveUsingCarets = function() {};
 
 
 // RANGE MODIFICATION

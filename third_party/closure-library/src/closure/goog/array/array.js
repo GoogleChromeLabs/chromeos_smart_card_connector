@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Utilities for manipulating arrays.
@@ -302,6 +294,9 @@ goog.array.map = goog.NATIVE_ARRAY_PROTOTYPES &&
  * Passes every element of an array into a function and accumulates the result.
  *
  * See {@link http://tinyurl.com/developer-mozilla-org-array-reduce}
+ * Note that this implementation differs from the native Array.prototype.reduce
+ * in that the initial value is assumed to be defined (the MDN docs linked above
+ * recommend not omitting this parameter, although it is technically optional).
  *
  * For example:
  * var a = [1, 2, 3, 4];
@@ -600,7 +595,7 @@ goog.array.isEmpty = function(arr) {
 goog.array.clear = function(arr) {
   // For non real arrays we don't have the magic length so we delete the
   // indices.
-  if (!goog.isArray(arr)) {
+  if (!Array.isArray(arr)) {
     for (var i = arr.length - 1; i >= 0; i--) {
       delete arr[i];
     }
@@ -1230,13 +1225,15 @@ goog.array.isSorted = function(arr, opt_compareFn, opt_strict) {
  * have the same length and their corresponding elements are equal according to
  * the comparison function.
  *
- * @param {IArrayLike<?>} arr1 The first array to compare.
- * @param {IArrayLike<?>} arr2 The second array to compare.
- * @param {Function=} opt_equalsFn Optional comparison function.
+ * @param {IArrayLike<A>} arr1 The first array to compare.
+ * @param {IArrayLike<B>} arr2 The second array to compare.
+ * @param {?function(A,B):boolean=} opt_equalsFn Optional comparison function.
  *     Should take 2 arguments to compare, and return true if the arguments
  *     are equal. Defaults to {@link goog.array.defaultCompareEquality} which
  *     compares the elements using the built-in '===' operator.
  * @return {boolean} Whether the two arrays are equal.
+ * @template A
+ * @template B
  */
 goog.array.equals = function(arr1, arr2, opt_equalsFn) {
   if (!goog.isArrayLike(arr1) || !goog.isArrayLike(arr2) ||
@@ -1500,7 +1497,7 @@ goog.array.flatten = function(var_args) {
   var result = [];
   for (var i = 0; i < arguments.length; i++) {
     var element = arguments[i];
-    if (goog.isArray(element)) {
+    if (Array.isArray(element)) {
       for (var c = 0; c < element.length; c += CHUNK_SIZE) {
         var chunk = goog.array.slice(element, c, c + CHUNK_SIZE);
         var recurseResult = goog.array.flatten.apply(null, chunk);

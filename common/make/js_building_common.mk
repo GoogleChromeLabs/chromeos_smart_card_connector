@@ -105,6 +105,7 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
 	--dependency_mode=PRUNE \
 	--jscomp_error='*' \
+	--jscomp_off deprecated \
 	--jscomp_off extraRequire \
 	--jscomp_off jsdocMissingConst \
 	--jscomp_off lintChecks \

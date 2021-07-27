@@ -1,16 +1,8 @@
-// Copyright 2014 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview The SafeStyle type and its builders.
@@ -347,20 +339,24 @@ goog.html.SafeStyle.PropertyMap;
 goog.html.SafeStyle.create = function(map) {
   var style = '';
   for (var name in map) {
-    if (!/^[-_a-zA-Z0-9]+$/.test(name)) {
-      throw new Error('Name allows only [-_a-zA-Z0-9], got: ' + name);
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwnProperty#Using_hasOwnProperty_as_a_property_name
+    if (Object.prototype.hasOwnProperty.call(map, name)) {
+      if (!/^[-_a-zA-Z0-9]+$/.test(name)) {
+        throw new Error('Name allows only [-_a-zA-Z0-9], got: ' + name);
+      }
+      var value = map[name];
+      if (value == null) {
+        continue;
+      }
+      if (Array.isArray(value)) {
+        value =
+            goog.array.map(value, goog.html.SafeStyle.sanitizePropertyValue_)
+                .join(' ');
+      } else {
+        value = goog.html.SafeStyle.sanitizePropertyValue_(value);
+      }
+      style += name + ':' + value + ';';
     }
-    var value = map[name];
-    if (value == null) {
-      continue;
-    }
-    if (goog.isArray(value)) {
-      value = goog.array.map(value, goog.html.SafeStyle.sanitizePropertyValue_)
-                  .join(' ');
-    } else {
-      value = goog.html.SafeStyle.sanitizePropertyValue_(value);
-    }
-    style += name + ':' + value + ';';
   }
   if (!style) {
     return goog.html.SafeStyle.EMPTY;
@@ -538,6 +534,7 @@ goog.html.SafeStyle.ALLOWED_FUNCTIONS_ = [
   'fit-content',
   'hsl',
   'hsla',
+  'linear-gradient',
   'matrix',
   'minmax',
   'repeat',
@@ -605,7 +602,7 @@ goog.html.SafeStyle.concat = function(var_args) {
    * @param {!goog.html.SafeStyle|!Array<!goog.html.SafeStyle>} argument
    */
   var addArgument = function(argument) {
-    if (goog.isArray(argument)) {
+    if (Array.isArray(argument)) {
       goog.array.forEach(argument, addArgument);
     } else {
       style += goog.html.SafeStyle.unwrap(argument);

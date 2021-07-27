@@ -1,16 +1,8 @@
-// Copyright 2009 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Provides the base goog.ui.Control and goog.ui.ControlRenderer
@@ -80,26 +72,26 @@
  * Which will allow you to set your own .my-custom-namespace-hover,
  * .my-custom-namespace-selected CSS selectors.
  *
- * NOTE(user): it seems like an overkill to subclass goog.ui.Control instead of
+ * NOTE(goto): it seems like an overkill to subclass goog.ui.Control instead of
  * using a factory, but we wanted to make sure we had more control over the
  * events for future media implementations. Since we intent to use it in many
  * different places, it makes sense to have a more flexible design that lets us
  * control the inner workings of goog.ui.Control.
  *
- * TODO(user): implement, as needed, the Media specific state changes UI, such
+ * TODO(goto): implement, as needed, the Media specific state changes UI, such
  * as minimize/maximize buttons, expand/close buttons, etc.
  */
 
 goog.provide('goog.ui.media.Media');
 goog.provide('goog.ui.media.MediaRenderer');
 
-goog.forwardDeclare('goog.ui.media.MediaModel');
 goog.require('goog.asserts');
 goog.require('goog.dom.TagName');
 goog.require('goog.style');
 goog.require('goog.ui.Component');
 goog.require('goog.ui.Control');
 goog.require('goog.ui.ControlRenderer');
+goog.requireType('goog.ui.media.MediaModel');
 
 
 
@@ -123,7 +115,7 @@ goog.ui.media.Media = function(dataModel, opt_renderer, opt_domHelper) {
   this.setDataModel(dataModel);
   this.setSupportedState(goog.ui.Component.State.OPENED, true);
   this.setSupportedState(goog.ui.Component.State.SELECTED, true);
-  // TODO(user): had to do this to for mouseDownHandler not to
+  // TODO(goto): had to do this to for mouseDownHandler not to
   // e.preventDefault(), because it was not allowing the event to reach the
   // flash player. figure out a better way to not e.preventDefault().
   this.setAllowTextSelection(true);
@@ -171,9 +163,9 @@ goog.ui.media.Media.prototype.getDataModel = function() {
  * The current common functionality shared by Medias is to have an outer frame
  * that gets highlighted on mouse hover.
  *
- * TODO(user): implement more common UI behavior, as needed.
+ * TODO(goto): implement more common UI behavior, as needed.
  *
- * NOTE(user): I am not enjoying how the subclasses are changing their state
+ * NOTE(goto): I am not enjoying how the subclasses are changing their state
  * through setState() ... maybe provide abstract methods like
  * goog.ui.media.MediaRenderer.prototype.preview = goog.abstractMethod;
  * goog.ui.media.MediaRenderer.prototype.play = goog.abstractMethod;

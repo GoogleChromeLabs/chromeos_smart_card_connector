@@ -1,16 +1,8 @@
-// Copyright 2013 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /** @fileoverview Unit tests for safe. */
 
@@ -149,6 +141,13 @@ testSuite({
     assertEquals(
         'Expect grandchildDiv to still be contained in childDiv.', childDiv,
         grandchildDiv.parentElement);
+  },
+
+  testSetInnerHtmlFromConstant() {
+    const element = document.createElement('div');
+    const html = '<b>c</b>';
+    safe.setInnerHtmlFromConstant(element, Const.from(html));
+    assertEquals(html, element.innerHTML);
   },
 
   testSetStyle() {
@@ -705,6 +704,39 @@ testSuite({
     }
   },
 
+  testSetScriptSrc_withIframe() {
+    const url =
+        TrustedResourceUrl.fromConstant(Const.from('javascript:trusted();'));
+    // clear nonce cache for test.
+    /** @type {?} */ (goog).cspNonce_ = null;
+    // create the iframe and set up a script inside the iframe.
+    const nonce = 'ThisIsANonceThisIsANonceThisIsANonce';
+    const iframe = dom.createElement(TagName.IFRAME);
+    document.body.appendChild(iframe);
+    const iframeWindow = iframe.contentWindow;
+    const iframeDocument = iframeWindow.document;
+    iframeDocument.write('<HTML><BODY></BODY></HTML>');
+    iframeDocument.close();
+    const iframeScript = iframeDocument.createElement('SCRIPT');
+    iframeScript.setAttribute('nonce', nonce);
+    iframeDocument.body.appendChild(iframeScript);
+    const mockElement = /** @type {!HTMLScriptElement} */ ({
+      'src': 'blarg',
+      /** @suppress {globalThis} */
+      'setAttribute': function(attr, value) {
+        this[attr] = value;
+      },
+      ownerDocument: {defaultView: iframeWindow}
+    });
+    safe.setScriptSrc(mockElement, url);
+    try {
+      assertEquals('javascript:trusted();', mockElement.src);
+      assertEquals(nonce, mockElement.nonce);
+    } finally {
+      dom.removeNode(iframe);
+    }
+  },
+
   testSetScriptContent() {
     const mockScriptElement = /** @type {!HTMLScriptElement} */ ({
       /** @suppress {globalThis} */
@@ -724,10 +756,32 @@ testSuite({
     safe.setScriptContent(mockScriptElement, content);
 
     try {
-      assertEquals(SafeScript.unwrap(content), mockScriptElement.text);
+      assertEquals(SafeScript.unwrap(content), mockScriptElement.textContent);
       assertEquals(nonce, mockScriptElement.nonce);
     } finally {
       dom.removeNode(noncedScript);
+    }
+  },
+
+  testSetScriptContentWithSpecialCharacters() {
+    const scriptElement = dom.createElement(TagName.SCRIPT);
+    document.body.appendChild(scriptElement);
+    const TEST_PROPERTY = 'scriptContentTestProperty';
+    const content = SafeScript.fromConstant(Const.from(`
+      // Comment to ensure newlines are preserved.
+      window.${TEST_PROPERTY} = 'tricky<{}>value';
+    `));
+    safe.setScriptContent(scriptElement, content);
+
+    try {
+      assertEquals(SafeScript.unwrap(content), scriptElement.text);
+      assertEquals('tricky<{}>value', window[TEST_PROPERTY]);
+
+      // Ensure no <br> tags were inserted into the script tag.
+      assertEquals(1, scriptElement.childNodes.length);
+    } finally {
+      dom.removeNode(scriptElement);
+      delete window[TEST_PROPERTY];
     }
   },
 

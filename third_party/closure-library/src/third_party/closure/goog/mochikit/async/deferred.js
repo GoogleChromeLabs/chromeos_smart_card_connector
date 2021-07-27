@@ -17,8 +17,6 @@
  *
  * Based on the Dojo code which in turn is based on the MochiKit code.
  *
- * @author arv@google.com (Erik Arvidsson)
- * @author brenneman@google.com (Shawn Brenneman)
  */
 
 goog.provide('goog.async.Deferred');
@@ -348,6 +346,7 @@ goog.async.Deferred.prototype.errback = function(opt_result) {
  * current stack trace to give additional context.
  * @param {*} error
  * @private
+ * @suppress {missingProperties} error.stack
  */
 goog.async.Deferred.prototype.makeStackTraceLong_ = function(error) {
   if (!goog.async.Deferred.LONG_STACK_TRACES) {
@@ -608,6 +607,18 @@ goog.async.Deferred.prototype.hasErrback_ = function() {
     // The errback is the second element in the array.
     return goog.isFunction(sequenceRow[1]);
   });
+};
+
+
+/**
+ * Return the most recent value fired.
+ *
+ * @return {VALUE|undefined}
+ * @deprecated This method is only for facilitating migrations from other async
+ *     primitives.
+ */
+goog.async.Deferred.prototype.getLastValueForMigration = function() {
+  return (this.hasFired() && !this.hadError_) ? this.result_ : undefined;
 };
 
 

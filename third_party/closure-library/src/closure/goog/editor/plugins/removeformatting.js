@@ -1,17 +1,8 @@
-// Copyright 2008 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// All Rights Reserved.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Plugin to handle Remove Formatting.
@@ -379,7 +370,7 @@ goog.editor.plugins.RemoveFormatting.prototype.getHtmlText_ = function(range) {
 
   if (goog.editor.BrowserFeature.HAS_W3C_RANGES) {
     // Get the text to convert.
-    div.appendChild(textRange.cloneContents());
+    div.appendChild(/** @type {!Node} */ (textRange.cloneContents()));
   } else if (goog.editor.BrowserFeature.HAS_IE_RANGES) {
     // Trim the whitespace on the ends of the range, so that it the container
     // will be the container of only the text content that we are changing.

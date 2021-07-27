@@ -1,16 +1,8 @@
-// Copyright 2009 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Character Picker widget for picking any Unicode character.
@@ -24,6 +16,7 @@ goog.require('goog.a11y.aria');
 goog.require('goog.a11y.aria.State');
 goog.require('goog.array');
 goog.require('goog.asserts');
+goog.require('goog.dispose');
 goog.require('goog.dom');
 goog.require('goog.dom.TagName');
 goog.require('goog.dom.classlist');
@@ -50,6 +43,7 @@ goog.require('goog.ui.Menu');
 goog.require('goog.ui.MenuButton');
 goog.require('goog.ui.MenuItem');
 goog.require('goog.ui.Tooltip');
+goog.requireType('goog.events.KeyEvent');
 
 
 
@@ -805,7 +799,7 @@ goog.ui.CharPicker.prototype.updateGrid_ = function(grid, items) {
           this.stickwrap_.offsetHeight * items.length / this.gridsize_ + 'px';
     } else {
       // This is the last ditch effort if height is not avaialble.
-      // Maximum of 3em is assumed to the the cell height. Extra space after
+      // Maximum of 3em is assumed to the cell height. Extra space after
       // last character in the grid is OK.
       this.stick_.style.height =
           3 * this.columnCount_ * items.length / this.gridsize_ + 'em';

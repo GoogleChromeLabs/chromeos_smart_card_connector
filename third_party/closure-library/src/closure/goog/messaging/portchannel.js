@@ -1,16 +1,8 @@
-// Copyright 2010 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview A class that wraps several types of HTML5 message-passing
@@ -29,6 +21,7 @@ goog.require('goog.Timer');
 goog.require('goog.array');
 goog.require('goog.async.Deferred');
 goog.require('goog.debug');
+goog.require('goog.dispose');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
 goog.require('goog.json');
@@ -38,6 +31,8 @@ goog.require('goog.messaging.DeferredChannel');
 goog.require('goog.object');
 goog.require('goog.string');
 goog.require('goog.userAgent');
+goog.requireType('goog.events.Event');
+goog.requireType('goog.messaging.MessageChannel');
 
 
 
@@ -356,7 +351,7 @@ goog.messaging.PortChannel.prototype.extractPorts_ = function(ports, message) {
           '[object MessagePort]') {
     ports.push(/** @type {MessagePort} */ (message));
     return {'_port': {'type': 'real', 'index': ports.length - 1}};
-  } else if (goog.isArray(message)) {
+  } else if (Array.isArray(message)) {
     return goog.array.map(message, goog.bind(this.extractPorts_, this, ports));
     // We want to compare the exact constructor here because we only want to
     // recurse into object literals, not native objects like Date.
@@ -383,7 +378,7 @@ goog.messaging.PortChannel.prototype.extractPorts_ = function(ports, message) {
  * @private
  */
 goog.messaging.PortChannel.prototype.injectPorts_ = function(ports, message) {
-  if (goog.isArray(message)) {
+  if (Array.isArray(message)) {
     return goog.array.map(message, goog.bind(this.injectPorts_, this, ports));
   } else if (message && message.constructor == Object) {
     message = /** @type {!Object} */ (message);

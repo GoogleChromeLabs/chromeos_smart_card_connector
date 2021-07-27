@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Input Date Picker implementation.  Pairs a
@@ -63,7 +55,6 @@ goog.ui.InputDatePicker = function(
   this.popupDatePicker_.setAllowAutoFocus(false);
 };
 goog.inherits(goog.ui.InputDatePicker, goog.ui.Component);
-goog.tagUnsealableClass(goog.ui.InputDatePicker);
 
 
 /**
@@ -270,7 +261,7 @@ goog.ui.InputDatePicker.prototype.enterDocument = function() {
   //
   // See cl/100837907 for more context and the discussion around this decision.
   (this.popupParentElement_ || this.getDomHelper().getDocument().body)
-      .appendChild(this.popupDatePicker_.getElement());
+      .appendChild(/** @type {!Node} */ (this.popupDatePicker_.getElement()));
 
   goog.ui.InputDatePicker.superClass_.enterDocument.call(this);
   var el = this.getElement();

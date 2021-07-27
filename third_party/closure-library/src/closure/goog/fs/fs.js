@@ -1,16 +1,8 @@
-// Copyright 2011 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Wrappers for the HTML5 File API. These wrappers closely mirror
@@ -24,13 +16,11 @@
 
 goog.provide('goog.fs');
 
-goog.require('goog.array');
 goog.require('goog.async.Deferred');
 goog.require('goog.fs.Error');
 goog.require('goog.fs.FileReader');
 goog.require('goog.fs.FileSystemImpl');
 goog.require('goog.fs.url');
-goog.require('goog.userAgent');
 
 
 /**
@@ -149,63 +139,6 @@ goog.fs.browserSupportsObjectUrls = function() {
 
 
 /**
- * Concatenates one or more values together and converts them to a Blob.
- *
- * @param {...(string|!Blob|!ArrayBuffer)} var_args The values that will make up
- *     the resulting blob.
- * @return {!Blob} The blob.
- */
-goog.fs.getBlob = function(var_args) {
-  var BlobBuilder = goog.global.BlobBuilder || goog.global.WebKitBlobBuilder;
-
-  if (BlobBuilder !== undefined) {
-    var bb = new BlobBuilder();
-    for (var i = 0; i < arguments.length; i++) {
-      bb.append(arguments[i]);
-    }
-    return bb.getBlob();
-  } else {
-    return goog.fs.getBlobWithProperties(goog.array.toArray(arguments));
-  }
-};
-
-
-/**
- * Creates a blob with the given properties.
- * See https://developer.mozilla.org/en-US/docs/Web/API/Blob for more details.
- *
- * @param {Array<string|!Blob>} parts The values that will make up the
- *     resulting blob.
- * @param {string=} opt_type The MIME type of the Blob.
- * @param {string=} opt_endings Specifies how strings containing newlines are to
- *     be written out.
- * @return {!Blob} The blob.
- */
-goog.fs.getBlobWithProperties = function(parts, opt_type, opt_endings) {
-  var BlobBuilder = goog.global.BlobBuilder || goog.global.WebKitBlobBuilder;
-
-  if (BlobBuilder !== undefined) {
-    var bb = new BlobBuilder();
-    for (var i = 0; i < parts.length; i++) {
-      bb.append(parts[i], opt_endings);
-    }
-    return bb.getBlob(opt_type);
-  } else if (goog.global.Blob !== undefined) {
-    var properties = {};
-    if (opt_type) {
-      properties['type'] = opt_type;
-    }
-    if (opt_endings) {
-      properties['endings'] = opt_endings;
-    }
-    return new Blob(parts, properties);
-  } else {
-    throw new Error('This browser doesn\'t seem to support creating Blobs');
-  }
-};
-
-
-/**
  * Converts a Blob or a File into a string. This should only be used when the
  * blob is known to be small.
  *
@@ -236,40 +169,7 @@ goog.fs.sliceBlob = function(blob, start, opt_end) {
   if (opt_end === undefined) {
     opt_end = blob.size;
   }
-  if (blob.webkitSlice) {
-    // Natively accepts negative indices, clamping to the blob range and
-    // range end is optional. See http://trac.webkit.org/changeset/83873
-    return blob.webkitSlice(start, opt_end);
-  } else if (blob.mozSlice) {
-    // Natively accepts negative indices, clamping to the blob range and
-    // range end is optional. See https://developer.mozilla.org/en/DOM/Blob
-    // and http://hg.mozilla.org/mozilla-central/rev/dae833f4d934
-    return blob.mozSlice(start, opt_end);
-  } else if (blob.slice) {
-    // Old versions of Firefox and Chrome use the original specification.
-    // Negative indices are not accepted, only range end is clamped and
-    // range end specification is obligatory.
-    // See http://www.w3.org/TR/2009/WD-FileAPI-20091117/
-    if ((goog.userAgent.GECKO && !goog.userAgent.isVersionOrHigher('13.0')) ||
-        (goog.userAgent.WEBKIT && !goog.userAgent.isVersionOrHigher('537.1'))) {
-      if (start < 0) {
-        start += blob.size;
-      }
-      if (start < 0) {
-        start = 0;
-      }
-      if (opt_end < 0) {
-        opt_end += blob.size;
-      }
-      if (opt_end < start) {
-        opt_end = start;
-      }
-      return blob.slice(start, opt_end - start);
-    }
-    // IE and the latest versions of Firefox and Chrome use the new
-    // specification. Natively accepts negative indices, clamping to the blob
-    // range and range end is optional.
-    // See http://dev.w3.org/2006/webapi/FileAPI/
+  if (blob.slice) {
     return blob.slice(start, opt_end);
   }
   return null;

@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview A class that supports single selection from a dropdown menu,
@@ -80,7 +72,6 @@ goog.ui.Select = function(
   this.setPreferredAriaRole(goog.a11y.aria.Role.LISTBOX);
 };
 goog.inherits(goog.ui.Select, goog.ui.MenuButton);
-goog.tagUnsealableClass(goog.ui.Select);
 
 
 /**
@@ -469,6 +460,10 @@ goog.ui.Select.prototype.updateAriaActiveDescendant_ = function() {
         contentElement.id = goog.ui.IdGenerator.getInstance().getNextUniqueId();
       }
       goog.a11y.aria.setRole(contentElement, goog.a11y.aria.Role.OPTION);
+      // Set 'aria-selected' to true since the content element represents the
+      // currently selected option.
+      goog.a11y.aria.setState(
+          contentElement, goog.a11y.aria.State.SELECTED, true);
       goog.a11y.aria.setState(
           buttonElement, goog.a11y.aria.State.ACTIVEDESCENDANT,
           contentElement.id);

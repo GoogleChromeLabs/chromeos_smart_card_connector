@@ -1,16 +1,8 @@
-// Copyright 2005 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview An implementation of {@link goog.events.Listenable} that does
@@ -58,7 +50,7 @@ goog.require('goog.object');
  *   source.dispatchEvent('foo'); // will call handleEvent
  * </pre>
  *
- * TODO(chrishenry|johnlenz): Consider a more modern, less viral
+ * TODO(user): Consider a more modern, less viral
  * (not based on inheritance) replacement of goog.Disposable, which will allow
  * goog.events.EventTarget to not be disposable.
  *
@@ -202,7 +194,7 @@ goog.labs.events.NonDisposableEventTarget.prototype.fireListeners = function(
     }
   }
 
-  return rv && eventObject.returnValue_ != false;
+  return rv && !eventObject.defaultPrevented;
 };
 
 
@@ -277,25 +269,26 @@ goog.labs.events.NonDisposableEventTarget.dispatchEventInternal_ = function(
 
   // Executes all capture listeners on the ancestors, if any.
   if (opt_ancestorsTree) {
-    for (var i = opt_ancestorsTree.length - 1; !e.propagationStopped_ && i >= 0;
-         i--) {
+    for (var i = opt_ancestorsTree.length - 1;
+         !e.hasPropagationStopped() && i >= 0; i--) {
       currentTarget = e.currentTarget = opt_ancestorsTree[i];
       rv = currentTarget.fireListeners(type, true, e) && rv;
     }
   }
 
   // Executes capture and bubble listeners on the target.
-  if (!e.propagationStopped_) {
+  if (!e.hasPropagationStopped()) {
     currentTarget = e.currentTarget = target;
     rv = currentTarget.fireListeners(type, true, e) && rv;
-    if (!e.propagationStopped_) {
+    if (!e.hasPropagationStopped()) {
       rv = currentTarget.fireListeners(type, false, e) && rv;
     }
   }
 
   // Executes all bubble listeners on the ancestors, if any.
   if (opt_ancestorsTree) {
-    for (i = 0; !e.propagationStopped_ && i < opt_ancestorsTree.length; i++) {
+    for (i = 0; !e.hasPropagationStopped() && i < opt_ancestorsTree.length;
+         i++) {
       currentTarget = e.currentTarget = opt_ancestorsTree[i];
       rv = currentTarget.fireListeners(type, false, e) && rv;
     }

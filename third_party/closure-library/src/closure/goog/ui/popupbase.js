@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Definition of the PopupBase class.
@@ -22,6 +14,7 @@ goog.provide('goog.ui.PopupBase.Type');
 
 goog.require('goog.Timer');
 goog.require('goog.array');
+goog.require('goog.dispose');
 goog.require('goog.dom');
 goog.require('goog.dom.TagName');
 goog.require('goog.events');
@@ -32,6 +25,7 @@ goog.require('goog.events.KeyCodes');
 goog.require('goog.fx.Transition');
 goog.require('goog.style');
 goog.require('goog.userAgent');
+goog.requireType('goog.events.BrowserEvent');
 
 
 
@@ -61,7 +55,6 @@ goog.ui.PopupBase = function(opt_element, opt_type) {
   }
 };
 goog.inherits(goog.ui.PopupBase, goog.events.EventTarget);
-goog.tagUnsealableClass(goog.ui.PopupBase);
 
 
 /**
@@ -456,7 +449,7 @@ goog.ui.PopupBase.prototype.isVisible = function() {
  * Returns whether the popup is currently visible or was visible within about
  * 150 ms ago. This is used by clients to handle a very specific, but common,
  * popup scenario. The button that launches the popup should close the popup
- * on mouse down if the popup is alrady open. The problem is that the popup
+ * on mouse down if the popup is already open. The problem is that the popup
  * closes itself during the capture phase of the mouse down and thus the button
  * thinks it's hidden and this should show it again. This method provides a
  * good heuristic for clients. Typically in their event handler they will have
@@ -811,13 +804,24 @@ goog.ui.PopupBase.prototype.onDocumentBlur_ = function(e) {
 
   var doc = goog.dom.getOwnerDocument(this.element_);
 
-  // Ignore blur events if the active element is still inside the popup or if
-  // there is no longer an active element.  For example, a widget like a
-  // goog.ui.Button might programatically blur itself before losing tabIndex.
+  // Ignore blur events if either the active element is still inside the popup
+  // or one of its partner elements, or if there is no longer an active element.
+  // For example, a widget like a goog.ui.Button might programmatically blur
+  // itself before losing tabIndex.
   if (typeof document.activeElement != 'undefined') {
     var activeElement = doc.activeElement;
     if (!activeElement || goog.dom.contains(this.element_, activeElement) ||
         activeElement.tagName == goog.dom.TagName.BODY) {
+      return;
+    }
+
+    // IE10 differs from other browsers in that it sets the active element to
+    // the element being focused while the blur event is being handled.
+    // In this case, check if the focused element is one of this popup element's
+    // auto-hide partners. If so, do not hide the popup.
+    // Reference:
+    // https://developer.mozilla.org/en-US/docs/Web/API/Element/blur_event
+    if (this.isOrWithinAutoHidePartner_(activeElement)) {
       return;
     }
 

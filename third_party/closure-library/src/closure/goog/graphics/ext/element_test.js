@@ -1,5 +1,8 @@
-// Copyright 2008 The Closure Library Authors. All Rights Reserved.
-// Use of this source code is governed by the Apache License, Version 2.0.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.module('goog.graphics.ext.ElementTest');
 goog.setTestOnly();
@@ -28,7 +31,7 @@ testSuite({
   setUp() {
     const div = document.getElementById('root');
     graphics = new ext.Graphics(100, 100, 200, 200);
-    div.innerHTML = '';
+    div.textContent = '';
     graphics.render(div);
 
     mockWrapper = new StrictMock(googGraphics.Element);

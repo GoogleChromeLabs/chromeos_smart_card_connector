@@ -1,16 +1,8 @@
-// Copyright 2014 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /** @fileoverview Unit tests for SafeStyle and its builders. */
 
@@ -18,6 +10,7 @@ goog.module('goog.html.safeStyleTest');
 goog.setTestOnly();
 
 const Const = goog.require('goog.string.Const');
+const PropertyReplacer = goog.require('goog.testing.PropertyReplacer');
 const SafeStyle = goog.require('goog.html.SafeStyle');
 const SafeUrl = goog.require('goog.html.SafeUrl');
 const googObject = goog.require('goog.object');
@@ -33,7 +26,13 @@ function assertCreateEquals(expected, style) {
   assertEquals(expected, SafeStyle.unwrap(styleWrapped));
 }
 
+const stubs = new PropertyReplacer();
+
 testSuite({
+  tearDown() {
+    stubs.reset();
+  },
+
   testSafeStyle() {
     const style = 'width: 1em;height: 1em;';
     const safeStyle = SafeStyle.fromConstant(Const.from(style));
@@ -320,6 +319,13 @@ testSuite({
         SafeStyle.create({'background': value});
       });
     }
+  },
+
+  testCreate_withMonkeypatchedObjectPrototype() {
+    stubs.set(Object.prototype, 'foo', 'bar');
+    assertCreateEquals(
+        'background:url(i.png);margin:0;',
+        {'background': Const.from('url(i.png)'), 'margin': '0'});
   },
 
   testConcat() {

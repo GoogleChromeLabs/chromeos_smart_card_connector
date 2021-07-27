@@ -1,17 +1,8 @@
-// Copyright 2008 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// All Rights Reserved.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Abstract API for TrogEdit plugins.
@@ -392,7 +383,7 @@ goog.editor.PluginImpl.prototype.execCommand = function(command, var_args) {
  * If custom event dispatching is needed, execCommand shoul be overriden
  * instead.
  *
- * TODO(b/111035839): This pattern makes accurate typing impossible.
+ * TODO(user): This pattern makes accurate typing impossible.
  *
  * @param {?} command `extends string` The command to execute.
  * @param {...?} var_args Any additional parameters needed to

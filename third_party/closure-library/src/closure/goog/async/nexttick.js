@@ -1,16 +1,8 @@
-// Copyright 2013 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Provides a function to schedule running a function as soon
@@ -24,13 +16,9 @@ goog.provide('goog.async.throwException');
 goog.require('goog.debug.entryPointRegistry');
 goog.require('goog.dom');
 goog.require('goog.dom.TagName');
-goog.require('goog.dom.safe');
 goog.require('goog.functions');
-goog.require('goog.html.SafeHtml');
-goog.require('goog.html.TrustedResourceUrl');
 goog.require('goog.labs.userAgent.browser');
 goog.require('goog.labs.userAgent.engine');
-goog.require('goog.string.Const');
 
 
 /**
@@ -164,14 +152,10 @@ goog.async.nextTick.getSetImmediateEmulator_ = function() {
       // Make an empty, invisible iframe.
       var iframe = goog.dom.createElement(goog.dom.TagName.IFRAME);
       iframe.style.display = 'none';
-      goog.dom.safe.setIframeSrc(
-          iframe,
-          goog.html.TrustedResourceUrl.fromConstant(goog.string.Const.EMPTY));
       document.documentElement.appendChild(iframe);
       var win = iframe.contentWindow;
       var doc = win.document;
       doc.open();
-      goog.dom.safe.documentWrite(doc, goog.html.SafeHtml.EMPTY);
       doc.close();
       // Do not post anything sensitive over this channel, as the workaround for
       // pages with file: origin could allow that information to be modified or
@@ -223,26 +207,9 @@ goog.async.nextTick.getSetImmediateEmulator_ = function() {
       channel['port2'].postMessage(0);
     };
   }
-  // Implementation for IE6 to IE10: Script elements fire an asynchronous
-  // onreadystatechange event when inserted into the DOM.
-  if (typeof document !== 'undefined' &&
-      'onreadystatechange' in goog.dom.createElement(goog.dom.TagName.SCRIPT)) {
-    return function(cb) {
-      var script = goog.dom.createElement(goog.dom.TagName.SCRIPT);
-      script.onreadystatechange = function() {
-        // Clean up and call the callback.
-        script.onreadystatechange = null;
-        script.parentNode.removeChild(script);
-        script = null;
-        cb();
-        cb = null;
-      };
-      document.documentElement.appendChild(script);
-    };
-  }
   // Fall back to setTimeout with 0. In browsers this creates a delay of 5ms
   // or more.
-  // NOTE(user): This fallback is used for IE11.
+  // NOTE(user): This fallback is used for IE.
   return function(cb) {
     goog.global.setTimeout(/** @type {function()} */ (cb), 0);
   };

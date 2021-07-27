@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Definition of the browser range namespace and interface, as
@@ -136,7 +128,7 @@ goog.dom.browserrange.createRangeFromNodes = function(
  * @return {boolean} Whether the given node can contain a range end point.
  */
 goog.dom.browserrange.canContainRangeEndpoint = function(node) {
-  // NOTE(user, bloom): This is not complete, as divs with style -
+  // NOTE(user): This is not complete, as divs with style -
   // 'display:inline-block' or 'position:absolute' can also not contain range
   // endpoints. A more complete check is to see if that element can be partially
   // selected (can be container) or not.

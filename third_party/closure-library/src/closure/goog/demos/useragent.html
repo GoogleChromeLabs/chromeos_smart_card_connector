@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <!--
-Copyright 2010 The Closure Library Authors. All Rights Reserved.
+Copyright The Closure Library Authors. All Rights Reserved.
 
 Use of this source code is governed by the Apache License, Version 2.0.
 See the COPYING file for details.
@@ -174,7 +174,7 @@ See the COPYING file for details.
     var valueCell = goog.dom.createElement('td');
     goog.dom.appendChild(row, valueCell);
 
-    if (goog.isBoolean(value)) {
+    if (typeof value === 'boolean') {
       value = value ? 'yes' : 'no';
       goog.dom.setTextContent(valueCell, value);
       goog.dom.classlist.set(valueCell, value);

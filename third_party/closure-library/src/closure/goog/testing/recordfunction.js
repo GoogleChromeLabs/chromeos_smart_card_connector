@@ -1,16 +1,8 @@
-// Copyright 2010 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Helper class for recording the calls of a function.
@@ -229,7 +221,11 @@ goog.testing.recordFunction.Type;
 goog.testing.recordConstructor = function(ctor) {
   var recordedConstructor = goog.testing.recordFunction(ctor);
   recordedConstructor.prototype = ctor.prototype;
-  goog.mixin(recordedConstructor, ctor);
+
+  // NOTE: This does not handle non-enumerable properties, should it?
+  for (var x in ctor) {
+    recordedConstructor[x] = ctor[x];
+  }
   return recordedConstructor;
 };
 

@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.module('goog.objectTest');
 goog.setTestOnly();
@@ -546,39 +538,6 @@ testSuite({
 
   testObjectsWithSameKeysInDifferentOrderAreEqual() {
     assertTrue(googObject.equals({'a': 1, 'b': 2}, {'b': 2, 'a': 1}));
-  },
-
-  testIs() {
-    const object = {};
-    assertTrue(googObject.is(object, object));
-    assertFalse(googObject.is(object, {}));
-
-    assertTrue(googObject.is(NaN, NaN));
-    assertTrue(googObject.is(0, 0));
-    assertTrue(googObject.is(1, 1));
-    assertTrue(googObject.is(-1, -1));
-    assertTrue(googObject.is(123, 123));
-    assertFalse(googObject.is(0, -0));
-    assertFalse(googObject.is(-0, 0));
-    assertFalse(googObject.is(0, 1));
-
-    assertTrue(googObject.is(true, true));
-    assertTrue(googObject.is(false, false));
-    assertFalse(googObject.is(true, false));
-    assertFalse(googObject.is(false, true));
-
-    assertTrue(googObject.is('', ''));
-    assertTrue(googObject.is('a', 'a'));
-    assertFalse(googObject.is('', 'a'));
-    assertFalse(googObject.is('a', ''));
-    assertFalse(googObject.is('a', 'b'));
-
-    assertFalse(googObject.is(true, 'true'));
-    assertFalse(googObject.is('true', true));
-    assertFalse(googObject.is(false, 'false'));
-    assertFalse(googObject.is('false', false));
-    assertFalse(googObject.is(0, '0'));
-    assertFalse(googObject.is('0', 0));
   },
 
   testGetAllPropertyNames_enumerableProperties() {

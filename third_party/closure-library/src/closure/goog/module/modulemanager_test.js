@@ -1,16 +1,8 @@
-// Copyright 2008 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.module('goog.module.ModuleManagerTest');
 goog.setTestOnly();
@@ -39,8 +31,7 @@ function getModuleManager(infoMap) {
 
 function createSuccessfulBatchLoader(moduleMgr) {
   return {
-    loadModules: function(
-        ids, moduleInfoMap, opt_successFn, opt_errFn, opt_timeoutFn) {
+    loadModules: function(ids, moduleInfoMap, {onError, onSuccess, onTimeout}) {
       requestCount++;
       setTimeout(goog.bind(this.onLoad, this, ids.concat(), 0), 5);
     },
@@ -57,14 +48,13 @@ function createSuccessfulBatchLoader(moduleMgr) {
 
 function createSuccessfulNonBatchLoader(moduleMgr) {
   return {
-    loadModules: function(
-        ids, moduleInfoMap, opt_successFn, opt_errFn, opt_timeoutFn) {
+    loadModules: function(ids, moduleInfoMap, {onError, onSuccess, onTimeout}) {
       requestCount++;
       setTimeout(() => {
         moduleMgr.beforeLoadModuleCode(ids[0]);
         moduleMgr.setLoaded();
-        if (opt_successFn) {
-          opt_successFn();
+        if (onSuccess) {
+          onSuccess();
         }
       }, 5);
     },
@@ -73,11 +63,10 @@ function createSuccessfulNonBatchLoader(moduleMgr) {
 
 function createUnsuccessfulLoader(moduleMgr, status) {
   return {
-    loadModules: function(
-        ids, moduleInfoMap, opt_successFn, opt_errFn, opt_timeoutFn) {
+    loadModules: function(ids, moduleInfoMap, {onError, onSuccess, onTimeout}) {
       moduleMgr.beforeLoadModuleCode(ids[0]);
       setTimeout(() => {
-        opt_errFn(status);
+        onError(status);
       }, 5);
     },
   };
@@ -85,10 +74,9 @@ function createUnsuccessfulLoader(moduleMgr, status) {
 
 function createUnsuccessfulBatchLoader(moduleMgr, status) {
   return {
-    loadModules: function(
-        ids, moduleInfoMap, opt_successFn, opt_errFn, opt_timeoutFn) {
+    loadModules: function(ids, moduleInfoMap, {onError, onSuccess, onTimeout}) {
       setTimeout(() => {
-        opt_errFn(status);
+        onError(status);
       }, 5);
     },
   };
@@ -96,10 +84,9 @@ function createUnsuccessfulBatchLoader(moduleMgr, status) {
 
 function createTimeoutLoader(moduleMgr, status) {
   return {
-    loadModules: function(
-        ids, moduleInfoMap, opt_successFn, opt_errFn, opt_timeoutFn) {
+    loadModules: function(ids, moduleInfoMap, {onError, onSuccess, onTimeout}) {
       setTimeout(() => {
-        opt_timeoutFn(status);
+        onTimeout(status);
       }, 5);
     },
   };
@@ -227,14 +214,13 @@ function assertDependencyOrder(list, mm) {
 
 function createSuccessfulNonBatchLoaderWithRegisterInitCallback(moduleMgr, fn) {
   return {
-    loadModules: function(
-        ids, moduleInfoMap, opt_successFn, opt_errFn, opt_timeoutFn) {
+    loadModules: function(ids, moduleInfoMap, {onError, onSuccess, onTimeout}) {
       moduleMgr.beforeLoadModuleCode(ids[0]);
       moduleMgr.registerInitializationCallback(fn);
       setTimeout(() => {
         moduleMgr.setLoaded();
-        if (opt_successFn) {
-          opt_successFn();
+        if (onSuccess) {
+          onSuccess();
         }
       }, 5);
     },
@@ -252,17 +238,35 @@ function createModulesFor(var_args) {
 
 function createSuccessfulNonBatchLoaderWithConstructor(moduleMgr, info) {
   return {
-    loadModules: function(
-        ids, moduleInfoMap, opt_successFn, opt_errFn, opt_timeoutFn) {
+    loadModules: function(ids, moduleInfoMap, {onError, onSuccess, onTimeout}) {
       setTimeout(() => {
         moduleMgr.beforeLoadModuleCode(ids[0]);
         moduleMgr.setModuleConstructor(info[ids[0]].ctor);
         moduleMgr.setLoaded();
-        if (opt_successFn) {
-          opt_successFn();
+        if (onSuccess) {
+          onSuccess();
         }
       }, 5);
     },
+  };
+}
+
+/**
+ * Creates an AbstractModuleLoader implementation with extra edges support
+ * @param {!Array} loaderCalls array to which the arguments of loadModules will
+ *     be appended
+ * @return {!Object<function(), boolean>}
+ */
+function createModuleLoaderWithExtraEdgesSupport(loaderCalls) {
+  return {
+    loadModules(ids, moduleInfoMap, loadOptions) {
+      loaderCalls.push({
+        ids: ids,
+        moduleInfoMap: moduleInfoMap,
+        ...loadOptions,
+      });
+    },
+    supportsExtraEdges: true,
   };
 }
 
@@ -510,7 +514,8 @@ testSuite({
   },
 
   /**
-     Tests loading multiple modules with deps by requesting a Deferred object.
+     Tests loading multiple modules with deps by requesting a Deferred
+     object.
    */
   testLoadMultipleWithDeps() {
     const mm = getModuleManager({'a': [], 'b': ['c'], 'c': []});
@@ -751,7 +756,9 @@ testSuite({
     assertNull(error3);
   },
 
-  /** Tests loading a module by user action by requesting a Deferred object. */
+  /**
+     Tests loading a module by user action by requesting a Deferred object.
+   */
   testLoadForUser() {
     const mm = getModuleManager({'a': [], 'b': [], 'c': []});
     mm.setLoader(createSuccessfulNonBatchLoader(mm));
@@ -776,6 +783,73 @@ testSuite({
 
     assertTrue(calledBack);
     assertNull(error);
+  },
+
+  testExtraEdges() {
+    const mm =
+        getModuleManager({'modA': [], 'modB': [], 'modC': [], 'modD': []});
+    const loaderCalls = [];
+    mm.setLoader(createModuleLoaderWithExtraEdgesSupport(loaderCalls));
+    mm.addExtraEdge('modA', 'modB');
+    mm.addExtraEdge('modA', 'modC');
+    mm.addExtraEdge('modC', 'modD');
+
+    const expectedExtraEdges = {
+      'modA': {'modB': true, 'modC': true},
+      'modC': {'modD': true},
+    };
+
+    mm.load('modA');
+    assertEquals(1, loaderCalls.length);
+    assertObjectEquals(expectedExtraEdges, loaderCalls[0].extraEdges);
+  },
+
+  testAddExtraEdge_managerDoesNotSupportExtraEdges() {
+    const mm =
+        getModuleManager({'modA': [], 'modB': [], 'modC': [], 'modD': []});
+    mm.setLoader({
+      loadModules(ids, moduleInfoMap, loadOptions) {},
+    });
+    assertThrows(() => mm.addExtraEdge('modA', 'modB'));
+  },
+
+  testRemoveExtraEdge() {
+    const mm =
+        getModuleManager({'modA': [], 'modB': [], 'modC': [], 'modD': []});
+    const loaderCalls = [];
+    mm.setLoader(createModuleLoaderWithExtraEdgesSupport(loaderCalls));
+    mm.addExtraEdge('modA', 'modB');
+    mm.addExtraEdge('modA', 'modC');
+    mm.addExtraEdge('modC', 'modD');
+    mm.removeExtraEdge('modA', 'modB');
+
+    const expectedExtraEdges = {
+      'modA': {'modC': true},
+      'modC': {'modD': true},
+    };
+
+    mm.load('modA');
+    assertEquals(1, loaderCalls.length);
+    assertObjectEquals(expectedExtraEdges, loaderCalls[0].extraEdges);
+  },
+
+  testRemoveEdge_nonexistentEdge() {
+    const mm =
+        getModuleManager({'modA': [], 'modB': [], 'modC': [], 'modD': []});
+    const loaderCalls = [];
+    mm.setLoader(createModuleLoaderWithExtraEdgesSupport(loaderCalls));
+    mm.addExtraEdge('modA', 'modC');
+    mm.addExtraEdge('modC', 'modD');
+    mm.removeExtraEdge('modA', 'modB');
+
+    const expectedExtraEdges = {
+      'modA': {'modC': true},
+      'modC': {'modD': true},
+    };
+
+    mm.load('modA');
+    assertEquals(1, loaderCalls.length);
+    assertObjectEquals(expectedExtraEdges, loaderCalls[0].extraEdges);
   },
 
   /** Tests that preloading a module calls back the deferred object. */
@@ -826,7 +900,8 @@ testSuite({
     mm.preloadModule('a');
     clock.tick(1);
 
-    // 'b' is in the middle of loading, should get called back when it's done.
+    // 'b' is in the middle of loading, should get called back when it's
+    // done.
     let calledBack = false;
     const d = mm.preloadModule('a');
     d.addCallback((ctx) => {
@@ -1092,7 +1167,8 @@ testSuite({
   },
 
   /**
-     Tests that the deferred's errbacks are called if the module fails to load.
+     Tests that the deferred's errbacks are called if the module fails to
+     load.
    */
   testLoadWithFailingModule() {
     const mm = getModuleManager({'a': [], 'b': [], 'c': []});
@@ -1122,16 +1198,17 @@ testSuite({
 
     assertFalse(calledBack);
 
-    // NOTE: Deferred always calls errbacks with an Error object.  For now the
-    // module manager just passes the FailureType which gets set as the Error
-    // object's message.
+    // NOTE: Deferred always calls errbacks with an Error object.  For now
+    // the module manager just passes the FailureType which gets set as the
+    // Error object's message.
     assertEquals(
         'Failure cause was not as expected',
         ModuleManager.FailureType.UNAUTHORIZED, Number(error.message));
   },
 
   /**
-     Tests that the deferred's errbacks are called if a module fails to load.
+     Tests that the deferred's errbacks are called if a module fails to
+     load.
    */
   testLoadMultipleWithFailingModule() {
     const mm = getModuleManager({'a': [], 'b': [], 'c': []});
@@ -1200,9 +1277,9 @@ testSuite({
     assertFalse(calledBack21);
     assertFalse(calledBack22);
 
-    // NOTE: Deferred always calls errbacks with an Error object.  For now the
-    // module manager just passes the FailureType which gets set as the Error
-    // object's message.
+    // NOTE: Deferred always calls errbacks with an Error object.  For now
+    // the module manager just passes the FailureType which gets set as the
+    // Error object's message.
     assertEquals(
         'Failure cause was not as expected',
         ModuleManager.FailureType.UNAUTHORIZED, Number(error11.message));
@@ -1210,20 +1287,21 @@ testSuite({
         'Failure cause was not as expected',
         ModuleManager.FailureType.UNAUTHORIZED, Number(error12.message));
 
-    // The first deferred of the second load should be called since it asks for
-    // one of the failed modules.
+    // The first deferred of the second load should be called since it asks
+    // for one of the failed modules.
     assertEquals(
         'Failure cause was not as expected',
         ModuleManager.FailureType.UNAUTHORIZED, Number(error21.message));
 
-    // The last deferred should be dropped so it is neither called back nor an
-    // error.
+    // The last deferred should be dropped so it is neither called back nor
+    // an error.
     assertFalse(calledBack22);
     assertNull(error22);
   },
 
   /**
-     Tests that the right dependencies are cancelled on a loadMultiple failure.
+     Tests that the right dependencies are cancelled on a loadMultiple
+     failure.
    */
   testLoadMultipleWithFailingModuleDependencies() {
     const mm =
@@ -1308,9 +1386,9 @@ testSuite({
     assertFalse(calledBack22);
     assertFalse(calledBack23);
 
-    // NOTE: Deferred always calls errbacks with an Error object.  For now the
-    // module manager just passes the FailureType which gets set as the Error
-    // object's message.
+    // NOTE: Deferred always calls errbacks with an Error object.  For now
+    // the module manager just passes the FailureType which gets set as the
+    // Error object's message.
     assertEquals(
         'Failure cause was not as expected',
         ModuleManager.FailureType.UNAUTHORIZED, Number(error11.message));
@@ -1324,8 +1402,8 @@ testSuite({
   },
 
   /**
-   * Tests that when loading multiple modules, the input array is not modified
-   * when it has duplicates.
+   * Tests that when loading multiple modules, the input array is not
+   * modified when it has duplicates.
    */
   testLoadMultipleWithDuplicates() {
     const mm = getModuleManager({'a': [], 'b': []});
@@ -1560,7 +1638,7 @@ testSuite({
     // failed.
     let triedLoad = false;
     mm.setLoader({
-      loadModules: function(ids, moduleInfoMap, opt_successFn, opt_errFn) {
+      loadModules: function(ids, moduleInfoMap, {onError, onSuccess}) {
         triedLoad = true;
       },
     });
@@ -1619,7 +1697,9 @@ testSuite({
     assertTrue('should have called timeout callback', firedTimeout);
   },
 
-  /** Tests that an error during execOnLoad will trigger the error callback. */
+  /**
+     Tests that an error during execOnLoad will trigger the error callback.
+   */
   testExecOnLoadError() {
     // Expect two callbacks, each of which will be called with callback type
     // ERROR, the right module id and failure type INIT_ERROR.
@@ -1668,8 +1748,8 @@ testSuite({
    * Uses setAllModuleInfoString rather than setAllModuleInfo.
    */
   testExecOnLoadErrorModuleInfoString() {
-    // Expect a callback to be called with callback type ERROR, the right module
-    // id and failure type INIT_ERROR.
+    // Expect a callback to be called with callback type ERROR, the right
+    // module id and failure type INIT_ERROR.
     const errorCallback = testing.createFunctionMock('callback');
     errorCallback(
         ModuleManager.CallbackType.ERROR, 'b',
@@ -1853,8 +1933,8 @@ testSuite({
   },
 
   /**
-   * Tests that a call to load the loading module during module initialization
-   * doesn't trigger a second load.
+   * Tests that a call to load the loading module during module
+   * initialization doesn't trigger a second load.
    */
   testLoadWhenInitializing() {
     const mm = getModuleManager({'a': []});
@@ -1908,7 +1988,7 @@ testSuite({
     const errback = recordFunction();
     const mm = getModuleManager({'a': [], 'b': ['a']});
     mm.getModuleInfo('a').registerEarlyCallback(earlyCallback);
-    mm.getModuleInfo('a').registerEarlyCallback(functions.error('error'));
+    mm.getModuleInfo('a').registerCallback(functions.error('error'));
     mm.getModuleInfo('a').registerErrback(errback);
 
     mm.setLoader(createSuccessfulNonBatchLoaderWithConstructor(
@@ -1971,10 +2051,56 @@ testSuite({
     assertEquals('Did not receive module context', appContext, context);
   },
 
+  testSetAllModuleInfo() {
+    const callback = recordFunction();
+    const errback = recordFunction();
+    const moduleInfo = {'base': [], 'one': ['base'], 'two': ['one']};
+    const mm = getModuleManager(moduleInfo);
+    mm.getModuleInfo('one').registerEarlyCallback(callback);
+    mm.getModuleInfo('one').registerCallback(functions.error('error'));
+    mm.getModuleInfo('one').registerErrback(errback);
+    mm.setLoader(createSuccessfulNonBatchLoaderWithConstructor(
+        mm, createModulesFor('base', 'one', 'two')));
+    mm.preloadModule('base');
+    clock.tick(10);
+    // Module 'base' is now loaded.
+    assertTrue(mm.getModuleInfo('base').isLoaded());
+    // Re-init all modules using same instance.
+    mm.setAllModuleInfo(moduleInfo);
+    // Re-init all modules using new instance.
+    mm.setAllModuleInfo({'base': [], 'one': ['base'], 'two': ['one']});
+    // Module 'base' is still loaded.
+    assertTrue(mm.getModuleInfo('base').isLoaded());
+
+    // Callbacks are still registered.
+    mm.preloadModule('two');
+    assertThrows(() => {
+      clock.tick(10);
+    });
+    clock.tick(10);
+
+    assertEquals(1, callback.getCallCount());
+    assertEquals(1, errback.getCallCount());
+  },
+
   testSetAllModuleInfoString() {
-    const info = 'base/one:0/two:0/three:0,1,2/four:0,3/five:';
-    const mm = new ModuleManager();
-    mm.setAllModuleInfoString(info);
+    const callback = recordFunction();
+    const errback = recordFunction();
+    const moduleInfo = {'base': [], 'one': ['base'], 'two': ['one']};
+    const mm = getModuleManager(moduleInfo);
+    mm.getModuleInfo('one').registerEarlyCallback(callback);
+    mm.getModuleInfo('one').registerCallback(functions.error('error'));
+    mm.getModuleInfo('one').registerErrback(errback);
+    mm.setLoader(createSuccessfulNonBatchLoaderWithConstructor(
+        mm, createModulesFor('base', 'one', 'two')));
+    mm.preloadModule('base');
+    clock.tick(10);
+    // Module 'base' is now loaded.
+    assertTrue(mm.getModuleInfo('base').isLoaded());
+    // Re-init all modules using same instance.
+    mm.setAllModuleInfoString('base/one:0/two:1/three:0,1,2/four:0,3/five:');
+    // Module 'base' is still loaded.
+    assertTrue(mm.getModuleInfo('base').isLoaded());
 
     assertNotNull('Base should exist', mm.getModuleInfo('base'));
     assertNotNull('One should exist', mm.getModuleInfo('one'));
@@ -1988,6 +2114,16 @@ testSuite({
     assertArrayEquals(
         ['base', 'three'], mm.getModuleInfo('four').getDependencies());
     assertArrayEquals([], mm.getModuleInfo('five').getDependencies());
+
+    // Callbacks are still registered.
+    mm.preloadModule('two');
+    assertThrows(() => {
+      clock.tick(10);
+    });
+    clock.tick(10);
+
+    assertEquals(1, callback.getCallCount());
+    assertEquals(1, errback.getCallCount());
   },
 
   testSetAllModuleInfoStringWithEmptyString() {

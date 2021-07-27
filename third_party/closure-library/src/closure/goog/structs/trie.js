@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Datastructure: Trie.
@@ -166,8 +158,11 @@ goog.structs.Trie.prototype.get = function(key) {
  *     prefixes of the key are retrieved.
  * @param {?number=} opt_keyStartIndex Optional position in key to start lookup
  *     from. Defaults to 0 if not specified.
- * @return {!Object<string, VALUE>} Map of end index of matching prefixes and
- *     corresponding values. Empty if no match found.
+ * @return {!Object<VALUE>} Map of end index of matching prefixes and
+ *     corresponding values. Empty if no match found.  Note that the key is the
+ *     index of the final character of the entry, rather than the length, so
+ *     entries with a single character will clobber an empty-string entry with
+ *     key '0'.
  */
 goog.structs.Trie.prototype.getKeyAndPrefixes = function(
     key, opt_keyStartIndex) {

@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Base class for UI controls such as buttons, menus, menu items,
@@ -26,6 +18,7 @@ goog.provide('goog.ui.Control');
 
 goog.require('goog.Disposable');
 goog.require('goog.array');
+goog.require('goog.dispose');
 goog.require('goog.dom');
 goog.require('goog.events.BrowserEvent');
 goog.require('goog.events.Event');
@@ -41,6 +34,8 @@ goog.require('goog.ui.ControlContent');
 goog.require('goog.ui.ControlRenderer');
 goog.require('goog.ui.registry');
 goog.require('goog.userAgent');
+goog.requireType('goog.a11y.aria.Role');
+goog.requireType('goog.events.KeyEvent');
 
 
 
@@ -87,7 +82,6 @@ goog.ui.Control = function(opt_content, opt_renderer, opt_domHelper) {
   this.ieMouseEventSequenceSimulator_;
 };
 goog.inherits(goog.ui.Control, goog.ui.Component);
-goog.tagUnsealableClass(goog.ui.Control);
 
 
 // Renderer registry.
@@ -731,7 +725,7 @@ goog.ui.Control.prototype.getCaption = function() {
   }
   var caption = (typeof content === 'string') ?
       content :
-      goog.isArray(content) ?
+      Array.isArray(content) ?
       goog.array.map(content, goog.dom.getRawTextContent).join('') :
       goog.dom.getTextContent(/** @type {!Node} */ (content));
   return goog.string.collapseBreakingSpaces(caption);

@@ -1,16 +1,8 @@
-// Copyright 2014 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 
 /**
@@ -191,22 +183,29 @@ goog.html.flash.combineParams = function(defaultParams, opt_params) {
   var name;
 
   for (name in defaultParams) {
-    goog.asserts.assert(name.toLowerCase() == name, 'Must be lower case');
-    combinedParams[name] = defaultParams[name];
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwnProperty#Using_hasOwnProperty_as_a_property_name
+    if (Object.prototype.hasOwnProperty.call(defaultParams, name)) {
+      goog.asserts.assert(name.toLowerCase() == name, 'Must be lower case');
+      combinedParams[name] = defaultParams[name];
+    }
   }
   for (name in opt_params) {
-    var nameLower = name.toLowerCase();
-    if (nameLower in defaultParams) {
-      delete combinedParams[nameLower];
+    if (Object.prototype.hasOwnProperty.call(opt_params, name)) {
+      var nameLower = name.toLowerCase();
+      if (nameLower in defaultParams) {
+        delete combinedParams[nameLower];
+      }
+      combinedParams[name] = opt_params[name];
     }
-    combinedParams[name] = opt_params[name];
   }
 
   var paramTags = [];
   for (name in combinedParams) {
-    paramTags.push(
-        goog.html.SafeHtml.createSafeHtmlTagSecurityPrivateDoNotAccessOrElse(
-            'param', {'name': name, 'value': combinedParams[name]}));
+    if (Object.prototype.hasOwnProperty.call(combinedParams, name)) {
+      paramTags.push(
+          goog.html.SafeHtml.createSafeHtmlTagSecurityPrivateDoNotAccessOrElse(
+              'param', {'name': name, 'value': combinedParams[name]}));
+    }
   }
   return paramTags;
 };
@@ -227,14 +226,17 @@ goog.html.flash.verifyKeysNotInMaps = function(
     keys, opt_attributes, opt_params) {
   var verifyNotInMap = function(keys, map, type) {
     for (var keyMap in map) {
-      var keyMapLower = keyMap.toLowerCase();
-      for (var i = 0; i < keys.length; i++) {
-        var keyToCheck = keys[i];
-        goog.asserts.assert(keyToCheck.toLowerCase() == keyToCheck);
-        if (keyMapLower == keyToCheck) {
-          throw new Error(
-              'Cannot override "' + keyToCheck + '" ' + type + ', got "' +
-              keyMap + '" with value "' + map[keyMap] + '"');
+      // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwnProperty#Using_hasOwnProperty_as_a_property_name
+      if (Object.prototype.hasOwnProperty.call(map, keyMap)) {
+        var keyMapLower = keyMap.toLowerCase();
+        for (var i = 0; i < keys.length; i++) {
+          var keyToCheck = keys[i];
+          goog.asserts.assert(keyToCheck.toLowerCase() == keyToCheck);
+          if (keyMapLower == keyToCheck) {
+            throw new Error(
+                'Cannot override "' + keyToCheck + '" ' + type + ', got "' +
+                keyMap + '" with value "' + map[keyMap] + '"');
+          }
         }
       }
     }

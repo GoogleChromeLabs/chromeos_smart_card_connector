@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Activity Monitor.
@@ -83,7 +75,7 @@ goog.ui.ActivityMonitor = function(opt_domHelper, opt_useBubble) {
 
   if (!opt_domHelper) {
     this.addDocument(goog.dom.getDomHelper().getDocument());
-  } else if (goog.isArray(opt_domHelper)) {
+  } else if (Array.isArray(opt_domHelper)) {
     for (var i = 0; i < opt_domHelper.length; i++) {
       this.addDocument(opt_domHelper[i].getDocument());
     }
@@ -100,7 +92,6 @@ goog.ui.ActivityMonitor = function(opt_domHelper, opt_useBubble) {
 
 };
 goog.inherits(goog.ui.ActivityMonitor, goog.events.EventTarget);
-goog.tagUnsealableClass(goog.ui.ActivityMonitor);
 
 
 /**

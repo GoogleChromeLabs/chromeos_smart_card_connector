@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Provides the namesspace for client-side communication
@@ -39,7 +31,6 @@ goog.provide('goog.net.xpc.TransportNames');
 goog.provide('goog.net.xpc.TransportTypes');
 goog.provide('goog.net.xpc.UriCfgFields');
 
-goog.forwardDeclare('goog.net.xpc.CrossPageChannel');  // circular
 goog.require('goog.log');
 
 
@@ -50,8 +41,7 @@ goog.require('goog.log');
 goog.net.xpc.TransportTypes = {
   UNDEFINED: 0,
   NATIVE_MESSAGING: 1,
-  IFRAME_POLLING: 2,
-  DIRECT: 3,
+  DIRECT: 2,
 };
 
 
@@ -62,8 +52,7 @@ goog.net.xpc.TransportTypes = {
  */
 goog.net.xpc.TransportNames = {
   '1': 'NativeMessagingTransport',
-  '2': 'IframePollingTransport',
-  '3': 'DirectTransport',
+  '2': 'DirectTransport',
 };
 
 
@@ -245,14 +234,6 @@ goog.net.xpc.SETUP_ACK_ = 'SETUP_ACK';
  * @type {string}
  */
 goog.net.xpc.SETUP_ACK_NTPV2 = 'SETUP_ACK_NTPV2';
-
-
-/**
- * Object holding active channels.
- *
- * @package {Object<string, goog.net.xpc.CrossPageChannel>}
- */
-goog.net.xpc.channels = {};
 
 
 /**

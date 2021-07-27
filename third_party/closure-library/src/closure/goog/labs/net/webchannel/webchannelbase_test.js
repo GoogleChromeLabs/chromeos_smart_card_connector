@@ -1,16 +1,8 @@
-// Copyright 2013 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Unit tests for WebChannelBase.@suppress {accessControls}
@@ -270,9 +262,8 @@ function connectForwardChannel(
     spdyEnabled = undefined) {
   stubSpdyCheck(!!spdyEnabled);
   const uriPrefix = opt_uriPrefix || '';
-  channel.connect(`${uriPrefix}/test`, `${uriPrefix}/bind`, null);
+  channel.connect(`${uriPrefix}/bind`, null);
   mockClock.tick(0);
-  completeTestConnection();
   completeForwardChannel(serverVersion, hostPrefix);
 }
 
@@ -291,25 +282,6 @@ function connect(
 
 function disconnect() {
   channel.disconnect();
-  mockClock.tick(0);
-}
-
-function completeTestConnection() {
-  completeForwardTestConnection();
-  completeBackTestConnection();
-  assertEquals(WebChannelBase.State.OPENING, channel.getState());
-}
-
-function completeForwardTestConnection() {
-  channel.connectionTest_.onRequestData(
-      channel.connectionTest_.request_, '["b"]');
-  channel.connectionTest_.onRequestComplete(channel.connectionTest_.request_);
-  mockClock.tick(0);
-}
-
-function completeBackTestConnection() {
-  channel.connectionTest_.onRequestData(
-      channel.connectionTest_.request_, '11111');
   mockClock.tick(0);
 }
 
@@ -613,8 +585,6 @@ testSuite({
 
     mockClock = new MockClock(true);
     channel = new WebChannelBase('1');
-    // restore channel-test for tests that rely on the channel-test state
-    channel.backgroundChannelTest_ = false;
 
     gotError = false;
 
@@ -734,15 +704,14 @@ testSuite({
 
   testConnect_notOkToMakeRequestForTest() {
     handler.okToMakeRequest = functions.constant(WebChannelBase.Error.NETWORK);
-    channel.connect('/test', '/bind', null);
+    channel.connect('/bind', null);
     mockClock.tick(0);
     assertEquals(WebChannelBase.State.CLOSED, channel.getState());
   },
 
   testConnect_notOkToMakeRequestForBind() {
-    channel.connect('/test', '/bind', null);
+    channel.connect('/bind', null);
     mockClock.tick(0);
-    completeTestConnection();
     handler.okToMakeRequest = functions.constant(WebChannelBase.Error.NETWORK);
     completeForwardChannel();
     assertEquals(WebChannelBase.State.CLOSED, channel.getState());
@@ -1271,7 +1240,7 @@ testSuite({
 
   testResponseInBufferedMode() {
     connect(8);
-    channel.useChunked_ = false;
+    channel.enableStreaming_ = false;
     sendMap('foo1', 'bar1');
     assertEquals(-1, channel.lastPostResponseArrayId_);
     response(7, 111);

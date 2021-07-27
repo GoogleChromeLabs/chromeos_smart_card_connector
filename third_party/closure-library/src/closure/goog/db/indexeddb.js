@@ -1,16 +1,8 @@
-// Copyright 2011 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Wrapper for an IndexedDB database.
@@ -101,13 +93,13 @@ goog.db.IndexedDb.prototype.dispatchError_ = function(ev) {
 /**
  * Dispatches a wrapped version change event based on the given event.
  *
- * @param {Event} ev The version change event given to the underlying
- *     IDBDatabase.
+ * @param {!IDBVersionChangeEvent} ev The version change event given to the
+ *     underlying IDBDatabase.
  * @private
  */
 goog.db.IndexedDb.prototype.dispatchVersionChange_ = function(ev) {
-  this.dispatchEvent(
-      new goog.db.IndexedDb.VersionChangeEvent(ev.oldVersion, ev.newVersion));
+  this.dispatchEvent(new goog.db.IndexedDb.VersionChangeEvent(
+      ev.oldVersion, /** @type {number} */ (ev.newVersion)));
 };
 
 
@@ -150,7 +142,7 @@ goog.db.IndexedDb.prototype.getVersion = function() {
 
 
 /**
- * @return {DOMStringList} List of object stores in this database.
+ * @return {!DOMStringList} List of object stores in this database.
  */
 goog.db.IndexedDb.prototype.getObjectStoreNames = function() {
   return this.db_.objectStoreNames;

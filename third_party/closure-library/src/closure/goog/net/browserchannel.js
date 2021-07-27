@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Definition of the BrowserChannel class.  A BrowserChannel
@@ -213,8 +205,8 @@ goog.net.BrowserChannel.prototype.backChannelRequest_ = null;
 
 
 /**
- * The relative path (in the context of the the page hosting the browser
- * channel) for making requests to the server.
+ * The relative path (in the context of the page hosting the browser channel)
+ * for making requests to the server.
  * @type {?string}
  * @private
  */
@@ -726,7 +718,7 @@ goog.inherits(
 
 /**
  * Enum that identifies events for statistics that are interesting to track.
- * TODO(user) - Change name not to use Event or use EventTarget
+ * TODO(jonp) - Change name not to use Event or use EventTarget
  * @enum {number}
  */
 goog.net.BrowserChannel.Stat = {
@@ -1467,7 +1459,7 @@ goog.net.BrowserChannel.prototype.startForwardChannel_ = function(
 
 
 /**
- * Establishes a new channel session with the the server.
+ * Establishes a new channel session with the server.
  * @private
  */
 goog.net.BrowserChannel.prototype.open_ = function() {
@@ -1806,7 +1798,7 @@ goog.net.BrowserChannel.prototype.onRequestData = function(
       } catch (ex) {
         response = null;
       }
-      if (goog.isArray(response) && response.length == 3) {
+      if (Array.isArray(response) && response.length == 3) {
         this.handlePostResponse_(response);
       } else {
         this.channelDebug_.debug('Bad POST response data returned');
@@ -1824,7 +1816,7 @@ goog.net.BrowserChannel.prototype.onRequestData = function(
     }
     if (!goog.string.isEmptyOrWhitespace(responseText)) {
       var response = this.parser_.parse(responseText);
-      goog.asserts.assert(goog.isArray(response));
+      goog.asserts.assert(Array.isArray(response));
       this.onInput_(/** @type {!Array<?>} */ (response));
     }
   }

@@ -1,16 +1,8 @@
-// Copyright 2005 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Class to create objects which want to handle multiple events
@@ -56,10 +48,11 @@
 
 goog.provide('goog.events.EventHandler');
 
-goog.forwardDeclare('goog.events.EventWrapper');
 goog.require('goog.Disposable');
 goog.require('goog.events');
 goog.require('goog.object');
+goog.requireType('goog.events.EventTarget');
+goog.requireType('goog.events.EventWrapper');
 
 
 
@@ -165,7 +158,7 @@ goog.events.EventHandler.prototype.listenWithScope = function(
 goog.events.EventHandler.prototype.listen_ = function(
     src, type, opt_fn, opt_options, opt_scope) {
   var self = /** @type {!goog.events.EventHandler} */ (this);
-  if (!goog.isArray(type)) {
+  if (!Array.isArray(type)) {
     if (type) {
       goog.events.EventHandler.typeArray_[0] = type.toString();
     }
@@ -264,7 +257,7 @@ goog.events.EventHandler.prototype.listenOnceWithScope = function(
 goog.events.EventHandler.prototype.listenOnce_ = function(
     src, type, opt_fn, opt_options, opt_scope) {
   var self = /** @type {!goog.events.EventHandler} */ (this);
-  if (goog.isArray(type)) {
+  if (Array.isArray(type)) {
     for (var i = 0; i < type.length; i++) {
       self.listenOnce_(src, type[i], opt_fn, opt_options, opt_scope);
     }
@@ -396,7 +389,7 @@ goog.events.EventHandler.prototype.getListenerCount = function() {
 goog.events.EventHandler.prototype.unlisten = function(
     src, type, opt_fn, opt_options, opt_scope) {
   var self = /** @type {!goog.events.EventHandler} */ (this);
-  if (goog.isArray(type)) {
+  if (Array.isArray(type)) {
     for (var i = 0; i < type.length; i++) {
       self.unlisten(src, type[i], opt_fn, opt_options, opt_scope);
     }

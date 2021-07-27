@@ -1,33 +1,26 @@
-// Copyright 2013 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Codec functions of the v8 wire protocol. Eventually we'd want
  * to support pluggable wire-format to improve wire efficiency and to enable
  * binary encoding. Such support will require an interface class, which
  * will be added later.
+ *
  */
 
 
 goog.provide('goog.labs.net.webChannel.WireV8');
 
-goog.forwardDeclare('goog.structs.Map');
 goog.require('goog.asserts');
 goog.require('goog.json');
 goog.require('goog.json.NativeJsonProcessor');
 goog.require('goog.labs.net.webChannel.Wire');
 goog.require('goog.structs');
+goog.requireType('goog.structs.Map');
 
 
 
@@ -148,7 +141,7 @@ WireV8.prototype.encodeMessageQueue = function(
  */
 WireV8.prototype.decodeMessage = function(messageText) {
   var response = this.parser_.parse(messageText);
-  goog.asserts.assert(goog.isArray(response));  // throw exception
+  goog.asserts.assert(Array.isArray(response));  // throw exception
   return response;
 };
 });  // goog.scope

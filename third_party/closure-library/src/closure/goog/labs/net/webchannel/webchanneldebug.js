@@ -1,29 +1,22 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Provides a utility for tracing and debugging WebChannel
  *     requests.
+ *
  */
 
 
 goog.provide('goog.labs.net.webChannel.WebChannelDebug');
 
-goog.forwardDeclare('goog.Uri');
-goog.forwardDeclare('goog.net.XmlHttp.ReadyState');
 goog.require('goog.json');
 goog.require('goog.log');
+goog.requireType('goog.Uri');
+goog.requireType('goog.net.XmlHttp.ReadyState');
 
 
 
@@ -203,7 +196,7 @@ WebChannelDebug.prototype.redactResponse_ = function(responseText) {
     var responseArray = JSON.parse(responseText);
     if (responseArray) {
       for (var i = 0; i < responseArray.length; i++) {
-        if (goog.isArray(responseArray[i])) {
+        if (Array.isArray(responseArray[i])) {
           this.maybeRedactArray_(responseArray[i]);
         }
       }
@@ -227,7 +220,7 @@ WebChannelDebug.prototype.maybeRedactArray_ = function(array) {
     return;
   }
   var dataPart = array[1];
-  if (!goog.isArray(dataPart)) {
+  if (!Array.isArray(dataPart)) {
     return;
   }
   if (dataPart.length < 1) {

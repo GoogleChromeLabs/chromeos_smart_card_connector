@@ -1,16 +1,8 @@
-// Copyright 2009 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview provides a reusable mp3 UI component given a mp3 URL.
@@ -53,11 +45,11 @@
 
 goog.provide('goog.ui.media.Mp3');
 
-goog.forwardDeclare('goog.ui.media.MediaModel');
 goog.require('goog.string');
 goog.require('goog.ui.media.FlashObject');
 goog.require('goog.ui.media.Media');
 goog.require('goog.ui.media.MediaRenderer');
+goog.requireType('goog.ui.media.MediaModel');
 
 
 
@@ -125,7 +117,7 @@ goog.ui.media.Mp3.flashUrl_ =
  * Copied from http://go/markdownlite.js.
 
  *
- * NOTE(user): although it would be easier to use goog.string.endsWith('.mp3'),
+ * NOTE(goto): although it would be easier to use goog.string.endsWith('.mp3'),
  * in the future, we want to provide media inlining, which is basically getting
  * a text and replacing all mp3 references with an mp3 player, so it makes sense
  * to share the same regular expression to match everything.

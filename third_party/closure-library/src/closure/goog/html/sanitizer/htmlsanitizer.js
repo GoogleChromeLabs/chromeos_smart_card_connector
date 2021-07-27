@@ -1,16 +1,8 @@
-// Copyright 2016 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 
 /**
@@ -405,7 +397,31 @@ goog.html.sanitizer.HtmlSanitizer.Builder.prototype.allowDataAttributes =
  */
 goog.html.sanitizer.HtmlSanitizer.Builder.prototype.allowCustomElementTags =
     function(customElementTagWhitelist) {
-  goog.array.extend(this.customElementTagWhitelist_, customElementTagWhitelist);
+  goog.array.forEach(customElementTagWhitelist, function(tag) {
+    this.allowCustomElementTag(tag);
+  }, this);
+  return this;
+};
+
+/**
+ * Extends the list of allowed custom element tags.
+ * @param {string} customElementTagName
+ * @param {!Array<string>=} customElementAttributes
+ * @return {!goog.html.sanitizer.HtmlSanitizer.Builder}
+ */
+goog.html.sanitizer.HtmlSanitizer.Builder.prototype.allowCustomElementTag =
+    function(customElementTagName, customElementAttributes) {
+  this.customElementTagWhitelist_.push(customElementTagName);
+  if (customElementAttributes) {
+    goog.array.forEach(customElementAttributes, function(attr) {
+      var handlerName = goog.html.sanitizer.HtmlSanitizer.attrIdentifier_(
+          customElementTagName, attr);
+      this.attributeWhitelist_[handlerName] =
+          /** @type {!goog.html.sanitizer.HtmlSanitizerPolicy} */
+          (goog.html.sanitizer.HtmlSanitizer.cleanUpAttribute_);
+      this.attributeOverrideList_[handlerName] = true;
+    }, this);
+  }
   return this;
 };
 
@@ -608,7 +624,7 @@ goog.html.sanitizer.HtmlSanitizer.Builder.prototype.onlyAllowAttributes =
   var oldWhitelist = this.attributeWhitelist_;
   this.attributeWhitelist_ = {};
   goog.array.forEach(attrWhitelist, function(attr) {
-    if (goog.typeOf(attr) === 'string') {
+    if (typeof attr === 'string') {
       attr = {tagName: '*', attributeName: attr.toUpperCase(), policy: null};
     }
     var handlerName = goog.html.sanitizer.HtmlSanitizer.attrIdentifier_(

@@ -1,27 +1,19 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Mock of IframeIo for unit testing.
  */
 
 goog.provide('goog.net.MockIFrameIo');
-goog.forwardDeclare('goog.testing.TestQueue');
 goog.require('goog.events.EventTarget');
 goog.require('goog.net.ErrorCode');
 goog.require('goog.net.EventType');
 goog.require('goog.net.IframeIo');
+goog.requireType('goog.testing.TestQueue');
 
 
 
@@ -244,7 +236,7 @@ goog.net.MockIFrameIo.prototype.getResponseText = function() {
 /**
  * Parses the content as JSON. This is a safe parse and may throw an error
  * if the response is malformed.
- * @return {Object} The parsed content.
+ * @return {!Object} The parsed content.
  */
 goog.net.MockIFrameIo.prototype.getResponseJson = function() {
   return /** @type {!Object} */ (JSON.parse(this.lastContent_));

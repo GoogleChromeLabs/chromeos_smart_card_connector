@@ -1,16 +1,8 @@
-// Copyright 2014 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview The SafeScript type and its builders.
@@ -60,6 +52,9 @@ goog.require('goog.string.TypedString');
  * that within an HTML script (raw text) element, HTML character references,
  * such as "&lt;" are not allowed. See
  * http://www.w3.org/TR/html5/scripting-1.html#restrictions-for-contents-of-script-elements.
+ *
+ * Creating SafeScript objects HAS SIDE-EFFECTS due to calling Trusted Types Web
+ * API.
  *
  * @see goog.html.SafeScript#fromConstant
  * @constructor
@@ -290,11 +285,9 @@ goog.html.SafeScript.createSafeScriptSecurityPrivateDoNotAccessOrElse =
  */
 goog.html.SafeScript.prototype.initSecurityPrivateDoNotAccessOrElse_ = function(
     script) {
+  const policy = goog.html.trustedtypes.getPolicyPrivateDoNotAccessOrElse();
   this.privateDoNotAccessOrElseSafeScriptWrappedValue_ =
-      goog.html.trustedtypes.PRIVATE_DO_NOT_ACCESS_OR_ELSE_POLICY ?
-      goog.html.trustedtypes.PRIVATE_DO_NOT_ACCESS_OR_ELSE_POLICY.createScript(
-          script) :
-      script;
+      policy ? policy.createScript(script) : script;
   return this;
 };
 
@@ -303,5 +296,12 @@ goog.html.SafeScript.prototype.initSecurityPrivateDoNotAccessOrElse_ = function(
  * A SafeScript instance corresponding to the empty string.
  * @const {!goog.html.SafeScript}
  */
-goog.html.SafeScript.EMPTY =
-    goog.html.SafeScript.createSafeScriptSecurityPrivateDoNotAccessOrElse('');
+goog.html.SafeScript.EMPTY = /** @type {!goog.html.SafeScript} */ ({
+  // NOTE: this compiles to nothing, but hides the possible side effect of
+  // SafeScript creation (due to calling trustedTypes.createPolicy) from the
+  // compiler so that the entire call can be removed if the result is not used.
+  valueOf: function() {
+    return goog.html.SafeScript
+        .createSafeScriptSecurityPrivateDoNotAccessOrElse('');
+  },
+}.valueOf());

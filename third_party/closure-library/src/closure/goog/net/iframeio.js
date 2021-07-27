@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Class for managing requests via iFrames.  Supports a number of
@@ -359,7 +351,7 @@ goog.net.IframeIo.getForm_ = function() {
 goog.net.IframeIo.addFormInputs_ = function(form, data) {
   var helper = goog.dom.getDomHelper(form);
   goog.structs.forEach(data, function(value, key) {
-    if (!goog.isArray(value)) {
+    if (!Array.isArray(value)) {
       value = [value];
     }
     goog.array.forEach(value, function(value) {
@@ -1250,7 +1242,7 @@ goog.net.IframeIo.prototype.createIframe_ = function() {
 goog.net.IframeIo.prototype.appendIframe_ = function() {
   goog.dom.getDomHelper(this.form_)
       .getDocument()
-      .body.appendChild(this.iframe_);
+      .body.appendChild(/** @type {!Node} */ (this.iframe_));
 };
 
 

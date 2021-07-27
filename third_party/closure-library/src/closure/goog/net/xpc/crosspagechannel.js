@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Provides the class CrossPageChannel, the main class in
@@ -46,6 +38,7 @@ goog.require('goog.net.xpc.UriCfgFields');
 goog.require('goog.string');
 goog.require('goog.uri.utils');
 goog.require('goog.userAgent');
+goog.requireType('goog.net.xpc.Transport');
 
 
 
@@ -120,7 +113,7 @@ goog.net.xpc.CrossPageChannel = function(cfg, opt_domHelper) {
       goog.uri.utils.getHost(cfg[goog.net.xpc.CfgFields.PEER_URI] || '') +
           '/robots.txt';
 
-  goog.net.xpc.channels[this.name] = this;
+  goog.net.xpc.CrossPageChannel.channels[this.name] = this;
 
   if (!goog.events.getListener(
           window, goog.events.EventType.UNLOAD,
@@ -798,9 +791,9 @@ goog.net.xpc.CrossPageChannel.prototype.getRole = function() {
 goog.net.xpc.CrossPageChannel.prototype.updateChannelNameAndCatalog = function(
     name) {
   goog.log.fine(goog.net.xpc.logger, 'changing channel name to ' + name);
-  delete goog.net.xpc.channels[this.name];
+  delete goog.net.xpc.CrossPageChannel.channels[this.name];
   this.name = name;
-  goog.net.xpc.channels[name] = this;
+  goog.net.xpc.CrossPageChannel.channels[name] = this;
 };
 
 
@@ -828,7 +821,7 @@ goog.net.xpc.CrossPageChannel.prototype.disposeInternal = function() {
 
   this.peerWindowObject_ = null;
   this.iframeElement_ = null;
-  delete goog.net.xpc.channels[this.name];
+  delete goog.net.xpc.CrossPageChannel.channels[this.name];
   goog.dispose(this.peerLoadHandler_);
   delete this.peerLoadHandler_;
   goog.net.xpc.CrossPageChannel.base(this, 'disposeInternal');
@@ -840,7 +833,15 @@ goog.net.xpc.CrossPageChannel.prototype.disposeInternal = function() {
  * @private
  */
 goog.net.xpc.CrossPageChannel.disposeAll_ = function() {
-  for (var name in goog.net.xpc.channels) {
-    goog.dispose(goog.net.xpc.channels[name]);
+  for (var name in goog.net.xpc.CrossPageChannel.channels) {
+    goog.dispose(goog.net.xpc.CrossPageChannel.channels[name]);
   }
 };
+
+
+/**
+ * Object holding active channels.
+ *
+ * @package {!Object<string, !goog.net.xpc.CrossPageChannel>}
+ */
+goog.net.xpc.CrossPageChannel.channels = {};

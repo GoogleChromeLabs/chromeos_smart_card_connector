@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Functions to style text.
@@ -291,7 +283,7 @@ goog.editor.plugins.BasicTextFormatter.prototype.execCommandInternal = function(
         case goog.editor.plugins.BasicTextFormatter.COMMAND.FORMAT_BLOCK:
           // Both FF & IE may lose directionality info. Save/restore it.
           // TODO(user): Does Safari also need this?
-          // TODO (gmark, jparent): This isn't ideal because it uses a string
+          // TODO (user): This isn't ideal because it uses a string
           // literal, so if the plugin name changes, it would break. We need a
           // better solution. See also other places in code that use
           // this.getPluginByClassId('Bidi').
@@ -830,9 +822,9 @@ goog.editor.plugins.BasicTextFormatter.prototype.execCommandHelper_ = function(
 
   if (/insert(un)?orderedlist/i.test(command)) {
     // NOTE(user): This doesn't check queryCommandState because it seems to
-    // lie. Also, this runs for insertunorderedlist so that the the list
-    // isn't made up of an <ul> for each <li> - even though it looks the same,
-    // the markup is disgusting.
+    // lie. Also, this runs for insertunorderedlist so that the list isn't made
+    // up of an <ul> for each <li> - even though it looks the same, the markup
+    // is disgusting.
     if (goog.userAgent.WEBKIT && !goog.userAgent.isVersionOrHigher(534)) {
       this.fixSafariLists_();
     }
@@ -1146,6 +1138,7 @@ goog.editor.plugins.BasicTextFormatter.prototype
  * selection, so the font tags produced by execCommand work properly.
  * See {@bug 1286408}.
  * @private
+ * @suppress {missingProperties}
  */
 goog.editor.plugins.BasicTextFormatter.prototype.removeFontSizeFromStyleAttrs_ =
     function() {
@@ -1286,7 +1279,7 @@ goog.editor.plugins.BasicTextFormatter.prototype.applyExecCommandIEFixes_ =
 
 
 /**
- * Fix a ridiculous Safari bug: the first letters of new headings
+ * Fix an unfortunate Safari bug: the first letters of new headings
  * somehow retain their original font size and weight if multiple lines are
  * selected during the execCommand that turns them into headings.
  * The solution is to strip these styles which are normally stripped when
@@ -1588,6 +1581,7 @@ goog.editor.plugins.BasicTextFormatter.prototype.beforeInsertListGecko_ =
  * @param {goog.dom.AbstractRange} range The range to get toolbar state for.
  * @return {string?} The selection block state.
  * @private
+ * @suppress {missingProperties}
  */
 goog.editor.plugins.BasicTextFormatter.getSelectionBlockState_ = function(
     range) {

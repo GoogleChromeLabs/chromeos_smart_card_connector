@@ -1,16 +1,8 @@
-// Copyright 2010 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.module('goog.ui.editor.LinkDialogTest');
 goog.setTestOnly();
@@ -28,8 +20,10 @@ const LinkDialog = goog.require('goog.ui.editor.LinkDialog');
 const MockControl = goog.require('goog.testing.MockControl');
 const PropertyReplacer = goog.require('goog.testing.PropertyReplacer');
 const TagName = goog.require('goog.dom.TagName');
+const asserts = goog.require('goog.testing.asserts');
 const dom = goog.require('goog.dom');
 const events = goog.require('goog.events');
+const googWindow = goog.require('goog.window');
 const messages = goog.require('goog.ui.editor.messages');
 const mockmatchers = goog.require('goog.testing.mockmatchers');
 const style = goog.require('goog.style');
@@ -209,7 +203,7 @@ testSuite({
     mockLink.$returns(anchorElem);
 
     mockWindowOpen = mockCtrl.createFunctionMock('open');
-    stubs.set(window, 'open', mockWindowOpen);
+    stubs.set(googWindow, 'open', mockWindowOpen);
   },
 
   tearDown() {
@@ -672,13 +666,23 @@ testSuite({
     let width;
 
     mockWindowOpen(
-        ANCHOR_URL, '_blank',
+        ANCHOR_URL,
         new ArgumentMatcher(
-            (str) => str ==
-                `width=${width},height=${height}` +
-                    ',toolbar=1,scrollbars=1,location=1,statusbar=0,' +
-                    'menubar=1,resizable=1',
-            '3rd arg: (string) window.open() options'));
+            (options) => !asserts.findDifferences(options, {
+              target: '_blank',
+              width: width,
+              height: height,
+              toolbar: true,
+              scrollbars: true,
+              location: true,
+              statusbar: false,
+              menubar: true,
+              resizable: true,
+              noreferrer: false,
+              noopener: false,
+            }),
+            '2nd arg: window.open() options'),
+        window);
 
     mockCtrl.$replayAll();
     setUpAnchor(ANCHOR_URL, ANCHOR_TEXT);

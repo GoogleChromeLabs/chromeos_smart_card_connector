@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Utility functions for supporting Bidi issues.
@@ -100,7 +92,7 @@ goog.i18n.bidi.IS_RTL =
           goog.LOCALE.substring(4, 8).toLowerCase() == 'thaa')));
 //    closure/RtlLocalesTest.java)
 
-// TODO(b/77919903): Add additional scripts and languages that are RTL,
+// TODO(user): Add additional scripts and languages that are RTL,
 // e.g., mende, samaritan, etc.
 
 
@@ -879,10 +871,14 @@ goog.i18n.bidi.setElementDirByTextDirectionality = function(element, text) {
   const htmlElement = /** @type {!HTMLElement} */ (element);
   switch (goog.i18n.bidi.estimateDirection(text)) {
     case (goog.i18n.bidi.Dir.LTR):
-      htmlElement.dir = 'ltr';
+      if (htmlElement.dir !== 'ltr') {
+        htmlElement.dir = 'ltr';
+      }
       break;
     case (goog.i18n.bidi.Dir.RTL):
-      htmlElement.dir = 'rtl';
+      if (htmlElement.dir !== 'rtl') {
+        htmlElement.dir = 'rtl';
+      }
       break;
     default:
       // Default for no direction, inherit from document.

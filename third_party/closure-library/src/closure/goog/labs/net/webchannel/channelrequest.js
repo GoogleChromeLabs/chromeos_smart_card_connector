@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Definition of the ChannelRequest class. The request
@@ -19,15 +11,16 @@
  * the logic for the two types of transports we use:
  * XMLHTTP and Image request. It provides timeout detection. More transports
  * to be added in future, such as Fetch, WebSocket.
+ *
  */
 
 
 goog.provide('goog.labs.net.webChannel.ChannelRequest');
 
-goog.forwardDeclare('goog.Uri');
-goog.forwardDeclare('goog.net.XhrIo');
 goog.require('goog.Timer');
+goog.require('goog.asserts');
 goog.require('goog.async.Throttle');
+goog.require('goog.dispose');
 goog.require('goog.events.EventHandler');
 goog.require('goog.labs.net.webChannel.Channel');
 goog.require('goog.labs.net.webChannel.WebChannelDebug');
@@ -40,6 +33,10 @@ goog.require('goog.net.XmlHttp');
 goog.require('goog.object');
 goog.require('goog.string');
 goog.require('goog.userAgent');
+goog.requireType('goog.Uri');
+goog.requireType('goog.events.Event');
+goog.requireType('goog.labs.net.webChannel.Wire.QueuedMap');
+goog.requireType('goog.net.XhrIo');
 
 
 
@@ -250,6 +247,13 @@ goog.labs.net.webChannel.ChannelRequest = function(
    * @private {boolean}
    */
   this.initialResponseDecoded_ = false;
+
+  /**
+   * Whether the first byte of response body has arrived, for a successful
+   * response.
+   * @private {boolean}
+   */
+  this.firstByteReceived_ = false;
 };
 
 
@@ -556,7 +560,6 @@ ChannelRequest.prototype.readyStateChangeHandler_ = function(evt) {
 ChannelRequest.prototype.xmlHttpHandler_ = function(xmlhttp) {
   requestStats.onStartExecution();
 
-
   try {
     if (xmlhttp == this.xmlHttp_) {
       this.onXmlHttpReadyStateChanged_();
@@ -770,6 +773,7 @@ ChannelRequest.prototype.setDecodeInitialResponse = function() {
 ChannelRequest.prototype.decodeNextChunks_ = function(
     readyState, responseText) {
   var decodeNextChunksSuccessful = true;
+
   while (!this.cancelled_ && this.xmlHttpChunkStart_ < responseText.length) {
     var chunkText = this.getNextChunk_(responseText);
     if (chunkText == ChannelRequest.INCOMPLETE_CHUNK_) {
@@ -795,6 +799,7 @@ ChannelRequest.prototype.decodeNextChunks_ = function(
       this.safeOnRequestData_(/** @type {string} */ (chunkText));
     }
   }
+
   if (readyState == goog.net.XmlHttp.ReadyState.COMPLETE &&
       responseText.length == 0) {
     // also an error if we didn't get any response
@@ -802,13 +807,20 @@ ChannelRequest.prototype.decodeNextChunks_ = function(
     requestStats.notifyStatEvent(requestStats.Stat.REQUEST_NO_DATA);
     decodeNextChunksSuccessful = false;
   }
+
   this.successful_ = this.successful_ && decodeNextChunksSuccessful;
+
   if (!decodeNextChunksSuccessful) {
     // malformed response - we make this trigger retry logic
     this.channelDebug_.xmlHttpChannelResponseText(
         this.rid_, responseText, '[Invalid Chunked Response]');
     this.cleanup_();
     this.dispatchFailure_();
+  } else {
+    if (responseText.length > 0 && !this.firstByteReceived_) {
+      this.firstByteReceived_ = true;
+      this.channel_.onFirstByteReceived(this, responseText);
+    }
   }
 };
 
@@ -1012,6 +1024,8 @@ ChannelRequest.prototype.cancelWatchDogTimer_ = function() {
 ChannelRequest.prototype.onWatchDogTimeout_ = function() {
   this.watchDogTimerId_ = null;
   var now = goog.now();
+  goog.asserts.assert(
+      this.watchDogTimeoutTime_, 'WatchDog timeout time missing?');
   if (now - this.watchDogTimeoutTime_ >= 0) {
     this.handleTimeout_();
   } else {
