@@ -39,15 +39,11 @@ goog.require('goog.string');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var RequesterMessage = GSC.RequesterMessage;
-/** @const */
-var RequestMessageData = RequesterMessage.RequestMessageData;
-/** @const */
-var ResponseMessageData = RequesterMessage.ResponseMessageData;
+const RequesterMessage = GSC.RequesterMessage;
+const RequestMessageData = RequesterMessage.RequestMessageData;
+const ResponseMessageData = RequesterMessage.ResponseMessageData;
 
 /**
  * This class is a requester, that can be used for sending requests through a
@@ -89,8 +85,7 @@ GSC.Requester = function(name, messageChannel) {
   this.addChannelDisposedListener_();
 };
 
-/** @const */
-var Requester = GSC.Requester;
+const Requester = GSC.Requester;
 
 goog.inherits(Requester, goog.Disposable);
 
@@ -108,13 +103,13 @@ goog.inherits(Requester, goog.Disposable);
  * @return {!goog.Promise}
  */
 Requester.prototype.postRequest = function(payload) {
-  var requestId = this.requestIdGenerator_.next();
+  const requestId = this.requestIdGenerator_.next();
 
   this.logger.fine(
-      'Starting a request with identifier ' + requestId + ', the payload is: ' +
-      GSC.DebugDump.debugDump(payload));
+      'Starting a request with identifier ' + requestId +
+      ', the payload is: ' + GSC.DebugDump.debugDump(payload));
 
-  var promiseResolver = goog.Promise.withResolver();
+  const promiseResolver = goog.Promise.withResolver();
 
   if (this.isDisposed()) {
     // FIXME(emaxx): Probably add the disposal reason information into the
@@ -127,9 +122,9 @@ Requester.prototype.postRequest = function(payload) {
       this.logger, !this.requestIdToPromiseResolverMap_.has(requestId));
   this.requestIdToPromiseResolverMap_.set(requestId, promiseResolver);
 
-  var requestMessageData = new RequestMessageData(requestId, payload);
-  var messageData = requestMessageData.makeMessageData();
-  var serviceName = RequesterMessage.getRequestMessageType(this.name_);
+  const requestMessageData = new RequestMessageData(requestId, payload);
+  const messageData = requestMessageData.makeMessageData();
+  const serviceName = RequesterMessage.getRequestMessageType(this.name_);
   this.messageChannel_.send(serviceName, messageData);
 
   return promiseResolver.promise;
@@ -137,8 +132,8 @@ Requester.prototype.postRequest = function(payload) {
 
 /** @override */
 Requester.prototype.disposeInternal = function() {
-  var runningRequestIds = Array.from(
-      this.requestIdToPromiseResolverMap_.keys());
+  const runningRequestIds =
+      Array.from(this.requestIdToPromiseResolverMap_.keys());
   goog.array.sort(runningRequestIds);
   goog.array.forEach(runningRequestIds, function(requestId) {
     // FIXME(emaxx): Probably add the disposal reason information into the
@@ -157,7 +152,7 @@ Requester.prototype.disposeInternal = function() {
 
 /** @private */
 Requester.prototype.registerResponseMessagesService_ = function() {
-  var serviceName = RequesterMessage.getResponseMessageType(this.name_);
+  const serviceName = RequesterMessage.getResponseMessageType(this.name_);
   this.messageChannel_.registerService(
       serviceName, this.responseMessageReceivedListener_.bind(this), true);
 };
@@ -189,14 +184,14 @@ Requester.prototype.responseMessageReceivedListener_ = function(messageData) {
     return;
   }
 
-  var responseMessageData = ResponseMessageData.parseMessageData(messageData);
+  const responseMessageData = ResponseMessageData.parseMessageData(messageData);
   if (responseMessageData === null) {
     GSC.Logging.failWithLogger(
         this.logger,
         'Failed to parse the received response message: ' +
-        GSC.DebugDump.debugDump(messageData));
+            GSC.DebugDump.debugDump(messageData));
   }
-  var requestId = responseMessageData.requestId;
+  const requestId = responseMessageData.requestId;
 
   if (!this.requestIdToPromiseResolverMap_.has(requestId)) {
     GSC.Logging.failWithLogger(
@@ -239,10 +234,9 @@ Requester.prototype.rejectRequest_ = function(requestId, errorMessage) {
  * @private
  */
 Requester.prototype.popRequestPromiseResolver_ = function(requestId) {
-  var result = this.requestIdToPromiseResolverMap_.get(requestId);
+  const result = this.requestIdToPromiseResolverMap_.get(requestId);
   GSC.Logging.checkWithLogger(this.logger, result !== undefined);
   this.requestIdToPromiseResolverMap_.delete(requestId);
   return result;
 };
-
 });  // goog.scope

@@ -31,8 +31,7 @@ goog.require('goog.string');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * @param {?} value
@@ -47,12 +46,11 @@ function encodeJson(value) {
  * @return {number}
  */
 function guessIntegerBitLength(value) {
-  /** @const */
-  var BIT_LENGTHS = [8, 32, 64];
-  var result = null;
+  const BIT_LENGTHS = [8, 32, 64];
+  let result = null;
   goog.array.forEach(BIT_LENGTHS, function(bitLength) {
-    var signedBegin = -Math.pow(2, bitLength - 1);
-    var unsignedEnd = Math.pow(2, bitLength);
+    const signedBegin = -Math.pow(2, bitLength - 1);
+    const unsignedEnd = Math.pow(2, bitLength);
     if (signedBegin <= value && value < unsignedEnd && result === null)
       result = bitLength;
   });
@@ -64,7 +62,7 @@ function guessIntegerBitLength(value) {
  * @return {string}
  */
 function dumpSequenceItems(value) {
-  var dumpedItems = goog.iter.map(value, GSC.DebugDump.dump);
+  const dumpedItems = goog.iter.map(value, GSC.DebugDump.dump);
   return goog.iter.join(dumpedItems, ', ');
 }
 
@@ -73,7 +71,7 @@ function dumpSequenceItems(value) {
  * @return {string}
  */
 function dumpMappingItems(items) {
-  var dumpedItems = goog.array.map(items, function(item) {
+  const dumpedItems = goog.array.map(items, function(item) {
     return GSC.DebugDump.dump(item[0]) + ': ' + GSC.DebugDump.dump(item[1]);
   });
   return goog.iter.join(dumpedItems, ', ');
@@ -92,7 +90,7 @@ function dumpNumber(value) {
   if (!goog.math.isInt(value))
     return encodeJson(value);
 
-  var bitLength = guessIntegerBitLength(value);
+  const bitLength = guessIntegerBitLength(value);
 
   // Format huge integers by the default JSON formatter
   if (!bitLength)
@@ -105,8 +103,8 @@ function dumpNumber(value) {
 
   // Format non-negative integers, which are not too huge, in the hexadecimal
   // system
-  var hexValue = value.toString(16).toUpperCase();
-  var expectedHexLength = bitLength / 4;
+  const hexValue = value.toString(16).toUpperCase();
+  const expectedHexLength = bitLength / 4;
   return '0x' + goog.string.repeat('0', expectedHexLength - hexValue.length) +
          hexValue;
 }
@@ -164,7 +162,7 @@ function dumpSet(value) {
  * @return {string}
  */
 function dumpObject(value) {
-  var items = [];
+  const items = [];
   goog.object.forEach(value, function(itemValue, itemKey) {
     items.push([itemKey, itemValue]);
   });

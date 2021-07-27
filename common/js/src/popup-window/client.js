@@ -35,14 +35,10 @@ goog.require('goog.object');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var logger = GSC.Logging.getScopedLogger('PopupWindow.Client');
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('PopupWindow.Client');
 
 /**
  * Returns the additional data that was specified during the popup creation.
@@ -67,7 +63,7 @@ GSC.PopupWindow.Client.showWindow = function() {
  * @param {*} result
  */
 GSC.PopupWindow.Client.resolveModalDialog = function(result) {
-  var callback = GSC.PopupWindow.Client.getData()['resolveModalDialog'];
+  const callback = GSC.PopupWindow.Client.getData()['resolveModalDialog'];
   GSC.Logging.checkWithLogger(logger, callback);
   logger.fine('The modal dialog is resolved with the following result: ' +
               GSC.DebugDump.debugDump(result));
@@ -82,7 +78,7 @@ GSC.PopupWindow.Client.resolveModalDialog = function(result) {
  * @param {*} error
  */
 GSC.PopupWindow.Client.rejectModalDialog = function(error) {
-  var callback = GSC.PopupWindow.Client.getData()['rejectModalDialog'];
+  const callback = GSC.PopupWindow.Client.getData()['rejectModalDialog'];
   GSC.Logging.checkWithLogger(logger, callback);
   logger.fine('The modal dialog is rejected with the following error: ' +
               error);
@@ -107,7 +103,7 @@ GSC.PopupWindow.Client.prepareAndShowAsModalDialog = function() {
  * are specified for the window).
  */
 GSC.PopupWindow.Client.setWindowHeightToFitContent = function() {
-  var wholeContentHeight = document.documentElement['offsetHeight'];
+  const wholeContentHeight = document.documentElement['offsetHeight'];
   GSC.Logging.checkWithLogger(
       logger,
       wholeContentHeight !== undefined &&

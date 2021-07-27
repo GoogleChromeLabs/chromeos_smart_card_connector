@@ -125,7 +125,8 @@ let ExecutableModuleSignatureRequest;
  * @extends goog.Disposable
  * @constructor
  */
-SmartCardClientApp.CertificateProviderBridge.Backend = function(executableModule) {
+SmartCardClientApp.CertificateProviderBridge.Backend = function(
+    executableModule) {
   /**
    * @type {!goog.log.Logger}
    * @const
@@ -484,26 +485,29 @@ Backend.prototype.processSignDigestRequest_ = function(
   /** @type {!ExecutableModuleSignatureRequest} */
   const executableRequest = {
     signRequestId: request.signRequestId,
-    input: new ArrayBuffer(/*length=*/0),
+    input: new ArrayBuffer(/*length=*/ 0),
     digest: request.digest,
     algorithm: getAlgorithmFromHash(request.hash),
     certificate: request.certificate,
   };
   const remoteCallMessage = new GSC.RemoteCallMessage(
       HANDLE_SIGNATURE_REQUEST_FUNCTION_NAME, [executableRequest]);
-  const promise = this.requester_.postRequest(
-      remoteCallMessage.makeRequestPayload());
-  promise.then(function(results) {
-    GSC.Logging.checkWithLogger(this.logger, results.length == 1);
-    const signature = results[0];
-    this.logger.info(
-        'Responding to the digest sign request with the created signature: ' +
-        GSC.DebugDump.debugDump(signature));
-    reportCallback(signature);
-  }, function() {
-    this.logger.info('Responding to the digest sign request with an error');
-    reportCallback(undefined);
-  }, this);
+  const promise =
+      this.requester_.postRequest(remoteCallMessage.makeRequestPayload());
+  promise.then(
+      function(results) {
+        GSC.Logging.checkWithLogger(this.logger, results.length == 1);
+        const signature = results[0];
+        this.logger.info(
+            'Responding to the digest sign request with the created signature: ' +
+            GSC.DebugDump.debugDump(signature));
+        reportCallback(signature);
+      },
+      function() {
+        this.logger.info('Responding to the digest sign request with an error');
+        reportCallback(undefined);
+      },
+      this);
 };
 
 /**

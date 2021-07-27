@@ -20,8 +20,7 @@ goog.require('goog.math.Integer');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * Casts the passed value to the signed 32-bit integer.

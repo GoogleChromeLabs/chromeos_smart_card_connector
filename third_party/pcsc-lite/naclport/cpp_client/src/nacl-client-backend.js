@@ -44,8 +44,7 @@ goog.require('goog.structs.Queue');
 
 goog.scope(function() {
 
-/** @const */
-var REQUESTER_NAME = 'pcsc_lite';
+const REQUESTER_NAME = 'pcsc_lite';
 
 /**
  * Time interval between GoogleSmartCard.PcscLiteClient.Context instance
@@ -54,12 +53,10 @@ var REQUESTER_NAME = 'pcsc_lite';
  * The throttling is just for avoiding the system overload when connection to
  * the server App for some reason cannot be established, but the code in NaCl
  * module keeps constantly sending requests.
- * @const
  */
-var REINITIALIZATION_INTERVAL_SECONDS = 10;
+const REINITIALIZATION_INTERVAL_SECONDS = 10;
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * This class handles the PC/SC-Lite client API requests (which are normally
@@ -114,8 +111,7 @@ GSC.PcscLiteClient.NaclClientBackend = function(
   this.logger.fine('Constructed');
 };
 
-/** @const */
-var NaclClientBackend = GSC.PcscLiteClient.NaclClientBackend;
+const NaclClientBackend = GSC.PcscLiteClient.NaclClientBackend;
 
 /**
  * @type {!goog.log.Logger}
@@ -130,7 +126,7 @@ NaclClientBackend.prototype.logger = GSC.Logging.getScopedLogger(
  * @private
  */
 NaclClientBackend.prototype.handleRequest_ = function(payload) {
-  var remoteCallMessage = GSC.RemoteCallMessage.parseRequestPayload(payload);
+  const remoteCallMessage = GSC.RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {
     GSC.Logging.failWithLogger(
         this.logger,
@@ -141,7 +137,7 @@ NaclClientBackend.prototype.handleRequest_ = function(payload) {
   this.logger.fine('Received a remote call request: ' +
                    remoteCallMessage.getDebugRepresentation());
 
-  var promiseResolver = goog.Promise.withResolver();
+  const promiseResolver = goog.Promise.withResolver();
 
   this.bufferedRequestsQueue_.enqueue(new BufferedRequest(
       remoteCallMessage, promiseResolver));
@@ -278,7 +274,7 @@ NaclClientBackend.prototype.flushBufferedRequestsQueue_ = function() {
     return;
   this.logger.finer('Starting processing the queued requests...');
   while (!this.bufferedRequestsQueue_.isEmpty()) {
-    var request = this.bufferedRequestsQueue_.dequeue();
+    const request = this.bufferedRequestsQueue_.dequeue();
     this.startRequest_(request.remoteCallMessage, request.promiseResolver);
   }
 };
@@ -289,9 +285,9 @@ NaclClientBackend.prototype.rejectAllBufferedRequests_ = function() {
     return;
   this.logger.fine('Rejecting all queued requests...');
   while (!this.bufferedRequestsQueue_.isEmpty()) {
-    var request = this.bufferedRequestsQueue_.dequeue();
-    request.promiseResolver.reject(new Error(
-        'PC/SC-Lite Client API instance was disposed'));
+    const request = this.bufferedRequestsQueue_.dequeue();
+    request.promiseResolver.reject(
+        new Error('PC/SC-Lite Client API instance was disposed'));
   }
 };
 
@@ -307,9 +303,9 @@ NaclClientBackend.prototype.startRequest_ = function(
 
   GSC.Logging.checkWithLogger(this.logger, this.api_);
 
-  var method = this.getApiMethod_(remoteCallMessage.functionName);
-  var resultPromise = method.apply(
-      this.api_, remoteCallMessage.functionArguments);
+  const method = this.getApiMethod_(remoteCallMessage.functionName);
+  const resultPromise =
+      method.apply(this.api_, remoteCallMessage.functionArguments);
   resultPromise.then(
       this.apiMethodResolvedCallback_.bind(
           this, remoteCallMessage, promiseResolver),

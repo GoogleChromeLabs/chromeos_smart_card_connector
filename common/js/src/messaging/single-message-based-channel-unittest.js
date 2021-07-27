@@ -31,58 +31,45 @@ goog.setTestOnly();
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var SingleMessageBasedChannel = GSC.SingleMessageBasedChannel;
+const SingleMessageBasedChannel = GSC.SingleMessageBasedChannel;
 
-/** @const */
-var Pinger = GSC.MessageChannelPinging.Pinger;
+const Pinger = GSC.MessageChannelPinging.Pinger;
 
-/** @const */
-var PingResponder = GSC.MessageChannelPinging.PingResponder;
+const PingResponder = GSC.MessageChannelPinging.PingResponder;
 
-/** @const */
-var TypedMessage = GSC.TypedMessage;
+const TypedMessage = GSC.TypedMessage;
 
-/** @const */
-var EXTENSION_ID = 'DUMMY_EXTENSION_ID';
+const EXTENSION_ID = 'DUMMY_EXTENSION_ID';
 
-/** @const */
-var TEST_MESSAGES = [
-    new TypedMessage('service x', {}),
-    new TypedMessage('service x', {some_data: 1}),
-    new TypedMessage('service y', {})];
+const TEST_MESSAGES = [
+  new TypedMessage('service x', {}),
+  new TypedMessage('service x', {some_data: 1}),
+  new TypedMessage('service y', {})
+];
 
-/** @const */
-var channelId = PingResponder.generateChannelId();
+const channelId = PingResponder.generateChannelId();
 
-/** @const */
-var pingResponseMessage = new TypedMessage(
-    PingResponder.SERVICE_NAME,
-    PingResponder.createMessageData(channelId)).makeMessage();
+const pingResponseMessage =
+    new TypedMessage(
+        PingResponder.SERVICE_NAME, PingResponder.createMessageData(channelId))
+        .makeMessage();
 
-/**
- * Mock matcher that matches strings.
- * @const
- */
-var verifyChannelIdMatcher = new goog.testing.mockmatchers.ArgumentMatcher(
-    function(value) {
+/** Mock matcher that matches strings. */
+const verifyChannelIdMatcher =
+    new goog.testing.mockmatchers.ArgumentMatcher(function(value) {
       return value === EXTENSION_ID;
     }, 'verifyChannelId');
 
-/**
- * Mock matcher that matches only the ping messages.
- * @const
- */
-var isPingMessageMatcher = new goog.testing.mockmatchers.ArgumentMatcher(
-    function(value) {
-      var typedMessage = TypedMessage.parseTypedMessage(value);
+/** Mock matcher that matches only the ping messages. */
+const isPingMessageMatcher =
+    new goog.testing.mockmatchers.ArgumentMatcher(function(value) {
+      const typedMessage = TypedMessage.parseTypedMessage(value);
       return typedMessage && typedMessage.type == Pinger.SERVICE_NAME;
     }, 'isPingMessage');
 
-var globalChannel;
+let globalChannel;
 
 /**
  * Setup the mock for chrome.runtime.sendMessage.
@@ -94,7 +81,7 @@ function setupSendMessageMock(testCasePromiseResolver, propertyReplacer) {
   // Cast to work around the issue that the return type of createFunctionMock()
   // is too generic (as it depends on the value of the optional second
   // argument).
-  var mockedSendMessage = /** @type {!goog.testing.StrictMock} */ (
+  const mockedSendMessage = /** @type {!goog.testing.StrictMock} */ (
       goog.testing.createFunctionMock('sendMessage'));
   propertyReplacer.setPath('chrome.runtime.sendMessage', mockedSendMessage);
   testCasePromiseResolver.promise.thenAlways(
@@ -117,11 +104,11 @@ function setupSendMessagePingResponding(mockedSendMessage) {
 // Test that the channel is successfully established once a response to the ping
 // request is received.
 goog.exportSymbol('testSingleMessageBasedChannelEstablishing', function() {
-  var testCasePromiseResolver = goog.Promise.withResolver();
-  var propertyReplacer = new goog.testing.PropertyReplacer;
+  const testCasePromiseResolver = goog.Promise.withResolver();
+  const propertyReplacer = new goog.testing.PropertyReplacer;
 
-  const mockedSendMessage = setupSendMessageMock(
-      testCasePromiseResolver, propertyReplacer);
+  const mockedSendMessage =
+      setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
   setupSendMessagePingResponding(mockedSendMessage);
 
   mockedSendMessage.$replay();
@@ -145,46 +132,46 @@ goog.exportSymbol('testSingleMessageBasedChannelEstablishing', function() {
 
 // Test that the channel is not established and is disposed of when there are no
 // responses to the ping requests received.
-goog.exportSymbol('testSingleMessageBasedChannelFailureToEstablish',
-                  function() {
-  var testCasePromiseResolver = goog.Promise.withResolver();
-  var propertyReplacer = new goog.testing.PropertyReplacer;
+goog.exportSymbol(
+    'testSingleMessageBasedChannelFailureToEstablish', function() {
+      const testCasePromiseResolver = goog.Promise.withResolver();
+      const propertyReplacer = new goog.testing.PropertyReplacer;
 
-  const mockedSendMessage = setupSendMessageMock(
-      testCasePromiseResolver, propertyReplacer);
-  propertyReplacer.set(Pinger, 'TIMEOUT_MILLISECONDS', 400);
-  propertyReplacer.set(Pinger, 'INTERVAL_MILLISECONDS', 200);
+      const mockedSendMessage =
+          setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
+      propertyReplacer.set(Pinger, 'TIMEOUT_MILLISECONDS', 400);
+      propertyReplacer.set(Pinger, 'INTERVAL_MILLISECONDS', 200);
 
-  chrome.runtime.sendMessage(verifyChannelIdMatcher,
-                             goog.testing.mockmatchers.isObject);
-  mockedSendMessage.$anyTimes();
-  mockedSendMessage.$replay();
+      chrome.runtime.sendMessage(
+          verifyChannelIdMatcher, goog.testing.mockmatchers.isObject);
+      mockedSendMessage.$anyTimes();
+      mockedSendMessage.$replay();
 
-  function onChannelEstablished() {
-    testCasePromiseResolver.reject();
-  }
+      function onChannelEstablished() {
+        testCasePromiseResolver.reject();
+      }
 
-  function onChannelDisposed() {
-    mockedSendMessage.$verify();
-    testCasePromiseResolver.resolve();
-    globalChannel.dispose();
-  }
+      function onChannelDisposed() {
+        mockedSendMessage.$verify();
+        testCasePromiseResolver.resolve();
+        globalChannel.dispose();
+      }
 
-  globalChannel = new GSC.SingleMessageBasedChannel(
-      EXTENSION_ID, onChannelEstablished);
-  globalChannel.addOnDisposeCallback(onChannelDisposed);
+      globalChannel =
+          new GSC.SingleMessageBasedChannel(EXTENSION_ID, onChannelEstablished);
+      globalChannel.addOnDisposeCallback(onChannelDisposed);
 
-  return testCasePromiseResolver.promise;
-});
+      return testCasePromiseResolver.promise;
+    });
 
 // Verify that messages sent through the message channel are posted through
 // with preserving the relative order.
 goog.exportSymbol('testSingleMessageBasedChannelSending', function() {
-  var testCasePromiseResolver = goog.Promise.withResolver();
-  var propertyReplacer = new goog.testing.PropertyReplacer;
+  const testCasePromiseResolver = goog.Promise.withResolver();
+  const propertyReplacer = new goog.testing.PropertyReplacer;
 
-  const mockedSendMessage = setupSendMessageMock(
-      testCasePromiseResolver, propertyReplacer);
+  const mockedSendMessage =
+      setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
   setupSendMessagePingResponding(mockedSendMessage);
 
   for (const testMessage of TEST_MESSAGES) {
@@ -220,17 +207,17 @@ goog.exportSymbol('testSingleMessageBasedChannelSending', function() {
 // Verify that the message channel passes the messages received from the other
 // side to the correct service while also preserving the relative order.
 goog.exportSymbol('testSingleMessageBasedChannelReceiving', function() {
-  var testCasePromiseResolver = goog.Promise.withResolver();
-  var propertyReplacer = new goog.testing.PropertyReplacer;
+  const testCasePromiseResolver = goog.Promise.withResolver();
+  const propertyReplacer = new goog.testing.PropertyReplacer;
 
-  const mockedSendMessage = setupSendMessageMock(
-      testCasePromiseResolver, propertyReplacer);
+  const mockedSendMessage =
+      setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
   setupSendMessagePingResponding(mockedSendMessage);
 
   mockedSendMessage.$replay();
 
   function onChannelEstablished() {
-    var receivedMessages = [];
+    const receivedMessages = [];
 
     for (let testMessage of TEST_MESSAGES) {
       globalChannel.registerService(
@@ -267,15 +254,15 @@ goog.exportSymbol('testSingleMessageBasedChannelReceiving', function() {
 // Verify that the message channel is disposed of when the underlying pinger
 // stops receiving responses (but first the channel needs to be established).
 goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
-  var testCasePromiseResolver = goog.Promise.withResolver();
-  var propertyReplacer = new goog.testing.PropertyReplacer;
+  const testCasePromiseResolver = goog.Promise.withResolver();
+  const propertyReplacer = new goog.testing.PropertyReplacer;
 
-  const mockedSendMessage = setupSendMessageMock(
-      testCasePromiseResolver, propertyReplacer);
+  const mockedSendMessage =
+      setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
   propertyReplacer.set(Pinger, 'TIMEOUT_MILLISECONDS', 400);
   propertyReplacer.set(Pinger, 'INTERVAL_MILLISECONDS', 200);
 
-  var firstCallSeen = false;
+  let firstCallSeen = false;
   chrome.runtime.sendMessage(verifyChannelIdMatcher, isPingMessageMatcher);
   mockedSendMessage.$atLeastOnce().$does(function(message) {
     if (!firstCallSeen) {
@@ -286,7 +273,7 @@ goog.exportSymbol('testSingleMessageBasedChannelDisposing', function() {
 
   mockedSendMessage.$replay();
 
-  var channelEstablished = false;
+  let channelEstablished = false;
   function onChannelEstablished() {
     channelEstablished = true;
   }

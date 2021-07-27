@@ -83,7 +83,8 @@ const LOGGER_SCOPE = 'GoogleSmartCard';
  * would be effective for all loggers unless the ones that have an explicitly
  * set level).
  */
-const ROOT_LOGGER_LEVEL = goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO;
+const ROOT_LOGGER_LEVEL =
+    goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO;
 
 /**
  * The capacity of the buffer that stores the emitted log messages.
@@ -97,8 +98,8 @@ const LOG_BUFFER_CAPACITY = goog.DEBUG ? 20 * 1000 : 2000;
 /**
  * @type {!goog.log.Logger}
  */
-const rootLogger = goog.asserts.assert(goog.log.getLogger(
-    goog.log.ROOT_LOGGER_NAME));
+const rootLogger =
+    goog.asserts.assert(goog.log.getLogger(goog.log.ROOT_LOGGER_NAME));
 
 /**
  * @type {!goog.log.Logger}

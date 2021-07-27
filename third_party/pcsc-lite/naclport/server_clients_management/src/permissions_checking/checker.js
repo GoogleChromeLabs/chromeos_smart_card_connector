@@ -37,11 +37,8 @@ goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
-
-/** @const */
-var PermissionsChecking =
+const GSC = GoogleSmartCard;
+const PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
@@ -66,8 +63,7 @@ PermissionsChecking.Checker = function() {
   this.userPromptingChecker_ = new PermissionsChecking.UserPromptingChecker;
 };
 
-/** @const */
-var Checker = PermissionsChecking.Checker;
+const Checker = PermissionsChecking.Checker;
 
 /**
  * @type {!goog.log.Logger}
@@ -94,7 +90,7 @@ Checker.prototype.check = function(clientAppId) {
     return goog.Promise.resolve();
   }
 
-  var checkPromiseResolver = goog.Promise.withResolver();
+  const checkPromiseResolver = goog.Promise.withResolver();
 
   this.checkByManagedRegistry_(clientAppId, checkPromiseResolver);
 

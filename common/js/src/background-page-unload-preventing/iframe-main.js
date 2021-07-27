@@ -34,23 +34,16 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var logger = GSC.Logging.getScopedLogger(
-    'BackgroundPageUnloadPreventing.IFrame');
+/** @type {!goog.log.Logger} */
+const logger =
+    GSC.Logging.getScopedLogger('BackgroundPageUnloadPreventing.IFrame');
 
 logger.fine('Opening a port to the background page...');
-/**
- * @type {!Port}
- * @const
- */
-var port = chrome.runtime.connect(
-    {'name': 'background-page-unload-preventing'});
+/** @type {!Port} */
+const port =
+    chrome.runtime.connect({'name': 'background-page-unload-preventing'});
 
 port.onDisconnect.addListener(function() {
   GSC.Logging.failWithLogger(

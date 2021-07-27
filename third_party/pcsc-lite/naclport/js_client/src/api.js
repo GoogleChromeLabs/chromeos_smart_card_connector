@@ -64,12 +64,9 @@ goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
-/** @const */
-var Constants = GSC.PcscLiteCommon.Constants;
-/** @const */
-var castToInt32 = GSC.FixedSizeInteger.castToInt32;
+const GSC = GoogleSmartCard;
+const Constants = GSC.PcscLiteCommon.Constants;
+const castToInt32 = GSC.FixedSizeInteger.castToInt32;
 
 /**
  * JavaScript version of the PC/SC-Lite API (see
@@ -115,8 +112,7 @@ GSC.PcscLiteClient.API = function(messageChannel) {
   this.logger.fine('Initialized');
 };
 
-/** @const */
-var API = GSC.PcscLiteClient.API;
+const API = GSC.PcscLiteClient.API;
 
 goog.inherits(API, goog.Disposable);
 
@@ -2247,7 +2243,7 @@ goog.exportProperty(
  * @return {!goog.Promise.<string>}
  */
 API.prototype.pcsc_stringify_error = function(errorCode) {
-  var logger = this.logger;
+  const logger = this.logger;
   return this.postRequest_(
       'pcsc_stringify_error',
       [errorCode],
@@ -3607,10 +3603,10 @@ API.prototype.postRequest_ = function(
     return goog.Promise.reject(new Error(
         'The API instance is already disposed'));
   }
-  var remoteCallMessage = new GSC.RemoteCallMessage(
-      functionName, functionArguments);
-  var payload = remoteCallMessage.makeRequestPayload();
-  var promise = this.requester_.postRequest(payload);
+  const remoteCallMessage =
+      new GSC.RemoteCallMessage(functionName, functionArguments);
+  const payload = remoteCallMessage.makeRequestPayload();
+  const promise = this.requester_.postRequest(payload);
   return promise.then(successfulResultTransformer);
 };
 

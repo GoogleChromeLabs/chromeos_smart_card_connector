@@ -34,11 +34,9 @@ goog.provide('GoogleSmartCard.PcscLiteCommon.Constants');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var Constants = GSC.PcscLiteCommon.Constants;
+const Constants = GSC.PcscLiteCommon.Constants;
 
 /** @const */
 Constants.SERVER_OFFICIAL_APP_ID = 'khpfeaanjngmcnplbdlpegiifgpfgdco';

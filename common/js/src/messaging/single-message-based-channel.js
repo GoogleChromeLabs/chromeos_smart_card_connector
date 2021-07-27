@@ -34,13 +34,10 @@ goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var Pinger = GSC.MessageChannelPinging.Pinger;
-/** @const */
-var PingResponder = GSC.MessageChannelPinging.PingResponder;
+const Pinger = GSC.MessageChannelPinging.Pinger;
+const PingResponder = GSC.MessageChannelPinging.PingResponder;
 
 /**
  * This class is a wrapper around the Chrome simple one-time requests (see
@@ -87,8 +84,7 @@ GSC.SingleMessageBasedChannel = function(
   this.logger.fine('Initialized successfully');
 };
 
-/** @const */
-var SingleMessageBasedChannel = GSC.SingleMessageBasedChannel;
+const SingleMessageBasedChannel = GSC.SingleMessageBasedChannel;
 
 goog.inherits(SingleMessageBasedChannel, goog.messaging.AbstractChannel);
 
@@ -101,8 +97,8 @@ SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(payload));
   goog.asserts.assertObject(payload);
 
-  var typedMessage = new GSC.TypedMessage(serviceName, payload);
-  var message = typedMessage.makeMessage();
+  const typedMessage = new GSC.TypedMessage(serviceName, payload);
+  const message = typedMessage.makeMessage();
   this.logger.finest('Posting a message: ' + GSC.DebugDump.debugDump(message));
 
   if (this.isDisposed()) {
@@ -121,7 +117,7 @@ SingleMessageBasedChannel.prototype.deliverMessage = function(message) {
   this.logger.finest('Received a message: ' +
                      GSC.DebugDump.debugDump(message));
 
-  var typedMessage = GSC.TypedMessage.parseTypedMessage(message);
+  const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
   if (!typedMessage) {
     GSC.Logging.failWithLogger(
         this.logger,

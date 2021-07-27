@@ -25,20 +25,18 @@ goog.require('goog.array');
 
 goog.scope(function() {
 
-/** @const */
-var RANDOM_INTEGER_BYTE_COUNT = 6;
+const RANDOM_INTEGER_BYTE_COUNT = 6;
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * Generates a cryptographically random integer number.
  * @return {number}
  */
 GSC.Random.randomIntegerNumber = function() {
-  var randomBytes = new Uint8Array(RANDOM_INTEGER_BYTE_COUNT);
+  const randomBytes = new Uint8Array(RANDOM_INTEGER_BYTE_COUNT);
   window.crypto.getRandomValues(randomBytes);
-  var result = 0;
+  let result = 0;
   goog.array.forEach(randomBytes, function(byteValue) {
     result = result * 256 + byteValue;
   });

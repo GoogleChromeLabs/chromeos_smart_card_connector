@@ -38,11 +38,9 @@ goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
-/** @const */
-var READER_TRACKER_LOGGER_TITLE = 'ReaderTracker';
+const READER_TRACKER_LOGGER_TITLE = 'ReaderTracker';
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * Enum for possible values of ReaderInfo status.
@@ -54,8 +52,7 @@ GSC.PcscLiteServer.ReaderStatus = {
   FAILURE: 'failure'
 };
 
-/** @const */
-var ReaderStatus = GSC.PcscLiteServer.ReaderStatus;
+const ReaderStatus = GSC.PcscLiteServer.ReaderStatus;
 
 /**
  * Structure used to store information about the reader.
@@ -77,8 +74,7 @@ GSC.PcscLiteServer.ReaderInfo = function(
   this['isCardPresent'] = this.isCardPresent = !!opt_isCardPresent;
 };
 
-/** @const */
-var ReaderInfo = GSC.PcscLiteServer.ReaderInfo;
+const ReaderInfo = GSC.PcscLiteServer.ReaderInfo;
 
 /**
  * This class tracks readers, provides methods to retrieve the list of readers
@@ -119,8 +115,7 @@ GSC.PcscLiteServer.ReaderTracker = function(
   this.logger_.fine('Initialized');
 };
 
-/** @const */
-var ReaderTracker = GSC.PcscLiteServer.ReaderTracker;
+const ReaderTracker = GSC.PcscLiteServer.ReaderTracker;
 
 /**
  * Adds a listener that will be called with the list of reader information
@@ -174,9 +169,8 @@ ReaderTracker.prototype.getReaders = function() {
   // Take the information about other readers (i.e. that are either under the
   // initialization process or were failed to initialize) from the hook inside
   // the PC/SC server.
-  var nonSuccessReaders = goog.array.filter(
-      this.trackerThroughPcscServerHook_.getReaders(),
-      function(readerInfo) {
+  const nonSuccessReaders = goog.array.filter(
+      this.trackerThroughPcscServerHook_.getReaders(), function(readerInfo) {
         return readerInfo.status != ReaderStatus.SUCCESS;
       });
 
@@ -187,9 +181,10 @@ ReaderTracker.prototype.getReaders = function() {
  * @private
  */
 ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
-  var readers = this.getReaders();
-  this.logger_.fine('Firing readers updated listeners with data ' +
-                    GSC.DebugDump.dump(readers));
+  const readers = this.getReaders();
+  this.logger_.fine(
+      'Firing readers updated listeners with data ' +
+      GSC.DebugDump.dump(readers));
   for (let listener of this.updateListeners_) {
     listener(readers);
   }
@@ -237,9 +232,9 @@ TrackerThroughPcscServerHook.prototype.getReaders = function() {
   // Return the readers sorted by their port (the exact key used for the
   // ordering doesn't matter, it's just a simplest way to guarantee the stable
   // order across multiple calls).
-  var ports = Array.from(this.portToReaderInfoMap_.keys());
+  const ports = Array.from(this.portToReaderInfoMap_.keys());
   goog.array.sort(ports);
-  var mappedReaderInfos = goog.array.map(
+  const mappedReaderInfos = goog.array.map(
       ports, this.portToReaderInfoMap_.get, this.portToReaderInfoMap_);
   // Remove null entries, as they correspond to readers that should be hidden.
   return /** @type {!Array.<!ReaderInfo>} */ (mappedReaderInfos.filter(
@@ -253,11 +248,11 @@ TrackerThroughPcscServerHook.prototype.getReaders = function() {
 TrackerThroughPcscServerHook.prototype.readerInitAddListener_ = function(
     message) {
   /** @type {string} */
-  var name = GSC.MessagingCommon.extractKey(message, 'readerName');
+  const name = GSC.MessagingCommon.extractKey(message, 'readerName');
   /** @type {number} */
-  var port = GSC.MessagingCommon.extractKey(message, 'port');
+  const port = GSC.MessagingCommon.extractKey(message, 'port');
   /** @type {string} */
-  var device = GSC.MessagingCommon.extractKey(message, 'device');
+  const device = GSC.MessagingCommon.extractKey(message, 'device');
 
   this.logger_.info('A new reader "' + name + '" (port ' + port + ', device "' +
                     device + '") is being initialized...');
@@ -277,20 +272,20 @@ TrackerThroughPcscServerHook.prototype.readerInitAddListener_ = function(
 TrackerThroughPcscServerHook.prototype.readerFinishAddListener_ = function(
     message) {
   /** @type {string} */
-  var name = GSC.MessagingCommon.extractKey(message, 'readerName');
+  const name = GSC.MessagingCommon.extractKey(message, 'readerName');
   /** @type {number} */
-  var port = GSC.MessagingCommon.extractKey(message, 'port');
+  const port = GSC.MessagingCommon.extractKey(message, 'port');
   /** @type {string} */
-  var device = GSC.MessagingCommon.extractKey(message, 'device');
+  const device = GSC.MessagingCommon.extractKey(message, 'device');
   /** @type {number} */
-  var returnCode = GSC.MessagingCommon.extractKey(message, 'returnCode');
+  const returnCode = GSC.MessagingCommon.extractKey(message, 'returnCode');
 
-  var returnCodeHex = GSC.DebugDump.dump(returnCode);
+  const returnCodeHex = GSC.DebugDump.dump(returnCode);
 
   /** @type {ReaderInfo?} */
-  var readerInfo = null;
-  var readerTitleForLog = '"' + name + '" (port ' + port + ', device "' +
-                          device + '")';
+  let readerInfo = null;
+  const readerTitleForLog =
+      '"' + name + '" (port ' + port + ', device "' + device + '")';
   if (returnCode === 0) {
     this.logger_.info('The reader ' + readerTitleForLog + ' was successfully ' +
                       'initialized');
@@ -324,9 +319,9 @@ TrackerThroughPcscServerHook.prototype.readerFinishAddListener_ = function(
 TrackerThroughPcscServerHook.prototype.readerRemoveListener_ = function(
     message) {
   /** @type {string} */
-  var name = GSC.MessagingCommon.extractKey(message, 'readerName');
+  const name = GSC.MessagingCommon.extractKey(message, 'readerName');
   /** @type {number} */
-  var port = GSC.MessagingCommon.extractKey(message, 'port');
+  const port = GSC.MessagingCommon.extractKey(message, 'port');
 
   this.logger_.info(
       'The reader "' + name + '" (port ' + port + ') was removed');

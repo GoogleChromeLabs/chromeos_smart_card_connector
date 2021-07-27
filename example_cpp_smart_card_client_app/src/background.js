@@ -64,25 +64,21 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var Constants = GSC.PcscLiteCommon.Constants;
+const Constants = GSC.PcscLiteCommon.Constants;
 
 /**
  * Client title for the connection to the server App.
  *
  * Currently this is only used for the debug logs produced by the server App.
- * @const
  */
-var CLIENT_TITLE = 'example_cpp_client_app';
+const CLIENT_TITLE = 'example_cpp_client_app';
 
 /**
  * Identifier of the server App.
- * @const
  */
-var SERVER_APP_ID = Constants.SERVER_OFFICIAL_APP_ID;
+const SERVER_APP_ID = Constants.SERVER_OFFICIAL_APP_ID;
 
 /**
  * URL of the main window.
@@ -120,9 +116,8 @@ const MAIN_WINDOW_OPTIONS = {
 /**
  * Logger that should be used for logging the App log messages.
  * @type {!goog.log.Logger}
- * @const
  */
-var logger = GSC.Logging.getLogger(
+const logger = GSC.Logging.getLogger(
     'SmartCardClientApp',
     goog.DEBUG ? goog.log.Level.FINE : goog.log.Level.INFO);
 
@@ -177,18 +172,16 @@ executableModule.addOnDisposeCallback(executableModuleDisposedListener);
  * Translator of all PC/SC-Lite client API requests received from the executable
  * module into the JavaScript PC/SC-Lite client API method calls (see the
  * GoogleSmartCard.PcscLiteClient.API class).
- * @const
  */
-var pcscLiteNaclClientBackend = new GSC.PcscLiteClient.NaclClientBackend(
+const pcscLiteNaclClientBackend = new GSC.PcscLiteClient.NaclClientBackend(
     executableModule.getMessageChannel(), CLIENT_TITLE, SERVER_APP_ID);
 
 /**
  * Translator of the events from the chrome.certificateProvider API (see
  * <https://developer.chrome.com/extensions/certificateProvider#events>) into
  * requests sent to the executable module.
- * @const
  */
-var certificateProviderBridgeBackend =
+const certificateProviderBridgeBackend =
     new SmartCardClientApp.CertificateProviderBridge.Backend(executableModule);
 
 // Ignore messages sent from the executable module to the main window when the

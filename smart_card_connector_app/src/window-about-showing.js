@@ -27,11 +27,8 @@ goog.require('goog.events.EventType');
 
 goog.scope(function() {
 
-/** @const */
-var ABOUT_WINDOW_URL = 'about-window.html';
-
-/** @const */
-var ABOUT_WINDOW_OPTIONS = {
+const ABOUT_WINDOW_URL = 'about-window.html';
+const ABOUT_WINDOW_OPTIONS = {
   'id': 'about-window',
   'innerBounds': {
     'width': 700,
@@ -39,15 +36,11 @@ var ABOUT_WINDOW_OPTIONS = {
   }
 };
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/**
- * @type {!Element}
- * @const
- */
-var openAboutElement = /** @type {!Element} */ (goog.dom.getElement(
-    'open-about'));
+/** @type {!Element} */
+const openAboutElement =
+    /** @type {!Element} */ (goog.dom.getElement('open-about'));
 
 /**
  * @param {!Event} e

@@ -22,11 +22,9 @@ goog.setTestOnly();
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var dump = GSC.DebugDump.dump;
+const dump = GSC.DebugDump.dump;
 
 goog.exportSymbol('testDebugDump', function() {
   assertEquals('undefined', dump(undefined));

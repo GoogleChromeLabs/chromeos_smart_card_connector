@@ -32,8 +32,7 @@ goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * This class is a wrapper around the communication mechanisms of the NaCl
@@ -69,8 +68,7 @@ GSC.NaclModuleMessageChannel = function(naclModuleElement, parentLogger) {
   this.logger_.fine('Initialized');
 };
 
-/** @const */
-var NaclModuleMessageChannel = GSC.NaclModuleMessageChannel;
+const NaclModuleMessageChannel = GSC.NaclModuleMessageChannel;
 
 goog.inherits(NaclModuleMessageChannel, goog.messaging.AbstractChannel);
 
@@ -78,8 +76,8 @@ goog.inherits(NaclModuleMessageChannel, goog.messaging.AbstractChannel);
 NaclModuleMessageChannel.prototype.send = function(serviceName, payload) {
   GSC.Logging.checkWithLogger(this.logger_, goog.isObject(payload));
   goog.asserts.assertObject(payload);
-  var typedMessage = new GSC.TypedMessage(serviceName, payload);
-  var message = typedMessage.makeMessage();
+  const typedMessage = new GSC.TypedMessage(serviceName, payload);
+  const message = typedMessage.makeMessage();
   if (this.isDisposed())
     return;
   this.logger_.finest(
@@ -100,9 +98,9 @@ NaclModuleMessageChannel.prototype.disposeInternal = function() {
 
 /** @private */
 NaclModuleMessageChannel.prototype.messageEventListener_ = function(message) {
-  var messageData = message['data'];
+  const messageData = message['data'];
 
-  var typedMessage = GSC.TypedMessage.parseTypedMessage(messageData);
+  const typedMessage = GSC.TypedMessage.parseTypedMessage(messageData);
   if (!typedMessage) {
     GSC.Logging.failWithLogger(
         this.logger_,

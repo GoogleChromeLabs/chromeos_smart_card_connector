@@ -22,17 +22,13 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var logger = GSC.Logging.getScopedLogger('BackgroundPageUnloadPreventing');
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('BackgroundPageUnloadPreventing');
 
 /** @type {boolean} */
-var enabled = false;
+let enabled = false;
 
 /**
  * Enables preventing of the background page from being unloaded.
@@ -62,7 +58,7 @@ GSC.BackgroundPageUnloadPreventing.enable = function() {
 };
 
 function createIFrameElement() {
-  var iframe = goog.dom.createDom('iframe', {
+  const iframe = goog.dom.createDom('iframe', {
     'src': 'background-page-unload-preventing-iframe.html'
   });
   GSC.Logging.checkWithLogger(logger, document.body);

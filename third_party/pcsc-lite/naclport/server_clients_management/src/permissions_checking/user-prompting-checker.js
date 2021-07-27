@@ -40,25 +40,18 @@ goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
-/** @const */
-var LOCAL_STORAGE_KEY = 'pcsc_lite_clients_user_selections';
+const LOCAL_STORAGE_KEY = 'pcsc_lite_clients_user_selections';
 
-/** @const */
-var USER_PROMPT_DIALOG_URL =
+const USER_PROMPT_DIALOG_URL =
     'pcsc_lite_server_clients_management/user-prompt-dialog.html';
 
-/** @const */
-var USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
-  'innerBounds': {
-    'width': 300
-  }
+const USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
+  'innerBounds': {'width': 300}
 };
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var PermissionsChecking =
+const PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
@@ -85,8 +78,7 @@ PermissionsChecking.UserPromptingChecker = function() {
   this.checkPromiseMap_ = new Map;
 };
 
-/** @const */
-var UserPromptingChecker = PermissionsChecking.UserPromptingChecker;
+const UserPromptingChecker = PermissionsChecking.UserPromptingChecker;
 
 /**
  * @type {!goog.log.Logger}
@@ -108,7 +100,7 @@ UserPromptingChecker.prototype.check = function(clientAppId) {
   this.logger.finest('Checking permissions for client App with id "' +
                      clientAppId + '"...');
 
-  var existingPromise = this.checkPromiseMap_.get(clientAppId);
+  const existingPromise = this.checkPromiseMap_.get(clientAppId);
   if (existingPromise !== undefined) {
     this.logger.finest(
         'Found the existing promise for the permission checking of the ' +
@@ -120,13 +112,13 @@ UserPromptingChecker.prototype.check = function(clientAppId) {
       'Checking permissions for client App with id "' + clientAppId + '": no ' +
       'existing promise was found, performing the actual check...');
 
-  var promiseResolver = goog.Promise.withResolver();
+  const promiseResolver = goog.Promise.withResolver();
   this.checkPromiseMap_.set(clientAppId, promiseResolver.promise);
 
   this.localStoragePromiseResolver_.promise.then(
       function(storedUserSelections) {
         if (storedUserSelections.has(clientAppId)) {
-          var userSelection = storedUserSelections.get(clientAppId);
+          const userSelection = storedUserSelections.get(clientAppId);
           if (userSelection) {
             this.logger.info(
                 'Granted permission to client App with id "' + clientAppId +
@@ -169,10 +161,11 @@ UserPromptingChecker.prototype.loadLocalStorage_ = function() {
  * @private
  */
 UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
-  this.logger.finer('Loaded the following data from the local storage: ' +
-                    GSC.DebugDump.dump(items));
-  var storedUserSelections = this.parseLocalStorageUserSelections_(items);
-  var itemsForLog = [];
+  this.logger.finer(
+      'Loaded the following data from the local storage: ' +
+      GSC.DebugDump.dump(items));
+  const storedUserSelections = this.parseLocalStorageUserSelections_(items);
+  const itemsForLog = [];
   storedUserSelections.forEach(function(userSelection, extensionId) {
     itemsForLog.push((userSelection ? 'allow' : 'deny') + ' for extension "' +
                      extensionId + '"');
@@ -192,10 +185,10 @@ UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
 UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
     localStorageItems) {
   /** @type {!Map.<string, boolean>} */
-  var storedUserSelections = new Map;
+  const storedUserSelections = new Map;
   if (!localStorageItems[LOCAL_STORAGE_KEY])
     return storedUserSelections;
-  var contents = localStorageItems[LOCAL_STORAGE_KEY];
+  const contents = localStorageItems[LOCAL_STORAGE_KEY];
   if (!goog.isObject(contents)) {
     this.logger.warning(
         'Corrupted local storage data - expected an object, received: ' +
@@ -270,9 +263,8 @@ UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
  */
 UserPromptingChecker.prototype.runPromptDialog_ = function(
     clientAppId, userPromptDialogData, promiseResolver) {
-  var dialogPromise = GSC.PopupWindow.Server.runModalDialog(
-      USER_PROMPT_DIALOG_URL,
-      USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
+  const dialogPromise = GSC.PopupWindow.Server.runModalDialog(
+      USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
       userPromptDialogData);
   dialogPromise.then(function(dialogResult) {
     if (dialogResult) {
@@ -316,12 +308,13 @@ UserPromptingChecker.prototype.storeUserSelection_ =
   this.localStoragePromiseResolver_.promise.then(
       function(/** !Map */ storedUserSelections) {
         storedUserSelections.set(clientAppId, userSelection);
-        var dumpedValue = GSC.ContainerHelpers.buildObjectFromMap(
-            storedUserSelections);
-        this.logger.finer('Storing the following data in the local storage: ' +
-                          GSC.DebugDump.dump(dumpedValue));
-        chrome.storage.local.set(goog.object.create(
-            LOCAL_STORAGE_KEY, dumpedValue));
+        const dumpedValue =
+            GSC.ContainerHelpers.buildObjectFromMap(storedUserSelections);
+        this.logger.finer(
+            'Storing the following data in the local storage: ' +
+            GSC.DebugDump.dump(dumpedValue));
+        chrome.storage.local.set(
+            goog.object.create(LOCAL_STORAGE_KEY, dumpedValue));
       },
       function() {
         this.logger.warning(

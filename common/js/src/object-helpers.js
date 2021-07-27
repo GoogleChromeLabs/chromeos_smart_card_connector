@@ -27,14 +27,10 @@ goog.require('goog.object');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var LOGGER = GSC.Logging.getScopedLogger('ObjectHelpers');
+/** @type {!goog.log.Logger} */
+const LOGGER = GSC.Logging.getScopedLogger('ObjectHelpers');
 
 /**
  * Helper function which extracts key from object (first it makes sure the key

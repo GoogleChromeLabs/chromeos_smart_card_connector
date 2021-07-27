@@ -31,8 +31,7 @@ goog.require('goog.structs.CircularBuffer');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * This class is the log buffer that allows to keep the log messages emitted by
@@ -83,8 +82,7 @@ GSC.LogBuffer = function(capacity) {
       capacity - this.logsPrefixCapacity_);
 };
 
-/** @const */
-var LogBuffer = GSC.LogBuffer;
+const LogBuffer = GSC.LogBuffer;
 
 goog.inherits(LogBuffer, goog.Disposable);
 
@@ -138,10 +136,10 @@ goog.exportProperty(LogBuffer, 'State', LogBuffer.State);
  * @return {string}
  */
 LogBuffer.State.prototype.getAsText = function() {
-  var prefix = goog.iter.join(this['formattedLogsPrefix'], '');
-  var suffix = goog.iter.join(this['formattedLogsSuffix'], '');
+  const prefix = goog.iter.join(this['formattedLogsPrefix'], '');
+  const suffix = goog.iter.join(this['formattedLogsSuffix'], '');
 
-  var result = prefix;
+  let result = prefix;
   if (this['skippedLogCount'])
     result += '\n... skipped ' + this['skippedLogCount'] + ' messages ...\n\n';
   result += suffix;
@@ -201,8 +199,8 @@ LogBuffer.prototype.onLogRecordObserved_ = function(
   for (const observer of this.observers_)
     observer(documentLocation, logRecord);
 
-  var formattedLogRecord = GSC.LogFormatting.formatLogRecordCompact(
-      documentLocation, logRecord);
+  const formattedLogRecord =
+      GSC.LogFormatting.formatLogRecordCompact(documentLocation, logRecord);
 
   if (this.formattedLogsPrefix_.length < this.logsPrefixCapacity_)
     this.formattedLogsPrefix_.push(formattedLogRecord);

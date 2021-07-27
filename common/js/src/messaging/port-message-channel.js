@@ -36,13 +36,10 @@ goog.require('goog.object');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var Pinger = GSC.MessageChannelPinging.Pinger;
-/** @const */
-var PingResponder = GSC.MessageChannelPinging.PingResponder;
+const Pinger = GSC.MessageChannelPinging.Pinger;
+const PingResponder = GSC.MessageChannelPinging.PingResponder;
 
 /**
  * This class is a wrapper around the Chrome long-lived message connections (see
@@ -98,8 +95,7 @@ GSC.PortMessageChannel = function(port, opt_onEstablished) {
   this.logger.fine('Initialized successfully');
 };
 
-/** @const */
-var PortMessageChannel = GSC.PortMessageChannel;
+const PortMessageChannel = GSC.PortMessageChannel;
 
 goog.inherits(PortMessageChannel, goog.messaging.AbstractChannel);
 
@@ -159,13 +155,13 @@ PortMessageChannel.prototype.disposeInternal = function() {
 PortMessageChannel.prototype.getPortExtensionId_ = function(port) {
   if (!goog.object.containsKey(port, 'sender'))
     return null;
-  var sender = port['sender'];
+  const sender = port['sender'];
   if (sender === undefined)
     return null;
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(sender));
   if (!goog.object.containsKey(sender, 'id'))
     return null;
-  var senderId = sender['id'];
+  const senderId = sender['id'];
   if (senderId === undefined)
     return null;
   GSC.Logging.checkWithLogger(this.logger, typeof senderId === 'string');
@@ -191,7 +187,7 @@ PortMessageChannel.prototype.messageEventHandler_ = function(message) {
   this.logger.finest('Received a message: ' +
                      GSC.DebugDump.debugDump(message));
 
-  var typedMessage = GSC.TypedMessage.parseTypedMessage(message);
+  const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
   if (!typedMessage) {
     GSC.Logging.failWithLogger(
         this.logger,

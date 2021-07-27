@@ -34,8 +34,7 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 const LOGGER_TITLE = 'Wrapper';
 
@@ -60,8 +59,8 @@ const LOGGER_TITLE = 'Wrapper';
 GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
   NaclModule.base(this, 'constructor');
 
-  const loggerScope = 'NaclModule' +
-                      (logModulePath ? `<"${naclModulePath}">` : '');
+  const loggerScope =
+      'NaclModule' + (logModulePath ? `<"${naclModulePath}">` : '');
   const messagesReceiverLogger = GSC.Logging.getScopedLogger(loggerScope);
   /**
    * @type {!goog.log.Logger}
@@ -108,8 +107,7 @@ GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
   this.addStatusEventListeners_();
 };
 
-/** @const */
-var NaclModule = GSC.NaclModule;
+const NaclModule = GSC.NaclModule;
 
 goog.inherits(NaclModule, GSC.ExecutableModule);
 
@@ -169,7 +167,7 @@ NaclModule.prototype.disposeInternal = function() {
  * @private
  */
 NaclModule.prototype.createElement_ = function() {
-  var mimeType = this.getMimeType_();
+  const mimeType = this.getMimeType_();
   this.logger_.fine('Preparing NaCl embed (MIME type: "' + mimeType + '")...');
   return goog.dom.createDom('embed', {
     'type': mimeType,

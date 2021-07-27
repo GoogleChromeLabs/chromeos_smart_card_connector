@@ -32,13 +32,10 @@ goog.require('goog.string');
 
 goog.scope(function() {
 
-/** @const */
-var FUNCTION_NAME_MESSAGE_KEY = 'function_name';
-/** @const */
-var ARGUMENTS_MESSAGE_KEY = 'arguments';
+const FUNCTION_NAME_MESSAGE_KEY = 'function_name';
+const ARGUMENTS_MESSAGE_KEY = 'arguments';
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * The structure that can be used to store the fields of the remote call
@@ -54,8 +51,7 @@ GSC.RemoteCallMessage = function(functionName, functionArguments) {
   this.functionArguments = functionArguments;
 };
 
-/** @const */
-var RemoteCallMessage = GSC.RemoteCallMessage;
+const RemoteCallMessage = GSC.RemoteCallMessage;
 
 /**
  * Parses the specified request payload into the remote call message fields

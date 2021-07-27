@@ -29,8 +29,7 @@ goog.require('goog.object');
 
 goog.scope(function() {
 
-/** @const */
-var DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
+const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
   'alwaysOnTop': true,
   'frame': 'none',
   'hidden': true,
@@ -38,14 +37,12 @@ var DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
   'visibleOnAllWorkspaces': true
 };
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * @type {!goog.log.Logger}
- * @const
  */
-var logger = GSC.Logging.getScopedLogger('PopupWindow.Server');
+const logger = GSC.Logging.getScopedLogger('PopupWindow.Server');
 
 /**
  * Creates a new window.
@@ -56,7 +53,7 @@ var logger = GSC.Logging.getScopedLogger('PopupWindow.Server');
  */
 GSC.PopupWindow.Server.createWindow = function(
     url, createWindowOptions, opt_data) {
-  var createdWindowExtends = {};
+  const createdWindowExtends = {};
   createdWindowExtends[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME] =
       GSC.Logging.getLogBuffer();
   if (opt_data !== undefined)
@@ -92,8 +89,8 @@ GSC.PopupWindow.Server.createWindow = function(
  */
 GSC.PopupWindow.Server.runModalDialog = function(
     url, opt_createWindowOptionsOverrides, opt_data) {
-  var createWindowOptions = goog.object.clone(
-      DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS);
+  const createWindowOptions =
+      goog.object.clone(DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS);
   if (opt_createWindowOptionsOverrides) {
     GSC.Logging.checkWithLogger(
         logger,
@@ -103,9 +100,9 @@ GSC.PopupWindow.Server.runModalDialog = function(
     Object.assign(createWindowOptions, opt_createWindowOptionsOverrides);
   }
 
-  var promiseResolver = goog.Promise.withResolver();
+  const promiseResolver = goog.Promise.withResolver();
 
-  var dataWithDialogCallbacks = {
+  const dataWithDialogCallbacks = {
     'resolveModalDialog': promiseResolver.resolve,
     'rejectModalDialog': promiseResolver.reject
   };
@@ -124,12 +121,11 @@ GSC.PopupWindow.Server.runModalDialog = function(
  */
 function createWindowCallback(createdWindowExtends, createdWindow) {
   GSC.Logging.checkWithLogger(
-      logger,
-      createdWindow,
+      logger, createdWindow,
       'Failed to create the popup window: the returned App window object is ' +
-      'false');
+          'false');
 
-  var createdWindowScope = createdWindow['contentWindow'];
+  const createdWindowScope = createdWindow['contentWindow'];
 
   logger.finer(
       'The popup window callback is executed, injecting the following data ' +

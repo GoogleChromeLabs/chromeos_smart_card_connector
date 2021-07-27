@@ -26,19 +26,13 @@ goog.setTestOnly();
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var Requester = GSC.Requester;
-/** @const */
-var RequestMessageData = GSC.RequesterMessage.RequestMessageData;
-/** @const */
-var ResponseMessageData = GSC.RequesterMessage.ResponseMessageData;
-/** @const */
-var getRequestMessageType = GSC.RequesterMessage.getRequestMessageType;
-/** @const */
-var getResponseMessageType = GSC.RequesterMessage.getResponseMessageType;
+const Requester = GSC.Requester;
+const RequestMessageData = GSC.RequesterMessage.RequestMessageData;
+const ResponseMessageData = GSC.RequesterMessage.ResponseMessageData;
+const getRequestMessageType = GSC.RequesterMessage.getRequestMessageType;
+const getResponseMessageType = GSC.RequesterMessage.getResponseMessageType;
 
 /** @constructor */
 function PromiseTracker(promise) {
@@ -60,29 +54,21 @@ PromiseTracker.prototype.onPromiseRejected_ = function() {
 };
 
 goog.exportSymbol('testRequester', function() {
-  /** @const */
-  var REQUESTER_NAME = 'test-requester';
-  /** @const */
-  var REQUEST_MESSAGE_TYPE = getRequestMessageType(REQUESTER_NAME);
-  /** @const */
-  var RESPONSE_MESSAGE_TYPE = getResponseMessageType(REQUESTER_NAME);
-  /** @const */
-  var REQUEST_0_PAYLOAD = {};
-  /** @const */
-  var REQUEST_1_PAYLOAD = {foo: 'bar'};
-  /** @const */
-  var REQUEST_2_PAYLOAD = {foo: [1, 2, 'test'], bar: {baz: 3}};
-  /** @const */
-  var REQUEST_1_ERROR_MESSAGE = 'test error';
-  /** @const */
-  var REQUEST_2_RESPONSE_PAYLOAD = {some_result: 123};
+  const REQUESTER_NAME = 'test-requester';
+  const REQUEST_MESSAGE_TYPE = getRequestMessageType(REQUESTER_NAME);
+  const RESPONSE_MESSAGE_TYPE = getResponseMessageType(REQUESTER_NAME);
+  const REQUEST_0_PAYLOAD = {};
+  const REQUEST_1_PAYLOAD = {foo: 'bar'};
+  const REQUEST_2_PAYLOAD = {foo: [1, 2, 'test'], bar: {baz: 3}};
+  const REQUEST_1_ERROR_MESSAGE = 'test error';
+  const REQUEST_2_RESPONSE_PAYLOAD = {some_result: 123};
 
-  var mockControl = new goog.testing.MockControl;
-  var mockMessageChannel = new goog.testing.messaging.MockMessageChannel(
-      mockControl);
+  const mockControl = new goog.testing.MockControl;
+  const mockMessageChannel =
+      new goog.testing.messaging.MockMessageChannel(mockControl);
   /** @type {?} */ mockMessageChannel.send;
 
-  var requester = new GSC.Requester(REQUESTER_NAME, mockMessageChannel);
+  const requester = new GSC.Requester(REQUESTER_NAME, mockMessageChannel);
 
   // Set up expectation for three request messages.
   mockMessageChannel.send(
@@ -97,14 +83,14 @@ goog.exportSymbol('testRequester', function() {
   mockMessageChannel.send.$replay();
 
   // Launch three requests. This sends three request messages.
-  var request0Promise = requester.postRequest(REQUEST_0_PAYLOAD);
-  var request1Promise = requester.postRequest(REQUEST_1_PAYLOAD);
-  var request2Promise = requester.postRequest(REQUEST_2_PAYLOAD);
+  const request0Promise = requester.postRequest(REQUEST_0_PAYLOAD);
+  const request1Promise = requester.postRequest(REQUEST_1_PAYLOAD);
+  const request2Promise = requester.postRequest(REQUEST_2_PAYLOAD);
   mockMessageChannel.send.$verify();
 
-  var request0PromiseTracker = new PromiseTracker(request0Promise);
-  var request1PromiseTracker = new PromiseTracker(request1Promise);
-  var request2PromiseTracker = new PromiseTracker(request2Promise);
+  const request0PromiseTracker = new PromiseTracker(request0Promise);
+  const request1PromiseTracker = new PromiseTracker(request1Promise);
+  const request2PromiseTracker = new PromiseTracker(request2Promise);
 
   // Send success response message to request #2. The corresponding promise gets
   // fulfilled with the result.
@@ -112,8 +98,8 @@ goog.exportSymbol('testRequester', function() {
       RESPONSE_MESSAGE_TYPE,
       (new ResponseMessageData(2, REQUEST_2_RESPONSE_PAYLOAD))
           .makeMessageData());
-  var request2CompletionPromise = request2Promise.then(
-      function(fulfillmentValue) {
+  const request2CompletionPromise =
+      request2Promise.then(function(fulfillmentValue) {
         assertEquals(REQUEST_2_RESPONSE_PAYLOAD, fulfillmentValue);
         assert(!request0PromiseTracker.isResolved);
         assert(!request1PromiseTracker.isResolved);
@@ -122,7 +108,7 @@ goog.exportSymbol('testRequester', function() {
 
   // After that, send error response message to request #1. The corresponding
   // promise gets rejected with the error message.
-  var request1CompletionPromise = request2CompletionPromise.then(function() {
+  const request1CompletionPromise = request2CompletionPromise.then(function() {
     mockMessageChannel.receive(
         RESPONSE_MESSAGE_TYPE,
         (new ResponseMessageData(1, undefined, REQUEST_1_ERROR_MESSAGE))
@@ -137,7 +123,7 @@ goog.exportSymbol('testRequester', function() {
 
   // After that, dispose of the message channel. The promise for request #0 gets
   // rejected.
-  var request0CompletionPromise = request1CompletionPromise.then(function() {
+  const request0CompletionPromise = request1CompletionPromise.then(function() {
     mockMessageChannel.dispose();
     // Hack: call the protected disposeInternal() method in order to trigger the
     // disposal notifications; the MockMessageChannel.dispose() doesn't call
@@ -157,8 +143,8 @@ goog.exportSymbol('testRequester_disposed', function() {
   const REQUESTER_NAME = 'test-requester';
 
   const mockControl = new goog.testing.MockControl;
-  const mockMessageChannel = new goog.testing.messaging.MockMessageChannel(
-      mockControl);
+  const mockMessageChannel =
+      new goog.testing.messaging.MockMessageChannel(mockControl);
   /** @type {?} */ mockMessageChannel.send;
 
   const requester = new GSC.Requester(REQUESTER_NAME, mockMessageChannel);

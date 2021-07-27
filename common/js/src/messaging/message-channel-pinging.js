@@ -46,15 +46,11 @@ goog.require('goog.object');
 
 goog.scope(function() {
 
-/** @const */
-var PINGER_LOGGER_TITLE = 'Pinger';
-/** @const */
-var PING_RESPONDER_LOGGER_TITLE = 'PingResponder';
-/** @const */
-var CHANNEL_ID_MESSAGE_KEY = 'channel_id';
+const PINGER_LOGGER_TITLE = 'Pinger';
+const PING_RESPONDER_LOGGER_TITLE = 'PingResponder';
+const CHANNEL_ID_MESSAGE_KEY = 'channel_id';
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * This class implements pinging of the specified message channel.
@@ -113,8 +109,7 @@ GSC.MessageChannelPinging.Pinger = function(
   goog.async.nextTick(this.postPingMessageAndScheduleNext_, this);
 };
 
-/** @const */
-var Pinger = GSC.MessageChannelPinging.Pinger;
+const Pinger = GSC.MessageChannelPinging.Pinger;
 
 goog.inherits(Pinger, goog.Disposable);
 
@@ -187,7 +182,7 @@ Pinger.prototype.serviceCallback_ = function(messageData) {
     this.disposeChannelAndSelf_();
     return;
   }
-  var channelId = messageData[CHANNEL_ID_MESSAGE_KEY];
+  const channelId = messageData[CHANNEL_ID_MESSAGE_KEY];
   if (typeof channelId !== 'number') {
     this.logger.warning('Received pong message has wrong format: channel id ' +
                         'is not a number. Disposing...');
@@ -301,8 +296,7 @@ GSC.MessageChannelPinging.PingResponder = function(
       'Initialized (generated channel id is ' + PingResponder.CHANNEL_ID + ')');
 };
 
-/** @const */
-var PingResponder = GSC.MessageChannelPinging.PingResponder;
+const PingResponder = GSC.MessageChannelPinging.PingResponder;
 
 goog.inherits(PingResponder, goog.Disposable);
 

@@ -33,16 +33,11 @@ goog.setTestOnly();
 
 goog.scope(function() {
 
-/** @const */
 const GSC = GoogleSmartCard;
 
-/** @const */
 const USER_PROFILE_TYPE = 'USER_PROFILE';
-/** @const */
 const SIGNIN_PROFILE_TYPE = 'SIGNIN_PROFILE';
-/** @const */
 const IN_SESSION_STATE = 'IN_SESSION';
-/** @const */
 const IN_LOCK_SCREEN_STATE = 'IN_LOCK_SCREEN';
 
 let sessionStateListeners = [];
@@ -100,9 +95,10 @@ function makeTest(fakeProfileType, fakeSessionState, testCallback) {
     setUpChromeLoginStateMock(
         propertyReplacer, fakeProfileType, fakeSessionState);
 
+    let testPromise;
     /** @preserveTry */
     try {
-      var testPromise = testCallback(propertyReplacer);
+      testPromise = testCallback(propertyReplacer);
     } catch (exc) {
       // Cleanup after the test fatally failed synchronously.
       cleanup();

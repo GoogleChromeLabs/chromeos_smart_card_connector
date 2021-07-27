@@ -36,14 +36,10 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
 logger.info('The main window is created');
 
@@ -71,7 +67,7 @@ function closeWindowClickListener() {
 function displayNonChromeOsWarningIfNeeded() {
   chrome.runtime.getPlatformInfo(function(platformInfo) {
     /** @type {string} */
-    var os = platformInfo['os'];
+    const os = platformInfo['os'];
     if (os != 'cros') {
       logger.info('Displaying the warning regarding non-Chrome OS system ' +
                   '(the current OS is "' + os + '")');

@@ -55,9 +55,8 @@ goog.scope(function() {
  * The message data will contain the unique client handler identifier
  * and the client app id (see the CLIENT_HANDLER_ID_MESSAGE_KEY and the
  * CLIENT_APP_ID_MESSAGE_KEY constants).
- * @const
  */
-var CREATE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME =
+const CREATE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME =
     'pcsc_lite_create_client_handler';
 /**
  * Service name that is used for the message to the PC/SC server that the
@@ -65,9 +64,8 @@ var CREATE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME =
  *
  * The message data will contain the unique client handler identifier (see the
  * CLIENT_HANDLER_ID_MESSAGE_KEY constant).
- * @const
  */
-var DELETE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME =
+const DELETE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME =
     'pcsc_lite_delete_client_handler';
 
 /**
@@ -75,9 +73,8 @@ var DELETE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME =
  * server containing the PC/SC request from the client.
  *
  * The template pattern is substituted with the client identifier.
- * @const
  */
-var CALL_FUNCTION_SERVER_REQUESTER_TITLE_FORMAT =
+const CALL_FUNCTION_SERVER_REQUESTER_TITLE_FORMAT =
     'pcsc_lite_client_handler_%s_call_function';
 
 /**
@@ -85,27 +82,20 @@ var CALL_FUNCTION_SERVER_REQUESTER_TITLE_FORMAT =
  * messages sent to the PC/SC server (see also the
  * CREATE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME and the
  * DELETE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME constants).
- * @const
  */
-var CLIENT_HANDLER_ID_MESSAGE_KEY = 'handler_id';
+const CLIENT_HANDLER_ID_MESSAGE_KEY = 'handler_id';
 /**
  * Key under which the client app ID is stored in the messages sent to the
  * PC/SC server (see also the
  * CREATE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME constant).
- * @const
  */
-var CLIENT_APP_ID_MESSAGE_KEY = 'client_app_id';
+const CLIENT_APP_ID_MESSAGE_KEY = 'client_app_id';
 
-/** @const */
-var GSC = GoogleSmartCard;
-/** @const */
-var DeferredProcessor = GSC.DeferredProcessor;
-/** @const */
-var PcscLiteServerClientsManagement = GSC.PcscLiteServerClientsManagement;
-/** @const */
-var RemoteCallMessage = GSC.RemoteCallMessage;
-/** @const */
-var PermissionsChecking =
+const GSC = GoogleSmartCard;
+const DeferredProcessor = GSC.DeferredProcessor;
+const PcscLiteServerClientsManagement = GSC.PcscLiteServerClientsManagement;
+const RemoteCallMessage = GSC.RemoteCallMessage;
+const PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
 
 /**
@@ -235,8 +225,7 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
   this.logger.fine('Initialized');
 };
 
-/** @const */
-var ClientHandler = GSC.PcscLiteServerClientsManagement.ClientHandler;
+const ClientHandler = GSC.PcscLiteServerClientsManagement.ClientHandler;
 
 goog.inherits(ClientHandler, goog.Disposable);
 
@@ -248,7 +237,7 @@ goog.inherits(ClientHandler, goog.Disposable);
  * all client handler instances.
  * @type {!goog.iter.Iterator.<number>}
  */
-var idGenerator = goog.iter.count();
+const idGenerator = goog.iter.count();
 
 /**
  * Client permission checker that is used by the
@@ -259,7 +248,7 @@ var idGenerator = goog.iter.count();
  * (construction of the checker is a relatively expensive operation).
  * @type {PermissionsChecking.Checker?}
  */
-var permissionsChecker = null;
+let permissionsChecker = null;
 
 /** @override */
 ClientHandler.prototype.disposeInternal = function() {
@@ -316,7 +305,7 @@ ClientHandler.prototype.handleRequest_ = function(payload) {
         'The client handler is already disposed'));
   }
 
-  var remoteCallMessage = RemoteCallMessage.parseRequestPayload(payload);
+  const remoteCallMessage = RemoteCallMessage.parseRequestPayload(payload);
   if (!remoteCallMessage) {
     this.logger.warning('Failed to parse the received request payload: ' +
                         GSC.DebugDump.debugDump(payload));
@@ -392,7 +381,7 @@ ClientHandler.prototype.serverMessageChannelDisposedListener_ = function() {
 ClientHandler.prototype.clientMessageChannelDisposedListener_ = function() {
   if (this.isDisposed())
     return;
-  var logMessage = 'Client message channel was disposed, disposing...';
+  const logMessage = 'Client message channel was disposed, disposing...';
   if (this.clientAppId_ === null)
     this.logger.fine(logMessage);
   else
@@ -450,10 +439,10 @@ ClientHandler.prototype.createServerRequesterIfNeed_ = function() {
       this.logger, this.serverMessageChannel_ !== null);
   goog.asserts.assert(this.serverMessageChannel_);
 
-  var requesterTitle = goog.string.subs(
-      CALL_FUNCTION_SERVER_REQUESTER_TITLE_FORMAT, this.id);
-  this.serverRequester_ = new GSC.Requester(
-      requesterTitle, this.serverMessageChannel_);
+  const requesterTitle =
+      goog.string.subs(CALL_FUNCTION_SERVER_REQUESTER_TITLE_FORMAT, this.id);
+  this.serverRequester_ =
+      new GSC.Requester(requesterTitle, this.serverMessageChannel_);
 };
 
 /**
@@ -468,7 +457,7 @@ ClientHandler.prototype.sendServerCreateHandlerMessage_ = function() {
   GSC.Logging.checkWithLogger(this.logger, this.serverMessageChannel_);
   GSC.Logging.checkWithLogger(
       this.logger, !this.serverMessageChannel_.isDisposed());
-  var messageData = {};
+  const messageData = {};
   messageData[CLIENT_HANDLER_ID_MESSAGE_KEY] = this.id;
   if (this.clientAppId_ !== null)
     messageData[CLIENT_APP_ID_MESSAGE_KEY] = this.clientAppId_;
@@ -493,9 +482,9 @@ ClientHandler.prototype.sendServerDeleteHandlerMessage_ = function() {
   GSC.Logging.checkWithLogger(this.logger, this.serverMessageChannel_);
   GSC.Logging.checkWithLogger(
       this.logger, !this.serverMessageChannel_.isDisposed());
-  var messageData = goog.object.create(CLIENT_HANDLER_ID_MESSAGE_KEY, this.id);
+  const messageData =
+      goog.object.create(CLIENT_HANDLER_ID_MESSAGE_KEY, this.id);
   this.serverMessageChannel_.send(
       DELETE_CLIENT_HANDLER_SERVER_MESSAGE_SERVICE_NAME, messageData);
 };
-
 });  // goog.scope

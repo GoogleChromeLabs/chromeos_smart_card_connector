@@ -40,22 +40,15 @@ goog.require('goog.object');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var REQUEST_MESSAGE_TYPE_SUFFIX = '::request';
-/** @const */
-var RESPONSE_MESSAGE_TYPE_SUFFIX = '::response';
-/** @const */
-var REQUEST_ID_MESSAGE_KEY = 'request_id';
-/** @const */
-var PAYLOAD_MESSAGE_KEY = 'payload';
-/** @const */
-var ERROR_MESSAGE_KEY = 'error';
+const REQUEST_MESSAGE_TYPE_SUFFIX = '::request';
+const RESPONSE_MESSAGE_TYPE_SUFFIX = '::response';
+const REQUEST_ID_MESSAGE_KEY = 'request_id';
+const PAYLOAD_MESSAGE_KEY = 'payload';
+const ERROR_MESSAGE_KEY = 'error';
 
-/** @const */
-var RequesterMessage = GSC.RequesterMessage;
+const RequesterMessage = GSC.RequesterMessage;
 
 /**
  * Returns the message type for the requests for the requester with the
@@ -90,8 +83,7 @@ RequesterMessage.RequestMessageData = function(requestId, payload) {
   this.payload = payload;
 };
 
-/** @const */
-var RequestMessageData = RequesterMessage.RequestMessageData;
+const RequestMessageData = RequesterMessage.RequestMessageData;
 
 /**
  * Parses the specified message data into the request message fields.
@@ -144,8 +136,7 @@ RequesterMessage.ResponseMessageData = function(
       this.logger, opt_payload === undefined || opt_errorMessage === undefined);
 };
 
-/** @const */
-var ResponseMessageData = RequesterMessage.ResponseMessageData;
+const ResponseMessageData = RequesterMessage.ResponseMessageData;
 
 /**
  * @type {!goog.log.Logger}
@@ -193,7 +184,7 @@ ResponseMessageData.parseMessageData = function(messageData) {
       typeof messageData[REQUEST_ID_MESSAGE_KEY] !== 'number') {
     return null;
   }
-  var requestId = messageData[REQUEST_ID_MESSAGE_KEY];
+  const requestId = messageData[REQUEST_ID_MESSAGE_KEY];
   if (goog.object.containsKey(messageData, PAYLOAD_MESSAGE_KEY)) {
     return new ResponseMessageData(requestId, messageData[PAYLOAD_MESSAGE_KEY]);
   }
@@ -210,7 +201,7 @@ ResponseMessageData.parseMessageData = function(messageData) {
  * @return {!Object}
  */
 ResponseMessageData.prototype.makeMessageData = function() {
-  var args = [REQUEST_ID_MESSAGE_KEY, this.requestId];
+  const args = [REQUEST_ID_MESSAGE_KEY, this.requestId];
   if (this.isSuccessful()) {
     args.push(PAYLOAD_MESSAGE_KEY);
     args.push(this.getPayload());

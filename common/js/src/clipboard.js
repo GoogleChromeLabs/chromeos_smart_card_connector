@@ -27,14 +27,10 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var logger = GSC.Logging.getScopedLogger('Clipboard');
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('Clipboard');
 
 /**
  * Copies the passed text to the clipboard.
@@ -44,10 +40,10 @@ var logger = GSC.Logging.getScopedLogger('Clipboard');
  * @return {boolean}
  */
 GSC.Clipboard.copyToClipboard = function(text) {
-  var element = goog.dom.createDom('textarea', {'textContent': text});
+  const element = goog.dom.createDom('textarea', {'textContent': text});
   document.body.appendChild(element);
   element['select']();
-  var success = document.execCommand('copy');
+  const success = document.execCommand('copy');
   document.body.removeChild(element);
 
   if (!success) {

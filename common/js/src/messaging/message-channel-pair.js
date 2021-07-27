@@ -32,14 +32,10 @@ goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var logger = GSC.Logging.getScopedLogger('MessageChannelPair');
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('MessageChannelPair');
 
 /**
  * This class provides a way to create a pair of message channels linked to each
@@ -61,8 +57,7 @@ GSC.MessageChannelPair = function() {
       new MessageChannelPairItem(this, 0), new MessageChannelPairItem(this, 1)];
 };
 
-/** @const */
-var MessageChannelPair = GSC.MessageChannelPair;
+const MessageChannelPair = GSC.MessageChannelPair;
 
 goog.inherits(MessageChannelPair, goog.Disposable);
 
@@ -106,7 +101,7 @@ MessageChannelPair.prototype.disposeInternal = function() {
  */
 MessageChannelPair.prototype.sendFrom_ = function(
     fromItemIndex, serviceName, payload) {
-  var targetItem = this.items_[1 - fromItemIndex];
+  const targetItem = this.items_[1 - fromItemIndex];
   // Deliver the message to the target message channel asynchronously, because
   // that's how the real message channels usually work.
   goog.async.nextTick(targetItem.deliver_.bind(
@@ -120,7 +115,7 @@ MessageChannelPair.prototype.sendFrom_ = function(
  * @constructor
  * @extends goog.messaging.AbstractChannel
  */
-var MessageChannelPairItem = function(messageChannelPair, indexInPair) {
+const MessageChannelPairItem = function(messageChannelPair, indexInPair) {
   MessageChannelPairItem.base(this, 'constructor');
 
   /** @private */

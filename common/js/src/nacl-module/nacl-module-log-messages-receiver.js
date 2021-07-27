@@ -32,16 +32,12 @@ goog.require('goog.object');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var SERVICE_NAME = 'log_message';
+const SERVICE_NAME = 'log_message';
 
-/** @const */
-var LOG_LEVEL_MESSAGE_KEY = 'log_level';
-/** @const */
-var TEXT_MESSAGE_KEY = 'text';
+const LOG_LEVEL_MESSAGE_KEY = 'log_level';
+const TEXT_MESSAGE_KEY = 'text';
 
 /**
  * This class receives and handles the log messages from the message channel to
@@ -65,8 +61,7 @@ GSC.NaclModuleLogMessagesReceiver = function(messageChannel, logger) {
   this.logger = logger;
 };
 
-/** @const */
-var NaclModuleLogMessagesReceiver = GSC.NaclModuleLogMessagesReceiver;
+const NaclModuleLogMessagesReceiver = GSC.NaclModuleLogMessagesReceiver;
 
 /**
  * @param {string|!Object} messageData
@@ -91,12 +86,12 @@ NaclModuleLogMessagesReceiver.prototype.extractLogMessageLevel_ = function(
     messageData) {
   GSC.Logging.checkWithLogger(
       this.logger, goog.object.containsKey(messageData, LOG_LEVEL_MESSAGE_KEY));
-  var value = messageData[LOG_LEVEL_MESSAGE_KEY];
+  const value = messageData[LOG_LEVEL_MESSAGE_KEY];
 
   GSC.Logging.checkWithLogger(this.logger, typeof value === 'string');
   goog.asserts.assertString(value);
 
-  var result = goog.log.Level.getPredefinedLevel(value);
+  const result = goog.log.Level.getPredefinedLevel(value);
   GSC.Logging.checkWithLogger(
       this.logger,
       result,
@@ -115,12 +110,11 @@ NaclModuleLogMessagesReceiver.prototype.extractLogMessageText_ = function(
     messageData) {
   GSC.Logging.checkWithLogger(
       this.logger, goog.object.containsKey(messageData, TEXT_MESSAGE_KEY));
-  var value = messageData[TEXT_MESSAGE_KEY];
+  const value = messageData[TEXT_MESSAGE_KEY];
 
   GSC.Logging.checkWithLogger(this.logger, typeof value === 'string');
   goog.asserts.assertString(value);
 
   return value;
 };
-
 });  // goog.scope

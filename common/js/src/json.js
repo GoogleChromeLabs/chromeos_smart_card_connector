@@ -21,8 +21,7 @@ goog.require('goog.json.NativeJsonProcessor');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 /**
  * Parses a JSON string and returns the result or the error message through the
@@ -35,7 +34,7 @@ var GSC = GoogleSmartCard;
  * @return {!goog.Promise.<*>}
  */
 GSC.Json.parse = function(jsonString) {
-  var processor = new goog.json.NativeJsonProcessor;
+  const processor = new goog.json.NativeJsonProcessor;
   /** @preserveTry */
   try {
     return goog.Promise.resolve(processor.parse(jsonString));

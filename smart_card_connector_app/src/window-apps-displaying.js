@@ -33,37 +33,24 @@ goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
-
-/** @const */
-var PermissionsChecking =
+const GSC = GoogleSmartCard;
+const PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
+const KnownApp = PermissionsChecking.KnownApp;
 
-/** @const */
-var KnownApp = PermissionsChecking.KnownApp;
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
+/** @type {!Element} */
+const appListElement =
+    /** @type {!Element} */ (goog.dom.getElement('app-list'));
 
-/**
- * @type {!Element}
- * @const
- */
-var appListElement = /** @type {!Element} */ (goog.dom.getElement('app-list'));
-
-/**
- * @const
- */
-var knownAppsRegistry = new PermissionsChecking.KnownAppsRegistry();
+const knownAppsRegistry = new PermissionsChecking.KnownAppsRegistry();
 
 /**
  * @type {goog.Promise.<!Array.<!KnownApp>>?}
  */
-var lastKnownAppsPromise = null;
+let lastKnownAppsPromise = null;
 
 /**
  * @param {!goog.Promise.<!Array.<!KnownApp>>} knownAppsPromise
@@ -72,18 +59,18 @@ var lastKnownAppsPromise = null;
  * @return {boolean}
  */
 function updateAppView(knownAppsPromise, appIds, knownApps) {
-  if (knownAppsPromise !== lastKnownAppsPromise) return false;
+  if (knownAppsPromise !== lastKnownAppsPromise)
+    return false;
 
   GSC.Logging.checkWithLogger(logger, appListElement !== null);
   goog.asserts.assert(appListElement);
 
   goog.dom.removeChildren(appListElement);
 
-  for (var i = 0; i < appIds.length; i++) {
-    var text = knownApps && knownApps[i] ?
-               knownApps[i].name :
-               '<' + appIds[i] + '>';
-    var newElement = goog.dom.createDom('li', undefined, text);
+  for (let i = 0; i < appIds.length; i++) {
+    const text =
+        knownApps && knownApps[i] ? knownApps[i].name : '<' + appIds[i] + '>';
+    const newElement = goog.dom.createDom('li', undefined, text);
     goog.dom.append(appListElement, newElement);
   }
 
@@ -94,12 +81,12 @@ function updateAppView(knownAppsPromise, appIds, knownApps) {
  * @param {!Array.<string>} appListArg
  */
 function onUpdateListener(appListArg) {
-  var appList = goog.array.clone(appListArg);
+  const appList = goog.array.clone(appListArg);
   goog.array.sort(appList);
   logger.fine('Application list updated, refreshing the view. ' +
               'New list of id\'s: ' + GSC.DebugDump.dump(appList));
 
-  var knownAppsPromise = knownAppsRegistry.tryGetByIds(appList);
+  const knownAppsPromise = knownAppsRegistry.tryGetByIds(appList);
   lastKnownAppsPromise = knownAppsPromise;
 
   knownAppsPromise.then(
@@ -118,10 +105,10 @@ GSC.ConnectorApp.Window.AppsDisplaying.initialize = function() {
   // FIXME(emaxx): Do unsubscription too.
   // FIXME(emaxx): Use GSC.ObjectHelpers.extractKey to ensure that the expected
   // object is passed to the window.
-  var data = GSC.PopupWindow.Client.getData()['clientAppListUpdateSubscriber'];
-  var clientAppListUpdateSubscriber =
+  const data =
+      GSC.PopupWindow.Client.getData()['clientAppListUpdateSubscriber'];
+  const clientAppListUpdateSubscriber =
       /**@type {function(function(!Array.<string>))} */ (data);
   clientAppListUpdateSubscriber(onUpdateListener);
 };
-
 });  // goog.scope

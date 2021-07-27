@@ -30,36 +30,25 @@ goog.setTestOnly();
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
-/** @const */
-var PermissionsChecking =
+const PermissionsChecking =
     GSC.PcscLiteServerClientsManagement.PermissionsChecking;
-/** @const */
-var KnownApp = PermissionsChecking.KnownApp;
-/** @const */
-var KnownAppsRegistry = PermissionsChecking.KnownAppsRegistry;
-/** @const */
-var UserPromptingChecker = PermissionsChecking.UserPromptingChecker;
-/** @const */
-var ignoreArgument = goog.testing.mockmatchers.ignoreArgument;
+const KnownApp = PermissionsChecking.KnownApp;
+const KnownAppsRegistry = PermissionsChecking.KnownAppsRegistry;
+const UserPromptingChecker = PermissionsChecking.UserPromptingChecker;
+const ignoreArgument = goog.testing.mockmatchers.ignoreArgument;
 
-/** @const */
-var FAKE_APP_1_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-/** @const */
-var FAKE_APP_1_NAME = 'App Name 1';
-/** @const */
-var FAKE_APP_1_KNOWN_APP = new KnownApp(FAKE_APP_1_ID, FAKE_APP_1_NAME);
-/** @const */
-var FAKE_APP_2_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
-/** @const */
-var STORAGE_KEY = 'pcsc_lite_clients_user_selections';
+const FAKE_APP_1_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const FAKE_APP_1_NAME = 'App Name 1';
+const FAKE_APP_1_KNOWN_APP = new KnownApp(FAKE_APP_1_ID, FAKE_APP_1_NAME);
+const FAKE_APP_2_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const STORAGE_KEY = 'pcsc_lite_clients_user_selections';
 
 /**
  * @enum {number}
  */
-var MockedDialogBehavior = {
+const MockedDialogBehavior = {
   NOT_RUN: 0,
   USER_APPROVES: 1,
   USER_DENIES: 2,
@@ -73,7 +62,7 @@ var MockedDialogBehavior = {
  * @param {!goog.testing.MockControl} mockControl
  */
 function setUpKnownAppsRegistryMock(mockControl) {
-  var mockInstance = {
+  const mockInstance = {
     getById: function(id) {
       if (id == FAKE_APP_1_ID)
         return goog.Promise.resolve(FAKE_APP_1_KNOWN_APP);
@@ -81,7 +70,7 @@ function setUpKnownAppsRegistryMock(mockControl) {
     }
   };
   /** @type {?} */
-  var mockedConstructor = mockControl.createConstructorMock(
+  const mockedConstructor = mockControl.createConstructorMock(
       PermissionsChecking, 'KnownAppsRegistry');
   mockedConstructor().$returns(mockInstance);
 }
@@ -126,9 +115,9 @@ function setUpChromeStorageMock(
  */
 function setUpDialogMock(mockControl, mockedBehavior) {
   /** @type {?} */
-  var mockedFunction = mockControl.createMethodMock(
-      GSC.PopupWindow.Server, 'runModalDialog');
-  var mockAction;
+  const mockedFunction =
+      mockControl.createMethodMock(GSC.PopupWindow.Server, 'runModalDialog');
+  let mockAction;
   switch (mockedBehavior) {
     case MockedDialogBehavior.NOT_RUN:
       return;
@@ -187,8 +176,8 @@ function makeTest(
     fakeInitialStorageData, expectedStorageDataToBeWritten,
     mockedDialogBehavior, testCallback) {
   return function() {
-    var mockControl = new goog.testing.MockControl;
-    var propertyReplacer = new goog.testing.PropertyReplacer;
+    const mockControl = new goog.testing.MockControl;
+    const propertyReplacer = new goog.testing.PropertyReplacer;
 
     function cleanup() {
       mockControl.$tearDown();
@@ -214,9 +203,10 @@ function makeTest(
 
     mockControl.$replayAll();
 
+    let testPromise;
     /** @preserveTry */
     try {
-      var testPromise = testCallback(new UserPromptingChecker);
+      testPromise = testCallback(new UserPromptingChecker);
     } catch (exc) {
       // Cleanup after the test fatally failed synchronously.
       cleanup();

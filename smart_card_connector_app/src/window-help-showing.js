@@ -31,8 +31,8 @@ const HELP_WINDOW_URL = 'https://support.google.com/chrome/a/answer/7014689';
 
 const GSC = GoogleSmartCard;
 
-const openHelpElement = /** @type {!Element} */ (goog.dom.getElement(
-    'open-help'));
+const openHelpElement =
+    /** @type {!Element} */ (goog.dom.getElement('open-help'));
 
 /**
  * @param {!Event} event

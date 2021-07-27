@@ -38,25 +38,29 @@ goog.require('goog.messaging.AbstractChannel');
 
 goog.scope(function() {
 
-/** @const */
-var GSC = GoogleSmartCard;
+const GSC = GoogleSmartCard;
 
 const JS_LOGS_HANDLER_MESSAGE_TYPE = 'js_logs_handler';
 
-/**
- * @type {!goog.log.Logger}
- * @const
- */
-var logger = GSC.Logging.getScopedLogger('ConnectorApp.BackgroundMain');
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('ConnectorApp.BackgroundMain');
 
-if (GSC.ExecutableModule.TOOLCHAIN === GSC.ExecutableModule.Toolchain.PNACL) {
+/**
+ * Returns a forwarder for the JS logs, or null if there's none.
+ * @return {GSC.LogBufferForwarder?}
+ */
+function maybeCreateLogBufferForwarder() {
+  if (GSC.ExecutableModule.TOOLCHAIN !== GSC.ExecutableModule.Toolchain.PNACL)
+    return null;
   // Used to forward logs collected on the JS side to the NaCl module's stdout,
   // in order to simplify accessing them in some configurations.
-  // Note that this object needs to be created as early as possible, in order to
-  // not miss any important log.
-  var logBufferForwarderToNaclModule = new GSC.LogBufferForwarder(
+  return new GSC.LogBufferForwarder(
       GSC.Logging.getLogBuffer(), JS_LOGS_HANDLER_MESSAGE_TYPE);
 }
+
+// Note that this object needs to be created as early as possible, in order to
+// not miss any important log.
+const logBufferForwarderToNaclModule = maybeCreateLogBufferForwarder();
 
 const extensionManifest = chrome.runtime.getManifest();
 logger.info(
@@ -102,23 +106,23 @@ if (logBufferForwarderToNaclModule) {
   }, () => {});
 }
 
-var libusbChromeUsbBackend = new GSC.Libusb.ChromeUsbBackend(
-    executableModule.getMessageChannel());
-var chromeLoginStateHook = new GSC.Libusb.ChromeLoginStateHook();
+const libusbChromeUsbBackend =
+    new GSC.Libusb.ChromeUsbBackend(executableModule.getMessageChannel());
+const chromeLoginStateHook = new GSC.Libusb.ChromeLoginStateHook();
 libusbChromeUsbBackend.addRequestSuccessHook(
     chromeLoginStateHook.getRequestSuccessHook());
 // Start the backend regardless of whether the hook initialization succeeded.
 chromeLoginStateHook.getHookReadyPromise().then(() => {}, () => {}).then(
     function() { libusbChromeUsbBackend.startProcessingEvents(); });
 
-var pcscLiteReadinessTracker =
+const pcscLiteReadinessTracker =
     new GSC.PcscLiteServerClientsManagement.ReadinessTracker(
         executableModule.getMessageChannel());
-var messageChannelPool = new GSC.MessageChannelPool;
+const messageChannelPool = new GSC.MessageChannelPool;
 
-var readerTrackerMessageChannelPair = new GSC.MessageChannelPair;
+const readerTrackerMessageChannelPair = new GSC.MessageChannelPair;
 createClientHandler(readerTrackerMessageChannelPair.getFirst(), undefined);
-var readerTracker = new GSC.PcscLiteServer.ReaderTracker(
+const readerTracker = new GSC.PcscLiteServer.ReaderTracker(
     executableModule.getMessageChannel(),
     readerTrackerMessageChannelPair.getSecond(),
     executableModule.getLogger());
@@ -158,7 +162,7 @@ function launchedListener() {
  */
 function connectionListener(port) {
   logger.fine('Received onConnect event');
-  var portMessageChannel = new GSC.PortMessageChannel(port);
+  const portMessageChannel = new GSC.PortMessageChannel(port);
   createClientHandler(portMessageChannel, undefined);
 }
 
@@ -168,7 +172,7 @@ function connectionListener(port) {
  */
 function externalConnectionListener(port) {
   logger.fine('Received onConnectExternal event');
-  var portMessageChannel = new GSC.PortMessageChannel(port);
+  const portMessageChannel = new GSC.PortMessageChannel(port);
   if (portMessageChannel.extensionId === null) {
     logger.warning('Ignoring the external connection as there is no sender ' +
                    'extension id specified');
@@ -192,7 +196,7 @@ function externalMessageListener(message, sender) {
                    'extension id specified');
     return;
   }
-  var channel = getOrCreateSingleMessageBasedChannel(sender.id);
+  let channel = getOrCreateSingleMessageBasedChannel(sender.id);
   if (!channel)
     return;
   channel.deliverMessage(message);
@@ -217,14 +221,14 @@ function externalMessageListener(message, sender) {
  * @return {GSC.SingleMessageBasedChannel?}
  */
 function getOrCreateSingleMessageBasedChannel(clientExtensionId) {
-  var existingChannel = messageChannelPool.getChannels(clientExtensionId).find(
-      function(channel) {
+  const existingChannel =
+      messageChannelPool.getChannels(clientExtensionId).find(function(channel) {
         return channel instanceof GSC.SingleMessageBasedChannel;
       });
   if (existingChannel)
     return /** @type {!GSC.SingleMessageBasedChannel} */ (existingChannel);
-  var newChannel = new GSC.SingleMessageBasedChannel(
-      clientExtensionId, undefined, true);
+  const newChannel =
+      new GSC.SingleMessageBasedChannel(clientExtensionId, undefined, true);
   messageChannelPool.addChannel(clientExtensionId, newChannel);
   GSC.MessagingCommon.setNonFatalDefaultServiceCallback(newChannel);
   createClientHandler(newChannel, clientExtensionId);
@@ -242,8 +246,9 @@ function getOrCreateSingleMessageBasedChannel(clientExtensionId) {
 function createClientHandler(clientMessageChannel, clientExtensionId) {
   GSC.Logging.checkWithLogger(logger, !clientMessageChannel.isDisposed());
 
-  var clientTitleForLog = clientExtensionId !== undefined ?
-      'app "' + clientExtensionId + '"' : 'own app';
+  const clientTitleForLog = clientExtensionId !== undefined ?
+      'app "' + clientExtensionId + '"' :
+      'own app';
 
   if (executableModule.isDisposed() ||
       executableModule.getMessageChannel().isDisposed()) {
@@ -258,15 +263,12 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
   // Note: the reference to the created client handler is not stored anywhere,
   // because it manages its lifetime itself, based on the lifetimes of the
   // passed message channels.
-  var clientHandler = new GSC.PcscLiteServerClientsManagement.ClientHandler(
-      executableModule.getMessageChannel(),
-      pcscLiteReadinessTracker,
-      clientMessageChannel,
-      clientExtensionId);
+  const clientHandler = new GSC.PcscLiteServerClientsManagement.ClientHandler(
+      executableModule.getMessageChannel(), pcscLiteReadinessTracker,
+      clientMessageChannel, clientExtensionId);
 
-  var logMessage =
-      'Created a new PC/SC-Lite client handler for ' + clientTitleForLog +
-      ' (handler id ' + clientHandler.id + ')';
+  const logMessage = 'Created a new PC/SC-Lite client handler for ' +
+      clientTitleForLog + ' (handler id ' + clientHandler.id + ')';
   if (clientExtensionId !== undefined)
     logger.info(logMessage);
   else
