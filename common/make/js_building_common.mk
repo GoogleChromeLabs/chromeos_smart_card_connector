@@ -90,7 +90,7 @@ endif
 # jscomp_off jsdocMissingConst: Suppress warnings about variables that could be
 #   marked as const. TODO: Fix the violations and promote this to jscomp_error.
 # jscomp_off lintChecks: Suppress complaints about code style. TODO: Fix the
-#   code (e.g., switch to modules instead of good.provide) and promote this to
+#   code (e.g., switch to modules instead of goog.provide) and promote this to
 #   jscomp_error.
 # jscomp_off reportUnknownTypes: Suppressed due to many false positives in case
 #   the compiler isn't smart enough to infer the variable's type.
@@ -120,7 +120,7 @@ JS_BUILD_COMPILATION_FLAGS += \
 #
 # Explanation:
 # dependency_mode=PRUNE_LEGACY: In addition to the standard PRUNE behavior (see
-#   above), also include all JS files that don't have a good.provide. This
+#   above), also include all JS files that don't have a goog.provide. This
 #   allows unit test files to be picked up and compiled automatically.
 JS_BUILD_TESTING_ADDITIONAL_COMPILATION_FLAGS := \
 	$(CLOSURE_LIBRARY_TESTING_ADDITIONAL_COMPILER_FLAGS) \
