@@ -16,97 +16,159 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.javascript.rhino.TypeDeclarationsIR.arrayType;
+import static com.google.javascript.rhino.TypeDeclarationsIR.namedType;
+import static com.google.javascript.rhino.TypeDeclarationsIR.parameterizedType;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
-import org.junit.Before;
-import org.junit.Ignore;
+import com.google.common.collect.ImmutableList;
+import com.google.javascript.jscomp.parsing.parser.FeatureSet;
+import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
+import com.google.javascript.rhino.IR;
+import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.Token;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Round-trip test for TypeScript-style inline type syntax. Each expression is parsed and then
- * printed, and we assert that the pretty-printed result is identical to the input.
+ * Round-trip test for TypeScript-style inline type syntax.
  *
- * <p>See {@link JsdocToEs6TypedConverterTest} for tests which start from closure-style JSDoc type
- * declaration syntax.
+ * <p>Each expression is manually constructed and then code printed, as parsing type syntax is not
+ * supported.
  */
 @RunWith(JUnit4.class)
 public final class CodePrinterEs6TypedTest extends CodePrinterTestBase {
 
-  @Override
-  @Before
-  public void setUp() throws Exception {
-    super.setUp();
-    languageMode = LanguageMode.ECMASCRIPT6_TYPED;
-  }
-
-  void assertPrettyPrintSame(String js) {
-    String parsed = parsePrint(js, newCompilerOptions(new CompilerOptionBuilder() {
-      @Override void setOptions(CompilerOptions options) {
-        options.setPrettyPrint(true);
-        options.setPreferLineBreakAtEndOfFile(false);
-        options.setPreferSingleQuotes(true);
-      }
-    }));
+  void assertPrettyPrint(Node root, String js) {
+    String parsed =
+        new CodePrinter.Builder(root)
+            .setCompilerOptions(
+                newCompilerOptions(
+                    new CompilerOptionBuilder() {
+                      @Override
+                      void setOptions(CompilerOptions options) {
+                        options.setPrettyPrint(true);
+                        options.setPreferLineBreakAtEndOfFile(false);
+                        options.setPreferSingleQuotes(true);
+                        options.setOutputFeatureSet(
+                            FeatureSet.ES_NEXT.with(Feature.TYPE_ANNOTATION));
+                      }
+                    }))
+            .build();
     parsed = parsed.trim(); // strip trailing line break.
     assertThat(parsed).isEqualTo(js);
   }
 
   @Test
   public void testVariableDeclaration() {
-    assertPrettyPrintSame("var foo: any = 'hello';");
-    assertPrettyPrintSame("var foo: number = 'hello';");
-    assertPrettyPrintSame("var foo: boolean = 'hello';");
-    assertPrettyPrintSame("var foo: string = 'hello';");
-    assertPrettyPrintSame("var foo: void = 'hello';");
-    assertPrettyPrintSame("var foo: hello = 'hello';");
+    assertPrettyPrint(constructVarDeclarationWithType("any"), "var foo: any = 'hello';");
+    assertPrettyPrint(constructVarDeclarationWithType("number"), "var foo: number = 'hello';");
+    assertPrettyPrint(constructVarDeclarationWithType("boolean"), "var foo: boolean = 'hello';");
+    assertPrettyPrint(constructVarDeclarationWithType("string"), "var foo: string = 'hello';");
+    assertPrettyPrint(constructVarDeclarationWithType("void"), "var foo: void = 'hello';");
+    assertPrettyPrint(constructVarDeclarationWithType("hello"), "var foo: hello = 'hello';");
+  }
+
+  // Constructs `var foo: <typeName> = "hello"`;
+  private static Node constructVarDeclarationWithType(String typeName) {
+    Node lhs = IR.name("foo");
+    lhs.setDeclaredTypeExpression(namedType(typeName));
+    return IR.var(lhs, IR.string("hello"));
   }
 
   @Test
   public void testFunctionParamDeclaration() {
-    assertPrettyPrintSame("function foo(x: string) {\n}");
+    Node stringType = namedType("string");
+    Node xParam = IR.name("x");
+    xParam.setDeclaredTypeExpression(stringType);
+    Node fnNode = IR.function(IR.name("foo"), IR.paramList(xParam), IR.block());
+    assertPrettyPrint(fnNode, "function foo(x: string) {\n}");
   }
 
   @Test
   public void testFunctionParamDeclaration_defaultValue() {
-    assertPrettyPrintSame("function foo(x: string = 'hello') {\n}");
+    Node stringType = namedType("string");
+    Node xParam = IR.name("x");
+    xParam.setDeclaredTypeExpression(stringType);
+    Node fnNode =
+        IR.function(
+            IR.name("foo"),
+            IR.paramList(new Node(Token.DEFAULT_VALUE, xParam, IR.string("hello"))),
+            IR.block());
+    assertPrettyPrint(fnNode, "function foo(x: string = 'hello') {\n}");
   }
 
   @Test
-  @Ignore
   public void testFunctionParamDeclaration_arrow() {
-    assertPrettyPrintSame("(x: string) => 'hello' + x;");
+    Node stringType = namedType("string");
+    Node param = IR.name("x");
+    param.setDeclaredTypeExpression(stringType);
+    Node fnNode =
+        new Node(
+            Token.FUNCTION,
+            IR.name(""),
+            IR.paramList(param),
+            IR.add(IR.string("hello"), IR.name("x")));
+    fnNode.setIsArrowFunction(true);
+    Node fnStatement = IR.exprResult(fnNode);
+    assertPrettyPrint(fnStatement, "(x: string) => 'hello' + x;");
   }
 
   @Test
   public void testFunctionReturn() {
-    assertPrettyPrintSame("function foo(): string {\n  return 'hello';\n}");
+    Node returnType = namedType("string");
+    Node fnNode =
+        IR.function(IR.name("foo"), IR.paramList(), IR.block(IR.returnNode(IR.string("hello"))));
+    fnNode.setDeclaredTypeExpression(returnType);
+    assertPrettyPrint(fnNode, "function foo(): string {\n  return 'hello';\n}");
   }
 
   @Test
-  @Ignore
   public void testFunctionReturn_arrow() {
-    assertPrettyPrintSame("(): string => 'hello';");
+    Node returnType = namedType("string");
+    Node fnNode = new Node(Token.FUNCTION, IR.name(""), IR.paramList(), IR.string("hello"));
+    fnNode.setDeclaredTypeExpression(returnType);
+    fnNode.setIsArrowFunction(true);
+    Node fnStatement = IR.exprResult(fnNode);
+    assertPrettyPrint(fnStatement, "(): string => 'hello';");
   }
 
   @Test
   public void testCompositeType() {
-    assertPrettyPrintSame("var foo: mymod.ns.Type;");
+    Node type = namedType("mymod.ns.Type");
+    Node lhs = IR.name("foo");
+    lhs.setDeclaredTypeExpression(type);
+    Node var = IR.var(lhs);
+    assertPrettyPrint(var, "var foo: mymod.ns.Type;");
   }
 
   @Test
   public void testArrayType() {
-    assertPrettyPrintSame("var foo: string[];");
+    Node type = new Node(Token.ARRAY_TYPE, namedType("string"));
+    Node lhs = IR.name("foo");
+    lhs.setDeclaredTypeExpression(type);
+    Node var = IR.var(lhs);
+    assertPrettyPrint(var, "var foo: string[];");
   }
 
   @Test
   public void testArrayType_qualifiedType() {
-    assertPrettyPrintSame("var foo: mymod.ns.Type[];");
+    Node arrayType = arrayType(namedType("mymod.ns.Type"));
+    Node lhs = IR.name("foo");
+    lhs.setDeclaredTypeExpression(arrayType);
+    Node var = IR.var(lhs);
+    assertPrettyPrint(var, "var foo: mymod.ns.Type[];");
   }
 
   @Test
   public void testParameterizedType() {
-    assertPrettyPrintSame("var x: my.parameterized.Type<ns.A, ns.B>;");
+    Node type =
+        parameterizedType(
+            namedType("my.parameterized.Type"),
+            ImmutableList.of(namedType("ns.A"), namedType("ns.B")));
+    Node lhs = IR.name("x");
+    lhs.setDeclaredTypeExpression(type);
+    Node var = IR.var(lhs);
+    assertPrettyPrint(var, "var x: my.parameterized.Type<ns.A, ns.B>;");
   }
 }

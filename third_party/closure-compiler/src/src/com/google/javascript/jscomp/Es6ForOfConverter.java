@@ -16,7 +16,6 @@
 package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.Es6ToEs3Util.createType;
-import static com.google.javascript.jscomp.Es6ToEs3Util.withType;
 
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
@@ -31,11 +30,9 @@ import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.UnionType;
 
-/**
- * Converts ES6 "for of" loops to ES5.
- */
+/** Converts ES6 "for of" loops to ES5. */
 public final class Es6ForOfConverter extends NodeTraversal.AbstractPostOrderCallback
-    implements HotSwapCompilerPass {
+    implements CompilerPass {
   private final AbstractCompiler compiler;
   private static final FeatureSet transpiledFeatures = FeatureSet.BARE_MINIMUM.with(Feature.FOR_OF);
   // addTypes indicates whether we should add type information when transpiling.
@@ -63,35 +60,32 @@ public final class Es6ForOfConverter extends NodeTraversal.AbstractPostOrderCall
 
   @Override
   public void process(Node externs, Node root) {
-    TranspilationPasses.processTranspile(compiler, externs, transpiledFeatures, this);
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    TranspilationPasses.hotSwapTranspile(compiler, scriptRoot, transpiledFeatures, this);
     TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
   }
 
   @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
     if (n.isForOf()) {
-      visitForOf(n, parent);
+      visitForOf(n);
     }
   }
 
   // TODO(lharker): break up this method
-  private void visitForOf(Node node, Node parent) {
+  private void visitForOf(Node node) {
     Node variable = node.removeFirstChild();
     Node iterable = node.removeFirstChild();
     Node body = node.removeFirstChild();
 
     JSType typeParam = unknownType;
     if (addTypes) {
-      // TODO(sdh): This is going to be null if the iterable is nullable or unknown. We might want
-      // to consider some way of unifying rather than simply looking at the nominal type.
-      ObjectType iterableType = iterable.getJSType().autobox().toMaybeObjectType();
+      // TODO(sdh): This is going to be null if the iterable is a union or nullable type. We might
+      // want to consider some way of unifying rather than simply looking at the nominal type.
+      // Also: we have to consider the case where iterable.getJSType() is null because unless
+      // TypeCheck runs, some expression are never given types by TypeInference.
+      // TODO(b/154044898): remove this null check.
+      ObjectType iterableType =
+          iterable.getJSType() != null ? iterable.getJSType().autobox().toMaybeObjectType() : null;
       if (iterableType != null) {
         typeParam =
             iterableType
@@ -104,7 +98,11 @@ public final class Es6ForOfConverter extends NodeTraversal.AbstractPostOrderCall
         addTypes
             ? iteratorType.toMaybeObjectType().getPropertyType("next").toMaybeFunctionType()
             : null;
-    JSType iIterableResultType = addTypes ? iteratorNextType.getReturnType() : null;
+
+    JSType iIterableResultType = unknownType;
+    if (addTypes && iteratorNextType != null) {
+      iIterableResultType = iteratorNextType.getReturnType();
+    }
 
     JSDocInfo varJSDocInfo = variable.getJSDocInfo();
     Node iterName =
@@ -133,11 +131,10 @@ public final class Es6ForOfConverter extends NodeTraversal.AbstractPostOrderCall
       // typing $jscomp as unknown since the $jscomp polyfill may not be injected before
       // typechecking. (See https://github.com/google/closure-compiler/issues/2908)
       getProp.getFirstChild().setJSType(registry.getNativeType(JSTypeNative.UNKNOWN_TYPE));
-      getProp.getSecondChild().setJSType(registry.getNativeType(JSTypeNative.STRING_TYPE));
 
       call.setJSType(iteratorType);
     }
-    Node init = IR.var(withType(iterName.cloneTree(), iterName.getJSType()), call);
+    Node init = IR.var(iterName.cloneTree().setJSType(iterName.getJSType()), call);
     Node initIterResult = iterResult.cloneTree();
     initIterResult.addChildToFront(getNext.cloneTree());
     init.addChildToBack(initIterResult);
@@ -149,7 +146,7 @@ public final class Es6ForOfConverter extends NodeTraversal.AbstractPostOrderCall
     if (!NodeUtil.isNameDeclaration(variable)) {
       declarationOrAssign =
           astFactory.createAssign(
-              withType(variable.cloneTree().setJSDocInfo(null), typeParam),
+              variable.cloneTree().setJSDocInfo(null).setJSType(typeParam),
               astFactory.createGetProp(iterResult.cloneTree(), "value"));
       declarationOrAssign.setJSDocInfo(varJSDocInfo);
       declarationOrAssign = IR.exprResult(declarationOrAssign);
@@ -160,16 +157,16 @@ public final class Es6ForOfConverter extends NodeTraversal.AbstractPostOrderCall
               declarationType,
               astFactory
                   .createName(variable.getFirstChild().getString(), typeParam)
-                  .useSourceInfoFrom(variable.getFirstChild()));
+                  .srcref(variable.getFirstChild()));
       declarationOrAssign
           .getFirstChild()
           .addChildToBack(astFactory.createGetProp(iterResult.cloneTree(), "value"));
       declarationOrAssign.setJSDocInfo(varJSDocInfo);
     }
-    Node newBody = IR.block(declarationOrAssign, body).useSourceInfoFrom(body);
+    Node newBody = IR.block(declarationOrAssign, body).srcref(body);
     Node newFor = IR.forNode(init, cond, incr, newBody);
-    newFor.useSourceInfoIfMissingFromForTree(node);
-    parent.replaceChild(node, newFor);
+    newFor.srcrefTreeIfMissing(node);
+    node.replaceWith(newFor);
     compiler.reportChangeToEnclosingScope(newFor);
   }
 

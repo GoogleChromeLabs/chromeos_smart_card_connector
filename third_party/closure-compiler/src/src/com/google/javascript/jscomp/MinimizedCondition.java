@@ -61,7 +61,7 @@ class MinimizedCondition {
    * minimization.
    */
   static MinimizedCondition fromConditionNode(Node n) {
-    checkState(n.getParent() != null);
+    checkState(n.hasParent());
     switch (n.getToken()) {
       case NOT:
       case AND:
@@ -144,14 +144,17 @@ class MinimizedCondition {
         MeasuredNode positive = pickBest(
             MeasuredNode.addNode(n, subtree.positive),
             subtree.negative);
-        MeasuredNode negative = pickBest(
-            subtree.negative.negate(),
-            subtree.positive);
+          MeasuredNode negative =
+              pickBest(
+                  subtree.negative
+                      .negate(), // since parent node `n` is a NOT, we need to negate the subtree's
+                  // computed `negative` to obtain the parent `n`'s real negative.
+                  subtree.positive);
         return new MinimizedCondition(positive, negative);
       }
       case AND:
       case OR: {
-        Node complementNode = new Node(n.getToken() == Token.AND ? Token.OR : Token.AND).srcref(n);
+          Node complementNode = new Node(n.isAnd() ? Token.OR : Token.AND).srcref(n);
         MinimizedCondition leftSubtree = computeMinimizedCondition(n.getFirstChild());
         MinimizedCondition rightSubtree = computeMinimizedCondition(n.getLastChild());
         MeasuredNode positive = pickBest(
@@ -217,10 +220,10 @@ class MinimizedCondition {
     private final MeasuredNode[] children;
 
     MeasuredNode(Node n, MeasuredNode[] children, int len, boolean ch) {
-      this.node = n;
+      node = n;
       this.children = children;
-      this.length = len;
-      this.changed = ch;
+      length = len;
+      changed = ch;
     }
 
     boolean isChanged() {
@@ -232,7 +235,7 @@ class MinimizedCondition {
     }
 
     MeasuredNode withoutNot() {
-      checkState(this.isNot());
+      checkState(isNot());
       return (normalizeChildren(node, children)[0]).change();
     }
 
@@ -249,7 +252,7 @@ class MinimizedCondition {
         case NOT:
           return withoutNot();
         default:
-          return this.addNot();
+          return addNot();
       }
     }
 
@@ -259,7 +262,7 @@ class MinimizedCondition {
       } else {
         MeasuredNode[] measuredChildren = new MeasuredNode[node.getChildCount()];
         int child = 0;
-        for (Node c : node.children()) {
+        for (Node c = node.getFirstChild(); c != null; c = c.getNext()) {
           measuredChildren[child++] = forNode(c);
         }
         return measuredChildren;
@@ -328,8 +331,8 @@ class MinimizedCondition {
     }
 
     /**
-     * Return a MeasuredNode for a non-particapting AST Node. This is
-     * used for leaf expression nodes.
+     * Return a MeasuredNode for a non-participating AST Node. This is used for leaf expression
+     * nodes.
      */
     private static MeasuredNode forNode(Node n) {
       return new MeasuredNode(n, null, 0, false);
@@ -342,7 +345,7 @@ class MinimizedCondition {
      */
     public boolean willChange(Node original) {
       checkNotNull(original);
-      return original != this.node || this.isChanged();
+      return original != node || isChanged();
     }
 
     /**
@@ -363,7 +366,7 @@ class MinimizedCondition {
 
     /** Detach a node only IIF it is in the tree */
     private Node safeDetach(Node n) {
-      return (n.getParent() != null) ? n.detach() : n;
+      return n.hasParent() ? n.detach() : n;
     }
 
     /**

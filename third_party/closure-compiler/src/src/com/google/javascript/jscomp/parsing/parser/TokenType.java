@@ -110,6 +110,8 @@ public enum TokenType {
   AND("&&"),
   OR("||"),
   QUESTION("?"),
+  QUESTION_QUESTION("??"),
+  QUESTION_DOT("?."),
   COLON(":"),
   EQUAL("="),
   PLUS_EQUAL("+="),
@@ -133,6 +135,7 @@ public enum TokenType {
   FALSE,
   NUMBER("number literal"),
   STRING("string literal"),
+  BIGINT("bigint literal"),
   REGULAR_EXPRESSION("regular expression literal"),
 
   // Harmony extensions

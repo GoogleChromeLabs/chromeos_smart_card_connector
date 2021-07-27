@@ -43,40 +43,203 @@ public final class CheckInterfacesTest extends CompilerTestCase {
 
   @Test
   public void testInterfaceArgs() {
-    testSame("/** @interface */ function A(x) {}",
-        CheckInterfaces.INTERFACE_SHOULD_NOT_TAKE_ARGS);
+    testSame(
+        "/** @interface */ function A(x) {}",
+        CheckInterfaces.INTERFACE_CONSTRUCTOR_SHOULD_NOT_TAKE_ARGS);
+
+    testSame(
+        "/** @interface */ class C { constructor(x) {} }",
+        CheckInterfaces.INTERFACE_CONSTRUCTOR_SHOULD_NOT_TAKE_ARGS);
+
+    testSame(
+        lines("var ns = {};\n", "/** @interface */\n", "ns.SomeInterface = function(x) {};"),
+        CheckInterfaces.INTERFACE_CONSTRUCTOR_SHOULD_NOT_TAKE_ARGS);
 
     testSame(
         lines(
-            "var ns = {};\n", "/** @interface */\n", "ns.SomeInterface = function(x) {};"),
-        CheckInterfaces.INTERFACE_SHOULD_NOT_TAKE_ARGS);
+            "var ns = {};\n",
+            "/** @interface */\n",
+            "ns.SomeInterface = class { constructor(x) {}};"),
+        CheckInterfaces.INTERFACE_CONSTRUCTOR_SHOULD_NOT_TAKE_ARGS);
   }
 
   @Test
   public void testInterfaceArgs_withES6Modules() {
     testSame(
         "export /** @interface */ function A(x) {}",
-        CheckInterfaces.INTERFACE_SHOULD_NOT_TAKE_ARGS);
+        CheckInterfaces.INTERFACE_CONSTRUCTOR_SHOULD_NOT_TAKE_ARGS);
+
+    testSame(
+        "export /** @interface */ class C { constructor(x) {} }",
+        CheckInterfaces.INTERFACE_CONSTRUCTOR_SHOULD_NOT_TAKE_ARGS);
   }
 
   @Test
-  public void testInterfaceNotEmpty() {
-    testSame("/** @interface */ function A() { this.foo; }",
-        CheckInterfaces.INTERFACE_FUNCTION_NOT_EMPTY);
+  public void testInterfaceConstructorWithFieldDeclarations_noWarning() {
+    testSame("/** @interface */ function A() { /** @type {string} */ this.foo; }");
+
+    testSame("/** @interface */ class C { constructor() { /** @type {string} */ this.foo; }}");
 
     testSame(
         lines(
-            "var ns = {};\n",
-            "/** @interface */\n",
-            "ns.SomeInterface = function() { this.foo; };"),
-        CheckInterfaces.INTERFACE_FUNCTION_NOT_EMPTY);
+            "var ns = {};",
+            "/** @interface */",
+            "ns.SomeInterface = function() { /** @type {string} */ this.foo; };"));
+
+    testSame(
+        lines(
+            "var ns = {};",
+            "/** @interface */",
+            "ns.SomeInterface = class { constructor() { /** @type {string} */ this.foo; }; }"));
   }
 
   @Test
-  public void testInterfaceNotEmpty_withES6Modules() {
+  public void testInterfaceMethodNotEmpty() {
     testSame(
-        "export /** @interface */ function A() { this.foo; }",
-        CheckInterfaces.INTERFACE_FUNCTION_NOT_EMPTY);
+        lines(
+            "/** @interface */ ", //
+            "class C { ",
+            "  constructor() {} ",
+            "  A() { this.foo; }",
+            "}"),
+        CheckInterfaces.INTERFACE_CLASS_NONSTATIC_METHOD_NOT_EMPTY);
+  }
+
+  @Test
+  public void testInterfaceWithFieldDeclarations_withES6Modules() {
+    testSame("export /** @interface */ function A() { /** @type {string} */ this.foo; }");
+    testSame(
+        "export /** @interface */ class C { constructor() { /** @type {string} */ this.foo; } }");
+  }
+
+  @Test
+  public void testInterfaceClass_callToSuperInConstructorNotAllowed() {
+    disableAstValidation(); // silences ASTValidator for `super()` used without `extends`
+    testWarning(
+        "class D {} /** @interface \n @extends {D} */ class C { constructor() { super(); } }",
+        CheckInterfaces.NON_DECLARATION_STATEMENT_IN_INTERFACE);
+    testWarning(
+        "class D {} /** @interface \n @extends {D} */ class C { constructor() { super(x); } }",
+        CheckInterfaces.NON_DECLARATION_STATEMENT_IN_INTERFACE);
+    testWarning(
+        "class D {} /** @record \n @extends {D} */ class C { constructor() { super(); } }",
+        CheckInterfaces.NON_DECLARATION_STATEMENT_IN_INTERFACE);
+    testWarning(
+        "class D {} /** @record \n @extends {D} */ class C { constructor() { super(x); } }",
+        CheckInterfaces.NON_DECLARATION_STATEMENT_IN_INTERFACE);
+  }
+
+  @Test
+  public void testInterfaceClass_extendsKeywordNotAllowed() {
+    test(
+        srcs("class D {} /** @interface */ class C extends D { constructor() { super(); } }"),
+        warning(CheckInterfaces.INTERFACE_DEFINED_WITH_EXTENDS),
+        warning(CheckInterfaces.NON_DECLARATION_STATEMENT_IN_INTERFACE));
+    test(
+        srcs("class D {} /** @interface */ class C extends D { constructor() { super(x); } }"),
+        warning(CheckInterfaces.INTERFACE_DEFINED_WITH_EXTENDS),
+        warning(CheckInterfaces.NON_DECLARATION_STATEMENT_IN_INTERFACE));
+
+    test(
+        srcs("class D {} /** @record */ class C extends D { constructor() { super(); } }"),
+        warning(CheckInterfaces.INTERFACE_DEFINED_WITH_EXTENDS),
+        warning(CheckInterfaces.NON_DECLARATION_STATEMENT_IN_INTERFACE));
+    test(
+        srcs("class D {} /** @record */ class C extends D { constructor() { super(x); } }"),
+        warning(CheckInterfaces.INTERFACE_DEFINED_WITH_EXTENDS),
+        warning(CheckInterfaces.NON_DECLARATION_STATEMENT_IN_INTERFACE));
+  }
+
+  @Test
+  public void testInterfaceComputedProperties() {
+    testSame(
+        "/** @interface */  class C { ['f']() { return 1; }}",
+        CheckInterfaces.INTERFACE_CLASS_NONSTATIC_METHOD_NOT_EMPTY);
+  }
+
+  @Test
+  public void testInterfaceGetters() {
+    testSame(
+        "/** @interface */  class C { get One() { return 1; }}",
+        CheckInterfaces.INTERFACE_CLASS_NONSTATIC_METHOD_NOT_EMPTY);
+  }
+
+  @Test
+  public void testInterfaceSetters() {
+    testSame(
+        lines(
+            "/** @interface */", //
+            "class C {",
+            "  set One(x) {",
+            "   this.one = x;",
+            "  }",
+            "}"),
+        CheckInterfaces.INTERFACE_CLASS_NONSTATIC_METHOD_NOT_EMPTY);
+  }
+
+  @Test
+  public void testInterfaceEs6ClassDeclaration_havingStaticMethod() {
+    testSame(
+        srcs(
+            lines(
+                "/** @interface */",
+                "class I {",
+                "  constructor() {}",
+                "  static foo() {}",
+                "}",
+                "I.foo();")),
+        warning(CheckInterfaces.STATIC_MEMBER_FUNCTION_IN_INTERFACE_CLASS)
+            .withMessageContaining(
+                "Consider pulling out the static method into a flat name as I_foo"));
+  }
+
+  @Test
+  public void testInterfaceEs6ClassAssignment_havingStaticMethod() {
+    testSame(
+        srcs(
+            lines(
+                "/** @interface */",
+                "let I = class {",
+                "  constructor() {}",
+                "  static foo() {}",
+                "}",
+                "I.foo();")),
+        warning(CheckInterfaces.STATIC_MEMBER_FUNCTION_IN_INTERFACE_CLASS)
+            .withMessageContaining(
+                "Consider pulling out the static method into a flat name as I_foo"));
+  }
+
+  @Test
+  public void testInterfaceEs6ClassAssignment_havingStaticMethod2() {
+    testSame(
+        srcs(
+            lines(
+                "let C;",
+                "/** @interface */",
+                "C.I = class {",
+                "  constructor() {}",
+                "  static foo() {}",
+                "}",
+                "C.I.foo();")),
+        warning(CheckInterfaces.STATIC_MEMBER_FUNCTION_IN_INTERFACE_CLASS)
+            .withMessageContaining(
+                "Consider pulling out the static method into a flat name as C.I_foo"));
+  }
+
+  @Test
+  public void testInterfaceWithFieldDeclarations_missingJDoc() {
+    testSame(
+        "/** @interface */ function A() { this.foo; }",
+        CheckInterfaces.MISSING_JSDOC_IN_DECLARATION_STATEMENT);
+
+    testSame(
+        "/** @interface */ class C { constructor() { this.foo; }}",
+        CheckInterfaces.MISSING_JSDOC_IN_DECLARATION_STATEMENT);
+
+    // in ES6 modules
+    testSame(
+        "export /** @interface */ function A() {this.foo; }",
+        CheckInterfaces.MISSING_JSDOC_IN_DECLARATION_STATEMENT);
   }
 
   @Test
@@ -94,13 +257,39 @@ public final class CheckInterfacesTest extends CompilerTestCase {
   }
 
   @Test
-  public void testRecordWithOtherContents() {
+  public void testRecordWithFieldDeclarationsMissingJSDoc() {
     testSame(
         lines(
             "/** @record */",
             "function R() {",
+            "  // This should have a JSDoc.",
+            "  this.noJSDoc;",
+            "",
+            "}"),
+        CheckInterfaces.MISSING_JSDOC_IN_DECLARATION_STATEMENT);
+  }
+
+  @Test
+  public void testRecordWithOtherContents() {
+    testSame(
+        lines(
+            "/** @record */", //
+            "function R() {",
             "  /** @type {string} */",
-            "  this.foo = '';",
-            "}"));
+            "  let foo = '';",
+            "}"),
+        CheckInterfaces.NON_DECLARATION_STATEMENT_IN_INTERFACE);
+  }
+
+  @Test
+  public void testInterfaceWithOtherContents() {
+    testSame(
+        lines(
+            "/** @interface */", //
+            "function R() {",
+            "  /** @type {string} */",
+            "  let foo = '';",
+            "}"),
+        CheckInterfaces.NON_DECLARATION_STATEMENT_IN_INTERFACE);
   }
 }

@@ -78,9 +78,16 @@ public enum Token {
   GETPROP,
   GETELEM,
   CALL,
+
+  // Part of optional chain (?.)
+  OPTCHAIN_GETPROP,
+  OPTCHAIN_GETELEM,
+  OPTCHAIN_CALL,
+
   NAME,
   NUMBER,
-  STRING,
+  BIGINT,
+  STRINGLIT,
   NULL,
   THIS,
   FALSE,
@@ -115,6 +122,7 @@ public enum Token {
   HOOK, // conditional (?:)
   OR, // logical or (||)
   AND, // logical and (&&)
+  COALESCE, // Nullish coalesce (??)
   INC, // increment (++)
   DEC, // decrement (--)
   FUNCTION, // function keyword
@@ -189,7 +197,7 @@ public enum Token {
   COMPUTED_PROP,
 
   TAGGED_TEMPLATELIT, // tagged template literal, e.g. foo`bar`
-  TEMPLATELIT, // template literal
+  TEMPLATELIT, // template literal, e.g: `bar`
   TEMPLATELIT_SUB, // template literal substitution
   TEMPLATELIT_STRING, // template literal string
 
@@ -259,6 +267,7 @@ public enum Token {
       case ROOT:
       case BREAK:
       case CALL:
+      case OPTCHAIN_CALL:
       case COLON:
       case CONST:
       case CONTINUE:
@@ -293,7 +302,8 @@ public enum Token {
       case NAME:
       case NULL:
       case NUMBER:
-      case STRING:
+      case BIGINT:
+      case STRINGLIT:
       case TEMPLATELIT_STRING:
       case THIS:
       case TRUE:
@@ -306,6 +316,7 @@ public enum Token {
       case DEFAULT_CASE:
       case DELPROP:
       case EXPR_RESULT:
+      case GETPROP:
       case GETTER_DEF:
       case INC:
       case INDEX_SIGNATURE:
@@ -317,6 +328,7 @@ public enum Token {
       case NOT:
       case OBJECT_REST:
       case OBJECT_SPREAD:
+      case OPTCHAIN_GETPROP:
       case POS:
       case SETTER_DEF:
       case TEMPLATELIT_SUB:
@@ -344,6 +356,7 @@ public enum Token {
       case BITOR:
       case BITXOR:
       case CASE:
+      case COALESCE:
       case CATCH:
       case COMMA:
       case COMPUTED_PROP:
@@ -355,7 +368,7 @@ public enum Token {
       case EXPONENT:
       case GE:
       case GETELEM:
-      case GETPROP:
+      case OPTCHAIN_GETELEM:
       case GT:
       case IN:
       case INSTANCEOF:

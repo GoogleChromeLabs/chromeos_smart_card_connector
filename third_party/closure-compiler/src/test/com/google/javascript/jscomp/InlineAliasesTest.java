@@ -16,20 +16,22 @@
 
 package com.google.javascript.jscomp;
 
-import static com.google.javascript.jscomp.InlineAliases.ALIAS_CYCLE;
+import static com.google.javascript.jscomp.InlineAndCollapseProperties.ALIAS_CYCLE;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import com.google.javascript.jscomp.CompilerOptions.PropertyCollapseLevel;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/** Unit tests for {@link InlineAliases}. */
+/** Unit tests for {@link InlineAndCollapseProperties.InlineAliases}. */
 @RunWith(JUnit4.class)
 public class InlineAliasesTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new InlineAliases(compiler);
+    return InlineAndCollapseProperties.builder(compiler)
+        .setPropertyCollapseLevel(PropertyCollapseLevel.NONE)
+        .build();
   }
 
   @Override
@@ -37,7 +39,6 @@ public class InlineAliasesTest extends CompilerTestCase {
     CompilerOptions options = super.getOptions();
     enableTypeInfoValidation();
     enableTypeCheck();
-    options.setLanguage(LanguageMode.ECMASCRIPT_2015);
     return options;
   }
 
@@ -243,12 +244,6 @@ public class InlineAliasesTest extends CompilerTestCase {
             "var /** @type {number} */ n = 5",
             "var /** @const {number} */ alias = n;",
             "var x = use(alias)"));
-  }
-
-  @Test
-  public void testPrivateVariablesAreNotInlined() {
-    testSame("/** @private */ var x = 0; var /** @const */ alias = x; var y = alias;");
-    testSame("var x_ = 0; var /** @const */ alias = x_; var y = alias;");
   }
 
   @Test
@@ -651,5 +646,29 @@ public class InlineAliasesTest extends CompilerTestCase {
             "  const d = new alias.type.Date();",
             "  const proto = 0;",
             "}"));
+  }
+
+  @Test
+  public void testQualifiedNameSetViaUnaryDecrementNotInlined() {
+    testSame(
+        lines(
+            "const a = {b: 0, c: 0};",
+            "const v1 = a.b;",
+            "a.b--;",
+            "const v2 = a.b;",
+            "a.b--;",
+            "use(v1 + v2);"));
+  }
+
+  @Test
+  public void testQualifiedNameSetViaUnaryIncrementNotInlined() {
+    testSame(
+        lines(
+            "const a = {b: 0};",
+            "const v1 = a.b;",
+            "a.b++;",
+            "const v2 = a.b;",
+            "a.b++;",
+            "use(v1 + v2);"));
   }
 }

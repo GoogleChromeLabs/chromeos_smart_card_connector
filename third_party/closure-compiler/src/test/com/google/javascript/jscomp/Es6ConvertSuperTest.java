@@ -20,6 +20,8 @@ import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 import static com.google.javascript.rhino.testing.TypeSubject.assertType;
 
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import com.google.javascript.jscomp.testing.NoninjectingCompiler;
+import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.jstype.FunctionType;
@@ -45,6 +47,7 @@ import org.junit.runners.JUnit4;
  * </ul>
  */
 @RunWith(JUnit4.class)
+@SuppressWarnings("RhinoNodeGetFirstFirstChild")
 public final class Es6ConvertSuperTest extends CompilerTestCase {
 
   public Es6ConvertSuperTest() {
@@ -141,8 +144,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(callee)
         .matchesQualifiedName("A.prototype.g.call")
         .hasLineno(4) // position and length of `super.g`
-        .hasCharno(8)
-        .hasLength(7);
+        .hasCharno(14)
+        .hasLength(1);
     assertType(callee.getJSType()).isEqualTo(aDotGDotCallType);
 
     // A.prototype.g
@@ -150,8 +153,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(superDotGReplacement)
         .matchesQualifiedName("A.prototype.g")
         .hasLineno(4) // position and length of `super.g`
-        .hasCharno(8)
-        .hasLength(7);
+        .hasCharno(14)
+        .hasLength(1);
     assertType(superDotGReplacement.getJSType()).isEqualTo(aDotGMethodType);
 
     // A.prototype
@@ -169,8 +172,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(thisNode)
         .hasToken(Token.THIS)
         .hasLineno(4) // position and length of `super.g`
-        .hasCharno(8)
-        .hasLength(7)
+        .hasCharno(14)
+        .hasLength(1)
         .isIndexable(false); // there's no direct correlation with text in the original source
     assertType(thisNode.getJSType()).isEqualTo(classBInstanceType);
   }
@@ -322,8 +325,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(superDotGReplacement)
         .matchesQualifiedName("A.prototype.g")
         .hasLineno(4) // position and length of `super.g`
-        .hasCharno(16)
-        .hasLength(7);
+        .hasCharno(22)
+        .hasLength(1);
     assertType(superDotGReplacement.getJSType()).isEqualTo(aDotGMethodType);
 
     // A.prototype
@@ -513,8 +516,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(callee)
         .matchesQualifiedName("A.g.call")
         .hasLineno(4) // position and length of `super.g`
-        .hasCharno(15)
-        .hasLength(7);
+        .hasCharno(21)
+        .hasLength(1);
     assertType(callee.getJSType()).isEqualTo(aDotGDotCallType);
 
     // A.g
@@ -522,8 +525,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(superDotGReplacement)
         .matchesQualifiedName("A.g")
         .hasLineno(4) // position and length of `super.g`
-        .hasCharno(15)
-        .hasLength(7);
+        .hasCharno(21)
+        .hasLength(1);
     assertType(superDotGReplacement.getJSType()).isEqualTo(aDotGMethodType);
 
     // A
@@ -687,8 +690,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(superDotGReplacement)
         .matchesQualifiedName("A.g")
         .hasLineno(4) // position and length of `super.g`
-        .hasCharno(23)
-        .hasLength(7);
+        .hasCharno(29)
+        .hasLength(1);
     assertType(superDotGReplacement.getJSType()).isEqualTo(aDotGMethodType);
 
     // A.prototype
@@ -833,8 +836,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(callee)
         .matchesQualifiedName("A.prototype.g.call")
         .hasLineno(4) // position and length of `super.g`
-        .hasCharno(12)
-        .hasLength(7);
+        .hasCharno(18)
+        .hasLength(1);
     assertType(callee.getJSType()).isEqualTo(aDotGDotCallType);
 
     // A.prototype.g
@@ -842,8 +845,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(superDotGReplacement)
         .matchesQualifiedName("A.prototype.g")
         .hasLineno(4) // position and length of `super.g`
-        .hasCharno(12)
-        .hasLength(7);
+        .hasCharno(18)
+        .hasLength(1);
     assertType(superDotGReplacement.getJSType()).isEqualTo(aDotGMethodType);
 
     // A.prototype
@@ -861,8 +864,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(thisNode)
         .hasToken(Token.THIS)
         .hasLineno(4) // position and length of `super.g`
-        .hasCharno(12)
-        .hasLength(7)
+        .hasCharno(18)
+        .hasLength(1)
         .isIndexable(false); // there's no direct correlation with text in the original source
     assertType(thisNode.getJSType()).isEqualTo(classBInstanceType);
   }
@@ -930,8 +933,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(callee)
         .matchesQualifiedName("A.prototype.g.call")
         .hasLineno(5) // position and length of `super.g`
-        .hasCharno(13)
-        .hasLength(7);
+        .hasCharno(19)
+        .hasLength(1);
     assertType(callee.getJSType()).isEqualTo(aDotGDotCallType);
 
     // A.prototype.g
@@ -939,8 +942,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(superDotGReplacement)
         .matchesQualifiedName("A.prototype.g")
         .hasLineno(5) // position and length of `super.g`
-        .hasCharno(13)
-        .hasLength(7);
+        .hasCharno(19)
+        .hasLength(1);
     assertType(superDotGReplacement.getJSType()).isEqualTo(aDotGMethodType);
 
     // A.prototype
@@ -958,8 +961,8 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
     assertNode(thisNode)
         .hasToken(Token.THIS)
         .hasLineno(5) // position and length of `super.g`
-        .hasCharno(13)
-        .hasLength(7)
+        .hasCharno(19)
+        .hasLength(1)
         .isIndexable(false); // there's no direct correlation with text in the original source
     assertType(thisNode.getJSType()).isEqualTo(classBInstanceType);
   }
@@ -1116,69 +1119,6 @@ public final class Es6ConvertSuperTest extends CompilerTestCase {
         .hasLength(21)
         .isIndexable(false);
     assertType(argumentsNode.getJSType()).isEqualTo(argumentsType);
-  }
-
-  @Test
-  public void testSynthesizingConstructorOfBaseClassInExtern() {
-    testExternChanges(
-        "class A { }",
-        "new A();", // Source to pin externs.
-        "class A { constructor() { } }");
-    // TODO(bradfordcsmith): Test addition of types in externs.
-    // Currently testExternChanges() doesn't set things up correctly for getting the last compiler
-    // and looking up type information in the registry to work.
-  }
-
-  @Test
-  public void testSynthesizingConstructorOfDerivedClassInExtern() {
-    testExternChanges(
-        lines(
-            "class A {", // Force wrapping.
-            "  constructor() { }",
-            "}",
-            "",
-            "class B extends A { }"),
-        "new B();", // Source to pin externs.
-        lines(
-            "class A {",
-            "  constructor() { }",
-            "}",
-            "",
-            "class B extends A {",
-            "  constructor() { }",
-            "}"));
-    // TODO(bradfordcsmith): Test addition of types in externs.
-    // Currently testExternChanges() doesn't set things up correctly for getting the last compiler
-    // and looking up type information in the registry to work.
-  }
-
-  @Test
-  public void testStrippingSuperCallFromConstructorOfDerivedClassInExtern() {
-    testExternChanges(
-        lines(
-            "const namespace = {};",
-            "",
-            "namespace.A = class {",
-            "  constructor() { }",
-            "}",
-            "",
-            "class B extends namespace.A {",
-            "  constructor() { super(); }",
-            "}"),
-        "new B();", // Source to pin externs.
-        lines(
-            "const namespace = {};",
-            "",
-            "namespace.A = class {",
-            "  constructor() { }",
-            "}",
-            "",
-            "class B extends namespace.A {",
-            "  constructor() { }",
-            "}"));
-    // TODO(bradfordcsmith): Test addition of types in externs.
-    // Currently testExternChanges() doesn't set things up correctly for getting the last compiler
-    // and looking up type information in the registry to work.
   }
 
   @Test

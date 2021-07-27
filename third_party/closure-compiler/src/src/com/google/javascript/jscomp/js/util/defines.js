@@ -45,3 +45,26 @@ $jscomp.ASSUME_NO_NATIVE_SET = false;
  * @define {boolean}
  */
 $jscomp.SIMPLE_FROUND_POLYFILL = false;
+
+/**
+ * Whether to isolate all injected polyfills from global state. This is not
+ * on by default, as it bloats code size, but is useful when code needs to
+ * operate on untrusted third_party sites. It relies on a compiler pass to
+ * rewrite potential polyfill accesses.
+ * @define {boolean}
+ */
+$jscomp.ISOLATE_POLYFILLS = false;
+
+/**
+ * Should we unconditionally override a native Promise implementation with our
+ * own?
+ * @define {boolean}
+ */
+$jscomp.FORCE_POLYFILL_PROMISE = false;
+
+/**
+ * Override the native Promise implementation if unhandledrejection event is not
+ * supported.
+ * @define {boolean}
+ */
+$jscomp.FORCE_POLYFILL_PROMISE_WHEN_NO_UNHANDLED_REJECTION = false;

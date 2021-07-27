@@ -29,13 +29,26 @@ public final class SubstituteEs6SyntaxTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(CompilerOptions.LanguageMode.ECMASCRIPT_2015);
     disableScriptFeatureValidation();
   }
 
   @Override
   protected CompilerPass getProcessor(final Compiler compiler) {
     return new SubstituteEs6Syntax(compiler);
+  }
+
+  @Test
+  public void nullishCoalesceFunctions() {
+    test("()=>{ return x ?? y; }", "()=> x??y");
+    testSame("(function() { this.x = a??b; })");
+  }
+
+  @Test
+  public void nullishCoalesceObjectPattern() {
+    // Tree comparisons don't fail on node property differences, so compare as strings instead.
+    disableCompareAsTree();
+    test("const {x:x}=a??b", "const {x}=a??b");
+    testSame("const {x:y}=a??b");
   }
 
   @Test

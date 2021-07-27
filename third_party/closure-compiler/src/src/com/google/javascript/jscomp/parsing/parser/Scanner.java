@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp.parsing.parser;
 
-
 import com.google.errorprone.annotations.FormatMethod;
 import com.google.errorprone.annotations.FormatString;
 import com.google.javascript.jscomp.parsing.parser.trees.Comment;
@@ -27,14 +26,13 @@ import java.util.ArrayList;
 import javax.annotation.Nullable;
 
 /**
- * Scans javascript source code into tokens. All entrypoints assume the
- * caller is not expecting a regular expression literal except for
- * nextRegularExpressionLiteralToken.
+ * Scans javascript source code into tokens. All entrypoints assume the caller is not expecting a
+ * regular expression literal except for nextRegularExpressionLiteralToken.
  *
  * <p>7 Lexical Conventions
  */
 public class Scanner {
-  private final boolean parseTypeSyntax;
+
   private final ErrorReporter errorReporter;
   private final SourceFile source;
   private final LineNumberScanner lineNumberScanner;
@@ -46,20 +44,17 @@ public class Scanner {
   private int typeParameterLevel;
 
   public Scanner(
-      boolean parseTypeSyntax,
       ErrorReporter errorReporter,
       CommentRecorder commentRecorder,
       SourceFile source) {
-    this(parseTypeSyntax, errorReporter, commentRecorder, source, 0);
+    this(errorReporter, commentRecorder, source, 0);
   }
 
   public Scanner(
-      boolean parseTypeSyntax,
       ErrorReporter errorReporter,
       CommentRecorder commentRecorder,
       SourceFile file,
       int offset) {
-    this.parseTypeSyntax = parseTypeSyntax;
     this.errorReporter = errorReporter;
     this.commentRecorder = commentRecorder;
     this.source = file;
@@ -81,9 +76,7 @@ public class Scanner {
   }
 
   public int getOffset() {
-    return currentTokens.isEmpty()
-        ? index
-        : peekToken().location.start.offset;
+    return currentTokens.isEmpty() ? index : peekToken().location.start.offset;
   }
 
   public void setPosition(SourcePosition position) {
@@ -132,30 +125,24 @@ public class Scanner {
     // body
     if (!skipRegularExpressionBody()) {
       return new LiteralToken(
-          TokenType.REGULAR_EXPRESSION,
-          getTokenString(beginToken),
-          getTokenRange(beginToken));
+          TokenType.REGULAR_EXPRESSION, getTokenString(beginToken), getTokenRange(beginToken));
     }
 
     // separating '/'
     if (peekChar() != '/') {
       reportError("Expected '/' in regular expression literal");
       return new LiteralToken(
-          TokenType.REGULAR_EXPRESSION,
-          getTokenString(beginToken),
-          getTokenRange(beginToken));
+          TokenType.REGULAR_EXPRESSION, getTokenString(beginToken), getTokenRange(beginToken));
     }
     nextChar();
 
     // flags
-    while (isIdentifierPart(peekChar())) {
+    while (Identifiers.isIdentifierPart(peekChar())) {
       nextChar();
     }
 
     return new LiteralToken(
-        TokenType.REGULAR_EXPRESSION,
-        getTokenString(beginToken),
-        getTokenRange(beginToken));
+        TokenType.REGULAR_EXPRESSION, getTokenString(beginToken), getTokenRange(beginToken));
   }
 
   public TemplateLiteralToken nextTemplateLiteralToken() {
@@ -269,10 +256,7 @@ public class Scanner {
   }
 
   // 7.2 White Space
-  /**
-   * Returns true if the whitespace that was skipped included any
-   * line terminators.
-   */
+  /** Returns true if the whitespace that was skipped included any line terminators. */
   private boolean skipWhitespace() {
     boolean foundLineTerminator = false;
     while (!isAtEnd() && peekWhitespace()) {
@@ -289,16 +273,16 @@ public class Scanner {
 
   private static boolean isWhitespace(char ch) {
     switch (ch) {
-      case '\u0009':  // Tab
-      case '\u000B':  // Vertical Tab
-      case '\u000C':  // Form Feed
-      case '\u0020':  // Space
-      case '\u00A0':  // No-break space
-      case '\uFEFF':  // Byte Order Mark
-      case '\n':      // Line Feed
-      case '\r':      // Carriage Return
-      case '\u2028':  // Line Separator
-      case '\u2029':  // Paragraph Separator
+      case '\u0009': // Tab
+      case '\u000B': // Vertical Tab
+      case '\u000C': // Form Feed
+      case '\u0020': // Space
+      case '\u00A0': // No-break space
+      case '\uFEFF': // Byte Order Mark
+      case '\n': // Line Feed
+      case '\r': // Carriage Return
+      case '\u2028': // Line Separator
+      case '\u2029': // Paragraph Separator
       case '\u3000': // Ideographic Space
         // TODO: there are other Unicode Category 'Zs' chars that should go here.
         return true;
@@ -311,9 +295,9 @@ public class Scanner {
   private static boolean isLineTerminator(char ch) {
     switch (ch) {
       case '\n': // Line Feed
-      case '\r':  // Carriage Return
-      case '\u2028':  // Line Separator
-      case '\u2029':  // Paragraph Separator
+      case '\r': // Carriage Return
+      case '\u2028': // Line Separator
+      case '\u2029': // Paragraph Separator
         return true;
       default:
         return false;
@@ -334,8 +318,7 @@ public class Scanner {
 
   // 7.4 Comments
   private void skipComments() {
-    while (skipComment())
-    {}
+    while (skipComment()) {}
   }
 
   private boolean skipComment() {
@@ -405,8 +388,7 @@ public class Scanner {
     recordComment(type, range, value);
   }
 
-  private void recordComment(
-      Comment.Type type, SourceRange range, String value) {
+  private void recordComment(Comment.Type type, SourceRange range, String value) {
     commentRecorder.recordComment(type, range, value);
   }
 
@@ -444,12 +426,18 @@ public class Scanner {
     }
     char ch = nextChar();
     switch (ch) {
-      case '{': return createToken(TokenType.OPEN_CURLY, beginToken);
-      case '}': return createToken(TokenType.CLOSE_CURLY, beginToken);
-      case '(': return createToken(TokenType.OPEN_PAREN, beginToken);
-      case ')': return createToken(TokenType.CLOSE_PAREN, beginToken);
-      case '[': return createToken(TokenType.OPEN_SQUARE, beginToken);
-      case ']': return createToken(TokenType.CLOSE_SQUARE, beginToken);
+      case '{':
+        return createToken(TokenType.OPEN_CURLY, beginToken);
+      case '}':
+        return createToken(TokenType.CLOSE_CURLY, beginToken);
+      case '(':
+        return createToken(TokenType.OPEN_PAREN, beginToken);
+      case ')':
+        return createToken(TokenType.CLOSE_PAREN, beginToken);
+      case '[':
+        return createToken(TokenType.OPEN_SQUARE, beginToken);
+      case ']':
+        return createToken(TokenType.CLOSE_SQUARE, beginToken);
       case '.':
         if (isDecimalDigit(peekChar())) {
           return scanNumberPostPeriod(beginToken);
@@ -463,11 +451,27 @@ public class Scanner {
         }
 
         return createToken(TokenType.PERIOD, beginToken);
-      case ';': return createToken(TokenType.SEMI_COLON, beginToken);
-      case ',': return createToken(TokenType.COMMA, beginToken);
-      case '~': return createToken(TokenType.TILDE, beginToken);
-      case '?': return createToken(TokenType.QUESTION, beginToken);
-      case ':': return createToken(TokenType.COLON, beginToken);
+      case ';':
+        return createToken(TokenType.SEMI_COLON, beginToken);
+      case ',':
+        return createToken(TokenType.COMMA, beginToken);
+      case '~':
+        return createToken(TokenType.TILDE, beginToken);
+      case '?':
+        if (peek('?')) { // see ??
+          nextChar();
+          return createToken(TokenType.QUESTION_QUESTION, beginToken);
+        }
+        if (peek('.')) { // see ?.
+          if (!isDecimalDigit(peekChar(1))) {
+            nextChar();
+            // a?.1:2 should be a ? 0.1 : 2 not a ?. 1 : 2 (syntax error)
+            return createToken(TokenType.QUESTION_DOT, beginToken);
+          }
+        }
+        return createToken(TokenType.QUESTION, beginToken);
+      case ':':
+        return createToken(TokenType.COLON, beginToken);
       case '<':
         switch (peekChar()) {
           case '<':
@@ -614,11 +618,19 @@ public class Scanner {
         }
       case '#':
         return createToken(TokenType.POUND, beginToken);
-      // TODO: add NumberToken
-      // TODO: character following NumericLiteral must not be an IdentifierStart or DecimalDigit
+        // TODO: add NumberToken
+        // TODO: character following NumericLiteral must not be an IdentifierStart or DecimalDigit
       case '0':
         return scanPostZero(beginToken);
-      case '1': case '2': case '3': case '4': case '5': case '6': case '7': case '8': case '9':
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+      case '8':
+      case '9':
         return scanPostDigit(beginToken);
       case '"':
       case '\'':
@@ -637,6 +649,11 @@ public class Scanner {
 
   private Token scanPostDigit(int beginToken) {
     skipDecimalDigits();
+    if (peek('n')) {
+      nextChar();
+      return new LiteralToken(
+          TokenType.BIGINT, getTokenString(beginToken), getTokenRange(beginToken));
+    }
     return scanFractionalNumericLiteral(beginToken);
   }
 
@@ -650,8 +667,14 @@ public class Scanner {
           reportError("Binary Integer Literal must contain at least one digit");
         }
         skipBinaryDigits();
+        boolean isBigInt = peek('n');
+        if (isBigInt) {
+          nextChar();
+        }
         return new LiteralToken(
-            TokenType.NUMBER, getTokenString(beginToken), getTokenRange(beginToken));
+            isBigInt ? TokenType.BIGINT : TokenType.NUMBER,
+            getTokenString(beginToken),
+            getTokenRange(beginToken));
 
       case 'o':
       case 'O':
@@ -664,8 +687,14 @@ public class Scanner {
         if (peek('8') || peek('9')) {
           reportError("Invalid octal digit in octal literal.");
         }
+        isBigInt = peek('n');
+        if (isBigInt) {
+          nextChar();
+        }
         return new LiteralToken(
-            TokenType.NUMBER, getTokenString(beginToken), getTokenRange(beginToken));
+            isBigInt ? TokenType.BIGINT : TokenType.NUMBER,
+            getTokenString(beginToken),
+            getTokenRange(beginToken));
       case 'x':
       case 'X':
         nextChar();
@@ -673,22 +702,43 @@ public class Scanner {
           reportError("Hex Integer Literal must contain at least one digit");
         }
         skipHexDigits();
+        isBigInt = peek('n');
+        if (isBigInt) {
+          nextChar();
+        }
         return new LiteralToken(
-            TokenType.NUMBER, getTokenString(beginToken), getTokenRange(beginToken));
+            isBigInt ? TokenType.BIGINT : TokenType.NUMBER,
+            getTokenString(beginToken),
+            getTokenRange(beginToken));
       case 'e':
       case 'E':
         return scanExponentOfNumericLiteral(beginToken);
       case '.':
         return scanFractionalNumericLiteral(beginToken);
-      case '0': case '1': case '2': case '3': case '4':
-      case '5': case '6': case '7': case '8': case '9':
+      case '0':
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+      case '8':
+      case '9':
         skipDecimalDigits();
         if (peek('.')) {
           nextChar();
           skipDecimalDigits();
         }
+        if (peek('n')) {
+          reportError("SyntaxError: nonzero BigInt can't have leading zero");
+        }
         return new LiteralToken(
             TokenType.NUMBER, getTokenString(beginToken), getTokenRange(beginToken));
+      case 'n':
+        nextChar();
+        return new LiteralToken(
+            TokenType.BIGINT, getTokenString(beginToken), getTokenRange(beginToken));
       default:
         return new LiteralToken(
             TokenType.NUMBER, getTokenString(beginToken), getTokenRange(beginToken));
@@ -711,7 +761,7 @@ public class Scanner {
     int unicodeEscapeLen = containsUnicodeEscape ? 1 : 0;
 
     ch = peekChar();
-    while (isIdentifierPart(ch)
+    while (Identifiers.isIdentifierPart(ch)
         || ch == '\\'
         || (ch == '{' && unicodeEscapeLen == 2)
         || (ch == '}' && bracedUnicodeEscape)) {
@@ -743,9 +793,7 @@ public class Scanner {
     if (containsUnicodeEscape) {
       value = processUnicodeEscapes(value);
       if (value == null) {
-        reportError(
-            getPosition(index),
-            "Invalid escape sequence");
+        reportError(getPosition(index), "Invalid escape sequence");
         return createToken(TokenType.ERROR, beginToken);
       }
     }
@@ -753,15 +801,16 @@ public class Scanner {
     // Check to make sure the first character (or the unicode escape at the
     // beginning of the identifier) is a valid identifier start character.
     char start = value.charAt(0);
-    if (!isIdentifierStart(start)) {
+    if (!Identifiers.isIdentifierStart(start)) {
       reportError(
           getPosition(beginToken),
           "Character '%c' (U+%04X) is not a valid identifier start char",
-          start, (int) start);
+          start,
+          (int) start);
       return createToken(TokenType.ERROR, beginToken);
     }
 
-    Keywords k = Keywords.get(value, parseTypeSyntax);
+    Keywords k = Keywords.get(value);
     if (k != null) {
       return new Token(k.type, getTokenRange(beginToken));
     }
@@ -786,11 +835,16 @@ public class Scanner {
         if (value.charAt(escapeStart + 2) != '{') {
           // Simple escape with exactly four hex digits: \\uXXXX
           escapeEnd = escapeStart + 6;
+          // TODO(b/155480859): Don't trust String#substring to throw on out of bounds. J2CL
+          // implements it incorrectly.
+          if (escapeEnd > value.length()) {
+            return null;
+          }
           hexDigits = value.substring(escapeStart + 2, escapeEnd);
         } else {
           // Escape with braces can have any number of hex digits: \\u{XXXXXXX}
           escapeEnd = escapeStart + 3;
-          while (Character.digit(value.charAt(escapeEnd), 0x10) >= 0) {
+          while (isHexDigit(value.charAt(escapeEnd))) {
             escapeEnd++;
           }
           if (value.charAt(escapeEnd) != '}') {
@@ -799,9 +853,9 @@ public class Scanner {
           hexDigits = value.substring(escapeStart + 3, escapeEnd);
           escapeEnd++;
         }
-        // TODO(mattloring): Allow code points greater than the size of a char
+        // TODO(mattloring): Allow code points >= 0xFFFF (greater than the size of a char).
         char ch = (char) Integer.parseInt(hexDigits, 0x10);
-        if (!isIdentifierPart(ch)) {
+        if (!Identifiers.isIdentifierPart(ch)) {
           return null;
         }
         value = value.substring(0, escapeStart) + ch + value.substring(escapeEnd);
@@ -810,43 +864,6 @@ public class Scanner {
       }
     }
     return value;
-  }
-
-  @SuppressWarnings("ShortCircuitBoolean") // Intentional to minimize branches in this code
-  private static boolean isIdentifierStart(char ch) {
-    // Most code is written in pure ASCII create a fast path here.
-    if (ch <= 127) {
-      // Intentionally avoiding short circuiting behavior of "||" and "&&".
-      // This minimizes branches in this code which minimizes branch prediction misses.
-      return ((ch >= 'A' & ch <= 'Z') | (ch >= 'a' & ch <= 'z') | (ch == '_' | ch == '$'));
-    }
-
-    // Workaround b/36459436
-    // When running under GWT, Character.isLetter only handles ASCII
-    // Angular relies heavily on U+0275 (Latin Barred O) and U+0394 (Greek Capital Letter Delta).
-    return ch == 0x0275
-        || ch == 0x0394
-        // TODO: UnicodeLetter also includes Letter Number (NI)
-        || Character.isLetter(ch);
-  }
-
-  @SuppressWarnings("ShortCircuitBoolean") // Intentional to minimize branches in this code
-  private static boolean isIdentifierPart(char ch) {
-    // Most code is written in pure ASCII create a fast path here.
-    if (ch <= 127) {
-      return ((ch >= 'A' & ch <= 'Z')
-          | (ch >= 'a' & ch <= 'z')
-          | (ch >= '0' & ch <= '9')
-          | (ch == '_' | ch == '$')); // _ or $
-    }
-    // TODO: identifier part character classes
-    // CombiningMark
-    //   Non-Spacing mark (Mn)
-    //   Combining spacing mark(Mc)
-    // Connector punctuation (Pc)
-    // Zero Width Non-Joiner
-    // Zero Width Joiner
-    return isIdentifierStart(ch) || Character.isDigit(ch);
   }
 
   private Token scanStringLiteral(int beginIndex, char terminator) {
@@ -1049,14 +1066,6 @@ public class Scanner {
       case 'v':
       case '0':
         return true;
-      case '1':
-      case '2':
-      case '3':
-      case '4':
-      case '5':
-      case '6':
-      case '7':
-        break;
       case 'x':
         boolean doubleHexDigit = skipHexDigit() && skipHexDigit();
         if (!doubleHexDigit) {
@@ -1147,15 +1156,32 @@ public class Scanner {
   }
 
   private void skipDecimalDigits() {
-    while (isDecimalDigit(peekChar())) {
+    char ch = peekChar();
+    while (isDecimalDigit(ch) || ch == '_') {
       nextChar();
+      if (ch == '_') {
+        if (isDecimalDigit(peekChar())) {
+          nextChar();
+        } else {
+          reportError("Trailing numeric separator");
+        }
+      }
+      ch = peekChar();
     }
   }
 
   private static boolean isDecimalDigit(char ch) {
     switch (ch) {
-      case '0': case '1': case '2': case '3': case '4':
-      case '5': case '6': case '7': case '8': case '9':
+      case '0':
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+      case '8':
+      case '9':
         return true;
       default:
         return false;
@@ -1163,12 +1189,25 @@ public class Scanner {
   }
 
   private boolean peekHexDigit() {
-    return Character.digit(peekChar(), 0x10) >= 0;
+    return isHexDigit(peekChar());
+  }
+
+  private static boolean isHexDigit(char ch) {
+    return Character.digit(ch, 0x10) >= 0;
   }
 
   private void skipHexDigits() {
-    while (peekHexDigit()) {
+    char ch = peekChar();
+    while (isHexDigit(ch) || ch == '_') {
       nextChar();
+      if (ch == '_') {
+        if (peekHexDigit()) {
+          nextChar();
+        } else {
+          reportError("Trailing numeric separator");
+        }
+      }
+      ch = peekChar();
     }
   }
 
@@ -1177,8 +1216,17 @@ public class Scanner {
   }
 
   private void skipOctalDigits() {
-    while (peekOctalDigit()) {
+    char ch = peekChar();
+    while (isOctalDigit(ch) || ch == '_') {
       nextChar();
+      if (ch == '_') {
+        if (isOctalDigit(peekChar())) {
+          nextChar();
+        } else {
+          reportError("Trailing numeric separator");
+        }
+      }
+      ch = peekChar();
     }
   }
 
@@ -1188,8 +1236,14 @@ public class Scanner {
 
   private static int valueOfOctalDigit(char ch) {
     switch (ch) {
-      case '0': case '1': case '2': case '3': case '4':
-      case '5': case '6': case '7':
+      case '0':
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
         return ch - '0';
       default:
         return -1;
@@ -1197,8 +1251,17 @@ public class Scanner {
   }
 
   private void skipBinaryDigits() {
-    while (isBinaryDigit(peekChar())) {
+    char ch = peekChar();
+    while (isBinaryDigit(ch) || ch == '_') {
       nextChar();
+      if (ch == '_') {
+        if (isBinaryDigit(peekChar())) {
+          nextChar();
+        } else {
+          reportError("Trailing numeric separator");
+        }
+      }
+      ch = peekChar();
     }
   }
 

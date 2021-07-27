@@ -20,7 +20,6 @@
  *  http://www.w3.org/TR/REC-DOM-Level-1/ecma-script-language-binding.html
  *
  * @externs
- * @author stevey@google.com (Steve Yegge)
  */
 
 /**
@@ -203,7 +202,9 @@ Node.prototype.appendChild = function(newChild) {};
 
 /**
  * @param {boolean} deep
- * @return {!Node}
+ * @return {THIS}
+ * @this {THIS}
+ * @template THIS
  * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#method-cloneNode
  * @nosideeffects
  */
@@ -378,14 +379,14 @@ Document.prototype.createDocumentFragment = function() {};
  * Create a DOM element.
  *
  * Web components introduced the second parameter as a way of extending existing
- * tags (e.g. document.createElement('button', 'fancy-button')).
+ * tags (e.g. document.createElement('button', {is: 'fancy-button'})).
  *
  * @param {string} tagName
- * @param {string=} opt_typeExtension
+ * @param {({is: string}|string)=} opt_typeExtension
  * @return {!Element}
  * @nosideeffects
  * @see http://www.w3.org/TR/1998/REC-DOM-Level-1-19981001/level-one-core.html#method-createElement
- * @see http://w3c.github.io/webcomponents/spec/custom/#extensions-to-document-interface-to-instantiate
+ * @see https://dom.spec.whatwg.org/#dom-document-createelement
  */
 Document.prototype.createElement = function(tagName, opt_typeExtension) {};
 
@@ -470,6 +471,24 @@ NodeList.prototype.item = function(index) {};
  * @see https://developer.mozilla.org/en-US/docs/Web/API/NodeList/forEach
  */
 NodeList.prototype.forEach = function(callback, opt_thisobj) {};
+
+/**
+ * @return {!IteratorIterable<!Array<number|T>>}
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/NodeList/entries
+ */
+NodeList.prototype.entries = function() {};
+
+/**
+ * @return {!IteratorIterable<number>}
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/NodeList/keys
+ */
+NodeList.prototype.keys = function() {};
+
+/**
+ * @return {!IteratorIterable<T>}
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/NodeList/values
+ */
+NodeList.prototype.values = function() {};
 
 /**
  * @constructor
@@ -683,7 +702,7 @@ Element.prototype.removeAttributeNode = function(oldAttr) {};
 
 /**
  * @param {string} name
- * @param {string|number|boolean|!TrustedHTML|!TrustedScriptURL|!TrustedURL}
+ * @param {string|number|boolean|!TrustedHTML|!TrustedScriptURL}
  *     value Values are converted to strings with ToString, so we accept number
  *     and boolean since both convert easily to strings.
  * @return {undefined}
@@ -856,3 +875,4 @@ Window.prototype.onerror;
 /** @type {?function (Event)} */ Window.prototype.onunhandledrejection;
 /** @type {?function (Event)} */ Window.prototype.onunload;
 /** @type {?function (Event)} */ Window.prototype.onwheel;
+/** @type {?function (Event)} */ Window.prototype.onstorage;

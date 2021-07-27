@@ -179,6 +179,12 @@ md.$dialog.AlertConfig_.prototype.css = function(css) {};
  */
 md.$dialog.AlertConfig_.prototype.parent = function(parent) {};
 
+/**
+ * @param {boolean} multiple
+ * @return {!md.$dialog.AlertConfig_}
+ */
+md.$dialog.AlertConfig_.prototype.multiple = function(multiple) {};
+
 
 /** @constructor */
 md.$dialog.ConfirmConfig_;
@@ -268,6 +274,12 @@ md.$dialog.ConfirmConfig_.prototype.css = function(css) {};
  * @return {!md.$dialog.ConfirmConfig_}
  */
 md.$dialog.ConfirmConfig_.prototype.disableParentScroll = function(scroll) {};
+
+/**
+ * @param {boolean} multiple
+ * @return {!md.$dialog.ConfirmConfig_}
+ */
+md.$dialog.ConfirmConfig_.prototype.multiple = function(multiple) {};
 
 
 /** @constructor */

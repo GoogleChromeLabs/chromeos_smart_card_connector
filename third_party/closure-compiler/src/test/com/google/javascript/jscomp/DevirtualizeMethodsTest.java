@@ -16,15 +16,18 @@
 
 package com.google.javascript.jscomp;
 
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.testing.ColorSubject.assertThat;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.AccessorSummary.PropertyAccessKind;
+import com.google.javascript.jscomp.colors.Color;
+import com.google.javascript.jscomp.colors.StandardColors;
+import com.google.javascript.jscomp.testing.JSChunkGraphBuilder;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.jstype.FunctionType;
-import com.google.javascript.rhino.jstype.JSType;
+import javax.annotation.Nullable;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -65,11 +68,12 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
   }
 
   @Test
-  public void testRewritePrototypeMethodsWithCorrectTypes() {
+  public void testRewritePrototypeMethodsWithCorrectColors() {
     String input =
         lines(
             "/** @constructor */",
             "function A() { this.x = 3; }",
+            "A: A;",
             "/** @return {number} */",
             "A.prototype.foo = function() { return this.x; };",
             "/** @param {number} p",
@@ -77,83 +81,81 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
             "A.prototype.bar = function(p) { return this.x; };",
             "A.prototype.baz = function() {};",
             "var o = new A();",
-            "o.foo();",
-            "o.bar(2);",
-            "o.baz()");
+            "FOO_RESULT: o.foo();",
+            "BAR_RESULT: o.bar(2);",
+            "BAZ_RESULT: o.baz()");
     String expected =
         lines(
             "/** @constructor */",
             "function A(){ this.x = 3; }",
+            "A: A;",
             "var JSCompiler_StaticMethods_foo = ",
-            "function(JSCompiler_StaticMethods_foo$self) {",
-            "  return JSCompiler_StaticMethods_foo$self.x",
-            "};",
+            "  function(JSCompiler_StaticMethods_foo$self) {",
+            "    return JSCompiler_StaticMethods_foo$self.x",
+            "  };",
             "var JSCompiler_StaticMethods_bar = ",
-            "function(JSCompiler_StaticMethods_bar$self, p) {",
-            "  return JSCompiler_StaticMethods_bar$self.x",
-            "};",
+            "  function(JSCompiler_StaticMethods_bar$self, p) {",
+            "    return JSCompiler_StaticMethods_bar$self.x",
+            "  };",
             "var JSCompiler_StaticMethods_baz = ",
-            "function(JSCompiler_StaticMethods_baz$self) {",
-            "};",
+            "  function(JSCompiler_StaticMethods_baz$self) {};",
             "var o = new A();",
-            "JSCompiler_StaticMethods_foo(o);",
-            "JSCompiler_StaticMethods_bar(o, 2);",
-            "JSCompiler_StaticMethods_baz(o)");
+            "FOO_RESULT: JSCompiler_StaticMethods_foo(o);",
+            "BAR_RESULT: JSCompiler_StaticMethods_bar(o, 2);",
+            "BAZ_RESULT: JSCompiler_StaticMethods_baz(o)");
 
     enableTypeCheck();
+    replaceTypesWithColors();
+    disableCompareJsDoc();
+
     test(input, expected);
-    checkTypeOfRewrittenMethods();
+    checkColorOfRewrittenMethods();
   }
 
-  private void checkTypeOfRewrittenMethods() {
-    JSType thisType = getTypeAtPosition(0).toMaybeFunctionType().getInstanceType();
-    FunctionType fooType = getTypeAtPosition(1, 0, 0).toMaybeFunctionType();
-    FunctionType barType = getTypeAtPosition(2, 0, 0).toMaybeFunctionType();
-    FunctionType bazType = getTypeAtPosition(3, 0, 0).toMaybeFunctionType();
-    JSType fooResultType = getTypeAtPosition(5, 0);
-    JSType barResultType = getTypeAtPosition(6, 0);
-    JSType bazResultType = getTypeAtPosition(7, 0);
+  private void checkColorOfRewrittenMethods() {
+    Color fooType = getLabelledExpression("FOO_RESULT").getFirstChild().getColor();
+    Color barType = getLabelledExpression("BAR_RESULT").getFirstChild().getColor();
+    Color bazType = getLabelledExpression("BAZ_RESULT").getFirstChild().getColor();
+    Color fooResultType = getLabelledExpression("FOO_RESULT").getColor();
+    Color barResultType = getLabelledExpression("BAR_RESULT").getColor();
+    Color bazResultType = getLabelledExpression("BAZ_RESULT").getColor();
 
-    JSType number = fooResultType;
-    JSType receiver = fooType.getTypeOfThis();
-    assertWithMessage("Expected number: " + number).that(number.isNumberValueType()).isTrue();
-    // NOTE: The type checker has the receiver as unknown
-    assertWithMessage("Expected null or unknown: " + receiver)
-        .that(receiver == null || receiver.isUnknownType())
-        .isTrue();
-    assertThat(barResultType).isEqualTo(number);
+    assertThat(fooResultType).isEqualTo(StandardColors.NUMBER);
+    assertThat(barResultType).isEqualTo(StandardColors.NUMBER);
+    assertThat(bazResultType).isEqualTo(StandardColors.NULL_OR_VOID);
 
-    // Check that foo's type is {function(A): number}
-    assertThat(fooType.getParameterTypes()).containsExactly(thisType);
-    assertThat(fooType.getReturnType()).isEqualTo(number);
-    assertThat(fooType.getTypeOfThis()).isEqualTo(receiver);
-
-    // Check that bar's type is {function(A, number): number}
-    assertThat(barType.getParameterTypes()).containsExactly(thisType, number).inOrder();
-    assertThat(barType.getReturnType()).isEqualTo(number);
-    assertThat(barType.getTypeOfThis()).isEqualTo(receiver);
-
-    // Check that baz's type is {function(A): undefined}
-    assertThat(bazType.getParameterTypes()).containsExactly(thisType);
-    assertThat(bazType.getTypeOfThis()).isEqualTo(receiver);
-
-    // TODO(sdh): NTI currently fails to infer the result of the baz() call (b/37351897)
-    // so we handle it more carefully.  When methods are deferred, this should be changed
-    // to check that it's exactly unknown.
-    assertWithMessage("Expected undefined or unknown: " + bazResultType)
-        .that(bazResultType.isVoidType() || bazResultType.isUnknownType())
-        .isTrue();
-    assertWithMessage("Expected undefined: " + bazType.getReturnType())
-        .that(bazType.getReturnType().isVoidType())
-        .isTrue();
+    assertThat(fooType).isNotEqualTo(StandardColors.UNKNOWN);
+    assertThat(barType).isNotEqualTo(StandardColors.UNKNOWN);
+    assertThat(bazType).isNotEqualTo(StandardColors.UNKNOWN);
   }
 
-  private JSType getTypeAtPosition(int... indices) {
-    Node node = getLastCompiler().getJsRoot().getFirstChild();
-    for (int index : indices) {
-      node = node.getChildAtIndex(index);
+  private Node getLabelledExpression(String label) {
+    Node root = getLastCompiler().getJsRoot();
+
+    return checkNotNull(
+        getLabelledExpressionIfPresent(label, root),
+        "Could not find statement matching label %s",
+        label);
+  }
+
+  @Nullable
+  private static Node getLabelledExpressionIfPresent(String label, Node root) {
+    if (root.isLabel() && root.getFirstChild().getString().equals(label)) {
+      Node labelledBlock = root.getSecondChild();
+      checkState(labelledBlock.isBlock(), labelledBlock);
+      checkState(
+          labelledBlock.hasOneChild() && labelledBlock.getOnlyChild().isExprResult(),
+          "Unexpected children of BLOCK %s",
+          labelledBlock);
+      return labelledBlock.getOnlyChild().getOnlyChild();
     }
-    return node.getJSType();
+    for (Node child = root.getFirstChild(); child != null; child = child.getNext()) {
+      Node possibleMatch = getLabelledExpressionIfPresent(label, child);
+      if (possibleMatch != null) {
+        return possibleMatch;
+      }
+    }
+    return null;
   }
 
   @Test
@@ -329,13 +331,35 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testRewrite_preservesAsyncGenerator() {
-    setAcceptedLanguage(CompilerOptions.LanguageMode.ECMASCRIPT_2018);
     testRewritePreservesFunctionKind("async function*");
   }
 
   @Test
   public void testRewrite_preservesGenerator() {
     testRewritePreservesFunctionKind("function*");
+  }
+
+  @Test
+  public void testRewrite_replacesMultipleThisRefreences() {
+    test(
+        srcs(
+            lines(
+                "class Foo {",
+                "  a() {",
+                "     alert(this);",
+                "     alert(this, this);",
+                "  }",
+                "}",
+                "new Foo().a();")),
+        expected(
+            lines(
+                "var JSCompiler_StaticMethods_a = function(JSCompiler_StaticMethods_a$self) {",
+                "  alert(JSCompiler_StaticMethods_a$self);",
+                "  alert(JSCompiler_StaticMethods_a$self, JSCompiler_StaticMethods_a$self);",
+                "};",
+                "",
+                "class Foo { }",
+                "JSCompiler_StaticMethods_a(new Foo());")));
   }
 
   @Test
@@ -556,8 +580,22 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testNoRewrite_exportedMethod_viaCodingConvention() {
-    // no rename, leading _ indicates exported symbol
+    // no rewriting without call; regardless of leading underscore
+    testSame("a.prototype.foo = function() {};");
     testSame("a.prototype._foo = function() {};");
+
+    // renames as expected
+    test(
+        "function a() {} a.prototype.foo = function() {}; let o = new a; o.foo();",
+        lines(
+            "function a() {}",
+            "var JSCompiler_StaticMethods_foo =",
+            "function(JSCompiler_StaticMethods_foo$self) {};",
+            "let o = new a;",
+            "JSCompiler_StaticMethods_foo(o);"));
+
+    // no renaming, as leading _ indicates exported symbol
+    testSame("function a() {} a.prototype._foo = function() {}; let o = new a; o._foo();");
   }
 
   @Test
@@ -576,6 +614,46 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
             "  function(JSCompiler_StaticMethods_foo$self, args) {return args};",
             "var o = new a;",
             "JSCompiler_StaticMethods_foo(o)");
+
+    test(source, expected);
+  }
+
+  @Test
+  public void testRewrite_argInsideOptionalChainingCall() {
+    String source =
+        lines(
+            "function a(){}",
+            "a.prototype.foo = function(args) {return args};",
+            "var o = new a;",
+            "a?.(o.foo())");
+
+    String expected =
+        lines(
+            "function a(){}",
+            "var JSCompiler_StaticMethods_foo = ",
+            "  function(JSCompiler_StaticMethods_foo$self, args) {return args};",
+            "var o = new a;",
+            "a?.(JSCompiler_StaticMethods_foo(o))");
+
+    test(source, expected);
+  }
+
+  @Test
+  public void testRewrite_lhsOfOptionalChainingCall() {
+    String source =
+        lines(
+            "function a(){}",
+            "a.prototype.foo = function(args) {return args};",
+            "var o = new a;",
+            "o.foo()?.a");
+
+    String expected =
+        lines(
+            "function a(){}",
+            "var JSCompiler_StaticMethods_foo = ",
+            "  function(JSCompiler_StaticMethods_foo$self, args) {return args};",
+            "var o = new a;",
+            "JSCompiler_StaticMethods_foo(o)?.a");
 
     test(source, expected);
   }
@@ -682,6 +760,15 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
   }
 
   @Test
+  public void testNoRewrite_optChain() {
+    testSame(
+        lines(
+            NoRewriteNonCallReferenceTestInput.BASE, //
+            "o.foo();", // We need at least one normal call to trigger rewriting.
+            "o.foo?.();"));
+  }
+
+  @Test
   public void testNoRewrite_nonCallReference_viaNew() {
     // TODO(nickreid): Add rewriting support for this.
     testSame(
@@ -750,6 +837,17 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
   }
 
   @Test
+  public void testNoRewrite_optChainGetProp() {
+    String source =
+        lines(
+            "function a(){}",
+            "a.prototype.foo = function(args) {return args};",
+            "var o = new a;",
+            "o?.foo()");
+    testSame(source);
+  }
+
+  @Test
   public void testRewrite_definedUsingGetElem_withArgs_callUsingGetProp() {
     String source =
         lines(
@@ -768,6 +866,17 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
             "a.prototype.foo = function(args) {return args};",
             "var o = new a;",
             "o['foo']");
+    testSame(source);
+  }
+
+  @Test
+  public void testNoRewrite_optChainGetElemAccess() {
+    String source =
+        lines(
+            "function a(){}",
+            "a.prototype.foo = function(args) {return args};",
+            "var o = new a;",
+            "o?.['foo']");
     testSame(source);
   }
 
@@ -838,7 +947,7 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
                 "function a(){}",
                 "a.prototype = {",
                 // Don't use `super.bar()` because that might effect the test.
-                "  foo: function() { return super.x; }",
+                "  foo() { return super.x; }",
                 "};",
                 "",
                 // We need at least one normal call to trigger rewriting.
@@ -965,6 +1074,7 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
   }
 
   private void testRewrite_definedUsingAssignment_staticMethod_onFunction(String annotation) {
+    disableCompareJsDoc(); // multistage compilation simplifies jsdoc
     test(
         srcs(
             lines(
@@ -976,7 +1086,6 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
                 "x.bar();")),
         expected(
             lines(
-                annotation,
                 "function Foo() { }", //
                 "",
                 "var JSCompiler_StaticMethods_bar = function(JSCompiler_StaticMethods_bar$self) {",
@@ -1070,6 +1179,22 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
                 "class Qux { }", //
                 "",
                 "new Qux().prop = function() { }")));
+  }
+
+  @Test
+  public void testRewriteDeclWithConstJSDoc() {
+    test(
+        lines(
+            "class C {", //
+            "  /** @const */ foo() {}",
+            "}",
+            "o.foo();"),
+        lines(
+            "/** @const */",
+            "var JSCompiler_StaticMethods_foo =",
+            "  function(JSCompiler_StaticMethods_foo$self) {};",
+            "class C {}",
+            "JSCompiler_StaticMethods_foo(o)"));
   }
 
   @Test
@@ -1194,12 +1319,13 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testRewriteSameModule1() {
-    JSModule[] modules =
-        createModuleStar(
+    JSChunk[] modules =
+        JSChunkGraphBuilder.forStar()
             // m1
-            semicolonJoin(ModuleTestInput.DEFINITION, ModuleTestInput.USE),
+            .addChunk(semicolonJoin(ModuleTestInput.DEFINITION, ModuleTestInput.USE))
             // m2
-            "");
+            .addChunk("")
+            .build();
 
     test(
         modules,
@@ -1213,12 +1339,13 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testRewriteSameModule2() {
-    JSModule[] modules =
-        createModuleStar(
+    JSChunk[] modules =
+        JSChunkGraphBuilder.forStar()
             // m1
-            "",
+            .addChunk("")
             // m2
-            semicolonJoin(ModuleTestInput.DEFINITION, ModuleTestInput.USE));
+            .addChunk(semicolonJoin(ModuleTestInput.DEFINITION, ModuleTestInput.USE))
+            .build();
 
     test(
         modules,
@@ -1232,12 +1359,13 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testRewriteSameModule3() {
-    JSModule[] modules =
-        createModuleStar(
+    JSChunk[] modules =
+        JSChunkGraphBuilder.forStar()
             // m1
-            semicolonJoin(ModuleTestInput.USE, ModuleTestInput.DEFINITION),
+            .addChunk(semicolonJoin(ModuleTestInput.USE, ModuleTestInput.DEFINITION))
             // m2
-            "");
+            .addChunk("")
+            .build();
 
     test(
         modules,
@@ -1251,12 +1379,13 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testRewrite_definitionModule_beforeUseModule() {
-    JSModule[] modules =
-        createModuleStar(
+    JSChunk[] modules =
+        JSChunkGraphBuilder.forStar()
             // m1
-            ModuleTestInput.DEFINITION,
+            .addChunk(ModuleTestInput.DEFINITION)
             // m2
-            ModuleTestInput.USE);
+            .addChunk(ModuleTestInput.USE)
+            .build();
 
     test(
         modules,
@@ -1270,12 +1399,11 @@ public final class DevirtualizeMethodsTest extends CompilerTestCase {
 
   @Test
   public void testNoRewrite_definitionModule_afterUseModule() {
-    JSModule[] modules =
-        createModuleStar(
-            // m1
-            ModuleTestInput.USE,
-            // m2
-            ModuleTestInput.DEFINITION);
+    JSChunk[] modules =
+        JSChunkGraphBuilder.forStar()
+            .addChunk(ModuleTestInput.USE)
+            .addChunk(ModuleTestInput.DEFINITION)
+            .build();
 
     testSame(modules);
   }

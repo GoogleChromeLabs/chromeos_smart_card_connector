@@ -435,6 +435,13 @@ HTMLElement.prototype.dir;
 HTMLElement.prototype.className;
 
 /**
+ * @return {undefined}
+ * @see https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/click
+ * @override
+ */
+HTMLElement.prototype.click = function() {};
+
+/**
  * @type {number}
  * @see http://www.w3.org/TR/2000/CR-DOM-Level-2-20000510/html.html#ID-40676705
  */
@@ -531,6 +538,12 @@ HTMLLinkElement.prototype.type;
 
 /** @type {StyleSheet} */
 HTMLLinkElement.prototype.sheet;
+
+/**
+ * @type {!DOMTokenList}
+ * @see https://github.com/WICG/webpackage/blob/master/explainers/subresource-loading.md
+ */
+HTMLLinkElement.prototype.resources;
 
 /**
  * @constructor
@@ -946,6 +959,20 @@ HTMLOptionElement.prototype.text;
  * @see http://www.w3.org/TR/2000/CR-DOM-Level-2-20000510/html.html#ID-6185554
  */
 HTMLOptionElement.prototype.value;
+
+
+
+/**
+ * @constructor
+ * @extends {HTMLOptionElement}
+ * @param {*=} opt_text
+ * @param {*=} opt_value
+ * @param {*=} opt_defaultSelected
+ * @param {*=} opt_selected
+ */
+function Option(opt_text, opt_value, opt_defaultSelected, opt_selected) {}
+
+
 
 /**
  * @constructor
@@ -2441,7 +2468,7 @@ HTMLTableRowElement.prototype.deleteCell = function(index) {};
 
 /**
  * @param {number} index
- * @return {HTMLElement}
+ * @return {!HTMLElement}
  * @see http://www.w3.org/TR/2000/CR-DOM-Level-2-20000510/html.html#ID-68927016
  */
 HTMLTableRowElement.prototype.insertCell = function(index) {};
@@ -2791,7 +2818,7 @@ Window.prototype.location;
 Window.prototype.name;
 
 /**
- * @type {Navigator}
+ * @type {!Navigator}
  * @see https://developer.mozilla.org/en/DOM/window.navigator
  */
 Window.prototype.navigator;
@@ -2930,15 +2957,20 @@ Window.prototype.print = function() {};
  */
 Window.prototype.stop = function() {};
 
+/** @typedef {boolean|!AttributionSourceParams} */
+var BoolOrAttributionSourceParams;
+
 /**
  * @param {*=} url
  * @param {string=} windowName
  * @param {string=} windowFeatures
- * @param {boolean=} replace
+ * @param {!BoolOrAttributionSourceParams=} replaceOrAttributionParams
  * @return {Window}
+ * @see https://github.com/WICG/conversion-measurement-api
  * @see http://msdn.microsoft.com/en-us/library/ms536651(VS.85).aspx
  */
-Window.prototype.open = function(url, windowName, windowFeatures, replace) {};
+Window.prototype.open = function(
+    url, windowName, windowFeatures, replaceOrAttributionParams) {};
 
 /**
  * @type {string}
@@ -2954,3 +2986,47 @@ Element.prototype.innerHTML;
  */
 Element.prototype.outerHTML;
 
+/**
+ * AttributionSourceParams is a dictionary which contains the same attributes
+ * used by attribution source anchor tags as seen in the link below.
+ * NOTE: Ideally this record would be defined in a separate file, because this
+ * API is not official yet, however, part of the proposed change is a
+ * modification to the `Window.prototype.open` method to allow it to accept one
+ * of these objects.
+ * @record
+ * @see https://github.com/WICG/conversion-measurement-api/tree/6aa65ec3830fea018d9ff41c031010b0ece60aad#registering-impressions-for-windowopen-navigations
+ */
+function AttributionSourceParams() {}
+
+/**
+ * The event-level data associated with this source. This will be limited to 64
+ * bits of information but the value can vary for browsers that want a higher
+ * level of privacy.
+ * @type {string}
+ * @see https://github.com/WICG/conversion-measurement-api/tree/6aa65ec3830fea018d9ff41c031010b0ece60aad#registering-impressions-for-windowopen-navigations
+ */
+AttributionSourceParams.prototype.impressionData;
+
+/**
+ * The eTLD+1 where attribution will be triggered for this source.
+ * @type {string}
+ * @see https://github.com/WICG/conversion-measurement-api/tree/6aa65ec3830fea018d9ff41c031010b0ece60aad#registering-impressions-for-windowopen-navigations
+ */
+AttributionSourceParams.prototype.conversionDestination;
+
+/**
+ * The desired endpoint that the attribution report for this source should go
+ * to. Default is the top level origin of the page.
+ * @type {string|undefined}
+ * @see https://github.com/WICG/conversion-measurement-api/tree/6aa65ec3830fea018d9ff41c031010b0ece60aad#registering-impressions-for-windowopen-navigations
+ */
+AttributionSourceParams.prototype.reportingOrigin;
+
+/**
+ * Expiry in milliseconds for when the source should be deleted. Default is 30
+ * days, with a maximum value of 30 days. The maximum expiry can also vary
+ * between browsers.
+ * @type {number|undefined}
+ * @see https://github.com/WICG/conversion-measurement-api/tree/6aa65ec3830fea018d9ff41c031010b0ece60aad#registering-impressions-for-windowopen-navigations
+ */
+AttributionSourceParams.prototype.impressionExpiry;

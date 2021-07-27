@@ -29,7 +29,6 @@ import static com.google.javascript.rhino.testing.TypeSubject.types;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
@@ -41,6 +40,7 @@ import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.RecordTypeBuilder;
 import com.google.javascript.rhino.jstype.TemplatizedType;
 import com.google.javascript.rhino.testing.TestErrorReporter;
+import org.junit.After;
 import org.junit.Before;
 
 /** This class is mostly used by passes testing {@link TypeCheck}. */
@@ -49,16 +49,10 @@ abstract class CompilerTypeTestCase {
 
   static final String CLOSURE_DEFS =
       LINE_JOINER.join(
-          "/** @const */ var goog = {};",
           "goog.inherits = function(x, y) {};",
           "/** @type {!Function} */ goog.abstractMethod = function() {};",
-          "goog.isArray = function(x) {};",
-          "goog.isDef = function(x) {};",
           "goog.isFunction = function(x) {};",
-          "goog.isNull = function(x) {};",
-          "goog.isString = function(x) {};",
           "goog.isObject = function(x) {};",
-          "goog.isDefAndNotNull = function(x) {};",
           "/** @const */ goog.array = {};",
           // simplified ArrayLike definition
           "/**",
@@ -75,11 +69,8 @@ abstract class CompilerTypeTestCase {
           // return empty array to satisfy return type
           "goog.array.filter = function(arr, f, obj){ return []; };",
           "goog.asserts = {};",
-          "/** @return {*} */ goog.asserts.assert = function(x) { return x; };",
-          "goog.module = function(ns) {};",
-          "goog.module.get = function(ns) {};",
-          "/** @return {?} */",
-          "goog.require = function(ns) {};",
+          "/** @return {*} */ goog.asserts.assert = function(obj, msg = undefined) { return obj;"
+              + " };",
           "goog.loadModule = function(mod) {};");
 
   /**
@@ -95,7 +86,6 @@ abstract class CompilerTypeTestCase {
 
   protected CompilerOptions getDefaultOptions() {
     CompilerOptions options = new CompilerOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_2019);
     options.setCodingConvention(getCodingConvention());
 
     options.setWarningLevel(
@@ -128,8 +118,13 @@ abstract class CompilerTypeTestCase {
 
   @Before
   public void setUp() throws Exception {
-    errorReporter = new TestErrorReporter(null, null);
+    errorReporter = new TestErrorReporter();
     initializeNewCompiler(getDefaultOptions());
+  }
+
+  @After
+  public void validateWarningsAndErrors() {
+    errorReporter.verifyHasEncounteredAllWarningsAndErrors();
   }
 
   protected static String lines(String line) {
@@ -183,16 +178,16 @@ abstract class CompilerTypeTestCase {
   }
 
   protected final void assertTypeEquals(JSType a, JSType b) {
-    assertType(b).isStructurallyEqualTo(a);
+    assertType(b).isEqualTo(a);
   }
 
   protected final void assertTypeEquals(String msg, JSType a, JSType b) {
-    assertWithMessage(msg).about(types()).that(b).isStructurallyEqualTo(a);
+    assertWithMessage(msg).about(types()).that(b).isEqualTo(a);
   }
 
   /** Resolves a type expression, expecting the given warnings. */
   protected JSType resolve(JSTypeExpression n, String... warnings) {
-    errorReporter.setWarnings(warnings);
+    errorReporter.expectAllWarnings(warnings);
     return n.evaluate(null, registry);
   }
 
@@ -264,12 +259,8 @@ abstract class CompilerTypeTestCase {
     return getNativeFunctionType(JSTypeNative.REGEXP_FUNCTION_TYPE);
   }
 
-  protected FunctionType getNativeU2UConstructorType() {
-    return getNativeFunctionType(JSTypeNative.U2U_CONSTRUCTOR_TYPE);
-  }
-
-  protected FunctionType getNativeU2UFunctionType() {
-    return getNativeFunctionType(JSTypeNative.U2U_FUNCTION_TYPE);
+  protected FunctionType getNativeFunctionType() {
+    return getNativeFunctionType(JSTypeNative.FUNCTION_TYPE);
   }
 
   FunctionType getNativeFunctionType(JSTypeNative jsTypeNative) {

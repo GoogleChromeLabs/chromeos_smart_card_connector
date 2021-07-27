@@ -24,11 +24,11 @@ import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
 
 /**
- * Rewrite block-scoped function declarations as "let"s.  This pass must happen before
+ * Rewrite block-scoped function declarations as "let"s. This pass must happen before
  * Es6RewriteBlockScopedDeclaration, which rewrites "let" to "var".
  */
 public final class Es6RewriteBlockScopedFunctionDeclaration extends AbstractPostOrderCallback
-    implements HotSwapCompilerPass {
+    implements CompilerPass {
 
   private final AbstractCompiler compiler;
   private static final FeatureSet transpiledFeatures =
@@ -40,14 +40,7 @@ public final class Es6RewriteBlockScopedFunctionDeclaration extends AbstractPost
 
   @Override
   public void process(Node externs, Node root) {
-    TranspilationPasses.processTranspile(compiler, externs, transpiledFeatures, this);
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    TranspilationPasses.hotSwapTranspile(compiler, scriptRoot, transpiledFeatures, this);
     TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
   }
 
@@ -94,14 +87,14 @@ public final class Es6RewriteBlockScopedFunctionDeclaration extends AbstractPost
     Node oldNameNode = n.getFirstChild();
     Node fnNameNode = oldNameNode.cloneNode();
     Node let = IR.declaration(fnNameNode, Token.LET).srcref(n);
-    NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.LET_DECLARATIONS);
+    NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.LET_DECLARATIONS, compiler);
 
     // Prepare the function.
     oldNameNode.setString("");
     compiler.reportChangeToEnclosingScope(oldNameNode);
 
     // Move the function to the front of the parent.
-    parent.removeChild(n);
+    n.detach();
     parent.addChildToFront(let);
     compiler.reportChangeToEnclosingScope(let);
     fnNameNode.addChildToFront(n);

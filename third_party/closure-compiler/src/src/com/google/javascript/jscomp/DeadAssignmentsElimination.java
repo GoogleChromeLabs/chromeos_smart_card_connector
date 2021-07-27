@@ -148,7 +148,7 @@ class DeadAssignmentsElimination extends AbstractScopedCallback implements Compi
   private void tryRemoveDeadAssignments(NodeTraversal t,
       ControlFlowGraph<Node> cfg,
       Map<String, Var> allVarsInFn) {
-    Iterable<DiGraphNode<Node, Branch>> nodes = cfg.getDirectedGraphNodes();
+    Iterable<? extends DiGraphNode<Node, Branch>> nodes = cfg.getNodes();
 
     for (DiGraphNode<Node, Branch> cfgNode : nodes) {
       FlowState<LiveVariableLattice> state =
@@ -256,23 +256,20 @@ class DeadAssignmentsElimination extends AbstractScopedCallback implements Compi
       // If we have an identity assignment such as a=a, always remove it
       // regardless of what the liveness results because it
       // does not change the result afterward.
-      if (rhs != null &&
-          rhs.isName() &&
-          rhs.getString().equals(var.name) &&
-          n.isAssign()) {
-        n.removeChild(rhs);
+      if (rhs != null && rhs.isName() && rhs.getString().equals(var.getName()) && n.isAssign()) {
+        rhs.detach();
         n.replaceWith(rhs);
         compiler.reportChangeToEnclosingScope(rhs);
         return;
       }
 
-      int index = liveness.getVarIndex(var.name);
+      int index = liveness.getVarIndex(var.getName());
       if (state.getOut().isLive(index)) {
         return; // Variable not dead.
       }
 
       if (state.getIn().isLive(index)
-          && isVariableStillLiveWithinExpression(n, exprRoot, var.name)) {
+          && isVariableStillLiveWithinExpression(n, exprRoot, var.getName())) {
         // The variable is killed here but it is also live before it.
         // This is possible if we have say:
         //    if (X = a && a = C) {..} ; .......; a = S;
@@ -287,30 +284,29 @@ class DeadAssignmentsElimination extends AbstractScopedCallback implements Compi
       }
 
       if (n.isAssign()) {
-        n.removeChild(rhs);
+        rhs.detach();
         n.replaceWith(rhs);
       } else if (NodeUtil.isAssignmentOp(n)) {
-        n.removeChild(rhs);
-        n.removeChild(lhs);
+        rhs.detach();
+        lhs.detach();
         Node op = new Node(NodeUtil.getOpFromAssignmentOp(n), lhs, rhs);
-        parent.replaceChild(n, op);
+        n.replaceWith(op);
       } else if (n.isInc() || n.isDec()) {
         if (parent.isExprResult()) {
-          parent.replaceChild(n,
-              IR.voidNode(IR.number(0).srcref(n)));
+          n.replaceWith(IR.voidNode(IR.number(0).srcref(n)));
         } else if (n.isComma() && n != parent.getLastChild()) {
-          parent.removeChild(n);
+          n.detach();
         } else if (parent.isVanillaFor() && NodeUtil.getConditionExpression(parent) != n) {
-          parent.replaceChild(n, IR.empty());
+          n.replaceWith(IR.empty());
         } else {
           // Cannot replace x = a++ with x = a because that's not valid
           // when a is not a number.
           return;
         }
       } else if (isDeclarationNode) {
-        lhs.removeChild(rhs);
-        parent.getParent().addChildAfter(IR.exprResult(rhs), parent);
-        rhs.getParent().useSourceInfoFrom(rhs);
+        rhs.detach();
+        IR.exprResult(rhs).insertAfter(parent);
+        rhs.getParent().srcref(rhs);
       } else {
         // Not reachable.
         throw new IllegalStateException("Unknown statement");
@@ -352,6 +348,7 @@ class DeadAssignmentsElimination extends AbstractScopedCallback implements Compi
       switch (n.getParent().getToken()) {
         case OR:
         case AND:
+        case COALESCE:
           // If the currently node is the first child of
           // AND/OR, be conservative only consider the READs
           // of the second operand.
@@ -434,11 +431,12 @@ class DeadAssignmentsElimination extends AbstractScopedCallback implements Compi
       // Conditionals
       case OR:
       case AND:
+      case COALESCE:
         VariableLiveness v1 = isVariableReadBeforeKill(
           n.getFirstChild(), variable);
         VariableLiveness v2 = isVariableReadBeforeKill(
           n.getLastChild(), variable);
-        // With a AND/OR the first branch always runs, but the second is
+        // With a AND/OR/COALESCE the first branch always runs, but the second is
         // may not.
         if (v1 != VariableLiveness.MAYBE_LIVE) {
           return v1;

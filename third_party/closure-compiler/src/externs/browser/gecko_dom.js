@@ -72,11 +72,6 @@ Window.prototype.directories;
  */
 Window.prototype.fullScreen;
 
-/**
- * @see https://developer.mozilla.org/en/DOM/Storage#globalStorage
- */
-Window.prototype.globalStorage;
-
 /** @see https://developer.mozilla.org/en/DOM/window.pkcs11 */
 Window.prototype.pkcs11;
 
@@ -94,9 +89,6 @@ Window.prototype.scrollMaxX;
  * @see https://developer.mozilla.org/En/DOM/window.scrollMaxY
  */
 Window.prototype.scrollMaxY;
-
-/** @see https://developer.mozilla.org/en/DOM/Storage#sessionStorage */
-Window.prototype.sessionStorage;
 
 /** @see https://developer.mozilla.org/en/DOM/window.sidebar */
 Window.prototype.sidebar;
@@ -423,12 +415,6 @@ Element.prototype.nodePrincipal;
  */
 Element.prototype.style;
 
-/**
- * @override
- * @return {!Element}
- */
-Element.prototype.cloneNode = function(deep) {};
-
 /** @return {undefined} */
 Element.prototype.click = function() {};
 
@@ -446,6 +432,17 @@ HTMLTextAreaElement.prototype.selectionEnd;
  */
 HTMLTextAreaElement.prototype.setSelectionRange =
     function(selectionStart, selectionEnd) {};
+
+/**
+ * @param {string} replacement
+ * @param {number=} start
+ * @param {number=} end
+ * @param {string=} selectionMode
+ * @see https://html.spec.whatwg.org/#dom-textarea/input-setrangetext
+ * @return {undefined}
+ */
+HTMLTextAreaElement.prototype.setRangeText =
+    function(replacement, start, end, selectionMode) {};
 
 /**
  * @type {string}
@@ -479,7 +476,7 @@ Navigator.prototype.securityPolicy;
 
 /**
  * @param {string} url
- * @param {ArrayBufferView|Blob|string|FormData=} opt_data
+ * @param {ArrayBufferView|Blob|string|FormData|URLSearchParams=} opt_data
  * @return {boolean}
  * @see https://developer.mozilla.org/en-US/docs/Web/API/navigator.sendBeacon
  */

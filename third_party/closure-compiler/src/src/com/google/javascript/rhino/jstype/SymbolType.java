@@ -41,33 +41,36 @@ package com.google.javascript.rhino.jstype;
 
 import static com.google.javascript.rhino.jstype.JSTypeNative.SYMBOL_OBJECT_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.SYMBOL_TYPE;
-import static com.google.javascript.rhino.jstype.TernaryValue.FALSE;
-import static com.google.javascript.rhino.jstype.TernaryValue.UNKNOWN;
 
+import com.google.javascript.jscomp.base.Tri;
 
 /**
  * Symbol type.
+ *
  * @author johnlenz@google.com (John Lenz)
  */
 public final class SymbolType extends ValueType {
-  private static final long serialVersionUID = 1L;
-
   SymbolType(JSTypeRegistry registry) {
     super(registry);
   }
 
   @Override
-  public TernaryValue testForEquality(JSType that) {
-    TernaryValue result = super.testForEquality(that);
+  JSTypeClass getTypeClass() {
+    return JSTypeClass.SYMBOL;
+  }
+
+  @Override
+  public Tri testForEquality(JSType that) {
+    Tri result = super.testForEquality(that);
     if (result != null) {
       return result;
     }
 
     if (that.canCastTo(getNativeType(SYMBOL_TYPE))
         || that.canCastTo(getNativeType(SYMBOL_OBJECT_TYPE))) {
-      return UNKNOWN;
+      return Tri.UNKNOWN;
     }
-    return FALSE;
+    return Tri.FALSE;
   }
 
   @Override
@@ -93,11 +96,6 @@ public final class SymbolType extends ValueType {
   @Override
   public boolean matchesObjectContext() {
     return true;
-  }
-
-  @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    return sb.append(getDisplayName());
   }
 
   @Override

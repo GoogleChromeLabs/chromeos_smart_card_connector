@@ -39,12 +39,9 @@
 
 package com.google.javascript.rhino.testing;
 
-import static com.google.common.collect.Streams.stream;
-import static com.google.common.truth.Fact.fact;
 import static com.google.common.truth.Fact.simpleFact;
 import static com.google.common.truth.Truth.assertAbout;
 
-import com.google.common.collect.Streams;
 import com.google.common.truth.Fact;
 import com.google.common.truth.FailureMetadata;
 import com.google.common.truth.StringSubject;
@@ -53,8 +50,9 @@ import com.google.errorprone.annotations.CheckReturnValue;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
+import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Optional;
+import java.util.Objects;
 import java.util.function.Function;
 import javax.annotation.Nullable;
 
@@ -138,43 +136,41 @@ public final class NodeSubject extends Subject {
     isNotNull();
     assertNode(expected).isNotNull();
 
-    findFirstMismatch(actual, expected, checkJsdoc)
-        .ifPresent(
-            (mismatch) -> {
-              ArrayList<Fact> facts = new ArrayList<>();
-              facts.add(fact("Actual", serializeNode(actual)));
-              facts.add(fact("Expected", serializeNode(expected)));
+    NodeMismatch mismatch = findFirstMismatch(actual, expected, checkJsdoc);
+    if (mismatch == null) {
+      return;
+    }
 
-              Node misActual = mismatch.actual;
-              Node misExpected = mismatch.expected;
-              String misActualStr = serializeNode(misActual);
-              String misExpectedStr = serializeNode(misExpected);
-
-              facts.add(fact("Actual mismatch", misActualStr));
-              if (misActualStr.equals(misExpectedStr)) {
-                String misActualTreeStr = misActual.toStringTree();
-                if (!misActualTreeStr.equals(misActualStr)) {
-                  facts.add(fact("Actual mismatch AST", misActualTreeStr));
-                }
-                if (checkJsdoc) {
-                  facts.add(fact("Actual JSDoc", jsdocToStringNullsafe(misActual.getJSDocInfo())));
-                }
-              }
-
-              facts.add(fact("Expected mismatch", misExpectedStr));
-              if (misActualStr.equals(misExpectedStr)) {
-                String misExpectedTreeStr = misExpected.toStringTree();
-                if (!misExpectedTreeStr.equals(misExpectedStr)) {
-                  facts.add(fact("Expected mismatch AST", misExpectedTreeStr));
-                }
-                if (checkJsdoc) {
-                  facts.add(
-                      fact("Expected JSDoc", jsdocToStringNullsafe(misExpected.getJSDocInfo())));
-                }
-              }
-
-              failWithoutActual(simpleFact("Node tree inequality"), facts.toArray(new Fact[0]));
-            });
+    ArrayList<Fact> facts = new ArrayList<>();
+    final String expectedOutputJs = serializeNode(expected);
+    final String actualOutputJs = serializeNode(actual);
+    if (expectedOutputJs.equals(actualOutputJs)) {
+      // The output code looks identical, so diff the AST instead to show what properties
+      // are different.
+      facts.addAll(
+          new TextDiffFactsBuilder("AST diff")
+              .expectedText(expected.toStringTree())
+              .actualText(actual.toStringTree())
+              .build());
+    } else {
+      facts.addAll(
+          new TextDiffFactsBuilder("JS diff")
+              .expectedText(expectedOutputJs)
+              .actualText(actualOutputJs)
+              .build());
+    }
+    if (checkJsdoc) {
+      final String expectedJSDoc = jsdocToStringNullsafe(mismatch.expected.getJSDocInfo());
+      final String actualJSDoc = jsdocToStringNullsafe(mismatch.actual.getJSDocInfo());
+      if (!Objects.equals(expectedJSDoc, actualJSDoc)) {
+        facts.addAll(
+            new TextDiffFactsBuilder("JSDoc diff")
+                .expectedText(expectedJSDoc)
+                .actualText(actualJSDoc)
+                .build());
+      }
+    }
+    failWithoutActual(simpleFact("Node tree inequality"), facts.toArray(new Fact[0]));
   }
 
   public NodeSubject isEquivalentTo(Node other) {
@@ -200,6 +196,12 @@ public final class NodeSubject extends Subject {
     return this;
   }
 
+  public NodeSubject isString(String value) {
+    check("getToken()").that(actual.getToken()).isEqualTo(Token.STRINGLIT);
+    check("getString()").that(actual.getString()).isEqualTo(value);
+    return this;
+  }
+
   public NodeSubject isName(String name) {
     check("isName()").that(actual.isName()).isTrue();
     check("getString()").that(actual.getString()).isEqualTo(name);
@@ -213,6 +215,12 @@ public final class NodeSubject extends Subject {
   public NodeSubject isNumber(double value) {
     check("isNumber()").that(actual.isNumber()).isTrue();
     check("getNumber()").that(actual.getDouble()).isEqualTo(value);
+    return this;
+  }
+
+  public NodeSubject isBigInt(BigInteger value) {
+    check("isBigInt()").that(actual.isBigInt()).isTrue();
+    check("getBigInt()").that(actual.getBigInt()).isEqualTo(value);
     return this;
   }
 
@@ -231,13 +239,61 @@ public final class NodeSubject extends Subject {
     return this;
   }
 
+  public NodeSubject isFunction() {
+    hasToken(Token.FUNCTION);
+    return this;
+  }
+
   public NodeSubject isArrowFunction() {
     check("isArrowFunction()").that(actual.isArrowFunction()).isTrue();
     return this;
   }
 
+  public NodeSubject hasTrailingComma() {
+    check("hasTrailingComma()").that(actual.hasTrailingComma()).isTrue();
+    return this;
+  }
+
+  /**
+   * indicates whether the node we are asserting is the start of an optional chain e.g. `a?.b` of
+   * `a?.b.c`
+   */
+  public NodeSubject isOptionalChainStart() {
+    check("isOptionalChainStart()").that(actual.isOptionalChainStart()).isTrue();
+    return this;
+  }
+
+  /**
+   * indicates whether the node we are asserting is the start of an optional chain e.g. `b.c` of
+   * `a?.b.c`
+   */
+  public NodeSubject isNotOptionalChainStart() {
+    check("isOptionalChainStart()").that(actual.isOptionalChainStart()).isFalse();
+    return this;
+  }
+
+  public NodeSubject isParamList() {
+    hasToken(Token.PARAM_LIST);
+    return this;
+  }
+
   public NodeSubject isCall() {
     check("isCall()").that(actual.isCall()).isTrue();
+    return this;
+  }
+
+  public NodeSubject isConst() {
+    check("isConst()").that(actual.isConst()).isTrue();
+    return this;
+  }
+
+  public NodeSubject isVar() {
+    check("isVar()").that(actual.isVar()).isTrue();
+    return this;
+  }
+
+  public NodeSubject isGetProp() {
+    check("isGetProp()").that(actual.isGetProp()).isTrue();
     return this;
   }
 
@@ -291,9 +347,47 @@ public final class NodeSubject extends Subject {
     return this;
   }
 
+  public NodeSubject hasXChildren(int numChildren) {
+    check("getChildCount()").that(actual.getChildCount()).isEqualTo(numChildren);
+    return this;
+  }
+
+  public NodeSubject hasNoChildren() {
+    return hasXChildren(0);
+  }
+
+  public NodeSubject hasOneChild() {
+    return hasXChildren(1);
+  }
+
+  public NodeSubject hasOneChildThat() {
+    hasOneChild();
+    return assertNode(actual.getOnlyChild());
+  }
+
+  public NodeSubject hasFirstChildThat() {
+    hasChildren(true);
+    return assertNode(actual.getFirstChild());
+  }
+
+  public NodeSubject hasSecondChildThat() {
+    check("getChildCount()").that(actual.getChildCount()).isAtLeast(2);
+    return assertNode(actual.getSecondChild());
+  }
+
+  public NodeSubject isFromExterns() {
+    check("isFromExterns()").that(actual.isFromExterns()).isTrue();
+    return this;
+  }
+
   @CheckReturnValue
   public StringSubject hasStringThat() {
     return check("getString()").that(actual.getString());
+  }
+
+  @CheckReturnValue
+  public StringSubject hasOriginalNameThat() {
+    return check("getOriginalName()").that(actual.getOriginalName());
   }
 
   @Override
@@ -307,21 +401,27 @@ public final class NodeSubject extends Subject {
    *
    * @param jsDoc Whether to check for differences in JSDoc.
    */
-  private static Optional<NodeMismatch> findFirstMismatch(
-      Node actual, Node expected, boolean jsDoc) {
+  @Nullable
+  private static NodeMismatch findFirstMismatch(Node actual, Node expected, boolean jsDoc) {
     if (!actual.isEquivalentTo(
         expected, /* compareType= */ false, /* recurse= */ false, jsDoc, /* sideEffect= */ false)) {
-      return Optional.of(new NodeMismatch(actual, expected));
+      return new NodeMismatch(actual, expected);
     }
 
     // `isEquivalentTo` confirms that the number of children is the same.
-    return Streams.zip(
-            stream(actual.children()),
-            stream(expected.children()),
-            (actualChild, expectedChild) -> findFirstMismatch(actualChild, expectedChild, jsDoc))
-        .filter(Optional::isPresent)
-        .findFirst()
-        .orElse(Optional.empty());
+    Node actualChild = actual.getFirstChild();
+    Node expectedChild = expected.getFirstChild();
+    while (actualChild != null) {
+      NodeMismatch mismatch = findFirstMismatch(actualChild, expectedChild, jsDoc);
+      if (mismatch != null) {
+        return mismatch;
+      }
+
+      actualChild = actualChild.getNext();
+      expectedChild = expectedChild.getNext();
+    }
+
+    return null;
   }
 
   /** A pair of nodes that were expected to match in some way but didn't. */
@@ -338,6 +438,8 @@ public final class NodeSubject extends Subject {
   private String serializeNode(Node node) {
     if (serializer != null) {
       return serializer.apply(node);
+    } else if (node == null) {
+      return "<Java null>";
     } else {
       return node.toStringTree();
     }

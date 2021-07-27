@@ -18,6 +18,9 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.base.JSCompStrings.lines;
+import static java.lang.Math.max;
+import static java.util.Comparator.comparingLong;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
@@ -205,12 +208,12 @@ public final class PerformanceTracker {
   }
 
   private void recordInputCount() {
-    for (Node n : this.externsRoot.children()) {
+    for (Node n = this.externsRoot.getFirstChild(); n != null; n = n.getNext()) {
       this.externSources += 1;
       this.externLines += estimateLines(n);
     }
 
-    for (Node n : this.jsRoot.children()) {
+    for (Node n = this.jsRoot.getFirstChild(); n != null; n = n.getNext()) {
       this.jsSources += 1;
       this.jsLines += estimateLines(n);
     }
@@ -230,8 +233,7 @@ public final class PerformanceTracker {
   }
 
   private int getAllocatedMegabytes() {
-    Runtime javaRuntime = Runtime.getRuntime();
-    return bytesToMB(javaRuntime.totalMemory() - javaRuntime.freeMemory());
+    return bytesToMB(Platform.totalMemory() - Platform.freeMemory());
   }
 
   public boolean tracksSize() {
@@ -311,7 +313,7 @@ public final class PerformanceTracker {
     for (Entry<String, Stats> entry : this.passSummary.entrySet()) {
       Stats stats = entry.getValue();
       this.passesRuntime += stats.runtime;
-      this.maxMem = Math.max(this.maxMem, stats.allocMem);
+      this.maxMem = max(this.maxMem, stats.allocMem);
       this.runs += stats.runs;
       this.changes += stats.changes;
       if (!stats.isOneTime) {
@@ -332,13 +334,10 @@ public final class PerformanceTracker {
 
     for (Stats logStat : this.log) {
       String passName = logStat.pass;
-      Stats entry = tmpPassSummary.get(passName);
-      if (entry == null) {
-        entry = new Stats(passName, logStat.isOneTime);
-        tmpPassSummary.put(passName, entry);
-      }
+      Stats entry =
+          tmpPassSummary.computeIfAbsent(passName, (String k) -> new Stats(k, logStat.isOneTime));
       entry.runtime += logStat.runtime;
-      entry.allocMem = Math.max(entry.allocMem, logStat.allocMem);
+      entry.allocMem = max(entry.allocMem, logStat.allocMem);
       entry.runs++;
       entry.changes += logStat.changes;
       entry.astDiff += logStat.astDiff;
@@ -405,7 +404,7 @@ public final class PerformanceTracker {
             "Summary:",
             "pass,runtime,allocMem,runs,changingRuns,astReduction,reduction,gzReduction"));
     this.passSummary.entrySet().stream()
-        .sorted((e1, e2) -> Long.compare(e1.getValue().runtime, e2.getValue().runtime))
+        .sorted(comparingLong((e) -> e.getValue().runtime))
         .map(
             (entry) -> {
               String key = entry.getKey();
@@ -490,9 +489,5 @@ public final class PerformanceTracker {
     public int gzSize = 0;
     public int astDiff = 0;
     public int astSize = 0;
-  }
-
-  private static String lines(String... lines) {
-    return String.join("\n", lines);
   }
 }

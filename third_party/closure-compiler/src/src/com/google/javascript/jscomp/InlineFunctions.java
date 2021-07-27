@@ -18,11 +18,12 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
-import com.google.common.base.Predicates;
 import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.CompilerOptions.Reach;
 import com.google.javascript.jscomp.FunctionInjector.CanInlineResult;
@@ -30,9 +31,7 @@ import com.google.javascript.jscomp.FunctionInjector.InliningMode;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.Token;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -98,7 +97,7 @@ class InlineFunctions implements CompilerPass {
     // Method call decomposition creates new call nodes after all the analysis
     // is done, which would cause such calls to function to be left behind after
     // the function itself is removed.  The function inliner need to be made
-    // aware of these new calls in order to enble it.
+    // aware of these new calls in order to enable it.
 
     this.functionArgumentInjector = new FunctionArgumentInjector(compiler.getAstAnalyzer());
     this.injector =
@@ -106,18 +105,12 @@ class InlineFunctions implements CompilerPass {
             .safeNameIdSupplier(safeNameIdSupplier)
             .assumeStrictThis(assumeStrictThis)
             .assumeMinimumCapture(assumeMinimumCapture)
-            .allowMethodCallDecomposing(false)
             .functionArgumentInjector(this.functionArgumentInjector)
             .build();
   }
 
   FunctionState getOrCreateFunctionState(String fnName) {
-    FunctionState functionState = fns.get(fnName);
-    if (functionState == null) {
-      functionState = new FunctionState();
-      fns.put(fnName, functionState);
-    }
-    return functionState;
+    return fns.computeIfAbsent(fnName, (String k) -> new FunctionState());
   }
 
   @Override
@@ -142,8 +135,8 @@ class InlineFunctions implements CompilerPass {
     // This pass already assumes these are constants, so this is safe for anyone
     // using function inlining.
     //
-    Set<String> fnNames = new HashSet<>(fns.keySet());
-    injector.setKnownConstants(fnNames);
+    ImmutableSet<String> fnNames = ImmutableSet.copyOf(fns.keySet());
+    injector.setKnownConstantFunctions(ImmutableSet.copyOf(fnNames));
 
     trimCandidatesUsingOnCost();
     if (fns.isEmpty()) {
@@ -209,7 +202,7 @@ class InlineFunctions implements CompilerPass {
           if (nameNode.isName()
               && nameNode.hasChildren()
               && nameNode.getFirstChild().isFunction()) {
-            maybeAddFunction(new FunctionVar(n), t.getModule());
+            maybeAddFunction(new FunctionVar(n), t.getChunk());
           }
           break;
 
@@ -219,7 +212,7 @@ class InlineFunctions implements CompilerPass {
           Preconditions.checkState(NodeUtil.isStatementBlock(parent) || parent.isLabel());
           if (NodeUtil.isFunctionDeclaration(n)) {
             Function fn = new NamedFunction(n);
-            maybeAddFunction(fn, t.getModule());
+            maybeAddFunction(fn, t.getChunk());
           }
           break;
         default:
@@ -249,7 +242,7 @@ class InlineFunctions implements CompilerPass {
           // If an interesting function was discovered, add it.
           if (fnNode != null) {
             Function fn = new FunctionExpression(fnNode, callsSeen++);
-            maybeAddFunction(fn, t.getModule());
+            maybeAddFunction(fn, t.getChunk());
             anonFns.put(fnNode, fn.getName());
           }
           break;
@@ -263,7 +256,7 @@ class InlineFunctions implements CompilerPass {
    * Updates the FunctionState object for the given function. Checks if the given function matches
    * the criteria for an inlinable function.
    */
-  void maybeAddFunction(Function fn, JSModule module) {
+  void maybeAddFunction(Function fn, JSChunk module) {
     String name = fn.getName();
     FunctionState functionState = getOrCreateFunctionState(name);
 
@@ -319,11 +312,11 @@ class InlineFunctions implements CompilerPass {
         }
 
         Node block = NodeUtil.getFunctionBody(fnNode);
-        if (NodeUtil.referencesThis(block)) {
+        if (NodeUtil.referencesEnclosingReceiver(block)) {
           functionState.setReferencesThis(true);
         }
 
-        if (NodeUtil.containsFunction(block)) {
+        if (NodeUtil.has(block, Node::isFunction, alwaysTrue())) {
           functionState.setHasInnerFunctions(true);
           // If there are inner functions, we can inline into global scope
           // if there are no local vars or named functions.
@@ -334,15 +327,13 @@ class InlineFunctions implements CompilerPass {
             functionState.disallowInlining();
           }
         }
-
       }
 
       if (fnNode.getGrandparent().isVar()) {
         Node block = functionState.getFn().getDeclaringBlock();
         if (block.isBlock()
             && !block.getParent().isFunction()
-            && (NodeUtil.containsType(block, Token.LET)
-                || NodeUtil.containsType(block, Token.CONST))) {
+            && NodeUtil.has(block, (n) -> n.isLet() || n.isConst(), alwaysTrue())) {
           // The function might capture a variable that's not in scope at the call site,
           // so don't inline.
           functionState.disallowInlining();
@@ -421,6 +412,7 @@ class InlineFunctions implements CompilerPass {
     public void visit(NodeTraversal t, Node n, Node parent) {
       switch (n.getToken()) {
           // Function calls
+        case OPTCHAIN_CALL:
         case CALL:
           Node child = n.getFirstChild();
           String name = null;
@@ -430,7 +422,7 @@ class InlineFunctions implements CompilerPass {
           } else if (child.isFunction()) {
             name = anonFunctionMap.get(child);
           } else if (NodeUtil.isFunctionObjectCall(n)) {
-            checkState(NodeUtil.isGet(child));
+            checkState(NodeUtil.isNormalGet(child));
             Node fnIdentifyingNode = child.getFirstChild();
             if (fnIdentifyingNode.isName()) {
               name = fnIdentifyingNode.getString();
@@ -464,7 +456,7 @@ class InlineFunctions implements CompilerPass {
       return true;
     }
 
-    if (parent.isCall() && parent.getFirstChild() == name) {
+    if (NodeUtil.isNormalOrOptChainCall(parent) && parent.getFirstChild() == name) {
       // This is a normal reference to the function.
       return true;
     }
@@ -477,10 +469,11 @@ class InlineFunctions implements CompilerPass {
     //     This-Value
     //     Function-parameter-1
     //     ...
-    if (NodeUtil.isGet(parent)
-        && name == parent.getFirstChild()
-        && name.getNext().isString()
-        && name.getNext().getString().equals("call")) {
+    if ((parent.isGetElem()
+            && name == parent.getFirstChild()
+            && parent.getSecondChild().isStringLit()
+            && parent.getSecondChild().getString().equals("call"))
+        || (parent.isGetProp() && parent.getString().equals("call"))) {
       Node grandparent = name.getAncestor(2);
       if (grandparent.isCall() && grandparent.getFirstChild() == parent) {
         // Yep, a ".call".
@@ -507,17 +500,17 @@ class InlineFunctions implements CompilerPass {
 
     @Override
     public void visitCallSite(NodeTraversal t, Node callNode, FunctionState functionState) {
-      maybeAddReference(t, functionState, callNode, t.getModule());
+      maybeAddReference(t, functionState, callNode, t.getChunk());
     }
 
-    void maybeAddReference(NodeTraversal t, FunctionState functionState,
-        Node callNode, JSModule module) {
+    void maybeAddReference(
+        NodeTraversal t, FunctionState functionState, Node callNode, JSChunk module) {
       if (!functionState.canInline()) {
         return;
       }
 
-      InliningMode mode = functionState.canInlineDirectly()
-          ? InliningMode.DIRECT : InliningMode.BLOCK;
+      InliningMode mode =
+          functionState.canInlineDirectly() ? InliningMode.DIRECT : InliningMode.BLOCK;
       boolean referenceAdded = maybeAddReferenceUsingMode(t, functionState, callNode, module, mode);
       if (!referenceAdded && mode == InliningMode.DIRECT) {
         // This reference can not be directly inlined, see if
@@ -534,8 +527,11 @@ class InlineFunctions implements CompilerPass {
     }
 
     private boolean maybeAddReferenceUsingMode(
-        NodeTraversal t, FunctionState functionState, Node callNode,
-        JSModule module, InliningMode mode) {
+        NodeTraversal t,
+        FunctionState functionState,
+        Node callNode,
+        JSChunk module,
+        InliningMode mode) {
 
       // If many functions are inlined into the same function F in the same
       // inlining round, then the size of F may exceed the max size.
@@ -629,7 +625,7 @@ class InlineFunctions implements CompilerPass {
       Node fnNode = functionState.getSafeFnNode();
 
       Node newExpr = injector.inline(ref, fnName, fnNode);
-      if (!newExpr.isEquivalentTo(ref.callNode)) {
+      if (!newExpr.equals(ref.callNode)) {
         t.getCompiler().reportChangeToEnclosingScope(newExpr);
       }
     }
@@ -720,19 +716,14 @@ class InlineFunctions implements CompilerPass {
 
   /**
    * @return Whether the function has any parameters that would stop the compiler from inlining.
-   * Currently this includes object patterns, array patterns, and default values.
+   *     Currently this includes object patterns, array patterns, and default values.
    */
   private static boolean hasNonInlinableParam(Node node) {
     checkNotNull(node);
 
-    Predicate<Node> pred = new Predicate<Node>() {
-        @Override
-        public boolean apply(Node input) {
-          return input.isDefaultValue() || input.isDestructuringPattern();
-        }
-      };
+    Predicate<Node> pred = (Node input) -> input.isDefaultValue() || input.isDestructuringPattern();
 
-    return NodeUtil.has(node, pred, Predicates.alwaysTrue());
+    return NodeUtil.has(node, pred, alwaysTrue());
   }
 
   /** @see #resolveInlineConflicts */
@@ -842,7 +833,7 @@ class InlineFunctions implements CompilerPass {
     private boolean referencesThis = false;
     private boolean hasInnerFunctions = false;
     private Map<Node, Reference> references = null;
-    private JSModule module = null;
+    private JSChunk module = null;
     private Set<String> namesToAlias = null;
 
     boolean hasExistingFunctionDefinition() {
@@ -936,7 +927,7 @@ class InlineFunctions implements CompilerPass {
 
     private Map<Node, Reference> getReferencesInternal() {
       if (references == null) {
-        return Collections.emptyMap();
+        return ImmutableMap.of();
       }
       return references;
     }
@@ -967,11 +958,11 @@ class InlineFunctions implements CompilerPass {
       namesToAlias = names;
     }
 
-    public void setModule(JSModule module) {
+    public void setModule(JSChunk module) {
       this.module = module;
     }
 
-    public JSModule getModule() {
+    public JSChunk getModule() {
       return module;
     }
   }
@@ -1089,7 +1080,7 @@ class InlineFunctions implements CompilerPass {
     boolean requiresDecomposition = false;
     boolean inlined = false;
 
-    Reference(Node callNode, Scope scope, JSModule module, InliningMode mode) {
+    Reference(Node callNode, Scope scope, JSChunk module, InliningMode mode) {
       super(callNode, scope, module, mode);
     }
 

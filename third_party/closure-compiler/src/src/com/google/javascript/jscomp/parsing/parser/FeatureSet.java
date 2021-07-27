@@ -26,16 +26,12 @@ import java.util.Set;
 /**
  * Represents various aspects of language version and support.
  *
- * <p>This is somewhat redundant with LanguageMode, but is separate
- * for two reasons: (1) it's used for parsing, which cannot
- * depend on LanguageMode, and (2) it's concerned with slightly
- * different nuances: implemented features and modules rather
- * than strictness.
+ * <p>This is somewhat redundant with LanguageMode, but is separate for two reasons: (1) it's used
+ * for parsing, which cannot depend on LanguageMode, and (2) it's concerned with slightly different
+ * nuances: implemented features and modules rather than strictness.
  *
- * <p>In the long term, it would be good to disentangle all these
- * concerns and pull out a single LanguageSyntax enum with a
- * separate strict mode flag, and then these could possibly be
- * unified.
+ * <p>In the long term, it would be good to disentangle all these concerns and pull out a single
+ * LanguageSyntax enum with a separate strict mode flag, and then these could possibly be unified.
  *
  * <p>Instances of this class are immutable.
  */
@@ -52,21 +48,24 @@ public final class FeatureSet implements Serializable {
   /** Features from ES5 only. */
   public static final FeatureSet ES5 = ES3.with(LangVersion.ES5.features());
 
-  /** All ES6 features, including modules. */
-  public static final FeatureSet ES6_MODULES = ES5.with(LangVersion.ES6.features());
+  /** All ES2015 features, including modules. */
+  public static final FeatureSet ES2015_MODULES = ES5.with(LangVersion.ES2015.features());
 
-  /** The full set of ES6 features, not including modules. */
-  public static final FeatureSet ES6 = ES6_MODULES.without(Feature.MODULES);
+  /** The full set of ES2015 features, not including modules. */
+  public static final FeatureSet ES2015 = ES2015_MODULES.without(Feature.MODULES);
 
-  public static final FeatureSet ES7_MODULES = ES6_MODULES.with(LangVersion.ES7.features());
+  public static final FeatureSet ES2016_MODULES =
+      ES2015_MODULES.with(LangVersion.ES2016.features());
 
-  public static final FeatureSet ES7 = ES7_MODULES.without(Feature.MODULES);
+  public static final FeatureSet ES2016 = ES2016_MODULES.without(Feature.MODULES);
 
-  public static final FeatureSet ES8_MODULES = ES7_MODULES.with(LangVersion.ES8.features());
+  public static final FeatureSet ES2017_MODULES =
+      ES2016_MODULES.with(LangVersion.ES2017.features());
 
-  public static final FeatureSet ES8 = ES8_MODULES.without(Feature.MODULES);
+  public static final FeatureSet ES2017 = ES2017_MODULES.without(Feature.MODULES);
 
-  public static final FeatureSet ES2018_MODULES = ES8_MODULES.with(LangVersion.ES2018.features());
+  public static final FeatureSet ES2018_MODULES =
+      ES2017_MODULES.with(LangVersion.ES2018.features());
 
   public static final FeatureSet ES2018 = ES2018_MODULES.without(Feature.MODULES);
 
@@ -75,26 +74,55 @@ public final class FeatureSet implements Serializable {
 
   public static final FeatureSet ES2019 = ES2019_MODULES.without(Feature.MODULES);
 
-  public static final FeatureSet ES_NEXT = ES2019_MODULES.with(LangVersion.ES_NEXT.features());
+  public static final FeatureSet ES2020_MODULES =
+      ES2019_MODULES.with(LangVersion.ES2020.features());
+
+  public static final FeatureSet ES2020 = ES2020_MODULES.without(Feature.MODULES);
+
+  // "highest" output level
+  public static final FeatureSet ES_NEXT = ES2020_MODULES.with(LangVersion.ES_NEXT.features());
+
+  // "highest" input level; for features that can be transpiled but lack optimization/pass through
+  public static final FeatureSet ES_NEXT_IN = ES_NEXT.with(LangVersion.ES_NEXT_IN.features());
 
   public static final FeatureSet ES_UNSUPPORTED =
-      ES_NEXT.with(LangVersion.ES_UNSUPPORTED.features());
+      ES_NEXT_IN.with(LangVersion.ES_UNSUPPORTED.features());
 
-  public static final FeatureSet TYPESCRIPT = ES_NEXT.with(LangVersion.TYPESCRIPT.features());
+  public static final FeatureSet BROWSER_2020 =
+      ES2019_MODULES.without(
+          // https://kangax.github.io/compat-table/es2016plus/
+          // All four of these are missing in Firefox 71 and lookbehind is missing in Safari 13.
+          Feature.REGEXP_FLAG_S,
+          Feature.REGEXP_LOOKBEHIND,
+          Feature.REGEXP_NAMED_GROUPS,
+          Feature.REGEXP_UNICODE_PROPERTY_ESCAPE);
 
-  public static final FeatureSet TYPE_CHECK_SUPPORTED = ES2019_MODULES;
+  public static final FeatureSet BROWSER_2021 =
+      ES2020_MODULES.without(
+          // https://kangax.github.io/compat-table/es2016plus/
+          // Regexp lookbehind is missing in Safari 14.
+          // IMPORTANT: There is special casing for this feature and the ones excluded for
+          // BROWSER_2020 above in RewritePolyfills.
+          // If future Browser FeatureSet Year definitions have to remove any other features, then
+          // we need to change the way that is done to avoid incorrect inclusion of polyfills.
+          Feature.REGEXP_LOOKBEHIND);
+
+  public static final FeatureSet ALL = ES_UNSUPPORTED.with(LangVersion.TYPESCRIPT.features());
 
   private enum LangVersion {
     ES3,
     ES5,
-    ES6,
-    ES7,
-    ES8,
+    ES2015,
+    ES2016,
+    ES2017,
     ES2018,
     ES2019,
+    ES2020,
+    ES_NEXT_IN,
     ES_NEXT,
     ES_UNSUPPORTED,
-    TYPESCRIPT;
+    TYPESCRIPT,
+    ;
 
     private EnumSet<Feature> features() {
       EnumSet<Feature> set = EnumSet.noneOf(Feature.class);
@@ -117,42 +145,42 @@ public final class FeatureSet implements Serializable {
     STRING_CONTINUATION("string continuation", LangVersion.ES5),
     TRAILING_COMMA("trailing comma", LangVersion.ES5),
 
-    // ES6 features (besides modules): all stable browsers are now fully compliant
-    ARRAY_PATTERN_REST("array pattern rest", LangVersion.ES6),
-    ARROW_FUNCTIONS("arrow function", LangVersion.ES6),
-    BINARY_LITERALS("binary literal", LangVersion.ES6),
-    BLOCK_SCOPED_FUNCTION_DECLARATION("block-scoped function declaration", LangVersion.ES6),
-    CLASSES("class", LangVersion.ES6),
-    CLASS_EXTENDS("class extends", LangVersion.ES6),
-    CLASS_GETTER_SETTER("class getters/setters", LangVersion.ES6),
-    COMPUTED_PROPERTIES("computed property", LangVersion.ES6),
-    CONST_DECLARATIONS("const declaration", LangVersion.ES6),
-    DEFAULT_PARAMETERS("default parameter", LangVersion.ES6),
-    ARRAY_DESTRUCTURING("array destructuring", LangVersion.ES6),
-    OBJECT_DESTRUCTURING("object destructuring", LangVersion.ES6),
-    EXTENDED_OBJECT_LITERALS("extended object literal", LangVersion.ES6),
-    FOR_OF("for-of loop", LangVersion.ES6),
-    GENERATORS("generator", LangVersion.ES6),
-    LET_DECLARATIONS("let declaration", LangVersion.ES6),
-    MEMBER_DECLARATIONS("member declaration", LangVersion.ES6),
-    NEW_TARGET("new.target", LangVersion.ES6),
-    OCTAL_LITERALS("octal literal", LangVersion.ES6),
-    REGEXP_FLAG_U("RegExp flag 'u'", LangVersion.ES6),
-    REGEXP_FLAG_Y("RegExp flag 'y'", LangVersion.ES6),
-    REST_PARAMETERS("rest parameter", LangVersion.ES6),
-    SPREAD_EXPRESSIONS("spread expression", LangVersion.ES6),
-    SUPER("super", LangVersion.ES6),
-    TEMPLATE_LITERALS("template literal", LangVersion.ES6),
+    // ES2015 features (besides modules): all stable browsers are now fully compliant
+    ARRAY_PATTERN_REST("array pattern rest", LangVersion.ES2015),
+    ARROW_FUNCTIONS("arrow function", LangVersion.ES2015),
+    BINARY_LITERALS("binary literal", LangVersion.ES2015),
+    BLOCK_SCOPED_FUNCTION_DECLARATION("block-scoped function declaration", LangVersion.ES2015),
+    CLASSES("class", LangVersion.ES2015),
+    CLASS_EXTENDS("class extends", LangVersion.ES2015),
+    CLASS_GETTER_SETTER("class getters/setters", LangVersion.ES2015),
+    COMPUTED_PROPERTIES("computed property", LangVersion.ES2015),
+    CONST_DECLARATIONS("const declaration", LangVersion.ES2015),
+    DEFAULT_PARAMETERS("default parameter", LangVersion.ES2015),
+    ARRAY_DESTRUCTURING("array destructuring", LangVersion.ES2015),
+    OBJECT_DESTRUCTURING("object destructuring", LangVersion.ES2015),
+    EXTENDED_OBJECT_LITERALS("extended object literal", LangVersion.ES2015),
+    FOR_OF("for-of loop", LangVersion.ES2015),
+    GENERATORS("generator", LangVersion.ES2015),
+    LET_DECLARATIONS("let declaration", LangVersion.ES2015),
+    MEMBER_DECLARATIONS("member declaration", LangVersion.ES2015),
+    NEW_TARGET("new.target", LangVersion.ES2015),
+    OCTAL_LITERALS("octal literal", LangVersion.ES2015),
+    REGEXP_FLAG_U("RegExp flag 'u'", LangVersion.ES2015),
+    REGEXP_FLAG_Y("RegExp flag 'y'", LangVersion.ES2015),
+    REST_PARAMETERS("rest parameter", LangVersion.ES2015),
+    SPREAD_EXPRESSIONS("spread expression", LangVersion.ES2015),
+    SUPER("super", LangVersion.ES2015),
+    TEMPLATE_LITERALS("template literal", LangVersion.ES2015),
 
-    // ES6 modules
-    MODULES("modules", LangVersion.ES6),
+    // ES modules
+    MODULES("modules", LangVersion.ES2015),
 
     // ES 2016 only added one new feature:
-    EXPONENT_OP("exponent operator (**)", LangVersion.ES7),
+    EXPONENT_OP("exponent operator (**)", LangVersion.ES2016),
 
     // ES 2017 features:
-    ASYNC_FUNCTIONS("async function", LangVersion.ES8),
-    TRAILING_COMMA_IN_PARAM_LIST("trailing comma in param list", LangVersion.ES8),
+    ASYNC_FUNCTIONS("async function", LangVersion.ES2017),
+    TRAILING_COMMA_IN_PARAM_LIST("trailing comma in param list", LangVersion.ES2017),
 
     // ES 2018 adds https://github.com/tc39/proposal-object-rest-spread
     OBJECT_LITERALS_WITH_SPREAD("object literals with spread", LangVersion.ES2018),
@@ -180,24 +208,18 @@ public final class FeatureSet implements Serializable {
     // https://github.com/tc39/proposal-optional-catch-binding
     OPTIONAL_CATCH_BINDING("Optional catch binding", LangVersion.ES2019),
 
-    // Stage 3 proposals likely to be part of ES2020
-    DYNAMIC_IMPORT("Dynamic module import", LangVersion.ES_UNSUPPORTED),
-    IMPORT_META("import.meta", LangVersion.ES_UNSUPPORTED),
+    // ES 2020 Stage 4
+    DYNAMIC_IMPORT("Dynamic module import", LangVersion.ES2020),
+    BIGINT("bigint", LangVersion.ES2020),
+    IMPORT_META("import.meta", LangVersion.ES2020),
+    NULL_COALESCE_OP("Nullish coalescing", LangVersion.ES2020),
+    OPTIONAL_CHAINING("Optional chaining", LangVersion.ES2020),
 
-    // ES6 typed features that are not at all implemented in browsers
-    ACCESSIBILITY_MODIFIER("accessibility modifier", LangVersion.TYPESCRIPT),
-    AMBIENT_DECLARATION("ambient declaration", LangVersion.TYPESCRIPT),
-    CALL_SIGNATURE("call signature", LangVersion.TYPESCRIPT),
-    CONSTRUCTOR_SIGNATURE("constructor signature", LangVersion.TYPESCRIPT),
-    ENUM("enum", LangVersion.TYPESCRIPT),
-    GENERICS("generics", LangVersion.TYPESCRIPT),
-    IMPLEMENTS("implements", LangVersion.TYPESCRIPT),
-    INDEX_SIGNATURE("index signature", LangVersion.TYPESCRIPT),
-    INTERFACE("interface", LangVersion.TYPESCRIPT),
-    MEMBER_VARIABLE_IN_CLASS("member variable in class", LangVersion.TYPESCRIPT),
-    NAMESPACE_DECLARATION("namespace declaration", LangVersion.TYPESCRIPT),
-    OPTIONAL_PARAMETER("optional parameter", LangVersion.TYPESCRIPT),
-    TYPE_ALIAS("type alias", LangVersion.TYPESCRIPT),
+    // ES_NEXT_IN
+    NUMERIC_SEPARATOR("numeric separator", LangVersion.ES_NEXT_IN),
+
+    // TypeScript type syntax that will never be implemented in browsers. Only used as an indicator
+    // to the CodeGenerator that it should handle type syntax.
     TYPE_ANNOTATION("type annotation", LangVersion.TYPESCRIPT);
 
     private final String name;
@@ -219,7 +241,10 @@ public final class FeatureSet implements Serializable {
     this.features = ImmutableSet.copyOf(features);
   }
 
-  /** Returns a string representation suitable for encoding in depgraph and deps.js files. */
+  /**
+   * Returns a string representation suitable for use in polyfill definition files and encoding in
+   * depgraph and deps.js files.
+   */
   public String version() {
     if (ES3.contains(this)) {
       return "es3";
@@ -227,13 +252,13 @@ public final class FeatureSet implements Serializable {
     if (ES5.contains(this)) {
       return "es5";
     }
-    if (ES6_MODULES.contains(this)) {
+    if (ES2015_MODULES.contains(this)) {
       return "es6";
     }
-    if (ES7_MODULES.contains(this)) {
+    if (ES2016_MODULES.contains(this)) {
       return "es7";
     }
-    if (ES8_MODULES.contains(this)) {
+    if (ES2017_MODULES.contains(this)) {
       return "es8";
     }
     if (ES2018_MODULES.contains(this)) {
@@ -242,14 +267,20 @@ public final class FeatureSet implements Serializable {
     if (ES2019_MODULES.contains(this)) {
       return "es_2019";
     }
+    if (ES2020_MODULES.contains(this)) {
+      return "es_2020";
+    }
     if (ES_NEXT.contains(this)) {
       return "es_next";
+    }
+    if (ES_NEXT_IN.contains(this)) {
+      return "es_next_in";
     }
     if (ES_UNSUPPORTED.contains(this)) {
       return "es_unsupported";
     }
-    if (TYPESCRIPT.contains(this)) {
-      return "ts";
+    if (ALL.contains(this)) {
+      return "all";
     }
     throw new IllegalStateException(this.toString());
   }
@@ -257,44 +288,11 @@ public final class FeatureSet implements Serializable {
   /**
    * Returns a string representation useful for debugging.
    *
-   * <p>This is not suitable for encoding in deps.js or depgraph files, because it may return
-   * strings like 'otiSupported' and 'ntiSupported' which are not real language modes.
+   * @deprecated Please use {@link #version()} instead.
    */
+  @Deprecated
   public String versionForDebugging() {
-    if (ES3.contains(this)) {
-      return "es3";
-    }
-    if (ES5.contains(this)) {
-      return "es5";
-    }
-    if (TYPE_CHECK_SUPPORTED.contains(this)) {
-      return "typeCheckSupported";
-    }
-    if (ES6_MODULES.contains(this)) {
-      return "es6";
-    }
-    if (ES7_MODULES.contains(this)) {
-      return "es7";
-    }
-    if (ES8_MODULES.contains(this)) {
-      return "es8";
-    }
-    if (ES2018_MODULES.contains(this)) {
-      return "es9";
-    }
-    if (ES2019_MODULES.contains(this)) {
-      return "es_2019";
-    }
-    if (ES_NEXT.contains(this)) {
-      return "es_next";
-    }
-    if (ES_UNSUPPORTED.contains(this)) {
-      return "es_unsupported";
-    }
-    if (TYPESCRIPT.contains(this)) {
-      return "ts";
-    }
-    throw new IllegalStateException(this.toString());
+    return version();
   }
 
   public FeatureSet without(Feature featureToRemove, Feature... moreFeaturesToRemove) {
@@ -316,16 +314,12 @@ public final class FeatureSet implements Serializable {
     return new FeatureSet(union(features, other.features));
   }
 
-  /**
-   * Does this {@link FeatureSet} contain all of the features of {@code other}?
-   */
+  /** Does this {@link FeatureSet} contain all of the features of {@code other}? */
   public boolean contains(FeatureSet other) {
     return this.features.containsAll(other.features);
   }
 
-  /**
-   * Does this {@link FeatureSet} contain the given feature?
-   */
+  /** Does this {@link FeatureSet} contain the given feature? */
   public boolean contains(Feature feature) {
     return this.features.containsAll(EnumSet.of(feature));
   }
@@ -382,9 +376,7 @@ public final class FeatureSet implements Serializable {
     return new FeatureSet(union(features, newFeatures.features));
   }
 
-  /**
-   * Does this {@link FeatureSet} include {@code feature}?
-   */
+  /** Does this {@link FeatureSet} include {@code feature}? */
   public boolean has(Feature feature) {
     return features.contains(feature);
   }
@@ -415,30 +407,44 @@ public final class FeatureSet implements Serializable {
         return ES3;
       case "es5":
         return ES5;
+      case "es_2015":
       case "es6":
-        return ES6;
-      case "typeCheckSupported":
-        return TYPE_CHECK_SUPPORTED;
+        return ES2015;
+      case "es_2016":
       case "es7":
-        return ES7;
+        return ES2016;
+      case "es_2017":
       case "es8":
-        return ES8;
-      case "es2018":
+        return ES2017;
+      case "es_2018":
       case "es9":
         return ES2018;
       case "es_2019":
         return ES2019;
+      case "es_2020":
+        return ES2020;
       case "es_next":
         return ES_NEXT;
-      case "ts":
-        return TYPESCRIPT;
+      case "es_next_in":
+        return ES_NEXT_IN;
+      case "es_unsupported":
+        return ES_UNSUPPORTED;
+      case "all":
+        return ALL;
       default:
         throw new IllegalArgumentException("No such FeatureSet: " + name);
     }
   }
 
+  /**
+   * Returns a {@code FeatureSet} containing all known features.
+   *
+   * <p>NOTE: {@code PassFactory} classes that claim to support {@code FeatureSet.all()} should be
+   * only those that cannot be broken by new features being added to the language. Mainly these are
+   * passes that don't have to actually look at the AST at all, like empty marker passes.
+   */
   public static FeatureSet all() {
-    return TYPESCRIPT;
+    return ALL;
   }
 
   public static FeatureSet latest() {

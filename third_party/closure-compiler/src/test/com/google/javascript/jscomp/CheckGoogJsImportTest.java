@@ -30,7 +30,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Tests for {@link RewriteGoogJsImports} that involve only linting and no rewriting. */
-
 @RunWith(JUnit4.class)
 public final class CheckGoogJsImportTest extends CompilerTestCase {
   @Override
@@ -89,10 +88,8 @@ public final class CheckGoogJsImportTest extends CompilerTestCase {
 
   @Test
   public void testMixedImportIsError() {
-    testError("testcode", "import d, * as goog from './closure/goog.js';",
-        GOOG_JS_IMPORT_MUST_BE_GOOG_STAR);
-    testError("import d, {require} from './closure/goog.js';",
-        GOOG_JS_IMPORT_MUST_BE_GOOG_STAR);
+    testError("import d, * as goog from './closure/goog.js';", GOOG_JS_IMPORT_MUST_BE_GOOG_STAR);
+    testError("import d, {require} from './closure/goog.js';", GOOG_JS_IMPORT_MUST_BE_GOOG_STAR);
   }
 
   @Test

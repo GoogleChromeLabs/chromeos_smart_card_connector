@@ -19,6 +19,10 @@
  * @suppress {uselessCode}
  */
 
+'require util/defines';
+'require util/polyfill';
+'require util/shouldpolyfill';
+
 /**
  * @suppress {missingProperties,reportUnknownTypes}
  * @return {boolean}
@@ -44,14 +48,13 @@ $jscomp.underscoreProtoCanBeSet = function() {
  *
  * @type {null|function(!Object, ?Object): !Object}
  */
-$jscomp.setPrototypeOf = (typeof Object.setPrototypeOf == 'function') ?
+$jscomp.setPrototypeOf = ($jscomp.TRUST_ES6_POLYFILLS &&
+                          typeof Object.setPrototypeOf == 'function') ?
     Object.setPrototypeOf :
-    $jscomp.underscoreProtoCanBeSet() ?
-    function(target, proto) {
+    $jscomp.underscoreProtoCanBeSet() ? function(target, proto) {
       target.__proto__ = proto;
       if (target.__proto__ !== proto) {
         throw new TypeError(target + ' is not extensible');
       }
       return target;
-    } :
-    null;
+    } : null;

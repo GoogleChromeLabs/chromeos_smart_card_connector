@@ -373,20 +373,20 @@ angular.LinkingFunctions.prototype.post;
  *   controllerAs: (string|undefined),
  *   link: (function(
  *       !angular.Scope=, !angular.JQLite=, !angular.Attributes=,
- *       (!Object|!Array.<!Object>)=)|
+ *       (!Object|!Array<!Object>)=)|
  *       !angular.LinkingFunctions|
  *       undefined),
  *   name: (string|undefined),
  *   priority: (number|undefined),
  *   replace: (boolean|undefined),
- *   require: (string|Array.<string>|!Object<string, string>|undefined),
+ *   require: (string|Array<string>|!Object<string, string>|undefined),
  *   restrict: (string|undefined),
- *   scope: (boolean|Object.<string, string>|undefined),
+ *   scope: (boolean|Object<string, string>|undefined),
  *   template: (string|!angular.Injectable|undefined),
  *   templateNamespace: (string|undefined),
  *   templateUrl: (string|!angular.Injectable|!Object|undefined),
  *   terminal: (boolean|undefined),
- *   transclude: (boolean|string|!Object.<string, string>|undefined)
+ *   transclude: (boolean|string|!Object<string, string>|undefined)
  *   }}
  */
 angular.Directive;
@@ -456,9 +456,18 @@ angular.Component.prototype.transclude;
 angular.Component.prototype.require;
 
 
+/**
+ * @see https://code.angularjs.org/1.6.10/docs/api/auto/service/$injector#-inject-annotation
+ * @extends {Function}
+ * @interface
+ */
+angular.InjectableFunctionInterface;
+
+/** @type {!Array<string>} */
+angular.InjectableFunctionInterface.prototype.$inject;
 
 /**
- * @typedef {(Function|Array<string|Function>)}
+ * @typedef {(angular.InjectableFunctionInterface|Function|Array<string|Function>)}
  */
 angular.Injectable;
 
@@ -1879,7 +1888,7 @@ angular.$location.prototype.protocol = function() {};
 angular.$location.prototype.replace = function() {};
 
 /**
- * @param {(string|Object.<string, string>|Object.<string, Array.<string>>)=}
+ * @param {(string|Object<string, string>|Object<string, Array<string>>)=}
  *     opt_search
  * @param {?(string|Array<string>|boolean|number)=} opt_paramValue
  * @return {(!Object|!angular.$location)}
@@ -2186,6 +2195,11 @@ angular.FormController.prototype.$error;
 angular.FormController.prototype.$invalid;
 
 /**
+ * @type {boolean}
+ */
+angular.FormController.prototype.$pending;
+
+/**
  * @type {string}
  */
 angular.FormController.prototype.$name;
@@ -2271,6 +2285,18 @@ angular.$parse_;
  */
 angular.$parse_.assign = function(scope, newValue) {};
 
+/**
+ * Whether the expression's top-level node is a JavaScript literal.
+ * @type {boolean}
+ */
+angular.$parse_.literal;
+
+/**
+ * Whether the expression is made entirely of JavaScript constant literals.
+ * @type {boolean}
+ */
+angular.$parse_.constant;
+
 /******************************************************************************
  * $qProvider
  *****************************************************************************/
@@ -2328,8 +2354,8 @@ angular.$routeProvider.Params.prototype.controllerAs;
 /** @type {string|function(!Object<string, string>): string|undefined} */
 angular.$routeProvider.Params.prototype.template;
 
-/** @type {string|!Object|function(!Object<string,string>=)} */
-angular.$routeProvider.Params.templateUrl;
+/** @type {string|!Object|function(!Object<string,string>=)|undefined} */
+angular.$routeProvider.Params.prototype.templateUrl;
 
 /** @type {undefined|
  * !Object<string,(string|!angular.Injectable|!angular.$q.Promise)>} */

@@ -39,23 +39,25 @@
 
 package com.google.javascript.rhino.jstype;
 
-import static com.google.javascript.rhino.jstype.TernaryValue.FALSE;
-import static com.google.javascript.rhino.jstype.TernaryValue.UNKNOWN;
-
+import com.google.javascript.jscomp.base.Tri;
 
 /**
  * Number type.
+ *
  */
 public class NumberType extends ValueType {
-  private static final long serialVersionUID = 1L;
-
   NumberType(JSTypeRegistry registry) {
     super(registry);
   }
 
   @Override
-  public TernaryValue testForEquality(JSType that) {
-    TernaryValue result = super.testForEquality(that);
+  JSTypeClass getTypeClass() {
+    return JSTypeClass.NUMBER;
+  }
+
+  @Override
+  public Tri testForEquality(JSType that) {
+    Tri result = super.testForEquality(that);
     if (result != null) {
       return result;
     }
@@ -63,10 +65,11 @@ public class NumberType extends ValueType {
         || that.isSubtypeOf(getNativeType(JSTypeNative.OBJECT_TYPE))
         || that.isSubtypeOf(getNativeType(JSTypeNative.NUMBER_TYPE))
         || that.isSubtypeOf(getNativeType(JSTypeNative.STRING_TYPE))
-        || that.isSubtypeOf(getNativeType(JSTypeNative.BOOLEAN_TYPE))) {
-      return UNKNOWN;
+        || that.isSubtypeOf(getNativeType(JSTypeNative.BOOLEAN_TYPE))
+        || that.isSubtypeOf(getNativeType(JSTypeNative.BIGINT_TYPE))) {
+      return Tri.UNKNOWN;
     }
-    return FALSE;
+    return Tri.FALSE;
   }
 
   @Override
@@ -88,11 +91,6 @@ public class NumberType extends ValueType {
   public boolean matchesObjectContext() {
     // TODO(user): Revisit this for ES4, which is stricter.
     return true;
-  }
-
-  @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    return sb.append(getDisplayName());
   }
 
   @Override

@@ -15,65 +15,29 @@
  */
 package com.google.javascript.jscomp;
 
-import static com.google.common.base.Strings.isNullOrEmpty;
-
-import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 
 /**
- * Checks for combinations of options that are incompatible, i.e. will produce
- * incorrect code.
+ * Checks for combinations of options that are incompatible, i.e. will produce incorrect code.
  *
- * This is run by Compiler#compileInternal, which is not run during unit tests.
- * The catch is that it's run after Compiler#initOptions, so if for example
- * you want to change the warningsGuard, you can't do it here.
+ * <p>This is run by Compiler#compileInternal, which is not run during unit tests. The catch is that
+ * it's run after Compiler#initOptions, so if for example you want to change the warningsGuard, you
+ * can't do it here.
  *
  * <p>Also, turns off options if the provided options don't make sense together.
  */
-final class CompilerOptionsPreprocessor {
+public final class CompilerOptionsPreprocessor {
 
   static void preprocess(CompilerOptions options) {
-    if (options.checkMissingGetCssNameLevel.isOn()
-        && (isNullOrEmpty(options.checkMissingGetCssNameBlacklist))) {
-      throw new InvalidOptionsException(
-          "Cannot check use of goog.getCssName because of empty blacklist.");
-    }
-
-    if (options.removeUnusedPrototypePropertiesInExterns
-        && !options.removeUnusedPrototypeProperties) {
-      throw new InvalidOptionsException(
-          "remove_unused_prototype_props_in_externs requires "
-          + "remove_unused_prototype_props to be turned on.");
-    }
-
     if (options.getInlineFunctionsLevel() == CompilerOptions.Reach.NONE
         && options.maxFunctionSizeAfterInlining
             != CompilerOptions.UNLIMITED_FUN_SIZE_AFTER_INLINING) {
       throw new InvalidOptionsException(
           "max_function_size_after_inlining has no effect if inlining is disabled.");
     }
-
-    if (options.dartPass) {
-      if (!options.getOutputFeatureSet().contains(FeatureSet.ES5)) {
-        throw new InvalidOptionsException("Dart requires --language_out=ES5 or higher.");
-      }
-      // --dart_pass does not support type-aware property renaming yet.
-      options.setAmbiguateProperties(false);
-      options.setDisambiguateProperties(false);
-    }
-
-    if (options.removeUnusedPrototypePropertiesInExterns
-        && options.exportLocalPropertyDefinitions) {
-      throw new InvalidOptionsException(
-          "remove_unused_prototype_props_in_externs "
-          + "and export_local_property_definitions cannot be used together.");
-    }
-
   }
 
-  /**
-   * Exception to indicate incompatible options in the CompilerOptions.
-   */
+  /** Exception to indicate incompatible options in the CompilerOptions. */
   public static class InvalidOptionsException extends RuntimeException {
     private InvalidOptionsException(String message, Object... args) {
       super(SimpleFormat.format(message, args));
@@ -81,6 +45,5 @@ final class CompilerOptionsPreprocessor {
   }
 
   // Don't instantiate.
-  private CompilerOptionsPreprocessor() {
-  }
+  private CompilerOptionsPreprocessor() {}
 }

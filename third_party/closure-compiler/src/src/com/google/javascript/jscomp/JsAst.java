@@ -16,10 +16,9 @@
 
 package com.google.javascript.jscomp;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 
-import com.google.common.annotations.GwtIncompatible;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.parsing.ParserRunner;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
@@ -30,6 +29,7 @@ import com.google.javascript.rhino.Node;
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.function.Supplier;
 
 /**
  * Generates an AST for a JavaScript source file.
@@ -38,24 +38,38 @@ public class JsAst implements SourceAst {
   private static final long serialVersionUID = 1L;
 
   private final InputId inputId;
-  private SourceFile sourceFile;
-  private final String fileName;
+  private final SourceFile sourceFile;
+  private final Supplier<Node> immutableRootSource;
+
   private Node root;
   private FeatureSet features;
 
   public JsAst(SourceFile sourceFile) {
+    this(sourceFile, null);
+  }
+
+  public JsAst(SourceFile sourceFile, Supplier<Node> immutableRootSource) {
     this.inputId = new InputId(sourceFile.getName());
     this.sourceFile = sourceFile;
-    this.fileName = sourceFile.getName();
+    this.immutableRootSource = immutableRootSource;
   }
 
   @Override
   public Node getAstRoot(AbstractCompiler compiler) {
-    if (!isParsed()) {
-      parse(compiler);
-      root.setInputId(inputId);
+    if (this.isParsed()) {
+      return this.root;
     }
-    return checkNotNull(root);
+
+    if (this.immutableRootSource != null) {
+      this.root = this.immutableRootSource.get();
+      this.features = (FeatureSet) this.root.getProp(Node.FEATURE_SET);
+    } else {
+      this.parse(compiler);
+    }
+    checkState(identical(this.root.getStaticSourceFile(), this.sourceFile));
+    this.root.setInputId(this.inputId);
+
+    return this.root;
   }
 
   @Override
@@ -75,12 +89,6 @@ public class JsAst implements SourceAst {
   @Override
   public SourceFile getSourceFile() {
     return sourceFile;
-  }
-
-  @Override
-  public void setSourceFile(SourceFile file) {
-    checkState(fileName.equals(file.getName()));
-    sourceFile = file;
   }
 
   public FeatureSet getFeatures(AbstractCompiler compiler) {
@@ -145,6 +153,8 @@ public class JsAst implements SourceAst {
   }
 
   private void parse(AbstractCompiler compiler) {
+    checkState(this.immutableRootSource == null);
+
     RecordingReporterProxy reporter = new RecordingReporterProxy(
         compiler.getDefaultErrorReporter());
 
@@ -191,16 +201,5 @@ public class JsAst implements SourceAst {
     // Set the source name so that the compiler passes can track
     // the source file and module.
     root.setStaticSourceFile(sourceFile);
-  }
-
-  @GwtIncompatible("ObjectinputStream")
-  private void readObject(java.io.ObjectInputStream in) throws IOException, ClassNotFoundException {
-    AbstractCompiler compiler = ((HasCompiler) in).getCompiler();
-    in.defaultReadObject();
-    // Retrieve the code from the compiler object.
-    CompilerInput input = compiler.getInput(inputId);
-    if (input != null) {
-      sourceFile.restoreFrom(input.getSourceFile());
-    }
   }
 }

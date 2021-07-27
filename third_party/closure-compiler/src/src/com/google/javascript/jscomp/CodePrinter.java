@@ -17,11 +17,12 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.base.JSCompDoubles.isPositive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.debugging.sourcemap.FilePosition;
 import com.google.javascript.jscomp.CodePrinter.Builder.CodeGeneratorFactory;
-import com.google.javascript.jscomp.parsing.parser.FeatureSet;
+import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSourceFile;
 import com.google.javascript.rhino.Token;
@@ -31,6 +32,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * CodePrinter prints out JS code in either pretty format or compact format.
@@ -319,18 +321,12 @@ public final class CodePrinter {
      */
     @Override
     void addNumber(double x, Node n) {
-      if (isNegativeZero(x)) {
-        super.addNumber(x, n);
-        return;
-      }
+      checkState(isPositive(x), x);
+
       String numberFromSource = getNumberFromSource(n);
       if (numberFromSource == null) {
         super.addNumber(x, n);
         return;
-      }
-
-      if (x < 0) {
-        numberFromSource = "-" + numberFromSource;
       }
 
       // The string we extract from the source code is not always a number.
@@ -669,7 +665,7 @@ public final class CodePrinter {
     private SourceMap sourceMap = null;
     private boolean tagAsTypeSummary;
     private boolean tagAsStrict;
-    private JSTypeRegistry registry;
+    @Nullable private JSTypeRegistry registry; // may be null unless using Format.TYPED
     private CodeGeneratorFactory codeGeneratorFactory = new CodeGeneratorFactory() {
       @Override
       public CodeGenerator getCodeGenerator(Format outputFormat, CodeConsumer cc) {
@@ -799,7 +795,7 @@ public final class CodePrinter {
       if (outputTypes) {
         return Format.TYPED;
       }
-      if (prettyPrint || options.getOutputFeatureSet().contains(FeatureSet.TYPESCRIPT)) {
+      if (prettyPrint || options.getOutputFeatureSet().contains(Feature.TYPE_ANNOTATION)) {
         return Format.PRETTY;
       }
       return Format.COMPACT;

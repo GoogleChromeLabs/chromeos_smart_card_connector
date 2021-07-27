@@ -16,6 +16,7 @@
 
 package com.google.javascript.jscomp;
 
+import static com.google.common.collect.Streams.stream;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.javascript.jscomp.AstValidator.ViolationHandler;
@@ -24,12 +25,17 @@ import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.InputId;
-import com.google.javascript.rhino.JSDocInfoBuilder;
+import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.SimpleSourceFile;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
 import com.google.javascript.rhino.Token;
+import com.google.javascript.rhino.jstype.JSType;
+import com.google.javascript.rhino.jstype.JSTypeNative;
+import com.google.javascript.rhino.jstype.JSTypeRegistry;
+import com.google.javascript.rhino.jstype.JSTypeResolver;
+import java.math.BigInteger;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -76,8 +82,15 @@ public final class AstValidatorTest extends CompilerTestCase {
     super.setUp();
     disableAstValidation();
     disableNormalize();
-    disableLineNumberCheck();
     enableTypeCheck();
+  }
+
+  @Test
+  public void testValidGetPropAndGetElem() {
+    valid(
+        lines(
+            "a.b;", //
+            "a['b'];"));
   }
 
   @Test
@@ -117,6 +130,15 @@ public final class AstValidatorTest extends CompilerTestCase {
   }
 
   @Test
+  public void testFor() {
+    valid("for(var a;;);");
+    valid("for(let a;;);");
+    valid("for(var a = 0;;);");
+    valid("for(var a;b;c);");
+    valid("for(var a;;c);");
+  }
+
+  @Test
   public void testForIn() {
     valid("for(var a in b);");
     valid("for(let a in b);");
@@ -124,6 +146,18 @@ public final class AstValidatorTest extends CompilerTestCase {
     valid("for(a in b);");
     valid("for(a in []);");
     valid("for(a in {});");
+
+    // Test that initializers are banned (except for simple vars - see testQuestionableForIn)
+    enableTypeInfoValidation = false;
+    expectInvalid(
+        new Node(Token.FOR_IN, IR.constNode(IR.name("a"), IR.number(1)), IR.name("b")),
+        Check.STATEMENT);
+    expectInvalid(
+        new Node(
+            Token.FOR_IN,
+            IR.var(new Node(Token.DESTRUCTURING_LHS, IR.objectPattern(), IR.objectlit())),
+            IR.name("b")),
+        Check.STATEMENT);
   }
 
   @Test
@@ -134,6 +168,22 @@ public final class AstValidatorTest extends CompilerTestCase {
     valid("for(a of b);");
     valid("for(a of []);");
     valid("for(a of /** @type {!Iterable<?>} */ ({}));");
+    valid("for (const [] of b);");
+    valid("for (const {} of b);");
+
+    // Test that initializers are banned
+    enableTypeInfoValidation = false;
+    expectInvalid(
+        new Node(Token.FOR_OF, IR.var(IR.name("a"), IR.number(1)), IR.name("b")), Check.STATEMENT);
+    expectInvalid(
+        new Node(Token.FOR_OF, IR.constNode(IR.name("a"), IR.number(1)), IR.name("b")),
+        Check.STATEMENT);
+    expectInvalid(
+        new Node(
+            Token.FOR_OF,
+            IR.var(new Node(Token.DESTRUCTURING_LHS, IR.objectPattern(), IR.objectlit())),
+            IR.name("b")),
+        Check.STATEMENT);
   }
 
   @Test
@@ -145,6 +195,49 @@ public final class AstValidatorTest extends CompilerTestCase {
     valid("async () => { for await(a of b); }");
     valid("async () => { for await(a of []); }");
     valid("async () => { for await(a of /** @type {!Iterable<?>} */ ({})); }");
+
+    // Test that initializers are banned
+    enableTypeInfoValidation = false;
+    expectInvalid(
+        new Node(Token.FOR_AWAIT_OF, IR.var(IR.name("a"), IR.number(1)), IR.name("b")),
+        Check.STATEMENT);
+    expectInvalid(
+        new Node(Token.FOR_AWAIT_OF, IR.constNode(IR.name("a"), IR.number(1)), IR.name("b")),
+        Check.STATEMENT);
+    expectInvalid(
+        new Node(
+            Token.FOR_AWAIT_OF,
+            IR.var(new Node(Token.DESTRUCTURING_LHS, IR.objectPattern(), IR.objectlit())),
+            IR.name("b")),
+        Check.STATEMENT);
+  }
+
+  @Test
+  public void testIncDec() {
+    valid("x++");
+    valid("x--");
+    valid("++x");
+    valid("--x");
+    valid("const a = {b: 0}; a.b++");
+    valid("a['b']++");
+    valid("/** @type {number} */ (x)++;");
+
+    enableTypeInfoValidation = false;
+    expectInvalid(new Node(Token.INC, IR.name("x"), IR.name("x")), Check.EXPRESSION);
+    expectInvalid(new Node(Token.INC, IR.arrayPattern()), Check.EXPRESSION);
+    expectInvalid(new Node(Token.INC, IR.objectPattern()), Check.EXPRESSION);
+  }
+
+  @Test
+  public void testCompoundAssign() {
+    valid("a += 1;");
+    valid("a['b'] += 1;");
+    valid("const a = {b: 0}; a.b += 1;");
+    valid("const a = {b: '0'}; /** @type {?} */ (a.b) += 1;");
+
+    enableTypeInfoValidation = false;
+    expectInvalid(new Node(Token.ASSIGN_ADD, IR.arrayPattern(), IR.number(0)), Check.EXPRESSION);
+    expectInvalid(new Node(Token.ASSIGN_ADD, IR.objectPattern(), IR.number(0)), Check.EXPRESSION);
   }
 
   @Test
@@ -283,7 +376,7 @@ public final class AstValidatorTest extends CompilerTestCase {
     // Since we're building the AST by hand, there won't be any types on it.
     enableTypeInfoValidation = false;
 
-    JSDocInfoBuilder jsdoc = new JSDocInfoBuilder(false);
+    JSDocInfo.Builder jsdoc = JSDocInfo.builder();
     jsdoc.recordType(new JSTypeExpression(IR.string("number"), "<AstValidatorTest>"));
     Node n = IR.exprResult(
         new Node(
@@ -307,6 +400,17 @@ public final class AstValidatorTest extends CompilerTestCase {
     enableTypeInfoValidation = false;
 
     Node n = IR.number(1);
+    expectInvalid(n, Check.STATEMENT);
+    n = IR.exprResult(n);
+    expectValid(n, Check.STATEMENT);
+  }
+
+  @Test
+  public void testInvalidBigIntStatement() {
+    // Since we're building the AST by hand, there won't be any types on it.
+    enableTypeInfoValidation = false;
+
+    Node n = IR.bigint(BigInteger.ONE);
     expectInvalid(n, Check.STATEMENT);
     n = IR.exprResult(n);
     expectValid(n, Check.STATEMENT);
@@ -340,6 +444,62 @@ public final class AstValidatorTest extends CompilerTestCase {
   }
 
   @Test
+  public void testNoAwaitExpressionInDefaultParams() {
+    // We're inserting our own Nodes below, and we won't be bothering to put valid type
+    // information on them.
+    enableTypeInfoValidation = false;
+    Node scriptNode =
+        parseValidScript(
+            lines(
+                "async function outer(){",
+                // `await` in a parameter default value is not allowed,
+                // regardless of whether the function with the parameter is an
+                // async function or enclosed in an async function.
+                "  async function inner(a = replaceWithAwait) {",
+                "  }",
+                "}",
+                ""));
+
+    Node awaitNode = new Node(Token.AWAIT);
+    awaitNode.addChildToBack(IR.number(1));
+    Node nodeToReplace =
+        stream(NodeUtil.preOrderIterable(scriptNode))
+            .filter(node -> node.isName() && node.getString().equals("replaceWithAwait"))
+            .findFirst()
+            .get();
+    nodeToReplace.replaceWith(awaitNode);
+    expectInvalid(awaitNode, Check.EXPRESSION);
+  }
+
+  @Test
+  public void testNoYieldExpressionInDefaultParams() {
+    // We're inserting our own Nodes below, and we won't be bothering to put valid type
+    // information on them.
+    enableTypeInfoValidation = false;
+    Node scriptNode =
+        parseValidScript(
+            lines(
+                "function *outer(){",
+                // `yield` in a parameter default value is not allowed,
+                // regardless of whether the function with the parameter is a generator
+                // or is enclosed in a generator function.
+                "  function *inner(a = replaceWithYield) {",
+                "  }",
+                "}",
+                ""));
+
+    Node yieldNode = new Node(Token.YIELD);
+    yieldNode.addChildToBack(IR.number(1));
+    Node nodeToReplace =
+        stream(NodeUtil.preOrderIterable(scriptNode))
+            .filter(node -> node.isName() && node.getString().equals("replaceWithYield"))
+            .findFirst()
+            .get();
+    nodeToReplace.replaceWith(yieldNode);
+    expectInvalid(yieldNode, Check.EXPRESSION);
+  }
+
+  @Test
   public void testAwaitExpressionNonAsyncFunction() {
     setLanguage(LanguageMode.ECMASCRIPT_NEXT, LanguageMode.ECMASCRIPT5);
     Node awaitNode = new Node(Token.AWAIT);
@@ -351,12 +511,33 @@ public final class AstValidatorTest extends CompilerTestCase {
   }
 
   @Test
+  public void testYieldExpressionNonGeneratorFunction() {
+    Node yieldNode = new Node(Token.YIELD);
+    yieldNode.addChildToBack(IR.number(1));
+    Node parentFunction =
+        IR.function(IR.name("foo"), IR.paramList(), IR.block(IR.returnNode(yieldNode)));
+    parentFunction.setIsGeneratorFunction(false);
+    expectInvalid(yieldNode, Check.EXPRESSION);
+  }
+
+  @Test
   public void testAwaitExpressionNoFunction() {
     // Since we're building the AST by hand, there won't be any types on it.
     enableTypeInfoValidation = false;
 
     setLanguage(LanguageMode.ECMASCRIPT_NEXT, LanguageMode.ECMASCRIPT5);
     Node n = new Node(Token.AWAIT);
+    n.addChildToBack(IR.number(1));
+    expectInvalid(n, Check.EXPRESSION);
+  }
+
+  @Test
+  public void testYieldExpressionNoFunction() {
+    // Since we're building the AST by hand, there won't be any types on it.
+    enableTypeInfoValidation = false;
+
+    setLanguage(LanguageMode.ECMASCRIPT_NEXT, LanguageMode.ECMASCRIPT5);
+    Node n = new Node(Token.YIELD);
     n.addChildToBack(IR.number(1));
     expectInvalid(n, Check.EXPRESSION);
   }
@@ -483,6 +664,34 @@ public final class AstValidatorTest extends CompilerTestCase {
   }
 
   @Test
+  public void testInvalidDestructuringDeclaration() {
+    // Since we're building the AST by hand, there won't be any types on it.
+    enableTypeInfoValidation = false;
+
+    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2015);
+
+    // missing DESTRUCTURING_LHS
+    //     Node n = IR.var(IR.objectPattern());
+    //     expectInvalid(n, Check.STATEMENT);
+
+    //     n = IR.let(IR.objectPattern());
+    //     expectInvalid(n, Check.STATEMENT);
+
+    //     n = new Node(Token.CONST, IR.objectPattern());
+    //     expectInvalid(n, Check.STATEMENT);
+
+    // missing a right-hand side
+    Node n = IR.var(new Node(Token.DESTRUCTURING_LHS, IR.objectPattern()));
+    expectInvalid(n, Check.STATEMENT);
+
+    n = IR.let(new Node(Token.DESTRUCTURING_LHS, IR.objectPattern()));
+    expectInvalid(n, Check.STATEMENT);
+
+    n = new Node(Token.CONST, new Node(Token.DESTRUCTURING_LHS, IR.objectPattern()));
+    expectInvalid(n, Check.STATEMENT);
+  }
+
+  @Test
   public void testInvalidDestructuringAssignment() {
     // Since we're building the AST by hand, there won't be any types on it.
     enableTypeInfoValidation = false;
@@ -563,6 +772,194 @@ public final class AstValidatorTest extends CompilerTestCase {
     getter4.putBooleanProp(Node.COMPUTED_PROP_GETTER, true);
     members.addChildToBack(getter4);
     expectInvalid(c, Check.STATEMENT);
+  }
+
+  @Test
+  public void testSuperInvalidAtScriptLevel() {
+    Node scriptNode = IR.script();
+    Node superNode = IR.superNode();
+    Node superStatementNode = IR.exprResult(IR.getprop(superNode, "prop"));
+    scriptNode.addChildToBack(superStatementNode);
+
+    expectInvalid(superStatementNode, Check.STATEMENT);
+  }
+
+  @Test
+  public void superInvalidWithOptChainCall() {
+    Node superNode = IR.superNode();
+    Node optChainCallNode = IR.startOptChainCall(superNode);
+
+    expectInvalid(optChainCallNode, Check.STATEMENT);
+  }
+
+  @Test
+  public void superInvalidWithOptionalGetProp() {
+    Node superNode = IR.superNode();
+    Node optChainGetPropNode = IR.startOptChainGetprop(superNode, "prop");
+
+    expectInvalid(optChainGetPropNode, Check.STATEMENT);
+  }
+
+  @Test
+  public void superInvalidWithOptionalGetElem() {
+    Node superNode = IR.superNode();
+    Node exprNode = IR.name("expr");
+    Node optChainGetElemNode = IR.startOptChainGetelem(superNode, exprNode);
+
+    expectInvalid(optChainGetElemNode, Check.STATEMENT);
+  }
+
+  @Test
+  public void optChainGetPropInvalidWithNoStartOfChain() {
+    Node innerGetProp = IR.continueOptChainGetprop(IR.name("expr"), "prop1");
+    Node outterGetProp = IR.continueOptChainGetprop(innerGetProp, "prop2");
+
+    expectInvalid(outterGetProp, Check.STATEMENT);
+  }
+
+  @Test
+  public void optChainGetElemInvalidWithNoStartOfChain() {
+    Node innerGetElem = IR.continueOptChainGetelem(IR.name("expr"), IR.name("prop1"));
+    Node outterGetElem = IR.continueOptChainGetelem(innerGetElem, IR.name("prop2"));
+
+    expectInvalid(outterGetElem, Check.STATEMENT);
+  }
+
+  @Test
+  public void optChainCallInvalidWithNoStartOfChain() {
+    Node innerCall = IR.continueOptChainCall(IR.name("f"), IR.name("arg1"));
+    Node outterCall = IR.continueOptChainCall(innerCall, IR.name("arg2"));
+
+    expectInvalid(outterCall, Check.STATEMENT);
+  }
+
+  @Test
+  public void testSuperInvalidInNonMemberFunction() {
+    invalid(
+        lines(
+            "function nonMethod() {", //
+            "  return super.toString();",
+            "}",
+            ""));
+  }
+
+  @Test
+  public void testSuperPropReferenceIsValidInClassWithoutExtendsClause() {
+    valid(
+        lines(
+            "class C {", //
+            "  method() {",
+            "    super.prop;",
+            "    super['prop'];",
+            "  }",
+            "}",
+            ""));
+  }
+
+  @Test
+  public void testSuperPropReferenceIsValidInObjectLiteralMethod() {
+    valid(
+        lines(
+            "const myObj = {", //
+            "  method() {",
+            "    super.prop;",
+            "    super['prop'];",
+            "  }",
+            "};",
+            ""));
+  }
+
+  @Test
+  public void testSuperInvalidAsAnExpression() {
+    Node scriptNode =
+        parseValidScript(
+            lines(
+                "class D {}", //
+                "class C extends D {",
+                "  method() {",
+                "    return replaceWithSuper;",
+                "  }",
+                "}",
+                ""));
+
+    Node nodeToReplace =
+        stream(NodeUtil.preOrderIterable(scriptNode))
+            .filter(node -> node.isName() && node.getString().equals("replaceWithSuper"))
+            .findFirst()
+            .get();
+    nodeToReplace.replaceWith(IR.superNode());
+
+    expectInvalid(scriptNode, Check.SCRIPT);
+  }
+
+  @Test
+  public void testSuperInvalidIfTypeInfoIsMissing() {
+    Node scriptNode =
+        parseValidScript(
+            lines(
+                "class C {", //
+                "  method() {",
+                "    return super.toString();",
+                "  }",
+                "}",
+                ""));
+
+    Node superNode =
+        stream(NodeUtil.preOrderIterable(scriptNode)).filter(Node::isSuper).findFirst().get();
+    // Erase the type information to make the super node invalid
+    superNode.setJSType(null);
+
+    expectInvalid(scriptNode, Check.SCRIPT);
+  }
+
+  @Test
+  public void testValidSuperConstructorCall() {
+    valid(
+        lines(
+            "class D {}", //
+            "class C extends D {",
+            "  constructor() {",
+            "    super();",
+            "  }",
+            "}",
+            ""));
+  }
+
+  @Test
+  public void testInvalidSuperConstructorCallInNonConstructor() {
+    invalid(
+        lines(
+            "class D {}", //
+            "class C extends D {",
+            "  nonConstructor() {",
+            "    super();",
+            "  }",
+            "}",
+            ""));
+  }
+
+  @Test
+  public void testSuperConstructorCallInvalidInClassWithoutExtendsClause() {
+    invalid(
+        lines(
+            "class C {", //
+            "  constructor() {",
+            "    super();",
+            "  }",
+            "}",
+            ""));
+  }
+
+  @Test
+  public void testSuperConstructorCallInvalidInObjectLiteralMethod() {
+    invalid(
+        lines(
+            "const myObj = {", //
+            "  constructor() {",
+            "    return super();",
+            "  }",
+            "}",
+            ""));
   }
 
   @Test
@@ -757,8 +1154,7 @@ public final class AstValidatorTest extends CompilerTestCase {
 
   @Test
   public void testFeatureValidation_super() {
-    testFeatureValidation("class C { constructor() { super(); } }", Feature.SUPER);
-    testFeatureValidation("class C { f() { super.toString(); } }", Feature.SUPER);
+    testFeatureValidation("const obj = { f() { super.toString(); } };", Feature.SUPER);
   }
 
   @Test
@@ -788,6 +1184,23 @@ public final class AstValidatorTest extends CompilerTestCase {
   public void testFeatureValidation_exponentOp() {
     testFeatureValidation("2 ** 3", Feature.EXPONENT_OP);
     testFeatureValidation("x **= 3;", Feature.EXPONENT_OP);
+  }
+
+  @Test
+  public void testFeatureValidation_nullishCoalesceOp() {
+    setAcceptedLanguage(LanguageMode.UNSUPPORTED);
+
+    testFeatureValidation("x ?? y", Feature.NULL_COALESCE_OP);
+    testFeatureValidation("x ?? y ?? z", Feature.NULL_COALESCE_OP);
+  }
+
+  @Test
+  public void testFeatureValidation_optChain() {
+    setAcceptedLanguage(LanguageMode.UNSUPPORTED);
+
+    testFeatureValidation("x?.y", Feature.OPTIONAL_CHAINING);
+    testFeatureValidation("x?.()", Feature.OPTIONAL_CHAINING);
+    testFeatureValidation("x?.[1]", Feature.OPTIONAL_CHAINING);
   }
 
   @Test
@@ -829,9 +1242,75 @@ public final class AstValidatorTest extends CompilerTestCase {
     expectValid(n, Check.SCRIPT);
   }
 
+  @Test
+  @SuppressWarnings("MustBeClosedChecker")
+  public void testUnresolvedTypesAreBanned() {
+    Compiler compiler = createCompiler();
+    JSTypeRegistry registry = compiler.getTypeRegistry();
+    JSTypeResolver.Closer closer = registry.getResolver().openForDefinition();
+
+    JSType unresolvedFunction =
+        registry.createFunctionType(registry.getNativeType(JSTypeNative.VOID_TYPE));
+    assertThat(unresolvedFunction.isResolved()).isFalse();
+
+    Node foo = IR.name("foo").setJSType(unresolvedFunction);
+    Node expr = IR.exprResult(foo);
+
+    expectInvalid(expr, Check.STATEMENT);
+
+    closer.close();
+
+    expectValid(expr, Check.STATEMENT);
+  }
+
+  @Test
+  public void testSwitchStatement() {
+    // Since we're building the AST by hand, there won't be any types on it.
+    enableTypeInfoValidation = false;
+
+    String switchStatement =
+        lines(
+            "function foo(x) {",
+            "  switch(x) {",
+            "    case 1: ",
+            "      var y = 5;",
+            "    case 2: ",
+            "      var y = 5;",
+            "  }",
+            "}");
+
+    valid(switchStatement);
+
+    Node rootScriptNode = parseValidScript(switchStatement);
+    Node blockNode = IR.block();
+
+    Node firstCaseNode =
+        stream(NodeUtil.preOrderIterable(rootScriptNode)).filter(Node::isCase).findFirst().get();
+
+    firstCaseNode.addChildToFront(blockNode);
+    // A CASE node is only allowed to have 2 children, 1 expression and 1 block.
+    expectInvalid(rootScriptNode, Check.SCRIPT);
+  }
+
   private void valid(String code) {
     testSame(code);
     assertThat(lastCheckWasValid).isTrue();
+  }
+
+  /**
+   * Parse and validate code for a script that should be valid.
+   *
+   * @return the SCRIPT Node created by the parsing.
+   */
+  private Node parseValidScript(String scriptCode) {
+    testSame(scriptCode);
+    assertThat(lastCheckWasValid).isTrue();
+    return getLastCompiler().getJsRoot().getFirstChild();
+  }
+
+  private void invalid(String code) {
+    testSame(code);
+    assertThat(lastCheckWasValid).isFalse();
   }
 
   private enum Check {

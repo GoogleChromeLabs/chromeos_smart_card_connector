@@ -28,16 +28,14 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * This pass looks for properties that are never read.
- * These can be properties created using "this", or static properties of
- * constructors or interfaces. Explicitly ignored is the possibility that
- * these properties may be indirectly referenced using "for-in" or
- * "Object.keys".
+ * This pass looks for properties that are never read. These can be properties created using "this",
+ * or static properties of constructors or interfaces. Explicitly ignored is the possibility that
+ * these properties may be indirectly referenced using "for-in" or "Object.keys".
  *
- * This class is based on RemoveUnusedCode, some effort should be made to extract the common pieces.
+ * <p>This class is based on RemoveUnusedCode, some effort should be made to extract the common
+ * pieces.
  */
-class CheckUnusedPrivateProperties
-    implements HotSwapCompilerPass, NodeTraversal.Callback {
+class CheckUnusedPrivateProperties implements CompilerPass, NodeTraversal.Callback {
 
   static final DiagnosticType UNUSED_PRIVATE_PROPERTY =
       DiagnosticType.disabled(
@@ -56,11 +54,6 @@ class CheckUnusedPrivateProperties
     NodeTraversal.traverse(compiler, root, this);
   }
 
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    NodeTraversal.traverse(compiler, scriptRoot, this);
-  }
-
   private void reportUnused(NodeTraversal t) {
     for (Node n : candidates) {
       String propName = getPropName(n);
@@ -73,7 +66,6 @@ class CheckUnusedPrivateProperties
   private String getPropName(Node n) {
     switch (n.getToken()) {
       case GETPROP:
-        return n.getLastChild().getString();
       case MEMBER_FUNCTION_DEF:
         return n.getString();
       default:
@@ -104,10 +96,10 @@ class CheckUnusedPrivateProperties
        }
 
        case GETPROP: {
-         String propName = n.getLastChild().getString();
-         if (compiler.getCodingConvention().isExported(propName)
-             || isPinningPropertyUse(n)
-             || !isCandidatePropertyDefinition(n)) {
+          String propName = n.getString();
+          if (compiler.getCodingConvention().isExported(propName)
+              || isPinningPropertyUse(n)
+              || !isCandidatePropertyDefinition(n)) {
            used.add(propName);
          } else {
            // Only consider "private" properties.
@@ -127,9 +119,9 @@ class CheckUnusedPrivateProperties
        }
 
        case OBJECTLIT: {
-         // Assume any object literal definition might be a reflection on the
-         // class property.
-         for (Node c : n.children()) {
+          // Assume any object literal definition might be a reflection on the
+          // class property.
+          for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
             if (c.isStringKey() || c.isGetterDef() || c.isSetterDef() || c.isMemberFunctionDef()) {
               used.add(c.getString());
             }
@@ -145,8 +137,8 @@ class CheckUnusedPrivateProperties
                 .getCodingConvention()
                 .isPropertyRenameFunction(target.getOriginalQualifiedName())) {
            Node propName = target.getNext();
-           if (propName.isString()) {
-             used.add(propName.getString());
+          if (propName.isStringLit()) {
+            used.add(propName.getString());
            }
          }
          break;
@@ -176,8 +168,7 @@ class CheckUnusedPrivateProperties
     Node target = n.getFirstChild();
     return target.isThis()
         || (isConstructor(target))
-        || (target.isGetProp()
-            && target.getLastChild().getString().equals("prototype"));
+        || (target.isGetProp() && target.getString().equals("prototype"));
   }
 
   private boolean isConstructor(Node n) {

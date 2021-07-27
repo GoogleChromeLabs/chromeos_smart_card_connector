@@ -45,13 +45,15 @@ import com.google.javascript.rhino.Node;
 
 /** An object type that is an instance of some function constructor. */
 final class InstanceObjectType extends PrototypeObjectType {
-  private static final long serialVersionUID = 1L;
+  private static final JSTypeClass TYPE_CLASS = JSTypeClass.INSTANCE_OBJECT;
 
   private final FunctionType constructor;
 
   private InstanceObjectType(Builder builder) {
     super(builder);
     this.constructor = checkNotNull(builder.constructor);
+
+    registry.getResolver().resolveIfClosed(this, TYPE_CLASS);
   }
 
   static final class Builder extends PrototypeObjectType.Builder<Builder> {
@@ -87,6 +89,11 @@ final class InstanceObjectType extends PrototypeObjectType {
   }
 
   @Override
+  JSTypeClass getTypeClass() {
+    return TYPE_CLASS;
+  }
+
+  @Override
   public String getReferenceName() {
     return getConstructor().getReferenceName();
   }
@@ -112,22 +119,25 @@ final class InstanceObjectType extends PrototypeObjectType {
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
+  void appendTo(TypeStringBuilder sb) {
     if (!constructor.hasReferenceName()) {
-      return super.appendTo(sb, forAnnotations);
-    } else if (forAnnotations) {
-      return sb.append(constructor.getNormalizedReferenceName());
+      super.appendTo(sb);
+      return;
+    } else if (sb.isForAnnotations()) {
+      sb.append(constructor.getNormalizedReferenceName());
+      return;
     }
+
     String name = constructor.getReferenceName();
     if (name.isEmpty()) {
       Node n = constructor.getSource();
-      return sb.append("<anonymous@")
+      sb.append("<anonymous@")
           .append(n != null ? n.getSourceFileName() : "unknown")
           .append(":")
-          .append(n != null ? n.getLineno() : 0)
+          .append(Integer.toString(n != null ? n.getLineno() : 0))
           .append(">");
     }
-    return sb.append(name);
+    sb.append(name);
   }
 
   @Override
@@ -145,6 +155,11 @@ final class InstanceObjectType extends PrototypeObjectType {
   public boolean isArrayType() {
     return getConstructor().isNativeObjectType()
         && "Array".equals(getReferenceName());
+  }
+
+  @Override
+  public boolean isBigIntObjectType() {
+    return getConstructor().isNativeObjectType() && "BigInt".equals(getReferenceName());
   }
 
   @Override
@@ -204,11 +219,6 @@ final class InstanceObjectType extends PrototypeObjectType {
   @Override
   public Iterable<ObjectType> getCtorExtendedInterfaces() {
     return getConstructor().getExtendedInterfaces();
-  }
-
-  @Override
-  public boolean isAmbiguousObject() {
-    return getConstructor().createsAmbiguousObjects();
   }
 
   // The owner will always be a resolved type, so there's no need to set

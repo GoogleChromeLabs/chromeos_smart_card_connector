@@ -23,7 +23,6 @@ import static com.google.javascript.jscomp.CheckAccessControls.BAD_PROPERTY_OVER
 import static com.google.javascript.jscomp.CheckAccessControls.BAD_PROTECTED_PROPERTY_ACCESS;
 import static com.google.javascript.jscomp.CheckAccessControls.CONST_PROPERTY_DELETED;
 import static com.google.javascript.jscomp.CheckAccessControls.CONST_PROPERTY_REASSIGNED_VALUE;
-import static com.google.javascript.jscomp.CheckAccessControls.CONVENTION_MISMATCH;
 import static com.google.javascript.jscomp.CheckAccessControls.DEPRECATED_CLASS;
 import static com.google.javascript.jscomp.CheckAccessControls.DEPRECATED_CLASS_REASON;
 import static com.google.javascript.jscomp.CheckAccessControls.DEPRECATED_NAME;
@@ -47,17 +46,8 @@ import org.junit.runners.JUnit4;
  * duplication. If a case using `@constructor`, `@interface`, or `@record` is added to this suite, a
  * similar case should be added there under the same name using `class`.
  */
-
 @RunWith(JUnit4.class)
 public final class CheckAccessControlsTest extends CompilerTestCase {
-
-  private static final String CLOSURE_PRIMITIVES =
-      lines(
-          "/** @const */",
-          "var goog = {};",
-          "goog.module = function(ns) {};",
-          "/** @return {?} */",
-          "goog.require = function(ns) {};");
 
   public CheckAccessControlsTest() {
     super(CompilerTypeTestCase.DEFAULT_EXTERNS);
@@ -76,7 +66,7 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(final Compiler compiler) {
-    return new CheckAccessControls(compiler, true);
+    return new CheckAccessControls(compiler);
   }
 
   @Override
@@ -148,8 +138,9 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Test
   public void testNoWarningInGlobalScope() {
-    testSame("var goog = {}; goog.makeSingleton = function(x) {};"
-        + "/** @deprecated */ function f() {} goog.makeSingleton(f);");
+    testSame(
+        "goog.makeSingleton = function(x) {};"
+            + "/** @deprecated */ function f() {} goog.makeSingleton(f);");
   }
 
   @Test
@@ -450,15 +441,14 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   @Test
   public void testPrivateAccessForNames() {
     testSame("/** @private */ function foo_() {}; foo_();");
-    testError(new String[] {"/** @private */ function foo_() {};", "foo_();"},
-        BAD_PRIVATE_GLOBAL_ACCESS);
+    testError(srcs("/** @private */ function foo_() {};", "foo_();"), BAD_PRIVATE_GLOBAL_ACCESS);
   }
 
   @Test
   public void testPrivateAccessForNames2() {
-    // Private by convention
+    // Not private by convention
     testSame("function foo_() {}; foo_();");
-    testError(new String[] {"function foo_() {};", "foo_();"}, BAD_PRIVATE_GLOBAL_ACCESS);
+    testSame(srcs("function foo_() {};", "foo_();"));
   }
 
   @Test
@@ -480,10 +470,11 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   public void testPrivateAccessForProperties3() {
     // Even though baz is "part of the Foo class" the access is disallowed since it's
     // not in the same file.
-    testError(new String[] {
-        "/** @constructor */ function Foo() {}"
-        + "/** @private */ Foo.prototype.bar_ = function() {}; (new Foo).bar_();",
-        "Foo.prototype.baz = function() { this.bar_(); };"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {}"
+                + "/** @private */ Foo.prototype.bar_ = function() {}; (new Foo).bar_();",
+            "Foo.prototype.baz = function() { this.bar_(); };"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
@@ -623,50 +614,54 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Test
   public void testNoPrivateAccessForProperties1() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {} (new Foo).bar_();",
-        "/** @private */ Foo.prototype.bar_ = function() {};"
-        + "Foo.prototype.baz = function() { this.bar_(); };"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {} (new Foo).bar_();",
+            "/** @private */ Foo.prototype.bar_ = function() {};"
+                + "Foo.prototype.baz = function() { this.bar_(); };"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoPrivateAccessForProperties2() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {} "
-        + "/** @private */ Foo.prototype.bar_ = function() {};"
-        + "Foo.prototype.baz = function() { this.bar_(); };",
-        "(new Foo).bar_();"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {} "
+                + "/** @private */ Foo.prototype.bar_ = function() {};"
+                + "Foo.prototype.baz = function() { this.bar_(); };",
+            "(new Foo).bar_();"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoPrivateAccessForProperties3() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {} "
-        + "/** @private */ Foo.prototype.bar_ = function() {};",
-        "/** @constructor */ function OtherFoo() { (new Foo).bar_(); }"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {} "
+                + "/** @private */ Foo.prototype.bar_ = function() {};",
+            "/** @constructor */ function OtherFoo() { (new Foo).bar_(); }"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoPrivateAccessForProperties4() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {} "
-        + "/** @private */ Foo.prototype.bar_ = function() {};",
-        "/** @constructor \n * @extends {Foo} */ "
-        + "function SubFoo() { this.bar_(); }"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {} "
+                + "/** @private */ Foo.prototype.bar_ = function() {};",
+            "/** @constructor \n * @extends {Foo} */ " + "function SubFoo() { this.bar_(); }"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoPrivateAccessForProperties5() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {} "
-        + "/** @private */ Foo.prototype.bar_ = function() {};",
-        "/** @constructor \n * @extends {Foo} */ "
-        + "function SubFoo() {};"
-        + "SubFoo.prototype.baz = function() { this.bar_(); }"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {} "
+                + "/** @private */ Foo.prototype.bar_ = function() {};",
+            "/** @constructor \n * @extends {Foo} */ "
+                + "function SubFoo() {};"
+                + "SubFoo.prototype.baz = function() { this.bar_(); }"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
@@ -696,13 +691,14 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   @Test
   public void testNoPrivateAccessForProperties6a() {
     // Same as above, except with namespaced constructors
-    testError(new String[] {
-        "/** @const */ var ns = {};"
-        + "/** @constructor */ ns.Foo = function() {}; "
-        + "/** @private */ ns.Foo.prototype.bar_ = function() {};",
-        "/** @constructor \n * @extends {ns.Foo} */ "
-        + "ns.SubFoo = function() {};"
-        + "ns.SubFoo.prototype.bar_ = function() {};"},
+    testError(
+        srcs(
+            "/** @const */ var ns = {};"
+                + "/** @constructor */ ns.Foo = function() {}; "
+                + "/** @private */ ns.Foo.prototype.bar_ = function() {};",
+            "/** @constructor \n * @extends {ns.Foo} */ "
+                + "ns.SubFoo = function() {};"
+                + "ns.SubFoo.prototype.bar_ = function() {};"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
@@ -710,66 +706,72 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   public void testNoPrivateAccessForProperties7() {
     // It's OK to override a private property with a non-private property
     // in the same file, but you'll get yelled at when you try to use it.
-    testError(new String[] {
-        "/** @constructor */ function Foo() {} "
-        + "/** @private */ Foo.prototype.bar_ = function() {};"
-        + "/** @constructor \n * @extends {Foo} */ "
-        + "function SubFoo() {};"
-        + "SubFoo.prototype.bar_ = function() {};",
-        "SubFoo.prototype.baz = function() { this.bar_(); }"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {} "
+                + "/** @private */ Foo.prototype.bar_ = function() {};"
+                + "/** @constructor \n * @extends {Foo} */ "
+                + "function SubFoo() {};"
+                + "SubFoo.prototype.bar_ = function() {};",
+            "SubFoo.prototype.baz = function() { this.bar_(); }"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoPrivateAccessForProperties8() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() { /** @private */ this.bar_ = 3; }",
-        "/** @constructor \n * @extends {Foo} */ "
-        + "function SubFoo() { /** @private */ this.bar_ = 3; };"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() { /** @private */ this.bar_ = 3; }",
+            "/** @constructor \n * @extends {Foo} */ "
+                + "function SubFoo() { /** @private */ this.bar_ = 3; };"),
         PRIVATE_OVERRIDE);
   }
 
   @Test
   public void testNoPrivateAccessForProperties9() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {}"
-        + "Foo.prototype = {"
-        + "/** @private */ bar_: 3"
-        + "}",
-        "new Foo().bar_;"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {}"
+                + "Foo.prototype = {"
+                + "/** @private */ bar_: 3"
+                + "}",
+            "new Foo().bar_;"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoPrivateAccessForProperties10() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {}"
-        + "Foo.prototype = {"
-        + "/** @private */ bar_: function() {}"
-        + "}",
-        "new Foo().bar_();"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {}"
+                + "Foo.prototype = {"
+                + "/** @private */ bar_: function() {}"
+                + "}",
+            "new Foo().bar_();"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoPrivateAccessForProperties11() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {}"
-        + "Foo.prototype = {"
-        + "/** @private */ get bar_() { return 1; }"
-        + "}",
-        "var a = new Foo().bar_;"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {}"
+                + "Foo.prototype = {"
+                + "/** @private */ get bar_() { return 1; }"
+                + "}",
+            "var a = new Foo().bar_;"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoPrivateAccessForProperties12() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {}"
-        + "Foo.prototype = {"
-        + "/** @private */ set bar_(x) { this.barValue = x; }"
-        + "}",
-        "new Foo().bar_ = 1;"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {}"
+                + "Foo.prototype = {"
+                + "/** @private */ set bar_(x) { this.barValue = x; }"
+                + "}",
+            "new Foo().bar_ = 1;"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
@@ -792,10 +794,10 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Test
   public void testNoPrivateAccessForNamespaces() {
-    testError(new String[] {
-        "/** @const */ var foo = {};\n"
-        + "/** @private */ foo.bar_ = function() {};",
-        "foo.bar_();"},
+    testError(
+        srcs(
+            "/** @const */ var foo = {};\n" + "/** @private */ foo.bar_ = function() {};",
+            "foo.bar_();"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
@@ -850,12 +852,13 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Test
   public void testProtectedAccessForProperties6() {
-    testSame(new String[] {
-        "/** @const */ var goog = {};"
-        + "/** @constructor */ goog.Foo = function() {};"
-        + "/** @protected */ goog.Foo.prototype.bar = function() {};",
-        "/** @constructor \n * @extends {goog.Foo} */"
-        + "goog.SubFoo = function() { this.bar(); };"});
+    testSame(
+        new String[] {
+          "/** @constructor */ goog.Foo = function() {};"
+              + "/** @protected */ goog.Foo.prototype.bar = function() {};",
+          "/** @constructor \n * @extends {goog.Foo} */"
+              + "goog.SubFoo = function() { this.bar(); };"
+        });
   }
 
   @Test
@@ -1016,46 +1019,43 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   @Test
   public void testProtectedAccessForProperties14() {
     // access in member function
-    testNoWarning(
-        new String[] {
-          lines(
-              "/** @constructor */ var Foo = function() {};",
-              "Foo.prototype = { /** @protected */ bar: function() {} }"),
-          lines(
-              "/** @constructor @extends {Foo} */",
-              "var OtherFoo = function() { this.bar(); };",
-              "OtherFoo.prototype = { moo() { new Foo().bar(); }};")
-        });
+    test(
+        srcs(
+            lines(
+                "/** @constructor */ var Foo = function() {};",
+                "Foo.prototype = { /** @protected */ bar: function() {} }"),
+            lines(
+                "/** @constructor @extends {Foo} */",
+                "var OtherFoo = function() { this.bar(); };",
+                "OtherFoo.prototype = { moo() { new Foo().bar(); }};")));
   }
 
   @Test
   public void testProtectedAccessForProperties15() {
     // access in computed member function
-    testNoWarning(
-        new String[] {
-          lines(
-              "/** @constructor */ var Foo = function() {};",
-              "Foo.prototype = { /** @protected */ bar: function() {} }"),
-          lines(
-              "/** @constructor @extends {Foo} */",
-              "var OtherFoo = function() { this['bar'](); };",
-              "OtherFoo.prototype = { ['bar']() { new Foo().bar(); }};")
-        });
+    test(
+        srcs(
+            lines(
+                "/** @constructor */ var Foo = function() {};",
+                "Foo.prototype = { /** @protected */ bar: function() {} }"),
+            lines(
+                "/** @constructor @extends {Foo} */",
+                "var OtherFoo = function() { this['bar'](); };",
+                "OtherFoo.prototype = { ['bar']() { new Foo().bar(); }};")));
   }
 
   @Test
   public void testProtectedAccessForProperties16() {
     // access in nested arrow function
-    testNoWarning(
-        new String[] {
-          lines(
-              "/** @constructor */ var Foo = function() {};",
-              "/** @protected */ Foo.prototype.bar = function() {};"),
-          lines(
-              "/** @constructor @extends {Foo} */",
-              "var OtherFoo = function() { var f = () => this.bar(); };",
-              "OtherFoo.prototype.baz = function() { return () => this.bar(); };")
-        });
+    test(
+        srcs(
+            lines(
+                "/** @constructor */ var Foo = function() {};",
+                "/** @protected */ Foo.prototype.bar = function() {};"),
+            lines(
+                "/** @constructor @extends {Foo} */",
+                "var OtherFoo = function() { var f = () => this.bar(); };",
+                "OtherFoo.prototype.baz = function() { return () => this.bar(); };")));
   }
 
   @Test
@@ -1178,105 +1178,107 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Test
   public void testNoProtectedAccessForProperties1() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {} "
-        + "/** @protected */ Foo.prototype.bar = function() {};",
-        "(new Foo).bar();"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {} "
+                + "/** @protected */ Foo.prototype.bar = function() {};",
+            "(new Foo).bar();"),
         BAD_PROTECTED_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoProtectedAccessForProperties2() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {} "
-        + "/** @protected */ Foo.prototype.bar = function() {};",
-        "/** @constructor */ function OtherFoo() { (new Foo).bar(); }"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {} "
+                + "/** @protected */ Foo.prototype.bar = function() {};",
+            "/** @constructor */ function OtherFoo() { (new Foo).bar(); }"),
         BAD_PROTECTED_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoProtectedAccessForProperties3() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {} "
-        + "/** @constructor \n * @extends {Foo} */ "
-        + "function SubFoo() {}"
-        + "/** @protected */ SubFoo.prototype.bar = function() {};",
-        "/** @constructor \n * @extends {Foo} */ "
-        + "function SubberFoo() { (new SubFoo).bar(); }"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {} "
+                + "/** @constructor \n * @extends {Foo} */ "
+                + "function SubFoo() {}"
+                + "/** @protected */ SubFoo.prototype.bar = function() {};",
+            "/** @constructor \n * @extends {Foo} */ "
+                + "function SubberFoo() { (new SubFoo).bar(); }"),
         BAD_PROTECTED_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoProtectedAccessForProperties4() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() { (new SubFoo).bar(); } ",
-        "/** @constructor \n * @extends {Foo} */ "
-        + "function SubFoo() {}"
-        + "/** @protected */ SubFoo.prototype.bar = function() {};",
-         },
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() { (new SubFoo).bar(); } ",
+            "/** @constructor \n * @extends {Foo} */ "
+                + "function SubFoo() {}"
+                + "/** @protected */ SubFoo.prototype.bar = function() {};"),
         BAD_PROTECTED_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoProtectedAccessForProperties5() {
-    testError(new String[] {
-        "/** @const */ var goog = {};"
-        + "/** @constructor */ goog.Foo = function() {};"
-        + "/** @protected */ goog.Foo.prototype.bar = function() {};",
-        "/** @constructor */"
-        + "goog.NotASubFoo = function() { (new goog.Foo).bar(); };"},
+    testError(
+        srcs(
+            "/** @constructor */ goog.Foo = function() {};"
+                + "/** @protected */ goog.Foo.prototype.bar = function() {};",
+            "/** @constructor */" + "goog.NotASubFoo = function() { (new goog.Foo).bar(); };"),
         BAD_PROTECTED_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoProtectedAccessForProperties6() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {}"
-        + "Foo.prototype = {"
-        + "/** @protected */ bar: 3"
-        + "}",
-        "new Foo().bar;"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {}"
+                + "Foo.prototype = {"
+                + "/** @protected */ bar: 3"
+                + "}",
+            "new Foo().bar;"),
         BAD_PROTECTED_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoProtectedAccessForProperties7() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {}"
-        + "Foo.prototype = {"
-        + "/** @protected */ bar: function() {}"
-        + "}",
-        "new Foo().bar();"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {}"
+                + "Foo.prototype = {"
+                + "/** @protected */ bar: function() {}"
+                + "}",
+            "new Foo().bar();"),
         BAD_PROTECTED_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoProtectedAccessForProperties8() {
     testError(
-        new String[] {
-          lines(
-              "/** @constructor */ var Foo = function() {};",
-              "Foo.prototype = { /** @protected */ bar: function() {} }"),
-          lines(
-              "/** @constructor */",
-              "var OtherFoo = function() { this.bar(); };",
-              "OtherFoo.prototype = { moo() { new Foo().bar(); }};")
-        },
+        srcs(
+            lines(
+                "/** @constructor */ var Foo = function() {};",
+                "Foo.prototype = { /** @protected */ bar: function() {} }"),
+            lines(
+                "/** @constructor */",
+                "var OtherFoo = function() { this.bar(); };",
+                "OtherFoo.prototype = { moo() { new Foo().bar(); }};")),
         BAD_PROTECTED_PROPERTY_ACCESS);
   }
 
   @Test
   public void testNoProtectedAccessForProperties9() {
     testError(
-        new String[] {
-          lines(
-              "/** @constructor */ var Foo = function() {};",
-              "Foo.prototype = { /** @protected */ bar: function() {} }"),
-          lines(
-              "/** @constructor */",
-              "var OtherFoo = function() { this['bar'](); };",
-              "OtherFoo.prototype = { ['bar']() { new Foo().bar(); }};")
-        },
+        srcs(
+            lines(
+                "/** @constructor */ var Foo = function() {};",
+                "Foo.prototype = { /** @protected */ bar: function() {} }"),
+            lines(
+                "/** @constructor */",
+                "var OtherFoo = function() { this['bar'](); };",
+                "OtherFoo.prototype = { ['bar']() { new Foo().bar(); }};")),
         BAD_PROTECTED_PROPERTY_ACCESS);
   }
 
@@ -1352,7 +1354,6 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
     disableRewriteClosureCode();
     testNoWarning(
         ImmutableList.of(
-            SourceFile.fromCode("goog.js", CLOSURE_PRIMITIVES),
             SourceFile.fromCode(
                 Compiler.joinPathParts("foo", "bar.js"),
                 lines(
@@ -1683,19 +1684,20 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   @Test
   public void
       testOverrideWithoutVisibilityRedeclInFileWithFileOverviewVisibilityNotAllowed_TwoFiles() {
-    testError(new String[] {
-        "/** @struct @constructor */\n"
-        + "Foo = function() {};\n"
-        + "/** @protected */\n"
-        + "Foo.prototype.protectedMethod = function() {};\n",
-        "  /**\n"
-        + "* @fileoverview \n"
-        + "* @package\n"
-        + "*/\n"
-        + "/** @struct @constructor @extends {Foo} */\n"
-        + "Bar = function() {};\n"
-        + "/** @override */\n"
-        + "Bar.prototype.protectedMethod = function() {};\n"},
+    testError(
+        srcs(
+            "/** @struct @constructor */\n"
+                + "Foo = function() {};\n"
+                + "/** @protected */\n"
+                + "Foo.prototype.protectedMethod = function() {};\n",
+            "  /**\n"
+                + "* @fileoverview \n"
+                + "* @package\n"
+                + "*/\n"
+                + "/** @struct @constructor @extends {Foo} */\n"
+                + "Bar = function() {};\n"
+                + "/** @override */\n"
+                + "Bar.prototype.protectedMethod = function() {};\n"),
         BAD_PROPERTY_OVERRIDE_IN_FILE_WITH_FILEOVERVIEW_VISIBILITY);
   }
 
@@ -1809,7 +1811,6 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
     disableRewriteClosureCode();
     testNoWarning(
         ImmutableList.of(
-            SourceFile.fromCode("goog.js", CLOSURE_PRIMITIVES),
             SourceFile.fromCode(
                 Compiler.joinPathParts("foo", "bar.js"),
                 lines(
@@ -1868,7 +1869,7 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Test
   public void testFileoverviewVisibilityDoesNotApplyToGoogProvidedNamespace1() {
-    test(
+    testNoWarning(
         ImmutableList.of(
             SourceFile.fromCode("foo.js", "goog.provide('foo');"),
             SourceFile.fromCode(
@@ -1879,55 +1880,23 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
                     "  * @package\n",
                     "  */\n",
                     "goog.provide('foo.bar');")),
-            SourceFile.fromCode("bar.js", "goog.require('foo')")),
-        ImmutableList.of(
-            SourceFile.fromCode("foo.js", "/** @const */ var foo={};"),
-            SourceFile.fromCode(
-                Compiler.joinPathParts("foo", "bar.js"),
-                lines(
-                    "/**\n",
-                    "  * @fileoverview\n",
-                    "  * @package\n",
-                    "  */\n",
-                    "/** @const */ foo.bar={};")),
-            SourceFile.fromCode("bar.js", "")));
+            SourceFile.fromCode("bar.js", "goog.require('foo')")));
   }
 
   @Test
   public void testFileoverviewVisibilityDoesNotApplyToGoogProvidedNamespace2() {
-    test(
+    testNoWarning(
         ImmutableList.of(
             SourceFile.fromCode(
                 Compiler.joinPathParts("foo", "bar.js"),
-                lines(
-                    "/**",
-                    " * @fileoverview",
-                    " * @package",
-                    " */",
-                    "goog.provide('foo.bar');")),
+                lines("/**", " * @fileoverview", " * @package", " */", "goog.provide('foo.bar');")),
             SourceFile.fromCode("foo.js", "goog.provide('foo');"),
-            SourceFile.fromCode(
-                "bar.js",
-                lines(
-                    "goog.require('foo');",
-                    "var x = foo;"))),
-        ImmutableList.of(
-            SourceFile.fromCode(
-                Compiler.joinPathParts("foo", "bar.js"),
-                lines(
-                    "/** @const */var foo={};",
-                    "/**",
-                    " * @fileoverview",
-                    " * @package",
-                    " */",
-                    "/** @const */foo.bar={};")),
-            SourceFile.fromCode("foo.js", ""),
-            SourceFile.fromCode("bar.js", "var x=foo")));
+            SourceFile.fromCode("bar.js", lines("goog.require('foo');", "var x = foo;"))));
   }
 
   @Test
   public void testFileoverviewVisibilityDoesNotApplyToGoogProvidedNamespace3() {
-    test(
+    testNoWarning(
         ImmutableList.of(
             SourceFile.fromCode(
                 Compiler.joinPathParts("foo", "bar.js"),
@@ -1938,23 +1907,7 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
                     " */",
                     "goog.provide('one.two');",
                     "one.two.three = function(){};")),
-            SourceFile.fromCode(
-                "baz.js",
-                lines(
-                    "goog.require('one.two');",
-                    "var x = one.two;"))),
-        ImmutableList.of(
-            SourceFile.fromCode(
-                Compiler.joinPathParts("foo", "bar.js"),
-                lines(
-                    "/** @const */ var one={};",
-                    "/**",
-                    " * @fileoverview",
-                    " * @package",
-                    " */",
-                    "/** @const */ one.two={};",
-                    "one.two.three=function(){};")),
-            SourceFile.fromCode("baz.js", "var x=one.two")));
+            SourceFile.fromCode("baz.js", lines("goog.require('one.two');", "var x = one.two;"))));
   }
 
   @Test
@@ -1964,15 +1917,13 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
             SourceFile.fromCode(
                 Compiler.joinPathParts("foo", "bar.js"),
                 "/**\n"
-                + " * @fileoverview\n"
-                + " * @package\n"
-                + " */\n"
-                + "goog.provide('one.two');\n"
-                + "one.two.three = function(){};"),
+                    + " * @fileoverview\n"
+                    + " * @package\n"
+                    + " */\n"
+                    + "goog.provide('one.two');\n"
+                    + "one.two.three = function(){};"),
             SourceFile.fromCode(
-                "baz.js",
-                "goog.require('one.two');\n"
-                + "var x = one.two.three();")),
+                "baz.js", "goog.require('one.two');\n" + "var x = one.two.three();")),
         BAD_PACKAGE_PROPERTY_ACCESS);
   }
 
@@ -2090,25 +2041,25 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Test
   public void testBadOverrideOfProtectedProperty() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() { } "
-        + "/** @protected */ Foo.prototype.bar = function() {};",
-        "/** @constructor \n * @extends {Foo} */ "
-        + "function SubFoo() {}"
-        + "/** @private */ SubFoo.prototype.bar = function() {};",
-         },
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() { } "
+                + "/** @protected */ Foo.prototype.bar = function() {};",
+            "/** @constructor \n * @extends {Foo} */ "
+                + "function SubFoo() {}"
+                + "/** @private */ SubFoo.prototype.bar = function() {};"),
         VISIBILITY_MISMATCH);
   }
 
   @Test
   public void testBadOverrideOfPrivateProperty() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() { } "
-        + "/** @private */ Foo.prototype.bar = function() {};",
-        "/** @constructor \n * @extends {Foo} */ "
-        + "function SubFoo() {}"
-        + "/** @protected */ SubFoo.prototype.bar = function() {};",
-         },
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() { } "
+                + "/** @private */ Foo.prototype.bar = function() {};",
+            "/** @constructor \n * @extends {Foo} */ "
+                + "function SubFoo() {}"
+                + "/** @protected */ SubFoo.prototype.bar = function() {};"),
         PRIVATE_OVERRIDE);
   }
 
@@ -2123,22 +2074,22 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Test
   public void testAccessOfStaticMethodOnPrivateQualifiedConstructor() {
-    testSame(new String[] {
-        "/** @const */ var goog = {};"
-        + "/** @constructor \n * @private */ goog.Foo = function() { }; "
-        + "goog.Foo.create = function() { return new goog.Foo(); };",
-        "goog.Foo.create()",
-    });
+    testSame(
+        new String[] {
+          "/** @constructor \n * @private */ goog.Foo = function() { }; "
+              + "goog.Foo.create = function() { return new goog.Foo(); };",
+          "goog.Foo.create()",
+        });
   }
 
   @Test
   public void testInstanceofOfPrivateConstructor() {
-    testSame(new String[] {
-        "/** @const */ var goog = {};"
-        + "/** @constructor \n * @private */ goog.Foo = function() { }; "
-        + "goog.Foo.create = function() { return new goog.Foo(); };",
-        "goog instanceof goog.Foo",
-    });
+    testSame(
+        new String[] {
+          "/** @constructor \n * @private */ goog.Foo = function() { }; "
+              + "goog.Foo.create = function() { return new goog.Foo(); };",
+          "goog instanceof goog.Foo",
+        });
   }
 
   @Test
@@ -2185,119 +2136,77 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Test
   public void testNullablePrivateProperty() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {}"
-        + "/** @private */ Foo.prototype.length;",
-        "/** @param {?Foo} x */ function f(x) { return x.length; }"},
+    testError(
+        srcs(
+            "/** @constructor */ function Foo() {}" + "/** @private */ Foo.prototype.length;",
+            "/** @param {?Foo} x */ function f(x) { return x.length; }"),
         BAD_PRIVATE_PROPERTY_ACCESS);
   }
 
   @Test
-  public void testPrivatePropertyByConvention1() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {}\n"
-        + "/** @type {number} */ Foo.prototype.length_;\n",
-        "/** @param {?Foo} x */ function f(x) { return x.length_; }\n"},
-        BAD_PRIVATE_PROPERTY_ACCESS);
+  public void testNoPrivatePropertyByConvention1() {
+    testSame(
+        srcs(
+            "/** @constructor */ function Foo() {}\n"
+                + "/** @type {number} */ Foo.prototype.length_;\n",
+            "/** @param {?Foo} x */ function f(x) { return x.length_; }\n"));
   }
 
   @Test
-  public void testPrivatePropertyByConvention2() {
-    testError(new String[] {
-        "/** @constructor */ function Foo() {\n"
-        + "  /** @type {number} */ this.length_ = 1;\n"
-        + "}\n"
-        + "/** @type {number} */ Foo.prototype.length_;\n",
-        "/** @param {Foo} x */ function f(x) { return x.length_; }\n"},
-        BAD_PRIVATE_PROPERTY_ACCESS);
+  public void testNoPrivatePropertyByConvention2() {
+    testSame(
+        srcs(
+            "/** @constructor */ function Foo() {\n"
+                + "  /** @type {number} */ this.length_ = 1;\n"
+                + "}\n"
+                + "/** @type {number} */ Foo.prototype.length_;\n",
+            "/** @param {Foo} x */ function f(x) { return x.length_; }\n"));
   }
 
   @Test
   public void testDeclarationAndConventionConflict1() {
-    testError(
-        "/** @constructor */ function Foo() {} /** @protected */ Foo.prototype.length_;",
-        CONVENTION_MISMATCH);
+    // "private" convention is no longer recognized
+    testSame("/** @constructor */ function Foo() {} /** @protected */ Foo.prototype.length_;");
   }
 
   @Test
   public void testDeclarationAndConventionConflict2() {
-    testError(
-        "/** @constructor */ function Foo() {}\n"
-            + "/** @public {number} */ Foo.prototype.length_;\n",
-        CONVENTION_MISMATCH);
+    // "private" convention is no longer recognized
+    testSame("/** @constructor */ function Foo() {  /** @protected */ this.length_ = 1;\n}\n");
   }
 
   @Test
   public void testDeclarationAndConventionConflict3() {
-    testError(
-        "/** @constructor */ function Foo() {  /** @protected */ this.length_ = 1;\n}\n",
-        CONVENTION_MISMATCH);
+    // "private" convention is no longer recognized
+    testSame("/** @protected */ var Foo_;");
   }
 
   @Test
-  public void testDeclarationAndConventionConflict4a() {
-
-    testError(
-        "/** @constructor */ function Foo() {}"
-            + "Foo.prototype = { /** @protected */ length_: 1 }\n"
-            + "new Foo().length_",
-        CONVENTION_MISMATCH);
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict4b() {
-
-    testError(
-        "/** @const */ var NS = {}; /** @constructor */ NS.Foo = function() {};"
-            + "NS.Foo.prototype = { /** @protected */ length_: 1 };\n"
-            + "(new NS.Foo()).length_;",
-        CONVENTION_MISMATCH);
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict5() {
-
-    testError(
-        "/** @constructor */ function Foo() {}\n"
-            + "Foo.prototype = { /** @protected */ get length_() { return 1; } }\n",
-        CONVENTION_MISMATCH);
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict6() {
-
-    testError(
-        "/** @constructor */ function Foo() {}\n"
-            + "Foo.prototype = { /** @protected */ set length_(x) { } }\n",
-        CONVENTION_MISMATCH);
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict7() {
-    testError("/** @public */ var Foo_;", CONVENTION_MISMATCH);
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict8() {
-    testError("/** @package */ var Foo_;", CONVENTION_MISMATCH);
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict9() {
-    testError("/** @protected */ var Foo_;", CONVENTION_MISMATCH);
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict10() {
-    testError(
+  public void testConstantPropertyByJsdoc_initialAssignmentOk() {
+    testNoWarning(
         lines(
-            "/** @constructor */ function Foo() {}",
-            "Foo.prototype = { /** @protected */ length_() { return 1; } }"),
-        CONVENTION_MISMATCH);
+            "/** @constructor */ function A() {",
+            "  /** @const */ this.bar = 3;",
+            "}",
+            "/** @constructor */ function B() {",
+            "  /** @const */ this.bar = 3;",
+            "}"));
   }
 
   @Test
-  public void testConstantProperty1a() {
+  public void testConstantPropertyByConvention_initialAssignmentOk() {
+    testNoWarning(
+        lines(
+            "/** @constructor */ function A() {",
+            "  this.BAR = 3;",
+            "}",
+            "/** @constructor */ function B() {",
+            "  this.BAR = 3;",
+            "}"));
+  }
+
+  @Test
+  public void testConstantPropertyByJsdoc_reassignmentWarns() {
     testError(
         "/** @constructor */ function A() {"
         + "/** @const */ this.bar = 3;}"
@@ -2311,7 +2220,6 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
     disableRewriteClosureCode();
     testNoWarning(
         srcs(
-            "var goog = {}; goog.module = function(ns) {};",
             lines(
                 "goog.module('mod1');",
                 "/** @constructor */",
@@ -2329,17 +2237,16 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   }
 
   @Test
-  public void testConstantProperty1b() {
-    testError(
+  public void testNoConstantPropertyByConvention() {
+    testSame(
         "/** @constructor */ function A() {"
-        + "this.BAR = 3;}"
-        + "/** @constructor */ function B() {"
-        + "this.BAR = 3;this.BAR += 4;}",
-        CONST_PROPERTY_REASSIGNED_VALUE);
+            + "this.BAR = 3;}"
+            + "/** @constructor */ function B() {"
+            + "this.BAR = 3;this.BAR += 4;}");
   }
 
   @Test
-  public void testConstantProperty2a() {
+  public void testConstantPropertyByJsdocOnPrototype_reassignmentWarns() {
     testError(
         "/** @constructor */ function Foo() {}"
         + "/** @const */ Foo.prototype.prop = 2;"
@@ -2349,17 +2256,21 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   }
 
   @Test
-  public void testConstantProperty2b() {
-    testError(
+  public void testConstantPropertyByConventionOnPrototype_notEnforced() {
+    testSame(
         "/** @constructor */ function Foo() {}"
-        + "Foo.prototype.PROP = 2;"
-        + "var foo = new Foo();"
-        + "foo.PROP = 3;",
-        CONST_PROPERTY_REASSIGNED_VALUE);
+            + "Foo.prototype.PROP = 2;"
+            + "var foo = new Foo();"
+            + "foo.PROP = 3;");
   }
 
   @Test
-  public void testNamespaceConstantProperty1() {
+  public void testConstantPropertyOnConstNamespaceByAssignment_initialAssignmentOk() {
+    testNoWarning(lines("/** @const */ var o = {};", "/** @const */ o.x = 1;"));
+  }
+
+  @Test
+  public void testConstantPropertyOnConstNamespaceByAssignment_reassignmentWarns() {
     testError(
         ""
         + "/** @const */ var o = {};\n"
@@ -2369,7 +2280,7 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   }
 
   @Test
-  public void testNamespaceConstantProperty2() {
+  public void testConstantPropertyOnNamespaceByAssignment_reassignmentWarns() {
     testError(
         "var o = {};\n"
         + "/** @const */ o.x = 1;\n"
@@ -2378,7 +2289,7 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   }
 
   @Test
-  public void testNamespaceConstantProperty2a() {
+  public void testNamespaceConstantPropertyOnNamespace_assigningSeparateNamespacesOk() {
     testSame("/** @const */ var o = {};\n"
         + "/** @const */ o.x = 1;\n"
         + "/** @const */ var o2 = {};\n"
@@ -2386,36 +2297,37 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   }
 
   @Test
-  public void testNamespaceConstantProperty3() {
+  public void testConstantPropertyOnObjectLiteralByLiteralKey_initialAssignmentOk() {
+    testNoWarning(lines("var o = {", "  /** @const */ x: 1", " };"));
+  }
+
+  @Test
+  public void testConstantPropertyOnObjectLiteralByLiteralKey_reassignmentWarns() {
     testError(
-        "/** @const */ var o = {};\n"
-        + "/** @const */ o.x = 1;"
-        + "o.x = 2;",
+        lines("var o = {", "  /** @const */ x: 1", " };", "o.x = 2;"),
         CONST_PROPERTY_REASSIGNED_VALUE);
   }
 
   @Test
-  public void testConstantProperty3a1() {
-    // Known broken: Should be `error(CONST_PROPERTY_REASSIGNED_VALUE)`.
-    testSame("var o = { /** @const */ x: 1 };" + "o.x = 2;");
+  public void testConstantPropertyOnConstObjectLiteralByLiteralKey_reassignmentWarns() {
+    testError(
+        lines("/** @const */", "var o = {", "  /** @const */ x: 1", " };", "o.x = 2;"),
+        CONST_PROPERTY_REASSIGNED_VALUE);
   }
 
   @Test
-  public void testConstantProperty3a2() {
-    // Known broken: Should be `error(CONST_PROPERTY_REASSIGNED_VALUE)`.
-    testSame("/** @const */ var o = { /** @const */ x: 1 };" + "o.x = 2;");
+  public void testConstantPropertyOnObjectLiteralByConvention_notEnforced() {
+    testSame(lines("var o = {", "  XYZ: 1", " };", "o.XYZ = 2;"));
   }
 
   @Test
-  public void testConstantProperty3b1() {
-    // Known broken: Should be `error(CONST_PROPERTY_REASSIGNED_VALUE)`.
-    testSame("var o = { XYZ: 1 };" + "o.XYZ = 2;");
-  }
-
-  @Test
-  public void testConstantProperty3b2() {
-    // Known broken: Should be `error(CONST_PROPERTY_REASSIGNED_VALUE)`.
-    testSame("/** @const */ var o = { XYZ: 1 };" + "o.XYZ = 2;");
+  public void testConstantPropertyOnConstObjectLiteralByConvention_notEnforced() {
+    testSame(
+        lines(
+            "/** @const */ var o = {", //
+            "  XYZ: 1",
+            "};",
+            "o.XYZ = 2;"));
   }
 
   @Test
@@ -2429,11 +2341,11 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
 
   @Test
   public void testConstantProperty4b() {
-    testError(
-        "/** @constructor */ function cat(name) {}"
-        + "cat.TEST = 1;"
-        + "cat.TEST *= 2;",
-        CONST_PROPERTY_REASSIGNED_VALUE);
+    testSame(
+        lines(
+            "/** @constructor */ function cat(name) {}", //
+            "cat.TEST = 1;",
+            "cat.TEST *= 2;"));
   }
 
   @Test
@@ -2560,39 +2472,36 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
   }
 
   @Test
-  public void testConstantProperty15a() {
-    testError(
+  public void testConstantProperty_convention_not_enforced1() {
+    testSame(
         "/** @constructor */ function Foo() { this.CONST = 100; };\n"
-        + "/** @type {Foo} */\n"
-        + "var foo = new Foo();\n"
-        + "/** @type {number} */\n"
-        + "foo.CONST = 0;",
-        CONST_PROPERTY_REASSIGNED_VALUE);
+            + "/** @type {Foo} */\n"
+            + "var foo = new Foo();\n"
+            + "/** @type {number} */\n"
+            + "foo.CONST = 0;");
   }
 
   @Test
-  public void testConstantProperty15b() {
-    testError(
+  public void testConstantProperty_convention_not_enforced2() {
+    testSame(
         "/** @constructor */ function Foo() {};\n"
-        + "Foo.prototype.CONST = 100;\n"
-        + "/** @type {Foo} */\n"
-        + "var foo = new Foo();\n"
-        + "/** @type {number} */\n"
-        + "foo.CONST = 0;",
-        CONST_PROPERTY_REASSIGNED_VALUE);
+            + "Foo.prototype.CONST = 100;\n"
+            + "/** @type {Foo} */\n"
+            + "var foo = new Foo();\n"
+            + "/** @type {number} */\n"
+            + "foo.CONST = 0;");
   }
 
   @Test
-  public void testConstantProperty15c() {
-    testError(
+  public void testConstantProperty_convention_not_enforced3() {
+    testSame(
         ""
-        + "/** @constructor */ function Bar() {this.CONST = 100;};\n"
-        + "/** @constructor \n @extends {Bar} */ function Foo() {};\n"
-        + "/** @type {Foo} */\n"
-        + "var foo = new Foo();\n"
-        + "/** @type {number} */\n"
-        + "foo.CONST = 0;",
-        CONST_PROPERTY_REASSIGNED_VALUE);
+            + "/** @constructor */ function Bar() {this.CONST = 100;};\n"
+            + "/** @constructor \n @extends {Bar} */ function Foo() {};\n"
+            + "/** @type {Foo} */\n"
+            + "var foo = new Foo();\n"
+            + "/** @type {number} */\n"
+            + "foo.CONST = 0;");
   }
 
   @Test
@@ -2629,6 +2538,92 @@ public final class CheckAccessControlsTest extends CompilerTestCase {
         + "/** @param {number} a */\n"
         + "function Bar(a) {};\n"
         + "Bar.CONST = 100;\n");
+  }
+
+  @Test
+  public void testNamespaceOnStructuralInterface() {
+    // NOTE: The FooStatic pattern is not uncommon in TS externs.  If additional sub-namespaces are
+    // defined underneath, tsickle generates code that looks like this.  It is important that the
+    // moment.unitOfTime declaration be treated as a declaration so that it doesn't just look like
+    // a mutation of the readonly property that it just defined.
+    testNoWarning(
+        lines(
+            "/** @externs */",
+            "/** @record */",
+            "function MomentStatic() {}",
+            "/** @return {number} */",
+            "MomentStatic.prototype.now = function() {};",
+            "/** @const */",
+            "moment.unitOfTime = {};",
+            "/** @const {!MomentStatic} */",
+            "var moment;"));
+  }
+
+  @Test
+  public void testConstantPropertyOnStructuralInterfaceByJsdoc_initializeFromObjLitOk() {
+    testNoWarning(
+        lines(
+            "/** @record */",
+            "function Foo() {",
+            "  /** @const {number} */ this.bar;",
+            "}",
+            "var /** !Foo */ foo = {bar: 1};",
+            "var /** !Foo */ baz = {bar: 2};"));
+  }
+
+  @Test
+  public void testConstantPropertyOnStructuralInterfaceByJsdoc_reassignmentWarns() {
+    testError(
+        lines(
+            "/** @record */",
+            "function Foo() {",
+            "  /** @const {number} */ this.bar;",
+            "}",
+            "var /** !Foo */ foo = {bar: 1};",
+            "foo.bar = 2;"),
+        CONST_PROPERTY_REASSIGNED_VALUE);
+  }
+
+  @Test
+  public void testConstantPropertyOnStructuralInterfaceByJsdoc_assignmentOnOpaqueObjectWarns() {
+    testError(
+        lines(
+            "/** @record */",
+            "function Foo() {",
+            "  /** @const {number} */ this.bar;",
+            "}",
+            "function f(/** !Foo */ foo) {",
+            "  foo.bar = 2;",
+            "}"),
+        CONST_PROPERTY_REASSIGNED_VALUE);
+  }
+
+  @Test
+  public void testConstantPropertyOnStructuralInterfaceByConvention_noReassignmentWarns() {
+    testSame(
+        lines(
+            "/** @record */",
+            "function Foo() {",
+            "  /** @type {number} */ this.BAR;",
+            "}",
+            "var /** !Foo */ foo = {BAR: 1};",
+            "foo.BAR = 2;"));
+  }
+
+  @Test
+  public void testFunctionWithNewType_canReturnFinalClass() {
+    testNoWarning(
+        lines(
+            "goog.forwardDeclare('Parent');",
+            "/** @type {function(new: Parent): !Parent} */",
+            "const PatchedParent = function Parent() { return /** @type {?} */ (0); }"));
+
+    testNoWarning(
+        lines(
+            "/** @constructor @final */",
+            "const Parent = function() {}",
+            "/** @type {function(new: Parent): !Parent} */",
+            "const PatchedParent = function Parent() { return /** @type {?} */ (0); }"));
   }
 
   @Test

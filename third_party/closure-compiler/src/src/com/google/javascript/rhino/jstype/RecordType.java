@@ -57,7 +57,7 @@ import java.util.Map;
  *
  */
 public class RecordType extends PrototypeObjectType {
-  private static final long serialVersionUID = 1L;
+  private static final JSTypeClass TYPE_CLASS = JSTypeClass.RECORD;
 
   private final boolean declared;
   private boolean isFrozen = false;
@@ -96,6 +96,13 @@ public class RecordType extends PrototypeObjectType {
     }
     // Freeze the record type.
     isFrozen = true;
+
+    registry.getResolver().resolveIfClosed(this, TYPE_CLASS);
+  }
+
+  @Override
+  JSTypeClass getTypeClass() {
+    return TYPE_CLASS;
   }
 
   /** @return Is this synthesized for internal bookkeeping? */
@@ -136,7 +143,9 @@ public class RecordType extends PrototypeObjectType {
         if (thatRecord.hasProperty(property)) {
           JSType thatPropertyType = thatRecord.getPropertyType(property);
           propType = thisPropertyType.getGreatestSubtype(thatPropertyType);
-          if (propType.isEquivalentTo(noType)) { return noType; }
+          if (propType.equals(noType)) {
+            return noType;
+          }
         } else {
           propType = thisPropertyType;
         }
@@ -170,7 +179,7 @@ public class RecordType extends PrototypeObjectType {
         for (ObjectType alt : registry.getEachReferenceTypeWithProperty(propName)) {
           JSType altPropType = alt.getPropertyType(propName);
           if (altPropType != null
-              && !alt.isEquivalentTo(this)
+              && !alt.equals(this)
               && alt.isSubtypeOf(that)
               && altPropType.isSubtypeOf(propType)) {
             builder.addAlternate(alt);

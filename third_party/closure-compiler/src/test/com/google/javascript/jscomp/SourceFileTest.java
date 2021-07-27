@@ -17,6 +17,7 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.javascript.rhino.testing.Asserts.assertThrows;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.collect.Iterables;
@@ -29,13 +30,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
-import java.nio.charset.StandardCharsets;
+import java.io.Serializable;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.time.Instant;
 import java.util.List;
+import java.util.function.Function;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.junit.Rule;
@@ -43,7 +45,6 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-
 
 @RunWith(JUnit4.class)
 public final class SourceFileTest {
@@ -75,21 +76,65 @@ public final class SourceFileTest {
 
   @Test
   public void testLineOffset() {
-    SourceFile sf = SourceFile.fromCode("test.js", "");
-    assertThat(sf.getLineOfOffset(0)).isEqualTo(1);
-    assertThat(sf.getColumnOfOffset(0)).isEqualTo(0);
-    assertThat(sf.getLineOfOffset(10)).isEqualTo(1);
-    assertThat(sf.getColumnOfOffset(10)).isEqualTo(10);
+    testLineOffsetHelper((code) -> SourceFile.fromCode("test.js", code));
+  }
 
-    sf.setCode("'1';\n'2';\n'3'\n");
-    assertThat(sf.getLineOffset(1)).isEqualTo(0);
-    assertThat(sf.getLineOffset(2)).isEqualTo(5);
-    assertThat(sf.getLineOffset(3)).isEqualTo(10);
+  @Test
+  public void testLineOffset_serialization() {
+    testLineOffsetHelper(
+        (code) -> serializeRoundTrip(SourceFile.fromCode("test.js", code, SourceKind.NON_CODE)));
+  }
 
-    sf.setCode("'100';\n'200;'\n'300'\n");
-    assertThat(sf.getLineOffset(1)).isEqualTo(0);
-    assertThat(sf.getLineOffset(2)).isEqualTo(7);
-    assertThat(sf.getLineOffset(3)).isEqualTo(14);
+  @Test
+  public void testLineOffset_serialization_noReloadingSource() {
+    testLineOffsetHelper(
+        (code) -> {
+          SourceFile inMemory = SourceFile.fromCode("test.js", code, SourceKind.NON_CODE);
+          assertThat(inMemory.getLineOfOffset(0)).isEqualTo(1); // Trigger line offset generation
+          SourceFile fakeOnDisk =
+              SourceFile.fromFile("fake_on_disk.js", UTF_8, SourceKind.NON_CODE);
+
+          fakeOnDisk.restoreFrom(inMemory);
+          assertThat(fakeOnDisk.getLineOfOffset(0)).isEqualTo(1);
+
+          return serializeRoundTrip(fakeOnDisk);
+        });
+  }
+
+  private void testLineOffsetHelper(Function<String, SourceFile> factory) {
+    SourceFile f0 = factory.apply("");
+    assertThat(f0.getLineOfOffset(0)).isEqualTo(1);
+    assertThat(f0.getColumnOfOffset(0)).isEqualTo(0);
+    assertThat(f0.getLineOfOffset(10)).isEqualTo(1);
+    assertThat(f0.getColumnOfOffset(10)).isEqualTo(10);
+
+    SourceFile f1 = factory.apply("'1';\n'2';\n'3'\n");
+    assertThat(f1.getLineOffset(1)).isEqualTo(0);
+    assertThat(f1.getLineOffset(2)).isEqualTo(5);
+    assertThat(f1.getLineOffset(3)).isEqualTo(10);
+
+    SourceFile f2 = factory.apply("'100';\n'200;'\n'300'\n");
+    assertThat(f2.getLineOffset(1)).isEqualTo(0);
+    assertThat(f2.getLineOffset(2)).isEqualTo(7);
+    assertThat(f2.getLineOffset(3)).isEqualTo(14);
+
+    String longLine = stringOfLength(300);
+    SourceFile f3 = factory.apply(longLine + "\n" + longLine + "\n" + longLine + "\n");
+    assertThat(f3.getLineOffset(1)).isEqualTo(0);
+    assertThat(f3.getLineOffset(2)).isEqualTo(301);
+    assertThat(f3.getLineOffset(3)).isEqualTo(602);
+
+    assertThat(f3.getLineOfOffset(0)).isEqualTo(1);
+    assertThat(f3.getLineOfOffset(300)).isEqualTo(1);
+    assertThat(f3.getLineOfOffset(301)).isEqualTo(2);
+    assertThat(f3.getLineOfOffset(601)).isEqualTo(2);
+    assertThat(f3.getLineOfOffset(602)).isEqualTo(3);
+    assertThat(f3.getLineOfOffset(902)).isEqualTo(3);
+    assertThat(f3.getLineOfOffset(903)).isEqualTo(4);
+
+    // TODO(nickreid): This seems like a bug.
+    assertThat(f3.getLineOfOffset(-1)).isEqualTo(0);
+    assertThrows(Exception.class, () -> f3.getColumnOfOffset(-1));
   }
 
   @Test
@@ -99,14 +144,14 @@ public final class SourceFileTest {
     String newExpectedContent = "// new content new content new content";
 
     Path jsPath = folder.newFile("test.js").toPath();
-    MoreFiles.asCharSink(jsPath, StandardCharsets.UTF_8).write(expectedContent);
-    SourceFile sourceFile = SourceFile.fromPath(jsPath, StandardCharsets.UTF_8);
+    MoreFiles.asCharSink(jsPath, UTF_8).write(expectedContent);
+    SourceFile sourceFile = SourceFile.fromPath(jsPath, UTF_8);
 
     // Verify initial state.
     assertThat(sourceFile.getCode()).isEqualTo(expectedContent);
 
     // Perform a change.
-    MoreFiles.asCharSink(jsPath, StandardCharsets.UTF_8).write(newExpectedContent);
+    MoreFiles.asCharSink(jsPath, UTF_8).write(newExpectedContent);
     sourceFile.clearCachedSource();
 
     // Verify final state.
@@ -122,10 +167,7 @@ public final class SourceFileTest {
     createZipWithContent(jsZipFile, expectedContent);
     SourceFile zipSourceFile =
         SourceFile.fromZipEntry(
-            jsZipFile.toString(),
-            jsZipFile.toAbsolutePath().toString(),
-            "foo.js",
-            StandardCharsets.UTF_8);
+            jsZipFile.toString(), jsZipFile.toAbsolutePath().toString(), "foo.js", UTF_8);
 
     // Verify initial state.
     assertThat(zipSourceFile.getCode()).isEqualTo(expectedContent);
@@ -153,7 +195,7 @@ public final class SourceFileTest {
             jsZipPath.toString(),
             jsZipPath.toAbsolutePath().toString(),
             "foo.js",
-            StandardCharsets.UTF_8,
+            UTF_8,
             SourceKind.WEAK);
     assertThat(sourceFileFromZipEntry.getCode()).isEqualTo(expectedContent);
     assertThat(sourceFileFromZipEntry.getKind()).isEqualTo(SourceKind.WEAK);
@@ -161,27 +203,21 @@ public final class SourceFileTest {
     // Test SourceFile#fromZipEntry(String, String, String, Charset)
     SourceFile sourceFileFromZipEntryDefaultKind =
         SourceFile.fromZipEntry(
-            jsZipPath.toString(),
-            jsZipPath.toAbsolutePath().toString(),
-            "foo.js",
-            StandardCharsets.UTF_8);
+            jsZipPath.toString(), jsZipPath.toAbsolutePath().toString(), "foo.js", UTF_8);
     assertThat(sourceFileFromZipEntryDefaultKind.getCode()).isEqualTo(expectedContent);
     assertThat(sourceFileFromZipEntryDefaultKind.getKind()).isEqualTo(SourceKind.STRONG);
 
     // Test SourceFile#fromFile(String)
-    SourceFile sourceFileFromFileString =
-        SourceFile.fromFile(jsZipPath + "!/foo.js", StandardCharsets.UTF_8);
+    SourceFile sourceFileFromFileString = SourceFile.fromFile(jsZipPath + "!/foo.js", UTF_8);
     assertThat(sourceFileFromFileString.getCode()).isEqualTo(expectedContent);
 
     // Test SourceFile#fromFile(String, Charset)
-    SourceFile sourceFileFromFileStringCharset =
-        SourceFile.fromFile(jsZipPath + "!/foo.js", StandardCharsets.UTF_8);
+    SourceFile sourceFileFromFileStringCharset = SourceFile.fromFile(jsZipPath + "!/foo.js", UTF_8);
     assertThat(sourceFileFromFileStringCharset.getCode()).isEqualTo(expectedContent);
 
     // Test SourceFile#fromPath(Path, Charset)
     Path zipEntryPath = Paths.get(jsZipPath + "!/foo.js");
-    SourceFile sourceFileFromPathCharset =
-        SourceFile.fromPath(zipEntryPath, StandardCharsets.UTF_8);
+    SourceFile sourceFileFromPathCharset = SourceFile.fromPath(zipEntryPath, UTF_8);
     assertThat(sourceFileFromPathCharset.getCode()).isEqualTo(expectedContent);
   }
 
@@ -192,8 +228,7 @@ public final class SourceFileTest {
     Path jsZipPath = folder.newFile("test.js.zip").toPath();
     createZipWithContent(jsZipPath, "// <program goes here>");
 
-    List<SourceFile> sourceFiles =
-        SourceFile.fromZipFile(jsZipPath.toString(), StandardCharsets.UTF_8);
+    List<SourceFile> sourceFiles = SourceFile.fromZipFile(jsZipPath.toString(), UTF_8);
     assertThat(sourceFiles).hasSize(1);
 
     SourceFile sourceFile = Iterables.getOnlyElement(sourceFiles);
@@ -210,7 +245,7 @@ public final class SourceFileTest {
 
     List<SourceFile> sourceFiles =
         SourceFile.fromZipInput(
-            jsZipPath.toString(), new FileInputStream(jsZipPath.toFile()), StandardCharsets.UTF_8);
+            jsZipPath.toString(), new FileInputStream(jsZipPath.toFile()), UTF_8);
     assertThat(sourceFiles).hasSize(1);
 
     SourceFile sourceFile = Iterables.getOnlyElement(sourceFiles);
@@ -229,7 +264,7 @@ public final class SourceFileTest {
     zipFile.toFile().createNewFile();
     try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipFile.toFile()))) {
       zos.putNextEntry(new ZipEntry("foo.js"));
-      zos.write(content.getBytes(StandardCharsets.UTF_8));
+      zos.write(content.getBytes(UTF_8));
       zos.closeEntry();
     }
     Files.setLastModifiedTime(zipFile, FileTime.from(lastModified));
@@ -255,42 +290,53 @@ public final class SourceFileTest {
     assertThat(actualContent).isEqualTo(expectedContent);
   }
 
-  private static class CodeGeneratorHelper implements SourceFile.Generator {
-    int reads = 0;
-
-    @Override
-    public String getCode() {
-      reads++;
-      return "var a;\n";
-    }
-
-    public int numberOfReads() {
-      return reads;
-    }
-  }
-
   @Test
-  public void testGeneratedFile() throws IOException {
-    String expectedContent = "var a;";
-    CodeGeneratorHelper myGenerator = new CodeGeneratorHelper();
-    SourceFile newFile = SourceFile.fromGenerator("file.js", myGenerator);
+  public void testDiskFileWithOriginalPath() throws IOException {
+    String expectedContent = "var c;";
+
+    Path tempFile = folder.newFile("test.js").toPath();
+    MoreFiles.asCharSink(tempFile, UTF_8).write(expectedContent);
+
+    SourceFile newFile =
+        SourceFile.builder()
+            .withOriginalPath("original_test.js")
+            .buildFromFile(tempFile.toString());
     String actualContent;
 
     actualContent = newFile.getLine(1);
     assertThat(actualContent).isEqualTo(expectedContent);
-    assertThat(myGenerator.numberOfReads()).isEqualTo(1);
 
     newFile.clearCachedSource();
-    assertThat(newFile.hasSourceInMemory()).isFalse();
 
+    assertThat(newFile.hasSourceInMemory()).isFalse();
     actualContent = newFile.getLine(1);
     assertThat(actualContent).isEqualTo(expectedContent);
-    assertThat(myGenerator.numberOfReads()).isEqualTo(2);
+
+    assertThat(newFile.getName()).isEqualTo("original_test.js");
+  }
+
+  @Test
+  public void testCanOnlySerializeNonCode() throws IOException, ClassNotFoundException {
+    SourceFile strong = SourceFile.fromCode("file.js", "var i = 0;", SourceKind.STRONG);
+    SourceFile weak = SourceFile.fromCode("file.js", "var i = 0;", SourceKind.WEAK);
+    SourceFile extern = SourceFile.fromCode("file.js", "var i;", SourceKind.EXTERN);
+    SourceFile nonCode = SourceFile.fromCode("file.js", "var i = 0;", SourceKind.NON_CODE);
+
+    ByteArrayOutputStream baos = new ByteArrayOutputStream();
+    ObjectOutputStream oos = new ObjectOutputStream(baos);
+
+    // Files representing JS sources must be serialized via TypedAstSerializer.
+    assertThrows(Exception.class, () -> oos.writeObject(strong));
+    assertThrows(Exception.class, () -> oos.writeObject(weak));
+    assertThrows(Exception.class, () -> oos.writeObject(extern));
+
+    oos.writeObject(nonCode);
+    oos.close();
   }
 
   @Test
   public void testFromCodeSerialization() throws IOException, ClassNotFoundException {
-    SourceFile sourceFile = SourceFile.fromCode("file.js", "var i = 0;");
+    SourceFile sourceFile = SourceFile.fromCode("file.js", "var i = 0;", SourceKind.NON_CODE);
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
     ObjectOutputStream oos = new ObjectOutputStream(baos);
     oos.writeObject(sourceFile);
@@ -300,5 +346,86 @@ public final class SourceFileTest {
     SourceFile afterSerialization = (SourceFile) ois.readObject();
     ois.close();
     assertThat(afterSerialization.getCode()).isEqualTo(sourceFile.getCode());
+  }
+
+  @Test
+  public void testGetLines() {
+    SourceFile sourceFile =
+        SourceFile.fromCode("file.js", "const a = 0;\nconst b = 1;\nconst c = 2;");
+
+    assertThat(sourceFile.getLines(1, 1).getSourceExcerpt()).isEqualTo("const a = 0;");
+    assertThat(sourceFile.getLines(2, 1).getSourceExcerpt()).isEqualTo("const b = 1;");
+    assertThat(sourceFile.getLines(3, 1).getSourceExcerpt()).isEqualTo("const c = 2;");
+
+    assertThat(sourceFile.getLines(1, "const a = 0;\n".length()).getSourceExcerpt())
+        .isEqualTo("const a = 0;");
+    assertThat(sourceFile.getLines(1, "const a = 0;\nconst b".length()).getSourceExcerpt())
+        .isEqualTo("const a = 0;\nconst b = 1;");
+    assertThat(sourceFile.getLines(2, "const b = 1;\nconst c".length()).getSourceExcerpt())
+        .isEqualTo("const b = 1;\nconst c = 2;");
+
+    assertThat(sourceFile.getLines(3, "const c = 2;".length()).getSourceExcerpt())
+        .isEqualTo("const c = 2;");
+  }
+
+  @Test
+  public void testGetLines_invalidLengths() {
+    SourceFile sourceFile =
+        SourceFile.fromCode("file.js", "const a = 0;\nconst b = 1;\nconst c = 2;");
+
+    assertThat(sourceFile.getLines(0, -3).getSourceExcerpt()).isEqualTo("const a = 0;");
+    assertThat(sourceFile.getLines(0, 0).getSourceExcerpt()).isEqualTo("const a = 0;");
+    assertThat(sourceFile.getLines(1, 100000).getSourceExcerpt())
+        .isEqualTo("const a = 0;\nconst b = 1;\nconst c = 2;");
+    assertThat(sourceFile.getLines(2, 10000).getSourceExcerpt())
+        .isEqualTo("const b = 1;\nconst c = 2;");
+    assertThat(sourceFile.getLines(3, 10000).getSourceExcerpt()).isEqualTo("const c = 2;");
+  }
+
+  @Test
+  public void testGetLines_whenFileEndsWithNewline() {
+    SourceFile sourceFile =
+        SourceFile.fromCode("file.js", "const a = 0;\nconst b = 1;\nconst c = 2;\n");
+
+    assertThat(sourceFile.getLines(1, 100000).getSourceExcerpt())
+        .isEqualTo("const a = 0;\nconst b = 1;\nconst c = 2;");
+    assertThat(sourceFile.getLines(2, 10000).getSourceExcerpt())
+        .isEqualTo("const b = 1;\nconst c = 2;");
+    assertThat(sourceFile.getLines(3, 1).getSourceExcerpt()).isEqualTo("const c = 2;");
+    assertThat(sourceFile.getLines(4, 1).getSourceExcerpt()).isEmpty();
+  }
+
+  @Test
+  public void testGetLines_invalidLineNumbers() {
+    SourceFile sourceFile =
+        SourceFile.fromCode("file.js", "const a = 0;\nconst b = 1;\nconst c = 2;");
+
+    assertThat(sourceFile.getLines(-20, 1).getSourceExcerpt()).isEqualTo("const a = 0;");
+    assertThat(sourceFile.getLines(0, 1).getSourceExcerpt()).isEqualTo("const a = 0;");
+    assertThat(sourceFile.getLines(4, 1)).isNull();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static <T extends Serializable> T serializeRoundTrip(T t) {
+    try {
+      ByteArrayOutputStream outBytes = new ByteArrayOutputStream();
+      ObjectOutputStream outObjects = new ObjectOutputStream(outBytes);
+      outObjects.writeObject(t);
+      outObjects.close();
+
+      ByteArrayInputStream inBytes = new ByteArrayInputStream(outBytes.toByteArray());
+      ObjectInputStream inObjects = new ObjectInputStream(inBytes);
+      return (T) inObjects.readObject();
+    } catch (Exception e) {
+      throw new AssertionError(e);
+    }
+  }
+
+  private static String stringOfLength(int length) {
+    StringBuilder builder = new StringBuilder();
+    for (int i = 0; i < length; i++) {
+      builder.append('a');
+    }
+    return builder.toString();
   }
 }

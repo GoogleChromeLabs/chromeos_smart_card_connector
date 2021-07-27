@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,7 +29,6 @@ public final class AngularPassTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2017);
   }
 
   @Override
@@ -537,6 +535,16 @@ public final class AngularPassTest extends CompilerTestCase {
             js,
             "/** @public */",
             "Bar['$inject'] = ['x', 'y'];"));
+  }
+
+  @Test
+  public void testInExportInEsModule() {
+    String js =
+        lines(
+            "import {Foo} from './foo';",
+            "",
+            "export class Bar extends Foo { /** @ngInject */ constructor(x, y) {} }");
+    test(js, lines(js, "/** @public */", "Bar['$inject'] = ['x', 'y'];"));
   }
 
   @Test

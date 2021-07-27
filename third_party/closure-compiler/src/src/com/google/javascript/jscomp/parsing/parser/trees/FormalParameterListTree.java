@@ -16,16 +16,32 @@
 
 package com.google.javascript.jscomp.parsing.parser.trees;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.common.collect.ImmutableList;
+import com.google.javascript.jscomp.parsing.parser.util.SourcePosition;
 import com.google.javascript.jscomp.parsing.parser.util.SourceRange;
 
 public class FormalParameterListTree extends ParseTree {
   public final ImmutableList<ParseTree> parameters;
+  public final boolean hasTrailingComma;
+  public final ImmutableList<SourcePosition> commaPositions;
 
-  public FormalParameterListTree(SourceRange location,
-      ImmutableList<ParseTree> parameters) {
+  public FormalParameterListTree(
+      SourceRange location,
+      ImmutableList<ParseTree> parameters,
+      boolean hasTrailingComma,
+      ImmutableList<SourcePosition> commaPositions) {
     super(ParseTreeType.FORMAL_PARAMETER_LIST, location);
+    int numParams = parameters.size();
+    int numCommas = commaPositions.size();
+    checkArgument(
+        numCommas <= numParams && numCommas >= numParams - 1,
+        "Unexpected # of comma and formal params.\nparams: %s\ncomma positions: %s",
+        parameters,
+        commaPositions);
     this.parameters = parameters;
+    this.hasTrailingComma = hasTrailingComma;
+    this.commaPositions = commaPositions;
   }
-
 }

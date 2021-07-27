@@ -55,10 +55,8 @@ import org.junit.runners.JUnit4;
 public class EnumElementTypeTest extends BaseJSTypeTestCase {
   @Test
   public void testSubtypeRelation() {
-    EnumElementType typeA = registry.createEnumType(
-        "typeA", null, NUMBER_TYPE).getElementsType();
-    EnumElementType typeB = registry.createEnumType(
-        "typeB", null, NUMBER_TYPE).getElementsType();
+    EnumElementType typeA = this.createEnumType("typeA", NUMBER_TYPE).getElementsType();
+    EnumElementType typeB = this.createEnumType("typeB", NUMBER_TYPE).getElementsType();
 
     assertThat(typeA.isSubtype(typeB)).isFalse();
     assertThat(typeB.isSubtype(typeA)).isFalse();
@@ -72,9 +70,8 @@ public class EnumElementTypeTest extends BaseJSTypeTestCase {
 
   @Test
   public void testGetGreatestSubtype() {
-    EnumElementType typeA = registry.createEnumType(
-        "typeA", null, createUnionType(NUMBER_TYPE, STRING_TYPE))
-        .getElementsType();
+    EnumElementType typeA =
+        this.createEnumType("typeA", createUnionType(NUMBER_TYPE, STRING_TYPE)).getElementsType();
 
     JSType stringsOfA = typeA.getGreatestSubtype(STRING_TYPE);
     assertThat(stringsOfA.isEmptyType()).isFalse();
@@ -89,18 +86,14 @@ public class EnumElementTypeTest extends BaseJSTypeTestCase {
 
   @Test
   public void testGetGreatestSubtype_twoEnumElementTypes() {
-    EnumElementType typeA = registry.createEnumType(
-        "typeA", null, NUMBER_TYPE).getElementsType();
-    EnumElementType typeB = registry.createEnumType(
-        "typeB", null, NUMBER_TYPE).getElementsType();
+    EnumElementType typeA = this.createEnumType("typeA", NUMBER_TYPE).getElementsType();
+    EnumElementType typeB = this.createEnumType("typeB", NUMBER_TYPE).getElementsType();
 
     JSType greatestSubtype = EnumElementType.getGreatestSubtype(typeA, typeB);
 
     assertType(greatestSubtype).isSubtypeOf(typeA);
     assertType(greatestSubtype).isSubtypeOf(typeB);
-    // This equality is because comparing unresolved type equality is just dependent on reference
-    // name, due to 'NamedTypes' being difficult or impossible to correctly check equality on.
-    assertType(greatestSubtype).isEqualTo(typeA);
+    assertType(greatestSubtype).isNotEqualTo(typeA);
     assertType(greatestSubtype).isNotEqualTo(typeB);
 
     assertType(typeA).isNotSubtypeOf(greatestSubtype);
@@ -109,13 +102,10 @@ public class EnumElementTypeTest extends BaseJSTypeTestCase {
 
   @Test
   public void testGetGreatestSubtype_twoEnumElementTypes_postResolution() {
-    EnumElementType typeA = registry.createEnumType("typeA", null, NUMBER_TYPE).getElementsType();
-    EnumElementType typeB = registry.createEnumType("typeB", null, NUMBER_TYPE).getElementsType();
-    typeA.resolve(null);
-    typeB.resolve(null);
+    EnumElementType typeA = this.createEnumType("typeA", NUMBER_TYPE).getElementsType();
+    EnumElementType typeB = this.createEnumType("typeB", NUMBER_TYPE).getElementsType();
 
     JSType greatestSubtype = EnumElementType.getGreatestSubtype(typeA, typeB);
-    greatestSubtype.resolve(null);
 
     assertType(greatestSubtype).isSubtypeOf(typeA);
     assertType(greatestSubtype).isSubtypeOf(typeB);
@@ -128,18 +118,14 @@ public class EnumElementTypeTest extends BaseJSTypeTestCase {
 
   @Test
   public void testEqualityOfEnumTypes_withSameReferenceName() {
-    EnumType firstFoo = registry.createEnumType("Foo", null, NUMBER_TYPE);
-    EnumType secondFoo = registry.createEnumType("Foo", null, NUMBER_TYPE);
-
-    assertType(firstFoo).isNotEqualTo(secondFoo);
-    // Pre-resolution type equality is intentionally loose because of NamedTypes, so treat these
-    // types as potentially equal.
-    assertType(firstFoo.getElementsType()).isEqualTo(secondFoo.getElementsType());
-
-    firstFoo.resolve(registry.getErrorReporter());
-    secondFoo.resolve(registry.getErrorReporter());
+    EnumType firstFoo = this.createEnumType("Foo", NUMBER_TYPE);
+    EnumType secondFoo = this.createEnumType("Foo", NUMBER_TYPE);
 
     assertType(firstFoo).isNotEqualTo(secondFoo);
     assertType(firstFoo.getElementsType()).isNotEqualTo(secondFoo.getElementsType());
+  }
+
+  private EnumType createEnumType(String name, JSType elementType) {
+    return EnumType.builder(registry).setName(name).setElementType(elementType).build();
   }
 }

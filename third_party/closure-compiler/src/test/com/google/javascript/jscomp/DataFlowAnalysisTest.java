@@ -21,7 +21,6 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static java.util.Comparator.comparingInt;
 
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.ControlFlowGraph.Branch;
 import com.google.javascript.jscomp.DataFlowAnalysis.BranchedFlowState;
 import com.google.javascript.jscomp.DataFlowAnalysis.BranchedForwardDataFlowAnalysis;
@@ -732,7 +731,6 @@ public final class DataFlowAnalysisTest {
     // Set up compiler
     Compiler compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
-    options.setLanguage(LanguageMode.ECMASCRIPT_2015);
     options.setCodingConvention(new GoogleCodingConvention());
     compiler.initOptions(options);
     compiler.setLifeCycleStage(LifeCycleStage.NORMALIZED);
@@ -790,7 +788,7 @@ public final class DataFlowAnalysisTest {
     List<ConstPropLatticeElement> branchedFlowThrough(Instruction node,
         ConstPropLatticeElement input) {
       List<ConstPropLatticeElement> result = new ArrayList<>();
-      List<DiGraphEdge<Instruction, Branch>> outEdges = getCfg().getOutEdges(node);
+      List<? extends DiGraphEdge<Instruction, Branch>> outEdges = getCfg().getOutEdges(node);
       if (node.isArithmetic()) {
         assertThat(outEdges.size()).isLessThan(2);
         ConstPropLatticeElement aResult = flowThroughArithmeticInstruction(

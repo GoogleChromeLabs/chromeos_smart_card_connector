@@ -27,10 +27,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
-import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.jstype.JSType;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -227,32 +227,6 @@ final class ExternExportsPass extends NodeTraversal.AbstractPostOrderCallback
      */
     private Node createExternsParamListFromOriginalFunction(Node exportedFunction) {
       final Node originalParamList = NodeUtil.getFunctionParameters(exportedFunction);
-      return createExternsParamListFromOriginalParamList(originalParamList);
-    }
-
-    /**
-     * Creates a PARAM_LIST to store in the AST we'll use to generate externs for a function with
-     * the given type.
-     *
-     * <p>If the NODE defining the original function is available, it would be better to use
-     * createExternsParamListFromOriginalFunction(), because that one will keep the parameter names
-     * the same instead of generating arbitrary parameter names.
-     *
-     * @param functionType JSType read from the FUNCTION (or possibly CLASS) node
-     * @return
-     */
-    private Node createExternsParamListFromFunctionType(JSType functionType) {
-      return createExternsParamListFromOriginalParamList(
-          functionType.assertFunctionType().getParametersNode());
-    }
-
-    /**
-     * Creates a PARAM_LIST to store in the AST we'll use to generate externs for a function.
-     *
-     * @param originalParamList Either the original PARAM_LIST from the function or the synthetic
-     *     PARAM_LIST stored in the function's FunctionType
-     */
-    private Node createExternsParamListFromOriginalParamList(Node originalParamList) {
       // First get all of the original positional parameter list names we can.
       // Place empty stings in the positions where we'll need to generate names.
       List<String> originalParamNames = new ArrayList<>();
@@ -265,7 +239,33 @@ final class ExternExportsPass extends NodeTraversal.AbstractPostOrderCallback
         // names for all of them.
         originalParamNames.add(getOriginalNameForParam(originalParam));
       }
+      return createExternsParamListFromOriginalParamList(originalParamNames);
+    }
 
+    /**
+     * Creates a PARAM_LIST to store in the AST we'll use to generate externs for a function with
+     * the given type.
+     *
+     * <p>If the NODE defining the original function is available, it would be better to use
+     * createExternsParamListFromOriginalFunction(), because that one will keep the parameter names
+     * the same instead of generating arbitrary parameter names.
+     *
+     * @param functionType JSType read from the FUNCTION (or possibly CLASS) node
+     */
+    private Node createExternsParamListFromFunctionType(JSType functionType) {
+      // Place empty stings in the positions where we'll need to generate names.
+      List<String> emptyParamNames =
+          Collections.nCopies(functionType.assertFunctionType().getParameters().size(), "");
+
+      return createExternsParamListFromOriginalParamList(emptyParamNames);
+    }
+
+    /**
+     * Creates a PARAM_LIST to store in the AST we'll use to generate externs for a function.
+     *
+     * @param originalParamNames names for the parameters, possibly synthetic.
+     */
+    private Node createExternsParamListFromOriginalParamList(List<String> originalParamNames) {
       final Node paramList = IR.paramList();
       NameGenerator nameGenerator =
           new DefaultNameGenerator(
@@ -333,11 +333,11 @@ final class ExternExportsPass extends NodeTraversal.AbstractPostOrderCallback
     private JSDocInfo buildEmptyJSDoc() {
       // TODO(johnlenz): share the JSDocInfo here rather than building
       // a new one each time.
-      return new JSDocInfoBuilder(false).build(true);
+      return JSDocInfo.builder().build(true);
     }
 
     private JSDocInfo buildNamespaceJSDoc() {
-      JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
+      JSDocInfo.Builder builder = JSDocInfo.builder();
       builder.recordConstancy();
       builder.recordSuppressions(ImmutableSet.of("const", "duplicate"));
       return builder.build();
@@ -611,7 +611,7 @@ final class ExternExportsPass extends NodeTraversal.AbstractPostOrderCallback
 
     // Confirm the arguments are the expected types. If they are not,
     // then we have an export that we cannot statically identify.
-    if (!nameArg.isString()) {
+    if (!nameArg.isStringLit()) {
       return;
     }
 
@@ -641,7 +641,7 @@ final class ExternExportsPass extends NodeTraversal.AbstractPostOrderCallback
       return;
     }
 
-    if (!nameArg.isString()) {
+    if (!nameArg.isStringLit()) {
       return;
     }
 
@@ -680,7 +680,7 @@ final class ExternExportsPass extends NodeTraversal.AbstractPostOrderCallback
             ? NodeUtil.getEnclosingClass(constructorNode)
             : constructorNode;
     String className = NodeUtil.getName(classNode);
-    String propertyName = thisDotPropName.getLastChild().getString();
+    String propertyName = thisDotPropName.getString();
     String prototypeName = className + ".prototype";
     Node propertyNameNode = NodeUtil.newQName(compiler, "this." + propertyName);
 

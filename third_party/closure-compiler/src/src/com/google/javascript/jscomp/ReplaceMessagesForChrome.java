@@ -33,16 +33,15 @@ import java.util.List;
 @GwtIncompatible("JsMessage")
 class ReplaceMessagesForChrome extends JsMessageVisitor {
 
-  ReplaceMessagesForChrome(AbstractCompiler compiler,
-      JsMessage.IdGenerator idGenerator,
-      boolean checkDuplicatedMessages, JsMessage.Style style) {
+  ReplaceMessagesForChrome(
+      AbstractCompiler compiler, JsMessage.IdGenerator idGenerator, JsMessage.Style style) {
 
-    super(compiler, checkDuplicatedMessages, style, idGenerator);
+    super(compiler, style, idGenerator);
   }
 
   private static Node getChromeI18nGetMessageNode(String messageId) {
-    Node chromeI18n = IR.getprop(IR.name("chrome"), IR.string("i18n"));
-    Node getMessage =  IR.getprop(chromeI18n, IR.string("getMessage"));
+    Node chromeI18n = IR.getprop(IR.name("chrome"), "i18n");
+    Node getMessage = IR.getprop(chromeI18n, "getMessage");
     return IR.call(getMessage, IR.string(messageId));
   }
 
@@ -52,7 +51,7 @@ class ReplaceMessagesForChrome extends JsMessageVisitor {
     try {
       Node msgNode = definition.getMessageNode();
       Node newValue = getNewValueNode(msgNode, message);
-      newValue.useSourceInfoIfMissingFromForTree(msgNode);
+      newValue.srcrefTreeIfMissing(msgNode);
 
       msgNode.replaceWith(newValue);
       compiler.reportChangeToEnclosingScope(newValue);
@@ -103,7 +102,7 @@ class ReplaceMessagesForChrome extends JsMessageVisitor {
       }
     }
 
-    newValueNode.useSourceInfoIfMissingFromForTree(origNode);
+    newValueNode.srcrefTreeIfMissing(origNode);
     return newValueNode;
   }
 
@@ -123,7 +122,7 @@ class ReplaceMessagesForChrome extends JsMessageVisitor {
 
   private static Node getPlaceholderValue(
       Node placeholderValues, String placeholderName) {
-    for (Node key : placeholderValues.children()) {
+    for (Node key = placeholderValues.getFirstChild(); key != null; key = key.getNext()) {
       if (key.getString().equals(placeholderName)) {
         return key.getFirstChild().cloneTree();
       }

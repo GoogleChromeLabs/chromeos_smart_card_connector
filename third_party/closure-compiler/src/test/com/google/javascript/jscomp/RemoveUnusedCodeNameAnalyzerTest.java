@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.rhino.Node;
 import org.junit.Before;
 import org.junit.Test;
@@ -27,7 +26,6 @@ import org.junit.runners.JUnit4;
  * Tests {@link RemoveUnusedCode} for functionality that was previously implemented in NameAnalyzer
  * aka smartNamePass, which has now been removed.
  */
-
 @RunWith(JUnit4.class)
 public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
 
@@ -108,10 +106,9 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2017);
+    // Allow testing of features that aren't fully supported for output yet.
     enableNormalize();
     enableGatherExternProperties();
-    onlyValidateNoNewGettersAndSetters();
   }
 
   @Test
@@ -692,6 +689,33 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   }
 
   @Test
+  public void testInnerClassNameInstanceofCheck() {
+    testSame(
+        lines(
+            "", //
+            "window.Class = class MyClass {",
+            "  constructor() {",
+            "    if (this instanceof MyClass) {",
+            "      console.log(\"test\");",
+            "    }",
+            "  }",
+            "};",
+            "new window.Class();",
+            ""));
+    testSame(
+        lines(
+            "", //
+            "/** @constructor */",
+            "window.Class = function MyClass() {",
+            "  if (this instanceof MyClass) {",
+            "    console.log(\"test\");",
+            "  }",
+            "};",
+            "new window.Class();",
+            ""));
+  }
+
+  @Test
   public void testEs6ClassExtends() {
     testSame("class D {} class C extends D {} var c = new C; c.g();");
     test("class D {} class C extends D {}", "");
@@ -740,11 +764,13 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
 
   @Test
   public void testAssignmentToUnknownPrototype() {
+    disableCompareJsDoc(); // multistage compilation simplifies suppressions
     testSame("/** @suppress {duplicate} */ var window;" + "window['a'].prototype = {};");
   }
 
   @Test
   public void testBug2099540() {
+    disableCompareJsDoc(); // multistage compilation simplifies suppressions
     testSame(
         lines(
             "/** @suppress {duplicate} */ var document;",
@@ -1062,10 +1088,8 @@ public final class RemoveUnusedCodeNameAnalyzerTest extends CompilerTestCase {
   public void testSetterInForStruct3() {
     test(
         externs("function f(){} function g() {} function h() {}"),
-        srcs(
-            "var j = 0;                      for (var i = 1 + f() + g() + h(); i = 0; j++);"),
-        expected(
-            "var j = 0; 1 + f() + g() + h(); for (                           ;     0; j++);"));
+        srcs("var j = 0;                      for (var i = 1 + f() + g() + h(); i = 0; j++);"),
+        expected("var j = 0; 1 + f() + g() + h(); for (                           ;     0; j++);"));
   }
 
   @Test

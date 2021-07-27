@@ -16,6 +16,7 @@
 
 package com.google.javascript.jscomp;
 
+import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,11 +42,13 @@ public final class ImplicitNullabilityCheckTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
+    enableCreateModuleMap();
     enableTypeCheck();
   }
 
   @Test
   public void testExplicitJsdocDoesntWarn() {
+    noWarning("/** @type {bigint} */ var x;");
     noWarning("/** @type {boolean} */ var x;");
     noWarning("/** @type {symbol} */ var x;");
     noWarning("/** @type {null} */ var x;");
@@ -53,7 +56,7 @@ public final class ImplicitNullabilityCheckTest extends CompilerTestCase {
     noWarning("/** @type {?Object} */ var x;");
     noWarning("/** @type {function(new:Object)} */ function f(){}");
     noWarning("/** @type {function(this:Object)} */ function f(){}");
-    noWarning("/** @typedef {!Object} */ var Obj; var /** Obj */ x;");
+    noWarning("/** @typedef {!Object} */ var Obj; var /** ?Obj */ x;");
 
     // Test let and const
     noWarning("/** @type {boolean} */ let x;");
@@ -104,6 +107,25 @@ public final class ImplicitNullabilityCheckTest extends CompilerTestCase {
   }
 
   @Test
+  public void testNonnullTypedef() {
+    test(
+        srcs("/** @typedef {number} */ var Num; var /** Num */ x;"),
+        warning(ImplicitNullabilityCheck.IMPLICITLY_NONNULL_JSDOC));
+  }
+
+  @Test
+  public void testNonnullEnum() {
+    test(
+        srcs("/** @enum {number} */ var Enum = {NUM: 0}; var /** Enum */ x;"),
+        warning(ImplicitNullabilityCheck.IMPLICITLY_NONNULL_JSDOC));
+  }
+
+  @Test
+  public void testNonnullRecordType() {
+    noWarning("var /** {x: number} */ o;");
+  }
+
+  @Test
   public void testUnknownTypenameDoesntWarn() {
     test(
         externs(DEFAULT_EXTERNS),
@@ -144,6 +166,47 @@ public final class ImplicitNullabilityCheckTest extends CompilerTestCase {
         "/** @const */ a.b = {};",
         "/** @constructor */ a.b.Foo = function() {};",
         "/** @type Array<!a.b.Foo> */ var foos = [];"));
+
+    // in goog.module
+    test(
+        externs(new TestExternsBuilder().addClosureExterns().build()),
+        srcs(
+            lines(
+                "goog.module('ns');",
+                "/** @const */ var a = {};",
+                "/** @const */ a.b = {};",
+                "/** @constructor */ a.b.Foo = function() {};",
+                "/** @type Array<!a.b.Foo> */ var foos = [];",
+                "exports = {a}; ")),
+        warning(ImplicitNullabilityCheck.IMPLICITLY_NULLABLE_JSDOC));
+
+    // in goog.module with a goog.require
+    test(
+        externs(new TestExternsBuilder().addClosureExterns().build()),
+        srcs(
+            lines(
+                "goog.module('ns');",
+                "/** @const */ var a = {};",
+                "/** @const */ a.b = {};",
+                "exports = {a};"),
+            lines(
+                "goog.module('ns2');",
+                "const {a} = goog.require('ns');",
+                "/** @constructor */ a.b.Foo = function() {};",
+                "/** @type Array<!a.b.Foo> */ var foos = [];",
+                "exports = {foos}; ")),
+        warning(ImplicitNullabilityCheck.IMPLICITLY_NULLABLE_JSDOC));
+
+    // in goog.provide
+    test(
+        externs(new TestExternsBuilder().addClosureExterns().build()),
+        srcs(
+            lines(
+                "goog.provide('ns.a');",
+                "/** @const */ ns.a.b = {};",
+                "/** @constructor */ ns.a.b.Foo = function() {};",
+                "/** @type Array<!ns.a.b.Foo> */ var foos = [];")),
+        warning(ImplicitNullabilityCheck.IMPLICITLY_NULLABLE_JSDOC));
   }
 
   private void warnImplicitlyNullable(String js) {

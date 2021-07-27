@@ -26,7 +26,7 @@ import com.google.common.collect.ListMultimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.Multiset;
 import com.google.javascript.jscomp.NodeTraversal.ScopedCallback;
-import com.google.javascript.rhino.JSDocInfoBuilder;
+import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.TokenStream;
 import java.util.ArrayDeque;
@@ -74,10 +74,6 @@ class MakeDeclaredNamesUnique extends NodeTraversal.AbstractScopedCallback {
 
   @Override
   public void enterScope(NodeTraversal t) {
-    checkState(
-        t.getScopeCreator().hasBlockScope(),
-        "MakeDeclaredNamesUnique requires an ES6-compatible scope creator. %s is not compatible.",
-        t.getScopeCreator());
     Node declarationRoot = t.getScopeRoot();
 
     Renamer renamer;
@@ -125,10 +121,10 @@ class MakeDeclaredNamesUnique extends NodeTraversal.AbstractScopedCallback {
     if (newName != null) {
       Renamer renamer = renamerStack.peek();
       if (renamer.stripConstIfReplaced()) {
-        n.removeProp(Node.IS_CONSTANT_NAME);
+        n.putBooleanProp(Node.IS_CONSTANT_NAME, false);
         Node jsDocInfoNode = NodeUtil.getBestJSDocInfoNode(n);
         if (jsDocInfoNode != null && jsDocInfoNode.getJSDocInfo() != null) {
-          JSDocInfoBuilder builder = JSDocInfoBuilder.copyFrom(jsDocInfoNode.getJSDocInfo());
+          JSDocInfo.Builder builder = JSDocInfo.Builder.copyFrom(jsDocInfoNode.getJSDocInfo());
           builder.recordMutable();
           jsDocInfoNode.setJSDocInfo(builder.build());
         }
@@ -544,9 +540,7 @@ class MakeDeclaredNamesUnique extends NodeTraversal.AbstractScopedCallback {
       if (hoisted && hoistRenamer != this) {
         hoistRenamer.addDeclaredName(name, hoisted);
       } else {
-        if (!declarations.containsKey(name)) {
-          declarations.put(name, getUniqueName(name));
-        }
+        declarations.computeIfAbsent(name, this::getUniqueName);
       }
     }
 
@@ -618,27 +612,26 @@ class MakeDeclaredNamesUnique extends NodeTraversal.AbstractScopedCallback {
     }
   }
 
-  /** Only rename things that match the whitelist. Wraps another renamer. */
-  static class WhitelistedRenamer implements Renamer {
+  /** Only rename things that match specific names. Wraps another renamer. */
+  static class TargettedRenamer implements Renamer {
     private final Renamer delegate;
-    private final Set<String> whitelist;
+    private final Set<String> targets;
 
-    WhitelistedRenamer(Renamer delegate, Set<String> whitelist) {
+    TargettedRenamer(Renamer delegate, Set<String> targets) {
       this.delegate = delegate;
-      this.whitelist = whitelist;
+      this.targets = targets;
     }
 
     @Override
     public void addDeclaredName(String name, boolean hoisted) {
-      if (whitelist.contains(name)) {
+      if (targets.contains(name)) {
         delegate.addDeclaredName(name, hoisted);
       }
     }
 
     @Override
     public String getReplacementName(String oldName) {
-      return whitelist.contains(oldName)
-          ? delegate.getReplacementName(oldName) : null;
+      return targets.contains(oldName) ? delegate.getReplacementName(oldName) : null;
     }
 
     @Override
@@ -648,8 +641,8 @@ class MakeDeclaredNamesUnique extends NodeTraversal.AbstractScopedCallback {
 
     @Override
     public Renamer createForChildScope(Node scopeRoot, boolean hoistingTargetScope) {
-      return new WhitelistedRenamer(
-          delegate.createForChildScope(scopeRoot, hoistingTargetScope), whitelist);
+      return new TargettedRenamer(
+          delegate.createForChildScope(scopeRoot, hoistingTargetScope), targets);
     }
 
     @Override

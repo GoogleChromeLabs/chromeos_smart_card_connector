@@ -27,7 +27,7 @@ import java.util.Deque;
 import javax.annotation.Nullable;
 
 /** Converts ES6 arrow functions to standard anonymous ES3 functions. */
-public class Es6RewriteArrowFunction implements NodeTraversal.Callback, HotSwapCompilerPass {
+public class Es6RewriteArrowFunction implements NodeTraversal.Callback, CompilerPass {
   // The name of the vars that capture 'this' and 'arguments' for converting arrow functions. Note
   // that these names can be reused (once per scope) because declarations in nested scopes will
   // shadow one another, which results in the intended behaviour.
@@ -46,14 +46,7 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, HotSwapC
 
   @Override
   public void process(Node externs, Node root) {
-    TranspilationPasses.processTranspile(compiler, externs, transpiledFeatures, this);
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    TranspilationPasses.hotSwapTranspile(compiler, scriptRoot, transpiledFeatures, this);
     TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
   }
 
@@ -111,7 +104,7 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, HotSwapC
     Node body = n.getLastChild();
     if (!body.isBlock()) {
       body.detach();
-      body = IR.block(IR.returnNode(body)).useSourceInfoIfMissingFromForTree(body);
+      body = IR.block(IR.returnNode(body)).srcrefTreeIfMissing(body);
       n.addChildToBack(body);
     }
 
@@ -128,8 +121,8 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, HotSwapC
     if (context.needsThisVar) {
       Node name = IR.name(THIS_VAR).setJSType(context.getThisType());
       Node thisVar = IR.constNode(name, IR.thisNode().setJSType(context.getThisType()));
-      NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS);
-      thisVar.useSourceInfoIfMissingFromForTree(scopeBody);
+      NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS, compiler);
+      thisVar.srcrefTreeIfMissing(scopeBody);
       makeTreeNonIndexable(thisVar);
 
       if (context.lastSuperStatement == null) {
@@ -138,7 +131,7 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, HotSwapC
         // Not safe to reference `this` until after super() has been called.
         // TODO(bradfordcsmith): Some complex cases still aren't covered, like
         //     if (...) { super(); arrow function } else { super(); }
-        scopeBody.addChildAfter(thisVar, context.lastSuperStatement);
+        thisVar.insertAfter(context.lastSuperStatement);
       }
       compiler.reportChangeToEnclosingScope(thisVar);
     }
@@ -147,17 +140,17 @@ public class Es6RewriteArrowFunction implements NodeTraversal.Callback, HotSwapC
       Node name = IR.name(ARGUMENTS_VAR).setJSType(context.getArgumentsType());
       Node argumentsVar =
           IR.constNode(name, IR.name("arguments").setJSType(context.getArgumentsType()));
-      NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS);
+      NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS, compiler);
       scopeBody.addChildToFront(argumentsVar);
 
-      argumentsVar.useSourceInfoIfMissingFromForTree(scopeBody);
+      argumentsVar.srcrefTreeIfMissing(scopeBody);
       compiler.reportChangeToEnclosingScope(argumentsVar);
     }
   }
 
   private void makeTreeNonIndexable(Node n) {
     n.makeNonIndexable();
-    for (Node child : n.children()) {
+    for (Node child = n.getFirstChild(); child != null; child = child.getNext()) {
       makeTreeNonIndexable(child);
     }
   }

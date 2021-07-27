@@ -26,7 +26,7 @@ import com.google.javascript.rhino.Node;
  * care about shorthand and destructured assignments.
  */
 public final class Es6NormalizeShorthandProperties extends AbstractPostOrderCallback
-    implements HotSwapCompilerPass {
+    implements CompilerPass {
   private final AbstractCompiler compiler;
   private static final FeatureSet transpiledFeatures =
       FeatureSet.BARE_MINIMUM.with(Feature.EXTENDED_OBJECT_LITERALS);
@@ -37,14 +37,8 @@ public final class Es6NormalizeShorthandProperties extends AbstractPostOrderCall
 
   @Override
   public void process(Node externs, Node root) {
-    TranspilationPasses.processTranspile(compiler, externs, transpiledFeatures, this);
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
     TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    TranspilationPasses.hotSwapTranspile(compiler, scriptRoot, transpiledFeatures, this);
   }
 
   @Override

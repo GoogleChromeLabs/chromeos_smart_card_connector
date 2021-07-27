@@ -17,13 +17,12 @@ package com.google.javascript.jscomp.lint;
 
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.CLASS_DISALLOWED_JSDOC;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.EXTERNS_FILES_SHOULD_BE_ANNOTATED;
+import static com.google.javascript.jscomp.lint.CheckJSDocStyle.INCORRECT_ANNOTATION_ON_GETTER_SETTER;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.INCORRECT_PARAM_NAME;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MISSING_JSDOC;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MISSING_PARAMETER_JSDOC;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MISSING_RETURN_JSDOC;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MIXED_PARAM_JSDOC_STYLES;
-import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MUST_BE_PRIVATE;
-import static com.google.javascript.jscomp.lint.CheckJSDocStyle.MUST_HAVE_TRAILING_UNDERSCORE;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.OPTIONAL_PARAM_NOT_MARKED_OPTIONAL;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.PREFER_BACKTICKS_TO_AT_SIGN_CODE;
 import static com.google.javascript.jscomp.lint.CheckJSDocStyle.WRONG_NUMBER_OF_PARAMS;
@@ -33,7 +32,6 @@ import com.google.javascript.jscomp.ClosureCodingConvention;
 import com.google.javascript.jscomp.CodingConvention;
 import com.google.javascript.jscomp.Compiler;
 import com.google.javascript.jscomp.CompilerOptions;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.CompilerPass;
 import com.google.javascript.jscomp.CompilerTestCase;
 import com.google.javascript.jscomp.GoogleCodingConvention;
@@ -57,7 +55,6 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
   public void setUp() throws Exception {
     super.setUp();
     codingConvention = new GoogleCodingConvention();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_NEXT);
   }
 
   @Override
@@ -200,6 +197,17 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
 
     testSame("class Foo { /** @return {number} */ get twentyone() { return 21; } }");
     testSame("class Foo { /** @param {string} s */ set someString(s) { this.someString_ = s; } }");
+  }
+
+  @Test
+  public void testTypeAnnotationOnGetterSetter() {
+    testWarning(
+        "class Foo { /** @type {number} */ get twentyone() { return 21; } }",
+        INCORRECT_ANNOTATION_ON_GETTER_SETTER);
+    testWarning(
+        "class Foo { /** @type {string} s */ set someString(s) { this.someString_ = s; } }",
+        INCORRECT_ANNOTATION_ON_GETTER_SETTER);
+    testNoWarning("class Foo { set someString( /** string */ s) { this.someString_ = s; } }");
   }
 
   @Test
@@ -435,10 +443,6 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
         " * @param {string} y",
         " */",
         "function f(x, y) {}"));
-
-    testSame(lines(
-        "/** @override */",
-        "Foo.bar = function(x, y) {}"));
 
     testSame(lines(
         "/**",
@@ -766,6 +770,17 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
   }
 
   @Test
+  public void testParamWithNoTypeInfo_optional() {
+    testWarning(
+        lines(
+            "/**",
+            " * @param x A param with no type information.",
+            " */",
+            "function f(x = undefined) { }"),
+        OPTIONAL_PARAM_NOT_MARKED_OPTIONAL);
+  }
+
+  @Test
   public void testParamWithNoTypeInfo_withES6Modules() {
     testSame(
         lines(
@@ -790,36 +805,6 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
 
   @Test
   public void testMissingPrivate() {
-    testWarning(
-        lines(
-            "/** @return {number} */",
-            "X.prototype.foo_ = function() { return 0; }"),
-        MUST_BE_PRIVATE);
-
-    testWarning(
-        lines(
-            "/** @type {?number} */",
-            "X.prototype.foo_ = null;"),
-        MUST_BE_PRIVATE);
-
-    testWarning(
-        lines(
-            "/**",
-            " * @return {number}",
-            " * @private",
-            " */",
-            "X.prototype.foo = function() { return 0; }"),
-        MUST_HAVE_TRAILING_UNDERSCORE);
-
-    testWarning(
-        lines(
-            "/**",
-            " * @type {number}",
-            " * @private",
-            " */",
-            "X.prototype.foo = 0;"),
-        MUST_HAVE_TRAILING_UNDERSCORE);
-
     testSame(
         lines(
             "/**",
@@ -840,66 +825,6 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
         lines(
             "/** @type {number} */",
             "X.prototype['@some_special_property'] = 0;"));
-  }
-
-  @Test
-  public void testMissingPrivate_class() {
-    testWarning(
-        lines(
-            "class Example {",
-            "  /** @return {number} */",
-            "  foo_() { return 0; }",
-            "}"),
-        MUST_BE_PRIVATE);
-
-    testWarning(
-        lines(
-            "class Example {",
-            "  /** @return {number} */",
-            "  get foo_() { return 0; }",
-            "}"),
-        MUST_BE_PRIVATE);
-
-    testWarning(
-        lines(
-            "class Example {",
-            "  /** @param {number} val */",
-            "  set foo_(val) {}",
-            "}"),
-        MUST_BE_PRIVATE);
-
-    testWarning(
-        lines(
-            "class Example {",
-            "  /**",
-            "   * @return {number}",
-            "   * @private",
-            "   */",
-            "  foo() { return 0; }",
-            "}"),
-        MUST_HAVE_TRAILING_UNDERSCORE);
-
-    testWarning(
-        lines(
-            "class Example {",
-            "  /**",
-            "   * @return {number}",
-            "   * @private",
-            "   */",
-            "  get foo() { return 0; }",
-            "}"),
-        MUST_HAVE_TRAILING_UNDERSCORE);
-
-    testWarning(
-        lines(
-            "class Example {",
-            "  /**",
-            "   * @param {number} val",
-            "   * @private",
-            "   */",
-            "  set foo(val) { }",
-            "}"),
-        MUST_HAVE_TRAILING_UNDERSCORE);
   }
 
   @Test
@@ -925,43 +850,6 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
             "}"));
   }
 
-  @Test
-  public void testPrivateWarningAtPropertyDeclaration() {
-    testWarning(
-        lines(
-            "class Foo {",
-            "/** @constructor */",
-            "  constructor(foo) {",
-            "   /**",
-            "   * @const {number}",
-            "   * @suppress {missingProperties} suppress a warning for `bar` access on `foo`.",
-            "   */",
-            "   this.n_ = foo.bar;",
-            "  }",
-            "}"),
-        MUST_BE_PRIVATE);
-  }
-
-  @Test
-  public void testMissingPrivate_class_withES6Modules01() {
-    testWarning(
-        "export class Example { /** @return {number} */ foo_() { return 0; } }",
-        MUST_BE_PRIVATE);
-  }
-
-  @Test
-  public void testMissingPrivate_class_withES6Modules02() {
-    testWarning(
-        lines(
-            "export class Example {",
-            "  /**",
-            "   * @return {number}",
-            "   * @private",
-            "   */",
-            "  foo() { return 0; }",
-            "}"),
-        MUST_HAVE_TRAILING_UNDERSCORE);
-  }
 
   @Test
   public void testMissingPrivate_dontWarnOnObjectLiteral() {
@@ -1089,8 +977,6 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
     testSame("/** @param {number} x */ function f(x) { return; }");
     testSame("/** @param {number} x\n * @return {number} */ function f(x) { return x; }");
     testSame("/** @param {number} x */ function /** number */ f(x) { return x; }");
-    testSame("/** @inheritDoc */ function f(x) { return x; }");
-    testSame("/** @override */ function f(x) { return x; }");
   }
 
   @Test
@@ -1105,8 +991,122 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
     testSame("/** @param {number} x */ f = function(x) { function bar() { return x; } }");
     testSame("/** @param {number} x */ f = function(x) { return; }");
     testSame("/** @param {number} x\n * @return {number} */ f = function(x) { return x; }");
-    testSame("/** @inheritDoc */ f = function(x) { return x; }");
-    testSame("/** @override */ f = function(x) { return x; }");
+  }
+
+  @Test
+  public void testMissingParamOrReturn_warnOnOverrideMethodsAndFields() {
+    testWarning(
+        lines(
+            "/** ",
+            " * @override ",
+            " * @param {string} x ",
+            " */",
+            " Foo.Bar = function(x) { return x; }"), // function assigned to a field
+        MISSING_RETURN_JSDOC);
+    testWarning(
+        lines(
+            "/** ",
+            " * @override ",
+            " * @param {string} x ",
+            " */",
+            " function f(x) { return x; }"),
+        MISSING_RETURN_JSDOC);
+    testWarning(
+        lines(
+            "/**",
+            " * @override",
+            " * @return {string}",
+            " */",
+            " Foo.Bar = function(x) { return x; }"),
+        MISSING_PARAMETER_JSDOC);
+    testWarning(
+        lines(
+            "/** ", " * @override ", " * @param {string} x ", " */", "Foo.bar = function(x, y) {}"),
+        WRONG_NUMBER_OF_PARAMS);
+
+    // also test `@inheritDoc` annotations
+    testWarning(
+        lines(
+            "/** ",
+            " * @inheritDoc ",
+            " * @return {string} x ",
+            " */",
+            "function f(x) { return x; }"),
+        MISSING_PARAMETER_JSDOC);
+    testWarning(
+        lines(
+            "/** ",
+            " * @inheritDoc ",
+            " * @return {string} x ",
+            " */",
+            "Foo.Bar = function(x) { return x; }"), // assigned to a field
+        MISSING_PARAMETER_JSDOC);
+
+    // inline param type
+    testNoWarning(
+        lines(
+            "/** ",
+            " * @override",
+            " * @return {string}",
+            " */",
+            "var f = function(/** string */ x) { return x; }"));
+  }
+
+  @Test
+  public void testMissingOverrideTypes_bothParamAndReturnMissing() {
+    String src =
+        lines(
+            "/**", //
+            " * @override",
+            " */",
+            " function f(x) { return x; }");
+    test(srcs(src), warning(MISSING_RETURN_JSDOC), warning(MISSING_PARAMETER_JSDOC));
+  }
+
+  @Test
+  public void testMissingOverrideTypes_warningMessageIsCorrect() {
+    String src =
+        lines(
+            "/**", //
+            " * @override",
+            " */",
+            " function f(x) { }");
+    testWarning(
+        srcs(src),
+        warning(MISSING_PARAMETER_JSDOC)
+            .withMessageContaining(
+                "Parameter must have JSDoc."
+                    +
+                    ""
+                ));
+  }
+
+  @Test
+  public void testMissingOverrideTypes_bothParamAndReturnMissing_inGoogModule() {
+    String src =
+        lines(
+            "goog.module('a');", //
+            "/**",
+            " * @override",
+            " */",
+            " function f(x) { return x; }");
+    test(srcs(src), warning(MISSING_RETURN_JSDOC), warning(MISSING_PARAMETER_JSDOC));
+  }
+
+  @Test
+  public void testMissingOverrideTypes_bothParamAndReturnMissing_inGoogModule_inFunction() {
+    String src =
+        lines(
+            "goog.module('a');", //
+            "/** Module local function having a JSDoc */",
+            "function foo() {",
+            "  /**",
+            "   * @override",
+            "   */",
+            "   function f(x) { return x; }",
+            "}");
+
+    test(srcs(src), warning(MISSING_RETURN_JSDOC), warning(MISSING_PARAMETER_JSDOC));
   }
 
   @Test
@@ -1117,8 +1117,6 @@ public final class CheckJSDocStyleTest extends CompilerTestCase {
     testSame("/** @param {number} x */ var f = function(x) { return; }");
     testSame("/** @param {number} x\n * @return {number} */ var f = function(x) { return x; }");
     testSame("/** @const {function(number): number} */ var f = function(x) { return x; }");
-    testSame("/** @inheritDoc */ var f = function(x) { return x; }");
-    testSame("/** @override */ var f = function(x) { return x; }");
   }
 
   @Test

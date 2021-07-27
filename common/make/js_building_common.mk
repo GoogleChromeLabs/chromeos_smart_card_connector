@@ -64,10 +64,12 @@ $(eval $(call CLEAN_RULE,$(JS_BUILD_DIR_ROOT_PATH)))
 
 ifeq ($(CONFIG),Release)
 
+# Add Closure Compiler flags specific to release builds.
 JS_BUILD_COMPILATION_FLAGS := \
 
 else
 
+# Add Closure Compiler flags specific to debug builds.
 JS_BUILD_COMPILATION_FLAGS := \
 	--debug \
 	--formatting=PRETTY_PRINT \
@@ -75,13 +77,30 @@ JS_BUILD_COMPILATION_FLAGS := \
 
 endif
 
+# Add common Closure Compiler flags.
+#
+# Explanation:
+# dependency_mode=PRUNE: Skip unused JS code.
+# jscomp_error ...: Treat these warning classes as errors. Note: To be on the
+#   safe side, we're specifying all possible warning classes, except those that
+#   don't work for our codebase, which we explicitly list via jscomp_off.
+# jscomp_off lintChecks: Suppress complaints about code style. TODO: Fix the
+#   code (e.g., switch to modules instead of good.provide) and promote this to
+#   jscomp_error.
+# jscomp_off reportUnknownTypes: Suppressed due to many false positives in case
+#   the compiler isn't smart enough to infer the variable's type.
+# jscomp_off strictMissingProperties: Suppressed due to false positives on the
+#   .base() calls. TODO: Replace the base() calls with the ECMAScript style
+#   inheritance and promote this to jscomp_error.
+# jscomp_off unknownDefines: Suppressed in order to avoid compiler complaints
+#   when an unused constant is passed via --define.
 JS_BUILD_COMPILATION_FLAGS += \
 	--compilation_level=SIMPLE \
 	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
-	--dependency_mode=STRICT \
+	--dependency_mode=PRUNE \
 	--jscomp_error=accessControls \
-	--jscomp_error=ambiguousFunctionDecl \
+	--jscomp_error=checkPrototypalTypes \
 	--jscomp_error=checkRegExp \
 	--jscomp_error=checkTypes \
 	--jscomp_error=checkVars \
@@ -91,16 +110,12 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_error=deprecated \
 	--jscomp_error=deprecatedAnnotations \
 	--jscomp_error=duplicateMessage \
-	--jscomp_error=es3 \
 	--jscomp_error=es5Strict \
 	--jscomp_error=externsValidation \
-	--jscomp_error=fileoverviewTags \
 	--jscomp_error=functionParams \
 	--jscomp_error=globalThis \
 	--jscomp_error=invalidCasts \
-	--jscomp_error=lintChecks \
 	--jscomp_error=misplacedTypeAnnotation \
-	--jscomp_error=missingGetCssName \
 	--jscomp_error=missingOverride \
 	--jscomp_error=missingPolyfill \
 	--jscomp_error=missingProperties \
@@ -108,42 +123,44 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_error=missingRequire \
 	--jscomp_error=missingReturn \
 	--jscomp_error=missingSourcesWarnings \
+	--jscomp_error=moduleLoad \
 	--jscomp_error=msgDescriptions \
-	--jscomp_error=newCheckTypes \
 	--jscomp_error=nonStandardJsDocs \
-	--jscomp_error=suspiciousCode \
+	--jscomp_error=strictCheckTypes \
 	--jscomp_error=strictModuleDepCheck \
+	--jscomp_error=strictPrimitiveOperators \
+	--jscomp_error=suspiciousCode \
 	--jscomp_error=typeInvalidation \
 	--jscomp_error=undefinedNames \
 	--jscomp_error=undefinedVars \
 	--jscomp_error=underscore \
+	--jscomp_error=untranspilableFeatures \
 	--jscomp_error=unusedLocalVariables \
 	--jscomp_error=unusedPrivateMembers \
 	--jscomp_error=uselessCode \
-	--jscomp_error=useOfGoogBase \
 	--jscomp_error=visibility \
+	--jscomp_off lintChecks \
 	--jscomp_off reportUnknownTypes \
+	--jscomp_off strictMissingProperties \
 	--jscomp_off unknownDefines \
 	--use_types_for_optimization=false \
 	--warning_level=VERBOSE \
 
 
-#
 # Closure Compiler compilation flags that should be additionally specified when
 # compiling JavaScript files with tests.
 #
-
+# Explanation:
+# dependency_mode=PRUNE_LEGACY: In addition to the standard PRUNE behavior (see
+#   above), also include all JS files that don't have a good.provide. This
+#   allows unit test files to be picked up and compiled automatically.
 JS_BUILD_TESTING_ADDITIONAL_COMPILATION_FLAGS := \
 	$(CLOSURE_LIBRARY_TESTING_ADDITIONAL_COMPILER_FLAGS) \
-	--dependency_mode=LOOSE \
-	--jscomp_off newCheckTypes \
+	--dependency_mode=PRUNE_LEGACY \
 
 
-#
 # List of Closure Compiler input files that contain extern definitions for
 # JavaScript APIs available in Chrome.
-#
-
 CHROME_EXTERNS_COMPILER_INPUTS := \
 	$(THIRD_PARTY_DIR_PATH)/closure-compiler/src/contrib/externs/chrome.js \
 	$(THIRD_PARTY_DIR_PATH)/closure-compiler/src/contrib/externs/chrome_extensions.js \

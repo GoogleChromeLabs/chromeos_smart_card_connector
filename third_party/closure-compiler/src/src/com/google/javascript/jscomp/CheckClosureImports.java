@@ -20,6 +20,7 @@ import static com.google.common.base.Ascii.isUpperCase;
 import static com.google.common.base.Ascii.toLowerCase;
 import static com.google.common.base.Ascii.toUpperCase;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.javascript.jscomp.ClosureCheckModule.INCORRECT_SHORTNAME_CAPITALIZATION;
 import static com.google.javascript.jscomp.ClosurePrimitiveErrors.INVALID_CLOSURE_CALL_SCOPE_ERROR;
@@ -33,6 +34,7 @@ import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.rhino.IR;
+import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
 import java.util.HashSet;
 import java.util.Set;
@@ -40,12 +42,12 @@ import javax.annotation.Nullable;
 
 /**
  * Checks all goog.requires, goog.module.gets, goog.forwardDeclares, and goog.requireTypes in all
- * files. This pass is a guard to {@link RewriteClosureImports}.
+ * files.
  *
  * <p>Checks that these dependency calls both contain a valid Closure namespace and are in an
  * acceptable location (e.g. a goog.require cannot be within a function).
  */
-final class CheckClosureImports implements HotSwapCompilerPass {
+final class CheckClosureImports implements CompilerPass {
 
   private enum ClosureImport {
     REQUIRE {
@@ -176,30 +178,27 @@ final class CheckClosureImports implements HotSwapCompilerPass {
           "JSC_LHS_OF_CLOUSRE_IMPORT_MUST_BE_CONST_IN_ES_MODULE",
           "The left side of a {0} must use ''const'' (not ''let'' or ''var'') in an ES module.");
 
-  private static final Node GOOG_REQUIRE = IR.getprop(IR.name("goog"), IR.string("require"));
-  private static final Node GOOG_MODULE_GET =
-      IR.getprop(IR.getprop(IR.name("goog"), IR.string("module")), IR.string("get"));
-  private static final Node GOOG_FORWARD_DECLARE =
-      IR.getprop(IR.name("goog"), IR.string("forwardDeclare"));
-  private static final Node GOOG_REQUIRE_TYPE =
-      IR.getprop(IR.name("goog"), IR.string("requireType"));
+  static final DiagnosticType CROSS_CHUNK_REQUIRE_ERROR =
+      DiagnosticType.warning(
+          "JSC_XMODULE_REQUIRE_ERROR",
+          "namespace \"{0}\" is required in chunk {2} but provided in chunk {1}."
+              + " Is chunk {2} missing a dependency on chunk {1}?");
+
+  private static final Node GOOG_REQUIRE = IR.getprop(IR.name("goog"), "require");
+  private static final Node GOOG_MODULE_GET = IR.getprop(IR.name("goog"), "module", "get");
+  private static final Node GOOG_FORWARD_DECLARE = IR.getprop(IR.name("goog"), "forwardDeclare");
+  private static final Node GOOG_REQUIRE_TYPE = IR.getprop(IR.name("goog"), "requireType");
 
   private final AbstractCompiler compiler;
   private final Checker checker;
   private final Set<String> namespacesSeen;
-  private boolean inHotSwap = false;
+  private final JSChunkGraph chunkGraph;
 
   CheckClosureImports(AbstractCompiler compiler, ModuleMetadataMap moduleMetadataMap) {
     this.compiler = compiler;
     this.checker = new Checker(compiler, moduleMetadataMap);
     this.namespacesSeen = new HashSet<>();
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    inHotSwap = true;
-    NodeTraversal.traverse(compiler, scriptRoot.getParent(), checker);
-    inHotSwap = false;
+    this.chunkGraph = compiler.getModuleGraph();
   }
 
   @Override
@@ -307,7 +306,7 @@ final class CheckClosureImports implements HotSwapCompilerPass {
         return;
       }
 
-      if (!call.hasTwoChildren() || !call.getSecondChild().isString()) {
+      if (!call.hasTwoChildren() || !call.getSecondChild().isStringLit()) {
         t.report(call, INVALID_CLOSURE_IMPORT_CALL, "goog.module.get");
         return;
       }
@@ -355,11 +354,13 @@ final class CheckClosureImports implements HotSwapCompilerPass {
       if (!objectPattern.isObjectPattern()) {
         return false;
       }
-      for (Node stringKey : objectPattern.children()) {
+      for (Node stringKey = objectPattern.getFirstChild();
+          stringKey != null;
+          stringKey = stringKey.getNext()) {
         if (!stringKey.isStringKey()) {
           return false;
         }
-        if (stringKey.hasChildren() && !stringKey.getFirstChild().isName()) {
+        if (!stringKey.getFirstChild().isName()) {
           return false;
         }
       }
@@ -390,8 +391,8 @@ final class CheckClosureImports implements HotSwapCompilerPass {
         ModuleMetadata currentModule,
         ClosureImport importType) {
       boolean atTopLevelScope = t.inGlobalHoistScope() || t.inModuleScope();
-      boolean isNonModule = currentModule.isGoogProvide() || currentModule.isScript();
-      boolean validAssignment = !isNonModule || parent.isExprResult();
+      boolean isModule = currentModule.isModule();
+      boolean validAssignment = isModule || parent.isExprResult();
       boolean isAliased = NodeUtil.isNameDeclaration(parent.getParent());
 
       if (!atTopLevelScope || !validAssignment) {
@@ -399,12 +400,12 @@ final class CheckClosureImports implements HotSwapCompilerPass {
         return;
       }
 
-      if (!call.hasTwoChildren() || !call.getSecondChild().isString()) {
+      if (!call.hasTwoChildren() || !call.getSecondChild().isStringLit()) {
         t.report(call, INVALID_CLOSURE_IMPORT_CALL, importType.callName());
         return;
       }
 
-      if (!isNonModule && isAliased) {
+      if (isModule && isAliased) {
         Node declaration = parent.getParent();
 
         if (!declaration.hasOneChild()) {
@@ -441,7 +442,7 @@ final class CheckClosureImports implements HotSwapCompilerPass {
         if (importType == ClosureImport.FORWARD_DECLARE) {
           // Ok to forwardDeclare any global, sadly. This is some bad legacy behavior and people
           // ought to use externs.
-          if (isAliased && !isNonModule) {
+          if (isAliased && isModule) {
             // Special case `const Foo = goog.forwardDeclare('a.Foo');`. For legacy reasons, we
             // allow js_library to be less strict about missing forwardDeclares vs. other missing
             // Closure imports.
@@ -453,18 +454,47 @@ final class CheckClosureImports implements HotSwapCompilerPass {
           return;
         }
         t.report(call, MISSING_MODULE_OR_PROVIDE, namespace);
-      } else if (!inHotSwap && importType.mustBeOrdered() && !namespacesSeen.contains(namespace)) {
-        // Since hot swap passes run one file at a time, namespacesSeen will not include
-        // any provides earlier than this current file.
-        t.report(call, LATE_PROVIDE_ERROR, namespace);
+        return;
+      }
+
+      if (importType.mustBeOrdered()) {
+        verifyRequireOrder(namespace, call, t, requiredModule);
       }
 
       if (importType == ClosureImport.REQUIRE
-          && requiredModule != null
           && currentModule.isEs6Module()
           && requiredModule.isEs6Module()) {
         t.report(call, Es6RewriteModules.SHOULD_IMPORT_ES6_MODULE);
       }
+    }
+  }
+
+  private void verifyRequireOrder(
+      String namespace, Node call, NodeTraversal t, ModuleMetadata requiredModule) {
+    if (!namespacesSeen.contains(namespace)) {
+      t.report(call, LATE_PROVIDE_ERROR, namespace);
+      return;
+    }
+
+    if (requiredModule.rootNode() == null || requiredModule.rootNode().isFromExterns()) {
+      return; // synthetic metadata for tests may have no root node.
+    }
+
+    InputId requiredInputId = NodeUtil.getInputId(requiredModule.rootNode());
+    CompilerInput requiredInput =
+        checkNotNull(
+            compiler.getInput(requiredInputId), "Cannot find CompilerInput for %s", requiredModule);
+
+    JSChunk requiredChunk = requiredInput.getChunk();
+    JSChunk currentChunk = t.getChunk();
+    if (currentChunk != requiredChunk && !chunkGraph.dependsOn(currentChunk, requiredChunk)) {
+      compiler.report(
+          JSError.make(
+              call,
+              CROSS_CHUNK_REQUIRE_ERROR,
+              namespace,
+              requiredChunk.getName(),
+              currentChunk.getName()));
     }
   }
 }

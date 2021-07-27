@@ -27,7 +27,6 @@ import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.NominalTypeBuilder;
 import com.google.javascript.rhino.jstype.FunctionType;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -156,7 +155,7 @@ public final class ClosureCodingConvention extends CodingConventions.Proxy {
     // Check if the method name matches one of the class-defining methods.
     String methodName = null;
     if (callName.isGetProp()) {
-      methodName = callName.getLastChild().getString();
+      methodName = callName.getString();
     } else if (callName.isName()) {
       String name = callName.getString();
       int dollarIndex = name.lastIndexOf('$');
@@ -188,8 +187,7 @@ public final class ClosureCodingConvention extends CodingConventions.Proxy {
    * a.b.c.prototype => true
    */
   private static boolean endsWithPrototype(Node qualifiedName) {
-    return qualifiedName.isGetProp() &&
-        qualifiedName.getLastChild().getString().equals("prototype");
+    return qualifiedName.isGetProp() && qualifiedName.getString().equals("prototype");
   }
 
   /**
@@ -233,7 +231,7 @@ public final class ClosureCodingConvention extends CodingConventions.Proxy {
       Node callee = node.getFirstChild();
       if (callee != null && callee.isGetProp() && callee.matchesQualifiedName(functionName)) {
         Node target = callee.getNext();
-        if (target != null && target.isString()) {
+        if (target != null && target.isStringLit()) {
           className = target.getString();
         }
       }
@@ -262,25 +260,10 @@ public final class ClosureCodingConvention extends CodingConventions.Proxy {
   @Override
   public List<String> identifyTypeDeclarationCall(Node n) {
     Node callName = n.getFirstChild();
-    if (callName.matchesQualifiedName("goog.addDependency") &&
-        n.getChildCount() >= 3) {
-      Node typeArray = callName.getNext().getNext();
-      if (typeArray.isArrayLit()) {
-        List<String> typeNames = new ArrayList<>();
-        for (Node name = typeArray.getFirstChild(); name != null;
-             name = name.getNext()) {
-          if (name.isString()) {
-            typeNames.add(name.getString());
-          }
-        }
-        return typeNames;
-      }
-    }
-
     // Identify forward declaration of form goog.forwardDeclare('foo.bar')
     if (callName.matchesQualifiedName("goog.forwardDeclare") && n.hasTwoChildren()) {
       Node typeDeclaration = n.getSecondChild();
-      if (typeDeclaration.isString()) {
+      if (typeDeclaration.isStringLit()) {
         return ImmutableList.of(typeDeclaration.getString());
       }
     }
@@ -313,26 +296,22 @@ public final class ClosureCodingConvention extends CodingConventions.Proxy {
   }
 
   @Override
-  public String getGlobalObject() {
-    return "goog.global";
-  }
-
-  @Override
-  public boolean isAliasingGlobalThis(Node n) {
-    return CodingConventions.isAliasingGlobalThis(this, n);
-  }
-
-  private final ImmutableSet<String> propertyTestFunctions = ImmutableSet.of(
-      "goog.isDef", "goog.isNull", "goog.isDefAndNotNull",
-      "goog.isString", "goog.isNumber", "goog.isBoolean",
-      "goog.isFunction", "goog.isArray", "goog.isArrayLike", "goog.isObject");
-
-  @Override
   public boolean isPropertyTestFunction(Node call) {
     checkArgument(call.isCall());
-    return propertyTestFunctions.contains(
-        call.getFirstChild().getQualifiedName()) ||
-        super.isPropertyTestFunction(call);
+    // Avoid building the qualified name and check for
+    // "goog.isArrayLike", "goog.isObject"
+    Node target = call.getFirstChild();
+    if (target.isGetProp()) {
+      Node src = target.getFirstChild();
+      String prop = target.getString();
+      if (src.isName()
+          && src.getString().equals("goog")
+          && (prop.equals("isArrayLike") || prop.equals("isObject"))) {
+        return true;
+      }
+    }
+
+    return super.isPropertyTestFunction(call);
   }
 
   @Override
@@ -372,11 +351,6 @@ public final class ClosureCodingConvention extends CodingConventions.Proxy {
     }
 
     return new ObjectLiteralCast(typeNode.getQualifiedName(), typeNode.getNext(), null);
-  }
-
-  @Override
-  public boolean isPrivate(String name) {
-    return false;
   }
 
   @Override
@@ -460,8 +434,7 @@ public final class ClosureCodingConvention extends CodingConventions.Proxy {
     return super.describeCachingCall(node);
   }
 
-  static final Node googCacheReflect = IR.getprop(
-      IR.name("goog"), IR.string("reflect"), IR.string("cache"));
+  static final Node googCacheReflect = IR.getprop(IR.name("goog"), "reflect", "cache");
 
   private boolean matchesCacheMethodName(Node target) {
     if (target.isGetProp()) {

@@ -41,100 +41,66 @@ package com.google.javascript.rhino.jstype;
 
 import static com.google.javascript.rhino.jstype.JSTypeNative.UNKNOWN_TYPE;
 
+import com.google.common.collect.ImmutableList;
+import com.google.javascript.jscomp.base.Tri;
 import com.google.javascript.rhino.ErrorReporter;
-import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.jstype.FunctionType.Parameter;
+import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 
 /**
- * The arrow type models a "bare" function type: from some parameter types to
- * a return type. JavaScript functions include more things like properties, type
- * of THIS, etc, and are modeled by {@link FunctionType}.
+ * Models a "bare" function type: from some parameter types to a return type.
+ *
+ * <p>JavaScript functions include more things like properties, type of THIS, etc, and are modeled
+ * by {@link FunctionType}.
  */
 final class ArrowType extends JSType {
-  private static final long serialVersionUID = 1L;
+  private static final JSTypeClass TYPE_CLASS = JSTypeClass.ARROW;
 
-  final Node parameters;
-  JSType returnType;
+  private final ImmutableList<Parameter> parameterList;
+  private JSType returnType;
 
   // Whether the return type is inferred.
   final boolean returnTypeInferred;
 
-  ArrowType(JSTypeRegistry registry, Node parameters, JSType returnType) {
-    this(registry, parameters, returnType, false);
-  }
-
-  ArrowType(JSTypeRegistry registry, Node parameters,
-      JSType returnType, boolean returnTypeInferred) {
+  ArrowType(
+      JSTypeRegistry registry,
+      @Nullable List<Parameter> parameters,
+      @Nullable JSType returnType,
+      boolean returnTypeInferred) {
     super(registry);
 
-    this.parameters = parameters == null ?
-        registry.createParametersWithVarArgs(getNativeType(UNKNOWN_TYPE)) :
-        parameters;
-    this.returnType = returnType == null ?
-        getNativeType(UNKNOWN_TYPE) : returnType;
+    this.parameterList =
+        parameters == null
+            ? registry.createParametersWithVarArgs(getNativeType(UNKNOWN_TYPE))
+            : ImmutableList.copyOf(parameters);
+    this.returnType = returnType == null ? getNativeType(UNKNOWN_TYPE) : returnType;
     this.returnTypeInferred = returnTypeInferred;
+
+    registry.getResolver().resolveIfClosed(this, TYPE_CLASS);
   }
 
-  /**
-   * @return True if our parameter spec is equal to {@code that}'s parameter
-   *     spec.
-   */
-  boolean hasEqualParameters(ArrowType that, EquivalenceMethod eqMethod, EqCache eqCache) {
-    Node thisParam = parameters.getFirstChild();
-    Node otherParam = that.parameters.getFirstChild();
-    while (thisParam != null && otherParam != null) {
-      JSType thisParamType = thisParam.getJSType();
-      JSType otherParamType = otherParam.getJSType();
-      if (thisParamType != null) {
-        // Both parameter lists give a type for this param, it should be equal
-        if (otherParamType != null &&
-            !thisParamType.checkEquivalenceHelper(otherParamType, eqMethod, eqCache)) {
-          return false;
-        }
-      } else {
-        if (otherParamType != null) {
-          return false;
-        }
-      }
-
-      // Check var_args/optionality
-      if (thisParam.isOptionalArg() != otherParam.isOptionalArg()) {
-        return false;
-      }
-
-      if (thisParam.isVarArgs() != otherParam.isVarArgs()) {
-        return false;
-      }
-
-      thisParam = thisParam.getNext();
-      otherParam = otherParam.getNext();
-    }
-    // One of the parameters is null, so the types are only equal if both
-    // parameter lists are null (they are equal).
-    return thisParam == otherParam;
-  }
-
-  boolean checkArrowEquivalenceHelper(
-      ArrowType that, EquivalenceMethod eqMethod, EqCache eqCache) {
-    // Please keep this method in sync with the hashCode() method below.
-    if (!returnType.checkEquivalenceHelper(
-        that.returnType, eqMethod, eqCache)) {
-      return false;
-    }
-    return hasEqualParameters(that, eqMethod, eqCache);
+  @Override
+  JSTypeClass getTypeClass() {
+    return TYPE_CLASS;
   }
 
   @Override
   int recursionUnsafeHashCode() {
     int hashCode = Objects.hashCode(returnType);
-    if (parameters != null) {
-      Node param = parameters.getFirstChild();
-      while (param != null) {
-        hashCode = hashCode * 31 + Objects.hashCode(param.getJSType());
-        param = param.getNext();
-      }
+    for (Parameter param : parameterList) {
+      hashCode = hashCode * 31 + Objects.hashCode(param.getJSType());
     }
     return hashCode;
+  }
+
+  public JSType getReturnType() {
+    return this.returnType;
+  }
+
+  ImmutableList<Parameter> getParameterList() {
+    return parameterList;
   }
 
   @Override
@@ -148,7 +114,7 @@ final class ArrowType extends JSType {
   }
 
   @Override
-  public TernaryValue testForEquality(JSType that) {
+  public Tri testForEquality(JSType that) {
     throw new UnsupportedOperationException();
   }
 
@@ -169,47 +135,39 @@ final class ArrowType extends JSType {
   @Override
   JSType resolveInternal(ErrorReporter reporter) {
     returnType = safeResolve(returnType, reporter);
-    if (parameters != null) {
-      for (Node paramNode = parameters.getFirstChild();
-           paramNode != null; paramNode = paramNode.getNext()) {
-        paramNode.setJSType(paramNode.getJSType().resolve(reporter));
-      }
+    for (Parameter param : parameterList) {
+      param.getJSType().resolve(reporter);
     }
+
     return this;
   }
 
   boolean hasUnknownParamsOrReturn() {
-    if (parameters != null) {
-      for (Node paramNode = parameters.getFirstChild();
-           paramNode != null; paramNode = paramNode.getNext()) {
-        JSType type = paramNode.getJSType();
-        if (type == null || type.isUnknownType()) {
-          return true;
-        }
+    for (Parameter param : parameterList) {
+      JSType type = param.getJSType();
+      if (type.isUnknownType()) {
+        return true;
       }
     }
+
     return returnType == null || returnType.isUnknownType();
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    return sb.append("[ArrowType]");
+  void appendTo(TypeStringBuilder sb) {
+    sb.append("[ArrowType]");
   }
 
   @Override
   public boolean hasAnyTemplateTypesInternal() {
-    return returnType.hasAnyTemplateTypes()
-        || hasTemplatedParameterType();
+    return returnType.hasAnyTemplateTypes() || hasTemplatedParameterType();
   }
 
   private boolean hasTemplatedParameterType() {
-    if (parameters != null) {
-      for (Node paramNode = parameters.getFirstChild();
-           paramNode != null; paramNode = paramNode.getNext()) {
-        JSType type = paramNode.getJSType();
-        if (type != null && type.hasAnyTemplateTypes()) {
-          return true;
-        }
+    for (Parameter param : parameterList) {
+      JSType type = param.getJSType();
+      if (type.hasAnyTemplateTypes()) {
+        return true;
       }
     }
     return false;

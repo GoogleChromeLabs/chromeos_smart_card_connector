@@ -16,16 +16,13 @@
 
 package com.google.javascript.jscomp.type;
 
-import static com.google.javascript.rhino.jstype.JSTypeNative.ARRAY_TYPE;
 import static com.google.javascript.rhino.jstype.JSTypeNative.NO_OBJECT_TYPE;
-import static com.google.javascript.rhino.jstype.JSTypeNative.NULL_TYPE;
-import static com.google.javascript.rhino.jstype.JSTypeNative.NULL_VOID;
 import static com.google.javascript.rhino.jstype.JSTypeNative.OBJECT_TYPE;
-import static com.google.javascript.rhino.jstype.JSTypeNative.VOID_TYPE;
 
 import com.google.common.base.Function;
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.Outcome;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
@@ -35,16 +32,11 @@ import java.util.Map;
 import javax.annotation.CheckReturnValue;
 
 /**
- * A reverse abstract interpreter (RAI) for specific closure patterns such as
- * {@code goog.isDef}.
+ * A reverse abstract interpreter (RAI) for specific closure patterns such as {@code goog.isObject}.
  */
-public final class ClosureReverseAbstractInterpreter
-    extends ChainableReverseAbstractInterpreter {
+public final class ClosureReverseAbstractInterpreter extends ChainableReverseAbstractInterpreter {
 
-  /**
-   * For when {@code goog.isObject} returns true. This includes functions, but
-   * not {@code null}.
-   */
+  /** For when {@code goog.isObject} returns true. This includes functions, but not {@code null}. */
   private final Visitor<JSType> restrictToObjectVisitor =
       new RestrictByTrueTypeOfResultVisitor() {
         @Override
@@ -83,92 +75,37 @@ public final class ClosureReverseAbstractInterpreter
   public ClosureReverseAbstractInterpreter(final JSTypeRegistry typeRegistry) {
     super(typeRegistry);
     this.restricters =
-        new ImmutableMap.Builder<String, Function<TypeRestriction, JSType>>()
-            .put(
-                "isDef",
-                p -> {
-                  if (p.outcome) {
-                    return p.type != null ? p.type.restrictByNotUndefined() : null;
-                  } else {
-                    return p.type != null
-                        ? getNativeType(VOID_TYPE).getGreatestSubtype(p.type)
-                        : null;
-                  }
-                })
-            .put(
-                "isNull",
-                p -> {
-                  if (p.outcome) {
-                    return p.type != null
-                        ? getNativeType(NULL_TYPE).getGreatestSubtype(p.type)
-                        : null;
-                  } else {
-                    return p.type != null ? p.type.restrictByNotNull() : null;
-                  }
-                })
-            .put(
-                "isDefAndNotNull",
-                p -> {
-                  if (p.outcome) {
-                    return p.type != null ? p.type.restrictByNotNullOrUndefined() : null;
-                  } else {
-                    return p.type != null
-                        ? getNativeType(NULL_VOID).getGreatestSubtype(p.type)
-                        : null;
-                  }
-                })
-            .put("isString", p -> getRestrictedByTypeOfResult(p.type, "string", p.outcome))
-            .put("isBoolean", p -> getRestrictedByTypeOfResult(p.type, "boolean", p.outcome))
-            .put("isNumber", p -> getRestrictedByTypeOfResult(p.type, "number", p.outcome))
-            .put("isFunction", p -> getRestrictedByTypeOfResult(p.type, "function", p.outcome))
-            .put(
-                "isArray",
-                p -> {
-                  if (p.type == null) {
-                    return p.outcome ? getNativeType(ARRAY_TYPE) : null;
-                  }
+        ImmutableMap.of(
+            "isObject",
+            p -> {
+              if (p.type == null) {
+                return p.outcome ? getNativeType(OBJECT_TYPE) : null;
+              }
 
-                  Visitor<JSType> visitor =
-                      p.outcome ? restrictToArrayVisitor : restrictToNotArrayVisitor;
-                  return p.type.visit(visitor);
-                })
-            .put(
-                "isObject",
-                p -> {
-                  if (p.type == null) {
-                    return p.outcome ? getNativeType(OBJECT_TYPE) : null;
-                  }
-
-                  Visitor<JSType> visitor =
-                      p.outcome ? restrictToObjectVisitor : restrictToNotObjectVisitor;
-                  return p.type.visit(visitor);
-                })
-            .build();
+              Visitor<JSType> visitor =
+                  p.outcome ? restrictToObjectVisitor : restrictToNotObjectVisitor;
+              return p.type.visit(visitor);
+            });
   }
 
   @Override
-  public FlowScope getPreciserScopeKnowingConditionOutcome(Node condition,
-      FlowScope blindScope, boolean outcome) {
+  public FlowScope getPreciserScopeKnowingConditionOutcome(
+      Node condition, FlowScope blindScope, Outcome outcome) {
     if (condition.isCall() && condition.hasTwoChildren()) {
       Node callee = condition.getFirstChild();
       Node param = condition.getLastChild();
       if (callee.isGetProp() && param.isQualifiedName()) {
-        JSType paramType =  getTypeIfRefinable(param, blindScope);
-        Node left = callee.getFirstChild();
-        Node right = callee.getLastChild();
-        if (left.isName() && "goog".equals(left.getString()) &&
-            right.isString()) {
-          Function<TypeRestriction, JSType> restricter =
-              restricters.get(right.getString());
+        JSType paramType = getTypeIfRefinable(param, blindScope);
+        Node receiver = callee.getFirstChild();
+        if (receiver.isName() && "goog".equals(receiver.getString())) {
+          Function<TypeRestriction, JSType> restricter = restricters.get(callee.getString());
           if (restricter != null) {
-            return restrictParameter(param, paramType, blindScope, restricter,
-                outcome);
+            return restrictParameter(param, paramType, blindScope, restricter, outcome.isTruthy());
           }
         }
       }
     }
-    return nextPreciserScopeKnowingConditionOutcome(
-        condition, blindScope, outcome);
+    return nextPreciserScopeKnowingConditionOutcome(condition, blindScope, outcome);
   }
 
   @CheckReturnValue

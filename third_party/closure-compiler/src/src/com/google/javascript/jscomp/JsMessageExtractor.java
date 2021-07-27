@@ -81,7 +81,7 @@ public final class JsMessageExtractor {
     private final List<JsMessage> messages = new ArrayList<>();
 
     private ExtractMessagesVisitor(AbstractCompiler compiler) {
-      super(compiler, true, style, idGenerator);
+      super(compiler, style, idGenerator);
     }
 
     @Override
@@ -110,16 +110,15 @@ public final class JsMessageExtractor {
     return extractMessages(ImmutableList.copyOf(inputs));
   }
 
-
   /**
    * Extracts JS messages from JavaScript code.
    *
-   * @param inputs  the JavaScript source code inputs
+   * @param inputs the JavaScript source code inputs
    * @return the extracted messages collection
-   * @throws RuntimeException if there are problems parsing the JS code or the
-   *     JS messages, or if two messages have the same key
+   * @throws RuntimeException if there are problems parsing the JS code or the JS messages, or if
+   *     two messages have the same key
    */
-  public <T extends SourceFile> Collection<JsMessage> extractMessages(Iterable<T> inputs) {
+  public Collection<JsMessage> extractMessages(Iterable<SourceFile> inputs) {
     final Compiler compiler = new Compiler();
     compiler.init(
         ImmutableList.<SourceFile>of(),

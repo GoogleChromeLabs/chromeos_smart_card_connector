@@ -23,6 +23,7 @@ import com.google.common.annotations.GwtIncompatible;
 import com.google.common.base.CaseFormat;
 import com.google.debugging.sourcemap.proto.Mapping.OriginalMapping;
 import com.google.javascript.jscomp.JsMessage.Builder;
+import com.google.javascript.jscomp.JsMessage.PlaceholderFormatException;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.JSDocInfo;
@@ -54,7 +55,7 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
           "JSC_MSG_HAS_NO_TEXT",
           "Message value of {0} is just an empty string. " + "Empty messages are forbidden.");
 
-  static final DiagnosticType MESSAGE_TREE_MALFORMED =
+  public static final DiagnosticType MESSAGE_TREE_MALFORMED =
       DiagnosticType.error("JSC_MSG_TREE_MALFORMED", "Message parse tree malformed. {0}");
 
   static final DiagnosticType MESSAGE_HAS_NO_VALUE =
@@ -75,18 +76,15 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
           "JSC_MSG_NOT_INITIALIZED_USING_NEW_SYNTAX",
           "message not initialized using " + MSG_FUNCTION_NAME);
 
-  static final DiagnosticType BAD_FALLBACK_SYNTAX =
+  public static final DiagnosticType BAD_FALLBACK_SYNTAX =
       DiagnosticType.error(
           "JSC_MSG_BAD_FALLBACK_SYNTAX",
           SimpleFormat.format(
               "Bad syntax. " + "Expected syntax: %s(MSG_1, MSG_2)", MSG_FALLBACK_FUNCTION_NAME));
 
-  static final DiagnosticType FALLBACK_ARG_ERROR =
+  public static final DiagnosticType FALLBACK_ARG_ERROR =
       DiagnosticType.error(
           "JSC_MSG_FALLBACK_ARG_ERROR", "Could not find message entry for fallback argument {0}");
-
-  private static final String PH_JS_PREFIX = "{$";
-  private static final String PH_JS_SUFFIX = "}";
 
   static final String MSG_PREFIX = "MSG_";
 
@@ -109,7 +107,6 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
   // For old-style JS messages
   private static final String DESC_SUFFIX = "_HELP";
 
-  private final boolean needToCheckDuplications;
   private final JsMessage.Style style;
   private final JsMessage.IdGenerator idGenerator;
   final AbstractCompiler compiler;
@@ -137,18 +134,13 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
    * Creates JS message visitor.
    *
    * @param compiler the compiler instance
-   * @param needToCheckDuplications whether to check duplicated messages in traversed
    * @param style style that should be used during parsing
    * @param idGenerator generator that used for creating unique ID for the message
    */
   protected JsMessageVisitor(
-      AbstractCompiler compiler,
-      boolean needToCheckDuplications,
-      JsMessage.Style style,
-      JsMessage.IdGenerator idGenerator) {
+      AbstractCompiler compiler, JsMessage.Style style, JsMessage.IdGenerator idGenerator) {
 
     this.compiler = compiler;
-    this.needToCheckDuplications = needToCheckDuplications;
     this.style = style;
     this.idGenerator = idGenerator;
 
@@ -203,7 +195,7 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
           return;
         }
 
-        messageKey = getProp.getLastChild().getString();
+        messageKey = getProp.getString();
         originalMessageKey = getProp.getOriginalName();
         msgNode = node.getLastChild();
         isVar = false;
@@ -279,9 +271,9 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
         compiler.getSourceMapping(
             traversal.getSourceName(), traversal.getLineNumber(), traversal.getCharno());
     if (mapping != null) {
-      builder.setSourceName(mapping.getOriginalFile());
+      builder.setSourceName(mapping.getOriginalFile() + ":" + mapping.getLineNumber());
     } else {
-      builder.setSourceName(traversal.getSourceName());
+      builder.setSourceName(traversal.getSourceName() + ":" + traversal.getLineNumber());
     }
 
     try {
@@ -298,7 +290,7 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
     JsMessage extractedMessage = builder.build(idGenerator);
 
     // If asked to check named internal messages.
-    if (needToCheckDuplications && !isUnnamedMsg && !extractedMessage.isExternal()) {
+    if (!isUnnamedMsg && !extractedMessage.isExternal()) {
       checkIfMessageDuplicated(messageKey, msgNode);
     }
     trackMessage(traversal, extractedMessage, messageKey, msgNode, isUnnamedMsg);
@@ -368,11 +360,12 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
   private static boolean isLegalMessageVarAlias(Node msgNode) {
     if (msgNode.isGetProp()
         && msgNode.isQualifiedName()
-        && msgNode.getLastChild().getString().startsWith(MSG_PREFIX)) {
+        && msgNode.getString().startsWith(MSG_PREFIX)) {
       // Case: `foo.Thing.MSG_EXAMPLE_ALIAS = bar.OtherThing.MSG_EXAMPLE;`
       //
       // This kind of construct is created by TypeScript code generation and
-      // Es6ToEs3ClassSideInheritance. Just ignore it; the message will have already been extracted
+      // ConcretizeStaticInheritanceForInlining. Just ignore it; the message will have already been
+      // extracted
       // from the base class.
       return true;
     }
@@ -453,7 +446,7 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
     // Determine the message's value
     Node valueNode = nameNode.getFirstChild();
     switch (valueNode.getToken()) {
-      case STRING:
+      case STRINGLIT:
       case ADD:
         maybeInitMetaDataFromJsDocOrHelpVar(builder, parentNode, grandParentNode);
         builder.appendStringPart(extractStringFromStringExprNode(valueNode));
@@ -563,6 +556,9 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
       if (info.getMeaning() != null) {
         builder.setMeaning(info.getMeaning());
       }
+      if (info.getAlternateMessageId() != null) {
+        builder.setAlternateId(info.getAlternateMessageId());
+      }
     }
 
     return messageHasDesc;
@@ -578,7 +574,7 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
    */
   private static String extractStringFromStringExprNode(Node node) throws MalformedException {
     switch (node.getToken()) {
-      case STRING:
+      case STRINGLIT:
         return node.getString();
       case TEMPLATELIT:
         if (node.hasOneChild()) {
@@ -591,7 +587,7 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
         }
       case ADD:
         StringBuilder sb = new StringBuilder();
-        for (Node child : node.children()) {
+        for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
           sb.append(extractStringFromStringExprNode(child));
         }
         return sb.toString();
@@ -630,14 +626,16 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
   private void extractFromFunctionNode(Builder builder, Node node) throws MalformedException {
     Set<String> phNames = new HashSet<>();
 
-    for (Node fnChild : node.children()) {
+    for (Node fnChild = node.getFirstChild(); fnChild != null; fnChild = fnChild.getNext()) {
       switch (fnChild.getToken()) {
         case NAME:
           // This is okay. The function has a name, but it is empty.
           break;
         case PARAM_LIST:
           // Parse the placeholder names from the function argument list.
-          for (Node argumentNode : fnChild.children()) {
+          for (Node argumentNode = fnChild.getFirstChild();
+              argumentNode != null;
+              argumentNode = argumentNode.getNext()) {
             if (argumentNode.isName()) {
               String phName = argumentNode.getString();
               if (phNames.contains(phName)) {
@@ -655,7 +653,7 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
             throw new MalformedException(
                 "RETURN node expected; found: " + returnNode.getToken(), returnNode);
           }
-          for (Node child : returnNode.children()) {
+          for (Node child = returnNode.getFirstChild(); child != null; child = child.getNext()) {
             extractFromReturnDescendant(builder, child);
           }
 
@@ -687,14 +685,14 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
       throws MalformedException {
 
     switch (node.getToken()) {
-      case STRING:
+      case STRINGLIT:
         builder.appendStringPart(node.getString());
         break;
       case NAME:
         builder.appendPlaceholderReference(node.getString());
         break;
       case ADD:
-        for (Node child : node.children()) {
+        for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
           extractFromReturnDescendant(builder, child);
         }
         break;
@@ -806,36 +804,11 @@ public abstract class JsMessageVisitor extends AbstractPostOrderCallback impleme
   private static void parseMessageTextNode(Builder builder, Node node) throws MalformedException {
     String value = extractStringFromStringExprNode(node);
 
-    while (true) {
-      int phBegin = value.indexOf(PH_JS_PREFIX);
-      if (phBegin < 0) {
-        // Just a string literal
-        builder.appendStringPart(value);
-        return;
-      } else {
-        if (phBegin > 0) {
-          // A string literal followed by a placeholder
-          builder.appendStringPart(value.substring(0, phBegin));
-        }
-
-        // A placeholder. Find where it ends
-        int phEnd = value.indexOf(PH_JS_SUFFIX, phBegin);
-        if (phEnd < 0) {
-          throw new MalformedException(
-              "Placeholder incorrectly formatted in: " + builder.getKey(), node);
-        }
-
-        String phName = value.substring(phBegin + PH_JS_PREFIX.length(), phEnd);
-        builder.appendPlaceholderReference(phName);
-        int nextPos = phEnd + PH_JS_SUFFIX.length();
-        if (nextPos < value.length()) {
-          // Iterate on the rest of the message value
-          value = value.substring(nextPos);
-        } else {
-          // The message is parsed
-          return;
-        }
-      }
+    try {
+      builder.setMsgText(value);
+    } catch (PlaceholderFormatException e) {
+      throw new MalformedException(
+          "Placeholder incorrectly formatted in: " + builder.getKey(), node);
     }
   }
 

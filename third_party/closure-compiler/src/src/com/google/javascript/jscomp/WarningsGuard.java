@@ -18,25 +18,19 @@ package com.google.javascript.jscomp;
 import java.io.Serializable;
 
 /**
- * Class that allows to flexibly manage what to do with a reported
- * warning/error.
+ * Class that allows to flexibly manage what to do with a reported warning/error.
  *
- * Guard has several choices:
- *   - return OFF - suppress the warning/error
- *   - return WARNING
- *   - return ERROR report it with high severity
- *   - return null. Does not know what to do with it. Lets the other guard
- *       decide what to do with it.
+ * <p>Guard has several choices: - return OFF - suppress the warning/error - return WARNING - return
+ * ERROR report it with high severity - return null. Does not know what to do with it. Lets the
+ * other guard decide what to do with it.
  *
- * Although the interface is very simple, it allows you easily customize what
- * warnings you are interested in.
+ * <p>Although the interface is very simple, it allows you easily customize what warnings you are
+ * interested in.
  *
- * For example there are could be several implementations:
- *   StrictGuard - {return ERROR}. All warnings should be treat as errors.
- *   SilentGuard - {if (WARNING) return OFF}. Suppress all warnings but still
- *     fail if JS has errors.
- *   WhitelistGuard (if !whitelistErrors.contains(error) return ERROR) return
- *     error if it does not present in the whitelist.
+ * <p>For example there are could be several implementations: StrictGuard - {return ERROR}. All
+ * warnings should be treat as errors. SilentGuard - {if (WARNING) return OFF}. Suppress all
+ * warnings but still fail if JS has errors. AllowlistGuard (if !allowlistErrors.contains(error)
+ * return ERROR) return error if it does not present in the allowlist.
  */
 public abstract class WarningsGuard implements Serializable {
 
@@ -46,7 +40,7 @@ public abstract class WarningsGuard implements Serializable {
     MIN(100),
     STRICT(100),
     DEFAULT(50),
-    SUPPRESS_BY_WHITELIST(40),
+    SUPPRESS_BY_ALLOWLIST(40),
     SUPPRESS_DOC(20),
     FILTER_BY_PATH(1);
 
@@ -101,14 +95,6 @@ public abstract class WarningsGuard implements Serializable {
    */
   protected boolean enables(DiagnosticGroup group) {
     return false;
-  }
-
-  /**
-   * Make a warnings guard that's the same as this one but with
-   * all escalating guards turned down.
-   */
-  protected WarningsGuard makeNonStrict() {
-    return this;
   }
 
   enum DiagnosticGroupState {

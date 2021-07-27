@@ -39,11 +39,17 @@
 
 package com.google.javascript.rhino;
 
+import static com.google.javascript.jscomp.base.JSCompObjects.identical;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.StaticTypedScope;
 import java.io.Serializable;
+import java.util.Set;
+import java.util.function.Consumer;
+import javax.annotation.Nullable;
 
 /**
  * When parsing a jsdoc, a type-annotation string is parsed to a type AST. Somewhat confusingly, we
@@ -53,12 +59,17 @@ import java.io.Serializable;
 public final class JSTypeExpression implements Serializable {
   private static final long serialVersionUID = 1L;
 
+  private static final String IMPLICIT_TEMPLATE_BOUND_SOURCE = "<IMPLICIT_TEMPLATE_BOUND>";
+
   static final JSTypeExpression IMPLICIT_TEMPLATE_BOUND =
-      new JSTypeExpression(new Node(Token.QMARK), "");
+      new JSTypeExpression(new Node(Token.QMARK), IMPLICIT_TEMPLATE_BOUND_SOURCE);
 
   static {
-    IMPLICIT_TEMPLATE_BOUND.getRoot().setStaticSourceFile(
-        new SimpleSourceFile("<IMPLICT_TEMPLATE_BOUND>", StaticSourceFile.SourceKind.STRONG));
+    IMPLICIT_TEMPLATE_BOUND
+        .getRoot()
+        .setStaticSourceFile(
+            new SimpleSourceFile(
+                IMPLICIT_TEMPLATE_BOUND_SOURCE, StaticSourceFile.SourceKind.STRONG));
   }
 
   /** The root of the AST. */
@@ -72,10 +83,69 @@ public final class JSTypeExpression implements Serializable {
     this.sourceName = sourceName;
   }
 
+  /** Replaces given names in this type expression with unknown */
+  public JSTypeExpression replaceNamesWithUnknownType(Set<String> names) {
+    Node oldExprRoot = this.root.cloneTree();
+    Node newExprRoot = replaceNames(oldExprRoot, names);
+    JSTypeExpression newTypeExpression = new JSTypeExpression(newExprRoot, sourceName);
+    return newTypeExpression;
+  }
+
   /**
-   * Make the given type expression into an optional type expression,
-   * if possible.
+   * Recursively traverse over the type tree and replace matched types with unknown type
+   *
+   * @param n Root of the JsTypeExpression on which replacement is applied
+   * @param names The set of names to replace in this type expression
+   * @return the new root after replacing the names
    */
+  private static Node replaceNames(Node n, Set<String> names) {
+    if (n == null) {
+      return null;
+    }
+    for (Node child = n.getFirstChild(); child != null; ) {
+      final Node next = child.getNext();
+      replaceNames(child, names);
+      child = next;
+    }
+    if (n.isStringLit() && names.contains(n.getString())) {
+      Node qMark = new Node(Token.QMARK);
+      qMark.addChildrenToBack(n.removeChildren());
+      if (n.hasParent()) {
+        n.replaceWith(qMark);
+      }
+      return qMark;
+    }
+    return n;
+  }
+
+  /** Returns a list of all type nodes in this type expression. */
+  public ImmutableList<Node> getAllTypeNodes() {
+    ImmutableList.Builder<Node> builder = ImmutableList.builder();
+    visitAllTypeNodes(this.root, builder::add);
+    return builder.build();
+  }
+
+  /** Returns a set of all string names in this type expression */
+  public ImmutableSet<String> getAllTypeNames() {
+    ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+    visitAllTypeNodes(this.root, (n) -> builder.add(n.getString()));
+    return builder.build();
+  }
+
+  /** Recursively traverse the type tree and visit all type nodes. */
+  private static void visitAllTypeNodes(Node n, Consumer<Node> visitor) {
+    if (n == null) {
+      return;
+    }
+    for (Node child = n.getFirstChild(); child != null; child = child.getNext()) {
+      visitAllTypeNodes(child, visitor);
+    }
+    if (n.isStringLit()) {
+      visitor.accept(n);
+    }
+  }
+
+  /** Make the given type expression into an optional type expression, if possible. */
   public static JSTypeExpression makeOptionalArg(JSTypeExpression expr) {
     if (expr.isOptionalArg() || expr.isVarArgs()) {
       return expr;
@@ -86,16 +156,12 @@ public final class JSTypeExpression implements Serializable {
     }
   }
 
-  /**
-   * @return Whether this expression denotes an optional {@code @param}.
-   */
+  /** @return Whether this expression denotes an optional {@code @param}. */
   public boolean isOptionalArg() {
     return root.getToken() == Token.EQUALS;
   }
 
-  /**
-   * @return Whether this expression denotes a rest args {@code @param}.
-   */
+  /** @return Whether this expression denotes a rest args {@code @param}. */
   public boolean isVarArgs() {
     return root.getToken() == Token.ITER_REST;
   }
@@ -107,20 +173,14 @@ public final class JSTypeExpression implements Serializable {
     return type;
   }
 
-  @Override
-  public boolean equals(Object other) {
-    return other instanceof JSTypeExpression &&
-        ((JSTypeExpression) other).root.isEquivalentTo(root);
-  }
-
-  @Override
-  public int hashCode() {
-    return root.hashCode();
+  /** Does this object represent a type expression that is equivalent to the other one? */
+  public boolean isEquivalentTo(@Nullable JSTypeExpression other) {
+    return other != null && root.isEquivalentTo(other.root);
   }
 
   /**
-   * @return The source for this type expression.  Note that it will not
-   * contain an expression if there's an @override tag.
+   * @return The source for this type expression. Note that it will not contain an expression if
+   *     there's an @override tag.
    */
   public Node getRoot() {
     return root;
@@ -140,9 +200,10 @@ public final class JSTypeExpression implements Serializable {
   }
 
   /** Whether this expression is an explicit unknown template bound. */
-  @SuppressWarnings("ReferenceEquality")
   public boolean isExplicitUnknownTemplateBound() {
-    return this != IMPLICIT_TEMPLATE_BOUND && this.equals(IMPLICIT_TEMPLATE_BOUND);
+    return identical(root.getToken(), Token.QMARK)
+        && !root.hasChildren()
+        && !sourceName.equals(IMPLICIT_TEMPLATE_BOUND_SOURCE);
   }
 
   /**
@@ -160,7 +221,7 @@ public final class JSTypeExpression implements Serializable {
       return;
     }
 
-    for (Node child : n.children()) {
+    for (Node child = n.getFirstChild(); child != null; child = child.getNext()) {
       getRecordPropertyNamesRecursive(child, names);
     }
     if (n.isStringKey()) {

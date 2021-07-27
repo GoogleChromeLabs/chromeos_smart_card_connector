@@ -33,7 +33,6 @@ import org.junit.runners.JUnit4;
  * Tests for {@link MinimizedCondition} in isolation. Tests for the containing
  * PeepholeMinimizeConditions pass are in {@link PeepholeMinimizeConditionsTest}.
  *
- * @author blickly@google.com (Ben Lickly)
  */
 @RunWith(JUnit4.class)
 public final class MinimizedConditionTest {
@@ -43,7 +42,8 @@ public final class MinimizedConditionTest {
     List<SourceFile> input =
         ImmutableList.of(SourceFile.fromCode("code", code));
     List<SourceFile> externs = new ArrayList<>();
-    compiler.init(externs, input, new CompilerOptions());
+    CompilerOptions options = new CompilerOptions();
+    compiler.init(externs, input, options);
     Node root = compiler.parseInputs();
     assertWithMessage("Unexpected parse error(s): " + Joiner.on("\n").join(compiler.getErrors()))
         .that(root)
@@ -60,6 +60,13 @@ public final class MinimizedConditionTest {
     return n.getParent().cloneTree().getFirstChild();
   }
 
+  /**
+   * Tests minimization of input condition.
+   *
+   * @param input input code containing a condition
+   * @param positive the representation expected to be produced when penalizing a leading NOT
+   * @param negative the representation expected to be produced when not penalizing a leading NOT
+   */
   private static void minCond(String input, String positive, String negative) {
     Node inputNode = parseExpr(input);
     MinimizedCondition result1 = MinimizedCondition.fromConditionNode(cloneAttachedTree(inputNode));
@@ -127,6 +134,11 @@ public final class MinimizedConditionTest {
         // "x && !((y!==2 && f()) || (y!==3 && h()))",
         "!(!x || (y!==2 && f()) || (y!==3 && h()))",
         "!(!x || (y!==2 && f()) || (y!==3 && h()))");
+
+    minCond(
+        "x && (y===2 || !f?.()) && (y===3 || !h?.())",
+        "!(!x || (y!==2 && f?.()) || (y!==3 && h?.()))",
+        "!(!x || (y!==2 && f?.()) || (y!==3 && h?.()))");
   }
 
   @Test
@@ -145,6 +157,7 @@ public final class MinimizedConditionTest {
   @Test
   public void testMinimizeComma() {
     minCond("!(inc(), test())", "inc(), !test()", "!(inc(), test())");
+    minCond("!(inc?.(), test?.())", "inc?.(), !test?.()", "!(inc?.(), test?.())");
     minCond("!((x,y)&&z)", "(x,!y)||!z", "!((x,y)&&z)");
   }
 

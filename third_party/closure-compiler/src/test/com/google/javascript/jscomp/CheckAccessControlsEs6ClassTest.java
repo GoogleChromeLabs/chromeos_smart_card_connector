@@ -23,7 +23,6 @@ import static com.google.javascript.jscomp.CheckAccessControls.BAD_PROPERTY_OVER
 import static com.google.javascript.jscomp.CheckAccessControls.BAD_PROTECTED_PROPERTY_ACCESS;
 import static com.google.javascript.jscomp.CheckAccessControls.CONST_PROPERTY_DELETED;
 import static com.google.javascript.jscomp.CheckAccessControls.CONST_PROPERTY_REASSIGNED_VALUE;
-import static com.google.javascript.jscomp.CheckAccessControls.CONVENTION_MISMATCH;
 import static com.google.javascript.jscomp.CheckAccessControls.DEPRECATED_CLASS;
 import static com.google.javascript.jscomp.CheckAccessControls.DEPRECATED_CLASS_REASON;
 import static com.google.javascript.jscomp.CheckAccessControls.DEPRECATED_NAME_REASON;
@@ -46,17 +45,8 @@ import org.junit.runners.JUnit4;
  * duplication. If a case using `@constructor`, `@interface`, or `@record` is added to that suite, a
  * similar case should be added here under the same name using `class`.
  */
-
 @RunWith(JUnit4.class)
 public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
-
-  private static final String CLOSURE_PRIMITIVES =
-      lines(
-          "/** @const */",
-          "var goog = {};",
-          "goog.module = function(ns) {};",
-          "/** @return {?} */",
-          "goog.require = function(ns) {};");
 
   public CheckAccessControlsEs6ClassTest() {
     super(CompilerTypeTestCase.DEFAULT_EXTERNS);
@@ -75,7 +65,7 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(final Compiler compiler) {
-    return new CheckAccessControls(compiler, true);
+    return new CheckAccessControls(compiler);
   }
 
   @Override
@@ -972,8 +962,6 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
     test(
         srcs(
             lines(
-                "/** @const */ var goog = {};",
-                "",
                 "goog.Foo = class {",
                 "  /** @protected */",
                 "  bar() {}",
@@ -1439,8 +1427,6 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
     test(
         srcs(
             lines(
-                "/** @const */ var goog = {};",
-                "",
                 "goog.Foo = class {",
                 "  /** @protected */",
                 "  bar() {}",
@@ -2277,7 +2263,6 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
     testError(
         srcs(
             ImmutableList.of(
-                SourceFile.fromCode("goog.js", CLOSURE_PRIMITIVES),
                 SourceFile.fromCode(
                     Compiler.joinPathParts("foo", "bar.js"),
                     lines(
@@ -2638,9 +2623,6 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
     test(
         srcs(
             lines(
-                "/** @const */",
-                "var goog = {};",
-                "",
                 "/** @private */",
                 "goog.Foo = class {",
                 "  static create() { return new goog.Foo(); }",
@@ -2654,9 +2636,6 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
     test(
         srcs(
             lines(
-                "/** @const */",
-                "var goog = {};",
-                "",
                 "goog.Foo = class {",
                 "  /** @private */",
                 "  constructor() {}",
@@ -2724,7 +2703,7 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
   }
 
   @Test
-  public void testPrivatePropertyByConvention1() {
+  public void testNoPrivatePropertyByConvention1() {
     test(
         srcs(
             lines(
@@ -2734,12 +2713,11 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
                 "Foo.prototype.length_;"),
             lines(
                 "/** @param {?Foo} x */", //
-                "function f(x) { return x.length_; }")),
-        error(BAD_PRIVATE_PROPERTY_ACCESS));
+                "function f(x) { return x.length_; }")));
   }
 
   @Test
-  public void testPrivatePropertyByConvention2() {
+  public void testNoPrivatePropertyByConvention2() {
     test(
         srcs(
             lines(
@@ -2754,36 +2732,11 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
                 " Foo.prototype.length_;"),
             lines(
                 "/** @param {Foo} x */", //
-                "function f(x) { return x.length_; }")),
-        error(BAD_PRIVATE_PROPERTY_ACCESS));
+                "function f(x) { return x.length_; }")));
   }
 
   @Test
-  public void testDeclarationAndConventionConflict1() {
-    test(
-        srcs(
-            lines(
-                "class Foo {}", //
-                "",
-                "/** @protected */",
-                "Foo.prototype.length_;")),
-        error(CONVENTION_MISMATCH));
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict2() {
-    test(
-        srcs(
-            lines(
-                "class Foo {}", //
-                "",
-                "/** @public {number} */",
-                "Foo.prototype.length_;")),
-        error(CONVENTION_MISMATCH));
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict3() {
+  public void testNoDeclarationAndConventionNoConflict1() {
     test(
         srcs(
             lines(
@@ -2792,74 +2745,7 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
                 "    /** @protected */",
                 "    this.length_ = 1;",
                 "  }",
-                "}")),
-        error(CONVENTION_MISMATCH));
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict4a() {
-    test(
-        srcs(
-            lines(
-                "class Foo {}",
-                "",
-                "/** @protected */",
-                "Foo.prototype.length_ = 1;",
-                "",
-                "new Foo().length_")),
-        error(CONVENTION_MISMATCH));
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict4b() {
-    test(
-        srcs(
-            lines(
-                "/** @const */ var NS = {};",
-                "",
-                "NS.Foo = class {};",
-                "",
-                "/** @protected */",
-                "NS.Foo.prototype.length_ = 1;",
-                "",
-                "(new NS.Foo()).length_;")),
-        error(CONVENTION_MISMATCH));
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict5() {
-    test(
-        srcs(
-            lines(
-                "class Foo {", //
-                "  /** @protected */",
-                "  get length_() { return 1; }",
-                "}")),
-        error(CONVENTION_MISMATCH));
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict6() {
-    test(
-        srcs(
-            lines(
-                "class Foo {", //
-                "  /** @protected */",
-                "  set length_(x) { }",
-                "}")),
-        error(CONVENTION_MISMATCH));
-  }
-
-  @Test
-  public void testDeclarationAndConventionConflict10() {
-    test(
-        srcs(
-            lines(
-                "class Foo {}",
-                "",
-                "/** @protected */",
-                "Foo.prototype.length_ = function() { return 1; };")),
-        error(CONVENTION_MISMATCH));
+                "}")));
   }
 
   @Test
@@ -2890,7 +2776,6 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
     disableRewriteClosureCode();
     testNoWarning(
         srcs(
-            "var goog = {}; goog.module = function(ns) {};",
             lines(
                 "goog.module('mod1');",
                 "class A {",
@@ -2910,7 +2795,7 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
   }
 
   @Test
-  public void testConstantProperty1b() {
+  public void testConstantProperty_ConventionNotEnforced1() {
     test(
         srcs(
             lines(
@@ -2926,12 +2811,11 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
                 "",
                 "    this.BAR += 4;",
                 "  }",
-                "}")),
-        error(CONST_PROPERTY_REASSIGNED_VALUE));
+                "}")));
   }
 
   @Test
-  public void testConstantProperty2a() {
+  public void testConstantProperty2() {
     test(
         srcs(
             lines(
@@ -2946,7 +2830,7 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
   }
 
   @Test
-  public void testConstantProperty2b() {
+  public void testConstantProperty_ConventionNotEnforced2() {
     test(
         srcs(
             lines(
@@ -2955,8 +2839,7 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
                 "Foo.prototype.PROP = 2;",
                 "",
                 "var foo = new Foo();",
-                "foo.PROP = 3;")),
-        error(CONST_PROPERTY_REASSIGNED_VALUE));
+                "foo.PROP = 3;")));
   }
 
   @Test
@@ -2974,15 +2857,14 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
   }
 
   @Test
-  public void testConstantProperty4b() {
+  public void testConstantProperty_ConventionNotEnforced3() {
     test(
         srcs(
             lines(
                 "class Cat { }", //
                 "",
                 "Cat.TEST = 1;",
-                "Cat.TEST *= 2;")),
-        error(CONST_PROPERTY_REASSIGNED_VALUE));
+                "Cat.TEST *= 2;")));
   }
 
   @Test
@@ -3188,7 +3070,7 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
   }
 
   @Test
-  public void testConstantProperty15a() {
+  public void testConstantProperty_ConventionNotEnforced15a() {
     test(
         srcs(
             lines(
@@ -3202,12 +3084,11 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
                 "var foo = new Foo();",
                 "",
                 "/** @type {number} */",
-                "foo.CONST = 0;")),
-        error(CONST_PROPERTY_REASSIGNED_VALUE));
+                "foo.CONST = 0;")));
   }
 
   @Test
-  public void testConstantProperty15b() {
+  public void testConstantProperty_ConventionNotEnforced15b() {
     test(
         srcs(
             lines(
@@ -3219,12 +3100,11 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
                 "var foo = new Foo();",
                 "",
                 "/** @type {number} */",
-                "foo.CONST = 0;")),
-        error(CONST_PROPERTY_REASSIGNED_VALUE));
+                "foo.CONST = 0;")));
   }
 
   @Test
-  public void testConstantProperty15c() {
+  public void testConstantProperty_ConventionNotEnforced15c() {
     test(
         srcs(
             lines(
@@ -3240,8 +3120,7 @@ public final class CheckAccessControlsEs6ClassTest extends CompilerTestCase {
                 "var foo = new Foo();",
                 "",
                 "/** @type {number} */",
-                "foo.CONST = 0;")),
-        error(CONST_PROPERTY_REASSIGNED_VALUE));
+                "foo.CONST = 0;")));
   }
 
   @Test

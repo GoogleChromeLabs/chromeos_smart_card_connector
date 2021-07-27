@@ -17,10 +17,10 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.javascript.jscomp.ClosureCheckModule.DECLARE_LEGACY_NAMESPACE_IN_NON_MODULE;
 import static com.google.javascript.jscomp.ClosurePrimitiveErrors.INVALID_REQUIRE_NAMESPACE;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.LinkedHashMultiset;
 import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.jscomp.deps.ModuleLoader.ModulePath;
@@ -28,19 +28,32 @@ import com.google.javascript.jscomp.deps.ModuleLoader.ResolutionMode;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleType;
+import com.google.javascript.jscomp.parsing.parser.Identifiers;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /**
  * Gathers metadata around modules that is useful for checking imports / requires and creates a
  * {@link ModuleMetadataMap}.
  */
-public final class GatherModuleMetadata implements HotSwapCompilerPass {
+public final class GatherModuleMetadata implements CompilerPass {
   static final DiagnosticType MIXED_MODULE_TYPE =
       DiagnosticType.error("JSC_MIXED_MODULE_TYPE", "A file cannot be both {0} and {1}.");
+
+  static final DiagnosticType INVALID_NAMESPACE_OR_MODULE_ID =
+      DiagnosticType.error(
+          "JSC_INVALID_NAMESPACE_OR_MODULE_ID",
+          "Namespace and module ID must be a dot-separated sequence of legal property"
+              + " identifiers. Found ''{0}''");
+
+  static final DiagnosticType INVALID_MODULE_ID =
+      DiagnosticType.error(
+          "JSC_INVALID_MODULE_ID",
+          "Module ID must only contain ASCII, 0-9, $, ., and _. Found ''{0}''");
 
   static final DiagnosticType INVALID_DECLARE_MODULE_ID_CALL =
       DiagnosticType.error(
@@ -66,21 +79,21 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
           "JSC_INVALID_SET_TEST_ONLY",
           "Optional, single argument to goog.setTestOnly must be a string.");
 
-  private static final Node GOOG_PROVIDE = IR.getprop(IR.name("goog"), IR.string("provide"));
-  private static final Node GOOG_MODULE = IR.getprop(IR.name("goog"), IR.string("module"));
-  private static final Node GOOG_REQUIRE = IR.getprop(IR.name("goog"), IR.string("require"));
-  private static final Node GOOG_REQUIRE_TYPE =
-      IR.getprop(IR.name("goog"), IR.string("requireType"));
-  private static final Node GOOG_SET_TEST_ONLY =
-      IR.getprop(IR.name("goog"), IR.string("setTestOnly"));
+  static final DiagnosticType INVALID_NESTED_LOAD_MODULE =
+      DiagnosticType.error("JSC_INVALID_NESTED_LOAD_MODULE", "goog.loadModule cannot be nested.");
+
+  private static final Node GOOG_PROVIDE = IR.getprop(IR.name("goog"), "provide");
+  private static final Node GOOG_MODULE = IR.getprop(IR.name("goog"), "module");
+  private static final Node GOOG_REQUIRE = IR.getprop(IR.name("goog"), "require");
+  private static final Node GOOG_REQUIRE_TYPE = IR.getprop(IR.name("goog"), "requireType");
+  private static final Node GOOG_SET_TEST_ONLY = IR.getprop(IR.name("goog"), "setTestOnly");
   private static final Node GOOG_MODULE_DECLARELEGACYNAMESPACE =
-      IR.getprop(GOOG_MODULE.cloneTree(), IR.string("declareLegacyNamespace"));
-  private static final Node GOOG_DECLARE_MODULE_ID =
-      IR.getprop(IR.name("goog"), IR.string("declareModuleId"));
+      IR.getprop(GOOG_MODULE.cloneTree(), "declareLegacyNamespace");
+  private static final Node GOOG_DECLARE_MODULE_ID = IR.getprop(IR.name("goog"), "declareModuleId");
 
   // TODO(johnplaisted): Remove once clients have migrated to declareModuleId
   private static final Node GOOG_MODULE_DECLARNAMESPACE =
-      IR.getprop(GOOG_MODULE.cloneTree(), IR.string("declareNamespace"));
+      IR.getprop(GOOG_MODULE.cloneTree(), "declareNamespace");
 
   /**
    * Map from module path to module. These modules represent files and thus will contain all goog
@@ -198,7 +211,7 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
     public boolean shouldTraverse(NodeTraversal t, Node n, Node parent) {
       switch (n.getToken()) {
         case SCRIPT:
-          enterModule(n, t.getInput().getPath());
+          enterModule(t, n, t.getInput().getPath());
           break;
         case IMPORT:
         case EXPORT:
@@ -207,11 +220,14 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
         case CALL:
           if (n.isCall() && n.getFirstChild().matchesQualifiedName("goog.loadModule")) {
             loadModuleCall = n;
-            enterModule(n, null);
+            enterModule(t, n, null);
           }
           break;
         case MODULE_BODY:
           currentModule.hasModuleBody = true;
+          break;
+        case DYNAMIC_IMPORT:
+          visitDynamicImport(n);
           break;
         default:
           break;
@@ -225,7 +241,7 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
       currentModule.moduleType(ModuleType.ES6_MODULE, t, importOrExport);
       if (importOrExport.isImport()
           // export from
-          || (importOrExport.hasTwoChildren() && importOrExport.getLastChild().isString())) {
+          || (importOrExport.hasTwoChildren() && importOrExport.getLastChild().isStringLit())) {
         currentModule
             .metadataBuilder
             .es6ImportSpecifiersBuilder()
@@ -233,10 +249,21 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
       }
     }
 
-    private void enterModule(Node n, @Nullable ModulePath path) {
+    private void visitDynamicImport(Node dynamicImport) {
+      if (dynamicImport.getFirstChild().isStringLit()) {
+        currentModule
+            .metadataBuilder
+            .es6ImportSpecifiersBuilder()
+            .add(dynamicImport.getFirstChild().getString());
+      }
+    }
+
+    private void enterModule(NodeTraversal t, Node n, @Nullable ModulePath path) {
       ModuleMetadataBuilder newModule = new ModuleMetadataBuilder(n, path);
       if (currentModule != null) {
-        checkState(parentModule == null, "Expected modules to be nested at most 2 deep.");
+        if (parentModule != null) {
+          t.report(n, INVALID_NESTED_LOAD_MODULE);
+        }
         parentModule = currentModule;
       }
       currentModule = newModule;
@@ -353,19 +380,19 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
 
       if (getprop.matchesQualifiedName(GOOG_PROVIDE)) {
         currentModule.moduleType(ModuleType.GOOG_PROVIDE, t, n);
-        if (n.hasTwoChildren() && n.getLastChild().isString()) {
+        if (n.hasTwoChildren() && n.getLastChild().isStringLit()) {
           String namespace = n.getLastChild().getString();
-          addNamespace(currentModule, namespace, t, n);
+          addNamespace(currentModule, ModuleType.GOOG_PROVIDE, namespace, t, n);
         } else {
           t.report(n, ClosureRewriteModule.INVALID_PROVIDE_NAMESPACE);
         }
       } else if (getprop.matchesQualifiedName(GOOG_MODULE)) {
         currentModule.moduleType(ModuleType.GOOG_MODULE, t, n);
-        if (n.hasTwoChildren() && n.getLastChild().isString()) {
+        if (n.hasTwoChildren() && n.getLastChild().isStringLit()) {
           String namespace = n.getLastChild().getString();
-          addNamespace(currentModule, namespace, t, n);
+          addNamespace(currentModule, ModuleType.GOOG_MODULE, namespace, t, n);
         } else {
-          t.report(n, ClosureRewriteModule.INVALID_MODULE_NAMESPACE);
+          t.report(n, ClosureRewriteModule.INVALID_MODULE_ID_ARG);
         }
       } else if (getprop.matchesQualifiedName(GOOG_MODULE_DECLARELEGACYNAMESPACE)) {
         currentModule.recordDeclareLegacyNamespace(n);
@@ -374,30 +401,33 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
         if (currentModule.declaredModuleId != null) {
           t.report(n, MULTIPLE_DECLARE_MODULE_NAMESPACE);
         }
-        if (n.hasTwoChildren() && n.getLastChild().isString()) {
+        if (n.hasTwoChildren() && n.getLastChild().isStringLit()) {
           currentModule.recordDeclareModuleId(n);
           String namespace = n.getLastChild().getString();
-          addNamespace(currentModule, namespace, t, n);
+          addNamespace(currentModule, ModuleType.GOOG_MODULE, namespace, t, n);
         } else {
           t.report(n, INVALID_DECLARE_MODULE_ID_CALL);
         }
       } else if (getprop.matchesQualifiedName(GOOG_REQUIRE)) {
-        if (n.hasTwoChildren() && n.getLastChild().isString()) {
+        if (n.hasTwoChildren() && n.getLastChild().isStringLit()) {
           currentModule
               .metadataBuilder
-              .requiredGoogNamespacesBuilder()
+              .stronglyRequiredGoogNamespacesBuilder()
               .add(n.getLastChild().getString());
         } else {
           t.report(n, INVALID_REQUIRE_NAMESPACE);
         }
       } else if (getprop.matchesQualifiedName(GOOG_REQUIRE_TYPE)) {
-        if (n.hasTwoChildren() && n.getLastChild().isString()) {
-          currentModule.metadataBuilder.requiredTypesBuilder().add(n.getLastChild().getString());
+        if (n.hasTwoChildren() && n.getLastChild().isStringLit()) {
+          currentModule
+              .metadataBuilder
+              .weaklyRequiredGoogNamespacesBuilder()
+              .add(n.getLastChild().getString());
         } else {
           t.report(n, INVALID_REQUIRE_TYPE);
         }
       } else if (getprop.matchesQualifiedName(GOOG_SET_TEST_ONLY)) {
-        if (n.hasOneChild() || (n.hasTwoChildren() && n.getLastChild().isString())) {
+        if (n.hasOneChild() || (n.hasTwoChildren() && n.getLastChild().isStringLit())) {
           currentModule.metadataBuilder.isTestOnly(true);
         } else {
           t.report(n, INVALID_SET_TEST_ONLY);
@@ -410,7 +440,18 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
      * not.
      */
     private void addNamespace(
-        ModuleMetadataBuilder module, String namespace, NodeTraversal t, Node n) {
+        ModuleMetadataBuilder module,
+        ModuleType moduleType,
+        String namespace,
+        NodeTraversal t,
+        Node n) {
+      if (!isValidNamespaceOrModuleId(namespace)) {
+        compiler.report(JSError.make(n, INVALID_NAMESPACE_OR_MODULE_ID, namespace));
+      } else if (moduleType.equals(ModuleType.GOOG_MODULE) && !isValidModuleId(namespace)) {
+
+        compiler.report(JSError.make(n, INVALID_MODULE_ID, namespace));
+      }
+
       ModuleType existingType = null;
       String existingFileSource = null;
       if (module.googNamespaces.contains(namespace)) {
@@ -450,25 +491,27 @@ public final class GatherModuleMetadata implements HotSwapCompilerPass {
     compiler.setModuleMetadataMap(new ModuleMetadataMap(modulesByPath, modulesByGoogNamespace));
   }
 
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    // This pass is run as either a hot swap or full pass. So if we're running in hot swap this is
-    // a different instance from the full pass, and we need to populate these again.
-    modulesByPath.putAll(compiler.getModuleMetadataMap().getModulesByPath());
-    modulesByGoogNamespace.putAll(compiler.getModuleMetadataMap().getModulesByGoogNamespace());
-
-    ModuleMetadata oldMetadata =
-        modulesByPath.remove(compiler.getInput(originalRoot.getInputId()).getPath().toString());
-
-    if (oldMetadata != null) {
-      modulesByGoogNamespace.keySet().removeAll(oldMetadata.googNamespaces());
-
-      for (ModuleMetadata nestedMetadata : oldMetadata.nestedModules()) {
-        modulesByGoogNamespace.keySet().removeAll(nestedMetadata.googNamespaces());
+  private static boolean isValidNamespaceOrModuleId(String id) {
+    for (String segment : DOT_SPLITTER.split(id)) {
+      if (segment.isEmpty()) {
+        return false;
+      }
+      for (int i = 0; i < segment.length(); i++) {
+        if (!Identifiers.isIdentifierPart(segment.charAt(i))) {
+          return false;
+        }
       }
     }
-
-    NodeTraversal.traverse(compiler, scriptRoot, new Finder());
-    compiler.setModuleMetadataMap(new ModuleMetadataMap(modulesByPath, modulesByGoogNamespace));
+    return true;
   }
+
+  // stricter than isValidNamespace. Must match closure/base.js's goog.VALID_MODULE_RE_
+  private static boolean isValidModuleId(String id) {
+    return NAMESPACE_SEGMENT_REGEX.matcher(id).matches();
+  }
+
+  private static final Pattern NAMESPACE_SEGMENT_REGEX =
+      Pattern.compile("^[a-zA-Z_$][a-zA-Z0-9_$.]*$");
+
+  private static final Splitter DOT_SPLITTER = Splitter.on('.');
 }

@@ -114,7 +114,7 @@ public class J2clPass implements CompilerPass {
               .assumeStrictThis(true)
               .assumeMinimumCapture(true)
               .build();
-      this.injector.setKnownConstants(fnNamesToInline);
+      this.injector.setKnownConstantFunctions(ImmutableSet.copyOf(fnNamesToInline));
     }
 
     private void run() {
@@ -151,7 +151,7 @@ public class J2clPass implements CompilerPass {
             }
 
             qualifiedFnName = qualifiedNameNode.getQualifiedName();
-            fnName = qualifiedNameNode.getLastChild().getString();
+            fnName = qualifiedNameNode.getString();
             break;
 
           case MEMBER_FUNCTION_DEF:
@@ -186,7 +186,7 @@ public class J2clPass implements CompilerPass {
 
         // ... and that reference a function definition we want to inline
         String qualifiedFnName = qualifiedNameNode.getQualifiedName();
-        String fnName = qualifiedNameNode.getLastChild().getString();
+        String fnName = qualifiedNameNode.getString();
         Node fnImpl = fnsToInlineByQualifiedName.get(qualifiedFnName);
         if (fnImpl == null) {
           return;
@@ -208,10 +208,10 @@ public class J2clPass implements CompilerPass {
         // TODO(goktug): Add a check that will ensure safety of this.
         Node inlinedCall =
             injector.unsafeInline(
-                new Reference(n, t.getScope(), t.getModule(), inliningMode), fnName, fnImpl);
+                new Reference(n, t.getScope(), t.getChunk(), inliningMode), fnName, fnImpl);
         // Avoid overridding original source information with the helper classes source information.
         // For example; we want a cast to point related Java statement instead of the Casts utility.
-        inlinedCall.useSourceInfoFromForTree(n);
+        inlinedCall.srcrefTree(n);
         t.getCompiler().reportChangeToEnclosingScope(inlinedCall);
       }
     }

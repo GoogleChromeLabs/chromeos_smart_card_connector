@@ -18,6 +18,7 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysTrue;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 
 import com.google.common.collect.ImmutableList;
@@ -28,10 +29,6 @@ import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
-import com.google.javascript.rhino.jstype.FunctionType;
-import com.google.javascript.rhino.jstype.JSType;
-import com.google.javascript.rhino.jstype.JSTypeNative;
-import com.google.javascript.rhino.jstype.ObjectType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -45,9 +42,10 @@ import javax.annotation.Nullable;
  * <p>This transformation simplifies the call graph so smart name removal, cross module code motion
  * and other passes can do more.
  *
- * <p>To work effectively, this pass depends on {@link DisambiguateProperties} running first to do a
- * lot of heavy-lifting. It assumes that different methods will have unique names which in general
- * isn't true for source JavaScript.
+ * <p>To work effectively, this pass depends on {@link
+ * com.google.javascript.jscomp.disambiguate.DisambiguateProperties2} running first to do a lot of
+ * heavy-lifting. It assumes that different methods will have unique names which in general isn't
+ * true for source JavaScript.
  *
  * <p>This pass should only be used in production code if property and variable renaming are turned
  * on. Resulting code may also benefit from `--collapse_anonymous_functions` and
@@ -141,13 +139,15 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
     }
 
     String devirtualizedName = rewrittenMethodNameOf(name);
+    JSDocInfo bestJSDoc = NodeUtil.getBestJSDocInfo(canonicalDefinitionSite);
+    boolean isConstantName = bestJSDoc != null && bestJSDoc.isConstant();
 
     for (Node callSite : callSites) {
-      rewriteCall(callSite, devirtualizedName);
+      rewriteCall(callSite, devirtualizedName, isConstantName);
     }
     // We only have to rewrite one definition. We've checked they're all identical so any of them
     // can replace the others. The un-rewritten ones will be dead-code eliminated.
-    rewriteDefinition(canonicalDefinitionSite, devirtualizedName);
+    rewriteDefinition(canonicalDefinitionSite, devirtualizedName, isConstantName);
   }
 
   private boolean isPrototypeOrStaticMethodDefinition(Node node) {
@@ -226,7 +226,7 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
     JSDocInfo jsdoc = var.getJSDocInfo();
     if (jsdoc == null) {
       return false;
-    } else if (jsdoc.isConstructorOrInterface() || jsdoc.usesImplicitMatch()) {
+    } else if (jsdoc.isConstructorOrInterface()) {
       return true; // Case: `@constructor`, `@interface`, `@record`.
     }
 
@@ -304,7 +304,7 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
       }
     }
 
-    if (NodeUtil.containsType(definitionFunction, Token.SUPER)) {
+    if (NodeUtil.has(definitionFunction, Node::isSuper, alwaysTrue())) {
       // TODO(b/120452418): Remove this when we have a rewrite for `super`. We punted initially due
       // to complexity.
       return false;
@@ -337,7 +337,9 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
       // Accessing the property in any way besides CALL has issues:
       //   - tear-off: invocations can't be tracked
       //   - as constructor: unsupported rewrite
-      //   - as tagged template string: unspported rewrite
+      //   - as tagged template string: unsupported rewrite
+      //   - as optional chaining call: original invocation target may be null/undefined and
+      // rewriting creates an unconditional call to a well-defined global function
       return false;
     }
 
@@ -357,9 +359,9 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
     //   - Rewriting all call-sites in a way that preserves exact ordering (e.g. using
     //     `ExpressionDecomposer`) has a significant code-size impact (circa 2018-11-19).
 
-    JSModuleGraph moduleGraph = compiler.getModuleGraph();
-    @Nullable JSModule definitionModule = moduleForNode(definitionSite);
-    @Nullable JSModule callModule = moduleForNode(access);
+    JSChunkGraph moduleGraph = compiler.getModuleGraph();
+    @Nullable JSChunk definitionModule = moduleForNode(definitionSite);
+    @Nullable JSChunk callModule = moduleForNode(access);
     if (definitionModule == callModule) {
       // Do nothing.
     } else if (callModule == null) {
@@ -391,7 +393,7 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
    *
    * <p>After: foo(o, a, b, c)
    */
-  private void rewriteCall(Node getprop, String newMethodName) {
+  private void rewriteCall(Node getprop, String newMethodName, boolean isConstantName) {
     checkArgument(getprop.isGetProp(), getprop);
     Node call = getprop.getParent();
     checkArgument(call.isCall(), call);
@@ -405,9 +407,13 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
     // doing so means extracting `receiver` into a new variable at each call-site. This  has a
     // significant code-size impact (circa 2018-11-19).
 
-    getprop.removeChild(receiver);
-    call.replaceChild(getprop, receiver);
-    call.addChildToFront(IR.name(newMethodName).srcref(getprop));
+    receiver.detach();
+    getprop.replaceWith(receiver);
+    Node newReceiver = IR.name(newMethodName).copyTypeFrom(getprop).srcref(getprop);
+    if (isConstantName) {
+      newReceiver.putBooleanProp(Node.IS_CONSTANT_NAME, true);
+    }
+    call.addChildToFront(newReceiver);
 
     if (receiver.isSuper()) {
       // Case: `super.foo(a, b)` => `foo(this, a, b)`
@@ -425,7 +431,8 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
    *
    * <p>After: var b = function(self, a, b, c) {...}
    */
-  private void rewriteDefinition(Node definitionSite, String newMethodName) {
+  private void rewriteDefinition(
+      Node definitionSite, String newMethodName, boolean isConstantName) {
     final Node function;
     final Node subtreeToRemove;
     final Node nameSource;
@@ -433,7 +440,7 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
     switch (definitionSite.getToken()) {
       case GETPROP:
         function = definitionSite.getParent().getLastChild();
-        nameSource = definitionSite.getLastChild();
+        nameSource = definitionSite;
         subtreeToRemove = NodeUtil.getEnclosingStatement(definitionSite);
         break;
 
@@ -450,56 +457,34 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
 
     // Define a new variable after the original declaration.
     Node statement = NodeUtil.getEnclosingStatement(definitionSite);
-    Node newNameNode = IR.name(newMethodName).useSourceInfoIfMissingFrom(nameSource);
-    Node newVarNode = IR.var(newNameNode).useSourceInfoIfMissingFrom(nameSource);
-    statement.getParent().addChildBefore(newVarNode, statement);
+    Node newNameNode = IR.name(newMethodName).srcrefIfMissing(nameSource);
+    Node newVarNode = IR.var(newNameNode).srcrefIfMissing(nameSource);
+    newVarNode.insertBefore(statement);
+    if (isConstantName) {
+      newNameNode.putBooleanProp(Node.IS_CONSTANT_NAME, true);
+    }
 
-    // Attatch the function to the new variable.
+    // Copy the JSDocInfo, if any, from the original declaration
+    JSDocInfo originalJSDoc = NodeUtil.getBestJSDocInfo(definitionSite);
+    newVarNode.setJSDocInfo(originalJSDoc);
+
+    // Attach the function to the new variable.
     function.detach();
     newNameNode.addChildToFront(function);
 
     // Create the `this` param.
     String selfName = newMethodName + "$self";
     Node paramList = function.getSecondChild();
-    paramList.addChildToFront(IR.name(selfName).useSourceInfoIfMissingFrom(function));
+    paramList.addChildToFront(IR.name(selfName).srcrefIfMissing(function));
     compiler.reportChangeToEnclosingScope(paramList);
 
     // Eliminate `this`.
     replaceReferencesToThis(function.getSecondChild(), selfName); // In default param values.
     replaceReferencesToThis(function.getLastChild(), selfName); // In function body.
 
-    fixFunctionType(function);
-
     // Clean up dangling AST.
     NodeUtil.deleteNode(subtreeToRemove, compiler);
     compiler.reportChangeToEnclosingScope(newVarNode);
-  }
-
-  /**
-   * Creates a new type based on the original function type by
-   * adding the original this pointer type to the beginning of the
-   * argument type list and replacing the this pointer type with bottom.
-   */
-  private void fixFunctionType(Node functionNode) {
-    JSType t = functionNode.getJSType();
-    if (t == null) {
-      return;
-    }
-    FunctionType ft = t.toMaybeFunctionType();
-    if (ft != null) {
-      functionNode.setJSType(convertMethodToFunction(ft));
-    }
-  }
-
-  private JSType convertMethodToFunction(FunctionType method) {
-    List<JSType> paramTypes = new ArrayList<>();
-    paramTypes.add(method.getTypeOfThis());
-    for (Node param : method.getParameters()) {
-      paramTypes.add(param.getJSType());
-    }
-    ObjectType unknown = compiler.getTypeRegistry().getNativeObjectType(JSTypeNative.UNKNOWN_TYPE);
-    return compiler.getTypeRegistry().createFunctionTypeWithInstanceType(
-        unknown, method.getReturnType(), paramTypes);
   }
 
   /** Replaces references to "this" with references to name. Do not traverse function boundaries. */
@@ -509,22 +494,24 @@ class DevirtualizeMethods implements OptimizeCalls.CallGraphCompilerPass {
       return;
     }
 
-    for (Node child : node.children()) {
+    for (Node child = node.getFirstChild(); child != null; ) {
+      final Node next = child.getNext();
       if (child.isThis()) {
-        Node newName = IR.name(name).useSourceInfoFrom(child).setJSType(child.getJSType());
-        node.replaceChild(child, newName);
+        Node newName = IR.name(name).srcref(child).copyTypeFrom(child);
+        child.replaceWith(newName);
         compiler.reportChangeToEnclosingScope(newName);
       } else {
         replaceReferencesToThis(child, name);
       }
+      child = next;
     }
   }
 
   @Nullable
-  private JSModule moduleForNode(Node node) {
+  private JSChunk moduleForNode(Node node) {
     Node script = NodeUtil.getEnclosingScript(node);
     CompilerInput input = compiler.getInput(script.getInputId());
-    return input.getModule();
+    return input.getChunk();
   }
 
   private static String rewrittenMethodNameOf(String originalMethodName) {

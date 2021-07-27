@@ -52,7 +52,7 @@ final class PolymerPassStaticUtils {
     // `module$polymer$polymer_legacy.Polymer`.
     return name.matchesName("Polymer")
         || "Polymer".equals(name.getOriginalQualifiedName())
-        || (name.isGetProp() && name.getLastChild().getString().equals("Polymer"));
+        || (name.isGetProp() && name.getString().equals("Polymer"));
   }
 
   /** @return Whether the class extends PolymerElement. */
@@ -75,8 +75,7 @@ final class PolymerPassStaticUtils {
         && (heritage.matchesQualifiedName("Polymer.Element")
             || heritage.matchesName("PolymerElement")
             || "PolymerElement".equals(heritage.getOriginalQualifiedName())
-            || (heritage.isGetProp()
-                && heritage.getLastChild().getString().equals("PolymerElement")));
+            || (heritage.isGetProp() && heritage.getString().equals("PolymerElement")));
   }
 
   /**
@@ -87,7 +86,7 @@ final class PolymerPassStaticUtils {
    */
   static void switchDollarSignPropsToBrackets(Node def, final AbstractCompiler compiler) {
     checkState(def.isObjectLit() || def.isClassMembers());
-    for (Node keyNode : def.children()) {
+    for (Node keyNode = def.getFirstChild(); keyNode != null; keyNode = keyNode.getNext()) {
       Node value = keyNode.getFirstChild();
       if (value != null && value.isFunction()) {
         NodeUtil.visitPostOrder(
@@ -95,21 +94,25 @@ final class PolymerPassStaticUtils {
             new NodeUtil.Visitor() {
               @Override
               public void visit(Node n) {
-                if (n.isString()
-                    && n.getString().equals("$")
-                    && n.getParent().isGetProp()
-                    && n.getGrandparent().isGetProp()) {
-
-                  // Some libraries like Mojo JS Bindings and jQuery place methods in a "$" member
-                  // e.g. "foo.$.closePipe()". Avoid converting to brackets for these cases.
-                  if (n.getAncestor(3).isCall() && n.getAncestor(3).hasOneChild()) {
-                    return;
-                  }
-
-                  Node dollarChildProp = n.getGrandparent();
-                  dollarChildProp.setToken(Token.GETELEM);
-                  compiler.reportChangeToEnclosingScope(dollarChildProp);
+                if (!n.isGetProp()) {
+                  return;
                 }
+
+                Node dollarSign = n.getFirstChild();
+                if (!dollarSign.isGetProp() || !dollarSign.getString().equals("$")) {
+                  return;
+                }
+
+                // Some libraries like Mojo JS Bindings and jQuery place methods in a "$" member
+                // e.g. "foo.$.closePipe()". Avoid converting to brackets for these cases.
+                if (n.getParent().isCall() && n.getParent().hasOneChild()) {
+                  return;
+                }
+
+                Node key = IR.string(n.getString()).clonePropsFrom(n).srcref(n);
+                Node getelem = IR.getelem(dollarSign.detach(), key).clonePropsFrom(n).srcref(n);
+                n.replaceWith(getelem);
+                compiler.reportChangeToEnclosingScope(getelem);
               }
             });
       }
@@ -121,7 +124,7 @@ final class PolymerPassStaticUtils {
    */
   static void quoteListenerAndHostAttributeKeys(Node objLit, AbstractCompiler compiler) {
     checkState(objLit.isObjectLit());
-    for (Node keyNode : objLit.children()) {
+    for (Node keyNode = objLit.getFirstChild(); keyNode != null; keyNode = keyNode.getNext()) {
       if (keyNode.isComputedProp()) {
         continue;
       }
@@ -129,7 +132,9 @@ final class PolymerPassStaticUtils {
           && !keyNode.getString().equals("hostAttributes")) {
         continue;
       }
-      for (Node keyToQuote : keyNode.getFirstChild().children()) {
+      for (Node keyToQuote = keyNode.getFirstFirstChild();
+          keyToQuote != null;
+          keyToQuote = keyToQuote.getNext()) {
         if (!keyToQuote.isQuotedString()) {
           keyToQuote.setQuotedString();
           compiler.reportChangeToEnclosingScope(keyToQuote);
@@ -167,7 +172,7 @@ final class PolymerPassStaticUtils {
     }
 
     ImmutableList.Builder<MemberDefinition> members = ImmutableList.builder();
-    for (Node keyNode : properties.children()) {
+    for (Node keyNode = properties.getFirstChild(); keyNode != null; keyNode = keyNode.getNext()) {
       // The JSDoc for a Polymer property in the constructor should win over the JSDoc in the
       // Polymer properties configuration object.
       JSDocInfo constructorJsDoc = constructorPropertyJsDoc.get(keyNode.getString());
@@ -196,12 +201,10 @@ final class PolymerPassStaticUtils {
    */
   private static void collectConstructorPropertyJsDoc(Node node, Map<String, JSDocInfo> map) {
     checkNotNull(node);
-    for (Node child : node.children()) {
-      if (child.isGetProp()
-          && child.getFirstChild().isThis()
-          && child.getSecondChild().isString()) {
+    for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
+      if (child.isGetProp() && child.getFirstChild().isThis()) {
         // We found a "this.foo" expression. Map "foo" to its JSDoc.
-        map.put(child.getSecondChild().getString(), NodeUtil.getBestJSDocInfo(child));
+        map.put(child.getString(), NodeUtil.getBestJSDocInfo(child));
       } else {
         // Recurse through every other kind of node, because properties are not necessarily declared
         // at the top level of the constructor body; e.g. they could be declared as part of an
@@ -247,19 +250,20 @@ final class PolymerPassStaticUtils {
       case "Boolean":
       case "String":
       case "Number":
-        typeNode = IR.string(Ascii.toLowerCase(typeString)).srcref(typeValue);
+        typeNode = IR.string(Ascii.toLowerCase(typeString));
         break;
       case "Array":
       case "Function":
       case "Object":
       case "Date":
-        typeNode = new Node(Token.BANG, IR.string(typeString)).srcrefTree(typeValue);
+        typeNode = new Node(Token.BANG, IR.string(typeString));
         break;
       default:
         compiler.report(JSError.make(property.value, PolymerPassErrors.POLYMER_INVALID_PROPERTY));
-        return null;
+        typeNode = new Node(Token.QMARK);
     }
 
+    typeNode.srcrefTree(typeValue);
     return new JSTypeExpression(typeNode, VIRTUAL_FILE);
   }
 

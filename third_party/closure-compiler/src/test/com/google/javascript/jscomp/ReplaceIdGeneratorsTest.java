@@ -177,6 +177,18 @@ public final class ReplaceIdGeneratorsTest extends CompilerTestCase {
   }
 
   @Test
+  public void testNullishCoalesce() {
+    testWithPseudo(
+        lines(
+            "/** @idGenerator */ foo.getUniqueId = function() {x ?? y;};",
+            "foo.bar = foo.getUniqueId('foo_bar')"),
+        lines("/** @idGenerator */ foo.getUniqueId = function() {x ?? y;};", "foo.bar = 'a'"),
+        lines(
+            "/** @idGenerator */ foo.getUniqueId = function() {x ?? y;};",
+            "foo.bar = 'foo_bar$0'"));
+  }
+
+  @Test
   public void testSimple() {
     testWithPseudo(
         lines(
@@ -593,25 +605,25 @@ public final class ReplaceIdGeneratorsTest extends CompilerTestCase {
 
   @Test
   public void testConflictingIdGenerator() {
-    testError(
-        "/** @idGenerator \n @idGenerator {consistent} \n*/" + "var id = function() {}; ",
-        ReplaceIdGenerators.CONFLICTING_GENERATOR_TYPE);
+    setExpectParseWarningsThisTest();
+    testSame("/** @idGenerator \n @idGenerator {consistent} \n*/ var id = function() {}; ");
 
-    testError(
-        "/** @idGenerator {stable} \n @idGenerator \n*/" + "var id = function() {}; ",
-        ReplaceIdGenerators.CONFLICTING_GENERATOR_TYPE);
+    testSame("/** @idGenerator {stable} \n @idGenerator \n*/ var id = function() {}; ");
 
-    testError(
-        "/** @idGenerator {stable} \n "
-            + "@idGenerator {consistent} \n*/"
-            + "var id = function() {}; ",
-        ReplaceIdGenerators.CONFLICTING_GENERATOR_TYPE);
+    testSame(
+        lines(
+            "/** @idGenerator {stable} \n @idGenerator {consistent} \n */",
+            "var id = function() {};"));
+  }
 
+  @Test
+  public void testConsistentIdGenUnderPseudoRenaming() {
     testWithPseudo(
         lines(
             "/** @idGenerator {consistent} */ var id = function() {};",
             "if (x) {foo.bar = id('foo_bar')}"),
-        lines("/** @idGenerator {consistent} */ var id = function() {};", "if (x) {foo.bar = 'a'}"),
+        lines( //
+            "/** @idGenerator {consistent} */ var id = function() {};", "if (x) {foo.bar = 'a'}"),
         lines(
             "/** @idGenerator {consistent} */ var id = function() {};",
             "if (x) {foo.bar = 'foo_bar$0'}"));

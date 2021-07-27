@@ -15,10 +15,13 @@
  */
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.debugging.sourcemap.proto.Mapping.OriginalMapping;
 import com.google.javascript.jscomp.LightweightMessageFormatter.LineNumberingFormatter;
+import com.google.javascript.jscomp.SourceExcerptProvider.SourceExcerpt;
+import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -81,28 +84,28 @@ public final class LightweightMessageFormatterTest {
 
   @Test
   public void testFormatErrorSpaces() {
-    Node n = Node.newString("foobar", 5, 8);
+    Node n = Node.newString("foobar").setLinenoCharno(5, 8);
     n.setLength("foobar".length());
     n.setSourceFileForTesting("javascript/complex.js");
     JSError error = JSError.make(n, FOO_TYPE);
     LightweightMessageFormatter formatter = formatter("    if (foobar) {");
     assertThat(formatter.formatError(error))
         .isEqualTo(
-            "javascript/complex.js:5: ERROR - [TEST_FOO] error description here\n"
+            "javascript/complex.js:5:8: ERROR - [TEST_FOO] error description here\n"
                 + "    if (foobar) {\n"
                 + "        ^^^^^^\n");
   }
 
   @Test
   public void testFormatErrorTabs() {
-    Node n = Node.newString("foobar", 5, 6);
+    Node n = Node.newString("foobar").setLinenoCharno(5, 6);
     n.setLength("foobar".length());
     n.setSourceFileForTesting("javascript/complex.js");
     JSError error = JSError.make(n, FOO_TYPE);
     LightweightMessageFormatter formatter = formatter("\t\tif (foobar) {");
     assertThat(formatter.formatError(error))
         .isEqualTo(
-            "javascript/complex.js:5: ERROR - [TEST_FOO] error description here\n"
+            "javascript/complex.js:5:6: ERROR - [TEST_FOO] error description here\n"
                 + "\t\tif (foobar) {\n"
                 + "\t\t    ^^^^^^\n");
   }
@@ -114,7 +117,7 @@ public final class LightweightMessageFormatterTest {
     LightweightMessageFormatter formatter = formatter("assert (1;");
     assertThat(formatter.formatError(error))
         .isEqualTo(
-            "javascript/complex.js:1: ERROR - [TEST_FOO] error description here\n"
+            "javascript/complex.js:1:10: ERROR - [TEST_FOO] error description here\n"
                 + "assert (1;\n"
                 + "          ^\n");
   }
@@ -126,14 +129,14 @@ public final class LightweightMessageFormatterTest {
     LightweightMessageFormatter formatter = formatter("if (foo");
     assertThat(formatter.formatError(error))
         .isEqualTo(
-            "javascript/complex.js:6: ERROR - [TEST_FOO] error description here\n"
+            "javascript/complex.js:6:7: ERROR - [TEST_FOO] error description here\n"
                 + "if (foo\n"
                 + "       ^\n");
   }
 
   @Test
   public void testFormatErrorOriginalSource() {
-    Node n = Node.newString("foobar", 5, 8);
+    Node n = Node.newString("foobar").setLinenoCharno(5, 8);
     n.setLength("foobar".length());
     n.setSourceFileForTesting("javascript/complex.js");
     JSError error = JSError.make(n, FOO_TYPE);
@@ -141,15 +144,119 @@ public final class LightweightMessageFormatterTest {
         formatter("    if (foobar) {", "<div ng-show='(foo'>");
     assertThat(formatter.formatError(error))
         .isEqualTo(
-            "javascript/complex.js:5: \n"
+            "javascript/complex.js:5:8: \n"
                 + "Originally at:\n"
-                + "original/source.html:3: ERROR - [TEST_FOO] error description here\n"
+                + "original/source.html:3:15: ERROR - [TEST_FOO] error description here\n"
                 + "<div ng-show='(foo'>\n"
                 + "               ^^^^^\n");
   }
 
+  @Test
+  public void testMultiline_oneLineErrorMessage() {
+    Node n = Node.newString("foobar").setLinenoCharno(5, 8);
+    n.setLength("foobar".length());
+    n.setSourceFileForTesting("javascript/complex.js");
+    JSError error = JSError.make(n, FOO_TYPE);
+    LightweightMessageFormatter formatter = formatter("    if (foobar) {", SourceExcerpt.FULL, 5);
+    assertThat(formatter.formatError(error))
+        .isEqualTo(
+            "javascript/complex.js:5:8: ERROR - [TEST_FOO] error description here\n"
+                + "  5|     if (foobar) {\n"
+                + "             ^^^^^^\n");
+  }
+
+  @Test
+  public void testMultiline_twoLineErrorMessage() {
+    Node foobar = IR.string("foobar");
+    Node baz = IR.string("baz");
+    Node orNode = IR.or(foobar, baz);
+    orNode.setLinenoCharno(5, 4);
+    orNode.setLength("foobar\n      || baz".length());
+    orNode.setSourceFileForTesting("javascript/complex.js");
+
+    JSError error = JSError.make(orNode, FOO_TYPE);
+    LightweightMessageFormatter formatter =
+        formatter("if (foobar\n      || baz) {", SourceExcerpt.FULL, 6);
+    assertThat(formatter.formatError(error))
+        .isEqualTo(
+            "javascript/complex.js:5:4: ERROR - [TEST_FOO] error description here\n"
+                + "  5| if (foobar\n"
+                + "         ^^^^^^\n"
+                + "  6|       || baz) {\n"
+                + "     ^^^^^^^^^^^^\n");
+  }
+
+  @Test
+  public void testMultiline_longTruncatedErrorMessage() {
+    Node qname = IR.getprop(IR.name("a"), "b", "c", "d", "e");
+    qname.setLinenoCharno(8, 0);
+    qname.setLength("a\n .b\n .c\n .d\n .e".length());
+    qname.setSourceFileForTesting("javascript/complex.js");
+
+    JSError error = JSError.make(qname, FOO_TYPE);
+    LightweightMessageFormatter formatter =
+        formatter("a\n .b\n .c\n .d\n .e + 1;", SourceExcerpt.FULL, 12);
+    assertThat(formatter.formatError(error))
+        .isEqualTo(
+            "javascript/complex.js:8:0: ERROR - [TEST_FOO] error description here\n"
+                + "   8| a\n"
+                + "      ^\n"
+                + "   9|  .b\n"
+                + "      ^^^\n"
+                + "...\n"
+                + "  11|  .d\n"
+                + "      ^^^\n"
+                + "  12|  .e + 1;\n"
+                + "      ^^^\n");
+  }
+
+  @Test
+  public void testMultiline_nodeLengthOutOfBounds() {
+    Node foobar = Node.newString("foobar").setLinenoCharno(5, 2);
+    foobar.setLength("foobar".length());
+    Node baz = Node.newString("baz").setLinenoCharno(6, 6);
+    baz.setLength("baz".length());
+    Node orNode = IR.or(foobar, baz);
+    orNode.setLinenoCharno(5, 4);
+    orNode.setLength(1000); // intentionally too long
+    orNode.setSourceFileForTesting("javascript/complex.js");
+
+    JSError error = JSError.make(orNode, FOO_TYPE);
+    LightweightMessageFormatter formatter = formatter("if (foobar", SourceExcerpt.FULL, 5);
+    assertThat(formatter.formatError(error))
+        .isEqualTo(
+            "javascript/complex.js:5:4: ERROR - [TEST_FOO] error description here\n"
+                + "  5| if (foobar\n"
+                + "         ^^^^^^\n");
+  }
+
+  @Test
+  public void testMultiline_errorWithoutAssociatedNode() {
+    JSError error = JSError.make("javascript/complex.js", 5, 4, FOO_TYPE);
+    LightweightMessageFormatter formatter = formatter("if (foobar", SourceExcerpt.FULL, 5);
+    assertThat(formatter.formatError(error))
+        .isEqualTo(
+            "javascript/complex.js:5:4: ERROR - [TEST_FOO] error description here\n"
+                + "  5| if (foobar\n"
+                + "         ^\n");
+  }
+
+  @Test
+  public void testMultiline_errorWithoutAssociatedNodeAndNegativeChar() {
+    JSError error = JSError.make("javascript/complex.js", 5, -1, FOO_TYPE);
+    LightweightMessageFormatter formatter = formatter("if (foobar", SourceExcerpt.FULL, 5);
+    assertThat(formatter.formatError(error))
+        .isEqualTo(
+            "javascript/complex.js:5: ERROR - [TEST_FOO] error description here\n"
+                + "  5| if (foobar\n");
+  }
+
+  private LightweightMessageFormatter formatter(String string, SourceExcerpt excerpt, int endLine) {
+    return new LightweightMessageFormatter(source(string, null, endLine), excerpt);
+  }
+
   private LightweightMessageFormatter formatter(String string) {
-    return formatter(string, null);
+    return new LightweightMessageFormatter(source(string, null));
   }
 
   private LightweightMessageFormatter formatter(String string,
@@ -157,8 +264,12 @@ public final class LightweightMessageFormatterTest {
     return new LightweightMessageFormatter(source(string, originalSource));
   }
 
-  private SourceExcerptProvider source(final String source,
-                                       final String originalSource) {
+  private SourceExcerptProvider source(final String source, final String originalSource) {
+    return source(source, originalSource, -1);
+  }
+
+  private SourceExcerptProvider source(
+      final String source, final String originalSource, final int endLineNumber) {
     return new SourceExcerptProvider() {
       @Override
       public String getSourceLine(String sourceName, int lineNumber) {
@@ -167,13 +278,23 @@ public final class LightweightMessageFormatterTest {
         }
         return source;
       }
+
+      @Override
+      public Region getSourceLines(String sourceName, int lineNumber, int length) {
+        checkState(endLineNumber != -1, "Must provide the end of the source lines");
+        if (sourceName.equals(ORIGINAL_SOURCE_FILE)) {
+          return new SimpleRegion(lineNumber, endLineNumber, originalSource);
+        }
+        return new SimpleRegion(lineNumber, endLineNumber, source);
+      }
+
       @Override
       public Region getSourceRegion(String sourceName, int lineNumber) {
         throw new UnsupportedOperationException();
       }
+
       @Override
-      public OriginalMapping getSourceMapping(String sourceName,
-          int lineNumber, int columnNumber) {
+      public OriginalMapping getSourceMapping(String sourceName, int lineNumber, int columnNumber) {
         if (originalSource != null) {
           return ORIGINAL_SOURCE;
         }

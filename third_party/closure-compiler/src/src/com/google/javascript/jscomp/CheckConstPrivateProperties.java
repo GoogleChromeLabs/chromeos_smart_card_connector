@@ -30,7 +30,7 @@ import java.util.Set;
  * Can run with or without typechecking but will find more if typechecking is enabled.
  */
 class CheckConstPrivateProperties extends NodeTraversal.AbstractPostOrderCallback
-    implements HotSwapCompilerPass {
+    implements CompilerPass {
 
   static final DiagnosticType MISSING_CONST_PROPERTY =
       DiagnosticType.disabled(
@@ -50,15 +50,10 @@ class CheckConstPrivateProperties extends NodeTraversal.AbstractPostOrderCallbac
     NodeTraversal.traverse(compiler, root, this);
   }
 
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    NodeTraversal.traverse(compiler, scriptRoot, this);
-  }
-
   /** Reports the property definitions that should use the @const annotation. */
   private void reportMissingConst(NodeTraversal t) {
     for (Node n : candidates) {
-      String propName = n.getLastChild().getString();
+      String propName = n.getString();
       if (!modified.contains(propName)) {
         t.report(n, MISSING_CONST_PROPERTY, propName);
       }
@@ -77,20 +72,21 @@ class CheckConstPrivateProperties extends NodeTraversal.AbstractPostOrderCallbac
 
       case GETELEM:
       case GETPROP:
-        // GETELEM is anytime a property is accessed on an object using the '["${key}"]' syntax.
-        // GETPROP is anytime a property is accessed on an object using the '.' syntax.
-        Node lastChild = n.getLastChild();
-        if (!lastChild.isString()) {
+        final Node propNode;
+        if (n.isGetProp()) {
+          propNode = n;
+        } else if (n.getLastChild().isStringLit()) {
+          propNode = n.getLastChild();
+        } else {
           return;
         }
-        String propName = lastChild.getString();
 
         // Only consider non-const @private class properties as candidates
         if (isCandidatePropertyDefinition(n)) {
-          candidates.add(n);
+          candidates.add(propNode);
         } else if (isModificationOp(n)) {
           // Mark any other modification operation as a modified property, to deal with lambdas, etc
-          modified.add(propName);
+          modified.add(propNode.getString());
         }
         break;
 

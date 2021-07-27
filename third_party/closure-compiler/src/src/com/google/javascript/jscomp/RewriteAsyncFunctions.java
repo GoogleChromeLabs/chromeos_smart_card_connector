@@ -30,7 +30,6 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.Objects;
 import javax.annotation.Nullable;
 
 /**
@@ -41,7 +40,7 @@ import javax.annotation.Nullable;
  *
  * <p>An async function, foo(a, b), will be rewritten as:
  *
- * <pre> {@code
+ * <pre>{@code
  * function foo(a, b) {
  *   let $jscomp$async$this = this;
  *   let $jscomp$async$arguments = arguments;
@@ -55,9 +54,10 @@ import javax.annotation.Nullable;
  *         // - super.x replaced with $jscomp$async$super$get$x()
  *         // - super.x(5) replaced with $jscomp$async$super$get$x().call($jscomp$async$this, 5)
  *       });
- * }}</pre>
+ * }
+ * }</pre>
  */
-public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotSwapCompilerPass {
+public final class RewriteAsyncFunctions implements NodeTraversal.Callback, CompilerPass {
 
   private static final String ASYNC_ARGUMENTS = "$jscomp$async$arguments";
   private static final String ASYNC_THIS = "$jscomp$async$this";
@@ -115,10 +115,8 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotS
       checkArgument(superDotPropertyNode.isGetProp(), superDotPropertyNode);
       Node superNode = superDotPropertyNode.getFirstChild();
       checkArgument(superNode.isSuper(), superNode);
-      Node propertyNameNode = superDotPropertyNode.getLastChild();
-      checkArgument(propertyNameNode.isString(), propertyNameNode);
 
-      String propertyName = propertyNameNode.getString();
+      String propertyName = superDotPropertyNode.getString();
       JSType propertyType = superDotPropertyNode.getJSType();
       final SuperPropertyWrapperInfo superPropertyWrapperInfo;
       if (propertyNameToTypeMap.containsKey(propertyName)) {
@@ -127,7 +125,7 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotS
         // have the same type.  Make sure this is true.
         JSType existingJSType = superPropertyWrapperInfo.getPropertyType();
         checkState(
-            Objects.equals(existingJSType, propertyType),
+            JSType.areSimilar(existingJSType, propertyType),
             "Previous reference type: %s differs from current reference type: %s",
             existingJSType,
             propertyType);
@@ -140,7 +138,7 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotS
 
     private SuperPropertyWrapperInfo createNewInfo(Node firstSuperDotPropertyNode) {
       checkArgument(firstSuperDotPropertyNode.isGetProp(), firstSuperDotPropertyNode);
-      String propertyName = firstSuperDotPropertyNode.getLastChild().getString();
+      String propertyName = firstSuperDotPropertyNode.getString();
       JSType propertyType = firstSuperDotPropertyNode.getJSType();
       final String wrapperFunctionName = ASYNC_SUPER_PROP_GETTER_PREFIX + propertyName;
       final JSType wrapperFunctionType;
@@ -148,7 +146,8 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotS
         // type checking hasn't run, so we don't need type information.
         wrapperFunctionType = null;
       } else {
-        wrapperFunctionType = FunctionType.builder(registry).withReturnType(propertyType).build();
+        wrapperFunctionType =
+            FunctionType.builder(registry).withReturnType(propertyType).buildAndResolve();
       }
       return new SuperPropertyWrapperInfo(
           firstSuperDotPropertyNode, wrapperFunctionName, wrapperFunctionType);
@@ -393,8 +392,7 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotS
             break;
 
           case THIS:
-            n.getParent()
-                .replaceChild(n, asyncThisAndArgumentsContext.createThisVariableReference());
+            n.replaceWith(asyncThisAndArgumentsContext.createThisVariableReference());
             compiler.reportChangeToChangeScope(contextRootNode);
             break;
 
@@ -419,24 +417,22 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotS
                 // $jscomp$super$get$x(...)   =>   $jscomp$super$get$x().call($jscomp$async$this,
                 // ...)
                 getPropReplacement = astFactory.createGetProp(getPropReplacement, "call");
-                grandparent.addChildAfter(
-                    astFactory
-                        .createThisAliasReferenceForFunction(
-                            ASYNC_THIS, asyncThisAndArgumentsContext.getContextRootNode())
-                        .useSourceInfoFrom(superDotProperty),
-                    superDotProperty);
+                astFactory
+                    .createThisAliasReferenceForFunction(
+                        ASYNC_THIS, asyncThisAndArgumentsContext.getContextRootNode())
+                    .srcref(superDotProperty)
+                    .insertAfter(superDotProperty);
                 asyncThisAndArgumentsContext.recordAsyncThisReplacementWasDone();
               }
-              getPropReplacement.useSourceInfoFromForTree(superDotProperty);
-              grandparent.replaceChild(superDotProperty, getPropReplacement);
+              getPropReplacement.srcrefTree(superDotProperty);
+              superDotProperty.replaceWith(getPropReplacement);
               compiler.reportChangeToChangeScope(contextRootNode);
             }
             break;
 
           case AWAIT:
             // Awaits become yields in the converted async function's inner generator function.
-            n.getParent()
-                .replaceChild(n, astFactory.createYield(n.getJSType(), n.removeFirstChild()));
+            n.replaceWith(astFactory.createYield(n.getJSType(), n.removeFirstChild()));
             break;
 
           default:
@@ -506,14 +502,7 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotS
 
   @Override
   public void process(Node externs, Node root) {
-    TranspilationPasses.processTranspile(compiler, externs, transpiledFeatures, this);
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    TranspilationPasses.hotSwapTranspile(compiler, scriptRoot, transpiledFeatures, this);
     TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
   }
 
@@ -557,18 +546,18 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotS
       return;
     }
     Node newBody = astFactory.createBlock();
-    originalFunction.replaceChild(originalBody, newBody);
+    originalBody.replaceWith(newBody);
 
     if (functionContext.mustAddAsyncThisVariable) {
       // const this$ = this;
       newBody.addChildToBack(
           astFactory.createThisAliasDeclarationForFunction(ASYNC_THIS, originalFunction));
-      NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS);
+      NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS, compiler);
     }
     if (functionContext.mustAddAsyncArgumentsVariable) {
       // const arguments$ = arguments;
       newBody.addChildToBack(astFactory.createArgumentsAliasDeclaration(ASYNC_ARGUMENTS));
-      NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS);
+      NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS, compiler);
     }
     for (SuperPropertyWrapperInfo superPropertyWrapperInfo :
         functionContext.superPropertyWrappers.asCollection()) {
@@ -585,8 +574,8 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotS
       // Record that we've added arrow functions and const declarations to this script,
       // so later transpilations of those features will run, if needed.
       Node enclosingScript = t.getCurrentScript();
-      NodeUtil.addFeatureToScript(enclosingScript, Feature.ARROW_FUNCTIONS);
-      NodeUtil.addFeatureToScript(enclosingScript, Feature.CONST_DECLARATIONS);
+      NodeUtil.addFeatureToScript(enclosingScript, Feature.ARROW_FUNCTIONS, compiler);
+      NodeUtil.addFeatureToScript(enclosingScript, Feature.CONST_DECLARATIONS, compiler);
     }
 
     // Normalize arrow function short body to block body
@@ -594,14 +583,14 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotS
       originalBody =
           astFactory
               .createBlock(astFactory.createReturn(originalBody))
-              .useSourceInfoIfMissingFromForTree(originalBody);
+              .srcrefTreeIfMissing(originalBody);
     }
     // NOTE: visit() will already have made appropriate replacements in originalBody so it may
     // be used as the generator function body.
     Node generatorFunction =
         astFactory.createZeroArgGeneratorFunction("", originalBody, originalFunction.getJSType());
     compiler.reportChangeToChangeScope(generatorFunction);
-    NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.GENERATORS);
+    NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.GENERATORS, compiler);
 
     // return $jscomp.asyncExecutePromiseGeneratorFunction(function* () { ... });
     newBody.addChildToBack(
@@ -609,7 +598,7 @@ public final class RewriteAsyncFunctions implements NodeTraversal.Callback, HotS
             astFactory.createJscompAsyncExecutePromiseGeneratorFunctionCall(
                 t.getScope(), generatorFunction)));
 
-    newBody.useSourceInfoIfMissingFromForTree(originalBody);
+    newBody.srcrefTreeIfMissing(originalBody);
     compiler.reportChangeToEnclosingScope(newBody);
   }
 }

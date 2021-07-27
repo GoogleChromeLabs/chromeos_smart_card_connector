@@ -41,6 +41,7 @@ package com.google.javascript.rhino.jstype;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.rhino.ErrorReporter;
@@ -49,7 +50,6 @@ import com.google.javascript.rhino.Node;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.Function;
 
 /**
  * The object type represents instances of JavaScript objects such as
@@ -68,7 +68,7 @@ import java.util.function.Function;
  * {@link JSTypeRegistry}.<p>
  */
 public class PrototypeObjectType extends ObjectType {
-  private static final long serialVersionUID = 1L;
+  private static final JSTypeClass TYPE_CLASS = JSTypeClass.PROTOTYPE_OBJECT;
 
   private final String className;
   private final int templateParamCount;
@@ -118,6 +118,13 @@ public class PrototypeObjectType extends ObjectType {
     checkNotNull(this.templateTypeMap);
     // Also guarantees `templateParamCount >= 0`.
     checkState(this.templateTypeMap.size() >= this.templateParamCount);
+
+    registry.getResolver().resolveIfClosed(this, TYPE_CLASS);
+  }
+
+  @Override
+  JSTypeClass getTypeClass() {
+    return TYPE_CLASS;
   }
 
   static class Builder<T extends Builder<T>> {
@@ -138,7 +145,7 @@ public class PrototypeObjectType extends ObjectType {
       this.templateTypeMap = registry.getEmptyTemplateTypeMap();
     }
 
-    final T setName(String x) {
+    T setName(String x) {
       this.className = x;
       return castThis();
     }
@@ -234,15 +241,25 @@ public class PrototypeObjectType extends ObjectType {
 
   @Override
   public boolean matchesNumberContext() {
-    return isNumberObjectType() || isDateType() || isBooleanObjectType()
-        || isStringObjectType() || hasOverriddenNativeProperty("valueOf");
+    // BigInt is intentionally left out here. It cannot be coerced to a Number.
+    return isNumberObjectType()
+        || isDateType()
+        || isBooleanObjectType()
+        || isStringObjectType()
+        || hasOverriddenNativeProperty("valueOf");
   }
 
   @Override
   public boolean matchesStringContext() {
-    return isTheObjectType() || isStringObjectType() || isDateType()
-        || isRegexpType() || isArrayType() || isNumberObjectType()
-        || isBooleanObjectType() || hasOverriddenNativeProperty("toString");
+    return isTheObjectType()
+        || isStringObjectType()
+        || isDateType()
+        || isRegexpType()
+        || isArrayType()
+        || isNumberObjectType()
+        || isBigIntObjectType()
+        || isBooleanObjectType()
+        || hasOverriddenNativeProperty("toString");
   }
 
   @Override
@@ -265,22 +282,7 @@ public class PrototypeObjectType extends ObjectType {
             ? registry.getNativeObjectType(JSTypeNative.FUNCTION_PROTOTYPE)
             : registry.getNativeObjectType(JSTypeNative.OBJECT_PROTOTYPE);
     JSType nativePropertyType = nativeType.getPropertyType(propertyName);
-    return propertyType != nativePropertyType;
-  }
-
-  @Override
-  public final JSType unboxesTo() {
-    if (isStringObjectType()) {
-      return getNativeType(JSTypeNative.STRING_TYPE);
-    } else if (isBooleanObjectType()) {
-      return getNativeType(JSTypeNative.BOOLEAN_TYPE);
-    } else if (isNumberObjectType()) {
-      return getNativeType(JSTypeNative.NUMBER_TYPE);
-    } else if (isSymbolObjectType()) {
-      return getNativeType(JSTypeNative.SYMBOL_TYPE);
-    } else {
-      return super.unboxesTo();
-    }
+    return !identical(propertyType, nativePropertyType);
   }
 
   @Override
@@ -289,56 +291,64 @@ public class PrototypeObjectType extends ObjectType {
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
+  void appendTo(TypeStringBuilder sb) {
     if (hasReferenceName()) {
-      return sb.append(forAnnotations ? getNormalizedReferenceName() : getReferenceName());
+      sb.append(sb.isForAnnotations() ? getNormalizedReferenceName() : getReferenceName());
+      return;
     }
-    if (!prettyPrint) {
-      return sb.append(forAnnotations ? "?" : "{...}");
+
+    if (!this.prettyPrint) {
+      sb.append(sb.isForAnnotations() ? "?" : "{...}");
+      return;
     }
-    // Don't pretty print recursively.
-    prettyPrint = false;
 
     // Use a tree set so that the properties are sorted.
     Set<String> propertyNames = new TreeSet<>();
-    for (ObjectType current = this;
-        current != null && !current.isNativeObjectType()
-            && propertyNames.size() <= MAX_PRETTY_PRINTED_PROPERTIES;
-        current = current.getImplicitPrototype()) {
+    for (ObjectType current = this; current != null; current = current.getImplicitPrototype()) {
+      if (current.isNativeObjectType() || propertyNames.size() > MAX_PRETTY_PRINTED_PROPERTIES) {
+        break;
+      }
+
       propertyNames.addAll(current.getOwnPropertyNames());
     }
 
-    sb.append("{");
-    boolean useNewlines = !forAnnotations && propertyNames.size() > 2;
+    // Don't pretty print recursively. It would cause infinite recursion.
+    this.prettyPrint = false;
 
-    int i = 0;
-    for (String property : propertyNames) {
-      if (i > 0) {
-        sb.append(",");
-      }
-      if (useNewlines) {
-        sb.append("\n  ");
-      } else if (i > 0) {
-        sb.append(" ");
-      }
+    boolean multiline = !sb.isForAnnotations() && propertyNames.size() > 1;
+    sb.append("{")
+        .indent(
+            () -> {
+              if (multiline) {
+                sb.breakLineAndIndent();
+              }
 
-      sb.append(property).append(": ");
-      getPropertyType(property).appendAsNonNull(sb, forAnnotations);
+              int i = 0;
+              for (String property : propertyNames) {
+                i++;
 
-      ++i;
-      if (!forAnnotations && i == MAX_PRETTY_PRINTED_PROPERTIES) {
-        sb.append(", ...");
-        break;
-      }
+                if (!sb.isForAnnotations() && i > MAX_PRETTY_PRINTED_PROPERTIES) {
+                  sb.append("...");
+                  break;
+                }
+
+                sb.append(property).append(": ").appendNonNull(this.getPropertyType(property));
+                if (i < propertyNames.size()) {
+                  sb.append(",");
+                  if (multiline) {
+                    sb.breakLineAndIndent();
+                  } else {
+                    sb.append(" ");
+                  }
+                }
+              }
+            });
+    if (multiline) {
+      sb.breakLineAndIndent();
     }
-    if (useNewlines) {
-      sb.append("\n");
-    }
-
     sb.append("}");
 
-    prettyPrint = true;
-    return sb;
+    this.prettyPrint = true;
   }
 
   void setPrettyPrint(boolean prettyPrint) {
@@ -360,14 +370,16 @@ public class PrototypeObjectType extends ObjectType {
   }
 
   /**
-   * This should only be reset on the FunctionPrototypeType, only to fix an
-   * incorrectly established prototype chain due to the user having a mismatch
-   * in super class declaration, and only before properties on that type are
-   * processed.
+   * This should only be reset on the FunctionPrototypeType, only to fix an incorrectly established
+   * prototype chain due to the user having a mismatch in super class declaration, and only before
+   * properties on that type are processed.
    */
   final void setImplicitPrototype(ObjectType implicitPrototype) {
     checkState(!hasCachedValues());
     this.implicitPrototypeFallback = implicitPrototype;
+    if (implicitPrototype != null) {
+      maybeLoosenTypecheckingDueToForwardReferencedSupertype(implicitPrototype);
+    }
   }
 
   @Override
@@ -423,21 +435,9 @@ public class PrototypeObjectType extends ObjectType {
 
   @Override
   JSType resolveInternal(ErrorReporter reporter) {
-    setResolvedTypeInternal(this);
-
     ObjectType implicitPrototype = getImplicitPrototype();
     if (implicitPrototype != null) {
-      implicitPrototypeFallback =
-          (ObjectType) implicitPrototype.resolve(reporter);
-      FunctionType ctor = getConstructor();
-      if (ctor != null) {
-        FunctionType superCtor = ctor.getSuperClassConstructor();
-        if (superCtor != null) {
-          // If the super ctor of this prototype object was not known before resolution, then the
-          // subTypes would not have been set. Update them.
-          superCtor.addSubClassAfterResolution(ctor);
-        }
-      }
+      implicitPrototypeFallback = (ObjectType) implicitPrototype.resolve(reporter);
     }
     for (Property prop : properties.values()) {
       prop.setType(safeResolve(prop.getType(), reporter));

@@ -18,8 +18,7 @@
  * @fileoverview Externs for Jasmine 3.3 (not backwards compatible with 1.3,
  * but should be backwards compatible with 2.0).
  *
- * TODO: Missing externs for JsApiReporter, real type support for defining
- * matchers.
+ * TODO: Missing externs for real type support for defining matchers.
  *
  * @see https://jasmine.github.io/api/3.3/global
  * @externs
@@ -102,6 +101,15 @@ jasmine.AsyncMatchers.prototype.toBeRejected = function() {};
 jasmine.AsyncMatchers.prototype.toBeRejectedWith = function(value) {};
 
 
+/**
+ * @param {function(new:Error, ...)|string|!RegExp=} errorOrMessage
+ * @param {string|!RegExp=} message
+ * @return {!Promise<void>}
+ */
+jasmine.AsyncMatchers.prototype.toBeRejectedWithError = function(
+    errorOrMessage, message) {};
+
+
 /** @return {!Promise<void>} */
 jasmine.AsyncMatchers.prototype.toBeResolved = function() {};
 
@@ -124,7 +132,7 @@ jasmine.AsyncMatchers.prototype.withContext = function(message) {};
 jasmine.Matchers = function() {};
 
 
-/** @type {jasmine.Matchers} */
+/** @type {!jasmine.Matchers} */
 jasmine.Matchers.prototype.not;
 
 
@@ -132,52 +140,110 @@ jasmine.Matchers.prototype.not;
 jasmine.Matchers.prototype.actual;
 
 
-/** @param {*} value */
-jasmine.Matchers.prototype.toBe = function(value) {};
-
-
 /** @return {void} */
-jasmine.Matchers.prototype.toBeDefined = function() {};
+jasmine.Matchers.prototype.nothing = function() {};
 
 
-/** @return {void} */
-jasmine.Matchers.prototype.toBeFalsy = function() {};
+/**
+ * @param {*} value
+ * @param {*=} expectationFailOutput
+ */
+jasmine.Matchers.prototype.toBe = function(value, expectationFailOutput) {};
 
 
-/** @param {*} value */
-jasmine.Matchers.prototype.toBeGreaterThan = function(value) {};
+/**
+ * @param {*=} expectationFailOutput
+ * @return {void}
+ */
+jasmine.Matchers.prototype.toBeDefined = function(expectationFailOutput) {};
 
 
-/** @param {*} value */
-jasmine.Matchers.prototype.toBeLessThan = function(value) {};
+/**
+ * @param {*=} expectationFailOutput
+ * @return {void}
+ */
+jasmine.Matchers.prototype.toBeFalsy = function(expectationFailOutput) {};
 
 
-/** @param {*} value */
-jasmine.Matchers.prototype.toBeCloseTo = function(value, precision) {};
+/**
+ * @param {*} value
+ * @param {*=} expectationFailOutput
+ */
+jasmine.Matchers.prototype.toBeGreaterThan = function(
+    value, expectationFailOutput) {};
 
 
-/** @return {void} */
-jasmine.Matchers.prototype.toBeNull = function() {};
+/**
+ * @param {*} value
+ * @param {*=} expectationFailOutput
+ */
+jasmine.Matchers.prototype.toBeLessThan = function(
+    value, expectationFailOutput) {};
 
 
-/** @return {void} */
-jasmine.Matchers.prototype.toBeTruthy = function() {};
+/**
+ * @param {*} value
+ * @param {*=} expectationFailOutput
+ */
+jasmine.Matchers.prototype.toBeGreaterThanOrEqual = function(
+    value, expectationFailOutput) {};
 
 
-/** @return {void} */
-jasmine.Matchers.prototype.toBeUndefined = function() {};
+/**
+ * @param {*} value
+ * @param {*=} expectationFailOutput
+ */
+jasmine.Matchers.prototype.toBeLessThanOrEqual = function(
+    value, expectationFailOutput) {};
+
+
+/**
+ * @param {*} value
+ * @param {*=} precision
+ * @param {*=} expectationFailOutput
+ */
+jasmine.Matchers.prototype.toBeCloseTo = function(
+    value, precision, expectationFailOutput) {};
+
+
+/**
+ * @param {*=} expectationFailOutput
+ * @return {void}
+ */
+jasmine.Matchers.prototype.toBeNull = function(expectationFailOutput) {};
+
+
+/**
+ * @param {*=} expectationFailOutput
+ * @return {void}
+ */
+jasmine.Matchers.prototype.toBeTruthy = function(expectationFailOutput) {};
+
+
+/**
+ * @param {*=} expectationFailOutput
+ * @return {void}
+ */
+jasmine.Matchers.prototype.toBeUndefined = function(expectationFailOutput) {};
 
 
 /** @return {void} */
 jasmine.Matchers.prototype.toBeNaN = function() {};
 
 
-/** @param {*} value */
-jasmine.Matchers.prototype.toContain = function(value) {};
+/**
+ * @param {*} value
+ * @param {*=} expectationFailOutput
+ */
+jasmine.Matchers.prototype.toContain = function(
+    value, expectationFailOutput) {};
 
 
-/** @param {*} value */
-jasmine.Matchers.prototype.toEqual = function(value) {};
+/**
+ * @param {*} value
+ * @param {*=} expectationFailOutput
+ */
+jasmine.Matchers.prototype.toEqual = function(value, expectationFailOutput) {};
 
 
 /** @return {void} */
@@ -196,20 +262,24 @@ jasmine.Matchers.prototype.toHaveBeenCalledWith = function(var_args) {};
 /** @param {number} num */
 jasmine.Matchers.prototype.toHaveBeenCalledTimes = function(num) {};
 
-/** @param {(string|RegExp)} pattern */
-jasmine.Matchers.prototype.toMatch = function(pattern) {};
+/**
+ * @param {(string|RegExp)} pattern
+ * @param {*=} expectationFailOutput
+ */
+jasmine.Matchers.prototype.toMatch = function(
+    pattern, expectationFailOutput) {};
 
 
-/** @param {Error=} opt_expected */
+/** @param {!Object=} opt_expected */
 jasmine.Matchers.prototype.toThrow = function(opt_expected) {};
 
 
 /**
- * @param {(!Function|string|!RegExp)} errorTypeOrMessageOrPattern
+ * @param {(!Function|string|!RegExp)=} opt_errorTypeOrMessageOrPattern
  * @param {(string|RegExp)=} opt_messageOrPattern
  */
 jasmine.Matchers.prototype.toThrowError = function(
-    errorTypeOrMessageOrPattern, opt_messageOrPattern) {};
+    opt_errorTypeOrMessageOrPattern, opt_messageOrPattern) {};
 
 /**
  * @param {string} message
@@ -273,10 +343,14 @@ jasmine.Spec.prototype.fail = function(e) {};
 jasmine.Spec.prototype.finish = function(opt_onComplete) {};
 
 
+/** @type {undefined|function(): string} */
+jasmine.Spec.prototype.getFullName;
+
 
 /**
  * @constructor
  * @extends {Function}
+ * @template T
  */
 jasmine.Spy = function() {};
 
@@ -293,6 +367,13 @@ jasmine.Spy.prototype.reset = function() {};
 
 /** @type {!jasmine.CallTracker} */
 jasmine.Spy.prototype.calls;
+
+
+/**
+ * @param {...*} var_args
+ * @return {!jasmine.Spy}
+ */
+jasmine.Spy.prototype.withArgs = function(...var_args) {};
 
 
 
@@ -460,29 +541,124 @@ jasmine.Env.prototype.afterEach = function(handler) {};
 jasmine.Env.prototype.afterAll = function(handler) {};
 
 
+/** @param {!Object} configuration */
+jasmine.Env.prototype.configure = function(configuration) {};
+
+
 /**
  * @return {!jasmine.Env}
  */
 jasmine.getEnv = function() {};
 
 
-/** @record */
-jasmine.Reporter = function() {};
-
 /**
- * @param {{
+ * @typedef {{
  *   id: number,
  *   description: string,
  *   fullName: string,
+ *   failedExpectations: Array,
+ *   passedExpectations: Array,
+ *   deprecationWarnings: Array,
  *   pendingReason: string,
- *   status: string
- * }} result
+ *   status: string,
+ *   duration: number
+ * }}
  */
+jasmine.SpecResult;
+
+
+/**
+ * @typedef {{
+ *   overallStatus: string,
+ *   totalTime: number,
+ *   incompleteReason: string,
+ *   order: string,
+ *   failedExpectations: Array,
+ *   deprecationWarnings: Array
+ * }}
+ */
+jasmine.JasmineDoneInfo;
+
+
+/** @record */
+jasmine.Reporter = function() {};
+
+/** @param {!jasmine.SpecResult} result */
 jasmine.Reporter.prototype.specDone = function(result) {};
 
-/** @param {{id: number, description: string, fullName: string}} result */
+/** @param {!jasmine.SpecResult} result */
 jasmine.Reporter.prototype.specStarted = function(result) {};
 
+
+/**
+ * @constructor
+ * @implements {jasmine.Reporter}
+ */
+jasmine.jsApiReporter = function() {};
+
+/** @return {!Array<!jasmine.SpecResult>} results */
+jasmine.jsApiReporter.prototype.specs = function() {};
+
+/** @param {!jasmine.JasmineDoneInfo} suiteInfo */
+jasmine.jsApiReporter.prototype.jasmineDone = function(suiteInfo) {};
+
+
+/**
+ * @constructor
+ * @implements {jasmine.Reporter}
+ * @param {!Object} options
+ */
+jasmine.HtmlReporter = function(options) {};
+
+/** @return {void} */
+jasmine.HtmlReporter.prototype.initialize = function() {};
+
+
+/**
+ * @constructor
+ * @param {!Object} options
+ */
+jasmine.QueryString = function(options) {};
+
+
+/**
+ * @param {string} key
+ * @return {undefined|string|Object} value
+ */
+jasmine.QueryString.prototype.getParam = function(key) {};
+
+
+/**
+ * @param {string} key
+ * @param {?Object} value
+ */
+jasmine.QueryString.prototype.navigateWithNewParam = function(key, value) {};
+
+
+/**
+ * @param {string} key
+ * @param {?Object} value
+ * @return {string} params
+ */
+jasmine.QueryString.prototype.fullStringWithNewParam = function(key, value) {};
+
+
+/**
+ * @constructor
+ * @param {!Object} options
+ */
+jasmine.HtmlSpecFilter = function(options) {};
+
+
+/**
+ * @param {string} specName
+ * @return {boolean} match
+ */
+jasmine.HtmlSpecFilter.prototype.matches = function(specName) {};
+
+
+/** @constructor */
+jasmine.Timer = function() {};
 
 /**
  * @param {function(this:jasmine.Spec, function())} handler
@@ -520,6 +696,15 @@ function describe(description, handler) {}
 
 
 /**
+ * @param {?=} message Reason for the failure. NOTE: the type should
+ *     be (string|!Error=), however closure's goog.testing.asserts.fail is
+ *     aliased as a global and sometimes conflicts, and is typed with an
+ *     unknown parameter type.
+ */
+function fail(message) {}
+
+
+/**
  * @param {string} description
  * @param {function(this:jasmine.Suite)} handler
  */
@@ -534,10 +719,26 @@ function expectAsync(expectedValue) {}
 
 
 /**
- * @param {*} expectedValue
+ * @param {*=} expectedValue
  * @return {!jasmine.Matchers} matcher
  */
-function expect(expectedValue) {}
+function expect(expectedValue = undefined) {}
+
+/**
+ * Sets a user-defined property that will be provided to reporters as part of
+ * SpecResult#properties
+ * @param {string} key The name of the property
+ * @param {*} value The value of the property
+ */
+function setSpecProperty(key, value) {}
+
+/**
+ * Sets a user-defined property that will be provided to reporters as part of
+ * SuiteResult#properties
+ * @param {string} key The name of the property
+ * @param {*} value The value of the property
+ */
+function setSuiteProperty(key, value) {}
 
 /** @typedef {function()} */
 var DoneFunc;
@@ -583,6 +784,13 @@ function spyOn(spiedOnObject, methodName) {}
  */
 function spyOnAllFunctions(spiedOnObject) {}
 
+/**
+ * @param {!Object} spiedOnObject
+ * @param {string} propertyName
+ * @param {string=} accessType
+ * @return {!jasmine.Spy}
+ */
+function spyOnProperty(spiedOnObject, propertyName, accessType) {}
 
 /**
  * @param {string} description
@@ -603,3 +811,7 @@ function xit(description, handler, timeout = undefined) {}
  * @type {jasmine.Spec}
  */
 var currentSpec;
+
+
+/** @type {!jasmine.jsApiReporter} */
+var jsApiReporter;

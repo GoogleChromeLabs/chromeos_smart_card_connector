@@ -37,6 +37,9 @@ class RhinoErrorReporter {
   static final DiagnosticType UNRECOGNIZED_TYPE_ERROR =
       DiagnosticType.warning("JSC_UNRECOGNIZED_TYPE_ERROR", "{0}");
 
+  static final DiagnosticType UNRECOGNIZED_TYPEOF_ERROR =
+      DiagnosticType.warning("JSC_UNRECOGNIZED_TYPEOF_ERROR", "{0}");
+
   // This is separate from TYPE_PARSE_ERROR because there are many instances of this warning
   // and it is unfeasible to fix them all right away.
   static final DiagnosticType JSDOC_MISSING_BRACES_WARNING =
@@ -65,6 +68,9 @@ class RhinoErrorReporter {
 
   static final DiagnosticType DUPLICATE_PARAM =
       DiagnosticType.error("JSC_DUPLICATE_PARAM", "Parse error. {0}");
+
+  static final DiagnosticType DUPLICATE_VISIBILITY =
+      DiagnosticType.warning("JSC_DUPLICATE_VISIBILITY", "{0}");
 
   static final DiagnosticType UNNECESSARY_ESCAPE =
       DiagnosticType.disabled("JSC_UNNECESSARY_ESCAPE", "Parse error. {0}");
@@ -99,15 +105,6 @@ class RhinoErrorReporter {
   static final DiagnosticType UNSUPPORTED_LANGUAGE_FEATURE =
       DiagnosticType.error("JSC_UNSUPPORTED_LANGUAGE_FEATURE", "{0}.");
 
-  static final DiagnosticType ES6_TYPED =
-      DiagnosticType.error(
-          "JSC_ES6_TYPED",
-          "{0}. Use --language_in=ECMASCRIPT6_TYPED to enable ES6 typed features.");
-
-  static final DiagnosticType MISPLACED_TYPE_SYNTAX =
-      DiagnosticType.error(
-          "JSC_MISPLACED_TYPE_SYNTAX", "Can only have JSDoc or inline type annotations, not both");
-
   static final DiagnosticType UNSUPPORTED_BOUNDED_GENERIC_TYPES =
       DiagnosticType.error(
           "JSC_UNSUPPORTED_BOUNDED_GENERIC_TYPES",
@@ -128,6 +125,10 @@ class RhinoErrorReporter {
               TRAILING_COMMA)
           // Duplicate parameter
           .put(replacePlaceHolders("Duplicate parameter name \"{0}\""), DUPLICATE_PARAM)
+          // Duplicate visiblity
+          .put(
+              replacePlaceHolders(SimpleErrorReporter.getMessage0("msg.jsdoc.extra.visibility")),
+              DUPLICATE_VISIBILITY)
           .put(Pattern.compile("Unnecessary escape:.*"), UNNECESSARY_ESCAPE)
           .put(Pattern.compile("^invalid param name.*"), INVALID_PARAM)
           // Unknown @annotations.
@@ -138,7 +139,7 @@ class RhinoErrorReporter {
               Pattern.compile(
                   "^Keywords and reserved words are not allowed as unquoted property.*"),
               INVALID_ES3_PROP_NAME)
-          .put(Pattern.compile("^Too many template parameters"), TOO_MANY_TEMPLATE_PARAMS)
+          .put(Pattern.compile("^Too many template parameters\n.*"), TOO_MANY_TEMPLATE_PARAMS)
           // Type annotation warnings.
           .put(
               Pattern.compile(".*Type annotations should have curly braces.*"),
@@ -147,6 +148,8 @@ class RhinoErrorReporter {
           // Unresolved types that aren't forward declared.
           .put(Pattern.compile(".*Unknown type.*"), UNRECOGNIZED_TYPE_ERROR)
           .put(Pattern.compile(".*Unknown type.*\n.*"), UNRECOGNIZED_TYPE_ERROR)
+          // Unrecognized `typeof some.prop` errors
+          .put(Pattern.compile("^Missing type for `typeof` value.*"), UNRECOGNIZED_TYPEOF_ERROR)
           // Import annotation errors.
           .put(
               Pattern.compile("^Bad type annotation. Import in typedef.*"),
@@ -164,8 +167,6 @@ class RhinoErrorReporter {
                   "^This language feature is not currently supported by the internalReporter:"
                       + " .*"),
               UNSUPPORTED_LANGUAGE_FEATURE)
-          .put(Pattern.compile("^type syntax is only supported in ES6 typed mode.*"), ES6_TYPED)
-          .put(Pattern.compile("^Can only have JSDoc or inline type.*"), MISPLACED_TYPE_SYNTAX)
           .put(
               Pattern.compile("Bounded generic semantics are currently still in development"),
               UNSUPPORTED_BOUNDED_GENERIC_TYPES)

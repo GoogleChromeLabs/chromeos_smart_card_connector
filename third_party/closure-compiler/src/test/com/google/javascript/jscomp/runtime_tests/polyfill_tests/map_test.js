@@ -66,7 +66,7 @@ testSuite({
   },
 
   testKeysNormalizeZero() {
-    const map = new Map().set(-0, 'foo');
+    const /** !Map<number, string> */ map = new Map().set(-0, 'foo');
     assertTrue(map.has(-0));
     assertEquals('foo', map.get(0));
     assertEquals('foo', map.get(-0));
@@ -92,28 +92,6 @@ testSuite({
     assertEquals(obj, map.get(NaN));
     assertTrue(map.delete(NaN));
     assertFalse(map.has(NaN));
-  },
-
-  testSealedKeys() {
-    if (!Object.seal) return;
-    const key1 = Object.seal({});
-    const key2 = Object.seal({});
-    const key3 = Object.freeze({});
-
-    const map = new Map();
-    checkSetGet(map, key1, 'a');
-    checkSetGet(map, key2, 'b');
-    checkSetGet(map, key3, 'c');
-
-    assertEquals(3, map.size);
-    assertEquals('a', map.get(key1));
-    assertEquals('b', map.get(key2));
-    assertEquals('c', map.get(key3));
-    assertTrue(map.delete(key1));
-    assertFalse(map.delete(key1));
-    assertTrue(map.delete(key2));
-    assertTrue(map.delete(key3));
-    assertEquals(0, map.size);
   },
 
   testKeyIdNotEnumerable() {
@@ -173,7 +151,7 @@ testSuite({
   },
 
   testConstructor_normalizeZero() {
-    const map = new Map([[-0, 'foo']]);
+    const /** !Map<number, string> */ map = new Map([[-0, 'foo']]);
     assertEquals(Infinity, 1 / map.keys().next().value);
     assertEquals(Infinity, 1 / map.entries().next().value[0]);
     map.forEach(

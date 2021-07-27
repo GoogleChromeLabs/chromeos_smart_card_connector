@@ -21,10 +21,8 @@ import static com.google.javascript.rhino.testing.TypeSubject.assertType;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.NodeUtil.Visitor;
-import com.google.javascript.jscomp.parsing.parser.FeatureSet;
+import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.jstype.JSType;
-import com.google.javascript.rhino.jstype.ObjectType;
 import java.util.function.Predicate;
 import org.junit.Before;
 import org.junit.Test;
@@ -36,7 +34,13 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
 
   public RewriteAsyncIterationTest() {
     super(
-        new TestExternsBuilder().addAsyncIterable().addArray().addArguments().addObject().build());
+        new TestExternsBuilder()
+            .addAsyncIterable()
+            .addArray()
+            .addMath()
+            .addArguments()
+            .addObject()
+            .build());
   }
 
   // TODO(johnplaisted): This is copy and pasted from RewriteAsyncFunctionsTest. We should have
@@ -47,24 +51,6 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
 
     private CodeSubTree(Node rootNode) {
       this.rootNode = rootNode;
-    }
-
-    /** Returns the SubTree rooted at the first class definition found with the given name. */
-    private CodeSubTree findClassDefinition(String wantedClassName) {
-      Node classNode =
-          findFirstNode(
-              rootNode, (node) -> node.isClass() && wantedClassName.equals(NodeUtil.getName(node)));
-      return new CodeSubTree(classNode);
-    }
-
-    /** Returns the first class method definition found with the given name. */
-    private CodeSubTree findMethodDefinition(String wantedMethodName) {
-      Node methodDefinitionNode =
-          findFirstNode(
-              rootNode,
-              (node) -> node.isMemberFunctionDef() && wantedMethodName.equals(node.getString()));
-
-      return new CodeSubTree(methodDefinitionNode);
     }
 
     /** Finds every instance of a given qualified name. */
@@ -84,14 +70,6 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
                     && wantedMethodName.equals(node.getFirstChild().getString()));
 
     return new CodeSubTree(functionDefinitionNode);
-  }
-
-  /**
-   * Returns a CodeSubTree for the first definition of the given class name in the output from the
-   * last compile.
-   */
-  private CodeSubTree findClassDefinition(String wantedClassName) {
-    return new CodeSubTree(getLastCompiler().getJsRoot()).findClassDefinition(wantedClassName);
   }
 
   /** Return a list of all Nodes matching the given predicate starting at the given root. */
@@ -128,21 +106,6 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
     return allMatchingNodes.get(0);
   }
 
-  private final JSType getGlobalJSType(String globalTypeName) {
-    return getLastCompiler().getTypeRegistry().getGlobalType(globalTypeName);
-  }
-
-  private final ObjectType getGlobalObjectType(String globalTypeName) {
-    return getGlobalJSType(globalTypeName).assertObjectType();
-  }
-
-  @Override
-  @Before
-  public void setUp() throws Exception {
-    super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_NEXT);
-  }
-
   @Before
   public void enableTypeCheckBeforePass() {
     enableTypeCheck();
@@ -162,8 +125,7 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
     return new RewriteAsyncIteration.Builder(compiler)
-        .rewriteSuperPropertyReferencesWithoutSuper(
-            !compiler.getOptions().needsTranspilationFrom(FeatureSet.ES6))
+        .rewriteSuperPropertyReferencesWithoutSuper(true)
         .build();
   }
 
@@ -184,12 +146,8 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
     Node newExpr = wrapper.getParent();
     Node innerGeneratorCall = newExpr.getSecondChild();
 
-    assertType(baz.getJSType()).toStringIsEqualTo("function(): AsyncGenerator<?>");
-    assertType(wrapper.getJSType())
-        .toStringIsEqualTo(
-            "function(new:$jscomp.AsyncGeneratorWrapper,"
-                + " Generator<($jscomp.AsyncGeneratorWrapper$ActionRecord<?>|null),?,?>):"
-                + " undefined");
+    assertType(baz.getJSType()).toStringIsEqualTo("function(): AsyncGenerator<?,?,?>");
+    assertType(wrapper.getJSType()).toStringIsEqualTo("(typeof $jscomp.AsyncGeneratorWrapper)");
     assertType(newExpr.getJSType()).toStringIsEqualTo("$jscomp.AsyncGeneratorWrapper");
     assertType(innerGeneratorCall.getJSType())
         .toStringIsEqualTo("Generator<($jscomp.AsyncGeneratorWrapper$ActionRecord<?>|null),?,?>");
@@ -218,12 +176,8 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
     Node newExpr = wrapper.getParent();
     Node innerGeneratorCall = newExpr.getSecondChild();
 
-    assertType(baz.getJSType()).toStringIsEqualTo("function(): AsyncGenerator<undefined>");
-    assertType(wrapper.getJSType())
-        .toStringIsEqualTo(
-            "function(new:$jscomp.AsyncGeneratorWrapper, "
-                + "Generator<($jscomp.AsyncGeneratorWrapper$ActionRecord<undefined>|null),?,?>): "
-                + "undefined");
+    assertType(baz.getJSType()).toStringIsEqualTo("function(): AsyncGenerator<undefined,?,?>");
+    assertType(wrapper.getJSType()).toStringIsEqualTo("(typeof $jscomp.AsyncGeneratorWrapper)");
     assertType(newExpr.getJSType()).toStringIsEqualTo("$jscomp.AsyncGeneratorWrapper");
     assertType(innerGeneratorCall.getJSType())
         .toStringIsEqualTo(
@@ -268,12 +222,8 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
     Node newExpr = wrapper.getParent();
     Node innerGeneratorCall = newExpr.getSecondChild();
 
-    assertType(baz.getJSType()).toStringIsEqualTo("function(): AsyncGenerator<number>");
-    assertType(wrapper.getJSType())
-        .toStringIsEqualTo(
-            "function(new:$jscomp.AsyncGeneratorWrapper, "
-                + "Generator<($jscomp.AsyncGeneratorWrapper$ActionRecord<number>|null),?,?>): "
-                + "undefined");
+    assertType(baz.getJSType()).toStringIsEqualTo("function(): AsyncGenerator<number,?,?>");
+    assertType(wrapper.getJSType()).toStringIsEqualTo("(typeof $jscomp.AsyncGeneratorWrapper)");
     assertType(newExpr.getJSType()).toStringIsEqualTo("$jscomp.AsyncGeneratorWrapper");
     assertType(innerGeneratorCall.getJSType())
         .toStringIsEqualTo(
@@ -455,6 +405,10 @@ public class RewriteAsyncIterationTest extends CompilerTestCase {
 
   @Test
   public void testCannotConvertSuperGetElemInAsyncGenerator() {
+    // The rewriting gets partially done before we notice and report that we cannot convert
+    // the code. The partially done code is invalid, so we must disable AST validation to see the
+    // error message. (AST validation is not enabled in normal execution, just developer mode.)
+    disableAstValidation();
     testError(
         lines(
             "class A {",

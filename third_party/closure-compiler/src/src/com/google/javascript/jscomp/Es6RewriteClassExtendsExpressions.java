@@ -42,11 +42,11 @@ import com.google.javascript.rhino.Node;
  * <p>This must be done before {@link Es6ConvertSuper}, because that pass only handles extends
  * clauses which are simple NAME or GETPROP nodes.
  *
- * TODO(bradfordcsmith): This pass may no longer be necessary once the typechecker passes have all
- *     been updated to understand ES6 classes.
+ * <p>TODO(bradfordcsmith): This pass may no longer be necessary once the typechecker passes have
+ * all been updated to understand ES6 classes.
  */
 public final class Es6RewriteClassExtendsExpressions extends NodeTraversal.AbstractPostOrderCallback
-    implements HotSwapCompilerPass {
+    implements CompilerPass {
 
   static final String CLASS_EXTENDS_VAR = "$classextends$var";
 
@@ -60,14 +60,7 @@ public final class Es6RewriteClassExtendsExpressions extends NodeTraversal.Abstr
 
   @Override
   public void process(Node externs, Node root) {
-    // TODO(bradfordcsmith): Do we really need to run this on externs?
-    TranspilationPasses.processTranspile(compiler, externs, features, this);
     TranspilationPasses.processTranspile(compiler, root, features, this);
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    TranspilationPasses.hotSwapTranspile(compiler, scriptRoot, features, this);
   }
 
   @Override
@@ -139,12 +132,12 @@ public final class Es6RewriteClassExtendsExpressions extends NodeTraversal.Abstr
 
     Node statement = NodeUtil.getEnclosingStatement(classNode);
     Node originalExtends = classNode.getSecondChild();
-    originalExtends.replaceWith(IR.name(name).useSourceInfoFrom(originalExtends));
+    originalExtends.replaceWith(IR.name(name).srcref(originalExtends));
     Node extendsAlias =
-        IR.constNode(IR.name(name), originalExtends)
-            .useSourceInfoIfMissingFromForTree(originalExtends);
-    statement.getParent().addChildBefore(extendsAlias, statement);
-    NodeUtil.addFeatureToScript(NodeUtil.getEnclosingScript(classNode), Feature.CONST_DECLARATIONS);
+        IR.constNode(IR.name(name), originalExtends).srcrefTreeIfMissing(originalExtends);
+    extendsAlias.insertBefore(statement);
+    NodeUtil.addFeatureToScript(
+        NodeUtil.getEnclosingScript(classNode), Feature.CONST_DECLARATIONS, compiler);
     t.reportCodeChange(classNode);
   }
 
@@ -163,7 +156,7 @@ public final class Es6RewriteClassExtendsExpressions extends NodeTraversal.Abstr
     Node call = NodeUtil.newCallNode(function);
     classNode.replaceWith(call);
     functionBody.addChildToBack(IR.returnNode(classNode));
-    call.useSourceInfoIfMissingFromForTree(classNode);
+    call.srcrefTreeIfMissing(classNode);
     // NOTE: extractExtends() will end up reporting the change for the new function, so we only
     //     need to report the change to the enclosing scope
     t.reportCodeChange(call);

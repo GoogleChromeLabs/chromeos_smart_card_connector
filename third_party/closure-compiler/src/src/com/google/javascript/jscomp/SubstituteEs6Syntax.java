@@ -22,10 +22,8 @@ import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 
-/**
- * An optimization that does peephole optimizations of ES6 code.
- */
-class SubstituteEs6Syntax extends AbstractPostOrderCallback implements HotSwapCompilerPass {
+/** An optimization that does peephole optimizations of ES6 code. */
+class SubstituteEs6Syntax extends AbstractPostOrderCallback implements CompilerPass {
 
   private final AbstractCompiler compiler;
 
@@ -35,12 +33,7 @@ class SubstituteEs6Syntax extends AbstractPostOrderCallback implements HotSwapCo
 
   @Override
   public void process(Node externs, Node root) {
-    hotSwapScript(root, null);
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    NodeTraversal.traverse(compiler, scriptRoot, this);
+    NodeTraversal.traverse(compiler, root, this);
   }
 
   @Override
@@ -71,7 +64,7 @@ class SubstituteEs6Syntax extends AbstractPostOrderCallback implements HotSwapCo
     }
     Node returnValue = body.getFirstChild().removeFirstChild();
     Node replacement = returnValue != null ? returnValue : IR.name("undefined");
-    arrowFunction.replaceChild(body, replacement);
+    body.replaceWith(replacement);
     compiler.reportChangeToEnclosingScope(replacement);
   }
 }

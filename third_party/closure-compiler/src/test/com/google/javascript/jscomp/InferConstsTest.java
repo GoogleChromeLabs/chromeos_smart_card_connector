@@ -15,13 +15,12 @@
  */
 package com.google.javascript.jscomp;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static java.util.Arrays.stream;
 
 import com.google.common.collect.ImmutableList;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.rhino.Node;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 import org.junit.Before;
@@ -32,7 +31,6 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for {@link InferConsts}.
  *
- * @author tbreisacher@google.com (Tyler Breisacher)
  */
 @RunWith(JUnit4.class)
 public final class InferConstsTest extends CompilerTestCase {
@@ -44,7 +42,6 @@ public final class InferConstsTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2015);
   }
 
   @Override
@@ -257,10 +254,7 @@ public final class InferConstsTest extends CompilerTestCase {
 
   private void assertConsts(String js, Expectation... expectations) {
     names =
-        Arrays.stream(expectations)
-            .flatMap(e -> e.names.stream())
-            .collect(toImmutableSet())
-            .asList();
+        stream(expectations).flatMap(e -> e.names.stream()).distinct().collect(toImmutableList());
 
     testSame(js);
 

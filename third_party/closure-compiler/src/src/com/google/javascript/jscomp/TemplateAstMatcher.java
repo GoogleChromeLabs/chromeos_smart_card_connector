@@ -46,6 +46,7 @@ public final class TemplateAstMatcher {
   private static final Token TEMPLATE_LOCAL_NAME = Token.PLACEHOLDER2;
   private static final Token TEMPLATE_STRING_LITERAL = Token.PLACEHOLDER3;
 
+  private final TypedScope topScope;
   private final JSTypeRegistry typeRegistry;
 
   /**
@@ -92,21 +93,22 @@ public final class TemplateAstMatcher {
   private final TypeMatchingStrategy typeMatchingStrategy;
 
   /**
-   * Constructs this matcher with a Function node that serves as the template
-   * to match all other nodes against. The body of the function will be used
-   * to match against.
+   * Constructs this matcher with a Function node that serves as the template to match all other
+   * nodes against. The body of the function will be used to match against.
    */
   public TemplateAstMatcher(
-      JSTypeRegistry typeRegistry,
+      AbstractCompiler compiler,
       Node templateFunctionNode,
       TypeMatchingStrategy typeMatchingStrategy) {
-    checkNotNull(typeRegistry);
     Preconditions.checkState(
         templateFunctionNode.isFunction(),
         "Template node must be a function node. Received: %s",
         templateFunctionNode);
 
-    this.typeRegistry = typeRegistry;
+    // TopScope may be null if the template is used before type checking, which is useful if
+    // just check code structure.
+    this.topScope = compiler.getTopScope();
+    this.typeRegistry = checkNotNull(compiler.getTypeRegistry());
     this.templateStart = initTemplate(templateFunctionNode);
     this.typeMatchingStrategy = checkNotNull(typeMatchingStrategy);
   }
@@ -211,13 +213,15 @@ public final class TemplateAstMatcher {
       Preconditions.checkNotNull(info,
           "Missing JSDoc declaration for template function %s", fnName);
     }
-    for (Node paramNode : templateParametersNode.children()) {
+    for (Node paramNode = templateParametersNode.getFirstChild();
+        paramNode != null;
+        paramNode = paramNode.getNext()) {
       String name = paramNode.getString();
       JSTypeExpression expression = info.getParameterType(name);
       Preconditions.checkNotNull(expression,
           "Missing JSDoc for parameter %s of template function %s",
           name, fnName);
-      JSType type = typeRegistry.evaluateTypeExpressionInGlobalScope(expression);
+      JSType type = typeRegistry.evaluateTypeExpression(expression, topScope);
       checkNotNull(type);
       params.add(name);
       paramTypes.put(name, type);
@@ -251,12 +255,11 @@ public final class TemplateAstMatcher {
   }
 
   void replaceNodeInPlace(Node n, Node replacement) {
-    Node parent = n.getParent();
     if (n.hasChildren()) {
       Node children = n.removeChildren();
       replacement.addChildrenToFront(children);
     }
-    parent.replaceChild(n, replacement);
+    n.replaceWith(replacement);
   }
 
   private static interface Visitor {
@@ -476,12 +479,12 @@ public final class TemplateAstMatcher {
   }
 
   private boolean isUnresolvedType(JSType type) {
-    // TODO(mknichel): When types are used in templates that do not appear in the
+    // TODO(b/146173738): When types are used in templates that do not appear in the
     // compilation unit being processed, the template type will be a named type
     // that resolves to unknown instead of being a no resolved type. This should
     // be fixed in the compiler such that it resolves to a no resolved type, and
     // then this code can be simplified to use that.
-    if (type.isUnresolvedOrResolvedUnknown()) {
+    if (type.isNoResolvedType() || (type.isNamedType() && type.isUnknownType())) {
       return true;
     }
     if (type.isUnionType()) {
