@@ -55,7 +55,6 @@ import javax.annotation.Nullable;
  * @author nicksantos@google.com (Nick Santos)
  */
 public final class NoResolvedType extends NoType {
-  private static final long serialVersionUID = 1L;
   /** The name originally used to reference this type, or {@code null} if none. */
   @Nullable private String referenceName;
   /**
@@ -73,6 +72,11 @@ public final class NoResolvedType extends NoType {
     this(registry);
     this.referenceName = referenceName;
     this.templateTypes = templateTypes;
+  }
+
+  @Override
+  JSTypeClass getTypeClass() {
+    return JSTypeClass.NO_RESOLVED;
   }
 
   @Override
@@ -98,7 +102,7 @@ public final class NoResolvedType extends NoType {
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    return sb.append(forAnnotations ? "?" : "NoResolvedType");
+  void appendTo(TypeStringBuilder sb) {
+   sb.append(sb.isForAnnotations() ? "?" : "NoResolvedType");
   }
 }

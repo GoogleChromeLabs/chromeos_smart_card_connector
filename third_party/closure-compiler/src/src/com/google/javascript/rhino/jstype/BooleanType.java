@@ -39,32 +39,35 @@
 
 package com.google.javascript.rhino.jstype;
 
-import static com.google.javascript.rhino.jstype.TernaryValue.FALSE;
-import static com.google.javascript.rhino.jstype.TernaryValue.UNKNOWN;
-
+import com.google.javascript.jscomp.base.Tri;
 
 /**
  * Boolean type.
+ *
  */
 public class BooleanType extends ValueType {
-  private static final long serialVersionUID = 1L;
-
   BooleanType(JSTypeRegistry registry) {
     super(registry);
   }
 
   @Override
-  public TernaryValue testForEquality(JSType that) {
-    TernaryValue result = super.testForEquality(that);
+  JSTypeClass getTypeClass() {
+    return JSTypeClass.BOOLEAN;
+  }
+
+  @Override
+  public Tri testForEquality(JSType that) {
+    Tri result = super.testForEquality(that);
     if (result != null) {
       return result;
     }
-    if (that.isUnknownType() || that.isSubtypeOf(
-            getNativeType(JSTypeNative.NUMBER_STRING_BOOLEAN)) ||
-        that.isObject()) {
-      return UNKNOWN;
+    if (that.isUnknownType()
+        || that.isSubtypeOf(getNativeType(JSTypeNative.NUMBER_STRING_BOOLEAN))
+        || that.isSubtypeOf(getNativeType(JSTypeNative.BIGINT_TYPE))
+        || that.isObject()) {
+      return Tri.UNKNOWN;
     }
-    return FALSE;
+    return Tri.FALSE;
   }
 
   @Override
@@ -91,11 +94,6 @@ public class BooleanType extends ValueType {
   @Override
   public JSType autoboxesTo() {
     return getNativeType(JSTypeNative.BOOLEAN_OBJECT_TYPE);
-  }
-
-  @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    return sb.append(getDisplayName());
   }
 
   @Override

@@ -48,12 +48,45 @@ public final class JsMessageTest {
 
   @Test
   public void testHashValues() {
-    final String EMPTY = "";
-    final String VAL = "Hello, world";
-    final long   ANSWER_STRING_64 = 0x43ec5d9731515874L;
-    final long   ANSWER_EMPTY_64 = 0x468d9ea2c42361aaL;
+    final long answerString64 = 0x43ec5d9731515874L;
+    assertThat(JsMessage.Hash.hash64("Hello, world")).isEqualTo(answerString64);
 
-    assertThat(JsMessage.Hash.hash64(VAL)).isEqualTo(ANSWER_STRING_64);
-    assertThat(JsMessage.Hash.hash64(EMPTY)).isEqualTo(ANSWER_EMPTY_64);
+    final long answerEmpty64 = 0x468d9ea2c42361aaL;
+    assertThat(JsMessage.Hash.hash64("")).isEqualTo(answerEmpty64);
+  }
+
+  @Test
+  public void testNoAlternateId() {
+    JsMessage msg = new JsMessage.Builder().setDesc("Hello.").build();
+    assertThat(msg.getDesc()).isEqualTo("Hello.");
+    assertThat(msg.getId()).isEqualTo("MSG_12MI20AMYO9T6");
+    assertThat(msg.getAlternateId()).isNull();
+  }
+
+  @Test
+  public void testSelfReferentialAlternateId() {
+    JsMessage msg =
+        new JsMessage.Builder().setDesc("Hello.").setAlternateId("MSG_12MI20AMYO9T6").build();
+    assertThat(msg.getDesc()).isEqualTo("Hello.");
+    assertThat(msg.getId()).isEqualTo("MSG_12MI20AMYO9T6");
+    assertThat(msg.getAlternateId()).isNull();
+  }
+
+  @Test
+  public void testAlternateId() {
+    JsMessage msg =
+        new JsMessage.Builder()
+            .setDesc("Hello.")
+            .setAlternateId("foo")
+            .setMeaning("meaning")
+            .appendPlaceholderReference("placeholder0")
+            .appendPlaceholderReference("placeholder1")
+            .appendStringPart("part0")
+            .appendStringPart("part1")
+            .appendStringPart("part2")
+            .build();
+    assertThat(msg.getDesc()).isEqualTo("Hello.");
+    assertThat(msg.getId()).isEqualTo("meaning");
+    assertThat(msg.getAlternateId()).isEqualTo("foo");
   }
 }

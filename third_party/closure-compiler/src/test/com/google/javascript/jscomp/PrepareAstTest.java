@@ -27,7 +27,6 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for PrepareAst.
  *
- * @author nicksantos@google.com (Nick Santos)
  */
 @RunWith(JUnit4.class)
 public final class PrepareAstTest extends CompilerTestCase {
@@ -59,4 +58,29 @@ public final class PrepareAstTest extends CompilerTestCase {
 
     assertThat(call.getBooleanProp(Node.FREE_CALL)).isFalse();
   }
+
+  @Test
+  public void optionalFreeCall1() {
+    Node root = parseExpectedJs("foo?.();");
+    Node script = root.getFirstChild();
+    checkState(script.isScript());
+    Node firstExpr = script.getFirstChild();
+    Node call = firstExpr.getFirstChild();
+    checkState(call.isOptChainCall());
+
+    assertThat(call.getBooleanProp(Node.FREE_CALL)).isTrue();
+  }
+
+  @Test
+  public void optChainFreeCall() {
+    Node root = parseExpectedJs("x?.foo();");
+    Node script = root.getFirstChild();
+    checkState(script.isScript());
+    Node firstExpr = script.getFirstChild();
+    Node call = firstExpr.getFirstChild();
+    checkState(call.isOptChainCall());
+
+    assertThat(call.getBooleanProp(Node.FREE_CALL)).isFalse();
+  }
 }
+

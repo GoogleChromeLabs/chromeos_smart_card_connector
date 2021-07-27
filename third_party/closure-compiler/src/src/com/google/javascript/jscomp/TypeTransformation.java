@@ -34,6 +34,7 @@ import com.google.javascript.rhino.jstype.JSTypeRegistry;
 import com.google.javascript.rhino.jstype.ObjectType;
 import com.google.javascript.rhino.jstype.StaticTypedScope;
 import com.google.javascript.rhino.jstype.StaticTypedSlot;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -120,7 +121,7 @@ class TypeTransformation {
   }
 
   private boolean isTypeName(Node n) {
-    return n.isString();
+    return n.isStringLit();
   }
 
   private boolean isBooleanOperation(Node n) {
@@ -351,9 +352,7 @@ class TypeTransformation {
     // a templatized type. For instance, if the base type is Array then there
     // must be just one parameter.
     JSType[] templatizedTypes = new JSType[params.size() - 1];
-    for (int i = 0; i < templatizedTypes.length; i++) {
-      templatizedTypes[i] = evalInternal(params.get(i + 1), nameResolver);
-    }
+    Arrays.setAll(templatizedTypes, i -> evalInternal(params.get(i + 1), nameResolver));
     ObjectType baseType = firstParam.toMaybeObjectType();
     return registry.createTemplatizedType(baseType, templatizedTypes);
   }
@@ -420,7 +419,7 @@ class TypeTransformation {
     JSType type = params[0];
     switch (keyword) {
       case EQ:
-        return type.isEquivalentTo(params[1]);
+        return type.equals(params[1]);
       case SUB:
         return type.isSubtypeOf(params[1]);
       case ISCTOR:
@@ -583,7 +582,7 @@ class TypeTransformation {
 
   private JSType evalRecord(Node record, NameResolver nameResolver) {
     Map<String, JSType> props = new LinkedHashMap<>();
-    for (Node propNode : record.children()) {
+    for (Node propNode = record.getFirstChild(); propNode != null; propNode = propNode.getNext()) {
       // If it is a computed property then find the property name using the resolver
       if (propNode.isComputedProp()) {
         String compPropName = getComputedPropName(propNode);
@@ -627,7 +626,7 @@ class TypeTransformation {
         return getUnknownType();
       }
       JSType recType = this.registry.buildRecordTypeFromObject(objType);
-      if (!recType.isEquivalentTo(getObjectType())) {
+      if (!recType.equals(getObjectType())) {
         recTypesBuilder.add(recType.toMaybeObjectType());
       }
     }
@@ -684,7 +683,7 @@ class TypeTransformation {
     JSType type = evalInternal(recordNode, nameResolver);
 
     // If it is an empty record type (Object) then return
-    if (type.isEquivalentTo(getObjectType())) {
+    if (type.equals(getObjectType())) {
       return getObjectType();
     }
 
@@ -731,7 +730,7 @@ class TypeTransformation {
 
       // Skip the property when the body evaluates to NO_TYPE
       // or the empty record (Object)
-      if (body.isEmptyType() || body.isEquivalentTo(getObjectType())) {
+      if (body.isEmptyType() || body.equals(getObjectType())) {
         continue;
       }
 

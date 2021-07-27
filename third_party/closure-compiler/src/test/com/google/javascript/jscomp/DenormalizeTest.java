@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.Normalize.NormalizeStatements;
 import com.google.javascript.rhino.Node;
 import org.junit.Before;
@@ -36,13 +35,30 @@ public final class DenormalizeTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2017);
   }
 
   @Override
   protected int getNumRepetitions() {
     // The normalize pass is only run once.
     return 1;
+  }
+
+  @Test
+  public void testInlineVarNullishCoalesce() {
+    test(
+        lines(
+            "function f() {",
+            "  var x;",
+            "  function g() { x = 0 ?? \"hi\"; }",
+            "  if (y) { x = -1 ?? true; }",
+            "  alert(x);",
+            "}"),
+        lines(
+            "function f() {",
+            "  function g() { x = 0 ?? \"hi\"; }",
+            "  if (y) { var x = -1 ?? true; }",
+            "  alert(x);",
+            "}"));
   }
 
   @Test

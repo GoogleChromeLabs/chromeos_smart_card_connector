@@ -21,7 +21,6 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.javascript.jscomp.AbstractCompiler.LifeCycleStage;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.DataFlowAnalysis.FlowState;
 import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
@@ -34,7 +33,6 @@ import org.junit.runners.JUnit4;
  * Tests for {@link LiveVariablesAnalysis}. Test cases are snippets of a function and assertions are
  * made at the instruction labeled with {@code X}.
  *
- * @author simranarora@google.com (Simran Arora)
  */
 @RunWith(JUnit4.class)
 public final class LiveVariablesAnalysisTest {
@@ -100,6 +98,74 @@ public final class LiveVariablesAnalysisTest {
     assertLiveBeforeX("var a,b;a();X:if(a&&(a=b)){}a()", "a");
     assertLiveBeforeX("var a,b;a();X:while(b&&(a=b)){}a()", "a");
     assertLiveBeforeX("var a,b;a();X:while(a&&(a=b)){}a()", "a");
+  }
+
+  @Test
+  public void nullishCoalesce() {
+    // Reading the condition makes the variable live.
+    assertLiveBeforeX("var a,b;X:if(a??b) {}", "a");
+    assertLiveBeforeX("var a,b;X:if(b??a) {}", "a");
+    assertLiveBeforeX("var a,b;X:if(b??b(a)) {}", "a");
+
+    // Unconditionally killed on lhs of ??
+    assertNotLiveAfterX("var a,b;X:a();if((a=b)??b){}a()", "a");
+    assertNotLiveAfterX("var a,b;X:a();while((a=b)??b){}a()", "a");
+
+    // The kill can be "conditional" due to short circuit.
+    assertLiveBeforeX("var a,b; X:if(b??(a=b)){}a()", "a"); // Assumed live.
+    assertLiveBeforeX("var a,b; X:if(a??(a=b)){}a()", "a");
+    assertLiveBeforeX("var a,b; X:while(b??(a=b)){}a()", "a");
+    assertLiveBeforeX("var a,b; X:while(a??(a=b)){}a()", "a");
+  }
+
+  @Test
+  public void optChainGetProp() {
+    // Reading the var on lhs of opt chain makes the variable live.
+    assertNotLiveBeforeX("var a,b; X:if(b) {}", "a");
+    assertLiveBeforeX("var a,b; X:if(a?.b) {}", "a");
+
+    // Reading a prop with the same name as var does not make the var live
+    assertNotLiveBeforeX("var a,b;X:if(b?.a) {}", "a");
+
+    // unconditional kill on lhs of ?.
+    assertNotLiveAfterX("var a,b;X:a();if((a=c)?.b){} a()", "a");
+    assertNotLiveAfterX("var a,b;X:a();while((a=b)?.b){} a()", "a");
+  }
+
+  @Test
+  public void optChainCall() {
+    // conditionally accessing var keeps it live
+    assertLiveBeforeX("var a,b; X:if(b?.(a)){}", "a");
+
+    // unconditionally overwriting a var kills it
+    assertNotLiveAfterX("var a,b; X:a(); if((a=b)?.b()){} a()", "a");
+
+    // conditionally overwriting var does not kill it
+    assertLiveBeforeX("var a,b; X:if(b?.(a=c)){} a();", "a");
+
+    // conditional overwrite on rhs of ?. does not kill the var
+    assertLiveBeforeX("var a,b; X:if(b?.(a=b)){}a()", "a"); // Assumed live.
+    assertLiveBeforeX("var a,b; X:if(a?.(a=b)){}a()", "a");
+    assertLiveBeforeX("var a,b; X:while(b?.(a=b)){}a()", "a");
+    assertLiveBeforeX("var a,b; X:while(a?.(a=b)){}a()", "a");
+  }
+
+  @Test
+  public void optChainGetElem() {
+    // conditionally accessing var keeps it live
+    assertLiveBeforeX("var a,b; X:if(b?.[a]) {}", "a");
+
+    // unconditionally overwriting a var kills it
+    assertNotLiveAfterX("var a,b; X:a(); if((a=b)?.[b]){} a()", "a");
+
+    // conditionally overwriting var does not kill it
+    assertLiveBeforeX("var a,b; X:if(b?.[a=c]) {} a();", "a");
+
+    // conditional overwrite on rhs of ?. does not kill the var
+    assertLiveBeforeX("var a,b; X:if(b?.[a=b]){}a()", "a"); // Assumed live.
+    assertLiveBeforeX("var a,b; X:if(a?.[a=b]){}a()", "a");
+    assertLiveBeforeX("var a,b; X:while(b?.[a=b]){}a()", "a");
+    assertLiveBeforeX("var a,b; X:while(a?.[a=b]){}a()", "a");
   }
 
   @Test
@@ -561,7 +627,7 @@ public final class LiveVariablesAnalysisTest {
 
   private static void assertEscaped(String src, String name) {
     for (Var var : computeLiveness(src, false).getEscapedLocals()) {
-      if (var.name.equals(name)) {
+      if (var.getName().equals(name)) {
         return;
       }
     }
@@ -570,7 +636,7 @@ public final class LiveVariablesAnalysisTest {
 
   private static void assertNotEscaped(String src, String name) {
     for (Var var : computeLiveness(src, false).getEscapedLocals()) {
-      assertThat(var.name).isNotEqualTo(name);
+      assertThat(var.getName()).isNotEqualTo(name);
     }
   }
 
@@ -578,7 +644,6 @@ public final class LiveVariablesAnalysisTest {
     // Set up compiler
     Compiler compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
-    options.setLanguage(LanguageMode.ECMASCRIPT_2018);
     options.setCodingConvention(new GoogleCodingConvention());
     compiler.initOptions(options);
     compiler.setLifeCycleStage(LifeCycleStage.NORMALIZED);

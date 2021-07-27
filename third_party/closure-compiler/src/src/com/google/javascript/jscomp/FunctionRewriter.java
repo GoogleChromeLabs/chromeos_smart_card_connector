@@ -121,19 +121,19 @@ class FunctionRewriter implements CompilerPass {
     Node parent = n.getParent();
     return NodeUtil.isFunctionExpression(n)
         && !NodeUtil.isGetOrSetKey(parent)
-        && !parent.isMemberFunctionDef();
+        && !parent.isMemberFunctionDef()
+        && !n.isAsyncFunction()
+        && !n.isGeneratorFunction();
   }
 
   /**
    * Information needed to apply a reduction.
    */
   private class Reduction {
-    private final Node parent;
     private final Node oldChild;
     private final Node newChild;
 
     Reduction(Node parent, Node oldChild, Node newChild) {
-      this.parent = parent;
       this.oldChild = oldChild;
       this.newChild = newChild;
     }
@@ -142,7 +142,7 @@ class FunctionRewriter implements CompilerPass {
      * Apply the reduction by replacing the old child with the new child.
      */
     void apply() {
-      parent.replaceChild(oldChild, newChild);
+      oldChild.replaceWith(newChild);
       NodeUtil.markFunctionsDeleted(oldChild, compiler);
       compiler.reportChangeToEnclosingScope(newChild);
     }
@@ -162,7 +162,7 @@ class FunctionRewriter implements CompilerPass {
    * in that branch.
    */
   private class ReductionGatherer implements Callback {
-    private final List<Reducer> reducers;
+    private final Reducer[] reducers;
     private final Multimap<Reducer, Reduction> reductions;
 
     /**
@@ -172,7 +172,9 @@ class FunctionRewriter implements CompilerPass {
      */
     ReductionGatherer(List<Reducer> reducers,
                       Multimap<Reducer, Reduction> reductions) {
-      this.reducers = reducers;
+      // Use a native array to avoid creating an iterator for every node in the AST.
+      // which accord to pprof accounts for ~20% of the runtime of this pass.
+      this.reducers = reducers.toArray(new Reducer[0]);
       this.reductions = reductions;
     }
 
@@ -220,7 +222,7 @@ class FunctionRewriter implements CompilerPass {
      */
     protected final Node buildCallNode(String methodName, Node argumentNode,
                                        Node srcref) {
-      Node call = IR.call(IR.name(methodName)).srcref(srcref);
+      Node call = IR.call(IR.name(methodName)).srcrefTree(srcref);
       call.putBooleanProp(Node.FREE_CALL, true);
       if (argumentNode != null) {
         call.addChildToBack(argumentNode.cloneTree());
@@ -420,13 +422,14 @@ class FunctionRewriter implements CompilerPass {
         return node;
       }
 
-      Node propName = getGetPropertyName(node);
-      if (propName != null) {
-        if (!propName.isString()) {
-          throw new IllegalStateException("Expected STRING, got " + propName.getToken());
+      Node getprop = getGetPropertyName(node);
+      if (getprop != null) {
+        if (!getprop.isGetProp()) {
+          throw new IllegalStateException("Expected GETPROP, got " + getprop.getToken());
         }
 
-        return buildCallNode(FACTORY_METHOD_NAME, propName, node);
+        Node arg = IR.string(getprop.getString()).srcref(getprop);
+        return buildCallNode(FACTORY_METHOD_NAME, arg, node);
       } else {
         return node;
       }
@@ -444,7 +447,7 @@ class FunctionRewriter implements CompilerPass {
       if (value != null &&
           value.isGetProp() &&
           value.getFirstChild().isThis()) {
-        return value.getLastChild();
+        return value;
       }
       return null;
     }
@@ -482,7 +485,7 @@ class FunctionRewriter implements CompilerPass {
 
       Node propName = getSetPropertyName(node);
       if (propName != null) {
-        if (!propName.isString()) {
+        if (!propName.isStringLit()) {
           throw new IllegalStateException("Expected STRING, got " + propName.getToken());
         }
 
@@ -521,10 +524,8 @@ class FunctionRewriter implements CompilerPass {
       Node lhs = assign.getFirstChild();
       if (lhs.isGetProp() && lhs.getFirstChild().isThis()) {
         Node rhs = assign.getLastChild();
-        if (rhs.isName() &&
-            rhs.getString().equals(paramNode.getString())) {
-          Node propertyName = lhs.getLastChild();
-          return propertyName;
+        if (rhs.isName() && rhs.getString().equals(paramNode.getString())) {
+          return IR.string(lhs.getString()).clonePropsFrom(lhs).srcref(lhs);
         }
       }
       return null;

@@ -43,7 +43,6 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for {@link ScopedAliases}
  *
- * @author robbyw@google.com (Robby Walker)
  */
 @RunWith(JUnit4.class)
 public final class ScopedAliasesTest extends CompilerTestCase {
@@ -90,9 +89,9 @@ public final class ScopedAliasesTest extends CompilerTestCase {
     testScoped(aliases + code, code, postconditions);
   }
 
-  private static final Postcondition VERIFY_TYPES = (Compiler compiler) -> {
-    new TypeVerifyingPass(compiler).process(compiler.externsRoot, compiler.jsRoot);
-  };
+  private static final Postcondition VERIFY_TYPES =
+      (Compiler compiler) ->
+          new TypeVerifyingPass(compiler).process(compiler.externsRoot, compiler.jsRoot);
 
   @Test
   public void testLet() {

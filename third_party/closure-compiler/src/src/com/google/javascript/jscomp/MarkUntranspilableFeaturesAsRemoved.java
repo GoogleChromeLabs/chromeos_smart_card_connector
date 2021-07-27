@@ -19,6 +19,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.javascript.jscomp.CheckRegExp.MALFORMED_REGEXP;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.jscomp.parsing.Config.LanguageMode;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
@@ -36,9 +37,10 @@ import java.util.function.Predicate;
  * targeted output language.
  */
 public final class MarkUntranspilableFeaturesAsRemoved extends AbstractPostOrderCallback
-    implements HotSwapCompilerPass {
+    implements CompilerPass {
 
-  static final DiagnosticType UNTRANSPILABLE_FEATURE_PRESENT =
+  @VisibleForTesting
+  public static final DiagnosticType UNTRANSPILABLE_FEATURE_PRESENT =
       DiagnosticType.error(
           "JSC_UNTRANSPILABLE",
           // TODO(b/123768968) suggest users raise their language level once we support language
@@ -75,11 +77,6 @@ public final class MarkUntranspilableFeaturesAsRemoved extends AbstractPostOrder
     this.untranspilableFeaturesToRemove =
         ALL_UNTRANSPILABLE_FEATURES // Features that we can't transpile...
             .without(outputFeatures); // and do not exist in the output language features
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    checkForUntranspilable(scriptRoot);
   }
 
   @Override

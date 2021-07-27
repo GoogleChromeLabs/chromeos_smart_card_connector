@@ -18,10 +18,10 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
 
+import com.google.javascript.jscomp.base.Tri;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
-import com.google.javascript.rhino.jstype.TernaryValue;
 import javax.annotation.Nullable;
 
 /**
@@ -49,7 +49,7 @@ class MinimizeExitPoints extends AbstractPeepholeOptimization {
         tryMinimizeExits(NodeUtil.getLoopCodeBlock(n), Token.CONTINUE, null);
 
         Node cond = NodeUtil.getConditionExpression(n);
-        if (getSideEffectFreeBooleanValue(cond) == TernaryValue.FALSE) {
+        if (getSideEffectFreeBooleanValue(cond) == Tri.FALSE) {
           // Normally, we wouldn't be able to optimize BREAKs inside a loop
           // but as we know the condition will always be false, we can treat them
           // as we would a CONTINUE.
@@ -58,7 +58,7 @@ class MinimizeExitPoints extends AbstractPeepholeOptimization {
         break;
 
       case BLOCK:
-        if (n.getParent() != null && n.getParent().isFunction()) {
+        if (n.hasParent() && n.getParent().isFunction()) {
           tryMinimizeExits(n, Token.RETURN, null);
         }
         break;
@@ -289,18 +289,18 @@ class MinimizeExitPoints extends AbstractPeepholeOptimization {
         ifNode.addChildToBack(newDestBlock);
       } else if (destBlock.isEmpty()) {
         // Use the new block.
-        ifNode.replaceChild(destBlock, newDestBlock);
+        destBlock.replaceWith(newDestBlock);
       } else if (destBlock.isBlock()) {
         // Reuse the existing block.
         newDestBlock = destBlock;
       } else {
         // Add the existing statement to the new block.
-        ifNode.replaceChild(destBlock, newDestBlock);
+        destBlock.replaceWith(newDestBlock);
         newDestBlock.addChildToBack(destBlock);
       }
 
       // Move all the if node's following siblings.
-      moveAllFollowing(ifNode, ifNode.getParent(), newDestBlock);
+      moveAllFollowing(ifNode, newDestBlock);
       reportChangeToEnclosingScope(ifNode);
     }
   }
@@ -334,17 +334,16 @@ class MinimizeExitPoints extends AbstractPeepholeOptimization {
   }
 
   /**
-   * Move all the child nodes following start in srcParent to the end of
-   * destParent's child list.
+   * Move all the child nodes following start in srcParent to the end of destParent's child list.
+   *
    * @param start The start point in the srcParent child list.
    * @param srcParent The parent node of start.
    * @param destParent The destination node.
    */
-  private static void moveAllFollowing(
-      Node start, Node srcParent, Node destParent) {
+  private static void moveAllFollowing(Node start, Node destParent) {
     for (Node n = start.getNext(); n != null; n = start.getNext()) {
       boolean isFunctionDeclaration = NodeUtil.isFunctionDeclaration(n);
-      srcParent.removeChild(n);
+      n.detach();
       if (isFunctionDeclaration) {
         destParent.addChildToFront(n);
       } else {

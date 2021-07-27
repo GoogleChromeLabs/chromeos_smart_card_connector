@@ -19,8 +19,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
-import java.util.Collections;
-import java.util.Iterator;
+import java.util.function.BiConsumer;
 
 /**
  * Rewrites an AMD module https://github.com/amdjs/amdjs-api/wiki/AMD to a
@@ -81,9 +80,10 @@ public final class TransformAMDToCJSModule implements CompilerPass {
 
     @Override
     public void visit(NodeTraversal t, Node n, Node parent) {
-      if (n.isCall() && n.getFirstChild() != null &&
-          n.getFirstChild().isName() &&
-          "define".equals(n.getFirstChild().getString())) {
+      if (n.isCall()
+          && n.hasChildren()
+          && n.getFirstChild().isName()
+          && "define".equals(n.getFirstChild().getString())) {
         Var define = t.getScope().getVar(n.getFirstChild().
             getString());
         if (define != null && !define.isGlobal()) {
@@ -96,7 +96,7 @@ public final class TransformAMDToCJSModule implements CompilerPass {
         }
         Node script = parent.getParent();
         Node requiresNode = null;
-        Node callback = null;
+        final Node callback;
         int defineArity = n.getChildCount() - 1;
         if (defineArity == 0) {
           unsupportedDefineError(t, n);
@@ -104,7 +104,7 @@ public final class TransformAMDToCJSModule implements CompilerPass {
         } else if (defineArity == 1) {
           callback = n.getSecondChild();
           if (callback.isObjectLit()) {
-            handleDefineObjectLiteral(t, parent, callback, script);
+            handleDefineObjectLiteral(t, parent, callback);
             return;
           }
         } else if (defineArity == 2) {
@@ -113,6 +113,8 @@ public final class TransformAMDToCJSModule implements CompilerPass {
         } else if (defineArity >= 3) {
           unsupportedDefineError(t, n);
           return;
+        } else {
+          callback = null;
         }
 
         if (!callback.isFunction() ||
@@ -121,7 +123,10 @@ public final class TransformAMDToCJSModule implements CompilerPass {
           return;
         }
 
-        handleRequiresAndParamList(t, n, script, requiresNode, callback);
+        zipChildren(
+            callback.getSecondChild(),
+            requiresNode,
+            (param, moduleName) -> handleRequire(t, n, script, callback, param, moduleName));
 
         Node callbackBlock = callback.getChildAtIndex(2);
         NodeTraversal.traverse(compiler, callbackBlock,
@@ -132,37 +137,13 @@ public final class TransformAMDToCJSModule implements CompilerPass {
       }
     }
 
-    /**
-     * When define is called with an object literal, assign it to module.exports and
-     * we're done.
-     */
-    private void handleDefineObjectLiteral(NodeTraversal t, Node parent, Node onlyExport,
-        Node script) {
+    /** When define is called with an object literal, assign it to module.exports and we're done. */
+    private void handleDefineObjectLiteral(NodeTraversal t, Node parent, Node onlyExport) {
       onlyExport.detach();
-      script.replaceChild(parent,
-          IR.exprResult(
-              IR.assign(
-                  NodeUtil.newQName(compiler, "module.exports"),
-                  onlyExport))
-          .useSourceInfoIfMissingFromForTree(onlyExport));
+      parent.replaceWith(
+          IR.exprResult(IR.assign(NodeUtil.newQName(compiler, "module.exports"), onlyExport))
+              .srcrefTreeIfMissing(onlyExport));
       t.reportCodeChange();
-    }
-
-    /**
-     * Rewrites the required modules to
-     * <code>var nameInParamList = require("nameFromRequireList");</code>
-     */
-    private void handleRequiresAndParamList(NodeTraversal t, Node defineNode,
-        Node script, Node requiresNode, Node callback) {
-      Iterator<Node> paramList = callback.getSecondChild().children().
-          iterator();
-      Iterator<Node> requires = requiresNode != null ?
-          requiresNode.children().iterator() : Collections.<Node>emptyIterator();
-      while (paramList.hasNext() || requires.hasNext()) {
-        Node aliasNode = paramList.hasNext() ? paramList.next() : null;
-        Node modNode = requires.hasNext() ? requires.next() : null;
-        handleRequire(t, defineNode, script, callback, aliasNode, modNode);
-      }
     }
 
     /**
@@ -199,11 +180,9 @@ public final class TransformAMDToCJSModule implements CompilerPass {
         Node call = IR.call(IR.name("require"), IR.string(moduleName));
         call.putBooleanProp(Node.FREE_CALL, true);
         if (aliasName != null) {
-          requireNode = IR.var(IR.name(aliasName), call)
-              .useSourceInfoIfMissingFromForTree(aliasNode);
+          requireNode = IR.var(IR.name(aliasName), call).srcrefTreeIfMissing(aliasNode);
         } else {
-          requireNode = IR.exprResult(call).
-              useSourceInfoIfMissingFromForTree(modNode);
+          requireNode = IR.exprResult(call).srcrefTreeIfMissing(modNode);
         }
       } else {
         // ignore exports, require and module (because they are implicit
@@ -211,12 +190,10 @@ public final class TransformAMDToCJSModule implements CompilerPass {
         if (isVirtualModuleName(aliasName)) {
           return;
         }
-        requireNode = IR.var(IR.name(aliasName), IR.nullNode())
-            .useSourceInfoIfMissingFromForTree(aliasNode);
+        requireNode = IR.var(IR.name(aliasName), IR.nullNode()).srcrefTreeIfMissing(aliasNode);
       }
 
-      script.addChildBefore(requireNode,
-          defineNode.getParent());
+      requireNode.insertBefore(defineNode.getParent());
     }
 
     /**
@@ -250,12 +227,12 @@ public final class TransformAMDToCJSModule implements CompilerPass {
     private void moveCallbackContentToTopLevel(Node defineParent, Node script,
         Node callbackBlock) {
       int curIndex = script.getIndexOfChild(defineParent);
-      script.removeChild(defineParent);
+      defineParent.detach();
       NodeUtil.markFunctionsDeleted(defineParent, compiler);
       callbackBlock.detach();
       Node before = script.getChildAtIndex(curIndex);
       if (before != null) {
-        script.addChildBefore(callbackBlock, before);
+        callbackBlock.insertBefore(before);
       }
       script.addChildToBack(callbackBlock);
       NodeUtil.tryMergeBlock(callbackBlock, false);
@@ -272,11 +249,10 @@ public final class TransformAMDToCJSModule implements CompilerPass {
     public void visit(NodeTraversal t, Node n, Node parent) {
       if (n.isReturn() && n.hasChildren()) {
         Node retVal = n.getFirstChild();
-        n.removeChild(retVal);
-        parent.replaceChild(n, IR.exprResult(
-            IR.assign(
-                IR.getprop(IR.name("module"), IR.string("exports")), retVal))
-                    .useSourceInfoFromForTree(n));
+        retVal.detach();
+        n.replaceWith(
+            IR.exprResult(IR.assign(IR.getprop(IR.name("module"), "exports"), retVal))
+                .srcrefTree(n));
       }
     }
   }
@@ -299,6 +275,21 @@ public final class TransformAMDToCJSModule implements CompilerPass {
       if (n.isName() && from.equals(n.getString())) {
         n.setString(to);
         n.setOriginalName(from);
+      }
+    }
+  }
+
+  private static void zipChildren(Node leftParent, Node rightParent, BiConsumer<Node, Node> zip) {
+    Node left = (leftParent == null) ? null : leftParent.getFirstChild();
+    Node right = (rightParent == null) ? null : rightParent.getFirstChild();
+
+    while (left != null || right != null) {
+      zip.accept(left, right);
+      if (left != null) {
+        left = left.getNext();
+      }
+      if (right != null) {
+        right = right.getNext();
       }
     }
   }

@@ -19,6 +19,7 @@ package com.google.javascript.jscomp.bundle;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.errorprone.annotations.Immutable;
 import com.google.javascript.jscomp.CompilerOptions;
+import com.google.javascript.jscomp.CompilerOptions.InstrumentOption;
 import com.google.javascript.jscomp.Result;
 import com.google.javascript.jscomp.VariableRenamingPolicy;
 import java.util.Optional;
@@ -43,12 +44,11 @@ public class CoverageInstrumenter extends CompilerBasedTransformer {
       options.setLanguageOut(CompilerOptions.LanguageMode.ECMASCRIPT5);
       options.setLanguageIn(CompilerOptions.LanguageMode.ECMASCRIPT_NEXT);
       options.setStrictModeInput(false);
-      options.setShadowVariables(false);
       // Setting the path to any non-null value will trigger source map generation.
       // CompilerBasedTransformer attachs the sourcemap to the result.
       options.setSourceMapOutputPath("/dev/null");
       options.setVariableRenaming(VariableRenamingPolicy.OFF);
-      options.instrumentForCoverage = true;
+      options.setInstrumentForCoverageOption(InstrumentOption.LINE_ONLY);
       options.setInstrumentForCoverageOnly(true);
     }
 

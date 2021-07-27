@@ -26,7 +26,6 @@ import static com.google.javascript.rhino.testing.TypeSubject.assertType;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
 import com.google.common.testing.EqualsTester;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.SymbolTable.Reference;
 import com.google.javascript.jscomp.SymbolTable.Symbol;
 import com.google.javascript.jscomp.SymbolTable.SymbolScope;
@@ -49,9 +48,7 @@ import org.junit.runners.JUnit4;
 /**
  * An integration test for symbol table creation
  *
- * @author nicksantos@google.com (Nick Santos)
  */
-
 @RunWith(JUnit4.class)
 public final class SymbolTableTest {
 
@@ -66,16 +63,14 @@ public final class SymbolTableTest {
   public void setUp() throws Exception {
 
     options = new CompilerOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_2017);
-    options.setLanguageOut(LanguageMode.ECMASCRIPT5);
     options.setCodingConvention(new ClosureCodingConvention());
     CompilationLevel.SIMPLE_OPTIMIZATIONS.setOptionsForCompilationLevel(options);
     WarningLevel.VERBOSE.setOptionsForWarningLevel(options);
     options.setChecksOnly(true);
     options.setPreserveDetailedSourceInfo(true);
     options.setContinueAfterErrors(true);
-    options.setAllowHotswapReplaceScript(true);
     options.setParseJsDocDocumentation(INCLUDE_DESCRIPTIONS_NO_WHITESPACE);
+    options.setBadRewriteModulesBeforeTypecheckingThatWeWantToGetRidOf(true);
   }
 
   /**
@@ -140,6 +135,24 @@ public final class SymbolTableTest {
 
     List<Reference> refs = table.getReferenceList(global);
     assertThat(refs).hasSize(2);
+  }
+
+  @Test
+  public void testSourceInfoForProvidedSymbol() {
+    SymbolTable table =
+        createSymbolTable(lines("goog.provide('foo.bar.Baz'); foo.bar.Baz = class {};"));
+
+    Symbol foo = getGlobalVar(table, "foo");
+    assertThat(foo).isNotNull();
+    assertNode(table.getReferenceList(foo).get(0).getNode()).hasCharno(14);
+
+    Symbol fooBar = getGlobalVar(table, "foo.bar");
+    assertThat(fooBar).isNotNull();
+    assertNode(table.getReferenceList(fooBar).get(0).getNode()).hasCharno(18);
+
+    Symbol fooBarBaz = getGlobalVar(table, "foo.bar.Baz");
+    assertThat(fooBarBaz).isNotNull();
+    assertNode(table.getReferenceList(fooBarBaz).get(0).getNode()).hasCharno(37);
   }
 
   @Test
@@ -258,23 +271,23 @@ public final class SymbolTableTest {
 
   @Test
   public void testNamespacedReferences() {
-    // Because the type of goog is anonymous, we build its properties into
+    // Because the type of 'my' is anonymous, we build its properties into
     // the global scope.
     SymbolTable table =
         createSymbolTable(
-            lines("var goog = {};", "goog.dom = {};", "goog.dom.DomHelper = function(){};"));
+            lines("var my = {};", "my.dom = {};", "my.dom.DomHelper = function(){};"));
 
-    Symbol goog = getGlobalVar(table, "goog");
-    assertThat(goog).isNotNull();
-    assertThat(table.getReferences(goog)).hasSize(3);
+    Symbol my = getGlobalVar(table, "my");
+    assertThat(my).isNotNull();
+    assertThat(table.getReferences(my)).hasSize(3);
 
-    Symbol googDom = getGlobalVar(table, "goog.dom");
-    assertThat(googDom).isNotNull();
-    assertThat(table.getReferences(googDom)).hasSize(2);
+    Symbol myDom = getGlobalVar(table, "my.dom");
+    assertThat(myDom).isNotNull();
+    assertThat(table.getReferences(myDom)).hasSize(2);
 
-    Symbol googDomHelper = getGlobalVar(table, "goog.dom.DomHelper");
-    assertThat(googDomHelper).isNotNull();
-    assertThat(table.getReferences(googDomHelper)).hasSize(1);
+    Symbol myDomHelper = getGlobalVar(table, "my.dom.DomHelper");
+    assertThat(myDomHelper).isNotNull();
+    assertThat(table.getReferences(myDomHelper)).hasSize(1);
   }
 
   @Test
@@ -283,19 +296,19 @@ public final class SymbolTableTest {
         createSymbolTable(
             lines(
                 "/** @constructor */",
-                "goog.dom.DomHelper = function(){};",
-                "var y = goog.dom.DomHelper;"));
-    Symbol goog = getGlobalVar(table, "goog");
-    assertThat(goog).isNotNull();
-    assertThat(table.getReferenceList(goog)).hasSize(2);
+                "my.dom.DomHelper = function(){};",
+                "var y = my.dom.DomHelper;"));
+    Symbol my = getGlobalVar(table, "my");
+    assertThat(my).isNotNull();
+    assertThat(table.getReferenceList(my)).hasSize(2);
 
-    Symbol googDom = getGlobalVar(table, "goog.dom");
-    assertThat(googDom).isNotNull();
-    assertThat(table.getReferenceList(googDom)).hasSize(2);
+    Symbol myDom = getGlobalVar(table, "my.dom");
+    assertThat(myDom).isNotNull();
+    assertThat(table.getReferenceList(myDom)).hasSize(2);
 
-    Symbol googDomHelper = getGlobalVar(table, "goog.dom.DomHelper");
-    assertThat(googDomHelper).isNotNull();
-    assertThat(table.getReferences(googDomHelper)).hasSize(2);
+    Symbol myDomHelper = getGlobalVar(table, "my.dom.DomHelper");
+    assertThat(myDomHelper).isNotNull();
+    assertThat(table.getReferences(myDomHelper)).hasSize(2);
   }
 
   @Test
@@ -345,7 +358,8 @@ public final class SymbolTableTest {
   public void testGoogScopeReferences() {
     SymbolTable table =
         createSymbolTable(
-            lines("var goog = {};", "goog.scope = function() {};", "goog.scope(function() {});"));
+            // goog.scope is defined in the default externs, among other Closure methods
+            lines("goog.scope(function() {});"));
 
     Symbol googScope = getGlobalVar(table, "goog.scope");
     assertThat(googScope).isNotNull();
@@ -357,23 +371,22 @@ public final class SymbolTableTest {
     SymbolTable table =
         createSymbolTable(
             lines(
-                "var goog = {};",
-                "goog.provide = function() {};",
-                "goog.require = function() {};",
-                "goog.provide('goog.dom');",
-                "goog.require('goog.dom');"));
-    Symbol goog = getGlobalVar(table, "goog");
-    assertThat(goog).isNotNull();
+                // goog.require is defined in the default externs, among other Closure methods
+                "goog.provide('goog.dom');", "goog.require('goog.dom');"));
+    Symbol googRequire = getGlobalVar(table, "goog.require");
+    assertThat(googRequire).isNotNull();
 
-    // 8 references:
-    // 5 in code
-    // 2 in strings
-    // 1 created by ProcessClosurePrimitives when it processes the provide.
-    //
-    // NOTE(nicksantos): In the future, we may de-dupe references such
-    // that the one in the goog.provide string and the one created by
-    // ProcessClosurePrimitives count as the same reference.
-    assertThat(table.getReferences(goog)).hasSize(8);
+    assertThat(table.getReferences(googRequire)).hasSize(2);
+  }
+
+  @Test
+  public void testNamespaceReferencesInGoogRequire() {
+    SymbolTable table =
+        createSymbolTable(lines("goog.provide('my.dom');", "goog.require('my.dom');"));
+    Symbol googRequire = getGlobalVar(table, "my");
+    assertThat(googRequire).isNotNull();
+
+    assertThat(table.getReferences(googRequire)).hasSize(2);
   }
 
   @Test
@@ -568,7 +581,7 @@ public final class SymbolTableTest {
     List<Reference> refs = table.getReferenceList(prototype);
 
     // One of the refs is implicit in the declaration of the function.
-    assertWithMessage(refs.toString()).that(refs.size()).isEqualTo(2);
+    assertWithMessage(refs.toString()).that(refs).hasSize(2);
   }
 
   @Test
@@ -638,7 +651,7 @@ public final class SymbolTableTest {
     List<Reference> refs = table.getReferenceList(prototype);
 
     // The class declaration creates an implicit .prototype reference.
-    assertWithMessage(refs.toString()).that(refs.size()).isEqualTo(1);
+    assertWithMessage(refs.toString()).that(refs).hasSize(1);
     assertNode(refs.get(0).getNode().getParent()).hasToken(Token.CLASS);
   }
 
@@ -723,8 +736,8 @@ public final class SymbolTableTest {
     assertThat(refs).hasSize(5);
 
     assertThat(refs.get(0).getNode().getLineno()).isEqualTo(2);
-    assertThat(refs.get(0).getNode().getCharno()).isEqualTo(20);
-    assertThat(refs.get(0).getNode().getLength()).isEqualTo(8);
+    assertThat(refs.get(0).getNode().getCharno()).isEqualTo(25);
+    assertThat(refs.get(0).getNode().getLength()).isEqualTo(3);
 
     assertThat(refs.get(1).getNode().getLineno()).isEqualTo(3);
     assertThat(refs.get(1).getNode().getCharno()).isEqualTo(16);
@@ -1019,7 +1032,6 @@ public final class SymbolTableTest {
     SymbolTable table =
         createSymbolTable(
             lines(
-                "/** @const */ var goog = {};",
                 "/** @constructor */ goog.dom.Foo = function() {};",
                 "/** @const */ goog.dom = {};"));
 
@@ -1357,7 +1369,6 @@ public final class SymbolTableTest {
   public void testSymbolSuperclassStaticInheritance() {
     // set this option so that typechecking sees untranspiled classes.
     // TODO(b/76025401): remove this option after class transpilation is always post-typechecking
-    options.setLanguageOut(LanguageMode.ECMASCRIPT_2015);
     options.setSkipUnsupportedPasses(false);
 
     SymbolTable table =

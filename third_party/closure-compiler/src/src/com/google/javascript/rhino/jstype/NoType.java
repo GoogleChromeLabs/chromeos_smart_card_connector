@@ -60,10 +60,13 @@ package com.google.javascript.rhino.jstype;
  * @see <a href="http://en.wikipedia.org/wiki/Bottom_type">Bottom types</a>
  */
 public class NoType extends NoObjectType {
-  private static final long serialVersionUID = 1L;
-
   NoType(JSTypeRegistry registry) {
     super(registry);
+  }
+
+  @Override
+  JSTypeClass getTypeClass() {
+    return JSTypeClass.NO;
   }
 
   @Override
@@ -101,7 +104,7 @@ public class NoType extends NoObjectType {
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    return sb.append(forAnnotations ? "?" : "None");
+  void appendTo(TypeStringBuilder sb) {
+    sb.append(sb.isForAnnotations() ? "?" : "None");
   }
 }

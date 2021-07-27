@@ -1,0 +1,232 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("//:bazel/expand_template_with_defines.bzl", "expand_template_with_defines")
+load("//:bazel/oss_java_library.bzl", "oss_java_library")
+load("//:bazel/sonatype_artifact_bundle.bzl", "sonatype_artifact_bundle")
+load("@com_github_johnynek_bazel_jar_jar//:jar_jar.bzl", "jar_jar")
+load("@google_bazel_common//testing:test_defs.bzl", "gen_java_tests")
+
+package(licenses = ["notice"])
+
+filegroup(
+    name = "sonatype_bundles",
+    srcs = [
+        ":compiler_externs_bundle",
+        ":compiler_main_bundle",
+        ":compiler_parent_bundle",
+        ":compiler_shaded_bundle",
+        ":compiler_unshaded_bundle",
+    ],
+)
+
+sonatype_artifact_bundle(
+    name = "compiler_shaded_bundle",
+    artifact_id = "closure-compiler",
+    jar = ":compiler_shaded.jar",
+    javadoc = ":compiler_lib.javadoc",
+    pom = "maven/closure-compiler.pom.xml",
+    sources = ":compiler_lib.sources",
+)
+
+sonatype_artifact_bundle(
+    name = "compiler_unshaded_bundle",
+    artifact_id = "closure-compiler-unshaded",
+    jar = ":compiler_unshaded_deploy.jar",
+    javadoc = ":compiler_lib.javadoc",
+    pom = "maven/closure-compiler-unshaded.pom.xml",
+    sources = ":compiler_lib.sources",
+)
+
+sonatype_artifact_bundle(
+    name = "compiler_externs_bundle",
+    artifact_id = "closure-compiler-externs",
+    jar = ":externs",
+    pom = "maven/closure-compiler-externs.pom.xml",
+)
+
+sonatype_artifact_bundle(
+    name = "compiler_main_bundle",
+    artifact_id = "closure-compiler-main",
+    pom = "maven/closure-compiler-main.pom.xml",
+)
+
+sonatype_artifact_bundle(
+    name = "compiler_parent_bundle",
+    artifact_id = "closure-compiler-parent",
+    pom = "maven/closure-compiler-parent.pom.xml",
+)
+
+jar_jar(
+    name = "compiler_shaded",
+    input_jar = ":compiler_unshaded_deploy.jar",
+    rules = "rules.jarjar",
+)
+
+java_binary(
+    name = "compiler_unshaded",
+    main_class = "com.google.javascript.jscomp.CommandLineRunner",
+    runtime_deps = [":compiler_lib"],
+)
+
+java_binary(
+    name = "linter",
+    main_class = "com.google.javascript.jscomp.LinterMain",
+    runtime_deps = [":compiler_lib"],
+)
+
+java_binary(
+    name = "instrumentationReporter",
+    main_class = "com.google.javascript.jscomp.instrumentation.reporter.ProductionInstrumentationReporter",
+    runtime_deps = [":compiler_lib"],
+)
+
+java_library(
+    name = "externs",
+    resources = [":externs_zip"],
+)
+
+oss_java_library(
+    name = "compiler_lib",
+    java_attrs = dict(
+        resources = [
+            ":externs_zip",
+        ] + glob([
+            "src/**/*.properties",
+            "src/com/google/javascript/jscomp/js/**/*.js",
+            "src/com/google/javascript/jscomp/js/**/*.txt",
+        ]),
+    ),
+    javadoc_attrs = dict(
+    ),
+    shared_attrs = dict(
+        srcs = [
+            ":CommandLineRunner_with_version",
+        ] + glob(
+            [
+                "src/com/google/**/*.java",
+            ],
+            exclude = [
+                "**/debugger/**/*.java",
+                "**/j2clbuild/**/*.java",
+                "**/j2cl/**/*.java",
+                "**/super*/**/*.java",
+                "**/testing/**/*.java",
+                "**/webservice/**/*.java",
+            ] + [
+                # Used as a template.
+                "src/com/google/javascript/jscomp/CommandLineRunner.java",
+            ],
+        ),
+        deps = [
+            "//src/com/google/debugging/sourcemap/proto:mapping_java_proto",
+            "//src/com/google/javascript/jscomp/conformance:conformance_java_proto",
+            "//src/com/google/javascript/jscomp/instrumentation/reporter/proto:profile_java_proto",
+            "//src/com/google/javascript/rhino/typed_ast:typed_ast_java_proto",
+            "@args4j_args4j",
+            "@com_google_code_gson_gson",
+            "@com_google_guava_failureaccess//jar",
+            "@com_google_guava_guava//jar",
+            "@com_google_protobuf//:protobuf_java",
+            "@com_google_re2j_re2j",
+            "@google_bazel_common//third_party/java/auto:value",
+            "@google_bazel_common//third_party/java/error_prone:annotations",
+            "@google_bazel_common//third_party/java/jsr305_annotations",
+            "@org_apache_ant_ant",
+        ],
+    ),
+)
+
+genrule(
+    name = "externs_zip",
+    srcs = glob(["externs/**/*.js"]),
+    outs = ["externs.zip"],
+    # Trim the "externs/" prefix from the names of the ziped files.
+    cmd = "cd externs && find . -name '*.js' | zip ../$(OUTS) -@ &> /dev/null",
+)
+
+# It's easier to make a copy of this Java file because the Java compiler can
+# tell us during build if something is wrong. By contrast, a resource lookup
+# will fail at runtime.
+expand_template_with_defines(
+    name = "CommandLineRunner_with_version",
+    out = "withversion/CommandLineRunner.java",
+    defines = {
+        "COMPILER_VERSION": "unspecified",
+    },
+    substitutions = {
+        "inlineDefine_COMPILER_VERSION": '"{COMPILER_VERSION}"',
+    },
+    template = "src/com/google/javascript/jscomp/CommandLineRunner.java",
+)
+
+# To run all tests:           `blaze test //:compiler_tests`
+# To test `a/b/FooTest.java`: `blaze test //:a/b/Foo`
+#
+# Only files ending in `*Test.java` are considered tests.
+gen_java_tests(
+    name = "compiler_tests",
+    srcs = glob(
+        [
+            "test/**/*.java",
+            "src/**/testing/**/*.java",
+        ],
+        exclude = [
+            # These files are only needed by the J2CL build of the compiler.
+            "**/super*/**/*.java",
+            "**/j2cl/**/*.java",
+            "**/j2clbuild/**/*.java",
+        ],
+    ),
+    prefix_path = "test/",
+    deps = [
+        ":compiler_lib",
+        ":compiler_tests_resources",
+        "//src/com/google/debugging/sourcemap/proto:mapping_java_proto",
+        "//src/com/google/javascript/jscomp/conformance:conformance_java_proto",
+        "//src/com/google/javascript/rhino/typed_ast:typed_ast_java_proto",
+        "@args4j_args4j",
+        "@com_google_code_gson_gson",
+        "@com_google_guava_failureaccess//jar",
+        "@com_google_guava_guava//jar",
+        "@com_google_guava_guava_testlib//jar",
+        "@com_google_jimfs_jimfs",
+        "@com_google_protobuf//:protobuf_java",
+        "@com_google_re2j_re2j",
+        "@com_google_truth_extensions_truth_liteproto_extension",
+        "@com_google_truth_extensions_truth_proto_extension",
+        "@google_bazel_common//third_party/java/auto:value",
+        "@google_bazel_common//third_party/java/error_prone:annotations",
+        "@google_bazel_common//third_party/java/jsr305_annotations",
+        "@google_bazel_common//third_party/java/junit",
+        "@google_bazel_common//third_party/java/mockito",
+        "@google_bazel_common//third_party/java/truth",
+        "@io_github_java_diff_utils_java_diff_utils",
+    ],
+)
+
+java_library(
+    name = "compiler_tests_resources",
+    # These files are read from runfiles.
+    data = [
+        "contrib/externs/chai-3.5.js",
+    ] + glob([
+        "test/com/google/javascript/jscomp/testdata/**/*",
+        "test/com/google/javascript/jscomp/instrumentation/reporter/testdata/**/*",
+        "test/com/google/javascript/refactoring/examples/**/testdata/**/*",
+    ]),
+    resources = glob([
+        "src/com/google/javascript/refactoring/examples/refasterjs/**/*.js",
+    ]),
+)

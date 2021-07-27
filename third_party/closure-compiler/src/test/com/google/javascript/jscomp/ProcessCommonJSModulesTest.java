@@ -18,7 +18,6 @@ package com.google.javascript.jscomp;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import java.util.Map;
 import org.junit.Test;
@@ -26,7 +25,6 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link ProcessCommonJSModules} */
-
 @RunWith(JUnit4.class)
 public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
@@ -36,7 +34,6 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
   @Override
   protected CompilerOptions getOptions() {
     CompilerOptions options = super.getOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_2018);
     options.setProcessCommonJSModules(true);
     options.setModuleResolutionMode(resolutionMode);
 
@@ -446,8 +443,6 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
   @Test
   public void testEs6ObjectShorthand() {
-    setLanguage(
-        CompilerOptions.LanguageMode.ECMASCRIPT_2015, CompilerOptions.LanguageMode.ECMASCRIPT5);
     testModules(
         "test.js",
         lines("function foo() {}", "module.exports = {", "  prop: 'value',", "  foo", "};"),
@@ -573,8 +568,6 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
   @Test
   public void testClassRewriting() {
-    setLanguage(
-        CompilerOptions.LanguageMode.ECMASCRIPT_2015, CompilerOptions.LanguageMode.ECMASCRIPT5);
     testModules(
         "test.js",
         lines("class foo extends Array {}", "module.exports = foo;"),
@@ -606,10 +599,8 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
   @Test
   public void testMultipleAssignments() {
-    setLanguage(
-        CompilerOptions.LanguageMode.ECMASCRIPT_2015, CompilerOptions.LanguageMode.ECMASCRIPT5);
 
-    JSModule module = new JSModule("out");
+    JSChunk module = new JSChunk("out");
     module.add(SourceFile.fromCode("other.js", "goog.provide('module$other');"));
     module.add(SourceFile.fromCode("yet_another.js", "goog.provide('module$yet_another');"));
     module.add(
@@ -621,7 +612,7 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
                 "/** @constructor */ function Bar() {} ",
                 "Bar.prototype.foobar = function() { alert('foobar'); };",
                 "exports = Bar;")));
-    JSModule[] modules = {module};
+    JSChunk[] modules = {module};
     test(
         modules,
         null,
@@ -633,8 +624,6 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
   @Test
   public void testDestructuringImports() {
-    setLanguage(
-        CompilerOptions.LanguageMode.ECMASCRIPT_2015, CompilerOptions.LanguageMode.ECMASCRIPT5);
     testModules(
         "test.js",
         lines("const {foo, bar} = require('./other');", "var baz = foo + bar;"),
@@ -645,8 +634,6 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
   @Test
   public void testDestructuringImports2() {
-    setLanguage(
-        CompilerOptions.LanguageMode.ECMASCRIPT_2015, CompilerOptions.LanguageMode.ECMASCRIPT5);
     testModules(
         "test.js",
         lines("const {foo, bar: {baz}} = require('./other');", "module.exports = true;"),
@@ -658,8 +645,6 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
 
   @Test
   public void testAnnotationsCopied() {
-    setLanguage(
-        CompilerOptions.LanguageMode.ECMASCRIPT_2015, CompilerOptions.LanguageMode.ECMASCRIPT5);
     testModules(
         "test.js",
         lines(
@@ -993,8 +978,10 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
             "",
             "  if ('function' === 'function' && 'amd' in __webpack_require__(124)) {",
             "    // AMD support",
-            "    !(__WEBPACK_AMD_DEFINE_RESULT__ = (function() { return dialogPolyfill; }).call(exports, __webpack_require__, exports, module),",
-            "        __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));",
+            "    !(__WEBPACK_AMD_DEFINE_RESULT__ = (function() { return dialogPolyfill;"
+                + " }).call(exports, __webpack_require__, exports, module),",
+            "        __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports ="
+                + " __WEBPACK_AMD_DEFINE_RESULT__));",
             "  } else if (typeof module === 'object' && typeof module['exports'] === 'object') {",
             "    // CommonJS support",
             "    module['exports'] = dialogPolyfill;",
@@ -1012,7 +999,8 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
             "  !(__WEBPACK_AMD_DEFINE_RESULT__$$module$test = function () {",
             "    return dialogPolyfill",
             "  }.call(module$test.default, __webpack_require__, module$test.default, {}),",
-            "  __WEBPACK_AMD_DEFINE_RESULT__$$module$test !== undefined && (module$test.default = __WEBPACK_AMD_DEFINE_RESULT__$$module$test))",
+            "  __WEBPACK_AMD_DEFINE_RESULT__$$module$test !== undefined && (module$test.default ="
+                + " __WEBPACK_AMD_DEFINE_RESULT__$$module$test))",
             "})()"));
 
     Map<String, String> webpackModulesById =
@@ -1027,12 +1015,16 @@ public final class ProcessCommonJSModulesTest extends CompilerTestCase {
     testModules(
         "test.js",
         lines(
-            "/** @suppress {duplicate} */var __WEBPACK_AMD_DEFINE_ARRAY__, __WEBPACK_AMD_DEFINE_RESULT__;(function (root, factory) {",
+            "/** @suppress {duplicate} */var __WEBPACK_AMD_DEFINE_ARRAY__,"
+                + " __WEBPACK_AMD_DEFINE_RESULT__;(function (root, factory) {",
             "  if (true) {",
-            "    !(__WEBPACK_AMD_DEFINE_ARRAY__ = [__webpack_require__(1),__webpack_require__('yet_another.js')], __WEBPACK_AMD_DEFINE_RESULT__ = function (a0,b1) {",
+            "    !(__WEBPACK_AMD_DEFINE_ARRAY__ ="
+                + " [__webpack_require__(1),__webpack_require__('yet_another.js')],"
+                + " __WEBPACK_AMD_DEFINE_RESULT__ = function (a0,b1) {",
             "      return (factory(a0,b1));",
             "    }.apply(exports, __WEBPACK_AMD_DEFINE_ARRAY__),",
-            "      __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports = __WEBPACK_AMD_DEFINE_RESULT__));",
+            "      __WEBPACK_AMD_DEFINE_RESULT__ !== undefined && (module.exports ="
+                + " __WEBPACK_AMD_DEFINE_RESULT__));",
             "  } else if (typeof module === 'object' && module.exports) {",
             "    module.exports = factory(require('angular'),require('tinymce'));",
             "  } else {",

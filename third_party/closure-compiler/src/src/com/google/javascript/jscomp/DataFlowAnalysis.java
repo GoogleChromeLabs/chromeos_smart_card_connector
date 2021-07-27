@@ -30,7 +30,6 @@ import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -97,7 +96,7 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
    * If you just have a special case, consider calling
    * {@link #analyze(int)} instead.
    */
-  public static final int MAX_STEPS = 800000;
+  public static final int MAX_STEPS = 2000000;
 
   /**
    * Constructs a data flow analysis.
@@ -154,7 +153,7 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
   abstract boolean isForward();
 
   /**
-   * Computes the output state for a given node and input state.
+   * Computes the output state for a given node given its input state.
    *
    * @param node The node.
    * @param input Input lattice that should be read-only.
@@ -173,22 +172,21 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
   }
 
   /**
-   * Finds a fixed-point solution. The function has the side effect of replacing
-   * the existing node annotations with the computed solutions using {@link
+   * Finds a fixed-point solution. The function has the side effect of replacing the existing node
+   * annotations with the computed solutions using {@link
    * com.google.javascript.jscomp.graph.GraphNode#setAnnotation(Annotation)}.
    *
-   * <p>Initially, each node's input and output flow state contains the value
-   * given by {@link #createInitialEstimateLattice()} (with the exception of the
-   * entry node of the graph which takes on the {@link #createEntryLattice()}
-   * value. Each node will use the output state of its predecessor and compute a
-   * output state according to the instruction. At that time, any nodes that
-   * depends on the node's newly modified output value will need to recompute
-   * their output state again. Each step will perform a computation at one node
-   * until no extra computation will modify any existing output state anymore.
+   * <p>Initially, each node's input and output flow state contains the value given by {@link
+   * #createInitialEstimateLattice()} (with the exception of the entry node of the graph which takes
+   * on the {@link #createEntryLattice()} value. Each node will use the output state of its
+   * predecessor and compute an output state according to the instruction. At that time, any nodes
+   * that depend on the node's newly modified output value will need to recompute their output state
+   * again. Each step will perform a computation at one node until no extra computation will modify
+   * any existing output state anymore.
    *
-   * @param maxSteps Max number of iterations before the method stops and throw
-   *        a {@link MaxIterationsExceededException}. This will prevent the
-   *        analysis from going into a infinite loop.
+   * @param maxSteps Max number of iterations before the method stops and throw a {@link
+   *     MaxIterationsExceededException}. This will prevent the analysis from going into a infinite
+   *     loop.
    */
   final void analyze(int maxSteps) {
     initialize();
@@ -204,7 +202,7 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
       if (flow(curNode)) {
         // If there is a change in the current node, we want to grab the list
         // of nodes that this node affects.
-        List<DiGraphNode<N, Branch>> nextNodes =
+        List<? extends DiGraphNode<N, Branch>> nextNodes =
             isForward() ? cfg.getDirectedSuccNodes(curNode) : cfg.getDirectedPredNodes(curNode);
 
         for (DiGraphNode<N, Branch> nextNode : nextNodes) {
@@ -242,7 +240,7 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
     // LinkedHashSet. Consider creating a new work set if we plan to repeatedly
     // call analyze.
     orderedWorkSet.clear();
-    for (DiGraphNode<N, Branch> node : cfg.getDirectedGraphNodes()) {
+    for (DiGraphNode<N, Branch> node : cfg.getNodes()) {
       node.setAnnotation(new FlowState<>(createInitialEstimateLattice(),
           createInitialEstimateLattice()));
       if (node != cfg.getImplicitReturn()) {
@@ -281,7 +279,7 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
       if (cfg.getEntry() == node) {
         state.setIn(createEntryLattice());
       } else {
-        List<DiGraphNode<N, Branch>> inNodes = cfg.getDirectedPredNodes(node);
+        List<? extends DiGraphNode<N, Branch>> inNodes = cfg.getDirectedPredNodes(node);
         if (inNodes.size() == 1) {
           FlowState<L> inNodeState = inNodes.get(0).getAnnotation();
           state.setIn(inNodeState.getOut());
@@ -295,7 +293,7 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
         }
       }
     } else {
-      List<DiGraphNode<N, Branch>> inNodes = cfg.getDirectedSuccNodes(node);
+      List<? extends DiGraphNode<N, Branch>> inNodes = cfg.getDirectedSuccNodes(node);
       if (inNodes.size() == 1) {
         DiGraphNode<N, Branch> inNode = inNodes.get(0);
         if (inNode == cfg.getImplicitReturn()) {
@@ -394,7 +392,7 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
     @Override
     protected void initialize() {
       orderedWorkSet.clear();
-      for (DiGraphNode<N, Branch> node : getCfg().getDirectedGraphNodes()) {
+      for (DiGraphNode<N, Branch> node : getCfg().getNodes()) {
         int outEdgeCount = getCfg().getOutEdges(node.getValue()).size();
         List<L> outLattices = new ArrayList<>();
         for (int i = 0; i < outEdgeCount; i++) {
@@ -447,8 +445,7 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
     @Override
     protected void joinInputs(DiGraphNode<N, Branch> node) {
       BranchedFlowState<L> state = node.getAnnotation();
-      List<DiGraphNode<N, Branch>> predNodes =
-          getCfg().getDirectedPredNodes(node);
+      List<? extends DiGraphNode<N, Branch>> predNodes = getCfg().getDirectedPredNodes(node);
       List<L> values = new ArrayList<>(predNodes.size());
 
       for (DiGraphNode<N, Branch> predNode : predNodes) {
@@ -534,7 +531,8 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
       final Scope jsScope,
       final Set<Var> escaped,
       AbstractCompiler compiler,
-      SyntacticScopeCreator scopeCreator) {
+      SyntacticScopeCreator scopeCreator,
+      Map<String, Var> allVarsInFn) {
 
     checkArgument(jsScope.isFunctionScope());
 
@@ -560,12 +558,11 @@ abstract class DataFlowAnalysis<N, L extends LatticeElement> {
           }
         };
 
-    Map<String, Var> allVarsInFn = new HashMap<>();
-    List<Var> orderedVars = new ArrayList<>();
-    NodeUtil.getAllVarsDeclaredInFunction(
-        allVarsInFn, orderedVars, compiler, scopeCreator, jsScope);
-    NodeTraversal t = new NodeTraversal(compiler, finder, scopeCreator);
-    t.traverseAtScope(jsScope);
+    NodeTraversal.builder()
+        .setCompiler(compiler)
+        .setCallback(finder)
+        .setScopeCreator(scopeCreator)
+        .traverseAtScope(jsScope);
 
     // TODO (simranarora) catch variables should not be considered escaped in ES6. Getting rid of
     // the catch check is causing breakages however

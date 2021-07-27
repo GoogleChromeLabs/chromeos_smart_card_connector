@@ -20,7 +20,6 @@ import com.google.common.base.Ascii;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
-import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.Node;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -29,16 +28,17 @@ import java.util.Set;
 
 /**
  * Checks for non side effecting statements such as
+ *
  * <pre>
  * var s = "this string is "
  *         "continued on the next line but you forgot the +";
  * x == foo();  // should that be '='?
  * foo();;  // probably just a stray-semicolon. Doesn't hurt to check though
  * </pre>
+ *
  * and generates warnings.
  */
-final class CheckSideEffects extends AbstractPostOrderCallback
-    implements HotSwapCompilerPass {
+final class CheckSideEffects extends AbstractPostOrderCallback implements CompilerPass {
 
   static final DiagnosticType USELESS_CODE_ERROR = DiagnosticType.warning(
       "JSC_USELESS_CODE",
@@ -84,11 +84,6 @@ final class CheckSideEffects extends AbstractPostOrderCallback
   }
 
   @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    NodeTraversal.traverse(compiler, scriptRoot, this);
-  }
-
-  @Override
   public void visit(NodeTraversal t, Node n, Node parent) {
     // VOID nodes appear when there are extra semicolons at the BLOCK level.
     // I've been unable to think of any cases where this indicates a bug,
@@ -121,7 +116,7 @@ final class CheckSideEffects extends AbstractPostOrderCallback
       if (isSimpleOp || !t.getCompiler().getAstAnalyzer().mayHaveSideEffects(n)) {
         if (report) {
           String msg = "This code lacks side-effects. Is there a bug?";
-          if (n.isString() || n.isTemplateLit()) {
+          if (n.isStringLit() || n.isTemplateLit()) {
             msg = "Is there a missing '+' on the previous line?";
           } else if (isSimpleOp) {
             msg =
@@ -137,8 +132,10 @@ final class CheckSideEffects extends AbstractPostOrderCallback
         if (!NodeUtil.isStatement(n)) {
           problemNodes.add(n);
         }
-      } else if (n.isCall() && (n.getFirstChild().isGetProp()
-          || n.getFirstChild().isName() || n.getFirstChild().isString())) {
+      } else if (n.isCall()
+          && (n.getFirstChild().isGetProp()
+              || n.getFirstChild().isName()
+              || n.getFirstChild().isStringLit())) {
         String qname = n.getFirstChild().getQualifiedName();
 
         // The name should not be defined in src scopes - only externs
@@ -190,17 +187,7 @@ final class CheckSideEffects extends AbstractPostOrderCallback
 
   /** Injects JSCOMPILER_PRESEVE into the synthetic externs */
   static void addExtern(AbstractCompiler compiler) {
-    Node name = IR.name(PROTECTOR_FN);
-    name.putBooleanProp(Node.IS_CONSTANT_NAME, true);
-    Node var = IR.var(name);
-    JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
-    var.setJSDocInfo(builder.build());
-    CompilerInput input = compiler.getSynthesizedExternsInput();
-    Node root = input.getAstRoot(compiler);
-    name.setStaticSourceFileFrom(root);
-    var.setStaticSourceFileFrom(root);
-    root.addChildToBack(var);
-    compiler.reportChangeToEnclosingScope(var);
+    NodeUtil.createSynthesizedExternsSymbol(compiler, PROTECTOR_FN);
   }
 
   /**
@@ -228,7 +215,7 @@ final class CheckSideEffects extends AbstractPostOrderCallback
         if (target.isName() && target.getString().equals(PROTECTOR_FN)) {
           Node expr = n.getLastChild();
           n.detachChildren();
-          parent.replaceChild(n, expr);
+          n.replaceWith(expr);
           t.reportCodeChange();
         }
       }

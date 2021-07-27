@@ -37,7 +37,9 @@ public final class DiagnosticGroupsTest {
   public void lintChecksGroupIsDisjointFromEveryOtherGroup() throws Exception {
     DiagnosticGroup lintChecks = DiagnosticGroups.LINT_CHECKS;
     for (DiagnosticGroup group : DiagnosticGroups.getRegisteredGroups().values()) {
-      if (group.equals(lintChecks)) {
+      // TODO(lharker): stop ignoring USE_OF_GOOG_PROVIDE after migrating rules_closure
+      // code to suppress useOfGoogProvide instead of lintChecks.
+      if (group.equals(lintChecks) || group.equals(DiagnosticGroups.USE_OF_GOOG_PROVIDE)) {
         continue;
       }
       assertWithMessage(
@@ -47,6 +49,15 @@ public final class DiagnosticGroupsTest {
                   + group.getName())
           .that(Sets.intersection(lintChecks.getTypes(), group.getTypes()))
           .isEmpty();
+    }
+  }
+
+  @Test
+  public void conformanceErrorsCannotBeDowngraded() {
+    for (DiagnosticGroup group : DiagnosticGroups.getRegisteredGroups().values()) {
+      assertWithMessage("Group '" + group.getName() + "' should not include JSC_CONFORMANCE_ERROR")
+          .that(group.getTypes())
+          .doesNotContain(CheckConformance.CONFORMANCE_ERROR);
     }
   }
 }

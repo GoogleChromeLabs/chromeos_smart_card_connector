@@ -22,6 +22,8 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.AccessorSummary.PropertyAccessKind;
+import com.google.javascript.jscomp.colors.Color;
+import com.google.javascript.jscomp.colors.StandardColors;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
@@ -60,7 +62,8 @@ public class AstAnalyzer {
   // can also be called as constructors but lack side-effects.
   // TODO(johnlenz): consider adding an extern annotation for this.
   private static final ImmutableSet<String> BUILTIN_FUNCTIONS_WITHOUT_SIDEEFFECTS =
-      ImmutableSet.of("Object", "Array", "String", "Number", "Boolean", "RegExp", "Error");
+      ImmutableSet.of(
+          "Object", "Array", "String", "Number", "BigInt", "Boolean", "RegExp", "Error");
   private static final ImmutableSet<String> OBJECT_METHODS_WITHOUT_SIDEEFFECTS =
       ImmutableSet.of("toString", "valueOf");
   private static final ImmutableSet<String> REGEXP_METHODS = ImmutableSet.of("test", "exec");
@@ -101,7 +104,8 @@ public class AstAnalyzer {
    * @param callNode - function call node
    */
   boolean functionCallHasSideEffects(Node callNode) {
-    checkState(callNode.isCall() || callNode.isTaggedTemplateLit(), callNode);
+    checkState(
+        callNode.isCall() || callNode.isTaggedTemplateLit() || callNode.isOptChainCall(), callNode);
 
     if (callNode.isNoSideEffectsCall()) {
       return false;
@@ -119,9 +123,9 @@ public class AstAnalyzer {
       if (BUILTIN_FUNCTIONS_WITHOUT_SIDEEFFECTS.contains(name)) {
         return false;
       }
-    } else if (callee.isGetProp()) {
+    } else if (callee.isGetProp() || callee.isOptChainGetProp()) {
       if (callNode.hasOneChild()
-          && OBJECT_METHODS_WITHOUT_SIDEEFFECTS.contains(callee.getLastChild().getString())) {
+          && OBJECT_METHODS_WITHOUT_SIDEEFFECTS.contains(callee.getString())) {
         return false;
       }
 
@@ -136,7 +140,7 @@ public class AstAnalyzer {
       if (callee.getFirstChild().isName()
           && callee.isQualifiedName()
           && callee.getFirstChild().getString().equals("Math")) {
-        switch (callee.getLastChild().getString()) {
+        switch (callee.getString()) {
           case "abs":
           case "acos":
           case "acosh":
@@ -177,24 +181,23 @@ public class AstAnalyzer {
       }
 
       if (!compiler.hasRegExpGlobalReferences()) {
-        if (callee.getFirstChild().isRegExp()
-            && REGEXP_METHODS.contains(callee.getLastChild().getString())) {
+        if (callee.getFirstChild().isRegExp() && REGEXP_METHODS.contains(callee.getString())) {
           return false;
         } else if (isTypedAsString(callee.getFirstChild())) {
           // Unlike regexs, string methods don't need to be hosted on a string literal
           // to avoid leaking mutating global state changes, it is just necessary that
           // the regex object can't be referenced.
-          String method = callee.getLastChild().getString();
+          String method = callee.getString();
           Node param = callee.getNext();
           if (param != null) {
-            if (param.isString()) {
+            if (param.isStringLit()) {
               if (STRING_REGEXP_METHODS.contains(method)) {
                 return false;
               }
             } else if (param.isRegExp()) {
               if ("replace".equals(method)) {
                 // Assume anything but a string constant has side-effects
-                return !param.getNext().isString();
+                return !param.getNext().isStringLit();
               } else if (STRING_REGEXP_METHODS.contains(method)) {
                 return false;
               }
@@ -208,16 +211,20 @@ public class AstAnalyzer {
   }
 
   private boolean isTypedAsString(Node n) {
-    if (n.isString()) {
+    if (n.isStringLit()) {
       return true;
     }
 
     if (compiler.getOptions().useTypesForLocalOptimization) {
+      Color color = n.getColor();
+      if (color != null) {
+        return color.equals(StandardColors.STRING);
+      }
       JSType type = n.getJSType();
       if (type != null) {
         JSType nativeStringType =
             compiler.getTypeRegistry().getNativeType(JSTypeNative.STRING_TYPE);
-        if (type.isEquivalentTo(nativeStringType)) {
+        if (type.equals(nativeStringType)) {
           return true;
         }
       }
@@ -251,6 +258,10 @@ public class AstAnalyzer {
       case CONST:
       case EXPORT:
         // Variable declarations are side-effects.
+        return true;
+
+        // import() expressions have side effects
+      case DYNAMIC_IMPORT:
         return true;
 
       case SUPER:
@@ -330,6 +341,7 @@ public class AstAnalyzer {
         return true;
 
       case CALL:
+      case OPTCHAIN_CALL:
         // calls to functions that have no side effects have the no
         // side effect property set.
         if (!functionCallHasSideEffects(n)) {
@@ -355,12 +367,14 @@ public class AstAnalyzer {
         // Any context that supports DEFAULT_VALUE is already an assignment. The possiblity of a
         // default doesn't itself create a side-effect. Therefore, we prefer to defer the decision.
       case NUMBER:
+      case BIGINT:
       case OR:
+      case COALESCE:
       case THIS:
       case TRUE:
       case FALSE:
       case NULL:
-      case STRING:
+      case STRINGLIT:
       case SWITCH:
       case TEMPLATELIT_SUB:
       case TRY:
@@ -376,18 +390,27 @@ public class AstAnalyzer {
           // Assumption: GETELEM (via a COMPUTED_PROP) never triggers a getter or setter.
           if (getPropertyKind(n.getString()).hasGetter()) {
             return true;
+          } else if (parent.getLastChild().isObjectRest()) {
+            // Due to language syntax, only the last child can be an OBJECT_REST.
+            // `({ thisKey: target, ...rest} = something())`
+            // The presence of `thisKey` affects what properties get put into `rest`.
+            return true;
           }
         }
         break;
 
       case GETELEM:
-        // Since we can't see what property is accessed we cannot tell whether obj[someProp] will
+      case OPTCHAIN_GETELEM:
+        // Since we can't see what property is accessed we cannot tell whether
+        // obj[someProp]/obj?.[someProp] will
         // trigger a getter or setter, and thus could have side effects.
         // We will assume it does not. This introduces some risk of code breakage, but the code
-        // size cost of assuming all GETELEM nodes have side effects is completely unacceptable.
+        // size cost of assuming all GETELEM/OPTCHAIN_GETELEM nodes have side effects is completely
+        // unacceptable.
         break;
       case GETPROP:
-        if (getPropertyKind(n.getLastChild().getString()).hasGetterOrSetter()) {
+      case OPTCHAIN_GETPROP:
+        if (getPropertyKind(n.getString()).hasGetterOrSetter()) {
           // TODO(b/135640150): Use the parent nodes to determine whether this is a get or set.
           return true;
         }
@@ -413,7 +436,7 @@ public class AstAnalyzer {
             return true;
           }
 
-          if (NodeUtil.isGet(assignTarget)) {
+          if (NodeUtil.isNormalGet(assignTarget)) {
             // If the object being assigned to is a local object, don't
             // consider this a side-effect as it can't be referenced
             // elsewhere.  Don't do this recursively as the property might
@@ -428,7 +451,7 @@ public class AstAnalyzer {
             // other objects.
             // If the root object is a literal don't consider this a
             // side-effect.
-            while (NodeUtil.isGet(current)) {
+            while (NodeUtil.isNormalGet(current)) {
               current = current.getFirstChild();
             }
 
@@ -500,16 +523,22 @@ public class AstAnalyzer {
       case FOR_IN: // assigns to a loop LHS
       case FOR_OF: // assigns to a loop LHS, runs an iterator
       case FOR_AWAIT_OF: // assigns to a loop LHS, runs an iterator, async operations.
+      case DYNAMIC_IMPORT:
         return true;
+      case OPTCHAIN_CALL:
       case CALL:
       case TAGGED_TEMPLATELIT:
         return functionCallHasSideEffects(n);
       case NEW:
         return constructorCallHasSideEffects(n);
       case NAME:
-        // A variable definition.
+        // A variable definition that assigns a value.
         // TODO(b/129564961): Consider EXPORT declarations.
         return n.hasChildren();
+      case DESTRUCTURING_LHS:
+        // A destructuring declaration statement or assignment. Technically these might contain no
+        // lvalues but that case is rare enough to be ignored.
+        return true;
       case OBJECT_REST:
       case OBJECT_SPREAD:
         // Object-rest and object-spread may trigger a getter.
@@ -523,7 +552,8 @@ public class AstAnalyzer {
         }
         break;
       case GETPROP:
-        return getPropertyKind(n.getLastChild().getString()).hasGetterOrSetter();
+      case OPTCHAIN_GETPROP:
+        return getPropertyKind(n.getString()).hasGetterOrSetter();
 
       default:
         break;

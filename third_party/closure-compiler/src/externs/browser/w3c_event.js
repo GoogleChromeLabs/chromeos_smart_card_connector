@@ -32,9 +32,11 @@ function EventTarget() {}
 
 /**
  * @param {string} type
- * @param {EventListener|function(!Event):*} listener
+ * @param {EventListener|function(this:THIS, !Event):*} listener
  * @param {(boolean|!AddEventListenerOptions)=} opt_options
  * @return {undefined}
+ * @this {THIS}
+ * @template THIS
  * @see https://dom.spec.whatwg.org/#dom-eventtarget-addeventlistener
  */
 EventTarget.prototype.addEventListener = function(type, listener, opt_options) {
@@ -42,9 +44,11 @@ EventTarget.prototype.addEventListener = function(type, listener, opt_options) {
 
 /**
  * @param {string} type
- * @param {EventListener|function(!Event):*} listener
+ * @param {EventListener|function(this:THIS, !Event):*} listener
  * @param {(boolean|!EventListenerOptions)=} opt_options
  * @return {undefined}
+ * @this {THIS}
+ * @template THIS
  * @see https://dom.spec.whatwg.org/#dom-eventtarget-removeeventlistener
  */
 EventTarget.prototype.removeEventListener = function(
@@ -432,6 +436,7 @@ KeyboardEventInit.prototype.char;
 KeyboardEventInit.prototype.locale;
 
 /**
+ * @see https://w3c.github.io/uievents/#idl-keyboardevent
  * @constructor
  * @extends {UIEvent}
  * @param {string} type
@@ -453,6 +458,18 @@ KeyboardEvent.prototype.altKey;
 
 /** @type {boolean} */
 KeyboardEvent.prototype.metaKey;
+
+/** @type {number} */
+KeyboardEvent.DOM_KEY_LOCATION_STANDARD;
+
+/** @type {number} */
+KeyboardEvent.DOM_KEY_LOCATION_LEFT;
+
+/** @type {number} */
+KeyboardEvent.DOM_KEY_LOCATION_RIGHT;
+
+/** @type {number} */
+KeyboardEvent.DOM_KEY_LOCATION_NUMPAD;
 
 /**
  * @param {string} keyIdentifierArg
@@ -554,3 +571,33 @@ InputEvent.prototype.inputType;
 
 /** @type {?DataTransfer} */
 InputEvent.prototype.dataTransfer;
+
+
+/**
+ * @record
+ * @extends {EventInit}
+ * @see https://html.spec.whatwg.org/multipage/webappapis.html#promiserejectioneventinit
+ */
+function PromiseRejectionEventInit() {}
+
+/** @type {undefined|!Promise<*>} */
+PromiseRejectionEventInit.prototype.promise;
+
+/** @type {*} */
+PromiseRejectionEventInit.prototype.reason;
+
+
+/**
+ * @constructor
+ * @extends {Event}
+ * @param {string} type
+ * @param {PromiseRejectionEventInit=} eventInitDict
+ * @see https://html.spec.whatwg.org/multipage/webappapis.html#promiserejectionevent
+ */
+function PromiseRejectionEvent(type, eventInitDict) {}
+
+/** @type {!Promise<*>} */
+PromiseRejectionEvent.prototype.promise;
+
+/** @type {*} */
+PromiseRejectionEvent.prototype.reason;

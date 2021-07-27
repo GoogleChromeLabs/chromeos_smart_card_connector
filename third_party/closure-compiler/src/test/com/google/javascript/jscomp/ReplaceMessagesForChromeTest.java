@@ -24,11 +24,7 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Test which checks that replacer works correctly.
- *
- * @author tbreisacher@google.com (Tyler Breisacher)
- */
+/** Test which checks that replacer works correctly. */
 @RunWith(JUnit4.class)
 public final class ReplaceMessagesForChromeTest extends CompilerTestCase {
 
@@ -36,8 +32,7 @@ public final class ReplaceMessagesForChromeTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new ReplaceMessagesForChrome(compiler,
-        new GoogleJsMessageIdGenerator(null), false, style);
+    return new ReplaceMessagesForChrome(compiler, new GoogleJsMessageIdGenerator(null), style);
   }
 
   @Override

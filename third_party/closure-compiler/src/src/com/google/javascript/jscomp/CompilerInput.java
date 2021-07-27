@@ -46,12 +46,12 @@ import java.util.TreeMap;
  * and maintain state such as module for the input and whether the input is an extern. Also
  * calculates provided and required types.
  */
-public class CompilerInput extends DependencyInfo.Base implements SourceAst {
+public class CompilerInput extends DependencyInfo.Base {
 
-  private static final long serialVersionUID = 1L;
+  private static final long serialVersionUID = 2L;
 
   // Info about where the file lives.
-  private JSModule module;
+  private JSChunk module;
   private final InputId id;
 
   // The AST.
@@ -67,9 +67,8 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
   private ModuleType jsModuleType = ModuleType.NONE;
 
   // An AbstractCompiler for doing parsing.
-  // We do not want to persist this across serialized state.
-  private transient AbstractCompiler compiler;
-  private transient ModulePath modulePath;
+  private AbstractCompiler compiler;
+  private ModulePath modulePath;
 
   // TODO(tjgq): Whether a CompilerInput is an externs file is determined by the `isExtern`
   // constructor argument and the `setIsExtern` method. Both are necessary because, while externs
@@ -85,20 +84,29 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
   }
 
   public CompilerInput(SourceAst ast, boolean isExtern) {
-    this(ast, ast.getInputId(), isExtern);
-  }
-
-  public CompilerInput(SourceAst ast, String inputId, boolean isExtern) {
-    this(ast, new InputId(inputId), isExtern);
-  }
-
-  public CompilerInput(SourceAst ast, InputId inputId, boolean isExtern) {
     this.ast = ast;
-    this.id = inputId;
+    this.id = ast.getInputId();
 
     if (isExtern) {
       setIsExtern();
     }
+  }
+
+  /** @deprecated the inputId is read from the SourceAst. Use CompilerInput(ast, isExtern) */
+  @Deprecated
+  public CompilerInput(SourceAst ast, String inputId, boolean isExtern) {
+    this(ast, new InputId(inputId), isExtern);
+  }
+
+  /** @deprecated the inputId is read from the SourceAst. Use CompilerInput(ast, isExtern) */
+  @Deprecated
+  public CompilerInput(SourceAst ast, InputId inputId, boolean isExtern) {
+    this(ast, isExtern);
+    checkArgument(
+        inputId.equals(ast.getInputId()),
+        "mismatched input ids\nctor param: %s\nast.getInputId(): %s",
+        inputId,
+        ast.getInputId());
   }
 
   public CompilerInput(SourceFile file) {
@@ -110,7 +118,6 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
   }
 
   /** Returns a name for this input. Must be unique across all inputs. */
-  @Override
   public InputId getInputId() {
     return id;
   }
@@ -128,7 +135,6 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
     throw new UnsupportedOperationException();
   }
 
-  @Override
   public Node getAstRoot(AbstractCompiler compiler) {
     Node root = checkNotNull(ast.getAstRoot(compiler));
     checkState(root.isScript());
@@ -136,19 +142,12 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
     return root;
   }
 
-  @Override
   public void clearAst() {
     ast.clearAst();
   }
 
-  @Override
   public SourceFile getSourceFile() {
     return ast.getSourceFile();
-  }
-
-  @Override
-  public void setSourceFile(SourceFile file) {
-    ast.setSourceFile(file);
   }
 
   /** Sets an abstract compiler for doing parsing. */
@@ -390,26 +389,26 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
 
             Node callee = n.getFirstChild();
             Node argument = n.getLastChild();
-            switch (callee.getLastChild().getString()) {
+            switch (callee.getString()) {
               case "module":
                 loadFlags.put("module", "goog");
                 // Fall-through
               case "provide":
-                if (!argument.isString()) {
+                if (!argument.isStringLit()) {
                   return;
                 }
                 provides.add(argument.getString());
                 return;
 
               case "require":
-                if (!argument.isString()) {
+                if (!argument.isStringLit()) {
                   return;
                 }
                 requires.add(Require.googRequireSymbol(argument.getString()));
                 return;
 
               case "requireType":
-                if (!argument.isString()) {
+                if (!argument.isStringLit()) {
                   return;
                 }
                 typeRequires.add(argument.getString());
@@ -428,7 +427,7 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
               && parent.matchesQualifiedName("goog.declareModuleId")
               && parent.getParent().isCall()) {
             Node argument = parent.getParent().getSecondChild();
-            if (!argument.isString()) {
+            if (!argument.isStringLit()) {
               return;
             }
             provides.add(argument.getString());
@@ -479,7 +478,7 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
     }
 
     void visitEs6ModuleName(Node n, Node parent) {
-      checkArgument(n.isString());
+      checkArgument(n.isStringLit());
       checkArgument(parent.isExport() || parent.isImport());
 
       // TODO(blickly): Move this (and the duplicated logic in JsFileRegexParser/Es6RewriteModules)
@@ -507,19 +506,19 @@ public class CompilerInput extends DependencyInfo.Base implements SourceAst {
   }
 
   /** Returns the module to which the input belongs. */
-  public JSModule getModule() {
+  public JSChunk getChunk() {
     return module;
   }
 
   /** Sets the module to which the input belongs. */
-  public void setModule(JSModule module) {
+  public void setModule(JSChunk module) {
     // An input may only belong to one module.
     checkArgument(module == null || this.module == null || this.module == module);
     this.module = module;
   }
 
   /** Overrides the module to which the input belongs. */
-  void overrideModule(JSModule module) {
+  void overrideModule(JSChunk module) {
     this.module = module;
   }
 

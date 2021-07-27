@@ -19,8 +19,6 @@
  * @suppress {uselessCode}
  */
 'require base';
-'require es6/promise/promise';
-'require es6/symbol';
 'require es6/util/makeasynciterator';
 
 
@@ -211,8 +209,6 @@ $jscomp.AsyncGeneratorWrapper = function(
    * @private
    */
   this.executionQueue_ = new $jscomp.AsyncGeneratorWrapper$ExecutionQueue_();
-
-  $jscomp.initSymbolAsyncIterator();
 
   /** @type {$jscomp.AsyncGeneratorWrapper<VALUE>} */
   this[Symbol.asyncIterator] =

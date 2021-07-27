@@ -24,7 +24,6 @@ import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.JSDocInfo.Visibility;
-import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -35,11 +34,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Rewrites "goog.defineClass" into a form that is suitable for
- * type checking and dead code elimination.
+ * Rewrites "goog.defineClass" into a form that is suitable for type checking and dead code
+ * elimination.
  */
-class ClosureRewriteClass extends AbstractPostOrderCallback
-    implements HotSwapCompilerPass {
+class ClosureRewriteClass extends AbstractPostOrderCallback implements CompilerPass {
 
   // Errors
   static final DiagnosticType GOOG_CLASS_TARGET_INVALID = DiagnosticType.error(
@@ -98,12 +96,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
 
   @Override
   public void process(Node externs, Node root) {
-    hotSwapScript(root, null);
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    NodeTraversal.traverse(compiler, scriptRoot, this);
+    NodeTraversal.traverse(compiler, root, this);
   }
 
   @Override
@@ -306,7 +299,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
     if (classModifier != null) {
       maybeDetach(classModifier.getParent());
     }
-    ClassDefinition def = new ClassDefinition(
+    return new ClassDefinition(
         targetName,
         classInfo,
         maybeDetach(superClass),
@@ -314,11 +307,10 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
         objectLitToList(maybeDetach(statics)),
         objectLitToList(description),
         maybeDetach(classModifier));
-    return def;
   }
 
   private static Node maybeDetach(Node node) {
-    if (node != null && node.getParent() != null) {
+    if (node != null && node.hasParent()) {
       node.detach();
     }
     return node;
@@ -337,7 +329,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
       return false;
     }
 
-    for (Node key : objlit.children()) {
+    for (Node key = objlit.getFirstChild(); key != null; key = key.getNext()) {
       if (key.isMemberFunctionDef()) {
         continue;
       }
@@ -347,9 +339,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
             GOOG_CLASS_ES6_COMPUTED_PROP_NAMES_NOT_SUPPORTED));
         return false;
       }
-      if (key.isStringKey()
-          && key.hasChildren()
-          && key.getFirstChild().isArrowFunction()){
+      if (key.isStringKey() && key.getFirstChild().isArrowFunction()) {
         // report using arrow function
         compiler.report(JSError.make(objlit,
             GOOG_CLASS_ES6_ARROW_FUNCTION_NOT_SUPPORTED));
@@ -378,7 +368,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
    * @return The first property in the objlit that matches the key.
    */
   private static Node extractProperty(Node objlit, String keyName) {
-    for (Node keyNode : objlit.children()) {
+    for (Node keyNode = objlit.getFirstChild(); keyNode != null; keyNode = keyNode.getNext()) {
       if (keyNode.getString().equals(keyName)) {
         return keyNode.getFirstChild();
       }
@@ -389,7 +379,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
   private static List<MemberDefinition> objectLitToList(
       Node objlit) {
     List<MemberDefinition> result = new ArrayList<>();
-    for (Node keyNode : objlit.children()) {
+    for (Node keyNode = objlit.getFirstChild(); keyNode != null; keyNode = keyNode.getNext()) {
       Node name = keyNode;
       // The span of a member function def is the whole function. The NAME node should be the
       // first-first child, which will have a span for just the name of the function.
@@ -459,12 +449,14 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
 
       // example: ctr.prop = value
       block.addChildToBack(
-          fixupSrcref(IR.exprResult(
-          fixupSrcref(IR.assign(
-              IR.getprop(cls.name.cloneTree(),
-                  IR.string(def.name.getString()).srcref(def.name))
-                  .srcref(def.name),
-              def.value)).setJSDocInfo(def.info))));
+          fixupSrcref(
+              IR.exprResult(
+                  fixupSrcref(
+                          IR.assign(
+                              IR.getprop(cls.name.cloneTree(), def.name.getString())
+                                  .srcref(def.name),
+                              def.value))
+                      .setJSDocInfo(def.info))));
       // Handle inner class definitions.
       maybeRewriteClassDefinition(t, block.getLastChild());
     }
@@ -482,7 +474,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
                           cls.name.getQualifiedName() + ".prototype." + def.name.getString()),
                       def.value)
                   .setJSDocInfo(def.info));
-      exprResult.useSourceInfoIfMissingFromForTree(def.name);
+      exprResult.srcrefTreeIfMissing(def.name);
 
       // The length needs to be set explicitly to include the string key node and the function node.
       // If we just used the length of def.name or def.value alone, then refactorings which try to
@@ -507,16 +499,17 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
       Node argList = cls.classModifier.getSecondChild();
       Node arg = argList.getFirstChild();
       final String argName = arg.getString();
-      NodeTraversal.traversePostOrder(
-          compiler,
-          cls.classModifier.getLastChild(),
-          (NodeTraversal unused, Node n, Node parent) -> {
-            if (n.isName() && n.getString().equals(argName)) {
-              Node newName = cls.name.cloneTree();
-              parent.replaceChild(n, newName);
-              compiler.reportChangeToEnclosingScope(newName);
-            }
-          });
+      NodeTraversal.builder()
+          .setCompiler(compiler)
+          .setCallback(
+              (NodeTraversal unused, Node n, Node parent) -> {
+                if (n.isName() && n.getString().equals(argName)) {
+                  Node newName = cls.name.cloneTree();
+                  n.replaceWith(newName);
+                  compiler.reportChangeToEnclosingScope(newName);
+                }
+              })
+          .traverse(cls.classModifier.getLastChild());
 
       block.addChildToBack(
           IR.exprResult(
@@ -531,7 +524,7 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
     Node parent = exprRoot.getParent();
     Node stmts = block.removeChildren();
     parent.addChildrenAfter(stmts, exprRoot);
-    parent.removeChild(exprRoot);
+    exprRoot.detach();
 
     // compiler.reportChangeToEnclosingScope(parent);
     t.reportCodeChange();
@@ -582,20 +575,22 @@ class ClosureRewriteClass extends AbstractPostOrderCallback
       ClassDefinition cls, Node associatedNode, boolean includeConstructorExport) {
     // avoid null checks
     JSDocInfo classInfo =
-        (cls.classInfo != null) ? cls.classInfo : new JSDocInfoBuilder(true).build(true);
+        (cls.classInfo != null)
+            ? cls.classInfo
+            : JSDocInfo.builder().parseDocumentation().build(true);
 
     JSDocInfo ctorInfo =
         (cls.constructor.info != null)
             ? cls.constructor.info
-            : new JSDocInfoBuilder(true).build(true);
+            : JSDocInfo.builder().parseDocumentation().build(true);
 
     Node superNode = cls.superClass;
 
     // Start with a clone of the constructor info if there is one.
-    JSDocInfoBuilder mergedInfo =
+    JSDocInfo.Builder mergedInfo =
         cls.constructor.info != null
-            ? JSDocInfoBuilder.copyFrom(ctorInfo)
-            : new JSDocInfoBuilder(true);
+            ? JSDocInfo.Builder.copyFrom(ctorInfo)
+            : JSDocInfo.builder().parseDocumentation();
     // Optionally, remove @export from the cloned constructor info.
     // TODO(b/138324343): remove this case (or, even better, just delete goog.defineClass support).
     if (!includeConstructorExport && ctorInfo.isExport()) {

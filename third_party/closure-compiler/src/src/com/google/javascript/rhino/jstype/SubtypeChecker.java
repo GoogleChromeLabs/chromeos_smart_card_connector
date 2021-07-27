@@ -41,15 +41,16 @@ package com.google.javascript.rhino.jstype;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 import static com.google.javascript.rhino.jstype.JSTypeIterations.allTypesMatch;
 import static com.google.javascript.rhino.jstype.JSTypeIterations.anyTypeMatches;
 
 import com.google.common.collect.ImmutableSet;
-import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.jstype.JSType.EqCache;
 import com.google.javascript.rhino.jstype.JSType.MatchStatus;
 import com.google.javascript.rhino.jstype.JSType.SubtypingMode;
 import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import javax.annotation.Nullable;
 
@@ -64,6 +65,18 @@ final class SubtypeChecker {
   private static final ImmutableSet<String> BIVARIANT_TYPES =
       ImmutableSet.of("Object", "IArrayLike", "Array");
 
+  /**
+   * An arbitrary depth at which to start checking for cyclic recursion.
+   *
+   * <p>Checking for cycles is expensive. Most types are not cyclic; they have have fairly shallow
+   * composition. Therefore, we want to avoid checking cycles them until we have a strong
+   * expectation that it's necessary.
+   *
+   * <p>This number is an optimization, not a correctness requirement. The value could be anything
+   * (short of stack overflow) and we should get the same result.
+   */
+  private static final int POTENTIALLY_CYCLIC_RECURSION_DEPTH = 20;
+
   private JSType initialSupertype;
   private JSType initialSubtype;
 
@@ -71,10 +84,10 @@ final class SubtypeChecker {
   private Boolean isUsingStructuralTyping;
   private SubtypingMode subtypingMode;
 
-  private HashMap<CacheKey, MatchStatus> structuralSubtypeCache;
-  private EqCache eqCache;
+  private HashMap<CacheKey, MatchStatus> subtypeCache;
 
   private boolean hasRun = false;
+  private int recursionDepth = 0;
 
   SubtypeChecker setSupertype(JSType value) {
     checkHasNotRun();
@@ -115,51 +128,88 @@ final class SubtypeChecker {
   boolean check() {
     checkHasNotRun();
     this.hasRun = true;
-    return this.isSubtypeOuter(this.initialSubtype, this.initialSupertype);
+    return this.isSubtypeCaching(this.initialSubtype, this.initialSupertype);
   }
 
   /**
-   * The top-level recursive entrypoint of all subtyping logic.
+   * The top-level recursive entrypoint for subtyping logic.
+   *
+   * <p>Caching is necessary to catch cyclic types. Identity caching is insufficient because some
+   * types (e.g. {@link TemplatizedType}) can generate new type instances on the fly.
+   */
+  private boolean isSubtypeCaching(JSType subtype, JSType supertype) {
+    checkNotNull(subtype);
+    checkNotNull(supertype);
+
+    // Wait to instantiate/use the cache until we have some hint that there may be recursion.
+    if (this.recursionDepth > POTENTIALLY_CYCLIC_RECURSION_DEPTH) {
+      if (this.subtypeCache == null) {
+        this.subtypeCache = new HashMap<>();
+      }
+    }
+
+    // Once the cache exists, use it consistently.
+    if (this.subtypeCache == null) {
+      try {
+        this.recursionDepth++;
+        return this.isSubtypeDispatching(subtype, supertype);
+      } finally {
+        this.recursionDepth--;
+      }
+    }
+
+    CacheKey key = new CacheKey(subtype, supertype);
+    @Nullable MatchStatus cached = this.subtypeCache.putIfAbsent(key, MatchStatus.PROCESSING);
+
+    if (cached == null) {
+      boolean result = this.isSubtypeDispatching(subtype, supertype);
+      this.subtypeCache.put(key, MatchStatus.valueOf(result));
+      return result;
+    }
+
+    if (cached == MatchStatus.PROCESSING) {
+      this.subtypeCache.put(key, MatchStatus.MATCH);
+      return true;
+    }
+
+    return cached.subtypeValue();
+  }
+
+  /**
+   * Custom dynamic dispatcher for various subtypes.
    *
    * <p>This method <em>should be</em> temporary. It exists to delegate to subclass specifc logic
    * that used to be distributed across all the overrides of {@link JSType::isSubtype}. In order to
    * consolidate all the behaviour, a limited form of dynamic dispatch was created here. Over time,
    * this behaviour should be integrated into the main body of subtyping logic.
    */
-  private boolean isSubtypeOuter(JSType subtype, JSType supertype) {
-    if (subtype instanceof ArrowType) {
-      return this.isArrowTypeSubtype((ArrowType) subtype, supertype);
-    } else if (subtype instanceof EnumElementType) {
-      return this.isEnumElementSubtype((EnumElementType) subtype, supertype);
-    } else if (subtype instanceof EnumType) {
-      return this.isEnumSubtype((EnumType) subtype, supertype);
-    } else if (subtype instanceof FunctionType) {
-      if (subtype instanceof NoObjectType) {
+  private boolean isSubtypeDispatching(JSType subtype, JSType supertype) {
+    switch (subtype.getTypeClass()) {
+      case ARROW:
+        return this.isArrowTypeSubtype((ArrowType) subtype, supertype);
+      case ENUM_ELEMENT:
+        return this.isEnumElementSubtype((EnumElementType) subtype, supertype);
+      case ENUM:
+        return this.isEnumSubtype((EnumType) subtype, supertype);
+      case NO_OBJECT:
+      case NO:
+      case NO_RESOLVED:
         return this.isVariousBottomsSubtype(subtype, supertype);
-      } else {
+      case FUNCTION:
         return this.isFunctionSubtype((FunctionType) subtype, supertype);
-      }
-    } else if (subtype instanceof ProxyObjectType) {
-      if (subtype instanceof TemplatizedType) {
-        return this.isSubtypeHelper(subtype, supertype);
-      } else if (subtype instanceof TemplateType) {
+      case TEMPLATE:
         return this.isTemplateSubtype((TemplateType) subtype, supertype);
-      } else {
+      case PROXY_OBJECT:
         return this.isProxyObjectSubtype((ProxyObjectType) subtype, supertype);
-      }
-    } else if (subtype instanceof RecordType) {
-      return this.isRecordSubtype((RecordType) subtype, supertype);
-    } else {
-      return this.isSubtypeHelper(subtype, supertype);
+      default:
+        return this.isSubtypeHelper(subtype, supertype);
     }
   }
 
   private boolean isSubtypeHelper(JSType subtype, JSType supertype) {
-    checkNotNull(subtype);
-    checkNotNull(supertype);
-
     // Axiomatic cases.
-    if (supertype.isUnknownType()
+    if (identical(subtype, supertype)
+        || supertype.isUnknownType()
         || supertype.isAllType()
         || subtype.isUnknownType()
         || subtype.isNoType()) {
@@ -173,7 +223,7 @@ final class SubtypeChecker {
     }
 
     // Reflexive case.
-    if (subtype.isEquivalentTo(supertype, this.isUsingStructuralTyping)) {
+    if (Objects.equals(subtype, supertype)) {
       return true;
     }
 
@@ -182,22 +232,25 @@ final class SubtypeChecker {
      *
      * <p>Only named types are unwrapped because other subclasses of `ProxyObjectType` should not be
      * considered proxies; they have additional behaviour.
+     *
+     * <p>We don't want to check the cache here. Since `NamedType`s are generally equal to their
+     * referenced types, we'd get a false cache hit.
      */
     if (subtype.isNamedType()) {
-      return this.isSubtypeOuter(subtype.toMaybeNamedType().getReferencedType(), supertype);
+      return this.isSubtypeDispatching(subtype.toMaybeNamedType().getReferencedType(), supertype);
     } else if (supertype.isNamedType()) {
-      return this.isSubtypeOuter(subtype, supertype.toMaybeNamedType().getReferencedType());
+      return this.isSubtypeDispatching(subtype, supertype.toMaybeNamedType().getReferencedType());
     }
 
     // Union decomposition.
     if (subtype.isUnionType()) {
       // All alternates must be subtypes.
       return allTypesMatch(
-          (sub) -> this.isSubtypeOuter(sub, supertype), subtype.toMaybeUnionType());
+          (sub) -> this.isSubtypeCaching(sub, supertype), subtype.toMaybeUnionType());
     } else if (supertype.isUnionType()) {
       // Some alternate must be a supertype.
       return anyTypeMatches(
-          (sup) -> this.isSubtypeOuter(subtype, sup), supertype.toMaybeUnionType());
+          (sup) -> this.isSubtypeCaching(subtype, sup), supertype.toMaybeUnionType());
     }
 
     if (!subtype.isObjectType() || !supertype.isObjectType()) {
@@ -208,50 +261,67 @@ final class SubtypeChecker {
   }
 
   private boolean isObjectSubtypeHelper(ObjectType subtype, ObjectType supertype) {
-    // TemplateTypeMaps. This check only returns false if the TemplateTypeMaps
-    // are not equivalent.
     TemplateTypeMap subtypeParams = subtype.getTemplateTypeMap();
     TemplateTypeMap supertypeParams = supertype.getTemplateTypeMap();
-    boolean templateMatch = true;
+    boolean bivarantMatch = false;
+
+    /**
+     * Array and Object are exempt from template type invariance.
+     *
+     * <p>They also have to be checked first because the `Object` index key acts like an operator;
+     * it's not visible as a property but it has typing. There are types that would otherwise match
+     * structurally but should not be be considered subtypes because their types for this operator
+     * are different.
+     */
     if (isBivariantType(supertype)) {
-      // Array and Object are exempt from template type invariance; their
-      // template types maps are bivariant.  That is they are considered
-      // a match if either ObjectElementKey values are subtypes of the
-      // other.
       TemplateType key = subtype.registry.getObjectElementKey();
       JSType thisElement = subtypeParams.getResolvedTemplateType(key);
       JSType thatElement = supertypeParams.getResolvedTemplateType(key);
 
-      templateMatch =
-          this.isSubtypeOuter(thisElement, thatElement)
-              || this.isSubtypeOuter(thatElement, thisElement);
-    } else {
+      if (!this.meetVarianceConstraint(Variance.BIVARIANT, thisElement, thatElement)) {
+        return false;
+      }
+      bivarantMatch = true;
+    }
+
+    if (this.isUsingStructuralTyping && supertype.isStructuralType()) {
+      /**
+       * Do this before considering templatization in general.
+       *
+       * <p>If the super type is a structural type, then we can't safely unwrap any templatized
+       * types. The templates might affect the types of the properties.
+       */
+      return this.isStructuralSubtypeHelper(
+          subtype, supertype, PropertyOptionality.VOIDABLE_PROPS_ARE_OPTIONAL);
+    } else if (supertype.isRecordType()) {
+      /**
+       * Anonymous record types are always considered structurally when supertypes.
+       *
+       * <p>Structural typing is the only kind of typing they support. However, we limit to the case
+       * where the supertype is the record, because records shouldn't be subtypes of nominal types.
+       */
+      return this.isStructuralSubtypeHelper(
+          subtype, supertype, PropertyOptionality.ALL_PROPS_ARE_REQUIRED);
+    }
+
+    /**
+     * Wait to check template types until after structural checks.
+     *
+     * <p>It's possible for a subtructural type to satisfy the shape defined by a template
+     * specialization, without actually having template params. The structural type may just have
+     * had properties with the right types.
+     */
+    if (!bivarantMatch) {
       TemplateType covariantKey = getTemplateKeyIfCovariantType(supertype);
       if (covariantKey != null) {
         JSType thisElement = subtypeParams.getResolvedTemplateType(covariantKey);
         JSType thatElement = supertypeParams.getResolvedTemplateType(covariantKey);
-        templateMatch = this.isSubtypeOuter(thisElement, thatElement);
-      } else {
-        templateMatch =
-            subtypeParams.checkEquivalenceHelper(
-                supertypeParams, EquivalenceMethod.INVARIANT, subtypingMode);
+        if (!this.meetVarianceConstraint(Variance.COVARIANT, thisElement, thatElement)) {
+          return false;
+        }
+      } else if (!this.isTypeMapSubmap(subtype, supertype)) {
+        return false;
       }
-    }
-    if (!templateMatch) {
-      return false;
-    }
-
-    // If the super type is a structural type, then we can't safely remove a templatized type
-    // (since it might affect the types of the properties)
-    if (this.isUsingStructuralTyping && supertype.isStructuralType()) {
-      return this.isStructuralSubtypeHelper(
-          subtype, supertype, PropertyOptionality.VOIDABLE_PROPS_ARE_OPTIONAL);
-    } else if (supertype.isRecordType()) {
-      // Anonymous record types are always considered for structural typing because that's the only
-      // kind of typing they support. However, we limit to the case where the supertype is the
-      // record, because records shouldn't be subtypes of nominal types.
-      return this.isStructuralSubtypeHelper(
-          subtype, supertype, PropertyOptionality.ALL_PROPS_ARE_REQUIRED);
     }
 
     // Interfaces
@@ -261,15 +331,13 @@ final class SubtypeChecker {
     FunctionType supertypeCtor = supertype.getConstructor();
     if (subtypeCtor != null && subtypeCtor.isInterface()) {
       for (ObjectType subtypeInterface : subtype.getCtorExtendedInterfaces()) {
-        // TODO(b/142155372): When fixed, call `isObjectSubtypeHelper` here directly.
-        if (this.isSubtypeOuter(subtypeInterface, supertype)) {
+        if (this.isSubtypeCaching(subtypeInterface, supertype)) {
           return true;
         }
       }
     } else if (supertypeCtor != null && supertypeCtor.isInterface()) {
       for (ObjectType subtypeInterface : subtype.getCtorImplementedInterfaces()) {
-        // TODO(b/142155372): When fixed, call `isObjectSubtypeHelper` here directly.
-        if (this.isSubtypeOuter(subtypeInterface, supertype)) {
+        if (this.isSubtypeCaching(subtypeInterface, supertype)) {
           return true;
         }
       }
@@ -280,11 +348,6 @@ final class SubtypeChecker {
 
   private boolean isStructuralSubtypeHelper(
       ObjectType subtype, ObjectType supertype, PropertyOptionality optionality) {
-
-    MatchStatus cachedResult = this.checkStructuralSubtypeCache(subtype, supertype);
-    if (cachedResult != null) {
-      return cachedResult.subtypeValue();
-    }
 
     // subtype is a subtype of record type supertype iff:
     // 1) subtype has all the non-optional properties declared in supertype.
@@ -298,23 +361,20 @@ final class SubtypeChecker {
         // allow inheritance and we need to match against inherited properties as well.
         supertype.isRecordType() ? supertype.getOwnPropertyNames() : supertype.getPropertyNames();
 
-    boolean result = true;
     for (String property : props) {
       JSType supertypeProp = supertype.getPropertyType(property);
       if (subtype.hasProperty(property)) {
         JSType subtypeProp = subtype.getPropertyType(property);
-        if (!this.isSubtypeOuter(subtypeProp, supertypeProp)) {
-          result = false;
-          break;
+        if (!this.isSubtypeCaching(subtypeProp, supertypeProp)) {
+          return false;
         }
       } else if (!optionality.isOptional(supertypeProp)) {
         // Currently, any type that explicitly includes undefined (eg, `?|undefined`) is optional.
-        result = false;
-        break;
+        return false;
       }
     }
 
-    return this.updateStructuralSubtypeCache(subtype, supertype, MatchStatus.valueOf(result));
+    return true;
   }
 
   private boolean isFunctionSubtype(FunctionType subtype, JSType nonFunctionSupertype) {
@@ -334,10 +394,11 @@ final class SubtypeChecker {
       }
 
       return this.shouldTreatThisTypesAsCovariant(subtype, supertype)
-          && this.isSubtypeOuter(subtype.getInternalArrowType(), supertype.getInternalArrowType());
+          && this.isSubtypeCaching(
+              subtype.getInternalArrowType(), supertype.getInternalArrowType());
     }
 
-    return this.isSubtypeOuter(
+    return this.isSubtypeCaching(
         this.registry.getNativeType(JSTypeNative.FUNCTION_PROTOTYPE), nonFunctionSupertype);
   }
 
@@ -364,7 +425,7 @@ final class SubtypeChecker {
     // Section 3.4.7: Subtyping Function Types.
 
     // this.returnType <: that.returnType (covariant)
-    if (!this.isSubtypeOuter(subtype.returnType, supertype.returnType)) {
+    if (!this.isSubtypeCaching(subtype.getReturnType(), supertype.getReturnType())) {
       return false;
     }
 
@@ -387,22 +448,27 @@ final class SubtypeChecker {
     // to create a new no-op function for every possible type signature.
     //
     // So, in this case, g < f, but f !< g
-    Node subtypeParam = subtype.parameters.getFirstChild();
-    Node supertypeParam = supertype.parameters.getFirstChild();
+    Iterator<FunctionType.Parameter> subtypeParameters = subtype.getParameterList().iterator();
+    Iterator<FunctionType.Parameter> supertypeParameters = supertype.getParameterList().iterator();
+    FunctionType.Parameter subtypeParam =
+        subtypeParameters.hasNext() ? subtypeParameters.next() : null;
+    FunctionType.Parameter supertypeParam =
+        supertypeParameters.hasNext() ? supertypeParameters.next() : null;
     while (subtypeParam != null && supertypeParam != null) {
+
       JSType subtypeParamType = subtypeParam.getJSType();
       JSType supertypeParamType = supertypeParam.getJSType();
       if (subtypeParamType != null) {
         if (supertypeParamType == null
-            || !this.isSubtypeOuter(supertypeParamType, subtypeParamType)) {
+            || !this.isSubtypeCaching(supertypeParamType, subtypeParamType)) {
           return false;
         }
       }
 
-      boolean thisIsVarArgs = subtypeParam.isVarArgs();
-      boolean thatIsVarArgs = supertypeParam.isVarArgs();
-      boolean thisIsOptional = thisIsVarArgs || subtypeParam.isOptionalArg();
-      boolean thatIsOptional = thatIsVarArgs || supertypeParam.isOptionalArg();
+      boolean thisIsVarArgs = subtypeParam.isVariadic();
+      boolean thatIsVarArgs = supertypeParam.isVariadic();
+      boolean thisIsOptional = thisIsVarArgs || subtypeParam.isOptional();
+      boolean thatIsOptional = thatIsVarArgs || supertypeParam.isOptional();
 
       // "that" can't be a supertype, because it's missing a required argument.
       if (!thisIsOptional && thatIsOptional) {
@@ -423,29 +489,28 @@ final class SubtypeChecker {
 
       // don't advance if we have variable arguments
       if (!thisIsVarArgs) {
-        subtypeParam = subtypeParam.getNext();
+        subtypeParam = subtypeParameters.hasNext() ? subtypeParameters.next() : null;
       }
       if (!thatIsVarArgs) {
-        supertypeParam = supertypeParam.getNext();
+        supertypeParam = supertypeParameters.hasNext() ? supertypeParameters.next() : null;
       }
 
       // both var_args indicates the end
       if (thisIsVarArgs && thatIsVarArgs) {
-        subtypeParam = null;
-        supertypeParam = null;
+        break;
       }
     }
 
     // "that" can't be a supertype, because it's missing a required argument.
     return subtypeParam == null
-        || subtypeParam.isOptionalArg()
-        || subtypeParam.isVarArgs()
+        || subtypeParam.isOptional()
+        || subtypeParam.isVariadic()
         || supertypeParam != null;
   }
 
   private boolean isEnumSubtype(EnumType subtype, JSType supertype) {
-    return supertype.isEquivalentTo(registry.getNativeType(JSTypeNative.OBJECT_TYPE))
-        || subtype.isEquivalentTo(registry.getNativeType(JSTypeNative.OBJECT_PROTOTYPE))
+    return supertype.equals(registry.getNativeType(JSTypeNative.OBJECT_TYPE))
+        || subtype.equals(registry.getNativeType(JSTypeNative.OBJECT_PROTOTYPE))
         || this.isSubtypeHelper(subtype, supertype);
   }
 
@@ -453,11 +518,10 @@ final class SubtypeChecker {
     // TODO(b/136298690): stop creating such a 'meet' and remove this logic.
     // ** start hack **
     if (supertype.isEnumElementType()
-        && JSType.areIdentical(
-            subtype.getEnumType(), supertype.toMaybeEnumElementType().getEnumType())) {
+        && identical(subtype.getEnumType(), supertype.toMaybeEnumElementType().getEnumType())) {
       // This can happen if, e.g., we have the 'meet' of enum elements Foo<number> and Bar<number>,
       // which is Foo<Bar<number>>; and are comparing it to Foo<number>.
-      return this.isSubtypeOuter(
+      return this.isSubtypeCaching(
           subtype.getPrimitiveType(), supertype.toMaybeEnumElementType().getPrimitiveType());
     }
     // ** end hack **
@@ -465,12 +529,19 @@ final class SubtypeChecker {
     if (this.isSubtypeHelper(subtype, supertype)) {
       return true;
     } else {
-      return this.isSubtypeOuter(subtype.getPrimitiveType(), supertype);
+      return this.isSubtypeCaching(subtype.getPrimitiveType(), supertype);
     }
   }
 
   private boolean isProxyObjectSubtype(ProxyObjectType subtype, JSType supertype) {
-    return this.isSubtypeOuter(subtype.getReferencedTypeInternal(), supertype);
+    /**
+     * Don't check the cache here.
+     *
+     * <p>If we do, we get false positives for recursion because proxy types are equal to their
+     * referenced types. Fortunately, we can leverage this guarantee of equlity to just check
+     * subtyping directly on the referenced type.
+     */
+    return this.isSubtypeDispatching(subtype.getReferencedTypeInternal(), supertype);
   }
 
   private boolean isTemplateSubtype(TemplateType subtype, JSType supertype) {
@@ -484,25 +555,60 @@ final class SubtypeChecker {
     }
   }
 
-  private boolean isRecordSubtype(RecordType subtype, JSType supertype) {
-    if (this.isSubtypeHelper(subtype, supertype)) {
+  private boolean isTypeMapSubmap(ObjectType subtype, ObjectType supertype) {
+    if (subtype.isFunctionPrototypeType()) {
+      // TODO(b/145609962): Prototype types never have template type maps, so the result is
+      // predetermined. We assume true for legacy reasons.
+      // TODO(b/145610392): It's unclear what the correct result should be.
       return true;
     }
 
-    // Top of the record types is the empty record, or OBJECT_TYPE.
-    if (this.isSubtypeOuter(registry.getNativeObjectType(JSTypeNative.OBJECT_TYPE), supertype)) {
-      return true;
+    TemplateTypeMap submap = subtype.getTemplateTypeMap();
+    TemplateTypeMap supermap = supertype.getTemplateTypeMap();
+
+    /**
+     * We only need to iterate the keys of the supermap.
+     *
+     * <p>A submap may have additional entries not present in the supermap, so long as it also has
+     * all supermap entries.
+     */
+    for (TemplateType key : supermap.getTemplateKeys()) {
+      int keyCount = submap.getTemplateKeyCountThisShouldAlwaysBeOneOrZeroButIsnt(key);
+      if (keyCount == 0) {
+        if (subtype.loosenTypecheckingDueToForwardReferencedSupertype()) {
+          // TODO(b/145145406): Delete this case.
+          continue;
+        }
+        return false;
+      } else if (keyCount > 1) {
+        // TOOD(b/139230800): Delete this case.
+        continue;
+      }
+
+      JSType subvalue = submap.getResolvedTemplateType(key);
+      JSType supervalue = supermap.getResolvedTemplateType(key);
+      if (!this.meetVarianceConstraint(Variance.INVARIANT, subvalue, supervalue)) {
+        return false;
+      }
     }
 
-    // A type is a subtype of a record type if it itself is a record
-    // type and it has at least the same members as the parent record type
-    // with the same types.
-    if (!supertype.isRecordType()) {
-      return false;
-    }
+    return true;
+  }
 
-    return this.isStructuralSubtypeHelper(
-        subtype, supertype.toMaybeRecordType(), PropertyOptionality.ALL_PROPS_ARE_REQUIRED);
+  private boolean meetVarianceConstraint(Variance variance, JSType override, JSType reference) {
+    switch (variance) {
+      case COVARIANT:
+        return this.isSubtypeCaching(override, reference);
+      case CONTRAVARIANT:
+        return this.isSubtypeCaching(reference, override);
+      case BIVARIANT:
+        return this.meetVarianceConstraint(Variance.COVARIANT, reference, override)
+            || this.meetVarianceConstraint(Variance.CONTRAVARIANT, reference, override);
+      case INVARIANT:
+        return this.meetVarianceConstraint(Variance.COVARIANT, reference, override)
+            && this.meetVarianceConstraint(Variance.CONTRAVARIANT, reference, override);
+    }
+    throw new AssertionError();
   }
 
   /**
@@ -578,8 +684,8 @@ final class SubtypeChecker {
     return hackTemporarilyChangeSubtypingMode(
         SubtypingMode.NORMAL,
         () ->
-            this.isSubtypeOuter(supertype.getTypeOfThis(), subtype.getTypeOfThis())
-                || this.isSubtypeOuter(subtype.getTypeOfThis(), supertype.getTypeOfThis()));
+            this.isSubtypeCaching(supertype.getTypeOfThis(), subtype.getTypeOfThis())
+                || this.isSubtypeCaching(subtype.getTypeOfThis(), supertype.getTypeOfThis()));
   }
 
   private boolean hackTemporarilyChangeSubtypingMode(
@@ -612,32 +718,14 @@ final class SubtypeChecker {
     }
   }
 
-  private boolean updateStructuralSubtypeCache(
-      JSType subType, JSType superType, MatchStatus isMatch) {
-    this.structuralSubtypeCache.put(new CacheKey(subType, superType), isMatch);
-    return isMatch.subtypeValue();
+  private enum Variance {
+    COVARIANT,
+    CONTRAVARIANT,
+    BIVARIANT,
+    INVARIANT;
   }
 
-  private MatchStatus checkStructuralSubtypeCache(JSType subType, JSType superType) {
-    if (this.structuralSubtypeCache == null) {
-      this.structuralSubtypeCache = new HashMap<>();
-    }
-
-    // check the cache
-    return this.structuralSubtypeCache.putIfAbsent(
-        new CacheKey(subType, superType), MatchStatus.PROCESSING);
-  }
-
-  private boolean cachingEquals(JSType left, JSType right) {
-    if (this.eqCache == null) {
-      this.eqCache =
-          this.isUsingStructuralTyping ? EqCache.create() : EqCache.createWithoutStructuralTyping();
-    }
-
-    return left.checkEquivalenceHelper(right, EquivalenceMethod.IDENTITY, eqCache);
-  }
-
-  private final class CacheKey {
+  private static final class CacheKey {
     final JSType left;
     final JSType right;
     final int hashCode; // Cache this calculation because it is made often.
@@ -648,22 +736,24 @@ final class SubtypeChecker {
     }
 
     @Override
-    @SuppressWarnings({"ReferenceEquality", "EqualsBrokenForNull", "EqualsUnsafeCast"})
+    @SuppressWarnings({"EqualsBrokenForNull", "EqualsUnsafeCast"})
     public boolean equals(Object other) {
       // Calling this with `null` or not a `Key` should never happen, so it's fine to crash.
       CacheKey that = (CacheKey) other;
-      if (this.left == that.left && this.right == that.right) {
+      if (identical(this.left, that.left) && identical(this.right, that.right)) {
         return true;
       }
 
-      // The vast majority of cases will have already returned by now, since equality isn't even
-      // checked unless the hash code matches, and in most cases there's only one instance of any
-      // equivalent JSType floating around. The remainder only occurs for cyclic (or otherwise
-      // complicated) data structures where equivalent types are being synthesized by recursive
-      // application of type parameters, or (even more rarely) for hash collisions. Identity is
-      // insufficient in the case of recursive parameterized types because new equivalent copies
-      // of the type are generated on-the-fly to compute the types of various properties.
-      return cachingEquals(this.left, that.left) && cachingEquals(this.right, that.right);
+      /**
+       * The vast majority of cases will have already returned by now, since equality isn't even
+       * checked unless the hash code matches, and in most cases there's only one instance of any
+       * equivalent JSType floating around. The remainder only occurs for cyclic (or otherwise
+       * complicated) data structures where equivalent types are being synthesized by recursive
+       * application of type parameters, or (even more rarely) for hash collisions. Identity is
+       * insufficient in the case of recursive parameterized types because new equivalent copies of
+       * the type are generated on-the-fly to compute the types of various properties.
+       */
+      return Objects.equals(this.left, that.left) && Objects.equals(this.right, that.right);
     }
 
     CacheKey(JSType left, JSType right) {

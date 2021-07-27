@@ -25,17 +25,13 @@ import com.google.javascript.rhino.InputId;
 import com.google.javascript.rhino.Node;
 
 /**
- * An implementation of {@link SourceAst} that avoids re-creating the AST
- * unless it was manually cleared.  This creates a single defensive copy of the
- * AST; however, it is not safe for multiple compilations to use this
- * simultaneously, as all compilations mutate this.  Since this class copies
- * the tree, you instead should create a central RecoverableJsAst that does the
- * caching across compilations, and create new RecoverableJsAst's that act as
- * copying proxies around the original.
+ * An implementation of {@link SourceAst} that avoids re-creating the AST unless it was manually
+ * cleared. This creates a single defensive copy of the AST; however, it is not safe for multiple
+ * compilations to use this simultaneously, as all compilations mutate this. Since this class copies
+ * the tree, you instead should create a central RecoverableJsAst that does the caching across
+ * compilations, and create new RecoverableJsAst's that act as copying proxies around the original.
  */
 public class RecoverableJsAst implements SourceAst {
-
-  private static final long serialVersionUID = 1L;
 
   // The AST copy that will be kept around.
   private Node root = null;
@@ -45,10 +41,7 @@ public class RecoverableJsAst implements SourceAst {
 
   private final boolean reportParseErrors;
 
-  /**
-   * Wraps around an existing SourceAst that provides caching between
-   * compilations.
-   */
+  /** Wraps around an existing SourceAst that provides caching between compilations. */
   public RecoverableJsAst(SourceAst realSource, boolean reportParseErrors) {
     checkNotNull(realSource);
     this.realSource = realSource;
@@ -101,12 +94,5 @@ public class RecoverableJsAst implements SourceAst {
     synchronized (realSource) {
       return realSource.getSourceFile();
     }
-  }
-
-  @Override
-  public void setSourceFile(SourceFile file) {
-    // Explicitly forbid this operation through this interface; this
-    // RecoverableJsAst is a proxy view only.
-    throw new UnsupportedOperationException();
   }
 }

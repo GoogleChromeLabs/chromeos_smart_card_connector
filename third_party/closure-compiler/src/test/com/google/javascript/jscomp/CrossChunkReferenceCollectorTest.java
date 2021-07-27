@@ -17,7 +17,6 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.javascript.jscomp.CompilerOptions.LanguageMode.ECMASCRIPT_NEXT;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
 import com.google.common.collect.ImmutableList;
@@ -40,7 +39,6 @@ public final class CrossChunkReferenceCollectorTest extends CompilerTestCase {
   public void setUp() throws Exception {
     super.setUp();
     enableNormalize();
-    setLanguage(ECMASCRIPT_NEXT, ECMASCRIPT_NEXT);
   }
 
   @Override
@@ -156,6 +154,19 @@ public final class CrossChunkReferenceCollectorTest extends CompilerTestCase {
     assertNode(xRefs.references.get(0).getBasicBlock().getRoot()).hasType(Token.ROOT);
     assertNode(xRefs.references.get(1).getBasicBlock().getRoot()).hasType(Token.ROOT);
     assertNode(xRefs.references.get(2).getBasicBlock().getRoot()).hasType(Token.CASE);
+  }
+
+  @Test
+  public void nullishCoalesce() {
+    testSame("var x = 0; var y = x ?? (x = 1)");
+    ImmutableMap<String, Var> globalVariableNamesMap = testedCollector.getGlobalVariableNamesMap();
+    Var xVar = globalVariableNamesMap.get("x");
+    assertThat(globalVariableNamesMap).containsKey("x");
+    ReferenceCollection xRefs = testedCollector.getReferences(xVar);
+    assertThat(xRefs.references).hasSize(3);
+    assertNode(xRefs.references.get(0).getBasicBlock().getRoot()).hasType(Token.ROOT);
+    assertNode(xRefs.references.get(1).getBasicBlock().getRoot()).hasType(Token.ROOT);
+    assertNode(xRefs.references.get(2).getBasicBlock().getRoot()).hasType(Token.ASSIGN);
   }
 
   @Test
@@ -463,6 +474,36 @@ public final class CrossChunkReferenceCollectorTest extends CompilerTestCase {
   @Test
   public void testTemplateLiteralIsImmovableIfSubstitutionsAreImmovable() {
     assertStatementIsImmovable("var t = `${unknownValue}`");
+  }
+
+  @Test
+  public void testPureOrBreakMyCodeAnnotatedStringConcatIsMovable() {
+    testSame(lines("/** @pureOrBreakMyCode */", "var t = 'a' + 'b';"));
+    assertThat(testedCollector.getTopLevelStatements().get(0).isMovableDeclaration()).isTrue();
+  }
+
+  @Test
+  public void testPureOrBreakMyCodeAnnotatedFunctionCallIsMovable() {
+    testSame(lines("/** @pureOrBreakMyCode */", "var t = someFn();"));
+    assertThat(testedCollector.getTopLevelStatements().get(0).isMovableDeclaration()).isTrue();
+  }
+
+  @Test
+  public void testPureOrBreakMyCodeAnnotatedStaticClassPropertyInitializerIsMovable() {
+    testSame(
+        lines("class SomeClass {}", "SomeClass.staticProp = /** @pureOrBreakMyCode */ someFn();"));
+    assertThat(testedCollector.getTopLevelStatements().get(0).isMovableDeclaration()).isTrue();
+    assertThat(testedCollector.getTopLevelStatements().get(1).isMovableDeclaration()).isTrue();
+  }
+
+  @Test
+  public void testPureOrBreakMyCodeAnnotatedStaticClassPropertyInitializerIsMovable2() {
+    testSame(
+        lines(
+            "class SomeClass {}",
+            "SomeClass.staticProp = /** @pureOrBreakMyCode */ { prop: someFn() ? 'a' : 'b' };"));
+    assertThat(testedCollector.getTopLevelStatements().get(0).isMovableDeclaration()).isTrue();
+    assertThat(testedCollector.getTopLevelStatements().get(1).isMovableDeclaration()).isTrue();
   }
 
   //  try to find cases to copy from CrossChunkCodeMotion

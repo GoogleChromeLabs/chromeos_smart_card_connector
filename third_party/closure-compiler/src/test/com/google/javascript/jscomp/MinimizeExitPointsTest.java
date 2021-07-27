@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -31,13 +30,6 @@ public final class MinimizeExitPointsTest extends CompilerTestCase {
     super.setUp();
 
     disableScriptFeatureValidation();
-  }
-
-  @Override
-  protected CompilerOptions getOptions() {
-    CompilerOptions options = super.getOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_2018);
-    return options;
   }
 
   @Override
@@ -148,6 +140,23 @@ public final class MinimizeExitPointsTest extends CompilerTestCase {
          "function f(){g:if(a()){}else{}}");
     fold("function f(){try{g:if(a()){throw 9;} return;}finally{return}}",
          "function f(){try{g:if(a()){throw 9;}}finally{return}}");
+  }
+
+  @Test
+  public void testFunctionReturnScoped() {
+    testSame(
+        lines(
+            "function f(a) {",
+            "  if (a) {",
+            "    const a = Math.random();",
+            "",
+            "    if (a < 0.5) {",
+            "        return a;",
+            "    }",
+            "  }",
+            "",
+            "  return a;",
+            "}"));
   }
 
   @Test
@@ -313,7 +322,6 @@ public final class MinimizeExitPointsTest extends CompilerTestCase {
 
   @Test
   public void testCodeMotionDoesntBreakFunctionHoisting() {
-    setAcceptedLanguage(CompilerOptions.LanguageMode.ECMASCRIPT_2015);
     fold("function f() { if (x) return; foo(); function foo() {} }",
          "function f() { if (x); else { function foo() {} foo(); } }");
   }

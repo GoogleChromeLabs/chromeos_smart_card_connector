@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,16 +34,14 @@ public final class StrictModeCheckTest extends CompilerTestCase {
   public void setUp() throws Exception {
     super.setUp();
     enableTypeCheck();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2017);
   }
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new StrictModeCheck(compiler);
+    return new StrictModeCheck(compiler, CheckLevel.WARNING);
   }
 
   private void testSameEs6Strict(String js) {
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2015);
     testSame(js);
   }
 
@@ -227,14 +224,10 @@ public final class StrictModeCheckTest extends CompilerTestCase {
     testSame("var o = {a: 1, b: 2, c: 3};");
     testSame("var x = { get a() {}, set a(p) {} };");
 
-    testError("var o = {a: 1, b: 2, a: 3};",
-        StrictModeCheck.DUPLICATE_OBJECT_KEY);
-    testError("var x = { get a() {}, get a() {} };",
-         StrictModeCheck.DUPLICATE_OBJECT_KEY);
-    testError("var x = { get a() {}, a: 1 };",
-         StrictModeCheck.DUPLICATE_OBJECT_KEY);
-    testError("var x = { set a(p) {}, a: 1 };",
-         StrictModeCheck.DUPLICATE_OBJECT_KEY);
+    testWarning("var o = {a: 1, b: 2, a: 3};", StrictModeCheck.DUPLICATE_MEMBER);
+    testWarning("var x = { get a() {}, get a() {} };", StrictModeCheck.DUPLICATE_MEMBER);
+    testWarning("var x = { get a() {}, a: 1 };", StrictModeCheck.DUPLICATE_MEMBER);
+    testWarning("var x = { set a(p) {}, a: 1 };", StrictModeCheck.DUPLICATE_MEMBER);
 
     testSame(
         lines(
@@ -247,9 +240,9 @@ public final class StrictModeCheckTest extends CompilerTestCase {
 
     disableTypeCheck();
 
-    testError("var x = {a: 2, a(){}}", StrictModeCheck.DUPLICATE_OBJECT_KEY);
-    testError("var x = {a, a(){}}", StrictModeCheck.DUPLICATE_OBJECT_KEY);
-    testError("var x = {a(){}, a(){}}", StrictModeCheck.DUPLICATE_OBJECT_KEY);
+    testWarning("var x = {a: 2, a(){}}", StrictModeCheck.DUPLICATE_MEMBER);
+    testWarning("var x = {a, a(){}}", StrictModeCheck.DUPLICATE_MEMBER);
+    testWarning("var x = {a(){}, a(){}}", StrictModeCheck.DUPLICATE_MEMBER);
   }
 
   @Test
@@ -282,13 +275,9 @@ public final class StrictModeCheckTest extends CompilerTestCase {
             "}"));
 
     // Duplicate class methods test
-    testError(
-        lines(
-            "class A {",
-            "  method1() {}",
-            "  method1() {}",
-            "}"),
-        StrictModeCheck.DUPLICATE_CLASS_METHODS);
+    testWarning(
+        lines("class A {", "  method1() {}", "  method1() {}", "}"),
+        StrictModeCheck.DUPLICATE_MEMBER);
 
     // Function declaration / call test.
     // The two following tests should have reported FUNCTION_CALLER_FORBIDDEN and
@@ -306,12 +295,9 @@ public final class StrictModeCheckTest extends CompilerTestCase {
             "}"));
 
     // Duplicate obj literal key in classes
-    testError(lines(
-        "class A {",
-        "  method() {",
-        "    var obj = {a : 1, a : 2}",
-        "  }",
-        "}"), StrictModeCheck.DUPLICATE_OBJECT_KEY);
+    testWarning(
+        lines("class A {", "  method() {", "    var obj = {a : 1, a : 2}", "  }", "}"),
+        StrictModeCheck.DUPLICATE_MEMBER);
 
     // Delete test. Class methods are configurable, thus deletable.
     testSame(lines(
@@ -321,7 +307,7 @@ public final class StrictModeCheckTest extends CompilerTestCase {
         "}"));
 
     // Use of with test
-    testError(
+    testWarning(
         lines(
             "class A {",
             "  constructor() {this.x = 1;}",
@@ -332,40 +318,26 @@ public final class StrictModeCheckTest extends CompilerTestCase {
         StrictModeCheck.USE_OF_WITH);
 
     // Eval errors test
-    testError(lines(
-        "class A {",
-        "  method(eval) {}",
-        "}"), StrictModeCheck.EVAL_DECLARATION);
-    testError(lines(
-        "class A {",
-        "  method() {var eval = 1;}",
-        "}"), StrictModeCheck.EVAL_DECLARATION);
-    testError(lines(
-        "class A {",
-        "  method() {eval = 1}",
-        "}"), StrictModeCheck.EVAL_ASSIGNMENT);
+    testWarning(lines("class A {", "  method(eval) {}", "}"), StrictModeCheck.EVAL_DECLARATION);
+    testWarning(
+        lines("class A {", "  method() {var eval = 1;}", "}"), StrictModeCheck.EVAL_DECLARATION);
+    testWarning(lines("class A {", "  method() {eval = 1}", "}"), StrictModeCheck.EVAL_ASSIGNMENT);
 
     // Use of 'arguments'
-    testError(lines(
-        "class A {",
-        "  method(arguments) {}",
-        "}"), StrictModeCheck.ARGUMENTS_DECLARATION);
-    testError(lines(
-        "class A {",
-        "  method() {var arguments = 1;}",
-        "}"), StrictModeCheck.ARGUMENTS_DECLARATION);
-    testError(lines(
-        "class A {",
-        "  method() {arguments = 1}",
-        "}"), StrictModeCheck.ARGUMENTS_ASSIGNMENT);
-    testError(lines(
-        "class A {",
-        "  method() {arguments.callee}",
-        "}"), StrictModeCheck.ARGUMENTS_CALLEE_FORBIDDEN);
-    testError(lines(
-        "class A {",
-        "  method() {arguments.caller}",
-        "}"), StrictModeCheck.ARGUMENTS_CALLER_FORBIDDEN);
+    testWarning(
+        lines("class A {", "  method(arguments) {}", "}"), StrictModeCheck.ARGUMENTS_DECLARATION);
+    testWarning(
+        lines("class A {", "  method() {var arguments = 1;}", "}"),
+        StrictModeCheck.ARGUMENTS_DECLARATION);
+    testWarning(
+        lines("class A {", "  method() {arguments = 1}", "}"),
+        StrictModeCheck.ARGUMENTS_ASSIGNMENT);
+    testWarning(
+        lines("class A {", "  method() {arguments.callee}", "}"),
+        StrictModeCheck.ARGUMENTS_CALLEE_FORBIDDEN);
+    testWarning(
+        lines("class A {", "  method() {arguments.caller}", "}"),
+        StrictModeCheck.ARGUMENTS_CALLER_FORBIDDEN);
   }
 
   @Test
@@ -420,16 +392,7 @@ public final class StrictModeCheckTest extends CompilerTestCase {
   public void testClassWithEmptyMembers() {
     disableTypeCheck();
 
-    testError("class Foo { dup() {}; dup() {}; }", StrictModeCheck.DUPLICATE_CLASS_METHODS);
-  }
-
-  /**
-   * If the LanguageMode is ES2015 or higher, strict mode violations are automatically upgraded to
-   * errors, so set it to ES5 to get a warning.
-   */
-  @Override
-  public void testWarning(String js, DiagnosticType warning) {
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT5);
+    testWarning("class Foo { dup() {}; dup() {}; }", StrictModeCheck.DUPLICATE_MEMBER);
   }
 
   private static String inFn(String body) {

@@ -19,7 +19,6 @@ package com.google.javascript.jscomp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.common.collect.ImmutableList;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -29,7 +28,6 @@ import org.junit.runners.JUnit4;
  * {@link RenameProperties} tests.
  *
  */
-
 @RunWith(JUnit4.class)
 public final class RenamePropertiesTest extends CompilerTestCase {
 
@@ -81,6 +79,19 @@ public final class RenamePropertiesTest extends CompilerTestCase {
   }
 
   @Test
+  public void testPrototypeProperties_optChain() {
+    test(
+        lines(
+            "Bar.prototype.getA = function(){}; bar?.getA();",
+            "Bar.prototype.getB = function(){};",
+            "Bar.prototype.getC = function(){};"),
+        lines(
+            "Bar.prototype.a = function(){}; bar?.a();",
+            "Bar.prototype.b = function(){};",
+            "Bar.prototype.c = function(){}"));
+  }
+
+  @Test
   public void testExportedByConventionPrototypeProperties() {
     test("Bar.prototype.getA = function(){}; bar.getA();" +
          "Bar.prototype.getBExported = function(){}; bar.getBExported()",
@@ -112,12 +123,18 @@ public final class RenamePropertiesTest extends CompilerTestCase {
 
     test("Bar.prototype = {set getA(x){}}; bar.getA;",
          "Bar.prototype = {set a(x){}}; bar.a;");
+
+    test("Bar.prototype = {set getA(x){}}; bar?.getA;", "Bar.prototype = {set a(x){}}; bar?.a;");
   }
 
   @Test
   public void testMixedQuotedAndUnquotedObjLitKeys1() {
     test("Bar = {getA: function(){}, 'getB': function(){}}; bar.getA();",
          "Bar = {a: function(){}, 'getB': function(){}}; bar.a();");
+
+    test(
+        "Bar = {getA: function(){}, 'getB': function(){}}; bar?.getA();",
+        "Bar = {a: function(){}, 'getB': function(){}}; bar?.a();");
   }
 
   @Test
@@ -129,6 +146,7 @@ public final class RenamePropertiesTest extends CompilerTestCase {
   @Test
   public void testQuotedPrototypeProperty() {
     testSame("Bar.prototype['getA'] = function(){}; bar['getA']();");
+    testSame("Bar.prototype['getA'] = function(){}; bar?.['getA']();");
   }
 
   @Test
@@ -141,6 +159,10 @@ public final class RenamePropertiesTest extends CompilerTestCase {
   public void testRenamePropertiesWithLeadingUnderscores() {
     test("Bar.prototype = {_getA: function(){}, _b: 0}; bar._getA();",
          "Bar.prototype = {a: function(){}, b: 0}; bar.a();");
+
+    test(
+        "Bar.prototype = {_getA: function(){}, _b: 0}; bar?._getA();",
+        "Bar.prototype = {a: function(){}, b: 0}; bar?.a();");
   }
 
   @Test
@@ -176,6 +198,8 @@ public final class RenamePropertiesTest extends CompilerTestCase {
   public void testReadPropertyOfThis() {
     test("f(this.prop);",
          "f(this.a);");
+
+    test("f(this?.prop);", "f(this?.a);");
   }
 
   @Test
@@ -190,6 +214,10 @@ public final class RenamePropertiesTest extends CompilerTestCase {
          " foo.prop2Exported; }",
          "function x() { var foo = {a: 'bar', prop2Exported: 'baz'};" +
          " foo.prop2Exported; }");
+
+    test(
+        "function x() { var foo = {prop1: 'bar', prop2Exported: 'baz'};foo?.prop2Exported; }",
+        "function x() { var foo = {a: 'bar', prop2Exported: 'baz'}; foo?.prop2Exported; }");
   }
 
   @Test
@@ -239,6 +267,11 @@ public final class RenamePropertiesTest extends CompilerTestCase {
   public void testRenamePropertiesFunctionCall1() {
     test("var foo = {myProp: 0}; f(foo[JSCompiler_renameProperty('myProp')]);",
          "var foo = {a: 0}; f(foo['a']);");
+    // JSCompiler does not handle optional calls to `JSCompiler_renameProperty`. The
+    // OPTCHAIN_GETELEM is handled consistently with regular GETELEM.
+    test(
+        "var foo = {myProp: 0}; f(foo?.[JSCompiler_renameProperty('myProp')]);",
+        "var foo = {a: 0}; f(foo?.['a']);");
   }
 
   @Test
@@ -284,16 +317,16 @@ public final class RenamePropertiesTest extends CompilerTestCase {
         "function Car(){} Car.prototype.getC=function(z){};"
             + "var noo;noo.getC(noo);noo.zoo=noo;noo.cloo=noo;";
 
-    JSModule module1 = new JSModule("m1");
+    JSChunk module1 = new JSChunk("m1");
     module1.add(SourceFile.fromCode("input1", module1Js));
 
-    JSModule module2 = new JSModule("m2");
+    JSChunk module2 = new JSChunk("m2");
     module2.add(SourceFile.fromCode("input2", module2Js));
 
-    JSModule module3 = new JSModule("m3");
+    JSChunk module3 = new JSChunk("m3");
     module3.add(SourceFile.fromCode("input3", module3Js));
 
-    JSModule[] modules = new JSModule[] { module1, module2, module3 };
+    JSChunk[] modules = new JSChunk[] {module1, module2, module3};
     Compiler compiler = compileModules("", modules);
 
     Result result = compiler.getResult();
@@ -687,7 +720,6 @@ public final class RenamePropertiesTest extends CompilerTestCase {
   @Test
   public void testObjectMethodProperty() {
     // ES5 version
-    setLanguage(LanguageMode.ECMASCRIPT3, LanguageMode.ECMASCRIPT3);
     test(
         lines(
             "var foo = { ",
@@ -708,7 +740,6 @@ public final class RenamePropertiesTest extends CompilerTestCase {
         );
 
     //ES6 version
-    setLanguage(LanguageMode.ECMASCRIPT_2015, LanguageMode.ECMASCRIPT_2015);
     test(
         lines(
             "var foo = { ",
@@ -729,7 +760,7 @@ public final class RenamePropertiesTest extends CompilerTestCase {
         );
   }
 
-  private Compiler compileModules(String externs, JSModule[] modules) {
+  private Compiler compileModules(String externs, JSChunk[] modules) {
     SourceFile externsInput = SourceFile.fromCode("externs", externs);
 
     CompilerOptions options = new CompilerOptions();

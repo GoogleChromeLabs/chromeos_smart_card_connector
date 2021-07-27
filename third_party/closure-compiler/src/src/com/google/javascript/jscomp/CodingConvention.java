@@ -16,6 +16,7 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
@@ -109,9 +110,18 @@ public interface CodingConvention extends Serializable {
   public boolean isExported(String name, boolean local);
 
   /**
-   * Should be isExported(name, true) || isExported(name, false);
+   * Equivalent to `isExported(name, true) || isExported(name, false);`
+   *
+   * <p>Should only be used to check if a property is exported. Variables should always use {@link
+   * #isExported(String, boolean)}, as in most cases local variables should not be treated as
+   * exported.
+   *
+   * <p>Do not override! Unfortunately, that cannot be enforced without making this an abstract
+   * class.
    */
-  public boolean isExported(String name);
+  default boolean isExported(String name) {
+    return isExported(name, true) || isExported(name, false);
+  }
 
   /**
    * Check whether the property name is eligible for renaming.
@@ -130,23 +140,6 @@ public interface CodingConvention extends Serializable {
    *     no package name is known.
    */
   public String getPackageName(StaticSourceFile source);
-
-  /**
-   * Checks whether a name should be considered private. Private global
-   * variables and functions can only be referenced within the source file in
-   * which they are declared. Private properties and methods should only be
-   * accessed by the class that defines them.
-   *
-   * @param name The name of a global variable or function, or a method or
-   *     property.
-   * @return {@code true} if the name should be considered private.
-   */
-  public boolean isPrivate(String name);
-
-  /**
-   * Whether this CodingConvention includes a convention for what private names should look like.
-   */
-  public boolean hasPrivacyConvention();
 
   /**
    * Checks if the given method defines a subclass relationship,
@@ -291,16 +284,6 @@ public interface CodingConvention extends Serializable {
       Map<String, String> delegateCallingConventions);
 
   /**
-   * Gets the name of the global object.
-   */
-  public String getGlobalObject();
-
-  /**
-   * Whether this statement is creating an alias of the global object
-   */
-  public boolean isAliasingGlobalThis(Node n);
-
-  /**
    * A Bind instance or null.
    */
   public Bind describeFunctionBind(Node n);
@@ -308,25 +291,18 @@ public interface CodingConvention extends Serializable {
   /**
    * A Bind instance or null.
    *
-   * When seeing an expression exp1.bind(recv, arg1, ...);
-   * we only know that it's a function bind if exp1 has type function.
-   * W/out type info, exp1 has certainly a function type only if it's a
+   * <p>When seeing an expression exp1.bind(recv, arg1, ...); we only know that it's a function bind
+   * if exp1 has type function. W/out type info, exp1 has certainly a function type only if it's a
    * function literal.
    *
-   * If (the old) type checking has already happened, exp1's type is attached to
-   * the AST node.
-   * When iCheckTypes is true, describeFunctionBind looks for that type.
+   * <p>If type checking has already happened, exp1's type is attached to the AST node. When
+   * iCheckTypes is true, describeFunctionBind looks for that type.
    *
-   * The new type inference does not yet attach types to nodes, but we can still
-   * use type information in describeFunctionBind by passing true for
-   * callerChecksTypes.
-   *
-   * @param callerChecksTypes Trust that the caller of this method has verified
-   *        that the bound node has a function type.
+   * @param callerChecksTypes Trust that the caller of this method has verified that the bound node
+   *     has a function type.
    * @param iCheckTypes Check that the bound node has a function type.
    */
-  public Bind describeFunctionBind(
-      Node n, boolean callerChecksTypes, boolean iCheckTypes);
+  public Bind describeFunctionBind(Node n, boolean callerChecksTypes, boolean iCheckTypes);
 
   /** Bind class */
   public static class Bind {
@@ -448,13 +424,15 @@ public interface CodingConvention extends Serializable {
    * optional code derived from the delegate class in the base code.
    */
   static class DelegateRelationship {
-    /** The subclass in the base code. */
-    final String delegateBase;
+    /** The subclass in the base code. Must be a qualified name. */
+    final Node delegateBase;
 
-    /** The class in the base code. */
-    final String delegator;
+    /** The class in the base code. Must be a qualified name. */
+    final Node delegator;
 
-    DelegateRelationship(String delegateBase, String delegator) {
+    DelegateRelationship(Node delegateBase, Node delegator) {
+      checkArgument(delegateBase.isQualifiedName(), delegateBase);
+      checkArgument(delegator.isQualifiedName(), delegator);
       this.delegateBase = delegateBase;
       this.delegator = delegator;
     }
@@ -506,7 +484,7 @@ public interface CodingConvention extends Serializable {
     abstract int getParamIndex(); // the index of the formal parameter that is actually asserted
 
     public enum AssertionKind {
-      TRUTHY, // an assertion that the parameter is 'truthy'
+      TRUTHY, // an assertion that the parameter is 'truthy' and returns the parameter
       MATCHES_RETURN_TYPE // an assertion that the parameter matches the inferred return kind
     }
 
@@ -581,9 +559,7 @@ public interface CodingConvention extends Serializable {
      */
     static AssertionFunctionLookup of(Collection<AssertionFunctionSpec> specs) {
       ImmutableMap<Object, AssertionFunctionSpec> idToSpecMap =
-          specs.stream()
-              .collect(
-                  ImmutableMap.toImmutableMap(AssertionFunctionSpec::getId, Function.identity()));
+          specs.stream().collect(toImmutableMap(AssertionFunctionSpec::getId, Function.identity()));
 
       return new AssertionFunctionLookup(idToSpecMap);
     }

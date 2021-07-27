@@ -47,11 +47,17 @@ import com.google.javascript.rhino.ErrorReporter;
 abstract class ValueType extends JSType {
   ValueType(JSTypeRegistry registry) {
     super(registry);
+    this.eagerlyResolveToSelf();
   }
 
   @Override
   final JSType resolveInternal(ErrorReporter reporter) {
-    return this;
+    throw new AssertionError();
+  }
+
+  @Override
+  final void appendTo(TypeStringBuilder sb) {
+    sb.append(this.getDisplayName());
   }
 
   // Subclasses must override and return non-null.

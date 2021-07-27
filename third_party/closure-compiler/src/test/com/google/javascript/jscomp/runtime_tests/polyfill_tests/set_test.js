@@ -64,7 +64,7 @@ testSuite({
 
   testAdd_normalizeZero() {
     // Note: +0 and -0 are the same
-    const set = new Set().add(-0);
+    const /** !Set<number> */ set = new Set().add(-0);
     assertTrue(set.has(0));
     assertTrue(set.has(-0));
     // stored value should be +0
@@ -87,26 +87,6 @@ testSuite({
     assertTrue(set.has(NaN + 1));
     assertTrue(set.delete(NaN));
     assertFalse(set.has(NaN));
-  },
-
-  testAdd_sealedObjects() {
-    // NOTE: IE8 doesn't support Object.seal.
-    if (userAgent.IE && !userAgent.isVersionOrHigher(9)) return;
-    const key1 = Object.preventExtensions({});
-    const key2 = Object.seal({});
-    const key3 = Object.freeze({});
-
-    const set = new Set();
-    checkAddHas(set, key1);
-    checkAddHas(set, key2);
-    checkAddHas(set, key3);
-
-    assertEquals(3, set.size);
-    assertTrue(set.delete(key1));
-    assertFalse(set.delete(key1));
-    assertTrue(set.delete(key2));
-    assertTrue(set.delete(key3));
-    assertEquals(0, set.size);
   },
 
   testKeyIdNotEnumerable() {
@@ -164,7 +144,7 @@ testSuite({
   },
 
   testConstructor_normalizeZero() {
-    const set = new Set([-0]);
+    const /** !Set<number> */ set = new Set([-0]);
     assertEquals(Infinity, 1 / set.keys().next().value);
     assertEquals(Infinity, 1 / set.entries().next().value[0]);
     set.forEach(

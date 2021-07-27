@@ -22,6 +22,7 @@ import static com.google.javascript.rhino.testing.TypeSubject.assertType;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.Es6RewriteDestructuring.ObjectDestructuringRewriteMode;
+import com.google.javascript.jscomp.testing.NoninjectingCompiler;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
@@ -81,7 +82,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
             "var $jscomp$destructuring$var0 = foo();",
             "var b = $jscomp$destructuring$var0.a;",
             "var d = $jscomp$destructuring$var0.c;"));
-    assertThat(((NoninjectingCompiler) getLastCompiler()).injected).isEmpty();
+    assertThat(((NoninjectingCompiler) getLastCompiler()).getInjected()).isEmpty();
 
     test(
         "var {a,b} = foo();",
@@ -1667,7 +1668,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     // `$jscomp$destructuring$var0` has the same type as `obj`
     assertThat(
             getAllNodesMatchingQName(jsRoot, "$jscomp$destructuring$var0").stream()
-                .map(node -> node.getJSType())
+                .map(Node::getJSType)
                 .collect(Collectors.toSet()))
         .containsExactly(objType);
   }
@@ -1746,7 +1747,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     if (root.matchesQualifiedName(qname)) {
       nodesSoFar.add(root);
     }
-    for (Node child : root.children()) {
+    for (Node child = root.getFirstChild(); child != null; child = child.getNext()) {
       addAllNodesMatchingQNameHelper(child, qname, nodesSoFar);
     }
   }
@@ -1756,7 +1757,7 @@ public class Es6RewriteDestructuringTest extends CompilerTestCase {
     if (root.matchesQualifiedName(qname)) {
       return root;
     }
-    for (Node child : root.children()) {
+    for (Node child = root.getFirstChild(); child != null; child = child.getNext()) {
       Node result = getNodeMatchingQName(child, qname);
       if (result != null) {
         return result;

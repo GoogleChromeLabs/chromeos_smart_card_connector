@@ -20,11 +20,13 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.annotations.GwtIncompatible;
 import com.google.common.base.Ascii;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -33,8 +35,8 @@ import javax.annotation.Nullable;
 /**
  * A representation of a translatable message in JavaScript source code.
  *
- * <p>Instances are created using a {@link JsMessage.Builder},
- * like this:
+ * <p>Instances are created using a {@link JsMessage.Builder}, like this:
+ *
  * <pre>
  * JsMessage m = new JsMessage.Builder(key)
  *     .appendPart("Hi ")
@@ -44,27 +46,37 @@ import javax.annotation.Nullable;
  *     .build();
  * </pre>
  */
-public final class JsMessage {
+@AutoValue
+public abstract class JsMessage {
+
+  private static final String PH_JS_PREFIX = "{$";
+  private static final String PH_JS_SUFFIX = "}";
 
   /**
-   * Message style that could be used for JS code parsing.
-   * The enum order is from most relaxed to most restricted.
+   * Thrown when parsing a message string into parts fails because of a misformatted place holder.
+   */
+  public static final class PlaceholderFormatException extends Exception {
+
+    public PlaceholderFormatException() {}
+  }
+
+  /**
+   * Message style that could be used for JS code parsing. The enum order is from most relaxed to
+   * most restricted.
    */
   public enum Style {
     LEGACY, // All legacy code is completely OK
-    RELAX,  // You allowed to use legacy code but it would be reported as warn
+    RELAX, // You allowed to use legacy code but it would be reported as warn
     CLOSURE; // Any legacy code is prohibited
 
     /**
      * Calculates current messages {@link Style} based on the given arguments.
      *
      * @param useClosure if true then use closure style, otherwise not
-     * @param allowLegacyMessages if true then allow legacy messages otherwise
-     *        not
+     * @param allowLegacyMessages if true then allow legacy messages otherwise not
      * @return the message style based on the given arguments
      */
-    static Style getFromParams(boolean useClosure,
-        boolean allowLegacyMessages) {
+    static Style getFromParams(boolean useClosure, boolean allowLegacyMessages) {
       if (useClosure) {
         return allowLegacyMessages ? RELAX : CLOSURE;
       } else {
@@ -75,128 +87,77 @@ public final class JsMessage {
 
   private static final String MESSAGE_REPRESENTATION_FORMAT = "{$%s}";
 
-  private final String key;
-  private final String id;
-  private final List<CharSequence> parts;
-  private final Set<String> placeholders;
-  private final String desc;
-  private final boolean hidden;
-  private final String meaning;
+  /** Gets the message's sourceName. */
+  @Nullable
+  public abstract String getSourceName();
 
-  private final String sourceName;
-  private final boolean isAnonymous;
-  private final boolean isExternal;
+  /** Gets the message's key, or name (e.g. {@code "MSG_HELLO"}). */
+  public abstract String getKey();
+
+  public abstract boolean isAnonymous();
+
+  public abstract boolean isExternal();
+
+  /** Gets the message's id, or name (e.g. {@code "92430284230902938293"}). */
+  public abstract String getId();
 
   /**
-   * Creates an instance. Client code should use a {@link JsMessage.Builder}.
+   * Gets a read-only list of the parts of this message. Each part is either a {@link String} or a
+   * {@link PlaceholderReference}.
+   */
+  public abstract ImmutableList<CharSequence> getParts();
+
+  /**
+   * Gets the message's alternate ID (e.g. {@code "92430284230902938293"}), if available. This will
+   * be used if a translation for `id` is not available.
+   */
+  @Nullable
+  public abstract String getAlternateId();
+
+  /**
+   * Gets the description associated with this message, intended to help translators, or null if
+   * this message has no description.
+   */
+  @Nullable
+  public abstract String getDesc();
+
+  /** Gets the meaning annotated to the message, intended to force different translations. */
+  @Nullable
+  public abstract String getMeaning();
+
+  /**
+   * Gets whether this message should be hidden from volunteer translators (to reduce the chances of
+   * a new feature leak).
+   */
+  public abstract boolean isHidden();
+
+  /**
+   * Gets a list of the parts of this message. Each part is either a {@link String} or a {@link
+   * PlaceholderReference}.
    *
-   * @param key a key that should identify this message in sources; typically
-   *     it is the message's name (e.g. {@code "MSG_HELLO"}).
-   * @param id an id that *uniquely* identifies the message in the bundle.
-   *     It could be either the message name or id generated from the message
-   *     content.
-   * @param meaning The user-specified meaning of the message. May be null if
-   *     the user did not specify an explicit meaning.
+   * @deprecated use {@link #getParts()}} instead
    */
-  private JsMessage(String sourceName, String key,
-      boolean isAnonymous, boolean isExternal,
-      String id, List<CharSequence> parts, Set<String> placeholders,
-      String desc, boolean hidden, String meaning) {
-
-    checkState(key != null);
-    checkState(id != null);
-
-    this.key = key;
-    this.id = id;
-    this.parts = Collections.unmodifiableList(parts);
-    this.placeholders = Collections.unmodifiableSet(placeholders);
-    this.desc = desc;
-    this.hidden = hidden;
-    this.meaning = meaning;
-
-    this.sourceName = sourceName;
-    this.isAnonymous = isAnonymous;
-    this.isExternal = isExternal;
+  @Deprecated
+  public final ImmutableList<CharSequence> parts() {
+    return getParts();
   }
 
-  /**
-   * Gets the message's sourceName.
-   */
-  public String getSourceName() {
-    return sourceName;
-  }
+  /** Gets a set of the registered placeholders in this message. */
+  public abstract ImmutableSet<String> placeholders();
 
-  /**
-   * Gets the message's key, or name (e.g. {@code "MSG_HELLO"}).
-   */
-  public String getKey() {
-    return key;
-  }
-
-  public boolean isAnonymous() {
-    return isAnonymous;
-  }
-
-  public boolean isExternal() {
-    return isExternal;
-  }
-
-  /**
-   * Gets the message's id, or name (e.g. {@code "92430284230902938293"}).
-   */
-  public String getId() {
-    return id;
-  }
-
-  /**
-   * Gets the description associated with this message, intended to help
-   * translators, or null if this message has no description.
-   */
-  public String getDesc() {
-    return desc;
-  }
-
-  /**
-   * Gets the meaning annotated to the message, intended to force different
-   * translations.
-   */
-  public String getMeaning() {
-    return meaning;
-  }
-
-  /**
-   * Gets whether this message should be hidden from volunteer translators (to
-   * reduce the chances of a new feature leak).
-   */
-  public boolean isHidden() {
-    return hidden;
-  }
-
-  /**
-   * Gets a read-only list of the parts of this message. Each part is either a
-   * {@link String} or a {@link PlaceholderReference}.
-   */
-  public List<CharSequence> parts() {
-    return parts;
-  }
-
-  /** Gets a read-only set of the registered placeholders in this message. */
-  public Set<String> placeholders() {
-    return placeholders;
-  }
-
+  /** Returns a String containing the original message text. */
   @Override
-  public String toString() {
+  public final String toString() {
     StringBuilder sb = new StringBuilder();
-    for (CharSequence p : parts) {
+    for (CharSequence p : getParts()) {
       sb.append(p.toString());
     }
     return sb.toString();
   }
 
   /** @return false iff the message is represented by empty string. */
-  public boolean isEmpty() {
-    for (CharSequence part : parts) {
+  public final boolean isEmpty() {
+    for (CharSequence part : getParts()) {
       if (part.length() > 0) {
         return false;
       }
@@ -205,102 +166,51 @@ public final class JsMessage {
     return true;
   }
 
-  @Override
-  public boolean equals(Object o) {
-    if (o == this) {
-      return true;
-    }
-    if (!(o instanceof JsMessage)) {
-      return false;
-    }
-    JsMessage m = (JsMessage) o;
-    return id.equals(m.id) &&
-           key.equals(m.key) &&
-           isAnonymous == m.isAnonymous &&
-           parts.equals(m.parts) &&
-           (meaning == null ? m.meaning == null : meaning.equals(m.meaning)) &&
-           placeholders.equals(m.placeholders) &&
-           (desc == null ? m.desc == null : desc.equals(m.desc)) &&
-           (sourceName == null
-               ? m.sourceName == null
-               : sourceName.equals(m.sourceName)) &&
-           hidden == m.hidden;
-  }
-
-  @Override
-  public int hashCode() {
-    int hash = key.hashCode();
-    hash = 31 * hash + (isAnonymous ? 1 : 0);
-    hash = 31 * hash + id.hashCode();
-    hash = 31 * hash + parts.hashCode();
-    hash = 31 * hash + (desc != null ? desc.hashCode() : 0);
-    hash = 31 * hash + (hidden ? 1 : 0);
-    hash = 31 * hash + (sourceName != null ? sourceName.hashCode() : 0);
-    return hash;
-  }
-
   /** A reference to a placeholder in a translatable message. */
-  public static class PlaceholderReference implements CharSequence {
+  @AutoValue
+  public abstract static class PlaceholderReference implements CharSequence {
 
-    private final String name;
-
-    PlaceholderReference(String name) {
-      this.name = name;
+    static PlaceholderReference create(String name) {
+      return new AutoValue_JsMessage_PlaceholderReference(name);
     }
 
     @Override
     public int length() {
-      return name.length();
+      return getName().length();
     }
 
     @Override
     public char charAt(int index) {
-      return name.charAt(index);
+      return getName().charAt(index);
     }
 
     @Override
     public CharSequence subSequence(int start, int end) {
-      return name.subSequence(start, end);
+      return getName().subSequence(start, end);
     }
 
-    public String getName() {
-      return name;
-    }
+    public abstract String getName();
 
     @Override
-    public String toString() {
-      return SimpleFormat.format(MESSAGE_REPRESENTATION_FORMAT, name);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      return o == this
-          || (o instanceof PlaceholderReference && name.equals(((PlaceholderReference) o).name));
-    }
-
-    @Override
-    public int hashCode() {
-      return 31 * name.hashCode();
+    public final String toString() {
+      return SimpleFormat.format(MESSAGE_REPRESENTATION_FORMAT, getName());
     }
   }
 
   /**
-   * Contains functionality for creating JS messages. Generates authoritative
-   * keys and fingerprints for a message that must stay constant over time.
+   * Contains functionality for creating JS messages. Generates authoritative keys and fingerprints
+   * for a message that must stay constant over time.
    *
-   * This implementation correctly processes unnamed messages and creates a key
-   * for them that looks like {@code MSG_<fingerprint value>};.
+   * <p>This implementation correctly processes unnamed messages and creates a key for them that
+   * looks like {@code MSG_<fingerprint value>};.
    */
   @GwtIncompatible("java.util.regex")
-  public static class Builder {
+  public static final class Builder {
 
     // Allow arbitrary suffixes to allow for local variable disambiguation.
     private static final String MSG_EXTERNAL_PREFIX = "MSG_EXTERNAL_";
 
-    /**
-     * @return an external message id or null if this is not an
-     * external message identifier
-     */
+    /** @return an external message id or null if this is not an external message identifier */
     private static String getExternalMessageId(String identifier) {
       if (identifier.startsWith(MSG_EXTERNAL_PREFIX)) {
         int start = MSG_EXTERNAL_PREFIX.length();
@@ -325,6 +235,8 @@ public final class JsMessage {
     private String desc;
     private boolean hidden;
 
+    private String alternateId;
+
     private final List<CharSequence> parts = new ArrayList<>();
     private final Set<String> placeholders = new HashSet<>();
 
@@ -345,28 +257,63 @@ public final class JsMessage {
     }
 
     /**
-     * @param key a key that should uniquely identify this message; typically
-     *     it is the message's name (e.g. {@code "MSG_HELLO"}).
+     * @param key a key that should uniquely identify this message; typically it is the message's
+     *     name (e.g. {@code "MSG_HELLO"}).
      */
     public Builder setKey(String key) {
       this.key = key;
       return this;
     }
 
-    /**
-     * @param sourceName The message's sourceName.
-     */
+    /** @param sourceName The message's sourceName. */
     public Builder setSourceName(String sourceName) {
       this.sourceName = sourceName;
       return this;
     }
 
-    /**
-     * Appends a placeholder reference to the message
-     */
+    public Builder setMsgText(String msgText) throws PlaceholderFormatException {
+      checkState(this.parts.isEmpty(), "cannot parse msg text after adding parts");
+      parseMsgTextIntoParts(msgText);
+      return this;
+    }
+
+    private void parseMsgTextIntoParts(String msgText) throws PlaceholderFormatException {
+      while (true) {
+        int phBegin = msgText.indexOf(PH_JS_PREFIX);
+        if (phBegin < 0) {
+          // Just a string literal
+          appendStringPart(msgText);
+          return;
+        } else {
+          if (phBegin > 0) {
+            // A string literal followed by a placeholder
+            appendStringPart(msgText.substring(0, phBegin));
+          }
+
+          // A placeholder. Find where it ends
+          int phEnd = msgText.indexOf(PH_JS_SUFFIX, phBegin);
+          if (phEnd < 0) {
+            throw new PlaceholderFormatException();
+          }
+
+          String phName = msgText.substring(phBegin + PH_JS_PREFIX.length(), phEnd);
+          appendPlaceholderReference(phName);
+          int nextPos = phEnd + PH_JS_SUFFIX.length();
+          if (nextPos < msgText.length()) {
+            // Iterate on the rest of the message value
+            msgText = msgText.substring(nextPos);
+          } else {
+            // The message is parsed
+            return;
+          }
+        }
+      }
+    }
+
+    /** Appends a placeholder reference to the message */
     public Builder appendPlaceholderReference(String name) {
       checkNotNull(name, "Placeholder name could not be null");
-      parts.add(new PlaceholderReference(name));
+      parts.add(PlaceholderReference.create(name));
       placeholders.add(name);
       return this;
     }
@@ -390,11 +337,17 @@ public final class JsMessage {
     }
 
     /**
-     * Sets the programmer-specified meaning of this message, which
-     * forces this message to translate differently.
+     * Sets the programmer-specified meaning of this message, which forces this message to translate
+     * differently.
      */
     public Builder setMeaning(String meaning) {
       this.meaning = meaning;
+      return this;
+    }
+
+    /** Sets the alternate message ID, to be used if the primary ID is not yet translated. */
+    public Builder setAlternateId(String alternateId) {
+      this.alternateId = alternateId;
       return this;
     }
 
@@ -439,17 +392,31 @@ public final class JsMessage {
 
       if (!isExternal) {
         String defactoMeaning = meaning != null ? meaning : key;
-        id = idGenerator == null ? defactoMeaning :
-            idGenerator.generateId(defactoMeaning, parts);
+        id = idGenerator == null ? defactoMeaning : idGenerator.generateId(defactoMeaning, parts);
       }
 
-      return new JsMessage(sourceName, key, isAnonymous, isExternal, id, parts,
-          placeholders, desc, hidden, meaning);
+      // An alternate ID that points to itself is a no-op, so just omit it.
+      if ((alternateId != null) && alternateId.equals(id)) {
+        alternateId = null;
+      }
+
+      return new AutoValue_JsMessage(
+          sourceName,
+          key,
+          isAnonymous,
+          isExternal,
+          id,
+          ImmutableList.copyOf(parts),
+          alternateId,
+          desc,
+          meaning,
+          hidden,
+          ImmutableSet.copyOf(placeholders));
     }
 
     /**
-     * Generates a compact uppercase alphanumeric text representation of a
-     * 63-bit fingerprint of the content parts of a message.
+     * Generates a compact uppercase alphanumeric text representation of a 63-bit fingerprint of the
+     * content parts of a message.
      */
     private static String fingerprint(List<CharSequence> messageParts) {
       StringBuilder sb = new StringBuilder();
@@ -468,23 +435,20 @@ public final class JsMessage {
   /**
    * This class contains routines for hashing.
    *
-   * <p>The hash takes a byte array representing arbitrary data (a
-   * number, String, or Object) and turns it into a small, hopefully
-   * unique, number. There are additional convenience functions which
-   * hash int, long, and String types.
+   * <p>The hash takes a byte array representing arbitrary data (a number, String, or Object) and
+   * turns it into a small, hopefully unique, number. There are additional convenience functions
+   * which hash int, long, and String types.
    *
-   * <p><b>Note</b>: this hash has weaknesses in the two
-   * most-significant key bits and in the three least-significant seed
-   * bits. The weaknesses are small and practically speaking, will not
-   * affect the distribution of hash values. Still, it would be good
-   * practice not to choose seeds 0, 1, 2, 3, ..., n to yield n,
-   * independent hash functions. Use pseudo-random seeds instead.
+   * <p><b>Note</b>: this hash has weaknesses in the two most-significant key bits and in the three
+   * least-significant seed bits. The weaknesses are small and practically speaking, will not affect
+   * the distribution of hash values. Still, it would be good practice not to choose seeds 0, 1, 2,
+   * 3, ..., n to yield n, independent hash functions. Use pseudo-random seeds instead.
    *
-   * <p>This code is based on the work of Craig Silverstein and Sanjay
-   * Ghemawat in, then forked from com.google.common.
+   * <p>This code is based on the work of Craig Silverstein and Sanjay Ghemawat in, then forked from
+   * com.google.common.
    *
-   * <p>The original code for the hash function is courtesy
-   * <a href="http://burtleburtle.net/bob/hash/evahash.html">Bob Jenkins</a>.
+   * <p>The original code for the hash function is courtesy <a
+   * href="http://burtleburtle.net/bob/hash/evahash.html">Bob Jenkins</a>.
    *
    * <p>TODO(anatol): Add stream hashing functionality.
    */
@@ -492,21 +456,17 @@ public final class JsMessage {
     private Hash() {}
 
     /** Default hash seed (64 bit) */
-    private static final long SEED64 =
-        0x2b992ddfa23249d6L; // part of pi, arbitrary
+    private static final long SEED64 = 0x2b992ddfa23249d6L; // part of pi, arbitrary
 
     /** Hash constant (64 bit) */
-    private static final long CONSTANT64 =
-        0xe08c1d668b756f82L; // part of golden ratio, arbitrary
-
+    private static final long CONSTANT64 = 0xe08c1d668b756f82L; // part of golden ratio, arbitrary
 
     /******************
      * STRING HASHING *
      ******************/
 
     /**
-     * Hash a string to a 64 bit value. The digits of pi are used for
-     * the hash seed.
+     * Hash a string to a 64 bit value. The digits of pi are used for the hash seed.
      *
      * @param value the string to hash
      * @return 64 bit hash value
@@ -544,16 +504,13 @@ public final class JsMessage {
      * Hash byte array to a 64 bit value using the supplied seed.
      *
      * @param value the bytes to hash
-     * @param offset the starting position of value where bytes are
-     * used for the hash computation
-     * @param length number of bytes of value that are used for the
-     * hash computation
+     * @param offset the starting position of value where bytes are used for the hash computation
+     * @param length number of bytes of value that are used for the hash computation
      * @param seed the seed
      * @return 64 bit hash value
      */
     @SuppressWarnings("fallthrough")
-    private static long hash64(
-        byte[] value, int offset, int length, long seed) {
+    private static long hash64(byte[] value, int offset, int length, long seed) {
       long a = CONSTANT64;
       long b = a;
       long c = seed;
@@ -565,18 +522,42 @@ public final class JsMessage {
         c += word64At(value, offset + 16);
 
         // Mix
-        a -= b; a -= c; a ^= c >>> 43;
-        b -= c; b -= a; b ^= a << 9;
-        c -= a; c -= b; c ^= b >>> 8;
-        a -= b; a -= c; a ^= c >>> 38;
-        b -= c; b -= a; b ^= a << 23;
-        c -= a; c -= b; c ^= b >>> 5;
-        a -= b; a -= c; a ^= c >>> 35;
-        b -= c; b -= a; b ^= a << 49;
-        c -= a; c -= b; c ^= b >>> 11;
-        a -= b; a -= c; a ^= c >>> 12;
-        b -= c; b -= a; b ^= a << 18;
-        c -= a; c -= b; c ^= b >>> 22;
+        a -= b;
+        a -= c;
+        a ^= c >>> 43;
+        b -= c;
+        b -= a;
+        b ^= a << 9;
+        c -= a;
+        c -= b;
+        c ^= b >>> 8;
+        a -= b;
+        a -= c;
+        a ^= c >>> 38;
+        b -= c;
+        b -= a;
+        b ^= a << 23;
+        c -= a;
+        c -= b;
+        c ^= b >>> 5;
+        a -= b;
+        a -= c;
+        a ^= c >>> 35;
+        b -= c;
+        b -= a;
+        b ^= a << 49;
+        c -= a;
+        c -= b;
+        c ^= b >>> 11;
+        a -= b;
+        a -= c;
+        a ^= c >>> 12;
+        b -= c;
+        b -= a;
+        b ^= a << 18;
+        c -= a;
+        c -= b;
+        c ^= b >>> 22;
       }
 
       c += length;
@@ -670,22 +651,44 @@ public final class JsMessage {
           + ((bytes[offset + 7] & 0xffL) << 56);
     }
 
-    /**
-     * Mixes longs a, b, and c, and returns the final value of c.
-     */
+    /** Mixes longs a, b, and c, and returns the final value of c. */
     private static long mix64(long a, long b, long c) {
-      a -= b; a -= c; a ^= c >>> 43;
-      b -= c; b -= a; b ^= a << 9;
-      c -= a; c -= b; c ^= b >>> 8;
-      a -= b; a -= c; a ^= c >>> 38;
-      b -= c; b -= a; b ^= a << 23;
-      c -= a; c -= b; c ^= b >>> 5;
-      a -= b; a -= c; a ^= c >>> 35;
-      b -= c; b -= a; b ^= a << 49;
-      c -= a; c -= b; c ^= b >>> 11;
-      a -= b; a -= c; a ^= c >>> 12;
-      b -= c; b -= a; b ^= a << 18;
-      c -= a; c -= b; c ^= b >>> 22;
+      a -= b;
+      a -= c;
+      a ^= c >>> 43;
+      b -= c;
+      b -= a;
+      b ^= a << 9;
+      c -= a;
+      c -= b;
+      c ^= b >>> 8;
+      a -= b;
+      a -= c;
+      a ^= c >>> 38;
+      b -= c;
+      b -= a;
+      b ^= a << 23;
+      c -= a;
+      c -= b;
+      c ^= b >>> 5;
+      a -= b;
+      a -= c;
+      a ^= c >>> 35;
+      b -= c;
+      b -= a;
+      b ^= a << 49;
+      c -= a;
+      c -= b;
+      c ^= b >>> 11;
+      a -= b;
+      a -= c;
+      a ^= c >>> 12;
+      b -= c;
+      b -= a;
+      b ^= a << 18;
+      c -= a;
+      c -= b;
+      c ^= b >>> 22;
       return c;
     }
   }
@@ -693,16 +696,13 @@ public final class JsMessage {
   /** ID generator */
   public interface IdGenerator {
     /**
-     * Generate the ID for the message. Messages with the same messageParts
-     * and meaning will get the same id. Messages with the same id
-     * will get the same translation.
+     * Generate the ID for the message. Messages with the same messageParts and meaning will get the
+     * same id. Messages with the same id will get the same translation.
      *
-     * @param meaning The programmer-specified meaning. If no {@code @meaning}
-     *     annotation appears, we will use the name of the variable it's
-     *     assigned to. If the variable is unnamed, then we will just
-     *     use a fingerprint of the message.
-     * @param messageParts The parts of the message, including the main
-     *     message text.
+     * @param meaning The programmer-specified meaning. If no {@code @meaning} annotation appears,
+     *     we will use the name of the variable it's assigned to. If the variable is unnamed, then
+     *     we will just use a fingerprint of the message.
+     * @param messageParts The parts of the message, including the main message text.
      */
     String generateId(String meaning, List<CharSequence> messageParts);
   }

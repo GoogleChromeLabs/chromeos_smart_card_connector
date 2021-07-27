@@ -22,7 +22,8 @@ import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.NodeUtil.Visitor;
-import com.google.javascript.jscomp.parsing.parser.FeatureSet;
+import com.google.javascript.jscomp.testing.NoninjectingCompiler;
+import com.google.javascript.jscomp.testing.TestExternsBuilder;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.jstype.FunctionType;
 import com.google.javascript.rhino.jstype.JSType;
@@ -36,11 +37,13 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class RewriteAsyncFunctionsTest extends CompilerTestCase {
 
+  boolean rewriteSuperPropertyReferencesWithoutSuper;
+
   @Override
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_NEXT);
+    rewriteSuperPropertyReferencesWithoutSuper = false;
     setLanguageOut(LanguageMode.ECMASCRIPT3);
     enableTypeCheck();
     enableTypeInfoValidation();
@@ -49,8 +52,7 @@ public class RewriteAsyncFunctionsTest extends CompilerTestCase {
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
     return new RewriteAsyncFunctions.Builder(compiler)
-        .rewriteSuperPropertyReferencesWithoutSuper(
-            !compiler.getOptions().needsTranspilationFrom(FeatureSet.ES6))
+        .rewriteSuperPropertyReferencesWithoutSuper(rewriteSuperPropertyReferencesWithoutSuper)
         .build();
   }
 
@@ -103,7 +105,8 @@ public class RewriteAsyncFunctionsTest extends CompilerTestCase {
    * last compile.
    */
   private CodeSubTree findClassDefinition(String wantedClassName) {
-    return new CodeSubTree(getLastCompiler().getJsRoot()).findClassDefinition(wantedClassName);
+    return new CodeSubTree(getLastCompiler().getRoot().getSecondChild())
+        .findClassDefinition(wantedClassName);
   }
 
   /** Return a list of all Nodes matching the given predicate starting at the given root. */
@@ -432,7 +435,7 @@ public class RewriteAsyncFunctionsTest extends CompilerTestCase {
 
   @Test
   public void testInnerSuperCallEs2015Out() {
-    setLanguageOut(LanguageMode.ECMASCRIPT_2015);
+    rewriteSuperPropertyReferencesWithoutSuper = true;
     test(
         lines(
             "class A {",
@@ -499,8 +502,42 @@ public class RewriteAsyncFunctionsTest extends CompilerTestCase {
   }
 
   @Test
+  public void testMultipleSuperAccessesInAsyncFunction_havingNonIdenticalUnknownTypes() {
+    test(
+        lines(
+            "class UpdatingElement {",
+            "  getUpdateComplete() {",
+            "  }",
+            "}",
+            "",
+            "class TextFieldBase extends UpdatingElement {",
+            "  async _getUpdateComplete() {",
+            "    if (super.getUpdateComplete) {", // `?` type
+            "      await super.getUpdateComplete();", // `??` type
+            "    }",
+            "  }",
+            "}"),
+        lines(
+            "class UpdatingElement {",
+            "  getUpdateComplete() {",
+            "  }",
+            "}",
+            "class TextFieldBase extends UpdatingElement {",
+            "  _getUpdateComplete() {",
+            "    const $jscomp$async$this = this;",
+            "    const $jscomp$async$super$get$getUpdateComplete = () => super.getUpdateComplete;",
+            "    return $jscomp.asyncExecutePromiseGeneratorFunction(function*() {",
+            "      if ($jscomp$async$super$get$getUpdateComplete()) {",
+            "        yield $jscomp$async$super$get$getUpdateComplete().call($jscomp$async$this);",
+            "      }",
+            "    });",
+            "  }",
+            "}"));
+  }
+
+  @Test
   public void testInnerSuperCallStaticEs2015Out() {
-    setLanguageOut(LanguageMode.ECMASCRIPT_2015);
+    rewriteSuperPropertyReferencesWithoutSuper = true;
     test(
         lines(
             "class A {",
@@ -676,43 +713,6 @@ public class RewriteAsyncFunctionsTest extends CompilerTestCase {
             "          return yield promise;",
             "        });",
             "}"));
-  }
-
-  @Test
-  public void testAsyncFunctionInExterns() {
-    testExternChanges(
-        lines(
-            "/**",
-            " * @param {!Promise<?>} promise",
-            " * @return {?}",
-            " */",
-            "async function foo(promise) {}"),
-        "",
-        lines(
-            "/**",
-            " * @param {!Promise<?>} promise",
-            " * @return {?}",
-            " */",
-            "function foo(promise) {}"));
-  }
-
-  @Test
-  public void testAsyncFunctionInExternsWithNonemptyBody() {
-    testExternChanges(
-        lines(
-            "/**",
-            " * @param {!Promise<?>} promise",
-            " * @return {?}",
-            " */",
-            // TODO(b/119685646): Maybe we should report an error for non-empty function in externs?
-            "async function foo(promise) { return await promise; }"),
-        "",
-        lines(
-            "/**",
-            " * @param {!Promise<?>} promise",
-            " * @return {?}",
-            " */",
-            "function foo(promise) {}"));
   }
 
   @Test

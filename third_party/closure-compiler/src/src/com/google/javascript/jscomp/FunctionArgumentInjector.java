@@ -43,10 +43,6 @@ class FunctionArgumentInjector {
 
   static final String REST_MARKER = "rest param";
 
-  static final String DEFAULT_MARKER = "Default Value";
-
-  static final String OBJECT_PATTERN_MARKER = "object pattern";
-
   private final AstAnalyzer astAnalyzer;
 
   FunctionArgumentInjector(AstAnalyzer astAnalyzer) {
@@ -80,7 +76,7 @@ class FunctionArgumentInjector {
         // The name may need to be replaced more than once,
         // so we need to clone the node.
         Node replacement = replacementTemplate.cloneTree();
-        parent.replaceChild(node, replacement);
+        node.replaceWith(replacement);
         return replacement;
       }
     } else if (replaceThis && node.isThis()) {
@@ -90,7 +86,7 @@ class FunctionArgumentInjector {
         // The name may need to be replaced more than once,
         // so we need to clone the node.
         Node replacement = replacementTemplate.cloneTree();
-        parent.replaceChild(node, replacement);
+        node.replaceWith(replacement);
 
         // Remove the value.  This isn't required but it ensures that we won't
         // inject side-effects multiple times as it will trigger the null
@@ -134,12 +130,14 @@ class FunctionArgumentInjector {
       argMap.put(THIS_MARKER, NodeUtil.newUndefinedNode(callNode));
     }
 
-    for (Node fnParam : NodeUtil.getFunctionParameters(fnNode).children()) {
+    for (Node fnParam = NodeUtil.getFunctionParameters(fnNode).getFirstChild();
+        fnParam != null;
+        fnParam = fnParam.getNext()) {
       if (cArg != null) {
         if (fnParam.isRest()) {
           checkState(fnParam.getOnlyChild().isName(), fnParam.getOnlyChild());
           Node array = IR.arraylit();
-          array.useSourceInfoIfMissingFromForTree(cArg);
+          array.srcrefTreeIfMissing(cArg);
           while (cArg != null) {
             array.addChildToBack(cArg.cloneTree());
             cArg = cArg.getNext();
@@ -216,7 +214,6 @@ class FunctionArgumentInjector {
    *   undefined=2
    *
    * @param n The node in question.
-   * @param parent The parent of the node.
    * @param names The set of names to check.
    * @param unsafe The set of names that require aliases.
    * @param inInnerFunction Whether the inspection is occurring on a inner function.
@@ -237,7 +234,7 @@ class FunctionArgumentInjector {
       inInnerFunction = true;
     }
 
-    for (Node c : n.children()) {
+    for (Node c = n.getFirstChild(); c != null; c = c.getNext()) {
       findModifiedParameters(c, names, unsafe, inInnerFunction);
     }
 
@@ -253,7 +250,6 @@ class FunctionArgumentInjector {
    *   function (x) {var x;}
    *
    * @param n The NAME node in question.
-   * @param parent The parent of the node.
    */
   private static boolean canNameValueChange(Node n) {
     return NodeUtil.isLValue(n)
@@ -344,7 +340,7 @@ class FunctionArgumentInjector {
           case THIS:
             safe = true;
             break;
-          case STRING:
+          case STRINGLIT:
             safe = (cArg.getString().length() < 2);
             break;
           default:
@@ -380,6 +376,10 @@ class FunctionArgumentInjector {
         case AND:
         case OR:
         case HOOK:
+        case COALESCE:
+        case OPTCHAIN_CALL:
+        case OPTCHAIN_GETELEM:
+        case OPTCHAIN_GETPROP:
           return true;
         default:
           break;
@@ -575,7 +575,9 @@ class FunctionArgumentInjector {
    */
   private static ImmutableSet<String> getFunctionParameterSet(Node fnNode) {
     ImmutableSet.Builder<String> builder = ImmutableSet.builder();
-    for (Node n : NodeUtil.getFunctionParameters(fnNode).children()) {
+    for (Node n = NodeUtil.getFunctionParameters(fnNode).getFirstChild();
+        n != null;
+        n = n.getNext()) {
       if (n.isRest()){
         builder.add(REST_MARKER);
       } else if (n.isDefaultValue() || n.isObjectPattern() || n.isArrayPattern()) {

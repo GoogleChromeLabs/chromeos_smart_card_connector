@@ -18,7 +18,6 @@ package com.google.javascript.jscomp.debugger.common;
 
 import static java.util.Comparator.comparing;
 
-import com.google.javascript.jscomp.AnonymousFunctionNamingPolicy;
 import com.google.javascript.jscomp.CheckLevel;
 import com.google.javascript.jscomp.CompilerOptions;
 import com.google.javascript.jscomp.CompilerOptions.PropertyCollapseLevel;
@@ -27,6 +26,7 @@ import com.google.javascript.jscomp.DiagnosticGroup;
 import com.google.javascript.jscomp.DiagnosticGroups;
 import com.google.javascript.jscomp.PropertyRenamingPolicy;
 import com.google.javascript.jscomp.VariableRenamingPolicy;
+import com.google.javascript.jscomp.parsing.Config;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -125,6 +125,27 @@ public enum CompilationParam {
     }
   },
 
+  /** Skip the RemoveTypes pass. May cause unexpected changes in optimization output */
+  PRESERVE_TYPES_FOR_DEBUGGING(ParamGroup.ERROR_CHECKING) {
+    @Override
+    public void apply(CompilerOptions options, boolean value) {
+      options.setShouldUnsafelyPreserveTypesForDebugging(value);
+    }
+
+    @Override
+    public String getJavaInfo() {
+      return diagGroupWarningInfo("options.setShouldUnsafelyPreserveTypesForDebugging(true);");
+    }
+  },
+
+  /** Run the module rewriting pass before the typechecking pass. */
+  REWRITE_MODULES_BEFORE_TYPECHECKING(true, ParamGroup.ERROR_CHECKING) {
+    @Override
+    public void apply(CompilerOptions options, boolean value) {
+      options.setBadRewriteModulesBeforeTypecheckingThatWeWantToGetRidOf(value);
+    }
+  },
+
   /** Checks visibility. */
   CHECK_CONSTANTS(ParamGroup.ERROR_CHECKING) {
     @Override
@@ -166,19 +187,6 @@ public enum CompilationParam {
     }
   },
 
-  /** Checks the integrity of references to qualified global names. (e.g. "a.b") */
-  CHECK_GLOBAL_NAMES(ParamGroup.ERROR_CHECKING) {
-    @Override
-    public void apply(CompilerOptions options, boolean value) {
-      options.setCheckGlobalNamesLevel(value ? CheckLevel.WARNING : CheckLevel.OFF);
-    }
-
-    @Override
-    public String getJavaInfo() {
-      return "options.setCheckGlobalNamesLevel(CheckLevel.WARNING)";
-    }
-  },
-
   /**
    * Checks for certain uses of the {@code this} keyword that are considered unsafe because they are
    * likely to reference the global {@code this} object unintentionally.
@@ -186,21 +194,21 @@ public enum CompilationParam {
   CHECK_GLOBAL_THIS(ParamGroup.ERROR_CHECKING) {
     @Override
     public void apply(CompilerOptions options, boolean value) {
-      options.setCheckGlobalThisLevel(value ? CheckLevel.WARNING : CheckLevel.OFF);
+      options.setWarningLevel(
+          DiagnosticGroups.GLOBAL_THIS, value ? CheckLevel.WARNING : CheckLevel.OFF);
     }
 
     @Override
     public String getJavaInfo() {
-      return "options.setCheckGlobalThisLevel(CheckLevel.WARNING)";
+      return diagGroupWarningInfo("GLOBAL_THIS");
     }
   },
 
   CHECK_LINT(ParamGroup.ERROR_CHECKING) {
     @Override
     public void apply(CompilerOptions options, boolean value) {
-      if (value) {
-        options.setWarningLevel(DiagnosticGroups.LINT_CHECKS, CheckLevel.WARNING);
-      }
+      options.setWarningLevel(
+          DiagnosticGroups.LINT_CHECKS, value ? CheckLevel.WARNING : CheckLevel.OFF);
     }
 
     @Override
@@ -635,6 +643,18 @@ public enum CompilationParam {
     }
   },
 
+  OPTIMIZE_CONSTRUCTORS(ParamGroup.OPTIMIZATION) {
+    @Override
+    public void apply(CompilerOptions options, boolean value) {
+      options.setOptimizeESClassConstructors(value);
+    }
+
+    @Override
+    public boolean isApplied(CompilerOptions options) {
+      return options.getOptimizeESClassConstructors();
+    }
+  },
+
   OPTIMIZE_ARGUMENTS_ARRAY(ParamGroup.OPTIMIZATION) {
     @Override
     public void apply(CompilerOptions options, boolean value) {
@@ -696,19 +716,6 @@ public enum CompilationParam {
     @Override
     public boolean isApplied(CompilerOptions options) {
       return options.removeUnusedPrototypeProperties;
-    }
-  },
-
-  /** Tells AnalyzePrototypeProperties it can remove externed props. */
-  REMOVE_UNUSED_PROTOTYPE_PROPERTIES_IN_EXTERNS(ParamGroup.OPTIMIZATION) {
-    @Override
-    public void apply(CompilerOptions options, boolean value) {
-      options.setRemoveUnusedPrototypePropertiesInExterns(value);
-    }
-
-    @Override
-    public boolean isApplied(CompilerOptions options) {
-      return options.removeUnusedPrototypePropertiesInExterns;
     }
   },
 
@@ -812,12 +819,12 @@ public enum CompilationParam {
   MOVE_FUNCTION_DECLARATIONS(ParamGroup.OPTIMIZATION) {
     @Override
     public void apply(CompilerOptions options, boolean value) {
-      options.setMoveFunctionDeclarations(value);
+      options.setRewriteGlobalDeclarationsForTryCatchWrapping(value);
     }
 
     @Override
     public boolean isApplied(CompilerOptions options) {
-      return options.moveFunctionDeclarations;
+      return options.rewriteGlobalDeclarationsForTryCatchWrapping;
     }
   },
 
@@ -917,51 +924,36 @@ public enum CompilationParam {
     }
   },
 
-  /** Give anonymous functions names for easier debugging */
-  NAME_ANONYMOUS_FUNCTIONS(ParamGroup.MISC) {
+  /** Attempt to continue compilation after halting errors. */
+  CONTINUE_AFTER_ERRORS(ParamGroup.MISC) {
     @Override
     public void apply(CompilerOptions options, boolean value) {
-      if (value) {
-        options.setAnonymousFunctionNaming(AnonymousFunctionNamingPolicy.UNMAPPED);
-      }
+      options.setContinueAfterErrors(value);
     }
+  },
 
+  /** Preserve non-semantic details from the original source. */
+  PRESERVE_DETAILED_SOURCE_INFO(ParamGroup.MISC) {
     @Override
-    public boolean isApplied(CompilerOptions options) {
-      return options.anonymousFunctionNaming == AnonymousFunctionNamingPolicy.UNMAPPED;
+    public void apply(CompilerOptions options, boolean value) {
+      options.setPreserveDetailedSourceInfo(value);
+    }
+  },
+
+  /** Preserve more non-type-related information from JSDoc. */
+  PRESERVE_FULL_JSDOC_DESCRIPTIONS(ParamGroup.MISC) {
+    @Override
+    public void apply(CompilerOptions options, boolean value) {
+      options.setParseJsDocDocumentation(
+          value
+              ? Config.JsDocParsing.INCLUDE_DESCRIPTIONS_NO_WHITESPACE
+              : Config.JsDocParsing.TYPES_ONLY);
     }
 
     @Override
     public String getJavaInfo() {
-      return "options.setAnonymousFunctionNaming(AnonymousFunctionNamingPolicy.UNMAPPED)";
-    }
-  },
-
-  /** Give anonymous functions mapped names for easier debugging */
-  NAME_ANONYMOUS_FUNCTIONS_MAPPED(ParamGroup.MISC) {
-    @Override
-    public void apply(CompilerOptions options, boolean value) {
-      if (value) {
-        options.setAnonymousFunctionNaming(AnonymousFunctionNamingPolicy.MAPPED);
-      }
-    }
-
-    @Override
-    public boolean isApplied(CompilerOptions options) {
-      return options.anonymousFunctionNaming == AnonymousFunctionNamingPolicy.MAPPED;
-    }
-
-    @Override
-    public String getJavaInfo() {
-      return "options.setAnonymousFunctionNaming(AnonymousFunctionNamingPolicy.MAPPED)";
-    }
-  },
-
-  /** Configures the compiler for use as an IDE backend. */
-  IDE_MODE(ParamGroup.MISC) {
-    @Override
-    public void apply(CompilerOptions options, boolean value) {
-      options.setIdeMode(value);
+      return "options.setParseJsDocDocumentation("
+          + "Config.JsDocParsing.INCLUDE_DESCRIPTIONS_NO_WHITESPACE);";
     }
   },
 

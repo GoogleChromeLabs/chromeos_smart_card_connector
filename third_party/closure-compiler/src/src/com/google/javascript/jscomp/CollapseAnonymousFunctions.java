@@ -85,8 +85,8 @@ class CollapseAnonymousFunctions extends AbstractPostOrderCallback implements Co
       Node fnName = value.getFirstChild();
       fnName.setString(name.getString());
       NodeUtil.copyNameAnnotations(name, fnName);
-      name.removeChild(value);
-      parent.replaceChild(n, value);
+      value.detach();
+      n.replaceWith(value);
 
       // Renormalize the code.
       if (!t.inGlobalScope() && NodeUtil.isHoistedFunctionDeclaration(value)) {
@@ -114,7 +114,7 @@ class CollapseAnonymousFunctions extends AbstractPostOrderCallback implements Co
       return true;
     }
 
-    for (Node child : n.children()) {
+    for (Node child = n.getFirstChild(); child != null; child = child.getNext()) {
       if (containsName(child, name)) {
         return true;
       }

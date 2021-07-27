@@ -19,6 +19,7 @@ package com.google.javascript.jscomp;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.javascript.jscomp.deps.ModuleLoader.LOAD_WARNING;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
@@ -43,10 +44,8 @@ public final class RenameVarsTest extends CompilerTestCase {
   private RenameVars renameVars;
   private boolean withClosurePass = false;
   private boolean localRenamingOnly = false;
-  private boolean preserveFunctionExpressionNames = false;
   private boolean useGoogleCodingConvention = true;
   private boolean generatePseudoNames = false;
-  private boolean shouldShadow = false;
   private boolean preferStableNames = false;
   private boolean withNormalize = false;
 
@@ -68,15 +67,31 @@ public final class RenameVarsTest extends CompilerTestCase {
     if (withClosurePass) {
       pass = new ClosurePassAndRenameVars(compiler);
     } else if (nameGenerator != null) {
-      pass =  renameVars = new RenameVars(compiler, prefix,
-          localRenamingOnly, preserveFunctionExpressionNames,
-          generatePseudoNames, shouldShadow, preferStableNames,
-          previouslyUsedMap, null, null, nameGenerator);
+      pass =
+          renameVars =
+              new RenameVars(
+                  compiler,
+                  prefix,
+                  localRenamingOnly,
+                  generatePseudoNames,
+                  preferStableNames,
+                  previouslyUsedMap,
+                  null,
+                  null,
+                  nameGenerator);
     } else {
-      pass =  renameVars = new RenameVars(compiler, prefix,
-          localRenamingOnly, preserveFunctionExpressionNames,
-          generatePseudoNames, shouldShadow, preferStableNames,
-          previouslyUsedMap, null, null, new DefaultNameGenerator());
+      pass =
+          renameVars =
+              new RenameVars(
+                  compiler,
+                  prefix,
+                  localRenamingOnly,
+                  generatePseudoNames,
+                  preferStableNames,
+                  previouslyUsedMap,
+                  null,
+                  null,
+                  new DefaultNameGenerator());
     }
 
     if (withNormalize) {
@@ -99,9 +114,7 @@ public final class RenameVarsTest extends CompilerTestCase {
     withClosurePass = false;
     withNormalize = false;
     localRenamingOnly = false;
-    preserveFunctionExpressionNames = false;
     generatePseudoNames = false;
-    shouldShadow = false;
     preferStableNames = false;
     nameGenerator = null;
   }
@@ -193,27 +206,6 @@ public final class RenameVarsTest extends CompilerTestCase {
          "var walk = function walk(a, b) {" +
          "  walk(a, b);" +
          "};");
-  }
-
-  @Test
-  public void testRecursiveFunctions2() {
-    preserveFunctionExpressionNames = true;
-
-    test("var walk = function walk(node, aFunction) {" +
-         "  walk(node, aFunction);" +
-         "};",
-         "var c = function walk(a, b) {" +
-         "  walk(a, b);" +
-         "};");
-
-    localRenamingOnly = true;
-
-    test("var walk = function walk(node, aFunction) {" +
-        "  walk(node, aFunction);" +
-        "};",
-        "var walk = function walk(a, b) {" +
-        "  walk(a, b);" +
-        "};");
   }
 
   @Test
@@ -944,6 +936,7 @@ public final class RenameVarsTest extends CompilerTestCase {
 
   @Test
   public void testImport1() {
+    ignoreWarnings(LOAD_WARNING);
     test("import name from './other.js'; use(name);", "import a from './other.js'; use(a);");
 
     test(
@@ -957,6 +950,7 @@ public final class RenameVarsTest extends CompilerTestCase {
 
   @Test
   public void testImport2() {
+    ignoreWarnings(LOAD_WARNING);
     withNormalize = true;
     test(
         "import {name} from './other.js'; use(name);",
@@ -1050,12 +1044,19 @@ public final class RenameVarsTest extends CompilerTestCase {
 
     @Override
     public void process(Node externs, Node root) {
-      ProcessClosurePrimitives closurePass = new ProcessClosurePrimitives(compiler, null);
+      ProcessClosurePrimitives closurePass = new ProcessClosurePrimitives(compiler);
       closurePass.process(externs, root);
-      renameVars = new RenameVars(compiler, prefix,
-          false, false, false, false, false, previouslyUsedMap, null,
-          closurePass.getExportedVariableNames(),
-          new DefaultNameGenerator());
+      renameVars =
+          new RenameVars(
+              compiler,
+              prefix,
+              false,
+              false,
+              false,
+              previouslyUsedMap,
+              null,
+              closurePass.getExportedVariableNames(),
+              new DefaultNameGenerator());
       renameVars.process(externs, root);
     }
   }

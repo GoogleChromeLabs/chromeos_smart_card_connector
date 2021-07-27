@@ -331,7 +331,7 @@ class FunctionToBlockMutator {
         String name = entry.getKey();
         if (namesToAlias.contains(name)) {
           if (name.equals(THIS_MARKER)) {
-            boolean referencesThis = NodeUtil.referencesThis(fnTemplateRoot);
+            boolean referencesThis = NodeUtil.referencesEnclosingReceiver(fnTemplateRoot);
             // Update "this", this is only necessary if "this" is referenced
             // and the value of "this" is not Token.THIS, or the value of "this"
             // has side effects.
@@ -341,17 +341,14 @@ class FunctionToBlockMutator {
                 && (referencesThis || compiler.getAstAnalyzer().mayHaveSideEffects(value))) {
               String newName = getUniqueThisName();
               Node newValue = entry.getValue().cloneTree();
-              Node newNode =
-                  NodeUtil.newVarNode(newName, newValue)
-                      .useSourceInfoIfMissingFromForTree(newValue);
+              Node newNode = NodeUtil.newVarNode(newName, newValue).srcrefTreeIfMissing(newValue);
               newVars.add(0, newNode);
               // Remove the parameter from the list to replace.
               newArgMap.put(THIS_MARKER, IR.name(newName).srcrefTree(newValue));
             }
           } else {
             Node newValue = entry.getValue().cloneTree();
-            Node newNode = NodeUtil.newVarNode(name, newValue)
-                .useSourceInfoIfMissingFromForTree(newValue);
+            Node newNode = NodeUtil.newVarNode(name, newValue).srcrefTreeIfMissing(newValue);
             newVars.add(0, newNode);
             // Remove the parameter from the list to replace.
             newArgMap.remove(name);
@@ -457,7 +454,7 @@ class FunctionToBlockMutator {
     Node srcLocation = node;
     Node retVal = NodeUtil.newUndefinedNode(srcLocation);
     Node resultNode = createAssignStatementNode(resultName, retVal);
-    resultNode.useSourceInfoIfMissingFromForTree(node);
+    resultNode.srcrefTreeIfMissing(node);
 
     node.addChildToBack(resultNode);
   }
@@ -477,10 +474,10 @@ class FunctionToBlockMutator {
     Node resultNode = getReplacementReturnStatement(ret, resultName);
 
     if (resultNode == null) {
-      block.removeChild(ret);
+      ret.detach();
     } else {
-      resultNode.useSourceInfoIfMissingFromForTree(ret);
-      block.replaceChild(ret, resultNode);
+      resultNode.srcrefTreeIfMissing(ret);
+      ret.replaceWith(resultNode);
     }
   }
 
@@ -565,11 +562,11 @@ class FunctionToBlockMutator {
       Node breakNode = IR.breakNode(IR.labelName(labelName));
 
       // Replace the node in parent, and reset current to the first new child.
-      breakNode.useSourceInfoIfMissingFromForTree(current);
-      parent.replaceChild(current, breakNode);
+      breakNode.srcrefTreeIfMissing(current);
+      current.replaceWith(breakNode);
       if (resultNode != null) {
-        resultNode.useSourceInfoIfMissingFromForTree(current);
-        parent.addChildBefore(resultNode, breakNode);
+        resultNode.srcrefTreeIfMissing(current);
+        resultNode.insertBefore(breakNode);
       }
       current = breakNode;
     } else {

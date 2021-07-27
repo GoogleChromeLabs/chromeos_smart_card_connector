@@ -39,8 +39,7 @@
 
 package com.google.javascript.rhino.jstype;
 
-import static com.google.javascript.rhino.jstype.TernaryValue.UNKNOWN;
-
+import com.google.javascript.jscomp.base.Tri;
 import com.google.javascript.rhino.ErrorReporter;
 import com.google.javascript.rhino.Node;
 
@@ -48,14 +47,18 @@ import com.google.javascript.rhino.Node;
  * The {@code Unknown} type.
  */
 public class UnknownType extends ObjectType {
-  private static final long serialVersionUID = 1L;
-
   // See the explanation of checked unknown types in JSTypeNative.
   private final boolean isChecked;
 
   UnknownType(JSTypeRegistry registry, boolean isChecked) {
     super(registry);
+    this.eagerlyResolveToSelf();
     this.isChecked = isChecked;
+  }
+
+  @Override
+  JSTypeClass getTypeClass() {
+    return JSTypeClass.UNKNOWN;
   }
 
   @Override
@@ -94,8 +97,8 @@ public class UnknownType extends ObjectType {
   }
 
   @Override
-  public TernaryValue testForEquality(JSType that) {
-    return UNKNOWN;
+  public Tri testForEquality(JSType that) {
+    return Tri.UNKNOWN;
   }
 
   @Override
@@ -118,8 +121,8 @@ public class UnknownType extends ObjectType {
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    return sb.append(getReferenceName());
+  void appendTo(TypeStringBuilder sb) {
+    sb.append(getReferenceName());
   }
 
   @Override
@@ -160,8 +163,8 @@ public class UnknownType extends ObjectType {
   }
 
   @Override
-  JSType resolveInternal(ErrorReporter reporter) {
-    return this;
+  final JSType resolveInternal(ErrorReporter reporter) {
+    throw new AssertionError();
   }
 
   @Override

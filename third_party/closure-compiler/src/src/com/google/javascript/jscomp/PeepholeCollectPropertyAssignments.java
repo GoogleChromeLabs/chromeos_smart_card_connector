@@ -114,7 +114,7 @@ final class PeepholeCollectPropertyAssignments extends AbstractPeepholeOptimizat
 
     // to a property...
     Node lhs = expr.getFirstChild();
-    if (!NodeUtil.isGet(lhs)) {
+    if (!NodeUtil.isNormalGet(lhs)) {
       return false;
     }
 
@@ -212,7 +212,7 @@ final class PeepholeCollectPropertyAssignments extends AbstractPeepholeOptimizat
         // We've already collected a value for this index.
         return false;
       }
-      arrayLiteral.replaceChild(currentValue, rhs.detach());
+      currentValue.replaceWith(rhs.detach());
     }
 
     propertyCandidate.detach();
@@ -224,24 +224,31 @@ final class PeepholeCollectPropertyAssignments extends AbstractPeepholeOptimizat
     Node lhs = assignment.getFirstChild();
     Node rhs = lhs.getNext();
     Node obj = lhs.getFirstChild();
-    Node property = obj.getNext();
+    checkState(lhs.isGetProp() || lhs.isGetElem(), lhs);
 
     // The property must be statically known.
-    if (lhs.isGetElem() && !property.isString() && !property.isNumber()) {
-      return false;
-    }
-
-    String propertyName;
-    if (property.isNumber()) {
-      propertyName = getSideEffectFreeStringValue(property);
+    final String propertyName;
+    if (lhs.isGetElem()) {
+      Node property = obj.getNext();
+      if (property.isNumber()) {
+        propertyName = getSideEffectFreeStringValue(property);
+      } else if (property.isStringLit()) {
+        propertyName = property.getString();
+      } else {
+        return false;
+      }
+    } else if (lhs.isGetProp()) {
+      propertyName = lhs.getString();
     } else {
-      propertyName = property.getString();
+      return false;
     }
 
     // Check if the new property already exists in the object literal
     // Note: Duplicate keys are invalid in strict mode
     Node existingProperty = null;
-    for (Node currentProperty : objectLiteral.children()) {
+    for (Node currentProperty = objectLiteral.getFirstChild();
+        currentProperty != null;
+        currentProperty = currentProperty.getNext()) {
       if (currentProperty.isStringKey() || currentProperty.isMemberFunctionDef()) {
         // Get the name of the current property
         String currentPropertyName = currentProperty.getString();
@@ -268,8 +275,7 @@ final class PeepholeCollectPropertyAssignments extends AbstractPeepholeOptimizat
       }
     }
 
-    Node newProperty = IR.stringKey(propertyName)
-        .useSourceInfoIfMissingFrom(property);
+    Node newProperty = IR.stringKey(propertyName).srcrefIfMissing(propertyCandidate);
     // Preserve the quotedness of a property reference
     if (lhs.isGetElem()) {
       newProperty.setQuotedString();

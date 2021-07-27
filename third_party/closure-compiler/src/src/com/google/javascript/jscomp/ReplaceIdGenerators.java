@@ -20,7 +20,6 @@ import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.ImmutableBiMap;
-import com.google.common.primitives.Booleans;
 import com.google.debugging.sourcemap.Base64;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.IR;
@@ -45,12 +44,6 @@ class ReplaceIdGenerators implements CompilerPass {
       DiagnosticType.error(
           "JSC_CONDITIONAL_ID_GENERATOR_CALL",
           "Id generator call must be unconditional");
-
-  static final DiagnosticType CONFLICTING_GENERATOR_TYPE =
-      DiagnosticType.error(
-          "JSC_CONFLICTING_ID_GENERATOR_TYPE",
-          "Id generator can only be one of " +
-          "consistent, inconsistent, mapped, stable, or xid.");
 
   static final DiagnosticType INVALID_GENERATOR_ID_MAPPING =
       DiagnosticType.error(
@@ -260,21 +253,8 @@ class ReplaceIdGenerators implements CompilerPass {
     @Override
     public void visit(NodeTraversal unused, Node n, Node parent) {
       JSDocInfo doc = n.getJSDocInfo();
-      if (doc == null) {
+      if (doc == null || !doc.isAnyIdGenerator()) {
         return;
-      }
-
-      int numGeneratorAnnotations =
-          Booleans.countTrue(
-              doc.isConsistentIdGenerator(),
-              doc.isIdGenerator(),
-              doc.isStableIdGenerator(),
-              doc.isXidGenerator(),
-              doc.isMappedIdGenerator());
-      if (numGeneratorAnnotations == 0) {
-        return;
-      } else if (numGeneratorAnnotations > 1) {
-        compiler.report(JSError.make(n, CONFLICTING_GENERATOR_TYPE));
       }
 
       String name = null;
@@ -363,13 +343,12 @@ class ReplaceIdGenerators implements CompilerPass {
       Node arg = n.getSecondChild();
       if (arg == null) {
         compiler.report(JSError.make(n, INVALID_GENERATOR_PARAMETER));
-      } else if (arg.isString()) {
-        String rename = getObfuscatedName(
-            arg, callName, nameGenerator, arg.getString());
-        parent.replaceChild(n, IR.string(rename));
+      } else if (arg.isStringLit()) {
+        String rename = getObfuscatedName(arg, callName, nameGenerator, arg.getString());
+        n.replaceWith(IR.string(rename));
         t.reportCodeChange();
       } else if (arg.isObjectLit()) {
-        for (Node key : arg.children()) {
+        for (Node key = arg.getFirstChild(); key != null; key = key.getNext()) {
           if (key.isMemberFunctionDef()) {
             compiler.report(JSError.make(n, SHORTHAND_FUNCTION_NOT_SUPPORTED_IN_ID_GEN));
             return;
@@ -386,7 +365,7 @@ class ReplaceIdGenerators implements CompilerPass {
           key.putBooleanProp(Node.QUOTED_PROP, true);
         }
         arg.detach();
-        parent.replaceChild(n, arg);
+        n.replaceWith(arg);
         t.reportCodeChange();
       } else {
         compiler.report(JSError.make(n, INVALID_GENERATOR_PARAMETER));
@@ -424,7 +403,7 @@ class ReplaceIdGenerators implements CompilerPass {
   }
 
   static String getIdForGeneratorNode(boolean consistent, Node n) {
-    checkState(n.isString() || n.isStringKey(), n);
+    checkState(n.isStringLit() || n.isStringKey(), n);
     if (consistent) {
       return n.getString();
     } else {

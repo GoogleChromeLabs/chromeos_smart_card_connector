@@ -27,7 +27,7 @@ import java.util.Map;
 import javax.annotation.Nullable;
 
 /**
- * Contains metadata around modules that is useful for checking imports / requires.
+ * Contains metadata around modules (or scripts) that is useful for checking imports / requires.
  *
  * <p>TODO(johnplaisted): There's an opportunity for reuse here in ClosureRewriteModules, which
  * would involve putting this in some common location. Currently this is only used as a helper class
@@ -37,16 +37,17 @@ import javax.annotation.Nullable;
  * only checks this for goog.requires and goog: imports, not for ES6 path imports.
  */
 public final class ModuleMetadataMap {
-  /** Various types of Javascript "modules" that can be found in the JS Compiler. */
+  /** Various types of Javascript modules and scripts that can be found in the JS Compiler. */
   public enum ModuleType {
     ES6_MODULE("an ES6 module"),
-    GOOG_PROVIDE("a goog.provide'd file"),
     /** A goog.module that does not declare a legacy namespace. */
     GOOG_MODULE("a goog.module"),
     /** A goog.module that declares a legacy namespace with goog.module.declareLegacyNamespace. */
     LEGACY_GOOG_MODULE("a goog.module"),
     COMMON_JS("a CommonJS module"),
-    SCRIPT("a script");
+    // The following two cases are not actually modules, but are useful to include in the map.
+    GOOG_PROVIDE("a script file that contains at least one goog.provide"),
+    SCRIPT("a script file that does not contain a goog.provide");
 
     public final String description;
 
@@ -82,7 +83,10 @@ public final class ModuleMetadataMap {
             .build();
   }
 
-  /** Struct containing basic information about a module including its type and goog namespaces. */
+  /**
+   * Struct containing basic information about a module/script including its type and goog
+   * namespaces.
+   */
   @AutoValue
   public abstract static class ModuleMetadata {
     public abstract ModuleType moduleType();
@@ -111,8 +115,23 @@ public final class ModuleMetadataMap {
       return moduleType() == ModuleType.COMMON_JS;
     }
 
-    public boolean isScript() {
+    public boolean isNonProvideScript() {
       return moduleType() == ModuleType.SCRIPT;
+    }
+
+    /** Whether this is a module (with it's own local scope). */
+    public boolean isModule() {
+      switch (moduleType()) {
+        case GOOG_PROVIDE:
+        case SCRIPT:
+          return false;
+        case COMMON_JS:
+        case ES6_MODULE:
+        case GOOG_MODULE:
+        case LEGACY_GOOG_MODULE:
+          return true;
+      }
+      throw new AssertionError(moduleType());
     }
 
     /**
@@ -149,21 +168,20 @@ public final class ModuleMetadataMap {
     public abstract ImmutableMultiset<String> googNamespaces();
 
     /**
-     * Closure namespaces this file requires. e.g. all arguments to goog.require calls.
+     * Closure namespaces this file strongly requires, i.e., arguments to goog.require calls.
      *
      * <p>This is a multiset as it does not warn on duplicate namespaces, but will still encapsulate
      * that information with this multiset.
      */
-    public abstract ImmutableMultiset<String> requiredGoogNamespaces();
+    public abstract ImmutableMultiset<String> stronglyRequiredGoogNamespaces();
 
     /**
-     * Closure namespaces this file has weak dependencies on. e.g. all arguments to goog.requireType
-     * calls.
+     * Closure namespaces this file weakly requires, i.e., arguments to goog.requireType calls.
      *
      * <p>This is a multiset as it does not warn on duplicate namespaces, but will still encapsulate
      * that information with this multiset.
      */
-    public abstract ImmutableMultiset<String> requiredTypes();
+    public abstract ImmutableMultiset<String> weaklyRequiredGoogNamespaces();
 
     /** Raw text of all ES6 import specifiers (includes "export from" as well). */
     public abstract ImmutableMultiset<String> es6ImportSpecifiers();
@@ -202,9 +220,9 @@ public final class ModuleMetadataMap {
         return this;
       }
 
-      public abstract ImmutableMultiset.Builder<String> requiredGoogNamespacesBuilder();
+      public abstract ImmutableMultiset.Builder<String> stronglyRequiredGoogNamespacesBuilder();
 
-      public abstract ImmutableMultiset.Builder<String> requiredTypesBuilder();
+      public abstract ImmutableMultiset.Builder<String> weaklyRequiredGoogNamespacesBuilder();
 
       public abstract ImmutableMultiset.Builder<String> es6ImportSpecifiersBuilder();
 

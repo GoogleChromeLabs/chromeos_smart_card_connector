@@ -28,7 +28,6 @@ import com.google.javascript.jscomp.modules.ModuleMetadataMap.ModuleMetadata;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
-import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -43,7 +42,7 @@ import java.util.Set;
  *
  * <p>Design and examples: https://github.com/google/closure-compiler/wiki/Polymer-Pass
  */
-final class PolymerPass extends ExternsSkippingCallback implements HotSwapCompilerPass {
+final class PolymerPass extends ExternsSkippingCallback implements CompilerPass {
   private static final String VIRTUAL_FILE = "<PolymerPass.java>";
 
   private final AbstractCompiler compiler;
@@ -102,15 +101,10 @@ final class PolymerPass extends ExternsSkippingCallback implements HotSwapCompil
             compiler, globalNames, compiler.getModuleMetadataMap(), compiler.getModuleMap());
 
     Node externsAndJsRoot = root.getParent();
-    hotSwapScript(externsAndJsRoot, null);
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    NodeTraversal.traverse(compiler, scriptRoot, this);
+    NodeTraversal.traverse(compiler, externsAndJsRoot, this);
     PolymerPassSuppressBehaviors suppressBehaviorsCallback =
         new PolymerPassSuppressBehaviors(compiler);
-    NodeTraversal.traverse(compiler, scriptRoot, suppressBehaviorsCallback);
+    NodeTraversal.traverse(compiler, externsAndJsRoot, suppressBehaviorsCallback);
   }
 
   @Override
@@ -153,7 +147,7 @@ final class PolymerPass extends ExternsSkippingCallback implements HotSwapCompil
       grandparent.setToken(Token.LET);
       Node scriptNode = traversal.getCurrentScript();
       if (scriptNode != null) {
-        NodeUtil.addFeatureToScript(scriptNode, Feature.LET_DECLARATIONS);
+        NodeUtil.addFeatureToScript(scriptNode, Feature.LET_DECLARATIONS, compiler);
       }
       traversal.reportCodeChange();
     }
@@ -199,9 +193,8 @@ final class PolymerPass extends ExternsSkippingCallback implements HotSwapCompil
 
   /** Replaces `export let Element = ...` with `let Element = ...; export {Element};` */
   private void normalizePolymerExport(Node nameDecl, Node export) {
-    Node block = export.getParent();
     Node name = nameDecl.getFirstChild();
-    block.addChildBefore(nameDecl.detach(), export);
+    nameDecl.detach().insertBefore(export);
 
     Node exportSpec = new Node(Token.EXPORT_SPEC);
     exportSpec.addChildToFront(name.cloneNode());
@@ -246,7 +239,7 @@ final class PolymerPass extends ExternsSkippingCallback implements HotSwapCompil
         new JSTypeExpression(
             new Node(Token.BANG, IR.string(elementType).srcrefTree(polymerElementExterns)),
             VIRTUAL_FILE);
-    JSDocInfoBuilder baseDocs = JSDocInfoBuilder.copyFrom(baseExterns.getJSDocInfo());
+    JSDocInfo.Builder baseDocs = JSDocInfo.Builder.copyFrom(baseExterns.getJSDocInfo());
     baseDocs.changeBaseType(elementBaseType);
     baseExterns.setJSDocInfo(baseDocs.build());
     block.addChildToBack(baseExterns);
@@ -259,7 +252,7 @@ final class PolymerPass extends ExternsSkippingCallback implements HotSwapCompil
       block.addChildToBack(newProp);
     }
 
-    block.useSourceInfoIfMissingFromForTree(polymerElementExterns);
+    block.srcrefTreeIfMissing(polymerElementExterns);
 
     Node parent = polymerElementExterns.getParent();
     Node stmts = block.removeChildren();

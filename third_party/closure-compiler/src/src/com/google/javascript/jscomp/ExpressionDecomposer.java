@@ -19,35 +19,37 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.javascript.jscomp.Es6ToEs3Util.withType;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.MakeDeclaredNamesUnique.ContextualRenamer;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.QualifiedName;
 import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.jstype.JSType;
 import com.google.javascript.rhino.jstype.JSTypeNative;
-import java.util.Set;
+import java.util.ArrayDeque;
+import java.util.EnumSet;
 import javax.annotation.Nullable;
 
 /**
- * Partially or fully decomposes an expression with respect to some sub-expresison. Initially this
+ * Partially or fully decomposes an expression with respect to some sub-expression. Initially this
  * is intended to expand the locations where inlining can occur, but has other uses as well.
  *
  * <p>For example: `var x = y() + z();` becomes `var a = y(); var b = z(); var x = a + b;`.
  *
  * <p>Decomposing, in this context does not mean full decomposition to "atomic" expressions. While
- * it is possible to iteratively apply docomposition to get statements with at most one side-effect,
+ * it is possible to iteratively apply decomposition to get statements with at most one side-effect,
  * that isn't the intended purpose of this class. The focus is on decomposing "just enough" to
  * "free" a <em>particular</em> subexpression. For example:
  *
  * <ul>
  *   <li>Given: `return (alert() + alert()) + z();`
  *   <li>Exposing: `z()`
- *   <li>Sufficent decomposition: `var temp = alert() + alert(); return temp + z();`
+ *   <li>Sufficient decomposition: `var temp = alert() + alert(); return temp + z();`
  * </ul>
  */
 class ExpressionDecomposer {
@@ -59,51 +61,71 @@ class ExpressionDecomposer {
     DECOMPOSABLE
   }
 
+  /**
+   * Identify special case logic that needs to be enabled to work around edge cases, such as bad
+   * JSVM behavior.
+   */
+  public enum Workaround {
+    // IE11 throws an exception for `window.location.assign.call(window.location, url)`
+    BROKEN_IE11_LOCATION_ASSIGN
+  }
+
   private final AbstractCompiler compiler;
   private final AstAnalyzer astAnalyzer;
   private final AstFactory astFactory;
   private final Supplier<String> safeNameIdSupplier;
-  private final Set<String> knownConstants;
+  private final ImmutableSet<String> knownConstantFunctions;
   private final Scope scope;
-  private final JSType unknownType;
-  private final JSType voidType;
-  private final JSType stringType;
+  private final EnumSet<Workaround> enabledWorkarounds;
+  @Nullable private final JSType unknownType;
 
   /**
-   * Whether to allow decomposing foo.bar to "var fn = foo.bar; fn.call(foo);" Should be false if
-   * targeting IE8 or IE9.
+   * Create an ExpressionDecomposer.
+   *
+   * <p>DO NOT USE THIS METHOD DIRECTLY. Call `compiler.createExpressionDecomposer()` instead so the
+   * compiler can supply the workarounds needed for this compilation.
+   *
+   * @param constFunctionNames set of names known to be constant functions. Used by InlineFunctions
+   *     to prevent this pass from breaking bookkeeping for functions it's inlining.
+   * @param enabledWorkarounds indicates which workarounds for bad JSVM behavior should be enabled.
    */
-  private final boolean allowMethodCallDecomposing;
-
   ExpressionDecomposer(
       AbstractCompiler compiler,
       Supplier<String> safeNameIdSupplier,
-      Set<String> constNames,
+      ImmutableSet<String> constFunctionNames,
       Scope scope,
-      boolean allowMethodCallDecomposing) {
+      EnumSet<Workaround> enabledWorkarounds) {
     checkNotNull(compiler);
     checkNotNull(safeNameIdSupplier);
-    checkNotNull(constNames);
+    checkNotNull(constFunctionNames);
     this.compiler = compiler;
     this.astAnalyzer = compiler.getAstAnalyzer();
     this.astFactory = compiler.createAstFactory();
     this.safeNameIdSupplier = safeNameIdSupplier;
-    this.knownConstants = constNames;
+    this.knownConstantFunctions = constFunctionNames;
     this.scope = scope;
-    this.allowMethodCallDecomposing = allowMethodCallDecomposing;
-    this.unknownType = compiler.getTypeRegistry().getNativeType(JSTypeNative.UNKNOWN_TYPE);
-    this.voidType = compiler.getTypeRegistry().getNativeType(JSTypeNative.VOID_TYPE);
-    this.stringType = compiler.getTypeRegistry().getNativeType(JSTypeNative.STRING_TYPE);
+    this.enabledWorkarounds = enabledWorkarounds;
+    this.unknownType =
+        compiler.hasTypeCheckingRun() && !compiler.hasOptimizationColors()
+            ? compiler.getTypeRegistry().getNativeType(JSTypeNative.UNKNOWN_TYPE)
+            : null;
   }
 
   // An arbitrary limit to prevent catch infinite recursion.
-  private static final int MAX_ITERATIONS = 100;
+  // Raised from 100->1000 on Jan 22, 2021
+  private static final int MAX_ITERATIONS = 1000;
 
   /**
-   * If required, rewrite the statement containing the expression.
+   * Perform any rewriting necessary so that the specified expression is {@code MOVABLE}.
    *
-   * @param expression The expression to be exposed.
-   * @see #canExposeExpression
+   * <p>This method is a primary entrypoint into this class. It performs expression decomposition
+   * such that {@code expression} can be moved to a preceding statement without changing behaviour.
+   *
+   * <p>Exposing {@code expression} generally doesn't mean that {@code expression} itself will
+   * moved. An expression is exposed within a larger statement if no preceding expression would
+   * interact with it.
+   *
+   * @see {@link #canExposeExpression}
    */
   void maybeExposeExpression(Node expression) {
     // If the expression needs to exposed.
@@ -119,19 +141,16 @@ class ExpressionDecomposer {
   }
 
   /**
-   * Perform any rewriting necessary so that the specified expression is {@code MOVABLE}.
+   * Perform partial decomposition to get the given expression closer to being {@code MOVEABLE}.
    *
-   * <p>This method is a primary entrypoint into this class. It performs a partial expression
-   * decomposition such that {@code expression} can be moved to a preceding statement without
-   * changing behaviour.
-   *
-   * <p>Exposing {@code expression} generally doesn't mean that {@code expression} itself will
-   * moved. An expression is exposed within a larger statement if no preceding expression would
-   * interact with it.
-   *
-   * @see {@link #canExposeExpression}
+   * <p>This method should not be called from outside of this class. Instead call {@link
+   * #maybeExposeExpression(Node)}.
    */
-  void exposeExpression(Node expression) {
+  private void exposeExpression(Node expression) {
+    // First rewrite all optional chains containing the expression.
+    // This must be done first, because the expression root may be an optional chain, and rewriting
+    // it creates a new node to be the expression root.
+    rewriteAllContainingOptionalChains(expression);
     Node expressionRoot = findExpressionRoot(expression);
     checkNotNull(expressionRoot);
     checkState(NodeUtil.isStatement(expressionRoot), expressionRoot);
@@ -141,6 +160,10 @@ class ExpressionDecomposer {
   /**
    * Rewrite {@code expressionRoot} such that {@code subExpression} is a {@code MOVABLE} while
    * maintaining evaluation order.
+   *
+   * <p>IMPORTANT: This method assumes there are no optional chain parents of subExpression. The
+   * single-argument version of this method takes care of that and should be the only caller of this
+   * method.
    *
    * <p>Two types of subexpressions are extracted from the source expression:
    *
@@ -153,20 +176,20 @@ class ExpressionDecomposer {
    * <p>The following terms are used:
    *
    * <ul>
-   *   <li>expressionRoot: The top-level node, before which the any extracted expressions should be
+   *   <li>expressionRoot: The top-level node, before which any extracted expressions should be
    *       placed.
-   *   <li>nonconditionalExpr: The node that will be extracted either from expression.
+   *   <li>nodeWithNonconditionalParent: The node that will be extracted.
    * </ul>
    *
    * @param expressionRoot The root of the subtree within which to expose {@code subExpression}.
-   * @param subExpression A descendent of {@code expressionRoot} to be exposed.
+   * @param subExpression A descendant of {@code expressionRoot} to be exposed.
    */
   private void exposeExpression(Node expressionRoot, Node subExpression) {
-    Node nonconditionalExpr = findNonconditionalParent(subExpression, expressionRoot);
+    Node nodeWithNonconditionalParent = findNonconditionalParent(subExpression, expressionRoot);
     // Before extraction, record whether there are side-effect
-    boolean hasFollowingSideEffects = astAnalyzer.mayHaveSideEffects(nonconditionalExpr);
+    boolean hasFollowingSideEffects = astAnalyzer.mayHaveSideEffects(nodeWithNonconditionalParent);
 
-    Node exprInjectionPoint = findInjectionPoint(nonconditionalExpr);
+    Node exprInjectionPoint = findInjectionPoint(nodeWithNonconditionalParent);
     DecompositionState state = new DecompositionState();
     state.sideEffects = hasFollowingSideEffects;
     state.extractBeforeStatement = exprInjectionPoint;
@@ -174,7 +197,7 @@ class ExpressionDecomposer {
     // Extract expressions in the reverse order of their evaluation. This is roughly, traverse up
     // the AST extracting any preceding expressions that may have side-effects or be side-effected.
     Node lastExposedSubexpression = null;
-    Node expressionToExpose = nonconditionalExpr;
+    Node expressionToExpose = nodeWithNonconditionalParent;
     Node expressionParent = expressionToExpose.getParent();
     while (expressionParent != expressionRoot) {
       checkState(
@@ -186,7 +209,7 @@ class ExpressionDecomposer {
           // It is always safe to inline "foo()" for expressions such as
           // "a = b = c = foo();"
           // As the assignment is unaffected by side effect of "foo()"
-          // and the names assigned-to can not influence the state before
+          // and the names assigned-to cannot influence the state before
           // the call to foo.
           //
           // This is not true of more complex LHS values, such as
@@ -208,7 +231,8 @@ class ExpressionDecomposer {
               throw new IllegalStateException("Expected a property access: " + left.toStringTree());
           }
         }
-      } else if (expressionParent.isCall() && NodeUtil.isGet(expressionParent.getFirstChild())) {
+      } else if (expressionParent.isCall()
+          && NodeUtil.isNormalGet(expressionParent.getFirstChild())) {
         Node callee = expressionParent.getFirstChild();
         decomposeSubExpressions(callee.getNext(), expressionToExpose, state);
 
@@ -217,11 +241,10 @@ class ExpressionDecomposer {
         // already be safe.
         if (isExpressionTreeUnsafe(callee, state.sideEffects)
             && lastExposedSubexpression != callee.getFirstChild()) {
-          checkState(allowMethodCallDecomposing, "Object method calls can not be decomposed.");
           // Either there were preexisting side-effects, or this node has side-effects.
           state.sideEffects = true;
           // Rewrite the call so "this" is preserved and continue walking up from there.
-          expressionParent = rewriteCallExpression(expressionParent, state);
+          rewriteCallExpression(expressionParent, state);
         }
       } else {
         decomposeSubExpressions(expressionParent.getFirstChild(), expressionToExpose, state);
@@ -237,15 +260,55 @@ class ExpressionDecomposer {
     // this have been extracted, so add the expression statement after the
     // other extracted expressions and the original statement (or replace
     // the original statement.
-    if (nonconditionalExpr == subExpression) {
+    if (nodeWithNonconditionalParent == subExpression) {
       // Don't extract the call, as that introduces an extra constant VAR
       // that will simply need to be inlined back.  It will be handled as
       // an EXPRESSION call site type.
       // Node extractedCall = extractExpression(decomposition, expressionRoot);
     } else {
-      Node parent = nonconditionalExpr.getParent();
+      Node parent = nodeWithNonconditionalParent.getParent();
       boolean needResult = !parent.isExprResult();
-      extractConditional(nonconditionalExpr, exprInjectionPoint, needResult);
+      extractConditional(nodeWithNonconditionalParent, exprInjectionPoint, needResult);
+    }
+  }
+
+  /** Rewrite all of the optional chains containing the given subExpression. */
+  private void rewriteAllContainingOptionalChains(Node subExpression) {
+    final OptionalChainRewriter.Builder optChainRewriterBuilder =
+        OptionalChainRewriter.builder(compiler)
+            .setTmpVarNameCreator(this::getTempConstantValueName)
+            .setScope(this.scope);
+    // Rewriting the chains changes the shape of the AST in a way that would interfere
+    // with the simple traversal from child to parent done here, so we'll traverse
+    // them all first, then rewrite them.
+    final ArrayDeque<OptionalChainRewriter> rewriters = new ArrayDeque<>();
+
+    for (Node exprParent = subExpression.getParent();
+        !NodeUtil.isStatement(exprParent);
+        exprParent = exprParent.getParent()) {
+      if (NodeUtil.isEndOfFullOptChain(exprParent)) {
+        // We want to rewrite the outermost chain first, so the last one
+        // we find is the first one we rewrite.
+        rewriters.addFirst(optChainRewriterBuilder.build(exprParent));
+      } else if (exprParent.isCall()) {
+        // It is possible to make a non-optional call against an optional chain callee by applying
+        // parentheses like this.
+        // `(obj?.method)(arg)`
+        // I don't think there's a good reason to do that, since it will cause a runtime exception
+        // if the chain is ever undefined, but it is allowed, so we must handle it.
+        // Fortunately the OptionalChainRewriter knows how to fix the call so it will still get
+        // made with the right `this` value.
+        Node callee = exprParent.getFirstChild();
+        if (NodeUtil.isOptChainGet(callee)) {
+          // By definition callee must end an optional chain, because it is the first child of a
+          // non-optional parent.
+          // checkState(NodeUtil.isEndOfFullOptChain(callee))
+          rewriters.addFirst(optChainRewriterBuilder.build(callee));
+        }
+      }
+    }
+    for (OptionalChainRewriter rewriter : rewriters) {
+      rewriter.rewrite();
     }
   }
 
@@ -268,21 +331,48 @@ class ExpressionDecomposer {
     checkState(NodeUtil.isStatementBlock(injectionPointParent));
 
     // Replace the expression with a reference to the new name.
-    Node expressionParent = expression.getParent();
-    expressionParent.replaceChild(
-        expression, withType(IR.name(resultName), expression.getJSType()));
+    expression.replaceWith(IR.name(resultName).copyTypeFrom(expression));
 
     // Re-add the expression at the appropriate place.
     Node newExpressionRoot = NodeUtil.newVarNode(resultName, expression);
-    newExpressionRoot.getFirstChild().setJSType(expression.getJSType());
-    injectionPointParent.addChildBefore(newExpressionRoot, injectionPoint);
+    newExpressionRoot.getFirstChild().copyTypeFrom(expression);
+    newExpressionRoot.insertBefore(injectionPoint);
 
     compiler.reportChangeToEnclosingScope(injectionPointParent);
   }
 
   /**
-   * @return "expression" or the node closest to "expression", that does not have a conditional
-   *     ancestor.
+   * Returns the enclosing expression to decompose
+   *
+   * <p>The intention is to indicate the top-most node that could be rewritten as an if-statement in
+   * order to better expose subExpression for inlining.
+   *
+   * <p>Examples:
+   *
+   * <pre>{@code
+   * a = (x() && y()) && subExpression; // result is (x() && y()) && subExpression
+   * a = x() && (y() && subExpression); // result is x() && (y() && subExpression)
+   * a = (x() && subExpression) && y(); // result is x() && subExpression
+   * a = x() && (subExpression && y()); // result is x() && (subExpression && y())
+   * a = (subExpression && x()) && y(); // result is subExpression
+   * a = subExpression && (x() && y()); // result is subExpression
+   * }</pre>
+   *
+   * <p>When subExpression is contained within an optional chain, we want to treat everything after
+   * a `?.` up until the next `?.` as a single conditional operation.
+   *
+   * <p>Examples:
+   *
+   * <pre>
+   * a = subExpression.x?.y.z();          // result is subExpression
+   * a = x()?.[subExpression].y;          // result is x()?.[subExpression].y
+   * a = x()?.y.z?.p(subExpression).q?.r; // result is x()?.y.z?.p(subExpression).q
+   * a
+   * </pre>
+   *
+   * @param subExpression the expression to consider entire chains
+   * @param expressionRoot a node containing subExpression. The returned node will be a descendent
+   *     of this one.
    */
   private static Node findNonconditionalParent(Node subExpression, Node expressionRoot) {
     Node result = subExpression;
@@ -291,10 +381,19 @@ class ExpressionDecomposer {
         parent != expressionRoot;
         child = parent, parent = child.getParent()) {
       if (isConditionalOp(parent) && !child.isFirstChildOf(parent)) {
-        // Only the first child is always executed, if the function may never
-        // be called, don't inline it.
+        // subExpression is not part of the first child (which is always executed), so
+        // parent decides whether subExpression will be executed or not
         result = parent;
       }
+    }
+    if (NodeUtil.isOptChainNode(result)) {
+      // the loop above may have left result pointing into the middle of an optional chain for
+      // a case like this.
+      // `x?.y.z(subExpression).p.q?.r.s`
+      // result is currently `x?.y.z(subExpression)`, but we want it to be the full sub-chain
+      // containing subExpression
+      // `x?.y.z(subExpression).p.q`
+      result = NodeUtil.getEndOfOptChainSegment(result);
     }
 
     return result;
@@ -383,7 +482,7 @@ class ExpressionDecomposer {
 
   /**
    * @param expr The conditional expression to extract.
-   * @param injectionPoint The before which extracted expression, would be injected.
+   * @param injectionPoint The node before which the extracted expression would be injected.
    * @param needResult Whether the result of the expression is required.
    * @return The node that contains the logic of the expression after extraction.
    */
@@ -401,28 +500,47 @@ class ExpressionDecomposer {
 
     // Transform the conditional to an IF statement.
     Node cond = null;
-    Node trueExpr = IR.block().srcref(expr);
-    Node falseExpr = IR.block().srcref(expr);
+    Node trueExpr = astFactory.createBlock().srcref(expr);
+    Node falseExpr = astFactory.createBlock().srcref(expr);
     switch (expr.getToken()) {
       case HOOK:
         // a = x?y:z --> if (x) {a=y} else {a=z}
         cond = first;
         trueExpr.addChildToFront(
-            NodeUtil.newExpr(buildResultExpression(second, needResult, tempName)));
+            astFactory.exprResult(buildResultExpression(second, needResult, tempName)));
         falseExpr.addChildToFront(
-            NodeUtil.newExpr(buildResultExpression(last, needResult, tempName)));
+            astFactory.exprResult(buildResultExpression(last, needResult, tempName)));
         break;
       case AND:
         // a = x&&y --> if (a=x) {a=y} else {}
         cond = buildResultExpression(first, needResult, tempName);
         trueExpr.addChildToFront(
-            NodeUtil.newExpr(buildResultExpression(last, needResult, tempName)));
+            astFactory.exprResult(buildResultExpression(last, needResult, tempName)));
         break;
       case OR:
         // a = x||y --> if (a=x) {} else {a=y}
         cond = buildResultExpression(first, needResult, tempName);
         falseExpr.addChildToFront(
-            NodeUtil.newExpr(buildResultExpression(last, needResult, tempName)));
+            astFactory.exprResult(buildResultExpression(last, needResult, tempName)));
+        break;
+      case COALESCE:
+        // a = x ?? y --> if ((temp=x)!=null) {a=temp} else {a=y}
+        String tempNameAssign = getTempValueName();
+        Node tempVarNodeAssign =
+            astFactory.createSingleVarNameDeclaration(tempNameAssign).srcrefTreeIfMissing(expr);
+        tempVarNodeAssign.insertBefore(injectionPoint);
+
+        Node assignLhs = buildResultExpression(first, true, tempNameAssign);
+        Node nullNode = astFactory.createNull().srcref(expr);
+        cond = astFactory.createNe(assignLhs, nullNode).srcref(expr);
+        trueExpr.addChildToFront(
+            astFactory.exprResult(
+                buildResultExpression(
+                    astFactory.createName(tempNameAssign, first.getJSType()).srcref(expr),
+                    needResult,
+                    tempName)));
+        falseExpr.addChildToFront(
+            astFactory.exprResult(buildResultExpression(last, needResult, tempName)));
         break;
       default:
         // With a valid tree we should never get here.
@@ -431,29 +549,26 @@ class ExpressionDecomposer {
 
     Node ifNode;
     if (falseExpr.hasChildren()) {
-      ifNode = IR.ifNode(cond, trueExpr, falseExpr);
+      ifNode = astFactory.createIf(cond, trueExpr, falseExpr);
     } else {
-      ifNode = IR.ifNode(cond, trueExpr);
+      ifNode = astFactory.createIf(cond, trueExpr);
     }
-    ifNode.useSourceInfoIfMissingFrom(expr);
+    ifNode.srcrefIfMissing(expr);
 
     if (needResult) {
       Node tempVarNode =
-          NodeUtil.newVarNode(tempName, null).useSourceInfoIfMissingFromForTree(expr);
-      tempVarNode.getFirstChild().setJSType(voidType);
-      Node injectionPointParent = injectionPoint.getParent();
-      injectionPointParent.addChildBefore(tempVarNode, injectionPoint);
-      injectionPointParent.addChildAfter(ifNode, tempVarNode);
+          astFactory.createSingleVarNameDeclaration(tempName).srcrefTreeIfMissing(expr);
+      tempVarNode.insertBefore(injectionPoint);
+      ifNode.insertAfter(tempVarNode);
 
       // Replace the expression with the temporary name.
-      Node replacementValueNode = withType(IR.name(tempName), expr.getJSType());
-      parent.replaceChild(expr, replacementValueNode);
+      Node replacementValueNode = IR.name(tempName).copyTypeFrom(expr);
+      expr.replaceWith(replacementValueNode);
     } else {
       // Only conditionals that are the direct child of an expression statement
       // don't need results, for those simply replace the expression statement.
       checkArgument(parent.isExprResult());
-      Node grandparent = parent.getParent();
-      grandparent.replaceChild(parent, ifNode);
+      parent.replaceWith(ifNode);
     }
 
     return ifNode;
@@ -474,8 +589,9 @@ class ExpressionDecomposer {
    */
   private static Node buildResultExpression(Node expr, boolean needResult, String tempName) {
     if (needResult) {
-      JSType type = expr.getJSType();
-      return withType(IR.assign(withType(IR.name(tempName), type), expr), type).srcrefTree(expr);
+      return IR.assign(IR.name(tempName).copyTypeFrom(expr), expr)
+          .copyTypeFrom(expr)
+          .srcrefTree(expr);
     } else {
       return expr;
     }
@@ -484,7 +600,7 @@ class ExpressionDecomposer {
   private boolean isConstantNameNode(Node n) {
     // Non-constant names values may have been changed.
     return n.isName()
-        && (NodeUtil.isConstantVar(n, scope) || knownConstants.contains(n.getString()));
+        && (NodeUtil.isConstantVar(n, scope) || knownConstantFunctions.contains(n.getString()));
   }
 
   /**
@@ -506,9 +622,9 @@ class ExpressionDecomposer {
     // becomes:
     //    var t1 = next();
     //    t1.foo = t1.foo + 2;
-    if (isLhsOfAssignOp && NodeUtil.isGet(expr)) {
-      for (Node n : expr.children()) {
-        if (!n.isString() && !isConstantNameNode(n)) {
+    if (isLhsOfAssignOp && NodeUtil.isNormalGet(expr)) {
+      for (Node n = expr.getFirstChild(); n != null; n = n.getNext()) {
+        if (!n.isStringLit() && !isConstantNameNode(n)) {
           Node extractedNode = extractExpression(n, injectionPoint);
           if (firstExtractedNode == null) {
             firstExtractedNode = extractedNode;
@@ -519,23 +635,24 @@ class ExpressionDecomposer {
 
     // The temp is known to be constant.
     String tempName = getTempConstantValueName();
-    Node replacementValueNode = IR.name(tempName).setJSType(expr.getJSType()).srcref(expr);
+    Node replacementValueNode = IR.name(tempName).copyTypeFrom(expr).srcref(expr);
 
-    Node tempNameValue;
+    final Node tempNameValue;
 
     // If it is ASSIGN_XXX, keep the assignment in place and extract the
     // original value of the LHS operand.
     if (isLhsOfAssignOp) {
-      checkState(expr.isName() || NodeUtil.isGet(expr), expr);
+      checkState(expr.isName() || NodeUtil.isNormalGet(expr), expr);
       // Transform "x += 2" into "x = temp + 2"
       Node opNode =
-          withType(new Node(NodeUtil.getOpFromAssignmentOp(parent)), parent.getJSType())
-              .useSourceInfoIfMissingFrom(parent);
+          new Node(NodeUtil.getOpFromAssignmentOp(parent))
+              .copyTypeFrom(parent)
+              .srcrefIfMissing(parent);
 
       Node rightOperand = parent.getLastChild();
 
       parent.setToken(Token.ASSIGN);
-      parent.replaceChild(rightOperand, opNode);
+      rightOperand.replaceWith(opNode);
       opNode.addChildToFront(replacementValueNode);
       opNode.addChildToBack(rightOperand);
 
@@ -559,17 +676,17 @@ class ExpressionDecomposer {
         case ARRAYLIT:
         case CALL:
         case NEW:
-          tempNameValue = astFactory.createArraylit(expr).useSourceInfoFrom(expr.getOnlyChild());
+          tempNameValue = astFactory.createArraylit(expr).srcref(expr.getOnlyChild());
           break;
         case OBJECTLIT:
-          tempNameValue = astFactory.createObjectLit(expr).useSourceInfoFrom(expr.getOnlyChild());
+          tempNameValue = astFactory.createObjectLit(expr).srcref(expr.getOnlyChild());
           break;
         default:
           throw new IllegalStateException("Unexpected parent of SPREAD:" + parent.toStringTree());
       }
     } else {
       // Replace the expression with the temporary name.
-      parent.replaceChild(expr, replacementValueNode);
+      expr.replaceWith(replacementValueNode);
 
       // Keep the original node so that CALL expressions can still be found
       // and inlined properly.
@@ -578,10 +695,12 @@ class ExpressionDecomposer {
 
     // Re-add the expression in the declaration of the temporary name.
     Node tempVarNode = NodeUtil.newVarNode(tempName, tempNameValue);
-    tempVarNode.getFirstChild().setJSType(tempNameValue.getJSType());
+    tempVarNode.getFirstChild().copyTypeFrom(tempNameValue);
+    tempVarNode.getFirstChild().setInferredConstantVar(true);
+    Scope containingHoistScope = scope.getClosestHoistScope();
+    containingHoistScope.declare(tempName, tempVarNode.getFirstChild(), /* input= */ null);
 
-    Node injectionPointParent = injectionPoint.getParent();
-    injectionPointParent.addChildBefore(tempVarNode, injectionPoint);
+    tempVarNode.insertBefore(injectionPoint);
 
     if (firstExtractedNode == null) {
       firstExtractedNode = tempVarNode;
@@ -605,10 +724,10 @@ class ExpressionDecomposer {
    *
    * @return The replacement node.
    */
-  private Node rewriteCallExpression(Node call, DecompositionState state) {
+  private void rewriteCallExpression(Node call, DecompositionState state) {
     checkArgument(call.isCall(), call);
     Node first = call.getFirstChild();
-    checkArgument(NodeUtil.isGet(first), first);
+    checkArgument(NodeUtil.isNormalGet(first), first);
 
     // Find the type of (fn expression).call
     JSType fnType = first.getJSType();
@@ -628,43 +747,40 @@ class ExpressionDecomposer {
     // Extracts the object reference to be used as "this". For example:
     //   "a['b']" from "a['b'].c"
     Node getExprNode = getVarNode.getFirstFirstChild();
-    checkArgument(NodeUtil.isGet(getExprNode), getExprNode);
-    Node thisVarNode = extractExpression(getExprNode.getFirstChild(), state.extractBeforeStatement);
-    state.extractBeforeStatement = thisVarNode;
+    checkArgument(NodeUtil.isNormalGet(getExprNode), getExprNode);
+    final Node origThisValue = getExprNode.getFirstChild();
+    final Node functionNameNode = getVarNode.getFirstChild().cloneNode();
+    final Node receiverNode;
 
-    // Rewrite the CALL expression.
-    Node thisNameNode = thisVarNode.getFirstChild();
-    Node functionNameNode = getVarNode.getFirstChild();
+    if (origThisValue.isThis()) {
+      // No need to create a variable for `this`, just clone it.
+      receiverNode = origThisValue.cloneNode();
+    } else if (origThisValue.isSuper()) {
+      // Original callee was like `super.prop(args)`.
+      // The correct way to call the value `super.prop` from a temporary variable is
+      // `tmpVar.call(this, args)`, so just create a `this` here.
+      receiverNode = astFactory.createThis(origThisValue.getJSType()).srcref(origThisValue);
+    } else {
+      final Node thisVarNode = extractExpression(origThisValue, state.extractBeforeStatement);
+      state.extractBeforeStatement = thisVarNode;
+      receiverNode = thisVarNode.getFirstChild().cloneNode();
+    }
 
     // CALL
-    //   GETPROP
+    //   GETPROP "call"
     //     functionName
-    //     "call"
     //   thisName
     //   original-parameter1
     //   original-parameter2
     //   ...
 
-    Node newCall =
-        IR.call(
-                withType(
-                    IR.getprop(
-                        functionNameNode.cloneNode(), withType(IR.string("call"), stringType)),
-                    fnCallType),
-                thisNameNode.cloneNode())
-            .setJSType(call.getJSType())
-            .useSourceInfoIfMissingFromForTree(call);
-
-    // Throw away the call name
+    // Reuse the existing CALL node instead of creating a new one to avoid breaking InlineFunction's
+    // bookkeeping. See b/124253050.
     call.removeFirstChild();
-    if (call.hasChildren()) {
-      // Add the call parameters to the new call.
-      newCall.addChildrenToBack(call.removeChildren());
-    }
-
-    call.replaceWith(newCall);
-
-    return newCall;
+    call.addChildToFront(receiverNode);
+    call.addChildToFront(
+        IR.getprop(functionNameNode, "call").setJSType(fnCallType).srcrefTreeIfMissing(call));
+    call.putBooleanProp(Node.FREE_CALL, false);
   }
 
   private String tempNamePrefix = "JSCompiler_temp";
@@ -694,13 +810,10 @@ class ExpressionDecomposer {
 
   /** Create a constant unique temp name. */
   private String getTempConstantValueName() {
-    String name =
-        tempNamePrefix
-            + "_const"
-            + ContextualRenamer.UNIQUE_ID_SEPARATOR
-            + safeNameIdSupplier.get();
-    this.knownConstants.add(name);
-    return name;
+    return tempNamePrefix
+        + "_const"
+        + ContextualRenamer.UNIQUE_ID_SEPARATOR
+        + safeNameIdSupplier.get();
   }
 
   private boolean isTempConstantValueName(Node name) {
@@ -736,6 +849,10 @@ class ExpressionDecomposer {
       case HOOK:
       case AND:
       case OR:
+      case COALESCE:
+      case OPTCHAIN_GETELEM:
+      case OPTCHAIN_GETPROP:
+      case OPTCHAIN_CALL:
         return true;
       default:
         return false;
@@ -825,7 +942,7 @@ class ExpressionDecomposer {
    *   <ul>
    *     <li>{@code expressionRoot} = `a = 1 + x();`
    *     <li>{@code subExpression} = `x()`, has side-effects
-   *     <li>{@code MOVABLE} because the final value of `a` can not be influenced by `x()`.
+   *     <li>{@code MOVABLE} because the final value of `1` cannot be influenced by `x()`.
    *   </ul>
    *   <ul>
    *     <li>{@code expressionRoot} = `a = b + x();`
@@ -860,11 +977,16 @@ class ExpressionDecomposer {
     return DecompositionType.UNDECOMPOSABLE;
   }
 
-  /** @see {@link #canDecomposeExpression} */
+  /** @see {@link #canExposeExpression(Node subExpression)} */
   private DecompositionType isSubexpressionMovable(Node expressionRoot, Node subExpression) {
     boolean requiresDecomposition = false;
     boolean seenSideEffects = astAnalyzer.mayHaveSideEffects(subExpression);
 
+    if (NodeUtil.isOptChainNode(subExpression) && !NodeUtil.isEndOfFullOptChain(subExpression)) {
+      // e.g `sub?.expression.rest?.of.expression`
+      // It is always necessary to decompose the prefix of an optional chain.
+      requiresDecomposition = true;
+    }
     Node child = subExpression;
     for (Node parent : child.getAncestors()) {
       if (NodeUtil.isNameDeclaration(parent) && !child.isFirstChildOf(parent)) {
@@ -900,7 +1022,7 @@ class ExpressionDecomposer {
           // It is always safe to inline "foo()" for expressions such as
           //   "a = b = c = foo();"
           // As the assignment is unaffected by side effect of "foo()"
-          // and the names assigned-to can not influence the state before
+          // and the names assigned-to cannot influence the state before
           // the call to foo.
           //
           // This is not true of more complex LHS values, such as
@@ -925,28 +1047,9 @@ class ExpressionDecomposer {
             }
           }
 
-          // In Internet Explorer, DOM objects and other external objects
-          // methods can not be called indirectly, as is required when the
-          // object or its property can be side-effected.  For example,
-          // when exposing expression f() (with side-effects) in: x.m(f())
-          // either the value of x or its property m might have changed, so
-          // both the 'this' value ('x') and the function to be called ('x.m')
-          // need to be preserved. Like so:
-          //   var t1 = x, t2 = x.m, t3 = f();
-          //   t2.call(t1, t3);
-          // As IE doesn't support the call to these non-JavaScript objects
-          // methods in this way. We can't do this.
-          // We don't currently distinguish between these types of objects
-          // in the extern definitions and if we did we would need accurate
-          // type information.
-          //
           Node first = parent.getFirstChild();
-          if (requiresDecomposition && parent.isCall() && NodeUtil.isGet(first)) {
-            if (allowMethodCallDecomposing) {
-              return DecompositionType.DECOMPOSABLE;
-            } else {
-              return DecompositionType.UNDECOMPOSABLE;
-            }
+          if (requiresDecomposition && parent.isCall() && NodeUtil.isNormalGet(first)) {
+            return DecompositionType.DECOMPOSABLE;
           }
         }
       }
@@ -998,7 +1101,7 @@ class ExpressionDecomposer {
 
   /**
    * It is always safe to inline "foo()" for expressions such as "a = b = c = foo();" As the
-   * assignment is unaffected by side effect of "foo()" and the names assigned-to can not influence
+   * assignment is unaffected by side effect of "foo()" and the names assigned-to cannot influence
    * the state before the call to foo.
    *
    * <p>It is also safe in cases where the object is constant:
@@ -1040,6 +1143,14 @@ class ExpressionDecomposer {
   }
 
   /**
+   * We must not decompose this method qname.
+   *
+   * <p>See usage location for more information.
+   */
+  private static final QualifiedName WINDOW_LOCATION_ASSIGN =
+      QualifiedName.of("window.location.assign");
+
+  /**
    * Determines if there is any subexpression below {@code tree} that would make it incorrect for
    * some expression that follows {@code tree}, {@code E}, to be executed before {@code tree}.
    *
@@ -1064,16 +1175,37 @@ class ExpressionDecomposer {
 
       // Assume that "tmp1.call(...)" is safe (where tmp1 is a const temp variable created by
       // ExpressionDecomposer) otherwise we end up trying to decompose the same tree
-      // an infinite number of times.
+      // an infinite number of times. Also assume that "fn.call" is safe when "fn" is a known
+      // constant function, as decomposing it may mess up InlineFunction's bookkeeping if it is
+      // attempting to inline "fn".
       Node parent = tree.getParent();
       if (NodeUtil.isObjectCallMethod(parent, "call")
           && tree.isFirstChildOf(parent)
-          && isTempConstantValueName(tree.getFirstChild())) {
+          && (isTempConstantValueName(tree.getFirstChild())
+              || knownConstantFunctions.contains(tree.getFirstChild().getQualifiedName()))) {
         return false;
       }
 
+      if (enabledWorkarounds.contains(Workaround.BROKEN_IE11_LOCATION_ASSIGN)
+          && WINDOW_LOCATION_ASSIGN.matches(tree)) {
+        // IE11 throws an exception if we decompose a call to `window.location.assign`
+        // e.g.
+        // ```js
+        // obj = window.location, method = obj.assign, method.call(obj, url); // exception on IE11
+        // ```
+        // So we will consider it to be a constant value that doesn't need to be decomposed to
+        // protect it against side effects.
+        // This is a hack to work around a specific case we've seen in real world code.
+        // We know it won't catch some cases, but we would rather miss those than add more
+        // sophisticated logic that would also encounter false-positives (e.g. is `x.assign` a
+        // reference to `window.location.assign`?).
+        //
+        // We cannot have canBeSideEffected() (below) do this check for us, because it only accepts
+        // simple names as constants.
+        return false;
+      }
       // This is a superset of "NodeUtil.mayHaveSideEffects".
-      return NodeUtil.canBeSideEffected(tree, this.knownConstants, scope);
+      return NodeUtil.canBeSideEffected(tree, this.knownConstantFunctions, scope);
     } else {
       // The function called doesn't have side-effects but check to see if there
       // are side-effects that that may affect it.

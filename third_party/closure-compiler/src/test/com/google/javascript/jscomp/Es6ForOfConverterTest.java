@@ -18,6 +18,7 @@ package com.google.javascript.jscomp;
 import static com.google.common.truth.Truth.assertThat;
 
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import com.google.javascript.jscomp.testing.NoninjectingCompiler;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -26,7 +27,6 @@ import org.junit.runners.JUnit4;
 /**
  * Test cases for {@link Es6ForOfConverter}
  *
- * @author lharker@google.com (Laura Harker)
  */
 @RunWith(JUnit4.class)
 public final class Es6ForOfConverterTest extends CompilerTestCase {
@@ -78,7 +78,7 @@ public final class Es6ForOfConverterTest extends CompilerTestCase {
             "    console.log(i);",
             "  }",
             "}"));
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/makeiterator");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/makeiterator");
 
     // With simple assign instead of var declaration in bound variable.
     test(
@@ -226,6 +226,21 @@ public final class Es6ForOfConverterTest extends CompilerTestCase {
             "  f()['x' + 1] = $jscomp$key$a.value;",
             "  {}",
             "}"));
+  }
+
+  @Test
+  public void testForLetOfWithoutExterns() {
+    test(
+        externs(""),
+        srcs("for (let x of [1, 2, 3]) {}"),
+        expected(
+            lines(
+                "for (var $jscomp$iter$0 = $jscomp.makeIterator([1,2,3]),",
+                "    $jscomp$key$x = $jscomp$iter$0.next();",
+                "    !$jscomp$key$x.done; $jscomp$key$x = $jscomp$iter$0.next()) {",
+                "  let x = $jscomp$key$x.value;",
+                "  {}",
+                "}")));
   }
 
   @Override

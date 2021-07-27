@@ -15,6 +15,8 @@
  */
 package com.google.javascript.jscomp;
 
+import static com.google.common.base.Preconditions.checkArgument;
+
 import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.IR;
@@ -24,17 +26,20 @@ import com.google.javascript.rhino.jstype.JSTypeNative;
 import com.google.javascript.rhino.jstype.JSTypeRegistry;
 
 /** Replaces the ES7 `**` and `**=` operators to calls to `Math.pow`. */
-public final class Es7RewriteExponentialOperator
-    implements NodeTraversal.Callback, HotSwapCompilerPass {
+public final class Es7RewriteExponentialOperator implements NodeTraversal.Callback, CompilerPass {
 
   private static final FeatureSet transpiledFeatures =
       FeatureSet.BARE_MINIMUM.with(Feature.EXPONENT_OP);
+
+  static final DiagnosticType TRANSPILE_EXPONENT_USING_BIGINT =
+      DiagnosticType.error(
+          "JSC_TRANSPILE_EXPONENT_USING_BIGINT",
+          "Cannot transpile `**` operator applied to BigInt operands.");
 
   private final AbstractCompiler compiler;
   private final Node mathPowCall; // This node should only ever be cloned, not directly inserted.
 
   private final JSType numberType;
-  private final JSType stringType;
   private final JSType mathType;
   private final JSType mathPowType;
 
@@ -44,13 +49,11 @@ public final class Es7RewriteExponentialOperator
     if (compiler.hasTypeCheckingRun()) {
       JSTypeRegistry registry = compiler.getTypeRegistry();
       this.numberType = registry.getNativeType(JSTypeNative.NUMBER_TYPE);
-      this.stringType = registry.getNativeType(JSTypeNative.STRING_TYPE);
       // TODO(nickreid): Get the actual type of the `Math` object here in case optimizations care.
       this.mathType = registry.getNativeType(JSTypeNative.UNKNOWN_TYPE);
       this.mathPowType = registry.createFunctionType(numberType, numberType, numberType);
     } else {
       this.numberType = null;
-      this.stringType = null;
       this.mathType = null;
       this.mathPowType = null;
     }
@@ -60,14 +63,7 @@ public final class Es7RewriteExponentialOperator
 
   @Override
   public void process(Node externs, Node root) {
-    TranspilationPasses.processTranspile(compiler, externs, transpiledFeatures, this);
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    TranspilationPasses.hotSwapTranspile(compiler, scriptRoot, transpiledFeatures, this);
     TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
   }
 
@@ -80,10 +76,14 @@ public final class Es7RewriteExponentialOperator
   public void visit(NodeTraversal t, Node n, Node parent) {
     switch (n.getToken()) {
       case EXPONENT:
-        visitExponentiationOperator(n);
+        if (checkOperatorType(n)) {
+          visitExponentiationOperator(n);
+        }
         break;
       case ASSIGN_EXPONENT:
-        visitExponentiationAssignmentOperator(n);
+        if (checkOperatorType(n)) {
+          visitExponentiationAssignmentOperator(n);
+        }
         break;
       default:
         break;
@@ -95,7 +95,7 @@ public final class Es7RewriteExponentialOperator
     callClone.addChildToBack(operator.removeFirstChild()); // Base argument.
     callClone.addChildToBack(operator.removeFirstChild()); // Exponent argument.
 
-    callClone.useSourceInfoIfMissingFromForTree(operator);
+    callClone.srcrefTreeIfMissing(operator);
     operator.replaceWith(callClone);
 
     compiler.reportChangeToEnclosingScope(callClone);
@@ -110,18 +110,26 @@ public final class Es7RewriteExponentialOperator
 
     Node assignment = IR.assign(lValue, callClone).setJSType(numberType);
 
-    assignment.useSourceInfoIfMissingFromForTree(operator);
+    assignment.srcrefTreeIfMissing(operator);
     operator.replaceWith(assignment);
 
     compiler.reportChangeToEnclosingScope(assignment);
   }
 
   private Node createMathPowCall() {
-    return IR.call(
-            IR.getprop(
-                    IR.name("Math").setJSType(mathType), // Force wrapping.
-                    IR.string("pow").setJSType(stringType))
-                .setJSType(mathPowType))
+    return IR.call(IR.getprop(IR.name("Math").setJSType(mathType), "pow").setJSType(mathPowType))
         .setJSType(numberType);
+  }
+
+  // Report an error if the `**` getting transpiled to `Math.pow()`is of BIGINT type
+  private boolean checkOperatorType(Node operator) {
+    checkArgument(operator.isExponent() || operator.isAssignExponent(), operator);
+    if (compiler.hasTypeCheckingRun()) {
+      if (operator.getJSType().isOnlyBigInt()) {
+        compiler.report(JSError.make(operator, TRANSPILE_EXPONENT_USING_BIGINT));
+        return false;
+      }
+    }
+    return true;
   }
 }

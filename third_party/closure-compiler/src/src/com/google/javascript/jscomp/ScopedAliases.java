@@ -31,7 +31,6 @@ import com.google.javascript.jscomp.NodeTraversal.Callback;
 import com.google.javascript.jscomp.modules.ModuleMetadataMap;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
-import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.SourcePosition;
 import com.google.javascript.rhino.Token;
@@ -78,7 +77,7 @@ import javax.annotation.Nullable;
  * only after 'alias' is defined. In practice, the compiler will inline 'alias' anyway, at the risk
  * of 'fixing' bad code.
  */
-class ScopedAliases implements HotSwapCompilerPass {
+class ScopedAliases implements CompilerPass {
   /** Name used to denote an scoped function block used for aliasing. */
   static final String SCOPING_METHOD_NAME = "goog.scope";
 
@@ -225,11 +224,6 @@ class ScopedAliases implements HotSwapCompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
-    hotSwapScript(root, null);
-  }
-
-  @Override
-  public void hotSwapScript(Node root, Node originalRoot) {
     Traversal traversal = new Traversal();
     NodeTraversal.traverse(compiler, root, traversal);
 
@@ -328,7 +322,7 @@ class ScopedAliases implements HotSwapCompilerPass {
   private static String getAliasedNamespace(Node rhs) {
     switch (rhs.getToken()) {
       case GETPROP:
-        return getAliasedNamespace(rhs.getFirstChild()) + '.' + rhs.getLastChild().getString();
+        return getAliasedNamespace(rhs.getFirstChild()) + '.' + rhs.getString();
       case NAME:
         return rhs.getString();
       case CALL:
@@ -349,14 +343,14 @@ class ScopedAliases implements HotSwapCompilerPass {
     public void applyAlias(AbstractCompiler compiler) {
       Node aliasDefinition = aliasVar.getInitialValue();
       Node replacement = aliasDefinition.cloneTree();
-      replacement.useSourceInfoFromForTree(aliasReference);
+      replacement.srcrefTree(aliasReference);
       // Given alias "var Bar = foo.Bar;" here we replace a usage of Bar with foo.Bar.
       // foo is generated and never visible to user. Because of that we should mark all new nodes as
       // non-indexable leaving only Bar indexable.
       // Given that replacement is GETPROP node, prefix is first child. It's also possible that
       // replacement is single-part namespace. Like goog.provide('Foo') in that case replacement
       // won't have children.
-      if (replacement.getFirstChild() != null) {
+      if (replacement.hasChildren()) {
         replacement.getFirstChild().makeNonIndexableRecursive();
       }
       if (aliasReference.isStringKey()) {
@@ -576,7 +570,7 @@ class ScopedAliases implements HotSwapCompilerPass {
 
           // Pull out inline type declaration if present.
           if (n.getJSDocInfo() != null) {
-            JSDocInfoBuilder builder = JSDocInfoBuilder.maybeCopyFrom(parent.getJSDocInfo());
+            JSDocInfo.Builder builder = JSDocInfo.Builder.maybeCopyFrom(parent.getJSDocInfo());
             if (isFunctionDecl) { // Fix inline return type.
               builder.recordReturnType(n.getJSDocInfo().getType());
             } else {
@@ -618,12 +612,12 @@ class ScopedAliases implements HotSwapCompilerPass {
             } else {
               newName = IR.empty();
             }
-            newName.useSourceInfoFrom(n);
-            value.replaceChild(n, newName);
+            newName.srcref(n);
+            n.replaceWith(newName);
             compiler.reportChangeToEnclosingScope(newName);
 
-            varNode = IR.var(n).useSourceInfoFrom(n);
-            grandparent.replaceChild(parent, varNode);
+            varNode = IR.var(n).srcref(n);
+            parent.replaceWith(varNode);
           } else {
             if (value != null) {
               // If this is a VAR, we can just detach the expression and
@@ -636,19 +630,16 @@ class ScopedAliases implements HotSwapCompilerPass {
           // Add $jscomp.scope.name = EXPR;
           // Make sure we copy over all the jsdoc and debug info.
           if (value != null || varDocInfo != null) {
-            Node newDecl = NodeUtil.newQNameDeclaration(
-                compiler,
-                globalName,
-                value,
-                varDocInfo)
-                .useSourceInfoIfMissingFromForTree(n);
-            newDecl.getFirstFirstChild().useSourceInfoFrom(n);
+            Node newDecl =
+                NodeUtil.newQNameDeclaration(compiler, globalName, value, varDocInfo)
+                    .srcrefTreeIfMissing(n);
+            newDecl.getFirstFirstChild().srcref(n);
             newDecl.getFirstFirstChild().setOriginalName(name);
 
             if (isHoisted) {
               grandparent.addChildToFront(newDecl);
             } else {
-              grandparent.addChildBefore(newDecl, varNode);
+              newDecl.insertBefore(varNode);
             }
             compiler.reportChangeToEnclosingScope(newDecl);
             injectedDecls.add(newDecl.getFirstChild());
@@ -731,9 +722,8 @@ class ScopedAliases implements HotSwapCompilerPass {
 
       if (hasNamespaceShadows) {
         MakeDeclaredNamesUnique.Renamer renamer =
-            new MakeDeclaredNamesUnique.WhitelistedRenamer(
-                new MakeDeclaredNamesUnique.ContextualRenamer(),
-                forbiddenLocals);
+            new MakeDeclaredNamesUnique.TargettedRenamer(
+                new MakeDeclaredNamesUnique.ContextualRenamer(), forbiddenLocals);
         for (String s : forbiddenLocals) {
           renamer.addDeclaredName(s, false);
         }
@@ -758,7 +748,11 @@ class ScopedAliases implements HotSwapCompilerPass {
               }
             }
           };
-      (new NodeTraversal(compiler, cb, t.getScopeCreator())).traverseAtScope(t.getScope());
+      NodeTraversal.builder()
+          .setCompiler(compiler)
+          .setCallback(cb)
+          .setScopeCreator(t.getScopeCreator())
+          .traverseAtScope(t.getScope());
       fnName.setString(name + "$jscomp$scopedAliases$" + suffix);
     }
 
@@ -865,7 +859,7 @@ class ScopedAliases implements HotSwapCompilerPass {
     }
 
     private void fixTypeNode(Node typeNode) {
-      if (typeNode.isString()) {
+      if (typeNode.isStringLit()) {
         String name = typeNode.getString();
         int endIndex = name.indexOf('.');
         if (endIndex == -1) {

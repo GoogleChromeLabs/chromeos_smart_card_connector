@@ -18,8 +18,11 @@ package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.truth.Correspondence;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.Token;
+import java.util.ArrayList;
 import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
@@ -49,10 +52,7 @@ public final class OptimizeCallsTest extends CompilerTestCase {
     return OptimizeCalls.builder()
         .setCompiler(compiler)
         .setConsiderExterns(considerExterns)
-        .addPass(
-            (externs, root, references) -> {
-              this.references = references;
-            })
+        .addPass((externs, root, references) -> this.references = references)
         .build();
   }
 
@@ -174,6 +174,78 @@ public final class OptimizeCallsTest extends CompilerTestCase {
         .doesNotContain("");
   }
 
+  @Test
+  public void testReferenceCollection_findsSuperCalls_simpleNames() {
+    considerExterns = true;
+
+    test(
+        srcs(
+            lines(
+                "class SuperClass {",
+                "  constructor() {}",
+                "}",
+                "class SubClass extends SuperClass {",
+                "  constructor() {",
+                "    super();",
+                "  }",
+                "}",
+                "new SuperClass();",
+                "new SubClass();",
+                "")));
+
+    final ImmutableMap<String, ArrayList<Node>> nameToRefs =
+        ImmutableMap.copyOf(references.getNameReferences());
+    assertThat(nameToRefs.keySet()).containsExactly("SuperClass", "SubClass");
+
+    assertThat(nameToRefs.get("SuperClass"))
+        .comparingElementsUsing(HAS_TOKEN)
+        .containsExactly(Token.NAME, Token.NAME, Token.SUPER, Token.NAME)
+        .inOrder();
+
+    assertThat(nameToRefs.get("SubClass"))
+        .comparingElementsUsing(HAS_TOKEN)
+        .containsExactly(Token.NAME, Token.NAME)
+        .inOrder();
+  }
+
+  @Test
+  public void testReferenceCollection_findsSuperCalls_qualifiedNames() {
+    considerExterns = true;
+
+    test(
+        srcs(
+            lines(
+                "const ns = {};",
+                "ns.SuperClass = class {",
+                "  constructor() {}",
+                "}",
+                "ns.SubClass = class extends ns.SuperClass {",
+                "  constructor() {",
+                "    super();",
+                "  }",
+                "}",
+                "new ns.SuperClass();",
+                "new ns.SubClass();",
+                "")));
+
+    final ImmutableMap<String, ArrayList<Node>> nameToRefs =
+        ImmutableMap.copyOf(references.getPropReferences());
+    assertThat(nameToRefs.keySet()).containsExactly("SuperClass", "SubClass", "constructor");
+
+    assertThat(nameToRefs.get("SuperClass"))
+        .comparingElementsUsing(HAS_TOKEN)
+        .containsExactly(Token.GETPROP, Token.GETPROP, Token.SUPER, Token.GETPROP)
+        .inOrder();
+
+    assertThat(nameToRefs.get("SubClass"))
+        .comparingElementsUsing(HAS_TOKEN)
+        .containsExactly(Token.GETPROP, Token.GETPROP)
+        .inOrder();
+  }
+
   private static final Correspondence<Map.Entry<String, Node>, String> KEY_EQUALITY =
       Correspondence.transforming(Map.Entry::getKey, "has key");
+
+  private static final Correspondence<Node, Token> HAS_TOKEN =
+      Correspondence.transforming(Node::getToken, "has token");
 }

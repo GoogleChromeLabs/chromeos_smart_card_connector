@@ -20,6 +20,7 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.collect.ImmutableMap;
 import com.google.javascript.jscomp.deps.ModuleLoader;
 import com.google.javascript.rhino.IR;
+import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
 import java.util.HashMap;
 import java.util.List;
@@ -82,7 +83,7 @@ public class RewriteJsonToModule extends NodeTraversal.AbstractPostOrderCallback
       case TRUE:
       case FALSE:
       case NULL:
-      case STRING:
+      case STRINGLIT:
         break;
 
       case STRING_KEY:
@@ -105,7 +106,7 @@ public class RewriteJsonToModule extends NodeTraversal.AbstractPostOrderCallback
     if (n.getLineno() == 1) {
       // We wrapped the expression in parens so our first-line columns are off by one.
       // We need to correct for this.
-      n.setCharno(n.getCharno() - 1);
+      n.setLinenoCharno(1, n.getCharno() - 1);
       t.reportCodeChange();
     }
   }
@@ -123,19 +124,22 @@ public class RewriteJsonToModule extends NodeTraversal.AbstractPostOrderCallback
       return;
     }
 
+    JSDocInfo.Builder jsdoc = JSDocInfo.builder();
+    jsdoc.recordFileOverview("Suppresses undefined var goog error");
+    jsdoc.addSuppression("undefinedVars");
+    n.setJSDocInfo(jsdoc.build());
+
     Node jsonObject = n.getFirstFirstChild().detach();
     n.removeFirstChild();
 
     String moduleName = t.getInput().getPath().toModuleName();
 
     n.addChildToFront(
-        IR.var(IR.name(moduleName).useSourceInfoFrom(jsonObject), jsonObject)
-            .useSourceInfoFrom(jsonObject));
+        IR.var(IR.name(moduleName).srcref(jsonObject), jsonObject).srcref(jsonObject));
 
     n.addChildToFront(
-        IR.exprResult(
-                IR.call(IR.getprop(IR.name("goog"), IR.string("provide")), IR.string(moduleName)))
-            .useSourceInfoIfMissingFromForTree(n));
+        IR.exprResult(IR.call(IR.getprop(IR.name("goog"), "provide"), IR.string(moduleName)))
+            .srcrefTreeIfMissing(n));
 
     String inputPath = t.getInput().getSourceFile().getOriginalPath();
     if (inputPath.endsWith("/package.json") && jsonObject.isObjectLit()) {
@@ -144,10 +148,10 @@ public class RewriteJsonToModule extends NodeTraversal.AbstractPostOrderCallback
       for (String entryName : possibleMainEntries) {
         Node entry = NodeUtil.getFirstPropMatchingKey(jsonObject, entryName);
 
-        if (entry != null && (entry.isString() || entry.isObjectLit())) {
+        if (entry != null && (entry.isStringLit() || entry.isObjectLit())) {
           String dirName = inputPath.substring(0, inputPath.length() - "package.json".length());
 
-          if (entry.isString()) {
+          if (entry.isStringLit()) {
             packageJsonMainEntries.put(inputPath, dirName + entry.getString());
             break;
           } else if (entry.isObjectLit()) {
@@ -171,10 +175,10 @@ public class RewriteJsonToModule extends NodeTraversal.AbstractPostOrderCallback
    * track the entries in that object literal as module file replacements.
    */
   private void processBrowserFieldAdvancedUsage(String dirName, Node entry) {
-    for (Node child : entry.children()) {
+    for (Node child = entry.getFirstChild(); child != null; child = child.getNext()) {
       Node value = child.getFirstChild();
 
-      checkState(child.isStringKey() && (value.isString() || value.isFalse()));
+      checkState(child.isStringKey() && (value.isStringLit() || value.isFalse()));
 
       String path = child.getString();
 
@@ -183,9 +187,9 @@ public class RewriteJsonToModule extends NodeTraversal.AbstractPostOrderCallback
       }
 
       String replacement =
-          value.isString()
+          value.isStringLit()
               ? dirName + value.getString()
-              : ModuleLoader.JSC_BROWSER_BLACKLISTED_MARKER;
+              : ModuleLoader.JSC_BROWSER_SKIPLISTED_MARKER;
 
       packageJsonMainEntries.put(dirName + path, replacement);
     }

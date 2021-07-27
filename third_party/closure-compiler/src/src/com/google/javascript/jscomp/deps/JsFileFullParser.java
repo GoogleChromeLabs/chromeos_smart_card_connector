@@ -16,6 +16,8 @@
 
 package com.google.javascript.jscomp.deps;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -47,7 +49,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-import javax.annotation.Nullable;
 
 /**
  * A parser that extracts dependency information from a .js file, including goog.require,
@@ -57,11 +58,20 @@ import javax.annotation.Nullable;
 public class JsFileFullParser {
   /** The dependency information contained in a .js source file. */
   public static final class FileInfo {
+    /** The module system declared by the file, e.g. goog.provide/goog.module. */
+    public enum ModuleType {
+      UNKNOWN,
+      GOOG_PROVIDE,
+      GOOG_MODULE,
+      ES_MODULE,
+    }
+
     public boolean goog = false;
     public boolean isConfig = false;
     public boolean isExterns = false;
     public boolean provideGoog = false;
     public boolean testonly = false;
+    public ModuleType moduleType = ModuleType.UNKNOWN;
 
     public final Set<String> hasSoyDelcalls = new TreeSet<>();
     public final Set<String> hasSoyDeltemplates = new TreeSet<>();
@@ -125,9 +135,17 @@ public class JsFileFullParser {
     private static final int ANNOTATION_VALUE_GROUP = 2;
   }
 
-  /** Parses a JavaScript file for dependencies and annotations. */
-  public static FileInfo parse(String code, String filename, @Nullable Reporter reporter) {
-    ErrorReporter errorReporter = new DelegatingReporter(reporter);
+  private JsFileFullParser() {
+    // no instantiation
+  }
+
+  /**
+   * Parses a JavaScript file for dependencies and annotations
+   *
+   * @return empty info if a syntax error was encountered
+   */
+  public static FileInfo parse(String code, String filename, Reporter reporter) {
+    DelegatingReporter errorReporter = new DelegatingReporter(reporter);
     Compiler compiler =
         new Compiler(
             new BasicErrorManager() {
@@ -160,14 +178,18 @@ public class JsFileFullParser {
     Config config =
         ParserRunner.createConfig(
             // TODO(sdh): ES8 STRICT, with a non-strict fallback - then give warnings.
-            Config.LanguageMode.ECMASCRIPT8,
+            Config.LanguageMode.ES_NEXT,
             Config.JsDocParsing.INCLUDE_DESCRIPTIONS_NO_WHITESPACE,
-            Config.RunMode.KEEP_GOING,
+            Config.RunMode.STOP_AFTER_ERROR,
             /* extraAnnotationNames */ ImmutableSet.<String>of(),
             /* parseInlineSourceMaps */ true,
             Config.StrictMode.SLOPPY);
     FileInfo info = new FileInfo();
     ParserRunner.ParseResult parsed = ParserRunner.parse(source, code, config, errorReporter);
+    if (errorReporter.seenError) {
+      return info;
+    }
+
     parsed.ast.setInputId(new InputId(filename));
     String version = parsed.features.version();
     if (!version.equals("es3")) {
@@ -184,6 +206,9 @@ public class JsFileFullParser {
             compiler, /* processCommonJsModules= */ false, ResolutionMode.BROWSER);
     gatherModuleMetadata.process(new Node(Token.ROOT), parsed.ast);
     compiler.generateReport();
+    if (compiler.getModuleMetadataMap().getModulesByPath().size() != 1) {
+      return info; // Avoid potential crashes due to assumptions of the code below being violated.
+    }
     ModuleMetadata module =
         Iterables.getOnlyElement(
             compiler.getModuleMetadataMap().getModulesByPath().values());
@@ -192,19 +217,45 @@ public class JsFileFullParser {
     } else if (module.isGoogModule()) {
       info.loadFlags.put("module", "goog");
     }
+    switch (module.moduleType()) {
+      case GOOG_PROVIDE:
+        info.moduleType = FileInfo.ModuleType.GOOG_PROVIDE;
+        break;
+      case GOOG_MODULE:
+      case LEGACY_GOOG_MODULE:
+        info.moduleType = FileInfo.ModuleType.GOOG_MODULE;
+        break;
+      case ES6_MODULE:
+        info.moduleType = FileInfo.ModuleType.ES_MODULE;
+        break;
+      case COMMON_JS:
+      case SCRIPT:
+        // Treat these as unknown for now; we can extend the enum if we care about these.
+        info.moduleType = FileInfo.ModuleType.UNKNOWN;
+        break;
+    }
     info.goog = module.usesClosure();
+    recordModuleMetadata(info, module);
+    return info;
+  }
+
+  private static void recordModuleMetadata(FileInfo info, ModuleMetadata module) {
+    info.importedModules.addAll(module.es6ImportSpecifiers().elementSet());
+
     // If something doesn't have an external dependency on Closure, then it does not have any
     // externally required files or symbols to provide. This is needed for bundles that contain
     // base.js as well as other files. These bundles should look like they do not require or provide
     // anything at all.
     if (module.usesClosure()) {
       info.provides.addAll(module.googNamespaces());
-      info.requires.addAll(module.requiredGoogNamespaces());
-      info.typeRequires.addAll(module.requiredTypes());
+      info.requires.addAll(module.stronglyRequiredGoogNamespaces());
+      info.typeRequires.addAll(module.weaklyRequiredGoogNamespaces());
       info.testonly = module.isTestOnly();
     }
-    info.importedModules.addAll(module.es6ImportSpecifiers().elementSet());
-    return info;
+    // Traverse any nested modules (goog.loadModule calls).
+    for (ModuleMetadata nested : module.nestedModules()) {
+      recordModuleMetadata(info, nested);
+    }
   }
 
   /** Mutates {@code info} with information from the given {@code comment}. */
@@ -280,9 +331,10 @@ public class JsFileFullParser {
 
   private static final class DelegatingReporter implements ErrorReporter {
     final Reporter delegate;
+    private boolean seenError = false;
 
     DelegatingReporter(Reporter delegate) {
-      this.delegate = delegate != null ? delegate : NULL_REPORTER;
+      this.delegate = checkNotNull(delegate);
     }
 
     @Override
@@ -292,13 +344,8 @@ public class JsFileFullParser {
 
     @Override
     public void error(String message, String sourceName, int line, int lineOffset) {
+      this.seenError = true;
       delegate.report(true, message, sourceName, line, lineOffset);
     }
   }
-
-  private static final Reporter NULL_REPORTER = new Reporter() {
-    @Override
-    public void report(
-        boolean fatal, String message, String sourceName, int line, int lineOffset) {}
-  };
 }

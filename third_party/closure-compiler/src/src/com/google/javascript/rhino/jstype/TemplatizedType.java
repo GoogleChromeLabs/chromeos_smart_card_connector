@@ -40,11 +40,10 @@
 package com.google.javascript.rhino.jstype;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 
-import com.google.common.annotations.GwtIncompatible;
 import com.google.common.collect.ImmutableList;
 import com.google.javascript.rhino.ErrorReporter;
-import com.google.javascript.rhino.jstype.JSType.SubtypingMode;
 import java.util.LinkedHashSet;
 import java.util.Objects;
 
@@ -54,7 +53,7 @@ import java.util.Objects;
  *
  */
 public final class TemplatizedType extends ProxyObjectType {
-  private static final long serialVersionUID = 1L;
+  private static final JSTypeClass TYPE_CLASS = JSTypeClass.TEMPLATIZED;
 
   /** A cache of the type parameter values for this specialization. */
   private final ImmutableList<JSType> templateTypes;
@@ -75,13 +74,22 @@ public final class TemplatizedType extends ProxyObjectType {
       JSType resolvedType = getTemplateTypeMap().getResolvedTemplateType(newlyFilledTemplateKey);
 
       builder.add(resolvedType);
-      maybeIsSpecializedOnlyWithUnknown =
-          maybeIsSpecializedOnlyWithUnknown && resolvedType.isUnknownType();
+      if (maybeIsSpecializedOnlyWithUnknown) {
+        maybeIsSpecializedOnlyWithUnknown =
+            this.getNativeType(JSTypeNative.UNKNOWN_TYPE).equals(resolvedType);
+      }
     }
     this.templateTypes = builder.build();
     this.isSpecializedOnlyWithUnknown = maybeIsSpecializedOnlyWithUnknown;
 
     this.replacer = TemplateTypeReplacer.forPartialReplacement(registry, getTemplateTypeMap());
+
+    registry.getResolver().resolveIfClosed(this, TYPE_CLASS);
+  }
+
+  @Override
+  JSTypeClass getTypeClass() {
+    return TYPE_CLASS;
   }
 
   // NOTE(dimvar): If getCtorImplementedInterfaces is implemented here, this is the
@@ -108,19 +116,11 @@ public final class TemplatizedType extends ProxyObjectType {
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    super.appendTo(sb, forAnnotations);
+  void appendTo(TypeStringBuilder sb) {
+    super.appendTo(sb);
     if (!this.templateTypes.isEmpty()) {
-      sb.append("<");
-      int lastIndex = this.templateTypes.size() - 1;
-      for (int i = 0; i < lastIndex; i++) {
-        this.templateTypes.get(i).appendTo(sb, forAnnotations);
-        sb.append(",");
-      }
-      this.templateTypes.get(lastIndex).appendTo(sb, forAnnotations);
-      sb.append(">");
+      sb.append("<").appendAll(this.templateTypes, ",").append(">");
     }
-    return sb;
   }
 
   @Override
@@ -128,7 +128,7 @@ public final class TemplatizedType extends ProxyObjectType {
     int baseHash = super.recursionUnsafeHashCode();
 
     // TODO(b/110224889): This case can probably be removed if `equals()` is updated.
-    if (isSpecializedOnlyWithUnknown) {
+    if (this.isSpecializedOnlyWithUnknown) {
       return baseHash;
     }
     return Objects.hash(templateTypes, baseHash);
@@ -161,7 +161,7 @@ public final class TemplatizedType extends ProxyObjectType {
 
   boolean wrapsSameRawType(JSType that) {
     return that.isTemplatizedType() && this.getReferencedTypeInternal()
-        .isEquivalentTo(
+        .equals(
             that.toMaybeTemplatizedType().getReferencedTypeInternal());
   }
 
@@ -189,8 +189,7 @@ public final class TemplatizedType extends ProxyObjectType {
     TemplatizedType that = rawThat.toMaybeTemplatizedType();
     checkNotNull(that);
 
-    if (getTemplateTypeMap().checkEquivalenceHelper(
-        that.getTemplateTypeMap(), EquivalenceMethod.INVARIANT, SubtypingMode.NORMAL)) {
+    if (this.equals(that)) {
       return this;
     }
 
@@ -217,24 +216,16 @@ public final class TemplatizedType extends ProxyObjectType {
     return getReferencedObjTypeInternal();
   }
 
-  @GwtIncompatible("ObjectInputStream")
-  private void readObject(java.io.ObjectInputStream in) throws Exception {
-    in.defaultReadObject();
-    replacer = TemplateTypeReplacer.forPartialReplacement(registry, templateTypeMap);
-  }
-
-  @SuppressWarnings("ReferenceEquality")
   @Override
   JSType resolveInternal(ErrorReporter reporter) {
     JSType baseTypeBefore = getReferencedType();
-    setResolvedTypeInternal(this); // for circularly defined types.
     super.resolveInternal(reporter);
 
     boolean rebuild = baseTypeBefore != getReferencedType();
     ImmutableList.Builder<JSType> builder = ImmutableList.builder();
     for (JSType type : templateTypes) {
       JSType resolved = type.resolve(reporter);
-      rebuild |= resolved != type;
+      rebuild |= !identical(resolved, type);
       builder.add(resolved);
     }
 

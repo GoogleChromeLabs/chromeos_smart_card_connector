@@ -45,12 +45,14 @@
  */
 package com.google.javascript.rhino.jstype;
 
+import static com.google.javascript.jscomp.base.JSCompObjects.identical;
+
 import com.google.common.base.Predicate;
 import com.google.javascript.rhino.Node;
 
 /** A placeholder type, used as keys in {@link TemplateTypeMap}s. */
 public final class TemplateType extends ProxyObjectType {
-  private static final long serialVersionUID = 1L;
+  private static final JSTypeClass TYPE_CLASS = JSTypeClass.TEMPLATE;
 
   private final String name;
   private JSType bound;
@@ -75,6 +77,13 @@ public final class TemplateType extends ProxyObjectType {
     this.name = name;
     this.bound = bound == null ? registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE) : bound;
     this.typeTransformation = typeTransformation;
+
+    registry.getResolver().resolveIfClosed(this, TYPE_CLASS);
+  }
+
+  @Override
+  JSTypeClass getTypeClass() {
+    return TYPE_CLASS;
   }
 
   @Override
@@ -83,12 +92,12 @@ public final class TemplateType extends ProxyObjectType {
   }
 
   @Override
-  StringBuilder appendTo(StringBuilder sb, boolean forAnnotations) {
-    if (bound == registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE)) {
+  void appendTo(TypeStringBuilder sb) {
+    if (identical(bound, registry.getNativeObjectType(JSTypeNative.UNKNOWN_TYPE))) {
       // This is an unbound template, don't print it's bound
-      return sb.append(this.name);
+      sb.append(this.name);
     } else {
-      return sb.append(this.name).append(" extends ").append(bound);
+      sb.append(this.name).append(" extends ").append(bound);
     }
   }
 
@@ -126,11 +135,6 @@ public final class TemplateType extends ProxyObjectType {
   public void setBound(JSType bound) {
     this.bound = bound;
     this.setReferencedType(bound);
-  }
-
-  @Override
-  public boolean equals(Object jsType) {
-    return (jsType instanceof TemplateType) && JSType.areIdentical(this, (JSType) jsType);
   }
 
   @Override

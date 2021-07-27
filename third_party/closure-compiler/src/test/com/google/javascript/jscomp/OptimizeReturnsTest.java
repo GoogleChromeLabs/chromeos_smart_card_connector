@@ -16,6 +16,7 @@
 
 package com.google.javascript.jscomp;
 
+
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -24,7 +25,6 @@ import org.junit.runners.JUnit4;
 /**
  * Tests OptimizeReturns
  *
- * @author johnlenz@google.com (John Lenz)
  */
 @RunWith(JUnit4.class)
 public final class OptimizeReturnsTest extends CompilerTestCase {
@@ -51,6 +51,13 @@ public final class OptimizeReturnsTest extends CompilerTestCase {
   protected int getNumRepetitions() {
     // run pass once.
     return 1;
+  }
+
+  @Test
+  public void nullishCoalesceReturnRemoved() {
+    test(
+        "var f = (function() {return 1}) ?? (function() {return 2}); f();",
+        "var f = function() { return; } ?? function() { return; }; f();");
   }
 
   @Test
@@ -243,6 +250,17 @@ public final class OptimizeReturnsTest extends CompilerTestCase {
   }
 
   @Test
+  public void testNoRewriteWhenAliasedDuringAssignment() {
+    String source =
+        lines(
+            "var a, b;",
+            "a = b = function (){return 1}",
+            "use(a());", // result used
+            "b()"); // result unused
+    testSame(source);
+  }
+
+  @Test
   public void testRewriteUnusedResult4c() {
     String source = lines(
         "function a(){return a()}",
@@ -410,6 +428,13 @@ public final class OptimizeReturnsTest extends CompilerTestCase {
         "for(c in a) (a[c])();",
         "a.b()");
     testSame(source);
+
+    String sourceOptChain =
+        lines(
+            "var a = {b:function fn(){return 1;}}", //
+            "for(c in a) (a[c])?.();",
+            "a.b?.()");
+    testSame(sourceOptChain);
   }
 
   @Test
@@ -418,6 +443,12 @@ public final class OptimizeReturnsTest extends CompilerTestCase {
         "var a = [function(){return 1;}]",
         "(a[0])();");
     testSame(source);
+
+    String sourceOptChain =
+        lines(
+            "var a = [function(){return 1;}]", //
+            "(a[0])?.();");
+    testSame(sourceOptChain);
   }
 
   @Test
@@ -473,8 +504,15 @@ public final class OptimizeReturnsTest extends CompilerTestCase {
     test(
         "function a() {return 1}; a.call(new foo);",
         "function a() {return  }; a.call(new foo);");
-
     testSame("function a() {return 1}; a.apply(new foo);");
+  }
+
+  @Test
+  public void testCallOrApply_optChain() {
+    test(
+        "function a() {return 1}; a?.call(new foo);", //
+        "function a() {return  }; a?.call(new foo);");
+    testSame("function a() {return 1}; a?.apply(new foo);");
   }
 
   @Test
@@ -496,6 +534,39 @@ public final class OptimizeReturnsTest extends CompilerTestCase {
             "let x = functionFactory();",
             "x(1, 2);",
             "x = function(a,b) { return b; }"));
+  }
+
+  @Test
+  public void testReturnNotRemovedFromRecursiveNamedFunctionExpression() {
+    testSame(
+        lines(
+            "let x = function innerName(n) {",
+            "  if (n < 1) {",
+            "    return 0",
+            "  } else {",
+            "    return innerName(n - 1) + n;",
+            "  }",
+            "",
+            "}",
+            "x(3);",
+            ""));
+  }
+
+  // optional chaining version of the above test
+  @Test
+  public void testReturnNotRemovedFromRecursiveNamedFunctionExpression_optChain() {
+    testSame(
+        lines(
+            "let x = function innerName(n) {",
+            "  if (n < 1) {",
+            "    return 0",
+            "  } else {",
+            "    return innerName(n - 1) + n;",
+            "  }",
+            "",
+            "}",
+            "x?.(3);",
+            ""));
   }
 
   @Test
@@ -569,6 +640,21 @@ public final class OptimizeReturnsTest extends CompilerTestCase {
         "for (x of a) {}",
         "a()");
     test(source, expected);
+
+    // optional versions
+    String sourceOptChainCall =
+        lines(
+            "function a(){return 1}", //
+            "for (x in a) {}",
+            "for (x of a) {}",
+            "a?.()");
+    String expectedOptChainCall =
+        lines(
+            "function a(){return}", //
+            "for (x in a) {}",
+            "for (x of a) {}",
+            "a?.()");
+    test(sourceOptChainCall, expectedOptChainCall);
   }
 
   @Test
@@ -579,26 +665,29 @@ public final class OptimizeReturnsTest extends CompilerTestCase {
         "a.x()",
         "a()");
     testSame(source);
+
+    // call to 'a?.x' escapes 'a' as 'this'
+    String sourceOptChainCall =
+        lines(
+            "function a(){return 1}", //
+            "a?.x()",
+            "a()");
+    testSame(sourceOptChainCall);
   }
 
   @Test
   public void testNoRewriteUnusedResultWithUnsafeReference2() {
-    // call to 'a.x' escapes 'a' as 'this'
-    String source = lines(
-        "function a(){return 1}",
-        "a['x']()",
-        "a()");
+    // call to 'a[x]' escapes 'a' as 'this'
+    String source = lines("function a(){return 1}", "a['x']()", "a()");
     testSame(source);
-  }
 
-  @Test
-  public void testNoRewriteUnusedResultWithUnsafeReference3() {
-    // call to 'a' is assigned an unknown value
-    String source = lines(
-        "function a(){return 1}",
-        "for (a in x) {}",
-        "a()");
-    testSame(source);
+    // call to 'a?.[x]' escapes 'a' as 'this'
+    String sourceOptChainCall =
+        lines(
+            "function a(){return 1}", //
+            "a?.['x']()",
+            "a()");
+    testSame(sourceOptChainCall);
   }
 
   @Test

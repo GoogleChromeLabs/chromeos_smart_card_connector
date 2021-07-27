@@ -59,6 +59,10 @@ public enum JSTypeNative {
   ASYNC_GENERATOR_FUNCTION_TYPE,
   ASYNC_GENERATOR_TYPE,
 
+  BIGINT_TYPE,
+  BIGINT_OBJECT_TYPE,
+  BIGINT_OBJECT_FUNCTION_TYPE,
+
   BOOLEAN_TYPE,
   BOOLEAN_OBJECT_TYPE,
   BOOLEAN_OBJECT_FUNCTION_TYPE,
@@ -90,8 +94,10 @@ public enum JSTypeNative {
   DATE_TYPE,
   DATE_FUNCTION_TYPE,
 
+  FUNCTION_TYPE,
   FUNCTION_FUNCTION_TYPE,
   FUNCTION_PROTOTYPE,
+  FUNCTION_INSTANCE_PROTOTYPE,
 
   GENERATOR_FUNCTION_TYPE,
   GENERATOR_TYPE,
@@ -150,10 +156,6 @@ public enum JSTypeNative {
   NO_OBJECT_TYPE,
   NO_RESOLVED_TYPE,
   GLOBAL_THIS,
-  // TODO(dimvar): merge these two if possible.
-  U2U_CONSTRUCTOR_TYPE,
-  // unknown function type, i.e. (?...) -> ?
-  U2U_FUNCTION_TYPE,
 
   LEAST_FUNCTION_TYPE,
   GREATEST_FUNCTION_TYPE,
@@ -186,8 +188,18 @@ public enum JSTypeNative {
    */
   NUMBER_STRING,
 
-  /**
-   * (number,string,symbol)
-   */
+  /** (number,string,symbol) */
   NUMBER_STRING_SYMBOL,
+
+  /** (bigint,number) */
+  BIGINT_NUMBER,
+
+  /** (BigInt,Number) */
+  BIGINT_NUMBER_OBJECT,
+
+  /** (bigint,number,string) */
+  BIGINT_NUMBER_STRING,
+
+  /** (Bigint,Number,String) */
+  BIGINT_NUMBER_STRING_OBJECT;
 }

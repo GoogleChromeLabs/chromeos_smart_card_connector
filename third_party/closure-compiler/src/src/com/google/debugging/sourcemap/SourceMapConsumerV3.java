@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.debugging.sourcemap.Base64VLQ.CharIterator;
 import com.google.debugging.sourcemap.proto.Mapping.OriginalMapping;
 import com.google.debugging.sourcemap.proto.Mapping.OriginalMapping.Builder;
+import com.google.debugging.sourcemap.proto.Mapping.OriginalMapping.Precision;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,12 +34,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Class for parsing version 3 of the SourceMap format, as produced by the
- * Closure Compiler, etc.
- * http://code.google.com/p/closure-compiler/wiki/SourceMaps
+ * Class for parsing version 3 of the SourceMap format, as produced by the Closure Compiler, etc.
+ * https://github.com/google/closure-compiler/wiki/Source-Maps
  */
-public final class SourceMapConsumerV3 implements SourceMapConsumer,
-    SourceMappingReversable {
+public final class SourceMapConsumerV3 implements SourceMapConsumer, SourceMappingReversable {
   static final int UNMAPPED = -1;
 
   private String[] sources;
@@ -174,7 +173,7 @@ public final class SourceMapConsumerV3 implements SourceMapConsumer,
 
     int index = search(entries, column, 0, entries.size() - 1);
     Preconditions.checkState(index >= 0, "unexpected:%s", index);
-    return getOriginalMappingForEntry(entries.get(index));
+    return getOriginalMappingForEntry(entries.get(index), Precision.EXACT);
   }
 
   @Override
@@ -433,21 +432,21 @@ public final class SourceMapConsumerV3 implements SourceMapConsumer,
       lineNumber--;
     } while (lines.get(lineNumber) == null);
     ArrayList<Entry> entries = lines.get(lineNumber);
-    return getOriginalMappingForEntry(Iterables.getLast(entries));
+    return getOriginalMappingForEntry(Iterables.getLast(entries), Precision.APPROXIMATE_LINE);
   }
 
-  /**
-   * Creates an "OriginalMapping" object for the given entry object.
-   */
-  private OriginalMapping getOriginalMappingForEntry(Entry entry) {
+  /** Creates an "OriginalMapping" object for the given entry object. */
+  private OriginalMapping getOriginalMappingForEntry(Entry entry, Precision precision) {
     if (entry.getSourceFileId() == UNMAPPED) {
       return null;
     } else {
       // Adjust the line/column here to be start at 1.
-      Builder x = OriginalMapping.newBuilder()
-        .setOriginalFile(sources[entry.getSourceFileId()])
-        .setLineNumber(entry.getSourceLine() + 1)
-        .setColumnPosition(entry.getSourceColumn() + 1);
+      Builder x =
+          OriginalMapping.newBuilder()
+              .setOriginalFile(sources[entry.getSourceFileId()])
+              .setLineNumber(entry.getSourceLine() + 1)
+              .setColumnPosition(entry.getSourceColumn() + 1)
+              .setPrecision(precision);
       if (entry.getNameId() != UNMAPPED) {
         x.setIdentifier(names[entry.getNameId()]);
       }
@@ -678,6 +677,14 @@ public final class SourceMapConsumerV3 implements SourceMapConsumer,
           }
         }
       }
+    }
+    // Complete pending entry if any.
+    if (pending) {
+      // Given that this is the last entry and we don't know how much of the generated file left
+      // after that entry - make it of length 1.
+      FilePosition endPosition =
+          new FilePosition(startPosition.getLine(), startPosition.getColumn() + 1);
+      visitor.visit(sourceName, symbolName, sourceStartPosition, startPosition, endPosition);
     }
   }
 }

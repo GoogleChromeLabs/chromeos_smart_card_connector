@@ -15,11 +15,13 @@
  */
 package com.google.javascript.refactoring;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.CheckLevel.ERROR;
 import static com.google.javascript.jscomp.CheckLevel.OFF;
 import static com.google.javascript.jscomp.CheckLevel.WARNING;
+import static com.google.javascript.jscomp.base.JSCompStrings.lines;
 import static com.google.javascript.jscomp.parsing.Config.JsDocParsing.INCLUDE_ALL_COMMENTS;
 
 import com.google.auto.value.AutoValue;
@@ -44,17 +46,18 @@ import org.junit.runners.JUnit4;
 // on whether a fix is required, which causes no fix to be suggested when it should.
 
 /** Test case for {@link ErrorToFixMapper}. */
-
 @RunWith(JUnit4.class)
 public class ErrorToFixMapperTest {
   private FixingErrorManager errorManager;
   private CompilerOptions options;
   private Compiler compiler;
+  private String preexistingCode;
 
   @Before
   public void setUp() {
     errorManager = new FixingErrorManager();
     compiler = new Compiler(errorManager);
+    preexistingCode = "";
     compiler.disableThreads();
     errorManager.setCompiler(compiler);
 
@@ -63,7 +66,7 @@ public class ErrorToFixMapperTest {
     options.setWarningLevel(DiagnosticGroups.CHECK_VARIABLES, ERROR);
     options.setWarningLevel(DiagnosticGroups.DEBUGGER_STATEMENT_PRESENT, ERROR);
     options.setWarningLevel(DiagnosticGroups.LINT_CHECKS, WARNING);
-    options.setWarningLevel(DiagnosticGroups.STRICT_MISSING_REQUIRE, ERROR);
+    options.setWarningLevel(DiagnosticGroups.MISSING_REQUIRE, ERROR);
     options.setWarningLevel(DiagnosticGroups.EXTRA_REQUIRE, ERROR);
     options.setWarningLevel(DiagnosticGroups.STRICT_MODULE_CHECKS, WARNING);
     options.setCodingConvention(new GoogleCodingConvention());
@@ -144,7 +147,6 @@ public class ErrorToFixMapperTest {
                     ""))
             .build());
   }
-
 
   @Test
   public void testDebugger() {
@@ -254,6 +256,20 @@ public class ErrorToFixMapperTest {
         "/** @param {Object} o */ function f(o) {}",
         "/** @param {!Object} o */ function f(o) {}",
         "/** @param {?Object} o */ function f(o) {}");
+  }
+
+  @Test
+  public void testMissingBangOnEnum() {
+    options.setWarningLevel(DiagnosticGroups.LINT_CHECKS, OFF);
+    String prelude = "/** @enum {number} */ var Enum;\n";
+    assertChanges(prelude + "/** @type {Enum} */ var o;", prelude + "/** @type {!Enum} */ var o;");
+  }
+
+  @Test
+  public void testMissingBangOnTypedef() {
+    options.setWarningLevel(DiagnosticGroups.LINT_CHECKS, OFF);
+    String prelude = "/** @typedef {number} */ var Num;\n";
+    assertChanges(prelude + "/** @type {Num} */ var o;", prelude + "/** @type {!Num} */ var o;");
   }
 
   @Test
@@ -543,15 +559,41 @@ public class ErrorToFixMapperTest {
   }
 
   @Test
-  public void testFixProvides_noProvides() {
-    assertNoChanges(
+  public void testFixNonAliasedRequire() {
+    assertChanges(
         lines(
             "/** @fileoverview foo */",
             "",
             "goog.module('m');",
             "",
             "goog.require('x');",
+            useInCode("x")),
+        lines(
+            "/** @fileoverview foo */",
+            "",
+            "goog.module('m');",
+            "",
+            "const x = goog.require('x');",
             useInCode("x")));
+  }
+
+  @Test
+  public void testFixNonAliasedRequireType() {
+    assertChanges(
+        lines(
+            "/** @fileoverview foo */",
+            "",
+            "goog.module('m');",
+            "",
+            "goog.requireType('x');",
+            useInType("x")),
+        lines(
+            "/** @fileoverview foo */",
+            "",
+            "goog.module('m');",
+            "",
+            "const x = goog.requireType('x');",
+            useInType("x")));
   }
 
   @Test
@@ -565,7 +607,7 @@ public class ErrorToFixMapperTest {
             "goog.require('a');",
             "goog.forwardDeclare('e');",
             useInCode("a", "b"),
-            useInType("c", "d")),
+            useInType("c", "d", "e", "f")),
         fileWithImports(
             "goog.forwardDeclare('e');",
             "goog.forwardDeclare('f');",
@@ -574,7 +616,7 @@ public class ErrorToFixMapperTest {
             "goog.requireType('c');",
             "goog.requireType('d');",
             useInCode("a", "b"),
-            useInType("c", "d")));
+            useInType("c", "d", "e", "f")));
   }
 
   @Test
@@ -589,7 +631,7 @@ public class ErrorToFixMapperTest {
             "const {c} = goog.requireType('c');",
             "goog.forwardDeclare('g');",
             useInCode("a", "d", "f"),
-            useInType("b", "c", "e")),
+            useInType("b", "c", "e", "g")),
         fileWithImports(
             "const e = goog.requireType('e');",
             "const f = goog.require('f');",
@@ -599,7 +641,7 @@ public class ErrorToFixMapperTest {
             "goog.require('b');",
             "goog.requireType('a');",
             useInCode("a", "d", "f"),
-            useInType("b", "c", "e")));
+            useInType("b", "c", "e", "g")));
   }
 
   @Test
@@ -882,14 +924,14 @@ public class ErrorToFixMapperTest {
             "goog.forwardDeclare('c');",
             "goog.forwardDeclare('d');",
             useInCode("a", "b"),
-            useInType("c")),
+            useInType("c", "d")),
         fileWithImports(
             "goog.forwardDeclare('d');",
             "goog.require('a');",
             "goog.require('b');",
             "goog.requireType('c');",
             useInCode("a", "b"),
-            useInType("c")));
+            useInType("c", "d")));
   }
 
   @Test
@@ -938,7 +980,28 @@ public class ErrorToFixMapperTest {
   }
 
   @Test
+  public void testFixRequires_nonAliasedRequire() {
+    assertChanges(
+        fileWithImports("goog.require('a');", useInCode("a")),
+        fileWithImports("const a = goog.require('a');", useInCode("a")));
+  }
+
+  @Test
+  public void testFixRequires_mutlipleFixesSpecifySameRequire() {
+    assertChanges(
+        fileWithImports(
+            "goog.require('a.b');", //
+            useInCode("a.b", "a.b", "a.b")),
+        fileWithImports(
+            "const b = goog.require('a.b');", //
+            useInCode("b", "b", "b")));
+  }
+
+  @Ignore
+  @Test
   public void testFixRequires_emptyDestructuring_alone() {
+    // It would be nice to dedeuplicate the destructuring require with the aliased require,
+    // but it's not clear that this pattern is common enough to warrant special casing
     assertChanges(
         fileWithImports("const {} = goog.require('a');", useInCode("a")),
         fileWithImports("goog.require('a');", useInCode("a")));
@@ -958,8 +1021,11 @@ public class ErrorToFixMapperTest {
         fileWithImports("goog.require('a');", useInCode("a")));
   }
 
+  @Ignore
   @Test
   public void testFixRequires_emptyDestructuringStandaloneByWeakerPrimitive() {
+    // It would be nice to dedeuplicate the destructuring require with the aliased require,
+    // but it's not clear that this pattern is common enough to warrant special casing
     assertChanges(
         fileWithImports("const {} = goog.require('a');", "goog.requireType('a');", useInCode("a")),
         fileWithImports("goog.require('a');", useInCode("a")));
@@ -1115,6 +1181,13 @@ public class ErrorToFixMapperTest {
   }
 
   @Test
+  public void testFixRequires_singleDestructure_shorthandProperty() {
+    assertChanges(
+        fileWithImports("const {b: b} = goog.require('a');", useInCode("b")),
+        fileWithImports("const {b} = goog.require('a');", useInCode("b")));
+  }
+
+  @Test
   public void testFixRequires_preserveJsDoc_whenMergingDestructures_single() {
     assertChanges(
         fileWithImports(
@@ -1193,23 +1266,31 @@ public class ErrorToFixMapperTest {
   }
 
   @Test
-  public void testMissingRequireInGoogProvideFile() {
-    assertChanges(
+  public void testMissingRequire_inJSDoc_withWhitespace() {
+    preexistingCode = "goog.provide('some.really.very.long.namespace.SuperInt');";
+    assertExpectedFixes(
         lines(
-            "goog.provide('p');", //
+            "goog.module('m');",
             "",
-            "alert(new a.b.C());"),
-        lines(
-            "goog.provide('p');", //
-            "goog.require('a.b.C');",
-            "",
-            "alert(new a.b.C());"));
+            "/** @interface @implements {some.really.very.long.",
+            "                            namespace.SuperInt} */",
+            "class Bar {}"),
+        ExpectedFix.builder()
+            .fixedCode(
+                lines(
+                    "goog.module('m');",
+                    "const SuperInt = goog.require('some.really.very.long.namespace.SuperInt');",
+                    "",
+                    "/** @interface @implements {SuperInt} */",
+                    "class Bar {}"))
+            .build());
   }
 
   @Test
   public void testMissingRequire_unsorted1() {
     // Both the fix for requires being unsorted, and the fix for the missing require, are applied.
     // However, the end result is still out of order.
+    preexistingCode = "goog.provide('goog.dom.DomHelper');";
     assertChanges(
         lines(
             "goog.module('module');",
@@ -1236,6 +1317,7 @@ public class ErrorToFixMapperTest {
   public void testMissingRequire_unsorted2() {
     // Both the fix for requires being unsorted, and the fix for the missing require, are applied.
     // The end result is ordered.
+    preexistingCode = "goog.provide('goog.rays.Xray');";
     assertChanges(
         lines(
             "goog.module('module');",
@@ -1260,6 +1342,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testMissingRequireInGoogModule() {
+    preexistingCode = "goog.provide('a.b.C');";
     assertChanges(
         lines(
             "goog.module('m');", //
@@ -1274,6 +1357,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testMissingRequireInGoogModuleTwice() {
+    preexistingCode = "goog.provide('a.b.C');";
     assertChanges(
         lines(
             "goog.module('m');", //
@@ -1284,13 +1368,13 @@ public class ErrorToFixMapperTest {
             "goog.module('m');",
             "const C = goog.require('a.b.C');",
             "",
-            // TODO(tbreisacher): Can we make automatically switch both lines to use 'new C()'?
-            "alert(new a.b.C());",
+            "alert(new C());",
             "alert(new C());"));
   }
 
   @Test
   public void testMissingRequireInGoogModule_call() {
+    preexistingCode = "goog.provide('a.b');";
     assertChanges(
         lines(
             "goog.module('m');", //
@@ -1305,6 +1389,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testMissingRequireInGoogModule_extends() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');", //
@@ -1319,6 +1404,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testMissingRequireInGoogModule_atExtends() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1329,13 +1415,23 @@ public class ErrorToFixMapperTest {
             "goog.module('m');",
             "const Animal = goog.require('world.util.Animal');",
             "",
-            // TODO(tbreisacher): Change this to "@extends {Animal}"
-            "/** @constructor @extends {world.util.Animal} */",
+            "/** @constructor @extends {Animal} */",
             "function Cat() {}"));
   }
 
   @Test
+  public void testMissingRequire_inProvidesFile() {
+    preexistingCode = "goog.provide('world.util.Animal');";
+    assertChanges(
+        lines("var f = world.util.Animal.create();"),
+        lines(
+            "goog.require('world.util.Animal');", //
+            "var f = world.util.Animal.create();"));
+  }
+
+  @Test
   public void testStandaloneVarDoesntCrashMissingRequire() {
+    preexistingCode = "goog.provide('goog.Animal');";
     assertChanges(
         lines(
             "goog.module('m');", //
@@ -1354,6 +1450,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testAddLhsToGoogRequire() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1370,7 +1467,52 @@ public class ErrorToFixMapperTest {
   }
 
   @Test
+  public void testAddLhsToGoogRequire_conflictingName() {
+    preexistingCode = "goog.provide('world.util.Animal');";
+    assertChanges(
+        lines(
+            "goog.module('m');",
+            "",
+            "goog.require('world.util.Animal');",
+            "",
+            "const Animal = null;",
+            "",
+            "class Cat extends world.util.Animal {}"),
+        lines(
+            "goog.module('m');",
+            "",
+            "const UtilAnimal = goog.require('world.util.Animal');",
+            "",
+            "const Animal = null;",
+            "",
+            "class Cat extends UtilAnimal {}"));
+  }
+
+  @Test
+  public void testAddLhsToGoogRequire_conflictingName_fromOtherSuggestion() {
+    preexistingCode = "goog.provide('world.util.Animal'); goog.provide('rara.exotic.Animal');";
+    assertChanges(
+        lines(
+            "goog.module('m');",
+            "",
+            "goog.require('rare.exotic.Animal');",
+            "goog.require('world.util.Animal');",
+            "",
+            "/** @implements {rare.exotic.Animal} */",
+            "class Cat extends world.util.Animal {}"),
+        lines(
+            "goog.module('m');",
+            "",
+            "const ExoticAnimal = goog.require('rare.exotic.Animal');",
+            "const Animal = goog.require('world.util.Animal');",
+            "",
+            "/** @implements {ExoticAnimal} */",
+            "class Cat extends Animal {}"));
+  }
+
+  @Test
   public void testAddLhsToGoogRequire_new() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1388,6 +1530,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testAddLhsToGoogRequire_getprop() {
+    preexistingCode = "goog.provide('magical.factories'); goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1407,20 +1550,27 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testAddLhsToGoogRequire_jsdoc() {
-    // TODO(tbreisacher): Add "const Animal = " before the goog.require and change
-    // world.util.Animal to Animal
-    assertNoChanges(
+    preexistingCode = "goog.provide('world.util.Animal');";
+    assertChanges(
         lines(
             "goog.module('m');",
             "",
             "goog.require('world.util.Animal');",
             "",
             "/** @type {!world.util.Animal} */",
+            "var cat;"),
+        lines(
+            "goog.module('m');",
+            "",
+            "const Animal = goog.require('world.util.Animal');",
+            "",
+            "/** @type {!Animal} */",
             "var cat;"));
   }
 
   @Test
   public void testSwitchToShorthand_JSDoc1() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1438,6 +1588,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testSwitchToShorthand_JSDoc2() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1455,6 +1606,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testSwitchToShorthand_JSDoc3() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1472,6 +1624,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testSwitchToShorthand_JSDoc4() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1489,6 +1642,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testSwitchToShorthand_JSDoc5() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1506,6 +1660,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testSwitchToShorthand_JSDoc6() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1523,6 +1678,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testSwitchToShorthand_JSDoc7() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1540,6 +1696,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testMissingRequireInGoogModule_atExtends_qname() {
+    preexistingCode = "goog.provide('world.util.Animal');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1550,13 +1707,30 @@ public class ErrorToFixMapperTest {
             "goog.module('m');",
             "const Animal = goog.require('world.util.Animal');",
             "",
-            // TODO(tbreisacher): Change this to "@extends {Animal}"
-            "/** @constructor @extends {world.util.Animal} */",
+            "/** @constructor @extends {Animal} */",
             "world.util.Cat = function() {};"));
   }
 
   @Test
+  public void testMissingRequireTypeInGoogModule_atType_qname() {
+    preexistingCode = "goog.provide('world.util.Animal');";
+    assertChanges(
+        lines(
+            "goog.module('m');", //
+            "",
+            "/** @type {?world.util.Animal} */",
+            "let x = null;"),
+        lines(
+            "goog.module('m');",
+            "const Animal = goog.requireType('world.util.Animal');",
+            "",
+            "/** @type {?Animal} */",
+            "let x = null;"));
+  }
+
+  @Test
   public void testMissingRequireInGoogModule_googString() {
+    preexistingCode = "goog.provide('goog.string');";
     assertChanges(
         lines(
             "goog.module('m');", //
@@ -1571,6 +1745,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testMissingRequireInGoogModule_googStructsMap() {
+    preexistingCode = "goog.provide('goog.structs.Map');";
     assertChanges(
         lines(
             "goog.module('m');", //
@@ -1585,6 +1760,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testMissingRequireInGoogModule_insertedInCorrectOrder() {
+    preexistingCode = "goog.provide('x.B');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -1606,6 +1782,7 @@ public class ErrorToFixMapperTest {
 
   @Test
   public void testMissingRequireInGoogModule_alwaysInsertsConst() {
+    preexistingCode = "goog.provide('x.B');";
     assertChanges(
         lines(
             "goog.module('m');",
@@ -2095,9 +2272,17 @@ public class ErrorToFixMapperTest {
   }
 
   private void compileExpectingAtLeastOneWarningOrError(String originalCode) {
+    compileExpectingAtLeastOneWarningOrError(getInputMap(originalCode));
+  }
+
+  private void compileExpectingAtLeastOneWarningOrError(ImmutableMap<String, String> inputMap) {
+    ImmutableList<SourceFile> inputs =
+        inputMap.entrySet().stream()
+            .map(e -> SourceFile.fromCode(e.getKey(), e.getValue()))
+            .collect(toImmutableList());
     compiler.compile(
         ImmutableList.<SourceFile>of(), // Externs
-        ImmutableList.of(SourceFile.fromCode("test", originalCode)),
+        inputs,
         options);
     ImmutableList<JSError> warningsAndErrors =
         ImmutableList.<JSError>builder()
@@ -2114,8 +2299,7 @@ public class ErrorToFixMapperTest {
     Collection<SuggestedFix> fixes = errorManager.getAllFixes();
     assertWithMessage("fixes").that(fixes).isNotEmpty();
     String newCode =
-        ApplySuggestedFixes.applySuggestedFixesToCode(fixes, ImmutableMap.of("test", originalCode))
-            .get("test");
+        ApplySuggestedFixes.applySuggestedFixesToCode(fixes, getInputMap(originalCode)).get("test");
     assertThat(newCode).isEqualTo(expectedCode);
   }
 
@@ -2128,7 +2312,7 @@ public class ErrorToFixMapperTest {
     for (int i = 0; i < fixes.length; i++) {
       String newCode =
           ApplySuggestedFixes.applySuggestedFixesToCode(
-                  ImmutableList.of(fixes[i]), ImmutableMap.of("test", originalCode))
+                  ImmutableList.of(fixes[i]), getInputMap(originalCode))
               .get("test");
       assertThat(newCode).isEqualTo(expectedFixes[i]);
     }
@@ -2144,11 +2328,10 @@ public class ErrorToFixMapperTest {
       assertWithMessage("Actual fix[" + i + "]: " + actualFix)
           .that(actualFix.getDescription())
           .isEqualTo(expectedFix.description());
-      String newCode =
-          ApplySuggestedFixes.applySuggestedFixesToCode(
-                  ImmutableList.of(fixes[i]), ImmutableMap.of("test", originalCode))
-              .get("test");
-      assertThat(newCode).isEqualTo(expectedFix.fixedCode());
+      assertThat(
+              ApplySuggestedFixes.applySuggestedFixesToCode(
+                  ImmutableList.of(fixes[i]), getInputMap(originalCode)))
+          .containsEntry("test", expectedFix.fixedCode());
     }
   }
 
@@ -2161,7 +2344,7 @@ public class ErrorToFixMapperTest {
     assertThat(fixes).isEmpty();
   }
 
-  private String lines(String... lines) {
-    return String.join("\n", lines);
+  private ImmutableMap<String, String> getInputMap(String originalCode) {
+    return ImmutableMap.of("preexistingCode", preexistingCode, "test", originalCode);
   }
 }

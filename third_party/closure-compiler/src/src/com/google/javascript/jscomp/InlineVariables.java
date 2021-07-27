@@ -22,10 +22,9 @@ import static com.google.common.base.Preconditions.checkState;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.javascript.jscomp.CodingConvention.SubclassRelationship;
-import com.google.javascript.jscomp.ReferenceCollectingCallback.Behavior;
+import com.google.javascript.jscomp.ReferenceCollector.Behavior;
 import com.google.javascript.rhino.JSDocInfo;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.jstype.JSType;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -79,8 +78,8 @@ class InlineVariables implements CompilerPass {
 
   @Override
   public void process(Node externs, Node root) {
-    ReferenceCollectingCallback callback =
-        new ReferenceCollectingCallback(
+    ReferenceCollector callback =
+        new ReferenceCollector(
             compiler,
             new InliningBehavior(),
             new SyntacticScopeCreator(compiler),
@@ -170,7 +169,7 @@ class InlineVariables implements CompilerPass {
         } else if (isInlineableDeclaredConstant(v, referenceInfo)) {
           Reference init = referenceInfo.getInitializingReferenceForConstants();
           Node value = init.getAssignedValue();
-          inlineDeclaredConstant(v, value, referenceInfo.references);
+          inlineWellDefinedVariable(v, value, referenceInfo.references);
           staleVars.add(v);
         } else if (mode == Mode.CONSTANTS_ONLY) {
           // If we're in constants-only mode, don't run more aggressive
@@ -192,7 +191,7 @@ class InlineVariables implements CompilerPass {
             Node refParent = ref.getParent();
             // Any reference that is not a read of the arguments property
             // consider a escape of the arguments object.
-            if (!(NodeUtil.isGet(refParent)
+            if (!(NodeUtil.isNormalGet(refParent)
                 && refNode == ref.getParent().getFirstChild()
                 && !NodeUtil.isLValue(refParent))) {
               return true;
@@ -248,37 +247,36 @@ class InlineVariables implements CompilerPass {
       // inline an alias of it. (If the variable was inlined, then the
       // reference data is out of sync. We're better off just waiting for
       // the next pass.)
-      if (!maybeModifiedArguments &&
-          !staleVars.contains(v) && referenceInfo.isWellDefined() &&
-          referenceInfo.isAssignedOnceInLifetime()) {
+      if (!maybeModifiedArguments
+          && !staleVars.contains(v)
+          && referenceInfo.isWellDefined()
+          && referenceInfo.isAssignedOnceInLifetime()) {
         List<Reference> refs = referenceInfo.references;
         for (int i = 1 /* start from a read */; i < refs.size(); i++) {
           Node nameNode = refs.get(i).getNode();
-          if (aliasCandidates.containsKey(nameNode)) {
-            AliasCandidate candidate = aliasCandidates.get(nameNode);
-            if (!staleVars.contains(candidate.alias) &&
-                !isVarInlineForbidden(candidate.alias)) {
-              Reference aliasInit;
-              aliasInit = candidate.refInfo.getInitializingReference();
-              Node value = aliasInit.getAssignedValue();
-              checkNotNull(value);
-              inlineWellDefinedVariable(candidate.alias,
-                  value,
-                  candidate.refInfo.references);
-              staleVars.add(candidate.alias);
-            }
+
+          AliasCandidate candidate = aliasCandidates.get(nameNode);
+          if (candidate == null
+              || staleVars.contains(candidate.alias)
+              || isVarInlineForbidden(candidate.alias)) {
+            continue;
           }
+
+          Reference aliasInit = candidate.refInfo.getInitializingReference();
+          Node value = checkNotNull(aliasInit.getAssignedValue());
+          inlineWellDefinedVariable(candidate.alias, value, candidate.refInfo.references);
+          staleVars.add(candidate.alias);
         }
       }
     }
 
     /**
-     * If there are any variable references in the given node tree, blacklist
-     * them to prevent the pass from trying to inline the variable.
+     * If there are any variable references in the given node tree, skiplist them to prevent the
+     * pass from trying to inline the variable.
      */
-    private void blacklistVarReferencesInTree(Node root, Scope scope) {
+    private void recordStaleVarReferencesInTree(Node root, Scope scope) {
       for (Node c = root.getFirstChild(); c != null; c = c.getNext()) {
-        blacklistVarReferencesInTree(c, scope);
+        recordStaleVarReferencesInTree(c, scope);
       }
 
       if (root.isName()) {
@@ -297,10 +295,10 @@ class InlineVariables implements CompilerPass {
       //    have a good way to update the reference. Just punt on it.
       // 3) Don't inline the special property rename functions.
       return var.isExtern()
-          || compiler.getCodingConvention().isExported(var.name)
+          || compiler.getCodingConvention().isExported(var.getName(), var.isLocal())
           || compiler
               .getCodingConvention()
-              .isPropertyRenameFunction(var.nameNode.getOriginalQualifiedName())
+              .isPropertyRenameFunction(var.getNameNode().getOriginalQualifiedName())
           || staleVars.contains(var)
           || hasNoInlineAnnotation(var);
     }
@@ -320,7 +318,7 @@ class InlineVariables implements CompilerPass {
         compiler.reportChangeToChangeScope(value);
         compiler.reportChangeToEnclosingScope(value.getParent());
       }
-      inlineValue(v, ref, value.detach());
+      inlineValue(v.getScope(), ref.getNode(), value.detach());
       if (decl != init) {
         Node expressRoot = init.getGrandparent();
         checkState(expressRoot.isExprResult());
@@ -332,39 +330,26 @@ class InlineVariables implements CompilerPass {
       }
     }
 
-    /**
-     * Inline an immutable variable into all of its references.
-     */
-    private void inlineWellDefinedVariable(Var v, Node value,
-        List<Reference> refSet) {
-      Reference decl = refSet.get(0);
-      for (int i = 1; i < refSet.size(); i++) {
-        Node clonedValue = value.cloneTree();
-        NodeUtil.markNewScopesChanged(clonedValue, compiler);
-        inlineValue(v, refSet.get(i), clonedValue);
-      }
-      removeDeclaration(decl);
-    }
-
-    /**
-     * Inline a declared constant.
-     */
-    private void inlineDeclaredConstant(Var v, Node value,
-        List<Reference> refSet) {
-      // Replace the references with the constant value
-      Reference decl = null;
-
+    /** Inline an immutable variable into all of its references. */
+    private void inlineWellDefinedVariable(Var v, Node value, List<Reference> refSet) {
+      Scope scope = v.getScope();
       for (Reference r : refSet) {
         if (r.getNode() == v.getNameNode()) {
-          decl = r;
+          removeDeclaration(r);
+        } else if (r.isSimpleAssignmentToName()) {
+          /**
+           * This is the initialization.
+           *
+           * <p>Replace the entire assignment with just the value, and use the original value node
+           * in case it contains references to variables that still require inlining.
+           */
+          inlineValue(scope, r.getParent(), value.detach());
         } else {
           Node clonedValue = value.cloneTree();
           NodeUtil.markNewScopesChanged(clonedValue, compiler);
-          inlineValue(v, r, clonedValue);
+          inlineValue(scope, r.getNode(), clonedValue);
         }
       }
-
-      removeDeclaration(decl);
     }
 
     /**
@@ -376,40 +361,25 @@ class InlineVariables implements CompilerPass {
       Node grandparent = decl.getGrandparent();
 
       compiler.reportChangeToEnclosingScope(decl.getNode());
-      varNode.removeChild(decl.getNode());
+      decl.getNode().detach();
       // Remove var node if empty
       if (!varNode.hasChildren()) {
         NodeUtil.removeChild(grandparent, varNode);
       }
     }
 
-    /**
-     * Replace the given reference with the given value node.
-     *
-     * @param v The variable that's referenced.
-     * @param ref The reference to replace.
-     * @param value The node tree to replace it with. This tree should be safe
-     *     to re-parent.
-     */
-    private void inlineValue(Var v, Reference ref, Node value) {
-      compiler.reportChangeToEnclosingScope(ref.getNode());
-      if (ref.isSimpleAssignmentToName()) {
-        // This is the initial assignment.
-        replaceChildPreserveCast(ref.getGrandparent(), ref.getParent(), value);
-      } else {
-        replaceChildPreserveCast(ref.getParent(), ref.getNode(), value);
-      }
-      blacklistVarReferencesInTree(value, v.scope);
-    }
+    private void inlineValue(Scope scope, Node toRemove, Node toInsert) {
+      compiler.reportChangeToEnclosingScope(toRemove);
 
-    private void replaceChildPreserveCast(Node parent, Node child, Node replacement) {
-      JSType typeBeforeCast = child.getJSTypeBeforeCast();
-      if (typeBeforeCast != null) {
-        replacement.setJSTypeBeforeCast(typeBeforeCast);
-        replacement.setJSType(child.getJSType());
+      // Help type-based optimizations by propagating more specific types from type assertions
+      if (toRemove.getColor() != null && toRemove.isColorFromTypeCast()) {
+        toInsert.setColor(toRemove.getColor());
+        toInsert.setColorFromTypeCast();
       }
-      parent.replaceChild(child, replacement);
-      NodeUtil.markFunctionsDeleted(child, compiler);
+      toRemove.replaceWith(toInsert);
+      NodeUtil.markFunctionsDeleted(toRemove, compiler);
+
+      recordStaleVarReferencesInTree(toInsert, scope);
     }
 
     /** Determines whether the given variable is declared as a constant and may be inlined. */
@@ -441,8 +411,7 @@ class InlineVariables implements CompilerPass {
       }
 
       // Determine if we should really inline a String or not.
-      return !value.isString() ||
-          isStringWorthInlining(var, refInfo.references);
+      return !value.isStringLit() || isStringWorthInlining(var, refInfo.references);
     }
 
     /**
@@ -617,7 +586,7 @@ class InlineVariables implements CompilerPass {
         // The reference is a FUNCTION declaration or normal VAR declaration
         // with a value.
         if (!NodeUtil.isFunctionDeclaration(initialization.getParent())
-            && initialization.getNode().getFirstChild() == null) {
+            && !initialization.getNode().hasChildren()) {
           return false;
         }
       } else {
@@ -677,7 +646,7 @@ class InlineVariables implements CompilerPass {
 
         boolean isImmutableValueWorthInlining =
             NodeUtil.isImmutableValue(value)
-                && (!value.isString() || isStringWorthInlining(v, refInfo.references));
+                && (!value.isStringLit() || isStringWorthInlining(v, refInfo.references));
         boolean isInlinableThisAlias = value.isThis() && !refInfo.isEscaped();
         if (!isImmutableValueWorthInlining && !isInlinableThisAlias) {
           return false;

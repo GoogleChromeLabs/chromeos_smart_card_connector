@@ -26,7 +26,6 @@ import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Multiset;
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.SyntacticScopeCreator.RedeclarationHandler;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -38,9 +37,9 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for {@link SyntacticScopeCreator}.
  *
- * @author moz@google.com (Michael Zhou)
  */
 @RunWith(JUnit4.class)
+@SuppressWarnings("RhinoNodeGetFirstFirstChild")
 public final class SyntacticScopeCreatorTest {
 
   private Compiler compiler;
@@ -71,7 +70,6 @@ public final class SyntacticScopeCreatorTest {
   public void setUp() throws Exception {
     compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
-    options.setLanguageIn(LanguageMode.ECMASCRIPT_2015);
     compiler.initOptions(options);
     redeclarations = HashMultiset.create();
     RedeclarationHandler handler = new RecordingRedeclarationHandler();

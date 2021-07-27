@@ -24,6 +24,7 @@ import com.google.debugging.sourcemap.SourceMapGenerator;
 import com.google.debugging.sourcemap.SourceMapGeneratorFactory;
 import com.google.debugging.sourcemap.proto.Mapping.OriginalMapping;
 import com.google.javascript.rhino.Node;
+import com.google.javascript.rhino.StaticSourceFile;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
@@ -78,9 +79,8 @@ public final class SourceMap {
             || node.isNew()
             || node.isFunction()
             || node.isName()
-            || NodeUtil.isGet(node)
+            || NodeUtil.isNormalOrOptChainGet(node)
             || NodeUtil.mayBeObjectLitKey(node)
-            || (node.isString() && NodeUtil.isGet(node.getParent()))
             || node.isTaggedTemplateLit();
       }
     }
@@ -158,7 +158,16 @@ public final class SourceMap {
       Node node,
       FilePosition outputStartPosition,
       FilePosition outputEndPosition) {
-    String sourceFile = node.getSourceFileName();
+    Node parent = node.getParent();
+    StaticSourceFile sourceFile = node.getStaticSourceFile();
+
+    // TODO(b/179517798): Delete this impossible case.
+    if (node.isStringLit()
+        && parent != null
+        && NodeUtil.isNormalOrOptChainGetProp(parent)
+        && node.isSecondChildOf(parent)) {
+      return; // Don't map STRINGs if they are GETPROP STRINGs
+    }
 
     // If the node does not have an associated source file or
     // its line number is -1, then the node does not have sufficient
@@ -167,14 +176,15 @@ public final class SourceMap {
       return;
     }
 
+    String sourceFileName = sourceFile.getName();
     int lineNo = node.getLineno();
     int charNo = node.getCharno();
-    String originalName = node.getOriginalName();
+    String originalName = SourceMap.getOriginalName(node);
 
     if (mapping != null) {
-      OriginalMapping sourceMapping = mapping.getSourceMapping(sourceFile, lineNo, charNo);
+      OriginalMapping sourceMapping = mapping.getSourceMapping(sourceFileName, lineNo, charNo);
       if (sourceMapping != null) {
-        sourceFile = sourceMapping.getOriginalFile();
+        sourceFileName = sourceMapping.getOriginalFile();
         lineNo = sourceMapping.getLineNumber();
         charNo = sourceMapping.getColumnPosition();
         String identifier = sourceMapping.getIdentifier();
@@ -184,20 +194,32 @@ public final class SourceMap {
       }
     }
 
-    sourceFile = fixupSourceLocation(sourceFile);
+    sourceFileName = fixupSourceLocation(sourceFileName);
 
     // Rhino source lines are one based but for v3 source maps, we make
     // them zero based.
     int lineBaseOffset = 1;
 
     generator.addMapping(
-        sourceFile, originalName,
+        sourceFileName,
+        originalName,
         new FilePosition(lineNo - lineBaseOffset, charNo),
-        outputStartPosition, outputEndPosition);
+        outputStartPosition,
+        outputEndPosition);
   }
 
   public void addSourceFile(String name, String code) {
     generator.addSourcesContent(fixupSourceLocation(name), code);
+  }
+
+  private static String getOriginalName(Node node) {
+    if (node.getOriginalName() != null) {
+      return node.getOriginalName();
+    }
+    if (node.isMemberFunctionDef()) {
+      return node.getFirstChild().getOriginalName();
+    }
+    return null;
   }
 
   /**

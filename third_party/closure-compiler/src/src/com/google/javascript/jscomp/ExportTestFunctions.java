@@ -66,19 +66,19 @@ public class ExportTestFunctions implements CompilerPass {
           // Check for a test function statement.
           String functionName = NodeUtil.getName(n);
           if (isTestFunction(functionName)) {
-            exportTestFunctionAsSymbol(functionName, n, parent);
+            exportTestFunctionAsSymbol(functionName, n);
           }
         } else if (isNameDeclaredFunction(n)) {
           // Check for a test function expression.
           Node functionNode = n.getFirstFirstChild();
           String functionName = NodeUtil.getName(functionNode);
           if (isTestFunction(functionName)) {
-            exportTestFunctionAsSymbol(functionName, n, parent);
+            exportTestFunctionAsSymbol(functionName, n);
           }
         } else if (isNameDeclaredClass(n)) {
           Node classNode = n.getFirstFirstChild();
           String className = NodeUtil.getName(classNode);
-          exportClass(parent, classNode, className, n);
+          exportClass(classNode, className, n);
         } else if (n.isClass()) {
           exportClass(parent, n);
         }
@@ -96,35 +96,39 @@ public class ExportTestFunctions implements CompilerPass {
           if (lastChild.isFunction()) {
             if (isTestFunction(nodeName)) {
               if (n.getFirstChild().isName()) {
-                exportTestFunctionAsSymbol(nodeName, parent, grandparent);
+                exportTestFunctionAsSymbol(nodeName, parent);
               } else {
                 exportTestFunctionAsProperty(nodeName, parent, n, grandparent);
               }
             }
           } else if (lastChild.isClass()) {
-            exportClass(grandparent, lastChild, nodeName, parent);
+            exportClass(lastChild, nodeName, parent);
           }
         }
       } else if (isTestSuiteArgument(n, t)) {
-        for (Node c : n.children()) {
+        for (Node c = n.getFirstChild(); c != null; ) {
+          final Node next = c.getNext();
           if (c.isStringKey() && !c.isQuotedString()) {
             c.setQuotedString();
             compiler.reportChangeToEnclosingScope(c);
           } else if (c.isMemberFunctionDef()) {
             rewriteMemberDefInObjLit(c, n);
           }
+          c = next;
         }
       }
     }
 
     private void exportClass(Node scriptNode, Node classNode) {
       String className = NodeUtil.getName(classNode);
-      exportClass(scriptNode, classNode, className, classNode);
+      exportClass(classNode, className, classNode);
     }
 
-    private void exportClass(Node scriptNode, Node classNode, String className, Node addAfter) {
+    private void exportClass(Node classNode, String className, Node addAfter) {
       Node classMembers = classNode.getLastChild();
-      for (Node maybeMemberFunctionDef : classMembers.children()) {
+      for (Node maybeMemberFunctionDef = classMembers.getFirstChild();
+          maybeMemberFunctionDef != null;
+          maybeMemberFunctionDef = maybeMemberFunctionDef.getNext()) {
         if (maybeMemberFunctionDef.isMemberFunctionDef()) {
           String methodName = maybeMemberFunctionDef.getString();
           if (isTestFunction(methodName)) {
@@ -145,9 +149,9 @@ public class ExportTestFunctions implements CompilerPass {
             call.addChildToBack(
                 NodeUtil.newQName(compiler, functionRef, maybeMemberFunctionDef, functionRef));
 
-            Node expression = IR.exprResult(call);
+            Node expression = IR.exprResult(call).srcrefTreeIfMissing(maybeMemberFunctionDef);
 
-            scriptNode.addChildAfter(expression, addAfter);
+            expression.insertAfter(addAfter);
             compiler.reportChangeToEnclosingScope(expression);
             addAfter = expression;
           }
@@ -158,8 +162,8 @@ public class ExportTestFunctions implements CompilerPass {
     /** Converts a member function into a quoted string key to avoid property renaming */
     private void rewriteMemberDefInObjLit(Node memberDef, Node objLit) {
       String name = memberDef.getString();
-      Node stringKey = IR.stringKey(name, memberDef.getFirstChild().detach());
-      objLit.replaceChild(memberDef, stringKey);
+      Node stringKey = IR.stringKey(name, memberDef.removeFirstChild());
+      memberDef.replaceWith(stringKey);
       stringKey.setQuotedString();
       stringKey.setJSDocInfo(memberDef.getJSDocInfo());
       compiler.reportChangeToEnclosingScope(objLit);
@@ -216,8 +220,7 @@ public class ExportTestFunctions implements CompilerPass {
   }
 
   // Adds exportSymbol(testFunctionName, testFunction);
-  private void exportTestFunctionAsSymbol(String testFunctionName, Node node,
-      Node scriptNode) {
+  private void exportTestFunctionAsSymbol(String testFunctionName, Node node) {
 
     Node exportCallTarget = NodeUtil.newQName(compiler,
         exportSymbolFunction, node, testFunctionName);
@@ -229,9 +232,9 @@ public class ExportTestFunctions implements CompilerPass {
     call.addChildToBack(NodeUtil.newQName(compiler,
         testFunctionName, node, testFunctionName));
 
-    Node expression = IR.exprResult(call);
+    Node expression = IR.exprResult(call).srcrefTreeIfMissing(node);
 
-    scriptNode.addChildAfter(expression, node);
+    expression.insertAfter(node);
     compiler.reportChangeToEnclosingScope(expression);
   }
 
@@ -253,7 +256,7 @@ public class ExportTestFunctions implements CompilerPass {
 
     Node exportCall = this.compiler.parseSyntheticCode(exportCallStr)
         .removeChildren();
-    exportCall.useSourceInfoFromForTree(scriptNode);
+    exportCall.srcrefTree(scriptNode);
 
     scriptNode.addChildrenAfter(exportCall, parent);
     compiler.reportChangeToEnclosingScope(exportCall);

@@ -30,21 +30,20 @@ import java.util.Map;
 
 /**
  * This pass targets J2CL output. It looks for static get and set methods defined within a class
- * that match the signature of J2CL static fields and inlines them at their
- * call sites.  This is done for performance reasons since getter and setter accesses are slower
- * than regular field accesses.
+ * that match the signature of J2CL static fields and inlines them at their call sites. This is done
+ * for performance reasons since getter and setter accesses are slower than regular field accesses.
  *
  * <p>This will be done by looking at all property accesses and determining if they have a
- * corresponding get or set method on the property qualifiers definition.  Some caveats:
+ * corresponding get or set method on the property qualifiers definition. Some caveats:
+ *
  * <ul>
- * <li> Avoid inlining if the property is set using compound assignments.</li>
- * <li> Avoid inlining if the property is incremented using ++ or --</li>
+ *   <li>Avoid inlining if the property is set using compound assignments.
+ *   <li>Avoid inlining if the property is incremented using ++ or --
  * </ul>
  *
- * Since this pass only really works after the AggressiveInlineAliases pass has run, we
- * have to look for Object.defineProperties instead of es6 get and set nodes since es6
- * transpilation has already occurred if the language out is ES5.
- *
+ * Since this pass only really works after the AggressiveInlineAliases pass has run, we have to look
+ * for Object.defineProperties instead of es6 get and set nodes since es6 transpilation has already
+ * occurred if the language out is ES5.
  */
 public class J2clPropertyInlinerPass implements CompilerPass {
   final AbstractCompiler compiler;
@@ -112,7 +111,7 @@ public class J2clPropertyInlinerPass implements CompilerPass {
         compiler.reportChangeToEnclosingScope(objectLit);
         if (!objectLit.hasChildren()) {
           // Remove the whole Object.defineProperties call if there are no properties left.
-          objectLit.getParent().getParent().detach();
+          objectLit.getGrandparent().detach();
         }
       }
     }
@@ -129,10 +128,10 @@ public class J2clPropertyInlinerPass implements CompilerPass {
       void remove() {
         Node classMembers = getKey.getParent();
         checkState(classMembers.isClassMembers(), classMembers);
-        classMembers.removeChild(getKey);
+        getKey.detach();
         NodeUtil.markFunctionsDeleted(getKey, compiler);
         if (setKey != null) {
-          classMembers.removeChild(setKey);
+          setKey.detach();
           NodeUtil.markFunctionsDeleted(setKey, compiler);
         }
         compiler.reportChangeToEnclosingScope(classMembers);
@@ -140,40 +139,58 @@ public class J2clPropertyInlinerPass implements CompilerPass {
     }
 
     /**
-     * <li> We match J2CL property getters  by looking for the following signature:
+     * <li> We match J2CL property getters by looking for the following signature:
      * <pre>{@code
+     * get: function() { return (ClassName$$0clinit(), ClassName$$0fieldName)};
+     * // OR this if CollapseProperties decided not to collapse these names
      * get: function() { return (ClassName.$clinit(), ClassName.$fieldName)};
      * </pre>
      */
     private boolean matchesJ2clGetKeySignature(String className, Node getKey) {
-      if (!getKey.hasChildren() || !getKey.getFirstChild().isFunction()) {
+      if (!getKey.getFirstChild().isFunction()) {
         return false;
       }
       Node getFunction = getKey.getFirstChild();
       if (!getFunction.hasChildren() || !getFunction.getLastChild().isBlock()) {
         return false;
       }
+      // `{ return ClassName$$0clinit(), ClassName$prop; }`
       Node getBlock = getFunction.getLastChild();
-      if (!getBlock.hasChildren()
-          || !getBlock.hasOneChild()
-          || !getBlock.getFirstChild().isReturn()) {
+      if (!getBlock.hasOneChild()) {
         return false;
       }
+      // `return ClassName$$0clinit(), ClassName$prop;`
       Node returnStatement = getBlock.getFirstChild();
-      if (!returnStatement.getFirstChild().isComma()) {
+      if (!returnStatement.isReturn()) {
         return false;
       }
-      Node multiExpression = returnStatement.getFirstChild();
-      if (!multiExpression.getFirstChild().isCall()
-          || !multiExpression.getSecondChild().isGetProp()) {
+      // `ClassName$$0clinit(), ClassName$prop;`
+      Node commaExpr = returnStatement.getOnlyChild();
+      if (!commaExpr.isComma()) {
         return false;
       }
-      Node clinitFunction = multiExpression.getFirstFirstChild();
-      Node internalProp = multiExpression.getSecondChild();
-      if (!clinitFunction.matchesQualifiedName(className + ".$clinit")) {
+      // `ClassName$$0clinit()`
+      Node callNode = commaExpr.getFirstChild();
+      if (!(callNode.isCall() && callNode.hasOneChild())) {
         return false;
       }
-      if (!internalProp.getQualifiedName().startsWith(className + ".$")) {
+      // `ClassName$$0clinit`
+      Node clinitQname = callNode.getOnlyChild();
+      if (!clinitQname.isQualifiedName()) {
+        return false;
+      }
+      String clinitQnameString = clinitQname.getQualifiedName();
+      if (!looksLikeAJ2clGeneratedClassClinitName(className, clinitQnameString)) {
+        return false;
+      }
+      // `ClassName$prop`
+      Node propReference = commaExpr.getSecondChild();
+      if (!propReference.isQualifiedName()) {
+        return false;
+      }
+      String propReferenceString = propReference.getQualifiedName();
+
+      if (!looksLikeAJ2clGeneratedStaticPropertyName(className, propReferenceString)) {
         return false;
       }
       return true;
@@ -182,11 +199,13 @@ public class J2clPropertyInlinerPass implements CompilerPass {
     /**
      * <li> We match J2CL property getters  by looking for the following signature:
      * <pre>{@code
-     * set: function(value) { (ClassName.$clinit(), ClassName.$fieldName = value)};
+     * set: function(value) { (ClassName$$0clinit(), ClassName$$0fieldName = value)};
+     * // OR this if CollapseProperties decided not to collapse the names.
+     * set: function(value) { (ClassName.$clinit(), ClassName.$fieldNaNme = value)};
      * </pre>
      */
     private boolean matchesJ2clSetKeySignature(String className, Node setKey) {
-      if (!setKey.hasChildren() || !setKey.getFirstChild().isFunction()) {
+      if (!setKey.getFirstChild().isFunction()) {
         return false;
       }
       Node setFunction = setKey.getFirstChild();
@@ -199,21 +218,70 @@ public class J2clPropertyInlinerPass implements CompilerPass {
         // There is a single parameter "value".
         return false;
       }
+      // `{ ClassName$$0clinit(), ClassName$$0staticProp = initialValue; }`
       Node setBlock = setFunction.getLastChild();
-      if (!setBlock.hasChildren()
-          || !setBlock.getFirstChild().isExprResult()
-          || !setBlock.getFirstFirstChild().isComma()) {
+      if (!setBlock.hasOneChild()) {
         return false;
       }
-      Node multiExpression = setBlock.getFirstFirstChild();
-      if (!multiExpression.hasXChildren(2) || !multiExpression.getSecondChild().isAssign()) {
+
+      // `ClassName$$0clinit(), ClassName$$0staticProp = initialValue;`
+      Node exprResult = setBlock.getOnlyChild();
+      if (!exprResult.isExprResult()) {
         return false;
       }
-      Node clinitFunction = multiExpression.getFirstFirstChild();
-      if (!clinitFunction.matchesQualifiedName(className + ".$clinit")) {
+      // `ClassName$$0clinit(), ClassName$$0staticProp = initialValue`
+      Node commaExpr = exprResult.getOnlyChild();
+      if (!commaExpr.isComma()) {
+        return false;
+      }
+      // `SomeClassName$$0clinit()`
+      Node clinitCall = commaExpr.getFirstChild();
+      if (!(clinitCall.isCall() && clinitCall.hasOneChild())) {
+        return false;
+      }
+      // `SomeClassName$$0clinit`
+      Node clinitQname = clinitCall.getOnlyChild();
+      if (!clinitQname.isQualifiedName()) {
+        return false;
+      }
+      String clinitQnameString = clinitQname.getQualifiedName();
+      if (!looksLikeAJ2clGeneratedClassClinitName(className, clinitQnameString)) {
+        return false;
+      }
+      // `ClassName$$0staticProp = initialValue`
+      // Rewriting by CollapseProperties may have changed the LHS
+      // from a GETPROP to a NAME.
+      Node assign = commaExpr.getSecondChild();
+      if (!assign.isAssign()) {
+        return false;
+      }
+      Node lhsQname = assign.getFirstChild();
+      if (!lhsQname.isQualifiedName()) {
+        return false;
+      }
+      String lhsQnameString = lhsQname.getQualifiedName();
+      if (!looksLikeAJ2clGeneratedStaticPropertyName(className, lhsQnameString)) {
         return false;
       }
       return true;
+    }
+
+    boolean looksLikeAJ2clGeneratedClassClinitName(String className, String candidate) {
+      if (!candidate.startsWith(className)) {
+        return false;
+      }
+      final String candidateAfterClassName = candidate.substring(className.length());
+      return candidateAfterClassName.equals("$$0clinit") // collapsed by CollapseProperties
+          || candidateAfterClassName.equals(".$clinit"); // not collapsed
+    }
+
+    boolean looksLikeAJ2clGeneratedStaticPropertyName(String className, String candidate) {
+      if (!candidate.startsWith(className)) {
+        return false;
+      }
+      final String candidateAfterClassName = candidate.substring(className.length());
+      return candidateAfterClassName.startsWith("$$0") // collapsed by CollapseProperties
+          || candidateAfterClassName.startsWith(".$"); // not collapsed
     }
 
     /**
@@ -248,7 +316,9 @@ public class J2clPropertyInlinerPass implements CompilerPass {
           Node getKey = null;
           Node setKey = null;
           boolean hasSetter = false;
-          for (Node innerKey : propertyLiteral.children()) {
+          for (Node innerKey = propertyLiteral.getFirstChild();
+              innerKey != null;
+              innerKey = innerKey.getNext()) {
             if (!innerKey.isStringKey()) {
               continue;
             }
@@ -282,7 +352,9 @@ public class J2clPropertyInlinerPass implements CompilerPass {
         Map<String, Node> getterDefByName = new LinkedHashMap<>();
 
         // Collect static setters and getters.
-        for (Node memberFunction : classMembers.children()) {
+        for (Node memberFunction = classMembers.getFirstChild();
+            memberFunction != null;
+            memberFunction = memberFunction.getNext()) {
           if (!memberFunction.isStaticMember()) {
             // The only getters and setters we care about are static.
             continue;
@@ -333,9 +405,7 @@ public class J2clPropertyInlinerPass implements CompilerPass {
       }
     }
 
-    /**
-     * Look for accesses of j2cl properties and assignments to j2cl properties.
-     */
+    /** Look for accesses of j2cl properties and assignments to j2cl properties. */
     private class InlinePropertiesPass extends AbstractPostOrderCallback {
       private final Map<String, J2clProperty> propertiesByName;
 
@@ -357,7 +427,8 @@ public class J2clPropertyInlinerPass implements CompilerPass {
       public void visit(NodeTraversal t, Node n, Node parent) {
         if (n.isGetProp()) {
           if (parent.isExprResult()) {
-            // This is a stub declaration for the type checker. See: Es6ToEs3ClassSideInheritance
+            // This is a stub declaration for the type checker. See:
+            // ConcretizeStaticInheritanceForInlining
             return;
           }
           if (NodeUtil.isAssignmentOp(parent) && parent.getFirstChild() == n) {
@@ -372,11 +443,11 @@ public class J2clPropertyInlinerPass implements CompilerPass {
                     .assumeStrictThis(true)
                     .assumeMinimumCapture(true)
                     .build();
-            Node inlinedCall =
-                injector.inline(
-                    new Reference(n, t.getScope(), t.getModule(), InliningMode.DIRECT),
-                    null,
-                    prop.getKey.getFirstChild());
+            Node functionCall = IR.call(IR.name("inlined_j2cl_getter"));
+            n.replaceWith(functionCall);
+            Reference reference =
+                new Reference(functionCall, t.getScope(), t.getChunk(), InliningMode.DIRECT);
+            Node inlinedCall = injector.inline(reference, null, prop.getKey.getFirstChild());
             t.getCompiler().reportChangeToEnclosingScope(inlinedCall);
           }
         }
@@ -394,10 +465,10 @@ public class J2clPropertyInlinerPass implements CompilerPass {
                       .assumeMinimumCapture(true)
                       .build();
               assignmentValue.detach();
-              Node functionCall = IR.call(IR.empty(), assignmentValue);
-              parent.replaceChild(n, functionCall);
+              Node functionCall = IR.call(IR.name("inlined_j2cl_setter"), assignmentValue);
+              n.replaceWith(functionCall);
               Reference reference =
-                  new Reference(functionCall, t.getScope(), t.getModule(), InliningMode.BLOCK);
+                  new Reference(functionCall, t.getScope(), t.getChunk(), InliningMode.BLOCK);
               injector.maybePrepareCall(reference);
               Node inlinedCall = injector.inline(reference, null, prop.setKey.getFirstChild());
               t.getCompiler().reportChangeToEnclosingScope(inlinedCall);

@@ -16,7 +16,6 @@
 
 package com.google.javascript.jscomp;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,9 +29,12 @@ import org.junit.runners.JUnit4;
 public final class GenerateExportsTest extends CompilerTestCase {
 
   private static final String EXTERNS =
-      "function google_exportSymbol(a, b) {}; goog.exportProperty = function(a, b, c) {}; ";
+      "function google_exportSymbol(a, b) {}; /** @const */ var goog = {}; goog.exportProperty ="
+          + " function(a, b, c) {}; ";
 
   private boolean allowNonGlobalExports = true;
+  private String exportSymbolFunction;
+  private String exportPropertyFunction;
 
   public GenerateExportsTest() {
     super(EXTERNS);
@@ -40,8 +42,8 @@ public final class GenerateExportsTest extends CompilerTestCase {
 
   @Override
   protected CompilerPass getProcessor(Compiler compiler) {
-    return new GenerateExports(compiler, allowNonGlobalExports,
-        "google_exportSymbol", "goog.exportProperty");
+    return new GenerateExports(
+        compiler, allowNonGlobalExports, exportSymbolFunction, exportPropertyFunction);
   }
 
   @Override
@@ -54,8 +56,9 @@ public final class GenerateExportsTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2017);
     this.allowNonGlobalExports  = true;
+    this.exportSymbolFunction = "google_exportSymbol";
+    this.exportPropertyFunction = "goog.exportProperty";
     // TODO(b/76025401): since this pass sometimes runs after typechecking, verify it correctly
     // propagates type information.
     // enableTypeCheck();
@@ -481,7 +484,8 @@ public final class GenerateExportsTest extends CompilerTestCase {
         "/** @export */ foo.method = function(){};",
         "google_exportSymbol('foo.method', foo.method);");
     test(code, result);
-    testExternChanges(code, "Object.prototype.foo;");
+    disableCompareAsTree();
+    testExternChanges(code, "Object.prototype.foo;var goog;var google_exportSymbol");
   }
 
   @Test
@@ -499,4 +503,42 @@ public final class GenerateExportsTest extends CompilerTestCase {
         "/** @record */ function Foo() {}",
         "/** @export {number} */ Foo.prototype.myprop;"));
   }
+
+  @Test
+  public void testRequiresExportSymbolDefinition() {
+    test(
+        externs("var goog; goog.exportProperty;"),
+        srcs("/** @export */ function Foo() {}"),
+        error(GenerateExports.MISSING_GOOG_FOR_EXPORT));
+  }
+
+  @Test
+  public void testRequiresExportPropertyDefinition() {
+    test(
+        externs("var google_exportSymbol;"),
+        srcs("var a = {}; /** @export */ a.b = function() {}"),
+        error(GenerateExports.MISSING_GOOG_FOR_EXPORT));
+  }
+
+  @Test
+  public void testRequiresExportSymbolConvention_ifUsesExport() {
+    this.exportSymbolFunction = null;
+
+    test(
+        srcs("/** @export */ function Foo() {}"), error(GenerateExports.MISSING_EXPORT_CONVENTION));
+
+    this.exportSymbolFunction = "exportSymbol";
+    this.exportPropertyFunction = null;
+
+    test(
+        srcs("/** @export */ function Foo() {}"), error(GenerateExports.MISSING_EXPORT_CONVENTION));
+  }
+
+  @Test
+  public void testDoesNotRequireExportSymbolConvention_ifNoExports() {
+    this.exportSymbolFunction = null;
+
+    testSame(srcs("function Foo() {}"));
+  }
 }
+

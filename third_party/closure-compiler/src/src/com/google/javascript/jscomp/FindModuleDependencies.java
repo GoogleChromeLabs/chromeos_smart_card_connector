@@ -165,6 +165,17 @@ public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
     } else if (supportsEs6Modules && n.isImport()) {
       moduleType = ModuleType.ES6;
       addEs6ModuleImportToGraph(t, n);
+    } else if (supportsEs6Modules
+        && n.getToken() == Token.DYNAMIC_IMPORT
+        && n.getFirstChild().isString()) {
+      String path = n.getFirstChild().getString();
+      ModuleLoader.ModulePath modulePath =
+          t.getInput()
+              .getPath()
+              .resolveJsModule(path, n.getSourceFileName(), n.getLineno(), n.getCharno());
+      if (modulePath != null) {
+        t.getInput().addDynamicRequire(modulePath.toModuleName());
+      }
     } else if (supportsCommonJsModules) {
       if (moduleType != ModuleType.GOOG
           && ProcessCommonJSModules.isCommonJsExport(t, n, resolutionMode)) {
@@ -196,7 +207,7 @@ public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
         && n.isCall()
         && n.getFirstChild().matchesQualifiedName("goog.require")
         && n.getSecondChild() != null
-        && n.getSecondChild().isString()) {
+        && n.getSecondChild().isStringLit()) {
       String namespace = n.getSecondChild().getString();
       if (namespace.startsWith("goog.")) {
         t.getInput().addOrderedRequire(Require.BASE);
@@ -215,9 +226,7 @@ public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
     }
   }
 
-  /**
-   * Adds an es6 module from an import node (import or export statement) to the graph.
-   */
+  /** Adds an es6 module from an import node (import or export statement) to the graph. */
   private void addEs6ModuleImportToGraph(NodeTraversal t, Node n) {
     String moduleName = getEs6ModuleNameFromImportNode(t, n);
     if (moduleName.startsWith("goog.")) {
@@ -226,9 +235,7 @@ public class FindModuleDependencies implements NodeTraversal.ScopedCallback {
     t.getInput().addOrderedRequire(Require.es6Import(moduleName, n.getLastChild().getString()));
   }
 
-  /**
-   * Get the module name from an import node (import or export statement).
-   */
+  /** Get the module name from an import node (import or export statement). */
   private String getEs6ModuleNameFromImportNode(NodeTraversal t, Node n) {
     String importName = n.getLastChild().getString();
     boolean isNamespaceImport = importName.startsWith("goog:");

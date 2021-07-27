@@ -209,19 +209,27 @@ public final class Matchers {
     return allOf(functionCallWithNumArgs(numArgs), functionCall(name));
   }
 
-  public static Matcher googRequire(final String namespace) {
-    return new Matcher() {
-      @Override
-      public boolean matches(Node node, NodeMetadata metadata) {
-        return functionCall("goog.require").matches(node, metadata)
-            && node.getSecondChild().isString()
+  public static Matcher googRequirelike(final String namespace) {
+    return (Node node, NodeMetadata metadata) ->
+        googRequirelike().matches(node, metadata)
+            && node.getSecondChild().isStringLit()
             && node.getSecondChild().getString().equals(namespace);
-      }
-    };
+  }
+
+  public static Matcher googRequirelike() {
+    return anyOf(googRequire(), googRequireType(), googForwardDeclare());
   }
 
   public static Matcher googRequire() {
     return functionCall("goog.require");
+  }
+
+  public static Matcher googRequireType() {
+    return functionCall("goog.requireType");
+  }
+
+  public static Matcher googForwardDeclare() {
+    return functionCall("goog.forwardDeclare");
   }
 
   public static Matcher googModule() {
@@ -284,7 +292,8 @@ public final class Matchers {
    */
   public static Matcher enumDefinitionOfType(final String type) {
     return new Matcher() {
-      @Override public boolean matches(Node node, NodeMetadata metadata) {
+      @Override
+      public boolean matches(Node node, NodeMetadata metadata) {
         JSType providedJsType = getJsType(metadata, type);
         if (providedJsType == null) {
           return false;
@@ -292,8 +301,9 @@ public final class Matchers {
         providedJsType = providedJsType.restrictByNotNullOrUndefined();
 
         JSType jsType = node.getJSType();
-        return jsType != null && jsType.isEnumType() && providedJsType.isEquivalentTo(
-            jsType.toMaybeEnumType().getElementsType().getPrimitiveType());
+        return jsType != null
+            && jsType.isEnumType()
+            && providedJsType.equals(jsType.toMaybeEnumType().getElementsType().getPrimitiveType());
       }
     };
   }
@@ -350,7 +360,7 @@ public final class Matchers {
         return jsDoc != null
             && jsDoc.hasType()
             && jsType != null
-            && providedJsType.isEquivalentTo(jsType.restrictByNotNullOrUndefined());
+            && providedJsType.equals(jsType.restrictByNotNullOrUndefined());
       }
     };
   }
@@ -409,12 +419,12 @@ public final class Matchers {
   }
 
   private static boolean areTypesEquivalentIgnoringGenerics(JSType a, JSType b) {
-    boolean equivalent = a.isEquivalentTo(b);
+    boolean equivalent = a.equals(b);
     if (equivalent) {
       return true;
     }
     if (a.isTemplatizedType()) {
-      return a.toMaybeTemplatizedType().getReferencedType().isEquivalentTo(b);
+      return a.toMaybeTemplatizedType().getReferencedType().equals(b);
     }
     return false;
   }
@@ -447,8 +457,7 @@ public final class Matchers {
         && jsType.isSubtypeOf(providedJsType)) {
       if (node.isName() && propertyName.equals(node.getString())) {
         return true;
-      } else if (node.isGetProp()
-          && propertyName.equals(node.getLastChild().getString())) {
+      } else if (node.isGetProp() && propertyName.equals(node.getString())) {
         return true;
       }
     }
@@ -457,7 +466,8 @@ public final class Matchers {
 
   private static Matcher matcherForPrototypeDeclaration(final boolean requireFunctionType) {
     return new Matcher() {
-      @Override public boolean matches(Node node, NodeMetadata metadata) {
+      @Override
+      public boolean matches(Node node, NodeMetadata metadata) {
         // TODO(mknichel): Figure out which node is the best to return for this
         // function: the GETPROP node, or the ASSIGN node when the property is
         // being assigned to.
@@ -466,9 +476,9 @@ public final class Matchers {
         //   bar: 1
         // };
         Node firstChild = node.getFirstChild();
-        if (node.isGetProp() && firstChild.isGetProp()
-            && firstChild.getLastChild().isString()
-            && "prototype".equals(firstChild.getLastChild().getString())) {
+        if (node.isGetProp()
+            && firstChild.isGetProp()
+            && "prototype".equals(firstChild.getString())) {
           JSType fnJsType = getJsType(metadata, JSTypeNative.FUNCTION_FUNCTION_TYPE);
           JSType jsType = node.getJSType();
           if (jsType == null) {

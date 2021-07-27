@@ -18,7 +18,6 @@ package com.google.javascript.jscomp;
 import com.google.javascript.jscomp.NodeTraversal.AbstractPostOrderCallback;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
-import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.JSTypeExpression;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.StaticSourceFile.SourceKind;
@@ -48,12 +47,11 @@ public class ChromePass extends AbstractPostOrderCallback implements CompilerPas
   private final Set<String> createdObjects;
 
   private static final String CR_DEFINE = "cr.define";
-  private static final String CR_EXPORT_PATH = "cr.exportPath";
   private static final String OBJECT_DEFINE_PROPERTY = "Object.defineProperty";
   private static final String CR_DEFINE_PROPERTY = "cr.defineProperty";
   private static final String VIRTUAL_FILE = "<ChromePass.java>";
   private static final Node VIRTUAL_NODE =
-      IR.empty().setStaticSourceFile(new SourceFile(VIRTUAL_FILE, SourceKind.EXTERN));
+      IR.empty().setStaticSourceFile(SourceFile.fromCode(VIRTUAL_FILE, "", SourceKind.EXTERN));
 
   private static final String CR_DEFINE_COMMON_EXPLANATION =
       "It should be called like this:"
@@ -63,11 +61,6 @@ public class ChromePass extends AbstractPostOrderCallback implements CompilerPas
       DiagnosticType.error(
           "JSC_CR_DEFINE_WRONG_NUMBER_OF_ARGUMENTS",
           "cr.define() should have exactly 2 arguments. " + CR_DEFINE_COMMON_EXPLANATION);
-
-  static final DiagnosticType CR_EXPORT_PATH_TOO_FEW_ARGUMENTS =
-      DiagnosticType.error(
-          "JSC_CR_EXPORT_PATH_TOO_FEW_ARGUMENTS",
-          "cr.exportPath() should have at least 1 argument: path name.");
 
   static final DiagnosticType CR_DEFINE_INVALID_FIRST_ARGUMENT =
       DiagnosticType.error(
@@ -114,8 +107,6 @@ public class ChromePass extends AbstractPostOrderCallback implements CompilerPas
       Node callee = node.getFirstChild();
       if (callee.matchesQualifiedName(CR_DEFINE)) {
         visitNamespaceDefinition(node, parent);
-      } else if (callee.matchesQualifiedName(CR_EXPORT_PATH)) {
-        visitExportPath(node, parent);
       } else if (callee.matchesQualifiedName(OBJECT_DEFINE_PROPERTY)
           || callee.matchesQualifiedName(CR_DEFINE_PROPERTY)) {
         visitPropertyDefinition(node, parent);
@@ -173,7 +164,7 @@ public class ChromePass extends AbstractPostOrderCallback implements CompilerPas
 
     Node definitionNode = IR.exprResult(getPropNode).srcref(parent);
 
-    parent.getParent().addChildAfter(definitionNode, parent);
+    definitionNode.insertAfter(parent);
     compiler.reportChangeToEnclosingScope(isCrDefinePropertyCall ? call : getPropNode);
   }
 
@@ -198,28 +189,15 @@ public class ChromePass extends AbstractPostOrderCallback implements CompilerPas
   }
 
   private static void setJsDocWithType(Node target, Node type) {
-    JSDocInfoBuilder builder = new JSDocInfoBuilder(false);
+    JSDocInfo.Builder builder = JSDocInfo.builder();
     builder.recordType(new JSTypeExpression(type.srcrefTree(VIRTUAL_NODE), VIRTUAL_FILE));
     target.setJSDocInfo(builder.build());
-  }
-
-  private void visitExportPath(Node crExportPathNode, Node parent) {
-    if (crExportPathNode.getChildCount() < 2) {
-      compiler.report(JSError.make(crExportPathNode, CR_EXPORT_PATH_TOO_FEW_ARGUMENTS));
-      return;
-    }
-
-    Node pathArg = crExportPathNode.getSecondChild();
-    if (pathArg.isString()) {
-      // TODO(dbeam): support cr.exportPath('ns').value.
-      createAndInsertObjectsForQualifiedName(parent, pathArg.getString());
-    }
   }
 
   private void createAndInsertObjectsForQualifiedName(Node scriptChild, String namespace) {
     List<Node> objectsForQualifiedName = createObjectsForQualifiedName(namespace);
     for (Node n : objectsForQualifiedName) {
-      scriptChild.getParent().addChildBefore(n, scriptChild);
+      n.insertBefore(scriptChild);
     }
     if (!objectsForQualifiedName.isEmpty()) {
       compiler.reportChangeToEnclosingScope(scriptChild);
@@ -234,7 +212,7 @@ public class ChromePass extends AbstractPostOrderCallback implements CompilerPas
     Node namespaceArg = crDefineCallNode.getSecondChild();
     Node function = crDefineCallNode.getChildAtIndex(2);
 
-    if (!namespaceArg.isString()) {
+    if (!namespaceArg.isStringLit()) {
       compiler.report(JSError.make(namespaceArg, CR_DEFINE_INVALID_FIRST_ARGUMENT));
       return;
     }
@@ -272,7 +250,7 @@ public class ChromePass extends AbstractPostOrderCallback implements CompilerPas
   private static Map<String, String> objectLitToMap(Node objectLit) {
     Map<String, String> res = new HashMap<>();
 
-    for (Node keyNode : objectLit.children()) {
+    for (Node keyNode = objectLit.getFirstChild(); keyNode != null; keyNode = keyNode.getNext()) {
       String key = keyNode.getString();
 
       Node valueNode = keyNode.getFirstChild();
@@ -368,7 +346,7 @@ public class ChromePass extends AbstractPostOrderCallback implements CompilerPas
         Node clone = n.cloneTree();
         if (clone.isClass()) {
           Node className = clone.getFirstChild();
-          className.replaceWith(IR.empty().useSourceInfoFrom(className));
+          className.replaceWith(IR.empty().srcref(className));
         }
         NodeUtil.markNewScopesChanged(clone, compiler);
         Node exprResult =
@@ -377,9 +355,9 @@ public class ChromePass extends AbstractPostOrderCallback implements CompilerPas
 
         if (n.getJSDocInfo() != null) {
           exprResult.getFirstChild().setJSDocInfo(n.getJSDocInfo());
-          clone.removeProp(Node.JSDOC_INFO_PROP);
+          clone.setJSDocInfo(null);
         }
-        this.namespaceBlock.replaceChild(n, exprResult);
+        n.replaceWith(exprResult);
         NodeUtil.markFunctionsDeleted(n, compiler);
         compiler.reportChangeToEnclosingScope(exprResult);
       } else if (n.isName()
@@ -409,7 +387,7 @@ public class ChromePass extends AbstractPostOrderCallback implements CompilerPas
             if (parent.getJSDocInfo() != null) {
               exprResult.getFirstChild().setJSDocInfo(parent.getJSDocInfo().clone());
             }
-            this.namespaceBlock.replaceChild(parent, exprResult);
+            parent.replaceWith(exprResult);
             compiler.reportChangeToEnclosingScope(exprResult);
           }
         } else {
@@ -425,7 +403,7 @@ public class ChromePass extends AbstractPostOrderCallback implements CompilerPas
             parent.putBooleanProp(Node.FREE_CALL, false);
           }
 
-          parent.replaceChild(n, newNode);
+          n.replaceWith(newNode);
           compiler.reportChangeToEnclosingScope(newNode);
         }
       }

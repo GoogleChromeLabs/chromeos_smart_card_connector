@@ -21,9 +21,12 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.javascript.jscomp.CompilerTestCase.lines;
 import static com.google.javascript.rhino.testing.NodeSubject.assertNode;
 
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
 import com.google.javascript.jscomp.ExpressionDecomposer.DecompositionType;
+import com.google.javascript.jscomp.parsing.parser.util.format.SimpleFormat;
 import com.google.javascript.jscomp.type.SemanticReverseAbstractInterpreter;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
@@ -39,138 +42,196 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-/**
- * Unit tests for {@link ExpressionDecomposer}
- *
- * @author johnlenz@google.com (John Lenz)
- */
+/** Unit tests for {@link ExpressionDecomposer} */
 // Note: functions "foo" and "goo" are external functions in the helper.
 @RunWith(JUnit4.class)
 public final class ExpressionDecomposerTest {
-  private boolean allowMethodCallDecomposing;
   private final Set<String> knownConstants = new HashSet<>();
-  // How many times to run `moveExpression` or `exposeExpression`.
-  private int times;
+
+  /** The language out to set in the compiler options. If null, use the default. */
+  @Nullable private LanguageMode languageOut;
   // Whether we should run type checking and test the type information in the output expression
   private boolean shouldTestTypes;
 
   @Before
   public void setUp() {
-    allowMethodCallDecomposing = false;
     knownConstants.clear();
-    times = 1;
-    // Tests using ES6+ features not in the typechecker should set this option to false
-    // TODO(lharker): stop setting this flag to false, since the typechecker should now understand
-    // all features in ES2017
     shouldTestTypes = true;
+    languageOut = null;
+  }
+
+  @Test
+  public void testWindowLocationAssign() {
+    // avoid decomposing `window.location.assign` when the output code could
+    // end up running on IE11. See more explanation in ExpressionDecomposer.java.
+    languageOut = LanguageMode.ECMASCRIPT5;
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE, "window.location.assign(foo())", exprMatchesStr("foo()"));
+    helperMoveExpression(
+        "window.location.assign(foo())",
+        exprMatchesStr("foo()"),
+        lines(
+            "var result$jscomp$0 = foo();", //
+            "window.location.assign(result$jscomp$0)"));
+
+    // confirm that the default behavior does not treat window.location.assign
+    // specially
+    languageOut = null;
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "window.location.assign(foo())", exprMatchesStr("foo()"));
+    helperExposeExpression(
+        "window.location.assign(foo())",
+        exprMatchesStr("foo()"),
+        lines(
+            "var temp_const$jscomp$1 = window.location;",
+            "var temp_const$jscomp$0 = temp_const$jscomp$1.assign;",
+            "temp_const$jscomp$0.call(temp_const$jscomp$1, foo());"));
   }
 
   @Test
   public void testCannotExpose_expression1() {
     // Can't move or decompose some classes of expressions.
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "while(foo());", "foo");
+        DecompositionType.UNDECOMPOSABLE, "while(foo());", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "while(x = goo()&&foo()){}", "foo");
+        DecompositionType.UNDECOMPOSABLE, "while(x = goo()&&foo()){}", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "while(x += goo()&&foo()){}", "foo");
+        DecompositionType.UNDECOMPOSABLE, "while(x += goo()&&foo()){}", exprMatchesStr("foo()"));
 
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "do{}while(foo());", "foo");
+        DecompositionType.UNDECOMPOSABLE, "do{}while(foo());", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "for(;foo(););", "foo");
+        DecompositionType.UNDECOMPOSABLE, "for(;foo(););", exprMatchesStr("foo()"));
     // This case could be supported for loops without conditional continues
     // by moving the increment into the loop body.
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "for(;;foo());", "foo");
-    helperCanExposeExpression(
-        DecompositionType.MOVABLE, "for(foo();;);", "foo");
+        DecompositionType.UNDECOMPOSABLE, "for(;;foo());", exprMatchesStr("foo()"));
+    helperCanExposeExpression(DecompositionType.MOVABLE, "for(foo();;);", exprMatchesStr("foo()"));
 
     // This is potentially doable but a bit too complex currently.
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "switch(1){case foo():;}", "foo");
+        DecompositionType.UNDECOMPOSABLE, "switch(1){case foo():;}", exprMatchesStr("foo()"));
   }
 
   @Test
   public void testCanExposeExpression2() {
+    helperCanExposeExpression(DecompositionType.MOVABLE, "foo()", exprMatchesStr("foo()"));
+    helperCanExposeExpression(DecompositionType.MOVABLE, "x = foo()", exprMatchesStr("foo()"));
+    helperCanExposeExpression(DecompositionType.MOVABLE, "var x = foo()", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.MOVABLE, "foo()", "foo");
+        DecompositionType.MOVABLE, "const x = foo()", exprMatchesStr("foo()"));
+    helperCanExposeExpression(DecompositionType.MOVABLE, "let x = foo()", exprMatchesStr("foo()"));
+    helperCanExposeExpression(DecompositionType.MOVABLE, "if(foo()){}", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.MOVABLE, "x = foo()", "foo");
+        DecompositionType.MOVABLE, "switch(foo()){}", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.MOVABLE, "var x = foo()", "foo");
+        DecompositionType.MOVABLE, "switch(foo()){}", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.MOVABLE, "const x = foo()", "foo");
-    helperCanExposeExpression(
-        DecompositionType.MOVABLE, "let x = foo()", "foo");
-    helperCanExposeExpression(
-        DecompositionType.MOVABLE, "if(foo()){}", "foo");
-    helperCanExposeExpression(
-        DecompositionType.MOVABLE, "switch(foo()){}", "foo");
-    helperCanExposeExpression(
-        DecompositionType.MOVABLE, "switch(foo()){}", "foo");
-    helperCanExposeExpression(
-        DecompositionType.MOVABLE, "function f(){ return foo();}", "foo");
+        DecompositionType.MOVABLE, "function f(){ return foo();}", exprMatchesStr("foo()"));
 
+    helperCanExposeExpression(DecompositionType.MOVABLE, "x = foo() && 1", exprMatchesStr("foo()"));
+    helperCanExposeExpression(DecompositionType.MOVABLE, "x = foo() || 1", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.MOVABLE, "x = foo() && 1", "foo");
+        DecompositionType.MOVABLE, "x = foo() ? 0 : 1", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.MOVABLE, "x = foo() || 1", "foo");
+        DecompositionType.MOVABLE, "(function(a){b = a})(foo())", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.MOVABLE, "x = foo() ? 0 : 1", "foo");
+        DecompositionType.MOVABLE, "function f(){ throw foo();}", exprMatchesStr("foo()"));
+  }
+
+  @Test
+  public void nullishCoalesceMovable() {
+    helperCanExposeExpression(DecompositionType.MOVABLE, "x = foo() ?? 1", exprMatchesStr("foo()"));
+  }
+
+  @Test
+  public void nullishCoalesceDecomposable() {
     helperCanExposeExpression(
-        DecompositionType.MOVABLE, "(function(a){b = a})(foo())", "foo");
+        DecompositionType.DECOMPOSABLE, "var x = null ?? foo()", exprMatchesStr("foo()"));
+  }
+
+  @Test
+  public void nullishCoalesceUnDecomposable() {
     helperCanExposeExpression(
-        DecompositionType.MOVABLE,
-        "function f(){ throw foo();}", "foo");
+        DecompositionType.UNDECOMPOSABLE, "while(x = goo()??foo()){}", exprMatchesStr("foo()"));
+  }
+
+  @Test
+  public void optChainMovable() {
+    helperCanExposeExpression(DecompositionType.MOVABLE, "foo()?.x", exprMatchesStr("foo()"));
+    helperCanExposeExpression(DecompositionType.MOVABLE, "foo()?.[x]", exprMatchesStr("foo()"));
+    helperCanExposeExpression(DecompositionType.MOVABLE, "foo()?.()", exprMatchesStr("foo()"));
+  }
+
+  @Test
+  public void optChainDecomposable() {
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "x?.[foo()]", exprMatchesStr("foo()"));
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "x?.(foo())", exprMatchesStr("foo()"));
+  }
+
+  @Test
+  public void optChainAllowMethodCallDecomposable() {
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "x?.y(foo())", exprMatchesStr("foo()"));
+  }
+
+  @Test
+  public void optChainUnDecomposable() {
+    helperCanExposeExpression(
+        DecompositionType.UNDECOMPOSABLE, "while(x = y?.[foo()]){}", exprMatchesStr("foo()"));
   }
 
   @Test
   public void testCanExposeExpression3() {
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "x = 0 && foo()", "foo");
+        DecompositionType.DECOMPOSABLE, "x = 0 && foo()", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "x = 1 || foo()", "foo");
+        DecompositionType.DECOMPOSABLE, "x = 1 || foo()", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "var x = 1 ? foo() : 0", "foo");
+        DecompositionType.DECOMPOSABLE, "var x = 1 ? foo() : 0", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "const x = 1 ? foo() : 0", "foo");
+        DecompositionType.DECOMPOSABLE, "const x = 1 ? foo() : 0", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "let x = 1 ? foo() : 0", "foo");
+        DecompositionType.DECOMPOSABLE, "let x = 1 ? foo() : 0", exprMatchesStr("foo()"));
 
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "goo() && foo()", "foo");
+        DecompositionType.DECOMPOSABLE, "goo() && foo()", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "x = goo() && foo()", "foo");
+        DecompositionType.DECOMPOSABLE, "x = goo() && foo()", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "x += goo() && foo()", "foo");
+        DecompositionType.DECOMPOSABLE, "x += goo() && foo()", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "var x = goo() && foo()", "foo");
+        DecompositionType.DECOMPOSABLE, "var x = goo() && foo()", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "const x = goo() && foo()", "foo");
+        DecompositionType.DECOMPOSABLE, "const x = goo() && foo()", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "let x = goo() && foo()", "foo");
+        DecompositionType.DECOMPOSABLE, "let x = goo() && foo()", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "if(goo() && foo()){}", "foo");
+        DecompositionType.DECOMPOSABLE, "if(goo() && foo()){}", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "switch(goo() && foo()){}", "foo");
+        DecompositionType.DECOMPOSABLE, "switch(goo() && foo()){}", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "switch(goo() && foo()){}", "foo");
+        DecompositionType.DECOMPOSABLE, "switch(goo() && foo()){}", exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "switch(x = goo() && foo()){}", "foo");
+        DecompositionType.DECOMPOSABLE, "switch(x = goo() && foo()){}", exprMatchesStr("foo()"));
     helperCanExposeExpression(
         DecompositionType.DECOMPOSABLE,
-        "function f(){ return goo() && foo();}", "foo");
+        "function f(){ return goo() && foo();}",
+        exprMatchesStr("foo()"));
   }
 
   @Test
   public void testCanExposeExpression_compoundDeclaration_inForInitializer_firstElement() {
     // VAR will already be hoisted by `Normalize`.
-    helperCanExposeExpression(DecompositionType.MOVABLE, "for (var x = foo(), y = 5;;) {}", "foo");
-
-    helperCanExposeExpression(DecompositionType.MOVABLE, "for (let x = foo(), y = 5;;) {}", "foo");
     helperCanExposeExpression(
-        DecompositionType.MOVABLE, "for (const x = foo(), y = 5;;) {}", "foo");
+        DecompositionType.MOVABLE, "for (var x = foo(), y = 5;;) {}", exprMatchesStr("foo()"));
+
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE, "for (let x = foo(), y = 5;;) {}", exprMatchesStr("foo()"));
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE, "for (const x = foo(), y = 5;;) {}", exprMatchesStr("foo()"));
   }
 
   @Test
@@ -180,57 +241,43 @@ public final class ExpressionDecomposerTest {
     // bails for now.
 
     // VAR will already be hoisted by `Normalize`.
-    helperCanExposeExpression(DecompositionType.MOVABLE, "for (var x = 8, y = foo();;) {}", "foo");
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE, "for (var x = 8, y = foo();;) {}", exprMatchesStr("foo()"));
 
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "for (let x = 8, y = foo();;) {}", "foo");
+        DecompositionType.UNDECOMPOSABLE,
+        "for (let x = 8, y = foo();;) {}",
+        exprMatchesStr("foo()"));
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "for (const x = 8, y = foo();;) {}", "foo");
+        DecompositionType.UNDECOMPOSABLE,
+        "for (const x = 8, y = foo();;) {}",
+        exprMatchesStr("foo()"));
   }
 
   @Test
-  public void testCannotExpose_expression4a() {
+  public void testCannotExpose_expression4() {
     // 'this' must be preserved in call.
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "if (goo.a(1, foo()));", "foo");
+        DecompositionType.DECOMPOSABLE, "if (goo.a(1, foo()));", exprMatchesStr("foo()"));
   }
 
   @Test
-  public void testCanExposeExpression4b() {
-    allowMethodCallDecomposing = true;
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "if (goo.a(1, foo()));", "foo");
-  }
-
-  @Test
-  public void testCannotExpose_expression5a() {
+  public void testCannotExpose_expression5() {
     // 'this' must be preserved in call.
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "if (goo['a'](foo()));", "foo");
+        DecompositionType.DECOMPOSABLE, "if (goo['a'](foo()));", exprMatchesStr("foo()"));
   }
 
   @Test
-  public void testCanExposeExpression5b() {
-    allowMethodCallDecomposing = true;
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "if (goo['a'](foo()));", "foo");
-  }
-
-  @Test
-  public void testCannotExpose_expression6a() {
-    // 'this' must be preserved in call.
+  public void testCannotExpose_expression6() {
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "z:if (goo.a(1, foo()));", "foo");
-  }
-
-  @Test
-  public void testCanExposeExpression6b() {
-    allowMethodCallDecomposing = true;
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "z:if (goo.a(1, foo()));", "foo");
+        DecompositionType.DECOMPOSABLE, "z:if (goo.a(1, foo()));", exprMatchesStr("foo()"));
   }
 
   @Test
   public void testCanExposeExpression7() {
     // Verify calls to function expressions are movable.
-    helperCanExposeFunctionExpression(
+    helperCanExposeExpression(
         DecompositionType.MOVABLE,
         lines(
             "(function(map){descriptions_=map})(",
@@ -240,7 +287,19 @@ public final class ExpressionDecomposerTest {
             "    ret[MIGRATION_BANNER_DISMISS]='b';",
             "    return ret",
             "  }());"),
-        2);
+        compiler ->
+            rootNode -> {
+              // Dig out the inner IIFE call and return it as the expression we want to ensure is
+              // movable.
+              assertNode(rootNode).hasToken(Token.SCRIPT);
+              final Node exprResult = rootNode.getOnlyChild();
+              assertNode(exprResult).hasToken(Token.EXPR_RESULT);
+              final Node outerCall = exprResult.getOnlyChild();
+              assertNode(outerCall).isCall();
+              final Node innerIifeCall = outerCall.getSecondChild();
+              assertNode(innerIifeCall).isCall();
+              return innerIifeCall;
+            });
   }
 
   @Test
@@ -254,7 +313,7 @@ public final class ExpressionDecomposerTest {
             "  var myUrl = new goog.Uri(",
             "      getDomServices_(self).getDomHelper().getWindow().location.href);",
             "};"),
-        "getDomServices_");
+        exprMatchesStr("getDomServices_(self)"));
 
     // Verify it is properly expose the target expression.
     helperExposeExpression(
@@ -264,7 +323,7 @@ public final class ExpressionDecomposerTest {
             "  var myUrl =",
             "      new goog.Uri(getDomServices_(self).getDomHelper().getWindow().location.href);",
             "};"),
-        "getDomServices_",
+        exprMatchesStr("getDomServices_(self)"),
         lines(
             "HangoutStarter.prototype.launchHangout = function() {",
             "  var self = a.b;",
@@ -282,7 +341,7 @@ public final class ExpressionDecomposerTest {
             "  var myUrl = new temp_const$jscomp$0(",
             "      getDomServices_(self).getDomHelper().getWindow().location.href);",
             "}"),
-        "getDomServices_",
+        exprMatchesStr("getDomServices_(self)"),
         lines(
             "HangoutStarter.prototype.launchHangout = function() {",
             "  var self=a.b;",
@@ -298,7 +357,7 @@ public final class ExpressionDecomposerTest {
     helperCanExposeExpression(
         DecompositionType.UNDECOMPOSABLE,
         "function *f() { for (let x of yield y) {} }",
-        "yield");
+        exprMatchesStr("yield y"));
   }
 
   @Test
@@ -306,7 +365,7 @@ public final class ExpressionDecomposerTest {
     helperCanExposeExpression(
         DecompositionType.UNDECOMPOSABLE,
         "async function *f() { for await (let x of yield y) {} }",
-        "yield");
+        exprMatchesStr("yield y"));
   }
 
   @Test
@@ -314,59 +373,76 @@ public final class ExpressionDecomposerTest {
     helperCanExposeExpression(
         DecompositionType.UNDECOMPOSABLE,
         "function *f() { for (let x in yield y) {} }",
-        "yield");
+        exprMatchesStr("yield y"));
   }
 
   @Test
   public void testCannotExpose_expression11() {
     // expressions in parameter lists
-    helperCanExposeExpression(DecompositionType.UNDECOMPOSABLE, "function f(x = foo()) {}", "foo");
+    helperCanExposeExpression(
+        DecompositionType.UNDECOMPOSABLE, "function f(x = foo()) {}", exprMatchesStr("foo()"));
 
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "function f({[foo()]: x}) {}", "foo");
+        DecompositionType.UNDECOMPOSABLE, "function f({[foo()]: x}) {}", exprMatchesStr("foo()"));
 
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "(function (x = foo()) {})()", "foo");
+        DecompositionType.UNDECOMPOSABLE, "(function (x = foo()) {})()", exprMatchesStr("foo()"));
 
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "(function ({[foo()]: x}) {})()", "foo");
+        DecompositionType.UNDECOMPOSABLE,
+        "(function ({[foo()]: x}) {})()",
+        exprMatchesStr("foo()"));
   }
 
   @Test
   public void testCanExpose_aCall_withSpreadSibling() {
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "f(...x, y());", "y");
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "f(y(), ...x);", "y");
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "f(...x, y());", exprMatchesStr("y()"));
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "f(y(), ...x);", exprMatchesStr("y()"));
 
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "new D(...x, y());", "y");
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "new D(y(), ...x);", "y");
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "new D(...x, y());", exprMatchesStr("y()"));
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "new D(y(), ...x);", exprMatchesStr("y()"));
 
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "[...x, y()];", "y");
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "({...x, z: y()});", "y");
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "[...x, y()];", exprMatchesStr("y()"));
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "({...x, z: y()});", exprMatchesStr("y()"));
 
     // Array- and object-literal instantiations cannot be side-effected.
-    helperCanExposeExpression(DecompositionType.MOVABLE, "[y(), ...x];", "y");
-    helperCanExposeExpression(DecompositionType.MOVABLE, "({z: y(), ...x});", "y");
+    helperCanExposeExpression(DecompositionType.MOVABLE, "[y(), ...x];", exprMatchesStr("y()"));
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE, "({z: y(), ...x});", exprMatchesStr("y()"));
 
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "f(...y());", "y");
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "f(...y(), x);", "y");
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "f(x, ...y());", "y");
+    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "f(...y());", exprMatchesStr("y()"));
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "f(...y(), x);", exprMatchesStr("y()"));
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "f(x, ...y());", exprMatchesStr("y()"));
 
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "f(...x, x, y());", "y");
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "f(...x, ...x, y());", "y");
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "f(...x, x, y());", exprMatchesStr("y()"));
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "f(...x, ...x, y());", exprMatchesStr("y()"));
   }
 
   @Test
   public void testCanExpose_anExpression_withSpreadRelative_ifInDifferentFunction() {
     // TODO(b/121004488): There are potential decompositions that weren't implemented.
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "f(function() { [...x]; }, y());", "y");
+        DecompositionType.DECOMPOSABLE, "f(function() { [...x]; }, y());", exprMatchesStr("y()"));
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "f(function() { ({...x}); }, y());", "y");
+        DecompositionType.DECOMPOSABLE, "f(function() { ({...x}); }, y());", exprMatchesStr("y()"));
 
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "f(y(), () => [...x]);", "y");
-    helperCanExposeExpression(DecompositionType.DECOMPOSABLE, "f(y(), () => ({...x}));", "y");
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "f(y(), () => [...x]);", exprMatchesStr("y()"));
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "f(y(), () => ({...x}));", exprMatchesStr("y()"));
 
-    helperCanExposeExpression(DecompositionType.MOVABLE, "[() => f(...x), y()];", "y");
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE, "[() => f(...x), y()];", exprMatchesStr("y()"));
 
     helperCanExposeExpression(
         DecompositionType.MOVABLE,
@@ -377,88 +453,96 @@ public final class ExpressionDecomposerTest {
             "   },",
             "  y()",
             "];"),
-        "y");
+        exprMatchesStr("y()"));
   }
 
   @Test
   public void testCanExposeExpression12() {
     // Test destructuring rhs is evaluated before the lhs
-    shouldTestTypes = false;
-    helperCanExposeExpression(DecompositionType.MOVABLE, "const {a, b = goo()} = foo();", "foo");
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE, "const {a, b = goo()} = foo();", exprMatchesStr("foo()"));
 
-    helperCanExposeExpression(DecompositionType.MOVABLE, "const [a, b = goo()] = foo();", "foo");
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE, "const [a, b = goo()] = foo();", exprMatchesStr("foo()"));
 
-    helperCanExposeExpression(DecompositionType.MOVABLE, "({a, b = goo()} = foo());", "foo");
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE, "({a, b = goo()} = foo());", exprMatchesStr("foo()"));
 
     // Default value expressions are conditional, which would make the expressions complex.
     helperCanExposeExpression(
-        DecompositionType.UNDECOMPOSABLE, "[{ [foo()]: a } = goo()] = arr;", "foo");
+        DecompositionType.UNDECOMPOSABLE,
+        "[{ [foo()]: a } = goo()] = arr;",
+        exprMatchesStr("foo()"));
   }
 
   @Test
   public void testCanExposeExpressionInTemplateLiteralSubstitution() {
-    helperCanExposeExpression(DecompositionType.MOVABLE, "const result = `${foo()}`;", "foo");
-
-    allowMethodCallDecomposing = true;
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "const obj = {f(x) {}}; obj.f(`${foo()}`);", "foo");
+        DecompositionType.MOVABLE, "const result = `${foo()}`;", exprMatchesStr("foo()"));
 
     helperCanExposeExpression(
-        DecompositionType.MOVABLE, "const result = `${foo()} ${goo()}`;", "foo");
+        DecompositionType.DECOMPOSABLE,
+        "const obj = {f(x) {}}; obj.f(`${foo()}`);",
+        exprMatchesStr("foo()"));
 
     helperCanExposeExpression(
-        DecompositionType.DECOMPOSABLE, "const result = `${foo()} ${goo()}`;", "goo");
+        DecompositionType.MOVABLE, "const result = `${foo()} ${goo()}`;", exprMatchesStr("foo()"));
+
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE,
+        "const result = `${foo()} ${goo()}`;",
+        exprMatchesStr("goo()"));
   }
 
   @Test
   public void testCannotExpose_defaultValueInParamList() {
-    helperCanExposeExpression(DecompositionType.UNDECOMPOSABLE, "function fn(a = g()) {}", "g");
+    helperCanExposeExpression(
+        DecompositionType.UNDECOMPOSABLE, "function fn(a = g()) {}", exprMatchesStr("g()"));
   }
 
   @Test
   public void testCannotExpose_defaultValueInDestructuring() {
-    helperCanExposeExpression(DecompositionType.UNDECOMPOSABLE, "let {x = fn()} = y;", "fn");
+    helperCanExposeExpression(
+        DecompositionType.UNDECOMPOSABLE, "let {x = fn()} = y;", exprMatchesStr("fn()"));
 
-    helperCanExposeExpression(DecompositionType.UNDECOMPOSABLE, "let [x = fn()] = y;", "fn");
+    helperCanExposeExpression(
+        DecompositionType.UNDECOMPOSABLE, "let [x = fn()] = y;", exprMatchesStr("fn()"));
   }
 
   @Test
   public void testMoveExpression1() {
     // There isn't a reason to do this, but it works.
-    helperMoveExpression("foo()", "foo", "var result$jscomp$0 = foo(); result$jscomp$0;");
+    helperMoveExpression(
+        "foo()", exprMatchesStr("foo()"), "var result$jscomp$0 = foo(); result$jscomp$0;");
   }
 
   @Test
   public void testMoveExpression2() {
     helperMoveExpression(
-        "x = foo()",
-        "foo",
-        "var result$jscomp$0 = foo(); x = result$jscomp$0;");
+        "x = foo()", exprMatchesStr("foo()"), "var result$jscomp$0 = foo(); x = result$jscomp$0;");
   }
 
   @Test
   public void testMoveExpression3() {
     helperMoveExpression(
         "var x = foo()",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); var x = result$jscomp$0;");
   }
 
   @Test
   public void testMoveExpression4() {
-    shouldTestTypes = false;
     helperMoveExpression(
         "const x = foo()",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); const x = result$jscomp$0;");
   }
 
   @Test
   public void testMoveExpression5() {
-    shouldTestTypes = false;
     helperMoveExpression(
         "let x = foo()",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); let x = result$jscomp$0;");
   }
 
@@ -466,7 +550,7 @@ public final class ExpressionDecomposerTest {
   public void testMoveExpression6() {
     helperMoveExpression(
         "if(foo()){}",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); if (result$jscomp$0);");
   }
 
@@ -474,7 +558,7 @@ public final class ExpressionDecomposerTest {
   public void testMoveExpression7() {
     helperMoveExpression(
         "switch(foo()){}",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); switch(result$jscomp$0){}");
   }
 
@@ -482,7 +566,7 @@ public final class ExpressionDecomposerTest {
   public void testMoveExpression8() {
     helperMoveExpression(
         "switch(1 + foo()){}",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); switch(1 + result$jscomp$0){}");
   }
 
@@ -490,7 +574,7 @@ public final class ExpressionDecomposerTest {
   public void testMoveExpression9() {
     helperMoveExpression(
         "function f(){ return foo();}",
-        "foo",
+        exprMatchesStr("foo()"),
         "function f(){ var result$jscomp$0 = foo(); return result$jscomp$0;}");
   }
 
@@ -498,7 +582,7 @@ public final class ExpressionDecomposerTest {
   public void testMoveExpression10() {
     helperMoveExpression(
         "x = foo() && 1",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); x = result$jscomp$0 && 1");
   }
 
@@ -506,7 +590,7 @@ public final class ExpressionDecomposerTest {
   public void testMoveExpression11() {
     helperMoveExpression(
         "x = foo() || 1",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); x = result$jscomp$0 || 1");
   }
 
@@ -514,25 +598,37 @@ public final class ExpressionDecomposerTest {
   public void testMoveExpression12() {
     helperMoveExpression(
         "x = foo() ? 0 : 1",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); x = result$jscomp$0 ? 0 : 1");
   }
 
   @Test
+  public void testMoveExpressionNullishCoalesce() {
+    helperMoveExpression(
+        "x = foo() ?? 0",
+        exprMatchesStr("foo()"),
+        "var result$jscomp$0 = foo(); x = result$jscomp$0 ?? 0");
+  }
+
+  @Test
+  public void testMoveExpressionOptionalChain() {
+    helperMoveExpression(
+        "foo()?.x", exprMatchesStr("foo()"), "var result$jscomp$0 = foo(); result$jscomp$0?.x");
+  }
+
+  @Test
   public void testMoveExpression13() {
-    shouldTestTypes = false;
     helperMoveExpression(
         "const {a, b} = foo();",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); const {a, b} = result$jscomp$0;");
   }
 
   @Test
   public void testMoveExpression14() {
-    shouldTestTypes = false;
     helperMoveExpression(
         "({a, b} = foo());",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); ({a, b} = result$jscomp$0);");
   }
 
@@ -542,7 +638,7 @@ public final class ExpressionDecomposerTest {
   public void testExposeExpression1() {
     helperExposeExpression(
         "x = 0 && foo()",
-        "foo",
+        exprMatchesStr("foo()"),
         "var temp$jscomp$0; if (temp$jscomp$0 = 0) temp$jscomp$0 = foo(); x = temp$jscomp$0;");
   }
 
@@ -550,7 +646,7 @@ public final class ExpressionDecomposerTest {
   public void testExposeExpression2() {
     helperExposeExpression(
         "x = 1 || foo()",
-        "foo",
+        exprMatchesStr("foo()"),
         "var temp$jscomp$0; if (temp$jscomp$0 = 1); else temp$jscomp$0=foo(); x = temp$jscomp$0;");
   }
 
@@ -558,72 +654,524 @@ public final class ExpressionDecomposerTest {
   public void testExposeExpression3() {
     helperExposeExpression(
         "var x = 1 ? foo() : 0",
-        "foo",
+        exprMatchesStr("foo()"),
         "var temp$jscomp$0;"
             + " if (1) temp$jscomp$0 = foo(); else temp$jscomp$0 = 0;var x = temp$jscomp$0;");
   }
 
   @Test
   public void testExposeExpression4() {
-    shouldTestTypes = false;
     helperExposeExpression(
         "const x = 1 ? foo() : 0",
-        "foo",
+        exprMatchesStr("foo()"),
         "var temp$jscomp$0;"
             + " if (1) temp$jscomp$0 = foo(); else temp$jscomp$0 = 0;const x = temp$jscomp$0;");
   }
 
   @Test
   public void testExposeExpression5() {
-    shouldTestTypes = false;
     helperExposeExpression(
         "let x = 1 ? foo() : 0",
-        "foo",
+        exprMatchesStr("foo()"),
         "var temp$jscomp$0;"
             + " if (1) temp$jscomp$0 = foo(); else temp$jscomp$0 = 0;let x = temp$jscomp$0;");
   }
 
   @Test
   public void testExposeExpression6() {
+    helperExposeExpression("goo() && foo()", exprMatchesStr("foo()"), "if (goo()) foo();");
+  }
+
+  @Test
+  public void exposeExpressionNullishCoalesceNoResult() {
     helperExposeExpression(
-        "goo() && foo()",
-        "foo",
-        "if (goo()) foo();");
+        "goo() ?? foo()",
+        exprMatchesStr("foo()"),
+        lines(
+            "var temp$jscomp$1;", //
+            "if((temp$jscomp$1 = goo()) != null) temp$jscomp$1;", //
+            "else foo()"));
+  }
+
+  @Test
+  public void exposeExpressionOptionalGetElem() {
+    helperExposeExpression(
+        "a = x?.[foo()]",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "var temp$jscomp$1;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  temp$jscomp$1 = void 0;",
+            "} else {",
+            "  temp$jscomp$1 = temp_const$jscomp$0[foo()];",
+            "}",
+            "a = temp$jscomp$1;"));
+  }
+
+  @Test
+  public void exposeExpressionOptChainCallChain() {
+    helperExposeExpression(
+        "a = x?.(a).y.z[foo()]",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "var temp$jscomp$1;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  temp$jscomp$1 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$0(a).y.z;",
+            "  temp$jscomp$1 = temp_const$jscomp$2[foo()];",
+            "}",
+            "a = temp$jscomp$1;"));
+  }
+
+  @Test
+  public void exposeExpressionOptChainCallChainNoResult() {
+    helperExposeExpression(
+        "x?.(a)[y].z[foo()]",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  void 0;",
+            "} else {",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$0(a)[y].z;",
+            "  temp_const$jscomp$2[foo()];",
+            "}"));
+  }
+
+  @Test
+  public void exposeExpressionOptionalGetPropChain() {
+    helperExposeExpression(
+        "a = x?.y.z[foo()]",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "var temp$jscomp$1;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  temp$jscomp$1 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$0.y.z;",
+            "  temp$jscomp$1 = temp_const$jscomp$2[foo()];",
+            "}",
+            "a = temp$jscomp$1;"));
+  }
+
+  @Test
+  public void exposeExpressionOptionalGetPropChainNoResult() {
+    helperExposeExpression(
+        "x?.y.z[foo()]",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  void 0;",
+            "} else {",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$0.y.z;",
+            "  temp_const$jscomp$2[foo()];",
+            "}"));
+  }
+
+  @Test
+  public void exposeExpressionOptionalGetElemChain() {
+    helperExposeExpression(
+        "a = x?.[y].z[foo()];",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "var temp$jscomp$1;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  temp$jscomp$1 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$0[y].z;",
+            "  temp$jscomp$1 = temp_const$jscomp$2[foo()];",
+            "}",
+            "a = temp$jscomp$1;"));
+  }
+
+  @Test
+  public void exposeExpressionOptionalGetElemChainNoResult() {
+    helperExposeExpression(
+        "x?.[y].z[foo()]",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  void 0;",
+            "} else {",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$0[y].z;",
+            "  temp_const$jscomp$2[foo()];",
+            "}"));
+  }
+
+  @Test
+  public void exposeExpressionOptionalGetElemWithCall() {
+    helperExposeExpression(
+        "a = x.y?.[z](foo())",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "var temp$jscomp$1;",
+            "if ((temp_const$jscomp$0 = x.y) == null) {",
+            "  temp$jscomp$1 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$3 = temp_const$jscomp$0;",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$3[z];",
+            "  temp$jscomp$1 = temp_const$jscomp$2.call(temp_const$jscomp$3, foo());",
+            "}",
+            "a = temp$jscomp$1;"));
+  }
+
+  @Test
+  public void exposeExpressionOptionalGetElemWithCallTwiceRewriteCall() {
+    helperExposeExpression(
+        "a = x.y?.[z](foo())",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "var temp$jscomp$1;",
+            "if ((temp_const$jscomp$0 = x.y) == null) {",
+            "  temp$jscomp$1 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$3 = temp_const$jscomp$0;",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$3[z];",
+            "  temp$jscomp$1 = temp_const$jscomp$2.call(temp_const$jscomp$3, foo());",
+            "}",
+            "a = temp$jscomp$1;"));
+  }
+
+  @Test
+  public void exposeExpressionGetElemWithOptChainCall() {
+    helperExposeExpression(
+        "a = x.y[z]?.(foo(), d)",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "let temp_const$jscomp$1;",
+            "var temp$jscomp$2;",
+            "if ((temp_const$jscomp$1 = (temp_const$jscomp$0 = x.y)[z]) == null) {",
+            "  temp$jscomp$2 = void 0;",
+            "} else {",
+            "  temp$jscomp$2 = temp_const$jscomp$1.call(temp_const$jscomp$0, foo(), d);",
+            "}",
+            "a = temp$jscomp$2;",
+            ""));
+  }
+
+  @Test
+  public void exposeExpressionOptionalGetPropWithCall() {
+    helperExposeExpression(
+        "a = x.y?.z(foo(1))",
+        exprMatchesStr("foo(1)"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "var temp$jscomp$1;",
+            "if ((temp_const$jscomp$0 = x.y) == null) {",
+            "  temp$jscomp$1 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$3 = temp_const$jscomp$0;",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$3.z;",
+            "  temp$jscomp$1 = temp_const$jscomp$2.call(temp_const$jscomp$3, foo(1));",
+            "}",
+            "a = temp$jscomp$1;"));
+  }
+
+  @Test
+  public void exposeExpressionOptionalGetPropWithCallTwiceRewriteCall() {
+    helperExposeExpression(
+        "a = x.y?.z(foo(1))",
+        exprMatchesStr("foo(1)"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "var temp$jscomp$1;",
+            "if ((temp_const$jscomp$0 = x.y) == null) {",
+            "  temp$jscomp$1 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$3 = temp_const$jscomp$0;",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$3.z;",
+            "  temp$jscomp$1 = temp_const$jscomp$2.call(temp_const$jscomp$3, foo(1));",
+            "}",
+            "a = temp$jscomp$1;"));
+  }
+
+  @Test
+  public void exposeExpressionGetPropWithOptChainCall() {
+    helperExposeExpression(
+        "a = x.y.z?.(foo())",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "let temp_const$jscomp$1;",
+            "var temp$jscomp$2;",
+            "if ((temp_const$jscomp$1 = (temp_const$jscomp$0 = x.y).z) == null) {",
+            "  temp$jscomp$2 = void 0;",
+            "} else {",
+            "  temp$jscomp$2 = temp_const$jscomp$1.call(temp_const$jscomp$0, foo());",
+            "}",
+            "a = temp$jscomp$2;"));
+  }
+
+  @Test
+  public void exposeExpressionNewOptChainAfterRewriteCall() {
+    helperExposeExpression(
+        "a = x?.y(foo())?.z.q",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "let temp_const$jscomp$1;",
+            "var temp$jscomp$2;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  temp$jscomp$2 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$4 = temp_const$jscomp$0;",
+            "  var temp_const$jscomp$3 = temp_const$jscomp$4.y;",
+            "  temp$jscomp$2 =",
+            "      (temp_const$jscomp$1 =",
+            "          temp_const$jscomp$3.call(temp_const$jscomp$4, foo())) == null",
+            "              ? void 0 : temp_const$jscomp$1.z.q;",
+            "}",
+            "a = temp$jscomp$2;"));
+  }
+
+  @Test
+  public void exposeExpressionNewOptChainAfter() {
+    helperExposeExpression(
+        "a = x?.y[foo()]?.z.q",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "let temp_const$jscomp$1;",
+            "var temp$jscomp$2;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  temp$jscomp$2 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$3 = temp_const$jscomp$0.y;",
+            "  temp$jscomp$2 = (temp_const$jscomp$1 = temp_const$jscomp$3[foo()]) == null ? void 0"
+                + " : temp_const$jscomp$1.z.q;",
+            "}",
+            "a = temp$jscomp$2;"));
+  }
+
+  @Test
+  public void exposeExpressionNotImmediatelyFollowedByNewChain() {
+    helperExposeExpression(
+        "a = x?.y[foo()].z.q?.b.c",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "let temp_const$jscomp$1;",
+            "var temp$jscomp$2;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  temp$jscomp$2 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$3 = temp_const$jscomp$0.y;",
+            "  temp$jscomp$2 = (temp_const$jscomp$1 = temp_const$jscomp$3[foo()].z.q) == null",
+            "      ? void 0 : temp_const$jscomp$1.b.c;",
+            "}",
+            "a = temp$jscomp$2;"));
+  }
+
+  @Test
+  public void exposeExpressionBreakingOutOfOptionalChain() {
+    helperExposeExpression(
+        "a = (x?.y[foo()]).z.q",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "var temp$jscomp$1;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  temp$jscomp$1 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$0.y;",
+            "  temp$jscomp$1 = temp_const$jscomp$2[foo()];",
+            "}",
+            "a = temp$jscomp$1.z.q;",
+            ""));
+  }
+
+  @Test
+  public void exposeExpressionCallBreakingOutOfOptionalChain() {
+    shouldTestTypes = false;
+    // Performing a non-optional call on an optional chain is not good coding, because you could
+    // end up trying to call `undefined` as a function, but it is allowed and must be supported.
+    helperExposeExpression(
+        "a = (x?.y.z)(foo())",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "let temp_const$jscomp$1;",
+            "var temp_const$jscomp$3 =",
+            "    (temp_const$jscomp$0 = x) == null",
+            "        ? void 0 : (temp_const$jscomp$1 = temp_const$jscomp$0.y).z;",
+            // This double .call is unfortunate but not incorrect.
+            // Maybe we should make the ExpressionDecomposer recognize `.call` and avoid creating
+            // another one? We'd run the risk of breaking "real" methods called `.call`, which
+            // are allowed.
+            "var temp_const$jscomp$2 = temp_const$jscomp$3.call;",
+            // The temp_const$jscomp$1 argument gets type '?' when we decompose,
+            // which is correct, but TypeInference on this expected code appears to give it
+            // `undefined`. This is why we've set `shouldTestTypes = false;` above
+            "a = temp_const$jscomp$2.call(temp_const$jscomp$3, temp_const$jscomp$1, foo());"));
+  }
+
+  @Test
+  public void exposeExpressionFreeCallBreakingOutOfOptionalChain() {
+    // Performing a non-optional call on an optional chain is not good coding, because you could
+    // end up trying to call `undefined` as a function, but it is allowed and must be supported.
+    helperExposeExpression(
+        "a = (x?.y.z())(foo())",
+        exprMatchesStr("foo()"),
+        lines(
+            // Here the optional chain does not end with a property access, so there's no need to
+            // save a reference to a 'this' object to be used in the call and the chain can simply
+            // be extracted into a temporary variable and then called.
+            "var temp_const$jscomp$0 = x?.y.z();", //
+            "a = temp_const$jscomp$0(foo());"));
+  }
+
+  @Test
+  public void exposeExpressionCallAtEndOfOptionalChain() {
+    helperExposeExpression(
+        "a = x?.y.z(foo())",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "var temp$jscomp$1;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  temp$jscomp$1 = void 0;",
+            "} else {",
+            "  var temp_const$jscomp$3 = temp_const$jscomp$0.y;",
+            "  var temp_const$jscomp$2 = temp_const$jscomp$3.z;",
+            "  temp$jscomp$1 = temp_const$jscomp$2.call(temp_const$jscomp$3, foo());",
+            "}",
+            "a = temp$jscomp$1;",
+            ""));
+  }
+
+  @Test
+  public void exposeExpressionAfterTwoOptionalChains() {
+    helperExposeExpression(
+        "a = x?.y.z?.q(foo());",
+        exprMatchesStr("foo()"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "let temp_const$jscomp$1;",
+            "var temp$jscomp$2;",
+            "if ((temp_const$jscomp$0 = x) == null) {",
+            "  temp$jscomp$2 = void 0;",
+            "} else {",
+            "  var temp$jscomp$3;",
+            "  if ((temp_const$jscomp$1 = temp_const$jscomp$0.y.z) == null) {",
+            "    temp$jscomp$3 = void 0;",
+            "  } else {",
+            "    var temp_const$jscomp$5 = temp_const$jscomp$1;",
+            "    var temp_const$jscomp$4 = temp_const$jscomp$5.q;",
+            "    temp$jscomp$3 = temp_const$jscomp$4.call(temp_const$jscomp$5, foo());",
+            "  }",
+            "  temp$jscomp$2 = temp$jscomp$3;",
+            "}",
+            "a = temp$jscomp$2;"));
+  }
+
+  @Test
+  public void exposeAnOptionalChain() {
+    helperExposeExpression(
+        "a = foo(arg1, opt?.chain())",
+        exprMatchesStr("opt?.chain()"),
+        lines(
+            // The optional chain is exposed once the function being called and the leading
+            // argument are stored in temporary variables that cannot be affected by execution
+            // of the optional chain.
+            "var temp_const$jscomp$1 = foo;",
+            "var temp_const$jscomp$0 = arg1;",
+            "a = temp_const$jscomp$1(temp_const$jscomp$0, opt?.chain());"));
+  }
+
+  @Test
+  public void exposePartOfAnOptionalChain() {
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE,
+        // The non-optional part is fine to move.
+        "nonOptional.part?.optional.chain?.continues()",
+        exprMatchesStr("nonOptional.part"));
+
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE,
+        "nonOptional.part?.optional.chain?.continues()",
+        // Cannot just move part of an optional chain.
+        exprMatchesStr("nonOptional.part?.optional"));
+
+    helperExposeExpression(
+        "nonOptional.part?.optional.chain?.continues()",
+        exprMatchesStr("nonOptional.part?.optional"),
+        lines(
+            "let temp_const$jscomp$0;",
+            "let temp_const$jscomp$1;",
+            "if ((temp_const$jscomp$0 = nonOptional.part) == null) {",
+            "  void 0;",
+            "} else {",
+            // `temp_const$jscomp$0.optional` is the expression we were trying to expose, and it
+            // is now movable.
+            "  (temp_const$jscomp$1 = temp_const$jscomp$0.optional.chain) == null",
+            "      ? void 0 : temp_const$jscomp$1.continues();",
+            "}"));
+  }
+
+  @Test
+  public void canExposeMethodCallee() {
+    // TODO(b/161802885): This should probably return DECOMPOSABLE, because it is not safe to
+    // replace `foo.bar` with a temporary variable containing its value.
+    helperCanExposeExpression(DecompositionType.MOVABLE, "foo.bar()", exprMatchesStr("foo.bar"));
+
+    // TODO(b/161802885): This should probably return DECOMPOSABLE, because it is not safe to
+    // replace `foo?.bar` with a temporary variable containing its value.
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE, "(foo?.bar)()", exprMatchesStr("foo?.bar"));
   }
 
   @Test
   public void testExposeExpression7() {
     helperExposeExpression(
         "x = goo() && foo()",
-        "foo",
+        exprMatchesStr("foo()"),
         "var temp$jscomp$0; if (temp$jscomp$0 = goo()) temp$jscomp$0 = foo(); x = temp$jscomp$0;");
+  }
+
+  @Test
+  public void exposeExpressionNullishCoalesce() {
+    helperExposeExpression(
+        "x = goo() ?? foo()",
+        exprMatchesStr("foo()"),
+        lines(
+            "var temp$jscomp$1;var temp$jscomp$0;",
+            "if((temp$jscomp$1 = goo()) != null) temp$jscomp$0 = temp$jscomp$1;",
+            "else temp$jscomp$0=foo(); x = temp$jscomp$0;"));
   }
 
   @Test
   public void testExposeExpression8() {
     helperExposeExpression(
         "var x = 1 + (goo() && foo())",
-        "foo",
+        exprMatchesStr("foo()"),
         "var temp$jscomp$0; if (temp$jscomp$0 = goo()) temp$jscomp$0 = foo();"
             + "var x = 1 + temp$jscomp$0;");
   }
 
   @Test
   public void testExposeExpression9() {
-    shouldTestTypes = false;
     helperExposeExpression(
         "const x = 1 + (goo() && foo())",
-        "foo",
+        exprMatchesStr("foo()"),
         "var temp$jscomp$0; if (temp$jscomp$0 = goo()) temp$jscomp$0 = foo();"
             + "const x = 1 + temp$jscomp$0;");
   }
 
   @Test
   public void testExposeExpression10() {
-    shouldTestTypes = false;
     helperExposeExpression(
         "let x = 1 + (goo() && foo())",
-        "foo",
+        exprMatchesStr("foo()"),
         "var temp$jscomp$0; if (temp$jscomp$0 = goo()) temp$jscomp$0 = foo();"
             + "let x = 1 + temp$jscomp$0;");
   }
@@ -632,7 +1180,7 @@ public final class ExpressionDecomposerTest {
   public void testExposeExpression11() {
     helperExposeExpression(
         "if(goo() && foo());",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var temp$jscomp$0;",
             "if (temp$jscomp$0 = goo()) temp$jscomp$0 = foo();",
@@ -643,7 +1191,7 @@ public final class ExpressionDecomposerTest {
   public void testExposeExpression12() {
     helperExposeExpression(
         "switch(goo() && foo()){}",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var temp$jscomp$0;",
             "if (temp$jscomp$0 = goo()) temp$jscomp$0 = foo();",
@@ -651,10 +1199,21 @@ public final class ExpressionDecomposerTest {
   }
 
   @Test
+  public void exposeExpressionNullishCoalesceSwitch() {
+    helperExposeExpression(
+        "switch(goo() ?? foo()){}",
+        exprMatchesStr("foo()"),
+        lines(
+            "var temp$jscomp$1;var temp$jscomp$0;",
+            "if((temp$jscomp$1 = goo()) != null) temp$jscomp$0 = temp$jscomp$1;",
+            "else temp$jscomp$0 = foo(); switch(temp$jscomp$0){}"));
+  }
+
+  @Test
   public void testExposeExpression13() {
     helperExposeExpression(
         "switch(1 + goo() + foo()){}",
-        "foo",
+        exprMatchesStr("foo()"),
         "var temp_const$jscomp$0 = 1 + goo(); switch(temp_const$jscomp$0 + foo()){}");
   }
 
@@ -662,7 +1221,7 @@ public final class ExpressionDecomposerTest {
   public void testExposeExpression_inVanillaForInitializer_simpleExpression() {
     helperExposeExpression(
         "for (x = goo() + foo();;) {}",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var temp_const$jscomp$0 = goo();", //
             "for (x = temp_const$jscomp$0 + foo();;) {}"));
@@ -672,7 +1231,7 @@ public final class ExpressionDecomposerTest {
   public void testExposeExpression_inVanillaForInitializer_usingLabel() {
     helperExposeExpression(
         "LABEL: for (x = goo() + foo();;) {}",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var temp_const$jscomp$0 = goo();", //
             "LABEL: for (x = temp_const$jscomp$0 + foo();;) {}"));
@@ -683,7 +1242,7 @@ public final class ExpressionDecomposerTest {
     for (String dec : ImmutableList.of("let", "const")) {
       helperExposeExpression(
           "for (" + dec + " x = goo() + foo();;) {}",
-          "foo",
+          exprMatchesStr("foo()"),
           lines(
               "var temp_const$jscomp$0 = goo();", //
               "for (" + dec + " x = temp_const$jscomp$0 + foo();;) {}"));
@@ -695,7 +1254,7 @@ public final class ExpressionDecomposerTest {
     for (String dec : ImmutableList.of("let", "const")) {
       helperExposeExpression(
           "for (" + dec + " x = goo() + foo(), y = 5;;) {}",
-          "foo",
+          exprMatchesStr("foo()"),
           lines(
               "var temp_const$jscomp$0 = goo();", //
               "for (" + dec + " x = temp_const$jscomp$0 + foo(), y = 5;;) {}"));
@@ -706,7 +1265,7 @@ public final class ExpressionDecomposerTest {
   public void testExposeExpression14() {
     helperExposeExpression(
         "function f(){ return goo() && foo();}",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "function f() {",
             "  var temp$jscomp$0; if (temp$jscomp$0 = goo()) temp$jscomp$0 = foo();",
@@ -720,29 +1279,28 @@ public final class ExpressionDecomposerTest {
     // The value "goo" should be constant, but it isn't known to be so.
     helperExposeExpression(
         "if (goo(1, goo(2), (1 ? foo() : 0)));",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
-          "var temp_const$jscomp$1 = goo;",
-          "var temp_const$jscomp$0 = goo(2);",
-          "var temp$jscomp$2;",
-          "if (1) temp$jscomp$2 = foo(); else temp$jscomp$2 = 0;",
-          "if (temp_const$jscomp$1(1, temp_const$jscomp$0, temp$jscomp$2));"));
+            "var temp_const$jscomp$1 = goo;",
+            "var temp_const$jscomp$0 = goo(2);",
+            "var temp$jscomp$2;",
+            "if (1) temp$jscomp$2 = foo(); else temp$jscomp$2 = 0;",
+            "if (temp_const$jscomp$1(1, temp_const$jscomp$0, temp$jscomp$2));"));
   }
 
   @Test
   public void testExposeExpression16() {
     helperExposeExpression(
         "throw bar() && foo();",
-        "foo",
+        exprMatchesStr("foo()"),
         "var temp$jscomp$0; if (temp$jscomp$0 = bar()) temp$jscomp$0=foo(); throw temp$jscomp$0;");
   }
 
   @Test
   public void testExposeExpression17() {
-    allowMethodCallDecomposing = true;
     helperExposeExpression(
         "x.foo(y())",
-        "y",
+        exprMatchesStr("y()"),
         lines(
             "var temp_const$jscomp$1 = x;",
             "var temp_const$jscomp$0 = temp_const$jscomp$1.foo;",
@@ -751,14 +1309,9 @@ public final class ExpressionDecomposerTest {
 
   @Test
   public void testExposeExpression18() {
-    allowMethodCallDecomposing = true;
-    shouldTestTypes = false;
     helperExposeExpression(
-        lines(
-            "const {a, b, c} = condition ?",
-            "  y() :",
-            "  {a: 0, b: 0, c: 1};"),
-        "y",
+        lines("const {a, b, c} = condition ?", "  y() :", "  {a: 0, b: 0, c: 1};"),
+        exprMatchesStr("y()"),
         lines(
             "var temp$jscomp$0;",
             "if (condition) {",
@@ -772,18 +1325,22 @@ public final class ExpressionDecomposerTest {
   @Test
   public void testMoveClass1() {
     shouldTestTypes = false;
+    // types don't come out quite the same before and after decomposition
+    // TODO(bradfordcsmith): See TODO in helperMoveExpression()
     helperMoveExpression(
         "alert(class X {});",
-        ExpressionDecomposerTest::findClass,
+        compiler -> ExpressionDecomposerTest::findClass,
         "var result$jscomp$0 = class X {}; alert(result$jscomp$0);");
   }
 
   @Test
   public void testMoveClass2() {
     shouldTestTypes = false;
+    // types don't come out quite the same before and after decomposition
+    // TODO(bradfordcsmith): See TODO in helperMoveExpression()
     helperMoveExpression(
         "console.log(1, 2, class X {});",
-        ExpressionDecomposerTest::findClass,
+        compiler -> ExpressionDecomposerTest::findClass,
         "var result$jscomp$0 = class X {}; console.log(1, 2, result$jscomp$0);");
   }
 
@@ -791,7 +1348,7 @@ public final class ExpressionDecomposerTest {
   public void testMoveYieldExpression1() {
     helperMoveExpression(
         "function *f() { return { a: yield 1, c: foo(yield 2, yield 3) }; }",
-        "yield",
+        exprMatchesStr("yield 1"),
         lines(
             "function *f() {",
             "  var result$jscomp$0 = yield 1;",
@@ -800,7 +1357,7 @@ public final class ExpressionDecomposerTest {
 
     helperMoveExpression(
         "function *f() { return { a: 0, c: foo(yield 2, yield 3) }; }",
-        "yield",
+        exprMatchesStr("yield 2"),
         lines(
             "function *f() {",
             "  var result$jscomp$0 = yield 2;",
@@ -809,7 +1366,7 @@ public final class ExpressionDecomposerTest {
 
     helperMoveExpression(
         "function *f() { return { a: 0, c: foo(1, yield 3) }; }",
-        "yield",
+        exprMatchesStr("yield 3"),
         lines(
             "function *f() {",
             "  var result$jscomp$0 = yield 3;",
@@ -821,7 +1378,7 @@ public final class ExpressionDecomposerTest {
   public void testMoveYieldExpression2() {
     helperMoveExpression(
         "function *f() { return (yield 1) || (yield 2); }",
-        "yield",
+        exprMatchesStr("yield 1"),
         lines(
             "function *f() {",
             "  var result$jscomp$0 = yield 1;",
@@ -833,7 +1390,7 @@ public final class ExpressionDecomposerTest {
   public void testMoveYieldExpression3() {
     helperMoveExpression(
         "function *f() { return x.y(yield 1); }",
-        "yield",
+        exprMatchesStr("yield 1"),
         lines(
             "function *f() {",
             "  var result$jscomp$0 = yield 1;",
@@ -845,7 +1402,7 @@ public final class ExpressionDecomposerTest {
   public void testExposeYieldExpression1() {
     helperExposeExpression(
         "function *f(x) { return x || (yield 2); }",
-        "yield",
+        exprMatchesStr("yield 2"),
         lines(
             "function *f(x) {",
             "  var temp$jscomp$0;",
@@ -856,10 +1413,9 @@ public final class ExpressionDecomposerTest {
 
   @Test
   public void testExposeYieldExpression2() {
-    allowMethodCallDecomposing = true;
     helperExposeExpression(
         "function *f() { return x.y(yield 1); }",
-        "yield",
+        exprMatchesStr("yield 1"),
         lines(
             "function *f() {",
             "  var temp_const$jscomp$1 = x;",
@@ -870,28 +1426,22 @@ public final class ExpressionDecomposerTest {
 
   @Test
   public void testExposeYieldExpression3() {
-    allowMethodCallDecomposing = true;
-    String before = "function *f() { return g.call(yield 1); }";
-    String after = lines(
-        "function *f() {",
-        "  var temp_const$jscomp$1 = g;",
-        "  var temp_const$jscomp$0 = temp_const$jscomp$1.call;",
-        "  return temp_const$jscomp$0.call(temp_const$jscomp$1, yield 1);",
-        "}");
-    helperExposeExpression(before, "yield", after);
-
-    // Check that we don't decompose again, which would result in an infinite loop when inlining
-    // functions.
-    times = 2;
-    helperExposeExpression(before, "yield", after);
+    helperExposeExpression(
+        "function *f() { return g.call(yield 1); }",
+        exprMatchesStr("yield 1"),
+        lines(
+            "function *f() {",
+            "  var temp_const$jscomp$1 = g;",
+            "  var temp_const$jscomp$0 = temp_const$jscomp$1.call;",
+            "  return temp_const$jscomp$0.call(temp_const$jscomp$1, yield 1);",
+            "}"));
   }
 
   @Test
   public void testExposeYieldExpression4() {
-    allowMethodCallDecomposing = true;
     helperExposeExpression(
         "function *f() { return g.apply([yield 1, yield 2]); }",
-        "yield",
+        exprMatchesStr("yield 1"),
         lines(
             "function *f() {",
             "  var temp_const$jscomp$1 = g;",
@@ -905,12 +1455,12 @@ public final class ExpressionDecomposerTest {
   public void testExposePlusEquals1() {
     helperExposeExpression(
         "var x = 0; x += foo() + 1",
-        "foo",
+        exprMatchesStr("foo()"),
         "var x = 0; var temp_const$jscomp$0 = x; x = temp_const$jscomp$0 + (foo() + 1);");
 
     helperExposeExpression(
         "var x = 0; y = (x += foo()) + x",
-        "foo",
+        exprMatchesStr("foo()"),
         "var x = 0; var temp_const$jscomp$0 = x; y = (x = temp_const$jscomp$0 + foo()) + x");
   }
 
@@ -919,7 +1469,7 @@ public final class ExpressionDecomposerTest {
   public void testExposePlusEquals2() {
     helperExposeExpression(
         "var x = {}; x.a += foo() + 1",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var x = {}; var temp_const$jscomp$0 = x;",
             "var temp_const$jscomp$1 = temp_const$jscomp$0.a;",
@@ -927,7 +1477,7 @@ public final class ExpressionDecomposerTest {
 
     helperExposeExpression(
         "var x = {}; y = (x.a += foo()) + x.a",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var x = {}; var temp_const$jscomp$0 = x;",
             "var temp_const$jscomp$1 = temp_const$jscomp$0.a;",
@@ -939,13 +1489,13 @@ public final class ExpressionDecomposerTest {
   public void testExposePlusEquals3() {
     helperExposeExpression(
         "/** @const */ var XX = {}; XX.a += foo() + 1",
-        "foo",
+        exprMatchesStr("foo()"),
         "var XX = {}; var temp_const$jscomp$0 = XX.a;"
             + "XX.a = temp_const$jscomp$0 + (foo() + 1);");
 
     helperExposeExpression(
         "var XX = {}; y = (XX.a += foo()) + XX.a",
-        "foo",
+        exprMatchesStr("foo()"),
         "var XX = {}; var temp_const$jscomp$0 = XX.a;"
             + "y = (XX.a = temp_const$jscomp$0 + foo()) + XX.a");
   }
@@ -955,7 +1505,7 @@ public final class ExpressionDecomposerTest {
   public void testExposePlusEquals4() {
     helperExposeExpression(
         "var x = {}; goo().a += foo() + 1",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var x = {};",
             "var temp_const$jscomp$0 = goo();",
@@ -964,7 +1514,7 @@ public final class ExpressionDecomposerTest {
 
     helperExposeExpression(
         "var x = {}; y = (goo().a += foo()) + goo().a",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var x = {};",
             "var temp_const$jscomp$0 = goo();",
@@ -977,7 +1527,7 @@ public final class ExpressionDecomposerTest {
   public void testExposePlusEquals5() {
     helperExposeExpression(
         "var x = {}; goo().a.b += foo() + 1",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var x = {};",
             "var temp_const$jscomp$0 = goo().a;",
@@ -986,7 +1536,7 @@ public final class ExpressionDecomposerTest {
 
     helperExposeExpression(
         "var x = {}; y = (goo().a.b += foo()) + goo().a",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var x = {};",
             "var temp_const$jscomp$0 = goo().a;",
@@ -1002,21 +1552,23 @@ public final class ExpressionDecomposerTest {
     // decomposer does not have a method of exposing properties, only variables.
     helperMoveExpression(
         "var x = {get a() {}, b: foo()};",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0=foo();var x = {get a() {}, b: result$jscomp$0};");
 
     helperMoveExpression(
         "var x = {set a(p) {}, b: foo()};",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0=foo();var x = {set a(p) {}, b: result$jscomp$0};");
   }
 
   @Test
   public void testMoveSpread_siblingOfCall_outOfArrayLiteral_usesTempArray() {
-    shouldTestTypes = false; // TODO(nickreid): Enable this when tests support typed `AstFactory`.
+    shouldTestTypes = false;
+    // types don't come out quite the same before and after decomposition
+    // TODO(bradfordcsmith): See TODO in helperMoveExpression()
     helperExposeExpression(
         "[...x, foo()];",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var temp_const$jscomp$0 = [...x];", //
             "[...temp_const$jscomp$0, foo()];"));
@@ -1024,10 +1576,12 @@ public final class ExpressionDecomposerTest {
 
   @Test
   public void testMoveSpread_siblingOfCall_outOfObjectLiteral_usesTempObject() {
-    shouldTestTypes = false; // TODO(nickreid): Enable this when tests support typed `AstFactory`.
+    shouldTestTypes = false;
+    // types don't come out quite the same before and after decomposition
+    // TODO(bradfordcsmith): See TODO in helperMoveExpression()
     helperExposeExpression(
         "({...x, y: foo()});",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var temp_const$jscomp$0 = {...x};", //
             "({...temp_const$jscomp$0, y: foo()});"));
@@ -1035,12 +1589,14 @@ public final class ExpressionDecomposerTest {
 
   @Test
   public void testMoveSpread_siblingOfCall_outOfFunctionCall_usesTempArray() {
-    shouldTestTypes = false; // TODO(nickreid): Enable this when tests support typed `AstFactory`.
+    shouldTestTypes = false;
+    // types don't come out quite the same before and after decomposition
+    // TODO(bradfordcsmith): See TODO in helperMoveExpression()
     helperExposeExpression(
         lines(
             "function f() { }", //
             "f(...x, foo());"),
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "function f() { }", //
             "var temp_const$jscomp$1 = f;",
@@ -1054,7 +1610,7 @@ public final class ExpressionDecomposerTest {
         lines(
             "function f() { }", //
             "f([...x], foo());"),
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "function f() { }", //
             "var temp_const$jscomp$1 = f;",
@@ -1068,7 +1624,7 @@ public final class ExpressionDecomposerTest {
         lines(
             "function f() { }", //
             "f({...x}, foo());"),
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "function f() { }", //
             "var temp_const$jscomp$1 = f;",
@@ -1080,7 +1636,7 @@ public final class ExpressionDecomposerTest {
   public void testExposeExpressionInTemplateLibSub() {
     helperExposeExpression(
         "` ${ foo() }  ${ goo() } `;",
-        "goo",
+        exprMatchesStr("goo()"),
         "var temp_const$jscomp$0 = foo(); ` ${ temp_const$jscomp$0 }  ${ goo() } `;");
   }
 
@@ -1088,7 +1644,7 @@ public final class ExpressionDecomposerTest {
   public void testExposeSubExpressionInTemplateLibSub() {
     helperExposeExpression(
         "` ${ foo() + goo() } `;",
-        "goo",
+        exprMatchesStr("goo()"),
         "var temp_const$jscomp$0 = foo(); ` ${ temp_const$jscomp$0 + goo() } `;");
   }
 
@@ -1096,7 +1652,7 @@ public final class ExpressionDecomposerTest {
   public void testMoveExpressionInTemplateLibSub() {
     helperMoveExpression(
         "` ${ foo() }  ${ goo() } `;",
-        "foo",
+        exprMatchesStr("foo()"),
         "var result$jscomp$0 = foo(); ` ${ result$jscomp$0 }  ${ goo() } `;");
   }
 
@@ -1108,7 +1664,7 @@ public final class ExpressionDecomposerTest {
             "({", //
             "  ['a' + 'b']: foo(),",
             "});"),
-        "foo");
+        exprMatchesStr("foo()"));
   }
 
   @Test
@@ -1118,7 +1674,7 @@ public final class ExpressionDecomposerTest {
             "({", //
             "  [goo()]: foo(),",
             "});"),
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var temp_const$jscomp$0 = goo();", //
             "({",
@@ -1134,7 +1690,7 @@ public final class ExpressionDecomposerTest {
             "  [goo()]: qux(),",
             "  bar: foo(),",
             "});"),
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "var temp_const$jscomp$1 = goo();", //
             "var temp_const$jscomp$0 = qux();",
@@ -1156,14 +1712,14 @@ public final class ExpressionDecomposerTest {
             "",
             "  bar: foo(),",
             "});"),
-        "foo");
+        exprMatchesStr("foo()"));
   }
 
   @Test
   public void testMoveSuperCall() {
     helperMoveExpression(
         "class A { constructor() { super(foo()) } }",
-        "foo",
+        exprMatchesStr("foo()"),
         "class A{constructor(){var result$jscomp$0=foo();super(result$jscomp$0)}}");
   }
 
@@ -1172,16 +1728,15 @@ public final class ExpressionDecomposerTest {
     // String() is being used since it's known to not have side-effects.
     helperMoveExpression(
         "class A { constructor() { super(String()) } }",
-        "String",
+        exprMatchesStr("String()"),
         "class A{constructor(){var result$jscomp$0=String();super(result$jscomp$0)}}");
   }
 
   @Test
   public void testExposeSuperCall() {
-    times = 2;
     helperExposeExpression(
         "class A { constructor() { super(goo(), foo()) } }",
-        "foo",
+        exprMatchesStr("foo()"),
         lines(
             "class A{ constructor(){", //
             "   var temp_const$jscomp$0=goo();",
@@ -1191,11 +1746,10 @@ public final class ExpressionDecomposerTest {
 
   @Test
   public void testExposeSuperCall_noSideEffects() {
-    times = 2;
     // String() is being used since it's known to not have side-effects.
     helperExposeExpression(
         "class A { constructor() { super(goo(), String()) } }",
-        "String",
+        exprMatchesStr("String()"),
         lines(
             "class A{ constructor(){", //
             "   var temp_const$jscomp$0=goo();",
@@ -1203,76 +1757,139 @@ public final class ExpressionDecomposerTest {
             "}}"));
   }
 
-  /** Test case helpers. */
+  @Test
+  public void testCannotDecomposeSuperMethodCall() {
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE,
+        "class A extends B { fn() { super.method(foo()) } }",
+        exprMatchesStr("foo()"));
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE,
+        "class A extends B { fn() { super['method'](foo()) } }",
+        exprMatchesStr("foo()"));
+  }
 
-  private void helperCanExposeFunctionExpression(
-      DecompositionType expectedResult, String code, int call) {
-    Compiler compiler = getCompiler();
-    ExpressionDecomposer decomposer = new ExpressionDecomposer(
-        compiler, compiler.getUniqueNameIdSupplier(),
-        knownConstants, newScope(), allowMethodCallDecomposing);
-    Node tree = parse(compiler, code);
-    assertThat(tree).isNotNull();
-
-    Node externsRoot = parse(compiler, "function goo() {} function foo() {}");
-    assertThat(externsRoot).isNotNull();
-
-    Node callSite = findCall(tree, null, call);
-    assertWithMessage("Call " + call + " was not found.").that(callSite).isNotNull();
-
-    compiler.resetUniqueNameId();
-    DecompositionType result = decomposer.canExposeExpression(callSite);
-    assertThat(result).isEqualTo(expectedResult);
+  @Test
+  public void canMovePastFnDotCall() {
+    knownConstants.add("fn");
+    helperCanExposeExpression(
+        DecompositionType.MOVABLE, "fn.call(foo());", exprMatchesStr("foo()"));
+    helperCanExposeExpression(
+        DecompositionType.DECOMPOSABLE, "unknownIfFn.call(foo());", exprMatchesStr("foo()"));
+    helperMoveExpression(
+        "fn.call(foo());",
+        exprMatchesStr("foo()"),
+        "var result$jscomp$0 = foo(); fn.call(result$jscomp$0);");
   }
 
   private void helperCanExposeExpression(
       DecompositionType expectedResult,
       String code,
-      String fnName) {
+      Function<AbstractCompiler, Function<Node, Node>> nodeFinderFn) {
     Compiler compiler = getCompiler();
-    ExpressionDecomposer decomposer = new ExpressionDecomposer(
-        compiler, compiler.getUniqueNameIdSupplier(),
-        knownConstants, newScope(), allowMethodCallDecomposing);
+    ExpressionDecomposer decomposer = createDecomposer(compiler);
     Node tree = parse(compiler, code);
     assertThat(tree).isNotNull();
 
     Node externsRoot = parse(compiler, "function goo() {} function foo() {}");
     assertThat(externsRoot).isNotNull();
 
-    Node callSite = findCall(tree, fnName);
-    assertWithMessage("Call to " + fnName + " was not found.").that(callSite).isNotNull();
+    Node expresionNode = nodeFinderFn.apply(compiler).apply(tree);
 
     compiler.resetUniqueNameId();
-    DecompositionType result = decomposer.canExposeExpression(callSite);
+    DecompositionType result = decomposer.canExposeExpression(expresionNode);
     assertThat(result).isEqualTo(expectedResult);
   }
 
-  private void helperExposeExpression(
-      String code,
-      String fnName,
-      String expectedResult) {
-    helperExposeExpression(code, tree -> findCall(tree, fnName), expectedResult);
+  /**
+   * Provides a {@code toString()} method that contains the source code a node represents where
+   * possible, or some explanatory text when not possible.
+   */
+  private static final class NodeToSource {
+    private final AbstractCompiler compiler;
+    private final Node node;
+
+    public NodeToSource(AbstractCompiler compiler, Node node) {
+      this.compiler = compiler;
+      this.node = node;
+    }
+
+    @Override
+    public String toString() {
+      if (node.isTemplateLitString()) {
+        // A string part of a template literal cannot be printed as code on its own.
+        return SimpleFormat.format("[Template literal string: '%s']", node.getRawString());
+      } else if (node.isTemplateLitSub()) {
+        // The template literal substitution node cannot itself be turned into source code,
+        // but we can do that for the expression inside of it.
+        return SimpleFormat.format(
+            "[Template literal substitution: '%s']", compiler.toSource(node.getOnlyChild()));
+      } else {
+        return compiler.toSource(node);
+      }
+    }
+  }
+
+  private static String nodeToSource(AbstractCompiler compiler, Node node) {
+    return new NodeToSource(compiler, node).toString();
+  }
+
+  private static Function<AbstractCompiler, Function<Node, Node>> exprMatchesStr(
+      final String exprString) {
+    return (AbstractCompiler compiler) ->
+        (Node root) -> {
+          // When matching trim off the trailing newline added by the compiler's pretty-print
+          // option.
+          Predicate<Node> isAMatch =
+              (Node node) -> exprString.equals(nodeToSource(compiler, node).trim());
+          Predicate<Node> containsAMatch =
+              (Node node) -> nodeToSource(compiler, node).contains(exprString);
+          Node matchingNode = NodeUtil.findPreorder(root, isAMatch, containsAMatch);
+          assertWithMessage(
+                  "Expected node `%s` was not found in `%s`", exprString, compiler.toSource(root))
+              .that(matchingNode)
+              .isNotNull();
+          return matchingNode;
+        };
+  }
+
+  private Node helperExposeExpressionThenTypeCheck(String code, Function<Node, Node> nodeFinder) {
+    Compiler compiler = getCompiler();
+    Node tree = parse(compiler, code);
+    assertThat(tree).isNotNull();
+
+    ExpressionDecomposer decomposer = createDecomposer(compiler);
+    decomposer.setTempNamePrefix("temp");
+    decomposer.setResultNamePrefix("result");
+
+    Node expr = nodeFinder.apply(tree);
+
+    compiler.resetUniqueNameId();
+    decomposer.maybeExposeExpression(expr);
+    processForTypecheck(compiler, tree);
+
+    return tree;
   }
 
   private void helperExposeExpression(
       String code,
-      Function<Node, Node> nodeFinder,
+      Function<AbstractCompiler, Function<Node, Node>> compilerToNodeFinder,
       String expectedResult) {
     Compiler compiler = getCompiler();
-    ExpressionDecomposer decomposer = new ExpressionDecomposer(
-        compiler, compiler.getUniqueNameIdSupplier(),
-        knownConstants, newScope(), allowMethodCallDecomposing);
-    decomposer.setTempNamePrefix("temp");
-    decomposer.setResultNamePrefix("result");
+
     Node expectedRoot = parse(compiler, expectedResult);
     Node tree = parse(compiler, code);
-    Node originalTree = tree.cloneTree();
     assertThat(tree).isNotNull();
 
     if (shouldTestTypes) {
       processForTypecheck(compiler, tree);
     }
 
+    ExpressionDecomposer decomposer = createDecomposer(compiler);
+    decomposer.setTempNamePrefix("temp");
+    decomposer.setResultNamePrefix("result");
+
+    final Function<Node, Node> nodeFinder = compilerToNodeFinder.apply(compiler);
     Node expr = nodeFinder.apply(tree);
     assertWithMessage("Expected node was not found.").that(expr).isNotNull();
 
@@ -1280,43 +1897,28 @@ public final class ExpressionDecomposerTest {
     assertThat(result).isEqualTo(DecompositionType.DECOMPOSABLE);
 
     compiler.resetUniqueNameId();
-    for (int i = 0; i < times; i++) {
-      decomposer.exposeExpression(expr);
-    }
+    decomposer.maybeExposeExpression(expr);
     validateSourceInfo(compiler, tree);
     assertNode(tree).usingSerializer(compiler::toSource).isEqualTo(expectedRoot);
 
     if (shouldTestTypes) {
-      Node trueExpr = nodeFinder.apply(originalTree);
-
-      compiler.resetUniqueNameId();
-      for (int i = 0; i < times; i++) {
-        decomposer.exposeExpression(trueExpr);
-      }
-      processForTypecheck(compiler, originalTree);
-
-      checkTypeStringsEqualAsTree(originalTree, tree);
+      Node decomposeThenTypeCheck = helperExposeExpressionThenTypeCheck(code, nodeFinder);
+      checkTypeStringsEqualAsTree(decomposeThenTypeCheck, tree);
     }
   }
 
-  private void helperMoveExpression(
-      String code,
-      String fnName,
-      String expectedResult) {
-    helperMoveExpression(code, tree -> findCall(tree, fnName), expectedResult);
+  private ExpressionDecomposer createDecomposer(Compiler compiler) {
+    return compiler.createExpressionDecomposer(
+        compiler.getUniqueNameIdSupplier(), ImmutableSet.copyOf(knownConstants), newScope());
   }
 
   private void helperMoveExpression(
       String code,
-      Function<Node, Node> nodeFinder,
+      Function<AbstractCompiler, Function<Node, Node>> compilerToNodeFinder,
       String expectedResult) {
     Compiler compiler = getCompiler();
+    Function<Node, Node> nodeFinder = compilerToNodeFinder.apply(compiler);
 
-    ExpressionDecomposer decomposer = new ExpressionDecomposer(
-        compiler, compiler.getUniqueNameIdSupplier(),
-        knownConstants, newScope(), allowMethodCallDecomposing);
-    decomposer.setTempNamePrefix("temp");
-    decomposer.setResultNamePrefix("result");
     Node expectedRoot = parse(compiler, expectedResult);
     Node tree = parse(compiler, code);
     Node originalTree = tree.cloneTree();
@@ -1326,13 +1928,15 @@ public final class ExpressionDecomposerTest {
       processForTypecheck(compiler, tree);
     }
 
+    ExpressionDecomposer decomposer = createDecomposer(compiler);
+    decomposer.setTempNamePrefix("temp");
+    decomposer.setResultNamePrefix("result");
+
     Node expr = nodeFinder.apply(tree);
     assertWithMessage("Expected node was not found.").that(expr).isNotNull();
 
     compiler.resetUniqueNameId();
-    for (int i = 0; i < times; i++) {
-      decomposer.moveExpression(expr);
-    }
+    decomposer.moveExpression(expr);
     validateSourceInfo(compiler, tree);
     assertNode(tree).usingSerializer(compiler::toSource).isEqualTo(expectedRoot);
 
@@ -1341,11 +1945,13 @@ public final class ExpressionDecomposerTest {
       Node originalExpr = nodeFinder.apply(originalTree);
 
       compiler.resetUniqueNameId();
-      for (int i = 0; i < times; i++) {
-        decomposer.moveExpression(originalExpr);
-      }
+      decomposer.moveExpression(originalExpr);
       processForTypecheck(compiler, originalTree);
 
+      // TODO(bradfordcsmith): Don't assume type check + decompose gives the same results as
+      // decompose + type check.
+      // There are legitimate cases where the types will be different from one order to another,
+      // but not actually wrong.
       checkTypeStringsEqualAsTree(originalTree, tree);
     }
   }
@@ -1380,18 +1986,27 @@ public final class ExpressionDecomposerTest {
   private Compiler getCompiler() {
     Compiler compiler = new Compiler();
     CompilerOptions options = new CompilerOptions();
-    options.setLanguage(LanguageMode.ECMASCRIPT_2018);
+    // If the specific test case requested an output language level,
+    // use it. Otherwise, keep the default.
+    if (languageOut != null) {
+      options.setLanguageOut(languageOut);
+    }
     options.setCodingConvention(new GoogleCodingConvention());
+    options.setPrettyPrint(true);
+    // Don't prefix the compiler output with `"use strict";`.
+    // It's noise for these tests, and it interferes with tests that
+    // want to use compiler.toSource() to string match expressions.
+    options.setEmitUseStrict(false);
     compiler.initOptions(options);
     return compiler;
   }
 
   private void processForTypecheck(AbstractCompiler compiler, Node jsRoot) {
     Node root = IR.root(IR.root(), IR.root(jsRoot));
-    compiler.setTypeCheckingHasRun(true);
     JSTypeRegistry registry = compiler.getTypeRegistry();
     (new TypeCheck(compiler, new SemanticReverseAbstractInterpreter(registry), registry))
         .processForTesting(root.getFirstChild(), root.getSecondChild());
+    compiler.setTypeCheckingHasRun(true);
   }
 
   @Nullable
@@ -1399,53 +2014,13 @@ public final class ExpressionDecomposerTest {
     if (n.isClass()) {
       return n;
     }
-    for (Node child : n.children()) {
+    for (Node child = n.getFirstChild(); child != null; child = child.getNext()) {
       Node maybeClass = findClass(child);
       if (maybeClass != null) {
         return maybeClass;
       }
     }
     return null;
-  }
-
-  private static Node findCall(Node n, String name) {
-    return findCall(n, name, 1);
-  }
-
-  /**
-   * @param name The name to look for. If name is null, look for a yield expression instead.
-   * @param call The call to look for.
-   * @return The return the Nth instance of the CALL/YIELD node
-   * matching name found in a pre-order traversal.
-   */
-  private static Node findCall(
-      Node root, @Nullable final String name, final int call) {
-    class Find {
-      int found = 0;
-      Node find(Node n) {
-        if (n.isCall() || n.isYield()) {
-          if (name == null
-              || (n.isYield() && "yield".equals(name))
-              || (n.isCall() && n.getFirstChild().matchesQualifiedName(name))) {
-            found++;
-            if (found == call) {
-              return n;
-            }
-          }
-        }
-
-        for (Node c : n.children()) {
-          Node result = find(c);
-          if (result != null) {
-            return result;
-          }
-        }
-
-        return null;
-      }
-    }
-
-    return new Find().find(root);
   }
 
   private void validateSourceInfo(Compiler compiler, Node subtree) {

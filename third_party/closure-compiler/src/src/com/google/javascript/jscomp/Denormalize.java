@@ -17,9 +17,10 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Predicates.alwaysTrue;
 
 import com.google.javascript.jscomp.NodeTraversal.Callback;
-import com.google.javascript.jscomp.ReferenceCollectingCallback.Behavior;
+import com.google.javascript.jscomp.ReferenceCollector.Behavior;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
@@ -55,8 +56,7 @@ class Denormalize implements CompilerPass, Callback, Behavior {
     NodeTraversal.traverse(compiler, root, this);
     // Don't inline the VAR declaration if this compilation involves old-style ctemplates.
     if (compiler.getOptions().syntheticBlockStartMarker == null) {
-      (new ReferenceCollectingCallback(compiler, this, new SyntacticScopeCreator(compiler)))
-          .process(root);
+      (new ReferenceCollector(compiler, this, new SyntacticScopeCreator(compiler))).process(root);
     }
   }
 
@@ -93,9 +93,7 @@ class Denormalize implements CompilerPass, Callback, Behavior {
           Node assignNode = lhs.getParent();
           if (assignNode.getParent().isExprResult()) {
             Node rhs = lhs.getNext();
-            assignNode
-                .getGrandparent()
-                .replaceChild(assignNode.getParent(), IR.var(lhs.detach(), rhs.detach()));
+            assignNode.getParent().replaceWith(IR.var(lhs.detach(), rhs.detach()));
 
             Node var = declaration.getNode().getParent();
             checkState(var.isVar(), var);
@@ -148,8 +146,8 @@ class Denormalize implements CompilerPass, Callback, Behavior {
             && forVar.getString().equals(name.getString())) {
           // OK, the names match, and the var declaration does not have an
           // initializer. Move it into the loop.
-          parent.removeChild(n);
-          forNode.replaceChild(forVar, n);
+          n.detach();
+          forVar.replaceWith(n);
           compiler.reportChangeToEnclosingScope(parent);
         }
       }
@@ -160,14 +158,14 @@ class Denormalize implements CompilerPass, Callback, Behavior {
       // as the PlayStation 3's browser based on Access's NetFront
       // browser) to fail to parse the code.
       // See bug 1778863 for details.
-      if (NodeUtil.containsType(n, Token.IN)) {
+      if (NodeUtil.has(n, Node::isIn, alwaysTrue())) {
         return;
       }
 
       // Move the current node into the FOR loop initializer.
       Node forNode = nextSibling;
       Node oldInitializer = forNode.getFirstChild();
-      parent.removeChild(n);
+      n.detach();
 
       Node newInitializer;
       if (n.isVar()) {
@@ -176,10 +174,10 @@ class Denormalize implements CompilerPass, Callback, Behavior {
         // Extract the expression from EXPR_RESULT node.
         checkState(n.hasOneChild(), n);
         newInitializer = n.getFirstChild();
-        n.removeChild(newInitializer);
+        newInitializer.detach();
       }
 
-      forNode.replaceChild(oldInitializer, newInitializer);
+      oldInitializer.replaceWith(newInitializer);
 
       compiler.reportChangeToEnclosingScope(forNode);
     }
@@ -195,7 +193,7 @@ class Denormalize implements CompilerPass, Callback, Behavior {
         op.setToken(assignOp);
         Node opDetached = op.detach();
         opDetached.setJSDocInfo(n.getJSDocInfo());
-        parent.replaceChild(n, opDetached);
+        n.replaceWith(opDetached);
         compiler.reportChangeToEnclosingScope(parent);
       }
     }

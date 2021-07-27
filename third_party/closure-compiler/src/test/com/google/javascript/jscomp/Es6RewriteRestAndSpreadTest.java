@@ -16,9 +16,10 @@
 package com.google.javascript.jscomp;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.javascript.rhino.testing.Asserts.assertThrows;
 
 import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
-import com.google.javascript.jscomp.CompilerTestCase.NoninjectingCompiler;
+import com.google.javascript.jscomp.testing.NoninjectingCompiler;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -69,7 +70,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         "var arr = [1, 2, ...mid, 4, 5];",
         "var arr = [1, 2].concat($jscomp.arrayFromIterable(mid), [4, 5]);");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
@@ -77,7 +78,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         "var arr = [1, 2, ...mid(), 4, 5];",
         "var arr = [1, 2].concat($jscomp.arrayFromIterable(mid()), [4, 5]);");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
@@ -97,13 +98,13 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
         lines(
             "var arr = [1,2].concat(",
             "    $jscomp.arrayFromIterable(mid), $jscomp.arrayFromIterable(mid2()), [4, 5]);"));
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
   public void testSpreadFunctionReturnIntoEntireArrayLiteral() {
     test("var arr = [...mid()];", "var arr = [].concat($jscomp.arrayFromIterable(mid()));");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
@@ -111,7 +112,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         "function f() { return [...arguments]; };",
         lines("function f() {", "  return [].concat($jscomp.arrayFromIterable(arguments));", "};"));
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
@@ -122,7 +123,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
   @Test
   public void testSpreadVariableIntoArrayLiteralWithinParameterList() {
     test("f(1, [2, ...mid, 4], 5);", "f(1, [2].concat($jscomp.arrayFromIterable(mid), [4]), 5);");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
@@ -130,7 +131,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         "f(1, [2, ...mid(), 4], 5);",
         "f(1, [2].concat($jscomp.arrayFromIterable(mid()), [4]), 5);");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   // Spreading into parameter lists.
@@ -148,37 +149,37 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
   @Test
   public void testSpreadVariableIntoEntireParameterList() {
     test("f(...arr);", "f.apply(null, $jscomp.arrayFromIterable(arr));");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
   public void testSpreadVariableIntoParameterList() {
     test("f(0, ...arr, 2);", "f.apply(null, [0].concat($jscomp.arrayFromIterable(arr), [2]));");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
   public void testSpreadFunctionReturnIntoEntireParameterList() {
     test("f(...g());", "f.apply(null, $jscomp.arrayFromIterable(g()));");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
   public void testSpreadFunctionReturnIntoParameterList() {
     test("f(0, ...g(), 2);", "f.apply(null, [0].concat($jscomp.arrayFromIterable(g()), [2]));");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
   public void testSpreadVariableIntoIifeParameterList() {
     test("(function() {})(...arr);", "(function() {}).apply(null, $jscomp.arrayFromIterable(arr))");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
   public void testSpreadVariableIntoAnonymousFunctionParameterList() {
     test("getF()(...args);", "getF().apply(null, $jscomp.arrayFromIterable(args));");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
@@ -207,7 +208,38 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
                 "var obj = new TestClass();",
                 "obj.testMethod.apply(obj, $jscomp.arrayFromIterable(arr));",
                 "obj[\"testMethod\"].apply(obj, $jscomp.arrayFromIterable(arr));")));
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
+  }
+
+  @Test
+  public void testSpreadVariableIntoMethodParameterListInCast() {
+    test(
+        externs(
+            lines(
+                "/**",
+                " * @constructor",
+                // Skipping @struct here to allow for string access.
+                " */",
+                "function TestClass() { }",
+                "",
+                "/** @param {...string} args */",
+                "TestClass.prototype.testMethod = function(args) { }",
+                "",
+                "/** @return {!TestClass} */",
+                "function testClassFactory() { }")),
+        srcs(
+            lines(
+                "var obj = new TestClass();",
+                "(/** @type {?} */ (obj.testMethod))(...arr);",
+                "(/** @type {?} */ (/** @type {?} */ (obj.testMethod)))(...arr);",
+                "(/** @type {?} */ (obj['testMethod']))(...arr);")),
+        expected(
+            lines(
+                "var obj = new TestClass();",
+                "obj.testMethod.apply(obj, $jscomp.arrayFromIterable(arr));",
+                "obj.testMethod.apply(obj, $jscomp.arrayFromIterable(arr));",
+                "obj['testMethod'].apply(obj, $jscomp.arrayFromIterable(arr));")));
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
@@ -224,7 +256,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
             lines(
                 "var x = {y: {z: {m: numberVarargFn}}};",
                 "x.y.z.m.apply(x.y.z, $jscomp.arrayFromIterable(numberIterable));")));
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
@@ -255,7 +287,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
                 "var obj = new TestClass();",
                 "(0, obj.testMethod).apply(null, $jscomp.arrayFromIterable(arr));",
                 "(0, obj[\"testMethod\"]).apply(null, $jscomp.arrayFromIterable(arr));")));
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
@@ -345,7 +377,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
                 "    null, $jscomp.arrayFromIterable(stringIterable));",
                 "(0, testClassFactory()[\"testMethod\"]).apply(",
                 "    null, $jscomp.arrayFromIterable(stringIterable));")));
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
@@ -368,6 +400,39 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
                     "",
                     "/** @type {!Iterable<string>} */ var stringIterable;")),
         srcs("var x = b ? testClassFactory().testMethod(...stringIterable) : null;"),
+        expected(
+            lines(
+                "var $jscomp$spread$args0;",
+                "var x = b ? ($jscomp$spread$args0 = testClassFactory()).testMethod.apply(",
+                "    $jscomp$spread$args0, $jscomp.arrayFromIterable(stringIterable))",
+                "        : null;")));
+  }
+
+  @Test
+  public void
+      testSpreadVariableIntoMethodParameterListOnConditionalRecieverWithSideEffectsInCast() {
+    test(
+        externs(
+            MINIMAL_EXTERNS
+                + lines(
+                    "/**",
+                    " * @constructor",
+                    " * @struct",
+                    " */",
+                    "function TestClass() { }",
+                    "",
+                    "/** @param {...string} args */",
+                    "TestClass.prototype.testMethod = function(args) { }",
+                    "",
+                    "/** @return {!TestClass} */",
+                    "function testClassFactory() { }",
+                    "",
+                    "/** @type {!Iterable<string>} */ var stringIterable;")),
+        srcs(
+            lines(
+                "var x = b ?",
+                "    /** @type {?} */ (testClassFactory().testMethod)(...stringIterable) :",
+                "    null;")),
         expected(
             lines(
                 "var $jscomp$spread$args0;",
@@ -411,69 +476,25 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
   }
 
   @Test
-  public void testSpreadFunctionArgumentsIntoSuperParameterList() {
-    // TODO(b/76024335): Enable these validations and checks.
-    // We need to test super, but super only makes sense in the context of a class, but
-    // the type-checker doesn't understand class syntax and fails before the test even runs.
-    disableTypeInfoValidation();
-    disableTypeCheck();
-
-    test(
-        lines(
-            "class A {",
-            "  constructor(a) {",
-            "      this.p = a;",
-            "  }",
-            "}",
-            "",
-            "class B extends A {",
-            "   constructor(a) {",
-            "     super(0, ...arguments, 2);",
-            "   }",
-            "}"),
-        // The `super.apply` syntax below is invalid, but won't survive other transpilation passes.
-        lines(
-            "class A {",
-            "  constructor(a) {",
-            "      this.p = a;",
-            "  }",
-            "}",
-            "",
-            "class B extends A {",
-            "   constructor(a) {",
-            "     super.apply(null, [0].concat($jscomp.arrayFromIterable(arguments), [2]));",
-            "   }",
-            "}"));
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
-  }
-
-  @Test
-  public void testSpreadVariableIntoSuperParameterList() {
-    // TODO(b/76024335): Enable these validations and checks.
-    // We need to test super, but super only makes sense in the context of a class, but
-    // the type-checker doesn't understand class syntax and fails before the test even runs.
-    disableTypeInfoValidation();
-    disableTypeCheck();
-
-    test(
-        lines(
-            "class D {}",
-            "",
-            "class C extends D {",
-            "  constructor(args) {",
-            "    super(0, ...args, 2)",
-            "  }",
-            "}"),
-        // The `super.apply` syntax below is invalid, but won't survive other transpilation passes.
-        lines(
-            "class D {}",
-            "",
-            "class C extends D {",
-            "  constructor(args) {",
-            "    super.apply(null, [0].concat($jscomp.arrayFromIterable(args), [2]));",
-            "  }",
-            "}"));
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+  public void testSpreadIntoSuperThrows() {
+    // All ES6 classes must be transpiled away before this pass runs,
+    // because we cannot spread into super() calls without creating invalid syntax.
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            testSame(
+                lines(
+                    "class A {",
+                    "  constructor(...args) {",
+                    "      this.p = args;",
+                    "  }",
+                    "}",
+                    "",
+                    "class B extends A {",
+                    "   constructor(...args) {",
+                    "     super(0, ...args, 2);",
+                    "   }",
+                    "}")));
   }
 
   @Test
@@ -481,7 +502,7 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     test(
         "[1, f(2, ...mid, 4), 5];",
         "[1, f.apply(null, [2].concat($jscomp.arrayFromIterable(mid), [4])), 5];");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   @Test
@@ -489,9 +510,20 @@ public final class Es6RewriteRestAndSpreadTest extends CompilerTestCase {
     setLanguageOut(LanguageMode.ECMASCRIPT5);
 
     test(
-        "new F(...args);",
-        "new (Function.prototype.bind.apply(F, [null].concat($jscomp.arrayFromIterable(args))));");
-    assertThat(getLastCompiler().injected).containsExactly("es6/util/arrayfromiterable");
+        externs(
+            lines(
+                "/**",
+                " * @param {?Object|undefined} selfObj",
+                " * @param {...*} var_args",
+                " * @return {!Function}",
+                " */",
+                "Function.prototype.bind = function(selfObj, var_args) {};")),
+        srcs("new F(...args);"),
+        expected(
+            "new (Function.prototype.bind.apply(F,"
+                + " [null].concat($jscomp.arrayFromIterable(args))));"));
+
+    assertThat(getLastCompiler().getInjected()).containsExactly("es6/util/arrayfromiterable");
   }
 
   // Rest parameters

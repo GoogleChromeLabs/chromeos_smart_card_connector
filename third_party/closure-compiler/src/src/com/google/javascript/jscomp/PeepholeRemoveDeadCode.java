@@ -21,49 +21,18 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 
 import com.google.common.base.Predicate;
+import com.google.javascript.jscomp.base.Tri;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.Node;
 import com.google.javascript.rhino.Token;
-import com.google.javascript.rhino.jstype.TernaryValue;
 import java.util.ArrayDeque;
 import javax.annotation.Nullable;
 
 /**
- * Peephole optimization to remove useless code such as IF's with false
- * guard conditions, comma operator left hand sides with no side effects, etc.
+ * Peephole optimization to remove useless code such as IF's with false guard conditions, comma
+ * operator's left hand sides with no side effects, etc.
  */
 class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
-
-  private static final Predicate<Node> IS_UNNAMED_BREAK_PREDICATE = new Predicate<Node>() {
-    @Override
-    public boolean apply(Node node) {
-      return node.isBreak() && !node.hasChildren();
-    }
-  };
-
-  private static final Predicate<Node> IS_UNNAMED_CONTINUE_PREDICATE = new Predicate<Node>() {
-    @Override
-    public boolean apply(Node node) {
-      return node.isContinue() && !node.hasChildren();
-    }
-  };
-
-  private static final Predicate<Node> CAN_CONTAIN_BREAK_PREDICATE = new Predicate<Node>() {
-    @Override
-    public boolean apply(Node node) {
-      return !IR.mayBeExpression(node) // Functions are not visited
-          && !NodeUtil.isLoopStructure(node)
-          && !node.isSwitch();
-    }
-  };
-
-  private static final Predicate<Node> CAN_CONTAIN_CONTINUE_PREDICATE = new Predicate<Node>() {
-    @Override
-    public boolean apply(Node node) {
-      return !IR.mayBeExpression(node) // Functions are not visited
-          && !NodeUtil.isLoopStructure(node);
-    }
-  };
 
   // TODO(dcc): Some (all) of these can probably be better achieved
   // using the control flow graph (like CheckUnreachableCode).
@@ -187,7 +156,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
     }
 
     Node ret = null;
-    for (Node child : block.children()) {
+    for (Node child = block.getFirstChild(); child != null; child = child.getNext()) {
       if (child.isSyntheticBlock() && !child.hasChildren()) {
         // Uninteresting child.
       } else if (ret != null) {
@@ -214,7 +183,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
 
     // Removes TRYs that had its CATCH removed and/or empty FINALLY.
     if (!catchBlock.hasChildren() && (finallyBlock == null || !finallyBlock.hasChildren())) {
-      n.removeChild(body);
+      body.detach();
       n.replaceWith(body);
       reportChangeToEnclosingScope(body);
       return body;
@@ -225,7 +194,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       NodeUtil.redeclareVarsInsideBranch(catchBlock);
       reportChangeToEnclosingScope(n);
       if (finallyBlock != null) {
-        n.removeChild(finallyBlock);
+        finallyBlock.detach();
         n.replaceWith(finallyBlock);
       } else {
         n.detach();
@@ -294,7 +263,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       // If the EXPR_RESULT no longer has any children, remove it as well.
       if (parent.isLabel()) {
         Node replacement = IR.block().srcref(subtree);
-        parent.replaceChild(subtree, replacement);
+        subtree.replaceWith(replacement);
         subtree = replacement;
       } else {
         subtree.detach();
@@ -340,7 +309,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
         sideEffects = IR.comma(sideEffects, next).srcref(next);
       }
 
-      expression.getParent().addChildBefore(sideEffects, expression);
+      sideEffects.insertBefore(expression);
       deleteNode(expression);
       return sideEffects;
     }
@@ -402,9 +371,12 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
 
       case AND:
       case OR:
-        // Try to remove the second operand from a AND or OR operations. Remember that if the second
+      case COALESCE:
+        // Try to remove the second operand from a AND, OR, and COALESCE operations. Remember that
+        // if the second
         // child still exists, the result of the first expression is being used, and so cannot be
         // removed.
+        //    x() ?? f --> x()
         //    x() || f --> x()
         //    x() && f --> x()
 
@@ -442,7 +414,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
   }
 
   /**
-   * Returns a expression executing {@code expr} which is legal in any expression context.
+   * Returns an expression executing {@code expr} which is legal in any expression context.
    *
    * @param expr An attached expression
    * @return A detached expression
@@ -454,7 +426,8 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
         switch (expr.getParent().getToken()) {
           case ARRAYLIT:
           case NEW:
-          case CALL:
+          case CALL: // `Math.sin(...c)`
+          case OPTCHAIN_CALL: // `Math?.sin(...c)`
             expr = IR.arraylit(expr.detach()).srcref(expr);
             break;
           case OBJECTLIT:
@@ -468,7 +441,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
         break;
     }
 
-    if (expr.getParent() != null) {
+    if (expr.hasParent()) {
       expr.detach();
     }
 
@@ -492,6 +465,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       case COMMA:
       case HOOK:
       case OR:
+      case COALESCE:
         return true;
       case ARRAYLIT:
       case OBJECTLIT:
@@ -533,8 +507,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
     }
     if (shouldHoistCondition) {
       Node switchBlock = caseBlock.getGrandparent();
-      switchBlock.getParent().addChildAfter(
-          IR.exprResult(n.removeFirstChild()).srcref(n), switchBlock.getPrevious());
+      IR.exprResult(n.removeFirstChild()).srcref(n).insertBefore(switchBlock);
     }
     n.replaceWith(caseBlock.detach());
     reportChangeToEnclosingScope(caseBlock);
@@ -550,7 +523,8 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       reportChangeToEnclosingScope(replacement);
       return replacement;
     } else if (n.hasTwoChildren() && n.getLastChild().isDefaultCase()) {
-      if (n.getFirstChild().isCall()) {
+      if (n.getFirstChild().isCall() || n.getFirstChild().isOptChainCall()) {
+        // Before removing switch, we must preserve the switch condition if it is a call
         return tryRemoveSwitchWithSingleCase(n, true);
       } else {
         return tryRemoveSwitchWithSingleCase(n, false);
@@ -587,21 +561,21 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       // Optimize switches with constant condition
       if (NodeUtil.isLiteralValue(cond, false)) {
         Node caseLabel;
-        TernaryValue caseMatches = TernaryValue.TRUE;
+        Tri caseMatches = Tri.TRUE;
         // Remove cases until you find one that may match
         for (cur = cond.getNext(); cur != null; cur = next) {
           next = cur.getNext();
           caseLabel = cur.getFirstChild();
           caseMatches = PeepholeFoldConstants.evaluateComparison(this, Token.SHEQ, cond, caseLabel);
-          if (caseMatches == TernaryValue.TRUE) {
+          if (caseMatches == Tri.TRUE) {
             break;
-          } else if (caseMatches == TernaryValue.UNKNOWN) {
+          } else if (caseMatches == Tri.UNKNOWN) {
             break;
           } else {
             removeCase(n, cur);
           }
         }
-        if (cur != null && caseMatches == TernaryValue.TRUE) {
+        if (cur != null && caseMatches == Tri.TRUE) {
           // Skip cases until you find one whose last stm is a removable break
           Node matchingCase = cur;
           Node matchingCaseBlock = matchingCase.getLastChild();
@@ -617,7 +591,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
             // Remove the fallthrough case labels
             if (cur != matchingCase) {
               while (block.hasChildren()) {
-                matchingCaseBlock.addChildToBack(block.getFirstChild().detach());
+                matchingCaseBlock.addChildToBack(block.removeFirstChild());
               }
               reportChangeToEnclosingScope(cur);
               cur.detach();
@@ -691,7 +665,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
    */
   private void removeCase(Node switchNode, Node caseNode) {
     NodeUtil.redeclareVarsInsideBranch(caseNode);
-    switchNode.removeChild(caseNode);
+    caseNode.detach();
     reportChangeToEnclosingScope(switchNode);
   }
 
@@ -730,7 +704,9 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       Node block = executingCase.getLastChild();
       checkState(block.isBlock());
       if (block.hasChildren()) {
-        for (Node blockChild : block.children()) {
+        for (Node blockChild = block.getFirstChild();
+            blockChild != null;
+            blockChild = blockChild.getNext()) {
           // If this is a block with a labelless break, it is useless.
           switch (blockChild.getToken()) {
             case BREAK:
@@ -780,8 +756,8 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
     left = trySimplifyUnusedResult(left);
     if (left == null || !mayHaveSideEffects(left)) {
       // Fold it!
-      n.removeChild(right);
-      parent.replaceChild(n, right);
+      right.detach();
+      n.replaceWith(right);
       reportChangeToEnclosingScope(parent);
       return right;
     }
@@ -800,7 +776,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
         // TODO(johnlenz): determine what this is actually removing. Candidates
         //    include: EMPTY nodes, control structures without children
         //    (removing infinite loops), empty try blocks.  What else?
-        n.removeChild(c);
+        c.detach();
         reportChangeToEnclosingScope(n);
         markFunctionsDeleted(c);
       } else {
@@ -815,7 +791,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
 
     // Try to remove the block.
     Node parent = n.getParent();
-    if (NodeUtil.tryMergeBlock(n, false)) {
+    if (NodeUtil.tryMergeBlock(n, isASTNormalized())) {
       reportChangeToEnclosingScope(parent);
       return null;
     }
@@ -867,8 +843,8 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       if (lhsAssign.isName() && condition.isName()
           && lhsAssign.getString().equals(condition.getString())) {
         Node rhsAssign = getSimpleAssignmentValue(n);
-        TernaryValue value = NodeUtil.getBooleanValue(rhsAssign);
-        if (value != TernaryValue.UNKNOWN) {
+        Tri value = NodeUtil.getBooleanValue(rhsAssign);
+        if (value != Tri.UNKNOWN) {
           Node replacementConditionNode =
               NodeUtil.booleanNode(value.toBoolean(true));
           condition.replaceWith(replacementConditionNode);
@@ -925,15 +901,14 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
     return n != null && (n.isIf() || isExprConditional(n));
   }
 
-  /**
-   * @return Whether the node is a rooted with a HOOK, AND, or OR node.
-   */
+  /** @return Whether the node is a rooted with a HOOK, AND, OR, or COALESCE node. */
   private static boolean isExprConditional(Node n) {
     if (n.isExprResult()) {
       switch (n.getFirstChild().getToken()) {
         case HOOK:
         case AND:
         case OR:
+        case COALESCE:
           return true;
         default:
           break;
@@ -969,17 +944,17 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
 
     // if (x) { .. } else { } --> if (x) { ... }
     if (elseBody != null && !mayHaveSideEffects(elseBody)) {
-      n.removeChild(elseBody);
+      elseBody.detach();
       reportChangeToEnclosingScope(n);
       elseBody = null;
     }
 
     // if (x) { } else { ... } --> if (!x) { ... }
     if (!mayHaveSideEffects(thenBody) && elseBody != null) {
-      n.removeChild(elseBody);
-      n.replaceChild(thenBody, elseBody);
+      elseBody.detach();
+      thenBody.replaceWith(elseBody);
       Node notCond = new Node(Token.NOT);
-      n.replaceChild(cond, notCond);
+      cond.replaceWith(notCond);
       reportChangeToEnclosingScope(n);
       notCond.addChildToFront(cond);
       cond = notCond;
@@ -987,17 +962,17 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       elseBody = null;
     }
 
-    // if (x()) { }
+    // `if (x()) { }` or `if (x?.()) { }`
     if (!mayHaveSideEffects(thenBody) && elseBody == null) {
       if (mayHaveSideEffects(cond)) {
-        // x() has side effects, just leave the condition on its own.
-        n.removeChild(cond);
+        // `x()` or `x?.()` has side effects, just leave the condition on its own.
+        cond.detach();
         Node replacement = NodeUtil.newExpr(cond);
-        parent.replaceChild(n, replacement);
+        n.replaceWith(replacement);
         reportChangeToEnclosingScope(parent);
         return replacement;
       } else {
-        // x() has no side effects, the whole tree is useless now.
+        // `x()` or `x?.()` has no side effects, the whole tree is useless now.
         NodeUtil.removeChild(parent, n);
         reportChangeToEnclosingScope(parent);
         return null;
@@ -1005,21 +980,21 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
     }
 
     // Try transforms that apply to both IF and HOOK.
-    TernaryValue condValue = NodeUtil.getBooleanValue(cond);
-    if (condValue == TernaryValue.UNKNOWN) {
+    Tri condValue = NodeUtil.getBooleanValue(cond);
+    if (condValue == Tri.UNKNOWN) {
       return n;  // We can't remove branches otherwise!
     }
 
     if (mayHaveSideEffects(cond)) {
       // Transform "if (a = 2) {x =2}" into "if (true) {a=2;x=2}"
-      boolean newConditionValue = condValue == TernaryValue.TRUE;
+      boolean newConditionValue = condValue == Tri.TRUE;
       // Add an elseBody if it is needed.
       if (!newConditionValue && elseBody == null) {
         elseBody = IR.block().srcref(n);
         n.addChildToBack(elseBody);
       }
       Node newCond = NodeUtil.booleanNode(newConditionValue);
-      n.replaceChild(cond, newCond);
+      cond.replaceWith(newCond);
       Node branchToKeep = newConditionValue ? thenBody : elseBody;
       branchToKeep.addChildToFront(IR.exprResult(cond).srcref(cond));
       reportChangeToEnclosingScope(branchToKeep);
@@ -1033,8 +1008,8 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       if (condTrue) {
         // Replace "if (true) { X }" with "X".
         Node thenStmt = n.getSecondChild();
-        n.removeChild(thenStmt);
-        parent.replaceChild(n, thenStmt);
+        thenStmt.detach();
+        n.replaceWith(thenStmt);
         reportChangeToEnclosingScope(thenStmt);
         return thenStmt;
       } else {
@@ -1053,8 +1028,8 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       Node branchToKeep = condTrue ? trueBranch : falseBranch;
       Node branchToRemove = condTrue ? falseBranch : trueBranch;
       NodeUtil.redeclareVarsInsideBranch(branchToRemove);
-      n.removeChild(branchToKeep);
-      parent.replaceChild(n, branchToKeep);
+      branchToKeep.detach();
+      n.replaceWith(branchToKeep);
       reportChangeToEnclosingScope(branchToKeep);
       markFunctionsDeleted(n);
       return branchToKeep;
@@ -1073,8 +1048,8 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
     Node thenBody = cond.getNext();
     Node elseBody = thenBody.getNext();
 
-    TernaryValue condValue = NodeUtil.getBooleanValue(cond);
-    if (condValue == TernaryValue.UNKNOWN) {
+    Tri condValue = NodeUtil.getBooleanValue(cond);
+    if (condValue == Tri.UNKNOWN) {
       // If the result nodes are equivalent, then one of the nodes can be
       // removed and it doesn't matter which.
       if (!areNodesEqualForInlining(thenBody, elseBody)) {
@@ -1105,7 +1080,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       markFunctionsDeleted(cond);
     }
 
-    parent.replaceChild(n, replacement);
+    n.replaceWith(replacement);
     reportChangeToEnclosingScope(replacement);
     markFunctionsDeleted(branchToRemove);
     return replacement;
@@ -1133,7 +1108,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       increment = trySimplifyUnusedResult(increment);
       if (increment == null) {
         increment = IR.empty().srcref(n);
-        n.addChildAfter(increment, cond);
+        increment.insertAfter(cond);
       }
     }
 
@@ -1142,7 +1117,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
       return n;
     }
 
-    if (NodeUtil.getBooleanValue(cond) != TernaryValue.FALSE) {
+    if (NodeUtil.getBooleanValue(cond) != Tri.FALSE) {
       return n;
     }
 
@@ -1151,15 +1126,14 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
     if (!mayHaveSideEffects(cond)) {
       NodeUtil.removeChild(parent, n);
     } else {
-      Node statement = IR.exprResult(cond.detach())
-          .useSourceInfoIfMissingFrom(cond);
+      Node statement = IR.exprResult(cond.detach()).srcrefIfMissing(cond);
       if (parent.isLabel()) {
         Node block = IR.block();
-        block.useSourceInfoIfMissingFrom(statement);
+        block.srcrefIfMissing(statement);
         block.addChildToFront(statement);
         statement = block;
       }
-      parent.replaceChild(n, statement);
+      n.replaceWith(statement);
     }
     reportChangeToEnclosingScope(parent);
     return null;
@@ -1174,7 +1148,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
     checkArgument(n.isDo());
 
     Node cond = NodeUtil.getConditionExpression(n);
-    if (NodeUtil.getBooleanValue(cond) != TernaryValue.FALSE) {
+    if (NodeUtil.getBooleanValue(cond) != Tri.FALSE) {
       return n;
     }
 
@@ -1187,7 +1161,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
     n.replaceWith(block.detach());
     if (mayHaveSideEffects(cond)) {
       Node condStatement = IR.exprResult(cond.detach()).srcref(cond);
-      parent.addChildAfter(condStatement, block);
+      condStatement.insertAfter(block);
     }
     reportChangeToEnclosingScope(parent);
 
@@ -1251,7 +1225,7 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
     for (Node lastChild = pattern.getLastChild(); lastChild != null; ) {
       if (lastChild.isEmpty() || isRemovableDestructuringTarget(lastChild)) {
         Node prev = lastChild.getPrevious();
-        pattern.removeChild(lastChild);
+        lastChild.detach();
         lastChild = prev;
         reportChangeToEnclosingScope(pattern);
       } else {
@@ -1282,15 +1256,30 @@ class PeepholeRemoveDeadCode extends AbstractPeepholeOptimization {
    * Returns whether a node has any unhandled breaks or continue.
    */
   static boolean hasUnnamedBreakOrContinue(Node n) {
-    return NodeUtil.has(n, IS_UNNAMED_BREAK_PREDICATE, CAN_CONTAIN_BREAK_PREDICATE)
-        || NodeUtil.has(n, IS_UNNAMED_CONTINUE_PREDICATE, CAN_CONTAIN_CONTINUE_PREDICATE);
+    return NodeUtil.has(
+            n,
+            // Check for unlabeled breaks
+            (Node node) -> node.isBreak() && !node.hasChildren(),
+            // ...inside contexts that can contain breaks.
+            (Node node) ->
+                !IR.mayBeExpression(node) // Functions are not visited
+                    && !NodeUtil.isLoopStructure(node)
+                    && !node.isSwitch())
+        || NodeUtil.has(
+            n,
+            // Check for unlabeled continues
+            (Node node) -> node.isContinue() && !node.hasChildren(),
+            // ...inside contexts that can contain continues.
+            (Node node) ->
+                !IR.mayBeExpression(node) // Functions are not visited
+                    && !NodeUtil.isLoopStructure(node));
   }
 
   /**
    * Remove always true loop conditions.
    */
   private void tryFoldForCondition(Node forCondition) {
-    if (getSideEffectFreeBooleanValue(forCondition) == TernaryValue.TRUE) {
+    if (getSideEffectFreeBooleanValue(forCondition) == Tri.TRUE) {
       reportChangeToEnclosingScope(forCondition);
       forCondition.replaceWith(IR.empty());
     }

@@ -28,9 +28,10 @@ import javax.annotation.Nullable;
 
 /**
  * Helper for changing the value of an lvalue in a destructuring pattern. Intended for use by {@link
- * CollapseProperties} and {@link AggressiveInlineAliases} only. This class makes some assumptions
- * that don't generally hold in order to preserve {@link GlobalNamespace} validity and avoid
- * creating temporary variables.
+ * InlineAndCollapseProperties.CollapseProperties} and {@link
+ * InlineAndCollapseProperties.AggressiveInlineAliases} only. This class makes some assumptions that
+ * don't generally hold in order to preserve {@link GlobalNamespace} validity and avoid creating
+ * temporary variables.
  */
 class DestructuringGlobalNameExtractor {
   /**
@@ -135,7 +136,7 @@ class DestructuringGlobalNameExtractor {
       // create an entirely new statement
       Node newDeclaration = new Node(declaration.getToken()).srcref(declaration);
       newDeclaration.addChildToBack(newLvalue);
-      declaration.getParent().addChildAfter(newDeclaration, declaration);
+      newDeclaration.insertAfter(declaration);
     } else {
       // `const {} = originalRvalue, newLvalue = newRvalue;`
       // The Normalize pass tries to ensure name declarations are always in statement blocks, but

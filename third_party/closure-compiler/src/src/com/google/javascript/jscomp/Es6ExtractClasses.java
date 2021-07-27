@@ -26,32 +26,26 @@ import com.google.javascript.jscomp.parsing.parser.FeatureSet;
 import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import com.google.javascript.rhino.IR;
 import com.google.javascript.rhino.JSDocInfo;
-import com.google.javascript.rhino.JSDocInfoBuilder;
 import com.google.javascript.rhino.Node;
-import com.google.javascript.rhino.Token;
 import com.google.javascript.rhino.jstype.JSType;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * Extracts ES6 classes defined in function calls to local constants.
- * <p>
- * Example:
- * Before: <code>foo(class { constructor() {} });</code>
- * After:
- * <code>
+ *
+ * <p>Example: Before: <code>foo(class { constructor() {} });</code> After: <code>
  *   const $jscomp$classdecl$var0 = class { constructor() {} };
  *   foo($jscomp$classdecl$var0);
  * </code>
- * <p>
- * This must be done before {@link Es6RewriteClass}, because that pass only handles classes
- * that are declarations or simple assignments.
+ *
+ * <p>This must be done before {@link Es6RewriteClass}, because that pass only handles classes that
+ * are declarations or simple assignments.
+ *
  * @see Es6RewriteClass#visitClass(NodeTraversal, Node, Node)
  */
-public final class Es6ExtractClasses
-    extends NodeTraversal.AbstractPostOrderCallback implements HotSwapCompilerPass {
+public final class Es6ExtractClasses extends NodeTraversal.AbstractPostOrderCallback
+    implements CompilerPass {
 
   static final String CLASS_DECL_VAR = "$classdecl$var";
 
@@ -62,14 +56,7 @@ public final class Es6ExtractClasses
 
   Es6ExtractClasses(AbstractCompiler compiler) {
     this.compiler = compiler;
-    Set<String> consts = new HashSet<>();
-    this.expressionDecomposer =
-        new ExpressionDecomposer(
-            compiler,
-            compiler.getUniqueNameIdSupplier(),
-            consts,
-            Scope.createGlobalScope(new Node(Token.SCRIPT)),
-            /* allowMethodCallDecomposing = */ true);
+    this.expressionDecomposer = compiler.createDefaultExpressionDecomposer();
   }
 
   @Override
@@ -78,12 +65,6 @@ public final class Es6ExtractClasses
         compiler, externs, features, this, new SelfReferenceRewriter());
     TranspilationPasses.processTranspile(
         compiler, root, features, this, new SelfReferenceRewriter());
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    TranspilationPasses.hotSwapTranspile(
-        compiler, scriptRoot, features, this, new SelfReferenceRewriter());
   }
 
   @Override
@@ -125,28 +106,26 @@ public final class Es6ExtractClasses
         case CLASS:
           if (needsInnerNameRewriting(n, parent)) {
             classStack.removeFirst();
-            n.replaceChild(n.getFirstChild(), IR.empty().useSourceInfoFrom(n.getFirstChild()));
+            n.getFirstChild().replaceWith(IR.empty().srcref(n.getFirstChild()));
             compiler.reportChangeToEnclosingScope(n);
           }
           break;
         case NAME:
-          maybeUpdateClassSelfRef(t, n, parent);
+          maybeUpdateClassSelfRef(t, n);
           break;
         default:
           break;
       }
     }
 
-    private void maybeUpdateClassSelfRef(NodeTraversal t, Node nameNode, Node parent) {
+    private void maybeUpdateClassSelfRef(NodeTraversal t, Node nameNode) {
       for (ClassDescription klass : classStack) {
         if (nameNode != klass.nameNode && nameNode.matchesQualifiedName(klass.nameNode)) {
           Var var = t.getScope().getVar(nameNode.getString());
           if (var != null && var.getNameNode() == klass.nameNode) {
             Node newNameNode =
-                IR.name(klass.outerName)
-                    .setJSType(nameNode.getJSType())
-                    .useSourceInfoFrom(nameNode);
-            parent.replaceChild(nameNode, newNameNode);
+                IR.name(klass.outerName).setJSType(nameNode.getJSType()).srcref(nameNode);
+            nameNode.replaceWith(newNameNode);
             compiler.reportChangeToEnclosingScope(newNameNode);
             return;
           }
@@ -179,7 +158,7 @@ public final class Es6ExtractClasses
 
   private void extractClass(NodeTraversal t, Node classNode) {
     if (expressionDecomposer.canExposeExpression(classNode) == DecompositionType.DECOMPOSABLE) {
-      expressionDecomposer.exposeExpression(classNode);
+      expressionDecomposer.maybeExposeExpression(classNode);
     }
     Node parent = classNode.getParent();
 
@@ -195,12 +174,11 @@ public final class Es6ExtractClasses
     Node classNameLhs = IR.name(name).setJSType(classType);
     // class name node that replaces the class literal in the original statement
     Node classNameRhs = classNameLhs.cloneTree();
-    parent.replaceChild(classNode, classNameRhs);
-    Node classDeclaration =
-        IR.constNode(classNameLhs, classNode).useSourceInfoIfMissingFromForTree(classNode);
-    NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS);
-    classDeclaration.setJSDocInfo(JSDocInfoBuilder.maybeCopyFrom(info).build());
-    statement.getParent().addChildBefore(classDeclaration, statement);
+    classNode.replaceWith(classNameRhs);
+    Node classDeclaration = IR.constNode(classNameLhs, classNode).srcrefTreeIfMissing(classNode);
+    NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.CONST_DECLARATIONS, compiler);
+    classDeclaration.setJSDocInfo(JSDocInfo.Builder.maybeCopyFrom(info).build());
+    classDeclaration.insertBefore(statement);
 
     // If the original statement was a variable declaration or qualified name assignment like
     // like these:
@@ -247,7 +225,7 @@ public final class Es6ExtractClasses
    * @param node
    */
   private void addAtConstructor(Node node) {
-    JSDocInfoBuilder builder = JSDocInfoBuilder.maybeCopyFrom(node.getJSDocInfo());
+    JSDocInfo.Builder builder = JSDocInfo.Builder.maybeCopyFrom(node.getJSDocInfo());
     builder.recordConstructor();
     node.setJSDocInfo(builder.build());
   }

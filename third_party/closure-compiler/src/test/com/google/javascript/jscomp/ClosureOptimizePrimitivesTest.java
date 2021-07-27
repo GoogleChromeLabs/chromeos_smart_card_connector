@@ -17,8 +17,9 @@
 package com.google.javascript.jscomp;
 
 import static com.google.javascript.jscomp.ClosureOptimizePrimitives.DUPLICATE_SET_MEMBER;
+import static com.google.javascript.jscomp.parsing.parser.testing.FeatureSetSubject.assertFS;
 
-import com.google.javascript.jscomp.CompilerOptions.LanguageMode;
+import com.google.javascript.jscomp.parsing.parser.FeatureSet.Feature;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -27,7 +28,6 @@ import org.junit.runners.JUnit4;
 /**
  * Tests for {@link ClosureOptimizePrimitives}.
  *
- * @author agrieve@google.com (Andrew Grieve)
  */
 @RunWith(JUnit4.class)
 public final class ClosureOptimizePrimitivesTest extends CompilerTestCase {
@@ -43,7 +43,6 @@ public final class ClosureOptimizePrimitivesTest extends CompilerTestCase {
   @Before
   public void setUp() throws Exception {
     super.setUp();
-    setAcceptedLanguage(LanguageMode.ECMASCRIPT_2017);
     disableScriptFeatureValidation();
   }
 
@@ -59,8 +58,10 @@ public final class ClosureOptimizePrimitivesTest extends CompilerTestCase {
 
   @Test
   public void testObjectCreate2() {
-    test("var a = goog$object$create('b',goog$object$create('c','d'))",
-         "var a = {'b':{'c':'d'}};");
+    test(
+        "var a ="
+            + " module$contents$goog$object_create('b',module$contents$goog$object_create('c','d'))",
+        "var a = {'b':{'c':'d'}};");
   }
 
   @Test
@@ -80,9 +81,23 @@ public final class ClosureOptimizePrimitivesTest extends CompilerTestCase {
   }
 
   @Test
+  public void testObjectCreateGoogProvide() {
+    // TODO(user): Delete this once goog.object is a goog.module.
+    test("var a = goog$object$create('b',goog$object$create('c','d'))", "var a = {'b':{'c':'d'}};");
+  }
+
+  @Test
+  public void testObjectCreateRewritten() {
+    enableRewriteClosureCode();
+    test("var a = goog.object.create('a', 1, 'b', 2);", "var a = {'a': 1, 'b': 2};");
+  }
+
+  @Test
   public void testObjectCreateNonConstKey1() {
     test("var a = goog.object.create('a', 1, 2, 3, foo, bar);",
          "var a = {'a': 1, 2: 3, [foo]: bar};");
+
+    assertFS(getLastCompiler().getFeatureSet()).has(Feature.COMPUTED_PROPERTIES);
   }
 
   @Test
@@ -92,8 +107,10 @@ public final class ClosureOptimizePrimitivesTest extends CompilerTestCase {
 
   @Test
   public void testObjectCreateNonConstKey3() {
-    test("var a = goog$object$create(i++,goog$object$create(foo(), 'd'))",
-         "var a = {[i++]: {[foo()]: 'd'}};");
+    test(
+        "var a = module$contents$goog$object_create(i++,module$contents$goog$object_create(foo(),"
+            + " 'd'))",
+        "var a = {[i++]: {[foo()]: 'd'}};");
   }
 
   @Test
@@ -106,6 +123,14 @@ public final class ClosureOptimizePrimitivesTest extends CompilerTestCase {
   public void testObjectCreateNonConstKey5() {
     test("goog.object.create(function foo() {}, 2).toString()",
         "({[function foo() {}]: 2}).toString()");
+  }
+
+  @Test
+  public void testObjectCreateNonConstKeyGoogProvide() {
+    // TODO(user): Delete this once goog.object is a goog.module.
+    test(
+        "var a = goog$object$create(i++,goog$object$create(foo(), 'd'))",
+        "var a = {[i++]: {[foo()]: 'd'}};");
   }
 
   @Test
@@ -150,7 +175,16 @@ public final class ClosureOptimizePrimitivesTest extends CompilerTestCase {
 
   @Test
   public void testObjectCreateSetNonConstKey2() {
-    test("alert(goog$object$createSet(a = 1, 2).toString())",
+    test(
+        "alert(module$contents$goog$object_createSet(a = 1, 2).toString())",
+        "alert({[a = 1]: true, 2: true}.toString())");
+  }
+
+  @Test
+  public void testObjectCreateSetNonConstKeyGoogProvide() {
+    // TODO(user): Delete this once goog.object is a goog.module.
+    test(
+        "alert(goog$object$createSet(a = 1, 2).toString())",
         "alert({[a = 1]: true, 2: true}.toString())");
   }
 
@@ -177,16 +211,6 @@ public final class ClosureOptimizePrimitivesTest extends CompilerTestCase {
   public void testObjectCreateSetSingleLiteralArg() {
     test("const s = goog.object.createSet(3);", "const s = {3: true};");
     test("const s = goog.object.createSet('a');", "const s = {'a': true};");
-  }
-
-  @Test
-  public void testDomTagName() {
-    testSame("goog.dom.TagName.A = 'A';");
-    testSame("goog.dom.TagName.prototype.toString = function() { return 'a'; };");
-    test("goog.dom.createDom(goog.dom.TagName.A)", "goog.dom.createDom('A')");
-    test("goog$dom$createDom(goog$dom$TagName$A)", "goog$dom$createDom('A')");
-    test("goog.dom.createDom(goog.dom.TagName.A + 'REA')", "goog.dom.createDom('A' + 'REA')");
-    test("goog.dom.TagName.function__new_goog_dom_TagName__string___undefined$DIV", "'DIV'");
   }
 
   @Test

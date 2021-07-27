@@ -1,0 +1,11 @@
+__var1__.__var2__;
+
+class SomeClass {
+  constructor() {
+    this.__var3__ = 3;
+  }
+}
+
+__var4__[__var5__];
+
+__var6__?.__var7__;

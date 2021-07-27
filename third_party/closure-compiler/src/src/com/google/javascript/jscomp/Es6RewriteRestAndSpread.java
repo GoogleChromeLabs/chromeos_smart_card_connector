@@ -34,7 +34,7 @@ import java.util.List;
 
 /** Converts REST parameters and SPREAD expressions. */
 public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrderCallback
-    implements HotSwapCompilerPass {
+    implements CompilerPass {
 
   static final DiagnosticType BAD_REST_PARAMETER_ANNOTATION =
       DiagnosticType.warning(
@@ -58,7 +58,6 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
   private final JSType concatFnType;
   private final JSType nullType;
   private final JSType numberType;
-  private final JSType u2uFunctionType;
   private final JSType functionFunctionType;
 
   public Es6RewriteRestAndSpread(AbstractCompiler compiler) {
@@ -71,7 +70,6 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
       this.concatFnType = arrayType.findPropertyType("concat");
       this.nullType = registry.getNativeType(JSTypeNative.NULL_TYPE);
       this.numberType = registry.getNativeType(JSTypeNative.NUMBER_TYPE);
-      this.u2uFunctionType = registry.getNativeType(JSTypeNative.U2U_FUNCTION_TYPE);
       this.functionFunctionType = registry.getNativeType(JSTypeNative.FUNCTION_FUNCTION_TYPE);
     } else {
       this.arrayType = null;
@@ -79,21 +77,13 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
       this.concatFnType = null;
       this.nullType = null;
       this.numberType = null;
-      this.u2uFunctionType = null;
       this.functionFunctionType = null;
     }
   }
 
   @Override
   public void process(Node externs, Node root) {
-    TranspilationPasses.processTranspile(compiler, externs, transpiledFeatures, this);
     TranspilationPasses.processTranspile(compiler, root, transpiledFeatures, this);
-    TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
-  }
-
-  @Override
-  public void hotSwapScript(Node scriptRoot, Node originalRoot) {
-    TranspilationPasses.hotSwapTranspile(compiler, scriptRoot, transpiledFeatures, this);
     TranspilationPasses.maybeMarkFeaturesAsTranspiledAway(compiler, transpiledFeatures);
   }
 
@@ -106,7 +96,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
       case ARRAYLIT:
       case NEW:
       case CALL:
-        for (Node child : current.children()) {
+        for (Node child = current.getFirstChild(); child != null; child = child.getNext()) {
           if (child.isSpread()) {
             visitArrayLitOrCallWithSpread(current);
             break;
@@ -126,9 +116,8 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
     String paramName = nameNode.getString();
 
     // Swap the existing param into the list, moving requisite AST annotations.
-    nameNode.setVarArgs(true);
     nameNode.setJSDocInfo(restParam.getJSDocInfo());
-    paramList.replaceChild(restParam, nameNode.detach());
+    restParam.replaceWith(nameNode.detach());
 
     // Make sure rest parameters are typechecked.
     JSDocInfo inlineInfo = restParam.getJSDocInfo();
@@ -159,18 +148,20 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
     Node newArrayName = IR.name(REST_PARAMS).setJSType(arrayType);
     Node cursorName = IR.name(REST_INDEX).setJSType(numberType);
 
-    Node newBlock = IR.block().useSourceInfoFrom(functionBody);
+    Node newBlock = IR.block().srcref(functionBody);
     Node name = IR.name(paramName);
-    Node let = IR.let(name, newArrayName).useSourceInfoIfMissingFromForTree(functionBody);
+    Node let = IR.let(name, newArrayName).srcrefTreeIfMissing(functionBody);
     newBlock.addChildToFront(let);
-    NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.LET_DECLARATIONS);
+    NodeUtil.addFeatureToScript(t.getCurrentScript(), Feature.LET_DECLARATIONS, compiler);
 
-    for (Node child : functionBody.children()) {
+    for (Node child = functionBody.getFirstChild(); child != null; ) {
+      final Node next = child.getNext();
       newBlock.addChildToBack(child.detach());
+      child = next;
     }
 
     Node newArrayDeclaration = IR.var(newArrayName.cloneTree(), arrayLitWithJSType());
-    functionBody.addChildToFront(newArrayDeclaration.useSourceInfoIfMissingFromForTree(restParam));
+    functionBody.addChildToFront(newArrayDeclaration.srcrefTreeIfMissing(restParam));
 
     // TODO(b/74074478): Use a general utility method instead of an inlined loop.
     Node copyLoop =
@@ -178,7 +169,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
                 IR.var(cursorName.cloneTree(), IR.number(restIndex).setJSType(numberType)),
                 IR.lt(
                         cursorName.cloneTree(),
-                        IR.getprop(IR.name("arguments"), IR.string("length")).setJSType(numberType))
+                        IR.getprop(IR.name("arguments"), "length").setJSType(numberType))
                     .setJSType(boolType),
                 IR.inc(cursorName.cloneTree(), false).setJSType(numberType),
                 IR.block(
@@ -193,8 +184,8 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
                                 IR.getelem(IR.name("arguments"), cursorName.cloneTree())
                                     .setJSType(numberType))
                             .setJSType(numberType))))
-            .useSourceInfoIfMissingFromForTree(restParam);
-    functionBody.addChildAfter(copyLoop, newArrayDeclaration);
+            .srcrefTreeIfMissing(restParam);
+    copyLoop.insertAfter(newArrayDeclaration);
 
     functionBody.addChildToBack(newBlock);
     compiler.reportChangeToEnclosingScope(newBlock);
@@ -325,11 +316,11 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
     if (groups.isEmpty()) {
       joinedGroups = baseArrayLit;
     } else {
-      Node concat = IR.getprop(baseArrayLit, IR.string("concat")).setJSType(concatFnType);
+      Node concat = IR.getprop(baseArrayLit, "concat").setJSType(concatFnType);
       joinedGroups = IR.call(concat, groups.toArray(new Node[0]));
     }
 
-    joinedGroups.useSourceInfoIfMissingFromForTree(spreadParent);
+    joinedGroups.srcrefTreeIfMissing(spreadParent);
     joinedGroups.setJSType(arrayType);
 
     spreadParent.replaceWith(joinedGroups);
@@ -351,20 +342,24 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
     checkArgument(spreadParent.isCall());
 
     Node callee = spreadParent.getFirstChild();
+    // ES6 classes must all be transpiled away before this pass runs.
+    checkState(!callee.isSuper(), "Cannot spread into super calls");
     // Check if the callee has side effects before removing it from the AST (since some NodeUtil
     // methods assume the node they are passed has a non-null parent).
     boolean calleeMayHaveSideEffects = compiler.getAstAnalyzer().mayHaveSideEffects(callee);
     // Must remove callee before extracting argument groups.
-    spreadParent.removeChild(callee);
+    callee.detach();
 
+    while (callee.isCast()) {
+      // Drop any CAST nodes. They're not needed anymore since this pass runs at the end of
+      // the checks phase, and they complicate detecting GETPROP/GETELEM callees.
+      callee = callee.removeFirstChild();
+    }
     final Node joinedGroups;
     if (spreadParent.hasOneChild() && isSpreadOfArguments(spreadParent.getOnlyChild())) {
       // Check for special case of `foo(...arguments)` and pass `arguments` directly to
       // `foo.apply(null, arguments)`. We want to avoid calling $jscomp.arrayFromIterable(arguments)
       // for this case, because it can have side effects, which prevents code removal.
-      //
-      // TODO(b/74074478): Generalize this to avoid ever calling $jscomp.arrayFromIterable() for
-      // `arguments`.
       joinedGroups = spreadParent.removeFirstChild().removeFirstChild();
     } else {
       List<Node> groups = extractSpreadGroups(spreadParent);
@@ -381,7 +376,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
         // TODO(nickreid): Stop distringuishing between array literals and variables when this pass
         // is moved after type-checking.
         Node baseArrayLit = groups.get(0).isArrayLit() ? groups.remove(0) : arrayLitWithJSType();
-        Node concat = IR.getprop(baseArrayLit, IR.string("concat")).setJSType(concatFnType);
+        Node concat = IR.getprop(baseArrayLit, "concat").setJSType(concatFnType);
         joinedGroups = IR.call(concat, groups.toArray(new Node[0])).setJSType(arrayType);
       }
       joinedGroups.setJSType(arrayType);
@@ -402,11 +397,9 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
       Node freshVarDeclaration = IR.var(freshVar.cloneTree());
 
       Node statementContainingSpread = NodeUtil.getEnclosingStatement(spreadParent);
-      freshVarDeclaration.useSourceInfoIfMissingFromForTree(statementContainingSpread);
+      freshVarDeclaration.srcrefTreeIfMissing(statementContainingSpread);
 
-      statementContainingSpread
-          .getParent()
-          .addChildBefore(freshVarDeclaration, statementContainingSpread);
+      freshVarDeclaration.insertBefore(statementContainingSpread);
       callee.addChildToFront(
           IR.assign(freshVar.cloneTree(), callee.removeFirstChild()).setJSType(receiverType));
 
@@ -425,7 +418,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
     }
 
     callToApply.setJSType(spreadParent.getJSType());
-    callToApply.useSourceInfoIfMissingFromForTree(spreadParent);
+    callToApply.srcrefTreeIfMissing(spreadParent);
     spreadParent.replaceWith(callToApply);
     compiler.reportChangeToEnclosingScope(callToApply);
   }
@@ -465,7 +458,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
         groups.isEmpty()
             ? baseArrayLit
             : IR.call(
-                    IR.getprop(baseArrayLit, IR.string("concat")).setJSType(concatFnType),
+                    IR.getprop(baseArrayLit, "concat").setJSType(concatFnType),
                     groups.toArray(new Node[0]))
                 .setJSType(arrayType);
 
@@ -483,11 +476,10 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
     //      function(function(new:[spreadParent], ...?), !Array<?>):function(new:[spreadParent])
     Node bindApply =
         getpropInferringJSType(
-            IR.getprop(
-                    getpropInferringJSType(
-                        IR.name("Function").setJSType(functionFunctionType), "prototype"),
-                    "bind")
-                .setJSType(u2uFunctionType),
+            getpropInferringJSType(
+                getpropInferringJSType(
+                    IR.name("Function").setJSType(functionFunctionType), "prototype"),
+                "bind"),
             "apply");
     Node result =
         IR.newNode(
@@ -495,7 +487,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
                     bindApply, callee, joinedGroups /* function(new:[spreadParent]) */))
             .setJSType(spreadParent.getJSType());
 
-    result.useSourceInfoIfMissingFromForTree(spreadParent);
+    result.srcrefTreeIfMissing(spreadParent);
     spreadParent.replaceWith(result);
     compiler.reportChangeToEnclosingScope(result);
   }
@@ -528,7 +520,7 @@ public final class Es6RewriteRestAndSpread extends NodeTraversal.AbstractPostOrd
     Node call = IR.call(callee, args);
 
     JSType calleeType = callee.getJSType();
-    if (calleeType == null || !(calleeType instanceof FunctionType)) {
+    if (!(calleeType instanceof FunctionType)) {
       return call;
     }
 

@@ -41,23 +41,17 @@ package com.google.javascript.rhino.jstype;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.javascript.jscomp.base.JSCompObjects.identical;
 
 import com.google.common.collect.ImmutableList;
-import com.google.javascript.rhino.jstype.JSType.EqCache;
-import com.google.javascript.rhino.jstype.JSType.MatchStatus;
-import com.google.javascript.rhino.jstype.JSType.SubtypingMode;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Set;
-import javax.annotation.Nullable;
 
 /**
- * Manages a mapping from TemplateType to its resolved JSType. Provides utility
- * methods for cloning/extending the map.
- *
- * @author izaakr@google.com (Izaak Rubin)
+ * Manages a mapping from TemplateType to its resolved JSType. Provides utility methods for
+ * cloning/extending the map.
  */
-public class TemplateTypeMap implements Serializable {
+public class TemplateTypeMap {
 
   // The TemplateType keys of the map.
   private final ImmutableList<TemplateType> templateKeys;
@@ -216,15 +210,25 @@ public class TemplateTypeMap implements Serializable {
    * Returns true if this map contains the specified template key, false
    * otherwise.
    */
-  @SuppressWarnings("ReferenceEquality")
   public boolean hasTemplateKey(TemplateType templateKey) {
     // Note: match by identity, not equality
     for (TemplateType entry : templateKeys) {
-      if (entry == templateKey) {
+      if (identical(templateKey, entry)) {
         return true;
       }
     }
     return false;
+  }
+
+  // TODO(b/139230800): This method should be deleted. It checks what should be an impossible case.
+  int getTemplateKeyCountThisShouldAlwaysBeOneOrZeroButIsnt(TemplateType templateKey) {
+    int count = 0;
+    for (TemplateType entry : templateKeys) {
+      if (identical(templateKey, entry)) {
+        count++;
+      }
+    }
+    return count;
   }
 
   private int numUnfilledTemplateKeys() {
@@ -262,7 +266,7 @@ public class TemplateTypeMap implements Serializable {
   private int getTemplateTypeIndex(TemplateType key) {
     int maxIndex = Math.min(templateKeys.size(), templateValues.size());
     for (int i = maxIndex - 1; i >= 0; i--) {
-      if (JSType.areIdentical(templateKeys.get(i), key)) {
+      if (identical(templateKeys.get(i), key)) {
         return i;
       }
     }
@@ -278,88 +282,6 @@ public class TemplateTypeMap implements Serializable {
     return (index == -1)
         ? unknownIfUnbounded(key)
         : resolvedTemplateValues[index];
-  }
-
-  /**
-   * An enum tracking the three different equivalence match states for a
-   * template key-value pair.
-   */
-  private enum EquivalenceMatch {
-    NO_KEY_MATCH, VALUE_MISMATCH, VALUE_MATCH
-  }
-
-  /**
-   * Determines if this map and the specified map have equivalent template
-   * types.
-   */
-  public boolean checkEquivalenceHelper(
-      TemplateTypeMap that, EquivalenceMethod eqMethod, SubtypingMode subtypingMode) {
-    return checkEquivalenceHelper(that, eqMethod, EqCache.create(), subtypingMode);
-  }
-
-  public boolean checkEquivalenceHelper(TemplateTypeMap that,
-      EquivalenceMethod eqMethod, EqCache eqCache, SubtypingMode subtypingMode) {
-    @Nullable MatchStatus status = eqCache.checkCache(this, that);
-    if (status == null) {
-      boolean result =
-          checkEquivalenceHelper(eqMethod, this, that, eqCache, subtypingMode)
-              && checkEquivalenceHelper(eqMethod, that, this, eqCache, subtypingMode);
-      eqCache.updateCache(this, that, MatchStatus.valueOf(result));
-      return result;
-    } else {
-      return status.subtypeValue();
-    }
-  }
-
-  private static boolean checkEquivalenceHelper(EquivalenceMethod eqMethod,
-      TemplateTypeMap thisMap, TemplateTypeMap thatMap,
-      EqCache eqCache, SubtypingMode subtypingMode) {
-    ImmutableList<TemplateType> thisKeys = thisMap.getTemplateKeys();
-    ImmutableList<TemplateType> thatKeys = thatMap.getTemplateKeys();
-
-    for (int i = 0; i < thisKeys.size(); i++) {
-      TemplateType thisKey = thisKeys.get(i);
-      JSType thisType = thisMap.getResolvedTemplateType(thisKey);
-      EquivalenceMatch thisMatch = EquivalenceMatch.NO_KEY_MATCH;
-
-      for (int j = 0; j < thatKeys.size(); j++) {
-        TemplateType thatKey = thatKeys.get(j);
-        JSType thatType = thatMap.getResolvedTemplateType(thatKey);
-
-        // Cross-compare every key-value pair in this TemplateTypeMap with
-        // those in that TemplateTypeMap. Update the Equivalence match for both
-        // key-value pairs involved.
-        if (JSType.areIdentical(thisKey, thatKey)) {
-          EquivalenceMatch newMatchType = EquivalenceMatch.VALUE_MISMATCH;
-          if (thisType.checkEquivalenceHelper(thatType, eqMethod, eqCache)
-              || (subtypingMode == SubtypingMode.IGNORE_NULL_UNDEFINED
-                  && thisType.isSubtypeOf(thatType, subtypingMode)
-                  && thatType.isSubtypeOf(thatType, subtypingMode))) {
-            newMatchType = EquivalenceMatch.VALUE_MATCH;
-          }
-
-          if (thisMatch != EquivalenceMatch.VALUE_MATCH) {
-            thisMatch = newMatchType;
-          }
-        }
-      }
-
-      if (failedEquivalenceCheck(thisMatch, eqMethod)) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  /**
-   * Determines if the specified EquivalenceMatch is considered a failing
-   * condition for an equivalence check, given the EquivalenceMethod used for
-   * the check.
-   */
-  private static boolean failedEquivalenceCheck(
-      EquivalenceMatch eqMatch, EquivalenceMethod eqMethod) {
-    return eqMatch == EquivalenceMatch.VALUE_MISMATCH
-        || (eqMatch == EquivalenceMatch.NO_KEY_MATCH && eqMethod != EquivalenceMethod.INVARIANT);
   }
 
   boolean hasAnyTemplateTypesInternal() {
