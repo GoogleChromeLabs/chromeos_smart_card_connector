@@ -24,6 +24,7 @@ goog.provide('GoogleSmartCard.DebugDump');
 
 goog.require('goog.Disposable');
 goog.require('goog.array');
+goog.require('goog.functions');
 goog.require('goog.iter');
 goog.require('goog.json');
 goog.require('goog.math');
@@ -213,7 +214,7 @@ function dump(value) {
     return dumpString(value);
   if (Array.isArray(value))
     return dumpArray(value);
-  if (goog.isFunction(value))
+  if (goog.functions.isFunction(value))
     return dumpFunction(value);
   if (value instanceof ArrayBuffer)
     return dumpArrayBuffer(value);

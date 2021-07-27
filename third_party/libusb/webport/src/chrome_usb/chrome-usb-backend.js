@@ -27,6 +27,7 @@ goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
 goog.require('goog.asserts');
 goog.require('goog.array');
+goog.require('goog.functions');
 goog.require('goog.iter');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
@@ -213,7 +214,7 @@ ChromeUsbBackend.prototype.processRequest_ = function(payload) {
  */
 ChromeUsbBackend.prototype.getChromeUsbFunction_ = function(functionName) {
   if (!goog.object.containsKey(chrome.usb, functionName) ||
-      !goog.isFunction(chrome.usb[functionName])) {
+      !goog.functions.isFunction(chrome.usb[functionName])) {
     GSC.Logging.failWithLogger(
         this.logger,
         'Unknown chrome.usb API function requested: ' + functionName);
