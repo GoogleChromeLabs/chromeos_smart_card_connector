@@ -81,9 +81,14 @@ endif
 #
 # Explanation:
 # dependency_mode=PRUNE: Skip unused JS code.
-# jscomp_error ...: Treat these warning classes as errors. Note: To be on the
-#   safe side, we're specifying all possible warning classes, except those that
-#   don't work for our codebase, which we explicitly list via jscomp_off.
+# jscomp_error *: Enable all warning classes and treat them as errors by
+#   default. Note: To be on the safe side, we're specifying all possible warning
+#   classes, except those that don't work for our codebase, which we explicitly
+#   list via jscomp_off.
+# jscomp_off extraRequire: Suppress warnings about unused goog.require()
+#   statements. TODO: Fix the violations and promote this to jscomp_error.
+# jscomp_off jsdocMissingConst: Suppress warnings about variables that could be
+#   marked as const. TODO: Fix the violations and promote this to jscomp_error.
 # jscomp_off lintChecks: Suppress complaints about code style. TODO: Fix the
 #   code (e.g., switch to modules instead of good.provide) and promote this to
 #   jscomp_error.
@@ -99,46 +104,9 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
 	--dependency_mode=PRUNE \
-	--jscomp_error=accessControls \
-	--jscomp_error=checkPrototypalTypes \
-	--jscomp_error=checkRegExp \
-	--jscomp_error=checkTypes \
-	--jscomp_error=checkVars \
-	--jscomp_error=conformanceViolations \
-	--jscomp_error=const \
-	--jscomp_error=constantProperty \
-	--jscomp_error=deprecated \
-	--jscomp_error=deprecatedAnnotations \
-	--jscomp_error=duplicateMessage \
-	--jscomp_error=es5Strict \
-	--jscomp_error=externsValidation \
-	--jscomp_error=functionParams \
-	--jscomp_error=globalThis \
-	--jscomp_error=invalidCasts \
-	--jscomp_error=misplacedTypeAnnotation \
-	--jscomp_error=missingOverride \
-	--jscomp_error=missingPolyfill \
-	--jscomp_error=missingProperties \
-	--jscomp_error=missingProvide \
-	--jscomp_error=missingRequire \
-	--jscomp_error=missingReturn \
-	--jscomp_error=missingSourcesWarnings \
-	--jscomp_error=moduleLoad \
-	--jscomp_error=msgDescriptions \
-	--jscomp_error=nonStandardJsDocs \
-	--jscomp_error=strictCheckTypes \
-	--jscomp_error=strictModuleDepCheck \
-	--jscomp_error=strictPrimitiveOperators \
-	--jscomp_error=suspiciousCode \
-	--jscomp_error=typeInvalidation \
-	--jscomp_error=undefinedNames \
-	--jscomp_error=undefinedVars \
-	--jscomp_error=underscore \
-	--jscomp_error=untranspilableFeatures \
-	--jscomp_error=unusedLocalVariables \
-	--jscomp_error=unusedPrivateMembers \
-	--jscomp_error=uselessCode \
-	--jscomp_error=visibility \
+	--jscomp_error='*' \
+	--jscomp_off extraRequire \
+	--jscomp_off jsdocMissingConst \
 	--jscomp_off lintChecks \
 	--jscomp_off reportUnknownTypes \
 	--jscomp_off strictMissingProperties \
