@@ -80,7 +80,7 @@ GSC.PcscLiteServerClientsManagement.ReadinessTracker = function(
 
   /**
    * Whether the promise is resolved (either fulfilled or rejected).
-   * @type {boolean}
+   * @type {boolean} @private
    */
   this.isPromiseResolved_ = false;
 

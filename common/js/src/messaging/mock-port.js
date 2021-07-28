@@ -38,7 +38,7 @@ const GSC = GoogleSmartCard;
 GSC.MockPort = function(opt_name) {
   MockPort.base(this, 'constructor');
 
-  /** @const */
+  /** @private @const */
   this.name_ = opt_name;
 
   /** @type {?} */
