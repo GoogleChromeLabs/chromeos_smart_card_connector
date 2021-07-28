@@ -67,7 +67,7 @@ RemoteCallMessage.parseRequestPayload = function(requestPayload) {
       !goog.object.containsKey(requestPayload, FUNCTION_NAME_MESSAGE_KEY) ||
       typeof requestPayload[FUNCTION_NAME_MESSAGE_KEY] !== 'string' ||
       !goog.object.containsKey(requestPayload, ARGUMENTS_MESSAGE_KEY) ||
-      !goog.isArray(requestPayload[ARGUMENTS_MESSAGE_KEY])) {
+      !Array.isArray(requestPayload[ARGUMENTS_MESSAGE_KEY])) {
     return null;
   }
   return new RemoteCallMessage(

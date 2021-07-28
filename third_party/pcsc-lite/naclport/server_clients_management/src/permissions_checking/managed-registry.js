@@ -171,7 +171,7 @@ ManagedRegistry.prototype.storageChangedListener_ = function(
  */
 ManagedRegistry.prototype.setAllowedClientAppIdsFromStorageData_ = function(
     storageData) {
-  if (!goog.isArray(storageData)) {
+  if (!Array.isArray(storageData)) {
     this.logger.warning(
         'Failed to load the allowed client App ids data from the managed ' +
         'storage: expected an array, instead got: ' +
