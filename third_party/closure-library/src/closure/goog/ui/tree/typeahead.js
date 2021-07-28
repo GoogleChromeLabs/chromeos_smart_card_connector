@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Provides the typeahead functionality for the tree class.
@@ -19,11 +11,12 @@
 goog.provide('goog.ui.tree.TypeAhead');
 goog.provide('goog.ui.tree.TypeAhead.Offset');
 
-goog.forwardDeclare('goog.ui.tree.BaseNode');
 goog.require('goog.array');
 goog.require('goog.events.KeyCodes');
 goog.require('goog.string');
 goog.require('goog.structs.Trie');
+goog.requireType('goog.events.BrowserEvent');
+goog.requireType('goog.ui.tree.BaseNode');
 
 
 
@@ -146,8 +139,13 @@ goog.ui.tree.TypeAhead.prototype.handleTypeAheadChar = function(e) {
     // Since goog.structs.Trie.getKeys compares characters during
     // lookup, we should use charCode instead of keyCode where possible.
     // Convert to lowercase, typeahead is case insensitive.
-    var ch = String.fromCharCode(e.charCode || e.keyCode).toLowerCase();
-    if (goog.string.isUnicodeChar(ch) && (ch != ' ' || this.buffer_)) {
+    var ch = '';
+    if (!!e.charCode) {
+      ch = String.fromCharCode(e.charCode).toLowerCase();
+    } else if (goog.events.KeyCodes.isCharacterKey(e.keyCode)) {
+      ch = String.fromCharCode(e.keyCode).toLowerCase();
+    }
+    if (ch && goog.string.isUnicodeChar(ch) && (ch != ' ' || this.buffer_)) {
       this.buffer_ += ch;
       handled = this.jumpToLabel_(this.buffer_);
     }
@@ -232,7 +230,7 @@ goog.ui.tree.TypeAhead.prototype.jumpToLabel_ = function(typeAhead) {
     }
   }
 
-  // TODO(user): beep when no node is found
+  // TODO(annams): beep when no node is found
   return handled;
 };
 
@@ -287,7 +285,7 @@ goog.ui.tree.TypeAhead.prototype.jumpTo_ = function(offset) {
     }
   }
 
-  // TODO(user): beep when no node is found
+  // TODO(annams): beep when no node is found
   return handled;
 };
 

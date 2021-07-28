@@ -1,16 +1,8 @@
-// Copyright 2014 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.provide('goog.labs.pubsub.BroadcastPubSub');
 
@@ -136,7 +128,8 @@ goog.labs.pubsub.BroadcastPubSub.prototype.handleStorageEvent_ = function(e) {
 
   var data = JSON.parse(browserEvent.newValue);
   var args = goog.isObject(data) && data['args'];
-  if (goog.isArray(args) && goog.array.every(args, goog.isString)) {
+  if (Array.isArray(args) &&
+      goog.array.every(args, x => typeof x === 'string')) {
     this.dispatch_(args);
   } else {
     goog.log.warning(this.logger_, 'storage event contained invalid arguments');
@@ -187,7 +180,7 @@ goog.labs.pubsub.BroadcastPubSub.prototype.publish = function(topic, var_args) {
             this.logger_, 'publish encountered invalid event queue at ' +
                 goog.labs.pubsub.BroadcastPubSub.IE8_EVENTS_KEY_);
       }
-      if (!goog.isArray(events)) {
+      if (!Array.isArray(events)) {
         events = [];
       }
       // Avoid a race condition where we're publishing in the same
@@ -407,7 +400,7 @@ goog.labs.pubsub.BroadcastPubSub.IS_IE8_ =
  */
 goog.labs.pubsub.BroadcastPubSub.validateIe8Event_ = function(obj) {
   if (goog.isObject(obj) && typeof obj['timestamp'] === 'number' &&
-      goog.array.every(obj['args'], goog.isString)) {
+      goog.array.every(obj['args'], x => typeof x === 'string')) {
     return {'timestamp': obj['timestamp'], 'args': obj['args']};
   }
   return null;
@@ -425,7 +418,7 @@ goog.labs.pubsub.BroadcastPubSub.filterValidIe8Events_ = function(events) {
   return goog.array.filter(
       goog.array.map(
           events, goog.labs.pubsub.BroadcastPubSub.validateIe8Event_),
-      goog.isDefAndNotNull);
+      x => x != null);
 };
 
 
@@ -512,7 +505,7 @@ goog.labs.pubsub.BroadcastPubSub.prototype.handleIe8StorageEvent_ = function() {
       goog.log.warning(this.logger_, 'invalid remote event queue ' + key);
     }
 
-    if (!(goog.isArray(events) && this.maybeProcessIe8Events_(key, events))) {
+    if (!(Array.isArray(events) && this.maybeProcessIe8Events_(key, events))) {
       // Events is not an array, empty, contains invalid events, or expired.
       this.storage_.remove(key);
     }
@@ -538,7 +531,7 @@ goog.labs.pubsub.BroadcastPubSub.prototype.cleanupIe8StorageEvents_ = function(
         this.logger_, 'cleanup encountered invalid event queue key ' +
             goog.labs.pubsub.BroadcastPubSub.IE8_EVENTS_KEY_);
   }
-  if (!goog.isArray(events)) {
+  if (!Array.isArray(events)) {
     this.storage_.remove(goog.labs.pubsub.BroadcastPubSub.IE8_EVENTS_KEY_);
     return;
   }

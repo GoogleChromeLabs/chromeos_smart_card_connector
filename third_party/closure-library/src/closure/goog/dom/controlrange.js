@@ -1,16 +1,8 @@
-// Copyright 2008 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Utilities for working with IE control ranges.
@@ -20,7 +12,7 @@
 
 
 
-// TODO(b/130421259): We're trying to migrate all ES5 subclasses of Closure
+// TODO(user): We're trying to migrate all ES5 subclasses of Closure
 // Library to ES6. In ES6 this cannot be referenced before super is called. This
 // file has at least one this before a super call (in ES5) and cannot be
 // automatically upgraded to ES6 as a result. Please fix this if you have a
@@ -37,6 +29,7 @@ goog.require('goog.dom.AbstractMultiRange');
 goog.require('goog.dom.AbstractRange');
 goog.require('goog.dom.RangeIterator');
 goog.require('goog.dom.RangeType');
+goog.require('goog.dom.SavedCaretRange');
 goog.require('goog.dom.SavedRange');
 goog.require('goog.dom.TagWalkType');
 goog.require('goog.dom.TextRange');
@@ -331,6 +324,12 @@ goog.dom.ControlRange.prototype.saveUsingDom = function() {
   return new goog.dom.DomSavedControlRange_(this);
 };
 
+/** @override */
+goog.dom.ControlRange.prototype.saveUsingCarets = function() {
+  return (this.getStartNode() && this.getEndNode()) ?
+      new goog.dom.SavedCaretRange(this) :
+      null;
+};
 
 // RANGE MODIFICATION
 

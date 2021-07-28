@@ -1,16 +1,8 @@
-// Copyright 2012 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Soy data primitives.
@@ -216,8 +208,7 @@ goog.soy.data.SanitizedHtml.prototype.contentKind =
  */
 goog.soy.data.SanitizedHtml.isCompatibleWith = function(value) {
   return typeof value === 'string' ||
-      value instanceof goog.soy.data.SanitizedHtml ||
-      value instanceof goog.html.SafeHtml;
+      goog.soy.data.SanitizedHtml.isCompatibleWithStrict(value);
 };
 
 
@@ -264,8 +255,7 @@ goog.soy.data.SanitizedJs.prototype.contentDir = goog.i18n.bidi.Dir.LTR;
  */
 goog.soy.data.SanitizedJs.isCompatibleWith = function(value) {
   return typeof value === 'string' ||
-      value instanceof goog.soy.data.SanitizedJs ||
-      value instanceof goog.html.SafeScript;
+      goog.soy.data.SanitizedJs.isCompatibleWithStrict(value);
 };
 
 /**
@@ -276,7 +266,7 @@ goog.soy.data.SanitizedJs.isCompatibleWith = function(value) {
  */
 goog.soy.data.SanitizedJs.isCompatibleWithStrict = function(value) {
   return value instanceof goog.soy.data.SanitizedJs ||
-      value instanceof goog.html.SafeHtml;
+      value instanceof goog.html.SafeScript;
 };
 
 
@@ -310,10 +300,7 @@ goog.soy.data.SanitizedUri.prototype.contentDir = goog.i18n.bidi.Dir.LTR;
  */
 goog.soy.data.SanitizedUri.isCompatibleWith = function(value) {
   return typeof value === 'string' ||
-      value instanceof goog.soy.data.SanitizedUri ||
-      value instanceof goog.html.SafeUrl ||
-      value instanceof goog.html.TrustedResourceUrl ||
-      value instanceof goog.Uri;
+      goog.soy.data.SanitizedUri.isCompatibleWithStrict(value);
 };
 
 
@@ -381,8 +368,7 @@ goog.soy.data.SanitizedTrustedResourceUri.prototype.toTrustedResourceUrl =
  */
 goog.soy.data.SanitizedTrustedResourceUri.isCompatibleWith = function(value) {
   return typeof value === 'string' ||
-      value instanceof goog.soy.data.SanitizedTrustedResourceUri ||
-      value instanceof goog.html.TrustedResourceUrl;
+      goog.soy.data.SanitizedTrustedResourceUri.isCompatibleWithStrict(value);
 };
 
 
@@ -433,7 +419,7 @@ goog.soy.data.SanitizedHtmlAttribute.prototype.contentDir =
  */
 goog.soy.data.SanitizedHtmlAttribute.isCompatibleWith = function(value) {
   return typeof value === 'string' ||
-      value instanceof goog.soy.data.SanitizedHtmlAttribute;
+      goog.soy.data.SanitizedHtmlAttribute.isCompatibleWithStrict(value);
 };
 
 
@@ -480,9 +466,7 @@ goog.soy.data.SanitizedCss.prototype.contentDir = goog.i18n.bidi.Dir.LTR;
  */
 goog.soy.data.SanitizedCss.isCompatibleWith = function(value) {
   return typeof value === 'string' ||
-      value instanceof goog.soy.data.SanitizedCss ||
-      value instanceof goog.html.SafeStyle ||
-      value instanceof goog.html.SafeStyleSheet;
+      goog.soy.data.SanitizedCss.isCompatibleWithStrict(value);
 };
 
 

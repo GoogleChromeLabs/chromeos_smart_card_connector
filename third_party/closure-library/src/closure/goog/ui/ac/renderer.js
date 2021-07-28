@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Class for rendering the results of an auto complete and
@@ -42,6 +34,8 @@ goog.require('goog.string');
 goog.require('goog.style');
 goog.require('goog.ui.IdGenerator');
 goog.require('goog.ui.ac.AutoComplete');
+goog.requireType('goog.events.Event');
+goog.requireType('goog.fx.Animation');
 
 
 
@@ -866,7 +860,7 @@ goog.ui.ac.Renderer.prototype.hiliteMatchingText_ = function(
 
   if (node.nodeType == goog.dom.NodeType.TEXT) {
     var rest = null;
-    if (goog.isArray(tokenOrArray) && tokenOrArray.length > 1 &&
+    if (Array.isArray(tokenOrArray) && tokenOrArray.length > 1 &&
         !this.highlightAllTokens_) {
       rest = goog.array.slice(tokenOrArray, 1);
     }
@@ -964,7 +958,7 @@ goog.ui.ac.Renderer.prototype.getTokenRegExp_ = function(tokenOrArray) {
     return token;
   }
 
-  if (goog.isArray(tokenOrArray)) {
+  if (Array.isArray(tokenOrArray)) {
     // Remove invalid tokens from the array, which may leave us with nothing.
     tokenOrArray = goog.array.filter(tokenOrArray, function(str) {
       return !goog.string.isEmptyOrWhitespace(goog.string.makeSafe(str));
@@ -974,7 +968,7 @@ goog.ui.ac.Renderer.prototype.getTokenRegExp_ = function(tokenOrArray) {
   // If highlighting all tokens, join them with '|' so the regular expression
   // will match on any of them.
   if (this.highlightAllTokens_) {
-    if (goog.isArray(tokenOrArray)) {
+    if (Array.isArray(tokenOrArray)) {
       var tokenArray = goog.array.map(tokenOrArray, goog.string.regExpEscape);
       token = tokenArray.join('|');
     } else {
@@ -991,7 +985,7 @@ goog.ui.ac.Renderer.prototype.getTokenRegExp_ = function(tokenOrArray) {
     // array.
     // TODO(user): why is this this way?. We should match against all
     // tokens in the array, but only accept the first match.
-    if (goog.isArray(tokenOrArray)) {
+    if (Array.isArray(tokenOrArray)) {
       token = tokenOrArray.length > 0 ?
           goog.string.regExpEscape(tokenOrArray[0]) :
           '';

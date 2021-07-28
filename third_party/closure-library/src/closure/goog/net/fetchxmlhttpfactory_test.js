@@ -1,16 +1,8 @@
-// Copyright 2015 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.module('goog.net.FetchXmlHttpFactoryTest');
 goog.setTestOnly();
@@ -65,13 +57,13 @@ function verifySend(
           expectedHeaders =
               `content-type: text/plain;charset=UTF-8\r\n${expectedHeaders}`;
         }
-        assertEquals(0, xhr.status);
+        assertEquals(expectedStatusCode, xhr.status);
         assertEquals('', xhr.responseText);
         assertEquals('dummyHeaderValue', xhr.getResponseHeader('dummyHeader'));
         assertEquals(expectedHeaders, xhr.getAllResponseHeaders());
       } else if (xhr.readyState === FetchXmlHttp.RequestState.LOADING) {
         lastState = xhr.readyState;
-        assertEquals(0, xhr.status);
+        assertEquals(expectedStatusCode, xhr.status);
         assertEquals(0, expectedBody.indexOf(xhr.responseText));
         if (isStream && xhr.responseText) {
           assertTrue(xhr.responseText.length > lastBufferSize);
@@ -359,4 +351,31 @@ testSuite({
       mockControl.$verifyAll();
     });
   },
+
+  testWithCredentials_set() {
+    const xhr = factory.createInstance();
+
+    assertEquals(xhr.getCredentialsMode(), undefined);
+
+    xhr.withCredentials = true;
+    assertEquals(xhr.getCredentialsMode(), 'include');
+
+    xhr.withCredentials = false;
+    assertEquals(xhr.getCredentialsMode(), 'same-origin');
+  },
+
+  testWithCredentials_get() {
+    const xhr = factory.createInstance();
+
+    assertEquals(xhr.withCredentials, false);
+
+    xhr.setCredentialsMode('include');
+    assertEquals(xhr.withCredentials, true);
+
+    xhr.setCredentialsMode('same-origin');
+    assertEquals(xhr.withCredentials, false);
+
+    xhr.setCredentialsMode('omit');
+    assertEquals(xhr.withCredentials, false);
+  }
 });

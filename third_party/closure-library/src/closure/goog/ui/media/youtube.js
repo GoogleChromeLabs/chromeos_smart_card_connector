@@ -1,16 +1,8 @@
-// Copyright 2009 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview provides a reusable youtube UI component given a youtube data
@@ -75,6 +67,8 @@ goog.require('goog.ui.media.FlashObject');
 goog.require('goog.ui.media.Media');
 goog.require('goog.ui.media.MediaModel');
 goog.require('goog.ui.media.MediaRenderer');
+goog.requireType('goog.dom.DomHelper');
+goog.requireType('goog.ui.Control');
 
 
 
@@ -107,6 +101,7 @@ goog.require('goog.ui.media.MediaRenderer');
  * @final
  */
 goog.ui.media.Youtube = function() {
+  'use strict';
   goog.ui.media.MediaRenderer.call(this);
 };
 goog.inherits(goog.ui.media.Youtube, goog.ui.media.MediaRenderer);
@@ -126,6 +121,7 @@ goog.addSingletonGetter(goog.ui.media.Youtube);
  * @return {!goog.ui.media.Media} A Control binded to the youtube renderer.
  */
 goog.ui.media.Youtube.newControl = function(youtubeModel, opt_domHelper) {
+  'use strict';
   var control = new goog.ui.media.Media(
       youtubeModel, goog.ui.media.Youtube.getInstance(), opt_domHelper);
   control.setStateInternal(goog.ui.Component.State.ACTIVE);
@@ -153,6 +149,7 @@ goog.ui.media.Youtube.CSS_CLASS = goog.getCssName('goog-ui-media-youtube');
  * @override
  */
 goog.ui.media.Youtube.prototype.setState = function(c, state, enable) {
+  'use strict';
   var control = /** @type {goog.ui.media.Media} */ (c);
   goog.ui.media.Youtube.superClass_.setState.call(this, control, state, enable);
 
@@ -188,6 +185,7 @@ goog.ui.media.Youtube.prototype.setState = function(c, state, enable) {
  * @override
  */
 goog.ui.media.Youtube.prototype.getCssClass = function() {
+  'use strict';
   return goog.ui.media.Youtube.CSS_CLASS;
 };
 
@@ -207,6 +205,7 @@ goog.ui.media.Youtube.prototype.getCssClass = function() {
  * @final
  */
 goog.ui.media.YoutubeModel = function(videoId, opt_caption, opt_description) {
+  'use strict';
   goog.ui.media.MediaModel.call(
       this, goog.ui.media.YoutubeModel.buildUrl(videoId), opt_caption,
       opt_description, goog.ui.media.MediaModel.MimeType.FLASH);
@@ -290,6 +289,7 @@ goog.ui.media.YoutubeModel.MATCHER_ = new RegExp(
  */
 goog.ui.media.YoutubeModel.newInstance = function(
     youtubeUrl, opt_caption, opt_description) {
+  'use strict';
   var extract = goog.ui.media.YoutubeModel.MATCHER_.exec(youtubeUrl);
   if (extract) {
     var videoId = extract[1] || extract[2] || extract[3];
@@ -309,6 +309,7 @@ goog.ui.media.YoutubeModel.newInstance = function(
  * @return {string} The youtube URL.
  */
 goog.ui.media.YoutubeModel.buildUrl = function(videoId) {
+  'use strict';
   return 'https://www.youtube.com/watch?v=' + goog.string.urlEncode(videoId);
 };
 
@@ -317,9 +318,9 @@ goog.ui.media.YoutubeModel.buildUrl = function(videoId) {
  * A static auxiliary method that builds a static image URL with a preview of
  * the youtube video.
  *
- * NOTE(user): patterned after Gmail's gadgets/youtube,
+ * NOTE(goto): patterned after Gmail's gadgets/youtube,
  *
- * TODO(user): how do I specify the width/height of the resulting image on the
+ * TODO(goto): how do I specify the width/height of the resulting image on the
  * url ? is there an official API for https://ytimg.com ?
  *
  * @param {string} youtubeId The youtube video ID.
@@ -327,6 +328,7 @@ goog.ui.media.YoutubeModel.buildUrl = function(videoId) {
  *     movie.
  */
 goog.ui.media.YoutubeModel.getThumbnailUrl = function(youtubeId) {
+  'use strict';
   return 'https://i.ytimg.com/vi/' + youtubeId + '/default.jpg';
 };
 
@@ -342,6 +344,7 @@ goog.ui.media.YoutubeModel.getThumbnailUrl = function(youtubeId) {
  *     page.
  */
 goog.ui.media.YoutubeModel.getFlashUrl = function(videoId, opt_autoplay) {
+  'use strict';
   // YouTube video ids are extracted from youtube URLs, which are user
   // generated input. The video id is later used to embed a flash object,
   // which is generated through HTML construction.
@@ -360,5 +363,6 @@ goog.ui.media.YoutubeModel.getFlashUrl = function(videoId, opt_autoplay) {
  * @return {string} The Youtube video id.
  */
 goog.ui.media.YoutubeModel.prototype.getVideoId = function() {
+  'use strict';
   return this.videoId_;
 };

@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Utilities for manipulating the browser's Document Object Model
@@ -45,6 +37,7 @@ goog.require('goog.math.Coordinate');
 goog.require('goog.math.Size');
 goog.require('goog.object');
 goog.require('goog.string');
+goog.require('goog.string.Const');
 goog.require('goog.string.Unicode');
 goog.require('goog.userAgent');
 
@@ -855,7 +848,7 @@ goog.dom.createDom_ = function(doc, args) {
   if (attributes) {
     if (typeof attributes === 'string') {
       element.className = attributes;
-    } else if (goog.isArray(attributes)) {
+    } else if (Array.isArray(attributes)) {
       element.className = attributes.join(' ');
     } else {
       goog.dom.setProperties(element, attributes);
@@ -1259,7 +1252,8 @@ goog.dom.insertChildAt = function(parent, child, index) {
   // will append the child at the end of the list of children.
   goog.asserts.assert(
       parent != null, 'goog.dom.insertChildAt expects a non-null parent');
-  parent.insertBefore(child, parent.childNodes[index] || null);
+  parent.insertBefore(
+      /** @type {!Node} */ (child), parent.childNodes[index] || null);
 };
 
 
@@ -1286,6 +1280,26 @@ goog.dom.replaceNode = function(newNode, oldNode) {
   var parent = oldNode.parentNode;
   if (parent) {
     parent.replaceChild(newNode, oldNode);
+  }
+};
+
+
+/**
+ * Replaces child nodes of `target` with child nodes of `source`. This is
+ * roughly equivalent to `target.innerHTML = source.innerHTML` which is not
+ * compatible with Trusted Types.
+ * @param {?Node} target Node to clean and replace its children.
+ * @param {?Node} source Node to get the children from. The nodes will be cloned
+ *     so they will stay in source.
+ */
+goog.dom.copyContents = function(target, source) {
+  goog.asserts.assert(
+      target != null && source != null,
+      'goog.dom.copyContents expects non-null arguments');
+  var childNodes = source.cloneNode(/* deep= */ true).childNodes;
+  goog.dom.removeChildren(target);
+  while (childNodes.length) {
+    target.appendChild(childNodes[0]);
   }
 };
 
@@ -2956,6 +2970,17 @@ goog.dom.DomHelper.prototype.removeNode = goog.dom.removeNode;
  * @param {Node} oldNode Node to replace.
  */
 goog.dom.DomHelper.prototype.replaceNode = goog.dom.replaceNode;
+
+
+/**
+ * Replaces child nodes of `target` with child nodes of `source`. This is
+ * roughly equivalent to `target.innerHTML = source.innerHTML` which is not
+ * compatible with Trusted Types.
+ * @param {?Node} target Node to clean and replace its children.
+ * @param {?Node} source Node to get the children from. The nodes will be cloned
+ *     so they will stay in source.
+ */
+goog.dom.DomHelper.prototype.copyContents = goog.dom.copyContents;
 
 
 /**

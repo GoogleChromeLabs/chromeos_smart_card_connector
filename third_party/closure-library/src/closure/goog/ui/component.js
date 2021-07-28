@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Abstract class for all UI components. This defines the standard
@@ -710,9 +702,11 @@ goog.ui.Component.prototype.render_ = function(
   }
 
   if (opt_parentElement) {
-    opt_parentElement.insertBefore(this.element_, opt_beforeNode || null);
+    opt_parentElement.insertBefore(
+        /** @type {!Node} */ (this.element_), opt_beforeNode || null);
   } else {
-    this.dom_.getDocument().body.appendChild(this.element_);
+    this.dom_.getDocument().body.appendChild(
+        /** @type {!Node} */ (this.element_));
   }
 
   // If this component has a parent component that isn't in the document yet,
@@ -1053,9 +1047,17 @@ goog.ui.Component.prototype.addChildAt = function(child, index, opt_render) {
     // Changing the position of an existing child, move the DOM node (if
     // necessary).
     var contentElement = this.getContentElement();
-    var insertBeforeElement = contentElement.childNodes[index] || null;
-    if (insertBeforeElement != child.getElement()) {
-      contentElement.insertBefore(child.getElement(), insertBeforeElement);
+    var elementAtDestinationIndex = contentElement.childNodes[index] || null;
+    // Don't move the node if it's already in the destination index.
+    if (elementAtDestinationIndex != child.getElement()) {
+      // We remove the node before calculating the new index, otherwise we get
+      // an off-by-one error when we move it to the right of its current index.
+      if (child.getElement().parentElement == contentElement) {
+        contentElement.removeChild(child.getElement());
+      }
+      var insertBeforeElement = contentElement.childNodes[index] || null;
+      contentElement.insertBefore(
+          /** @type {!Node} */ (child.getElement()), insertBeforeElement);
     }
   } else if (opt_render) {
     // If this (parent) component doesn't have a DOM yet, call createDom now
@@ -1239,7 +1241,7 @@ goog.ui.Component.prototype.indexOfChild = function(child) {
  *    or the child component itself.
  * @param {boolean=} opt_unrender If true, calls `exitDocument` on the
  *    removed child component, and detaches its DOM from the document.
- * @return {goog.ui.Component} The removed component, if any.
+ * @return {?goog.ui.Component} The removed component, if any.
  */
 goog.ui.Component.prototype.removeChild = function(child, opt_unrender) {
   if (child) {

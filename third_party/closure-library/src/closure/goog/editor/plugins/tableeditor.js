@@ -1,16 +1,8 @@
-// Copyright 2008 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Plugin that enables table editing.
@@ -40,6 +32,7 @@ goog.require('goog.userAgent');
  * @final
  */
 goog.editor.plugins.TableEditor = function() {
+  'use strict';
   goog.editor.plugins.TableEditor.base(this, 'constructor');
 
   /**
@@ -65,6 +58,7 @@ goog.inherits(goog.editor.plugins.TableEditor, goog.editor.Plugin);
 // TODO(user): remove this once there's a sensible default
 // implementation in the base Plugin.
 goog.editor.plugins.TableEditor.prototype.getTrogClassId = function() {
+  'use strict';
   return String(goog.getUid(this.constructor));
 };
 
@@ -108,12 +102,14 @@ goog.editor.plugins.TableEditor.SUPPORTED_COMMANDS_ =
  */
 goog.editor.plugins.TableEditor.prototype.isSupportedCommand = function(
     command) {
+  'use strict';
   return command in goog.editor.plugins.TableEditor.SUPPORTED_COMMANDS_;
 };
 
 
 /** @override */
 goog.editor.plugins.TableEditor.prototype.enable = function(fieldObject) {
+  'use strict';
   goog.editor.plugins.TableEditor.base(this, 'enable', fieldObject);
 
   // enableObjectResizing is supported only for Gecko.
@@ -133,6 +129,7 @@ goog.editor.plugins.TableEditor.prototype.enable = function(fieldObject) {
  * @private
  */
 goog.editor.plugins.TableEditor.prototype.getCurrentTable_ = function() {
+  'use strict';
   var selectedElement = this.getFieldObject().getRange().getContainer();
   return this.getAncestorTable_(selectedElement);
 };
@@ -145,6 +142,7 @@ goog.editor.plugins.TableEditor.prototype.getCurrentTable_ = function() {
  * @private
  */
 goog.editor.plugins.TableEditor.prototype.getAncestorTable_ = function(node) {
+  'use strict';
   var ancestor =
       goog.dom.getAncestor(node, this.isUserEditableTableBound_, true);
   if (goog.editor.node.isEditable(ancestor)) {
@@ -162,6 +160,7 @@ goog.editor.plugins.TableEditor.prototype.getAncestorTable_ = function(node) {
  */
 goog.editor.plugins.TableEditor.prototype.queryCommandValue = function(
     command) {
+  'use strict';
   if (command == goog.editor.plugins.TableEditor.COMMAND.TABLE) {
     return !!this.getCurrentTable_();
   }
@@ -171,6 +170,7 @@ goog.editor.plugins.TableEditor.prototype.queryCommandValue = function(
 /** @override */
 goog.editor.plugins.TableEditor.prototype.execCommandInternal = function(
     command, opt_arg) {
+  'use strict';
   var result = null;
   // TD/TH in which to place the cursor, if the command destroys the current
   // cursor position.
@@ -292,6 +292,7 @@ goog.editor.plugins.TableEditor.prototype.execCommandInternal = function(
  */
 goog.editor.plugins.TableEditor.prototype.isUserEditableTable_ = function(
     element) {
+  'use strict';
   // Default implementation.
   if (element.tagName != goog.dom.TagName.TABLE) {
     return false;
@@ -299,6 +300,7 @@ goog.editor.plugins.TableEditor.prototype.isUserEditableTable_ = function(
 
   // Check for extra user-editable filters.
   return goog.array.every(this.isTableEditableFunctions_, function(func) {
+    'use strict';
     return func(/** @type {Element} */ (element));
   });
 };
@@ -311,6 +313,7 @@ goog.editor.plugins.TableEditor.prototype.isUserEditableTable_ = function(
  */
 goog.editor.plugins.TableEditor.prototype.addIsTableEditableFunction = function(
     func) {
+  'use strict';
   goog.array.insert(this.isTableEditableFunctions_, func);
 };
 
@@ -327,6 +330,7 @@ goog.editor.plugins.TableEditor.prototype.addIsTableEditableFunction = function(
  */
 goog.editor.plugins.TableEditor.CellSelection_ = function(
     range, getParentTableFunction) {
+  'use strict';
   this.cells_ = [];
 
   // Mozilla lets users select groups of cells, with each cell showing
@@ -335,6 +339,7 @@ goog.editor.plugins.TableEditor.CellSelection_ = function(
   // TODO(user): support this case in range.js
   var selectionContainer = range.getContainerElement();
   var elementInSelection = function(node) {
+    'use strict';
     // TODO(user): revert to the more liberal containsNode(node, true),
     // which will match partially-selected cells. We're using
     // containsNode(node, false) at the moment because otherwise it's
@@ -386,6 +391,7 @@ goog.editor.plugins.TableEditor.CellSelection_ = function(
  * @return {!goog.editor.Table} the table.
  */
 goog.editor.plugins.TableEditor.CellSelection_.prototype.getTable = function() {
+  'use strict';
   return this.parentTable_;
 };
 
@@ -396,6 +402,7 @@ goog.editor.plugins.TableEditor.CellSelection_.prototype.getTable = function() {
  */
 goog.editor.plugins.TableEditor.CellSelection_.prototype.getFirstRowIndex =
     function() {
+  'use strict';
   return this.firstRowIndex_;
 };
 
@@ -406,6 +413,7 @@ goog.editor.plugins.TableEditor.CellSelection_.prototype.getFirstRowIndex =
  */
 goog.editor.plugins.TableEditor.CellSelection_.prototype.getLastRowIndex =
     function() {
+  'use strict';
   return this.lastRowIndex_;
 };
 
@@ -416,6 +424,7 @@ goog.editor.plugins.TableEditor.CellSelection_.prototype.getLastRowIndex =
  */
 goog.editor.plugins.TableEditor.CellSelection_.prototype.getFirstColumnIndex =
     function() {
+  'use strict';
   return this.firstColIndex_;
 };
 
@@ -426,6 +435,7 @@ goog.editor.plugins.TableEditor.CellSelection_.prototype.getFirstColumnIndex =
  */
 goog.editor.plugins.TableEditor.CellSelection_.prototype.getLastColumnIndex =
     function() {
+  'use strict';
   return this.lastColIndex_;
 };
 
@@ -435,6 +445,7 @@ goog.editor.plugins.TableEditor.CellSelection_.prototype.getLastColumnIndex =
  * @return {!Array<Element>} Cells in this selection.
  */
 goog.editor.plugins.TableEditor.CellSelection_.prototype.getCells = function() {
+  'use strict';
   return this.cells_;
 };
 
@@ -446,6 +457,7 @@ goog.editor.plugins.TableEditor.CellSelection_.prototype.getCells = function() {
  */
 goog.editor.plugins.TableEditor.CellSelection_.prototype.isRectangle =
     function() {
+  'use strict';
   // TODO(user): check for missing cells. Right now this returns
   // whether all cells in the selection are in the rectangle, but doesn't
   // verify that every expected cell is present.
@@ -471,6 +483,7 @@ goog.editor.plugins.TableEditor.CellSelection_.prototype.isRectangle =
  */
 goog.editor.plugins.TableEditor.CellSelection_.prototype.containsSingleCell =
     function() {
+  'use strict';
   var cellCount = this.cells_.length;
   return cellCount > 0 && (this.cells_[0] == this.cells_[cellCount - 1]);
 };

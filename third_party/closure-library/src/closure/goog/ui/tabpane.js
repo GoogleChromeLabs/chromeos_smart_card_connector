@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview TabPane widget implementation.
@@ -33,6 +25,7 @@ goog.require('goog.events.EventType');
 goog.require('goog.events.KeyCodes');
 goog.require('goog.html.SafeStyleSheet');
 goog.require('goog.style');
+goog.requireType('goog.events.BrowserEvent');
 
 
 
@@ -100,7 +93,6 @@ goog.ui.TabPane = function(
   this.create_();
 };
 goog.inherits(goog.ui.TabPane, goog.events.EventTarget);
-goog.tagUnsealableClass(goog.ui.TabPane);
 
 
 /**
@@ -293,13 +285,14 @@ goog.ui.TabPane.prototype.addPage = function(page, opt_index) {
     index = opt_index;
     this.pages_.splice(index, 0, page);
     this.elButtonBar_.insertBefore(
-        page.elTitle_, this.elButtonBar_.childNodes[index]);
+        /** @type {!Node} */ (page.elTitle_),
+        this.elButtonBar_.childNodes[index]);
   }
 
   // Append page to end
   else {
     this.pages_.push(page);
-    this.elButtonBar_.appendChild(page.elTitle_);
+    this.elButtonBar_.appendChild(/** @type {!Node} */ (page.elTitle_));
   }
 
   page.setParent_(this, index);
@@ -307,13 +300,12 @@ goog.ui.TabPane.prototype.addPage = function(page, opt_index) {
   // Select first page and fire change event
   if (!this.selected_) {
     this.selected_ = page;
-    this.dispatchEvent(
-        new goog.ui.TabPaneEvent(
-            goog.ui.TabPane.Events.CHANGE, this, this.selected_));
+    this.dispatchEvent(new goog.ui.TabPaneEvent(
+        goog.ui.TabPane.Events.CHANGE, this, this.selected_));
   }
 
   // Move page content to the tab pane and update visibility.
-  this.elContent_.appendChild(page.elContent_);
+  this.elContent_.appendChild(/** @type {!Node} */ (page.elContent_));
   page.setVisible_(page == this.selected_);
 
   // Update index for following pages

@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.module('goog.ui.ComponentTest');
 goog.setTestOnly();
@@ -22,6 +14,7 @@ const NodeType = goog.require('goog.dom.NodeType');
 const PropertyReplacer = goog.require('goog.testing.PropertyReplacer');
 const TagName = goog.require('goog.dom.TagName');
 const dom = goog.require('goog.dom');
+const recordFunction = goog.require('goog.testing.recordFunction');
 const testSuite = goog.require('goog.testing.testSuite');
 
 let component;
@@ -843,6 +836,24 @@ testSuite({
     assertEquals('adcb', component.getChildIds().join(''));
     assertEquals(a, component.getChildAt(0));
     assertEquals(a.getElement(), component.getElement().childNodes[0]);
+
+    // Move child d to the bottom, and check that DOM nodes are in correct
+    // order. Sanity-check that a re-render occurs.
+    const removeChild = recordFunction(Element.prototype.removeChild);
+    propertyReplacer.replace(Element.prototype, 'removeChild', removeChild);
+    component.addChildAt(d, 3);
+    assertEquals('acbd', component.getChildIds().join(''));
+    assertEquals(d, component.getChildAt(3));
+    assertEquals(d.getElement(), component.getElement().childNodes[3]);
+    assertEquals(1, removeChild.getCallCount());
+
+    // Move child d again to the bottom, and check a re-render does not occur
+    removeChild.reset();
+    component.addChildAt(d, 3);
+    assertEquals('acbd', component.getChildIds().join(''));
+    assertEquals(d, component.getChildAt(3));
+    assertEquals(d.getElement(), component.getElement().childNodes[3]);
+    assertEquals(0, removeChild.getCallCount());
   },
 
   testAddChildAfterDomCreatedDoesNotEnterDocument() {

@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Menu where items can be filtered based on user keyboard input.
@@ -39,6 +31,10 @@ goog.require('goog.ui.FilterObservingMenuItem');
 goog.require('goog.ui.Menu');
 goog.require('goog.ui.MenuItem');
 goog.require('goog.userAgent');
+goog.requireType('goog.events.BrowserEvent');
+goog.requireType('goog.events.KeyEvent');
+goog.requireType('goog.ui.Control');
+goog.requireType('goog.ui.MenuRenderer');
 
 
 
@@ -54,7 +50,6 @@ goog.ui.FilteredMenu = function(opt_renderer, opt_domHelper) {
   goog.ui.Menu.call(this, opt_domHelper, opt_renderer);
 };
 goog.inherits(goog.ui.FilteredMenu, goog.ui.Menu);
-goog.tagUnsealableClass(goog.ui.FilteredMenu);
 
 
 /**
@@ -572,26 +567,9 @@ goog.ui.FilteredMenu.prototype.setHighlightedIndex = function(index) {
   }
 
   if (el && goog.dom.contains(contentEl, el)) {
-    var contentTop = goog.userAgent.IE && !goog.userAgent.isVersionOrHigher(8) ?
-        0 :
-        contentEl.offsetTop;
-
-    // IE (tested on IE8) sometime does not scroll enough by about
-    // 1px. So we add 1px to the scroll amount. This still looks ok in
-    // other browser except for the most degenerate case (menu height <=
-    // item height).
-
-    // Scroll down if the highlighted item is below the bottom edge.
-    var diff = (el.offsetTop + el.offsetHeight - contentTop) -
-        (contentEl.clientHeight + contentEl.scrollTop) + 1;
-    contentEl.scrollTop += Math.max(diff, 0);
-
-    // Scroll up if the highlighted item is above the top edge.
-    diff = contentEl.scrollTop - (el.offsetTop - contentTop) + 1;
-    contentEl.scrollTop -= Math.max(diff, 0);
+    goog.style.scrollIntoContainerView(el, contentEl);
   }
 };
-
 
 /**
  * Handles clicks on the filter label. Focuses the input element.

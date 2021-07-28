@@ -1,16 +1,8 @@
-// Copyright 2015 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.provide('goog.net.FetchXmlHttp');
 goog.provide('goog.net.FetchXmlHttpFactory');
@@ -261,7 +253,7 @@ goog.net.FetchXmlHttp.prototype.abort = function() {
        this.inProgress_) &&
       (this.readyState != goog.net.FetchXmlHttp.RequestState.DONE)) {
     this.inProgress_ = false;
-    this.requestDone_(false);
+    this.requestDone_();
   }
 
   this.readyState = goog.net.FetchXmlHttp.RequestState.UNSENT;
@@ -282,6 +274,8 @@ goog.net.FetchXmlHttp.prototype.handleResponse_ = function(response) {
   this.fetchResponse_ = response;
 
   if (!this.responseHeaders_) {
+    this.status = this.fetchResponse_.status;
+    this.statusText = this.fetchResponse_.statusText;
     this.responseHeaders_ = response.headers;
     this.readyState = goog.net.FetchXmlHttp.RequestState.HEADER_RECEIVED;
     this.dispatchCallback_();
@@ -333,7 +327,7 @@ goog.net.FetchXmlHttp.prototype.readInputFromFetch_ = function() {
 
 /**
  * Handles a chunk of data from the fetch response stream reader.
- * @param {!IteratorResult} result
+ * @param {!IIterableResult} result
  * @private
  */
 goog.net.FetchXmlHttp.prototype.handleDataFromStream_ = function(result) {
@@ -351,7 +345,7 @@ goog.net.FetchXmlHttp.prototype.handleDataFromStream_ = function(result) {
   }
 
   if (result.done) {
-    this.requestDone_(true);
+    this.requestDone_();
   } else {
     this.dispatchCallback_();
   }
@@ -373,7 +367,7 @@ goog.net.FetchXmlHttp.prototype.handleResponseText_ = function(responseText) {
     return;
   }
   this.response = this.responseText = responseText;
-  this.requestDone_(true);
+  this.requestDone_();
 };
 
 
@@ -389,7 +383,7 @@ goog.net.FetchXmlHttp.prototype.handleResponseArrayBuffer_ = function(
     return;
   }
   this.response = responseArrayBuffer;
-  this.requestDone_(true);
+  this.requestDone_();
 };
 
 
@@ -405,22 +399,15 @@ goog.net.FetchXmlHttp.prototype.handleSendFailure_ = function(error) {
     // The request was aborted, ignore.
     return;
   }
-  this.requestDone_(true);
+  this.requestDone_();
 };
 
 
 /**
  * Sets the request state to DONE and performs cleanup.
- * @param {boolean} setStatus whether to set the status and statusText fields,
- * this is not necessary when the request is aborted.
  * @private
  */
-goog.net.FetchXmlHttp.prototype.requestDone_ = function(setStatus) {
-  if (setStatus && this.fetchResponse_) {
-    this.status = this.fetchResponse_.status;
-    this.statusText = this.fetchResponse_.statusText;
-  }
-
+goog.net.FetchXmlHttp.prototype.requestDone_ = function() {
   this.readyState = goog.net.FetchXmlHttp.RequestState.DONE;
 
   this.fetchResponse_ = null;
@@ -439,7 +426,7 @@ goog.net.FetchXmlHttp.prototype.setRequestHeader = function(header, value) {
 
 /** @override */
 goog.net.FetchXmlHttp.prototype.getResponseHeader = function(header) {
-  // TODO(b/70808323): This method should return null when the headers are not
+  // TODO(user): This method should return null when the headers are not
   // present or the specified header is missing. The externs need to be fixed.
   if (!this.responseHeaders_) {
     goog.log.warning(
@@ -481,6 +468,13 @@ goog.net.FetchXmlHttp.prototype.setCredentialsMode = function(credentialsMode) {
   this.credentialsMode_ = credentialsMode;
 };
 
+/**
+ * @return {!RequestCredentials|undefined} The credentials mode of the
+ *     Service Worker fetch.
+ */
+goog.net.FetchXmlHttp.prototype.getCredentialsMode = function() {
+  return this.credentialsMode_;
+};
 
 /**
  * @param {!RequestCache} cacheMode The cache mode of the Service Worker fetch.
@@ -499,3 +493,27 @@ goog.net.FetchXmlHttp.prototype.dispatchCallback_ = function() {
     this.onreadystatechange.call(this);
   }
 };
+
+// Polyfill XmlHttpRequest's withCredentials property for specifying whether to
+// include credentials on cross domain requests.
+Object.defineProperty(goog.net.FetchXmlHttp.prototype, 'withCredentials', {
+  get:
+      /**
+       * @this {goog.net.FetchXmlHttp}
+       * @return {boolean} Whether to include credentials in cross domain
+       *     requests.
+       */
+      function() {
+        return this.getCredentialsMode() === 'include';
+      },
+
+  set:
+      /**
+       * @param {boolean} value Whether to include credentials in cross domain
+       *     requests.
+       * @this {goog.net.FetchXmlHttp}
+       **/
+      function(value) {
+        this.setCredentialsMode(value ? 'include' : 'same-origin');
+      }
+});

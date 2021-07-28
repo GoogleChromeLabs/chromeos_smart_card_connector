@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Contains the class which uses native messaging
@@ -23,6 +15,7 @@ goog.provide('goog.net.xpc.NativeMessagingTransport');
 goog.require('goog.Timer');
 goog.require('goog.asserts');
 goog.require('goog.async.Deferred');
+goog.require('goog.dispose');
 goog.require('goog.events');
 goog.require('goog.events.EventHandler');
 goog.require('goog.log');
@@ -30,6 +23,9 @@ goog.require('goog.net.xpc');
 goog.require('goog.net.xpc.CrossPageChannelRole');
 goog.require('goog.net.xpc.Transport');
 goog.require('goog.net.xpc.TransportTypes');
+goog.requireType('goog.dom.DomHelper');
+goog.requireType('goog.events.BrowserEvent');
+goog.requireType('goog.net.xpc.CrossPageChannel');
 
 
 
@@ -315,7 +311,8 @@ goog.net.xpc.NativeMessagingTransport.messageReceived_ = function(msgEvt) {
   //  - channel was created in a different namespace
   //  - message was sent to the wrong window
   //  - channel has become stale (e.g. caching iframes and back clicks)
-  var channel = goog.net.xpc.channels[channelName];
+  var allChannels = goog.module.get('goog.net.xpc.CrossPageChannel').channels;
+  var channel = allChannels[channelName];
   if (channel) {
     channel.xpcDeliver(
         service, payload,
@@ -327,8 +324,8 @@ goog.net.xpc.NativeMessagingTransport.messageReceived_ = function(msgEvt) {
       goog.net.xpc.NativeMessagingTransport.parseTransportPayload_(payload)[0];
 
   // Check if there are any stale channel names that can be updated.
-  for (var staleChannelName in goog.net.xpc.channels) {
-    var staleChannel = goog.net.xpc.channels[staleChannelName];
+  for (var staleChannelName in allChannels) {
+    var staleChannel = allChannels[staleChannelName];
     if (staleChannel.getRole() == goog.net.xpc.CrossPageChannelRole.INNER &&
         !staleChannel.isConnected() &&
         service == goog.net.xpc.TRANSPORT_SERVICE_ &&

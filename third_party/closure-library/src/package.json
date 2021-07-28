@@ -1,7 +1,7 @@
 {
   "name": "google-closure-library",
   "description": "Google's common JavaScript library",
-  "version": "v20191027.0.1",
+  "version": "20200830.0.0",
   "repository": {
     "type": "git",
     "url": "https://github.com/google/closure-library.git"
@@ -20,10 +20,17 @@
   },
   "homepage": "https://developers.google.com/closure/library/",
   "devDependencies": {
+    "http-server": "^0.12.1",
     "promise": "^7.0.4",
-    "protractor": "^2.1.0"
+    "promises-aplus-tests": "^2.1.2",
+    "protractor": "^2.1.0",
+    "generate_closure_unit_tests": "file:./closure/bin/generate_closure_unit_tests/"
   },
-  "dependencies": {
-    "promises-aplus-tests": "^2.1.2"
+  "dependencies": {},
+  "scripts": {
+    "gen_all_tests": "npx generate_closure_unit_tests --base=closure/goog/base.js --recursive ./closure/goog/ --overwrite",
+    "preserve_tests": "npm run gen_all_tests",
+    "serve_tests": "npx http-server -o allTests.html",
+    "serve_demos": "npx http-server -o closure/goog/demos/index.html"
   }
 }

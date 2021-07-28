@@ -1,16 +1,8 @@
-// Copyright 2017 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.module('goog.i18n.DateIntervalFormatTest');
 goog.setTestOnly('goog.i18n.DateIntervalFormatTest');
@@ -61,29 +53,33 @@ const localeSymbols = {
   }
 };
 
-/**
- * @param {string} locale
- * @param {!Array<number>} firstDate
- * @param {!Array<number>} secondDate
- * @param {number|!dateIntervalSymbols.DateIntervalPatternMap} pattern
- * @param {string} expected
- * @constructor
- */
-const Data = function(locale, firstDate, secondDate, pattern, expected) {
-  this.locale = locale;
-  this.firstDate = firstDate;
-  this.secondDate = secondDate;
-  this.pattern = pattern;
-  this.expected = expected;
+/** @unrestricted */
+const Data = class {
+  /**
+   * @param {string} locale
+   * @param {!Array<number>} firstDate
+   * @param {!Array<number>} secondDate
+   * @param {number|!dateIntervalSymbols.DateIntervalPatternMap} pattern
+   * @param {string} expected
+   */
+  constructor(locale, firstDate, secondDate, pattern, expected) {
+    this.locale = locale;
+    this.firstDate = firstDate;
+    this.secondDate = secondDate;
+    this.pattern = pattern;
+    this.expected = expected;
+  }
+
+  /**
+   * @return {string} Error description.
+   */
+  getErrorDescription() {
+    return 'Error for locale:' + this.locale + ' firstDate:\'' +
+        this.firstDate + '\' secondDate:\'' + this.secondDate + '\'';
+  }
 };
 
-/**
- * @return {string} Error description.
- */
-Data.prototype.getErrorDescription = function() {
-  return 'Error for locale:' + this.locale + ' firstDate:\'' + this.firstDate +
-      '\' secondDate:\'' + this.secondDate + '\'';
-};
+
 
 // clang-format off
 const formatTestData = [

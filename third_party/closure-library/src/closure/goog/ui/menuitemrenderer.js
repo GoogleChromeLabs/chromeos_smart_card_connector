@@ -1,16 +1,8 @@
-// Copyright 2008 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Renderer for {@link goog.ui.MenuItem}s.
@@ -25,6 +17,7 @@ goog.require('goog.dom.TagName');
 goog.require('goog.dom.classlist');
 goog.require('goog.ui.Component');
 goog.require('goog.ui.ControlRenderer');
+goog.requireType('goog.ui.ControlContent');
 
 
 
@@ -114,7 +107,7 @@ goog.ui.MenuItemRenderer.prototype.getAriaRole = function() {
  * Overrides {@link goog.ui.ControlRenderer#createDom} by adding extra markup
  * and stying to the menu item's element if it is selectable or checkable.
  * @param {goog.ui.Control} item Menu item to render.
- * @return {Element} Root element for the item.
+ * @return {!Element} Root element for the item.
  * @override
  */
 goog.ui.MenuItemRenderer.prototype.createDom = function(item) {
@@ -147,7 +140,8 @@ goog.ui.MenuItemRenderer.prototype.decorate = function(item, element) {
   goog.asserts.assert(element);
   if (!this.hasContentStructure(element)) {
     element.appendChild(
-        this.createContent(element.childNodes, item.getDomHelper()));
+        /** @type {!Node} */ (
+            this.createContent(element.childNodes, item.getDomHelper())));
   }
   if (goog.dom.classlist.contains(element, goog.getCssName('goog-option'))) {
     (/** @type {goog.ui.MenuItem} */ (item)).setCheckable(true);
@@ -202,7 +196,7 @@ goog.ui.MenuItemRenderer.prototype.hasContentStructure = function(element) {
  * containing the menu item's contents.
  * @param {goog.ui.ControlContent} content Menu item contents.
  * @param {goog.dom.DomHelper} dom DOM helper for document interaction.
- * @return {Element} Menu item content element.
+ * @return {!Element} Menu item content element.
  * @protected
  */
 goog.ui.MenuItemRenderer.prototype.createContent = function(content, dom) {
@@ -288,7 +282,8 @@ goog.ui.MenuItemRenderer.prototype.setEnableCheckBoxStructure = function(
           contentElement.firstChild || null);
     } else {
       // Remove checkbox structure.
-      contentElement.removeChild(contentElement.firstChild);
+      contentElement.removeChild(
+          /** @type {!Node} */ (contentElement.firstChild));
     }
   }
 };

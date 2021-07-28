@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Number format/parse library with locale support.
@@ -52,6 +44,7 @@ goog.require('goog.string');
  */
 goog.i18n.NumberFormat = function(
     pattern, opt_currency, opt_currencyStyle, opt_symbols) {
+  'use strict';
   if (opt_currency && !goog.i18n.currency.isValid(opt_currency)) {
     throw new TypeError('Currency must be valid ISO code');
   }
@@ -194,6 +187,7 @@ goog.i18n.NumberFormat.enforceAsciiDigits_ = false;
  *     enforced.
  */
 goog.i18n.NumberFormat.setEnforceAsciiDigits = function(doEnforce) {
+  'use strict';
   goog.i18n.NumberFormat.enforceAsciiDigits_ = doEnforce;
 };
 
@@ -203,6 +197,7 @@ goog.i18n.NumberFormat.setEnforceAsciiDigits = function(doEnforce) {
  * @return {boolean} If Ascii digits is enforced.
  */
 goog.i18n.NumberFormat.isEnforceAsciiDigits = function() {
+  'use strict';
   return goog.i18n.NumberFormat.enforceAsciiDigits_;
 };
 
@@ -213,6 +208,7 @@ goog.i18n.NumberFormat.isEnforceAsciiDigits = function() {
  * @private
  */
 goog.i18n.NumberFormat.prototype.getNumberFormatSymbols_ = function() {
+  'use strict';
   return this.overrideNumberFormatSymbols_ ||
       (goog.i18n.NumberFormat.enforceAsciiDigits_ ?
            goog.i18n.NumberFormatSymbols_u_nu_latn :
@@ -226,6 +222,7 @@ goog.i18n.NumberFormat.prototype.getNumberFormatSymbols_ = function() {
  * @private
  */
 goog.i18n.NumberFormat.prototype.getCurrencyCode_ = function() {
+  'use strict';
   return this.intlCurrencyCode_ ||
       this.getNumberFormatSymbols_().DEF_CURRENCY_CODE;
 };
@@ -237,6 +234,7 @@ goog.i18n.NumberFormat.prototype.getCurrencyCode_ = function() {
  * @return {!goog.i18n.NumberFormat} Reference to this NumberFormat object.
  */
 goog.i18n.NumberFormat.prototype.setMinimumFractionDigits = function(min) {
+  'use strict';
   if (this.significantDigits_ > 0 && min > 0) {
     throw new Error(
         'Can\'t combine significant digits and minimum fraction digits');
@@ -251,6 +249,7 @@ goog.i18n.NumberFormat.prototype.setMinimumFractionDigits = function(min) {
  * @return {number} The number of minimum fraction digits.
  */
 goog.i18n.NumberFormat.prototype.getMinimumFractionDigits = function() {
+  'use strict';
   return this.minimumFractionDigits_;
 };
 
@@ -261,6 +260,7 @@ goog.i18n.NumberFormat.prototype.getMinimumFractionDigits = function() {
  * @return {!goog.i18n.NumberFormat} Reference to this NumberFormat object.
  */
 goog.i18n.NumberFormat.prototype.setMaximumFractionDigits = function(max) {
+  'use strict';
   if (max > 308) {
     // Math.pow(10, 309) becomes Infinity which breaks the logic in this class.
     throw new Error('Unsupported maximum fraction digits: ' + max);
@@ -275,6 +275,7 @@ goog.i18n.NumberFormat.prototype.setMaximumFractionDigits = function(max) {
  * @return {number} The number of maximum fraction digits.
  */
 goog.i18n.NumberFormat.prototype.getMaximumFractionDigits = function() {
+  'use strict';
   return this.maximumFractionDigits_;
 };
 
@@ -287,6 +288,7 @@ goog.i18n.NumberFormat.prototype.getMaximumFractionDigits = function() {
  * @return {!goog.i18n.NumberFormat} Reference to this NumberFormat object.
  */
 goog.i18n.NumberFormat.prototype.setSignificantDigits = function(number) {
+  'use strict';
   if (this.minimumFractionDigits_ > 0 && number >= 0) {
     throw new Error(
         'Can\'t combine significant digits and minimum fraction digits');
@@ -301,6 +303,7 @@ goog.i18n.NumberFormat.prototype.setSignificantDigits = function(number) {
  * @return {number} The number of significant digits to include.
  */
 goog.i18n.NumberFormat.prototype.getSignificantDigits = function() {
+  'use strict';
   return this.significantDigits_;
 };
 
@@ -314,6 +317,7 @@ goog.i18n.NumberFormat.prototype.getSignificantDigits = function() {
  */
 goog.i18n.NumberFormat.prototype.setShowTrailingZeros = function(
     showTrailingZeros) {
+  'use strict';
   this.showTrailingZeros_ = showTrailingZeros;
   return this;
 };
@@ -338,6 +342,7 @@ goog.i18n.NumberFormat.prototype.setShowTrailingZeros = function(
  */
 goog.i18n.NumberFormat.prototype.setBaseFormatting = function(
     baseFormattingNumber) {
+  'use strict';
   goog.asserts.assert(
       baseFormattingNumber === null || isFinite(baseFormattingNumber));
   this.baseFormattingNumber_ = baseFormattingNumber;
@@ -351,6 +356,7 @@ goog.i18n.NumberFormat.prototype.setBaseFormatting = function(
  * @return {?number}
  */
 goog.i18n.NumberFormat.prototype.getBaseFormatting = function() {
+  'use strict';
   return this.baseFormattingNumber_;
 };
 
@@ -362,6 +368,7 @@ goog.i18n.NumberFormat.prototype.getBaseFormatting = function() {
  * @private
  */
 goog.i18n.NumberFormat.prototype.applyPattern_ = function(pattern) {
+  'use strict';
   this.pattern_ = pattern.replace(/ /g, '\u00a0');
   var pos = [0];
 
@@ -394,6 +401,7 @@ goog.i18n.NumberFormat.prototype.applyPattern_ = function(pattern) {
  * @private
  */
 goog.i18n.NumberFormat.prototype.applyStandardPattern_ = function(patternType) {
+  'use strict';
   switch (patternType) {
     case goog.i18n.NumberFormat.Format.DECIMAL:
       this.applyPattern_(this.getNumberFormatSymbols_().DECIMAL_PATTERN);
@@ -428,6 +436,7 @@ goog.i18n.NumberFormat.prototype.applyStandardPattern_ = function(patternType) {
  * @private
  */
 goog.i18n.NumberFormat.prototype.applyCompactStyle_ = function(style) {
+  'use strict';
   this.compactStyle_ = style;
   this.applyPattern_(this.getNumberFormatSymbols_().DECIMAL_PATTERN);
   this.setMinimumFractionDigits(0);
@@ -450,6 +459,7 @@ goog.i18n.NumberFormat.prototype.applyCompactStyle_ = function(style) {
  *     parsed.
  */
 goog.i18n.NumberFormat.prototype.parse = function(text, opt_pos) {
+  'use strict';
   var pos = opt_pos || [0];
 
   if (this.compactStyle_ != goog.i18n.NumberFormat.CompactStyle.NONE) {
@@ -516,6 +526,7 @@ goog.i18n.NumberFormat.prototype.parse = function(text, opt_pos) {
  * @private
  */
 goog.i18n.NumberFormat.prototype.parseNumber_ = function(text, pos) {
+  'use strict';
   var sawDecimal = false;
   var sawExponent = false;
   var sawDigit = false;
@@ -619,6 +630,7 @@ goog.i18n.NumberFormat.prototype.parseNumber_ = function(text, pos) {
  * @return {string} The formatted number string.
  */
 goog.i18n.NumberFormat.prototype.format = function(number) {
+  'use strict';
   if (isNaN(number)) {
     return this.getNumberFormatSymbols_().NAN;
   }
@@ -630,13 +642,24 @@ goog.i18n.NumberFormat.prototype.format = function(number) {
   var unit = this.getUnitAfterRounding_(baseFormattingNumber, number);
   number = goog.i18n.NumberFormat.decimalShift_(number, -unit.divisorBase);
 
-  parts.push(unit.prefix);
-
   // in icu code, it is commented that certain computation need to keep the
   // negative sign for 0.
   var isNegative = number < 0.0 || number == 0.0 && 1 / number < 0.0;
 
-  parts.push(isNegative ? this.negativePrefix_ : this.positivePrefix_);
+  if (isNegative) {
+    // Also handle compact number formats
+    if (unit.negative_prefix) {
+      // Compact form includes the negative sign
+      parts.push(unit.negative_prefix);
+    } else {
+      parts.push(unit.prefix);
+      parts.push(this.negativePrefix_);
+    }
+  } else {
+    parts.push(unit.prefix);
+    parts.push(this.positivePrefix_);
+  }
+
 
   if (!isFinite(number)) {
     parts.push(this.getNumberFormatSymbols_().INFINITY);
@@ -650,9 +673,19 @@ goog.i18n.NumberFormat.prototype.format = function(number) {
         this.subformatFixed_(number, this.minimumIntegerDigits_, parts);
   }
 
-  parts.push(isNegative ? this.negativeSuffix_ : this.positiveSuffix_);
-  parts.push(unit.suffix);
-
+  if (isNegative) {
+    // Also handle compact number formats
+    if (unit.negative_suffix) {
+      // Compact form includes the negative sign
+      parts.push(unit.negative_suffix);
+    } else {
+      parts.push(unit.suffix);
+      parts.push(this.negativeSuffix_);
+    }
+  } else {
+    parts.push(unit.suffix);
+    parts.push(this.positiveSuffix_);
+  }
   return parts.join('');
 };
 
@@ -666,6 +699,7 @@ goog.i18n.NumberFormat.prototype.format = function(number) {
  * @private
  */
 goog.i18n.NumberFormat.prototype.roundNumber_ = function(number) {
+  'use strict';
   var shift = goog.i18n.NumberFormat.decimalShift_;
 
   var shiftedNumber = shift(number, this.maximumFractionDigits_);
@@ -724,6 +758,7 @@ goog.i18n.NumberFormat.prototype.roundNumber_ = function(number) {
  */
 goog.i18n.NumberFormat.prototype.formatNumberGroupingRepeatingDigitsParts_ =
     function(parts, zeroCode, intPart, groupingArray, repeatedDigitLen) {
+  'use strict';
   // Keep track of how much has been completed on the non repeated groups
   var nonRepeatedGroupCompleteCount = 0;
   var currentGroupSizeIndex = 0;
@@ -804,6 +839,7 @@ goog.i18n.NumberFormat.prototype.formatNumberGroupingRepeatingDigitsParts_ =
  */
 goog.i18n.NumberFormat.prototype.formatNumberGroupingNonRepeatingDigitsParts_ =
     function(parts, zeroCode, intPart, groupingArray) {
+  'use strict';
   // Keep track of how much has been completed on the non repeated groups
   var grouping = this.getNumberFormatSymbols_().GROUP_SEP;
   var currentGroupSizeIndex;
@@ -849,6 +885,7 @@ goog.i18n.NumberFormat.prototype.formatNumberGroupingNonRepeatingDigitsParts_ =
  */
 goog.i18n.NumberFormat.prototype.subformatFixed_ = function(
     number, minIntDigits, parts) {
+  'use strict';
   if (this.minimumFractionDigits_ > this.maximumFractionDigits_) {
     throw new Error('Min value must be less than max value');
   }
@@ -966,6 +1003,7 @@ goog.i18n.NumberFormat.prototype.subformatFixed_ = function(
  * @private
  */
 goog.i18n.NumberFormat.prototype.addExponentPart_ = function(exponent, parts) {
+  'use strict';
   parts.push(this.getNumberFormatSymbols_().EXP_SYMBOL);
 
   if (exponent < 0) {
@@ -992,6 +1030,7 @@ goog.i18n.NumberFormat.prototype.addExponentPart_ = function(exponent, parts) {
  * @private
  */
 goog.i18n.NumberFormat.prototype.getMantissa_ = function(value, exponent) {
+  'use strict';
   return goog.i18n.NumberFormat.decimalShift_(value, -exponent);
 };
 
@@ -1005,6 +1044,7 @@ goog.i18n.NumberFormat.prototype.getMantissa_ = function(value, exponent) {
  */
 goog.i18n.NumberFormat.prototype.subformatExponential_ = function(
     number, parts) {
+  'use strict';
   if (number == 0.0) {
     this.subformatFixed_(number, this.minimumIntegerDigits_, parts);
     this.addExponentPart_(0, parts);
@@ -1056,6 +1096,7 @@ goog.i18n.NumberFormat.prototype.subformatExponential_ = function(
  * @private
  */
 goog.i18n.NumberFormat.prototype.getDigit_ = function(ch) {
+  'use strict';
   var code = ch.charCodeAt(0);
   // between '0' to '9'
   if (48 <= code && code < 58) {
@@ -1170,6 +1211,7 @@ goog.i18n.NumberFormat.QUOTE_ = '\'';
  * @private
  */
 goog.i18n.NumberFormat.prototype.parseAffix_ = function(pattern, pos) {
+  'use strict';
   var affix = '';
   var inQuote = false;
   var len = pattern.length;
@@ -1263,6 +1305,7 @@ goog.i18n.NumberFormat.prototype.parseAffix_ = function(pattern, pos) {
  * @private
  */
 goog.i18n.NumberFormat.prototype.parseTrunk_ = function(pattern, pos) {
+  'use strict';
   var decimalPos = -1;
   var digitLeftCount = 0;
   var zeroDigitCount = 0;
@@ -1394,9 +1437,11 @@ goog.i18n.NumberFormat.prototype.parseTrunk_ = function(pattern, pos) {
 /**
  * Alias for the compact format 'unit' object.
  * @typedef {{
+ *     divisorBase: number,
+ *     negative_prefix: string,
+ *     negative_suffix: string,
  *     prefix: string,
- *     suffix: string,
- *     divisorBase: number
+ *     suffix: string
  * }}
  */
 goog.i18n.NumberFormat.CompactNumberUnit;
@@ -1407,9 +1452,11 @@ goog.i18n.NumberFormat.CompactNumberUnit;
  * @private {!goog.i18n.NumberFormat.CompactNumberUnit}
  */
 goog.i18n.NumberFormat.NULL_UNIT_ = {
+  divisorBase: 0,
+  negative_prefix: '',
+  negative_suffix: '',
   prefix: '',
-  suffix: '',
-  divisorBase: 0
+  suffix: ''
 };
 
 
@@ -1422,6 +1469,7 @@ goog.i18n.NumberFormat.NULL_UNIT_ = {
  * @private
  */
 goog.i18n.NumberFormat.prototype.getUnitFor_ = function(base, plurality) {
+  'use strict';
   var table = this.compactStyle_ == goog.i18n.NumberFormat.CompactStyle.SHORT ?
       goog.i18n.CompactNumberFormatSymbols.COMPACT_DECIMAL_SHORT_PATTERN :
       goog.i18n.CompactNumberFormatSymbols.COMPACT_DECIMAL_LONG_PATTERN;
@@ -1447,6 +1495,23 @@ goog.i18n.NumberFormat.prototype.getUnitFor_ = function(base, plurality) {
     }
 
     var pattern = patterns[plurality];
+
+    // Return pattern for negative formatting, if present
+    var neg_prefix = '';
+    var neg_suffix = '';
+    var index_of_neg_part = pattern.indexOf(';');
+    var neg_pattern = null;
+    if (index_of_neg_part >= 0) {
+      // Trim positive pattern
+      pattern = pattern.substring(0, index_of_neg_part);
+      neg_pattern = pattern.substring(index_of_neg_part + 1);
+      if (neg_pattern) {
+        var neg_parts = /([^0]*)(0+)(.*)/.exec(neg_pattern);
+        neg_prefix = neg_parts[1];
+        neg_suffix = neg_parts[3];
+      }
+    }
+
     if (!pattern || pattern == '0') {
       return goog.i18n.NumberFormat.NULL_UNIT_;
     }
@@ -1457,9 +1522,11 @@ goog.i18n.NumberFormat.prototype.getUnitFor_ = function(base, plurality) {
     }
 
     return {
+      divisorBase: (previousNonNullBase + 1) - (parts[2].length - 1),
+      negative_prefix: neg_prefix,
+      negative_suffix: neg_suffix,
       prefix: parts[1],
-      suffix: parts[3],
-      divisorBase: (previousNonNullBase + 1) - (parts[2].length - 1)
+      suffix: parts[3]
     };
   }
 };
@@ -1477,6 +1544,7 @@ goog.i18n.NumberFormat.prototype.getUnitFor_ = function(base, plurality) {
  */
 goog.i18n.NumberFormat.prototype.getUnitAfterRounding_ = function(
     formattingNumber, pluralityNumber) {
+  'use strict';
   if (this.compactStyle_ == goog.i18n.NumberFormat.CompactStyle.NONE) {
     return goog.i18n.NumberFormat.NULL_UNIT_;
   }
@@ -1515,6 +1583,7 @@ goog.i18n.NumberFormat.prototype.getUnitAfterRounding_ = function(
  * @private
  */
 goog.i18n.NumberFormat.prototype.intLog10_ = function(number) {
+  'use strict';
   // Handle infinity.
   if (!isFinite(number)) {
     return number > 0 ? number : 0;
@@ -1545,6 +1614,7 @@ goog.i18n.NumberFormat.prototype.intLog10_ = function(number) {
  * @private
  */
 goog.i18n.NumberFormat.decimalShift_ = function(number, digitCount) {
+  'use strict';
   goog.asserts.assert(
       digitCount % 1 == 0, 'Cannot shift by fractional digits "%s".',
       digitCount);
@@ -1580,6 +1650,7 @@ goog.i18n.NumberFormat.decimalShift_ = function(number, digitCount) {
  * @private
  */
 goog.i18n.NumberFormat.decimalRound_ = function(number, decimalCount) {
+  'use strict';
   goog.asserts.assert(
       decimalCount % 1 == 0, 'Cannot round to fractional digits "%s".',
       decimalCount);
@@ -1605,6 +1676,7 @@ goog.i18n.NumberFormat.decimalRound_ = function(number, decimalCount) {
  */
 goog.i18n.NumberFormat.prototype.roundToSignificantDigits_ = function(
     number, significantDigits, scale) {
+  'use strict';
   if (!number) return number;
 
   var digits = this.intLog10_(number);
@@ -1626,6 +1698,7 @@ goog.i18n.NumberFormat.prototype.roundToSignificantDigits_ = function(
  * @private
  */
 goog.i18n.NumberFormat.prototype.pluralForm_ = function(quantity) {
+  'use strict';
   /* TODO: Implement */
   return 'other';
 };
@@ -1640,6 +1713,7 @@ goog.i18n.NumberFormat.prototype.pluralForm_ = function(quantity) {
  * @return {boolean} true if currency is before value.
  */
 goog.i18n.NumberFormat.prototype.isCurrencyCodeBeforeValue = function() {
+  'use strict';
   var posCurrSymbol = this.pattern_.indexOf('\u00A4');  // '¤' Currency sign
   var posPound = this.pattern_.indexOf('#');
   var posZero = this.pattern_.indexOf('0');

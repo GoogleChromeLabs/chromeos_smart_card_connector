@@ -62,10 +62,10 @@ class DepsTreeTestCase(unittest.TestCase):
       source = deps_list[i]
       previous_provides = _GetProvides(deps_list[:i])
       for require in source.requires:
-        self.assertTrue(
-            require in previous_provides,
-            'Namespace "%s" not provided before required by %s' % (
-                require, source))
+        self.assertIn(
+            require, previous_provides,
+            'Namespace "%s" not provided before required by %s' %
+            (require, source))
 
   def testSimpleDepsTree(self):
     a = MockSource(['A'], ['B', 'C'])
@@ -98,10 +98,10 @@ class DepsTreeTestCase(unittest.TestCase):
     b = MockSource(['B'], ['C'])
     c = MockSource(['C'], ['D'])  # But there is no D.
 
-    def MakeDepsTree():
-      return depstree.DepsTree([a, b, c])
+    tree = depstree.DepsTree([a, b, c])
 
-    self.assertRaises(depstree.NamespaceNotFoundError, MakeDepsTree)
+    self.assertRaises(depstree.NamespaceNotFoundError,
+                      tree.GetDependencies, 'A')
 
   def testDepsForMissingNamespace(self):
     a = MockSource(['A'], ['B'])

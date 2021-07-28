@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Definition of the AttachableMenu class.
@@ -32,6 +24,7 @@ goog.require('goog.ui.ItemEvent');
 goog.require('goog.ui.MenuBase');
 goog.require('goog.ui.PopupBase');
 goog.require('goog.userAgent');
+goog.requireType('goog.events.KeyEvent');
 
 
 
@@ -56,7 +49,6 @@ goog.ui.AttachableMenu = function(opt_element) {
   goog.ui.MenuBase.call(this, opt_element);
 };
 goog.inherits(goog.ui.AttachableMenu, goog.ui.MenuBase);
-goog.tagUnsealableClass(goog.ui.AttachableMenu);
 
 
 /**
@@ -121,7 +113,7 @@ goog.ui.AttachableMenu.prototype.setItemClassName = function(name) {
 
 /**
  * Sets the class name to use for selected menu items
- * todo(user) - reevaluate if we can simulate pseudo classes in IE
+ * todo(jonp) - reevaluate if we can simulate pseudo classes in IE
  *
  * @return {string} The class name to use for selected items.
  */
@@ -132,7 +124,7 @@ goog.ui.AttachableMenu.prototype.getSelectedItemClassName = function() {
 
 /**
  * Sets the class name to use for selected menu items
- * todo(user) - reevaluate if we can simulate pseudo classes in IE
+ * todo(jonp) - reevaluate if we can simulate pseudo classes in IE
  *
  * @param {string} name The class name to use for selected items.
  */

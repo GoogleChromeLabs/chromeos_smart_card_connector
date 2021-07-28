@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Browser history stack management class.
@@ -181,6 +173,7 @@ goog.require('goog.memoize');
 goog.require('goog.string');
 goog.require('goog.string.Const');
 goog.require('goog.userAgent');
+goog.requireType('goog.events.BrowserEvent');
 
 
 
@@ -502,7 +495,7 @@ goog.History.prototype.setEnabled = function(enable) {
       this.eventHandler_.listen(this.window_, 'pageshow', this.onShow_);
     }
 
-    // TODO(user): make HTML5 and invisible history work by listening to the
+    // TODO(goto): make HTML5 and invisible history work by listening to the
     // iframe # changes instead of the window.
     if (goog.History.isOnHashChangeSupported() && this.userVisible_) {
       this.eventHandler_.listen(
@@ -829,7 +822,7 @@ goog.History.prototype.getIframeToken_ = function() {
         hash = goog.string.urlDecode(this.getLocationFragment_(contentWindow));
       } catch (e) {
         // An exception will be thrown if the location of the iframe can not be
-        // accessed (permission denied). This can occur in FF if the the server
+        // accessed (permission denied). This can occur in FF if the server
         // that is hosting the blank html page goes down and then a new history
         // token is set. The iframe will navigate to an error page, and the
         // location of the iframe can no longer be accessed. Due to the polling,

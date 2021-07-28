@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Definition of various formatters for logging. Please minimize
@@ -29,7 +21,7 @@ goog.require('goog.html.SafeHtml');
 goog.require('goog.html.SafeUrl');
 goog.require('goog.html.uncheckedconversions');
 goog.require('goog.string.Const');
-
+goog.requireType('goog.log.LogRecord');
 
 
 /**
@@ -96,7 +88,7 @@ goog.debug.Formatter.prototype.showSeverityLevel = false;
 
 /**
  * Formats a record.
- * @param {goog.debug.LogRecord} logRecord the logRecord to format.
+ * @param {?goog.log.LogRecord} logRecord the logRecord to format.
  * @return {string} The formatted string.
  */
 goog.debug.Formatter.prototype.formatRecord = goog.abstractMethod;
@@ -104,7 +96,7 @@ goog.debug.Formatter.prototype.formatRecord = goog.abstractMethod;
 
 /**
  * Formats a record as SafeHtml.
- * @param {goog.debug.LogRecord} logRecord the logRecord to format.
+ * @param {?goog.log.LogRecord} logRecord the logRecord to format.
  * @return {!goog.html.SafeHtml} The formatted string as SafeHtml.
  */
 goog.debug.Formatter.prototype.formatRecordAsHtml = goog.abstractMethod;
@@ -140,7 +132,7 @@ goog.debug.Formatter.prototype.resetRelativeTimeStart = function() {
 
 /**
  * Returns a string for the time/date of the LogRecord.
- * @param {goog.debug.LogRecord} logRecord The record to get a time stamp for.
+ * @param {?goog.log.LogRecord} logRecord The record to get a time stamp for.
  * @return {string} A string representation of the time/date of the LogRecord.
  * @private
  */
@@ -176,7 +168,7 @@ goog.debug.Formatter.getTwoDigitString_ = function(n) {
  * Returns a string for the number of seconds relative to the start time.
  * Prepads with spaces so that anything less than 1000 seconds takes up the
  * same number of characters for better formatting.
- * @param {goog.debug.LogRecord} logRecord The log to compare time to.
+ * @param {?goog.log.LogRecord} logRecord The log to compare time to.
  * @param {number} relativeTimeStart The start time to compare to.
  * @return {string} The number of seconds of the LogRecord relative to the
  *     start time.
@@ -301,7 +293,7 @@ goog.debug.HtmlFormatter.prototype.showExceptionText = true;
 
 /**
  * Formats a record
- * @param {goog.debug.LogRecord} logRecord the logRecord to format.
+ * @param {?goog.log.LogRecord} logRecord the logRecord to format.
  * @return {string} The formatted string as html.
  * @override
  */
@@ -316,7 +308,7 @@ goog.debug.HtmlFormatter.prototype.formatRecord = function(logRecord) {
 
 /**
  * Formats a record.
- * @param {goog.debug.LogRecord} logRecord the logRecord to format.
+ * @param {?goog.log.LogRecord} logRecord the logRecord to format.
  * @return {!goog.html.SafeHtml} The formatted string as SafeHtml.
  * @override
  */
@@ -410,7 +402,7 @@ goog.inherits(goog.debug.TextFormatter, goog.debug.Formatter);
 
 /**
  * Formats a record as text
- * @param {goog.debug.LogRecord} logRecord the logRecord to format.
+ * @param {?goog.log.LogRecord} logRecord the logRecord to format.
  * @return {string} The formatted string.
  * @override
  */
@@ -451,7 +443,7 @@ goog.debug.TextFormatter.prototype.formatRecord = function(logRecord) {
 
 /**
  * Formats a record as text
- * @param {goog.debug.LogRecord} logRecord the logRecord to format.
+ * @param {?goog.log.LogRecord} logRecord the logRecord to format.
  * @return {!goog.html.SafeHtml} The formatted string as SafeHtml. This is
  *     just an HTML-escaped version of the text obtained from formatRecord().
  * @override

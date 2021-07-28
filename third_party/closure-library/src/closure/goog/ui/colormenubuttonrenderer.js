@@ -1,16 +1,8 @@
-// Copyright 2008 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Renderer for {@link goog.ui.ColorMenuButton}s.
@@ -23,7 +15,9 @@ goog.require('goog.color');
 goog.require('goog.dom.TagName');
 goog.require('goog.dom.classlist');
 goog.require('goog.ui.MenuButtonRenderer');
-goog.require('goog.userAgent');
+goog.requireType('goog.dom.DomHelper');
+goog.requireType('goog.ui.Control');
+goog.requireType('goog.ui.ControlContent');
 
 
 
@@ -63,7 +57,7 @@ goog.ui.ColorMenuButtonRenderer.CSS_CLASS =
  * background.
  * @param {goog.ui.ControlContent} content Text caption or DOM structure.
  * @param {goog.dom.DomHelper} dom DOM helper, used for document interaction.
- * @return {Element} Caption element.
+ * @return {!Element} Caption element.
  * @override
  */
 goog.ui.ColorMenuButtonRenderer.prototype.createCaption = function(
@@ -121,10 +115,7 @@ goog.ui.ColorMenuButtonRenderer.setCaptionValue = function(caption, value) {
         goog.color.parse(strValue).hex :
         null;
 
-    // Stupid IE6/7 doesn't do transparent borders.
-    // TODO(attila): Add user-agent version check when IE8 comes out...
-    caption.firstChild.style.borderBottomColor =
-        hexColor || (goog.userAgent.IE ? '' : 'transparent');
+    caption.firstChild.style.borderBottomColor = hexColor || 'transparent';
   }
 };
 

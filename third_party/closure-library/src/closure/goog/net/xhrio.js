@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Wrapper class for handling XmlHttpRequests.
@@ -45,7 +37,6 @@
 goog.provide('goog.net.XhrIo');
 goog.provide('goog.net.XhrIo.ResponseType');
 
-goog.forwardDeclare('goog.Uri');
 goog.require('goog.Timer');
 goog.require('goog.array');
 goog.require('goog.asserts');
@@ -63,6 +54,10 @@ goog.require('goog.structs');
 goog.require('goog.structs.Map');
 goog.require('goog.uri.utils');
 goog.require('goog.userAgent');
+goog.requireType('goog.Uri');
+goog.requireType('goog.debug.ErrorHandler');
+goog.requireType('goog.net.XhrLike');
+goog.requireType('goog.net.XmlHttpFactory');
 
 goog.scope(function() {
 
@@ -136,7 +131,7 @@ goog.net.XhrIo = function(opt_xmlHttpFactory) {
   /**
    * Used to ensure that we don't dispatch an multiple ERROR events. This can
    * happen in IE when it does a synchronous load and one error is handled in
-   * the ready statte change and one is handled due to send() throwing an
+   * the ready state change and one is handled due to send() throwing an
    * exception.
    * @private {boolean}
    */
@@ -1279,7 +1274,7 @@ goog.net.XhrIo.prototype.getAllResponseHeaders = function() {
  *     and header values as values.
  */
 goog.net.XhrIo.prototype.getResponseHeaders = function() {
-  // TODO(b/120371595): Make this function parse headers as per the spec
+  // TODO(user): Make this function parse headers as per the spec
   // (https://tools.ietf.org/html/rfc2616#section-4.2).
 
   var headersObject = {};

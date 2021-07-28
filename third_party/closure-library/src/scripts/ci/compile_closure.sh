@@ -17,13 +17,19 @@
 # Compiles pertinent Closure library files.
 
 # TODO(joeltine): Make strictMissingRequire an error when
-# @suppress {missingRequire} works for it.
+#     @suppress {missingRequire} works for it.
+# TODO(sdh): Make strictCheckTypes an error, or at least only whitelist
+#     strictMissingProperties and fix the handful of strictPrimitiveOperator
+#     violations.
 
 java -Xmx1G -jar ../closure-compiler-1.0-SNAPSHOT.jar \
   -O ADVANCED \
   --warning_level VERBOSE \
   --jscomp_error='*' \
+  --jscomp_off=strictCheckTypes \
   --jscomp_off=strictMissingRequire \
+  --jscomp_off=stricterMissingRequireInProvidesFile \
+  --jscomp_off=stricterMissingRequireTypeInProvidesFile \
   --jscomp_off=extraRequire \
   --jscomp_off=deprecated \
   --jscomp_off=lintChecks \

@@ -1,16 +1,8 @@
-// Copyright 2013 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Implementation of a WebChannel transport using WebChannelBase.
@@ -34,7 +26,6 @@ goog.require('goog.net.WebChannel');
 goog.require('goog.net.WebChannelTransport');
 goog.require('goog.object');
 goog.require('goog.string');
-goog.require('goog.string.path');
 
 
 
@@ -49,6 +40,7 @@ goog.require('goog.string.path');
  * @final
  */
 goog.labs.net.webChannel.WebChannelBaseTransport = function() {
+  'use strict';
   if (!goog.labs.net.webChannel.ChannelRequest.supportsXhrStreaming()) {
     throw new Error('Environmental error: no available transport.');
   }
@@ -56,6 +48,7 @@ goog.labs.net.webChannel.WebChannelBaseTransport = function() {
 
 
 goog.scope(function() {
+'use strict';
 var WebChannelBaseTransport = goog.labs.net.webChannel.WebChannelBaseTransport;
 var WebChannelBase = goog.labs.net.webChannel.WebChannelBase;
 var Wire = goog.labs.net.webChannel.Wire;
@@ -66,6 +59,7 @@ var Wire = goog.labs.net.webChannel.Wire;
  */
 WebChannelBaseTransport.prototype.createWebChannel = function(
     url, opt_options) {
+  'use strict';
   return new WebChannelBaseTransport.Channel(url, opt_options);
 };
 
@@ -84,6 +78,7 @@ WebChannelBaseTransport.prototype.createWebChannel = function(
  * @final
  */
 WebChannelBaseTransport.Channel = function(url, opt_options) {
+  'use strict';
   WebChannelBaseTransport.Channel.base(this, 'constructor');
 
   /**
@@ -96,16 +91,6 @@ WebChannelBaseTransport.Channel = function(url, opt_options) {
    * @private {string} The URL of the target server end-point.
    */
   this.url_ = url;
-
-  /**
-   * The test URL of the target server end-point. This value defaults to
-   * this.url_ + '/test'.
-   *
-   * @private {string}
-   */
-  this.testUrl_ = (opt_options && opt_options.testUrl) ?
-      opt_options.testUrl :
-      goog.string.path.join(this.url_, 'test');
 
   /**
    * @private {goog.log.Logger} The logger for this class.
@@ -209,39 +194,14 @@ goog.inherits(WebChannelBaseTransport.Channel, goog.events.EventTarget);
 
 /**
  * @override
- * @suppress {checkTypes}
- */
-WebChannelBaseTransport.Channel.prototype.addEventListener = function(
-    type, handler, /** boolean= */ opt_capture, opt_handlerScope) {
-  WebChannelBaseTransport.Channel.base(
-      this, 'addEventListener', type, handler, opt_capture, opt_handlerScope);
-};
-
-
-/**
- * @override
- * @suppress {checkTypes}
- */
-WebChannelBaseTransport.Channel.prototype.removeEventListener = function(
-    type, handler, /** boolean= */ opt_capture, opt_handlerScope) {
-  WebChannelBaseTransport.Channel.base(
-      this, 'removeEventListener', type, handler, opt_capture,
-      opt_handlerScope);
-};
-
-
-/**
- * Test path is always set to "/url/test".
- *
- * @override
  */
 WebChannelBaseTransport.Channel.prototype.open = function() {
+  'use strict';
   this.channel_.setHandler(this.channelHandler_);
   if (this.supportsCrossDomainXhr_) {
     this.channel_.setSupportsCrossDomainXhrs(true);
   }
-  this.channel_.connect(
-      this.testUrl_, this.url_, (this.messageUrlParams_ || undefined));
+  this.channel_.connect(this.url_, (this.messageUrlParams_ || undefined));
 };
 
 
@@ -249,6 +209,7 @@ WebChannelBaseTransport.Channel.prototype.open = function() {
  * @override
  */
 WebChannelBaseTransport.Channel.prototype.close = function() {
+  'use strict';
   this.channel_.disconnect();
 };
 
@@ -257,6 +218,7 @@ WebChannelBaseTransport.Channel.prototype.close = function() {
  * @override
  */
 WebChannelBaseTransport.Channel.prototype.halfClose = function() {
+  'use strict';
   // to be implemented
   throw new Error('Not implemented');
 };
@@ -270,6 +232,7 @@ WebChannelBaseTransport.Channel.prototype.halfClose = function() {
  * @override
  */
 WebChannelBaseTransport.Channel.prototype.send = function(message) {
+  'use strict';
   goog.asserts.assert(
       goog.isObject(message) || typeof message === 'string',
       'only object type or raw string is supported');
@@ -292,6 +255,7 @@ WebChannelBaseTransport.Channel.prototype.send = function(message) {
  * @override
  */
 WebChannelBaseTransport.Channel.prototype.disposeInternal = function() {
+  'use strict';
   this.channel_.setHandler(null);
   delete this.channelHandler_;
   this.channel_.disconnect();
@@ -311,6 +275,7 @@ WebChannelBaseTransport.Channel.prototype.disposeInternal = function() {
  * @final
  */
 WebChannelBaseTransport.Channel.MessageEvent = function(array) {
+  'use strict';
   WebChannelBaseTransport.Channel.MessageEvent.base(this, 'constructor');
 
   // single-metadata only
@@ -341,6 +306,7 @@ goog.inherits(
  * @final
  */
 WebChannelBaseTransport.Channel.ErrorEvent = function(error) {
+  'use strict';
   WebChannelBaseTransport.Channel.ErrorEvent.base(this, 'constructor');
 
   /**
@@ -368,6 +334,7 @@ goog.inherits(
  * @private
  */
 WebChannelBaseTransport.Channel.Handler_ = function(channel) {
+  'use strict';
   WebChannelBaseTransport.Channel.Handler_.base(this, 'constructor');
 
   /**
@@ -384,6 +351,7 @@ goog.inherits(WebChannelBaseTransport.Channel.Handler_, WebChannelBase.Handler);
  */
 WebChannelBaseTransport.Channel.Handler_.prototype.channelOpened = function(
     channel) {
+  'use strict';
   goog.log.info(
       this.channel_.logger_, 'WebChannel opened on ' + this.channel_.url_);
   this.channel_.dispatchEvent(goog.net.WebChannel.EventType.OPEN);
@@ -395,6 +363,7 @@ WebChannelBaseTransport.Channel.Handler_.prototype.channelOpened = function(
  */
 WebChannelBaseTransport.Channel.Handler_.prototype.channelHandleArray =
     function(channel, array) {
+  'use strict';
   goog.asserts.assert(array, 'array expected to be defined');
   this.channel_.dispatchEvent(
       new WebChannelBaseTransport.Channel.MessageEvent(array));
@@ -406,8 +375,10 @@ WebChannelBaseTransport.Channel.Handler_.prototype.channelHandleArray =
  */
 WebChannelBaseTransport.Channel.Handler_.prototype.channelError = function(
     channel, error) {
+  'use strict';
   goog.log.info(
-      this.channel_.logger_, 'WebChannel aborted on ' + this.channel_.url_ +
+      this.channel_.logger_,
+      'WebChannel aborted on ' + this.channel_.url_ +
           ' due to channel error: ' + error);
   this.channel_.dispatchEvent(
       new WebChannelBaseTransport.Channel.ErrorEvent(error));
@@ -419,6 +390,7 @@ WebChannelBaseTransport.Channel.Handler_.prototype.channelError = function(
  */
 WebChannelBaseTransport.Channel.Handler_.prototype.channelClosed = function(
     channel, opt_pendingMaps, opt_undeliveredMaps) {
+  'use strict';
   goog.log.info(
       this.channel_.logger_, 'WebChannel closed on ' + this.channel_.url_);
   this.channel_.dispatchEvent(goog.net.WebChannel.EventType.CLOSE);
@@ -429,6 +401,7 @@ WebChannelBaseTransport.Channel.Handler_.prototype.channelClosed = function(
  * @override
  */
 WebChannelBaseTransport.Channel.prototype.getRuntimeProperties = function() {
+  'use strict';
   return new WebChannelBaseTransport.ChannelProperties(this.channel_);
 };
 
@@ -444,13 +417,13 @@ WebChannelBaseTransport.Channel.prototype.getRuntimeProperties = function() {
  * @final
  */
 WebChannelBaseTransport.ChannelProperties = function(channel) {
+  'use strict';
   /**
    * The underlying channel object.
    *
    * @private {!WebChannelBase}
    */
   this.channel_ = channel;
-
 };
 
 
@@ -459,6 +432,7 @@ WebChannelBaseTransport.ChannelProperties = function(channel) {
  */
 WebChannelBaseTransport.ChannelProperties.prototype.getConcurrentRequestLimit =
     function() {
+  'use strict';
   return this.channel_.getForwardChannelRequestPool().getMaxSize();
 };
 
@@ -467,6 +441,7 @@ WebChannelBaseTransport.ChannelProperties.prototype.getConcurrentRequestLimit =
  * @override
  */
 WebChannelBaseTransport.ChannelProperties.prototype.isSpdyEnabled = function() {
+  'use strict';
   return this.getConcurrentRequestLimit() > 1;
 };
 
@@ -476,6 +451,7 @@ WebChannelBaseTransport.ChannelProperties.prototype.isSpdyEnabled = function() {
  */
 WebChannelBaseTransport.ChannelProperties.prototype.getPendingRequestCount =
     function() {
+  'use strict';
   return this.channel_.getForwardChannelRequestPool().getRequestCount();
 };
 
@@ -485,6 +461,7 @@ WebChannelBaseTransport.ChannelProperties.prototype.getPendingRequestCount =
  */
 WebChannelBaseTransport.ChannelProperties.prototype.getHttpSessionId =
     function() {
+  'use strict';
   return this.channel_.getHttpSessionId();
 };
 
@@ -494,6 +471,7 @@ WebChannelBaseTransport.ChannelProperties.prototype.getHttpSessionId =
  */
 WebChannelBaseTransport.ChannelProperties.prototype.commit = function(
     callback) {
+  'use strict';
   this.channel_.setForwardChannelFlushCallback(callback);
 };
 
@@ -529,6 +507,7 @@ WebChannelBaseTransport.ChannelProperties.prototype.ackCommit =
 /** @override */
 WebChannelBaseTransport.ChannelProperties.prototype.getLastStatusCode =
     function() {
+  'use strict';
   return this.channel_.getLastStatusCode();
 };
 });  // goog.scope

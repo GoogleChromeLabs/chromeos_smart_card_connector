@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview A base menu class that supports key and mouse events. The menu
@@ -56,6 +48,8 @@ goog.require('goog.ui.MenuHeader');
 goog.require('goog.ui.MenuItem');
 goog.require('goog.ui.MenuRenderer');
 goog.require('goog.ui.MenuSeparator');
+goog.requireType('goog.dom.DomHelper');
+goog.requireType('goog.events.Event');
 
 // The dependencies MenuHeader, MenuItem, and MenuSeparator are implicit.
 // There are no references in the code, but we need to load these
@@ -83,7 +77,6 @@ goog.ui.Menu = function(opt_domHelper, opt_renderer) {
   this.setFocusable(false);
 };
 goog.inherits(goog.ui.Menu, goog.ui.Container);
-goog.tagUnsealableClass(goog.ui.Menu);
 
 
 // TODO(robbyw): Remove this and all references to it.

@@ -1,16 +1,8 @@
-// Copyright 2012 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Provides the built-in number matchers like lessThan,
@@ -39,12 +31,14 @@ goog.labs.testing.AnyNumberMatcher = function() {};
 
 /** @override */
 goog.labs.testing.AnyNumberMatcher.prototype.matches = function(actualValue) {
+  'use strict';
   return typeof actualValue === 'number';
 };
 
 
 /** @override */
 goog.labs.testing.AnyNumberMatcher.prototype.describe = function(actualValue) {
+  'use strict';
   return '<' + actualValue + '> is not a number';
 };
 
@@ -61,6 +55,7 @@ goog.labs.testing.AnyNumberMatcher.prototype.describe = function(actualValue) {
  * @final
  */
 goog.labs.testing.GreaterThanMatcher = function(value) {
+  'use strict';
   /**
    * @type {number}
    * @private
@@ -75,6 +70,7 @@ goog.labs.testing.GreaterThanMatcher = function(value) {
  * @override
  */
 goog.labs.testing.GreaterThanMatcher.prototype.matches = function(actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return actualValue > this.value_;
 };
@@ -85,6 +81,7 @@ goog.labs.testing.GreaterThanMatcher.prototype.matches = function(actualValue) {
  */
 goog.labs.testing.GreaterThanMatcher.prototype.describe = function(
     actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return actualValue + ' is not greater than ' + this.value_;
 };
@@ -102,6 +99,7 @@ goog.labs.testing.GreaterThanMatcher.prototype.describe = function(
  * @final
  */
 goog.labs.testing.LessThanMatcher = function(value) {
+  'use strict';
   /**
    * @type {number}
    * @private
@@ -116,6 +114,7 @@ goog.labs.testing.LessThanMatcher = function(value) {
  * @override
  */
 goog.labs.testing.LessThanMatcher.prototype.matches = function(actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return actualValue < this.value_;
 };
@@ -125,6 +124,7 @@ goog.labs.testing.LessThanMatcher.prototype.matches = function(actualValue) {
  * @override
  */
 goog.labs.testing.LessThanMatcher.prototype.describe = function(actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return actualValue + ' is not less than ' + this.value_;
 };
@@ -142,6 +142,7 @@ goog.labs.testing.LessThanMatcher.prototype.describe = function(actualValue) {
  * @final
  */
 goog.labs.testing.GreaterThanEqualToMatcher = function(value) {
+  'use strict';
   /**
    * @type {number}
    * @private
@@ -157,6 +158,7 @@ goog.labs.testing.GreaterThanEqualToMatcher = function(value) {
  */
 goog.labs.testing.GreaterThanEqualToMatcher.prototype.matches = function(
     actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return actualValue >= this.value_;
 };
@@ -167,6 +169,7 @@ goog.labs.testing.GreaterThanEqualToMatcher.prototype.matches = function(
  */
 goog.labs.testing.GreaterThanEqualToMatcher.prototype.describe = function(
     actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return actualValue + ' is not greater than equal to ' + this.value_;
 };
@@ -184,6 +187,7 @@ goog.labs.testing.GreaterThanEqualToMatcher.prototype.describe = function(
  * @final
  */
 goog.labs.testing.LessThanEqualToMatcher = function(value) {
+  'use strict';
   /**
    * @type {number}
    * @private
@@ -199,6 +203,7 @@ goog.labs.testing.LessThanEqualToMatcher = function(value) {
  */
 goog.labs.testing.LessThanEqualToMatcher.prototype.matches = function(
     actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return actualValue <= this.value_;
 };
@@ -209,6 +214,7 @@ goog.labs.testing.LessThanEqualToMatcher.prototype.matches = function(
  */
 goog.labs.testing.LessThanEqualToMatcher.prototype.describe = function(
     actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return actualValue + ' is not less than equal to ' + this.value_;
 };
@@ -226,6 +232,7 @@ goog.labs.testing.LessThanEqualToMatcher.prototype.describe = function(
  * @final
  */
 goog.labs.testing.EqualToMatcher = function(value) {
+  'use strict';
   /**
    * @type {number}
    * @private
@@ -240,6 +247,7 @@ goog.labs.testing.EqualToMatcher = function(value) {
  * @override
  */
 goog.labs.testing.EqualToMatcher.prototype.matches = function(actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return actualValue === this.value_;
 };
@@ -249,6 +257,7 @@ goog.labs.testing.EqualToMatcher.prototype.matches = function(actualValue) {
  * @override
  */
 goog.labs.testing.EqualToMatcher.prototype.describe = function(actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return actualValue + ' is not equal to ' + this.value_;
 };
@@ -267,6 +276,7 @@ goog.labs.testing.EqualToMatcher.prototype.describe = function(actualValue) {
  * @final
  */
 goog.labs.testing.CloseToMatcher = function(value, range) {
+  'use strict';
   /**
    * @type {number}
    * @private
@@ -286,6 +296,7 @@ goog.labs.testing.CloseToMatcher = function(value, range) {
  * @override
  */
 goog.labs.testing.CloseToMatcher.prototype.matches = function(actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return Math.abs(this.value_ - actualValue) < this.range_;
 };
@@ -295,6 +306,7 @@ goog.labs.testing.CloseToMatcher.prototype.matches = function(actualValue) {
  * @override
  */
 goog.labs.testing.CloseToMatcher.prototype.describe = function(actualValue) {
+  'use strict';
   goog.asserts.assertNumber(actualValue);
   return actualValue + ' is not close to(' + this.range_ + ') ' + this.value_;
 };
@@ -302,6 +314,7 @@ goog.labs.testing.CloseToMatcher.prototype.describe = function(actualValue) {
 
 /** @return {!goog.labs.testing.AnyNumberMatcher} */
 var anyNumber = goog.labs.testing.AnyNumberMatcher.anyNumber = function() {
+  'use strict';
   return new goog.labs.testing.AnyNumberMatcher();
 };
 
@@ -313,6 +326,7 @@ var anyNumber = goog.labs.testing.AnyNumberMatcher.anyNumber = function() {
  */
 var greaterThan =
     goog.labs.testing.GreaterThanMatcher.greaterThan = function(value) {
+      'use strict';
       return new goog.labs.testing.GreaterThanMatcher(value);
     };
 
@@ -326,6 +340,7 @@ var greaterThan =
 var greaterThanEqualTo =
     goog.labs.testing.GreaterThanEqualToMatcher.greaterThanEqualTo = function(
         value) {
+      'use strict';
       return new goog.labs.testing.GreaterThanEqualToMatcher(value);
     };
 
@@ -336,6 +351,7 @@ var greaterThanEqualTo =
  * @return {!goog.labs.testing.LessThanMatcher} A LessThanMatcher.
  */
 var lessThan = goog.labs.testing.LessThanMatcher.lessThan = function(value) {
+  'use strict';
   return new goog.labs.testing.LessThanMatcher(value);
 };
 
@@ -347,6 +363,7 @@ var lessThan = goog.labs.testing.LessThanMatcher.lessThan = function(value) {
  */
 var lessThanEqualTo =
     goog.labs.testing.LessThanEqualToMatcher.lessThanEqualTo = function(value) {
+      'use strict';
       return new goog.labs.testing.LessThanEqualToMatcher(value);
     };
 
@@ -357,6 +374,7 @@ var lessThanEqualTo =
  * @return {!goog.labs.testing.EqualToMatcher} An EqualToMatcher.
  */
 var equalTo = goog.labs.testing.EqualToMatcher.equalTo = function(value) {
+  'use strict';
   return new goog.labs.testing.EqualToMatcher(value);
 };
 
@@ -369,5 +387,6 @@ var equalTo = goog.labs.testing.EqualToMatcher.equalTo = function(value) {
  */
 var closeTo =
     goog.labs.testing.CloseToMatcher.closeTo = function(value, range) {
+      'use strict';
       return new goog.labs.testing.CloseToMatcher(value, range);
     };

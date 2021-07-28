@@ -1,16 +1,8 @@
-// Copyright 2005 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Utilties for working with DOM nodes related to rich text
@@ -19,11 +11,14 @@
 
 goog.provide('goog.editor.node');
 
+goog.require('goog.asserts.dom');
 goog.require('goog.dom');
 goog.require('goog.dom.NodeType');
 goog.require('goog.dom.TagName');
 goog.require('goog.dom.iter.ChildIterator');
 goog.require('goog.dom.iter.SiblingIterator');
+goog.require('goog.dom.safe');
+goog.require('goog.html.legacyconversions');
 goog.require('goog.iter');
 goog.require('goog.object');
 goog.require('goog.string');
@@ -456,5 +451,7 @@ goog.editor.node.replaceInnerHtml = function(node, html) {
   if (goog.userAgent.IE) {
     goog.dom.removeChildren(node);
   }
-  node.innerHTML = html;
+  goog.dom.safe.setInnerHtml(
+      goog.asserts.dom.assertIsElement(node),
+      goog.html.legacyconversions.safeHtmlFromString(html));
 };

@@ -1,16 +1,8 @@
-// Copyright 2013 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview The TrustedResourceUrl type and its builders.
@@ -21,6 +13,9 @@
 goog.provide('goog.html.TrustedResourceUrl');
 
 goog.require('goog.asserts');
+goog.require('goog.fs.blob');
+goog.require('goog.fs.url');
+goog.require('goog.html.SafeScript');
 goog.require('goog.html.trustedtypes');
 goog.require('goog.i18n.bidi.Dir');
 goog.require('goog.i18n.bidi.DirectionalString');
@@ -41,44 +36,39 @@ goog.require('goog.string.TypedString');
  * this type.
  *
  * Instances of this type must be created via the factory method,
- * (`fromConstant`, `fromConstants`, `format` or
- * `formatWithParams`), and not by invoking its constructor. The constructor
- * is organized in a way that only methods from that file can call it and
- * initialize with non-empty values. Anyone else calling constructor will
- * get default instance with empty value.
+ * (`fromConstant`, `fromConstants`, `format` or `formatWithParams`), and not by
+ * invoking its constructor. The constructor intentionally takes an extra
+ * parameter that cannot be constructed outside of this file and the type is
+ * immutable; hence only a default instance corresponding to the empty string
+ * can be obtained via constructor invocation.
+ *
+ * Creating TrustedResourceUrl objects HAS SIDE-EFFECTS due to calling
+ * Trusted Types Web API.
  *
  * @see goog.html.TrustedResourceUrl#fromConstant
- * @constructor
  * @final
  * @struct
  * @implements {goog.i18n.bidi.DirectionalString}
  * @implements {goog.string.TypedString}
- * @param {!Object=} opt_token package-internal implementation detail.
- * @param {!TrustedScriptURL|string=} opt_content package-internal
- *     implementation detail.
  */
-goog.html.TrustedResourceUrl = function(opt_token, opt_content) {
+goog.html.TrustedResourceUrl = class {
   /**
-   * The contained value of this TrustedResourceUrl.  The field has a purposely
-   * ugly name to make (non-compiled) code that attempts to directly access this
-   * field stand out.
-   * @const
-   * @private {!TrustedScriptURL|string}
+   * @param {!TrustedScriptURL|string} value
+   * @param {!Object} token package-internal implementation detail.
    */
-  this.privateDoNotAccessOrElseTrustedResourceUrlWrappedValue_ =
-      ((opt_token ===
-        goog.html.TrustedResourceUrl.CONSTRUCTOR_TOKEN_PRIVATE_) &&
-       opt_content) ||
-      '';
-
-  /**
-   * A type marker used to implement additional run-time type checking.
-   * @see goog.html.TrustedResourceUrl#unwrap
-   * @const {!Object}
-   * @private
-   */
-  this.TRUSTED_RESOURCE_URL_TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_ =
-      goog.html.TrustedResourceUrl.TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_;
+  constructor(value, token) {
+    /**
+     * The contained value of this TrustedResourceUrl.  The field has a
+     * purposely ugly name to make (non-compiled) code that attempts to directly
+     * access this field stand out.
+     * @const
+     * @private {!TrustedScriptURL|string}
+     */
+    this.privateDoNotAccessOrElseTrustedResourceUrlWrappedValue_ =
+        (token === goog.html.TrustedResourceUrl.CONSTRUCTOR_TOKEN_PRIVATE_) ?
+        value :
+        '';
+  }
 };
 
 
@@ -213,15 +203,8 @@ goog.html.TrustedResourceUrl.unwrapTrustedScriptURL = function(
   // Specifically, the following checks are performed:
   // 1. The object is an instance of the expected type.
   // 2. The object is not an instance of a subclass.
-  // 3. The object carries a type marker for the expected type. "Faking" an
-  // object requires a reference to the type marker, which has names intended
-  // to stand out in code reviews.
   if (trustedResourceUrl instanceof goog.html.TrustedResourceUrl &&
-      trustedResourceUrl.constructor === goog.html.TrustedResourceUrl &&
-      trustedResourceUrl
-              .TRUSTED_RESOURCE_URL_TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_ ===
-          goog.html.TrustedResourceUrl
-              .TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_) {
+      trustedResourceUrl.constructor === goog.html.TrustedResourceUrl) {
     return trustedResourceUrl
         .privateDoNotAccessOrElseTrustedResourceUrlWrappedValue_;
   } else {
@@ -419,14 +402,38 @@ goog.html.TrustedResourceUrl.fromConstants = function(parts) {
       .createTrustedResourceUrlSecurityPrivateDoNotAccessOrElse(unwrapped);
 };
 
+/**
+ * Creates a TrustedResourceUrl object by generating a Blob from a SafeScript
+ * object and then calling createObjectURL with that blob.
+ *
+ * SafeScript objects are trusted to contain executable JavaScript code.
+ *
+ * Caller must call goog.fs.url.revokeObjectUrl() on the unwrapped url to
+ * release the underlying blob.
+ *
+ * Throws if browser doesn't support blob construction.
+ *
+ * @param {!goog.html.SafeScript} safeScript A script from which to create a
+ *     TrustedResourceUrl.
+ * @return {!goog.html.TrustedResourceUrl} A TrustedResourceUrl object
+ *     initialized to a new blob URL.
+ */
+goog.html.TrustedResourceUrl.fromSafeScript = function(safeScript) {
+  var blob = goog.fs.blob.getBlobWithProperties(
+      [goog.html.SafeScript.unwrap(safeScript)], 'text/javascript');
+  var url = goog.fs.url.createObjectUrl(blob);
+  return goog.html.TrustedResourceUrl
+      .createTrustedResourceUrlSecurityPrivateDoNotAccessOrElse(url);
+};
+
 
 /**
- * Type marker for the TrustedResourceUrl type, used to implement additional
- * run-time type checking.
- * @const {!Object}
- * @private
+ * Token used to ensure that object is created only from this file. No code
+ * outside of this file can access this token.
+ * @private {!Object}
+ * @const
  */
-goog.html.TrustedResourceUrl.TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_ = {};
+goog.html.TrustedResourceUrl.CONSTRUCTOR_TOKEN_PRIVATE_ = {};
 
 
 /**
@@ -440,12 +447,10 @@ goog.html.TrustedResourceUrl.TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_ = {};
  */
 goog.html.TrustedResourceUrl
     .createTrustedResourceUrlSecurityPrivateDoNotAccessOrElse = function(url) {
-  var value = goog.html.trustedtypes.PRIVATE_DO_NOT_ACCESS_OR_ELSE_POLICY ?
-      goog.html.trustedtypes.PRIVATE_DO_NOT_ACCESS_OR_ELSE_POLICY
-          .createScriptURL(url) :
-      url;
+  const policy = goog.html.trustedtypes.getPolicyPrivateDoNotAccessOrElse();
+  var value = policy ? policy.createScriptURL(url) : url;
   return new goog.html.TrustedResourceUrl(
-      goog.html.TrustedResourceUrl.CONSTRUCTOR_TOKEN_PRIVATE_, value);
+      value, goog.html.TrustedResourceUrl.CONSTRUCTOR_TOKEN_PRIVATE_);
 };
 
 
@@ -485,27 +490,22 @@ goog.html.TrustedResourceUrl.stringifyParams_ = function(
   }
   // Add on parameters to field from key-value object.
   for (var key in params) {
-    var value = params[key];
-    var outputValues = goog.isArray(value) ? value : [value];
-    for (var i = 0; i < outputValues.length; i++) {
-      var outputValue = outputValues[i];
-      if (outputValue != null) {
-        if (!currentString) {
-          currentString = prefix;
+    // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/hasOwnProperty#Using_hasOwnProperty_as_a_property_name
+    if (Object.prototype.hasOwnProperty.call(params, key)) {
+      var value = params[key];
+      var outputValues = Array.isArray(value) ? value : [value];
+      for (var i = 0; i < outputValues.length; i++) {
+        var outputValue = outputValues[i];
+        if (outputValue != null) {
+          if (!currentString) {
+            currentString = prefix;
+          }
+          currentString += (currentString.length > prefix.length ? '&' : '') +
+              encodeURIComponent(key) + '=' +
+              encodeURIComponent(String(outputValue));
         }
-        currentString += (currentString.length > prefix.length ? '&' : '') +
-            encodeURIComponent(key) + '=' +
-            encodeURIComponent(String(outputValue));
       }
     }
   }
   return currentString;
 };
-
-/**
- * Token used to ensure that object is created only from this file. No code
- * outside of this file can access this token.
- * @private {!Object}
- * @const
- */
-goog.html.TrustedResourceUrl.CONSTRUCTOR_TOKEN_PRIVATE_ = {};

@@ -1,16 +1,8 @@
-// Copyright 2012 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Provides main functionality of assertThat. assertThat calls the
@@ -21,8 +13,8 @@
 goog.provide('goog.labs.testing.MatcherError');
 goog.provide('goog.labs.testing.assertThat');
 
-goog.forwardDeclare('goog.labs.testing.Matcher');
 goog.require('goog.debug.Error');
+goog.requireType('goog.labs.testing.Matcher');
 
 
 /**
@@ -33,6 +25,7 @@ goog.require('goog.debug.Error');
  * @param {string=} opt_reason Description of what is asserted.
  */
 goog.labs.testing.assertThat = function(actual, matcher, opt_reason) {
+  'use strict';
   if (!matcher.matches(actual)) {
     // Prefix the error description with a reason from the assert ?
     var prefix = opt_reason ? opt_reason + ': ' : '';
@@ -53,6 +46,7 @@ goog.labs.testing.assertThat = function(actual, matcher, opt_reason) {
  * @final
  */
 goog.labs.testing.MatcherError = function(opt_message) {
+  'use strict';
   goog.labs.testing.MatcherError.base(this, 'constructor', opt_message);
 };
 goog.inherits(goog.labs.testing.MatcherError, goog.debug.Error);

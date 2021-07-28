@@ -1,24 +1,13 @@
-// Copyright 2010 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.provide('goog.testing.asserts');
 goog.setTestOnly();
 
 goog.require('goog.testing.JsUnitException');
-
-// TODO(user): Copied from JsUnit with some small modifications, we should
-// reimplement the asserters.
 
 var DOUBLE_EQUALITY_PREDICATE = function(var1, var2) {
   return var1 == var2;
@@ -153,9 +142,13 @@ var _displayStringForValue = function(aVar) {
 
 /** @param {?} failureMessage */
 goog.testing.asserts.fail = function(failureMessage) {
-  goog.testing.asserts.raiseException('Call to fail()', failureMessage);
+  _assert('Call to fail()', false, failureMessage);
 };
-/** @const */
+/**
+ * @const
+ * @suppress {duplicate,checkTypes} Test frameworks like Jasmine may also
+ * define global fail functions.
+ */
 var fail = goog.testing.asserts.fail;
 
 var argumentsIncludeComments = function(expectedNumberOfNonCommentArgs, args) {
@@ -213,6 +206,17 @@ var _getCurrentTestCase = function() {
 };
 
 var _assert = function(comment, booleanValue, failureMessage) {
+  // If another framework has installed an adapter, tell it about the assertion.
+  var adapter =
+      typeof window !== 'undefined' && window['Closure assert adapter'];
+  if (adapter) {
+    adapter['assertWithMessage'](
+        booleanValue,
+        goog.testing.JsUnitException.generateMessage(comment, failureMessage));
+    // Also throw an error, for callers that assume that asserts throw. We don't
+    // include error details to avoid duplicate failure messages.
+    if (!booleanValue) throw new Error('goog.testing assertion failed');
+  }
   if (!booleanValue) {
     goog.testing.asserts.raiseException(comment, failureMessage);
   }
@@ -415,7 +419,8 @@ goog.testing.asserts.assertThrowsJsUnitException = function(
     }
 
     if (!e.isJsUnitException) {
-      goog.testing.asserts.fail('Expected a JsUnitException');
+      goog.testing.asserts.fail(
+          'Expected a JsUnitException, got \'' + e + '\' instead');
     }
 
     if (typeof opt_expectedMessage != 'undefined' &&
@@ -462,7 +467,7 @@ var assertThrowsJsUnitException =
  */
 goog.testing.asserts.assertRejects = function(a, opt_b) {
   _validateArguments(1, arguments);
-  var thenable = nonCommentArg(1, 1, arguments);
+  var thenable = /** @type {!IThenable<*>} */ (nonCommentArg(1, 1, arguments));
   var comment = commentArg(1, arguments);
   _assert(
       comment, goog.isObject(thenable) && goog.isFunction(thenable.then),

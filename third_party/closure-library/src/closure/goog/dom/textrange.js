@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Utilities for working with text ranges in HTML documents.
@@ -23,12 +15,13 @@ goog.require('goog.array');
 goog.require('goog.dom');
 goog.require('goog.dom.AbstractRange');
 goog.require('goog.dom.RangeType');
+goog.require('goog.dom.SavedCaretRange');
 goog.require('goog.dom.SavedRange');
 goog.require('goog.dom.TagName');
 goog.require('goog.dom.TextRangeIterator');
 goog.require('goog.dom.browserrange');
-goog.require('goog.string');
 goog.require('goog.userAgent');
+goog.requireType('goog.dom.browserrange.AbstractRange');
 
 
 
@@ -146,9 +139,9 @@ goog.dom.TextRange.createFromNodeContents = function(node, opt_isReversed) {
 goog.dom.TextRange.createFromNodes = function(
     anchorNode, anchorOffset, focusNode, focusOffset) {
   var range = new goog.dom.TextRange();
-  range.isReversed_ = /** @suppress {missingRequire} */ (
-      goog.dom.Range.isReversed(
-          anchorNode, anchorOffset, focusNode, focusOffset));
+  const RangeUtils = goog.module.get('goog.dom.Range');
+  range.isReversed_ =
+      RangeUtils.isReversed(anchorNode, anchorOffset, focusNode, focusOffset);
 
   // Avoid selecting terminal elements directly
   if (goog.dom.isElement(anchorNode) && !goog.dom.canHaveChildren(anchorNode)) {
@@ -457,7 +450,7 @@ goog.dom.TextRange.prototype.getPastableHtml = function() {
       }
       container = container.parentNode;
     }
-    html = goog.string.buildString('<', tagType, '>', html, '</', tagType, '>');
+    html = '<' + tagType + '>' + html + '</' + tagType + '>';
   }
 
   return html;
@@ -532,6 +525,13 @@ goog.dom.TextRange.prototype.surroundWithNodes = function(startNode, endNode) {
 /** @override */
 goog.dom.TextRange.prototype.saveUsingDom = function() {
   return new goog.dom.DomSavedTextRange_(this);
+};
+
+/** @override */
+goog.dom.TextRange.prototype.saveUsingCarets = function() {
+  return (this.getStartNode() && this.getEndNode()) ?
+      new goog.dom.SavedCaretRange(this) :
+      null;
 };
 
 
@@ -609,10 +609,9 @@ goog.inherits(goog.dom.DomSavedTextRange_, goog.dom.SavedRange);
  * @override
  */
 goog.dom.DomSavedTextRange_.prototype.restoreInternal = function() {
-  return /** @suppress {missingRequire} */ (
-      goog.dom.Range.createFromNodes(
-          this.anchorNode_, this.anchorOffset_, this.focusNode_,
-          this.focusOffset_));
+  const RangeUtils = goog.module.get('goog.dom.Range');
+  return RangeUtils.createFromNodes(
+      this.anchorNode_, this.anchorOffset_, this.focusNode_, this.focusOffset_);
 };
 
 

@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Generic keyboard shortcut handler.
@@ -37,6 +29,7 @@ goog.require('goog.object');
 goog.require('goog.ui.KeyboardEventData');
 goog.require('goog.ui.SyntheticKeyboardEvent');
 goog.require('goog.userAgent');
+goog.requireType('goog.events.BrowserEvent');
 
 
 
@@ -151,7 +144,6 @@ goog.ui.KeyboardShortcutHandler = function(keyTarget) {
   this.initializeKeyListener(keyTarget);
 };
 goog.inherits(goog.ui.KeyboardShortcutHandler, goog.events.EventTarget);
-goog.tagUnsealableClass(goog.ui.KeyboardShortcutHandler);
 
 
 
@@ -560,7 +552,7 @@ goog.ui.KeyboardShortcutHandler.prototype.interpretStrokes_ = function(
     // Build strokes array from arguments list or from array.
   } else {
     var strokesArgs = args, i = initialIndex;
-    if (goog.isArray(args[initialIndex])) {
+    if (Array.isArray(args[initialIndex])) {
       strokesArgs = args[initialIndex];
       i = 0;
     }
@@ -967,7 +959,7 @@ goog.ui.KeyboardShortcutHandler.unsetShortcut_ = function(tree, strokes) {
  * @param {!goog.ui.KeyboardShortcutHandler.SequenceTree_} tree The
  *     stroke sequence tree to find the node in.
  * @param {Array<string>} stroke Stroke to find.
- * @return {goog.ui.KeyboardShortcutHandler.SequenceNode_|undefined} Node matching stroke.
+ * @return {!goog.ui.KeyboardShortcutHandler.SequenceNode_|undefined} Node matching stroke.
  * @private
  */
 goog.ui.KeyboardShortcutHandler.prototype.getNode_ = function(tree, stroke) {
@@ -1016,7 +1008,7 @@ goog.ui.KeyboardShortcutHandler.prototype.checkShortcut_ = function(
  * @param {string} keyName Key name.
  * @param {number} keyCode Numeric key code.
  * @param {number} modifiers Required modifiers.
- * @return {Array<string>} An array of strings identifying the key/modifier
+ * @return {!Array<string>} An array of strings identifying the key/modifier
  *     combinations.
  * @private
  */

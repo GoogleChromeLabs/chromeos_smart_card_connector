@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Definition of the Tracer class and associated classes.
@@ -24,6 +16,7 @@ goog.provide('goog.debug.Trace');
 
 goog.require('goog.array');
 goog.require('goog.asserts');
+goog.require('goog.debug');
 goog.require('goog.debug.Logger');
 goog.require('goog.iter');
 goog.require('goog.log');
@@ -270,6 +263,26 @@ goog.debug.Trace_.Event_.prototype.id;
  */
 goog.debug.Trace_.Event_.prototype.comment;
 
+/**
+ * @type {number|undefined}
+ */
+goog.debug.Trace_.Event_.prototype.eventTime;
+
+/**
+ * @type {number|undefined}
+ */
+goog.debug.Trace_.Event_.prototype.startTime;
+
+/**
+ * @type {number|undefined}
+ */
+goog.debug.Trace_.Event_.prototype.stopTime;
+
+/**
+ * @type {number|undefined}
+ */
+goog.debug.Trace_.Event_.prototype.totalVarAlloc;
+
 
 /**
  * Returns a formatted string for the event.
@@ -284,6 +297,10 @@ goog.debug.Trace_.Event_.prototype.toTraceString = function(
     startTime, prevTime, indent) {
   var sb = [];
 
+  goog.asserts.assertNumber(
+      this.eventTime, 'eventTime missing - call startTracer?');
+  goog.asserts.assertNumber(
+      this.totalVarAlloc, 'totalVarAlloc missing - call startTracer?');
   if (prevTime == -1) {
     sb.push('    ');
   } else {
@@ -295,6 +312,10 @@ goog.debug.Trace_.Event_.prototype.toTraceString = function(
     sb.push(' Start        ');
   } else if (this.eventType == goog.debug.Trace_.EventType.STOP) {
     sb.push(' Done ');
+    goog.asserts.assertNumber(
+        this.startTime, 'startTime missing - startTracer not called?');
+    goog.asserts.assertNumber(
+        this.stopTime, 'stopTime missing - stopTracer not called?');
     var delta = this.stopTime - this.startTime;
     sb.push(goog.debug.Trace_.longToPaddedString_(delta), ' ms ');
   } else {
@@ -700,6 +721,8 @@ goog.debug.Trace_.prototype.addComment = function(
       var event = this.events_[i];
       var eventTime = event.eventTime;
 
+      goog.asserts.assertNumber(
+          eventTime, 'eventTime undefined - call startTracer?');
       if (eventTime > timeStamp) {
         goog.array.insertAt(this.events_, eventComment, i);
         break;
@@ -768,7 +791,7 @@ goog.debug.Trace_.prototype.toString = function() {
       indent.pop();
     }
     sb.push(' ', e.toTraceString(this.startTime_, etime, indent.join('')));
-    etime = e.eventTime;
+    etime = /** @type {number} */ (e.eventTime);
     sb.push('\n');
     if (e.eventType == goog.debug.Trace_.EventType.START) {
       indent.push('|  ');

@@ -1,16 +1,8 @@
-// Copyright 2013 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Closure user agent detection.
@@ -30,6 +22,7 @@ goog.require('goog.string');
  * @return {boolean} Whether the rendering engine is Presto.
  */
 goog.labs.userAgent.engine.isPresto = function() {
+  'use strict';
   return goog.labs.userAgent.util.matchUserAgent('Presto');
 };
 
@@ -38,6 +31,7 @@ goog.labs.userAgent.engine.isPresto = function() {
  * @return {boolean} Whether the rendering engine is Trident.
  */
 goog.labs.userAgent.engine.isTrident = function() {
+  'use strict';
   // IE only started including the Trident token in IE8.
   return goog.labs.userAgent.util.matchUserAgent('Trident') ||
       goog.labs.userAgent.util.matchUserAgent('MSIE');
@@ -48,6 +42,7 @@ goog.labs.userAgent.engine.isTrident = function() {
  * @return {boolean} Whether the rendering engine is EdgeHTML.
  */
 goog.labs.userAgent.engine.isEdge = function() {
+  'use strict';
   return goog.labs.userAgent.util.matchUserAgent('Edge');
 };
 
@@ -57,6 +52,7 @@ goog.labs.userAgent.engine.isEdge = function() {
  * true for Chrome, Blink-based Opera (15+), Edge Chromium and Safari.
  */
 goog.labs.userAgent.engine.isWebKit = function() {
+  'use strict';
   return goog.labs.userAgent.util.matchUserAgentIgnoreCase('WebKit') &&
       !goog.labs.userAgent.engine.isEdge();
 };
@@ -66,6 +62,7 @@ goog.labs.userAgent.engine.isWebKit = function() {
  * @return {boolean} Whether the rendering engine is Gecko.
  */
 goog.labs.userAgent.engine.isGecko = function() {
+  'use strict';
   return goog.labs.userAgent.util.matchUserAgent('Gecko') &&
       !goog.labs.userAgent.engine.isWebKit() &&
       !goog.labs.userAgent.engine.isTrident() &&
@@ -78,6 +75,7 @@ goog.labs.userAgent.engine.isGecko = function() {
  *     can't be determined.
  */
 goog.labs.userAgent.engine.getVersion = function() {
+  'use strict';
   var userAgentString = goog.labs.userAgent.util.getUserAgent();
   if (userAgentString) {
     var tuples = goog.labs.userAgent.util.extractVersionTuples(userAgentString);
@@ -117,6 +115,7 @@ goog.labs.userAgent.engine.getVersion = function() {
  * @private
  */
 goog.labs.userAgent.engine.getEngineTuple_ = function(tuples) {
+  'use strict';
   if (!goog.labs.userAgent.engine.isEdge()) {
     return tuples[1];
   }
@@ -135,6 +134,7 @@ goog.labs.userAgent.engine.getEngineTuple_ = function(tuples) {
  *     as the given version.
  */
 goog.labs.userAgent.engine.isVersionOrHigher = function(version) {
+  'use strict';
   return goog.string.compareVersions(
              goog.labs.userAgent.engine.getVersion(), version) >= 0;
 };
@@ -148,9 +148,13 @@ goog.labs.userAgent.engine.isVersionOrHigher = function(version) {
  * @private
  */
 goog.labs.userAgent.engine.getVersionForKey_ = function(tuples, key) {
+  'use strict';
   // TODO(nnaze): Move to util if useful elsewhere.
 
-  var pair = goog.array.find(tuples, function(pair) { return key == pair[0]; });
+  var pair = goog.array.find(tuples, function(pair) {
+    'use strict';
+    return key == pair[0];
+  });
 
   return pair && pair[1] || '';
 };

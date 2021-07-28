@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Simple logger that logs to the window console if available.
@@ -21,10 +13,10 @@
 
 goog.provide('goog.debug.Console');
 
-goog.require('goog.debug.LogManager');
 goog.require('goog.debug.Logger');
 goog.require('goog.debug.TextFormatter');
-
+goog.require('goog.log');
+goog.requireType('goog.log.LogRecord');
 
 
 /**
@@ -76,11 +68,11 @@ goog.debug.Console.prototype.setCapturing = function(capturing) {
   }
 
   // attach or detach handler from the root logger
-  var rootLogger = goog.debug.LogManager.getRoot();
+  var rootLogger = goog.log.getRootLogger();
   if (capturing) {
-    rootLogger.addHandler(this.publishHandler_);
+    goog.log.addHandler(rootLogger, this.publishHandler_);
   } else {
-    rootLogger.removeHandler(this.publishHandler_);
+    goog.log.removeHandler(rootLogger, this.publishHandler_);
   }
   this.isCapturing_ = capturing;
 };
@@ -88,7 +80,7 @@ goog.debug.Console.prototype.setCapturing = function(capturing) {
 
 /**
  * Adds a log record.
- * @param {?goog.debug.LogRecord} logRecord The log entry.
+ * @param {?goog.log.LogRecord} logRecord The log entry.
  */
 goog.debug.Console.prototype.addLogRecord = function(logRecord) {
   // Check to see if the log record is filtered or not.
@@ -123,7 +115,7 @@ goog.debug.Console.prototype.addLogRecord = function(logRecord) {
   var record = this.formatter_.formatRecord(logRecord);
   var console = goog.debug.Console.console_;
   if (console) {
-    // TODO(b/117415985): Make getLevel() non-null and update
+    // TODO(user): Make getLevel() non-null and update
     // getConsoleMethodName_ parameters.
     var logMethod = getConsoleMethodName_(logRecord.getLevel());
     goog.debug.Console.logToConsole_(

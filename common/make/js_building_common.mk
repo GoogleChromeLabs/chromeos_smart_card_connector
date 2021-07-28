@@ -85,6 +85,9 @@ endif
 #   default. Note: To be on the safe side, we're specifying all possible warning
 #   classes, except those that don't work for our codebase, which we explicitly
 #   list via jscomp_off.
+# jscomp_off deprecated: Suppress warnings about the usage of goog.inherits().
+#   TODO: Switch to using ECMAScript style inheritance and promote this to
+#   jscomp_error.
 # jscomp_off extraRequire: Suppress warnings about unused goog.require()
 #   statements. TODO: Fix the violations and promote this to jscomp_error.
 # jscomp_off jsdocMissingConst: Suppress warnings about variables that could be
@@ -105,6 +108,7 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
 	--dependency_mode=PRUNE \
 	--jscomp_error='*' \
+	--jscomp_off deprecated \
 	--jscomp_off extraRequire \
 	--jscomp_off jsdocMissingConst \
 	--jscomp_off lintChecks \

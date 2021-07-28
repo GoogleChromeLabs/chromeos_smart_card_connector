@@ -420,6 +420,20 @@ testSuite({
     mockClock.tick();
   },
 
+  testUnhandledErrorsWithHandler() {
+    stubs.replace(Deferred, 'STRICT_ERRORS', true);
+    const unhandledErrorHandler = recordFunction();
+    Deferred.setUnhandledErrorHandler(unhandledErrorHandler);
+    const d = new Deferred();
+    const error = new Error('Error!');
+
+    d.errback(error);
+    mockClock.tick();
+
+    assertEquals(1, unhandledErrorHandler.getCallCount());
+    assertEquals(error, unhandledErrorHandler.getCalls()[0].getArgument(0));
+  },
+
   testStrictUnhandledErrors() {
     stubs.replace(Deferred, 'STRICT_ERRORS', true);
     var err = Error('never handled');
@@ -1266,5 +1280,57 @@ testSuite({
       assertEquals('my error', e.message);
     }
     assertEquals(thisArg, callback.getCalls()[0].getThis());
-  }
+  },
+
+  testGetLastValueForMigration_beforeCallback() {
+    var deferred = new Deferred();
+
+    assertEquals(undefined, deferred.getLastValueForMigration());
+  },
+
+  testGetLastValueForMigration_afterCallback() {
+    var deferred = new Deferred();
+
+    deferred.callback(1);
+
+    assertEquals(1, deferred.getLastValueForMigration());
+  },
+
+  testGetLastValueForMigration_afterErrback() {
+    var deferred = new Deferred();
+
+    deferred.errback(new Error());
+
+    assertEquals(undefined, deferred.getLastValueForMigration());
+  },
+
+  testGetLastValueForMigration_duringCallback() {
+    var deferred = new Deferred();
+
+    deferred.addCallback((x) => 1)
+        .addCallback((x) => {
+          assertEquals(1, x);
+          assertEquals(1, deferred.getLastValueForMigration());
+          return 2;
+        })
+        .addCallback((x) => assertEquals(2, x));
+
+    deferred.callback(0);
+  },
+
+  testGetLastValueForMigration_afterCallbackThrowsError() {
+    var deferred = new Deferred();
+
+    deferred
+        .addCallback((x) => {
+          throw new Error();
+        })
+        .addErrback(
+            () => {
+                // Stop propagation.
+            });
+    deferred.callback(0);
+
+    assertEquals(undefined, deferred.getLastValueForMigration());
+  },
 });

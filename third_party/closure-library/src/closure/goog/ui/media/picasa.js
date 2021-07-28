@@ -1,23 +1,15 @@
-// Copyright 2009 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 
 /**
  * @fileoverview provides a reusable picasa album UI component given a public
  * picasa album URL.
  *
- * TODO(user): implement the javascript viewer, for users without flash. Get it
+ * TODO(goto): implement the javascript viewer, for users without flash. Get it
  * from the Gmail Picasa gadget.
  *
  * goog.ui.media.PicasaAlbum is actually a {@link goog.ui.ControlRenderer}, a
@@ -68,6 +60,8 @@ goog.require('goog.ui.media.FlashObject');
 goog.require('goog.ui.media.Media');
 goog.require('goog.ui.media.MediaModel');
 goog.require('goog.ui.media.MediaRenderer');
+goog.requireType('goog.dom.DomHelper');
+goog.requireType('goog.ui.Control');
 
 
 
@@ -98,6 +92,7 @@ goog.require('goog.ui.media.MediaRenderer');
  * @final
  */
 goog.ui.media.PicasaAlbum = function() {
+  'use strict';
   goog.ui.media.MediaRenderer.call(this);
 };
 goog.inherits(goog.ui.media.PicasaAlbum, goog.ui.media.MediaRenderer);
@@ -128,6 +123,7 @@ goog.ui.media.PicasaAlbum.CSS_CLASS = goog.getCssName('goog-ui-media-picasa');
  *     renderer.
  */
 goog.ui.media.PicasaAlbum.newControl = function(dataModel, opt_domHelper) {
+  'use strict';
   var control = new goog.ui.media.Media(
       dataModel, goog.ui.media.PicasaAlbum.getInstance(), opt_domHelper);
   control.setSelected(true);
@@ -144,6 +140,7 @@ goog.ui.media.PicasaAlbum.newControl = function(dataModel, opt_domHelper) {
  * @override
  */
 goog.ui.media.PicasaAlbum.prototype.createDom = function(c) {
+  'use strict';
   var control = /** @type {goog.ui.media.Media} */ (c);
   var div = goog.ui.media.PicasaAlbum.superClass_.createDom.call(this, control);
 
@@ -165,6 +162,7 @@ goog.ui.media.PicasaAlbum.prototype.createDom = function(c) {
  * @override
  */
 goog.ui.media.PicasaAlbum.prototype.getCssClass = function() {
+  'use strict';
   return goog.ui.media.PicasaAlbum.CSS_CLASS;
 };
 
@@ -188,6 +186,7 @@ goog.ui.media.PicasaAlbum.prototype.getCssClass = function() {
  */
 goog.ui.media.PicasaAlbumModel = function(
     userId, albumId, opt_authKey, opt_caption, opt_description, opt_autoplay) {
+  'use strict';
   goog.ui.media.MediaModel.call(
       this, goog.ui.media.PicasaAlbumModel.buildUrl(userId, albumId),
       opt_caption, opt_description, goog.ui.media.MediaModel.MimeType.FLASH);
@@ -261,6 +260,7 @@ goog.ui.media.PicasaAlbumModel.MATCHER_ =
  */
 goog.ui.media.PicasaAlbumModel.newInstance = function(
     picasaUrl, opt_caption, opt_description, opt_autoplay) {
+  'use strict';
   if (goog.ui.media.PicasaAlbumModel.MATCHER_.test(picasaUrl)) {
     var data = goog.ui.media.PicasaAlbumModel.MATCHER_.exec(picasaUrl);
     return new goog.ui.media.PicasaAlbumModel(
@@ -280,6 +280,7 @@ goog.ui.media.PicasaAlbumModel.newInstance = function(
  * @return {string} The URL of the album.
  */
 goog.ui.media.PicasaAlbumModel.buildUrl = function(userId, albumId) {
+  'use strict';
   return 'http://picasaweb.google.com/' + userId + '/' + albumId;
 };
 
@@ -289,6 +290,7 @@ goog.ui.media.PicasaAlbumModel.buildUrl = function(userId, albumId) {
  * @return {string} The Picasa user id.
  */
 goog.ui.media.PicasaAlbumModel.prototype.getUserId = function() {
+  'use strict';
   return this.userId_;
 };
 
@@ -298,6 +300,7 @@ goog.ui.media.PicasaAlbumModel.prototype.getUserId = function() {
  * @return {string} The Picasa album id.
  */
 goog.ui.media.PicasaAlbumModel.prototype.getAlbumId = function() {
+  'use strict';
   return this.albumId_;
 };
 
@@ -307,5 +310,6 @@ goog.ui.media.PicasaAlbumModel.prototype.getAlbumId = function() {
  * @return {?string} The Picasa album authentication key.
  */
 goog.ui.media.PicasaAlbumModel.prototype.getAuthKey = function() {
+  'use strict';
   return this.authKey_;
 };

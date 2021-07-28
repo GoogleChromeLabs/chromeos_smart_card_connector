@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 
 /**
@@ -26,7 +18,6 @@ goog.provide('goog.graphics.SvgRectElement');
 goog.provide('goog.graphics.SvgTextElement');
 
 
-goog.forwardDeclare('goog.graphics.SvgGraphics');
 goog.require('goog.dom');
 goog.require('goog.graphics.EllipseElement');
 goog.require('goog.graphics.GroupElement');
@@ -34,6 +25,10 @@ goog.require('goog.graphics.ImageElement');
 goog.require('goog.graphics.PathElement');
 goog.require('goog.graphics.RectElement');
 goog.require('goog.graphics.TextElement');
+goog.requireType('goog.graphics.Fill');
+goog.requireType('goog.graphics.Path');
+goog.requireType('goog.graphics.Stroke');
+goog.requireType('goog.graphics.SvgGraphics');
 
 
 
@@ -192,9 +187,9 @@ goog.inherits(goog.graphics.SvgPathElement, goog.graphics.PathElement);
  * Update the underlying path.
  * @param {!goog.graphics.Path} path The path object to draw.
  * @override
+ * @suppress {missingRequire} goog.graphics.SvgGraphics
  */
 goog.graphics.SvgPathElement.prototype.setPath = function(path) {
-  /** @suppress {missingRequire} goog.graphics.SvgGraphics */
   this.getGraphics().setElementAttributes(
       this.getElement(), {'d': goog.graphics.SvgGraphics.getSvgPath(path)});
 };

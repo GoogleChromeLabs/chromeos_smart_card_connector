@@ -1,16 +1,8 @@
-// Copyright 2009 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.provide('goog.date.relativeCommonTests');
 goog.setTestOnly('goog.date.relativeCommonTests');
@@ -30,6 +22,7 @@ goog.require('goog.i18n.DateTimeSymbols_es');
 goog.require('goog.i18n.DateTimeSymbols_fa');
 goog.require('goog.i18n.DateTimeSymbols_fr');
 goog.require('goog.i18n.DateTimeSymbols_no');
+goog.require('goog.i18n.NumberFormatSymbols');
 goog.require('goog.i18n.NumberFormatSymbols_bn');
 goog.require('goog.i18n.NumberFormatSymbols_en');
 goog.require('goog.i18n.NumberFormatSymbols_fa');
@@ -52,6 +45,7 @@ var propertyReplacer = new goog.testing.PropertyReplacer();
 function setUpPage() {
   // Ensure goog.now returns a constant timestamp.
   propertyReplacer.replace(goog, 'now', function() {
+    'use strict';
     return baseTime;
   });
   propertyReplacer.replace(goog, 'LOCALE', 'en-US');

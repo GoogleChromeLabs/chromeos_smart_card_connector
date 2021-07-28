@@ -1,17 +1,8 @@
-// Copyright 2008 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-// All Rights Reserved.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Abstract API for TrogEdit plugins.
@@ -22,14 +13,15 @@
 goog.provide('goog.editor.PluginImpl');
 
 goog.forwardDeclare('goog.editor.Field');
-// TODO(user): Remove the dependency on goog.editor.Command asap. Currently only
-// needed for execCommand issues with links.
 goog.require('goog.events.EventTarget');
 goog.require('goog.functions');
 goog.require('goog.log');
 goog.require('goog.object');
 goog.require('goog.reflect');
 goog.require('goog.userAgent');
+// TODO(user): Remove the dependency on goog.editor.Command asap. Currently only
+// needed for execCommand issues with links.
+goog.requireType('goog.events.BrowserEvent');
 
 /**
  * Abstract API for trogedit plugins.
@@ -392,7 +384,7 @@ goog.editor.PluginImpl.prototype.execCommand = function(command, var_args) {
  * If custom event dispatching is needed, execCommand shoul be overriden
  * instead.
  *
- * TODO(b/111035839): This pattern makes accurate typing impossible.
+ * TODO(user): This pattern makes accurate typing impossible.
  *
  * @param {?} command `extends string` The command to execute.
  * @param {...?} var_args Any additional parameters needed to

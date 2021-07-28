@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview A class for representing items in menus.
@@ -31,7 +23,9 @@ goog.require('goog.string');
 goog.require('goog.ui.Component');
 goog.require('goog.ui.Control');
 goog.require('goog.ui.MenuItemRenderer');
-goog.require('goog.ui.registry');  // circular
+goog.require('goog.ui.registry');
+goog.requireType('goog.events.KeyCodes');
+goog.requireType('goog.ui.ControlContent');  // circular
 
 
 
@@ -55,7 +49,6 @@ goog.ui.MenuItem = function(content, opt_model, opt_domHelper, opt_renderer) {
   this.setValue(opt_model);
 };
 goog.inherits(goog.ui.MenuItem, goog.ui.Control);
-goog.tagUnsealableClass(goog.ui.MenuItem);
 
 
 /**
@@ -185,7 +178,7 @@ goog.ui.MenuItem.prototype.setCheckableInternal_ = function(checkable) {
  */
 goog.ui.MenuItem.prototype.getCaption = function() {
   var content = this.getContent();
-  if (goog.isArray(content)) {
+  if (Array.isArray(content)) {
     var acceleratorClass = goog.ui.MenuItem.ACCELERATOR_CLASS;
     var mnemonicWrapClass = goog.ui.MenuItem.MNEMONIC_WRAPPER_CLASS_;
     var caption =
@@ -218,7 +211,7 @@ goog.ui.MenuItem.prototype.getCaption = function() {
 goog.ui.MenuItem.prototype.getAccelerator = function() {
   var dom = this.getDomHelper();
   var content = this.getContent();
-  if (goog.isArray(content)) {
+  if (Array.isArray(content)) {
     var acceleratorEl = goog.array.find(content, function(e) {
       return goog.dom.classlist.contains(
           /** @type {!Element} */ (e), goog.ui.MenuItem.ACCELERATOR_CLASS);

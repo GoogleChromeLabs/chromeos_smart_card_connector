@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.module('goog.objectTest');
 goog.setTestOnly();
@@ -197,6 +189,36 @@ testSuite({
     assertEquals(3, clone.b.d);
     assertEquals(4, clone.e.f.g);
     assertEquals(5, clone.e.f.h);
+  },
+
+  testUnsafeCloneTypedArray() {
+    if (typeof ArrayBuffer !== 'function' ||
+        typeof ArrayBuffer.isView !== 'function') {
+      return;
+    }
+    function array(ctor, ...elems) {  // IE 11 does not support TypedArray.of
+      const arr = new ctor(elems.length);
+      for (let i = 0; i < elems.length; i++) {
+        arr[i] = elems[i];
+      }
+      return arr;
+    }
+
+    const original = {a: array(Uint8Array, 1, 2), b: array(Int16Array, 3, 4)};
+    const clone = googObject.unsafeClone(original);
+
+    assertNotEquals(original, clone);
+    assertNotEquals(original.a, clone.a);
+    assertNotEquals(original.b, clone.b);
+
+    assertTrue(clone.a instanceof Uint8Array);
+    assertEquals(2, clone.a.length);
+    assertEquals(1, clone.a[0]);
+    assertEquals(2, clone.a[1]);
+    assertTrue(clone.b instanceof Int16Array);
+    assertEquals(2, clone.b.length);
+    assertEquals(3, clone.b[0]);
+    assertEquals(4, clone.b[1]);
   },
 
   testUnsafeCloneFunctions() {
@@ -546,39 +568,6 @@ testSuite({
 
   testObjectsWithSameKeysInDifferentOrderAreEqual() {
     assertTrue(googObject.equals({'a': 1, 'b': 2}, {'b': 2, 'a': 1}));
-  },
-
-  testIs() {
-    const object = {};
-    assertTrue(googObject.is(object, object));
-    assertFalse(googObject.is(object, {}));
-
-    assertTrue(googObject.is(NaN, NaN));
-    assertTrue(googObject.is(0, 0));
-    assertTrue(googObject.is(1, 1));
-    assertTrue(googObject.is(-1, -1));
-    assertTrue(googObject.is(123, 123));
-    assertFalse(googObject.is(0, -0));
-    assertFalse(googObject.is(-0, 0));
-    assertFalse(googObject.is(0, 1));
-
-    assertTrue(googObject.is(true, true));
-    assertTrue(googObject.is(false, false));
-    assertFalse(googObject.is(true, false));
-    assertFalse(googObject.is(false, true));
-
-    assertTrue(googObject.is('', ''));
-    assertTrue(googObject.is('a', 'a'));
-    assertFalse(googObject.is('', 'a'));
-    assertFalse(googObject.is('a', ''));
-    assertFalse(googObject.is('a', 'b'));
-
-    assertFalse(googObject.is(true, 'true'));
-    assertFalse(googObject.is('true', true));
-    assertFalse(googObject.is(false, 'false'));
-    assertFalse(googObject.is('false', false));
-    assertFalse(googObject.is(0, '0'));
-    assertFalse(googObject.is('0', 0));
   },
 
   testGetAllPropertyNames_enumerableProperties() {

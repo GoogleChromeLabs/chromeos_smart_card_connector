@@ -1,16 +1,8 @@
-// Copyright 2006 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.module('goog.net.cookiesTest');
 goog.setTestOnly();
@@ -176,7 +168,7 @@ testSuite({
   testRemove() {
     assertFalse(
         '1. Cookie should not contain "testa"', cookies.containsKey('testa'));
-    cookies.set('testa', 'A', undefined, '/');
+    cookies.set('testa', 'A', {path: '/'});
     assertTrue(
         '2. Cookie should contain "testa"', cookies.containsKey('testa'));
     cookies.remove('testa', '/');
@@ -207,32 +199,20 @@ testSuite({
   testSetCookiePath() {
     assertEquals(
         'foo=bar;path=/xyz', mockSetCookie('foo', 'bar', {path: '/xyz'}));
-    assertEquals('foo=bar;path=/xyz', mockSetCookie('foo', 'bar', -1, '/xyz'));
   },
 
   testSetCookieDomain() {
     assertEquals(
         'foo=bar;domain=google.com',
-        mockSetCookie('foo', 'bar', -1, null, 'google.com'));
+        mockSetCookie('foo', 'bar', {domain: 'google.com'}));
   },
 
   testSetCookieSecure() {
     assertEquals('foo=bar;secure', mockSetCookie('foo', 'bar', {secure: true}));
-    assertEquals(
-        'foo=bar;secure', mockSetCookie('foo', 'bar', -1, null, null, true));
   },
 
   testSetCookieMaxAgeZero() {
     const result = mockSetCookie('foo', 'bar', {maxAge: 0});
-    const pattern =
-        new RegExp('foo=bar;expires=' + new Date(1970, 1, 1).toUTCString());
-    if (!result.match(pattern)) {
-      fail(`expected match against ${pattern} got ${result}`);
-    }
-  },
-
-  testSetCookieMaxAgeZeroPositional() {
-    const result = mockSetCookie('foo', 'bar', 0);
     const pattern =
         new RegExp('foo=bar;expires=' + new Date(1970, 1, 1).toUTCString());
     if (!result.match(pattern)) {

@@ -1,16 +1,8 @@
-// Copyright 2008 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.module('goog.editor.plugins.EnterHandlerTest');
 goog.setTestOnly();
@@ -70,7 +62,7 @@ function selectNodeAndHitEnter(field, id) {
 /**
  * Creates a field with only the enter handler plugged in, for testing.
  * @param {string} id A DOM id.
- * @return {Field} A field.
+ * @return {!Field} A field.
  */
 function makeField(id, classnameRequiredToSplitBlockquote) {
   const field = new Field(id);
@@ -757,5 +749,63 @@ testSuite({
       assertEquals(container, newRange.getStartNode());
       assertEquals(2, newRange.getStartOffset());
     }
+  },
+
+  testDeleteW3CRemoveEntireLineWithShiftDown() {
+    if (!BrowserFeature.HAS_W3C_RANGES) {
+      return;
+    }
+    container.innerHTML = '<div>a</div><div>b</div><div>cc</div><div>d</div>';
+    // anchor: |, focus: ||
+    // <div>a</div><div>|b</div><div>||cc</div><div>d</div>
+    const range = Range.createFromNodes(
+        container.children[1].firstChild, 0, container.children[2], 0);
+    range.select();
+    EnterHandler.deleteW3cRange_(range);
+
+    // Browsers will add a newline between the a and cc lines, but this doesn't
+    // happen in unit tests as we can't trigger the browser's behavior when
+    // editing content-editable divs.
+    testingDom.assertHtmlContentsMatch(
+        '<div>a</div><div>cc</div><div>d</div>', container);
+  },
+
+  testDeleteW3CRemoveEntireFirstLineWithShiftDown() {
+    if (!BrowserFeature.HAS_W3C_RANGES) {
+      return;
+    }
+    container.innerHTML = '<div>a</div><div>b</div><div>cc</div><div>d</div>';
+    // anchor: |, focus: ||
+    // <div>|a</div><div>||b</div><div>cc</div><div>d</div>
+    const range = Range.createFromNodes(
+        container.children[0].firstChild, 0, container.children[1], 0);
+    range.select();
+    EnterHandler.deleteW3cRange_(range);
+
+    // Browsers will add a newline between the a and cc lines, but this doesn't
+    // happen in unit tests as we can't trigger the browser's behavior when
+    // editing content-editable divs.
+    testingDom.assertHtmlContentsMatch(
+        '<div>b</div><div>cc</div><div>d</div>', container);
+  },
+
+  testDeleteW3CRemoveEntireLineWithPartialSecondLine() {
+    if (BrowserFeature.HAS_W3C_RANGES) {
+      return;
+    }
+    container.innerHTML = '<div>a</div><div>b</div><div>cc</div><div>d</div>';
+    // anchor: |, focus: ||
+    // <div>a</div><div>|b</div><div>c||c</div><div>d</div>
+    const range = Range.createFromNodes(
+        container.children[1].firstChild, 0, container.children[2].firstChild,
+        1);
+    range.select();
+    EnterHandler.deleteW3cRange_(range);
+
+    // Browsers will add a newline between the a and cc lines, but this doesn't
+    // happen in unit tests as we can't trigger the browser's behavior when
+    // editing content-editable divs.
+    testingDom.assertHtmlContentsMatch(
+        '<div>a</div><div>c</div><div>d</div>', container);
   },
 });

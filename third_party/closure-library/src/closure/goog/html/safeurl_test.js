@@ -1,16 +1,8 @@
-// Copyright 2013 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /** @fileoverview Unit tests for SafeUrl and its builders. */
 
@@ -19,12 +11,16 @@ goog.setTestOnly();
 
 const Const = goog.require('goog.string.Const');
 const Dir = goog.require('goog.i18n.bidi.Dir');
+const PropertyReplacer = goog.require('goog.testing.PropertyReplacer');
 const SafeUrl = goog.require('goog.html.SafeUrl');
 const TrustedResourceUrl = goog.require('goog.html.TrustedResourceUrl');
+const fsUrl = goog.require('goog.fs.url');
 const googObject = goog.require('goog.object');
 const safeUrlTestVectors = goog.require('goog.html.safeUrlTestVectors');
 const testSuite = goog.require('goog.testing.testSuite');
 const userAgent = goog.require('goog.userAgent');
+const {assertExists} = goog.require('goog.asserts');
+
 
 /** @return {boolean} True if running on IE9 or lower. */
 function isIE9OrLower() {
@@ -49,7 +45,21 @@ function assertBlobTypeIsSafe(type, isSafe) {
   }
 }
 
+/**
+ * @type {!PropertyReplacer}
+ */
+let stubs;
+
 testSuite({
+
+  setUp() {
+    stubs = new PropertyReplacer();
+  },
+
+  tearDown() {
+    stubs.reset();
+  },
+
   testSafeUrl() {
     const safeUrl = SafeUrl.fromConstant(Const.from('javascript:trusted();'));
     const extracted = SafeUrl.unwrap(safeUrl);
@@ -67,6 +77,8 @@ testSuite({
 
   testSafeUrlIsSafeMimeType_withSafeType() {
     assertTrue(SafeUrl.isSafeMimeType('audio/ogg'));
+    assertTrue(SafeUrl.isSafeMimeType('audio/x-matroska'));
+    assertTrue(SafeUrl.isSafeMimeType('font/woff'));
     assertTrue(SafeUrl.isSafeMimeType('image/png'));
     assertTrue(SafeUrl.isSafeMimeType('iMage/pNg'));
     assertTrue(SafeUrl.isSafeMimeType('video/mpeg'));
@@ -75,6 +87,10 @@ testSuite({
     assertTrue(SafeUrl.isSafeMimeType('video/ogg'));
     assertTrue(SafeUrl.isSafeMimeType('video/webm'));
     assertTrue(SafeUrl.isSafeMimeType('video/quicktime'));
+    assertTrue(SafeUrl.isSafeMimeType('video/x-matroska'));
+    // Allow comma-separated, quoted MIME parameters with and without spaces.
+    assertTrue(SafeUrl.isSafeMimeType('video/webm;codecs="vp8,opus"'));
+    assertTrue(SafeUrl.isSafeMimeType('video/webm;codecs="vp8, opus"'));
   },
 
   testSafeUrlIsSafeMimeType_withUnsafeType() {
@@ -83,6 +99,8 @@ testSuite({
     assertFalse(SafeUrl.isSafeMimeType('image/pngx'));
     assertFalse(SafeUrl.isSafeMimeType('video/whatever'));
     assertFalse(SafeUrl.isSafeMimeType('video/'));
+    // Complex MIME parameters must be quoted.
+    assertFalse(SafeUrl.isSafeMimeType('video/webm;codecs=vp8,opus'));
   },
 
   testSafeUrlFromBlob_withSafeType() {
@@ -123,6 +141,42 @@ testSuite({
     // Maybe not wrong, but we reject nonetheless for simplicity.
     assertBlobTypeIsSafe('image/png;foo=bar&', false);
     assertBlobTypeIsSafe('image/png;foo=%3Cbar', false);
+  },
+
+  testSafeUrlFromBlob_revocation() {
+    if (isIE9OrLower()) {
+      return;
+    }
+    let timesCalled = 0;
+    stubs.replace(fsUrl, 'revokeObjectUrl', function(arg) {
+      timesCalled++;
+    });
+    SafeUrl.revokeObjectUrl(
+        SafeUrl.fromBlob(new Blob(['test'], {type: 'image/png'})));
+    assertEquals(1, timesCalled);
+    SafeUrl.revokeObjectUrl(
+        SafeUrl.fromBlob(new Blob(['test'], {type: 'text/html'})));
+    // No revocation, as object URL was never created.
+    assertEquals(1, timesCalled);
+  },
+
+  testSafeUrlFromMediaSource_createsBlob() {
+    if (!('MediaSource' in goog.global)) {
+      return;
+    }
+    const safeUrl = SafeUrl.fromMediaSource(new MediaSource());
+    const extracted = SafeUrl.unwrap(safeUrl);
+    assertEquals('blob:', extracted.substring(0, 5));
+  },
+
+  testSafeUrlFromMediaSource_rejectsBlobs() {
+    if (!('MediaSource' in goog.global)) {
+      return;
+    }
+    const safeUrl =
+        SafeUrl.fromMediaSource(new Blob([''], {type: 'text/plain'}));
+    const extracted = SafeUrl.unwrap(safeUrl);
+    assertEquals(SafeUrl.INNOCUOUS_STRING, extracted);
   },
 
   testSafeUrlFromFacebookMessengerUrl_fbMessengerShareUrl() {
@@ -284,13 +338,10 @@ testSuite({
   /** @suppress {checkTypes} */
   testUnwrap() {
     const privateFieldName = 'privateDoNotAccessOrElseSafeUrlWrappedValue_';
-    const markerFieldName = 'SAFE_URL_TYPE_MARKER_GOOG_HTML_SECURITY_PRIVATE_';
     const propNames = googObject.getKeys(SafeUrl.sanitize(''));
     assertContains(privateFieldName, propNames);
-    assertContains(markerFieldName, propNames);
     const evil = {};
     evil[privateFieldName] = 'javascript:evil()';
-    evil[markerFieldName] = {};
 
     const exception = assertThrows(() => {
       SafeUrl.unwrap(evil);
@@ -298,14 +349,29 @@ testSuite({
     assertContains('expected object of type SafeUrl', exception.message);
   },
 
-  testSafeUrlSanitize_sanitizeUrl() {
-    const vectors = safeUrlTestVectors.BASE_VECTORS;
-    for (let i = 0; i < vectors.length; ++i) {
-      const v = vectors[i];
+  testSafeUrlSanitize_trySanitize() {
+    for (const v of safeUrlTestVectors.BASE_VECTORS) {
       const isDataUrl = v.input.match(/^data:/i);
-      const observed =
-          isDataUrl ? SafeUrl.fromDataUrl(v.input) : SafeUrl.sanitize(v.input);
+      const observed = isDataUrl ? SafeUrl.tryFromDataUrl(v.input) :
+                                   SafeUrl.trySanitize(v.input);
+      if (v.safe) {
+        assertEquals(v.expected, SafeUrl.unwrap(assertExists(observed)));
+      } else {
+        assertNull(observed);
+      }
+    }
+  },
+
+  testSafeUrlSanitize_sanitize() {
+    for (const v of safeUrlTestVectors.BASE_VECTORS) {
+      const observed = SafeUrl.sanitize(v.input);
       assertEquals(v.expected, SafeUrl.unwrap(observed));
+    }
+  },
+
+  testSafeUrlSanitize_sanitizeAssertUnchanged() {
+    for (const v of safeUrlTestVectors.BASE_VECTORS) {
+      const isDataUrl = v.input.match(/^data:/i);
       if (v.safe) {
         const asserted = SafeUrl.sanitizeAssertUnchanged(v.input, isDataUrl);
         assertEquals(v.expected, SafeUrl.unwrap(asserted));

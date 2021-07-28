@@ -5,7 +5,6 @@
 # your project and extend the rules to disable them or to add their whitelists.
 
 
-
 ### Platform restrictions ###
 
 requirement: {
@@ -15,7 +14,6 @@ requirement: {
 
   value: 'Arguments.prototype.callee'
 
-  whitelist_regexp: '.+/closure/goog/base.js'  # goog.base uses arguments.callee
   whitelist_regexp: '.+/closure/goog/debug/'  # legacy stack trace support, etc
   # TODO(mlourenco): Fix this? Not sure if possible or not.
   whitelist_regexp: '.+/closure/goog/testing/stacktrace.js'
@@ -43,13 +41,12 @@ requirement: {
   type: CUSTOM
   java_class: 'com.google.javascript.jscomp.ConformanceRules$BanGlobalVars'
   error_message: 'Global declarations are not allowed. See https://google.github.io/closure-library/develop/conformance_rules.html#globalVars'
-
   whitelist_regexp: '.+/closure/goog/base.js' # global 'goog'
   whitelist_regexp: '.+/closure/goog/labs/testing/' # global matchers, etc
   whitelist_regexp: '.+/closure/goog/locale/locale.js' # dumb api
   whitelist_regexp: '.+/closure/goog/testing/' # global assert methods, etc
   whitelist_regexp: '.+/closure/goog/tweak/testhelpers.js' # global values
-  whitelist_regexp: '^Post.*_module$' # injected '_ModuleManager_initialize'
+  whitelist_regexp: '^Post-' # injected '_ModuleManager_initialize'
 }
 
 requirement: {
@@ -65,7 +62,6 @@ requirement: {
   whitelist_regexp: '.+/closure/goog/functions/functions.js'
   whitelist_regexp: '.+/closure/goog/memoize/memoize.js'
   whitelist_regexp: '.+/closure/goog/pubsub/pubsub.js'
-  whitelist_regexp: '.+/closure/goog/result/resultutil.js'
   whitelist_regexp: '.+/closure/goog/testing/'
   whitelist_regexp: '.+/closure/goog/ui/editor/bubble.js'
   whitelist_regexp: '.+/closure/goog/ui/editor/toolbarcontroller.js'
@@ -114,7 +110,6 @@ requirement: {
   whitelist_regexp: '.+/closure/goog/json/json.js' # used in goog.json.parse
   whitelist_regexp: '.+/closure/goog/module/loader.js'
   whitelist_regexp: '.+/closure/goog/module/moduleloader.js'
-
 }
 
 requirement: {
@@ -311,9 +306,7 @@ requirement: {
   value: 'Location.prototype.href'
 
   whitelist_regexp: '.+/closure/goog/dom/safe.js'
-  # URL is sanitized in goog.net.xpc.IframePollingTransport.Sender, before
-  # being assigned to .href.
-  whitelist_regexp: '.+/closure/goog/net/xpc/iframepollingtransport.js'
+
   # The following whitelist entries are due to usages of .href that still
   # need to be refactored or reviewed. See http://b/12014412.
   whitelist_regexp: '.+/closure/goog/history/history.js'
@@ -406,7 +399,9 @@ requirement: {
   value: '*.innerHTML'
   value: '*.outerHTML'
 
+  whitelist_regexp: '.+/closure/tweak/tweakui.js' # False positive - missing type on containerNodeName. MOE:strip_line
   whitelist_regexp: '.+/closure/goog/tweak/tweakui.js' # False positive - missing type on containerNodeName.
+
   # TODO(jakubvrana): Ban this.
   whitelist_regexp: '.+/closure/goog/ui/abstractspellchecker.js'
 }
@@ -483,8 +478,6 @@ requirement: {
 #
 # These rules allow projects to have compile-time errors for legacyconversions
 # functions and to progressively move away from them by using the whitelist.
-
-
 
 ### Closure library restrictions ###
 

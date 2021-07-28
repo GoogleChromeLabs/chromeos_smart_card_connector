@@ -1,16 +1,8 @@
-// Copyright 2009 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 goog.module('goog.debug.ErrorReporterTest');
 goog.setTestOnly();
@@ -47,13 +39,44 @@ const stubs = new PropertyReplacer();
 const url = 'http://www.your.tst/more/bogus.js';
 const encodedUrl = 'http%3A%2F%2Fwww.your.tst%2Fmore%2Fbogus.js';
 
-function throwAnErrorWith(script, line, message, stack = undefined) {
-  const error = {message: message, fileName: script, lineNumber: line};
+/**
+ * @param {*} filename
+ * @param {*} line
+ * @param {*} message
+ * @param {*=} stack
+ * @param {*=} cause
+ * @return {*}
+ */
+function createError(
+    filename, line, message, stack = undefined, cause = undefined) {
+  const error = {
+    message: message,
+    fileName: filename,
+    lineNumber: line,
+    toString: function() {
+      return 'Error: ' + message;
+    }
+  };
   if (stack) {
     error['stack'] = stack;
   }
+  if (cause) {
+    error['cause'] = cause;
+  }
 
-  throw error;
+  return error;
+}
+
+/**
+ * @param {*} script
+ * @param {*} line
+ * @param {*} message
+ * @param {*=} stack
+ * @param {*=} cause
+ */
+function throwAnErrorWith(
+    script, line, message, stack = undefined, cause = undefined) {
+  throw createError(script, line, message, stack, cause);
 }
 
 testSuite({
@@ -110,7 +133,7 @@ testSuite({
 
   test_nonInternetExplorerSendErrorReport() {
     if (product.SAFARI) {
-      // TODO(b/20733468): Disabled so we can get the rest of the Closure test
+      // TODO(user): Disabled so we can get the rest of the Closure test
       // suite running in a continuous build. Will investigate later.
       return;
     }
@@ -195,6 +218,110 @@ testSuite({
             'http%3A%2F%2Fa.b.c%3A83%2Fa%2Ff.js%3A901%0A' +
             '(%5Bobject%20Object%5D)%40http%3A%2F%2Fa.b.c%3A813%2Fa%2Ff.js%3A37',
         MockXhrIo.lastContent);
+  },
+
+  test_nonInternetExplorerSendErrorReportWithTraceAndCauses() {
+    stubs.set(userAgent, 'IE', false);
+    stubs.set(goog.global, 'setTimeout', (fcn, time) => {
+      fcn.call();
+    });
+
+    const maintrace = 'Error(\"Something Wrong\")@:0\n' +
+        '$MF$E$Nx$([object Object])@http://a.b.c:83/a/f.js:901\n' +
+        '([object Object])@http://a.b.c:813/a/f.js:37';
+
+    // For this cause, the error message is part of the stacktrace.
+    const causetrace1 =
+        'Error: Cause1 Error\n([object Object])@http://a.b.c:813/b/d.js:35';
+    const causetrace2 =
+        '$AB$B$Wx$([object Object])@http://a.b.c:83/c/e.js:101\n' +
+        '([object Object])@http://a.b.c:813/c/d.js:3';
+
+    const cause2 =
+        createError(url, 1, 'Cause2 Error', causetrace2, 'String cause');
+    const cause1 = createError(url, 12, 'Cause1 Error', causetrace1, cause2);
+
+    const expectedTrace = 'Error("Something Wrong")@:0\n' +
+        '$MF$E$Nx$([object Object])@http://a.b.c:83/a/f.js:901\n' +
+        '([object Object])@http://a.b.c:813/a/f.js:37\n' +
+        'Caused by: Error: Cause1 Error\n' +
+        '([object Object])@http://a.b.c:813/b/d.js:35\n' +
+        'Caused by: Cause2 Error\n' +
+        '$AB$B$Wx$([object Object])@http://a.b.c:83/c/e.js:101\n' +
+        '([object Object])@http://a.b.c:813/c/d.js:3\n' +
+        'Caused by: String cause';
+
+    errorReporter = ErrorReporter.install('/errorreporter');
+    events.listen(errorReporter, ErrorReporter.ExceptionEvent.TYPE, (event) => {
+      assertEquals(expectedTrace, event.error.stack);
+    });
+
+    const errorFunction =
+        goog.partial(throwAnErrorWith, url, 5, 'MainError', maintrace, cause1);
+
+    try {
+      goog.global.setTimeout(errorFunction, 0);
+    } catch (e) {
+      // Expected. The error is rethrown after sending.
+    }
+
+    assertEquals(
+        `/errorreporter?script=${encodedUrl}&error=MainError&line=5`,
+        MockXhrIo.lastUrl);
+    assertEquals(
+        'trace=' + encodeURIComponent(expectedTrace), MockXhrIo.lastContent);
+  },
+
+  test_nonInternetExplorerSendErrorReportWithCyclicCauses() {
+    stubs.set(userAgent, 'IE', false);
+    stubs.set(goog.global, 'setTimeout', (fcn, time) => {
+      fcn.call();
+    });
+
+    const maintrace = 'Error(\"Something Wrong\")@:0\n' +
+        '$MF$E$Nx$([object Object])@http://a.b.c:83/a/f.js:901\n' +
+        '([object Object])@http://a.b.c:813/a/f.js:37';
+
+    // For this cause, the error message is part of the stacktrace.
+    const causetrace1 =
+        'Error: Cause1 Error\n([object Object])@http://a.b.c:813/b/d.js:35';
+    const causetrace2 =
+        '$AB$B$Wx$([object Object])@http://a.b.c:83/c/e.js:101\n' +
+        '([object Object])@http://a.b.c:813/c/d.js:3';
+
+    const cause2 = createError(url, 1, 'Cause2 Error', causetrace2);
+    const cause1 = createError(url, 12, 'Cause1 Error', causetrace1, cause2);
+    // introduce a cycle
+    cause2['cause'] = cause1;
+
+    const expectedTrace = 'Error("Something Wrong")@:0\n' +
+        '$MF$E$Nx$([object Object])@http://a.b.c:83/a/f.js:901\n' +
+        '([object Object])@http://a.b.c:813/a/f.js:37\n' +
+        'Caused by: Error: Cause1 Error\n' +
+        '([object Object])@http://a.b.c:813/b/d.js:35\n' +
+        'Caused by: Cause2 Error\n' +
+        '$AB$B$Wx$([object Object])@http://a.b.c:83/c/e.js:101\n' +
+        '([object Object])@http://a.b.c:813/c/d.js:3';
+
+    errorReporter = ErrorReporter.install('/errorreporter');
+    events.listen(errorReporter, ErrorReporter.ExceptionEvent.TYPE, (event) => {
+      assertEquals(expectedTrace, event.error.stack);
+    });
+
+    const errorFunction =
+        goog.partial(throwAnErrorWith, url, 5, 'MainError', maintrace, cause1);
+
+    try {
+      goog.global.setTimeout(errorFunction, 0);
+    } catch (e) {
+      // Expected. The error is rethrown after sending.
+    }
+
+    assertEquals(
+        `/errorreporter?script=${encodedUrl}&error=MainError&line=5`,
+        MockXhrIo.lastUrl);
+    assertEquals(
+        'trace=' + encodeURIComponent(expectedTrace), MockXhrIo.lastContent);
   },
 
   testProtectAdditionalEntryPoint_nonIE() {

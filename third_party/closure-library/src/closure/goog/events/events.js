@@ -1,16 +1,8 @@
-// Copyright 2005 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview An event manager for both native browser event
@@ -55,14 +47,18 @@ goog.provide('goog.events.CaptureSimulationMode');
 goog.provide('goog.events.Key');
 goog.provide('goog.events.ListenableType');
 
-goog.forwardDeclare('goog.debug.ErrorHandler');
-goog.forwardDeclare('goog.events.EventWrapper');
 goog.require('goog.asserts');
 goog.require('goog.debug.entryPointRegistry');
 goog.require('goog.events.BrowserEvent');
 goog.require('goog.events.BrowserFeature');
 goog.require('goog.events.Listenable');
 goog.require('goog.events.ListenerMap');
+goog.requireType('goog.debug.ErrorHandler');
+goog.requireType('goog.events.EventId');
+goog.requireType('goog.events.EventLike');
+goog.requireType('goog.events.EventWrapper');
+goog.requireType('goog.events.ListenableKey');
+goog.requireType('goog.events.Listener');
 
 
 /**
@@ -169,7 +165,7 @@ goog.events.listen = function(src, type, listener, opt_options, opt_handler) {
     return goog.events.listenOnce(
         src, type, listener, opt_options, opt_handler);
   }
-  if (goog.isArray(type)) {
+  if (Array.isArray(type)) {
     for (var i = 0; i < type.length; i++) {
       goog.events.listen(src, type[i], listener, opt_options, opt_handler);
     }
@@ -263,6 +259,7 @@ goog.events.listen_ = function(
     src.addEventListener(type.toString(), proxy, opt_options);
   } else if (src.attachEvent) {
     // The else if above used to be an unconditional else. It would call
+    // attachEvent come gws or high water. This would sometimes throw an
     // exception on IE11, spoiling the day of some callers. The previous
     // incarnation of this code, from 2007, indicates that it replaced an
     // earlier still version that caused excess allocations on IE6.
@@ -334,7 +331,7 @@ goog.events.getProxy = function() {
  */
 goog.events.listenOnce = function(
     src, type, listener, opt_options, opt_handler) {
-  if (goog.isArray(type)) {
+  if (Array.isArray(type)) {
     for (var i = 0; i < type.length; i++) {
       goog.events.listenOnce(src, type[i], listener, opt_options, opt_handler);
     }
@@ -395,7 +392,7 @@ goog.events.listenWithWrapper = function(
  * @template EVENTOBJ
  */
 goog.events.unlisten = function(src, type, listener, opt_options, opt_handler) {
-  if (goog.isArray(type)) {
+  if (Array.isArray(type)) {
     for (var i = 0; i < type.length; i++) {
       goog.events.unlisten(src, type[i], listener, opt_options, opt_handler);
     }
@@ -561,7 +558,7 @@ goog.events.removeAll = function(obj, opt_type) {
  * @param {Object} obj Object to get listeners for.
  * @param {string|!goog.events.EventId} type Event type.
  * @param {boolean} capture Capture phase?.
- * @return {Array<!goog.events.Listener>} Array of listener objects.
+ * @return {!Array<!goog.events.Listener>} Array of listener objects.
  */
 goog.events.getListeners = function(obj, type, capture) {
   if (goog.events.Listenable.isImplementedBy(obj)) {
@@ -844,8 +841,8 @@ goog.events.handleBrowserEvent_ = function(listener, opt_evt) {
 
         // Fire capture listeners.
         var type = listener.type;
-        for (var i = ancestors.length - 1; !evt.propagationStopped_ && i >= 0;
-             i--) {
+        for (var i = ancestors.length - 1;
+             !evt.hasPropagationStopped() && i >= 0; i--) {
           evt.currentTarget = ancestors[i];
           var result =
               goog.events.fireListeners_(ancestors[i], type, true, evt);
@@ -861,7 +858,8 @@ goog.events.handleBrowserEvent_ = function(listener, opt_evt) {
         // Level 2 Events TR leaves the event ordering unspecified,
         // modern browsers and W3C DOM Level 3 Events Working Draft
         // actually specify the order as the registration order.)
-        for (var i = 0; !evt.propagationStopped_ && i < ancestors.length; i++) {
+        for (var i = 0; !evt.hasPropagationStopped() && i < ancestors.length;
+             i++) {
           evt.currentTarget = ancestors[i];
           var result =
               goog.events.fireListeners_(ancestors[i], type, false, evt);

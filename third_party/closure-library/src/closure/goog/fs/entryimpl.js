@@ -1,16 +1,8 @@
-// Copyright 2013 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Concrete implementations of the
@@ -20,7 +12,6 @@ goog.provide('goog.fs.DirectoryEntryImpl');
 goog.provide('goog.fs.EntryImpl');
 goog.provide('goog.fs.FileEntryImpl');
 
-goog.forwardDeclare('goog.fs.FileSystem');
 goog.require('goog.array');
 goog.require('goog.async.Deferred');
 goog.require('goog.fs.DirectoryEntry');
@@ -30,6 +21,7 @@ goog.require('goog.fs.FileEntry');
 goog.require('goog.fs.FileWriter');
 goog.require('goog.functions');
 goog.require('goog.string');
+goog.requireType('goog.fs.FileSystem');
 
 
 
@@ -41,6 +33,7 @@ goog.require('goog.string');
  * @implements {goog.fs.Entry}
  */
 goog.fs.EntryImpl = function(fs, entry) {
+  'use strict';
   /**
    * The wrapped filesystem.
    *
@@ -61,37 +54,44 @@ goog.fs.EntryImpl = function(fs, entry) {
 
 /** @override */
 goog.fs.EntryImpl.prototype.isFile = function() {
+  'use strict';
   return this.entry_.isFile;
 };
 
 
 /** @override */
 goog.fs.EntryImpl.prototype.isDirectory = function() {
+  'use strict';
   return this.entry_.isDirectory;
 };
 
 
 /** @override */
 goog.fs.EntryImpl.prototype.getName = function() {
+  'use strict';
   return this.entry_.name;
 };
 
 
 /** @override */
 goog.fs.EntryImpl.prototype.getFullPath = function() {
+  'use strict';
   return this.entry_.fullPath;
 };
 
 
 /** @override */
 goog.fs.EntryImpl.prototype.getFileSystem = function() {
+  'use strict';
   return this.fs_;
 };
 
 
 /** @override */
 goog.fs.EntryImpl.prototype.getLastModified = function() {
+  'use strict';
   return this.getMetadata().addCallback(function(metadata) {
+    'use strict';
     return metadata.modificationTime;
   });
 };
@@ -99,11 +99,14 @@ goog.fs.EntryImpl.prototype.getLastModified = function() {
 
 /** @override */
 goog.fs.EntryImpl.prototype.getMetadata = function() {
+  'use strict';
   var d = new goog.async.Deferred();
 
   this.entry_.getMetadata(function(metadata) {
+    'use strict';
     d.callback(metadata);
   }, goog.bind(function(err) {
+    'use strict';
     var msg = 'retrieving metadata for ' + this.getFullPath();
     d.errback(new goog.fs.Error(err, msg));
   }, this));
@@ -113,12 +116,15 @@ goog.fs.EntryImpl.prototype.getMetadata = function() {
 
 /** @override */
 goog.fs.EntryImpl.prototype.moveTo = function(parent, opt_newName) {
+  'use strict';
   var d = new goog.async.Deferred();
   this.entry_.moveTo(
       /** @type {!goog.fs.DirectoryEntryImpl} */ (parent).dir_, opt_newName,
       goog.bind(function(entry) {
+        'use strict';
         d.callback(this.wrapEntry(entry));
       }, this), goog.bind(function(err) {
+        'use strict';
         var msg = 'moving ' + this.getFullPath() + ' into ' +
             parent.getFullPath() +
             (opt_newName ? ', renaming to ' + opt_newName : '');
@@ -130,12 +136,15 @@ goog.fs.EntryImpl.prototype.moveTo = function(parent, opt_newName) {
 
 /** @override */
 goog.fs.EntryImpl.prototype.copyTo = function(parent, opt_newName) {
+  'use strict';
   var d = new goog.async.Deferred();
   this.entry_.copyTo(
       /** @type {!goog.fs.DirectoryEntryImpl} */ (parent).dir_, opt_newName,
       goog.bind(function(entry) {
+        'use strict';
         d.callback(this.wrapEntry(entry));
       }, this), goog.bind(function(err) {
+        'use strict';
         var msg = 'copying ' + this.getFullPath() + ' into ' +
             parent.getFullPath() +
             (opt_newName ? ', renaming to ' + opt_newName : '');
@@ -147,6 +156,7 @@ goog.fs.EntryImpl.prototype.copyTo = function(parent, opt_newName) {
 
 /** @override */
 goog.fs.EntryImpl.prototype.wrapEntry = function(entry) {
+  'use strict';
   return entry.isFile ?
       new goog.fs.FileEntryImpl(this.fs_, /** @type {!FileEntry} */ (entry)) :
       new goog.fs.DirectoryEntryImpl(
@@ -156,6 +166,7 @@ goog.fs.EntryImpl.prototype.wrapEntry = function(entry) {
 
 /** @override */
 goog.fs.EntryImpl.prototype.toUrl = function(opt_mimeType) {
+  'use strict';
   return this.entry_.toURL(opt_mimeType);
 };
 
@@ -166,9 +177,11 @@ goog.fs.EntryImpl.prototype.toUri = goog.fs.EntryImpl.prototype.toUrl;
 
 /** @override */
 goog.fs.EntryImpl.prototype.remove = function() {
+  'use strict';
   var d = new goog.async.Deferred();
   this.entry_.remove(
       goog.bind(d.callback, d, true /* result */), goog.bind(function(err) {
+        'use strict';
         var msg = 'removing ' + this.getFullPath();
         d.errback(new goog.fs.Error(err, msg));
       }, this));
@@ -178,10 +191,13 @@ goog.fs.EntryImpl.prototype.remove = function() {
 
 /** @override */
 goog.fs.EntryImpl.prototype.getParent = function() {
+  'use strict';
   var d = new goog.async.Deferred();
   this.entry_.getParent(goog.bind(function(parent) {
+    'use strict';
     d.callback(new goog.fs.DirectoryEntryImpl(this.fs_, parent));
   }, this), goog.bind(function(err) {
+    'use strict';
     var msg = 'getting parent of ' + this.getFullPath();
     d.errback(new goog.fs.Error(err, msg));
   }, this));
@@ -205,6 +221,7 @@ goog.fs.EntryImpl.prototype.getParent = function() {
  * @final
  */
 goog.fs.DirectoryEntryImpl = function(fs, dir) {
+  'use strict';
   goog.fs.DirectoryEntryImpl.base(this, 'constructor', fs, dir);
 
   /**
@@ -220,11 +237,14 @@ goog.inherits(goog.fs.DirectoryEntryImpl, goog.fs.EntryImpl);
 
 /** @override */
 goog.fs.DirectoryEntryImpl.prototype.getFile = function(path, opt_behavior) {
+  'use strict';
   var d = new goog.async.Deferred();
   this.dir_.getFile(
       path, this.getOptions_(opt_behavior), goog.bind(function(entry) {
+        'use strict';
         d.callback(new goog.fs.FileEntryImpl(this.fs_, entry));
       }, this), goog.bind(function(err) {
+        'use strict';
         var msg = 'loading file ' + path + ' from ' + this.getFullPath();
         d.errback(new goog.fs.Error(err, msg));
       }, this));
@@ -235,11 +255,14 @@ goog.fs.DirectoryEntryImpl.prototype.getFile = function(path, opt_behavior) {
 /** @override */
 goog.fs.DirectoryEntryImpl.prototype.getDirectory = function(
     path, opt_behavior) {
+  'use strict';
   var d = new goog.async.Deferred();
   this.dir_.getDirectory(
       path, this.getOptions_(opt_behavior), goog.bind(function(entry) {
+        'use strict';
         d.callback(new goog.fs.DirectoryEntryImpl(this.fs_, entry));
       }, this), goog.bind(function(err) {
+        'use strict';
         var msg = 'loading directory ' + path + ' from ' + this.getFullPath();
         d.errback(new goog.fs.Error(err, msg));
       }, this));
@@ -249,6 +272,7 @@ goog.fs.DirectoryEntryImpl.prototype.getDirectory = function(
 
 /** @override */
 goog.fs.DirectoryEntryImpl.prototype.createPath = function(path) {
+  'use strict';
   // If the path begins at the root, reinvoke createPath on the root directory.
   if (goog.string.startsWith(path, '/')) {
     var root = this.getFileSystem().getRoot();
@@ -288,16 +312,19 @@ goog.fs.DirectoryEntryImpl.prototype.createPath = function(path) {
 
 /** @override */
 goog.fs.DirectoryEntryImpl.prototype.listDirectory = function() {
+  'use strict';
   var d = new goog.async.Deferred();
   var reader = this.dir_.createReader();
   var results = [];
 
   var errorCallback = goog.bind(function(err) {
+    'use strict';
     var msg = 'listing directory ' + this.getFullPath();
     d.errback(new goog.fs.Error(err, msg));
   }, this);
 
   var successCallback = goog.bind(function(entries) {
+    'use strict';
     if (entries.length) {
       for (var i = 0, entry; entry = entries[i]; i++) {
         results.push(this.wrapEntry(entry));
@@ -315,9 +342,11 @@ goog.fs.DirectoryEntryImpl.prototype.listDirectory = function() {
 
 /** @override */
 goog.fs.DirectoryEntryImpl.prototype.removeRecursively = function() {
+  'use strict';
   var d = new goog.async.Deferred();
   this.dir_.removeRecursively(
       goog.bind(d.callback, d, true /* result */), goog.bind(function(err) {
+        'use strict';
         var msg = 'removing ' + this.getFullPath() + ' recursively';
         d.errback(new goog.fs.Error(err, msg));
       }, this));
@@ -335,6 +364,7 @@ goog.fs.DirectoryEntryImpl.prototype.removeRecursively = function() {
  * @private
  */
 goog.fs.DirectoryEntryImpl.prototype.getOptions_ = function(opt_behavior) {
+  'use strict';
   if (opt_behavior == goog.fs.DirectoryEntry.Behavior.CREATE) {
     return {'create': true};
   } else if (opt_behavior == goog.fs.DirectoryEntry.Behavior.CREATE_EXCLUSIVE) {
@@ -360,6 +390,7 @@ goog.fs.DirectoryEntryImpl.prototype.getOptions_ = function(opt_behavior) {
  * @final
  */
 goog.fs.FileEntryImpl = function(fs, file) {
+  'use strict';
   goog.fs.FileEntryImpl.base(this, 'constructor', fs, file);
 
   /**
@@ -375,10 +406,13 @@ goog.inherits(goog.fs.FileEntryImpl, goog.fs.EntryImpl);
 
 /** @override */
 goog.fs.FileEntryImpl.prototype.createWriter = function() {
+  'use strict';
   var d = new goog.async.Deferred();
   this.file_.createWriter(function(w) {
+    'use strict';
     d.callback(new goog.fs.FileWriter(w));
   }, goog.bind(function(err) {
+    'use strict';
     var msg = 'creating writer for ' + this.getFullPath();
     d.errback(new goog.fs.Error(err, msg));
   }, this));
@@ -388,8 +422,13 @@ goog.fs.FileEntryImpl.prototype.createWriter = function() {
 
 /** @override */
 goog.fs.FileEntryImpl.prototype.file = function() {
+  'use strict';
   var d = new goog.async.Deferred();
-  this.file_.file(function(f) { d.callback(f); }, goog.bind(function(err) {
+  this.file_.file(function(f) {
+    'use strict';
+    d.callback(f);
+  }, goog.bind(function(err) {
+    'use strict';
     var msg = 'getting file for ' + this.getFullPath();
     d.errback(new goog.fs.Error(err, msg));
   }, this));

@@ -1,16 +1,8 @@
-// Copyright 2007 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 
 /**
@@ -33,6 +25,7 @@ goog.require('goog.math.Rect');
  * @final
  */
 goog.graphics.ext.Path = function() {
+  'use strict';
   goog.graphics.Path.call(this);
 };
 goog.inherits(goog.graphics.ext.Path, goog.graphics.Path);
@@ -54,6 +47,7 @@ goog.graphics.ext.Path.prototype.bounds_ = null;
  * @override
  */
 goog.graphics.ext.Path.prototype.clone = function() {
+  'use strict';
   var output = /** @type {goog.graphics.ext.Path} */
       (goog.graphics.ext.Path.superClass_.clone.call(this));
   output.bounds_ = this.bounds_ && this.bounds_.clone();
@@ -69,6 +63,7 @@ goog.graphics.ext.Path.prototype.clone = function() {
  * @override
  */
 goog.graphics.ext.Path.prototype.transform = function(tx) {
+  'use strict';
   goog.graphics.ext.Path.superClass_.transform.call(this, tx);
 
   // Make sure the precomputed bounds are cleared when the path is transformed.
@@ -91,6 +86,7 @@ goog.graphics.ext.Path.prototype.transform = function(tx) {
  */
 goog.graphics.ext.Path.prototype.modifyBounds = function(
     deltaX, deltaY, xFactor, yFactor) {
+  'use strict';
   if (!this.isSimple()) {
     var simple = goog.graphics.Path.createSimplifiedPath(this);
     this.clear();
@@ -109,6 +105,7 @@ goog.graphics.ext.Path.prototype.modifyBounds = function(
  *     and recompute on the next call to getBoundingBox.
  */
 goog.graphics.ext.Path.prototype.useBoundingBox = function(bounds) {
+  'use strict';
   this.bounds_ = bounds && bounds.clone();
 };
 
@@ -118,6 +115,7 @@ goog.graphics.ext.Path.prototype.useBoundingBox = function(bounds) {
  *     path is empty.
  */
 goog.graphics.ext.Path.prototype.getBoundingBox = function() {
+  'use strict';
   if (!this.bounds_ && !this.isEmpty()) {
     var minY;
     var minX = minY = Number.POSITIVE_INFINITY;
@@ -127,6 +125,7 @@ goog.graphics.ext.Path.prototype.getBoundingBox = function() {
     var simplePath =
         this.isSimple() ? this : goog.graphics.Path.createSimplifiedPath(this);
     simplePath.forEachSegment(function(type, points) {
+      'use strict';
       for (var i = 0, len = points.length; i < len; i += 2) {
         minX = Math.min(minX, points[i]);
         maxX = Math.max(maxX, points[i]);

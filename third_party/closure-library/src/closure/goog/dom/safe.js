@@ -1,16 +1,8 @@
-// Copyright 2013 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview Type-safe wrappers for unsafe DOM APIs.
@@ -132,7 +124,8 @@ goog.dom.safe.isInnerHtmlCleanupRecursive_ =
 /**
  * Assigns HTML to an element's innerHTML property. Helper to use only here and
  * in soy.js.
- * @param {?Element} elem The element whose innerHTML is to be assigned to.
+ * @param {?Element|?ShadowRoot} elem The element whose innerHTML is to be
+ *     assigned to.
  * @param {!goog.html.SafeHtml} html
  */
 goog.dom.safe.unsafeSetInnerHtmlDoNotUseOrElse = function(elem, html) {
@@ -148,13 +141,14 @@ goog.dom.safe.unsafeSetInnerHtmlDoNotUseOrElse = function(elem, html) {
 
 /**
  * Assigns known-safe HTML to an element's innerHTML property.
- * @param {!Element} elem The element whose innerHTML is to be assigned to.
+ * @param {!Element|!ShadowRoot} elem The element whose innerHTML is to be
+ *     assigned to.
  * @param {!goog.html.SafeHtml} html The known-safe HTML to assign.
  * @throws {Error} If called with one of these tags: math, script, style, svg,
  *     template.
  */
 goog.dom.safe.setInnerHtml = function(elem, html) {
-  if (goog.asserts.ENABLE_ASSERTS) {
+  if (goog.asserts.ENABLE_ASSERTS && elem.tagName) {
     var tagName = elem.tagName.toUpperCase();
     if (goog.dom.safe.SET_INNER_HTML_DISALLOWED_TAGS_[tagName]) {
       throw new Error(
@@ -164,6 +158,23 @@ goog.dom.safe.setInnerHtml = function(elem, html) {
   }
 
   goog.dom.safe.unsafeSetInnerHtmlDoNotUseOrElse(elem, html);
+};
+
+
+/**
+ * Assigns constant HTML to an element's innerHTML property.
+ * @param {!Element} element The element whose innerHTML is to be assigned to.
+ * @param {!goog.string.Const} constHtml The known-safe HTML to assign.
+ * @throws {!Error} If called with one of these tags: math, script, style, svg,
+ *     template.
+ */
+goog.dom.safe.setInnerHtmlFromConstant = function(element, constHtml) {
+  goog.dom.safe.setInnerHtml(
+      element,
+      goog.html.uncheckedconversions
+          .safeHtmlFromStringKnownToSatisfyTypeContract(
+              goog.string.Const.from('Constant HTML to be immediatelly used.'),
+              goog.string.Const.unwrap(constHtml)));
 };
 
 
@@ -558,13 +569,7 @@ goog.dom.safe.setObjectData = function(object, url) {
 goog.dom.safe.setScriptSrc = function(script, url) {
   goog.dom.asserts.assertIsHTMLScriptElement(script);
   script.src = goog.html.TrustedResourceUrl.unwrapTrustedScriptURL(url);
-
-  // If CSP nonces are used, propagate them to dynamically created scripts.
-  // This is necessary to allow nonce-based CSPs without 'strict-dynamic'.
-  var nonce = goog.getScriptNonce();
-  if (nonce) {
-    script.setAttribute('nonce', nonce);
-  }
+  goog.dom.safe.setNonceForScriptElement_(script);
 };
 
 
@@ -584,11 +589,20 @@ goog.dom.safe.setScriptSrc = function(script, url) {
  */
 goog.dom.safe.setScriptContent = function(script, content) {
   goog.dom.asserts.assertIsHTMLScriptElement(script);
-  script.text = goog.html.SafeScript.unwrapTrustedScript(content);
+  script.textContent = goog.html.SafeScript.unwrapTrustedScript(content);
+  goog.dom.safe.setNonceForScriptElement_(script);
+};
 
-  // If CSP nonces are used, propagate them to dynamically created scripts.
-  // This is necessary to allow nonce-based CSPs without 'strict-dynamic'.
-  var nonce = goog.getScriptNonce();
+
+/**
+ * Set nonce-based CSPs to dynamically created scripts.
+ * @param {!HTMLScriptElement} script The script element whose nonce value
+ *     is to be calculated
+ * @private
+ */
+goog.dom.safe.setNonceForScriptElement_ = function(script) {
+  var win = script.ownerDocument && script.ownerDocument.defaultView;
+  var nonce = goog.getScriptNonce(win);
   if (nonce) {
     script.setAttribute('nonce', nonce);
   }
@@ -679,7 +693,6 @@ goog.dom.safe.assignLocation = function(loc, url) {
  * @see goog.html.SafeUrl#sanitize
  */
 goog.dom.safe.replaceLocation = function(loc, url) {
-  goog.dom.asserts.assertIsLocation(loc);
   /** @type {!goog.html.SafeUrl} */
   var safeUrl;
   if (url instanceof goog.html.SafeUrl) {
@@ -705,14 +718,15 @@ goog.dom.safe.replaceLocation = function(loc, url) {
  *   goog.dom.safe.openInWindow(url);
  * which is a safe alternative to
  *   window.open(url);
- * The latter can result in XSS vulnerabilities if redirectUrl is a
+ * The latter can result in XSS vulnerabilities if url is a
  * user-/attacker-controlled value.
  *
  * @param {string|!goog.html.SafeUrl} url The URL to open.
  * @param {Window=} opt_openerWin Window of which to call the .open() method.
  *     Defaults to the global window.
- * @param {!goog.string.Const=} opt_name Name of the window to open in. Can be
- *     _top, etc as allowed by window.open().
+ * @param {!goog.string.Const|string=} opt_name Name of the window to open in.
+ *     Can be _top, etc as allowed by window.open(). This accepts string for
+ *     legacy reasons. Pass goog.string.Const if possible.
  * @param {string=} opt_specs Comma-separated list of specifications, same as
  *     in window.open().
  * @param {boolean=} opt_replace Whether to replace the current entry in browser
@@ -729,14 +743,15 @@ goog.dom.safe.openInWindow = function(
     safeUrl = goog.html.SafeUrl.sanitizeAssertUnchanged(url);
   }
   var win = opt_openerWin || goog.global;
+  // If opt_name is undefined, simply passing that in to open() causes IE to
+  // reuse the current window instead of opening a new one. Thus we pass '' in
+  // instead, which according to spec opens a new window. See
+  // https://html.spec.whatwg.org/multipage/browsers.html#dom-open .
+  var name = opt_name instanceof goog.string.Const ?
+      goog.string.Const.unwrap(opt_name) :
+      opt_name || '';
   return win.open(
-      goog.html.SafeUrl.unwrap(safeUrl),
-      // If opt_name is undefined, simply passing that in to open() causes IE to
-      // reuse the current window instead of opening a new one. Thus we pass ''
-      // in instead, which according to spec opens a new window. See
-      // https://html.spec.whatwg.org/multipage/browsers.html#dom-open .
-      opt_name ? goog.string.Const.unwrap(opt_name) : '', opt_specs,
-      opt_replace);
+      goog.html.SafeUrl.unwrap(safeUrl), name, opt_specs, opt_replace);
 };
 
 

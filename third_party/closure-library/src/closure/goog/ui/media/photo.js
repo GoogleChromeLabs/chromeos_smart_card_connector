@@ -1,16 +1,8 @@
-// Copyright 2009 The Closure Library Authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS-IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+/**
+ * @license
+ * Copyright The Closure Library Authors.
+ * SPDX-License-Identifier: Apache-2.0
+ */
 
 /**
  * @fileoverview provides a reusable photo UI component that renders photos that
@@ -53,10 +45,11 @@
 
 goog.provide('goog.ui.media.Photo');
 
-goog.forwardDeclare('goog.ui.media.MediaModel');
 goog.require('goog.dom.TagName');
 goog.require('goog.ui.media.Media');
 goog.require('goog.ui.media.MediaRenderer');
+goog.requireType('goog.ui.Control');
+goog.requireType('goog.ui.media.MediaModel');
 
 
 
@@ -76,6 +69,7 @@ goog.require('goog.ui.media.MediaRenderer');
  * @final
  */
 goog.ui.media.Photo = function() {
+  'use strict';
   goog.ui.media.MediaRenderer.call(this);
 };
 goog.inherits(goog.ui.media.Photo, goog.ui.media.MediaRenderer);
@@ -104,6 +98,7 @@ goog.ui.media.Photo.CSS_CLASS = goog.getCssName('goog-ui-media-photo');
  *     renderer.
  */
 goog.ui.media.Photo.newControl = function(dataModel) {
+  'use strict';
   var control =
       new goog.ui.media.Media(dataModel, goog.ui.media.Photo.getInstance());
   return control;
@@ -118,6 +113,7 @@ goog.ui.media.Photo.newControl = function(dataModel) {
  * @override
  */
 goog.ui.media.Photo.prototype.createDom = function(c) {
+  'use strict';
   var control = /** @type {goog.ui.media.Media} */ (c);
   var div = goog.ui.media.Photo.superClass_.createDom.call(this, control);
 
@@ -139,5 +135,6 @@ goog.ui.media.Photo.prototype.createDom = function(c) {
  * @override
  */
 goog.ui.media.Photo.prototype.getCssClass = function() {
+  'use strict';
   return goog.ui.media.Photo.CSS_CLASS;
 };
