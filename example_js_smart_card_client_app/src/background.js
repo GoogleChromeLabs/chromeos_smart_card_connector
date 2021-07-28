@@ -126,7 +126,7 @@ function work(api) {
 
   function runPcscLiteDemo(callback) {
     goog.log.info(logger, 'Starting PC/SC-Lite demo...');
-    goog.log.setLevel(logger, goog.log.Level.FINE);
+    goog.log.setLevel(GSC.PcscLiteClient.Demo.logger, goog.log.Level.FINE);
     GSC.PcscLiteClient.Demo.run(
         api,
         function() {
