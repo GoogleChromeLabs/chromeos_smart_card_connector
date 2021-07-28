@@ -37,6 +37,7 @@ goog.require('GoogleSmartCard.RemoteCallMessage');
 goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
 goog.require('goog.Timer');
+goog.require('goog.functions');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
@@ -352,7 +353,7 @@ NaclClientBackend.prototype.apiMethodRejectedCallback_ = function(
 NaclClientBackend.prototype.getApiMethod_ = function(methodName) {
   GSC.Logging.checkWithLogger(this.logger, this.api_);
   if (!goog.object.containsKey(this.api_, methodName) ||
-      !goog.isFunction(this.api_[methodName])) {
+      !goog.functions.isFunction(this.api_[methodName])) {
     GSC.Logging.failWithLogger(
         this.logger,
         'Unknown PC/SC-Lite Client API method requested: ' + methodName);

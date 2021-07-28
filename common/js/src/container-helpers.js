@@ -18,6 +18,7 @@
 goog.provide('GoogleSmartCard.ContainerHelpers');
 
 goog.require('GoogleSmartCard.Logging');
+goog.require('goog.functions');
 goog.require('goog.object');
 
 goog.scope(function() {
@@ -59,7 +60,7 @@ GSC.ContainerHelpers.substituteArrayBuffersRecursively = function(value) {
     // Recursively process array items.
     return value.map(substituteArrayBuffersRecursively);
   }
-  if (goog.isObject(value) && !goog.isFunction(value) &&
+  if (goog.isObject(value) && !goog.functions.isFunction(value) &&
       !ArrayBuffer.isView(value)) {
     // This is a dictionary-like object; process it recursively.
     return goog.object.map(value, substituteArrayBuffersRecursively);

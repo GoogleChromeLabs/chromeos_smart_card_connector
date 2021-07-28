@@ -20,6 +20,7 @@ goog.provide('GoogleSmartCard.MockPort');
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.Disposable');
 goog.require('goog.events.ListenerMap');
+goog.require('goog.functions');
 goog.require('goog.testing');
 
 goog.setTestOnly();
@@ -157,7 +158,7 @@ MockPort.prototype.removeListener_ = function(type, callback) {
 MockPort.prototype.getListeners_ = function(type) {
   const result = [];
   for (let listenerKey of this.listenerMap_.getListeners(type, false)) {
-    if (goog.isFunction(listenerKey.listener))
+    if (goog.functions.isFunction(listenerKey.listener))
       result.push(listenerKey.listener);
   }
   return result;
