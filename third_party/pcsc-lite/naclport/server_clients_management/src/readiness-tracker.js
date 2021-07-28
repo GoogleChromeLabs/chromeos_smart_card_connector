@@ -64,16 +64,13 @@ GSC.PcscLiteServerClientsManagement.ReadinessTracker = function(
   this.logger_ = GSC.Logging.getScopedLogger(
       'PcscLiteServerClientsManagement.ReadinessTracker');
 
-  /**
-   * @type {!goog.promise.Resolver.<null>}
-   * @private
-   */
+  /** @type {!goog.promise.Resolver.<null>} @private @const */
   this.promiseResolver_ = goog.Promise.withResolver();
 
   /**
    * Promise that is fulfilled once the PC/SC-Lite server gets ready, or is
    * rejected if it failed to initialize.
-   * @type {!goog.Promise}
+   * @type {!goog.Promise} @const
    */
   this.promise = this.promiseResolver_.promise;
   GSC.PromiseHelpers.suppressUnhandledRejectionError(this.promise);

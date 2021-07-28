@@ -82,7 +82,7 @@ GSC.NaclModule = function(naclModulePath, type, logModulePath = false) {
    */
   this.type = type;
 
-  /** @private */
+  /** @private @const */
   this.loadPromiseResolver_ = goog.Promise.withResolver();
   GSC.PromiseHelpers.suppressUnhandledRejectionError(
       this.loadPromiseResolver_.promise);

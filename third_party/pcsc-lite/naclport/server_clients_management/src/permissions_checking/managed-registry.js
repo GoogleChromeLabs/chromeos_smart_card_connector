@@ -49,10 +49,7 @@ const PermissionsChecking =
  * @constructor
  */
 PermissionsChecking.ManagedRegistry = function() {
-  /**
-   * @type {!goog.promise.Resolver}
-   * @private
-   */
+  /** @type {!goog.promise.Resolver} @private @const */
   this.managedStoragePromiseResolver_ = goog.Promise.withResolver();
   /**
    * @type {!Set.<string>}

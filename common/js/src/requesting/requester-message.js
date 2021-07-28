@@ -78,9 +78,9 @@ RequesterMessage.getResponseMessageType = function(name) {
  * @constructor
  */
 RequesterMessage.RequestMessageData = function(requestId, payload) {
-  /** @type {number} */
+  /** @type {number} @const */
   this.requestId = requestId;
-  /** @type {!Object} */
+  /** @type {!Object} @const */
   this.payload = payload;
 };
 
@@ -124,11 +124,11 @@ RequestMessageData.prototype.makeMessageData = function() {
  */
 RequesterMessage.ResponseMessageData = function(
     requestId, opt_payload, opt_errorMessage) {
-  /** @type {number} */
+  /** @type {number} @const */
   this.requestId = requestId;
-  /** @type {*} */
+  /** @type {*} @const */
   this.payload = opt_payload;
-  /** @type {string|undefined} */
+  /** @type {string|undefined} @const */
   this.errorMessage = opt_errorMessage;
 
   GSC.Logging.checkWithLogger(

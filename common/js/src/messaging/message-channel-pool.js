@@ -48,14 +48,11 @@ GSC.MessageChannelPool = function() {
    *
    * TODO(isandrk): extensionId may be null (extension talks to itself)
    * @type {!goog.labs.structs.Multimap}
-   * @private
+   * @private @const
    */
   this.channels_ = new goog.labs.structs.Multimap;
 
-  /**
-   * @type {!Array.<function(!Array.<string>)>}
-   * @private
-   */
+  /** @type {!Array.<function(!Array.<string>)>} @private @const */
   this.onUpdateListeners_ = [];
 
   this.logger.fine('Initialized successfully');

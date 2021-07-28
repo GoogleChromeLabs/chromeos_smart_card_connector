@@ -46,9 +46,9 @@ const GSC = GoogleSmartCard;
  * @constructor
  */
 GSC.RemoteCallMessage = function(functionName, functionArguments) {
-  /** @type {string} */
+  /** @type {string} @const */
   this.functionName = functionName;
-  /** @type {!Array.<*>} */
+  /** @type {!Array.<*>} @const */
   this.functionArguments = functionArguments;
 };
 

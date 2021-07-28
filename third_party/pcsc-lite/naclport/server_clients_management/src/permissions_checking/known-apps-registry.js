@@ -58,7 +58,9 @@ const PermissionsChecking =
  * @constructor
  */
 PermissionsChecking.KnownApp = function(id, name) {
+  /** @const */
   this.id = id;
+  /** @const */
   this.name = name;
 };
 
@@ -73,8 +75,7 @@ const KnownApp = PermissionsChecking.KnownApp;
  */
 PermissionsChecking.KnownAppsRegistry = function() {
   /**
-   * @type {!goog.promise.Resolver.<!Map.<string,!KnownApp>>}
-   * @private
+   * @type {!goog.promise.Resolver.<!Map.<string,!KnownApp>>} @private @const
    */
   this.promiseResolver_ = goog.Promise.withResolver();
 

@@ -38,12 +38,12 @@ const INTEGRATION_TEST_NACL_MODULE_REQUESTER_NAME = 'integration_test';
  * @constructor
  */
 GSC.IntegrationTestController = function() {
-  /** @type {!goog.testing.PropertyReplacer} */
+  /** @type {!goog.testing.PropertyReplacer} @const */
   this.propertyReplacer = new goog.testing.PropertyReplacer;
-  /** @type {!GSC.NaclModule} */
+  /** @type {!GSC.NaclModule} @const */
   this.naclModule =
       new GSC.NaclModule(NACL_MODULE_PATH, GSC.NaclModule.Type.PNACL);
-  /** @type {!GSC.Requester} @private */
+  /** @type {!GSC.Requester} @private @const */
   this.naclModuleRequester_ = new GSC.Requester(
       INTEGRATION_TEST_NACL_MODULE_REQUESTER_NAME,
       this.naclModule.getMessageChannel());

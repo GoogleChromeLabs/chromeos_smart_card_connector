@@ -67,13 +67,13 @@ GSC.Requester = function(name, messageChannel) {
    */
   this.logger = GSC.Logging.getScopedLogger('Requester<"' + name + '">');
 
-  /** @private */
+  /** @private @const */
   this.name_ = name;
 
   /** @private */
   this.messageChannel_ = messageChannel;
 
-  /** @private */
+  /** @private @const */
   this.requestIdGenerator_ = goog.iter.count();
 
   /**

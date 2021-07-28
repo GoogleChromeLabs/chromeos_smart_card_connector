@@ -75,10 +75,10 @@ const GSC = GoogleSmartCard;
  */
 GSC.PcscLiteClient.NaclClientBackend = function(
     naclModuleMessageChannel, clientTitle, opt_serverAppId) {
-  /** @private */
+  /** @private @const */
   this.clientTitle_ = clientTitle;
 
-  /** @private */
+  /** @private @const */
   this.serverAppId_ = opt_serverAppId;
 
   /**
@@ -93,10 +93,7 @@ GSC.PcscLiteClient.NaclClientBackend = function(
    */
   this.api_ = null;
 
-  /**
-   * @type {!goog.structs.Queue.<!BufferedRequest>}
-   * @private
-   */
+  /** @type {!goog.structs.Queue.<!BufferedRequest>} @private @const */
   this.bufferedRequestsQueue_ = new goog.structs.Queue;
 
   /**
@@ -178,7 +175,9 @@ NaclClientBackend.prototype.handleRequest_ = function(payload) {
  * @constructor
  */
 function BufferedRequest(remoteCallMessage, promiseResolver) {
+  /** @const */
   this.remoteCallMessage = remoteCallMessage;
+  /** @const */
   this.promiseResolver = promiseResolver;
 }
 

@@ -2094,12 +2094,12 @@ API.ResultOrErrorCode = function(responseItems) {
   /**
    * An array of all values returned from the function call (including the error
    * code).
-   * @type {!Array}
+   * @type {!Array} @const
    */
   this.responseItems = responseItems;
   /**
    * Error code returned by the function call.
-   * @type {!API.ERROR_CODE}
+   * @type {!API.ERROR_CODE} @const
    **/
   this.errorCode = responseItems[0];
   /**
@@ -2108,11 +2108,10 @@ API.ResultOrErrorCode = function(responseItems) {
    *
    * Undefined if there are no result values (i.e. if the function returned only
    * the error code).
-   * @type {!Array|undefined}
+   * @type {!Array|undefined} @const
    */
-  this.resultItems = undefined;
-  if (this.isSuccessful())
-    this.resultItems = goog.array.slice(responseItems, 1);
+  this.resultItems =
+      this.isSuccessful() ? goog.array.slice(responseItems, 1) : undefined;
 };
 
 goog.exportProperty(API, 'ResultOrErrorCode', API.ResultOrErrorCode);

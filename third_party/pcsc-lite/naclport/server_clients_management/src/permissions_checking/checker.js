@@ -58,9 +58,9 @@ const PermissionsChecking =
  * @constructor
  */
 PermissionsChecking.Checker = function() {
-  /** @private */
+  /** @private @const */
   this.managedRegistry_ = new PermissionsChecking.ManagedRegistry;
-  /** @private */
+  /** @private @const */
   this.userPromptingChecker_ = new PermissionsChecking.UserPromptingChecker;
 };
 

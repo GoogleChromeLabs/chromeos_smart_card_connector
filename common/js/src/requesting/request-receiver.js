@@ -60,13 +60,13 @@ GSC.RequestReceiver = function(name, messageChannel, requestHandler) {
    */
   this.logger = GSC.Logging.getScopedLogger('RequestReceiver<"' + name + '">');
 
-  /** @private */
+  /** @private @const */
   this.name_ = name;
 
-  /** @private */
+  /** @private @const */
   this.messageChannel_ = messageChannel;
 
-  /** @private */
+  /** @private @const */
   this.requestHandler_ = requestHandler;
 
   /**

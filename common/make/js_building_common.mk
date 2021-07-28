@@ -110,7 +110,6 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--jscomp_error='*' \
 	--jscomp_off deprecated \
 	--jscomp_off extraRequire \
-	--jscomp_off jsdocMissingConst \
 	--jscomp_off lintChecks \
 	--jscomp_off reportUnknownTypes \
 	--jscomp_off strictMissingProperties \

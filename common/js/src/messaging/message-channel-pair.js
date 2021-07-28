@@ -122,7 +122,7 @@ const MessageChannelPairItem = function(messageChannelPair, indexInPair) {
 
   /** @private */
   this.messageChannelPair_ = messageChannelPair;
-  /** @private */
+  /** @private @const */
   this.indexInPair_ = indexInPair;
 };
 

@@ -66,7 +66,7 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
   /**
    * @type {!goog.promise.Resolver}
    * Gets resolved once setup is complete and API requests can be processed.
-   * @private
+   * @private @const
    */
   this.setupDonePromiseResolver_ = goog.Promise.withResolver();
 
@@ -74,7 +74,7 @@ GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
    * @type {!GoogleSmartCard.DeferredProcessor}
    * Queue of API requests that are not yet processed because setup is still in
    * progress.
-   * @private
+   * @private @const
    */
   this.deferredProcessor_ =
       new GSC.DeferredProcessor(this.setupDonePromiseResolver_.promise);
