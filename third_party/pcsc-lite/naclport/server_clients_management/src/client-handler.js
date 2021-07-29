@@ -172,10 +172,10 @@ GSC.PcscLiteServerClientsManagement.ClientHandler = function(
     clientAppId) {
   ClientHandler.base(this, 'constructor');
 
-  /** @type {number} */
+  /** @type {number} @const */
   this.id = idGenerator.next();
 
-  /** @private */
+  /** @private @const */
   this.clientAppId_ = clientAppId !== undefined ? clientAppId : null;
 
   /**

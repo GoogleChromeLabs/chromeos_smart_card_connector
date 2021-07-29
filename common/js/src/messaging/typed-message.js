@@ -41,9 +41,9 @@ const GSC = GoogleSmartCard;
  * @constructor
  */
 GSC.TypedMessage = function(type, data) {
-  /** @type {string} */
+  /** @type {string} @const */
   this.type = type;
-  /** @type {!Object} */
+  /** @type {!Object} @const */
   this.data = data;
 };
 

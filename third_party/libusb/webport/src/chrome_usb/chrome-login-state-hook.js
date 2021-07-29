@@ -52,15 +52,9 @@ GSC.Libusb.ChromeLoginStateHook = function() {
    * @private
    */
   this.simulateDevicesAbsent_ = false;
-  /**
-   * @type {!Function}
-   * @private
-   */
+  /** @type {!Function} @private @const */
   this.boundOnGotSessionState_ = this.onGotSessionState_.bind(this);
-  /**
-   * @type {!goog.promise.Resolver}
-   * @private
-   */
+  /** @type {!goog.promise.Resolver} @private @const */
   this.hookIsReadyResolver_ = goog.Promise.withResolver();
   if (chrome.loginState) {
     chrome.loginState.getProfileType(this.onGotProfileType_.bind(this));

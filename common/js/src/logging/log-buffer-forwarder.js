@@ -56,15 +56,9 @@ const POSTPONING_BUFFER_CAPACITY = 100;
  * @constructor
  */
 GSC.LogBufferForwarder = function(logBuffer, messageChannelServiceName) {
-  /**
-   * @type {string}
-   * @private
-   */
+  /** @type {string} @private @const */
   this.messageChannelServiceName_ = messageChannelServiceName;
-  /**
-   * @type {!Set}
-   * @private
-   */
+  /** @type {!Set} @private @const */
   this.ignoredLoggerNames_ = new Set();
   /**
    * @type {?goog.messaging.AbstractChannel}
@@ -76,10 +70,7 @@ GSC.LogBufferForwarder = function(logBuffer, messageChannelServiceName) {
    * @private
    */
   this.logCapturingEnabled_ = true;
-  /**
-   * @type {!goog.structs.CircularBuffer<string>}
-   * @private
-   */
+  /** @type {!goog.structs.CircularBuffer<string>} @private @const */
   this.postponedLogRecords_ = new goog.structs.CircularBuffer();
 
   logBuffer.addObserver(this.onLogRecordObserved_.bind(this));

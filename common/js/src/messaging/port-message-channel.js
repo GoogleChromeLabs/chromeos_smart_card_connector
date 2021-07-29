@@ -66,7 +66,7 @@ GSC.PortMessageChannel = function(port, opt_onEstablished) {
    */
   this.port_ = port;
 
-  /** @type {string|null} */
+  /** @type {string|null} @const */
   this.extensionId = this.getPortExtensionId_(port);
 
   /**

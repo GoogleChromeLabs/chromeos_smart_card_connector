@@ -79,10 +79,7 @@ GSC.DeferredProcessor = function(awaitedPromise) {
    */
   this.isCurrentlyFlushingJobs_ = false;
 
-  /**
-   * @type {!goog.structs.Queue.<!Job>}
-   * @private
-   */
+  /** @type {!goog.structs.Queue.<!Job>} @private @const */
   this.jobsQueue_ = new goog.structs.Queue;
 
   awaitedPromise.then(
@@ -106,7 +103,9 @@ DeferredProcessor.prototype.logger =
  * @struct
  */
 function Job(jobFunction, promiseResolver) {
+  /** @const */
   this.jobFunction = jobFunction;
+  /** @const */
   this.promiseResolver = promiseResolver;
 }
 

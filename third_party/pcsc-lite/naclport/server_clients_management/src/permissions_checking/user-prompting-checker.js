@@ -63,20 +63,14 @@ const PermissionsChecking =
  * @constructor
  */
 PermissionsChecking.UserPromptingChecker = function() {
-  /** @private */
+  /** @private @const */
   this.knownAppsRegistry_ = new PermissionsChecking.KnownAppsRegistry;
 
-  /**
-   * @type {!goog.promise.Resolver.<!Map.<string,boolean>>}
-   * @private
-   */
+  /** @type {!goog.promise.Resolver.<!Map.<string,boolean>>} @private @const */
   this.localStoragePromiseResolver_ = goog.Promise.withResolver();
   this.loadLocalStorage_();
 
-  /**
-   * @type {!Map.<string, !goog.Promise>}
-   * @private
-   */
+  /** @type {!Map.<string, !goog.Promise>} @private @const */
   this.checkPromiseMap_ = new Map;
 };
 

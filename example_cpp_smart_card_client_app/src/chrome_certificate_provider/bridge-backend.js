@@ -167,7 +167,7 @@ SmartCardClientApp.CertificateProviderBridge.Backend = function(
   // away.
   this.setupApiListeners_();
 
-  /** @private */
+  /** @private @const */
   this.deferredProcessor_ =
       new GSC.DeferredProcessor(executableModule.getLoadPromise());
   executableModule.addOnDisposeCallback(

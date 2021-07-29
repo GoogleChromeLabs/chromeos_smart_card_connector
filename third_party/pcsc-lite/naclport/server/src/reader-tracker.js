@@ -66,13 +66,13 @@ const ReaderStatus = GSC.PcscLiteServer.ReaderStatus;
  */
 GSC.PcscLiteServer.ReaderInfo = function(
     name, status, opt_error, opt_isCardPresent) {
-  /** @type {string} */
+  /** @type {string} @const */
   this['name'] = this.name = name;
-  /** @type {!ReaderStatus} */
+  /** @type {!ReaderStatus} @const */
   this['status'] = this.status = status;
-  /** @type {string|undefined} */
+  /** @type {string|undefined} @const */
   this['error'] = this.error = opt_error;
-  /** @type {boolean} */
+  /** @type {boolean} @const */
   this['isCardPresent'] = this.isCardPresent = !!opt_isCardPresent;
 };
 
@@ -91,22 +91,22 @@ const ReaderInfo = GSC.PcscLiteServer.ReaderInfo;
  */
 GSC.PcscLiteServer.ReaderTracker = function(
     serverMessageChannel, pcscContextMessageChannel, parentLogger) {
-  /** @private */
+  /** @private @const */
   this.logger_ =
       GSC.Logging.getChildLogger(parentLogger, READER_TRACKER_LOGGER_TITLE);
 
   /**
    * @type {!Array.<function(!Array.<!ReaderInfo>)>}
-   * @private
+   * @private @const
    */
   this.updateListeners_ = [];
 
-  /** @private */
+  /** @private @const */
   this.trackerThroughPcscServerHook_ = new TrackerThroughPcscServerHook(
       this.logger_, serverMessageChannel,
       this.fireOnUpdateListeners_.bind(this));
 
-  /** @private */
+  /** @private @const */
   this.trackerThroughPcscApi_ =
       new GSC.PcscLiteClient.ReaderTrackerThroughPcscApi(
           this.logger_, pcscContextMessageChannel,
@@ -200,10 +200,10 @@ ReaderTracker.prototype.fireOnUpdateListeners_ = function() {
  */
 function TrackerThroughPcscServerHook(
     logger, serverMessageChannel, updateListener) {
-  /** @private */
+  /** @private @const */
   this.logger_ = logger;
 
-  /** @private */
+  /** @private @const */
   this.updateListener_ = updateListener;
 
   /**
@@ -213,7 +213,7 @@ function TrackerThroughPcscServerHook(
    * The values can be null, which corresponds to readers that should be hidden
    * from the result.
    * @type {!Map.<number, ReaderInfo?>}
-   * @private
+   * @private @const
    */
   this.portToReaderInfoMap_ = new Map;
 

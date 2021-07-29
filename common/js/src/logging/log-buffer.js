@@ -57,18 +57,15 @@ const GSC = GoogleSmartCard;
 GSC.LogBuffer = function(capacity) {
   LogBuffer.base(this, 'constructor');
 
-  /** @private */
+  /** @private @const */
   this.capacity_ = capacity;
 
   /** @private */
   this.size_ = 0;
 
-  /** @private */
+  /** @private @const */
   this.logsPrefixCapacity_ = Math.trunc(capacity / 2);
-  /**
-   * @type {!Array.<string>}
-   * @private
-   */
+  /** @type {!Array.<string>} @private @const */
   this.formattedLogsPrefix_ = [];
   /**
    * @type {!Array.<function(string, !goog.log.LogRecord)>}
@@ -76,10 +73,7 @@ GSC.LogBuffer = function(capacity) {
    */
   this.observers_ = [];
 
-  /**
-   * @type {!goog.structs.CircularBuffer.<string>}
-   * @private
-   */
+  /** @type {!goog.structs.CircularBuffer.<string>} @private @const */
   this.formattedLogsSuffix_ =
       new goog.structs.CircularBuffer(capacity - this.logsPrefixCapacity_);
 };

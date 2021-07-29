@@ -83,10 +83,10 @@ const API = GSC.PcscLiteClient.API;
  */
 GSC.PcscLiteClient.ReaderTrackerThroughPcscApi = function(
     logger, pcscContextMessageChannel, updateListener) {
-  /** @private */
+  /** @private @const */
   this.logger_ = logger;
 
-  /** @private */
+  /** @private @const */
   this.updateListener_ = updateListener;
 
   /**

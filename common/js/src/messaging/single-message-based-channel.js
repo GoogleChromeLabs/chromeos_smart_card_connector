@@ -71,7 +71,7 @@ GSC.SingleMessageBasedChannel = function(
   this.logger = GSC.Logging.getScopedLogger(
       'SingleMessageBasedChannel<' + extensionId + '>');
 
-  /** @private */
+  /** @private @const */
   this.shouldPingOnPing_ = !!opt_shouldPingOnPing;
 
   this.registerDefaultService(this.defaultServiceCallback_.bind(this));

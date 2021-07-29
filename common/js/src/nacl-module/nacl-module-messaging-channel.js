@@ -50,7 +50,7 @@ const GSC = GoogleSmartCard;
 GSC.NaclModuleMessageChannel = function(naclModuleElement, parentLogger) {
   NaclModuleMessageChannel.base(this, 'constructor');
 
-  /** @private */
+  /** @private @const */
   this.logger_ = parentLogger;
 
   /**
