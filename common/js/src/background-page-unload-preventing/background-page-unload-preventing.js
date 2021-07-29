@@ -19,6 +19,7 @@ goog.provide('GoogleSmartCard.BackgroundPageUnloadPreventing');
 
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.dom');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 
 goog.scope(function() {
@@ -45,7 +46,8 @@ let enabled = false;
  */
 GSC.BackgroundPageUnloadPreventing.enable = function() {
   if (enabled) {
-    logger.fine('Trying to enable for the second time. Ignoring this attempt');
+    goog.log.fine(
+        logger, 'Trying to enable for the second time. Ignoring this attempt');
     return;
   }
   enabled = true;
@@ -54,7 +56,7 @@ GSC.BackgroundPageUnloadPreventing.enable = function() {
 
   chrome.runtime.onSuspend.addListener(suspendListener);
 
-  logger.fine('Enabling: creating an iframe...');
+  goog.log.fine(logger, 'Enabling: creating an iframe...');
   createIFrameElement();
 };
 
@@ -70,7 +72,7 @@ function createIFrameElement() {
  */
 function connectListener(port) {
   if (port.name == 'background-page-unload-preventing') {
-    logger.fine('Success: received a port opened by the iframe');
+    goog.log.fine(logger, 'Success: received a port opened by the iframe');
 
     port.onDisconnect.addListener(function() {
       GSC.Logging.failWithLogger(

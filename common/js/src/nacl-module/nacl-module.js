@@ -31,6 +31,7 @@ goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.Promise');
 goog.require('goog.dom');
 goog.require('goog.events');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 
 goog.scope(function() {
@@ -128,7 +129,7 @@ NaclModule.prototype.getLogger = function() {
 
 /** @override */
 NaclModule.prototype.startLoading = function() {
-  this.logger_.info('Loading NaCl module...');
+  goog.log.info(this.logger_, 'Loading NaCl module...');
   GSC.Logging.checkWithLogger(this.logger_, !this.element_.parentNode);
   GSC.Logging.checkWithLogger(this.logger_, document.body);
   document.body.appendChild(this.element_);
@@ -158,7 +159,7 @@ NaclModule.prototype.disposeInternal = function() {
 
   this.loadPromiseResolver_.reject(new Error('Disposed'));
 
-  this.logger_.fine('Disposed');
+  goog.log.fine(this.logger_, 'Disposed');
 
   NaclModule.base(this, 'disposeInternal');
 };
@@ -169,7 +170,8 @@ NaclModule.prototype.disposeInternal = function() {
  */
 NaclModule.prototype.createElement_ = function() {
   const mimeType = this.getMimeType_();
-  this.logger_.fine('Preparing NaCl embed (MIME type: "' + mimeType + '")...');
+  goog.log.fine(
+      this.logger_, 'Preparing NaCl embed (MIME type: "' + mimeType + '")...');
   return goog.dom.createDom(
       'embed',
       {'type': mimeType, 'width': 0, 'height': 0, 'src': this.naclModulePath});
@@ -213,7 +215,7 @@ NaclModule.prototype.addStatusEventListeners_ = function() {
 NaclModule.prototype.loadEventListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger_.info('Successfully loaded NaCl module');
+  goog.log.info(this.logger_, 'Successfully loaded NaCl module');
   this.loadPromiseResolver_.resolve();
 };
 
@@ -221,9 +223,10 @@ NaclModule.prototype.loadEventListener_ = function() {
 NaclModule.prototype.abortEventListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger_.severe(
+  goog.log.error(
+      this.logger_,
       'NaCl module load was aborted with the following ' +
-      'message: ' + this.element_['lastError']);
+          'message: ' + this.element_['lastError']);
   this.dispose();
 };
 
@@ -231,9 +234,10 @@ NaclModule.prototype.abortEventListener_ = function() {
 NaclModule.prototype.errorEventListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger_.severe(
+  goog.log.error(
+      this.logger_,
       'Failed to load NaCl module with the following ' +
-      'message: ' + this.element_['lastError']);
+          'message: ' + this.element_['lastError']);
   this.dispose();
 };
 
@@ -241,7 +245,7 @@ NaclModule.prototype.errorEventListener_ = function() {
 NaclModule.prototype.crashEventListener_ = function() {
   if (this.isDisposed())
     return;
-  this.logger_.severe('The NaCl module has crashed');
+  goog.log.error(this.logger_, 'The NaCl module has crashed');
   this.dispose();
 };
 

@@ -38,6 +38,7 @@ goog.require('GoogleSmartCard.RequestReceiver');
 goog.require('goog.Promise');
 goog.require('goog.Timer');
 goog.require('goog.functions');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.object');
@@ -110,7 +111,7 @@ GSC.PcscLiteClient.NaclClientBackend = function(
   new GSC.RequestReceiver(
       REQUESTER_NAME, naclModuleMessageChannel, this.handleRequest_.bind(this));
 
-  this.logger.fine('Constructed');
+  goog.log.fine(this.logger, 'Constructed');
 };
 
 const NaclClientBackend = GSC.PcscLiteClient.NaclClientBackend;
@@ -136,9 +137,10 @@ NaclClientBackend.prototype.handleRequest_ = function(payload) {
             GSC.DebugDump.debugDump(payload));
   }
 
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Received a remote call request: ' +
-      remoteCallMessage.getDebugRepresentation());
+          remoteCallMessage.getDebugRepresentation());
 
   const promiseResolver = goog.Promise.withResolver();
 
@@ -149,7 +151,8 @@ NaclClientBackend.prototype.handleRequest_ = function(payload) {
   if (this.api_) {
     this.flushBufferedRequestsQueue_();
   } else {
-    this.logger.fine('The request was queued, as API is not initialized yet');
+    goog.log.fine(
+        this.logger, 'The request was queued, as API is not initialized yet');
     // Several cases are possible here:
     // - this.context_ is not null - which means that either it's still
     //   initializing or is disposing right now - in both cases it's necessary
@@ -194,7 +197,7 @@ NaclClientBackend.prototype.initialize_ = function() {
     this.context_ = null;
   }
 
-  this.logger.fine('Initializing...');
+  goog.log.fine(this.logger, 'Initializing...');
 
   this.context_ =
       new GSC.PcscLiteClient.Context(this.clientTitle_, this.serverAppId_);
@@ -219,9 +222,10 @@ NaclClientBackend.prototype.contextInitializedListener_ = function(api) {
 
 /** @private */
 NaclClientBackend.prototype.contextDisposedListener_ = function() {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'PC/SC-Lite Client Context instance was disposed, cleaning up, ' +
-      'rejecting all queued requests and scheduling reinitialization...');
+          'rejecting all queued requests and scheduling reinitialization...');
   GSC.Logging.checkWithLogger(
       this.logger, this.initializationTimerId_ === null);
   if (this.api_) {
@@ -238,7 +242,8 @@ NaclClientBackend.prototype.contextDisposedListener_ = function() {
 
 /** @private */
 NaclClientBackend.prototype.apiDisposedListener_ = function() {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'PC/SC-Lite Client API instance was disposed, cleaning up...');
   this.api_ = null;
   if (this.context_) {
@@ -249,9 +254,10 @@ NaclClientBackend.prototype.apiDisposedListener_ = function() {
 
 /** @private */
 NaclClientBackend.prototype.scheduleReinitialization_ = function() {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Scheduled reinitialization in ' + REINITIALIZATION_INTERVAL_SECONDS +
-      ' seconds if new requests will arrive...');
+          ' seconds if new requests will arrive...');
   this.initializationTimerId_ = goog.Timer.callOnce(
       this.reinitializationTimeoutCallback_,
       REINITIALIZATION_INTERVAL_SECONDS * 1000, this);
@@ -263,9 +269,10 @@ NaclClientBackend.prototype.reinitializationTimeoutCallback_ = function() {
   if (!this.bufferedRequestsQueue_.isEmpty()) {
     this.initialize_();
   } else {
-    this.logger.finer(
+    goog.log.log(
+        this.logger, goog.log.Level.FINER,
         'Reinitialization timeout passed, but not initializing ' +
-        'as no new requests arrived');
+            'as no new requests arrived');
   }
 };
 
@@ -274,7 +281,9 @@ NaclClientBackend.prototype.flushBufferedRequestsQueue_ = function() {
   GSC.Logging.checkWithLogger(this.logger, this.api_);
   if (this.bufferedRequestsQueue_.isEmpty())
     return;
-  this.logger.finer('Starting processing the queued requests...');
+  goog.log.log(
+      this.logger, goog.log.Level.FINER,
+      'Starting processing the queued requests...');
   while (!this.bufferedRequestsQueue_.isEmpty()) {
     const request = this.bufferedRequestsQueue_.dequeue();
     this.startRequest_(request.remoteCallMessage, request.promiseResolver);
@@ -285,7 +294,7 @@ NaclClientBackend.prototype.flushBufferedRequestsQueue_ = function() {
 NaclClientBackend.prototype.rejectAllBufferedRequests_ = function() {
   if (this.bufferedRequestsQueue_.isEmpty())
     return;
-  this.logger.fine('Rejecting all queued requests...');
+  goog.log.fine(this.logger, 'Rejecting all queued requests...');
   while (!this.bufferedRequestsQueue_.isEmpty()) {
     const request = this.bufferedRequestsQueue_.dequeue();
     request.promiseResolver.reject(
@@ -300,9 +309,10 @@ NaclClientBackend.prototype.rejectAllBufferedRequests_ = function() {
  */
 NaclClientBackend.prototype.startRequest_ = function(
     remoteCallMessage, promiseResolver) {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'Started processing the remote call request: ' +
-      remoteCallMessage.getDebugRepresentation());
+          remoteCallMessage.getDebugRepresentation());
 
   GSC.Logging.checkWithLogger(this.logger, this.api_);
 
@@ -324,10 +334,11 @@ NaclClientBackend.prototype.startRequest_ = function(
  */
 NaclClientBackend.prototype.apiMethodResolvedCallback_ = function(
     remoteCallMessage, promiseResolver, apiMethodResult) {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'The remote call completed: ' +
-      remoteCallMessage.getDebugRepresentation() +
-      ' with the result: ' + apiMethodResult.getDebugRepresentation());
+          remoteCallMessage.getDebugRepresentation() +
+          ' with the result: ' + apiMethodResult.getDebugRepresentation());
   promiseResolver.resolve(apiMethodResult.responseItems);
 };
 
@@ -339,9 +350,10 @@ NaclClientBackend.prototype.apiMethodResolvedCallback_ = function(
  */
 NaclClientBackend.prototype.apiMethodRejectedCallback_ = function(
     remoteCallMessage, promiseResolver, apiMethodError) {
-  this.logger.fine(
+  goog.log.fine(
+      this.logger,
       'The remote call failed: ' + remoteCallMessage.getDebugRepresentation() +
-      ' with the error: ' + apiMethodError);
+          ' with the error: ' + apiMethodError);
   promiseResolver.reject(apiMethodError);
 };
 

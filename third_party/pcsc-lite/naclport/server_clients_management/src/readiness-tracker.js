@@ -32,6 +32,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PromiseHelpers');
 goog.require('goog.Disposable');
 goog.require('goog.Promise');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 goog.require('goog.promise.Resolver');
@@ -89,9 +90,10 @@ GSC.PcscLiteServerClientsManagement.ReadinessTracker = function(
   naclModuleMessageChannel.addOnDisposeCallback(
       this.messageChannelDisposedListener_.bind(this));
 
-  this.logger_.fine(
+  goog.log.fine(
+      this.logger_,
       'Waiting for the "' + SERVICE_NAME + '" message from the ' +
-      'NaCl module...');
+          'NaCl module...');
 };
 
 const ReadinessTracker = GSC.PcscLiteServerClientsManagement.ReadinessTracker;
@@ -110,7 +112,7 @@ ReadinessTracker.prototype.disposeInternal = function() {
 ReadinessTracker.prototype.serviceCallback_ = function() {
   if (this.isPromiseResolved_)
     return;
-  this.logger_.info('PC/SC-Lite server has started successfully');
+  goog.log.info(this.logger_, 'PC/SC-Lite server has started successfully');
   this.isPromiseResolved_ = true;
   this.promiseResolver_.resolve();
 };
@@ -119,9 +121,10 @@ ReadinessTracker.prototype.serviceCallback_ = function() {
 ReadinessTracker.prototype.messageChannelDisposedListener_ = function() {
   if (this.isPromiseResolved_)
     return;
-  this.logger_.warning(
+  goog.log.warning(
+      this.logger_,
       'Failed while waiting for the PC/SC-Lite server successful start: the ' +
-      'message channel was disposed of');
+          'message channel was disposed of');
   this.isPromiseResolved_ = true;
   this.promiseResolver_.reject(
       new Error('The NaCl module message channel was disposed'));

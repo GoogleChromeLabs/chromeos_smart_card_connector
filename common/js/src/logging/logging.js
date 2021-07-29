@@ -137,9 +137,10 @@ GSC.Logging.setupLogging = function() {
   setupConsoleLogging();
   setupRootLoggerLevel();
 
-  logger.fine(
+  goog.log.fine(
+      logger,
       'Logging was set up with level=' + ROOT_LOGGER_LEVEL.name +
-      ' and enabled logging to JS console');
+          ' and enabled logging to JS console');
 
   setupLogBuffer();
 };
@@ -193,9 +194,9 @@ GSC.Logging.getChildLogger = function(parentLogger, relativeName, opt_level) {
  * @param {!goog.log.Level} boundaryLevel
  */
 GSC.Logging.setLoggerVerbosityAtMost = function(logger, boundaryLevel) {
-  const effectiveLevel = logger.getEffectiveLevel();
+  const effectiveLevel = goog.log.getEffectiveLevel(logger);
   if (!effectiveLevel || effectiveLevel.value < boundaryLevel.value)
-    logger.setLevel(boundaryLevel);
+    goog.log.setLevel(logger, boundaryLevel);
 };
 
 /**
@@ -235,7 +236,7 @@ GSC.Logging.checkWithLogger = function(logger, condition, opt_message) {
  */
 GSC.Logging.fail = function(opt_message) {
   const message = opt_message ? opt_message : 'Failure';
-  rootLogger.severe(message);
+  goog.log.error(rootLogger, message);
   scheduleAppReloadIfAllowed();
   throw new Error(message);
 };
@@ -275,12 +276,14 @@ function scheduleAppReloadIfAllowed() {
   GSC.Logging.CrashLoopDetection.handleImminentCrash()
       .then(function(isInCrashLoop) {
         if (isInCrashLoop) {
-          rootLogger.info(
+          goog.log.info(
+              rootLogger,
               'Crash loop detected. The application is defunct, but the ' +
-              'execution state is kept in order to retain the failure logs.');
+                  'execution state is kept in order to retain the failure logs.');
           return;
         }
-        rootLogger.info('Reloading the application due to the fatal error...');
+        goog.log.info(
+            rootLogger, 'Reloading the application due to the fatal error...');
         reloadApp();
       })
       .catch(function() {
@@ -307,7 +310,7 @@ function setupConsoleLogging() {
 }
 
 function setupRootLoggerLevel() {
-  rootLogger.setLevel(ROOT_LOGGER_LEVEL);
+  goog.log.setLevel(rootLogger, ROOT_LOGGER_LEVEL);
 }
 
 function setupLogBuffer() {
@@ -316,13 +319,15 @@ function setupLogBuffer() {
   if (goog.object.containsKey(
           window, GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME)) {
     logBuffer = window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME];
-    logger.fine(
+    goog.log.fine(
+        logger,
         'Detected an existing log buffer instance, attaching it to ' +
-        'the root logger');
+            'the root logger');
   } else {
     logBuffer = new GSC.LogBuffer(LOG_BUFFER_CAPACITY);
     window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME] = logBuffer;
-    logger.fine(
+    goog.log.fine(
+        logger,
         'Created a new log buffer instance, attaching it to the root logger');
   }
 

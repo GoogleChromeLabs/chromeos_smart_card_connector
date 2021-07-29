@@ -28,6 +28,7 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.asserts');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
@@ -66,7 +67,7 @@ GSC.NaclModuleMessageChannel = function(naclModuleElement, parentLogger) {
 
   this.registerDefaultService(this.defaultServiceCallback_.bind(this));
 
-  this.logger_.fine('Initialized');
+  goog.log.fine(this.logger_, 'Initialized');
 };
 
 const NaclModuleMessageChannel = GSC.NaclModuleMessageChannel;
@@ -81,7 +82,8 @@ NaclModuleMessageChannel.prototype.send = function(serviceName, payload) {
   const message = typedMessage.makeMessage();
   if (this.isDisposed())
     return;
-  this.logger_.finest(
+  goog.log.log(
+      this.logger_, goog.log.Level.FINEST,
       'Sending message to NaCl module: ' + GSC.DebugDump.debugDump(message));
   this.naclModuleElement_['postMessage'](message);
 };
@@ -109,9 +111,10 @@ NaclModuleMessageChannel.prototype.messageEventListener_ = function(message) {
             GSC.DebugDump.debugDump(messageData));
   }
 
-  this.logger_.finest(
+  goog.log.log(
+      this.logger_, goog.log.Level.FINEST,
       'Received a message from NaCl module: ' +
-      GSC.DebugDump.debugDump(messageData));
+          GSC.DebugDump.debugDump(messageData));
   this.deliver(typedMessage.type, typedMessage.data);
 };
 

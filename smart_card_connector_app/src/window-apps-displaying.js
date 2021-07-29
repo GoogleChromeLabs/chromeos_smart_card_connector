@@ -30,6 +30,7 @@ goog.require('goog.Promise');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.dom');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 
 goog.scope(function() {
@@ -84,9 +85,10 @@ function updateAppView(knownAppsPromise, appIds, knownApps) {
 function onUpdateListener(appListArg) {
   const appList = goog.array.clone(appListArg);
   goog.array.sort(appList);
-  logger.fine(
+  goog.log.fine(
+      logger,
       'Application list updated, refreshing the view. ' +
-      'New list of id\'s: ' + GSC.DebugDump.dump(appList));
+          'New list of id\'s: ' + GSC.DebugDump.dump(appList));
 
   const knownAppsPromise = knownAppsRegistry.tryGetByIds(appList);
   lastKnownAppsPromise = knownAppsPromise;
@@ -99,12 +101,12 @@ function onUpdateListener(appListArg) {
         if (!updateAppView(knownAppsPromise, appList, null))
           return;
 
-        logger.warning('Couldn\'t resolve appList: ' + error);
+        goog.log.warning(logger, 'Couldn\'t resolve appList: ' + error);
       });
 }
 
 GSC.ConnectorApp.Window.AppsDisplaying.initialize = function() {
-  logger.fine('Registering listener on connected apps update');
+  goog.log.fine(logger, 'Registering listener on connected apps update');
   // FIXME(emaxx): Do unsubscription too.
   // FIXME(emaxx): Use GSC.ObjectHelpers.extractKey to ensure that the expected
   // object is passed to the window.

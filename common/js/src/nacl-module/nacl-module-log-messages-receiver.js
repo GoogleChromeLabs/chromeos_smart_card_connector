@@ -73,8 +73,8 @@ NaclModuleLogMessagesReceiver.prototype.onMessageReceived_ = function(
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(messageData));
   goog.asserts.assertObject(messageData);
 
-  this.logger.log(
-      this.extractLogMessageLevel_(messageData),
+  goog.log.log(
+      this.logger, this.extractLogMessageLevel_(messageData),
       this.extractLogMessageText_(messageData));
 };
 

@@ -30,6 +30,7 @@ goog.require('GoogleSmartCard.MessageChannelPinging.PingResponder');
 goog.require('GoogleSmartCard.MessageChannelPinging.Pinger');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.asserts');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
@@ -82,7 +83,7 @@ GSC.SingleMessageBasedChannel = function(
   this.pingResponder_ = new PingResponder(
       this, this.logger, this.pingMessageReceivedListener_.bind(this));
 
-  this.logger.fine('Initialized successfully');
+  goog.log.fine(this.logger, 'Initialized successfully');
 };
 
 const SingleMessageBasedChannel = GSC.SingleMessageBasedChannel;
@@ -100,7 +101,9 @@ SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
 
   const typedMessage = new GSC.TypedMessage(serviceName, payload);
   const message = typedMessage.makeMessage();
-  this.logger.finest('Posting a message: ' + GSC.DebugDump.debugDump(message));
+  goog.log.log(
+      this.logger, goog.log.Level.FINEST,
+      'Posting a message: ' + GSC.DebugDump.debugDump(message));
 
   if (this.isDisposed()) {
     GSC.Logging.failWithLogger(
@@ -115,7 +118,9 @@ SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
  * @param {*} message
  */
 SingleMessageBasedChannel.prototype.deliverMessage = function(message) {
-  this.logger.finest('Received a message: ' + GSC.DebugDump.debugDump(message));
+  goog.log.log(
+      this.logger, goog.log.Level.FINEST,
+      'Received a message: ' + GSC.DebugDump.debugDump(message));
 
   const typedMessage = GSC.TypedMessage.parseTypedMessage(message);
   if (!typedMessage) {
@@ -138,7 +143,7 @@ SingleMessageBasedChannel.prototype.disposeInternal = function() {
   this.pingResponder_.dispose();
   this.pingResponder_ = null;
 
-  this.logger.fine('Disposed');
+  goog.log.fine(this.logger, 'Disposed');
 
   SingleMessageBasedChannel.base(this, 'disposeInternal');
 };

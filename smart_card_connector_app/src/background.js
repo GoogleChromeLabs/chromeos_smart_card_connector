@@ -34,6 +34,7 @@ goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker')
 goog.require('GoogleSmartCard.PortMessageChannel');
 goog.require('GoogleSmartCard.SingleMessageBasedChannel');
 goog.require('goog.asserts');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
@@ -64,10 +65,11 @@ function maybeCreateLogBufferForwarder() {
 const logBufferForwarderToNaclModule = maybeCreateLogBufferForwarder();
 
 const extensionManifest = chrome.runtime.getManifest();
-logger.info(
+goog.log.info(
+    logger,
     `The Smart Card Connector app (id "${chrome.runtime.id}", version ` +
-    `${extensionManifest.version}) background script started. Browser ` +
-    `version: "${window.navigator.appVersion}".`);
+        `${extensionManifest.version}) background script started. Browser ` +
+        `version: "${window.navigator.appVersion}".`);
 
 /**
  * Loads the binary executable module depending on the toolchain configuration.
@@ -155,7 +157,7 @@ function executableModuleDisposedListener() {
  * on the app in the Chrome OS app launcher).
  */
 function launchedListener() {
-  logger.fine('Received onLaunched event, opening window...');
+  goog.log.fine(logger, 'Received onLaunched event, opening window...');
   GSC.ConnectorApp.Background.MainWindowManaging.openWindowDueToUserRequest(
       makeDataForMainWindow());
 }
@@ -165,7 +167,7 @@ function launchedListener() {
  * @param {!Port} port
  */
 function connectionListener(port) {
-  logger.fine('Received onConnect event');
+  goog.log.fine(logger, 'Received onConnect event');
   const portMessageChannel = new GSC.PortMessageChannel(port);
   createClientHandler(portMessageChannel, undefined);
 }
@@ -175,12 +177,13 @@ function connectionListener(port) {
  * @param {!Port} port
  */
 function externalConnectionListener(port) {
-  logger.fine('Received onConnectExternal event');
+  goog.log.fine(logger, 'Received onConnectExternal event');
   const portMessageChannel = new GSC.PortMessageChannel(port);
   if (portMessageChannel.extensionId === null) {
-    logger.warning(
+    goog.log.warning(
+        logger,
         'Ignoring the external connection as there is no sender ' +
-        'extension id specified');
+            'extension id specified');
     return;
   }
   messageChannelPool.addChannel(
@@ -195,11 +198,12 @@ function externalConnectionListener(port) {
  * @param {!MessageSender} sender
  */
 function externalMessageListener(message, sender) {
-  logger.fine('Received onMessageExternal event');
+  goog.log.fine(logger, 'Received onMessageExternal event');
   if (sender.id === undefined) {
-    logger.warning(
+    goog.log.warning(
+        logger,
         'Ignoring the external message as there is no sender ' +
-        'extension id specified');
+            'extension id specified');
     return;
   }
   let channel = getOrCreateSingleMessageBasedChannel(sender.id);
@@ -258,10 +262,11 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
 
   if (executableModule.isDisposed() ||
       executableModule.getMessageChannel().isDisposed()) {
-    logger.warning(
+    goog.log.warning(
+        logger,
         'Could not create PC/SC-Lite client handler for ' + clientTitleForLog +
-        ' as the server is disposed. Disposing of the client message ' +
-        'channel...');
+            ' as the server is disposed. Disposing of the client message ' +
+            'channel...');
     clientMessageChannel.dispose();
     return;
   }
@@ -276,9 +281,9 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
   const logMessage = 'Created a new PC/SC-Lite client handler for ' +
       clientTitleForLog + ' (handler id ' + clientHandler.id + ')';
   if (clientExtensionId !== undefined)
-    logger.info(logMessage);
+    goog.log.info(logger, logMessage);
   else
-    logger.fine(logMessage);
+    goog.log.fine(logger, logMessage);
 }
 
 /**

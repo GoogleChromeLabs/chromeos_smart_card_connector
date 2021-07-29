@@ -23,6 +23,7 @@
 goog.provide('GoogleSmartCard.I18n');
 
 goog.require('GoogleSmartCard.Logging');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 
 goog.scope(function() {
@@ -72,9 +73,10 @@ function transformAllElements(attribute, transformFunction) {
  * @param {string} translatedText
  */
 function applyContentTranslation(element, translatedText) {
-  logger.fine(
+  goog.log.fine(
+      logger,
       'Translating element.textContent [' + element.outerHTML + '] to "' +
-      translatedText + '"');
+          translatedText + '"');
   element.textContent = translatedText;
 }
 
@@ -83,9 +85,10 @@ function applyContentTranslation(element, translatedText) {
  * @param {string} translatedText
  */
 function applyAriaLabelTranslation(element, translatedText) {
-  logger.fine(
+  goog.log.fine(
+      logger,
       'Translating element.aria-label [' + element.outerHTML + '] to "' +
-      translatedText + '"');
+          translatedText + '"');
   element.setAttribute('aria-label', translatedText);
 }
 
@@ -94,9 +97,10 @@ function applyAriaLabelTranslation(element, translatedText) {
  * @param {string} translatedText
  */
 function applyTitleTranslation(element, translatedText) {
-  logger.fine(
+  goog.log.fine(
+      logger,
       'Translating element.title [' + element.outerHTML + '] to "' +
-      translatedText + '"');
+          translatedText + '"');
   element.setAttribute('title', translatedText);
 }
 

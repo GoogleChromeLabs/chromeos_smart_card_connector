@@ -60,6 +60,7 @@ goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('SmartCardClientApp.BuiltInPinDialog.Backend');
 goog.require('SmartCardClientApp.CertificateProviderBridge.Backend');
 goog.require('goog.asserts');
+goog.require('goog.log');
 goog.require('goog.log.Level');
 goog.require('goog.log.Logger');
 
@@ -124,11 +125,12 @@ const logger = GSC.Logging.getLogger(
 
 const extensionManifest = chrome.runtime.getManifest();
 const formattedStartupTime = (new Date()).toLocaleString();
-logger.info(
+goog.log.info(
+    logger,
     `The extension (id "${chrome.runtime.id}", version ` +
-    `${extensionManifest.version}) background script started. Browser ` +
-    `version: "${window.navigator.appVersion}". System time: ` +
-    `"${formattedStartupTime}"`);
+        `${extensionManifest.version}) background script started. Browser ` +
+        `version: "${window.navigator.appVersion}". System time: ` +
+        `"${formattedStartupTime}"`);
 
 /**
  * Loads the binary executable module depending on the toolchain configuration.

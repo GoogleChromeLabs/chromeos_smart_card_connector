@@ -24,6 +24,7 @@ goog.provide('GoogleSmartCard.Clipboard');
 
 goog.require('GoogleSmartCard.Logging');
 goog.require('goog.dom');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 
 goog.scope(function() {
@@ -48,11 +49,13 @@ GSC.Clipboard.copyToClipboard = function(text) {
   document.body.removeChild(element);
 
   if (!success) {
-    logger.severe(
+    goog.log.error(
+        logger,
         'Failed to copy the text of length ' + text.length + ' to clipboard');
     return false;
   }
-  logger.fine('Copied text of length ' + text.length + ' to clipboard');
+  goog.log.fine(
+      logger, 'Copied text of length ' + text.length + ' to clipboard');
   return true;
 };
 });  // goog.scope

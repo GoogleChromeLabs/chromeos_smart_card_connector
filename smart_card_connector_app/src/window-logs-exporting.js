@@ -28,6 +28,7 @@ goog.require('goog.Timer');
 goog.require('goog.dom');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 
 goog.scope(function() {
@@ -68,10 +69,11 @@ function exportLogsClickListener(e) {
 function exportLogs() {
   const logBufferState = GSC.Logging.getLogBuffer().getState();
   const dumpedLogs = logBufferState.getAsText();
-  logger.fine(
+  goog.log.fine(
+      logger,
       'Prepared a (possibly truncated) dump of ' + logBufferState['logCount'] +
-      ' log messages from the log buffer, the dump size is ' +
-      dumpedLogs.length + ' characters');
+          ' log messages from the log buffer, the dump size is ' +
+          dumpedLogs.length + ' characters');
   const copyingSuccess = GSC.Clipboard.copyToClipboard(dumpedLogs);
 
   if (copyingSuccess) {

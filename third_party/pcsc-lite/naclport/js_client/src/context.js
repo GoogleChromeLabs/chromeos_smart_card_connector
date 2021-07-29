@@ -36,6 +36,7 @@ goog.require('goog.Disposable');
 goog.require('goog.array');
 goog.require('goog.asserts');
 goog.require('goog.async.nextTick');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.messaging.AbstractChannel');
 
@@ -95,7 +96,7 @@ GSC.PcscLiteClient.Context = function(clientTitle, opt_serverAppId) {
    */
   this.onInitializedCallbacks_ = [];
 
-  this.logger.fine('Constructed');
+  goog.log.fine(this.logger, 'Constructed');
 };
 
 const Context = GSC.PcscLiteClient.Context;
@@ -127,12 +128,13 @@ Context.prototype.initialize = function(opt_messageChannel) {
     this.channel_ = opt_messageChannel;
     goog.async.nextTick(this.messageChannelEstablishedListener_, this);
   } else {
-    this.logger.fine(
+    goog.log.fine(
+        this.logger,
         'Opening a connection to the server app ' +
-        (this.serverAppId_ !== undefined ?
-             '(extension id is "' + this.serverAppId_ + '")' :
-             '(which is the own app)') +
-        '...');
+            (this.serverAppId_ !== undefined ?
+                 '(extension id is "' + this.serverAppId_ + '")' :
+                 '(which is the own app)') +
+            '...');
     const connectInfo = {'name': this.clientTitle};
     let port;
     if (this.serverAppId_ !== undefined) {
@@ -203,7 +205,7 @@ Context.prototype.disposeInternal = function() {
     this.channel_ = null;
   }
 
-  this.logger.fine('Disposed');
+  goog.log.fine(this.logger, 'Disposed');
 
   Context.base(this, 'disposeInternal');
 };
@@ -213,7 +215,7 @@ Context.prototype.messageChannelEstablishedListener_ = function() {
   if (this.isDisposed() || this.channel_.isDisposed())
     return;
 
-  this.logger.fine('Message channel was established successfully');
+  goog.log.fine(this.logger, 'Message channel was established successfully');
 
   GSC.Logging.checkWithLogger(this.logger, this.api === null);
   GSC.Logging.checkWithLogger(this.logger, this.channel_ !== null);
@@ -229,7 +231,7 @@ Context.prototype.messageChannelEstablishedListener_ = function() {
 
 /** @private */
 Context.prototype.messageChannelDisposedListener_ = function() {
-  this.logger.fine('Message channel was disposed, disposing...');
+  goog.log.fine(this.logger, 'Message channel was disposed, disposing...');
   this.dispose();
 };
 });  // goog.scope

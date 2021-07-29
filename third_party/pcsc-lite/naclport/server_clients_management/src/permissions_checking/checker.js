@@ -33,6 +33,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.ManagedRegistry');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
 goog.require('goog.Promise');
+goog.require('goog.log');
 goog.require('goog.log.Logger');
 goog.require('goog.promise.Resolver');
 
@@ -83,12 +84,15 @@ Checker.prototype.logger = GSC.Logging.getScopedLogger(
  * @return {!goog.Promise}
  */
 Checker.prototype.check = function(clientAppId) {
-  this.logger.finer(
+  goog.log.log(
+      this.logger, goog.log.Level.FINER,
       'Checking permissions for client App with id ' +
-      GSC.DebugDump.dump(clientAppId) + '...');
+          GSC.DebugDump.dump(clientAppId) + '...');
 
   if (clientAppId === null) {
-    this.logger.finer('Granted permissions for client with null App id');
+    goog.log.log(
+        this.logger, goog.log.Level.FINER,
+        'Granted permissions for client with null App id');
     return goog.Promise.resolve();
   }
 
@@ -106,22 +110,25 @@ Checker.prototype.check = function(clientAppId) {
  */
 Checker.prototype.checkByManagedRegistry_ = function(
     clientAppId, checkPromiseResolver) {
-  this.logger.finer(
+  goog.log.log(
+      this.logger, goog.log.Level.FINER,
       'Checking permissions for the client App with id "' + clientAppId +
-      '" through the managed registry...');
+          '" through the managed registry...');
 
   this.managedRegistry_.getById(clientAppId)
       .then(
           function() {
-            this.logger.finer(
+            goog.log.log(
+                this.logger, goog.log.Level.FINER,
                 'Granted permissions for client App with id "' + clientAppId +
-                '" through the managed registry');
+                    '" through the managed registry');
             checkPromiseResolver.resolve();
           },
           function() {
-            this.logger.finer(
+            goog.log.log(
+                this.logger, goog.log.Level.FINER,
                 'No permissions found for client App with id "' + clientAppId +
-                '" through the managed registry');
+                    '" through the managed registry');
             this.checkByUserPromptingChecker_(
                 clientAppId, checkPromiseResolver);
           },
