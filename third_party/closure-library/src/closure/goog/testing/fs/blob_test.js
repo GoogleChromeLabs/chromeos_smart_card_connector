@@ -11,9 +11,10 @@ const FsBlob = goog.require('goog.testing.fs.Blob');
 const dom = goog.require('goog.dom');
 const testSuite = goog.require('goog.testing.testSuite');
 
-const hasArrayBuffer = (goog.global.ArrayBuffer !== undefined);
+const hasArrayBuffer = (globalThis.ArrayBuffer !== undefined);
 
 testSuite({
+  /** @suppress {visibility} suppression added to enable type checking */
   testInput() {
     let blob = new FsBlob();
     assertEquals('', blob.toString());
@@ -63,6 +64,7 @@ testSuite({
     assertEquals('text/plain', blob.type);
   },
 
+  /** @suppress {visibility} suppression added to enable type checking */
   testSlice() {
     let blob = new FsBlob('abcdef');
     assertEquals('bc', blob.slice(1, 3).toString());

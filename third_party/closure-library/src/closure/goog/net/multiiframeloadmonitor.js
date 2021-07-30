@@ -30,6 +30,7 @@ goog.requireType('goog.events.Event');
  * @final
  */
 goog.net.MultiIframeLoadMonitor = function(iframes, callback, opt_hasContent) {
+  'use strict';
   /**
    * Array of IframeLoadMonitors we use to track the loaded status of any
    * currently unloaded iframes.
@@ -45,8 +46,8 @@ goog.net.MultiIframeLoadMonitor = function(iframes, callback, opt_hasContent) {
    */
   this.callback_ = callback;
 
-  for (var i = 0; i < iframes.length; i++) {
-    var iframeLoadMonitor =
+  for (let i = 0; i < iframes.length; i++) {
+    const iframeLoadMonitor =
         new goog.net.IframeLoadMonitor(iframes[i], opt_hasContent);
     if (iframeLoadMonitor.isLoaded()) {
       // Already loaded - don't need to wait
@@ -73,10 +74,11 @@ goog.net.MultiIframeLoadMonitor = function(iframes, callback, opt_hasContent) {
  * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.net.MultiIframeLoadMonitor.prototype.handleEvent = function(e) {
-  var iframeLoadMonitor = e.target;
+  'use strict';
+  const iframeLoadMonitor = e.target;
   // iframeLoadMonitor is now loaded, remove it from the array of
   // pending iframe load monitors.
-  for (var i = 0; i < this.pendingIframeLoadMonitors_.length; i++) {
+  for (let i = 0; i < this.pendingIframeLoadMonitors_.length; i++) {
     if (this.pendingIframeLoadMonitors_[i] == iframeLoadMonitor) {
       this.pendingIframeLoadMonitors_.splice(i, 1);
       break;
@@ -104,7 +106,8 @@ goog.net.MultiIframeLoadMonitor.prototype.handleEvent = function(e) {
  * implementing a timeout).
  */
 goog.net.MultiIframeLoadMonitor.prototype.stopMonitoring = function() {
-  for (var i = 0; i < this.pendingIframeLoadMonitors_.length; i++) {
+  'use strict';
+  for (let i = 0; i < this.pendingIframeLoadMonitors_.length; i++) {
     this.pendingIframeLoadMonitors_[i].dispose();
   }
   this.pendingIframeLoadMonitors_.length = 0;

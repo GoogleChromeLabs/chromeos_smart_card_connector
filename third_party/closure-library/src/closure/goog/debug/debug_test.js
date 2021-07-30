@@ -161,6 +161,7 @@ testSuite({
     const TestClass = function(text) {
       this.text = text;
     };
+    /** @suppress {checkTypes} suppression added to enable type checking */
     const instance = new TestClass('abc');
     const err = debug.normalizeErrorObject(instance);
 
@@ -185,6 +186,17 @@ testSuite({
 
     assertEquals('UnknownError', err.name);
     assertEquals('Unknown Error of type "Object": Error Message', err.message);
+  },
+
+  testNormalizeErrorObject_enumerable() {
+    const err = debug.normalizeErrorObject(new Error());
+
+    let properties = 0;
+    for (let x in err) {
+      properties++;
+    }
+
+    assertEquals(5, properties);
   },
 
 });

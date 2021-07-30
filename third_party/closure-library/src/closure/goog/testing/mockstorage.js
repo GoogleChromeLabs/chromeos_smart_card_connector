@@ -14,10 +14,6 @@ goog.setTestOnly('goog.testing.MockStorage');
 goog.provide('goog.testing.MockStorage');
 
 
-goog.require('goog.structs.Map');
-
-
-
 /**
  * A JS storage instance, implementing the HTML5 Storage interface.
  * See http://www.w3.org/TR/webstorage/ for details.
@@ -27,12 +23,13 @@ goog.require('goog.structs.Map');
  * @final
  */
 goog.testing.MockStorage = function() {
+  'use strict';
   /**
    * The underlying storage object.
-   * @type {goog.structs.Map}
+   * @type {!Map}
    * @private
    */
-  this.store_ = new goog.structs.Map();
+  this.store_ = new Map();
 
   /**
    * The number of elements in the storage.
@@ -49,8 +46,9 @@ goog.testing.MockStorage = function() {
  * @override
  */
 goog.testing.MockStorage.prototype.setItem = function(key, value) {
+  'use strict';
   this.store_.set(key, String(value));
-  this.length = this.store_.getCount();
+  this.length = this.store_.size;
 };
 
 
@@ -63,6 +61,7 @@ goog.testing.MockStorage.prototype.setItem = function(key, value) {
  * @override
  */
 goog.testing.MockStorage.prototype.getItem = function(key) {
+  'use strict';
   var val = this.store_.get(key);
   // Enforce that getItem returns string values.
   return (val != null) ? /** @type {string} */ (val) : null;
@@ -75,8 +74,9 @@ goog.testing.MockStorage.prototype.getItem = function(key) {
  * @override
  */
 goog.testing.MockStorage.prototype.removeItem = function(key) {
-  this.store_.remove(key);
-  this.length = this.store_.getCount();
+  'use strict';
+  this.store_.delete(key);
+  this.length = this.store_.size;
 };
 
 
@@ -85,6 +85,7 @@ goog.testing.MockStorage.prototype.removeItem = function(key) {
  * @override
  */
 goog.testing.MockStorage.prototype.clear = function() {
+  'use strict';
   this.store_.clear();
   this.length = 0;
 };
@@ -97,5 +98,11 @@ goog.testing.MockStorage.prototype.clear = function() {
  * @override
  */
 goog.testing.MockStorage.prototype.key = function(index) {
-  return this.store_.getKeys()[index] || null;
+  'use strict';
+  let i = 0;
+  for (const key of this.store_.keys()) {
+    if (i == index) return key;
+    i++;
+  }
+  return null;
 };

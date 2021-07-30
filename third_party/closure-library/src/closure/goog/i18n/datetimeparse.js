@@ -158,6 +158,27 @@ goog.i18n.DateTimeParse.ambiguousYearCenturyStart = 80;
 
 
 /**
+ * All acceptable pattern characters.
+ * @private
+ */
+goog.i18n.DateTimeParse.PATTERN_CHARS_ = 'GyMdkHmsSEDahKzZvQL';
+
+
+/**
+ * Pattern characters that specify numerical field.
+ * @private
+ */
+goog.i18n.DateTimeParse.NUMERIC_FORMAT_CHARS_ = 'MydhHmsSDkK';
+
+
+/**
+ * Pattern characters supported by predictive parsing.
+ * @private
+ */
+goog.i18n.DateTimeParse.PREDICTIVE_FORMAT_CHARS_ = 'ahHkKm';
+
+
+/**
  * Apply a pattern to this Parser. The pattern string will be parsed and saved
  * in "compiled" form.
  * Note: this method is somewhat similar to the pattern parsing method in
@@ -178,10 +199,12 @@ goog.i18n.DateTimeParse.prototype.applyPattern_ = function(pattern) {
     // handle space, add literal part (if exist), and add space part
     if (ch == ' ') {
       if (buf.length > 0) {
-        this.patternParts_.push({text: buf, count: 0, abutStart: false});
+        this.patternParts_.push(
+            {text: buf, count: 0, abutStart: false, numeric: false});
         buf = '';
       }
-      this.patternParts_.push({text: ' ', count: 0, abutStart: false});
+      this.patternParts_.push(
+          {text: ' ', count: 0, abutStart: false, numeric: false});
       while (i < pattern.length - 1 && pattern.charAt(i + 1) == ' ') {
         i++;
       }
@@ -203,11 +226,14 @@ goog.i18n.DateTimeParse.prototype.applyPattern_ = function(pattern) {
     } else if (goog.i18n.DateTimeParse.PATTERN_CHARS_.indexOf(ch) >= 0) {
       // outside quote, it is a pattern char
       if (buf.length > 0) {
-        this.patternParts_.push({text: buf, count: 0, abutStart: false});
+        this.patternParts_.push(
+            {text: buf, count: 0, abutStart: false, numeric: false});
         buf = '';
       }
       var count = this.getNextCharCount_(pattern, i);
-      this.patternParts_.push({text: ch, count: count, abutStart: false});
+      var numeric = this.isNumericField_(ch, count);
+      this.patternParts_.push(
+          {text: ch, count: count, abutStart: false, numeric: numeric});
       i += count - 1;
     } else if (ch == '\'') {
       // Two consecutive quotes is a quote literal, inside or outside of quotes.
@@ -223,7 +249,8 @@ goog.i18n.DateTimeParse.prototype.applyPattern_ = function(pattern) {
   }
 
   if (buf.length > 0) {
-    this.patternParts_.push({text: buf, count: 0, abutStart: false});
+    this.patternParts_.push(
+        {text: buf, count: 0, abutStart: false, numeric: false});
   }
 
   this.markAbutStart_();
@@ -263,141 +290,6 @@ goog.i18n.DateTimeParse.prototype.applyStandardPattern_ = function(formatType) {
 
 
 /**
- * Parse the given string and fill info into date object. This version does
- * not validate the input.
- * @param {string} text The string being parsed.
- * @param {goog.date.DateLike} date The Date object to hold the parsed date.
- * @param {number=} opt_start The position from where parse should begin.
- * @return {number} How many characters parser advanced.
- */
-goog.i18n.DateTimeParse.prototype.parse = function(text, date, opt_start) {
-  'use strict';
-  var start = opt_start || 0;
-  return this.internalParse_(text, date, start, false /*validation*/);
-};
-
-
-/**
- * Parse the given string and fill info into date object. This version will
- * validate the input and make sure it is a valid date/time.
- * @param {string} text The string being parsed.
- * @param {goog.date.DateLike} date The Date object to hold the parsed date.
- * @param {number=} opt_start The position from where parse should begin.
- * @return {number} How many characters parser advanced.
- */
-goog.i18n.DateTimeParse.prototype.strictParse = function(
-    text, date, opt_start) {
-  'use strict';
-  var start = opt_start || 0;
-  return this.internalParse_(text, date, start, true /*validation*/);
-};
-
-
-/**
- * Parse the given string and fill info into date object.
- * @param {string} text The string being parsed.
- * @param {goog.date.DateLike} date The Date object to hold the parsed date.
- * @param {number} start The position from where parse should begin.
- * @param {boolean} validation If true, input string need to be a valid
- *     date/time string.
- * @return {number} How many characters parser advanced.
- * @private
- */
-goog.i18n.DateTimeParse.prototype.internalParse_ = function(
-    text, date, start, validation) {
-  'use strict';
-  var cal = new goog.i18n.DateTimeParse.MyDate_();
-  var parsePos = [start];
-
-  // For parsing abutting numeric fields. 'abutPat' is the
-  // offset into 'pattern' of the first of 2 or more abutting
-  // numeric fields. 'abutStart' is the offset into 'text'
-  // where parsing the fields begins. 'abutPass' starts off as 0
-  // and increments each time we try to parse the fields.
-  var abutPat = -1;  // If >=0, we are in a run of abutting numeric fields
-  var abutStart = 0;
-  var abutPass = 0;
-
-  for (var i = 0; i < this.patternParts_.length; i++) {
-    if (this.patternParts_[i].count > 0) {
-      if (abutPat < 0 && this.patternParts_[i].abutStart) {
-        abutPat = i;
-        abutStart = start;
-        abutPass = 0;
-      }
-
-      // Handle fields within a run of abutting numeric fields. Take
-      // the pattern "HHmmss" as an example. We will try to parse
-      // 2/2/2 characters of the input text, then if that fails,
-      // 1/2/2. We only adjust the width of the leftmost field; the
-      // others remain fixed. This allows "123456" => 12:34:56, but
-      // "12345" => 1:23:45. Likewise, for the pattern "yyyyMMdd" we
-      // try 4/2/2, 3/2/2, 2/2/2, and finally 1/2/2.
-      if (abutPat >= 0) {
-        // If we are at the start of a run of abutting fields, then
-        // shorten this field in each pass. If we can't shorten
-        // this field any more, then the parse of this set of
-        // abutting numeric fields has failed.
-        var count = this.patternParts_[i].count;
-        if (i == abutPat) {
-          count -= abutPass;
-          abutPass++;
-          if (count == 0) {
-            // tried all possible width, fail now
-            return 0;
-          }
-        }
-
-        if (!this.subParse_(
-                text, parsePos, this.patternParts_[i], count, cal)) {
-          // If the parse fails anywhere in the run, back up to the
-          // start of the run and retry.
-          i = abutPat - 1;
-          parsePos[0] = abutStart;
-          continue;
-        }
-      }
-
-      // Handle non-numeric fields and non-abutting numeric fields.
-      else {
-        abutPat = -1;
-        if (!this.subParse_(text, parsePos, this.patternParts_[i], 0, cal)) {
-          return 0;
-        }
-      }
-    } else {
-      // Handle literal pattern characters. These are any
-      // quoted characters and non-alphabetic unquoted
-      // characters.
-      abutPat = -1;
-      // A run of white space in the pattern matches a run
-      // of white space in the input text.
-      if (this.patternParts_[i].text.charAt(0) == ' ') {
-        // Advance over run in input text
-        var s = parsePos[0];
-        this.skipSpace_(text, parsePos);
-
-        // Must see at least one white space char in input
-        if (parsePos[0] > s) {
-          continue;
-        }
-      } else if (
-          text.indexOf(this.patternParts_[i].text, parsePos[0]) ==
-          parsePos[0]) {
-        parsePos[0] += this.patternParts_[i].text.length;
-        continue;
-      }
-      // We fall through to this point if the match fails
-      return 0;
-    }
-  }
-
-  // return progress
-  return cal.calcDate_(date, validation) ? parsePos[0] - start : 0;
-};
-
-
-/**
  * Calculate character repeat count in pattern.
  *
  * @param {string} pattern It describes the format of date string that need to
@@ -415,39 +307,6 @@ goog.i18n.DateTimeParse.prototype.getNextCharCount_ = function(pattern, start) {
     next++;
   }
   return next - start;
-};
-
-
-/**
- * All acceptable pattern characters.
- * @private
- */
-goog.i18n.DateTimeParse.PATTERN_CHARS_ = 'GyMdkHmsSEDahKzZvQL';
-
-
-/**
- * Pattern characters that specify numerical field.
- * @private
- */
-goog.i18n.DateTimeParse.NUMERIC_FORMAT_CHARS_ = 'MydhHmsSDkK';
-
-
-/**
- * Check if the pattern part is a numeric field.
- *
- * @param {Object} part pattern part to be examined.
- *
- * @return {boolean} true if the pattern part is numeric field.
- * @private
- */
-goog.i18n.DateTimeParse.prototype.isNumericField_ = function(part) {
-  'use strict';
-  if (part.count <= 0) {
-    return false;
-  }
-  var i = goog.i18n.DateTimeParse.NUMERIC_FORMAT_CHARS_.indexOf(
-      part.text.charAt(0));
-  return i > 0 || i == 0 && part.count < 3;
 };
 
 
@@ -470,10 +329,10 @@ goog.i18n.DateTimeParse.prototype.markAbutStart_ = function() {
   var abut = false;
 
   for (var i = 0; i < this.patternParts_.length; i++) {
-    if (this.isNumericField_(this.patternParts_[i])) {
-      // if next part is not following abut sequence, and isNumericField_
+    if (this.patternParts_[i].numeric) {
+      // if next part is not following abut sequence, and is numeric
       if (!abut && i + 1 < this.patternParts_.length &&
-          this.isNumericField_(this.patternParts_[i + 1])) {
+          this.patternParts_[i + 1].numeric) {
         abut = true;
         this.patternParts_[i].abutStart = true;
       }
@@ -481,6 +340,565 @@ goog.i18n.DateTimeParse.prototype.markAbutStart_ = function() {
       abut = false;
     }
   }
+};
+
+
+/**
+ * Check if the pattern part is a numeric field.
+ *
+ * @param {string} ch pattern character
+ * @param {number} count pattern character count
+ *
+ * @return {boolean} true if the pattern part is numeric field.
+ * @private
+ */
+goog.i18n.DateTimeParse.prototype.isNumericField_ = function(ch, count) {
+  'use strict';
+  if (count <= 0) {
+    return false;
+  }
+  var i = goog.i18n.DateTimeParse.NUMERIC_FORMAT_CHARS_.indexOf(ch);
+  return i > 0 || i == 0 && count < 3;
+};
+
+
+/**
+ * Assert this object's pattern supports predictive parsing.
+ * @private
+ */
+goog.i18n.DateTimeParse.prototype.assertPatternSupportsPredictive_ =
+    function() {
+  'use strict';
+  for (var i = 0; i < this.patternParts_.length; i++) {
+    var part = this.patternParts_[i];
+    if (part.count > 0 &&
+        (goog.i18n.DateTimeParse.PREDICTIVE_FORMAT_CHARS_.indexOf(
+             part.text.charAt(0)) < 0 ||
+         part.count > 2 || part.abutStart)) {
+      throw new Error(
+          `'predictive' parsing is not supported for symbol ` +
+          `'${part.text.charAt(0)}'.`);
+    }
+  }
+};
+
+
+/**
+ * Parse the given string and fill parsed values into date object.
+ *
+ * The existing values of any temporal fields of `date` not parsed from `text`
+ * are not directly changed, but may be affected by overflow. E.g. if a minutes
+ * value of 70 is parsed, the implementation of `date` may increment the value
+ * of its hours field by 1 while setting its minutes value to 10.
+ *
+ * @param {string} text The string being parsed.
+ * @param {goog.date.DateLike} date The Date object to hold the parsed date.
+ * @param {!goog.i18n.DateTimeParse.ParseOptions=} options The options object.
+ * @return {number} How many characters parser advanced.
+ */
+goog.i18n.DateTimeParse.prototype.parse = function(text, date, options) {
+  'use strict';
+  var predictive = false;
+  var validate = false;
+  if (options) {
+    predictive = options.predictive || false;
+    validate = options.validate || false;
+  }
+
+  if (predictive) {
+    this.assertPatternSupportsPredictive_();
+  }
+
+  var cal = new goog.i18n.DateTimeParse.MyDate_();
+  var parsePos = [0];
+
+  for (var i = 0; i < this.patternParts_.length; i++) {
+    if (predictive && parsePos[0] >= text.length) {
+      break;
+    }
+
+    if (this.patternParts_[i].count == 0) {
+      // Handle literal pattern characters.
+      if (this.subParseLiteral_(
+              text, parsePos, this.patternParts_[i], predictive)) {
+        continue;
+      }
+      return 0;
+    }
+
+    if (this.patternParts_[i].abutStart) {
+      // Handle fields within a run of abutting numeric fields.
+      var partsParsed = this.subParseAbut_(text, parsePos, i, cal);
+      if (partsParsed <= 0) {
+        return 0;
+      }
+      i += partsParsed - 1;
+      continue;
+    }
+
+    // Handle non-numeric fields and non-abutting numeric fields.
+    if (!this.subParse_(
+            text, parsePos, this.patternParts_[i], 0, cal, predictive)) {
+      return 0;
+    }
+  }
+
+  // return progress
+  return cal.calcDate_(date, validate) ? parsePos[0] : 0;
+};
+
+
+/**
+ * Parse the given string and fill info into date object. This version will
+ * validate that the result is a valid date/time.
+ * @param {string} text The string being parsed.
+ * @param {goog.date.DateLike} date The Date object to hold the parsed date.
+ * @return {number} How many characters parser advanced.
+ * @deprecated Use goog.i18n.DateTimeParse.parse with the validate option
+ *     instead.
+ */
+goog.i18n.DateTimeParse.prototype.strictParse = function(text, date) {
+  'use strict';
+  return this.parse(text, date, {validate: true});
+};
+
+
+/**
+ * Parse a run of abutting numeric pattern parts. Take the pattern "HHmmss" as
+ * an example. We will try to parse 2/2/2 characters of the input text, then if
+ * that fails, 1/2/2. We only adjust the width of the leftmost field; the others
+ * remain fixed. This allows "123456" => 12:34:56, but "12345" => 1:23:45.
+ * Likewise, for the pattern "yyyyMMdd" we try 4/2/2, 3/2/2, 2/2/2, and finally
+ * 1/2/2.
+ *
+ * @param {string} text the text to be parsed.
+ * @param {Array<number>} pos parse position
+ * @param {number} abutStart the index of the pattern part starting the run
+ * @param {goog.i18n.DateTimeParse.MyDate_} cal object that holds parsed value
+ *
+ * @return {number} how many pattern parts the parser advanced
+ * @private
+ */
+goog.i18n.DateTimeParse.prototype.subParseAbut_ = function(
+    text, pos, abutStart, cal) {
+  'use strict';
+  var start = pos[0];
+  var abutPass = 0;
+
+  for (var i = abutStart; i < this.patternParts_.length; i++) {
+    if (this.patternParts_[i].count == 0) {
+      // Literal pattern parts end abutting runs of numeric fields. Non-numeric
+      // fields do not (possibly a bug or undocumented constraint).
+      break;
+    }
+    // If we are at the start of a run of abutting fields, then
+    // shorten this field in each pass. If we can't shorten
+    // this field any more, then the parse of this set of
+    // abutting numeric fields has failed.
+    var count = this.patternParts_[i].count;
+    if (i == abutStart) {
+      count -= abutPass;
+      abutPass++;
+      if (count == 0) {
+        // tried all possible width, fail now
+        return 0;
+      }
+    }
+
+    // Predictive parsing is not supported for abutting runs of numbers.
+    if (!this.subParse_(
+            text, pos, this.patternParts_[i], count, cal,
+            /* predictive= */ false)) {
+      // If the parse fails anywhere in the run, back up to the
+      // start of the run and retry.
+      i = abutStart - 1;
+      pos[0] = start;
+      continue;
+    }
+  }
+
+  return i - abutStart;
+};
+
+
+/**
+ * Protected method that converts one field of the input string into a
+ * numeric field value.
+ *
+ * @param {string} text the text to be parsed.
+ * @param {Array<number>} pos Parse position.
+ * @param {Object} part the pattern part for this field.
+ * @param {number} digitCount when > 0, numeric parsing must obey the count.
+ * @param {goog.i18n.DateTimeParse.MyDate_} cal object that holds parsed value.
+ * @param {boolean} predictive whether to apply predictive parsing rules.
+ *
+ * @return {boolean} True if it parses successfully.
+ * @private
+ */
+goog.i18n.DateTimeParse.prototype.subParse_ = function(
+    text, pos, part, digitCount, cal, predictive) {
+  'use strict';
+  this.skipSpace_(text, pos);
+
+  if (part.numeric && digitCount > 0) {
+    if ((pos[0] + digitCount) > text.length) {
+      return false;
+    }
+  }
+
+  switch (part.text.charAt(0)) {
+    case 'G':  // ERA
+      this.subParseString_(
+          text, pos, [this.dateTimeSymbols_.ERAS], function(value) {
+            cal.era = value;
+          });
+      return true;
+    case 'M':  // MONTH
+    case 'L':  // STANDALONEMONTH
+      return this.subParseMonth_(text, pos, digitCount, part, cal);
+    case 'E':  // DAY_OF_WEEK
+      // Handle both short and long forms. Try count == 4 first.
+      var weekdays =
+          [this.dateTimeSymbols_.WEEKDAYS, this.dateTimeSymbols_.SHORTWEEKDAYS];
+      return this.subParseString_(text, pos, weekdays, function(value) {
+        cal.dayOfWeek = value;
+      });
+    case 'a':  // AM_PM
+      var success = this.subParseString_(
+          text, pos, [this.dateTimeSymbols_.AMPMS], function(value) {
+            cal.ampm = value;
+          }, predictive);
+      return predictive ? success : true;
+    case 'y':  // YEAR
+      return this.subParseYear_(text, pos, part, digitCount, cal);
+    case 'Q':  // QUARTER
+      // Handle both short and long forms. Try count == 4 first.
+      var quarters =
+          [this.dateTimeSymbols_.QUARTERS, this.dateTimeSymbols_.SHORTQUARTERS];
+      return this.subParseString_(text, pos, quarters, function(value) {
+        cal.month = value * 3;  // First month of quarter.
+        cal.day = 1;
+      });
+    case 'd':  // DATE
+      this.subParseInt_(text, pos, part, digitCount, function(value) {
+        cal.day = value;
+      });
+      return true;
+    case 'S':  // FRACTIONAL_SECOND
+      return this.subParseFractionalSeconds_(text, pos, digitCount, cal);
+    case 'h':  // HOUR (1..12)
+    case 'K':  // HOUR (0..11)
+    case 'H':  // HOUR_OF_DAY (0..23)
+    case 'k':  // HOUR_OF_DAY (1..24)
+      var success =
+          this.subParseInt_(text, pos, part, digitCount, function(value) {
+            cal.hours =
+                (part.text.charAt(0) === 'h' && value === 12) ? 0 : value;
+          }, predictive);
+      return predictive ? success : true;
+    case 'm':  // MINUTE
+      var success =
+          this.subParseInt_(text, pos, part, digitCount, function(value) {
+            cal.minutes = value;
+          }, predictive);
+      return predictive ? success : true;
+    case 's':  // SECOND
+      this.subParseInt_(text, pos, part, digitCount, function(value) {
+        cal.seconds = value;
+      });
+      return true;
+    case 'z':  // ZONE_OFFSET
+    case 'Z':  // TIMEZONE_RFC
+    case 'v':  // TIMEZONE_GENERIC
+      return this.subParseTimeZoneInGMT_(text, pos, cal);
+    default:
+      return false;
+  }
+};
+
+
+/**
+ * Parse year field. Year field is special because
+ * 1) two digit year need to be resolved.
+ * 2) we allow year to take a sign.
+ * 3) year field participate in abut processing.
+ *
+ * @param {string} text the text to be parsed.
+ * @param {Array<number>} pos Parse position.
+ * @param {Object} part the pattern part for this field.
+ * @param {number} digitCount when > 0, numeric parsing must obey the count.
+ * @param {goog.i18n.DateTimeParse.MyDate_} cal object to hold parsed value.
+ *
+ * @return {boolean} True if successful.
+ * @private
+ */
+goog.i18n.DateTimeParse.prototype.subParseYear_ = function(
+    text, pos, part, digitCount, cal) {
+  'use strict';
+  var start = pos[0];
+  // This awkward implementation preserves an existing behavioral quirk.
+  // digitCount (for abutting patterns) is ignored for signed years.
+  var value = this.parseInt_(text, pos, digitCount);
+  if (value === null) {
+    value = this.parseInt_(text, pos, 0, /* allowSigned= */ true);
+  }
+  if (value === null) {
+    return false;
+  }
+
+  // only if 2 digit was actually parsed, and pattern say it has 2 digit.
+  if (value >= 0 && pos[0] - start == 2 && part.count == 2) {
+    cal.setTwoDigitYear_(value);
+  } else {
+    cal.year = value;
+  }
+  return true;
+};
+
+
+/**
+ * Parse Month field.
+ *
+ * @param {string} text the text to be parsed.
+ * @param {Array<number>} pos Parse position.
+ * @param {number} digitCount when > 0, numeric parsing must obey the count.
+ * @param {Object} part the pattern part
+ * @param {goog.i18n.DateTimeParse.MyDate_} cal object to hold parsed value.
+ *
+ * @return {boolean} True if parsing successful.
+ * @private
+ */
+goog.i18n.DateTimeParse.prototype.subParseMonth_ = function(
+    text, pos, digitCount, part, cal) {
+  'use strict';
+  if (part.numeric &&
+      this.subParseInt_(text, pos, part, digitCount, function(value) {
+        cal.month = value - 1;
+      })) {
+    return true;
+  }
+
+  // month is symbols, i.e., MMM, MMMM, LLL or LLLL
+  // Handle both short and long forms. Try count == 4 first.
+  var months = [
+    this.dateTimeSymbols_.MONTHS, this.dateTimeSymbols_.STANDALONEMONTHS,
+    this.dateTimeSymbols_.SHORTMONTHS,
+    this.dateTimeSymbols_.STANDALONESHORTMONTHS
+  ];
+  return this.subParseString_(text, pos, months, function(value) {
+    cal.month = value;
+  });
+};
+
+
+/**
+ * Parse fractional seconds field.
+ *
+ * @param {string} text the text to be parsed.
+ * @param {Array<number>} pos current parse position.
+ * @param {number} digitCount when > 0, numeric parsing must obey the count.
+ * @param {goog.i18n.DateTimeParse.MyDate_} cal object to hold parsed value.
+ *
+ * @return {boolean} True if successful.
+ * @private
+ */
+goog.i18n.DateTimeParse.prototype.subParseFractionalSeconds_ = function(
+    text, pos, digitCount, cal) {
+  'use strict';
+  var start = pos[0];
+  var value = this.parseInt_(text, pos, digitCount);
+  if (value === null) {
+    return false;
+  }
+  // Fractional seconds left-justify
+  var len = pos[0] - start;
+  cal.milliseconds = len < 3 ? value * Math.pow(10, 3 - len) :
+                               Math.round(value / Math.pow(10, len - 3));
+  return true;
+};
+
+
+/**
+ * Parse GMT type timezone.
+ *
+ * @param {string} text the text to be parsed.
+ * @param {Array<number>} pos Parse position.
+ * @param {goog.i18n.DateTimeParse.MyDate_} cal object to hold parsed value.
+ *
+ * @return {boolean} True if successful.
+ * @private
+ */
+goog.i18n.DateTimeParse.prototype.subParseTimeZoneInGMT_ = function(
+    text, pos, cal) {
+  'use strict';
+  // First try to parse generic forms such as GMT-07:00. Do this first
+  // in case localized DateFormatZoneData contains the string "GMT"
+  // for a zone; in that case, we don't want to match the first three
+  // characters of GMT+/-HH:MM etc.
+
+  // For time zones that have no known names, look for strings
+  // of the form:
+  //    GMT[+-]hours:minutes or
+  //    GMT[+-]hhmm or
+  //    GMT.
+  if (text.indexOf('GMT', pos[0]) == pos[0]) {
+    pos[0] += 3;  // 3 is the length of GMT
+  }
+
+  // TODO(user): check for named time zones by looking through the locale
+  // data from the DateFormatZoneData strings. Should parse both short and long
+  // forms.
+  // subParseZoneString(text, start, cal);
+
+  // As a last resort, look for numeric timezones of the form
+  // [+-]hhmm as specified by RFC 822.  This code is actually
+  // a little more permissive than RFC 822.  It will try to do
+  // its best with numbers that aren't strictly 4 digits long.
+
+  if (pos[0] >= text.length) {
+    cal.tzOffset = 0;
+    return true;
+  }
+
+  // Look for hours:minutes or hhmm.
+  var start = pos[0];
+  var value =
+      this.parseInt_(text, pos, /* digitCount= */ 0, /* allowSigned= */ true);
+  if (value === null) {
+    return false;
+  }
+
+  var offset;
+  if (pos[0] < text.length && text.charAt(pos[0]) == ':') {
+    // This is the hours:minutes case
+    offset = value * 60;
+    pos[0]++;
+    value = this.parseInt_(text, pos, /* digitCount= */ 0);
+    if (value === null) {
+      return false;
+    }
+    offset += value;
+  } else {
+    // This is the hhmm case.
+    offset = value;
+    // Assume "-23".."+23" refers to hours.
+    if (offset < 24 && (pos[0] - start) <= 3) {
+      offset *= 60;
+    } else {
+      // todo: this looks questionable, should have more error checking
+      offset = offset % 100 + offset / 100 * 60;
+    }
+  }
+
+  cal.tzOffset = -offset;
+  return true;
+};
+
+
+/**
+ * Parse unsigned integer pattern characters. These are symbols such as 'd' for
+ * date.
+ *
+ * @param {string} text the text to be parsed.
+ * @param {Array<number>} pos parse position
+ * @param {Object} part the pattern part for this field.
+ * @param {number} maxChars when > 0, at most this many characters are parsed.
+ * @param {function(number)} callback function to record the parsed value.
+ * @param {boolean=} predictive whether to apply predictive parsing rules.
+ *     defaults to false
+ *
+ * @return {boolean} True if it parses successfully.
+ * @private
+ */
+goog.i18n.DateTimeParse.prototype.subParseInt_ = function(
+    text, pos, part, maxChars, callback, predictive) {
+  'use strict';
+  predictive = predictive || false;
+  var start = pos[0];
+  var value = this.parseInt_(text, pos, maxChars);
+  if (value === null) {
+    return false;
+  } else if (predictive && pos[0] - start < part.count) {
+    if (pos[0] < text.length) {
+      return false;
+    }
+    // Infer trailing 0s to match pattern length.
+    value *= Math.pow(10, part.count - (pos[0] - start));
+  }
+  callback(value);
+  return true;
+};
+
+
+/**
+ * Parse string pattern characters. These are symbols matching a set of strings
+ * such as 'E' for day of week.
+ *
+ * @param {string} text the text to be parsed.
+ * @param {Array<number>} pos parse position
+ * @param {Array<Array<string>>} data Arrays of strings to match against,
+ *     sequentially.
+ * @param {function(number)} callback function to record the parsed value.
+ * @param {boolean=} predictive whether to apply predictive parsing rules.
+ *     defaults to false
+ *
+ * @return {boolean} True iff the input matches any of the strings in the data
+ *     arrays.
+ * @private
+ */
+goog.i18n.DateTimeParse.prototype.subParseString_ = function(
+    text, pos, data, callback, predictive) {
+  'use strict';
+  predictive = predictive || false;
+  var value = null;
+  for (var i = 0; i < data.length; i++) {
+    value = this.matchString_(text, pos, data[i], predictive);
+    if (value !== null) {
+      callback(value);
+      return true;
+    }
+  }
+  return false;
+};
+
+
+/**
+ * Parse literal pattern characters. These are any quoted characters and non-
+ * alphabetic unquoted characters.
+ *
+ * @param {string} text the text to be parsed.
+ * @param {Array<number>} pos parse position
+ * @param {Object} part the pattern part
+ * @param {boolean} predictive whether to apply predictive parsing rules.
+ *
+ * @return {boolean} True if it parses successfully.
+ * @private
+ */
+goog.i18n.DateTimeParse.prototype.subParseLiteral_ = function(
+    text, pos, part, predictive) {
+  'use strict';
+  // A run of white space in the pattern matches a run
+  // of white space in the input text.
+  if (part.text.charAt(0) == ' ') {
+    // Advance over run in input text
+    var start = pos[0];
+    this.skipSpace_(text, pos);
+
+    // Must see at least one white space char in input
+    if (pos[0] > start) {
+      return true;
+    }
+  } else if (text.indexOf(part.text, pos[0]) == pos[0]) {
+    pos[0] += part.text.length;
+    return true;
+  } else if (predictive && part.text.indexOf(text.substring(pos[0])) == 0) {
+    // For predictive matching, if the remaining text is a prefix of the
+    // string literal pattern part, accept it as a match.
+    pos[0] += text.length - pos[0];
+    return true;
+  }
+  // We fall through to this point if the match fails
+  return false;
 };
 
 
@@ -502,380 +920,22 @@ goog.i18n.DateTimeParse.prototype.skipSpace_ = function(text, pos) {
 
 
 /**
- * Protected method that converts one field of the input string into a
- * numeric field value.
- *
- * @param {string} text the time text to be parsed.
- * @param {Array<number>} pos Parse position.
- * @param {Object} part the pattern part for this field.
- * @param {number} digitCount when > 0, numeric parsing must obey the count.
- * @param {goog.i18n.DateTimeParse.MyDate_} cal object that holds parsed value.
- *
- * @return {boolean} True if it parses successfully.
- * @private
- */
-goog.i18n.DateTimeParse.prototype.subParse_ = function(
-    text, pos, part, digitCount, cal) {
-  'use strict';
-  this.skipSpace_(text, pos);
-
-  var start = pos[0];
-  var ch = part.text.charAt(0);
-
-  // parse integer value if it is a numeric field
-  var value = -1;
-  if (this.isNumericField_(part)) {
-    if (digitCount > 0) {
-      if ((start + digitCount) > text.length) {
-        return false;
-      }
-      value = this.parseInt_(text.substring(0, start + digitCount), pos);
-    } else {
-      value = this.parseInt_(text, pos);
-    }
-  }
-
-  switch (ch) {
-    case 'G':  // ERA
-      value = this.matchString_(text, pos, this.dateTimeSymbols_.ERAS);
-      if (value >= 0) {
-        cal.era = value;
-      }
-      return true;
-    case 'M':  // MONTH
-    case 'L':  // STANDALONEMONTH
-      return this.subParseMonth_(text, pos, cal, value);
-    case 'E':
-      return this.subParseDayOfWeek_(text, pos, cal);
-    case 'a':  // AM_PM
-      value = this.matchString_(text, pos, this.dateTimeSymbols_.AMPMS);
-      if (value >= 0) {
-        cal.ampm = value;
-      }
-      return true;
-    case 'y':  // YEAR
-      return this.subParseYear_(text, pos, start, value, part, cal);
-    case 'Q':  // QUARTER
-      return this.subParseQuarter_(text, pos, cal, value);
-    case 'd':  // DATE
-      if (value >= 0) {
-        cal.day = value;
-      }
-      return true;
-    case 'S':  // FRACTIONAL_SECOND
-      return this.subParseFractionalSeconds_(value, pos, start, cal);
-    case 'h':  // HOUR (1..12)
-      if (value == 12) {
-        value = 0;
-      }
-    case 'K':  // HOUR (0..11)
-    case 'H':  // HOUR_OF_DAY (0..23)
-    case 'k':  // HOUR_OF_DAY (1..24)
-      if (value >= 0) {
-        cal.hours = value;
-      }
-      return true;
-    case 'm':  // MINUTE
-      if (value >= 0) {
-        cal.minutes = value;
-      }
-      return true;
-    case 's':  // SECOND
-      if (value >= 0) {
-        cal.seconds = value;
-      }
-      return true;
-
-    case 'z':  // ZONE_OFFSET
-    case 'Z':  // TIMEZONE_RFC
-    case 'v':  // TIMEZONE_GENERIC
-      return this.subparseTimeZoneInGMT_(text, pos, cal);
-    default:
-      return false;
-  }
-};
-
-
-/**
- * Parse year field. Year field is special because
- * 1) two digit year need to be resolved.
- * 2) we allow year to take a sign.
- * 3) year field participate in abut processing.
- *
- * @param {string} text the time text to be parsed.
- * @param {Array<number>} pos Parse position.
- * @param {number} start where this field start.
- * @param {number} value integer value of year.
- * @param {Object} part the pattern part for this field.
- * @param {goog.i18n.DateTimeParse.MyDate_} cal object to hold parsed value.
- *
- * @return {boolean} True if successful.
- * @private
- */
-goog.i18n.DateTimeParse.prototype.subParseYear_ = function(
-    text, pos, start, value, part, cal) {
-  'use strict';
-  var ch;
-  if (value < 0) {
-    // possible sign
-    ch = text.charAt(pos[0]);
-    if (ch != '+' && ch != '-') {
-      return false;
-    }
-    pos[0]++;
-    value = this.parseInt_(text, pos);
-    if (value < 0) {
-      return false;
-    }
-    if (ch == '-') {
-      value = -value;
-    }
-  }
-
-  // only if 2 digit was actually parsed, and pattern say it has 2 digit.
-  if (!ch && pos[0] - start == 2 && part.count == 2) {
-    cal.setTwoDigitYear_(value);
-  } else {
-    cal.year = value;
-  }
-  return true;
-};
-
-
-/**
- * Parse Month field.
- *
- * @param {string} text the time text to be parsed.
- * @param {Array<number>} pos Parse position.
- * @param {goog.i18n.DateTimeParse.MyDate_} cal object to hold parsed value.
- * @param {number} value numeric value if this field is expressed using
- *      numeric pattern, or -1 if not.
- *
- * @return {boolean} True if parsing successful.
- * @private
- */
-goog.i18n.DateTimeParse.prototype.subParseMonth_ = function(
-    text, pos, cal, value) {
-  'use strict';
-  // when month is symbols, i.e., MMM, MMMM, LLL or LLLL, value will be -1
-  if (value < 0) {
-    // Want to be able to parse both short and long forms.
-    // Try count == 4 first
-    var months = this.dateTimeSymbols_.MONTHS
-                     .concat(this.dateTimeSymbols_.STANDALONEMONTHS)
-                     .concat(this.dateTimeSymbols_.SHORTMONTHS)
-                     .concat(this.dateTimeSymbols_.STANDALONESHORTMONTHS);
-    value = this.matchString_(text, pos, months);
-    if (value < 0) {
-      return false;
-    }
-    // The months variable is multiple of 12, so we have to get the actual
-    // month index by modulo 12.
-    cal.month = (value % 12);
-    return true;
-  } else {
-    cal.month = value - 1;
-    return true;
-  }
-};
-
-
-/**
- * Parse Quarter field.
- *
- * @param {string} text the time text to be parsed.
- * @param {Array<number>} pos Parse position.
- * @param {goog.i18n.DateTimeParse.MyDate_} cal object to hold parsed value.
- * @param {number} value numeric value if this field is expressed using
- *      numeric pattern, or -1 if not.
- *
- * @return {boolean} True if parsing successful.
- * @private
- */
-goog.i18n.DateTimeParse.prototype.subParseQuarter_ = function(
-    text, pos, cal, value) {
-  'use strict';
-  // value should be -1, since this is a non-numeric field.
-  if (value < 0) {
-    // Want to be able to parse both short and long forms.
-    // Try count == 4 first:
-    value = this.matchString_(text, pos, this.dateTimeSymbols_.QUARTERS);
-    if (value < 0) {  // count == 4 failed, now try count == 3
-      value = this.matchString_(text, pos, this.dateTimeSymbols_.SHORTQUARTERS);
-    }
-    if (value < 0) {
-      return false;
-    }
-    cal.month = value * 3;  // First month of quarter.
-    cal.day = 1;
-    return true;
-  }
-  return false;
-};
-
-
-/**
- * Parse Day of week field.
- * @param {string} text the time text to be parsed.
- * @param {Array<number>} pos Parse position.
- * @param {goog.i18n.DateTimeParse.MyDate_} cal object to hold parsed value.
- *
- * @return {boolean} True if successful.
- * @private
- */
-goog.i18n.DateTimeParse.prototype.subParseDayOfWeek_ = function(
-    text, pos, cal) {
-  'use strict';
-  // Handle both short and long forms.
-  // Try count == 4 (DDDD) first:
-  var value = this.matchString_(text, pos, this.dateTimeSymbols_.WEEKDAYS);
-  if (value < 0) {
-    value = this.matchString_(text, pos, this.dateTimeSymbols_.SHORTWEEKDAYS);
-  }
-  if (value < 0) {
-    return false;
-  }
-  cal.dayOfWeek = value;
-  return true;
-};
-
-
-/**
- * Parse fractional seconds field.
- *
- * @param {number} value parsed numeric value.
- * @param {Array<number>} pos current parse position.
- * @param {number} start where this field start.
- * @param {goog.i18n.DateTimeParse.MyDate_} cal object to hold parsed value.
- *
- * @return {boolean} True if successful.
- * @private
- */
-goog.i18n.DateTimeParse.prototype.subParseFractionalSeconds_ = function(
-    value, pos, start, cal) {
-  'use strict';
-  // Fractional seconds left-justify
-  var len = pos[0] - start;
-  cal.milliseconds = len < 3 ? value * Math.pow(10, 3 - len) :
-                               Math.round(value / Math.pow(10, len - 3));
-  return true;
-};
-
-
-/**
- * Parse GMT type timezone.
- *
- * @param {string} text the time text to be parsed.
- * @param {Array<number>} pos Parse position.
- * @param {goog.i18n.DateTimeParse.MyDate_} cal object to hold parsed value.
- *
- * @return {boolean} True if successful.
- * @private
- */
-goog.i18n.DateTimeParse.prototype.subparseTimeZoneInGMT_ = function(
-    text, pos, cal) {
-  'use strict';
-  // First try to parse generic forms such as GMT-07:00. Do this first
-  // in case localized DateFormatZoneData contains the string "GMT"
-  // for a zone; in that case, we don't want to match the first three
-  // characters of GMT+/-HH:MM etc.
-
-  // For time zones that have no known names, look for strings
-  // of the form:
-  //    GMT[+-]hours:minutes or
-  //    GMT[+-]hhmm or
-  //    GMT.
-  if (text.indexOf('GMT', pos[0]) == pos[0]) {
-    pos[0] += 3;  // 3 is the length of GMT
-    return this.parseTimeZoneOffset_(text, pos, cal);
-  }
-
-  // TODO(user): check for named time zones by looking through the locale
-  // data from the DateFormatZoneData strings. Should parse both short and long
-  // forms.
-  // subParseZoneString(text, start, cal);
-
-  // As a last resort, look for numeric timezones of the form
-  // [+-]hhmm as specified by RFC 822.  This code is actually
-  // a little more permissive than RFC 822.  It will try to do
-  // its best with numbers that aren't strictly 4 digits long.
-  return this.parseTimeZoneOffset_(text, pos, cal);
-};
-
-
-/**
- * Parse time zone offset.
- *
- * @param {string} text the time text to be parsed.
- * @param {Array<number>} pos Parse position.
- * @param {goog.i18n.DateTimeParse.MyDate_} cal object to hold parsed value.
- *
- * @return {boolean} True if successful.
- * @private
- */
-goog.i18n.DateTimeParse.prototype.parseTimeZoneOffset_ = function(
-    text, pos, cal) {
-  'use strict';
-  if (pos[0] >= text.length) {
-    cal.tzOffset = 0;
-    return true;
-  }
-
-  var sign = 1;
-  switch (text.charAt(pos[0])) {
-    case '-':
-      sign = -1;  // fall through
-    case '+':
-      pos[0]++;
-  }
-
-  // Look for hours:minutes or hhmm.
-  var st = pos[0];
-  var value = this.parseInt_(text, pos);
-  if (value < 0) {
-    return false;
-  }
-
-  var offset;
-  if (pos[0] < text.length && text.charAt(pos[0]) == ':') {
-    // This is the hours:minutes case
-    offset = value * 60;
-    pos[0]++;
-    value = this.parseInt_(text, pos);
-    if (value < 0) {
-      return false;
-    }
-    offset += value;
-  } else {
-    // This is the hhmm case.
-    offset = value;
-    // Assume "-23".."+23" refers to hours.
-    if (offset < 24 && (pos[0] - st) <= 2) {
-      offset *= 60;
-    } else {
-      // todo: this looks questionable, should have more error checking
-      offset = offset % 100 + offset / 100 * 60;
-    }
-  }
-
-  offset *= sign;
-  cal.tzOffset = -offset;
-  return true;
-};
-
-
-/**
  * Parse an integer string and return integer value.
  *
  * @param {string} text string being parsed.
  * @param {Array<number>} pos parse position.
+ * @param {number} maxChars when > 0, at most this many characters are parsed.
+ * @param {boolean=} allowSigned if true allows a single leading sign character
+ *     (+|-) in the input. defaults to false
  *
- * @return {number} Converted integer value or -1 if the integer cannot be
- *     parsed.
+ * @return {?number} integer value, or null if the integer cannot be parsed
  * @private
  */
-goog.i18n.DateTimeParse.prototype.parseInt_ = function(text, pos) {
+goog.i18n.DateTimeParse.prototype.parseInt_ = function(
+    text, pos, maxChars, allowSigned) {
   'use strict';
+  text = maxChars > 0 ? text.substring(0, pos[0] + maxChars) : text;
+  allowSigned = allowSigned || false;
   // Delocalizes the string containing native digits specified by the locale,
   // replaces the native digits with ASCII digits. Leaves other characters.
   // This is the reverse operation of localizeNumbers_ in datetimeformat.js.
@@ -891,9 +951,11 @@ goog.i18n.DateTimeParse.prototype.parseInt_ = function(text, pos) {
     text = text.substring(pos[0]);
   }
 
-  var m = text.match(/^\d+/);
+  var signRe = allowSigned ? '[+-]?' : '';
+  var re = new RegExp(`^${signRe}\\d+`);
+  var m = text.match(re);
   if (!m) {
-    return -1;
+    return null;
   }
   pos[0] += m[0].length;
   return parseInt(m[0], 10);
@@ -909,36 +971,86 @@ goog.i18n.DateTimeParse.prototype.parseInt_ = function(text, pos) {
  * @param {string} text The string to match to.
  * @param {Array<number>} pos parsing position.
  * @param {Array<string>} data The string array of matching patterns.
+ * @param {boolean} predictive whether to apply predictive parsing rules.
  *
- * @return {number} the new start position if matching succeeded; a negative
- *     number indicating matching failure.
+ * @return {?number} the index of the best match in the array, or null
+ *     indicating matching failure.
  * @private
  */
-goog.i18n.DateTimeParse.prototype.matchString_ = function(text, pos, data) {
+goog.i18n.DateTimeParse.prototype.matchString_ = function(
+    text, pos, data, predictive) {
   'use strict';
   // There may be multiple strings in the data[] array which begin with
   // the same prefix (e.g., Cerven and Cervenec (June and July) in Czech).
   // We keep track of the longest match, and return that. Note that this
   // unfortunately requires us to test all array elements.
   var bestMatchLength = 0;
-  var bestMatch = -1;
-  var lower_text = text.substring(pos[0]).toLowerCase();
+  var bestMatchIndex = null;
+  var lowerText = text.substring(pos[0]).toLowerCase();
   for (var i = 0; i < data.length; i++) {
-    var len = data[i].length;
+    var lowerData = data[i].toLowerCase();
+    // For predictive parsing the first data string matching the remainder of
+    // the text is considered a match.
+    if (predictive && lowerData.indexOf(lowerText) == 0) {
+      bestMatchLength = lowerText.length;
+      bestMatchIndex = i;
+      break;
+    }
     // Always compare if we have no match yet; otherwise only compare
     // against potentially better matches (longer strings).
-    if (len > bestMatchLength &&
-        lower_text.indexOf(data[i].toLowerCase()) == 0) {
-      bestMatch = i;
-      bestMatchLength = len;
+    if (data[i].length > bestMatchLength && lowerText.indexOf(lowerData) == 0) {
+      bestMatchLength = data[i].length;
+      bestMatchIndex = i;
     }
   }
-  if (bestMatch >= 0) {
+  if (bestMatchIndex !== null) {
     pos[0] += bestMatchLength;
   }
-  return bestMatch;
+  return bestMatchIndex;
 };
 
+
+/**
+ * Options object for calls to DateTimeParse.prototype.parse.
+ * @record
+ */
+goog.i18n.DateTimeParse.ParseOptions = function() {
+  'use strict';
+  /**
+   * Whether to use predictive parsing. Predictive parsing generates successful
+   * parse results for non-empty partial inputs that have valid completions for
+   * the parse pattern.
+   *
+   * If the end of the input is reached while parsing, numeric patterns parts
+   * such as "HH" will infer values by padding with trailing 0s, and string
+   * pattern parts such as "a" will attempt to prefix match valid values. E.g.
+   * for the pattern "HH:mm" the input "12:3" will parse to a value equivalent
+   * to "12:30" and for the pattern "h:mm a" the input "12:34 p" will parse to
+   * a value equivalent to "12:30 PM".
+   *
+   * Predictive parsing currently only supports the pattern symbols "ahHkKm"
+   * and is not compatible with abutting number patterns. Attempting to parse
+   * using the predictive option with unsupported patterns will result in an
+   * error being thrown.
+   *
+   * defaults to false
+   * @type {boolean|undefined}
+   */
+  this.predictive;
+  /**
+   * Whether the parsed date/time value should be validated.
+   *
+   * Setting this to true is the equivalent of calling the now-deprecated
+   * DateTimeParse.prototype.strictParse.
+   *
+   * When true, parsing will fail if any of the parsed fields overflow, e.g.
+   * minutes > 60.
+   *
+   * defaults to false
+   * @type {boolean|undefined}
+   */
+  this.validate;
+};
 
 
 /**
@@ -1059,7 +1171,7 @@ goog.i18n.DateTimeParse.MyDate_.prototype.setTwoDigitYear_ = function(year) {
  * set, use the passed in date object's value.
  *
  * @param {goog.date.DateLike} date Date object to be filled.
- * @param {boolean} validation If true, input string will be checked to make
+ * @param {boolean} validation If true, input date will be checked to make
  *     sure it is valid.
  *
  * @return {boolean} false if fields specify a invalid date.
@@ -1068,7 +1180,7 @@ goog.i18n.DateTimeParse.MyDate_.prototype.setTwoDigitYear_ = function(year) {
 goog.i18n.DateTimeParse.MyDate_.prototype.calcDate_ = function(
     date, validation) {
   'use strict';
-  // Throw exception if date if null.
+  // Throw exception if date is null or undefined.
   if (date == null) {
     throw new Error('Parameter \'date\' should not be null.');
   }
@@ -1087,7 +1199,7 @@ goog.i18n.DateTimeParse.MyDate_.prototype.calcDate_ = function(
   // day of month is smaller enough so that it won't cause a month switch when
   // setting month. For example, if data in date is Nov 30, when month is set
   // to Feb, because there is no Feb 30, JS adjust it to Mar 2. So Feb 12 will
-  // become  Mar 12.
+  // become Mar 12.
   var orgDate = date.getDate();
 
   // Every month has a 1st day, this can actually be anything less than 29.
@@ -1105,7 +1217,7 @@ goog.i18n.DateTimeParse.MyDate_.prototype.calcDate_ = function(
     date.setDate(orgDate > maxDate ? maxDate : orgDate);
   }
 
-  if (goog.isFunction(date.setHours)) {
+  if (typeof date.setHours === 'function') {
     if (this.hours == undefined) {
       this.hours = date.getHours();
     }
@@ -1116,15 +1228,16 @@ goog.i18n.DateTimeParse.MyDate_.prototype.calcDate_ = function(
     date.setHours(this.hours);
   }
 
-  if (goog.isFunction(date.setMinutes) && this.minutes != undefined) {
+  if (typeof date.setMinutes === 'function' && this.minutes != undefined) {
     date.setMinutes(this.minutes);
   }
 
-  if (goog.isFunction(date.setSeconds) && this.seconds != undefined) {
+  if (typeof date.setSeconds === 'function' && this.seconds != undefined) {
     date.setSeconds(this.seconds);
   }
 
-  if (goog.isFunction(date.setMilliseconds) && this.milliseconds != undefined) {
+  if (typeof date.setMilliseconds === 'function' &&
+      this.milliseconds != undefined) {
     date.setMilliseconds(this.milliseconds);
   }
 

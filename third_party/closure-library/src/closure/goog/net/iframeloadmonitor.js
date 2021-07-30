@@ -35,6 +35,7 @@ goog.require('goog.userAgent');
  * @final
  */
 goog.net.IframeLoadMonitor = function(iframe, opt_hasContent) {
+  'use strict';
   goog.net.IframeLoadMonitor.base(this, 'constructor');
 
   /**
@@ -63,10 +64,10 @@ goog.net.IframeLoadMonitor = function(iframe, opt_hasContent) {
     // readystatechange.
     // IE 7 does not reliably fire readystatechange events but listening on load
     // seems to work just fine.
-    var isIe6OrLess =
+    const isIe6OrLess =
         goog.userAgent.IE && !goog.userAgent.isVersionOrHigher('7');
-    var loadEvtType = isIe6OrLess ? goog.events.EventType.READYSTATECHANGE :
-                                    goog.events.EventType.LOAD;
+    const loadEvtType = isIe6OrLess ? goog.events.EventType.READYSTATECHANGE :
+                                      goog.events.EventType.LOAD;
     this.onloadListenerKey_ = goog.events.listen(
         this.iframe_, loadEvtType, this.handleLoad_, false, this);
 
@@ -111,6 +112,7 @@ goog.net.IframeLoadMonitor.prototype.onloadListenerKey_ = null;
  * @return {boolean} whether or not the iframe is loaded.
  */
 goog.net.IframeLoadMonitor.prototype.isLoaded = function() {
+  'use strict';
   return this.isLoaded_;
 };
 
@@ -120,6 +122,7 @@ goog.net.IframeLoadMonitor.prototype.isLoaded = function() {
  * @private
  */
 goog.net.IframeLoadMonitor.prototype.maybeStopTimer_ = function() {
+  'use strict';
   if (this.intervalId_) {
     window.clearInterval(this.intervalId_);
     this.intervalId_ = null;
@@ -133,12 +136,14 @@ goog.net.IframeLoadMonitor.prototype.maybeStopTimer_ = function() {
  *     monitors.
  */
 goog.net.IframeLoadMonitor.prototype.getIframe = function() {
+  'use strict';
   return this.iframe_;
 };
 
 
 /** @override */
 goog.net.IframeLoadMonitor.prototype.disposeInternal = function() {
+  'use strict';
   delete this.iframe_;
   this.maybeStopTimer_();
   goog.events.unlistenByKey(this.onloadListenerKey_);
@@ -153,7 +158,8 @@ goog.net.IframeLoadMonitor.prototype.disposeInternal = function() {
  * @private
  */
 goog.net.IframeLoadMonitor.prototype.isLoadedHelper_ = function() {
-  var isLoaded = false;
+  'use strict';
+  let isLoaded = false;
 
   try {
     if (!this.hasContent_ && goog.userAgent.IE &&
@@ -168,7 +174,7 @@ goog.net.IframeLoadMonitor.prototype.isLoadedHelper_ = function() {
       // milliseconds later, replace the contentDocument. If the hasContent
       // check is requested, the iframe is considered loaded only once there is
       // content in the body.
-      var body = goog.dom.getFrameContentDocument(this.iframe_).body;
+      const body = goog.dom.getFrameContentDocument(this.iframe_).body;
       isLoaded = this.hasContent_ ? !!body && !!body.firstChild : !!body;
     }
   } catch (e) {
@@ -189,6 +195,7 @@ goog.net.IframeLoadMonitor.prototype.isLoadedHelper_ = function() {
  * @private
  */
 goog.net.IframeLoadMonitor.prototype.handleLoad_ = function() {
+  'use strict';
   // Only do the handler if the iframe is loaded.
   if (this.isLoadedHelper_()) {
     this.maybeStopTimer_();

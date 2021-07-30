@@ -85,6 +85,7 @@ testSuite({
     }
   },
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testInheriting() {
     function MyError() {
       DebugError.call(this);
@@ -99,5 +100,13 @@ testSuite({
       message = e.message;
     }
     assertEquals('My custom error', message);
+  },
+
+  testCause() {
+    const originalError = new DebugError('original error');
+    const error = new DebugError('error', originalError);
+
+    assertEquals(originalError, error.cause);
+    assertEquals(undefined, originalError.cause);
   },
 });

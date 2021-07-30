@@ -37,6 +37,7 @@ goog.requireType('goog.events.Event');
  * @final
  */
 goog.ui.editor.TabPane = function(dom, opt_caption) {
+  'use strict';
   goog.ui.editor.TabPane.base(this, 'constructor', dom);
 
   /**
@@ -80,7 +81,8 @@ goog.ui.editor.TabPane = function(dom, opt_caption) {
 
   // Add the caption as the first element in the tab bar.
   if (opt_caption) {
-    var captionControl = new goog.ui.Control(opt_caption, undefined, this.dom_);
+    const captionControl =
+        new goog.ui.Control(opt_caption, undefined, this.dom_);
     captionControl.addClassName(goog.getCssName('tr-tabpane-caption'));
     captionControl.setEnabled(false);
     this.tabBar_.addChild(captionControl, true);
@@ -93,6 +95,7 @@ goog.inherits(goog.ui.editor.TabPane, goog.ui.Component);
  * @return {string} The ID of the content element for the current tab.
  */
 goog.ui.editor.TabPane.prototype.getCurrentTabId = function() {
+  'use strict';
   return this.tabBar_.getSelectedTab().getId();
 };
 
@@ -102,6 +105,7 @@ goog.ui.editor.TabPane.prototype.getCurrentTabId = function() {
  * @param {string} id Id of the tab to select.
  */
 goog.ui.editor.TabPane.prototype.setSelectedTabId = function(id) {
+  'use strict';
   this.tabBar_.setSelectedTab(this.tabBar_.getChild(id));
 };
 
@@ -117,11 +121,12 @@ goog.ui.editor.TabPane.prototype.setSelectedTabId = function(id) {
  */
 goog.ui.editor.TabPane.prototype.addTab = function(
     id, caption, tooltip, groupName, content) {
-  var radio = this.dom_.createDom(
+  'use strict';
+  const radio = this.dom_.createDom(
       goog.dom.TagName.INPUT,
       {name: groupName, type: goog.dom.InputType.RADIO});
 
-  var tab = new goog.ui.Tab(
+  const tab = new goog.ui.Tab(
       [radio, this.dom_.createTextNode(caption)], undefined, this.dom_);
   tab.setId(id);
   tab.setTooltip(tooltip);
@@ -144,10 +149,11 @@ goog.ui.editor.TabPane.prototype.addTab = function(
 
 /** @override */
 goog.ui.editor.TabPane.prototype.enterDocument = function() {
+  'use strict';
   goog.ui.editor.TabPane.base(this, 'enterDocument');
 
   // Get the root element and add a class name to it.
-  var root = this.getElement();
+  const root = this.getElement();
   goog.asserts.assert(root);
   goog.dom.classlist.add(root, goog.getCssName('tr-tabpane'));
 
@@ -173,7 +179,8 @@ goog.ui.editor.TabPane.prototype.enterDocument = function() {
  * @suppress {strictMissingProperties} Part of the go/strict_warnings_migration
  */
 goog.ui.editor.TabPane.prototype.handleTabSelect_ = function(e) {
-  var tab = /** @type {goog.ui.Tab} */ (e.target);
+  'use strict';
+  const tab = /** @type {goog.ui.Tab} */ (e.target);
 
   // Show the tab content.
   if (this.visibleContent_) {

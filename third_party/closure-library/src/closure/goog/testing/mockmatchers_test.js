@@ -20,6 +20,7 @@ const bar = function() {};
 // Simple class to test adding error messages to
 // MockExpectation objects
 function MockMock() {
+  /** @suppress {globalThis} suppression added to enable type checking */
   this.errorMessages = [];
 }
 
@@ -36,6 +37,7 @@ MockMock.prototype.getErrorMessageCount = function() {
 
 testSuite({
   setUp() {
+    /** @suppress {checkTypes} suppression added to enable type checking */
     mockExpect = new MockMock();
   },
 
@@ -59,6 +61,7 @@ testSuite({
   },
 
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testInstanceOf() {
     const matcher = new matchers.InstanceOf(foo);
     assertTrue(matcher.matches(new foo()));
@@ -143,6 +146,10 @@ testSuite({
   },
 
 
+  /**
+     @suppress {strictMissingProperties} suppression added to enable type
+     checking
+   */
   testSaveArgument() {
     let saveMatcher = new matchers.SaveArgument();
     assertTrue(saveMatcher.matches(42));
@@ -261,6 +268,7 @@ testSuite({
   },
 
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testIsObject() {
     assertTrue(matchers.isObject.matches({}));
     assertTrue(matchers.isObject.matches(new Object()));
@@ -294,6 +302,7 @@ testSuite({
   },
 
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testIgnoreArgumentsMatcher() {
     // ignoreArgument always returns true:
     assertTrue(matchers.ignoreArgument.matches());
@@ -313,9 +322,11 @@ testSuite({
     assertFalse(matchers.flexibleArrayMatcher(a1, a3));
 
     // Test that basic lists with basic class instances are verified properly.
+    /** @suppress {checkTypes} suppression added to enable type checking */
     const instance = new foo();
     a1 = [1, 'test', instance];
     a2 = [1, 'test', instance];
+    /** @suppress {checkTypes} suppression added to enable type checking */
     a3 = [1, 'test', new foo()];
     assertTrue(matchers.flexibleArrayMatcher(a1, a2));
     assertTrue(matchers.flexibleArrayMatcher(a1, a3));
@@ -330,6 +341,7 @@ testSuite({
 
     // Test that the arguments are always verified when the verifier returns
     // true.
+    /** @suppress {checkTypes} suppression added to enable type checking */
     a1 = [1, 'test', new argVerifier()];
     a2 = [1, 'test', 'anything'];
     a3 = [1, 'test', 12345];
@@ -371,7 +383,7 @@ testSuite({
  * Utility method for checking for an ObjectEquals match failure.  Checks that
  * the expected error message was included in the error messages appended to
  * the expectation object.
- * @param {!ArgumentMatcher.ObjectEquals} matcher
+ * @param {?} matcher
  *     The matcher to test against.
  * @param {!Object} matchObject The object to compare.
  * @param {string=} opt_errorMsg The deep object comparison failure message

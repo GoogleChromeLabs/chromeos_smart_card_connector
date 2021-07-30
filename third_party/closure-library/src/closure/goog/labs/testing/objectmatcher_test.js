@@ -8,9 +8,9 @@ goog.module('goog.labs.testing.objectMatcherTest');
 goog.setTestOnly();
 
 const MatcherError = goog.require('goog.labs.testing.MatcherError');
-/** @suppress {extraRequire} */
-const ObjectEqualsMatcher = goog.require('goog.labs.testing.ObjectEqualsMatcher');
 const assertThat = goog.require('goog.labs.testing.assertThat');
+/** @suppress {extraRequire} */
+const matchers = goog.require('goog.labs.testing');
 const testSuite = goog.require('goog.testing.testSuite');
 
 function assertMatcherError(callable, errorString) {
@@ -39,6 +39,7 @@ testSuite({
     function expected() {
       this.x = 1;
     }
+    /** @suppress {checkTypes} suppression added to enable type checking */
     const input = new expected();
     assertThat(
         input, instanceOfClass(expected), 'input is an instance of expected');

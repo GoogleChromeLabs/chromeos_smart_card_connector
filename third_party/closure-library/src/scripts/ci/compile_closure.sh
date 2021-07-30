@@ -16,8 +16,6 @@
 #
 # Compiles pertinent Closure library files.
 
-# TODO(joeltine): Make strictMissingRequire an error when
-#     @suppress {missingRequire} works for it.
 # TODO(sdh): Make strictCheckTypes an error, or at least only whitelist
 #     strictMissingProperties and fix the handful of strictPrimitiveOperator
 #     violations.
@@ -27,16 +25,14 @@ java -Xmx1G -jar ../closure-compiler-1.0-SNAPSHOT.jar \
   --warning_level VERBOSE \
   --jscomp_error='*' \
   --jscomp_off=strictCheckTypes \
-  --jscomp_off=strictMissingRequire \
-  --jscomp_off=stricterMissingRequireInProvidesFile \
-  --jscomp_off=stricterMissingRequireTypeInProvidesFile \
+  --jscomp_off=missingRequire \
   --jscomp_off=extraRequire \
   --jscomp_off=deprecated \
   --jscomp_off=lintChecks \
   --jscomp_off=analyzerChecks \
   --jscomp_warning=unusedLocalVariables \
-  --js='**.js' \
-  --js='!./closure-deps/**.js' \
+  --js='./closure/goog/**.js' \
+  --js='./third_party/closure/goog/**.js' \
   --js='!**_test.js' \
   --js='!**_perf.js' \
   --js='!**tester.js' \
@@ -49,7 +45,6 @@ java -Xmx1G -jar ../closure-compiler-1.0-SNAPSHOT.jar \
   --js='!**protractor_spec.js' \
   --js='!**protractor.conf.js' \
   --js='!**browser_capabilities.js' \
-  --js='!**generate_closure_unit_tests.js' \
   --js='!./doc/**.js' \
   --js='!**debug_loader_integration_tests/testdata/**' \
   --js_output_file="$(mktemp)"

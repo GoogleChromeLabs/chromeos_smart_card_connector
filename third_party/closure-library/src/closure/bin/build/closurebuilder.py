@@ -23,6 +23,8 @@ Paths to files can be expressed as individual arguments to the tool (intended
 for use with find and xargs).  As a convenience, --root can be used to specify
 all JS files below a directory.
 
+DEPRECATED: Use the Closure Compiler directly instead.
+
 usage: %prog [options] [file1.js file2.js ...]
 """
 
@@ -205,23 +207,23 @@ def main():
                       level=logging.INFO)
   options, args = _GetOptionsParser().parse_args()
 
+  logging.warning(
+      'This utility is deprecated! See '
+      'https://github.com/google/closure-library/wiki/Migrating-off-Closure-Python-Scripts'
+      ' for more details.')
+
   # Make our output pipe.
   if options.output_file:
     out = io.open(options.output_file, 'wb')
   else:
-    version = sys.version_info[:2]
-    if version >= (3, 0):
-      # Write bytes to stdout
-      out = sys.stdout.buffer
-    else:
-      out = sys.stdout
+    out = sys.stdout
 
   sources = set()
 
   logging.info('Scanning paths...')
   for path in options.roots:
     for js_path in treescan.ScanTreeForJsFiles(path):
-      if js_path not in options.excludes:
+      if not options.excludes or js_path not in options.excludes:
         sources.add(_PathSource(js_path))
 
   # Add scripts specified on the command line.

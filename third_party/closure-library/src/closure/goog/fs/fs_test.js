@@ -24,8 +24,9 @@ const testSuite = goog.require('goog.testing.testSuite');
 
 const TEST_DIR = 'goog-fs-test-dir';
 
-const fsExists = (goog.global.requestFileSystem !== undefined) ||
-    goog.global.webkitRequestFileSystem !== undefined;
+const fsExists = (globalThis.requestFileSystem !== undefined) ||
+    globalThis.webkitRequestFileSystem !== undefined;
+/** @suppress {checkTypes} suppression added to enable type checking */
 const deferredFs = fsExists ? googFs.getTemporary() : null;
 const stubs = new PropertyReplacer();
 
@@ -95,6 +96,7 @@ function checkEquals(a, b) {
   }
 }
 
+/** @suppress {checkTypes} suppression added to enable type checking */
 function checkFileRemoved(filename) {
   return loadFile(filename).then(
       goog.partial(fail, 'expected file to be removed'), (err) => {
@@ -143,21 +145,31 @@ testSuite({
   },
 
   testUnavailableTemporaryFilesystem() {
-    stubs.set(goog.global, 'requestFileSystem', null);
-    stubs.set(goog.global, 'webkitRequestFileSystem', null);
+    stubs.set(globalThis, 'requestFileSystem', null);
+    stubs.set(globalThis, 'webkitRequestFileSystem', null);
 
-    return googFs.getTemporary(1024).then(fail, (e) => {
-      assertEquals('File API unsupported', e.message);
-    });
+    return googFs.getTemporary(1024).then(
+        fail, /**
+                 @suppress {strictMissingProperties} suppression added to
+                 enable type checking
+               */
+        (e) => {
+          assertEquals('File API unsupported', e.message);
+        });
   },
 
   testUnavailablePersistentFilesystem() {
-    stubs.set(goog.global, 'requestFileSystem', null);
-    stubs.set(goog.global, 'webkitRequestFileSystem', null);
+    stubs.set(globalThis, 'requestFileSystem', null);
+    stubs.set(globalThis, 'webkitRequestFileSystem', null);
 
-    return googFs.getPersistent(2048).then(fail, (e) => {
-      assertEquals('File API unsupported', e.message);
-    });
+    return googFs.getPersistent(2048).then(
+        fail, /**
+                 @suppress {strictMissingProperties} suppression added to
+                 enable type checking
+               */
+        (e) => {
+          assertEquals('File API unsupported', e.message);
+        });
   },
 
   testIsFile() {
@@ -303,6 +315,7 @@ testSuite({
         .then(goog.partial(checkFileContent, 'test content'));
   },
 
+  /** @suppress {uselessCode} suppression added to enable type checking */
   testAbortWrite() {
     // TODO(nicksantos): This test is broken in newer versions of chrome.
     // We don't know why yet.
@@ -318,7 +331,11 @@ testSuite({
                 events.listenOnce(writer, FsFileSaver.EventType.ABORT, resolve);
                 writer.abort();
               }))
-        .then(() => loadFile('test'))
+        .then(/**
+                 @suppress {checkTypes} suppression added to enable type
+                 checking
+               */
+              () => loadFile('test'))
         .then(goog.partial(checkFileContent, ''));
   },
 
@@ -365,7 +382,7 @@ testSuite({
     if (!fsExists) {
       return;
     }
-    const now = goog.now();
+    const now = Date.now();
     return loadFile('test', FsDirectoryEntry.Behavior.CREATE)
         .then((entry) => entry.getLastModified())
         .then((date) => {
@@ -518,6 +535,7 @@ testSuite({
         });
   },
 
+  /** @suppress {uselessCode} suppression added to enable type checking */
   testListBigDirectory() {
     // TODO(nicksantos): This test is broken in newer versions of chrome.
     // We don't know why yet.
@@ -561,6 +579,7 @@ testSuite({
         });
   },
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testSliceBlob() {
     // A mock blob object whose slice returns the parameters it was called with.
     const blob = {
@@ -577,10 +596,11 @@ testSuite({
     assertArrayEquals([3, -6], googFs.sliceBlob(blob, 3, -6));
   },
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testGetBlobThrowsError() {
-    stubs.remove(goog.global, 'BlobBuilder');
-    stubs.remove(goog.global, 'WebKitBlobBuilder');
-    stubs.remove(goog.global, 'Blob');
+    stubs.remove(globalThis, 'BlobBuilder');
+    stubs.remove(globalThis, 'WebKitBlobBuilder');
+    stubs.remove(globalThis, 'Blob');
 
     try {
       googFsBlob.getBlob();
@@ -595,7 +615,7 @@ testSuite({
 
   testGetBlobWithProperties() {
     // Skip test if browser doesn't support Blob API.
-    if (typeof (goog.global.Blob) != 'function') {
+    if (typeof (globalThis.Blob) != 'function') {
       return;
     }
 
@@ -604,10 +624,11 @@ testSuite({
     assertEquals('text/test', blob.type);
   },
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testGetBlobWithPropertiesThrowsError() {
-    stubs.remove(goog.global, 'BlobBuilder');
-    stubs.remove(goog.global, 'WebKitBlobBuilder');
-    stubs.remove(goog.global, 'Blob');
+    stubs.remove(globalThis, 'BlobBuilder');
+    stubs.remove(globalThis, 'WebKitBlobBuilder');
+    stubs.remove(globalThis, 'Blob');
 
     try {
       googFsBlob.getBlobWithProperties();
@@ -620,6 +641,7 @@ testSuite({
     stubs.reset();
   },
 
+  /** @suppress {missingProperties} suppression added to enable type checking */
   testGetBlobWithPropertiesUsingBlobBuilder() {
     function BlobBuilder() {
       this.parts = [];
@@ -630,7 +652,7 @@ testSuite({
         return {type: type, builder: this};
       };
     }
-    stubs.set(goog.global, 'BlobBuilder', BlobBuilder);
+    stubs.set(globalThis, 'BlobBuilder', BlobBuilder);
 
     const blob =
         googFsBlob.getBlobWithProperties(['test'], 'text/test', 'native');

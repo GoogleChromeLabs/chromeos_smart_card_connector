@@ -52,7 +52,6 @@ const doAsyncSignals = () => {
 const asyncTestCase = new AsyncTestCase(document.title);
 asyncTestCase.setTestObj({
   setUpPage() {
-    debug('setUpPage was called.');
     doAsyncStuff(3, 'setUpPage');
   },
 
@@ -71,12 +70,18 @@ asyncTestCase.setTestObj({
   },
 
   test2_asyncContinueThenWait() {
+    /**
+     * @suppress {missingProperties} suppression added to enable type checking
+     */
     const activeTest = asyncTestCase.activeTest_;
     function async1() {
       asyncTestCase.continueTesting();
       asyncTestCase.waitForAsync('2');
       window.setTimeout(async2, 0);
     }
+    /**
+     * @suppress {missingProperties} suppression added to enable type checking
+     */
     function async2() {
       asyncTestCase.continueTesting();
       assertEquals(
@@ -93,7 +98,6 @@ asyncTestCase.setTestObj({
   },
 
   tearDownPage() {
-    debug('tearDownPage was called.');
     assertTrue(curTestIsDone);
   },
 

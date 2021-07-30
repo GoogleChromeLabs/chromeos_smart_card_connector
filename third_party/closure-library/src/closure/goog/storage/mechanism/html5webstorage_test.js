@@ -11,7 +11,6 @@ const ErrorCode = goog.require('goog.storage.mechanism.ErrorCode');
 const HTML5WebStorage = goog.require('goog.storage.mechanism.HTML5WebStorage');
 const testSuite = goog.require('goog.testing.testSuite');
 
-
 /**
  * A minimal WebStorage implementation that throws exceptions for disabled
  * storage. Since we cannot have unit tests running in Safari private mode to
@@ -29,7 +28,10 @@ class MockThrowableStorage {
     this.length = opt_isStorageDisabled ? 0 : 1;
   }
 
-  /** @override */
+  /**
+   * @override
+   * @suppress {checkTypes} suppression added to enable type checking
+   */
   setItem(key, value) {
     if (this.isStorageDisabled_) {
       throw ErrorCode.STORAGE_DISABLED;
@@ -38,7 +40,10 @@ class MockThrowableStorage {
     }
   }
 
-  /** @override */
+  /**
+   * @override
+   * @suppress {checkTypes} suppression added to enable type checking
+   */
   removeItem(key) {}
 
   /**
@@ -59,6 +64,7 @@ class MockThrowableStorage {
  * @unrestricted
  */
 class HTML5MockStorage extends HTML5WebStorage {
+  /** @suppress {checkTypes} suppression added to enable type checking */
   constructor(opt_isStorageDisabled) {
     super(new MockThrowableStorage(opt_isStorageDisabled));
   }
@@ -103,4 +109,6 @@ testSuite({
     const storage = new HTML5MockStorage(true);
     assertEquals('dummyKey', storage.key(1));
   },
+
+  // Common functionality testing is done per-implementation.
 });

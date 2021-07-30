@@ -59,6 +59,8 @@ Channel.prototype.shouldUseSecondaryDomains = goog.abstractMethod;
  * a secondary domain if withCredentials (CORS) is enabled.
  * @param {?string} hostPrefix The host prefix, if we need an XhrIo object
  *     capable of calling a secondary domain.
+ * @param {boolean=} isStreaming Whether or not fetch/streams are enabled for
+ *     the underlying HTTP request.
  * @return {!goog.net.XhrIo} A new XhrIo object.
  */
 Channel.prototype.createXhrIo = goog.abstractMethod;
@@ -191,4 +193,11 @@ Channel.prototype.setHttpSessionId = goog.abstractMethod;
  * @return {?string} The http session id if there is one in effect.
  */
 Channel.prototype.getHttpSessionId = goog.abstractMethod;
+
+/**
+ * Whether or not this channel uses WHATWG Fetch/streams.
+ *
+ * @return {boolean} true if use Fetch streams.
+ */
+Channel.prototype.usesFetchStreams = goog.abstractMethod;
 });  // goog.scope

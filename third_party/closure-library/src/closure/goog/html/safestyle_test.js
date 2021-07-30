@@ -39,7 +39,7 @@ testSuite({
     const extracted = SafeStyle.unwrap(safeStyle);
     assertEquals(style, extracted);
     assertEquals(style, safeStyle.getTypedStringValue());
-    assertEquals(`SafeStyle{${style}}`, String(safeStyle));
+    assertEquals(`${style}`, String(safeStyle));
 
     // Interface marker is present.
     assertTrue(safeStyle.implementsGoogStringTypedString);
@@ -317,6 +317,7 @@ testSuite({
     }
   },
 
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testCreate_withMonkeypatchedObjectPrototype() {
     stubs.set(Object.prototype, 'foo', 'bar');
     assertCreateEquals(

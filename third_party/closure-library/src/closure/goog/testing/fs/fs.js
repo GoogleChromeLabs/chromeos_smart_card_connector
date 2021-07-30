@@ -16,8 +16,10 @@ goog.provide('goog.testing.fs');
 goog.require('goog.Timer');
 goog.require('goog.array');
 goog.require('goog.async.Deferred');
-/** @suppress {extraRequire} */
+/** @suppress {extraRequire} used in mocking */
 goog.require('goog.fs');
+/** @suppress {extraRequire} used in mocking */
+goog.require('goog.fs.url');
 goog.require('goog.testing.PropertyReplacer');
 goog.require('goog.testing.fs.Blob');
 goog.require('goog.testing.fs.FileSystem');
@@ -33,7 +35,7 @@ goog.require('goog.testing.fs.FileSystem');
  */
 goog.testing.fs.getTemporary = function(size) {
   'use strict';
-  var d = new goog.async.Deferred();
+  const d = new goog.async.Deferred();
   goog.Timer.callOnce(
       goog.bind(d.callback, d, new goog.testing.fs.FileSystem()));
   return d;
@@ -71,7 +73,7 @@ goog.testing.fs.objectUrls_ = {};
  */
 goog.testing.fs.createObjectUrl = function(blob) {
   'use strict';
-  var url = blob.toDataUrl();
+  const url = blob.toDataUrl();
   goog.testing.fs.objectUrls_[url] = true;
   return url;
 };
@@ -109,7 +111,8 @@ goog.testing.fs.isObjectUrlGranted = function(blob) {
  */
 goog.testing.fs.getBlob = function(var_args) {
   'use strict';
-  return new goog.testing.fs.Blob(goog.array.map(arguments, String).join(''));
+  return new goog.testing.fs.Blob(
+      Array.prototype.map.call(arguments, String).join(''));
 };
 
 
@@ -160,16 +163,17 @@ goog.testing.fs.install = function(stubs) {
   'use strict';
   // Prevent warnings that goog.fs may get optimized away. It's true this is
   // unsafe in compiled code, but it's only meant for tests.
-  var fs = goog.getObjectByName('goog.fs');
+  const fs = goog.getObjectByName('goog.fs');
+  const fsUrl = goog.getObjectByName('goog.fs.url');
   stubs.replace(fs, 'getTemporary', goog.testing.fs.getTemporary);
   stubs.replace(fs, 'getPersistent', goog.testing.fs.getPersistent);
-  stubs.replace(fs, 'createObjectUrl', goog.testing.fs.createObjectUrl);
-  stubs.replace(fs, 'revokeObjectUrl', goog.testing.fs.revokeObjectUrl);
-  stubs.replace(fs, 'browserSupportsObjectUrls', function() {
+  stubs.replace(fsUrl, 'createObjectUrl', goog.testing.fs.createObjectUrl);
+  stubs.replace(fsUrl, 'revokeObjectUrl', goog.testing.fs.revokeObjectUrl);
+  stubs.replace(fsUrl, 'browserSupportsObjectUrls', function() {
     'use strict';
     return true;
   });
-  var fsBlob = goog.getObjectByName('goog.fs.blob');
+  const fsBlob = goog.getObjectByName('goog.fs.blob');
   stubs.replace(fsBlob, 'getBlob', goog.testing.fs.getBlob);
   stubs.replace(
       fsBlob, 'getBlobWithProperties', goog.testing.fs.getBlobWithProperties);

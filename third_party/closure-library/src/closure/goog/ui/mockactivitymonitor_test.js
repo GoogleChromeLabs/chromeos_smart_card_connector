@@ -6,6 +6,7 @@
 
 /**
  * @fileoverview Tests for goog.ui.MockActivityMonitorTest.
+ * @suppress {missingRequire} TODO(user): this shouldn't be needed
  */
 
 /** @suppress {extraProvide} */
@@ -19,7 +20,7 @@ const functions = goog.require('goog.functions');
 const recordFunction = goog.require('goog.testing.recordFunction');
 const testSuite = goog.require('goog.testing.testSuite');
 
-const googNow = goog.now;
+const googNow = Date.now;
 let monitor;
 let recordedFunction;
 let replacer;
@@ -34,11 +35,11 @@ testSuite({
 
   tearDown() {
     goog.dispose(monitor);
-    goog.now = googNow;
+    Date.now = googNow;
   },
 
   testEventFireSameTime() {
-    goog.now = functions.constant(1000);
+    Date.now = functions.constant(1000);
 
     monitor.simulateEvent();
     assertEquals(1, recordedFunction.getCallCount());
@@ -48,11 +49,11 @@ testSuite({
   },
 
   testEventFireDifferingTime() {
-    goog.now = functions.constant(1000);
+    Date.now = functions.constant(1000);
     monitor.simulateEvent();
     assertEquals(1, recordedFunction.getCallCount());
 
-    goog.now = functions.constant(1001);
+    Date.now = functions.constant(1001);
     monitor.simulateEvent();
     assertEquals(2, recordedFunction.getCallCount());
   },

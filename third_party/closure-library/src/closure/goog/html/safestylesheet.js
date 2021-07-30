@@ -175,7 +175,7 @@ class SafeStyleSheet {
       }
     };
 
-    googArray.forEach(arguments, addArgument);
+    Array.prototype.forEach.call(arguments, addArgument);
     return SafeStyleSheet.createSafeStyleSheetSecurityPrivateDoNotAccessOrElse(
         result);
   }
@@ -272,21 +272,19 @@ class SafeStyleSheet {
   }
 }
 
-if (goog.DEBUG) {
-  /**
-   * Returns a debug string-representation of this value.
-   *
-   * To obtain the actual string value wrapped in a SafeStyleSheet, use
-   * `SafeStyleSheet.unwrap`.
-   *
-   * @see SafeStyleSheet#unwrap
-   * @override
-   */
-  SafeStyleSheet.prototype.toString = function() {
-    return 'SafeStyleSheet{' +
-        this.privateDoNotAccessOrElseSafeStyleSheetWrappedValue_ + '}';
-  };
-}
+/**
+ * Returns a string-representation of this value.
+ *
+ * To obtain the actual string value wrapped in a SafeStyleSheet, use
+ * `SafeStyleSheet.unwrap`.
+ *
+ * @return {string}
+ * @see SafeStyleSheet#unwrap
+ * @override
+ */
+SafeStyleSheet.prototype.toString = function() {
+  return this.privateDoNotAccessOrElseSafeStyleSheetWrappedValue_.toString();
+};
 
 
 /**

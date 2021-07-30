@@ -36,6 +36,7 @@ goog.require('goog.string');
  * @final
  */
 goog.a11y.aria.Announcer = function(opt_domHelper) {
+  'use strict';
   goog.a11y.aria.Announcer.base(this, 'constructor');
 
   /**
@@ -59,6 +60,7 @@ goog.inherits(goog.a11y.aria.Announcer, goog.Disposable);
 
 /** @override */
 goog.a11y.aria.Announcer.prototype.disposeInternal = function() {
+  'use strict';
   goog.object.forEach(
       this.liveRegions_, this.domHelper_.removeNode, this.domHelper_);
   this.liveRegions_ = null;
@@ -75,6 +77,7 @@ goog.a11y.aria.Announcer.prototype.disposeInternal = function() {
  *     message. Defaults to POLITE.
  */
 goog.a11y.aria.Announcer.prototype.say = function(message, opt_priority) {
+  'use strict';
   const priority = opt_priority || goog.a11y.aria.LivePriority.POLITE;
   const liveRegion = this.getLiveRegion_(priority);
   // TODO(user): Remove the code once Chrome fix the bug on their
@@ -89,6 +92,14 @@ goog.a11y.aria.Announcer.prototype.say = function(message, opt_priority) {
   goog.dom.setTextContent(liveRegion, announceMessage);
 };
 
+/**
+ * Returns the id value for an aria-live region for a given priority.
+ * @param {!goog.a11y.aria.LivePriority} priority The required priority.
+ * @return {string} The generated id on the liveRegion.
+ */
+goog.a11y.aria.Announcer.prototype.getLiveRegionId = function(priority) {
+  return this.getLiveRegion_(priority).getAttribute('id');
+};
 
 /**
  * Returns an aria-live region that can be used to communicate announcements.
@@ -97,6 +108,7 @@ goog.a11y.aria.Announcer.prototype.say = function(message, opt_priority) {
  * @private
  */
 goog.a11y.aria.Announcer.prototype.getLiveRegion_ = function(priority) {
+  'use strict';
   var liveRegion = this.liveRegions_[priority];
   if (liveRegion) {
     // Make sure the live region is not aria-hidden.
@@ -105,6 +117,8 @@ goog.a11y.aria.Announcer.prototype.getLiveRegion_ = function(priority) {
   }
 
   liveRegion = this.domHelper_.createElement(goog.dom.TagName.DIV);
+  // Generate a unique id for the live region.
+  liveRegion.id = `goog-lr-${goog.getUid(liveRegion)}`;
   // Note that IE has a habit of declaring things that aren't display:none as
   // invisible to third-party tools like JAWs, so we can't just use height:0.
   liveRegion.style.position = 'absolute';

@@ -30,6 +30,7 @@ goog.require('goog.ui.emoji.EmojiPaletteRenderer');
  * @final
  */
 goog.ui.emoji.ProgressiveEmojiPaletteRenderer = function(defaultImgUrl) {
+  'use strict';
   goog.ui.emoji.EmojiPaletteRenderer.call(this, defaultImgUrl);
 };
 goog.inherits(
@@ -40,13 +41,14 @@ goog.inherits(
 /** @override */
 goog.ui.emoji.ProgressiveEmojiPaletteRenderer.prototype
     .buildElementFromSpriteMetadata = function(dom, spriteInfo, displayUrl) {
-  var width = spriteInfo.getWidthCssValue();
-  var height = spriteInfo.getHeightCssValue();
-  var x = spriteInfo.getXOffsetCssValue();
-  var y = spriteInfo.getYOffsetCssValue();
+  'use strict';
+  const width = spriteInfo.getWidthCssValue();
+  const height = spriteInfo.getHeightCssValue();
+  const x = spriteInfo.getXOffsetCssValue();
+  const y = spriteInfo.getYOffsetCssValue();
   // Need this extra div for proper vertical centering.
-  var inner = dom.createDom(goog.dom.TagName.IMG, {'src': displayUrl});
-  var el = dom.createDom(
+  const inner = dom.createDom(goog.dom.TagName.IMG, {'src': displayUrl});
+  const el = dom.createDom(
       goog.dom.TagName.DIV, goog.getCssName('goog-palette-cell-extra'), inner);
   goog.style.setStyle(el, {
     'width': width,
@@ -63,11 +65,12 @@ goog.ui.emoji.ProgressiveEmojiPaletteRenderer.prototype
 /** @override */
 goog.ui.emoji.ProgressiveEmojiPaletteRenderer.prototype
     .updateAnimatedPaletteItem = function(item, animatedImg) {
+  'use strict';
   // Just to be safe, we check for the existence of the img element within this
   // palette item before attempting to modify it.
   /** @type {!HTMLImageElement|undefined} */
-  var img;
-  var el = item.firstChild;
+  let img;
+  let el = item.firstChild;
   while (el) {
     if ('IMG' == /** @type {!Element} */ (el).tagName) {
       img = /** @type {!HTMLImageElement} */ (el);

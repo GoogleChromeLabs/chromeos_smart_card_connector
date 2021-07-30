@@ -26,13 +26,16 @@ goog.provide('goog.events.EventId');
  * @final
  */
 goog.events.EventId = function(eventId) {
+  'use strict';
   /** @const */ this.id = eventId;
 };
 
 
 /**
  * @override
+ * @return {string}
  */
 goog.events.EventId.prototype.toString = function() {
+  'use strict';
   return this.id;
 };

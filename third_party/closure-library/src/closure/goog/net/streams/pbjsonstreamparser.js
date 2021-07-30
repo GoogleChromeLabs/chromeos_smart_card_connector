@@ -26,10 +26,10 @@
 
 goog.module('goog.net.streams.PbJsonStreamParser');
 
-var JsonStreamParser = goog.require('goog.net.streams.JsonStreamParser');
-var StreamParser = goog.require('goog.net.streams.StreamParser');
-var asserts = goog.require('goog.asserts');
-var utils = goog.require('goog.net.streams.utils');
+const JsonStreamParser = goog.require('goog.net.streams.JsonStreamParser');
+const StreamParser = goog.require('goog.net.streams.StreamParser');
+const asserts = goog.require('goog.asserts');
+const utils = goog.require('goog.net.streams.utils');
 
 
 /**
@@ -40,7 +40,7 @@ var utils = goog.require('goog.net.streams.utils');
  * @implements {StreamParser}
  * @final
  */
-var PbJsonStreamParser = function() {
+const PbJsonStreamParser = function() {
   /**
    * Protobuf raw bytes stream parser
    * @private {?JsonStreamParser}
@@ -83,7 +83,7 @@ var PbJsonStreamParser = function() {
  * The parser state.
  * @enum {number}
  */
-var State = {
+const State = {
   INIT: 0,           // expecting the beginning "["
   ARRAY_OPEN: 1,     // expecting the message array or the msg-status separator
   MESSAGES: 2,       // expecting the message array
@@ -105,13 +105,20 @@ PbJsonStreamParser.prototype.getErrorMessage = function() {
   return this.errorMessage_;
 };
 
+/**
+ * @override
+ * @return {boolean}
+ */
+PbJsonStreamParser.prototype.acceptsBinaryInput = function() {
+  return false;
+};
 
 /** @override */
 PbJsonStreamParser.prototype.parse = function(input) {
   asserts.assertString(input);
 
-  var parser = this;
-  var pos = 0;
+  const parser = this;
+  let pos = 0;
   while (pos < input.length) {
     if ((parser.state_ !== State.MESSAGES) && !readMore()) {
       return null;
@@ -150,7 +157,7 @@ PbJsonStreamParser.prototype.parse = function(input) {
         break;
       }
       case State.MESSAGES: {
-        var messages = parser.jsonStreamParser_.parse(input.substring(pos));
+        const messages = parser.jsonStreamParser_.parse(input.substring(pos));
         addResultMessages(messages);
 
         if (!parser.jsonStreamParser_.done()) {
@@ -158,7 +165,7 @@ PbJsonStreamParser.prototype.parse = function(input) {
           pos = input.length;  // end the loop
         } else {
           parser.state_ = State.MESSAGES_DONE;
-          var extra = parser.jsonStreamParser_.getExtraInput();
+          const extra = parser.jsonStreamParser_.getExtraInput();
           parser.streamPos_ += input.length - pos - extra.length;
           input = extra;
           pos = 0;
@@ -181,7 +188,7 @@ PbJsonStreamParser.prototype.parse = function(input) {
         break;
       }
       case State.STATUS: {
-        var status = parser.jsonStreamParser_.parse(input.substring(pos));
+        const status = parser.jsonStreamParser_.parse(input.substring(pos));
         addResultStatus(status);
 
         if (!parser.jsonStreamParser_.done()) {
@@ -189,7 +196,7 @@ PbJsonStreamParser.prototype.parse = function(input) {
           pos = input.length;  // end the loop
         } else {
           parser.state_ = State.ARRAY_END;
-          var extra = parser.jsonStreamParser_.getExtraInput();
+          const extra = parser.jsonStreamParser_.getExtraInput();
           parser.streamPos_ += input.length - pos - extra.length;
           input = extra;
           pos = 0;
@@ -204,7 +211,7 @@ PbJsonStreamParser.prototype.parse = function(input) {
   }
 
   if (parser.result_.length > 0) {
-    var results = parser.result_;
+    const results = parser.result_;
     parser.result_ = [];
     return results;
   }
@@ -247,8 +254,8 @@ PbJsonStreamParser.prototype.parse = function(input) {
   /** @param {?Array<string>} messages Parsed messages */
   function addResultMessages(messages) {
     if (messages) {
-      for (var i = 0; i < messages.length; i++) {
-        var tagged = {};
+      for (let i = 0; i < messages.length; i++) {
+        const tagged = {};
         tagged[1] = messages[i];
         parser.result_.push(tagged);
       }
@@ -263,7 +270,7 @@ PbJsonStreamParser.prototype.parse = function(input) {
       }
       parser.statusParsed_ = true;
 
-      var tagged = {};
+      const tagged = {};
       tagged[2] = status[0];
       parser.result_.push(tagged);
     }

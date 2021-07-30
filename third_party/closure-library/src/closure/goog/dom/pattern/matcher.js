@@ -7,6 +7,7 @@
 /**
  * @fileoverview DOM pattern matcher.  Allows for simple searching of DOM
  * using patterns descended from {@link goog.dom.pattern.AbstractPattern}.
+ * @suppress {missingRequire} TODO(user): this shouldn't be needed
  */
 
 goog.provide('goog.dom.pattern.Matcher');
@@ -39,6 +40,7 @@ goog.requireType('goog.dom.pattern');
  * @final
  */
 goog.dom.pattern.Matcher = function() {
+  'use strict';
   /**
    * Array of patterns to attempt to match in parallel.
    *
@@ -65,6 +67,7 @@ goog.dom.pattern.Matcher = function() {
  *     the above semantics.
  */
 goog.dom.pattern.Matcher.prototype.addPattern = function(pattern, callback) {
+  'use strict';
   this.patterns_.push(pattern);
   this.callbacks_.push(callback);
 };
@@ -76,7 +79,8 @@ goog.dom.pattern.Matcher.prototype.addPattern = function(pattern, callback) {
  * @private
  */
 goog.dom.pattern.Matcher.prototype.reset_ = function() {
-  for (var i = 0, len = this.patterns_.length; i < len; i++) {
+  'use strict';
+  for (let i = 0, len = this.patterns_.length; i < len; i++) {
     this.patterns_[i].reset();
   }
 };
@@ -92,12 +96,13 @@ goog.dom.pattern.Matcher.prototype.reset_ = function() {
  * @private
  */
 goog.dom.pattern.Matcher.prototype.matchToken_ = function(position) {
-  for (var i = 0, len = this.patterns_.length; i < len; i++) {
-    var pattern = this.patterns_[i];
+  'use strict';
+  for (let i = 0, len = this.patterns_.length; i < len; i++) {
+    const pattern = this.patterns_[i];
     switch (pattern.matchToken(position.node, position.tagType)) {
       case goog.dom.pattern.MatchType.MATCH:
       case goog.dom.pattern.MatchType.BACKTRACK_MATCH:
-        var callback = this.callbacks_[i];
+        const callback = this.callbacks_[i];
 
         // Callbacks are allowed to modify the current position, but must
         // return true if the do.
@@ -121,11 +126,13 @@ goog.dom.pattern.Matcher.prototype.matchToken_ = function(position) {
  * @param {Node} node The root node of the tree to match.
  */
 goog.dom.pattern.Matcher.prototype.match = function(node) {
-  var position = new goog.dom.TagIterator(node);
+  'use strict';
+  const position = new goog.dom.TagIterator(node);
 
   this.reset_();
 
   goog.iter.forEach(position, function() {
+    'use strict';
     while (this.matchToken_(position)) {
       // Since we've moved, our old pattern statuses don't make sense any more.
       // Reset them.

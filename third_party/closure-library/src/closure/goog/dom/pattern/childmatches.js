@@ -39,6 +39,7 @@ goog.requireType('goog.dom.pattern.AbstractPattern');
  * @final
  */
 goog.dom.pattern.ChildMatches = function(childPattern, opt_minimumMatches) {
+  'use strict';
   /**
    * The child pattern to collect matches from.
    *
@@ -83,18 +84,19 @@ goog.inherits(goog.dom.pattern.ChildMatches, goog.dom.pattern.AllChildren);
  * @override
  */
 goog.dom.pattern.ChildMatches.prototype.matchToken = function(token, type) {
+  'use strict';
   // Defer resets so we maintain our matches array until the last possible time.
   if (this.needsReset_) {
     this.reset();
   }
 
   // Call the super-method to ensure we stay in the child tree.
-  var status =
+  const status =
       goog.dom.pattern.AllChildren.prototype.matchToken.apply(this, arguments);
 
   switch (status) {
     case goog.dom.pattern.MatchType.MATCHING:
-      var backtrack = false;
+      let backtrack = false;
 
       switch (this.childPattern_.matchToken(token, type)) {
         case goog.dom.pattern.MatchType.BACKTRACK_MATCH:
@@ -139,6 +141,7 @@ goog.dom.pattern.ChildMatches.prototype.matchToken = function(token, type) {
  * @override
  */
 goog.dom.pattern.ChildMatches.prototype.reset = function() {
+  'use strict';
   this.needsReset_ = false;
   this.matches.length = 0;
   this.childPattern_.reset();

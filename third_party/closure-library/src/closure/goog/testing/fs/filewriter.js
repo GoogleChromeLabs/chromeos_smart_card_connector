@@ -11,7 +11,6 @@
 goog.setTestOnly('goog.testing.fs.FileWriter');
 goog.provide('goog.testing.fs.FileWriter');
 
-goog.forwardDeclare('goog.testing.fs.FileEntry');
 goog.require('goog.Timer');
 goog.require('goog.events.EventTarget');
 goog.require('goog.fs.Error');
@@ -20,6 +19,7 @@ goog.require('goog.string');
 goog.require('goog.testing.fs.Blob');
 goog.require('goog.testing.fs.File');
 goog.require('goog.testing.fs.ProgressEvent');
+goog.requireType('goog.testing.fs.FileEntry');
 
 
 
@@ -130,7 +130,7 @@ goog.testing.fs.FileWriter.prototype.getLength = function() {
 goog.testing.fs.FileWriter.prototype.abort = function() {
   'use strict';
   if (this.readyState_ != goog.fs.FileSaver.ReadyState.WRITING) {
-    var msg = 'aborting save of ' + this.fileEntry_.getFullPath();
+    const msg = 'aborting save of ' + this.fileEntry_.getFullPath();
     throw new goog.fs.Error({'name': 'InvalidStateError'}, msg);
   }
 
@@ -145,7 +145,7 @@ goog.testing.fs.FileWriter.prototype.abort = function() {
 goog.testing.fs.FileWriter.prototype.write = function(blob) {
   'use strict';
   if (this.readyState_ == goog.fs.FileSaver.ReadyState.WRITING) {
-    var msg = 'writing to ' + this.fileEntry_.getFullPath();
+    const msg = 'writing to ' + this.fileEntry_.getFullPath();
     throw new goog.fs.Error({'name': 'InvalidStateError'}, msg);
   }
 
@@ -158,7 +158,7 @@ goog.testing.fs.FileWriter.prototype.write = function(blob) {
     }
 
     this.progressEvent_(goog.fs.FileSaver.EventType.WRITE_START, 0, blob.size);
-    var fileString = this.file_.toString();
+    const fileString = this.file_.toString();
     this.file_.setDataInternal(
         fileString.substring(0, this.position_) + blob.toString() +
         fileString.substring(this.position_ + blob.size, fileString.length));
@@ -180,7 +180,7 @@ goog.testing.fs.FileWriter.prototype.write = function(blob) {
 goog.testing.fs.FileWriter.prototype.truncate = function(size) {
   'use strict';
   if (this.readyState_ == goog.fs.FileSaver.ReadyState.WRITING) {
-    var msg = 'truncating ' + this.fileEntry_.getFullPath();
+    const msg = 'truncating ' + this.fileEntry_.getFullPath();
     throw new goog.fs.Error({'name': 'InvalidStateError'}, msg);
   }
 
@@ -194,7 +194,7 @@ goog.testing.fs.FileWriter.prototype.truncate = function(size) {
 
     this.progressEvent_(goog.fs.FileSaver.EventType.WRITE_START, 0, size);
 
-    var fileString = this.file_.toString();
+    const fileString = this.file_.toString();
     if (size > fileString.length) {
       this.file_.setDataInternal(
           fileString + goog.string.repeat('\0', size - fileString.length));
@@ -217,7 +217,7 @@ goog.testing.fs.FileWriter.prototype.truncate = function(size) {
 goog.testing.fs.FileWriter.prototype.seek = function(offset) {
   'use strict';
   if (this.readyState_ == goog.fs.FileSaver.ReadyState.WRITING) {
-    var msg = 'truncating ' + this.fileEntry_.getFullPath();
+    const msg = 'truncating ' + this.fileEntry_.getFullPath();
     throw new goog.fs.Error({name: 'InvalidStateError'}, msg);
   }
 
@@ -260,7 +260,7 @@ goog.testing.fs.FileWriter.prototype.progressEvent_ = function(
   'use strict';
   // On write, update the last modified date to the current (real or mock) time.
   if (type == goog.fs.FileSaver.EventType.WRITE) {
-    this.file_.lastModifiedDate = new Date(goog.now());
+    this.file_.lastModifiedDate = new Date(Date.now());
   }
 
   this.dispatchEvent(new goog.testing.fs.ProgressEvent(type, loaded, total));

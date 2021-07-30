@@ -10,6 +10,7 @@ goog.setTestOnly();
 const EventHandler = goog.require('goog.events.EventHandler');
 const GoogEventTarget = goog.require('goog.events.EventTarget');
 const PropertyReplacer = goog.require('goog.testing.PropertyReplacer');
+const dispose = goog.require('goog.dispose');
 const events = goog.require('goog.events');
 const recordFunction = goog.require('goog.testing.recordFunction');
 const testSuite = goog.require('goog.testing.testSuite');
@@ -32,7 +33,7 @@ testSuite({
   },
 
   tearDown() {
-    goog.dispose(eh);
+    dispose(eh);
     propertyReplacer.reset();
   },
 
@@ -157,6 +158,10 @@ testSuite({
         'No event should have been dispatched', 1, handler.getCallCount());
   },
 
+  /**
+     @suppress {strictMissingProperties} suppression added to enable type
+     checking
+   */
   testListenOnceArray() {
     const target = new GoogEventTarget();
 

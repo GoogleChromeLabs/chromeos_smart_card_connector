@@ -4,6 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * @fileoverview
+ * @suppress {strictMissingProperties,missingProperties} suppression added to
+ * enable type checking
+ */
+
 goog.module('goog.crypt.hash32Test');
 goog.setTestOnly();
 
@@ -156,10 +162,10 @@ const byteArrays = {
 };
 
 let testCase;
-if (goog.global.G_testRunner) {
+if (globalThis.G_testRunner) {
   testCase = new TestCase(document.title);
   testCase.autoDiscoverTests();
-  goog.global.G_testRunner.initialize(testCase);
+  globalThis.G_testRunner.initialize(testCase);
 }
 testSuite({
   testEncodeInteger() {
@@ -173,6 +179,7 @@ testSuite({
     assertEquals(170907881, hash32.encodeByteArray([9, 1, 1]));
   },
 
+  /** @suppress {missingProperties} suppression added to enable type checking */
   testKnownByteArrays() {
     for (let i = 0; i < byteArrays.length; i++) {
       assertEquals(byteArrays[i], hash32.encodeByteArray(createByteArray(i)));
@@ -262,9 +269,9 @@ testSuite({
     }
     for (let i = 0; i < 50000; i += 10000) {
       const str = makeString(i);
-      const start = goog.now();
+      const start = Date.now();
       const hash = hash32.encodeString(str);
-      const diff = goog.now() - start;
+      const diff = Date.now() - start;
       testCase.saveMessage(
           `testBenchmarking : hashing ${i} chars in ${diff}ms`);
     }

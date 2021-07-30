@@ -18,15 +18,24 @@
 goog.setTestOnly('goog.testing.singleton');
 goog.provide('goog.testing.singleton');
 
+goog.require('goog.singleton');
+
 /**
  * Deletes all singleton instances, so `getInstance` will return a new
  * instance on next call.
  * @const
  */
 goog.testing.singleton.resetAll = function() {
-  const singletons = goog.getObjectByName('goog.instantiatedSingletons_');
+  'use strict';
+  // Avoid concatenating arrays here - causes tests to perform poorly when there
+  // are very large numbers of singletons to reset.
+  const singletons1 = goog.getObjectByName('goog.instantiatedSingletons_');
+  const singletons2 = goog.singleton.instantiatedSingletons;
   let ctor;
-  while (ctor = singletons.pop()) {
+  while (ctor = singletons1.pop()) {
+    goog.testing.singleton.reset(ctor);
+  }
+  while (ctor = singletons2.pop()) {
     goog.testing.singleton.reset(ctor);
   }
 };
@@ -40,10 +49,11 @@ goog.testing.singleton.resetAll = function() {
  * type.
  */
 goog.testing.singleton.reset = function(singleton) {
+  'use strict';
   delete /** @type {?} */ (singleton).instance_;
 };
 
 /**
- * @deprecated Please use `goog.addSingletonGetter`.
+ * @deprecated Please use `goog.singleton.getInstance()`.
  */
 goog.testing.singleton.addSingletonGetter = goog.addSingletonGetter;

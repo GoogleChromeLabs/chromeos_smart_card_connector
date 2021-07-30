@@ -165,6 +165,47 @@ testSuite({
     },
   },
 
+  testTimeWarp: {
+    async testSetsTime() {
+      const clock = new MockClock(true);
+
+      const newDate = new Date(2121, 12, 12);
+
+      // Schedule an callback in the interval and make sure it sees the new date
+      setTimeout(() => assertEquals(+newDate, Date.now()), 999999);
+
+      await clock.doTimeWarpAsync(newDate);
+      assertEquals(+newDate, Date.now());
+    },
+
+    async testSkipsSetIntervals() {
+      const clock = new MockClock(true);
+
+      const fn = recordFunction();
+      setInterval(fn, 7);
+      await clock.doTimeWarpAsync(new Date(2121, 12, 12));
+
+      assertEquals(1, fn.getCallCount());
+      // Expect the interval to continue in future ticks.
+      clock.tick(7);
+      assertEquals(2, fn.getCallCount());
+    },
+
+    async testSkipsRecursiveSetTimeouts() {
+      const clock = new MockClock(true);
+
+      const fn = recordFunction(() => setTimeout(fn, 7));
+      setTimeout(fn, 7);
+      await clock.doTimeWarpAsync(new Date(2121, 12, 12));
+
+      assertEquals(1, fn.getCallCount());
+      // Expect the timeout to continue in future ticks.
+      clock.tick(7);
+      assertEquals(2, fn.getCallCount());
+    },
+  },
+
+  /** @suppress {visibility} suppression added to enable type checking */
   testMockClockWasInstalled() {
     const clock = new MockClock();
     const originalTimeout = window.setTimeout;
@@ -296,19 +337,19 @@ testSuite({
   },
 
   testRequestAnimationFrame() {
-    goog.global.requestAnimationFrame = () => {};
+    globalThis.requestAnimationFrame = () => {};
     const clock = new MockClock(true);
     const times = [];
     const recFunc = recordFunction((now) => {
       times.push(now);
     });
-    goog.global.requestAnimationFrame(recFunc);
+    globalThis.requestAnimationFrame(recFunc);
     clock.tick(50);
     assertEquals(1, clock.getCallbacksTriggered());
     assertEquals(1, recFunc.getCallCount());
     assertEquals(20, times[0]);
 
-    goog.global.requestAnimationFrame(recFunc);
+    globalThis.requestAnimationFrame(recFunc);
     clock.tick(100);
     assertEquals(2, clock.getCallbacksTriggered());
     assertEquals(2, recFunc.getCallCount());
@@ -379,16 +420,16 @@ testSuite({
   },
 
   testCancelRequestAnimationFrame() {
-    goog.global.requestAnimationFrame = () => {};
-    goog.global.cancelRequestAnimationFrame = () => {};
+    globalThis.requestAnimationFrame = () => {};
+    globalThis.cancelRequestAnimationFrame = () => {};
     const clock = new MockClock(true);
     let ran = false;
-    const c = goog.global.requestAnimationFrame(() => {
+    const c = globalThis.requestAnimationFrame(() => {
       ran = true;
     });
     clock.tick(10);
     assertFalse(ran);
-    goog.global.cancelRequestAnimationFrame(c);
+    globalThis.cancelRequestAnimationFrame(c);
     clock.tick(20);
     assertFalse(ran);
     clock.uninstall();
@@ -514,7 +555,7 @@ testSuite({
     let timeoutExecuted = false;
 
     timeoutId = setTimeout(function(arg) {
-      assertEquals('"this" must be goog.global', goog.global, this);
+      assertEquals('"this" must be globalThis', globalThis, this);
       assertEquals(
           'The timeout ID must be the first parameter', timeoutId, arg);
       assertEquals('Exactly one argument must be passed', 1, arguments.length);
@@ -602,6 +643,10 @@ testSuite({
     clock.uninstall();
   },
 
+  /**
+     @suppress {visibility,checkTypes} suppression added to enable type
+     checking
+   */
   testQueueInsertionHelper() {
     const queue = [];
 
@@ -727,9 +772,16 @@ testSuite({
     // strings, not undefined, etc). Make sure that if we get a non-function, we
     // fail early rather than on the next .tick() operation.
 
-    assertThrows('setTimeout with a non-function value should fail', () => {
-      window.setTimeout(undefined, 0);
-    });
+    assertThrows(
+        'setTimeout with a non-function value should fail', /**
+                                                               @suppress {checkTypes}
+                                                               suppression added
+                                                               to enable type
+                                                               checking
+                                                             */
+        () => {
+          window.setTimeout(undefined, 0);
+        });
     clock.tick(1);
 
     assertThrows('setTimeout with a string should fail', () => {

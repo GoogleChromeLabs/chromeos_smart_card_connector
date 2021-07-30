@@ -12,6 +12,7 @@ const EventType = goog.require('goog.events.EventType');
 const GoogTestingEvent = goog.require('goog.testing.events.Event');
 const InputHandler = goog.require('goog.events.InputHandler');
 const KeyCodes = goog.require('goog.events.KeyCodes');
+const dispose = goog.require('goog.dispose');
 const dom = goog.require('goog.dom');
 const events = goog.require('goog.testing.events');
 const recordFunction = goog.require('goog.testing.recordFunction');
@@ -49,8 +50,8 @@ testSuite({
   },
 
   tearDown() {
-    goog.dispose(inputHandler);
-    goog.dispose(eventHandler);
+    dispose(inputHandler);
+    dispose(eventHandler);
   },
 
   testInputWithPlaceholder() {
@@ -65,6 +66,10 @@ testSuite({
     const input = dom.getElement('input-w-placeholder');
     inputHandler = new InputHandler(input);
     const callback = listenToInput(inputHandler);
+    /**
+     * @suppress {strictMissingProperties} suppression added to enable type
+     * checking
+     */
     input.value = 'foo';
     fireFakeInputEvent(input);
     assertEquals(0, callback.getCallCount());
@@ -75,6 +80,10 @@ testSuite({
     inputHandler = new InputHandler(input);
     const callback = listenToInput(inputHandler);
     input.focus();
+    /**
+     * @suppress {strictMissingProperties} suppression added to enable type
+     * checking
+     */
     input.value = 'foo';
 
     fireInputEvent(input, KeyCodes.M);

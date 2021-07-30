@@ -25,13 +25,14 @@ testSuite({
     clock = null;
   },
 
+  /** @suppress {visibility} */
   tearDown() {
     if (clock) {
       clock.uninstall();
     }
     // Unset the cached setImmediate_ behavior so it's re-evaluated for each
     // test.
-    nextTick.setImmediate_ = undefined;
+    nextTick.setImmediate_ = /** @type {?} */ (undefined);
     propertyReplacer.reset();
   },
 
@@ -144,7 +145,7 @@ testSuite({
         errorHandlerCallbackCalled = true;
       });
 
-      // MS Edge will always use goog.global.setImmediate, so ensure we get
+      // MS Edge will always use globalThis.setImmediate, so ensure we get
       // to setImmediate_ here. See useSetImmediate_ implementation for details
       // on Edge special casing.
       propertyReplacer.set(nextTick, 'useSetImmediate_', () => false);
@@ -232,7 +233,7 @@ testSuite({
   },
 
   testBehaviorOnPagesWithOverriddenWindowConstructor() {
-    propertyReplacer.set(goog.global, 'Window', {});
+    propertyReplacer.set(globalThis, 'Window', {});
     this.testNextTick();
     this.testNextTickSetImmediate();
     this.testNextTickMockClock();

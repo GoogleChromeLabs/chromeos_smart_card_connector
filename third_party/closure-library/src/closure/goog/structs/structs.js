@@ -31,6 +31,7 @@ goog.require('goog.object');
  * @return {number} The number of values in the collection-like object.
  */
 goog.structs.getCount = function(col) {
+  'use strict';
   if (col.getCount && typeof col.getCount == 'function') {
     return col.getCount();
   }
@@ -47,8 +48,16 @@ goog.structs.getCount = function(col) {
  * @return {!Array<?>} The values in the collection-like object.
  */
 goog.structs.getValues = function(col) {
+  'use strict';
   if (col.getValues && typeof col.getValues == 'function') {
     return col.getValues();
+  }
+  // ES6 Map and Set both define a values function that returns an iterator.
+  // The typeof check allows the compiler to remove the Map and Set polyfills
+  // if they are otherwise unused throughout the entire binary.
+  if ((typeof Map !== 'undefined' && col instanceof Map) ||
+      (typeof Set !== 'undefined' && col instanceof Set)) {
+    return Array.from(col.values());
   }
   if (typeof col === 'string') {
     return col.split('');
@@ -72,11 +81,23 @@ goog.structs.getValues = function(col) {
  * @return {!Array|undefined} The keys in the collection.
  */
 goog.structs.getKeys = function(col) {
+  'use strict';
   if (col.getKeys && typeof col.getKeys == 'function') {
     return col.getKeys();
   }
   // if we have getValues but no getKeys we know this is a key-less collection
   if (col.getValues && typeof col.getValues == 'function') {
+    return undefined;
+  }
+  // ES6 Map and Set both define a keys function that returns an iterator. For
+  // Sets this iterates over the same values as the values iterator.
+  // The typeof check allows the compiler to remove the Map and Set polyfills
+  // if they are otherwise unused throughout the entire binary.
+  if (typeof Map !== 'undefined' && col instanceof Map) {
+    return Array.from(col.keys());
+  }
+  // Unlike the native Set, goog.structs.Set does not expose keys as the values.
+  if (typeof Set !== 'undefined' && col instanceof Set) {
     return undefined;
   }
   if (goog.isArrayLike(col) || typeof col === 'string') {
@@ -100,6 +121,7 @@ goog.structs.getKeys = function(col) {
  * @return {boolean} True if the map contains the value.
  */
 goog.structs.contains = function(col, val) {
+  'use strict';
   if (col.contains && typeof col.contains == 'function') {
     return col.contains(val);
   }
@@ -119,6 +141,7 @@ goog.structs.contains = function(col, val) {
  * @return {boolean} True if empty.
  */
 goog.structs.isEmpty = function(col) {
+  'use strict';
   if (col.isEmpty && typeof col.isEmpty == 'function') {
     return col.isEmpty();
   }
@@ -137,8 +160,10 @@ goog.structs.isEmpty = function(col) {
 /**
  * Removes all the elements from the collection.
  * @param {Object} col The collection-like object.
+ * @return {void}
  */
 goog.structs.clear = function(col) {
+  'use strict';
   // NOTE(arv): This should not contain strings because strings are immutable
   if (col.clear && typeof col.clear == 'function') {
     col.clear();
@@ -161,11 +186,13 @@ goog.structs.clear = function(col) {
  *     notion of keys, and the collection) and the return value is irrelevant.
  * @param {T=} opt_obj The object to be used as the value of 'this'
  *     within `f`.
+ * @return {void}
  * @template T,S
  * @deprecated Use a more specific method, e.g. goog.array.forEach,
  *     goog.object.forEach, or for-of.
  */
 goog.structs.forEach = function(col, f, opt_obj) {
+  'use strict';
   if (col.forEach && typeof col.forEach == 'function') {
     col.forEach(f, opt_obj);
   } else if (goog.isArrayLike(col) || typeof col === 'string') {
@@ -200,6 +227,7 @@ goog.structs.forEach = function(col, f, opt_obj) {
  * @template T,S
  */
 goog.structs.filter = function(col, f, opt_obj) {
+  'use strict';
   if (typeof col.filter == 'function') {
     return col.filter(f, opt_obj);
   }
@@ -250,6 +278,7 @@ goog.structs.filter = function(col, f, opt_obj) {
  * @template T,S,V
  */
 goog.structs.map = function(col, f, opt_obj) {
+  'use strict';
   if (typeof col.map == 'function') {
     return col.map(f, opt_obj);
   }
@@ -294,6 +323,7 @@ goog.structs.map = function(col, f, opt_obj) {
  * @template T,S
  */
 goog.structs.some = function(col, f, opt_obj) {
+  'use strict';
   if (typeof col.some == 'function') {
     return col.some(f, opt_obj);
   }
@@ -328,6 +358,7 @@ goog.structs.some = function(col, f, opt_obj) {
  * @template T,S
  */
 goog.structs.every = function(col, f, opt_obj) {
+  'use strict';
   if (typeof col.every == 'function') {
     return col.every(f, opt_obj);
   }

@@ -22,6 +22,7 @@ goog.require('goog.userAgent');
  * @return {string} The platform version.
  */
 goog.userAgent.platform.determineVersion_ = function() {
+  'use strict';
   var re;
   if (goog.userAgent.WINDOWS) {
     re = /Windows NT ([0-9.]+)/;
@@ -32,7 +33,7 @@ goog.userAgent.platform.determineVersion_ = function() {
       return '0';
     }
   } else if (goog.userAgent.MAC) {
-    re = /10[_.][0-9_.]+/;
+    re = /1[0|1][_.][0-9_.]+/;
     var match = re.exec(goog.userAgent.getUserAgentString());
     // Note: some old versions of Camino do not report an OSX version.
     // Default to 10.
@@ -71,6 +72,7 @@ goog.userAgent.platform.VERSION = goog.userAgent.platform.determineVersion_();
  *     same as the given version.
  */
 goog.userAgent.platform.isVersion = function(version) {
+  'use strict';
   return goog.string.compareVersions(
              goog.userAgent.platform.VERSION, version) >= 0;
 };

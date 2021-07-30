@@ -7,18 +7,11 @@
 goog.module('goog.ui.media.YoutubeTest');
 goog.setTestOnly();
 
-const FlashObject = goog.require('goog.ui.media.FlashObject');
-const TagName = goog.require('goog.dom.TagName');
-const Youtube = goog.require('goog.ui.media.Youtube');
 const YoutubeModel = goog.require('goog.ui.media.YoutubeModel');
-const dom = goog.require('goog.dom');
 const testSuite = goog.require('goog.testing.testSuite');
 
-let youtube;
-let control;
 const YOUTUBE_VIDEO_ID = 'dMH0bHeiRNg';
 const YOUTUBE_URL = `https://www.youtube.com/watch?v=${YOUTUBE_VIDEO_ID}`;
-const parent = dom.createElement(TagName.DIV);
 
 function assertExtractsCorrectly(expectedVideoId, url) {
   const youtube = YoutubeModel.newInstance(url);
@@ -26,20 +19,9 @@ function assertExtractsCorrectly(expectedVideoId, url) {
 }
 testSuite({
   setUp() {
-    const model = new YoutubeModel(YOUTUBE_VIDEO_ID, 'evolution of dance');
-    control = Youtube.newControl(model);
   },
 
   tearDown() {
-    control.dispose();
-  },
-
-  testBasicRendering() {
-    control.render(parent);
-    const el = dom.getElementsByTagNameAndClass(
-        TagName.DIV, Youtube.CSS_CLASS, parent);
-    assertEquals(1, el.length);
-    assertEquals(YOUTUBE_URL, control.getDataModel().getUrl());
   },
 
   testParsingUrl() {
@@ -155,78 +137,8 @@ testSuite({
     assertUndefined(model.getCaption());
   },
 
-  testCreatingDomOnInitialState() {
-    control.render(parent);
-    const preview = dom.getElementsByTagNameAndClass(
-        TagName.IMG, Youtube.CSS_CLASS + '-thumbnail0', parent);
-    assertEquals(1, preview.length);
-
-    const caption = dom.getElementsByTagNameAndClass(
-        TagName.DIV, Youtube.CSS_CLASS + '-caption', parent);
-    assertEquals(1, caption.length);
-
-    const flash =
-        dom.getElementsByTagNameAndClass(TagName.DIV, FlashObject.CSS_CLASS);
-    assertEquals(0, flash.length);
-  },
-
-  testCreatingDomOnSelectedState() {
-    control.render(parent);
-    control.setSelected(true);
-    const preview = dom.getElementsByTagNameAndClass(
-        TagName.IMG, Youtube.CSS_CLASS + '-preview', parent);
-    assertEquals(0, preview.length);
-
-    const caption = dom.getElementsByTagNameAndClass(
-        TagName.DIV, Youtube.CSS_CLASS + '-caption', parent);
-    assertEquals(1, caption.length);
-
-    const flash = dom.getElementsByTagNameAndClass(
-        TagName.DIV, FlashObject.CSS_CLASS, parent);
-    assertEquals(1, flash.length);
-  },
-
-  testSettingSelectedStateAfterRender() {
-    control.render(parent);
-    control.setSelected(true);
-
-    let preview = dom.getElementsByTagNameAndClass(
-        TagName.IMG, Youtube.CSS_CLASS + '-preview', parent);
-    assertEquals(0, preview.length);
-
-    let caption = dom.getElementsByTagNameAndClass(
-        TagName.DIV, Youtube.CSS_CLASS + '-caption', parent);
-    assertEquals(1, caption.length);
-
-    let flash = dom.getElementsByTagNameAndClass(
-        TagName.DIV, FlashObject.CSS_CLASS, parent);
-    assertEquals(1, flash.length);
-
-    control.setSelected(false);
-
-    preview = dom.getElementsByTagNameAndClass(
-        TagName.IMG, Youtube.CSS_CLASS + '-thumbnail0', parent);
-    assertEquals(1, preview.length);
-
-    caption = dom.getElementsByTagNameAndClass(
-        TagName.DIV, Youtube.CSS_CLASS + '-caption', parent);
-    assertEquals(1, caption.length);
-
-    // setting select as false doesn't actually remove the flash movie from
-    // the DOM tree, which means that setting selected to true won't actually
-    // restart the movie. TODO(goto): fix this.
-    flash = dom.getElementsByTagNameAndClass(
-        TagName.DIV, FlashObject.CSS_CLASS, parent);
-    assertEquals(1, flash.length);
-
-    control.setSelected(true);
-
-    flash = dom.getElementsByTagNameAndClass(
-        TagName.DIV, FlashObject.CSS_CLASS, parent);
-    assertEquals(1, flash.length);
-  },
-
   testUrlMatcher() {
+    /** @suppress {visibility} suppression added to enable type checking */
     const matcher = YoutubeModel.MATCHER_;
     assertTrue(matcher.test('http://www.youtube.com/watch?v=55D-ybnYQSs'));
     assertTrue(matcher.test('https://youtube.com/watch?v=55D-ybnYQSs'));

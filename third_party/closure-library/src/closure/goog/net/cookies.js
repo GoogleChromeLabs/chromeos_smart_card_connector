@@ -10,7 +10,6 @@
 
 
 goog.provide('goog.net.Cookies');
-goog.provide('goog.net.cookies');
 
 goog.require('goog.string');
 
@@ -23,12 +22,13 @@ goog.require('goog.string');
  * @final
  */
 goog.net.Cookies = function(context) {
+  'use strict';
   /**
-  * The context document to get/set cookies on. If no document context is
-  * passed, use a fake one with only the "cookie" attribute. This allows
-  * this class to be instantiated safely in web worker environments.
-  * @private {{cookie: string}}
-  */
+   * The context document to get/set cookies on. If no document context is
+   * passed, use a fake one with only the "cookie" attribute. This allows
+   * this class to be instantiated safely in web worker environments.
+   * @private {{cookie: string}}
+   */
   this.document_ = context || {cookie: ''};
 };
 
@@ -44,11 +44,64 @@ goog.net.Cookies.MAX_COOKIE_LENGTH = 3950;
 
 
 /**
+ * The name of the test cookie to set.
+ *
+ *
+ * @private @const {string}
+ */
+goog.net.Cookies.TEST_COOKIE_NAME_ = 'TESTCOOKIESENABLED';
+
+
+/**
+ * The value of the test cookie to set.
+ * @private @const {string}
+ */
+goog.net.Cookies.TEST_COOKIE_VALUE_ = '1';
+
+
+/**
+ * Max age of the test cookie in seconds.
+ * @private @const {number}
+ */
+goog.net.Cookies.TEST_COOKIE_MAX_AGE_ = 60;
+
+
+/**
  * Returns true if cookies are enabled.
+ *
+ * navigator.cookieEnabled is an unreliable API in some browsers such as
+ * Internet Explorer. It will return true even when cookies are actually
+ * blocked. To work around this, check for the presence of cookies, or attempt
+ * to manually set and retrieve a cookie, which is the ultimate test of whether
+ * or not a browser supports cookies.
+ *
  * @return {boolean} True if cookies are enabled.
  */
 goog.net.Cookies.prototype.isEnabled = function() {
-  return navigator.cookieEnabled;
+  'use strict';
+  if (!goog.global.navigator.cookieEnabled) {
+    return false;
+  }
+
+  if (!this.isEmpty()) {
+    // There are some cookies already set for the current domain, so cookies
+    // can't be totally blocked.
+    return true;
+  }
+
+  // Try setting and reading back a cookie to see if cookies are enabled.
+  this.set(
+      goog.net.Cookies.TEST_COOKIE_NAME_, goog.net.Cookies.TEST_COOKIE_VALUE_,
+      {maxAge: goog.net.Cookies.TEST_COOKIE_MAX_AGE_});
+  if (this.get(goog.net.Cookies.TEST_COOKIE_NAME_) !==
+      goog.net.Cookies.TEST_COOKIE_VALUE_) {
+    return false;
+  }
+
+  // Clean up the test cookie.
+  this.remove(goog.net.Cookies.TEST_COOKIE_NAME_);
+
+  return true;
 };
 
 
@@ -73,6 +126,7 @@ goog.net.Cookies.prototype.isEnabled = function() {
  * @see <a href="http://tools.ietf.org/html/rfc2965">RFC 2965</a>
  */
 goog.net.Cookies.prototype.isValidName = function(name) {
+  'use strict';
   return !(/[;=\s]/.test(name));
 };
 
@@ -90,6 +144,7 @@ goog.net.Cookies.prototype.isValidName = function(name) {
  * @see <a href="http://tools.ietf.org/html/rfc2965">RFC 2965</a>
  */
 goog.net.Cookies.prototype.isValidValue = function(value) {
+  'use strict';
   return !(/[;\r\n]/.test(value));
 };
 
@@ -110,12 +165,13 @@ goog.net.Cookies.prototype.isValidValue = function(value) {
  * @param {!goog.net.Cookies.SetOptions=} options  The options object.
  */
 goog.net.Cookies.prototype.set = function(name, value, options) {
+  'use strict';
   /** @type {number|undefined} */
   let maxAge;
   /** @type {string|undefined} */
   let path;
   /** @type {string|undefined} */
-  var domain;
+  let domain;
   /** @type {boolean} */
   let secure = false;
   /** @type {!goog.net.Cookies.SameSite|undefined} */
@@ -139,11 +195,11 @@ goog.net.Cookies.prototype.set = function(name, value, options) {
     maxAge = -1;
   }
 
-  var domainStr = domain ? ';domain=' + domain : '';
-  var pathStr = path ? ';path=' + path : '';
-  var secureStr = secure ? ';secure' : '';
+  const domainStr = domain ? ';domain=' + domain : '';
+  const pathStr = path ? ';path=' + path : '';
+  const secureStr = secure ? ';secure' : '';
 
-  var expiresStr;
+  let expiresStr;
 
   // Case 1: Set a session cookie.
   if (maxAge < 0) {
@@ -156,16 +212,16 @@ goog.net.Cookies.prototype.set = function(name, value, options) {
     // Note: Don't use Jan 1, 1970 for date because NS 4.76 will try to convert
     // it to local time, and if the local time is before Jan 1, 1970, then the
     // browser will ignore the Expires attribute altogether.
-    var pastDate = new Date(1970, 1 /*Feb*/, 1);  // Feb 1, 1970
+    const pastDate = new Date(1970, 1 /*Feb*/, 1);  // Feb 1, 1970
     expiresStr = ';expires=' + pastDate.toUTCString();
 
     // Case 3: Set a persistent cookie.
   } else {
-    var futureDate = new Date(goog.now() + maxAge * 1000);
+    const futureDate = new Date(Date.now() + maxAge * 1000);
     expiresStr = ';expires=' + futureDate.toUTCString();
   }
 
-  var sameSiteStr = sameSite != null ? ';samesite=' + sameSite : '';
+  const sameSiteStr = sameSite != null ? ';samesite=' + sameSite : '';
 
   this.setCookie_(
       name + '=' + value + domainStr + pathStr + expiresStr + secureStr +
@@ -181,9 +237,10 @@ goog.net.Cookies.prototype.set = function(name, value, options) {
  *     returns opt_default or undefined if opt_default is not provided.
  */
 goog.net.Cookies.prototype.get = function(name, opt_default) {
-  var nameEq = name + '=';
-  var parts = this.getParts_();
-  for (var i = 0, part; i < parts.length; i++) {
+  'use strict';
+  const nameEq = name + '=';
+  const parts = this.getParts_();
+  for (let i = 0, part; i < parts.length; i++) {
     part = goog.string.trim(parts[i]);
     // startsWith
     if (part.lastIndexOf(nameEq, 0) == 0) {
@@ -208,7 +265,8 @@ goog.net.Cookies.prototype.get = function(name, opt_default) {
  * @return {boolean} Whether the cookie existed before it was removed.
  */
 goog.net.Cookies.prototype.remove = function(name, opt_path, opt_domain) {
-  var rv = this.containsKey(name);
+  'use strict';
+  const rv = this.containsKey(name);
   this.set(name, '', {maxAge: 0, path: opt_path, domain: opt_domain});
   return rv;
 };
@@ -219,6 +277,7 @@ goog.net.Cookies.prototype.remove = function(name, opt_path, opt_domain) {
  * @return {!Array<string>} An array with the names of the cookies.
  */
 goog.net.Cookies.prototype.getKeys = function() {
+  'use strict';
   return this.getKeyValues_().keys;
 };
 
@@ -228,6 +287,7 @@ goog.net.Cookies.prototype.getKeys = function() {
  * @return {!Array<string>} An array with the values of the cookies.
  */
 goog.net.Cookies.prototype.getValues = function() {
+  'use strict';
   return this.getKeyValues_().values;
 };
 
@@ -236,6 +296,7 @@ goog.net.Cookies.prototype.getValues = function() {
  * @return {boolean} Whether there are any cookies for this document.
  */
 goog.net.Cookies.prototype.isEmpty = function() {
+  'use strict';
   return !this.getCookie_();
 };
 
@@ -244,7 +305,8 @@ goog.net.Cookies.prototype.isEmpty = function() {
  * @return {number} The number of cookies for this document.
  */
 goog.net.Cookies.prototype.getCount = function() {
-  var cookie = this.getCookie_();
+  'use strict';
+  const cookie = this.getCookie_();
   if (!cookie) {
     return 0;
   }
@@ -258,6 +320,7 @@ goog.net.Cookies.prototype.getCount = function() {
  * @return {boolean} Whether there is a cookie by that name.
  */
 goog.net.Cookies.prototype.containsKey = function(key) {
+  'use strict';
   // substring will return empty string if the key is not found, so the get
   // function will only return undefined
   return this.get(key) !== undefined;
@@ -271,9 +334,10 @@ goog.net.Cookies.prototype.containsKey = function(key) {
  * @return {boolean} Whether there is a cookie with that value.
  */
 goog.net.Cookies.prototype.containsValue = function(value) {
+  'use strict';
   // this O(n) in any case so lets do the trivial thing.
-  var values = this.getKeyValues_().values;
-  for (var i = 0; i < values.length; i++) {
+  const values = this.getKeyValues_().values;
+  for (let i = 0; i < values.length; i++) {
     if (values[i] == value) {
       return true;
     }
@@ -288,8 +352,9 @@ goog.net.Cookies.prototype.containsValue = function(value) {
  * subpath and/or another domain these will still be there.
  */
 goog.net.Cookies.prototype.clear = function() {
-  var keys = this.getKeyValues_().keys;
-  for (var i = keys.length - 1; i >= 0; i--) {
+  'use strict';
+  const keys = this.getKeyValues_().keys;
+  for (let i = keys.length - 1; i >= 0; i--) {
     this.remove(keys[i]);
   }
 };
@@ -302,6 +367,7 @@ goog.net.Cookies.prototype.clear = function() {
  * @private
  */
 goog.net.Cookies.prototype.setCookie_ = function(s) {
+  'use strict';
   this.document_.cookie = s;
 };
 
@@ -313,6 +379,7 @@ goog.net.Cookies.prototype.setCookie_ = function(s) {
  * @private
  */
 goog.net.Cookies.prototype.getCookie_ = function() {
+  'use strict';
   return this.document_.cookie;
 };
 
@@ -322,6 +389,7 @@ goog.net.Cookies.prototype.getCookie_ = function() {
  * @private
  */
 goog.net.Cookies.prototype.getParts_ = function() {
+  'use strict';
   return (this.getCookie_() || '').split(';');
 };
 
@@ -333,9 +401,13 @@ goog.net.Cookies.prototype.getParts_ = function() {
  * @private
  */
 goog.net.Cookies.prototype.getKeyValues_ = function() {
-  var parts = this.getParts_();
-  var keys = [], values = [], index, part;
-  for (var i = 0; i < parts.length; i++) {
+  'use strict';
+  const parts = this.getParts_();
+  const keys = [];
+  const values = [];
+  let index;
+  let part;
+  for (let i = 0; i < parts.length; i++) {
     part = goog.string.trim(parts[i]);
     index = part.indexOf('=');
 
@@ -356,6 +428,7 @@ goog.net.Cookies.prototype.getKeyValues_ = function() {
  * @record
  */
 goog.net.Cookies.SetOptions = function() {
+  'use strict';
   /**
    * The max age in seconds (from now). Use -1 to set a session cookie. If not
    * provided, the default is -1 (i.e. set a session cookie).
@@ -415,21 +488,19 @@ goog.net.Cookies.SameSite = {
   STRICT: 'strict',
 };
 
-
-// TODO(closure-team): This should be a singleton getter instead of a static
-// instance.
 /**
  * A static default instance.
  * @const {!goog.net.Cookies}
+ * @private
  */
-goog.net.cookies =
+goog.net.Cookies.instance_ =
     new goog.net.Cookies(typeof document == 'undefined' ? null : document);
-
 
 /**
  * Getter for the static instance of goog.net.Cookies.
  * @return {!goog.net.Cookies}
  */
 goog.net.Cookies.getInstance = function() {
-  return goog.net.cookies;
+  'use strict';
+  return goog.net.Cookies.instance_;
 };

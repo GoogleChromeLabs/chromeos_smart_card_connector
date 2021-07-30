@@ -72,6 +72,7 @@ function getSampleTest() {
 
 let testObj;
 
+/** @suppress {undefinedVars} waitForTimeout is an exported function */
 function handleTimeout() {
   testObj.steps++;
   assertEquals('handleTimeout should be called first.', 1, testObj.steps);
@@ -127,10 +128,16 @@ testCase.setTestObj({
     clock.uninstall();
     stubs.reset();
 
-    waitForTimeout(() => {
-      // Pointless assertion to verify that tearDown methods can contain waits.
-      assertTrue(testCase.now() >= testCase.startTime_);
-    }, 0);
+    waitForTimeout(/**
+                      @suppress {visibility} suppression added to enable type
+                      checking
+                    */
+                   () => {
+                     // Pointless assertion to verify that tearDown methods can
+                     // contain waits.
+                     assertTrue(testCase.now() >= testCase.startTime_);
+                   },
+                   0);
   },
 
   testStepWaiting() {
@@ -232,6 +239,7 @@ testCase.setTestObj({
     assertEquals('teardown', test.getCurrentPhase()[0].name);
   },
 
+  /** @suppress {undefinedVars} waitForTimeout is an exported function */
   testWaitForTimeout() {
     let reachedA = false;
     let reachedB = false;
@@ -266,6 +274,7 @@ testCase.setTestObj({
     assertFalse('c', reachedC);
   },
 
+  /** @suppress {undefinedVars} waitForCondition is exported */
   testWaitForEvent() {
     const et = new GoogEventTarget();
 
@@ -282,6 +291,7 @@ testCase.setTestObj({
     et.dispatchEvent('testPrefire');
   },
 
+  /** @suppress {undefinedVars} waitForCondition is exported */
   testWaitForCondition() {
     let counter = 0;
 

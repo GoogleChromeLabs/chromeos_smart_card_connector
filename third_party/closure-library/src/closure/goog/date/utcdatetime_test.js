@@ -14,6 +14,7 @@ const testSuite = goog.require('goog.testing.testSuite');
 const weekDay = goog.require('goog.date.weekDay');
 
 testSuite({
+  /** @suppress {checkTypes} suppression added to enable type checking */
   testConstructor() {
     goog.now = () => new Date(2001, 2, 3, 4).getTime();
 
@@ -95,6 +96,17 @@ testSuite({
     const dateTime = UtcDateTime.fromIsoString(dateTimeString);
     exp = new UtcDateTime(2000, month.JAN, 2, 3, 4, 5);
     assertTrue('parsed ISO date/time', exp.equals(dateTime));
+
+    const dateTimeZoneString = '2089-01-02 03:04:05Z';
+    const dateTimeZone = UtcDateTime.fromIsoString(dateTimeZoneString);
+    exp = new UtcDateTime(2089, month.JAN, 2, 3, 4, 5);
+    assertTrue('parsed ISO date/time', exp.equals(dateTimeZone));
+
+    const dateTimeZoneString2 = '0089-01-02 03:04:05Z';
+    const dateTimeZone2 = UtcDateTime.fromIsoString(dateTimeZoneString2);
+    exp = new UtcDateTime(489, month.JAN, 2, 3, 4, 5);
+    exp.setUTCFullYear(89);
+    assertTrue('parsed ISO date/time', exp.equals(dateTimeZone2));
   },
 
   testToIsoString() {

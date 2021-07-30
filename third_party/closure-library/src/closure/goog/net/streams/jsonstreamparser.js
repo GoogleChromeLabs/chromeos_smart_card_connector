@@ -40,7 +40,8 @@ goog.require('goog.net.streams.utils');
 goog.scope(function() {
 
 
-var utils = goog.module.get('goog.net.streams.utils');
+'use strict';
+const utils = goog.module.get('goog.net.streams.utils');
 
 
 /**
@@ -54,6 +55,7 @@ var utils = goog.module.get('goog.net.streams.utils');
  * @final
  */
 goog.net.streams.JsonStreamParser = function(opt_options) {
+  'use strict';
   /**
    * The current error message, if any.
    * @private {?string}
@@ -146,7 +148,7 @@ goog.net.streams.JsonStreamParser = function(opt_options) {
 goog.net.streams.JsonStreamParser.Options;
 
 
-var Parser = goog.net.streams.JsonStreamParser;
+const Parser = goog.net.streams.JsonStreamParser;
 
 
 /**
@@ -194,6 +196,7 @@ Parser.State_ = {
  * @override
  */
 Parser.prototype.isInputValid = function() {
+  'use strict';
   return this.streamState_ != Parser.StreamState_.INVALID;
 };
 
@@ -202,6 +205,7 @@ Parser.prototype.isInputValid = function() {
  * @override
  */
 Parser.prototype.getErrorMessage = function() {
+  'use strict';
   return this.errorMessage_;
 };
 
@@ -212,6 +216,7 @@ Parser.prototype.getErrorMessage = function() {
  * TODO(updogliu): move this API to the base type.
  */
 Parser.prototype.done = function() {
+  'use strict';
   return this.streamState_ === Parser.StreamState_.ARRAY_END;
 };
 
@@ -225,6 +230,7 @@ Parser.prototype.done = function() {
  * TODO(updogliu): move this API to the base type.
  */
 Parser.prototype.getExtraInput = function() {
+  'use strict';
   return this.buffer_;
 };
 
@@ -237,33 +243,42 @@ Parser.prototype.getExtraInput = function() {
  * @private
  */
 Parser.prototype.error_ = function(input, pos) {
+  'use strict';
   this.streamState_ = Parser.StreamState_.INVALID;
   this.errorMessage_ = 'The stream is broken @' + this.pos_ + '/' + pos +
       '. With input:\n' + input;
   throw new Error(this.errorMessage_);
 };
 
+/**
+ * @override
+ * @return {boolean}
+ */
+Parser.prototype.acceptsBinaryInput = function() {
+  return false;
+};
 
 /**
  * @throws {Error} Throws an error message if the input is invalid.
  * @override
  */
 Parser.prototype.parse = function(input) {
+  'use strict';
   goog.asserts.assertString(input);
 
   // captures
-  var parser = this;
-  var stack = parser.stack_;
-  var pattern = parser.stringInputPattern_;
-  var State = Parser.State_;  // enums
+  const parser = this;
+  const stack = parser.stack_;
+  const pattern = parser.stringInputPattern_;
+  const State = Parser.State_;  // enums
 
-  var num = input.length;
+  const num = input.length;
 
-  var streamStart = 0;
+  let streamStart = 0;
 
-  var msgStart = -1;
+  let msgStart = -1;
 
-  var i = 0;
+  let i = 0;
 
   while (i < num) {
     switch (parser.streamState_) {
@@ -279,7 +294,7 @@ Parser.prototype.parse = function(input) {
 
       case Parser.StreamState_.INIT:
         if (readMore()) {
-          var current = input[i++];
+          const current = input[i++];
           parser.pos_++;
 
           if (current === '[') {
@@ -310,7 +325,7 @@ Parser.prototype.parse = function(input) {
         }
 
         if (parser.result_.length > 0) {
-          var msgs = parser.result_;
+          const msgs = parser.result_;
           parser.result_ = [];
           return msgs;
         }
@@ -347,7 +362,7 @@ Parser.prototype.parse = function(input) {
    * Parse the input JSON elements with a streamed state machine.
    */
   function parseData() {
-    var current;
+    let current;
 
     while (true) {
       current = input[i++];
@@ -485,7 +500,7 @@ Parser.prototype.parse = function(input) {
           continue;
 
         case State.STRING:
-          var old = i;
+          const old = i;
 
           STRING_LOOP: while (true) {
             while (parser.unicodeCount_ > 0) {
@@ -525,7 +540,7 @@ Parser.prototype.parse = function(input) {
             }
 
             pattern.lastIndex = i;
-            var patternResult = pattern.exec(input);
+            const patternResult = pattern.exec(input);
             if (!patternResult) {
               i = input.length + 1;
               break;
@@ -680,7 +695,7 @@ Parser.prototype.parse = function(input) {
    *    from the stack, or the general VALUE state.
    */
   function nextState() {
-    var state = stack.pop();
+    const state = stack.pop();
     if (state != null) {
       return state;
     } else {
@@ -715,5 +730,4 @@ Parser.prototype.parse = function(input) {
     msgStart = i;
   }
 };
-
 });  // goog.scope

@@ -75,6 +75,11 @@ testSuite({
   testNumericValueToString() {
     const numericValueToString = format.numericValueToString;
 
+    assertEquals('Infinity', numericValueToString(Infinity));
+    assertEquals('Infinity', numericValueToString(1.8e+309));
+    assertEquals('-Infinity', numericValueToString(-Infinity));
+    assertEquals('-Infinity', numericValueToString(-1.8e309));
+
     assertEquals('0', numericValueToString(0.0));
     assertEquals('45', numericValueToString(45));
     assertEquals('454', numericValueToString(454));
@@ -110,6 +115,10 @@ testSuite({
     assertEquals('-45', numericValueToString(-45.3, 0));
     assertEquals('-45', numericValueToString(-45.5, 0));
     assertEquals('-46', numericValueToString(-45.51, 0));
+
+    assertEquals('300K', numericValueToString(3e5));
+    assertEquals('700K', numericValueToString(7E+5));
+    assertEquals('30u', numericValueToString(3e-5));
   },
 
   testFormatNumBytes() {
@@ -136,6 +145,12 @@ testSuite({
     const epsilon = Math.pow(10, -10);
 
     assertNaN(stringToNumericValue('foo'));
+    assertNaN(stringToNumericValue('3E5E6'));
+
+    assertEquals(Infinity, stringToNumericValue('Infinity'));
+    assertEquals(Infinity, stringToNumericValue('2E+1000'));
+    assertEquals(-Infinity, stringToNumericValue('-Infinity'));
+    assertEquals(-Infinity, stringToNumericValue('-4E+1000'));
 
     assertEquals(45, stringToNumericValue('45'));
     assertEquals(-45, stringToNumericValue('-45'));
@@ -151,6 +166,10 @@ testSuite({
     assertEquals(5100000, stringToNumericValue('5.1M'));
     assertTrue(Math.abs(0.051 - stringToNumericValue('51.0m')) < epsilon);
     assertTrue(Math.abs(0.000051 - stringToNumericValue('51.0u')) < epsilon);
+
+    assertEquals(0.00003, stringToNumericValue('3e-5'));
+    assertEquals(300000, stringToNumericValue('3e5'));
+    assertEquals(700000, stringToNumericValue('7E+5'));
   },
 
   testStringToNumBytes() {
@@ -299,8 +318,8 @@ testSuite({
     const wbrEl = dom.createDom(
         TagName.DIV,
         {'style': 'width: 100px; overflow: hidden; margin-top: 15px'});
-    dom.appendChild(goog.global.document.body, overflowEl);
-    dom.appendChild(goog.global.document.body, wbrEl);
+    dom.appendChild(globalThis.document.body, overflowEl);
+    dom.appendChild(globalThis.document.body, wbrEl);
 
     overflowEl.innerHTML = text;
     wbrEl.innerHTML = textWbr;

@@ -24,6 +24,7 @@ goog.require('goog.style');
 goog.require('goog.ui.editor.messages');
 goog.require('goog.uri.utils');
 goog.require('goog.window');
+goog.requireType('goog.events.BrowserEvent');
 
 
 
@@ -43,7 +44,7 @@ goog.editor.plugins.LinkBubble = function(var_args) {
    * @type {Array<!goog.editor.plugins.LinkBubble.Action>}
    * @private
    */
-  this.extraActions_ = goog.array.toArray(arguments);
+  this.extraActions_ = Array.prototype.slice.call(arguments);
 
   /**
    * List of spans corresponding to the extra actions.
@@ -371,7 +372,10 @@ goog.editor.plugins.LinkBubble.prototype.handleSelectionChangeInternal =
 };
 
 
-/** @override */
+/**
+ * @override
+ * @suppress {missingProperties} dom_ isn't declared
+ */
 goog.editor.plugins.LinkBubble.prototype.createBubbleContents = function(
     bubbleContainer) {
   'use strict';
@@ -556,6 +560,7 @@ goog.editor.plugins.LinkBubble.prototype.deleteLink_ = function(e) {
  * Sets the proper state for the action links.
  * @protected
  * @override
+ * @suppress {missingProperties} dom_ is not declared
  */
 goog.editor.plugins.LinkBubble.prototype.onShow = function() {
   'use strict';
