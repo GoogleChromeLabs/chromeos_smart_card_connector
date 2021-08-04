@@ -38,6 +38,26 @@ const suppressUnhandledRejectionError =
     GSC.PromiseHelpers.suppressUnhandledRejectionError;
 
 /**
+ * This structure is used to store the jobs in a queue.
+ * @struct
+ */
+class Job {
+/**
+ * @param {function()} jobFunction The job function that needs to be executed.
+ * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
+ * resolve it) which should be used for returning the job result.
+ */
+constructor(jobFunction, promiseResolver) {
+  /** @const */
+  this.jobFunction = jobFunction;
+  /** @const */
+  this.promiseResolver = promiseResolver;
+}
+}
+
+const logger = GSC.Logging.getScopedLogger('DeferredProcessor');
+
+/**
  * This class can be used to organize a processing of jobs that is deferred
  * until the specified promise is resolved.
  *
@@ -56,12 +76,14 @@ const suppressUnhandledRejectionError =
  *
  * Note that the class supports nested use cases: the addJob() method is safe to
  * be called from inside another job.
- * @param {!goog.Promise} awaitedPromise
- * @constructor
- * @extends goog.Disposable
  */
-GSC.DeferredProcessor = function(awaitedPromise) {
-  DeferredProcessor.base(this, 'constructor');
+GSC.DeferredProcessor = class extends goog.Disposable {
+
+/**
+ * @param {!goog.Promise} awaitedPromise
+ */
+constructor(awaitedPromise) {
+  super();
 
   /**
    * This flag gets true once the awaited promise is resolved, or once the self
@@ -85,28 +107,6 @@ GSC.DeferredProcessor = function(awaitedPromise) {
   awaitedPromise.then(
       this.promiseResolvedListener_.bind(this),
       this.promiseRejectedListener_.bind(this));
-};
-
-const DeferredProcessor = GSC.DeferredProcessor;
-
-goog.inherits(DeferredProcessor, goog.Disposable);
-
-DeferredProcessor.prototype.logger =
-    GSC.Logging.getScopedLogger('DeferredProcessor');
-
-/**
- * This structure is used to store the jobs in a queue.
- * @param {function()} jobFunction The job function that needs to be executed.
- * @param {!goog.promise.Resolver} promiseResolver The promise (with methods to
- * resolve it) which should be used for returning the job result.
- * @constructor
- * @struct
- */
-function Job(jobFunction, promiseResolver) {
-  /** @const */
-  this.jobFunction = jobFunction;
-  /** @const */
-  this.promiseResolver = promiseResolver;
 }
 
 /**
@@ -121,7 +121,7 @@ function Job(jobFunction, promiseResolver) {
  * @param {function()} jobFunction
  * @return {!goog.Promise}
  */
-DeferredProcessor.prototype.addJob = function(jobFunction) {
+addJob(jobFunction) {
   // Enqueue the job regardless of the state. This allows to deal nicely with
   // the nested cases.
   const promiseResolver = goog.Promise.withResolver();
@@ -130,40 +130,40 @@ DeferredProcessor.prototype.addJob = function(jobFunction) {
   if (this.isSettled_)
     this.flushEnqueuedJobs_();
   return promiseResolver.promise;
-};
+}
 
 /** @override */
-DeferredProcessor.prototype.disposeInternal = function() {
+disposeInternal() {
   this.isSettled_ = true;
   this.flushEnqueuedJobs_();
 
-  goog.log.fine(this.logger, 'Disposed');
+  goog.log.fine(logger, 'Disposed');
 
-  DeferredProcessor.base(this, 'disposeInternal');
-};
+  super.disposeInternal();
+}
 
 /** @private */
-DeferredProcessor.prototype.promiseResolvedListener_ = function() {
+promiseResolvedListener_() {
   if (this.isDisposed())
     return;
   if (this.isSettled_)
     return;
   this.isSettled_ = true;
-  goog.log.fine(this.logger, 'The awaited promise was resolved');
+  goog.log.fine(logger, 'The awaited promise was resolved');
   this.flushEnqueuedJobs_();
-};
+}
 
 /** @private */
-DeferredProcessor.prototype.promiseRejectedListener_ = function() {
+promiseRejectedListener_() {
   if (this.isDisposed())
     return;
-  goog.log.fine(this.logger, 'The awaited promise was rejected, disposing...');
+  goog.log.fine(logger, 'The awaited promise was rejected, disposing...');
   this.dispose();
-};
+}
 
 /** @private */
-DeferredProcessor.prototype.flushEnqueuedJobs_ = function() {
-  GSC.Logging.checkWithLogger(this.logger, this.isSettled_);
+flushEnqueuedJobs_() {
+  GSC.Logging.checkWithLogger(logger, this.isSettled_);
 
   // Use a flag to prevent nested loops of jobs flushing.
   if (this.isCurrentlyFlushingJobs_) {
@@ -194,7 +194,12 @@ DeferredProcessor.prototype.flushEnqueuedJobs_ = function() {
     }
   }
 
-  GSC.Logging.checkWithLogger(this.logger, this.isCurrentlyFlushingJobs_);
+  GSC.Logging.checkWithLogger(logger, this.isCurrentlyFlushingJobs_);
   this.isCurrentlyFlushingJobs_ = false;
+}
+
 };
+
+GSC.DeferredProcessor.logger = logger;
+
 });  // goog.scope
