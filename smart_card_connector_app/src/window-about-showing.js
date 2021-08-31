@@ -46,7 +46,7 @@ const openAboutElement =
 function openAboutClickListener(e) {
   e.preventDefault();
 
-  chrome.app.window.create(ABOUT_WINDOW_URL, ABOUT_WINDOW_OPTIONS);
+  chrome.windows.create({url: ABOUT_WINDOW_URL, type: "popup", width: 700, height: 500});
 }
 
 GSC.ConnectorApp.Window.AboutShowing.initialize = function() {

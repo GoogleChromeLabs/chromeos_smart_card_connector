@@ -46,12 +46,13 @@ const logger = GSC.Logging.getLogger(
 
 goog.log.info(logger, 'The main window is created');
 
+//#revisitcode
 // Obtain the message channel that is used for communication with the executable
 // module.
-const executableModuleMessageChannel =
-    /** @type {!goog.messaging.MessageChannel} */
-    (GSC.ObjectHelpers.extractKey(
-        GSC.PopupWindow.Client.getData(), 'executableModuleMessageChannel'));
+// const executableModuleMessageChannel =
+//     /** @type {!goog.messaging.MessageChannel} */
+//     (GSC.ObjectHelpers.extractKey(
+//          GSC.PopupWindow.Client.getData(), 'executableModuleMessageChannel'));
 
 // Load the localized strings into the HTML elements.
 GSC.I18n.adjustAllElementsTranslation();
@@ -59,15 +60,15 @@ GSC.I18n.adjustAllElementsTranslation();
 // Called when the "close" button is clicked. Closes the window.
 function onCloseWindowClicked(e) {
   e.preventDefault();
-  chrome.app.window.current().close();
+  // chrome.app.window.current().close();
 }
 
 // Called when the "run test" button is clicked. Sends a command to the
 // executable module to start the test.
-function onRunTestClicked(e) {
-  e.preventDefault();
-  executableModuleMessageChannel.send('ui_backend', {command: 'run_test'});
-}
+// function onRunTestClicked(e) {
+//   e.preventDefault();
+//   executableModuleMessageChannel.send('ui_backend', {command: 'run_test'});
+// }
 
 // Called when a "output_message" message is received from the executable
 // module. Adds a line into the "output" <pre> element in the UI.
@@ -76,30 +77,34 @@ function displayOutputMessage(text) {
   outputElem.innerHTML = outputElem.innerHTML + text + '\n';
 }
 
+//revisitcode
 // Set up UI event listeners.
-goog.events.listen(
-    goog.dom.getElement('close-window'), goog.events.EventType.CLICK,
-    onCloseWindowClicked);
-goog.events.listen(
-    goog.dom.getElement('run-test'), goog.events.EventType.CLICK,
-    onRunTestClicked);
+// goog.events.listen(
+//     goog.dom.getElement('close-window'), goog.events.EventType.CLICK,
+//     onCloseWindowClicked);
+// goog.events.listen(
+//     goog.dom.getElement('run-test'), goog.events.EventType.CLICK,
+//     onRunTestClicked);
 
+//revisitcode
 // Handle messages from the executable module.
-executableModuleMessageChannel.registerService('ui', (payload) => {
-  //
-  // CHANGE HERE:
-  // Place your custom code here:
-  //
+// executableModuleMessageChannel.registerService('ui', (payload) => {
+//   //
+//   // CHANGE HERE:
+//   // Place your custom code here:
+//   //
 
-  if (payload['output_message'])
-    displayOutputMessage(payload['output_message']);
-}, /*opt_objectPayload=*/ true);
+//   if (payload['output_message'])
+//     displayOutputMessage(payload['output_message']);
+// }, /*opt_objectPayload=*/ true);
 
+//#revisitcode
 // Unregister from receiving messages from the module when our window is closed.
-chrome.app.window.current().onClosed.addListener(() => {
-  executableModuleMessageChannel.registerService('ui', () => {});
-});
+// chrome.app.window.current().onClosed.addListener(() => {
+//   executableModuleMessageChannel.registerService('ui', () => {});
+// });
 
 // Show the window, after all the initialization above has been done.
-GSC.PopupWindow.Client.showWindow();
+// GSC.PopupWindow.Client.showWindow();
+
 });  // goog.scope

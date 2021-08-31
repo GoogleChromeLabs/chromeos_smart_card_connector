@@ -45,19 +45,21 @@ const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
 goog.log.info(logger, 'The main window is created');
 
-goog.events.listen(
-    goog.dom.getElement('close-window'), goog.events.EventType.CLICK,
-    closeWindowClickListener);
+//revisitcode
+// goog.events.listen(
+//     goog.dom.getElement('close-window'), goog.events.EventType.CLICK,
+//     closeWindowClickListener);
 
+//revisitcode
 GSC.ConnectorApp.Window.AboutShowing.initialize();
-GSC.ConnectorApp.Window.AppsDisplaying.initialize();
-GSC.ConnectorApp.Window.DevicesDisplaying.initialize();
+// GSC.ConnectorApp.Window.AppsDisplaying.initialize();
+// GSC.ConnectorApp.Window.DevicesDisplaying.initialize();
 GSC.ConnectorApp.Window.HelpShowing.initialize();
 GSC.ConnectorApp.Window.LogsExporting.initialize();
 
 GSC.I18n.adjustAllElementsTranslation();
 
-GSC.PopupWindow.Client.showWindow();
+// GSC.PopupWindow.Client.showWindow();
 
 displayNonChromeOsWarningIfNeeded();
 
