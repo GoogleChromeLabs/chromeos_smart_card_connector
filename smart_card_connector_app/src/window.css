@@ -30,6 +30,12 @@ button {
   font-weight: 400;
 }
 
+html,
+body {
+  width: 530px;
+  height: 430px;
+}
+
 body {
   margin: 0;
   padding: 0 0 0 16px;

@@ -50,13 +50,14 @@ GSC.PopupWindow.Client.getData = function() {
   return goog.object.get(window, 'passedData', {});
 };
 
+//#revisitcode
 /**
  * Shows the window.
  */
-GSC.PopupWindow.Client.showWindow = function() {
-  goog.log.fine(logger, 'Showing the window...');
-  chrome.app.window.current().show();
-};
+// GSC.PopupWindow.Client.showWindow = function() {
+//   logger.fine('Showing the window...');
+//   chrome.app.window.current().show();
+// };
 
 /**
  * Resolves the modal dialog, passing the specified result to the caller in the
@@ -99,7 +100,7 @@ GSC.PopupWindow.Client.prepareAndShowAsModalDialog = function() {
   GSC.PopupWindow.Client.setWindowHeightToFitContent();
   GSC.PopupWindow.Client.setupClosingOnEscape();
   GSC.PopupWindow.Client.setupRejectionOnWindowClose();
-  GSC.PopupWindow.Client.showWindow();
+  // GSC.PopupWindow.Client.showWindow();
 };
 
 /**
