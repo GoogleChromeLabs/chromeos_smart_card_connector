@@ -35,6 +35,9 @@ CONFIG ?= Release
 # Supported values: "pnacl" (Portable Native Client; default), "emscripten"
 # (Emscripten/WebAssembly).
 TOOLCHAIN ?= pnacl
+# Build parameter that specifies the packaging type. Supported values: "app"
+# (default), "extension".
+PACKAGING ?= app
 
 
 #

@@ -44,7 +44,8 @@ include $(THIRD_PARTY_DIR_PATH)/closure-library/include.mk
 
 JS_BUILD_DIR_ROOT_PATH := js_build
 
-JS_BUILD_DIR_PATH := $(JS_BUILD_DIR_ROOT_PATH)/$(TOOLCHAIN)_$(CONFIG)
+JS_BUILD_DIR_PATH := \
+	$(JS_BUILD_DIR_ROOT_PATH)/$(PACKAGING)_$(TOOLCHAIN)_$(CONFIG)
 
 $(JS_BUILD_DIR_PATH):
 	@mkdir -p $(JS_BUILD_DIR_PATH)
@@ -106,6 +107,7 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--compilation_level=SIMPLE \
 	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
+	--define='GoogleSmartCard.Packaging.PACKAGING=$(PACKAGING)' \
 	--dependency_mode=PRUNE \
 	--jscomp_error='*' \
 	--jscomp_off deprecated \
