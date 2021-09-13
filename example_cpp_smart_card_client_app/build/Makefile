@@ -21,7 +21,7 @@ include $(COMMON_DIR_PATH)/make/js_building_common.mk
 
 include $(COMMON_DIR_PATH)/js/include.mk
 
-include $(COMMON_DIR_PATH)/make/app_building_common.mk
+include $(COMMON_DIR_PATH)/make/packaging_common.mk
 
 include $(COMMON_DIR_PATH)/make/executable_module_recursive_build.mk
 

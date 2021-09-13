@@ -21,7 +21,7 @@ include $(COMMON_DIR_PATH)/make/js_building_common.mk
 
 include $(COMMON_DIR_PATH)/js/include.mk
 
-include $(COMMON_DIR_PATH)/make/app_building_common.mk
+include $(COMMON_DIR_PATH)/make/packaging_common.mk
 
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/js_client/include.mk
 include $(THIRD_PARTY_DIR_PATH)/pcsc-lite/naclport/js_demo/include.mk
