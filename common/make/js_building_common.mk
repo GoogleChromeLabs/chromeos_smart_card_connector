@@ -38,8 +38,9 @@ include $(THIRD_PARTY_DIR_PATH)/closure-library/include.mk
 # copying to the out directory (this is separate from the out directory, because
 # the latter is cleared on each rebuild).
 #
-# Note that the directory depends on both TOOLCHAIN and CONFIG variables, so
-# that JavaScript files from different build configurations aren't mixed up.
+# Note that the directory depends on all make variables that affect code
+# generation (PACKAGING, TOOLCHAIN, CONFIG), so that JavaScript files from
+# different build configurations aren't mixed up.
 #
 
 JS_BUILD_DIR_ROOT_PATH := js_build
