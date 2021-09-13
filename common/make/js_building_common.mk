@@ -107,7 +107,7 @@ JS_BUILD_COMPILATION_FLAGS += \
 	--compilation_level=SIMPLE \
 	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
-	--define='GoogleSmartCard.Packaging.PACKAGING=$(PACKAGING)' \
+	--define='GoogleSmartCard.Packaging.MODE=$(PACKAGING)' \
 	--dependency_mode=PRUNE \
 	--jscomp_error='*' \
 	--jscomp_off deprecated \
