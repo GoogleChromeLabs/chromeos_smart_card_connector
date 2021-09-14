@@ -28,6 +28,7 @@ goog.require('GoogleSmartCard.MessageChannelPair');
 goog.require('GoogleSmartCard.MessageChannelPool');
 goog.require('GoogleSmartCard.MessagingCommon');
 goog.require('GoogleSmartCard.NaclModule');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ClientHandler');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.ReadinessTracker');
@@ -135,7 +136,11 @@ const readerTracker = new GSC.PcscLiteServer.ReaderTracker(
 
 executableModule.startLoading();
 
-chrome.app.runtime.onLaunched.addListener(launchedListener);
+// Launching is only possible for an app; in case of the extension packaging
+// mode, the user should click on the browser action icon next to the address
+// bar.
+if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP)
+  chrome.app.runtime.onLaunched.addListener(launchedListener);
 
 chrome.runtime.onConnect.addListener(connectionListener);
 chrome.runtime.onConnectExternal.addListener(externalConnectionListener);
