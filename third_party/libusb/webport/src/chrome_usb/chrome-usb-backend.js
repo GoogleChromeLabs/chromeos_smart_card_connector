@@ -43,6 +43,10 @@ const GSC = GoogleSmartCard;
 const debugDump = GSC.DebugDump.debugDump;
 const RemoteCallMessage = GSC.RemoteCallMessage;
 
+function isUsbApiAvailable() {
+  return chrome !== undefined && chrome.usb !== undefined;
+}
+
 /**
  * This class implements handling of requests received from libusb NaCl port,
  * which is performed by executing the corresponding chrome.usb API methods and
@@ -51,6 +55,12 @@ const RemoteCallMessage = GSC.RemoteCallMessage;
  * @constructor
  */
 GSC.Libusb.ChromeUsbBackend = function(naclModuleMessageChannel) {
+  if (!isUsbApiAvailable()) {
+    goog.log.warning(
+        this.logger,
+        'The USB API is not available. All USB requests will silently fail.');
+  }
+
   // Note: the request receiver instance is not stored anywhere, as it makes
   // itself being owned by the message channel.
   new GSC.RequestReceiver(
@@ -119,6 +129,11 @@ ChromeUsbBackend.prototype.startProcessingEvents = function() {
 
 /** @private */
 ChromeUsbBackend.prototype.startObservingDevices_ = function() {
+  if (!isUsbApiAvailable()) {
+    // No event listeners are possible as the USB API is unavailable. No need to
+    // log errors here, since this was already done in the constructor.
+    return;
+  }
   chrome.usb.onDeviceAdded.addListener(this.deviceAddedListener_.bind(this));
   chrome.usb.onDeviceRemoved.addListener(
       this.deviceRemovedListener_.bind(this));
@@ -191,6 +206,12 @@ ChromeUsbBackend.prototype.processRequest_ = function(payload) {
       'chrome.usb.' + remoteCallMessage.getDebugRepresentation();
   goog.log.fine(
       this.logger, 'Received a remote call request: ' + debugRepresentation);
+
+  if (!isUsbApiAvailable()) {
+    // No function call is possible as the USB API is unavailable. No need to
+    // log errors here, since this was already done in the constructor.
+    return goog.Promise.reject(new Error('USB API unavailable'));
+  }
 
   const promiseResolver = goog.Promise.withResolver();
 
