@@ -14,7 +14,8 @@
 
 
 #
-# This file contains some helper definitions for building Chrome Apps.
+# This file contains some helper definitions for building Chrome
+# Apps/Extensions.
 #
 # common.mk must be included before including this file.
 #
@@ -54,17 +55,18 @@ $(eval $(call CLEAN_RULE,$(APP_RUN_USER_DATA_DIR_PATH)))
 
 
 #
-# Special "package" target that creates a packaged App .CRX file and a .ZIP
-# archive suitable for uploading at Chrome WebStore (see
+# Special "package" target that creates a packaged App/Extension .CRX file and a
+# .ZIP archive suitable for uploading at Chrome WebStore (see
 # <https://developer.chrome.com/webstore/publish>).
 #
-# The ID of the generated App packaged in the .CRX file is controlled by the
-# private key .P8 file. The P8 file, if missing, is automatically generated with
-# some random contents - so, in order to keep ID the same, the P8 file should be
-# preserved.
+# The ID of the generated App/Extension packaged in the .CRX file is controlled
+# by the private key .P8 file. The P8 file, if missing, is automatically
+# generated with some random contents - so, in order to keep ID the same, the P8
+# file should be preserved.
 #
 # The .ZIP archive intended for WebStore, in contrast, has no signature, as
-# WebStore stores the private key internally and signs the App package itself.
+# WebStore stores the private key internally and signs the App/Extension package
+# itself.
 #
 
 .PHONY: package

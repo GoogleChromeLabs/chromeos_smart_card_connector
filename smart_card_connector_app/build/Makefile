@@ -14,23 +14,23 @@
 
 
 #
-# This makefile builds the Smart Card Connector app.
+# This makefile builds the Smart Card Connector app/extension.
 #
-# Upon successful build, the resulting app (including all resources that may be
-# needed during run time) is stored under the ./out/ directory.
+# Upon successful build, the resulting app/extension (including all resources
+# that may be needed during run time) is stored under the ./out/ directory.
 #
 # You may use the "make run" command to start an instance of Chrome that would
 # automatically load and run the app.
 #
-# You may also use the "make package" command to build a packaged app .CRX file
-# and a .ZIP archive suitable for uploading at Chrome WebStore. (Please note
-# that in both cases, the resulting app will have an ID different from ID of the
-# app published by Google on Web Store. Only project maintainers who have
-# corresponding access in the Chrome Developer Dashboard can update the app
-# published by Google.)
+# You may also use the "make package" command to build a packaged app/extension
+# .CRX file and a .ZIP archive suitable for uploading at Chrome WebStore.
+# (Please note that in both cases, the resulting app/extension will have an ID
+# different from ID of the app/extension published by Google on Web Store. Only
+# project maintainers who have corresponding access in the Chrome Developer
+# Dashboard can update the app/extension published by Google.)
 #
 # For more details regarding these special make targets, refer to the
-# common/make/app_building_common.mk file.
+# common/make/packaging_common.mk file.
 #
 
 
@@ -42,7 +42,7 @@ include $(COMMON_DIR_PATH)/make/js_building_common.mk
 
 include $(COMMON_DIR_PATH)/js/include.mk
 
-include $(COMMON_DIR_PATH)/make/app_building_common.mk
+include $(COMMON_DIR_PATH)/make/packaging_common.mk
 
 include $(COMMON_DIR_PATH)/make/executable_module_recursive_build.mk
 
