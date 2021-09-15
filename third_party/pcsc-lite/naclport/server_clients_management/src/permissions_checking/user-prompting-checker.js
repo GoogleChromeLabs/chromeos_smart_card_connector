@@ -31,6 +31,7 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 goog.require('GoogleSmartCard.ContainerHelpers');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
 goog.require('GoogleSmartCard.PopupWindow.Server');
 goog.require('goog.Promise');
@@ -48,7 +49,7 @@ const USER_PROMPT_DIALOG_URL =
     'pcsc_lite_server_clients_management/user-prompt-dialog.html';
 
 const USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
-  'innerBounds': {'width': 300}
+  'innerBounds': {'width': 300, 'height': 200}
 };
 
 const GSC = GoogleSmartCard;
@@ -278,36 +279,50 @@ UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
  */
 UserPromptingChecker.prototype.runPromptDialog_ = function(
     clientAppId, userPromptDialogData, promiseResolver) {
-  
-  chrome.windows.create({url: USER_PROMPT_DIALOG_URL, width: 300, height: 180, type: "popup"});
+  if (GSC.Packaging.MODE == GSC.Packaging.Mode.EXTENSION) {
+    chrome.windows.create({
+      url: USER_PROMPT_DIALOG_URL,
+      width:
+          USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES['innerBounds']['width'],
+      height:
+          USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES['innerBounds']['height'],
+      type: 'popup'
+    });
+  }
 
-  // #toclean
-  // var dialogPromise = GSC.PopupWindow.Server.runModalDialog(
-  //     USER_PROMPT_DIALOG_URL,
-  //     USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
-  //     userPromptDialogData);
-  // dialogPromise.then(function(dialogResult) {
-  //   if (dialogResult) {
-  //     this.logger.info('Granted permission to client App with id "' +
-  //                      clientAppId + '" based on the "grant" user selection');
-  //     this.storeUserSelection_(clientAppId, true);
-  //     promiseResolver.resolve();
-  //   } else {
-  //     this.logger.info('Rejected permission to client App with id "' +
-  //                      clientAppId + '" based on the "reject" user selection');
-  //     this.storeUserSelection_(clientAppId, false);
-  //     promiseResolver.reject(new Error(
-  //         'Reject permission based on the "reject" user selection'));
-  //   }
-  // }, function() {
-  //   this.logger.info(
-  //       'Rejected permission to client App with id "' + clientAppId +
-  //       '" because of the user cancellation of the prompt dialog');
-  //   this.storeUserSelection_(clientAppId, false);
-  //   promiseResolver.reject(new Error(
-  //       'Rejected permission because of the user cancellation of the prompt ' +
-  //       'dialog'));
-  // }, this);
+  const dialogPromise = GSC.PopupWindow.Server.runModalDialog(
+      USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
+      userPromptDialogData);
+  dialogPromise.then(
+      function(dialogResult) {
+        if (dialogResult) {
+          goog.log.info(
+              this.logger,
+              'Granted permission to client App with id "' + clientAppId +
+                  '" based on the "grant" user selection');
+          this.storeUserSelection_(clientAppId, true);
+          promiseResolver.resolve();
+        } else {
+          goog.log.info(
+              this.logger,
+              'Rejected permission to client App with id "' + clientAppId +
+                  '" based on the "reject" user selection');
+          this.storeUserSelection_(clientAppId, false);
+          promiseResolver.reject(new Error(
+              'Reject permission based on the "reject" user selection'));
+        }
+      },
+      function() {
+        goog.log.info(
+            this.logger,
+            'Rejected permission to client App with id "' + clientAppId +
+                '" because of the user cancellation of the prompt dialog');
+        this.storeUserSelection_(clientAppId, false);
+        promiseResolver.reject(new Error(
+            'Rejected permission because of the user cancellation of the prompt ' +
+            'dialog'));
+      },
+      this);
 };
 
 /**

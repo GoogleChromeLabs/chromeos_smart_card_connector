@@ -42,7 +42,6 @@ APP_RUN_CHROME_ARGS := \
 	--no-first-run \
 	--user-data-dir=$(APP_RUN_USER_DATA_DIR_PATH) \
 	--load-and-launch-app=$(OUT_DIR_PATH) \
-	--whitelisted-extension-id=khpfeaanjngmcnplbdlpegiifgpfgdco \
 
 .PHONY: run run-nobuild
 

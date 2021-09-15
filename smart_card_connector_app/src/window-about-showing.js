@@ -46,7 +46,16 @@ const openAboutElement =
 function openAboutClickListener(e) {
   e.preventDefault();
 
-  chrome.windows.create({url: ABOUT_WINDOW_URL, type: "popup", width: 700, height: 500});
+  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP) {
+    chrome.app.window.create(ABOUT_WINDOW_URL, ABOUT_WINDOW_OPTIONS);
+  } else if (GSC.Packaging.MODE == GSC.Packaging.Mode.EXTENSION) {
+    chrome.windows.create({
+      url: ABOUT_WINDOW_URL,
+      type: 'popup',
+      width: ABOUT_WINDOW_OPTIONS['innerBounds']['width'],
+      height: ABOUT_WINDOW_OPTIONS['innerBounds']['height']
+    });
+  }
 }
 
 GSC.ConnectorApp.Window.AboutShowing.initialize = function() {

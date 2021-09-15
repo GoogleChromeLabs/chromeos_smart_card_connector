@@ -26,6 +26,7 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.I18n');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.ObjectHelpers');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
 goog.require('goog.asserts');
 goog.require('goog.dom');
@@ -202,9 +203,15 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
       (GSC.ObjectHelpers.extractKey(
           GSC.PopupWindow.Client.getData(), 'readerTrackerUnsubscriber'));
   // Stop tracking the current list of readers when our window gets closed.
-  chrome.app.window.current().onClosed.addListener(function() {
-    readerTrackerUnsubscriber(onReadersChanged);
-  });
+  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP) {
+    chrome.app.window.current().onClosed.addListener(function() {
+      readerTrackerUnsubscriber(onReadersChanged);
+    });
+  } else if (GSC.Packaging.MODE == GSC.Packaging.Mode.EXTENSION) {
+    chrome.windows.onRemoved.addListener(function() {
+      readerTrackerUnsubscriber(onReadersChanged);
+    });
+  }
 
   goog.events.listen(
       addDeviceElement, goog.events.EventType.CLICK, addDeviceClickListener);

@@ -28,6 +28,7 @@ goog.require('GoogleSmartCard.ConnectorApp.Window.HelpShowing');
 goog.require('GoogleSmartCard.ConnectorApp.Window.LogsExporting');
 goog.require('GoogleSmartCard.I18n');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PopupWindow.Client');
 goog.require('goog.dom');
 goog.require('goog.dom.classlist');
@@ -45,12 +46,12 @@ const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
 goog.log.info(logger, 'The main window is created');
 
-//revisitcode
-// goog.events.listen(
-//     goog.dom.getElement('close-window'), goog.events.EventType.CLICK,
-//     closeWindowClickListener);
+if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP) {
+  goog.events.listen(
+      goog.dom.getElement('close-window'), goog.events.EventType.CLICK,
+      closeWindowClickListener);
+}
 
-//revisitcode
 GSC.ConnectorApp.Window.AboutShowing.initialize();
 // GSC.ConnectorApp.Window.AppsDisplaying.initialize();
 // GSC.ConnectorApp.Window.DevicesDisplaying.initialize();
@@ -59,7 +60,8 @@ GSC.ConnectorApp.Window.LogsExporting.initialize();
 
 GSC.I18n.adjustAllElementsTranslation();
 
-// GSC.PopupWindow.Client.showWindow();
+if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP)
+  GSC.PopupWindow.Client.showWindow();
 
 displayNonChromeOsWarningIfNeeded();
 

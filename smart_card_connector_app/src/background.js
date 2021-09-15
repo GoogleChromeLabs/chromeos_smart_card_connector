@@ -157,16 +157,15 @@ function executableModuleDisposedListener() {
   }
 }
 
-//#revisitcode
-// /**
-//  * Called when the onLaunched event is received (that is, when the user clicks
-//  * on the app in the Chrome OS app launcher).
-//  */
-// function launchedListener() {
-//   logger.fine('Received onLaunched event, opening window...');
-//   GSC.ConnectorApp.Background.MainWindowManaging.openWindowDueToUserRequest(
-//       makeDataForMainWindow());
-// }
+/**
+ * Called when the onLaunched event is received (that is, when the user clicks
+ * on the app in the Chrome OS app launcher).
+ */
+function launchedListener() {
+  goog.log.fine(logger, 'Received onLaunched event, opening window...');
+  GSC.ConnectorApp.Background.MainWindowManaging.openWindowDueToUserRequest(
+      makeDataForMainWindow());
+}
 
 /**
  * Called when the onConnect event is received.

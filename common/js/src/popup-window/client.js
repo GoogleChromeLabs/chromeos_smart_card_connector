@@ -28,6 +28,7 @@ goog.provide('GoogleSmartCard.PopupWindow.Client');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
 goog.require('goog.events.KeyCodes');
@@ -50,14 +51,13 @@ GSC.PopupWindow.Client.getData = function() {
   return goog.object.get(window, 'passedData', {});
 };
 
-//#revisitcode
 /**
- * Shows the window.
+ * Shows the app window.
  */
-// GSC.PopupWindow.Client.showWindow = function() {
-//   logger.fine('Showing the window...');
-//   chrome.app.window.current().show();
-// };
+GSC.PopupWindow.Client.showWindow = function() {
+  goog.log.fine(logger, 'Showing the window...');
+  chrome.app.window.current().show();
+};
 
 /**
  * Resolves the modal dialog, passing the specified result to the caller in the
@@ -100,7 +100,8 @@ GSC.PopupWindow.Client.prepareAndShowAsModalDialog = function() {
   GSC.PopupWindow.Client.setWindowHeightToFitContent();
   GSC.PopupWindow.Client.setupClosingOnEscape();
   GSC.PopupWindow.Client.setupRejectionOnWindowClose();
-  // GSC.PopupWindow.Client.showWindow();
+  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP)
+    GSC.PopupWindow.Client.showWindow();
 };
 
 /**
