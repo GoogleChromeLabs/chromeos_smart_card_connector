@@ -43,11 +43,10 @@ const KnownApp = PermissionsChecking.KnownApp;
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 
-/**
- * @type {!Element}
- * @const
- */
-var appListElement = /** @type {!Element} */ (goog.dom.getElement('app-list'));
+/** @type {!Element} */
+const appListElement =
+    /** @type {!Element} */ (goog.dom.getElement('app-list'));
+
 const knownAppsRegistry = new PermissionsChecking.KnownAppsRegistry();
 
 /**
@@ -70,10 +69,10 @@ function updateAppView(knownAppsPromise, appIds, knownApps) {
 
   goog.dom.removeChildren(appListElement);
 
-  for (var i = 0; i < appIds.length; i++) {
-    var text =
+  for (let i = 0; i < appIds.length; i++) {
+    const text =
         knownApps && knownApps[i] ? knownApps[i].name : '<' + appIds[i] + '>';
-    var newElement = goog.dom.createDom('li', undefined, text);
+    const newElement = goog.dom.createDom('li', undefined, text);
     goog.dom.append(appListElement, newElement);
   }
 
@@ -84,14 +83,14 @@ function updateAppView(knownAppsPromise, appIds, knownApps) {
  * @param {!Array.<string>} appListArg
  */
 function onUpdateListener(appListArg) {
-  var appList = goog.array.clone(appListArg);
+  const appList = goog.array.clone(appListArg);
   goog.array.sort(appList);
   goog.log.fine(
       logger,
       'Application list updated, refreshing the view. ' +
           'New list of id\'s: ' + GSC.DebugDump.dump(appList));
 
-  var knownAppsPromise = knownAppsRegistry.tryGetByIds(appList);
+  const knownAppsPromise = knownAppsRegistry.tryGetByIds(appList);
   lastKnownAppsPromise = knownAppsPromise;
 
   knownAppsPromise.then(
@@ -111,8 +110,9 @@ GSC.ConnectorApp.Window.AppsDisplaying.initialize = function() {
   // FIXME(emaxx): Do unsubscription too.
   // FIXME(emaxx): Use GSC.ObjectHelpers.extractKey to ensure that the expected
   // object is passed to the window.
-  var data = GSC.PopupWindow.Client.getData()['clientAppListUpdateSubscriber'];
-  var clientAppListUpdateSubscriber =
+  const data =
+      GSC.PopupWindow.Client.getData()['clientAppListUpdateSubscriber'];
+  const clientAppListUpdateSubscriber =
       /**@type {function(function(!Array.<string>))} */ (data);
   clientAppListUpdateSubscriber(onUpdateListener);
 };
