@@ -194,7 +194,8 @@ function initializeWithBackgroundPage(backgroundPage) {
    */
   const readerTrackerSubscriber =
       /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
-      (GSC.ObjectHelpers.extractKey(backgroundPage, 'googleSmartCard_readerTrackerSubscriber'));
+      (GSC.ObjectHelpers.extractKey(
+          backgroundPage, 'googleSmartCard_readerTrackerSubscriber'));
   // Start tracking the current list of readers.
   readerTrackerSubscriber(onReadersChanged);
 
