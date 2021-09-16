@@ -42,7 +42,7 @@
 goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.Main');
 
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.PopupWindow.Client');
+goog.require('GoogleSmartCard.PopupWindow.InPopupMainScript');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.classlist');
@@ -63,7 +63,7 @@ const logger = GSC.Logging.getScopedLogger(
     'Main');
 
 function prepareMessage() {
-  const data = GSC.PopupWindow.Client.getData();
+  const data = GSC.PopupWindow.InPopupMainScript.getData();
 
   const isClientKnown = data['is_client_known'];
   GSC.Logging.checkWithLogger(logger, typeof isClientKnown === 'boolean');
@@ -111,11 +111,11 @@ function prepareMessage() {
 }
 
 function allowClickListener() {
-  GSC.PopupWindow.Client.resolveModalDialog(true);
+  GSC.PopupWindow.InPopupMainScript.resolveModalDialog(true);
 }
 
 function denyClickListener() {
-  GSC.PopupWindow.Client.resolveModalDialog(false);
+  GSC.PopupWindow.InPopupMainScript.resolveModalDialog(false);
 }
 
 function closeWindowClickListener() {
@@ -130,5 +130,5 @@ goog.events.listen(goog.dom.getElement('deny'), 'click', denyClickListener);
 goog.events.listen(
     goog.dom.getElement('close-window'), 'click', closeWindowClickListener);
 
-GSC.PopupWindow.Client.prepareAndShowAsModalDialog();
+GSC.PopupWindow.InPopupMainScript.prepareAndShowAsModalDialog();
 });  // goog.scope

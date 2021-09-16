@@ -28,7 +28,7 @@ goog.require('GoogleSmartCard.ConnectorApp.Window.HelpShowing');
 goog.require('GoogleSmartCard.ConnectorApp.Window.LogsExporting');
 goog.require('GoogleSmartCard.I18n');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.PopupWindow.Client');
+goog.require('GoogleSmartCard.PopupWindow.InPopupMainScript');
 goog.require('goog.dom');
 goog.require('goog.dom.classlist');
 goog.require('goog.events');
@@ -57,7 +57,7 @@ GSC.ConnectorApp.Window.LogsExporting.initialize();
 
 GSC.I18n.adjustAllElementsTranslation();
 
-GSC.PopupWindow.Client.showWindow();
+GSC.PopupWindow.InPopupMainScript.showWindow();
 
 displayNonChromeOsWarningIfNeeded();
 

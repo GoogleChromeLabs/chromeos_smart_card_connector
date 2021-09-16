@@ -17,7 +17,7 @@
 
 goog.provide('SmartCardClientApp.PinDialog.Server');
 
-goog.require('GoogleSmartCard.PopupWindow.Server');
+goog.require('GoogleSmartCard.PopupWindow.PopupOpener');
 goog.require('goog.Promise');
 
 goog.scope(function() {
@@ -34,7 +34,7 @@ const GSC = GoogleSmartCard;
  * @return {!goog.Promise.<string>}
  */
 SmartCardClientApp.PinDialog.Server.requestPin = function() {
-  return GSC.PopupWindow.Server.runModalDialog(
+  return GSC.PopupWindow.PopupOpener.runModalDialog(
       PIN_DIALOG_URL, PIN_DIALOG_WINDOW_OPTIONS_OVERRIDES);
 };
 });  // goog.scope

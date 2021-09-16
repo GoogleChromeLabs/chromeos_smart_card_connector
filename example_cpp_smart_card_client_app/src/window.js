@@ -24,7 +24,7 @@ goog.provide('SmartCardClientApp.WindowMain');
 goog.require('GoogleSmartCard.I18n');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.ObjectHelpers');
-goog.require('GoogleSmartCard.PopupWindow.Client');
+goog.require('GoogleSmartCard.PopupWindow.InPopupMainScript');
 goog.require('goog.dom');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
@@ -51,7 +51,7 @@ goog.log.info(logger, 'The main window is created');
 const executableModuleMessageChannel =
     /** @type {!goog.messaging.MessageChannel} */
     (GSC.ObjectHelpers.extractKey(
-        GSC.PopupWindow.Client.getData(), 'executableModuleMessageChannel'));
+        GSC.PopupWindow.InPopupMainScript.getData(), 'executableModuleMessageChannel'));
 
 // Load the localized strings into the HTML elements.
 GSC.I18n.adjustAllElementsTranslation();
@@ -101,5 +101,5 @@ chrome.app.window.current().onClosed.addListener(() => {
 });
 
 // Show the window, after all the initialization above has been done.
-GSC.PopupWindow.Client.showWindow();
+GSC.PopupWindow.InPopupMainScript.showWindow();
 });  // goog.scope
