@@ -110,8 +110,7 @@ GSC.ConnectorApp.Window.AppsDisplaying.initialize = function() {
   // FIXME(emaxx): Do unsubscription too.
   // FIXME(emaxx): Use GSC.ObjectHelpers.extractKey to ensure that the expected
   // object is passed to the window.
-  const data =
-      GSC.PopupWindow.Client.getData()['clientAppListUpdateSubscriber'];
+  const data = GSC.InPopupMainScript.getData()['clientAppListUpdateSubscriber'];
   const clientAppListUpdateSubscriber =
       /**@type {function(function(!Array.<string>))} */ (data);
   clientAppListUpdateSubscriber(onUpdateListener);

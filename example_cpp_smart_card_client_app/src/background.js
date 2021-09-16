@@ -56,7 +56,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.PcscLiteClient.NaclClientBackend');
 goog.require('GoogleSmartCard.PcscLiteCommon.Constants');
-goog.require('GoogleSmartCard.PopupWindow.Server');
+goog.require('GoogleSmartCard.PopupOpener');
 goog.require('SmartCardClientApp.BuiltInPinDialog.Backend');
 goog.require('SmartCardClientApp.CertificateProviderBridge.Backend');
 goog.require('goog.asserts');
@@ -210,7 +210,7 @@ executableModule.startLoading();
 
 // Open the UI window when the user launches the app.
 chrome.app.runtime.onLaunched.addListener(() => {
-  GSC.PopupWindow.Server.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS, {
+  GSC.PopupOpener.createWindow(MAIN_WINDOW_URL, MAIN_WINDOW_OPTIONS, {
     executableModuleMessageChannel: executableModule.getMessageChannel(),
   });
 });
