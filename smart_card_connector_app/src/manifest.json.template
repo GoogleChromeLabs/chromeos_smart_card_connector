@@ -19,7 +19,7 @@ ${endif}
 ${if PACKAGING=extension}
   "browser_action": {
     "default_icon": "icon.png",
-    "default_title": "Smart Card Connector",
+    "default_title": "__MSG_appShortName__",
     "default_popup": "window.html"
   },
 ${endif}
