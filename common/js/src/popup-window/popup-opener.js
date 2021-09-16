@@ -20,7 +20,7 @@
  * windows.
  */
 
-goog.provide('GoogleSmartCard.PopupWindow.PopupOpener');
+goog.provide('GoogleSmartCard.PopupOpener');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
@@ -53,8 +53,7 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
  * options.
  * @param {!Object=} opt_data Optional data to be passed to the created window.
  */
-GSC.PopupWindow.PopupOpener.createWindow = function(
-    url, createWindowOptions, opt_data) {
+GSC.PopupOpener.createWindow = function(url, createWindowOptions, opt_data) {
   const createdWindowExtends = {};
   createdWindowExtends[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME] =
       GSC.Logging.getLogBuffer();
@@ -90,7 +89,7 @@ GSC.PopupWindow.PopupOpener.createWindow = function(
  * @param {!Object=} opt_data Optional data to be passed to the created dialog.
  * @return {!goog.Promise}
  */
-GSC.PopupWindow.PopupOpener.runModalDialog = function(
+GSC.PopupOpener.runModalDialog = function(
     url, opt_createWindowOptionsOverrides, opt_data) {
   const createWindowOptions =
       goog.object.clone(DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS);
@@ -112,7 +111,7 @@ GSC.PopupWindow.PopupOpener.runModalDialog = function(
   if (opt_data !== undefined)
     Object.assign(dataWithDialogCallbacks, opt_data);
 
-  GSC.PopupWindow.PopupOpener.createWindow(
+  GSC.PopupOpener.createWindow(
       url, createWindowOptions, dataWithDialogCallbacks);
 
   return promiseResolver.promise;

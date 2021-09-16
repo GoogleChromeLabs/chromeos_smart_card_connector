@@ -24,7 +24,7 @@
  * See also the popup-opener.js file.
  */
 
-goog.provide('GoogleSmartCard.PopupWindow.InPopupMainScript');
+goog.provide('GoogleSmartCard.InPopupMainScript');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
@@ -46,14 +46,14 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.InPopupMainScript');
  * Returns the additional data that was specified during the popup creation.
  * @return {!Object}
  */
-GSC.PopupWindow.InPopupMainScript.getData = function() {
+GSC.InPopupMainScript.getData = function() {
   return goog.object.get(window, 'passedData', {});
 };
 
 /**
  * Shows the window.
  */
-GSC.PopupWindow.InPopupMainScript.showWindow = function() {
+GSC.InPopupMainScript.showWindow = function() {
   goog.log.fine(logger, 'Showing the window...');
   chrome.app.window.current().show();
 };
@@ -64,8 +64,8 @@ GSC.PopupWindow.InPopupMainScript.showWindow = function() {
  * window.
  * @param {*} result
  */
-GSC.PopupWindow.InPopupMainScript.resolveModalDialog = function(result) {
-  const callback = GSC.PopupWindow.InPopupMainScript.getData()['resolveModalDialog'];
+GSC.InPopupMainScript.resolveModalDialog = function(result) {
+  const callback = GSC.InPopupMainScript.getData()['resolveModalDialog'];
   GSC.Logging.checkWithLogger(logger, callback);
   goog.log.fine(
       logger,
@@ -81,8 +81,8 @@ GSC.PopupWindow.InPopupMainScript.resolveModalDialog = function(result) {
  * window.
  * @param {*} error
  */
-GSC.PopupWindow.InPopupMainScript.rejectModalDialog = function(error) {
-  const callback = GSC.PopupWindow.InPopupMainScript.getData()['rejectModalDialog'];
+GSC.InPopupMainScript.rejectModalDialog = function(error) {
+  const callback = GSC.InPopupMainScript.getData()['rejectModalDialog'];
   GSC.Logging.checkWithLogger(logger, callback);
   goog.log.fine(
       logger,
@@ -95,11 +95,11 @@ GSC.PopupWindow.InPopupMainScript.rejectModalDialog = function(error) {
  * Shows the (initially hidden) dialog modal window, performing the setup steps
  * necessary when the default modal dialog options are used.
  */
-GSC.PopupWindow.InPopupMainScript.prepareAndShowAsModalDialog = function() {
-  GSC.PopupWindow.InPopupMainScript.setWindowHeightToFitContent();
-  GSC.PopupWindow.InPopupMainScript.setupClosingOnEscape();
-  GSC.PopupWindow.InPopupMainScript.setupRejectionOnWindowClose();
-  GSC.PopupWindow.InPopupMainScript.showWindow();
+GSC.InPopupMainScript.prepareAndShowAsModalDialog = function() {
+  GSC.InPopupMainScript.setWindowHeightToFitContent();
+  GSC.InPopupMainScript.setupClosingOnEscape();
+  GSC.InPopupMainScript.setupRejectionOnWindowClose();
+  GSC.InPopupMainScript.showWindow();
 };
 
 /**
@@ -107,7 +107,7 @@ GSC.PopupWindow.InPopupMainScript.prepareAndShowAsModalDialog = function() {
  * overflowing (though still conforming to the minimum/maximum bounds when they
  * are specified for the window).
  */
-GSC.PopupWindow.InPopupMainScript.setWindowHeightToFitContent = function() {
+GSC.InPopupMainScript.setWindowHeightToFitContent = function() {
   const wholeContentHeight = document.documentElement['offsetHeight'];
   GSC.Logging.checkWithLogger(
       logger,
@@ -123,7 +123,7 @@ GSC.PopupWindow.InPopupMainScript.setWindowHeightToFitContent = function() {
  *
  * The listener closes the window.
  */
-GSC.PopupWindow.InPopupMainScript.setupClosingOnEscape = function() {
+GSC.InPopupMainScript.setupClosingOnEscape = function() {
   goog.events.listen(
       document, goog.events.EventType.KEYDOWN,
       documentClosingOnEscapeKeyDownListener);
@@ -135,7 +135,7 @@ GSC.PopupWindow.InPopupMainScript.setupClosingOnEscape = function() {
  * covers the case when the dialog is closed by user by clicking at the close
  * button).
  */
-GSC.PopupWindow.InPopupMainScript.setupRejectionOnWindowClose = function() {
+GSC.InPopupMainScript.setupRejectionOnWindowClose = function() {
   chrome.app.window.current().onClosed.addListener(
       windowCloseDialogRejectionListener);
 };
@@ -153,6 +153,6 @@ function documentClosingOnEscapeKeyDownListener(event) {
 }
 
 function windowCloseDialogRejectionListener() {
-  GSC.PopupWindow.InPopupMainScript.rejectModalDialog(new Error('Dialog was closed'));
+  GSC.InPopupMainScript.rejectModalDialog(new Error('Dialog was closed'));
 }
 });  // goog.scope

@@ -20,14 +20,14 @@
  *
  * Once the dialog is finished with some result (either successfully returning
  * data entered by user, or being canceled), it uses the methods of the
- * GoogleSmartCard.PopupWindow library for returning the result to the caller
+ * GoogleSmartCard library for returning the result to the caller
  * window (i.e. to the App's background page).
  */
 
 goog.provide('SmartCardClientApp.PinDialog.Main');
 
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.PopupWindow.InPopupMainScript');
+goog.require('GoogleSmartCard.InPopupMainScript');
 goog.require('goog.dom');
 goog.require('goog.dom.forms');
 goog.require('goog.events');
@@ -38,16 +38,15 @@ const GSC = GoogleSmartCard;
 
 function okClickListener() {
   const pin = goog.dom.forms.getValue(goog.dom.getElement('input'));
-  GSC.PopupWindow.InPopupMainScript.resolveModalDialog(pin);
+  GSC.InPopupMainScript.resolveModalDialog(pin);
 }
 
 function cancelClickListener() {
-  GSC.PopupWindow.InPopupMainScript.rejectModalDialog(
-      new Error('PIN dialog was canceled'));
+  GSC.InPopupMainScript.rejectModalDialog(new Error('PIN dialog was canceled'));
 }
 
 goog.events.listen(goog.dom.getElement('ok'), 'click', okClickListener);
 goog.events.listen(goog.dom.getElement('cancel'), 'click', cancelClickListener);
 
-GSC.PopupWindow.InPopupMainScript.prepareAndShowAsModalDialog();
+GSC.InPopupMainScript.prepareAndShowAsModalDialog();
 });  // goog.scope

@@ -189,7 +189,7 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
   const readerTrackerSubscriber =
       /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
       (GSC.ObjectHelpers.extractKey(
-          GSC.PopupWindow.InPopupMainScript.getData(), 'readerTrackerSubscriber'));
+          GSC.InPopupMainScript.getData(), 'readerTrackerSubscriber'));
   // Start tracking the current list of readers.
   readerTrackerSubscriber(onReadersChanged);
 
@@ -200,7 +200,7 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
   const readerTrackerUnsubscriber =
       /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
       (GSC.ObjectHelpers.extractKey(
-          GSC.PopupWindow.InPopupMainScript.getData(), 'readerTrackerUnsubscriber'));
+          GSC.InPopupMainScript.getData(), 'readerTrackerUnsubscriber'));
   // Stop tracking the current list of readers when our window gets closed.
   chrome.app.window.current().onClosed.addListener(function() {
     readerTrackerUnsubscriber(onReadersChanged);

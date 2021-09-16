@@ -19,7 +19,7 @@ goog.require('GoogleSmartCard.ObjectHelpers');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownApp');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
-goog.require('GoogleSmartCard.PopupWindow.PopupOpener');
+goog.require('GoogleSmartCard.PopupOpener');
 goog.require('goog.Promise');
 goog.require('goog.testing');
 goog.require('goog.testing.MockControl');
@@ -109,7 +109,7 @@ function setUpChromeStorageMock(
 }
 
 /**
- * Sets up mocks for the GSC.PopupWindow.PopupOpener.runModalDialog method.
+ * Sets up mocks for the GSC.PopupOpener.runModalDialog method.
  * @param {!goog.testing.MockControl} mockControl
  * @param {!MockedDialogBehavior} mockedBehavior If |NOT_RUN|, then the method
  * is not expected to be called; otherwise, the called method will return the
@@ -118,7 +118,7 @@ function setUpChromeStorageMock(
 function setUpDialogMock(mockControl, mockedBehavior) {
   /** @type {?} */
   const mockedFunction =
-      mockControl.createMethodMock(GSC.PopupWindow.PopupOpener, 'runModalDialog');
+      mockControl.createMethodMock(GSC.PopupOpener, 'runModalDialog');
   let mockAction;
   switch (mockedBehavior) {
     case MockedDialogBehavior.NOT_RUN:
@@ -169,7 +169,7 @@ function negatePromise(promise) {
  * expected data to be passed into chrome.storage.local.set(); if null, then
  * set() isn't expected to be called.
  * @param {!MockedDialogBehavior} mockedDialogBehavior If |NOT_RUN|, then the
- * GSC.PopupWindow.PopupOpener.runModalDialog method is not expected to be called;
+ * GSC.PopupOpener.runModalDialog method is not expected to be called;
  * otherwise, the called method will return the corresponding result.
  * @param {function(!UserPromptingChecker):!goog.Promise} testCallback The test
  * function to be run after the needed setup; must return a promise of the test
