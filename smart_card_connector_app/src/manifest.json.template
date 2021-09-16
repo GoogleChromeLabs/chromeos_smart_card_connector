@@ -25,14 +25,16 @@ ${endif}
     "managed_schema": "managed_storage_schema.json"
   },
   "permissions": [
+${if PACKAGING=app}
     "alwaysOnTopWindows",
     "browser",
-    "loginState",
     "usb",
     {
       "usbDevices": [
 ${usb_devices}
       ]
-    }
+    },
+${endif}
+    "loginState"
   ]
 }
