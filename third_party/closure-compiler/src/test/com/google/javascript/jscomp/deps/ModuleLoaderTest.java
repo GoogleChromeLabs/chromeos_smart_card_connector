@@ -348,16 +348,16 @@ public final class ModuleLoaderTest {
   @Test
   public void testLocateNodeModulesBrowserFieldAdvancedUsage() {
     // case where the package.json looks like the following:
-    //   {"main": "popup-opener.js",
-    //    "browser": {"popup-opener.js": "in-popup-main-script.js",
+    //   {"main": "server.js",
+    //    "browser": {"server.js": "client.js",
     //                "exclude/this.js": false,
     //                "replace/other.js": "with/alternative.js"}}
     ImmutableMap<String, String> packageJsonMainEntries =
         ImmutableMap.of(
             "/node_modules/mymodule/package.json",
-            "/node_modules/mymodule/popup-opener.js",
-            "/node_modules/mymodule/popup-opener.js",
-            "/node_modules/mymodule/in-popup-main-script.js",
+            "/node_modules/mymodule/server.js",
+            "/node_modules/mymodule/server.js",
+            "/node_modules/mymodule/client.js",
             "/node_modules/mymodule/override/relative.js",
             "/node_modules/mymodule/./with/this.js",
             "/node_modules/mymodule/exclude/this.js",
@@ -368,7 +368,7 @@ public final class ModuleLoaderTest {
     ImmutableList<CompilerInput> compilerInputs =
         inputs(
             "/node_modules/mymodule/package.json",
-            "/node_modules/mymodule/in-popup-main-script.js",
+            "/node_modules/mymodule/client.js",
             "/node_modules/mymodule/with/alternative.js",
             "/node_modules/mymodule/with/this.js",
             "/foo.js");
@@ -382,23 +382,23 @@ public final class ModuleLoaderTest {
             .build();
 
     assertUri(
-        "/node_modules/mymodule/in-popup-main-script.js", resolveJsModule(loader.resolve("/foo.js"), "mymodule"));
+        "/node_modules/mymodule/client.js", resolveJsModule(loader.resolve("/foo.js"), "mymodule"));
     assertUri(
         "/node_modules/mymodule/with/alternative.js",
         resolveJsModule(loader.resolve("/foo.js"), "mymodule/replace/other.js"));
     assertUri(
         "/node_modules/mymodule/with/alternative.js",
-        resolveJsModule(loader.resolve("/node_modules/mymodule/in-popup-main-script.js"), "./replace/other.js"));
+        resolveJsModule(loader.resolve("/node_modules/mymodule/client.js"), "./replace/other.js"));
     assertUri(
         "/node_modules/mymodule/with/this.js",
         resolveJsModule(loader.resolve("/foo.js"), "mymodule/override/relative.js"));
     assertUri(
         "/node_modules/mymodule/with/this.js",
         resolveJsModule(
-            loader.resolve("/node_modules/mymodule/in-popup-main-script.js"), "./override/relative.js"));
+            loader.resolve("/node_modules/mymodule/client.js"), "./override/relative.js"));
     assertThat(
             resolveJsModule(
-                loader.resolve("/node_modules/mymodule/in-popup-main-script.js"), "./exclude/this.js"))
+                loader.resolve("/node_modules/mymodule/client.js"), "./exclude/this.js"))
         .isNull();
   }
 

@@ -159,7 +159,7 @@ public final class RewriteJsonToModuleTest extends CompilerTestCase {
                 lines(
                     "{ 'main': 'foo/bar/baz.js',",
                     "  'browser': { './a/b.js': './c/d.js',",
-                    "               './popup-opener.js': 'in-popup-main-script.js'} }"))),
+                    "               './server.js': 'client.js'} }"))),
         expected(
             lines(
                 "/** @fileoverview @suppress {undefinedVars} */",
@@ -168,7 +168,7 @@ public final class RewriteJsonToModuleTest extends CompilerTestCase {
                 "  'main': 'foo/bar/baz.js',",
                 "  'browser': {",
                 "    './a/b.js': './c/d.js',",
-                "    './popup-opener.js': 'in-popup-main-script.js'",
+                "    './server.js': 'client.js'",
                 "  }",
                 "};")));
 
@@ -179,6 +179,6 @@ public final class RewriteJsonToModuleTest extends CompilerTestCase {
     
         // Test that we have normalized the key, value is normalized by NodeModuleResolver
         "/a/b.js", "/./c/d.js",
-        "/popup-opener.js", "/in-popup-main-script.js");
+        "/server.js", "/client.js");
   }
 }
