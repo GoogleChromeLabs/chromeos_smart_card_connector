@@ -17,6 +17,7 @@
 """Builds the Connector app's manifest file."""
 
 import argparse
+import re
 import string
 import sys
 
@@ -102,15 +103,40 @@ def load_usb_devices(ccid_supported_readers_file):
 
   return usb_devices
 
-def build_manifest(manifest_template_file, ccid_supported_readers_file):
+def preprocess_manifest_template(manifest_template, enabled_conditions):
+  # Use regexps for finding all ${if ...}...${endif} blocks.
+  regexp = re.compile(r'\s*\${if (.*?)}((.|\n)*?)\s*\${endif}', re.MULTILINE)
+  while True:
+    match = regexp.search(manifest_template)
+    if not match:
+      break
+    # Get the condition - the text written inside ${if}.
+    condition = match.group(1)
+    # Get the body - the text between ${if} and ${endif}.
+    conditional_body = match.group(2)
+    # Get the remaining text before/after this ${if}/${endif} block.
+    all_before = manifest_template[:match.start()]
+    all_after = manifest_template[match.end():]
+    # Replace the ${if}/${endif} block depending on whether the condition is
+    # enabled or not.
+    manifest_template = '{all_before}{replacement}{all_after}'.format(
+        all_before=all_before,
+        replacement=conditional_body if condition in enabled_conditions else '',
+        all_after=all_after)
+  return manifest_template
+
+def build_manifest(manifest_template_file, ccid_supported_readers_file,
+                   enabled_conditions):
   usb_devices = load_usb_devices(ccid_supported_readers_file)
   formatted_usb_devices = ',\n'.join(
       '        {{"vendorId": {0}, "productId": {1}}}'.format(
           vendor_id, product_id)
       for vendor_id, product_id in sorted(usb_devices))
 
-  manifest_template = manifest_template_file.read()
-  return string.Template(manifest_template).substitute(
+  template = manifest_template_file.read()
+  preprocessed_template = preprocess_manifest_template(
+      template, enabled_conditions)
+  return string.Template(preprocessed_template).substitute(
       usb_devices=formatted_usb_devices)
 
 def main():
@@ -134,10 +160,15 @@ def main():
       required=True,
       metavar='"path/to/target_file"',
       dest='target_file')
+  args_parser.add_argument(
+      '--enable-condition',
+      nargs='+',
+      dest='enabled_conditions')
   args = args_parser.parse_args()
 
   manifest = build_manifest(
-      args.manifest_template_file, args.ccid_supported_readers_file)
+      args.manifest_template_file, args.ccid_supported_readers_file,
+      args.enabled_conditions)
   args.target_file.write(manifest)
 
 if __name__ == '__main__':
