@@ -352,9 +352,10 @@ function setupLogBuffer() {
     GSC.LogBuffer.attachBufferToLogger(
         backgroundLogBuffer, rootLogger, document.location.href);
     logBuffer.dispose();
-    // Switch all references to the background page's log buffer.
+    // Switch our reference to the background page's log buffer.
     logBuffer = backgroundLogBuffer;
-    goog.global[GLOBAL_LOG_BUFFER_VARIABLE_NAME] = logBuffer;
+    // The global reference is not needed if we're not the background page.
+    delete goog.global[GLOBAL_LOG_BUFFER_VARIABLE_NAME];
   });
 }
 

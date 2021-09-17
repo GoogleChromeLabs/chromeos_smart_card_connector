@@ -89,12 +89,13 @@ goog.exportSymbol('GoogleSmartCard.LogBuffer', LogBuffer);
  * collect all logs sent to the logger. Additionally, all collected logs are
  * attributed with the specified document location, which simplifies
  * interpreting the collected logs.
+ * @param {!LogBuffer} logBuffer
  * @param {!goog.log.Logger} logger
  * @param {string} documentLocation
  */
 LogBuffer.attachBufferToLogger = function(logBuffer, logger, documentLocation) {
   // Note: It's crucial that we're in a static method and calling a global
-  // function (`goog.log.addHandle()`), because when `logBuffer` comes from a
+  // function (`goog.log.addHandler()`), because when `logBuffer` comes from a
   // different page (e.g., the background page), we're dealing with two
   // instances of Closure Library: one in our page and another in the buffer's
   // page. We want the current page's instance to register the buffer, since
