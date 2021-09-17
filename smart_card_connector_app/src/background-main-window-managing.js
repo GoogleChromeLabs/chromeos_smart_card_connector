@@ -50,10 +50,8 @@ const GSC = GoogleSmartCard;
 /**
  * Opens the main window due to user request. Does nothing if the window is
  * already opened.
- * @param {!Object} windowData Data for passing into the created window.
  */
 GSC.ConnectorApp.Background.MainWindowManaging.openWindowDueToUserRequest =
-    function(windowData) {
-  GSC.PopupOpener.createWindow(WINDOW_URL, WINDOW_OPTIONS, windowData);
+  GSC.PopupOpener.createWindow(WINDOW_URL, WINDOW_OPTIONS);
 };
 });  // goog.scope

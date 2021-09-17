@@ -181,7 +181,13 @@ function getUserSelectedDevicesCallback(devices) {
           'were chosen');
 }
 
-GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
+/**
+ * @param {!Window=} backgroundPage
+ */
+function initializeWithBackgroundPage(backgroundPage) {
+  GSC.Logging.checkWithLogger(logger, backgroundPage);
+  goog.asserts.assert(backgroundPage);
+
   /**
    * Points to the "addOnUpdateListener" method of the ReaderTracker instance
    * that is owned by the background page.
@@ -189,7 +195,7 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
   const readerTrackerSubscriber =
       /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
       (GSC.ObjectHelpers.extractKey(
-          GSC.InPopupMainScript.getData(), 'readerTrackerSubscriber'));
+          backgroundPage, 'googleSmartCard_readerTrackerSubscriber'));
   // Start tracking the current list of readers.
   readerTrackerSubscriber(onReadersChanged);
 
@@ -200,11 +206,15 @@ GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
   const readerTrackerUnsubscriber =
       /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
       (GSC.ObjectHelpers.extractKey(
-          GSC.InPopupMainScript.getData(), 'readerTrackerUnsubscriber'));
+          backgroundPage, 'googleSmartCard_readerTrackerUnsubscriber'));
   // Stop tracking the current list of readers when our window gets closed.
   chrome.app.window.current().onClosed.addListener(function() {
     readerTrackerUnsubscriber(onReadersChanged);
   });
+}
+
+GSC.ConnectorApp.Window.DevicesDisplaying.initialize = function() {
+  chrome.runtime.getBackgroundPage(initializeWithBackgroundPage);
 
   goog.events.listen(
       addDeviceElement, goog.events.EventType.CLICK, addDeviceClickListener);

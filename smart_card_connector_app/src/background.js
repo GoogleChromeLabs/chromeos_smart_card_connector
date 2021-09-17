@@ -163,8 +163,7 @@ function executableModuleDisposedListener() {
  */
 function launchedListener() {
   goog.log.fine(logger, 'Received onLaunched event, opening window...');
-  GSC.ConnectorApp.Background.MainWindowManaging.openWindowDueToUserRequest(
-      makeDataForMainWindow());
+  GSC.ConnectorApp.Background.MainWindowManaging.openWindowDueToUserRequest();
 }
 
 /**
@@ -292,17 +291,16 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
 }
 
 /**
- * Creates data for passing into the opened main window.
- * @return {!Object}
+ * Sets global variables to be used by the main window (once it's opened).
  */
-function makeDataForMainWindow() {
-  return {
-    'clientAppListUpdateSubscriber':
-        messageChannelPool.addOnUpdateListener.bind(messageChannelPool),
-    'readerTrackerSubscriber':
-        readerTracker.addOnUpdateListener.bind(readerTracker),
-    'readerTrackerUnsubscriber':
-        readerTracker.removeOnUpdateListener.bind(readerTracker)
-  };
+function exposeGlobalsForMainWindow() {
+  goog.global['googleSmartCard_clientAppListUpdateSubscriber'] =
+      messageChannelPool.addOnUpdateListener.bind(messageChannelPool);
+  goog.global['googleSmartCard_readerTrackerSubscriber'] =
+      readerTracker.addOnUpdateListener.bind(readerTracker);
+  goog.global['googleSmartCard_readerTrackerUnsubscriber'] =
+      readerTracker.removeOnUpdateListener.bind(readerTracker);
 }
+
+exposeGlobalsForMainWindow();
 });  // goog.scope
