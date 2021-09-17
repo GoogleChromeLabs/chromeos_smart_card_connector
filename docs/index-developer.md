@@ -27,7 +27,7 @@ The app is bundled with the **CCID Free Software Driver**
 ([https://ccid.apdu.fr/](https://ccid.apdu.fr/)). This driver implements talking
 to smart card readers that are compatible with the CCID specification.
 
-Similar to the PC/SC_lite Daemon, the CCID Free Software Driver is ported using
+Similar to the PC/SC-lite Daemon, the CCID Free Software Driver is ported using
 the Native Client technology.
 
 The low-level USB operations are implemented using our port of the **libusb**
