@@ -110,7 +110,7 @@ goog.exportProperty(
 LogBuffer.prototype.disposeInternal = function() {
   this.formattedLogsPrefix_.length = 0;
   this.observers_.length = 0;
-  this.formattedLogsSuffix_.length = 0;
+  this.formattedLogsSuffix_.clear();
   LogBuffer.base(this, 'disposeInternal');
 };
 
