@@ -28,12 +28,8 @@
  *   <http://google.github.io/closure-library/api/namespace_goog.html#DEBUG>).
  * * Log messages that bubbled till the root logger are emitted to the
  *   JavaScript Console.
- * * Log messages are set up to be kept (probably, truncated) in a log buffer,
- *   which allows to export them later. The log buffer is either created or, if
- *   a specially-named window attribute is set (see the
- *   GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME constant), the existing log
- *   buffer is reused (which allows, in particular, to collect the logs from all
- *   App's windows in one place).
+ * * Log messages are set up to be kept (probably, truncated) in a background
+ *   page's log buffer, which allows to export them later.
  */
 
 goog.provide('GoogleSmartCard.Logging');
