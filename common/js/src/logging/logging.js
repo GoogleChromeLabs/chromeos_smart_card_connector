@@ -28,12 +28,8 @@
  *   <http://google.github.io/closure-library/api/namespace_goog.html#DEBUG>).
  * * Log messages that bubbled till the root logger are emitted to the
  *   JavaScript Console.
- * * Log messages are set up to be kept (probably, truncated) in a log buffer,
- *   which allows to export them later. The log buffer is either created or, if
- *   a specially-named window attribute is set (see the
- *   GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME constant), the existing log
- *   buffer is reused (which allows, in particular, to collect the logs from all
- *   App's windows in one place).
+ * * Log messages are set up to be kept (probably, truncated) in a background
+ *   page's log buffer, which allows to export them later.
  */
 
 goog.provide('GoogleSmartCard.Logging');
@@ -97,6 +93,14 @@ const ROOT_LOGGER_LEVEL =
 const LOG_BUFFER_CAPACITY = goog.DEBUG ? 20 * 1000 : 2000;
 
 /**
+ * This constant specifies the name of the special window attribute in which our
+ * log buffer is stored. This is used so that popup windows and other pages can
+ * access the background page's log buffer and therefore use a centralized place
+ * for aggregating logs.
+ */
+const GLOBAL_LOG_BUFFER_VARIABLE_NAME = 'googleSmartCard_logBuffer';
+
+/**
  * @type {!goog.log.Logger}
  */
 const rootLogger =
@@ -113,16 +117,13 @@ const logger = GSC.Logging.USE_SCOPED_LOGGERS ?
 let wasLoggingSetUp = false;
 
 /**
- * This constant specifies the name of the special window attribute, that should
- * contain the already existing log buffer instance, if there is any.
- *
- * The window attribute with this name is checked when this script is executed.
- *
- * Providing the already existing log buffer allows to collect the logs from all
- * App's windows in one place.
- * @const
+ * The log buffer that aggregates all log messages, to let them be exported if
+ * the user requests so. This variable is initialized to a new `LogBuffer`
+ * instance, but if we're running outside the background page this variable is
+ * later reassigned to the background page's log buffer.
+ * @type {!GSC.LogBuffer}
  */
-GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME = 'googleSmartCardLogBuffer';
+let logBuffer = new GSC.LogBuffer(LOG_BUFFER_CAPACITY);
 
 /**
  * Sets up logging parameters and log buffering.
@@ -261,13 +262,11 @@ GSC.Logging.failWithLogger = function(logger, opt_message) {
  * Returns the log buffer instance.
  *
  * The log buffer instance was either created during this script execution, or
- * was reused from the window's attribute with name
- * GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME (see this constant docs for the
- * details).
+ * was reused from the background page's global attribute.
  * @return {!GSC.LogBuffer}
  */
 GSC.Logging.getLogBuffer = function() {
-  return window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME];
+  return logBuffer;
 };
 
 function scheduleAppReloadIfAllowed() {
@@ -314,24 +313,46 @@ function setupRootLoggerLevel() {
 }
 
 function setupLogBuffer() {
-  /** @type {!GSC.LogBuffer} */
-  let logBuffer;
-  if (goog.object.containsKey(
-          window, GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME)) {
-    logBuffer = window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME];
-    goog.log.fine(
-        logger,
-        'Detected an existing log buffer instance, attaching it to ' +
-            'the root logger');
-  } else {
-    logBuffer = new GSC.LogBuffer(LOG_BUFFER_CAPACITY);
-    window[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME] = logBuffer;
-    goog.log.fine(
-        logger,
-        'Created a new log buffer instance, attaching it to the root logger');
-  }
+  GSC.LogBuffer.attachBufferToLogger(
+      logBuffer, rootLogger, document.location.href);
 
-  logBuffer.attachToLogger(rootLogger, document.location.href);
+  // Expose our log buffer in the global window properties. Pages other than the
+  // background will use it to access the background page's log buffer - see the
+  // code directly below.
+  goog.global[GLOBAL_LOG_BUFFER_VARIABLE_NAME] = logBuffer;
+
+  chrome.runtime.getBackgroundPage(function(backgroundPage) {
+    GSC.Logging.check(backgroundPage);
+    goog.asserts.assert(backgroundPage);
+
+    if (backgroundPage === window) {
+      // We're running inside the background page - no action needed.
+      return;
+    }
+
+    // We've discovered we're running outside the background page - so need to
+    // switch to using the background page's log buffer in order to keep all
+    // logs aggregated and available in a single place.
+    // First, obtain a reference to the background page's log buffer.
+    const backgroundLogBuffer =
+        /** @type {GSC.LogBuffer} */ (
+            backgroundPage[GLOBAL_LOG_BUFFER_VARIABLE_NAME]);
+    GSC.Logging.check(backgroundLogBuffer);
+    goog.asserts.assert(backgroundLogBuffer);
+    // Copy the logs we've accumulated in the current page into the background
+    // page's log buffer.
+    logBuffer.copyToOtherBuffer(backgroundLogBuffer);
+    // From now, start using the background page's buffer for collecting data
+    // from our page's loggers. Dispose of our log buffer to avoid storing new
+    // logs twice.
+    GSC.LogBuffer.attachBufferToLogger(
+        backgroundLogBuffer, rootLogger, document.location.href);
+    logBuffer.dispose();
+    // Switch our reference to the background page's log buffer.
+    logBuffer = backgroundLogBuffer;
+    // The global reference is not needed if we're not the background page.
+    delete goog.global[GLOBAL_LOG_BUFFER_VARIABLE_NAME];
+  });
 }
 
 GSC.Logging.setupLogging();
