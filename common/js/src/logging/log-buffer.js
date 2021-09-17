@@ -85,6 +85,36 @@ goog.inherits(LogBuffer, goog.Disposable);
 goog.exportSymbol('GoogleSmartCard.LogBuffer', LogBuffer);
 
 /**
+ * Attaches the given log buffer to the given logger, by letting the buffer
+ * collect all logs sent to the logger. Additionally, all collected logs are
+ * attributed with the specified document location, which simplifies
+ * interpreting the collected logs.
+ * @param {!goog.log.Logger} logger
+ * @param {string} documentLocation
+ */
+LogBuffer.attachBufferToLogger = function(logBuffer, logger, documentLocation) {
+  // Note: It's crucial that we're in a static method and calling a global
+  // function (`goog.log.addHandle()`), because when `logBuffer` comes from a
+  // different page (e.g., the background page), we're dealing with two
+  // instances of Closure Library: one in our page and another in the buffer's
+  // page. We want the current page's instance to register the buffer, since
+  // it's where the `logger`s messages are handled.
+  goog.log.addHandler(
+      logger, logBuffer.onLogRecordObserved_.bind(logBuffer, documentLocation));
+};
+
+goog.exportProperty(
+    LogBuffer, 'attachBufferToLogger', LogBuffer.attachBufferToLogger);
+
+/** @override */
+LogBuffer.prototype.disposeInternal = function() {
+  this.formattedLogsPrefix_.length = 0;
+  this.observers_.length = 0;
+  this.formattedLogsSuffix_.length = 0;
+  LogBuffer.base(this, 'disposeInternal');
+};
+
+/**
  * @return {number}
  */
 LogBuffer.prototype.getCapacity = function() {
@@ -93,18 +123,6 @@ LogBuffer.prototype.getCapacity = function() {
 
 goog.exportProperty(
     LogBuffer.prototype, 'getCapacity', LogBuffer.prototype.getCapacity);
-
-/**
- * @param {!goog.log.Logger} logger
- * @param {string} documentLocation
- */
-LogBuffer.prototype.attachToLogger = function(logger, documentLocation) {
-  goog.log.addHandler(
-      logger, this.onLogRecordObserved_.bind(this, documentLocation));
-};
-
-goog.exportProperty(
-    LogBuffer.prototype, 'attachToLogger', LogBuffer.prototype.attachToLogger);
 
 /**
  * The structure that is used for returning the immutable snapshot of the log
@@ -185,17 +203,48 @@ LogBuffer.prototype.removeObserver = function(observer) {
 };
 
 /**
+ * Copies all log records that we've aggregated to the specified log buffer.
+ * @param {!LogBuffer} otherLogBuffer
+ */
+LogBuffer.prototype.copyToOtherBuffer = function(otherLogBuffer) {
+  if (this.isDisposed())
+    return;
+
+  // Take a snapshot before copying, to protect against new items being appended
+  // while we're iterating over old ones.
+  const state = this.getState();
+
+  for (const formattedLogRecord of state['formattedLogsPrefix'])
+    otherLogBuffer.addFormattedLogRecord_(formattedLogRecord);
+  for (const formattedLogRecord of state['formattedLogsSuffix'])
+    otherLogBuffer.addFormattedLogRecord_(formattedLogRecord);
+};
+
+/**
  * @param {string} documentLocation
  * @param {!goog.log.LogRecord} logRecord
  * @private
  */
 LogBuffer.prototype.onLogRecordObserved_ = function(
     documentLocation, logRecord) {
+  if (this.isDisposed())
+    return;
+
   for (const observer of this.observers_)
     observer(documentLocation, logRecord);
 
   const formattedLogRecord =
       GSC.LogFormatting.formatLogRecordCompact(documentLocation, logRecord);
+  this.addFormattedLogRecord_(formattedLogRecord);
+};
+
+/**
+ * @param {string} formattedLogRecord
+ * @private
+ */
+LogBuffer.prototype.addFormattedLogRecord_ = function(formattedLogRecord) {
+  if (this.isDisposed())
+    return;
 
   if (this.formattedLogsPrefix_.length < this.logsPrefixCapacity_)
     this.formattedLogsPrefix_.push(formattedLogRecord);

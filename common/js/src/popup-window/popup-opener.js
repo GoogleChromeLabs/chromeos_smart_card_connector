@@ -55,8 +55,6 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
  */
 GSC.PopupOpener.createWindow = function(url, createWindowOptions, opt_data) {
   const createdWindowExtends = {};
-  createdWindowExtends[GSC.Logging.GLOBAL_LOG_BUFFER_VARIABLE_NAME] =
-      GSC.Logging.getLogBuffer();
   if (opt_data !== undefined)
     createdWindowExtends['passedData'] = opt_data;
 
