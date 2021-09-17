@@ -52,6 +52,7 @@ const GSC = GoogleSmartCard;
  * already opened.
  */
 GSC.ConnectorApp.Background.MainWindowManaging.openWindowDueToUserRequest =
+    function() {
   GSC.PopupOpener.createWindow(WINDOW_URL, WINDOW_OPTIONS);
 };
 });  // goog.scope
