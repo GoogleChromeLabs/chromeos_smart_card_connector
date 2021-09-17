@@ -85,10 +85,9 @@ goog.inherits(LogBuffer, goog.Disposable);
 goog.exportSymbol('GoogleSmartCard.LogBuffer', LogBuffer);
 
 /**
- * Attaches the given log buffer to the given logger, by letting the buffer
- * collect all logs sent to the logger. Additionally, all collected logs are
- * attributed with the specified document location, which simplifies
- * interpreting the collected logs.
+ * Attaches the given log buffer to the given logger, making the buffer collect
+ * all logs sent to the logger. Additionally, all collected logs are attributed
+ * with the specified document location, which simplifies interpreting them.
  * @param {!LogBuffer} logBuffer
  * @param {!goog.log.Logger} logger
  * @param {string} documentLocation
