@@ -32,7 +32,7 @@ goog.require('GoogleSmartCard.ContainerHelpers');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
-goog.require('GoogleSmartCard.PopupWindow.Server');
+goog.require('GoogleSmartCard.PopupOpener');
 goog.require('goog.Promise');
 goog.require('goog.iter');
 goog.require('goog.log');
@@ -278,7 +278,7 @@ UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
  */
 UserPromptingChecker.prototype.runPromptDialog_ = function(
     clientAppId, userPromptDialogData, promiseResolver) {
-  const dialogPromise = GSC.PopupWindow.Server.runModalDialog(
+  const dialogPromise = GSC.PopupOpener.runModalDialog(
       USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
       userPromptDialogData);
   dialogPromise.then(

@@ -32,7 +32,7 @@
  *
  * Once the dialog is finished with some result (either user pressed the allow
  * button or the deny button, or the dialog was canceled), it uses the methods
- * of the GoogleSmartCard.PopupWindow library for returning the result to the
+ * of the GoogleSmartCard library for returning the result to the
  * caller window (i.e. to the App's background page).
  *
  * TODO(emaxx): Implement internationalization using the GoogleSmartCard.I18n
@@ -42,7 +42,7 @@
 goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.Main');
 
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.PopupWindow.Client');
+goog.require('GoogleSmartCard.InPopupMainScript');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.classlist');
@@ -63,7 +63,7 @@ const logger = GSC.Logging.getScopedLogger(
     'Main');
 
 function prepareMessage() {
-  const data = GSC.PopupWindow.Client.getData();
+  const data = GSC.InPopupMainScript.getData();
 
   const isClientKnown = data['is_client_known'];
   GSC.Logging.checkWithLogger(logger, typeof isClientKnown === 'boolean');
@@ -111,11 +111,11 @@ function prepareMessage() {
 }
 
 function allowClickListener() {
-  GSC.PopupWindow.Client.resolveModalDialog(true);
+  GSC.InPopupMainScript.resolveModalDialog(true);
 }
 
 function denyClickListener() {
-  GSC.PopupWindow.Client.resolveModalDialog(false);
+  GSC.InPopupMainScript.resolveModalDialog(false);
 }
 
 function closeWindowClickListener() {
@@ -130,5 +130,5 @@ goog.events.listen(goog.dom.getElement('deny'), 'click', denyClickListener);
 goog.events.listen(
     goog.dom.getElement('close-window'), 'click', closeWindowClickListener);
 
-GSC.PopupWindow.Client.prepareAndShowAsModalDialog();
+GSC.InPopupMainScript.prepareAndShowAsModalDialog();
 });  // goog.scope

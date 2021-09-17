@@ -23,7 +23,7 @@
 goog.provide('GoogleSmartCard.ConnectorApp.Background.MainWindowManaging');
 
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.PopupWindow.Server');
+goog.require('GoogleSmartCard.PopupOpener');
 
 goog.scope(function() {
 
@@ -52,7 +52,6 @@ const GSC = GoogleSmartCard;
  * already opened.
  */
 GSC.ConnectorApp.Background.MainWindowManaging.openWindowDueToUserRequest =
-    function() {
-  GSC.PopupWindow.Server.createWindow(WINDOW_URL, WINDOW_OPTIONS);
+  GSC.PopupOpener.createWindow(WINDOW_URL, WINDOW_OPTIONS);
 };
 });  // goog.scope
