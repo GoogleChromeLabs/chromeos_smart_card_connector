@@ -87,6 +87,29 @@ function listReaders() {
 /** @param {!Array.<string>} readers List of reader names. */
 function onReadersListed(readers) {
   console.log('List of PC/SC-Lite readers: ' + readers);
+  if (readers.length)
+    waitForReaderCardInserted(readers[0]);
+}
+
+/** @param {string} reader Name of the reader */
+function waitForReaderCardInserted(reader) {
+  api.SCardGetStatusChange(
+         sCardContext, GoogleSmartCard.PcscLiteClient.API.INFINITE, [{
+           reader_name: reader,
+           current_state: GoogleSmartCard.PcscLiteClient.API.SCARD_STATE_EMPTY
+         }])
+      .then(function(result) {
+        result.get(onReaderCardInserted, onPcscLiteError);
+      }, onRequestFailed);
+}
+
+/**
+ * @param {!Array.<!GoogleSmartCard.PcscLiteClient.API.SCARD_READERSTATE_OUT>}
+ *     readerStates
+ */
+function onReaderCardInserted(readerStates) {
+  console.log(
+      'Received reader card insertion event: ' + JSON.stringify(readerStates));
 }
 
 function contextDisposedListener() {
