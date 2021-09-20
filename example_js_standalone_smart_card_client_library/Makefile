@@ -34,6 +34,7 @@ JS_COMPILER_INPUT_PATHS := \
 JS_COMPILER_TARGET_NAMESPACES := \
 	GoogleSmartCard.PcscLiteClient.API \
 	GoogleSmartCard.PcscLiteClient.Context \
+	GoogleSmartCard.SingleMessageBasedChannel \
 
 JS_COMPILER_OUTPUT_FILE_NAME := google-smart-card-client-library.js
 

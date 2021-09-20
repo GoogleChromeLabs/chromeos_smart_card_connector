@@ -90,6 +90,9 @@ const SingleMessageBasedChannel = GSC.SingleMessageBasedChannel;
 
 goog.inherits(SingleMessageBasedChannel, goog.messaging.AbstractChannel);
 
+goog.exportSymbol(
+    'GoogleSmartCard.SingleMessageBasedChannel', SingleMessageBasedChannel);
+
 /**
  * @override
  * @param {string} serviceName
