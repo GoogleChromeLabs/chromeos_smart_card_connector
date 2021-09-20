@@ -24,6 +24,7 @@
 
 goog.provide('GoogleSmartCard.SingleMessageBasedChannel');
 
+goog.require('GoogleSmartCard.ContainerHelpers');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessageChannelPinging.PingResponder');
