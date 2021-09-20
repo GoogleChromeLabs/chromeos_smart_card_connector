@@ -64,8 +64,7 @@ if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP)
 displayNonChromeOsWarningIfNeeded();
 
 function closeWindowClickListener() {
-  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP)
-    chrome.app.window.current().close();
+  window.close();
 }
 
 function displayNonChromeOsWarningIfNeeded() {

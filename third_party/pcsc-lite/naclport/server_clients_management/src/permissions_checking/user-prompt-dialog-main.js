@@ -119,7 +119,7 @@ function denyClickListener() {
 }
 
 function closeWindowClickListener() {
-  chrome.app.window.current().close();
+  window.close();
 }
 
 prepareMessage();

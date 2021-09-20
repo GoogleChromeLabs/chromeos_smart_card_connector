@@ -59,7 +59,7 @@ GSC.I18n.adjustAllElementsTranslation();
 // Called when the "close" button is clicked. Closes the window.
 function onCloseWindowClicked(e) {
   e.preventDefault();
-  chrome.app.window.current().close();
+  window.close();
 }
 
 // Called when the "run test" button is clicked. Sends a command to the

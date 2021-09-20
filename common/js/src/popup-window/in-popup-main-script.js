@@ -152,9 +152,7 @@ GSC.InPopupMainScript.setupRejectionOnWindowClose = function() {
 
 function closeWindow() {
   goog.log.fine(logger, 'Closing the window...');
-  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP) {
-    chrome.app.window.current().close();
-  }
+  window.close();
 }
 
 function documentClosingOnEscapeKeyDownListener(event) {
