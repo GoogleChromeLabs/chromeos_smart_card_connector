@@ -118,7 +118,7 @@ function onReaderStateGot(readerStates) {
            current_state: readerStates[0].event_state
          }])
       .then(function(result) {
-        result.get(onReaderStateGot, onPcscLiteError);
+        result.get(onReaderStateChanged, onPcscLiteError);
       }, onRequestFailed);
 }
 
