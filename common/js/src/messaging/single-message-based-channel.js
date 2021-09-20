@@ -24,6 +24,7 @@
 
 goog.provide('GoogleSmartCard.SingleMessageBasedChannel');
 
+goog.require('GoogleSmartCard.ContainerHelpers');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessageChannelPinging.PingResponder');
@@ -99,7 +100,10 @@ SingleMessageBasedChannel.prototype.send = function(serviceName, payload) {
   GSC.Logging.checkWithLogger(this.logger, goog.isObject(payload));
   goog.asserts.assertObject(payload);
 
-  const typedMessage = new GSC.TypedMessage(serviceName, payload);
+  const normalizedPayload =
+      GSC.ContainerHelpers.substituteArrayBuffersRecursively(payload);
+
+  const typedMessage = new GSC.TypedMessage(serviceName, normalizedPayload);
   const message = typedMessage.makeMessage();
   goog.log.log(
       this.logger, goog.log.Level.FINEST,
