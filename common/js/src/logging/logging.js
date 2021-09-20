@@ -316,6 +316,14 @@ function setupLogBuffer() {
   GSC.LogBuffer.attachBufferToLogger(
       logBuffer, rootLogger, document.location.href);
 
+  if (!chrome || !chrome.runtime || !chrome.runtime.getBackgroundPage) {
+    // We don't know whether we're running inside the background page and
+    // the API for talking to it is unavailable - therefore no action needed,
+    // i.e., our page will continue using our log buffer. This should only
+    // happen in tests or if this code is running outside an app/extension.
+    return;
+  }
+
   // Expose our log buffer in the global window properties. Pages other than the
   // background will use it to access the background page's log buffer - see the
   // code directly below.
