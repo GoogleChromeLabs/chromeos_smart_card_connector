@@ -205,6 +205,48 @@ goog.exportSymbol('testSingleMessageBasedChannelSending', function() {
   return testCasePromiseResolver.promise;
 });
 
+// Test that array buffers in sent messages are substituted with byte arrays.
+goog.exportSymbol(
+    'testSingleMessageBasedChannelArrayBufferSending', function() {
+      const MESSAGE_TYPE = 'foo';
+      const MESSAGE_DATA = {x: (new Uint8Array([1, 255])).buffer};
+      const EXPECTED_TRANSMITTED_DATA = {x: [1, 255]};
+      const EXPECTED_TRANSMITTED_MESSAGE =
+          new TypedMessage(MESSAGE_TYPE, EXPECTED_TRANSMITTED_DATA);
+
+      const testCasePromiseResolver = goog.Promise.withResolver();
+      const propertyReplacer = new goog.testing.PropertyReplacer;
+
+      const mockedSendMessage =
+          setupSendMessageMock(testCasePromiseResolver, propertyReplacer);
+      setupSendMessagePingResponding(mockedSendMessage);
+
+      chrome.runtime.sendMessage(
+          verifyChannelIdMatcher,
+          new goog.testing.mockmatchers.ObjectEquals(
+              EXPECTED_TRANSMITTED_MESSAGE.makeMessage()));
+      mockedSendMessage.$once();
+      mockedSendMessage.$replay();
+
+      function onChannelEstablished() {
+        globalChannel.send(MESSAGE_TYPE, MESSAGE_DATA);
+
+        mockedSendMessage.$verify();
+        testCasePromiseResolver.resolve();
+        globalChannel.dispose();
+      }
+
+      function onChannelDisposed() {
+        testCasePromiseResolver.reject();
+      }
+
+      globalChannel =
+          new GSC.SingleMessageBasedChannel(EXTENSION_ID, onChannelEstablished);
+      globalChannel.addOnDisposeCallback(onChannelDisposed);
+
+      return testCasePromiseResolver.promise;
+    });
+
 // Verify that the message channel passes the messages received from the other
 // side to the correct service while also preserving the relative order.
 goog.exportSymbol('testSingleMessageBasedChannelReceiving', function() {
