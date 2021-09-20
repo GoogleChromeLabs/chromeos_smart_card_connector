@@ -28,6 +28,7 @@ goog.provide('GoogleSmartCard.InPopupMainScript');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
 goog.require('goog.events.KeyCodes');
@@ -99,7 +100,8 @@ GSC.InPopupMainScript.prepareAndShowAsModalDialog = function() {
   GSC.InPopupMainScript.setWindowHeightToFitContent();
   GSC.InPopupMainScript.setupClosingOnEscape();
   GSC.InPopupMainScript.setupRejectionOnWindowClose();
-  GSC.InPopupMainScript.showWindow();
+  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP)
+    GSC.InPopupMainScript.showWindow();
 };
 
 /**
@@ -115,7 +117,11 @@ GSC.InPopupMainScript.setWindowHeightToFitContent = function() {
           typeof wholeContentHeight === 'number');
   goog.log.fine(
       logger, 'Resizing the window size to ' + wholeContentHeight + 'px');
-  chrome.app.window.current().innerBounds.height = wholeContentHeight;
+  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP) {
+    chrome.app.window.current().innerBounds.height = wholeContentHeight;
+  } else if (GSC.Packaging.MODE == GSC.Packaging.Mode.EXTENSION) {
+    chrome.windows.height = wholeContentHeight;
+  }
 };
 
 /**
@@ -136,13 +142,19 @@ GSC.InPopupMainScript.setupClosingOnEscape = function() {
  * button).
  */
 GSC.InPopupMainScript.setupRejectionOnWindowClose = function() {
-  chrome.app.window.current().onClosed.addListener(
-      windowCloseDialogRejectionListener);
+  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP) {
+    chrome.app.window.current().onClosed.addListener(
+        windowCloseDialogRejectionListener);
+  } else if (GSC.Packaging.MODE == GSC.Packaging.Mode.EXTENSION) {
+    chrome.windows.onRemoved.addListener(windowCloseDialogRejectionListener);
+  }
 };
 
 function closeWindow() {
   goog.log.fine(logger, 'Closing the window...');
-  chrome.app.window.current().close();
+  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP) {
+    chrome.app.window.current().close();
+  }
 }
 
 function documentClosingOnEscapeKeyDownListener(event) {
