@@ -88,18 +88,19 @@ function listReaders() {
 function onReadersListed(readers) {
   console.log('List of PC/SC-Lite readers: ' + readers);
   if (readers.length)
-    waitForReaderCardInserted(readers[0]);
+    getReaderState(readers[0]);
 }
 
 /** @param {string} reader Name of the reader */
-function waitForReaderCardInserted(reader) {
+function getReaderState(reader) {
+  console.log('Obtaining reader state');
   api.SCardGetStatusChange(
          sCardContext, GoogleSmartCard.PcscLiteClient.API.INFINITE, [{
            reader_name: reader,
-           current_state: GoogleSmartCard.PcscLiteClient.API.SCARD_STATE_EMPTY
+           current_state: GoogleSmartCard.PcscLiteClient.API.SCARD_STATE_UNAWARE
          }])
       .then(function(result) {
-        result.get(onReaderCardInserted, onPcscLiteError);
+        result.get(onReaderStateGot, onPcscLiteError);
       }, onRequestFailed);
 }
 
@@ -107,9 +108,28 @@ function waitForReaderCardInserted(reader) {
  * @param {!Array.<!GoogleSmartCard.PcscLiteClient.API.SCARD_READERSTATE_OUT>}
  *     readerStates
  */
-function onReaderCardInserted(readerStates) {
+function onReaderStateGot(readerStates) {
   console.log(
-      'Received reader card insertion event: ' + JSON.stringify(readerStates));
+      'Waiting for reader state change. Current state: ' +
+      JSON.stringify(readerStates));
+  api.SCardGetStatusChange(
+         sCardContext, GoogleSmartCard.PcscLiteClient.API.INFINITE, [{
+           reader_name: readerStates[0].reader_name,
+           current_state: readerStates[0].event_state
+         }])
+      .then(function(result) {
+        result.get(onReaderStateGot, onPcscLiteError);
+      }, onRequestFailed);
+}
+
+/**
+ * @param {!Array.<!GoogleSmartCard.PcscLiteClient.API.SCARD_READERSTATE_OUT>}
+ *     readerStates
+ */
+function onReaderStateChanged(readerStates) {
+  console.log(
+      'Got notification about reader state change: ' +
+      JSON.stringify(readerStates));
 }
 
 function contextDisposedListener() {
