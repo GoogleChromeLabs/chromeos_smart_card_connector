@@ -26,8 +26,8 @@
 
 goog.provide('SmartCardClientApp.PinDialog.Main');
 
-goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.InPopupMainScript');
+goog.require('GoogleSmartCard.Logging');
 goog.require('goog.dom');
 goog.require('goog.dom.forms');
 goog.require('goog.events');
