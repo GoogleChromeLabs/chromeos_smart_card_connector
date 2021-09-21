@@ -22,9 +22,9 @@
 goog.provide('SmartCardClientApp.WindowMain');
 
 goog.require('GoogleSmartCard.I18n');
+goog.require('GoogleSmartCard.InPopupMainScript');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.ObjectHelpers');
-goog.require('GoogleSmartCard.InPopupMainScript');
 goog.require('goog.dom');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
