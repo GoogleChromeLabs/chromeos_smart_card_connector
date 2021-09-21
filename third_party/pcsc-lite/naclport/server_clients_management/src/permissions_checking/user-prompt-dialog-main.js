@@ -41,8 +41,8 @@
 
 goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.Main');
 
-goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.InPopupMainScript');
+goog.require('GoogleSmartCard.Logging');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.classlist');
