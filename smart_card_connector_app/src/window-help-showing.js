@@ -22,6 +22,7 @@
 
 goog.provide('GoogleSmartCard.ConnectorApp.Window.HelpShowing');
 
+goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.dom');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
@@ -40,7 +41,11 @@ const openHelpElement =
  */
 function openHelpClickListener(event) {
   event.preventDefault();
-  chrome.browser.openTab({url: HELP_WINDOW_URL});
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    chrome.browser.openTab({url: HELP_WINDOW_URL});
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    chrome.windows.create({url: HELP_WINDOW_URL});
+  }
 }
 
 GSC.ConnectorApp.Window.HelpShowing.initialize = function() {
