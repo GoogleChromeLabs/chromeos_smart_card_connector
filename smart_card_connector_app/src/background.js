@@ -139,7 +139,7 @@ executableModule.startLoading();
 // Launching is only possible for an app; in case of the extension packaging
 // mode, the user should click on the browser action icon next to the address
 // bar.
-if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP)
+if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP)
   chrome.app.runtime.onLaunched.addListener(launchedListener);
 
 chrome.runtime.onConnect.addListener(connectionListener);

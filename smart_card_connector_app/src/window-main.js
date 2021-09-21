@@ -58,7 +58,7 @@ GSC.ConnectorApp.Window.LogsExporting.initialize();
 
 GSC.I18n.adjustAllElementsTranslation();
 
-if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP)
+if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP)
   GSC.InPopupMainScript.showWindow();
 
 displayNonChromeOsWarningIfNeeded();

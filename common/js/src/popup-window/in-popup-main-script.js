@@ -100,7 +100,12 @@ GSC.InPopupMainScript.prepareAndShowAsModalDialog = function() {
   GSC.InPopupMainScript.setWindowHeightToFitContent();
   GSC.InPopupMainScript.setupClosingOnEscape();
   GSC.InPopupMainScript.setupRejectionOnWindowClose();
-  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP)
+  // In the App packaging mode, popup windows are initially opened hidden (see
+  // the flags passed to chrome.app.window.create() in popup-opener.js), to
+  // avoid flickering while the UI is being initialized. In the Extension
+  // packaging mode, there's no way to open an initially-hidden window, so
+  // there's no need to change the visibility here.
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP)
     GSC.InPopupMainScript.showWindow();
 };
 
@@ -117,10 +122,11 @@ GSC.InPopupMainScript.setWindowHeightToFitContent = function() {
           typeof wholeContentHeight === 'number');
   goog.log.fine(
       logger, 'Resizing the window size to ' + wholeContentHeight + 'px');
-  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP) {
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     chrome.app.window.current().innerBounds.height = wholeContentHeight;
-  } else if (GSC.Packaging.MODE == GSC.Packaging.Mode.EXTENSION) {
-    chrome.windows.height = wholeContentHeight;
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    chrome.windows.update(
+        chrome.windows.WINDOW_ID_CURRENT, {'height': wholeContentHeight});
   }
 };
 
@@ -142,10 +148,10 @@ GSC.InPopupMainScript.setupClosingOnEscape = function() {
  * button).
  */
 GSC.InPopupMainScript.setupRejectionOnWindowClose = function() {
-  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP) {
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     chrome.app.window.current().onClosed.addListener(
         windowCloseDialogRejectionListener);
-  } else if (GSC.Packaging.MODE == GSC.Packaging.Mode.EXTENSION) {
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     chrome.windows.onRemoved.addListener(windowCloseDialogRejectionListener);
   }
 };
