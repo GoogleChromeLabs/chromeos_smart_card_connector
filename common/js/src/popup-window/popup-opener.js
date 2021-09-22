@@ -24,6 +24,7 @@ goog.provide('GoogleSmartCard.PopupOpener');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.Promise');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -66,9 +67,11 @@ GSC.PopupOpener.createWindow = function(url, createWindowOptions, opt_data) {
 
   /** @preserveTry */
   try {
-    chrome.app.window.create(
-        url, createWindowOptions,
-        createWindowCallback.bind(null, createdWindowExtends));
+    if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+      chrome.app.window.create(
+          url, createWindowOptions,
+          createWindowCallback.bind(null, createdWindowExtends));
+    }
   } catch (exc) {
     GSC.Logging.failWithLogger(
         logger,
