@@ -22,6 +22,7 @@
 
 goog.provide('GoogleSmartCard.ConnectorApp.Window.AboutShowing');
 
+goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.dom');
 goog.require('goog.events');
 goog.require('goog.events.EventType');
@@ -29,9 +30,20 @@ goog.require('goog.events.EventType');
 goog.scope(function() {
 
 const ABOUT_WINDOW_URL = 'about-window.html';
-const ABOUT_WINDOW_OPTIONS = {
+
+const ABOUT_WINDOW_WIDTH = 700;
+const ABOUT_WINDOW_HEIGHT = 500;
+
+const APP_ABOUT_WINDOW_OPTIONS = {
   'id': 'about-window',
-  'innerBounds': {'width': 700, 'height': 500}
+  'innerBounds': {'width': ABOUT_WINDOW_WIDTH, 'height': ABOUT_WINDOW_HEIGHT}
+};
+
+const EXTENSION_ABOUT_WINDOW_OPTIONS = {
+  url: ABOUT_WINDOW_URL,
+  type: 'popup',
+  width: ABOUT_WINDOW_WIDTH,
+  height: ABOUT_WINDOW_HEIGHT
 };
 
 const GSC = GoogleSmartCard;
@@ -46,7 +58,11 @@ const openAboutElement =
 function openAboutClickListener(e) {
   e.preventDefault();
 
-  chrome.app.window.create(ABOUT_WINDOW_URL, ABOUT_WINDOW_OPTIONS);
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    chrome.app.window.create(ABOUT_WINDOW_URL, APP_ABOUT_WINDOW_OPTIONS);
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    chrome.windows.create(EXTENSION_ABOUT_WINDOW_OPTIONS);
+  }
 }
 
 GSC.ConnectorApp.Window.AboutShowing.initialize = function() {
