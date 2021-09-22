@@ -210,11 +210,11 @@ function initializeWithBackgroundPage(backgroundPage) {
           backgroundPage, 'googleSmartCard_readerTrackerUnsubscriber'));
   
   // Stop tracking the current list of readers when our window gets closed.
-  if (GSC.Packaging.MODE == GSC.Packaging.Mode.APP) {
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     chrome.app.window.current().onClosed.addListener(function() {
       readerTrackerUnsubscriber(onReadersChanged);
     });
-  } else if (GSC.Packaging.MODE == GSC.Packaging.Mode.EXTENSION) {
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     chrome.windows.onRemoved.addListener(function() {
       readerTrackerUnsubscriber(onReadersChanged);
     });
