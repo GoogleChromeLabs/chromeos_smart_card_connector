@@ -17,6 +17,8 @@
 
 goog.provide('GoogleSmartCard.Packaging');
 
+goog.require('GoogleSmartCard.Logging');
+
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
