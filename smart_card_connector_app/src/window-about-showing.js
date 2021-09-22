@@ -30,12 +30,14 @@ goog.require('goog.events.EventType');
 goog.scope(function() {
 
 const ABOUT_WINDOW_URL = 'about-window.html';
-const ABOUT_WINDOW_OPTIONS = {
-  'id': 'about-window',
-  'innerBounds': {'width': 700, 'height': 500}
-};
+
 const ABOUT_WINDOW_WIDTH = 700;
 const ABOUT_WINDOW_HEIGHT = 500;
+
+const ABOUT_WINDOW_OPTIONS = {
+  'id': 'about-window',
+  'innerBounds': {'width': ABOUT_WINDOW_WIDTH, 'height': ABOUT_WINDOW_HEIGHT}
+};
 
 const GSC = GoogleSmartCard;
 

@@ -208,7 +208,7 @@ function initializeWithBackgroundPage(backgroundPage) {
       /** @type {function(function(!Array.<!GSC.PcscLiteServer.ReaderInfo>))} */
       (GSC.ObjectHelpers.extractKey(
           backgroundPage, 'googleSmartCard_readerTrackerUnsubscriber'));
-  
+
   // Stop tracking the current list of readers when our window gets closed.
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     chrome.app.window.current().onClosed.addListener(function() {
