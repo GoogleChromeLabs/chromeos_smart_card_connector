@@ -34,9 +34,16 @@ const ABOUT_WINDOW_URL = 'about-window.html';
 const ABOUT_WINDOW_WIDTH = 700;
 const ABOUT_WINDOW_HEIGHT = 500;
 
-const ABOUT_WINDOW_OPTIONS = {
+const APP_ABOUT_WINDOW_OPTIONS = {
   'id': 'about-window',
   'innerBounds': {'width': ABOUT_WINDOW_WIDTH, 'height': ABOUT_WINDOW_HEIGHT}
+};
+
+const EXTENSION_ABOUT_WINDOW_OPTIONS = {
+  url: ABOUT_WINDOW_URL,
+  type: 'popup',
+  width: ABOUT_WINDOW_WIDTH,
+  height: ABOUT_WINDOW_HEIGHT
 };
 
 const GSC = GoogleSmartCard;
@@ -52,14 +59,9 @@ function openAboutClickListener(e) {
   e.preventDefault();
 
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
-    chrome.app.window.create(ABOUT_WINDOW_URL, ABOUT_WINDOW_OPTIONS);
+    chrome.app.window.create(ABOUT_WINDOW_URL, APP_ABOUT_WINDOW_OPTIONS);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    chrome.windows.create({
-      url: ABOUT_WINDOW_URL,
-      type: 'popup',
-      width: ABOUT_WINDOW_WIDTH,
-      height: ABOUT_WINDOW_HEIGHT
-    });
+    chrome.windows.create(EXTENSION_ABOUT_WINDOW_OPTIONS);
   }
 }
 
