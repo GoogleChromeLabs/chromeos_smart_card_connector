@@ -71,6 +71,13 @@ GSC.PopupOpener.createWindow = function(url, createWindowOptions, opt_data) {
       chrome.app.window.create(
           url, createWindowOptions,
           createWindowCallback.bind(null, createdWindowExtends));
+    } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION){
+      chrome.windows.create({
+        url: url,
+        type: 'popup',
+        width: createWindowOptions['innerBounds']['width'],
+        height: createWindowOptions['innerBounds']['height']
+      });
     }
   } catch (exc) {
     GSC.Logging.failWithLogger(
