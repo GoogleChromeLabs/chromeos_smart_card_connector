@@ -91,8 +91,7 @@ build_triplet = @build@
 host_triplet = @host@
 subdir = src/spy
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/as-ac-expand.m4 \
-	$(top_srcdir)/m4/ax_pthread.m4 $(top_srcdir)/m4/libtool.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
 	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
 	$(top_srcdir)/configure.ac
@@ -316,7 +315,6 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 builddir = @builddir@
-confdir_exp = @confdir_exp@
 datadir = @datadir@
 datarootdir = @datarootdir@
 docdir = @docdir@
@@ -338,7 +336,6 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
-localstatedir_exp = @localstatedir_exp@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -359,7 +356,6 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 usbdropdir = @usbdropdir@
-usbdropdir_exp = @usbdropdir_exp@
 AM_CPPFLAGS = -I$(top_srcdir)/src/PCSC -I$(top_builddir)/src/PCSC
 lib_LTLIBRARIES = libpcscspy.la
 dist_bin_SCRIPTS = pcsc-spy
@@ -783,13 +779,6 @@ uninstall-man: uninstall-man1
 @ENABLE_DOC_TRUE@		--center="PC/SC lite" \
 @ENABLE_DOC_TRUE@		--release="$(PACKAGE_NAME) $(PACKAGE_VERSION)" \
 @ENABLE_DOC_TRUE@		$(srcdir)/pcsc-spy.pod > $@
-
-framework:
-	rm -rf PCSC.framework
-	mkdir -p PCSC.framework/Versions/A
-	cp .libs/libpcscspy.dylib PCSC.framework/Versions/A/PCSC
-	ln -s Versions/Current/PCSC PCSC.framework
-	ln -s A PCSC.framework/Versions/Current
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

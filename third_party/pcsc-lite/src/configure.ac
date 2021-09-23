@@ -3,7 +3,7 @@
 
 AC_PREREQ([2.69])
 
-AC_INIT([pcsc-lite],[1.9.1])
+AC_INIT([pcsc-lite],[1.9.3])
 AC_CONFIG_SRCDIR(src/pcscdaemon.c)
 AM_INIT_AUTOMAKE(1.8 dist-bzip2 no-dist-gzip)
 AC_CONFIG_HEADERS([config.h])
@@ -198,7 +198,7 @@ AC_ARG_ENABLE(libudev,
 		fi ])
 
 # disable libudev check is USB is not used
-if test "$use_usb" == "no"; then
+if test "$use_usb" = "no"; then
 	use_libudev="no"
 fi
 
@@ -244,7 +244,7 @@ AC_ARG_ENABLE(libusb,
 	else use_libusb="${use_libusb-yes}" ; fi ] )
 
 # disable libusb check is USB is not used
-if test "$use_usb" == "no"; then
+if test "$use_usb" = "no"; then
 	use_libusb="no"
 fi
 
@@ -350,7 +350,7 @@ if test x${usbdropdir} = xfalse ; then
 		usbdropdir="$ac_default_libdir/pcsc/drivers"
 	fi
 fi
-AS_AC_EXPAND(usbdropdir_exp,$usbdropdir)
+AX_RECURSIVE_EVAL($usbdropdir,usbdropdir_exp)
 usbdropdir=$usbdropdir_exp
 AC_DEFINE_UNQUOTED(PCSCLITE_HP_DROPDIR, "$usbdropdir", [directory containing USB drivers])
 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} usbdropdir=${usbdropdir}"
@@ -406,25 +406,22 @@ AC_SUBST(ipcdir)
 AC_SUBST(serialconfdir)
 AC_SUBST(host_to_ccid_16)
 AC_SUBST(host_to_ccid_32)
-AS_AC_EXPAND(confdir_exp,$confdir)
-AS_AC_EXPAND(sbindir_exp,$sbindir)
-AS_AC_EXPAND(localstatedir_exp,$localstatedir)
+AX_RECURSIVE_EVAL($confdir,confdir_exp)
+AX_RECURSIVE_EVAL($sbindir,sbindir_exp)
 
 PCSCLITE_CONFIG_DIR="${confdir_exp}"
 AC_SUBST(PCSCLITE_CONFIG_DIR)
+AC_SUBST(sbindir_exp)
 PCSCLITE_FEATURES="${PCSCLITE_FEATURES} configdir=${PCSCLITE_CONFIG_DIR}"
 AC_DEFINE_UNQUOTED([PCSCLITE_FEATURES], ["${PCSCLITE_FEATURES}"], [Enabled PC/SC lite features])
-PCSCD_BINARY="${sbindir_exp}/pcscd"
-AC_DEFINE_UNQUOTED([PCSCD_BINARY], ["$PCSCD_BINARY"], [pcscd filename])
 
 cat << EOF
 
 PC/SC lite has been configured with following options:
 
 Version:             ${PACKAGE_VERSION}
-System binaries:     $(eval eval eval echo "${sbindir_exp}")
+System binaries:     ${sbindir_exp}
 Configuration dir:   ${PCSCLITE_CONFIG_DIR}
-
 
 Host:                ${host}
 Compiler:            ${CC}
@@ -438,7 +435,6 @@ PTHREAD_CFLAGS:      ${PTHREAD_CFLAGS}
 PTHREAD_LIBS:        ${PTHREAD_LIBS}
 PCSC_ARCH:           ${PCSC_ARCH}
 
-pcscd binary            ${PCSCD_BINARY}
 polkit support:         ${use_polkit}
 polkit policy dir:      ${polkit_policy_dir}
 libudev support:        ${use_libudev}

@@ -93,8 +93,7 @@ host_triplet = @host@
 noinst_PROGRAMS = pcsc_demo$(EXEEXT)
 subdir = doc/example
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/as-ac-expand.m4 \
-	$(top_srcdir)/m4/ax_pthread.m4 $(top_srcdir)/m4/libtool.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
 	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
 	$(top_srcdir)/configure.ac
@@ -287,7 +286,6 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 builddir = @builddir@
-confdir_exp = @confdir_exp@
 datadir = @datadir@
 datarootdir = @datarootdir@
 docdir = @docdir@
@@ -309,7 +307,6 @@ libdir = @libdir@
 libexecdir = @libexecdir@
 localedir = @localedir@
 localstatedir = @localstatedir@
-localstatedir_exp = @localstatedir_exp@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
@@ -330,7 +327,6 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 usbdropdir = @usbdropdir@
-usbdropdir_exp = @usbdropdir_exp@
 pcsc_demo_SOURCES = pcsc_demo.c
 pcsc_demo_CFLAGS = -I$(top_srcdir)/src/PCSC -I$(top_builddir)/src/PCSC
 pcsc_demo_LDADD = $(top_builddir)/src/libpcsclite.la
