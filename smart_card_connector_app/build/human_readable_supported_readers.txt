@@ -49,6 +49,7 @@ ANCUD CCID USB Reader & RNG
 appidkey GmbH ID100L-USB-SC-Reader
 appidkey GmbH ID50 -USB
 appidkey GmbH ID60-USB
+ArkSigner Connect2Sign
 ASK-RFID CPL108
 Athena ASE IIIe
 Athena ASEDrive IIIe Combo Bio PIV
@@ -78,10 +79,10 @@ Bit4id Digital DNA Key
 Bit4id Digital-DNA Key
 Bit4id Digital-DNA Key BT
 Bit4id iAM
-Bit4id miniLector
 Bit4id miniLector AIR EVO
 BIT4ID miniLector AIR NFC v3
 Bit4id miniLector Blue
+bit4id miniLector-EVO
 Bit4id miniLector-s
 BIT4ID mLector AIR DI V3
 Bit4id TokenME EVO v2
@@ -121,6 +122,16 @@ Chicony HP Skylab USB Smartcard Keyboard
 Chicony HP USB Smartcard CCID Keyboard JP
 Chicony HP USB Smartcard CCID Keyboard KR
 Chicony USB Smart Card Keyboard
+Circle CCR7115 ICC
+Circle CCR7315
+Circle CIR115 ICC
+Circle CIR215 CL
+Circle CIR215 PICC
+Circle CIR315
+Circle CIR315 CL
+Circle CIR315 Dual & 1S
+Circle CIR415 CL & 1S
+Circle Idaxis SecurePIV
 COVADIS ALYA
 COVADIS Auriga
 COVADIS VEGA-ALPHA
@@ -131,6 +142,7 @@ DESKO GmbH IDenty chrom
 DESKO GmbH PENTA Scanner
 Doctolib SR
 DUALi DE-620 Combi
+DUALi DE-ABCM6 RFRW
 DUALi DRAGON NFC READER
 eID_R6 001 X8
 Elatec TWN4 SmartCard NFC
@@ -148,6 +160,7 @@ Feitian eJAVA Token
 Feitian ePass2003
 FEITIAN iR301
 Feitian R502
+Feitian R701
 Feitian R805
 Feitian Technologies FT SCR310
 Feitian VR504 VHBR Contactless & Contact Card Reader
@@ -189,6 +202,7 @@ Gemalto Smart Enterprise Guardian Secure USB Device
 Gemalto USB GemPCPinpad SmartCard Reader
 Gemalto USB Shell Token V2
 Gemplus GemCore POS Pro Smart Card Reader
+Generic EMV Smartcard Reader
 Generic MultiCard Device
 Generic USB Smart Card Reader
 Generic USB2.0-CRW
@@ -228,6 +242,7 @@ Identiv @MAXX ID-1 Smart Card Reader
 Identiv @MAXX Light2 token
 Identiv CLOUD 2980 F Smart Card Reader
 Identiv Identiv uTrust 4701 F Dual Interface Reader
+Identiv Identiv uTrust 4711 F CL + SAM Reader
 Identiv SCR3500 A Contact Reader
 Identiv SCR3500 B Contact Reader
 Identiv SCR3500 C Contact Reader
@@ -240,6 +255,7 @@ Identiv uTrust 3522 embd SE RFID Token
 Identiv uTrust 3700 F CL Reader
 Identiv uTrust 3701 F CL Reader
 Identiv uTrust 3720 Contactless Reader
+Identiv uTrust 3721 Contactless Reader
 Identive CLOUD 2700 F Smart Card Reader
 Identive CLOUD 2700 R Smart Card Reader
 Identive Identive CLOUD 4000 F DTC
@@ -251,10 +267,14 @@ IID AT90S064 CCID READER
 IIT E.Key Almaz-1C
 IIT E.Key Crystal-1
 InfoCert WirelessKey
+Infocrypt HWDSSL DEVICE
+Infocrypt Token++ lite
 InfoThink IT-102MU Reader
 InfoThink IT-500U Reader
 INGENICO Leo
 Ingenico WITEO USB Smart Card Reader
+INMAX DWR18 HC
+INMAX DWR18 HPC
 Inside Secure AT90SCR050
 Inside Secure AT90SCR100
 Inside Secure AT90SCR200
@@ -264,6 +284,7 @@ Inside Secure VaultIC 440 Smart Object
 INSIDE Secure VaultIC 441 Smart Object
 Inside Secure VaultIC 460 Smart Object
 IonIDe Smartcard Reader
+jSolutions s.r.o. Multi SIM card reader 4/8
 KACST HSID Reader
 KACST HSID Reader Dual Storage
 KACST HSID Reader Single Storage
@@ -286,6 +307,7 @@ KRONEGGER NFC blue Reader Platform
 Ledger Nano S
 Ledger Nano X
 Lenovo Integrated Smart Card Reader
+Lenovo Lenovo Smartcard Wired Keyboard II
 Lenovo Lenovo USB Smartcard Keyboard
 Liteon HP SC Keyboard - Apollo (Liteon)
 Liteon HP SC Keyboard - Apollo JP (Liteon)
@@ -294,6 +316,7 @@ Macally NFC CCID eNetPad
 mCore SCard-Reader
 Microchip SEC1110
 Microchip SEC1210
+MK Technology KeyPass D1
 MK Technology KeyPass S1
 Morpho MSO1350 Fingerprint Sensor & SmartCard Reader
 Morpho MSO350/MSO351 Fingerprint Sensor & SmartCard Reader
@@ -338,10 +361,13 @@ REINER SCT cyberJack go
 REINER SCT cyberJack one
 REINER SCT cyberJack RFID basis
 REINER SCT tanJack Bluetooth
+REINER SCT tanJack USB
 Rocketek RT-SCR1
 Route1 MobiKEY Fusion3
 SafeNet eToken 5100
+SafeNet eToken 5110+ FIPS
 SafeNet eToken 5300
+SafeNet eToken 5300 C
 SafeNet eToken 7300
 SafeTech SafeTouch
 SAFETRUST SABRE SCR
@@ -367,6 +393,10 @@ Secure Device Solutions DOMINO-Key TWIN
 SecuTech SecuTech Token
 Sitecom Sitecom USB simcard reader MD-010
 Softforum Co., Ltd XecureHSM
+SoloKeys Solo 2
+SONY Felica RC-S300/P
+SONY Felica RC-S300/S
+SONY Felica RC-S660/U
 SPECINFOSYSTEMS DIAMOND HSM
 SPECINFOSYSTEMS DIAMOND PLUS token
 SPECINFOSYSTEMS DIAMOND PRO token
@@ -390,6 +420,7 @@ Spyrus Inc Rosetta USB
 Spyrus Inc WorkSafe Pro
 Sunrex HP USB Business Slim Smartcard CCID Keyboard
 Swissbit Secure USB PU-50n SE/PE
+SYNNIX CL-2100R
 SYNNIX STD200
 Sysking MII136C
 sysmocom - s.f.m.c. GmbH sysmoOCTSIM

@@ -98,8 +98,7 @@ host_triplet = @host@
 @WITH_TWIN_SERIAL_TRUE@am__append_6 = uninstall_ccidtwin
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/m4/as-ac-expand.m4 \
-	$(top_srcdir)/m4/ax_pthread.m4 $(top_srcdir)/m4/libtool.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/m4/libtool.m4 \
 	$(top_srcdir)/m4/ltoptions.m4 $(top_srcdir)/m4/ltsugar.m4 \
 	$(top_srcdir)/m4/ltversion.m4 $(top_srcdir)/m4/lt~obsolete.m4 \
 	$(top_srcdir)/configure.ac
@@ -141,8 +140,7 @@ am__uninstall_files_from_dir = { \
 am__installdirs = "$(DESTDIR)$(libdir)"
 LTLIBRARIES = $(lib_LTLIBRARIES)
 am__DEPENDENCIES_1 =
-libccid_la_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1)
+libccid_la_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am__libccid_la_SOURCES_DIST = ccid.c ccid.h ccid_ifdhandler.h \
 	commands.c commands.h debug.h defs.h ifdhandler.c utils.c \
 	utils.h ccid_usb.c ccid_usb.h tokenparser.l parser.h strlcpy.c \
@@ -410,7 +408,6 @@ am__tar = @am__tar@
 am__untar = @am__untar@
 ax_pthread_config = @ax_pthread_config@
 bindir = @bindir@
-bindir_exp = @bindir_exp@
 build = @build@
 build_alias = @build_alias@
 build_cpu = @build_cpu@
@@ -450,7 +447,6 @@ serialconfdir = @serialconfdir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
 sysconfdir = @sysconfdir@
-sysconfdir_exp = @sysconfdir_exp@
 target_alias = @target_alias@
 top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
@@ -497,7 +493,7 @@ TOKEN_PARSER = tokenparser.l parser.h \
 
 @WITHOUT_PCSC_TRUE@PROVIDED_BY_PCSC = debug.c
 libccid_la_SOURCES = $(COMMON) $(USB) $(TOKEN_PARSER) $(PROVIDED_BY_PCSC) $(T1)
-libccid_la_LIBADD = $(LEXLIB) $(LIBUSB_LIBS) $(PTHREAD_LIBS)
+libccid_la_LIBADD = $(LIBUSB_LIBS) $(PTHREAD_LIBS)
 libccid_la_CFLAGS = $(PCSC_CFLAGS) $(LIBUSB_CFLAGS) $(PTHREAD_CFLAGS) \
 	$(SYMBOL_VISIBILITY) -D$(CCID_VERSION) -DSIMCLIST_NO_DUMPRESTORE
 
