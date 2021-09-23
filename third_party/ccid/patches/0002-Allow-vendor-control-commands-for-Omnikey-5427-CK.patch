@@ -1,0 +1,57 @@
+From f4ad79d80c35b04aa4c49c0b63ce7eb0c4f4e5cc Mon Sep 17 00:00:00 2001
+From: Maksim Ivanov <emaxx@google.com>
+Date: Fri, 30 Jul 2021 03:50:30 +0200
+Subject: [PATCH] Allow vendor control commands for Omnikey 5427 CK
+
+By default, the PC/SC protocol doesn't allow sending commands (APDUs) to
+a reader that doesn't have a card inserted. There's a legitimate use
+case (which exactly, isn't relevant here) for supporting this for the
+Omnikey 5427 CK reader.
+
+This reader provides a capability for sending APDUs, but only via a
+vendor control command. By default, vendor control commands are
+forbidden, and can be enabled for all readers via setting the
+"ifdDriverOptions" parameter in the Info.plist config to have the bit
+"1" (DRIVER_OPTION_CCID_EXCHANGE_AUTHORIZED). However, we don't want to
+enable this parameter, since for some readers it might be a security
+risk (see
+https://ludovicrousseau.blogspot.com/2011/10/featureccidesccommand.html).
+Hence the solution in this pull request is to special-case the Omnikey
+5427 CK reader and allow any application to send control commands. It
+was confirmed with the reader's vendor that this doesn't impose a
+security risk here.
+---
+ third_party/ccid/src/src/ccid.h       | 1 +
+ third_party/ccid/src/src/ifdhandler.c | 4 ++++
+ 2 files changed, 5 insertions(+)
+
+diff --git a/third_party/ccid/src/src/ccid.h b/third_party/ccid/src/src/ccid.h
+index 33400d3b..9ab312ce 100644
+--- a/third_party/ccid/src/src/ccid.h
++++ b/third_party/ccid/src/src/ccid.h
+@@ -232,6 +232,7 @@ typedef struct
+ #define HID_OMNIKEY_5422 0x076B5422
+ #define HID_OMNIKEY_3X21 0x076B3031 /* OMNIKEY 3121 or 3021 or 1021 */
+ #define HID_OMNIKEY_3821 0x076B3821 /* OMNIKEY 3821 */
++#define HID_OMNIKEY_5427CK 0x076B5427 /* OMNIKEY 5427 CK */
+ #define HID_OMNIKEY_6121 0x076B6632 /* OMNIKEY 6121 */
+ #define CHERRY_XX44	0x046A00A7 /* Cherry Smart Terminal xx44 */
+ #define FUJITSU_D323 0x0BF81024 /* Fujitsu Smartcard Reader D323 */
+diff --git a/third_party/ccid/src/src/ifdhandler.c b/third_party/ccid/src/src/ifdhandler.c
+index fef34c4a..addfee06 100644
+--- a/third_party/ccid/src/src/ifdhandler.c
++++ b/third_party/ccid/src/src/ifdhandler.c
+@@ -1468,6 +1468,10 @@ EXTERNAL RESPONSECODE IFDHControl(DWORD Lun, DWORD dwControlCode,
+ 				allowed = TRUE;
+ 		}
+ 
++		/* allow APDU exchange with this reader without a card in the field */
++		if (HID_OMNIKEY_5427CK == readerID)
++			allowed = TRUE;
++
+ 		if (!allowed)
+ 		{
+ 			DEBUG_INFO1("ifd exchange (Escape command) not allowed");
+-- 
+2.33.0.464.g1972c5931b-goog
+
