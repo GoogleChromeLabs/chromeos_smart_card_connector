@@ -1,5 +1,5 @@
 
-#line 3 "<stdout>"
+#line 3 "tokenparser.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -465,7 +465,7 @@ int yy_flex_debug = 0;
 #define YY_MORE_ADJ 0
 #define YY_RESTORE_YY_MORE_OFFSET
 char *yytext;
-#line 1 "../../src/src/tokenparser.l"
+#line 1 "tokenparser.l"
 /*
  * Reads lexical config files and updates database.
  *
@@ -504,7 +504,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  * @brief provides parsing functions for Info.plist files
  * platforms
  */
-#line 42 "../../src/src/tokenparser.l"
+#line 42 "tokenparser.l"
 
 #include "config.h"
 #include <stdio.h>
@@ -526,9 +526,9 @@ void tperrorCheck (char *pcToken_error);
 static list_t *ListKeys;
 static list_t *ListValues;
 
-#line 530 "<stdout>"
+#line 530 "tokenparser.c"
 #define YY_NO_INPUT 1
-#line 532 "<stdout>"
+#line 532 "tokenparser.c"
 
 #define INITIAL 0
 
@@ -743,10 +743,10 @@ YY_DECL
 		}
 
 	{
-#line 69 "../../src/src/tokenparser.l"
+#line 69 "tokenparser.l"
 
 
-#line 750 "<stdout>"
+#line 750 "tokenparser.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -805,41 +805,41 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 71 "../../src/src/tokenparser.l"
+#line 71 "tokenparser.l"
 {}
 	YY_BREAK
 case 2:
 /* rule 2 can match eol */
 YY_RULE_SETUP
-#line 72 "../../src/src/tokenparser.l"
+#line 72 "tokenparser.l"
 {}
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 73 "../../src/src/tokenparser.l"
+#line 73 "tokenparser.l"
 { eval_key(yytext, ListKeys); }
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 74 "../../src/src/tokenparser.l"
+#line 74 "tokenparser.l"
 {}
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 75 "../../src/src/tokenparser.l"
+#line 75 "tokenparser.l"
 { eval_value(yytext, ListValues); }
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 76 "../../src/src/tokenparser.l"
+#line 76 "tokenparser.l"
 { tperrorCheck(yytext); }
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 77 "../../src/src/tokenparser.l"
+#line 77 "tokenparser.l"
 ECHO;
 	YY_BREAK
-#line 843 "<stdout>"
+#line 843 "tokenparser.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -1807,7 +1807,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 77 "../../src/src/tokenparser.l"
+#line 77 "tokenparser.l"
 
 
 

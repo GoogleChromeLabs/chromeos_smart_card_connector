@@ -464,6 +464,7 @@ again_libusb:
 					 * 0: R502 Contactless Reader (CCID)
 					 * 1: R502 Contact Reader (CCID)
 					 * 2: R502 SAM1 Reader (CCID)
+					 * 3: R502 SAM2 Reader (CCID)
 					 *
 					 * For the HID Omnikey 5422 the interfaces are:
 					 * 0: OMNIKEY 5422CL Smartcard Reader
@@ -474,6 +475,10 @@ again_libusb:
 					if (HID_OMNIKEY_5422 == readerID)
 						/* only 2 interfaces for this device */
 						max_interface_number = 1;
+
+					if (FEITIANR502DUAL == readerID)
+						/* 4 interfaces for Feitian R502 reader */
+						max_interface_number = 3;
 				}
 #endif
 				/* is it already opened? */
@@ -1205,13 +1210,21 @@ static unsigned int *get_data_rates(unsigned int reader_index,
 	int n, i, len;
 	unsigned char buffer[256*sizeof(int)];	/* maximum is 256 records */
 	unsigned int *uint_array;
+	int bNumDataRatesSupported;
+
+	bNumDataRatesSupported = get_ccid_device_descriptor(get_ccid_usb_interface(desc, &num))[27];
+	if (0 == bNumDataRatesSupported)
+		/* read up to the buffer size */
+		len = sizeof(buffer) / sizeof(int);
+	else
+		len = bNumDataRatesSupported;
 
 	/* See CCID 3.7.3 page 25 */
 	n = ControlUSB(reader_index,
 		0xA1, /* request type */
 		0x03, /* GET_DATA_RATES */
 		0x00, /* value */
-		buffer, sizeof(buffer));
+		buffer, len * sizeof(int));
 
 	/* we got an error? */
 	if (n <= 0)
@@ -1231,8 +1244,7 @@ static unsigned int *get_data_rates(unsigned int reader_index,
 	n /= sizeof(int);
 
 	/* we do not get the expected number of data rates */
-	len = get_ccid_device_descriptor(get_ccid_usb_interface(desc, &num))[27]; /* bNumDataRatesSupported */
-	if ((n != len) && len)
+	if ((n != bNumDataRatesSupported) && bNumDataRatesSupported)
 	{
 		DEBUG_INFO3("Got %d data rates but was expecting %d", n, len);
 
@@ -1538,7 +1550,7 @@ static void *Multi_PollingProc(void *p_ext)
 							change = (slot_status & 2) ? "status changed" : "no change";
 
 							DEBUG_COMM3("slot %d status: %d",
-								s + b*4, slot_status);
+								s + slot, slot_status);
 							DEBUG_COMM3("ICC %s, %s", present, change);
 						}
 						slot += 4;
