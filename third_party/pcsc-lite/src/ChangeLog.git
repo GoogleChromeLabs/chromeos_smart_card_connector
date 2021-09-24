@@ -1,4 +1,656 @@
-commit 7135021f5cefab900ddef89cdbfc9aef14671e6a (HEAD -> master, tag: 1.9.1, zotac/master, origin/master, origin/HEAD, github/master)
+commit 6a62e0b5c956ee5a27a00083ee795220ed2fc4d6 (HEAD -> master, tag: 1.9.3, zotac/master, origin/master, origin/HEAD, github/master)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri Aug 6 22:03:15 2021 +0200
+
+    Release 1.9.3
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ ChangeLog    | 5 +++++
+ configure.ac | 2 +-
+ 2 files changed, 6 insertions(+), 1 deletion(-)
+
+commit 7b19311caed2249aedde59db5465f63f9d70b840
+Author: Christian Hesse <mail@eworm.de>
+Date:   Fri Aug 6 15:41:43 2021 +0200
+
+    Mention autoconf-archive for bootstrap
+    
+    ... which is now required.
+
+ bootstrap | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 9330cd7c8a7d07ab082e684575973b6f0602fe70
+Author: Christian Hesse <mail@eworm.de>
+Date:   Fri Aug 6 15:35:11 2021 +0200
+
+    Fix substitution of sbindir_exp
+    
+    ... which is required for the systemd service file.
+
+ configure.ac | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit c19a8f200f753ea786b751584c9f11149b8f6c9b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed Aug 4 15:52:44 2021 +0200
+
+    debug.c: remove MUSCLECARD_DEBUG use
+    
+    The MuscleCard project is now dead since a long time.
+    Remove unused code.
+
+ src/debug.c | 4 ----
+ 1 file changed, 4 deletions(-)
+
+commit 7afcaf630e2ce6d3d8079c0e59d52653e9f0f811 (tag: 1.9.2)
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 3 18:55:23 2021 +0200
+
+    Release 1.9.2
+    
+    Signed-off-by: Ludovic Rousseau <ludovic.rousseau@free.fr>
+
+ ChangeLog    | 18 ++++++++++++++++++
+ configure.ac |  2 +-
+ 2 files changed, 19 insertions(+), 1 deletion(-)
+
+commit c31884c1ce59688187ea2e2401173ad0ac29ec49
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Aug 3 18:07:56 2021 +0200
+
+    reader.h: use logical OR operator instead of bitwise OR operator
+    
+    The behavior should be the same but the code is cleaner now.
+    
+    Thanks to Godfrey Chung for the bug report
+    https://github.com/LudovicRousseau/PCSC/commit/1886e60798c0f2cb05a9c430d7c48691fe8edc11#commitcomment-54330043
+
+ src/PCSC/reader.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 0076d763174ee065d4b96483ea4709d1958cc3ae
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 11 18:50:47 2021 +0200
+
+    Create github issue template
+    
+    It should be easier for users to report the important information.
+
+ .github/ISSUE_TEMPLATE.md | 29 +++++++++++++++++++++++++++++
+ 1 file changed, 29 insertions(+)
+
+commit f94cb5eb8d54c1e7b3846a19a347c8130ee8d401
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 4 12:51:32 2021 +0200
+
+    Makefile.am: no need to distribute m4 macros anymore
+    
+    - m4/ax_pthread.m4 is fetched from autoconf-archive
+    - m4/as-ac-expand.m4 is replaced by ax_recursive_eval.m4 from
+      autoconf-archive
+
+ Makefile.am | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+commit 2309de059191d7730edfa554d179dd52a67b0994
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 4 12:40:47 2021 +0200
+
+    configure/ac: simplify usage of ${sbindir_exp}
+    
+    The variable is already expanded so not need to use "eval eval..." again
+    to expand it.
+
+ configure.ac | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+commit afbe42b6d033b81ca2bb91d060b55cd482043be6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 4 12:36:53 2021 +0200
+
+    Use AX_RECURSIVE_EVAL() from autoconf-archive
+    
+    AS_AC_EXPAND() is not maintained upstream any more.
+    
+    We can now remove the useless file m4/as-ac-expand.m4
+
+ configure.ac       |  6 +++---
+ m4/as-ac-expand.m4 | 43 -------------------------------------------
+ 2 files changed, 3 insertions(+), 46 deletions(-)
+
+commit 1b0a1bf496203d02f0dae39f2da1a5377bcc5c1b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 4 12:32:14 2021 +0200
+
+    Use @PCSCLITE_CONFIG_DIR@ instead of @confdir_exp@
+    
+    "PCSCLITE_CONFIG_DIR" is substituted (using AC_SUBST(PCSCLITE_CONFIG_DIR) in
+    configure.ac) but "confdir_exp" is not.
+
+ doc/pcscd.8.in        | 10 +++++-----
+ doc/reader.conf.5.in  |  6 +++---
+ src/libpcsclite.pc.in |  2 +-
+ 3 files changed, 9 insertions(+), 9 deletions(-)
+
+commit cd798fa2dfc12c2b2542616a4c42f43283ca1423
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 4 12:09:09 2021 +0200
+
+    Use ax_pthread.m4 macro from autoconf-archive
+    
+    autoconf-archive package provides ax_pthread.m4 so we do not have to get
+    it from the PCSC repository.
+
+ m4/ax_pthread.m4 | 309 -------------------------------------------------------
+ 1 file changed, 309 deletions(-)
+
+commit 35d5ce40cfa377b97e86276b27342b43257dd931
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 4 12:03:29 2021 +0200
+
+    Remove definition of unused localstatedir
+    
+    localstatedir use was removed in a707c88a79cf96ab97ba26e38dc8ea47aa4fb18f
+    "Remove etc directory completely"
+
+ configure.ac | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit 6928aa235821339a466d6dc759e177b538e9ac2b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Jul 4 11:59:21 2021 +0200
+
+    Remove definition os unused PCSCD_BINARY
+    
+    PCSCD_BINARY use was removed in 244664b6b31e723728d409dd178ed11722d83a84
+    10 years ago: "Remove pcscd autostart feature".
+
+ configure.ac | 3 ---
+ 1 file changed, 3 deletions(-)
+
+commit 7730f6c54d7fb6a910d291e2d48c92d2a5abf688
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Thu Jun 17 10:48:40 2021 +0200
+
+    SetProtocol: Handle IFD_NOT_SUPPORTED from the driver
+    
+    If the driver returns IFD_NOT_SUPPORTED from the function
+    IFDHSetProtocolParameters() it indicates the "command" is not supported.
+    It is different from IFD_PROTOCOL_NOT_SUPPORTED that indicates the
+    "prorocol" is not supported.
+    
+    The problem was with a ACR38U CCID and a memory card. The
+    SetParameters() fails but the card can still be used using the default
+    protocol.
+    
+    The behaviour is identical to what we had before the commit
+    5d58577093f56dbcfbf754940f885ed8fcdba206.
+    
+    Thanks to Godfrey Chung for the bug report
+    "pcsc-lite 1.9.1: memory card connection failed #103"
+    https://github.com/LudovicRousseau/PCSC/issues/103
+
+ src/prothandler.c | 8 +++++++-
+ 1 file changed, 7 insertions(+), 1 deletion(-)
+
+commit 6f9b6272d5b1f3a5df4d0d8750b48b651662b683
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Jun 1 22:04:40 2021 +0200
+
+    systemd: use $PCSCD_ARGS to specify more arguments
+    
+    You can define $PCSCD_ARGS in /etc/default/pcscd to add more arguments
+    to pcscd.
+    For exeample you can use:
+    PCSCD_ARGS=--debug
+    to get debug messaqes in the systemd journal.
+    
+    Use "journalctl --unit pcscd --follow" to see the logs.
+    
+    Fix https://salsa.debian.org/rousseau/PCSC/-/issues/14
+
+ etc/pcscd.service.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit de70032e4eff6c03d8e58f142e075205b64f0678
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Jun 1 21:43:02 2021 +0200
+
+    systemd: use /etc/default/pcscd as EnvironmentFile
+    
+    If you want to set environment variables to change the behavior of pcscd
+    you can use the file /etc/default/pcscd
+    
+    For example you can add in this file:
+    PCSCLITE_FILTER_IGNORE_READER_NAMES="Twin"
+    so that readers with "Twin" in the name will be ignored.
+    
+    See "Remove and/or customize PC/SC reader names"
+    https://ludovicrousseau.blogspot.com/2015/12/remove-andor-customize-pcsc-reader-names.html
+    
+    Thanks to Maurizio Avogadro for the idea
+    https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=989316
+
+ etc/pcscd.service.in | 1 +
+ 1 file changed, 1 insertion(+)
+
+commit 221da22ba3daa463d021a3b4ad7837bf32763184
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 24 13:05:41 2021 +0200
+
+    pcsc-spy: update copyright date
+
+ src/spy/pcsc-spy | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit c6dd6e12f1d8d84119c88c9ccbdcd6a9c454a227
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Mon May 24 13:03:10 2021 +0200
+
+    pcsc-spy: use an explicit SpyExit exception
+    
+    This exception is used to terminate the threads.
+    It is cleaner to catch a specific exception rather than parsing a
+    generic exception.
+
+ src/spy/pcsc-spy | 12 ++++++------
+ 1 file changed, 6 insertions(+), 6 deletions(-)
+
+commit cfcd964497aa022530bab6851ac2cc28d59620f6
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun May 23 16:33:53 2021 +0200
+
+    pcsc-spy: version 1.1
+
+ src/spy/pcsc-spy | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 7b24899d079ba1f4934287161b94cff7fdbe7642
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun May 23 16:32:34 2021 +0200
+
+    pcsc-spy.pod: use /usr/lib/x86_64-linux-gnu
+    
+    On Unix the libraries and now in /usr/lib/x86_64-linux-gnu (for an AMD64
+    CPU) instead of in /usr/lib
+
+ src/spy/pcsc-spy.pod | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit d55c5e43b46b91da0db0304806b5fd5668b7295e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun May 23 16:15:27 2021 +0200
+
+    pcsc-spy.pod: add [-v|--version] in synopsis
+
+ src/spy/pcsc-spy.pod | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit b4be7647566d8450dbf81b29a5626781966ced7b
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun May 23 16:14:01 2021 +0200
+
+    pcsc-spy.pod: document −t, −−thread argument
+
+ src/spy/pcsc-spy.pod | 7 ++++++-
+ 1 file changed, 6 insertions(+), 1 deletion(-)
+
+commit 8e3ce8492eb7146f9c379b39422edca51cf69c6d
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun May 23 16:06:46 2021 +0200
+
+    pcsc-spy: remove, now useless, support of macOS
+    
+    The wrapper is non-working on macOS. Maybe since the intergation of SIP
+    (System Integrity Protection) in macOS El Capitan in 2015.
+    
+    I now get:
+    SCardEstablishContext
+     i dwScope: SCARD_SCOPE_SYSTEM (0x00000002)
+     o hContext: 0x00000000
+     => Service not available. (SCARD_E_NO_SERVICE [0x8010001D])  [0.000660]
+    SCardReleaseContext
+     i hContext: 0x00000000
+     => Invalid handle. (SCARD_E_INVALID_HANDLE [0x80100003])  [0.000006]
+
+ src/spy/Makefile.am  |  7 -------
+ src/spy/libpcscspy.c | 19 -------------------
+ src/spy/pcsc-spy.pod | 18 ------------------
+ 3 files changed, 44 deletions(-)
+
+commit 5d320fb48c6cdcbc6b2befa83c63d28aeae4dd73
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun May 23 15:44:33 2021 +0200
+
+    pcsc-spy: correctly exit at end-of-file
+    
+    Catch the exception generated by an end-of-file.
+    The Python backtrace is no more displayed in the output.
+
+ src/spy/pcsc-spy | 138 +++++++++++++++++++++++++++++--------------------------
+ 1 file changed, 74 insertions(+), 64 deletions(-)
+
+commit c41e105ad771fc213c3c63773bf660d02724062a
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 21 18:34:18 2021 +0200
+
+    UT: use explicit variable names
+
+ UnitaryTests/SCardBlockingBehaviourTest.py | 7 ++++---
+ 1 file changed, 4 insertions(+), 3 deletions(-)
+
+commit 2a04fd673e132cf11e1d6435f7820fe8647827f2
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 21 18:29:44 2021 +0200
+
+    UT: fix typo in comment
+
+ UnitaryTests/SCardBlockingBehaviourTest.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit b8e105bda6e17b7c63498efe4fb2c291ea7956f0
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 21 18:24:15 2021 +0200
+
+    UT: migrate from thread to threading module
+    
+    thread module is no more available in Python 3.
+
+ UnitaryTests/SCardBlockingBehaviourTest.py | 9 +++++----
+ 1 file changed, 5 insertions(+), 4 deletions(-)
+
+commit 98cd761cd6be27148b1a312b6026355d5986b7e7
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 19 17:37:15 2021 +0200
+
+    pcsc-spy: x10 speed increase
+    
+    Sleep for 0.001 second instead of 0.01 second.
+    It is enough to let the other thread empty its queue.
+
+ src/spy/pcsc-spy | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit e82e5ab14405240b54355cf397fcaaa4e4132f50
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Wed May 19 17:36:20 2021 +0200
+
+    pcsc-spy: remove extra parenthesis
+
+ src/spy/pcsc-spy | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit c925b2c8c2bf8a4b32f2d89be35043b8d3c76e10
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 14 22:23:01 2021 +0200
+
+    pcsc-spy: remove use of "from __future__"
+    
+    The code now uses Python 3 so no need to use "from __future__ import
+    print_function" any more.
+
+ src/spy/pcsc-spy | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit 757a7d7c5ffcc2af3a80cc5fad0b344647187323
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 14 22:21:26 2021 +0200
+
+    UnitaryTests: remove use of "from __future__"
+    
+    The code now uses Python 3 so no need to use "from __future__ import
+    print_function" any more.
+
+ UnitaryTests/CheckAutoPowerOff.py                         | 1 -
+ UnitaryTests/FEATURE_CCID_ESC_COMMAND_Gemalto_features.py | 1 -
+ UnitaryTests/FEATURE_CCID_ESC_COMMAND_Xiring.py           | 1 -
+ UnitaryTests/FEATURE_GET_TLV_PROPERTIES.py                | 1 -
+ UnitaryTests/MCT_ReaderDirect.py                          | 1 -
+ UnitaryTests/SCardBeginTransaction_Disconnect.py          | 1 -
+ UnitaryTests/SCardBeginTransaction_ExclusiceMode.py       | 1 -
+ UnitaryTests/SCardBeginTransaction_Reset.py               | 1 -
+ UnitaryTests/SCardBeginTransaction_SharedMode.py          | 1 -
+ UnitaryTests/SCardBeginTransaction_deadlock.py            | 1 -
+ UnitaryTests/SCardBlockingBehaviourTest.py                | 1 -
+ UnitaryTests/SCardCancel.py                               | 1 -
+ UnitaryTests/SCardCancel2.py                              | 1 -
+ UnitaryTests/SCardCancel3.py                              | 1 -
+ UnitaryTests/SCardConnect_DIRECT.py                       | 1 -
+ UnitaryTests/SCardConnect_DIRECT2.py                      | 1 -
+ UnitaryTests/SCardEndTransaction_extra_call.py            | 1 -
+ UnitaryTests/SCardExclusiveBehaviour.py                   | 1 -
+ UnitaryTests/SCardGetAttrib.py                            | 1 -
+ UnitaryTests/SCardGetStatusChange.py                      | 1 -
+ UnitaryTests/SCardGetStatusChange2.py                     | 1 -
+ UnitaryTests/SCardReconnect.py                            | 1 -
+ UnitaryTests/SCardStatus.py                               | 1 -
+ UnitaryTests/SCard_fork.py                                | 1 -
+ UnitaryTests/ThreadSafe.py                                | 1 -
+ UnitaryTests/ThreadSafeConnect.py                         | 1 -
+ UnitaryTests/control_get_firmware.py                      | 1 -
+ UnitaryTests/control_switch_interface.py                  | 1 -
+ UnitaryTests/getAttrib.py                                 | 1 -
+ UnitaryTests/reset_card.py                                | 1 -
+ UnitaryTests/stress_apdu.py                               | 1 -
+ UnitaryTests/stress_get_firmware.py                       | 1 -
+ UnitaryTests/transmit_loop.py                             | 1 -
+ 33 files changed, 33 deletions(-)
+
+commit 41b7f5378eeece3c1d68302131a5cae075607b59
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 14 11:40:16 2021 +0200
+
+    UnitaryTests: use Python3 explicitely
+
+ UnitaryTests/CheckAutoPowerOff.py                              | 2 +-
+ UnitaryTests/FEATURE_CCID_ESC_COMMAND_Gemalto_features.py      | 2 +-
+ UnitaryTests/FEATURE_CCID_ESC_COMMAND_Xiring.py                | 2 +-
+ UnitaryTests/FEATURE_GET_TLV_PROPERTIES.py                     | 2 +-
+ UnitaryTests/MCT_ReaderDirect.py                               | 2 +-
+ UnitaryTests/SCardBeginTransaction_Disconnect.py               | 2 +-
+ UnitaryTests/SCardBeginTransaction_ExclusiceMode.py            | 2 +-
+ UnitaryTests/SCardBeginTransaction_Reset.py                    | 2 +-
+ UnitaryTests/SCardBeginTransaction_SharedMode.py               | 2 +-
+ UnitaryTests/SCardBeginTransaction_deadlock.py                 | 2 +-
+ UnitaryTests/SCardBlockingBehaviourTest.py                     | 2 +-
+ UnitaryTests/SCardCancel.py                                    | 2 +-
+ UnitaryTests/SCardCancel2.py                                   | 2 +-
+ UnitaryTests/SCardCancel3.py                                   | 2 +-
+ UnitaryTests/SCardConnect_DIRECT.py                            | 2 +-
+ UnitaryTests/SCardConnect_DIRECT2.py                           | 2 +-
+ UnitaryTests/SCardEndTransaction_extra_call.py                 | 2 +-
+ UnitaryTests/SCardExclusiveBehaviour.py                        | 2 +-
+ UnitaryTests/SCardGetAttrib.py                                 | 2 +-
+ UnitaryTests/SCardGetStatusChange.py                           | 2 +-
+ UnitaryTests/SCardGetStatusChange/SCardGetStatusChange.py      | 2 +-
+ UnitaryTests/SCardGetStatusChange/SCardGetStatusChange_PnP.py  | 2 +-
+ UnitaryTests/SCardGetStatusChange/SCardGetStatusChange_loop.py | 2 +-
+ UnitaryTests/SCardGetStatusChange2.py                          | 2 +-
+ UnitaryTests/SCardReconnect.py                                 | 2 +-
+ UnitaryTests/SCardStatus.py                                    | 2 +-
+ UnitaryTests/SCard_fork.py                                     | 2 +-
+ UnitaryTests/ThreadSafe.py                                     | 2 +-
+ UnitaryTests/ThreadSafeConnect.py                              | 2 +-
+ UnitaryTests/control_get_firmware.py                           | 2 +-
+ UnitaryTests/control_switch_interface.py                       | 2 +-
+ UnitaryTests/getAttrib.py                                      | 2 +-
+ UnitaryTests/reset_card.py                                     | 2 +-
+ UnitaryTests/stress_apdu.py                                    | 2 +-
+ UnitaryTests/stress_get_firmware.py                            | 2 +-
+ UnitaryTests/transmit_loop.py                                  | 2 +-
+ 36 files changed, 36 insertions(+), 36 deletions(-)
+
+commit 0c5324877fb36b6bbbcb364f1d09f8b0aef87b91
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 14 11:24:40 2021 +0200
+
+    pcsc-spy: use Python3 explicitely
+    
+    Fixes the error:
+    bash: pcsc-spy: /usr/bin/python: bad interpreter: No such file or directory
+
+ src/spy/pcsc-spy | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit d5fb30c12e91d13e29700ad7d1269065caca51e1
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Fri May 14 11:19:49 2021 +0200
+
+    pcsc-spy: add option -t|--thread
+    
+    Displays the thread number to make it easier to track what the
+    different threads do without counting the indentation spaces.
+    
+    We now get something like:
+    [...]
+         (t1) SCardEstablishContext
+         (t1)  i dwScope: SCARD_SCOPE_SYSTEM (0x00000002)
+                         (t5)  o szReader: Identive CLOUD 2700 F Smart Card Reader [CCID Interface] (53992021200613) 00 00
+                         (t5)  o  dwCurrentState: SCARD_STATE_CHANGED, SCARD_STATE_PRESENT (0x00000022)
+                         (t5)  o  dwEventState: SCARD_STATE_PRESENT, SCARD_STATE_INUSE (0x00000120)
+                         (t5)  o  Atr length: 0x00000018 (24)
+                         (t5)  o  Atr: 3B BF 96 00 81 31 FE 5D 00 64 04 11 04 0F 31 C0 73 F7 01 D0 00 90 00 74
+                         (t5)  => Command timeout. (SCARD_E_TIMEOUT [0x8010000A])  [0.004717]
+         (t1)  o hContext: 0x1DBE37AA
+         (t1)  => Command successful. (SCARD_S_SUCCESS [0x00000000])  [0.001246]
+                         (t5) SCardEndTransaction
+                         (t5)  i hCard: 0x46E0BDBB
+                         (t5)  i dwDisposition: SCARD_LEAVE_CARD (0x00000000)
+                     (t4) SCardListReaders
+                     (t4)  i hContext: 0x1DBE37AA
+                     (t4)  i mszGroups: (null)
+                         (t5)  => Command successful. (SCARD_S_SUCCESS [0x00000000])  [0.000310]
+                     (t4)  o pcchReaders: 0x00000051
+    [...]
+
+ src/spy/pcsc-spy | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+commit b01f19fb9361a87cc4473dfb50ae73b0a6871671
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 7 14:29:02 2021 +0100
+
+    pcsc_demo: change licence from GPLv3 to BSD
+    
+    Use the same licence as the main code of pcsc-lite so the sample can be
+    used by people who can't use GPL v3 code.
+    
+    Thanks to Fulup Ar Foll for the notice.
+
+ doc/example/pcsc_demo.c | 36 +++++++++++++++++++++++-------------
+ 1 file changed, 23 insertions(+), 13 deletions(-)
+
+commit 88a99adaa694e4d58ea8c17c95771cccce7b0468
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 7 13:53:48 2021 +0100
+
+    pcsc_demo: fix #include
+
+ doc/example/pcsc_demo.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+commit c16f6f46de7160639727abc72db5c0d18c5f7cdd
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sun Mar 7 13:51:26 2021 +0100
+
+    pcsc_demo: remove extra #include
+
+ doc/example/pcsc_demo.c | 1 -
+ 1 file changed, 1 deletion(-)
+
+commit 4e870e10168e19a3ec6744aac81cfe3a875dae18
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Sat Mar 6 22:30:50 2021 +0100
+
+    pcsc_demo: remove unused code
+    
+    No need to define TRUE or FALSE.
+
+ doc/example/pcsc_demo.c | 5 -----
+ 1 file changed, 5 deletions(-)
+
+commit b924630b1c3fdb8cbf484fb567728a03f19828ef
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Feb 23 13:42:50 2021 +0100
+
+    hotplug_libudev.c: sanitize interface name
+    
+    If the USB reader reports an interface name that is not ASCII (or a
+    valid UTF-8) string then bad things can happen.
+    
+    For example the Gemalto IDBridge K3000 token has a strange byte in the
+    iInterface name.
+     iInterface: IDBridge K3000 ?5300029B
+    
+    And PySCard complains with:
+    > ./pySim-read.py -p 0
+    Using PC/SC reader interface
+    Traceback (most recent call last):
+      File "/tmp/pysim/./pySim-read.py", line 90, in <module>
+        sl.wait_for_card()
+      File "/tmp/pysim/pySim/transport/pcsc.py", line 49, in wait_for_card
+        cr.waitforcard()
+      File "/usr/lib/python3.9/site-packages/smartcard/CardRequest.py", line 69, in waitforcard
+        return self.pcsccardrequest.waitforcard()
+      File "/usr/lib/python3.9/site-packages/smartcard/pcsc/PCSCCardRequest.py", line 137, in waitforcard
+        hresult, newstates = SCardGetStatusChange(
+      File "/usr/lib/python3.9/site-packages/smartcard/scard/scard.py", line 614, in SCardGetStatusChange
+        return _scard.SCardGetStatusChange(hcontext, dwTimeout, readerstatelist)
+    UnicodeEncodeError: 'ascii' codec can't encode character '\uff20' in position 39: ordinal not in range(128)
+    
+    Non ASCII characters are now replaced with '.'.
+    
+    Thanks to Nikolaos Kakouros for the bug report
+    https://github.com/LudovicRousseau/pyscard/issues/106
+    "Errors when running pysim with Gemalto IDBridge K3000 #106"
+
+ src/hotplug_libudev.c | 14 +++++++++++++-
+ 1 file changed, 13 insertions(+), 1 deletion(-)
+
+commit f5dae8ddfc6f09f9d00f12087f2cea0d305081e3
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Feb 16 22:39:23 2021 +0100
+
+    configure.ac: fix a bashism
+    
+    POSIX does not define "==" for string equality. Use "=" instead.
+    
+    Thanks to Greg Troxel for the FreeBSD patch.
+
+ configure.ac | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 1886e60798c0f2cb05a9c430d7c48691fe8edc11
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Feb 16 22:28:25 2021 +0100
+
+    NetBSD: fix compilation issue
+    
+    Use pack(1) instead of pack(push, 1).
+    
+    Thanks to Greg Troxel for the patch.
+
+ src/PCSC/reader.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+commit 223e60f0006f24c782a56f20e950131eea17f43e
+Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
+Date:   Tue Feb 16 22:16:58 2021 +0100
+
+    utils: do not define only time_sub() in LIBPCSCLITE case
+    
+    Only the function time_sub() is used by both the libpcsclite and pcscd
+    parts. All the other functions are used only by the pcscd daemon.
+    
+    Thanks to Greg Troxel for the NetBSD patch.
+
+ src/utils.c |  4 ++++
+ src/utils.h | 14 +++++++++-----
+ 2 files changed, 13 insertions(+), 5 deletions(-)
+
+commit 7135021f5cefab900ddef89cdbfc9aef14671e6a (tag: 1.9.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Feb 16 17:24:35 2021 +0100
 
@@ -729,7 +1381,7 @@ Date:   Sun Jun 14 16:58:24 2020 +0200
  doc/README.DAEMON | 15 ---------------
  2 files changed, 1 insertion(+), 16 deletions(-)
 
-commit e796a0f12fbefa459bff0d25e27089615fa91f21 (tag: 1.9.0)
+commit e796a0f12fbefa459bff0d25e27089615fa91f21 (tag: pcsc-1.9.0, tag: 1.9.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Jun 14 15:26:31 2020 +0200
 
@@ -913,7 +1565,7 @@ Date:   Wed Jan 8 22:29:49 2020 +0100
  configure.ac | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-commit b0c2f30c2bfe7f22fe1b985e647c6cb61cc66275 (tag: 1.8.26)
+commit b0c2f30c2bfe7f22fe1b985e647c6cb61cc66275 (tag: pcsc-1.8.26, tag: 1.8.26)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jan 3 17:29:44 2020 +0100
 
@@ -1394,7 +2046,7 @@ Date:   Fri May 17 15:48:35 2019 +0200
  src/spy/Makefile.am | 2 ++
  2 files changed, 9 insertions(+)
 
-commit efc56971cb8f8bf9cb44090bb3851d8c1d2a00f7 (tag: 1.8.25)
+commit efc56971cb8f8bf9cb44090bb3851d8c1d2a00f7 (tag: pcsc-1.8.25, tag: 1.8.25)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Mar 25 20:56:43 2019 +0100
 
@@ -1575,7 +2227,7 @@ Date:   Thu Nov 15 11:54:31 2018 +0100
  src/winscard_clnt.c | 24 ++++++++++++++++++------
  1 file changed, 18 insertions(+), 6 deletions(-)
 
-commit 73d95ada3221c060cbd7b6aa2375453f9d0e359b (tag: 1.8.24)
+commit 73d95ada3221c060cbd7b6aa2375453f9d0e359b (tag: pcsc-1.8.24, tag: 1.8.24)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Oct 12 10:43:51 2018 +0200
 
@@ -2210,7 +2862,7 @@ Date:   Tue Dec 19 16:13:42 2017 +0100
  etc/pcscd.service.in | 1 +
  1 file changed, 1 insertion(+)
 
-commit 09f0f85b86e7488cf26642dd17150f76bed5300c (tag: 1.8.23)
+commit 09f0f85b86e7488cf26642dd17150f76bed5300c (tag: pcsc-1.8.23, tag: 1.8.23)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Mon Dec 18 19:56:49 2017 +0100
 
@@ -2442,7 +3094,7 @@ Date:   Thu Jul 13 17:52:13 2017 +0200
  src/winscard_msg_srv.c |   6 +-
  6 files changed, 26 insertions(+), 813 deletions(-)
 
-commit 696023944649e0c52802e20994fb78d6b24d4efd (tag: 1.8.22)
+commit 696023944649e0c52802e20994fb78d6b24d4efd (tag: pcsc-1.8.22, tag: 1.8.22)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Jun 17 08:56:54 2017 +0200
 
@@ -2527,7 +3179,7 @@ Date:   Wed May 3 15:29:45 2017 +0200
  src/pcscdaemon.c | 11 ++++++++---
  1 file changed, 8 insertions(+), 3 deletions(-)
 
-commit f47cccffcb534a7bd3528790d55d7ce5a71d70de (tag: 1.8.21)
+commit f47cccffcb534a7bd3528790d55d7ce5a71d70de (tag: pcsc-1.8.21, tag: 1.8.21)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat May 20 17:11:50 2017 +0200
 
@@ -3465,7 +4117,7 @@ Date:   Wed Jan 18 16:58:29 2017 +0100
  src/error.c | 4 +++-
  1 file changed, 3 insertions(+), 1 deletion(-)
 
-commit 980fdc357bc36e3f608462a1d7bcb182b1bacdae (tag: 1.8.20)
+commit 980fdc357bc36e3f608462a1d7bcb182b1bacdae (tag: pcsc-1.8.20, tag: 1.8.20)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Dec 30 18:10:07 2016 +0100
 
@@ -3507,7 +4159,7 @@ Date:   Sun Dec 25 23:31:24 2016 +0100
  src/winscard_svc.c | 5 ++++-
  1 file changed, 4 insertions(+), 1 deletion(-)
 
-commit c10dac9ce97ed3fda204fd73ef1f19ac4446426d (tag: 1.8.19)
+commit c10dac9ce97ed3fda204fd73ef1f19ac4446426d (tag: pcsc-1.8.19, tag: 1.8.19)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Dec 9 10:07:52 2016 +0100
 
@@ -3800,7 +4452,7 @@ Date:   Thu Aug 25 10:11:25 2016 +0200
  UnitaryTests/stress_get_firmware.py | 16 ++++++++--------
  2 files changed, 16 insertions(+), 16 deletions(-)
 
-commit 12ed49c6130da8e0365db02b289feb99b54d1d96 (tag: 1.8.18)
+commit 12ed49c6130da8e0365db02b289feb99b54d1d96 (tag: pcsc-1.8.18, tag: 1.8.18)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Aug 10 20:33:07 2016 +0200
 
@@ -4037,7 +4689,7 @@ Date:   Tue May 31 20:17:10 2016 +0200
  src/readerfactory.c | 4 +++-
  2 files changed, 4 insertions(+), 2 deletions(-)
 
-commit f74dc1feea4c7a2345abb3e1861b350d46946c86 (tag: 1.8.17)
+commit f74dc1feea4c7a2345abb3e1861b350d46946c86 (tag: pcsc-1.8.17, tag: 1.8.17)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun May 29 14:11:21 2016 +0200
 
@@ -4418,7 +5070,7 @@ Date:   Thu Mar 31 11:42:39 2016 +0200
  src/winscard_clnt.c | 17 +++++++++++++----
  1 file changed, 13 insertions(+), 4 deletions(-)
 
-commit 55fa57fc691b732535fc3384a214b1daa133a127 (tag: 1.8.16)
+commit 55fa57fc691b732535fc3384a214b1daa133a127 (tag: pcsc-1.8.16, tag: 1.8.16)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Mar 20 16:57:30 2016 +0100
 
@@ -4723,7 +5375,7 @@ Date:   Fri Jan 29 18:02:20 2016 +0100
  src/pcscdaemon.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit f4354e5b1293173fa3dc14aa28471193a29e36ea (tag: 1.8.15)
+commit f4354e5b1293173fa3dc14aa28471193a29e36ea (tag: pcsc-1.8.15, tag: 1.8.15)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Dec 25 21:24:27 2015 +0100
 
@@ -5005,7 +5657,7 @@ Date:   Fri Aug 7 15:04:12 2015 +0200
  src/tokenparser.l | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 2891196bc817619c465920651d342a856d0551a3 (tag: 1.8.14)
+commit 2891196bc817619c465920651d342a856d0551a3 (tag: pcsc-1.8.14, tag: 1.8.14)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Aug 5 12:55:15 2015 +0200
 
@@ -5764,7 +6416,7 @@ Date:   Fri Nov 14 09:08:41 2014 +0000
  src/winscard_clnt.c   | 3 +++
  2 files changed, 5 insertions(+)
 
-commit aa3058d6f848c8c5bb446713b17f0c48a6713f70 (tag: 1.8.13)
+commit aa3058d6f848c8c5bb446713b17f0c48a6713f70 (tag: pcsc-1.8.13, tag: 1.8.13)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Nov 7 12:18:04 2014 +0000
 
@@ -6094,7 +6746,7 @@ Date:   Wed Sep 24 13:08:09 2014 +0000
  doc/example/Makefile.am | 3 ---
  2 files changed, 1 insertion(+), 3 deletions(-)
 
-commit 0842328655f97d7b00be25619df407b8d1589f51 (tag: 1.8.12)
+commit 0842328655f97d7b00be25619df407b8d1589f51 (tag: pcsc-1.8.12, tag: 1.8.12)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Sep 24 13:03:57 2014 +0000
 
@@ -6611,7 +7263,7 @@ Date:   Thu Feb 20 14:02:47 2014 +0000
  configure.ac | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit b8a328f5275792032b86fe965a6a4bb561fa7bf1 (tag: 1.8.11)
+commit b8a328f5275792032b86fe965a6a4bb561fa7bf1 (tag: pcsc-1.8.11, tag: 1.8.11)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Feb 14 16:14:37 2014 +0000
 
@@ -6937,7 +7589,7 @@ Date:   Thu Oct 24 14:04:14 2013 +0000
  src/configfile.l | 14 ++++++++++----
  1 file changed, 10 insertions(+), 4 deletions(-)
 
-commit 9e409c17cee98b335ff81561686486dbff07fea3 (tag: 1.8.10)
+commit 9e409c17cee98b335ff81561686486dbff07fea3 (tag: pcsc-1.8.10, tag: 1.8.10)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Oct 19 16:36:57 2013 +0000
 
@@ -7016,7 +7668,7 @@ Date:   Thu Oct 17 13:02:41 2013 +0000
  src/debug.c | 2 ++
  1 file changed, 2 insertions(+)
 
-commit 190ff98475471aebae1ab1cebf2c30ca3ca43c8e (tag: 1.8.9)
+commit 190ff98475471aebae1ab1cebf2c30ca3ca43c8e (tag: pcsc-1.8.9, tag: 1.8.9)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Oct 16 14:28:36 2013 +0000
 
@@ -8203,7 +8855,7 @@ Date:   Mon Jan 21 10:54:41 2013 +0000
  src/spy/libpcscspy.c | 12 ++++++------
  1 file changed, 6 insertions(+), 6 deletions(-)
 
-commit 38efc7204e71c5aa1ececb5af610008ffdae0e3b (tag: 1.8.8)
+commit 38efc7204e71c5aa1ececb5af610008ffdae0e3b (tag: pcsc-1.8.8, tag: 1.8.8)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jan 16 14:51:12 2013 +0000
 
@@ -8293,7 +8945,7 @@ Date:   Tue Jan 15 17:42:13 2013 +0000
  src/configfile.l | 10 +++++-----
  1 file changed, 5 insertions(+), 5 deletions(-)
 
-commit a34bd69e5ae45cc65722d181126661ca31e6fe5e (tag: 1.8.7)
+commit a34bd69e5ae45cc65722d181126661ca31e6fe5e (tag: pcsc-1.8.7, tag: 1.8.7)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Nov 28 17:41:48 2012 +0000
 
@@ -8480,7 +9132,7 @@ Date:   Thu Aug 30 16:55:11 2012 +0000
  m4/{acx_pthread.m4 => ax_pthread.m4} | 142 ++++++++++++++++++++++-------------
  3 files changed, 91 insertions(+), 58 deletions(-)
 
-commit c7c140d327adf07ab477eedd2fee38781bce35e5 (tag: 1.8.6)
+commit c7c140d327adf07ab477eedd2fee38781bce35e5 (tag: pcsc-1.8.6, tag: 1.8.6)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Thu Aug 30 16:25:19 2012 +0000
 
@@ -8744,7 +9396,7 @@ Date:   Sun Aug 5 07:57:53 2012 +0000
  src/pcscdaemon.c | 2 ++
  1 file changed, 2 insertions(+)
 
-commit 1694ebff70f596242f2e20e3e3bceeb6efa2ebee (tag: 1.8.5)
+commit 1694ebff70f596242f2e20e3e3bceeb6efa2ebee (tag: pcsc-1.8.5, tag: 1.8.5)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Aug 4 13:48:06 2012 +0000
 
@@ -9153,7 +9805,7 @@ Date:   Tue Jun 26 19:35:15 2012 +0000
  doc/doxygen.conf.in | 220 +++++++++++++++++++++++++++++++++++-----------------
  1 file changed, 148 insertions(+), 72 deletions(-)
 
-commit 9b81a380be1a917b29c167e7f6146f0f9a67e0a5 (tag: 1.8.4)
+commit 9b81a380be1a917b29c167e7f6146f0f9a67e0a5 (tag: pcsc-1.8.4, tag: 1.8.4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Jun 26 18:57:54 2012 +0000
 
@@ -9607,7 +10259,7 @@ Date:   Wed Apr 4 20:05:12 2012 +0000
  UnitaryTests/FEATURE_CCID_ESC_COMMAND_Gemalto_features.py | 8 +++++++-
  1 file changed, 7 insertions(+), 1 deletion(-)
 
-commit 72212038f302f3c6c442bbaa85595d7b070e39bc (tag: 1.8.3)
+commit 72212038f302f3c6c442bbaa85595d7b070e39bc (tag: pcsc-1.8.3, tag: 1.8.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Mar 30 12:11:41 2012 +0000
 
@@ -9925,7 +10577,7 @@ Date:   Tue Jan 24 09:51:59 2012 +0000
  src/spy/libpcscspy.c | 7 ++++++-
  1 file changed, 6 insertions(+), 1 deletion(-)
 
-commit f3f74aa9b780ec91a0c463dd7a5e04cfa3545d31 (tag: 1.8.2)
+commit f3f74aa9b780ec91a0c463dd7a5e04cfa3545d31 (tag: pcsc-1.8.2, tag: 1.8.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jan 18 15:49:24 2012 +0000
 
@@ -10231,7 +10883,7 @@ Date:   Sat Nov 26 10:37:50 2011 +0000
  etc/pcscd.service.in | 1 -
  1 file changed, 1 deletion(-)
 
-commit 42bb772738528069732c30fd338e9a74014b69f4 (tag: 1.8.1)
+commit 42bb772738528069732c30fd338e9a74014b69f4 (tag: pcsc-1.8.1, tag: 1.8.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Nov 25 14:06:09 2011 +0000
 
@@ -10256,7 +10908,7 @@ Date:   Fri Nov 25 14:04:07 2011 +0000
  src/spy/Makefile.am | 1 +
  1 file changed, 1 insertion(+)
 
-commit 0e0642477e0faf21ccf19015ac9c589df9e75c4c (tag: 1.8.0)
+commit 0e0642477e0faf21ccf19015ac9c589df9e75c4c (tag: pcsc-1.8.0, tag: 1.8.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Nov 19 15:53:45 2011 +0000
 
@@ -12968,7 +13620,7 @@ Date:   Tue Jun 28 12:39:13 2011 +0000
  src/prothandler.c | 22 ++++---------
  3 files changed, 28 insertions(+), 117 deletions(-)
 
-commit 9a3315e4702f85b748bf39e321325d9e8a8df592 (tag: 1.7.4)
+commit 9a3315e4702f85b748bf39e321325d9e8a8df592 (tag: pcsc-1.7.4, tag: 1.7.4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Thu Jun 23 16:13:53 2011 +0000
 
@@ -12995,7 +13647,7 @@ Date:   Thu Jun 23 15:45:35 2011 +0000
  src/atrhandler.c | 10 +---------
  1 file changed, 1 insertion(+), 9 deletions(-)
 
-commit af6168d730893c4e02741272f90f003e01a6ceda (tag: 1.7.3)
+commit af6168d730893c4e02741272f90f003e01a6ceda (tag: pcsc-1.7.3, tag: 1.7.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jun 22 07:27:34 2011 +0000
 
@@ -13561,7 +14213,7 @@ Date:   Tue Apr 5 08:11:13 2011 +0000
  src/pcscdaemon.c | 12 ++++++++++--
  1 file changed, 10 insertions(+), 2 deletions(-)
 
-commit 97be735f2b511ec94ec565f3a76e1ebb7b6db488 (tag: 1.7.2)
+commit 97be735f2b511ec94ec565f3a76e1ebb7b6db488 (tag: pcsc-1.7.2, tag: 1.7.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Thu Mar 31 19:47:14 2011 +0000
 
@@ -13589,7 +14241,7 @@ Date:   Thu Mar 31 19:01:51 2011 +0000
  src/hotplug_libudev.c | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit facfaf377bd10005b22f3cc964b36adc8976be2a (tag: 1.7.1)
+commit facfaf377bd10005b22f3cc964b36adc8976be2a (tag: pcsc-1.7.1, tag: 1.7.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Mar 30 08:16:28 2011 +0000
 
@@ -13716,7 +14368,7 @@ Date:   Wed Mar 9 13:23:56 2011 +0000
  ChangeLog | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit eec58d4ae7d0893c85ae7bce28214443892397c5 (tag: 1.7.0)
+commit eec58d4ae7d0893c85ae7bce28214443892397c5 (tag: pcsc-1.7.0, tag: 1.7.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Mar 9 13:14:27 2011 +0000
 
@@ -13758,7 +14410,7 @@ Date:   Thu Feb 24 19:34:58 2011 +0000
  src/hotplug_libusb.c | 1 -
  1 file changed, 1 deletion(-)
 
-commit e026fd39ca90571e6d29324f4b8aac81c142f735 (tag: 1.6.7)
+commit e026fd39ca90571e6d29324f4b8aac81c142f735 (tag: pcsc-1.6.7, tag: 1.6.7)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Feb 22 22:16:54 2011 +0000
 
@@ -14731,7 +15383,7 @@ Date:   Tue Jan 4 14:25:03 2011 +0000
  src/winscard_svc.c | 3 +++
  1 file changed, 3 insertions(+)
 
-commit ceb3a81bae0db60d97b1cdd58747388b04237fe9 (tag: 1.6.6)
+commit ceb3a81bae0db60d97b1cdd58747388b04237fe9 (tag: pcsc-1.6.6, tag: 1.6.6)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Dec 12 10:07:45 2010 +0000
 
@@ -14821,7 +15473,7 @@ Date:   Fri Dec 3 14:40:08 2010 +0000
  src/configfile.l | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 81093c8f92ed57c75fa98c4960e3b759f8ec926a (tag: 1.6.5)
+commit 81093c8f92ed57c75fa98c4960e3b759f8ec926a (tag: pcsc-1.6.5, tag: 1.6.5)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Dec 3 14:19:49 2010 +0000
 
@@ -16755,7 +17407,7 @@ Date:   Mon Aug 16 09:45:15 2010 +0000
  src/pcscdaemon.c | 9 +++++++++
  1 file changed, 9 insertions(+)
 
-commit 3b8038645ba31ba976221a83bc06daa0663e0772 (tag: 1.6.4)
+commit 3b8038645ba31ba976221a83bc06daa0663e0772 (tag: pcsc-1.6.4, tag: 1.6.4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Aug 15 18:48:26 2010 +0000
 
@@ -16787,7 +17439,7 @@ Date:   Sun Aug 15 18:43:10 2010 +0000
  configure.in | 20 ++++++++------------
  1 file changed, 8 insertions(+), 12 deletions(-)
 
-commit b3b3286e080d940501d442e7977b1f2af2d37f90 (tag: 1.6.3)
+commit b3b3286e080d940501d442e7977b1f2af2d37f90 (tag: pcsc-1.6.3, tag: 1.6.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Aug 15 15:39:38 2010 +0000
 
@@ -17007,7 +17659,7 @@ Date:   Thu Aug 5 07:28:19 2010 +0000
  c.sh | 2 --
  1 file changed, 2 deletions(-)
 
-commit 13899db1aa8ab846599c59fd157936e96848a33e (tag: 1.6.2)
+commit 13899db1aa8ab846599c59fd157936e96848a33e (tag: pcsc-1.6.2, tag: 1.6.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Aug 4 07:35:53 2010 +0000
 
@@ -17728,7 +18380,7 @@ Date:   Mon Jun 7 11:46:29 2010 +0000
  src/winscard_clnt.c | 11 ++++++++++-
  1 file changed, 10 insertions(+), 1 deletion(-)
 
-commit 645c81262684e4b2228b880426bbb283875a475c (tag: 1.6.1)
+commit 645c81262684e4b2228b880426bbb283875a475c (tag: pcsc-1.6.1, tag: 1.6.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jun 4 12:33:29 2010 +0000
 
@@ -18012,7 +18664,7 @@ Date:   Tue May 11 13:16:00 2010 +0000
  src/winscard.c | 4 ----
  1 file changed, 4 deletions(-)
 
-commit 22ce041ad371cecadaf17155cce2d3cb48ef9691 (tag: 1.6.0)
+commit 22ce041ad371cecadaf17155cce2d3cb48ef9691 (tag: pcsc-1.6.0, tag: 1.6.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed May 5 09:53:51 2010 +0000
 
@@ -22176,7 +22828,7 @@ Date:   Thu Jul 30 08:29:45 2009 +0000
  src/configfile.l | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
-commit f600b3d2ff2ed70caac6555157d35ed37305f6cd (tag: 1.5.5)
+commit f600b3d2ff2ed70caac6555157d35ed37305f6cd (tag: pcsc-1.5.5, tag: 1.5.5)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Jul 28 21:44:42 2009 +0000
 
@@ -22486,7 +23138,7 @@ Date:   Fri Jun 26 15:18:26 2009 +0000
  UnitaryTests/MCT_ReaderDirect.py | 77 ++++++++++++++++++++++++++++++++++++++++
  1 file changed, 77 insertions(+)
 
-commit c65f5fe58a9add484f9cd38ccf10397cead18f57 (tag: 1.5.4)
+commit c65f5fe58a9add484f9cd38ccf10397cead18f57 (tag: pcsc-1.5.4, tag: 1.5.4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jun 24 06:28:47 2009 +0000
 
@@ -22865,7 +23517,7 @@ Date:   Fri May 8 13:58:00 2009 +0000
  src/winscard_clnt.c | 5 +++--
  1 file changed, 3 insertions(+), 2 deletions(-)
 
-commit e6bea6ca4d8abcd2b00feed6bf2d1162c79b3542 (tag: 1.5.3)
+commit e6bea6ca4d8abcd2b00feed6bf2d1162c79b3542 (tag: pcsc-1.5.3, tag: 1.5.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Apr 29 12:31:43 2009 +0000
 
@@ -23162,7 +23814,7 @@ Date:   Mon Feb 9 13:53:52 2009 +0000
  src/winscard_clnt.c | 5 ++++-
  1 file changed, 4 insertions(+), 1 deletion(-)
 
-commit 06c4cb7709bdd91546ce8ba216c1b12c00ef5406 (tag: 1.5.2)
+commit 06c4cb7709bdd91546ce8ba216c1b12c00ef5406 (tag: pcsc-1.5.2, tag: 1.5.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Feb 6 13:21:21 2009 +0000
 
@@ -23411,7 +24063,7 @@ Date:   Fri Jan 9 16:50:53 2009 +0000
  src/winscard_clnt.c | 12 ++++++------
  1 file changed, 6 insertions(+), 6 deletions(-)
 
-commit 48a6832a717639d2713f85f69d1abb00ef4ec640 (tag: 1.5.1)
+commit 48a6832a717639d2713f85f69d1abb00ef4ec640 (tag: pcsc-1.5.1, tag: 1.5.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jan 7 20:28:29 2009 +0000
 
@@ -23838,7 +24490,7 @@ Date:   Tue Nov 18 20:32:29 2008 +0000
     
     git-svn-id: svn://anonscm.debian.org/svn/pcsclite/trunk/PCSC@3211 0ce88b0d-b2fd-0310-8134-9614164e65ea
 
-commit 557573f7ae43ca7e10f640b0b20cdb5364b47bb3 (tag: 1.5.0)
+commit 557573f7ae43ca7e10f640b0b20cdb5364b47bb3 (tag: pcsc-1.5.0, tag: 1.5.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Nov 18 15:59:23 2008 +0000
 
@@ -24922,7 +25574,7 @@ Date:   Fri Jul 4 08:31:37 2008 +0000
  src/winscard_clnt.c | 9 ++-------
  1 file changed, 2 insertions(+), 7 deletions(-)
 
-commit 4c2cec2d35be1e9f004016f745529adbab8ff20e (tag: 1.4.102)
+commit 4c2cec2d35be1e9f004016f745529adbab8ff20e (tag: pcsc-1.4.102, tag: 1.4.102)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jun 27 08:04:57 2008 +0000
 
@@ -25554,7 +26206,7 @@ Date:   Wed Apr 30 15:14:05 2008 +0000
  src/winscard_clnt.c | 2 ++
  1 file changed, 2 insertions(+)
 
-commit 2bc7751a92abb7271f0a9416ad0486f5c34f9fa9 (tag: 1.4.101)
+commit 2bc7751a92abb7271f0a9416ad0486f5c34f9fa9 (tag: pcsc-1.4.101, tag: 1.4.101)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Apr 30 15:07:43 2008 +0000
 
@@ -26128,7 +26780,7 @@ Date:   Fri Apr 4 13:42:42 2008 +0000
  etc/pcscd.init.in | 8 +++++---
  1 file changed, 5 insertions(+), 3 deletions(-)
 
-commit 5181385fb58cedc6cee61118c7c47ecdf8ccb12b (tag: 1.4.100)
+commit 5181385fb58cedc6cee61118c7c47ecdf8ccb12b (tag: pcsc-1.4.100, tag: 1.4.100)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Mar 23 13:37:06 2008 +0000
 
@@ -26825,7 +27477,7 @@ Date:   Fri Jan 11 09:59:12 2008 +0000
  src/winscard_clnt.c | 7 ++++---
  1 file changed, 4 insertions(+), 3 deletions(-)
 
-commit a5cc268c4ac5b6d6d486d807f33070ecfff9fb10 (tag: 1.4.99)
+commit a5cc268c4ac5b6d6d486d807f33070ecfff9fb10 (tag: pcsc-1.4.99, tag: 1.4.99)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Jan 9 08:58:49 2008 +0000
 
@@ -27396,7 +28048,7 @@ Date:   Mon Aug 20 07:44:32 2007 +0000
  src/thread_unix.c | 11 ++++++++---
  1 file changed, 8 insertions(+), 3 deletions(-)
 
-commit 0a9be1c3882ebde19c9b84e65e8cd94da169ba9d (tag: 1.4.4)
+commit 0a9be1c3882ebde19c9b84e65e8cd94da169ba9d (tag: pcsc-1.4.4, tag: 1.4.4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Aug 14 17:23:17 2007 +0000
 
@@ -27662,7 +28314,7 @@ Date:   Wed Jun 20 07:24:35 2007 +0000
  src/PCSC/reader.h.in | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-commit 5764bf72c25a23671e8f421eb0e02bfbbf508650 (tag: 1.4.3)
+commit 5764bf72c25a23671e8f421eb0e02bfbbf508650 (tag: pcsc-1.4.3, tag: 1.4.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Jun 19 19:10:35 2007 +0000
 
@@ -27937,7 +28589,7 @@ Date:   Thu May 24 08:54:41 2007 +0000
  src/winscard.c | 8 ++++++++
  1 file changed, 8 insertions(+)
 
-commit 487029816cabf2217c58ee8ba50dd07e7848c260 (tag: 1.4.2)
+commit 487029816cabf2217c58ee8ba50dd07e7848c260 (tag: pcsc-1.4.2, tag: 1.4.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed May 23 16:37:52 2007 +0000
 
@@ -28121,7 +28773,7 @@ Date:   Wed May 16 11:39:54 2007 +0000
  ChangeLog | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 896e8bfdf9ad640d71f547c8e722baaaf6d7dff9 (tag: 1.4.1)
+commit 896e8bfdf9ad640d71f547c8e722baaaf6d7dff9 (tag: pcsc-1.4.1, tag: 1.4.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed May 16 09:55:34 2007 +0000
 
@@ -28745,7 +29397,7 @@ Date:   Sat Feb 17 15:04:03 2007 +0000
  src/debuglog.c | 14 ++++++++------
  1 file changed, 8 insertions(+), 6 deletions(-)
 
-commit 432796c9a72f827d28528e316b2b29d14d43d7dd (tag: 1.4.0)
+commit 432796c9a72f827d28528e316b2b29d14d43d7dd (tag: pcsc-1.4.0, tag: 1.4.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Feb 13 20:26:17 2007 +0000
 
@@ -29144,7 +29796,7 @@ Date:   Sat Jan 20 15:04:31 2007 +0000
  src/ifdwrapper.c | 27 +++++++++++++++------------
  1 file changed, 15 insertions(+), 12 deletions(-)
 
-commit 232475f0616287ba70f757ecb7fff5761d6fb8c9 (tag: 1.3.3)
+commit 232475f0616287ba70f757ecb7fff5761d6fb8c9 (tag: pcsc-1.3.3, tag: 1.3.3)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jan 19 19:47:00 2007 +0000
 
@@ -30610,7 +31262,7 @@ Date:   Sun Aug 13 16:24:30 2006 +0000
  src/sys_unix.c    | 111 ------------------------------------------------------
  2 files changed, 129 deletions(-)
 
-commit 0d39e0b106afda96c4f891f6237fd481d2c337d0 (tag: 1.3.2)
+commit 0d39e0b106afda96c4f891f6237fd481d2c337d0 (tag: pcsc-1.3.2, tag: 1.3.2)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Aug 11 18:26:39 2006 +0000
 
@@ -31235,7 +31887,7 @@ Date:   Tue May 2 06:56:03 2006 +0000
  src/sys_unix.c | 1 +
  1 file changed, 1 insertion(+)
 
-commit 63e1ccbcbfdd7b5fb05bddcc3e6575baf30dc2c9 (tag: 1.3.1)
+commit 63e1ccbcbfdd7b5fb05bddcc3e6575baf30dc2c9 (tag: pcsc-1.3.1, tag: 1.3.1)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Apr 22 18:56:53 2006 +0000
 
@@ -31765,7 +32417,7 @@ Date:   Tue Mar 7 07:49:16 2006 +0000
  configure.in | 1 -
  1 file changed, 1 deletion(-)
 
-commit 48c62c0baf0ac376daba82db69f4dfed38e1158e (tag: 1.3.0)
+commit 48c62c0baf0ac376daba82db69f4dfed38e1158e (tag: pcsc-1.3.0, tag: 1.3.0)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Mar 3 13:58:26 2006 +0000
 
@@ -32407,7 +33059,7 @@ Date:   Tue Nov 29 13:42:03 2005 +0000
  TODO | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit 02b243948df01b2d3bca1bf9f6ec28c4aa6eb3dd (tag: 1.2.9-beta9)
+commit 02b243948df01b2d3bca1bf9f6ec28c4aa6eb3dd (tag: pcsc-1.2.9-beta9, tag: 1.2.9-beta9)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Nov 27 16:40:04 2005 +0000
 
@@ -33193,7 +33845,7 @@ Date:   Wed Sep 7 19:05:49 2005 +0000
  Makefile.am | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit ad8bdef9a725ea65ac76da744ceee7853775d49b (tag: 1.2.9-beta8)
+commit ad8bdef9a725ea65ac76da744ceee7853775d49b (tag: pcsc-1.2.9-beta8, tag: 1.2.9-beta8)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Tue Sep 6 19:51:36 2005 +0000
 
@@ -34580,7 +35232,7 @@ Date:   Thu Mar 17 07:53:53 2005 +0000
  src/debuglog.c | 52 ++++++++++++++++++++++++++--------------------------
  1 file changed, 26 insertions(+), 26 deletions(-)
 
-commit 385fbae52f42e6c99603abf6b5f34ae784b51e7b (tag: 1.2.9-beta7)
+commit 385fbae52f42e6c99603abf6b5f34ae784b51e7b (tag: pcsc-1.2.9-beta7, tag: 1.2.9-beta7)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Wed Mar 2 15:42:52 2005 +0000
 
@@ -36031,7 +36683,7 @@ Date:   Mon Aug 16 15:13:58 2004 +0000
  src/ifdwrapper.c | 4 ----
  1 file changed, 4 deletions(-)
 
-commit 5776ed9dae5cda7dddd7844d4143e783fb3f290b (tag: 1.2.9-beta6)
+commit 5776ed9dae5cda7dddd7844d4143e783fb3f290b (tag: pcsc-1.2.9-beta6, tag: 1.2.9-beta6)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sun Aug 15 14:44:21 2004 +0000
 
@@ -36792,7 +37444,7 @@ Date:   Thu Jul 22 13:28:47 2004 +0000
  src/readerfactory.h | 6 +++---
  1 file changed, 3 insertions(+), 3 deletions(-)
 
-commit 7dabdb0665a04c361f97b4eb37ccec35e628f15e (tag: 1.2.9-beta5)
+commit 7dabdb0665a04c361f97b4eb37ccec35e628f15e (tag: pcsc-1.2.9-beta5, tag: 1.2.9-beta5)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Fri Jul 16 14:04:04 2004 +0000
 
@@ -36972,7 +37624,7 @@ Date:   Sat Jul 3 16:32:53 2004 +0000
  configure.in | 2 +-
  1 file changed, 1 insertion(+), 1 deletion(-)
 
-commit e88d027f3e22ce1275dad8d8f0a7845e5278dcd9 (tag: 1.2.9-beta4)
+commit e88d027f3e22ce1275dad8d8f0a7845e5278dcd9 (tag: pcsc-1.2.9-beta4, tag: 1.2.9-beta4)
 Author: Ludovic Rousseau <ludovic.rousseau@free.fr>
 Date:   Sat Jul 3 16:25:43 2004 +0000
 

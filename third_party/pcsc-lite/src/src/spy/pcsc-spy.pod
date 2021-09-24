@@ -5,7 +5,7 @@ pcsc-spy - A PC/SC spy command
 =head1 SYNOPSIS
 
 pcsc-spy [B<-n>|B<--nocolor>] [B<-d>|B<--diffable>] [B<-h>|B<--help>]
-[F<fifo_filename>]
+[B<-v>|B<--version>] [B<-t>|B<--thread>] [F<fifo_filename>]
 
 =head1 DESCRIPTION
 
@@ -47,6 +47,11 @@ file for example).
 Print the version of the F<pcsc-spy> program plus a copyright, a list of
 authors.
 
+=item B<-t>, B<--thread>
+
+Add a thread number before each line of log to identify the calls from
+the same threads.
+
 =back
 
 =head1 EXAMPLES
@@ -58,7 +63,7 @@ library.
 
 Example:
 
- LD_PRELOAD=/usr/lib/libpcscspy.so pcsc_scan
+ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libpcscspy.so pcsc_scan
 
 =head2 Application loading libpcsclite.so.1
 
@@ -91,24 +96,6 @@ To create the log file just do:
  cat ~/pcsc-spy > logfile
 
 and run your PC/SC application.
-
-=head2 Mac OS X
-
-The installation is not automatic. In the pcsc-lite/src/spy directory do:
-
- make framework
-
-Then copy the PCSC.framework directory in /tmp
-
- cp -a PCSC.framework /tmp
-
-Copy the official PCSC.framework (binary only) in /tmp
-
- cp /System/Library/Frameworks/PCSC.framework/PCSC /tmp
-
-Run the application to debug as:
-
- DYLD_FRAMEWORK_PATH=/tmp pcsctest
 
 =head1 FILES
 

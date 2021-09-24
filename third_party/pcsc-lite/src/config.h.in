@@ -167,9 +167,6 @@
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
-/* pcscd filename */
-#undef PCSCD_BINARY
-
 /* Enabled PC/SC lite features */
 #undef PCSCLITE_FEATURES
 

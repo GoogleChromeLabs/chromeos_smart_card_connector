@@ -1,8 +1,8 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 """
 #    Display PC/SC functions arguments
-#    Copyright (C) 2011-2012  Ludovic Rousseau
+#    Copyright (C) 2011-2021  Ludovic Rousseau
 """
 #
 #    This program is free software: you can redistribute it and/or modify
@@ -18,7 +18,6 @@
 #    You should have received a copy of the GNU General Public License
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import print_function
 import os
 import signal
 import time
@@ -65,6 +64,9 @@ def _parse_rv(line):
     return (code, rv, sec, usec)
 
 
+class SpyExit(Exception):
+    pass
+
 class StatRecord(object):
     """ Record to store statistics """
 
@@ -87,9 +89,15 @@ class PCSCspy(object):
     color_magenta = "\x1b[35m"
     color_normal = "\x1b[0m"
 
+    def get_line(self):
+        line = self.queue.get()
+        if line == "EXIT":
+            raise SpyExit()
+        return line
+
     def _log_rv(self):
         """ log the return value """
-        line = self.queue.get()
+        line = self.get_line()
         (code, rv, sec, usec) = _parse_rv(line)
         delta_sec = sec - self.sec
         delta_usec = usec - self.usec
@@ -205,7 +213,7 @@ class PCSCspy(object):
 
     def log_in_hCard(self):
         """ log hCard IN parameter """
-        hCard = self.queue.get()
+        hCard = self.get_line()
         if self.diffable:
             self.log_in("hCard: 0x????")
         else:
@@ -213,7 +221,7 @@ class PCSCspy(object):
 
     def log_in_hContext(self):
         """ log hContext IN parameter """
-        hContext = self.queue.get()
+        hContext = self.get_line()
         if self.diffable:
             self.log_in("hContext: 0x????")
         else:
@@ -221,7 +229,7 @@ class PCSCspy(object):
 
     def log_in_disposition(self):
         """ log dwDisposition IN parameter """
-        dwDisposition = self.queue.get()
+        dwDisposition = self.get_line()
         dispositions = {0: 'SCARD_LEAVE_CARD',
                         1: 'SCARD_RESET_CARD',
                         2: 'SCARD_UNPOWER_CARD',
@@ -235,7 +243,7 @@ class PCSCspy(object):
 
     def log_in_attrid(self):
         """ log dwAttrId IN parameter """
-        dwAttrId = self.queue.get()
+        dwAttrId = self.get_line()
         attrids = {0x00010100: 'SCARD_ATTR_VENDOR_NAME',
                    0x00010102: 'SCARD_ATTR_VENDOR_IFD_VERSION',
                    0x00010103: 'SCARD_ATTR_VENDOR_IFD_SERIAL_NO',
@@ -255,7 +263,7 @@ class PCSCspy(object):
 
     def log_in_dwShareMode(self):
         """ log dwShareMode IN parameter """
-        dwShareMode = self.queue.get()
+        dwShareMode = self.get_line()
         sharemodes = {1: 'SCARD_SHARE_EXCLUSIVE',
                       2: 'SCARD_SHARE_SHARED',
                       3: 'SCARD_SHARE_DIRECT'}
@@ -267,7 +275,7 @@ class PCSCspy(object):
 
     def log_in_dwPreferredProtocols(self):
         """ log dwPreferredProtocols IN parameter """
-        dwPreferredProtocols = self.queue.get()
+        dwPreferredProtocols = self.get_line()
         PreferredProtocols = list()
         protocol = int(dwPreferredProtocols, 16)
         if protocol & 1:
@@ -283,7 +291,7 @@ class PCSCspy(object):
 
     def log_out_dwActiveProtocol(self):
         """ log dwActiveProtocol OUT parameter """
-        dwActiveProtocol = self.queue.get()
+        dwActiveProtocol = self.get_line()
         protocol = int(dwActiveProtocol, 16)
         if protocol & 1:
             protocol = "T=0"
@@ -300,7 +308,7 @@ class PCSCspy(object):
 
     def log_out_hContext(self):
         """ log hContext OUT parameter """
-        hContext = self.queue.get()
+        hContext = self.get_line()
         if self.diffable:
             self.log_out("hContext: 0x????")
         else:
@@ -329,19 +337,19 @@ class PCSCspy(object):
 
     def log_dwCurrentState(self, log):
         """ log dwCurrentState IN/OUT parameter """
-        dwCurrentState = self.queue.get()
+        dwCurrentState = self.get_line()
         state = self._get_state(int(dwCurrentState, 16))
         log(" dwCurrentState: %s (%s)" % (state, dwCurrentState))
 
     def log_dwEventState(self, log):
         """ log dwEventState IN/OUT parameter """
-        dwEventState = self.queue.get()
+        dwEventState = self.get_line()
         state = self._get_state(int(dwEventState, 16))
         log(" dwEventState: %s (%s)" % (state, dwEventState))
 
     def log_dwControlCode(self):
         """ log SCardControl() dwControlCode """
-        dwControlCode = self.queue.get()
+        dwControlCode = self.get_line()
 
         try:
             code = self.ControlCodes[int(dwControlCode, 16)]
@@ -353,7 +361,7 @@ class PCSCspy(object):
 
     def log_in2(self, header):
         """ generic log IN parameter """
-        data = self.queue.get()
+        data = self.get_line()
         if data.startswith("0x"):
             decimal = int(data, 16)
             self.log_in("%s %s (%d)" % (header, data, decimal))
@@ -363,9 +371,7 @@ class PCSCspy(object):
 
     def log_out2(self, header):
         """ generic log OUT parameter """
-        data = self.queue.get()
-        if data == "EXIT":
-            raise Exception("Exit")
+        data = self.get_line()
         if data.startswith("0x"):
             decimal = int(data, 16)
             self.log_out("%s %s (%d)" % (header, data, decimal))
@@ -375,16 +381,16 @@ class PCSCspy(object):
 
     def log_out_n_str(self, size_name, field_name):
         """ log multi-lines entries """
-        data = self.queue.get()
+        data = self.get_line()
         self.log_out("%s %s" % (size_name, data))
         size = int(data, 16)
         data_read = 0
         if 0 == size:
-            data = self.queue.get()
+            data = self.get_line()
             self.log_out("%s %s" % (field_name, data))
         else:
             while data_read < size:
-                data = self.queue.get()
+                data = self.get_line()
                 self.log_out("%s %s" % (field_name, data))
                 if data == 'NULL':
                     break
@@ -419,7 +425,7 @@ class PCSCspy(object):
             log = self.log_out
             log_multi = self.log_out_multi
 
-        hex_buffer = self.queue.get()
+        hex_buffer = self.get_line()
         log(field)
         if hex_buffer == "NULL":
             log(" NULL")
@@ -433,7 +439,7 @@ class PCSCspy(object):
     def _SCardEstablishContext(self):
         """ SCardEstablishContext """
         self.log_name("SCardEstablishContext")
-        dwScope = self.queue.get()
+        dwScope = self.get_line()
         scopes = {0: 'SCARD_SCOPE_USER',
                   1: 'SCARD_SCOPE_TERMINAL',
                   2: 'SCARD_SCOPE_SYSTEM'}
@@ -474,7 +480,7 @@ class PCSCspy(object):
         self.log_name("SCardGetStatusChange")
         self.log_in_hContext()
         self.log_in2("dwTimeout:")
-        readers = int(self.queue.get(), 16)
+        readers = int(self.get_line(), 16)
         self.log_in("cReaders: %d" % readers)
         self._log_readers(readers, direction="in")
         self._log_readers(readers, direction="out")
@@ -703,7 +709,9 @@ class PCSCspy(object):
         self.color = color
         self.diffable = diffable
         self.stats = stats
-        self.indent = " " * indent
+        self.indent = " " * (indent * 4)
+        if display_thread:
+            self.indent += " (t%d) " % indent
 
         self.features = {0x01: "FEATURE_VERIFY_PIN_START",
                          0x02: "FEATURE_VERIFY_PIN_FINISH",
@@ -747,48 +755,51 @@ class PCSCspy(object):
                 else:
                     print("Garbage: ", line)
             else:
-                # dispatch
-                (direction, sec, usec, fct) = line.strip().split('|')
-                self.sec = int(sec)
-                self.usec = int(usec)
-                if fct == 'SCardEstablishContext':
-                    self._SCardEstablishContext()
-                elif fct == 'SCardReleaseContext':
-                    self._SCardReleaseContext()
-                elif fct == 'SCardIsValidContext':
-                    self._SCardIsValidContext()
-                elif fct == 'SCardListReaderGroups':
-                    self._SCardListReaderGroups()
-                elif fct == 'SCardFreeMemory':
-                    self._SCardFreeMemory()
-                elif fct == 'SCardListReaders':
-                    self._SCardListReaders()
-                elif fct == 'SCardGetStatusChange':
-                    self._SCardGetStatusChange()
-                elif fct == 'SCardConnect':
-                    self._SCardConnect()
-                elif fct == 'SCardTransmit':
-                    self._SCardTransmit()
-                elif fct == 'SCardControl' or fct == 'SCardControl132':
-                    self._SCardControl()
-                elif fct == 'SCardGetAttrib':
-                    self._SCardGetAttrib()
-                elif fct == 'SCardSetAttrib':
-                    self._SCardSetAttrib()
-                elif fct == 'SCardStatus':
-                    self._SCardStatus()
-                elif fct == 'SCardReconnect':
-                    self._SCardReconnect()
-                elif fct == 'SCardDisconnect':
-                    self._SCardDisconnect()
-                elif fct == 'SCardBeginTransaction':
-                    self._SCardBeginTransaction()
-                elif fct == 'SCardEndTransaction':
-                    self._SCardEndTransaction()
-                elif fct == 'SCardCancel':
-                    self._SCardCancel()
-                else:
-                    print("Unknown function:", fct)
+                try:
+                    # dispatch
+                    (direction, sec, usec, fct) = line.strip().split('|')
+                    self.sec = int(sec)
+                    self.usec = int(usec)
+                    if fct == 'SCardEstablishContext':
+                        self._SCardEstablishContext()
+                    elif fct == 'SCardReleaseContext':
+                        self._SCardReleaseContext()
+                    elif fct == 'SCardIsValidContext':
+                        self._SCardIsValidContext()
+                    elif fct == 'SCardListReaderGroups':
+                        self._SCardListReaderGroups()
+                    elif fct == 'SCardFreeMemory':
+                        self._SCardFreeMemory()
+                    elif fct == 'SCardListReaders':
+                        self._SCardListReaders()
+                    elif fct == 'SCardGetStatusChange':
+                        self._SCardGetStatusChange()
+                    elif fct == 'SCardConnect':
+                        self._SCardConnect()
+                    elif fct == 'SCardTransmit':
+                        self._SCardTransmit()
+                    elif fct == 'SCardControl' or fct == 'SCardControl132':
+                        self._SCardControl()
+                    elif fct == 'SCardGetAttrib':
+                        self._SCardGetAttrib()
+                    elif fct == 'SCardSetAttrib':
+                        self._SCardSetAttrib()
+                    elif fct == 'SCardStatus':
+                        self._SCardStatus()
+                    elif fct == 'SCardReconnect':
+                        self._SCardReconnect()
+                    elif fct == 'SCardDisconnect':
+                        self._SCardDisconnect()
+                    elif fct == 'SCardBeginTransaction':
+                        self._SCardBeginTransaction()
+                    elif fct == 'SCardEndTransaction':
+                        self._SCardEndTransaction()
+                    elif fct == 'SCardCancel':
+                        self._SCardCancel()
+                    else:
+                        print("Unknown function:", fct)
+                except SpyExit:
+                    return
 
             try:
                 record = self.stats[fct]
@@ -810,7 +821,7 @@ class PCSCdemultiplexer(object):
             # create the FIFO file
             try:
                 os.mkfifo(logfile)
-            except (OSError):
+            except OSError:
                 print("fifo %s already present. Reusing it." % logfile)
 
         self.sec = self.usec = 0
@@ -866,7 +877,7 @@ class PCSCdemultiplexer(object):
             if previous_thread != thread:
                 # schedule the other thread so it has time to empty its
                 # queue
-                time.sleep(.01)
+                time.sleep(.001)
 
             try:
                 queue = self.queues[thread]
@@ -878,7 +889,7 @@ class PCSCdemultiplexer(object):
                     color=self.color, diffable=self.diffable)
                 threads[thread] = Thread(target=spy.worker)
                 threads[thread].start()
-                indent += 4
+                indent += 1
 
             queue.put(tail)
 
@@ -933,7 +944,7 @@ def signal_handler(sig, frame):
 
 
 def print_usage():
-    print("Usage: pcsc-spy [-n|--nocolor] [-d|--diffable] [-h|--help] [-v|--version]")
+    print("Usage: pcsc-spy [-n|--nocolor] [-d|--diffable] [-h|--help] [-v|--version] [-t|--thread]")
 
 if __name__ == "__main__":
     import sys
@@ -941,14 +952,15 @@ if __name__ == "__main__":
 
     logfile = None
     try:
-        opts, args = getopt.getopt(sys.argv[1:], "ndhv", ["nocolor",
-            "diffable", "help", "version"])
+        opts, args = getopt.getopt(sys.argv[1:], "ndhvt", ["nocolor",
+            "diffable", "help", "version", "thread"])
     except getopt.GetoptError:
         print_usage()
         sys.exit(1)
 
     color = True
     diffable = False
+    display_thread = False
     for o, a in opts:
         if o == "-n" or o == "--nocolor":
             color = False
@@ -958,10 +970,12 @@ if __name__ == "__main__":
             print_usage()
             sys.exit(1)
         if o == "-v" or o == "--version":
-            print("pcsc-spy version 1.0")
-            print("Copyright (c) 2011-2012, Ludovic Rousseau <ludovic.rousseau@free.fr>")
+            print("pcsc-spy version 1.1")
+            print("Copyright (c) 2011-2021, Ludovic Rousseau <ludovic.rousseau@free.fr>")
             print()
             sys.exit(1)
+        if o == "-t" or o == "--thread":
+            display_thread = True
 
     if len(args) > 0:
         logfile = args[0]
