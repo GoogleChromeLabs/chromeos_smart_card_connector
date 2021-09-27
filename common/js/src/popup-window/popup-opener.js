@@ -35,7 +35,9 @@ goog.scope(function() {
 const GSC = GoogleSmartCard;
 
 /**
- * The window options to be used for the resulting window. 
+ * The window options to be used for the resulting window.
+ * APP mode supports all following options.
+ * EXTENSION mode supports 'width' only.
  * @typedef {{
  *            alwaysOnTop:(boolean|undefined),
  *            frame:(string|undefined),
