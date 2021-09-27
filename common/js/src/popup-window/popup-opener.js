@@ -141,7 +141,7 @@ GSC.PopupOpener.runModalDialog = function(
     Object.assign(dataWithDialogCallbacks, opt_data);
 
   GSC.PopupOpener.createWindow(
-      url, DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS, dataWithDialogCallbacks);
+      url, createWindowOptions, dataWithDialogCallbacks);
 
   return promiseResolver.promise;
 };
