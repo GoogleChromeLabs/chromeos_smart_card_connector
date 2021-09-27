@@ -25,7 +25,6 @@ goog.provide('GoogleSmartCard.PopupOpener');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.Packaging');
-goog.require('GoogleSmartCard.WindowOptions');
 goog.require('goog.Promise');
 goog.require('goog.log');
 goog.require('goog.log.Logger');
@@ -36,7 +35,7 @@ goog.scope(function() {
 const GSC = GoogleSmartCard;
 
 /**
- *
+ * The window options to be used for the resulting window. 
  * @typedef {{
  *            alwaysOnTop:(boolean|undefined),
  *            frame:(string|undefined),
