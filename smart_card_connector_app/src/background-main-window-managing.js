@@ -35,7 +35,7 @@ const WINDOW_ID = 'main-window';
  * USB device selector dialog (as shown by the chrome.usb.getUserSelectedDevices
  * method: refer to
  * <https://developer.chrome.com/apps/usb#method-getUserSelectedDevices>).
- * @type {WindowOptions} 
+ * @type {!GSC.PopupOpener.WindowOptions}
  */
 const WINDOW_OPTIONS = {
   'frame': 'none',

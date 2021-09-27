@@ -50,7 +50,10 @@ const GSC = GoogleSmartCard;
  */
 let WindowOptions;
 
-/** @type {WindowOptions} */
+/** @const */
+GSC.PopupOpener.WindowOptions = WindowOptions;
+
+/** @type {!GSC.PopupOpener.WindowOptions} */
 const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
   'alwaysOnTop': true,
   'frame': 'none',
@@ -104,7 +107,8 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
         'width': windowOptions['width'],
       });
     } else {
-      GSC.Logging.failWithLogger(logger, `Unexpected packaging mode ${GSC.Packaging.MODE}`);
+      GSC.Logging.failWithLogger(
+          logger, `Unexpected packaging mode ${GSC.Packaging.MODE}`);
     }
   } catch (exc) {
     GSC.Logging.failWithLogger(
