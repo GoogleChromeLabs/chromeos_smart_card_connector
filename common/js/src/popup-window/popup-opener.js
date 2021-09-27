@@ -42,7 +42,6 @@ const GSC = GoogleSmartCard;
  *            hidden:(boolean|undefined),
  *            id:(string|undefined),
  *            width:(number|undefined),
- *            height:(number|undefined),
  *            resizeable:(boolean|undefined),
  *            visibleOnAllWorkspaces:(boolean|undefined)
  *          }}
@@ -90,7 +89,6 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
             'id': windowOptions['id'],
             'innerBounds': {
               'width': windowOptions['width'],
-              'height': windowOptions['height']
             },
             'resizable': windowOptions['resizeable'],
             'visibleOnAllWorkspaces': windowOptions['visibleOnAllWorkspaces']
@@ -101,7 +99,6 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
         url: url,
         type: 'popup',
         width: windowOptions['width'],
-        height: windowOptions['height']
       });
     }
   } catch (exc) {

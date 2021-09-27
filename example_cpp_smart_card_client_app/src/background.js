@@ -109,8 +109,7 @@ const MAIN_WINDOW_OPTIONS = {
   'hidden': true,
   'id': MAIN_WINDOW_ID,
   'innerBounds': {
-    'width': 500,
-    'height': 500,
+    'width': 500
   },
   'resizable': false,
 };
