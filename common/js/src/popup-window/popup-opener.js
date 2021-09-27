@@ -32,15 +32,31 @@ goog.require('goog.log.Logger');
 goog.require('goog.object');
 
 goog.scope(function() {
-  
+
 const GSC = GoogleSmartCard;
 
-const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = GSC.WindowOptions(
-    /*alwaysOnTop*/ true,
-    /*frame*/ 'none',
-    /*hidden*/ true,
-    /*resizeable*/ false,
-    /*visibleOnAllWorkspaces*/ true);
+/**
+ *
+ * @typedef {{
+ *            alwaysOnTop:(boolean|undefined),
+ *            frame:(string|undefined),
+ *            hidden:(boolean|undefined),
+ *            id:(string|undefined),
+ *            width:(number|undefined),
+ *            height:(number|undefined),
+ *            resizeable:(boolean|undefined),
+ *            visibleOnAllWorkspaces:(boolean|undefined)
+ *          }}
+ */
+let WindowOptions;
+
+const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
+  'alwaysOnTop': true,
+  'frame': 'none',
+  'hidden': true,
+  'resizable': false,
+  'visibleOnAllWorkspaces': true
+};
 
 /**
  * @type {!goog.log.Logger}
@@ -69,31 +85,31 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
     if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
       chrome.app.window.create(
           url, {
-            'alwaysOnTop': windowOptions.alwaysOnTop,
-            'frame': windowOptions.frame,
-            'hidden': windowOptions.hidden,
-            'id': windowOptions.id,
-            'innerBounds':
-                {'width': windowOptions.width, 'height': windowOptions.height},
-            'resizable': windowOptions.resizeable,
-            'visibleOnAllWorkspaces': windowOptions.visibleOnAllWorkspaces
+            'alwaysOnTop': windowOptions['alwaysOnTop'],
+            'frame': windowOptions['frame'],
+            'hidden': windowOptions['hidden'],
+            'id': windowOptions['id'],
+            'innerBounds': {
+              'width': windowOptions['width'],
+              'height': windowOptions['height']
+            },
+            'resizable': windowOptions['resizeable'],
+            'visibleOnAllWorkspaces': windowOptions['visibleOnAllWorkspaces']
           },
           createWindowCallback.bind(null, createdWindowExtends));
     } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
       chrome.windows.create({
         url: url,
         type: 'popup',
-        width: windowOptions.width,
-        height: windowOptions.height
+        width: windowOptions['width'],
+        height: windowOptions['height']
       });
     }
   } catch (exc) {
     GSC.Logging.failWithLogger(
         logger,
         'Failed to create the popup window with URL "' + url + '" and ' +
-            'options '
-            + GSC.DebugDump.debugDump(windowOptions)
-            + ': ' + exc);
+            'options ' + GSC.DebugDump.debugDump(windowOptions) + ': ' + exc);
   }
 };
 
