@@ -103,6 +103,7 @@ const MAIN_WINDOW_ID = 'main-window';
  * Note that the window is intentionally created as "hidden", because the window
  * should only be shown after some additional initialization is done (see
  * window.js).
+ *  @type {WindowOptions}
  */
 const MAIN_WINDOW_OPTIONS = {
   'frame': 'none',

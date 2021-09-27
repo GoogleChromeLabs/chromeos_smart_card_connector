@@ -50,6 +50,7 @@ const GSC = GoogleSmartCard;
  */
 let WindowOptions;
 
+/** @type {WindowOptions} */
 const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
   'alwaysOnTop': true,
   'frame': 'none',
