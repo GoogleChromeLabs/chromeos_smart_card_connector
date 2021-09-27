@@ -98,10 +98,12 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
           createWindowCallback.bind(null, createdWindowExtends));
     } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
       chrome.windows.create({
-        url: url,
-        type: 'popup',
-        width: windowOptions['width'],
+        'url': url,
+        'type': 'popup',
+        'width': windowOptions['width'],
       });
+    } else {
+      GSC.Logging.failWithLogger(logger, `Unexpected packaging mode ${GSC.Packaging.MODE}`);
     }
   } catch (exc) {
     GSC.Logging.failWithLogger(

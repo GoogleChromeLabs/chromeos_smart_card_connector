@@ -40,9 +40,7 @@ const WINDOW_OPTIONS = {
   'frame': 'none',
   'hidden': true,
   'id': WINDOW_ID,
-  'innerBounds': {
-    'width': 530, 
-  },
+  'width': 530,
   'resizable': false
 };
 
