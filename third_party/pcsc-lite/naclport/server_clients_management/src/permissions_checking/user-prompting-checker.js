@@ -47,12 +47,17 @@ goog.scope(function() {
 
 const LOCAL_STORAGE_KEY = 'pcsc_lite_clients_user_selections';
 
-const USER_PROMPT_DIALOG_URL =
+let USER_PROMPT_DIALOG_URL =
     'pcsc_lite_server_clients_management/user-prompt-dialog.html';
 
 const USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
   'innerBounds': {'width': 300}
 };
+
+/**
+ * ID used to differentiate between different popup instances.
+ */
+let popUpId = 0;
 
 const GSC = GoogleSmartCard;
 
@@ -331,6 +336,10 @@ UserPromptingChecker.prototype.promptUserForUntrustedClient_ = function(
  */
 UserPromptingChecker.prototype.runPromptDialog_ = function(
     clientOrigin, userPromptDialogData, promiseResolver) {
+
+  popUpId++;
+  USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL + '?popup_id=' + popUpId.toString();
+
   const dialogPromise = GSC.PopupOpener.runModalDialog(
       USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
       userPromptDialogData);

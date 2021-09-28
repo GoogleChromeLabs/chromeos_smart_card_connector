@@ -43,6 +43,7 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 
 goog.require('GoogleSmartCard.InPopupMainScript');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('goog.asserts');
 goog.require('goog.dom');
 goog.require('goog.dom.classlist');
@@ -93,11 +94,23 @@ function prepareMessage() {
 }
 
 function allowClickListener() {
-  GSC.InPopupMainScript.resolveModalDialog(true);
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP){
+    GSC.InPopupMainScript.resolveModalDialog(true);
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION){
+    const urlParams = new URLSearchParams(window.location.search);
+    const idParam = urlParams.get('popup_id');
+    window.opener.promiseResolver.resolve;
+  }
 }
 
 function denyClickListener() {
-  GSC.InPopupMainScript.resolveModalDialog(false);
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP){
+    GSC.InPopupMainScript.resolveModalDialog(false);
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION){
+    const urlParams = new URLSearchParams(window.location.search);
+    const idParam = urlParams.get('popup_id');
+    window.opener.promiseResolver.reject;
+  }
 }
 
 function closeWindowClickListener() {
