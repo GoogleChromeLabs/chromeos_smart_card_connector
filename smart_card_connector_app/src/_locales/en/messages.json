@@ -119,43 +119,29 @@
     "message": "BLOCK",
     "description": "\"Block\" button title in the PC/SC-Lite client handling user prompt dialog"
   },
-  "pcscClientHandlingUserPromptDialogMessagePrefix": {
-    "message": "The app",
-    "description": "The prefix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is in the bundled list of the known Apps"
-  },
-  "pcscClientHandlingUserPromptDialogMessageAppNamePart": {
-    "message": "\"$appName$\"",
-    "description": "The App name part of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is in the bundled list of the known Apps",
+  "pcscClientHandlingUserPromptDialogMessageClientNamePart": {
+    "message": "\"$clientName$\"",
+    "description": "The name part of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the client is in the bundled list of the known clients",
     "placeholders": {
-      "appName": {
+      "clientName": {
         "content": "$1",
-        "example": "Some App"
+        "example": "Some Application"
       }
     }
   },
   "pcscClientHandlingUserPromptDialogMessageSuffix": {
-    "message": "is trying to access the Smart Card Connector. Would you like to grant this app permission to access Smart card readers?",
-    "description": "The suffix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is in the bundled list of the known Apps"
+    "message": "is trying to access the Smart Card Connector. Would you like to grant it permission to access Smart card readers?",
+    "description": "The suffix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the client is in the bundled list of the known clients"
   },
-  "pcscClientHandlingUserPromptDialogWarningMessageForUnknownApp": {
-    "message": "For developers only - don't grant access to unknown apps unless you know what you are doing!",
-    "description": "The warning message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is not in the bundled list of the known Apps"
+  "pcscClientHandlingUserPromptDialogWarningMessageForUnknownClient": {
+    "message": "Don't grant access to unknown applications unless you know what you are doing!",
+    "description": "The warning message displayed in the PC/SC-Lite client handling user prompt dialog, when the client is not in the bundled list of the known clients"
   },
-  "pcscClientHandlingUserPromptDialogMessagePrefixForUnknownApp": {
-    "message": "The app from unknown vendor",
-    "description": "The prefix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is not in the bundled list of the known Apps. This message will never be used in the production version"
+  "pcscClientHandlingUserPromptDialogMessagePrefixForUnknownClient": {
+    "message": "The application from unknown vendor",
+    "description": "The prefix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the client is not in the bundled list of the known clients. This message will never be used in the production version"
   },
-  "pcscClientHandlingUserPromptDialogMessageAppIdPartForUnknownApp": {
-    "message": "(app id: \"$appId$\")",
-    "description": "The App id part of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is not in the bundled list of the known Apps. This message will never be used in the production version",
-    "placeholders": {
-      "appId": {
-        "content": "$1",
-        "example": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-      }
-    }
-  },
-  "pcscClientHandlingUserPromptDialogMessageSuffixForUnknownApp": {
+  "pcscClientHandlingUserPromptDialogMessageSuffixForUnknownClient": {
     "message": "is trying to access the Smart Card Connector. Would you like to grant this app permission to access Smart card readers?",
     "description": "The suffix of the message displayed in the PC/SC-Lite client handling user prompt dialog, when the App is not in the bundled list of the known Apps. This message will never be used in the production version"
   },

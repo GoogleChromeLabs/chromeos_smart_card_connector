@@ -52,7 +52,6 @@ goog.require('goog.string');
 
 goog.scope(function() {
 
-const APP_LINK_TEMPLATE = 'https://chrome.google.com/webstore/detail/%s';
 const UNTRUSTED_CLASS = 'untrusted';
 
 const GSC = GoogleSmartCard;
@@ -69,37 +68,20 @@ function prepareMessage() {
   GSC.Logging.checkWithLogger(logger, typeof isClientKnown === 'boolean');
   goog.asserts.assertBoolean(isClientKnown);
 
-  const clientAppId = data['client_app_id'];
-  GSC.Logging.checkWithLogger(logger, typeof clientAppId === 'string');
-  goog.asserts.assertString(clientAppId);
+  const clientInfoLink = data['client_info_link'];
+  GSC.Logging.checkWithLogger(logger, typeof clientInfoLink === 'string');
+  goog.asserts.assertString(clientInfoLink);
 
-  const clientAppName = data['client_app_name'];
-  if (isClientKnown) {
-    GSC.Logging.checkWithLogger(logger, typeof clientAppName === 'string');
-    goog.asserts.assertString(clientAppName);
-  } else {
-    GSC.Logging.checkWithLogger(
-        logger,
-        clientAppName === undefined || typeof clientAppName === 'string');
-    goog.asserts.assert(
-        clientAppName === undefined || typeof clientAppName === 'string');
-  }
+  const clientName = data['client_name'];
+  GSC.Logging.checkWithLogger(logger, typeof clientName === 'string');
+  goog.asserts.assertString(clientName);
 
-  let linkTitle;
-  if (isClientKnown) {
-    linkTitle = chrome.i18n.getMessage(
-        'pcscClientHandlingUserPromptDialogMessageAppNamePart', clientAppName);
-  } else {
-    linkTitle = chrome.i18n.getMessage(
-        'pcscClientHandlingUserPromptDialogMessageAppIdPartForUnknownApp',
-        clientAppId);
-  }
-
-  const linkHref = goog.string.subs(APP_LINK_TEMPLATE, clientAppId);
+  const linkTitle = chrome.i18n.getMessage(
+      'pcscClientHandlingUserPromptDialogMessageClientNamePart', clientName);
 
   const linkElement = goog.dom.getElement('message-app-link');
   goog.dom.setTextContent(linkElement, linkTitle);
-  linkElement['href'] = linkHref;
+  linkElement['href'] = clientInfoLink;
 
   if (!isClientKnown) {
     goog.dom.classlist.add(
