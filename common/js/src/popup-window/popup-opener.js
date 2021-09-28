@@ -32,6 +32,28 @@ goog.require('goog.object');
 
 goog.scope(function() {
 
+const GSC = GoogleSmartCard;
+
+/**
+ * The window options to be used for the resulting window.
+ * APP mode supports all following options.
+ * EXTENSION mode supports 'width' only.
+ * @typedef {{
+ *            alwaysOnTop:(boolean|undefined),
+ *            frame:(string|undefined),
+ *            hidden:(boolean|undefined),
+ *            id:(string|undefined),
+ *            width:(number|undefined),
+ *            resizeable:(boolean|undefined),
+ *            visibleOnAllWorkspaces:(boolean|undefined)
+ *          }}
+ */
+let WindowOptions;
+
+/** @const */
+GSC.PopupOpener.WindowOptions = WindowOptions;
+
+/** @type {!GSC.PopupOpener.WindowOptions} */
 const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
   'alwaysOnTop': true,
   'frame': 'none',
@@ -39,8 +61,6 @@ const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
   'resizable': false,
   'visibleOnAllWorkspaces': true
 };
-
-const GSC = GoogleSmartCard;
 
 /**
  * @type {!goog.log.Logger}
@@ -50,11 +70,10 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
 /**
  * Creates a new window.
  * @param {string} url
- * @param {!chrome.app.window.CreateWindowOptions} createWindowOptions Window
- * options.
+ * @param {!WindowOptions} windowOptions
  * @param {!Object=} opt_data Optional data to be passed to the created window.
  */
-GSC.PopupOpener.createWindow = function(url, createWindowOptions, opt_data) {
+GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
   const createdWindowExtends = {};
   if (opt_data !== undefined)
     createdWindowExtends['passedData'] = opt_data;
@@ -62,22 +81,40 @@ GSC.PopupOpener.createWindow = function(url, createWindowOptions, opt_data) {
   goog.log.fine(
       logger,
       'Creating a popup window with url="' + url +
-          '", options=' + GSC.DebugDump.debugDump(createWindowOptions) +
+          '", options=' + GSC.DebugDump.debugDump(windowOptions) +
           ', data=' + GSC.DebugDump.debugDump(opt_data));
 
   /** @preserveTry */
   try {
     if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
       chrome.app.window.create(
-          url, createWindowOptions,
+          url, {
+            'alwaysOnTop': windowOptions['alwaysOnTop'],
+            'frame': windowOptions['frame'],
+            'hidden': windowOptions['hidden'],
+            'id': windowOptions['id'],
+            'innerBounds': {
+              'width': windowOptions['width'],
+            },
+            'resizable': windowOptions['resizeable'],
+            'visibleOnAllWorkspaces': windowOptions['visibleOnAllWorkspaces']
+          },
           createWindowCallback.bind(null, createdWindowExtends));
+    } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+      chrome.windows.create({
+        'url': url,
+        'type': 'popup',
+        'width': windowOptions['width'],
+      });
+    } else {
+      GSC.Logging.failWithLogger(
+          logger, `Unexpected packaging mode ${GSC.Packaging.MODE}`);
     }
   } catch (exc) {
     GSC.Logging.failWithLogger(
         logger,
         'Failed to create the popup window with URL "' + url + '" and ' +
-            'options ' + GSC.DebugDump.debugDump(createWindowOptions) + ': ' +
-            exc);
+            'options ' + GSC.DebugDump.debugDump(windowOptions) + ': ' + exc);
   }
 };
 
