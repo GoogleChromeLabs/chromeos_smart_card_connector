@@ -162,7 +162,7 @@ def main():
       dest='target_file')
   args_parser.add_argument(
       '--enable-condition',
-      nargs='+',
+      action='append',
       dest='enabled_conditions')
   args = args_parser.parse_args()
 

@@ -110,6 +110,7 @@ $(OUT_DIR_PATH)/manifest.json: $(SOURCES_PATH)/create_app_manifest.py $(SOURCES_
 		--manifest-template-path="$(SOURCES_PATH)/manifest.json.template" \
 		--ccid-supported-readers-config-path="$(CCID_SUPPORTED_READERS_CONFIG_PATH)" \
 		--target-file-path="$(OUT_DIR_PATH)/manifest.json" \
+		--enable-condition="CONFIG=$(CONFIG)" \
 		--enable-condition="PACKAGING=$(PACKAGING)"
 
 generate_out: $(OUT_DIR_PATH)/manifest.json
