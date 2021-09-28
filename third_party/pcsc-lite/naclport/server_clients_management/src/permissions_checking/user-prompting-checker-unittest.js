@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
+goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('GoogleSmartCard.ObjectHelpers');
-goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownApp');
-goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
+goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
+goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
 goog.require('GoogleSmartCard.PopupOpener');
 goog.require('goog.Promise');
@@ -33,17 +34,18 @@ goog.scope(function() {
 
 const GSC = GoogleSmartCard;
 
-const PermissionsChecking =
-    GSC.PcscLiteServerClientsManagement.PermissionsChecking;
-const KnownApp = PermissionsChecking.KnownApp;
-const KnownAppsRegistry = PermissionsChecking.KnownAppsRegistry;
-const UserPromptingChecker = PermissionsChecking.UserPromptingChecker;
+const TrustedClientInfo = GSC.PcscLiteServer.TrustedClientInfo;
+const TrustedClientsRegistry = GSC.PcscLiteServer.TrustedClientsRegistry;
+const UserPromptingChecker = GSC.PcscLiteServerClientsManagement
+                                 .PermissionsChecking.UserPromptingChecker;
 const ignoreArgument = goog.testing.mockmatchers.ignoreArgument;
 
-const FAKE_APP_1_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
-const FAKE_APP_1_NAME = 'App Name 1';
-const FAKE_APP_1_KNOWN_APP = new KnownApp(FAKE_APP_1_ID, FAKE_APP_1_NAME);
-const FAKE_APP_2_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const FAKE_CLIENT_1_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const FAKE_CLIENT_1_NAME = 'Application 1';
+const FAKE_TRUSTED_CLIENT_INFO_1 = new TrustedClientInfo(
+    GSC.MessagingOrigin.getFromExtensionId(FAKE_CLIENT_1_ID),
+    FAKE_CLIENT_1_NAME);
+const FAKE_CLIENT_2_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const STORAGE_KEY = 'pcsc_lite_clients_user_selections';
 
 /**
@@ -59,20 +61,20 @@ const MockedDialogBehavior = {
 /**
  * Sets up a mock instance of KnownAppsRegistry.
  *
- * This mock instance is only aware of |FAKE_APP_1_ID|.
+ * This mock instance is only aware of |FAKE_CLIENT_1_ID|.
  * @param {!goog.testing.MockControl} mockControl
  */
 function setUpKnownAppsRegistryMock(mockControl) {
   const mockInstance = {
-    getById: function(id) {
-      if (id == FAKE_APP_1_ID)
-        return goog.Promise.resolve(FAKE_APP_1_KNOWN_APP);
+    getByOrigin: function(origin) {
+      if (origin === GSC.MessagingOrigin.getFromExtensionId(FAKE_CLIENT_1_ID))
+        return goog.Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_1);
       return goog.Promise.reject();
     }
   };
   /** @type {?} */
   const mockedConstructor = mockControl.createConstructorMock(
-      PermissionsChecking, 'KnownAppsRegistry');
+      GSC.PcscLiteServer, 'TrustedClientsRegistry');
   mockedConstructor().$returns(mockInstance);
 }
 
@@ -228,11 +230,11 @@ goog.exportSymbol(
     'test_UserPromptingChecker_EmptyStorage_UserApproves',
     makeTest(
         {} /* fakeInitialStorageData */, {
-          [STORAGE_KEY]: {[FAKE_APP_1_ID]: true}
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true}
         } /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_APPROVES /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_APP_1_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_1_ID);
         }));
 
 goog.exportSymbol(
@@ -242,7 +244,7 @@ goog.exportSymbol(
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_DENIES /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return negatePromise(userPromptingChecker.check(FAKE_APP_1_ID));
+          return negatePromise(userPromptingChecker.check(FAKE_CLIENT_1_ID));
         }));
 
 goog.exportSymbol(
@@ -252,43 +254,46 @@ goog.exportSymbol(
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_CANCELS /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return negatePromise(userPromptingChecker.check(FAKE_APP_1_ID));
+          return negatePromise(userPromptingChecker.check(FAKE_CLIENT_1_ID));
         }));
 
 goog.exportSymbol(
     'test_UserPromptingChecker_AlreadyInStorage_OneItem',
     makeTest(
-        {[STORAGE_KEY]: {[FAKE_APP_1_ID]: true}} /* fakeInitialStorageData */,
+        {[STORAGE_KEY]:
+             {[FAKE_CLIENT_1_ID]: true}} /* fakeInitialStorageData */,
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.NOT_RUN /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_APP_1_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_1_ID);
         }));
 
 goog.exportSymbol(
     'test_UserPromptingChecker_AlreadyInStorage_TwoItems',
     makeTest(
         {
-          [STORAGE_KEY]: {[FAKE_APP_1_ID]: true, [FAKE_APP_2_ID]: true}
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true, [FAKE_CLIENT_2_ID]: true}
         } /* fakeInitialStorageData */,
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.NOT_RUN /* mockedDialogBehavior */,
         function(userPromptingChecker) {
           return goog.Promise.all([
-            userPromptingChecker.check(FAKE_APP_1_ID),
-            userPromptingChecker.check(FAKE_APP_2_ID)
+            userPromptingChecker.check(FAKE_CLIENT_1_ID),
+            userPromptingChecker.check(FAKE_CLIENT_2_ID)
           ]);
         }));
 
 goog.exportSymbol(
     'test_UserPromptingChecker_OtherInStorage_UserApproves',
     makeTest(
-        {[STORAGE_KEY]: {[FAKE_APP_1_ID]: true}} /* fakeInitialStorageData */, {
-          [STORAGE_KEY]: {[FAKE_APP_1_ID]: true, [FAKE_APP_2_ID]: true}
+        {[STORAGE_KEY]:
+             {[FAKE_CLIENT_1_ID]: true}} /* fakeInitialStorageData */,
+        {
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true, [FAKE_CLIENT_2_ID]: true}
         } /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_APPROVES /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_APP_2_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_2_ID);
         }));
 
 // Regression test for issue #57.
@@ -296,24 +301,26 @@ goog.exportSymbol(
     'test_UserPromptingChecker_CorruptedStorage_NonObject',
     makeTest(
         {[STORAGE_KEY]: 'foo'} /* fakeInitialStorageData */, {
-          [STORAGE_KEY]: {[FAKE_APP_1_ID]: true}
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true}
         } /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_APPROVES /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_APP_1_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_1_ID);
         }));
 
 // Regression test for issue #57.
 goog.exportSymbol(
     'test_UserPromptingChecker_CorruptedStorage_BadItem',
     makeTest(
-        {[STORAGE_KEY]: {[FAKE_APP_1_ID]: 'foo'}} /* fakeInitialStorageData */,
         {
-          [STORAGE_KEY]: {[FAKE_APP_1_ID]: true}
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: 'foo'}
+        } /* fakeInitialStorageData */,
+        {
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true}
         } /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_APPROVES /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_APP_1_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_1_ID);
         }));
 
 // Regression test for issue #57.
@@ -321,11 +328,11 @@ goog.exportSymbol(
     'test_UserPromptingChecker_CorruptedStorage_BadOtherItem',
     makeTest(
         {
-          [STORAGE_KEY]: {[FAKE_APP_1_ID]: true, [FAKE_APP_2_ID]: 'foo'}
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true, [FAKE_CLIENT_2_ID]: 'foo'}
         } /* fakeInitialStorageData */,
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.NOT_RUN /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_APP_1_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_1_ID);
         }));
 });  // goog.scope

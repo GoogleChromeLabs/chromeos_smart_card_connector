@@ -26,12 +26,14 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownApp');
-goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
+goog.provide('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
+goog.provide('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.ExtensionId');
 goog.require('GoogleSmartCard.Json');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('goog.Promise');
 goog.require('goog.asserts');
 goog.require('goog.log');
@@ -42,76 +44,76 @@ goog.require('goog.promise.Resolver');
 
 goog.scope(function() {
 
-const KNOWN_CLIENT_APPS_JSON_URL =
+// The actual data is loaded from this JSON config.
+const JSON_CONFIG_URL =
     'pcsc_lite_server_clients_management/known_client_apps.json';
 
-const KNOWN_CLIENT_APP_NAME_FIELD = 'name';
+const CLIENT_NAME_FIELD = 'name';
 
 const GSC = GoogleSmartCard;
 
-const PermissionsChecking =
-    GSC.PcscLiteServerClientsManagement.PermissionsChecking;
-
 /**
- * This structure holds the information about the known client app.
- * @param {string} id
+ * This structure holds the information about a trusted client.
+ * @param {string} origin
  * @param {string} name
  * @constructor
  */
-PermissionsChecking.KnownApp = function(id, name) {
+GSC.PcscLiteServer.TrustedClientInfo = function(origin, name) {
   /** @const */
-  this.id = id;
+  this.origin = origin;
   /** @const */
   this.name = name;
 };
 
-const KnownApp = PermissionsChecking.KnownApp;
+const TrustedClientInfo = GSC.PcscLiteServer.TrustedClientInfo;
 
 /**
- * This class provides an interface for querying the information about the known
- * client apps (i.e., the apps that are listed in the manually maintained
+ * This class provides an interface for querying the information about trusted
+ * client applications (i.e., the clients that are listed in the manually
+ * maintained
  * //third_party/pcsc-lite/naclport/server_clients_management/src/known_client_apps.json
  * config).
  * @constructor
  */
-PermissionsChecking.KnownAppsRegistry = function() {
+GSC.PcscLiteServer.TrustedClientsRegistry = function() {
   /**
-   * @type {!goog.promise.Resolver.<!Map.<string,!KnownApp>>} @private @const
+   * @type {!goog.promise.Resolver.<!Map.<string,!TrustedClientInfo>>} @private @const
    */
   this.promiseResolver_ = goog.Promise.withResolver();
 
   this.startLoadingJson_();
 };
 
-const KnownAppsRegistry = PermissionsChecking.KnownAppsRegistry;
+const TrustedClientsRegistry = GSC.PcscLiteServer.TrustedClientsRegistry;
 
 /**
  * @type {!goog.log.Logger}
  * @const
  */
-KnownAppsRegistry.prototype.logger = GSC.Logging.getScopedLogger(
-    'PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
+TrustedClientsRegistry.prototype.logger =
+    GSC.Logging.getScopedLogger('PcscLiteServer.TrustedClientsRegistry');
 
 /**
- * Requests information about the given app from the config that contains the
- * list of known client apps.
+ * Requests information about the given client from the config that contains the
+ * list of known clients.
  *
  * The result is returned asynchronously as a promise (which will be rejected if
  * the given app isn't present in the config).
- * @param {string} id
- * @return {!goog.Promise.<!KnownApp>}
+ * @param {string} origin
+ * @return {!goog.Promise.<!TrustedClientInfo>}
  */
-KnownAppsRegistry.prototype.getById = function(id) {
+TrustedClientsRegistry.prototype.getByOrigin = function(origin) {
   const promiseResolver = goog.Promise.withResolver();
 
-  this.tryGetByIds([id]).then(
-      function(knownApps) {
-        const knownApp = knownApps[0];
-        if (knownApp) {
-          promiseResolver.resolve(knownApp);
+  this.tryGetByOrigins([origin]).then(
+      function(infos) {
+        GSC.Logging.checkWithLogger(this.logger, infos.length === 1);
+        const info = infos[0];
+        if (info) {
+          promiseResolver.resolve(info);
         } else {
           promiseResolver.reject(new Error(
-              'The specified App id is not in the known Apps registry'));
+              'The specified origin is not in the trusted clients registry'));
         }
       },
       function(error) {
@@ -122,58 +124,56 @@ KnownAppsRegistry.prototype.getById = function(id) {
 };
 
 /**
- * Similar to getById(), but performs a batch request for the list of given IDs
- * at once.
+ * Similar to getByOrigin(), but performs a batch request for the list of given
+ * origins at once.
  *
  * The result is returned asynchronously as a promise that, when resolved, will
- * contain the same number of elements as |idList|, with the i-th value
- * containing either the information for the i-th app in |idList| or |null| if
- * the app isn't present in the config.
- * @param {!Array.<string>} idList
- * @return {!goog.Promise.<!Array.<?KnownApp>>}
+ * contain the same number of elements as |originList|, with the i-th value
+ * containing either the information for the i-th client in |originList| or
+ * |null| if the client isn't present in the config.
+ * @param {!Array.<string>} originList
+ * @return {!goog.Promise.<!Array.<?TrustedClientInfo>>}
  */
-KnownAppsRegistry.prototype.tryGetByIds = function(idList) {
+TrustedClientsRegistry.prototype.tryGetByOrigins = function(originList) {
   const promiseResolver = goog.Promise.withResolver();
 
   this.promiseResolver_.promise.then(
-      function(knownAppsMap) {
-        const knownApps = [];
-        for (let id of idList) {
-          const knownApp = knownAppsMap.get(id);
-          knownApps.push(knownApp !== undefined ? knownApp : null);
+      function(originToInfoMap) {
+        const infos = [];
+        for (const origin of originList) {
+          const info = originToInfoMap.get(origin);
+          infos.push(info !== undefined ? info : null);
         }
-        promiseResolver.resolve(knownApps);
+        promiseResolver.resolve(infos);
       },
       function() {
         promiseResolver.reject(
-            new Error('Failed to load the known Apps registry'));
+            new Error('Failed to load the trusted clients registry'));
       });
 
   return promiseResolver.promise;
 };
 
 /** @private */
-KnownAppsRegistry.prototype.startLoadingJson_ = function() {
+TrustedClientsRegistry.prototype.startLoadingJson_ = function() {
   goog.log.fine(
       this.logger,
-      'Loading registry from JSON file (URL: "' + KNOWN_CLIENT_APPS_JSON_URL +
-          '")...');
-  goog.net.XhrIo.send(
-      KNOWN_CLIENT_APPS_JSON_URL, this.jsonLoadedCallback_.bind(this));
+      'Loading registry from JSON file (URL: "' + JSON_CONFIG_URL + '")...');
+  goog.net.XhrIo.send(JSON_CONFIG_URL, this.jsonLoadedCallback_.bind(this));
 };
 
 /** @private */
-KnownAppsRegistry.prototype.jsonLoadedCallback_ = function(e) {
+TrustedClientsRegistry.prototype.jsonLoadedCallback_ = function(e) {
   /** @type {!goog.net.XhrIo} */
   const xhrio = e.target;
 
   if (!xhrio.isSuccess()) {
     this.promiseResolver_.reject(
-        new Error('Failed to load the known Apps registry'));
+        new Error('Failed to load the trusted clients registry'));
     GSC.Logging.failWithLogger(
         this.logger,
-        'Failed to load the known Apps registry from JSON file (URL: "' +
-            KNOWN_CLIENT_APPS_JSON_URL +
+        'Failed to load the trusted clients registry from JSON file (URL: "' +
+            JSON_CONFIG_URL +
             '") with the following error: ' + xhrio.getLastError());
   }
 
@@ -188,12 +188,11 @@ KnownAppsRegistry.prototype.jsonLoadedCallback_ = function(e) {
           },
           function(exc) {
             this.promiseResolver_.reject(
-                new Error('Failed to load the known Apps registry'));
+                new Error('Failed to load the trusted clients registry'));
             GSC.Logging.failWithLogger(
                 this.logger,
-                'Failed to load the known Apps registry from JSON file (URL: "' +
-                    KNOWN_CLIENT_APPS_JSON_URL +
-                    '"): parsing failed with the ' +
+                'Failed to load the trusted clients registry from JSON file (URL: "' +
+                    JSON_CONFIG_URL + '"): parsing failed with the ' +
                     'following error: ' + exc);
           },
           this);
@@ -203,18 +202,18 @@ KnownAppsRegistry.prototype.jsonLoadedCallback_ = function(e) {
  * @param {!Object} json
  * @private
  */
-KnownAppsRegistry.prototype.parseJsonAndApply_ = function(json) {
-  /** @type {!Map.<string, !KnownApp>} */
-  const knownClientApps = new Map;
+TrustedClientsRegistry.prototype.parseJsonAndApply_ = function(json) {
+  /** @type {!Map.<string, !TrustedClientInfo>} */
+  const originToInfoMap = new Map;
   let success = true;
   goog.object.forEach(json, function(value, key) {
-    const knownApp = this.tryParseKnownAppJson_(key, value);
-    if (knownApp) {
-      knownClientApps.set(knownApp.id, knownApp);
+    const info = this.tryParseInfoJson_(key, value);
+    if (info) {
+      originToInfoMap.set(info.origin, info);
     } else {
       goog.log.warning(
           this.logger,
-          'Failed to parse the following known Apps registry JSON item: key="' +
+          'Failed to parse the following trusted clients registry JSON item: key="' +
               key + '", value=' + GSC.DebugDump.dump(value));
       success = false;
     }
@@ -224,15 +223,15 @@ KnownAppsRegistry.prototype.parseJsonAndApply_ = function(json) {
     goog.log.fine(
         this.logger,
         'Successfully loaded registry from JSON file: ' +
-            GSC.DebugDump.dump(knownClientApps));
-    this.promiseResolver_.resolve(knownClientApps);
+            GSC.DebugDump.dump(originToInfoMap));
+    this.promiseResolver_.resolve(originToInfoMap);
   } else {
     this.promiseResolver_.reject(
-        new Error('Failed to load the known Apps registry'));
+        new Error('Failed to load the trusted clients registry'));
     GSC.Logging.failWithLogger(
         this.logger,
-        'Failed to load the known Apps registry from JSON file (URL: "' +
-            KNOWN_CLIENT_APPS_JSON_URL + '"): parsing of some of the items ' +
+        'Failed to load the trusted clients registry from JSON file (URL: "' +
+            JSON_CONFIG_URL + '"): parsing of some of the items ' +
             'finished with errors');
   }
 };
@@ -240,19 +239,19 @@ KnownAppsRegistry.prototype.parseJsonAndApply_ = function(json) {
 /**
  * @param {string} key
  * @param {*} value
- * @return {KnownApp?}
+ * @return {TrustedClientInfo?}
  * @private
  */
-KnownAppsRegistry.prototype.tryParseKnownAppJson_ = function(key, value) {
+TrustedClientsRegistry.prototype.tryParseInfoJson_ = function(key, value) {
   if (!goog.isObject(value))
     return null;
 
-  if (!goog.object.containsKey(value, KNOWN_CLIENT_APP_NAME_FIELD))
+  if (!goog.object.containsKey(value, CLIENT_NAME_FIELD))
     return null;
-  const nameField = value[KNOWN_CLIENT_APP_NAME_FIELD];
+  const nameField = value[CLIENT_NAME_FIELD];
   if (typeof nameField !== 'string')
     return null;
 
-  return new KnownApp(key, nameField);
+  return new TrustedClientInfo(key, nameField);
 };
 });  // goog.scope

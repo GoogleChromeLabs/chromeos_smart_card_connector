@@ -1,71 +1,71 @@
 {
-  "dojmlffgommefdofbfdajjpgjgjoffjo": {
+  "chrome-extension://dojmlffgommefdofbfdajjpgjgjoffjo": {
     "name": "Charismathics Smart Card Middleware"
   },
-  "haeblkpifdemlfnkogkipmghfcbonief": {
+  "chrome-extension://haeblkpifdemlfnkogkipmghfcbonief": {
     "name": "CSSI Smart Card Middleware"
   },
-  "omlchkeefdkmmdndbpbhaapnnemfkobc": {
+  "chrome-extension://omlchkeefdkmmdndbpbhaapnnemfkobc": {
     "name": "Charismathics Smart Card Middleware"
   },
-  "haiffjcadagjlijoggckpgfnoeiflnem": {
+  "chrome-extension://haiffjcadagjlijoggckpgfnoeiflnem": {
     "name": "Citrix Workspace"
   },
-  "pckbpdplfajmgaipljfamclkinbjdnma": {
+  "chrome-extension://pckbpdplfajmgaipljfamclkinbjdnma": {
     "name": "VMware Horizon Client"
   },
-  "lpimdiknnpijeigckalekdccibdmeojg": {
+  "chrome-extension://lpimdiknnpijeigckalekdccibdmeojg": {
     "name": "CACKey"
   },
-  "lbfgjakkeeccemhonnolnmglmfmccaag": {
+  "chrome-extension://lbfgjakkeeccemhonnolnmglmfmccaag": {
     "name": "Citrix Workspace - EAR"
   },
-  "kdndmepchimlohdcdkokdddpbnniijoa": {
+  "chrome-extension://kdndmepchimlohdcdkokdddpbnniijoa": {
     "name": "Citrix Workspace - Internal Build"
   },
-  "djkkpfimmenglkapoanbonjbpgbkckag": {
+  "chrome-extension://djkkpfimmenglkapoanbonjbpgbkckag": {
     "name": "BAIMobile Sample Access PKCS11"
   },
-  "oamoafgijflmdhpnmhgmmappcibfinbo": {
+  "chrome-extension://oamoafgijflmdhpnmhgmmappcibfinbo": {
     "name": "BAIMobile Sample Access PKCS11"
   },
-  "cndpbhkcfblfaciifcmnknlkjobidkjo": {
+  "chrome-extension://cndpbhkcfblfaciifcmnknlkjobidkjo": {
     "name": "Gemalto Smart Card Middleware"
   },
-  "odnooafmbfjkpbgdpjlkofbgnfanpicf": {
+  "chrome-extension://odnooafmbfjkpbgdpjlkofbgnfanpicf": {
     "name": "Gemalto SConnect"
   },
-  "bglhmjfplikpjnfoegeomebmfnkjomhe": {
+  "chrome-extension://bglhmjfplikpjnfoegeomebmfnkjomhe": {
     "name": "VMware Horizon Client - Internal"
   },
-  "fdlpibjfnlhnmeckjjhfiejfdghkmkdm": {
+  "chrome-extension://fdlpibjfnlhnmeckjjhfiejfdghkmkdm": {
     "name": "Xtralogic RDP Client"
   },
-  "hlbkkfgplamgidcmijjcglabmiekfech": {
+  "chrome-extension://hlbkkfgplamgidcmijjcglabmiekfech": {
     "name": "smart-pass"
   },
-  "pnhechapfaindjhompbnflcldabbghjo": {
+  "chrome-extension://pnhechapfaindjhompbnflcldabbghjo": {
     "name": "Secure Shell App"
   },
-  "okddffdblfhhnmhodogpojmfkjmhinfp": {
+  "chrome-extension://okddffdblfhhnmhodogpojmfkjmhinfp": {
     "name": "Secure Shell App (dev)"
   },
-  "iodihamcpbpeioajjeobimgagajmlibd": {
+  "chrome-extension://iodihamcpbpeioajjeobimgagajmlibd": {
     "name": "Secure Shell Extension"
   },
-  "algkcnfjnajfhgimadimbjhmpaeohhln": {
+  "chrome-extension://algkcnfjnajfhgimadimbjhmpaeohhln": {
     "name": "Secure Shell Extension (dev)"
   },
-  "njjeilfpkekklihppohcbbanjlcibolf": {
+  "chrome-extension://njjeilfpkekklihppohcbbanjlcibolf": {
     "name": "Xtralogic RDP Client (Stable Channel)"
   },
-  "ekdokegjbgedabpeokeonakhdbagjokj": {
+  "chrome-extension://ekdokegjbgedabpeokeonakhdbagjokj": {
     "name": "Xtralogic RDP Client (Beta Channel)"
   },
-  "ooiklbnjmhbcgemelgfhaeaocllobloj": {
+  "chrome-extension://ooiklbnjmhbcgemelgfhaeaocllobloj": {
     "name": "Mosh"
   },
-  "ppkfnjlimknmjoaemnpidmdlfchhehel": {
+  "chrome-extension://ppkfnjlimknmjoaemnpidmdlfchhehel": {
     "name": "VMware Horizon Client"
   }
 }
