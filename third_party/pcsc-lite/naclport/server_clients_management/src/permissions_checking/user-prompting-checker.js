@@ -235,6 +235,24 @@ UserPromptingChecker.prototype.promptUser_ = function(
 
 /**
  * @param {string} clientAppId
+ * @return {string}
+ */
+function getClientInfoLink(clientAppId) {
+  // For extensions/apps, the info link should point to WebStore.
+  return `https://chrome.google.com/webstore/detail/${clientAppId}`;
+}
+
+/**
+ * @param {string} clientAppId
+ * @return {string}
+ */
+function getNameToShowForUnknownClient(clientAppId) {
+  // For unknown extensions/apps, show their ID.
+  return clientAppId;
+}
+
+/**
+ * @param {string} clientAppId
  * @param {!PermissionsChecking.KnownApp} knownApp
  * @param {!goog.promise.Resolver} promiseResolver
  * @private
@@ -248,8 +266,8 @@ UserPromptingChecker.prototype.promptUserForKnownApp_ = function(
   this.runPromptDialog_(
       clientAppId, {
         'is_client_known': true,
-        'client_app_id': clientAppId,
-        'client_app_name': knownApp.name
+        'client_info_link': getClientInfoLink(clientAppId),
+        'client_name': knownApp.name
       },
       promiseResolver);
 };
@@ -266,7 +284,11 @@ UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
       'Showing the warning user prompt for the unknown client App with id "' +
           clientAppId + '"...');
   this.runPromptDialog_(
-      clientAppId, {'is_client_known': false, 'client_app_id': clientAppId},
+      clientAppId, {
+        'is_client_known': false,
+        'client_info_link': getClientInfoLink(clientAppId),
+        'client_name': getNameToShowForUnknownClient(clientAppId)
+      },
       promiseResolver);
 };
 
@@ -307,8 +329,8 @@ UserPromptingChecker.prototype.runPromptDialog_ = function(
                 '" because of the user cancellation of the prompt dialog');
         this.storeUserSelection_(clientAppId, false);
         promiseResolver.reject(new Error(
-            'Rejected permission because of the user cancellation of the prompt ' +
-            'dialog'));
+            'Rejected permission because of the user cancellation of the ' +
+            'prompt dialog'));
       },
       this);
 };
@@ -326,9 +348,8 @@ UserPromptingChecker.prototype.storeUserSelection_ = function(
   goog.log.info(
       this.logger,
       'Storing user selection of the ' +
-          (userSelection ? 'granted' : 'rejected') +
-          ' permission to client App ' +
-          'with id "' + clientAppId + '"');
+          (userSelection ? 'granted' : 'rejected') + ' permission to client ' +
+          clientAppId);
 
   this.localStoragePromiseResolver_.promise.then(
       function(/** !Map */ storedUserSelections) {

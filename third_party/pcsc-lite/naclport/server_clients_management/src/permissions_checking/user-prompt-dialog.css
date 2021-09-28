@@ -85,7 +85,7 @@ body {
 }
 
 #warning-message::after {
-  content: "__MSG_pcscClientHandlingUserPromptDialogWarningMessageForUnknownApp__";
+  content: "__MSG_pcscClientHandlingUserPromptDialogWarningMessageForUnknownClient__";
 }
 
 #message {
@@ -94,12 +94,8 @@ body {
   padding: 20px 16px 0 0;
 }
 
-#message-prefix::after {
-  content: "__MSG_pcscClientHandlingUserPromptDialogMessagePrefix__";
-}
-
 #message-prefix.untrusted::after {
-  content: "__MSG_pcscClientHandlingUserPromptDialogMessagePrefixForUnknownApp__";
+  content: "__MSG_pcscClientHandlingUserPromptDialogMessagePrefixForUnknownClient__";
 }
 
 #message-app-link,
@@ -115,7 +111,7 @@ body {
 }
 
 #message-suffix.untrusted::after {
-  content: "__MSG_pcscClientHandlingUserPromptDialogMessageSuffixForUnknownApp__";
+  content: "__MSG_pcscClientHandlingUserPromptDialogMessageSuffixForUnknownClient__";
 }
 
 #buttons-container {
