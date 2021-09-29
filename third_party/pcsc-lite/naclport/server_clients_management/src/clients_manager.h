@@ -136,7 +136,7 @@ class PcscLiteServerClientsManager final {
   class Handler final : public RequestHandler {
    public:
     Handler(int64_t handler_id,
-            const optional<std::string>& client_app_id,
+            const std::string& client_name_for_log,
             GlobalContext* global_context,
             TypedMessageRouter* typed_message_router);
     Handler(const Handler&) = delete;
@@ -144,7 +144,9 @@ class PcscLiteServerClientsManager final {
     ~Handler() override;
 
     int64_t handler_id() const { return handler_id_; }
-    optional<std::string> client_app_id() const { return client_app_id_; }
+    const std::string& client_name_for_log() const {
+      return client_name_for_log_;
+    }
 
     // RequestHandler:
     void HandleRequest(
@@ -153,13 +155,13 @@ class PcscLiteServerClientsManager final {
 
    private:
     const int64_t handler_id_;
-    const optional<std::string> client_app_id_;
+    const std::string client_name_for_log_;
     std::shared_ptr<PcscLiteClientRequestProcessor> request_processor_;
     std::shared_ptr<JsRequestReceiver> request_receiver_;
   };
 
   void CreateHandler(int64_t handler_id,
-                     const optional<std::string>& client_app_id);
+                     const std::string& client_name_for_log);
   void DeleteHandler(int64_t client_handler_id);
   void DeleteAllHandlers();
 

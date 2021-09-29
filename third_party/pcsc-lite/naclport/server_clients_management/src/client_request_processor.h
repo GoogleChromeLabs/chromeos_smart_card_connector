@@ -97,8 +97,13 @@ namespace google_smart_card {
 class PcscLiteClientRequestProcessor final
     : public std::enable_shared_from_this<PcscLiteClientRequestProcessor> {
  public:
+  // `client_handler_id` - a number that uniquely identifies a handler (note
+  // that a single client application might open multiple connections to us,
+  // each of which will have a separate handler).
+  // `client_name_for_log` - a name describing the client for logging purposes,
+  // or an empty string if it's our own application talking to itself.
   PcscLiteClientRequestProcessor(int64_t client_handler_id,
-                                 const optional<std::string>& client_app_id);
+                                 const std::string& client_name_for_log);
   PcscLiteClientRequestProcessor(const PcscLiteClientRequestProcessor&) =
       delete;
   PcscLiteClientRequestProcessor& operator=(
@@ -198,7 +203,7 @@ class PcscLiteClientRequestProcessor final
   GenericRequestResult SCardIsValidContext(SCARDCONTEXT s_card_context);
 
   const int64_t client_handler_id_;
-  const optional<std::string> client_app_id_;
+  const std::string client_name_for_log_;
   const LogSeverity status_log_severity_;
   const std::string logging_prefix_;
   HandlerMap handler_map_;
