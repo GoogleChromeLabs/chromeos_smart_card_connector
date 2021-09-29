@@ -29,6 +29,7 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessageChannelPinging.PingResponder');
 goog.require('GoogleSmartCard.MessageChannelPinging.Pinger');
+goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('GoogleSmartCard.TypedMessage');
 goog.require('goog.asserts');
 goog.require('goog.log');
@@ -67,7 +68,8 @@ GSC.PortMessageChannel = function(port, opt_onEstablished) {
   this.port_ = port;
 
   /** @type {string|null} @const */
-  this.extensionId = this.getPortExtensionId_(port);
+  this.messagingOrigin =
+      GSC.MessagingOrigin.getFromChromeMessageSender(port.sender);
 
   /**
    * @type {!goog.log.Logger}
@@ -75,7 +77,9 @@ GSC.PortMessageChannel = function(port, opt_onEstablished) {
    */
   this.logger = GSC.Logging.getScopedLogger(
       'PortMessageChannel<"' + port.name + '"' +
-      (this.extensionId === null ? '' : ', id="' + this.extensionId + '"') +
+      (this.messagingOrigin === null ?
+           '' :
+           ', sender="' + this.messagingOrigin + '"') +
       '>');
 
   /** @private */
@@ -149,27 +153,6 @@ PortMessageChannel.prototype.disposeInternal = function() {
   goog.log.fine(this.logger, 'Disposed');
 
   PortMessageChannel.base(this, 'disposeInternal');
-};
-
-/**
- * @param {!Port} port
- * @return {string|null}
- * @private
- */
-PortMessageChannel.prototype.getPortExtensionId_ = function(port) {
-  if (!goog.object.containsKey(port, 'sender'))
-    return null;
-  const sender = port['sender'];
-  if (sender === undefined)
-    return null;
-  GSC.Logging.checkWithLogger(this.logger, goog.isObject(sender));
-  if (!goog.object.containsKey(sender, 'id'))
-    return null;
-  const senderId = sender['id'];
-  if (senderId === undefined)
-    return null;
-  GSC.Logging.checkWithLogger(this.logger, typeof senderId === 'string');
-  return senderId;
 };
 
 /** @private */
