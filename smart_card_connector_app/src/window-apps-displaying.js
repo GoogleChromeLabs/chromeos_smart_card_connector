@@ -24,8 +24,9 @@ goog.provide('GoogleSmartCard.ConnectorApp.Window.AppsDisplaying');
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownApp');
-goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
+goog.require('GoogleSmartCard.MessagingOrigin');
+goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
+goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('goog.Promise');
 goog.require('goog.array');
 goog.require('goog.asserts');
@@ -36,9 +37,7 @@ goog.require('goog.log.Logger');
 goog.scope(function() {
 
 const GSC = GoogleSmartCard;
-const PermissionsChecking =
-    GSC.PcscLiteServerClientsManagement.PermissionsChecking;
-const KnownApp = PermissionsChecking.KnownApp;
+const TrustedClientInfo = GSC.PcscLiteServer.TrustedClientInfo;
 
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
@@ -47,21 +46,22 @@ const logger = GSC.Logging.getScopedLogger('ConnectorApp.MainWindow');
 const appListElement =
     /** @type {!Element} */ (goog.dom.getElement('app-list'));
 
-const knownAppsRegistry = new PermissionsChecking.KnownAppsRegistry();
+const trustedClientsRegistry = new GSC.PcscLiteServer.TrustedClientsRegistry();
 
 /**
- * @type {goog.Promise.<!Array.<!KnownApp>>?}
+ * @type {goog.Promise.<!Array.<!TrustedClientInfo>>?}
  */
-let lastKnownAppsPromise = null;
+let lastTrustedClientInfosPromise = null;
 
 /**
- * @param {!goog.Promise.<!Array.<!KnownApp>>} knownAppsPromise
+ * @param {!goog.Promise.<!Array.<!TrustedClientInfo>>}
+ *     trustedClientInfosPromise
  * @param {!Array.<string>} appIds
- * @param {Array.<!KnownApp>?} knownApps
+ * @param {Array.<!TrustedClientInfo>?} trustedClientInfos
  * @return {boolean}
  */
-function updateAppView(knownAppsPromise, appIds, knownApps) {
-  if (knownAppsPromise !== lastKnownAppsPromise)
+function updateAppView(trustedClientInfosPromise, appIds, trustedClientInfos) {
+  if (trustedClientInfosPromise !== lastTrustedClientInfosPromise)
     return false;
 
   GSC.Logging.checkWithLogger(logger, appListElement !== null);
@@ -70,8 +70,9 @@ function updateAppView(knownAppsPromise, appIds, knownApps) {
   goog.dom.removeChildren(appListElement);
 
   for (let i = 0; i < appIds.length; i++) {
-    const text =
-        knownApps && knownApps[i] ? knownApps[i].name : '<' + appIds[i] + '>';
+    const text = trustedClientInfos && trustedClientInfos[i] ?
+        trustedClientInfos[i].name :
+        '<' + appIds[i] + '>';
     const newElement = goog.dom.createDom('li', undefined, text);
     goog.dom.append(appListElement, newElement);
   }
@@ -80,28 +81,29 @@ function updateAppView(knownAppsPromise, appIds, knownApps) {
 }
 
 /**
- * @param {!Array.<string>} appListArg
+ * @param {!Array.<string>} appList
  */
-function onUpdateListener(appListArg) {
-  const appList = goog.array.clone(appListArg);
-  goog.array.sort(appList);
+function onUpdateListener(appList) {
+  const originList = appList.map(GSC.MessagingOrigin.getFromExtensionId);
+  goog.array.sort(originList);
   goog.log.fine(
       logger,
       'Application list updated, refreshing the view. ' +
-          'New list of id\'s: ' + GSC.DebugDump.dump(appList));
+          'New list of origins: ' + GSC.DebugDump.dump(originList));
 
-  const knownAppsPromise = knownAppsRegistry.tryGetByIds(appList);
-  lastKnownAppsPromise = knownAppsPromise;
+  const trustedClientInfosPromise =
+      trustedClientsRegistry.tryGetByOrigins(originList);
+  lastTrustedClientInfosPromise = trustedClientInfosPromise;
 
-  knownAppsPromise.then(
-      function(knownApps) {
-        updateAppView(knownAppsPromise, appList, knownApps);
+  trustedClientInfosPromise.then(
+      function(trustedClientInfos) {
+        updateAppView(trustedClientInfosPromise, appList, trustedClientInfos);
       },
       function(error) {
-        if (!updateAppView(knownAppsPromise, appList, null))
+        if (!updateAppView(trustedClientInfosPromise, appList, null))
           return;
 
-        goog.log.warning(logger, 'Couldn\'t resolve appList: ' + error);
+        goog.log.warning(logger, 'Couldn\'t resolve origins: ' + error);
       });
 }
 

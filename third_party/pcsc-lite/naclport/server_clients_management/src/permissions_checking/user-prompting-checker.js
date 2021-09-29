@@ -31,7 +31,9 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 goog.require('GoogleSmartCard.ContainerHelpers');
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.KnownAppsRegistry');
+goog.require('GoogleSmartCard.MessagingOrigin');
+goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
+goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('GoogleSmartCard.PopupOpener');
 goog.require('goog.Promise');
 goog.require('goog.iter');
@@ -64,7 +66,7 @@ const PermissionsChecking =
  */
 PermissionsChecking.UserPromptingChecker = function() {
   /** @private @const */
-  this.knownAppsRegistry_ = new PermissionsChecking.KnownAppsRegistry;
+  this.trustedClientsRegistry_ = new GSC.PcscLiteServer.TrustedClientsRegistry;
 
   /** @type {!goog.promise.Resolver.<!Map.<string,boolean>>} @private @const */
   this.localStoragePromiseResolver_ = goog.Promise.withResolver();
@@ -129,7 +131,6 @@ UserPromptingChecker.prototype.check = function(clientAppId) {
                 this.logger,
                 'Rejected permission to client App with id "' + clientAppId +
                     '" due to the stored user selection');
-            this.notifyAboutRejectionByStoredSelection_(clientAppId);
             promiseResolver.reject(new Error(
                 'Rejected permission due to the stored user selection'));
           }
@@ -222,13 +223,15 @@ UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
  */
 UserPromptingChecker.prototype.promptUser_ = function(
     clientAppId, promiseResolver) {
-  this.knownAppsRegistry_.getById(clientAppId)
+  const clientOrigin = GSC.MessagingOrigin.getFromExtensionId(clientAppId);
+  this.trustedClientsRegistry_.getByOrigin(clientOrigin)
       .then(
-          function(knownApp) {
-            this.promptUserForKnownApp_(clientAppId, knownApp, promiseResolver);
+          function(trustedClient) {
+            this.promptUserForTrustedClient_(
+                clientAppId, trustedClient, promiseResolver);
           },
           function() {
-            this.promptUserForUnknownApp_(clientAppId, promiseResolver);
+            this.promptUserForUntrustedClient_(clientAppId, promiseResolver);
           },
           this);
 };
@@ -253,21 +256,21 @@ function getNameToShowForUnknownClient(clientAppId) {
 
 /**
  * @param {string} clientAppId
- * @param {!PermissionsChecking.KnownApp} knownApp
+ * @param {!GSC.PcscLiteServer.TrustedClientInfo} trustedClientInfo
  * @param {!goog.promise.Resolver} promiseResolver
  * @private
  */
-UserPromptingChecker.prototype.promptUserForKnownApp_ = function(
-    clientAppId, knownApp, promiseResolver) {
+UserPromptingChecker.prototype.promptUserForTrustedClient_ = function(
+    clientAppId, trustedClientInfo, promiseResolver) {
   goog.log.info(
       this.logger,
-      'Showing the user prompt for the known client App with id "' +
-          clientAppId + '" and name "' + knownApp.name + '"...');
+      'Showing the user prompt for the trusted client App with id "' +
+          clientAppId + '" and name "' + trustedClientInfo.name + '"...');
   this.runPromptDialog_(
       clientAppId, {
         'is_client_known': true,
         'client_info_link': getClientInfoLink(clientAppId),
-        'client_name': knownApp.name
+        'client_name': trustedClientInfo.name
       },
       promiseResolver);
 };
@@ -277,11 +280,11 @@ UserPromptingChecker.prototype.promptUserForKnownApp_ = function(
  * @param {!goog.promise.Resolver} promiseResolver
  * @private
  */
-UserPromptingChecker.prototype.promptUserForUnknownApp_ = function(
+UserPromptingChecker.prototype.promptUserForUntrustedClient_ = function(
     clientAppId, promiseResolver) {
   goog.log.info(
       this.logger,
-      'Showing the warning user prompt for the unknown client App with id "' +
+      'Showing the warning user prompt for the untrusted client App with id "' +
           clientAppId + '"...');
   this.runPromptDialog_(
       clientAppId, {
@@ -369,21 +372,5 @@ UserPromptingChecker.prototype.storeUserSelection_ = function(
             'Failed to store the user selection in the local storage');
       },
       this);
-};
-
-/**
- * @param {string} clientAppId
- */
-UserPromptingChecker.prototype.notifyAboutRejectionByStoredSelection_ =
-    function(clientAppId) {
-  // TODO: implement showing rich notifications to the user here
-};
-
-/**
- * @param {string} clientAppId
- */
-UserPromptingChecker.prototype.notifyAboutRejectionOfUnknownApp_ = function(
-    clientAppId) {
-  // TODO: implement showing rich notifications to the user here
 };
 });  // goog.scope
