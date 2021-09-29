@@ -81,29 +81,30 @@ function updateAppView(trustedClientInfosPromise, appIds, trustedClientInfos) {
 }
 
 /**
- * @param {!Array.<string>} appList
+ * @param {!Array.<string>} clientOriginListArg
  */
-function onUpdateListener(appList) {
-  const originList = appList.map(GSC.MessagingOrigin.getFromExtensionId);
-  goog.array.sort(originList);
+function onUpdateListener(clientOriginListArg) {
+  const clientOriginList = goog.array.clone(clientOriginListArg);
+  goog.array.sort(clientOriginList);
   goog.log.fine(
       logger,
       'Application list updated, refreshing the view. ' +
-          'New list of origins: ' + GSC.DebugDump.dump(originList));
+          'New list of origins: ' + GSC.DebugDump.dump(clientOriginList));
 
   const trustedClientInfosPromise =
-      trustedClientsRegistry.tryGetByOrigins(originList);
+      trustedClientsRegistry.tryGetByOrigins(clientOriginList);
   lastTrustedClientInfosPromise = trustedClientInfosPromise;
 
   trustedClientInfosPromise.then(
       function(trustedClientInfos) {
-        updateAppView(trustedClientInfosPromise, appList, trustedClientInfos);
+        updateAppView(
+            trustedClientInfosPromise, clientOriginList, trustedClientInfos);
       },
       function(error) {
-        if (!updateAppView(trustedClientInfosPromise, appList, null))
+        if (!updateAppView(trustedClientInfosPromise, clientOriginList, null))
           return;
 
-        goog.log.warning(logger, 'Couldn\'t resolve origins: ' + error);
+        goog.log.warning(logger, 'Couldn\'t resolve client origins: ' + error);
       });
 }
 
