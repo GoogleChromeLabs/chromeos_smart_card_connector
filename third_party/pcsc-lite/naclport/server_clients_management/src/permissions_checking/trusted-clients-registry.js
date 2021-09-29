@@ -205,7 +205,7 @@ TrustedClientsRegistry.prototype.parseJsonAndApply_ = function(json) {
   const originToInfoMap = new Map;
   let success = true;
   goog.object.forEach(json, function(value, key) {
-    const info = this.tryParseInfoJson_(key, value);
+    const info = this.tryParseTrustedClientInfo_(key, value);
     if (info) {
       originToInfoMap.set(info.origin, info);
     } else {
@@ -240,7 +240,8 @@ TrustedClientsRegistry.prototype.parseJsonAndApply_ = function(json) {
  * @return {TrustedClientInfo?}
  * @private
  */
-TrustedClientsRegistry.prototype.tryParseInfoJson_ = function(key, value) {
+TrustedClientsRegistry.prototype.tryParseTrustedClientInfo_ = function(
+    key, value) {
   if (!goog.isObject(value))
     return null;
 
