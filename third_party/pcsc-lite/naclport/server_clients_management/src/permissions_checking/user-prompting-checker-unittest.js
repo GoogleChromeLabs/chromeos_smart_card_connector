@@ -40,12 +40,15 @@ const UserPromptingChecker = GSC.PcscLiteServerClientsManagement
                                  .PermissionsChecking.UserPromptingChecker;
 const ignoreArgument = goog.testing.mockmatchers.ignoreArgument;
 
-const FAKE_CLIENT_1_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const FAKE_CLIENT_1_ORIGIN =
+    'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+const FAKE_CLIENT_1_LEGACY_STORAGE_ID = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 const FAKE_CLIENT_1_NAME = 'Application 1';
-const FAKE_TRUSTED_CLIENT_INFO_1 = new TrustedClientInfo(
-    GSC.MessagingOrigin.getFromExtensionId(FAKE_CLIENT_1_ID),
-    FAKE_CLIENT_1_NAME);
-const FAKE_CLIENT_2_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const FAKE_TRUSTED_CLIENT_INFO_1 =
+    new TrustedClientInfo(FAKE_CLIENT_1_ORIGIN, FAKE_CLIENT_1_NAME);
+const FAKE_CLIENT_2_ORIGIN =
+    'chrome-extension://bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+const FAKE_CLIENT_2_LEGACY_STORAGE_ID = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
 const STORAGE_KEY = 'pcsc_lite_clients_user_selections';
 
 /**
@@ -61,13 +64,13 @@ const MockedDialogBehavior = {
 /**
  * Sets up a mock instance of KnownAppsRegistry.
  *
- * This mock instance is only aware of |FAKE_CLIENT_1_ID|.
+ * This mock instance is only aware of |FAKE_CLIENT_1_ORIGIN|.
  * @param {!goog.testing.MockControl} mockControl
  */
 function setUpKnownAppsRegistryMock(mockControl) {
   const mockInstance = {
     getByOrigin: function(origin) {
-      if (origin === GSC.MessagingOrigin.getFromExtensionId(FAKE_CLIENT_1_ID))
+      if (origin === FAKE_CLIENT_1_ORIGIN)
         return goog.Promise.resolve(FAKE_TRUSTED_CLIENT_INFO_1);
       return goog.Promise.reject();
     }
@@ -230,11 +233,11 @@ goog.exportSymbol(
     'test_UserPromptingChecker_EmptyStorage_UserApproves',
     makeTest(
         {} /* fakeInitialStorageData */, {
-          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true}
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ORIGIN]: true}
         } /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_APPROVES /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_CLIENT_1_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN);
         }));
 
 goog.exportSymbol(
@@ -244,7 +247,8 @@ goog.exportSymbol(
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_DENIES /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return negatePromise(userPromptingChecker.check(FAKE_CLIENT_1_ID));
+          return negatePromise(
+              userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN));
         }));
 
 goog.exportSymbol(
@@ -254,46 +258,93 @@ goog.exportSymbol(
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_CANCELS /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return negatePromise(userPromptingChecker.check(FAKE_CLIENT_1_ID));
+          return negatePromise(
+              userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN));
         }));
 
 goog.exportSymbol(
     'test_UserPromptingChecker_AlreadyInStorage_OneItem',
     makeTest(
-        {[STORAGE_KEY]:
-             {[FAKE_CLIENT_1_ID]: true}} /* fakeInitialStorageData */,
+        {
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ORIGIN]: true}
+        } /* fakeInitialStorageData */,
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.NOT_RUN /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_CLIENT_1_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN);
+        }));
+goog.exportSymbol(
+    'test_UserPromptingChecker_AlreadyInStorage_OneItem_InLegacyFormat',
+    makeTest(
+        {
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_LEGACY_STORAGE_ID]: true}
+        } /* fakeInitialStorageData */,
+        null /* expectedStorageDataToBeWritten */,
+        MockedDialogBehavior.NOT_RUN /* mockedDialogBehavior */,
+        function(userPromptingChecker) {
+          return userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN);
         }));
 
 goog.exportSymbol(
     'test_UserPromptingChecker_AlreadyInStorage_TwoItems',
     makeTest(
         {
-          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true, [FAKE_CLIENT_2_ID]: true}
+          [STORAGE_KEY]:
+              {[FAKE_CLIENT_1_ORIGIN]: true, [FAKE_CLIENT_2_ORIGIN]: true}
         } /* fakeInitialStorageData */,
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.NOT_RUN /* mockedDialogBehavior */,
         function(userPromptingChecker) {
           return goog.Promise.all([
-            userPromptingChecker.check(FAKE_CLIENT_1_ID),
-            userPromptingChecker.check(FAKE_CLIENT_2_ID)
+            userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN),
+            userPromptingChecker.check(FAKE_CLIENT_2_ORIGIN)
+          ]);
+        }));
+goog.exportSymbol(
+    'test_UserPromptingChecker_AlreadyInStorage_TwoItems_InLegacyFormat',
+    makeTest(
+        {
+          [STORAGE_KEY]: {
+            [FAKE_CLIENT_1_LEGACY_STORAGE_ID]: true,
+            [FAKE_CLIENT_2_LEGACY_STORAGE_ID]: true
+          }
+        } /* fakeInitialStorageData */,
+        null /* expectedStorageDataToBeWritten */,
+        MockedDialogBehavior.NOT_RUN /* mockedDialogBehavior */,
+        function(userPromptingChecker) {
+          return goog.Promise.all([
+            userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN),
+            userPromptingChecker.check(FAKE_CLIENT_2_ORIGIN)
           ]);
         }));
 
 goog.exportSymbol(
     'test_UserPromptingChecker_OtherInStorage_UserApproves',
     makeTest(
-        {[STORAGE_KEY]:
-             {[FAKE_CLIENT_1_ID]: true}} /* fakeInitialStorageData */,
         {
-          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true, [FAKE_CLIENT_2_ID]: true}
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ORIGIN]: true}
+        } /* fakeInitialStorageData */,
+        {
+          [STORAGE_KEY]:
+              {[FAKE_CLIENT_1_ORIGIN]: true, [FAKE_CLIENT_2_ORIGIN]: true}
         } /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_APPROVES /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_CLIENT_2_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_2_ORIGIN);
+        }));
+goog.exportSymbol(
+    'test_UserPromptingChecker_OtherInStorage_InLegacyFormat_UserApproves',
+    makeTest(
+        {
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_LEGACY_STORAGE_ID]: true}
+        } /* fakeInitialStorageData */,
+        {
+          [STORAGE_KEY]:
+              {[FAKE_CLIENT_1_ORIGIN]: true, [FAKE_CLIENT_2_ORIGIN]: true}
+        } /* expectedStorageDataToBeWritten */,
+        MockedDialogBehavior.USER_APPROVES /* mockedDialogBehavior */,
+        function(userPromptingChecker) {
+          return userPromptingChecker.check(FAKE_CLIENT_2_ORIGIN);
         }));
 
 // Regression test for issue #57.
@@ -301,11 +352,11 @@ goog.exportSymbol(
     'test_UserPromptingChecker_CorruptedStorage_NonObject',
     makeTest(
         {[STORAGE_KEY]: 'foo'} /* fakeInitialStorageData */, {
-          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true}
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ORIGIN]: true}
         } /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_APPROVES /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_CLIENT_1_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN);
         }));
 
 // Regression test for issue #57.
@@ -313,14 +364,14 @@ goog.exportSymbol(
     'test_UserPromptingChecker_CorruptedStorage_BadItem',
     makeTest(
         {
-          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: 'foo'}
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ORIGIN]: 'foo'}
         } /* fakeInitialStorageData */,
         {
-          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true}
+          [STORAGE_KEY]: {[FAKE_CLIENT_1_ORIGIN]: true}
         } /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.USER_APPROVES /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_CLIENT_1_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN);
         }));
 
 // Regression test for issue #57.
@@ -328,11 +379,12 @@ goog.exportSymbol(
     'test_UserPromptingChecker_CorruptedStorage_BadOtherItem',
     makeTest(
         {
-          [STORAGE_KEY]: {[FAKE_CLIENT_1_ID]: true, [FAKE_CLIENT_2_ID]: 'foo'}
+          [STORAGE_KEY]:
+              {[FAKE_CLIENT_1_ORIGIN]: true, [FAKE_CLIENT_2_ORIGIN]: 'foo'}
         } /* fakeInitialStorageData */,
         null /* expectedStorageDataToBeWritten */,
         MockedDialogBehavior.NOT_RUN /* mockedDialogBehavior */,
         function(userPromptingChecker) {
-          return userPromptingChecker.check(FAKE_CLIENT_1_ID);
+          return userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN);
         }));
 });  // goog.scope

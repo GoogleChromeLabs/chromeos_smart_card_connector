@@ -17,6 +17,9 @@
 
 goog.provide('GoogleSmartCard.MessagingOrigin');
 
+goog.require('GoogleSmartCard.ExtensionId');
+goog.require('GoogleSmartCard.Logging');
+goog.require('goog.log.Logger');
 goog.require('goog.Uri');
 
 goog.scope(function() {
@@ -25,6 +28,9 @@ const GSC = GoogleSmartCard;
 
 /** @const */
 GSC.MessagingOrigin.EXTENSION_PROTOCOL = 'chrome-extension:';
+
+/** @type {!goog.log.Logger} */
+const logger = GSC.Logging.getScopedLogger('MessagingOrigin');
 
 /**
  * Returns an origin that identifies the sender of messages, given the
@@ -64,6 +70,8 @@ GSC.MessagingOrigin.getFromChromeMessageSender = function(messageSender) {
  * @return {string}
  */
 GSC.MessagingOrigin.getFromExtensionId = function(extensionId) {
+  GSC.Logging.checkWithLogger(
+      logger, GSC.ExtensionId.looksLikeExtensionId(extensionId));
   return `${GSC.MessagingOrigin.EXTENSION_PROTOCOL}//${extensionId}`;
 };
 

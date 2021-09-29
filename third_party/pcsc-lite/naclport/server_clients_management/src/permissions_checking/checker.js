@@ -30,6 +30,7 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 
 goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.Logging');
+goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.ManagedRegistry');
 goog.require('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsChecking.UserPromptingChecker');
 goog.require('goog.Promise');
@@ -142,7 +143,8 @@ Checker.prototype.checkByManagedRegistry_ = function(
  */
 Checker.prototype.checkByUserPromptingChecker_ = function(
     clientAppId, checkPromiseResolver) {
-  this.userPromptingChecker_.check(clientAppId)
+  const clientOrigin = GSC.MessagingOrigin.getFromExtensionId(clientAppId);
+  this.userPromptingChecker_.check(clientOrigin)
       .then(checkPromiseResolver.resolve, checkPromiseResolver.reject);
 };
 });  // goog.scope
