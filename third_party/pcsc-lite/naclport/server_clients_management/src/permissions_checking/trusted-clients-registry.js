@@ -30,10 +30,8 @@ goog.provide('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.provide('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 
 goog.require('GoogleSmartCard.DebugDump');
-goog.require('GoogleSmartCard.ExtensionId');
 goog.require('GoogleSmartCard.Json');
 goog.require('GoogleSmartCard.Logging');
-goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('goog.Promise');
 goog.require('goog.asserts');
 goog.require('goog.log');
