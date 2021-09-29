@@ -30,6 +30,7 @@ goog.provide('GoogleSmartCard.PcscLiteServerClientsManagement.PermissionsCheckin
 
 goog.require('GoogleSmartCard.ContainerHelpers');
 goog.require('GoogleSmartCard.DebugDump');
+goog.require('GoogleSmartCard.ExtensionId');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
@@ -91,55 +92,55 @@ UserPromptingChecker.prototype.logger = GSC.Logging.getScopedLogger(
  *
  * The result is returned asynchronously as a promise (which will eventually be
  * resolved if the permission is granted or rejected otherwise).
- * @param {string} clientAppId
+ * @param {string} clientOrigin
  * @return {!goog.Promise}
  */
-UserPromptingChecker.prototype.check = function(clientAppId) {
+UserPromptingChecker.prototype.check = function(clientOrigin) {
   goog.log.log(
       this.logger, goog.log.Level.FINEST,
-      'Checking permissions for client App with id "' + clientAppId + '"...');
+      'Checking permissions for client App ' + clientOrigin + '...');
 
-  const existingPromise = this.checkPromiseMap_.get(clientAppId);
+  const existingPromise = this.checkPromiseMap_.get(clientOrigin);
   if (existingPromise !== undefined) {
     goog.log.log(
         this.logger, goog.log.Level.FINEST,
         'Found the existing promise for the permission checking of the ' +
-            'client App with id "' + clientAppId + '", returning it');
+            'client ' + clientOrigin + ', returning it');
     return existingPromise;
   }
 
   goog.log.fine(
       this.logger,
-      'Checking permissions for client App with id "' + clientAppId + '": no ' +
+      'Checking permissions for client ' + clientOrigin + ': no ' +
           'existing promise was found, performing the actual check...');
 
   const promiseResolver = goog.Promise.withResolver();
-  this.checkPromiseMap_.set(clientAppId, promiseResolver.promise);
+  this.checkPromiseMap_.set(clientOrigin, promiseResolver.promise);
 
   this.localStoragePromiseResolver_.promise.then(
       function(storedUserSelections) {
-        if (storedUserSelections.has(clientAppId)) {
-          const userSelection = storedUserSelections.get(clientAppId);
+        if (storedUserSelections.has(clientOrigin)) {
+          const userSelection = storedUserSelections.get(clientOrigin);
           if (userSelection) {
             goog.log.info(
                 this.logger,
-                'Granted permission to client App with id "' + clientAppId +
-                    '" due to the stored user selection');
+                'Granted permission to client ' + clientOrigin +
+                    ' due to the stored user selection');
             promiseResolver.resolve();
           } else {
             goog.log.info(
                 this.logger,
-                'Rejected permission to client App with id "' + clientAppId +
-                    '" due to the stored user selection');
+                'Rejected permission to client ' + clientOrigin +
+                    ' due to the stored user selection');
             promiseResolver.reject(new Error(
                 'Rejected permission due to the stored user selection'));
           }
         } else {
           goog.log.fine(
               this.logger,
-              'No stored user selection was found for the client App with id ' +
-                  '"' + clientAppId + '", going to show the user prompt...');
-          this.promptUser_(clientAppId, promiseResolver);
+              'No stored user selection was found for the client ' +
+                  clientOrigin + ', going to show the user prompt...');
+          this.promptUser_(clientOrigin, promiseResolver);
         }
       },
       function() {
@@ -171,10 +172,9 @@ UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
           GSC.DebugDump.dump(items));
   const storedUserSelections = this.parseLocalStorageUserSelections_(items);
   const itemsForLog = [];
-  storedUserSelections.forEach(function(userSelection, extensionId) {
+  storedUserSelections.forEach(function(userSelection, clientOrigin) {
     itemsForLog.push(
-        (userSelection ? 'allow' : 'deny') + ' for extension "' + extensionId +
-        '"');
+        (userSelection ? 'allow' : 'deny') + ' for ' + clientOrigin + '"');
   });
   goog.log.info(
       this.logger,
@@ -183,6 +183,20 @@ UserPromptingChecker.prototype.localStorageLoadedCallback_ = function(items) {
 
   this.localStoragePromiseResolver_.resolve(storedUserSelections);
 };
+
+/**
+ * @param {string} identifier
+ * @return {string}
+ */
+function fixupLegacyStoredIdentifier(identifier) {
+  if (GSC.ExtensionId.looksLikeExtensionId(identifier)) {
+    // Old versions of the Smart Card Connector stored user decisions as simply
+    // extension IDs. Now that we've switched to using origins, automatically
+    // transform from the old format into the new one.
+    return GSC.MessagingOrigin.getFromExtensionId(identifier);
+  }
+  return identifier;
+}
 
 /**
  * @param {!Object} localStorageItems
@@ -203,7 +217,7 @@ UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
             GSC.DebugDump.dump(contents));
     return storedUserSelections;
   }
-  goog.object.forEach(contents, function(userSelection, appId) {
+  goog.object.forEach(contents, function(userSelection, identifier) {
     if (typeof userSelection !== 'boolean') {
       goog.log.warning(
           this.logger,
@@ -211,98 +225,112 @@ UserPromptingChecker.prototype.parseLocalStorageUserSelections_ = function(
               'be a boolean, received: ' + GSC.DebugDump.dump(userSelection));
       return;
     }
-    storedUserSelections.set(appId, userSelection);
+    const clientOrigin = fixupLegacyStoredIdentifier(identifier);
+    storedUserSelections.set(clientOrigin, userSelection);
   }, this);
   return storedUserSelections;
 };
 
 /**
- * @param {string} clientAppId
+ * @param {string} clientOrigin
  * @param {!goog.promise.Resolver} promiseResolver
  * @private
  */
 UserPromptingChecker.prototype.promptUser_ = function(
-    clientAppId, promiseResolver) {
-  const clientOrigin = GSC.MessagingOrigin.getFromExtensionId(clientAppId);
+    clientOrigin, promiseResolver) {
   this.trustedClientsRegistry_.getByOrigin(clientOrigin)
       .then(
           function(trustedClient) {
             this.promptUserForTrustedClient_(
-                clientAppId, trustedClient, promiseResolver);
+                clientOrigin, trustedClient, promiseResolver);
           },
           function() {
-            this.promptUserForUntrustedClient_(clientAppId, promiseResolver);
+            this.promptUserForUntrustedClient_(clientOrigin, promiseResolver);
           },
           this);
 };
 
 /**
- * @param {string} clientAppId
+ * @param {string} clientOrigin
  * @return {string}
  */
-function getClientInfoLink(clientAppId) {
-  // For extensions/apps, the info link should point to WebStore.
-  return `https://chrome.google.com/webstore/detail/${clientAppId}`;
+function getClientInfoLink(clientOrigin) {
+  const url = new URL(clientOrigin);
+  if (url.protocol === GSC.MessagingOrigin.EXTENSION_PROTOCOL) {
+    // For extensions/apps, the info link should point to WebStore.
+    const extensionId = url.hostname;
+    return `https://chrome.google.com/webstore/detail/${extensionId}`;
+  }
+  // For all other origins, assume they're themselves valid and informative
+  // links.
+  return clientOrigin;
 }
 
 /**
- * @param {string} clientAppId
+ * @param {string} clientOrigin
  * @return {string}
  */
-function getNameToShowForUnknownClient(clientAppId) {
-  // For unknown extensions/apps, show their ID.
-  return clientAppId;
+function getNameToShowForUnknownClient(clientOrigin) {
+  const url = new URL(clientOrigin);
+  if (url.protocol === GSC.MessagingOrigin.EXTENSION_PROTOCOL) {
+    // For unknown extensions/apps, show their ID.
+    const extensionId = url.hostname;
+    return extensionId;
+  }
+  // For unknown web pages, show their host (which, unlike "hostname", includes
+  // the port number).
+  return url.host;
 }
 
 /**
- * @param {string} clientAppId
+ * @param {string} clientOrigin
  * @param {!GSC.PcscLiteServer.TrustedClientInfo} trustedClientInfo
  * @param {!goog.promise.Resolver} promiseResolver
  * @private
  */
 UserPromptingChecker.prototype.promptUserForTrustedClient_ = function(
-    clientAppId, trustedClientInfo, promiseResolver) {
+    clientOrigin, trustedClientInfo, promiseResolver) {
   goog.log.info(
       this.logger,
-      'Showing the user prompt for the trusted client App with id "' +
-          clientAppId + '" and name "' + trustedClientInfo.name + '"...');
+      'Showing the user prompt for the known client ' + clientOrigin +
+          ' named "' + trustedClientInfo.name + '"...');
   this.runPromptDialog_(
-      clientAppId, {
+      clientOrigin, {
         'is_client_known': true,
-        'client_info_link': getClientInfoLink(clientAppId),
+        'client_info_link': getClientInfoLink(clientOrigin),
         'client_name': trustedClientInfo.name
       },
       promiseResolver);
 };
 
 /**
- * @param {string} clientAppId
+ * @param {string} clientOrigin
  * @param {!goog.promise.Resolver} promiseResolver
  * @private
  */
 UserPromptingChecker.prototype.promptUserForUntrustedClient_ = function(
-    clientAppId, promiseResolver) {
+    clientOrigin, promiseResolver) {
   goog.log.info(
       this.logger,
-      'Showing the warning user prompt for the untrusted client App with id "' +
-          clientAppId + '"...');
+      'Showing the warning user prompt for the unknown client ' + clientOrigin +
+          '...');
   this.runPromptDialog_(
-      clientAppId, {
+      clientOrigin, {
         'is_client_known': false,
-        'client_info_link': getClientInfoLink(clientAppId),
-        'client_name': getNameToShowForUnknownClient(clientAppId)
+        'client_info_link': getClientInfoLink(clientOrigin),
+        'client_name': getNameToShowForUnknownClient(clientOrigin)
       },
       promiseResolver);
 };
 
 /**
- * @param {string} clientAppId
+ * @param {string} clientOrigin
  * @param {!Object} userPromptDialogData
  * @param {!goog.promise.Resolver} promiseResolver
  * @private
  */
 UserPromptingChecker.prototype.runPromptDialog_ = function(
-    clientAppId, userPromptDialogData, promiseResolver) {
+    clientOrigin, userPromptDialogData, promiseResolver) {
   const dialogPromise = GSC.PopupOpener.runModalDialog(
       USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
       userPromptDialogData);
@@ -311,16 +339,16 @@ UserPromptingChecker.prototype.runPromptDialog_ = function(
         if (dialogResult) {
           goog.log.info(
               this.logger,
-              'Granted permission to client App with id "' + clientAppId +
-                  '" based on the "grant" user selection');
-          this.storeUserSelection_(clientAppId, true);
+              'Granted permission to client ' + clientOrigin +
+                  ' based on the "grant" user selection');
+          this.storeUserSelection_(clientOrigin, true);
           promiseResolver.resolve();
         } else {
           goog.log.info(
               this.logger,
-              'Rejected permission to client App with id "' + clientAppId +
-                  '" based on the "reject" user selection');
-          this.storeUserSelection_(clientAppId, false);
+              'Rejected permission to client ' + clientOrigin +
+                  ' based on the "reject" user selection');
+          this.storeUserSelection_(clientOrigin, false);
           promiseResolver.reject(new Error(
               'Reject permission based on the "reject" user selection'));
         }
@@ -328,9 +356,9 @@ UserPromptingChecker.prototype.runPromptDialog_ = function(
       function() {
         goog.log.info(
             this.logger,
-            'Rejected permission to client App with id "' + clientAppId +
-                '" because of the user cancellation of the prompt dialog');
-        this.storeUserSelection_(clientAppId, false);
+            'Rejected permission to client ' + clientOrigin +
+                ' because of the user cancellation of the prompt dialog');
+        this.storeUserSelection_(clientOrigin, false);
         promiseResolver.reject(new Error(
             'Rejected permission because of the user cancellation of the ' +
             'prompt dialog'));
@@ -339,11 +367,11 @@ UserPromptingChecker.prototype.runPromptDialog_ = function(
 };
 
 /**
- * @param {string} clientAppId
+ * @param {string} clientOrigin
  * @param {boolean} userSelection
  */
 UserPromptingChecker.prototype.storeUserSelection_ = function(
-    clientAppId, userSelection) {
+    clientOrigin, userSelection) {
   // Don't remember negative user selections persistently.
   if (!userSelection)
     return;
@@ -352,11 +380,11 @@ UserPromptingChecker.prototype.storeUserSelection_ = function(
       this.logger,
       'Storing user selection of the ' +
           (userSelection ? 'granted' : 'rejected') + ' permission to client ' +
-          clientAppId);
+          clientOrigin);
 
   this.localStoragePromiseResolver_.promise.then(
       function(/** !Map */ storedUserSelections) {
-        storedUserSelections.set(clientAppId, userSelection);
+        storedUserSelections.set(clientOrigin, userSelection);
         const dumpedValue =
             GSC.ContainerHelpers.buildObjectFromMap(storedUserSelections);
         goog.log.log(
