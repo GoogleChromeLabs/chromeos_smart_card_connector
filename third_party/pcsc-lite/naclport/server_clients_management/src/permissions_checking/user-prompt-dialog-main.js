@@ -57,12 +57,17 @@ const UNTRUSTED_CLASS = 'untrusted';
 
 const GSC = GoogleSmartCard;
 
+const urlParams = new URLSearchParams(window.location.search);
+
+const idParam = urlParams.get('popup_id');
+
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.' +
     'Main');
 
 function prepareMessage() {
+  console.log("ayag prepareMessage");
   const data = GSC.InPopupMainScript.getData();
 
   const isClientKnown = data['is_client_known'];
@@ -94,23 +99,12 @@ function prepareMessage() {
 }
 
 function allowClickListener() {
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP){
-    GSC.InPopupMainScript.resolveModalDialog(true);
-  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION){
-    const urlParams = new URLSearchParams(window.location.search);
-    const idParam = urlParams.get('popup_id');
-    window.opener.promiseResolver.resolve;
-  }
+  console.log("ayag allowClickListener in user-prompt-dialog-main.js");
+  GSC.InPopupMainScript.resolveModalDialog(true, idParam);
 }
 
 function denyClickListener() {
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP){
-    GSC.InPopupMainScript.resolveModalDialog(false);
-  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION){
-    const urlParams = new URLSearchParams(window.location.search);
-    const idParam = urlParams.get('popup_id');
-    window.opener.promiseResolver.reject;
-  }
+  GSC.InPopupMainScript.resolveModalDialog(false, idParam);
 }
 
 function closeWindowClickListener() {

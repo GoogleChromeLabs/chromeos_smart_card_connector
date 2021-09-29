@@ -65,14 +65,20 @@ GSC.InPopupMainScript.showWindow = function() {
  * window.
  * @param {*} result
  */
-GSC.InPopupMainScript.resolveModalDialog = function(result) {
+GSC.InPopupMainScript.resolveModalDialog = function(result, popupId = 0) {
   const callback = GSC.InPopupMainScript.getData()['resolveModalDialog'];
   GSC.Logging.checkWithLogger(logger, callback);
   goog.log.fine(
       logger,
       'The modal dialog is resolved with the following result: ' +
           GSC.DebugDump.debugDump(result));
-  callback(result);
+  
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP){
+    callback(result);
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION){
+    goog.global['opener'][`resolveModalDialog${popupId}`](result);
+  }
+
   closeWindow();
 };
 
@@ -82,13 +88,19 @@ GSC.InPopupMainScript.resolveModalDialog = function(result) {
  * window.
  * @param {*} error
  */
-GSC.InPopupMainScript.rejectModalDialog = function(error) {
+GSC.InPopupMainScript.rejectModalDialog = function(error, popupId = 0) {
   const callback = GSC.InPopupMainScript.getData()['rejectModalDialog'];
   GSC.Logging.checkWithLogger(logger, callback);
   goog.log.fine(
       logger,
       'The modal dialog is rejected with the following error: ' + error);
-  callback(error);
+  
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP){
+    callback(error);
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION){
+    goog.global['opener'][`rejectModalDialog${popupId}`](error);
+  }
+
   closeWindow();
 };
 

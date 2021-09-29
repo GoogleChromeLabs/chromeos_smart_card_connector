@@ -74,6 +74,7 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
  * @param {!Object=} opt_data Optional data to be passed to the created window.
  */
 GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
+  console.log("ayag createWindow in popup-opener.js");
   const createdWindowExtends = {};
   if (opt_data !== undefined)
     createdWindowExtends['passedData'] = opt_data;
@@ -101,10 +102,12 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
           },
           createWindowCallback.bind(null, createdWindowExtends));
     } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+      console.log("ayag window created window SUCCESSFULLY");
       chrome.windows.create({
         'url': url,
         'type': 'popup',
         'width': windowOptions['width'],
+        'setSelfAsOpener': true
       });
     } else {
       GSC.Logging.failWithLogger(
@@ -128,7 +131,8 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
  * @return {!goog.Promise}
  */
 GSC.PopupOpener.runModalDialog = function(
-    url, opt_createWindowOptionsOverrides, opt_data) {
+    url, popupId, opt_createWindowOptionsOverrides, opt_data) {
+  console.log("ayag runModalDialog in popup-opener.js");
   const createWindowOptions =
       goog.object.clone(DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS);
   if (opt_createWindowOptionsOverrides) {
@@ -146,12 +150,17 @@ GSC.PopupOpener.runModalDialog = function(
     'resolveModalDialog': promiseResolver.resolve,
     'rejectModalDialog': promiseResolver.reject
   };
+
+  goog.global[`resolveModalDialog${popupId}`] = promiseResolver.resolve;
+  goog.global[`rejectModalDialog${popupId}`] = promiseResolver.reject;
+
   if (opt_data !== undefined)
     Object.assign(dataWithDialogCallbacks, opt_data);
 
   GSC.PopupOpener.createWindow(
       url, createWindowOptions, dataWithDialogCallbacks);
 
+  console.log("ayag finished runModalDialog");
   return promiseResolver.promise;
 };
 
