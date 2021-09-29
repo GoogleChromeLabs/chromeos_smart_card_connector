@@ -27,6 +27,7 @@ goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessageChannelPair');
 goog.require('GoogleSmartCard.MessageChannelPool');
 goog.require('GoogleSmartCard.MessagingCommon');
+goog.require('GoogleSmartCard.MessagingOrigin');
 goog.require('GoogleSmartCard.NaclModule');
 goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.ReaderTracker');
@@ -183,17 +184,20 @@ function connectionListener(port) {
 function externalConnectionListener(port) {
   goog.log.fine(logger, 'Received onConnectExternal event');
   const portMessageChannel = new GSC.PortMessageChannel(port);
-  if (portMessageChannel.extensionId === null) {
+  if (portMessageChannel.messagingOrigin === null) {
     goog.log.warning(
         logger,
-        'Ignoring the external connection as there is no sender ' +
-            'extension id specified');
+        'Ignoring the external connection as there is no sender specified');
     return;
   }
-  messageChannelPool.addChannel(
-      portMessageChannel.extensionId, portMessageChannel);
+  // TODO(#377): Switch to using origins everywhere.
+  const extensionId = GSC.MessagingOrigin.extractExtensionId(
+      portMessageChannel.messagingOrigin);
+  goog.asserts.assert(extensionId);
+
+  messageChannelPool.addChannel(extensionId, portMessageChannel);
   GSC.MessagingCommon.setNonFatalDefaultServiceCallback(portMessageChannel);
-  createClientHandler(portMessageChannel, portMessageChannel.extensionId);
+  createClientHandler(portMessageChannel, extensionId);
 }
 
 /**
