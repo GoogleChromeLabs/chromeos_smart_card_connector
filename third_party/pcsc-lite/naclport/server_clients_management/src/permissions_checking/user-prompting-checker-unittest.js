@@ -273,6 +273,7 @@ goog.exportSymbol(
         function(userPromptingChecker) {
           return userPromptingChecker.check(FAKE_CLIENT_1_ORIGIN);
         }));
+
 goog.exportSymbol(
     'test_UserPromptingChecker_AlreadyInStorage_OneItem_InLegacyFormat',
     makeTest(
@@ -300,6 +301,7 @@ goog.exportSymbol(
             userPromptingChecker.check(FAKE_CLIENT_2_ORIGIN)
           ]);
         }));
+
 goog.exportSymbol(
     'test_UserPromptingChecker_AlreadyInStorage_TwoItems_InLegacyFormat',
     makeTest(
@@ -332,6 +334,7 @@ goog.exportSymbol(
         function(userPromptingChecker) {
           return userPromptingChecker.check(FAKE_CLIENT_2_ORIGIN);
         }));
+
 goog.exportSymbol(
     'test_UserPromptingChecker_OtherInStorage_InLegacyFormat_UserApproves',
     makeTest(
