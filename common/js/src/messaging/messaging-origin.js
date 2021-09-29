@@ -19,8 +19,8 @@ goog.provide('GoogleSmartCard.MessagingOrigin');
 
 goog.require('GoogleSmartCard.ExtensionId');
 goog.require('GoogleSmartCard.Logging');
-goog.require('goog.log.Logger');
 goog.require('goog.Uri');
+goog.require('goog.log.Logger');
 
 goog.scope(function() {
 
