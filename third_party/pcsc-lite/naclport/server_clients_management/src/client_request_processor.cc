@@ -133,15 +133,19 @@ void CleanupHandles(const std::string& logging_prefix,
 
 PcscLiteClientRequestProcessor::PcscLiteClientRequestProcessor(
     int64_t client_handler_id,
-    const optional<std::string>& client_app_id)
+    const std::string& client_name_for_log)
     : client_handler_id_(client_handler_id),
-      client_app_id_(client_app_id),
-      status_log_severity_(client_app_id ? LogSeverity::kInfo
-                                         : LogSeverity::kDebug),
-      logging_prefix_(FormatPrintfTemplate(
-          "[PC/SC from %s (id %" PRId64 ")] ",
-          client_app_id ? ("\"" + *client_app_id + "\"").c_str() : "own app",
-          client_handler_id)) {
+      client_name_for_log_(client_name_for_log),
+      status_log_severity_(client_name_for_log.empty() ? LogSeverity::kDebug
+                                                       : LogSeverity::kInfo),
+      logging_prefix_(FormatPrintfTemplate("[PC/SC from %s (id %" PRId64 ")] ",
+                                           client_name_for_log_.empty()
+                                               ? "own app"
+                                               : client_name_for_log_.c_str(),
+                                           client_handler_id)) {
+  // Note that `status_log_severity_` is initialized to `kDebug` if it's our own
+  // application talking to itself: that way we don't spam with these
+  // uninteresting requests in logs in the Release build.
   BuildHandlerMap();
   GOOGLE_SMART_CARD_LOG_DEBUG << logging_prefix_ << "Created client handler";
 }
