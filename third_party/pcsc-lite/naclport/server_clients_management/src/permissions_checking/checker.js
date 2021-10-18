@@ -80,7 +80,7 @@ Checker.prototype.logger = GSC.Logging.getScopedLogger(
  *
  * The result is returned asynchronously as a promise (which will be eventually
  * resolved if the permission is granted or rejected otherwise).
- * @param {string|null} clientOrigin Orogin of the client application, or null
+ * @param {string|null} clientOrigin Origin of the client application, or null
  * if the client is our own application.
  * @return {!goog.Promise}
  */

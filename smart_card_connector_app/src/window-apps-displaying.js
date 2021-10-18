@@ -81,27 +81,27 @@ function updateAppView(trustedClientInfosPromise, appIds, trustedClientInfos) {
 }
 
 /**
- * @param {!Array.<string>} clientOriginListArg
+ * @param {!Array.<string>} clientOriginList
  */
-function onUpdateListener(clientOriginListArg) {
-  const clientOriginList = goog.array.clone(clientOriginListArg);
-  goog.array.sort(clientOriginList);
+function onUpdateListener(clientOriginList) {
+  const sortedClientOriginList = goog.array.clone(clientOriginList);
+  goog.array.sort(sortedClientOriginList);
   goog.log.fine(
       logger,
       'Application list updated, refreshing the view. ' +
-          'New list of origins: ' + GSC.DebugDump.dump(clientOriginList));
+          'New list of origins: ' + GSC.DebugDump.dump(sortedClientOriginList));
 
   const trustedClientInfosPromise =
-      trustedClientsRegistry.tryGetByOrigins(clientOriginList);
+      trustedClientsRegistry.tryGetByOrigins(sortedClientOriginList);
   lastTrustedClientInfosPromise = trustedClientInfosPromise;
 
   trustedClientInfosPromise.then(
       function(trustedClientInfos) {
         updateAppView(
-            trustedClientInfosPromise, clientOriginList, trustedClientInfos);
+            trustedClientInfosPromise, sortedClientOriginList, trustedClientInfos);
       },
       function(error) {
-        if (!updateAppView(trustedClientInfosPromise, clientOriginList, null))
+        if (!updateAppView(trustedClientInfosPromise, sortedClientOriginList, null))
           return;
 
         goog.log.warning(logger, 'Couldn\'t resolve client origins: ' + error);
