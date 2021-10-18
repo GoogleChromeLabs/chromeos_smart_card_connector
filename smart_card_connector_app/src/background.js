@@ -190,14 +190,10 @@ function externalConnectionListener(port) {
         'Ignoring the external connection as there is no sender specified');
     return;
   }
-  // TODO(#377): Switch to using origins everywhere.
-  const extensionId = GSC.MessagingOrigin.extractExtensionId(
-      portMessageChannel.messagingOrigin);
-  goog.asserts.assert(extensionId);
-
-  messageChannelPool.addChannel(extensionId, portMessageChannel);
+  messageChannelPool.addChannel(
+      portMessageChannel.messagingOrigin, portMessageChannel);
   GSC.MessagingCommon.setNonFatalDefaultServiceCallback(portMessageChannel);
-  createClientHandler(portMessageChannel, extensionId);
+  createClientHandler(portMessageChannel, portMessageChannel.messagingOrigin);
 }
 
 /**
@@ -208,6 +204,9 @@ function externalConnectionListener(port) {
 function externalMessageListener(message, sender) {
   goog.log.fine(logger, 'Received onMessageExternal event');
   if (sender.id === undefined) {
+    // Note: The single-message-based communication protocol doesn't support
+    // talking to web pages, since there's no way to send messages to web pages
+    // other than in response to messages from them.
     goog.log.warning(
         logger,
         'Ignoring the external message as there is no sender ' +
@@ -235,21 +234,23 @@ function externalMessageListener(message, sender) {
  * extension - either returns an existing instance if there's one, or creates a
  * new one otherwise. May return null if the channel becomes immediately
  * disposed of due to some error.
- * @param {string} clientExtensionId
+ * @param {string} senderExtensionId
  * @return {GSC.SingleMessageBasedChannel?}
  */
-function getOrCreateSingleMessageBasedChannel(clientExtensionId) {
+function getOrCreateSingleMessageBasedChannel(senderExtensionId) {
+  const messagingOrigin =
+      GSC.MessagingOrigin.getFromExtensionId(senderExtensionId);
   const existingChannel =
-      messageChannelPool.getChannels(clientExtensionId).find(function(channel) {
+      messageChannelPool.getChannels(messagingOrigin).find(function(channel) {
         return channel instanceof GSC.SingleMessageBasedChannel;
       });
   if (existingChannel)
     return /** @type {!GSC.SingleMessageBasedChannel} */ (existingChannel);
   const newChannel =
-      new GSC.SingleMessageBasedChannel(clientExtensionId, undefined, true);
-  messageChannelPool.addChannel(clientExtensionId, newChannel);
+      new GSC.SingleMessageBasedChannel(senderExtensionId, undefined, true);
+  messageChannelPool.addChannel(messagingOrigin, newChannel);
   GSC.MessagingCommon.setNonFatalDefaultServiceCallback(newChannel);
-  createClientHandler(newChannel, clientExtensionId);
+  createClientHandler(newChannel, messagingOrigin);
   if (newChannel.isDisposed())
     return null;
   return newChannel;
@@ -258,21 +259,21 @@ function getOrCreateSingleMessageBasedChannel(clientExtensionId) {
 /**
  * Creates a PC/SC-Lite client handler for the specified message channel and the
  * client extension.
+ * The clientOrigin argument equal to undefined denotes the case when the sender
+ * is our own extension/app.
  * @param {!goog.messaging.AbstractChannel} clientMessageChannel
- * @param {string|undefined} clientExtensionId
+ * @param {string|undefined} clientOrigin
  */
-function createClientHandler(clientMessageChannel, clientExtensionId) {
+function createClientHandler(clientMessageChannel, clientOrigin) {
   GSC.Logging.checkWithLogger(logger, !clientMessageChannel.isDisposed());
-
-  const clientTitleForLog = clientExtensionId !== undefined ?
-      'app "' + clientExtensionId + '"' :
-      'own app';
+  const clientOriginForLog =
+      clientOrigin !== undefined ? clientOrigin : 'ourselves';
 
   if (executableModule.isDisposed() ||
       executableModule.getMessageChannel().isDisposed()) {
     goog.log.warning(
         logger,
-        'Could not create PC/SC-Lite client handler for ' + clientTitleForLog +
+        'Could not create PC/SC-Lite client handler for ' + clientOriginForLog +
             ' as the server is disposed. Disposing of the client message ' +
             'channel...');
     clientMessageChannel.dispose();
@@ -284,11 +285,11 @@ function createClientHandler(clientMessageChannel, clientExtensionId) {
   // passed message channels.
   const clientHandler = new GSC.PcscLiteServerClientsManagement.ClientHandler(
       executableModule.getMessageChannel(), pcscLiteReadinessTracker,
-      clientMessageChannel, clientExtensionId);
+      clientMessageChannel, clientOrigin);
 
   const logMessage = 'Created a new PC/SC-Lite client handler for ' +
-      clientTitleForLog + ' (handler id ' + clientHandler.id + ')';
-  if (clientExtensionId !== undefined)
+      clientOriginForLog + ' (handler id ' + clientHandler.id + ')';
+  if (clientOrigin !== undefined)
     goog.log.info(logger, logMessage);
   else
     goog.log.fine(logger, logMessage);

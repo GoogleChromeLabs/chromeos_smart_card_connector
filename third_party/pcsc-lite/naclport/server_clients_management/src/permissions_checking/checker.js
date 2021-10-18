@@ -46,8 +46,8 @@ const PermissionsChecking =
 
 /**
  * Provides an interface for performing permission checks for the given client
- * apps, which gates access to sending PC/SC requests to our Smart Card
- * Connector app.
+ * applications, which gates access to sending PC/SC requests to our Smart Card
+ * Connector.
  *
  * Criteria for granting the permissions, in the order of their application:
  * 1. Allow if admin force-allowed the permission via policy for extensions (the
@@ -76,74 +76,73 @@ Checker.prototype.logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.Checker');
 
 /**
- * Starts the permission check for the given client app.
+ * Starts the permission check for the given client application.
  *
  * The result is returned asynchronously as a promise (which will be eventually
  * resolved if the permission is granted or rejected otherwise).
- * @param {string|null} clientAppId ID of the client app, or null if the client
- * is our own app.
+ * @param {string|null} clientOrigin Origin of the client application, or null
+ * if the client is our own application.
  * @return {!goog.Promise}
  */
-Checker.prototype.check = function(clientAppId) {
+Checker.prototype.check = function(clientOrigin) {
   goog.log.log(
       this.logger, goog.log.Level.FINER,
-      'Checking permissions for client App with id ' +
-          GSC.DebugDump.dump(clientAppId) + '...');
+      'Checking permissions for client ' + GSC.DebugDump.dump(clientOrigin) +
+          '...');
 
-  if (clientAppId === null) {
+  if (clientOrigin === null) {
     goog.log.log(
         this.logger, goog.log.Level.FINER,
-        'Granted permissions for client with null App id');
+        'Granted permissions for client with null origin');
     return goog.Promise.resolve();
   }
 
   const checkPromiseResolver = goog.Promise.withResolver();
 
-  this.checkByManagedRegistry_(clientAppId, checkPromiseResolver);
+  this.checkByManagedRegistry_(clientOrigin, checkPromiseResolver);
 
   return checkPromiseResolver.promise;
 };
 
 /**
- * @param {string} clientAppId
+ * @param {string} clientOrigin
  * @param {!goog.promise.Resolver} checkPromiseResolver
  * @private
  */
 Checker.prototype.checkByManagedRegistry_ = function(
-    clientAppId, checkPromiseResolver) {
+    clientOrigin, checkPromiseResolver) {
   goog.log.log(
       this.logger, goog.log.Level.FINER,
-      'Checking permissions for the client App with id "' + clientAppId +
-          '" through the managed registry...');
+      'Checking permissions for the client ' + clientOrigin +
+          ' through the managed registry...');
 
-  this.managedRegistry_.getById(clientAppId)
+  this.managedRegistry_.getById(clientOrigin)
       .then(
           function() {
             goog.log.log(
                 this.logger, goog.log.Level.FINER,
-                'Granted permissions for client App with id "' + clientAppId +
-                    '" through the managed registry');
+                'Granted permissions for client ' + clientOrigin +
+                    ' through the managed registry');
             checkPromiseResolver.resolve();
           },
           function() {
             goog.log.log(
                 this.logger, goog.log.Level.FINER,
-                'No permissions found for client App with id "' + clientAppId +
-                    '" through the managed registry');
+                'No permissions found for client ' + clientOrigin +
+                    ' through the managed registry');
             this.checkByUserPromptingChecker_(
-                clientAppId, checkPromiseResolver);
+                clientOrigin, checkPromiseResolver);
           },
           this);
 };
 
 /**
- * @param {string} clientAppId
+ * @param {string} clientOrigin
  * @param {!goog.promise.Resolver} checkPromiseResolver
  * @private
  */
 Checker.prototype.checkByUserPromptingChecker_ = function(
-    clientAppId, checkPromiseResolver) {
-  const clientOrigin = GSC.MessagingOrigin.getFromExtensionId(clientAppId);
+    clientOrigin, checkPromiseResolver) {
   this.userPromptingChecker_.check(clientOrigin)
       .then(checkPromiseResolver.resolve, checkPromiseResolver.reject);
 };

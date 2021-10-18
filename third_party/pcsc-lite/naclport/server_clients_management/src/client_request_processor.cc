@@ -136,11 +136,11 @@ PcscLiteClientRequestProcessor::PcscLiteClientRequestProcessor(
     const std::string& client_name_for_log)
     : client_handler_id_(client_handler_id),
       client_name_for_log_(client_name_for_log),
-      status_log_severity_(client_name_for_log.empty() ? LogSeverity::kDebug
-                                                       : LogSeverity::kInfo),
+      status_log_severity_(client_name_for_log_.empty() ? LogSeverity::kDebug
+                                                        : LogSeverity::kInfo),
       logging_prefix_(FormatPrintfTemplate("[PC/SC from %s (id %" PRId64 ")] ",
                                            client_name_for_log_.empty()
-                                               ? "own app"
+                                               ? "ourselves"
                                                : client_name_for_log_.c_str(),
                                            client_handler_id)) {
   // Note that `status_log_severity_` is initialized to `kDebug` if it's our own
