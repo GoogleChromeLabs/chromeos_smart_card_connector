@@ -21,6 +21,7 @@ set -eu
 PATHS_TO_CLEAN="
   activate
   depot_tools
+  emsdk
   nacl_sdk
   webports
 "
