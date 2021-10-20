@@ -193,7 +193,6 @@ PCSC_LITE_SERVER_NACL_SOURCES := \
 	$(SOURCES_PATH)/pcscdaemon_nacl.cc \
 	$(SOURCES_PATH)/readerfactory_nacl.cc \
 	$(SOURCES_PATH)/server_sockets_manager.cc \
-	$(SOURCES_PATH)/socketpair_emulation.cc \
 	$(SOURCES_PATH)/sys_nacl.cc \
 	$(SOURCES_PATH)/unistd_nacl.cc \
 	$(SOURCES_PATH)/winscard_msg_nacl.cc \

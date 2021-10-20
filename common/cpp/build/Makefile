@@ -29,6 +29,7 @@ SOURCES_PATH := $(ROOT_SOURCES_PATH)/$(ROOT_SOURCES_SUBDIR)
 
 SOURCES := \
 	$(SOURCES_PATH)/formatting.cc \
+	$(SOURCES_PATH)/ipc_emulation.cc \
 	$(SOURCES_PATH)/logging/function_call_tracer.cc \
 	$(SOURCES_PATH)/logging/hex_dumping.cc \
 	$(SOURCES_PATH)/logging/logging.cc \

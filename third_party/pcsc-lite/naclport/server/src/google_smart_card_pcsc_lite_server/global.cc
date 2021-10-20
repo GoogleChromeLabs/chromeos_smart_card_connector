@@ -42,13 +42,13 @@ extern "C" {
 #include "winscard_svc.h"
 }
 
+#include <google_smart_card_common/ipc_emulation.h>
 #include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/messaging/typed_message.h>
 #include <google_smart_card_common/value.h>
 #include <google_smart_card_common/value_conversion.h>
 
 #include "server_sockets_manager.h"
-#include "socketpair_emulation.h"
 
 namespace google_smart_card {
 
@@ -167,7 +167,7 @@ const PcscLiteServerGlobal* PcscLiteServerGlobal::GetInstance() {
 void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initialization...";
 
-  SocketpairEmulationManager::CreateGlobalInstance();
+  IpcEmulationManager::CreateGlobalInstance();
   PcscLiteServerSocketsManager::CreateGlobalInstance();
 
   ::SYS_InitRandom();

@@ -1,29 +1,18 @@
 // Copyright 2016 Google Inc.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions
-// are met:
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// 1. Redistributions of source code must retain the above copyright
-//    notice, this list of conditions and the following disclaimer.
-// 2. Redistributions in binary form must reproduce the above copyright
-//    notice, this list of conditions and the following disclaimer in the
-//    documentation and/or other materials provided with the distribution.
-// 3. The name of the author may not be used to endorse or promote products
-//    derived from this software without specific prior written permission.
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-// THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
-// IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-// OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-// IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
-// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-// NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-// THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#include "socketpair_emulation.h"
+#include <google_smart_card_common/ipc_emulation.h>
 
 #include <algorithm>
 #include <chrono>
@@ -39,11 +28,11 @@ namespace {
 
 constexpr char kLoggingPrefix[] = "[emulated domain socket] ";
 
-SocketpairEmulationManager* g_socketpair_emulation_manager = nullptr;
+IpcEmulationManager* g_ipc_emulation_manager = nullptr;
 
 }  // namespace
 
-class SocketpairEmulationManager::Socket final {
+class IpcEmulationManager::Socket final {
  public:
   explicit Socket(int file_descriptor) : file_descriptor_(file_descriptor) {
     GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "A socket "
@@ -184,19 +173,19 @@ class SocketpairEmulationManager::Socket final {
 };
 
 // static
-void SocketpairEmulationManager::CreateGlobalInstance() {
-  GOOGLE_SMART_CARD_CHECK(!g_socketpair_emulation_manager);
-  g_socketpair_emulation_manager = new SocketpairEmulationManager;
+void IpcEmulationManager::CreateGlobalInstance() {
+  GOOGLE_SMART_CARD_CHECK(!g_ipc_emulation_manager);
+  g_ipc_emulation_manager = new IpcEmulationManager;
 }
 
 // static
-SocketpairEmulationManager* SocketpairEmulationManager::GetInstance() {
-  GOOGLE_SMART_CARD_CHECK(g_socketpair_emulation_manager);
-  return g_socketpair_emulation_manager;
+IpcEmulationManager* IpcEmulationManager::GetInstance() {
+  GOOGLE_SMART_CARD_CHECK(g_ipc_emulation_manager);
+  return g_ipc_emulation_manager;
 }
 
-void SocketpairEmulationManager::Create(int* file_descriptor_1,
-                                        int* file_descriptor_2) {
+void IpcEmulationManager::Create(int* file_descriptor_1,
+                                 int* file_descriptor_2) {
   GOOGLE_SMART_CARD_CHECK(file_descriptor_1);
   GOOGLE_SMART_CARD_CHECK(file_descriptor_2);
   *file_descriptor_1 = GenerateNewFileDescriptor();
@@ -209,7 +198,7 @@ void SocketpairEmulationManager::Create(int* file_descriptor_1,
   AddSocket(std::move(socket_2));
 }
 
-void SocketpairEmulationManager::Close(int file_descriptor, bool* is_failure) {
+void IpcEmulationManager::Close(int file_descriptor, bool* is_failure) {
   const std::unique_lock<std::mutex> lock(mutex_);
   const auto socket_map_iter = socket_map_.find(file_descriptor);
   if (socket_map_iter == socket_map_.end()) {
@@ -224,10 +213,10 @@ void SocketpairEmulationManager::Close(int file_descriptor, bool* is_failure) {
   socket_map_.erase(socket_map_iter);
 }
 
-void SocketpairEmulationManager::Write(int file_descriptor,
-                                       const uint8_t* data,
-                                       int64_t size,
-                                       bool* is_failure) {
+void IpcEmulationManager::Write(int file_descriptor,
+                                const uint8_t* data,
+                                int64_t size,
+                                bool* is_failure) {
   const std::shared_ptr<Socket> socket =
       FindSocketByFileDescriptor(file_descriptor);
   if (!socket) {
@@ -241,8 +230,8 @@ void SocketpairEmulationManager::Write(int file_descriptor,
   socket->Write(data, size, is_failure);
 }
 
-void SocketpairEmulationManager::SelectForReading(int file_descriptor,
-                                                  bool* is_failure) {
+void IpcEmulationManager::SelectForReading(int file_descriptor,
+                                           bool* is_failure) {
   const std::shared_ptr<Socket> socket =
       FindSocketByFileDescriptor(file_descriptor);
   if (!socket) {
@@ -256,9 +245,9 @@ void SocketpairEmulationManager::SelectForReading(int file_descriptor,
   socket->SelectForReading(is_failure);
 }
 
-bool SocketpairEmulationManager::SelectForReading(int file_descriptor,
-                                                  int64_t timeout_milliseconds,
-                                                  bool* is_failure) {
+bool IpcEmulationManager::SelectForReading(int file_descriptor,
+                                           int64_t timeout_milliseconds,
+                                           bool* is_failure) {
   const std::shared_ptr<Socket> socket =
       FindSocketByFileDescriptor(file_descriptor);
   if (!socket) {
@@ -272,10 +261,10 @@ bool SocketpairEmulationManager::SelectForReading(int file_descriptor,
   return socket->SelectForReading(timeout_milliseconds, is_failure);
 }
 
-bool SocketpairEmulationManager::Read(int file_descriptor,
-                                      uint8_t* buffer,
-                                      int64_t* in_out_size,
-                                      bool* is_failure) {
+bool IpcEmulationManager::Read(int file_descriptor,
+                               uint8_t* buffer,
+                               int64_t* in_out_size,
+                               bool* is_failure) {
   const std::shared_ptr<Socket> socket =
       FindSocketByFileDescriptor(file_descriptor);
   if (!socket) {
@@ -292,11 +281,11 @@ bool SocketpairEmulationManager::Read(int file_descriptor,
   return true;
 }
 
-SocketpairEmulationManager::SocketpairEmulationManager() = default;
+IpcEmulationManager::IpcEmulationManager() = default;
 
-SocketpairEmulationManager::~SocketpairEmulationManager() = default;
+IpcEmulationManager::~IpcEmulationManager() = default;
 
-int SocketpairEmulationManager::GenerateNewFileDescriptor() {
+int IpcEmulationManager::GenerateNewFileDescriptor() {
   const std::unique_lock<std::mutex> lock(mutex_);
   const int file_descriptor = next_free_file_descriptor_;
   GOOGLE_SMART_CARD_CHECK(file_descriptor < std::numeric_limits<int>::max());
@@ -304,7 +293,7 @@ int SocketpairEmulationManager::GenerateNewFileDescriptor() {
   return file_descriptor;
 }
 
-void SocketpairEmulationManager::AddSocket(std::shared_ptr<Socket> socket) {
+void IpcEmulationManager::AddSocket(std::shared_ptr<Socket> socket) {
   GOOGLE_SMART_CARD_CHECK(socket);
   GOOGLE_SMART_CARD_CHECK(socket.unique());
   const std::unique_lock<std::mutex> lock(mutex_);
@@ -313,9 +302,8 @@ void SocketpairEmulationManager::AddSocket(std::shared_ptr<Socket> socket) {
       socket_map_.emplace(file_descriptor, std::move(socket)).second);
 }
 
-std::shared_ptr<SocketpairEmulationManager::Socket>
-SocketpairEmulationManager::FindSocketByFileDescriptor(
-    int file_descriptor) const {
+std::shared_ptr<IpcEmulationManager::Socket>
+IpcEmulationManager::FindSocketByFileDescriptor(int file_descriptor) const {
   const std::unique_lock<std::mutex> lock(mutex_);
   const auto socket_map_iter = socket_map_.find(file_descriptor);
   if (socket_map_iter == socket_map_.end())
@@ -323,34 +311,34 @@ SocketpairEmulationManager::FindSocketByFileDescriptor(
   return socket_map_iter->second;
 }
 
-namespace socketpair_emulation {
+namespace ipc_emulation {
 
 void Create(int* file_descriptor_1, int* file_descriptor_2) {
-  SocketpairEmulationManager::GetInstance()->Create(file_descriptor_1,
-                                                    file_descriptor_2);
+  IpcEmulationManager::GetInstance()->Create(file_descriptor_1,
+                                             file_descriptor_2);
 }
 
 void Close(int file_descriptor, bool* is_failure) {
-  SocketpairEmulationManager::GetInstance()->Close(file_descriptor, is_failure);
+  IpcEmulationManager::GetInstance()->Close(file_descriptor, is_failure);
 }
 
 void Write(int file_descriptor,
            const uint8_t* data,
            int64_t size,
            bool* is_failure) {
-  SocketpairEmulationManager::GetInstance()->Write(file_descriptor, data, size,
-                                                   is_failure);
+  IpcEmulationManager::GetInstance()->Write(file_descriptor, data, size,
+                                            is_failure);
 }
 
 void SelectForReading(int file_descriptor, bool* is_failure) {
-  SocketpairEmulationManager::GetInstance()->SelectForReading(file_descriptor,
-                                                              is_failure);
+  IpcEmulationManager::GetInstance()->SelectForReading(file_descriptor,
+                                                       is_failure);
 }
 
 bool SelectForReading(int file_descriptor,
                       int64_t timeout_milliseconds,
                       bool* is_failure) {
-  return SocketpairEmulationManager::GetInstance()->SelectForReading(
+  return IpcEmulationManager::GetInstance()->SelectForReading(
       file_descriptor, timeout_milliseconds, is_failure);
 }
 
@@ -358,10 +346,10 @@ bool Read(int file_descriptor,
           uint8_t* buffer,
           int64_t* in_out_size,
           bool* is_failure) {
-  return SocketpairEmulationManager::GetInstance()->Read(
-      file_descriptor, buffer, in_out_size, is_failure);
+  return IpcEmulationManager::GetInstance()->Read(file_descriptor, buffer,
+                                                  in_out_size, is_failure);
 }
 
-}  // namespace socketpair_emulation
+}  // namespace ipc_emulation
 
 }  // namespace google_smart_card
