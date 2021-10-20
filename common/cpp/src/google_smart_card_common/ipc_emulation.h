@@ -1,43 +1,25 @@
 // Copyright 2016 Google Inc.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions
-// are met:
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-// 1. Redistributions of source code must retain the above copyright
-//    notice, this list of conditions and the following disclaimer.
-// 2. Redistributions in binary form must reproduce the above copyright
-//    notice, this list of conditions and the following disclaimer in the
-//    documentation and/or other materials provided with the distribution.
-// 3. The name of the author may not be used to endorse or promote products
-//    derived from this software without specific prior written permission.
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
-// THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
-// IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-// OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-// IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
-// INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
-// NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
-// DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
-// THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-// (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-// THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-// As NaCl/PNaCl currently don't implement the sockets for local inter-process
-// communication (domain PF_UNIX sockets), their replacement with a limited
-// functionality is provided here.
-//
-// It works only within a single NaCl process. The interface is heavily
-// simplified comparing to the original POSIX interface (the family of the
-// following functions: accept, bind, close, connect, fcntl, listen, read,
-// select, socket, etc.).
-//
-// When the PNaCl SDK eventually provides a native implementation of the POSIX
-// domain sockets (see <http://crbug.com/532095>), this emulation library can be
-// dropped.
+// This file provides polyfills for POSIX inter-process communication
+// primitives. As web packaging technologies (WebAssembly, and previously NaCl)
+// don't support multiprocess execution, our polyfills are in-process simulation
+// of these primitives. The polyfills are also severely simplified, with the
+// main objective to address our use cases in this project.
 
-#ifndef GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_SOCKETPAIR_EMULATION_H_
-#define GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_SOCKETPAIR_EMULATION_H_
+#ifndef GOOGLE_SMART_CARD_COMMON_IPC_EMULATION_H_
+#define GOOGLE_SMART_CARD_COMMON_IPC_EMULATION_H_
 
 #include <stdint.h>
 
@@ -58,7 +40,7 @@ namespace google_smart_card {
 // be enough for most purposes, given that the generation of a new emulated
 // socket pair is requested only when a client opens a new connection to the
 // server).
-class SocketpairEmulationManager final {
+class IpcEmulationManager final {
  public:
   // Creates a singleton instance of this class.
   //
@@ -67,7 +49,7 @@ class SocketpairEmulationManager final {
   // Returns a previously created singleton instance of this class.
   //
   // Note: This function is not thread-safe!
-  static SocketpairEmulationManager* GetInstance();
+  static IpcEmulationManager* GetInstance();
 
   // Creates a new socket pair, and returns file descriptors corresponding to
   // the both ends.
@@ -124,11 +106,10 @@ class SocketpairEmulationManager final {
  private:
   class Socket;
 
-  SocketpairEmulationManager();
-  SocketpairEmulationManager(const SocketpairEmulationManager&) = delete;
-  SocketpairEmulationManager& operator=(const SocketpairEmulationManager&) =
-      delete;
-  ~SocketpairEmulationManager();
+  IpcEmulationManager();
+  IpcEmulationManager(const IpcEmulationManager&) = delete;
+  IpcEmulationManager& operator=(const IpcEmulationManager&) = delete;
+  ~IpcEmulationManager();
 
   int GenerateNewFileDescriptor();
 
@@ -141,15 +122,15 @@ class SocketpairEmulationManager final {
   std::unordered_map<int, const std::shared_ptr<Socket>> socket_map_;
 };
 
-namespace socketpair_emulation {
+namespace ipc_emulation {
 
 //
 // The following group of functions correspond to the methods of the
-// SocketpairEmulationManager class.
+// IpcEmulationManager class.
 //
-// It is assumed that a global instance of the SocketpairEmulationManager class
-// was previously created (see the
-// SocketpairEmulationManager::CreateGlobalInstance method).
+// It is assumed that a global instance of the IpcEmulationManager class was
+// previously created (see the `IpcEmulationManager::CreateGlobalInstance()`
+// method).
 //
 
 void Create(int* file_descriptor_1, int* file_descriptor_2);
@@ -171,8 +152,8 @@ bool Read(int file_descriptor,
           int64_t* in_out_size,
           bool* is_failure);
 
-}  // namespace socketpair_emulation
+}  // namespace ipc_emulation
 
 }  // namespace google_smart_card
 
-#endif  // GOOGLE_SMART_CARD_THIRD_PARTY_PCSC_LITE_SOCKETPAIR_EMULATION_H_
+#endif  // GOOGLE_SMART_CARD_COMMON_IPC_EMULATION_H_

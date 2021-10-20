@@ -58,10 +58,10 @@ extern "C" {
 #undef min
 }
 
+#include <google_smart_card_common/ipc_emulation.h>
 #include <google_smart_card_common/logging/logging.h>
 
 #include "server_sockets_manager.h"
-#include "socketpair_emulation.h"
 
 // Returns a socket name that should be used for communication between clients
 // and daemon.
@@ -86,8 +86,8 @@ INTERNAL int ClientSetupSession(uint32_t* pdwClientID) {
 
   int client_socket_file_descriptor;
   int server_socket_file_descriptor;
-  google_smart_card::socketpair_emulation::Create(
-      &client_socket_file_descriptor, &server_socket_file_descriptor);
+  google_smart_card::ipc_emulation::Create(&client_socket_file_descriptor,
+                                           &server_socket_file_descriptor);
   *pdwClientID = static_cast<uint32_t>(client_socket_file_descriptor);
 
   // Another end of the created socket pair is passed to the daemon main run
@@ -107,8 +107,8 @@ INTERNAL void ClientCloseSession(uint32_t dwClientID) {
   //
   // Note that the other end of the socket pair, owned by the daemon, is also
   // switched into the "closed" internal state.
-  google_smart_card::socketpair_emulation::Close(static_cast<int>(dwClientID),
-                                                 &is_failure);
+  google_smart_card::ipc_emulation::Close(static_cast<int>(dwClientID),
+                                          &is_failure);
   // Discard the possible error - there is no way to return it from this
   // function, and the error is not a fatal.
 }
@@ -121,7 +121,7 @@ INTERNAL void ClientCloseSession(uint32_t dwClientID) {
 extern "C" int ServerCloseSession(int fd) {
   bool is_failure = false;
   // Close the daemon end of the emulated socket pair.
-  google_smart_card::socketpair_emulation::Close(fd, &is_failure);
+  google_smart_card::ipc_emulation::Close(fd, &is_failure);
   if (is_failure) {
     errno = EBADF;
     return -1;
@@ -154,14 +154,14 @@ INTERNAL LONG MessageReceiveTimeout(uint32_t /*command*/,
 
     bool is_failure = false;
 
-    if (!google_smart_card::socketpair_emulation::SelectForReading(
+    if (!google_smart_card::ipc_emulation::SelectForReading(
             filedes, timeOut - milliseconds_passed, &is_failure)) {
       return is_failure ? SCARD_F_COMM_ERROR : SCARD_E_TIMEOUT;
     }
 
     int64_t read_size = left_size;
-    if (!google_smart_card::socketpair_emulation::Read(
-            filedes, current_buffer_begin, &read_size, &is_failure)) {
+    if (!google_smart_card::ipc_emulation::Read(filedes, current_buffer_begin,
+                                                &read_size, &is_failure)) {
       return SCARD_F_COMM_ERROR;
     }
     left_size -= read_size;
@@ -202,7 +202,7 @@ INTERNAL LONG MessageSend(void* buffer_void,
                           uint64_t buffer_size,
                           int32_t filedes) {
   bool is_failure = false;
-  google_smart_card::socketpair_emulation::Write(
+  google_smart_card::ipc_emulation::Write(
       filedes, static_cast<uint8_t*>(buffer_void), buffer_size, &is_failure);
   return is_failure ? SCARD_F_COMM_ERROR : SCARD_S_SUCCESS;
 }
@@ -221,14 +221,13 @@ INTERNAL LONG MessageReceive(void* buffer_void,
   while (left_size > 0) {
     bool is_failure = false;
 
-    google_smart_card::socketpair_emulation::SelectForReading(filedes,
-                                                              &is_failure);
+    google_smart_card::ipc_emulation::SelectForReading(filedes, &is_failure);
     if (is_failure)
       return SCARD_F_COMM_ERROR;
 
     int64_t read_size = left_size;
-    if (!google_smart_card::socketpair_emulation::Read(
-            filedes, current_buffer_begin, &read_size, &is_failure)) {
+    if (!google_smart_card::ipc_emulation::Read(filedes, current_buffer_begin,
+                                                &read_size, &is_failure)) {
       return SCARD_F_COMM_ERROR;
     }
     left_size -= read_size;
