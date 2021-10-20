@@ -67,12 +67,22 @@ $(eval $(call CLEAN_RULE,$(JS_BUILD_DIR_ROOT_PATH)))
 ifeq ($(CONFIG),Release)
 
 # Add Closure Compiler flags specific to release builds.
+#
+# Explanation:
+# compilation_level: do aggressize transformations for the high degree of
+#   optimization and compression.
 JS_BUILD_COMPILATION_FLAGS := \
+	--compilation_level=ADVANCED_OPTIMIZATIONS \
 
 else
 
 # Add Closure Compiler flags specific to debug builds.
+#
+# Explanation:
+# compilation_level: only do simple transformations: remove whitespaces and
+#   rename local variables.
 JS_BUILD_COMPILATION_FLAGS := \
+	--compilation_level=SIMPLE \
 	--debug \
 	--formatting=PRETTY_PRINT \
 	--formatting=PRINT_INPUT_DELIMITER \
@@ -105,7 +115,6 @@ endif
 # jscomp_off unknownDefines: Suppressed in order to avoid compiler complaints
 #   when an unused constant is passed via --define.
 JS_BUILD_COMPILATION_FLAGS += \
-	--compilation_level=SIMPLE \
 	--define='GoogleSmartCard.ExecutableModule.TOOLCHAIN=$(TOOLCHAIN)' \
 	--define='GoogleSmartCard.Logging.USE_SCOPED_LOGGERS=false' \
 	--define='GoogleSmartCard.Packaging.MODE=$(PACKAGING)' \
@@ -125,11 +134,15 @@ JS_BUILD_COMPILATION_FLAGS += \
 # compiling JavaScript files with tests.
 #
 # Explanation:
+# compilation_level: only do simple transformations (even in Release builds);
+#   without this, mocking will be broken in tests due to class/function
+#   renaming.
 # dependency_mode=PRUNE_LEGACY: In addition to the standard PRUNE behavior (see
 #   above), also include all JS files that don't have a goog.provide. This
 #   allows unit test files to be picked up and compiled automatically.
 JS_BUILD_TESTING_ADDITIONAL_COMPILATION_FLAGS := \
 	$(CLOSURE_LIBRARY_TESTING_ADDITIONAL_COMPILER_FLAGS) \
+	--compilation_level=SIMPLE \
 	--dependency_mode=PRUNE_LEGACY \
 
 
