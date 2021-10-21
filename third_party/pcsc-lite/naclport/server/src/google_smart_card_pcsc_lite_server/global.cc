@@ -167,7 +167,7 @@ const PcscLiteServerGlobal* PcscLiteServerGlobal::GetInstance() {
 void PcscLiteServerGlobal::InitializeAndRunDaemonThread() {
   GOOGLE_SMART_CARD_LOG_DEBUG << kLoggingPrefix << "Initialization...";
 
-  IpcEmulationManager::CreateGlobalInstance();
+  IpcEmulation::CreateGlobalInstance();
   PcscLiteServerSocketsManager::CreateGlobalInstance();
 
   ::SYS_InitRandom();
