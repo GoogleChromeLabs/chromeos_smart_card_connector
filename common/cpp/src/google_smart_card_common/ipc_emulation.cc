@@ -20,6 +20,8 @@
 #include <deque>
 #include <limits>
 
+#include <google_smart_card_common/cpp_attributes.h>
+#include <google_smart_card_common/logging/logging.h>
 #include <google_smart_card_common/optional.h>
 
 namespace google_smart_card {
