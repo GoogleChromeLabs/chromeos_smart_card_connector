@@ -123,7 +123,8 @@ function prepareMessage() {
   }
 }
 
-function allowClickListener() {
+function allowClickListener(event) {
+  event.preventDefault();
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     GSC.InPopupMainScript.resolveModalDialog(true);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
@@ -131,7 +132,8 @@ function allowClickListener() {
   }
 }
 
-function denyClickListener() {
+function denyClickListener(event) {
+  event.preventDefault();
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     GSC.InPopupMainScript.resolveModalDialog(false);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {

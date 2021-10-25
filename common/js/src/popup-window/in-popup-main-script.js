@@ -66,14 +66,13 @@ GSC.InPopupMainScript.showWindow = function() {
  * @param {*} result
  */
 GSC.InPopupMainScript.resolveModalDialog = function(result, popupId = 0) {
-  const callback = GSC.InPopupMainScript.getData()['resolveModalDialog'];
-  GSC.Logging.checkWithLogger(logger, callback);
   goog.log.fine(
-      logger,
-      'The modal dialog is resolved with the following result: ' +
-          GSC.DebugDump.debugDump(result));
-
+    logger,
+    'The modal dialog is resolved with the following result: ' +
+    GSC.DebugDump.debugDump(result));
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    const callback = GSC.InPopupMainScript.getData()['resolveModalDialog'];
+    GSC.Logging.checkWithLogger(logger, callback);
     callback(result);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
     goog.global['opener'][`resolveModalDialog${popupId}`](result);
