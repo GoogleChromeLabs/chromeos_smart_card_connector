@@ -143,11 +143,13 @@ GSC.PopupOpener.runModalDialog = function(
 
   const promiseResolver = goog.Promise.withResolver();
 
+  // Set promiseResolver for SCC app mode
   const dataWithDialogCallbacks = {
     'resolveModalDialog': promiseResolver.resolve,
     'rejectModalDialog': promiseResolver.reject
   };
 
+  // Set promiseResolver for SCC extension mode
   goog.global[`resolveModalDialog${popupId}`] = promiseResolver.resolve;
   goog.global[`rejectModalDialog${popupId}`] = promiseResolver.reject;
 

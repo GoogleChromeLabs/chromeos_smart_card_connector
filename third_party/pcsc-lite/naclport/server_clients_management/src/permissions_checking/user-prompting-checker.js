@@ -33,6 +33,7 @@ goog.require('GoogleSmartCard.DebugDump');
 goog.require('GoogleSmartCard.ExtensionId');
 goog.require('GoogleSmartCard.Logging');
 goog.require('GoogleSmartCard.MessagingOrigin');
+goog.require('GoogleSmartCard.Packaging');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientInfo');
 goog.require('GoogleSmartCard.PcscLiteServer.TrustedClientsRegistry');
 goog.require('GoogleSmartCard.PopupOpener');
@@ -336,17 +337,20 @@ UserPromptingChecker.prototype.promptUserForUntrustedClient_ = function(
  */
 UserPromptingChecker.prototype.runPromptDialog_ = function(
     clientOrigin, userPromptDialogData, promiseResolver) {
-  // Pass user data through url
   popUpId++;
-  USER_PROMPT_DIALOG_URL =
-      USER_PROMPT_DIALOG_URL + '?popup_id=' + popUpId.toString();
 
-  USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL +
-      '?is_client_known=' + userPromptDialogData['is_client_known'].toString();
-  USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL + '?client_info_link=' +
-      userPromptDialogData['client_info_link'].toString();
-  USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL +
-      '?client_name=' + userPromptDialogData['client_name'].toString();
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    // Pass user data through url
+    USER_PROMPT_DIALOG_URL =
+        USER_PROMPT_DIALOG_URL + '?popup_id=' + popUpId.toString();
+
+    USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL + '?is_client_known=' +
+        userPromptDialogData['is_client_known'].toString();
+    USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL + '?client_info_link=' +
+        userPromptDialogData['client_info_link'].toString();
+    USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL +
+        '?client_name=' + userPromptDialogData['client_name'].toString();
+  }
 
   const dialogPromise = GSC.PopupOpener.runModalDialog(
       USER_PROMPT_DIALOG_URL, popUpId,

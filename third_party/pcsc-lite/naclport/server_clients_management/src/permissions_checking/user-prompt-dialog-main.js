@@ -57,9 +57,9 @@ const UNTRUSTED_CLASS = 'untrusted';
 
 const GSC = GoogleSmartCard;
 
-const urlParams = window.location.search;
+const currentWindowUrl = window.location.search;
 
-const params = urlParams.split('?');
+const urlParams = currentWindowUrl.split('?');
 
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger(
@@ -70,9 +70,9 @@ const logger = GSC.Logging.getScopedLogger(
  * @return {string}
  */
 function getUrlParam(param) {
-  for (let i = 0; i < params.length; i++) {
-    if (params[i].indexOf(param) != -1) {
-      return params[i].split('=')[1];
+  for (let i = 0; i < urlParams.length; i++) {
+    if (urlParams[i].indexOf(param) != -1) {
+      return urlParams[i].split('=')[1];
     }
   }
   return '';
@@ -90,7 +90,10 @@ function getUserData() {
 }
 
 function prepareMessage() {
-  const data = getUserData();
+  const data =
+      (GSC.Packaging.MODE === GSC.Packaging.Mode.APP ?
+           GSC.InPopupMainScript.getData() :
+           getUserData());
 
   const isClientKnown = data['is_client_known'];
   GSC.Logging.checkWithLogger(logger, typeof isClientKnown === 'boolean');
@@ -121,11 +124,19 @@ function prepareMessage() {
 }
 
 function allowClickListener() {
-  GSC.InPopupMainScript.resolveModalDialog(true, getUrlParam('popup_id'));
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    GSC.InPopupMainScript.resolveModalDialog(true);
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    GSC.InPopupMainScript.resolveModalDialog(true, getUrlParam('popup_id'));
+  }
 }
 
 function denyClickListener() {
-  GSC.InPopupMainScript.resolveModalDialog(false, getUrlParam('popup_id'));
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
+    GSC.InPopupMainScript.resolveModalDialog(false);
+  } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    GSC.InPopupMainScript.resolveModalDialog(false, getUrlParam('popup_id'));
+  }
 }
 
 function closeWindowClickListener() {
