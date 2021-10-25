@@ -67,8 +67,13 @@ function exportLogsClickListener(e) {
 }
 
 function exportLogs() {
-  const logBufferState = GSC.Logging.getLogBuffer().getState();
-  const dumpedLogs = logBufferState.getAsText();
+  const logBuffer = GSC.Logging.getLogBuffer();
+  // Note: calling methods by indexing properties via strings, since the log
+  // buffer comes from the background page, where due to code minification the
+  // minified method name might be different.
+  const logBufferState = logBuffer['getState'].call(logBuffer);
+  const dumpedLogs = logBufferState['getAsText'].call(logBufferState);
+
   goog.log.fine(
       logger,
       'Prepared a (possibly truncated) dump of ' + logBufferState['logCount'] +
