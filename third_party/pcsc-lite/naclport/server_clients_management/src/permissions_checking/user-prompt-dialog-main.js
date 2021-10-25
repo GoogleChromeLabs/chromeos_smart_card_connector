@@ -57,18 +57,40 @@ const UNTRUSTED_CLASS = 'untrusted';
 
 const GSC = GoogleSmartCard;
 
-const urlParams = new URLSearchParams(window.location.search);
+const urlParams = window.location.search;
 
-const idParam = urlParams.get('popup_id');
+const params = urlParams.split('?');
 
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.' +
     'Main');
 
+/**
+ * @return {string}
+ */
+function getUrlParam(param) {
+  for (let i = 0; i < params.length; i++) {
+    if (params[i].indexOf(param) != -1) {
+      return params[i].split('=')[1];
+    }
+  }
+  return '';
+}
+
+/**
+ * @return {!Object}
+ */
+function getUserData() {
+  return {
+    'is_client_known': (getUrlParam('is_client_known') === 'true'),
+    'client_info_link': getUrlParam('client_info_link'),
+    'client_name': getUrlParam('client_name')
+  };
+}
+
 function prepareMessage() {
-  console.log("ayag prepareMessage");
-  const data = GSC.InPopupMainScript.getData();
+  const data = getUserData();
 
   const isClientKnown = data['is_client_known'];
   GSC.Logging.checkWithLogger(logger, typeof isClientKnown === 'boolean');
@@ -99,12 +121,11 @@ function prepareMessage() {
 }
 
 function allowClickListener() {
-  console.log("ayag allowClickListener in user-prompt-dialog-main.js");
-  GSC.InPopupMainScript.resolveModalDialog(true, idParam);
+  GSC.InPopupMainScript.resolveModalDialog(true, getUrlParam('popup_id'));
 }
 
 function denyClickListener() {
-  GSC.InPopupMainScript.resolveModalDialog(false, idParam);
+  GSC.InPopupMainScript.resolveModalDialog(false, getUrlParam('popup_id'));
 }
 
 function closeWindowClickListener() {

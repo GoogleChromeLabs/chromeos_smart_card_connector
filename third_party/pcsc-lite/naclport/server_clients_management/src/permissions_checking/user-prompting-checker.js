@@ -336,17 +336,23 @@ UserPromptingChecker.prototype.promptUserForUntrustedClient_ = function(
  */
 UserPromptingChecker.prototype.runPromptDialog_ = function(
     clientOrigin, userPromptDialogData, promiseResolver) {
-  console.log("ayag runPromptDialog_ in user-propmpting-checker.js");
-
+  // Pass user data through url
   popUpId++;
-  USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL + '?popup_id=' + popUpId.toString();
+  USER_PROMPT_DIALOG_URL =
+      USER_PROMPT_DIALOG_URL + '?popup_id=' + popUpId.toString();
+
+  USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL +
+      '?is_client_known=' + userPromptDialogData['is_client_known'].toString();
+  USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL + '?client_info_link=' +
+      userPromptDialogData['client_info_link'].toString();
+  USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL +
+      '?client_name=' + userPromptDialogData['client_name'].toString();
 
   const dialogPromise = GSC.PopupOpener.runModalDialog(
-      USER_PROMPT_DIALOG_URL, popUpId, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
-      userPromptDialogData);
+      USER_PROMPT_DIALOG_URL, popUpId,
+      USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES, userPromptDialogData);
   dialogPromise.then(
       function(dialogResult) {
-        console.log("ayag in dialog promise");
         if (dialogResult) {
           goog.log.info(
               this.logger,

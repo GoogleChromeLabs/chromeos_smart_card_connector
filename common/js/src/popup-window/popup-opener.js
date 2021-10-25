@@ -74,7 +74,6 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
  * @param {!Object=} opt_data Optional data to be passed to the created window.
  */
 GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
-  console.log("ayag createWindow in popup-opener.js");
   const createdWindowExtends = {};
   if (opt_data !== undefined)
     createdWindowExtends['passedData'] = opt_data;
@@ -102,7 +101,6 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
           },
           createWindowCallback.bind(null, createdWindowExtends));
     } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-      console.log("ayag window created window SUCCESSFULLY");
       chrome.windows.create({
         'url': url,
         'type': 'popup',
@@ -132,7 +130,6 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
  */
 GSC.PopupOpener.runModalDialog = function(
     url, popupId, opt_createWindowOptionsOverrides, opt_data) {
-  console.log("ayag runModalDialog in popup-opener.js");
   const createWindowOptions =
       goog.object.clone(DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS);
   if (opt_createWindowOptionsOverrides) {
@@ -160,7 +157,6 @@ GSC.PopupOpener.runModalDialog = function(
   GSC.PopupOpener.createWindow(
       url, createWindowOptions, dataWithDialogCallbacks);
 
-  console.log("ayag finished runModalDialog");
   return promiseResolver.promise;
 };
 
