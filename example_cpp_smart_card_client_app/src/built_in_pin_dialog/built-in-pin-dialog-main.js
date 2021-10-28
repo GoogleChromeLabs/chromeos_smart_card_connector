@@ -38,11 +38,11 @@ const GSC = GoogleSmartCard;
 
 function okClickListener() {
   const pin = goog.dom.forms.getValue(goog.dom.getElement('input'));
-  GSC.InPopupMainScript.resolveModalDialog(pin);
+  GSC.InPopupMainScript.googleSmartCard_resolveModalDialog(pin);
 }
 
 function cancelClickListener() {
-  GSC.InPopupMainScript.rejectModalDialog(new Error('PIN dialog was canceled'));
+  GSC.InPopupMainScript.googleSmartCard_rejectModalDialog(new Error('PIN dialog was canceled'));
 }
 
 goog.events.listen(goog.dom.getElement('ok'), 'click', okClickListener);

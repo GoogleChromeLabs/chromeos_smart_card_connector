@@ -101,18 +101,18 @@ function prepareMessage() {
 function allowClickListener(event) {
   event.preventDefault();
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
-    GSC.InPopupMainScript.resolveModalDialog(true);
+    GSC.InPopupMainScript.googleSmartCard_resolveModalDialog(true);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    GSC.InPopupMainScript.resolveModalDialog(true, data['popup_id']);
+    GSC.InPopupMainScript.googleSmartCard_resolveModalDialog(true, data['popup_id']);
   }
 }
 
 function denyClickListener(event) {
   event.preventDefault();
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
-    GSC.InPopupMainScript.resolveModalDialog(false);
+    GSC.InPopupMainScript.googleSmartCard_resolveModalDialog(false);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    GSC.InPopupMainScript.resolveModalDialog(false, data['popup_id']);
+    GSC.InPopupMainScript.googleSmartCard_resolveModalDialog(false, data['popup_id']);
   }
 }
 
