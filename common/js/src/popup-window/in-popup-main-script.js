@@ -52,6 +52,19 @@ GSC.InPopupMainScript.getData = function() {
 };
 
 /**
+ * Returns data passed in the url parameters during the popup creation.
+ * @return {!Object}
+ */
+GSC.InPopupMainScript.getUrlParams = function(urlParams) {
+  return {
+    'popup_id': parseInt(urlParams.get('popup_id'), 10),
+    'is_client_known': (urlParams.get('is_client_known') === 'true'),
+    'client_info_link': urlParams.get('client_info_link'),
+    'client_name': urlParams.get('client_name')
+  };
+};
+
+/**
  * Shows the window.
  */
 GSC.InPopupMainScript.showWindow = function() {
@@ -67,9 +80,9 @@ GSC.InPopupMainScript.showWindow = function() {
  */
 GSC.InPopupMainScript.resolveModalDialog = function(result, popupId = 0) {
   goog.log.fine(
-    logger,
-    'The modal dialog is resolved with the following result: ' +
-    GSC.DebugDump.debugDump(result));
+      logger,
+      'The modal dialog is resolved with the following result: ' +
+          GSC.DebugDump.debugDump(result));
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     const callback = GSC.InPopupMainScript.getData()['resolveModalDialog'];
     GSC.Logging.checkWithLogger(logger, callback);

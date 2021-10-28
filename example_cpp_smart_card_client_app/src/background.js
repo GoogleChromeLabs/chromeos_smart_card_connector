@@ -87,7 +87,7 @@ const SERVER_APP_ID = Constants.SERVER_OFFICIAL_APP_ID;
  *
  * It's opened when the user launches the App.
  */
-const MAIN_WINDOW_URL = 'window.html';
+const MAIN_WINDOW_URL = new URL('window.html', window.location.href);
 
 /**
  * Identifier of the main window.

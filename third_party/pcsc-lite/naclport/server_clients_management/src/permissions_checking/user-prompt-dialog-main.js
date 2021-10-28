@@ -57,44 +57,19 @@ const UNTRUSTED_CLASS = 'untrusted';
 
 const GSC = GoogleSmartCard;
 
-const currentWindowUrl = window.location.search;
-
-const urlParams = currentWindowUrl.split('?');
+const urlParams = new URLSearchParams(window.location.search);
 
 /** @type {!goog.log.Logger} */
 const logger = GSC.Logging.getScopedLogger(
     'PcscLiteServerClientsManagement.PermissionsChecking.UserPromptDialog.' +
     'Main');
 
-/**
- * @return {string}
- */
-function getUrlParam(param) {
-  for (let i = 0; i < urlParams.length; i++) {
-    if (urlParams[i].indexOf(param) != -1) {
-      return urlParams[i].split('=')[1];
-    }
-  }
-  return '';
-}
-
-/**
- * @return {!Object}
- */
-function getUserData() {
-  return {
-    'is_client_known': (getUrlParam('is_client_known') === 'true'),
-    'client_info_link': getUrlParam('client_info_link'),
-    'client_name': getUrlParam('client_name')
-  };
-}
+const data =
+    (GSC.Packaging.MODE === GSC.Packaging.Mode.APP ?
+         GSC.InPopupMainScript.getData() :
+         GSC.InPopupMainScript.getUrlParams(urlParams));
 
 function prepareMessage() {
-  const data =
-      (GSC.Packaging.MODE === GSC.Packaging.Mode.APP ?
-           GSC.InPopupMainScript.getData() :
-           getUserData());
-
   const isClientKnown = data['is_client_known'];
   GSC.Logging.checkWithLogger(logger, typeof isClientKnown === 'boolean');
   goog.asserts.assertBoolean(isClientKnown);
@@ -128,7 +103,7 @@ function allowClickListener(event) {
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     GSC.InPopupMainScript.resolveModalDialog(true);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    GSC.InPopupMainScript.resolveModalDialog(true, getUrlParam('popup_id'));
+    GSC.InPopupMainScript.resolveModalDialog(true, data['popup_id']);
   }
 }
 
@@ -137,7 +112,7 @@ function denyClickListener(event) {
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
     GSC.InPopupMainScript.resolveModalDialog(false);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    GSC.InPopupMainScript.resolveModalDialog(false, getUrlParam('popup_id'));
+    GSC.InPopupMainScript.resolveModalDialog(false, data['popup_id']);
   }
 }
 

@@ -68,8 +68,13 @@ const DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS = {
 const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
 
 /**
+ * ID used to differentiate between different popup instances.
+ */
+let popUpId = 0;
+
+/**
  * Creates a new window.
- * @param {string} url
+ * @param {!URL} url
  * @param {!WindowOptions} windowOptions
  * @param {!Object=} opt_data Optional data to be passed to the created window.
  */
@@ -88,7 +93,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
   try {
     if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
       chrome.app.window.create(
-          url, {
+          url.toString(), {
             'alwaysOnTop': windowOptions['alwaysOnTop'],
             'frame': windowOptions['frame'],
             'hidden': windowOptions['hidden'],
@@ -102,7 +107,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
           createWindowCallback.bind(null, createdWindowExtends));
     } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
       chrome.windows.create({
-        'url': url,
+        'url': url.toString(),
         'type': 'popup',
         'width': windowOptions['width'],
         'setSelfAsOpener': true
@@ -121,7 +126,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
 
 /**
  * Creates a new modal dialog and returns a promise of the data it returns.
- * @param {string} url
+ * @param {!URL} url
  * @param {!chrome.app.window.CreateWindowOptions=}
  * opt_createWindowOptionsOverrides Overrides to the default window options.
  * Note that the 'id' option is disallowed.
@@ -129,7 +134,7 @@ GSC.PopupOpener.createWindow = function(url, windowOptions, opt_data) {
  * @return {!goog.Promise}
  */
 GSC.PopupOpener.runModalDialog = function(
-    url, popupId, opt_createWindowOptionsOverrides, opt_data) {
+    url, opt_createWindowOptionsOverrides, opt_data) {
   const createWindowOptions =
       goog.object.clone(DEFAULT_DIALOG_CREATE_WINDOW_OPTIONS);
   if (opt_createWindowOptionsOverrides) {
@@ -141,6 +146,11 @@ GSC.PopupOpener.runModalDialog = function(
     Object.assign(createWindowOptions, opt_createWindowOptionsOverrides);
   }
 
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    popUpId++;
+    url.searchParams.append('popup_id', popUpId.toString());
+  }
+
   const promiseResolver = goog.Promise.withResolver();
 
   // Set promiseResolver for SCC app mode
@@ -150,11 +160,17 @@ GSC.PopupOpener.runModalDialog = function(
   };
 
   // Set promiseResolver for SCC extension mode
-  goog.global[`resolveModalDialog${popupId}`] = promiseResolver.resolve;
-  goog.global[`rejectModalDialog${popupId}`] = promiseResolver.reject;
+  goog.global[`resolveModalDialog${popUpId}`] = promiseResolver.resolve;
+  goog.global[`rejectModalDialog${popUpId}`] = promiseResolver.reject;
 
   if (opt_data !== undefined)
     Object.assign(dataWithDialogCallbacks, opt_data);
+
+  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
+    for (const param in opt_data) {
+      url.searchParams.append(param, opt_data[param]);
+    }
+  }
 
   GSC.PopupOpener.createWindow(
       url, createWindowOptions, dataWithDialogCallbacks);

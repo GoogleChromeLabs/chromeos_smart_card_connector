@@ -48,17 +48,13 @@ goog.scope(function() {
 
 const LOCAL_STORAGE_KEY = 'pcsc_lite_clients_user_selections';
 
-let USER_PROMPT_DIALOG_URL =
-    'pcsc_lite_server_clients_management/user-prompt-dialog.html';
+let USER_PROMPT_DIALOG_URL = new URL(
+    'pcsc_lite_server_clients_management/user-prompt-dialog.html',
+    window.location.href);
 
 const USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES = {
   'innerBounds': {'width': 300}
 };
-
-/**
- * ID used to differentiate between different popup instances.
- */
-let popUpId = 0;
 
 const GSC = GoogleSmartCard;
 
@@ -337,24 +333,9 @@ UserPromptingChecker.prototype.promptUserForUntrustedClient_ = function(
  */
 UserPromptingChecker.prototype.runPromptDialog_ = function(
     clientOrigin, userPromptDialogData, promiseResolver) {
-  popUpId++;
-
-  if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    // Pass user data through url
-    USER_PROMPT_DIALOG_URL =
-        USER_PROMPT_DIALOG_URL + '?popup_id=' + popUpId.toString();
-
-    USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL + '?is_client_known=' +
-        userPromptDialogData['is_client_known'].toString();
-    USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL + '?client_info_link=' +
-        userPromptDialogData['client_info_link'].toString();
-    USER_PROMPT_DIALOG_URL = USER_PROMPT_DIALOG_URL +
-        '?client_name=' + userPromptDialogData['client_name'].toString();
-  }
-
   const dialogPromise = GSC.PopupOpener.runModalDialog(
-      USER_PROMPT_DIALOG_URL, popUpId,
-      USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES, userPromptDialogData);
+      USER_PROMPT_DIALOG_URL, USER_PROMPT_DIALOG_WINDOW_OPTIONS_OVERRIDES,
+      userPromptDialogData);
   dialogPromise.then(
       function(dialogResult) {
         if (dialogResult) {
