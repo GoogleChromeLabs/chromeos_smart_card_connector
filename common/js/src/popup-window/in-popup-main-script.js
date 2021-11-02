@@ -78,17 +78,19 @@ GSC.InPopupMainScript.showWindow = function() {
  * window.
  * @param {*} result
  */
-GSC.InPopupMainScript.googleSmartCard_resolveModalDialog = function(result, popupId = 0) {
+GSC.InPopupMainScript.resolveModalDialog = function(result, popupId = 0) {
   goog.log.fine(
       logger,
       'The modal dialog is resolved with the following result: ' +
           GSC.DebugDump.debugDump(result));
   if (GSC.Packaging.MODE === GSC.Packaging.Mode.APP) {
-    const callback = GSC.InPopupMainScript.getData()['googleSmartCard_resolveModalDialog'];
+    const callback =
+        GSC.InPopupMainScript.getData()['googleSmartCard_resolveModalDialog'];
     GSC.Logging.checkWithLogger(logger, callback);
     callback(result);
   } else if (GSC.Packaging.MODE === GSC.Packaging.Mode.EXTENSION) {
-    goog.global['opener'][`googleSmartCard_resolveModalDialog${popupId}`](result);
+    goog.global['opener'][`googleSmartCard_resolveModalDialog${popupId}`](
+        result);
   }
 
   closeWindow();
@@ -100,8 +102,9 @@ GSC.InPopupMainScript.googleSmartCard_resolveModalDialog = function(result, popu
  * window.
  * @param {*} error
  */
-GSC.InPopupMainScript.googleSmartCard_rejectModalDialog = function(error, popupId = 0) {
-  const callback = GSC.InPopupMainScript.getData()['googleSmartCard_rejectModalDialog'];
+GSC.InPopupMainScript.rejectModalDialog = function(error, popupId = 0) {
+  const callback =
+      GSC.InPopupMainScript.getData()['googleSmartCard_rejectModalDialog'];
   GSC.Logging.checkWithLogger(logger, callback);
   goog.log.fine(
       logger,
@@ -193,6 +196,6 @@ function documentClosingOnEscapeKeyDownListener(event) {
 }
 
 function windowCloseDialogRejectionListener() {
-  GSC.InPopupMainScript.googleSmartCard_rejectModalDialog(new Error('Dialog was closed'));
+  GSC.InPopupMainScript.rejectModalDialog(new Error('Dialog was closed'));
 }
 });  // goog.scope
