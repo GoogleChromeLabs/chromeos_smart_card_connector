@@ -72,6 +72,9 @@ const logger = GSC.Logging.getScopedLogger('PopupWindow.PopupOpener');
  */
 let lastUsedPopupId = 0;
 
+/** @const */
+GSC.PopupOpener.lastUsedPopupId = lastUsedPopupId;
+
 /**
  * Creates a new window.
  * @param {!URL} url

@@ -150,6 +150,9 @@ UserPromptingChecker.prototype.check = function(clientOrigin) {
       },
       this);
 
+  delete goog.global[`googleSmartCard_resolveModalDialog${GSC.PopupOpener.lastUsedPopupId}`];
+  delete goog.global[`googleSmartCard_rejectModalDialog${GSC.PopupOpener.lastUsedPopupId}`];
+
   return promiseResolver.promise;
 };
 
