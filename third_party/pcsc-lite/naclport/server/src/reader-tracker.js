@@ -67,13 +67,13 @@ const ReaderStatus = GSC.PcscLiteServer.ReaderStatus;
 GSC.PcscLiteServer.ReaderInfo = function(
     name, status, opt_error, opt_isCardPresent) {
   /** @type {string} @const */
-  this['name'] = this.name = name;
+  this['name'] = name;
   /** @type {!ReaderStatus} @const */
-  this['status'] = this.status = status;
+  this['status'] = status;
   /** @type {string|undefined} @const */
-  this['error'] = this.error = opt_error;
+  this['error'] = opt_error;
   /** @type {boolean} @const */
-  this['isCardPresent'] = this.isCardPresent = !!opt_isCardPresent;
+  this['isCardPresent'] = !!opt_isCardPresent;
 };
 
 const ReaderInfo = GSC.PcscLiteServer.ReaderInfo;
@@ -170,7 +170,7 @@ ReaderTracker.prototype.getReaders = function() {
   // the PC/SC server.
   const nonSuccessReaders = goog.array.filter(
       this.trackerThroughPcscServerHook_.getReaders(), function(readerInfo) {
-        return readerInfo.status != ReaderStatus.SUCCESS;
+        return readerInfo['status'] != ReaderStatus.SUCCESS;
       });
 
   return goog.array.concat(successReaders, nonSuccessReaders);
